@@ -7,6 +7,11 @@ export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [notice] = useState(() =>
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("kurulum") === "basarili"
+      ? "İlk yönetici hesabı oluşturuldu. Giriş yapabilirsiniz."
+      : ""
+  );
   const [loading, setLoading] = useState(false);
 
   async function submit(event: React.FormEvent) {
@@ -55,6 +60,7 @@ export function LoginForm() {
         Şifremi unuttum
       </button>
 
+      {notice && <p className="mt-4 rounded-[8px] bg-emerald-500/10 p-3 text-sm text-emerald-200">{notice}</p>}
       {error && <p className="mt-4 rounded-[8px] bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
 
       <button disabled={loading} className="mt-6 min-h-12 w-full rounded-full bg-cyan-300 font-black text-slate-950 disabled:opacity-60">

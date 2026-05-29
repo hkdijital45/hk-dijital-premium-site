@@ -22,12 +22,23 @@ const defaultVisibility = {
 };
 
 export async function getCustomerCenterData(companyId?: string): Promise<CustomerCenterData> {
+  if (hasSupabaseConfig() && !companyId) {
+    return {
+      company: null,
+      visibility: defaultVisibility,
+      campaigns: [],
+      metrics: [],
+      updates: [],
+      files: []
+    };
+  }
+
   if (hasSupabaseConfig() && companyId) {
     const [companies, visibilityRows, campaigns, metrics, updates, files] = await Promise.all([
       supabaseRest<any[]>(`companies?id=eq.${companyId}&select=*&limit=1`),
       supabaseRest<any[]>(`customer_visibility_settings?company_id=eq.${companyId}&select=*&limit=1`),
-      supabaseRest<any[]>(`campaigns?company_id=eq.${companyId}&select=*&order=created_at.desc`),
-      supabaseRest<any[]>(`campaign_metrics?company_id=eq.${companyId}&select=*&order=date.desc`),
+      supabaseRest<any[]>(`campaigns?company_id=eq.${companyId}&visible_to_customer=is.true&select=*&order=created_at.desc`),
+      supabaseRest<any[]>(`campaign_metrics?company_id=eq.${companyId}&visible_to_customer=is.true&select=*&order=date.desc`),
       supabaseRest<any[]>(`customer_updates?company_id=eq.${companyId}&visible_to_customer=eq.true&select=*&order=created_at.desc`),
       supabaseRest<any[]>(`customer_files?company_id=eq.${companyId}&visible_to_customer=eq.true&select=*&order=uploaded_at.desc`)
     ]);
@@ -100,11 +111,12 @@ export function summarizeMetrics(metrics: any[]) {
       impressions: total.impressions + Number(item.impressions || 0),
       reach: total.reach + Number(item.reach || 0),
       clicks: total.clicks + Number(item.clicks || 0),
+      messages: total.messages + Number(item.messages || 0),
       spent: total.spent + Number(item.spent || 0),
       leads: total.leads + Number(item.leads || 0),
       cpc: Number(item.cpc || total.cpc || 0),
       cost_per_lead: Number(item.cost_per_lead || total.cost_per_lead || 0)
     }),
-    { impressions: 0, reach: 0, clicks: 0, spent: 0, leads: 0, cpc: 0, cost_per_lead: 0 }
+    { impressions: 0, reach: 0, clicks: 0, messages: 0, spent: 0, leads: 0, cpc: 0, cost_per_lead: 0 }
   );
 }

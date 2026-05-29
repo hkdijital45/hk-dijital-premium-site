@@ -12,14 +12,14 @@ export async function POST(request: Request) {
     userType: normalizedType
   });
 
-  if (!session) {
-    return NextResponse.json({ error: "E-posta veya şifre hatalı." }, { status: 401 });
+  if ("error" in session) {
+    return NextResponse.json({ error: session.error }, { status: 401 });
   }
 
-  await createSession(session);
+  await createSession(session.session);
   return NextResponse.json({
     ok: true,
-    redirectTo: session.role === "customer" ? "/musteri-paneli" : "/hk-admin",
-    role: session.role
+    redirectTo: session.session.role === "customer" ? "/musteri-paneli" : "/hk-admin",
+    role: session.session.role
   });
 }

@@ -66,6 +66,7 @@ export default async function MusteriPaneliPage() {
           <MetricCard title="Toplam gösterim" value={totals.impressions} help="Gösterim: Reklamınızın ekranda kaç kez göründüğünü gösterir." />
           <MetricCard title="Erişim" value={totals.reach} help="Erişim: Reklamınızı kaç farklı kişinin gördüğünü ifade eder." />
           <MetricCard title="Tıklama" value={totals.clicks} help="Tıklama: Reklamınıza kaç kişinin tıkladığını gösterir." />
+          <MetricCard title="Mesaj" value={totals.messages || 0} help="Mesaj: Reklamlardan gelen mesaj veya iletişim başlatma aksiyonlarını gösterir." />
           {visibility.show_leads && <MetricCard title="Potansiyel müşteri" value={totals.leads} help="Potansiyel müşteri: Form, mesaj veya arama gibi iletişime geçen kişileri ifade eder." />}
           {visibility.show_spent && <MetricCard title="Harcanan bütçe" value={`${totals.spent} TL`} help="Harcanan bütçe: Reklam platformlarında kullanılan toplam reklam bütçesidir." />}
           <MetricCard title="Ortalama tıklama maliyeti" value={`${totals.cpc} TL`} help="CPC: Reklam tıklaması başına ortalama maliyeti gösterir." />
@@ -107,6 +108,8 @@ export default async function MusteriPaneliPage() {
                   <p className="text-sm font-bold text-cyan-100">{update.update_type}</p>
                   <h3 className="mt-2 font-black">{update.title}</h3>
                   <p className="mt-2 text-sm leading-6 text-slate-300">{update.description}</p>
+                  {update.why_it_matters && <p className="mt-2 text-sm leading-6 text-slate-400">Neden önemli: {update.why_it_matters}</p>}
+                  {update.next_step && <p className="mt-2 text-sm leading-6 text-cyan-100">Sıradaki adım: {update.next_step}</p>}
                   <p className="mt-3 text-xs text-slate-500">{new Date(update.created_at).toLocaleDateString("tr-TR")}</p>
                 </div>
               ))}

@@ -17,11 +17,16 @@ const modules = [
   "Sertifikalar",
   "Teklif Sihirbazı",
   "CRM / Potansiyel Müşteriler",
+  "Müşteriler",
   "Müşteri Paneli Yönetimi",
+  "Reklam Yönetimi",
+  "Reklam Metrikleri",
   "Reklam Raporları",
-  "Medya Kütüphanesi",
+  "Yapılan Çalışmalar",
+  "Dosyalar",
+  "Medya Merkezi",
   "API Ayarları",
-  "Yapay Zeka Asistanı",
+  "Yapay Zeka Merkezi",
   "Ölçümleme Ayarları",
   "Kullanıcı Yönetimi",
   "Ayarlar"
@@ -35,8 +40,11 @@ export function AdminDashboard({ initialContent, supabaseConfigured = false }: {
 
   async function save(next = content) {
     setStatus("Kaydediliyor...");
-    const response = await fetch("/api/content", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) });
-    setStatus(response.ok ? "Başarıyla kaydedildi." : "Kaydedilemedi. Supabase bağlantısını ve ortam değişkenlerini kontrol edin.");
+    const contentResponse = await fetch("/api/content", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) });
+    const centerResponse = supabaseConfigured
+      ? await fetch("/api/admin/center-data", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) })
+      : contentResponse;
+    setStatus(contentResponse.ok && centerResponse.ok ? "Başarıyla kaydedildi." : "Kaydedilemedi. Supabase bağlantısını ve ortam değişkenlerini kontrol edin.");
   }
 
   async function logout() {
@@ -81,11 +89,16 @@ export function AdminDashboard({ initialContent, supabaseConfigured = false }: {
           {active === "Sertifikalar" && <Collection title="Sertifika Yönetimi" type="certificate" items={content.certificates} setItems={(items) => setContent({ ...content, certificates: items })} />}
           {active === "Teklif Sihirbazı" && <QuoteWizardAdmin {...props} />}
           {active === "CRM / Potansiyel Müşteriler" && <Crm {...props} />}
+          {active === "Müşteriler" && <CustomersAdmin {...props} />}
           {active === "Müşteri Paneli Yönetimi" && <CustomerPanelAdmin {...props} />}
+          {active === "Reklam Yönetimi" && <CampaignAdmin {...props} />}
+          {active === "Reklam Metrikleri" && <MetricAdmin {...props} />}
           {active === "Reklam Raporları" && <ReportsAdmin {...props} />}
-          {active === "Medya Kütüphanesi" && <Media {...props} />}
+          {active === "Yapılan Çalışmalar" && <UpdatesAdmin {...props} />}
+          {active === "Dosyalar" && <FilesAdmin {...props} />}
+          {active === "Medya Merkezi" && <Media {...props} />}
           {active === "API Ayarları" && <ApiSettings {...props} />}
-          {active === "Yapay Zeka Asistanı" && <AiAssistant {...props} />}
+          {active === "Yapay Zeka Merkezi" && <AiAssistant {...props} />}
           {active === "Ölçümleme Ayarları" && <TrackingSettings {...props} />}
           {active === "Kullanıcı Yönetimi" && <UsersAdmin {...props} />}
           {active === "Ayarlar" && <Settings {...props} />}
@@ -111,18 +124,18 @@ function Overview({ content, setActive }: any) {
   const leads = content.leads ?? [];
   const stats = [
     ["Toplam lead", leads.length],
-    ["Teklif formları", leads.filter((lead) => lead.source === "quote").length],
-    ["İletişim formları", leads.filter((lead) => lead.source === "contact").length],
+    ["Teklif formları", leads.filter((lead) => ["quote", "Teklif Formu", "Teklif Sihirbazı"].includes(lead.source)).length],
+    ["İletişim formları", leads.filter((lead) => ["contact", "İletişim Formu"].includes(lead.source)).length],
     ["Aktif paket", content.packages.filter((item) => item.visible).length],
     ["Aktif hizmet", content.services.filter((item) => item.visible).length],
     ["AI provider", content.settings.api.demoMode ? "Demo" : content.settings.api.activeProvider]
   ];
   return (
-    <Panel title="Dashboard Overview">
+    <Panel title="Genel Bakış">
       <div className="grid gap-4 md:grid-cols-3">{stats.map(([label, value]) => <div key={label} className="rounded-[8px] border border-white/10 bg-black/25 p-4"><p className="text-sm text-slate-400">{label}</p><p className="mt-2 text-2xl font-black text-cyan-100">{value}</p></div>)}</div>
       <div className="mt-6 grid gap-4 lg:grid-cols-[1.2fr_.8fr]">
         <div className="rounded-[8px] border border-white/10 p-4"><h3 className="font-black">Son lead kayıtları</h3><div className="mt-4 grid gap-3">{leads.slice(0, 5).map((lead) => <div key={lead.id} className="rounded-[8px] bg-white/[0.04] p-3 text-sm"><p className="font-bold">{lead.name || "İsimsiz"} · {lead.status}</p><p className="text-slate-400">{lead.company || lead.email || lead.phone}</p></div>)}{!leads.length && <p className="text-sm text-slate-400">Henüz lead yok.</p>}</div></div>
-        <div className="rounded-[8px] border border-white/10 p-4"><h3 className="font-black">Hızlı işlemler</h3><div className="mt-4 grid gap-2">{["Sayfa İçerikleri", "CRM / Potansiyel Müşteriler", "Medya Kütüphanesi", "Yapay Zeka Asistanı", "API Ayarları"].map((module) => <button key={module} onClick={() => setActive(module)} className="rounded-[8px] border border-white/10 px-4 py-3 text-left text-sm font-bold hover:bg-white/10">{module}</button>)}</div></div>
+        <div className="rounded-[8px] border border-white/10 p-4"><h3 className="font-black">Hızlı işlemler</h3><div className="mt-4 grid gap-2">{["Sayfa İçerikleri", "CRM / Potansiyel Müşteriler", "Medya Merkezi", "Yapay Zeka Merkezi", "Kullanıcı Yönetimi"].map((module) => <button key={module} onClick={() => setActive(module)} className="rounded-[8px] border border-white/10 px-4 py-3 text-left text-sm font-bold hover:bg-white/10">{module}</button>)}</div></div>
       </div>
     </Panel>
   );
@@ -267,9 +280,57 @@ function CustomerPanelAdmin({ content, setContent }: any) {
   return (
     <Panel title="Müşteri Paneli Yönetimi">
       <p className="mb-4 text-sm leading-6 text-slate-400">Müşteri hesapları, şirket atamaları, görünürlük ayarları, müşteri dosyaları ve panel önizleme verileri buradan yönetilir. Kaydettiğiniz veriler Supabase yapılandırıldıysa kalıcı olarak saklanır.</p>
-      <MiniCollection title="Şirketler" items={content.companies || []} setItems={(items) => update("companies", items)} fields={["name", "sector", "city", "website", "instagram", "phone", "email", "status"]} empty={{ name: "Yeni Şirket", status: "Aktif" }} />
       <MiniCollection title="Müşteri görünürlük ayarları" items={content.customerVisibilitySettings || []} setItems={(items) => update("customerVisibilitySettings", items)} fields={["company_id", "show_campaigns", "show_metrics", "show_budget", "show_spent", "show_leads", "show_strategy_notes", "show_work_updates", "show_files", "show_contact_person"]} empty={{ company_id: "", show_campaigns: true, show_metrics: true, show_budget: true, show_spent: true, show_leads: true, show_strategy_notes: true, show_work_updates: true, show_files: true, show_contact_person: true }} />
-      <MiniCollection title="Müşteri dosyaları" items={content.customerFiles || []} setItems={(items) => update("customerFiles", items)} fields={["company_id", "title", "description", "file_url", "file_type", "visible_to_customer"]} empty={{ title: "Yeni Dosya", visible_to_customer: true }} />
+      <p className="mt-3 text-sm text-slate-400">Müşteri önizleme için ilgili şirketin kullanıcı hesabıyla giriş yapabilir veya canlı panelde şirket atamasını kontrol edebilirsiniz.</p>
+    </Panel>
+  );
+}
+
+function CustomersAdmin({ content, setContent }: any) {
+  const [message, setMessage] = useState("");
+  const [form, setForm] = useState({ fullName: "", email: "", password: "", company_id: "", role: "customer", is_active: true });
+  const update = (items) => setContent({ ...content, companies: items });
+
+  async function createLogin() {
+    setMessage("Kullanıcı oluşturuluyor...");
+    const response = await fetch("/api/admin/users/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fullName: form.fullName,
+        email: form.email,
+        password: form.password,
+        role: form.role,
+        company_id: form.company_id,
+        is_active: form.is_active
+      })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.ok) {
+      setContent({ ...content, users: [data.user, ...(content.users || [])] });
+      setForm({ fullName: "", email: "", password: "", company_id: "", role: "customer", is_active: true });
+      setMessage("Müşteri giriş hesabı oluşturuldu.");
+    } else {
+      setMessage(data.error || "Kullanıcı oluşturulamadı.");
+    }
+  }
+
+  return (
+    <Panel title="Müşteriler">
+      <MiniCollection title="Şirketler" items={content.companies || []} setItems={update} fields={["name", "sector", "city", "website", "instagram", "phone", "email", "status", "notes"]} empty={{ name: "Yeni Şirket", status: "Aktif", notes: "" }} />
+      <div className="rounded-[8px] border border-white/10 p-4">
+        <h3 className="font-black">Müşteri giriş hesabı oluştur</h3>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <Field label="Ad Soyad" value={form.fullName} onChange={(v) => setForm({ ...form, fullName: v })} />
+          <Field label="E-posta" value={form.email} onChange={(v) => setForm({ ...form, email: v })} />
+          <Field label="Geçici Şifre" type="password" value={form.password} onChange={(v) => setForm({ ...form, password: v })} />
+          <label className="grid gap-2 text-sm font-semibold text-slate-200">Firma<select value={form.company_id} onChange={(e) => setForm({ ...form, company_id: e.target.value })} className="min-h-11 rounded-[8px] border border-white/10 bg-black/30 px-3 text-white"><option value="">Firma seçin</option>{(content.companies || []).map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}</select></label>
+          <label className="grid gap-2 text-sm font-semibold text-slate-200">Rol<select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className="min-h-11 rounded-[8px] border border-white/10 bg-black/30 px-3 text-white"><option value="customer">Müşteri</option><option value="sales">Satış</option><option value="editor">Editör</option><option value="admin">Admin</option></select></label>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} /> Aktif</label>
+        </div>
+        <button onClick={createLogin} className="mt-4 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Giriş hesabı oluştur</button>
+        {message && <p className="mt-3 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{message}</p>}
+      </div>
     </Panel>
   );
 }
@@ -278,17 +339,61 @@ function ReportsAdmin({ content, setContent }: any) {
   const update = (key, items) => setContent({ ...content, [key]: items });
   return (
     <Panel title="Reklam Raporları">
-      <MiniCollection title="Kampanyalar" items={content.campaigns || []} setItems={(items) => update("campaigns", items)} fields={["company_id", "name", "platform", "objective", "status", "start_date", "end_date", "budget", "spent", "notes"]} empty={{ name: "Yeni Kampanya", platform: "Meta", objective: "Form", status: "Hazırlanıyor" }} />
-      <MiniCollection title="Kampanya metrikleri" items={content.campaignMetrics || []} setItems={(items) => update("campaignMetrics", items)} fields={["campaign_id", "company_id", "date", "impressions", "reach", "clicks", "ctr", "cpc", "cpm", "leads", "conversions", "cost_per_lead", "spent", "notes"]} empty={{ date: new Date().toISOString().slice(0, 10), impressions: 0, reach: 0, clicks: 0, leads: 0, spent: 0 }} />
-      <MiniCollection title="Müşteri güncellemeleri / iş günlüğü" items={content.customerUpdates || []} setItems={(items) => update("customerUpdates", items)} fields={["company_id", "title", "description", "update_type", "visible_to_customer"]} empty={{ title: "Yeni çalışma notu", update_type: "Yapılan Çalışma", visible_to_customer: true }} />
+      <CampaignAdmin content={content} setContent={setContent} />
+      <MetricAdmin content={content} setContent={setContent} />
+      <UpdatesAdmin content={content} setContent={setContent} />
     </Panel>
   );
 }
 
+function CampaignAdmin({ content, setContent }: any) {
+  return <MiniCollection title="Reklam Yönetimi" items={content.campaigns || []} setItems={(items) => setContent({ ...content, campaigns: items })} fields={["company_id", "name", "platform", "objective", "status", "start_date", "end_date", "budget", "spent", "notes", "visible_to_customer"]} empty={{ name: "Yeni Kampanya", platform: "Meta", objective: "Form", status: "Hazırlanıyor", visible_to_customer: true }} />;
+}
+
+function MetricAdmin({ content, setContent }: any) {
+  return <MiniCollection title="Reklam Metrikleri" items={content.campaignMetrics || []} setItems={(items) => setContent({ ...content, campaignMetrics: items })} fields={["campaign_id", "company_id", "date", "impressions", "reach", "clicks", "messages", "leads", "conversions", "spent", "ctr", "cpc", "cpm", "cost_per_lead", "notes", "visible_to_customer"]} empty={{ date: new Date().toISOString().slice(0, 10), impressions: 0, reach: 0, clicks: 0, messages: 0, leads: 0, spent: 0, visible_to_customer: true }} />;
+}
+
+function UpdatesAdmin({ content, setContent }: any) {
+  return <MiniCollection title="Yapılan Çalışmalar" items={content.customerUpdates || []} setItems={(items) => setContent({ ...content, customerUpdates: items })} fields={["company_id", "title", "description", "update_type", "why_it_matters", "next_step", "visible_to_customer"]} empty={{ title: "Yeni çalışma notu", update_type: "Yapılan Çalışma", visible_to_customer: true }} />;
+}
+
+function FilesAdmin({ content, setContent }: any) {
+  return <MiniCollection title="Dosyalar" items={content.customerFiles || []} setItems={(items) => setContent({ ...content, customerFiles: items })} fields={["company_id", "title", "description", "file_url", "file_type", "visible_to_customer"]} empty={{ title: "Yeni Dosya", visible_to_customer: true }} />;
+}
+
 function UsersAdmin({ content, setContent }: any) {
+  const [query, setQuery] = useState("");
+  const [message, setMessage] = useState("");
+  const users = (content.users || []).filter((user) => JSON.stringify(user).toLocaleLowerCase("tr").includes(query.toLocaleLowerCase("tr")));
+  const update = (id, patch) => setContent({ ...content, users: content.users.map((user) => user.id === id ? { ...user, ...patch } : user) });
+  async function saveUser(user) {
+    setMessage("Kullanıcı kaydediliyor...");
+    const response = await fetch(`/api/admin/users/${user.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(user)
+    });
+    setMessage(response.ok ? "Kullanıcı kaydedildi." : "Kullanıcı kaydedilemedi.");
+  }
   return (
     <Panel title="Kullanıcı Yönetimi">
-      <MiniCollection title="Kullanıcılar" items={content.users || []} setItems={(items) => setContent({ ...content, users: items })} fields={["email", "full_name", "role", "company_id", "is_active"]} empty={{ email: "", full_name: "", role: "customer", is_active: true }} />
+      <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Kullanıcı ara..." className="mb-4 min-h-11 w-full rounded-[8px] border border-white/10 bg-black/30 px-3 text-white" />
+      {message && <p className="mb-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{message}</p>}
+      <div className="grid gap-3">
+        {users.map((user) => (
+          <div key={user.id} className="grid gap-3 rounded-[8px] border border-white/10 p-4 md:grid-cols-2">
+            <Field label="Ad Soyad" value={user.full_name || ""} onChange={(v) => update(user.id, { full_name: v })} />
+            <Field label="E-posta" value={user.email || ""} onChange={() => {}} />
+            <label className="grid gap-2 text-sm font-semibold text-slate-200">Rol<select value={user.role || "customer"} onChange={(e) => update(user.id, { role: e.target.value })} className="min-h-11 rounded-[8px] border border-white/10 bg-black/30 px-3 text-white"><option value="admin">Admin - Tam yetki</option><option value="editor">Editör - İçerik yönetimi</option><option value="sales">Satış - CRM ve müşteri yönetimi</option><option value="customer">Müşteri - Müşteri paneli</option></select></label>
+            <Field label="Firma ID" value={user.company_id || ""} onChange={(v) => update(user.id, { company_id: v })} />
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(user.is_active)} onChange={(e) => update(user.id, { is_active: e.target.checked })} /> Aktif</label>
+            <p className="text-xs text-slate-500">Oluşturulma: {user.created_at ? new Date(user.created_at).toLocaleDateString("tr-TR") : "-"}</p>
+            <button onClick={() => saveUser((content.users || []).find((item) => item.id === user.id) || user)} className="w-fit rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Kullanıcıyı kaydet</button>
+          </div>
+        ))}
+        {!users.length && <p className="text-sm text-slate-400">Kullanıcı bulunamadı.</p>}
+      </div>
       <p className="mt-4 text-sm text-slate-400">Roller: Admin tam yetki, Editor içerik yönetimi, Sales CRM ve müşteri yönetimi, Customer yalnızca müşteri paneli.</p>
     </Panel>
   );

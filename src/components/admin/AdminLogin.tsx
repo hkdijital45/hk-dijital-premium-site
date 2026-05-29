@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 export function AdminLogin() {
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -15,7 +15,7 @@ export function AdminLogin() {
     const response = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify({ email, password, userType: "admin" })
     });
     const data = await response.json().catch(() => ({}));
     setLoading(false);
@@ -33,8 +33,8 @@ export function AdminLogin() {
         <h1 className="mt-3 text-3xl font-black">HK Dijital Kontrol Merkezi</h1>
         <p className="mt-3 text-sm leading-6 text-slate-400">Yönetim paneline güvenli giriş yapın.</p>
         <label className="mt-6 grid gap-2 text-sm font-semibold">
-          Kullanıcı adı
-          <input value={username} onChange={(event) => setUsername(event.target.value)} className="min-h-12 rounded-[8px] border border-white/10 bg-black/30 px-4 text-white" />
+          E-posta
+          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="min-h-12 rounded-[8px] border border-white/10 bg-black/30 px-4 text-white" />
         </label>
         <label className="mt-4 grid gap-2 text-sm font-semibold">
           Şifre

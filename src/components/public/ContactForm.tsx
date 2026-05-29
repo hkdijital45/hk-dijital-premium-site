@@ -48,7 +48,7 @@ export function ContactForm() {
           <textarea name="note" required rows={5} className="rounded-[8px] border border-white/10 bg-black/30 px-4 py-3 text-white focus:ring-2 focus:ring-cyan-300" />
         </label>
         <button className="min-h-12 rounded-full bg-cyan-300 px-6 text-sm font-black text-slate-950">Gönder</button>
-        {sent && <p className="rounded-[8px] bg-cyan-300/10 p-4 text-sm text-cyan-100">Mesajınız demo modunda alındı. Gerçek form API entegrasyonu için yorum satırını kullanın.</p>}
+        {sent && <p className="rounded-[8px] bg-cyan-300/10 p-4 text-sm text-cyan-100">Mesajınız alındı. HK Dijital ekibi bilgilerinizi inceleyip uygun zamanda dönüş yapacaktır.</p>}
       </form>
     </PremiumCard>
   );

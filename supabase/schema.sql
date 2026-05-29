@@ -197,3 +197,95 @@ create table if not exists public.api_settings (
 insert into storage.buckets (id, name, public)
 values ('hk-dijital-media', 'hk-dijital-media', true)
 on conflict (id) do nothing;
+
+-- Production auth/profile sync additions.
+alter table public.users
+  add column if not exists auth_user_id uuid unique references auth.users(id) on delete cascade;
+
+alter table public.companies
+  add column if not exists notes text;
+
+alter table public.campaigns
+  add column if not exists visible_to_customer boolean default true;
+
+alter table public.campaign_metrics
+  add column if not exists messages integer default 0,
+  add column if not exists visible_to_customer boolean default true;
+
+alter table public.customer_updates
+  add column if not exists why_it_matters text,
+  add column if not exists next_step text;
+
+create table if not exists public.contact_forms (
+  id uuid primary key default gen_random_uuid(),
+  name text,
+  company text,
+  phone text,
+  email text,
+  message text,
+  source text default 'İletişim Formu',
+  status text default 'Yeni',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create table if not exists public.customers (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid references public.companies(id) on delete cascade,
+  user_id uuid references public.users(id) on delete set null,
+  full_name text,
+  email text,
+  phone text,
+  status text default 'Aktif',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists users_auth_user_id_idx on public.users(auth_user_id);
+create index if not exists users_role_idx on public.users(role);
+create index if not exists users_company_id_idx on public.users(company_id);
+create index if not exists companies_status_idx on public.companies(status);
+create index if not exists leads_status_idx on public.leads(status);
+create index if not exists leads_created_at_idx on public.leads(created_at desc);
+create index if not exists campaigns_company_id_idx on public.campaigns(company_id);
+create index if not exists campaign_metrics_company_id_date_idx on public.campaign_metrics(company_id, date desc);
+create index if not exists customer_updates_company_id_idx on public.customer_updates(company_id);
+create index if not exists customer_files_company_id_idx on public.customer_files(company_id);
+
+create or replace function public.set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists set_companies_updated_at on public.companies;
+create trigger set_companies_updated_at before update on public.companies for each row execute function public.set_updated_at();
+
+drop trigger if exists set_users_updated_at on public.users;
+create trigger set_users_updated_at before update on public.users for each row execute function public.set_updated_at();
+
+drop trigger if exists set_leads_updated_at on public.leads;
+create trigger set_leads_updated_at before update on public.leads for each row execute function public.set_updated_at();
+
+drop trigger if exists set_campaigns_updated_at on public.campaigns;
+create trigger set_campaigns_updated_at before update on public.campaigns for each row execute function public.set_updated_at();
+
+drop trigger if exists set_customer_updates_updated_at on public.customer_updates;
+create trigger set_customer_updates_updated_at before update on public.customer_updates for each row execute function public.set_updated_at();
+
+drop trigger if exists set_contact_forms_updated_at on public.contact_forms;
+create trigger set_contact_forms_updated_at before update on public.contact_forms for each row execute function public.set_updated_at();
+
+alter table public.users enable row level security;
+alter table public.companies enable row level security;
+alter table public.leads enable row level security;
+alter table public.contact_forms enable row level security;
+alter table public.campaigns enable row level security;
+alter table public.campaign_metrics enable row level security;
+alter table public.customer_updates enable row level security;
+alter table public.customer_files enable row level security;
+alter table public.customer_visibility_settings enable row level security;

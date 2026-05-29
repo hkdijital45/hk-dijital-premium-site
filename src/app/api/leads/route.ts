@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     const rows = await supabaseRest("leads", {
       method: "POST",
       body: JSON.stringify({
-        source: payload.source === "contact" ? "contact" : "quote",
+        source: payload.source === "contact" ? "İletişim Formu" : payload.source === "wizard" ? "Teklif Sihirbazı" : "Teklif Formu",
         name: payload.name || "",
         company: payload.company || "",
         phone: payload.phone || "",

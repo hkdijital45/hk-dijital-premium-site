@@ -22,6 +22,7 @@ http://localhost:3000
 
 - Public site: `/`
 - Giriş: `/giris`
+- İlk kurulum: `/kurulum`
 - Yönetim paneli: `/hk-admin`
 - Müşteri paneli: `/musteri-paneli`
 - Hakkımda: `/hakkimda`
@@ -35,8 +36,6 @@ http://localhost:3000
 ## Gerekli Ortam Değişkenleri
 
 ```env
-ADMIN_USERNAME=
-ADMIN_PASSWORD=
 ADMIN_SESSION_SECRET=
 
 CUSTOMER_EMAIL=
@@ -83,23 +82,35 @@ Kurulum dosyası şu tabloları oluşturur:
 - `customer_files`
 - `api_settings`
 
-## Admin Kullanıcısı Oluşturma
+## İlk Yönetici Kullanıcısı Oluşturma
 
-Supabase `users` tablosuna bir kayıt ekleyin:
+Supabase Auth kullanıcıları boşsa canlı sitede veya yerelde şu adrese gidin:
 
-```sql
-insert into public.users (email, full_name, role, is_active)
-values ('admin@hkdijital.com.tr', 'HK Dijital Yönetici', 'admin', true);
+```text
+/kurulum
 ```
 
-Geçici şifre doğrulaması `.env` içindeki `ADMIN_PASSWORD` üzerinden yapılır. Üretimde Supabase Auth `signInWithPassword`, hashlenmiş şifre, rate limit ve rol bazlı yetkilendirme önerilir.
+Form ilk admin hesabını Supabase Auth üzerinde oluşturur ve `public.users` tablosuna `role = admin`, `is_active = true`, `auth_user_id = auth.users.id` eşleşmesiyle profil kaydı ekler.
+
+Kurulum sayfası `public.users` içinde bir admin bulunduğunda kapanır ve şu mesajı gösterir:
+
+```text
+Kurulum tamamlandı. Bu sayfa artık kullanılamaz.
+```
+
+Mevcut tabloda `auth_user_id` yoksa `supabase/schema.sql` dosyasındaki migration bölümünü Supabase SQL Editor içinde çalıştırın:
+
+```sql
+alter table public.users add column if not exists auth_user_id uuid unique references auth.users(id) on delete cascade;
+```
 
 ## Müşteri Oluşturma
 
-1. `companies` tablosunda müşteri şirketini oluşturun.
-2. `users` tablosuna `role = customer` ile kullanıcı ekleyin.
-3. Kullanıcının `company_id` alanını ilgili şirketle eşleştirin.
-4. `customer_visibility_settings` tablosunda müşterinin görebileceği alanları belirleyin.
+1. `/hk-admin` içinde “Müşteriler” bölümünden şirketi oluşturun.
+2. Aynı bölümde müşteri için “Müşteri giriş hesabı oluştur” formunu kullanın.
+3. Firma atamasını seçin ve rolü `customer` bırakın.
+4. “Müşteri Paneli Yönetimi” bölümünden görünürlük ayarlarını belirleyin.
+5. Müşteri `/giris` ekranında “Müşteri” modunu seçerek `/musteri-paneli` rotasına girer.
 
 ## Kampanya ve Metrik Ekleme
 
@@ -149,9 +160,10 @@ Supabase ortam değişkenleri yoksa:
 
 ## Bilinen Sınırlamalar
 
-- Supabase Auth tam oturumu yerine sunucu taraflı güvenli cookie ve environment password fallback’i vardır.
+- Supabase Auth `password` girişi kullanılır; oturum bilgisi httpOnly ve imzalı cookie ile korunur.
 - API anahtarları admin arayüzünde alan olarak tutulabilir; üretimde encrypted secret storage önerilir.
-- Admin panelindeki bazı karmaşık koleksiyonlar JSON/site_settings üzerinden saklanabilir; uzun vadede ayrı Supabase tablolarına taşınması önerilir.
+- Şifre sıfırlama endpoint’i güvenli placeholder döner; üretimde Supabase reset password e-postası bağlanmalıdır.
+- Admin panelindeki public site içerikleri `site_settings`, müşteri/kampanya/rapor verileri ilişkili Supabase tablolarında saklanır.
 
 ## Vercel Yayınlama
 

@@ -27,7 +27,7 @@ export async function PublicShell({ children }: { children: ReactNode }) {
           href={whatsappUrl}
           target="_blank"
           rel="noreferrer"
-          className="fixed bottom-5 right-5 z-40 rounded-full border border-cyan-200/30 bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 shadow-[0_0_44px_rgba(18,217,255,.35)]"
+          className="fixed bottom-5 right-5 z-40 rounded-full border border-[#25D366]/40 bg-[#25D366] px-5 py-3 text-sm font-black text-white shadow-[0_0_44px_rgba(37,211,102,.35)]"
         >
           WhatsApp
         </a>
