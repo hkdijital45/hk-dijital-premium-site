@@ -566,5 +566,12 @@
       "visible": true
     }
   ],
-  "leads": []
+  "leads": [],
+  "users": [],
+  "companies": [],
+  "campaigns": [],
+  "campaignMetrics": [],
+  "customerUpdates": [],
+  "customerVisibilitySettings": [],
+  "customerFiles": []
 }

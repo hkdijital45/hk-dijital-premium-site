@@ -6,18 +6,37 @@ import { useMemo, useState } from "react";
 import { Copy, Download, ImagePlus, LogOut, Plus, Save, Sparkles, Trash2 } from "lucide-react";
 import type { SiteContent } from "@/lib/types";
 
-const modules = ["Overview", "Brand", "Social", "Contact", "Pages", "Certificates", "Services", "Packages", "Quote Wizard", "CRM", "Media", "AI Assistant", "API Settings", "Settings"];
+const modules = [
+  "Genel Bakış",
+  "Site Yönetimi",
+  "Sayfa İçerikleri",
+  "Marka Yönetimi",
+  "Sosyal Medya",
+  "Hizmetler",
+  "Paketler",
+  "Sertifikalar",
+  "Teklif Sihirbazı",
+  "CRM / Potansiyel Müşteriler",
+  "Müşteri Paneli Yönetimi",
+  "Reklam Raporları",
+  "Medya Kütüphanesi",
+  "API Ayarları",
+  "Yapay Zeka Asistanı",
+  "Ölçümleme Ayarları",
+  "Kullanıcı Yönetimi",
+  "Ayarlar"
+];
 const leadStatuses = ["Yeni", "Görüşülecek", "Teklif Hazırlanıyor", "Teklif Gönderildi", "Takipte", "Kazanıldı", "Kaybedildi"];
 
-export function AdminDashboard({ initialContent }: { initialContent: SiteContent }) {
+export function AdminDashboard({ initialContent, supabaseConfigured = false }: { initialContent: SiteContent; supabaseConfigured?: boolean }) {
   const [content, setContent] = useState(initialContent as any);
-  const [active, setActive] = useState("Overview");
+  const [active, setActive] = useState("Genel Bakış");
   const [status, setStatus] = useState("");
 
   async function save(next = content) {
     setStatus("Kaydediliyor...");
     const response = await fetch("/api/content", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) });
-    setStatus(response.ok ? "Kaydedildi. Public sayfalar yenilendiğinde güncel içeriği gösterir." : "Kaydedilemedi.");
+    setStatus(response.ok ? "Başarıyla kaydedildi." : "Kaydedilemedi. Supabase bağlantısını ve ortam değişkenlerini kontrol edin.");
   }
 
   async function logout() {
@@ -32,8 +51,8 @@ export function AdminDashboard({ initialContent }: { initialContent: SiteContent
       <header className="sticky top-0 z-40 border-b border-white/10 bg-[#050711]/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-4">
           <div>
-            <p className="text-sm font-bold uppercase tracking-[.22em] text-cyan-200">HK Admin</p>
-            <h1 className="text-2xl font-black">Gelişmiş Yönetim Paneli</h1>
+            <p className="text-sm font-bold uppercase tracking-[.22em] text-cyan-200">HK Dijital</p>
+            <h1 className="text-2xl font-black">HK Dijital Kontrol Merkezi</h1>
           </div>
           <div className="flex gap-2">
             <button onClick={() => save()} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-cyan-300 px-5 text-sm font-black text-slate-950"><Save size={17} /> Kaydet</button>
@@ -50,21 +69,26 @@ export function AdminDashboard({ initialContent }: { initialContent: SiteContent
           ))}
         </aside>
         <section className="min-w-0 rounded-[8px] border border-white/10 bg-white/[0.045] p-5">
+          {!supabaseConfigured && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">Supabase bağlantısı yapılandırılmadı. Canlı ortamda kaydetme çalışmaz.</p>}
           {status && <p className="mb-5 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{status}</p>}
-          {active === "Overview" && <Overview content={content} setActive={setActive} />}
-          {active === "Brand" && <Brand {...props} />}
-          {active === "Social" && <KeyValue title="Social Media Management" object={content.socials} onChange={(object) => setContent({ ...content, socials: object })} />}
-          {active === "Contact" && <KeyValue title="Contact Management" object={content.contact} onChange={(object) => setContent({ ...content, contact: object })} />}
-          {active === "Pages" && <Pages {...props} />}
-          {active === "Certificates" && <Collection title="Certificate Management" type="certificate" items={content.certificates} setItems={(items) => setContent({ ...content, certificates: items })} />}
-          {active === "Services" && <Collection title="Service Management" type="service" items={content.services} setItems={(items) => setContent({ ...content, services: items })} />}
-          {active === "Packages" && <Collection title="Package Management" type="package" items={content.packages} setItems={(items) => setContent({ ...content, packages: items })} />}
-          {active === "Quote Wizard" && <QuoteWizardAdmin {...props} />}
-          {active === "CRM" && <Crm {...props} />}
-          {active === "Media" && <Media {...props} />}
-          {active === "AI Assistant" && <AiAssistant {...props} />}
-          {active === "API Settings" && <ApiSettings {...props} />}
-          {active === "Settings" && <Settings {...props} />}
+          {active === "Genel Bakış" && <Overview content={content} setActive={setActive} />}
+          {active === "Site Yönetimi" && <Settings {...props} />}
+          {active === "Sayfa İçerikleri" && <Pages {...props} />}
+          {active === "Marka Yönetimi" && <Brand {...props} />}
+          {active === "Sosyal Medya" && <KeyValue title="Sosyal Medya Yönetimi" object={content.socials} onChange={(object) => setContent({ ...content, socials: object })} />}
+          {active === "Hizmetler" && <Collection title="Hizmet Yönetimi" type="service" items={content.services} setItems={(items) => setContent({ ...content, services: items })} />}
+          {active === "Paketler" && <Collection title="Paket Yönetimi" type="package" items={content.packages} setItems={(items) => setContent({ ...content, packages: items })} />}
+          {active === "Sertifikalar" && <Collection title="Sertifika Yönetimi" type="certificate" items={content.certificates} setItems={(items) => setContent({ ...content, certificates: items })} />}
+          {active === "Teklif Sihirbazı" && <QuoteWizardAdmin {...props} />}
+          {active === "CRM / Potansiyel Müşteriler" && <Crm {...props} />}
+          {active === "Müşteri Paneli Yönetimi" && <CustomerPanelAdmin {...props} />}
+          {active === "Reklam Raporları" && <ReportsAdmin {...props} />}
+          {active === "Medya Kütüphanesi" && <Media {...props} />}
+          {active === "API Ayarları" && <ApiSettings {...props} />}
+          {active === "Yapay Zeka Asistanı" && <AiAssistant {...props} />}
+          {active === "Ölçümleme Ayarları" && <TrackingSettings {...props} />}
+          {active === "Kullanıcı Yönetimi" && <UsersAdmin {...props} />}
+          {active === "Ayarlar" && <Settings {...props} />}
         </section>
       </div>
     </main>
@@ -98,7 +122,7 @@ function Overview({ content, setActive }: any) {
       <div className="grid gap-4 md:grid-cols-3">{stats.map(([label, value]) => <div key={label} className="rounded-[8px] border border-white/10 bg-black/25 p-4"><p className="text-sm text-slate-400">{label}</p><p className="mt-2 text-2xl font-black text-cyan-100">{value}</p></div>)}</div>
       <div className="mt-6 grid gap-4 lg:grid-cols-[1.2fr_.8fr]">
         <div className="rounded-[8px] border border-white/10 p-4"><h3 className="font-black">Son lead kayıtları</h3><div className="mt-4 grid gap-3">{leads.slice(0, 5).map((lead) => <div key={lead.id} className="rounded-[8px] bg-white/[0.04] p-3 text-sm"><p className="font-bold">{lead.name || "İsimsiz"} · {lead.status}</p><p className="text-slate-400">{lead.company || lead.email || lead.phone}</p></div>)}{!leads.length && <p className="text-sm text-slate-400">Henüz lead yok.</p>}</div></div>
-        <div className="rounded-[8px] border border-white/10 p-4"><h3 className="font-black">Hızlı işlemler</h3><div className="mt-4 grid gap-2">{["Pages", "CRM", "Media", "AI Assistant", "API Settings"].map((module) => <button key={module} onClick={() => setActive(module)} className="rounded-[8px] border border-white/10 px-4 py-3 text-left text-sm font-bold hover:bg-white/10">{module}</button>)}</div></div>
+        <div className="rounded-[8px] border border-white/10 p-4"><h3 className="font-black">Hızlı işlemler</h3><div className="mt-4 grid gap-2">{["Sayfa İçerikleri", "CRM / Potansiyel Müşteriler", "Medya Kütüphanesi", "Yapay Zeka Asistanı", "API Ayarları"].map((module) => <button key={module} onClick={() => setActive(module)} className="rounded-[8px] border border-white/10 px-4 py-3 text-left text-sm font-bold hover:bg-white/10">{module}</button>)}</div></div>
       </div>
     </Panel>
   );
@@ -124,14 +148,14 @@ function Brand({ content, setContent }: any) {
   const brand = content.brand;
   const update = (patch) => setContent({ ...content, brand: { ...brand, ...patch } });
   return (
-    <Panel title="Brand Management">
+    <Panel title="Marka Yönetimi">
       <div className="grid gap-4 md:grid-cols-2">
-        <Field label="Company name" value={brand.companyName} onChange={(v) => update({ companyName: v })} />
+        <Field label="Firma adı" value={brand.companyName} onChange={(v) => update({ companyName: v })} />
         <Field label="Slogan" value={brand.slogan} onChange={(v) => update({ slogan: v })} />
         {["logoUrl", "footerLogoUrl", "faviconUrl"].map((key) => <div key={key} className="grid gap-3"><Field label={key} value={brand[key]} onChange={(v) => update({ [key]: v })} /><Upload onUrl={(url) => update({ [key]: url })} /></div>)}
         {Object.entries(brand.colors).map(([key, value]) => <Field key={key} type="color" label={`${key} color`} value={value} onChange={(v) => update({ colors: { ...brand.colors, [key]: v } })} />)}
-        <Field label="Heading typography" value={brand.typography.heading} onChange={(v) => update({ typography: { ...brand.typography, heading: v } })} />
-        <Field label="Body typography" value={brand.typography.body} onChange={(v) => update({ typography: { ...brand.typography, body: v } })} />
+        <Field label="Başlık yazı tipi" value={brand.typography.heading} onChange={(v) => update({ typography: { ...brand.typography, heading: v } })} />
+        <Field label="Gövde yazı tipi" value={brand.typography.body} onChange={(v) => update({ typography: { ...brand.typography, body: v } })} />
       </div>
     </Panel>
   );
@@ -141,7 +165,7 @@ function Pages({ content, setContent }: any) {
   const pages = content.pages;
   const updatePage = (key, patch) => setContent({ ...content, pages: { ...pages, [key]: { ...pages[key], ...patch } } });
   return (
-    <Panel title="Page Content Management">
+    <Panel title="Sayfa İçerikleri">
       <div className="grid gap-4">
         <TextArea label="Ana sayfa headline" value={pages.home.headline} onChange={(v) => updatePage("home", { headline: v })} />
         <TextArea label="Ana sayfa subheadline" value={pages.home.subheadline} onChange={(v) => updatePage("home", { subheadline: v })} />
@@ -174,7 +198,7 @@ function Collection({ title, type, items, setItems }: any) {
     <Panel title={title}>
       <button onClick={() => setItems([...items, { id: `${type}-${Date.now()}`, ...defaults[type] }])} className="mb-4 inline-flex items-center gap-2 rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950"><Plus size={16} /> Ekle</button>
       <div className="grid gap-4">
-        {items.map((item, index) => <div key={item.id} className="grid gap-3 rounded-[8px] border border-white/10 p-4">{listFields.map((field) => <Field key={field} label={field} value={item[field]} onChange={(v) => update(index, { [field]: field === "order" ? Number(v) || 0 : v })} />)}<Upload onUrl={(url) => update(index, type === "certificate" ? { fileUrl: url } : { imageUrl: url })} /><TextArea label="description" value={item.description} onChange={(v) => update(index, { description: v })} />{(type === "service" || type === "package") && <TextArea label="features/included (satır satır)" value={(item.features || item.included || []).join("\n")} onChange={(v) => update(index, type === "package" ? { features: v.split("\n").filter(Boolean) } : { included: v.split("\n").filter(Boolean) })} />}<div className="flex flex-wrap gap-3"><label className="flex gap-2 text-sm"><input type="checkbox" checked={item.visible} onChange={(e) => update(index, { visible: e.target.checked })} /> Görünür</label>{type === "package" && <label className="flex gap-2 text-sm"><input type="checkbox" checked={item.recommended} onChange={(e) => update(index, { recommended: e.target.checked })} /> Önerilen</label>}<button onClick={() => setItems(items.filter((x) => x.id !== item.id))} className="inline-flex items-center gap-2 rounded-full border border-red-300/30 px-3 py-2 text-xs text-red-200"><Trash2 size={14} /> Sil</button></div></div>)}
+        {items.map((item, index) => <div key={item.id} className="grid gap-3 rounded-[8px] border border-white/10 p-4">{listFields.map((field) => <Field key={field} label={field} value={item[field]} onChange={(v) => update(index, { [field]: field === "order" ? Number(v) || 0 : v })} />)}<Upload onUrl={(url) => update(index, type === "certificate" ? { fileUrl: url } : { imageUrl: url })} /><TextArea label="Açıklama" value={item.description} onChange={(v) => update(index, { description: v })} />{(type === "service" || type === "package") && <TextArea label="Özellikler / dahil olanlar (satır satır)" value={(item.features || item.included || []).join("\n")} onChange={(v) => update(index, type === "package" ? { features: v.split("\n").filter(Boolean) } : { included: v.split("\n").filter(Boolean) })} />}<div className="flex flex-wrap gap-3"><label className="flex gap-2 text-sm"><input type="checkbox" checked={item.visible} onChange={(e) => update(index, { visible: e.target.checked })} /> Görünür</label>{type === "package" && <label className="flex gap-2 text-sm"><input type="checkbox" checked={item.recommended} onChange={(e) => update(index, { recommended: e.target.checked })} /> Önerilen</label>}<button onClick={() => setItems(items.filter((x) => x.id !== item.id))} className="inline-flex items-center gap-2 rounded-full border border-red-300/30 px-3 py-2 text-xs text-red-200"><Trash2 size={14} /> Sil</button></div></div>)}
       </div>
     </Panel>
   );
@@ -183,7 +207,7 @@ function Collection({ title, type, items, setItems }: any) {
 function QuoteWizardAdmin({ content, setContent }: any) {
   const wizard = content.quoteWizard;
   const update = (patch) => setContent({ ...content, quoteWizard: { ...wizard, ...patch } });
-  return <Panel title="Quote Wizard Management"><div className="grid gap-4"><Field label="Başlık" value={wizard.title} onChange={(v) => update({ title: v })} /><Field label="Alt başlık" value={wizard.subtitle} onChange={(v) => update({ subtitle: v })} /><TextArea label="İşletme türleri" value={wizard.businessTypes.map((o) => o.label).join("\n")} onChange={(v) => update({ businessTypes: v.split("\n").filter(Boolean).map((label, i) => ({ id: `business-${i}`, label })) })} /><TextArea label="Hedef seçenekleri" value={wizard.goals.map((o) => o.label).join("\n")} onChange={(v) => update({ goals: v.split("\n").filter(Boolean).map((label, i) => ({ id: `goal-${i}`, label })) })} /><TextArea label="Bütçe aralıkları" value={wizard.budgets.map((o) => o.label).join("\n")} onChange={(v) => update({ budgets: v.split("\n").filter(Boolean).map((label, i) => ({ id: `budget-${i}`, label })) })} /><TextArea label="Başarı mesajı" value={wizard.successMessage} onChange={(v) => update({ successMessage: v })} /><TextArea label="WhatsApp mesaj şablonu" value={wizard.whatsappTemplate} onChange={(v) => update({ whatsappTemplate: v })} /><JsonBox label="Recommendation logic JSON" value={wizard.recommendationRules} onChange={(recommendationRules) => update({ recommendationRules })} /></div></Panel>;
+  return <Panel title="Teklif Sihirbazı Yönetimi"><div className="grid gap-4"><Field label="Başlık" value={wizard.title} onChange={(v) => update({ title: v })} /><Field label="Alt başlık" value={wizard.subtitle} onChange={(v) => update({ subtitle: v })} /><TextArea label="İşletme türleri" value={wizard.businessTypes.map((o) => o.label).join("\n")} onChange={(v) => update({ businessTypes: v.split("\n").filter(Boolean).map((label, i) => ({ id: `business-${i}`, label })) })} /><TextArea label="Hedef seçenekleri" value={wizard.goals.map((o) => o.label).join("\n")} onChange={(v) => update({ goals: v.split("\n").filter(Boolean).map((label, i) => ({ id: `goal-${i}`, label })) })} /><TextArea label="Bütçe aralıkları" value={wizard.budgets.map((o) => o.label).join("\n")} onChange={(v) => update({ budgets: v.split("\n").filter(Boolean).map((label, i) => ({ id: `budget-${i}`, label })) })} /><TextArea label="Başarı mesajı" value={wizard.successMessage} onChange={(v) => update({ successMessage: v })} /><TextArea label="WhatsApp mesaj şablonu" value={wizard.whatsappTemplate} onChange={(v) => update({ whatsappTemplate: v })} /><JsonBox label="Öneri mantığı JSON" value={wizard.recommendationRules} onChange={(recommendationRules) => update({ recommendationRules })} /></div></Panel>;
 }
 
 function Crm({ content, setContent }: any) {
@@ -198,7 +222,7 @@ function Crm({ content, setContent }: any) {
     a.download = "hk-dijital-leads.csv";
     a.click();
   }
-  return <Panel title="Lead Management / CRM"><div className="mb-4 flex flex-col gap-3 md:flex-row"><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Lead ara..." className="min-h-11 flex-1 rounded-[8px] border border-white/10 bg-black/30 px-3 text-white" /><button onClick={exportCsv} className="inline-flex items-center gap-2 rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950"><Download size={16} /> CSV Export</button></div><div className="grid gap-4">{leads.map((lead) => <div key={lead.id} className="grid gap-3 rounded-[8px] border border-white/10 p-4"><div className="flex flex-wrap justify-between gap-3"><div><h3 className="font-black">{lead.name || "İsimsiz lead"}</h3><p className="text-sm text-slate-400">{lead.company} · {lead.phone} · {lead.email}</p></div><select value={lead.status} onChange={(e) => update(lead.id, { status: e.target.value })} className="min-h-10 rounded-[8px] border border-white/10 bg-black/30 px-3 text-white">{leadStatuses.map((status) => <option key={status}>{status}</option>)}</select></div><p className="text-sm text-slate-300">Paket: {lead.recommendedPackage || "-"} · Bütçe: {lead.budget || "-"} · Hedef: {lead.goal || "-"}</p><TextArea label="İç not" value={lead.internalNotes} onChange={(v) => update(lead.id, { internalNotes: v })} /><Field label="Sonraki takip tarihi" type="date" value={lead.followUpDate} onChange={(v) => update(lead.id, { followUpDate: v })} /></div>)}{!leads.length && <p className="text-sm text-slate-400">Kayıt bulunamadı.</p>}</div></Panel>;
+  return <Panel title="CRM / Potansiyel Müşteriler"><div className="mb-4 flex flex-col gap-3 md:flex-row"><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Potansiyel müşteri ara..." className="min-h-11 flex-1 rounded-[8px] border border-white/10 bg-black/30 px-3 text-white" /><button onClick={exportCsv} className="inline-flex items-center gap-2 rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950"><Download size={16} /> CSV Dışa Aktar</button></div><div className="grid gap-4">{leads.map((lead) => <div key={lead.id} className="grid gap-3 rounded-[8px] border border-white/10 p-4"><div className="flex flex-wrap justify-between gap-3"><div><h3 className="font-black">{lead.name || "İsimsiz kayıt"}</h3><p className="text-sm text-slate-400">{lead.company} · {lead.phone} · {lead.email}</p></div><select value={lead.status} onChange={(e) => update(lead.id, { status: e.target.value })} className="min-h-10 rounded-[8px] border border-white/10 bg-black/30 px-3 text-white">{leadStatuses.map((status) => <option key={status}>{status}</option>)}</select></div><p className="text-sm text-slate-300">Paket: {lead.recommendedPackage || "-"} · Bütçe: {lead.budget || "-"} · Hedef: {lead.goal || "-"}</p><TextArea label="İç not" value={lead.internalNotes} onChange={(v) => update(lead.id, { internalNotes: v })} /><Field label="Sonraki takip tarihi" type="date" value={lead.followUpDate} onChange={(v) => update(lead.id, { followUpDate: v })} /></div>)}{!leads.length && <p className="text-sm text-slate-400">Kayıt bulunamadı.</p>}</div></Panel>;
 }
 
 function Media({ content, setContent }: any) {
@@ -209,7 +233,7 @@ function Media({ content, setContent }: any) {
     if (media) setContent({ ...content, media: [media, ...content.media] });
     setMessage(media ? "Yüklendi." : "Yüklenemedi.");
   }
-  return <Panel title="File / Media Library"><label className="flex min-h-32 cursor-pointer flex-col items-center justify-center gap-3 rounded-[8px] border border-dashed border-cyan-200/30 bg-cyan-200/10 text-center"><ImagePlus /><span>PNG, JPG, SVG, WebP, MP4 veya PDF yükle</span><input type="file" accept="image/png,image/svg+xml,image/jpeg,image/webp,video/mp4,application/pdf" className="hidden" onChange={(e) => e.target.files?.[0] && handle(e.target.files[0])} /></label><p className="mt-3 text-sm text-slate-400">Mock/local modda dosyalar public/uploads klasörüne alınır. Üretimde Supabase Storage, Firebase Storage, Cloudinary veya S3 uyumlu storage eklenmelidir.</p>{message && <p className="mt-3 text-sm text-cyan-100">{message}</p>}<div className="mt-5 grid gap-4 md:grid-cols-3">{content.media.map((item) => <div key={item.id} className="rounded-[8px] border border-white/10 p-3">{item.type === "image" ? <Image src={item.url} alt={item.name} width={360} height={160} className="h-32 w-full rounded-[8px] object-cover" /> : <div className="grid h-32 place-items-center rounded-[8px] bg-white/[0.06] text-sm font-bold">{item.type.toUpperCase()}</div>}<p className="mt-3 break-all text-xs text-slate-300">{item.url}</p><button onClick={() => setContent({ ...content, media: content.media.filter((m) => m.id !== item.id) })} className="mt-3 rounded-full border border-white/10 px-3 py-2 text-xs">Listeden kaldır</button></div>)}</div></Panel>;
+  return <Panel title="Medya Kütüphanesi"><label className="flex min-h-32 cursor-pointer flex-col items-center justify-center gap-3 rounded-[8px] border border-dashed border-cyan-200/30 bg-cyan-200/10 text-center"><ImagePlus /><span>PNG, JPG, SVG, WebP, MP4 veya PDF yükle</span><input type="file" accept="image/png,image/svg+xml,image/jpeg,image/webp,video/mp4,application/pdf" className="hidden" onChange={(e) => e.target.files?.[0] && handle(e.target.files[0])} /></label><p className="mt-3 text-sm text-slate-400">Canlı ortamda dosyalar Supabase Storage üzerindeki hk-dijital-media kovasına yüklenir. Supabase yoksa yerel geliştirme için fallback kullanılır.</p>{message && <p className="mt-3 text-sm text-cyan-100">{message}</p>}<div className="mt-5 grid gap-4 md:grid-cols-3">{content.media.map((item) => <div key={item.id} className="rounded-[8px] border border-white/10 p-3">{item.type === "image" ? <Image src={item.url} alt={item.name} width={360} height={160} className="h-32 w-full rounded-[8px] object-cover" /> : <div className="grid h-32 place-items-center rounded-[8px] bg-white/[0.06] text-sm font-bold">{item.type.toUpperCase()}</div>}<p className="mt-3 break-all text-xs text-slate-300">{item.url}</p><button onClick={() => setContent({ ...content, media: content.media.filter((m) => m.id !== item.id) })} className="mt-3 rounded-full border border-white/10 px-3 py-2 text-xs">Listeden kaldır</button></div>)}</div></Panel>;
 }
 
 function AiAssistant({ content, setContent }: any) {
@@ -217,7 +241,7 @@ function AiAssistant({ content, setContent }: any) {
   const [prompt, setPrompt] = useState("HK Intelligence için CRM odaklı premium açıklama yaz.");
   const [output, setOutput] = useState("");
   const generated = useMemo(() => `Demo AI çıktısı (${provider}):\n\n${prompt}\n\nHK Dijital tonu ile öneri: Ölçülebilir strateji, CRM destekli takip, şeffaf raporlama ve reklam optimizasyonu odağında, satış garantisi vermeden güven oluşturan profesyonel bir metin kullanılmalıdır. Bu panel ana sayfa, hakkımda, hizmet, paket, sosyal medya, reklam metni, teklif ve takip mesajı üretiminde kullanılabilir.`, [prompt, provider]);
-  return <Panel title="AI Admin Assistant"><div className="grid gap-4"><label className="grid gap-2 text-sm font-semibold text-slate-200">Provider selector<select value={provider} onChange={(e) => setProvider(e.target.value)} className="min-h-11 rounded-[8px] border border-white/10 bg-black/30 px-3 text-white"><option value="demo">Demo Mode</option><option value="gemini">Gemini</option><option value="groq">Groq</option><option value="openai">OpenAI</option></select></label><TextArea label="Prompt" value={prompt} onChange={setPrompt} /><button onClick={() => setOutput(generated)} className="inline-flex w-fit items-center gap-2 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950"><Sparkles size={17} /> Demo çıktı üret</button>{output && <div className="rounded-[8px] border border-white/10 bg-black/30 p-4"><pre className="whitespace-pre-wrap text-sm leading-7 text-slate-200">{output}</pre><div className="mt-4 flex flex-wrap gap-2"><button onClick={() => navigator.clipboard.writeText(output)} className="inline-flex gap-2 rounded-full border border-white/10 px-4 py-2 text-sm"><Copy size={16} /> Kopyala</button><button onClick={() => setContent({ ...content, pages: { ...content.pages, home: { ...content.pages.home, subheadline: output } } })} className="rounded-full border border-white/10 px-4 py-2 text-sm">Ana sayfa alt metnine kaydet</button></div></div>}</div></Panel>;
+  return <Panel title="Yapay Zeka Asistanı"><div className="grid gap-4"><label className="grid gap-2 text-sm font-semibold text-slate-200">Sağlayıcı seçimi<select value={provider} onChange={(e) => setProvider(e.target.value)} className="min-h-11 rounded-[8px] border border-white/10 bg-black/30 px-3 text-white"><option value="demo">Demo Modu</option><option value="gemini">Gemini</option><option value="groq">Groq</option><option value="openai">OpenAI</option></select></label><TextArea label="Komut" value={prompt} onChange={setPrompt} /><button onClick={() => setOutput(generated)} className="inline-flex w-fit items-center gap-2 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950"><Sparkles size={17} /> Demo çıktı üret</button>{output && <div className="rounded-[8px] border border-white/10 bg-black/30 p-4"><pre className="whitespace-pre-wrap text-sm leading-7 text-slate-200">{output}</pre><div className="mt-4 flex flex-wrap gap-2"><button onClick={() => navigator.clipboard.writeText(output)} className="inline-flex gap-2 rounded-full border border-white/10 px-4 py-2 text-sm"><Copy size={16} /> Kopyala</button><button onClick={() => setContent({ ...content, pages: { ...content.pages, home: { ...content.pages.home, subheadline: output } } })} className="rounded-full border border-white/10 px-4 py-2 text-sm">Ana sayfa alt metnine ekle</button></div></div>}</div></Panel>;
 }
 
 function ApiSettings({ content, setContent }: any) {
@@ -229,11 +253,72 @@ function ApiSettings({ content, setContent }: any) {
     const data = await response.json();
     setResult(data.message || "Test tamamlandı.");
   }
-  return <Panel title="API Settings"><div className="grid gap-4 md:grid-cols-2"><Field label="Gemini API Key" value={api.geminiApiKey} onChange={(v) => update({ geminiApiKey: v })} /><Field label="Groq API Key" value={api.groqApiKey} onChange={(v) => update({ groqApiKey: v })} /><Field label="OpenAI API Key placeholder" value={api.openAiApiKey} onChange={(v) => update({ openAiApiKey: v })} /><Field label="Model selection" value={api.model} onChange={(v) => update({ model: v })} /><label className="grid gap-2 text-sm font-semibold text-slate-200">Active provider<select value={api.activeProvider} onChange={(e) => update({ activeProvider: e.target.value })} className="min-h-11 rounded-[8px] border border-white/10 bg-black/30 px-3 text-white"><option value="demo">Demo Mode</option><option value="gemini">Gemini</option><option value="groq">Groq</option><option value="openai">OpenAI</option></select></label><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={api.demoMode} onChange={(e) => update({ demoMode: e.target.checked })} /> Demo mode</label></div><button onClick={testApi} className="mt-5 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">API test et</button>{result && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{result}</p>}<p className="mt-4 text-sm text-slate-400">API anahtarları public frontend tarafına aktarılmaz. Üretimde .env değişkenleri ve şifreli secret storage tercih edilmelidir.</p></Panel>;
+  return <Panel title="API Ayarları"><div className="grid gap-4 md:grid-cols-2"><Field label="Gemini API anahtarı" value={api.geminiApiKey} onChange={(v) => update({ geminiApiKey: v })} /><Field label="Groq API anahtarı" value={api.groqApiKey} onChange={(v) => update({ groqApiKey: v })} /><Field label="OpenAI API anahtarı alanı" value={api.openAiApiKey} onChange={(v) => update({ openAiApiKey: v })} /><Field label="Model seçimi" value={api.model} onChange={(v) => update({ model: v })} /><label className="grid gap-2 text-sm font-semibold text-slate-200">Aktif sağlayıcı<select value={api.activeProvider} onChange={(e) => update({ activeProvider: e.target.value })} className="min-h-11 rounded-[8px] border border-white/10 bg-black/30 px-3 text-white"><option value="demo">Demo Modu</option><option value="gemini">Gemini</option><option value="groq">Groq</option><option value="openai">OpenAI</option></select></label><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={api.demoMode} onChange={(e) => update({ demoMode: e.target.checked })} /> Demo modu</label></div><button onClick={testApi} className="mt-5 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">API bağlantısını test et</button>{result && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{result}</p>}<p className="mt-4 text-sm text-slate-400">API anahtarları tarayıcıya aktarılmaz. Üretimde .env değişkenleri ve şifreli secret storage tercih edilmelidir.</p></Panel>;
 }
 
 function Settings({ content, setContent }: any) {
   const settings = content.settings;
   const update = (patch) => setContent({ ...content, settings: { ...settings, ...patch } });
-  return <Panel title="Settings"><div className="grid gap-4 md:grid-cols-2"><Field label="Site title" value={settings.siteTitle} onChange={(v) => update({ siteTitle: v })} /><Field label="Site description" value={settings.siteDescription} onChange={(v) => update({ siteDescription: v })} /><Field label="Meta Pixel ID" value={settings.analyticsIds.metaPixel} onChange={(v) => update({ analyticsIds: { ...settings.analyticsIds, metaPixel: v } })} /><Field label="Google Tag Manager ID" value={settings.analyticsIds.googleTagManager} onChange={(v) => update({ analyticsIds: { ...settings.analyticsIds, googleTagManager: v } })} /><Field label="GA4 Measurement ID" value={settings.analyticsIds.gaMeasurement} onChange={(v) => update({ analyticsIds: { ...settings.analyticsIds, gaMeasurement: v } })} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.maintenanceMode} onChange={(e) => update({ maintenanceMode: e.target.checked })} /> Maintenance mode</label><label className="grid gap-2 text-sm font-semibold text-slate-200">Default theme<select value={settings.defaultTheme} onChange={(e) => update({ defaultTheme: e.target.value })} className="min-h-11 rounded-[8px] border border-white/10 bg-black/30 px-3 text-white"><option value="dark">Dark</option><option value="light">Light</option></select></label><TextArea label="Legal disclaimers" value={(settings.legalDisclaimers || []).join("\n")} onChange={(v) => update({ legalDisclaimers: v.split("\n").filter(Boolean) })} /></div><p className="mt-4 text-sm text-slate-400">Admin kullanıcı adı ve şifre .env üzerinden yönetilir. Üretimde hashlenmiş şifre, rate limit, audit log ve kullanıcı rolleri önerilir.</p></Panel>;
+  return <Panel title="Ayarlar"><div className="grid gap-4 md:grid-cols-2"><Field label="Site başlığı" value={settings.siteTitle} onChange={(v) => update({ siteTitle: v })} /><Field label="Site açıklaması" value={settings.siteDescription} onChange={(v) => update({ siteDescription: v })} /><Field label="Meta Pixel ID" value={settings.analyticsIds.metaPixel} onChange={(v) => update({ analyticsIds: { ...settings.analyticsIds, metaPixel: v } })} /><Field label="Google Tag Manager ID" value={settings.analyticsIds.googleTagManager} onChange={(v) => update({ analyticsIds: { ...settings.analyticsIds, googleTagManager: v } })} /><Field label="GA4 Measurement ID" value={settings.analyticsIds.gaMeasurement} onChange={(v) => update({ analyticsIds: { ...settings.analyticsIds, gaMeasurement: v } })} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.maintenanceMode} onChange={(e) => update({ maintenanceMode: e.target.checked })} /> Bakım modu</label><label className="grid gap-2 text-sm font-semibold text-slate-200">Varsayılan tema<select value={settings.defaultTheme} onChange={(e) => update({ defaultTheme: e.target.value })} className="min-h-11 rounded-[8px] border border-white/10 bg-black/30 px-3 text-white"><option value="dark">Koyu</option><option value="light">Açık</option></select></label><TextArea label="Yasal bilgilendirmeler" value={(settings.legalDisclaimers || []).join("\n")} onChange={(v) => update({ legalDisclaimers: v.split("\n").filter(Boolean) })} /></div><p className="mt-4 text-sm text-slate-400">Admin kullanıcı adı ve şifre .env üzerinden yönetilir. Üretimde hashlenmiş şifre, rate limit, audit log ve kullanıcı rolleri önerilir.</p></Panel>;
+}
+
+function CustomerPanelAdmin({ content, setContent }: any) {
+  const update = (key, items) => setContent({ ...content, [key]: items });
+  return (
+    <Panel title="Müşteri Paneli Yönetimi">
+      <p className="mb-4 text-sm leading-6 text-slate-400">Müşteri hesapları, şirket atamaları, görünürlük ayarları, müşteri dosyaları ve panel önizleme verileri buradan yönetilir. Kaydettiğiniz veriler Supabase yapılandırıldıysa kalıcı olarak saklanır.</p>
+      <MiniCollection title="Şirketler" items={content.companies || []} setItems={(items) => update("companies", items)} fields={["name", "sector", "city", "website", "instagram", "phone", "email", "status"]} empty={{ name: "Yeni Şirket", status: "Aktif" }} />
+      <MiniCollection title="Müşteri görünürlük ayarları" items={content.customerVisibilitySettings || []} setItems={(items) => update("customerVisibilitySettings", items)} fields={["company_id", "show_campaigns", "show_metrics", "show_budget", "show_spent", "show_leads", "show_strategy_notes", "show_work_updates", "show_files", "show_contact_person"]} empty={{ company_id: "", show_campaigns: true, show_metrics: true, show_budget: true, show_spent: true, show_leads: true, show_strategy_notes: true, show_work_updates: true, show_files: true, show_contact_person: true }} />
+      <MiniCollection title="Müşteri dosyaları" items={content.customerFiles || []} setItems={(items) => update("customerFiles", items)} fields={["company_id", "title", "description", "file_url", "file_type", "visible_to_customer"]} empty={{ title: "Yeni Dosya", visible_to_customer: true }} />
+    </Panel>
+  );
+}
+
+function ReportsAdmin({ content, setContent }: any) {
+  const update = (key, items) => setContent({ ...content, [key]: items });
+  return (
+    <Panel title="Reklam Raporları">
+      <MiniCollection title="Kampanyalar" items={content.campaigns || []} setItems={(items) => update("campaigns", items)} fields={["company_id", "name", "platform", "objective", "status", "start_date", "end_date", "budget", "spent", "notes"]} empty={{ name: "Yeni Kampanya", platform: "Meta", objective: "Form", status: "Hazırlanıyor" }} />
+      <MiniCollection title="Kampanya metrikleri" items={content.campaignMetrics || []} setItems={(items) => update("campaignMetrics", items)} fields={["campaign_id", "company_id", "date", "impressions", "reach", "clicks", "ctr", "cpc", "cpm", "leads", "conversions", "cost_per_lead", "spent", "notes"]} empty={{ date: new Date().toISOString().slice(0, 10), impressions: 0, reach: 0, clicks: 0, leads: 0, spent: 0 }} />
+      <MiniCollection title="Müşteri güncellemeleri / iş günlüğü" items={content.customerUpdates || []} setItems={(items) => update("customerUpdates", items)} fields={["company_id", "title", "description", "update_type", "visible_to_customer"]} empty={{ title: "Yeni çalışma notu", update_type: "Yapılan Çalışma", visible_to_customer: true }} />
+    </Panel>
+  );
+}
+
+function UsersAdmin({ content, setContent }: any) {
+  return (
+    <Panel title="Kullanıcı Yönetimi">
+      <MiniCollection title="Kullanıcılar" items={content.users || []} setItems={(items) => setContent({ ...content, users: items })} fields={["email", "full_name", "role", "company_id", "is_active"]} empty={{ email: "", full_name: "", role: "customer", is_active: true }} />
+      <p className="mt-4 text-sm text-slate-400">Roller: Admin tam yetki, Editor içerik yönetimi, Sales CRM ve müşteri yönetimi, Customer yalnızca müşteri paneli.</p>
+    </Panel>
+  );
+}
+
+function TrackingSettings(props: any) {
+  return <Settings {...props} />;
+}
+
+function MiniCollection({ title, items, setItems, fields, empty }: any) {
+  const update = (index, patch) => setItems(items.map((item, i) => (i === index ? { ...item, ...patch } : item)));
+  return (
+    <div className="mb-6 rounded-[8px] border border-white/10 p-4">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h3 className="font-black">{title}</h3>
+        <button onClick={() => setItems([...items, { id: `${Date.now()}`, ...empty }])} className="inline-flex items-center gap-2 rounded-full bg-cyan-300 px-3 py-2 text-xs font-black text-slate-950"><Plus size={14} /> Ekle</button>
+      </div>
+      <div className="grid gap-4">
+        {items.map((item, index) => (
+          <div key={item.id || index} className="grid gap-3 rounded-[8px] bg-black/20 p-3 md:grid-cols-2">
+            {fields.map((field) => typeof item[field] === "boolean" ? (
+              <label key={field} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item[field])} onChange={(e) => update(index, { [field]: e.target.checked })} /> {field}</label>
+            ) : (
+              <Field key={field} label={field} value={item[field] || ""} onChange={(v) => update(index, { [field]: v })} />
+            ))}
+            <button onClick={() => setItems(items.filter((_, i) => i !== index))} className="w-fit rounded-full border border-red-300/30 px-3 py-2 text-xs text-red-200">Sil</button>
+          </div>
+        ))}
+        {!items.length && <p className="text-sm text-slate-400">Henüz kayıt yok.</p>}
+      </div>
+    </div>
+  );
 }

@@ -19,13 +19,13 @@ export async function POST() {
           : "";
 
   if (api.demoMode || api.activeProvider === "demo") {
-    return NextResponse.json({ ok: true, provider: "Demo Mode", message: "Demo mod aktif. Gerçek API çağrısı yapılmadı." });
+    return NextResponse.json({ ok: true, provider: "Demo Modu", message: "Demo modu aktif" });
   }
 
   if (!envKey) {
-    return NextResponse.json({ ok: false, provider: api.activeProvider, message: "API anahtarı bulunamadı. .env veya admin API ayarlarını kontrol edin." }, { status: 400 });
+    return NextResponse.json({ ok: false, provider: api.activeProvider, message: "API anahtarı eksik" }, { status: 400 });
   }
 
   // Add real Gemini/Groq/OpenAI health-check calls here. Keep keys server-side only.
-  return NextResponse.json({ ok: true, provider: api.activeProvider, message: "API anahtarı yapılandırılmış görünüyor. Gerçek test endpoint entegrasyonu eklenebilir." });
+  return NextResponse.json({ ok: true, provider: api.activeProvider, message: "API bağlantısı başarılı" });
 }

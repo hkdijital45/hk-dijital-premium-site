@@ -1,8 +1,10 @@
-# HK Dijital Next.js Website
+# HK Dijital Marketing Center
 
-Premium, dark-mode, Turkish digital marketing agency website with an advanced hidden admin management system, local CMS, media library, quote wizard, CRM lead tracking, certificates, and AI/API settings.
+HK Dijital için Next.js tabanlı Türkçe pazarlama sitesi, yönetim paneli ve müşteri paneli.
 
-## Local Setup
+Canlı alan adı: `hkdijital.com.tr`
+
+## Yerel Kurulum
 
 ```bash
 npm install
@@ -10,76 +12,150 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Open `http://localhost:3000`.
-
-## Admin Panel
-
-Hidden route:
+Yerel adres:
 
 ```text
-http://localhost:3000/hk-admin
+http://localhost:3000
 ```
 
-Default local demo credentials:
+## Rotalar
 
-```text
-username: admin
-password: hk-dijital-2026
+- Public site: `/`
+- Giriş: `/giris`
+- Yönetim paneli: `/hk-admin`
+- Müşteri paneli: `/musteri-paneli`
+- Hakkımda: `/hakkimda`
+- Sertifikalar: `/sertifikalar`
+- Hizmetler: `/hizmetler`
+- Paketler: `/paketler`
+- HK Intelligence: `/hk-intelligence`
+- Teklif Al: `/teklif-al`
+- İletişim: `/iletisim`
+
+## Gerekli Ortam Değişkenleri
+
+```env
+ADMIN_USERNAME=
+ADMIN_PASSWORD=
+ADMIN_SESSION_SECRET=
+
+CUSTOMER_EMAIL=
+CUSTOMER_PASSWORD=
+CUSTOMER_NAME=
+CUSTOMER_COMPANY_ID=
+
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+
+OPENAI_API_KEY=
+GROQ_API_KEY=
+GEMINI_API_KEY=
 ```
 
-For production, change these in Vercel environment variables:
+`SUPABASE_SERVICE_ROLE_KEY` kesinlikle tarayıcıya gönderilmez. Yazma işlemleri sunucu tarafındaki API route’ları üzerinden yapılır.
 
-```text
-ADMIN_USERNAME
-ADMIN_PASSWORD
-ADMIN_SESSION_SECRET
+## Supabase Kurulumu
+
+1. Supabase projesi oluşturun.
+2. SQL Editor içinde [supabase/schema.sql](/Users/hayrikamali/Documents/Codex/2026-05-29/create-a-brand-new-premium-next/supabase/schema.sql) dosyasını çalıştırın.
+3. Storage içinde `hk-dijital-media` bucket oluştuğunu kontrol edin.
+4. Vercel Environment Variables bölümüne Supabase URL, anon key ve service role key değerlerini ekleyin.
+5. Vercel’de yeniden deploy alın.
+
+## Supabase Tabloları
+
+Kurulum dosyası şu tabloları oluşturur:
+
+- `users`
+- `companies`
+- `site_settings`
+- `pages`
+- `services`
+- `packages`
+- `certificates`
+- `leads`
+- `media_files`
+- `campaigns`
+- `campaign_metrics`
+- `customer_updates`
+- `customer_visibility_settings`
+- `customer_files`
+- `api_settings`
+
+## Admin Kullanıcısı Oluşturma
+
+Supabase `users` tablosuna bir kayıt ekleyin:
+
+```sql
+insert into public.users (email, full_name, role, is_active)
+values ('admin@hkdijital.com.tr', 'HK Dijital Yönetici', 'admin', true);
 ```
 
-## Editable Content
+Geçici şifre doğrulaması `.env` içindeki `ADMIN_PASSWORD` üzerinden yapılır. Üretimde Supabase Auth `signInWithPassword`, hashlenmiş şifre, rate limit ve rol bazlı yetkilendirme önerilir.
 
-All public website content is stored in:
+## Müşteri Oluşturma
 
-```text
-src/data/site-content.json
-```
+1. `companies` tablosunda müşteri şirketini oluşturun.
+2. `users` tablosuna `role = customer` ile kullanıcı ekleyin.
+3. Kullanıcının `company_id` alanını ilgili şirketle eşleştirin.
+4. `customer_visibility_settings` tablosunda müşterinin görebileceği alanları belirleyin.
 
-The admin panel edits this content through `/api/content`. This is intentionally structured so it can later be moved to Supabase, MongoDB, PostgreSQL, Firebase, or WordPress REST API.
+## Kampanya ve Metrik Ekleme
 
-## Pages
+Yönetim panelinde “Reklam Raporları” bölümünden kampanya ve metrik kayıtları girilebilir. Supabase tarafında doğrudan şu tablolar kullanılır:
 
-- Ana Sayfa
-- Hakkımda
-- Sertifikalar
-- Hizmetler
-- Paketler
-- HK Intelligence
-- Teklif Al
-- İletişim
-- Hidden admin: `/hk-admin`
+- `campaigns`
+- `campaign_metrics`
+- `customer_updates`
 
-## Mock / Local Features
+Müşteri paneli sadece kendi `company_id` değerine bağlı kayıtları gösterir.
 
-- Admin auth uses a secure HTTP-only cookie with environment-configured credentials.
-- Media upload stores images, videos, PDFs, certificates and logos under `public/uploads` for local/demo usage.
-- Quote and contact forms store submissions in the local CRM lead list.
-- CRM supports lead status, internal notes, follow-up date, search and CSV export.
-- Certificate management supports add/edit/delete, ordering, visibility and file URLs.
-- AI Admin Assistant runs in demo/local mode and includes provider selection for Gemini, Groq and OpenAI placeholder.
-- API Settings lets admins manage Gemini/Groq/OpenAI placeholders, active provider, model and demo mode.
-- Meta Pixel, GA4 and GTM settings are editable, with script/event integration placeholders.
+## Müşteri Görünürlüğü
 
-## Vercel Deployment
+`customer_visibility_settings` alanları:
 
-1. Push the project to GitHub.
-2. Import the repo in Vercel.
-3. Add environment variables from `.env.example`.
-4. Deploy.
+- Kampanyalar görünsün
+- Metrikler görünsün
+- Bütçe görünsün
+- Harcama görünsün
+- Lead sayısı görünsün
+- Strateji notları görünsün
+- Yapılan çalışmalar görünsün
+- Dosyalar görünsün
+- İletişim kişisi görünsün
 
-For production-grade persistence, replace the local JSON writer and `public/uploads` storage with a database and object storage provider.
+## Medya ve Dosya Yükleme
 
-Recommended production upgrades:
+Canlı ortamda medya dosyaları Supabase Storage `hk-dijital-media` bucket’ına yüklenir.
 
-- Move CMS and CRM data to Supabase, MongoDB, PostgreSQL, Firebase or WordPress REST API.
-- Move uploaded files to Supabase Storage, Firebase Storage, Cloudinary or S3-compatible storage.
-- Store API keys only as encrypted server-side secrets.
-- Add password hashing, rate limiting, role-based access and audit logs for admin users.
+Desteklenen türler:
+
+- PNG
+- JPG / JPEG
+- SVG
+- WebP
+- PDF
+- MP4
+
+## Fallback / Demo Davranışı
+
+Supabase ortam değişkenleri yoksa:
+
+- Public site seed JSON’dan okunur.
+- Yönetim panelinde uyarı gösterilir: “Supabase bağlantısı yapılandırılmadı. Canlı ortamda kaydetme çalışmaz.”
+- Canlı ortamda local JSON’a yazılmaz.
+- Müşteri paneli demo/fallback veriler gösterir.
+
+## Bilinen Sınırlamalar
+
+- Supabase Auth tam oturumu yerine sunucu taraflı güvenli cookie ve environment password fallback’i vardır.
+- API anahtarları admin arayüzünde alan olarak tutulabilir; üretimde encrypted secret storage önerilir.
+- Admin panelindeki bazı karmaşık koleksiyonlar JSON/site_settings üzerinden saklanabilir; uzun vadede ayrı Supabase tablolarına taşınması önerilir.
+
+## Vercel Yayınlama
+
+1. Değişiklikleri GitHub’a push edin.
+2. Vercel environment variables alanlarını doldurun.
+3. Deploy alın.
+4. `/giris`, `/hk-admin` ve `/musteri-paneli` rotalarını test edin.

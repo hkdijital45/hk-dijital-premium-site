@@ -23,6 +23,13 @@ export async function PUT(request: Request) {
   }
 
   const content = (await request.json()) as SiteContent;
-  await saveSiteContent(content);
-  return NextResponse.json({ ok: true, content });
+  try {
+    await saveSiteContent(content);
+    return NextResponse.json({ ok: true, content });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Kaydedilemedi. Supabase bağlantısını ve ortam değişkenlerini kontrol edin." },
+      { status: 500 }
+    );
+  }
 }
