@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+:root {
+  --background: #050711;
+  --foreground: #f8fafc;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+::selection {
+  background: rgba(18, 217, 255, 0.35);
+}
+
+input,
+textarea,
+select,
+button {
+  font: inherit;
+}
+
+button,
+a,
+input,
+textarea,
+select {
+  outline-offset: 3px;
+}

@@ -1,0 +1,570 @@
+{
+  "brand": {
+    "companyName": "HK Dijital",
+    "founder": "Hayri Kamalı",
+    "slogan": "Ölçülebilir dijital büyüme için strateji, reklam ve analiz sistemi.",
+    "logoUrl": "",
+    "footerLogoUrl": "",
+    "faviconUrl": "",
+    "colors": {
+      "primary": "#12d9ff",
+      "secondary": "#d8b45b",
+      "accent": "#6ef3c5",
+      "button": "#12d9ff",
+      "background": "#050711"
+    },
+    "typography": {
+      "heading": "Geist",
+      "body": "Geist"
+    }
+  },
+  "socials": {
+    "instagram": "https://instagram.com/",
+    "facebook": "https://facebook.com/",
+    "youtube": "https://youtube.com/",
+    "twitter": "https://x.com/",
+    "linkedin": "https://linkedin.com/",
+    "whatsapp": "",
+    "tiktok": "https://tiktok.com/"
+  },
+  "contact": {
+    "phone": "+90 555 000 00 00",
+    "whatsappNumber": "+905550000000",
+    "email": "iletisim@hkdijital.com",
+    "address": "Manisa merkezli, Türkiye geneli hizmet",
+    "mapsEmbedUrl": ""
+  },
+  "settings": {
+    "siteTitle": "HK Dijital | Manisa Dijital Pazarlama Uzmanı",
+    "siteDescription": "Meta reklam yönetimi, Google Ads yönetimi, sosyal medya stratejisi ve AI destekli dijital analiz hizmetleri.",
+    "maintenanceMode": false,
+    "defaultTheme": "dark",
+    "analyticsIds": {
+      "metaPixel": "",
+      "googleTagManager": "",
+      "gaMeasurement": ""
+    },
+    "api": {
+      "geminiApiKey": "",
+      "groqApiKey": "",
+      "openAiApiKey": "",
+      "activeProvider": "demo",
+      "demoMode": true,
+      "model": "demo-local"
+    },
+    "legalDisclaimers": [
+      "Satış garantisi verilmez.",
+      "Reklam bütçesi hizmet bedeline dahil değildir.",
+      "Fiyatlara KDV dahil değildir.",
+      "Sonuçlar sektör, bütçe, hedef kitle, teklif ve rekabet durumuna göre değişebilir.",
+      "Form gönderimi, satış garantisi anlamına gelmez; süreç karşılıklı değerlendirme ile ilerler."
+    ]
+  },
+  "seo": {
+    "home": {
+      "title": "HK Dijital | Manisa Dijital Pazarlama ve Reklam Danışmanlığı",
+      "description": "HK Dijital; Manisa dijital pazarlama, Meta reklam yönetimi, Google Ads yönetimi, CRM müşteri takip sistemi ve AI destekli dijital analiz hizmetleri sunar."
+    },
+    "about": {
+      "title": "Hakkımda | Hayri Kamalı - HK Dijital",
+      "description": "Hayri Kamalı tarafından kurulan HK Dijital; dijital pazarlama uzmanı yaklaşımıyla reklam danışmanlığı, performans pazarlama ve süreç yönetimi sunar."
+    },
+    "services": {
+      "title": "Hizmetler | Meta Reklam, Google Ads ve Sosyal Medya Stratejisi",
+      "description": "Meta reklam yönetimi, Google Ads yönetimi, sosyal medya stratejisi, funnel planlama ve AI destekli dijital analiz hizmetleri."
+    },
+    "packages": {
+      "title": "Paketler | HK Dijital Reklam Yönetimi Paketleri",
+      "description": "Starter, Pro ve Premium dijital pazarlama paketleriyle işletmenize uygun performans pazarlama ve reklam optimizasyonu süreçlerini inceleyin."
+    },
+    "intelligence": {
+      "title": "HK Intelligence | AI Destekli Dijital Analiz",
+      "description": "HK Intelligence; CRM müşteri takip sistemi, AI destekli dijital analiz, lead scoring, funnel analizi ve reklam hazırlık değerlendirmesi sunar."
+    },
+    "quote": {
+      "title": "Teklif Al | Size Özel Dijital Pazarlama Paketi",
+      "description": "İşletme türünüz, hedefiniz ve reklam bütçenize göre HK Dijital paket önerinizi alın."
+    },
+    "contact": {
+      "title": "İletişim | HK Dijital",
+      "description": "Manisa dijital pazarlama, reklam danışmanlığı, Meta reklam yönetimi ve Google Ads yönetimi için HK Dijital ile iletişime geçin."
+    },
+    "certificates": {
+      "title": "Sertifikalar | HK Dijital Yetkinlikleri",
+      "description": "HK Dijital sertifikaları, reklam danışmanlığı, sosyal medya uzmanı yaklaşımı, performans pazarlama ve AI destekli dijital analiz yetkinlikleri."
+    }
+  },
+  "pages": {
+    "home": {
+      "headline": "İşletmenizi Dijitalde Daha Görünür, Daha Ölçülebilir ve Daha Stratejik Hale Getirin",
+      "subheadline": "HK Dijital; Meta reklamları, Google reklamları, sosyal medya stratejisi, CRM odaklı takip sistemi ve AI destekli dijital analiz süreçleriyle işletmenizin dijital büyüme yolculuğunu profesyonel bir sistemle yönetir.",
+      "primaryCta": "Ücretsiz Mini Analiz Al",
+      "secondaryCta": "Paketleri İncele",
+      "trustIndicators": [
+        "Meta & Google reklam stratejisi",
+        "CRM odaklı müşteri takibi",
+        "Performans odaklı reklam yönetimi",
+        "Şeffaf raporlama",
+        "Satış garantisi değil, ölçülebilir strateji"
+      ],
+      "process": [
+        "Analiz",
+        "Strateji",
+        "Kurulum",
+        "Reklam Yönetimi",
+        "CRM Takibi",
+        "Optimizasyon",
+        "Raporlama"
+      ],
+      "intelligenceTeaser": "HK Intelligence; potansiyel müşterileri CRM müşteri ilişki yönetimi sistemi içinde takip etmeye, işletme hazırlığını analiz etmeye, lead sıcaklığını puanlamaya, bütçe planlamaya ve daha stratejik teklifler hazırlamaya destek olan AI destekli analiz katmanıdır.",
+      "disclaimers": [
+        "Hizmet bedeline reklam bütçesi dahil değildir.",
+        "Fiyatlara KDV dahil değildir.",
+        "Paket kapsamı işletme ihtiyacına göre netleştirilir.",
+        "Satış garantisi verilmez; strateji, kurulum, optimizasyon ve raporlama süreci yönetilir."
+      ]
+    },
+    "about": {
+      "title": "Hayri Kamalı ve HK Dijital Yaklaşımı",
+      "content": "HK Dijital, Hayri Kamalı tarafından işletmelerin dijital pazarlama süreçlerini daha disiplinli, ölçülebilir ve stratejik hale getirmek için kuruldu. Çalışma modeli; Meta ve Google reklam stratejisi, sosyal medya uzmanlığı, AI destekli dijital analiz ve süreç yönetimi disiplinini bir araya getirir. Amaç yalnızca reklam açmak değil; hedef, teklif, kreatif, funnel, takip ve raporlama adımlarını aynı sistem içinde yönetmektir. Sonuçlar sektör, bütçe, rekabet, hedef kitle ve teklif gücüne göre değişebilir; bu yüzden HK Dijital gerçekçi beklenti yönetimi ve şeffaf raporlama prensibiyle çalışır.",
+      "highlights": [
+        "Dijital pazarlama uzmanı bakış açısı",
+        "Meta & Google reklam stratejisi",
+        "AI destekli dijital analiz yaklaşımı",
+        "Saha disiplini, sorumluluk ve süreç yönetimi"
+      ]
+    },
+    "services": {
+      "intro": "HK Dijital hizmetleri, işletmenizin dijital pazarlama yolculuğunu reklam kurulumundan funnel planlamaya, optimizasyondan raporlamaya kadar tek bir stratejik sistemde toplar."
+    },
+    "packages": {
+      "intro": "Paketler, farklı büyüme aşamalarındaki işletmeler için yapılandırılmıştır. Reklam bütçesi paket fiyatlarına dahil değildir ve tüm fiyatlara KDV dahil değildir."
+    },
+    "intelligence": {
+      "title": "HK Intelligence: AI Destekli CRM ve Dijital Analiz Sistemi",
+      "content": "HK Intelligence, HK Dijital’in AI destekli CRM ve dijital analiz sistemidir. CRM yani müşteri ilişki yönetimi sistemi ile potansiyel müşteriler düzenli takip edilir; lead yani potansiyel müşteri kayıtları, görüşme notları, teklif süreci ve takip adımları daha kontrollü yönetilir. Yapay zekâ destekli analiz katmanı ise dijital olgunluk, reklam hazırlığı, bütçe önerisi, funnel yani müşteri yolculuğu eksikleri ve teklif stratejisi konusunda karar sürecini güçlendirir. Bu yapı sonuç garantisi vermez; daha net strateji, daha iyi takip ve daha şeffaf karar alma zemini oluşturur.",
+      "features": [
+        "CRM ile müşteri ve lead takibi",
+        "AI destekli dijital olgunluk skoru",
+        "Lead sıcaklık puanı",
+        "Reklam potansiyeli analizi",
+        "Funnel eksikleri analizi",
+        "Bütçe öneri sistemi",
+        "Mini audit raporu",
+        "AI destekli teklif hazırlama",
+        "İçerik önerileri",
+        "Kampanya fikirleri",
+        "Müşteri takip notları",
+        "Teklif ve görüşme süreci takibi"
+      ]
+    },
+    "contact": {
+      "intro": "Manisa merkezli, Türkiye geneli dijital pazarlama, reklam danışmanlığı ve performans pazarlama desteği için HK Dijital ile iletişime geçebilirsiniz."
+    },
+    "certificates": {
+      "title": "Sertifikalar ve Yetkinlikler",
+      "intro": "HK Dijital çalışma yaklaşımı; dijital pazarlama uzmanı disiplini, sürekli öğrenme, reklam platformu bilgisi ve ölçümleme kültürü üzerine kuruludur."
+    }
+  },
+  "services": [
+    {
+      "imageUrl": "",
+      "id": "meta-ads",
+      "name": "Meta Reklam Yönetimi",
+      "icon": "Megaphone",
+      "description": "Instagram ve Facebook reklamlarınızı hedef, teklif, kreatif ve optimizasyon sistemiyle yönetin.",
+      "detailedDescription": "Meta reklam yönetimi; kampanya mimarisi, hedef kitle planı, kreatif yönlendirme, dönüşüm takibi ve düzenli optimizasyon adımlarını kapsar.",
+      "audience": "Yerel işletmeler, hizmet markaları, e-ticaret projeleri ve kişisel markalar için uygundur.",
+      "problem": "Plansız reklam harcaması, düşük ölçüm kalitesi ve dağınık kampanya yapısını çözer.",
+      "included": [
+        "Kampanya stratejisi",
+        "Hedef kitle planı",
+        "Reklam kurulumu",
+        "A/B test yaklaşımı",
+        "Raporlama"
+      ],
+      "cta": "Meta Reklam Teklifi Al",
+      "order": 1,
+      "visible": true
+    },
+    {
+      "imageUrl": "",
+      "id": "google-ads",
+      "name": "Google Ads Yönetimi",
+      "icon": "Search",
+      "description": "Arama niyeti yüksek kullanıcılarla markanızı doğru anahtar kelimelerde buluşturun.",
+      "detailedDescription": "Google Ads yönetimi; arama ağı, yeniden pazarlama, anahtar kelime mimarisi, negatif kelimeler ve dönüşüm odaklı optimizasyonu içerir.",
+      "audience": "Talep yakalamak isteyen hizmet işletmeleri, klinikler, danışmanlar, mağazalar ve e-ticaret markaları için uygundur.",
+      "problem": "Yanlış kelime, kontrolsüz tıklama maliyeti ve ölçümsüz trafik problemlerini azaltır.",
+      "included": [
+        "Anahtar kelime analizi",
+        "Kampanya kurulumu",
+        "Negatif kelime listesi",
+        "Dönüşüm takibi",
+        "Performans raporu"
+      ],
+      "cta": "Google Ads Planı İste",
+      "order": 2,
+      "visible": true
+    },
+    {
+      "imageUrl": "",
+      "id": "social-strategy",
+      "name": "Sosyal Medya Stratejisi",
+      "icon": "Share2",
+      "description": "İçerik, konumlandırma ve reklam dilini markanızın hedeflerine göre sistemleştirin.",
+      "detailedDescription": "Sosyal medya stratejisi; içerik sütunları, kampanya temaları, marka tonu, CTA mimarisi ve reklamla uyumlu içerik planını kapsar.",
+      "audience": "Marka bilinirliği ve güven algısını güçlendirmek isteyen işletmeler için uygundur.",
+      "problem": "Düzensiz paylaşım, net olmayan mesaj ve satışa bağlanmayan içerik sorunlarını azaltır.",
+      "included": [
+        "İçerik sütunları",
+        "Aylık yön planı",
+        "CTA önerileri",
+        "Reklamla uyumlu içerik fikri",
+        "Performans yorumu"
+      ],
+      "cta": "Strateji Görüşmesi Al",
+      "order": 3,
+      "visible": true
+    },
+    {
+      "imageUrl": "",
+      "id": "landing",
+      "name": "Web Site & Landing Page",
+      "icon": "Layout",
+      "description": "Reklam trafiğini daha net teklif, güçlü CTA ve ölçülebilir sayfa yapısına yönlendirin.",
+      "detailedDescription": "Landing page çalışmaları; teklif mimarisi, form kurgusu, CTA yerleşimi, güven unsurları ve dönüşüm takibi mantığını kapsar.",
+      "audience": "Reklamdan lead veya satış almak isteyen işletmeler için uygundur.",
+      "problem": "Trafik var ama form, arama veya satın alma aksiyonu düşükse sayfa deneyimini iyileştirir.",
+      "included": [
+        "Sayfa stratejisi",
+        "UX akışı",
+        "CTA yapısı",
+        "Form önerisi",
+        "Takip kodu hazırlığı"
+      ],
+      "cta": "Landing Page Planı Al",
+      "order": 4,
+      "visible": true
+    },
+    {
+      "imageUrl": "",
+      "id": "ai-analysis",
+      "name": "AI Destekli Dijital Analiz",
+      "icon": "Sparkles",
+      "description": "Dijital olgunluk, reklam hazırlığı ve funnel boşluklarını akıllı analiz katmanıyla görünür kılın.",
+      "detailedDescription": "AI destekli dijital analiz; mevcut dijital varlıkları, reklam potansiyelini, lead sıcaklığını ve içerik fırsatlarını değerlendiren destekleyici bir analiz sürecidir.",
+      "audience": "Nereden başlayacağını netleştirmek veya mevcut sistemi geliştirmek isteyen işletmeler için uygundur.",
+      "problem": "Belirsiz hedef, dağınık dijital varlık ve yanlış bütçe kararlarını daha görünür hale getirir.",
+      "included": [
+        "Dijital olgunluk skoru",
+        "Funnel eksikleri",
+        "Lead sıcaklık puanı",
+        "Bütçe önerisi",
+        "Mini audit raporu"
+      ],
+      "cta": "AI Analiz İste",
+      "order": 5,
+      "visible": true
+    },
+    {
+      "id": "crm-lead",
+      "name": "CRM & Lead Takip Sistemi",
+      "icon": "Users",
+      "imageUrl": "",
+      "description": "Potansiyel müşterileri CRM müşteri ilişki yönetimi sistemi içinde düzenli takip edin.",
+      "detailedDescription": "CRM & Lead Takip Sistemi; form, WhatsApp, sosyal medya ve reklam kaynaklı potansiyel müşteri kayıtlarının statü, not ve takip tarihiyle yönetilmesini sağlar.",
+      "audience": "Lead toplayan ve görüşme sürecini düzenli takip etmek isteyen hizmet işletmeleri, yerel işletmeler, kişisel markalar ve e-ticaret ekipleri için uygundur.",
+      "problem": "Dağınık müşteri kayıtları, unutulan takipler ve ölçülemeyen satış hunisi problemlerini azaltır.",
+      "included": [
+        "Lead kayıt düzeni",
+        "Durum takibi",
+        "İç notlar",
+        "Takip tarihi",
+        "Teklif süreci görünürlüğü"
+      ],
+      "cta": "CRM Takip Sistemini Gör",
+      "order": 6,
+      "visible": true
+    },
+    {
+      "imageUrl": "",
+      "id": "remarketing",
+      "name": "Remarketing & Funnel Kurulumu",
+      "icon": "GitBranch",
+      "description": "İlk temastan dönüşüme kadar yeniden pazarlama ve potansiyel müşteri akışını planlayın.",
+      "detailedDescription": "Remarketing ve funnel kurulumu; ziyaretçi, etkileşim, form, sepet veya lead aşamalarına göre yeniden iletişim stratejisi oluşturur.",
+      "audience": "Tek temasla karar vermeyen müşteri gruplarına tekrar ulaşmak isteyen markalar için uygundur.",
+      "problem": "Kaçan ziyaretçi, takip edilmeyen lead ve kopuk satış yolculuğu problemlerini azaltır.",
+      "included": [
+        "Funnel haritası",
+        "Remarketing kitleleri",
+        "Mesaj sıralaması",
+        "Lead akış önerisi",
+        "Raporlama"
+      ],
+      "cta": "Funnel Planı Al",
+      "order": 7,
+      "visible": true
+    },
+    {
+      "imageUrl": "",
+      "id": "reporting",
+      "name": "Raporlama & Optimizasyon",
+      "icon": "BarChart3",
+      "description": "Kampanya verilerini anlaşılır raporlar ve aksiyon önerileriyle takip edin.",
+      "detailedDescription": "Raporlama ve optimizasyon; sonuçları yalnızca rakam olarak değil, sonraki aksiyonları gösteren bir karar sistemi olarak ele alır.",
+      "audience": "Reklam yatırımını daha şeffaf izlemek isteyen işletmeler için uygundur.",
+      "problem": "Ne çalışıyor, ne iyileştirilmeli ve bütçe nereye kaymalı sorularını netleştirir.",
+      "included": [
+        "Performans özeti",
+        "KPI takibi",
+        "Bütçe yorumu",
+        "Aksiyon listesi",
+        "Aylık değerlendirme"
+      ],
+      "cta": "Raporlama Modelini Gör",
+      "order": 8,
+      "visible": true
+    }
+  ],
+  "packages": [
+    {
+      "imageUrl": "",
+      "order": 1,
+      "id": "starter",
+      "name": "Starter",
+      "price": "12.500 TL / ay",
+      "description": "Dijital reklamlara kontrollü ve ölçülebilir bir başlangıç yapmak isteyen işletmeler için.",
+      "features": [
+        "1 ana kanal reklam kurulumu",
+        "Temel hedef kitle planı",
+        "Mini strateji dokümanı",
+        "Aylık performans özeti",
+        "WhatsApp yönlendirme desteği"
+      ],
+      "recommended": false,
+      "visible": true,
+      "cta": "Starter ile Başla"
+    },
+    {
+      "imageUrl": "",
+      "order": 2,
+      "id": "pro",
+      "name": "Pro",
+      "price": "24.500 TL / ay",
+      "description": "Yapılandırılmış büyüme, düzenli optimizasyon ve daha net raporlama isteyen işletmeler için.",
+      "features": [
+        "Meta veya Google Ads yönetimi",
+        "Dönüşüm odaklı kampanya yapısı",
+        "Düzenli optimizasyon",
+        "Aylık rapor ve aksiyon planı",
+        "Remarketing yönlendirmesi"
+      ],
+      "recommended": true,
+      "visible": true,
+      "cta": "Pro Paketi Seç"
+    },
+    {
+      "imageUrl": "",
+      "order": 3,
+      "id": "premium",
+      "name": "Premium",
+      "price": "42.500 TL / ay",
+      "description": "Çok kanallı strateji, AI analiz, CRM takibi, funnel planlama ve detaylı raporlama isteyen markalar için.",
+      "features": [
+        "Meta + Google strateji mimarisi",
+        "HK Intelligence mini audit",
+        "Funnel ve remarketing planı",
+        "Detaylı aylık raporlama",
+        "Kreatif ve teklif optimizasyon önerileri",
+        "CRM lead takip sistemi",
+        "Teklif ve görüşme süreci takibi"
+      ],
+      "recommended": false,
+      "visible": true,
+      "cta": "Premium Görüşme Al"
+    }
+  ],
+  "quoteWizard": {
+    "title": "Size Özel Dijital Pazarlama Paketi",
+    "subtitle": "İşletmenize en uygun çözümü birlikte bulalım",
+    "businessTypes": [
+      {
+        "id": "ecommerce",
+        "label": "E-ticaret"
+      },
+      {
+        "id": "service",
+        "label": "Hizmet Sektörü"
+      },
+      {
+        "id": "local",
+        "label": "Yerel İşletme"
+      },
+      {
+        "id": "personal",
+        "label": "Kişisel Marka"
+      },
+      {
+        "id": "unsure",
+        "label": "Kararsızım"
+      }
+    ],
+    "goals": [
+      {
+        "id": "sales",
+        "label": "Satış Artırmak"
+      },
+      {
+        "id": "lead",
+        "label": "Lead / Form Toplamak"
+      },
+      {
+        "id": "awareness",
+        "label": "Marka Bilinirliği"
+      },
+      {
+        "id": "remarketing",
+        "label": "Yeniden Pazarlama"
+      },
+      {
+        "id": "unclear",
+        "label": "Net Değil"
+      }
+    ],
+    "budgets": [
+      {
+        "id": "under10",
+        "label": "10.000 TL altı"
+      },
+      {
+        "id": "10to30",
+        "label": "10.000 - 30.000 TL"
+      },
+      {
+        "id": "30to75",
+        "label": "30.000 - 75.000 TL"
+      },
+      {
+        "id": "75plus",
+        "label": "75.000 TL ve üzeri"
+      },
+      {
+        "id": "unset",
+        "label": "Henüz Belirlemedim"
+      }
+    ],
+    "recommendationRules": [
+      {
+        "budget": "under10",
+        "recommendedPackage": "starter",
+        "alternativePackage": "pro"
+      },
+      {
+        "budget": "10to30",
+        "recommendedPackage": "pro",
+        "alternativePackage": "starter"
+      },
+      {
+        "budget": "30to75",
+        "recommendedPackage": "pro",
+        "alternativePackage": "premium"
+      },
+      {
+        "budget": "75plus",
+        "recommendedPackage": "premium",
+        "alternativePackage": "pro"
+      }
+    ],
+    "ctaTexts": {
+      "next": "Devam Et",
+      "back": "Geri",
+      "submit": "Önerimi Gönder",
+      "whatsapp": "WhatsApp ile Paylaş"
+    },
+    "formFields": [
+      {
+        "id": "name",
+        "label": "Ad Soyad",
+        "required": true,
+        "type": "text"
+      },
+      {
+        "id": "company",
+        "label": "Firma Adı",
+        "required": true,
+        "type": "text"
+      },
+      {
+        "id": "email",
+        "label": "E-posta",
+        "required": true,
+        "type": "email"
+      },
+      {
+        "id": "phone",
+        "label": "Telefon",
+        "required": true,
+        "type": "tel"
+      },
+      {
+        "id": "instagram",
+        "label": "Instagram kullanıcı adı",
+        "required": false,
+        "type": "text"
+      },
+      {
+        "id": "website",
+        "label": "Web sitesi",
+        "required": false,
+        "type": "url"
+      },
+      {
+        "id": "note",
+        "label": "Kısa Not",
+        "required": false,
+        "type": "textarea"
+      }
+    ],
+    "successMessage": "Bilgileriniz alındı. Dilerseniz seçiminizi WhatsApp üzerinden HK Dijital ile paylaşabilirsiniz.",
+    "whatsappTemplate": "HK Dijital teklif talebi"
+  },
+  "media": [],
+  "certificates": [
+    {
+      "id": "meta-blueprint",
+      "title": "Meta Reklam Stratejisi Yetkinliği",
+      "institution": "Meta / Platform Eğitimi",
+      "date": "2026",
+      "description": "Meta reklam yönetimi, hedef kitle planlama, kreatif test ve performans odaklı kampanya mimarisi üzerine yetkinlik alanı.",
+      "fileUrl": "",
+      "verificationUrl": "",
+      "order": 1,
+      "visible": true
+    },
+    {
+      "id": "google-ads",
+      "title": "Google Ads Yönetimi Yetkinliği",
+      "institution": "Google Skillshop / Platform Eğitimi",
+      "date": "2026",
+      "description": "Google Ads yönetimi, anahtar kelime stratejisi, ölçümleme ve reklam optimizasyonu yaklaşımını destekleyen eğitim alanı.",
+      "fileUrl": "",
+      "verificationUrl": "",
+      "order": 2,
+      "visible": true
+    },
+    {
+      "id": "ai-analysis",
+      "title": "AI Destekli Dijital Analiz",
+      "institution": "HK Dijital İç Metodoloji",
+      "date": "2026",
+      "description": "Yapay zekâ destekli analiz, CRM takip sistemi, funnel planlama ve teklif hazırlama süreçlerinde kullanılan iç çalışma metodolojisi.",
+      "fileUrl": "",
+      "verificationUrl": "",
+      "order": 3,
+      "visible": true
+    }
+  ],
+  "leads": []
+}
