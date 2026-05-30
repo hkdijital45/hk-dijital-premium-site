@@ -28,6 +28,14 @@ type UserProfileRow = {
   is_active: boolean;
 };
 
+export type SupabaseAuthAdminUser = {
+  id: string;
+  email?: string;
+  confirmed_at?: string | null;
+  email_confirmed_at?: string | null;
+  banned_until?: string | null;
+};
+
 const adminRoles: UserRole[] = ["admin", "editor", "sales"];
 export const productionSiteUrl = "https://www.hkdijital.com.tr";
 
@@ -217,6 +225,51 @@ export async function createSupabaseAuthUser({
         password,
         email_confirm: true,
         user_metadata: { full_name: fullName || "" }
+      })
+    },
+    true
+  );
+}
+
+export async function listSupabaseAuthUsers() {
+  const collected: SupabaseAuthAdminUser[] = [];
+  for (let page = 1; page <= 20; page += 1) {
+    const result = await supabaseAuthRequest<{ users?: SupabaseAuthAdminUser[] }>(
+      `admin/users?page=${page}&per_page=100`,
+      { method: "GET" },
+      true
+    );
+    const users = result.users || [];
+    collected.push(...users);
+    if (users.length < 100) break;
+  }
+  return collected;
+}
+
+export async function findSupabaseAuthUserByEmail(email: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const users = await listSupabaseAuthUsers();
+  return users.find((user) => (user.email || "").toLowerCase() === normalizedEmail) || null;
+}
+
+export async function updateSupabaseAuthUser(
+  authUserId: string,
+  patch: {
+    email?: string;
+    password?: string;
+    fullName?: string;
+  }
+) {
+  return supabaseAuthRequest<SupabaseAuthAdminUser>(
+    `admin/users/${encodeURIComponent(authUserId)}`,
+    {
+      method: "PUT",
+      body: JSON.stringify({
+        ...(patch.email ? { email: patch.email } : {}),
+        ...(patch.password ? { password: patch.password } : {}),
+        email_confirm: true,
+        ban_duration: "none",
+        user_metadata: { full_name: patch.fullName || "" }
       })
     },
     true

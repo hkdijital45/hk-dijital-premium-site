@@ -24,6 +24,7 @@ http://127.0.0.1:3000
 - Giriş: `/giris`
 - Şifre sıfırlama: `/sifre-sifirla`
 - İlk kurulum: `/kurulum`
+- Acil süper admin kurulumu: `/super-admin-kurulum`
 - Yönetim paneli: `/hk-admin`
 - Müşteri paneli: `/musteri-paneli`
 - Hakkımda: `/hakkimda`
@@ -38,6 +39,8 @@ http://127.0.0.1:3000
 
 ```env
 ADMIN_SESSION_SECRET=
+BOOTSTRAP_ADMIN_SECRET=
+FORCE_BOOTSTRAP_ADMIN=false
 
 CUSTOMER_EMAIL=
 CUSTOMER_PASSWORD=
@@ -126,6 +129,45 @@ Mevcut tabloda `auth_user_id` yoksa `supabase/schema.sql` dosyasındaki migratio
 
 ```sql
 alter table public.users add column if not exists auth_user_id uuid unique references auth.users(id) on delete cascade;
+```
+
+## Acil Süper Admin Onarımı
+
+Normal admin girişi çalışmıyorsa geçici bootstrap sistemi kullanılabilir.
+
+Vercel > Project Settings > Environment Variables alanına geçici olarak ekleyin:
+
+```env
+BOOTSTRAP_ADMIN_SECRET=uzun-rastgele-bir-anahtar
+FORCE_BOOTSTRAP_ADMIN=true
+```
+
+Ardından şu sayfayı açın:
+
+```text
+/super-admin-kurulum
+```
+
+Form alanlarını doldurun:
+
+- Ad Soyad
+- E-posta
+- Şifre
+- Bootstrap Secret
+
+Bu işlem şu kayıtları oluşturur veya onarır:
+
+- Supabase Auth user
+- `public.users` profil satırı
+- `auth_user_id` bağlantısı
+- `role = admin`
+- `is_active = true`
+
+Başarılı mesajdan sonra `/giris` ekranında “Yönetici” modunu seçerek giriş yapın. Giriş başarılı olduktan sonra Vercel’den şu iki değişkeni kaldırın:
+
+```env
+BOOTSTRAP_ADMIN_SECRET
+FORCE_BOOTSTRAP_ADMIN
 ```
 
 ## Müşteri Oluşturma
