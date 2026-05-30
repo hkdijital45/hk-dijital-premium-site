@@ -67,8 +67,14 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true, user: rows[0] });
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Kullanıcı oluşturulamadı.";
+    console.error("Kullanıcı oluşturma Supabase hatası:", message);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Kullanıcı oluşturulamadı." },
+      {
+        error: "Kullanıcı oluşturulamadı.",
+        supabaseError: message,
+        possibleCause: "Auth kullanıcısı veya public.users profil satırı oluşturulurken Supabase hatası alındı."
+      },
       { status: 500 }
     );
   }

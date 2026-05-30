@@ -21,10 +21,23 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (payload.companyId !== undefined || payload.company_id !== undefined) patch.company_id = (payload.companyId ?? payload.company_id) || null;
   if (payload.isActive !== undefined || payload.is_active !== undefined) patch.is_active = payload.isActive ?? payload.is_active;
 
-  const rows = await supabaseRest<any[]>(`users?id=eq.${encodeURIComponent(id)}`, {
-    method: "PATCH",
-    body: JSON.stringify(patch)
-  });
+  try {
+    const rows = await supabaseRest<any[]>(`users?id=eq.${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch)
+    });
 
-  return NextResponse.json({ ok: true, user: rows[0] });
+    return NextResponse.json({ ok: true, user: rows[0] });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Kullanıcı güncellenemedi.";
+    console.error("Kullanıcı güncelleme Supabase hatası:", message);
+    return NextResponse.json(
+      {
+        error: "Kullanıcı güncellenemedi.",
+        supabaseError: message,
+        possibleCause: "Service role kullanılmasına rağmen hata alınıyorsa public.users şeması veya tablo izinleri kontrol edilmelidir."
+      },
+      { status: 500 }
+    );
+  }
 }

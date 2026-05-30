@@ -28,8 +28,7 @@ async function upsertCompany() {
       instagram: "@mycake45",
       phone: "+90 555 045 45 45",
       email: demoEmail,
-      status: "Aktif",
-      notes: "Demo müşteri hesabı."
+      status: "Aktif"
     })
   });
   return rows[0];
@@ -115,8 +114,7 @@ async function upsertCampaign(companyId: string) {
       start_date: new Date().toISOString().slice(0, 10),
       budget: 15000,
       spent: 4320,
-      notes: "Demo kampanya: doğum günü pastası ve özel gün siparişleri için mesaj odaklı reklam.",
-      visible_to_customer: true
+      notes: "Demo kampanya: doğum günü pastası ve özel gün siparişleri için mesaj odaklı reklam."
     })
   });
   return rows[0];
@@ -132,7 +130,6 @@ async function createMetric(companyId: string, campaignId: string) {
       impressions: 18450,
       reach: 11230,
       clicks: 386,
-      messages: 42,
       leads: 31,
       conversions: 8,
       spent: 4320,
@@ -140,8 +137,7 @@ async function createMetric(companyId: string, campaignId: string) {
       cpc: 11.19,
       cpm: 234.15,
       cost_per_lead: 139.35,
-      notes: "Demo metrik: mesaj ve lead performansı müşteri panelinde gösterilir.",
-      visible_to_customer: true
+      notes: "Demo metrik: lead performansı müşteri panelinde gösterilir."
     })
   });
   return rows[0];
@@ -154,19 +150,15 @@ async function createUpdates(companyId: string) {
       {
         company_id: companyId,
         title: "Kampanya hedef kitlesi düzenlendi",
-        description: "Manisa merkez ve yakın ilçelerde özel gün pastası arayan kullanıcılar için hedef kitle güncellendi.",
+        description: "Manisa merkez ve yakın ilçelerde özel gün pastası arayan kullanıcılar için hedef kitle güncellendi. Neden önemli: Reklamın daha ilgili kişilere ulaşmasına yardımcı olur. Sıradaki adım: En iyi dönüşüm getiren kreatifler 3 gün daha izlenecek.",
         update_type: "Reklam Güncellemesi",
-        why_it_matters: "Reklamın daha ilgili kişilere ulaşmasına yardımcı olur.",
-        next_step: "En iyi dönüşüm getiren kreatifler 3 gün daha izlenecek.",
         visible_to_customer: true
       },
       {
         company_id: companyId,
         title: "Mesaj karşılama metni önerildi",
-        description: "Instagram DM üzerinden gelen talepler için kısa ve net cevap akışı hazırlandı.",
+        description: "Instagram DM üzerinden gelen talepler için kısa ve net cevap akışı hazırlandı. Neden önemli: Gelen potansiyel müşterilerin daha hızlı siparişe yönlenmesini sağlar. Sıradaki adım: Sık sorulan sorulara göre cevap şablonu genişletilecek.",
         update_type: "Strateji Notu",
-        why_it_matters: "Gelen potansiyel müşterilerin daha hızlı siparişe yönlenmesini sağlar.",
-        next_step: "Sık sorulan sorulara göre cevap şablonu genişletilecek.",
         visible_to_customer: true
       }
     ])
@@ -224,8 +216,14 @@ export async function POST() {
       file
     });
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Demo müşteri oluşturulamadı.";
+    console.error("Demo müşteri Supabase hatası:", message);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Demo müşteri oluşturulamadı." },
+      {
+        error: "Demo müşteri oluşturulamadı.",
+        supabaseError: message,
+        possibleCause: "Service role kullanılmasına rağmen hata alınıyorsa canlı Supabase şeması, tablo izinleri veya Storage yapılandırması kontrol edilmelidir."
+      },
       { status: 500 }
     );
   }

@@ -19,20 +19,32 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Firma adı zorunludur." }, { status: 400 });
   }
 
-  const rows = await supabaseRest<any[]>("companies", {
-    method: "POST",
-    body: JSON.stringify({
-      name,
-      sector: payload.sector || "",
-      city: payload.city || "",
-      website: payload.website || "",
-      instagram: payload.instagram || "",
-      phone: payload.phone || "",
-      email: payload.email || "",
-      status: payload.status || "Aktif",
-      notes: payload.notes || ""
-    })
-  });
+  try {
+    const rows = await supabaseRest<any[]>("companies", {
+      method: "POST",
+      body: JSON.stringify({
+        name,
+        sector: payload.sector || "",
+        city: payload.city || "",
+        website: payload.website || "",
+        instagram: payload.instagram || "",
+        phone: payload.phone || "",
+        email: payload.email || "",
+        status: payload.status || "Aktif"
+      })
+    });
 
-  return NextResponse.json({ ok: true, company: rows[0] });
+    return NextResponse.json({ ok: true, company: rows[0] });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Firma oluşturulamadı.";
+    console.error("Firma oluşturma Supabase hatası:", message);
+    return NextResponse.json(
+      {
+        error: "Firma oluşturulamadı.",
+        supabaseError: message,
+        possibleCause: "Service role kullanılmasına rağmen hata alınıyorsa canlı Supabase şeması veya tablo izinleri kontrol edilmelidir."
+      },
+      { status: 500 }
+    );
+  }
 }

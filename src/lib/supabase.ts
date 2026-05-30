@@ -42,7 +42,9 @@ export async function supabaseRest<T>(
 
   if (!response.ok) {
     const detail = await response.text();
-    throw new Error(detail || "Supabase isteği başarısız oldu.");
+    throw new Error(
+      `Supabase REST hatası (${response.status}) ${path}: ${detail || "Supabase isteği başarısız oldu."}`
+    );
   }
 
   if (response.status === 204) return null as T;

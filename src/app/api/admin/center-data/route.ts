@@ -39,7 +39,6 @@ function normalizeRecord(key: string, item: any) {
       phone: item.phone || "",
       email: item.email || "",
       status: item.status || "Aktif",
-      notes: item.notes || null,
       updated_at: new Date().toISOString()
     };
   }
@@ -57,7 +56,6 @@ function normalizeRecord(key: string, item: any) {
       budget: Number(item.budget || 0),
       spent: Number(item.spent || 0),
       notes: item.notes || null,
-      visible_to_customer: item.visible_to_customer ?? true,
       updated_at: new Date().toISOString()
     };
   }
@@ -94,7 +92,6 @@ function normalizeRecord(key: string, item: any) {
       impressions: Number(item.impressions || 0),
       reach: Number(item.reach || 0),
       clicks: Number(item.clicks || 0),
-      messages: Number(item.messages || 0),
       leads: Number(item.leads || 0),
       conversions: Number(item.conversions || 0),
       ctr: Number(item.ctr || 0),
@@ -102,8 +99,7 @@ function normalizeRecord(key: string, item: any) {
       cpm: Number(item.cpm || 0),
       cost_per_lead: Number(item.cost_per_lead || 0),
       spent: Number(item.spent || 0),
-      notes: item.notes || null,
-      visible_to_customer: item.visible_to_customer ?? true
+      notes: item.notes || null
     };
   }
 
@@ -114,8 +110,6 @@ function normalizeRecord(key: string, item: any) {
       title: item.title || "Yeni çalışma notu",
       description: item.description || "",
       update_type: item.update_type || "Yapılan Çalışma",
-      why_it_matters: item.why_it_matters || "",
-      next_step: item.next_step || "",
       visible_to_customer: item.visible_to_customer ?? true,
       updated_at: new Date().toISOString()
     };
@@ -166,11 +160,17 @@ async function upsertItems(key: keyof typeof tables, items: any[] = []) {
 
   const conflictTarget = key === "customerVisibilitySettings" ? "company_id" : "id";
 
-  return supabaseRest(`${table}?on_conflict=${conflictTarget}`, {
-    method: "POST",
-    headers: { Prefer: "resolution=merge-duplicates,return=representation" },
-    body: JSON.stringify(records)
-  });
+  try {
+    return await supabaseRest(`${table}?on_conflict=${conflictTarget}`, {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+      body: JSON.stringify(records)
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Supabase kaydetme hatası.";
+    console.error(`${table} kaydetme Supabase hatası:`, message);
+    throw error;
+  }
 }
 
 export async function GET() {
@@ -216,15 +216,27 @@ export async function PUT(request: Request) {
   }
 
   const payload = await request.json();
-  await Promise.all([
-    upsertItems("companies", payload.companies),
-    upsertItems("leads", payload.leads),
-    upsertItems("campaigns", payload.campaigns),
-    upsertItems("campaignMetrics", payload.campaignMetrics),
-    upsertItems("customerUpdates", payload.customerUpdates),
-    upsertItems("customerVisibilitySettings", payload.customerVisibilitySettings),
-    upsertItems("customerFiles", payload.customerFiles)
-  ]);
+  try {
+    await Promise.all([
+      upsertItems("companies", payload.companies),
+      upsertItems("leads", payload.leads),
+      upsertItems("campaigns", payload.campaigns),
+      upsertItems("campaignMetrics", payload.campaignMetrics),
+      upsertItems("customerUpdates", payload.customerUpdates),
+      upsertItems("customerVisibilitySettings", payload.customerVisibilitySettings),
+      upsertItems("customerFiles", payload.customerFiles)
+    ]);
 
-  return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Kaydedilemedi.";
+    return NextResponse.json(
+      {
+        error: "Kaydedilemedi.",
+        supabaseError: message,
+        possibleCause: "Service role kullanılıyor. Hata devam ediyorsa canlı Supabase şeması, RLS force ayarı veya tablo izinleri kontrol edilmelidir."
+      },
+      { status: 500 }
+    );
+  }
 }

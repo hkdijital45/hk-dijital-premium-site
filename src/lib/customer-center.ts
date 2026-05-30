@@ -37,8 +37,8 @@ export async function getCustomerCenterData(companyId?: string): Promise<Custome
     const [companies, visibilityRows, campaigns, metrics, updates, files] = await Promise.all([
       supabaseRest<any[]>(`companies?id=eq.${companyId}&select=*&limit=1`),
       supabaseRest<any[]>(`customer_visibility_settings?company_id=eq.${companyId}&select=*&limit=1`),
-      supabaseRest<any[]>(`campaigns?company_id=eq.${companyId}&visible_to_customer=is.true&select=*&order=created_at.desc`),
-      supabaseRest<any[]>(`campaign_metrics?company_id=eq.${companyId}&visible_to_customer=is.true&select=*&order=date.desc`),
+      supabaseRest<any[]>(`campaigns?company_id=eq.${companyId}&select=*&order=created_at.desc`),
+      supabaseRest<any[]>(`campaign_metrics?company_id=eq.${companyId}&select=*&order=date.desc`),
       supabaseRest<any[]>(`customer_updates?company_id=eq.${companyId}&visible_to_customer=eq.true&select=*&order=created_at.desc`),
       supabaseRest<any[]>(`customer_files?company_id=eq.${companyId}&visible_to_customer=eq.true&select=*&order=uploaded_at.desc`)
     ]);

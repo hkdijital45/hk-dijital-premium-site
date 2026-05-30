@@ -333,7 +333,7 @@ function CustomersAdmin({ content, setContent }: any) {
       setCompanyForm({ name: "", sector: "", city: "Manisa", website: "", instagram: "", phone: "", email: "", status: "Aktif", notes: "" });
       setMessage("Firma başarıyla oluşturuldu. Artık müşteri hesabı bu firmaya bağlanabilir.");
     } else {
-      setError(data.error || "Firma oluşturulamadı.");
+      setError(data.supabaseError ? `${data.error || "Firma oluşturulamadı."} Supabase hata detayı: ${data.supabaseError}` : data.error || "Firma oluşturulamadı.");
     }
   }
 
@@ -365,7 +365,7 @@ function CustomersAdmin({ content, setContent }: any) {
       setForm({ fullName: "", email: "", password: "", company_id: "", role: "customer", is_active: true });
       setMessage("Müşteri giriş hesabı oluşturuldu.");
     } else {
-      setError(data.error || "Kullanıcı oluşturulamadı.");
+      setError(data.supabaseError ? `${data.error || "Kullanıcı oluşturulamadı."} Supabase hata detayı: ${data.supabaseError}` : data.error || "Kullanıcı oluşturulamadı.");
     }
   }
 
@@ -389,7 +389,7 @@ function CustomersAdmin({ content, setContent }: any) {
       });
       setMessage(`${data.message} Giriş: ${data.credentials.email} / ${data.credentials.password}`);
     } else {
-      setError(data.error || "Demo müşteri oluşturulamadı.");
+      setError(data.supabaseError ? `${data.error || "Demo müşteri oluşturulamadı."} Supabase hata detayı: ${data.supabaseError}` : data.error || "Demo müşteri oluşturulamadı.");
     }
   }
 
