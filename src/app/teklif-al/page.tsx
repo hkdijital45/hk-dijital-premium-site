@@ -15,8 +15,8 @@ export default async function QuotePage() {
 
   return (
     <PublicShell>
-      <PageHero eyebrow="Teklif Al" title={content.quoteWizard.title} text={content.quoteWizard.subtitle} />
-      <section className="px-4 pb-20 sm:px-6 lg:px-8">
+      <PageHero eyebrow="Paket Öneri Robotu" title={content.quoteWizard.title} text={content.quoteWizard.subtitle} />
+      <section className="px-4 pb-24 sm:px-6 lg:px-8">
         <QuoteWizard content={{ quoteWizard: content.quoteWizard, packages: content.packages, contact: content.contact }} />
       </section>
     </PublicShell>
