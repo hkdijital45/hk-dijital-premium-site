@@ -12,16 +12,17 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Yerel adres:
+Yerel geliştirme adresi:
 
 ```text
-http://localhost:3000
+http://127.0.0.1:3000
 ```
 
 ## Rotalar
 
 - Public site: `/`
 - Giriş: `/giris`
+- Şifre sıfırlama: `/sifre-sifirla`
 - İlk kurulum: `/kurulum`
 - Yönetim paneli: `/hk-admin`
 - Müşteri paneli: `/musteri-paneli`
@@ -46,6 +47,7 @@ CUSTOMER_COMPANY_ID=
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
+NEXT_PUBLIC_SITE_URL=https://www.hkdijital.com.tr
 
 OPENAI_API_KEY=
 GROQ_API_KEY=
@@ -53,6 +55,28 @@ GEMINI_API_KEY=
 ```
 
 `SUPABASE_SERVICE_ROLE_KEY` kesinlikle tarayıcıya gönderilmez. Yazma işlemleri sunucu tarafındaki API route’ları üzerinden yapılır.
+
+`NEXT_PUBLIC_SITE_URL` üretimde `https://www.hkdijital.com.tr` olmalıdır. Şifre sıfırlama e-postaları ve Supabase Auth yönlendirmeleri bu alan adını kullanır.
+
+## Supabase Auth URL Ayarları
+
+Supabase Dashboard içinde Authentication > URL Configuration bölümünde şu değerleri kullanın:
+
+```text
+Site URL: https://www.hkdijital.com.tr
+Redirect URLs:
+https://www.hkdijital.com.tr/giris
+https://www.hkdijital.com.tr/auth/callback
+https://www.hkdijital.com.tr/sifre-sifirla
+https://www.hkdijital.com.tr/hk-admin
+https://www.hkdijital.com.tr/musteri-paneli
+```
+
+Password reset e-postaları uygulama tarafında şu `redirect_to` değeriyle gönderilir:
+
+```text
+https://www.hkdijital.com.tr/sifre-sifirla
+```
 
 ## Supabase Kurulumu
 
@@ -162,7 +186,7 @@ Supabase ortam değişkenleri yoksa:
 
 - Supabase Auth `password` girişi kullanılır; oturum bilgisi httpOnly ve imzalı cookie ile korunur.
 - API anahtarları admin arayüzünde alan olarak tutulabilir; üretimde encrypted secret storage önerilir.
-- Şifre sıfırlama endpoint’i güvenli placeholder döner; üretimde Supabase reset password e-postası bağlanmalıdır.
+- Şifre sıfırlama e-postaları Supabase Auth üzerinden `https://www.hkdijital.com.tr/sifre-sifirla` adresine yönlendirilir.
 - Admin panelindeki public site içerikleri `site_settings`, müşteri/kampanya/rapor verileri ilişkili Supabase tablolarında saklanır.
 
 ## Vercel Yayınlama

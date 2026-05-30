@@ -13,6 +13,8 @@ export function LoginForm() {
       : ""
   );
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetMessage, setResetMessage] = useState("");
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -33,6 +35,28 @@ export function LoginForm() {
     }
 
     window.location.href = data.redirectTo || (userType === "admin" ? "/hk-admin" : "/musteri-paneli");
+  }
+
+  async function forgotPassword() {
+    setError("");
+    setResetMessage("");
+    if (!email.trim()) {
+      setError("Şifre sıfırlama için e-posta adresinizi yazın.");
+      return;
+    }
+    setResetLoading(true);
+    const response = await fetch("/api/auth/forgot-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email })
+    });
+    const data = await response.json().catch(() => ({}));
+    setResetLoading(false);
+    if (!response.ok) {
+      setError(data.error || "Şifre sıfırlama e-postası gönderilemedi.");
+      return;
+    }
+    setResetMessage(data.message || "Şifre sıfırlama bağlantısı e-posta adresinize gönderildi.");
   }
 
   return (
@@ -56,11 +80,12 @@ export function LoginForm() {
         <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required autoComplete="current-password" className="min-h-12 rounded-[8px] border border-white/10 bg-black/30 px-4 text-white focus:ring-2 focus:ring-cyan-300" />
       </label>
 
-      <button type="button" className="mt-4 text-sm font-semibold text-cyan-100">
-        Şifremi unuttum
+      <button type="button" onClick={forgotPassword} disabled={resetLoading} className="mt-4 text-sm font-semibold text-cyan-100 disabled:opacity-60">
+        {resetLoading ? "Gönderiliyor..." : "Şifremi unuttum"}
       </button>
 
       {notice && <p className="mt-4 rounded-[8px] bg-emerald-500/10 p-3 text-sm text-emerald-200">{notice}</p>}
+      {resetMessage && <p className="mt-4 rounded-[8px] bg-emerald-500/10 p-3 text-sm text-emerald-200">{resetMessage}</p>}
       {error && <p className="mt-4 rounded-[8px] bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
 
       <button disabled={loading} className="mt-6 min-h-12 w-full rounded-full bg-cyan-300 font-black text-slate-950 disabled:opacity-60">

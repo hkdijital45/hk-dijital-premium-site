@@ -29,6 +29,16 @@ type UserProfileRow = {
 };
 
 const adminRoles: UserRole[] = ["admin", "editor", "sales"];
+export const productionSiteUrl = "https://www.hkdijital.com.tr";
+
+export function getSiteUrl() {
+  const raw = process.env.NEXT_PUBLIC_SITE_URL || productionSiteUrl;
+  return raw.replace(/\/$/, "");
+}
+
+export function getAuthRedirectUrl(path = "/sifre-sifirla") {
+  return `${getSiteUrl()}${path.startsWith("/") ? path : `/${path}`}`;
+}
 
 function sessionSecret() {
   return (
@@ -160,6 +170,32 @@ export async function signInWithPassword(email: string, password: string) {
       body: JSON.stringify({ email, password })
     },
     false
+  );
+}
+
+export async function sendPasswordResetEmail(email: string) {
+  return supabaseAuthRequest<{ message?: string }>(
+    "recover",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        email,
+        redirect_to: getAuthRedirectUrl("/sifre-sifirla")
+      })
+    },
+    false
+  );
+}
+
+export async function updatePasswordWithAccessToken(accessToken: string, password: string) {
+  return supabaseAuthRequest<{ id: string; email?: string }>(
+    "user",
+    {
+      method: "PUT",
+      body: JSON.stringify({ password })
+    },
+    false,
+    accessToken
   );
 }
 
