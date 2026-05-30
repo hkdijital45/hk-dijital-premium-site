@@ -164,7 +164,9 @@ async function upsertItems(key: keyof typeof tables, items: any[] = []) {
   });
   if (!records.length) return [];
 
-  return supabaseRest(`${table}?on_conflict=id`, {
+  const conflictTarget = key === "customerVisibilitySettings" ? "company_id" : "id";
+
+  return supabaseRest(`${table}?on_conflict=${conflictTarget}`, {
     method: "POST",
     headers: { Prefer: "resolution=merge-duplicates,return=representation" },
     body: JSON.stringify(records)

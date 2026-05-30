@@ -39,6 +39,7 @@ export default async function MusteriPaneliPage() {
   const data = await getCustomerCenterData(session.companyId);
   const totals = summarizeMetrics(data.metrics);
   const visibility = data.visibility;
+  const hasCompany = Boolean(session.companyId && data.company);
 
   return (
     <main className="min-h-screen bg-[#050711] text-white">
@@ -62,17 +63,23 @@ export default async function MusteriPaneliPage() {
           </div>
         )}
 
-        <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {!hasCompany && (
+          <div className="mb-6 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-4 text-sm leading-6 text-amber-100">
+            Hesabınıza henüz bir firma atanmamış. Müşteri paneli verilerinin görünmesi için HK Dijital Kontrol Merkezi üzerinden firma ataması yapılmalıdır.
+          </div>
+        )}
+
+        {visibility.show_metrics && <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <MetricCard title="Toplam gösterim" value={totals.impressions} help="Gösterim: Reklamınızın ekranda kaç kez göründüğünü gösterir." />
           <MetricCard title="Erişim" value={totals.reach} help="Erişim: Reklamınızı kaç farklı kişinin gördüğünü ifade eder." />
           <MetricCard title="Tıklama" value={totals.clicks} help="Tıklama: Reklamınıza kaç kişinin tıkladığını gösterir." />
           <MetricCard title="Mesaj" value={totals.messages || 0} help="Mesaj: Reklamlardan gelen mesaj veya iletişim başlatma aksiyonlarını gösterir." />
           {visibility.show_leads && <MetricCard title="Potansiyel müşteri" value={totals.leads} help="Potansiyel müşteri: Form, mesaj veya arama gibi iletişime geçen kişileri ifade eder." />}
           {visibility.show_spent && <MetricCard title="Harcanan bütçe" value={`${totals.spent} TL`} help="Harcanan bütçe: Reklam platformlarında kullanılan toplam reklam bütçesidir." />}
-          <MetricCard title="Ortalama tıklama maliyeti" value={`${totals.cpc} TL`} help="CPC: Reklam tıklaması başına ortalama maliyeti gösterir." />
-          <MetricCard title="Ortalama lead maliyeti" value={`${totals.cost_per_lead} TL`} help="Lead maliyeti: Bir potansiyel müşteri kaydı için ortalama reklam maliyetidir." />
+          {visibility.show_spent && <MetricCard title="Ortalama tıklama maliyeti" value={`${totals.cpc} TL`} help="CPC: Reklam tıklaması başına ortalama maliyeti gösterir." />}
+          {visibility.show_leads && visibility.show_spent && <MetricCard title="Ortalama lead maliyeti" value={`${totals.cost_per_lead} TL`} help="Lead maliyeti: Bir potansiyel müşteri kaydı için ortalama reklam maliyetidir." />}
           <MetricCard title="Kampanya durumu" value={data.campaigns[0]?.status || "Hazırlanıyor"} help="Kampanya durumu, aktif çalışma aşamasını özetler." />
-        </section>
+        </section>}
 
         <section className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_.9fr]">
           {visibility.show_campaigns && (
@@ -86,7 +93,11 @@ export default async function MusteriPaneliPage() {
                     <div className="mt-3 h-2 rounded-full bg-white/10">
                       <div className="h-full rounded-full bg-cyan-300" style={{ width: `${Math.min(100, campaign.budget ? (Number(campaign.spent || 0) / Number(campaign.budget)) * 100 : 0)}%` }} />
                     </div>
-                    <p className="mt-2 text-xs text-slate-400">{campaign.notes}</p>
+                    <p className="mt-2 text-xs text-slate-400">
+                      {visibility.show_budget && `Bütçe: ${campaign.budget || 0} TL · `}
+                      {visibility.show_spent && `Harcama: ${campaign.spent || 0} TL · `}
+                      {campaign.notes}
+                    </p>
                   </div>
                 ))}
               </div>

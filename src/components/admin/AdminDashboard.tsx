@@ -37,14 +37,33 @@ export function AdminDashboard({ initialContent, supabaseConfigured = false }: {
   const [content, setContent] = useState(initialContent as any);
   const [active, setActive] = useState("Genel Bakış");
   const [status, setStatus] = useState("");
+  const [saving, setSaving] = useState(false);
 
   async function save(next = content) {
+    setSaving(true);
     setStatus("Kaydediliyor...");
-    const contentResponse = await fetch("/api/content", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) });
-    const centerResponse = supabaseConfigured
-      ? await fetch("/api/admin/center-data", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) })
-      : contentResponse;
-    setStatus(contentResponse.ok && centerResponse.ok ? "Başarıyla kaydedildi." : "Kaydedilemedi. Supabase bağlantısını ve ortam değişkenlerini kontrol edin.");
+    try {
+      const contentResponse = await fetch("/api/content", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) });
+      const centerResponse = supabaseConfigured
+        ? await fetch("/api/admin/center-data", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) })
+        : contentResponse;
+      if (contentResponse.ok && centerResponse.ok) {
+        if (supabaseConfigured) {
+          const latest = await fetch("/api/admin/center-data");
+          const latestData = await latest.json().catch(() => ({}));
+          if (latest.ok) {
+            setContent((current) => ({ ...current, ...latestData }));
+          }
+        }
+        setStatus("Başarıyla kaydedildi.");
+      } else {
+        setStatus("Kaydedilemedi. Supabase bağlantısını ve ortam değişkenlerini kontrol edin.");
+      }
+    } catch {
+      setStatus("Kaydedilemedi. Supabase bağlantısını ve ortam değişkenlerini kontrol edin.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function logout() {
@@ -63,7 +82,7 @@ export function AdminDashboard({ initialContent, supabaseConfigured = false }: {
             <h1 className="text-2xl font-black">HK Dijital Kontrol Merkezi</h1>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => save()} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-cyan-300 px-5 text-sm font-black text-slate-950"><Save size={17} /> Kaydet</button>
+            <button disabled={saving} onClick={() => save()} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-cyan-300 px-5 text-sm font-black text-slate-950 disabled:opacity-60"><Save size={17} /> {saving ? "Kaydediliyor..." : "Kaydet"}</button>
             <button onClick={logout} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/10 px-5 text-sm font-bold"><LogOut size={17} /> Çıkış</button>
           </div>
         </div>
@@ -78,7 +97,7 @@ export function AdminDashboard({ initialContent, supabaseConfigured = false }: {
         </aside>
         <section className="min-w-0 rounded-[8px] border border-white/10 bg-white/[0.045] p-5">
           {!supabaseConfigured && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">Supabase bağlantısı yapılandırılmadı. Canlı ortamda kaydetme çalışmaz.</p>}
-          {status && <p className="mb-5 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{status}</p>}
+          {status && <p className={`mb-5 rounded-[8px] border p-3 text-sm ${status.includes("Kaydedilemedi") ? "border-red-300/30 bg-red-500/10 text-red-100" : "border-cyan-200/20 bg-cyan-200/10 text-cyan-100"}`}>{status}</p>}
           {active === "Genel Bakış" && <Overview content={content} setActive={setActive} />}
           {active === "Site Yönetimi" && <Settings {...props} />}
           {active === "Sayfa İçerikleri" && <Pages {...props} />}
@@ -288,11 +307,45 @@ function CustomerPanelAdmin({ content, setContent }: any) {
 
 function CustomersAdmin({ content, setContent }: any) {
   const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState("");
   const [form, setForm] = useState({ fullName: "", email: "", password: "", company_id: "", role: "customer", is_active: true });
+  const [companyForm, setCompanyForm] = useState({ name: "", sector: "", city: "Manisa", website: "", instagram: "", phone: "", email: "", status: "Aktif", notes: "" });
   const update = (items) => setContent({ ...content, companies: items });
 
+  async function createCompany() {
+    setMessage("");
+    setError("");
+    if (!companyForm.name.trim()) {
+      setError("Firma adı zorunludur.");
+      return;
+    }
+    setLoading("company");
+    const response = await fetch("/api/admin/companies/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(companyForm)
+    });
+    const data = await response.json().catch(() => ({}));
+    setLoading("");
+    if (response.ok) {
+      setContent({ ...content, companies: [data.company, ...(content.companies || [])] });
+      setCompanyForm({ name: "", sector: "", city: "Manisa", website: "", instagram: "", phone: "", email: "", status: "Aktif", notes: "" });
+      setMessage("Firma başarıyla oluşturuldu. Artık müşteri hesabı bu firmaya bağlanabilir.");
+    } else {
+      setError(data.error || "Firma oluşturulamadı.");
+    }
+  }
+
   async function createLogin() {
+    setMessage("");
+    setError("");
+    if (form.role === "customer" && !form.company_id) {
+      setError("Müşteri hesabı için firma seçimi zorunludur.");
+      return;
+    }
     setMessage("Kullanıcı oluşturuluyor...");
+    setLoading("user");
     const response = await fetch("/api/admin/users/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -306,17 +359,66 @@ function CustomersAdmin({ content, setContent }: any) {
       })
     });
     const data = await response.json().catch(() => ({}));
+    setLoading("");
     if (response.ok) {
       setContent({ ...content, users: [data.user, ...(content.users || [])] });
       setForm({ fullName: "", email: "", password: "", company_id: "", role: "customer", is_active: true });
       setMessage("Müşteri giriş hesabı oluşturuldu.");
     } else {
-      setMessage(data.error || "Kullanıcı oluşturulamadı.");
+      setError(data.error || "Kullanıcı oluşturulamadı.");
+    }
+  }
+
+  async function createDemoCustomer() {
+    setMessage("");
+    setError("");
+    setLoading("demo");
+    const response = await fetch("/api/admin/demo-customer", { method: "POST" });
+    const data = await response.json().catch(() => ({}));
+    setLoading("");
+    if (response.ok) {
+      setContent({
+        ...content,
+        companies: [data.company, ...(content.companies || []).filter((item) => item.id !== data.company.id)],
+        users: [data.user, ...(content.users || []).filter((item) => item.id !== data.user.id)],
+        customerVisibilitySettings: [data.visibility, ...(content.customerVisibilitySettings || []).filter((item) => item.id !== data.visibility.id)],
+        campaigns: [data.campaign, ...(content.campaigns || []).filter((item) => item.id !== data.campaign.id)],
+        campaignMetrics: [data.metric, ...(content.campaignMetrics || [])],
+        customerUpdates: [...(data.updates || []), ...(content.customerUpdates || [])],
+        customerFiles: [data.file, ...(content.customerFiles || [])]
+      });
+      setMessage(`${data.message} Giriş: ${data.credentials.email} / ${data.credentials.password}`);
+    } else {
+      setError(data.error || "Demo müşteri oluşturulamadı.");
     }
   }
 
   return (
     <Panel title="Müşteriler">
+      {message && <p className="mb-4 rounded-[8px] border border-emerald-300/30 bg-emerald-500/10 p-3 text-sm text-emerald-100">{message}</p>}
+      {error && <p className="mb-4 rounded-[8px] border border-red-300/30 bg-red-500/10 p-3 text-sm text-red-100">{error}</p>}
+      <div className="mb-6 rounded-[8px] border border-white/10 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="font-black">Hızlı firma oluştur</h3>
+          <button disabled={loading === "demo"} onClick={createDemoCustomer} className="rounded-full border border-cyan-200/30 px-4 py-2 text-xs font-black text-cyan-100 disabled:opacity-60">
+            {loading === "demo" ? "Demo hazırlanıyor..." : "My Cake 45 demo müşterisini oluştur"}
+          </button>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <Field label="Firma Adı" value={companyForm.name} onChange={(v) => setCompanyForm({ ...companyForm, name: v })} />
+          <Field label="Sektör" value={companyForm.sector} onChange={(v) => setCompanyForm({ ...companyForm, sector: v })} />
+          <Field label="Şehir" value={companyForm.city} onChange={(v) => setCompanyForm({ ...companyForm, city: v })} />
+          <Field label="Web Sitesi" value={companyForm.website} onChange={(v) => setCompanyForm({ ...companyForm, website: v })} />
+          <Field label="Instagram" value={companyForm.instagram} onChange={(v) => setCompanyForm({ ...companyForm, instagram: v })} />
+          <Field label="Telefon" value={companyForm.phone} onChange={(v) => setCompanyForm({ ...companyForm, phone: v })} />
+          <Field label="E-posta" value={companyForm.email} onChange={(v) => setCompanyForm({ ...companyForm, email: v })} />
+          <Field label="Durum" value={companyForm.status} onChange={(v) => setCompanyForm({ ...companyForm, status: v })} />
+          <TextArea label="Notlar" value={companyForm.notes} onChange={(v) => setCompanyForm({ ...companyForm, notes: v })} />
+        </div>
+        <button disabled={loading === "company"} onClick={createCompany} className="mt-4 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-60">
+          {loading === "company" ? "Firma oluşturuluyor..." : "Firmayı oluştur"}
+        </button>
+      </div>
       <MiniCollection title="Şirketler" items={content.companies || []} setItems={update} fields={["name", "sector", "city", "website", "instagram", "phone", "email", "status", "notes"]} empty={{ name: "Yeni Şirket", status: "Aktif", notes: "" }} />
       <div className="rounded-[8px] border border-white/10 p-4">
         <h3 className="font-black">Müşteri giriş hesabı oluştur</h3>
@@ -328,8 +430,9 @@ function CustomersAdmin({ content, setContent }: any) {
           <label className="grid gap-2 text-sm font-semibold text-slate-200">Rol<select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className="min-h-11 rounded-[8px] border border-white/10 bg-black/30 px-3 text-white"><option value="customer">Müşteri</option><option value="sales">Satış</option><option value="editor">Editör</option><option value="admin">Admin</option></select></label>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} /> Aktif</label>
         </div>
-        <button onClick={createLogin} className="mt-4 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Giriş hesabı oluştur</button>
-        {message && <p className="mt-3 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{message}</p>}
+        <button disabled={loading === "user"} onClick={createLogin} className="mt-4 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-60">
+          {loading === "user" ? "Hesap oluşturuluyor..." : "Giriş hesabı oluştur"}
+        </button>
       </div>
     </Panel>
   );
