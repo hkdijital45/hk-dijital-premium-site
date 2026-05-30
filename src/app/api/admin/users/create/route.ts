@@ -6,7 +6,7 @@ import {
   isAdminRole,
   updateSupabaseAuthUser
 } from "@/lib/auth";
-import { hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
+import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
 export async function POST(request: Request) {
   const session = await getSession();
@@ -67,12 +67,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true, user: rows[0] });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Kullanıcı oluşturulamadı.";
-    console.error("Kullanıcı oluşturma Supabase hatası:", message);
+    const safeError = getSafeSupabaseError(error);
+    console.error("Kullanıcı oluşturma Supabase hatası:", safeError.detail);
     return NextResponse.json(
       {
-        error: "Kullanıcı oluşturulamadı.",
-        supabaseError: message,
+        error: safeError.title,
+        supabaseError: safeError.detail,
         possibleCause: "Auth kullanıcısı veya public.users profil satırı oluşturulurken Supabase hatası alındı."
       },
       { status: 500 }

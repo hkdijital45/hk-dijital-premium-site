@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession, isAdminRole, sendPasswordResetEmail } from "@/lib/auth";
-import { hasSupabaseConfig } from "@/lib/supabase";
+import { getSafeSupabaseError, hasSupabaseConfig } from "@/lib/supabase";
 
 export async function POST(request: Request) {
   const session = await getSession();
@@ -19,7 +19,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "E-posta adresi zorunludur." }, { status: 400 });
   }
 
-  await sendPasswordResetEmail(normalizedEmail);
+  try {
+    await sendPasswordResetEmail(normalizedEmail);
+  } catch (error) {
+    const safeError = getSafeSupabaseError(error);
+    console.error("Şifre sıfırlama Supabase hatası:", safeError.detail);
+    return NextResponse.json({ error: safeError.title, supabaseError: safeError.detail }, { status: 500 });
+  }
 
   return NextResponse.json({
     ok: true,

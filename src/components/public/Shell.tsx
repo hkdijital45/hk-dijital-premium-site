@@ -21,7 +21,7 @@ export async function PublicShell({ children }: { children: ReactNode }) {
   return (
     <>
       <Header content={content} />
-      <main className="min-h-screen bg-[#050711] text-white">{children}</main>
+      <main className="min-h-screen bg-background text-foreground">{children}</main>
       {whatsappUrl && (
         <a
           href={whatsappUrl}

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSiteContent } from "@/lib/content";
-import { isAdminAuthenticated } from "@/lib/auth";
+import { getSession, isAdminAuthenticated } from "@/lib/auth";
 import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import { hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
   const authenticated = await isAdminAuthenticated();
+  const session = await getSession();
   const content = await getSiteContent();
 
   if (!authenticated) redirect("/giris");
@@ -15,11 +16,12 @@ export default async function AdminPage() {
   let relationalContent = {};
   if (hasSupabaseConfig()) {
     try {
-      const [companies, users, leads, campaigns, campaignMetrics, customerUpdates, customerVisibilitySettings, customerFiles, mediaFiles] =
+      const [companies, users, leads, contactForms, campaigns, campaignMetrics, customerUpdates, customerVisibilitySettings, customerFiles, mediaFiles] =
         await Promise.all([
           supabaseRest("companies?select=*&order=created_at.desc"),
           supabaseRest("users?select=*&order=created_at.desc"),
           supabaseRest("leads?select=*&order=created_at.desc"),
+          supabaseRest("contact_forms?select=*&order=created_at.desc").catch(() => []),
           supabaseRest("campaigns?select=*&order=created_at.desc"),
           supabaseRest("campaign_metrics?select=*&order=date.desc"),
           supabaseRest("customer_updates?select=*&order=created_at.desc"),
@@ -31,6 +33,7 @@ export default async function AdminPage() {
         companies,
         users,
         leads,
+        contactForms,
         campaigns,
         campaignMetrics,
         customerUpdates,
@@ -50,5 +53,12 @@ export default async function AdminPage() {
     }
   }
 
-  return <AdminDashboard initialContent={{ ...content, ...relationalContent }} supabaseConfigured={hasSupabaseConfig()} />;
+  return (
+    <AdminDashboard
+      initialContent={{ ...content, ...relationalContent }}
+      supabaseConfigured={hasSupabaseConfig()}
+      currentSession={session}
+      bootstrapWarning={Boolean(process.env.BOOTSTRAP_ADMIN_SECRET || process.env.FORCE_BOOTSTRAP_ADMIN)}
+    />
+  );
 }

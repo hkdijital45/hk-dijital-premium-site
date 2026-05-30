@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getSiteContent, saveSiteContent } from "@/lib/content";
 import { isAdminAuthenticated } from "@/lib/auth";
 import type { Lead, LeadStatus } from "@/lib/types";
-import { hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
+import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
 const statuses: LeadStatus[] = ["Yeni", "Görüşülecek", "Teklif Hazırlanıyor", "Teklif Gönderildi", "Takipte", "Kazanıldı", "Kaybedildi"];
 
@@ -21,25 +21,46 @@ export async function GET() {
 export async function POST(request: Request) {
   const payload = await request.json();
   if (hasSupabaseConfig()) {
-    const rows = await supabaseRest("leads", {
-      method: "POST",
-      body: JSON.stringify({
-        source: payload.source === "contact" ? "İletişim Formu" : payload.source === "wizard" ? "Teklif Sihirbazı" : "Teklif Formu",
-        name: payload.name || "",
-        company: payload.company || "",
-        phone: payload.phone || "",
-        email: payload.email || "",
-        instagram: payload.instagram || "",
-        website: payload.website || "",
-        business_type: payload.businessType || "",
-        goal: payload.goal || "",
-        budget: payload.budget || "",
-        recommended_package: payload.recommendedPackage || "",
-        message: payload.note || "",
-        status: "Yeni"
-      })
-    });
-    return NextResponse.json({ ok: true, lead: Array.isArray(rows) ? rows[0] : rows });
+    try {
+      const source = payload.source === "contact" ? "İletişim Formu" : payload.source === "wizard" ? "Teklif Sihirbazı" : "Teklif Formu";
+      const rows = await supabaseRest("leads", {
+        method: "POST",
+        body: JSON.stringify({
+          source,
+          name: payload.name || "",
+          company: payload.company || "",
+          phone: payload.phone || "",
+          email: payload.email || "",
+          instagram: payload.instagram || "",
+          website: payload.website || "",
+          business_type: payload.businessType || "",
+          goal: payload.goal || "",
+          budget: payload.budget || "",
+          recommended_package: payload.recommendedPackage || "",
+          message: payload.note || "",
+          status: "Yeni"
+        })
+      });
+      if (source === "İletişim Formu") {
+        await supabaseRest("contact_forms", {
+          method: "POST",
+          body: JSON.stringify({
+            name: payload.name || "",
+            company: payload.company || "",
+            phone: payload.phone || "",
+            email: payload.email || "",
+            message: payload.note || payload.message || "",
+            source,
+            status: "Yeni"
+          })
+        }).catch((error) => console.error("İletişim formu Supabase hatası:", error instanceof Error ? error.message : error));
+      }
+      return NextResponse.json({ ok: true, lead: Array.isArray(rows) ? rows[0] : rows });
+    } catch (error) {
+      const safeError = getSafeSupabaseError(error);
+      console.error("Lead kaydı Supabase hatası:", safeError.detail);
+      return NextResponse.json({ error: safeError.title, supabaseError: safeError.detail }, { status: 500 });
+    }
   }
 
   if (process.env.VERCEL || process.env.NODE_ENV === "production") {

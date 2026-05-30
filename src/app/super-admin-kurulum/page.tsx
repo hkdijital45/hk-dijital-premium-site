@@ -14,10 +14,10 @@ export default function SuperAdminKurulumPage() {
       <PageHero
         eyebrow="Acil Yönetici Onarımı"
         title="Süper Admin Kurulumu"
-        text="Supabase Auth kullanıcısını ve public.users profil bağlantısını güvenli şekilde oluşturun veya onarın."
+        text={process.env.FORCE_BOOTSTRAP_ADMIN === "true" ? "Supabase Auth kullanıcısını ve public.users profil bağlantısını güvenli şekilde oluşturun veya onarın." : "Süper admin kurulumu kapalı."}
       />
       <section className="px-4 pb-20 sm:px-6 lg:px-8">
-        <SuperAdminBootstrapForm />
+        <SuperAdminBootstrapForm enabled={process.env.FORCE_BOOTSTRAP_ADMIN === "true"} />
       </section>
     </PublicShell>
   );

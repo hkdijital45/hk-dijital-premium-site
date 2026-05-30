@@ -10,6 +10,33 @@ export function getSupabaseWarning() {
   return "Supabase bağlantısı yapılandırılmadı. Canlı ortamda kaydetme çalışmaz.";
 }
 
+export function getSafeSupabaseError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error || "Beklenmeyen hata");
+  const lower = message.toLocaleLowerCase("tr");
+
+  if (lower.includes("permission") || lower.includes("rls") || lower.includes("policy") || lower.includes("yetki")) {
+    return { title: "Yetki hatası", detail: message };
+  }
+
+  if (lower.includes("not-null") || lower.includes("null value") || lower.includes("zorunlu")) {
+    return { title: "Zorunlu alan eksik", detail: message };
+  }
+
+  if (lower.includes("duplicate") || lower.includes("unique") || lower.includes("already exists")) {
+    return { title: "Kayıt zaten mevcut", detail: message };
+  }
+
+  if (lower.includes("fetch failed") || lower.includes("connection") || lower.includes("bağlantı")) {
+    return { title: "Veritabanı bağlantı hatası", detail: message };
+  }
+
+  if (lower.includes("schema cache") || lower.includes("column") || lower.includes("foreign key")) {
+    return { title: "Veritabanı şema hatası", detail: message };
+  }
+
+  return { title: "Beklenmeyen hata", detail: message };
+}
+
 function supabaseHeaders(serviceRole = true) {
   const key = serviceRole
     ? process.env.SUPABASE_SERVICE_ROLE_KEY

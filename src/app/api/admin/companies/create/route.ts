@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession, isStaffRole } from "@/lib/auth";
-import { hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
+import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
 export async function POST(request: Request) {
   const session = await getSession();
@@ -36,12 +36,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true, company: rows[0] });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Firma oluşturulamadı.";
-    console.error("Firma oluşturma Supabase hatası:", message);
+    const safeError = getSafeSupabaseError(error);
+    console.error("Firma oluşturma Supabase hatası:", safeError.detail);
     return NextResponse.json(
       {
-        error: "Firma oluşturulamadı.",
-        supabaseError: message,
+        error: safeError.title,
+        supabaseError: safeError.detail,
         possibleCause: "Service role kullanılmasına rağmen hata alınıyorsa canlı Supabase şeması veya tablo izinleri kontrol edilmelidir."
       },
       { status: 500 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { SiteContent } from "@/lib/types";
 import { Logo } from "./Logo";
 
@@ -19,6 +19,20 @@ const nav = [
 
 export function Header({ content }: { content: SiteContent }) {
   const [open, setOpen] = useState(false);
+  const [theme, setTheme] = useState("dark");
+
+  useEffect(() => {
+    const stored = localStorage.getItem("hk-site-theme") || "dark";
+    setTheme(stored);
+    document.documentElement.dataset.theme = stored;
+  }, []);
+
+  function toggleTheme() {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    localStorage.setItem("hk-site-theme", next);
+    document.documentElement.dataset.theme = next;
+  }
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-[#050711]/80 backdrop-blur-2xl">
@@ -42,6 +56,9 @@ export function Header({ content }: { content: SiteContent }) {
           <Link href="/giris" className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-bold text-white hover:border-cyan-200/50">
             Giriş Yap
           </Link>
+          <button onClick={toggleTheme} className="rounded-full border border-white/10 px-4 py-2 text-sm font-bold text-slate-200">
+            {theme === "dark" ? "Aydınlık Tema" : "Karanlık Tema"}
+          </button>
         </div>
 
         <button className="grid size-11 place-items-center rounded-full border border-white/10 text-white lg:hidden" onClick={() => setOpen((value) => !value)} aria-label="Menüyü aç veya kapat">
@@ -60,6 +77,9 @@ export function Header({ content }: { content: SiteContent }) {
             <Link href="/giris" onClick={() => setOpen(false)} className="rounded-2xl bg-cyan-300 px-4 py-3 text-base font-black text-slate-950">
               Giriş Yap
             </Link>
+            <button onClick={toggleTheme} className="rounded-2xl border border-white/10 px-4 py-3 text-left text-base font-bold text-slate-100">
+              {theme === "dark" ? "Aydınlık Tema" : "Karanlık Tema"}
+            </button>
           </nav>
         </div>
       )}

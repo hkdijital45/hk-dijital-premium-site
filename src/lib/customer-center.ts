@@ -46,8 +46,8 @@ export async function getCustomerCenterData(companyId?: string): Promise<Custome
     return {
       company: companies[0] || null,
       visibility: visibilityRows[0] || defaultVisibility,
-      campaigns,
-      metrics,
+      campaigns: campaigns.filter((item) => item.visible_to_customer !== false),
+      metrics: metrics.filter((item) => item.visible_to_customer !== false),
       updates,
       files
     };

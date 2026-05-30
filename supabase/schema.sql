@@ -210,11 +210,31 @@ alter table public.campaigns
 
 alter table public.campaign_metrics
   add column if not exists messages integer default 0,
-  add column if not exists visible_to_customer boolean default true;
+  add column if not exists visible_to_customer boolean default true,
+  add column if not exists period text,
+  add column if not exists source text;
 
 alter table public.customer_updates
   add column if not exists why_it_matters text,
   add column if not exists next_step text;
+
+-- Optional category fields used by the control center UI.
+alter table public.customer_files
+  add column if not exists category text;
+
+alter table public.services
+  add column if not exists category text;
+
+alter table public.packages
+  add column if not exists package_type text;
+
+-- Allow custom update labels through the UI while keeping existing labels valid.
+alter table public.customer_updates
+  drop constraint if exists customer_updates_update_type_check;
+
+alter table public.customer_updates
+  add constraint customer_updates_update_type_check
+  check (update_type in ('Yapılan Çalışma', 'Reklam Güncellemesi', 'Rapor Notu', 'Strateji Notu', 'Uyarı', 'Başarı', 'Diğer'));
 
 create table if not exists public.contact_forms (
   id uuid primary key default gen_random_uuid(),

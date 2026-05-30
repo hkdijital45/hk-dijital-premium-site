@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession, isStaffRole } from "@/lib/auth";
-import { hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
+import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -15,6 +15,7 @@ const tables = {
   customerFiles: "customer_files",
   media: "media_files"
 } as const;
+const allowedUpdateTypes = ["Yapılan Çalışma", "Reklam Güncellemesi", "Rapor Notu", "Strateji Notu", "Uyarı", "Başarı", "Diğer"];
 
 async function requireStaff() {
   const session = await getSession();
@@ -39,6 +40,7 @@ function normalizeRecord(key: string, item: any) {
       phone: item.phone || "",
       email: item.email || "",
       status: item.status || "Aktif",
+      notes: item.notes || null,
       updated_at: new Date().toISOString()
     };
   }
@@ -56,6 +58,7 @@ function normalizeRecord(key: string, item: any) {
       budget: Number(item.budget || 0),
       spent: Number(item.spent || 0),
       notes: item.notes || null,
+      visible_to_customer: item.visible_to_customer ?? true,
       updated_at: new Date().toISOString()
     };
   }
@@ -92,6 +95,9 @@ function normalizeRecord(key: string, item: any) {
       impressions: Number(item.impressions || 0),
       reach: Number(item.reach || 0),
       clicks: Number(item.clicks || 0),
+      messages: Number(item.messages || 0),
+      period: item.period || null,
+      source: item.source || null,
       leads: Number(item.leads || 0),
       conversions: Number(item.conversions || 0),
       ctr: Number(item.ctr || 0),
@@ -99,7 +105,8 @@ function normalizeRecord(key: string, item: any) {
       cpm: Number(item.cpm || 0),
       cost_per_lead: Number(item.cost_per_lead || 0),
       spent: Number(item.spent || 0),
-      notes: item.notes || null
+      notes: item.notes || null,
+      visible_to_customer: item.visible_to_customer ?? true
     };
   }
 
@@ -109,7 +116,9 @@ function normalizeRecord(key: string, item: any) {
       company_id: item.company_id || null,
       title: item.title || "Yeni çalışma notu",
       description: item.description || "",
-      update_type: item.update_type || "Yapılan Çalışma",
+      update_type: allowedUpdateTypes.includes(item.update_type) ? item.update_type : "Rapor Notu",
+      why_it_matters: item.why_it_matters || "",
+      next_step: item.next_step || "",
       visible_to_customer: item.visible_to_customer ?? true,
       updated_at: new Date().toISOString()
     };
@@ -159,6 +168,22 @@ async function upsertItems(key: keyof typeof tables, items: any[] = []) {
   if (!records.length) return [];
 
   const conflictTarget = key === "customerVisibilitySettings" ? "company_id" : "id";
+  const stripOptionalColumns = (record: any) => {
+    const copy = { ...record };
+    if (key === "companies") delete copy.notes;
+    if (key === "campaigns") delete copy.visible_to_customer;
+    if (key === "campaignMetrics") {
+      delete copy.messages;
+      delete copy.visible_to_customer;
+      delete copy.period;
+      delete copy.source;
+    }
+    if (key === "customerUpdates") {
+      delete copy.why_it_matters;
+      delete copy.next_step;
+    }
+    return copy;
+  };
 
   try {
     return await supabaseRest(`${table}?on_conflict=${conflictTarget}`, {
@@ -168,6 +193,14 @@ async function upsertItems(key: keyof typeof tables, items: any[] = []) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Supabase kaydetme hatası.";
+    if (message.includes("schema cache") || message.includes("column")) {
+      const fallbackRecords = records.map(stripOptionalColumns);
+      return await supabaseRest(`${table}?on_conflict=${conflictTarget}`, {
+        method: "POST",
+        headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+        body: JSON.stringify(fallbackRecords)
+      });
+    }
     console.error(`${table} kaydetme Supabase hatası:`, message);
     throw error;
   }
@@ -229,11 +262,11 @@ export async function PUT(request: Request) {
 
     return NextResponse.json({ ok: true });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Kaydedilemedi.";
+    const safeError = getSafeSupabaseError(error);
     return NextResponse.json(
       {
-        error: "Kaydedilemedi.",
-        supabaseError: message,
+        error: safeError.title,
+        supabaseError: safeError.detail,
         possibleCause: "Service role kullanılıyor. Hata devam ediyorsa canlı Supabase şeması, RLS force ayarı veya tablo izinleri kontrol edilmelidir."
       },
       { status: 500 }
