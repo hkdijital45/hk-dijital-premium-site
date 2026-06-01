@@ -2,22 +2,14 @@
 // @ts-nocheck
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, Copy, Download, ImagePlus, LogOut, Plus, Save, Sparkles, Trash2, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Copy, Download, ImagePlus, LogOut, Plus, Save, Sparkles, Trash2, X } from "lucide-react";
 import type { SiteContent } from "@/lib/types";
 import { ReportTools } from "@/components/admin/reports/ReportTools";
 import { reportDashboardStats } from "@/lib/reports/report-dashboard";
+import { adminNavigationGroups, getAdminHref } from "@/lib/admin-navigation";
 
-const navigationGroups = [
-  { label: "Genel Bakış", items: ["Genel Bakış"] },
-  { label: "Site Yönetimi", items: ["Sayfa İçerikleri", "Marka Ayarları", "Sosyal Medya", "Hizmetler", "Paketler", "Sertifikalar", "Teklif Sihirbazı Ayarları", "Medya Merkezi"] },
-  { label: "Potansiyel Müşteriler", items: ["Form Başvuruları", "Teklif Sihirbazı Kayıtları", "Lead Durumları", "Takip Notları"] },
-  { label: "Müşteri Merkezi", items: ["Müşteriler", "Müşteri Giriş Bilgileri", "Panel Görünürlüğü", "Müşteri Dosyaları"] },
-  { label: "Reklam & Raporlama", items: ["Kampanyalar", "Reklam Metrikleri", "Meta Rapor İçe Aktar", "Raporlama Merkezi", "Rapor Notları"] },
-  { label: "Kullanıcılar & Yetkiler", items: ["Kullanıcı Yönetimi", "Roller", "Güvenlik", "Log Hareketleri"] },
-  { label: "Yapay Zeka Merkezi", items: ["İçerik Üretici", "Reklam Metni Üretici", "Rapor Özeti Üretici"] },
-  { label: "Ayarlar", items: ["API Ayarları", "Ölçümleme Ayarları", "Tema Ayarları", "Kullanım Kılavuzu"] }
-];
 const leadStatuses = ["Yeni", "Görüşülecek", "Teklif Hazırlanıyor", "Teklif Gönderildi", "Takipte", "Kazanıldı", "Kaybedildi", "Dönüştürüldü"];
 const leadSourceOptions = ["İletişim Formu", "Teklif Formu", "Teklif Sihirbazı", "Instagram", "WhatsApp", "Referans", "Manuel Giriş", "Diğer"];
 const roleOptions = [
@@ -73,19 +65,22 @@ export function AdminDashboard({
   initialContent,
   supabaseConfigured = false,
   currentSession,
-  bootstrapWarning = false
+  bootstrapWarning = false,
+  initialActive = "Dashboard"
 }: {
   initialContent: SiteContent;
   supabaseConfigured?: boolean;
   currentSession?: any;
   bootstrapWarning?: boolean;
+  initialActive?: string;
 }) {
   const [content, setContent] = useState(initialContent as any);
-  const [active, setActive] = useState("Genel Bakış");
+  const [active, setActive] = useState(initialActive);
   const [status, setStatus] = useState("");
   const [saving, setSaving] = useState(false);
   const [theme, setTheme] = useState("dark");
-  const [openGroups, setOpenGroups] = useState(() => Object.fromEntries(navigationGroups.map((group) => [group.label, group.label === "Genel Bakış"])));
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [openGroups, setOpenGroups] = useState(() => Object.fromEntries(adminNavigationGroups.map((group) => [group.label, true])));
 
   useEffect(() => {
     setTheme(localStorage.getItem("hk-admin-theme") || "dark");
@@ -158,26 +153,39 @@ export function AdminDashboard({
           </div>
         </div>
       </header>
-      <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[260px_1fr]">
+      <div className={`mx-auto grid max-w-7xl gap-6 px-4 py-6 ${sidebarCollapsed ? "lg:grid-cols-[76px_1fr]" : "lg:grid-cols-[260px_1fr]"}`}>
         <aside className={`h-fit rounded-[8px] border p-3 ${panelClass}`}>
-          {navigationGroups.map((group) => {
+          <button
+            type="button"
+            onClick={() => setSidebarCollapsed((current) => !current)}
+            title={sidebarCollapsed ? "Menüyü genişlet" : "Menüyü daralt"}
+            className="mb-3 hidden min-h-10 w-full items-center justify-center rounded-[8px] border border-white/10 text-cyan-100 hover:bg-white/10 lg:flex"
+          >
+            {sidebarCollapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}
+          </button>
+          {adminNavigationGroups.map((group) => {
             const expanded = openGroups[group.label];
-            const standalone = group.items.length === 1;
             return (
               <div key={group.label} className="mb-2">
-                <button
-                  onClick={() => standalone ? setActive(group.items[0]) : toggleGroup(group.label)}
-                  className={`flex w-full items-center justify-between gap-2 rounded-[8px] px-3 py-3 text-left text-sm font-black ${active === group.label || (standalone && active === group.items[0]) ? "bg-cyan-300 text-slate-950" : "text-slate-200 hover:bg-white/10"}`}
+                {!sidebarCollapsed && <button
+                  type="button"
+                  onClick={() => toggleGroup(group.label)}
+                  className="flex w-full items-center justify-between gap-2 rounded-[8px] px-3 py-3 text-left text-[11px] font-black uppercase text-slate-400 hover:bg-white/10"
                 >
                   {group.label}
-                  {!standalone && (expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />)}
-                </button>
-                {!standalone && expanded && (
+                  {expanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                </button>}
+                {(sidebarCollapsed || expanded) && (
                   <div className="mt-1 grid gap-1 border-l border-white/10 pl-3">
                     {group.items.map((item) => (
-                      <button key={item} onClick={() => setActive(item)} className={`rounded-[8px] px-3 py-2 text-left text-xs font-bold ${active === item ? "bg-cyan-200/15 text-cyan-100" : "text-slate-400 hover:bg-white/10 hover:text-slate-200"}`}>
-                        {item}
-                      </button>
+                      <Link
+                        key={item.slug}
+                        href={getAdminHref(item.slug)}
+                        title={item.label}
+                        className={`rounded-[8px] px-3 py-2 text-left text-xs font-bold ${active === item.label ? "bg-cyan-300 text-slate-950" : "text-slate-400 hover:bg-white/10 hover:text-slate-200"}`}
+                      >
+                        {sidebarCollapsed ? item.label.slice(0, 2) : item.label}
+                      </Link>
                     ))}
                   </div>
                 )}
@@ -189,6 +197,20 @@ export function AdminDashboard({
           {!supabaseConfigured && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">Supabase bağlantısı yapılandırılmadı. Canlı ortamda kaydetme çalışmaz.</p>}
           {bootstrapWarning && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">Süper admin kurulum anahtarları hâlâ aktif. Güvenlik için Vercel ortam değişkenlerinden kaldırın.</p>}
           {status && <p className={`mb-5 rounded-[8px] border p-3 text-sm ${status.includes("Kaydedilemedi") ? "border-red-300/30 bg-red-500/10 text-red-100" : "border-cyan-200/20 bg-cyan-200/10 text-cyan-100"}`}>{status}</p>}
+          {active === "Dashboard" && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} />}
+          {active === "CRM" && <CrmHub {...props} />}
+          {active === "Müşteri Bulucu" && <CustomerFinder {...props} />}
+          {active === "Lead Yönetimi" && <Crm {...props} view="Lead Durumları" setActive={setActive} />}
+          {active === "Meta Analiz" && <ChannelAnalysis {...props} channel="Meta" />}
+          {active === "Google Analiz" && <ChannelAnalysis {...props} channel="Google" />}
+          {active === "AI Studio" && <AiAssistant {...props} mode="AI Studio" />}
+          {active === "Teklif Motoru" && <ProposalEngine {...props} />}
+          {active === "Raporlar" && <ReportsHub {...props} />}
+          {active === "Müşteriler" && <CustomersAdmin {...props} />}
+          {active === "Site Ayarları" && <SiteSettingsHub {...props} />}
+          {active === "API Ayarları" && <ApiSettings {...props} />}
+          {active === "Medya / Logo" && <MediaLogoHub {...props} />}
+          {active === "Kullanıcılar" && <UsersHub {...props} />}
           {active === "Genel Bakış" && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} />}
           {active === "Sayfa İçerikleri" && <Pages {...props} />}
           {active === "Marka Ayarları" && <Brand {...props} />}
@@ -198,7 +220,7 @@ export function AdminDashboard({
           {active === "Sertifikalar" && <Collection title="Sertifika Yönetimi" type="certificate" items={content.certificates} setItems={(items) => setContent({ ...content, certificates: items })} />}
           {active === "Teklif Sihirbazı Ayarları" && <QuoteWizardAdmin {...props} />}
           {["Form Başvuruları", "Teklif Sihirbazı Kayıtları", "Lead Durumları", "Takip Notları"].includes(active) && <Crm {...props} view={active} setActive={setActive} />}
-          {active === "Müşteriler" && <CustomersAdmin {...props} />}
+          {active === "Eski Müşteriler" && <CustomersAdmin {...props} />}
           {active === "Müşteri Giriş Bilgileri" && <UsersAdmin {...props} customerOnly />}
           {active === "Panel Görünürlüğü" && <CustomerPanelAdmin {...props} />}
           {active === "Müşteri Dosyaları" && <FilesAdmin {...props} />}
@@ -510,7 +532,9 @@ function LeadDrawer({ lead, update, close, onConverted }: any) {
     ["Önerilen paket", lead.recommended_package || lead.recommendedPackage],
     ["Not / Mesaj", lead.message || lead.note],
     ["Formun geldiği sayfa", lead.page_url || lead.source || "Web sitesi"],
-    ["Gönderim tarihi", formatDate(lead.created_at || lead.createdAt)]
+    ["Gönderim tarihi", formatDate(lead.created_at || lead.createdAt)],
+    ["Dijital olgunluk skoru", lead.digital_maturity_score != null ? `${lead.digital_maturity_score} / 100` : "-"],
+    ["Lead sıcaklık puanı", lead.lead_heat_score != null ? `${lead.lead_heat_score} / 100` : "-"]
   ];
   async function convert() {
     setConverting(true);
@@ -593,7 +617,7 @@ function ApiSettings({ content, setContent }: any) {
     const data = await response.json();
     setResult(data.message || "Test tamamlandı.");
   }
-  return <Panel title="API Ayarları"><div className="grid gap-4 md:grid-cols-2"><Field label="Gemini API anahtarı" value={api.geminiApiKey} onChange={(v) => update({ geminiApiKey: v })} /><Field label="Groq API anahtarı" value={api.groqApiKey} onChange={(v) => update({ groqApiKey: v })} /><Field label="OpenAI API anahtarı alanı" value={api.openAiApiKey} onChange={(v) => update({ openAiApiKey: v })} /><Field label="Model seçimi" value={api.model} onChange={(v) => update({ model: v })} /><OtherSelectField label="Aktif sağlayıcı" value={api.activeProvider} onChange={(v) => update({ activeProvider: v })} options={apiProviderOptions} manualLabel="Sağlayıcıyı yazın" /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={api.demoMode} onChange={(e) => update({ demoMode: e.target.checked })} /> Demo modu</label></div><button onClick={testApi} className="mt-5 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">API bağlantısını test et</button>{result && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{result}</p>}<p className="mt-4 text-sm text-slate-400">API anahtarları tarayıcıya aktarılmaz. Üretimde .env değişkenleri ve şifreli secret storage tercih edilmelidir.</p></Panel>;
+  return <Panel title="API Ayarları"><p className="mb-5 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm leading-6 text-cyan-50">API anahtarları güvenlik nedeniyle bu ekranda gösterilmez veya tarayıcıya gönderilmez. Gemini, Groq ve OpenAI anahtarlarını Vercel ortam değişkenleri üzerinden yönetin.</p><div className="grid gap-4 md:grid-cols-2"><Field label="Model seçimi" value={api.model} onChange={(v) => update({ model: v })} /><OtherSelectField label="Aktif sağlayıcı" value={api.activeProvider} onChange={(v) => update({ activeProvider: v })} options={apiProviderOptions} manualLabel="Sağlayıcıyı yazın" /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={api.demoMode} onChange={(e) => update({ demoMode: e.target.checked })} /> Demo modu</label></div><button onClick={testApi} className="mt-5 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">API bağlantısını test et</button>{result && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{result}</p>}<p className="mt-4 text-sm text-slate-400">Sunucu tarafı değişkenleri: GEMINI_API_KEY, GROQ_API_KEY ve OPENAI_API_KEY. Kullanılmayan sağlayıcıların anahtarlarını eklemek zorunda değilsiniz.</p></Panel>;
 }
 
 function Settings({ content, setContent }: any) {
@@ -1308,6 +1332,125 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
       <p className="mt-4 text-sm text-slate-400">Roller: Yönetici tam yetki, editör içerik yönetimi, satış ekibi potansiyel müşteri ve müşteri yönetimi, müşteri ise yalnızca kendi panelini görebilir.</p>
     </Panel>
   );
+}
+
+function HubTabs({ items, active, onChange }: any) {
+  return <div className="mb-5 flex flex-wrap gap-2">{items.map((item) => <button key={item} type="button" onClick={() => onChange(item)} className={`rounded-full px-4 py-2 text-sm font-bold ${active === item ? "bg-cyan-300 text-slate-950" : "border border-white/10 text-slate-300 hover:bg-white/10"}`}>{item}</button>)}</div>;
+}
+
+function CrmHub(props: any) {
+  const [tab, setTab] = useState("Form Başvuruları");
+  return <div><HubTabs items={["Form Başvuruları", "Teklif Sihirbazı Kayıtları", "Takip Notları"]} active={tab} onChange={setTab} /><Crm {...props} view={tab} setActive={() => {}} /></div>;
+}
+
+function SiteSettingsHub(props: any) {
+  const [tab, setTab] = useState("Sayfa İçerikleri");
+  const items = ["Sayfa İçerikleri", "Marka Ayarları", "Sosyal Medya", "Hizmetler", "Paketler", "Sertifikalar", "Teklif Sihirbazı", "Tema ve Ölçümleme"];
+  return <div>
+    <HubTabs items={items} active={tab} onChange={setTab} />
+    {tab === "Sayfa İçerikleri" && <Pages {...props} />}
+    {tab === "Marka Ayarları" && <Brand {...props} />}
+    {tab === "Sosyal Medya" && <KeyValue title="Sosyal Medya Yönetimi" object={props.content.socials} onChange={(object) => props.setContent({ ...props.content, socials: object })} />}
+    {tab === "Hizmetler" && <Collection title="Hizmet Yönetimi" type="service" items={props.content.services} setItems={(items) => props.setContent({ ...props.content, services: items })} />}
+    {tab === "Paketler" && <Collection title="Paket Yönetimi" type="package" items={props.content.packages} setItems={(items) => props.setContent({ ...props.content, packages: items })} />}
+    {tab === "Sertifikalar" && <Collection title="Sertifika Yönetimi" type="certificate" items={props.content.certificates} setItems={(items) => props.setContent({ ...props.content, certificates: items })} />}
+    {tab === "Teklif Sihirbazı" && <QuoteWizardAdmin {...props} />}
+    {tab === "Tema ve Ölçümleme" && <Settings {...props} />}
+  </div>;
+}
+
+function ReportsHub(props: any) {
+  const [tab, setTab] = useState("Raporlama Merkezi");
+  return <div>
+    <HubTabs items={["Raporlama Merkezi", "Kampanyalar", "Reklam Metrikleri", "Meta Rapor İçe Aktar", "Rapor Notları"]} active={tab} onChange={setTab} />
+    {tab === "Raporlama Merkezi" && <ReportingCenter {...props} />}
+    {tab === "Kampanyalar" && <CampaignAdmin {...props} />}
+    {["Reklam Metrikleri", "Meta Rapor İçe Aktar"].includes(tab) && <MetricAdmin {...props} importOnly={tab === "Meta Rapor İçe Aktar"} />}
+    {tab === "Rapor Notları" && <UpdatesAdmin {...props} />}
+  </div>;
+}
+
+function MediaLogoHub(props: any) {
+  const [tab, setTab] = useState("Medya Merkezi");
+  return <div><HubTabs items={["Medya Merkezi", "Logo ve Marka Dosyaları"]} active={tab} onChange={setTab} />{tab === "Medya Merkezi" ? <Media {...props} /> : <Brand {...props} />}</div>;
+}
+
+function UsersHub(props: any) {
+  const [tab, setTab] = useState("Kullanıcı Yönetimi");
+  return <div>
+    <HubTabs items={["Kullanıcı Yönetimi", "Log Hareketleri", "Kullanım Kılavuzu"]} active={tab} onChange={setTab} />
+    {tab === "Kullanıcı Yönetimi" && <UsersAdmin {...props} />}
+    {tab === "Log Hareketleri" && <ActivityLogs content={props.content} />}
+    {tab === "Kullanım Kılavuzu" && <UsageGuide />}
+  </div>;
+}
+
+function CustomerFinder({ content, setContent }: any) {
+  const [form, setForm] = useState({ name: "", company: "", phone: "", email: "", website: "", instagram: "", business_type: "", source: "Manuel Giriş", goal: "", notes: "" });
+  const [message, setMessage] = useState("");
+  const digitalScore = Math.min(100, [form.website, form.instagram, form.phone, form.email].filter(Boolean).length * 20 + (form.goal ? 20 : 0));
+  const heatScore = Math.min(100, [form.phone, form.email, form.goal].filter(Boolean).length * 25 + (form.website || form.instagram ? 25 : 0));
+  function addLead() {
+    if (!form.company && !form.name) return setMessage("Firma adı veya kişi adı girin.");
+    setContent({ ...content, leads: [{ id: `lead-${Date.now()}`, ...form, digital_maturity_score: digitalScore, lead_heat_score: heatScore, status: "Yeni", createdAt: new Date().toISOString() }, ...(content.leads || [])] });
+    setMessage("İşletme CRM listesine eklendi. Üst menüdeki Kaydet düğmesi ile kalıcı hale getirebilirsiniz.");
+    setForm({ name: "", company: "", phone: "", email: "", website: "", instagram: "", business_type: "", source: "Manuel Giriş", goal: "", notes: "" });
+  }
+  return <Panel title="Müşteri Bulucu">
+    <p className="mb-5 text-sm leading-6 text-slate-400">Potansiyel işletmeleri araştırma notlarıyla kaydedin, dijital hazırlık seviyesini görün ve uygun adayları CRM listesine aktarın. Harici Google Maps entegrasyonu yapılandırıldığında aynı ekran genişletilebilir.</p>
+    <div className="grid gap-4 md:grid-cols-2">
+      <Field label="Yetkili adı" value={form.name} onChange={(value) => setForm({ ...form, name: value })} />
+      <Field label="Firma adı" value={form.company} onChange={(value) => setForm({ ...form, company: value })} />
+      <Field label="Telefon" value={form.phone} onChange={(value) => setForm({ ...form, phone: value })} />
+      <Field label="E-posta" value={form.email} onChange={(value) => setForm({ ...form, email: value })} />
+      <Field label="Web sitesi" value={form.website} onChange={(value) => setForm({ ...form, website: value })} />
+      <Field label="Instagram" value={form.instagram} onChange={(value) => setForm({ ...form, instagram: value })} />
+      <OtherSelectField label="Sektör" value={form.business_type} onChange={(value) => setForm({ ...form, business_type: value })} options={sectorOptions} manualLabel="Sektörü yazın" />
+      <Field label="Öncelikli hedef" value={form.goal} onChange={(value) => setForm({ ...form, goal: value })} />
+      <div className="md:col-span-2"><TextArea label="Araştırma notları" value={form.notes} onChange={(value) => setForm({ ...form, notes: value })} /></div>
+    </div>
+    <div className="mt-5 grid gap-3 md:grid-cols-2"><InfoItem label="Dijital olgunluk skoru" value={`${digitalScore} / 100`} /><InfoItem label="Lead sıcaklık puanı" value={`${heatScore} / 100`} /></div>
+    <button type="button" onClick={addLead} className="mt-5 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">CRM listesine ekle</button>
+    {message && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{message}</p>}
+  </Panel>;
+}
+
+function ChannelAnalysis({ content, channel }: any) {
+  const [companyId, setCompanyId] = useState("");
+  const [goal, setGoal] = useState(channel === "Meta" ? "Mesaj ve form talebi" : "Arama niyeti ve dönüşüm");
+  const [observation, setObservation] = useState("");
+  const [result, setResult] = useState("");
+  function analyze() {
+    const company = (content.companies || []).find((item) => item.id === companyId);
+    if (!company) return setResult("Analiz için firma seçin.");
+    setResult(channel === "Meta"
+      ? `${company.name} için Meta analiz özeti:\n\n- Reklam sinyalleri, hedef kitle ve teklif uyumu birlikte değerlendirilmelidir.\n- Üst huni görünürlük içerikleri ile yeniden pazarlama akışı ayrıştırılmalıdır.\n- Mesaj ve form dönüşümleri haftalık olarak izlenmeli, kreatif testleri kontrollü ilerletilmelidir.\n- Gözlem: ${observation || "Rakip kreatifleri ve teklif dili periyodik olarak incelenmeli."}\n\nSatış garantisi verilmez; sonuçlar sektör, bütçe, teklif ve rekabet koşullarına göre değişebilir.`
+      : `${company.name} için Google analiz özeti:\n\n- Arama niyeti yüksek anahtar kelimeler hizmet ve lokasyon bazında gruplanmalıdır.\n- Reklam metni, açılış sayfası ve dönüşüm ölçümlemesi aynı hedefe bağlanmalıdır.\n- Yerel aramalarda konum, arama terimleri ve negatif kelimeler düzenli incelenmelidir.\n- Gözlem: ${observation || "İlk kampanya sonrasında arama terimleri raporu ile optimizasyon yapılmalı."}\n\nSatış garantisi verilmez; performans ölçümleme ve düzenli optimizasyonla yönetilir.`);
+  }
+  return <Panel title={`${channel} Analiz`}>
+    <p className="mb-5 text-sm leading-6 text-slate-400">{channel === "Meta" ? "Meta reklam fırsatlarını, funnel yapısını ve kampanya önerilerini müşteri bazında değerlendirin." : "Google Ads fırsatlarını, arama niyetini ve yerel reklam önerilerini müşteri bazında değerlendirin."}</p>
+    <div className="grid gap-4 md:grid-cols-2"><CompanySelect value={companyId} onChange={setCompanyId} companies={content.companies} /><Field label="Analiz hedefi" value={goal} onChange={setGoal} /><div className="md:col-span-2"><TextArea label="Gözlem ve araştırma notu" value={observation} onChange={setObservation} /></div></div>
+    <button type="button" onClick={analyze} className="mt-5 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Analiz özeti oluştur</button>
+    {result && <pre className="mt-5 whitespace-pre-wrap rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-4 text-sm leading-7 text-cyan-50">{result}</pre>}
+  </Panel>;
+}
+
+function ProposalEngine({ content }: any) {
+  const [leadId, setLeadId] = useState("");
+  const [anchor, setAnchor] = useState("10000");
+  const [result, setResult] = useState("");
+  function generate() {
+    const lead = (content.leads || []).find((item) => item.id === leadId);
+    if (!lead) return setResult("Teklif hazırlamak için bir başvuru seçin.");
+    const base = Number(anchor || 10000);
+    setResult(`${lead.company || lead.name || "İşletme"} için teklif yaklaşımı\n\nMIN Paket · ${base.toLocaleString("tr-TR")} TL + KDV\nTemel reklam kurulumu, ölçümleme kontrolü ve aylık optimizasyon.\n\nORTA Paket · ${Math.round(base * 1.5).toLocaleString("tr-TR")} TL + KDV\nFarkındalık, trafik ve yeniden pazarlama adımlarını içeren düzenli performans yönetimi.\n\nMAX Paket · ${Math.round(base * 2.2).toLocaleString("tr-TR")} TL + KDV\nÇok kanallı kampanya planı, CRM destekli takip, raporlama ve kapsamlı funnel optimizasyonu.\n\nBeklenti yönetimi: Reklam bütçesi hizmet bedeline dahil değildir. Satış garantisi verilmez. Sonuçlar sektör, bütçe, hedef kitle, teklif ve rekabet koşullarına göre değişebilir.`);
+  }
+  return <Panel title="Teklif Motoru">
+    <p className="mb-5 text-sm leading-6 text-slate-400">CRM başvurularından MIN, ORTA ve MAX hizmet yaklaşımı hazırlayın. Başlangıç referansı aylık 10.000 TL hizmet bedelidir; nihai kapsam müşteri ihtiyacına göre netleştirilir.</p>
+    <div className="grid gap-4 md:grid-cols-2"><SelectField label="Başvuru" value={leadId} onChange={setLeadId} options={(content.leads || []).map((lead) => ({ value: lead.id, label: lead.company || lead.name || lead.email || "İsimsiz başvuru" }))} placeholder="Başvuru seçin" /><Field label="Aylık hizmet bedeli referansı" type="number" value={anchor} onChange={setAnchor} /></div>
+    <button type="button" onClick={generate} className="mt-5 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Teklif yaklaşımı oluştur</button>
+    {result && <div className="mt-5 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-4"><pre className="whitespace-pre-wrap text-sm leading-7 text-cyan-50">{result}</pre><button type="button" onClick={() => navigator.clipboard.writeText(result)} className="mt-4 inline-flex items-center gap-2 rounded-full border border-cyan-100/20 px-4 py-2 text-sm text-cyan-50"><Copy size={15} /> Kopyala</button></div>}
+  </Panel>;
 }
 
 function TrackingSettings(props: any) {

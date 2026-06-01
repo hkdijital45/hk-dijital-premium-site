@@ -83,6 +83,10 @@ function normalizeRecord(key: string, item: any) {
       status: item.status || "Yeni",
       notes: item.notes || item.internalNotes || "",
       follow_up_date: item.follow_up_date || item.followUpDate || null,
+      digital_maturity_score: Number(item.digital_maturity_score || 0),
+      lead_heat_score: Number(item.lead_heat_score || 0),
+      ai_analysis: item.ai_analysis || {},
+      proposal_history: item.proposal_history || [],
       updated_at: new Date().toISOString()
     };
   }
@@ -182,6 +186,12 @@ async function upsertItems(key: keyof typeof tables, items: any[] = []) {
     if (key === "customerUpdates") {
       delete copy.why_it_matters;
       delete copy.next_step;
+    }
+    if (key === "leads") {
+      delete copy.digital_maturity_score;
+      delete copy.lead_heat_score;
+      delete copy.ai_analysis;
+      delete copy.proposal_history;
     }
     return copy;
   };
