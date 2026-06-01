@@ -87,6 +87,10 @@ function normalizeRecord(key: string, item: any) {
       lead_heat_score: Number(item.lead_heat_score || 0),
       ai_analysis: item.ai_analysis || {},
       proposal_history: item.proposal_history || [],
+      address: item.address || "",
+      google_rating: item.google_rating ?? null,
+      google_review_count: Number(item.google_review_count || 0),
+      google_place_id: item.google_place_id || "",
       updated_at: new Date().toISOString()
     };
   }
@@ -192,6 +196,10 @@ async function upsertItems(key: keyof typeof tables, items: any[] = []) {
       delete copy.lead_heat_score;
       delete copy.ai_analysis;
       delete copy.proposal_history;
+      delete copy.address;
+      delete copy.google_rating;
+      delete copy.google_review_count;
+      delete copy.google_place_id;
     }
     return copy;
   };

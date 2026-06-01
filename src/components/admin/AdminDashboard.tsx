@@ -11,7 +11,7 @@ import { reportDashboardStats } from "@/lib/reports/report-dashboard";
 import { adminNavigationGroups, getAdminHref } from "@/lib/admin-navigation";
 
 const leadStatuses = ["Yeni", "Görüşülecek", "Teklif Hazırlanıyor", "Teklif Gönderildi", "Takipte", "Kazanıldı", "Kaybedildi", "Dönüştürüldü"];
-const leadSourceOptions = ["İletişim Formu", "Teklif Formu", "Teklif Sihirbazı", "Instagram", "WhatsApp", "Referans", "Manuel Giriş", "Diğer"];
+const leadSourceOptions = ["İletişim Formu", "Teklif Formu", "Teklif Sihirbazı", "Müşteri Bulucu", "Instagram", "WhatsApp", "Referans", "Manuel Giriş", "Diğer"];
 const roleOptions = [
   { value: "admin", label: "Yönetici" },
   { value: "editor", label: "Editör" },
@@ -516,6 +516,8 @@ function LeadDrawer({ lead, update, close, onConverted }: any) {
   const [conversionMessage, setConversionMessage] = useState("");
   const [conversionError, setConversionError] = useState("");
   const [converting, setConverting] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisMessage, setAnalysisMessage] = useState("");
   const whatsappUrl = lead.phone ? `https://wa.me/${String(lead.phone).replace(/\D/g, "")}?text=${encodeURIComponent(`Merhaba ${lead.name || ""}, HK Dijital başvurunuz hakkında iletişime geçiyorum.`)}` : "";
   const details = [
     ["Kaynak", lead.source],
@@ -525,6 +527,10 @@ function LeadDrawer({ lead, update, close, onConverted }: any) {
     ["E-posta", lead.email],
     ["Instagram", lead.instagram],
     ["Web sitesi", lead.website],
+    ["Adres", lead.address],
+    ["Google puanı", lead.google_rating],
+    ["Google yorum sayısı", lead.google_review_count],
+    ["Google Place ID", lead.google_place_id],
     ["Sektör / İşletme türü", lead.business_type || lead.businessType],
     ["Ana hedef", lead.goal],
     ["Reklam bütçesi", lead.budget],
@@ -550,6 +556,20 @@ function LeadDrawer({ lead, update, close, onConverted }: any) {
     onConverted(data);
     setConversionMessage(data.temporaryPassword ? `${data.message} Tek seferlik geçici şifre: ${data.temporaryPassword}` : data.message);
   }
+  async function analyze() {
+    setAnalyzing(true);
+    setAnalysisMessage("AI analizi hazırlanıyor...");
+    const response = await fetch(`/api/admin/leads/${lead.id}/analyze`, { method: "POST" });
+    const data = await response.json().catch(() => ({}));
+    setAnalyzing(false);
+    if (!response.ok) {
+      setAnalysisMessage(data.supabaseError ? `${data.error}: ${data.supabaseError}` : data.error || "AI analizi oluşturulamadı.");
+      return;
+    }
+    update(lead.id, { ai_analysis: data.analysis });
+    lead.ai_analysis = data.analysis;
+    setAnalysisMessage(data.message || "AI analizi oluşturuldu ve kaydedildi.");
+  }
   return (
     <Drawer title="Başvuru Detayı" close={close}>
       <div className="grid gap-3 md:grid-cols-2">
@@ -563,8 +583,11 @@ function LeadDrawer({ lead, update, close, onConverted }: any) {
       <div className="mt-5 flex flex-wrap gap-2">
         <button onClick={convert} disabled={converting || lead.status === "Dönüştürüldü"} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-60">{converting ? "Dönüştürülüyor..." : lead.status === "Dönüştürüldü" ? "Müşteriye dönüştürüldü" : "Başvuruyu müşteriye dönüştür"}</button>
         <button onClick={() => update(lead.id, { status: "Takipte", follow_up_date: lead.follow_up_date || new Date().toISOString().slice(0, 10) })} className="rounded-full border border-white/10 px-4 py-2 text-sm">Takip görevi oluştur</button>
+        <button onClick={analyze} disabled={analyzing || String(lead.id).startsWith("lead-")} className="inline-flex items-center gap-2 rounded-full border border-cyan-200/30 px-4 py-2 text-sm font-bold text-cyan-100 disabled:opacity-50"><Sparkles size={15} /> {analyzing ? "Analiz hazırlanıyor..." : "AI analizi oluştur"}</button>
         {whatsappUrl && <a href={whatsappUrl} target="_blank" rel="noreferrer" className="rounded-full bg-[#25D366] px-4 py-2 text-sm font-black text-white">WhatsApp mesajı gönder</a>}
       </div>
+      {analysisMessage && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{analysisMessage}</p>}
+      {lead.ai_analysis?.text && <div className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-4"><h3 className="font-black text-cyan-50">HK Intelligence AI Analizi</h3><pre className="mt-3 whitespace-pre-wrap text-sm leading-7 text-cyan-50">{lead.ai_analysis.text}</pre><p className="mt-3 text-xs text-cyan-100/70">{lead.ai_analysis.provider || "Demo"} · {formatDateTime(lead.ai_analysis.generated_at)}</p></div>}
       {conversionMessage && <p className="mt-4 rounded-[8px] border border-emerald-300/20 bg-emerald-500/10 p-3 text-sm text-emerald-100">{conversionMessage}</p>}
       {conversionError && <p className="mt-4 rounded-[8px] border border-red-300/20 bg-red-500/10 p-3 text-sm text-red-100">{conversionError}</p>}
     </Drawer>
@@ -617,7 +640,7 @@ function ApiSettings({ content, setContent }: any) {
     const data = await response.json();
     setResult(data.message || "Test tamamlandı.");
   }
-  return <Panel title="API Ayarları"><p className="mb-5 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm leading-6 text-cyan-50">API anahtarları güvenlik nedeniyle bu ekranda gösterilmez veya tarayıcıya gönderilmez. Gemini, Groq ve OpenAI anahtarlarını Vercel ortam değişkenleri üzerinden yönetin.</p><div className="grid gap-4 md:grid-cols-2"><Field label="Model seçimi" value={api.model} onChange={(v) => update({ model: v })} /><OtherSelectField label="Aktif sağlayıcı" value={api.activeProvider} onChange={(v) => update({ activeProvider: v })} options={apiProviderOptions} manualLabel="Sağlayıcıyı yazın" /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={api.demoMode} onChange={(e) => update({ demoMode: e.target.checked })} /> Demo modu</label></div><button onClick={testApi} className="mt-5 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">API bağlantısını test et</button>{result && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{result}</p>}<p className="mt-4 text-sm text-slate-400">Sunucu tarafı değişkenleri: GEMINI_API_KEY, GROQ_API_KEY ve OPENAI_API_KEY. Kullanılmayan sağlayıcıların anahtarlarını eklemek zorunda değilsiniz.</p></Panel>;
+  return <Panel title="API Ayarları"><p className="mb-5 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm leading-6 text-cyan-50">API anahtarları güvenlik nedeniyle bu ekranda gösterilmez veya tarayıcıya gönderilmez. Gemini, Groq, OpenAI ve Google Maps anahtarlarını Vercel ortam değişkenleri üzerinden yönetin.</p><div className="grid gap-4 md:grid-cols-2"><Field label="Model seçimi" value={api.model} onChange={(v) => update({ model: v })} /><OtherSelectField label="Aktif sağlayıcı" value={api.activeProvider} onChange={(v) => update({ activeProvider: v })} options={apiProviderOptions} manualLabel="Sağlayıcıyı yazın" /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={api.demoMode} onChange={(e) => update({ demoMode: e.target.checked })} /> Demo modu</label></div><button onClick={testApi} className="mt-5 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">API bağlantısını test et</button>{result && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{result}</p>}<p className="mt-4 text-sm text-slate-400">Sunucu tarafı değişkenleri: GOOGLE_MAPS_API_KEY, GEMINI_API_KEY, GROQ_API_KEY ve OPENAI_API_KEY. Kullanılmayan AI sağlayıcılarının anahtarlarını eklemek zorunda değilsiniz.</p></Panel>;
 }
 
 function Settings({ content, setContent }: any) {
@@ -1386,32 +1409,52 @@ function UsersHub(props: any) {
 }
 
 function CustomerFinder({ content, setContent }: any) {
-  const [form, setForm] = useState({ name: "", company: "", phone: "", email: "", website: "", instagram: "", business_type: "", source: "Manuel Giriş", goal: "", notes: "" });
+  const [search, setSearch] = useState({ keyword: "", city: "Manisa", district: "", sector: "" });
+  const [results, setResults] = useState([]);
+  const [selected, setSelected] = useState([]);
+  const [loading, setLoading] = useState("");
   const [message, setMessage] = useState("");
-  const digitalScore = Math.min(100, [form.website, form.instagram, form.phone, form.email].filter(Boolean).length * 20 + (form.goal ? 20 : 0));
-  const heatScore = Math.min(100, [form.phone, form.email, form.goal].filter(Boolean).length * 25 + (form.website || form.instagram ? 25 : 0));
-  function addLead() {
-    if (!form.company && !form.name) return setMessage("Firma adı veya kişi adı girin.");
-    setContent({ ...content, leads: [{ id: `lead-${Date.now()}`, ...form, digital_maturity_score: digitalScore, lead_heat_score: heatScore, status: "Yeni", createdAt: new Date().toISOString() }, ...(content.leads || [])] });
-    setMessage("İşletme CRM listesine eklendi. Üst menüdeki Kaydet düğmesi ile kalıcı hale getirebilirsiniz.");
-    setForm({ name: "", company: "", phone: "", email: "", website: "", instagram: "", business_type: "", source: "Manuel Giriş", goal: "", notes: "" });
+  async function runSearch() {
+    setLoading("search");
+    setMessage("Google Maps üzerinde işletmeler aranıyor...");
+    const response = await fetch("/api/admin/business-discovery", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(search) });
+    const data = await response.json().catch(() => ({}));
+    setLoading("");
+    if (!response.ok) return setMessage(data.error || "İşletme araması başarısız oldu.");
+    setResults(data.businesses || []);
+    setSelected([]);
+    setMessage(data.count ? `${data.count} işletme bulundu. CRM listesine eklemek istediklerinizi seçin.` : "Arama kriterlerine uygun işletme bulunamadı.");
+  }
+  async function saveSelected() {
+    if (!selected.length) return setMessage("CRM listesine eklemek için en az bir işletme seçin.");
+    setLoading("save");
+    setMessage("Seçilen işletmeler CRM listesine kaydediliyor...");
+    const businesses = results.filter((business) => selected.includes(business.placeId));
+    const response = await fetch("/api/admin/business-discovery", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businesses, sector: search.sector }) });
+    const data = await response.json().catch(() => ({}));
+    setLoading("");
+    if (!response.ok) return setMessage(data.supabaseError ? `${data.error}: ${data.supabaseError}` : data.error || "İşletmeler kaydedilemedi.");
+    setContent({ ...content, leads: [...(data.leads || []), ...(content.leads || [])] });
+    setSelected([]);
+    setMessage(data.skipped ? `${data.message} ${data.skipped} kayıt daha önce eklenmiş.` : data.message);
   }
   return <Panel title="Müşteri Bulucu">
-    <p className="mb-5 text-sm leading-6 text-slate-400">Potansiyel işletmeleri araştırma notlarıyla kaydedin, dijital hazırlık seviyesini görün ve uygun adayları CRM listesine aktarın. Harici Google Maps entegrasyonu yapılandırıldığında aynı ekran genişletilebilir.</p>
+    <p className="mb-5 text-sm leading-6 text-slate-400">Google Maps üzerinden yerel işletmeleri bulun, temel dijital sinyalleri inceleyin ve uygun adayları skorlarıyla birlikte CRM listesine aktarın.</p>
     <div className="grid gap-4 md:grid-cols-2">
-      <Field label="Yetkili adı" value={form.name} onChange={(value) => setForm({ ...form, name: value })} />
-      <Field label="Firma adı" value={form.company} onChange={(value) => setForm({ ...form, company: value })} />
-      <Field label="Telefon" value={form.phone} onChange={(value) => setForm({ ...form, phone: value })} />
-      <Field label="E-posta" value={form.email} onChange={(value) => setForm({ ...form, email: value })} />
-      <Field label="Web sitesi" value={form.website} onChange={(value) => setForm({ ...form, website: value })} />
-      <Field label="Instagram" value={form.instagram} onChange={(value) => setForm({ ...form, instagram: value })} />
-      <OtherSelectField label="Sektör" value={form.business_type} onChange={(value) => setForm({ ...form, business_type: value })} options={sectorOptions} manualLabel="Sektörü yazın" />
-      <Field label="Öncelikli hedef" value={form.goal} onChange={(value) => setForm({ ...form, goal: value })} />
-      <div className="md:col-span-2"><TextArea label="Araştırma notları" value={form.notes} onChange={(value) => setForm({ ...form, notes: value })} /></div>
+      <Field label="Anahtar kelime" value={search.keyword} onChange={(value) => setSearch({ ...search, keyword: value })} />
+      <OtherSelectField label="Sektör" value={search.sector} onChange={(value) => setSearch({ ...search, sector: value })} options={sectorOptions} manualLabel="Sektörü yazın" />
+      <OtherSelectField label="Şehir" value={search.city} onChange={(value) => setSearch({ ...search, city: value })} options={cityOptions} manualLabel="Şehri yazın" />
+      <Field label="İlçe" value={search.district} onChange={(value) => setSearch({ ...search, district: value })} />
     </div>
-    <div className="mt-5 grid gap-3 md:grid-cols-2"><InfoItem label="Dijital olgunluk skoru" value={`${digitalScore} / 100`} /><InfoItem label="Lead sıcaklık puanı" value={`${heatScore} / 100`} /></div>
-    <button type="button" onClick={addLead} className="mt-5 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">CRM listesine ekle</button>
+    <button type="button" disabled={loading === "search"} onClick={runSearch} className="mt-5 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-60">{loading === "search" ? "Aranıyor..." : "Google Maps üzerinde ara"}</button>
     {message && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{message}</p>}
+    {!!results.length && <div className="mt-5 grid gap-3">
+      {results.map((business) => <label key={business.placeId} className={`flex cursor-pointer gap-3 rounded-[8px] border p-4 ${selected.includes(business.placeId) ? "border-cyan-200/60 bg-cyan-200/10" : "border-white/10 bg-black/20"}`}>
+        <input type="checkbox" checked={selected.includes(business.placeId)} onChange={(event) => setSelected(event.target.checked ? [...selected, business.placeId] : selected.filter((id) => id !== business.placeId))} />
+        <span><strong>{business.name}</strong><span className="mt-1 block text-sm text-slate-400">{business.address || "Adres bilgisi yok"}</span><span className="mt-2 block text-xs text-slate-500">{business.phone || "Telefon bilgisi yok"} · {business.website ? "Web sitesi var" : "Web sitesi yok"} · Google puanı: {business.googleRating ?? "-"} · Yorum: {business.reviewCount || 0}</span></span>
+      </label>)}
+      <button type="button" disabled={loading === "save"} onClick={saveSelected} className="w-fit rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-60">{loading === "save" ? "Kaydediliyor..." : `Seçilenleri CRM listesine ekle (${selected.length})`}</button>
+    </div>}
   </Panel>;
 }
 

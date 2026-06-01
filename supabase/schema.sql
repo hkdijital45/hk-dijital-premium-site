@@ -280,7 +280,11 @@ alter table public.leads
   add column if not exists digital_maturity_score integer default 0,
   add column if not exists lead_heat_score integer default 0,
   add column if not exists ai_analysis jsonb not null default '{}'::jsonb,
-  add column if not exists proposal_history jsonb not null default '[]'::jsonb;
+  add column if not exists proposal_history jsonb not null default '[]'::jsonb,
+  add column if not exists address text,
+  add column if not exists google_rating numeric,
+  add column if not exists google_review_count integer default 0,
+  add column if not exists google_place_id text;
 
 create table if not exists public.activity_logs (
   id uuid primary key default gen_random_uuid(),
@@ -357,6 +361,7 @@ create index if not exists companies_status_idx on public.companies(status);
 create index if not exists leads_status_idx on public.leads(status);
 create index if not exists leads_created_at_idx on public.leads(created_at desc);
 create index if not exists leads_heat_score_idx on public.leads(lead_heat_score desc);
+create index if not exists leads_google_place_id_idx on public.leads(google_place_id);
 create index if not exists campaigns_company_id_idx on public.campaigns(company_id);
 create index if not exists campaign_metrics_company_id_date_idx on public.campaign_metrics(company_id, date desc);
 create index if not exists customer_updates_company_id_idx on public.customer_updates(company_id);
