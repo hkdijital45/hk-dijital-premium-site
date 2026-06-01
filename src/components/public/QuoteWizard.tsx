@@ -107,9 +107,8 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
 
   return (
     <section className="mx-auto max-w-6xl">
-      <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.055] p-5 shadow-[0_30px_120px_rgba(0,0,0,.45)] backdrop-blur-2xl sm:p-8 lg:p-10">
-        <div className="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full bg-cyan-300/20 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-28 left-8 size-72 rounded-full bg-yellow-300/10 blur-3xl" />
+      <div className="glass-card relative overflow-hidden p-5 sm:p-8 lg:p-10">
+        <div className="premium-grid pointer-events-none absolute inset-0 opacity-40" />
 
         <div className="relative">
           <div className="flex flex-wrap items-start justify-between gap-6">
@@ -120,7 +119,7 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
               <h1 className="mt-5 text-3xl font-black leading-tight text-white sm:text-5xl">{wizard.title}</h1>
               <p className="mt-4 max-w-2xl text-base leading-8 text-slate-300 sm:text-lg">{wizard.subtitle}</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-black/25 p-4 text-right">
+            <div className="rounded-[8px] border border-white/10 bg-black/25 p-4 text-right">
               <p className="text-sm text-slate-400">Aşama</p>
               <p className="mt-1 text-2xl font-black text-cyan-100">{step + 1} / {steps.length}</p>
             </div>
@@ -186,9 +185,9 @@ function Options({ title, text, options, onSelect }: { title: string; text: stri
             whileHover={{ y: -6, scale: 1.015 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => onSelect(option.id)}
-            className="group min-h-40 rounded-[22px] border border-white/10 bg-white/[0.055] p-5 text-left shadow-[0_18px_50px_rgba(0,0,0,.24)] transition hover:border-cyan-200/50 hover:bg-cyan-200/10"
+            className="group min-h-40 rounded-[8px] border border-white/10 bg-white/[0.055] p-5 text-left shadow-[0_18px_50px_rgba(0,0,0,.24)] transition hover:border-cyan-200/50 hover:bg-cyan-200/10"
           >
-            <span className="grid size-14 place-items-center rounded-2xl border border-white/10 bg-black/25 text-3xl shadow-inner">{option.emoji || "✨"}</span>
+            <span className="grid size-14 place-items-center rounded-[8px] border border-white/10 bg-black/25 text-3xl shadow-inner">{option.emoji || "✨"}</span>
             <span className="mt-5 block text-xl font-black text-white">{option.label}</span>
             <span className="mt-2 block text-sm leading-6 text-slate-400 group-hover:text-slate-200">{option.hint}</span>
           </motion.button>

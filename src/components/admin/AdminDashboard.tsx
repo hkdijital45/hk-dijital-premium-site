@@ -4,11 +4,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronLeft, ChevronRight, Copy, Download, ImagePlus, LogOut, Plus, Save, Sparkles, Trash2, X } from "lucide-react";
+import { BarChart3, ChevronDown, ChevronLeft, ChevronRight, Copy, Download, Gauge, ImagePlus, LayoutDashboard, LogOut, Plus, Save, Sparkles, Trash2, X } from "lucide-react";
 import type { SiteContent } from "@/lib/types";
 import { ReportTools } from "@/components/admin/reports/ReportTools";
 import { reportDashboardStats } from "@/lib/reports/report-dashboard";
 import { adminNavigationGroups, getAdminHref } from "@/lib/admin-navigation";
+import { AnimatedChart, CRMKanban, GlassCard, MetricCard3D } from "@/components/premium/PremiumUI";
 
 const leadStatuses = ["Yeni", "Görüşülecek", "Teklif Hazırlanıyor", "Teklif Gönderildi", "Takipte", "Kazanıldı", "Kaybedildi", "Dönüştürüldü"];
 const leadSourceOptions = ["İletişim Formu", "Teklif Formu", "Teklif Sihirbazı", "Müşteri Bulucu", "Instagram", "WhatsApp", "Referans", "Manuel Giriş", "Diğer"];
@@ -137,12 +138,16 @@ export function AdminDashboard({
   const headerClass = theme === "dark" ? "border-white/10 bg-[#050711]/90" : "border-slate-200 bg-white/90";
 
   return (
-    <main className={`min-h-screen ${shellClass}`}>
-      <header className={`sticky top-0 z-40 border-b ${headerClass} backdrop-blur-xl`}>
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-4">
-          <div>
-            <p className="text-sm font-bold uppercase tracking-[.22em] text-cyan-200">HK Dijital</p>
-            <h1 className="text-2xl font-black">HK Dijital Kontrol Merkezi</h1>
+    <main className={`relative min-h-screen overflow-hidden ${shellClass}`}>
+      <div className="premium-grid pointer-events-none absolute inset-0 opacity-45" />
+      <header className={`sticky top-0 z-40 border-b ${headerClass} shadow-[0_16px_48px_rgba(0,0,0,.18)] backdrop-blur-2xl`}>
+        <div className="relative mx-auto flex max-w-[1540px] flex-wrap items-center justify-between gap-4 px-4 py-4">
+          <div className="flex items-center gap-3">
+            <span className="grid size-11 place-items-center rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 text-cyan-100"><LayoutDashboard size={20} /></span>
+            <div>
+            <p className="text-xs font-bold uppercase tracking-[.22em] text-cyan-200">HK Dijital Marketing OS</p>
+            <h1 className="text-xl font-black sm:text-2xl">HK Dijital Kontrol Merkezi</h1>
+            </div>
           </div>
           <div className="flex gap-2">
             <button onClick={toggleTheme} className="min-h-11 rounded-full border border-white/10 px-5 text-sm font-bold">
@@ -153,8 +158,8 @@ export function AdminDashboard({
           </div>
         </div>
       </header>
-      <div className={`mx-auto grid max-w-7xl gap-6 px-4 py-6 ${sidebarCollapsed ? "lg:grid-cols-[76px_1fr]" : "lg:grid-cols-[260px_1fr]"}`}>
-        <aside className={`h-fit rounded-[8px] border p-3 ${panelClass}`}>
+      <div className={`relative mx-auto grid max-w-[1540px] gap-6 px-4 py-6 ${sidebarCollapsed ? "lg:grid-cols-[76px_1fr]" : "lg:grid-cols-[276px_1fr]"}`}>
+        <aside className={`premium-scrollbar max-h-[calc(100vh-120px)] overflow-y-auto rounded-[8px] border p-3 shadow-[0_22px_80px_rgba(0,0,0,.2)] ${panelClass}`}>
           <button
             type="button"
             onClick={() => setSidebarCollapsed((current) => !current)}
@@ -163,6 +168,7 @@ export function AdminDashboard({
           >
             {sidebarCollapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}
           </button>
+          {!sidebarCollapsed && <div className="mb-3 rounded-[8px] border border-cyan-200/15 bg-cyan-200/[0.06] p-3"><p className="text-[10px] font-black uppercase tracking-[.18em] text-cyan-100">Operasyon merkezi</p><p className="mt-2 text-xs leading-5 text-slate-400">CRM, analiz ve raporlama araçları tek panelde.</p></div>}
           {adminNavigationGroups.map((group) => {
             const expanded = openGroups[group.label];
             return (
@@ -182,7 +188,7 @@ export function AdminDashboard({
                         key={item.slug}
                         href={getAdminHref(item.slug)}
                         title={item.label}
-                        className={`rounded-[8px] px-3 py-2 text-left text-xs font-bold ${active === item.label ? "bg-cyan-300 text-slate-950" : "text-slate-400 hover:bg-white/10 hover:text-slate-200"}`}
+                        className={`rounded-[8px] border px-3 py-2.5 text-left text-xs font-bold transition ${active === item.label ? "border-cyan-200/50 bg-cyan-300 text-slate-950 shadow-[0_8px_24px_rgba(34,211,238,.16)]" : "border-transparent text-slate-400 hover:border-white/10 hover:bg-white/10 hover:text-slate-200"}`}
                       >
                         {sidebarCollapsed ? item.label.slice(0, 2) : item.label}
                       </Link>
@@ -193,7 +199,7 @@ export function AdminDashboard({
             );
           })}
         </aside>
-        <section className={`min-w-0 rounded-[8px] border p-5 ${panelClass}`}>
+        <section className={`min-w-0 rounded-[8px] border p-5 shadow-[0_24px_90px_rgba(0,0,0,.18)] ${panelClass}`}>
           {!supabaseConfigured && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">Supabase bağlantısı yapılandırılmadı. Canlı ortamda kaydetme çalışmaz.</p>}
           {bootstrapWarning && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">Süper admin kurulum anahtarları hâlâ aktif. Güvenlik için Vercel ortam değişkenlerinden kaldırın.</p>}
           {status && <p className={`mb-5 rounded-[8px] border p-3 text-sm ${status.includes("Kaydedilemedi") ? "border-red-300/30 bg-red-500/10 text-red-100" : "border-cyan-200/20 bg-cyan-200/10 text-cyan-100"}`}>{status}</p>}
@@ -243,7 +249,7 @@ export function AdminDashboard({
 }
 
 function Panel({ title, children }: any) {
-  return <div><h2 className="mb-5 text-2xl font-black">{title}</h2>{children}</div>;
+  return <div><p className="text-[10px] font-black uppercase tracking-[.2em] text-cyan-200">HK Dijital Operasyon Merkezi</p><h2 className="mb-6 mt-2 text-2xl font-black">{title}</h2>{children}</div>;
 }
 
 function Field({ label, value, onChange, type = "text" }: any) {
@@ -336,7 +342,11 @@ function Overview({ content, setActive, supabaseConfigured }: any) {
   }
   return (
     <Panel title="Genel Bakış">
-      <div className="grid gap-4 md:grid-cols-3">{stats.map(([label, value]) => <div key={label} className="rounded-[8px] border border-white/10 bg-black/25 p-4"><p className="text-sm text-slate-400">{label}</p><p className="mt-2 text-2xl font-black text-cyan-100">{value}</p></div>)}</div>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{stats.slice(0, 8).map(([label, value], index) => <MetricCard3D key={label} label={label} value={value} accent={index % 3 === 1 ? "amber" : index % 3 === 2 ? "blue" : "cyan"} icon={index % 2 ? <Gauge size={17} /> : <BarChart3 size={17} />} />)}</div>
+      <div className="mt-6 grid gap-4 xl:grid-cols-[1.12fr_.88fr]">
+        <GlassCard className="p-4"><h3 className="font-black">Performans görünümü</h3><p className="mt-2 text-sm text-slate-400">Başvuru, kampanya ve bütçe hareketlerini tek bakışta izleyin.</p><div className="mt-4"><AnimatedChart label="Aylık operasyon akışı" values={[18, 27, 34, 31, 52, 58, 66, 78]} /></div></GlassCard>
+        <GlassCard className="p-4"><h3 className="font-black">CRM akışı</h3><p className="mt-2 text-sm text-slate-400">Potansiyel müşterilerin güncel takip dağılımı.</p><div className="mt-4"><CRMKanban /></div></GlassCard>
+      </div>
       <div className="mt-6 grid gap-4 lg:grid-cols-[1.1fr_.9fr]">
         <div className="rounded-[8px] border border-white/10 p-4"><h3 className="font-black">Son gelen formlar</h3><div className="mt-4 grid gap-3">{leads.slice(0, 5).map((lead) => <div key={lead.id} className="rounded-[8px] bg-white/[0.04] p-3 text-sm"><p className="font-bold">{lead.name || "İsimsiz"} · {lead.status || "Yeni"}</p><p className="text-slate-400">{lead.source || "Form"} · {lead.company || lead.email || lead.phone}</p></div>)}{!leads.length && <p className="text-sm text-slate-400">Henüz başvuru yok.</p>}</div></div>
         <div className="rounded-[8px] border border-white/10 p-4"><h3 className="font-black">Hızlı işlemler</h3><div className="mt-4 grid gap-2">{quickActions.map(([label, target]) => <button key={label} onClick={() => setActive(target)} className="rounded-[8px] border border-white/10 px-4 py-3 text-left text-sm font-bold hover:bg-white/10">{label}</button>)}</div></div>

@@ -45,7 +45,7 @@ export function CustomerReports({ reports, initialInterpretations, reportUpdates
 
   if (!reports.length) return null;
   return (
-    <section className="mt-8 rounded-[8px] border border-white/10 bg-white/[0.045] p-5">
+    <section className="glass-card mt-8 p-5">
       <h2 className="flex items-center gap-2 text-xl font-black"><BarChart3 className="text-cyan-200" /> Raporlarım</h2>
       <p className="mt-2 text-sm leading-6 text-slate-400">Kanal bazlı performans özetlerinizi ve yapay zekâ destekli değerlendirmeleri burada inceleyebilirsiniz.</p>
       <CustomerReportDashboardSummary reports={reports} />
@@ -56,7 +56,7 @@ export function CustomerReports({ reports, initialInterpretations, reportUpdates
           if (!items.length) return null;
           return <div key={group}><h3 className="font-black text-cyan-100">{group.replace("Raporu", "Raporları")}</h3><div className="mt-3 grid gap-4 lg:grid-cols-2">{items.map((report) => {
             const history = interpretations.filter((item) => item.report_id === report.id);
-            return <article key={report.id} className="rounded-[8px] border border-white/10 bg-black/25 p-4">
+            return <article key={report.id} className="rounded-[8px] border border-white/10 bg-black/25 p-5 transition duration-300 hover:-translate-y-1 hover:border-cyan-200/30">
               <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.16em] text-cyan-200">{report.report_type}</p><h4 className="mt-2 text-lg font-black">{report.period || "Güncel dönem"}</h4></div><button disabled={loading === report.id} onClick={() => interpret(report.id)} className="inline-flex items-center gap-2 rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950 disabled:opacity-60"><Sparkles size={14} /> {loading === report.id ? "Yorumlanıyor..." : "Yorumla"}</button></div>
               <p className="mt-3 text-sm font-bold text-slate-200">{summary(report)}</p>
               <div className="mt-4 grid gap-2 sm:grid-cols-2">{reportHighlights(report).map((metric) => <CustomerMetricBox key={metric.key} label={metric.label} value={metric.value} explanation={metric.explanation} />)}</div>

@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { BarChart3, FileText, Lightbulb, MessageCircle, UserRound } from "lucide-react";
+import { BarChart3, FileText, Lightbulb, MessageCircle, Sparkles, UserRound } from "lucide-react";
 import { getSession, isStaffRole } from "@/lib/auth";
 import { recordActivity } from "@/lib/activity-log";
 import { getCustomerCenterData, summarizeMetrics } from "@/lib/customer-center";
 import { hasSupabaseConfig } from "@/lib/supabase";
 import { CustomerReports } from "@/components/customer/CustomerReports";
+import { AnimatedChart, CustomerMetricCard, GlassCard } from "@/components/premium/PremiumUI";
 
 export const dynamic = "force-dynamic";
 
@@ -15,13 +16,7 @@ export const metadata: Metadata = {
 };
 
 function MetricCard({ title, value, help }: { title: string; value: string | number; help: string }) {
-  return (
-    <div className="rounded-[8px] border border-white/10 bg-white/[0.055] p-5">
-      <p className="text-sm text-slate-400">{title}</p>
-      <p className="mt-2 text-3xl font-black text-cyan-100">{value}</p>
-      <p className="mt-3 text-xs leading-5 text-slate-400">{help}</p>
-    </div>
-  );
+  return <CustomerMetricCard title={title} value={value} help={help} />;
 }
 
 export default async function MusteriPaneliPage({ searchParams }: { searchParams: Promise<{ company?: string }> }) {
@@ -58,11 +53,12 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
   const latestUpdate = visibleUpdates[0];
 
   return (
-    <main className="min-h-screen bg-[#050711] text-white">
-      <header className="border-b border-white/10 bg-[#050711]/90 px-4 py-5 backdrop-blur-xl">
+    <main className="relative min-h-screen overflow-hidden bg-[#050711] text-white">
+      <div className="premium-grid pointer-events-none absolute inset-0 opacity-45" />
+      <header className="relative border-b border-white/10 bg-[#050711]/90 px-4 py-5 shadow-[0_16px_48px_rgba(0,0,0,.2)] backdrop-blur-2xl">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="text-sm font-bold uppercase tracking-[.22em] text-cyan-200">Müşteri Paneli</p>
+            <p className="text-sm font-bold uppercase tracking-[.22em] text-cyan-200">Müşteri Performans Merkezi</p>
             <h1 className="mt-2 text-3xl font-black">HK Dijital Marketing Center</h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">Reklam çalışmalarınızı, süreç notlarınızı ve performans özetlerinizi tek ekrandan takip edin.</p>
           </div>
@@ -72,7 +68,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-4 py-8">
+      <div className="relative mx-auto max-w-7xl px-4 py-8">
         {!hasSupabaseConfig() && (
           <div className="mb-6 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-4 text-sm text-amber-100">
             Panel verileri şu anda yüklenemiyor. Lütfen kısa süre sonra yeniden deneyin veya HK Dijital ile iletişime geçin.
@@ -91,10 +87,16 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
           </div>
         )}
 
-        <section className="mb-8 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-5">
-          <p className="text-sm font-bold text-cyan-100">Hoş geldiniz</p>
-          <h2 className="mt-2 text-2xl font-black">{data.company?.name || "Müşteri hesabı"}</h2>
-          <p className="mt-3 text-sm leading-6 text-slate-300">Reklam çalışmalarınızın güncel durumunu, son yapılan işlemleri ve sıradaki önerilen adımı sade bir özetle takip edebilirsiniz.</p>
+        <section className="glass-card mb-8 overflow-hidden p-6 sm:p-7">
+          <div className="grid gap-6 lg:grid-cols-[1fr_360px] lg:items-center">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[.18em] text-cyan-100">Hoş geldiniz</p>
+              <h2 className="mt-3 text-3xl font-black">{data.company?.name || "Müşteri hesabı"}</h2>
+              <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300">Reklam çalışmalarınızın güncel durumunu, son yapılan işlemleri ve sıradaki önerilen adımı sade bir özetle takip edebilirsiniz.</p>
+              <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-4 py-2 text-xs font-black text-emerald-100"><Sparkles size={15} /> {data.campaigns[0]?.status || "Raporlama hazırlanıyor"}</div>
+            </div>
+            <AnimatedChart label="Son dönem performans eğilimi" values={[24, 29, 41, 38, 54, 61, 72, 79]} />
+          </div>
         </section>
 
         {visibility.show_metrics && <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -111,7 +113,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
 
         <section className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_.9fr]">
           {visibility.show_campaigns && (
-            <div className="rounded-[8px] border border-white/10 bg-white/[0.045] p-5">
+            <GlassCard className="p-5">
               <h2 className="flex items-center gap-2 text-xl font-black"><BarChart3 className="text-cyan-200" /> Reklam Performansı</h2>
               <div className="mt-5 grid gap-3">
                 {data.campaigns.map((campaign) => (
@@ -129,18 +131,18 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
                   </div>
                 ))}
               </div>
-            </div>
+            </GlassCard>
           )}
 
-          <div className="rounded-[8px] border border-white/10 bg-white/[0.045] p-5">
+          <GlassCard className="p-5">
             <h2 className="flex items-center gap-2 text-xl font-black"><Lightbulb className="text-cyan-200" /> Sıradaki Önerilen Adım</h2>
             <p className="mt-4 text-sm leading-7 text-slate-300">{visibleUpdates.find((update) => update.next_step)?.next_step || "Veriler düzenli güncellendikçe kampanya bütçesi, kreatif denemeleri ve müşteri yolculuğu için sonraki adım burada netleştirilir."}</p>
             <p className="mt-4 border-t border-white/10 pt-4 text-sm leading-6 text-slate-400">Son çalışma: {latestUpdate?.title || "Henüz çalışma notu eklenmedi."}</p>
-          </div>
+          </GlassCard>
         </section>
 
         {visibility.show_work_updates && (
-          <section className="mt-8 rounded-[8px] border border-white/10 bg-white/[0.045] p-5">
+          <section className="glass-card mt-8 p-5">
             <h2 className="text-xl font-black">Yapılan Çalışmalar ve Strateji Notları</h2>
             <div className="mt-5 grid gap-3 md:grid-cols-2">
               {visibleUpdates.map((update) => (
@@ -160,7 +162,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
         {visibility.show_metrics && <CustomerReports reports={data.reports} initialInterpretations={data.interpretations} reportUpdates={data.reportUpdates} />}
 
         {visibility.show_files && (
-          <section className="mt-8 rounded-[8px] border border-white/10 bg-white/[0.045] p-5">
+          <section className="glass-card mt-8 p-5">
             <h2 className="flex items-center gap-2 text-xl font-black"><FileText className="text-cyan-200" /> Dosyalar</h2>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {data.files.map((file) => (
@@ -175,16 +177,16 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
 
         <section className="mt-8 grid gap-4 md:grid-cols-2">
           {visibility.show_contact_person && (
-          <div className="rounded-[8px] border border-white/10 bg-white/[0.045] p-5">
+          <GlassCard className="p-5">
             <h2 className="flex items-center gap-2 text-xl font-black"><MessageCircle className="text-cyan-200" /> İletişim</h2>
             <p className="mt-3 text-sm text-slate-300">Raporlar veya kampanya notları için HK Dijital ile iletişime geçebilirsiniz.</p>
             <a href="/iletisim" className="mt-4 inline-flex rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">HK Dijital ile iletişime geçin</a>
-          </div>
+          </GlassCard>
           )}
-          <div className="rounded-[8px] border border-white/10 bg-white/[0.045] p-5">
+          <GlassCard className="p-5">
             <h2 className="flex items-center gap-2 text-xl font-black"><UserRound className="text-cyan-200" /> Hesabım</h2>
             <p className="mt-3 text-sm text-slate-300">{session.fullName} · {data.company?.name || "Şirket ataması bekleniyor"}</p>
-          </div>
+          </GlassCard>
         </section>
       </div>
     </main>

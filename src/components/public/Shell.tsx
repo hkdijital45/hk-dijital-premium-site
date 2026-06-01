@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { MessageCircle } from "lucide-react";
 import { getSiteContent } from "@/lib/content";
 import { Header } from "./Header";
 import { Footer } from "./Footer";
@@ -27,9 +28,10 @@ export async function PublicShell({ children }: { children: ReactNode }) {
           href={whatsappUrl}
           target="_blank"
           rel="noreferrer"
-          className="fixed bottom-5 right-5 z-40 rounded-full border border-[#25D366]/40 bg-[#25D366] px-5 py-3 text-sm font-black text-white shadow-[0_0_44px_rgba(37,211,102,.35)]"
+          aria-label="WhatsApp üzerinden iletişime geçin"
+          className="fixed bottom-5 right-5 z-40 inline-flex min-h-12 items-center gap-2 rounded-full border border-[#25D366]/50 bg-[#25D366] px-5 py-3 text-sm font-black text-white shadow-[0_0_44px_rgba(37,211,102,.35)] transition hover:-translate-y-1 hover:bg-[#20bd5b]"
         >
-          WhatsApp
+          <MessageCircle size={18} /> WhatsApp
         </a>
       )}
       <Footer content={content} />

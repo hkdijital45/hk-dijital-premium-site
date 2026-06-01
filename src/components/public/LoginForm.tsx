@@ -60,8 +60,11 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={submit} className="mx-auto w-full max-w-xl rounded-[8px] border border-white/10 bg-white/[0.06] p-6 shadow-2xl backdrop-blur-xl">
-      <div className="grid grid-cols-2 gap-2 rounded-[8px] border border-white/10 bg-black/25 p-1">
+    <form onSubmit={submit} className="glass-card mx-auto w-full max-w-xl p-6 sm:p-8">
+      <p className="text-xs font-black uppercase tracking-[.18em] text-amber-100">Oturum açın</p>
+      <h2 className="mt-3 text-2xl font-black text-white">Hesabınıza güvenli giriş</h2>
+      <p className="mt-2 text-sm leading-6 text-slate-400">Size uygun panel türünü seçerek devam edin.</p>
+      <div className="mt-6 grid grid-cols-2 gap-2 rounded-[8px] border border-white/10 bg-black/25 p-1">
         <button type="button" onClick={() => setUserType("customer")} className={`min-h-11 rounded-[8px] text-sm font-black ${userType === "customer" ? "bg-cyan-300 text-slate-950" : "text-slate-300"}`}>
           Müşteri
         </button>

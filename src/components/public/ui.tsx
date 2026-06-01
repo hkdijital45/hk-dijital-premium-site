@@ -4,9 +4,9 @@ import type { ReactNode } from "react";
 export function GlowBackground() {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      <div className="absolute left-[8%] top-16 h-72 w-72 rounded-full bg-cyan-400/15 blur-3xl" />
-      <div className="absolute right-[8%] top-52 h-80 w-80 rounded-full bg-amber-300/10 blur-3xl" />
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,.045)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.045)_1px,transparent_1px)] bg-[size:64px_64px] [mask-image:radial-gradient(ellipse_at_top,black,transparent_72%)]" />
+      <div className="premium-grid absolute inset-0" />
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-200/50 to-transparent" />
+      <div className="absolute bottom-0 left-1/2 h-64 w-[72rem] -translate-x-1/2 bg-[radial-gradient(ellipse_at_bottom,rgba(14,116,144,.16),transparent_64%)]" />
     </div>
   );
 }
@@ -23,7 +23,7 @@ export function SectionHeader({ eyebrow, title, text }: { eyebrow?: string; titl
 
 export function PremiumCard({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`rounded-[8px] border border-white/10 bg-white/[0.055] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,.08),0_24px_70px_rgba(0,0,0,.35)] backdrop-blur-xl ${className}`}>
+    <div className={`glass-card p-6 transition duration-300 hover:-translate-y-1 hover:border-cyan-200/25 ${className}`}>
       {children}
     </div>
   );
@@ -44,7 +44,7 @@ export function ButtonLink({ href, children, variant = "primary" }: { href: stri
 
 export function PageHero({ eyebrow, title, text }: { eyebrow: string; title: string; text: string }) {
   return (
-    <section className="relative overflow-hidden px-4 py-20 sm:px-6 lg:px-8">
+    <section className="relative overflow-hidden border-b border-white/5 px-4 py-20 sm:px-6 lg:px-8 lg:py-28">
       <GlowBackground />
       <div className="relative mx-auto max-w-7xl">
         <SectionHeader eyebrow={eyebrow} title={title} text={text} />
