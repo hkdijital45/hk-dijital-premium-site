@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession, isStaffRole } from "@/lib/auth";
+import { recordActivity } from "@/lib/activity-log";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
 async function requireStaff() {
@@ -8,7 +9,8 @@ async function requireStaff() {
 }
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
-  if (!(await requireStaff())) {
+  const session = await requireStaff();
+  if (!session) {
     return NextResponse.json({ error: "Bu işlem için yönetici yetkisi gerekir." }, { status: 403 });
   }
 
@@ -39,7 +41,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       method: "PATCH",
       body: JSON.stringify(patch)
     });
-
+    await recordActivity({ session, action: "Güncelleme", entity: "Firma", entityId: id, companyId: id, details: { message: `${patch.name} firması güncellendi` } });
     return NextResponse.json({ ok: true, company: rows[0] });
   } catch (error) {
     const safeError = getSafeSupabaseError(error);
@@ -49,7 +51,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 }
 
 export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
-  if (!(await requireStaff())) {
+  const session = await requireStaff();
+  if (!session) {
     return NextResponse.json({ error: "Bu işlem için yönetici yetkisi gerekir." }, { status: 403 });
   }
 
@@ -64,7 +67,7 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
       method: "DELETE",
       headers: { Prefer: "return=minimal" }
     });
-
+    await recordActivity({ session, action: "Silme", entity: "Firma", entityId: id, details: { message: "Firma silindi" } });
     return NextResponse.json({ ok: true });
   } catch (error) {
     const safeError = getSafeSupabaseError(error);

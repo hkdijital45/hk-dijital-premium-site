@@ -16,10 +16,11 @@ export default async function AdminPage() {
   let relationalContent = {};
   if (hasSupabaseConfig()) {
     try {
-      const [companies, users, leads, contactForms, campaigns, campaignMetrics, customerUpdates, customerVisibilitySettings, customerFiles, mediaFiles] =
+      const [companies, users, customers, leads, contactForms, campaigns, campaignMetrics, customerUpdates, customerVisibilitySettings, customerFiles, mediaFiles, activityLogs] =
         await Promise.all([
           supabaseRest("companies?select=*&order=created_at.desc"),
           supabaseRest("users?select=*&order=created_at.desc"),
+          supabaseRest("customers?select=*&order=created_at.desc").catch(() => []),
           supabaseRest("leads?select=*&order=created_at.desc"),
           supabaseRest("contact_forms?select=*&order=created_at.desc").catch(() => []),
           supabaseRest("campaigns?select=*&order=created_at.desc"),
@@ -27,11 +28,13 @@ export default async function AdminPage() {
           supabaseRest("customer_updates?select=*&order=created_at.desc"),
           supabaseRest("customer_visibility_settings?select=*&order=updated_at.desc"),
           supabaseRest("customer_files?select=*&order=uploaded_at.desc"),
-          supabaseRest("media_files?select=*&order=uploaded_at.desc")
+          supabaseRest("media_files?select=*&order=uploaded_at.desc"),
+          supabaseRest("activity_logs?select=*&order=created_at.desc&limit=500").catch(() => [])
         ]);
       relationalContent = {
         companies,
         users,
+        customers,
         leads,
         contactForms,
         campaigns,
@@ -39,6 +42,7 @@ export default async function AdminPage() {
         customerUpdates,
         customerVisibilitySettings,
         customerFiles,
+        activityLogs,
         media: Array.isArray(mediaFiles)
           ? mediaFiles.map((item: any) => ({
               id: item.id,

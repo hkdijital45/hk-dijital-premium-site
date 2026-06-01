@@ -17,7 +17,7 @@ const businessCards = [
   { id: "cafe", label: "Kafe", emoji: "☕", hint: "Konum, ziyaret ve sosyal görünürlük" },
   { id: "restaurant", label: "Restoran", emoji: "🍽️", hint: "Rezervasyon, paket servis ve bilinirlik" },
   { id: "health", label: "Sağlık", emoji: "🏥", hint: "Güven, randevu ve bilgilendirme" },
-  { id: "real-estate", label: "Emlak", emoji: "🏠", hint: "Portföy, lead ve takip sistemi" },
+  { id: "real-estate", label: "Emlak", emoji: "🏠", hint: "Portföy, talep ve düzenli takip sistemi" },
   { id: "education", label: "Eğitim", emoji: "🎓", hint: "Başvuru, kayıt ve marka algısı" },
   { id: "ecommerce", label: "E-Ticaret", emoji: "🛒", hint: "Satış hunisi ve yeniden pazarlama" },
   { id: "other", label: "Diğer", emoji: "➕", hint: "İhtiyaca göre özel analiz" }
@@ -25,14 +25,14 @@ const businessCards = [
 
 const goalCards = [
   { id: "sales", label: "Daha Fazla Satış", emoji: "📈", hint: "Satın alma niyetini artıran kampanya kurgusu" },
-  { id: "lead", label: "Daha Fazla Mesaj", emoji: "💬", hint: "Form, WhatsApp, DM ve arama odaklı lead akışı" },
+  { id: "lead", label: "Daha Fazla Mesaj", emoji: "💬", hint: "Form, WhatsApp, doğrudan mesaj ve arama odaklı talep akışı" },
   { id: "awareness", label: "Marka Bilinirliği", emoji: "🌍", hint: "Daha geniş kitleye güven veren görünürlük" },
-  { id: "remarketing", label: "Büyüme", emoji: "🚀", hint: "Funnel ve yeniden pazarlama ile ölçekleme" }
+  { id: "remarketing", label: "Büyüme", emoji: "🚀", hint: "Müşteri yolculuğu ve yeniden pazarlama ile ölçekleme" }
 ];
 
 const budgetCards = [
-  { id: "under10", label: "3.000-5.000 TL", hint: "Mini test ve başlangıç sinyali" },
-  { id: "under10", label: "5.000-10.000 TL", hint: "Yerel işletme başlangıcı" },
+  { id: "under10", label: "3.000-5.000 TL", hint: "Kontrollü başlangıç ve ilk performans sinyalleri" },
+  { id: "5to10", label: "5.000-10.000 TL", hint: "Yerel işletmeler için dengeli başlangıç" },
   { id: "10to30", label: "10.000-20.000 TL", hint: "Daha düzenli optimizasyon alanı" },
   { id: "30to75", label: "20.000+ TL", hint: "Çoklu kampanya ve büyüme alanı" }
 ];
@@ -97,11 +97,10 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
         alternativePackage: recommendation.alternative.name
       })
     });
-    // Replace local JSON lead storage with real CRM/backend integration here.
   }
 
   const whatsappMessage = encodeURIComponent(
-    `HK Dijital paket öneri robotu\nPaket: ${recommendation.recommended.name}\nAlternatif: ${recommendation.alternative.name}\nİşletme türü: ${selectedLabel(businessCards, answers.businessType)}\nHedef: ${selectedLabel(goalCards, answers.goal)}\nBütçe: ${selectedLabel(budgetCards, answers.budget)}\nAd Soyad: ${form.name || "-"}\nFirma: ${form.company || "-"}\nE-posta: ${form.email || "-"}\nTelefon: ${form.phone || "-"}\nInstagram: ${form.instagram || "-"}\nWeb: ${form.website || "-"}\nNot: ${form.note || "-"}`
+    `HK Dijital akıllı paket analizi\nPaket: ${recommendation.recommended.name}\nAlternatif: ${recommendation.alternative.name}\nİşletme türü: ${selectedLabel(businessCards, answers.businessType)}\nHedef: ${selectedLabel(goalCards, answers.goal)}\nBütçe: ${selectedLabel(budgetCards, answers.budget)}\nAd Soyad: ${form.name || "-"}\nFirma: ${form.company || "-"}\nE-posta: ${form.email || "-"}\nTelefon: ${form.phone || "-"}\nInstagram: ${form.instagram || "-"}\nWeb: ${form.website || "-"}\nNot: ${form.note || "-"}`
   );
   const whatsappUrl = `https://wa.me/${content.contact.whatsappNumber.replace(/\D/g, "")}?text=${whatsappMessage}`;
   const progress = ((step + 1) / steps.length) * 100;
@@ -116,7 +115,7 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
           <div className="flex flex-wrap items-start justify-between gap-6">
             <div className="max-w-3xl">
               <p className="inline-flex rounded-full border border-cyan-200/20 bg-cyan-200/10 px-4 py-2 text-xs font-black uppercase tracking-[.24em] text-cyan-100">
-                HK Dijital Paket Öneri Robotu
+                HK Intelligence destekli akıllı analiz
               </p>
               <h1 className="mt-5 text-3xl font-black leading-tight text-white sm:text-5xl">{wizard.title}</h1>
               <p className="mt-4 max-w-2xl text-base leading-8 text-slate-300 sm:text-lg">{wizard.subtitle}</p>
@@ -222,8 +221,8 @@ function Recommendation({ recommended, alternative, whatsappUrl, onNext }: { rec
 
         <div className="grid gap-4">
           <InsightCard icon={<Target />} title="Tavsiye Edilen Reklam Bütçesi" text="Başlangıç testleri için kontrollü bütçe, performans sinyali geldikçe kademeli optimizasyon önerilir." />
-          <InsightCard icon={<Sparkles />} title="Tavsiye Edilen Strateji" text="Önce ölçümleme ve teklif netliği, ardından Meta/Google kampanya kurulumu, yeniden pazarlama ve CRM takip akışı." />
-          <InsightCard icon={<CalendarDays />} title="İlk 30 Gün Planı" text="Analiz, kurulum, kreatif testleri, hedef kitle iyileştirme, haftalık optimizasyon ve sade performans raporu." />
+          <InsightCard icon={<Sparkles />} title="Tavsiye Edilen Strateji" text="Önce ölçümleme ve teklif netliği, ardından Meta ve Google kampanya kurulumu, yeniden pazarlama ve düzenli müşteri takibi." />
+          <InsightCard icon={<CalendarDays />} title="İlk 30 Gün Planı" text="Analiz, kurulum, reklam görseli denemeleri, hedef kitle iyileştirme, haftalık optimizasyon ve anlaşılır performans raporu." />
         </div>
       </div>
 

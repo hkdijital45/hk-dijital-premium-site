@@ -1,0 +1,64 @@
+import { supabaseRest } from "./supabase";
+import type { AppSession } from "./auth";
+
+export type ActivityAction = "Giriş" | "Oluşturma" | "Güncelleme" | "Silme" | "İçe Aktarma" | "Dışa Aktarma" | "Şifre Sıfırlama" | "Görüntüleme" | "İndirme" | "Dönüştürme";
+
+export async function recordActivity({
+  session,
+  action,
+  entity,
+  entityId,
+  companyId,
+  details
+}: {
+  session?: AppSession | null;
+  action: ActivityAction;
+  entity: string;
+  entityId?: string | null;
+  companyId?: string | null;
+  details?: Record<string, unknown>;
+}) {
+  try {
+    await supabaseRest("activity_logs", {
+      method: "POST",
+      body: JSON.stringify({
+        actor_user_id: session?.profileId || null,
+        company_id: companyId || session?.companyId || null,
+        actor_name: session?.fullName || session?.email || "Sistem",
+        role: session?.role || "system",
+        action,
+        entity,
+        entity_id: entityId || null,
+        details: details || {}
+      })
+    });
+  } catch (error) {
+    console.error("Aktivite kaydı oluşturulamadı:", error instanceof Error ? error.message : error);
+  }
+}
+
+export async function recordCustomerLogin(session: AppSession) {
+  if (!session.profileId || session.role !== "customer") return;
+  try {
+    const rows = await supabaseRest<Array<{ login_count?: number }>>(
+      `users?id=eq.${encodeURIComponent(session.profileId)}&select=login_count&limit=1`
+    );
+    await supabaseRest(`users?id=eq.${encodeURIComponent(session.profileId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        last_login_at: new Date().toISOString(),
+        login_count: Number(rows[0]?.login_count || 0) + 1
+      })
+    });
+  } catch (error) {
+    console.error("Müşteri giriş bilgisi güncellenemedi:", error instanceof Error ? error.message : error);
+  }
+
+  await recordActivity({
+    session,
+    action: "Giriş",
+    entity: "Müşteri Paneli",
+    companyId: session.companyId,
+    details: { message: "Müşteri paneline giriş yaptı" }
+  });
+}

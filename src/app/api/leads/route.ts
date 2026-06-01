@@ -4,7 +4,7 @@ import { isAdminAuthenticated } from "@/lib/auth";
 import type { Lead, LeadStatus } from "@/lib/types";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
-const statuses: LeadStatus[] = ["Yeni", "Görüşülecek", "Teklif Hazırlanıyor", "Teklif Gönderildi", "Takipte", "Kazanıldı", "Kaybedildi"];
+const statuses: LeadStatus[] = ["Yeni", "Görüşülecek", "Teklif Hazırlanıyor", "Teklif Gönderildi", "Takipte", "Kazanıldı", "Kaybedildi", "Dönüştürüldü"];
 
 export async function GET() {
   if (!(await isAdminAuthenticated())) {

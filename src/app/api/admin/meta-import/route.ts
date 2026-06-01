@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession, isStaffRole } from "@/lib/auth";
+import { recordActivity } from "@/lib/activity-log";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
 const columnMap: Record<string, string> = {
@@ -187,6 +188,15 @@ export async function POST(request: Request) {
         body: JSON.stringify(fallbackRecords)
       });
     }
+
+    await recordActivity({
+      session,
+      action: "İçe Aktarma",
+      entity: "Meta Raporu",
+      entityId: campaignId,
+      companyId,
+      details: { message: "Meta raporu içe aktarıldı", inserted: inserted.length, skipped, file_name: file.name }
+    });
 
     return NextResponse.json({
       ok: true,

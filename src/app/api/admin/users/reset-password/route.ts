@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession, isAdminRole, sendPasswordResetEmail } from "@/lib/auth";
 import { getSafeSupabaseError, hasSupabaseConfig } from "@/lib/supabase";
+import { recordActivity } from "@/lib/activity-log";
 
 export async function POST(request: Request) {
   const session = await getSession();
@@ -21,6 +22,7 @@ export async function POST(request: Request) {
 
   try {
     await sendPasswordResetEmail(normalizedEmail);
+    await recordActivity({ session, action: "Şifre Sıfırlama", entity: "Kullanıcı", details: { message: `${normalizedEmail} adresine şifre sıfırlama bağlantısı gönderildi` } });
   } catch (error) {
     const safeError = getSafeSupabaseError(error);
     console.error("Şifre sıfırlama Supabase hatası:", safeError.detail);

@@ -261,6 +261,33 @@ create table if not exists public.customers (
   updated_at timestamptz default now()
 );
 
+-- Customer access tracking and agency activity history.
+alter table public.users
+  add column if not exists last_login_at timestamptz,
+  add column if not exists login_count integer not null default 0;
+
+alter table public.customers
+  add column if not exists source_lead_id uuid references public.leads(id) on delete set null,
+  add column if not exists instagram text,
+  add column if not exists website text,
+  add column if not exists sector text,
+  add column if not exists goal text,
+  add column if not exists budget text,
+  add column if not exists notes text;
+
+create table if not exists public.activity_logs (
+  id uuid primary key default gen_random_uuid(),
+  actor_user_id uuid references public.users(id) on delete set null,
+  company_id uuid references public.companies(id) on delete cascade,
+  actor_name text,
+  role text,
+  action text not null,
+  entity text not null,
+  entity_id uuid,
+  details jsonb not null default '{}'::jsonb,
+  created_at timestamptz default now()
+);
+
 create index if not exists users_auth_user_id_idx on public.users(auth_user_id);
 create index if not exists users_role_idx on public.users(role);
 create index if not exists users_company_id_idx on public.users(company_id);
@@ -271,6 +298,9 @@ create index if not exists campaigns_company_id_idx on public.campaigns(company_
 create index if not exists campaign_metrics_company_id_date_idx on public.campaign_metrics(company_id, date desc);
 create index if not exists customer_updates_company_id_idx on public.customer_updates(company_id);
 create index if not exists customer_files_company_id_idx on public.customer_files(company_id);
+create index if not exists activity_logs_created_at_idx on public.activity_logs(created_at desc);
+create index if not exists activity_logs_company_id_idx on public.activity_logs(company_id, created_at desc);
+create index if not exists activity_logs_actor_user_id_idx on public.activity_logs(actor_user_id, created_at desc);
 
 create or replace function public.set_updated_at()
 returns trigger
@@ -300,6 +330,9 @@ create trigger set_customer_updates_updated_at before update on public.customer_
 drop trigger if exists set_contact_forms_updated_at on public.contact_forms;
 create trigger set_contact_forms_updated_at before update on public.contact_forms for each row execute function public.set_updated_at();
 
+drop trigger if exists set_customers_updated_at on public.customers;
+create trigger set_customers_updated_at before update on public.customers for each row execute function public.set_updated_at();
+
 alter table public.users enable row level security;
 alter table public.companies enable row level security;
 alter table public.leads enable row level security;
@@ -309,3 +342,4 @@ alter table public.campaign_metrics enable row level security;
 alter table public.customer_updates enable row level security;
 alter table public.customer_files enable row level security;
 alter table public.customer_visibility_settings enable row level security;
+alter table public.activity_logs enable row level security;

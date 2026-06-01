@@ -44,11 +44,11 @@ export default async function Home() {
           <PremiumCard className="relative min-h-[460px] overflow-hidden">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(18,217,255,.28),transparent_28%),radial-gradient(circle_at_80%_30%,rgba(216,180,91,.20),transparent_26%)]" />
             <div className="relative grid gap-4">
-              {["Dijital olgunluk skoru", "Reklam potansiyeli", "Funnel eksikleri", "Lead sıcaklık puanı", "Bütçe önerisi"].map((item, index) => (
+              {["Dijital olgunluk skoru", "Reklam potansiyeli", "Müşteri yolculuğu eksikleri", "Potansiyel müşteri önceliği", "Bütçe önerisi"].map((item, index) => (
                 <div key={item} className="rounded-[8px] border border-white/10 bg-black/30 p-4 backdrop-blur-xl" style={{ transform: `translateX(${index % 2 ? 20 : 0}px)` }}>
                   <div className="flex items-center justify-between gap-4">
                     <span className="font-bold text-white">{item}</span>
-                    <span className="text-sm font-black text-cyan-200">{72 + index * 4}%</span>
+                    <span className="text-sm font-black text-cyan-200">Analiz edilir</span>
                   </div>
                   <div className="mt-3 h-2 rounded-full bg-white/10">
                     <div className="h-full rounded-full bg-cyan-300" style={{ width: `${62 + index * 6}%` }} />
@@ -85,7 +85,7 @@ export default async function Home() {
 
       <AnimatedSection className="px-4 py-16 sm:px-6 lg:px-8">
         <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[.9fr_1.1fr]">
-          <SectionHeader eyebrow="HK Intelligence" title="AI destekli dijital analiz katmanı" text={home.intelligenceTeaser} />
+          <SectionHeader eyebrow="HK Intelligence" title="Yapay zekâ destekli dijital analiz katmanı" text={home.intelligenceTeaser} />
           <PremiumCard>
             <div className="grid gap-3 sm:grid-cols-2">
               {content.pages.intelligence.features.slice(0, 6).map((feature) => (

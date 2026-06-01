@@ -36,7 +36,7 @@
   },
   "settings": {
     "siteTitle": "HK Dijital | Manisa Dijital Pazarlama Uzmanı",
-    "siteDescription": "Meta reklam yönetimi, Google Ads yönetimi, sosyal medya stratejisi ve AI destekli dijital analiz hizmetleri.",
+    "siteDescription": "Meta reklam yönetimi, Google Ads yönetimi, sosyal medya stratejisi ve yapay zekâ destekli dijital analiz hizmetleri.",
     "maintenanceMode": false,
     "defaultTheme": "dark",
     "analyticsIds": {
@@ -63,7 +63,7 @@
   "seo": {
     "home": {
       "title": "HK Dijital | Manisa Dijital Pazarlama ve Reklam Danışmanlığı",
-      "description": "HK Dijital; Manisa dijital pazarlama, Meta reklam yönetimi, Google Ads yönetimi, CRM müşteri takip sistemi ve AI destekli dijital analiz hizmetleri sunar."
+      "description": "HK Dijital; Manisa dijital pazarlama, Meta reklam yönetimi, Google Ads yönetimi, müşteri takip sistemi ve yapay zekâ destekli dijital analiz hizmetleri sunar."
     },
     "about": {
       "title": "Hakkımda | Hayri Kamalı - HK Dijital",
@@ -71,15 +71,15 @@
     },
     "services": {
       "title": "Hizmetler | Meta Reklam, Google Ads ve Sosyal Medya Stratejisi",
-      "description": "Meta reklam yönetimi, Google Ads yönetimi, sosyal medya stratejisi, funnel planlama ve AI destekli dijital analiz hizmetleri."
+      "description": "Meta reklam yönetimi, Google Ads yönetimi, sosyal medya stratejisi, müşteri yolculuğu planlama ve yapay zekâ destekli dijital analiz hizmetleri."
     },
     "packages": {
       "title": "Paketler | HK Dijital Reklam Yönetimi Paketleri",
       "description": "Starter, Pro ve Premium dijital pazarlama paketleriyle işletmenize uygun performans pazarlama ve reklam optimizasyonu süreçlerini inceleyin."
     },
     "intelligence": {
-      "title": "HK Intelligence | AI Destekli Dijital Analiz",
-      "description": "HK Intelligence; CRM müşteri takip sistemi, AI destekli dijital analiz, lead scoring, funnel analizi ve reklam hazırlık değerlendirmesi sunar."
+      "title": "HK Intelligence | Yapay Zekâ Destekli Dijital Analiz",
+      "description": "HK Intelligence; müşteri takip sistemi, yapay zekâ destekli dijital analiz, potansiyel müşteri önceliklendirmesi, müşteri yolculuğu analizi ve reklam hazırlık değerlendirmesi sunar."
     },
     "quote": {
       "title": "Teklif Al | Size Özel Dijital Pazarlama Paketi",
@@ -91,18 +91,18 @@
     },
     "certificates": {
       "title": "Sertifikalar | HK Dijital Yetkinlikleri",
-      "description": "HK Dijital sertifikaları, reklam danışmanlığı, sosyal medya uzmanı yaklaşımı, performans pazarlama ve AI destekli dijital analiz yetkinlikleri."
+      "description": "HK Dijital sertifikaları, reklam danışmanlığı, sosyal medya uzmanı yaklaşımı, performans pazarlama ve yapay zekâ destekli dijital analiz yetkinlikleri."
     }
   },
   "pages": {
     "home": {
       "headline": "İşletmenizi Dijitalde Daha Görünür, Daha Ölçülebilir ve Daha Stratejik Hale Getirin",
-      "subheadline": "HK Dijital; Meta reklamları, Google reklamları, sosyal medya stratejisi, CRM odaklı takip sistemi ve AI destekli dijital analiz süreçleriyle işletmenizin dijital büyüme yolculuğunu profesyonel bir sistemle yönetir.",
+      "subheadline": "HK Dijital; Meta reklamları, Google reklamları, sosyal medya stratejisi, müşteri ilişki yönetimi odaklı takip sistemi ve yapay zekâ destekli dijital analiz süreçleriyle işletmenizin dijital büyüme yolculuğunu profesyonel bir sistemle yönetir.",
       "primaryCta": "Ücretsiz Mini Analiz Al",
       "secondaryCta": "Paketleri İncele",
       "trustIndicators": [
         "Meta & Google reklam stratejisi",
-        "CRM odaklı müşteri takibi",
+        "Müşteri ilişki yönetimi odaklı takip",
         "Performans odaklı reklam yönetimi",
         "Şeffaf raporlama",
         "Satış garantisi değil, ölçülebilir strateji"
@@ -112,11 +112,11 @@
         "Strateji",
         "Kurulum",
         "Reklam Yönetimi",
-        "CRM Takibi",
+        "Müşteri Takibi",
         "Optimizasyon",
         "Raporlama"
       ],
-      "intelligenceTeaser": "HK Intelligence; potansiyel müşterileri CRM müşteri ilişki yönetimi sistemi içinde takip etmeye, işletme hazırlığını analiz etmeye, lead sıcaklığını puanlamaya, bütçe planlamaya ve daha stratejik teklifler hazırlamaya destek olan AI destekli analiz katmanıdır.",
+      "intelligenceTeaser": "HK Intelligence; potansiyel müşterileri düzenli takip etmeye, işletme hazırlığını analiz etmeye, talepleri önceliklendirmeye, bütçe planlamaya ve daha stratejik teklifler hazırlamaya destek olan yapay zekâ destekli analiz katmanıdır.",
       "disclaimers": [
         "Hizmet bedeline reklam bütçesi dahil değildir.",
         "Fiyatlara KDV dahil değildir.",
@@ -126,32 +126,32 @@
     },
     "about": {
       "title": "Hayri Kamalı ve HK Dijital Yaklaşımı",
-      "content": "HK Dijital, Hayri Kamalı tarafından işletmelerin dijital pazarlama süreçlerini daha disiplinli, ölçülebilir ve stratejik hale getirmek için kuruldu. Çalışma modeli; Meta ve Google reklam stratejisi, sosyal medya uzmanlığı, AI destekli dijital analiz ve süreç yönetimi disiplinini bir araya getirir. Amaç yalnızca reklam açmak değil; hedef, teklif, kreatif, funnel, takip ve raporlama adımlarını aynı sistem içinde yönetmektir. Sonuçlar sektör, bütçe, rekabet, hedef kitle ve teklif gücüne göre değişebilir; bu yüzden HK Dijital gerçekçi beklenti yönetimi ve şeffaf raporlama prensibiyle çalışır.",
+      "content": "HK Dijital, Hayri Kamalı tarafından işletmelerin dijital pazarlama süreçlerini daha disiplinli, ölçülebilir ve stratejik hale getirmek için kuruldu. Çalışma modeli; Meta ve Google reklam stratejisi, sosyal medya uzmanlığı, yapay zekâ destekli dijital analiz ve süreç yönetimi disiplinini bir araya getirir. Amaç yalnızca reklam açmak değil; hedef, teklif, reklam görseli, müşteri yolculuğu, takip ve raporlama adımlarını aynı sistem içinde yönetmektir. Sonuçlar sektör, bütçe, rekabet, hedef kitle ve teklif gücüne göre değişebilir; bu yüzden HK Dijital gerçekçi beklenti yönetimi ve şeffaf raporlama prensibiyle çalışır.",
       "highlights": [
         "Dijital pazarlama uzmanı bakış açısı",
         "Meta & Google reklam stratejisi",
-        "AI destekli dijital analiz yaklaşımı",
+        "Yapay zekâ destekli dijital analiz yaklaşımı",
         "Saha disiplini, sorumluluk ve süreç yönetimi"
       ]
     },
     "services": {
-      "intro": "HK Dijital hizmetleri, işletmenizin dijital pazarlama yolculuğunu reklam kurulumundan funnel planlamaya, optimizasyondan raporlamaya kadar tek bir stratejik sistemde toplar."
+      "intro": "HK Dijital hizmetleri, işletmenizin dijital pazarlama yolculuğunu reklam kurulumundan müşteri yolculuğu planlamasına, optimizasyondan raporlamaya kadar tek bir stratejik sistemde toplar."
     },
     "packages": {
       "intro": "Paketler, farklı büyüme aşamalarındaki işletmeler için yapılandırılmıştır. Reklam bütçesi paket fiyatlarına dahil değildir ve tüm fiyatlara KDV dahil değildir."
     },
     "intelligence": {
-      "title": "HK Intelligence: AI Destekli CRM ve Dijital Analiz Sistemi",
-      "content": "HK Intelligence, HK Dijital’in AI destekli CRM ve dijital analiz sistemidir. CRM yani müşteri ilişki yönetimi sistemi ile potansiyel müşteriler düzenli takip edilir; lead yani potansiyel müşteri kayıtları, görüşme notları, teklif süreci ve takip adımları daha kontrollü yönetilir. Yapay zekâ destekli analiz katmanı ise dijital olgunluk, reklam hazırlığı, bütçe önerisi, funnel yani müşteri yolculuğu eksikleri ve teklif stratejisi konusunda karar sürecini güçlendirir. Bu yapı sonuç garantisi vermez; daha net strateji, daha iyi takip ve daha şeffaf karar alma zemini oluşturur.",
+      "title": "HK Intelligence: Yapay Zekâ Destekli Müşteri Takip ve Dijital Analiz Sistemi",
+      "content": "HK Intelligence, HK Dijital’in yapay zekâ destekli müşteri takip ve dijital analiz sistemidir. Müşteri ilişki yönetimi yaklaşımı ile potansiyel müşteri kayıtları, görüşme notları, teklif süreci ve takip adımları daha kontrollü yönetilir. Analiz katmanı ise dijital olgunluk, reklam hazırlığı, bütçe önerisi, müşteri yolculuğu eksikleri ve teklif stratejisi konusunda karar sürecini güçlendirir. Bu yapı sonuç garantisi vermez; daha net strateji, daha iyi takip ve daha şeffaf karar alma zemini oluşturur.",
       "features": [
-        "CRM ile müşteri ve lead takibi",
-        "AI destekli dijital olgunluk skoru",
-        "Lead sıcaklık puanı",
+        "Müşteri ilişki yönetimi ile düzenli takip",
+        "Yapay zekâ destekli dijital olgunluk skoru",
+        "Potansiyel müşteri önceliklendirmesi",
         "Reklam potansiyeli analizi",
-        "Funnel eksikleri analizi",
+        "Müşteri yolculuğu eksikleri analizi",
         "Bütçe öneri sistemi",
-        "Mini audit raporu",
-        "AI destekli teklif hazırlama",
+        "Ön değerlendirme raporu",
+        "Yapay zekâ destekli teklif hazırlama",
         "İçerik önerileri",
         "Kampanya fikirleri",
         "Müşteri takip notları",
@@ -230,11 +230,11 @@
     {
       "imageUrl": "",
       "id": "landing",
-      "name": "Web Site & Landing Page",
+      "name": "Web Sitesi ve Dönüşüm Odaklı Açılış Sayfası",
       "icon": "Layout",
       "description": "Reklam trafiğini daha net teklif, güçlü harekete geçirici mesajlar ve ölçülebilir sayfa yapısına yönlendirin.",
-      "detailedDescription": "Landing page çalışmaları; teklif mimarisi, form kurgusu, harekete geçirici mesaj yerleşimi, güven unsurları ve dönüşüm takibi mantığını kapsar.",
-      "audience": "Reklamdan lead veya satış almak isteyen işletmeler için uygundur.",
+      "detailedDescription": "Dönüşüm odaklı açılış sayfası çalışmaları; teklif mimarisi, form kurgusu, harekete geçirici mesaj yerleşimi, güven unsurları ve dönüşüm takibi mantığını kapsar.",
+      "audience": "Reklamdan potansiyel müşteri veya satış almak isteyen işletmeler için uygundur.",
       "problem": "Trafik var ama form, arama veya satın alma aksiyonu düşükse sayfa deneyimini iyileştirir.",
       "included": [
         "Sayfa stratejisi",
@@ -243,67 +243,67 @@
         "Form önerisi",
         "Takip kodu hazırlığı"
       ],
-      "cta": "Landing Page Planı Al",
+      "cta": "Açılış Sayfası Planı İste",
       "order": 4,
       "visible": true
     },
     {
       "imageUrl": "",
       "id": "ai-analysis",
-      "name": "AI Destekli Dijital Analiz",
+      "name": "Yapay Zekâ Destekli Dijital Analiz",
       "icon": "Sparkles",
-      "description": "Dijital olgunluk, reklam hazırlığı ve funnel boşluklarını akıllı analiz katmanıyla görünür kılın.",
-      "detailedDescription": "AI destekli dijital analiz; mevcut dijital varlıkları, reklam potansiyelini, lead sıcaklığını ve içerik fırsatlarını değerlendiren destekleyici bir analiz sürecidir.",
+      "description": "Dijital olgunluk, reklam hazırlığı ve müşteri yolculuğu boşluklarını akıllı analiz katmanıyla görünür kılın.",
+      "detailedDescription": "Yapay zekâ destekli dijital analiz; mevcut dijital varlıkları, reklam potansiyelini, potansiyel müşteri önceliğini ve içerik fırsatlarını değerlendiren destekleyici bir analiz sürecidir.",
       "audience": "Nereden başlayacağını netleştirmek veya mevcut sistemi geliştirmek isteyen işletmeler için uygundur.",
       "problem": "Belirsiz hedef, dağınık dijital varlık ve yanlış bütçe kararlarını daha görünür hale getirir.",
       "included": [
         "Dijital olgunluk skoru",
-        "Funnel eksikleri",
-        "Lead sıcaklık puanı",
+        "Müşteri yolculuğu eksikleri",
+        "Potansiyel müşteri önceliklendirmesi",
         "Bütçe önerisi",
-        "Mini audit raporu"
+        "Ön değerlendirme raporu"
       ],
-      "cta": "AI Analiz İste",
+      "cta": "Akıllı Analiz Talep Et",
       "order": 5,
       "visible": true
     },
     {
       "id": "crm-lead",
-      "name": "CRM & Lead Takip Sistemi",
+      "name": "Müşteri İlişki Yönetimi ve Talep Takibi",
       "icon": "Users",
       "imageUrl": "",
-      "description": "Potansiyel müşterileri CRM müşteri ilişki yönetimi sistemi içinde düzenli takip edin.",
-      "detailedDescription": "CRM & Lead Takip Sistemi; form, WhatsApp, sosyal medya ve reklam kaynaklı potansiyel müşteri kayıtlarının statü, not ve takip tarihiyle yönetilmesini sağlar.",
-      "audience": "Lead toplayan ve görüşme sürecini düzenli takip etmek isteyen hizmet işletmeleri, yerel işletmeler, kişisel markalar ve e-ticaret ekipleri için uygundur.",
+      "description": "Potansiyel müşterileri müşteri ilişki yönetimi sistemi içinde düzenli takip edin.",
+      "detailedDescription": "Müşteri ilişki yönetimi ve talep takip sistemi; form, WhatsApp, sosyal medya ve reklam kaynaklı potansiyel müşteri kayıtlarının durum, not ve takip tarihiyle yönetilmesini sağlar.",
+      "audience": "Potansiyel müşteri toplayan ve görüşme sürecini düzenli takip etmek isteyen hizmet işletmeleri, yerel işletmeler, kişisel markalar ve e-ticaret ekipleri için uygundur.",
       "problem": "Dağınık müşteri kayıtları, unutulan takipler ve ölçülemeyen satış hunisi problemlerini azaltır.",
       "included": [
-        "Lead kayıt düzeni",
+        "Potansiyel müşteri kayıt düzeni",
         "Durum takibi",
         "İç notlar",
         "Takip tarihi",
         "Teklif süreci görünürlüğü"
       ],
-      "cta": "CRM Takip Sistemini Gör",
+      "cta": "Takip Sistemini İncele",
       "order": 6,
       "visible": true
     },
     {
       "imageUrl": "",
       "id": "remarketing",
-      "name": "Remarketing & Funnel Kurulumu",
+      "name": "Yeniden Pazarlama ve Müşteri Yolculuğu Kurulumu",
       "icon": "GitBranch",
       "description": "İlk temastan dönüşüme kadar yeniden pazarlama ve potansiyel müşteri akışını planlayın.",
-      "detailedDescription": "Remarketing ve funnel kurulumu; ziyaretçi, etkileşim, form, sepet veya lead aşamalarına göre yeniden iletişim stratejisi oluşturur.",
+      "detailedDescription": "Yeniden pazarlama ve müşteri yolculuğu kurulumu; ziyaretçi, etkileşim, form, sepet veya potansiyel müşteri aşamalarına göre yeniden iletişim stratejisi oluşturur.",
       "audience": "Tek temasla karar vermeyen müşteri gruplarına tekrar ulaşmak isteyen markalar için uygundur.",
-      "problem": "Kaçan ziyaretçi, takip edilmeyen lead ve kopuk satış yolculuğu problemlerini azaltır.",
+      "problem": "Kaçan ziyaretçi, takip edilmeyen potansiyel müşteri ve kopuk satış yolculuğu problemlerini azaltır.",
       "included": [
-        "Funnel haritası",
-        "Remarketing kitleleri",
+        "Müşteri yolculuğu haritası",
+        "Yeniden pazarlama kitleleri",
         "Mesaj sıralaması",
-        "Lead akış önerisi",
+        "Potansiyel müşteri akış önerisi",
         "Raporlama"
       ],
-      "cta": "Funnel Planı Al",
+      "cta": "Müşteri Yolculuğu Planı İste",
       "order": 7,
       "visible": true
     },
@@ -318,7 +318,7 @@
       "problem": "Ne çalışıyor, ne iyileştirilmeli ve bütçe nereye kaymalı sorularını netleştirir.",
       "included": [
         "Performans özeti",
-        "KPI takibi",
+        "Performans göstergesi takibi",
         "Bütçe yorumu",
         "Aksiyon listesi",
         "Aylık değerlendirme"
@@ -371,14 +371,14 @@
       "id": "premium",
       "name": "Premium",
       "price": "42.500 TL / ay",
-      "description": "Çok kanallı strateji, AI analiz, CRM takibi, funnel planlama ve detaylı raporlama isteyen markalar için.",
+      "description": "Çok kanallı strateji, yapay zekâ destekli analiz, düzenli müşteri takibi, müşteri yolculuğu planlama ve detaylı raporlama isteyen markalar için.",
       "features": [
         "Meta + Google strateji mimarisi",
         "HK Intelligence mini audit",
-        "Funnel ve remarketing planı",
+        "Müşteri yolculuğu ve yeniden pazarlama planı",
         "Detaylı aylık raporlama",
         "Kreatif ve teklif optimizasyon önerileri",
-        "CRM lead takip sistemi",
+        "Potansiyel müşteri takip sistemi",
         "Teklif ve görüşme süreci takibi"
       ],
       "recommended": false,
@@ -418,7 +418,7 @@
       },
       {
         "id": "lead",
-        "label": "Lead / Form Toplamak"
+        "label": "Potansiyel Müşteri / Form Toplamak"
       },
       {
         "id": "awareness",
@@ -556,10 +556,10 @@
     },
     {
       "id": "ai-analysis",
-      "title": "AI Destekli Dijital Analiz",
+      "title": "Yapay Zekâ Destekli Dijital Analiz",
       "institution": "HK Dijital İç Metodoloji",
       "date": "2026",
-      "description": "Yapay zekâ destekli analiz, CRM takip sistemi, funnel planlama ve teklif hazırlama süreçlerinde kullanılan iç çalışma metodolojisi.",
+      "description": "Yapay zekâ destekli analiz, müşteri takip sistemi, müşteri yolculuğu planlama ve teklif hazırlama süreçlerinde kullanılan stratejik çalışma metodolojisi.",
       "fileUrl": "",
       "verificationUrl": "",
       "order": 3,

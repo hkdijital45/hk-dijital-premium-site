@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession, isStaffRole } from "@/lib/auth";
+import { recordActivity } from "@/lib/activity-log";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -241,7 +242,8 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  if (!(await requireStaff())) {
+  const session = await requireStaff();
+  if (!session) {
     return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
   }
   if (!hasSupabaseConfig()) {
@@ -260,6 +262,7 @@ export async function PUT(request: Request) {
       upsertItems("customerFiles", payload.customerFiles)
     ]);
 
+    await recordActivity({ session, action: "Güncelleme", entity: "Kontrol Merkezi", details: { message: "Kontrol merkezi kayıtları güncellendi" } });
     return NextResponse.json({ ok: true });
   } catch (error) {
     const safeError = getSafeSupabaseError(error);

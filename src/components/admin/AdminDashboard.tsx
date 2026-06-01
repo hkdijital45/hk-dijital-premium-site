@@ -12,11 +12,11 @@ const navigationGroups = [
   { label: "Potansiyel Müşteriler", items: ["Form Başvuruları", "Teklif Sihirbazı Kayıtları", "Lead Durumları", "Takip Notları"] },
   { label: "Müşteri Merkezi", items: ["Müşteriler", "Müşteri Giriş Bilgileri", "Panel Görünürlüğü", "Müşteri Dosyaları"] },
   { label: "Reklam & Raporlama", items: ["Kampanyalar", "Reklam Metrikleri", "Meta Rapor İçe Aktar", "Rapor Notları"] },
-  { label: "Kullanıcılar & Yetkiler", items: ["Kullanıcı Yönetimi", "Roller", "Güvenlik"] },
+  { label: "Kullanıcılar & Yetkiler", items: ["Kullanıcı Yönetimi", "Roller", "Güvenlik", "Log Hareketleri"] },
   { label: "Yapay Zeka Merkezi", items: ["İçerik Üretici", "Reklam Metni Üretici", "Rapor Özeti Üretici"] },
   { label: "Ayarlar", items: ["API Ayarları", "Ölçümleme Ayarları", "Tema Ayarları", "Kullanım Kılavuzu"] }
 ];
-const leadStatuses = ["Yeni", "Görüşülecek", "Teklif Hazırlanıyor", "Teklif Gönderildi", "Takipte", "Kazanıldı", "Kaybedildi"];
+const leadStatuses = ["Yeni", "Görüşülecek", "Teklif Hazırlanıyor", "Teklif Gönderildi", "Takipte", "Kazanıldı", "Kaybedildi", "Dönüştürüldü"];
 const leadSourceOptions = ["İletişim Formu", "Teklif Formu", "Teklif Sihirbazı", "Instagram", "WhatsApp", "Referans", "Manuel Giriş", "Diğer"];
 const roleOptions = [
   { value: "admin", label: "Yönetici" },
@@ -205,6 +205,7 @@ export function AdminDashboard({
           {["İçerik Üretici", "Reklam Metni Üretici", "Rapor Özeti Üretici"].includes(active) && <AiAssistant {...props} mode={active} />}
           {active === "Ölçümleme Ayarları" && <TrackingSettings {...props} />}
           {["Kullanıcı Yönetimi", "Roller", "Güvenlik"].includes(active) && <UsersAdmin {...props} mode={active} />}
+          {active === "Log Hareketleri" && <ActivityLogs content={content} />}
           {active === "Kullanım Kılavuzu" && <UsageGuide />}
           {active === "Tema Ayarları" && <Settings {...props} />}
         </section>
@@ -266,6 +267,7 @@ function Overview({ content, setActive, supabaseConfigured }: any) {
   const campaigns = content.campaigns ?? [];
   const metrics = content.campaignMetrics ?? [];
   const updates = content.customerUpdates ?? [];
+  const users = content.users ?? [];
   const today = new Date().toISOString().slice(0, 10);
   const month = today.slice(0, 7);
   const stats = [
@@ -274,7 +276,10 @@ function Overview({ content, setActive, supabaseConfigured }: any) {
     ["Aktif müşteriler", companies.filter((company) => company.status === "Aktif").length],
     ["Aktif kampanyalar", campaigns.filter((campaign) => campaign.status === "Aktif").length],
     ["Bu ay toplam harcama", `${metrics.filter((metric) => String(metric.date || "").startsWith(month)).reduce((sum, metric) => sum + Number(metric.spent || 0), 0).toLocaleString("tr-TR")} TL`],
-    ["Takip bekleyen başvurular", leads.filter((lead) => ["Görüşülecek", "Takipte", "Teklif Hazırlanıyor"].includes(lead.status)).length]
+    ["Takip bekleyen başvurular", leads.filter((lead) => ["Görüşülecek", "Takipte", "Teklif Hazırlanıyor"].includes(lead.status)).length],
+    ["Bugün giriş yapan müşteriler", users.filter((user) => user.role === "customer" && String(user.last_login_at || "").slice(0, 10) === today).length],
+    ["Son 7 gün aktif müşteriler", users.filter((user) => user.role === "customer" && user.last_login_at && Date.now() - new Date(user.last_login_at).getTime() <= 7 * 86400000).length],
+    ["Son 30 gün giriş yapmayan müşteriler", users.filter((user) => user.role === "customer" && (!user.last_login_at || Date.now() - new Date(user.last_login_at).getTime() > 30 * 86400000)).length]
   ];
   const quickActions = [
     ["Yeni müşteri ekle", "Müşteriler"],
@@ -440,7 +445,15 @@ function Crm({ content, setContent, view, setActive }: any) {
         ))}
         {!leads.length && <p className="text-sm text-slate-400">Başvuru bulunamadı.</p>}
       </div>
-      {selectedLead && <LeadDrawer lead={selectedLead} update={update} close={() => setSelectedLead(null)} convert={() => setActive("Müşteriler")} />}
+      {selectedLead && <LeadDrawer lead={selectedLead} update={update} close={() => setSelectedLead(null)} onConverted={(data) => {
+        setContent({
+          ...content,
+          leads: content.leads.map((lead) => lead.id === data.lead.id ? data.lead : lead),
+          companies: data.company ? [data.company, ...(content.companies || []).filter((item) => item.id !== data.company.id)] : content.companies,
+          users: data.user ? [data.user, ...(content.users || []).filter((item) => item.id !== data.user.id)] : content.users,
+          customers: data.customer ? [data.customer, ...(content.customers || []).filter((item) => item.id !== data.customer.id)] : content.customers
+        });
+      }} />}
     </Panel>
   );
 }
@@ -449,7 +462,14 @@ function formatDate(value: any) {
   return value ? new Date(value).toLocaleDateString("tr-TR") : "-";
 }
 
-function LeadDrawer({ lead, update, close, convert }: any) {
+function formatDateTime(value: any) {
+  return value ? new Date(value).toLocaleString("tr-TR") : "-";
+}
+
+function LeadDrawer({ lead, update, close, onConverted }: any) {
+  const [conversionMessage, setConversionMessage] = useState("");
+  const [conversionError, setConversionError] = useState("");
+  const [converting, setConverting] = useState(false);
   const whatsappUrl = lead.phone ? `https://wa.me/${String(lead.phone).replace(/\D/g, "")}?text=${encodeURIComponent(`Merhaba ${lead.name || ""}, HK Dijital başvurunuz hakkında iletişime geçiyorum.`)}` : "";
   const details = [
     ["Kaynak", lead.source],
@@ -468,6 +488,20 @@ function LeadDrawer({ lead, update, close, convert }: any) {
     ["Formun geldiği sayfa", lead.page_url || lead.source || "Web sitesi"],
     ["Gönderim tarihi", formatDate(lead.created_at || lead.createdAt)]
   ];
+  async function convert() {
+    setConverting(true);
+    setConversionMessage("");
+    setConversionError("");
+    const response = await fetch(`/api/admin/leads/${lead.id}/convert`, { method: "POST" });
+    const data = await response.json().catch(() => ({}));
+    setConverting(false);
+    if (!response.ok) {
+      setConversionError(data.supabaseError ? `${data.error}: ${data.supabaseError}` : data.error || "Başvuru müşteriye dönüştürülemedi.");
+      return;
+    }
+    onConverted(data);
+    setConversionMessage(data.temporaryPassword ? `${data.message} Tek seferlik geçici şifre: ${data.temporaryPassword}` : data.message);
+  }
   return (
     <Drawer title="Başvuru Detayı" close={close}>
       <div className="grid gap-3 md:grid-cols-2">
@@ -479,10 +513,12 @@ function LeadDrawer({ lead, update, close, convert }: any) {
         <div className="md:col-span-2"><TextArea label="Dahili notlar" value={lead.notes || lead.internalNotes} onChange={(value) => update(lead.id, { notes: value, internalNotes: value })} /></div>
       </div>
       <div className="mt-5 flex flex-wrap gap-2">
-        <button onClick={convert} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Müşteriye dönüştür</button>
+        <button onClick={convert} disabled={converting || lead.status === "Dönüştürüldü"} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-60">{converting ? "Dönüştürülüyor..." : lead.status === "Dönüştürüldü" ? "Müşteriye dönüştürüldü" : "Başvuruyu müşteriye dönüştür"}</button>
         <button onClick={() => update(lead.id, { status: "Takipte", follow_up_date: lead.follow_up_date || new Date().toISOString().slice(0, 10) })} className="rounded-full border border-white/10 px-4 py-2 text-sm">Takip görevi oluştur</button>
         {whatsappUrl && <a href={whatsappUrl} target="_blank" rel="noreferrer" className="rounded-full bg-[#25D366] px-4 py-2 text-sm font-black text-white">WhatsApp mesajı gönder</a>}
       </div>
+      {conversionMessage && <p className="mt-4 rounded-[8px] border border-emerald-300/20 bg-emerald-500/10 p-3 text-sm text-emerald-100">{conversionMessage}</p>}
+      {conversionError && <p className="mt-4 rounded-[8px] border border-red-300/20 bg-red-500/10 p-3 text-sm text-red-100">{conversionError}</p>}
     </Drawer>
   );
 }
@@ -665,41 +701,12 @@ function CustomersAdmin({ content, setContent }: any) {
     }
   }
 
-  async function createDemoCustomer() {
-    setMessage("");
-    setError("");
-    setLoading("demo");
-    const response = await fetch("/api/admin/demo-customer", { method: "POST" });
-    const data = await response.json().catch(() => ({}));
-    setLoading("");
-    if (response.ok) {
-      setContent({
-        ...content,
-        companies: [data.company, ...(content.companies || []).filter((item) => item.id !== data.company.id)],
-        users: [data.user, ...(content.users || []).filter((item) => item.id !== data.user.id)],
-        customerVisibilitySettings: [data.visibility, ...(content.customerVisibilitySettings || []).filter((item) => item.id !== data.visibility.id)],
-        campaigns: [data.campaign, ...(content.campaigns || []).filter((item) => item.id !== data.campaign.id)],
-        campaignMetrics: [data.metric, ...(content.campaignMetrics || [])],
-        customerUpdates: [...(data.updates || []), ...(content.customerUpdates || [])],
-        customerFiles: [data.file, ...(content.customerFiles || [])]
-      });
-      setMessage(`${data.message} Giriş: ${data.credentials.email} / ${data.credentials.password}`);
-    } else {
-      showApiError(data, "Demo müşteri oluşturulamadı.");
-    }
-  }
-
   return (
     <Panel title="Müşteriler">
       {message && <p className="mb-4 rounded-[8px] border border-emerald-300/30 bg-emerald-500/10 p-3 text-sm text-emerald-100">{message}</p>}
       {error && <p className="mb-4 rounded-[8px] border border-red-300/30 bg-red-500/10 p-3 text-sm text-red-100">{error}</p>}
       <div className="mb-6 rounded-[8px] border border-white/10 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="font-black">Hızlı firma oluştur</h3>
-          <button disabled={loading === "demo"} onClick={createDemoCustomer} className="rounded-full border border-cyan-200/30 px-4 py-2 text-xs font-black text-cyan-100 disabled:opacity-60">
-            {loading === "demo" ? "Demo hazırlanıyor..." : "My Cake 45 demo müşterisini oluştur"}
-          </button>
-        </div>
+        <h3 className="font-black">Hızlı firma oluştur</h3>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <Field label="Firma Adı" value={companyForm.name} onChange={(v) => setCompanyForm({ ...companyForm, name: v })} />
           <OtherSelectField label="Sektör" value={companyForm.sector} onChange={(v) => setCompanyForm({ ...companyForm, sector: v })} options={sectorOptions} manualLabel="Sektörü yazın" />
@@ -796,6 +803,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
   const metrics = (content.campaignMetrics || []).filter((item) => item.company_id === company.id);
   const updates = (content.customerUpdates || []).filter((item) => item.company_id === company.id);
   const files = (content.customerFiles || []).filter((item) => item.company_id === company.id);
+  const activities = (content.activityLogs || []).filter((item) => item.company_id === company.id);
   const visibilityItems = content.customerVisibilitySettings || [];
   const visibility = visibilityItems.find((item) => item.company_id === company.id) || {
     id: `visibility-${company.id}`,
@@ -810,7 +818,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
     show_files: true,
     show_contact_person: true
   };
-  const tabs = ["Genel Bilgi", "Giriş Bilgileri", "Kampanyalar", "Metrikler", "Yapılan Çalışmalar", "Dosyalar", "Panel Görünürlüğü", "Notlar"];
+  const tabs = ["Genel Bilgi", "Giriş Bilgileri", "Kampanyalar", "Metrikler", "Yapılan Çalışmalar", "Dosyalar", "Panel Görünürlüğü", "Aktivite Geçmişi", "Notlar"];
   function updateVisibility(patch) {
     const next = { ...visibility, ...patch };
     const exists = visibilityItems.some((item) => item.company_id === company.id);
@@ -844,7 +852,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
       </div>}
       {tab === "Giriş Bilgileri" && <div>
         <p className="mb-4 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">Müşteri şifresi güvenlik nedeniyle düz metin olarak saklanmaz. Yeni geçici şifre oluşturabilirsiniz.</p>
-        <div className="grid gap-3">{users.map((user) => <div key={user.id} className="rounded-[8px] border border-white/10 p-4"><p className="font-black">{user.full_name || user.email}</p><p className="mt-1 text-sm text-slate-400">{user.email} · Bağlı kullanıcı: Var · Giriş: {user.is_active ? "Aktif" : "Pasif"} · Rol: Müşteri</p><p className="mt-1 text-xs text-slate-500">Son giriş tarihi: Henüz kaydedilmiyor.</p><button onClick={() => resetPassword(user)} className="mt-3 rounded-full border border-white/10 px-4 py-2 text-sm">Şifre sıfırlama bağlantısı gönder</button></div>)}{!users.length && <p className="text-sm text-slate-400">Bağlı müşteri kullanıcısı yok. Müşteriler ekranındaki giriş hesabı oluşturma formunu kullanın.</p>}</div>
+        <div className="grid gap-3">{users.map((user) => <div key={user.id} className="rounded-[8px] border border-white/10 p-4"><p className="font-black">{user.full_name || user.email}</p><p className="mt-1 text-sm text-slate-400">{user.email} · Bağlı kullanıcı: Var · Durum: {user.is_active ? "Aktif" : "Pasif"} · Rol: Müşteri</p><p className="mt-2 text-xs leading-5 text-slate-500">Son giriş: {formatDateTime(user.last_login_at)} · Toplam giriş: {user.login_count || 0}</p><button onClick={() => resetPassword(user)} className="mt-3 rounded-full border border-white/10 px-4 py-2 text-sm">Şifre sıfırlama bağlantısı gönder</button></div>)}{!users.length && <p className="text-sm text-slate-400">Bağlı müşteri kullanıcısı yok. Müşteriler ekranındaki giriş hesabı oluşturma formunu kullanın.</p>}</div>
       </div>}
       {tab === "Kampanyalar" && <CustomerRelatedList items={campaigns} empty="Bu müşteri için kampanya yok." render={(item) => `${item.name} · ${item.platform} · ${item.status}`} onVisibilityChange={(item, value) => updateRelated("campaigns", item.id, { visible_to_customer: value })} />}
       {tab === "Metrikler" && <CustomerRelatedList items={metrics} empty="Bu müşteri için metrik yok." render={(item) => `${formatDate(item.date)} · ${item.impressions || 0} gösterim · ${item.clicks || 0} tıklama · ${item.leads || 0} potansiyel müşteri · ${item.spent || 0} TL`} onVisibilityChange={(item, value) => updateRelated("campaignMetrics", item.id, { visible_to_customer: value })} />}
@@ -861,6 +869,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
         ["show_files", "Dosyalar"],
         ["show_contact_person", "İletişim bilgileri"]
       ].map(([key, label]) => <label key={key} className="flex items-center gap-3 rounded-[8px] border border-white/10 p-3 text-sm"><input type="checkbox" checked={visibility[key] ?? true} onChange={(event) => updateVisibility({ [key]: event.target.checked })} /> {label}</label>)}</div></div>}
+      {tab === "Aktivite Geçmişi" && <ActivityList items={activities} empty="Bu müşteri için henüz aktivite kaydı yok." />}
       {tab === "Notlar" && <TextArea label="Dahili müşteri notları" value={company.notes} onChange={(v) => updateCompany(company.id, { notes: v })} rows={10} />}
     </Drawer>
   );
@@ -868,6 +877,40 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
 
 function CustomerRelatedList({ items, empty, render, onVisibilityChange }: any) {
   return <div className="grid gap-3">{items.map((item) => <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-white/10 bg-black/20 p-4 text-sm text-slate-200"><span>{render(item)}</span>{onVisibilityChange && <label className="flex items-center gap-2 text-xs text-slate-300"><input type="checkbox" checked={item.visible_to_customer ?? true} onChange={(event) => onVisibilityChange(item, event.target.checked)} /> Müşteriye göster</label>}</div>)}{!items.length && <p className="text-sm text-slate-400">{empty}</p>}</div>;
+}
+
+function ActivityLogs({ content }: any) {
+  const [query, setQuery] = useState("");
+  const [userType, setUserType] = useState("");
+  const [role, setRole] = useState("");
+  const [action, setAction] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const activities = (content.activityLogs || [])
+    .filter((item) => !query || JSON.stringify(item).toLocaleLowerCase("tr").includes(query.toLocaleLowerCase("tr")))
+    .filter((item) => !userType || item.role === userType)
+    .filter((item) => !role || item.role === role)
+    .filter((item) => !action || item.action === action)
+    .filter((item) => !dateFrom || String(item.created_at || "").slice(0, 10) >= dateFrom)
+    .filter((item) => !dateTo || String(item.created_at || "").slice(0, 10) <= dateTo);
+  return (
+    <Panel title="Log Hareketleri">
+      <p className="mb-5 text-sm leading-6 text-slate-400">Yönetici ve müşteri işlemlerini tarih, kullanıcı, rol ve işlem türüne göre inceleyin.</p>
+      <div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Kullanıcı veya işlem ara..." className="min-h-11 rounded-[8px] border border-white/10 bg-black/30 px-3 text-white" />
+        <SelectField label="Kullanıcı türü" value={userType} onChange={setUserType} options={roleOptions} placeholder="Tüm kullanıcılar" />
+        <SelectField label="Rol" value={role} onChange={setRole} options={roleOptions} placeholder="Tüm roller" />
+        <SelectField label="İşlem" value={action} onChange={setAction} options={["Giriş", "Oluşturma", "Güncelleme", "Silme", "İçe Aktarma", "Dışa Aktarma", "Şifre Sıfırlama", "Görüntüleme", "İndirme", "Dönüştürme"]} placeholder="Tüm işlemler" />
+        <Field label="Başlangıç tarihi" type="date" value={dateFrom} onChange={setDateFrom} />
+        <Field label="Bitiş tarihi" type="date" value={dateTo} onChange={setDateTo} />
+      </div>
+      <ActivityList items={activities} empty="Seçilen filtrelere uygun hareket kaydı yok." />
+    </Panel>
+  );
+}
+
+function ActivityList({ items, empty }: any) {
+  return <div className="grid gap-3">{items.map((item) => <div key={item.id} className="rounded-[8px] border border-white/10 bg-black/20 p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-black text-white">{item.details?.message || `${item.entity} · ${item.action}`}</p><p className="mt-1 text-sm text-slate-400">{item.actor_name || "Sistem"} · {roleOptions.find((role) => role.value === item.role)?.label || item.role || "Sistem"} · {item.entity}</p></div><span className="rounded-full bg-cyan-200/10 px-3 py-1 text-xs font-bold text-cyan-100">{item.action}</span></div><p className="mt-3 text-xs text-slate-500">{formatDateTime(item.created_at)}</p></div>)}{!items.length && <p className="text-sm text-slate-400">{empty}</p>}</div>;
 }
 
 function ReportsAdmin({ content, setContent }: any) {

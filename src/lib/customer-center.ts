@@ -55,8 +55,8 @@ export async function getCustomerCenterData(companyId?: string): Promise<Custome
 
   return {
     company: {
-      id: "demo-company",
-      name: "Demo İşletme",
+      id: "preview-company",
+      name: "Müşteri İşletmesi",
       sector: "Hizmet Sektörü",
       city: "Manisa",
       website: "",
@@ -67,14 +67,14 @@ export async function getCustomerCenterData(companyId?: string): Promise<Custome
     visibility: defaultVisibility,
     campaigns: [
       {
-        id: "demo-campaign",
-        name: "Demo Reklam Çalışması",
+        id: "preview-campaign",
+        name: "Reklam Çalışması",
         platform: "Meta",
         objective: "Form",
         status: "Hazırlanıyor",
         budget: 0,
         spent: 0,
-        notes: "Supabase bağlandığında gerçek kampanya verileri burada gösterilir."
+        notes: "Kampanya detayları güncellendiğinde burada gösterilir."
       }
     ],
     metrics: [
@@ -89,12 +89,12 @@ export async function getCustomerCenterData(companyId?: string): Promise<Custome
         conversions: 0,
         cost_per_lead: 0,
         spent: 0,
-        notes: "Demo mod"
+        notes: "Performans özeti"
       }
     ],
     updates: [
       {
-        id: "demo-update",
+        id: "preview-update",
         title: "Panel hazırlandı",
         description: "HK Dijital Marketing Center, kampanya ve süreç takibi için hazırlandı.",
         update_type: "Yapılan Çalışma",

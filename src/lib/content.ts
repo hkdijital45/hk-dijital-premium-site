@@ -6,9 +6,34 @@ import { hasSupabaseConfig, supabaseRest } from "./supabase";
 const contentPath = path.join(process.cwd(), "src", "data", "site-content.json");
 const siteContentKey = "site_content";
 
+function polishPublicCopy<T>(value: T, key = ""): T {
+  if (["id", "url", "logoUrl", "footerLogoUrl", "faviconUrl", "fileUrl", "verificationUrl", "activeProvider", "model"].includes(key)) return value;
+  if (Array.isArray(value)) return value.map((item) => polishPublicCopy(item)) as T;
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([childKey, childValue]) => [childKey, polishPublicCopy(childValue, childKey)])) as T;
+  }
+  if (typeof value !== "string") return value;
+  return value
+    .replace(/CRM müşteri ilişki yönetimi sistemi/gi, "müşteri ilişki yönetimi sistemi")
+    .replace(/CRM & Lead Takip Sistemi/gi, "Müşteri İlişki Yönetimi ve Talep Takibi")
+    .replace(/CRM müşteri takip sistemi/gi, "müşteri takip sistemi")
+    .replace(/CRM odaklı/gi, "müşteri ilişki yönetimi odaklı")
+    .replace(/CRM takibi/gi, "müşteri takibi")
+    .replace(/CRM ile/gi, "müşteri ilişki yönetimi ile")
+    .replace(/\bCRM\b/gi, "müşteri ilişki yönetimi")
+    .replace(/AI destekli/gi, "yapay zekâ destekli")
+    .replace(/AI analiz/gi, "yapay zekâ analizi")
+    .replace(/lead scoring/gi, "potansiyel müşteri önceliklendirmesi")
+    .replace(/\blead\b/gi, "potansiyel müşteri")
+    .replace(/\bfunnel\b/gi, "müşteri yolculuğu")
+    .replace(/\bremarketing\b/gi, "yeniden pazarlama")
+    .replace(/landing page/gi, "dönüşüm odaklı açılış sayfası")
+    .replace(/mini audit/gi, "ön değerlendirme") as T;
+}
+
 export async function getSeedContent(): Promise<SiteContent> {
   const data = await fs.readFile(contentPath, "utf8");
-  return JSON.parse(data) as SiteContent;
+  return polishPublicCopy(JSON.parse(data) as SiteContent);
 }
 
 export async function getSiteContent(): Promise<SiteContent> {
@@ -19,7 +44,7 @@ export async function getSiteContent(): Promise<SiteContent> {
     const rows = await supabaseRest<Array<{ value: SiteContent }>>(
       `site_settings?key=eq.${siteContentKey}&select=value&limit=1`
     );
-    return rows[0]?.value ? { ...seed, ...rows[0].value } : seed;
+    return rows[0]?.value ? polishPublicCopy({ ...seed, ...rows[0].value }) : seed;
   } catch {
     return seed;
   }

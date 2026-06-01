@@ -7,6 +7,7 @@ import {
   updateSupabaseAuthUser
 } from "@/lib/auth";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
+import { recordActivity } from "@/lib/activity-log";
 
 export async function POST(request: Request) {
   const session = await getSession();
@@ -65,6 +66,7 @@ export async function POST(request: Request) {
           body: JSON.stringify(profilePayload)
         });
 
+    await recordActivity({ session, action: "Oluşturma", entity: "Kullanıcı", entityId: rows[0]?.id, companyId, details: { message: `${fullName || email} kullanıcısı oluşturuldu`, role } });
     return NextResponse.json({ ok: true, user: rows[0] });
   } catch (error) {
     const safeError = getSafeSupabaseError(error);

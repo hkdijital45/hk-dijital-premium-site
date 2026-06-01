@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession, isStaffRole } from "@/lib/auth";
+import { recordActivity } from "@/lib/activity-log";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
 export async function POST(request: Request) {
@@ -34,6 +35,7 @@ export async function POST(request: Request) {
       })
     });
 
+    await recordActivity({ session, action: "Oluşturma", entity: "Firma", entityId: rows[0]?.id, companyId: rows[0]?.id, details: { message: `${name} firması oluşturuldu` } });
     return NextResponse.json({ ok: true, company: rows[0] });
   } catch (error) {
     const safeError = getSafeSupabaseError(error);

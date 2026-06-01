@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { BarChart3, FileText, Lightbulb, MessageCircle, UserRound } from "lucide-react";
 import { getSession, isStaffRole } from "@/lib/auth";
+import { recordActivity } from "@/lib/activity-log";
 import { getCustomerCenterData, summarizeMetrics } from "@/lib/customer-center";
-import { getSupabaseWarning, hasSupabaseConfig } from "@/lib/supabase";
+import { hasSupabaseConfig } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,15 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
 
   const selectedCompanyId = isAdminPreview ? params.company : session.companyId;
   const data = await getCustomerCenterData(selectedCompanyId);
+  if (session.role === "customer") {
+    await recordActivity({
+      session,
+      action: "Görüntüleme",
+      entity: "Müşteri Paneli",
+      companyId: selectedCompanyId,
+      details: { message: "Müşteri panelini görüntüledi" }
+    });
+  }
   const totals = summarizeMetrics(data.metrics);
   const visibility = data.visibility;
   const hasCompany = Boolean(selectedCompanyId && data.company);
@@ -64,7 +74,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
       <div className="mx-auto max-w-7xl px-4 py-8">
         {!hasSupabaseConfig() && (
           <div className="mb-6 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-4 text-sm text-amber-100">
-            {getSupabaseWarning()} Bu panel şu anda demo/fallback verilerle çalışıyor.
+            Panel verileri şu anda yüklenemiyor. Lütfen kısa süre sonra yeniden deneyin veya HK Dijital ile iletişime geçin.
           </div>
         )}
 
@@ -151,7 +161,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
             <h2 className="flex items-center gap-2 text-xl font-black"><FileText className="text-cyan-200" /> Dosyalar</h2>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {data.files.map((file) => (
-                <a key={file.id} href={file.file_url} target="_blank" className="rounded-[8px] bg-black/25 p-4 text-sm font-bold text-cyan-100">
+                <a key={file.id} href={`/api/customer/files/${file.id}`} target="_blank" className="rounded-[8px] bg-black/25 p-4 text-sm font-bold text-cyan-100">
                   {file.title}
                 </a>
               ))}

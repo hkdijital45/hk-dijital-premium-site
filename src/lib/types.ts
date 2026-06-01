@@ -54,7 +54,8 @@ export type LeadStatus =
   | "Teklif Gönderildi"
   | "Takipte"
   | "Kazanıldı"
-  | "Kaybedildi";
+  | "Kaybedildi"
+  | "Dönüştürüldü";
 
 export type Lead = {
   id: string;

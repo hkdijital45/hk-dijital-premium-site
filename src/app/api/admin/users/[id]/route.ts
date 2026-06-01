@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession, isAdminRole } from "@/lib/auth";
+import { recordActivity } from "@/lib/activity-log";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
 async function getActiveAdminCount() {
@@ -56,7 +57,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       method: "PATCH",
       body: JSON.stringify(patch)
     });
-
+    await recordActivity({ session, action: "Güncelleme", entity: "Kullanıcı", entityId: id, companyId: rows[0]?.company_id, details: { message: `${rows[0]?.full_name || rows[0]?.email} kullanıcısı güncellendi`, previous_role: existing.role, role: rows[0]?.role } });
     return NextResponse.json({ ok: true, user: rows[0] });
   } catch (error) {
     const safeError = getSafeSupabaseError(error);
