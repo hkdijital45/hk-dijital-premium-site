@@ -5,6 +5,7 @@ import { getSession, isStaffRole } from "@/lib/auth";
 import { recordActivity } from "@/lib/activity-log";
 import { getCustomerCenterData, summarizeMetrics } from "@/lib/customer-center";
 import { hasSupabaseConfig } from "@/lib/supabase";
+import { CustomerReports } from "@/components/customer/CustomerReports";
 
 export const dynamic = "force-dynamic";
 
@@ -155,6 +156,8 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
             </div>
           </section>
         )}
+
+        {visibility.show_metrics && <CustomerReports reports={data.reports} initialInterpretations={data.interpretations} reportUpdates={data.reportUpdates} />}
 
         {visibility.show_files && (
           <section className="mt-8 rounded-[8px] border border-white/10 bg-white/[0.045] p-5">

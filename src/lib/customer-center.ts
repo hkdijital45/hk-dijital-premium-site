@@ -7,6 +7,9 @@ export type CustomerCenterData = {
   metrics: any[];
   updates: any[];
   files: any[];
+  reports: any[];
+  interpretations: any[];
+  reportUpdates: any[];
 };
 
 const defaultVisibility = {
@@ -29,18 +32,24 @@ export async function getCustomerCenterData(companyId?: string): Promise<Custome
       campaigns: [],
       metrics: [],
       updates: [],
-      files: []
+      files: [],
+      reports: [],
+      interpretations: [],
+      reportUpdates: []
     };
   }
 
   if (hasSupabaseConfig() && companyId) {
-    const [companies, visibilityRows, campaigns, metrics, updates, files] = await Promise.all([
+    const [companies, visibilityRows, campaigns, metrics, updates, files, reports, interpretations, reportUpdates] = await Promise.all([
       supabaseRest<any[]>(`companies?id=eq.${companyId}&select=*&limit=1`),
       supabaseRest<any[]>(`customer_visibility_settings?company_id=eq.${companyId}&select=*&limit=1`),
       supabaseRest<any[]>(`campaigns?company_id=eq.${companyId}&select=*&order=created_at.desc`),
       supabaseRest<any[]>(`campaign_metrics?company_id=eq.${companyId}&select=*&order=date.desc`),
       supabaseRest<any[]>(`customer_updates?company_id=eq.${companyId}&visible_to_customer=eq.true&select=*&order=created_at.desc`),
-      supabaseRest<any[]>(`customer_files?company_id=eq.${companyId}&visible_to_customer=eq.true&select=*&order=uploaded_at.desc`)
+      supabaseRest<any[]>(`customer_files?company_id=eq.${companyId}&visible_to_customer=eq.true&select=*&order=uploaded_at.desc`),
+      supabaseRest<any[]>(`reports?company_id=eq.${companyId}&visible_to_customer=eq.true&archived=eq.false&select=*&order=created_at.desc`).catch(() => []),
+      supabaseRest<any[]>(`report_interpretations?company_id=eq.${companyId}&select=*&order=created_at.desc`).catch(() => []),
+      supabaseRest<any[]>(`report_updates?company_id=eq.${companyId}&is_visible_to_customer=eq.true&select=*&order=is_pinned.desc,update_date.desc`).catch(() => [])
     ]);
 
     return {
@@ -49,7 +58,10 @@ export async function getCustomerCenterData(companyId?: string): Promise<Custome
       campaigns: campaigns.filter((item) => item.visible_to_customer !== false),
       metrics: metrics.filter((item) => item.visible_to_customer !== false),
       updates,
-      files
+      files,
+      reports: reports.map(({ internal_note: _internalNote, raw_extracted_data: _rawExtractedData, ...report }) => report),
+      interpretations,
+      reportUpdates
     };
   }
 
@@ -101,7 +113,10 @@ export async function getCustomerCenterData(companyId?: string): Promise<Custome
         created_at: new Date().toISOString()
       }
     ],
-    files: []
+    files: [],
+    reports: [],
+    interpretations: [],
+    reportUpdates: []
   };
 }
 

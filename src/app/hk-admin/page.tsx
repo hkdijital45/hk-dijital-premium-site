@@ -16,7 +16,7 @@ export default async function AdminPage() {
   let relationalContent = {};
   if (hasSupabaseConfig()) {
     try {
-      const [companies, users, customers, leads, contactForms, campaigns, campaignMetrics, customerUpdates, customerVisibilitySettings, customerFiles, mediaFiles, activityLogs] =
+      const [companies, users, customers, leads, contactForms, campaigns, campaignMetrics, customerUpdates, customerVisibilitySettings, customerFiles, mediaFiles, activityLogs, reports, reportInterpretations, reportUpdates] =
         await Promise.all([
           supabaseRest("companies?select=*&order=created_at.desc"),
           supabaseRest("users?select=*&order=created_at.desc"),
@@ -29,7 +29,10 @@ export default async function AdminPage() {
           supabaseRest("customer_visibility_settings?select=*&order=updated_at.desc"),
           supabaseRest("customer_files?select=*&order=uploaded_at.desc"),
           supabaseRest("media_files?select=*&order=uploaded_at.desc"),
-          supabaseRest("activity_logs?select=*&order=created_at.desc&limit=500").catch(() => [])
+          supabaseRest("activity_logs?select=*&order=created_at.desc&limit=500").catch(() => []),
+          supabaseRest("reports?select=*&order=created_at.desc").catch(() => []),
+          supabaseRest("report_interpretations?select=*&order=created_at.desc").catch(() => []),
+          supabaseRest("report_updates?select=*&order=is_pinned.desc,update_date.desc").catch(() => [])
         ]);
       relationalContent = {
         companies,
@@ -43,6 +46,9 @@ export default async function AdminPage() {
         customerVisibilitySettings,
         customerFiles,
         activityLogs,
+        reports,
+        reportInterpretations,
+        reportUpdates,
         media: Array.isArray(mediaFiles)
           ? mediaFiles.map((item: any) => ({
               id: item.id,

@@ -5,13 +5,15 @@ import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, Copy, Download, ImagePlus, LogOut, Plus, Save, Sparkles, Trash2, X } from "lucide-react";
 import type { SiteContent } from "@/lib/types";
+import { ReportTools } from "@/components/admin/reports/ReportTools";
+import { reportDashboardStats } from "@/lib/reports/report-dashboard";
 
 const navigationGroups = [
   { label: "Genel Bakış", items: ["Genel Bakış"] },
   { label: "Site Yönetimi", items: ["Sayfa İçerikleri", "Marka Ayarları", "Sosyal Medya", "Hizmetler", "Paketler", "Sertifikalar", "Teklif Sihirbazı Ayarları", "Medya Merkezi"] },
   { label: "Potansiyel Müşteriler", items: ["Form Başvuruları", "Teklif Sihirbazı Kayıtları", "Lead Durumları", "Takip Notları"] },
   { label: "Müşteri Merkezi", items: ["Müşteriler", "Müşteri Giriş Bilgileri", "Panel Görünürlüğü", "Müşteri Dosyaları"] },
-  { label: "Reklam & Raporlama", items: ["Kampanyalar", "Reklam Metrikleri", "Meta Rapor İçe Aktar", "Rapor Notları"] },
+  { label: "Reklam & Raporlama", items: ["Kampanyalar", "Reklam Metrikleri", "Meta Rapor İçe Aktar", "Raporlama Merkezi", "Rapor Notları"] },
   { label: "Kullanıcılar & Yetkiler", items: ["Kullanıcı Yönetimi", "Roller", "Güvenlik", "Log Hareketleri"] },
   { label: "Yapay Zeka Merkezi", items: ["İçerik Üretici", "Reklam Metni Üretici", "Rapor Özeti Üretici"] },
   { label: "Ayarlar", items: ["API Ayarları", "Ölçümleme Ayarları", "Tema Ayarları", "Kullanım Kılavuzu"] }
@@ -63,6 +65,9 @@ const googleMetricFields = [
   ["cpc", "Ortalama TBM", "Bir tıklamanın ortalama maliyeti"],
   ["cost_per_lead", "Dönüşüm Maliyeti", "Bir dönüşüm için ortalama maliyet"]
 ];
+const reportTypes = ["Meta Reklam Raporu", "Google Ads Raporu", "Sosyal Medya Yönetimi Raporu", "Genel Dijital Performans Raporu"];
+const reportTabs = ["Meta Reklamları", "Google Ads", "Sosyal Medya Yönetimi", "Genel Raporlar"];
+const socialPlatforms = ["Instagram", "Facebook", "TikTok", "LinkedIn", "YouTube", "Diğer"];
 
 export function AdminDashboard({
   initialContent,
@@ -199,6 +204,7 @@ export function AdminDashboard({
           {active === "Müşteri Dosyaları" && <FilesAdmin {...props} />}
           {active === "Kampanyalar" && <CampaignAdmin {...props} />}
           {["Reklam Metrikleri", "Meta Rapor İçe Aktar"].includes(active) && <MetricAdmin {...props} importOnly={active === "Meta Rapor İçe Aktar"} />}
+          {active === "Raporlama Merkezi" && <ReportingCenter {...props} />}
           {active === "Rapor Notları" && <UpdatesAdmin {...props} />}
           {active === "Medya Merkezi" && <Media {...props} />}
           {active === "API Ayarları" && <ApiSettings {...props} />}
@@ -268,6 +274,10 @@ function Overview({ content, setActive, supabaseConfigured }: any) {
   const metrics = content.campaignMetrics ?? [];
   const updates = content.customerUpdates ?? [];
   const users = content.users ?? [];
+  const reports = content.reports ?? [];
+  const reportStats = reportDashboardStats(reports);
+  const [demoMessage, setDemoMessage] = useState("");
+  const [demoLoading, setDemoLoading] = useState(false);
   const today = new Date().toISOString().slice(0, 10);
   const month = today.slice(0, 7);
   const stats = [
@@ -279,7 +289,11 @@ function Overview({ content, setActive, supabaseConfigured }: any) {
     ["Takip bekleyen başvurular", leads.filter((lead) => ["Görüşülecek", "Takipte", "Teklif Hazırlanıyor"].includes(lead.status)).length],
     ["Bugün giriş yapan müşteriler", users.filter((user) => user.role === "customer" && String(user.last_login_at || "").slice(0, 10) === today).length],
     ["Son 7 gün aktif müşteriler", users.filter((user) => user.role === "customer" && user.last_login_at && Date.now() - new Date(user.last_login_at).getTime() <= 7 * 86400000).length],
-    ["Son 30 gün giriş yapmayan müşteriler", users.filter((user) => user.role === "customer" && (!user.last_login_at || Date.now() - new Date(user.last_login_at).getTime() > 30 * 86400000)).length]
+    ["Son 30 gün giriş yapmayan müşteriler", users.filter((user) => user.role === "customer" && (!user.last_login_at || Date.now() - new Date(user.last_login_at).getTime() > 30 * 86400000)).length],
+    ["Raporu bulunan müşteriler", reportStats.customerCount],
+    ["Bu ay hazırlanan raporlar", reportStats.createdThisMonth],
+    ["Ajans yorumu bekleyen raporlar", reportStats.awaitingComment],
+    ["E-posta ile gönderilen raporlar", reportStats.sentByEmail]
   ];
   const quickActions = [
     ["Yeni müşteri ekle", "Müşteriler"],
@@ -287,8 +301,17 @@ function Overview({ content, setActive, supabaseConfigured }: any) {
     ["Metrik gir", "Reklam Metrikleri"],
     ["Meta raporu içe aktar", "Meta Rapor İçe Aktar"],
     ["Form başvurularını gör", "Form Başvuruları"],
-    ["Site içeriğini düzenle", "Sayfa İçerikleri"]
+    ["Site içeriğini düzenle", "Sayfa İçerikleri"],
+    ["Raporlama merkezini aç", "Raporlama Merkezi"]
   ];
+  async function createDemoCustomer() {
+    setDemoLoading(true);
+    setDemoMessage("Demo müşteri hazırlanıyor...");
+    const response = await fetch("/api/admin/demo-customer", { method: "POST" });
+    const data = await response.json().catch(() => ({}));
+    setDemoMessage(response.ok ? `${data.message}\nE-posta: ${data.credentials.email}\nGeçici şifre: ${data.credentials.password}\nPanel: /musteri-paneli` : data.error || "Demo müşteri oluşturulamadı.");
+    setDemoLoading(false);
+  }
   return (
     <Panel title="Genel Bakış">
       <div className="grid gap-4 md:grid-cols-3">{stats.map(([label, value]) => <div key={label} className="rounded-[8px] border border-white/10 bg-black/25 p-4"><p className="text-sm text-slate-400">{label}</p><p className="mt-2 text-2xl font-black text-cyan-100">{value}</p></div>)}</div>
@@ -300,6 +323,7 @@ function Overview({ content, setActive, supabaseConfigured }: any) {
         <div className="rounded-[8px] border border-white/10 p-4"><h3 className="font-black">Son müşteri güncellemeleri</h3><div className="mt-4 grid gap-3">{updates.slice(0, 4).map((update) => <div key={update.id} className="rounded-[8px] bg-white/[0.04] p-3 text-sm"><p className="font-bold">{update.title}</p><p className="text-slate-400">{update.update_type} · {update.created_at ? new Date(update.created_at).toLocaleDateString("tr-TR") : "-"}</p></div>)}{!updates.length && <p className="text-sm text-slate-400">Henüz müşteri güncellemesi yok.</p>}</div></div>
         <div className={`rounded-[8px] border p-4 ${supabaseConfigured ? "border-emerald-300/20 bg-emerald-500/10" : "border-amber-300/20 bg-amber-500/10"}`}><h3 className={supabaseConfigured ? "font-black text-emerald-100" : "font-black text-amber-100"}>Sistem durumu</h3><p className={`mt-3 text-sm leading-6 ${supabaseConfigured ? "text-emerald-100" : "text-amber-100"}`}>{supabaseConfigured ? "Supabase bağlantısı aktif. Kalıcı kayıt sistemi ve yönetici oturumu sunucu tarafında çalışıyor." : "Supabase bağlantısı yapılandırılmadı. Canlı ortamda kalıcı kayıt beklenmez."}</p></div>
       </div>
+      <div className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-4"><h3 className="font-black text-cyan-50">Müşteri paneli testi</h3><p className="mt-2 text-sm leading-6 text-cyan-100/80">Gerçek müşteri hesabı gibi çalışan, geçici şifreli bir test hesabı ve örnek raporlar oluşturun.</p><button disabled={demoLoading} onClick={createDemoCustomer} className="mt-3 rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950 disabled:opacity-60">{demoLoading ? "Hazırlanıyor..." : "Demo müşteri oluştur"}</button>{demoMessage && <pre className="mt-3 whitespace-pre-wrap rounded-[8px] bg-black/20 p-3 text-xs leading-6 text-cyan-50">{demoMessage}</pre>}</div>
     </Panel>
   );
 }
@@ -803,6 +827,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
   const metrics = (content.campaignMetrics || []).filter((item) => item.company_id === company.id);
   const updates = (content.customerUpdates || []).filter((item) => item.company_id === company.id);
   const files = (content.customerFiles || []).filter((item) => item.company_id === company.id);
+  const reports = (content.reports || []).filter((item) => item.company_id === company.id);
   const activities = (content.activityLogs || []).filter((item) => item.company_id === company.id);
   const visibilityItems = content.customerVisibilitySettings || [];
   const visibility = visibilityItems.find((item) => item.company_id === company.id) || {
@@ -818,7 +843,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
     show_files: true,
     show_contact_person: true
   };
-  const tabs = ["Genel Bilgi", "Giriş Bilgileri", "Kampanyalar", "Metrikler", "Yapılan Çalışmalar", "Dosyalar", "Panel Görünürlüğü", "Aktivite Geçmişi", "Notlar"];
+  const tabs = ["Genel Bilgi", "Giriş Bilgileri", "Kampanyalar", "Metrikler", "Raporlar", "Yapılan Çalışmalar", "Dosyalar", "Panel Görünürlüğü", "Aktivite Geçmişi", "Notlar"];
   function updateVisibility(patch) {
     const next = { ...visibility, ...patch };
     const exists = visibilityItems.some((item) => item.company_id === company.id);
@@ -856,6 +881,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
       </div>}
       {tab === "Kampanyalar" && <CustomerRelatedList items={campaigns} empty="Bu müşteri için kampanya yok." render={(item) => `${item.name} · ${item.platform} · ${item.status}`} onVisibilityChange={(item, value) => updateRelated("campaigns", item.id, { visible_to_customer: value })} />}
       {tab === "Metrikler" && <CustomerRelatedList items={metrics} empty="Bu müşteri için metrik yok." render={(item) => `${formatDate(item.date)} · ${item.impressions || 0} gösterim · ${item.clicks || 0} tıklama · ${item.leads || 0} potansiyel müşteri · ${item.spent || 0} TL`} onVisibilityChange={(item, value) => updateRelated("campaignMetrics", item.id, { visible_to_customer: value })} />}
+      {tab === "Raporlar" && <CustomerRelatedList items={reports} empty="Bu müşteri için kanal bazlı rapor yok." render={(item) => `${item.report_type} · ${item.period || "Dönem belirtilmedi"} · ${item.visible_to_customer ? "Müşteriye görünür" : "Dahili"}`} />}
       {tab === "Yapılan Çalışmalar" && <CustomerRelatedList items={updates} empty="Bu müşteri için çalışma notu yok." render={(item) => `${item.title} · ${item.update_type}`} onVisibilityChange={(item, value) => updateRelated("customerUpdates", item.id, { visible_to_customer: value })} />}
       {tab === "Dosyalar" && <CustomerRelatedList items={files} empty="Bu müşteri için dosya yok." render={(item) => `${item.title} · ${item.file_type || "Dosya"}`} onVisibilityChange={(item, value) => updateRelated("customerFiles", item.id, { visible_to_customer: value })} />}
       {tab === "Panel Görünürlüğü" && <div><p className="mb-4 text-sm leading-6 text-slate-400">Müşteri panelinde görünmesini istediğiniz alanları seçin. Değişiklikleri üst menüdeki Kaydet düğmesi ile kalıcı hale getirin.</p><p className="mb-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">Müşteri panelindeki metrikler, teknik terimler yerine sade Türkçe açıklamalarla gösterilir.</p><div className="grid gap-3 md:grid-cols-2">{[
@@ -1022,6 +1048,85 @@ function MetricAdmin({ content, setContent, importOnly = false }: any) {
       </>}
     </Panel>
   );
+}
+
+const reportMetricFields = {
+  "Meta Reklam Raporu": [
+    ["impressions", "Gösterim"], ["reach", "Erişim"], ["clicks", "Tıklama"], ["messages", "Mesaj başlatma"], ["leads", "Potansiyel müşteri"], ["spent", "Harcanan tutar"], ["ctr", "Tıklanma oranı"], ["cpc", "Tıklama başı maliyet"], ["cpm", "Bin gösterim maliyeti"], ["cost_per_result", "Sonuç başına maliyet"]
+  ],
+  "Google Ads Raporu": [
+    ["impressions", "Gösterim"], ["clicks", "Tıklama"], ["ctr", "Tıklanma oranı / TO"], ["average_cpc", "Ortalama TBM"], ["cost", "Maliyet"], ["conversions", "Dönüşüm"], ["conversion_rate", "Dönüşüm oranı"], ["cost_per_conversion", "Dönüşüm maliyeti"], ["search_terms_note", "Arama terimleri notu", "textarea"], ["keyword_note", "Anahtar kelime notu", "textarea"]
+  ],
+  "Sosyal Medya Yönetimi Raporu": [
+    ["posts", "Paylaşım sayısı"], ["reels", "Reels sayısı"], ["stories", "Hikaye sayısı"], ["reach", "Erişim"], ["impressions", "Gösterim"], ["profile_visits", "Profil ziyareti"], ["followers_growth", "Takipçi artışı"], ["engagement", "Etkileşim"], ["likes", "Beğeni"], ["comments", "Yorum"], ["saves", "Kaydetme"], ["shares", "Paylaşım"], ["messages", "Gelen mesaj"], ["content_note", "İçerik notu", "textarea"], ["best_content", "En iyi performans gösteren içerik", "textarea"]
+  ],
+  "Genel Dijital Performans Raporu": [
+    ["impressions", "Toplam gösterim"], ["reach", "Toplam erişim"], ["clicks", "Toplam tıklama"], ["leads", "Potansiyel müşteri"], ["spent", "Toplam harcama"], ["summary", "Performans özeti", "textarea"]
+  ]
+};
+
+function ReportingCenter({ content, setContent }: any) {
+  const [tab, setTab] = useState("Meta Reklamları");
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState("");
+  const reports = content.reports || [];
+  const typeForTab = { "Meta Reklamları": "Meta Reklam Raporu", "Google Ads": "Google Ads Raporu", "Sosyal Medya Yönetimi": "Sosyal Medya Yönetimi Raporu", "Genel Raporlar": "Genel Dijital Performans Raporu" }[tab];
+  const visibleReports = reports.filter((report) => report.report_type === typeForTab);
+  function update(id, patch) {
+    setContent({ ...content, reports: reports.map((report) => report.id === id ? { ...report, ...patch } : report) });
+  }
+  function updateMetric(report, key, value) {
+    update(report.id, { metrics: { ...(report.metrics || {}), [key]: value } });
+  }
+  function add() {
+    const id = `report-${Date.now()}`;
+    setContent({ ...content, reports: [{ id, report_type: typeForTab, period: "Aylık", metrics: {}, visible_to_customer: true, archived: false }, ...reports] });
+  }
+  async function save(report) {
+    setLoading(report.id);
+    setMessage("Rapor kaydediliyor...");
+    const isNew = String(report.id).startsWith("report-");
+    const response = await fetch("/api/admin/reports", { method: isNew ? "POST" : "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(report) });
+    const data = await response.json().catch(() => ({}));
+    if (response.ok) {
+      setContent({ ...content, reports: reports.map((item) => item.id === report.id ? data.report : item) });
+      setMessage(data.message || "Rapor başarıyla kaydedildi.");
+    } else setMessage(`Kaydedilemedi: ${data.supabaseError || data.error || "Beklenmeyen hata"}`);
+    setLoading("");
+  }
+  async function remove(report) {
+    if (String(report.id).startsWith("report-")) return setContent({ ...content, reports: reports.filter((item) => item.id !== report.id) });
+    if (!confirm("Bu raporu silmek istediğinize emin misiniz?")) return;
+    setLoading(report.id);
+    const response = await fetch("/api/admin/reports", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: report.id }) });
+    const data = await response.json().catch(() => ({}));
+    if (response.ok) {
+      setContent({ ...content, reports: reports.filter((item) => item.id !== report.id) });
+      setMessage("Rapor silindi.");
+    } else setMessage(`Silinemedi: ${data.supabaseError || data.error || "Beklenmeyen hata"}`);
+    setLoading("");
+  }
+  return <Panel title="Raporlama Merkezi">
+    <p className="mb-5 text-sm leading-6 text-slate-400">Meta, Google Ads, sosyal medya yönetimi ve genel performans raporlarını müşteri bazında hazırlayın.</p>
+    <div className="mb-5 flex flex-wrap gap-2">{reportTabs.map((item) => <button key={item} onClick={() => setTab(item)} className={`rounded-full px-4 py-2 text-sm font-bold ${tab === item ? "bg-cyan-300 text-slate-950" : "border border-white/10 text-slate-300"}`}>{item}</button>)}</div>
+    <button onClick={add} className="mb-4 inline-flex items-center gap-2 rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950"><Plus size={16} /> Yeni rapor ekle</button>
+    {message && <p className={`mb-4 rounded-[8px] border p-3 text-sm ${message.includes("Kaydedilemedi") || message.includes("Silinemedi") ? "border-red-300/30 bg-red-500/10 text-red-100" : "border-cyan-200/20 bg-cyan-200/10 text-cyan-100"}`}>{message}</p>}
+    <div className="grid gap-4">{visibleReports.map((report) => <div key={report.id} className="grid gap-4 rounded-[8px] border border-white/10 bg-black/20 p-4">
+      <div className="grid gap-3 md:grid-cols-3">
+        <CompanySelect value={report.company_id || ""} onChange={(value) => update(report.id, { company_id: value, campaign_id: "" })} companies={content.companies} />
+        <SelectField label="Kampanya" value={report.campaign_id || ""} onChange={(value) => update(report.id, { campaign_id: value })} options={(content.campaigns || []).filter((campaign) => !report.company_id || campaign.company_id === report.company_id).map((campaign) => ({ value: campaign.id, label: campaign.name }))} placeholder="Kampanya seçimi isteğe bağlı" />
+        <Field label="Rapor dönemi" value={report.period} onChange={(value) => update(report.id, { period: value })} />
+        <Field label="Başlangıç tarihi" type="date" value={report.start_date} onChange={(value) => update(report.id, { start_date: value })} />
+        <Field label="Bitiş tarihi" type="date" value={report.end_date} onChange={(value) => update(report.id, { end_date: value })} />
+        {report.report_type === "Sosyal Medya Yönetimi Raporu" && <OtherSelectField label="Platform" value={report.platform} onChange={(value) => update(report.id, { platform: value })} options={socialPlatforms} manualLabel="Platformu yazın" />}
+      </div>
+      <div className="grid gap-3 md:grid-cols-3">{reportMetricFields[report.report_type].map(([key, label, kind]) => kind === "textarea" ? <TextArea key={key} label={label} value={report.metrics?.[key]} onChange={(value) => updateMetric(report, key, value)} /> : <Field key={key} label={label} type="number" value={report.metrics?.[key]} onChange={(value) => updateMetric(report, key, value)} />)}</div>
+      <div className="grid gap-3 md:grid-cols-2"><TextArea label="Dahili not" value={report.internal_note} onChange={(value) => update(report.id, { internal_note: value })} /><TextArea label="Müşteriye gösterilecek genel yorum" value={report.customer_note} onChange={(value) => update(report.id, { customer_note: value })} /></div>
+      <ReportTools report={report} onApplyExtracted={(patch) => update(report.id, patch)} />
+      <div className="flex flex-wrap items-center gap-3"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={report.visible_to_customer ?? true} onChange={(event) => update(report.id, { visible_to_customer: event.target.checked })} /> Müşteriye gösterilsin</label><button disabled={loading === report.id} onClick={() => save(report)} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950 disabled:opacity-60">{loading === report.id ? "Kaydediliyor..." : "Raporu kaydet"}</button><button onClick={() => remove(report)} className="rounded-full border border-red-300/30 px-4 py-2 text-sm text-red-100">Sil</button>{report.company_id && <a href={`/musteri-paneli?company=${report.company_id}`} target="_blank" rel="noreferrer" className="rounded-full border border-white/10 px-4 py-2 text-sm">Müşteri gibi görüntüle</a>}</div>
+      {(content.reportInterpretations || []).filter((item) => item.report_id === report.id).map((item) => <div key={item.id} className="rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm leading-6 text-cyan-50">{item.interpretation_text}<p className="mt-2 text-xs text-cyan-100/70">{item.provider} · {formatDateTime(item.created_at)}</p></div>)}
+    </div>)}{!visibleReports.length && <p className="text-sm text-slate-400">Bu kategoride henüz rapor yok.</p>}</div>
+  </Panel>;
 }
 
 function UpdatesAdmin({ content, setContent }: any) {
@@ -1217,6 +1322,7 @@ function UsageGuide() {
     ["Kampanya oluşturma", "Reklam Yönetimi sekmesinde firmayı seçin, platformu ve hedefi belirleyin, bütçe ve not bilgilerini ekleyin."],
     ["Reklam metriği manuel girme", "Reklam Metrikleri sekmesinden kampanya seçip gösterim, erişim, tıklama, potansiyel müşteri ve harcama alanlarını girin."],
     ["Meta raporu içe aktarma", "Meta raporunu CSV olarak dışa aktarın, firma ve kampanya seçtikten sonra Meta Rapor İçe Aktar alanına yükleyin."],
+    ["Çok kanallı rapor hazırlama", "Raporlama Merkezi sekmesinde Meta, Google Ads, sosyal medya yönetimi veya genel performans raporu seçin. Müşteriye görünür notu ekleyip raporu kaydedin."],
     ["Müşteri panelinde ne görüneceğini seçme", "Müşteri Merkezi altında firma detayını açarak kampanya, metrik, harcama, potansiyel müşteri, dosya ve çalışma notu görünürlüklerini yönetin."],
     ["Dosya ve rapor yükleme", "Dosyalar sekmesinde müşteri dosya kaydı oluşturun. Medya Merkezi üzerinden görsel, PDF veya video yükleyebilirsiniz."],
     ["Potansiyel müşteri takibi", "Potansiyel Müşteriler altında başvuru durumunu, kaynağını, iç notları ve takip tarihini güncelleyin."],

@@ -7,26 +7,27 @@ import {
   updateSupabaseAuthUser
 } from "@/lib/auth";
 import { hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
+import { recordActivity } from "@/lib/activity-log";
 
-const demoEmail = "mycake45@hkdijital.com.tr";
+const demoEmail = "demo@hkdijital.com.tr";
 
 function createTemporaryPassword() {
-  return `MyCake45-${crypto.randomUUID().slice(0, 8)}!`;
+  return `HkDemo-${crypto.randomUUID().slice(0, 8)}!`;
 }
 
 async function upsertCompany() {
-  const existing = await supabaseRest<any[]>("companies?name=eq.My%20Cake%2045&select=*&limit=1");
+  const existing = await supabaseRest<any[]>("companies?name=eq.Demo%20Müşteri&select=*&limit=1");
   if (existing[0]) return existing[0];
 
   const rows = await supabaseRest<any[]>("companies", {
     method: "POST",
     body: JSON.stringify({
-      name: "My Cake 45",
-      sector: "Pastane ve butik pasta",
+      name: "Demo Müşteri",
+      sector: "Kafe",
       city: "Manisa",
-      website: "https://www.mycake45.com",
-      instagram: "@mycake45",
-      phone: "+90 555 045 45 45",
+      website: "https://www.hkdijital.com.tr",
+      instagram: "@hkdijital",
+      phone: "+90 555 000 00 00",
       email: demoEmail,
       status: "Aktif"
     })
@@ -40,13 +41,13 @@ async function upsertCustomerUser(companyId: string, demoPassword: string) {
     authUser = await updateSupabaseAuthUser(authUser.id, {
       email: demoEmail,
       password: demoPassword,
-      fullName: "My Cake 45 Müşteri"
+      fullName: "Demo Müşteri"
     });
   } else {
     authUser = await createSupabaseAuthUser({
       email: demoEmail,
       password: demoPassword,
-      fullName: "My Cake 45 Müşteri"
+      fullName: "Demo Müşteri"
     });
   }
 
@@ -54,7 +55,7 @@ async function upsertCustomerUser(companyId: string, demoPassword: string) {
   const payload = {
     auth_user_id: authUser.id,
     email: demoEmail,
-    full_name: "My Cake 45 Müşteri",
+    full_name: "Demo Müşteri",
     role: "customer",
     company_id: companyId,
     is_active: true,
@@ -99,7 +100,7 @@ async function ensureVisibility(companyId: string) {
 
 async function upsertCampaign(companyId: string) {
   const existing = await supabaseRest<any[]>(
-    `campaigns?company_id=eq.${companyId}&name=eq.My%20Cake%2045%20Meta%20Lead%20Kampanyası&select=*&limit=1`
+    `campaigns?company_id=eq.${companyId}&name=eq.Demo%20Meta%20Mesaj%20Kampanyası&select=*&limit=1`
   );
   if (existing[0]) return existing[0];
 
@@ -107,14 +108,14 @@ async function upsertCampaign(companyId: string) {
     method: "POST",
     body: JSON.stringify({
       company_id: companyId,
-      name: "My Cake 45 Meta Lead Kampanyası",
+      name: "Demo Meta Mesaj Kampanyası",
       platform: "Meta",
       objective: "Mesaj",
       status: "Aktif",
       start_date: new Date().toISOString().slice(0, 10),
       budget: 15000,
       spent: 4320,
-      notes: "Demo kampanya: doğum günü pastası ve özel gün siparişleri için mesaj odaklı reklam."
+      notes: "Müşteri paneli testi için hazırlanmış mesaj odaklı örnek kampanya."
     })
   });
   return rows[0];
@@ -170,7 +171,7 @@ async function createCustomerFile(companyId: string) {
     method: "POST",
     body: JSON.stringify({
       company_id: companyId,
-      title: "My Cake 45 Demo Raporu",
+      title: "Demo Müşteri Raporu",
       description: "Müşteri paneli dosya görünürlüğünü test etmek için demo rapor kaydı.",
       file_url: "https://www.hkdijital.com.tr",
       file_type: "link",
@@ -178,6 +179,44 @@ async function createCustomerFile(companyId: string) {
     })
   });
   return rows[0];
+}
+
+async function ensureCustomer(companyId: string, userId: string) {
+  const existing = await supabaseRest<any[]>(`customers?company_id=eq.${companyId}&select=*&limit=1`);
+  const payload = { company_id: companyId, user_id: userId, full_name: "Demo Müşteri", email: demoEmail, phone: "+90 555 000 00 00", status: "Aktif", updated_at: new Date().toISOString() };
+  if (existing[0]) return (await supabaseRest<any[]>(`customers?id=eq.${existing[0].id}`, { method: "PATCH", body: JSON.stringify(payload) }))[0];
+  return (await supabaseRest<any[]>("customers", { method: "POST", body: JSON.stringify(payload) }))[0];
+}
+
+async function ensureReports(companyId: string, campaignId: string) {
+  const existing = await supabaseRest<any[]>(`reports?company_id=eq.${companyId}&select=id,report_type`);
+  const samples = [
+    { company_id: companyId, campaign_id: campaignId, report_type: "Meta Reklam Raporu", platform: "Meta", period: "Mayıs 2026", start_date: "2026-05-01", end_date: "2026-05-31", metrics: { impressions: 18450, reach: 11230, clicks: 386, messages: 31, leads: 31, spent: 4320, ctr: 2.09, cpc: 11.19, cpm: 234.15, cost_per_result: 139.35 }, time_series: [{ date: "2026-05-07", impressions: 4100, reach: 3000, clicks: 82, spent: 980, leads: 6 }, { date: "2026-05-14", impressions: 4500, reach: 3250, clicks: 94, spent: 1060, leads: 8 }, { date: "2026-05-21", impressions: 4780, reach: 3440, clicks: 101, spent: 1110, leads: 8 }, { date: "2026-05-31", impressions: 5070, reach: 3540, clicks: 109, spent: 1170, leads: 9 }], customer_note: "Mesaj odaklı reklamlar düzenli talep oluşturmaya devam ediyor.", visible_to_customer: true },
+    { company_id: companyId, report_type: "Google Ads Raporu", platform: "Google", period: "Mayıs 2026", start_date: "2026-05-01", end_date: "2026-05-31", metrics: { impressions: 9280, clicks: 412, ctr: 4.44, average_cpc: 8.75, cost: 3605, spent: 3605, conversions: 24, leads: 24, conversion_rate: 5.82, cost_per_conversion: 150.21, search_terms_note: "Yerel arama terimleri daha yüksek ilgi gösterdi.", keyword_note: "Marka ve hizmet odaklı kelimeler izleniyor." }, time_series: [{ date: "2026-05-07", impressions: 2100, clicks: 88, spent: 760, conversions: 4, leads: 4 }, { date: "2026-05-14", impressions: 2240, clicks: 98, spent: 850, conversions: 6, leads: 6 }, { date: "2026-05-21", impressions: 2370, clicks: 107, spent: 930, conversions: 6, leads: 6 }, { date: "2026-05-31", impressions: 2570, clicks: 119, spent: 1065, conversions: 8, leads: 8 }], customer_note: "Google aramalarından gelen ziyaretçiler kontrollü maliyetle dönüşüm oluşturuyor.", visible_to_customer: true },
+    { company_id: companyId, report_type: "Sosyal Medya Yönetimi Raporu", platform: "Instagram", period: "Mayıs 2026", start_date: "2026-05-01", end_date: "2026-05-31", metrics: { posts: 8, reels: 5, stories: 22, reach: 14600, impressions: 28750, profile_visits: 980, followers_growth: 126, engagement: 1450, likes: 1180, comments: 92, saves: 104, shares: 74, messages: 38, content_note: "Kısa video içerikleri daha fazla erişim sağladı.", best_content: "Yeni ürün tanıtım Reels videosu" }, time_series: [{ date: "2026-05-07", impressions: 6200, reach: 3300, engagement: 290, followers_growth: 22 }, { date: "2026-05-14", impressions: 6850, reach: 3500, engagement: 340, followers_growth: 31 }, { date: "2026-05-21", impressions: 7420, reach: 3790, engagement: 385, followers_growth: 35 }, { date: "2026-05-31", impressions: 8280, reach: 4010, engagement: 435, followers_growth: 38 }], customer_note: "Kısa video içerikleri görünürlük ve profil ziyaretleri açısından öne çıktı.", visible_to_customer: true },
+    { company_id: companyId, report_type: "Genel Dijital Performans Raporu", platform: "Tüm Kanallar", period: "Mayıs 2026", start_date: "2026-05-01", end_date: "2026-05-31", metrics: { impressions: 56480, reach: 25830, clicks: 798, leads: 55, spent: 7925, summary: "Reklam ve sosyal medya çalışmaları birlikte değerlendirildi." }, time_series: [{ date: "2026-05-07", impressions: 12400, reach: 6300, clicks: 170, spent: 1740, leads: 10 }, { date: "2026-05-14", impressions: 13590, reach: 6750, clicks: 192, spent: 1910, leads: 14 }, { date: "2026-05-21", impressions: 14570, reach: 7230, clicks: 208, spent: 2040, leads: 14 }, { date: "2026-05-31", impressions: 15920, reach: 7550, clicks: 228, spent: 2235, leads: 17 }], customer_note: "Tüm kanallar birlikte değerlendirildiğinde düzenli görünürlük ve talep akışı görülüyor.", visible_to_customer: true }
+  ].filter((sample) => !existing.some((report) => report.report_type === sample.report_type));
+  if (!samples.length) return existing;
+  const created = await supabaseRest<any[]>("reports", {
+    method: "POST",
+    body: JSON.stringify(samples)
+  });
+  return [...created, ...existing];
+}
+
+async function ensureReportExtras(companyId: string, reports: any[], userId: string) {
+  const updates = await supabaseRest<any[]>(`report_updates?company_id=eq.${companyId}&select=id,title`);
+  const interpretations = await supabaseRest<any[]>(`report_interpretations?company_id=eq.${companyId}&select=id,report_id`);
+  const primary = reports.find((report) => report.report_type === "Meta Reklam Raporu") || reports[0];
+  if (primary && !updates.length) {
+    await supabaseRest("report_updates", { method: "POST", body: JSON.stringify([
+      { report_id: primary.id, company_id: companyId, update_date: "2026-05-08", title: "İlk hafta kontrolü", customer_note: "Reklam gösterimleri düzenli ilerliyor.", next_action: "Mesaj getiren içerikler karşılaştırılacak.", is_visible_to_customer: true, created_by: userId },
+      { report_id: primary.id, company_id: companyId, update_date: "2026-05-18", title: "Hedef kitle iyileştirmesi", customer_note: "Daha ilgili kullanıcılara ulaşmak için hedef kitle düzenlendi.", next_action: "Yeni hedef kitle üç gün izlenecek.", is_visible_to_customer: true, is_pinned: true, created_by: userId },
+      { report_id: primary.id, company_id: companyId, update_date: "2026-05-28", title: "Dönem sonu değerlendirmesi", customer_note: "Talep akışı korunurken maliyetler kontrollü ilerledi.", next_action: "Bir sonraki ay en iyi çalışan içerik ölçeklenecek.", is_visible_to_customer: true, created_by: userId }
+    ]) });
+  }
+  const missing = reports.filter((report) => !interpretations.some((item) => item.report_id === report.id)).map((report) => ({ report_id: report.id, company_id: companyId, generated_by_user_id: userId, provider: "Demo", interpretation_text: `${report.period} döneminde ${report.report_type.toLocaleLowerCase("tr-TR")} düzenli ilerlemiştir. Görünürlük ve etkileşim değerleri izlenmeye devam edilmelidir. Bir sonraki adımda en iyi çalışan içerik veya reklam grubunda kontrollü iyileştirme önerilir.` }));
+  if (missing.length) await supabaseRest("report_interpretations", { method: "POST", body: JSON.stringify(missing) });
 }
 
 export async function POST() {
@@ -194,26 +233,32 @@ export async function POST() {
     const company = await upsertCompany();
     const demoPassword = createTemporaryPassword();
     const user = await upsertCustomerUser(company.id, demoPassword);
+    const customer = await ensureCustomer(company.id, user.id);
     const visibility = await ensureVisibility(company.id);
     const campaign = await upsertCampaign(company.id);
     const metric = await createMetric(company.id, campaign.id);
     const updates = await createUpdates(company.id);
     const file = await createCustomerFile(company.id);
+    const reports = await ensureReports(company.id, campaign.id);
+    await ensureReportExtras(company.id, reports, user.id);
+    await recordActivity({ session, action: "Oluşturma", entity: "Demo Müşteri", entityId: company.id, companyId: company.id, details: { message: "Demo müşteri ve örnek raporlar oluşturuldu" } });
 
     return NextResponse.json({
       ok: true,
-      message: "My Cake 45 demo müşterisi oluşturuldu ve müşteri paneli verileri hazırlandı.",
+      message: "Demo müşteri oluşturuldu. Bu bilgilerle müşteri panelini test edebilirsiniz.",
       credentials: {
         email: demoEmail,
         password: demoPassword
       },
       company,
+      customer,
       user,
       visibility,
       campaign,
       metric,
       updates,
-      file
+      file,
+      reports
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Demo müşteri oluşturulamadı.";

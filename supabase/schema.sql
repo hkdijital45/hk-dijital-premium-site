@@ -288,6 +288,61 @@ create table if not exists public.activity_logs (
   created_at timestamptz default now()
 );
 
+-- Multi-channel customer reporting. Channel-specific metrics live in JSONB so
+-- the reporting model can evolve without breaking existing Meta metric rows.
+create table if not exists public.reports (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null references public.companies(id) on delete cascade,
+  campaign_id uuid references public.campaigns(id) on delete set null,
+  report_type text not null check (report_type in ('Meta Reklam Raporu', 'Google Ads Raporu', 'Sosyal Medya Yönetimi Raporu', 'Genel Dijital Performans Raporu')),
+  platform text,
+  period text,
+  start_date date,
+  end_date date,
+  metrics jsonb not null default '{}'::jsonb,
+  time_series jsonb not null default '[]'::jsonb,
+  raw_extracted_data jsonb not null default '{}'::jsonb,
+  internal_note text,
+  customer_note text,
+  sent_at timestamptz,
+  visible_to_customer boolean default true,
+  archived boolean default false,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+alter table public.reports
+  add column if not exists time_series jsonb not null default '[]'::jsonb,
+  add column if not exists raw_extracted_data jsonb not null default '{}'::jsonb,
+  add column if not exists sent_at timestamptz;
+
+create table if not exists public.report_interpretations (
+  id uuid primary key default gen_random_uuid(),
+  report_id uuid not null references public.reports(id) on delete cascade,
+  company_id uuid not null references public.companies(id) on delete cascade,
+  generated_by_user_id uuid references public.users(id) on delete set null,
+  interpretation_text text not null,
+  provider text not null default 'Demo',
+  created_at timestamptz default now()
+);
+
+create table if not exists public.report_updates (
+  id uuid primary key default gen_random_uuid(),
+  report_id uuid not null references public.reports(id) on delete cascade,
+  company_id uuid not null references public.companies(id) on delete cascade,
+  update_date date not null default current_date,
+  title text not null,
+  customer_note text,
+  agency_comment text,
+  next_action text,
+  ai_comment text,
+  is_visible_to_customer boolean default true,
+  is_pinned boolean default false,
+  created_by uuid references public.users(id) on delete set null,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
 create index if not exists users_auth_user_id_idx on public.users(auth_user_id);
 create index if not exists users_role_idx on public.users(role);
 create index if not exists users_company_id_idx on public.users(company_id);
@@ -301,6 +356,11 @@ create index if not exists customer_files_company_id_idx on public.customer_file
 create index if not exists activity_logs_created_at_idx on public.activity_logs(created_at desc);
 create index if not exists activity_logs_company_id_idx on public.activity_logs(company_id, created_at desc);
 create index if not exists activity_logs_actor_user_id_idx on public.activity_logs(actor_user_id, created_at desc);
+create index if not exists reports_company_id_idx on public.reports(company_id, created_at desc);
+create index if not exists reports_type_idx on public.reports(report_type, created_at desc);
+create index if not exists report_interpretations_report_id_idx on public.report_interpretations(report_id, created_at desc);
+create index if not exists report_updates_report_id_idx on public.report_updates(report_id, is_pinned desc, update_date desc);
+create index if not exists report_updates_company_id_idx on public.report_updates(company_id, update_date desc);
 
 create or replace function public.set_updated_at()
 returns trigger
@@ -333,6 +393,12 @@ create trigger set_contact_forms_updated_at before update on public.contact_form
 drop trigger if exists set_customers_updated_at on public.customers;
 create trigger set_customers_updated_at before update on public.customers for each row execute function public.set_updated_at();
 
+drop trigger if exists set_reports_updated_at on public.reports;
+create trigger set_reports_updated_at before update on public.reports for each row execute function public.set_updated_at();
+
+drop trigger if exists set_report_updates_updated_at on public.report_updates;
+create trigger set_report_updates_updated_at before update on public.report_updates for each row execute function public.set_updated_at();
+
 alter table public.users enable row level security;
 alter table public.companies enable row level security;
 alter table public.leads enable row level security;
@@ -343,3 +409,6 @@ alter table public.customer_updates enable row level security;
 alter table public.customer_files enable row level security;
 alter table public.customer_visibility_settings enable row level security;
 alter table public.activity_logs enable row level security;
+alter table public.reports enable row level security;
+alter table public.report_interpretations enable row level security;
+alter table public.report_updates enable row level security;
