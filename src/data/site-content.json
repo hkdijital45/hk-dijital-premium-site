@@ -213,13 +213,13 @@
       "name": "Sosyal Medya Stratejisi",
       "icon": "Share2",
       "description": "İçerik, konumlandırma ve reklam dilini markanızın hedeflerine göre sistemleştirin.",
-      "detailedDescription": "Sosyal medya stratejisi; içerik sütunları, kampanya temaları, marka tonu, CTA mimarisi ve reklamla uyumlu içerik planını kapsar.",
+      "detailedDescription": "Sosyal medya stratejisi; içerik sütunları, kampanya temaları, marka tonu, harekete geçirici mesaj yapısı ve reklamla uyumlu içerik planını kapsar.",
       "audience": "Marka bilinirliği ve güven algısını güçlendirmek isteyen işletmeler için uygundur.",
       "problem": "Düzensiz paylaşım, net olmayan mesaj ve satışa bağlanmayan içerik sorunlarını azaltır.",
       "included": [
         "İçerik sütunları",
         "Aylık yön planı",
-        "CTA önerileri",
+        "Harekete geçirici mesaj önerileri",
         "Reklamla uyumlu içerik fikri",
         "Performans yorumu"
       ],
@@ -232,14 +232,14 @@
       "id": "landing",
       "name": "Web Site & Landing Page",
       "icon": "Layout",
-      "description": "Reklam trafiğini daha net teklif, güçlü CTA ve ölçülebilir sayfa yapısına yönlendirin.",
-      "detailedDescription": "Landing page çalışmaları; teklif mimarisi, form kurgusu, CTA yerleşimi, güven unsurları ve dönüşüm takibi mantığını kapsar.",
+      "description": "Reklam trafiğini daha net teklif, güçlü harekete geçirici mesajlar ve ölçülebilir sayfa yapısına yönlendirin.",
+      "detailedDescription": "Landing page çalışmaları; teklif mimarisi, form kurgusu, harekete geçirici mesaj yerleşimi, güven unsurları ve dönüşüm takibi mantığını kapsar.",
       "audience": "Reklamdan lead veya satış almak isteyen işletmeler için uygundur.",
       "problem": "Trafik var ama form, arama veya satın alma aksiyonu düşükse sayfa deneyimini iyileştirir.",
       "included": [
         "Sayfa stratejisi",
         "UX akışı",
-        "CTA yapısı",
+        "Harekete geçirici mesaj yapısı",
         "Form önerisi",
         "Takip kodu hazırlığı"
       ],

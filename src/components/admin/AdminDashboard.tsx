@@ -3,41 +3,25 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
-import { Copy, Download, ImagePlus, LogOut, Plus, Save, Sparkles, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Copy, Download, ImagePlus, LogOut, Plus, Save, Sparkles, Trash2, X } from "lucide-react";
 import type { SiteContent } from "@/lib/types";
 
-const modules = [
-  "Genel Bakış",
-  "Site Yönetimi",
-  "Sayfa İçerikleri",
-  "Marka Yönetimi",
-  "Sosyal Medya",
-  "Hizmetler",
-  "Paketler",
-  "Sertifikalar",
-  "Teklif Sihirbazı",
-  "CRM / Potansiyel Müşteriler",
-  "Müşteriler",
-  "Müşteri Paneli Yönetimi",
-  "Reklam Yönetimi",
-  "Reklam Metrikleri",
-  "Reklam Raporları",
-  "Yapılan Çalışmalar",
-  "Dosyalar",
-  "Medya Merkezi",
-  "API Ayarları",
-  "Yapay Zeka Merkezi",
-  "Ölçümleme Ayarları",
-  "Kullanıcı Yönetimi",
-  "Kullanım Kılavuzu",
-  "Ayarlar"
+const navigationGroups = [
+  { label: "Genel Bakış", items: ["Genel Bakış"] },
+  { label: "Site Yönetimi", items: ["Sayfa İçerikleri", "Marka Ayarları", "Sosyal Medya", "Hizmetler", "Paketler", "Sertifikalar", "Teklif Sihirbazı Ayarları", "Medya Merkezi"] },
+  { label: "Potansiyel Müşteriler", items: ["Form Başvuruları", "Teklif Sihirbazı Kayıtları", "Lead Durumları", "Takip Notları"] },
+  { label: "Müşteri Merkezi", items: ["Müşteriler", "Müşteri Giriş Bilgileri", "Panel Görünürlüğü", "Müşteri Dosyaları"] },
+  { label: "Reklam & Raporlama", items: ["Kampanyalar", "Reklam Metrikleri", "Meta Rapor İçe Aktar", "Rapor Notları"] },
+  { label: "Kullanıcılar & Yetkiler", items: ["Kullanıcı Yönetimi", "Roller", "Güvenlik"] },
+  { label: "Yapay Zeka Merkezi", items: ["İçerik Üretici", "Reklam Metni Üretici", "Rapor Özeti Üretici"] },
+  { label: "Ayarlar", items: ["API Ayarları", "Ölçümleme Ayarları", "Tema Ayarları", "Kullanım Kılavuzu"] }
 ];
 const leadStatuses = ["Yeni", "Görüşülecek", "Teklif Hazırlanıyor", "Teklif Gönderildi", "Takipte", "Kazanıldı", "Kaybedildi"];
 const leadSourceOptions = ["İletişim Formu", "Teklif Formu", "Teklif Sihirbazı", "Instagram", "WhatsApp", "Referans", "Manuel Giriş", "Diğer"];
 const roleOptions = [
   { value: "admin", label: "Yönetici" },
   { value: "editor", label: "Editör" },
-  { value: "sales", label: "Satış / CRM" },
+  { value: "sales", label: "Satış / Müşteri Takibi" },
   { value: "customer", label: "Müşteri" }
 ];
 const statusOptions = ["Aktif", "Pasif"];
@@ -55,6 +39,30 @@ const serviceCategoryOptions = ["Meta Reklamları", "Google Reklamları", "Sosya
 const packageTypeOptions = ["Başlangıç", "Standart", "Profesyonel", "Premium", "Özel Paket", "Diğer"];
 const apiProviderOptions = ["OpenAI", "Groq", "Gemini", "Meta", "Google Maps", "Google Ads", "Diğer"];
 const aiProviderOptions = ["OpenAI", "Groq", "Gemini", "Demo", "Diğer"];
+const metaMetricFields = [
+  ["date", "Tarih", "Kayıt dönemi tarihi"],
+  ["impressions", "Gösterim", "Reklamın ekranda kaç kez göründüğü"],
+  ["reach", "Erişim", "Reklamın kaç farklı kişiye ulaştığı"],
+  ["clicks", "Tıklama", "Reklama yapılan toplam tıklama"],
+  ["messages", "Mesaj Başlatma", "Reklamdan başlatılan görüşmeler"],
+  ["leads", "Potansiyel Müşteri", "Form, mesaj veya arama ile oluşan talepler"],
+  ["spent", "Harcanan Tutar", "Reklam platformunda kullanılan bütçe"],
+  ["ctr", "CTR / Tıklanma Oranı", "Gösterimlerden tıklamaya dönüşen oran"],
+  ["cpc", "CPC / Tıklama Başı Maliyet", "Bir tıklamanın ortalama maliyeti"],
+  ["cpm", "CPM / Bin Gösterim Maliyeti", "Bin gösterimin ortalama maliyeti"],
+  ["cost_per_lead", "Sonuç Başına Maliyet", "Bir potansiyel müşteri için ortalama maliyet"]
+];
+
+const googleMetricFields = [
+  ["date", "Tarih", "Kayıt dönemi tarihi"],
+  ["impressions", "Gösterim", "Reklamın ekranda kaç kez göründüğü"],
+  ["clicks", "Tıklama", "Reklama yapılan toplam tıklama"],
+  ["conversions", "Dönüşüm", "Hedeflenen işlemi tamamlayan kullanıcı sayısı"],
+  ["spent", "Maliyet", "Google Ads üzerinde kullanılan bütçe"],
+  ["ctr", "TO / Tıklanma Oranı", "Gösterimlerden tıklamaya dönüşen oran"],
+  ["cpc", "Ortalama TBM", "Bir tıklamanın ortalama maliyeti"],
+  ["cost_per_lead", "Dönüşüm Maliyeti", "Bir dönüşüm için ortalama maliyet"]
+];
 
 export function AdminDashboard({
   initialContent,
@@ -72,6 +80,7 @@ export function AdminDashboard({
   const [status, setStatus] = useState("");
   const [saving, setSaving] = useState(false);
   const [theme, setTheme] = useState("dark");
+  const [openGroups, setOpenGroups] = useState(() => Object.fromEntries(navigationGroups.map((group) => [group.label, group.label === "Genel Bakış"])));
 
   useEffect(() => {
     setTheme(localStorage.getItem("hk-admin-theme") || "dark");
@@ -81,6 +90,10 @@ export function AdminDashboard({
     const next = theme === "dark" ? "light" : "dark";
     setTheme(next);
     localStorage.setItem("hk-admin-theme", next);
+  }
+
+  function toggleGroup(label: string) {
+    setOpenGroups((current) => ({ ...current, [label]: !current[label] }));
   }
 
   async function save(next = content) {
@@ -141,41 +154,59 @@ export function AdminDashboard({
         </div>
       </header>
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[260px_1fr]">
-        <aside className={`rounded-[8px] border p-3 ${panelClass}`}>
-          {modules.map((module) => (
-            <button key={module} onClick={() => setActive(module)} className={`mb-2 block w-full rounded-[8px] px-4 py-3 text-left text-sm font-bold ${active === module ? "bg-cyan-300 text-slate-950" : "text-slate-300 hover:bg-white/10"}`}>
-              {module}
-            </button>
-          ))}
+        <aside className={`h-fit rounded-[8px] border p-3 ${panelClass}`}>
+          {navigationGroups.map((group) => {
+            const expanded = openGroups[group.label];
+            const standalone = group.items.length === 1;
+            return (
+              <div key={group.label} className="mb-2">
+                <button
+                  onClick={() => standalone ? setActive(group.items[0]) : toggleGroup(group.label)}
+                  className={`flex w-full items-center justify-between gap-2 rounded-[8px] px-3 py-3 text-left text-sm font-black ${active === group.label || (standalone && active === group.items[0]) ? "bg-cyan-300 text-slate-950" : "text-slate-200 hover:bg-white/10"}`}
+                >
+                  {group.label}
+                  {!standalone && (expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />)}
+                </button>
+                {!standalone && expanded && (
+                  <div className="mt-1 grid gap-1 border-l border-white/10 pl-3">
+                    {group.items.map((item) => (
+                      <button key={item} onClick={() => setActive(item)} className={`rounded-[8px] px-3 py-2 text-left text-xs font-bold ${active === item ? "bg-cyan-200/15 text-cyan-100" : "text-slate-400 hover:bg-white/10 hover:text-slate-200"}`}>
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </aside>
         <section className={`min-w-0 rounded-[8px] border p-5 ${panelClass}`}>
           {!supabaseConfigured && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">Supabase bağlantısı yapılandırılmadı. Canlı ortamda kaydetme çalışmaz.</p>}
           {bootstrapWarning && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">Süper admin kurulum anahtarları hâlâ aktif. Güvenlik için Vercel ortam değişkenlerinden kaldırın.</p>}
           {status && <p className={`mb-5 rounded-[8px] border p-3 text-sm ${status.includes("Kaydedilemedi") ? "border-red-300/30 bg-red-500/10 text-red-100" : "border-cyan-200/20 bg-cyan-200/10 text-cyan-100"}`}>{status}</p>}
-          {active === "Genel Bakış" && <Overview content={content} setActive={setActive} />}
-          {active === "Site Yönetimi" && <Settings {...props} />}
+          {active === "Genel Bakış" && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} />}
           {active === "Sayfa İçerikleri" && <Pages {...props} />}
-          {active === "Marka Yönetimi" && <Brand {...props} />}
+          {active === "Marka Ayarları" && <Brand {...props} />}
           {active === "Sosyal Medya" && <KeyValue title="Sosyal Medya Yönetimi" object={content.socials} onChange={(object) => setContent({ ...content, socials: object })} />}
           {active === "Hizmetler" && <Collection title="Hizmet Yönetimi" type="service" items={content.services} setItems={(items) => setContent({ ...content, services: items })} />}
           {active === "Paketler" && <Collection title="Paket Yönetimi" type="package" items={content.packages} setItems={(items) => setContent({ ...content, packages: items })} />}
           {active === "Sertifikalar" && <Collection title="Sertifika Yönetimi" type="certificate" items={content.certificates} setItems={(items) => setContent({ ...content, certificates: items })} />}
-          {active === "Teklif Sihirbazı" && <QuoteWizardAdmin {...props} />}
-          {active === "CRM / Potansiyel Müşteriler" && <Crm {...props} />}
+          {active === "Teklif Sihirbazı Ayarları" && <QuoteWizardAdmin {...props} />}
+          {["Form Başvuruları", "Teklif Sihirbazı Kayıtları", "Lead Durumları", "Takip Notları"].includes(active) && <Crm {...props} view={active} setActive={setActive} />}
           {active === "Müşteriler" && <CustomersAdmin {...props} />}
-          {active === "Müşteri Paneli Yönetimi" && <CustomerPanelAdmin {...props} />}
-          {active === "Reklam Yönetimi" && <CampaignAdmin {...props} />}
-          {active === "Reklam Metrikleri" && <MetricAdmin {...props} />}
-          {active === "Reklam Raporları" && <ReportsAdmin {...props} />}
-          {active === "Yapılan Çalışmalar" && <UpdatesAdmin {...props} />}
-          {active === "Dosyalar" && <FilesAdmin {...props} />}
+          {active === "Müşteri Giriş Bilgileri" && <UsersAdmin {...props} customerOnly />}
+          {active === "Panel Görünürlüğü" && <CustomerPanelAdmin {...props} />}
+          {active === "Müşteri Dosyaları" && <FilesAdmin {...props} />}
+          {active === "Kampanyalar" && <CampaignAdmin {...props} />}
+          {["Reklam Metrikleri", "Meta Rapor İçe Aktar"].includes(active) && <MetricAdmin {...props} importOnly={active === "Meta Rapor İçe Aktar"} />}
+          {active === "Rapor Notları" && <UpdatesAdmin {...props} />}
           {active === "Medya Merkezi" && <Media {...props} />}
           {active === "API Ayarları" && <ApiSettings {...props} />}
-          {active === "Yapay Zeka Merkezi" && <AiAssistant {...props} />}
+          {["İçerik Üretici", "Reklam Metni Üretici", "Rapor Özeti Üretici"].includes(active) && <AiAssistant {...props} mode={active} />}
           {active === "Ölçümleme Ayarları" && <TrackingSettings {...props} />}
-          {active === "Kullanıcı Yönetimi" && <UsersAdmin {...props} />}
+          {["Kullanıcı Yönetimi", "Roller", "Güvenlik"].includes(active) && <UsersAdmin {...props} mode={active} />}
           {active === "Kullanım Kılavuzu" && <UsageGuide />}
-          {active === "Ayarlar" && <Settings {...props} />}
+          {active === "Tema Ayarları" && <Settings {...props} />}
         </section>
       </div>
     </main>
@@ -211,8 +242,8 @@ function OtherSelectField({ label, value, onChange, options, manualLabel }: any)
   const selected = value && !isKnown ? "Diğer" : value || "";
   return (
     <div className="grid gap-3">
-      <SelectField label={label} value={selected} onChange={(next) => onChange(next === "Diğer" ? "" : next)} options={options} />
-      {selected === "Diğer" && <Field label={manualLabel} value={isKnown ? "" : value} onChange={onChange} />}
+      <SelectField label={label} value={selected} onChange={(next) => onChange(next === "Diğer" ? "__other__" : next)} options={options} />
+      {selected === "Diğer" && <Field label={manualLabel} value={value === "__other__" || isKnown ? "" : value} onChange={onChange} />}
     </div>
   );
 }
@@ -229,22 +260,40 @@ function CompanySelect({ label = "Firma", value, onChange, companies }: any) {
   );
 }
 
-function Overview({ content, setActive }: any) {
+function Overview({ content, setActive, supabaseConfigured }: any) {
   const leads = content.leads ?? [];
+  const companies = content.companies ?? [];
+  const campaigns = content.campaigns ?? [];
+  const metrics = content.campaignMetrics ?? [];
+  const updates = content.customerUpdates ?? [];
+  const today = new Date().toISOString().slice(0, 10);
+  const month = today.slice(0, 7);
   const stats = [
-    ["Toplam lead", leads.length],
-    ["Teklif formları", leads.filter((lead) => ["quote", "Teklif Formu", "Teklif Sihirbazı"].includes(lead.source)).length],
-    ["İletişim formları", leads.filter((lead) => ["contact", "İletişim Formu"].includes(lead.source)).length],
-    ["Aktif paket", content.packages.filter((item) => item.visible).length],
-    ["Aktif hizmet", content.services.filter((item) => item.visible).length],
-    ["AI provider", content.settings.api.demoMode ? "Demo" : content.settings.api.activeProvider]
+    ["Bugünkü form başvuruları", leads.filter((lead) => String(lead.created_at || lead.createdAt || "").slice(0, 10) === today).length],
+    ["Yeni potansiyel müşteriler", leads.filter((lead) => (lead.status || "Yeni") === "Yeni").length],
+    ["Aktif müşteriler", companies.filter((company) => company.status === "Aktif").length],
+    ["Aktif kampanyalar", campaigns.filter((campaign) => campaign.status === "Aktif").length],
+    ["Bu ay toplam harcama", `${metrics.filter((metric) => String(metric.date || "").startsWith(month)).reduce((sum, metric) => sum + Number(metric.spent || 0), 0).toLocaleString("tr-TR")} TL`],
+    ["Takip bekleyen başvurular", leads.filter((lead) => ["Görüşülecek", "Takipte", "Teklif Hazırlanıyor"].includes(lead.status)).length]
+  ];
+  const quickActions = [
+    ["Yeni müşteri ekle", "Müşteriler"],
+    ["Yeni kampanya ekle", "Kampanyalar"],
+    ["Metrik gir", "Reklam Metrikleri"],
+    ["Meta raporu içe aktar", "Meta Rapor İçe Aktar"],
+    ["Form başvurularını gör", "Form Başvuruları"],
+    ["Site içeriğini düzenle", "Sayfa İçerikleri"]
   ];
   return (
     <Panel title="Genel Bakış">
       <div className="grid gap-4 md:grid-cols-3">{stats.map(([label, value]) => <div key={label} className="rounded-[8px] border border-white/10 bg-black/25 p-4"><p className="text-sm text-slate-400">{label}</p><p className="mt-2 text-2xl font-black text-cyan-100">{value}</p></div>)}</div>
-      <div className="mt-6 grid gap-4 lg:grid-cols-[1.2fr_.8fr]">
-        <div className="rounded-[8px] border border-white/10 p-4"><h3 className="font-black">Son lead kayıtları</h3><div className="mt-4 grid gap-3">{leads.slice(0, 5).map((lead) => <div key={lead.id} className="rounded-[8px] bg-white/[0.04] p-3 text-sm"><p className="font-bold">{lead.name || "İsimsiz"} · {lead.status}</p><p className="text-slate-400">{lead.company || lead.email || lead.phone}</p></div>)}{!leads.length && <p className="text-sm text-slate-400">Henüz lead yok.</p>}</div></div>
-        <div className="rounded-[8px] border border-white/10 p-4"><h3 className="font-black">Hızlı işlemler</h3><div className="mt-4 grid gap-2">{["Sayfa İçerikleri", "CRM / Potansiyel Müşteriler", "Medya Merkezi", "Yapay Zeka Merkezi", "Kullanıcı Yönetimi"].map((module) => <button key={module} onClick={() => setActive(module)} className="rounded-[8px] border border-white/10 px-4 py-3 text-left text-sm font-bold hover:bg-white/10">{module}</button>)}</div></div>
+      <div className="mt-6 grid gap-4 lg:grid-cols-[1.1fr_.9fr]">
+        <div className="rounded-[8px] border border-white/10 p-4"><h3 className="font-black">Son gelen formlar</h3><div className="mt-4 grid gap-3">{leads.slice(0, 5).map((lead) => <div key={lead.id} className="rounded-[8px] bg-white/[0.04] p-3 text-sm"><p className="font-bold">{lead.name || "İsimsiz"} · {lead.status || "Yeni"}</p><p className="text-slate-400">{lead.source || "Form"} · {lead.company || lead.email || lead.phone}</p></div>)}{!leads.length && <p className="text-sm text-slate-400">Henüz başvuru yok.</p>}</div></div>
+        <div className="rounded-[8px] border border-white/10 p-4"><h3 className="font-black">Hızlı işlemler</h3><div className="mt-4 grid gap-2">{quickActions.map(([label, target]) => <button key={label} onClick={() => setActive(target)} className="rounded-[8px] border border-white/10 px-4 py-3 text-left text-sm font-bold hover:bg-white/10">{label}</button>)}</div></div>
+      </div>
+      <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_.9fr]">
+        <div className="rounded-[8px] border border-white/10 p-4"><h3 className="font-black">Son müşteri güncellemeleri</h3><div className="mt-4 grid gap-3">{updates.slice(0, 4).map((update) => <div key={update.id} className="rounded-[8px] bg-white/[0.04] p-3 text-sm"><p className="font-bold">{update.title}</p><p className="text-slate-400">{update.update_type} · {update.created_at ? new Date(update.created_at).toLocaleDateString("tr-TR") : "-"}</p></div>)}{!updates.length && <p className="text-sm text-slate-400">Henüz müşteri güncellemesi yok.</p>}</div></div>
+        <div className={`rounded-[8px] border p-4 ${supabaseConfigured ? "border-emerald-300/20 bg-emerald-500/10" : "border-amber-300/20 bg-amber-500/10"}`}><h3 className={supabaseConfigured ? "font-black text-emerald-100" : "font-black text-amber-100"}>Sistem durumu</h3><p className={`mt-3 text-sm leading-6 ${supabaseConfigured ? "text-emerald-100" : "text-amber-100"}`}>{supabaseConfigured ? "Supabase bağlantısı aktif. Kalıcı kayıt sistemi ve yönetici oturumu sunucu tarafında çalışıyor." : "Supabase bağlantısı yapılandırılmadı. Canlı ortamda kalıcı kayıt beklenmez."}</p></div>
       </div>
     </Panel>
   );
@@ -337,9 +386,24 @@ function QuoteWizardAdmin({ content, setContent }: any) {
   return <Panel title="Teklif Sihirbazı Yönetimi"><div className="grid gap-4"><Field label="Başlık" value={wizard.title} onChange={(v) => update({ title: v })} /><Field label="Alt başlık" value={wizard.subtitle} onChange={(v) => update({ subtitle: v })} /><TextArea label="İşletme türleri" value={wizard.businessTypes.map((o) => o.label).join("\n")} onChange={(v) => update({ businessTypes: v.split("\n").filter(Boolean).map((label, i) => ({ id: `business-${i}`, label })) })} /><TextArea label="Hedef seçenekleri" value={wizard.goals.map((o) => o.label).join("\n")} onChange={(v) => update({ goals: v.split("\n").filter(Boolean).map((label, i) => ({ id: `goal-${i}`, label })) })} /><TextArea label="Bütçe aralıkları" value={wizard.budgets.map((o) => o.label).join("\n")} onChange={(v) => update({ budgets: v.split("\n").filter(Boolean).map((label, i) => ({ id: `budget-${i}`, label })) })} /><TextArea label="Başarı mesajı" value={wizard.successMessage} onChange={(v) => update({ successMessage: v })} /><TextArea label="WhatsApp mesaj şablonu" value={wizard.whatsappTemplate} onChange={(v) => update({ whatsappTemplate: v })} /><JsonBox label="Öneri mantığı JSON" value={wizard.recommendationRules} onChange={(recommendationRules) => update({ recommendationRules })} /></div></Panel>;
 }
 
-function Crm({ content, setContent }: any) {
+function Crm({ content, setContent, view, setActive }: any) {
   const [query, setQuery] = useState("");
-  const leads = (content.leads ?? []).filter((lead) => JSON.stringify(lead).toLocaleLowerCase("tr").includes(query.toLocaleLowerCase("tr")));
+  const [sourceFilter, setSourceFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [sectorFilter, setSectorFilter] = useState("");
+  const [budgetFilter, setBudgetFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [selectedLead, setSelectedLead] = useState(null);
+  const leads = (content.leads ?? [])
+    .filter((lead) => JSON.stringify(lead).toLocaleLowerCase("tr").includes(query.toLocaleLowerCase("tr")))
+    .filter((lead) => !sourceFilter || lead.source === sourceFilter)
+    .filter((lead) => !statusFilter || lead.status === statusFilter)
+    .filter((lead) => !sectorFilter || (lead.business_type || lead.businessType) === sectorFilter)
+    .filter((lead) => !budgetFilter || lead.budget === budgetFilter)
+    .filter((lead) => !dateFrom || String(lead.created_at || lead.createdAt || "").slice(0, 10) >= dateFrom)
+    .filter((lead) => !dateTo || String(lead.created_at || lead.createdAt || "").slice(0, 10) <= dateTo)
+    .filter((lead) => view !== "Teklif Sihirbazı Kayıtları" || ["quote", "Teklif Formu", "Teklif Sihirbazı"].includes(lead.source));
   const update = (id, patch) => setContent({ ...content, leads: content.leads.map((lead) => (lead.id === id ? { ...lead, ...patch } : lead)) });
   function exportCsv() {
     const rows = leads.map((lead) => [lead.createdAt, lead.source, lead.name, lead.company, lead.phone, lead.email, lead.instagram, lead.website, lead.businessType, lead.goal, lead.budget, lead.recommendedPackage, lead.status, lead.note]);
@@ -349,7 +413,96 @@ function Crm({ content, setContent }: any) {
     a.download = "hk-dijital-leads.csv";
     a.click();
   }
-  return <Panel title="CRM / Potansiyel Müşteriler"><div className="mb-4 flex flex-col gap-3 md:flex-row"><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Potansiyel müşteri ara..." className="min-h-11 flex-1 rounded-[8px] border border-white/10 bg-black/30 px-3 text-white" /><button onClick={exportCsv} className="inline-flex items-center gap-2 rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950"><Download size={16} /> CSV Dışa Aktar</button></div><div className="grid gap-4">{leads.map((lead) => <div key={lead.id} className="grid gap-3 rounded-[8px] border border-white/10 p-4"><div className="flex flex-wrap justify-between gap-3"><div><h3 className="font-black">{lead.name || "İsimsiz kayıt"}</h3><p className="text-sm text-slate-400">{lead.company} · {lead.phone} · {lead.email}</p></div><SelectField label="Lead durumu" value={lead.status} onChange={(v) => update(lead.id, { status: v })} options={leadStatuses} /></div><OtherSelectField label="Lead kaynağı" value={lead.source} onChange={(v) => update(lead.id, { source: v })} options={leadSourceOptions} manualLabel="Kaynağı yazın" /><p className="text-sm text-slate-300">Paket: {lead.recommendedPackage || lead.recommended_package || "-"} · Bütçe: {lead.budget || "-"} · Hedef: {lead.goal || "-"}</p><TextArea label="İç not" value={lead.internalNotes || lead.notes} onChange={(v) => update(lead.id, { internalNotes: v, notes: v })} /><Field label="Sonraki takip tarihi" type="date" value={lead.followUpDate || lead.follow_up_date} onChange={(v) => update(lead.id, { followUpDate: v, follow_up_date: v })} /></div>)}{!leads.length && <p className="text-sm text-slate-400">Kayıt bulunamadı.</p>}</div></Panel>;
+  return (
+    <Panel title={view === "Teklif Sihirbazı Kayıtları" ? "Teklif Sihirbazı Kayıtları" : "Form Başvuruları"}>
+      <div className="mb-5 grid gap-3 lg:grid-cols-[1.2fr_repeat(3,.7fr)]">
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Başvuru ara..." className="min-h-11 rounded-[8px] border border-white/10 bg-black/30 px-3 text-white" />
+        <SelectField label="Kaynak" value={sourceFilter} onChange={setSourceFilter} options={leadSourceOptions} placeholder="Tüm kaynaklar" />
+        <SelectField label="Durum" value={statusFilter} onChange={setStatusFilter} options={leadStatuses} placeholder="Tüm durumlar" />
+        <SelectField label="Sektör" value={sectorFilter} onChange={setSectorFilter} options={sectorOptions} placeholder="Tüm sektörler" />
+      </div>
+      <div className="mb-5 grid gap-3 md:grid-cols-[1fr_.8fr_.8fr_auto]">
+        <input value={budgetFilter} onChange={(e) => setBudgetFilter(e.target.value)} placeholder="Bütçe filtresi" className="min-h-11 rounded-[8px] border border-white/10 bg-black/30 px-3 text-white" />
+        <Field label="Başlangıç tarihi" type="date" value={dateFrom} onChange={setDateFrom} />
+        <Field label="Bitiş tarihi" type="date" value={dateTo} onChange={setDateTo} />
+        <button onClick={exportCsv} className="mt-auto inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-cyan-300 px-4 text-sm font-black text-slate-950"><Download size={16} /> CSV Dışa Aktar</button>
+      </div>
+      <div className="grid gap-3">
+        {leads.map((lead) => (
+          <button key={lead.id} onClick={() => setSelectedLead(lead)} className="rounded-[8px] border border-white/10 p-4 text-left transition hover:border-cyan-200/40 hover:bg-cyan-200/5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div><h3 className="font-black">{lead.name || "İsimsiz başvuru"}</h3><p className="mt-1 text-sm text-slate-400">{lead.source || "Form"} · {lead.company || "-"} · {lead.phone || lead.email || "-"}</p></div>
+              <span className="rounded-full bg-cyan-200/10 px-3 py-1 text-xs font-bold text-cyan-100">{lead.status || "Yeni"}</span>
+            </div>
+            <p className="mt-3 text-sm text-slate-300">İşletme: {lead.business_type || lead.businessType || "-"} · Hedef: {lead.goal || "-"} · Bütçe: {lead.budget || "-"}</p>
+            <p className="mt-1 text-xs text-slate-500">Önerilen paket: {lead.recommended_package || lead.recommendedPackage || "-"} · Gönderim: {formatDate(lead.created_at || lead.createdAt)}</p>
+          </button>
+        ))}
+        {!leads.length && <p className="text-sm text-slate-400">Başvuru bulunamadı.</p>}
+      </div>
+      {selectedLead && <LeadDrawer lead={selectedLead} update={update} close={() => setSelectedLead(null)} convert={() => setActive("Müşteriler")} />}
+    </Panel>
+  );
+}
+
+function formatDate(value: any) {
+  return value ? new Date(value).toLocaleDateString("tr-TR") : "-";
+}
+
+function LeadDrawer({ lead, update, close, convert }: any) {
+  const whatsappUrl = lead.phone ? `https://wa.me/${String(lead.phone).replace(/\D/g, "")}?text=${encodeURIComponent(`Merhaba ${lead.name || ""}, HK Dijital başvurunuz hakkında iletişime geçiyorum.`)}` : "";
+  const details = [
+    ["Kaynak", lead.source],
+    ["Ad Soyad", lead.name],
+    ["Firma", lead.company],
+    ["Telefon", lead.phone],
+    ["E-posta", lead.email],
+    ["Instagram", lead.instagram],
+    ["Web sitesi", lead.website],
+    ["Sektör / İşletme türü", lead.business_type || lead.businessType],
+    ["Ana hedef", lead.goal],
+    ["Reklam bütçesi", lead.budget],
+    ["Seçilen paket", lead.selected_package || lead.alternativePackage],
+    ["Önerilen paket", lead.recommended_package || lead.recommendedPackage],
+    ["Not / Mesaj", lead.message || lead.note],
+    ["Formun geldiği sayfa", lead.page_url || lead.source || "Web sitesi"],
+    ["Gönderim tarihi", formatDate(lead.created_at || lead.createdAt)]
+  ];
+  return (
+    <Drawer title="Başvuru Detayı" close={close}>
+      <div className="grid gap-3 md:grid-cols-2">
+        {details.map(([label, value]) => <InfoItem key={label} label={label} value={value || "-"} />)}
+      </div>
+      <div className="mt-5 grid gap-3 md:grid-cols-2">
+        <SelectField label="Durum" value={lead.status || "Yeni"} onChange={(value) => update(lead.id, { status: value })} options={leadStatuses} />
+        <Field label="Takip tarihi" type="date" value={lead.follow_up_date || lead.followUpDate} onChange={(value) => update(lead.id, { follow_up_date: value, followUpDate: value })} />
+        <div className="md:col-span-2"><TextArea label="Dahili notlar" value={lead.notes || lead.internalNotes} onChange={(value) => update(lead.id, { notes: value, internalNotes: value })} /></div>
+      </div>
+      <div className="mt-5 flex flex-wrap gap-2">
+        <button onClick={convert} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Müşteriye dönüştür</button>
+        <button onClick={() => update(lead.id, { status: "Takipte", follow_up_date: lead.follow_up_date || new Date().toISOString().slice(0, 10) })} className="rounded-full border border-white/10 px-4 py-2 text-sm">Takip görevi oluştur</button>
+        {whatsappUrl && <a href={whatsappUrl} target="_blank" rel="noreferrer" className="rounded-full bg-[#25D366] px-4 py-2 text-sm font-black text-white">WhatsApp mesajı gönder</a>}
+      </div>
+    </Drawer>
+  );
+}
+
+function Drawer({ title, close, children }: any) {
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/70">
+      <div className="h-full w-full max-w-4xl overflow-auto border-l border-white/10 bg-[#080b17] p-5 shadow-2xl sm:p-7">
+        <div className="mb-6 flex items-center justify-between gap-3">
+          <h2 className="text-2xl font-black text-white">{title}</h2>
+          <button onClick={close} aria-label="Kapat" className="grid size-10 place-items-center rounded-full border border-white/10 text-white"><X size={18} /></button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function InfoItem({ label, value }: any) {
+  return <div className="rounded-[8px] border border-white/10 bg-black/20 p-3"><p className="text-xs font-bold uppercase text-slate-500">{label}</p><p className="mt-1 break-words text-sm text-slate-200">{value}</p></div>;
 }
 
 function Media({ content, setContent }: any) {
@@ -408,6 +561,7 @@ function CustomersAdmin({ content, setContent }: any) {
   const [companyForm, setCompanyForm] = useState({ name: "", sector: "", city: "Manisa", website: "", instagram: "", phone: "", email: "", status: "Aktif", notes: "" });
   const [companyQuery, setCompanyQuery] = useState("");
   const [editingCompanyId, setEditingCompanyId] = useState("");
+  const [detailCompanyId, setDetailCompanyId] = useState("");
   const updateCompany = (id, patch) => setContent({ ...content, companies: (content.companies || []).map((company) => company.id === id ? { ...company, ...patch } : company) });
   const companies = (content.companies || []).filter((company) => JSON.stringify(company).toLocaleLowerCase("tr").includes(companyQuery.toLocaleLowerCase("tr")));
 
@@ -578,7 +732,7 @@ function CustomersAdmin({ content, setContent }: any) {
                     <p className="text-sm text-slate-400">{company.sector || "-"} · {company.city || "-"} · Müşteri girişi: {hasLogin ? "Var" : "Yok"}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <a href={`/musteri-paneli?company=${company.id}`} target="_blank" className="rounded-full border border-cyan-200/30 px-3 py-2 text-xs font-bold text-cyan-100">Panel önizle</a>
+                    <button onClick={() => setDetailCompanyId(company.id)} className="rounded-full bg-cyan-300 px-3 py-2 text-xs font-black text-slate-950">Müşteri detayını aç</button>
                     <button onClick={() => setEditingCompanyId(editing ? "" : company.id)} className="rounded-full border border-white/10 px-3 py-2 text-xs">Düzenle</button>
                     <button onClick={() => archiveCompany(company)} className="rounded-full border border-amber-300/30 px-3 py-2 text-xs text-amber-100">Pasifleştir</button>
                     <button onClick={() => deleteCompany(company)} className="rounded-full border border-red-300/30 px-3 py-2 text-xs text-red-200">Sil</button>
@@ -620,8 +774,100 @@ function CustomersAdmin({ content, setContent }: any) {
           {loading === "user" ? "Hesap oluşturuluyor..." : "Giriş hesabı oluştur"}
         </button>
       </div>
+      {detailCompanyId && (
+        <CustomerDetailDrawer
+          company={(content.companies || []).find((company) => company.id === detailCompanyId)}
+          content={content}
+          setContent={setContent}
+          updateCompany={updateCompany}
+          saveCompany={saveCompany}
+          close={() => setDetailCompanyId("")}
+        />
+      )}
     </Panel>
   );
+}
+
+function CustomerDetailDrawer({ company, content, setContent, updateCompany, saveCompany, close }: any) {
+  const [tab, setTab] = useState("Genel Bilgi");
+  if (!company) return null;
+  const users = (content.users || []).filter((user) => user.role === "customer" && user.company_id === company.id);
+  const campaigns = (content.campaigns || []).filter((item) => item.company_id === company.id);
+  const metrics = (content.campaignMetrics || []).filter((item) => item.company_id === company.id);
+  const updates = (content.customerUpdates || []).filter((item) => item.company_id === company.id);
+  const files = (content.customerFiles || []).filter((item) => item.company_id === company.id);
+  const visibilityItems = content.customerVisibilitySettings || [];
+  const visibility = visibilityItems.find((item) => item.company_id === company.id) || {
+    id: `visibility-${company.id}`,
+    company_id: company.id,
+    show_campaigns: true,
+    show_metrics: true,
+    show_budget: true,
+    show_spent: true,
+    show_leads: true,
+    show_strategy_notes: true,
+    show_work_updates: true,
+    show_files: true,
+    show_contact_person: true
+  };
+  const tabs = ["Genel Bilgi", "Giriş Bilgileri", "Kampanyalar", "Metrikler", "Yapılan Çalışmalar", "Dosyalar", "Panel Görünürlüğü", "Notlar"];
+  function updateVisibility(patch) {
+    const next = { ...visibility, ...patch };
+    const exists = visibilityItems.some((item) => item.company_id === company.id);
+    setContent({ ...content, customerVisibilitySettings: exists ? visibilityItems.map((item) => item.company_id === company.id ? next : item) : [...visibilityItems, next] });
+  }
+  function updateRelated(key, id, patch) {
+    setContent({ ...content, [key]: (content[key] || []).map((item) => item.id === id ? { ...item, ...patch } : item) });
+  }
+  async function resetPassword(user) {
+    const response = await fetch("/api/admin/users/reset-password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: user.email }) });
+    const data = await response.json().catch(() => ({}));
+    alert(response.ok ? data.message || "Şifre sıfırlama bağlantısı gönderildi." : data.error || "Şifre sıfırlama bağlantısı gönderilemedi.");
+  }
+  return (
+    <Drawer title={`${company.name} · Müşteri Detayı`} close={close}>
+      <div className="mb-5 flex flex-wrap gap-2">
+        {tabs.map((item) => <button key={item} onClick={() => setTab(item)} className={`rounded-full px-3 py-2 text-xs font-bold ${tab === item ? "bg-cyan-300 text-slate-950" : "border border-white/10 text-slate-300"}`}>{item}</button>)}
+        <a href={`/musteri-paneli?company=${company.id}`} target="_blank" rel="noreferrer" className="ml-auto rounded-full border border-cyan-200/30 px-3 py-2 text-xs font-black text-cyan-100">Müşteri gibi görüntüle</a>
+      </div>
+      {tab === "Genel Bilgi" && <div className="grid gap-3 md:grid-cols-2">
+        <Field label="Firma adı" value={company.name} onChange={(v) => updateCompany(company.id, { name: v })} />
+        <OtherSelectField label="Sektör" value={company.sector} onChange={(v) => updateCompany(company.id, { sector: v })} options={sectorOptions} manualLabel="Sektörü yazın" />
+        <OtherSelectField label="Şehir" value={company.city} onChange={(v) => updateCompany(company.id, { city: v })} options={cityOptions} manualLabel="Şehri yazın" />
+        <Field label="Web sitesi" value={company.website} onChange={(v) => updateCompany(company.id, { website: v })} />
+        <Field label="Instagram" value={company.instagram} onChange={(v) => updateCompany(company.id, { instagram: v })} />
+        <Field label="Telefon" value={company.phone} onChange={(v) => updateCompany(company.id, { phone: v })} />
+        <Field label="E-posta" value={company.email} onChange={(v) => updateCompany(company.id, { email: v })} />
+        <SelectField label="Durum" value={company.status} onChange={(v) => updateCompany(company.id, { status: v })} options={companyStatusOptions} />
+        <div className="md:col-span-2"><TextArea label="Dahili notlar" value={company.notes} onChange={(v) => updateCompany(company.id, { notes: v })} /></div>
+        <button onClick={() => saveCompany(company)} className="w-fit rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Firma bilgilerini kaydet</button>
+      </div>}
+      {tab === "Giriş Bilgileri" && <div>
+        <p className="mb-4 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">Müşteri şifresi güvenlik nedeniyle düz metin olarak saklanmaz. Yeni geçici şifre oluşturabilirsiniz.</p>
+        <div className="grid gap-3">{users.map((user) => <div key={user.id} className="rounded-[8px] border border-white/10 p-4"><p className="font-black">{user.full_name || user.email}</p><p className="mt-1 text-sm text-slate-400">{user.email} · Bağlı kullanıcı: Var · Giriş: {user.is_active ? "Aktif" : "Pasif"} · Rol: Müşteri</p><p className="mt-1 text-xs text-slate-500">Son giriş tarihi: Henüz kaydedilmiyor.</p><button onClick={() => resetPassword(user)} className="mt-3 rounded-full border border-white/10 px-4 py-2 text-sm">Şifre sıfırlama bağlantısı gönder</button></div>)}{!users.length && <p className="text-sm text-slate-400">Bağlı müşteri kullanıcısı yok. Müşteriler ekranındaki giriş hesabı oluşturma formunu kullanın.</p>}</div>
+      </div>}
+      {tab === "Kampanyalar" && <CustomerRelatedList items={campaigns} empty="Bu müşteri için kampanya yok." render={(item) => `${item.name} · ${item.platform} · ${item.status}`} onVisibilityChange={(item, value) => updateRelated("campaigns", item.id, { visible_to_customer: value })} />}
+      {tab === "Metrikler" && <CustomerRelatedList items={metrics} empty="Bu müşteri için metrik yok." render={(item) => `${formatDate(item.date)} · ${item.impressions || 0} gösterim · ${item.clicks || 0} tıklama · ${item.leads || 0} potansiyel müşteri · ${item.spent || 0} TL`} onVisibilityChange={(item, value) => updateRelated("campaignMetrics", item.id, { visible_to_customer: value })} />}
+      {tab === "Yapılan Çalışmalar" && <CustomerRelatedList items={updates} empty="Bu müşteri için çalışma notu yok." render={(item) => `${item.title} · ${item.update_type}`} onVisibilityChange={(item, value) => updateRelated("customerUpdates", item.id, { visible_to_customer: value })} />}
+      {tab === "Dosyalar" && <CustomerRelatedList items={files} empty="Bu müşteri için dosya yok." render={(item) => `${item.title} · ${item.file_type || "Dosya"}`} onVisibilityChange={(item, value) => updateRelated("customerFiles", item.id, { visible_to_customer: value })} />}
+      {tab === "Panel Görünürlüğü" && <div><p className="mb-4 text-sm leading-6 text-slate-400">Müşteri panelinde görünmesini istediğiniz alanları seçin. Değişiklikleri üst menüdeki Kaydet düğmesi ile kalıcı hale getirin.</p><p className="mb-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">Müşteri panelindeki metrikler, teknik terimler yerine sade Türkçe açıklamalarla gösterilir.</p><div className="grid gap-3 md:grid-cols-2">{[
+        ["show_campaigns", "Kampanyalar"],
+        ["show_metrics", "Reklam metrikleri"],
+        ["show_budget", "Kampanya bütçesi"],
+        ["show_spent", "Harcanan bütçe"],
+        ["show_leads", "Potansiyel müşteri sayısı"],
+        ["show_work_updates", "Yapılan çalışmalar"],
+        ["show_strategy_notes", "Strateji notları"],
+        ["show_files", "Dosyalar"],
+        ["show_contact_person", "İletişim bilgileri"]
+      ].map(([key, label]) => <label key={key} className="flex items-center gap-3 rounded-[8px] border border-white/10 p-3 text-sm"><input type="checkbox" checked={visibility[key] ?? true} onChange={(event) => updateVisibility({ [key]: event.target.checked })} /> {label}</label>)}</div></div>}
+      {tab === "Notlar" && <TextArea label="Dahili müşteri notları" value={company.notes} onChange={(v) => updateCompany(company.id, { notes: v })} rows={10} />}
+    </Drawer>
+  );
+}
+
+function CustomerRelatedList({ items, empty, render, onVisibilityChange }: any) {
+  return <div className="grid gap-3">{items.map((item) => <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-white/10 bg-black/20 p-4 text-sm text-slate-200"><span>{render(item)}</span>{onVisibilityChange && <label className="flex items-center gap-2 text-xs text-slate-300"><input type="checkbox" checked={item.visible_to_customer ?? true} onChange={(event) => onVisibilityChange(item, event.target.checked)} /> Müşteriye göster</label>}</div>)}{!items.length && <p className="text-sm text-slate-400">{empty}</p>}</div>;
 }
 
 function ReportsAdmin({ content, setContent }: any) {
@@ -663,13 +909,17 @@ function CampaignAdmin({ content, setContent }: any) {
   );
 }
 
-function MetricAdmin({ content, setContent }: any) {
+function MetricAdmin({ content, setContent, importOnly = false }: any) {
   const metrics = content.campaignMetrics || [];
   const [importMessage, setImportMessage] = useState("");
   const [importError, setImportError] = useState("");
   const [importForm, setImportForm] = useState({ company_id: "", campaign_id: "" });
   const [preview, setPreview] = useState([]);
   const update = (index, patch) => setContent({ ...content, campaignMetrics: metrics.map((item, i) => i === index ? { ...item, ...patch } : item) });
+  const fieldsFor = (metric) => {
+    const campaign = (content.campaigns || []).find((item) => item.id === metric.campaign_id);
+    return campaign?.platform === "Google" ? googleMetricFields : metaMetricFields;
+  };
   async function importMetaReport(file) {
     setImportMessage("Meta raporu içe aktarılıyor...");
     setImportError("");
@@ -703,11 +953,14 @@ function MetricAdmin({ content, setContent }: any) {
         </div>
         {importMessage && <p className="mt-3 rounded-[8px] bg-emerald-500/10 p-3 text-sm text-emerald-100">{importMessage}</p>}
         {importError && <p className="mt-3 rounded-[8px] bg-red-500/10 p-3 text-sm text-red-100">{importError}</p>}
-        {preview.length > 0 && <div className="mt-4 overflow-auto"><table className="w-full min-w-[760px] text-left text-xs"><thead className="text-slate-400"><tr>{["Tarih", "Gösterim", "Erişim", "Tıklama", "Lead", "Harcama"].map((head) => <th key={head} className="p-2">{head}</th>)}</tr></thead><tbody>{preview.map((row, index) => <tr key={index} className="border-t border-white/10"><td className="p-2">{row.date}</td><td className="p-2">{row.impressions}</td><td className="p-2">{row.reach}</td><td className="p-2">{row.clicks}</td><td className="p-2">{row.leads}</td><td className="p-2">{row.spent}</td></tr>)}</tbody></table></div>}
+        {preview.length > 0 && <div className="mt-4 overflow-auto"><table className="w-full min-w-[760px] text-left text-xs"><thead className="text-slate-400"><tr>{["Tarih", "Gösterim", "Erişim", "Tıklama", "Potansiyel Müşteri", "Harcama"].map((head) => <th key={head} className="p-2">{head}</th>)}</tr></thead><tbody>{preview.map((row, index) => <tr key={index} className="border-t border-white/10"><td className="p-2">{row.date}</td><td className="p-2">{row.impressions}</td><td className="p-2">{row.reach}</td><td className="p-2">{row.clicks}</td><td className="p-2">{row.leads}</td><td className="p-2">{row.spent}</td></tr>)}</tbody></table></div>}
       </div>
-      <div className="mb-4 rounded-[8px] border border-white/10 p-4 text-sm leading-7 text-slate-300">
-        <p>Gösterim: Reklamın ekranda kaç kez göründüğü.</p><p>Erişim: Reklamın kaç farklı kişiye ulaştığı.</p><p>Tıklama: Reklama yapılan toplam tıklama.</p><p>CTR: Tıklanma oranı. CPC: Tıklama başı maliyet. CPM: Bin gösterim maliyeti.</p><p>Lead: Potansiyel müşteri. Harcama: Reklam platformunda kullanılan bütçe.</p>
-      </div>
+      {importOnly ? null : <div className="mb-4 rounded-[8px] border border-white/10 p-4 text-sm leading-7 text-slate-300">
+        <p className="font-black text-white">Müşteri panelinde kullanılan sade anlatım</p>
+        <p>Reklamınız kaç kez gösterildi · Reklamınız kaç kişiye ulaştı · Reklamınıza kaç kişi tıkladı · Kaç kişi mesaj attı · Kaç potansiyel müşteri geldi · Ne kadar reklam bütçesi harcandı</p>
+        <p className="mt-3 text-slate-400">Meta raporlarında Bağlantı Tıklaması ayrı bir sütun olarak gelirse, içe aktarma sırasında toplam tıklama alanına aktarılır.</p>
+      </div>}
+      {importOnly ? null : <>
       <button onClick={() => setContent({ ...content, campaignMetrics: [...metrics, { id: `${Date.now()}`, date: new Date().toISOString().slice(0, 10), period: "Günlük", source: "Manuel Giriş", impressions: 0, reach: 0, clicks: 0, messages: 0, leads: 0, spent: 0, visible_to_customer: true }] })} className="mb-4 inline-flex items-center gap-2 rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950"><Plus size={16} /> Metrik ekle</button>
       <div className="grid gap-4">
         {metrics.map((metric, index) => (
@@ -716,13 +969,14 @@ function MetricAdmin({ content, setContent }: any) {
             <SelectField label="Kampanya" value={metric.campaign_id || ""} onChange={(v) => update(index, { campaign_id: v })} options={(content.campaigns || []).map((campaign) => ({ value: campaign.id, label: campaign.name }))} placeholder="Kampanya seçin" />
             <SelectField label="Periyot" value={metric.period || "Günlük"} onChange={(v) => update(index, { period: v })} options={metricPeriodOptions} />
             <OtherSelectField label="Kaynak" value={metric.source || "Manuel Giriş"} onChange={(v) => update(index, { source: v })} options={metricSourceOptions} manualLabel="Kaynağı yazın" />
-            {["date", "impressions", "reach", "clicks", "messages", "leads", "conversions", "spent", "ctr", "cpc", "cpm", "cost_per_lead"].map((field) => <Field key={field} label={field} type={field === "date" ? "date" : "number"} value={metric[field]} onChange={(v) => update(index, { [field]: v })} />)}
+            {fieldsFor(metric).map(([field, label, help]) => <div key={field}><Field label={label} type={field === "date" ? "date" : "number"} value={metric[field]} onChange={(v) => update(index, { [field]: v })} /><p className="mt-1 text-xs leading-5 text-slate-500">{help}</p></div>)}
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={metric.visible_to_customer ?? true} onChange={(e) => update(index, { visible_to_customer: e.target.checked })} /> Müşteri panelinde görünsün</label>
             <TextArea label="Notlar" value={metric.notes} onChange={(v) => update(index, { notes: v })} />
             <button onClick={() => setContent({ ...content, campaignMetrics: metrics.filter((_, i) => i !== index) })} className="w-fit rounded-full border border-red-300/30 px-3 py-2 text-xs text-red-200">Sil</button>
           </div>
         ))}
       </div>
+      </>}
     </Panel>
   );
 }
@@ -775,7 +1029,7 @@ function FilesAdmin({ content, setContent }: any) {
   );
 }
 
-function UsersAdmin({ content, setContent, currentSession }: any) {
+function UsersAdmin({ content, setContent, currentSession, customerOnly = false, mode = "Kullanıcı Yönetimi" }: any) {
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -784,6 +1038,7 @@ function UsersAdmin({ content, setContent, currentSession }: any) {
   const [editingUser, setEditingUser] = useState(null);
   const [createForm, setCreateForm] = useState({ fullName: "", email: "", password: "", role: "editor", company_id: "", is_active: true });
   const users = (content.users || [])
+    .filter((user) => !customerOnly || user.role === "customer")
     .filter((user) => JSON.stringify(user).toLocaleLowerCase("tr").includes(query.toLocaleLowerCase("tr")))
     .filter((user) => !roleFilter || user.role === roleFilter)
     .filter((user) => !statusFilter || (statusFilter === "Aktif" ? user.is_active : !user.is_active));
@@ -837,7 +1092,7 @@ function UsersAdmin({ content, setContent, currentSession }: any) {
     }
   }
   return (
-    <Panel title="Kullanıcı Yönetimi">
+    <Panel title={customerOnly ? "Müşteri Giriş Bilgileri" : mode}>
       <div className="mb-6 rounded-[8px] border border-white/10 p-4">
         <h3 className="font-black">Yeni kullanıcı oluştur</h3>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -902,7 +1157,7 @@ function UsersAdmin({ content, setContent, currentSession }: any) {
           </div>
         </div>
       )}
-      <p className="mt-4 text-sm text-slate-400">Roller: Admin tam yetki, Editor içerik yönetimi, Sales CRM ve müşteri yönetimi, Customer yalnızca müşteri paneli.</p>
+      <p className="mt-4 text-sm text-slate-400">Roller: Yönetici tam yetki, editör içerik yönetimi, satış ekibi potansiyel müşteri ve müşteri yönetimi, müşteri ise yalnızca kendi panelini görebilir.</p>
     </Panel>
   );
 }
@@ -917,13 +1172,13 @@ function UsageGuide() {
     ["Müşteri oluşturma", "Müşteriler sekmesinden firma adını, sektörünü, şehrini ve iletişim bilgilerini girip Firmayı oluştur düğmesini kullanın."],
     ["Müşteri hesabı oluşturma", "Firma oluşturulduktan sonra müşteri giriş hesabı bölümünden kullanıcıyı firmaya bağlayın ve geçici şifre belirleyin."],
     ["Kampanya oluşturma", "Reklam Yönetimi sekmesinde firmayı seçin, platformu ve hedefi belirleyin, bütçe ve not bilgilerini ekleyin."],
-    ["Reklam metriği manuel girme", "Reklam Metrikleri sekmesinden kampanya seçip gösterim, erişim, tıklama, lead ve harcama alanlarını girin."],
+    ["Reklam metriği manuel girme", "Reklam Metrikleri sekmesinden kampanya seçip gösterim, erişim, tıklama, potansiyel müşteri ve harcama alanlarını girin."],
     ["Meta raporu içe aktarma", "Meta raporunu CSV olarak dışa aktarın, firma ve kampanya seçtikten sonra Meta Rapor İçe Aktar alanına yükleyin."],
-    ["Müşteri panelinde ne görüneceğini seçme", "Müşteri Paneli Yönetimi sekmesinde kampanya, metrik, harcama, lead, dosya ve çalışma notu görünürlüklerini yönetin."],
+    ["Müşteri panelinde ne görüneceğini seçme", "Müşteri Merkezi altında firma detayını açarak kampanya, metrik, harcama, potansiyel müşteri, dosya ve çalışma notu görünürlüklerini yönetin."],
     ["Dosya ve rapor yükleme", "Dosyalar sekmesinde müşteri dosya kaydı oluşturun. Medya Merkezi üzerinden görsel, PDF veya video yükleyebilirsiniz."],
-    ["CRM / potansiyel müşteri takibi", "CRM sekmesinde lead durumunu, kaynağını, iç notları ve takip tarihini güncelleyin."],
+    ["Potansiyel müşteri takibi", "Potansiyel Müşteriler altında başvuru durumunu, kaynağını, iç notları ve takip tarihini güncelleyin."],
     ["Site içeriklerini düzenleme", "Sayfa İçerikleri, Marka Yönetimi, Sosyal Medya, Hizmetler ve Paketler sekmelerinde görünür site içeriklerini düzenleyin."],
-    ["Kullanıcı yetkileri", "Yönetici tam yetkilidir. Editör içerik yönetir. Satış / CRM müşteri ve lead sürecini yönetir. Müşteri yalnızca kendi panelini görür."],
+    ["Kullanıcı yetkileri", "Yönetici tam yetkilidir. Editör içerik yönetir. Satış ekibi müşteri ve başvuru sürecini yönetir. Müşteri yalnızca kendi panelini görür."],
     ["Güvenlik notları", "Kendi yönetici rolünüz kaldırılamaz. Son aktif yönetici pasifleştirilemez. API ve Supabase service role anahtarı tarayıcıya gönderilmez."]
   ];
   return (

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { BarChart3, FileText, Lightbulb, MessageCircle, UserRound } from "lucide-react";
-import { getSession } from "@/lib/auth";
+import { getSession, isStaffRole } from "@/lib/auth";
 import { getCustomerCenterData, summarizeMetrics } from "@/lib/customer-center";
 import { getSupabaseWarning, hasSupabaseConfig } from "@/lib/supabase";
 
@@ -22,10 +22,12 @@ function MetricCard({ title, value, help }: { title: string; value: string | num
   );
 }
 
-export default async function MusteriPaneliPage() {
+export default async function MusteriPaneliPage({ searchParams }: { searchParams: Promise<{ company?: string }> }) {
   const session = await getSession();
   if (!session) redirect("/giris");
-  if (session.role !== "customer") {
+  const params = await searchParams;
+  const isAdminPreview = isStaffRole(session.role) && Boolean(params.company);
+  if (session.role !== "customer" && !isAdminPreview) {
     return (
       <main className="grid min-h-screen place-items-center bg-[#050711] px-4 text-white">
         <div className="max-w-md rounded-[8px] border border-white/10 bg-white/[0.06] p-6 text-center">
@@ -36,10 +38,13 @@ export default async function MusteriPaneliPage() {
     );
   }
 
-  const data = await getCustomerCenterData(session.companyId);
+  const selectedCompanyId = isAdminPreview ? params.company : session.companyId;
+  const data = await getCustomerCenterData(selectedCompanyId);
   const totals = summarizeMetrics(data.metrics);
   const visibility = data.visibility;
-  const hasCompany = Boolean(session.companyId && data.company);
+  const hasCompany = Boolean(selectedCompanyId && data.company);
+  const visibleUpdates = visibility.show_strategy_notes ? data.updates : data.updates.filter((update) => update.update_type !== "Strateji Notu");
+  const latestUpdate = visibleUpdates[0];
 
   return (
     <main className="min-h-screen bg-[#050711] text-white">
@@ -69,15 +74,27 @@ export default async function MusteriPaneliPage() {
           </div>
         )}
 
+        {isAdminPreview && (
+          <div className="mb-6 rounded-[8px] border border-cyan-200/30 bg-cyan-200/10 p-4 text-sm text-cyan-100">
+            Yönetici önizlemesi: Bu ekran seçilen müşterinin göreceği bilgilerle hazırlanmıştır.
+          </div>
+        )}
+
+        <section className="mb-8 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-5">
+          <p className="text-sm font-bold text-cyan-100">Hoş geldiniz</p>
+          <h2 className="mt-2 text-2xl font-black">{data.company?.name || "Müşteri hesabı"}</h2>
+          <p className="mt-3 text-sm leading-6 text-slate-300">Reklam çalışmalarınızın güncel durumunu, son yapılan işlemleri ve sıradaki önerilen adımı sade bir özetle takip edebilirsiniz.</p>
+        </section>
+
         {visibility.show_metrics && <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <MetricCard title="Toplam gösterim" value={totals.impressions} help="Gösterim: Reklamınızın ekranda kaç kez göründüğünü gösterir." />
-          <MetricCard title="Erişim" value={totals.reach} help="Erişim: Reklamınızı kaç farklı kişinin gördüğünü ifade eder." />
-          <MetricCard title="Tıklama" value={totals.clicks} help="Tıklama: Reklamınıza kaç kişinin tıkladığını gösterir." />
-          <MetricCard title="Mesaj" value={totals.messages || 0} help="Mesaj: Reklamlardan gelen mesaj veya iletişim başlatma aksiyonlarını gösterir." />
-          {visibility.show_leads && <MetricCard title="Potansiyel müşteri" value={totals.leads} help="Potansiyel müşteri: Form, mesaj veya arama gibi iletişime geçen kişileri ifade eder." />}
-          {visibility.show_spent && <MetricCard title="Harcanan bütçe" value={`${totals.spent} TL`} help="Harcanan bütçe: Reklam platformlarında kullanılan toplam reklam bütçesidir." />}
+          <MetricCard title="Reklamınız kaç kez gösterildi" value={totals.impressions} help="Reklamınızın ekranda toplam görüntülenme sayısıdır." />
+          <MetricCard title="Reklamınız kaç kişiye ulaştı" value={totals.reach} help={`Reklamınız bu ay ${totals.reach} kişiye ulaştı.`} />
+          <MetricCard title="Reklamlarınıza gelen tıklama" value={totals.clicks} help={`Reklamlarınıza ${totals.clicks} tıklama geldi.`} />
+          <MetricCard title="Mesaj başlatma" value={totals.messages || 0} help={`Bu süreçte ${totals.messages || 0} kişi mesaj ile iletişime geçti.`} />
+          {visibility.show_leads && <MetricCard title="Potansiyel müşteri" value={totals.leads} help={`Bu süreçte ${totals.leads} potansiyel müşteri oluştu.`} />}
+          {visibility.show_spent && <MetricCard title="Harcanan reklam bütçesi" value={`${totals.spent} TL`} help="Reklam platformlarında kullanılan toplam bütçedir." />}
           {visibility.show_spent && <MetricCard title="Ortalama tıklama maliyeti" value={`${totals.cpc} TL`} help="CPC: Reklam tıklaması başına ortalama maliyeti gösterir." />}
-          {visibility.show_leads && visibility.show_spent && <MetricCard title="Ortalama lead maliyeti" value={`${totals.cost_per_lead} TL`} help="Lead maliyeti: Bir potansiyel müşteri kaydı için ortalama reklam maliyetidir." />}
+          {visibility.show_leads && visibility.show_spent && <MetricCard title="Ortalama potansiyel müşteri maliyeti" value={`${totals.cost_per_lead} TL`} help="Bir potansiyel müşteri kaydı için ortalama reklam maliyetidir." />}
           <MetricCard title="Kampanya durumu" value={data.campaigns[0]?.status || "Hazırlanıyor"} help="Kampanya durumu, aktif çalışma aşamasını özetler." />
         </section>}
 
@@ -106,7 +123,8 @@ export default async function MusteriPaneliPage() {
 
           <div className="rounded-[8px] border border-white/10 bg-white/[0.045] p-5">
             <h2 className="flex items-center gap-2 text-xl font-black"><Lightbulb className="text-cyan-200" /> Sıradaki Önerilen Adım</h2>
-            <p className="mt-4 text-sm leading-7 text-slate-300">Veriler düzenli güncellendikçe kampanya bütçesi, kreatif denemeleri ve müşteri yolculuğu için sonraki adım burada netleştirilir.</p>
+            <p className="mt-4 text-sm leading-7 text-slate-300">{visibleUpdates.find((update) => update.next_step)?.next_step || "Veriler düzenli güncellendikçe kampanya bütçesi, kreatif denemeleri ve müşteri yolculuğu için sonraki adım burada netleştirilir."}</p>
+            <p className="mt-4 border-t border-white/10 pt-4 text-sm leading-6 text-slate-400">Son çalışma: {latestUpdate?.title || "Henüz çalışma notu eklenmedi."}</p>
           </div>
         </section>
 
@@ -114,7 +132,7 @@ export default async function MusteriPaneliPage() {
           <section className="mt-8 rounded-[8px] border border-white/10 bg-white/[0.045] p-5">
             <h2 className="text-xl font-black">Yapılan Çalışmalar ve Strateji Notları</h2>
             <div className="mt-5 grid gap-3 md:grid-cols-2">
-              {data.updates.map((update) => (
+              {visibleUpdates.map((update) => (
                 <div key={update.id} className="rounded-[8px] bg-black/25 p-4">
                   <p className="text-sm font-bold text-cyan-100">{update.update_type}</p>
                   <h3 className="mt-2 font-black">{update.title}</h3>
@@ -143,10 +161,13 @@ export default async function MusteriPaneliPage() {
         )}
 
         <section className="mt-8 grid gap-4 md:grid-cols-2">
+          {visibility.show_contact_person && (
           <div className="rounded-[8px] border border-white/10 bg-white/[0.045] p-5">
             <h2 className="flex items-center gap-2 text-xl font-black"><MessageCircle className="text-cyan-200" /> İletişim</h2>
             <p className="mt-3 text-sm text-slate-300">Raporlar veya kampanya notları için HK Dijital ile iletişime geçebilirsiniz.</p>
+            <a href="/iletisim" className="mt-4 inline-flex rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">HK Dijital ile iletişime geçin</a>
           </div>
+          )}
           <div className="rounded-[8px] border border-white/10 bg-white/[0.045] p-5">
             <h2 className="flex items-center gap-2 text-xl font-black"><UserRound className="text-cyan-200" /> Hesabım</h2>
             <p className="mt-3 text-sm text-slate-300">{session.fullName} · {data.company?.name || "Şirket ataması bekleniyor"}</p>
