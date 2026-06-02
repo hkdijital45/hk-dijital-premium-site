@@ -77,6 +77,14 @@ export async function getAdminPageData() {
   return {
     initialContent: { ...safeContent, ...relationalContent },
     supabaseConfigured: hasSupabaseConfig(),
+    systemStatus: {
+      supabase: hasSupabaseConfig(),
+      openai: Boolean(process.env.OPENAI_API_KEY),
+      groq: Boolean(process.env.GROQ_API_KEY),
+      gemini: Boolean(process.env.GEMINI_API_KEY),
+      googleMaps: Boolean(process.env.GOOGLE_MAPS_API_KEY),
+      email: Boolean(process.env.RESEND_API_KEY)
+    },
     currentSession: session,
     bootstrapWarning: Boolean(process.env.BOOTSTRAP_ADMIN_SECRET || process.env.FORCE_BOOTSTRAP_ADMIN)
   };

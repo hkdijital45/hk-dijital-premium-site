@@ -4,12 +4,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { BarChart3, ChevronDown, ChevronLeft, ChevronRight, Copy, Download, Gauge, ImagePlus, LayoutDashboard, LogOut, Plus, Save, Sparkles, Trash2, X } from "lucide-react";
+import { Activity, AlertTriangle, ArrowDown, ArrowUp, BarChart3, Bot, Building2, ChevronDown, ChevronLeft, ChevronRight, CircleCheck, CircleOff, Copy, Download, FileBarChart, Gauge, GripVertical, HelpCircle, ImagePlus, LayoutDashboard, LogOut, MapPinned, MessageSquareText, Plus, RotateCcw, Save, Search, Settings2, Sparkles, Star, Trash2, UsersRound, WandSparkles, X } from "lucide-react";
 import type { SiteContent } from "@/lib/types";
 import { ReportTools } from "@/components/admin/reports/ReportTools";
-import { reportDashboardStats } from "@/lib/reports/report-dashboard";
 import { adminNavigationGroups, getAdminHref } from "@/lib/admin-navigation";
-import { AnimatedChart, CRMKanban, GlassCard, MetricCard3D } from "@/components/premium/PremiumUI";
+import { GlassCard, MetricCard3D } from "@/components/premium/PremiumUI";
 
 const leadStatuses = ["Yeni", "Görüşülecek", "Teklif Hazırlanıyor", "Teklif Gönderildi", "Takipte", "Kazanıldı", "Kaybedildi", "Dönüştürüldü"];
 const leadSourceOptions = ["İletişim Formu", "Teklif Formu", "Teklif Sihirbazı", "Müşteri Bulucu", "Instagram", "WhatsApp", "Referans", "Manuel Giriş", "Diğer"];
@@ -66,12 +65,14 @@ export function AdminDashboard({
   initialContent,
   supabaseConfigured = false,
   currentSession,
+  systemStatus,
   bootstrapWarning = false,
   initialActive = "Dashboard"
 }: {
   initialContent: SiteContent;
   supabaseConfigured?: boolean;
   currentSession?: any;
+  systemStatus?: any;
   bootstrapWarning?: boolean;
   initialActive?: string;
 }) {
@@ -81,6 +82,7 @@ export function AdminDashboard({
   const [saving, setSaving] = useState(false);
   const [theme, setTheme] = useState("dark");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState(() => Object.fromEntries(adminNavigationGroups.map((group) => [group.label, true])));
 
   useEffect(() => {
@@ -149,7 +151,23 @@ export function AdminDashboard({
             <h1 className="text-xl font-black sm:text-2xl">HK Dijital Kontrol Merkezi</h1>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
+            <div className="relative">
+              <button onClick={() => setHelpOpen((current) => !current)} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/10 px-5 text-sm font-bold">
+                <HelpCircle size={17} /> Yardım
+              </button>
+              {helpOpen && (
+                <div className="absolute right-0 top-14 z-50 w-[min(90vw,340px)] rounded-[8px] border border-white/10 bg-[#0a1020]/95 p-4 text-white shadow-2xl backdrop-blur-2xl">
+                  <p className="text-sm font-black text-cyan-100">Hızlı yardım</p>
+                  <p className="mt-2 text-xs leading-5 text-slate-300">İşletme aramak için Müşteri Bulucu, başvuruları takip etmek için CRM, müşteri raporları için Raporlar bölümünü kullanın.</p>
+                  <div className="mt-3 grid gap-2 text-xs">
+                    <Link onClick={() => setHelpOpen(false)} href="/hk-admin/kullanim-kilavuzu#isletme-kesfi-kullanimi" className="rounded-[8px] border border-white/10 px-3 py-2 hover:bg-white/10">İşletme keşfi adımları</Link>
+                    <Link onClick={() => setHelpOpen(false)} href="/hk-admin/kullanim-kilavuzu#raporlama-kullanimi" className="rounded-[8px] border border-white/10 px-3 py-2 hover:bg-white/10">Raporlama adımları</Link>
+                    <Link onClick={() => setHelpOpen(false)} href="/hk-admin/kullanim-kilavuzu" className="rounded-[8px] bg-cyan-300 px-3 py-2 font-black text-slate-950">Kullanım kılavuzunu aç</Link>
+                  </div>
+                </div>
+              )}
+            </div>
             <button onClick={toggleTheme} className="min-h-11 rounded-full border border-white/10 px-5 text-sm font-bold">
               {theme === "dark" ? "Aydınlık Tema" : "Karanlık Tema"}
             </button>
@@ -203,7 +221,7 @@ export function AdminDashboard({
           {!supabaseConfigured && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">Supabase bağlantısı yapılandırılmadı. Canlı ortamda kaydetme çalışmaz.</p>}
           {bootstrapWarning && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">Süper admin kurulum anahtarları hâlâ aktif. Güvenlik için Vercel ortam değişkenlerinden kaldırın.</p>}
           {status && <p className={`mb-5 rounded-[8px] border p-3 text-sm ${status.includes("Kaydedilemedi") ? "border-red-300/30 bg-red-500/10 text-red-100" : "border-cyan-200/20 bg-cyan-200/10 text-cyan-100"}`}>{status}</p>}
-          {active === "Dashboard" && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} />}
+          {active === "Dashboard" && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} systemStatus={systemStatus} currentSession={currentSession} />}
           {active === "CRM" && <CrmHub {...props} />}
           {active === "Müşteri Bulucu" && <CustomerFinder {...props} />}
           {active === "Lead Yönetimi" && <Crm {...props} view="Lead Durumları" setActive={setActive} />}
@@ -217,7 +235,7 @@ export function AdminDashboard({
           {active === "API Ayarları" && <ApiSettings {...props} />}
           {active === "Medya / Logo" && <MediaLogoHub {...props} />}
           {active === "Kullanıcılar" && <UsersHub {...props} />}
-          {active === "Genel Bakış" && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} />}
+          {active === "Genel Bakış" && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} systemStatus={systemStatus} currentSession={currentSession} />}
           {active === "Sayfa İçerikleri" && <Pages {...props} />}
           {active === "Marka Ayarları" && <Brand {...props} />}
           {active === "Sosyal Medya" && <KeyValue title="Sosyal Medya Yönetimi" object={content.socials} onChange={(object) => setContent({ ...content, socials: object })} />}
@@ -295,7 +313,67 @@ function CompanySelect({ label = "Firma", value, onChange, companies }: any) {
   );
 }
 
-function Overview({ content, setActive, supabaseConfigured }: any) {
+const dashboardWidgetDefaults = ["metrics", "status", "charts", "insights", "quickActions", "crm", "activity", "demo"];
+
+function dateValue(item: any, ...keys: string[]) {
+  const value = keys.map((key) => item?.[key]).find(Boolean);
+  return value ? new Date(value) : null;
+}
+
+function buildDailySeries(items: any[], getDate: (item: any) => Date | null, getValue = () => 1, days = 7) {
+  const dates = Array.from({ length: days }, (_, index) => {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() - (days - index - 1));
+    return date;
+  });
+  return {
+    labels: dates.map((date) => date.toLocaleDateString("tr-TR", { day: "2-digit", month: "short" })),
+    values: dates.map((date) => items.reduce((sum, item) => {
+      const itemDate = getDate(item);
+      return itemDate && itemDate.toDateString() === date.toDateString() ? sum + Number(getValue(item) || 0) : sum;
+    }, 0))
+  };
+}
+
+function buildMonthlySeries(items: any[], getDate: (item: any) => Date | null, getValue = () => 1, months = 6) {
+  const dates = Array.from({ length: months }, (_, index) => {
+    const date = new Date();
+    date.setDate(1);
+    date.setMonth(date.getMonth() - (months - index - 1));
+    return date;
+  });
+  return {
+    labels: dates.map((date) => date.toLocaleDateString("tr-TR", { month: "short" })),
+    values: dates.map((date) => items.reduce((sum, item) => {
+      const itemDate = getDate(item);
+      return itemDate && itemDate.getMonth() === date.getMonth() && itemDate.getFullYear() === date.getFullYear() ? sum + Number(getValue(item) || 0) : sum;
+    }, 0))
+  };
+}
+
+function DashboardChart({ title, description, series, suffix = "" }: any) {
+  const max = Math.max(...series.values, 0);
+  const points = series.values.map((value, index) => `${index * (100 / Math.max(series.values.length - 1, 1))},${92 - (max ? value / max * 72 : 0)}`).join(" ");
+  return (
+    <GlassCard className="p-4">
+      <p className="text-sm font-black text-white">{title}</p>
+      <p className="mt-1 min-h-10 text-xs leading-5 text-slate-400">{description}</p>
+      {max ? (
+        <>
+          <svg className="mt-4 h-36 w-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none" aria-label={`${title} grafiği`}>
+            {[20, 44, 68, 92].map((y) => <line key={y} x1="0" x2="100" y1={y} y2={y} stroke="rgba(148,163,184,.15)" strokeWidth=".6" />)}
+            <polyline points={points} fill="none" stroke="#67e8f9" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" vectorEffect="non-scaling-stroke" />
+            {series.values.map((value, index) => <circle key={`${series.labels[index]}-${value}`} cx={index * (100 / Math.max(series.values.length - 1, 1))} cy={92 - value / max * 72} r="1.8" fill="#facc15" />)}
+          </svg>
+          <div className="mt-2 flex justify-between gap-2 text-[10px] font-bold text-slate-500">{series.labels.map((label, index) => <span key={`${label}-${index}`} title={`${series.values[index]}${suffix}`}>{label}</span>)}</div>
+        </>
+      ) : <div className="mt-4 rounded-[8px] border border-dashed border-white/10 bg-black/10 px-3 py-8 text-center text-xs leading-5 text-slate-400">Bu grafiği oluşturmak için henüz yeterli kayıt yok. İlgili modülden veri eklediğinizde görünüm otomatik oluşur.</div>}
+    </GlassCard>
+  );
+}
+
+function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, currentSession }: any) {
   const leads = content.leads ?? [];
   const companies = content.companies ?? [];
   const campaigns = content.campaigns ?? [];
@@ -303,35 +381,99 @@ function Overview({ content, setActive, supabaseConfigured }: any) {
   const updates = content.customerUpdates ?? [];
   const users = content.users ?? [];
   const reports = content.reports ?? [];
-  const reportStats = reportDashboardStats(reports);
+  const activityLogs = content.activityLogs ?? [];
   const [demoMessage, setDemoMessage] = useState("");
   const [demoLoading, setDemoLoading] = useState(false);
+  const [customizing, setCustomizing] = useState(false);
+  const preferenceKey = `hk-dashboard-preferences:${currentSession?.id || currentSession?.userId || "admin"}`;
+  const [preferences, setPreferences] = useState({ order: dashboardWidgetDefaults, hidden: [], favorites: ["Müşteri Bulucu", "CRM"] });
   const today = new Date().toISOString().slice(0, 10);
   const month = today.slice(0, 7);
+  const aiAnalyzedLeads = leads.filter((lead) => lead.ai_analysis && Object.keys(lead.ai_analysis).length);
+  const generatedProposals = leads.reduce((sum, lead) => sum + (Array.isArray(lead.proposal_history) ? lead.proposal_history.length : 0), 0);
+  const hotLeads = leads.filter((lead) => Number(lead.lead_heat_score || 0) >= 70);
+  const activeCustomers = companies.filter((company) => company.status === "Aktif");
+  const metricsThisMonth = metrics.filter((metric) => String(metric.date || "").startsWith(month));
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(preferenceKey) || "null");
+      if (saved?.order) setPreferences({ order: dashboardWidgetDefaults.filter((id) => saved.order.includes(id)).concat(dashboardWidgetDefaults.filter((id) => !saved.order.includes(id))), hidden: saved.hidden || [], favorites: saved.favorites || [] });
+    } catch {}
+  }, [preferenceKey]);
+
+  function savePreferences(next: any) {
+    setPreferences(next);
+    localStorage.setItem(preferenceKey, JSON.stringify(next));
+  }
+
+  function moveWidget(id: string, direction: number) {
+    const index = preferences.order.indexOf(id);
+    const target = index + direction;
+    if (target < 0 || target >= preferences.order.length) return;
+    const order = [...preferences.order];
+    [order[index], order[target]] = [order[target], order[index]];
+    savePreferences({ ...preferences, order });
+  }
+
+  function toggleWidget(id: string) {
+    savePreferences({ ...preferences, hidden: preferences.hidden.includes(id) ? preferences.hidden.filter((item) => item !== id) : [...preferences.hidden, id] });
+  }
+
+  function toggleFavorite(target: string) {
+    savePreferences({ ...preferences, favorites: preferences.favorites.includes(target) ? preferences.favorites.filter((item) => item !== target) : [...preferences.favorites, target] });
+  }
+
   const stats = [
-    ["Bugünkü form başvuruları", leads.filter((lead) => String(lead.created_at || lead.createdAt || "").slice(0, 10) === today).length],
-    ["Yeni potansiyel müşteriler", leads.filter((lead) => (lead.status || "Yeni") === "Yeni").length],
-    ["Aktif müşteriler", companies.filter((company) => company.status === "Aktif").length],
-    ["Aktif kampanyalar", campaigns.filter((campaign) => campaign.status === "Aktif").length],
-    ["Bu ay toplam harcama", `${metrics.filter((metric) => String(metric.date || "").startsWith(month)).reduce((sum, metric) => sum + Number(metric.spent || 0), 0).toLocaleString("tr-TR")} TL`],
-    ["Takip bekleyen başvurular", leads.filter((lead) => ["Görüşülecek", "Takipte", "Teklif Hazırlanıyor"].includes(lead.status)).length],
-    ["Bugün giriş yapan müşteriler", users.filter((user) => user.role === "customer" && String(user.last_login_at || "").slice(0, 10) === today).length],
-    ["Son 7 gün aktif müşteriler", users.filter((user) => user.role === "customer" && user.last_login_at && Date.now() - new Date(user.last_login_at).getTime() <= 7 * 86400000).length],
-    ["Son 30 gün giriş yapmayan müşteriler", users.filter((user) => user.role === "customer" && (!user.last_login_at || Date.now() - new Date(user.last_login_at).getTime() > 30 * 86400000)).length],
-    ["Raporu bulunan müşteriler", reportStats.customerCount],
-    ["Bu ay hazırlanan raporlar", reportStats.createdThisMonth],
-    ["Ajans yorumu bekleyen raporlar", reportStats.awaitingComment],
-    ["E-posta ile gönderilen raporlar", reportStats.sentByEmail]
+    ["Toplam başvuru", leads.length, "CRM içindeki tüm potansiyel müşteriler", <UsersRound size={17} />],
+    ["Sıcak başvurular", hotLeads.length, "Fırsat skoru 70 ve üzeri kayıtlar", <Gauge size={17} />],
+    ["Aktif müşteriler", activeCustomers.length, "Hizmeti devam eden firmalar", <Building2 size={17} />],
+    ["Hazırlanan raporlar", reports.length, "Müşteri paneline bağlı raporlar", <FileBarChart size={17} />],
+    ["Hazırlanan teklifler", generatedProposals, "CRM teklif geçmişi kayıtları", <MessageSquareText size={17} />],
+    ["AI analizleri", aiAnalyzedLeads.length, "Yapay zeka ile yorumlanan başvurular", <Bot size={17} />],
+    ["CRM hareketleri", activityLogs.length, "Kaydedilen operasyon hareketleri", <Activity size={17} />],
+    ["Bu ay reklam harcaması", `${metricsThisMonth.reduce((sum, metric) => sum + Number(metric.spent || 0), 0).toLocaleString("tr-TR")} TL`, "Reklam metriklerinden hesaplanan toplam", <BarChart3 size={17} />]
   ];
   const quickActions = [
-    ["Yeni müşteri ekle", "Müşteriler"],
-    ["Yeni kampanya ekle", "Kampanyalar"],
-    ["Metrik gir", "Reklam Metrikleri"],
-    ["Meta raporu içe aktar", "Meta Rapor İçe Aktar"],
-    ["Form başvurularını gör", "Form Başvuruları"],
-    ["Site içeriğini düzenle", "Sayfa İçerikleri"],
-    ["Raporlama merkezini aç", "Raporlama Merkezi"]
+    ["Yeni İşletme Ara", "Müşteri Bulucu", <Search size={19} />],
+    ["CRM Aç", "CRM", <UsersRound size={19} />],
+    ["Haritalar Aç", "Müşteri Bulucu", <MapPinned size={19} />],
+    ["AI Analiz Oluştur", "Lead Yönetimi", <WandSparkles size={19} />],
+    ["Teklif Hazırla", "Teklif Motoru", <MessageSquareText size={19} />],
+    ["Rapor Oluştur", "Raporlar", <FileBarChart size={19} />],
+    ["Müşteri Ekle", "Müşteriler", <Building2 size={19} />]
+  ].sort((a, b) => Number(preferences.favorites.includes(b[1])) - Number(preferences.favorites.includes(a[1])));
+  const reportCompanyIds = new Set(reports.map((report) => report.company_id));
+  const insightItems = [
+    [hotLeads.filter((lead) => !["Kazanıldı", "Kaybedildi", "Dönüştürüldü"].includes(lead.status)).length, "Sıcak başvurular takip bekliyor", "Yüksek fırsat skorlu kayıtları bugün değerlendirin.", "Lead Yönetimi"],
+    [leads.filter((lead) => !lead.ai_analysis || !Object.keys(lead.ai_analysis).length).length, "AI analizi eksik başvurular var", "Önceliklendirme için işletme analizlerini oluşturun.", "Lead Yönetimi"],
+    [activeCustomers.filter((company) => !reportCompanyIds.has(company.id)).length, "Güncel raporu olmayan müşteriler var", "Müşteri iletişimini güçlendirmek için rapor hazırlayın.", "Raporlar"],
+    [leads.filter((lead) => !(Array.isArray(lead.proposal_history) && lead.proposal_history.length) && Number(lead.lead_heat_score || 0) >= 50).length, "Teklif hazırlanabilecek fırsatlar var", "Uygun müşteriler için MIN, ORTA ve MAX seçeneklerini oluşturun.", "Teklif Motoru"]
+  ].filter(([count]) => Number(count) > 0);
+  const serviceItems = [
+    ["OpenAI", systemStatus.openai, "Yapay zeka sağlayıcısı"],
+    ["Groq", systemStatus.groq, "Yapay zeka sağlayıcısı"],
+    ["Gemini", systemStatus.gemini, "Yapay zeka sağlayıcısı"],
+    ["Google Maps API", systemStatus.googleMaps, "İşletme keşfi"],
+    ["Supabase", systemStatus.supabase ?? supabaseConfigured, "Veri ve oturum altyapısı"],
+    ["E-posta servisi", systemStatus.email, "Bildirim altyapısı"]
+  ].map(([label, active, description]) => ({ label, description, state: active ? "Aktif" : label === "Supabase" ? "Çevrimdışı" : "Uyarı" }));
+  const healthScore = Math.round(serviceItems.reduce((sum, service) => sum + (service.state === "Aktif" ? 100 : service.state === "Uyarı" ? 50 : 0), 0) / serviceItems.length);
+  const crmColumns = ["Yeni", "Görüşülecek", "Teklif Hazırlanıyor", "Takipte", "Kazanıldı"].map((status) => ({ status, count: leads.filter((lead) => (lead.status || "Yeni") === status).length }));
+  const recentActivity = activityLogs.length ? activityLogs.slice(0, 8) : [
+    ...leads.map((lead) => ({ id: `lead-${lead.id}`, action: "Başvuru eklendi", entity: lead.company || lead.name || "Yeni başvuru", created_at: lead.created_at || lead.createdAt })),
+    ...updates.map((update) => ({ id: `update-${update.id}`, action: "Müşteri güncellemesi", entity: update.title, created_at: update.created_at })),
+    ...reports.map((report) => ({ id: `report-${report.id}`, action: "Rapor hazırlandı", entity: report.report_type, created_at: report.created_at }))
+  ].sort((a, b) => Number(new Date(b.created_at)) - Number(new Date(a.created_at))).slice(0, 8);
+  const charts = [
+    ["Başvuru artışı", "Son 7 günde CRM'e eklenen potansiyel müşteriler.", buildDailySeries(leads, (lead) => dateValue(lead, "created_at", "createdAt"))],
+    ["Müşteri artışı", "Son 6 ayda sisteme eklenen firmalar.", buildMonthlySeries(companies, (company) => dateValue(company, "created_at", "createdAt"))],
+    ["Rapor üretimi", "Son 6 ayda hazırlanan müşteri raporları.", buildMonthlySeries(reports, (report) => dateValue(report, "created_at"))],
+    ["AI analiz aktivitesi", "Analiz tarihi bulunan CRM kayıtlarının son 6 aylık dağılımı.", buildMonthlySeries(aiAnalyzedLeads, (lead) => dateValue(lead.ai_analysis, "generated_at", "created_at", "updated_at"))],
+    ["Teklif üretimi", "CRM teklif geçmişinden hesaplanan son 6 aylık üretim.", buildMonthlySeries(leads.flatMap((lead) => Array.isArray(lead.proposal_history) ? lead.proposal_history : []), (proposal) => dateValue(proposal, "created_at", "generated_at", "date"))],
+    ["Aylık performans", "Reklam metriklerinde kayıtlı aylık harcama hareketi.", buildMonthlySeries(metrics, (metric) => dateValue(metric, "date", "created_at"), (metric) => Number(metric.spent || 0)), " TL"]
   ];
+
   async function createDemoCustomer() {
     setDemoLoading(true);
     setDemoMessage("Demo müşteri hazırlanıyor...");
@@ -340,22 +482,27 @@ function Overview({ content, setActive, supabaseConfigured }: any) {
     setDemoMessage(response.ok ? `${data.message}\nE-posta: ${data.credentials.email}\nGeçici şifre: ${data.credentials.password}\nPanel: /musteri-paneli` : data.error || "Demo müşteri oluşturulamadı.");
     setDemoLoading(false);
   }
+
+  const widgetNames = { metrics: "Sistem metrikleri", status: "Sistem durum merkezi", charts: "Gerçek veri grafikleri", insights: "AI içgörüleri", quickActions: "Hızlı aksiyonlar", crm: "CRM akışı", activity: "Son aktiviteler", demo: "Müşteri paneli testi" };
+  const widgets: any = {
+    metrics: <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{stats.map(([label, value, note, icon], index) => <MetricCard3D key={label} label={label} value={value} note={note} accent={index % 3 === 1 ? "amber" : index % 3 === 2 ? "blue" : "cyan"} icon={icon} />)}</div>,
+    status: <GlassCard className="p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-100">Sistem durum merkezi</p><h3 className="mt-2 text-xl font-black text-white">Altyapı sağlığı</h3></div><div className="rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 px-4 py-3 text-right"><p className="text-xs text-cyan-100">Genel sistem sağlığı</p><p className="text-2xl font-black text-white">%{healthScore}</p></div></div><div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{serviceItems.map((service) => <div key={service.label} className="flex items-center justify-between gap-3 rounded-[8px] border border-white/10 bg-black/10 p-3"><div><p className="text-sm font-bold text-white">{service.label}</p><p className="mt-1 text-xs text-slate-400">{service.description}</p></div><span className={`inline-flex items-center gap-1 text-xs font-black ${service.state === "Aktif" ? "text-emerald-300" : service.state === "Uyarı" ? "text-amber-300" : "text-red-300"}`}>{service.state === "Aktif" ? <CircleCheck size={14} /> : service.state === "Uyarı" ? <AlertTriangle size={14} /> : <CircleOff size={14} />}{service.state}</span></div>)}</div></GlassCard>,
+    charts: <div><div className="mb-4"><h3 className="text-lg font-black">Gerçek veri görselleştirmesi</h3><p className="mt-1 text-sm text-slate-400">Grafikler yalnızca sistemde bulunan operasyon verilerinden üretilir.</p></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{charts.map(([title, description, series, suffix]) => <DashboardChart key={title} title={title} description={description} series={series} suffix={suffix} />)}</div></div>,
+    insights: <GlassCard className="p-5"><div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-[8px] bg-amber-300/10 text-amber-200"><WandSparkles size={19} /></span><div><p className="text-xs font-black uppercase tracking-[.16em] text-amber-200">AI içgörüleri</p><h3 className="mt-1 text-lg font-black">Bugünün operasyon önerileri</h3></div></div><div className="mt-4 grid gap-3">{insightItems.map(([count, title, text, target]) => <button key={title} onClick={() => setActive(target)} className="flex items-center justify-between gap-4 rounded-[8px] border border-white/10 bg-black/10 p-4 text-left transition hover:border-cyan-200/30 hover:bg-cyan-200/[0.06]"><div><p className="text-sm font-black text-white">{title}</p><p className="mt-1 text-xs leading-5 text-slate-400">{text}</p></div><span className="grid size-9 shrink-0 place-items-center rounded-full bg-cyan-300 text-sm font-black text-slate-950">{count}</span></button>)}{!insightItems.length && <p className="rounded-[8px] border border-emerald-300/20 bg-emerald-300/10 p-4 text-sm text-emerald-100">Öncelikli aksiyon görünmüyor. Operasyon akışı düzenli ilerliyor.</p>}</div></GlassCard>,
+    quickActions: <div><h3 className="text-lg font-black">Hızlı aksiyon merkezi</h3><p className="mt-1 text-sm text-slate-400">Sık kullanılan işlemlere tek adımda ulaşın.</p><div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{quickActions.map(([label, target, icon]) => <div key={label} className="relative"><button onClick={() => setActive(target)} className="flex min-h-28 w-full flex-col justify-between rounded-[8px] border border-white/10 bg-white/[0.035] p-4 text-left transition hover:-translate-y-1 hover:border-cyan-200/40 hover:bg-cyan-200/[0.08]"><span className="text-cyan-200">{icon}</span><span className="text-sm font-black text-white">{label}</span></button><button onClick={() => toggleFavorite(target)} title="Favorilere ekle veya çıkar" className={`absolute right-3 top-3 ${preferences.favorites.includes(target) ? "text-amber-300" : "text-slate-600"}`}><Star size={15} fill={preferences.favorites.includes(target) ? "currentColor" : "none"} /></button></div>)}</div></div>,
+    crm: <GlassCard className="p-5"><h3 className="text-lg font-black">CRM akışı</h3><p className="mt-1 text-sm text-slate-400">Potansiyel müşterilerin güncel takip dağılımı.</p><div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">{crmColumns.map((column) => <div key={column.status} className="rounded-[8px] border border-white/10 bg-black/10 p-3"><p className="text-xs text-slate-400">{column.status}</p><p className="mt-2 text-2xl font-black text-white">{column.count}</p></div>)}</div></GlassCard>,
+    activity: <GlassCard className="p-5"><h3 className="text-lg font-black">Son aktivite akışı</h3><p className="mt-1 text-sm text-slate-400">CRM, rapor ve müşteri operasyonlarının son hareketleri.</p><div className="mt-4 grid gap-2">{recentActivity.map((item) => <div key={item.id} className="flex items-center justify-between gap-3 rounded-[8px] border border-white/10 bg-black/10 p-3 text-sm"><div><p className="font-bold text-white">{item.action || "Sistem hareketi"}</p><p className="mt-1 text-xs text-slate-400">{item.entity || item.actor_name || "HK Dijital Kontrol Merkezi"}</p></div><time className="shrink-0 text-[10px] font-bold text-slate-500">{item.created_at ? new Date(item.created_at).toLocaleDateString("tr-TR") : "-"}</time></div>)}{!recentActivity.length && <p className="rounded-[8px] border border-dashed border-white/10 p-5 text-center text-sm text-slate-400">Henüz operasyon hareketi yok.</p>}</div></GlassCard>,
+    demo: <div className="rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-4"><h3 className="font-black text-cyan-50">Müşteri paneli testi</h3><p className="mt-2 text-sm leading-6 text-cyan-100/80">Geçici şifreli bir test hesabı ve örnek raporlar oluşturarak müşteri deneyimini doğrulayın.</p><button disabled={demoLoading} onClick={createDemoCustomer} className="mt-3 rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950 disabled:opacity-60">{demoLoading ? "Hazırlanıyor..." : "Demo müşteri oluştur"}</button>{demoMessage && <pre className="mt-3 whitespace-pre-wrap rounded-[8px] bg-black/20 p-3 text-xs leading-6 text-cyan-50">{demoMessage}</pre>}</div>
+  };
+
   return (
-    <Panel title="Genel Bakış">
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{stats.slice(0, 8).map(([label, value], index) => <MetricCard3D key={label} label={label} value={value} accent={index % 3 === 1 ? "amber" : index % 3 === 2 ? "blue" : "cyan"} icon={index % 2 ? <Gauge size={17} /> : <BarChart3 size={17} />} />)}</div>
-      <div className="mt-6 grid gap-4 xl:grid-cols-[1.12fr_.88fr]">
-        <GlassCard className="p-4"><h3 className="font-black">Performans görünümü</h3><p className="mt-2 text-sm text-slate-400">Başvuru, kampanya ve bütçe hareketlerini tek bakışta izleyin.</p><div className="mt-4"><AnimatedChart label="Aylık operasyon akışı" values={[18, 27, 34, 31, 52, 58, 66, 78]} /></div></GlassCard>
-        <GlassCard className="p-4"><h3 className="font-black">CRM akışı</h3><p className="mt-2 text-sm text-slate-400">Potansiyel müşterilerin güncel takip dağılımı.</p><div className="mt-4"><CRMKanban /></div></GlassCard>
+    <Panel title="Operasyon Merkezi">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-cyan-200/15 bg-cyan-200/[0.05] p-4">
+        <div><p className="text-sm font-black text-cyan-50">Dashboard düzeniniz</p><p className="mt-1 text-xs text-slate-400">Widget görünürlüğünü, sırasını ve favori modüllerinizi kişiselleştirin.</p></div>
+        <button onClick={() => setCustomizing((current) => !current)} className="inline-flex min-h-10 items-center gap-2 rounded-full border border-cyan-200/20 px-4 text-xs font-black text-cyan-50"><Settings2 size={15} /> Dashboard'u düzenle</button>
       </div>
-      <div className="mt-6 grid gap-4 lg:grid-cols-[1.1fr_.9fr]">
-        <div className="rounded-[8px] border border-white/10 p-4"><h3 className="font-black">Son gelen formlar</h3><div className="mt-4 grid gap-3">{leads.slice(0, 5).map((lead) => <div key={lead.id} className="rounded-[8px] bg-white/[0.04] p-3 text-sm"><p className="font-bold">{lead.name || "İsimsiz"} · {lead.status || "Yeni"}</p><p className="text-slate-400">{lead.source || "Form"} · {lead.company || lead.email || lead.phone}</p></div>)}{!leads.length && <p className="text-sm text-slate-400">Henüz başvuru yok.</p>}</div></div>
-        <div className="rounded-[8px] border border-white/10 p-4"><h3 className="font-black">Hızlı işlemler</h3><div className="mt-4 grid gap-2">{quickActions.map(([label, target]) => <button key={label} onClick={() => setActive(target)} className="rounded-[8px] border border-white/10 px-4 py-3 text-left text-sm font-bold hover:bg-white/10">{label}</button>)}</div></div>
-      </div>
-      <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_.9fr]">
-        <div className="rounded-[8px] border border-white/10 p-4"><h3 className="font-black">Son müşteri güncellemeleri</h3><div className="mt-4 grid gap-3">{updates.slice(0, 4).map((update) => <div key={update.id} className="rounded-[8px] bg-white/[0.04] p-3 text-sm"><p className="font-bold">{update.title}</p><p className="text-slate-400">{update.update_type} · {update.created_at ? new Date(update.created_at).toLocaleDateString("tr-TR") : "-"}</p></div>)}{!updates.length && <p className="text-sm text-slate-400">Henüz müşteri güncellemesi yok.</p>}</div></div>
-        <div className={`rounded-[8px] border p-4 ${supabaseConfigured ? "border-emerald-300/20 bg-emerald-500/10" : "border-amber-300/20 bg-amber-500/10"}`}><h3 className={supabaseConfigured ? "font-black text-emerald-100" : "font-black text-amber-100"}>Sistem durumu</h3><p className={`mt-3 text-sm leading-6 ${supabaseConfigured ? "text-emerald-100" : "text-amber-100"}`}>{supabaseConfigured ? "Supabase bağlantısı aktif. Kalıcı kayıt sistemi ve yönetici oturumu sunucu tarafında çalışıyor." : "Supabase bağlantısı yapılandırılmadı. Canlı ortamda kalıcı kayıt beklenmez."}</p></div>
-      </div>
-      <div className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-4"><h3 className="font-black text-cyan-50">Müşteri paneli testi</h3><p className="mt-2 text-sm leading-6 text-cyan-100/80">Gerçek müşteri hesabı gibi çalışan, geçici şifreli bir test hesabı ve örnek raporlar oluşturun.</p><button disabled={demoLoading} onClick={createDemoCustomer} className="mt-3 rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950 disabled:opacity-60">{demoLoading ? "Hazırlanıyor..." : "Demo müşteri oluştur"}</button>{demoMessage && <pre className="mt-3 whitespace-pre-wrap rounded-[8px] bg-black/20 p-3 text-xs leading-6 text-cyan-50">{demoMessage}</pre>}</div>
+      {customizing && <GlassCard className="mb-5 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-black">Widget tercihleri</h3><button onClick={() => savePreferences({ order: dashboardWidgetDefaults, hidden: [], favorites: ["Müşteri Bulucu", "CRM"] })} className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-2 text-xs font-bold"><RotateCcw size={14} /> Varsayılan düzene dön</button></div><div className="mt-4 grid gap-2 md:grid-cols-2">{preferences.order.map((id, index) => <div key={id} className="flex items-center gap-2 rounded-[8px] border border-white/10 bg-black/10 p-2"><GripVertical size={15} className="text-slate-500" /><label className="flex flex-1 items-center gap-2 text-xs font-bold"><input type="checkbox" checked={!preferences.hidden.includes(id)} onChange={() => toggleWidget(id)} />{widgetNames[id]}</label><button disabled={!index} onClick={() => moveWidget(id, -1)} title="Yukarı taşı" className="rounded p-1 disabled:opacity-30"><ArrowUp size={14} /></button><button disabled={index === preferences.order.length - 1} onClick={() => moveWidget(id, 1)} title="Aşağı taşı" className="rounded p-1 disabled:opacity-30"><ArrowDown size={14} /></button></div>)}</div></GlassCard>}
+      <div className="grid gap-6">{preferences.order.filter((id) => !preferences.hidden.includes(id)).map((id) => <section key={id}>{widgets[id]}</section>)}</div>
     </Panel>
   );
 }
@@ -1511,30 +1658,43 @@ function TrackingSettings(props: any) {
 }
 
 function UsageGuide() {
+  const [query, setQuery] = useState("");
   const sections = [
-    ["İlk giriş ve admin hesabı", "Süper admin kurulum ekranı yalnızca acil kurulum/onarım içindir. Giriş çalıştıktan sonra Vercel ortam değişkenlerinden bootstrap anahtarlarını kaldırın."],
-    ["Müşteri oluşturma", "Müşteriler sekmesinden firma adını, sektörünü, şehrini ve iletişim bilgilerini girip Firmayı oluştur düğmesini kullanın."],
-    ["Müşteri hesabı oluşturma", "Firma oluşturulduktan sonra müşteri giriş hesabı bölümünden kullanıcıyı firmaya bağlayın ve geçici şifre belirleyin."],
-    ["Kampanya oluşturma", "Reklam Yönetimi sekmesinde firmayı seçin, platformu ve hedefi belirleyin, bütçe ve not bilgilerini ekleyin."],
-    ["Reklam metriği manuel girme", "Reklam Metrikleri sekmesinden kampanya seçip gösterim, erişim, tıklama, potansiyel müşteri ve harcama alanlarını girin."],
-    ["Meta raporu içe aktarma", "Meta raporunu CSV olarak dışa aktarın, firma ve kampanya seçtikten sonra Meta Rapor İçe Aktar alanına yükleyin."],
-    ["Çok kanallı rapor hazırlama", "Raporlama Merkezi sekmesinde Meta, Google Ads, sosyal medya yönetimi veya genel performans raporu seçin. Müşteriye görünür notu ekleyip raporu kaydedin."],
-    ["Müşteri panelinde ne görüneceğini seçme", "Müşteri Merkezi altında firma detayını açarak kampanya, metrik, harcama, potansiyel müşteri, dosya ve çalışma notu görünürlüklerini yönetin."],
-    ["Dosya ve rapor yükleme", "Dosyalar sekmesinde müşteri dosya kaydı oluşturun. Medya Merkezi üzerinden görsel, PDF veya video yükleyebilirsiniz."],
-    ["Potansiyel müşteri takibi", "Potansiyel Müşteriler altında başvuru durumunu, kaynağını, iç notları ve takip tarihini güncelleyin."],
-    ["Site içeriklerini düzenleme", "Sayfa İçerikleri, Marka Yönetimi, Sosyal Medya, Hizmetler ve Paketler sekmelerinde görünür site içeriklerini düzenleyin."],
-    ["Kullanıcı yetkileri", "Yönetici tam yetkilidir. Editör içerik yönetir. Satış ekibi müşteri ve başvuru sürecini yönetir. Müşteri yalnızca kendi panelini görür."],
-    ["Güvenlik notları", "Kendi yönetici rolünüz kaldırılamaz. Son aktif yönetici pasifleştirilemez. API ve Supabase service role anahtarı tarayıcıya gönderilmez."]
+    ["sistem-genel-bakis", "Sistem Genel Bakış", ["Dashboard açıldığında servis durumlarını kontrol edin.", "Sıcak başvuruları ve takip bekleyen işleri inceleyin.", "Hızlı aksiyon merkezinden sık kullandığınız modüle geçin."]],
+    ["crm-kullanimi", "CRM Kullanımı", ["CRM bölümünü açın.", "Başvuruyu kaynak, durum ve iletişim bilgileriyle inceleyin.", "Takip tarihini ve dahili notları güncelleyin."]],
+    ["isletme-kesfi-kullanimi", "İşletme Keşfi Kullanımı", ["Müşteri Bulucu bölümüne gidin.", "Anahtar kelime, şehir, ilçe ve sektör bilgilerini girin.", "Uygun işletmeleri seçip CRM'e kaydedin."]],
+    ["haritalar-modulu-kullanimi", "Haritalar Modülü Kullanımı", ["Google Maps API durumunun aktif olduğunu Dashboard üzerinden doğrulayın.", "Müşteri Bulucu içindeki arama alanlarını kullanın.", "Telefon, web sitesi, puan ve değerlendirme sayısına göre fırsatları önceliklendirin."]],
+    ["meta-analiz-kullanimi", "Meta Analiz Kullanımı", ["Meta Analiz bölümünden işletmeyi değerlendirin.", "Reklam sinyallerini ve müşteri yolculuğu önerilerini inceleyin.", "Uygun önerileri CRM notlarına taşıyın."]],
+    ["google-analiz-kullanimi", "Google Analiz Kullanımı", ["Google Analiz bölümünü açın.", "Arama niyeti ve yerel reklam fırsatlarını inceleyin.", "Anahtar kelime önerilerini teklif hazırlığında kullanın."]],
+    ["ai-studio-kullanimi", "AI Studio Kullanımı", ["AI Studio bölümünde ihtiyacınıza uygun üretim türünü seçin.", "İşletme bilgisini net ve kısa biçimde girin.", "Oluşan metni müşteriye göndermeden önce gözden geçirin."]],
+    ["hazirlik-merkezi-kullanimi", "Hazırlık Merkezi Kullanımı", ["Dashboard içgörülerini günlük çalışma listeniz gibi kullanın.", "Eksik AI analizlerini ve raporu olmayan müşterileri tamamlayın.", "Tamamlanan işleri aktivite akışından kontrol edin."]],
+    ["teklif-motoru-kullanimi", "Teklif Motoru Kullanımı", ["Teklif Motoru bölümünü açın.", "CRM'den başvuruyu seçin.", "MIN, ORTA ve MAX yaklaşımını oluşturup ihtiyaca göre düzenleyin."]],
+    ["raporlama-kullanimi", "Raporlama Kullanımı", ["Raporlar bölümünde firma ve rapor türünü seçin.", "Meta, Google Ads, sosyal medya veya genel performans bilgilerini girin.", "Müşteriye görünür notu ekleyip raporu kaydedin."]],
+    ["kullanici-yonetimi", "Kullanıcı Yönetimi", ["Kullanıcılar bölümünden hesapları listeleyin.", "Rol, bağlı firma ve aktiflik durumunu kontrol edin.", "Şifre sıfırlama gerektiğinde güvenli geçici şifre akışını kullanın."]],
+    ["roller-ve-yetkiler", "Roller ve Yetkiler", ["Yönetici tam yetkilidir.", "Editör site içeriklerini yönetir.", "Satış ekibi CRM sürecini yönetir; müşteri yalnızca kendi panelini görür."]],
+    ["tema-ayarlari", "Tema Ayarları", ["Üst çubuktaki tema düğmesini kullanın.", "Karanlık veya aydınlık temayı seçin.", "Tercihiniz bu tarayıcıda otomatik saklanır."]],
+    ["api-ayarlari", "API Ayarları", ["API Ayarları bölümünü açın.", "Servis bilgilerini sunucu ortam değişkenlerinden yönetin.", "Özel anahtarları tarayıcıya veya müşteriyle paylaşılan ekranlara yazmayın."]],
+    ["sik-sorulan-sorular", "Sık Sorulan Sorular", ["Bir grafik boşsa ilgili modülde henüz yeterli kayıt yoktur.", "Google Maps araması çalışmıyorsa API anahtarı durumunu kontrol edin.", "Kalıcı kayıt sorunu varsa Supabase durumunu ve Vercel ortam değişkenlerini inceleyin."]]
   ];
+  const filtered = sections.filter(([, title, items]) => `${title} ${items.join(" ")}`.toLocaleLowerCase("tr").includes(query.toLocaleLowerCase("tr")));
   return (
     <Panel title="Kullanım Kılavuzu">
+      <div className="mb-5 rounded-[8px] border border-cyan-200/15 bg-cyan-200/[0.05] p-4">
+        <p className="text-sm font-black text-cyan-50">HK Dijital çalışma rehberi</p>
+        <p className="mt-1 text-xs leading-5 text-slate-400">İhtiyacınız olan ekranı veya işlemi arayın. Her başlık temel adımları kısa ve anlaşılır biçimde açıklar.</p>
+        <label className="mt-4 flex min-h-11 items-center gap-2 rounded-[8px] border border-white/10 bg-black/20 px-3">
+          <Search size={16} className="text-cyan-200" />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Kılavuzda ara..." className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500" />
+        </label>
+      </div>
       <div className="grid gap-4">
-        {sections.map(([title, text]) => (
-          <div key={title} className="rounded-[8px] border border-white/10 bg-black/20 p-4">
+        {filtered.map(([id, title, items]) => (
+          <div id={id} key={id} className="scroll-mt-28 rounded-[8px] border border-white/10 bg-black/20 p-4">
             <h3 className="font-black">{title}</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-300">{text}</p>
+            <ul className="mt-3 grid gap-2 text-sm leading-6 text-slate-300">{items.map((item) => <li key={item} className="flex gap-2"><span className="text-cyan-200">-</span><span>{item}</span></li>)}</ul>
           </div>
         ))}
+        {!filtered.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-center text-sm text-slate-400">Aramanızla eşleşen bir kılavuz başlığı bulunamadı.</p>}
       </div>
     </Panel>
   );

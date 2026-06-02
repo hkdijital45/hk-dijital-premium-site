@@ -23,7 +23,8 @@ export const adminNavigationGroups = [
       { label: "Site Ayarları", slug: "site-ayarlari" },
       { label: "API Ayarları", slug: "api-ayarlari" },
       { label: "Medya / Logo", slug: "medya" },
-      { label: "Kullanıcılar", slug: "kullanicilar" }
+      { label: "Kullanıcılar", slug: "kullanicilar" },
+      { label: "Kullanım Kılavuzu", slug: "kullanim-kilavuzu" }
     ]
   }
 ] as const;
