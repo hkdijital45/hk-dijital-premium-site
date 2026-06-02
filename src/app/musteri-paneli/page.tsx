@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { BarChart3, FileText, Lightbulb, MessageCircle, Sparkles, UserRound } from "lucide-react";
-import { getSession, isStaffRole } from "@/lib/auth";
+import { getSession, isCustomerRole, isStaffRole } from "@/lib/auth";
 import { recordActivity } from "@/lib/activity-log";
 import { getCustomerCenterData, summarizeMetrics } from "@/lib/customer-center";
 import { hasSupabaseConfig } from "@/lib/supabase";
@@ -24,7 +24,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
   if (!session) redirect("/giris");
   const params = await searchParams;
   const isAdminPreview = isStaffRole(session.role) && Boolean(params.company);
-  if (session.role !== "customer" && !isAdminPreview) {
+  if (!isCustomerRole(session.role) && !isAdminPreview) {
     return (
       <main className="grid min-h-screen place-items-center bg-[#050711] px-4 text-white">
         <div className="max-w-md rounded-[8px] border border-white/10 bg-white/[0.06] p-6 text-center">
@@ -37,7 +37,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
 
   const selectedCompanyId = isAdminPreview ? params.company : session.companyId;
   const data = await getCustomerCenterData(selectedCompanyId);
-  if (session.role === "customer") {
+  if (isCustomerRole(session.role)) {
     await recordActivity({
       session,
       action: "Görüntüleme",

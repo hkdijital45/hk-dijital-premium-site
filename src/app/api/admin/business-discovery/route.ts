@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
-import { getSession, isStaffRole } from "@/lib/auth";
 import { recordActivity } from "@/lib/activity-log";
 import { scoreDiscoveredBusiness, type DiscoveredBusiness } from "@/lib/lead-scoring";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
+import { requireModuleAccess } from "@/lib/permissions";
 
 async function requireStaff() {
-  const session = await getSession();
-  return isStaffRole(session?.role) ? session : null;
+  return requireModuleAccess("musteri-bulucu");
 }
 
 function textSearchUrl(query: string) {

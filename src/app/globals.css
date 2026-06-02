@@ -109,6 +109,36 @@ html {
   background: rgba(103, 232, 249, .3);
 }
 
+.admin-light .text-white,
+.admin-light .text-slate-100,
+.admin-light .text-slate-200,
+.admin-light .text-slate-300 {
+  color: #0f172a;
+}
+
+.admin-light .text-slate-400,
+.admin-light .text-slate-500 {
+  color: #475569;
+}
+
+.admin-light input,
+.admin-light textarea,
+.admin-light select {
+  border-color: #cbd5e1;
+  background: #fff;
+  color: #0f172a;
+}
+
+.admin-light .bg-black\/20,
+.admin-light .bg-black\/30,
+.admin-light .bg-black\/10 {
+  background-color: rgba(241, 245, 249, .92);
+}
+
+.admin-light .border-white\/10 {
+  border-color: #cbd5e1;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

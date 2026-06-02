@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession, isStaffRole } from "@/lib/auth";
 import { recordActivity } from "@/lib/activity-log";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
+import { normalizeRole } from "@/lib/permissions";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -20,7 +21,7 @@ const allowedUpdateTypes = ["Yapılan Çalışma", "Reklam Güncellemesi", "Rapo
 
 async function requireStaff() {
   const session = await getSession();
-  if (!isStaffRole(session?.role)) {
+  if (!isStaffRole(session?.role) || !["admin", "yonetici"].includes(normalizeRole(session?.role))) {
     return null;
   }
   return session;
@@ -91,6 +92,8 @@ function normalizeRecord(key: string, item: any) {
       google_rating: item.google_rating ?? null,
       google_review_count: Number(item.google_review_count || 0),
       google_place_id: item.google_place_id || "",
+      competitor_notes: item.competitor_notes || "",
+      local_opportunity_notes: item.local_opportunity_notes || "",
       updated_at: new Date().toISOString()
     };
   }
@@ -200,6 +203,8 @@ async function upsertItems(key: keyof typeof tables, items: any[] = []) {
       delete copy.google_rating;
       delete copy.google_review_count;
       delete copy.google_place_id;
+      delete copy.competitor_notes;
+      delete copy.local_opportunity_notes;
     }
     return copy;
   };

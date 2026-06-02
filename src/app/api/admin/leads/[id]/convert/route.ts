@@ -60,7 +60,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
     const email = String(lead.email || "").trim().toLowerCase();
     if (email) {
       const byEmail = await supabaseRest<any[]>(`users?email=eq.${encodeURIComponent(email)}&select=*&limit=1`);
-      if (byEmail[0] && byEmail[0].role !== "customer") {
+      if (byEmail[0] && !["customer", "musteri"].includes(byEmail[0].role)) {
         return NextResponse.json({ error: "Bu e-posta adresi ekip hesabı olarak kullanılıyor. Müşteri hesabı için farklı bir e-posta girin." }, { status: 409 });
       }
       let authUser = await findSupabaseAuthUserByEmail(email);
@@ -73,7 +73,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
         auth_user_id: authUser.id,
         email,
         full_name: lead.name || "",
-        role: "customer",
+        role: "musteri",
         company_id: company.id,
         is_active: true,
         updated_at: new Date().toISOString()

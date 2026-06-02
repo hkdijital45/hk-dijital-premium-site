@@ -1,5 +1,5 @@
 import { supabaseRest } from "./supabase";
-import type { AppSession } from "./auth";
+import { isCustomerRole, type AppSession } from "./auth";
 
 export type ActivityAction = "Giriş" | "Oluşturma" | "Güncelleme" | "Silme" | "İçe Aktarma" | "Dışa Aktarma" | "Şifre Sıfırlama" | "Görüntüleme" | "İndirme" | "Dönüştürme";
 
@@ -38,7 +38,7 @@ export async function recordActivity({
 }
 
 export async function recordCustomerLogin(session: AppSession) {
-  if (!session.profileId || session.role !== "customer") return;
+  if (!session.profileId || !isCustomerRole(session.role)) return;
   try {
     const rows = await supabaseRest<Array<{ login_count?: number }>>(
       `users?id=eq.${encodeURIComponent(session.profileId)}&select=login_count&limit=1`

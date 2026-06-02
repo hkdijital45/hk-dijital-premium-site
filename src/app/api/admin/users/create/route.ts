@@ -8,6 +8,7 @@ import {
 } from "@/lib/auth";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 import { recordActivity } from "@/lib/activity-log";
+import { adminModules, roleTemplates, normalizeRole } from "@/lib/permissions";
 
 export async function POST(request: Request) {
   const session = await getSession();
@@ -23,14 +24,14 @@ export async function POST(request: Request) {
   const email = String(payload.email || "").trim().toLowerCase();
   const password = String(payload.password || "");
   const fullName = String(payload.fullName || payload.full_name || "").trim();
-  const role = ["admin", "editor", "sales", "customer"].includes(payload.role) ? payload.role : "customer";
+  const role = ["admin", "yonetici", "editor", "musteri", "sales", "customer"].includes(payload.role) ? payload.role : "musteri";
   const companyId = payload.companyId || payload.company_id || null;
 
   if (!email || !password || password.length < 8) {
     return NextResponse.json({ error: "E-posta ve en az 8 karakterlik geçici şifre zorunludur." }, { status: 400 });
   }
 
-  if (role === "customer" && !companyId) {
+  if (["customer", "musteri"].includes(role) && !companyId) {
     return NextResponse.json({ error: "Müşteri hesabı için firma seçimi zorunludur." }, { status: 400 });
   }
 
@@ -49,6 +50,9 @@ export async function POST(request: Request) {
       role,
       company_id: companyId,
       is_active: payload.isActive ?? payload.is_active ?? true,
+      allowed_modules: Array.isArray(payload.allowed_modules)
+        ? payload.allowed_modules.filter((module: string) => adminModules.includes(module as any))
+        : roleTemplates[normalizeRole(role)],
       updated_at: new Date().toISOString()
     };
 

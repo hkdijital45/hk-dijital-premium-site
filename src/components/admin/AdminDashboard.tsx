@@ -14,10 +14,27 @@ const leadStatuses = ["Yeni", "Görüşülecek", "Teklif Hazırlanıyor", "Tekli
 const leadSourceOptions = ["İletişim Formu", "Teklif Formu", "Teklif Sihirbazı", "Müşteri Bulucu", "Instagram", "WhatsApp", "Referans", "Manuel Giriş", "Diğer"];
 const roleOptions = [
   { value: "admin", label: "Yönetici" },
+  { value: "yonetici", label: "Operasyon Yöneticisi" },
   { value: "editor", label: "Editör" },
-  { value: "sales", label: "Satış / Müşteri Takibi" },
-  { value: "customer", label: "Müşteri" }
+  { value: "musteri", label: "Müşteri" }
 ];
+const uiPermissionGroups = [
+  ["Genel", ["dashboard", "genel-arama", "kullanim-kilavuzu"]],
+  ["Müşteri & CRM", ["crm", "leads", "musteriler", "takip-gorevleri", "notlar"]],
+  ["Keşif & Haritalar", ["musteri-bulucu", "haritalar", "bolgesel-analiz", "rakip-listesi", "kaydedilen-adaylar"]],
+  ["Reklam Zekâsı", ["meta-analiz", "google-analiz", "funnel-analizi", "reklam-firsatlari"]],
+  ["Hazırlık & Üretim", ["hazirlik", "ai-studio", "icerik-onerileri", "prompt-kutuphanesi", "kampanya-hazirligi"]],
+  ["Teklif & Raporlama", ["teklifler", "teklif-listesi", "raporlar", "rapor-yorumlari", "disa-aktarimlar"]],
+  ["Yönetim", ["kullanicilar", "roller-yetkiler", "site-ayarlari", "api-ayarlari", "tema-ayarlari", "medya", "sistem-loglari"]]
+];
+const uiRoleTemplates = {
+  admin: uiPermissionGroups.flatMap(([, modules]) => modules),
+  yonetici: ["dashboard", "genel-arama", "kullanim-kilavuzu", "crm", "leads", "musteriler", "takip-gorevleri", "notlar", "musteri-bulucu", "haritalar", "bolgesel-analiz", "kaydedilen-adaylar", "hazirlik", "ai-studio", "teklifler", "teklif-listesi", "raporlar", "rapor-yorumlari", "disa-aktarimlar"],
+  editor: ["dashboard", "genel-arama", "kullanim-kilavuzu", "crm", "leads", "hazirlik", "ai-studio", "icerik-onerileri", "prompt-kutuphanesi", "kampanya-hazirligi", "teklifler", "teklif-listesi", "raporlar", "rapor-yorumlari", "disa-aktarimlar", "medya"],
+  musteri: []
+};
+const legacyRole = (role) => role === "sales" ? "yonetici" : role === "customer" ? "musteri" : role;
+const customerRole = (role) => ["customer", "musteri"].includes(role);
 const statusOptions = ["Aktif", "Pasif"];
 const companyStatusOptions = ["Aktif", "Pasif", "Beklemede", "Potansiyel", "Eski Müşteri"];
 const sectorOptions = ["Butik Pasta", "Restoran", "Kafe", "Güzellik Merkezi", "Diş Kliniği", "Sağlık", "Eğitim", "E-ticaret", "Gayrimenkul", "Otomotiv", "Hizmet Sektörü", "Dernek / STK", "Diğer"];
@@ -65,6 +82,7 @@ export function AdminDashboard({
   initialContent,
   supabaseConfigured = false,
   currentSession,
+  allowedModules = [],
   systemStatus,
   bootstrapWarning = false,
   initialActive = "Dashboard"
@@ -72,6 +90,7 @@ export function AdminDashboard({
   initialContent: SiteContent;
   supabaseConfigured?: boolean;
   currentSession?: any;
+  allowedModules?: string[];
   systemStatus?: any;
   bootstrapWarning?: boolean;
   initialActive?: string;
@@ -83,10 +102,12 @@ export function AdminDashboard({
   const [theme, setTheme] = useState("dark");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [customTheme, setCustomTheme] = useState(null);
   const [openGroups, setOpenGroups] = useState(() => Object.fromEntries(adminNavigationGroups.map((group) => [group.label, true])));
 
   useEffect(() => {
     setTheme(localStorage.getItem("hk-admin-theme") || "dark");
+    try { setCustomTheme(JSON.parse(localStorage.getItem("hk-admin-custom-theme") || "null")); } catch {}
   }, []);
 
   function toggleTheme() {
@@ -103,8 +124,10 @@ export function AdminDashboard({
     setSaving(true);
     setStatus("Kaydediliyor...");
     try {
-      const contentResponse = await fetch("/api/content", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) });
-      const centerResponse = supabaseConfigured
+      const contentResponse = allowedModules.includes("site-ayarlari")
+        ? await fetch("/api/content", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) })
+        : new Response(JSON.stringify({ ok: true }), { status: 200 });
+      const centerResponse = supabaseConfigured && allowedModules.includes("musteriler")
         ? await fetch("/api/admin/center-data", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) })
         : contentResponse;
       if (contentResponse.ok && centerResponse.ok) {
@@ -135,12 +158,15 @@ export function AdminDashboard({
   }
 
   const props = { content, setContent, currentSession };
+  const visibleNavigationGroups = adminNavigationGroups
+    .map((group) => ({ ...group, items: group.items.filter((item) => allowedModules.includes(item.module)) }))
+    .filter((group) => group.items.length);
   const shellClass = theme === "dark" ? "bg-[#050711] text-white" : "bg-slate-100 text-slate-950";
   const panelClass = theme === "dark" ? "border-white/10 bg-white/[0.045]" : "border-slate-200 bg-white";
   const headerClass = theme === "dark" ? "border-white/10 bg-[#050711]/90" : "border-slate-200 bg-white/90";
 
   return (
-    <main className={`relative min-h-screen overflow-hidden ${shellClass}`}>
+    <main className={`relative min-h-screen overflow-hidden ${theme === "light" ? "admin-light" : ""} ${shellClass}`} style={customTheme ? { backgroundColor: customTheme.background, color: customTheme.text } : undefined}>
       <div className="premium-grid pointer-events-none absolute inset-0 opacity-45" />
       <header className={`sticky top-0 z-40 border-b ${headerClass} shadow-[0_16px_48px_rgba(0,0,0,.18)] backdrop-blur-2xl`}>
         <div className="relative mx-auto flex max-w-[1540px] flex-wrap items-center justify-between gap-4 px-4 py-4">
@@ -152,6 +178,7 @@ export function AdminDashboard({
             </div>
           </div>
           <div className="flex flex-wrap justify-end gap-2">
+            <GlobalAdminSearch />
             <div className="relative">
               <button onClick={() => setHelpOpen((current) => !current)} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/10 px-5 text-sm font-bold">
                 <HelpCircle size={17} /> Yardım
@@ -171,7 +198,7 @@ export function AdminDashboard({
             <button onClick={toggleTheme} className="min-h-11 rounded-full border border-white/10 px-5 text-sm font-bold">
               {theme === "dark" ? "Aydınlık Tema" : "Karanlık Tema"}
             </button>
-            <button disabled={saving} onClick={() => save()} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-cyan-300 px-5 text-sm font-black text-slate-950 disabled:opacity-60"><Save size={17} /> {saving ? "Kaydediliyor..." : "Kaydet"}</button>
+            {(allowedModules.includes("site-ayarlari") || allowedModules.includes("musteriler")) && <button disabled={saving} onClick={() => save()} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-cyan-300 px-5 text-sm font-black text-slate-950 disabled:opacity-60"><Save size={17} /> {saving ? "Kaydediliyor..." : "Kaydet"}</button>}
             <button onClick={logout} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/10 px-5 text-sm font-bold"><LogOut size={17} /> Çıkış</button>
           </div>
         </div>
@@ -187,7 +214,7 @@ export function AdminDashboard({
             {sidebarCollapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}
           </button>
           {!sidebarCollapsed && <div className="mb-3 rounded-[8px] border border-cyan-200/15 bg-cyan-200/[0.06] p-3"><p className="text-[10px] font-black uppercase tracking-[.18em] text-cyan-100">Operasyon merkezi</p><p className="mt-2 text-xs leading-5 text-slate-400">CRM, analiz ve raporlama araçları tek panelde.</p></div>}
-          {adminNavigationGroups.map((group) => {
+          {visibleNavigationGroups.map((group) => {
             const expanded = openGroups[group.label];
             return (
               <div key={group.label} className="mb-2">
@@ -223,7 +250,7 @@ export function AdminDashboard({
           {status && <p className={`mb-5 rounded-[8px] border p-3 text-sm ${status.includes("Kaydedilemedi") ? "border-red-300/30 bg-red-500/10 text-red-100" : "border-cyan-200/20 bg-cyan-200/10 text-cyan-100"}`}>{status}</p>}
           {active === "Dashboard" && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} systemStatus={systemStatus} currentSession={currentSession} />}
           {active === "CRM" && <CrmHub {...props} />}
-          {active === "Müşteri Bulucu" && <CustomerFinder {...props} />}
+          {["Müşteri Bulucu", "İşletme Keşfi"].includes(active) && <CustomerFinder {...props} />}
           {active === "Lead Yönetimi" && <Crm {...props} view="Lead Durumları" setActive={setActive} />}
           {active === "Meta Analiz" && <ChannelAnalysis {...props} channel="Meta" />}
           {active === "Google Analiz" && <ChannelAnalysis {...props} channel="Google" />}
@@ -235,6 +262,17 @@ export function AdminDashboard({
           {active === "API Ayarları" && <ApiSettings {...props} />}
           {active === "Medya / Logo" && <MediaLogoHub {...props} />}
           {active === "Kullanıcılar" && <UsersHub {...props} />}
+          {active === "Genel Arama" && <GlobalSearchPage />}
+          {active === "Haritalar" && <MapsIntelligence {...props} setActive={setActive} />}
+          {active === "Hazırlık Merkezi" && <PreparationCenter {...props} setActive={setActive} />}
+          {active === "Tema Ayarları" && <ThemeEditor onApply={setCustomTheme} />}
+          {active === "Roller & Yetkiler" && <UsersAdmin {...props} mode="Roller & Yetkiler" />}
+          {active === "Sistem Logları" && <ActivityLogs content={content} />}
+          {["Takip Görevleri", "Notlar"].includes(active) && <Crm {...props} view={active} setActive={setActive} />}
+          {["Bölgesel Analiz", "Rakip Listesi", "Kaydedilen Adaylar"].includes(active) && <MapsIntelligence {...props} setActive={setActive} mode={active} />}
+          {["Funnel Analizi", "Reklam Fırsatları"].includes(active) && <ChannelAnalysis {...props} channel={active} />}
+          {["İçerik Önerileri", "Prompt Kütüphanesi", "Kampanya Hazırlığı"].includes(active) && <PreparationCenter {...props} setActive={setActive} mode={active} />}
+          {["Teklifler", "Rapor Yorumları", "Dışa Aktarımlar"].includes(active) && <ReportsHub {...props} />}
           {active === "Genel Bakış" && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} systemStatus={systemStatus} currentSession={currentSession} />}
           {active === "Sayfa İçerikleri" && <Pages {...props} />}
           {active === "Marka Ayarları" && <Brand {...props} />}
@@ -259,7 +297,6 @@ export function AdminDashboard({
           {["Kullanıcı Yönetimi", "Roller", "Güvenlik"].includes(active) && <UsersAdmin {...props} mode={active} />}
           {active === "Log Hareketleri" && <ActivityLogs content={content} />}
           {active === "Kullanım Kılavuzu" && <UsageGuide />}
-          {active === "Tema Ayarları" && <Settings {...props} />}
         </section>
       </div>
     </main>
@@ -311,6 +348,36 @@ function CompanySelect({ label = "Firma", value, onChange, companies }: any) {
       placeholder="Firma seçin"
     />
   );
+}
+
+function GlobalAdminSearch() {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
+  useEffect(() => {
+    if (query.trim().length < 2) return setResults([]);
+    const timer = setTimeout(async () => {
+      const response = await fetch(`/api/admin/search?q=${encodeURIComponent(query)}`);
+      const data = await response.json().catch(() => ({}));
+      setResults(response.ok ? data.results || [] : []);
+    }, 220);
+    return () => clearTimeout(timer);
+  }, [query]);
+  return <div className="relative hidden lg:block"><label className="flex min-h-11 w-64 items-center gap-2 rounded-full border border-white/10 bg-black/10 px-4"><Search size={16} className="text-cyan-200" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Genel arama..." className="w-full bg-transparent text-sm outline-none placeholder:text-slate-500" /></label>{results.length > 0 && <div className="absolute right-0 top-14 z-50 w-[380px] rounded-[8px] border border-white/10 bg-[#0a1020]/95 p-2 shadow-2xl backdrop-blur-2xl">{results.map((result) => <Link key={result.id} href={result.href} onClick={() => setQuery("")} className="flex items-center justify-between gap-3 rounded-[8px] px-3 py-3 text-sm hover:bg-white/10"><span><strong className="block text-white">{result.title}</strong><span className="mt-1 block text-xs text-slate-400">{result.detail}</span></span><span className="rounded-full border border-cyan-200/20 px-2 py-1 text-[10px] font-black text-cyan-100">{result.type}</span></Link>)}</div>}</div>;
+}
+
+function GlobalSearchPage() {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  async function runSearch() {
+    if (query.trim().length < 2) return setResults([]);
+    setLoading(true);
+    const response = await fetch(`/api/admin/search?q=${encodeURIComponent(query)}`);
+    const data = await response.json().catch(() => ({}));
+    setResults(response.ok ? data.results || [] : []);
+    setLoading(false);
+  }
+  return <Panel title="Genel Arama"><p className="mb-4 text-sm leading-6 text-slate-400">Yetkiniz bulunan modüller, başvurular, müşteriler ve raporlar içinde arama yapın.</p><div className="flex gap-2"><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => event.key === "Enter" && runSearch()} placeholder="Aramak istediğiniz kelimeyi yazın..." className="min-h-12 flex-1 rounded-[8px] border border-white/10 bg-black/30 px-4 text-white" /><button onClick={runSearch} className="rounded-[8px] bg-cyan-300 px-5 text-sm font-black text-slate-950">{loading ? "Aranıyor..." : "Ara"}</button></div><div className="mt-5 grid gap-3">{results.map((result) => <Link key={result.id} href={result.href} className="flex items-center justify-between gap-3 rounded-[8px] border border-white/10 bg-black/10 p-4 transition hover:border-cyan-200/40"><span><strong>{result.title}</strong><span className="mt-1 block text-sm text-slate-400">{result.detail}</span></span><span className="rounded-full border border-white/10 px-3 py-1 text-xs text-cyan-100">{result.type}</span></Link>)}{query && !loading && !results.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-center text-sm text-slate-400">Aramanızla eşleşen kayıt bulunamadı.</p>}</div></Panel>;
 }
 
 const dashboardWidgetDefaults = ["metrics", "status", "charts", "insights", "quickActions", "crm", "activity", "demo"];
@@ -900,7 +967,7 @@ function CustomersAdmin({ content, setContent }: any) {
   async function createLogin() {
     setMessage("");
     setError("");
-    if (form.role === "customer" && !form.company_id) {
+    if (customerRole(form.role) && !form.company_id) {
       setError("Müşteri hesabı için firma seçimi zorunludur.");
       return;
     }
@@ -957,7 +1024,7 @@ function CustomersAdmin({ content, setContent }: any) {
         </div>
         <div className="grid gap-3">
           {companies.map((company) => {
-            const hasLogin = (content.users || []).some((user) => user.role === "customer" && user.company_id === company.id);
+            const hasLogin = (content.users || []).some((user) => customerRole(user.role) && user.company_id === company.id);
             const editing = editingCompanyId === company.id;
             return (
               <div key={company.id} className="rounded-[8px] border border-white/10 bg-black/20 p-4">
@@ -1026,7 +1093,7 @@ function CustomersAdmin({ content, setContent }: any) {
 function CustomerDetailDrawer({ company, content, setContent, updateCompany, saveCompany, close }: any) {
   const [tab, setTab] = useState("Genel Bilgi");
   if (!company) return null;
-  const users = (content.users || []).filter((user) => user.role === "customer" && user.company_id === company.id);
+  const users = (content.users || []).filter((user) => customerRole(user.role) && user.company_id === company.id);
   const campaigns = (content.campaigns || []).filter((item) => item.company_id === company.id);
   const metrics = (content.campaignMetrics || []).filter((item) => item.company_id === company.id);
   const updates = (content.customerUpdates || []).filter((item) => item.company_id === company.id);
@@ -1388,9 +1455,9 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [editingUser, setEditingUser] = useState(null);
-  const [createForm, setCreateForm] = useState({ fullName: "", email: "", password: "", role: "editor", company_id: "", is_active: true });
+  const [createForm, setCreateForm] = useState({ fullName: "", email: "", password: "", role: "editor", company_id: "", is_active: true, allowed_modules: uiRoleTemplates.editor });
   const users = (content.users || [])
-    .filter((user) => !customerOnly || user.role === "customer")
+    .filter((user) => !customerOnly || customerRole(user.role))
     .filter((user) => JSON.stringify(user).toLocaleLowerCase("tr").includes(query.toLocaleLowerCase("tr")))
     .filter((user) => !roleFilter || user.role === roleFilter)
     .filter((user) => !statusFilter || (statusFilter === "Aktif" ? user.is_active : !user.is_active));
@@ -1416,10 +1483,10 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
   async function resetPassword(user) {
     setError("");
     setMessage("Şifre sıfırlama bağlantısı hazırlanıyor...");
-    const response = await fetch("/api/admin/users/reset-password", {
+    if (!confirm(`${user.full_name || user.email} kullanıcısının şifresi geçici olarak ABC12345 yapılsın mı?`)) return;
+    const response = await fetch(`/api/admin/users/${user.id}/reset-password`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: user.email })
+      headers: { "Content-Type": "application/json" }
     });
     const data = await response.json().catch(() => ({}));
     setMessage(response.ok ? data.message || "Şifre sıfırlama bağlantısı gönderildi." : "");
@@ -1436,7 +1503,7 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
     const data = await response.json().catch(() => ({}));
     if (response.ok) {
       setContent({ ...content, users: [data.user, ...(content.users || [])] });
-      setCreateForm({ fullName: "", email: "", password: "", role: "editor", company_id: "", is_active: true });
+      setCreateForm({ fullName: "", email: "", password: "", role: "editor", company_id: "", is_active: true, allowed_modules: uiRoleTemplates.editor });
       setMessage("Kullanıcı oluşturuldu.");
     } else {
       setMessage("");
@@ -1451,7 +1518,7 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
           <Field label="Ad Soyad" value={createForm.fullName} onChange={(v) => setCreateForm({ ...createForm, fullName: v })} />
           <Field label="E-posta" value={createForm.email} onChange={(v) => setCreateForm({ ...createForm, email: v })} />
           <Field label="Geçici Şifre" type="password" value={createForm.password} onChange={(v) => setCreateForm({ ...createForm, password: v })} />
-          <SelectField label="Rol" value={createForm.role} onChange={(v) => setCreateForm({ ...createForm, role: v })} options={roleOptions} />
+          <SelectField label="Rol" value={legacyRole(createForm.role)} onChange={(v) => setCreateForm({ ...createForm, role: v, allowed_modules: uiRoleTemplates[v] || [] })} options={roleOptions} />
           <CompanySelect value={createForm.company_id} onChange={(v) => setCreateForm({ ...createForm, company_id: v })} companies={content.companies} />
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={createForm.is_active} onChange={(e) => setCreateForm({ ...createForm, is_active: e.target.checked })} /> Aktif</label>
         </div>
@@ -1470,7 +1537,7 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h3 className="font-black">{user.full_name || user.email}</h3>
-                <p className="text-sm text-slate-400">{user.email} · {roleOptions.find((role) => role.value === user.role)?.label || user.role} · {user.is_active ? "Aktif" : "Pasif"}</p>
+                <p className="text-sm text-slate-400">{user.email} · {roleOptions.find((role) => role.value === legacyRole(user.role))?.label || user.role} · {user.is_active ? "Aktif" : "Pasif"}</p>
                 <p className="mt-1 text-xs text-slate-500">Auth bağlantısı: {user.auth_user_id ? "Bağlı" : "Eksik"} · Oluşturulma: {user.created_at ? new Date(user.created_at).toLocaleDateString("tr-TR") : "-"} · Güncelleme: {user.updated_at ? new Date(user.updated_at).toLocaleDateString("tr-TR") : "-"}</p>
                 {currentSession?.profileId === user.id && <p className="mt-2 rounded-[8px] border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">Kendi hesabımı düzenliyorum. Yönetici rolünüz ve aktif durumunuz korunur.</p>}
               </div>
@@ -1494,9 +1561,9 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
             <div className="grid gap-3 md:grid-cols-2">
               <Field label="Ad Soyad" value={editingUser.full_name || ""} onChange={(v) => setEditingUser({ ...editingUser, full_name: v })} />
               <Field label="E-posta" value={editingUser.email || ""} onChange={(v) => setEditingUser({ ...editingUser, email: v })} />
-              <SelectField label="Rol" value={editingUser.role || "customer"} onChange={(v) => {
+              <SelectField label="Rol" value={legacyRole(editingUser.role || "musteri")} onChange={(v) => {
                 if (!confirm("Kullanıcı rolünü değiştirmek istediğinizden emin misiniz?")) return;
-                setEditingUser({ ...editingUser, role: v });
+                setEditingUser({ ...editingUser, role: v, allowed_modules: uiRoleTemplates[v] || [] });
               }} options={roleOptions} />
               <CompanySelect value={editingUser.company_id || ""} onChange={(v) => setEditingUser({ ...editingUser, company_id: v })} companies={content.companies} />
               <SelectField label="Durum" value={editingUser.is_active ? "Aktif" : "Pasif"} onChange={(v) => {
@@ -1505,13 +1572,22 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
               }} options={statusOptions} />
               <p className="self-end text-sm text-slate-400">Auth durumu: {editingUser.auth_user_id ? "Bağlı" : "Eksik"}</p>
             </div>
+            <PermissionEditor user={editingUser} setUser={setEditingUser} />
             <button onClick={() => saveUser(editingUser)} className="mt-5 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Değişiklikleri kaydet</button>
           </div>
         </div>
       )}
-      <p className="mt-4 text-sm text-slate-400">Roller: Yönetici tam yetki, editör içerik yönetimi, satış ekibi potansiyel müşteri ve müşteri yönetimi, müşteri ise yalnızca kendi panelini görebilir.</p>
+      <p className="mt-4 text-sm text-slate-400">Roller: Yönetici tam yetkilidir. Operasyon yöneticisi müşteri ve CRM sürecini yönetir. Editör üretim araçlarını kullanır. Müşteri yalnızca kendi panelini görür.</p>
     </Panel>
   );
+}
+
+function PermissionEditor({ user, setUser }: any) {
+  const selected = Array.isArray(user.allowed_modules) ? user.allowed_modules : uiRoleTemplates[legacyRole(user.role)] || [];
+  function toggle(module) {
+    setUser({ ...user, allowed_modules: selected.includes(module) ? selected.filter((item) => item !== module) : [...selected, module] });
+  }
+  return <div className="mt-5 rounded-[8px] border border-white/10 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h4 className="font-black">Modül yetkileri</h4><p className="mt-1 text-xs text-slate-400">Rol şablonunu kullanın veya izinleri tek tek özelleştirin.</p></div><div className="flex flex-wrap gap-2">{Object.entries(uiRoleTemplates).map(([role, modules]) => <button key={role} onClick={() => setUser({ ...user, role, allowed_modules: modules })} className="rounded-full border border-white/10 px-3 py-2 text-xs font-bold">{role === "admin" ? "Admin Yetkileri" : role === "yonetici" ? "Yönetici Yetkileri" : role === "editor" ? "Editör Yetkileri" : "Müşteri Yetkileri"}</button>)}</div></div><div className="mt-4 grid gap-4 md:grid-cols-2">{uiPermissionGroups.map(([group, modules]) => <div key={group} className="rounded-[8px] bg-black/20 p-3"><p className="text-xs font-black uppercase tracking-[.12em] text-cyan-100">{group}</p><div className="mt-3 grid gap-2">{modules.map((module) => <label key={module} className="flex gap-2 text-xs text-slate-300"><input type="checkbox" checked={selected.includes(module)} onChange={() => toggle(module)} />{module}</label>)}</div></div>)}</div></div>;
 }
 
 function HubTabs({ items, active, onChange }: any) {
@@ -1613,6 +1689,76 @@ function CustomerFinder({ content, setContent }: any) {
       <button type="button" disabled={loading === "save"} onClick={saveSelected} className="w-fit rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-60">{loading === "save" ? "Kaydediliyor..." : `Seçilenleri CRM listesine ekle (${selected.length})`}</button>
     </div>}
   </Panel>;
+}
+
+function MapsIntelligence({ content, setContent, setActive, mode = "Haritalar" }: any) {
+  const [filters, setFilters] = useState({ city: "", district: "", sector: "", status: "", heat: "", maturity: "" });
+  const [message, setMessage] = useState("");
+  const leads = (content.leads || []).filter((lead) => lead.google_place_id || lead.address)
+    .filter((lead) => !filters.city || String(lead.address || "").toLocaleLowerCase("tr").includes(filters.city.toLocaleLowerCase("tr")))
+    .filter((lead) => !filters.district || String(lead.address || "").toLocaleLowerCase("tr").includes(filters.district.toLocaleLowerCase("tr")))
+    .filter((lead) => !filters.sector || lead.business_type === filters.sector)
+    .filter((lead) => !filters.status || lead.status === filters.status)
+    .filter((lead) => !filters.heat || Number(lead.lead_heat_score || 0) >= Number(filters.heat))
+    .filter((lead) => !filters.maturity || Number(lead.digital_maturity_score || 0) >= Number(filters.maturity));
+  function update(id, patch) {
+    setContent({ ...content, leads: (content.leads || []).map((lead) => lead.id === id ? { ...lead, ...patch } : lead) });
+    setMessage("Not güncellendi. Kalıcı kayıt için üst çubuktaki Kaydet düğmesini kullanın.");
+  }
+  async function analyze(lead) {
+    setMessage("AI analizi hazırlanıyor...");
+    const response = await fetch(`/api/admin/leads/${lead.id}/analyze`, { method: "POST" });
+    const data = await response.json().catch(() => ({}));
+    if (response.ok) {
+      update(lead.id, { ai_analysis: data.analysis });
+      setMessage("AI analizi oluşturuldu.");
+    } else setMessage(data.error || "AI analizi oluşturulamadı.");
+  }
+  return <Panel title={mode}><p className="mb-5 text-sm leading-6 text-slate-400">Kaydedilen yerel işletmeleri bölge, sektör ve fırsat skorlarıyla inceleyin. Harita görünümü genişletilmeye hazır liste tabanlı istihbarat yapısı kullanır.</p><div className="grid gap-3 md:grid-cols-3"><Field label="Şehir" value={filters.city} onChange={(city) => setFilters({ ...filters, city })} /><Field label="İlçe" value={filters.district} onChange={(district) => setFilters({ ...filters, district })} /><OtherSelectField label="Sektör" value={filters.sector} onChange={(sector) => setFilters({ ...filters, sector })} options={sectorOptions} manualLabel="Sektörü yazın" /><SelectField label="Durum" value={filters.status} onChange={(status) => setFilters({ ...filters, status })} options={leadStatuses} placeholder="Tüm durumlar" /><Field label="Minimum sıcaklık skoru" type="number" value={filters.heat} onChange={(heat) => setFilters({ ...filters, heat })} /><Field label="Minimum dijital olgunluk" type="number" value={filters.maturity} onChange={(maturity) => setFilters({ ...filters, maturity })} /></div>{message && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{message}</p>}<div className="mt-5 grid gap-3">{leads.map((lead) => <GlassCard key={lead.id} className="p-4"><div className="flex flex-wrap justify-between gap-3"><div><h3 className="font-black">{lead.company || lead.name || "İsimsiz işletme"}</h3><p className="mt-1 text-sm text-slate-400">{lead.address || "Adres bilgisi yok"}</p><p className="mt-2 text-xs text-slate-500">{lead.business_type || "Sektör belirtilmedi"} · Google puanı {lead.google_rating ?? "-"} · {lead.google_review_count || 0} değerlendirme</p></div><div className="flex gap-2"><span className="rounded-full border border-amber-300/20 px-3 py-2 text-xs text-amber-200">Sıcaklık {lead.lead_heat_score || 0}</span><span className="rounded-full border border-cyan-200/20 px-3 py-2 text-xs text-cyan-100">Olgunluk {lead.digital_maturity_score || 0}</span></div></div><div className="mt-4 grid gap-3 md:grid-cols-2"><TextArea label="Rakip notları" value={lead.competitor_notes || ""} onChange={(competitor_notes) => update(lead.id, { competitor_notes })} /><TextArea label="Yerel fırsat notları" value={lead.local_opportunity_notes || ""} onChange={(local_opportunity_notes) => update(lead.id, { local_opportunity_notes })} /></div><div className="mt-4 flex flex-wrap gap-2"><button onClick={() => setActive("Lead Yönetimi")} className="rounded-full border border-white/10 px-3 py-2 text-xs font-bold">CRM kaydını aç</button><button onClick={() => analyze(lead)} className="rounded-full border border-cyan-200/20 px-3 py-2 text-xs font-bold text-cyan-100">AI analizi oluştur</button>{lead.google_place_id && <a target="_blank" rel="noreferrer" href={`https://www.google.com/maps/place/?q=place_id:${lead.google_place_id}`} className="rounded-full bg-cyan-300 px-3 py-2 text-xs font-black text-slate-950">Google Maps'te aç</a>}</div></GlassCard>)}{!leads.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-center text-sm text-slate-400">Filtrelere uygun kaydedilmiş işletme bulunamadı. İşletme Keşfi bölümünden aday ekleyebilirsiniz.</p>}</div></Panel>;
+}
+
+function PreparationCenter({ content, setContent, setActive, mode = "Hazırlık Merkezi" }: any) {
+  const empty = { company_id: "", customer_checklist: [], campaign_checklist: [], brand_analysis: "", swot_notes: "", target_audience_notes: "", offer_positioning: "", funnel_planning: "", content_ideas: "", ad_angle_ideas: "", prompt_shortcuts: "" };
+  const [form, setForm] = useState(empty);
+  const [message, setMessage] = useState("");
+  function selectCompany(company_id) {
+    setForm((content.preparationNotes || []).find((note) => note.company_id === company_id) || { ...empty, company_id });
+  }
+  async function save() {
+    if (!form.company_id) return setMessage("Hazırlık notu için firma seçin.");
+    setMessage("Kaydediliyor...");
+    const response = await fetch("/api/admin/preparation-notes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) return setMessage(data.supabaseError || data.error || "Hazırlık notları kaydedilemedi.");
+    const notes = [data.note, ...(content.preparationNotes || []).filter((note) => note.company_id !== data.note.company_id)];
+    setContent({ ...content, preparationNotes: notes });
+    setForm(data.note);
+    setMessage(data.message);
+  }
+  const checklist = (key, labels) => <div className="rounded-[8px] border border-white/10 p-4"><h3 className="font-black">{key === "customer_checklist" ? "Müşteri hazırlık kontrolü" : "Kampanya hazırlık kontrolü"}</h3><div className="mt-3 grid gap-2">{labels.map((label) => <label key={label} className="flex gap-2 text-sm text-slate-300"><input type="checkbox" checked={(form[key] || []).includes(label)} onChange={(event) => setForm({ ...form, [key]: event.target.checked ? [...(form[key] || []), label] : (form[key] || []).filter((item) => item !== label) })} />{label}</label>)}</div></div>;
+  return <Panel title={mode}><p className="mb-5 text-sm leading-6 text-slate-400">Müşteri hazırlığını, marka analizini, hedef kitleyi ve kampanya yaklaşımını tek çalışma alanında toparlayın.</p><CompanySelect value={form.company_id} onChange={selectCompany} companies={content.companies} /><div className="mt-4 grid gap-4 md:grid-cols-2">{checklist("customer_checklist", ["Firma bilgileri tamamlandı", "Hedef netleştirildi", "Teklif yaklaşımı belirlendi", "İletişim kişisi doğrulandı"])}{checklist("campaign_checklist", ["Ölçümleme kontrol edildi", "Hedef kitle hazırlandı", "Kreatif ihtiyaçları listelendi", "Bütçe ve dönem belirlendi"])}<TextArea label="Marka analizi" value={form.brand_analysis} onChange={(value) => setForm({ ...form, brand_analysis: value })} /><TextArea label="SWOT notları" value={form.swot_notes} onChange={(value) => setForm({ ...form, swot_notes: value })} /><TextArea label="Hedef kitle notları" value={form.target_audience_notes} onChange={(value) => setForm({ ...form, target_audience_notes: value })} /><TextArea label="Teklif konumlandırması" value={form.offer_positioning} onChange={(value) => setForm({ ...form, offer_positioning: value })} /><TextArea label="Müşteri yolculuğu planı" value={form.funnel_planning} onChange={(value) => setForm({ ...form, funnel_planning: value })} /><TextArea label="İçerik fikirleri" value={form.content_ideas} onChange={(value) => setForm({ ...form, content_ideas: value })} /><TextArea label="Reklam açıları" value={form.ad_angle_ideas} onChange={(value) => setForm({ ...form, ad_angle_ideas: value })} /><TextArea label="Prompt kısayolları" value={form.prompt_shortcuts} onChange={(value) => setForm({ ...form, prompt_shortcuts: value })} /></div><div className="mt-5 flex flex-wrap gap-2"><button onClick={save} className="rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Hazırlığı kaydet</button><button onClick={() => setActive("AI Studio")} className="rounded-full border border-white/10 px-4 py-3 text-sm">AI Studio'ya gönder</button><button onClick={() => setActive("CRM")} className="rounded-full border border-white/10 px-4 py-3 text-sm">CRM'e git</button><button onClick={() => setActive("Teklif Motoru")} className="rounded-full border border-white/10 px-4 py-3 text-sm">Teklif oluştur</button><button onClick={() => setActive("Raporlar")} className="rounded-full border border-white/10 px-4 py-3 text-sm">Rapor oluştur</button></div>{message && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{message}</p>}</Panel>;
+}
+
+const themePresets = {
+  "HK Dijital Premium": { background: "#050711", surface: "#0b1020", text: "#f8fafc", mutedText: "#94a3b8", primaryButton: "#67e8f9", secondaryButton: "#172033", accent: "#facc15", sidebar: "#080b17", header: "#050711", border: "#24304a", success: "#34d399", warning: "#fbbf24", danger: "#f87171" },
+  "Karanlık": { background: "#070b14", surface: "#111827", text: "#f8fafc", mutedText: "#cbd5e1", primaryButton: "#38bdf8", secondaryButton: "#1e293b", accent: "#f59e0b", sidebar: "#0f172a", header: "#111827", border: "#334155", success: "#10b981", warning: "#f59e0b", danger: "#ef4444" },
+  "Aydınlık": { background: "#f1f5f9", surface: "#ffffff", text: "#0f172a", mutedText: "#475569", primaryButton: "#0284c7", secondaryButton: "#e2e8f0", accent: "#ca8a04", sidebar: "#ffffff", header: "#ffffff", border: "#cbd5e1", success: "#047857", warning: "#b45309", danger: "#b91c1c" }
+};
+
+function ThemeEditor({ onApply }: any) {
+  const [theme, setTheme] = useState(themePresets["HK Dijital Premium"]);
+  const [message, setMessage] = useState("");
+  function apply(next) {
+    setTheme(next);
+    onApply(next);
+    localStorage.setItem("hk-admin-custom-theme", JSON.stringify(next));
+  }
+  async function save() {
+    const response = await fetch("/api/admin/theme", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(theme) });
+    const data = await response.json().catch(() => ({}));
+    setMessage(response.ok ? data.message : data.supabaseError || data.error || "Tema kaydedilemedi.");
+  }
+  return <Panel title="Tema Ayarları"><p className="mb-5 text-sm leading-6 text-slate-400">Admin paneli renklerini canlı önizleme ile düzenleyin. Tercih bu tarayıcıda anında uygulanır ve kaydettiğinizde Supabase içinde saklanır.</p><div className="mb-5 flex flex-wrap gap-2">{Object.entries(themePresets).map(([label, preset]) => <button key={label} onClick={() => apply(preset)} className="rounded-full border border-white/10 px-4 py-2 text-sm font-bold">{label}</button>)}</div><div className="grid gap-4 lg:grid-cols-[1fr_360px]"><div className="grid gap-3 sm:grid-cols-2">{Object.entries(theme).map(([key, value]) => <Field key={key} label={key} type="color" value={value} onChange={(next) => apply({ ...theme, [key]: next })} />)}</div><div className="rounded-[8px] border p-4" style={{ background: theme.surface, borderColor: theme.border, color: theme.text }}><p className="text-xs font-black uppercase" style={{ color: theme.accent }}>Canlı önizleme</p><h3 className="mt-3 text-xl font-black">HK Dijital Premium Panel</h3><p className="mt-2 text-sm" style={{ color: theme.mutedText }}>Kart, metin, buton ve durum renklerini burada birlikte değerlendirin.</p><button className="mt-5 rounded-full px-4 py-2 text-sm font-black" style={{ background: theme.primaryButton, color: theme.background }}>Birincil işlem</button></div></div><div className="mt-5 flex gap-2"><button onClick={save} className="rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Temayı kaydet</button><button onClick={() => apply(themePresets["HK Dijital Premium"])} className="rounded-full border border-white/10 px-5 py-3 text-sm">Varsayılanlara dön</button></div>{message && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{message}</p>}</Panel>;
 }
 
 function ChannelAnalysis({ content, channel }: any) {

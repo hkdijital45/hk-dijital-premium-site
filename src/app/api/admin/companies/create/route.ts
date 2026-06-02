@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { getSession, isStaffRole } from "@/lib/auth";
 import { recordActivity } from "@/lib/activity-log";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
+import { requireModuleAccess } from "@/lib/permissions";
 
 export async function POST(request: Request) {
-  const session = await getSession();
-  if (!isStaffRole(session?.role)) {
+  const session = await requireModuleAccess("musteriler");
+  if (!session) {
     return NextResponse.json({ error: "Bu işlem için yönetici yetkisi gerekir." }, { status: 403 });
   }
 

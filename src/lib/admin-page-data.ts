@@ -2,18 +2,20 @@ import { redirect } from "next/navigation";
 import { getSiteContent } from "@/lib/content";
 import { getSession, isAdminAuthenticated } from "@/lib/auth";
 import { hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
+import { getAllowedModules } from "@/lib/permissions";
 
 export async function getAdminPageData() {
   const authenticated = await isAdminAuthenticated();
   const session = await getSession();
   const content = await getSiteContent();
+  const allowedModules = getAllowedModules(session);
 
   if (!authenticated) redirect("/giris");
 
   let relationalContent = {};
   if (hasSupabaseConfig()) {
     try {
-      const [companies, users, customers, leads, contactForms, campaigns, campaignMetrics, customerUpdates, customerVisibilitySettings, customerFiles, mediaFiles, activityLogs, reports, reportInterpretations, reportUpdates] =
+      const [companies, users, customers, leads, contactForms, campaigns, campaignMetrics, customerUpdates, customerVisibilitySettings, customerFiles, mediaFiles, activityLogs, reports, reportInterpretations, reportUpdates, preparationNotes] =
         await Promise.all([
           supabaseRest("companies?select=*&order=created_at.desc"),
           supabaseRest("users?select=*&order=created_at.desc"),
@@ -30,10 +32,12 @@ export async function getAdminPageData() {
           supabaseRest("reports?select=*&order=created_at.desc").catch(() => []),
           supabaseRest("report_interpretations?select=*&order=created_at.desc").catch(() => []),
           supabaseRest("report_updates?select=*&order=is_pinned.desc,update_date.desc").catch(() => [])
+          ,
+          supabaseRest("preparation_notes?select=*&order=updated_at.desc").catch(() => [])
         ]);
       relationalContent = {
         companies,
-        users,
+        users: allowedModules.includes("kullanicilar") ? users : [],
         customers,
         leads,
         contactForms,
@@ -42,10 +46,11 @@ export async function getAdminPageData() {
         customerUpdates,
         customerVisibilitySettings,
         customerFiles,
-        activityLogs,
+        activityLogs: allowedModules.includes("sistem-loglari") ? activityLogs : [],
         reports,
         reportInterpretations,
         reportUpdates,
+        preparationNotes,
         media: Array.isArray(mediaFiles)
           ? mediaFiles.map((item: any) => ({
               id: item.id,
@@ -86,6 +91,7 @@ export async function getAdminPageData() {
       email: Boolean(process.env.RESEND_API_KEY)
     },
     currentSession: session,
+    allowedModules,
     bootstrapWarning: Boolean(process.env.BOOTSTRAP_ADMIN_SECRET || process.env.FORCE_BOOTSTRAP_ADMIN)
   };
 }

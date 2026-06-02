@@ -5,7 +5,7 @@ import { hasSupabaseConfig, supabaseRest } from "./supabase";
 export const adminCookieName = "hk_admin_session";
 export const authCookieName = "hk_auth_session";
 
-export type UserRole = "admin" | "editor" | "sales" | "customer";
+export type UserRole = "admin" | "yonetici" | "editor" | "musteri" | "sales" | "customer";
 
 export type AppSession = {
   authUserId?: string;
@@ -16,6 +16,7 @@ export type AppSession = {
   companyId?: string | null;
   accessToken?: string;
   refreshToken?: string;
+  allowedModules?: string[];
 };
 
 type UserProfileRow = {
@@ -26,6 +27,7 @@ type UserProfileRow = {
   role: UserRole;
   company_id: string | null;
   is_active: boolean;
+  allowed_modules?: string[] | null;
 };
 
 export type SupabaseAuthAdminUser = {
@@ -36,7 +38,7 @@ export type SupabaseAuthAdminUser = {
   banned_until?: string | null;
 };
 
-const adminRoles: UserRole[] = ["admin", "editor", "sales"];
+const adminRoles: UserRole[] = ["admin", "yonetici", "editor", "sales"];
 export const productionSiteUrl = "https://www.hkdijital.com.tr";
 
 export function getSiteUrl() {
@@ -112,6 +114,8 @@ export async function getSession() {
       role: profile.role,
       fullName: profile.full_name || session.fullName,
       companyId: profile.company_id
+      ,
+      allowedModules: profile.allowed_modules || session.allowedModules
     };
   } catch {
     return session;
@@ -125,7 +129,7 @@ export async function isAdminAuthenticated() {
 
 export async function isCustomerAuthenticated() {
   const session = await getSession();
-  return session?.role === "customer";
+  return session?.role === "customer" || session?.role === "musteri";
 }
 
 function supabaseAuthHeaders(serviceRole = false, accessToken?: string) {
@@ -278,14 +282,14 @@ export async function updateSupabaseAuthUser(
 
 export async function getProfileByAuthUserId(authUserId: string) {
   const rows = await supabaseRest<UserProfileRow[]>(
-    `users?auth_user_id=eq.${encodeURIComponent(authUserId)}&select=id,auth_user_id,email,full_name,role,company_id,is_active&limit=1`
+    `users?auth_user_id=eq.${encodeURIComponent(authUserId)}&select=*&limit=1`
   );
   return rows[0] || null;
 }
 
 export async function getProfileById(id: string) {
   const rows = await supabaseRest<UserProfileRow[]>(
-    `users?id=eq.${encodeURIComponent(id)}&select=id,auth_user_id,email,full_name,role,company_id,is_active&limit=1`
+    `users?id=eq.${encodeURIComponent(id)}&select=*&limit=1`
   );
   return rows[0] || null;
 }
@@ -300,6 +304,8 @@ function profileToSession(profile: UserProfileRow, tokens?: { access_token?: str
     companyId: profile.company_id,
     accessToken: tokens?.access_token,
     refreshToken: tokens?.refresh_token
+    ,
+    allowedModules: profile.allowed_modules || undefined
   };
 }
 
@@ -336,7 +342,7 @@ export async function authenticateUser({
     return { error: "Bu giriş türü için yetkiniz yok." as const };
   }
 
-  if (userType === "customer" && profile.role !== "customer") {
+  if (userType === "customer" && !["customer", "musteri"].includes(profile.role)) {
     return { error: "Bu giriş türü için yetkiniz yok." as const };
   }
 
@@ -349,4 +355,8 @@ export function isAdminRole(role?: string | null) {
 
 export function isStaffRole(role?: string | null) {
   return Boolean(role && adminRoles.includes(role as UserRole));
+}
+
+export function isCustomerRole(role?: string | null) {
+  return role === "customer" || role === "musteri";
 }

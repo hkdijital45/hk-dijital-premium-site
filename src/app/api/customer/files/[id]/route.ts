@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { getSession, isCustomerRole } from "@/lib/auth";
 import { recordActivity } from "@/lib/activity-log";
 import { supabaseRest } from "@/lib/supabase";
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getSession();
-  if (!session || session.role !== "customer" || !session.companyId) {
+  if (!session || !isCustomerRole(session.role) || !session.companyId) {
     return NextResponse.json({ error: "Bu sayfaya erişim yetkiniz yok." }, { status: 403 });
   }
 

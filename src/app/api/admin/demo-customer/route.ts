@@ -99,7 +99,7 @@ async function upsertCustomerUser(companyId: string, demoPassword: string) {
     auth_user_id: authUser.id,
     email: demoEmail,
     full_name: "Demo Müşteri",
-    role: "customer",
+    role: "musteri",
     company_id: companyId,
     is_active: true,
     updated_at: new Date().toISOString()

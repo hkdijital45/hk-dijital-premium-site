@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { getSession, isStaffRole } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
 import { recordActivity } from "@/lib/activity-log";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
+import { requireModuleAccess } from "@/lib/permissions";
 
 const columnMap: Record<string, string> = {
   "campaign name": "campaignName",
@@ -137,8 +138,8 @@ function buildRecords(rows: string[][], companyId: string, campaignId: string) {
 }
 
 export async function POST(request: Request) {
-  const session = await getSession();
-  if (!isStaffRole(session?.role)) {
+  const session = await requireModuleAccess("raporlar");
+  if (!session) {
     return NextResponse.json({ error: "Bu işlem için yönetici yetkisi gerekir." }, { status: 403 });
   }
 

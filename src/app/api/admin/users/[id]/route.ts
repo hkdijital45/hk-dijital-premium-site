@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession, isAdminRole } from "@/lib/auth";
 import { recordActivity } from "@/lib/activity-log";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
+import { adminModules, normalizeRole } from "@/lib/permissions";
 
 async function getActiveAdminCount() {
   const rows = await supabaseRest<Array<{ id: string }>>("users?role=eq.admin&is_active=eq.true&select=id");
@@ -32,15 +33,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const isSelf = session?.profileId === id;
   const activeAdminCount = await getActiveAdminCount();
 
-  if (isSelf && existing.role === "admin" && nextRole !== "admin") {
+  if (isSelf && normalizeRole(existing.role) === "admin" && normalizeRole(nextRole) !== "admin") {
     return NextResponse.json({ error: "Kendi yönetici rolünüzü kaldıramazsınız." }, { status: 400 });
   }
 
-  if (isSelf && existing.role === "admin" && nextActive === false) {
+  if (isSelf && normalizeRole(existing.role) === "admin" && nextActive === false) {
     return NextResponse.json({ error: "Kendi yönetici hesabınızı devre dışı bırakamazsınız." }, { status: 400 });
   }
 
-  if (existing.role === "admin" && existing.is_active && activeAdminCount <= 1 && (nextRole !== "admin" || nextActive === false)) {
+  if (normalizeRole(existing.role) === "admin" && existing.is_active && activeAdminCount <= 1 && (normalizeRole(nextRole) !== "admin" || nextActive === false)) {
     return NextResponse.json({ error: "Son aktif yönetici hesabı devre dışı bırakılamaz." }, { status: 400 });
   }
 
@@ -51,6 +52,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (payload.role !== undefined) patch.role = payload.role;
   if (payload.companyId !== undefined || payload.company_id !== undefined) patch.company_id = (payload.companyId ?? payload.company_id) || null;
   if (payload.isActive !== undefined || payload.is_active !== undefined) patch.is_active = payload.isActive ?? payload.is_active;
+  if (Array.isArray(payload.allowed_modules)) patch.allowed_modules = payload.allowed_modules.filter((module: string) => adminModules.includes(module as any));
 
   try {
     const rows = await supabaseRest<any[]>(`users?id=eq.${encodeURIComponent(id)}`, {

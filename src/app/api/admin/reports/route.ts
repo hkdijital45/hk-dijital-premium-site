@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { getSession, isStaffRole } from "@/lib/auth";
 import { recordActivity } from "@/lib/activity-log";
 import { getSafeSupabaseError, supabaseRest } from "@/lib/supabase";
+import { requireModuleAccess } from "@/lib/permissions";
 
 const reportTypes = ["Meta Reklam Raporu", "Google Ads Raporu", "Sosyal Medya Yönetimi Raporu", "Genel Dijital Performans Raporu"];
 
@@ -28,8 +28,7 @@ function normalize(body: any) {
 }
 
 async function staffSession() {
-  const session = await getSession();
-  return isStaffRole(session?.role) ? session : null;
+  return requireModuleAccess("raporlar");
 }
 
 export async function POST(request: Request) {

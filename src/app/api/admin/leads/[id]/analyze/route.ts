@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { getSession, isStaffRole } from "@/lib/auth";
 import { recordActivity } from "@/lib/activity-log";
 import { analyzeLead } from "@/lib/lead-analysis";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
+import { requireModuleAccess } from "@/lib/permissions";
 
 export async function POST(_request: Request, context: RouteContext<"/api/admin/leads/[id]/analyze">) {
-  const session = await getSession();
-  if (!isStaffRole(session?.role)) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
+  const session = await requireModuleAccess("ai-studio");
+  if (!session) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
   if (!hasSupabaseConfig()) return NextResponse.json({ error: "Supabase bağlantısı yapılandırılmadı. Canlı ortamda kaydetme çalışmaz." }, { status: 503 });
   const { id } = await context.params;
 

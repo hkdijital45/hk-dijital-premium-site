@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
-import { getSession, isStaffRole } from "@/lib/auth";
 import { recordActivity } from "@/lib/activity-log";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
+import { requireModuleAccess } from "@/lib/permissions";
 
 async function requireStaff() {
-  const session = await getSession();
-  return isStaffRole(session?.role) ? session : null;
+  return requireModuleAccess("musteriler");
 }
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {

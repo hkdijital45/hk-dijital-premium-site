@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticateUser, createSession } from "@/lib/auth";
+import { authenticateUser, createSession, isCustomerRole } from "@/lib/auth";
 import { recordCustomerLogin } from "@/lib/activity-log";
 
 export async function POST(request: Request) {
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   await recordCustomerLogin(session.session);
   return NextResponse.json({
     ok: true,
-    redirectTo: session.session.role === "customer" ? "/musteri-paneli" : "/hk-admin",
+    redirectTo: isCustomerRole(session.session.role) ? "/musteri-paneli" : "/hk-admin",
     role: session.session.role
   });
 }

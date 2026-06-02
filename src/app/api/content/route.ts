@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSiteContent, saveSiteContent } from "@/lib/content";
-import { isAdminAuthenticated } from "@/lib/auth";
+import { requireModuleAccess } from "@/lib/permissions";
 import type { SiteContent } from "@/lib/types";
 
 function withoutApiKeys(content: SiteContent) {
@@ -19,7 +19,7 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  if (!(await isAdminAuthenticated())) {
+  if (!(await requireModuleAccess("site-ayarlari"))) {
     return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
   }
 

@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { getSession, isCustomerRole } from "@/lib/auth";
 import { recordActivity } from "@/lib/activity-log";
 import { generateReportExport, type ExportFormat } from "@/lib/reports/report-exports";
 import { getReportBundle } from "@/lib/reports/report-server";
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getSession();
-  if (session?.role !== "customer") return NextResponse.json({ error: "Bu sayfaya erişim yetkiniz yok." }, { status: 403 });
+  if (!isCustomerRole(session?.role)) return NextResponse.json({ error: "Bu sayfaya erişim yetkiniz yok." }, { status: 403 });
   const { id } = await context.params;
   const format = new URL(request.url).searchParams.get("format") as ExportFormat;
   if (!["excel", "word", "pdf"].includes(format)) return NextResponse.json({ error: "Geçerli bir dosya biçimi seçin." }, { status: 400 });
