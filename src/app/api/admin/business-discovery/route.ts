@@ -5,7 +5,7 @@ import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/sup
 import { requireModuleAccess } from "@/lib/permissions";
 
 async function requireStaff() {
-  return requireModuleAccess("musteri-bulucu");
+  return await requireModuleAccess("business_discovery") || requireModuleAccess("maps");
 }
 
 function textSearchUrl(query: string) {
@@ -39,6 +39,11 @@ export async function POST(request: Request) {
   const city = String(body.city || "").trim();
   const district = String(body.district || "").trim();
   const sector = String(body.sector || "").trim();
+  const minimumRating = Number(body.minimumRating || 0);
+  const minimumReviewCount = Number(body.minimumReviewCount || 0);
+  const website = String(body.website || "");
+  const phone = String(body.phone || "");
+  const hideSaved = Boolean(body.hideSaved);
   if (!keyword && !sector) return NextResponse.json({ error: "Anahtar kelime veya sektör girin." }, { status: 400 });
   if (!city) return NextResponse.json({ error: "Şehir seçin veya yazın." }, { status: 400 });
 
@@ -51,9 +56,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: data.error_message || "Google Maps işletme araması başarısız oldu." }, { status: 502 });
     }
     const baseResults = (data.results || []).slice(0, 12);
-    const businesses = await Promise.all(baseResults.map(async (place: any) => {
+    const knownPlaceIds = hideSaved && hasSupabaseConfig()
+      ? new Set((await supabaseRest<Array<{ google_place_id?: string }>>("leads?select=google_place_id&google_place_id=not.is.null")).map((lead) => lead.google_place_id).filter(Boolean))
+      : new Set<string>();
+    const businesses = (await Promise.all(baseResults.map(async (place: any) => {
       const details = await getPlaceDetails(place.place_id).catch(() => ({}));
-      return {
+      const business = {
         name: place.name,
         address: place.formatted_address || "",
         phone: details.formatted_phone_number || "",
@@ -61,9 +69,20 @@ export async function POST(request: Request) {
         googleRating: place.rating ?? null,
         reviewCount: Number(place.user_ratings_total || 0),
         placeId: place.place_id,
-        category: Array.isArray(place.types) ? place.types.slice(0, 3).join(", ") : sector
+        category: sector || (Array.isArray(place.types) ? place.types.slice(0, 3).join(", ") : ""),
+        district
       };
-    }));
+      return { ...business, ...scoreDiscoveredBusiness(business) };
+    }))).filter((business) => {
+      if (hideSaved && knownPlaceIds.has(business.placeId)) return false;
+      if (Number(business.googleRating || 0) < minimumRating) return false;
+      if (Number(business.reviewCount || 0) < minimumReviewCount) return false;
+      if (website === "var" && !business.website) return false;
+      if (website === "yok" && business.website) return false;
+      if (phone === "var" && !business.phone) return false;
+      if (phone === "yok" && business.phone) return false;
+      return true;
+    });
     return NextResponse.json({ businesses, count: businesses.length });
   } catch (error) {
     console.error("[business-discovery] İşletme araması çöktü", error);
@@ -97,7 +116,7 @@ export async function PUT(request: Request) {
         google_place_id: business.placeId || "",
         digital_maturity_score: scores.digitalMaturityScore,
         lead_heat_score: scores.leadHeatScore,
-        notes: [body.notes, "Google Maps işletme keşfi ile kaydedildi."].filter(Boolean).join("\n"),
+        notes: [business.notes, body.notes, "Google Maps işletme keşfi ile kaydedildi."].filter(Boolean).join("\n"),
         status: "Yeni"
       };
     });

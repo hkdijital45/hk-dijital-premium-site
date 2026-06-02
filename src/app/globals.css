@@ -139,6 +139,37 @@ html {
   border-color: #cbd5e1;
 }
 
+.admin-light .glass-card {
+  border-color: #cbd5e1;
+  background: rgba(255, 255, 255, .94);
+  box-shadow: 0 18px 54px rgba(15, 23, 42, .1);
+}
+
+.admin-themed header {
+  background: color-mix(in srgb, var(--admin-header) 92%, transparent);
+}
+
+.admin-themed aside {
+  border-color: var(--admin-border);
+  background-color: var(--admin-sidebar);
+}
+
+.admin-themed .glass-card {
+  border-color: var(--admin-border);
+  background: color-mix(in srgb, var(--admin-surface) 94%, transparent);
+}
+
+.admin-themed input,
+.admin-themed textarea,
+.admin-themed select {
+  border-color: var(--admin-border);
+}
+
+.admin-themed button,
+.admin-themed a {
+  --tw-ring-color: var(--admin-button);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

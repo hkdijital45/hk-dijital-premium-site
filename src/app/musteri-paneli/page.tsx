@@ -7,6 +7,8 @@ import { getCustomerCenterData, summarizeMetrics } from "@/lib/customer-center";
 import { hasSupabaseConfig } from "@/lib/supabase";
 import { CustomerReports } from "@/components/customer/CustomerReports";
 import { AnimatedChart, CustomerMetricCard, GlassCard } from "@/components/premium/PremiumUI";
+import { Logo } from "@/components/public/Logo";
+import { getSiteContent } from "@/lib/content";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +38,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
   }
 
   const selectedCompanyId = isAdminPreview ? params.company : session.companyId;
+  const siteContent = await getSiteContent();
   const data = await getCustomerCenterData(selectedCompanyId);
   if (isCustomerRole(session.role)) {
     await recordActivity({
@@ -57,10 +60,13 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
       <div className="premium-grid pointer-events-none absolute inset-0 opacity-45" />
       <header className="relative border-b border-white/10 bg-[#050711]/90 px-4 py-5 shadow-[0_16px_48px_rgba(0,0,0,.2)] backdrop-blur-2xl">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4">
-          <div>
+          <div className="flex items-center gap-4">
+            <Logo content={siteContent} compact />
+            <div>
             <p className="text-sm font-bold uppercase tracking-[.22em] text-cyan-200">Müşteri Performans Merkezi</p>
             <h1 className="mt-2 text-3xl font-black">HK Dijital Marketing Center</h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">Reklam çalışmalarınızı, süreç notlarınızı ve performans özetlerinizi tek ekrandan takip edin.</p>
+            </div>
           </div>
           <form action="/api/auth/logout" method="post">
             <button className="rounded-full border border-white/10 px-5 py-3 text-sm font-bold">Çıkış Yap</button>

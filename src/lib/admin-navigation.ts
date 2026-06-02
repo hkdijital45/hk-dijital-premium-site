@@ -20,7 +20,7 @@ export const adminNavigationGroups = [
   {
     label: "Keşif & Haritalar",
     items: [
-      { label: "İşletme Keşfi", slug: "musteri-bulucu", module: "musteri-bulucu" },
+      { label: "İşletme Keşfi", slug: "isletme-kesfi", module: "musteri-bulucu" },
       { label: "Haritalar", slug: "haritalar", module: "haritalar" },
       { label: "Bölgesel Analiz", slug: "bolgesel-analiz", module: "bolgesel-analiz" },
       { label: "Rakip Listesi", slug: "rakip-listesi", module: "rakip-listesi" },
@@ -73,6 +73,7 @@ export const adminNavigationGroups = [
 export const adminNavigationItems = adminNavigationGroups.flatMap((group) => group.items);
 
 export function getAdminSectionBySlug(slug = "") {
+  if (slug === "musteri-bulucu") return adminNavigationItems.find((item) => item.module === "musteri-bulucu");
   return adminNavigationItems.find((item) => item.slug === slug);
 }
 

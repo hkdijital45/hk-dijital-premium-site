@@ -54,8 +54,8 @@ export function ScrollScene3D({ children, className = "" }: { children: ReactNod
   return <motion.div initial={{ opacity: 0, y: 28, rotateX: 4 }} whileInView={{ opacity: 1, y: 0, rotateX: 0 }} viewport={{ once: true, margin: "-80px" }} transition={{ duration: 0.7 }} className={`perspective-scene ${className}`}>{children}</motion.div>;
 }
 
-export function LoginShell3D({ children }: { children: ReactNode }) {
-  return <section className="relative overflow-hidden px-4 py-16 sm:px-6 lg:px-8 lg:py-24"><div className="premium-grid absolute inset-0 opacity-70" /><div className="relative mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-[.95fr_1.05fr]"><div><p className="text-xs font-black uppercase tracking-[.24em] text-cyan-100">Güvenli erişim noktası</p><h1 className="mt-5 text-4xl font-black leading-tight text-white sm:text-6xl">HK Dijital Marketing Center</h1><p className="mt-5 max-w-xl text-base leading-8 text-slate-300">Müşteri panelinize veya yönetim merkezine güvenli giriş yapın. Raporlarınız, süreç notlarınız ve performans özetleriniz tek merkezde.</p></div><div>{children}</div></div></section>;
+export function LoginShell3D({ children, logo }: { children: ReactNode; logo?: ReactNode }) {
+  return <section className="relative overflow-hidden px-4 py-16 sm:px-6 lg:px-8 lg:py-24"><div className="premium-grid absolute inset-0 opacity-70" /><div className="relative mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-[.95fr_1.05fr]"><div>{logo && <div className="mb-8">{logo}</div>}<p className="text-xs font-black uppercase tracking-[.24em] text-cyan-100">Digital Marketing Command Center</p><h1 className="mt-5 text-4xl font-black leading-tight text-white sm:text-6xl">HK Operating System</h1><p className="mt-3 text-sm font-black uppercase tracking-[.2em] text-amber-100">Powered by HK Dijital</p><p className="mt-5 max-w-xl text-base leading-8 text-slate-300">Müşteri panelinize veya yönetim merkezine güvenli giriş yapın. Raporlarınız, süreç notlarınız ve performans özetleriniz tek merkezde.</p></div><div>{children}</div></div></section>;
 }
 
 export function PlatformSignalStrip() {
