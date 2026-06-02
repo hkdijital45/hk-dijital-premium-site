@@ -91,10 +91,14 @@ function normalizeRecord(key: string, item: any) {
       lead_heat_score: Number(item.lead_heat_score || 0),
       ai_analysis: item.ai_analysis || {},
       proposal_history: item.proposal_history || [],
+      city: item.city || "",
+      district: item.district || "",
+      sector: item.sector || item.business_type || item.businessType || "",
       address: item.address || "",
       google_rating: item.google_rating ?? null,
       google_review_count: Number(item.google_review_count || 0),
       google_place_id: item.google_place_id || "",
+      source_url: item.source_url || "",
       competitor_notes: item.competitor_notes || "",
       local_opportunity_notes: item.local_opportunity_notes || "",
       updated_at: new Date().toISOString()
@@ -202,10 +206,14 @@ async function upsertItems(key: keyof typeof tables, items: any[] = []) {
       delete copy.lead_heat_score;
       delete copy.ai_analysis;
       delete copy.proposal_history;
+      delete copy.city;
+      delete copy.district;
+      delete copy.sector;
       delete copy.address;
       delete copy.google_rating;
       delete copy.google_review_count;
       delete copy.google_place_id;
+      delete copy.source_url;
       delete copy.competitor_notes;
       delete copy.local_opportunity_notes;
       delete copy.deleted_at;

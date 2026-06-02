@@ -24,6 +24,11 @@ const editableFields = [
   "status",
   "notes",
   "follow_up_date",
+  "city",
+  "district",
+  "sector",
+  "address",
+  "source_url",
   "deleted_at",
   "rejected_at",
   "rejection_reason"

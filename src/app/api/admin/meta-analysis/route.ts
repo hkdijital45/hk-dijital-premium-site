@@ -7,6 +7,9 @@ function demoMetaResults(city: string, district: string, sector: string) {
     {
       id: "meta-demo-1",
       name: `${district} ${sector} Reklam Gözlemi`,
+      city,
+      district,
+      sector,
       active: true,
       activeStatus: "Aktif reklam sinyali",
       summary: `${sector} işletmeleri için mesaj, randevu ve hızlı teklif odaklı kreatifler öne çıkıyor. Kısa video ve carousel formatı test edilmeli.`,
@@ -14,11 +17,20 @@ function demoMetaResults(city: string, district: string, sector: string) {
       category: sector,
       cta: "Mesaj Gönder",
       startDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 12).toISOString().slice(0, 10),
-      adUrl: ""
+      adUrl: "",
+      website: "",
+      phone: "",
+      email: "",
+      address: "",
+      metaAdLibraryUrl: `https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=TR&q=${encodeURIComponent(`${district} ${sector}`)}`,
+      googleSearchUrl: `https://www.google.com/search?q=${encodeURIComponent(`${district} ${sector} ${city}`)}`
     },
     {
       id: "meta-demo-2",
       name: `${city} Rakip İçerik Sinyali`,
+      city,
+      district,
+      sector,
       active: false,
       activeStatus: "Pasif / araştırma önerilir",
       summary: `Bölgedeki rakiplerin kampanya dili daha çok fiyat ve kampanya çağrısı üzerine. HK önerisi: güven, sosyal kanıt ve lokasyon avantajı birlikte anlatılmalı.`,
@@ -26,16 +38,26 @@ function demoMetaResults(city: string, district: string, sector: string) {
       category: sector,
       cta: "Detay Al",
       startDate: "",
-      adUrl: ""
+      adUrl: "",
+      website: "",
+      phone: "",
+      email: "",
+      address: "",
+      metaAdLibraryUrl: `https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=TR&q=${encodeURIComponent(`${city} ${sector}`)}`,
+      googleSearchUrl: `https://www.google.com/search?q=${encodeURIComponent(`${city} ${sector} reklam`)}`
     }
   ];
 }
 
-function normalizeMetaAd(ad: any, sector: string) {
+function normalizeMetaAd(ad: any, city: string, district: string, sector: string) {
   const snapshot = ad.snapshot || {};
+  const name = ad.page_name || snapshot.page_name || "Meta reklam kaydı";
   return {
     id: ad.id || ad.ad_archive_id || crypto.randomUUID(),
-    name: ad.page_name || snapshot.page_name || "Meta reklam kaydı",
+    name,
+    city,
+    district,
+    sector,
     active: String(ad.ad_delivery_stop_time || "").length === 0,
     activeStatus: ad.ad_delivery_stop_time ? "Yayını bitmiş" : "Aktif",
     summary: snapshot.body?.text || snapshot.title || ad.creative_body || "Reklam metni özeti alınamadı.",
@@ -43,7 +65,13 @@ function normalizeMetaAd(ad: any, sector: string) {
     category: sector,
     cta: snapshot.cta_text || ad.cta_type || "",
     startDate: ad.ad_delivery_start_time || "",
-    adUrl: ad.ad_snapshot_url || ""
+    adUrl: ad.ad_snapshot_url || "",
+    website: "",
+    phone: "",
+    email: "",
+    address: "",
+    metaAdLibraryUrl: ad.ad_snapshot_url || `https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=TR&q=${encodeURIComponent(name)}`,
+    googleSearchUrl: `https://www.google.com/search?q=${encodeURIComponent(`${name} ${district} ${city}`)}`
   };
 }
 
@@ -83,7 +111,7 @@ export async function POST(request: Request) {
         results: demoMetaResults(city, district, sector)
       });
     }
-    const results = Array.isArray(data.data) ? data.data.map((item: any) => normalizeMetaAd(item, sector)) : [];
+    const results = Array.isArray(data.data) ? data.data.map((item: any) => normalizeMetaAd(item, city, district, sector)) : [];
     return NextResponse.json({ ai: aiMetadata("local", "meta-ad-library-signals"), results });
   } catch (error) {
     console.error("[meta-analysis] Analiz hatası", error);

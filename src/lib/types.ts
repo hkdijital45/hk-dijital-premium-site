@@ -59,13 +59,21 @@ export type LeadStatus =
 
 export type Lead = {
   id: string;
-  source: "quote" | "contact";
+  source: "quote" | "contact" | string;
   name: string;
   company: string;
   phone: string;
   email: string;
   instagram?: string;
   website?: string;
+  address?: string;
+  city?: string;
+  district?: string;
+  sector?: string;
+  source_url?: string;
+  google_place_id?: string;
+  google_rating?: number | null;
+  google_review_count?: number;
   businessType?: string;
   goal?: string;
   budget?: string;

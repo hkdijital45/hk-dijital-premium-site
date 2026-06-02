@@ -12,9 +12,9 @@ import { adminNavigationGroups, adminNavigationItems, getAdminHref } from "@/lib
 import { GlassCard, MetricCard3D } from "@/components/premium/PremiumUI";
 
 const crmActiveStatuses = ["Yeni Başvuru", "İletişime Geçildi", "Takipte", "Teklif Gönderildi", "Müşteri Oldu"];
-const crmStatusTabs = ["Tüm Başvurular", "Yeni Başvurular", "İletişime Geçildi", "Takipte", "Teklif Gönderildi", "Müşteri Oldu", "Reddedilenler", "Silinenler"];
+const crmStatusTabs = ["Tüm Başvurular", "Yeni Başvurular", "İletişime Geçildi", "Takipte", "Teklif Gönderildi", "Müşteri Oldu", "Meta Analiz", "Google Ads Analiz", "Reddedilenler", "Silinenler"];
 const leadStatuses = [...crmActiveStatuses, "Yeni", "Görüşülecek", "Teklif Hazırlanıyor", "Kazanıldı", "Kaybedildi", "Dönüştürüldü", "Reddedildi"];
-const leadSourceOptions = ["İletişim Formu", "Teklif Formu", "Teklif Sihirbazı", "Müşteri Bulucu", "Instagram", "WhatsApp", "Referans", "Manuel Giriş", "Diğer"];
+const leadSourceOptions = ["İletişim Formu", "Teklif Formu", "Teklif Sihirbazı", "Müşteri Bulucu", "Meta Analiz", "Google Ads Analiz", "Instagram", "WhatsApp", "Referans", "Manuel Giriş", "Diğer"];
 const roleOptions = [
   { value: "admin", label: "Yönetici" },
   { value: "yonetici", label: "Operasyon Yöneticisi" },
@@ -61,6 +61,8 @@ function normalizeLeadWorkflowStatus(status?: string) {
 function crmTabForLead(lead: any) {
   if (isLeadDeleted(lead)) return "Silinenler";
   if (isLeadRejected(lead)) return "Reddedilenler";
+  if (lead?.source === "Meta Analiz") return "Meta Analiz";
+  if (lead?.source === "Google Ads Analiz") return "Google Ads Analiz";
   return normalizeLeadWorkflowStatus(lead?.status);
 }
 const sectorOptions = ["Butik Pasta", "Restoran", "Kafe", "Güzellik Merkezi", "Diş Kliniği", "Sağlık", "Eğitim", "E-ticaret", "Gayrimenkul", "Otomotiv", "Hizmet Sektörü", "Dernek / STK", "Diğer"];
@@ -2188,6 +2190,164 @@ function AnalysisSearchForm({ form, setForm, buttonLabel, loading, onSubmit }: a
   return <div className="rounded-[8px] border border-amber-200/15 bg-black/20 p-4 shadow-[0_22px_70px_rgba(0,0,0,.2)]"><div className="grid gap-4 md:grid-cols-3"><SelectField label="İl seç" value={form.city} onChange={updateCity} options={cityOptions} /><SelectField label="İlçe seç" value={form.district} onChange={(district) => setForm({ ...form, district })} options={districts} /><OtherSelectField label="Sektör seç" value={form.sector} onChange={(sector) => setForm({ ...form, sector })} options={sectorOptions} manualLabel="Sektörü yazın" /></div><button onClick={onSubmit} disabled={loading} className="mt-5 inline-flex min-h-12 items-center justify-center rounded-full bg-amber-300 px-6 text-sm font-black text-slate-950 shadow-[0_16px_42px_rgba(251,191,36,.22)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60">{loading ? "Analiz ediliyor..." : buttonLabel}</button></div>;
 }
 
+function valueOrMissing(value: any) {
+  return value ? String(value) : "Bulunamadı";
+}
+
+function analysisLinks(item: any) {
+  return {
+    metaAdLibrary: item.metaAdLibraryUrl || item.adUrl || "",
+    googleMaps: item.googleMapsUrl || (item.googlePlaceId ? `https://www.google.com/maps/place/?q=place_id:${item.googlePlaceId}` : ""),
+    googleSearch: item.googleSearchUrl || `https://www.google.com/search?q=${encodeURIComponent(item.name || "")}`,
+    website: item.website || ""
+  };
+}
+
+function buildAnalysisSavePayload(kind: "meta" | "google", item: any, form: any) {
+  const links = analysisLinks(item);
+  return {
+    source: kind === "meta" ? "Meta Analiz" : "Google Ads Analiz",
+    city: item.city || form.city,
+    district: item.district || form.district,
+    sector: item.sector || item.category || form.sector,
+    businessName: item.name,
+    website: item.website || "",
+    phone: item.phone || "",
+    email: item.email || "",
+    address: item.address || "",
+    links,
+    summary: item.summary || item.adActivitySignal || item.googleBusinessPresence || "",
+    platform: item.platform || (kind === "meta" ? "Facebook / Instagram" : "Google"),
+    aiNote: item.opportunityNote || item.adActivitySignal || item.summary || "",
+    googlePlaceId: kind === "google" ? (item.googlePlaceId || item.google_place_id || item.id || "") : "",
+    googleRating: item.googleRating || item.google_rating || null,
+    googleReviewCount: item.googleReviewCount || item.google_review_count || 0
+  };
+}
+
+function AnalysisDetailModal({ kind, item, form, aiMeta, saved, saving, message, onClose, onSave }: any) {
+  const links = analysisLinks(item);
+  const rows = [
+    ["İşletme / Sayfa adı", item.name],
+    ["Reklam kaynağı", kind === "meta" ? "Meta Analiz" : "Google Ads Analiz"],
+    ["İl", item.city || form.city],
+    ["İlçe", item.district || form.district],
+    ["Sektör", item.sector || item.category || form.sector],
+    ["Reklam özeti", item.summary || item.adActivitySignal],
+    ["Platform", item.platform || (kind === "meta" ? "Facebook / Instagram" : "Google")],
+    ["Website", item.website],
+    ["Telefon", item.phone],
+    ["E-posta", item.email],
+    ["Adres", item.address],
+    ["AI yorum / fırsat notu", item.opportunityNote || item.adActivitySignal || item.summary]
+  ];
+  const linkRows = [
+    ["Google Maps link", links.googleMaps],
+    ["Meta Ad Library link", links.metaAdLibrary],
+    ["Google search link", links.googleSearch]
+  ].filter(([, url]) => url);
+  return (
+    <div className="fixed inset-0 z-[80] grid place-items-center bg-black/75 p-4">
+      <div className="premium-scrollbar max-h-[92vh] w-full max-w-4xl overflow-auto rounded-[8px] border border-white/10 bg-[#070b16] p-5 shadow-2xl">
+        <div className="mb-5 flex items-start justify-between gap-3">
+          <div>
+            <p className={`text-xs font-black uppercase tracking-[.16em] ${kind === "meta" ? "text-orange-200" : "text-yellow-200"}`}>{kind === "meta" ? "Meta Analiz Detayı" : "Google Ads Analiz Detayı"}</p>
+            <h2 className="mt-2 text-2xl font-black text-white">{item.name}</h2>
+            <AiUsageBadge meta={aiMeta} />
+          </div>
+          <button onClick={onClose} className="grid size-10 place-items-center rounded-full border border-white/10"><X size={18} /></button>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          {rows.map(([label, value]) => (
+            <div key={label} className="rounded-[8px] border border-white/10 bg-white/[0.035] p-3">
+              <p className="text-[10px] font-black uppercase tracking-[.12em] text-slate-500">{label}</p>
+              <p className="mt-2 text-sm leading-6 text-slate-100">{valueOrMissing(value)}</p>
+            </div>
+          ))}
+        </div>
+        {!!linkRows.length && <div className="mt-4 flex flex-wrap gap-2">{linkRows.map(([label, url]) => <a key={label} href={url} target="_blank" rel="noreferrer" className="rounded-full border border-cyan-200/20 px-4 py-2 text-xs font-black text-cyan-100">{label}</a>)}</div>}
+        {message && <p className={`mt-4 rounded-[8px] border p-3 text-sm ${message.includes("zaten") || message.includes("hata") ? "border-amber-300/25 bg-amber-300/10 text-amber-100" : "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"}`}>{message}</p>}
+        <div className="mt-5 flex flex-wrap justify-end gap-2">
+          <button onClick={onClose} className="rounded-full border border-white/10 px-4 py-2 text-sm">Kapat</button>
+          <button onClick={onSave} disabled={saving || saved} className="rounded-full bg-amber-300 px-5 py-2 text-sm font-black text-slate-950 disabled:opacity-60">{saved ? "CRM’e Kaydedildi" : saving ? "CRM’e kaydediliyor..." : "CRM’e Kaydet"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AnalysisResultCard({ kind, item, form, aiMeta, saved, saving, message, onOpen, onSave }: any) {
+  const isMeta = kind === "meta";
+  return (
+    <button type="button" onClick={onOpen} className="rounded-[8px] border border-white/10 bg-white/[0.045] p-5 text-left shadow-[0_22px_70px_rgba(0,0,0,.22)] transition hover:-translate-y-1 hover:border-amber-200/40 hover:bg-white/[0.07]">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className={`text-xs font-black uppercase tracking-[.14em] ${isMeta ? "text-orange-200" : "text-yellow-200"}`}>{isMeta ? (item.platform || "Facebook / Instagram") : "Google Ads Analiz"}</p>
+          <h3 className="mt-2 text-lg font-black text-white">{item.name}</h3>
+          <p className="mt-1 text-xs text-slate-500">{isMeta ? `${form.city} / ${form.district} / ${form.sector}` : (item.website || "Website bilgisi yok")}</p>
+        </div>
+        <div className="flex flex-wrap justify-end gap-2">
+          <span className={`rounded-full px-3 py-1 text-xs font-black ${isMeta ? (item.active ? "bg-emerald-300/12 text-emerald-100" : "bg-slate-400/10 text-slate-300") : "bg-yellow-300/12 text-yellow-100"}`}>{isMeta ? (item.active ? "Aktif reklam var" : "Aktif reklam sinyali yok") : `${item.searchVisibilityScore}/100 görünürlük`}</span>
+          {saved && <span className="rounded-full bg-emerald-300/12 px-3 py-1 text-xs font-black text-emerald-100">CRM’e Kaydedildi</span>}
+        </div>
+      </div>
+      <AiUsageBadge meta={aiMeta} />
+      <p className="mt-4 text-sm leading-6 text-slate-300">{item.summary || item.adActivitySignal || item.googleBusinessPresence}</p>
+      <div className="mt-4 grid gap-2 text-xs text-slate-400 sm:grid-cols-2">
+        {isMeta ? <>
+          <span>Tahmini kategori: <strong className="text-slate-200">{item.category || item.sector || "-"}</strong></span>
+          <span>CTA: <strong className="text-slate-200">{item.cta || "-"}</strong></span>
+          <span>Başlangıç: <strong className="text-slate-200">{item.startDate || "-"}</strong></span>
+          <span>Durum: <strong className="text-slate-200">{item.activeStatus || "-"}</strong></span>
+        </> : <>
+          <span>Google Business: <strong className="text-slate-200">{item.googleBusinessPresence}</strong></span>
+          <span>Reklam sinyali: <strong className="text-slate-200">{item.adActivitySignal}</strong></span>
+          <span>Telefon: <strong className="text-slate-200">{item.phone || "Bulunamadı"}</strong></span>
+          <span>Adres: <strong className="text-slate-200">{item.address || "Bulunamadı"}</strong></span>
+        </>}
+      </div>
+      {!isMeta && <div className="mt-4 flex flex-wrap gap-2">{(item.keywordOpportunities || []).map((keyword) => <span key={keyword} className="rounded-full border border-yellow-200/20 px-3 py-1 text-xs text-yellow-100">{keyword}</span>)}</div>}
+      {message && <p className={`mt-4 rounded-[8px] border p-2 text-xs ${message.includes("zaten") || message.includes("hata") ? "border-amber-300/25 bg-amber-300/10 text-amber-100" : "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"}`}>{message}</p>}
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button type="button" onClick={(event) => { event.stopPropagation(); onSave(); }} disabled={saving || saved} className="rounded-full bg-amber-300 px-4 py-2 text-xs font-black text-slate-950 disabled:opacity-60">{saved ? "CRM’e Kaydedildi" : saving ? "CRM’e kaydediliyor..." : "CRM’e Kaydet"}</button>
+        <span className="rounded-full border border-white/10 px-4 py-2 text-xs font-black text-slate-300">Detayı aç</span>
+      </div>
+    </button>
+  );
+}
+
+function useAnalysisCrmSaving(kind: "meta" | "google", form: any) {
+  const [selected, setSelected] = useState(null);
+  const [savedIds, setSavedIds] = useState({});
+  const [savingId, setSavingId] = useState("");
+  const [messages, setMessages] = useState({});
+  async function save(item) {
+    const id = item.id || item.name;
+    setSavingId(id);
+    setMessages({ ...messages, [id]: "CRM’e kaydediliyor..." });
+    try {
+      const response = await fetch("/api/admin/leads/from-analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildAnalysisSavePayload(kind, item, form))
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.status === 409 || data.duplicate) {
+        setMessages((prev) => ({ ...prev, [id]: "Bu kayıt CRM’de zaten var." }));
+        return;
+      }
+      if (!response.ok) throw new Error(data.error || "Kayıt CRM’e eklenirken hata oluştu.");
+      setSavedIds((prev) => ({ ...prev, [id]: true }));
+      setMessages((prev) => ({ ...prev, [id]: "Kayıt CRM’e eklendi." }));
+    } catch {
+      setMessages((prev) => ({ ...prev, [id]: "Kayıt CRM’e eklenirken hata oluştu." }));
+    } finally {
+      setSavingId("");
+    }
+  }
+  return { selected, setSelected, savedIds, savingId, messages, save };
+}
+
 function MetaAnalysisSection() {
   const [form, setForm] = useState({ city: "Manisa", district: "Yunusemre", sector: "Restoran" });
   const [loading, setLoading] = useState(false);
@@ -2195,6 +2355,7 @@ function MetaAnalysisSection() {
   const [warning, setWarning] = useState("");
   const [results, setResults] = useState([]);
   const [aiMeta, setAiMeta] = useState(aiMetaFromApi({ activeProvider: "Demo Modu", model: "meta-analysis-demo", demoMode: true }));
+  const crm = useAnalysisCrmSaving("meta", form);
   async function analyze() {
     setLoading(true);
     setError("");
@@ -2213,7 +2374,7 @@ function MetaAnalysisSection() {
       setLoading(false);
     }
   }
-  return <Panel title="Meta Analiz"><div className="mb-5 rounded-[8px] border border-orange-300/20 bg-gradient-to-br from-orange-300/12 via-yellow-200/5 to-transparent p-5"><p className="text-xs font-black uppercase tracking-[.16em] text-orange-200">Meta Reklam Zekâsı</p><h2 className="mt-2 text-2xl font-black text-white">Facebook ve Instagram reklam sinyallerini ayrı analiz edin</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">İl, ilçe ve sektör seçimine göre Meta Ad Library odaklı gözlemler, CTA ve kreatif metin özetleri üretir.</p></div><AnalysisSearchForm form={form} setForm={setForm} loading={loading} onSubmit={analyze} buttonLabel="Meta Reklamlarını Analiz Et" />{warning && <p className="mt-4 rounded-[8px] border border-amber-300/25 bg-amber-300/10 p-3 text-sm text-amber-100">{warning}</p>}{error && <p className="mt-4 rounded-[8px] border border-red-300/25 bg-red-500/10 p-3 text-sm text-red-100">{error}</p>}<div className="mt-5 grid gap-4 lg:grid-cols-2">{results.map((item) => <div key={item.id || item.name} className="rounded-[8px] border border-white/10 bg-white/[0.045] p-5 shadow-[0_22px_70px_rgba(0,0,0,.22)]"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.14em] text-orange-200">{item.platform || "Facebook / Instagram"}</p><h3 className="mt-2 text-lg font-black text-white">{item.name}</h3></div><span className={`rounded-full px-3 py-1 text-xs font-black ${item.active ? "bg-emerald-300/12 text-emerald-100" : "bg-slate-400/10 text-slate-300"}`}>{item.active ? "Aktif reklam var" : "Aktif reklam sinyali yok"}</span></div><AiUsageBadge meta={aiMeta} /><p className="mt-4 text-sm leading-6 text-slate-300">{item.summary}</p><div className="mt-4 grid gap-2 text-xs text-slate-400 sm:grid-cols-2"><span>Tahmini kategori: <strong className="text-slate-200">{item.category || "-"}</strong></span><span>CTA: <strong className="text-slate-200">{item.cta || "-"}</strong></span><span>Başlangıç: <strong className="text-slate-200">{item.startDate || "-"}</strong></span><span>Durum: <strong className="text-slate-200">{item.activeStatus || "-"}</strong></span></div>{item.adUrl && <a href={item.adUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex rounded-full border border-orange-200/20 px-4 py-2 text-xs font-black text-orange-100">Reklam bağlantısını aç</a>}</div>)}{!loading && !error && !results.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-center text-sm text-slate-400 lg:col-span-2">Bu seçim için sonuç bulunamadı.</p>}</div></Panel>;
+  return <Panel title="Meta Analiz"><div className="mb-5 rounded-[8px] border border-orange-300/20 bg-gradient-to-br from-orange-300/12 via-yellow-200/5 to-transparent p-5"><p className="text-xs font-black uppercase tracking-[.16em] text-orange-200">Meta Reklam Zekâsı</p><h2 className="mt-2 text-2xl font-black text-white">Facebook ve Instagram reklam sinyallerini ayrı analiz edin</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">İl, ilçe ve sektör seçimine göre Meta Ad Library odaklı gözlemler, CTA ve kreatif metin özetleri üretir.</p></div><AnalysisSearchForm form={form} setForm={setForm} loading={loading} onSubmit={analyze} buttonLabel="Meta Reklamlarını Analiz Et" />{warning && <p className="mt-4 rounded-[8px] border border-amber-300/25 bg-amber-300/10 p-3 text-sm text-amber-100">{warning}</p>}{error && <p className="mt-4 rounded-[8px] border border-red-300/25 bg-red-500/10 p-3 text-sm text-red-100">{error}</p>}<div className="mt-5 grid gap-4 lg:grid-cols-2">{results.map((item) => { const id = item.id || item.name; return <AnalysisResultCard key={id} kind="meta" item={item} form={form} aiMeta={aiMeta} saved={crm.savedIds[id]} saving={crm.savingId === id} message={crm.messages[id]} onOpen={() => crm.setSelected(item)} onSave={() => crm.save(item)} />; })}{!loading && !error && !results.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-center text-sm text-slate-400 lg:col-span-2">Bu seçim için sonuç bulunamadı.</p>}</div>{crm.selected && <AnalysisDetailModal kind="meta" item={crm.selected} form={form} aiMeta={aiMeta} saved={crm.savedIds[crm.selected.id || crm.selected.name]} saving={crm.savingId === (crm.selected.id || crm.selected.name)} message={crm.messages[crm.selected.id || crm.selected.name]} onClose={() => crm.setSelected(null)} onSave={() => crm.save(crm.selected)} />}</Panel>;
 }
 
 function GoogleAdsAnalysisSection() {
@@ -2223,6 +2384,7 @@ function GoogleAdsAnalysisSection() {
   const [warning, setWarning] = useState("");
   const [results, setResults] = useState([]);
   const [aiMeta, setAiMeta] = useState(aiMetaFromApi({ activeProvider: "Demo Modu", model: "google-analysis-demo", demoMode: true }));
+  const crm = useAnalysisCrmSaving("google", form);
   async function analyze() {
     setLoading(true);
     setError("");
@@ -2241,7 +2403,7 @@ function GoogleAdsAnalysisSection() {
       setLoading(false);
     }
   }
-  return <Panel title="Google Ads Analiz"><div className="mb-5 rounded-[8px] border border-yellow-300/20 bg-gradient-to-br from-yellow-300/12 via-orange-200/5 to-transparent p-5"><p className="text-xs font-black uppercase tracking-[.16em] text-yellow-200">Google Reklam Zekâsı</p><h2 className="mt-2 text-2xl font-black text-white">Arama görünürlüğü ve yerel reklam fırsatlarını ayrı analiz edin</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">Google Maps ve işletme sinyallerinden arama görünürlüğü, anahtar kelime fırsatı ve kampanya tipi önerileri üretir.</p></div><AnalysisSearchForm form={form} setForm={setForm} loading={loading} onSubmit={analyze} buttonLabel="Google Reklamlarını Analiz Et" />{warning && <p className="mt-4 rounded-[8px] border border-amber-300/25 bg-amber-300/10 p-3 text-sm text-amber-100">{warning}</p>}{error && <p className="mt-4 rounded-[8px] border border-red-300/25 bg-red-500/10 p-3 text-sm text-red-100">{error}</p>}<div className="mt-5 grid gap-4 lg:grid-cols-2">{results.map((item) => <div key={item.id || item.name} className="rounded-[8px] border border-white/10 bg-white/[0.045] p-5 shadow-[0_22px_70px_rgba(0,0,0,.22)]"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.14em] text-yellow-200">Google Ads Opportunity</p><h3 className="mt-2 text-lg font-black text-white">{item.name}</h3><p className="mt-1 text-xs text-slate-500">{item.website || "Website bilgisi yok"}</p></div><span className="rounded-full bg-yellow-300/12 px-3 py-1 text-xs font-black text-yellow-100">{item.searchVisibilityScore}/100 görünürlük</span></div><AiUsageBadge meta={aiMeta} /><div className="mt-4 grid gap-2 text-xs text-slate-400 sm:grid-cols-2"><span>Google Business: <strong className="text-slate-200">{item.googleBusinessPresence}</strong></span><span>Reklam sinyali: <strong className="text-slate-200">{item.adActivitySignal}</strong></span><span>Kampanya tipi: <strong className="text-slate-200">{item.suggestedCampaignType}</strong></span><span>Rekabet: <strong className="text-slate-200">{item.competitionLevel}</strong></span></div><div className="mt-4 flex flex-wrap gap-2">{(item.keywordOpportunities || []).map((keyword) => <span key={keyword} className="rounded-full border border-yellow-200/20 px-3 py-1 text-xs text-yellow-100">{keyword}</span>)}</div>{item.website && <a href={item.website} target="_blank" rel="noreferrer" className="mt-4 inline-flex rounded-full border border-yellow-200/20 px-4 py-2 text-xs font-black text-yellow-100">Website'i aç</a>}</div>)}{!loading && !error && !results.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-center text-sm text-slate-400 lg:col-span-2">Bu seçim için sonuç bulunamadı.</p>}</div></Panel>;
+  return <Panel title="Google Ads Analiz"><div className="mb-5 rounded-[8px] border border-yellow-300/20 bg-gradient-to-br from-yellow-300/12 via-orange-200/5 to-transparent p-5"><p className="text-xs font-black uppercase tracking-[.16em] text-yellow-200">Google Reklam Zekâsı</p><h2 className="mt-2 text-2xl font-black text-white">Arama görünürlüğü ve yerel reklam fırsatlarını ayrı analiz edin</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">Google Maps ve işletme sinyallerinden arama görünürlüğü, anahtar kelime fırsatı ve kampanya tipi önerileri üretir.</p></div><AnalysisSearchForm form={form} setForm={setForm} loading={loading} onSubmit={analyze} buttonLabel="Google Reklamlarını Analiz Et" />{warning && <p className="mt-4 rounded-[8px] border border-amber-300/25 bg-amber-300/10 p-3 text-sm text-amber-100">{warning}</p>}{error && <p className="mt-4 rounded-[8px] border border-red-300/25 bg-red-500/10 p-3 text-sm text-red-100">{error}</p>}<div className="mt-5 grid gap-4 lg:grid-cols-2">{results.map((item) => { const id = item.id || item.name; return <AnalysisResultCard key={id} kind="google" item={item} form={form} aiMeta={aiMeta} saved={crm.savedIds[id]} saving={crm.savingId === id} message={crm.messages[id]} onOpen={() => crm.setSelected(item)} onSave={() => crm.save(item)} />; })}{!loading && !error && !results.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-center text-sm text-slate-400 lg:col-span-2">Bu seçim için sonuç bulunamadı.</p>}</div>{crm.selected && <AnalysisDetailModal kind="google" item={crm.selected} form={form} aiMeta={aiMeta} saved={crm.savedIds[crm.selected.id || crm.selected.name]} saving={crm.savingId === (crm.selected.id || crm.selected.name)} message={crm.messages[crm.selected.id || crm.selected.name]} onClose={() => crm.setSelected(null)} onSave={() => crm.save(crm.selected)} />}</Panel>;
 }
 
 function ChannelAnalysis({ content, channel }: any) {
