@@ -11,7 +11,9 @@ import { Logo } from "@/components/public/Logo";
 import { adminNavigationGroups, adminNavigationItems, getAdminHref } from "@/lib/admin-navigation";
 import { GlassCard, MetricCard3D } from "@/components/premium/PremiumUI";
 
-const leadStatuses = ["Yeni", "Görüşülecek", "Teklif Hazırlanıyor", "Teklif Gönderildi", "Takipte", "Kazanıldı", "Kaybedildi", "Dönüştürüldü"];
+const crmActiveStatuses = ["Yeni Başvuru", "İletişime Geçildi", "Takipte", "Teklif Gönderildi", "Müşteri Oldu"];
+const crmStatusTabs = ["Tüm Başvurular", "Yeni Başvurular", "İletişime Geçildi", "Takipte", "Teklif Gönderildi", "Müşteri Oldu", "Reddedilenler", "Silinenler"];
+const leadStatuses = [...crmActiveStatuses, "Yeni", "Görüşülecek", "Teklif Hazırlanıyor", "Kazanıldı", "Kaybedildi", "Dönüştürüldü", "Reddedildi"];
 const leadSourceOptions = ["İletişim Formu", "Teklif Formu", "Teklif Sihirbazı", "Müşteri Bulucu", "Instagram", "WhatsApp", "Referans", "Manuel Giriş", "Diğer"];
 const roleOptions = [
   { value: "admin", label: "Yönetici" },
@@ -38,6 +40,29 @@ const legacyRole = (role) => role === "sales" ? "yonetici" : role === "customer"
 const customerRole = (role) => ["customer", "musteri"].includes(role);
 const statusOptions = ["Aktif", "Pasif"];
 const companyStatusOptions = ["Aktif", "Pasif", "Beklemede", "Potansiyel", "Eski Müşteri"];
+
+function isLeadDeleted(lead: any) {
+  return Boolean(lead?.deleted_at || lead?.deletedAt);
+}
+
+function isLeadRejected(lead: any) {
+  return Boolean(lead?.rejected_at || lead?.rejectedAt || lead?.status === "Reddedildi" || lead?.status === "Kaybedildi");
+}
+
+function normalizeLeadWorkflowStatus(status?: string) {
+  if (["Yeni", "Yeni Başvuru"].includes(status || "")) return "Yeni Başvurular";
+  if (["Görüşülecek", "İletişime Geçildi"].includes(status || "")) return "İletişime Geçildi";
+  if (status === "Takipte") return "Takipte";
+  if (["Teklif Hazırlanıyor", "Teklif Gönderildi"].includes(status || "")) return "Teklif Gönderildi";
+  if (["Kazanıldı", "Dönüştürüldü", "Müşteri Oldu"].includes(status || "")) return "Müşteri Oldu";
+  return "Yeni Başvurular";
+}
+
+function crmTabForLead(lead: any) {
+  if (isLeadDeleted(lead)) return "Silinenler";
+  if (isLeadRejected(lead)) return "Reddedilenler";
+  return normalizeLeadWorkflowStatus(lead?.status);
+}
 const sectorOptions = ["Butik Pasta", "Restoran", "Kafe", "Güzellik Merkezi", "Diş Kliniği", "Sağlık", "Eğitim", "E-ticaret", "Gayrimenkul", "Otomotiv", "Hizmet Sektörü", "Dernek / STK", "Diğer"];
 const cityOptions = ["Manisa", "İzmir", "İstanbul", "Ankara", "Bursa", "Balıkesir", "Aydın", "Denizli", "Muğla", "Diğer"];
 const platformOptions = ["Meta", "Instagram", "Facebook", "Google", "TikTok", "LinkedIn", "YouTube", "Diğer"];
@@ -776,12 +801,15 @@ function Crm({ content, setContent, view, setActive }: any) {
   const [query, setQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [statusTab, setStatusTab] = useState("Tüm Başvurular");
   const [sectorFilter, setSectorFilter] = useState("");
   const [budgetFilter, setBudgetFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [selectedLead, setSelectedLead] = useState(null);
+  const [message, setMessage] = useState("");
   const leads = (content.leads ?? [])
+    .filter((lead) => statusTab === "Tüm Başvurular" ? !isLeadDeleted(lead) && !isLeadRejected(lead) : crmTabForLead(lead) === statusTab)
     .filter((lead) => JSON.stringify(lead).toLocaleLowerCase("tr").includes(query.toLocaleLowerCase("tr")))
     .filter((lead) => !sourceFilter || lead.source === sourceFilter)
     .filter((lead) => !statusFilter || lead.status === statusFilter)
@@ -790,7 +818,42 @@ function Crm({ content, setContent, view, setActive }: any) {
     .filter((lead) => !dateFrom || String(lead.created_at || lead.createdAt || "").slice(0, 10) >= dateFrom)
     .filter((lead) => !dateTo || String(lead.created_at || lead.createdAt || "").slice(0, 10) <= dateTo)
     .filter((lead) => view !== "Teklif Sihirbazı Kayıtları" || ["quote", "Teklif Formu", "Teklif Sihirbazı"].includes(lead.source));
-  const update = (id, patch) => setContent({ ...content, leads: content.leads.map((lead) => (lead.id === id ? { ...lead, ...patch } : lead)) });
+  const tabCounts = crmStatusTabs.reduce((acc, tab) => {
+    acc[tab] = tab === "Tüm Başvurular"
+      ? (content.leads || []).filter((lead) => !isLeadDeleted(lead) && !isLeadRejected(lead)).length
+      : (content.leads || []).filter((lead) => crmTabForLead(lead) === tab).length;
+    return acc;
+  }, {});
+  const update = (id, patch) => {
+    const nextLeads = content.leads.map((lead) => (lead.id === id ? { ...lead, ...patch } : lead));
+    setContent({ ...content, leads: nextLeads });
+    if (selectedLead?.id === id) setSelectedLead({ ...selectedLead, ...patch });
+  };
+  async function persistLead(id, patch, successMessage = "Başvuru güncellendi.") {
+    setMessage("İşlem kaydediliyor...");
+    const response = await fetch(`/api/admin/leads/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setMessage(data.supabaseError ? `${data.error}: ${data.supabaseError}` : data.error || "Başvuru güncellenemedi.");
+      return null;
+    }
+    update(id, data.lead || patch);
+    setMessage(data.message || successMessage);
+    return data.lead;
+  }
+  async function permanentDelete(id) {
+    setMessage("Başvuru kalıcı olarak siliniyor...");
+    const response = await fetch(`/api/admin/leads/${id}`, { method: "DELETE" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setMessage(data.supabaseError ? `${data.error}: ${data.supabaseError}` : data.error || "Başvuru kalıcı olarak silinemedi.");
+      return false;
+    }
+    setContent({ ...content, leads: content.leads.filter((lead) => lead.id !== id) });
+    setSelectedLead(null);
+    setMessage(data.message || "Başvuru kalıcı olarak silindi.");
+    return true;
+  }
   function exportCsv() {
     const rows = leads.map((lead) => [lead.createdAt, lead.source, lead.name, lead.company, lead.phone, lead.email, lead.instagram, lead.website, lead.businessType, lead.goal, lead.budget, lead.recommendedPackage, lead.status, lead.note]);
     const csv = [["Tarih", "Kaynak", "Ad", "Firma", "Telefon", "E-posta", "Instagram", "Web", "İşletme", "Hedef", "Bütçe", "Paket", "Durum", "Not"], ...rows].map((row) => row.map((cell) => `"${String(cell ?? "").replaceAll('"', '""')}"`).join(",")).join("\n");
@@ -801,6 +864,9 @@ function Crm({ content, setContent, view, setActive }: any) {
   }
   return (
     <Panel title={view === "Teklif Sihirbazı Kayıtları" ? "Teklif Sihirbazı Kayıtları" : "Form Başvuruları"}>
+      <div className="mb-5 flex gap-2 overflow-x-auto pb-2">
+        {crmStatusTabs.map((tab) => <button key={tab} onClick={() => setStatusTab(tab)} className={`shrink-0 rounded-full border px-4 py-2 text-xs font-black transition ${statusTab === tab ? "border-cyan-200/60 bg-cyan-200/15 text-cyan-50" : "border-white/10 text-slate-400 hover:border-cyan-200/30 hover:text-cyan-100"}`}>{tab} <span className="ml-1 text-[10px] opacity-70">{tabCounts[tab] || 0}</span></button>)}
+      </div>
       <div className="mb-5 grid gap-3 lg:grid-cols-[1.2fr_repeat(3,.7fr)]">
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Başvuru ara..." className="min-h-11 rounded-[8px] border border-white/10 bg-black/30 px-3 text-white" />
         <SelectField label="Kaynak" value={sourceFilter} onChange={setSourceFilter} options={leadSourceOptions} placeholder="Tüm kaynaklar" />
@@ -813,6 +879,7 @@ function Crm({ content, setContent, view, setActive }: any) {
         <Field label="Bitiş tarihi" type="date" value={dateTo} onChange={setDateTo} />
         <button onClick={exportCsv} className="mt-auto inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-cyan-300 px-4 text-sm font-black text-slate-950"><Download size={16} /> CSV Dışa Aktar</button>
       </div>
+      {message && <p className="mb-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{message}</p>}
       <div className="grid gap-3">
         {leads.map((lead) => (
           <button key={lead.id} onClick={() => setSelectedLead(lead)} className="rounded-[8px] border border-white/10 p-4 text-left transition hover:border-cyan-200/40 hover:bg-cyan-200/5">
@@ -822,11 +889,12 @@ function Crm({ content, setContent, view, setActive }: any) {
             </div>
             <p className="mt-3 text-sm text-slate-300">İşletme: {lead.business_type || lead.businessType || "-"} · Hedef: {lead.goal || "-"} · Bütçe: {lead.budget || "-"}</p>
             <p className="mt-1 text-xs text-slate-500">Önerilen paket: {lead.recommended_package || lead.recommendedPackage || "-"} · Gönderim: {formatDate(lead.created_at || lead.createdAt)}</p>
+            {lead.rejection_reason && <p className="mt-2 rounded-[8px] border border-red-300/20 bg-red-500/10 p-2 text-xs text-red-100">Red nedeni: {lead.rejection_reason}</p>}
           </button>
         ))}
         {!leads.length && <p className="text-sm text-slate-400">Başvuru bulunamadı.</p>}
       </div>
-      {selectedLead && <LeadDrawer lead={selectedLead} update={update} close={() => setSelectedLead(null)} onConverted={(data) => {
+      {selectedLead && <LeadDrawer lead={selectedLead} update={update} persistLead={persistLead} permanentDelete={permanentDelete} close={() => setSelectedLead(null)} onConverted={(data) => {
         setContent({
           ...content,
           leads: content.leads.map((lead) => lead.id === data.lead.id ? data.lead : lead),
@@ -847,12 +915,18 @@ function formatDateTime(value: any) {
   return value ? new Date(value).toLocaleString("tr-TR") : "-";
 }
 
-function LeadDrawer({ lead, update, close, onConverted }: any) {
+function LeadDrawer({ lead, update, persistLead, permanentDelete, close, onConverted }: any) {
   const [conversionMessage, setConversionMessage] = useState("");
   const [conversionError, setConversionError] = useState("");
   const [converting, setConverting] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisMessage, setAnalysisMessage] = useState("");
+  const [editOpen, setEditOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState("");
+  const [rejectionReason, setRejectionReason] = useState(lead.rejection_reason || "");
+  const [actionMessage, setActionMessage] = useState("");
+  const deleted = isLeadDeleted(lead);
+  const rejected = isLeadRejected(lead);
   const whatsappUrl = lead.phone ? `https://wa.me/${String(lead.phone).replace(/\D/g, "")}?text=${encodeURIComponent(`Merhaba ${lead.name || ""}, HK Dijital başvurunuz hakkında iletişime geçiyorum.`)}` : "";
   const details = [
     ["Kaynak", lead.source],
@@ -905,6 +979,30 @@ function LeadDrawer({ lead, update, close, onConverted }: any) {
     lead.ai_analysis = data.analysis;
     setAnalysisMessage(data.message || "AI analizi oluşturuldu ve kaydedildi.");
   }
+  async function softDelete() {
+    const deleted_at = new Date().toISOString();
+    const updated = await persistLead(lead.id, { deleted_at, status: lead.status || "Yeni Başvuru" }, "Başvuru Silinenler klasörüne taşındı.");
+    if (updated) {
+      setActionMessage("Başvuru Silinenler klasörüne taşındı.");
+      setConfirmAction("");
+    }
+  }
+  async function reject() {
+    const rejected_at = new Date().toISOString();
+    const updated = await persistLead(lead.id, { rejected_at, rejection_reason: rejectionReason || null, status: "Reddedildi" }, "Başvuru Reddedilenler klasörüne taşındı.");
+    if (updated) {
+      setActionMessage("Başvuru Reddedilenler klasörüne taşındı.");
+      setConfirmAction("");
+    }
+  }
+  async function restore() {
+    const updated = await persistLead(lead.id, { deleted_at: null, rejected_at: null, rejection_reason: null, status: "Yeni Başvuru" }, "Başvuru geri yüklendi.");
+    if (updated) setActionMessage("Başvuru aktif başvurulara geri yüklendi.");
+  }
+  async function removeForever() {
+    const ok = await permanentDelete(lead.id);
+    if (ok) setConfirmAction("");
+  }
   return (
     <Drawer title="Başvuru Detayı" close={close}>
       <div className="grid gap-3 md:grid-cols-2">
@@ -916,17 +1014,58 @@ function LeadDrawer({ lead, update, close, onConverted }: any) {
         <div className="md:col-span-2"><TextArea label="Dahili notlar" value={lead.notes || lead.internalNotes} onChange={(value) => update(lead.id, { notes: value, internalNotes: value })} /></div>
       </div>
       <div className="mt-5 flex flex-wrap gap-2">
-        <button onClick={convert} disabled={converting || lead.status === "Dönüştürüldü"} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-60">{converting ? "Dönüştürülüyor..." : lead.status === "Dönüştürüldü" ? "Müşteriye dönüştürüldü" : "Başvuruyu müşteriye dönüştür"}</button>
-        <button onClick={() => update(lead.id, { status: "Takipte", follow_up_date: lead.follow_up_date || new Date().toISOString().slice(0, 10) })} className="rounded-full border border-white/10 px-4 py-2 text-sm">Takip görevi oluştur</button>
+        <button onClick={() => setEditOpen(true)} className="rounded-full bg-white px-4 py-2 text-sm font-black text-slate-950">Düzenle</button>
+        <button onClick={convert} disabled={converting || ["Dönüştürüldü", "Müşteri Oldu"].includes(lead.status)} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-60">{converting ? "Dönüştürülüyor..." : ["Dönüştürüldü", "Müşteri Oldu"].includes(lead.status) ? "Müşteri oldu" : "Başvuruyu müşteriye dönüştür"}</button>
+        <button onClick={() => persistLead(lead.id, { status: "Takipte", follow_up_date: lead.follow_up_date || new Date().toISOString().slice(0, 10) }, "Takip görevi oluşturuldu.")} className="rounded-full border border-white/10 px-4 py-2 text-sm">Takip görevi oluştur</button>
         <button onClick={analyze} disabled={analyzing || String(lead.id).startsWith("lead-")} className="inline-flex items-center gap-2 rounded-full border border-cyan-200/30 px-4 py-2 text-sm font-bold text-cyan-100 disabled:opacity-50"><Sparkles size={15} /> {analyzing ? "Analiz hazırlanıyor..." : "AI analizi oluştur"}</button>
         {whatsappUrl && <a href={whatsappUrl} target="_blank" rel="noreferrer" className="rounded-full bg-[#25D366] px-4 py-2 text-sm font-black text-white">WhatsApp mesajı gönder</a>}
+        {!deleted && !rejected && <button onClick={() => setConfirmAction("reject")} className="rounded-full border border-amber-300/30 px-4 py-2 text-sm font-bold text-amber-100">Reddet</button>}
+        {!deleted && <button onClick={() => setConfirmAction("delete")} className="rounded-full border border-red-300/30 px-4 py-2 text-sm font-bold text-red-100">Sil</button>}
+        {(deleted || rejected) && <button onClick={restore} className="rounded-full border border-emerald-300/30 px-4 py-2 text-sm font-bold text-emerald-100">Geri Yükle</button>}
+        {(deleted || rejected) && <button onClick={() => setConfirmAction("permanent")} className="rounded-full bg-red-500 px-4 py-2 text-sm font-black text-white">Kalıcı Sil</button>}
       </div>
+      {actionMessage && <p className="mt-4 rounded-[8px] border border-emerald-300/20 bg-emerald-500/10 p-3 text-sm text-emerald-100">{actionMessage}</p>}
       {analysisMessage && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{analysisMessage}</p>}
       {lead.ai_analysis?.text && <div className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-4"><h3 className="font-black text-cyan-50">HK Intelligence AI Analizi</h3><pre className="mt-3 whitespace-pre-wrap text-sm leading-7 text-cyan-50">{lead.ai_analysis.text}</pre><p className="mt-3 text-xs text-cyan-100/70">{lead.ai_analysis.provider || "Demo"} · {formatDateTime(lead.ai_analysis.generated_at)}</p></div>}
       {conversionMessage && <p className="mt-4 rounded-[8px] border border-emerald-300/20 bg-emerald-500/10 p-3 text-sm text-emerald-100">{conversionMessage}</p>}
       {conversionError && <p className="mt-4 rounded-[8px] border border-red-300/20 bg-red-500/10 p-3 text-sm text-red-100">{conversionError}</p>}
+      {editOpen && <LeadEditModal lead={lead} close={() => setEditOpen(false)} save={async (patch) => {
+        const updated = await persistLead(lead.id, patch, "Başvuru düzenlendi.");
+        if (updated) setEditOpen(false);
+      }} />}
+      {confirmAction === "delete" && <ConfirmDialog title="Başvuruyu Silinenler klasörüne taşı" description="Bu işlem başvuruyu ana CRM listesinden kaldırır. Daha sonra Silinenler klasöründen geri yükleyebilirsiniz." confirmLabel="Sil" tone="danger" onCancel={() => setConfirmAction("")} onConfirm={softDelete} />}
+      {confirmAction === "reject" && <ConfirmDialog title="Başvuruyu reddet" description="Reddedilen başvurular yalnızca Reddedilenler klasöründe görünür. İsterseniz kısa bir red nedeni ekleyin." confirmLabel="Reddet" tone="warning" onCancel={() => setConfirmAction("")} onConfirm={reject}><TextArea rows={3} label="Red nedeni (opsiyonel)" value={rejectionReason} onChange={setRejectionReason} /></ConfirmDialog>}
+      {confirmAction === "permanent" && <ConfirmDialog title="Başvuruyu kalıcı sil" description="Bu işlem geri alınamaz. Başvuru Supabase leads tablosundan tamamen silinir." confirmLabel="Kalıcı Sil" tone="danger" onCancel={() => setConfirmAction("")} onConfirm={removeForever} />}
     </Drawer>
   );
+}
+
+function LeadEditModal({ lead, close, save }: any) {
+  const [form, setForm] = useState({
+    source: lead.source || "Teklif Formu",
+    name: lead.name || "",
+    company: lead.company || "",
+    phone: lead.phone || "",
+    email: lead.email || "",
+    instagram: lead.instagram || "",
+    website: lead.website || "",
+    business_type: lead.business_type || lead.businessType || "",
+    goal: lead.goal || "",
+    budget: lead.budget || "",
+    recommended_package: lead.recommended_package || lead.recommendedPackage || "",
+    message: lead.message || lead.note || "",
+    status: lead.status || "Yeni Başvuru",
+    follow_up_date: lead.follow_up_date || lead.followUpDate || "",
+    notes: lead.notes || lead.internalNotes || "",
+    rejection_reason: lead.rejection_reason || ""
+  });
+  const update = (patch) => setForm({ ...form, ...patch });
+  return <div className="fixed inset-0 z-[70] grid place-items-center bg-black/75 p-4"><div className="max-h-[92vh] w-full max-w-4xl overflow-auto rounded-[8px] border border-white/10 bg-[#080b17] p-5 shadow-2xl"><div className="mb-5 flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">CRM Başvuru Yönetimi</p><h2 className="mt-1 text-2xl font-black text-white">Başvuruyu Düzenle</h2></div><button onClick={close} className="grid size-10 place-items-center rounded-full border border-white/10"><X size={18} /></button></div><div className="grid gap-4 md:grid-cols-2"><SelectField label="Kaynak" value={form.source} onChange={(source) => update({ source })} options={leadSourceOptions} /><SelectField label="Durum" value={form.status} onChange={(status) => update({ status })} options={crmActiveStatuses} /><Field label="Ad Soyad" value={form.name} onChange={(name) => update({ name })} /><Field label="Firma" value={form.company} onChange={(company) => update({ company })} /><Field label="Telefon" value={form.phone} onChange={(phone) => update({ phone })} /><Field label="E-posta" value={form.email} onChange={(email) => update({ email })} /><Field label="Instagram" value={form.instagram} onChange={(instagram) => update({ instagram })} /><Field label="Web sitesi" value={form.website} onChange={(website) => update({ website })} /><OtherSelectField label="Sektör" value={form.business_type} onChange={(business_type) => update({ business_type })} options={sectorOptions} manualLabel="Sektörü yazın" /><Field label="Bütçe" value={form.budget} onChange={(budget) => update({ budget })} /><Field label="Önerilen paket" value={form.recommended_package} onChange={(recommended_package) => update({ recommended_package })} /><Field label="Takip tarihi" type="date" value={form.follow_up_date} onChange={(follow_up_date) => update({ follow_up_date })} /><div className="md:col-span-2"><TextArea label="Hedef" value={form.goal} onChange={(goal) => update({ goal })} /></div><div className="md:col-span-2"><TextArea label="Mesaj" value={form.message} onChange={(message) => update({ message })} /></div><div className="md:col-span-2"><TextArea label="Dahili notlar" value={form.notes} onChange={(notes) => update({ notes })} /></div><div className="md:col-span-2"><TextArea rows={3} label="Red nedeni" value={form.rejection_reason} onChange={(rejection_reason) => update({ rejection_reason })} /></div></div><div className="mt-6 flex flex-wrap justify-end gap-2"><button onClick={close} className="rounded-full border border-white/10 px-4 py-2 text-sm">Vazgeç</button><button onClick={() => save(form)} className="rounded-full bg-cyan-300 px-5 py-2 text-sm font-black text-slate-950">Değişiklikleri Kaydet</button></div></div></div>;
+}
+
+function ConfirmDialog({ title, description, confirmLabel, tone = "danger", children, onCancel, onConfirm }: any) {
+  const danger = tone === "danger";
+  return <div className="fixed inset-0 z-[80] grid place-items-center bg-black/75 p-4"><div className="w-full max-w-lg rounded-[8px] border border-white/10 bg-[#080b17] p-5 shadow-2xl"><h2 className="text-xl font-black text-white">{title}</h2><p className="mt-2 text-sm leading-6 text-slate-400">{description}</p>{children && <div className="mt-4">{children}</div>}<div className="mt-6 flex flex-wrap justify-end gap-2"><button onClick={onCancel} className="rounded-full border border-white/10 px-4 py-2 text-sm">Vazgeç</button><button onClick={onConfirm} className={`rounded-full px-5 py-2 text-sm font-black ${danger ? "bg-red-500 text-white" : "bg-amber-300 text-slate-950"}`}>{confirmLabel}</button></div></div></div>;
 }
 
 function Drawer({ title, close, children }: any) {

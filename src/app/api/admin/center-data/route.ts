@@ -84,6 +84,9 @@ function normalizeRecord(key: string, item: any) {
       status: item.status || "Yeni",
       notes: item.notes || item.internalNotes || "",
       follow_up_date: item.follow_up_date || item.followUpDate || null,
+      deleted_at: item.deleted_at || item.deletedAt || null,
+      rejected_at: item.rejected_at || item.rejectedAt || null,
+      rejection_reason: item.rejection_reason || "",
       digital_maturity_score: Number(item.digital_maturity_score || 0),
       lead_heat_score: Number(item.lead_heat_score || 0),
       ai_analysis: item.ai_analysis || {},
@@ -205,6 +208,9 @@ async function upsertItems(key: keyof typeof tables, items: any[] = []) {
       delete copy.google_place_id;
       delete copy.competitor_notes;
       delete copy.local_opportunity_notes;
+      delete copy.deleted_at;
+      delete copy.rejected_at;
+      delete copy.rejection_reason;
     }
     return copy;
   };

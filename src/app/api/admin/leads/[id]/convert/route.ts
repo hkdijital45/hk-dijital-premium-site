@@ -119,7 +119,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
 
     const updatedLeads = await supabaseRest<any[]>(`leads?id=eq.${encodeURIComponent(lead.id)}`, {
       method: "PATCH",
-      body: JSON.stringify({ company_id: company.id, status: "Dönüştürüldü", updated_at: new Date().toISOString() })
+      body: JSON.stringify({ company_id: company.id, status: "Müşteri Oldu", updated_at: new Date().toISOString() })
     });
 
     await recordActivity({
