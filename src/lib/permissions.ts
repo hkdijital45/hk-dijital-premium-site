@@ -14,6 +14,16 @@ export const adminModules = [
 
 export type AdminModule = (typeof adminModules)[number];
 
+const moduleAliases: Record<string, AdminModule> = {
+  maps: "haritalar"
+};
+
+export function normalizeModule(module?: string | null): AdminModule | null {
+  if (!module) return null;
+  const normalized = moduleAliases[module] || module;
+  return adminModules.includes(normalized as AdminModule) ? normalized as AdminModule : null;
+}
+
 export const roleTemplates: Record<CanonicalRole, AdminModule[]> = {
   admin: [...adminModules],
   yonetici: [
@@ -40,13 +50,14 @@ export function normalizeRole(role?: string | null): CanonicalRole {
 export function getAllowedModules(session?: AppSession | null): AdminModule[] {
   if (!session) return [];
   const configured = Array.isArray(session.allowedModules)
-    ? session.allowedModules.filter((module): module is AdminModule => adminModules.includes(module as AdminModule))
+    ? session.allowedModules.map(normalizeModule).filter((module): module is AdminModule => Boolean(module))
     : [];
-  return configured.length ? configured : roleTemplates[normalizeRole(session.role)];
+  return configured.length ? [...new Set(configured)] : roleTemplates[normalizeRole(session.role)];
 }
 
 export function canAccessModule(session: AppSession | null | undefined, module: string) {
-  return getAllowedModules(session).includes(module as AdminModule);
+  const normalized = normalizeModule(module);
+  return normalized ? getAllowedModules(session).includes(normalized) : false;
 }
 
 export async function getCurrentUser() {
