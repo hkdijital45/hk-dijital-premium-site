@@ -29,8 +29,9 @@ export function AdminLogin() {
   return (
     <main className="grid min-h-screen place-items-center bg-[#050711] px-4 text-white">
       <form onSubmit={login} className="w-full max-w-md rounded-[8px] border border-white/10 bg-white/[0.06] p-8 shadow-2xl backdrop-blur-xl">
-        <p className="text-sm font-bold uppercase tracking-[.22em] text-cyan-200">HK Dijital</p>
-        <h1 className="mt-3 text-3xl font-black">HK Dijital Kontrol Merkezi</h1>
+        <p className="text-sm font-bold uppercase tracking-[.22em] text-cyan-200">Powered by HK Dijital</p>
+        <h1 className="mt-3 text-3xl font-black">HK Operating System</h1>
+        <p className="mt-2 text-xs font-black uppercase tracking-[.18em] text-cyan-100">Digital Marketing Command Center</p>
         <p className="mt-3 text-sm leading-6 text-slate-400">Yönetim paneline güvenli giriş yapın.</p>
         <label className="mt-6 grid gap-2 text-sm font-semibold">
           E-posta

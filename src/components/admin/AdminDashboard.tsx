@@ -4,10 +4,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Activity, AlertTriangle, ArrowDown, ArrowUp, BarChart3, Bot, Building2, ChevronDown, ChevronLeft, ChevronRight, CircleCheck, CircleOff, Copy, Download, FileBarChart, Gauge, GripVertical, HelpCircle, ImagePlus, LayoutDashboard, LogOut, MapPinned, MessageSquareText, Plus, RotateCcw, Save, Search, Settings2, Sparkles, Star, Trash2, UsersRound, WandSparkles, X } from "lucide-react";
+import { Activity, AlertTriangle, ArrowDown, ArrowUp, BarChart3, Bell, Bot, Building2, ChevronDown, ChevronLeft, ChevronRight, CircleCheck, CircleOff, Copy, Download, FileBarChart, Gauge, GripVertical, HelpCircle, ImagePlus, LayoutDashboard, LogOut, MapPinned, MessageSquareText, Plus, RotateCcw, Save, Search, Settings2, Sparkles, Star, Trash2, UsersRound, WandSparkles, X } from "lucide-react";
 import type { SiteContent } from "@/lib/types";
 import { ReportTools } from "@/components/admin/reports/ReportTools";
-import { adminNavigationGroups, getAdminHref } from "@/lib/admin-navigation";
+import { adminNavigationGroups, adminNavigationItems, getAdminHref } from "@/lib/admin-navigation";
 import { GlassCard, MetricCard3D } from "@/components/premium/PremiumUI";
 
 const leadStatuses = ["Yeni", "Görüşülecek", "Teklif Hazırlanıyor", "Teklif Gönderildi", "Takipte", "Kazanıldı", "Kaybedildi", "Dönüştürüldü"];
@@ -103,12 +103,33 @@ export function AdminDashboard({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [customTheme, setCustomTheme] = useState(null);
+  const [bootVisible, setBootVisible] = useState(false);
+  const [bootStep, setBootStep] = useState(0);
   const [openGroups, setOpenGroups] = useState(() => Object.fromEntries(adminNavigationGroups.map((group) => [group.label, true])));
 
   useEffect(() => {
     setTheme(localStorage.getItem("hk-admin-theme") || "dark");
     try { setCustomTheme(JSON.parse(localStorage.getItem("hk-admin-custom-theme") || "null")); } catch {}
+    if (!sessionStorage.getItem("hk-os-boot-complete")) {
+      setBootVisible(true);
+      sessionStorage.setItem("hk-os-boot-complete", "true");
+    }
   }, []);
+
+  useEffect(() => {
+    if (!bootVisible) return;
+    const timer = window.setInterval(() => {
+      setBootStep((current) => {
+        if (current >= bootSequence.length) {
+          window.clearInterval(timer);
+          window.setTimeout(() => setBootVisible(false), 700);
+          return current;
+        }
+        return current + 1;
+      });
+    }, 360);
+    return () => window.clearInterval(timer);
+  }, [bootVisible]);
 
   function toggleTheme() {
     const next = theme === "dark" ? "light" : "dark";
@@ -173,8 +194,9 @@ export function AdminDashboard({
           <div className="flex items-center gap-3">
             <span className="grid size-11 place-items-center rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 text-cyan-100"><LayoutDashboard size={20} /></span>
             <div>
-            <p className="text-xs font-bold uppercase tracking-[.22em] text-cyan-200">HK Dijital Marketing OS</p>
-            <h1 className="text-xl font-black sm:text-2xl">HK Dijital Kontrol Merkezi</h1>
+            <p className="text-xs font-bold uppercase tracking-[.22em] text-cyan-200">Digital Marketing Command Center</p>
+            <h1 className="text-xl font-black sm:text-2xl">HK Operating System</h1>
+            <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[.18em] text-slate-500">Powered by HK Dijital</p>
             </div>
           </div>
           <div className="flex flex-wrap justify-end gap-2">
@@ -213,7 +235,7 @@ export function AdminDashboard({
           >
             {sidebarCollapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}
           </button>
-          {!sidebarCollapsed && <div className="mb-3 rounded-[8px] border border-cyan-200/15 bg-cyan-200/[0.06] p-3"><p className="text-[10px] font-black uppercase tracking-[.18em] text-cyan-100">Operasyon merkezi</p><p className="mt-2 text-xs leading-5 text-slate-400">CRM, analiz ve raporlama araçları tek panelde.</p></div>}
+          {!sidebarCollapsed && <div className="mb-3 rounded-[8px] border border-cyan-200/15 bg-cyan-200/[0.06] p-3"><p className="text-[10px] font-black uppercase tracking-[.18em] text-cyan-100">HK Operating System</p><p className="mt-2 text-xs leading-5 text-slate-400">CRM, analiz ve raporlama araçları tek komuta merkezinde.</p></div>}
           {visibleNavigationGroups.map((group) => {
             const expanded = openGroups[group.label];
             return (
@@ -248,7 +270,7 @@ export function AdminDashboard({
           {!supabaseConfigured && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">Supabase bağlantısı yapılandırılmadı. Canlı ortamda kaydetme çalışmaz.</p>}
           {bootstrapWarning && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">Süper admin kurulum anahtarları hâlâ aktif. Güvenlik için Vercel ortam değişkenlerinden kaldırın.</p>}
           {status && <p className={`mb-5 rounded-[8px] border p-3 text-sm ${status.includes("Kaydedilemedi") ? "border-red-300/30 bg-red-500/10 text-red-100" : "border-cyan-200/20 bg-cyan-200/10 text-cyan-100"}`}>{status}</p>}
-          {active === "Dashboard" && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} systemStatus={systemStatus} currentSession={currentSession} />}
+          {active === "Dashboard" && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} systemStatus={systemStatus} currentSession={currentSession} allowedModules={allowedModules} />}
           {active === "CRM" && <CrmHub {...props} />}
           {["Müşteri Bulucu", "İşletme Keşfi"].includes(active) && <CustomerFinder {...props} />}
           {active === "Lead Yönetimi" && <Crm {...props} view="Lead Durumları" setActive={setActive} />}
@@ -273,7 +295,7 @@ export function AdminDashboard({
           {["Funnel Analizi", "Reklam Fırsatları"].includes(active) && <ChannelAnalysis {...props} channel={active} />}
           {["İçerik Önerileri", "Prompt Kütüphanesi", "Kampanya Hazırlığı"].includes(active) && <PreparationCenter {...props} setActive={setActive} mode={active} />}
           {["Teklifler", "Rapor Yorumları", "Dışa Aktarımlar"].includes(active) && <ReportsHub {...props} />}
-          {active === "Genel Bakış" && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} systemStatus={systemStatus} currentSession={currentSession} />}
+          {active === "Genel Bakış" && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} systemStatus={systemStatus} currentSession={currentSession} allowedModules={allowedModules} />}
           {active === "Sayfa İçerikleri" && <Pages {...props} />}
           {active === "Marka Ayarları" && <Brand {...props} />}
           {active === "Sosyal Medya" && <KeyValue title="Sosyal Medya Yönetimi" object={content.socials} onChange={(object) => setContent({ ...content, socials: object })} />}
@@ -299,12 +321,38 @@ export function AdminDashboard({
           {active === "Kullanım Kılavuzu" && <UsageGuide />}
         </section>
       </div>
+      {bootVisible && <SystemBoot step={bootStep} />}
     </main>
   );
 }
 
+const bootSequence = [
+  ["Initializing CRM...", "CRM Başlatılıyor..."],
+  ["Initializing AI Studio...", "AI Studio Başlatılıyor..."],
+  ["Initializing Reports...", "Raporlar Başlatılıyor..."],
+  ["Initializing Discovery...", "İşletme Keşfi Başlatılıyor..."],
+  ["Initializing Maps...", "Haritalar Başlatılıyor..."],
+  ["Initializing Proposals...", "Teklif Motoru Başlatılıyor..."],
+  ["Initializing Customers...", "Müşteriler Başlatılıyor..."],
+  ["Initializing Operations...", "Operasyonlar Başlatılıyor..."]
+];
+
+function SystemBoot({ step }: { step: number }) {
+  const complete = step >= bootSequence.length;
+  return <div className="fixed inset-0 z-[100] grid place-items-center bg-[#03050d]/95 px-5 backdrop-blur-2xl">
+    <div className="w-full max-w-xl overflow-hidden rounded-[8px] border border-cyan-200/20 bg-[#07101c] p-6 shadow-[0_28px_120px_rgba(34,211,238,.2)] sm:p-8">
+      <div className="flex items-center justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[.2em] text-cyan-200">HK Operating System</p><p className="mt-2 text-[11px] font-bold uppercase tracking-[.18em] text-slate-500">Powered by HK Dijital</p></div><span className="grid size-11 place-items-center rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 text-cyan-100"><Sparkles size={20} /></span></div>
+      <div className="mt-7 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-cyan-300 transition-all duration-300" style={{ width: `${Math.min(100, step / bootSequence.length * 100)}%` }} /></div>
+      <div className="mt-6 min-h-20">
+        {complete ? <div className="animate-pulse"><p className="text-xl font-black text-white">Welcome to HK OS</p><p className="mt-2 text-sm text-cyan-100">HK Operating System hazır.</p></div> : <><p className="text-lg font-black text-white">{bootSequence[step]?.[0]}</p><p className="mt-2 text-sm text-cyan-100">{bootSequence[step]?.[1]}</p></>}
+      </div>
+      <p className="text-xs text-slate-500">Digital Marketing Command Center</p>
+    </div>
+  </div>;
+}
+
 function Panel({ title, children }: any) {
-  return <div><p className="text-[10px] font-black uppercase tracking-[.2em] text-cyan-200">HK Dijital Operasyon Merkezi</p><h2 className="mb-6 mt-2 text-2xl font-black">{title}</h2>{children}</div>;
+  return <div><p className="text-[10px] font-black uppercase tracking-[.2em] text-cyan-200">HK Operating System</p><h2 className="mb-6 mt-2 text-2xl font-black">{title}</h2>{children}</div>;
 }
 
 function Field({ label, value, onChange, type = "text" }: any) {
@@ -353,6 +401,19 @@ function CompanySelect({ label = "Firma", value, onChange, companies }: any) {
 function GlobalAdminSearch() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    function handleShortcut(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setOpen(true);
+        window.setTimeout(() => document.getElementById("hk-command-search")?.focus(), 0);
+      }
+      if (event.key === "Escape") setOpen(false);
+    }
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, []);
   useEffect(() => {
     if (query.trim().length < 2) return setResults([]);
     const timer = setTimeout(async () => {
@@ -362,7 +423,7 @@ function GlobalAdminSearch() {
     }, 220);
     return () => clearTimeout(timer);
   }, [query]);
-  return <div className="relative hidden lg:block"><label className="flex min-h-11 w-64 items-center gap-2 rounded-full border border-white/10 bg-black/10 px-4"><Search size={16} className="text-cyan-200" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Genel arama..." className="w-full bg-transparent text-sm outline-none placeholder:text-slate-500" /></label>{results.length > 0 && <div className="absolute right-0 top-14 z-50 w-[380px] rounded-[8px] border border-white/10 bg-[#0a1020]/95 p-2 shadow-2xl backdrop-blur-2xl">{results.map((result) => <Link key={result.id} href={result.href} onClick={() => setQuery("")} className="flex items-center justify-between gap-3 rounded-[8px] px-3 py-3 text-sm hover:bg-white/10"><span><strong className="block text-white">{result.title}</strong><span className="mt-1 block text-xs text-slate-400">{result.detail}</span></span><span className="rounded-full border border-cyan-200/20 px-2 py-1 text-[10px] font-black text-cyan-100">{result.type}</span></Link>)}</div>}</div>;
+  return <div className="relative"><button onClick={() => { setOpen(true); window.setTimeout(() => document.getElementById("hk-command-search")?.focus(), 0); }} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/10 bg-black/10 px-4 text-sm text-slate-300"><Search size={16} className="text-cyan-200" /><span className="hidden xl:inline">Komut merkezinde ara</span><kbd className="rounded border border-white/10 px-1.5 py-0.5 text-[10px] font-black text-slate-500">⌘K</kbd></button>{open && <div className="fixed inset-0 z-[90] flex justify-center bg-[#02040b]/75 px-4 pt-[12vh] backdrop-blur-sm" onMouseDown={() => setOpen(false)}><div className="h-fit w-full max-w-2xl overflow-hidden rounded-[8px] border border-cyan-200/20 bg-[#08101e]/95 shadow-[0_28px_110px_rgba(0,0,0,.55)]" onMouseDown={(event) => event.stopPropagation()}><label className="flex min-h-16 items-center gap-3 border-b border-white/10 px-5"><Search size={19} className="text-cyan-200" /><input id="hk-command-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Lead, müşteri, rapor, kullanıcı, ayar veya modül ara..." className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500" /><button onClick={() => setOpen(false)} title="Kapat" className="rounded border border-white/10 px-2 py-1 text-[10px] font-black text-slate-400">ESC</button></label><div className="premium-scrollbar max-h-[56vh] overflow-y-auto p-2">{results.map((result) => <Link key={result.id} href={result.href} onClick={() => { setQuery(""); setOpen(false); }} className="flex items-center justify-between gap-3 rounded-[8px] px-3 py-3 text-sm hover:bg-white/10"><span><strong className="block text-white">{result.title}</strong><span className="mt-1 block text-xs text-slate-400">{result.detail}</span></span><span className="rounded-full border border-cyan-200/20 px-2 py-1 text-[10px] font-black text-cyan-100">{result.type}</span></Link>)}{query.trim().length < 2 && <p className="px-3 py-5 text-sm leading-6 text-slate-400">En az iki karakter yazın. Yetkiniz olan modüller ve operasyon kayıtları içinde arama yapılır.</p>}{query.trim().length >= 2 && !results.length && <p className="px-3 py-5 text-sm text-slate-400">Eşleşen sonuç bulunamadı.</p>}</div></div></div>}</div>;
 }
 
 function GlobalSearchPage() {
@@ -440,7 +501,7 @@ function DashboardChart({ title, description, series, suffix = "" }: any) {
   );
 }
 
-function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, currentSession }: any) {
+function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, currentSession, allowedModules = [] }: any) {
   const leads = content.leads ?? [];
   const companies = content.companies ?? [];
   const campaigns = content.campaigns ?? [];
@@ -501,22 +562,24 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     ["CRM hareketleri", activityLogs.length, "Kaydedilen operasyon hareketleri", <Activity size={17} />],
     ["Bu ay reklam harcaması", `${metricsThisMonth.reduce((sum, metric) => sum + Number(metric.spent || 0), 0).toLocaleString("tr-TR")} TL`, "Reklam metriklerinden hesaplanan toplam", <BarChart3 size={17} />]
   ];
+  const moduleAliases: Record<string, string> = { "Müşteri Bulucu": "musteri-bulucu" };
+  const canOpen = (label: string) => allowedModules.includes(moduleAliases[label] || adminNavigationItems.find((item) => item.label === label)?.module);
   const quickActions = [
     ["Yeni İşletme Ara", "Müşteri Bulucu", <Search size={19} />],
     ["CRM Aç", "CRM", <UsersRound size={19} />],
-    ["Haritalar Aç", "Müşteri Bulucu", <MapPinned size={19} />],
+    ["Haritalar Aç", "Haritalar", <MapPinned size={19} />],
     ["AI Analiz Oluştur", "Lead Yönetimi", <WandSparkles size={19} />],
     ["Teklif Hazırla", "Teklif Motoru", <MessageSquareText size={19} />],
     ["Rapor Oluştur", "Raporlar", <FileBarChart size={19} />],
     ["Müşteri Ekle", "Müşteriler", <Building2 size={19} />]
-  ].sort((a, b) => Number(preferences.favorites.includes(b[1])) - Number(preferences.favorites.includes(a[1])));
+  ].filter(([, target]) => canOpen(target)).sort((a, b) => Number(preferences.favorites.includes(b[1])) - Number(preferences.favorites.includes(a[1])));
   const reportCompanyIds = new Set(reports.map((report) => report.company_id));
   const insightItems = [
     [hotLeads.filter((lead) => !["Kazanıldı", "Kaybedildi", "Dönüştürüldü"].includes(lead.status)).length, "Sıcak başvurular takip bekliyor", "Yüksek fırsat skorlu kayıtları bugün değerlendirin.", "Lead Yönetimi"],
     [leads.filter((lead) => !lead.ai_analysis || !Object.keys(lead.ai_analysis).length).length, "AI analizi eksik başvurular var", "Önceliklendirme için işletme analizlerini oluşturun.", "Lead Yönetimi"],
     [activeCustomers.filter((company) => !reportCompanyIds.has(company.id)).length, "Güncel raporu olmayan müşteriler var", "Müşteri iletişimini güçlendirmek için rapor hazırlayın.", "Raporlar"],
     [leads.filter((lead) => !(Array.isArray(lead.proposal_history) && lead.proposal_history.length) && Number(lead.lead_heat_score || 0) >= 50).length, "Teklif hazırlanabilecek fırsatlar var", "Uygun müşteriler için MIN, ORTA ve MAX seçeneklerini oluşturun.", "Teklif Motoru"]
-  ].filter(([count]) => Number(count) > 0);
+  ].filter(([count, , , target]) => Number(count) > 0 && canOpen(target));
   const serviceItems = [
     ["OpenAI", systemStatus.openai, "Yapay zeka sağlayıcısı"],
     ["Groq", systemStatus.groq, "Yapay zeka sağlayıcısı"],
@@ -540,6 +603,29 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     ["Teklif üretimi", "CRM teklif geçmişinden hesaplanan son 6 aylık üretim.", buildMonthlySeries(leads.flatMap((lead) => Array.isArray(lead.proposal_history) ? lead.proposal_history : []), (proposal) => dateValue(proposal, "created_at", "generated_at", "date"))],
     ["Aylık performans", "Reklam metriklerinde kayıtlı aylık harcama hareketi.", buildMonthlySeries(metrics, (metric) => dateValue(metric, "date", "created_at"), (metric) => Number(metric.spent || 0)), " TL"]
   ];
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? ["Good Morning", "Günaydın"] : hour < 18 ? ["Good Afternoon", "İyi Günler"] : ["Good Evening", "İyi Akşamlar"];
+  const userName = currentSession?.fullName || currentSession?.email?.split("@")?.[0] || "Yönetici";
+  const metroTiles = [
+    ["CRM", "Müşteri ilişkilerini yönetin", `${leads.length} başvuru`, "CRM", "xl:col-span-2", <UsersRound size={24} />],
+    ["Lead Yönetimi", "Fırsatları önceliklendirin", `${hotLeads.length} sıcak lead`, "Lead Yönetimi", "", <Gauge size={24} />],
+    ["İşletme Keşfi", "Yeni işletmeleri bulun", "Google Maps destekli", "Müşteri Bulucu", "", <Search size={24} />],
+    ["Haritalar", "Bölgesel fırsatları inceleyin", `${leads.filter((lead) => lead.google_place_id).length} kayıt`, "Haritalar", "", <MapPinned size={24} />],
+    ["Meta Analiz", "Reklam sinyallerini değerlendirin", "Analiz merkezi", "Meta Analiz", "", <BarChart3 size={24} />],
+    ["Google Analiz", "Arama fırsatlarını değerlendirin", "Analiz merkezi", "Google Analiz", "", <Search size={24} />],
+    ["AI Studio", "Ajans çıktıları üretin", `${aiAnalyzedLeads.length} analiz`, "AI Studio", "xl:col-span-2", <Bot size={24} />],
+    ["Hazırlık Merkezi", "Kampanya hazırlığını tamamlayın", "Operasyon listesi", "Hazırlık Merkezi", "", <CircleCheck size={24} />],
+    ["Teklif Motoru", "MIN, ORTA ve MAX teklifleri hazırlayın", `${generatedProposals} teklif`, "Teklif Motoru", "", <MessageSquareText size={24} />],
+    ["Raporlar", "Müşteri performansını sunun", `${reports.length} rapor`, "Raporlar", "", <FileBarChart size={24} />],
+    ["Müşteriler", "Aktif hesapları yönetin", `${activeCustomers.length} aktif`, "Müşteriler", "", <Building2 size={24} />]
+  ].filter(([, , , target]) => canOpen(target));
+  const dashboardPresets = {
+    "CRM Focus": { order: ["metrics", "insights", "crm", "quickActions", "activity", "status", "charts", "demo"], hidden: ["charts"], favorites: ["CRM", "Lead Yönetimi", "Müşteriler"] },
+    "Sales Focus": { order: ["insights", "metrics", "quickActions", "crm", "activity", "status", "charts", "demo"], hidden: ["demo"], favorites: ["Müşteri Bulucu", "Teklif Motoru", "CRM"] },
+    "AI Focus": { order: ["insights", "quickActions", "metrics", "charts", "activity", "status", "crm", "demo"], hidden: ["demo"], favorites: ["AI Studio", "Lead Yönetimi", "Hazırlık Merkezi"] },
+    "Reporting Focus": { order: ["charts", "metrics", "insights", "quickActions", "activity", "status", "crm", "demo"], hidden: ["crm"], favorites: ["Raporlar", "Müşteriler"] },
+    "Executive Overview": { order: dashboardWidgetDefaults, hidden: [], favorites: ["Müşteri Bulucu", "CRM"] }
+  };
 
   async function createDemoCustomer() {
     setDemoLoading(true);
@@ -558,17 +644,35 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     insights: <GlassCard className="p-5"><div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-[8px] bg-amber-300/10 text-amber-200"><WandSparkles size={19} /></span><div><p className="text-xs font-black uppercase tracking-[.16em] text-amber-200">AI içgörüleri</p><h3 className="mt-1 text-lg font-black">Bugünün operasyon önerileri</h3></div></div><div className="mt-4 grid gap-3">{insightItems.map(([count, title, text, target]) => <button key={title} onClick={() => setActive(target)} className="flex items-center justify-between gap-4 rounded-[8px] border border-white/10 bg-black/10 p-4 text-left transition hover:border-cyan-200/30 hover:bg-cyan-200/[0.06]"><div><p className="text-sm font-black text-white">{title}</p><p className="mt-1 text-xs leading-5 text-slate-400">{text}</p></div><span className="grid size-9 shrink-0 place-items-center rounded-full bg-cyan-300 text-sm font-black text-slate-950">{count}</span></button>)}{!insightItems.length && <p className="rounded-[8px] border border-emerald-300/20 bg-emerald-300/10 p-4 text-sm text-emerald-100">Öncelikli aksiyon görünmüyor. Operasyon akışı düzenli ilerliyor.</p>}</div></GlassCard>,
     quickActions: <div><h3 className="text-lg font-black">Hızlı aksiyon merkezi</h3><p className="mt-1 text-sm text-slate-400">Sık kullanılan işlemlere tek adımda ulaşın.</p><div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{quickActions.map(([label, target, icon]) => <div key={label} className="relative"><button onClick={() => setActive(target)} className="flex min-h-28 w-full flex-col justify-between rounded-[8px] border border-white/10 bg-white/[0.035] p-4 text-left transition hover:-translate-y-1 hover:border-cyan-200/40 hover:bg-cyan-200/[0.08]"><span className="text-cyan-200">{icon}</span><span className="text-sm font-black text-white">{label}</span></button><button onClick={() => toggleFavorite(target)} title="Favorilere ekle veya çıkar" className={`absolute right-3 top-3 ${preferences.favorites.includes(target) ? "text-amber-300" : "text-slate-600"}`}><Star size={15} fill={preferences.favorites.includes(target) ? "currentColor" : "none"} /></button></div>)}</div></div>,
     crm: <GlassCard className="p-5"><h3 className="text-lg font-black">CRM akışı</h3><p className="mt-1 text-sm text-slate-400">Potansiyel müşterilerin güncel takip dağılımı.</p><div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">{crmColumns.map((column) => <div key={column.status} className="rounded-[8px] border border-white/10 bg-black/10 p-3"><p className="text-xs text-slate-400">{column.status}</p><p className="mt-2 text-2xl font-black text-white">{column.count}</p></div>)}</div></GlassCard>,
-    activity: <GlassCard className="p-5"><h3 className="text-lg font-black">Son aktivite akışı</h3><p className="mt-1 text-sm text-slate-400">CRM, rapor ve müşteri operasyonlarının son hareketleri.</p><div className="mt-4 grid gap-2">{recentActivity.map((item) => <div key={item.id} className="flex items-center justify-between gap-3 rounded-[8px] border border-white/10 bg-black/10 p-3 text-sm"><div><p className="font-bold text-white">{item.action || "Sistem hareketi"}</p><p className="mt-1 text-xs text-slate-400">{item.entity || item.actor_name || "HK Dijital Kontrol Merkezi"}</p></div><time className="shrink-0 text-[10px] font-bold text-slate-500">{item.created_at ? new Date(item.created_at).toLocaleDateString("tr-TR") : "-"}</time></div>)}{!recentActivity.length && <p className="rounded-[8px] border border-dashed border-white/10 p-5 text-center text-sm text-slate-400">Henüz operasyon hareketi yok.</p>}</div></GlassCard>,
+    activity: <GlassCard className="p-5"><h3 className="text-lg font-black">Son aktivite akışı</h3><p className="mt-1 text-sm text-slate-400">CRM, rapor ve müşteri operasyonlarının son hareketleri.</p><div className="mt-4 grid gap-2">{recentActivity.map((item) => <div key={item.id} className="flex items-center justify-between gap-3 rounded-[8px] border border-white/10 bg-black/10 p-3 text-sm"><div><p className="font-bold text-white">{item.action || "Sistem hareketi"}</p><p className="mt-1 text-xs text-slate-400">{item.entity || item.actor_name || "HK Operating System"}</p></div><time className="shrink-0 text-[10px] font-bold text-slate-500">{item.created_at ? new Date(item.created_at).toLocaleDateString("tr-TR") : "-"}</time></div>)}{!recentActivity.length && <p className="rounded-[8px] border border-dashed border-white/10 p-5 text-center text-sm text-slate-400">Henüz operasyon hareketi yok.</p>}</div></GlassCard>,
     demo: <div className="rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-4"><h3 className="font-black text-cyan-50">Müşteri paneli testi</h3><p className="mt-2 text-sm leading-6 text-cyan-100/80">Geçici şifreli bir test hesabı ve örnek raporlar oluşturarak müşteri deneyimini doğrulayın.</p><button disabled={demoLoading} onClick={createDemoCustomer} className="mt-3 rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950 disabled:opacity-60">{demoLoading ? "Hazırlanıyor..." : "Demo müşteri oluştur"}</button>{demoMessage && <pre className="mt-3 whitespace-pre-wrap rounded-[8px] bg-black/20 p-3 text-xs leading-6 text-cyan-50">{demoMessage}</pre>}</div>
   };
 
   return (
     <Panel title="Operasyon Merkezi">
+      <div className="mb-6 overflow-hidden rounded-[8px] border border-cyan-200/20 bg-[linear-gradient(135deg,rgba(34,211,238,.14),rgba(59,130,246,.06),rgba(250,204,21,.08))] p-5 shadow-[0_22px_80px_rgba(0,0,0,.18)] sm:p-6">
+        <p className="text-xs font-black uppercase tracking-[.18em] text-cyan-200">{greeting[0]}, {userName} 👋</p>
+        <h2 className="mt-2 text-2xl font-black text-white">{greeting[1]}, {userName} 👋</h2>
+        <p className="mt-5 text-lg font-black text-white">Welcome to HK Operating System</p>
+        <p className="mt-1 text-sm font-bold text-cyan-100">Digital Marketing Command Center</p>
+        <p className="mt-2 text-[11px] font-black uppercase tracking-[.18em] text-slate-400">Powered by HK Dijital</p>
+      </div>
+      <div className="mb-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_310px]">
+        <div>
+          <div className="mb-3 flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.18em] text-cyan-200">Metro çalışma alanı</p><h3 className="mt-1 text-xl font-black text-white">Operasyon modülleri</h3></div><span className="rounded-full border border-white/10 px-3 py-1 text-[10px] font-black text-slate-400">HK OS</span></div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{metroTiles.map(([label, description, statistic, target, size, icon], index) => <button key={label} onClick={() => setActive(target)} className={`group min-h-36 rounded-[8px] border p-4 text-left transition duration-300 hover:-translate-y-1 hover:border-cyan-200/45 hover:shadow-[0_18px_55px_rgba(34,211,238,.12)] ${size} ${index % 4 === 0 ? "border-cyan-200/20 bg-cyan-200/[0.08]" : index % 4 === 1 ? "border-blue-300/20 bg-blue-300/[0.07]" : index % 4 === 2 ? "border-amber-200/20 bg-amber-200/[0.06]" : "border-white/10 bg-white/[0.04]"}`}><span className="text-cyan-100 transition group-hover:text-white">{icon}</span><span className="mt-6 block text-sm font-black text-white">{label}</span><span className="mt-1 block text-xs leading-5 text-slate-400">{description}</span><span className="mt-3 block text-[10px] font-black uppercase tracking-[.12em] text-cyan-200">{statistic}</span></button>)}</div>
+        </div>
+        <aside className="rounded-[8px] border border-white/10 bg-white/[0.04] p-4 shadow-[0_20px_64px_rgba(0,0,0,.16)]">
+          <div className="flex items-center gap-3"><span className="grid size-9 place-items-center rounded-[8px] border border-amber-200/20 bg-amber-200/10 text-amber-200"><Bell size={17} /></span><div><p className="text-[10px] font-black uppercase tracking-[.16em] text-amber-200">Insights & Notifications</p><h3 className="mt-1 text-sm font-black text-white">Operasyon bildirimleri</h3></div></div>
+          <div className="mt-4 grid gap-2">{insightItems.slice(0, 5).map(([count, title, , target]) => <button key={title} onClick={() => setActive(target)} className="flex items-start justify-between gap-3 rounded-[8px] border border-white/10 bg-black/10 p-3 text-left transition hover:border-cyan-200/30"><span className="text-xs font-bold leading-5 text-slate-300">{title}</span><span className="grid size-6 shrink-0 place-items-center rounded-full bg-cyan-300 text-[10px] font-black text-slate-950">{count}</span></button>)}{!insightItems.length && <p className="rounded-[8px] border border-emerald-300/20 bg-emerald-300/10 p-3 text-xs leading-5 text-emerald-100">Öncelikli bildirim bulunmuyor.</p>}</div>
+          <div className="mt-5 border-t border-white/10 pt-4"><p className="text-[10px] font-black uppercase tracking-[.15em] text-slate-500">Sistem sağlığı</p><div className="mt-2 flex items-end justify-between gap-3"><span className="text-3xl font-black text-white">%{healthScore}</span><span className={`text-xs font-black ${healthScore >= 80 ? "text-emerald-300" : healthScore >= 55 ? "text-amber-300" : "text-red-300"}`}>{healthScore >= 80 ? "Aktif" : healthScore >= 55 ? "Uyarı" : "Çevrimdışı"}</span></div></div>
+        </aside>
+      </div>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-cyan-200/15 bg-cyan-200/[0.05] p-4">
         <div><p className="text-sm font-black text-cyan-50">Dashboard düzeniniz</p><p className="mt-1 text-xs text-slate-400">Widget görünürlüğünü, sırasını ve favori modüllerinizi kişiselleştirin.</p></div>
         <button onClick={() => setCustomizing((current) => !current)} className="inline-flex min-h-10 items-center gap-2 rounded-full border border-cyan-200/20 px-4 text-xs font-black text-cyan-50"><Settings2 size={15} /> Dashboard'u düzenle</button>
       </div>
-      {customizing && <GlassCard className="mb-5 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-black">Widget tercihleri</h3><button onClick={() => savePreferences({ order: dashboardWidgetDefaults, hidden: [], favorites: ["Müşteri Bulucu", "CRM"] })} className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-2 text-xs font-bold"><RotateCcw size={14} /> Varsayılan düzene dön</button></div><div className="mt-4 grid gap-2 md:grid-cols-2">{preferences.order.map((id, index) => <div key={id} className="flex items-center gap-2 rounded-[8px] border border-white/10 bg-black/10 p-2"><GripVertical size={15} className="text-slate-500" /><label className="flex flex-1 items-center gap-2 text-xs font-bold"><input type="checkbox" checked={!preferences.hidden.includes(id)} onChange={() => toggleWidget(id)} />{widgetNames[id]}</label><button disabled={!index} onClick={() => moveWidget(id, -1)} title="Yukarı taşı" className="rounded p-1 disabled:opacity-30"><ArrowUp size={14} /></button><button disabled={index === preferences.order.length - 1} onClick={() => moveWidget(id, 1)} title="Aşağı taşı" className="rounded p-1 disabled:opacity-30"><ArrowDown size={14} /></button></div>)}</div></GlassCard>}
+      {customizing && <GlassCard className="mb-5 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-black">Widget tercihleri</h3><button onClick={() => savePreferences({ order: dashboardWidgetDefaults, hidden: [], favorites: ["Müşteri Bulucu", "CRM"] })} className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-2 text-xs font-bold"><RotateCcw size={14} /> Varsayılan düzene dön</button></div><div className="mt-4 flex flex-wrap gap-2">{Object.entries(dashboardPresets).map(([label, preset]) => <button key={label} onClick={() => savePreferences(preset)} className="rounded-full border border-cyan-200/20 px-3 py-2 text-xs font-black text-cyan-100 transition hover:bg-cyan-200/10">{label}</button>)}</div><div className="mt-4 grid gap-2 md:grid-cols-2">{preferences.order.map((id, index) => <div key={id} className="flex items-center gap-2 rounded-[8px] border border-white/10 bg-black/10 p-2"><GripVertical size={15} className="text-slate-500" /><label className="flex flex-1 items-center gap-2 text-xs font-bold"><input type="checkbox" checked={!preferences.hidden.includes(id)} onChange={() => toggleWidget(id)} />{widgetNames[id]}</label><button disabled={!index} onClick={() => moveWidget(id, -1)} title="Yukarı taşı" className="rounded p-1 disabled:opacity-30"><ArrowUp size={14} /></button><button disabled={index === preferences.order.length - 1} onClick={() => moveWidget(id, 1)} title="Aşağı taşı" className="rounded p-1 disabled:opacity-30"><ArrowDown size={14} /></button></div>)}</div></GlassCard>}
       <div className="grid gap-6">{preferences.order.filter((id) => !preferences.hidden.includes(id)).map((id) => <section key={id}>{widgets[id]}</section>)}</div>
     </Panel>
   );
