@@ -1,4 +1,4 @@
-import { getSiteContent } from "./content";
+import { generateAiText } from "./ai-provider";
 
 function demoInterpretation(report: any) {
   const metrics = report.metrics || {};
@@ -29,45 +29,5 @@ ${JSON.stringify(customerSafeReport)}`;
 }
 
 export async function interpretReport(report: any) {
-  const content = await getSiteContent();
-  const settings = content.settings.api;
-  const provider = String(settings.activeProvider || "demo").toLowerCase();
-  if (settings.demoMode || provider === "demo") {
-    return { provider: "Demo", text: demoInterpretation(report) };
-  }
-
-  try {
-    if (provider === "gemini" && process.env.GEMINI_API_KEY) {
-      const model = settings.model || "gemini-2.0-flash";
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(process.env.GEMINI_API_KEY)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents: [{ parts: [{ text: systemPrompt(report) }] }] })
-      });
-      if (!response.ok) throw new Error("Gemini yanıt vermedi.");
-      const data = await response.json();
-      return { provider: "Gemini", text: data.candidates?.[0]?.content?.parts?.[0]?.text || demoInterpretation(report) };
-    }
-
-    const isGroq = provider === "groq";
-    const key = isGroq ? process.env.GROQ_API_KEY : process.env.OPENAI_API_KEY;
-    if ((isGroq || provider === "openai") && key) {
-      const response = await fetch(isGroq ? "https://api.groq.com/openai/v1/chat/completions" : "https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: settings.model || (isGroq ? "llama-3.3-70b-versatile" : "gpt-4.1-mini"),
-          messages: [{ role: "user", content: systemPrompt(report) }],
-          temperature: 0.4
-        })
-      });
-      if (!response.ok) throw new Error("Yapay zekâ sağlayıcısı yanıt vermedi.");
-      const data = await response.json();
-      return { provider: isGroq ? "Groq" : "OpenAI", text: data.choices?.[0]?.message?.content || demoInterpretation(report) };
-    }
-  } catch (error) {
-    console.error("Rapor yorumlama sağlayıcı hatası:", error instanceof Error ? error.message : error);
-  }
-
-  return { provider: "Demo", text: demoInterpretation(report) };
+  return generateAiText(systemPrompt(report), demoInterpretation(report));
 }

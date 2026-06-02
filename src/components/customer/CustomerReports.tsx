@@ -22,6 +22,13 @@ function summary(report: any) {
   return `${value.impressions || 0} gösterim · ${value.clicks || 0} tıklama · ${value.leads || value.messages || 0} potansiyel müşteri`;
 }
 
+function aiMeta(item: any = {}) {
+  const provider = item.provider || "Demo Modu";
+  const model = item.model || item.ai_model || "demo-local";
+  const mode = item.mode || (String(provider).toLocaleLowerCase("tr").includes("demo") ? "Demo" : "Canlı");
+  return { provider, model, mode, badge: item.badge || `${provider} ile üretildi` };
+}
+
 export function CustomerReports({ reports, initialInterpretations, reportUpdates }: { reports: any[]; initialInterpretations: any[]; reportUpdates: any[] }) {
   const [interpretations, setInterpretations] = useState(initialInterpretations || []);
   const [loading, setLoading] = useState("");
@@ -61,7 +68,7 @@ export function CustomerReports({ reports, initialInterpretations, reportUpdates
               <p className="mt-3 text-sm font-bold text-slate-200">{summary(report)}</p>
               <div className="mt-4 grid gap-2 sm:grid-cols-2">{reportHighlights(report).map((metric) => <CustomerMetricBox key={metric.key} label={metric.label} value={metric.value} explanation={metric.explanation} />)}</div>
               {report.customer_note && <p className="mt-4 text-sm leading-6 text-slate-300">Genel değerlendirme: {report.customer_note}</p>}
-              {history.map((item) => <div key={item.id} className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm leading-6 text-cyan-50"><p>{item.interpretation_text}</p><p className="mt-2 text-xs text-cyan-100/70">{item.provider} · {new Date(item.created_at).toLocaleString("tr-TR")}</p></div>)}
+              {history.map((item) => { const meta = aiMeta(item); return <div key={item.id} className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm leading-6 text-cyan-50"><div className="mb-3 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-[.1em]"><span className="rounded-full border border-cyan-200/20 bg-cyan-200/10 px-3 py-1 text-cyan-100">{meta.badge}</span><span className="rounded-full border border-white/10 px-3 py-1 text-cyan-50">Kullanılan AI Sağlayıcısı: {meta.provider}</span><span className="rounded-full border border-white/10 px-3 py-1 text-cyan-50">Model: {meta.model}</span><span className="rounded-full border border-white/10 px-3 py-1 text-cyan-50">Mod: {meta.mode}</span></div><p>{item.interpretation_text}</p><p className="mt-2 text-xs text-cyan-100/70">{new Date(item.created_at).toLocaleString("tr-TR")}</p></div>; })}
               <details className="mt-4 rounded-[8px] border border-white/10 p-3"><summary className="cursor-pointer text-sm font-black text-cyan-100">Grafikler</summary><div className="mt-4"><CustomerReportCharts rows={report.time_series || []} /></div></details>
               <details className="mt-3 rounded-[8px] border border-white/10 p-3"><summary className="cursor-pointer text-sm font-black text-cyan-100">Ajans notları</summary><div className="mt-4"><CustomerAgencyNotes notes={(reportUpdates || []).filter((item) => item.report_id === report.id)} /></div></details>
               <details className="mt-3 rounded-[8px] border border-white/10 p-3"><summary className="cursor-pointer text-sm font-black text-cyan-100">Rapor indir</summary><div className="mt-3 flex flex-wrap gap-2">{[["excel", "Excel indir"], ["word", "Word indir"], ["pdf", "PDF indir"]].map(([format, label]) => <a key={format} href={`/api/customer/reports/${report.id}/export?format=${format}`} className="rounded-full border border-white/10 px-3 py-2 text-xs font-bold text-white">{label}</a>)}</div></details>

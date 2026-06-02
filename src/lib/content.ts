@@ -7,7 +7,7 @@ const contentPath = path.join(process.cwd(), "src", "data", "site-content.json")
 const siteContentKey = "site_content";
 
 function polishPublicCopy<T>(value: T, key = ""): T {
-  if (["id", "url", "logoUrl", "footerLogoUrl", "faviconUrl", "fileUrl", "verificationUrl", "activeProvider", "model"].includes(key)) return value;
+  if (["id", "url", "logoUrl", "footerLogoUrl", "faviconUrl", "fileUrl", "verificationUrl", "activeProvider", "active_ai_provider", "active_ai_model", "ai_mode", "model"].includes(key)) return value;
   if (Array.isArray(value)) return value.map((item) => polishPublicCopy(item)) as T;
   if (value && typeof value === "object") {
     return Object.fromEntries(Object.entries(value).map(([childKey, childValue]) => [childKey, polishPublicCopy(childValue, childKey)])) as T;

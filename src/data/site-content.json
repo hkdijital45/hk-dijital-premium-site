@@ -49,6 +49,9 @@
       "groqApiKey": "",
       "openAiApiKey": "",
       "activeProvider": "demo",
+      "active_ai_provider": "automatic",
+      "active_ai_model": "automatic-fallback",
+      "ai_mode": "live",
       "demoMode": true,
       "model": "demo-local"
     },

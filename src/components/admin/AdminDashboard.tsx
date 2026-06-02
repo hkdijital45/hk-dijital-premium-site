@@ -86,8 +86,8 @@ const updateTypeOptions = ["Yapılan Çalışma", "Reklam Güncellemesi", "Rapor
 const fileCategoryOptions = ["Rapor", "Görsel", "Video", "Teklif", "Sözleşme", "Fatura", "Brief", "Diğer"];
 const serviceCategoryOptions = ["Meta Reklamları", "Google Reklamları", "Sosyal Medya Yönetimi", "SEO", "Web Sitesi", "CRM", "Raporlama", "Yapay Zeka Analizi", "Diğer"];
 const packageTypeOptions = ["Başlangıç", "Standart", "Profesyonel", "Premium", "Özel Paket", "Diğer"];
-const apiProviderOptions = ["OpenAI", "Groq", "Gemini", "Meta", "Google Maps", "Google Ads", "Diğer"];
-const aiProviderOptions = ["OpenAI", "Groq", "Gemini", "Demo", "Diğer"];
+const apiProviderOptions = ["Otomatik", "OpenAI", "Groq", "Gemini", "Demo Modu", "Yerel Mod"];
+const aiProviderOptions = apiProviderOptions;
 const metaMetricFields = [
   ["date", "Tarih", "Kayıt dönemi tarihi"],
   ["impressions", "Gösterim", "Reklamın ekranda kaç kez göründüğü"],
@@ -115,6 +115,49 @@ const googleMetricFields = [
 const reportTypes = ["Meta Reklam Raporu", "Google Ads Raporu", "Sosyal Medya Yönetimi Raporu", "Genel Dijital Performans Raporu"];
 const reportTabs = ["Meta Reklamları", "Google Ads", "Sosyal Medya Yönetimi", "Genel Raporlar"];
 const socialPlatforms = ["Instagram", "Facebook", "TikTok", "LinkedIn", "YouTube", "Diğer"];
+
+function aiProviderLabel(value?: string) {
+  const normalized = String(value || "").toLocaleLowerCase("tr");
+  if (normalized.includes("openai")) return "OpenAI";
+  if (normalized.includes("groq")) return "Groq";
+  if (normalized.includes("gemini")) return "Gemini";
+  if (normalized.includes("yerel") || normalized.includes("local")) return "Yerel Mod";
+  if (normalized.includes("demo")) return "Demo Modu";
+  if (normalized.includes("auto") || normalized.includes("otomatik")) return "Otomatik";
+  return value || "Demo Modu";
+}
+
+function aiModeLabel(meta: any) {
+  if (meta?.mode) return meta.mode;
+  if (meta?.isLocal || String(meta?.provider || "").toLocaleLowerCase("tr").includes("yerel")) return "Yerel";
+  if (meta?.isDemo || String(meta?.provider || "").toLocaleLowerCase("tr").includes("demo")) return "Demo";
+  return "Canlı";
+}
+
+function aiMetaFromApi(api: any = {}) {
+  const provider = aiProviderLabel(api.active_ai_provider || api.activeProvider || (api.demoMode ? "Demo Modu" : "Otomatik"));
+  return {
+    provider,
+    model: api.active_ai_model || api.model || (provider === "Demo Modu" ? "demo-local" : "automatic-fallback"),
+    mode: api.ai_mode === "local" ? "Yerel" : api.demoMode || provider === "Demo Modu" ? "Demo" : provider === "Yerel Mod" ? "Yerel" : "Canlı",
+    badge: `${provider} ile üretildi`
+  };
+}
+
+function aiMetaFromRecord(record: any = {}, api?: any) {
+  const provider = aiProviderLabel(record.provider || record.ai_provider || api?.active_ai_provider || api?.activeProvider);
+  return {
+    provider,
+    model: record.model || record.ai_model || api?.active_ai_model || api?.model || "demo-local",
+    mode: aiModeLabel(record),
+    badge: record.badge || `${provider} ile üretildi`
+  };
+}
+
+function AiUsageBadge({ meta }: any) {
+  const data = aiMetaFromRecord(meta);
+  return <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-[.1em]"><span className="rounded-full border border-cyan-200/20 bg-cyan-200/10 px-3 py-1 text-cyan-100">{data.badge}</span><span className="rounded-full border border-white/10 px-3 py-1 text-slate-300">Kullanılan AI Sağlayıcısı: {data.provider}</span><span className="rounded-full border border-white/10 px-3 py-1 text-slate-300">Model: {data.model}</span><span className="rounded-full border border-white/10 px-3 py-1 text-slate-300">Mod: {data.mode}</span></div>;
+}
 
 export function AdminDashboard({
   initialContent,
@@ -229,6 +272,7 @@ export function AdminDashboard({
   const shellClass = theme === "dark" ? "bg-[#050711] text-white" : "bg-slate-100 text-slate-950";
   const panelClass = theme === "dark" ? "border-white/10 bg-white/[0.045]" : "border-slate-200 bg-white";
   const headerClass = theme === "dark" ? "border-white/10 bg-[#050711]/90" : "border-slate-200 bg-white/90";
+  const aiStatus = aiMetaFromApi(content.settings?.api || {});
 
   return (
     <main className={`relative min-h-screen overflow-hidden ${theme === "light" ? "admin-light" : ""} ${customTheme ? "admin-themed" : ""} ${shellClass}`} style={customTheme ? { backgroundColor: customTheme.background, color: customTheme.text, "--admin-surface": customTheme.surface, "--admin-border": customTheme.border, "--admin-sidebar": customTheme.sidebar, "--admin-header": customTheme.header, "--admin-muted": customTheme.mutedText, "--admin-button": customTheme.primaryButton } : undefined}>
@@ -244,6 +288,10 @@ export function AdminDashboard({
             </div>
           </div>
           <div className="flex flex-wrap justify-end gap-2">
+            <button onClick={() => setActive("API Ayarları")} className="min-h-11 rounded-full border border-cyan-200/20 bg-cyan-200/10 px-4 text-left text-xs font-bold text-cyan-50">
+              <span className="block">AI: {aiStatus.provider}</span>
+              <span className="block text-[10px] text-cyan-100/70">Mod: {aiStatus.mode}</span>
+            </button>
             <GlobalAdminSearch />
             <div className="relative">
               <button onClick={() => setHelpOpen((current) => !current)} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/10 px-5 text-sm font-bold">
@@ -1038,7 +1086,7 @@ function LeadDrawer({ lead, update, persistLead, permanentDelete, close, onConve
       </div>
       {actionMessage && <p className="mt-4 rounded-[8px] border border-emerald-300/20 bg-emerald-500/10 p-3 text-sm text-emerald-100">{actionMessage}</p>}
       {analysisMessage && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{analysisMessage}</p>}
-      {lead.ai_analysis?.text && <div className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-4"><h3 className="font-black text-cyan-50">HK Intelligence AI Analizi</h3><pre className="mt-3 whitespace-pre-wrap text-sm leading-7 text-cyan-50">{lead.ai_analysis.text}</pre><p className="mt-3 text-xs text-cyan-100/70">{lead.ai_analysis.provider || "Demo"} · {formatDateTime(lead.ai_analysis.generated_at)}</p></div>}
+      {lead.ai_analysis?.text && <div className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-4"><h3 className="font-black text-cyan-50">HK Intelligence AI Analizi</h3><AiUsageBadge meta={lead.ai_analysis} /><pre className="mt-3 whitespace-pre-wrap text-sm leading-7 text-cyan-50">{lead.ai_analysis.text}</pre><p className="mt-3 text-xs text-cyan-100/70">{formatDateTime(lead.ai_analysis.generated_at)}</p></div>}
       {conversionMessage && <p className="mt-4 rounded-[8px] border border-emerald-300/20 bg-emerald-500/10 p-3 text-sm text-emerald-100">{conversionMessage}</p>}
       {conversionError && <p className="mt-4 rounded-[8px] border border-red-300/20 bg-red-500/10 p-3 text-sm text-red-100">{conversionError}</p>}
       {editOpen && <LeadEditModal lead={lead} close={() => setEditOpen(false)} save={async (patch) => {
@@ -1110,23 +1158,40 @@ function Media({ content, setContent }: any) {
 }
 
 function AiAssistant({ content, setContent }: any) {
-  const [provider, setProvider] = useState(content.settings.api.activeProvider);
   const [prompt, setPrompt] = useState("HK Intelligence için CRM odaklı premium açıklama yaz.");
   const [output, setOutput] = useState("");
-  const generated = useMemo(() => `Demo AI çıktısı (${provider}):\n\n${prompt}\n\nHK Dijital tonu ile öneri: Ölçülebilir strateji, CRM destekli takip, şeffaf raporlama ve reklam optimizasyonu odağında, satış garantisi vermeden güven oluşturan profesyonel bir metin kullanılmalıdır. Bu panel ana sayfa, hakkımda, hizmet, paket, sosyal medya, reklam metni, teklif ve takip mesajı üretiminde kullanılabilir.`, [prompt, provider]);
-  return <Panel title="Yapay Zeka Asistanı"><div className="grid gap-4"><OtherSelectField label="Sağlayıcı seçimi" value={provider} onChange={setProvider} options={aiProviderOptions} manualLabel="Sağlayıcıyı yazın" /><TextArea label="Komut" value={prompt} onChange={setPrompt} /><button onClick={() => setOutput(generated)} className="inline-flex w-fit items-center gap-2 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950"><Sparkles size={17} /> Demo çıktı üret</button>{output && <div className="rounded-[8px] border border-white/10 bg-black/30 p-4"><pre className="whitespace-pre-wrap text-sm leading-7 text-slate-200">{output}</pre><div className="mt-4 flex flex-wrap gap-2"><button onClick={() => navigator.clipboard.writeText(output)} className="inline-flex gap-2 rounded-full border border-white/10 px-4 py-2 text-sm"><Copy size={16} /> Kopyala</button><button onClick={() => setContent({ ...content, pages: { ...content.pages, home: { ...content.pages.home, subheadline: output } } })} className="rounded-full border border-white/10 px-4 py-2 text-sm">Ana sayfa alt metnine ekle</button></div></div>}</div></Panel>;
+  const [meta, setMeta] = useState(aiMetaFromApi(content.settings.api));
+  const [message, setMessage] = useState("");
+  async function generate() {
+    setMessage("Yapay zekâ çıktısı hazırlanıyor...");
+    setOutput("");
+    const response = await fetch("/api/admin/ai-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt }) });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) return setMessage(data.error || "Analiz sırasında bir hata oluştu.");
+    setOutput(data.output || "");
+    setMeta(data.ai || aiMetaFromApi(content.settings.api));
+    setMessage("");
+  }
+  return <Panel title="Yapay Zeka Asistanı"><div className="grid gap-4"><div className="rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3"><p className="text-sm font-black text-cyan-50">Geçerli global AI ayarı</p><AiUsageBadge meta={aiMetaFromApi(content.settings.api)} /></div><TextArea label="Komut" value={prompt} onChange={setPrompt} /><button onClick={generate} className="inline-flex w-fit items-center gap-2 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950"><Sparkles size={17} /> AI çıktı üret</button>{message && <p className="rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{message}</p>}{output && <div className="rounded-[8px] border border-white/10 bg-black/30 p-4"><AiUsageBadge meta={meta} /><pre className="mt-4 whitespace-pre-wrap text-sm leading-7 text-slate-200">{output}</pre><div className="mt-4 flex flex-wrap gap-2"><button onClick={() => navigator.clipboard.writeText(output)} className="inline-flex gap-2 rounded-full border border-white/10 px-4 py-2 text-sm"><Copy size={16} /> Kopyala</button><button onClick={() => setContent({ ...content, pages: { ...content.pages, home: { ...content.pages.home, subheadline: output } } })} className="rounded-full border border-white/10 px-4 py-2 text-sm">Ana sayfa alt metnine ekle</button></div></div>}</div></Panel>;
 }
 
 function ApiSettings({ content, setContent }: any) {
   const [result, setResult] = useState("");
   const api = content.settings.api;
   const update = (patch) => setContent({ ...content, settings: { ...content.settings, api: { ...api, ...patch } } });
+  const aiMeta = aiMetaFromApi(api);
+  async function saveAiSettings() {
+    setResult("AI sağlayıcı ayarları kaydediliyor...");
+    const response = await fetch("/api/admin/ai-settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(api) });
+    const data = await response.json().catch(() => ({}));
+    setResult(response.ok ? data.message : data.error || "AI sağlayıcı ayarları kaydedilemedi.");
+  }
   async function testApi() {
     const response = await fetch("/api/ai/test", { method: "POST" });
     const data = await response.json();
     setResult(data.message || "Test tamamlandı.");
   }
-  return <Panel title="API Ayarları"><p className="mb-5 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm leading-6 text-cyan-50">API anahtarları güvenlik nedeniyle bu ekranda gösterilmez veya tarayıcıya gönderilmez. Gemini, Groq, OpenAI ve Google Maps anahtarlarını Vercel ortam değişkenleri üzerinden yönetin.</p><div className="grid gap-4 md:grid-cols-2"><Field label="Model seçimi" value={api.model} onChange={(v) => update({ model: v })} /><OtherSelectField label="Aktif sağlayıcı" value={api.activeProvider} onChange={(v) => update({ activeProvider: v })} options={apiProviderOptions} manualLabel="Sağlayıcıyı yazın" /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={api.demoMode} onChange={(e) => update({ demoMode: e.target.checked })} /> Demo modu</label></div><button onClick={testApi} className="mt-5 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">API bağlantısını test et</button>{result && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{result}</p>}<p className="mt-4 text-sm text-slate-400">Sunucu tarafı değişkenleri: GOOGLE_MAPS_API_KEY, GEMINI_API_KEY, GROQ_API_KEY ve OPENAI_API_KEY. Kullanılmayan AI sağlayıcılarının anahtarlarını eklemek zorunda değilsiniz.</p></Panel>;
+  return <Panel title="API Ayarları"><p className="mb-5 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm leading-6 text-cyan-50">API anahtarları güvenlik nedeniyle bu ekranda gösterilmez veya tarayıcıya gönderilmez. Gemini, Groq, OpenAI ve Google Maps anahtarlarını Vercel ortam değişkenleri üzerinden yönetin.</p><div className="mb-5 rounded-[8px] border border-amber-200/20 bg-amber-200/10 p-4"><p className="text-sm font-black text-amber-100">Geçerli yapay zekâ sağlayıcısı</p><AiUsageBadge meta={aiMeta} /></div><div className="grid gap-4 md:grid-cols-2"><SelectField label="Aktif AI Sağlayıcısı" value={api.active_ai_provider || api.activeProvider || "Otomatik"} onChange={(v) => update({ active_ai_provider: v, activeProvider: v, demoMode: v === "Demo Modu", ai_mode: v === "Yerel Mod" ? "local" : v === "Demo Modu" ? "demo" : "live" })} options={apiProviderOptions} /><Field label="Yapay zekâ modeli" value={api.active_ai_model || api.model || "automatic-fallback"} onChange={(v) => update({ active_ai_model: v, model: v })} /><SelectField label="AI modu" value={api.ai_mode || (api.demoMode ? "demo" : "live")} onChange={(v) => update({ ai_mode: v, demoMode: v === "demo" })} options={[{ value: "live", label: "Canlı" }, { value: "demo", label: "Demo" }, { value: "local", label: "Yerel" }]} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={api.demoMode} onChange={(e) => update({ demoMode: e.target.checked, ai_mode: e.target.checked ? "demo" : api.ai_mode || "live" })} /> Demo modu</label></div><div className="mt-5 flex flex-wrap gap-2"><button onClick={saveAiSettings} className="rounded-full bg-amber-300 px-5 py-3 text-sm font-black text-slate-950">AI ayarlarını kaydet</button><button onClick={testApi} className="rounded-full border border-cyan-200/20 px-5 py-3 text-sm font-black text-cyan-100">API bağlantısını test et</button></div>{result && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{result}</p>}<p className="mt-4 text-sm text-slate-400">Sunucu tarafı değişkenleri: GOOGLE_MAPS_API_KEY, GEMINI_API_KEY, GROQ_API_KEY ve OPENAI_API_KEY. Kullanılmayan AI sağlayıcılarının anahtarlarını eklemek zorunda değilsiniz.</p></Panel>;
 }
 
 function Settings({ content, setContent }: any) {
@@ -1657,7 +1722,7 @@ function ReportingCenter({ content, setContent }: any) {
       <div className="grid gap-3 md:grid-cols-2"><TextArea label="Dahili not" value={report.internal_note} onChange={(value) => update(report.id, { internal_note: value })} /><TextArea label="Müşteriye gösterilecek genel yorum" value={report.customer_note} onChange={(value) => update(report.id, { customer_note: value })} /></div>
       <ReportTools report={report} onApplyExtracted={(patch) => update(report.id, patch)} />
       <div className="flex flex-wrap items-center gap-3"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={report.visible_to_customer ?? true} onChange={(event) => update(report.id, { visible_to_customer: event.target.checked })} /> Müşteriye gösterilsin</label><button disabled={loading === report.id} onClick={() => save(report)} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950 disabled:opacity-60">{loading === report.id ? "Kaydediliyor..." : "Raporu kaydet"}</button><button onClick={() => remove(report)} className="rounded-full border border-red-300/30 px-4 py-2 text-sm text-red-100">Sil</button>{report.company_id && <a href={`/musteri-paneli?company=${report.company_id}`} target="_blank" rel="noreferrer" className="rounded-full border border-white/10 px-4 py-2 text-sm">Müşteri gibi görüntüle</a>}</div>
-      {(content.reportInterpretations || []).filter((item) => item.report_id === report.id).map((item) => <div key={item.id} className="rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm leading-6 text-cyan-50">{item.interpretation_text}<p className="mt-2 text-xs text-cyan-100/70">{item.provider} · {formatDateTime(item.created_at)}</p></div>)}
+      {(content.reportInterpretations || []).filter((item) => item.report_id === report.id).map((item) => <div key={item.id} className="rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm leading-6 text-cyan-50"><AiUsageBadge meta={aiMetaFromRecord(item, content.settings.api)} /><p className="mt-3">{item.interpretation_text}</p><p className="mt-2 text-xs text-cyan-100/70">{formatDateTime(item.created_at)}</p></div>)}
     </div>)}{!visibleReports.length && <p className="text-sm text-slate-400">Bu kategoride henüz rapor yok.</p>}</div>
   </Panel>;
 }
@@ -2129,6 +2194,7 @@ function MetaAnalysisSection() {
   const [error, setError] = useState("");
   const [warning, setWarning] = useState("");
   const [results, setResults] = useState([]);
+  const [aiMeta, setAiMeta] = useState(aiMetaFromApi({ activeProvider: "Demo Modu", model: "meta-analysis-demo", demoMode: true }));
   async function analyze() {
     setLoading(true);
     setError("");
@@ -2140,13 +2206,14 @@ function MetaAnalysisSection() {
       if (!response.ok) throw new Error(data.error || "Analiz sırasında bir hata oluştu.");
       setWarning(data.warning || "");
       setResults(data.results || []);
+      setAiMeta(data.ai || aiMetaFromApi({ activeProvider: "Demo Modu", model: "meta-analysis-demo", demoMode: true }));
     } catch {
       setError("Analiz sırasında bir hata oluştu.");
     } finally {
       setLoading(false);
     }
   }
-  return <Panel title="Meta Analiz"><div className="mb-5 rounded-[8px] border border-orange-300/20 bg-gradient-to-br from-orange-300/12 via-yellow-200/5 to-transparent p-5"><p className="text-xs font-black uppercase tracking-[.16em] text-orange-200">Meta Reklam Zekâsı</p><h2 className="mt-2 text-2xl font-black text-white">Facebook ve Instagram reklam sinyallerini ayrı analiz edin</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">İl, ilçe ve sektör seçimine göre Meta Ad Library odaklı gözlemler, CTA ve kreatif metin özetleri üretir.</p></div><AnalysisSearchForm form={form} setForm={setForm} loading={loading} onSubmit={analyze} buttonLabel="Meta Reklamlarını Analiz Et" />{warning && <p className="mt-4 rounded-[8px] border border-amber-300/25 bg-amber-300/10 p-3 text-sm text-amber-100">{warning}</p>}{error && <p className="mt-4 rounded-[8px] border border-red-300/25 bg-red-500/10 p-3 text-sm text-red-100">{error}</p>}<div className="mt-5 grid gap-4 lg:grid-cols-2">{results.map((item) => <div key={item.id || item.name} className="rounded-[8px] border border-white/10 bg-white/[0.045] p-5 shadow-[0_22px_70px_rgba(0,0,0,.22)]"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.14em] text-orange-200">{item.platform || "Facebook / Instagram"}</p><h3 className="mt-2 text-lg font-black text-white">{item.name}</h3></div><span className={`rounded-full px-3 py-1 text-xs font-black ${item.active ? "bg-emerald-300/12 text-emerald-100" : "bg-slate-400/10 text-slate-300"}`}>{item.active ? "Aktif reklam var" : "Aktif reklam sinyali yok"}</span></div><p className="mt-4 text-sm leading-6 text-slate-300">{item.summary}</p><div className="mt-4 grid gap-2 text-xs text-slate-400 sm:grid-cols-2"><span>Tahmini kategori: <strong className="text-slate-200">{item.category || "-"}</strong></span><span>CTA: <strong className="text-slate-200">{item.cta || "-"}</strong></span><span>Başlangıç: <strong className="text-slate-200">{item.startDate || "-"}</strong></span><span>Durum: <strong className="text-slate-200">{item.activeStatus || "-"}</strong></span></div>{item.adUrl && <a href={item.adUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex rounded-full border border-orange-200/20 px-4 py-2 text-xs font-black text-orange-100">Reklam bağlantısını aç</a>}</div>)}{!loading && !error && !results.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-center text-sm text-slate-400 lg:col-span-2">Bu seçim için sonuç bulunamadı.</p>}</div></Panel>;
+  return <Panel title="Meta Analiz"><div className="mb-5 rounded-[8px] border border-orange-300/20 bg-gradient-to-br from-orange-300/12 via-yellow-200/5 to-transparent p-5"><p className="text-xs font-black uppercase tracking-[.16em] text-orange-200">Meta Reklam Zekâsı</p><h2 className="mt-2 text-2xl font-black text-white">Facebook ve Instagram reklam sinyallerini ayrı analiz edin</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">İl, ilçe ve sektör seçimine göre Meta Ad Library odaklı gözlemler, CTA ve kreatif metin özetleri üretir.</p></div><AnalysisSearchForm form={form} setForm={setForm} loading={loading} onSubmit={analyze} buttonLabel="Meta Reklamlarını Analiz Et" />{warning && <p className="mt-4 rounded-[8px] border border-amber-300/25 bg-amber-300/10 p-3 text-sm text-amber-100">{warning}</p>}{error && <p className="mt-4 rounded-[8px] border border-red-300/25 bg-red-500/10 p-3 text-sm text-red-100">{error}</p>}<div className="mt-5 grid gap-4 lg:grid-cols-2">{results.map((item) => <div key={item.id || item.name} className="rounded-[8px] border border-white/10 bg-white/[0.045] p-5 shadow-[0_22px_70px_rgba(0,0,0,.22)]"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.14em] text-orange-200">{item.platform || "Facebook / Instagram"}</p><h3 className="mt-2 text-lg font-black text-white">{item.name}</h3></div><span className={`rounded-full px-3 py-1 text-xs font-black ${item.active ? "bg-emerald-300/12 text-emerald-100" : "bg-slate-400/10 text-slate-300"}`}>{item.active ? "Aktif reklam var" : "Aktif reklam sinyali yok"}</span></div><AiUsageBadge meta={aiMeta} /><p className="mt-4 text-sm leading-6 text-slate-300">{item.summary}</p><div className="mt-4 grid gap-2 text-xs text-slate-400 sm:grid-cols-2"><span>Tahmini kategori: <strong className="text-slate-200">{item.category || "-"}</strong></span><span>CTA: <strong className="text-slate-200">{item.cta || "-"}</strong></span><span>Başlangıç: <strong className="text-slate-200">{item.startDate || "-"}</strong></span><span>Durum: <strong className="text-slate-200">{item.activeStatus || "-"}</strong></span></div>{item.adUrl && <a href={item.adUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex rounded-full border border-orange-200/20 px-4 py-2 text-xs font-black text-orange-100">Reklam bağlantısını aç</a>}</div>)}{!loading && !error && !results.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-center text-sm text-slate-400 lg:col-span-2">Bu seçim için sonuç bulunamadı.</p>}</div></Panel>;
 }
 
 function GoogleAdsAnalysisSection() {
@@ -2155,6 +2222,7 @@ function GoogleAdsAnalysisSection() {
   const [error, setError] = useState("");
   const [warning, setWarning] = useState("");
   const [results, setResults] = useState([]);
+  const [aiMeta, setAiMeta] = useState(aiMetaFromApi({ activeProvider: "Demo Modu", model: "google-analysis-demo", demoMode: true }));
   async function analyze() {
     setLoading(true);
     setError("");
@@ -2166,13 +2234,14 @@ function GoogleAdsAnalysisSection() {
       if (!response.ok) throw new Error(data.error || "Analiz sırasında bir hata oluştu.");
       setWarning(data.warning || "");
       setResults(data.results || []);
+      setAiMeta(data.ai || aiMetaFromApi({ activeProvider: "Demo Modu", model: "google-analysis-demo", demoMode: true }));
     } catch {
       setError("Analiz sırasında bir hata oluştu.");
     } finally {
       setLoading(false);
     }
   }
-  return <Panel title="Google Ads Analiz"><div className="mb-5 rounded-[8px] border border-yellow-300/20 bg-gradient-to-br from-yellow-300/12 via-orange-200/5 to-transparent p-5"><p className="text-xs font-black uppercase tracking-[.16em] text-yellow-200">Google Reklam Zekâsı</p><h2 className="mt-2 text-2xl font-black text-white">Arama görünürlüğü ve yerel reklam fırsatlarını ayrı analiz edin</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">Google Maps ve işletme sinyallerinden arama görünürlüğü, anahtar kelime fırsatı ve kampanya tipi önerileri üretir.</p></div><AnalysisSearchForm form={form} setForm={setForm} loading={loading} onSubmit={analyze} buttonLabel="Google Reklamlarını Analiz Et" />{warning && <p className="mt-4 rounded-[8px] border border-amber-300/25 bg-amber-300/10 p-3 text-sm text-amber-100">{warning}</p>}{error && <p className="mt-4 rounded-[8px] border border-red-300/25 bg-red-500/10 p-3 text-sm text-red-100">{error}</p>}<div className="mt-5 grid gap-4 lg:grid-cols-2">{results.map((item) => <div key={item.id || item.name} className="rounded-[8px] border border-white/10 bg-white/[0.045] p-5 shadow-[0_22px_70px_rgba(0,0,0,.22)]"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.14em] text-yellow-200">Google Ads Opportunity</p><h3 className="mt-2 text-lg font-black text-white">{item.name}</h3><p className="mt-1 text-xs text-slate-500">{item.website || "Website bilgisi yok"}</p></div><span className="rounded-full bg-yellow-300/12 px-3 py-1 text-xs font-black text-yellow-100">{item.searchVisibilityScore}/100 görünürlük</span></div><div className="mt-4 grid gap-2 text-xs text-slate-400 sm:grid-cols-2"><span>Google Business: <strong className="text-slate-200">{item.googleBusinessPresence}</strong></span><span>Reklam sinyali: <strong className="text-slate-200">{item.adActivitySignal}</strong></span><span>Kampanya tipi: <strong className="text-slate-200">{item.suggestedCampaignType}</strong></span><span>Rekabet: <strong className="text-slate-200">{item.competitionLevel}</strong></span></div><div className="mt-4 flex flex-wrap gap-2">{(item.keywordOpportunities || []).map((keyword) => <span key={keyword} className="rounded-full border border-yellow-200/20 px-3 py-1 text-xs text-yellow-100">{keyword}</span>)}</div>{item.website && <a href={item.website} target="_blank" rel="noreferrer" className="mt-4 inline-flex rounded-full border border-yellow-200/20 px-4 py-2 text-xs font-black text-yellow-100">Website'i aç</a>}</div>)}{!loading && !error && !results.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-center text-sm text-slate-400 lg:col-span-2">Bu seçim için sonuç bulunamadı.</p>}</div></Panel>;
+  return <Panel title="Google Ads Analiz"><div className="mb-5 rounded-[8px] border border-yellow-300/20 bg-gradient-to-br from-yellow-300/12 via-orange-200/5 to-transparent p-5"><p className="text-xs font-black uppercase tracking-[.16em] text-yellow-200">Google Reklam Zekâsı</p><h2 className="mt-2 text-2xl font-black text-white">Arama görünürlüğü ve yerel reklam fırsatlarını ayrı analiz edin</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">Google Maps ve işletme sinyallerinden arama görünürlüğü, anahtar kelime fırsatı ve kampanya tipi önerileri üretir.</p></div><AnalysisSearchForm form={form} setForm={setForm} loading={loading} onSubmit={analyze} buttonLabel="Google Reklamlarını Analiz Et" />{warning && <p className="mt-4 rounded-[8px] border border-amber-300/25 bg-amber-300/10 p-3 text-sm text-amber-100">{warning}</p>}{error && <p className="mt-4 rounded-[8px] border border-red-300/25 bg-red-500/10 p-3 text-sm text-red-100">{error}</p>}<div className="mt-5 grid gap-4 lg:grid-cols-2">{results.map((item) => <div key={item.id || item.name} className="rounded-[8px] border border-white/10 bg-white/[0.045] p-5 shadow-[0_22px_70px_rgba(0,0,0,.22)]"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.14em] text-yellow-200">Google Ads Opportunity</p><h3 className="mt-2 text-lg font-black text-white">{item.name}</h3><p className="mt-1 text-xs text-slate-500">{item.website || "Website bilgisi yok"}</p></div><span className="rounded-full bg-yellow-300/12 px-3 py-1 text-xs font-black text-yellow-100">{item.searchVisibilityScore}/100 görünürlük</span></div><AiUsageBadge meta={aiMeta} /><div className="mt-4 grid gap-2 text-xs text-slate-400 sm:grid-cols-2"><span>Google Business: <strong className="text-slate-200">{item.googleBusinessPresence}</strong></span><span>Reklam sinyali: <strong className="text-slate-200">{item.adActivitySignal}</strong></span><span>Kampanya tipi: <strong className="text-slate-200">{item.suggestedCampaignType}</strong></span><span>Rekabet: <strong className="text-slate-200">{item.competitionLevel}</strong></span></div><div className="mt-4 flex flex-wrap gap-2">{(item.keywordOpportunities || []).map((keyword) => <span key={keyword} className="rounded-full border border-yellow-200/20 px-3 py-1 text-xs text-yellow-100">{keyword}</span>)}</div>{item.website && <a href={item.website} target="_blank" rel="noreferrer" className="mt-4 inline-flex rounded-full border border-yellow-200/20 px-4 py-2 text-xs font-black text-yellow-100">Website'i aç</a>}</div>)}{!loading && !error && !results.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-center text-sm text-slate-400 lg:col-span-2">Bu seçim için sonuç bulunamadı.</p>}</div></Panel>;
 }
 
 function ChannelAnalysis({ content, channel }: any) {
@@ -2209,7 +2278,7 @@ function ProposalEngine({ content }: any) {
     <p className="mb-5 text-sm leading-6 text-slate-400">CRM başvurularından MIN, ORTA ve MAX hizmet yaklaşımı hazırlayın. Başlangıç referansı aylık 10.000 TL hizmet bedelidir; nihai kapsam müşteri ihtiyacına göre netleştirilir.</p>
     <div className="grid gap-4 md:grid-cols-2"><SelectField label="Başvuru" value={leadId} onChange={setLeadId} options={(content.leads || []).map((lead) => ({ value: lead.id, label: lead.company || lead.name || lead.email || "İsimsiz başvuru" }))} placeholder="Başvuru seçin" /><Field label="Aylık hizmet bedeli referansı" type="number" value={anchor} onChange={setAnchor} /></div>
     <button type="button" onClick={generate} className="mt-5 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Teklif yaklaşımı oluştur</button>
-    {result && <div className="mt-5 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-4"><pre className="whitespace-pre-wrap text-sm leading-7 text-cyan-50">{result}</pre><button type="button" onClick={() => navigator.clipboard.writeText(result)} className="mt-4 inline-flex items-center gap-2 rounded-full border border-cyan-100/20 px-4 py-2 text-sm text-cyan-50"><Copy size={15} /> Kopyala</button></div>}
+    {result && <div className="mt-5 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-4"><AiUsageBadge meta={{ provider: "Yerel Mod", model: "proposal-rules", mode: "Yerel", isLocal: true, badge: "Yerel modda üretildi" }} /><pre className="mt-4 whitespace-pre-wrap text-sm leading-7 text-cyan-50">{result}</pre><button type="button" onClick={() => navigator.clipboard.writeText(result)} className="mt-4 inline-flex items-center gap-2 rounded-full border border-cyan-100/20 px-4 py-2 text-sm text-cyan-50"><Copy size={15} /> Kopyala</button></div>}
   </Panel>;
 }
 

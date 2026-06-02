@@ -22,6 +22,9 @@ export async function POST(_request: Request, context: RouteContext<"/api/admin/
     await recordActivity({ session, action: "Güncelleme", entity: "Lead AI Analizi", entityId: id, companyId: lead.company_id, details: { message: "Potansiyel müşteri AI analizi oluşturuldu", provider: analysis.provider } });
     return NextResponse.json({ analysis, lead: updated[0] || { ...lead, ai_analysis: analysis }, message: "AI analizi oluşturuldu ve kaydedildi." });
   } catch (error) {
+    if (error instanceof Error && error.message.includes("Seçilen AI sağlayıcısı")) {
+      return NextResponse.json({ error: error.message }, { status: 503 });
+    }
     const safe = getSafeSupabaseError(error);
     console.error("[lead-analysis] Analiz kayıt hatası", safe.detail);
     return NextResponse.json({ error: safe.title, supabaseError: safe.detail }, { status: 500 });

@@ -134,6 +134,9 @@ export type SiteContent = {
       groqApiKey: string;
       openAiApiKey: string;
       activeProvider: "demo" | "gemini" | "groq" | "openai";
+      active_ai_provider?: "automatic" | "demo" | "local" | "gemini" | "groq" | "openai" | string;
+      active_ai_model?: string;
+      ai_mode?: "live" | "demo" | "local" | string;
       demoMode: boolean;
       model: string;
     };

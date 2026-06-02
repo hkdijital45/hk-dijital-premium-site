@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { aiMetadata } from "@/lib/ai-provider";
 import { requireModuleAccess } from "@/lib/permissions";
 
 function demoMetaResults(city: string, district: string, sector: string) {
@@ -59,6 +60,7 @@ export async function POST(request: Request) {
   if (!token) {
     return NextResponse.json({
       warning: "Meta API bağlantısı bulunamadı. Demo sonuçlar gösteriliyor.",
+      ai: aiMetadata("demo", "meta-analysis-demo"),
       results: demoMetaResults(city, district, sector)
     });
   }
@@ -77,11 +79,12 @@ export async function POST(request: Request) {
       console.error("[meta-analysis] Meta API hatası", data);
       return NextResponse.json({
         warning: "Meta API bağlantısı bulunamadı. Demo sonuçlar gösteriliyor.",
+        ai: aiMetadata("demo", "meta-analysis-demo"),
         results: demoMetaResults(city, district, sector)
       });
     }
     const results = Array.isArray(data.data) ? data.data.map((item: any) => normalizeMetaAd(item, sector)) : [];
-    return NextResponse.json({ results });
+    return NextResponse.json({ ai: aiMetadata("local", "meta-ad-library-signals"), results });
   } catch (error) {
     console.error("[meta-analysis] Analiz hatası", error);
     return NextResponse.json({ error: "Analiz sırasında bir hata oluştu." }, { status: 500 });

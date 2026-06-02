@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { aiMetadata } from "@/lib/ai-provider";
 import { requireModuleAccess } from "@/lib/permissions";
 
 function demoGoogleResults(city: string, district: string, sector: string) {
@@ -61,6 +62,7 @@ export async function POST(request: Request) {
   if (!key) {
     return NextResponse.json({
       warning: "Google API bağlantısı bulunamadı. Demo sonuçlar gösteriliyor.",
+      ai: aiMetadata("demo", "google-analysis-demo"),
       results: demoGoogleResults(city, district, sector)
     });
   }
@@ -73,6 +75,7 @@ export async function POST(request: Request) {
       console.error("[google-analysis] Google API hatası", data);
       return NextResponse.json({
         warning: "Google API bağlantısı bulunamadı. Demo sonuçlar gösteriliyor.",
+        ai: aiMetadata("demo", "google-analysis-demo"),
         results: demoGoogleResults(city, district, sector)
       });
     }
@@ -93,7 +96,7 @@ export async function POST(request: Request) {
         competitionLevel: visibility >= 80 ? "Yüksek" : visibility >= 55 ? "Orta" : "Düşük"
       };
     }));
-    return NextResponse.json({ results });
+    return NextResponse.json({ ai: aiMetadata("local", "google-maps-signals"), results });
   } catch (error) {
     console.error("[google-analysis] Analiz hatası", error);
     return NextResponse.json({ error: "Analiz sırasında bir hata oluştu." }, { status: 500 });

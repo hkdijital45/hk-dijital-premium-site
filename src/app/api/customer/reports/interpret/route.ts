@@ -27,10 +27,11 @@ export async function POST(request: Request) {
         provider: interpretation.provider
       })
     });
-    await recordActivity({ session, action: "Oluşturma", entity: "Rapor Yorumu", entityId: saved[0]?.id, companyId: report.company_id, details: { message: "Yapay zekâ rapor yorumu oluşturuldu", provider: interpretation.provider } });
-    return NextResponse.json({ ok: true, interpretation: saved[0] });
+    await recordActivity({ session, action: "Oluşturma", entity: "Rapor Yorumu", entityId: saved[0]?.id, companyId: report.company_id, details: { message: "Yapay zekâ rapor yorumu oluşturuldu", provider: interpretation.provider, model: interpretation.model, mode: interpretation.mode } });
+    return NextResponse.json({ ok: true, interpretation: { ...saved[0], provider: interpretation.provider, model: interpretation.model, mode: interpretation.mode, isDemo: interpretation.isDemo, isLocal: interpretation.isLocal, badge: interpretation.badge } });
   } catch (error) {
-    console.error("Rapor yorumlama hatası:", error instanceof Error ? error.message : error);
-    return NextResponse.json({ error: "Rapor şu anda yorumlanamadı. Lütfen daha sonra yeniden deneyin." }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Rapor şu anda yorumlanamadı. Lütfen daha sonra yeniden deneyin.";
+    console.error("Rapor yorumlama hatası:", message);
+    return NextResponse.json({ error: message.includes("Seçilen AI sağlayıcısı") ? message : "Rapor şu anda yorumlanamadı. Lütfen daha sonra yeniden deneyin." }, { status: 500 });
   }
 }

@@ -14,6 +14,7 @@ export async function getReportBundle(reportId: string) {
   if (!interpretation) {
     const generated = await interpretReport(report);
     interpretation = (await supabaseRest<any[]>("report_interpretations", { method: "POST", body: JSON.stringify({ report_id: report.id, company_id: report.company_id, interpretation_text: generated.text, provider: generated.provider }) }))[0];
+    interpretation = { ...interpretation, provider: generated.provider, model: generated.model, mode: generated.mode, isDemo: generated.isDemo, isLocal: generated.isLocal, badge: generated.badge };
   }
   return { report, company, interpretation, updates };
 }
