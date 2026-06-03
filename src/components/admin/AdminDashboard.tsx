@@ -2584,7 +2584,20 @@ const socialAiOptions = ["Genel Ayarı Kullan", "Gemini", "OpenAI", "Groq", "Dem
 
 function SocialMediaAuditCenter() {
   const [form, setForm] = useState({ businessName: "", city: "Manisa", district: "Yunusemre", sector: "Restoran", notes: "", aiProvider: "Genel Ayarı Kullan" });
-  const [platforms, setPlatforms] = useState(socialPlatforms.map((platform) => ({ platform, username: "", profileUrl: "", profileImageUrl: "" })));
+  const [platforms, setPlatforms] = useState(socialPlatforms.map((platform) => ({
+    platform,
+    username: "",
+    profileUrl: "",
+    profileImageUrl: "",
+    displayName: "",
+    bio: "",
+    website: "",
+    publicTitle: "",
+    publicDescription: "",
+    fetchMode: "manual",
+    fetchStatus: "Sınırlı veri",
+    fetchWarning: ""
+  })));
   const [screenshots, setScreenshots] = useState([]);
   const [actions, setActions] = useState(["Düzeltilmesi Gerekenler", "30 Günlük Sosyal Medya Planı", "İçerik Fikirleri"]);
   const [outputs, setOutputs] = useState([]);
@@ -2593,15 +2606,19 @@ function SocialMediaAuditCenter() {
   const [message, setMessage] = useState("");
   const [crmMessage, setCrmMessage] = useState("");
   const [crmSaving, setCrmSaving] = useState(false);
+  const [profileFetching, setProfileFetching] = useState({});
   function toggleAction(action) {
     setActions(actions.includes(action) ? actions.filter((item) => item !== action) : [...actions, action]);
   }
   function generatedProfileUrl(platform: string, username: string) {
-    const cleanUsername = String(username || "").trim().replace(/^@/, "");
+    const rawUsername = String(username || "").trim();
+    const cleanUsername = rawUsername.replace(/^@/, "");
     if (!cleanUsername) return "";
     if (platform === "Instagram") return `https://www.instagram.com/${cleanUsername}`;
     if (platform === "TikTok") return `https://www.tiktok.com/@${cleanUsername}`;
     if (platform === "X (Twitter)") return `https://x.com/${cleanUsername}`;
+    if (platform === "Facebook") return `https://www.facebook.com/${cleanUsername}`;
+    if (platform === "YouTube" && rawUsername.startsWith("@")) return `https://www.youtube.com/${rawUsername}`;
     return "";
   }
   function usernameLabel(platform: string) {
@@ -2639,7 +2656,54 @@ function SocialMediaAuditCenter() {
     setScreenshots(next.map((item, order) => ({ ...item, order })));
   }
   function activePlatforms() {
-    return platforms.filter((item) => item.username || item.profileUrl || item.profileImageUrl);
+    return platforms.filter((item) => item.username || item.profileUrl || item.profileImageUrl || item.displayName || item.bio || item.publicTitle);
+  }
+  function profileFetchStatus(item) {
+    if (item.fetchStatus) return item.fetchStatus;
+    if (item.displayName || item.bio || item.profileImageUrl) return "Profil bilgileri alındı";
+    if (item.publicTitle || item.publicDescription || item.profileUrl) return "Sınırlı veri";
+    return "Alınamadı";
+  }
+  async function scanProfile(index) {
+    const current = platforms[index];
+    if (!current) return;
+    setProfileFetching({ ...profileFetching, [current.platform]: true });
+    setMessage("Profil bilgileri taranıyor...");
+    try {
+      const response = await fetch("/api/admin/social-profile-fetch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ platform: current.platform, username: current.username, profileUrl: current.profileUrl })
+      });
+      const data = await response.json().catch(() => ({}));
+      const fetchedStatus = data.success
+        ? (data.displayName || data.bio || data.profileImageUrl ? "Profil bilgileri alındı" : "Sınırlı veri")
+        : "Alınamadı";
+      setPlatforms((items) => items.map((item, itemIndex) => itemIndex === index ? {
+        ...item,
+        username: data.username || item.username,
+        profileUrl: data.profileUrl || item.profileUrl,
+        displayName: data.displayName || item.displayName,
+        bio: data.bio || item.bio,
+        profileImageUrl: data.profileImageUrl || item.profileImageUrl,
+        website: data.website || item.website,
+        publicTitle: data.publicTitle || item.publicTitle,
+        publicDescription: data.publicDescription || item.publicDescription,
+        fetchMode: data.fetchMode || item.fetchMode,
+        fetchStatus: fetchedStatus,
+        fetchWarning: data.warning || ""
+      } : item));
+      setMessage(data.success ? "Profil bilgileri alındı." : data.warning || "Profil bilgileri otomatik alınamadı. Ekran görüntüsü yükleyerek analiz yapabilirsiniz.");
+    } catch {
+      setPlatforms((items) => items.map((item, itemIndex) => itemIndex === index ? {
+        ...item,
+        fetchStatus: "Alınamadı",
+        fetchWarning: "Profil bilgileri otomatik alınamadı. Ekran görüntüsü yükleyerek analiz yapabilirsiniz."
+      } : item));
+      setMessage("Profil bilgileri otomatik alınamadı. Ekran görüntüsü yükleyerek analiz yapabilirsiniz.");
+    } finally {
+      setProfileFetching((items) => ({ ...items, [current.platform]: false }));
+    }
   }
   const primaryProfile = activePlatforms()[0] || platforms[0];
   async function runAudit() {
@@ -2671,7 +2735,7 @@ function SocialMediaAuditCenter() {
     setMessage("PDF Audit oluşturuluyor...");
     try {
       await downloadAuditPdf({
-        businessName: form.businessName || primaryProfile?.username || primaryProfile?.profileUrl,
+        businessName: form.businessName || primaryProfile?.displayName || primaryProfile?.username || primaryProfile?.profileUrl,
         source: "Sosyal İstihbarat Merkezi",
         leadScore,
         ai: outputs.find((item) => item.ai)?.ai,
@@ -2688,7 +2752,7 @@ function SocialMediaAuditCenter() {
   }
   function whatsappText() {
     const selected = outputs.find((item) => item.action === "WhatsApp Teklifi Hazırla")?.text || outputs.map((item) => `${item.action}\n${item.text}`).join("\n\n");
-    return selected || `${form.businessName || "İşletmeniz"} için sosyal medya, Meta reklam ve Google reklam fırsatlarını değerlendirmek isteriz.`;
+    return selected || `${form.businessName || primaryProfile?.displayName || "İşletmeniz"} için sosyal medya, Meta reklam ve Google reklam fırsatlarını değerlendirmek isteriz.`;
   }
   async function saveToCrm() {
     setCrmSaving(true);
@@ -2702,19 +2766,19 @@ function SocialMediaAuditCenter() {
         city: form.city,
         district: form.district,
         sector: form.sector,
-        businessName: form.businessName || primaryProfile?.username || primaryProfile?.profileUrl,
-        website: primaryProfile?.profileUrl || "",
+        businessName: form.businessName || primaryProfile?.displayName || primaryProfile?.username || primaryProfile?.profileUrl,
+        website: primaryProfile?.website || primaryProfile?.profileUrl || "",
         phone: "",
         email: "",
         address: "",
-        links: { website: primaryProfile?.profileUrl, sourceUrl: primaryProfile?.profileUrl },
-        summary: summary || form.notes,
+        links: { website: primaryProfile?.website || primaryProfile?.profileUrl, sourceUrl: primaryProfile?.profileUrl },
+        summary: summary || primaryProfile?.bio || form.notes,
         platform: activePlatforms().map((item) => item.platform).join(", "),
         platforms: activePlatforms(),
         profileImageUrl: primaryProfile?.profileImageUrl || "",
         leadScore: leadScore?.score,
         leadTemperature: leadScore?.temperature,
-        aiNote: summary
+        aiNote: summary || primaryProfile?.bio
       })
     });
     const data = await response.json().catch(() => ({}));
@@ -2729,7 +2793,7 @@ function SocialMediaAuditCenter() {
   const pdfOutput = outputs.find((item) => item.action === "PDF Audit Oluştur");
   const whatsappOutput = outputs.find((item) => item.action === "WhatsApp Teklifi Hazırla");
   const hasInput = !!(form.businessName || form.notes || activePlatforms().length || screenshots.length);
-  return <Panel title="Sosyal İstihbarat Merkezi"><div className="mb-5 overflow-hidden rounded-[8px] border border-yellow-300/25 bg-gradient-to-br from-yellow-300/18 via-pink-300/8 to-cyan-300/8 p-5 shadow-[0_26px_90px_rgba(250,204,21,.12)]"><p className="text-xs font-black uppercase tracking-[.16em] text-yellow-200">AI Powered Social Intelligence Center</p><h2 className="mt-2 text-2xl font-black text-white">Çoklu platform profillerini tek merkezde denetleyin</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">Instagram, Facebook, TikTok, YouTube, LinkedIn ve X profillerini ekran görüntüleriyle birlikte analiz eder; sadece seçtiğiniz aksiyonları üretir ve CRM’e “Sosyal İstihbarat Merkezi” kaynağıyla kaydeder.</p></div><div className="grid gap-4 rounded-[8px] border border-white/10 bg-black/15 p-4 md:grid-cols-2 xl:grid-cols-3"><Field label="İşletme / profil adı" value={form.businessName} onChange={(businessName) => setForm({ ...form, businessName })} /><OtherSelectField label="Sektör" value={form.sector} onChange={(sector) => setForm({ ...form, sector })} options={sectorOptions} manualLabel="Sektörü yazın" /><SelectField label="Bu analizde kullanılacak AI" value={form.aiProvider} onChange={(aiProvider) => setForm({ ...form, aiProvider })} options={socialAiOptions} /><SelectField label="İl" value={form.city} onChange={updateCity} options={cityOptions} /><SelectField label="İlçe" value={form.district} onChange={(district) => setForm({ ...form, district })} options={districts} /><div className="md:col-span-2 xl:col-span-3"><TextArea label="Ek gözlem / not" value={form.notes} onChange={(notes) => setForm({ ...form, notes })} /></div></div><div className="mt-5 grid gap-4 xl:grid-cols-2">{platforms.map((item, index) => <div key={item.platform} className="rounded-[8px] border border-white/10 bg-white/[0.04] p-4"><div className="flex items-center justify-between gap-3"><p className="text-sm font-black text-white">{item.platform}</p><span className="rounded-full bg-yellow-300/12 px-3 py-1 text-xs font-black text-yellow-100">{item.platform}</span></div><div className="mt-3 grid gap-3 md:grid-cols-3"><Field label={usernameLabel(item.platform)} value={item.username} onChange={(username) => updatePlatform(index, { username })} /><Field label={urlLabel(item.platform)} value={item.profileUrl} onChange={(profileUrl) => updatePlatform(index, { profileUrl })} /><Field label="Profil görsel URL" value={item.profileImageUrl} onChange={(profileImageUrl) => updatePlatform(index, { profileImageUrl })} /></div><div className="mt-4 grid gap-3 md:grid-cols-[96px_1fr]"><div className="grid size-24 place-items-center overflow-hidden rounded-[8px] border border-white/10 bg-black/20">{item.profileImageUrl ? <img src={item.profileImageUrl} alt={`${item.platform} profil görseli`} className="size-full object-cover" /> : <ImagePlus size={22} className="text-slate-500" />}</div><div className="rounded-[8px] border border-dashed border-white/10 bg-black/10 p-3"><p className="text-xs font-black uppercase tracking-[.12em] text-slate-500">Profil önizleme alanı</p><p className="mt-2 text-sm font-bold text-white">{item.username || `${item.platform} bilgisi bekleniyor`}</p><p className="mt-1 break-all text-xs text-slate-400">{item.profileUrl || "Profil URL girilmedi"}</p><p className="mt-2 text-xs leading-5 text-slate-500">Profil verileri sınırlı. Girilen bilgiler ve ekran görüntüleriyle analiz yapılacak.</p>{item.profileUrl && <a href={item.profileUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex rounded-full border border-cyan-200/20 px-3 py-1 text-xs font-black text-cyan-100">Profil aç</a>}</div></div></div>)}</div><div className="mt-5 rounded-[8px] border border-white/10 bg-white/[0.035] p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-black text-white">Ekran Görüntüsü Yükle</p><p className="mt-1 text-xs text-slate-400">PNG, JPG, JPEG veya WEBP formatında birden fazla dosya yükleyebilirsiniz.</p></div><label className="cursor-pointer rounded-full bg-yellow-300 px-4 py-2 text-sm font-black text-slate-950"><input type="file" accept="image/png,image/jpeg,image/jpg,image/webp" multiple className="hidden" onChange={(event) => addScreenshots(event.target.files)} />Ekran Görüntüsü Yükle</label></div><div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">{screenshots.map((shot, index) => <div key={shot.id} className="rounded-[8px] border border-white/10 bg-black/15 p-3"><img src={shot.url} alt={shot.name} className="h-28 w-full rounded-[6px] object-cover" /><p className="mt-2 truncate text-xs font-bold text-white">{shot.name}</p><div className="mt-2 flex gap-2"><a href={shot.url} target="_blank" rel="noreferrer" className="rounded-full border border-cyan-200/20 px-3 py-1 text-xs text-cyan-100">Görüntüle</a><button onClick={() => moveScreenshot(index, -1)} className="rounded-full border border-white/10 px-2 text-slate-300"><ArrowUp size={14} /></button><button onClick={() => moveScreenshot(index, 1)} className="rounded-full border border-white/10 px-2 text-slate-300"><ArrowDown size={14} /></button><button onClick={() => setScreenshots(screenshots.filter((current) => current.id !== shot.id))} className="rounded-full border border-red-300/20 px-2 text-red-200"><Trash2 size={14} /></button></div></div>)}{!screenshots.length && <p className="rounded-[8px] border border-dashed border-white/10 p-5 text-sm text-slate-400 xl:col-span-4">Yüklü ekran görüntüsü yok.</p>}</div></div><div className="mt-5 rounded-[8px] border border-white/10 bg-white/[0.035] p-4"><p className="text-sm font-black text-white">Analiz aksiyonları</p><div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">{socialAuditActions.map((action) => <label key={action} className={`flex min-h-12 items-center gap-2 rounded-[8px] border px-3 text-xs font-black transition ${actions.includes(action) ? "border-yellow-200/40 bg-yellow-300/10 text-yellow-100" : "border-white/10 text-slate-400"}`}><input type="checkbox" checked={actions.includes(action)} onChange={() => toggleAction(action)} />{action}</label>)}</div><div className="mt-4 flex flex-wrap gap-2"><button disabled={loading || !actions.filter((action) => action !== "CRM’e Kaydet").length || !hasInput} onClick={runAudit} className="rounded-full bg-yellow-300 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-60">{loading ? "Analiz ediliyor..." : "Seçili aksiyonları oluştur"}</button>{actions.includes("CRM’e Kaydet") && <button disabled={crmSaving || (!outputs.length && !hasInput)} onClick={saveToCrm} className="rounded-full border border-yellow-200/30 px-5 py-3 text-sm font-black text-yellow-100 disabled:opacity-60">{crmSaving ? "CRM’e kaydediliyor..." : "CRM’e Kaydet"}</button>}{pdfOutput && <button onClick={downloadMiniAuditPdf} className="rounded-full border border-cyan-200/25 px-5 py-3 text-sm font-black text-cyan-100">PDF Audit Oluştur</button>}{whatsappOutput && <a href={`https://wa.me/?text=${encodeURIComponent(whatsappText())}`} target="_blank" rel="noreferrer" className="rounded-full border border-emerald-200/25 px-5 py-3 text-sm font-black text-emerald-100">WhatsApp’ta Aç</a>}{whatsappOutput && <button onClick={() => navigator.clipboard?.writeText(whatsappText())} className="rounded-full border border-white/10 px-5 py-3 text-sm font-black text-slate-200">Mesajı Kopyala</button>}</div></div>{leadScore && <div className={`mt-4 rounded-[8px] border p-4 ${leadScore.temperature === "Sıcak" ? "border-red-300/25 bg-red-300/10 text-red-100" : leadScore.temperature === "Ilık" ? "border-amber-300/25 bg-amber-300/10 text-amber-100" : "border-slate-300/20 bg-slate-300/10 text-slate-100"}`}><p className="text-xs font-black uppercase tracking-[.16em]">Lead Score</p><p className="mt-2 text-2xl font-black">{leadScore.score}/100 · {leadScore.temperature}</p><p className="mt-2 text-sm opacity-80">Skor; website/profil URL, platform sayısı, ekran görüntüsü, teklif ihtiyacı ve ticari fırsat sinyallerinden hesaplandı.</p></div>}{message && <p className="mt-4 rounded-[8px] border border-amber-300/25 bg-amber-300/10 p-3 text-sm text-amber-100">{message}</p>}{crmMessage && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{crmMessage}</p>}<div className="mt-5 grid gap-4">{outputs.map((item) => <div key={item.action} className="rounded-[8px] border border-white/10 bg-white/[0.045] p-5"><p className="text-xs font-black uppercase tracking-[.16em] text-yellow-200">{item.action}</p><AiUsageBadge meta={item.ai} /><pre className="mt-4 whitespace-pre-wrap text-sm leading-7 text-slate-200">{item.text}</pre></div>)}{!loading && !outputs.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-center text-sm text-slate-400">Sosyal istihbarat çıktısı için profil, ekran görüntüsü veya işletme bilgisi girip aksiyon seçin.</p>}</div></Panel>;
+  return <Panel title="Sosyal İstihbarat Merkezi"><div className="mb-5 overflow-hidden rounded-[8px] border border-yellow-300/25 bg-gradient-to-br from-yellow-300/18 via-pink-300/8 to-cyan-300/8 p-5 shadow-[0_26px_90px_rgba(250,204,21,.12)]"><p className="text-xs font-black uppercase tracking-[.16em] text-yellow-200">AI Powered Social Intelligence Center</p><h2 className="mt-2 text-2xl font-black text-white">Çoklu platform profillerini tek merkezde denetleyin</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">Instagram, Facebook, TikTok, YouTube, LinkedIn ve X profillerini ekran görüntüleriyle birlikte analiz eder; sadece seçtiğiniz aksiyonları üretir ve CRM’e “Sosyal İstihbarat Merkezi” kaynağıyla kaydeder.</p></div><div className="grid gap-4 rounded-[8px] border border-white/10 bg-black/15 p-4 md:grid-cols-2 xl:grid-cols-3"><Field label="İşletme / profil adı" value={form.businessName} onChange={(businessName) => setForm({ ...form, businessName })} /><OtherSelectField label="Sektör" value={form.sector} onChange={(sector) => setForm({ ...form, sector })} options={sectorOptions} manualLabel="Sektörü yazın" /><SelectField label="Bu analizde kullanılacak AI" value={form.aiProvider} onChange={(aiProvider) => setForm({ ...form, aiProvider })} options={socialAiOptions} /><SelectField label="İl" value={form.city} onChange={updateCity} options={cityOptions} /><SelectField label="İlçe" value={form.district} onChange={(district) => setForm({ ...form, district })} options={districts} /><div className="md:col-span-2 xl:col-span-3"><TextArea label="Ek gözlem / not" value={form.notes} onChange={(notes) => setForm({ ...form, notes })} /></div></div><div className="mt-5 grid gap-4 xl:grid-cols-2">{platforms.map((item, index) => <div key={item.platform} className="rounded-[8px] border border-white/10 bg-white/[0.04] p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-black text-white">{item.platform}</p><p className="mt-1 text-[11px] font-bold text-slate-500">{profileFetchStatus(item)}</p></div><div className="flex items-center gap-2"><span className={`rounded-full px-3 py-1 text-xs font-black ${profileFetchStatus(item) === "Profil bilgileri alındı" ? "bg-emerald-300/12 text-emerald-100" : profileFetchStatus(item) === "Sınırlı veri" ? "bg-amber-300/12 text-amber-100" : "bg-slate-300/10 text-slate-300"}`}>{profileFetchStatus(item)}</span><button type="button" disabled={profileFetching[item.platform]} onClick={() => scanProfile(index)} className="rounded-full bg-yellow-300 px-3 py-2 text-xs font-black text-slate-950 disabled:opacity-60">{profileFetching[item.platform] ? "Taranıyor..." : "Profili Tara"}</button></div></div><div className="mt-3 grid gap-3 md:grid-cols-3"><Field label={usernameLabel(item.platform)} value={item.username} onChange={(username) => updatePlatform(index, { username })} /><Field label={urlLabel(item.platform)} value={item.profileUrl} onChange={(profileUrl) => updatePlatform(index, { profileUrl })} /><Field label="Profil görsel URL" value={item.profileImageUrl} onChange={(profileImageUrl) => updatePlatform(index, { profileImageUrl, fetchStatus: profileImageUrl ? "Sınırlı veri" : item.fetchStatus })} /></div><div className="mt-4 grid gap-3 md:grid-cols-[96px_1fr]"><div className="grid size-24 place-items-center overflow-hidden rounded-[8px] border border-white/10 bg-black/20">{item.profileImageUrl ? <img src={item.profileImageUrl} alt={`${item.platform} profil görseli`} className="size-full object-cover" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : <ImagePlus size={22} className="text-slate-500" />}</div><div className="rounded-[8px] border border-dashed border-white/10 bg-black/10 p-3"><p className="text-xs font-black uppercase tracking-[.12em] text-slate-500">Profil önizleme alanı</p><p className="mt-2 text-sm font-bold text-white">{item.displayName || item.publicTitle || item.username || `${item.platform} bilgisi bekleniyor`}</p>{item.username && <p className="mt-1 text-xs font-bold text-yellow-100">{item.username}</p>}<p className="mt-2 text-xs leading-5 text-slate-400">{item.bio || item.publicDescription || "Profil açıklaması otomatik alınamadı."}</p>{item.website && <p className="mt-2 break-all text-xs text-emerald-100">Website: {item.website}</p>}<p className="mt-2 break-all text-xs text-slate-400">{item.profileUrl || "Profil URL girilmedi"}</p>{item.fetchWarning && <p className="mt-2 text-xs leading-5 text-amber-100">{item.fetchWarning}</p>}{profileFetchStatus(item) === "Alınamadı" && <p className="mt-2 text-xs leading-5 text-slate-500">Instagram ve Facebook bazı verileri engelleyebilir. Profil ekran görüntüsü yüklerseniz AI daha doğru analiz yapar.</p>}{item.profileUrl && <a href={item.profileUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex rounded-full border border-cyan-200/20 px-3 py-1 text-xs font-black text-cyan-100">Profili Aç</a>}</div></div></div>)}</div><div className="mt-5 rounded-[8px] border border-white/10 bg-white/[0.035] p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-black text-white">Ekran Görüntüsü Yükle</p><p className="mt-1 text-xs text-slate-400">PNG, JPG, JPEG veya WEBP formatında birden fazla dosya yükleyebilirsiniz. Instagram ve Facebook bazı verileri engelleyebilir. Profil ekran görüntüsü yüklerseniz AI daha doğru analiz yapar.</p></div><label className="cursor-pointer rounded-full bg-yellow-300 px-4 py-2 text-sm font-black text-slate-950"><input type="file" accept="image/png,image/jpeg,image/jpg,image/webp" multiple className="hidden" onChange={(event) => addScreenshots(event.target.files)} />Ekran Görüntüsü Yükle</label></div><div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">{screenshots.map((shot, index) => <div key={shot.id} className="rounded-[8px] border border-white/10 bg-black/15 p-3"><img src={shot.url} alt={shot.name} className="h-28 w-full rounded-[6px] object-cover" /><p className="mt-2 truncate text-xs font-bold text-white">{shot.name}</p><div className="mt-2 flex gap-2"><a href={shot.url} target="_blank" rel="noreferrer" className="rounded-full border border-cyan-200/20 px-3 py-1 text-xs text-cyan-100">Görüntüle</a><button onClick={() => moveScreenshot(index, -1)} className="rounded-full border border-white/10 px-2 text-slate-300"><ArrowUp size={14} /></button><button onClick={() => moveScreenshot(index, 1)} className="rounded-full border border-white/10 px-2 text-slate-300"><ArrowDown size={14} /></button><button onClick={() => setScreenshots(screenshots.filter((current) => current.id !== shot.id))} className="rounded-full border border-red-300/20 px-2 text-red-200"><Trash2 size={14} /></button></div></div>)}{!screenshots.length && <p className="rounded-[8px] border border-dashed border-white/10 p-5 text-sm text-slate-400 xl:col-span-4">Yüklü ekran görüntüsü yok.</p>}</div></div><div className="mt-5 rounded-[8px] border border-white/10 bg-white/[0.035] p-4"><p className="text-sm font-black text-white">Analiz aksiyonları</p><div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">{socialAuditActions.map((action) => <label key={action} className={`flex min-h-12 items-center gap-2 rounded-[8px] border px-3 text-xs font-black transition ${actions.includes(action) ? "border-yellow-200/40 bg-yellow-300/10 text-yellow-100" : "border-white/10 text-slate-400"}`}><input type="checkbox" checked={actions.includes(action)} onChange={() => toggleAction(action)} />{action}</label>)}</div><div className="mt-4 flex flex-wrap gap-2"><button disabled={loading || !actions.filter((action) => action !== "CRM’e Kaydet").length || !hasInput} onClick={runAudit} className="rounded-full bg-yellow-300 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-60">{loading ? "Analiz ediliyor..." : "Seçili aksiyonları oluştur"}</button>{actions.includes("CRM’e Kaydet") && <button disabled={crmSaving || (!outputs.length && !hasInput)} onClick={saveToCrm} className="rounded-full border border-yellow-200/30 px-5 py-3 text-sm font-black text-yellow-100 disabled:opacity-60">{crmSaving ? "CRM’e kaydediliyor..." : "CRM’e Kaydet"}</button>}{pdfOutput && <button onClick={downloadMiniAuditPdf} className="rounded-full border border-cyan-200/25 px-5 py-3 text-sm font-black text-cyan-100">PDF Audit Oluştur</button>}{whatsappOutput && <a href={`https://wa.me/?text=${encodeURIComponent(whatsappText())}`} target="_blank" rel="noreferrer" className="rounded-full border border-emerald-200/25 px-5 py-3 text-sm font-black text-emerald-100">WhatsApp’ta Aç</a>}{whatsappOutput && <button onClick={() => navigator.clipboard?.writeText(whatsappText())} className="rounded-full border border-white/10 px-5 py-3 text-sm font-black text-slate-200">Mesajı Kopyala</button>}</div></div>{leadScore && <div className={`mt-4 rounded-[8px] border p-4 ${leadScore.temperature === "Sıcak" ? "border-red-300/25 bg-red-300/10 text-red-100" : leadScore.temperature === "Ilık" ? "border-amber-300/25 bg-amber-300/10 text-amber-100" : "border-slate-300/20 bg-slate-300/10 text-slate-100"}`}><p className="text-xs font-black uppercase tracking-[.16em]">Lead Score</p><p className="mt-2 text-2xl font-black">{leadScore.score}/100 · {leadScore.temperature}</p><p className="mt-2 text-sm opacity-80">Skor; website/profil URL, platform sayısı, ekran görüntüsü, teklif ihtiyacı ve ticari fırsat sinyallerinden hesaplandı.</p></div>}{message && <p className="mt-4 rounded-[8px] border border-amber-300/25 bg-amber-300/10 p-3 text-sm text-amber-100">{message}</p>}{crmMessage && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{crmMessage}</p>}<div className="mt-5 grid gap-4">{outputs.map((item) => <div key={item.action} className="rounded-[8px] border border-white/10 bg-white/[0.045] p-5"><p className="text-xs font-black uppercase tracking-[.16em] text-yellow-200">{item.action}</p><AiUsageBadge meta={item.ai} /><pre className="mt-4 whitespace-pre-wrap text-sm leading-7 text-slate-200">{item.text}</pre></div>)}{!loading && !outputs.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-center text-sm text-slate-400">Sosyal istihbarat çıktısı için profil, ekran görüntüsü veya işletme bilgisi girip aksiyon seçin.</p>}</div></Panel>;
 }
 
 function ChannelAnalysis({ content, channel }: any) {

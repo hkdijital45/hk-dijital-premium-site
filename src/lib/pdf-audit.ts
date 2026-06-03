@@ -8,7 +8,17 @@ type PdfAuditPayload = {
   ai?: { provider?: string; model?: string; mode?: string } | null;
   profileImageUrl?: string;
   logoUrl?: string;
-  platforms?: Array<{ platform?: string; username?: string; profileUrl?: string }>;
+  platforms?: Array<{
+    platform?: string;
+    username?: string;
+    profileUrl?: string;
+    displayName?: string;
+    bio?: string;
+    website?: string;
+    profileImageUrl?: string;
+    publicTitle?: string;
+    publicDescription?: string;
+  }>;
   outputs?: Array<{ action?: string; text?: string; ai?: { provider?: string; model?: string; mode?: string } }>;
   sections?: Record<string, string>;
   summary?: string;
@@ -82,7 +92,13 @@ function sectionText(payload: PdfAuditPayload, title: string) {
   if (title === "Problems") return outputFor(payload, "Duzeltilmesi Gerekenler") || outputFor(payload, "Düzeltilmesi Gerekenler") || "Profil aciklamasi, CTA, guven sinyalleri ve teklif dili netlestirilmelidir.";
   if (title === "Opportunities") return "Yerel gorunurluk, sosyal kanit, kisa video, yeniden pazarlama ve teklif odakli kampanyalar buyume firsati sunar.";
   if (title === "Improvement Recommendations") return outputFor(payload, "Duzeltilmesi Gerekenler") || outputFor(payload, "Düzeltilmesi Gerekenler") || "Bio, profil gorseli, sabit hikayeler, icerik tutarliligi ve donusum akislarini iyilestirin.";
-  if (title === "Social Profile Observations") return (payload.platforms || []).map((item) => `${item.platform || "Platform"}: ${item.username || "-"} ${item.profileUrl || ""}`).join("\n") || "Profil verileri sinirli. Girilen bilgiler ve ekran goruntuleriyle analiz yapilmistir.";
+  if (title === "Social Profile Observations") return (payload.platforms || []).map((item) => [
+    `${item.platform || "Platform"}: ${item.displayName || item.username || item.publicTitle || "-"}`,
+    item.bio || item.publicDescription ? `Bio/aciklama: ${item.bio || item.publicDescription}` : "",
+    item.website ? `Website: ${item.website}` : "",
+    item.profileUrl ? `Platform URL: ${item.profileUrl}` : "",
+    item.profileImageUrl ? "Profil gorseli: var" : "Profil gorseli: yok veya goruntulenemedi"
+  ].filter(Boolean).join("\n")).join("\n\n") || "Profil verileri sinirli. Girilen bilgiler ve ekran goruntuleriyle analiz yapilmistir.";
   if (title === "30-Day Social Media Plan") return outputFor(payload, "30 Gunluk Sosyal Medya Plani") || outputFor(payload, "30 Günlük Sosyal Medya Planı") || "1. hafta guven ve konumlandirma, 2. hafta sosyal kanit, 3. hafta teklif, 4. hafta donusum ve yeniden pazarlama.";
   if (title === "Meta Ads Strategy") return outputFor(payload, "Meta Reklam Stratejisi") || "Farkindalik, trafik, mesaj, yeniden pazarlama ve donusum kampanyalari ayrilmali; satis garantisi verilmemelidir.";
   if (title === "Google Ads Strategy") return outputFor(payload, "Google Reklam Stratejisi") || "Arama niyeti yuksek kelimeler lokasyon ve hizmet bazinda gruplanmali; olcumleme kurulmalidir.";

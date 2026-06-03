@@ -16,7 +16,16 @@ function firstUrl(links: any = {}) {
 
 function buildNotes(body: any) {
   const links = body.links || {};
-  const platforms = Array.isArray(body.platforms) ? body.platforms.map((item: any) => `${clean(item.platform)}: ${clean(item.username || item.profileUrl || item.profileImageUrl)}`).filter(Boolean).join(", ") : "";
+  const platforms = Array.isArray(body.platforms) ? body.platforms.map((item: any) => {
+    const label = clean(item.displayName || item.username || item.profileUrl || item.profileImageUrl);
+    const extras = [
+      clean(item.bio) ? `Bio: ${clean(item.bio)}` : "",
+      clean(item.website) ? `Website: ${clean(item.website)}` : "",
+      clean(item.profileUrl) ? `URL: ${clean(item.profileUrl)}` : "",
+      clean(item.profileImageUrl) ? `Profil görseli: ${clean(item.profileImageUrl)}` : ""
+    ].filter(Boolean).join(" | ");
+    return `${clean(item.platform)}: ${label}${extras ? ` (${extras})` : ""}`;
+  }).filter(Boolean).join(", ") : "";
   return [
     `Arama kaynağı: ${clean(body.source) || "-"}`,
     `Seçim: ${clean(body.city) || "-"} / ${clean(body.district) || "-"} / ${clean(body.sector) || "-"}`,

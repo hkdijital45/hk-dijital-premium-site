@@ -70,8 +70,16 @@ export async function POST(request: Request) {
     platform: clean(item.platform),
     username: clean(item.username),
     profileUrl: clean(item.profileUrl),
-    profileImageUrl: clean(item.profileImageUrl)
-  })).filter((item: any) => item.platform && (item.username || item.profileUrl || item.profileImageUrl)) : [];
+    profileImageUrl: clean(item.profileImageUrl),
+    displayName: clean(item.displayName),
+    bio: clean(item.bio),
+    website: clean(item.website),
+    publicTitle: clean(item.publicTitle),
+    publicDescription: clean(item.publicDescription),
+    fetchMode: clean(item.fetchMode),
+    fetchStatus: clean(item.fetchStatus),
+    warning: clean(item.fetchWarning || item.warning)
+  })).filter((item: any) => item.platform && (item.username || item.profileUrl || item.profileImageUrl || item.displayName || item.bio || item.publicTitle)) : [];
   const screenshots = Array.isArray(body.screenshots) ? body.screenshots.map((item: any, index: number) => ({
     name: clean(item.name) || `ekran-goruntusu-${index + 1}`,
     type: clean(item.type),
@@ -119,6 +127,11 @@ Analiz alanları:
 
 Profil ve ekran görüntüsü verileri:
 ${JSON.stringify(profile, null, 2)}
+
+Profil metadata kullanımı:
+- Public title, bio/aciklama, website, profil gorseli varligi, platform URL, yuklenen ekran goruntuleri ve isletme notlarini birlikte degerlendir.
+- Metadata sinirli veya fetchStatus "Sinirli veri"/"Alinamadi" ise ciktida su cumleyi acikca kullan: "Bu analiz sınırlı herkese açık profil verileri ve girilen bilgilerle oluşturuldu."
+- Profil fotoğrafı yoksa fotoğraf varmış gibi davranma; iletişim bilgisi, takipçi sayısı, telefon veya e-posta uydurma.
 
 Çıktıyı profesyonel ajans dilinde, uygulanabilir maddelerle, beklenti yönetimini koruyarak yaz.`;
       const generated = await generateAiText(prompt, fallback(action, profile, leadScore), settings);
