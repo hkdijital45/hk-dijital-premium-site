@@ -48,13 +48,19 @@
       "geminiApiKey": "",
       "groqApiKey": "",
       "openAiApiKey": "",
-      "activeProvider": "gemini",
-      "active_ai_provider": "gemini",
-      "active_ai_model": "gemini-2.0-flash",
+      "activeProvider": "groq",
+      "active_ai_provider": "groq",
+      "active_ai_model": "llama-3.3-70b-versatile",
       "ai_mode": "live",
-      "ai_provider_priority": ["gemini", "openai", "groq", "demo", "local"],
+      "ai_provider_priority": [
+        "groq",
+        "gemini",
+        "openai",
+        "demo",
+        "local"
+      ],
       "demoMode": false,
-      "model": "gemini-2.0-flash"
+      "model": "llama-3.3-70b-versatile"
     },
     "legalDisclaimers": [
       "Satış garantisi verilmez.",

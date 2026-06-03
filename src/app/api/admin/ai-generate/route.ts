@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { generateAiText } from "@/lib/ai-provider";
+import { aiSettingsForProviderChoice, generateAiText } from "@/lib/ai-provider";
 import { requireModuleAccess } from "@/lib/permissions";
 
 function localFallback(prompt: string) {
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   if (!prompt) return NextResponse.json({ error: "Komut girin." }, { status: 400 });
 
   try {
-    const generated = await generateAiText(prompt, localFallback(prompt));
+    const generated = await generateAiText(prompt, localFallback(prompt), aiSettingsForProviderChoice(body.aiProvider));
     return NextResponse.json({ ok: true, output: generated.text, ai: generated });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Analiz sırasında bir hata oluştu." }, { status: 503 });

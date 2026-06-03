@@ -30,7 +30,7 @@ const defaultModels: Record<AiProviderKey, string> = {
   local: "local-rules"
 };
 
-export const defaultAiProviderPriority: AiProviderKey[] = ["gemini", "openai", "groq", "demo", "local"];
+export const defaultAiProviderPriority: AiProviderKey[] = ["groq", "gemini", "openai", "demo", "local"];
 
 export const professionalAiInstruction =
   "Analyze and provide recommendations as a senior digital marketing consultant, social media strategist, media buyer, growth marketer, agency owner, and business development expert. Focus on practical actions, conversion optimization, lead generation, funnel strategy, advertising opportunities, customer psychology, positioning, branding, realistic growth recommendations, expectation management, and client communication.";
@@ -43,7 +43,7 @@ export function normalizeAiProvider(value?: string | null, demoMode = false): Ai
   if (normalized === "gemini") return "gemini";
   if (["demo", "demo mode", "demo modu"].includes(normalized)) return "demo";
   if (["local", "local mode", "yerel", "yerel mod"].includes(normalized)) return "local";
-  return demoMode ? "demo" : "gemini";
+  return demoMode ? "demo" : "groq";
 }
 
 function normalizePriority(value?: string[] | string): AiProviderKey[] {
@@ -57,7 +57,7 @@ function configuredProvider(settings: AiSettings = {}) {
   const legacy = normalizeAiProvider(settings.activeProvider, settings.demoMode);
   if (primary === "automatic" && legacy !== "automatic") return legacy;
   if (["demo", "local"].includes(primary) && ["openai", "groq", "gemini"].includes(legacy) && !settings.demoMode) return legacy;
-  return settings.active_ai_provider || settings.activeProvider || "gemini";
+  return settings.active_ai_provider || settings.activeProvider || "groq";
 }
 
 export function aiMetadata(provider: AiProviderKey, model?: string) {
@@ -82,6 +82,14 @@ export function aiSettingsMetadata(settings: AiSettings = {}) {
   return aiMetadata(provider, model === "demo-local" && provider !== "demo" ? defaultModels[provider] : model);
 }
 
+export function aiSettingsForProviderChoice(choice?: string | null): AiSettings | undefined {
+  const provider = normalizeAiProvider(choice || "groq");
+  if (provider === "automatic") return { active_ai_provider: "automatic", activeProvider: "automatic", demoMode: false, ai_provider_priority: defaultAiProviderPriority };
+  if (provider === "demo") return { active_ai_provider: "demo", activeProvider: "demo", demoMode: true, ai_mode: "demo", active_ai_model: defaultModels.demo, model: defaultModels.demo };
+  if (provider === "local") return { active_ai_provider: "local", activeProvider: "local", demoMode: false, ai_mode: "local", active_ai_model: defaultModels.local, model: defaultModels.local };
+  return { active_ai_provider: provider, activeProvider: provider, demoMode: false, ai_mode: "live", active_ai_model: defaultModels[provider], model: defaultModels[provider] };
+}
+
 export async function getAiRuntimeSettings() {
   const content = await getSiteContent();
   return content.settings.api as AiSettings;
@@ -101,14 +109,24 @@ async function requestOpenAi(prompt: string, model: string) {
 
 async function requestGroq(prompt: string, model: string) {
   if (!process.env.GROQ_API_KEY) throw new Error("Groq API anahtarı eksik.");
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.35 })
-  });
-  if (!response.ok) throw new Error(`Groq yanıt vermedi (${response.status}).`);
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || "";
+  const fallbackModel = process.env.GROQ_FALLBACK_MODEL || "llama-3.1-8b-instant";
+  const modelsToTry = [...new Set([model || defaultModels.groq, fallbackModel])];
+  let lastError = "";
+
+  for (const modelToTry of modelsToTry) {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: modelToTry, messages: [{ role: "user", content: prompt }], temperature: 0.35 })
+    });
+    if (response.ok) {
+      const data = await response.json();
+      return { text: data.choices?.[0]?.message?.content || "", model: modelToTry };
+    }
+    lastError = `Groq yanıt vermedi (${response.status}).`;
+  }
+
+  throw new Error(lastError || "Groq yanıt vermedi.");
 }
 
 async function requestGemini(prompt: string, model: string) {
@@ -124,12 +142,17 @@ async function requestGemini(prompt: string, model: string) {
 }
 
 async function generateWithProvider(provider: AiProviderKey, prompt: string, fallbackText: string, configuredModel?: string) {
+  const startedAt = Date.now();
   const model = configuredModel && configuredModel !== "demo-local" ? configuredModel : defaultModels[provider];
-  if (provider === "openai") return { text: await requestOpenAi(prompt, model), ...aiMetadata(provider, model) };
-  if (provider === "groq") return { text: await requestGroq(prompt, model), ...aiMetadata(provider, model) };
-  if (provider === "gemini") return { text: await requestGemini(prompt, model), ...aiMetadata(provider, model) };
-  if (provider === "local") return { text: fallbackText, ...aiMetadata("local", defaultModels.local) };
-  return { text: fallbackText, ...aiMetadata("demo", defaultModels.demo) };
+  const withTiming = <T extends ReturnType<typeof aiMetadata> & { text: string }>(result: T) => ({ ...result, responseTimeMs: Date.now() - startedAt });
+  if (provider === "openai") return withTiming({ text: await requestOpenAi(prompt, model), ...aiMetadata(provider, model) });
+  if (provider === "groq") {
+    const result = await requestGroq(prompt, model);
+    return withTiming({ text: result.text, ...aiMetadata(provider, result.model) });
+  }
+  if (provider === "gemini") return withTiming({ text: await requestGemini(prompt, model), ...aiMetadata(provider, model) });
+  if (provider === "local") return withTiming({ text: fallbackText, ...aiMetadata("local", defaultModels.local) });
+  return withTiming({ text: fallbackText, ...aiMetadata("demo", defaultModels.demo) });
 }
 
 export async function generateAiText(prompt: string, fallbackText: string, settings?: AiSettings) {

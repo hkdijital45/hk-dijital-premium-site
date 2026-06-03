@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { generateAiText } from "@/lib/ai-provider";
+import { aiSettingsForProviderChoice, generateAiText } from "@/lib/ai-provider";
 import { requireModuleAccess } from "@/lib/permissions";
 
 const actionLabels = [
@@ -12,14 +12,6 @@ const actionLabels = [
   "PDF Audit Oluştur",
   "WhatsApp Teklifi Hazırla"
 ];
-
-const providerOverrides: Record<string, any> = {
-  OpenAI: { active_ai_provider: "openai", demoMode: false },
-  Groq: { active_ai_provider: "groq", demoMode: false },
-  Gemini: { active_ai_provider: "gemini", demoMode: false },
-  "Demo Modu": { active_ai_provider: "demo", demoMode: true },
-  "Yerel Mod": { active_ai_provider: "local", localMode: true }
-};
 
 function clean(value: unknown) {
   return String(value || "").trim();
@@ -99,7 +91,7 @@ export async function POST(request: Request) {
   if (!actions.length) return NextResponse.json({ error: "En az bir analiz aksiyonu seçin." }, { status: 400 });
 
   const providerChoice = clean(body.aiProvider);
-  const settings = providerOverrides[providerChoice];
+  const settings = aiSettingsForProviderChoice(providerChoice);
   const leadScore = calculateLeadScore(profile, actions);
   const outputs = [];
 

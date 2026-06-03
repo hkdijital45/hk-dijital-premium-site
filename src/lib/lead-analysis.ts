@@ -40,8 +40,8 @@ ${JSON.stringify({
 })}`;
 }
 
-export async function analyzeLead(lead: any) {
+export async function analyzeLead(lead: any, settings?: Parameters<typeof generateAiText>[2]) {
   const prompt = leadPrompt(lead);
-  const generated = await generateAiText(prompt, demoAnalysis(lead));
+  const generated = await generateAiText(prompt, demoAnalysis(lead), settings);
   return { ...generated, generated_at: new Date().toISOString() };
 }

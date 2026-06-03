@@ -6,20 +6,22 @@ import { motion } from "framer-motion";
 import { BarChart3, BrainCircuit, CheckCircle2, CircleDollarSign, Gauge, LineChart, Sparkles, Target } from "lucide-react";
 
 const accentStyles = {
-  cyan: "border-cyan-200/35 bg-gradient-to-br from-cyan-300/25 via-sky-500/12 to-cyan-950/30 text-cyan-50 shadow-[0_0_34px_rgba(34,211,238,.18)]",
-  amber: "border-amber-200/35 bg-gradient-to-br from-amber-300/28 via-orange-500/12 to-amber-950/30 text-amber-50 shadow-[0_0_34px_rgba(251,191,36,.18)]",
-  blue: "border-blue-300/35 bg-gradient-to-br from-blue-400/28 via-sky-500/12 to-blue-950/30 text-blue-50 shadow-[0_0_34px_rgba(96,165,250,.18)]",
-  emerald: "border-emerald-300/35 bg-gradient-to-br from-emerald-300/28 via-teal-500/12 to-emerald-950/30 text-emerald-50 shadow-[0_0_34px_rgba(52,211,153,.18)]",
-  purple: "border-purple-300/35 bg-gradient-to-br from-purple-300/28 via-fuchsia-500/12 to-purple-950/30 text-purple-50 shadow-[0_0_34px_rgba(216,180,254,.18)]",
-  orange: "border-orange-300/35 bg-gradient-to-br from-orange-300/30 via-rose-500/12 to-orange-950/30 text-orange-50 shadow-[0_0_34px_rgba(251,146,60,.2)]",
-  pink: "border-pink-300/35 bg-gradient-to-br from-pink-300/28 via-rose-500/12 to-pink-950/30 text-pink-50 shadow-[0_0_34px_rgba(244,114,182,.18)]",
-  indigo: "border-indigo-300/35 bg-gradient-to-br from-indigo-300/28 via-blue-500/12 to-indigo-950/30 text-indigo-50 shadow-[0_0_34px_rgba(129,140,248,.18)]",
-  yellow: "border-yellow-300/35 bg-gradient-to-br from-yellow-300/30 via-amber-500/12 to-yellow-950/30 text-yellow-50 shadow-[0_0_34px_rgba(250,204,21,.2)]",
-  gold: "border-yellow-200/40 bg-gradient-to-br from-yellow-200/35 via-orange-400/16 to-amber-950/35 text-yellow-50 shadow-[0_0_42px_rgba(250,204,21,.24)]",
-  red: "border-red-300/35 bg-gradient-to-br from-red-300/28 via-orange-500/14 to-red-950/35 text-red-50 shadow-[0_0_36px_rgba(248,113,113,.2)]",
-  slate: "border-slate-300/30 bg-gradient-to-br from-slate-300/18 via-slate-500/10 to-slate-950/50 text-slate-50 shadow-[0_0_28px_rgba(148,163,184,.14)]",
-  rose: "border-rose-300/35 bg-gradient-to-br from-rose-300/28 via-pink-500/12 to-rose-950/35 text-rose-50 shadow-[0_0_36px_rgba(251,113,133,.2)]",
-  teal: "border-teal-300/35 bg-gradient-to-br from-teal-300/28 via-cyan-500/12 to-teal-950/35 text-teal-50 shadow-[0_0_36px_rgba(45,212,191,.2)]"
+  cyan: "border-cyan-200/40 bg-gradient-to-br from-cyan-400 via-sky-500 to-blue-600 text-white shadow-[0_22px_55px_rgba(6,182,212,.28)]",
+  amber: "border-amber-100/45 bg-gradient-to-br from-yellow-300 via-amber-400 to-orange-500 text-white shadow-[0_22px_55px_rgba(245,158,11,.28)]",
+  blue: "border-blue-100/45 bg-gradient-to-br from-blue-500 via-sky-500 to-cyan-400 text-white shadow-[0_22px_55px_rgba(59,130,246,.30)]",
+  emerald: "border-emerald-100/45 bg-gradient-to-br from-emerald-400 via-green-500 to-teal-600 text-white shadow-[0_22px_55px_rgba(16,185,129,.30)]",
+  purple: "border-purple-100/45 bg-gradient-to-br from-violet-500 via-purple-500 to-fuchsia-500 text-white shadow-[0_22px_55px_rgba(168,85,247,.30)]",
+  orange: "border-orange-100/45 bg-gradient-to-br from-orange-400 via-pink-500 to-rose-500 text-white shadow-[0_22px_55px_rgba(249,115,22,.30)]",
+  pink: "border-pink-100/45 bg-gradient-to-br from-pink-400 via-rose-500 to-fuchsia-500 text-white shadow-[0_22px_55px_rgba(236,72,153,.30)]",
+  indigo: "border-indigo-100/45 bg-gradient-to-br from-indigo-500 via-blue-600 to-violet-600 text-white shadow-[0_22px_55px_rgba(99,102,241,.30)]",
+  yellow: "border-yellow-100/45 bg-gradient-to-br from-yellow-300 via-amber-400 to-orange-400 text-white shadow-[0_22px_55px_rgba(250,204,21,.32)]",
+  gold: "border-yellow-100/45 bg-gradient-to-br from-yellow-300 via-orange-400 to-amber-600 text-white shadow-[0_22px_55px_rgba(250,204,21,.34)]",
+  red: "border-red-100/45 bg-gradient-to-br from-red-500 via-orange-500 to-amber-500 text-white shadow-[0_22px_55px_rgba(239,68,68,.30)]",
+  slate: "border-cyan-100/35 bg-gradient-to-br from-slate-500 via-cyan-600 to-sky-700 text-white shadow-[0_22px_55px_rgba(14,165,233,.26)]",
+  rose: "border-rose-100/45 bg-gradient-to-br from-rose-500 via-pink-500 to-fuchsia-500 text-white shadow-[0_22px_55px_rgba(244,63,94,.30)]",
+  teal: "border-teal-100/45 bg-gradient-to-br from-teal-400 via-cyan-500 to-emerald-600 text-white shadow-[0_22px_55px_rgba(20,184,166,.30)]",
+  coral: "border-orange-100/45 bg-gradient-to-br from-orange-400 via-red-400 to-pink-500 text-white shadow-[0_22px_55px_rgba(251,113,133,.30)]",
+  lime: "border-lime-100/45 bg-gradient-to-br from-lime-400 via-green-500 to-emerald-600 text-white shadow-[0_22px_55px_rgba(132,204,22,.30)]"
 };
 
 export function GlassCard({ children, className = "", interactive = false }: { children: ReactNode; className?: string; interactive?: boolean }) {

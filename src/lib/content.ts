@@ -9,6 +9,23 @@ const siteContentKey = "site_content";
 function normalizeAiDefaults<T extends SiteContent>(content: T): T {
   const api = content.settings?.api || {};
   const provider = String(api.active_ai_provider || api.activeProvider || "").toLocaleLowerCase("tr");
+  const legacyGeminiDefault = provider === "gemini" && [api.active_ai_model, api.model].some((item) => String(item || "").includes("gemini-2.0-flash"));
+  if (legacyGeminiDefault) return {
+    ...content,
+    settings: {
+      ...content.settings,
+      api: {
+        ...api,
+        activeProvider: "groq",
+        active_ai_provider: "groq",
+        active_ai_model: "llama-3.3-70b-versatile",
+        ai_mode: "live",
+        ai_provider_priority: ["groq", "gemini", "openai", "demo", "local"],
+        demoMode: false,
+        model: "llama-3.3-70b-versatile"
+      }
+    }
+  };
   const legacyDemoDefault = (!provider || provider === "automatic" || provider === "otomatik") && String(api.activeProvider || "").toLocaleLowerCase("tr") === "demo" && api.demoMode && api.ai_mode !== "demo";
   if (provider || !api.demoMode) return legacyDemoDefault ? {
     ...content,
@@ -16,13 +33,13 @@ function normalizeAiDefaults<T extends SiteContent>(content: T): T {
       ...content.settings,
       api: {
         ...api,
-        activeProvider: "gemini",
-        active_ai_provider: "gemini",
-        active_ai_model: "gemini-2.0-flash",
+        activeProvider: "groq",
+        active_ai_provider: "groq",
+        active_ai_model: "llama-3.3-70b-versatile",
         ai_mode: "live",
-        ai_provider_priority: api.ai_provider_priority || ["gemini", "openai", "groq", "demo", "local"],
+        ai_provider_priority: api.ai_provider_priority || ["groq", "gemini", "openai", "demo", "local"],
         demoMode: false,
-        model: "gemini-2.0-flash"
+        model: "llama-3.3-70b-versatile"
       }
     }
   } : content;
@@ -32,13 +49,13 @@ function normalizeAiDefaults<T extends SiteContent>(content: T): T {
       ...content.settings,
       api: {
         ...api,
-        activeProvider: "gemini",
-        active_ai_provider: "gemini",
-        active_ai_model: "gemini-2.0-flash",
+        activeProvider: "groq",
+        active_ai_provider: "groq",
+        active_ai_model: "llama-3.3-70b-versatile",
         ai_mode: "live",
-        ai_provider_priority: ["gemini", "openai", "groq", "demo", "local"],
+        ai_provider_priority: ["groq", "gemini", "openai", "demo", "local"],
         demoMode: false,
-        model: "gemini-2.0-flash"
+        model: "llama-3.3-70b-versatile"
       }
     }
   };
