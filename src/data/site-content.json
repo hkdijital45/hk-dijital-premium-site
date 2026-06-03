@@ -48,12 +48,13 @@
       "geminiApiKey": "",
       "groqApiKey": "",
       "openAiApiKey": "",
-      "activeProvider": "demo",
-      "active_ai_provider": "automatic",
-      "active_ai_model": "automatic-fallback",
+      "activeProvider": "gemini",
+      "active_ai_provider": "gemini",
+      "active_ai_model": "gemini-2.0-flash",
       "ai_mode": "live",
-      "demoMode": true,
-      "model": "demo-local"
+      "ai_provider_priority": ["gemini", "openai", "groq", "demo", "local"],
+      "demoMode": false,
+      "model": "gemini-2.0-flash"
     },
     "legalDisclaimers": [
       "Satış garantisi verilmez.",

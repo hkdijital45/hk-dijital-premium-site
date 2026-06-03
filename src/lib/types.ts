@@ -141,10 +141,11 @@ export type SiteContent = {
       geminiApiKey: string;
       groqApiKey: string;
       openAiApiKey: string;
-      activeProvider: "demo" | "gemini" | "groq" | "openai";
+      activeProvider: "demo" | "gemini" | "groq" | "openai" | "automatic" | "local" | string;
       active_ai_provider?: "automatic" | "demo" | "local" | "gemini" | "groq" | "openai" | string;
       active_ai_model?: string;
       ai_mode?: "live" | "demo" | "local" | string;
+      ai_provider_priority?: string[];
       ai_status_last_test_at?: string;
       ai_status?: Record<string, { name?: string; status?: string; model?: string; lastTestTime?: string; warning?: string }>;
       demoMode: boolean;

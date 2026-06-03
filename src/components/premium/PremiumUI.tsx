@@ -26,10 +26,10 @@ export function GlassCard({ children, className = "", interactive = false }: { c
 }
 
 export function MetricCard3D({ label, value, note, accent = "cyan", icon }: { label: string; value: string | number; note?: string; accent?: keyof typeof accentStyles; icon?: ReactNode }) {
-  return <motion.div whileHover={{ y: -6, rotateX: 2, rotateY: -2 }} className="glass-card metric-card-3d relative overflow-hidden p-5">
+  return <motion.div whileHover={{ y: -8, rotateX: 3, rotateY: -3, scale: 1.015 }} className={`glass-card metric-card-3d relative overflow-hidden border p-5 ${accentStyles[accent]}`}>
     <div className={`pointer-events-none absolute -right-10 -top-10 size-28 rounded-full blur-3xl ${accentStyles[accent]}`} />
-    <div className="flex items-center justify-between gap-3"><p className="text-xs font-black uppercase tracking-[.16em] text-slate-400">{label}</p><span className={`grid size-9 place-items-center rounded-[8px] border ${accentStyles[accent]}`}>{icon || <BarChart3 size={17} />}</span></div>
-    <p className="mt-5 text-3xl font-black text-white">{value}</p>{note && <p className="mt-3 text-xs leading-5 text-slate-400">{note}</p>}
+    <div className="flex items-center justify-between gap-3"><p className="text-xs font-black uppercase tracking-[.16em] text-white/75">{label}</p><span className="grid size-9 place-items-center rounded-[8px] border border-white/25 bg-white/15 text-white shadow-[0_0_24px_rgba(255,255,255,.12)]">{icon || <BarChart3 size={17} />}</span></div>
+    <p className="mt-5 text-3xl font-black text-white">{value}</p>{note && <p className="mt-3 text-xs leading-5 text-white/72">{note}</p>}
   </motion.div>;
 }
 

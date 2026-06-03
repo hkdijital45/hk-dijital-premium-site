@@ -9,6 +9,7 @@ type AiSettings = {
   active_ai_model?: string;
   demoMode?: boolean;
   ai_mode?: string;
+  ai_provider_priority?: string[] | string;
 };
 
 const providerLabels: Record<AiProviderKey, string> = {
@@ -29,6 +30,8 @@ const defaultModels: Record<AiProviderKey, string> = {
   local: "local-rules"
 };
 
+export const defaultAiProviderPriority: AiProviderKey[] = ["gemini", "openai", "groq", "demo", "local"];
+
 export const professionalAiInstruction =
   "Analyze and provide recommendations as a senior digital marketing consultant, social media strategist, media buyer, growth marketer, agency owner, and business development expert. Focus on practical actions, conversion optimization, lead generation, funnel strategy, advertising opportunities, customer psychology, positioning, branding, realistic growth recommendations, expectation management, and client communication.";
 
@@ -40,7 +43,21 @@ export function normalizeAiProvider(value?: string | null, demoMode = false): Ai
   if (normalized === "gemini") return "gemini";
   if (["demo", "demo mode", "demo modu"].includes(normalized)) return "demo";
   if (["local", "local mode", "yerel", "yerel mod"].includes(normalized)) return "local";
-  return demoMode ? "demo" : "automatic";
+  return demoMode ? "demo" : "gemini";
+}
+
+function normalizePriority(value?: string[] | string): AiProviderKey[] {
+  const raw = Array.isArray(value) ? value : String(value || "").split(",");
+  const normalized = raw.map((item) => normalizeAiProvider(item)).filter((item) => item !== "automatic");
+  return [...new Set([...normalized, ...defaultAiProviderPriority])];
+}
+
+function configuredProvider(settings: AiSettings = {}) {
+  const primary = normalizeAiProvider(settings.active_ai_provider, settings.demoMode);
+  const legacy = normalizeAiProvider(settings.activeProvider, settings.demoMode);
+  if (primary === "automatic" && legacy !== "automatic") return legacy;
+  if (["demo", "local"].includes(primary) && ["openai", "groq", "gemini"].includes(legacy) && !settings.demoMode) return legacy;
+  return settings.active_ai_provider || settings.activeProvider || "gemini";
 }
 
 export function aiMetadata(provider: AiProviderKey, model?: string) {
@@ -60,7 +77,7 @@ export function aiMetadata(provider: AiProviderKey, model?: string) {
 }
 
 export function aiSettingsMetadata(settings: AiSettings = {}) {
-  const provider = normalizeAiProvider(settings.active_ai_provider || settings.activeProvider, settings.demoMode);
+  const provider = normalizeAiProvider(configuredProvider(settings), settings.demoMode);
   const model = settings.active_ai_model || settings.model || defaultModels[provider];
   return aiMetadata(provider, model === "demo-local" && provider !== "demo" ? defaultModels[provider] : model);
 }
@@ -117,7 +134,7 @@ async function generateWithProvider(provider: AiProviderKey, prompt: string, fal
 
 export async function generateAiText(prompt: string, fallbackText: string, settings?: AiSettings) {
   const runtimeSettings = settings || await getAiRuntimeSettings();
-  const selected = normalizeAiProvider(runtimeSettings.active_ai_provider || runtimeSettings.activeProvider, runtimeSettings.demoMode);
+  const selected = normalizeAiProvider(configuredProvider(runtimeSettings), runtimeSettings.demoMode);
   const model = runtimeSettings.active_ai_model || runtimeSettings.model;
   const professionalPrompt = `${professionalAiInstruction}\n\n${prompt}`;
 
@@ -129,7 +146,7 @@ export async function generateAiText(prompt: string, fallbackText: string, setti
     }
   }
 
-  for (const provider of ["openai", "groq", "gemini", "demo", "local"] as AiProviderKey[]) {
+  for (const provider of normalizePriority(runtimeSettings.ai_provider_priority)) {
     try {
       const result = await generateWithProvider(provider, professionalPrompt, fallbackText, provider === "demo" || provider === "local" ? undefined : model);
       if (result.text) return result;

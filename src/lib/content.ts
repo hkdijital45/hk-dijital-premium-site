@@ -6,8 +6,46 @@ import { hasSupabaseConfig, supabaseRest } from "./supabase";
 const contentPath = path.join(process.cwd(), "src", "data", "site-content.json");
 const siteContentKey = "site_content";
 
+function normalizeAiDefaults<T extends SiteContent>(content: T): T {
+  const api = content.settings?.api || {};
+  const provider = String(api.active_ai_provider || api.activeProvider || "").toLocaleLowerCase("tr");
+  const legacyDemoDefault = (!provider || provider === "automatic" || provider === "otomatik") && String(api.activeProvider || "").toLocaleLowerCase("tr") === "demo" && api.demoMode && api.ai_mode !== "demo";
+  if (provider || !api.demoMode) return legacyDemoDefault ? {
+    ...content,
+    settings: {
+      ...content.settings,
+      api: {
+        ...api,
+        activeProvider: "gemini",
+        active_ai_provider: "gemini",
+        active_ai_model: "gemini-2.0-flash",
+        ai_mode: "live",
+        ai_provider_priority: api.ai_provider_priority || ["gemini", "openai", "groq", "demo", "local"],
+        demoMode: false,
+        model: "gemini-2.0-flash"
+      }
+    }
+  } : content;
+  return {
+    ...content,
+    settings: {
+      ...content.settings,
+      api: {
+        ...api,
+        activeProvider: "gemini",
+        active_ai_provider: "gemini",
+        active_ai_model: "gemini-2.0-flash",
+        ai_mode: "live",
+        ai_provider_priority: ["gemini", "openai", "groq", "demo", "local"],
+        demoMode: false,
+        model: "gemini-2.0-flash"
+      }
+    }
+  };
+}
+
 function polishPublicCopy<T>(value: T, key = ""): T {
-  if (["id", "url", "logoUrl", "footerLogoUrl", "faviconUrl", "fileUrl", "verificationUrl", "activeProvider", "active_ai_provider", "active_ai_model", "ai_mode", "model"].includes(key)) return value;
+  if (["id", "url", "logoUrl", "footerLogoUrl", "faviconUrl", "fileUrl", "verificationUrl", "activeProvider", "active_ai_provider", "active_ai_model", "ai_mode", "ai_provider_priority", "model"].includes(key)) return value;
   if (Array.isArray(value)) return value.map((item) => polishPublicCopy(item)) as T;
   if (value && typeof value === "object") {
     return Object.fromEntries(Object.entries(value).map(([childKey, childValue]) => [childKey, polishPublicCopy(childValue, childKey)])) as T;
@@ -33,7 +71,7 @@ function polishPublicCopy<T>(value: T, key = ""): T {
 
 export async function getSeedContent(): Promise<SiteContent> {
   const data = await fs.readFile(contentPath, "utf8");
-  return polishPublicCopy(JSON.parse(data) as SiteContent);
+  return normalizeAiDefaults(polishPublicCopy(JSON.parse(data) as SiteContent));
 }
 
 export async function getSiteContent(): Promise<SiteContent> {
@@ -44,7 +82,7 @@ export async function getSiteContent(): Promise<SiteContent> {
     const rows = await supabaseRest<Array<{ value: SiteContent }>>(
       `site_settings?key=eq.${siteContentKey}&select=value&limit=1`
     );
-    return rows[0]?.value ? polishPublicCopy({ ...seed, ...rows[0].value }) : seed;
+    return rows[0]?.value ? normalizeAiDefaults(polishPublicCopy({ ...seed, ...rows[0].value })) : seed;
   } catch {
     return seed;
   }

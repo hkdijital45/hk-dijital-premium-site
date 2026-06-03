@@ -87,7 +87,7 @@ export async function POST(request: Request) {
     screenshots
   };
   const actions = Array.isArray(body.actions) ? body.actions.filter((action: string) => actionLabels.includes(action)) : [];
-  if (!profile.businessName && !platforms.length && !screenshots.length) return NextResponse.json({ error: "İşletme adı, profil bilgisi veya ekran görüntüsü girin." }, { status: 400 });
+  if (!profile.businessName && !profile.notes && !platforms.length && !screenshots.length) return NextResponse.json({ error: "Analiz için en az bir profil bilgisi, ekran görüntüsü veya işletme bilgisi girin." }, { status: 400 });
   if (!actions.length) return NextResponse.json({ error: "En az bir analiz aksiyonu seçin." }, { status: 400 });
 
   const providerChoice = clean(body.aiProvider);
@@ -95,8 +95,9 @@ export async function POST(request: Request) {
   const leadScore = calculateLeadScore(profile, actions);
   const outputs = [];
 
-  for (const action of actions) {
-    const prompt = `HK Dijital Sosyal İstihbarat Merkezi için çıktı üret.
+  try {
+    for (const action of actions) {
+      const prompt = `HK Dijital Sosyal İstihbarat Merkezi için çıktı üret.
 Türkçe yaz. İletişim bilgisi uydurma. Sadece seçili aksiyon için üretim yap.
 
 Aksiyon: ${action}
@@ -120,8 +121,12 @@ Profil ve ekran görüntüsü verileri:
 ${JSON.stringify(profile, null, 2)}
 
 Çıktıyı profesyonel ajans dilinde, uygulanabilir maddelerle, beklenti yönetimini koruyarak yaz.`;
-    const generated = await generateAiText(prompt, fallback(action, profile, leadScore), settings);
-    outputs.push({ action, text: generated.text, ai: generated });
+      const generated = await generateAiText(prompt, fallback(action, profile, leadScore), settings);
+      outputs.push({ action, text: generated.text, ai: generated });
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    return NextResponse.json({ error: message.includes("Seçilen AI sağlayıcısı") ? message : "AI sağlayıcısı kullanılamadı. API ayarlarını kontrol edin." }, { status: 503 });
   }
 
   return NextResponse.json({ ok: true, profile, outputs, leadScore });
