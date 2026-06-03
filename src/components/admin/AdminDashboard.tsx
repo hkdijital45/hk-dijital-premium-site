@@ -1098,6 +1098,31 @@ function LeadDrawer({ lead, update, persistLead, permanentDelete, close, onConve
     lead.ai_analysis = data.analysis;
     setAnalysisMessage(data.message || "AI analizi oluşturuldu ve kaydedildi.");
   }
+  async function downloadLeadPdfAudit() {
+    setAnalysisMessage("PDF Audit oluşturuluyor...");
+    try {
+      await downloadAuditPdf({
+        businessName: lead.company || lead.name,
+        source: lead.source || "CRM",
+        leadScore: { score: lead.lead_heat_score, temperature: Number(lead.lead_heat_score || 0) >= 80 ? "Sıcak" : Number(lead.lead_heat_score || 0) >= 50 ? "Ilık" : "Soğuk" },
+        ai: lead.ai_analysis,
+        profileImageUrl: "",
+        platforms: [
+          { platform: "Website", username: lead.company || lead.name, profileUrl: lead.website },
+          { platform: "Instagram", username: lead.instagram, profileUrl: lead.instagram }
+        ].filter((item) => item.username || item.profileUrl),
+        outputs: [
+          { action: "Executive Summary", text: lead.ai_analysis?.text || lead.message || lead.notes || "CRM kaydından oluşturulan mini audit.", ai: lead.ai_analysis },
+          { action: "Düzeltilmesi Gerekenler", text: lead.local_opportunity_notes || lead.notes || lead.message || "" },
+          { action: "Teklif Hazırlama", text: `Starter: 10.000 TL\nPro: 15.000 TL\nPremium: 25.000 TL` }
+        ],
+        summary: lead.message || lead.notes
+      });
+      setAnalysisMessage("PDF Audit indirildi.");
+    } catch (error) {
+      setAnalysisMessage(error instanceof Error ? error.message : "PDF oluşturulamadı. Geçersiz PDF verisi alındı.");
+    }
+  }
   async function softDelete() {
     const deleted_at = new Date().toISOString();
     const updated = await persistLead(lead.id, { deleted_at, status: lead.status || "Yeni Başvuru" }, "Başvuru Silinenler klasörüne taşındı.");
@@ -1137,6 +1162,7 @@ function LeadDrawer({ lead, update, persistLead, permanentDelete, close, onConve
         <button onClick={convert} disabled={converting || ["Dönüştürüldü", "Müşteri Oldu"].includes(lead.status)} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-60">{converting ? "Dönüştürülüyor..." : ["Dönüştürüldü", "Müşteri Oldu"].includes(lead.status) ? "Müşteri oldu" : "Başvuruyu müşteriye dönüştür"}</button>
         <button onClick={() => persistLead(lead.id, { status: "Takipte", follow_up_date: lead.follow_up_date || new Date().toISOString().slice(0, 10) }, "Takip görevi oluşturuldu.")} className="rounded-full border border-white/10 px-4 py-2 text-sm">Takip görevi oluştur</button>
         <button onClick={analyze} disabled={analyzing || String(lead.id).startsWith("lead-")} className="inline-flex items-center gap-2 rounded-full border border-cyan-200/30 px-4 py-2 text-sm font-bold text-cyan-100 disabled:opacity-50"><Sparkles size={15} /> {analyzing ? "Analiz hazırlanıyor..." : "AI analizi oluştur"}</button>
+        <button onClick={downloadLeadPdfAudit} className="inline-flex items-center gap-2 rounded-full border border-amber-200/30 px-4 py-2 text-sm font-bold text-amber-100"><Download size={15} /> PDF Audit Oluştur</button>
         {whatsappUrl && <a href={whatsappUrl} target="_blank" rel="noreferrer" className="rounded-full bg-[#25D366] px-4 py-2 text-sm font-black text-white">WhatsApp mesajı gönder</a>}
         {!deleted && !rejected && <button onClick={() => setConfirmAction("reject")} className="rounded-full border border-amber-300/30 px-4 py-2 text-sm font-bold text-amber-100">Reddet</button>}
         {!deleted && <button onClick={() => setConfirmAction("delete")} className="rounded-full border border-red-300/30 px-4 py-2 text-sm font-bold text-red-100">Sil</button>}
@@ -2270,6 +2296,44 @@ function valueOrMissing(value: any) {
   return value ? String(value) : "Bulunamadı";
 }
 
+function auditFilenameFallback(businessName: string) {
+  const name = String(businessName || "business").toLocaleLowerCase("tr").replace(/[^a-z0-9ğüşöçıİĞÜŞÖÇ]+/gi, "-").replace(/^-|-$/g, "") || "business";
+  return `hk-dijital-mini-audit-${name}-${new Date().toISOString().slice(0, 10)}.pdf`;
+}
+
+function filenameFromDisposition(disposition: string | null, fallback: string) {
+  const match = disposition?.match(/filename="?([^"]+)"?/i);
+  return match?.[1] || fallback;
+}
+
+async function downloadAuditPdf(payload: any) {
+  const response = await fetch("/api/admin/pdf-audit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  const contentType = response.headers.get("content-type") || "";
+  if (!response.ok || !contentType.includes("application/pdf")) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || "PDF oluşturulamadı. Geçersiz PDF verisi alındı.");
+  }
+  const arrayBuffer = await response.arrayBuffer();
+  const header = new TextDecoder().decode(arrayBuffer.slice(0, 5));
+  console.log("[pdf-audit] response", { size: arrayBuffer.byteLength, contentType, header });
+  if (arrayBuffer.byteLength <= 1024 || !header.startsWith("%PDF-")) {
+    throw new Error("PDF oluşturulamadı. Geçersiz PDF verisi alındı.");
+  }
+  const blob = new Blob([arrayBuffer], { type: "application/pdf" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filenameFromDisposition(response.headers.get("content-disposition"), auditFilenameFallback(payload.businessName));
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 function analysisLinks(item: any) {
   return {
     metaAdLibrary: item.metaAdLibraryUrl || item.adUrl || "",
@@ -2361,6 +2425,28 @@ function AnalysisDetailModal({ kind, item, form, aiMeta, saved, saving, message,
 
 function AnalysisResultCard({ kind, item, form, aiMeta, saved, saving, message, onOpen, onSave }: any) {
   const isMeta = kind === "meta";
+  async function downloadResultPdf(event: any) {
+    event.stopPropagation();
+    try {
+      await downloadAuditPdf({
+        businessName: item.name,
+        source: isMeta ? "Meta Analiz" : "Google Ads Analiz",
+        leadScore: { score: isMeta ? 70 : item.searchVisibilityScore || 65, temperature: isMeta ? "Ilık" : Number(item.searchVisibilityScore || 0) >= 80 ? "Sıcak" : "Ilık" },
+        ai: aiMeta,
+        platforms: [{ platform: isMeta ? item.platform || "Facebook / Instagram" : "Google", username: item.name, profileUrl: item.adUrl || item.metaAdLibraryUrl || item.website || item.googleSearchUrl }],
+        outputs: [
+          { action: "Executive Summary", text: item.summary || item.adActivitySignal || item.googleBusinessPresence, ai: aiMeta },
+          { action: "Düzeltilmesi Gerekenler", text: item.ctaAnalysis || item.opportunityNote || item.adActivitySignal || "" },
+          { action: "Meta Reklam Stratejisi", text: item.creativeAnalysis || item.summary || "" },
+          { action: "Google Reklam Stratejisi", text: Array.isArray(item.keywordOpportunities) ? item.keywordOpportunities.join("\n") : item.adActivitySignal || "" },
+          { action: "Teklif Hazırlama", text: "Starter: 10.000 TL\nPro: 15.000 TL\nPremium: 25.000 TL" }
+        ],
+        summary: item.summary || item.adActivitySignal || item.googleBusinessPresence
+      });
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "PDF oluşturulamadı. Geçersiz PDF verisi alındı.");
+    }
+  }
   return (
     <button type="button" onClick={onOpen} className="rounded-[8px] border border-white/10 bg-white/[0.045] p-5 text-left shadow-[0_22px_70px_rgba(0,0,0,.22)] transition hover:-translate-y-1 hover:border-amber-200/40 hover:bg-white/[0.07]">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -2396,6 +2482,7 @@ function AnalysisResultCard({ kind, item, form, aiMeta, saved, saving, message, 
         <button type="button" onClick={(event) => { event.stopPropagation(); onSave(); }} disabled={saving || saved} className="rounded-full bg-amber-300 px-4 py-2 text-xs font-black text-slate-950 disabled:opacity-60">{saved ? "CRM’e Kaydedildi" : saving ? "CRM’e kaydediliyor..." : "CRM’e Kaydet"}</button>
         {isMeta && (item.adUrl || item.metaAdLibraryUrl) && <a href={item.adUrl || item.metaAdLibraryUrl} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} className="rounded-full border border-orange-200/25 px-4 py-2 text-xs font-black text-orange-100">Reklamı Aç</a>}
         {isMeta && <button type="button" onClick={(event) => { event.stopPropagation(); onOpen(); }} className="rounded-full border border-cyan-200/25 px-4 py-2 text-xs font-black text-cyan-100">AI ile Reklamı Yorumla</button>}
+        <button type="button" onClick={downloadResultPdf} className="rounded-full border border-amber-200/25 px-4 py-2 text-xs font-black text-amber-100">PDF Audit Oluştur</button>
         <span className="rounded-full border border-white/10 px-4 py-2 text-xs font-black text-slate-300">Detayı aç</span>
       </div>
     </button>
@@ -2580,26 +2667,24 @@ function SocialMediaAuditCenter() {
     }
     setLoading(false);
   }
-  function buildPrintableAudit() {
-    const name = form.businessName || primaryProfile?.username || "isletme";
-    const escapeHtml = (value) => String(value || "").replace(/[<&>]/g, (char) => {
-      if (char === "<") return "&lt;";
-      if (char === ">") return "&gt;";
-      return "&amp;";
-    });
-    const outputHtml = outputs.map((item) => `<section><h2>${escapeHtml(item.action)}</h2><pre>${escapeHtml(item.text)}</pre></section>`).join("");
-    return `<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>HK Dijital Mini Audit</title><style>body{font-family:Inter,Arial,sans-serif;background:#07111f;color:#172033;margin:0}.page{background:#fff;max-width:900px;margin:0 auto;padding:48px}.cover{background:linear-gradient(135deg,#07111f,#0f5ea8,#f7b733);color:#fff;border-radius:22px;padding:40px;margin-bottom:28px}h1{font-size:34px;margin:0}h2{color:#0f5ea8;margin-top:32px}pre{white-space:pre-wrap;font:14px/1.7 Inter,Arial,sans-serif}.badge{display:inline-block;background:#fff3cd;color:#563b00;border-radius:999px;padding:8px 14px;margin-top:18px;font-weight:800}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.card{border:1px solid #e5e7eb;border-radius:14px;padding:14px}</style></head><body><main class="page"><div class="cover"><p>HK Dijital</p><h1>${name} Mini Sosyal İstihbarat Audit</h1><p>Digital Marketing Command Center</p><span class="badge">Lead Score: ${leadScore?.score ?? "-"} / 100 · ${leadScore?.temperature ?? "-"}</span></div><div class="grid"><div class="card"><strong>Sektör</strong><br>${form.sector}</div><div class="card"><strong>Lokasyon</strong><br>${form.city} / ${form.district}</div><div class="card"><strong>Paketler</strong><br>Starter 10.000 TL · Pro 15.000 TL · Premium 25.000 TL</div><div class="card"><strong>Platformlar</strong><br>${activePlatforms().map((item) => item.platform).join(", ") || "-"}</div></div>${primaryProfile?.profileImageUrl ? `<h2>Profil Görseli</h2><img src="${primaryProfile.profileImageUrl}" style="max-width:180px;border-radius:20px">` : ""}${outputHtml}<h2>Kapanış</h2><p>Bu audit satış garantisi vermez; gerçekçi büyüme, ölçümleme, iletişim ve dönüşüm optimizasyonu için hazırlanmıştır.</p></main></body></html>`;
-  }
-  function downloadMiniAuditPdf() {
-    const name = (form.businessName || primaryProfile?.username || "business").toLocaleLowerCase("tr").replace(/[^a-z0-9ğüşöçıİĞÜŞÖÇ]+/gi, "-").replace(/^-|-$/g, "") || "business";
-    const date = new Date().toISOString().slice(0, 10);
-    const blob = new Blob([buildPrintableAudit()], { type: "application/pdf" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `hk-dijital-mini-audit-${name}-${date}.pdf`;
-    link.click();
-    URL.revokeObjectURL(url);
+  async function downloadMiniAuditPdf() {
+    setMessage("PDF Audit oluşturuluyor...");
+    try {
+      await downloadAuditPdf({
+        businessName: form.businessName || primaryProfile?.username || primaryProfile?.profileUrl,
+        source: "Sosyal İstihbarat Merkezi",
+        leadScore,
+        ai: outputs.find((item) => item.ai)?.ai,
+        profileImageUrl: primaryProfile?.profileImageUrl || "",
+        platforms: activePlatforms(),
+        outputs,
+        summary: outputs.find((item) => item.action === "PDF Audit Oluştur")?.text || form.notes,
+        notes: form.notes
+      });
+      setMessage("PDF Audit indirildi.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "PDF oluşturulamadı. Geçersiz PDF verisi alındı.");
+    }
   }
   function whatsappText() {
     const selected = outputs.find((item) => item.action === "WhatsApp Teklifi Hazırla")?.text || outputs.map((item) => `${item.action}\n${item.text}`).join("\n\n");
