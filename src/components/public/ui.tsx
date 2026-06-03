@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { AnimatedMarketingDashboard, PremiumBackground } from "@/components/premium/PremiumUI";
 
 export function GlowBackground() {
   return (
@@ -45,9 +46,14 @@ export function ButtonLink({ href, children, variant = "primary" }: { href: stri
 export function PageHero({ eyebrow, title, text }: { eyebrow: string; title: string; text: string }) {
   return (
     <section className="relative overflow-hidden border-b border-white/5 px-4 py-20 sm:px-6 lg:px-8 lg:py-28">
-      <GlowBackground />
-      <div className="relative mx-auto max-w-7xl">
-        <SectionHeader eyebrow={eyebrow} title={title} text={text} />
+      <PremiumBackground />
+      <div className="relative mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-[.95fr_1.05fr]">
+        <div className="text-left">
+          <p className="text-sm font-bold uppercase tracking-[.26em] text-cyan-200">{eyebrow}</p>
+          <h1 className="mt-4 text-3xl font-black tracking-tight text-white sm:text-5xl">{title}</h1>
+          <p className="mt-5 max-w-2xl text-base leading-8 text-slate-300 sm:text-lg">{text}</p>
+        </div>
+        <AnimatedMarketingDashboard className="scale-95 lg:scale-100" />
       </div>
     </section>
   );

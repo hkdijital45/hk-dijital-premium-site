@@ -60,6 +60,7 @@ html {
 }
 
 .glass-card {
+  position: relative;
   border: 1px solid rgba(255, 255, 255, .1);
   border-radius: 8px;
   background: linear-gradient(145deg, rgba(255, 255, 255, .075), rgba(255, 255, 255, .035));
@@ -67,6 +68,23 @@ html {
     inset 0 1px 0 rgba(255, 255, 255, .1),
     0 24px 80px rgba(0, 0, 0, .32);
   backdrop-filter: blur(22px);
+}
+
+.glass-card::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, .08) 45%, transparent 72%);
+  opacity: .55;
+  transform: translateX(-42%);
+  transition: transform .7s ease, opacity .7s ease;
+}
+
+.glass-card:hover::before {
+  opacity: .9;
+  transform: translateX(42%);
 }
 
 .metric-card-3d {
@@ -94,6 +112,60 @@ html {
   font-weight: 900;
   letter-spacing: .13em;
   box-shadow: 0 6px 0 rgba(3, 7, 18, .75), 0 16px 30px rgba(0, 0, 0, .24);
+}
+
+.chart-draw-line {
+  stroke-dasharray: 180;
+  stroke-dashoffset: 180;
+  animation: chart-draw 2.4s ease forwards;
+  filter: drop-shadow(0 0 10px rgba(103, 232, 249, .35));
+}
+
+.cinematic-light {
+  position: absolute;
+  width: 58rem;
+  height: 22rem;
+  transform: rotate(-18deg);
+  background: linear-gradient(90deg, transparent, rgba(34, 211, 238, .18), rgba(250, 204, 21, .12), transparent);
+  filter: blur(30px);
+  animation: cinematic-sweep 10s ease-in-out infinite;
+}
+
+.cinematic-light-a {
+  left: -18rem;
+  top: 5rem;
+}
+
+.cinematic-light-b {
+  right: -20rem;
+  bottom: 6rem;
+  animation-delay: -4s;
+}
+
+.noise-layer {
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, .7) 0 1px, transparent 1px),
+    radial-gradient(circle at 72% 44%, rgba(255, 255, 255, .45) 0 1px, transparent 1px);
+  background-size: 38px 38px, 54px 54px;
+}
+
+@keyframes chart-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes cinematic-sweep {
+  0%,
+  100% {
+    opacity: .45;
+    transform: translate3d(0, 0, 0) rotate(-18deg);
+  }
+
+  50% {
+    opacity: .9;
+    transform: translate3d(8rem, 2rem, 0) rotate(-12deg);
+  }
 }
 
 .premium-scrollbar::-webkit-scrollbar {

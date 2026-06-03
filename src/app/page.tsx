@@ -1,18 +1,18 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import { BarChart3, BrainCircuit, CheckCircle2, Gauge, Layers3, Target } from "lucide-react";
 import { getSiteContent } from "@/lib/content";
 import { pageMetadata } from "@/lib/metadata";
 import { AnimatedSection } from "@/components/public/AnimatedSection";
-import { ButtonLink, GlowBackground, PremiumCard, SectionHeader } from "@/components/public/ui";
+import { ButtonLink, PremiumCard, SectionHeader } from "@/components/public/ui";
 import { PackageCards, ServiceGrid } from "@/components/public/ServicePackageSections";
 import { PublicShell } from "@/components/public/Shell";
 import {
   AIInsightCard,
+  AnimatedBarChart,
   AnimatedChart,
-  FloatingDashboardObject,
+  AnimatedFunnel,
   GlassCard,
-  PlatformSignalStrip,
+  PremiumAnimatedHero,
   ReportPreview,
   ScrollScene3D
 } from "@/components/premium/PremiumUI";
@@ -28,45 +28,12 @@ export default async function Home() {
 
   return (
     <PublicShell>
-      <section className="relative min-h-[760px] overflow-hidden border-b border-white/5 px-4 pb-20 pt-20 sm:px-6 lg:px-8 lg:pb-28 lg:pt-28">
-        <Image
-          src="/images/hk-dijital-saas-hero.png"
-          alt="HK Dijital reklam performansı ve yapay zekâ raporlama paneli"
-          fill
-          priority
-          sizes="100vw"
-          className="object-cover object-[72%_center] opacity-80"
-        />
-        <div className="absolute inset-0 bg-[linear-gradient(90deg,#030712_4%,rgba(3,7,18,.97)_34%,rgba(3,7,18,.54)_66%,rgba(3,7,18,.28))]" />
-        <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[#050711] to-transparent" />
-        <GlowBackground />
-        <div className="relative mx-auto max-w-7xl">
-          <div className="max-w-4xl">
-            <p className="inline-flex rounded-full border border-cyan-200/20 bg-cyan-200/10 px-4 py-2 text-sm font-bold text-cyan-100">
-              HK Dijital Marketing OS · Manisa merkezli, Türkiye geneli
-            </p>
-            <h1 className="mt-7 max-w-4xl text-4xl font-black leading-[1.04] tracking-tight text-white sm:text-6xl lg:text-7xl">
-              {home.headline}
-            </h1>
-            <p className="mt-7 max-w-2xl text-base leading-8 text-slate-200 sm:text-lg">{home.subheadline}</p>
-            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-              <ButtonLink href="/teklif-al">{home.primaryCta}</ButtonLink>
-              <ButtonLink href="/paketler" variant="ghost">{home.secondaryCta}</ButtonLink>
-            </div>
-          </div>
-          <div className="mt-12 max-w-5xl"><PlatformSignalStrip /></div>
-          <div className="pointer-events-none absolute right-0 top-8 hidden h-[520px] w-[44%] xl:block">
-            <FloatingDashboardObject className="right-0 top-4 w-48" delay={0.3}>
-              <p className="text-[10px] font-black uppercase tracking-[.16em] text-cyan-100">Reklam görünürlüğü</p>
-              <p className="mt-3 text-3xl font-black text-white">+38%</p>
-            </FloatingDashboardObject>
-            <FloatingDashboardObject className="bottom-12 right-14 w-52" delay={1}>
-              <p className="text-[10px] font-black uppercase tracking-[.16em] text-amber-100">HK Intelligence</p>
-              <p className="mt-3 text-sm font-bold text-white">Dijital olgunluk analizi hazır</p>
-            </FloatingDashboardObject>
-          </div>
-        </div>
-      </section>
+      <PremiumAnimatedHero
+        headline={home.headline}
+        subheadline={home.subheadline}
+        primaryCta={<ButtonLink href="/teklif-al">{home.primaryCta}</ButtonLink>}
+        secondaryCta={<ButtonLink href="/paketler" variant="ghost">{home.secondaryCta}</ButtonLink>}
+      />
 
       <section className="relative z-10 -mt-12 px-4 sm:px-6 lg:px-8">
         <div className="mx-auto grid max-w-7xl gap-3 md:grid-cols-5">
@@ -78,6 +45,30 @@ export default async function Home() {
           ))}
         </div>
       </section>
+
+      <AnimatedSection className="px-4 py-20 sm:px-6 lg:px-8">
+        <div className="mx-auto grid max-w-7xl items-center gap-8 lg:grid-cols-[.9fr_1.1fr]">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[.22em] text-amber-100">Problemden sisteme</p>
+            <h2 className="mt-5 text-3xl font-black leading-tight text-white sm:text-5xl">Dağınık reklam kararlarını tek bir büyüme akışına çevirin.</h2>
+            <p className="mt-5 max-w-xl text-base leading-8 text-slate-300">Meta Ads, Google Ads, sosyal medya içerikleri ve CRM takipleri birbirinden kopuk olduğunda fırsatlar görünmez olur. HK Dijital bu parçaları ölçülebilir bir işletme ekranında birleştirir.</p>
+          </div>
+          <ScrollScene3D>
+            <GlassCard className="p-5">
+              <div className="grid gap-5 lg:grid-cols-[1fr_.75fr]">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-100">Kanal sinyalleri</p>
+                  <AnimatedBarChart />
+                </div>
+                <div>
+                  <p className="mb-4 text-xs font-black uppercase tracking-[.16em] text-amber-100">Funnel akışı</p>
+                  <AnimatedFunnel />
+                </div>
+              </div>
+            </GlassCard>
+          </ScrollScene3D>
+        </div>
+      </AnimatedSection>
 
       <AnimatedSection className="px-4 py-20 sm:px-6 lg:px-8">
         <div className="mx-auto grid max-w-7xl items-center gap-8 lg:grid-cols-[.95fr_1.05fr]">
