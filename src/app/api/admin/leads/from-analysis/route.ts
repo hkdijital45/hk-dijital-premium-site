@@ -4,7 +4,7 @@ import { requireModuleAccess } from "@/lib/permissions";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 import { scoreDiscoveredBusiness } from "@/lib/lead-scoring";
 
-const allowedSources = new Set(["Meta Analiz", "Google Ads Analiz", "Sosyal Medya Denetimi"]);
+const allowedSources = new Set(["Meta Analiz", "Google Ads Analiz", "Sosyal Medya Denetimi", "Sosyal İstihbarat Merkezi"]);
 
 function clean(value: unknown) {
   return String(value || "").trim();
@@ -16,10 +16,13 @@ function firstUrl(links: any = {}) {
 
 function buildNotes(body: any) {
   const links = body.links || {};
+  const platforms = Array.isArray(body.platforms) ? body.platforms.map((item: any) => `${clean(item.platform)}: ${clean(item.username || item.profileUrl || item.profileImageUrl)}`).filter(Boolean).join(", ") : "";
   return [
     `Arama kaynağı: ${clean(body.source) || "-"}`,
     `Seçim: ${clean(body.city) || "-"} / ${clean(body.district) || "-"} / ${clean(body.sector) || "-"}`,
-    `Platform: ${clean(body.platform) || "-"}`,
+    `Platform: ${platforms || clean(body.platform) || "-"}`,
+    body.leadScore ? `Lead Score: ${body.leadScore}/100 (${clean(body.leadTemperature) || "-"})` : "",
+    body.profileImageUrl ? `Profil görseli: ${clean(body.profileImageUrl)}` : "",
     `Özet: ${clean(body.summary) || "-"}`,
     `AI fırsat notu: ${clean(body.aiNote) || clean(body.opportunityNote) || "-"}`,
     links.metaAdLibrary ? `Meta Ad Library: ${links.metaAdLibrary}` : "",
@@ -90,6 +93,7 @@ export async function POST(request: Request) {
     placeId: googlePlaceId,
     category: clean(body.sector)
   });
+  const leadScore = Number(body.leadScore || 0);
 
   const record = {
     source,
@@ -111,7 +115,7 @@ export async function POST(request: Request) {
     google_place_id: googlePlaceId,
     source_url: firstUrl(body.links),
     digital_maturity_score: scores.digitalMaturityScore,
-    lead_heat_score: scores.leadHeatScore,
+    lead_heat_score: leadScore > 0 ? Math.max(0, Math.min(100, leadScore)) : scores.leadHeatScore,
     local_opportunity_notes: clean(body.aiNote) || clean(body.opportunityNote),
     ai_analysis: {},
     proposal_history: []

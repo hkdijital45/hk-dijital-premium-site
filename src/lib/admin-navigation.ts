@@ -32,7 +32,7 @@ export const adminNavigationGroups = [
     items: [
       { label: "Meta Analiz", slug: "meta-analiz", module: "meta-analiz" },
       { label: "Google Analiz", slug: "google-analiz", module: "google-analiz" },
-      { label: "Sosyal Medya Denetimi", slug: "sosyal-medya-denetimi", module: "sosyal-medya-denetimi" },
+      { label: "Sosyal İstihbarat Merkezi", slug: "sosyal-istihbarat-merkezi", module: "sosyal-medya-denetimi" },
       { label: "Funnel Analizi", slug: "funnel-analizi", module: "funnel-analizi" },
       { label: "Reklam Fırsatları", slug: "reklam-firsatlari", module: "reklam-firsatlari" }
     ]
@@ -75,6 +75,7 @@ export const adminNavigationItems = adminNavigationGroups.flatMap((group) => gro
 
 export function getAdminSectionBySlug(slug = "") {
   if (slug === "musteri-bulucu") return adminNavigationItems.find((item) => item.module === "musteri-bulucu");
+  if (slug === "sosyal-medya-denetimi") return adminNavigationItems.find((item) => item.module === "sosyal-medya-denetimi");
   return adminNavigationItems.find((item) => item.slug === slug);
 }
 

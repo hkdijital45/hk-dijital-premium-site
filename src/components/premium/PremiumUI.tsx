@@ -5,15 +5,20 @@ import { motion } from "framer-motion";
 import { BarChart3, BrainCircuit, CheckCircle2, CircleDollarSign, Gauge, LineChart, Sparkles, Target } from "lucide-react";
 
 const accentStyles = {
-  cyan: "border-cyan-200/20 bg-cyan-200/[0.07] text-cyan-100",
-  amber: "border-amber-200/20 bg-amber-200/[0.07] text-amber-100",
-  blue: "border-blue-300/20 bg-blue-300/[0.07] text-blue-100",
-  emerald: "border-emerald-300/20 bg-emerald-300/[0.07] text-emerald-100",
-  purple: "border-purple-300/20 bg-purple-300/[0.07] text-purple-100",
-  orange: "border-orange-300/20 bg-orange-300/[0.07] text-orange-100",
-  pink: "border-pink-300/20 bg-pink-300/[0.07] text-pink-100",
-  indigo: "border-indigo-300/20 bg-indigo-300/[0.07] text-indigo-100",
-  yellow: "border-yellow-300/20 bg-yellow-300/[0.07] text-yellow-100"
+  cyan: "border-cyan-200/35 bg-gradient-to-br from-cyan-300/25 via-sky-500/12 to-cyan-950/30 text-cyan-50 shadow-[0_0_34px_rgba(34,211,238,.18)]",
+  amber: "border-amber-200/35 bg-gradient-to-br from-amber-300/28 via-orange-500/12 to-amber-950/30 text-amber-50 shadow-[0_0_34px_rgba(251,191,36,.18)]",
+  blue: "border-blue-300/35 bg-gradient-to-br from-blue-400/28 via-sky-500/12 to-blue-950/30 text-blue-50 shadow-[0_0_34px_rgba(96,165,250,.18)]",
+  emerald: "border-emerald-300/35 bg-gradient-to-br from-emerald-300/28 via-teal-500/12 to-emerald-950/30 text-emerald-50 shadow-[0_0_34px_rgba(52,211,153,.18)]",
+  purple: "border-purple-300/35 bg-gradient-to-br from-purple-300/28 via-fuchsia-500/12 to-purple-950/30 text-purple-50 shadow-[0_0_34px_rgba(216,180,254,.18)]",
+  orange: "border-orange-300/35 bg-gradient-to-br from-orange-300/30 via-rose-500/12 to-orange-950/30 text-orange-50 shadow-[0_0_34px_rgba(251,146,60,.2)]",
+  pink: "border-pink-300/35 bg-gradient-to-br from-pink-300/28 via-rose-500/12 to-pink-950/30 text-pink-50 shadow-[0_0_34px_rgba(244,114,182,.18)]",
+  indigo: "border-indigo-300/35 bg-gradient-to-br from-indigo-300/28 via-blue-500/12 to-indigo-950/30 text-indigo-50 shadow-[0_0_34px_rgba(129,140,248,.18)]",
+  yellow: "border-yellow-300/35 bg-gradient-to-br from-yellow-300/30 via-amber-500/12 to-yellow-950/30 text-yellow-50 shadow-[0_0_34px_rgba(250,204,21,.2)]",
+  gold: "border-yellow-200/40 bg-gradient-to-br from-yellow-200/35 via-orange-400/16 to-amber-950/35 text-yellow-50 shadow-[0_0_42px_rgba(250,204,21,.24)]",
+  red: "border-red-300/35 bg-gradient-to-br from-red-300/28 via-orange-500/14 to-red-950/35 text-red-50 shadow-[0_0_36px_rgba(248,113,113,.2)]",
+  slate: "border-slate-300/30 bg-gradient-to-br from-slate-300/18 via-slate-500/10 to-slate-950/50 text-slate-50 shadow-[0_0_28px_rgba(148,163,184,.14)]",
+  rose: "border-rose-300/35 bg-gradient-to-br from-rose-300/28 via-pink-500/12 to-rose-950/35 text-rose-50 shadow-[0_0_36px_rgba(251,113,133,.2)]",
+  teal: "border-teal-300/35 bg-gradient-to-br from-teal-300/28 via-cyan-500/12 to-teal-950/35 text-teal-50 shadow-[0_0_36px_rgba(45,212,191,.2)]"
 };
 
 export function GlassCard({ children, className = "", interactive = false }: { children: ReactNode; className?: string; interactive?: boolean }) {
@@ -21,7 +26,8 @@ export function GlassCard({ children, className = "", interactive = false }: { c
 }
 
 export function MetricCard3D({ label, value, note, accent = "cyan", icon }: { label: string; value: string | number; note?: string; accent?: keyof typeof accentStyles; icon?: ReactNode }) {
-  return <motion.div whileHover={{ y: -6, rotateX: 2, rotateY: -2 }} className="glass-card metric-card-3d p-5">
+  return <motion.div whileHover={{ y: -6, rotateX: 2, rotateY: -2 }} className="glass-card metric-card-3d relative overflow-hidden p-5">
+    <div className={`pointer-events-none absolute -right-10 -top-10 size-28 rounded-full blur-3xl ${accentStyles[accent]}`} />
     <div className="flex items-center justify-between gap-3"><p className="text-xs font-black uppercase tracking-[.16em] text-slate-400">{label}</p><span className={`grid size-9 place-items-center rounded-[8px] border ${accentStyles[accent]}`}>{icon || <BarChart3 size={17} />}</span></div>
     <p className="mt-5 text-3xl font-black text-white">{value}</p>{note && <p className="mt-3 text-xs leading-5 text-slate-400">{note}</p>}
   </motion.div>;

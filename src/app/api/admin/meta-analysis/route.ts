@@ -8,6 +8,8 @@ function demoMetaResults(city: string, district: string, sector: string) {
   return [
     {
       id: "meta-demo-1",
+      demo: true,
+      dataLabel: "Demo Veri",
       name: `${district} ${sector} Reklam Gözlemi`,
       city,
       district,
@@ -15,6 +17,8 @@ function demoMetaResults(city: string, district: string, sector: string) {
       active: true,
       activeStatus: "Aktif reklam sinyali",
       summary: `${sector} işletmeleri için mesaj, randevu ve hızlı teklif odaklı kreatifler öne çıkıyor. Kısa video ve carousel formatı test edilmeli.`,
+      adCopy: `${district} bölgesinde ${sector} hizmeti için hızlı iletişim ve güven odaklı reklam metni kullanılabilir.`,
+      creativeSummary: "Kısa video, müşteri yorumu ve lokasyon vurgulu carousel kreatifleri önerilir.",
       platform: "Facebook / Instagram",
       category: sector,
       cta: "Mesaj Gönder",
@@ -24,11 +28,17 @@ function demoMetaResults(city: string, district: string, sector: string) {
       phone: "",
       email: "",
       address: "",
+      estimatedAdIntensity: "Orta",
+      ctaAnalysis: "Mesaj Gönder CTA'sı hızlı talep toplama için uygun; form ve WhatsApp akışıyla desteklenmeli.",
+      creativeAnalysis: "İlk karede teklif, lokasyon ve güven sinyali birlikte görünmeli.",
+      competitiveAnalysis: "Rakipler fiyat odaklı görünüyorsa HK önerisi güven, sosyal kanıt ve net teklif dengesidir.",
       metaAdLibraryUrl: `https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=TR&q=${encodeURIComponent(`${district} ${sector}`)}`,
       googleSearchUrl: `https://www.google.com/search?q=${encodeURIComponent(`${district} ${sector} ${city}`)}`
     },
     {
       id: "meta-demo-2",
+      demo: true,
+      dataLabel: "Demo Veri",
       name: `${city} Rakip İçerik Sinyali`,
       city,
       district,
@@ -36,6 +46,8 @@ function demoMetaResults(city: string, district: string, sector: string) {
       active: false,
       activeStatus: "Pasif / araştırma önerilir",
       summary: `Bölgedeki rakiplerin kampanya dili daha çok fiyat ve kampanya çağrısı üzerine. HK önerisi: güven, sosyal kanıt ve lokasyon avantajı birlikte anlatılmalı.`,
+      adCopy: `${city} genelinde ${sector} arayan kullanıcıya hızlı teklif ve sosyal kanıt odaklı reklam metni önerilir.`,
+      creativeSummary: "Statik görsel yerine kısa video ve önce/sonra anlatımı fırsat yaratır.",
       platform: "Instagram",
       category: sector,
       cta: "Detay Al",
@@ -45,6 +57,10 @@ function demoMetaResults(city: string, district: string, sector: string) {
       phone: "",
       email: "",
       address: "",
+      estimatedAdIntensity: "Düşük / Araştırma",
+      ctaAnalysis: "Detay Al CTA'sı zayıf kalabilir; randevu, teklif veya WhatsApp odaklı daha net çağrı gerekir.",
+      creativeAnalysis: "Kreatiflerin ilk 2 saniyesinde işletmenin farkı ve güven kanıtı gösterilmeli.",
+      competitiveAnalysis: "Pasif sinyal, rekabetin düşük olabileceğini ve erken konumlanma fırsatı bulunduğunu gösterir.",
       metaAdLibraryUrl: `https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=TR&q=${encodeURIComponent(`${city} ${sector}`)}`,
       googleSearchUrl: `https://www.google.com/search?q=${encodeURIComponent(`${city} ${sector} reklam`)}`
     }
@@ -63,6 +79,8 @@ function normalizeMetaAd(ad: any, city: string, district: string, sector: string
     active: String(ad.ad_delivery_stop_time || "").length === 0,
     activeStatus: ad.ad_delivery_stop_time ? "Yayını bitmiş" : "Aktif",
     summary: snapshot.body?.text || snapshot.title || ad.creative_body || "Reklam metni özeti alınamadı.",
+    adCopy: snapshot.body?.text || snapshot.title || ad.creative_body || "",
+    creativeSummary: snapshot.caption || snapshot.link_description || "Kreatif görsel/video özeti Meta verisinden sınırlı alınabildi.",
     platform: Array.isArray(ad.publisher_platforms) ? ad.publisher_platforms.join(" / ") : "Facebook / Instagram",
     category: sector,
     cta: snapshot.cta_text || ad.cta_type || "",
@@ -72,6 +90,10 @@ function normalizeMetaAd(ad: any, city: string, district: string, sector: string
     phone: "",
     email: "",
     address: "",
+    estimatedAdIntensity: ad.ad_delivery_stop_time ? "Geçmiş reklam" : "Aktif / İncelenmeli",
+    ctaAnalysis: snapshot.cta_text ? `${snapshot.cta_text} çağrısı dönüşüm niyeti için incelenmeli.` : "CTA verisi alınamadı; reklam bağlantısı manuel kontrol edilmeli.",
+    creativeAnalysis: "Kreatif; ilk mesaj, teklif, sosyal kanıt ve görsel tutarlılık açısından manuel yorumlanmalı.",
+    competitiveAnalysis: `${name} reklamı, ${district} / ${city} bölgesinde ${sector} rekabet dili için sinyal olarak değerlendirilmeli.`,
     metaAdLibraryUrl: ad.ad_snapshot_url || `https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=TR&q=${encodeURIComponent(name)}`,
     googleSearchUrl: `https://www.google.com/search?q=${encodeURIComponent(`${name} ${district} ${city}`)}`
   };
@@ -113,7 +135,7 @@ export async function POST(request: Request) {
     if (!response.ok) {
       console.error("[meta-analysis] Meta API hatası", data);
       return NextResponse.json({
-        warning: "Meta API bağlantısı bulunamadı. Demo sonuçlar gösteriliyor.",
+        warning: "Meta Ad Library bağlantısı başarısız oldu. Demo sonuçlar gösteriliyor.",
         ai: aiMetadata("demo", "meta-analysis-demo"),
         results: demoMetaResults(city, district, sector)
       });
@@ -124,6 +146,10 @@ export async function POST(request: Request) {
     return NextResponse.json(value);
   } catch (error) {
     console.error("[meta-analysis] Analiz hatası", error);
-    return NextResponse.json({ error: "Analiz sırasında bir hata oluştu." }, { status: 500 });
+    return NextResponse.json({
+      warning: "Meta Ad Library bağlantısı başarısız oldu. Demo sonuçlar gösteriliyor.",
+      ai: aiMetadata("demo", "meta-analysis-demo"),
+      results: demoMetaResults(city, district, sector)
+    });
   }
 }

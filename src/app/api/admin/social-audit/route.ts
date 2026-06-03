@@ -8,21 +8,55 @@ const actionLabels = [
   "Meta Reklam Stratejisi",
   "Google Reklam Stratejisi",
   "İçerik Fikirleri",
-  "Teklif Hazırlama"
+  "Teklif Hazırlama",
+  "PDF Audit Oluştur",
+  "WhatsApp Teklifi Hazırla"
 ];
+
+const providerOverrides: Record<string, any> = {
+  OpenAI: { active_ai_provider: "openai", demoMode: false },
+  Groq: { active_ai_provider: "groq", demoMode: false },
+  Gemini: { active_ai_provider: "gemini", demoMode: false },
+  "Demo Modu": { active_ai_provider: "demo", demoMode: true },
+  "Yerel Mod": { active_ai_provider: "local", localMode: true }
+};
 
 function clean(value: unknown) {
   return String(value || "").trim();
 }
 
-function fallback(action: string, profile: any) {
-  const name = clean(profile.businessName) || clean(profile.profileUrl) || "İşletme";
+function calculateLeadScore(profile: any, actions: string[]) {
+  const platforms = Array.isArray(profile.platforms) ? profile.platforms : [];
+  const activePlatforms = platforms.filter((item: any) => clean(item.username) || clean(item.profileUrl) || clean(item.profileImageUrl));
+  const screenshotCount = Array.isArray(profile.screenshots) ? profile.screenshots.length : 0;
+  let score = 18;
+  score += Math.min(activePlatforms.length * 10, 35);
+  score += activePlatforms.filter((item: any) => clean(item.profileUrl)).length * 6;
+  score += activePlatforms.filter((item: any) => clean(item.profileImageUrl)).length * 4;
+  score += screenshotCount ? Math.min(screenshotCount * 4, 12) : 0;
+  score += clean(profile.businessName) ? 8 : 0;
+  score += clean(profile.sector) ? 6 : 0;
+  score += actions.includes("Teklif Hazırlama") ? 8 : 0;
+  score += actions.includes("Meta Reklam Stratejisi") || actions.includes("Google Reklam Stratejisi") ? 7 : 0;
+  const normalized = Math.max(0, Math.min(100, score));
+  return {
+    score: normalized,
+    temperature: normalized >= 80 ? "Sıcak" : normalized >= 50 ? "Ilık" : "Soğuk"
+  };
+}
+
+function fallback(action: string, profile: any, leadScore: { score: number; temperature: string }) {
+  const name = clean(profile.businessName) || clean(profile.platforms?.[0]?.profileUrl) || "İşletme";
+  const platformList = (profile.platforms || []).map((item: any) => item.platform).join(", ") || "sosyal medya";
+  const packages = "Starter 10.000 TL, Pro 15.000 TL, Premium 25.000 TL";
   return [
     `${name} için ${action} çıktısı`,
-    "- Profil açıklaması, teklif dili ve iletişim çağrısı netleştirilmeli.",
-    "- İlk 30 gün içinde güven, sosyal kanıt, teklif ve dönüşüm odaklı içerikler dengeli planlanmalı.",
-    "- Reklam tarafında satış garantisi verilmeden mesaj, trafik, yeniden pazarlama ve dönüşüm akışları ayrı düşünülmeli.",
-    "- Ölçümleme haftalık kontrol edilmeli; iyi çalışan içerikler reklam kreatifine dönüştürülmeli."
+    `Lead Score: ${leadScore.score}/100 (${leadScore.temperature})`,
+    `Platformlar: ${platformList}`,
+    "- Profil fotoğrafı, bio, kullanıcı adı, sabit hikayeler ve CTA dönüşüm odaklı yeniden düzenlenmeli.",
+    "- Güven sinyalleri, yerel görünürlük, teklif dili ve içerik tutarlılığı birlikte güçlendirilmeli.",
+    "- İlk 30 günde farkındalık, güven, sosyal kanıt, teklif ve dönüşüm içerikleri dengeli planlanmalı.",
+    `- Paket önerisi: ${packages}. Satış garantisi verilmez; beklenti yönetimi açık tutulmalıdır.`
   ].join("\n");
 }
 
@@ -32,32 +66,63 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => ({}));
+  const platforms = Array.isArray(body.platforms) ? body.platforms.map((item: any) => ({
+    platform: clean(item.platform),
+    username: clean(item.username),
+    profileUrl: clean(item.profileUrl),
+    profileImageUrl: clean(item.profileImageUrl)
+  })).filter((item: any) => item.platform && (item.username || item.profileUrl || item.profileImageUrl)) : [];
+  const screenshots = Array.isArray(body.screenshots) ? body.screenshots.map((item: any, index: number) => ({
+    name: clean(item.name) || `ekran-goruntusu-${index + 1}`,
+    type: clean(item.type),
+    order: Number(item.order ?? index)
+  })).sort((a: any, b: any) => a.order - b.order) : [];
   const profile = {
-    platform: clean(body.platform || "Instagram"),
-    profileUrl: clean(body.profileUrl),
     businessName: clean(body.businessName),
     city: clean(body.city),
     district: clean(body.district),
     sector: clean(body.sector),
-    notes: clean(body.notes)
+    notes: clean(body.notes),
+    platforms,
+    screenshots
   };
   const actions = Array.isArray(body.actions) ? body.actions.filter((action: string) => actionLabels.includes(action)) : [];
-  if (!profile.profileUrl && !profile.businessName) return NextResponse.json({ error: "Profil linki veya işletme adı girin." }, { status: 400 });
+  if (!profile.businessName && !platforms.length && !screenshots.length) return NextResponse.json({ error: "İşletme adı, profil bilgisi veya ekran görüntüsü girin." }, { status: 400 });
   if (!actions.length) return NextResponse.json({ error: "En az bir analiz aksiyonu seçin." }, { status: 400 });
 
+  const providerChoice = clean(body.aiProvider);
+  const settings = providerOverrides[providerChoice];
+  const leadScore = calculateLeadScore(profile, actions);
   const outputs = [];
+
   for (const action of actions) {
-    const prompt = `HK Dijital admin paneli için sosyal medya denetimi üret.
-Türkçe yaz. Profil bilgileri gerçek veri kabul edilerek değerlendirilir, iletişim bilgisi uydurma.
+    const prompt = `HK Dijital Sosyal İstihbarat Merkezi için çıktı üret.
+Türkçe yaz. İletişim bilgisi uydurma. Sadece seçili aksiyon için üretim yap.
+
 Aksiyon: ${action}
+Lead Score: ${leadScore.score}/100 (${leadScore.temperature})
+Paket çıpası: Starter 10.000 TL, Pro 15.000 TL, Premium 25.000 TL
 
-Profil:
-${JSON.stringify(profile)}
+Analiz alanları:
+- Profil fotoğrafı
+- Bio ve kullanıcı adı kalitesi
+- Markalaşma ve konumlandırma
+- Highlight kapakları
+- İçerik tutarlılığı
+- Reels / kısa video fırsatları
+- CTA ve dönüşüm hazırlığı
+- Güven sinyalleri
+- Yerel görünürlük
+- Funnel hazırlığı
+- Güçlü yönler, zayıf yönler, fırsatlar ve riskler
 
-Çıktıyı net başlıklar, kısa maddeler ve uygulanabilir adımlar halinde yaz.`;
-    const generated = await generateAiText(prompt, fallback(action, profile));
+Profil ve ekran görüntüsü verileri:
+${JSON.stringify(profile, null, 2)}
+
+Çıktıyı profesyonel ajans dilinde, uygulanabilir maddelerle, beklenti yönetimini koruyarak yaz.`;
+    const generated = await generateAiText(prompt, fallback(action, profile, leadScore), settings);
     outputs.push({ action, text: generated.text, ai: generated });
   }
 
-  return NextResponse.json({ ok: true, profile, outputs });
+  return NextResponse.json({ ok: true, profile, outputs, leadScore });
 }
