@@ -8,7 +8,12 @@ const accentStyles = {
   cyan: "border-cyan-200/20 bg-cyan-200/[0.07] text-cyan-100",
   amber: "border-amber-200/20 bg-amber-200/[0.07] text-amber-100",
   blue: "border-blue-300/20 bg-blue-300/[0.07] text-blue-100",
-  emerald: "border-emerald-300/20 bg-emerald-300/[0.07] text-emerald-100"
+  emerald: "border-emerald-300/20 bg-emerald-300/[0.07] text-emerald-100",
+  purple: "border-purple-300/20 bg-purple-300/[0.07] text-purple-100",
+  orange: "border-orange-300/20 bg-orange-300/[0.07] text-orange-100",
+  pink: "border-pink-300/20 bg-pink-300/[0.07] text-pink-100",
+  indigo: "border-indigo-300/20 bg-indigo-300/[0.07] text-indigo-100",
+  yellow: "border-yellow-300/20 bg-yellow-300/[0.07] text-yellow-100"
 };
 
 export function GlassCard({ children, className = "", interactive = false }: { children: ReactNode; className?: string; interactive?: boolean }) {

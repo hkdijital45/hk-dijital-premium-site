@@ -4,7 +4,7 @@ import { requireModuleAccess } from "@/lib/permissions";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 import { scoreDiscoveredBusiness } from "@/lib/lead-scoring";
 
-const allowedSources = new Set(["Meta Analiz", "Google Ads Analiz"]);
+const allowedSources = new Set(["Meta Analiz", "Google Ads Analiz", "Sosyal Medya Denetimi"]);
 
 function clean(value: unknown) {
   return String(value || "").trim();

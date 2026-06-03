@@ -6,7 +6,7 @@ export const adminModules = [
   "dashboard", "genel-arama", "kullanim-kilavuzu", "crm", "leads", "musteriler",
   "takip-gorevleri", "notlar", "musteri-bulucu", "haritalar", "bolgesel-analiz",
   "rakip-listesi", "kaydedilen-adaylar", "meta-analiz", "google-analiz",
-  "funnel-analizi", "reklam-firsatlari", "hazirlik", "ai-studio", "icerik-onerileri",
+  "sosyal-medya-denetimi", "funnel-analizi", "reklam-firsatlari", "hazirlik", "ai-studio", "icerik-onerileri",
   "prompt-kutuphanesi", "kampanya-hazirligi", "teklifler", "teklif-listesi", "raporlar",
   "rapor-yorumlari", "disa-aktarimlar", "kullanicilar", "roller-yetkiler",
   "site-ayarlari", "api-ayarlari", "tema-ayarlari", "medya", "sistem-loglari"
@@ -30,7 +30,7 @@ export const roleTemplates: Record<CanonicalRole, AdminModule[]> = {
   yonetici: [
     "dashboard", "genel-arama", "kullanim-kilavuzu", "crm", "leads", "musteriler",
     "takip-gorevleri", "notlar", "musteri-bulucu", "haritalar", "bolgesel-analiz",
-    "kaydedilen-adaylar", "hazirlik", "ai-studio", "teklifler", "teklif-listesi",
+    "kaydedilen-adaylar", "meta-analiz", "google-analiz", "sosyal-medya-denetimi", "hazirlik", "ai-studio", "teklifler", "teklif-listesi",
     "raporlar", "rapor-yorumlari", "disa-aktarimlar"
   ],
   editor: [

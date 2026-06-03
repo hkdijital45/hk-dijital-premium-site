@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { aiMetadata } from "@/lib/ai-provider";
 import { requireModuleAccess } from "@/lib/permissions";
 
+const metaAnalysisCache = new Map<string, { expires: number; value: any }>();
+
 function demoMetaResults(city: string, district: string, sector: string) {
   return [
     {
@@ -84,13 +86,18 @@ export async function POST(request: Request) {
   const district = String(body.district || "Yunusemre");
   const sector = String(body.sector || "Restoran");
   const token = process.env.META_AD_LIBRARY_ACCESS_TOKEN || process.env.META_ACCESS_TOKEN;
+  const cacheKey = `${city}:${district}:${sector}`.toLocaleLowerCase("tr");
+  const cached = metaAnalysisCache.get(cacheKey);
+  if (cached && cached.expires > Date.now()) return NextResponse.json(cached.value);
 
   if (!token) {
-    return NextResponse.json({
+    const value = {
       warning: "Meta API bağlantısı bulunamadı. Demo sonuçlar gösteriliyor.",
       ai: aiMetadata("demo", "meta-analysis-demo"),
       results: demoMetaResults(city, district, sector)
-    });
+    };
+    metaAnalysisCache.set(cacheKey, { expires: Date.now() + 1000 * 60 * 5, value });
+    return NextResponse.json(value);
   }
 
   try {
@@ -112,7 +119,9 @@ export async function POST(request: Request) {
       });
     }
     const results = Array.isArray(data.data) ? data.data.map((item: any) => normalizeMetaAd(item, city, district, sector)) : [];
-    return NextResponse.json({ ai: aiMetadata("local", "meta-ad-library-signals"), results });
+    const value = { ai: aiMetadata("local", "meta-ad-library-signals"), results };
+    metaAnalysisCache.set(cacheKey, { expires: Date.now() + 1000 * 60 * 5, value });
+    return NextResponse.json(value);
   } catch (error) {
     console.error("[meta-analysis] Analiz hatası", error);
     return NextResponse.json({ error: "Analiz sırasında bir hata oluştu." }, { status: 500 });

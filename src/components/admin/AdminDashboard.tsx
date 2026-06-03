@@ -25,14 +25,14 @@ const uiPermissionGroups = [
   ["Genel", ["dashboard", "genel-arama", "kullanim-kilavuzu"]],
   ["Müşteri & CRM", ["crm", "leads", "musteriler", "takip-gorevleri", "notlar"]],
   ["Keşif & Haritalar", ["musteri-bulucu", "haritalar", "bolgesel-analiz", "rakip-listesi", "kaydedilen-adaylar"]],
-  ["Reklam Zekâsı", ["meta-analiz", "google-analiz", "funnel-analizi", "reklam-firsatlari"]],
+  ["Reklam Zekâsı", ["meta-analiz", "google-analiz", "sosyal-medya-denetimi", "funnel-analizi", "reklam-firsatlari"]],
   ["Hazırlık & Üretim", ["hazirlik", "ai-studio", "icerik-onerileri", "prompt-kutuphanesi", "kampanya-hazirligi"]],
   ["Teklif & Raporlama", ["teklifler", "teklif-listesi", "raporlar", "rapor-yorumlari", "disa-aktarimlar"]],
   ["Yönetim", ["kullanicilar", "roller-yetkiler", "site-ayarlari", "api-ayarlari", "tema-ayarlari", "medya", "sistem-loglari"]]
 ];
 const uiRoleTemplates = {
   admin: uiPermissionGroups.flatMap(([, modules]) => modules),
-  yonetici: ["dashboard", "genel-arama", "kullanim-kilavuzu", "crm", "leads", "musteriler", "takip-gorevleri", "notlar", "musteri-bulucu", "haritalar", "bolgesel-analiz", "kaydedilen-adaylar", "hazirlik", "ai-studio", "teklifler", "teklif-listesi", "raporlar", "rapor-yorumlari", "disa-aktarimlar"],
+  yonetici: ["dashboard", "genel-arama", "kullanim-kilavuzu", "crm", "leads", "musteriler", "takip-gorevleri", "notlar", "musteri-bulucu", "haritalar", "bolgesel-analiz", "kaydedilen-adaylar", "meta-analiz", "google-analiz", "sosyal-medya-denetimi", "hazirlik", "ai-studio", "teklifler", "teklif-listesi", "raporlar", "rapor-yorumlari", "disa-aktarimlar"],
   editor: ["dashboard", "genel-arama", "kullanim-kilavuzu", "crm", "leads", "hazirlik", "ai-studio", "icerik-onerileri", "prompt-kutuphanesi", "kampanya-hazirligi", "teklifler", "teklif-listesi", "raporlar", "rapor-yorumlari", "disa-aktarimlar", "medya"],
   musteri: []
 };
@@ -370,6 +370,7 @@ export function AdminDashboard({
           {active === "Lead Yönetimi" && <Crm {...props} view="Lead Durumları" setActive={setActive} />}
           {active === "Meta Analiz" && <MetaAnalysisSection />}
           {active === "Google Analiz" && <GoogleAdsAnalysisSection />}
+          {active === "Sosyal Medya Denetimi" && <SocialMediaAuditCenter />}
           {active === "AI Studio" && <AiAssistant {...props} mode="AI Studio" />}
           {active === "Teklif Motoru" && <ProposalEngine {...props} />}
           {active === "Raporlar" && <ReportsHub {...props} />}
@@ -535,7 +536,7 @@ function GlobalSearchPage() {
   return <Panel title="Genel Arama"><p className="mb-4 text-sm leading-6 text-slate-400">Yetkiniz bulunan modüller, başvurular, müşteriler ve raporlar içinde arama yapın.</p><div className="flex gap-2"><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => event.key === "Enter" && runSearch()} placeholder="Aramak istediğiniz kelimeyi yazın..." className="min-h-12 flex-1 rounded-[8px] border border-white/10 bg-black/30 px-4 text-white" /><button onClick={runSearch} className="rounded-[8px] bg-cyan-300 px-5 text-sm font-black text-slate-950">{loading ? "Aranıyor..." : "Ara"}</button></div><div className="mt-5 grid gap-3">{results.map((result) => <Link key={result.id} href={result.href} className="flex items-center justify-between gap-3 rounded-[8px] border border-white/10 bg-black/10 p-4 transition hover:border-cyan-200/40"><span><strong>{result.title}</strong><span className="mt-1 block text-sm text-slate-400">{result.detail}</span></span><span className="rounded-full border border-white/10 px-3 py-1 text-xs text-cyan-100">{result.type}</span></Link>)}{query && !loading && !results.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-center text-sm text-slate-400">Aramanızla eşleşen kayıt bulunamadı.</p>}</div></Panel>;
 }
 
-const dashboardWidgetDefaults = ["metrics", "status", "charts", "insights", "quickActions", "crm", "activity", "demo"];
+const dashboardWidgetDefaults = ["metrics", "aiStatus", "status", "charts", "insights", "quickActions", "crm", "activity", "demo"];
 
 function dateValue(item: any, ...keys: string[]) {
   const value = keys.map((key) => item?.[key]).find(Boolean);
@@ -595,20 +596,42 @@ function DashboardChart({ title, description, series, suffix = "" }: any) {
   );
 }
 
+function aiStatusColor(status = "") {
+  if (status === "Aktif") return "border-emerald-300/25 bg-emerald-300/10 text-emerald-100";
+  if (status === "Hata") return "border-red-300/25 bg-red-500/10 text-red-100";
+  if (status === "API Eksik") return "border-slate-400/20 bg-slate-400/10 text-slate-300";
+  return "border-amber-300/25 bg-amber-300/10 text-amber-100";
+}
+
+function AiStatusCenterWidget({ statuses = {}, message, loading, onRefresh }: any) {
+  const items = [
+    ["OpenAI", statuses.openai],
+    ["Groq", statuses.groq],
+    ["Gemini", statuses.gemini],
+    ["Meta", statuses.meta],
+    ["Google Maps", statuses.googleMaps],
+    ["Google Ads", statuses.googleAds]
+  ];
+  return <GlassCard className="p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[.16em] text-pink-200">AI Durum Merkezi</p><h3 className="mt-2 text-xl font-black text-white">Sağlayıcı ve API bağlantıları</h3><p className="mt-1 text-sm text-slate-400">AI sağlayıcıları ve reklam/veri API durumlarını tek merkezden test edin.</p></div><div className="flex flex-wrap gap-2"><button disabled={loading} onClick={onRefresh} className="rounded-full border border-cyan-200/20 px-4 py-2 text-xs font-black text-cyan-100 disabled:opacity-60">AI Durumunu Yenile</button><button disabled={loading} onClick={onRefresh} className="rounded-full bg-amber-300 px-4 py-2 text-xs font-black text-slate-950 disabled:opacity-60">{loading ? "Test ediliyor..." : "Tüm Bağlantıları Test Et"}</button></div></div><div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{items.map(([label, item]) => <div key={label} className={`rounded-[8px] border p-4 ${aiStatusColor(item?.status)}`}><div className="flex items-center justify-between gap-3"><p className="font-black text-white">{label}</p><span className="rounded-full border border-current/20 px-2 py-1 text-[10px] font-black">{item?.status || "API Eksik"}</span></div><p className="mt-3 text-xs leading-5">Model: <strong>{item?.model || "-"}</strong></p><p className="mt-1 text-xs leading-5">Son test: <strong>{item?.lastTestTime ? new Date(item.lastTestTime).toLocaleString("tr-TR") : "-"}</strong></p>{item?.warning && <p className="mt-2 text-[11px] leading-5 opacity-80">{item.warning}</p>}</div>)}</div>{message && <p className="mt-4 rounded-[8px] border border-white/10 bg-black/15 p-3 text-xs text-slate-300">{message}</p>}</GlassCard>;
+}
+
 function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, currentSession, allowedModules = [] }: any) {
-  const leads = content.leads ?? [];
-  const companies = content.companies ?? [];
-  const campaigns = content.campaigns ?? [];
-  const metrics = content.campaignMetrics ?? [];
-  const updates = content.customerUpdates ?? [];
-  const users = content.users ?? [];
-  const reports = content.reports ?? [];
-  const activityLogs = content.activityLogs ?? [];
+  const leads = useMemo(() => content.leads ?? [], [content.leads]);
+  const companies = useMemo(() => content.companies ?? [], [content.companies]);
+  const campaigns = useMemo(() => content.campaigns ?? [], [content.campaigns]);
+  const metrics = useMemo(() => content.campaignMetrics ?? [], [content.campaignMetrics]);
+  const updates = useMemo(() => content.customerUpdates ?? [], [content.customerUpdates]);
+  const users = useMemo(() => content.users ?? [], [content.users]);
+  const reports = useMemo(() => content.reports ?? [], [content.reports]);
+  const activityLogs = useMemo(() => content.activityLogs ?? [], [content.activityLogs]);
   const [demoMessage, setDemoMessage] = useState("");
   const [demoLoading, setDemoLoading] = useState(false);
   const [customizing, setCustomizing] = useState(false);
   const preferenceKey = `hk-dashboard-preferences:${currentSession?.id || currentSession?.userId || "admin"}`;
   const [preferences, setPreferences] = useState({ order: dashboardWidgetDefaults, hidden: [], favorites: ["Müşteri Bulucu", "CRM"] });
+  const [aiStatusCenter, setAiStatusCenter] = useState(content.settings?.api?.ai_status || {});
+  const [aiStatusMessage, setAiStatusMessage] = useState("");
+  const [aiStatusLoading, setAiStatusLoading] = useState(false);
   const today = new Date().toISOString().slice(0, 10);
   const month = today.slice(0, 7);
   const aiAnalyzedLeads = leads.filter((lead) => lead.ai_analysis && Object.keys(lead.ai_analysis).length);
@@ -646,15 +669,16 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     savePreferences({ ...preferences, favorites: preferences.favorites.includes(target) ? preferences.favorites.filter((item) => item !== target) : [...preferences.favorites, target] });
   }
 
+  const socialAuditLeads = leads.filter((lead) => lead.source === "Sosyal Medya Denetimi");
   const stats = [
-    ["Toplam başvuru", leads.length, "CRM içindeki tüm potansiyel müşteriler", <UsersRound size={17} />],
-    ["Sıcak başvurular", hotLeads.length, "Fırsat skoru 70 ve üzeri kayıtlar", <Gauge size={17} />],
-    ["Aktif müşteriler", activeCustomers.length, "Hizmeti devam eden firmalar", <Building2 size={17} />],
-    ["Hazırlanan raporlar", reports.length, "Müşteri paneline bağlı raporlar", <FileBarChart size={17} />],
-    ["Hazırlanan teklifler", generatedProposals, "CRM teklif geçmişi kayıtları", <MessageSquareText size={17} />],
-    ["AI analizleri", aiAnalyzedLeads.length, "Yapay zeka ile yorumlanan başvurular", <Bot size={17} />],
-    ["CRM hareketleri", activityLogs.length, "Kaydedilen operasyon hareketleri", <Activity size={17} />],
-    ["Bu ay reklam harcaması", `${metricsThisMonth.reduce((sum, metric) => sum + Number(metric.spent || 0), 0).toLocaleString("tr-TR")} TL`, "Reklam metriklerinden hesaplanan toplam", <BarChart3 size={17} />]
+    ["Toplam Lead", leads.length, "CRM içindeki tüm potansiyel müşteriler", <UsersRound size={17} />, "blue"],
+    ["Aktif Müşteri", activeCustomers.length, "Hizmeti devam eden firmalar", <Building2 size={17} />, "emerald"],
+    ["Teklifler", generatedProposals, "CRM teklif geçmişi kayıtları", <MessageSquareText size={17} />, "purple"],
+    ["Meta Analiz", leads.filter((lead) => lead.source === "Meta Analiz").length, "Meta analizinden CRM'e gelen kayıtlar", <BarChart3 size={17} />, "orange"],
+    ["Google Analiz", leads.filter((lead) => lead.source === "Google Ads Analiz").length, "Google analizinden CRM'e gelen kayıtlar", <Search size={17} />, "cyan"],
+    ["AI Kullanımı", aiAnalyzedLeads.length, "Yapay zeka ile yorumlanan başvurular", <Bot size={17} />, "pink"],
+    ["CRM", activityLogs.length, "Kaydedilen operasyon hareketleri", <Activity size={17} />, "indigo"],
+    ["Sosyal Medya Denetimi", socialAuditLeads.length, "Denetim merkezinden kaydedilen fırsatlar", <Sparkles size={17} />, "yellow"]
   ];
   const moduleAliases: Record<string, string> = { "Müşteri Bulucu": "musteri-bulucu" };
   const canOpen = (label: string) => allowedModules.includes(moduleAliases[label] || adminNavigationItems.find((item) => item.label === label)?.module);
@@ -708,16 +732,17 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     ["Meta Analiz", "Reklam sinyallerini değerlendirin", "Analiz merkezi", "Meta Analiz", "", <BarChart3 size={24} />],
     ["Google Analiz", "Arama fırsatlarını değerlendirin", "Analiz merkezi", "Google Analiz", "", <Search size={24} />],
     ["AI Studio", "Ajans çıktıları üretin", `${aiAnalyzedLeads.length} analiz`, "AI Studio", "xl:col-span-2", <Bot size={24} />],
+    ["Sosyal Medya Denetimi", "Profil denetimi ve aksiyon üretimi", `${socialAuditLeads.length} kayıt`, "Sosyal Medya Denetimi", "", <Sparkles size={24} />],
     ["Hazırlık Merkezi", "Kampanya hazırlığını tamamlayın", "Operasyon listesi", "Hazırlık Merkezi", "", <CircleCheck size={24} />],
     ["Teklif Motoru", "MIN, ORTA ve MAX teklifleri hazırlayın", `${generatedProposals} teklif`, "Teklif Motoru", "", <MessageSquareText size={24} />],
     ["Raporlar", "Müşteri performansını sunun", `${reports.length} rapor`, "Raporlar", "", <FileBarChart size={24} />],
     ["Müşteriler", "Aktif hesapları yönetin", `${activeCustomers.length} aktif`, "Müşteriler", "", <Building2 size={24} />]
   ].filter(([, , , target]) => canOpen(target));
   const dashboardPresets = {
-    "CRM Focus": { order: ["metrics", "insights", "crm", "quickActions", "activity", "status", "charts", "demo"], hidden: ["charts"], favorites: ["CRM", "Lead Yönetimi", "Müşteriler"] },
-    "Sales Focus": { order: ["insights", "metrics", "quickActions", "crm", "activity", "status", "charts", "demo"], hidden: ["demo"], favorites: ["Müşteri Bulucu", "Teklif Motoru", "CRM"] },
-    "AI Focus": { order: ["insights", "quickActions", "metrics", "charts", "activity", "status", "crm", "demo"], hidden: ["demo"], favorites: ["AI Studio", "Lead Yönetimi", "Hazırlık Merkezi"] },
-    "Reporting Focus": { order: ["charts", "metrics", "insights", "quickActions", "activity", "status", "crm", "demo"], hidden: ["crm"], favorites: ["Raporlar", "Müşteriler"] },
+    "CRM Focus": { order: ["metrics", "insights", "crm", "quickActions", "activity", "aiStatus", "status", "charts", "demo"], hidden: ["charts"], favorites: ["CRM", "Lead Yönetimi", "Müşteriler"] },
+    "Sales Focus": { order: ["insights", "metrics", "quickActions", "crm", "activity", "aiStatus", "status", "charts", "demo"], hidden: ["demo"], favorites: ["Müşteri Bulucu", "Teklif Motoru", "CRM"] },
+    "AI Focus": { order: ["aiStatus", "insights", "quickActions", "metrics", "charts", "activity", "status", "crm", "demo"], hidden: ["demo"], favorites: ["AI Studio", "Sosyal Medya Denetimi", "Lead Yönetimi", "Hazırlık Merkezi"] },
+    "Reporting Focus": { order: ["charts", "metrics", "insights", "quickActions", "activity", "aiStatus", "status", "crm", "demo"], hidden: ["crm"], favorites: ["Raporlar", "Müşteriler"] },
     "Executive Overview": { order: dashboardWidgetDefaults, hidden: [], favorites: ["Müşteri Bulucu", "CRM"] }
   };
 
@@ -730,9 +755,24 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     setDemoLoading(false);
   }
 
-  const widgetNames = { metrics: "Sistem metrikleri", status: "Sistem durum merkezi", charts: "Gerçek veri grafikleri", insights: "AI içgörüleri", quickActions: "Hızlı aksiyonlar", crm: "CRM akışı", activity: "Son aktiviteler", demo: "Müşteri paneli testi" };
+  async function refreshAiStatus() {
+    setAiStatusLoading(true);
+    setAiStatusMessage("AI bağlantıları test ediliyor...");
+    const response = await fetch("/api/admin/ai-status", { method: "POST" });
+    const data = await response.json().catch(() => ({}));
+    if (response.ok) {
+      setAiStatusCenter(data.results || {});
+      setAiStatusMessage(`Son test: ${new Date(data.lastTestTime || Date.now()).toLocaleString("tr-TR")}`);
+    } else {
+      setAiStatusMessage(data.error || "AI durum testi başarısız oldu.");
+    }
+    setAiStatusLoading(false);
+  }
+
+  const widgetNames = { metrics: "Sistem metrikleri", aiStatus: "AI Durum Merkezi", status: "Sistem durum merkezi", charts: "Gerçek veri grafikleri", insights: "AI içgörüleri", quickActions: "Hızlı aksiyonlar", crm: "CRM akışı", activity: "Son aktiviteler", demo: "Müşteri paneli testi" };
   const widgets: any = {
-    metrics: <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{stats.map(([label, value, note, icon], index) => <MetricCard3D key={label} label={label} value={value} note={note} accent={index % 3 === 1 ? "amber" : index % 3 === 2 ? "blue" : "cyan"} icon={icon} />)}</div>,
+    metrics: <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{stats.map(([label, value, note, icon, accent]) => <MetricCard3D key={label} label={label} value={value} note={note} accent={accent} icon={icon} />)}</div>,
+    aiStatus: <AiStatusCenterWidget statuses={aiStatusCenter} message={aiStatusMessage || (content.settings?.api?.ai_status_last_test_at ? `Son test: ${new Date(content.settings.api.ai_status_last_test_at).toLocaleString("tr-TR")}` : "Henüz test yapılmadı.")} loading={aiStatusLoading} onRefresh={refreshAiStatus} />,
     status: <GlassCard className="p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-100">Sistem durum merkezi</p><h3 className="mt-2 text-xl font-black text-white">Altyapı sağlığı</h3></div><div className="rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 px-4 py-3 text-right"><p className="text-xs text-cyan-100">Genel sistem sağlığı</p><p className="text-2xl font-black text-white">%{healthScore}</p></div></div><div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{serviceItems.map((service) => <div key={service.label} className="flex items-center justify-between gap-3 rounded-[8px] border border-white/10 bg-black/10 p-3"><div><p className="text-sm font-bold text-white">{service.label}</p><p className="mt-1 text-xs text-slate-400">{service.description}</p></div><span className={`inline-flex items-center gap-1 text-xs font-black ${service.state === "Aktif" ? "text-emerald-300" : service.state === "Uyarı" ? "text-amber-300" : "text-red-300"}`}>{service.state === "Aktif" ? <CircleCheck size={14} /> : service.state === "Uyarı" ? <AlertTriangle size={14} /> : <CircleOff size={14} />}{service.state}</span></div>)}</div></GlassCard>,
     charts: <div><div className="mb-4"><h3 className="text-lg font-black">Gerçek veri görselleştirmesi</h3><p className="mt-1 text-sm text-slate-400">Grafikler yalnızca sistemde bulunan operasyon verilerinden üretilir.</p></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{charts.map(([title, description, series, suffix]) => <DashboardChart key={title} title={title} description={description} series={series} suffix={suffix} />)}</div></div>,
     insights: <GlassCard className="p-5"><div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-[8px] bg-amber-300/10 text-amber-200"><WandSparkles size={19} /></span><div><p className="text-xs font-black uppercase tracking-[.16em] text-amber-200">AI içgörüleri</p><h3 className="mt-1 text-lg font-black">Bugünün operasyon önerileri</h3></div></div><div className="mt-4 grid gap-3">{insightItems.map(([count, title, text, target]) => <button key={title} onClick={() => setActive(target)} className="flex items-center justify-between gap-4 rounded-[8px] border border-white/10 bg-black/10 p-4 text-left transition hover:border-cyan-200/30 hover:bg-cyan-200/[0.06]"><div><p className="text-sm font-black text-white">{title}</p><p className="mt-1 text-xs leading-5 text-slate-400">{text}</p></div><span className="grid size-9 shrink-0 place-items-center rounded-full bg-cyan-300 text-sm font-black text-slate-950">{count}</span></button>)}{!insightItems.length && <p className="rounded-[8px] border border-emerald-300/20 bg-emerald-300/10 p-4 text-sm text-emerald-100">Öncelikli aksiyon görünmüyor. Operasyon akışı düzenli ilerliyor.</p>}</div></GlassCard>,
@@ -2404,6 +2444,73 @@ function GoogleAdsAnalysisSection() {
     }
   }
   return <Panel title="Google Ads Analiz"><div className="mb-5 rounded-[8px] border border-yellow-300/20 bg-gradient-to-br from-yellow-300/12 via-orange-200/5 to-transparent p-5"><p className="text-xs font-black uppercase tracking-[.16em] text-yellow-200">Google Reklam Zekâsı</p><h2 className="mt-2 text-2xl font-black text-white">Arama görünürlüğü ve yerel reklam fırsatlarını ayrı analiz edin</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">Google Maps ve işletme sinyallerinden arama görünürlüğü, anahtar kelime fırsatı ve kampanya tipi önerileri üretir.</p></div><AnalysisSearchForm form={form} setForm={setForm} loading={loading} onSubmit={analyze} buttonLabel="Google Reklamlarını Analiz Et" />{warning && <p className="mt-4 rounded-[8px] border border-amber-300/25 bg-amber-300/10 p-3 text-sm text-amber-100">{warning}</p>}{error && <p className="mt-4 rounded-[8px] border border-red-300/25 bg-red-500/10 p-3 text-sm text-red-100">{error}</p>}<div className="mt-5 grid gap-4 lg:grid-cols-2">{results.map((item) => { const id = item.id || item.name; return <AnalysisResultCard key={id} kind="google" item={item} form={form} aiMeta={aiMeta} saved={crm.savedIds[id]} saving={crm.savingId === id} message={crm.messages[id]} onOpen={() => crm.setSelected(item)} onSave={() => crm.save(item)} />; })}{!loading && !error && !results.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-center text-sm text-slate-400 lg:col-span-2">Bu seçim için sonuç bulunamadı.</p>}</div>{crm.selected && <AnalysisDetailModal kind="google" item={crm.selected} form={form} aiMeta={aiMeta} saved={crm.savedIds[crm.selected.id || crm.selected.name]} saving={crm.savingId === (crm.selected.id || crm.selected.name)} message={crm.messages[crm.selected.id || crm.selected.name]} onClose={() => crm.setSelected(null)} onSave={() => crm.save(crm.selected)} />}</Panel>;
+}
+
+const socialAuditActions = ["Düzeltilmesi Gerekenler", "30 Günlük Sosyal Medya Planı", "Meta Reklam Stratejisi", "Google Reklam Stratejisi", "İçerik Fikirleri", "Teklif Hazırlama", "CRM’e Kaydet"];
+
+function SocialMediaAuditCenter() {
+  const [form, setForm] = useState({ platform: "Instagram", profileUrl: "", businessName: "", city: "Manisa", district: "Yunusemre", sector: "Restoran", notes: "" });
+  const [actions, setActions] = useState(["Düzeltilmesi Gerekenler", "30 Günlük Sosyal Medya Planı", "İçerik Fikirleri"]);
+  const [outputs, setOutputs] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [crmMessage, setCrmMessage] = useState("");
+  const [crmSaving, setCrmSaving] = useState(false);
+  function toggleAction(action) {
+    setActions(actions.includes(action) ? actions.filter((item) => item !== action) : [...actions, action]);
+  }
+  async function runAudit() {
+    setLoading(true);
+    setMessage("Sosyal medya denetimi hazırlanıyor...");
+    setOutputs([]);
+    const analysisActions = actions.filter((action) => action !== "CRM’e Kaydet");
+    const response = await fetch("/api/admin/social-audit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...form, actions: analysisActions })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.ok) {
+      setOutputs(data.outputs || []);
+      setMessage("");
+    } else {
+      setMessage(data.error || "Sosyal medya denetimi oluşturulamadı.");
+    }
+    setLoading(false);
+  }
+  async function saveToCrm() {
+    setCrmSaving(true);
+    setCrmMessage("CRM’e kaydediliyor...");
+    const summary = outputs.map((item) => `${item.action}\n${item.text}`).join("\n\n");
+    const response = await fetch("/api/admin/leads/from-analysis", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        source: "Sosyal Medya Denetimi",
+        city: form.city,
+        district: form.district,
+        sector: form.sector,
+        businessName: form.businessName || form.profileUrl,
+        website: form.profileUrl,
+        phone: "",
+        email: "",
+        address: "",
+        links: { website: form.profileUrl, sourceUrl: form.profileUrl },
+        summary: summary || form.notes,
+        platform: form.platform,
+        aiNote: summary
+      })
+    });
+    const data = await response.json().catch(() => ({}));
+    setCrmMessage(response.ok ? "Kayıt CRM’e eklendi." : data.duplicate ? "Bu kayıt CRM’de zaten var." : data.error || "Kayıt CRM’e eklenirken hata oluştu.");
+    setCrmSaving(false);
+  }
+  const districts = analysisDistrictOptions[form.city] || analysisDistrictOptions.Manisa;
+  function updateCity(city) {
+    const nextDistricts = analysisDistrictOptions[city] || analysisDistrictOptions.Manisa;
+    setForm({ ...form, city, district: nextDistricts[0] || "" });
+  }
+  return <Panel title="Sosyal Medya Denetimi"><div className="mb-5 rounded-[8px] border border-yellow-300/20 bg-gradient-to-br from-yellow-300/12 via-pink-300/6 to-transparent p-5"><p className="text-xs font-black uppercase tracking-[.16em] text-yellow-200">AI Powered Social Media Audit Center</p><h2 className="mt-2 text-2xl font-black text-white">Instagram ve Facebook profillerini ajans bakışıyla denetleyin</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">Seçtiğiniz aksiyonlara göre sadece gerekli çıktıları üretir; sağlayıcı/model/mod bilgisini her sonuçta gösterir ve fırsatı CRM’e kaydedebilir.</p></div><div className="grid gap-4 rounded-[8px] border border-white/10 bg-black/15 p-4 md:grid-cols-2"><SelectField label="Platform" value={form.platform} onChange={(platform) => setForm({ ...form, platform })} options={["Instagram", "Facebook"]} /><Field label="Profil linki" value={form.profileUrl} onChange={(profileUrl) => setForm({ ...form, profileUrl })} /><Field label="İşletme / profil adı" value={form.businessName} onChange={(businessName) => setForm({ ...form, businessName })} /><OtherSelectField label="Sektör" value={form.sector} onChange={(sector) => setForm({ ...form, sector })} options={sectorOptions} manualLabel="Sektörü yazın" /><SelectField label="İl" value={form.city} onChange={updateCity} options={cityOptions} /><SelectField label="İlçe" value={form.district} onChange={(district) => setForm({ ...form, district })} options={districts} /><div className="md:col-span-2"><TextArea label="Ek gözlem / not" value={form.notes} onChange={(notes) => setForm({ ...form, notes })} /></div></div><div className="mt-5 rounded-[8px] border border-white/10 bg-white/[0.035] p-4"><p className="text-sm font-black text-white">Analiz aksiyonları</p><div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{socialAuditActions.map((action) => <label key={action} className={`flex min-h-12 items-center gap-2 rounded-[8px] border px-3 text-xs font-black transition ${actions.includes(action) ? "border-yellow-200/40 bg-yellow-300/10 text-yellow-100" : "border-white/10 text-slate-400"}`}><input type="checkbox" checked={actions.includes(action)} onChange={() => toggleAction(action)} />{action}</label>)}</div><button disabled={loading || !actions.filter((action) => action !== "CRM’e Kaydet").length} onClick={runAudit} className="mt-4 rounded-full bg-yellow-300 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-60">{loading ? "Denetim hazırlanıyor..." : "Seçili aksiyonları oluştur"}</button>{actions.includes("CRM’e Kaydet") && <button disabled={crmSaving || (!outputs.length && !form.businessName && !form.profileUrl)} onClick={saveToCrm} className="ml-2 mt-4 rounded-full border border-yellow-200/30 px-5 py-3 text-sm font-black text-yellow-100 disabled:opacity-60">{crmSaving ? "CRM’e kaydediliyor..." : "CRM’e Kaydet"}</button>}</div>{message && <p className="mt-4 rounded-[8px] border border-amber-300/25 bg-amber-300/10 p-3 text-sm text-amber-100">{message}</p>}{crmMessage && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{crmMessage}</p>}<div className="mt-5 grid gap-4">{outputs.map((item) => <div key={item.action} className="rounded-[8px] border border-white/10 bg-white/[0.045] p-5"><p className="text-xs font-black uppercase tracking-[.16em] text-yellow-200">{item.action}</p><AiUsageBadge meta={item.ai} /><pre className="mt-4 whitespace-pre-wrap text-sm leading-7 text-slate-200">{item.text}</pre></div>)}{!loading && !outputs.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-center text-sm text-slate-400">Denetim çıktısı için profil bilgisi girip aksiyon seçin.</p>}</div></Panel>;
 }
 
 function ChannelAnalysis({ content, channel }: any) {

@@ -32,6 +32,7 @@ export const adminNavigationGroups = [
     items: [
       { label: "Meta Analiz", slug: "meta-analiz", module: "meta-analiz" },
       { label: "Google Analiz", slug: "google-analiz", module: "google-analiz" },
+      { label: "Sosyal Medya Denetimi", slug: "sosyal-medya-denetimi", module: "sosyal-medya-denetimi" },
       { label: "Funnel Analizi", slug: "funnel-analizi", module: "funnel-analizi" },
       { label: "Reklam Fırsatları", slug: "reklam-firsatlari", module: "reklam-firsatlari" }
     ]

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { aiMetadata } from "@/lib/ai-provider";
 import { requireModuleAccess } from "@/lib/permissions";
 
+const googleAnalysisCache = new Map<string, { expires: number; value: any }>();
+
 function demoGoogleResults(city: string, district: string, sector: string) {
   return [
     {
@@ -80,13 +82,18 @@ export async function POST(request: Request) {
   const district = String(body.district || "Yunusemre");
   const sector = String(body.sector || "Restoran");
   const key = process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_API_KEY;
+  const cacheKey = `${city}:${district}:${sector}`.toLocaleLowerCase("tr");
+  const cached = googleAnalysisCache.get(cacheKey);
+  if (cached && cached.expires > Date.now()) return NextResponse.json(cached.value);
 
   if (!key) {
-    return NextResponse.json({
+    const value = {
       warning: "Google API bağlantısı bulunamadı. Demo sonuçlar gösteriliyor.",
       ai: aiMetadata("demo", "google-analysis-demo"),
       results: demoGoogleResults(city, district, sector)
-    });
+    };
+    googleAnalysisCache.set(cacheKey, { expires: Date.now() + 1000 * 60 * 5, value });
+    return NextResponse.json(value);
   }
 
   try {
@@ -130,7 +137,9 @@ export async function POST(request: Request) {
         competitionLevel: visibility >= 80 ? "Yüksek" : visibility >= 55 ? "Orta" : "Düşük"
       };
     }));
-    return NextResponse.json({ ai: aiMetadata("local", "google-maps-signals"), results });
+    const value = { ai: aiMetadata("local", "google-maps-signals"), results };
+    googleAnalysisCache.set(cacheKey, { expires: Date.now() + 1000 * 60 * 5, value });
+    return NextResponse.json(value);
   } catch (error) {
     console.error("[google-analysis] Analiz hatası", error);
     return NextResponse.json({ error: "Analiz sırasında bir hata oluştu." }, { status: 500 });

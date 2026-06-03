@@ -145,6 +145,8 @@ export type SiteContent = {
       active_ai_provider?: "automatic" | "demo" | "local" | "gemini" | "groq" | "openai" | string;
       active_ai_model?: string;
       ai_mode?: "live" | "demo" | "local" | string;
+      ai_status_last_test_at?: string;
+      ai_status?: Record<string, { name?: string; status?: string; model?: string; lastTestTime?: string; warning?: string }>;
       demoMode: boolean;
       model: string;
     };

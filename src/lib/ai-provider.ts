@@ -29,6 +29,9 @@ const defaultModels: Record<AiProviderKey, string> = {
   local: "local-rules"
 };
 
+export const professionalAiInstruction =
+  "Analyze and provide recommendations as a senior digital marketing consultant, social media strategist, media buyer, growth marketer, agency owner, and business development expert. Focus on practical actions, conversion optimization, lead generation, funnel strategy, advertising opportunities, customer psychology, positioning, branding, realistic growth recommendations, expectation management, and client communication.";
+
 export function normalizeAiProvider(value?: string | null, demoMode = false): AiProviderKey {
   const normalized = String(value || "").toLocaleLowerCase("tr").trim();
   if (["automatic", "auto", "otomatik"].includes(normalized)) return "automatic";
@@ -116,10 +119,11 @@ export async function generateAiText(prompt: string, fallbackText: string, setti
   const runtimeSettings = settings || await getAiRuntimeSettings();
   const selected = normalizeAiProvider(runtimeSettings.active_ai_provider || runtimeSettings.activeProvider, runtimeSettings.demoMode);
   const model = runtimeSettings.active_ai_model || runtimeSettings.model;
+  const professionalPrompt = `${professionalAiInstruction}\n\n${prompt}`;
 
   if (selected !== "automatic") {
     try {
-      return await generateWithProvider(selected, prompt, fallbackText, model);
+      return await generateWithProvider(selected, professionalPrompt, fallbackText, model);
     } catch (error) {
       throw new Error(`Seçilen AI sağlayıcısı kullanılamadı. Lütfen API ayarlarını kontrol edin. ${error instanceof Error ? error.message : ""}`.trim());
     }
@@ -127,7 +131,7 @@ export async function generateAiText(prompt: string, fallbackText: string, setti
 
   for (const provider of ["openai", "groq", "gemini", "demo", "local"] as AiProviderKey[]) {
     try {
-      const result = await generateWithProvider(provider, prompt, fallbackText, provider === "demo" || provider === "local" ? undefined : model);
+      const result = await generateWithProvider(provider, professionalPrompt, fallbackText, provider === "demo" || provider === "local" ? undefined : model);
       if (result.text) return result;
     } catch (error) {
       console.error(`[ai-provider] ${providerLabels[provider]} sağlayıcısı atlandı`, error instanceof Error ? error.message : error);
