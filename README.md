@@ -63,7 +63,7 @@ GEMINI_API_KEY=
 
 ## macOS Desktop App
 
-HK Dijital / HK Intelligence sistemi web sürümünü bozmadan Electron kabuğu içinde macOS masaüstü uygulaması olarak çalıştırılabilir.
+HK Dijital / HK Intelligence sistemi web sürümünü bozmadan Electron kabuğu içinde macOS masaüstü uygulaması olarak çalıştırılabilir. Masaüstü uygulaması public ana sayfayı açmaz; doğrudan yönetim sistemi akışına girer.
 
 Masaüstü uygulamasının adı:
 
@@ -106,6 +106,28 @@ Farklı bir web adresi yüklemek için `HK_DESKTOP_APP_URL` değişkenini kullan
 ```bash
 HK_DESKTOP_APP_URL=https://www.hkdijital.com.tr npm run desktop
 HK_DESKTOP_APP_URL=http://127.0.0.1:3000 npm run desktop
+```
+
+Desktop açılış davranışı:
+
+```text
+HK Intelligence Desktop başlar
+→ Kısa splash ekranı gösterilir
+→ Oturum kontrol edilir
+→ Admin oturumu varsa /hk-admin?desktop=1 açılır
+→ Oturum yoksa /giris?desktop=1 açılır
+```
+
+Desktop modu public marketing sayfalarını uygulama penceresinde açmaz. Ana sayfa, hizmetler, paketler, sertifikalar ve iletişim gibi public sayfalar web sürümünde aynı şekilde kalır; masaüstü penceresi yönetim sistemi, CRM, raporlar, AI modülleri ve müşteri operasyonları için kullanılır.
+
+İsteğe bağlı açılış modülü için `HK_DESKTOP_START_PAGE` kullanılabilir:
+
+```bash
+HK_DESKTOP_START_PAGE=dashboard npm run desktop
+HK_DESKTOP_START_PAGE=crm npm run desktop
+HK_DESKTOP_START_PAGE=social npm run desktop
+HK_DESKTOP_START_PAGE=meta npm run desktop
+HK_DESKTOP_START_PAGE=google npm run desktop
 ```
 
 Electron uygulaması mevcut Next.js web uygulamasını yüklediği için CRM, Supabase, authentication, AI modülleri, Meta Analiz, Google Analiz, Sosyal İstihbarat Merkezi, PDF Audit, WhatsApp teklifleri, müşteri paneli ve yönetim paneli web sürümüyle aynı backend ve aynı Supabase veritabanını kullanır. Webde eklenen veri masaüstünde, masaüstünde eklenen veri webde görünür.

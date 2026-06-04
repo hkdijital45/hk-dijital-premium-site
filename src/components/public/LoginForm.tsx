@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 
-export function LoginForm() {
-  const [userType, setUserType] = useState<"admin" | "customer">("customer");
+export function LoginForm({ desktopMode = false }: { desktopMode?: boolean }) {
+  const [userType, setUserType] = useState<"admin" | "customer">(desktopMode ? "admin" : "customer");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -34,7 +34,8 @@ export function LoginForm() {
       return;
     }
 
-    window.location.href = data.redirectTo || (userType === "admin" ? "/hk-admin" : "/musteri-paneli");
+    const target = data.redirectTo || (userType === "admin" ? "/hk-admin" : "/musteri-paneli");
+    window.location.href = desktopMode && target.startsWith("/hk-admin") ? `${target}?desktop=1` : target;
   }
 
   async function forgotPassword() {
@@ -60,18 +61,20 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={submit} className="glass-card mx-auto w-full max-w-xl p-6 sm:p-8">
+    <form onSubmit={submit} className={`glass-card mx-auto w-full p-6 sm:p-8 ${desktopMode ? "max-w-md" : "max-w-xl"}`}>
       <p className="text-xs font-black uppercase tracking-[.18em] text-amber-100">Oturum açın</p>
-      <h2 className="mt-3 text-2xl font-black text-white">Hesabınıza güvenli giriş</h2>
-      <p className="mt-2 text-sm leading-6 text-slate-400">Size uygun panel türünü seçerek devam edin.</p>
-      <div className="mt-6 grid grid-cols-2 gap-2 rounded-[8px] border border-white/10 bg-black/25 p-1">
-        <button type="button" onClick={() => setUserType("customer")} className={`min-h-11 rounded-[8px] text-sm font-black ${userType === "customer" ? "bg-cyan-300 text-slate-950" : "text-slate-300"}`}>
-          Müşteri
-        </button>
-        <button type="button" onClick={() => setUserType("admin")} className={`min-h-11 rounded-[8px] text-sm font-black ${userType === "admin" ? "bg-cyan-300 text-slate-950" : "text-slate-300"}`}>
-          Yönetici
-        </button>
-      </div>
+      <h2 className="mt-3 text-2xl font-black text-white">{desktopMode ? "Yönetim sistemine giriş" : "Hesabınıza güvenli giriş"}</h2>
+      {!desktopMode && <p className="mt-2 text-sm leading-6 text-slate-400">Size uygun panel türünü seçerek devam edin.</p>}
+      {!desktopMode && (
+        <div className="mt-6 grid grid-cols-2 gap-2 rounded-[8px] border border-white/10 bg-black/25 p-1">
+          <button type="button" onClick={() => setUserType("customer")} className={`min-h-11 rounded-[8px] text-sm font-black ${userType === "customer" ? "bg-cyan-300 text-slate-950" : "text-slate-300"}`}>
+            Müşteri
+          </button>
+          <button type="button" onClick={() => setUserType("admin")} className={`min-h-11 rounded-[8px] text-sm font-black ${userType === "admin" ? "bg-cyan-300 text-slate-950" : "text-slate-300"}`}>
+            Yönetici
+          </button>
+        </div>
+      )}
 
       <label className="mt-6 grid gap-2 text-sm font-semibold text-slate-200">
         E-posta
@@ -92,7 +95,7 @@ export function LoginForm() {
       {error && <p className="mt-4 rounded-[8px] bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
 
       <button disabled={loading} className="mt-6 min-h-12 w-full rounded-full bg-cyan-300 font-black text-slate-950 disabled:opacity-60">
-        {loading ? "Giriş yapılıyor..." : "Giriş Yap"}
+        {loading ? "Giriş yapılıyor..." : desktopMode ? "Yönetim Sistemine Giriş Yap" : "Giriş Yap"}
       </button>
     </form>
   );

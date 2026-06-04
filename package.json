@@ -16,7 +16,7 @@
   },
   "build": {
     "appId": "tr.com.hkdijital.hkintelligence",
-    "productName": "HK Intelligence",
+    "productName": "HK Intelligence Desktop",
     "directories": {
       "output": "dist-desktop"
     },
