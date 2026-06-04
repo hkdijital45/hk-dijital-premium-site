@@ -12,6 +12,7 @@ export const metricLabels: Record<string, { label: string; explanation: string }
   calls: { label: "Arama", explanation: "İşletmenize yönlendirilen telefon aramalarını gösterir." },
   cpc: { label: "Tıklama başı maliyet", explanation: "Her bir reklam tıklaması için oluşan ortalama maliyettir." },
   average_cpc: { label: "Ortalama tıklama maliyeti", explanation: "Google Ads üzerinde her tıklama için oluşan ortalama maliyettir." },
+  cost_per_conversion: { label: "Dönüşüm maliyeti", explanation: "Bir dönüşüm veya müşteri aksiyonu için oluşan ortalama maliyettir." },
   cpm: { label: "Bin gösterim maliyeti", explanation: "Reklamın bin kez gösterilmesi için oluşan ortalama maliyettir." },
   ctr: { label: "Tıklanma oranı", explanation: "Reklamı gören kişilerin ne kadarının tıkladığını yüzde olarak gösterir." },
   frequency: { label: "Frekans", explanation: "Bir kişinin reklamınızı ortalama kaç kez gördüğünü gösterir." },

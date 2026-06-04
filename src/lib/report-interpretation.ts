@@ -21,8 +21,14 @@ function systemPrompt(report: any) {
   const { internal_note: _internalNote, raw_extracted_data: _rawExtractedData, ...customerSafeReport } = report;
   return `HK Dijital müşterisi için aşağıdaki raporu sade Türkçe ile yorumla.
 Teknik kavramları kısa ve anlaşılır biçimde açıkla. Satış garantisi verme.
-Nelerin iyi ilerlediğini, hangi alanın izlenmesi gerektiğini ve bir sonraki önerilen adımı belirt.
-En fazla 170 kelime kullan.
+Aşağıdaki başlıkları kısa ve müşteri dostu biçimde kullan:
+- Kullanılan tarih aralığı
+- Platform
+- Öne çıkan başarılar
+- Düşüşler / riskler
+- Sonraki adımlar
+- Müşterinin anlayacağı sade açıklama
+Yalnızca seçilen tarih aralığı ve seçilen platform verisini yorumla. En fazla 220 kelime kullan.
 
 Rapor:
 ${JSON.stringify(customerSafeReport)}`;
