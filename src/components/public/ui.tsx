@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { AnimatedMarketingDashboard, PremiumBackground } from "@/components/premium/PremiumUI";
+import { AnimatedMarketingDashboard, BrandEcosystemStrip, PremiumBackground } from "@/components/premium/PremiumUI";
 
 export function GlowBackground() {
   return (
@@ -52,6 +52,7 @@ export function PageHero({ eyebrow, title, text }: { eyebrow: string; title: str
           <p className="text-sm font-bold uppercase tracking-[.26em] text-cyan-200">{eyebrow}</p>
           <h1 className="mt-4 text-3xl font-black tracking-tight text-white sm:text-5xl">{title}</h1>
           <p className="mt-5 max-w-2xl text-base leading-8 text-slate-300 sm:text-lg">{text}</p>
+          <div className="mt-7"><BrandEcosystemStrip compact /></div>
         </div>
         <AnimatedMarketingDashboard className="scale-95 lg:scale-100" />
       </div>

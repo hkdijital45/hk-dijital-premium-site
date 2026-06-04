@@ -9,7 +9,7 @@ import type { SiteContent } from "@/lib/types";
 import { ReportTools } from "@/components/admin/reports/ReportTools";
 import { Logo } from "@/components/public/Logo";
 import { adminNavigationGroups, adminNavigationItems, getAdminHref } from "@/lib/admin-navigation";
-import { AnimatedFunnel, GlassCard, MetricCard3D } from "@/components/premium/PremiumUI";
+import { AnimatedChart, AnimatedFunnel, BrandEcosystemStrip, GlassCard, MetricCard3D } from "@/components/premium/PremiumUI";
 
 const crmActiveStatuses = ["Yeni Başvuru", "İletişime Geçildi", "Takipte", "Teklif Gönderildi", "Müşteri Oldu"];
 const crmStatusTabs = ["Tüm Başvurular", "Yeni Başvurular", "İletişime Geçildi", "Takipte", "Teklif Gönderildi", "Müşteri Oldu", "Meta Analiz", "Google Ads Analiz", "Reddedilenler", "Silinenler"];
@@ -172,8 +172,8 @@ const aiChooserOptions = [
   ["Gemini", "Google tabanlı alternatif sağlayıcı"],
   ["OpenAI", "Yüksek kaliteli ücretli sağlayıcı"],
   ["Otomatik", "Sıralamaya göre uygun sağlayıcıyı dener"],
-  ["Demo Modu", "Gerçek API kullanmadan örnek çıktı üretir"],
-  ["Yerel Mod", "Basit yerel analiz modu"]
+  ["Demo", "Gerçek API kullanmadan örnek çıktı üretir"],
+  ["Yerel", "Basit yerel analiz modu"]
 ];
 
 function AiProviderChooserModal({ open, selected, setSelected, onContinue, onCancel }: any) {
@@ -184,7 +184,7 @@ function AiProviderChooserModal({ open, selected, setSelected, onContinue, onCan
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-black uppercase tracking-[.18em] text-amber-200">AI sağlayıcı seçimi</p>
-            <h3 className="mt-2 text-xl font-black">Hangi AI aracıyla devam edilsin?</h3>
+            <h3 className="mt-2 text-xl font-black">Hangi AI aracı kullanılacak?</h3>
           </div>
           <button onClick={onCancel} className="rounded-full border border-white/10 p-2 text-slate-300 hover:bg-white/10"><X size={17} /></button>
         </div>
@@ -217,8 +217,17 @@ function useAiProviderChooser() {
   const [chooserOpen, setChooserOpen] = useState(false);
   const [chooserSelected, setChooserSelected] = useState("Groq");
   const [chooserAction, setChooserAction] = useState<any>(null);
+  useEffect(() => {
+    try {
+      setChooserSelected(sessionStorage.getItem("hk-ai-last-provider") || "Groq");
+    } catch {}
+  }, []);
   const askAiProvider = (action: any) => {
-    setChooserSelected("Groq");
+    try {
+      setChooserSelected(sessionStorage.getItem("hk-ai-last-provider") || "Groq");
+    } catch {
+      setChooserSelected("Groq");
+    }
     setChooserAction(() => action);
     setChooserOpen(true);
   };
@@ -229,6 +238,9 @@ function useAiProviderChooser() {
       setSelected={setChooserSelected}
       onCancel={() => setChooserOpen(false)}
       onContinue={(provider: string) => {
+        try {
+          sessionStorage.setItem("hk-ai-last-provider", provider || "Groq");
+        } catch {}
         setChooserOpen(false);
         chooserAction?.(provider);
       }}
@@ -645,7 +657,7 @@ function GlobalSearchPage() {
   return <Panel title="Genel Arama"><p className="mb-4 text-sm leading-6 text-slate-400">Yetkiniz bulunan modüller, başvurular, müşteriler ve raporlar içinde arama yapın.</p><div className="flex gap-2"><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => event.key === "Enter" && runSearch()} placeholder="Aramak istediğiniz kelimeyi yazın..." className="min-h-12 flex-1 rounded-[8px] border border-white/10 bg-black/30 px-4 text-white" /><button onClick={runSearch} className="rounded-[8px] bg-cyan-300 px-5 text-sm font-black text-slate-950">{loading ? "Aranıyor..." : "Ara"}</button></div><div className="mt-5 grid gap-3">{results.map((result) => <Link key={result.id} href={result.href} className="flex items-center justify-between gap-3 rounded-[8px] border border-white/10 bg-black/10 p-4 transition hover:border-cyan-200/40"><span><strong>{result.title}</strong><span className="mt-1 block text-sm text-slate-400">{result.detail}</span></span><span className="rounded-full border border-white/10 px-3 py-1 text-xs text-cyan-100">{result.type}</span></Link>)}{query && !loading && !results.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-center text-sm text-slate-400">Aramanızla eşleşen kayıt bulunamadı.</p>}</div></Panel>;
 }
 
-const dashboardWidgetDefaults = ["metrics", "aiStatus", "status", "charts", "insights", "quickActions", "crm", "activity", "demo"];
+const dashboardWidgetDefaults = ["metrics", "aiStatus", "operations", "pipeline", "intelligence", "status", "charts", "insights", "quickActions", "crm", "activity", "demo"];
 
 function dateValue(item: any, ...keys: string[]) {
   const value = keys.map((key) => item?.[key]).find(Boolean);
@@ -730,7 +742,7 @@ function StartupApiStatusModal({ open, loading, data = {}, message, onRetest, on
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs font-black uppercase tracking-[.18em] text-cyan-200">HK OS başlangıç testi</p>
-            <h3 className="mt-2 text-2xl font-black">API Durum Kontrolü</h3>
+            <h3 className="mt-2 text-2xl font-black">Sistem Durum Kontrolü</h3>
             <p className="mt-2 text-sm text-slate-400">Aktif sağlayıcı: <strong className="text-white">{aiProviderLabel(data.activeProvider || "Groq")}</strong> · Mod: <strong className="text-white">{data.mode || "Canlı"}</strong></p>
           </div>
           <button onClick={onClose} className="rounded-full border border-white/10 p-2 text-slate-300 hover:bg-white/10"><X size={17} /></button>
@@ -883,6 +895,31 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     ...updates.map((update) => ({ id: `update-${update.id}`, action: "Müşteri güncellemesi", entity: update.title, created_at: update.created_at })),
     ...reports.map((report) => ({ id: `report-${report.id}`, action: "Rapor hazırlandı", entity: report.report_type, created_at: report.created_at }))
   ].sort((a, b) => Number(new Date(b.created_at)) - Number(new Date(a.created_at))).slice(0, 8);
+  const activeAiMeta = aiMetaFromApi(content.settings?.api || {});
+  const latestLeadDate = leads[0]?.created_at || leads[0]?.createdAt;
+  const latestAiDate = aiAnalyzedLeads.find((lead) => lead.ai_analysis?.generated_at || lead.ai_analysis?.created_at)?.ai_analysis?.generated_at || aiAnalyzedLeads[0]?.updated_at;
+  const liveOperations = [
+    ["Yeni lead", leads.length ? `${leads[0]?.company || leads[0]?.name || "Yeni kayıt"} CRM'e eklendi` : "Henüz yeni lead yok", latestLeadDate, "blue"],
+    ["CRM aktivitesi", recentActivity[0]?.action || "Operasyon kaydı bekleniyor", recentActivity[0]?.created_at, "indigo"],
+    ["AI analizi", aiAnalyzedLeads.length ? `${aiAnalyzedLeads.length} kayıt yorumlandı` : "AI analizi bekleniyor", latestAiDate, "purple"],
+    ["PDF üretimi", socialAuditLeads.length ? `${socialAuditLeads.length} sosyal audit hazır` : "PDF audit bekleniyor", socialAuditLeads[0]?.created_at, "rose"],
+    ["WhatsApp teklifi", generatedProposals ? `${generatedProposals} teklif geçmişi` : "Teklif akışı bekleniyor", leads.find((lead) => Array.isArray(lead.proposal_history) && lead.proposal_history.length)?.updated_at, "lime"],
+    ["API olayı", aiStatusMessage || (content.settings?.api?.ai_status_last_test_at ? "AI bağlantıları test edildi" : "API testi bekleniyor"), content.settings?.api?.ai_status_last_test_at, "cyan"]
+  ];
+  const pipelineStages = [
+    ["Yeni", leads.filter((lead) => ["Yeni", "Yeni Başvuru"].includes(lead.status || "Yeni")).length, "from-blue-500 to-cyan-400"],
+    ["Aranacak", leads.filter((lead) => ["Görüşülecek", "İletişime Geçildi"].includes(lead.status)).length, "from-cyan-400 to-teal-400"],
+    ["Görüşüldü", leads.filter((lead) => lead.status === "Takipte").length, "from-indigo-500 to-blue-500"],
+    ["Teklif Gönderildi", leads.filter((lead) => ["Teklif Hazırlanıyor", "Teklif Gönderildi"].includes(lead.status)).length, "from-amber-400 to-orange-500"],
+    ["Müşteri", leads.filter((lead) => ["Kazanıldı", "Dönüştürüldü", "Müşteri Oldu"].includes(lead.status)).length, "from-emerald-400 to-teal-500"],
+    ["Reddedildi", leads.filter((lead) => isLeadRejected(lead)).length, "from-rose-500 to-red-500"]
+  ];
+  const intelligenceCards = [
+    ["Meta Intelligence", `${metaLeadCount} rakip / sinyal`, "Reklam aktivitesi ve kreatif fırsatları", "Son tarama", leads.find((lead) => lead.source === "Meta Analiz")?.created_at, "from-orange-400 via-pink-500 to-rose-500"],
+    ["Google Intelligence", `${googleLeadCount || leads.filter((lead) => lead.google_place_id).length} fırsat`, "Arama görünürlüğü ve keşif kayıtları", "Son keşif", leads.find((lead) => lead.source === "Google Ads Analiz" || lead.google_place_id)?.created_at, "from-cyan-400 via-sky-500 to-blue-600"],
+    ["Sosyal İstihbarat", `${socialAuditLeads.length} profil`, `${activeAiMeta.provider} · ${activeAiMeta.mode}`, "Son analiz", socialAuditLeads[0]?.created_at, "from-yellow-300 via-amber-400 to-orange-500"],
+    ["AI Command Center", activeAiMeta.provider, `${activeAiMeta.model} · ${aiStatusCenter.groq?.responseTimeMs || aiStatusCenter.gemini?.responseTimeMs || "-"} ms`, "Son test", content.settings?.api?.ai_status_last_test_at, "from-violet-500 via-purple-500 to-fuchsia-500"]
+  ];
   const charts = [
     ["Başvuru artışı", "Son 7 günde CRM'e eklenen potansiyel müşteriler.", buildDailySeries(leads, (lead) => dateValue(lead, "created_at", "createdAt"))],
     ["Müşteri artışı", "Son 6 ayda sisteme eklenen firmalar.", buildMonthlySeries(companies, (company) => dateValue(company, "created_at", "createdAt"))],
@@ -908,6 +945,16 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     ["Raporlar", "Müşteri performansını sunun", `${reports.length} rapor`, "Raporlar", "", <FileBarChart size={24} />],
     ["Müşteriler", "Aktif hesapları yönetin", `${activeCustomers.length} aktif`, "Müşteriler", "", <Building2 size={24} />]
   ].filter(([, , , target]) => canOpen(target));
+  const metroAccentClasses = [
+    "border-blue-100/45 bg-gradient-to-br from-blue-500 via-sky-500 to-cyan-400 text-white shadow-[0_22px_60px_rgba(59,130,246,.30)]",
+    "border-emerald-100/45 bg-gradient-to-br from-emerald-400 via-green-500 to-teal-600 text-white shadow-[0_22px_60px_rgba(16,185,129,.30)]",
+    "border-orange-100/45 bg-gradient-to-br from-orange-400 via-red-500 to-amber-500 text-white shadow-[0_22px_60px_rgba(249,115,22,.30)]",
+    "border-cyan-100/45 bg-gradient-to-br from-cyan-400 via-sky-500 to-blue-600 text-white shadow-[0_22px_60px_rgba(6,182,212,.30)]",
+    "border-pink-100/45 bg-gradient-to-br from-pink-400 via-rose-500 to-orange-500 text-white shadow-[0_22px_60px_rgba(236,72,153,.30)]",
+    "border-indigo-100/45 bg-gradient-to-br from-indigo-500 via-blue-600 to-violet-600 text-white shadow-[0_22px_60px_rgba(99,102,241,.30)]",
+    "border-yellow-100/45 bg-gradient-to-br from-yellow-300 via-amber-400 to-orange-500 text-white shadow-[0_22px_60px_rgba(250,204,21,.30)]",
+    "border-teal-100/45 bg-gradient-to-br from-teal-400 via-cyan-500 to-emerald-600 text-white shadow-[0_22px_60px_rgba(20,184,166,.30)]"
+  ];
   const dashboardPresets = {
     "CRM Focus": { order: ["metrics", "insights", "crm", "quickActions", "activity", "aiStatus", "status", "charts", "demo"], hidden: ["charts"], favorites: ["CRM", "Lead Yönetimi", "Müşteriler"] },
     "Sales Focus": { order: ["insights", "metrics", "quickActions", "crm", "activity", "aiStatus", "status", "charts", "demo"], hidden: ["demo"], favorites: ["Müşteri Bulucu", "Teklif Motoru", "CRM"] },
@@ -939,10 +986,13 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     setAiStatusLoading(false);
   }
 
-  const widgetNames = { metrics: "Sistem metrikleri", aiStatus: "AI Durum Merkezi", status: "Sistem durum merkezi", charts: "Gerçek veri grafikleri", insights: "AI içgörüleri", quickActions: "Hızlı aksiyonlar", crm: "CRM akışı", activity: "Son aktiviteler", demo: "Müşteri paneli testi" };
+  const widgetNames = { metrics: "Sistem metrikleri", aiStatus: "AI Durum Merkezi", operations: "Canlı operasyon merkezi", pipeline: "CRM pipeline görseli", intelligence: "Intelligence merkezi", status: "Sistem durum merkezi", charts: "Gerçek veri grafikleri", insights: "AI içgörüleri", quickActions: "Hızlı aksiyonlar", crm: "CRM akışı", activity: "Son aktiviteler", demo: "Müşteri paneli testi" };
   const widgets: any = {
     metrics: <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{stats.map(([label, value, note, icon, accent]) => <MetricCard3D key={label} label={label} value={value} note={note} accent={accent} icon={icon} />)}</div>,
     aiStatus: <AiStatusCenterWidget statuses={aiStatusCenter} message={aiStatusMessage || (content.settings?.api?.ai_status_last_test_at ? `Son test: ${new Date(content.settings.api.ai_status_last_test_at).toLocaleString("tr-TR")}` : "Henüz test yapılmadı.")} loading={aiStatusLoading} onRefresh={refreshAiStatus} />,
+    operations: <GlassCard className="overflow-hidden p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[.16em] text-lime-200">Canlı Aktivite</p><h3 className="mt-2 text-xl font-black text-white">Live Operations Center</h3><p className="mt-1 text-sm text-slate-400">Lead, CRM, AI, PDF, WhatsApp ve API hareketlerini tek akışta izleyin.</p></div><span className="rounded-full bg-lime-300 px-3 py-1 text-[10px] font-black uppercase tracking-[.12em] text-slate-950">Aktif</span></div><div className="mt-5 grid gap-5 lg:grid-cols-[1fr_320px]"><div className="grid gap-2">{liveOperations.map(([title, text, date, accent]) => <div key={title} className={`flex items-center justify-between gap-4 rounded-[8px] border p-3 ${accent === "blue" ? "border-blue-200/25 bg-blue-400/12" : accent === "indigo" ? "border-indigo-200/25 bg-indigo-400/12" : accent === "purple" ? "border-purple-200/25 bg-purple-400/12" : accent === "rose" ? "border-rose-200/25 bg-rose-400/12" : accent === "lime" ? "border-lime-200/25 bg-lime-400/12" : "border-cyan-200/25 bg-cyan-400/12"}`}><div><p className="text-sm font-black text-white">{title}</p><p className="mt-1 text-xs leading-5 text-slate-300">{text}</p></div><time className="shrink-0 text-[10px] font-bold text-slate-400">{date ? new Date(date).toLocaleDateString("tr-TR") : "Bekliyor"}</time></div>)}</div><div className="rounded-[8px] border border-white/10 bg-black/15 p-4"><p className="mb-4 text-xs font-black uppercase tracking-[.16em] text-cyan-100">Operasyon ritmi</p><AnimatedChart label="Aktivite sinyali" values={[18, Math.min(92, leads.length * 9), Math.min(88, activityLogs.length * 12), Math.min(82, aiAnalyzedLeads.length * 15), Math.min(76, reports.length * 13), Math.min(86, generatedProposals * 16)]} /></div></div></GlassCard>,
+    pipeline: <GlassCard className="p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[.16em] text-blue-200">CRM Pipeline Visual</p><h3 className="mt-2 text-xl font-black text-white">Satış ve takip hattı</h3><p className="mt-1 text-sm text-slate-400">Aşamalar gerçek lead durumlarından hesaplanır.</p></div><button onClick={() => setActive("CRM")} className="rounded-full border border-blue-200/20 px-4 py-2 text-xs font-black text-blue-100">CRM Aç</button></div><div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-6">{pipelineStages.map(([stage, count, gradient], index) => <div key={stage} className={`relative min-h-36 overflow-hidden rounded-[8px] border border-white/15 bg-gradient-to-br ${gradient} p-4 text-white shadow-[0_20px_55px_rgba(0,0,0,.18)] transition hover:-translate-y-1`}><span className="absolute -right-8 -top-8 size-24 rounded-full bg-white/18 blur-2xl" /><p className="relative text-xs font-black uppercase tracking-[.13em] text-white/72">{stage}</p><p className="relative mt-5 text-3xl font-black">{count}</p><div className="relative mt-4 h-2 overflow-hidden rounded-full bg-white/22"><div className="h-full rounded-full bg-white/80" style={{ width: `${Math.min(100, Number(count) * 18 + 12)}%` }} /></div><p className="relative mt-3 text-[10px] font-bold text-white/72">Aşama {index + 1}</p></div>)}</div></GlassCard>,
+    intelligence: <div className="grid gap-4 xl:grid-cols-[1fr_360px]"><div className="grid gap-4 md:grid-cols-2">{intelligenceCards.map(([title, value, text, dateLabel, date, gradient]) => <div key={title} className={`relative min-h-44 overflow-hidden rounded-[8px] border border-white/15 bg-gradient-to-br ${gradient} p-5 text-white shadow-[0_24px_70px_rgba(0,0,0,.22)] transition hover:-translate-y-1`}><span className="absolute -right-12 -top-12 size-32 rounded-full bg-white/18 blur-3xl" /><p className="relative text-xs font-black uppercase tracking-[.16em] text-white/72">{title}</p><p className="relative mt-5 text-2xl font-black">{value}</p><p className="relative mt-2 text-sm leading-6 text-white/78">{text}</p><p className="relative mt-4 text-[10px] font-black uppercase tracking-[.14em] text-white/65">{dateLabel}: {date ? new Date(date).toLocaleDateString("tr-TR") : "Bekliyor"}</p></div>)}</div><GlassCard className="p-5"><p className="text-xs font-black uppercase tracking-[.16em] text-purple-200">AI Command Center</p><h3 className="mt-2 text-xl font-black text-white">Aktif sağlayıcı yönetimi</h3><div className="mt-4 grid gap-3 text-sm"><div className="rounded-[8px] border border-white/10 bg-black/15 p-3"><p className="text-slate-400">Active Provider</p><p className="mt-1 font-black text-white">{activeAiMeta.provider}</p></div><div className="rounded-[8px] border border-white/10 bg-black/15 p-3"><p className="text-slate-400">Active Model</p><p className="mt-1 break-all font-black text-white">{activeAiMeta.model}</p></div><div className="rounded-[8px] border border-white/10 bg-black/15 p-3"><p className="text-slate-400">Response Time / Last Request</p><p className="mt-1 font-black text-white">{aiStatusCenter.groq?.responseTimeMs || aiStatusCenter.gemini?.responseTimeMs || "-"} ms · {content.settings?.api?.ai_status_last_test_at ? new Date(content.settings.api.ai_status_last_test_at).toLocaleString("tr-TR") : "Bekliyor"}</p></div></div><div className="mt-4 flex flex-wrap gap-2"><button disabled={aiStatusLoading} onClick={refreshAiStatus} className="rounded-full bg-purple-300 px-4 py-2 text-xs font-black text-slate-950 disabled:opacity-60">Test Provider</button><button disabled={aiStatusLoading} onClick={refreshAiStatus} className="rounded-full border border-cyan-200/20 px-4 py-2 text-xs font-black text-cyan-100 disabled:opacity-60">Refresh Status</button><button onClick={() => setActive("API Ayarları")} className="rounded-full border border-white/10 px-4 py-2 text-xs font-black text-slate-200">Change Provider</button></div><div className="mt-5"><BrandEcosystemStrip compact /></div></GlassCard></div>,
     status: <GlassCard className="p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-100">Sistem durum merkezi</p><h3 className="mt-2 text-xl font-black text-white">Altyapı sağlığı</h3></div><div className="rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 px-4 py-3 text-right"><p className="text-xs text-cyan-100">Genel sistem sağlığı</p><p className="text-2xl font-black text-white">%{healthScore}</p></div></div><div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{serviceItems.map((service) => <div key={service.label} className="flex items-center justify-between gap-3 rounded-[8px] border border-white/10 bg-black/10 p-3"><div><p className="text-sm font-bold text-white">{service.label}</p><p className="mt-1 text-xs text-slate-400">{service.description}</p></div><span className={`inline-flex items-center gap-1 text-xs font-black ${service.state === "Aktif" ? "text-emerald-300" : service.state === "Uyarı" ? "text-amber-300" : "text-red-300"}`}>{service.state === "Aktif" ? <CircleCheck size={14} /> : service.state === "Uyarı" ? <AlertTriangle size={14} /> : <CircleOff size={14} />}{service.state}</span></div>)}</div></GlassCard>,
     charts: <div><div className="mb-4"><h3 className="text-lg font-black">Gerçek veri görselleştirmesi</h3><p className="mt-1 text-sm text-slate-400">Grafikler yalnızca sistemde bulunan operasyon verilerinden üretilir.</p></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{charts.map(([title, description, series, suffix]) => <DashboardChart key={title} title={title} description={description} series={series} suffix={suffix} />)}</div></div>,
     insights: <GlassCard className="p-5"><div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-[8px] bg-amber-300/10 text-amber-200"><WandSparkles size={19} /></span><div><p className="text-xs font-black uppercase tracking-[.16em] text-amber-200">AI içgörüleri</p><h3 className="mt-1 text-lg font-black">Bugünün operasyon önerileri</h3></div></div><div className="mt-4 grid gap-3">{insightItems.map(([count, title, text, target]) => <button key={title} onClick={() => setActive(target)} className="flex items-center justify-between gap-4 rounded-[8px] border border-white/10 bg-black/10 p-4 text-left transition hover:border-cyan-200/30 hover:bg-cyan-200/[0.06]"><div><p className="text-sm font-black text-white">{title}</p><p className="mt-1 text-xs leading-5 text-slate-400">{text}</p></div><span className="grid size-9 shrink-0 place-items-center rounded-full bg-cyan-300 text-sm font-black text-slate-950">{count}</span></button>)}{!insightItems.length && <p className="rounded-[8px] border border-emerald-300/20 bg-emerald-300/10 p-4 text-sm text-emerald-100">Öncelikli aksiyon görünmüyor. Operasyon akışı düzenli ilerliyor.</p>}</div></GlassCard>,
@@ -964,7 +1014,7 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
       <div className="mb-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_310px]">
         <div>
           <div className="mb-3 flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.18em] text-cyan-200">Metro çalışma alanı</p><h3 className="mt-1 text-xl font-black text-white">Operasyon modülleri</h3></div><span className="rounded-full border border-white/10 px-3 py-1 text-[10px] font-black text-slate-400">HK OS</span></div>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{metroTiles.map(([label, description, statistic, target, size, icon], index) => <Link key={label} href={target === "Haritalar" ? "/hk-admin/haritalar" : getAdminHref(adminNavigationItems.find((item) => item.label === target)?.slug || "")} className={`group min-h-36 rounded-[8px] border p-4 text-left transition duration-300 hover:-translate-y-1 hover:border-cyan-200/45 hover:shadow-[0_18px_55px_rgba(34,211,238,.12)] ${size} ${index % 4 === 0 ? "border-cyan-200/20 bg-cyan-200/[0.08]" : index % 4 === 1 ? "border-blue-300/20 bg-blue-300/[0.07]" : index % 4 === 2 ? "border-amber-200/20 bg-amber-200/[0.06]" : "border-white/10 bg-white/[0.04]"}`}><span className="text-cyan-100 transition group-hover:text-white">{icon}</span><span className="mt-6 block text-sm font-black text-white">{label}</span><span className="mt-1 block text-xs leading-5 text-slate-400">{description}</span><span className="mt-3 block text-[10px] font-black uppercase tracking-[.12em] text-cyan-200">{statistic}</span></Link>)}</div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{metroTiles.map(([label, description, statistic, target, size, icon], index) => <Link key={label} href={target === "Haritalar" ? "/hk-admin/haritalar" : getAdminHref(adminNavigationItems.find((item) => item.label === target)?.slug || "")} className={`group relative min-h-36 overflow-hidden rounded-[8px] border p-4 text-left transition duration-300 hover:-translate-y-1 hover:shadow-[0_26px_80px_rgba(0,0,0,.28)] ${size} ${metroAccentClasses[index % metroAccentClasses.length]}`}><span className="pointer-events-none absolute -right-10 -top-10 size-28 rounded-full bg-white/20 blur-3xl" /><span className="relative grid size-10 place-items-center rounded-[8px] border border-white/25 bg-white/16 text-white transition group-hover:scale-105">{icon}</span><span className="relative mt-6 block text-sm font-black text-white">{label}</span><span className="relative mt-1 block text-xs leading-5 text-white/78">{description}</span><span className="relative mt-3 block text-[10px] font-black uppercase tracking-[.12em] text-white/72">{statistic}</span></Link>)}</div>
         </div>
         <aside className="rounded-[8px] border border-white/10 bg-white/[0.04] p-4 shadow-[0_20px_64px_rgba(0,0,0,.16)]">
           <div className="flex items-center gap-3"><span className="grid size-9 place-items-center rounded-[8px] border border-amber-200/20 bg-amber-200/10 text-amber-200"><Bell size={17} /></span><div><p className="text-[10px] font-black uppercase tracking-[.16em] text-amber-200">Insights & Notifications</p><h3 className="mt-1 text-sm font-black text-white">Operasyon bildirimleri</h3></div></div>

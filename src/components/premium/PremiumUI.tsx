@@ -103,12 +103,69 @@ export function AnimatedFunnel() {
   </div>;
 }
 
+const brandEcosystemItems = [
+  ["Apple", "", "from-slate-100/95 to-white/55"],
+  ["Meta", "∞", "from-blue-300/90 to-cyan-300/55"],
+  ["Facebook", "f", "from-blue-500/90 to-sky-400/55"],
+  ["Instagram", "◎", "from-pink-400/90 to-orange-300/55"],
+  ["Google", "G", "from-blue-300/90 to-emerald-300/55"],
+  ["Google Ads", "Ads", "from-cyan-300/90 to-blue-400/55"],
+  ["Google Maps", "Pin", "from-emerald-300/90 to-lime-300/55"],
+  ["YouTube", "▶", "from-red-400/90 to-rose-300/55"],
+  ["TikTok", "♪", "from-slate-100/95 to-pink-300/55"],
+  ["LinkedIn", "in", "from-sky-400/90 to-blue-300/55"],
+  ["WhatsApp", "WA", "from-green-300/90 to-lime-300/55"],
+  ["OpenAI", "AI", "from-emerald-200/90 to-slate-100/55"],
+  ["Gemini", "Gem", "from-violet-300/90 to-cyan-300/55"],
+  ["Groq", "GQ", "from-orange-300/90 to-amber-200/55"]
+];
+
+export function BrandEcosystemStrip({ compact = false }: { compact?: boolean }) {
+  const items = compact ? brandEcosystemItems.slice(0, 8) : brandEcosystemItems;
+  return <div className="flex flex-wrap gap-2">
+    {items.map(([name, mark, color], index) => (
+      <motion.div
+        key={name}
+        initial={{ opacity: 0, y: 10 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: .45, delay: index * .035 }}
+        className="inline-flex min-h-10 items-center gap-2 rounded-full border border-white/12 bg-white/[0.065] px-3 text-[10px] font-black uppercase tracking-[.12em] text-white shadow-[0_14px_38px_rgba(0,0,0,.2)] backdrop-blur-xl"
+      >
+        <span className={`grid size-6 place-items-center rounded-full bg-gradient-to-br ${color} text-[10px] font-black text-slate-950 shadow-[0_0_22px_rgba(255,255,255,.12)]`}>{mark}</span>
+        {!compact && <span>{name}</span>}
+      </motion.div>
+    ))}
+  </div>;
+}
+
+export function FloatingBrandEcosystem({ subtle = false }: { subtle?: boolean }) {
+  const positions = [
+    "left-[4%] top-[12%]", "right-[7%] top-[16%]", "left-[13%] top-[48%]", "right-[14%] top-[46%]",
+    "left-[6%] bottom-[18%]", "right-[9%] bottom-[20%]", "left-[42%] top-[8%]", "right-[38%] bottom-[10%]"
+  ];
+  return <div className="pointer-events-none absolute inset-0 hidden overflow-hidden lg:block">
+    {brandEcosystemItems.slice(0, 8).map(([name, mark, color], index) => (
+      <motion.div
+        key={name}
+        animate={{ y: [0, -12, 0], opacity: subtle ? [.18, .34, .18] : [.35, .72, .35] }}
+        transition={{ duration: 7 + index * .35, delay: index * .25, repeat: Infinity, ease: "easeInOut" }}
+        className={`absolute ${positions[index]} rounded-full border border-white/10 bg-white/[0.055] px-3 py-2 text-[10px] font-black uppercase tracking-[.12em] text-white/80 shadow-[0_18px_60px_rgba(0,0,0,.22)] backdrop-blur-xl`}
+      >
+        <span className={`mr-2 inline-grid size-5 place-items-center rounded-full bg-gradient-to-br ${color} text-[9px] text-slate-950`}>{mark}</span>
+        {name}
+      </motion.div>
+    ))}
+  </div>;
+}
+
 export function PremiumBackground({ className = "" }: { className?: string }) {
   return <div className={`pointer-events-none absolute inset-0 overflow-hidden ${className}`}>
     <div className="premium-grid absolute inset-0 opacity-80" />
     <div className="cinematic-light cinematic-light-a" />
     <div className="cinematic-light cinematic-light-b" />
     <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,rgba(125,211,252,.16),transparent_38%),linear-gradient(180deg,rgba(255,255,255,.03),transparent_24%)]" />
+    <FloatingBrandEcosystem subtle />
     <div className="noise-layer absolute inset-0 opacity-[.08]" />
   </div>;
 }
@@ -147,6 +204,9 @@ export function AnimatedMarketingDashboard({ className = "" }: { className?: str
           <div className="rounded-[8px] border border-emerald-200/20 bg-emerald-300/[0.08] p-3"><p className="text-xs font-black text-emerald-100">CRM Lead</p><div className="mt-3 h-2 rounded-full bg-white/10"><motion.div initial={{ width: "20%" }} animate={{ width: ["42%", "78%", "64%"] }} transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }} className="h-full rounded-full bg-emerald-300" /></div></div>
         </div>
       </div>
+      <div className="border-t border-white/10 p-3">
+        <BrandEcosystemStrip compact />
+      </div>
     </div>
     <FloatingBadge label="META" className="-left-5 top-10 hidden sm:block" delay={.15} />
     <FloatingBadge label="GOOGLE" className="-right-6 top-24 hidden sm:block" delay={.45} />
@@ -170,6 +230,7 @@ export function PremiumAnimatedHero({ headline, subheadline, primaryCta, seconda
         <p className="mt-7 max-w-2xl text-base leading-8 text-slate-200 sm:text-lg">{subheadline}</p>
         <div className="mt-9 flex flex-col gap-3 sm:flex-row">{primaryCta}{secondaryCta}</div>
         <div className="mt-10"><PlatformSignalStrip /></div>
+        <div className="mt-5"><BrandEcosystemStrip compact /></div>
       </motion.div>
       <AnimatedMarketingDashboard />
     </div>
