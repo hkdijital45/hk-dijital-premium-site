@@ -281,8 +281,10 @@ export function AdminDashboard({
   const [startupApiLoading, setStartupApiLoading] = useState(false);
   const [startupApiData, setStartupApiData] = useState<any>({ results: content.settings?.api?.ai_status || {}, lastTestTime: content.settings?.api?.ai_status_last_test_at });
   const [startupApiMessage, setStartupApiMessage] = useState("");
+  const [isDesktopApp, setIsDesktopApp] = useState(false);
 
   useEffect(() => {
+    setIsDesktopApp(Boolean(window.hkDesktop?.isDesktop));
     setTheme(localStorage.getItem("hk-admin-theme") || "dark");
     try { setCustomTheme(JSON.parse(localStorage.getItem("hk-admin-custom-theme") || "null")); } catch {}
     let shouldShowBoot = true;
@@ -408,6 +410,7 @@ export function AdminDashboard({
             <h1 className="text-xl font-black sm:text-2xl">HK Operating System</h1>
             <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[.18em] text-slate-500">Powered by HK Dijital</p>
             </div>
+            {isDesktopApp && <span className="rounded-full border border-amber-200/25 bg-amber-300/12 px-3 py-1 text-[10px] font-black uppercase tracking-[.14em] text-amber-100">Desktop</span>}
           </div>
           <div className="flex flex-wrap justify-end gap-2">
             <button onClick={() => setActive("API Ayarları")} className="min-h-11 rounded-full border border-cyan-200/20 bg-cyan-200/10 px-4 text-left text-xs font-bold text-cyan-50">
@@ -627,8 +630,15 @@ function GlobalAdminSearch() {
       }
       if (event.key === "Escape") setOpen(false);
     }
+    const removeDesktopListener = window.hkDesktop?.onFocusSearch?.(() => {
+      setOpen(true);
+      window.setTimeout(() => document.getElementById("hk-command-search")?.focus(), 0);
+    });
     window.addEventListener("keydown", handleShortcut);
-    return () => window.removeEventListener("keydown", handleShortcut);
+    return () => {
+      window.removeEventListener("keydown", handleShortcut);
+      removeDesktopListener?.();
+    };
   }, []);
   useEffect(() => {
     if (query.trim().length < 2) return setResults([]);

@@ -61,6 +61,72 @@ GEMINI_API_KEY=
 
 `NEXT_PUBLIC_SITE_URL` üretimde `https://www.hkdijital.com.tr` olmalıdır. Şifre sıfırlama e-postaları ve Supabase Auth yönlendirmeleri bu alan adını kullanır.
 
+## macOS Desktop App
+
+HK Dijital / HK Intelligence sistemi web sürümünü bozmadan Electron kabuğu içinde macOS masaüstü uygulaması olarak çalıştırılabilir.
+
+Masaüstü uygulamasının adı:
+
+```text
+HK Intelligence.app
+```
+
+Geliştirme modunda Next.js dev server başlatılır, localhost hazır olunca Electron penceresi açılır:
+
+```bash
+npm run dev:desktop
+```
+
+Sadece Electron kabuğunu çalıştırmak için:
+
+```bash
+npm run desktop
+```
+
+Yerel macOS uygulama klasörü oluşturmak için:
+
+```bash
+npm run build:desktop
+```
+
+DMG üretmek için:
+
+```bash
+npm run dist:mac
+```
+
+Üretim masaüstü uygulaması varsayılan olarak canlı web sürümünü yükler:
+
+```text
+https://www.hkdijital.com.tr
+```
+
+Farklı bir web adresi yüklemek için `HK_DESKTOP_APP_URL` değişkenini kullanın:
+
+```bash
+HK_DESKTOP_APP_URL=https://www.hkdijital.com.tr npm run desktop
+HK_DESKTOP_APP_URL=http://127.0.0.1:3000 npm run desktop
+```
+
+Electron uygulaması mevcut Next.js web uygulamasını yüklediği için CRM, Supabase, authentication, AI modülleri, Meta Analiz, Google Analiz, Sosyal İstihbarat Merkezi, PDF Audit, WhatsApp teklifleri, müşteri paneli ve yönetim paneli web sürümüyle aynı backend ve aynı Supabase veritabanını kullanır. Webde eklenen veri masaüstünde, masaüstünde eklenen veri webde görünür.
+
+Güvenlik notları:
+
+- API anahtarları Electron renderer içinde tutulmaz.
+- Supabase service role key Electron tarafında gösterilmez.
+- `contextIsolation: true`, `nodeIntegration: false` ve `sandbox: true` kullanılır.
+- WhatsApp, e-posta ve sosyal medya dış bağlantıları varsayılan tarayıcı veya ilgili macOS uygulamasında açılır.
+- `/hk-admin`, `/musteri-paneli` ve diğer HK Dijital iç rotaları Electron penceresi içinde kalır.
+
+Kod imzalama ve notarization:
+
+Yerel build unsigned olarak üretilebilir. Geniş dağıtım için Apple Developer Program, Xcode, geçerli Developer ID sertifikaları, hardened runtime ayarları ve Apple notarization süreci gerekir. Bu bilgiler yapılandırılmadan Apple notarization denenmez.
+
+Gelecek mobil yol haritası:
+
+- PWA
+- Daha sonra Capacitor iOS wrapper
+
 ## Supabase Auth URL Ayarları
 
 Supabase Dashboard içinde Authentication > URL Configuration bölümünde şu değerleri kullanın:

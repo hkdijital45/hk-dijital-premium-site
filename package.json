@@ -2,11 +2,44 @@
   "name": "create-a-brand-new-premium-next",
   "version": "0.1.0",
   "private": true,
+  "main": "electron/main.js",
   "scripts": {
     "dev": "next dev",
+    "dev:web": "next dev",
+    "dev:desktop": "HK_DESKTOP_APP_URL=http://localhost:3000 concurrently -k \"npm:dev:web\" \"wait-on http://localhost:3000 && electron .\"",
+    "desktop": "electron .",
     "build": "next build",
     "start": "next start",
+    "build:desktop": "npm run build && electron-builder --mac dir",
+    "dist:mac": "npm run build && electron-builder --mac dmg",
     "lint": "eslint"
+  },
+  "build": {
+    "appId": "tr.com.hkdijital.hkintelligence",
+    "productName": "HK Intelligence",
+    "directories": {
+      "output": "dist-desktop"
+    },
+    "files": [
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraMetadata": {
+      "main": "electron/main.js"
+    },
+    "mac": {
+      "category": "public.app-category.business",
+      "darkModeSupport": true,
+      "hardenedRuntime": false,
+      "identity": null,
+      "target": [
+        "dmg",
+        "dir"
+      ]
+    },
+    "dmg": {
+      "artifactName": "HK-Intelligence-${version}.${ext}"
+    }
   },
   "dependencies": {
     "clsx": "^2.1.1",
@@ -24,9 +57,13 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "concurrently": "^10.0.3",
+    "electron": "^42.3.3",
+    "electron-builder": "^26.8.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wait-on": "^9.0.10"
   }
 }
