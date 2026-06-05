@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { aiMetadata } from "@/lib/ai-provider";
+import { cacheFallbackError, classifyMetaError, metaToken, noMetaTokenError, recordMetaError, recordMetaSuccess } from "@/lib/meta-api";
 import { requireModuleAccess } from "@/lib/permissions";
 
-const metaAnalysisCache = new Map<string, { expires: number; value: any }>();
+const metaAnalysisCache = new Map<string, { expires: number; value: any; staleUntil: number }>();
+const META_CACHE_MS = 1000 * 60 * 5;
+const META_STALE_FALLBACK_MS = 1000 * 60 * 60 * 24;
 
 function demoMetaResults(city: string, district: string, sector: string) {
   return [
@@ -107,21 +110,31 @@ export async function POST(request: Request) {
   const city = String(body.city || "Manisa");
   const district = String(body.district || "Yunusemre");
   const sector = String(body.sector || "Restoran");
-  const token = process.env.META_AD_LIBRARY_ACCESS_TOKEN || process.env.META_ACCESS_TOKEN;
+  const token = metaToken();
+  const forceRefresh = Boolean(body.forceRefresh);
   const cacheKey = `${city}:${district}:${sector}`.toLocaleLowerCase("tr");
   const cached = metaAnalysisCache.get(cacheKey);
-  if (cached && cached.expires > Date.now()) return NextResponse.json(cached.value);
+  if (!forceRefresh && cached && cached.expires > Date.now()) return NextResponse.json(cached.value);
 
   if (!token) {
+    const structuredError = noMetaTokenError();
     const value = {
-      warning: "Meta API bağlantısı bulunamadı. Demo sonuçlar gösteriliyor.",
+      warning: structuredError.errorMessage,
+      error: structuredError,
+      errorCode: structuredError.errorCode,
+      errorMessage: structuredError.errorMessage,
+      isRateLimit: structuredError.isRateLimit,
+      isTokenExpired: structuredError.isTokenExpired,
+      isPermissionError: structuredError.isPermissionError,
+      isCacheFallback: structuredError.isCacheFallback,
       ai: aiMetadata("demo", "meta-analysis-demo"),
       results: demoMetaResults(city, district, sector)
     };
-    metaAnalysisCache.set(cacheKey, { expires: Date.now() + 1000 * 60 * 5, value });
+    recordMetaError(structuredError, 0);
     return NextResponse.json(value);
   }
 
+  const startedAt = Date.now();
   try {
     const params = new URLSearchParams({
       access_token: token,
@@ -131,25 +144,47 @@ export async function POST(request: Request) {
       limit: "12"
     });
     const response = await fetch(`https://graph.facebook.com/v20.0/ads_archive?${params}`, { cache: "no-store" });
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
+    const responseTimeMs = Date.now() - startedAt;
     if (!response.ok) {
-      console.error("[meta-analysis] Meta API hatası", data);
+      const structuredError = classifyMetaError(data);
+      const fallback = cached?.value ? cacheFallbackError() : structuredError;
+      recordMetaError(structuredError, responseTimeMs);
       return NextResponse.json({
-        warning: "Meta Ad Library bağlantısı başarısız oldu. Demo sonuçlar gösteriliyor.",
+        warning: fallback.errorMessage,
+        error: fallback,
+        errorCode: fallback.errorCode,
+        errorMessage: fallback.errorMessage,
+        isRateLimit: structuredError.isRateLimit,
+        isTokenExpired: structuredError.isTokenExpired,
+        isPermissionError: structuredError.isPermissionError,
+        isCacheFallback: Boolean(cached?.value),
         ai: aiMetadata("demo", "meta-analysis-demo"),
-        results: demoMetaResults(city, district, sector)
+        results: cached?.value?.results || demoMetaResults(city, district, sector)
       });
     }
     const results = Array.isArray(data.data) ? data.data.map((item: any) => normalizeMetaAd(item, city, district, sector)) : [];
-    const value = { ai: aiMetadata("local", "meta-ad-library-signals"), results };
-    metaAnalysisCache.set(cacheKey, { expires: Date.now() + 1000 * 60 * 5, value });
+    const value = { ai: aiMetadata("local", "meta-ad-library-signals"), results, responseTimeMs };
+    recordMetaSuccess(responseTimeMs);
+    metaAnalysisCache.set(cacheKey, { expires: Date.now() + META_CACHE_MS, staleUntil: Date.now() + META_STALE_FALLBACK_MS, value });
     return NextResponse.json(value);
   } catch (error) {
-    console.error("[meta-analysis] Analiz hatası", error);
+    const responseTimeMs = Date.now() - startedAt;
+    const structuredError = classifyMetaError(error, "META_NETWORK_ERROR");
+    const staleCacheAvailable = Boolean(cached?.value && cached.staleUntil > Date.now());
+    const fallback = staleCacheAvailable ? cacheFallbackError() : structuredError;
+    recordMetaError(structuredError, responseTimeMs);
     return NextResponse.json({
-      warning: "Meta Ad Library bağlantısı başarısız oldu. Demo sonuçlar gösteriliyor.",
+      warning: fallback.errorMessage,
+      error: fallback,
+      errorCode: fallback.errorCode,
+      errorMessage: fallback.errorMessage,
+      isRateLimit: structuredError.isRateLimit,
+      isTokenExpired: structuredError.isTokenExpired,
+      isPermissionError: structuredError.isPermissionError,
+      isCacheFallback: staleCacheAvailable,
       ai: aiMetadata("demo", "meta-analysis-demo"),
-      results: demoMetaResults(city, district, sector)
+      results: staleCacheAvailable ? cached?.value?.results : demoMetaResults(city, district, sector)
     });
   }
 }
