@@ -1,19 +1,25 @@
 import { NextResponse } from "next/server";
 import { requireModuleAccess } from "@/lib/permissions";
 
-const blockedWarning = "Profil bilgileri otomatik alınamadı. Ekran görüntüsü yükleyerek analiz yapabilirsiniz.";
+const blockedWarning = "Instagram bazı profil verilerini engelliyor. Ekran görüntüsü yüklerseniz AI daha doğru analiz yapar.";
 
 function clean(value: unknown) {
   return String(value || "").trim();
 }
 
 function stripAt(value: string) {
-  return clean(value).replace(/^@+/, "");
+  return clean(value).replace(/^@+/, "").replace(/\/+$/, "");
 }
 
 function normalizePlatform(value: unknown) {
   const platform = clean(value);
-  if (platform.toLowerCase().includes("twitter") || platform.toLowerCase() === "x") return "X";
+  const lower = platform.toLowerCase();
+  if (lower === "instagram") return "Instagram";
+  if (lower === "facebook") return "Facebook";
+  if (lower === "tiktok") return "TikTok";
+  if (lower === "youtube") return "YouTube";
+  if (lower === "linkedin") return "LinkedIn";
+  if (lower.includes("twitter") || lower === "x") return "X";
   return platform;
 }
 
@@ -105,7 +111,7 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => ({}));
   const platform = normalizePlatform(body.platform);
-  const username = clean(body.username);
+  const username = stripAt(clean(body.username));
   const normalized = normalizeProfileUrl(platform, username, clean(body.profileUrl));
 
   if (!normalized.url) {

@@ -86,7 +86,8 @@ export async function POST(request: Request) {
     platforms,
     screenshots
   };
-  const actions = Array.isArray(body.actions) ? body.actions.filter((action: string) => actionLabels.includes(action)) : [];
+  const requestedActions = Array.isArray(body.actions) ? body.actions : Array.isArray(body.selectedActions) ? body.selectedActions : [];
+  const actions = requestedActions.filter((action: string) => actionLabels.includes(action));
   if (!profile.businessName && !profile.notes && !platforms.length && !screenshots.length) return NextResponse.json({ error: "Analiz için en az bir profil bilgisi, ekran görüntüsü veya işletme bilgisi girin." }, { status: 400 });
   if (!actions.length) return NextResponse.json({ error: "En az bir analiz aksiyonu seçin." }, { status: 400 });
 
