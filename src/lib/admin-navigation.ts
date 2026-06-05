@@ -1,45 +1,90 @@
 export const adminNavigationGroups = [
   {
-    label: "Genel",
+    label: "Kontrol Merkezi",
+    description: "Sistem sağlığı, AI durumu ve canlı operasyon özeti.",
+    icon: "LayoutDashboard",
+    badge: "OS",
+    accent: "from-cyan-400 via-sky-500 to-blue-600",
     items: [
       { label: "Dashboard", slug: "", module: "dashboard" },
+      { label: "AI Durum Merkezi", slug: "ai-durum-merkezi", module: "dashboard" },
+      { label: "API Durum Kontrolü", slug: "api-durum-kontrolu", module: "api-ayarlari" },
+      { label: "Canlı Aktivite", slug: "canli-aktivite", module: "dashboard" },
+      { label: "Sistem Özeti", slug: "sistem-ozeti", module: "dashboard" },
       { label: "Genel Arama", slug: "genel-arama", module: "genel-arama" },
       { label: "Kullanım Kılavuzu", slug: "kullanim-kilavuzu", module: "kullanim-kilavuzu" }
     ]
   },
   {
-    label: "Müşteri & CRM",
+    label: "CRM & Müşteriler",
+    description: "Başvurular, müşteri kayıtları ve takip akışı.",
+    icon: "UsersRound",
+    badge: "CRM",
+    accent: "from-emerald-400 via-teal-500 to-cyan-600",
     items: [
       { label: "CRM", slug: "crm", module: "crm" },
+      { label: "Tüm Başvurular", slug: "tum-basvurular", module: "leads" },
+      { label: "Yeni Başvurular", slug: "yeni-basvurular", module: "leads" },
+      { label: "Meta Analiz Leadleri", slug: "meta-analiz-leadleri", module: "leads" },
+      { label: "Google Ads Analiz Leadleri", slug: "google-ads-analiz-leadleri", module: "leads" },
+      { label: "Sosyal İstihbarat Leadleri", slug: "sosyal-istihbarat-leadleri", module: "leads" },
+      { label: "Reddedilenler", slug: "reddedilenler", module: "leads" },
+      { label: "Silinenler", slug: "silinenler", module: "leads" },
       { label: "Lead Yönetimi", slug: "leads", module: "leads" },
       { label: "Müşteriler", slug: "musteriler", module: "musteriler" },
-      { label: "Takip Görevleri", slug: "takip-gorevleri", module: "takip-gorevleri" },
+      { label: "Takipler", slug: "takipler", module: "takip-gorevleri" },
       { label: "Notlar", slug: "notlar", module: "notlar" }
     ]
   },
   {
-    label: "Keşif & Haritalar",
+    label: "İstihbarat Merkezi",
+    description: "Meta, Google, sosyal medya ve yerel işletme sinyalleri.",
+    icon: "Sparkles",
+    badge: "Intel",
+    accent: "from-amber-300 via-orange-500 to-rose-600",
     items: [
+      { label: "Meta Analiz", slug: "meta-analiz", module: "meta-analiz" },
+      { label: "Google Ads Analiz", slug: "google-analiz", module: "google-analiz" },
+      { label: "Sosyal İstihbarat Merkezi", slug: "sosyal-istihbarat-merkezi", module: "sosyal-medya-denetimi" },
+      { label: "Rakip Reklamları", slug: "rakip-reklamlari", module: "reklam-firsatlari" },
       { label: "İşletme Keşfi", slug: "isletme-kesfi", module: "musteri-bulucu" },
-      { label: "Haritalar", slug: "haritalar", module: "haritalar" },
+      { label: "Google Maps / İşletme Sinyalleri", slug: "google-maps-isletme-sinyalleri", module: "haritalar" },
       { label: "Bölgesel Analiz", slug: "bolgesel-analiz", module: "bolgesel-analiz" },
       { label: "Rakip Listesi", slug: "rakip-listesi", module: "rakip-listesi" },
       { label: "Kaydedilen Adaylar", slug: "kaydedilen-adaylar", module: "kaydedilen-adaylar" }
     ]
   },
   {
-    label: "Reklam Zekâsı",
+    label: "Teklif & Raporlama",
+    description: "Teklif, audit, rapor ve dışa aktarma araçları.",
+    icon: "FileBarChart",
+    badge: "Rapor",
+    accent: "from-violet-500 via-purple-500 to-fuchsia-600",
     items: [
-      { label: "Meta Analiz", slug: "meta-analiz", module: "meta-analiz" },
-      { label: "Google Analiz", slug: "google-analiz", module: "google-analiz" },
-      { label: "Sosyal İstihbarat Merkezi", slug: "sosyal-istihbarat-merkezi", module: "sosyal-medya-denetimi" },
-      { label: "Funnel Analizi", slug: "funnel-analizi", module: "funnel-analizi" },
-      { label: "Reklam Fırsatları", slug: "reklam-firsatlari", module: "reklam-firsatlari" }
+      { label: "PDF Audit", slug: "pdf-audit", module: "sosyal-medya-denetimi" },
+      { label: "WhatsApp Teklifi", slug: "whatsapp-teklifi", module: "teklifler" },
+      { label: "Teklif Hazırlama", slug: "teklif-hazirlama", module: "teklifler" },
+      { label: "Teklif Motoru", slug: "teklifler", module: "teklifler" },
+      { label: "Teklifler", slug: "teklif-listesi", module: "teklif-listesi" },
+      { label: "Müşteri Raporları", slug: "musteri-raporlari", module: "raporlar" },
+      { label: "Performans Raporları", slug: "performans-raporlari", module: "raporlar" },
+      { label: "Raporlar", slug: "raporlar", module: "raporlar" },
+      { label: "Rapor Yorumları", slug: "rapor-yorumlari", module: "rapor-yorumlari" },
+      { label: "Dışa Aktarma", slug: "disa-aktarma", module: "disa-aktarimlar" }
     ]
   },
   {
-    label: "Hazırlık & Üretim",
+    label: "İçerik & AI Studio",
+    description: "İçerik planı, prompt, analiz ve kampanya üretimi.",
+    icon: "Bot",
+    badge: "AI",
+    accent: "from-blue-500 via-indigo-500 to-violet-600",
     items: [
+      { label: "İçerik Fikirleri", slug: "icerik-fikirleri", module: "icerik-onerileri" },
+      { label: "30 Günlük Sosyal Medya Planı", slug: "30-gunluk-sosyal-medya-plani", module: "icerik-onerileri" },
+      { label: "Prompt Üretimi", slug: "prompt-uretimi", module: "prompt-kutuphanesi" },
+      { label: "AI Analizleri", slug: "ai-analizleri", module: "ai-studio" },
+      { label: "Kampanya Önerileri", slug: "kampanya-onerileri", module: "kampanya-hazirligi" },
       { label: "Hazırlık Merkezi", slug: "hazirlik", module: "hazirlik" },
       { label: "AI Studio", slug: "ai-studio", module: "ai-studio" },
       { label: "İçerik Önerileri", slug: "icerik-onerileri", module: "icerik-onerileri" },
@@ -48,23 +93,21 @@ export const adminNavigationGroups = [
     ]
   },
   {
-    label: "Teklif & Raporlama",
+    label: "Ayarlar",
+    description: "API, AI sağlayıcıları, kullanıcılar, tema ve sistem.",
+    icon: "Settings2",
+    badge: "Admin",
+    accent: "from-slate-500 via-slate-700 to-slate-900",
     items: [
-      { label: "Teklif Motoru", slug: "teklifler", module: "teklifler" },
-      { label: "Teklifler", slug: "teklif-listesi", module: "teklif-listesi" },
-      { label: "Raporlar", slug: "raporlar", module: "raporlar" },
-      { label: "Rapor Yorumları", slug: "rapor-yorumlari", module: "rapor-yorumlari" },
-      { label: "Dışa Aktarımlar", slug: "disa-aktarimlar", module: "disa-aktarimlar" }
-    ]
-  },
-  {
-    label: "Yönetim",
-    items: [
+      { label: "API Ayarları", slug: "api-ayarlari", module: "api-ayarlari" },
+      { label: "AI Sağlayıcı Ayarları", slug: "ai-saglayici-ayarlari", module: "api-ayarlari" },
+      { label: "Kullanıcı Yönetimi", slug: "kullanici-yonetimi", module: "kullanicilar" },
       { label: "Kullanıcılar", slug: "kullanicilar", module: "kullanicilar" },
       { label: "Roller & Yetkiler", slug: "roller-yetkiler", module: "roller-yetkiler" },
-      { label: "Site Ayarları", slug: "site-ayarlari", module: "site-ayarlari" },
-      { label: "API Ayarları", slug: "api-ayarlari", module: "api-ayarlari" },
+      { label: "Tema / Logo", slug: "tema-logo", module: "tema-ayarlari" },
       { label: "Tema Ayarları", slug: "tema-ayarlari", module: "tema-ayarlari" },
+      { label: "Site Ayarları", slug: "site-ayarlari", module: "site-ayarlari" },
+      { label: "Sistem Ayarları", slug: "sistem-ayarlari", module: "site-ayarlari" },
       { label: "Medya", slug: "medya", module: "medya" },
       { label: "Sistem Logları", slug: "sistem-loglari", module: "sistem-loglari" }
     ]

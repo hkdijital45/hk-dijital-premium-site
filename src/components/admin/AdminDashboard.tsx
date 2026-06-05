@@ -11,6 +11,15 @@ import { Logo } from "@/components/public/Logo";
 import { adminNavigationGroups, adminNavigationItems, getAdminHref } from "@/lib/admin-navigation";
 import { AnimatedChart, AnimatedFunnel, BrandEcosystemStrip, GlassCard, MetricCard3D } from "@/components/premium/PremiumUI";
 
+const adminCategoryIcons: Record<string, any> = {
+  LayoutDashboard,
+  UsersRound,
+  Sparkles,
+  FileBarChart,
+  Bot,
+  Settings2
+};
+
 const crmActiveStatuses = ["Yeni Başvuru", "İletişime Geçildi", "Takipte", "Teklif Gönderildi", "Müşteri Oldu"];
 const crmStatusTabs = ["Tüm Başvurular", "Yeni Başvurular", "İletişime Geçildi", "Takipte", "Teklif Gönderildi", "Müşteri Oldu", "Meta Analiz", "Google Ads Analiz", "Reddedilenler", "Silinenler"];
 const leadStatuses = [...crmActiveStatuses, "Yeni", "Görüşülecek", "Teklif Hazırlanıyor", "Kazanıldı", "Kaybedildi", "Dönüştürüldü", "Reddedildi"];
@@ -22,13 +31,12 @@ const roleOptions = [
   { value: "musteri", label: "Müşteri" }
 ];
 const uiPermissionGroups = [
-  ["Genel", ["dashboard", "genel-arama", "kullanim-kilavuzu"]],
-  ["Müşteri & CRM", ["crm", "leads", "musteriler", "takip-gorevleri", "notlar"]],
-  ["Keşif & Haritalar", ["musteri-bulucu", "haritalar", "bolgesel-analiz", "rakip-listesi", "kaydedilen-adaylar"]],
-  ["Reklam Zekâsı", ["meta-analiz", "google-analiz", "sosyal-medya-denetimi", "funnel-analizi", "reklam-firsatlari"]],
-  ["Hazırlık & Üretim", ["hazirlik", "ai-studio", "icerik-onerileri", "prompt-kutuphanesi", "kampanya-hazirligi"]],
+  ["Kontrol Merkezi", ["dashboard", "genel-arama", "kullanim-kilavuzu"]],
+  ["CRM & Müşteriler", ["crm", "leads", "musteriler", "takip-gorevleri", "notlar"]],
+  ["İstihbarat Merkezi", ["meta-analiz", "google-analiz", "sosyal-medya-denetimi", "reklam-firsatlari", "musteri-bulucu", "haritalar", "bolgesel-analiz", "rakip-listesi", "kaydedilen-adaylar", "funnel-analizi"]],
+  ["İçerik & AI Studio", ["hazirlik", "ai-studio", "icerik-onerileri", "prompt-kutuphanesi", "kampanya-hazirligi"]],
   ["Teklif & Raporlama", ["teklifler", "teklif-listesi", "raporlar", "rapor-yorumlari", "disa-aktarimlar"]],
-  ["Yönetim", ["kullanicilar", "roller-yetkiler", "site-ayarlari", "api-ayarlari", "tema-ayarlari", "medya", "sistem-loglari"]]
+  ["Ayarlar", ["kullanicilar", "roller-yetkiler", "site-ayarlari", "api-ayarlari", "tema-ayarlari", "medya", "sistem-loglari"]]
 ];
 const uiRoleTemplates = {
   admin: uiPermissionGroups.flatMap(([, modules]) => modules),
@@ -276,7 +284,7 @@ export function AdminDashboard({
   const [customTheme, setCustomTheme] = useState(null);
   const [bootVisible, setBootVisible] = useState(false);
   const [bootStep, setBootStep] = useState(0);
-  const [openGroups, setOpenGroups] = useState(() => Object.fromEntries(adminNavigationGroups.map((group) => [group.label, true])));
+  const [openGroups, setOpenGroups] = useState(() => Object.fromEntries(adminNavigationGroups.map((group, index) => [group.label, index < 2])));
   const [startupApiOpen, setStartupApiOpen] = useState(false);
   const [startupApiLoading, setStartupApiLoading] = useState(false);
   const [startupApiData, setStartupApiData] = useState<any>({ results: content.settings?.api?.ai_status || {}, lastTestTime: content.settings?.api?.ai_status_last_test_at });
@@ -393,10 +401,19 @@ export function AdminDashboard({
   const visibleNavigationGroups = adminNavigationGroups
     .map((group) => ({ ...group, items: group.items.filter((item) => allowedModules.includes(item.module)) }))
     .filter((group) => group.items.length);
+  const activeGroup = visibleNavigationGroups.find((group) => group.items.some((item) => item.label === active || item.slug === "" && active === "Dashboard"));
+  useEffect(() => {
+    if (!activeGroup || openGroups[activeGroup.label]) return;
+    setOpenGroups((current) => ({ ...current, [activeGroup.label]: true }));
+  }, [activeGroup?.label]);
   const shellClass = theme === "dark" ? "bg-[#050711] text-white" : "bg-slate-100 text-slate-950";
   const panelClass = theme === "dark" ? "border-white/10 bg-white/[0.045]" : "border-slate-200 bg-white";
   const headerClass = theme === "dark" ? "border-white/10 bg-[#050711]/90" : "border-slate-200 bg-white/90";
   const aiStatus = aiMetaFromApi(content.settings?.api || {});
+  const dashboardAliases = ["Dashboard", "AI Durum Merkezi", "Canlı Aktivite", "Sistem Özeti"];
+  const crmLeadViews = ["Tüm Başvurular", "Yeni Başvurular", "Meta Analiz Leadleri", "Google Ads Analiz Leadleri", "Sosyal İstihbarat Leadleri", "Reddedilenler", "Silinenler"];
+  const reportAliases = ["Teklifler", "Rapor Yorumları", "Dışa Aktarımlar", "Dışa Aktarma", "Müşteri Raporları", "Performans Raporları"];
+  const preparationAliases = ["İçerik Önerileri", "İçerik Fikirleri", "30 Günlük Sosyal Medya Planı", "Prompt Kütüphanesi", "Prompt Üretimi", "Kampanya Hazırlığı", "Kampanya Önerileri"];
 
   return (
     <main className={`relative min-h-screen overflow-hidden ${theme === "light" ? "admin-light" : ""} ${customTheme ? "admin-themed" : ""} ${shellClass}`} style={customTheme ? { backgroundColor: customTheme.background, color: customTheme.text, "--admin-surface": customTheme.surface, "--admin-border": customTheme.border, "--admin-sidebar": customTheme.sidebar, "--admin-header": customTheme.header, "--admin-muted": customTheme.mutedText, "--admin-button": customTheme.primaryButton } : undefined}>
@@ -455,18 +472,33 @@ export function AdminDashboard({
           {!sidebarCollapsed && <div className="mb-3 rounded-[8px] border border-cyan-200/15 bg-cyan-200/[0.06] p-3"><Logo content={content} /><p className="mt-3 text-[10px] font-black uppercase tracking-[.18em] text-cyan-100">HK Operating System</p><p className="mt-1 text-[10px] font-bold uppercase tracking-[.14em] text-slate-500">Powered by HK Dijital</p></div>}
           {visibleNavigationGroups.map((group) => {
             const expanded = openGroups[group.label];
+            const activeInGroup = group.items.some((item) => item.label === active || item.slug === "" && active === "Dashboard");
+            const CategoryIcon = adminCategoryIcons[group.icon] || LayoutDashboard;
             return (
-              <div key={group.label} className="mb-2">
-                {!sidebarCollapsed && <button
+              <div key={group.label} className={`mb-2 rounded-[8px] border transition ${activeInGroup ? "border-cyan-200/35 bg-cyan-200/[0.07]" : "border-white/10 bg-black/10"}`}>
+                <button
                   type="button"
                   onClick={() => toggleGroup(group.label)}
-                  className="flex w-full items-center justify-between gap-2 rounded-[8px] px-3 py-3 text-left text-[11px] font-black uppercase text-slate-400 hover:bg-white/10"
+                  title={group.label}
+                  className={`flex w-full items-center gap-3 rounded-[8px] p-3 text-left transition hover:bg-white/10 ${sidebarCollapsed ? "justify-center" : "justify-between"}`}
                 >
-                  {group.label}
-                  {expanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
-                </button>}
+                  <span className={`grid size-10 shrink-0 place-items-center rounded-[8px] bg-gradient-to-br ${group.accent} text-white shadow-[0_12px_32px_rgba(15,23,42,.28)]`}>
+                    <CategoryIcon size={18} />
+                  </span>
+                  {!sidebarCollapsed && <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2">
+                      <span className="truncate text-[12px] font-black uppercase tracking-[.12em] text-white">{group.label}</span>
+                      {group.badge && <span className="rounded-full border border-white/10 bg-white/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[.12em] text-cyan-100">{group.badge}</span>}
+                    </span>
+                    <span className="mt-1 block text-[10px] leading-4 text-slate-500">{group.description}</span>
+                  </span>}
+                  {!sidebarCollapsed && <span className="grid gap-1 text-right">
+                    <span className="text-[10px] font-black text-slate-500">{group.items.length}</span>
+                    {expanded ? <ChevronDown size={15} className="text-slate-400" /> : <ChevronRight size={15} className="text-slate-400" />}
+                  </span>}
+                </button>
                 {(sidebarCollapsed || expanded) && (
-                  <div className="mt-1 grid gap-1 border-l border-white/10 pl-3">
+                  <div className={`grid gap-1 ${sidebarCollapsed ? "px-2 pb-2" : "border-t border-white/10 px-3 pb-3 pt-2"}`}>
                     {group.items.map((item) => (
                       <Link
                         key={item.slug}
@@ -474,7 +506,7 @@ export function AdminDashboard({
                         title={item.label}
                         className={`rounded-[8px] border px-3 py-2.5 text-left text-xs font-bold transition ${active === item.label ? "border-cyan-200/50 bg-cyan-300 text-slate-950 shadow-[0_8px_24px_rgba(34,211,238,.16)]" : "border-transparent text-slate-400 hover:border-white/10 hover:bg-white/10 hover:text-slate-200"}`}
                       >
-                        {sidebarCollapsed ? item.label.slice(0, 2) : item.label}
+                        {sidebarCollapsed ? item.label.slice(0, 2).toLocaleUpperCase("tr") : item.label}
                       </Link>
                     ))}
                   </div>
@@ -487,32 +519,32 @@ export function AdminDashboard({
           {!supabaseConfigured && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">Supabase bağlantısı yapılandırılmadı. Canlı ortamda kaydetme çalışmaz.</p>}
           {bootstrapWarning && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">Süper admin kurulum anahtarları hâlâ aktif. Güvenlik için Vercel ortam değişkenlerinden kaldırın.</p>}
           {status && <p className={`mb-5 rounded-[8px] border p-3 text-sm ${status.includes("Kaydedilemedi") ? "border-red-300/30 bg-red-500/10 text-red-100" : "border-cyan-200/20 bg-cyan-200/10 text-cyan-100"}`}>{status}</p>}
-          {active === "Dashboard" && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} systemStatus={systemStatus} currentSession={currentSession} allowedModules={allowedModules} />}
+          {dashboardAliases.includes(active) && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} systemStatus={systemStatus} currentSession={currentSession} allowedModules={allowedModules} />}
           {active === "CRM" && <CrmHub {...props} />}
           {["Müşteri Bulucu", "İşletme Keşfi"].includes(active) && <CustomerFinder {...props} />}
-          {active === "Lead Yönetimi" && <Crm {...props} view="Lead Durumları" setActive={setActive} />}
+          {["Lead Yönetimi", ...crmLeadViews].includes(active) && <Crm {...props} view={active === "Lead Yönetimi" ? "Lead Durumları" : active} setActive={setActive} />}
           {active === "Meta Analiz" && <MetaAnalysisSection />}
-          {active === "Google Analiz" && <GoogleAdsAnalysisSection />}
-          {["Sosyal İstihbarat Merkezi", "Sosyal Medya Denetimi"].includes(active) && <SocialMediaAuditCenter />}
-          {active === "AI Studio" && <AiAssistant {...props} mode="AI Studio" />}
-          {active === "Teklif Motoru" && <ProposalEngine {...props} />}
+          {["Google Analiz", "Google Ads Analiz"].includes(active) && <GoogleAdsAnalysisSection />}
+          {["Sosyal İstihbarat Merkezi", "Sosyal Medya Denetimi", "PDF Audit"].includes(active) && <SocialMediaAuditCenter />}
+          {["AI Studio", "AI Analizleri"].includes(active) && <AiAssistant {...props} mode="AI Studio" />}
+          {["Teklif Motoru", "Teklif Hazırlama", "WhatsApp Teklifi"].includes(active) && <ProposalEngine {...props} />}
           {active === "Raporlar" && <ReportsHub {...props} />}
           {active === "Müşteriler" && <CustomersAdmin {...props} />}
-          {active === "Site Ayarları" && <SiteSettingsHub {...props} />}
-          {active === "API Ayarları" && <ApiSettings {...props} />}
+          {["Site Ayarları", "Sistem Ayarları"].includes(active) && <SiteSettingsHub {...props} />}
+          {["API Ayarları", "API Durum Kontrolü", "AI Sağlayıcı Ayarları"].includes(active) && <ApiSettings {...props} />}
           {active === "Medya / Logo" && <MediaLogoHub {...props} />}
           {active === "Kullanıcılar" && <UsersHub {...props} />}
           {active === "Genel Arama" && <GlobalSearchPage />}
-          {active === "Haritalar" && <MapsIntelligence {...props} setActive={setActive} />}
+          {["Haritalar", "Google Maps / İşletme Sinyalleri"].includes(active) && <MapsIntelligence {...props} setActive={setActive} mode={active} />}
           {active === "Hazırlık Merkezi" && <PreparationCenter {...props} setActive={setActive} />}
-          {active === "Tema Ayarları" && <ThemeEditor onApply={setCustomTheme} />}
-          {active === "Roller & Yetkiler" && <UsersAdmin {...props} mode="Roller & Yetkiler" />}
+          {["Tema Ayarları", "Tema / Logo"].includes(active) && <ThemeEditor onApply={setCustomTheme} />}
+          {["Roller & Yetkiler", "Kullanıcı Yönetimi"].includes(active) && <UsersAdmin {...props} mode={active} />}
           {active === "Sistem Logları" && <ActivityLogs content={content} />}
-          {["Takip Görevleri", "Notlar"].includes(active) && <Crm {...props} view={active} setActive={setActive} />}
+          {["Takip Görevleri", "Takipler", "Notlar"].includes(active) && <Crm {...props} view={active} setActive={setActive} />}
           {["Bölgesel Analiz", "Rakip Listesi", "Kaydedilen Adaylar"].includes(active) && <MapsIntelligence {...props} setActive={setActive} mode={active} />}
-          {["Funnel Analizi", "Reklam Fırsatları"].includes(active) && <ChannelAnalysis {...props} channel={active} />}
-          {["İçerik Önerileri", "Prompt Kütüphanesi", "Kampanya Hazırlığı"].includes(active) && <PreparationCenter {...props} setActive={setActive} mode={active} />}
-          {["Teklifler", "Rapor Yorumları", "Dışa Aktarımlar"].includes(active) && <ReportsHub {...props} />}
+          {["Funnel Analizi", "Reklam Fırsatları", "Rakip Reklamları"].includes(active) && <ChannelAnalysis {...props} channel={active === "Rakip Reklamları" ? "Reklam Fırsatları" : active} />}
+          {preparationAliases.includes(active) && <PreparationCenter {...props} setActive={setActive} mode={active} />}
+          {reportAliases.includes(active) && <ReportsHub {...props} />}
           {active === "Genel Bakış" && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} systemStatus={systemStatus} currentSession={currentSession} allowedModules={allowedModules} />}
           {active === "Sayfa İçerikleri" && <Pages {...props} />}
           {active === "Marka Ayarları" && <Brand {...props} />}
@@ -649,7 +681,7 @@ function GlobalAdminSearch() {
     }, 220);
     return () => clearTimeout(timer);
   }, [query]);
-  return <div className="relative"><button onClick={() => { setOpen(true); window.setTimeout(() => document.getElementById("hk-command-search")?.focus(), 0); }} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/10 bg-black/10 px-4 text-sm text-slate-300"><Search size={16} className="text-cyan-200" /><span className="hidden xl:inline">Komut merkezinde ara</span><kbd className="rounded border border-white/10 px-1.5 py-0.5 text-[10px] font-black text-slate-500">⌘K</kbd></button>{open && <div className="fixed inset-0 z-[90] flex justify-center bg-[#02040b]/75 px-4 pt-[12vh] backdrop-blur-sm" onMouseDown={() => setOpen(false)}><div className="h-fit w-full max-w-2xl overflow-hidden rounded-[8px] border border-cyan-200/20 bg-[#08101e]/95 shadow-[0_28px_110px_rgba(0,0,0,.55)]" onMouseDown={(event) => event.stopPropagation()}><label className="flex min-h-16 items-center gap-3 border-b border-white/10 px-5"><Search size={19} className="text-cyan-200" /><input id="hk-command-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Lead, müşteri, rapor, kullanıcı, ayar veya modül ara..." className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500" /><button onClick={() => setOpen(false)} title="Kapat" className="rounded border border-white/10 px-2 py-1 text-[10px] font-black text-slate-400">ESC</button></label><div className="premium-scrollbar max-h-[56vh] overflow-y-auto p-2">{results.map((result) => <Link key={result.id} href={result.href} onClick={() => { setQuery(""); setOpen(false); }} className="flex items-center justify-between gap-3 rounded-[8px] px-3 py-3 text-sm hover:bg-white/10"><span><strong className="block text-white">{result.title}</strong><span className="mt-1 block text-xs text-slate-400">{result.detail}</span></span><span className="rounded-full border border-cyan-200/20 px-2 py-1 text-[10px] font-black text-cyan-100">{result.type}</span></Link>)}{query.trim().length < 2 && <p className="px-3 py-5 text-sm leading-6 text-slate-400">En az iki karakter yazın. Yetkiniz olan modüller ve operasyon kayıtları içinde arama yapılır.</p>}{query.trim().length >= 2 && !results.length && <p className="px-3 py-5 text-sm text-slate-400">Eşleşen sonuç bulunamadı.</p>}</div></div></div>}</div>;
+  return <div className="relative"><button onClick={() => { setOpen(true); window.setTimeout(() => document.getElementById("hk-command-search")?.focus(), 0); }} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/10 bg-black/10 px-4 text-sm text-slate-300"><Search size={16} className="text-cyan-200" /><span className="hidden xl:inline">Modül ara...</span><kbd className="rounded border border-white/10 px-1.5 py-0.5 text-[10px] font-black text-slate-500">⌘K</kbd></button>{open && <div className="fixed inset-0 z-[90] flex justify-center bg-[#02040b]/75 px-4 pt-[12vh] backdrop-blur-sm" onMouseDown={() => setOpen(false)}><div className="h-fit w-full max-w-2xl overflow-hidden rounded-[8px] border border-cyan-200/20 bg-[#08101e]/95 shadow-[0_28px_110px_rgba(0,0,0,.55)]" onMouseDown={(event) => event.stopPropagation()}><label className="flex min-h-16 items-center gap-3 border-b border-white/10 px-5"><Search size={19} className="text-cyan-200" /><input id="hk-command-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Modül ara... CRM, Meta Analiz, Google Analiz, Sosyal İstihbarat, PDF Audit, API Ayarları, AI Ayarları, Raporlar" className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500" /><button onClick={() => setOpen(false)} title="Kapat" className="rounded border border-white/10 px-2 py-1 text-[10px] font-black text-slate-400">ESC</button></label><div className="premium-scrollbar max-h-[56vh] overflow-y-auto p-2">{results.map((result) => <Link key={result.id} href={result.href} onClick={() => { setQuery(""); setOpen(false); }} className="flex items-center justify-between gap-3 rounded-[8px] px-3 py-3 text-sm hover:bg-white/10"><span><strong className="block text-white">{result.title}</strong><span className="mt-1 block text-xs text-slate-400">{result.detail}</span></span><span className="rounded-full border border-cyan-200/20 px-2 py-1 text-[10px] font-black text-cyan-100">{result.type}</span></Link>)}{query.trim().length < 2 && <p className="px-3 py-5 text-sm leading-6 text-slate-400">En az iki karakter yazın. Yetkiniz olan modüller ve operasyon kayıtları içinde arama yapılır.</p>}{query.trim().length >= 2 && !results.length && <p className="px-3 py-5 text-sm text-slate-400">Eşleşen sonuç bulunamadı.</p>}</div></div></div>}</div>;
 }
 
 function GlobalSearchPage() {
@@ -941,30 +973,48 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
   const hour = new Date().getHours();
   const greeting = hour < 12 ? ["Good Morning", "Günaydın"] : hour < 18 ? ["Good Afternoon", "İyi Günler"] : ["Good Evening", "İyi Akşamlar"];
   const userName = currentSession?.fullName || currentSession?.email?.split("@")?.[0] || "Hayri";
-  const metroTiles = [
-    ["CRM", "Müşteri ilişkilerini yönetin", `${leads.length} başvuru`, "CRM", "xl:col-span-2", <UsersRound size={24} />],
-    ["Lead Yönetimi", "Fırsatları önceliklendirin", `${hotLeads.length} sıcak lead`, "Lead Yönetimi", "", <Gauge size={24} />],
-    ["İşletme Keşfi", "Yeni işletmeleri bulun", "Google Maps destekli", "Müşteri Bulucu", "", <Search size={24} />],
-    ["Haritalar", "Bölgesel fırsatları inceleyin", `${leads.filter((lead) => lead.google_place_id).length} kayıt`, "Haritalar", "", <MapPinned size={24} />],
-    ["Meta Analiz", "Reklam sinyallerini değerlendirin", "Analiz merkezi", "Meta Analiz", "", <BarChart3 size={24} />],
-    ["Google Analiz", "Arama fırsatlarını değerlendirin", "Analiz merkezi", "Google Analiz", "", <Search size={24} />],
-    ["AI Studio", "Ajans çıktıları üretin", `${aiAnalyzedLeads.length} analiz`, "AI Studio", "xl:col-span-2", <Bot size={24} />],
-    ["Sosyal İstihbarat Merkezi", "Çoklu platform denetimi ve aksiyon üretimi", `${socialAuditLeads.length} kayıt`, "Sosyal İstihbarat Merkezi", "", <Sparkles size={24} />],
-    ["Hazırlık Merkezi", "Kampanya hazırlığını tamamlayın", "Operasyon listesi", "Hazırlık Merkezi", "", <CircleCheck size={24} />],
-    ["Teklif Motoru", "MIN, ORTA ve MAX teklifleri hazırlayın", `${generatedProposals} teklif`, "Teklif Motoru", "", <MessageSquareText size={24} />],
-    ["Raporlar", "Müşteri performansını sunun", `${reports.length} rapor`, "Raporlar", "", <FileBarChart size={24} />],
-    ["Müşteriler", "Aktif hesapları yönetin", `${activeCustomers.length} aktif`, "Müşteriler", "", <Building2 size={24} />]
-  ].filter(([, , , target]) => canOpen(target));
-  const metroAccentClasses = [
-    "border-blue-100/45 bg-gradient-to-br from-blue-500 via-sky-500 to-cyan-400 text-white shadow-[0_22px_60px_rgba(59,130,246,.30)]",
-    "border-emerald-100/45 bg-gradient-to-br from-emerald-400 via-green-500 to-teal-600 text-white shadow-[0_22px_60px_rgba(16,185,129,.30)]",
-    "border-orange-100/45 bg-gradient-to-br from-orange-400 via-red-500 to-amber-500 text-white shadow-[0_22px_60px_rgba(249,115,22,.30)]",
-    "border-cyan-100/45 bg-gradient-to-br from-cyan-400 via-sky-500 to-blue-600 text-white shadow-[0_22px_60px_rgba(6,182,212,.30)]",
-    "border-pink-100/45 bg-gradient-to-br from-pink-400 via-rose-500 to-orange-500 text-white shadow-[0_22px_60px_rgba(236,72,153,.30)]",
-    "border-indigo-100/45 bg-gradient-to-br from-indigo-500 via-blue-600 to-violet-600 text-white shadow-[0_22px_60px_rgba(99,102,241,.30)]",
-    "border-yellow-100/45 bg-gradient-to-br from-yellow-300 via-amber-400 to-orange-500 text-white shadow-[0_22px_60px_rgba(250,204,21,.30)]",
-    "border-teal-100/45 bg-gradient-to-br from-teal-400 via-cyan-500 to-emerald-600 text-white shadow-[0_22px_60px_rgba(20,184,166,.30)]"
-  ];
+  const categoryCards = [
+    {
+      title: "CRM & Müşteriler",
+      description: "Başvuruları, müşteri kayıtlarını ve takipleri tek operasyon hattında yönetin.",
+      count: `${leads.length} başvuru`,
+      icon: <UsersRound size={24} />,
+      gradient: "from-emerald-400 via-teal-500 to-cyan-600",
+      actions: [["CRM", "CRM"], ["Yeni Başvurular", "Yeni Başvurular"], ["Müşteriler", "Müşteriler"]]
+    },
+    {
+      title: "İstihbarat Merkezi",
+      description: "Meta, Google ve sosyal medya analizlerini tek yerden yönetin.",
+      count: `${metaLeadCount + googleLeadCount + socialAuditLeads.length} sinyal`,
+      icon: <Sparkles size={24} />,
+      gradient: "from-amber-300 via-orange-500 to-rose-600",
+      actions: [["Meta Analiz", "Meta Analiz"], ["Google Analiz", "Google Ads Analiz"], ["Sosyal İstihbarat", "Sosyal İstihbarat Merkezi"]]
+    },
+    {
+      title: "Teklif & Raporlama",
+      description: "PDF audit, WhatsApp teklifi ve müşteri raporlarını hızlıca hazırlayın.",
+      count: `${reports.length} rapor`,
+      icon: <FileBarChart size={24} />,
+      gradient: "from-violet-500 via-purple-500 to-fuchsia-600",
+      actions: [["PDF Audit", "PDF Audit"], ["Teklif Hazırla", "Teklif Hazırlama"], ["Raporlar", "Raporlar"]]
+    },
+    {
+      title: "İçerik & AI Studio",
+      description: "İçerik fikirleri, 30 günlük planlar, promptlar ve kampanya önerileri üretin.",
+      count: `${aiAnalyzedLeads.length} AI analiz`,
+      icon: <Bot size={24} />,
+      gradient: "from-blue-500 via-indigo-500 to-violet-600",
+      actions: [["İçerik Fikirleri", "İçerik Fikirleri"], ["30 Günlük Plan", "30 Günlük Sosyal Medya Planı"], ["AI Studio", "AI Studio"]]
+    },
+    {
+      title: "Ayarlar",
+      description: "API bağlantıları, AI sağlayıcıları, kullanıcılar, tema ve sistem ayarları.",
+      count: `%${healthScore} sağlık`,
+      icon: <Settings2 size={24} />,
+      gradient: "from-slate-500 via-slate-700 to-slate-900",
+      actions: [["API Ayarları", "API Ayarları"], ["AI Ayarları", "AI Sağlayıcı Ayarları"], ["Kullanıcılar", "Kullanıcılar"]]
+    }
+  ].map((card) => ({ ...card, actions: card.actions.filter(([, target]) => canOpen(target) || ["AI Sağlayıcı Ayarları", "PDF Audit", "Teklif Hazırlama", "30 Günlük Sosyal Medya Planı", "İçerik Fikirleri", "Yeni Başvurular"].includes(target)) })).filter((card) => card.actions.length);
   const dashboardPresets = {
     "CRM Focus": { order: ["metrics", "insights", "crm", "quickActions", "activity", "aiStatus", "status", "charts", "demo"], hidden: ["charts"], favorites: ["CRM", "Lead Yönetimi", "Müşteriler"] },
     "Sales Focus": { order: ["insights", "metrics", "quickActions", "crm", "activity", "aiStatus", "status", "charts", "demo"], hidden: ["demo"], favorites: ["Müşteri Bulucu", "Teklif Motoru", "CRM"] },
@@ -1023,8 +1073,8 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
       </div>
       <div className="mb-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_310px]">
         <div>
-          <div className="mb-3 flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.18em] text-cyan-200">Metro çalışma alanı</p><h3 className="mt-1 text-xl font-black text-white">Operasyon modülleri</h3></div><span className="rounded-full border border-white/10 px-3 py-1 text-[10px] font-black text-slate-400">HK OS</span></div>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{metroTiles.map(([label, description, statistic, target, size, icon], index) => <Link key={label} href={target === "Haritalar" ? "/hk-admin/haritalar" : getAdminHref(adminNavigationItems.find((item) => item.label === target)?.slug || "")} className={`group relative min-h-36 overflow-hidden rounded-[8px] border p-4 text-left transition duration-300 hover:-translate-y-1 hover:shadow-[0_26px_80px_rgba(0,0,0,.28)] ${size} ${metroAccentClasses[index % metroAccentClasses.length]}`}><span className="pointer-events-none absolute -right-10 -top-10 size-28 rounded-full bg-white/20 blur-3xl" /><span className="relative grid size-10 place-items-center rounded-[8px] border border-white/25 bg-white/16 text-white transition group-hover:scale-105">{icon}</span><span className="relative mt-6 block text-sm font-black text-white">{label}</span><span className="relative mt-1 block text-xs leading-5 text-white/78">{description}</span><span className="relative mt-3 block text-[10px] font-black uppercase tracking-[.12em] text-white/72">{statistic}</span></Link>)}</div>
+          <div className="mb-3 flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.18em] text-cyan-200">Kategori çalışma alanı</p><h3 className="mt-1 text-xl font-black text-white">İşletim sistemi modülleri</h3></div><span className="rounded-full border border-white/10 px-3 py-1 text-[10px] font-black text-slate-400">HK OS</span></div>
+          <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">{categoryCards.map((card) => <article key={card.title} className={`group relative min-h-56 overflow-hidden rounded-[8px] border border-white/15 bg-gradient-to-br ${card.gradient} p-5 text-white shadow-[0_26px_80px_rgba(0,0,0,.28)] transition duration-300 hover:-translate-y-1`}><span className="pointer-events-none absolute -right-14 -top-14 size-36 rounded-full bg-white/18 blur-3xl" /><span className="relative flex items-start justify-between gap-4"><span className="grid size-12 place-items-center rounded-[8px] border border-white/25 bg-white/16 transition group-hover:scale-105">{card.icon}</span><span className="rounded-full border border-white/20 bg-white/15 px-3 py-1 text-[10px] font-black uppercase tracking-[.12em] text-white/80">{card.count}</span></span><h4 className="relative mt-7 text-lg font-black">{card.title}</h4><p className="relative mt-2 min-h-12 text-sm leading-6 text-white/80">{card.description}</p><div className="relative mt-5 flex flex-wrap gap-2">{card.actions.map(([label, target]) => <button key={label} type="button" onClick={() => setActive(target)} className="rounded-full border border-white/20 bg-white/16 px-3 py-2 text-xs font-black text-white shadow-[0_10px_28px_rgba(0,0,0,.12)] transition hover:bg-white hover:text-slate-950">{label}</button>)}</div></article>)}</div>
         </div>
         <aside className="rounded-[8px] border border-white/10 bg-white/[0.04] p-4 shadow-[0_20px_64px_rgba(0,0,0,.16)]">
           <div className="flex items-center gap-3"><span className="grid size-9 place-items-center rounded-[8px] border border-amber-200/20 bg-amber-200/10 text-amber-200"><Bell size={17} /></span><div><p className="text-[10px] font-black uppercase tracking-[.16em] text-amber-200">Insights & Notifications</p><h3 className="mt-1 text-sm font-black text-white">Operasyon bildirimleri</h3></div></div>
