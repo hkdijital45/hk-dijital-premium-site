@@ -418,8 +418,67 @@ export function AdminDashboard({
   return (
     <main className={`relative min-h-screen overflow-hidden ${theme === "light" ? "admin-light" : ""} ${customTheme ? "admin-themed" : ""} ${shellClass}`} style={customTheme ? { backgroundColor: customTheme.background, color: customTheme.text, "--admin-surface": customTheme.surface, "--admin-border": customTheme.border, "--admin-sidebar": customTheme.sidebar, "--admin-header": customTheme.header, "--admin-muted": customTheme.mutedText, "--admin-button": customTheme.primaryButton } : undefined}>
       <div className="premium-grid pointer-events-none absolute inset-0 opacity-45" />
+      <div className={`relative grid min-h-screen ${sidebarCollapsed ? "lg:grid-cols-[76px_minmax(0,1fr)]" : "lg:grid-cols-[292px_minmax(0,1fr)]"}`}>
+        <aside className={`relative z-30 border-b border-white/10 bg-[#050711]/95 px-3 py-4 shadow-[18px_0_70px_rgba(0,0,0,.24)] backdrop-blur-2xl lg:min-h-screen lg:border-b-0 lg:border-r ${sidebarCollapsed ? "lg:px-2" : "lg:px-4"}`}>
+          <button
+            type="button"
+            onClick={() => setSidebarCollapsed((current) => !current)}
+            title={sidebarCollapsed ? "Menüyü genişlet" : "Menüyü daralt"}
+            className="mb-4 hidden min-h-10 w-full items-center justify-center rounded-[8px] text-cyan-100 hover:bg-white/10 lg:flex"
+          >
+            {sidebarCollapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}
+          </button>
+          {!sidebarCollapsed && <div className="mb-5 px-1"><Logo content={content} /><p className="mt-4 text-[10px] font-black uppercase tracking-[.18em] text-cyan-100">HK Operating System</p><p className="mt-1 text-[10px] font-bold uppercase tracking-[.14em] text-slate-500">Powered by HK Dijital</p></div>}
+          <nav className="grid gap-2">
+          {visibleNavigationGroups.map((group) => {
+            const expanded = openGroups[group.label];
+            const activeInGroup = group.items.some((item) => item.label === active || item.slug === "" && active === "Dashboard");
+            const CategoryIcon = adminCategoryIcons[group.icon] || LayoutDashboard;
+            return (
+              <div key={group.label} className={`rounded-[8px] transition ${activeInGroup ? "bg-cyan-200/[0.07]" : ""}`}>
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group.label)}
+                  title={group.label}
+                  className={`flex w-full items-center gap-3 rounded-[8px] p-3 text-left transition hover:bg-white/10 ${sidebarCollapsed ? "justify-center" : "justify-between"}`}
+                >
+                  <span className={`grid size-10 shrink-0 place-items-center rounded-[8px] bg-gradient-to-br ${group.accent} text-white shadow-[0_12px_32px_rgba(15,23,42,.28)]`}>
+                    <CategoryIcon size={18} />
+                  </span>
+                  {!sidebarCollapsed && <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2">
+                      <span className="truncate text-[12px] font-black uppercase tracking-[.12em] text-white">{group.label}</span>
+                      {group.badge && <span className="rounded-full bg-white/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[.12em] text-cyan-100">{group.badge}</span>}
+                    </span>
+                    <span className="mt-1 block text-[10px] leading-4 text-slate-500">{group.description}</span>
+                  </span>}
+                  {!sidebarCollapsed && <span className="grid gap-1 text-right">
+                    <span className="text-[10px] font-black text-slate-500">{group.items.length}</span>
+                    {expanded ? <ChevronDown size={15} className="text-slate-400" /> : <ChevronRight size={15} className="text-slate-400" />}
+                  </span>}
+                </button>
+                {(sidebarCollapsed || expanded) && (
+                  <div className={`grid gap-1 ${sidebarCollapsed ? "px-1 pb-2" : "px-3 pb-3 pt-1"}`}>
+                    {group.items.map((item) => (
+                      <Link
+                        key={item.slug}
+                        href={getAdminHref(item.slug)}
+                        title={item.label}
+                        className={`rounded-[8px] px-3 py-2.5 text-left text-xs font-bold transition ${active === item.label ? "bg-cyan-300 text-slate-950 shadow-[0_8px_24px_rgba(34,211,238,.16)]" : "text-slate-400 hover:bg-white/10 hover:text-slate-200"}`}
+                      >
+                        {sidebarCollapsed ? item.label.slice(0, 2).toLocaleUpperCase("tr") : item.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          </nav>
+        </aside>
+        <div className="min-w-0">
       <header className={`sticky top-0 z-40 border-b ${headerClass} shadow-[0_16px_48px_rgba(0,0,0,.18)] backdrop-blur-2xl`}>
-        <div className="relative mx-auto flex max-w-[1540px] flex-wrap items-center justify-between gap-4 px-4 py-4">
+        <div className="relative flex flex-wrap items-center justify-between gap-4 px-4 py-4 lg:px-6">
           <div className="flex items-center gap-3">
             <Logo content={content} compact />
             <div>
@@ -459,62 +518,7 @@ export function AdminDashboard({
           </div>
         </div>
       </header>
-      <div className={`relative mx-auto grid max-w-[1540px] gap-6 px-4 py-6 ${sidebarCollapsed ? "lg:grid-cols-[76px_1fr]" : "lg:grid-cols-[276px_1fr]"}`}>
-        <aside className={`premium-scrollbar max-h-[calc(100vh-120px)] overflow-y-auto rounded-[8px] border p-3 shadow-[0_22px_80px_rgba(0,0,0,.2)] ${panelClass}`}>
-          <button
-            type="button"
-            onClick={() => setSidebarCollapsed((current) => !current)}
-            title={sidebarCollapsed ? "Menüyü genişlet" : "Menüyü daralt"}
-            className="mb-3 hidden min-h-10 w-full items-center justify-center rounded-[8px] border border-white/10 text-cyan-100 hover:bg-white/10 lg:flex"
-          >
-            {sidebarCollapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}
-          </button>
-          {!sidebarCollapsed && <div className="mb-3 rounded-[8px] border border-cyan-200/15 bg-cyan-200/[0.06] p-3"><Logo content={content} /><p className="mt-3 text-[10px] font-black uppercase tracking-[.18em] text-cyan-100">HK Operating System</p><p className="mt-1 text-[10px] font-bold uppercase tracking-[.14em] text-slate-500">Powered by HK Dijital</p></div>}
-          {visibleNavigationGroups.map((group) => {
-            const expanded = openGroups[group.label];
-            const activeInGroup = group.items.some((item) => item.label === active || item.slug === "" && active === "Dashboard");
-            const CategoryIcon = adminCategoryIcons[group.icon] || LayoutDashboard;
-            return (
-              <div key={group.label} className={`mb-2 rounded-[8px] border transition ${activeInGroup ? "border-cyan-200/35 bg-cyan-200/[0.07]" : "border-white/10 bg-black/10"}`}>
-                <button
-                  type="button"
-                  onClick={() => toggleGroup(group.label)}
-                  title={group.label}
-                  className={`flex w-full items-center gap-3 rounded-[8px] p-3 text-left transition hover:bg-white/10 ${sidebarCollapsed ? "justify-center" : "justify-between"}`}
-                >
-                  <span className={`grid size-10 shrink-0 place-items-center rounded-[8px] bg-gradient-to-br ${group.accent} text-white shadow-[0_12px_32px_rgba(15,23,42,.28)]`}>
-                    <CategoryIcon size={18} />
-                  </span>
-                  {!sidebarCollapsed && <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-2">
-                      <span className="truncate text-[12px] font-black uppercase tracking-[.12em] text-white">{group.label}</span>
-                      {group.badge && <span className="rounded-full border border-white/10 bg-white/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[.12em] text-cyan-100">{group.badge}</span>}
-                    </span>
-                    <span className="mt-1 block text-[10px] leading-4 text-slate-500">{group.description}</span>
-                  </span>}
-                  {!sidebarCollapsed && <span className="grid gap-1 text-right">
-                    <span className="text-[10px] font-black text-slate-500">{group.items.length}</span>
-                    {expanded ? <ChevronDown size={15} className="text-slate-400" /> : <ChevronRight size={15} className="text-slate-400" />}
-                  </span>}
-                </button>
-                {(sidebarCollapsed || expanded) && (
-                  <div className={`grid gap-1 ${sidebarCollapsed ? "px-2 pb-2" : "border-t border-white/10 px-3 pb-3 pt-2"}`}>
-                    {group.items.map((item) => (
-                      <Link
-                        key={item.slug}
-                        href={getAdminHref(item.slug)}
-                        title={item.label}
-                        className={`rounded-[8px] border px-3 py-2.5 text-left text-xs font-bold transition ${active === item.label ? "border-cyan-200/50 bg-cyan-300 text-slate-950 shadow-[0_8px_24px_rgba(34,211,238,.16)]" : "border-transparent text-slate-400 hover:border-white/10 hover:bg-white/10 hover:text-slate-200"}`}
-                      >
-                        {sidebarCollapsed ? item.label.slice(0, 2).toLocaleUpperCase("tr") : item.label}
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </aside>
+      <div className="relative px-4 py-6 lg:px-6">
         <section className={`min-w-0 rounded-[8px] border p-5 shadow-[0_24px_90px_rgba(0,0,0,.18)] ${panelClass}`}>
           {!supabaseConfigured && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">Supabase bağlantısı yapılandırılmadı. Canlı ortamda kaydetme çalışmaz.</p>}
           {bootstrapWarning && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">Süper admin kurulum anahtarları hâlâ aktif. Güvenlik için Vercel ortam değişkenlerinden kaldırın.</p>}
@@ -570,6 +574,8 @@ export function AdminDashboard({
           {active === "Log Hareketleri" && <ActivityLogs content={content} />}
           {active === "Kullanım Kılavuzu" && <UsageGuide />}
         </section>
+      </div>
+        </div>
       </div>
       <StartupApiStatusModal open={startupApiOpen} loading={startupApiLoading} data={startupApiData} message={startupApiMessage} onRetest={runStartupApiStatus} onClose={() => setStartupApiOpen(false)} onSettings={() => { setStartupApiOpen(false); setActive("API Ayarları"); }} />
       {bootVisible && <SystemBoot step={bootStep} />}
