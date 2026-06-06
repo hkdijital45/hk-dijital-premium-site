@@ -434,55 +434,54 @@ export function AdminDashboard({
   return (
     <main className={`relative min-h-screen overflow-hidden ${theme === "light" ? "admin-light" : ""} ${customTheme ? "admin-themed" : ""} ${shellClass}`} style={customTheme ? { backgroundColor: customTheme.background, color: customTheme.text, "--admin-surface": customTheme.surface, "--admin-border": customTheme.border, "--admin-sidebar": customTheme.sidebar, "--admin-header": customTheme.header, "--admin-muted": customTheme.mutedText, "--admin-button": customTheme.primaryButton } : undefined}>
       <div className="premium-grid pointer-events-none absolute inset-0 opacity-45" />
-      <div className={`relative grid min-h-screen ${sidebarCollapsed ? "lg:grid-cols-[76px_minmax(0,1fr)]" : "lg:grid-cols-[292px_minmax(0,1fr)]"}`}>
-        <aside className={`relative z-30 border-b border-white/10 bg-[#050711]/95 px-3 py-4 shadow-[18px_0_70px_rgba(0,0,0,.24)] backdrop-blur-2xl lg:min-h-screen lg:border-b-0 lg:border-r ${sidebarCollapsed ? "lg:px-2" : "lg:px-4"}`}>
+      <div className={`relative grid min-h-screen ${sidebarCollapsed ? "lg:grid-cols-[72px_minmax(0,1fr)]" : "lg:grid-cols-[292px_minmax(0,1fr)]"}`}>
+        <aside className={`relative z-30 flex min-h-full flex-col border-b border-white/10 bg-[#060a14] px-3 py-3 shadow-[8px_0_30px_rgba(0,0,0,.18)] lg:min-h-screen lg:border-b-0 lg:border-r ${sidebarCollapsed ? "lg:px-2" : "lg:px-3"}`}>
           <button
             type="button"
             onClick={() => setSidebarCollapsed((current) => !current)}
             title={sidebarCollapsed ? "Menüyü genişlet" : "Menüyü daralt"}
-            className="mb-4 hidden min-h-10 w-full items-center justify-center rounded-[8px] text-cyan-100 hover:bg-white/10 lg:flex"
+            className="mb-3 hidden min-h-9 w-full items-center justify-center rounded-[8px] text-slate-300 hover:bg-white/[0.08] hover:text-white lg:flex"
           >
             {sidebarCollapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}
           </button>
-          {!sidebarCollapsed && <div className="mb-5 px-1"><Logo content={content} /><p className="mt-4 text-[10px] font-black uppercase tracking-[.18em] text-cyan-100">HK Operating System</p><p className="mt-1 text-[10px] font-bold uppercase tracking-[.14em] text-slate-500">Powered by HK Dijital</p></div>}
-          <nav className="grid gap-2">
+          {!sidebarCollapsed && <div className="mb-3 px-2"><Logo content={content} /><p className="mt-3 text-[10px] font-black uppercase tracking-[.16em] text-slate-300">HK Operating System</p></div>}
+          <nav className="grid flex-1 content-start gap-1.5">
           {visibleNavigationGroups.map((group) => {
             const expanded = openGroups[group.label];
             const activeInGroup = group.items.some((item) => item.label === active || item.slug === "" && active === "Dashboard");
             const CategoryIcon = adminCategoryIcons[group.icon] || LayoutDashboard;
             return (
-              <div key={group.label} className={`rounded-[8px] transition ${activeInGroup ? "bg-cyan-200/[0.07]" : ""}`}>
+              <div key={group.label} className={`rounded-[8px] transition ${activeInGroup ? "bg-white/[0.045]" : ""}`}>
                 <button
                   type="button"
                   onClick={() => toggleGroup(group.label)}
                   title={group.label}
-                  className={`flex w-full items-center gap-3 rounded-[8px] p-3 text-left transition hover:bg-white/10 ${sidebarCollapsed ? "justify-center" : "justify-between"}`}
+                  className={`flex w-full items-center gap-2 rounded-[8px] px-2.5 py-2 text-left transition hover:bg-white/[0.08] ${sidebarCollapsed ? "justify-center" : "justify-between"}`}
                 >
-                  <span className={`grid size-10 shrink-0 place-items-center rounded-[8px] bg-gradient-to-br ${group.accent} text-white shadow-[0_12px_32px_rgba(15,23,42,.28)]`}>
-                    <CategoryIcon size={18} />
+                  <span className={`grid size-8 shrink-0 place-items-center rounded-[8px] bg-gradient-to-br ${group.accent} text-white shadow-sm`}>
+                    <CategoryIcon size={15} />
                   </span>
                   {!sidebarCollapsed && <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-2">
-                      <span className="truncate text-[12px] font-black uppercase tracking-[.12em] text-white">{group.label}</span>
-                      {group.badge && <span className="rounded-full bg-white/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[.12em] text-cyan-100">{group.badge}</span>}
+                      <span className="truncate text-[11px] font-black uppercase tracking-[.10em] text-slate-100">{group.label}</span>
+                      {group.badge && <span className="rounded-full bg-white/[0.08] px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[.08em] text-slate-300">{group.badge}</span>}
                     </span>
-                    <span className="mt-1 block text-[10px] leading-4 text-slate-500">{group.description}</span>
                   </span>}
-                  {!sidebarCollapsed && <span className="grid gap-1 text-right">
-                    <span className="text-[10px] font-black text-slate-500">{group.items.length}</span>
+                  {!sidebarCollapsed && <span className="flex items-center gap-1.5 text-right">
+                    <span className="rounded-full bg-white/[0.08] px-1.5 py-0.5 text-[10px] font-black text-slate-400">{group.items.length}</span>
                     {expanded ? <ChevronDown size={15} className="text-slate-400" /> : <ChevronRight size={15} className="text-slate-400" />}
                   </span>}
                 </button>
                 {(sidebarCollapsed || expanded) && (
-                  <div className={`grid gap-1 ${sidebarCollapsed ? "px-1 pb-2" : "px-3 pb-3 pt-1"}`}>
+                  <div className={`grid gap-0.5 ${sidebarCollapsed ? "px-1 pb-1.5" : "px-2 pb-2"}`}>
                     {group.items.map((item) => (
                       <Link
                         key={item.slug}
                         href={getAdminHref(item.slug)}
                         title={item.label}
-                        className={`rounded-[8px] px-3 py-2.5 text-left text-xs font-bold transition ${active === item.label ? "bg-cyan-300 text-slate-950 shadow-[0_8px_24px_rgba(34,211,238,.16)]" : "text-slate-400 hover:bg-white/10 hover:text-slate-200"}`}
+                        className={`block w-full max-w-full overflow-hidden rounded-[8px] px-3 py-2 text-left text-xs font-semibold leading-5 transition ${active === item.label ? "bg-cyan-400 text-slate-950 shadow-none" : "text-slate-400 hover:bg-white/[0.08] hover:text-slate-100"}`}
                       >
-                        {sidebarCollapsed ? item.label.slice(0, 2).toLocaleUpperCase("tr") : item.label}
+                        <span className="block truncate">{sidebarCollapsed ? item.label.slice(0, 2).toLocaleUpperCase("tr") : item.label}</span>
                       </Link>
                     ))}
                   </div>
@@ -491,6 +490,7 @@ export function AdminDashboard({
             );
           })}
           </nav>
+          {!sidebarCollapsed && <div className="mt-3 border-t border-white/10 px-2 py-3"><p className="text-[11px] font-black text-slate-300">HK Operating System</p><p className="mt-0.5 text-[10px] font-bold text-slate-500">v1.0</p></div>}
         </aside>
         <div className="min-w-0">
       <header className={`sticky top-0 z-40 border-b ${headerClass} shadow-[0_16px_48px_rgba(0,0,0,.18)] backdrop-blur-2xl`}>
@@ -1074,14 +1074,14 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
   };
   const conversionRate = leads.length ? Math.round(activeCustomers.length / leads.length * 100) : 0;
   const osDashboardWidgets = [
-    ["CRM Özeti", leads.length, `${newLeads.length} yeni · ${hotLeads.length} sıcak`, <UsersRound size={22} />, "from-cyan-400 via-blue-500 to-indigo-600", "CRM"],
-    ["Meta Analiz", metaLeadCount, "Meta kaynaklı lead ve sinyal", <BarChart3 size={22} />, "from-orange-300 via-pink-500 to-rose-600", "Meta Analiz"],
-    ["Google Analiz", googleLeadCount, "Arama görünürlüğü fırsatları", <Search size={22} />, "from-sky-300 via-cyan-500 to-blue-600", "Google Ads Analiz"],
-    ["AI Durumu", healthScore + "%", `${activeAiMeta.provider} · ${activeAiMeta.mode}`, <Bot size={22} />, "from-violet-400 via-purple-500 to-fuchsia-600", "AI Durum Merkezi"],
-    ["PDF Auditler", reports.length + socialAuditLeads.length, "Audit ve rapor çıktıları", <FileBarChart size={22} />, "from-amber-300 via-orange-400 to-red-500", "PDF Audit"],
-    ["WhatsApp Teklifleri", generatedProposals, "Hazır teklif iletişimleri", <MessageSquareText size={22} />, "from-emerald-300 via-green-500 to-teal-600", "WhatsApp Teklifi"],
-    ["Müşteriler", activeCustomers.length, "Aktif müşteri portföyü", <Building2 size={22} />, "from-teal-300 via-cyan-500 to-slate-700", "Müşteriler"],
-    ["Dönüşüm Oranı", `%${conversionRate}`, "Leadden müşteriye dönüşüm", <Gauge size={22} />, "from-yellow-300 via-amber-500 to-orange-600", "CRM"]
+    ["CRM Özeti", leads.length, `${newLeads.length} yeni · ${hotLeads.length} sıcak`, <UsersRound size={20} />, "from-blue-600 to-cyan-500", "CRM", "level1"],
+    ["İstihbarat Merkezi", metaLeadCount + googleLeadCount + socialAuditLeads.length, "Meta, Google ve sosyal sinyaller", <Sparkles size={20} />, "from-orange-500 to-red-600", "Meta Analiz", "level1"],
+    ["AI Durumu", healthScore + "%", `${activeAiMeta.provider} · ${activeAiMeta.mode}`, <Bot size={20} />, "from-purple-600 to-indigo-600", "AI Durum Merkezi", "level1"],
+    ["PDF Auditler", reports.length + socialAuditLeads.length, "Audit ve rapor çıktıları", <FileBarChart size={20} />, "from-emerald-600 to-teal-600", "PDF Audit", "level2"],
+    ["WhatsApp Teklifleri", generatedProposals, "Hazır teklif iletişimleri", <MessageSquareText size={20} />, "from-green-600 to-emerald-600", "WhatsApp Teklifi", "level2"],
+    ["Müşteriler", activeCustomers.length, "Aktif müşteri portföyü", <Building2 size={20} />, "from-teal-600 to-cyan-700", "Müşteriler", "level2"],
+    ["Google Analiz", googleLeadCount, "Arama görünürlüğü fırsatları", <Search size={20} />, "from-sky-600 to-blue-700", "Google Ads Analiz", "level2"],
+    ["Dönüşüm Oranı", `%${conversionRate}`, "Leadden müşteriye dönüşüm", <Gauge size={20} />, "from-amber-500 to-orange-600", "CRM", "level2"]
   ].filter(([, , , , , target]) => canOpen(String(target)) || ["AI Durum Merkezi", "PDF Audit", "WhatsApp Teklifi"].includes(String(target)));
 
   async function createDemoCustomer() {
@@ -1109,7 +1109,7 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
 
   const widgetNames = { metrics: "Sistem metrikleri", aiStatus: "AI Durum Merkezi", operations: "Canlı operasyon merkezi", pipeline: "CRM pipeline görseli", intelligence: "Intelligence merkezi", status: "Sistem durum merkezi", charts: "Gerçek veri grafikleri", insights: "AI içgörüleri", quickActions: "Hızlı aksiyonlar", crm: "CRM akışı", activity: "Son aktiviteler", demo: "Müşteri paneli testi" };
   const widgets: any = {
-    metrics: <div><div className="mb-4 flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.18em] text-cyan-200">Dashboard Widgets</p><h3 className="mt-1 text-xl font-black text-white">HK Business Operating System</h3><p className="mt-1 text-sm text-slate-400">CRM, istihbarat, AI, rapor ve teklif akışlarını tek ekranda izleyin.</p></div><span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-black text-slate-300">Gerçek veriler</span></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{osDashboardWidgets.map(([label, value, note, icon, gradient, target]) => <button key={label} type="button" onClick={() => setActive(target)} className={`group relative min-h-40 overflow-hidden rounded-[8px] border border-white/15 bg-gradient-to-br ${gradient} p-5 text-left text-white shadow-[0_22px_70px_rgba(0,0,0,.22)] transition hover:-translate-y-1 hover:shadow-[0_30px_90px_rgba(0,0,0,.28)]`}><span className="pointer-events-none absolute -right-10 -top-10 size-32 rounded-full bg-white/20 blur-3xl" /><span className="relative flex items-start justify-between gap-3"><span className="grid size-11 place-items-center rounded-[8px] border border-white/25 bg-white/15">{icon}</span><span className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-black uppercase tracking-[.12em] text-white/75">Aç</span></span><p className="relative mt-5 text-sm font-black uppercase tracking-[.12em] text-white/70">{label}</p><p className="relative mt-2 text-3xl font-black">{value}</p><p className="relative mt-2 text-xs leading-5 text-white/75">{note}</p></button>)}</div><details className="mt-4 rounded-[8px] border border-white/10 bg-black/10 p-3"><summary className="cursor-pointer text-xs font-black uppercase tracking-[.14em] text-slate-400">Tüm sistem metrikleri</summary><div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">{stats.map(([label, value, note, icon, accent]) => <MetricCard3D key={label} label={label} value={value} note={note} accent={accent} icon={icon} />)}</div></details></div>,
+    metrics: <div><div className="mb-4 flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">Dashboard Widgets</p><h3 className="mt-1 text-lg font-black text-white">HK Business Operating System</h3><p className="mt-1 text-sm leading-5 text-slate-400">CRM, istihbarat, AI, rapor ve teklif akışlarını tek ekranda izleyin.</p></div><span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-black text-slate-300">Gerçek veriler</span></div><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">{osDashboardWidgets.map(([label, value, note, icon, gradient, target, level]) => <button key={label} type="button" onClick={() => setActive(target)} className={`group relative overflow-hidden rounded-[8px] border border-white/[0.12] bg-gradient-to-br ${gradient} text-left text-white shadow-[0_12px_34px_rgba(0,0,0,.18)] transition hover:-translate-y-0.5 hover:border-white/25 ${level === "level1" ? "min-h-40 p-5 xl:col-span-1" : "min-h-32 p-4"}`}><span className="relative flex items-start justify-between gap-3"><span className="grid size-10 place-items-center rounded-[8px] border border-white/20 bg-white/[0.12]">{icon}</span><span className="rounded-full border border-white/[0.18] bg-black/10 px-2 py-1 text-[10px] font-black uppercase tracking-[.10em] text-white/80">{level === "level1" ? "Öncelik" : "Modül"}</span></span><p className="relative mt-4 text-xs font-black uppercase tracking-[.12em] text-white/70">{label}</p><p className="relative mt-1.5 text-2xl font-black">{value}</p><p className="relative mt-2 text-xs leading-5 text-white/75">{note}</p></button>)}</div><details className="mt-4 rounded-[8px] border border-white/10 bg-black/10 p-3"><summary className="cursor-pointer text-xs font-black uppercase tracking-[.14em] text-slate-400">Tüm sistem metrikleri</summary><div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">{stats.map(([label, value, note, icon, accent]) => <MetricCard3D key={label} label={label} value={value} note={note} accent={accent} icon={icon} />)}</div></details></div>,
     aiStatus: <AiStatusCenterWidget statuses={aiStatusCenter} message={aiStatusMessage || (content.settings?.api?.ai_status_last_test_at ? `Son test: ${new Date(content.settings.api.ai_status_last_test_at).toLocaleString("tr-TR")}` : "Henüz test yapılmadı.")} loading={aiStatusLoading} onRefresh={refreshAiStatus} />,
     operations: <GlassCard className="overflow-hidden p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[.16em] text-lime-200">Canlı Aktivite</p><h3 className="mt-2 text-xl font-black text-white">Live Operations Center</h3><p className="mt-1 text-sm text-slate-400">Lead, CRM, AI, PDF, WhatsApp ve API hareketlerini tek akışta izleyin.</p></div><span className="rounded-full bg-lime-300 px-3 py-1 text-[10px] font-black uppercase tracking-[.12em] text-slate-950">Aktif</span></div><div className="mt-5 grid gap-5 lg:grid-cols-[1fr_320px]"><div className="grid gap-2">{liveOperations.map(([title, text, date, accent]) => <div key={title} className={`flex items-center justify-between gap-4 rounded-[8px] border p-3 ${accent === "blue" ? "border-blue-200/25 bg-blue-400/12" : accent === "indigo" ? "border-indigo-200/25 bg-indigo-400/12" : accent === "purple" ? "border-purple-200/25 bg-purple-400/12" : accent === "rose" ? "border-rose-200/25 bg-rose-400/12" : accent === "lime" ? "border-lime-200/25 bg-lime-400/12" : "border-cyan-200/25 bg-cyan-400/12"}`}><div><p className="text-sm font-black text-white">{title}</p><p className="mt-1 text-xs leading-5 text-slate-300">{text}</p></div><time className="shrink-0 text-[10px] font-bold text-slate-400">{date ? new Date(date).toLocaleDateString("tr-TR") : "Bekliyor"}</time></div>)}</div><div className="rounded-[8px] border border-white/10 bg-black/15 p-4"><p className="mb-4 text-xs font-black uppercase tracking-[.16em] text-cyan-100">Operasyon ritmi</p><AnimatedChart label="Aktivite sinyali" values={[18, Math.min(92, leads.length * 9), Math.min(88, activityLogs.length * 12), Math.min(82, aiAnalyzedLeads.length * 15), Math.min(76, reports.length * 13), Math.min(86, generatedProposals * 16)]} /></div></div></GlassCard>,
     pipeline: <GlassCard className="p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[.16em] text-blue-200">CRM Pipeline Visual</p><h3 className="mt-2 text-xl font-black text-white">Satış ve takip hattı</h3><p className="mt-1 text-sm text-slate-400">Aşamalar gerçek lead durumlarından hesaplanır.</p></div><button onClick={() => setActive("CRM")} className="rounded-full border border-blue-200/20 px-4 py-2 text-xs font-black text-blue-100">CRM Aç</button></div><div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-6">{pipelineStages.map(([stage, count, gradient], index) => <div key={stage} className={`relative min-h-36 overflow-hidden rounded-[8px] border border-white/15 bg-gradient-to-br ${gradient} p-4 text-white shadow-[0_20px_55px_rgba(0,0,0,.18)] transition hover:-translate-y-1`}><span className="absolute -right-8 -top-8 size-24 rounded-full bg-white/18 blur-2xl" /><p className="relative text-xs font-black uppercase tracking-[.13em] text-white/72">{stage}</p><p className="relative mt-5 text-3xl font-black">{count}</p><div className="relative mt-4 h-2 overflow-hidden rounded-full bg-white/22"><div className="h-full rounded-full bg-white/80" style={{ width: `${Math.min(100, Number(count) * 18 + 12)}%` }} /></div><p className="relative mt-3 text-[10px] font-bold text-white/72">Aşama {index + 1}</p></div>)}</div></GlassCard>,
@@ -1125,22 +1125,22 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
 
   return (
     <Panel title="Operasyon Merkezi">
-      <div className="mb-6 animate-[pulse_5s_ease-in-out_infinite] overflow-hidden rounded-[8px] border border-cyan-200/20 bg-[linear-gradient(135deg,rgba(34,211,238,.14),rgba(59,130,246,.06),rgba(250,204,21,.08))] p-5 shadow-[0_22px_80px_rgba(0,0,0,.18)] sm:p-6">
-        <p className="text-xs font-black uppercase tracking-[.18em] text-cyan-200">{greeting[0]}, {userName} 👋</p>
-        <h2 className="mt-2 text-2xl font-black text-white">{greeting[1]}, {userName} 👋</h2>
-        <p className="mt-5 text-lg font-black text-white">Welcome to HK Operating System</p>
+      <div className="mb-5 overflow-hidden rounded-[8px] border border-cyan-200/15 bg-[linear-gradient(135deg,rgba(14,165,233,.13),rgba(30,41,59,.42))] p-4 shadow-[0_12px_34px_rgba(0,0,0,.16)] sm:p-5">
+        <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">{greeting[0]}, {userName}</p>
+        <h2 className="mt-1 text-xl font-black text-white">{greeting[1]}, {userName}</h2>
+        <p className="mt-3 text-base font-black text-white">Welcome to HK Operating System</p>
         <p className="mt-1 text-sm font-bold text-cyan-100">Digital Marketing Command Center</p>
-        <p className="mt-2 text-[11px] font-black uppercase tracking-[.18em] text-slate-400">Powered by HK Dijital</p>
+        <p className="mt-1 text-[10px] font-black uppercase tracking-[.16em] text-slate-400">Powered by HK Dijital</p>
       </div>
-      <div className="mb-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_310px]">
+      <div className="mb-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
         <div>
-          <div className="mb-3 flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.18em] text-cyan-200">Kategori çalışma alanı</p><h3 className="mt-1 text-xl font-black text-white">İşletim sistemi modülleri</h3></div><span className="rounded-full border border-white/10 px-3 py-1 text-[10px] font-black text-slate-400">HK OS</span></div>
-          <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">{categoryCards.map((card) => <article key={card.title} className={`group relative min-h-56 overflow-hidden rounded-[8px] border border-white/15 bg-gradient-to-br ${card.gradient} p-5 text-white shadow-[0_26px_80px_rgba(0,0,0,.28)] transition duration-300 hover:-translate-y-1`}><span className="pointer-events-none absolute -right-14 -top-14 size-36 rounded-full bg-white/18 blur-3xl" /><span className="relative flex items-start justify-between gap-4"><span className="grid size-12 place-items-center rounded-[8px] border border-white/25 bg-white/16 transition group-hover:scale-105">{card.icon}</span><span className="rounded-full border border-white/20 bg-white/15 px-3 py-1 text-[10px] font-black uppercase tracking-[.12em] text-white/80">{card.count}</span></span><h4 className="relative mt-7 text-lg font-black">{card.title}</h4><p className="relative mt-2 min-h-12 text-sm leading-6 text-white/80">{card.description}</p><div className="relative mt-5 flex flex-wrap gap-2">{card.actions.map(([label, target]) => <button key={label} type="button" onClick={() => setActive(target)} className="rounded-full border border-white/20 bg-white/16 px-3 py-2 text-xs font-black text-white shadow-[0_10px_28px_rgba(0,0,0,.12)] transition hover:bg-white hover:text-slate-950">{label}</button>)}</div></article>)}</div>
+          <div className="mb-3 flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">Kategori çalışma alanı</p><h3 className="mt-1 text-lg font-black text-white">İşletim sistemi modülleri</h3></div><span className="rounded-full border border-white/10 px-3 py-1 text-[10px] font-black text-slate-400">HK OS</span></div>
+          <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">{categoryCards.map((card) => <article key={card.title} className={`group relative min-h-44 overflow-hidden rounded-[8px] border border-white/15 bg-gradient-to-br ${card.gradient} p-4 text-white shadow-[0_12px_34px_rgba(0,0,0,.18)] transition duration-200 hover:-translate-y-0.5`}><span className="relative flex items-start justify-between gap-4"><span className="grid size-10 place-items-center rounded-[8px] border border-white/20 bg-white/[0.12]">{card.icon}</span><span className="rounded-full border border-white/20 bg-black/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[.10em] text-white/80">{card.count}</span></span><h4 className="relative mt-5 text-base font-black">{card.title}</h4><p className="relative mt-2 min-h-10 text-xs leading-5 text-white/75">{card.description}</p><div className="relative mt-4 flex flex-wrap gap-2">{card.actions.map(([label, target]) => <button key={label} type="button" onClick={() => setActive(target)} className="rounded-[8px] border border-white/20 bg-black/10 px-2.5 py-1.5 text-xs font-black text-white transition hover:bg-white hover:text-slate-950">{label}</button>)}</div></article>)}</div>
         </div>
-        <aside className="rounded-[8px] border border-white/10 bg-white/[0.04] p-4 shadow-[0_20px_64px_rgba(0,0,0,.16)]">
-          <div className="flex items-center gap-3"><span className="grid size-9 place-items-center rounded-[8px] border border-amber-200/20 bg-amber-200/10 text-amber-200"><Bell size={17} /></span><div><p className="text-[10px] font-black uppercase tracking-[.16em] text-amber-200">Insights & Notifications</p><h3 className="mt-1 text-sm font-black text-white">Operasyon bildirimleri</h3></div></div>
-          <div className="mt-4 grid gap-2">{insightItems.slice(0, 5).map(([count, title, , target]) => <button key={title} onClick={() => setActive(target)} className="flex items-start justify-between gap-3 rounded-[8px] border border-white/10 bg-black/10 p-3 text-left transition hover:border-cyan-200/30"><span className="text-xs font-bold leading-5 text-slate-300">{title}</span><span className="grid size-6 shrink-0 place-items-center rounded-full bg-cyan-300 text-[10px] font-black text-slate-950">{count}</span></button>)}{!insightItems.length && <p className="rounded-[8px] border border-emerald-300/20 bg-emerald-300/10 p-3 text-xs leading-5 text-emerald-100">Öncelikli bildirim bulunmuyor.</p>}</div>
-          <div className="mt-5 border-t border-white/10 pt-4"><p className="text-[10px] font-black uppercase tracking-[.15em] text-slate-500">Sistem sağlığı</p><div className="mt-2 flex items-end justify-between gap-3"><span className="text-3xl font-black text-white">%{healthScore}</span><span className={`text-xs font-black ${healthScore >= 80 ? "text-emerald-300" : healthScore >= 55 ? "text-amber-300" : "text-red-300"}`}>{healthScore >= 80 ? "Aktif" : healthScore >= 55 ? "Uyarı" : "Çevrimdışı"}</span></div></div>
+        <aside className="rounded-[8px] border border-white/10 bg-white/[0.035] p-4 shadow-[0_12px_34px_rgba(0,0,0,.14)]">
+          <div className="flex items-center gap-3"><span className="grid size-8 place-items-center rounded-[8px] border border-amber-200/20 bg-amber-200/10 text-amber-200"><Bell size={15} /></span><div><p className="text-[10px] font-black uppercase tracking-[.14em] text-amber-200">Notifications</p><h3 className="mt-1 text-sm font-black text-white">Operasyon bildirimleri</h3></div></div>
+          <div className="mt-3 grid gap-2">{insightItems.slice(0, 5).map(([count, title, , target]) => <button key={title} onClick={() => setActive(target)} className="flex items-start justify-between gap-3 rounded-[8px] border border-white/10 bg-black/10 p-2.5 text-left transition hover:border-cyan-200/30"><span className="text-xs font-bold leading-5 text-slate-300">{title}</span><span className="grid size-6 shrink-0 place-items-center rounded-full bg-cyan-300 text-[10px] font-black text-slate-950">{count}</span></button>)}{!insightItems.length && <p className="rounded-[8px] border border-emerald-300/20 bg-emerald-300/10 p-3 text-xs leading-5 text-emerald-100">Öncelikli bildirim bulunmuyor.</p>}</div>
+          <div className="mt-4 border-t border-white/10 pt-3"><p className="text-[10px] font-black uppercase tracking-[.14em] text-slate-500">Sistem sağlığı</p><div className="mt-2 flex items-end justify-between gap-3"><span className="text-2xl font-black text-white">%{healthScore}</span><span className={`text-xs font-black ${healthScore >= 80 ? "text-emerald-300" : healthScore >= 55 ? "text-amber-300" : "text-red-300"}`}>{healthScore >= 80 ? "Aktif" : healthScore >= 55 ? "Uyarı" : "Çevrimdışı"}</span></div></div>
         </aside>
       </div>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-cyan-200/15 bg-cyan-200/[0.05] p-4">
