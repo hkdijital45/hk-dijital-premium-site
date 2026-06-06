@@ -281,6 +281,7 @@ export function AdminDashboard({
   const [theme, setTheme] = useState("dark");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [customTheme, setCustomTheme] = useState(null);
   const [bootVisible, setBootVisible] = useState(false);
   const [bootStep, setBootStep] = useState(0);
@@ -410,6 +411,21 @@ export function AdminDashboard({
   const panelClass = theme === "dark" ? "border-white/10 bg-white/[0.045]" : "border-slate-200 bg-white";
   const headerClass = theme === "dark" ? "border-white/10 bg-[#050711]/90" : "border-slate-200 bg-white/90";
   const aiStatus = aiMetaFromApi(content.settings?.api || {});
+  const headerLeads = content.leads || [];
+  const headerActivity = content.activityLogs || [];
+  const headerNotifications = [
+    { label: "New leads", text: `${headerLeads.filter((lead) => (lead.status || "Yeni") === "Yeni").length} yeni lead takip bekliyor.`, tone: "cyan" },
+    { label: "New CRM activity", text: headerActivity[0]?.action ? `${headerActivity[0].action}: ${headerActivity[0].entity || headerActivity[0].actor_name || "CRM"}` : "Yeni CRM aktivitesi bekleniyor.", tone: "emerald" },
+    { label: "AI events", text: `${aiStatus.provider} aktif · ${aiStatus.mode} mod`, tone: "purple" },
+    { label: "System events", text: startupApiData?.lastTestTime ? `Son API testi: ${new Date(startupApiData.lastTestTime).toLocaleString("tr-TR")}` : "API durum testi bekleniyor.", tone: "amber" }
+  ];
+  const userInitials = String(currentSession?.fullName || currentSession?.email || "HK")
+    .split(/\s|@/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((item) => item[0])
+    .join("")
+    .toLocaleUpperCase("tr");
   const dashboardAliases = ["Dashboard", "AI Durum Merkezi", "Canlı Aktivite", "Sistem Özeti"];
   const crmLeadViews = ["Tüm Başvurular", "Yeni Başvurular", "Meta Analiz Leadleri", "Google Ads Analiz Leadleri", "Sosyal İstihbarat Leadleri", "Reddedilenler", "Silinenler"];
   const reportAliases = ["Teklifler", "Rapor Yorumları", "Dışa Aktarımlar", "Dışa Aktarma", "Müşteri Raporları", "Performans Raporları"];
@@ -494,6 +510,34 @@ export function AdminDashboard({
               <span className="block text-[10px] text-cyan-100/70">Mod: {aiStatus.mode}</span>
             </button>
             <GlobalAdminSearch />
+            <div className="relative">
+              <button onClick={() => setNotificationsOpen((current) => !current)} className="relative grid min-h-11 min-w-11 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-slate-100 transition hover:border-cyan-200/30 hover:bg-cyan-200/10" aria-label="Bildirimler">
+                <Bell size={17} />
+                <span className="absolute right-2 top-2 size-2 rounded-full bg-amber-300 shadow-[0_0_18px_rgba(250,204,21,.8)]" />
+              </button>
+              {notificationsOpen && (
+                <div className="absolute right-0 top-14 z-50 w-[min(92vw,360px)] rounded-[8px] border border-white/10 bg-[#080f20]/95 p-4 text-white shadow-2xl backdrop-blur-2xl">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">Notifications</p>
+                      <h3 className="mt-1 font-black">Operasyon olayları</h3>
+                    </div>
+                    <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] font-black">{headerNotifications.length}</span>
+                  </div>
+                  <div className="mt-4 grid gap-2">
+                    {headerNotifications.map((item) => (
+                      <div key={item.label} className={`rounded-[8px] border p-3 ${item.tone === "cyan" ? "border-cyan-200/20 bg-cyan-300/10" : item.tone === "emerald" ? "border-emerald-200/20 bg-emerald-300/10" : item.tone === "purple" ? "border-purple-200/20 bg-purple-300/10" : "border-amber-200/20 bg-amber-300/10"}`}>
+                        <p className="text-xs font-black text-white">{item.label}</p>
+                        <p className="mt-1 text-xs leading-5 text-slate-300">{item.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="grid min-h-11 min-w-11 place-items-center rounded-full border border-white/10 bg-gradient-to-br from-cyan-300/20 to-amber-300/20 text-sm font-black text-white" title={currentSession?.email || "HK Admin"}>
+              {userInitials || "HK"}
+            </div>
             <div className="relative">
               <button onClick={() => setHelpOpen((current) => !current)} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/10 px-5 text-sm font-bold">
                 <HelpCircle size={17} /> Yardım
@@ -1028,6 +1072,17 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     "Reporting Focus": { order: ["charts", "metrics", "insights", "quickActions", "activity", "aiStatus", "status", "crm", "demo"], hidden: ["crm"], favorites: ["Raporlar", "Müşteriler"] },
     "Executive Overview": { order: dashboardWidgetDefaults, hidden: [], favorites: ["Müşteri Bulucu", "CRM"] }
   };
+  const conversionRate = leads.length ? Math.round(activeCustomers.length / leads.length * 100) : 0;
+  const osDashboardWidgets = [
+    ["CRM Özeti", leads.length, `${newLeads.length} yeni · ${hotLeads.length} sıcak`, <UsersRound size={22} />, "from-cyan-400 via-blue-500 to-indigo-600", "CRM"],
+    ["Meta Analiz", metaLeadCount, "Meta kaynaklı lead ve sinyal", <BarChart3 size={22} />, "from-orange-300 via-pink-500 to-rose-600", "Meta Analiz"],
+    ["Google Analiz", googleLeadCount, "Arama görünürlüğü fırsatları", <Search size={22} />, "from-sky-300 via-cyan-500 to-blue-600", "Google Ads Analiz"],
+    ["AI Durumu", healthScore + "%", `${activeAiMeta.provider} · ${activeAiMeta.mode}`, <Bot size={22} />, "from-violet-400 via-purple-500 to-fuchsia-600", "AI Durum Merkezi"],
+    ["PDF Auditler", reports.length + socialAuditLeads.length, "Audit ve rapor çıktıları", <FileBarChart size={22} />, "from-amber-300 via-orange-400 to-red-500", "PDF Audit"],
+    ["WhatsApp Teklifleri", generatedProposals, "Hazır teklif iletişimleri", <MessageSquareText size={22} />, "from-emerald-300 via-green-500 to-teal-600", "WhatsApp Teklifi"],
+    ["Müşteriler", activeCustomers.length, "Aktif müşteri portföyü", <Building2 size={22} />, "from-teal-300 via-cyan-500 to-slate-700", "Müşteriler"],
+    ["Dönüşüm Oranı", `%${conversionRate}`, "Leadden müşteriye dönüşüm", <Gauge size={22} />, "from-yellow-300 via-amber-500 to-orange-600", "CRM"]
+  ].filter(([, , , , , target]) => canOpen(String(target)) || ["AI Durum Merkezi", "PDF Audit", "WhatsApp Teklifi"].includes(String(target)));
 
   async function createDemoCustomer() {
     setDemoLoading(true);
@@ -1054,7 +1109,7 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
 
   const widgetNames = { metrics: "Sistem metrikleri", aiStatus: "AI Durum Merkezi", operations: "Canlı operasyon merkezi", pipeline: "CRM pipeline görseli", intelligence: "Intelligence merkezi", status: "Sistem durum merkezi", charts: "Gerçek veri grafikleri", insights: "AI içgörüleri", quickActions: "Hızlı aksiyonlar", crm: "CRM akışı", activity: "Son aktiviteler", demo: "Müşteri paneli testi" };
   const widgets: any = {
-    metrics: <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{stats.map(([label, value, note, icon, accent]) => <MetricCard3D key={label} label={label} value={value} note={note} accent={accent} icon={icon} />)}</div>,
+    metrics: <div><div className="mb-4 flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.18em] text-cyan-200">Dashboard Widgets</p><h3 className="mt-1 text-xl font-black text-white">HK Business Operating System</h3><p className="mt-1 text-sm text-slate-400">CRM, istihbarat, AI, rapor ve teklif akışlarını tek ekranda izleyin.</p></div><span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-black text-slate-300">Gerçek veriler</span></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{osDashboardWidgets.map(([label, value, note, icon, gradient, target]) => <button key={label} type="button" onClick={() => setActive(target)} className={`group relative min-h-40 overflow-hidden rounded-[8px] border border-white/15 bg-gradient-to-br ${gradient} p-5 text-left text-white shadow-[0_22px_70px_rgba(0,0,0,.22)] transition hover:-translate-y-1 hover:shadow-[0_30px_90px_rgba(0,0,0,.28)]`}><span className="pointer-events-none absolute -right-10 -top-10 size-32 rounded-full bg-white/20 blur-3xl" /><span className="relative flex items-start justify-between gap-3"><span className="grid size-11 place-items-center rounded-[8px] border border-white/25 bg-white/15">{icon}</span><span className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-black uppercase tracking-[.12em] text-white/75">Aç</span></span><p className="relative mt-5 text-sm font-black uppercase tracking-[.12em] text-white/70">{label}</p><p className="relative mt-2 text-3xl font-black">{value}</p><p className="relative mt-2 text-xs leading-5 text-white/75">{note}</p></button>)}</div><details className="mt-4 rounded-[8px] border border-white/10 bg-black/10 p-3"><summary className="cursor-pointer text-xs font-black uppercase tracking-[.14em] text-slate-400">Tüm sistem metrikleri</summary><div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">{stats.map(([label, value, note, icon, accent]) => <MetricCard3D key={label} label={label} value={value} note={note} accent={accent} icon={icon} />)}</div></details></div>,
     aiStatus: <AiStatusCenterWidget statuses={aiStatusCenter} message={aiStatusMessage || (content.settings?.api?.ai_status_last_test_at ? `Son test: ${new Date(content.settings.api.ai_status_last_test_at).toLocaleString("tr-TR")}` : "Henüz test yapılmadı.")} loading={aiStatusLoading} onRefresh={refreshAiStatus} />,
     operations: <GlassCard className="overflow-hidden p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[.16em] text-lime-200">Canlı Aktivite</p><h3 className="mt-2 text-xl font-black text-white">Live Operations Center</h3><p className="mt-1 text-sm text-slate-400">Lead, CRM, AI, PDF, WhatsApp ve API hareketlerini tek akışta izleyin.</p></div><span className="rounded-full bg-lime-300 px-3 py-1 text-[10px] font-black uppercase tracking-[.12em] text-slate-950">Aktif</span></div><div className="mt-5 grid gap-5 lg:grid-cols-[1fr_320px]"><div className="grid gap-2">{liveOperations.map(([title, text, date, accent]) => <div key={title} className={`flex items-center justify-between gap-4 rounded-[8px] border p-3 ${accent === "blue" ? "border-blue-200/25 bg-blue-400/12" : accent === "indigo" ? "border-indigo-200/25 bg-indigo-400/12" : accent === "purple" ? "border-purple-200/25 bg-purple-400/12" : accent === "rose" ? "border-rose-200/25 bg-rose-400/12" : accent === "lime" ? "border-lime-200/25 bg-lime-400/12" : "border-cyan-200/25 bg-cyan-400/12"}`}><div><p className="text-sm font-black text-white">{title}</p><p className="mt-1 text-xs leading-5 text-slate-300">{text}</p></div><time className="shrink-0 text-[10px] font-bold text-slate-400">{date ? new Date(date).toLocaleDateString("tr-TR") : "Bekliyor"}</time></div>)}</div><div className="rounded-[8px] border border-white/10 bg-black/15 p-4"><p className="mb-4 text-xs font-black uppercase tracking-[.16em] text-cyan-100">Operasyon ritmi</p><AnimatedChart label="Aktivite sinyali" values={[18, Math.min(92, leads.length * 9), Math.min(88, activityLogs.length * 12), Math.min(82, aiAnalyzedLeads.length * 15), Math.min(76, reports.length * 13), Math.min(86, generatedProposals * 16)]} /></div></div></GlassCard>,
     pipeline: <GlassCard className="p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[.16em] text-blue-200">CRM Pipeline Visual</p><h3 className="mt-2 text-xl font-black text-white">Satış ve takip hattı</h3><p className="mt-1 text-sm text-slate-400">Aşamalar gerçek lead durumlarından hesaplanır.</p></div><button onClick={() => setActive("CRM")} className="rounded-full border border-blue-200/20 px-4 py-2 text-xs font-black text-blue-100">CRM Aç</button></div><div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-6">{pipelineStages.map(([stage, count, gradient], index) => <div key={stage} className={`relative min-h-36 overflow-hidden rounded-[8px] border border-white/15 bg-gradient-to-br ${gradient} p-4 text-white shadow-[0_20px_55px_rgba(0,0,0,.18)] transition hover:-translate-y-1`}><span className="absolute -right-8 -top-8 size-24 rounded-full bg-white/18 blur-2xl" /><p className="relative text-xs font-black uppercase tracking-[.13em] text-white/72">{stage}</p><p className="relative mt-5 text-3xl font-black">{count}</p><div className="relative mt-4 h-2 overflow-hidden rounded-full bg-white/22"><div className="h-full rounded-full bg-white/80" style={{ width: `${Math.min(100, Number(count) * 18 + 12)}%` }} /></div><p className="relative mt-3 text-[10px] font-bold text-white/72">Aşama {index + 1}</p></div>)}</div></GlassCard>,
@@ -1190,14 +1245,55 @@ function Crm({ content, setContent, view, setActive }: any) {
   const [sourceFilter, setSourceFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [statusTab, setStatusTab] = useState("Tüm Başvurular");
+  const [folderFilter, setFolderFilter] = useState(() => {
+    if (String(view || "").includes("Meta")) return "Meta Leadleri";
+    if (String(view || "").includes("Google")) return "Google Leadleri";
+    if (String(view || "").includes("Sosyal")) return "Sosyal İstihbarat Leadleri";
+    if (String(view || "").includes("Takip")) return "Takip Bekleyenler";
+    if (String(view || "").includes("Reddedilen") || String(view || "").includes("Silinen")) return "Arşiv";
+    return "Web Başvuruları";
+  });
   const [sectorFilter, setSectorFilter] = useState("");
   const [budgetFilter, setBudgetFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [selectedLead, setSelectedLead] = useState(null);
   const [message, setMessage] = useState("");
-  const leads = (content.leads ?? [])
-    .filter((lead) => statusTab === "Tüm Başvurular" ? !isLeadDeleted(lead) && !isLeadRejected(lead) : crmTabForLead(lead) === statusTab)
+  const allLeads = content.leads ?? [];
+  const isMetaLead = (lead) => lead.source === "Meta Analiz";
+  const isGoogleLead = (lead) => lead.source === "Google Ads Analiz" || String(lead.source || "").includes("Google");
+  const isSocialLead = (lead) => ["Sosyal İstihbarat Merkezi", "Sosyal Medya Denetimi"].includes(lead.source);
+  const isCustomerLead = (lead) => ["Kazanıldı", "Dönüştürüldü", "Müşteri Oldu"].includes(lead.status);
+  const isFollowLead = (lead) => ["Takipte", "Görüşülecek", "Teklif Hazırlanıyor", "Teklif Gönderildi"].includes(lead.status) || Boolean(lead.follow_up_date || lead.followUpDate);
+  const isArchivedLead = (lead) => isLeadDeleted(lead) || isLeadRejected(lead) || ["Kaybedildi", "Reddedildi"].includes(lead.status);
+  const isWebLead = (lead) => !isMetaLead(lead) && !isGoogleLead(lead) && !isSocialLead(lead) && !isCustomerLead(lead) && !isArchivedLead(lead);
+  const crmFolders = [
+    { label: "Meta Leadleri", description: "Meta Analysis kaynaklı fırsatlar", icon: <BarChart3 size={16} />, match: isMetaLead, accent: "from-orange-400 to-rose-500" },
+    { label: "Google Leadleri", description: "Google Ads / Maps sinyalleri", icon: <Search size={16} />, match: isGoogleLead, accent: "from-cyan-400 to-blue-600" },
+    { label: "Sosyal İstihbarat Leadleri", description: "Sosyal audit ve profil kayıtları", icon: <Sparkles size={16} />, match: isSocialLead, accent: "from-yellow-300 to-orange-500" },
+    { label: "Web Başvuruları", description: "Form ve teklif sihirbazı kayıtları", icon: <FileBarChart size={16} />, match: isWebLead, accent: "from-blue-400 to-indigo-600" },
+    { label: "Müşteriler", description: "Müşteriye dönüşen başvurular", icon: <Building2 size={16} />, match: isCustomerLead, accent: "from-emerald-400 to-teal-600" },
+    { label: "Takip Bekleyenler", description: "Takip tarihi veya açık süreç", icon: <Activity size={16} />, match: isFollowLead, accent: "from-purple-400 to-fuchsia-600" },
+    { label: "Arşiv", description: "Reddedilen ve silinen kayıtlar", icon: <Trash2 size={16} />, match: isArchivedLead, accent: "from-slate-500 to-slate-800" }
+  ];
+  const activeFolder = crmFolders.find((folder) => folder.label === folderFilter) || crmFolders[3];
+  const folderCounts = crmFolders.reduce((acc, folder) => {
+    acc[folder.label] = allLeads.filter(folder.match).length;
+    return acc;
+  }, {});
+  const heatBadge = (lead) => {
+    const score = Number(lead.lead_heat_score || 0);
+    if (score >= 70) return { label: "🔥 Sıcak", className: "border-red-300/25 bg-red-400/10 text-red-100" };
+    if (score >= 50) return { label: "🟡 Ilık", className: "border-amber-300/25 bg-amber-300/10 text-amber-100" };
+    return { label: "⚪ Soğuk", className: "border-white/10 bg-white/[0.06] text-slate-300" };
+  };
+  const crmRecentActivity = [
+    ...(content.activityLogs || []).slice(0, 4).map((item) => ({ id: `activity-${item.id}`, title: item.action || "CRM aktivitesi", text: item.entity || item.actor_name || "HK OS", date: item.created_at })),
+    ...allLeads.slice(0, 4).map((lead) => ({ id: `lead-${lead.id}`, title: lead.source || "Yeni lead", text: lead.company || lead.name || "İsimsiz başvuru", date: lead.created_at || lead.createdAt }))
+  ].sort((a, b) => Number(new Date(b.date)) - Number(new Date(a.date))).slice(0, 6);
+  const leads = allLeads
+    .filter((lead) => activeFolder.match(lead))
+    .filter((lead) => statusTab === "Tüm Başvurular" ? (folderFilter === "Arşiv" || (!isLeadDeleted(lead) && !isLeadRejected(lead))) : crmTabForLead(lead) === statusTab)
     .filter((lead) => JSON.stringify(lead).toLocaleLowerCase("tr").includes(query.toLocaleLowerCase("tr")))
     .filter((lead) => !sourceFilter || lead.source === sourceFilter)
     .filter((lead) => !statusFilter || lead.status === statusFilter)
@@ -1252,35 +1348,69 @@ function Crm({ content, setContent, view, setActive }: any) {
   }
   return (
     <Panel title={view === "Teklif Sihirbazı Kayıtları" ? "Teklif Sihirbazı Kayıtları" : "Form Başvuruları"}>
-      <div className="mb-5 flex gap-2 overflow-x-auto pb-2">
-        {crmStatusTabs.map((tab) => <button key={tab} onClick={() => setStatusTab(tab)} className={`shrink-0 rounded-full border px-4 py-2 text-xs font-black transition ${statusTab === tab ? "border-cyan-200/60 bg-cyan-200/15 text-cyan-50" : "border-white/10 text-slate-400 hover:border-cyan-200/30 hover:text-cyan-100"}`}>{tab} <span className="ml-1 text-[10px] opacity-70">{tabCounts[tab] || 0}</span></button>)}
-      </div>
-      <div className="mb-5 grid gap-3 lg:grid-cols-[1.2fr_repeat(3,.7fr)]">
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Başvuru ara..." className="min-h-11 rounded-[8px] border border-white/10 bg-black/30 px-3 text-white" />
-        <SelectField label="Kaynak" value={sourceFilter} onChange={setSourceFilter} options={leadSourceOptions} placeholder="Tüm kaynaklar" />
-        <SelectField label="Durum" value={statusFilter} onChange={setStatusFilter} options={leadStatuses} placeholder="Tüm durumlar" />
-        <SelectField label="Sektör" value={sectorFilter} onChange={setSectorFilter} options={sectorOptions} placeholder="Tüm sektörler" />
-      </div>
-      <div className="mb-5 grid gap-3 md:grid-cols-[1fr_.8fr_.8fr_auto]">
-        <input value={budgetFilter} onChange={(e) => setBudgetFilter(e.target.value)} placeholder="Bütçe filtresi" className="min-h-11 rounded-[8px] border border-white/10 bg-black/30 px-3 text-white" />
-        <Field label="Başlangıç tarihi" type="date" value={dateFrom} onChange={setDateFrom} />
-        <Field label="Bitiş tarihi" type="date" value={dateTo} onChange={setDateTo} />
-        <button onClick={exportCsv} className="mt-auto inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-cyan-300 px-4 text-sm font-black text-slate-950"><Download size={16} /> CSV Dışa Aktar</button>
-      </div>
-      {message && <p className="mb-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{message}</p>}
-      <div className="grid gap-3">
-        {leads.map((lead) => (
-          <button key={lead.id} onClick={() => setSelectedLead(lead)} className="rounded-[8px] border border-white/10 p-4 text-left transition hover:border-cyan-200/40 hover:bg-cyan-200/5">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div><h3 className="font-black">{lead.name || "İsimsiz başvuru"}</h3><p className="mt-1 text-sm text-slate-400">{lead.source || "Form"} · {lead.company || "-"} · {lead.phone || lead.email || "-"}</p></div>
-              <span className="rounded-full bg-cyan-200/10 px-3 py-1 text-xs font-bold text-cyan-100">{lead.status || "Yeni"}</span>
+      <div className="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
+        <aside className="grid gap-4 self-start">
+          <section className="rounded-[8px] border border-white/10 bg-white/[0.04] p-4 shadow-[0_20px_60px_rgba(0,0,0,.16)]">
+            <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">CRM klasörleri</p>
+            <div className="mt-4 grid gap-2">
+              {crmFolders.map((folder) => (
+                <button key={folder.label} type="button" onClick={() => setFolderFilter(folder.label)} className={`group flex items-center gap-3 rounded-[8px] p-3 text-left transition ${folderFilter === folder.label ? "bg-cyan-300 text-slate-950 shadow-[0_16px_42px_rgba(34,211,238,.18)]" : "border border-white/10 bg-black/10 text-slate-300 hover:border-cyan-200/30 hover:bg-cyan-200/10 hover:text-cyan-50"}`}>
+                  <span className={`grid size-9 shrink-0 place-items-center rounded-[8px] bg-gradient-to-br ${folder.accent} text-white shadow-[0_10px_26px_rgba(0,0,0,.18)]`}>{folder.icon}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-black">{folder.label}</span>
+                    <span className={`mt-0.5 block text-[10px] leading-4 ${folderFilter === folder.label ? "text-slate-800" : "text-slate-500"}`}>{folder.description}</span>
+                  </span>
+                  <span className={`grid size-7 shrink-0 place-items-center rounded-full text-[10px] font-black ${folderFilter === folder.label ? "bg-slate-950 text-white" : "bg-white/10 text-slate-300"}`}>{folderCounts[folder.label] || 0}</span>
+                </button>
+              ))}
             </div>
-            <p className="mt-3 text-sm text-slate-300">İşletme: {lead.business_type || lead.businessType || "-"} · Hedef: {lead.goal || "-"} · Bütçe: {lead.budget || "-"}</p>
-            <p className="mt-1 text-xs text-slate-500">Önerilen paket: {lead.recommended_package || lead.recommendedPackage || "-"} · Gönderim: {formatDate(lead.created_at || lead.createdAt)}</p>
-            {lead.rejection_reason && <p className="mt-2 rounded-[8px] border border-red-300/20 bg-red-500/10 p-2 text-xs text-red-100">Red nedeni: {lead.rejection_reason}</p>}
-          </button>
-        ))}
-        {!leads.length && <p className="text-sm text-slate-400">Başvuru bulunamadı.</p>}
+          </section>
+          <section className="rounded-[8px] border border-white/10 bg-black/15 p-4">
+            <p className="text-xs font-black uppercase tracking-[.16em] text-amber-200">Recent activity</p>
+            <div className="mt-3 grid gap-2">
+              {crmRecentActivity.map((item) => <div key={item.id} className="rounded-[8px] border border-white/10 bg-white/[0.035] p-3"><p className="text-xs font-black text-white">{item.title}</p><p className="mt-1 text-xs leading-5 text-slate-400">{item.text}</p><p className="mt-2 text-[10px] font-bold text-slate-500">{item.date ? formatDateTime(item.date) : "Bekliyor"}</p></div>)}
+              {!crmRecentActivity.length && <p className="rounded-[8px] border border-dashed border-white/10 p-3 text-xs text-slate-400">Henüz aktivite yok.</p>}
+            </div>
+          </section>
+        </aside>
+        <div className="min-w-0">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-cyan-200/15 bg-cyan-200/[0.05] p-4">
+            <div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">{activeFolder.label}</p><h3 className="mt-1 text-lg font-black text-white">{folderCounts[activeFolder.label] || 0} kayıt</h3></div>
+            <button onClick={exportCsv} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-cyan-300 px-4 text-sm font-black text-slate-950"><Download size={16} /> CSV Dışa Aktar</button>
+          </div>
+          <div className="mb-5 flex gap-2 overflow-x-auto pb-2">
+            {crmStatusTabs.map((tab) => <button key={tab} onClick={() => setStatusTab(tab)} className={`shrink-0 rounded-full border px-4 py-2 text-xs font-black transition ${statusTab === tab ? "border-cyan-200/60 bg-cyan-200/15 text-cyan-50" : "border-white/10 text-slate-400 hover:border-cyan-200/30 hover:text-cyan-100"}`}>{tab} <span className="ml-1 text-[10px] opacity-70">{tabCounts[tab] || 0}</span></button>)}
+          </div>
+          <div className="mb-5 grid gap-3 lg:grid-cols-[1.2fr_repeat(3,.7fr)]">
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Başvuru ara..." className="min-h-11 rounded-[8px] border border-white/10 bg-black/30 px-3 text-white" />
+            <SelectField label="Kaynak" value={sourceFilter} onChange={setSourceFilter} options={leadSourceOptions} placeholder="Tüm kaynaklar" />
+            <SelectField label="Durum" value={statusFilter} onChange={setStatusFilter} options={leadStatuses} placeholder="Tüm durumlar" />
+            <SelectField label="Sektör" value={sectorFilter} onChange={setSectorFilter} options={sectorOptions} placeholder="Tüm sektörler" />
+          </div>
+          <div className="mb-5 grid gap-3 md:grid-cols-3">
+            <input value={budgetFilter} onChange={(e) => setBudgetFilter(e.target.value)} placeholder="Bütçe filtresi" className="min-h-11 rounded-[8px] border border-white/10 bg-black/30 px-3 text-white" />
+            <Field label="Başlangıç tarihi" type="date" value={dateFrom} onChange={setDateFrom} />
+            <Field label="Bitiş tarihi" type="date" value={dateTo} onChange={setDateTo} />
+          </div>
+          {message && <p className="mb-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{message}</p>}
+          <div className="grid gap-3">
+            {leads.map((lead) => {
+              const heat = heatBadge(lead);
+              return (
+                <button key={lead.id} onClick={() => setSelectedLead(lead)} className="rounded-[8px] border border-white/10 bg-white/[0.025] p-4 text-left transition hover:border-cyan-200/40 hover:bg-cyan-200/5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div><h3 className="font-black">{lead.name || "İsimsiz başvuru"}</h3><p className="mt-1 text-sm text-slate-400">{lead.source || "Form"} · {lead.company || "-"} · {lead.phone || lead.email || "-"}</p></div>
+                    <div className="flex flex-wrap justify-end gap-2"><span className={`rounded-full border px-3 py-1 text-xs font-black ${heat.className}`}>{heat.label}</span><span className="rounded-full bg-cyan-200/10 px-3 py-1 text-xs font-bold text-cyan-100">{lead.status || "Yeni"}</span></div>
+                  </div>
+                  <p className="mt-3 text-sm text-slate-300">İşletme: {lead.business_type || lead.businessType || "-"} · Hedef: {lead.goal || "-"} · Bütçe: {lead.budget || "-"}</p>
+                  <p className="mt-1 text-xs text-slate-500">Önerilen paket: {lead.recommended_package || lead.recommendedPackage || "-"} · Gönderim: {formatDate(lead.created_at || lead.createdAt)}</p>
+                  {lead.rejection_reason && <p className="mt-2 rounded-[8px] border border-red-300/20 bg-red-500/10 p-2 text-xs text-red-100">Red nedeni: {lead.rejection_reason}</p>}
+                </button>
+              );
+            })}
+            {!leads.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-center text-sm text-slate-400">Bu klasörde seçili filtrelerle başvuru bulunamadı.</p>}
+          </div>
+        </div>
       </div>
       {selectedLead && <LeadDrawer lead={selectedLead} update={update} persistLead={persistLead} permanentDelete={permanentDelete} close={() => setSelectedLead(null)} onConverted={(data) => {
         setContent({
@@ -3078,10 +3208,21 @@ function SocialMediaAuditCenter() {
   const previewName = previewProfile.displayName || previewProfile.publicTitle || form.businessName || "Profil bilgisi bekleniyor.";
   const previewUsername = previewProfile.username ? "@" + String(previewProfile.username).replace(/^@/, "") : "@kullanici";
   const previewBio = previewProfile.bio || previewProfile.publicDescription || "Profil bilgisi bekleniyor.";
+  const socialActionCards = [
+    ["Düzeltilmesi Gerekenler", "Profil, bio, kreatif ve funnel tarafında hızlı düzeltme listesi.", <AlertTriangle size={17} />],
+    ["30 Günlük Sosyal Medya Planı", "Paylaşım ritmi, tema ve kampanya takvimi.", <Activity size={17} />],
+    ["Meta Reklam Stratejisi", "Meta kampanya yapısı ve hedef kitle önerileri.", <BarChart3 size={17} />],
+    ["Google Reklam Stratejisi", "Arama niyeti ve lokal reklam önerileri.", <Search size={17} />],
+    ["İçerik Fikirleri", "Markaya uygun içerik açısı ve kreatif fikirler.", <Sparkles size={17} />],
+    ["Teklif Hazırlama", "Satış görüşmesine uygun teklif yaklaşımı.", <MessageSquareText size={17} />],
+    ["PDF Audit Oluştur", "Analiz çıktısını mini audit olarak dışa aktar.", <FileBarChart size={17} />],
+    ["WhatsApp Teklifi Hazırla", "Müşteriye gönderilebilir kısa teklif metni.", <MessageSquareText size={17} />],
+    ["CRM’e Kaydet", "Bu fırsatı Sosyal İstihbarat kaynağıyla CRM'e aktar.", <UsersRound size={17} />]
+  ];
 
   return (
     <Panel title="Sosyal İstihbarat Merkezi">
-      <div className="mb-6 overflow-hidden rounded-[8px] border border-yellow-300/25 bg-gradient-to-br from-yellow-300/16 via-cyan-300/8 to-white/[0.03] p-6 shadow-[0_26px_90px_rgba(250,204,21,.10)]">
+      <div className="mb-7 overflow-hidden rounded-[8px] border border-yellow-300/25 bg-gradient-to-br from-yellow-300/16 via-cyan-300/8 to-white/[0.03] p-6 shadow-[0_26px_90px_rgba(250,204,21,.10)]">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[.16em] text-yellow-200">AI Powered Social Intelligence Center</p>
@@ -3094,11 +3235,11 @@ function SocialMediaAuditCenter() {
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="grid gap-7 xl:grid-cols-2 xl:items-start">
         <div className="grid gap-5">
           <section className="rounded-[8px] border border-white/10 bg-white/[0.045] p-5 shadow-[0_18px_70px_rgba(15,23,42,.22)]">
             <div className="mb-4"><p className="text-xs font-black uppercase tracking-[.14em] text-cyan-100">İşletme bilgileri</p><h3 className="mt-1 text-lg font-black text-white">Analiz bağlamı</h3></div>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2">
               <Field label="İşletme adı" value={form.businessName} onChange={(businessName) => setForm({ ...form, businessName })} />
               <SelectField label="İl" value={form.city} onChange={updateCity} options={cityOptions} />
               <SelectField label="İlçe" value={form.district} onChange={(district) => setForm({ ...form, district })} options={districts} />
@@ -3120,7 +3261,79 @@ function SocialMediaAuditCenter() {
           <section className="rounded-[8px] border border-white/10 bg-white/[0.035] p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-black text-white">Ekran Görüntüsü Yükle</p><p className="mt-1 text-xs leading-5 text-slate-400">PNG, JPG, JPEG veya WEBP yükleyin. Instagram bazı profil verilerini engelliyor. Ekran görüntüsü yüklerseniz AI daha doğru analiz yapar.</p></div><label className="cursor-pointer rounded-full bg-yellow-300 px-4 py-2 text-sm font-black text-slate-950"><input type="file" accept="image/png,image/jpeg,image/jpg,image/webp" multiple className="hidden" onChange={(event) => addScreenshots(event.target.files)} />Ekran Görüntüsü Yükle</label></div><div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{screenshots.map((shot, index) => <div key={shot.id} className="rounded-[8px] border border-white/10 bg-black/15 p-3"><img src={shot.url} alt={shot.name} className="h-32 w-full rounded-[6px] object-cover" /><p className="mt-2 truncate text-xs font-bold text-white">{shot.name}</p><div className="mt-2 flex gap-2"><a href={shot.url} target="_blank" rel="noreferrer" className="rounded-full border border-cyan-200/20 px-3 py-1 text-xs text-cyan-100">Görüntüle</a><button onClick={() => moveScreenshot(index, -1)} className="rounded-full border border-white/10 px-2 text-slate-300"><ArrowUp size={14} /></button><button onClick={() => moveScreenshot(index, 1)} className="rounded-full border border-white/10 px-2 text-slate-300"><ArrowDown size={14} /></button><button onClick={() => setScreenshots(screenshots.filter((current) => current.id !== shot.id))} className="rounded-full border border-red-300/20 px-2 text-red-200"><Trash2 size={14} /></button></div></div>)}{!screenshots.length && <p className="rounded-[8px] border border-dashed border-white/10 p-5 text-sm text-slate-400 xl:col-span-3">Yüklü ekran görüntüsü yok.</p>}</div></section>
         </div>
 
-        <aside className="grid gap-5 self-start xl:sticky xl:top-5"><section className="rounded-[8px] border border-white/10 bg-white/[0.045] p-5"><p className="text-xs font-black uppercase tracking-[.14em] text-yellow-200">Canlı Profil Önizleme</p><div className="mx-auto mt-4 w-full max-w-[320px] rounded-[34px] border border-white/15 bg-slate-950 p-3 shadow-[0_30px_90px_rgba(0,0,0,.45)]"><div className="overflow-hidden rounded-[26px] border border-white/10 bg-[#050711]"><div className="flex items-center justify-between border-b border-white/10 px-4 py-3 text-xs font-black text-white"><span>{previewUsername}</span><span className="rounded-full bg-yellow-300/15 px-2 py-1 text-yellow-100">{previewProfile.platform || "Instagram"}</span></div>{latestScreenshot ? <img src={latestScreenshot.url} alt={latestScreenshot.name} className="h-44 w-full object-cover" /> : <div className="flex h-44 items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 text-center text-sm font-bold text-slate-500">{previewStatus === "Alınamadı" || previewStatus === "Sınırlı veri" ? "Profil bilgisi bekleniyor." : previewName}</div>}<div className="p-4"><div className="flex gap-3"><div className="grid size-20 shrink-0 place-items-center overflow-hidden rounded-full border border-white/15 bg-black/30">{previewProfile.profileImageUrl ? <img src={previewProfile.profileImageUrl} alt="Profil fotoğrafı" className="size-full object-cover" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : <ImagePlus size={22} className="text-slate-500" />}</div><div className="grid flex-1 grid-cols-3 gap-2 text-center text-xs text-slate-400"><div><p className="text-lg font-black text-white">—</p><p>Gönderi</p></div><div><p className="text-lg font-black text-white">—</p><p>Takipçi</p></div><div><p className="text-lg font-black text-white">—</p><p>Takip</p></div></div></div><p className="mt-4 text-sm font-black text-white">{previewName}</p><p className="mt-1 break-all text-xs font-bold text-yellow-100">{previewUsername}</p><p className="mt-2 text-xs leading-5 text-slate-300">{previewBio}</p>{previewProfile.website && <p className="mt-2 break-all text-xs font-bold text-emerald-100">{previewProfile.website}</p>}{previewProfile.profileUrl && <p className="mt-2 break-all text-[11px] text-slate-500">{previewProfile.profileUrl}</p>}<div className="mt-4 flex gap-2"><a href={previewProfile.profileUrl || "#"} target="_blank" rel="noreferrer" className="flex-1 rounded-full bg-white px-3 py-2 text-center text-xs font-black text-slate-950">Profili Aç</a><label className="flex-1 cursor-pointer rounded-full border border-white/15 px-3 py-2 text-center text-xs font-black text-white"><input type="file" accept="image/png,image/jpeg,image/jpg,image/webp" className="hidden" onChange={(event) => addScreenshots(event.target.files)} />Ekran Görüntüsü Yükle</label></div></div></div></div></section><section className="rounded-[8px] border border-white/10 bg-white/[0.035] p-5"><p className="text-sm font-black text-white">Seçili aksiyonlar</p><div className="mt-3 grid gap-2">{socialAuditActions.map((action) => <label key={action} className={"flex min-h-11 items-center gap-2 rounded-[8px] border px-3 text-xs font-black transition " + (actions.includes(action) ? "border-yellow-200/40 bg-yellow-300/10 text-yellow-100" : "border-white/10 text-slate-400")}><input type="checkbox" checked={actions.includes(action)} onChange={() => toggleAction(action)} />{action}</label>)}</div><div className="mt-4 grid gap-2"><button disabled={loading || !actions.filter((action) => action !== "CRM’e Kaydet").length || !hasInput} onClick={() => askAiProvider(runAudit)} className="rounded-full bg-yellow-300 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-60">{loading ? "Analiz ediliyor..." : "Seçili Analizleri Başlat"}</button>{actions.includes("CRM’e Kaydet") && <button disabled={crmSaving || (!outputs.length && !hasInput)} onClick={saveToCrm} className="rounded-full border border-yellow-200/30 px-5 py-3 text-sm font-black text-yellow-100 disabled:opacity-60">{crmSaving ? "CRM’e kaydediliyor..." : "CRM’e Kaydet"}</button>}{pdfOutput && <button onClick={downloadMiniAuditPdf} className="rounded-full border border-cyan-200/25 px-5 py-3 text-sm font-black text-cyan-100">PDF Audit Oluştur</button>}{whatsappOutput && <a href={'https://wa.me/?text=' + encodeURIComponent(whatsappText())} target="_blank" rel="noreferrer" className="rounded-full border border-emerald-200/25 px-5 py-3 text-center text-sm font-black text-emerald-100">WhatsApp’ta Aç</a>}{whatsappOutput && <button onClick={() => navigator.clipboard?.writeText(whatsappText())} className="rounded-full border border-white/10 px-5 py-3 text-sm font-black text-slate-200">Mesajı Kopyala</button>}</div></section></aside>
+        <aside className="grid gap-5 self-start xl:sticky xl:top-5">
+          <section className="overflow-hidden rounded-[8px] border border-white/10 bg-[linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.025))] p-5 shadow-[0_28px_95px_rgba(0,0,0,.28)]">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[.14em] text-yellow-200">Canlı Profil Önizleme</p>
+                <h3 className="mt-1 text-lg font-black text-white">Premium phone preview</h3>
+              </div>
+              <span className={"rounded-full px-3 py-1 text-[10px] font-black " + (previewStatus === "Profil bilgileri alındı" ? "bg-emerald-300/12 text-emerald-100" : previewStatus === "Sınırlı veri" ? "bg-amber-300/12 text-amber-100" : "bg-slate-300/10 text-slate-300")}>{previewStatus}</span>
+            </div>
+            <div className="mx-auto mt-5 w-full max-w-[460px] rounded-[46px] border border-white/20 bg-gradient-to-br from-slate-800 via-slate-950 to-black p-4 shadow-[0_40px_120px_rgba(0,0,0,.55)]">
+              <div className="overflow-hidden rounded-[34px] border border-white/10 bg-[#050711] shadow-inner">
+                <div className="relative flex items-center justify-center border-b border-white/10 px-5 py-4 text-xs font-black text-white">
+                  <span className="absolute left-5">{previewUsername}</span>
+                  <span className="h-1.5 w-20 rounded-full bg-white/18" />
+                  <span className="absolute right-5 rounded-full bg-yellow-300/15 px-2 py-1 text-yellow-100">{previewProfile.platform || "Instagram"}</span>
+                </div>
+                {latestScreenshot ? (
+                  <img src={latestScreenshot.url} alt={latestScreenshot.name} className="h-64 w-full object-cover sm:h-80" />
+                ) : (
+                  <div className="flex h-64 items-center justify-center bg-[radial-gradient(circle_at_30%_20%,rgba(250,204,21,.18),transparent_30%),linear-gradient(135deg,#0f172a,#020617)] px-8 text-center text-base font-black text-slate-400 sm:h-80">
+                    {previewStatus === "Alınamadı" || previewStatus === "Sınırlı veri" ? "Profil bilgisi bekleniyor" : previewName}
+                  </div>
+                )}
+                <div className="p-5 sm:p-6">
+                  <div className="flex gap-4">
+                    <div className="grid size-24 shrink-0 place-items-center overflow-hidden rounded-full border border-white/15 bg-black/30 sm:size-28">
+                      {previewProfile.profileImageUrl ? <img src={previewProfile.profileImageUrl} alt="Profil fotoğrafı" className="size-full object-cover" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : <ImagePlus size={26} className="text-slate-500" />}
+                    </div>
+                    <div className="grid flex-1 grid-cols-3 gap-2 text-center text-xs text-slate-400">
+                      <div><p className="text-2xl font-black text-white">—</p><p>Gönderi</p></div>
+                      <div><p className="text-2xl font-black text-white">—</p><p>Takipçi</p></div>
+                      <div><p className="text-2xl font-black text-white">—</p><p>Takip</p></div>
+                    </div>
+                  </div>
+                  <p className="mt-5 text-base font-black text-white">{previewName}</p>
+                  <p className="mt-1 break-all text-sm font-bold text-yellow-100">{previewUsername}</p>
+                  <p className="mt-3 text-sm leading-6 text-slate-300">{previewBio}</p>
+                  {previewProfile.website && <p className="mt-3 break-all text-sm font-bold text-emerald-100">{previewProfile.website}</p>}
+                  {previewProfile.profileUrl && <p className="mt-2 break-all text-xs text-slate-500">{previewProfile.profileUrl}</p>}
+                  <div className="mt-5 flex gap-2">
+                    <a href={previewProfile.profileUrl || "#"} target="_blank" rel="noreferrer" className="flex-1 rounded-full bg-white px-3 py-3 text-center text-xs font-black text-slate-950">Profili Aç</a>
+                    <label className="flex-1 cursor-pointer rounded-full border border-white/15 px-3 py-3 text-center text-xs font-black text-white transition hover:bg-white/10"><input type="file" accept="image/png,image/jpeg,image/jpg,image/webp" className="hidden" onChange={(event) => addScreenshots(event.target.files)} />Ekran Görüntüsü Yükle</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+          <section className="rounded-[8px] border border-white/10 bg-white/[0.035] p-5 shadow-[0_20px_70px_rgba(0,0,0,.16)]">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div><p className="text-xs font-black uppercase tracking-[.14em] text-cyan-200">AI Analysis Actions</p><h3 className="mt-1 text-lg font-black text-white">Seçili aksiyonlar</h3></div>
+              <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] font-black text-slate-400">{actions.length} seçili</span>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {socialActionCards.map(([action, description, icon]) => {
+                const selected = actions.includes(action);
+                return (
+                  <button key={action} type="button" onClick={() => toggleAction(action)} className={"min-h-28 rounded-[8px] border p-4 text-left transition hover:-translate-y-0.5 " + (selected ? "border-yellow-200/45 bg-yellow-300/12 text-yellow-50 shadow-[0_16px_44px_rgba(250,204,21,.10)]" : "border-white/10 bg-black/10 text-slate-400 hover:border-cyan-200/30 hover:bg-cyan-200/[0.06] hover:text-cyan-50")}>
+                    <span className="flex items-start justify-between gap-3"><span className="grid size-9 place-items-center rounded-[8px] border border-current/20 bg-white/10">{icon}</span><span className="rounded-full border border-current/20 px-2 py-1 text-[10px] font-black">{selected ? "Seçildi" : "Seç"}</span></span>
+                    <span className="mt-4 block text-sm font-black text-white">{action}</span>
+                    <span className="mt-2 block text-xs leading-5 opacity-75">{description}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-5 grid gap-2">
+              <button disabled={loading || !actions.filter((action) => action !== "CRM’e Kaydet").length || !hasInput} onClick={() => askAiProvider(runAudit)} className="min-h-14 rounded-full bg-yellow-300 px-5 text-sm font-black text-slate-950 shadow-[0_18px_50px_rgba(250,204,21,.18)] disabled:opacity-60">{loading ? "Analiz ediliyor..." : "Seçili Analizleri Başlat"}</button>
+              {actions.includes("CRM’e Kaydet") && <button disabled={crmSaving || (!outputs.length && !hasInput)} onClick={saveToCrm} className="rounded-full border border-yellow-200/30 px-5 py-3 text-sm font-black text-yellow-100 disabled:opacity-60">{crmSaving ? "CRM’e kaydediliyor..." : "CRM’e Kaydet"}</button>}
+              {pdfOutput && <button onClick={downloadMiniAuditPdf} className="rounded-full border border-cyan-200/25 px-5 py-3 text-sm font-black text-cyan-100">PDF Audit Oluştur</button>}
+              {whatsappOutput && <a href={'https://wa.me/?text=' + encodeURIComponent(whatsappText())} target="_blank" rel="noreferrer" className="rounded-full border border-emerald-200/25 px-5 py-3 text-center text-sm font-black text-emerald-100">WhatsApp’ta Aç</a>}
+              {whatsappOutput && <button onClick={() => navigator.clipboard?.writeText(whatsappText())} className="rounded-full border border-white/10 px-5 py-3 text-sm font-black text-slate-200">Mesajı Kopyala</button>}
+            </div>
+          </section>
+        </aside>
       </div>
 
       {leadScore && <div className={"mt-5 rounded-[8px] border p-4 " + (leadScore.temperature === "Sıcak" ? "border-red-300/25 bg-red-300/10 text-red-100" : leadScore.temperature === "Ilık" ? "border-amber-300/25 bg-amber-300/10 text-amber-100" : "border-slate-300/20 bg-slate-300/10 text-slate-100")}><p className="text-xs font-black uppercase tracking-[.16em]">Lead Score</p><p className="mt-2 text-2xl font-black">{leadScore.score}/100 · {leadScore.temperature}</p><p className="mt-2 text-sm opacity-80">Skor; website/profil URL, platform sayısı, ekran görüntüsü, teklif ihtiyacı ve ticari fırsat sinyallerinden hesaplandı.</p></div>}
