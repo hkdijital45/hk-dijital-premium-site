@@ -432,10 +432,10 @@ export function AdminDashboard({
   const preparationAliases = ["İçerik Önerileri", "İçerik Fikirleri", "30 Günlük Sosyal Medya Planı", "Prompt Kütüphanesi", "Prompt Üretimi", "Kampanya Hazırlığı", "Kampanya Önerileri"];
 
   return (
-    <main className={`relative min-h-screen overflow-hidden ${theme === "light" ? "admin-light" : ""} ${customTheme ? "admin-themed" : ""} ${shellClass}`} style={customTheme ? { backgroundColor: customTheme.background, color: customTheme.text, "--admin-surface": customTheme.surface, "--admin-border": customTheme.border, "--admin-sidebar": customTheme.sidebar, "--admin-header": customTheme.header, "--admin-muted": customTheme.mutedText, "--admin-button": customTheme.primaryButton } : undefined}>
-      <div className="premium-grid pointer-events-none absolute inset-0 opacity-45" />
+    <main className={`relative min-h-screen overflow-x-hidden ${theme === "light" ? "admin-light" : ""} ${customTheme ? "admin-themed" : ""} ${shellClass}`} style={customTheme ? { backgroundColor: customTheme.background, color: customTheme.text, "--admin-surface": customTheme.surface, "--admin-border": customTheme.border, "--admin-sidebar": customTheme.sidebar, "--admin-header": customTheme.header, "--admin-muted": customTheme.mutedText, "--admin-button": customTheme.primaryButton } : undefined}>
+      <div className="premium-grid pointer-events-none absolute inset-0 opacity-20" />
       <div className={`relative grid min-h-screen ${sidebarCollapsed ? "lg:grid-cols-[72px_minmax(0,1fr)]" : "lg:grid-cols-[292px_minmax(0,1fr)]"}`}>
-        <aside className={`relative z-30 flex min-h-full flex-col border-b border-white/10 bg-[#060a14] px-3 py-3 shadow-[8px_0_30px_rgba(0,0,0,.18)] lg:min-h-screen lg:border-b-0 lg:border-r ${sidebarCollapsed ? "lg:px-2" : "lg:px-3"}`}>
+        <aside className={`relative z-30 flex min-h-full flex-col border-b border-white/10 bg-[#060a14] px-3 py-3 shadow-[4px_0_18px_rgba(0,0,0,.16)] lg:min-h-screen lg:border-b-0 lg:border-r ${sidebarCollapsed ? "lg:px-2" : "lg:px-3"}`}>
           <button
             type="button"
             onClick={() => setSidebarCollapsed((current) => !current)}
@@ -451,20 +451,19 @@ export function AdminDashboard({
             const activeInGroup = group.items.some((item) => item.label === active || item.slug === "" && active === "Dashboard");
             const CategoryIcon = adminCategoryIcons[group.icon] || LayoutDashboard;
             return (
-              <div key={group.label} className={`rounded-[8px] transition ${activeInGroup ? "bg-white/[0.045]" : ""}`}>
+              <div key={group.label} className={`rounded-[8px] transition ${activeInGroup ? "bg-cyan-400/[0.06]" : ""}`}>
                 <button
                   type="button"
                   onClick={() => toggleGroup(group.label)}
                   title={group.label}
                   className={`flex w-full items-center gap-2 rounded-[8px] px-2.5 py-2 text-left transition hover:bg-white/[0.08] ${sidebarCollapsed ? "justify-center" : "justify-between"}`}
                 >
-                  <span className={`grid size-8 shrink-0 place-items-center rounded-[8px] bg-gradient-to-br ${group.accent} text-white shadow-sm`}>
+                  <span className={`grid size-8 shrink-0 place-items-center rounded-[8px] border ${activeInGroup ? "border-cyan-300/25 bg-cyan-300/10 text-cyan-100" : "border-white/10 bg-white/[0.055] text-slate-300"}`}>
                     <CategoryIcon size={15} />
                   </span>
                   {!sidebarCollapsed && <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-2">
                       <span className="truncate text-[11px] font-black uppercase tracking-[.10em] text-slate-100">{group.label}</span>
-                      {group.badge && <span className="rounded-full bg-white/[0.08] px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[.08em] text-slate-300">{group.badge}</span>}
                     </span>
                   </span>}
                   {!sidebarCollapsed && <span className="flex items-center gap-1.5 text-right">
@@ -493,8 +492,8 @@ export function AdminDashboard({
           {!sidebarCollapsed && <div className="mt-3 border-t border-white/10 px-2 py-3"><p className="text-[11px] font-black text-slate-300">HK Operating System</p><p className="mt-0.5 text-[10px] font-bold text-slate-500">v1.0</p></div>}
         </aside>
         <div className="min-w-0">
-      <header className={`sticky top-0 z-40 border-b ${headerClass} shadow-[0_16px_48px_rgba(0,0,0,.18)] backdrop-blur-2xl`}>
-        <div className="relative flex flex-wrap items-center justify-between gap-4 px-4 py-4 lg:px-6">
+      <header className={`sticky top-0 z-40 border-b ${headerClass} shadow-[0_8px_24px_rgba(0,0,0,.12)] backdrop-blur-2xl`}>
+        <div className="relative flex flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-6">
           <div className="flex items-center gap-3">
             <Logo content={content} compact />
             <div>
@@ -502,16 +501,16 @@ export function AdminDashboard({
             <h1 className="text-xl font-black sm:text-2xl">HK Operating System</h1>
             <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[.18em] text-slate-500">Powered by HK Dijital</p>
             </div>
-            {isDesktopApp && <span className="rounded-full border border-amber-200/25 bg-amber-300/12 px-3 py-1 text-[10px] font-black uppercase tracking-[.14em] text-amber-100">Desktop</span>}
+            {isDesktopApp && <span className="rounded-[8px] border border-amber-200/20 bg-amber-300/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[.12em] text-amber-100">Desktop</span>}
           </div>
           <div className="flex flex-wrap justify-end gap-2">
-            <button onClick={() => setActive("API Ayarları")} className="min-h-11 rounded-full border border-cyan-200/20 bg-cyan-200/10 px-4 text-left text-xs font-bold text-cyan-50">
+            <button onClick={() => setActive("API Ayarları")} className="min-h-10 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 px-3 text-left text-xs font-bold text-cyan-50">
               <span className="block">AI: {aiStatus.provider}</span>
               <span className="block text-[10px] text-cyan-100/70">Mod: {aiStatus.mode}</span>
             </button>
             <GlobalAdminSearch />
             <div className="relative">
-              <button onClick={() => setNotificationsOpen((current) => !current)} className="relative grid min-h-11 min-w-11 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-slate-100 transition hover:border-cyan-200/30 hover:bg-cyan-200/10" aria-label="Bildirimler">
+              <button onClick={() => setNotificationsOpen((current) => !current)} className="relative grid min-h-10 min-w-10 place-items-center rounded-[8px] border border-white/10 bg-white/[0.04] text-slate-100 transition hover:border-cyan-200/30 hover:bg-cyan-200/10" aria-label="Bildirimler">
                 <Bell size={17} />
                 <span className="absolute right-2 top-2 size-2 rounded-full bg-amber-300 shadow-[0_0_18px_rgba(250,204,21,.8)]" />
               </button>
@@ -526,7 +525,7 @@ export function AdminDashboard({
                   </div>
                   <div className="mt-4 grid gap-2">
                     {headerNotifications.map((item) => (
-                      <div key={item.label} className={`rounded-[8px] border p-3 ${item.tone === "cyan" ? "border-cyan-200/20 bg-cyan-300/10" : item.tone === "emerald" ? "border-emerald-200/20 bg-emerald-300/10" : item.tone === "purple" ? "border-purple-200/20 bg-purple-300/10" : "border-amber-200/20 bg-amber-300/10"}`}>
+                      <div key={item.label} className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
                         <p className="text-xs font-black text-white">{item.label}</p>
                         <p className="mt-1 text-xs leading-5 text-slate-300">{item.text}</p>
                       </div>
@@ -535,11 +534,11 @@ export function AdminDashboard({
                 </div>
               )}
             </div>
-            <div className="grid min-h-11 min-w-11 place-items-center rounded-full border border-white/10 bg-gradient-to-br from-cyan-300/20 to-amber-300/20 text-sm font-black text-white" title={currentSession?.email || "HK Admin"}>
+            <div className="grid min-h-10 min-w-10 place-items-center rounded-[8px] border border-white/10 bg-white/[0.055] text-sm font-black text-white" title={currentSession?.email || "HK Admin"}>
               {userInitials || "HK"}
             </div>
             <div className="relative">
-              <button onClick={() => setHelpOpen((current) => !current)} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/10 px-5 text-sm font-bold">
+              <button onClick={() => setHelpOpen((current) => !current)} className="inline-flex min-h-10 items-center gap-2 rounded-[8px] border border-white/10 px-4 text-sm font-bold">
                 <HelpCircle size={17} /> Yardım
               </button>
               {helpOpen && (
@@ -554,11 +553,11 @@ export function AdminDashboard({
                 </div>
               )}
             </div>
-            <button onClick={toggleTheme} className="min-h-11 rounded-full border border-white/10 px-5 text-sm font-bold">
+            <button onClick={toggleTheme} className="min-h-10 rounded-[8px] border border-white/10 px-4 text-sm font-bold">
               {theme === "dark" ? "Aydınlık Tema" : "Karanlık Tema"}
             </button>
-            {(allowedModules.includes("site-ayarlari") || allowedModules.includes("musteriler")) && <button disabled={saving} onClick={() => save()} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-cyan-300 px-5 text-sm font-black text-slate-950 disabled:opacity-60"><Save size={17} /> {saving ? "Kaydediliyor..." : "Kaydet"}</button>}
-            <button onClick={logout} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/10 px-5 text-sm font-bold"><LogOut size={17} /> Çıkış</button>
+            {(allowedModules.includes("site-ayarlari") || allowedModules.includes("musteriler")) && <button disabled={saving} onClick={() => save()} className="inline-flex min-h-10 items-center gap-2 rounded-[8px] bg-cyan-300 px-4 text-sm font-black text-slate-950 disabled:opacity-60"><Save size={17} /> {saving ? "Kaydediliyor..." : "Kaydet"}</button>}
+            <button onClick={logout} className="inline-flex min-h-10 items-center gap-2 rounded-[8px] border border-white/10 px-4 text-sm font-bold"><LogOut size={17} /> Çıkış</button>
           </div>
         </div>
       </header>
@@ -1135,7 +1134,7 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
       <div className="mb-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
         <div>
           <div className="mb-3 flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">Kategori çalışma alanı</p><h3 className="mt-1 text-lg font-black text-white">İşletim sistemi modülleri</h3></div><span className="rounded-full border border-white/10 px-3 py-1 text-[10px] font-black text-slate-400">HK OS</span></div>
-          <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">{categoryCards.map((card) => <article key={card.title} className={`group relative min-h-44 overflow-hidden rounded-[8px] border border-white/15 bg-gradient-to-br ${card.gradient} p-4 text-white shadow-[0_12px_34px_rgba(0,0,0,.18)] transition duration-200 hover:-translate-y-0.5`}><span className="relative flex items-start justify-between gap-4"><span className="grid size-10 place-items-center rounded-[8px] border border-white/20 bg-white/[0.12]">{card.icon}</span><span className="rounded-full border border-white/20 bg-black/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[.10em] text-white/80">{card.count}</span></span><h4 className="relative mt-5 text-base font-black">{card.title}</h4><p className="relative mt-2 min-h-10 text-xs leading-5 text-white/75">{card.description}</p><div className="relative mt-4 flex flex-wrap gap-2">{card.actions.map(([label, target]) => <button key={label} type="button" onClick={() => setActive(target)} className="rounded-[8px] border border-white/20 bg-black/10 px-2.5 py-1.5 text-xs font-black text-white transition hover:bg-white hover:text-slate-950">{label}</button>)}</div></article>)}</div>
+          <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">{categoryCards.map((card, index) => <article key={card.title} className="group min-h-44 overflow-hidden rounded-[8px] border border-white/10 bg-white/[0.035] p-4 text-white shadow-[0_10px_26px_rgba(0,0,0,.12)] transition duration-200 hover:border-cyan-200/25 hover:bg-white/[0.055]"><span className="flex items-start justify-between gap-4"><span className={`grid size-10 place-items-center rounded-[8px] border ${index === 1 ? "border-orange-300/25 bg-orange-300/10 text-orange-100" : index === 2 ? "border-purple-300/25 bg-purple-300/10 text-purple-100" : "border-cyan-300/20 bg-cyan-300/10 text-cyan-100"}`}>{card.icon}</span><span className="rounded-full border border-white/10 bg-black/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[.10em] text-slate-300">{card.count}</span></span><h4 className="mt-5 text-base font-black">{card.title}</h4><p className="mt-2 min-h-10 text-xs leading-5 text-slate-400">{card.description}</p><div className="mt-4 flex flex-wrap gap-2">{card.actions.map(([label, target]) => <button key={label} type="button" onClick={() => setActive(target)} className="rounded-[8px] border border-white/10 bg-black/10 px-2.5 py-1.5 text-xs font-black text-slate-200 transition hover:border-cyan-200/30 hover:bg-cyan-300/10 hover:text-cyan-50">{label}</button>)}</div></article>)}</div>
         </div>
         <aside className="rounded-[8px] border border-white/10 bg-white/[0.035] p-4 shadow-[0_12px_34px_rgba(0,0,0,.14)]">
           <div className="flex items-center gap-3"><span className="grid size-8 place-items-center rounded-[8px] border border-amber-200/20 bg-amber-200/10 text-amber-200"><Bell size={15} /></span><div><p className="text-[10px] font-black uppercase tracking-[.14em] text-amber-200">Notifications</p><h3 className="mt-1 text-sm font-black text-white">Operasyon bildirimleri</h3></div></div>
@@ -1283,9 +1282,9 @@ function Crm({ content, setContent, view, setActive }: any) {
   }, {});
   const heatBadge = (lead) => {
     const score = Number(lead.lead_heat_score || 0);
-    if (score >= 70) return { label: "🔥 Sıcak", className: "border-red-300/25 bg-red-400/10 text-red-100" };
-    if (score >= 50) return { label: "🟡 Ilık", className: "border-amber-300/25 bg-amber-300/10 text-amber-100" };
-    return { label: "⚪ Soğuk", className: "border-white/10 bg-white/[0.06] text-slate-300" };
+    if (score >= 70) return { label: "Sıcak", className: "border-red-300/20 bg-red-400/[0.08] text-red-100" };
+    if (score >= 50) return { label: "Ilık", className: "border-amber-300/20 bg-amber-300/[0.08] text-amber-100" };
+    return { label: "Soğuk", className: "border-white/10 bg-white/[0.045] text-slate-300" };
   };
   const crmRecentActivity = [
     ...(content.activityLogs || []).slice(0, 4).map((item) => ({ id: `activity-${item.id}`, title: item.action || "CRM aktivitesi", text: item.entity || item.actor_name || "HK OS", date: item.created_at })),
@@ -1348,46 +1347,46 @@ function Crm({ content, setContent, view, setActive }: any) {
   }
   return (
     <Panel title={view === "Teklif Sihirbazı Kayıtları" ? "Teklif Sihirbazı Kayıtları" : "Form Başvuruları"}>
-      <div className="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
-        <aside className="grid gap-4 self-start">
-          <section className="rounded-[8px] border border-white/10 bg-white/[0.04] p-4 shadow-[0_20px_60px_rgba(0,0,0,.16)]">
-            <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">CRM klasörleri</p>
-            <div className="mt-4 grid gap-2">
+      <div className="grid min-w-0 gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
+        <aside className="grid min-w-0 gap-4 self-start lg:w-[260px]">
+          <section className="rounded-[8px] border border-white/10 bg-white/[0.035] p-3 shadow-[0_10px_28px_rgba(0,0,0,.12)]">
+            <p className="px-1 text-xs font-black uppercase tracking-[.14em] text-cyan-200">CRM klasörleri</p>
+            <div className="mt-3 grid gap-1.5">
               {crmFolders.map((folder) => (
-                <button key={folder.label} type="button" onClick={() => setFolderFilter(folder.label)} className={`group flex items-center gap-3 rounded-[8px] p-3 text-left transition ${folderFilter === folder.label ? "bg-cyan-300 text-slate-950 shadow-[0_16px_42px_rgba(34,211,238,.18)]" : "border border-white/10 bg-black/10 text-slate-300 hover:border-cyan-200/30 hover:bg-cyan-200/10 hover:text-cyan-50"}`}>
-                  <span className={`grid size-9 shrink-0 place-items-center rounded-[8px] bg-gradient-to-br ${folder.accent} text-white shadow-[0_10px_26px_rgba(0,0,0,.18)]`}>{folder.icon}</span>
+                <button key={folder.label} type="button" onClick={() => setFolderFilter(folder.label)} className={`group flex w-full min-w-0 items-center gap-2.5 rounded-[8px] border px-2.5 py-2 text-left transition ${folderFilter === folder.label ? "border-cyan-300/35 bg-cyan-300/10 text-cyan-50" : "border-transparent bg-transparent text-slate-300 hover:border-white/10 hover:bg-white/[0.055] hover:text-slate-100"}`}>
+                  <span className={`grid size-8 shrink-0 place-items-center rounded-[8px] border ${folderFilter === folder.label ? "border-cyan-300/25 bg-cyan-300/10 text-cyan-100" : "border-white/10 bg-white/[0.045] text-slate-400"}`}>{folder.icon}</span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-black">{folder.label}</span>
-                    <span className={`mt-0.5 block text-[10px] leading-4 ${folderFilter === folder.label ? "text-slate-800" : "text-slate-500"}`}>{folder.description}</span>
+                    <span className="block truncate text-xs font-black">{folder.label}</span>
+                    <span className={`mt-0.5 hidden truncate text-[10px] leading-4 sm:block ${folderFilter === folder.label ? "text-cyan-100/70" : "text-slate-500"}`}>{folder.description}</span>
                   </span>
-                  <span className={`grid size-7 shrink-0 place-items-center rounded-full text-[10px] font-black ${folderFilter === folder.label ? "bg-slate-950 text-white" : "bg-white/10 text-slate-300"}`}>{folderCounts[folder.label] || 0}</span>
+                  <span className={`grid min-w-7 shrink-0 place-items-center rounded-full px-2 py-1 text-[10px] font-black ${folderFilter === folder.label ? "bg-cyan-300 text-slate-950" : "bg-white/[0.06] text-slate-300"}`}>{folderCounts[folder.label] || 0}</span>
                 </button>
               ))}
             </div>
           </section>
-          <section className="rounded-[8px] border border-white/10 bg-black/15 p-4">
-            <p className="text-xs font-black uppercase tracking-[.16em] text-amber-200">Recent activity</p>
-            <div className="mt-3 grid gap-2">
-              {crmRecentActivity.map((item) => <div key={item.id} className="rounded-[8px] border border-white/10 bg-white/[0.035] p-3"><p className="text-xs font-black text-white">{item.title}</p><p className="mt-1 text-xs leading-5 text-slate-400">{item.text}</p><p className="mt-2 text-[10px] font-bold text-slate-500">{item.date ? formatDateTime(item.date) : "Bekliyor"}</p></div>)}
+          <section className="rounded-[8px] border border-white/10 bg-black/10 p-3">
+            <p className="px-1 text-xs font-black uppercase tracking-[.14em] text-slate-400">Recent activity</p>
+            <div className="mt-3 grid gap-1.5">
+              {crmRecentActivity.map((item) => <div key={item.id} className="rounded-[8px] border border-white/10 bg-white/[0.025] p-2.5"><p className="truncate text-xs font-black text-white">{item.title}</p><p className="mt-1 truncate text-xs text-slate-400">{item.text}</p><p className="mt-1.5 text-[10px] font-bold text-slate-500">{item.date ? formatDateTime(item.date) : "Bekliyor"}</p></div>)}
               {!crmRecentActivity.length && <p className="rounded-[8px] border border-dashed border-white/10 p-3 text-xs text-slate-400">Henüz aktivite yok.</p>}
             </div>
           </section>
         </aside>
         <div className="min-w-0">
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-cyan-200/15 bg-cyan-200/[0.05] p-4">
-            <div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">{activeFolder.label}</p><h3 className="mt-1 text-lg font-black text-white">{folderCounts[activeFolder.label] || 0} kayıt</h3></div>
-            <button onClick={exportCsv} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-cyan-300 px-4 text-sm font-black text-slate-950"><Download size={16} /> CSV Dışa Aktar</button>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-white/10 bg-white/[0.035] p-3">
+            <div><p className="text-xs font-black uppercase tracking-[.14em] text-cyan-200">{activeFolder.label}</p><h3 className="mt-1 text-base font-black text-white">{folderCounts[activeFolder.label] || 0} kayıt</h3></div>
+            <button onClick={exportCsv} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[8px] bg-cyan-300 px-3 text-sm font-black text-slate-950"><Download size={16} /> CSV Dışa Aktar</button>
           </div>
-          <div className="mb-5 flex gap-2 overflow-x-auto pb-2">
-            {crmStatusTabs.map((tab) => <button key={tab} onClick={() => setStatusTab(tab)} className={`shrink-0 rounded-full border px-4 py-2 text-xs font-black transition ${statusTab === tab ? "border-cyan-200/60 bg-cyan-200/15 text-cyan-50" : "border-white/10 text-slate-400 hover:border-cyan-200/30 hover:text-cyan-100"}`}>{tab} <span className="ml-1 text-[10px] opacity-70">{tabCounts[tab] || 0}</span></button>)}
+          <div className="mb-4 flex flex-wrap gap-2">
+            {crmStatusTabs.map((tab) => <button key={tab} onClick={() => setStatusTab(tab)} className={`rounded-[8px] border px-3 py-2 text-xs font-black transition ${statusTab === tab ? "border-cyan-200/45 bg-cyan-200/10 text-cyan-50" : "border-white/10 bg-white/[0.025] text-slate-400 hover:border-cyan-200/30 hover:text-cyan-100"}`}>{tab} <span className="ml-1 text-[10px] opacity-70">{tabCounts[tab] || 0}</span></button>)}
           </div>
-          <div className="mb-5 grid gap-3 lg:grid-cols-[1.2fr_repeat(3,.7fr)]">
+          <div className="mb-4 grid gap-3 lg:grid-cols-[1.2fr_repeat(3,.7fr)]">
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Başvuru ara..." className="min-h-11 rounded-[8px] border border-white/10 bg-black/30 px-3 text-white" />
             <SelectField label="Kaynak" value={sourceFilter} onChange={setSourceFilter} options={leadSourceOptions} placeholder="Tüm kaynaklar" />
             <SelectField label="Durum" value={statusFilter} onChange={setStatusFilter} options={leadStatuses} placeholder="Tüm durumlar" />
             <SelectField label="Sektör" value={sectorFilter} onChange={setSectorFilter} options={sectorOptions} placeholder="Tüm sektörler" />
           </div>
-          <div className="mb-5 grid gap-3 md:grid-cols-3">
+          <div className="mb-4 grid gap-3 md:grid-cols-3">
             <input value={budgetFilter} onChange={(e) => setBudgetFilter(e.target.value)} placeholder="Bütçe filtresi" className="min-h-11 rounded-[8px] border border-white/10 bg-black/30 px-3 text-white" />
             <Field label="Başlangıç tarihi" type="date" value={dateFrom} onChange={setDateFrom} />
             <Field label="Bitiş tarihi" type="date" value={dateTo} onChange={setDateTo} />
@@ -1397,7 +1396,7 @@ function Crm({ content, setContent, view, setActive }: any) {
             {leads.map((lead) => {
               const heat = heatBadge(lead);
               return (
-                <button key={lead.id} onClick={() => setSelectedLead(lead)} className="rounded-[8px] border border-white/10 bg-white/[0.025] p-4 text-left transition hover:border-cyan-200/40 hover:bg-cyan-200/5">
+                <button key={lead.id} onClick={() => setSelectedLead(lead)} className="rounded-[8px] border border-white/10 bg-white/[0.025] p-4 text-left transition hover:border-cyan-200/35 hover:bg-cyan-200/[0.045]">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div><h3 className="font-black">{lead.name || "İsimsiz başvuru"}</h3><p className="mt-1 text-sm text-slate-400">{lead.source || "Form"} · {lead.company || "-"} · {lead.phone || lead.email || "-"}</p></div>
                     <div className="flex flex-wrap justify-end gap-2"><span className={`rounded-full border px-3 py-1 text-xs font-black ${heat.className}`}>{heat.label}</span><span className="rounded-full bg-cyan-200/10 px-3 py-1 text-xs font-bold text-cyan-100">{lead.status || "Yeni"}</span></div>
