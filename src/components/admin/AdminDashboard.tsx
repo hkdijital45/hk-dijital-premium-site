@@ -3,7 +3,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Activity, AlertTriangle, ArrowDown, ArrowUp, BarChart3, Bell, Bot, Building2, ChevronDown, ChevronRight, CircleCheck, CircleOff, Copy, Download, FileBarChart, Gauge, GripVertical, HelpCircle, ImagePlus, LayoutDashboard, LogOut, MapPinned, MessageSquareText, Plus, RotateCcw, Save, Search, Settings2, Sparkles, Star, Trash2, UsersRound, WandSparkles, X } from "lucide-react";
 import type { SiteContent } from "@/lib/types";
 import { ReportTools } from "@/components/admin/reports/ReportTools";
@@ -282,10 +282,12 @@ export function AdminDashboard({
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [hoveredNavGroup, setHoveredNavGroup] = useState("");
   const [customTheme, setCustomTheme] = useState(null);
+  const navCloseTimer = useRef<number | null>(null);
   const [bootVisible, setBootVisible] = useState(false);
   const [bootStep, setBootStep] = useState(0);
-  const [openGroups, setOpenGroups] = useState(() => Object.fromEntries(adminNavigationGroups.map((group, index) => [group.label, index < 2])));
+  const [openGroups, setOpenGroups] = useState(() => Object.fromEntries(adminNavigationGroups.map((group) => [group.label, false])));
   const [startupApiOpen, setStartupApiOpen] = useState(false);
   const [startupApiLoading, setStartupApiLoading] = useState(false);
   const [startupApiData, setStartupApiData] = useState<any>({ results: content.settings?.api?.ai_status || {}, lastTestTime: content.settings?.api?.ai_status_last_test_at });
@@ -342,6 +344,19 @@ export function AdminDashboard({
 
   function toggleGroup(label: string) {
     setOpenGroups((current) => ({ ...current, [label]: !current[label] }));
+  }
+
+  function openNavGroup(label: string) {
+    if (navCloseTimer.current) window.clearTimeout(navCloseTimer.current);
+    setHoveredNavGroup(label);
+  }
+
+  function closeNavGroup(label: string) {
+    if (navCloseTimer.current) window.clearTimeout(navCloseTimer.current);
+    navCloseTimer.current = window.setTimeout(() => {
+      setHoveredNavGroup((current) => (current === label ? "" : current));
+      setOpenGroups((current) => ({ ...current, [label]: false }));
+    }, 120);
   }
 
   async function save(next = content) {
@@ -404,19 +419,23 @@ export function AdminDashboard({
     .filter((group) => group.items.length);
   const activeGroup = visibleNavigationGroups.find((group) => group.items.some((item) => item.label === active || item.slug === "" && active === "Dashboard"));
   useEffect(() => {
-    if (!activeGroup || openGroups[activeGroup.label]) return;
+    if (!mobileNavOpen || !activeGroup || openGroups[activeGroup.label]) return;
     setOpenGroups((current) => ({ ...current, [activeGroup.label]: true }));
-  }, [activeGroup?.label]);
+  }, [activeGroup?.label, mobileNavOpen]);
   const shellClass = theme === "dark" ? "bg-[#050711] text-white" : "bg-slate-100 text-slate-950";
   const panelClass = theme === "dark" ? "border-white/10 bg-white/[0.045]" : "border-slate-200 bg-white";
   const headerClass = theme === "dark" ? "border-white/10 bg-[#050711]/90" : "border-slate-200 bg-white/90";
   const aiStatus = aiMetaFromApi(content.settings?.api || {});
   const headerLeads = content.leads || [];
   const headerActivity = content.activityLogs || [];
+  const headerReports = content.reports || [];
+  const headerProposalCount = headerLeads.reduce((sum, lead) => sum + (Array.isArray(lead.proposal_history) ? lead.proposal_history.length : 0), 0);
   const headerNotifications = [
     { label: "New leads", text: `${headerLeads.filter((lead) => (lead.status || "Yeni") === "Yeni").length} yeni lead takip bekliyor.`, tone: "cyan" },
     { label: "New CRM activity", text: headerActivity[0]?.action ? `${headerActivity[0].action}: ${headerActivity[0].entity || headerActivity[0].actor_name || "CRM"}` : "Yeni CRM aktivitesi bekleniyor.", tone: "emerald" },
     { label: "AI events", text: `${aiStatus.provider} aktif · ${aiStatus.mode} mod`, tone: "purple" },
+    { label: "PDF audit events", text: `${headerReports.length} müşteri raporu / PDF audit kaydı izleniyor.`, tone: "cyan" },
+    { label: "WhatsApp proposal events", text: `${headerProposalCount} WhatsApp teklif akışı hazırlanmış.`, tone: "emerald" },
     { label: "System events", text: startupApiData?.lastTestTime ? `Son API testi: ${new Date(startupApiData.lastTestTime).toLocaleString("tr-TR")}` : "API durum testi bekleniyor.", tone: "amber" }
   ];
   const userInitials = String(currentSession?.fullName || currentSession?.email || "HK")
@@ -452,14 +471,23 @@ export function AdminDashboard({
             </button>
             <div className={`${mobileNavOpen ? "grid" : "hidden"} gap-2 lg:flex lg:items-center lg:gap-1.5`}>
               {visibleNavigationGroups.map((group) => {
-                const expanded = openGroups[group.label];
+                const expanded = openGroups[group.label] || hoveredNavGroup === group.label;
                 const activeInGroup = group.items.some((item) => item.label === active || item.slug === "" && active === "Dashboard");
                 const CategoryIcon = adminCategoryIcons[group.icon] || LayoutDashboard;
+                const twoColumn = group.items.length > 6;
                 return (
-                  <div key={group.label} className="relative lg:group">
+                  <div
+                    key={group.label}
+                    className="relative"
+                    onMouseEnter={() => openNavGroup(group.label)}
+                    onMouseLeave={() => closeNavGroup(group.label)}
+                    onFocus={() => openNavGroup(group.label)}
+                  >
                     <button
                       type="button"
                       onClick={() => toggleGroup(group.label)}
+                      onBlur={() => closeNavGroup(group.label)}
+                      aria-expanded={expanded}
                       className={`flex min-h-10 w-full items-center justify-between gap-2 rounded-[8px] border px-3 text-sm font-black transition lg:w-auto ${activeInGroup ? "border-cyan-300/40 bg-cyan-300/10 text-cyan-50" : "border-white/10 bg-white/[0.035] text-slate-300 hover:border-cyan-200/25 hover:bg-white/[0.065] hover:text-white"}`}
                     >
                       <span className="flex min-w-0 items-center gap-2">
@@ -471,19 +499,23 @@ export function AdminDashboard({
                         <ChevronDown size={14} className={`transition ${expanded ? "rotate-180" : "lg:group-hover:rotate-180"}`} />
                       </span>
                     </button>
-                    <div className={`admin-top-dropdown ${expanded ? "grid" : "hidden"} mt-2 gap-1 rounded-[8px] border border-white/10 bg-[#08101c]/96 p-2 shadow-[0_18px_50px_rgba(0,0,0,.24)] lg:absolute lg:left-0 lg:top-full lg:z-50 lg:mt-3 lg:w-72 lg:group-hover:grid lg:group-focus-within:grid`}>
+                    <div
+                      onMouseEnter={() => openNavGroup(group.label)}
+                      onMouseLeave={() => closeNavGroup(group.label)}
+                      className={`admin-top-dropdown ${expanded ? "grid" : "hidden"} mt-2 max-h-[70vh] w-full max-w-full gap-1 overflow-hidden rounded-[8px] border border-white/10 bg-[#08101c]/96 p-2 shadow-[0_18px_50px_rgba(0,0,0,.24)] lg:absolute lg:left-1/2 lg:top-full lg:z-50 lg:mt-3 lg:w-[min(420px,calc(100vw-32px))] lg:-translate-x-1/2 ${twoColumn ? "lg:grid-cols-2" : ""}`}
+                    >
                       {group.items.map((item) => (
                         <Link
                           key={item.slug}
                           href={getAdminHref(item.slug)}
                           title={item.label}
-                          onClick={() => setMobileNavOpen(false)}
-                          className={`flex items-center gap-3 rounded-[8px] px-3 py-2.5 text-sm font-bold transition ${active === item.label ? "bg-cyan-300 text-slate-950" : "text-slate-300 hover:bg-white/[0.07] hover:text-cyan-50"}`}
+                          onClick={() => { setMobileNavOpen(false); setHoveredNavGroup(""); }}
+                          className={`flex min-w-0 items-start gap-2.5 rounded-[8px] px-3 py-2 text-sm font-bold transition ${active === item.label ? "bg-cyan-300 text-slate-950" : "text-slate-300 hover:bg-white/[0.07] hover:text-cyan-50"}`}
                         >
-                          <CategoryIcon size={15} className={active === item.label ? "text-slate-950" : "text-cyan-200"} />
+                          <CategoryIcon size={15} className={`mt-0.5 shrink-0 ${active === item.label ? "text-slate-950" : "text-cyan-200"}`} />
                           <span className="min-w-0">
                             <span className="block truncate">{item.label}</span>
-                            <span className={`mt-0.5 block truncate text-[11px] font-medium ${active === item.label ? "text-slate-700" : "text-slate-500"}`}>{group.description}</span>
+                            <span className={`admin-nav-description mt-0.5 block overflow-hidden text-[11px] font-medium leading-4 ${active === item.label ? "text-slate-700" : "text-slate-500"}`}>{group.description}</span>
                           </span>
                         </Link>
                       ))}
@@ -504,25 +536,6 @@ export function AdminDashboard({
                 <Bell size={17} />
                 <span className="absolute right-2 top-2 size-2 rounded-full bg-amber-300 shadow-[0_0_18px_rgba(250,204,21,.8)]" />
               </button>
-              {notificationsOpen && (
-                <div className="absolute right-0 top-14 z-50 w-[min(92vw,360px)] rounded-[8px] border border-white/10 bg-[#080f20]/95 p-4 text-white shadow-2xl backdrop-blur-2xl">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">Notifications</p>
-                      <h3 className="mt-1 font-black">Operasyon olayları</h3>
-                    </div>
-                    <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] font-black">{headerNotifications.length}</span>
-                  </div>
-                  <div className="mt-4 grid gap-2">
-                    {headerNotifications.map((item) => (
-                      <div key={item.label} className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
-                        <p className="text-xs font-black text-white">{item.label}</p>
-                        <p className="mt-1 text-xs leading-5 text-slate-300">{item.text}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
             <div className="grid min-h-10 min-w-10 place-items-center rounded-[8px] border border-white/10 bg-white/[0.055] text-sm font-black text-white" title={currentSession?.email || "HK Admin"}>
               {userInitials || "HK"}
@@ -608,6 +621,32 @@ export function AdminDashboard({
           {active === "Kullanım Kılavuzu" && <UsageGuide />}
         </section>
       </div>
+      {notificationsOpen && (
+        <div className="fixed inset-0 z-[80] flex justify-end bg-[#020617]/65 backdrop-blur-sm" onMouseDown={() => setNotificationsOpen(false)}>
+          <aside className="h-full w-full max-w-md overflow-y-auto border-l border-white/10 bg-[#07101f]/97 p-5 text-white shadow-[0_24px_90px_rgba(0,0,0,.42)]" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">HK Operating System</p>
+                <h2 className="mt-1 text-2xl font-black">Bildirim Merkezi</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-400">Lead, AI, API, PDF, WhatsApp ve CRM olaylarını tek akışta izleyin.</p>
+              </div>
+              <button onClick={() => setNotificationsOpen(false)} className="grid size-10 shrink-0 place-items-center rounded-[8px] border border-white/10 hover:bg-white/10" aria-label="Kapat"><X size={18} /></button>
+            </div>
+            <div className="mt-5 grid gap-3">
+              {headerNotifications.map((item) => (
+                <div key={item.label} className={`rounded-[8px] border p-3 ${item.tone === "cyan" ? "border-cyan-200/20 bg-cyan-300/[0.08]" : item.tone === "emerald" ? "border-emerald-200/20 bg-emerald-300/[0.08]" : item.tone === "purple" ? "border-purple-200/20 bg-purple-300/[0.08]" : "border-amber-200/20 bg-amber-300/[0.08]"}`}>
+                  <p className="text-sm font-black text-white">{item.label}</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-300">{item.text}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 flex flex-wrap justify-end gap-2">
+              <button onClick={() => setNotificationsOpen(false)} className="rounded-[8px] border border-white/10 px-4 py-2 text-sm font-bold text-slate-200">Kapat</button>
+              <button onClick={() => setNotificationsOpen(false)} className="rounded-[8px] bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Tümünü Okundu Yap</button>
+            </div>
+          </aside>
+        </div>
+      )}
       <StartupApiStatusModal open={startupApiOpen} loading={startupApiLoading} data={startupApiData} message={startupApiMessage} onRetest={runStartupApiStatus} onClose={() => setStartupApiOpen(false)} onSettings={() => { setStartupApiOpen(false); setActive("API Ayarları"); }} />
       {bootVisible && <SystemBoot step={bootStep} />}
     </main>
@@ -1070,6 +1109,62 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     ["Google Analiz", googleLeadCount, "Arama görünürlüğü fırsatları", <Search size={20} />, "from-sky-600 to-blue-700", "Google Ads Analiz", "level2"],
     ["Dönüşüm Oranı", `%${conversionRate}`, "Leadden müşteriye dönüşüm", <Gauge size={20} />, "from-amber-500 to-orange-600", "CRM", "level2"]
   ].filter(([, , , , , target]) => canOpen(String(target)) || ["AI Durum Merkezi", "PDF Audit", "WhatsApp Teklifi"].includes(String(target)));
+  const workspaceWidgets = [
+    {
+      title: "CRM Widget",
+      subtitle: `${leads.length} lead · ${newLeads.length} yeni`,
+      description: "Sıcak, ılık ve soğuk lead dağılımı ile hızlı CRM aksiyonları.",
+      icon: <UsersRound size={19} />,
+      gradient: "from-blue-600 to-cyan-500",
+      target: "CRM",
+      stats: [["Sıcak", hotLeads.length], ["Ilık", leads.filter((lead) => Number(lead.lead_heat_score || 0) >= 50 && Number(lead.lead_heat_score || 0) < 70).length], ["Soğuk", leads.filter((lead) => Number(lead.lead_heat_score || 0) < 50).length]]
+    },
+    {
+      title: "Intelligence Widget",
+      subtitle: `${metaLeadCount + googleLeadCount + socialAuditLeads.length} sinyal`,
+      description: "Meta, Google ve sosyal istihbarat taramalarını aynı panelden açın.",
+      icon: <Sparkles size={19} />,
+      gradient: "from-orange-500 to-rose-600",
+      target: "Meta Analiz",
+      stats: [["Meta", metaLeadCount], ["Google", googleLeadCount], ["Sosyal", socialAuditLeads.length]]
+    },
+    {
+      title: "AI Command Widget",
+      subtitle: `${activeAiMeta.provider} · ${activeAiMeta.mode}`,
+      description: `Model: ${activeAiMeta.model}. Son istek ve sağlık bilgisini izleyin.`,
+      icon: <Bot size={19} />,
+      gradient: "from-purple-600 to-indigo-600",
+      target: "AI Durum Merkezi",
+      stats: [["Sağlık", `%${healthScore}`], ["Mod", activeAiMeta.mode], ["Provider", activeAiMeta.provider]]
+    },
+    {
+      title: "Reports & PDF Widget",
+      subtitle: `${reports.length + socialAuditLeads.length} çıktı`,
+      description: "PDF auditler, müşteri raporları ve dışa aktarma akışları.",
+      icon: <FileBarChart size={19} />,
+      gradient: "from-emerald-600 to-teal-600",
+      target: "PDF Audit",
+      stats: [["PDF", socialAuditLeads.length], ["Rapor", reports.length], ["Export", metricsThisMonth.length]]
+    },
+    {
+      title: "WhatsApp Proposal Widget",
+      subtitle: `${generatedProposals} teklif`,
+      description: "Hazır teklif iletişimlerini hızlıca üretin ve kopyalayın.",
+      icon: <MessageSquareText size={19} />,
+      gradient: "from-green-600 to-emerald-600",
+      target: "WhatsApp Teklifi",
+      stats: [["Teklif", generatedProposals], ["Müşteri", activeCustomers.length], ["Dönüşüm", `%${conversionRate}`]]
+    },
+    {
+      title: "Notifications Widget",
+      subtitle: `${recentActivity.length} olay`,
+      description: "Yeni lead, AI, API, PDF ve CRM hareketlerinden son sinyaller.",
+      icon: <Bell size={19} />,
+      gradient: "from-slate-600 to-indigo-700",
+      target: "Canlı Aktivite",
+      stats: [["Lead", newLeads.length], ["AI", aiAnalyzedLeads.length], ["Aktivite", activityLogs.length]]
+    }
+  ].filter((widget) => canOpen(widget.target) || ["AI Durum Merkezi", "PDF Audit", "WhatsApp Teklifi", "Canlı Aktivite"].includes(widget.target));
 
   async function createDemoCustomer() {
     setDemoLoading(true);
@@ -1119,6 +1214,35 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
         <p className="mt-1 text-sm font-bold text-cyan-100">Digital Marketing Command Center</p>
         <p className="mt-1 text-[10px] font-black uppercase tracking-[.16em] text-slate-400">Powered by HK Dijital</p>
       </div>
+      <div className="mb-5">
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">HK OS v2 Workspace</p>
+            <h3 className="mt-1 text-lg font-black text-white">Modüler operasyon widget'ları</h3>
+          </div>
+          <span className="rounded-full border border-cyan-200/20 bg-cyan-200/10 px-3 py-1 text-[10px] font-black text-cyan-100">Widget sıralaması yakında sürükle-bırak ile düzenlenebilir.</span>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+          {workspaceWidgets.map((widget) => (
+            <button key={widget.title} type="button" onClick={() => setActive(widget.target)} className={`admin-color-card group overflow-hidden rounded-[8px] border border-white/15 bg-gradient-to-br ${widget.gradient} p-4 text-left text-white shadow-[0_14px_40px_rgba(0,0,0,.18)] transition hover:-translate-y-0.5 hover:border-white/25`}>
+              <span className="flex items-start justify-between gap-3">
+                <span className="grid size-10 place-items-center rounded-[8px] border border-white/20 bg-white/[0.14]">{widget.icon}</span>
+                <span className="rounded-full border border-white/20 bg-black/10 px-2.5 py-1 text-[10px] font-black text-white/80">{widget.subtitle}</span>
+              </span>
+              <h4 className="mt-4 text-base font-black">{widget.title}</h4>
+              <p className="mt-2 min-h-10 text-xs leading-5 text-white/78">{widget.description}</p>
+              <span className="mt-4 grid grid-cols-3 gap-2">
+                {widget.stats.map(([label, value]) => (
+                  <span key={`${widget.title}-${label}`} className="rounded-[8px] border border-white/15 bg-white/[0.12] p-2">
+                    <span className="block truncate text-[10px] font-black uppercase tracking-[.08em] text-white/65">{label}</span>
+                    <span className="mt-1 block truncate text-sm font-black">{value}</span>
+                  </span>
+                ))}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="mb-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
         <div>
           <div className="mb-3 flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">Kategori çalışma alanı</p><h3 className="mt-1 text-lg font-black text-white">İşletim sistemi modülleri</h3></div><span className="rounded-full border border-white/10 px-3 py-1 text-[10px] font-black text-slate-400">HK OS</span></div>
@@ -1131,7 +1255,7 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
         </aside>
       </div>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-cyan-200/15 bg-cyan-200/[0.05] p-4">
-        <div><p className="text-sm font-black text-cyan-50">Dashboard düzeniniz</p><p className="mt-1 text-xs text-slate-400">Widget görünürlüğünü, sırasını ve favori modüllerinizi kişiselleştirin.</p></div>
+        <div><p className="text-sm font-black text-cyan-50">Dashboard düzeniniz</p><p className="mt-1 text-xs text-slate-400">Widget görünürlüğünü, sırasını ve favori modüllerinizi kişiselleştirin. Widget sıralaması yakında sürükle-bırak ile düzenlenebilir.</p></div>
         <button onClick={() => setCustomizing((current) => !current)} className="inline-flex min-h-10 items-center gap-2 rounded-full border border-cyan-200/20 px-4 text-xs font-black text-cyan-50"><Settings2 size={15} /> Dashboard'u düzenle</button>
       </div>
       {customizing && <GlassCard className="mb-5 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-black">Widget tercihleri</h3><button onClick={() => savePreferences({ order: dashboardWidgetDefaults, hidden: [], favorites: ["Müşteri Bulucu", "CRM"] })} className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-2 text-xs font-bold"><RotateCcw size={14} /> Varsayılan düzene dön</button></div><div className="mt-4 flex flex-wrap gap-2">{Object.entries(dashboardPresets).map(([label, preset]) => <button key={label} onClick={() => savePreferences(preset)} className="rounded-full border border-cyan-200/20 px-3 py-2 text-xs font-black text-cyan-100 transition hover:bg-cyan-200/10">{label}</button>)}</div><div className="mt-4 grid gap-2 md:grid-cols-2">{preferences.order.map((id, index) => <div key={id} className="flex items-center gap-2 rounded-[8px] border border-white/10 bg-black/10 p-2"><GripVertical size={15} className="text-slate-500" /><label className="flex flex-1 items-center gap-2 text-xs font-bold"><input type="checkbox" checked={!preferences.hidden.includes(id)} onChange={() => toggleWidget(id)} />{widgetNames[id]}</label><button disabled={!index} onClick={() => moveWidget(id, -1)} title="Yukarı taşı" className="rounded p-1 disabled:opacity-30"><ArrowUp size={14} /></button><button disabled={index === preferences.order.length - 1} onClick={() => moveWidget(id, 1)} title="Aşağı taşı" className="rounded p-1 disabled:opacity-30"><ArrowDown size={14} /></button></div>)}</div></GlassCard>}
@@ -1289,6 +1413,7 @@ function Crm({ content, setContent, view, setActive }: any) {
     .filter((lead) => !dateFrom || String(lead.created_at || lead.createdAt || "").slice(0, 10) >= dateFrom)
     .filter((lead) => !dateTo || String(lead.created_at || lead.createdAt || "").slice(0, 10) <= dateTo)
     .filter((lead) => view !== "Teklif Sihirbazı Kayıtları" || ["quote", "Teklif Formu", "Teklif Sihirbazı"].includes(lead.source));
+  const previewLead = selectedLead || leads[0];
   const tabCounts = crmStatusTabs.reduce((acc, tab) => {
     acc[tab] = tab === "Tüm Başvurular"
       ? (content.leads || []).filter((lead) => !isLeadDeleted(lead) && !isLeadRejected(lead)).length
@@ -1335,8 +1460,8 @@ function Crm({ content, setContent, view, setActive }: any) {
   }
   return (
     <Panel title={view === "Teklif Sihirbazı Kayıtları" ? "Teklif Sihirbazı Kayıtları" : "Form Başvuruları"}>
-      <div className="grid min-w-0 gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
-        <aside className="grid min-w-0 gap-4 self-start lg:w-[260px]">
+      <div className="grid min-w-0 gap-5 xl:grid-cols-[240px_minmax(0,1fr)]">
+        <aside className="grid min-w-0 gap-4 self-start xl:w-[240px]">
           <section className="rounded-[8px] border border-white/10 bg-white/[0.035] p-3 shadow-[0_10px_28px_rgba(0,0,0,.12)]">
             <p className="px-1 text-xs font-black uppercase tracking-[.14em] text-cyan-200">CRM klasörleri</p>
             <div className="mt-3 grid gap-1.5">
@@ -1360,7 +1485,8 @@ function Crm({ content, setContent, view, setActive }: any) {
             </div>
           </section>
         </aside>
-        <div className="min-w-0">
+        <div className="grid min-w-0 gap-4 2xl:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="min-w-0">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-white/10 bg-white/[0.035] p-3">
             <div><p className="text-xs font-black uppercase tracking-[.14em] text-cyan-200">{activeFolder.label}</p><h3 className="mt-1 text-base font-black text-white">{folderCounts[activeFolder.label] || 0} kayıt</h3></div>
             <button onClick={exportCsv} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[8px] bg-cyan-300 px-3 text-sm font-black text-slate-950"><Download size={16} /> CSV Dışa Aktar</button>
@@ -1397,6 +1523,25 @@ function Crm({ content, setContent, view, setActive }: any) {
             })}
             {!leads.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-center text-sm text-slate-400">Bu klasörde seçili filtrelerle başvuru bulunamadı.</p>}
           </div>
+          </div>
+          <aside className="h-fit rounded-[8px] border border-white/10 bg-white/[0.035] p-4 shadow-[0_12px_34px_rgba(0,0,0,.14)]">
+            <p className="text-xs font-black uppercase tracking-[.14em] text-cyan-200">Lead önizleme</p>
+            {previewLead ? (
+              <div className="mt-4">
+                <h3 className="text-lg font-black text-white">{previewLead.company || previewLead.name || "İsimsiz başvuru"}</h3>
+                <p className="mt-1 text-sm leading-6 text-slate-400">{previewLead.source || "Form"} · {previewLead.status || "Yeni"}</p>
+                <div className="mt-4 grid gap-2 text-sm">
+                  <InfoItem label="İletişim" value={previewLead.phone || previewLead.email || "-"} />
+                  <InfoItem label="Sektör" value={previewLead.business_type || previewLead.businessType || "-"} />
+                  <InfoItem label="Hedef" value={previewLead.goal || "-"} />
+                  <InfoItem label="Bütçe" value={previewLead.budget || "-"} />
+                </div>
+                <button onClick={() => setSelectedLead(previewLead)} className="mt-4 w-full rounded-[8px] bg-cyan-300 px-4 py-3 text-sm font-black text-slate-950">Detayı Aç</button>
+              </div>
+            ) : (
+              <p className="mt-4 rounded-[8px] border border-dashed border-white/10 p-4 text-sm leading-6 text-slate-400">Bu klasörde önizlenecek lead bulunamadı.</p>
+            )}
+          </aside>
         </div>
       </div>
       {selectedLead && <LeadDrawer lead={selectedLead} update={update} persistLead={persistLead} permanentDelete={permanentDelete} close={() => setSelectedLead(null)} onConverted={(data) => {
