@@ -113,12 +113,6 @@ html {
   color: #e2e8f0;
 }
 
-.admin-nav-description {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
 .admin-light .admin-top-dropdown {
   border-color: #cbd5e1;
   background: rgba(255, 255, 255, .97);

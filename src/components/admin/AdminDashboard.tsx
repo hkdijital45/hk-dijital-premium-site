@@ -474,7 +474,6 @@ export function AdminDashboard({
                 const expanded = openGroups[group.label] || hoveredNavGroup === group.label;
                 const activeInGroup = group.items.some((item) => item.label === active || item.slug === "" && active === "Dashboard");
                 const CategoryIcon = adminCategoryIcons[group.icon] || LayoutDashboard;
-                const twoColumn = group.items.length > 8;
                 return (
                   <div
                     key={group.label}
@@ -502,7 +501,7 @@ export function AdminDashboard({
                     <div
                       onMouseEnter={() => openNavGroup(group.label)}
                       onMouseLeave={() => closeNavGroup(group.label)}
-                      className={`admin-top-dropdown premium-scrollbar ${expanded ? "grid" : "hidden"} mt-2 max-h-[calc(100vh-104px)] w-full max-w-full gap-2 overflow-y-auto rounded-[8px] border border-white/10 bg-[#08101c]/98 p-3 shadow-[0_18px_50px_rgba(0,0,0,.24)] lg:absolute lg:left-1/2 lg:top-full lg:z-50 lg:mt-3 lg:-translate-x-1/2 ${twoColumn ? "lg:w-[min(680px,calc(100vw-32px))] lg:grid-cols-2 lg:gap-4" : "lg:w-[min(560px,calc(100vw-32px))]"}`}
+                      className={`admin-top-dropdown premium-scrollbar ${expanded ? "flex" : "hidden"} mt-2 max-h-[calc(100vh-104px)] w-full max-w-full flex-col gap-2 overflow-y-auto rounded-[8px] border border-white/10 bg-[#08101c]/98 p-3 shadow-[0_18px_50px_rgba(0,0,0,.24)] lg:absolute lg:left-1/2 lg:top-full lg:z-50 lg:mt-3 lg:w-[min(520px,calc(100vw-32px))] lg:min-w-[420px] lg:-translate-x-1/2`}
                     >
                       {group.items.map((item) => (
                         <Link
@@ -510,12 +509,12 @@ export function AdminDashboard({
                           href={getAdminHref(item.slug)}
                           title={item.label}
                           onClick={() => { setMobileNavOpen(false); setHoveredNavGroup(""); }}
-                          className={`flex min-w-0 items-start gap-3 rounded-[8px] border px-3.5 py-3 text-sm font-bold transition ${active === item.label ? "border-cyan-200/50 bg-cyan-300 text-slate-950" : "border-white/10 text-slate-200 hover:border-cyan-200/25 hover:bg-white/[0.07] hover:text-cyan-50"}`}
+                          className={`flex w-full min-w-0 items-start gap-3 rounded-[8px] border px-3.5 py-3 text-sm font-bold transition ${active === item.label ? "border-cyan-200/50 bg-cyan-300 text-slate-950" : "border-white/10 text-slate-200 hover:border-cyan-200/25 hover:bg-white/[0.07] hover:text-cyan-50"}`}
                         >
                           <CategoryIcon size={15} className={`mt-0.5 shrink-0 ${active === item.label ? "text-slate-950" : "text-cyan-200"}`} />
-                          <span className="min-w-0">
-                            <span className="block whitespace-normal break-words leading-5">{item.label}</span>
-                            <span className={`admin-nav-description mt-1 block overflow-hidden text-[11px] font-medium leading-4 ${active === item.label ? "text-slate-700" : "text-slate-500"}`}>{group.description}</span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block whitespace-normal break-normal leading-5">{item.label}</span>
+                            <span className={`mt-1 block whitespace-normal break-normal text-[11px] font-medium leading-4 ${active === item.label ? "text-slate-700" : "text-slate-500"}`}>{group.description}</span>
                           </span>
                         </Link>
                       ))}
