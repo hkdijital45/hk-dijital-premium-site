@@ -4,7 +4,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Activity, AlertTriangle, ArrowDown, ArrowUp, BarChart3, Bell, Bot, Building2, ChevronDown, ChevronLeft, ChevronRight, CircleCheck, CircleOff, Copy, Download, FileBarChart, Gauge, GripVertical, HelpCircle, ImagePlus, LayoutDashboard, LogOut, MapPinned, MessageSquareText, Plus, RotateCcw, Save, Search, Settings2, Sparkles, Star, Trash2, UsersRound, WandSparkles, X } from "lucide-react";
+import { Activity, AlertTriangle, ArrowDown, ArrowUp, BarChart3, Bell, Bot, Building2, ChevronDown, ChevronRight, CircleCheck, CircleOff, Copy, Download, FileBarChart, Gauge, GripVertical, HelpCircle, ImagePlus, LayoutDashboard, LogOut, MapPinned, MessageSquareText, Plus, RotateCcw, Save, Search, Settings2, Sparkles, Star, Trash2, UsersRound, WandSparkles, X } from "lucide-react";
 import type { SiteContent } from "@/lib/types";
 import { ReportTools } from "@/components/admin/reports/ReportTools";
 import { Logo } from "@/components/public/Logo";
@@ -279,7 +279,7 @@ export function AdminDashboard({
   const [status, setStatus] = useState("");
   const [saving, setSaving] = useState(false);
   const [theme, setTheme] = useState("dark");
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [customTheme, setCustomTheme] = useState(null);
@@ -433,77 +433,67 @@ export function AdminDashboard({
 
   return (
     <main className={`relative min-h-screen overflow-x-hidden ${theme === "light" ? "admin-light" : ""} ${customTheme ? "admin-themed" : ""} ${shellClass}`} style={customTheme ? { backgroundColor: customTheme.background, color: customTheme.text, "--admin-surface": customTheme.surface, "--admin-border": customTheme.border, "--admin-sidebar": customTheme.sidebar, "--admin-header": customTheme.header, "--admin-muted": customTheme.mutedText, "--admin-button": customTheme.primaryButton } : undefined}>
+      <div className="admin-ambient pointer-events-none absolute inset-0" />
       <div className="premium-grid pointer-events-none absolute inset-0 opacity-20" />
-      <div className={`relative grid min-h-screen ${sidebarCollapsed ? "lg:grid-cols-[72px_minmax(0,1fr)]" : "lg:grid-cols-[292px_minmax(0,1fr)]"}`}>
-        <aside className={`relative z-30 flex min-h-full flex-col border-b border-white/10 bg-[#060a14] px-3 py-3 shadow-[4px_0_18px_rgba(0,0,0,.16)] lg:min-h-screen lg:border-b-0 lg:border-r ${sidebarCollapsed ? "lg:px-2" : "lg:px-3"}`}>
-          <button
-            type="button"
-            onClick={() => setSidebarCollapsed((current) => !current)}
-            title={sidebarCollapsed ? "Menüyü genişlet" : "Menüyü daralt"}
-            className="mb-3 hidden min-h-9 w-full items-center justify-center rounded-[8px] text-slate-300 hover:bg-white/[0.08] hover:text-white lg:flex"
-          >
-            {sidebarCollapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}
-          </button>
-          {!sidebarCollapsed && <div className="mb-3 px-2"><Logo content={content} /><p className="mt-3 text-[10px] font-black uppercase tracking-[.16em] text-slate-300">HK Operating System</p></div>}
-          <nav className="grid flex-1 content-start gap-1.5">
-          {visibleNavigationGroups.map((group) => {
-            const expanded = openGroups[group.label];
-            const activeInGroup = group.items.some((item) => item.label === active || item.slug === "" && active === "Dashboard");
-            const CategoryIcon = adminCategoryIcons[group.icon] || LayoutDashboard;
-            return (
-              <div key={group.label} className={`rounded-[8px] transition ${activeInGroup ? "bg-cyan-400/[0.06]" : ""}`}>
-                <button
-                  type="button"
-                  onClick={() => toggleGroup(group.label)}
-                  title={group.label}
-                  className={`flex w-full items-center gap-2 rounded-[8px] px-2.5 py-2 text-left transition hover:bg-white/[0.08] ${sidebarCollapsed ? "justify-center" : "justify-between"}`}
-                >
-                  <span className={`grid size-8 shrink-0 place-items-center rounded-[8px] border ${activeInGroup ? "border-cyan-300/25 bg-cyan-300/10 text-cyan-100" : "border-white/10 bg-white/[0.055] text-slate-300"}`}>
-                    <CategoryIcon size={15} />
-                  </span>
-                  {!sidebarCollapsed && <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-2">
-                      <span className="truncate text-[11px] font-black uppercase tracking-[.10em] text-slate-100">{group.label}</span>
-                    </span>
-                  </span>}
-                  {!sidebarCollapsed && <span className="flex items-center gap-1.5 text-right">
-                    <span className="rounded-full bg-white/[0.08] px-1.5 py-0.5 text-[10px] font-black text-slate-400">{group.items.length}</span>
-                    {expanded ? <ChevronDown size={15} className="text-slate-400" /> : <ChevronRight size={15} className="text-slate-400" />}
-                  </span>}
-                </button>
-                {(sidebarCollapsed || expanded) && (
-                  <div className={`grid gap-0.5 ${sidebarCollapsed ? "px-1 pb-1.5" : "px-2 pb-2"}`}>
-                    {group.items.map((item) => (
-                      <Link
-                        key={item.slug}
-                        href={getAdminHref(item.slug)}
-                        title={item.label}
-                        className={`block w-full max-w-full overflow-hidden rounded-[8px] px-3 py-2 text-left text-xs font-semibold leading-5 transition ${active === item.label ? "bg-cyan-400 text-slate-950 shadow-none" : "text-slate-400 hover:bg-white/[0.08] hover:text-slate-100"}`}
-                      >
-                        <span className="block truncate">{sidebarCollapsed ? item.label.slice(0, 2).toLocaleUpperCase("tr") : item.label}</span>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          </nav>
-          {!sidebarCollapsed && <div className="mt-3 border-t border-white/10 px-2 py-3"><p className="text-[11px] font-black text-slate-300">HK Operating System</p><p className="mt-0.5 text-[10px] font-bold text-slate-500">v1.0</p></div>}
-        </aside>
-        <div className="min-w-0">
-      <header className={`sticky top-0 z-40 border-b ${headerClass} shadow-[0_8px_24px_rgba(0,0,0,.12)] backdrop-blur-2xl`}>
-        <div className="relative flex flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-6">
-          <div className="flex items-center gap-3">
+      <header className={`sticky top-0 z-40 border-b ${headerClass} shadow-[0_10px_30px_rgba(0,0,0,.12)] backdrop-blur-2xl`}>
+        <div className="relative flex flex-wrap items-center gap-3 px-4 py-3 lg:px-6">
+          <div className="flex min-w-[220px] items-center gap-3">
             <Logo content={content} compact />
             <div>
-            <p className="text-xs font-bold uppercase tracking-[.22em] text-cyan-200">Digital Marketing Command Center</p>
-            <h1 className="text-xl font-black sm:text-2xl">HK Operating System</h1>
-            <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[.18em] text-slate-500">Powered by HK Dijital</p>
+              <p className="text-[10px] font-bold uppercase tracking-[.18em] text-cyan-200">HK Dijital</p>
+              <h1 className="text-lg font-black sm:text-xl">HK Operating System</h1>
             </div>
             {isDesktopApp && <span className="rounded-[8px] border border-amber-200/20 bg-amber-300/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[.12em] text-amber-100">Desktop</span>}
           </div>
-          <div className="flex flex-wrap justify-end gap-2">
+          <nav className="order-3 grid w-full gap-2 lg:order-none lg:flex lg:w-auto lg:flex-1 lg:items-center lg:justify-center">
+            <button type="button" onClick={() => setMobileNavOpen((current) => !current)} className="flex min-h-10 items-center justify-between rounded-[8px] border border-white/10 bg-white/[0.045] px-3 text-sm font-black text-slate-100 lg:hidden">
+              Menü
+              {mobileNavOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            </button>
+            <div className={`${mobileNavOpen ? "grid" : "hidden"} gap-2 lg:flex lg:items-center lg:gap-1.5`}>
+              {visibleNavigationGroups.map((group) => {
+                const expanded = openGroups[group.label];
+                const activeInGroup = group.items.some((item) => item.label === active || item.slug === "" && active === "Dashboard");
+                const CategoryIcon = adminCategoryIcons[group.icon] || LayoutDashboard;
+                return (
+                  <div key={group.label} className="relative lg:group">
+                    <button
+                      type="button"
+                      onClick={() => toggleGroup(group.label)}
+                      className={`flex min-h-10 w-full items-center justify-between gap-2 rounded-[8px] border px-3 text-sm font-black transition lg:w-auto ${activeInGroup ? "border-cyan-300/40 bg-cyan-300/10 text-cyan-50" : "border-white/10 bg-white/[0.035] text-slate-300 hover:border-cyan-200/25 hover:bg-white/[0.065] hover:text-white"}`}
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        <CategoryIcon size={15} />
+                        <span className="truncate">{group.label}</span>
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="rounded-full bg-white/[0.08] px-1.5 py-0.5 text-[10px] text-slate-300">{group.items.length}</span>
+                        <ChevronDown size={14} className={`transition ${expanded ? "rotate-180" : "lg:group-hover:rotate-180"}`} />
+                      </span>
+                    </button>
+                    <div className={`admin-top-dropdown ${expanded ? "grid" : "hidden"} mt-2 gap-1 rounded-[8px] border border-white/10 bg-[#08101c]/96 p-2 shadow-[0_18px_50px_rgba(0,0,0,.24)] lg:absolute lg:left-0 lg:top-full lg:z-50 lg:mt-3 lg:w-72 lg:group-hover:grid lg:group-focus-within:grid`}>
+                      {group.items.map((item) => (
+                        <Link
+                          key={item.slug}
+                          href={getAdminHref(item.slug)}
+                          title={item.label}
+                          onClick={() => setMobileNavOpen(false)}
+                          className={`flex items-center gap-3 rounded-[8px] px-3 py-2.5 text-sm font-bold transition ${active === item.label ? "bg-cyan-300 text-slate-950" : "text-slate-300 hover:bg-white/[0.07] hover:text-cyan-50"}`}
+                        >
+                          <CategoryIcon size={15} className={active === item.label ? "text-slate-950" : "text-cyan-200"} />
+                          <span className="min-w-0">
+                            <span className="block truncate">{item.label}</span>
+                            <span className={`mt-0.5 block truncate text-[11px] font-medium ${active === item.label ? "text-slate-700" : "text-slate-500"}`}>{group.description}</span>
+                          </span>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </nav>
+          <div className="ml-auto flex flex-wrap justify-end gap-2">
             <button onClick={() => setActive("API Ayarları")} className="min-h-10 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 px-3 text-left text-xs font-bold text-cyan-50">
               <span className="block">AI: {aiStatus.provider}</span>
               <span className="block text-[10px] text-cyan-100/70">Mod: {aiStatus.mode}</span>
@@ -561,8 +551,8 @@ export function AdminDashboard({
           </div>
         </div>
       </header>
-      <div className="relative px-4 py-6 lg:px-6">
-        <section className={`min-w-0 rounded-[8px] border p-5 shadow-[0_24px_90px_rgba(0,0,0,.18)] ${panelClass}`}>
+      <div className="relative px-3 py-4 sm:px-4 lg:px-6">
+        <section className={`min-w-0 rounded-[8px] border p-4 shadow-[0_16px_54px_rgba(0,0,0,.14)] sm:p-5 ${panelClass}`}>
           {!supabaseConfigured && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">Supabase bağlantısı yapılandırılmadı. Canlı ortamda kaydetme çalışmaz.</p>}
           {bootstrapWarning && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">Süper admin kurulum anahtarları hâlâ aktif. Güvenlik için Vercel ortam değişkenlerinden kaldırın.</p>}
           {status && <p className={`mb-5 rounded-[8px] border p-3 text-sm ${status.includes("Kaydedilemedi") ? "border-red-300/30 bg-red-500/10 text-red-100" : "border-cyan-200/20 bg-cyan-200/10 text-cyan-100"}`}>{status}</p>}
@@ -617,8 +607,6 @@ export function AdminDashboard({
           {active === "Log Hareketleri" && <ActivityLogs content={content} />}
           {active === "Kullanım Kılavuzu" && <UsageGuide />}
         </section>
-      </div>
-        </div>
       </div>
       <StartupApiStatusModal open={startupApiOpen} loading={startupApiLoading} data={startupApiData} message={startupApiMessage} onRetest={runStartupApiStatus} onClose={() => setStartupApiOpen(false)} onSettings={() => { setStartupApiOpen(false); setActive("API Ayarları"); }} />
       {bootVisible && <SystemBoot step={bootStep} />}
@@ -1108,7 +1096,7 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
 
   const widgetNames = { metrics: "Sistem metrikleri", aiStatus: "AI Durum Merkezi", operations: "Canlı operasyon merkezi", pipeline: "CRM pipeline görseli", intelligence: "Intelligence merkezi", status: "Sistem durum merkezi", charts: "Gerçek veri grafikleri", insights: "AI içgörüleri", quickActions: "Hızlı aksiyonlar", crm: "CRM akışı", activity: "Son aktiviteler", demo: "Müşteri paneli testi" };
   const widgets: any = {
-    metrics: <div><div className="mb-4 flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">Dashboard Widgets</p><h3 className="mt-1 text-lg font-black text-white">HK Business Operating System</h3><p className="mt-1 text-sm leading-5 text-slate-400">CRM, istihbarat, AI, rapor ve teklif akışlarını tek ekranda izleyin.</p></div><span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-black text-slate-300">Gerçek veriler</span></div><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">{osDashboardWidgets.map(([label, value, note, icon, gradient, target, level]) => <button key={label} type="button" onClick={() => setActive(target)} className={`group relative overflow-hidden rounded-[8px] border border-white/[0.12] bg-gradient-to-br ${gradient} text-left text-white shadow-[0_12px_34px_rgba(0,0,0,.18)] transition hover:-translate-y-0.5 hover:border-white/25 ${level === "level1" ? "min-h-40 p-5 xl:col-span-1" : "min-h-32 p-4"}`}><span className="relative flex items-start justify-between gap-3"><span className="grid size-10 place-items-center rounded-[8px] border border-white/20 bg-white/[0.12]">{icon}</span><span className="rounded-full border border-white/[0.18] bg-black/10 px-2 py-1 text-[10px] font-black uppercase tracking-[.10em] text-white/80">{level === "level1" ? "Öncelik" : "Modül"}</span></span><p className="relative mt-4 text-xs font-black uppercase tracking-[.12em] text-white/70">{label}</p><p className="relative mt-1.5 text-2xl font-black">{value}</p><p className="relative mt-2 text-xs leading-5 text-white/75">{note}</p></button>)}</div><details className="mt-4 rounded-[8px] border border-white/10 bg-black/10 p-3"><summary className="cursor-pointer text-xs font-black uppercase tracking-[.14em] text-slate-400">Tüm sistem metrikleri</summary><div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">{stats.map(([label, value, note, icon, accent]) => <MetricCard3D key={label} label={label} value={value} note={note} accent={accent} icon={icon} />)}</div></details></div>,
+    metrics: <div><div className="mb-4 flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">Dashboard Widgets</p><h3 className="mt-1 text-lg font-black text-white">HK Business Operating System</h3><p className="mt-1 text-sm leading-5 text-slate-400">CRM, istihbarat, AI, rapor ve teklif akışlarını tek ekranda izleyin.</p></div><span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-black text-slate-300">Gerçek veriler</span></div><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">{osDashboardWidgets.map(([label, value, note, icon, gradient, target, level]) => <button key={label} type="button" onClick={() => setActive(target)} className={`admin-color-card group relative overflow-hidden rounded-[8px] border border-white/[0.12] bg-gradient-to-br ${gradient} text-left text-white shadow-[0_12px_34px_rgba(0,0,0,.18)] transition hover:-translate-y-0.5 hover:border-white/25 ${level === "level1" ? "min-h-40 p-5 xl:col-span-1" : "min-h-32 p-4"}`}><span className="relative flex items-start justify-between gap-3"><span className="grid size-10 place-items-center rounded-[8px] border border-white/20 bg-white/[0.12]">{icon}</span><span className="rounded-full border border-white/[0.18] bg-black/10 px-2 py-1 text-[10px] font-black uppercase tracking-[.10em] text-white/80">{level === "level1" ? "Öncelik" : "Modül"}</span></span><p className="relative mt-4 text-xs font-black uppercase tracking-[.12em] text-white/70">{label}</p><p className="relative mt-1.5 text-2xl font-black">{value}</p><p className="relative mt-2 text-xs leading-5 text-white/75">{note}</p></button>)}</div><details className="mt-4 rounded-[8px] border border-white/10 bg-black/10 p-3"><summary className="cursor-pointer text-xs font-black uppercase tracking-[.14em] text-slate-400">Tüm sistem metrikleri</summary><div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">{stats.map(([label, value, note, icon, accent]) => <MetricCard3D key={label} label={label} value={value} note={note} accent={accent} icon={icon} />)}</div></details></div>,
     aiStatus: <AiStatusCenterWidget statuses={aiStatusCenter} message={aiStatusMessage || (content.settings?.api?.ai_status_last_test_at ? `Son test: ${new Date(content.settings.api.ai_status_last_test_at).toLocaleString("tr-TR")}` : "Henüz test yapılmadı.")} loading={aiStatusLoading} onRefresh={refreshAiStatus} />,
     operations: <GlassCard className="overflow-hidden p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[.16em] text-lime-200">Canlı Aktivite</p><h3 className="mt-2 text-xl font-black text-white">Live Operations Center</h3><p className="mt-1 text-sm text-slate-400">Lead, CRM, AI, PDF, WhatsApp ve API hareketlerini tek akışta izleyin.</p></div><span className="rounded-full bg-lime-300 px-3 py-1 text-[10px] font-black uppercase tracking-[.12em] text-slate-950">Aktif</span></div><div className="mt-5 grid gap-5 lg:grid-cols-[1fr_320px]"><div className="grid gap-2">{liveOperations.map(([title, text, date, accent]) => <div key={title} className={`flex items-center justify-between gap-4 rounded-[8px] border p-3 ${accent === "blue" ? "border-blue-200/25 bg-blue-400/12" : accent === "indigo" ? "border-indigo-200/25 bg-indigo-400/12" : accent === "purple" ? "border-purple-200/25 bg-purple-400/12" : accent === "rose" ? "border-rose-200/25 bg-rose-400/12" : accent === "lime" ? "border-lime-200/25 bg-lime-400/12" : "border-cyan-200/25 bg-cyan-400/12"}`}><div><p className="text-sm font-black text-white">{title}</p><p className="mt-1 text-xs leading-5 text-slate-300">{text}</p></div><time className="shrink-0 text-[10px] font-bold text-slate-400">{date ? new Date(date).toLocaleDateString("tr-TR") : "Bekliyor"}</time></div>)}</div><div className="rounded-[8px] border border-white/10 bg-black/15 p-4"><p className="mb-4 text-xs font-black uppercase tracking-[.16em] text-cyan-100">Operasyon ritmi</p><AnimatedChart label="Aktivite sinyali" values={[18, Math.min(92, leads.length * 9), Math.min(88, activityLogs.length * 12), Math.min(82, aiAnalyzedLeads.length * 15), Math.min(76, reports.length * 13), Math.min(86, generatedProposals * 16)]} /></div></div></GlassCard>,
     pipeline: <GlassCard className="p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[.16em] text-blue-200">CRM Pipeline Visual</p><h3 className="mt-2 text-xl font-black text-white">Satış ve takip hattı</h3><p className="mt-1 text-sm text-slate-400">Aşamalar gerçek lead durumlarından hesaplanır.</p></div><button onClick={() => setActive("CRM")} className="rounded-full border border-blue-200/20 px-4 py-2 text-xs font-black text-blue-100">CRM Aç</button></div><div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-6">{pipelineStages.map(([stage, count, gradient], index) => <div key={stage} className={`relative min-h-36 overflow-hidden rounded-[8px] border border-white/15 bg-gradient-to-br ${gradient} p-4 text-white shadow-[0_20px_55px_rgba(0,0,0,.18)] transition hover:-translate-y-1`}><span className="absolute -right-8 -top-8 size-24 rounded-full bg-white/18 blur-2xl" /><p className="relative text-xs font-black uppercase tracking-[.13em] text-white/72">{stage}</p><p className="relative mt-5 text-3xl font-black">{count}</p><div className="relative mt-4 h-2 overflow-hidden rounded-full bg-white/22"><div className="h-full rounded-full bg-white/80" style={{ width: `${Math.min(100, Number(count) * 18 + 12)}%` }} /></div><p className="relative mt-3 text-[10px] font-bold text-white/72">Aşama {index + 1}</p></div>)}</div></GlassCard>,
@@ -1134,7 +1122,7 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
       <div className="mb-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
         <div>
           <div className="mb-3 flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">Kategori çalışma alanı</p><h3 className="mt-1 text-lg font-black text-white">İşletim sistemi modülleri</h3></div><span className="rounded-full border border-white/10 px-3 py-1 text-[10px] font-black text-slate-400">HK OS</span></div>
-          <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">{categoryCards.map((card, index) => <article key={card.title} className="group min-h-44 overflow-hidden rounded-[8px] border border-white/10 bg-white/[0.035] p-4 text-white shadow-[0_10px_26px_rgba(0,0,0,.12)] transition duration-200 hover:border-cyan-200/25 hover:bg-white/[0.055]"><span className="flex items-start justify-between gap-4"><span className={`grid size-10 place-items-center rounded-[8px] border ${index === 1 ? "border-orange-300/25 bg-orange-300/10 text-orange-100" : index === 2 ? "border-purple-300/25 bg-purple-300/10 text-purple-100" : "border-cyan-300/20 bg-cyan-300/10 text-cyan-100"}`}>{card.icon}</span><span className="rounded-full border border-white/10 bg-black/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[.10em] text-slate-300">{card.count}</span></span><h4 className="mt-5 text-base font-black">{card.title}</h4><p className="mt-2 min-h-10 text-xs leading-5 text-slate-400">{card.description}</p><div className="mt-4 flex flex-wrap gap-2">{card.actions.map(([label, target]) => <button key={label} type="button" onClick={() => setActive(target)} className="rounded-[8px] border border-white/10 bg-black/10 px-2.5 py-1.5 text-xs font-black text-slate-200 transition hover:border-cyan-200/30 hover:bg-cyan-300/10 hover:text-cyan-50">{label}</button>)}</div></article>)}</div>
+          <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">{categoryCards.map((card) => <article key={card.title} className={`admin-color-card group min-h-44 overflow-hidden rounded-[8px] border border-white/15 bg-gradient-to-br ${card.gradient} p-4 text-white shadow-[0_12px_34px_rgba(0,0,0,.18)] transition duration-200 hover:-translate-y-0.5 hover:border-white/25`}><span className="flex items-start justify-between gap-4"><span className="grid size-10 place-items-center rounded-[8px] border border-white/20 bg-white/[0.14] text-white">{card.icon}</span><span className="rounded-full border border-white/20 bg-black/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[.10em] text-white/80">{card.count}</span></span><h4 className="mt-5 text-base font-black">{card.title}</h4><p className="mt-2 min-h-10 text-xs leading-5 text-white/78">{card.description}</p><div className="mt-4 flex flex-wrap gap-2">{card.actions.map(([label, target]) => <button key={label} type="button" onClick={() => setActive(target)} className="rounded-[8px] border border-white/20 bg-white/[0.12] px-2.5 py-1.5 text-xs font-black text-white transition hover:bg-white hover:text-slate-950">{label}</button>)}</div></article>)}</div>
         </div>
         <aside className="rounded-[8px] border border-white/10 bg-white/[0.035] p-4 shadow-[0_12px_34px_rgba(0,0,0,.14)]">
           <div className="flex items-center gap-3"><span className="grid size-8 place-items-center rounded-[8px] border border-amber-200/20 bg-amber-200/10 text-amber-200"><Bell size={15} /></span><div><p className="text-[10px] font-black uppercase tracking-[.14em] text-amber-200">Notifications</p><h3 className="mt-1 text-sm font-black text-white">Operasyon bildirimleri</h3></div></div>
