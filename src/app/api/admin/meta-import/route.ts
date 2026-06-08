@@ -7,37 +7,108 @@ import { requireModuleAccess } from "@/lib/permissions";
 const columnMap: Record<string, string> = {
   "campaign name": "campaignName",
   "kampanya adı": "campaignName",
+  "kampanya adi": "campaignName",
   "ad set name": "adSetName",
   "reklam seti adı": "adSetName",
+  "reklam seti adi": "adSetName",
   "ad name": "adName",
   "reklam adı": "adName",
+  "reklam adi": "adName",
   "amount spent": "spent",
+  "amount spent (try)": "spent",
   "harcanan tutar": "spent",
+  "harcanan tutar (try)": "spent",
+  spend: "spent",
   impressions: "impressions",
+  impression: "impressions",
+  "gösterim": "impressions",
+  "gosterim": "impressions",
   "gösterimler": "impressions",
+  "gosterimler": "impressions",
   reach: "reach",
   "erişim": "reach",
-  "link clicks": "linkClicks",
-  "bağlantı tıklamaları": "linkClicks",
+  "erisim": "reach",
+  "link clicks": "clicks",
+  "link click": "clicks",
+  "bağlantı tıklamaları": "clicks",
+  "baglanti tiklamalari": "clicks",
   clicks: "clicks",
   "tıklamalar": "clicks",
+  "tiklamalar": "clicks",
   results: "results",
   "sonuçlar": "results",
+  "sonuclar": "results",
+  "cost per result": "costPerResult",
+  "cost per results": "costPerResult",
+  "sonuç başına ücret": "costPerResult",
+  "sonuc basina ucret": "costPerResult",
+  "sonuç başına maliyet": "costPerResult",
+  "sonuc basina maliyet": "costPerResult",
   "messaging conversations started": "messages",
   "başlatılan mesajlaşmalar": "messages",
+  "baslatilan mesajlasmalar": "messages",
   leads: "leads",
   "potansiyel müşteriler": "leads",
+  "potansiyel musteriler": "leads",
   ctr: "ctr",
+  "ctr (bağlantı tıklama oranı)": "ctr",
+  "ctr (baglanti tiklama orani)": "ctr",
+  "link ctr": "ctr",
   cpc: "cpc",
+  "cpc (bağlantı tıklaması başına ücret)": "cpc",
+  "cpc (baglanti tiklamasi basina ucret)": "cpc",
+  "cost per link click": "cpc",
   cpm: "cpm",
+  "cpm (1000 gösterim başına ücret)": "cpm",
+  "cpm (1000 gosterim basina ucret)": "cpm",
+  "cost per 1,000 impressions": "cpm",
   date: "date",
   day: "date",
   "tarih": "date",
-  "gün": "date"
+  "gün": "date",
+  "gun": "date",
+  "reporting starts": "startDate",
+  "rapor başlangıcı": "startDate",
+  "rapor baslangici": "startDate",
+  "reporting ends": "endDate",
+  "rapor sonu": "endDate"
 };
 
 function normalizeHeader(value: string) {
-  return value.trim().toLocaleLowerCase("tr").replace(/\s+/g, " ");
+  return value
+    .trim()
+    .toLocaleLowerCase("tr")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[ıİ]/g, "i")
+    .replace(/ğ/g, "g")
+    .replace(/ü/g, "u")
+    .replace(/ş/g, "s")
+    .replace(/ö/g, "o")
+    .replace(/ç/g, "c")
+    .replace(/\s+/g, " ");
+}
+
+function detectDelimiter(text: string) {
+  let comma = 0;
+  let semicolon = 0;
+  let quoted = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const next = text[index + 1];
+    if (char === '"' && quoted && next === '"') {
+      index += 1;
+    } else if (char === '"') {
+      quoted = !quoted;
+    } else if ((char === "\n" || char === "\r") && !quoted) {
+      break;
+    } else if (!quoted && char === ",") {
+      comma += 1;
+    } else if (!quoted && char === ";") {
+      semicolon += 1;
+    }
+  }
+  return semicolon > comma ? ";" : ",";
 }
 
 function parseCsv(text: string) {
@@ -45,6 +116,7 @@ function parseCsv(text: string) {
   let cell = "";
   let row: string[] = [];
   let quoted = false;
+  const delimiter = detectDelimiter(text);
 
   for (let index = 0; index < text.length; index += 1) {
     const char = text[index];
@@ -55,7 +127,7 @@ function parseCsv(text: string) {
       index += 1;
     } else if (char === '"') {
       quoted = !quoted;
-    } else if ((char === "," || char === ";") && !quoted) {
+    } else if (char === delimiter && !quoted) {
       row.push(cell);
       cell = "";
     } else if ((char === "\n" || char === "\r") && !quoted) {
@@ -75,11 +147,32 @@ function parseCsv(text: string) {
 }
 
 function toNumber(value: unknown) {
-  const normalized = String(value ?? "")
-    .replace(/[^\d,.-]/g, "")
-    .replace(/\.(?=\d{3}(\D|$))/g, "")
-    .replace(",", ".");
-  const parsed = Number(normalized);
+  const cleaned = String(value ?? "")
+    .trim()
+    .replace(/[^\d,.-]/g, "");
+  if (!cleaned || cleaned === "-") return 0;
+
+  const negative = cleaned.startsWith("-");
+  const unsigned = cleaned.replace(/^-+/, "");
+  const lastComma = unsigned.lastIndexOf(",");
+  const lastDot = unsigned.lastIndexOf(".");
+  let normalized = unsigned;
+
+  if (lastComma >= 0 && lastDot >= 0) {
+    const decimalSeparator = lastComma > lastDot ? "," : ".";
+    const thousandsSeparator = decimalSeparator === "," ? "." : ",";
+    normalized = unsigned
+      .replace(new RegExp(`\\${thousandsSeparator}`, "g"), "")
+      .replace(decimalSeparator, ".");
+  } else if (lastComma >= 0) {
+    const parts = unsigned.split(",");
+    normalized = parts.length > 2 || parts.at(-1)?.length === 3 ? parts.join("") : unsigned.replace(",", ".");
+  } else if (lastDot >= 0) {
+    const parts = unsigned.split(".");
+    normalized = parts.length > 2 || parts.at(-1)?.length === 3 ? parts.join("") : unsigned;
+  }
+
+  const parsed = Number(`${negative ? "-" : ""}${normalized}`);
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
@@ -111,13 +204,18 @@ function buildRecords(rows: string[][], companyId: string, campaignId: string) {
       continue;
     }
 
-    const clicks = toNumber(data.clicks || data.linkClicks);
+    const clicks = toNumber(data.clicks);
     const leads = toNumber(data.leads || data.results);
     const spent = toNumber(data.spent);
+    const costPerResult = toNumber(data.costPerResult);
+    const startDate = data.startDate || data.date || data.endDate;
+    const endDate = data.endDate || data.startDate || data.date;
+    const noteParts = [data.campaignName, data.adSetName, data.adName].filter(Boolean);
+    if (data.startDate || data.endDate) noteParts.push(`Rapor dönemi: ${data.startDate || "-"} - ${data.endDate || "-"}`);
     records.push({
       campaign_id: campaignId,
       company_id: companyId,
-      date: toDate(data.date),
+      date: toDate(startDate),
       impressions: Math.round(toNumber(data.impressions)),
       reach: Math.round(toNumber(data.reach)),
       clicks: Math.round(clicks),
@@ -127,10 +225,10 @@ function buildRecords(rows: string[][], companyId: string, campaignId: string) {
       ctr: toNumber(data.ctr),
       cpc: toNumber(data.cpc),
       cpm: toNumber(data.cpm),
-      cost_per_lead: leads > 0 ? Number((spent / leads).toFixed(2)) : 0,
+      cost_per_lead: costPerResult || (leads > 0 ? Number((spent / leads).toFixed(2)) : 0),
       spent,
       visible_to_customer: true,
-      notes: [data.campaignName, data.adSetName, data.adName].filter(Boolean).join(" / ") || "Meta rapor içe aktarımı"
+      notes: noteParts.join(" / ") || `Meta rapor içe aktarımı${endDate ? ` (${toDate(startDate)} - ${toDate(endDate)})` : ""}`
     });
   }
 
