@@ -22,12 +22,11 @@ function systemPrompt(report: any) {
   return `HK Dijital müşterisi için aşağıdaki raporu sade Türkçe ile yorumla.
 Teknik kavramları kısa ve anlaşılır biçimde açıkla. Satış garantisi verme.
 Aşağıdaki başlıkları kısa ve müşteri dostu biçimde kullan:
-- Kullanılan tarih aralığı
-- Platform
-- Öne çıkan başarılar
-- Düşüşler / riskler
-- Sonraki adımlar
-- Müşterinin anlayacağı sade açıklama
+- Ne oldu?
+- İyi gidenler
+- Dikkat edilmesi gerekenler
+- Önümüzdeki 7 gün için öneriler
+- Kısa müşteri özeti
 Yalnızca seçilen tarih aralığı ve seçilen platform verisini yorumla. En fazla 220 kelime kullan.
 
 Rapor:

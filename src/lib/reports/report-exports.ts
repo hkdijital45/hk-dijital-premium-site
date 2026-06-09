@@ -1,8 +1,14 @@
 import { reportHighlights } from "./report-metrics";
+import { buildActionPlan, calculateHKIntelligenceScore, calculateHealthScore, formatCurrency, formatNumber, getLeadTracking, getWorkLogItems } from "./report-insights";
 
 export type ExportFormat = "excel" | "word" | "pdf";
 
 function lines(report: any, company: any, interpretation?: any, updates: any[] = []) {
+  const health = calculateHealthScore(report);
+  const intelligence = calculateHKIntelligenceScore(report, updates);
+  const leadTracking = getLeadTracking(report);
+  const plan = buildActionPlan(report, updates);
+  const workLog = getWorkLogItems(updates);
   return [
     "HK Dijital",
     `${company?.name || "Müşteri"} Performans Raporu`,
@@ -11,16 +17,27 @@ function lines(report: any, company: any, interpretation?: any, updates: any[] =
     `Tarih aralığı: ${report.start_date || "-"} - ${report.end_date || "-"}`,
     `Platform: ${report.platform || "-"}`,
     "",
+    `Reklam Sağlık Skoru: ${health.score}/100 - ${health.label}`,
+    health.explanation,
+    `HK Intelligence Skoru: ${intelligence.score}/100 - ${intelligence.label}`,
+    "",
     "Öne Çıkan Metrikler",
     ...reportHighlights(report).map((metric) => `${metric.label}: ${metric.value} - ${metric.explanation}`),
+    "",
+    "Lead / WhatsApp Takibi",
+    `Toplam lead: ${formatNumber(leadTracking.total)} | Arandı: ${formatNumber(leadTracking.called)} | Teklif verildi: ${formatNumber(leadTracking.proposed)} | Satış oldu: ${formatNumber(leadTracking.sold)} | Takip bekliyor: ${formatNumber(leadTracking.pending)}`,
+    `Harcama: ${formatCurrency(Number(report.metrics?.spent || report.metrics?.cost || 0))}`,
     "",
     `Ajans Notu: ${report.customer_note || "Ajans değerlendirmesi eklenecek."}`,
     "",
     "Yapay Zekâ Destekli Yorum",
     interpretation?.interpretation_text || "Bu rapor için henüz yorum oluşturulmadı.",
     "",
+    "Önümüzdeki 7 Gün Planı",
+    ...plan.map((item, index) => `${index + 1}. ${item}`),
+    "",
     "Ajans Notları ve Güncellemeler",
-    ...updates.map((update) => `${update.update_date} - ${update.title}: ${update.customer_note || update.agency_comment || ""}${update.next_action ? ` Sonraki adım: ${update.next_action}` : ""}`),
+    ...workLog.map((update) => `${update.date} - ${update.title} (${update.category} / ${update.status}): ${update.description}${updates.find((item) => item.id === update.id)?.next_action ? ` Sonraki adım: ${updates.find((item) => item.id === update.id)?.next_action}` : ""}`),
     "",
     "Not: Sonuçlar sektör, bütçe, hedef kitle, teklif ve rekabet durumuna göre değişebilir."
   ];

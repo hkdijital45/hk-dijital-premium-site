@@ -22,5 +22,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const updates = filterUpdatesForRange(bundle.updates, range, [bundle.report.id]);
   const file = await generateReportExport(format, filteredReport, bundle.company, bundle.interpretation, updates);
   await recordActivity({ session, action: "Dışa Aktarma", entity: "Rapor", entityId: id, companyId: bundle.report.company_id, details: { message: "Müşteri seçili dönem raporu indirdi", format, period: range.label, platform: platformFilterLabel(platform) } });
-  return new NextResponse(file.buffer, { headers: { "Content-Type": file.contentType, "Content-Disposition": `attachment; filename="hk-dijital-rapor.${file.extension}"` } });
+  const safeName = String(bundle.company?.name || "Musteri").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9-]+/g, "-").replace(/^-|-$/g, "") || "Musteri";
+  const fileName = `HK-Dijital-Rapor-${safeName}-${range.start.slice(0, 7)}.${file.extension}`;
+  return new NextResponse(file.buffer, { headers: { "Content-Type": file.contentType, "Content-Disposition": `attachment; filename="${fileName}"` } });
 }

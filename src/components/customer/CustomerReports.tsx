@@ -23,6 +23,18 @@ import { CustomerMetricBox } from "./reports/CustomerMetricBox";
 import { CustomerReportCharts } from "./reports/CustomerReportCharts";
 import { CustomerAgencyNotes } from "./reports/CustomerAgencyNotes";
 import { CustomerReportDashboardSummary } from "./reports/CustomerReportDashboardSummary";
+import {
+  buildActionPlan,
+  calculateHKIntelligenceScore,
+  calculateHealthScore,
+  calculateRoasRoi,
+  formatCurrency,
+  formatNumber,
+  getCompetitorEntries,
+  getCreativeItems,
+  getLeadTracking,
+  getWorkLogItems
+} from "@/lib/reports/report-insights";
 
 const groups = [
   "Meta Reklam Raporu",
@@ -51,6 +63,13 @@ function comparisonTone(value: number) {
   return "neutral" as const;
 }
 
+function scoreTone(score: number) {
+  if (score >= 85) return "border-emerald-300/30 bg-emerald-400/15 text-emerald-100";
+  if (score >= 70) return "border-cyan-300/30 bg-cyan-400/15 text-cyan-100";
+  if (score >= 40) return "border-amber-300/30 bg-amber-400/15 text-amber-100";
+  return "border-rose-300/30 bg-rose-400/15 text-rose-100";
+}
+
 function exportHref(reportId: string, format: string, range: ReturnType<typeof getCustomerDateRange>, platform: CustomerPlatformFilter) {
   const params = new URLSearchParams({
     format,
@@ -66,11 +85,14 @@ export function CustomerReports({ reports, initialInterpretations, reportUpdates
   const [interpretations, setInterpretations] = useState(initialInterpretations || []);
   const [periodInterpretation, setPeriodInterpretation] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [reportLoading, setReportLoading] = useState("");
   const [error, setError] = useState("");
+  const [reportErrors, setReportErrors] = useState<Record<string, string>>({});
   const [rangeKey, setRangeKey] = useState<CustomerDateRangeKey>("last_30");
   const [platform, setPlatform] = useState<CustomerPlatformFilter>("all");
   const [customStart, setCustomStart] = useState(() => getCustomerDateRange("last_30").start);
   const [customEnd, setCustomEnd] = useState(() => getCustomerDateRange("last_30").end);
+  const [roiInput, setRoiInput] = useState({ salesCount: "", revenue: "", averageOrderValue: "", serviceFee: "" });
   const [appliedFilters, setAppliedFilters] = useState(() => ({
     rangeKey: "last_30" as CustomerDateRangeKey,
     platform: "all" as CustomerPlatformFilter,
@@ -125,6 +147,32 @@ export function CustomerReports({ reports, initialInterpretations, reportUpdates
     setLoading(false);
   }
 
+  async function interpretSingleReport(report: any) {
+    setReportLoading(report.id);
+    setReportErrors((current) => ({ ...current, [report.id]: "" }));
+    const response = await fetch("/api/customer/reports/interpret", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        reportIds: [report.id],
+        filters: {
+          start: range.start,
+          end: range.end,
+          label: range.label,
+          platform: appliedPlatform,
+          platformLabel: platformFilterLabel(appliedPlatform)
+        }
+      })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.ok) {
+      setInterpretations((current) => [data.interpretation, ...current]);
+    } else {
+      setReportErrors((current) => ({ ...current, [report.id]: data.error || "Rapor yorumlanamadı. Lütfen daha sonra yeniden deneyin." }));
+    }
+    setReportLoading("");
+  }
+
   function applyFilters() {
     const nextRange = getCustomerDateRange(rangeKey, customStart, customEnd);
     if (process.env.NODE_ENV === "development") {
@@ -143,6 +191,11 @@ export function CustomerReports({ reports, initialInterpretations, reportUpdates
 
   const hasData = filteredReports.length > 0 && trendRows.length > 0;
   const periodMeta = periodInterpretation ? aiMeta(periodInterpretation) : null;
+  const overviewHealth = calculateHealthScore(currentAggregate);
+  const overviewIntelligence = calculateHKIntelligenceScore(currentAggregate, periodUpdates);
+  const overviewPlan = buildActionPlan(currentAggregate, periodUpdates);
+  const overviewLeads = getLeadTracking(currentAggregate);
+  const roi = calculateRoasRoi({ adSpend: currentAggregate.metrics?.spent, ...roiInput });
 
   return (
     <section className="glass-card mt-8 p-5">
@@ -234,6 +287,62 @@ export function CustomerReports({ reports, initialInterpretations, reportUpdates
             <div className="mt-4"><CustomerReportCharts rows={trendRows} /></div>
           </div>
 
+          <div className="mt-6 grid gap-4 xl:grid-cols-2">
+            <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-black text-cyan-100">Reklam Sağlık Skoru</h3>
+                  <p className="mt-1 text-sm leading-6 text-slate-400">{overviewHealth.explanation}</p>
+                </div>
+                <span className={`rounded-full border px-4 py-2 text-sm font-black ${scoreTone(overviewHealth.score)}`}>{overviewHealth.score}/100 · {overviewHealth.label}</span>
+              </div>
+              <div className="mt-4 grid gap-2">{overviewHealth.dimensions.map((item) => <div key={item.label} className="rounded-[8px] border border-white/10 bg-black/20 p-3"><div className="flex justify-between gap-3 text-sm"><strong>{item.label}</strong><span>{item.score === null ? "Veri yok" : `${item.score}/100 · ${item.status}`}</span></div><p className="mt-1 text-xs leading-5 text-slate-400">{item.explanation}</p></div>)}</div>
+            </div>
+            <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-black text-cyan-100">HK Intelligence Skoru</h3>
+                  <p className="mt-1 text-sm leading-6 text-slate-400">Reklam, sosyal, dönüşüm ve ajans çalışma düzenini birlikte okuyan marka içi değerlendirme skorudur.</p>
+                </div>
+                <span className={`rounded-full border px-4 py-2 text-sm font-black ${scoreTone(overviewIntelligence.score)}`}>{overviewIntelligence.score}/100 · {overviewIntelligence.label}</span>
+              </div>
+              <div className="mt-4 grid gap-2">{overviewIntelligence.dimensions.map((item) => <div key={item.label} className="rounded-[8px] border border-white/10 bg-black/20 p-3"><div className="flex justify-between gap-3 text-sm"><strong>{item.label}</strong><span>{item.score === null ? "Veri yok" : `${item.score}/100`}</span></div><p className="mt-1 text-xs leading-5 text-slate-400">{item.explanation}</p></div>)}</div>
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-4 xl:grid-cols-[1.1fr_.9fr]">
+            <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-4">
+              <h3 className="font-black text-cyan-100">ROAS / ROI Hesaplayıcı</h3>
+              <p className="mt-1 text-sm leading-6 text-slate-400">ROAS (Reklam Harcaması Getirisi) ve ROI (Yatırım Getirisi) için satış verilerinizi geçici olarak girin. Bu bilgiler kaydedilmez.</p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <label className="text-xs font-bold text-slate-300">Reklam harcaması<input readOnly value={formatCurrency(roi.adSpend)} className="mt-2 w-full rounded-[8px] border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-slate-300" /></label>
+                {(["salesCount", "revenue", "averageOrderValue", "serviceFee"] as const).map((key) => <label key={key} className="text-xs font-bold text-slate-300">{key === "salesCount" ? "Gelen satış adedi" : key === "revenue" ? "Toplam ciro" : key === "averageOrderValue" ? "Ortalama sepet tutarı" : "Hizmet bedeli (opsiyonel)"}<input value={roiInput[key]} onChange={(event) => setRoiInput({ ...roiInput, [key]: event.target.value })} className="mt-2 w-full rounded-[8px] border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white outline-none focus:border-cyan-200/60" /></label>)}
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <CustomerMetricBox label="ROAS" value={`${formatNumber(roi.roas, 2)}x`} explanation="Reklam harcamasının kaç katı ciro oluştuğunu gösterir." />
+                <CustomerMetricBox label="ROI" value={`%${formatNumber(roi.roi, 1)}`} explanation="Hizmet bedeli dahil toplam maliyete göre getiriyi gösterir." />
+                <CustomerMetricBox label="Satış başı maliyet" value={formatCurrency(roi.costPerSale)} explanation="Her satış için ortalama maliyettir." />
+              </div>
+              <p className="mt-3 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm leading-6 text-cyan-50">{roi.text}</p>
+            </div>
+            <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-4">
+              <h3 className="font-black text-cyan-100">WhatsApp / Lead Takibi</h3>
+              <p className="mt-1 text-sm leading-6 text-slate-400">Kişisel veriler gösterilmeden toplam lead durumları özetlenir.</p>
+              <div className="mt-4 grid gap-2">{[
+                ["Toplam lead", overviewLeads.total],
+                ["Arandı", overviewLeads.called],
+                ["Teklif verildi", overviewLeads.proposed],
+                ["Satış oldu", overviewLeads.sold],
+                ["Takip bekliyor", overviewLeads.pending]
+              ].map(([label, value]) => <div key={label} className="flex items-center justify-between rounded-[8px] border border-white/10 bg-black/20 p-3 text-sm"><span>{label}</span><strong>{formatNumber(Number(value))}</strong></div>)}</div>
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-[8px] border border-white/10 bg-white/[0.04] p-4">
+            <h3 className="font-black text-cyan-100">Önümüzdeki 7 Gün Planı</h3>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">{overviewPlan.map((item, index) => <div key={item} className="rounded-[8px] border border-white/10 bg-black/20 p-3 text-sm leading-6 text-slate-200"><strong className="text-cyan-100">{index + 1}.</strong> {item}</div>)}</div>
+          </div>
+
           <div className="mt-6 rounded-[8px] border border-white/10 bg-white/[0.04] p-4">
             <h3 className="font-black text-cyan-100">Ajans Notu</h3>
             <p className="mt-1 text-sm leading-6 text-slate-400">Seçilen dönem için ajans tarafından paylaşılan müşteri notları.</p>
@@ -266,6 +375,13 @@ export function CustomerReports({ reports, initialInterpretations, reportUpdates
                 {items.map((report) => {
                   const history = interpretations.filter((item) => item.report_id === report.id);
                   const notes = filterUpdatesForRange(reportUpdates || [], range, [report.id]);
+                  const health = calculateHealthScore(report);
+                  const intelligence = calculateHKIntelligenceScore(report, notes);
+                  const actionPlan = buildActionPlan(report, notes);
+                  const competitors = getCompetitorEntries(report);
+                  const creatives = getCreativeItems(report);
+                  const workLog = getWorkLogItems(notes);
+                  const leadTracking = getLeadTracking(report);
                   return (
                     <article key={report.id} className="rounded-[8px] border border-white/10 bg-black/25 p-5 transition duration-300 hover:-translate-y-1 hover:border-cyan-200/30">
                       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -274,8 +390,17 @@ export function CustomerReports({ reports, initialInterpretations, reportUpdates
                           <h4 className="mt-2 text-lg font-black">{range.label}</h4>
                           <p className="mt-1 text-xs font-bold text-slate-400">{platformFilterLabel(appliedPlatform)}</p>
                         </div>
+                        <div className="flex flex-wrap gap-2">
+                          <button disabled={reportLoading === report.id} onClick={() => interpretSingleReport(report)} className="inline-flex items-center gap-2 rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950 disabled:opacity-60"><Sparkles size={13} /> {reportLoading === report.id ? "Yorumlanıyor..." : "AI Yorumla"}</button>
+                          <a href={exportHref(report.id, "pdf", range, appliedPlatform)} className="inline-flex items-center gap-2 rounded-full border border-cyan-200/30 px-4 py-2 text-xs font-black text-cyan-100"><Download size={13} /> PDF Rapor Oluştur</a>
+                        </div>
                       </div>
                       <p className="mt-3 text-sm font-bold text-slate-200">{summary(report)}</p>
+                      {reportErrors[report.id] && <p className="mt-3 rounded-[8px] border border-red-300/30 bg-red-500/10 p-3 text-sm text-red-100">{reportErrors[report.id]}</p>}
+                      <div className="mt-4 grid gap-3 md:grid-cols-2">
+                        <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3"><div className="flex justify-between gap-3"><strong className="text-cyan-100">Reklam Sağlık Skoru</strong><span className={`rounded-full border px-3 py-1 text-xs font-black ${scoreTone(health.score)}`}>{health.score}/100 · {health.label}</span></div><p className="mt-2 text-xs leading-5 text-slate-400">{health.explanation}</p></div>
+                        <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3"><div className="flex justify-between gap-3"><strong className="text-cyan-100">HK Intelligence Skoru</strong><span className={`rounded-full border px-3 py-1 text-xs font-black ${scoreTone(intelligence.score)}`}>{intelligence.score}/100 · {intelligence.label}</span></div><p className="mt-2 text-xs leading-5 text-slate-400">Reklam, sosyal/dönüşüm ve ajans aktivitesi birlikte değerlendirilir.</p></div>
+                      </div>
                       <div className="mt-4 grid gap-2 sm:grid-cols-2">{reportHighlights(report).map((metric) => <CustomerMetricBox key={metric.key} label={metric.label} value={metric.value} explanation={metric.explanation} />)}</div>
                       {report.customer_note && <p className="mt-4 text-sm leading-6 text-slate-300">Ajans notu: {report.customer_note}</p>}
                       {history.map((item) => {
@@ -294,8 +419,28 @@ export function CustomerReports({ reports, initialInterpretations, reportUpdates
                         );
                       })}
                       <details className="mt-4 rounded-[8px] border border-white/10 p-3">
-                        <summary className="cursor-pointer text-sm font-black text-cyan-100">Grafikler</summary>
+                        <summary className="cursor-pointer text-sm font-black text-cyan-100">Günlük / dönem grafikleri</summary>
                         <div className="mt-4"><CustomerReportCharts rows={buildTrendRows([report], range, appliedPlatform)} /></div>
+                      </details>
+                      <details className="mt-3 rounded-[8px] border border-white/10 p-3" open>
+                        <summary className="cursor-pointer text-sm font-black text-cyan-100">Önümüzdeki 7 Gün Planı</summary>
+                        <div className="mt-3 grid gap-2">{actionPlan.map((item, index) => <p key={item} className="rounded-[8px] bg-white/[0.04] p-3 text-sm leading-6 text-slate-200"><strong className="text-cyan-100">{index + 1}.</strong> {item}</p>)}</div>
+                      </details>
+                      <details className="mt-3 rounded-[8px] border border-white/10 p-3">
+                        <summary className="cursor-pointer text-sm font-black text-cyan-100">Ajans Çalışma Günlüğü</summary>
+                        <div className="mt-3 grid gap-3">{workLog.length ? workLog.map((item) => <div key={item.id || `${item.date}-${item.title}`} className="rounded-[8px] bg-white/[0.04] p-3 text-sm"><p className="font-black text-white">{item.date ? new Date(item.date).toLocaleDateString("tr-TR", { day: "2-digit", month: "long" }) : "Tarih yok"} - {item.title}</p><p className="mt-1 text-xs text-cyan-100">{item.category} · {item.status}</p><p className="mt-2 leading-6 text-slate-300">{item.description || "Açıklama eklenmedi."}</p></div>) : <p className="text-sm text-slate-400">Bu dönem için çalışma günlüğü henüz eklenmedi.</p>}</div>
+                      </details>
+                      <details className="mt-3 rounded-[8px] border border-white/10 p-3">
+                        <summary className="cursor-pointer text-sm font-black text-cyan-100">Rakip Analizi</summary>
+                        <div className="mt-3 grid gap-3">{competitors.length ? competitors.map((item, index) => <div key={index} className="rounded-[8px] bg-white/[0.04] p-3 text-sm"><p className="font-black text-white">{item.name || item.competitor || "Rakip"}</p><p className="mt-1 text-xs text-slate-400">Aktif reklam: {item.activeAds ?? "Veri yok"} · Yeni reklam: {item.newAds ?? "Veri yok"} · Video: {item.videoAds ?? "Veri yok"} · Görsel: {item.imageAds ?? "Veri yok"}</p><p className="mt-2 leading-6 text-slate-300">{item.notes || "Not eklenmedi."}</p></div>) : <p className="text-sm text-slate-400">Rakip sinyali henüz manuel olarak eklenmedi.</p>}</div>
+                      </details>
+                      <details className="mt-3 rounded-[8px] border border-white/10 p-3">
+                        <summary className="cursor-pointer text-sm font-black text-cyan-100">Kreatif Merkezi</summary>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2">{creatives.length ? creatives.map((item, index) => <div key={index} className="rounded-[8px] bg-white/[0.04] p-3 text-sm">{item.imageUrl || item.url ? <img src={item.imageUrl || item.url} alt={item.caption || "Rapor kreatifi"} className="mb-3 aspect-video w-full rounded-[8px] object-cover" /> : null}<p className="font-black text-white">{item.type || "Kreatif"}</p><p className="mt-1 text-xs text-cyan-100">{item.platform || report.platform || "-"} · {item.dateUsed || item.date || "Tarih yok"}</p><p className="mt-2 leading-6 text-slate-300">{item.caption || item.note || "Açıklama eklenmedi."}</p></div>) : <p className="text-sm text-slate-400">Bu rapor dönemine ait kreatif henüz eklenmedi.</p>}</div>
+                      </details>
+                      <details className="mt-3 rounded-[8px] border border-white/10 p-3">
+                        <summary className="cursor-pointer text-sm font-black text-cyan-100">WhatsApp / Lead Takibi</summary>
+                        <div className="mt-3 grid gap-2 sm:grid-cols-5">{[["Toplam lead", leadTracking.total], ["Arandı", leadTracking.called], ["Teklif verildi", leadTracking.proposed], ["Satış oldu", leadTracking.sold], ["Takip bekliyor", leadTracking.pending]].map(([label, value]) => <div key={label} className="rounded-[8px] bg-white/[0.04] p-3 text-center"><p className="text-xs text-slate-400">{label}</p><p className="mt-1 text-lg font-black text-white">{formatNumber(Number(value))}</p></div>)}</div>
                       </details>
                       <details className="mt-3 rounded-[8px] border border-white/10 p-3">
                         <summary className="cursor-pointer text-sm font-black text-cyan-100">Ajans notları</summary>

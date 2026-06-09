@@ -347,6 +347,8 @@ create table if not exists public.report_updates (
   company_id uuid not null references public.companies(id) on delete cascade,
   update_date date not null default current_date,
   title text not null,
+  category text,
+  status text,
   customer_note text,
   agency_comment text,
   next_action text,

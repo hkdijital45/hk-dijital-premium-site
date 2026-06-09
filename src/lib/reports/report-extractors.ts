@@ -94,5 +94,5 @@ export async function extractReportFile(file: File) {
     });
     return total;
   }, {} as Record<string, number>);
-  return { metrics, timeSeries, raw: { headers: Object.keys(rawRows[0] || {}), rows: rawRows }, rowCount: rows.length };
+  return { metrics, timeSeries, startDate: String(rows[0]?.date || ""), endDate: String(rows[0]?.end_date || rows[rows.length - 1]?.date || ""), raw: { headers: Object.keys(rawRows[0] || {}), rows: rawRows }, rowCount: rows.length };
 }
