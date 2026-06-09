@@ -18,11 +18,10 @@ export const customerDateRangeOptions: Array<{ key: CustomerDateRangeKey; label:
 ];
 
 export const customerPlatformOptions: Array<{ key: CustomerPlatformFilter; label: string }> = [
-  { key: "all", label: "Tümü" },
-  { key: "meta", label: "Meta Reklamları" },
+  { key: "all", label: "Genel Performans" },
+  { key: "meta", label: "Meta Reklam Raporu" },
   { key: "google", label: "Google Ads" },
-  { key: "social", label: "Sosyal Medya" },
-  { key: "general", label: "Genel Performans" }
+  { key: "social", label: "Sosyal Medya Yönetimi" }
 ];
 
 export const customerMetricDefinitions = [
@@ -75,12 +74,23 @@ function startOfLocalDay(date: Date) {
 }
 
 function isoDate(date: Date) {
-  return startOfLocalDay(date).toISOString().slice(0, 10);
+  const local = startOfLocalDay(date);
+  return `${local.getFullYear()}-${String(local.getMonth() + 1).padStart(2, "0")}-${String(local.getDate()).padStart(2, "0")}`;
 }
 
 function parseDate(value?: string | null) {
   if (!value) return null;
-  const date = new Date(value);
+  const raw = String(value).trim();
+  const dateOnly = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (dateOnly) {
+    return startOfLocalDay(new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3])));
+  }
+  const turkishDate = raw.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
+  if (turkishDate) {
+    const year = Number(turkishDate[3].length === 2 ? `20${turkishDate[3]}` : turkishDate[3]);
+    return startOfLocalDay(new Date(year, Number(turkishDate[2]) - 1, Number(turkishDate[1])));
+  }
+  const date = new Date(raw);
   if (Number.isNaN(date.getTime())) return null;
   return startOfLocalDay(date);
 }
@@ -145,20 +155,34 @@ export function getPreviousDateRange(range: CustomerDateRange): CustomerDateRang
 }
 
 export function platformFilterLabel(platform: CustomerPlatformFilter) {
+  if (platform === "general") return "Genel Raporlar";
   return customerPlatformOptions.find((item) => item.key === platform)?.label || "Tümü";
 }
 
+function normalizeText(value: unknown) {
+  return String(value || "")
+    .toLocaleLowerCase("tr-TR")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[ıİ]/g, "i")
+    .replace(/ğ/g, "g")
+    .replace(/ü/g, "u")
+    .replace(/ş/g, "s")
+    .replace(/ö/g, "o")
+    .replace(/ç/g, "c");
+}
+
 export function reportMatchesPlatform(report: any, platform: CustomerPlatformFilter) {
+  const text = normalizeText(`${report?.report_type || ""} ${report?.platform || ""}`);
   if (platform === "all") return true;
-  const text = `${report?.report_type || ""} ${report?.platform || ""}`.toLocaleLowerCase("tr-TR");
   if (platform === "meta") return text.includes("meta") || text.includes("facebook") || text.includes("instagram");
   if (platform === "google") return text.includes("google");
   if (platform === "social") return text.includes("sosyal") || text.includes("instagram") || text.includes("facebook") || text.includes("tiktok") || text.includes("youtube") || text.includes("linkedin");
-  return text.includes("genel");
+  return text.includes("genel") || text.includes("tum kanallar") || text.includes("tüm kanallar");
 }
 
 export function rowDate(row: any, fallback?: string | null) {
-  return row?.date || row?.day || row?.period_date || fallback || null;
+  return row?.date || row?.day || row?.period_date || row?.startDate || row?.start_date || row?.reportStartDate || row?.report_start_date || row?.dateFrom || row?.date_from || row?.periodStart || row?.period_start || fallback || null;
 }
 
 function isInRange(value: string | null, range: CustomerDateRange) {
@@ -170,12 +194,44 @@ function isInRange(value: string | null, range: CustomerDateRange) {
 }
 
 function reportIntersectsRange(report: any, range: CustomerDateRange) {
-  const start = parseDate(report?.start_date || report?.date || report?.created_at);
-  const end = parseDate(report?.end_date || report?.date || report?.created_at || report?.start_date);
+  const start = parseDate(
+    report?.startDate ||
+    report?.start_date ||
+    report?.reportStartDate ||
+    report?.report_start_date ||
+    report?.dateFrom ||
+    report?.date_from ||
+    report?.periodStart ||
+    report?.period_start ||
+    report?.date ||
+    report?.created_at
+  );
+  const end = parseDate(
+    report?.endDate ||
+    report?.end_date ||
+    report?.reportEndDate ||
+    report?.report_end_date ||
+    report?.dateTo ||
+    report?.date_to ||
+    report?.periodEnd ||
+    report?.period_end ||
+    report?.date ||
+    report?.created_at ||
+    report?.startDate ||
+    report?.start_date
+  );
   const rangeStart = parseDate(range.start);
   const rangeEnd = parseDate(range.end);
-  if (!start || !end || !rangeStart || !rangeEnd) return true;
-  return start.getTime() <= rangeEnd.getTime() && end.getTime() >= rangeStart.getTime();
+  const intersects = !start || !end || !rangeStart || !rangeEnd ? true : start.getTime() <= rangeEnd.getTime() && end.getTime() >= rangeStart.getTime();
+  if (process.env.NODE_ENV === "development") {
+    console.debug("[reports] date filter", {
+      selectedRange: { start: range.start, end: range.end },
+      reportPeriod: { start: start ? isoDate(start) : null, end: end ? isoDate(end) : null },
+      reportType: report?.report_type,
+      included: intersects
+    });
+  }
+  return intersects;
 }
 
 function numberValue(value: any) {
@@ -184,19 +240,30 @@ function numberValue(value: any) {
 }
 
 function normalizeMetricRow(row: any = {}) {
-  const spent = numberValue(row.spent ?? row.cost);
-  const clicks = numberValue(row.clicks);
-  const conversions = numberValue(row.conversions ?? row.leads ?? row.messages);
+  const spent = numberValue(row.spent ?? row.spend ?? row.cost);
+  const clicks = numberValue(row.clicks ?? row.link_clicks ?? row.linkClicks);
+  const messages = numberValue(row.messages);
+  const leads = numberValue(row.leads ?? row.results);
+  const conversions = numberValue(row.conversions ?? leads);
+  const averageCpc = numberValue(row.average_cpc ?? row.averageCpc ?? row.cpc);
+  const costPerConversion = numberValue(row.cost_per_conversion ?? row.costPerConversion ?? row.cost_per_lead ?? row.costPerLead ?? row.cost_per_result ?? row.costPerResult);
   return {
     ...row,
     impressions: numberValue(row.impressions),
     reach: numberValue(row.reach),
     clicks,
     link_clicks: numberValue(row.link_clicks ?? row.outbound_clicks ?? row.clicks),
+    messages,
+    leads,
     conversions,
     spent,
-    average_cpc: clicks > 0 ? spent / clicks : numberValue(row.average_cpc ?? row.cpc),
-    cost_per_conversion: conversions > 0 ? spent / conversions : numberValue(row.cost_per_conversion ?? row.cost_per_lead)
+    ctr: numberValue(row.ctr),
+    cpc: averageCpc,
+    cpm: numberValue(row.cpm),
+    cost_per_lead: costPerConversion,
+    cost_per_result: numberValue(row.cost_per_result ?? row.costPerResult),
+    average_cpc: averageCpc || (clicks > 0 ? spent / clicks : 0),
+    cost_per_conversion: costPerConversion || (conversions > 0 ? spent / conversions : 0)
   };
 }
 
@@ -219,14 +286,23 @@ export function sumMetricRows(rows: any[]) {
       sum.reach += normalized.reach;
       sum.clicks += normalized.clicks;
       sum.link_clicks += normalized.link_clicks;
+      sum.messages += normalized.messages;
+      sum.leads += normalized.leads;
       sum.conversions += normalized.conversions;
       sum.spent += normalized.spent;
+      sum.ctr += normalized.ctr;
+      sum.cpc += normalized.cpc;
+      sum.cpm += normalized.cpm;
+      sum.cost_per_lead += normalized.cost_per_lead;
+      sum.cost_per_result += normalized.cost_per_result;
       return sum;
     },
-    { impressions: 0, reach: 0, clicks: 0, link_clicks: 0, conversions: 0, spent: 0, average_cpc: 0, cost_per_conversion: 0 }
+    { impressions: 0, reach: 0, clicks: 0, link_clicks: 0, messages: 0, leads: 0, conversions: 0, spent: 0, ctr: 0, cpc: 0, cpm: 0, cost_per_lead: 0, cost_per_result: 0, average_cpc: 0, cost_per_conversion: 0 }
   );
   totals.average_cpc = totals.clicks > 0 ? totals.spent / totals.clicks : 0;
-  totals.cost_per_conversion = totals.conversions > 0 ? totals.spent / totals.conversions : 0;
+  totals.cost_per_conversion = totals.conversions > 0 ? totals.spent / totals.conversions : totals.cost_per_lead;
+  totals.cpc = totals.average_cpc || totals.cpc;
+  totals.cost_per_lead = totals.leads > 0 ? totals.spent / totals.leads : totals.cost_per_lead;
   return totals;
 }
 
@@ -306,4 +382,3 @@ export function filterUpdatesForRange(updates: any[], range: CustomerDateRange, 
     return isInRange(update.update_date || update.created_at, range);
   });
 }
-

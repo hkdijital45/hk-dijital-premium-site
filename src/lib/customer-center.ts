@@ -121,17 +121,23 @@ export async function getCustomerCenterData(companyId?: string): Promise<Custome
 }
 
 export function summarizeMetrics(metrics: any[]) {
-  return metrics.reduce(
+  const totals = metrics.reduce(
     (total, item) => ({
       impressions: total.impressions + Number(item.impressions || 0),
       reach: total.reach + Number(item.reach || 0),
       clicks: total.clicks + Number(item.clicks || 0),
       messages: total.messages + Number(item.messages || 0),
       spent: total.spent + Number(item.spent || 0),
-      leads: total.leads + Number(item.leads || 0),
-      cpc: Number(item.cpc || total.cpc || 0),
-      cost_per_lead: Number(item.cost_per_lead || total.cost_per_lead || 0)
+      leads: total.leads + Number(item.leads || item.results || 0),
+      cpc: total.cpc + Number(item.cpc || 0),
+      cost_per_lead: total.cost_per_lead + Number(item.cost_per_lead || item.costPerLead || item.costPerResult || 0)
     }),
     { impressions: 0, reach: 0, clicks: 0, messages: 0, spent: 0, leads: 0, cpc: 0, cost_per_lead: 0 }
   );
+  return {
+    ...totals,
+    spent: Number(totals.spent.toFixed(2)),
+    cpc: Number((totals.clicks > 0 ? totals.spent / totals.clicks : totals.cpc).toFixed(2)),
+    cost_per_lead: Number((totals.leads > 0 ? totals.spent / totals.leads : totals.cost_per_lead).toFixed(2))
+  };
 }

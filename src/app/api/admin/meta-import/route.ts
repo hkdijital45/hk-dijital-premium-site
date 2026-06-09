@@ -33,8 +33,11 @@ const columnMap: Record<string, string> = {
   "bağlantı tıklamaları": "clicks",
   "baglanti tiklamalari": "clicks",
   clicks: "clicks",
+  "click": "clicks",
   "tıklamalar": "clicks",
   "tiklamalar": "clicks",
+  "tıklama": "clicks",
+  "tiklama": "clicks",
   results: "results",
   "sonuçlar": "results",
   "sonuclar": "results",
@@ -45,23 +48,37 @@ const columnMap: Record<string, string> = {
   "sonuç başına maliyet": "costPerResult",
   "sonuc basina maliyet": "costPerResult",
   "messaging conversations started": "messages",
+  "mesaj başlatma": "messages",
+  "mesaj baslatma": "messages",
   "başlatılan mesajlaşmalar": "messages",
   "baslatilan mesajlasmalar": "messages",
+  "mesajlaşma konuşmaları başlatıldı": "messages",
+  "mesajlasma konusmalari baslatildi": "messages",
   leads: "leads",
   "potansiyel müşteriler": "leads",
   "potansiyel musteriler": "leads",
+  "potansiyel müşteri": "leads",
+  "potansiyel musteri": "leads",
   ctr: "ctr",
   "ctr (bağlantı tıklama oranı)": "ctr",
   "ctr (baglanti tiklama orani)": "ctr",
+  "tıklanma oranı": "ctr",
+  "tiklanma orani": "ctr",
   "link ctr": "ctr",
   cpc: "cpc",
   "cpc (bağlantı tıklaması başına ücret)": "cpc",
   "cpc (baglanti tiklamasi basina ucret)": "cpc",
+  "tıklama başı maliyet": "cpc",
+  "tiklama basi maliyet": "cpc",
   "cost per link click": "cpc",
   cpm: "cpm",
   "cpm (1000 gösterim başına ücret)": "cpm",
   "cpm (1000 gosterim basina ucret)": "cpm",
+  "bin gösterim maliyeti": "cpm",
+  "bin gosterim maliyeti": "cpm",
   "cost per 1,000 impressions": "cpm",
+  "ortalama potansiyel müşteri maliyeti": "costPerLead",
+  "ortalama potansiyel musteri maliyeti": "costPerLead",
   date: "date",
   day: "date",
   "tarih": "date",
@@ -70,8 +87,12 @@ const columnMap: Record<string, string> = {
   "reporting starts": "startDate",
   "rapor başlangıcı": "startDate",
   "rapor baslangici": "startDate",
+  "başlangıç tarihi": "startDate",
+  "baslangic tarihi": "startDate",
   "reporting ends": "endDate",
-  "rapor sonu": "endDate"
+  "rapor sonu": "endDate",
+  "bitiş tarihi": "endDate",
+  "bitis tarihi": "endDate"
 };
 
 function normalizeHeader(value: string) {
@@ -176,9 +197,19 @@ function toNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function toInteger(value: unknown) {
+  return Math.round(toNumber(value));
+}
+
+function toDecimal(value: unknown) {
+  return toNumber(value);
+}
+
 function toDate(value: unknown) {
   const raw = String(value ?? "").trim();
   if (!raw) return new Date().toISOString().slice(0, 10);
+  const iso = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (iso) return `${iso[1]}-${iso[2].padStart(2, "0")}-${iso[3].padStart(2, "0")}`;
   const direct = new Date(raw);
   if (!Number.isNaN(direct.getTime())) return direct.toISOString().slice(0, 10);
   const match = raw.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
@@ -192,6 +223,10 @@ function buildRecords(rows: string[][], companyId: string, campaignId: string) {
   const mapped = headers.map((header) => columnMap[normalizeHeader(header)] || "");
   const records = [];
   let skipped = 0;
+  if (process.env.NODE_ENV === "development") {
+    console.debug("[meta-import] CSV headers", headers);
+    console.debug("[meta-import] mapped columns", mapped);
+  }
 
   for (const row of rows.slice(1)) {
     const data: Record<string, string> = {};
@@ -204,32 +239,39 @@ function buildRecords(rows: string[][], companyId: string, campaignId: string) {
       continue;
     }
 
-    const clicks = toNumber(data.clicks);
-    const leads = toNumber(data.leads || data.results);
-    const spent = toNumber(data.spent);
-    const costPerResult = toNumber(data.costPerResult);
+    const clicks = toInteger(data.clicks);
+    const messages = toInteger(data.messages);
+    const results = toInteger(data.results);
+    const leads = toInteger(data.leads || data.results);
+    const spent = toDecimal(data.spent);
+    const costPerResult = toDecimal(data.costPerResult);
+    const costPerLead = toDecimal(data.costPerLead);
     const startDate = data.startDate || data.date || data.endDate;
     const endDate = data.endDate || data.startDate || data.date;
     const noteParts = [data.campaignName, data.adSetName, data.adName].filter(Boolean);
     if (data.startDate || data.endDate) noteParts.push(`Rapor dönemi: ${data.startDate || "-"} - ${data.endDate || "-"}`);
-    records.push({
+    const record = {
       campaign_id: campaignId,
       company_id: companyId,
       date: toDate(startDate),
-      impressions: Math.round(toNumber(data.impressions)),
-      reach: Math.round(toNumber(data.reach)),
-      clicks: Math.round(clicks),
-      messages: Math.round(toNumber(data.messages)),
-      leads: Math.round(leads),
+      impressions: toInteger(data.impressions),
+      reach: toInteger(data.reach),
+      clicks,
+      messages,
+      leads,
       conversions: 0,
-      ctr: toNumber(data.ctr),
-      cpc: toNumber(data.cpc),
-      cpm: toNumber(data.cpm),
-      cost_per_lead: costPerResult || (leads > 0 ? Number((spent / leads).toFixed(2)) : 0),
+      ctr: toDecimal(data.ctr),
+      cpc: toDecimal(data.cpc),
+      cpm: toDecimal(data.cpm),
+      cost_per_lead: costPerLead || costPerResult || (leads > 0 ? Number((spent / leads).toFixed(2)) : 0),
       spent,
       visible_to_customer: true,
       notes: noteParts.join(" / ") || `Meta rapor içe aktarımı${endDate ? ` (${toDate(startDate)} - ${toDate(endDate)})` : ""}`
-    });
+    };
+    if (process.env.NODE_ENV === "development") {
+      console.debug("[meta-import] mapped metric object", { ...record, results });
+    }
+    records.push(record);
   }
 
   return { records, skipped };

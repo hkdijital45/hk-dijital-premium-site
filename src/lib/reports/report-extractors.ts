@@ -1,19 +1,21 @@
 const aliases: Record<string, string[]> = {
-  date: ["date", "day", "tarih", "gün"],
-  campaign_name: ["campaign name", "kampanya adı"],
+  date: ["date", "day", "tarih", "gün", "rapor başlangıcı", "reporting starts", "başlangıç tarihi"],
+  end_date: ["rapor sonu", "reporting ends", "bitiş tarihi"],
+  campaign_name: ["campaign name", "kampanya adı", "kampanya adi"],
   impressions: ["impressions", "gösterimler", "gösterim"],
   reach: ["reach", "erişim"],
-  clicks: ["clicks", "tıklamalar", "tıklama"],
+  clicks: ["clicks", "tıklamalar", "tıklama", "link clicks", "bağlantı tıklamaları", "bağlantı tıklaması"],
   link_clicks: ["link clicks", "bağlantı tıklamaları", "bağlantı tıklaması"],
   landing_page_views: ["landing page views", "açılış sayfası görüntülemeleri"],
-  spent: ["amount spent", "harcanan tutar", "spend", "maliyet", "cost"],
+  spent: ["amount spent", "amount spent (try)", "harcanan tutar", "harcanan tutar (try)", "spend", "maliyet", "cost"],
   conversions: ["conversions", "dönüşümler", "dönüşüm"],
-  leads: ["leads", "potansiyel müşteriler", "potansiyel müşteri"],
-  messages: ["messaging conversations started", "başlatılan mesajlaşmalar", "gelen mesaj"],
+  leads: ["leads", "potansiyel müşteriler", "potansiyel müşteri", "sonuçlar", "results"],
+  messages: ["messaging conversations started", "mesaj başlatma", "mesajlaşma konuşmaları başlatıldı", "başlatılan mesajlaşmalar", "gelen mesaj"],
   calls: ["calls", "aramalar", "arama"],
-  ctr: ["ctr", "to"],
-  cpc: ["cpc", "tbm", "average cpc", "ortalama tbm"],
-  cpm: ["cpm", "bin gösterim maliyeti"],
+  ctr: ["ctr", "ctr (bağlantı tıklama oranı)", "tıklanma oranı", "link ctr", "to"],
+  cpc: ["cpc", "cpc (bağlantı tıklaması başına ücret)", "tıklama başı maliyet", "cost per link click", "tbm", "average cpc", "ortalama tbm"],
+  cpm: ["cpm", "cpm (1000 gösterim başına ücret)", "bin gösterim maliyeti"],
+  cost_per_lead: ["sonuç başına ücret", "sonuç başına maliyet", "cost per result", "ortalama potansiyel müşteri maliyeti"],
   frequency: ["frequency", "frekans"],
   followers_growth: ["follower growth", "takipçi artışı", "yeni takipçiler"],
   profile_visits: ["profile visits", "profil ziyareti", "profil ziyaretleri"],
@@ -25,7 +27,17 @@ const aliases: Record<string, string[]> = {
 };
 
 function normalize(value: unknown) {
-  return String(value || "").trim().toLocaleLowerCase("tr-TR");
+  return String(value || "")
+    .trim()
+    .toLocaleLowerCase("tr-TR")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[ıİ]/g, "i")
+    .replace(/ğ/g, "g")
+    .replace(/ü/g, "u")
+    .replace(/ş/g, "s")
+    .replace(/ö/g, "o")
+    .replace(/ç/g, "c");
 }
 
 function keyFor(header: string) {
@@ -34,8 +46,26 @@ function keyFor(header: string) {
 
 function number(value: any) {
   if (typeof value === "number") return value;
-  const normalized = String(value || "").replace(/\./g, "").replace(",", ".").replace(/[^0-9.-]/g, "");
-  return Number(normalized || 0);
+  const cleaned = String(value || "").trim().replace(/[^\d,.-]/g, "");
+  if (!cleaned || cleaned === "-") return 0;
+  const negative = cleaned.startsWith("-");
+  const unsigned = cleaned.replace(/^-+/, "");
+  const lastComma = unsigned.lastIndexOf(",");
+  const lastDot = unsigned.lastIndexOf(".");
+  let normalized = unsigned;
+  if (lastComma >= 0 && lastDot >= 0) {
+    const decimalSeparator = lastComma > lastDot ? "," : ".";
+    const thousandsSeparator = decimalSeparator === "," ? "." : ",";
+    normalized = unsigned.replace(new RegExp(`\\${thousandsSeparator}`, "g"), "").replace(decimalSeparator, ".");
+  } else if (lastComma >= 0) {
+    const parts = unsigned.split(",");
+    normalized = parts.length > 2 || parts.at(-1)?.length === 3 ? parts.join("") : unsigned.replace(",", ".");
+  } else if (lastDot >= 0) {
+    const parts = unsigned.split(".");
+    normalized = parts.length > 2 || parts.at(-1)?.length === 3 ? parts.join("") : unsigned;
+  }
+  const parsed = Number(`${negative ? "-" : ""}${normalized}`);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 export async function extractReportFile(file: File) {
@@ -46,17 +76,20 @@ export async function extractReportFile(file: File) {
   const delimiter = (lines[0]?.match(/;/g) || []).length > (lines[0]?.match(/,/g) || []).length ? ";" : ",";
   const parseLine = (line: string) => line.split(delimiter).map((item) => item.trim().replace(/^"|"$/g, ""));
   const headers = parseLine(lines[0] || "");
+  if (process.env.NODE_ENV === "development") console.debug("[report-import] CSV headers", headers);
   const rawRows = lines.slice(1).map((line) => Object.fromEntries(parseLine(line).map((value, index) => [headers[index], value])));
   const rows = rawRows.map((row) => Object.fromEntries(Object.entries(row).map(([header, value]) => [keyFor(header) || header, value])));
+  if (process.env.NODE_ENV === "development") console.debug("[report-import] mapped metric object", rows[0] || {});
   const timeSeries = rows.map((row) => ({
     date: row.date instanceof Date ? row.date.toISOString().slice(0, 10) : String(row.date || ""),
     impressions: number(row.impressions), reach: number(row.reach), clicks: number(row.clicks || row.link_clicks),
-    spent: number(row.spent), conversions: number(row.conversions), leads: number(row.leads), messages: number(row.messages),
-    engagement: number(row.engagement), followers_growth: number(row.followers_growth)
+    spent: number(row.spent), conversions: number(row.conversions || row.leads), leads: number(row.leads), messages: number(row.messages),
+    ctr: number(row.ctr), cpc: number(row.cpc), cpm: number(row.cpm), cost_per_lead: number(row.cost_per_lead),
+    engagement: number(row.engagement), followers_growth: number(row.followers_growth), end_date: String(row.end_date || "")
   })).filter((row) => row.date);
   const metrics = rows.reduce((total, row) => {
     Object.keys(aliases).forEach((key) => {
-      if (key === "date" || key === "campaign_name") return;
+      if (key === "date" || key === "end_date" || key === "campaign_name") return;
       total[key] = Number(total[key] || 0) + number(row[key]);
     });
     return total;

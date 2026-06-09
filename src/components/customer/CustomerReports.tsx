@@ -71,13 +71,21 @@ export function CustomerReports({ reports, initialInterpretations, reportUpdates
   const [platform, setPlatform] = useState<CustomerPlatformFilter>("all");
   const [customStart, setCustomStart] = useState(() => getCustomerDateRange("last_30").start);
   const [customEnd, setCustomEnd] = useState(() => getCustomerDateRange("last_30").end);
+  const [appliedFilters, setAppliedFilters] = useState(() => ({
+    rangeKey: "last_30" as CustomerDateRangeKey,
+    platform: "all" as CustomerPlatformFilter,
+    customStart: getCustomerDateRange("last_30").start,
+    customEnd: getCustomerDateRange("last_30").end
+  }));
 
-  const range = useMemo(() => getCustomerDateRange(rangeKey, customStart, customEnd), [rangeKey, customStart, customEnd]);
+  const selectedRange = useMemo(() => getCustomerDateRange(rangeKey, customStart, customEnd), [rangeKey, customStart, customEnd]);
+  const range = useMemo(() => getCustomerDateRange(appliedFilters.rangeKey, appliedFilters.customStart, appliedFilters.customEnd), [appliedFilters]);
+  const appliedPlatform = appliedFilters.platform;
   const previousRange = useMemo(() => getPreviousDateRange(range), [range]);
-  const filteredReports = useMemo(() => filteredReportsForPeriod(reports, range, platform), [reports, range, platform]);
-  const currentAggregate = useMemo(() => aggregateCustomerReports(reports, range, platform), [reports, range, platform]);
-  const previousAggregate = useMemo(() => aggregateCustomerReports(reports, previousRange, platform), [reports, previousRange, platform]);
-  const trendRows = useMemo(() => buildTrendRows(reports, range, platform), [reports, range, platform]);
+  const filteredReports = useMemo(() => filteredReportsForPeriod(reports, range, appliedPlatform), [reports, range, appliedPlatform]);
+  const currentAggregate = useMemo(() => aggregateCustomerReports(reports, range, appliedPlatform), [reports, range, appliedPlatform]);
+  const previousAggregate = useMemo(() => aggregateCustomerReports(reports, previousRange, appliedPlatform), [reports, previousRange, appliedPlatform]);
+  const trendRows = useMemo(() => buildTrendRows(reports, range, appliedPlatform), [reports, range, appliedPlatform]);
   const periodUpdates = useMemo(() => filterUpdatesForRange(reportUpdates || [], range, filteredReports.map((report) => report.id)), [reportUpdates, range, filteredReports]);
 
   useEffect(() => {
@@ -102,8 +110,8 @@ export function CustomerReports({ reports, initialInterpretations, reportUpdates
           start: range.start,
           end: range.end,
           label: range.label,
-          platform,
-          platformLabel: platformFilterLabel(platform)
+          platform: appliedPlatform,
+          platformLabel: platformFilterLabel(appliedPlatform)
         }
       })
     });
@@ -115,6 +123,20 @@ export function CustomerReports({ reports, initialInterpretations, reportUpdates
       setError(data.error || "Rapor yorumlanamadı. Lütfen daha sonra yeniden deneyin.");
     }
     setLoading(false);
+  }
+
+  function applyFilters() {
+    const nextRange = getCustomerDateRange(rangeKey, customStart, customEnd);
+    if (process.env.NODE_ENV === "development") {
+      console.debug("[customer-reports] date filter selected range", {
+        start: nextRange.start,
+        end: nextRange.end,
+        label: nextRange.label,
+        platform
+      });
+    }
+    setAppliedFilters({ rangeKey, platform, customStart, customEnd });
+    setError("");
   }
 
   if (!reports.length) return null;
@@ -170,7 +192,10 @@ export function CustomerReports({ reports, initialInterpretations, reportUpdates
             <select value={platform} onChange={(event) => setPlatform(event.target.value as CustomerPlatformFilter)} className="mt-3 w-full rounded-[8px] border border-white/10 bg-slate-950/70 px-3 py-3 text-sm font-bold text-white outline-none focus:border-cyan-200/60">
               {customerPlatformOptions.map((option) => <option key={option.key} value={option.key}>{option.label}</option>)}
             </select>
-            <p className="mt-3 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-xs leading-5 text-cyan-50">Kullanılan tarih aralığı: <strong>{range.label}</strong><br />Platform: <strong>{platformFilterLabel(platform)}</strong></p>
+            <button type="button" onClick={applyFilters} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-full bg-cyan-300 px-5 py-3 text-xs font-black text-slate-950 shadow-[0_14px_40px_rgba(103,232,249,.18)]">
+              <Filter size={15} /> Raporları Listele
+            </button>
+            <p className="mt-3 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-xs leading-5 text-cyan-50">Seçilen tarih aralığı: <strong>{selectedRange.label}</strong><br />Listelenen tarih aralığı: <strong>{range.label}</strong><br />Platform: <strong>{platformFilterLabel(appliedPlatform)}</strong></p>
           </div>
         </div>
       </div>
@@ -223,7 +248,7 @@ export function CustomerReports({ reports, initialInterpretations, reportUpdates
                 <span className="rounded-full border border-white/10 px-3 py-1">Model: {periodMeta.model}</span>
                 <span className="rounded-full border border-white/10 px-3 py-1">Mod: {periodMeta.mode}</span>
               </div>
-              <p className="font-black">Kullanılan tarih aralığı: {range.label} · Platform: {platformFilterLabel(platform)}</p>
+              <p className="font-black">Kullanılan tarih aralığı: {range.label} · Platform: {platformFilterLabel(appliedPlatform)}</p>
               <p className="mt-3 whitespace-pre-line">{periodInterpretation.interpretation_text}</p>
             </div>
           )}
@@ -247,7 +272,7 @@ export function CustomerReports({ reports, initialInterpretations, reportUpdates
                         <div>
                           <p className="text-xs font-bold uppercase tracking-[.16em] text-cyan-200">{report.report_type}</p>
                           <h4 className="mt-2 text-lg font-black">{range.label}</h4>
-                          <p className="mt-1 text-xs font-bold text-slate-400">{platformFilterLabel(platform)}</p>
+                          <p className="mt-1 text-xs font-bold text-slate-400">{platformFilterLabel(appliedPlatform)}</p>
                         </div>
                       </div>
                       <p className="mt-3 text-sm font-bold text-slate-200">{summary(report)}</p>
@@ -270,7 +295,7 @@ export function CustomerReports({ reports, initialInterpretations, reportUpdates
                       })}
                       <details className="mt-4 rounded-[8px] border border-white/10 p-3">
                         <summary className="cursor-pointer text-sm font-black text-cyan-100">Grafikler</summary>
-                        <div className="mt-4"><CustomerReportCharts rows={buildTrendRows([report], range, platform)} /></div>
+                        <div className="mt-4"><CustomerReportCharts rows={buildTrendRows([report], range, appliedPlatform)} /></div>
                       </details>
                       <details className="mt-3 rounded-[8px] border border-white/10 p-3">
                         <summary className="cursor-pointer text-sm font-black text-cyan-100">Ajans notları</summary>
@@ -280,7 +305,7 @@ export function CustomerReports({ reports, initialInterpretations, reportUpdates
                         <summary className="cursor-pointer text-sm font-black text-cyan-100">Rapor indir</summary>
                         <div className="mt-3 flex flex-wrap gap-2">
                           {[["excel", "Excel indir"], ["word", "Word indir"], ["pdf", "PDF indir"]].map(([format, label]) => (
-                            <a key={format} href={exportHref(report.id, format, range, platform)} className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-2 text-xs font-bold text-white hover:border-cyan-200/40">
+                            <a key={format} href={exportHref(report.id, format, range, appliedPlatform)} className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-2 text-xs font-bold text-white hover:border-cyan-200/40">
                               <Download size={13} /> {label}
                             </a>
                           ))}
