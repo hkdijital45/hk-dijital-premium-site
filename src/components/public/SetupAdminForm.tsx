@@ -53,7 +53,7 @@ export function SetupAdminForm() {
 
     setMessage(data.message || "İlk yönetici hesabı oluşturuldu. Giriş yapabilirsiniz.");
     setTimeout(() => {
-      window.location.href = "/giris?kurulum=basarili";
+      window.location.href = "/digital-center?kurulum=basarili";
     }, 900);
   }
 
@@ -66,8 +66,8 @@ export function SetupAdminForm() {
       <div className="mx-auto max-w-xl rounded-[8px] border border-white/10 bg-white/[0.06] p-6 text-center">
         <h2 className="text-2xl font-black text-white">Kurulum tamamlandı.</h2>
         <p className="mt-3 text-slate-300">Bu sayfa artık kullanılamaz.</p>
-        <a href="/giris" className="mt-6 inline-flex rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">
-          Giriş ekranına dön
+        <a href="/digital-center" className="mt-6 inline-flex rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">
+          Digital Center’a dön
         </a>
       </div>
     );

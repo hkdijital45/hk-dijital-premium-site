@@ -23,7 +23,7 @@ function MetricCard({ title, value, help }: { title: string; value: string | num
 
 export default async function MusteriPaneliPage({ searchParams }: { searchParams: Promise<{ company?: string }> }) {
   const session = await getSession();
-  if (!session) redirect("/giris");
+  if (!session) redirect("/digital-center");
   const params = await searchParams;
   const isAdminPreview = isStaffRole(session.role) && Boolean(params.company);
   if (!isCustomerRole(session.role) && !isAdminPreview) {
@@ -31,7 +31,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
       <main className="grid min-h-screen place-items-center bg-[#050711] px-4 text-white">
         <div className="max-w-md rounded-[8px] border border-white/10 bg-white/[0.06] p-6 text-center">
           <h1 className="text-2xl font-black">Bu sayfaya erişim yetkiniz yok.</h1>
-          <a href="/giris" className="mt-5 inline-flex rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Giriş ekranına dön</a>
+          <a href="/digital-center" className="mt-5 inline-flex rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Digital Center’a dön</a>
         </div>
       </main>
     );

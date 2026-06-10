@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
-export default function GirisRedirectPage() {
+export default function LoginRedirectPage() {
   redirect("/digital-center");
 }

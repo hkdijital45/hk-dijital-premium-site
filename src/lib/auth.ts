@@ -82,15 +82,16 @@ function decodeSession(value?: string): AppSession | null {
   }
 }
 
-export async function createSession(session: AppSession) {
+export async function createSession(session: AppSession, options: { remember?: boolean; maxAge?: number } = {}) {
   const cookieStore = await cookies();
-  cookieStore.set(authCookieName, encodeSession(session), {
+  const cookieOptions = {
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: "lax" as const,
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 60 * 60 * 8
-  });
+    ...(options.remember || options.maxAge ? { maxAge: options.maxAge || 60 * 60 * 24 * 30 } : {})
+  };
+  cookieStore.set(authCookieName, encodeSession(session), cookieOptions);
 }
 
 export async function clearSession() {
@@ -316,7 +317,7 @@ export async function authenticateUser({
 }: {
   email: string;
   password: string;
-  userType: "admin" | "customer";
+  userType?: "admin" | "customer";
 }) {
   if (!hasSupabaseConfig()) {
     return { error: "Supabase bağlantısı yapılandırılmadı." as const };

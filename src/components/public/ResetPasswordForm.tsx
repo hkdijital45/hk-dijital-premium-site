@@ -1,20 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export function ResetPasswordForm() {
-  const [accessToken, setAccessToken] = useState("");
+  const [accessToken] = useState(() => {
+    if (typeof window === "undefined") return "";
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const query = new URLSearchParams(window.location.search);
+    return hash.get("access_token") || query.get("access_token") || "";
+  });
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-    const query = new URLSearchParams(window.location.search);
-    setAccessToken(hash.get("access_token") || query.get("access_token") || "");
-  }, []);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -59,7 +58,7 @@ export function ResetPasswordForm() {
       <button disabled={loading || !accessToken} className="min-h-12 rounded-full bg-cyan-300 font-black text-slate-950 disabled:opacity-60">
         {loading ? "Şifre güncelleniyor..." : "Şifremi Güncelle"}
       </button>
-      <a href="/giris" className="text-center text-sm font-semibold text-cyan-100">Giriş ekranına dön</a>
+      <a href="/digital-center" className="text-center text-sm font-semibold text-cyan-100">Digital Center’a dön</a>
     </form>
   );
 }

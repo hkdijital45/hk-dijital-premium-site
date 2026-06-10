@@ -3,9 +3,9 @@ import { authenticateUser, createSession, isCustomerRole } from "@/lib/auth";
 import { recordCustomerLogin } from "@/lib/activity-log";
 
 export async function POST(request: Request) {
-  const { email, username, password, userType } = await request.json();
+  const { email, username, password, userType, remember } = await request.json();
   const normalizedEmail = String(email || username || "").trim();
-  const normalizedType = userType === "customer" ? "customer" : "admin";
+  const normalizedType = userType === "admin" || userType === "customer" ? userType : undefined;
 
   const session = await authenticateUser({
     email: normalizedEmail,
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: session.error }, { status: 401 });
   }
 
-  await createSession(session.session);
+  await createSession(session.session, { remember: Boolean(remember) });
   await recordCustomerLogin(session.session);
   return NextResponse.json({
     ok: true,

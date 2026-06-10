@@ -38,8 +38,8 @@ export function Header({ content }: { content: SiteContent }) {
           <Link href="/teklif-al" className="inline-flex min-h-11 items-center gap-2 rounded-full border border-cyan-200/40 bg-cyan-300 px-5 text-sm font-black text-slate-950 shadow-[0_0_42px_rgba(18,217,255,.38)] transition hover:-translate-y-0.5 hover:bg-cyan-200">
             <Bot size={17} /> Paket Öneri Robotu
           </Link>
-          <Link href="/giris" className="inline-flex min-h-11 items-center gap-2 rounded-full border border-yellow-200/40 bg-yellow-300 px-5 text-sm font-black text-slate-950 shadow-[0_0_32px_rgba(250,204,21,.24)] transition hover:-translate-y-0.5 hover:bg-yellow-200">
-            <LogIn size={17} /> Giriş Yap
+          <Link href="/digital-center" className="inline-flex min-h-11 items-center gap-2 rounded-full border border-yellow-200/40 bg-yellow-300 px-5 text-sm font-black text-slate-950 shadow-[0_0_32px_rgba(250,204,21,.24)] transition hover:-translate-y-0.5 hover:bg-yellow-200">
+            <LogIn size={17} /> Digital Center
           </Link>
         </div>
 
@@ -59,8 +59,8 @@ export function Header({ content }: { content: SiteContent }) {
             <Link href="/teklif-al" onClick={() => setOpen(false)} className="rounded-2xl bg-cyan-300 px-4 py-3 text-base font-black text-slate-950 shadow-[0_0_32px_rgba(18,217,255,.28)]">
               <span className="inline-flex items-center gap-2"><Bot size={17} /> Paket Öneri Robotu</span>
             </Link>
-            <Link href="/giris" onClick={() => setOpen(false)} className="rounded-2xl bg-yellow-300 px-4 py-3 text-base font-black text-slate-950">
-              <span className="inline-flex items-center gap-2"><LogIn size={17} /> Giriş Yap</span>
+            <Link href="/digital-center" onClick={() => setOpen(false)} className="rounded-2xl bg-yellow-300 px-4 py-3 text-base font-black text-slate-950">
+              <span className="inline-flex items-center gap-2"><LogIn size={17} /> Digital Center</span>
             </Link>
           </nav>
         </div>

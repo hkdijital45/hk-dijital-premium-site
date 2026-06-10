@@ -13,7 +13,7 @@ export function AuthCallbackHandler() {
       return;
     }
 
-    window.location.replace("/giris");
+    window.location.replace("/digital-center");
   }, []);
 
   return (

@@ -10,7 +10,10 @@ export async function getAdminPageData() {
   const content = await getSiteContent();
   const allowedModules = getAllowedModules(session);
 
-  if (!authenticated) redirect("/giris");
+  if (!authenticated) {
+    if (session) redirect("/digital-center?error=yetkisiz");
+    redirect("/digital-center");
+  }
 
   let relationalContent = {};
   if (hasSupabaseConfig()) {
