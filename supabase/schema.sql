@@ -99,8 +99,43 @@ create table if not exists public.leads (
   status text default 'Yeni',
   notes text,
   follow_up_date date,
+  digital_maturity_score integer default 0,
+  lead_heat_score integer default 0,
+  ai_analysis jsonb default '{}'::jsonb,
+  proposal_history jsonb default '[]'::jsonb,
+  city text,
+  district text,
+  sector text,
+  address text,
+  google_rating numeric,
+  google_review_count integer default 0,
+  google_place_id text,
+  source_url text,
+  competitor_notes text,
+  local_opportunity_notes text,
+  deleted_at timestamptz,
+  rejected_at timestamptz,
+  rejection_reason text,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
+);
+
+create table if not exists public.ad_integrations (
+  id uuid primary key default gen_random_uuid(),
+  provider text not null check (provider in ('meta', 'google')),
+  company_id uuid references public.companies(id) on delete cascade,
+  business_account_id text,
+  ad_account_id text,
+  page_id text,
+  instagram_account_id text,
+  access_token_encrypted text,
+  refresh_token_encrypted text,
+  auto_sync boolean default false,
+  status text default 'Eksik bilgi',
+  last_sync_at timestamptz,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique(provider, company_id, ad_account_id)
 );
 
 create table if not exists public.media_files (

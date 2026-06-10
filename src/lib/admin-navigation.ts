@@ -1,4 +1,19 @@
-export const adminNavigationGroups = [
+export type AdminNavigationItem = {
+  label: string;
+  slug: string;
+  module: string;
+};
+
+export type AdminNavigationGroup = {
+  label: string;
+  description: string;
+  icon: string;
+  badge: string;
+  accent: string;
+  items: AdminNavigationItem[];
+};
+
+export const adminNavigationGroups: AdminNavigationGroup[] = [
   {
     label: "Kontrol Merkezi",
     description: "Sistem sağlığı, AI durumu ve canlı operasyon özeti.",
@@ -25,6 +40,7 @@ export const adminNavigationGroups = [
       { label: "CRM", slug: "crm", module: "crm" },
       { label: "Tüm Başvurular", slug: "tum-basvurular", module: "leads" },
       { label: "Yeni Başvurular", slug: "yeni-basvurular", module: "leads" },
+      { label: "Lead Workspace", slug: "lead-workspace", module: "leads" },
       { label: "Meta Analiz Leadleri", slug: "meta-analiz-leadleri", module: "leads" },
       { label: "Google Ads Analiz Leadleri", slug: "google-ads-analiz-leadleri", module: "leads" },
       { label: "Sosyal İstihbarat Leadleri", slug: "sosyal-istihbarat-leadleri", module: "leads" },
@@ -32,6 +48,7 @@ export const adminNavigationGroups = [
       { label: "Silinenler", slug: "silinenler", module: "leads" },
       { label: "Lead Yönetimi", slug: "leads", module: "leads" },
       { label: "Müşteriler", slug: "musteriler", module: "musteriler" },
+      { label: "Müşteri Onboarding", slug: "customers/onboarding", module: "musteriler" },
       { label: "Takipler", slug: "takipler", module: "takip-gorevleri" },
       { label: "Notlar", slug: "notlar", module: "notlar" }
     ]
@@ -44,7 +61,9 @@ export const adminNavigationGroups = [
     accent: "from-amber-300 via-orange-500 to-rose-600",
     items: [
       { label: "Meta Analiz", slug: "meta-analiz", module: "meta-analiz" },
+      { label: "Meta Integration Center", slug: "meta-integrations", module: "meta-analiz" },
       { label: "Google Ads Analiz", slug: "google-analiz", module: "google-analiz" },
+      { label: "Google Ads Integration Center", slug: "google-integrations", module: "google-analiz" },
       { label: "Sosyal İstihbarat Merkezi", slug: "sosyal-istihbarat-merkezi", module: "sosyal-medya-denetimi" },
       { label: "Rakip Reklamları", slug: "rakip-reklamlari", module: "reklam-firsatlari" },
       { label: "İşletme Keşfi", slug: "isletme-kesfi", module: "musteri-bulucu" },
@@ -64,6 +83,7 @@ export const adminNavigationGroups = [
       { label: "PDF Audit", slug: "pdf-audit", module: "sosyal-medya-denetimi" },
       { label: "WhatsApp Teklifi", slug: "whatsapp-teklifi", module: "teklifler" },
       { label: "Teklif Hazırlama", slug: "teklif-hazirlama", module: "teklifler" },
+      { label: "Smart Proposal Generator", slug: "proposal-builder", module: "teklifler" },
       { label: "Teklif Motoru", slug: "teklifler", module: "teklifler" },
       { label: "Teklifler", slug: "teklif-listesi", module: "teklif-listesi" },
       { label: "Müşteri Raporları", slug: "musteri-raporlari", module: "raporlar" },
@@ -112,7 +132,7 @@ export const adminNavigationGroups = [
       { label: "Sistem Logları", slug: "sistem-loglari", module: "sistem-loglari" }
     ]
   }
-] as const;
+];
 
 export const adminNavigationItems = adminNavigationGroups.flatMap((group) => group.items);
 
@@ -123,5 +143,7 @@ export function getAdminSectionBySlug(slug = "") {
 }
 
 export function getAdminHref(slug: string) {
+  if (slug === "lead-workspace") return "/lead-workspace";
+  if (slug === "proposal-builder") return "/proposal-builder";
   return slug ? `/hk-admin/${slug}` : "/hk-admin";
 }
