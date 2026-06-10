@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { BarChart3, FileText, Lightbulb, MessageCircle, Sparkles, UserRound } from "lucide-react";
 import { getSession, isCustomerRole, isStaffRole } from "@/lib/auth";
@@ -54,6 +55,11 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
   const hasCompany = Boolean(selectedCompanyId && data.company);
   const visibleUpdates = visibility.show_strategy_notes ? data.updates : data.updates.filter((update) => update.update_type !== "Strateji Notu");
   const latestUpdate = visibleUpdates[0];
+  const branding = data.branding || {};
+  const portalName = branding.brand_name || data.company?.name || "HK Dijital";
+  const portalTitle = `${portalName} Digital Center`;
+  const welcomeText = branding.welcome_text || "Performans raporlarınız, kampanya notlarınız ve dijital büyüme verileriniz burada.";
+  const paymentSummary = data.payments.reduce((total, item) => ({ paid: total.paid + (item.status === "Ödendi" ? Number(item.amount || 0) : 0), pending: total.pending + (item.status !== "Ödendi" && item.status !== "İptal" ? Number(item.amount || 0) : 0) }), { paid: 0, pending: 0 });
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#050711] text-white">
@@ -61,11 +67,11 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
       <header className="relative border-b border-white/10 bg-[#050711]/90 px-4 py-5 shadow-[0_16px_48px_rgba(0,0,0,.2)] backdrop-blur-2xl">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <Logo content={siteContent} compact />
+            {branding.logo_url ? <Image src={branding.logo_url} alt={`${portalName} logosu`} width={170} height={48} unoptimized className="h-12 max-w-[170px] rounded-[8px] object-contain" /> : <Logo content={siteContent} compact />}
             <div>
             <p className="text-sm font-bold uppercase tracking-[.22em] text-cyan-200">Müşteri Performans Merkezi</p>
-            <h1 className="mt-2 text-3xl font-black">HK Dijital Marketing Center</h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">Reklam çalışmalarınızı, süreç notlarınızı ve performans özetlerinizi tek ekrandan takip edin.</p>
+            <h1 className="mt-2 text-3xl font-black">{portalTitle}</h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">{welcomeText}</p>
             </div>
           </div>
           <form action="/api/auth/logout" method="post">
@@ -97,8 +103,8 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
           <div className="grid gap-6 lg:grid-cols-[1fr_360px] lg:items-center">
             <div>
               <p className="text-xs font-black uppercase tracking-[.18em] text-cyan-100">Hoş geldiniz</p>
-              <h2 className="mt-3 text-3xl font-black">{data.company?.name || "Müşteri hesabı"}</h2>
-              <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300">Reklam çalışmalarınızın güncel durumunu, son yapılan işlemleri ve sıradaki önerilen adımı sade bir özetle takip edebilirsiniz.</p>
+              <h2 className="mt-3 text-3xl font-black">{portalTitle}</h2>
+              <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300">{welcomeText}</p>
               <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-4 py-2 text-xs font-black text-emerald-100"><Sparkles size={15} /> {data.campaigns[0]?.status || "Raporlama hazırlanıyor"}</div>
             </div>
             <AnimatedChart label="Son dönem performans eğilimi" values={[24, 29, 41, 38, 54, 61, 72, 79]} />
@@ -167,6 +173,23 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
 
         {visibility.show_metrics && <CustomerReports reports={data.reports} initialInterpretations={data.interpretations} reportUpdates={data.reportUpdates} />}
 
+        {data.monthlyReports.length > 0 && (
+          <section className="glass-card mt-8 p-5">
+            <h2 className="text-xl font-black">Aylık Raporlar</h2>
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              {data.monthlyReports.map((report) => (
+                <div key={report.id} className="rounded-[8px] border border-white/10 bg-black/25 p-4">
+                  <p className="text-xs font-black uppercase tracking-[.14em] text-cyan-100">{report.report_month}</p>
+                  <h3 className="mt-2 font-black">{data.company?.name || "Müşteri"} aylık performans özeti</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">{report.summary || "Bu ay için özet hazırlanıyor."}</p>
+                  {report.ai_interpretation && <p className="mt-3 rounded-[8px] bg-cyan-300/10 p-3 text-sm leading-6 text-cyan-50">{report.ai_interpretation}</p>}
+                  {report.next_month_recommendations && <p className="mt-3 text-sm leading-6 text-slate-300">Önümüzdeki ay: {report.next_month_recommendations}</p>}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {visibility.show_files && (
           <section className="glass-card mt-8 p-5">
             <h2 className="flex items-center gap-2 text-xl font-black"><FileText className="text-cyan-200" /> Dosyalar</h2>
@@ -177,6 +200,34 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
                 </a>
               ))}
               {!data.files.length && <p className="text-sm text-slate-400">Henüz görünür dosya yok.</p>}
+            </div>
+          </section>
+        )}
+
+        {data.documents.length > 0 && (
+          <section className="glass-card mt-8 p-5">
+            <h2 className="flex items-center gap-2 text-xl font-black"><FileText className="text-cyan-200" /> Belgeler</h2>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {data.documents.map((document) => (
+                <a key={document.id} href={document.document_url || "#"} target="_blank" rel="noreferrer" className="rounded-[8px] border border-white/10 bg-black/25 p-4 text-sm">
+                  <span className="block text-xs font-black uppercase tracking-[.14em] text-cyan-100">{document.document_type}</span>
+                  <span className="mt-2 block font-black text-white">{document.title}</span>
+                  <span className="mt-2 block text-xs text-slate-400">{document.document_date ? new Date(document.document_date).toLocaleDateString("tr-TR") : "Tarih yok"}</span>
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {data.payments.length > 0 && (
+          <section className="glass-card mt-8 p-5">
+            <h2 className="text-xl font-black">Ödeme Durumu</h2>
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              <div className="rounded-[8px] border border-emerald-300/20 bg-emerald-300/10 p-4"><p className="text-sm text-emerald-100">Ödenen toplam</p><p className="mt-2 text-2xl font-black">{paymentSummary.paid.toLocaleString("tr-TR")} TL</p></div>
+              <div className="rounded-[8px] border border-amber-300/20 bg-amber-300/10 p-4"><p className="text-sm text-amber-100">Bekleyen toplam</p><p className="mt-2 text-2xl font-black">{paymentSummary.pending.toLocaleString("tr-TR")} TL</p></div>
+            </div>
+            <div className="mt-4 grid gap-2">
+              {data.payments.map((payment) => <div key={payment.id} className="flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-white/10 bg-black/20 p-3 text-sm"><span>{payment.service_period || "Hizmet dönemi"} · {payment.status}</span><span className="font-black">{Number(payment.amount || 0).toLocaleString("tr-TR")} TL</span></div>)}
             </div>
           </section>
         )}

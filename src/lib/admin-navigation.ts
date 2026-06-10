@@ -48,9 +48,13 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: "Silinenler", slug: "silinenler", module: "leads" },
       { label: "Lead Yönetimi", slug: "leads", module: "leads" },
       { label: "Müşteriler", slug: "musteriler", module: "musteriler" },
+      { label: "Müşteri Markalama", slug: "musteri-markalama", module: "musteriler" },
       { label: "Müşteri Onboarding", slug: "customers/onboarding", module: "musteriler" },
       { label: "Takipler", slug: "takipler", module: "takip-gorevleri" },
-      { label: "Notlar", slug: "notlar", module: "notlar" }
+      { label: "Notlar", slug: "notlar", module: "notlar" },
+      { label: "Görevler", slug: "gorevler", module: "gorevler" },
+      { label: "Belgeler", slug: "belgeler", module: "belgeler" },
+      { label: "Tahsilat", slug: "tahsilat", module: "tahsilat" }
     ]
   },
   {
@@ -69,6 +73,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: "İşletme Keşfi", slug: "isletme-kesfi", module: "musteri-bulucu" },
       { label: "Google Maps / İşletme Sinyalleri", slug: "google-maps-isletme-sinyalleri", module: "haritalar" },
       { label: "Bölgesel Analiz", slug: "bolgesel-analiz", module: "bolgesel-analiz" },
+      { label: "Rakip Analizi", slug: "rakip-analizi", module: "rakip-analizi" },
       { label: "Rakip Listesi", slug: "rakip-listesi", module: "rakip-listesi" },
       { label: "Kaydedilen Adaylar", slug: "kaydedilen-adaylar", module: "kaydedilen-adaylar" }
     ]
@@ -87,6 +92,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: "Teklif Motoru", slug: "teklifler", module: "teklifler" },
       { label: "Teklifler", slug: "teklif-listesi", module: "teklif-listesi" },
       { label: "Müşteri Raporları", slug: "musteri-raporlari", module: "raporlar" },
+      { label: "Aylık Raporlar", slug: "aylik-raporlar", module: "aylik-raporlar" },
       { label: "Performans Raporları", slug: "performans-raporlari", module: "raporlar" },
       { label: "Raporlar", slug: "raporlar", module: "raporlar" },
       { label: "Rapor Yorumları", slug: "rapor-yorumlari", module: "rapor-yorumlari" },
@@ -105,6 +111,8 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: "Prompt Üretimi", slug: "prompt-uretimi", module: "prompt-kutuphanesi" },
       { label: "AI Analizleri", slug: "ai-analizleri", module: "ai-studio" },
       { label: "Kampanya Önerileri", slug: "kampanya-onerileri", module: "kampanya-hazirligi" },
+      { label: "Sosyal Medya Planı", slug: "sosyal-medya-plani", module: "sosyal-medya-plani" },
+      { label: "HK Asistan", slug: "hk-asistan", module: "hk-asistan" },
       { label: "Hazırlık Merkezi", slug: "hazirlik", module: "hazirlik" },
       { label: "AI Studio", slug: "ai-studio", module: "ai-studio" },
       { label: "İçerik Önerileri", slug: "icerik-onerileri", module: "icerik-onerileri" },
@@ -128,6 +136,8 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: "Tema Ayarları", slug: "tema-ayarlari", module: "tema-ayarlari" },
       { label: "Site Ayarları", slug: "site-ayarlari", module: "site-ayarlari" },
       { label: "Sistem Ayarları", slug: "sistem-ayarlari", module: "site-ayarlari" },
+      { label: "Karlılık", slug: "karlilik", module: "karlilik" },
+      { label: "Sektör Sistemleri", slug: "sektor-sistemleri", module: "sektor-sistemleri" },
       { label: "Medya", slug: "medya", module: "medya" },
       { label: "Sistem Logları", slug: "sistem-loglari", module: "sistem-loglari" }
     ]

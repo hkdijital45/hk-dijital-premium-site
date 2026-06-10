@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { redirect } from "next/navigation";
 import { getSiteContent } from "@/lib/content";
 import { getSession, isAdminAuthenticated } from "@/lib/auth";
@@ -18,7 +19,7 @@ export async function getAdminPageData() {
   let relationalContent = {};
   if (hasSupabaseConfig()) {
     try {
-      const [companies, users, customers, leads, contactForms, campaigns, campaignMetrics, customerUpdates, customerVisibilitySettings, customerFiles, mediaFiles, activityLogs, reports, reportInterpretations, reportUpdates, preparationNotes] =
+      const [companies, users, customers, leads, contactForms, campaigns, campaignMetrics, customerUpdates, customerVisibilitySettings, customerFiles, mediaFiles, activityLogs, reports, reportInterpretations, reportUpdates, preparationNotes, customerBranding, monthlyReports, agencyTasks, customerDocuments, paymentRecords, competitorAnalyses, socialMediaPlans, agencyExpenses, sectorConfigs] =
         await Promise.all([
           supabaseRest("companies?select=*&order=created_at.desc"),
           supabaseRest("users?select=*&order=created_at.desc"),
@@ -36,7 +37,16 @@ export async function getAdminPageData() {
           supabaseRest("report_interpretations?select=*&order=created_at.desc").catch(() => []),
           supabaseRest("report_updates?select=*&order=is_pinned.desc,update_date.desc").catch(() => [])
           ,
-          supabaseRest("preparation_notes?select=*&order=updated_at.desc").catch(() => [])
+          supabaseRest("preparation_notes?select=*&order=updated_at.desc").catch(() => []),
+          supabaseRest("customer_branding?select=*&order=updated_at.desc").catch(() => []),
+          supabaseRest("monthly_reports?select=*&order=updated_at.desc").catch(() => []),
+          supabaseRest("agency_tasks?select=*&order=due_date.asc").catch(() => []),
+          supabaseRest("customer_documents?select=*&order=document_date.desc").catch(() => []),
+          supabaseRest("payment_records?select=*&order=due_date.desc").catch(() => []),
+          supabaseRest("competitor_analyses?select=*&order=updated_at.desc").catch(() => []),
+          supabaseRest("social_media_plans?select=*&order=updated_at.desc").catch(() => []),
+          supabaseRest("agency_expenses?select=*&order=expense_date.desc").catch(() => []),
+          supabaseRest("sector_configs?select=*&order=sector_name.asc").catch(() => [])
         ]);
       relationalContent = {
         companies,
@@ -54,6 +64,15 @@ export async function getAdminPageData() {
         reportInterpretations,
         reportUpdates,
         preparationNotes,
+        customerBranding,
+        monthlyReports,
+        agencyTasks,
+        customerDocuments,
+        paymentRecords,
+        competitorAnalyses,
+        socialMediaPlans,
+        agencyExpenses,
+        sectorConfigs,
         media: Array.isArray(mediaFiles)
           ? mediaFiles.map((item: any) => ({
               id: item.id,

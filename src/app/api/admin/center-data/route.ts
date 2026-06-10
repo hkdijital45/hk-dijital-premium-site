@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
 import { getSession, isStaffRole } from "@/lib/auth";
 import { recordActivity } from "@/lib/activity-log";
@@ -15,7 +16,16 @@ const tables = {
   customerUpdates: "customer_updates",
   customerVisibilitySettings: "customer_visibility_settings",
   customerFiles: "customer_files",
-  media: "media_files"
+  media: "media_files",
+  customerBranding: "customer_branding",
+  monthlyReports: "monthly_reports",
+  agencyTasks: "agency_tasks",
+  customerDocuments: "customer_documents",
+  paymentRecords: "payment_records",
+  competitorAnalyses: "competitor_analyses",
+  socialMediaPlans: "social_media_plans",
+  agencyExpenses: "agency_expenses",
+  sectorConfigs: "sector_configs"
 } as const;
 const allowedUpdateTypes = ["Yapılan Çalışma", "Reklam Güncellemesi", "Rapor Notu", "Strateji Notu", "Uyarı", "Başarı", "Diğer"];
 
@@ -172,6 +182,132 @@ function normalizeRecord(key: string, item: any) {
     };
   }
 
+  if (key === "customerBranding") {
+    return {
+      ...base,
+      company_id: item.company_id || null,
+      logo_url: item.logo_url || item.logoUrl || "",
+      brand_name: item.brand_name || item.brandName || "",
+      primary_color: item.primary_color || item.primaryColor || "#22d3ee",
+      secondary_color: item.secondary_color || item.secondaryColor || "#0f172a",
+      welcome_text: item.welcome_text || item.welcomeText || "",
+      updated_at: new Date().toISOString()
+    };
+  }
+
+  if (key === "monthlyReports") {
+    return {
+      ...base,
+      company_id: item.company_id || null,
+      report_month: item.report_month || item.month || new Date().toISOString().slice(0, 7),
+      summary: item.summary || "",
+      meta_metrics: item.meta_metrics || item.metaMetrics || {},
+      google_metrics: item.google_metrics || item.googleMetrics || {},
+      social_metrics: item.social_metrics || item.socialMetrics || {},
+      ai_interpretation: item.ai_interpretation || item.aiInterpretation || "",
+      next_month_recommendations: item.next_month_recommendations || item.nextMonthRecommendations || "",
+      status: item.status || "Taslak",
+      visible_to_customer: item.visible_to_customer ?? false,
+      updated_at: new Date().toISOString()
+    };
+  }
+
+  if (key === "agencyTasks") {
+    return {
+      ...base,
+      company_id: item.company_id || null,
+      title: item.title || "Yeni görev",
+      status: item.status || "Yapılacak",
+      priority: item.priority || "Orta",
+      due_date: item.due_date || item.dueDate || null,
+      notes: item.notes || "",
+      assigned_user_id: item.assigned_user_id || item.assignedUserId || null,
+      updated_at: new Date().toISOString()
+    };
+  }
+
+  if (key === "customerDocuments") {
+    return {
+      ...base,
+      company_id: item.company_id || null,
+      title: item.title || "Yeni belge",
+      document_type: item.document_type || item.documentType || "Diğer",
+      document_url: item.document_url || item.documentUrl || item.file_url || "",
+      document_date: item.document_date || item.documentDate || new Date().toISOString().slice(0, 10),
+      visible_to_customer: item.visible_to_customer ?? false,
+      updated_at: new Date().toISOString()
+    };
+  }
+
+  if (key === "paymentRecords") {
+    return {
+      ...base,
+      company_id: item.company_id || null,
+      amount: Number(item.amount || 0),
+      due_date: item.due_date || item.dueDate || null,
+      payment_date: item.payment_date || item.paymentDate || null,
+      status: item.status || "Bekliyor",
+      payment_note: item.payment_note || item.paymentNote || "",
+      service_period: item.service_period || item.servicePeriod || new Date().toISOString().slice(0, 7),
+      visible_to_customer: item.visible_to_customer ?? false,
+      updated_at: new Date().toISOString()
+    };
+  }
+
+  if (key === "competitorAnalyses") {
+    return {
+      ...base,
+      company_id: item.company_id || null,
+      sector: item.sector || "",
+      city: item.city || "",
+      district: item.district || "",
+      competitors: item.competitors || [],
+      ai_summary: item.ai_summary || item.aiSummary || "",
+      opportunities: item.opportunities || "",
+      recommended_actions: item.recommended_actions || item.recommendedActions || "",
+      updated_at: new Date().toISOString()
+    };
+  }
+
+  if (key === "socialMediaPlans") {
+    return {
+      ...base,
+      company_id: item.company_id || null,
+      sector: item.sector || "",
+      goal: item.goal || "Bilinirlik",
+      platform: item.platform || "Instagram",
+      duration: item.duration || "30 gün",
+      plan_items: item.plan_items || item.planItems || [],
+      notes: item.notes || "",
+      updated_at: new Date().toISOString()
+    };
+  }
+
+  if (key === "agencyExpenses") {
+    return {
+      ...base,
+      title: item.title || "Yeni gider",
+      amount: Number(item.amount || 0),
+      expense_date: item.expense_date || item.expenseDate || new Date().toISOString().slice(0, 10),
+      category: item.category || "Diğer",
+      note: item.note || "",
+      updated_at: new Date().toISOString()
+    };
+  }
+
+  if (key === "sectorConfigs") {
+    return {
+      ...base,
+      sector_name: item.sector_name || item.sectorName || "Yeni sektör",
+      suggested_crm_fields: item.suggested_crm_fields || item.suggestedCrmFields || [],
+      suggested_package_labels: item.suggested_package_labels || item.suggestedPackageLabels || [],
+      suggested_report_metrics: item.suggested_report_metrics || item.suggestedReportMetrics || [],
+      suggested_content_categories: item.suggested_content_categories || item.suggestedContentCategories || [],
+      is_active: item.is_active ?? true,
+      updated_at: new Date().toISOString()
+    };
+  }
+
   return { ...item, ...base };
 }
 
@@ -179,7 +315,7 @@ async function upsertItems(key: keyof typeof tables, items: any[] = []) {
   if (!items.length || key === "users") return [];
   const table = tables[key];
   const records = items.map((item) => normalizeRecord(key, item)).filter((item: any) => {
-    if (["campaigns", "campaignMetrics", "customerUpdates", "customerVisibilitySettings", "customerFiles"].includes(key)) {
+    if (["campaigns", "campaignMetrics", "customerUpdates", "customerVisibilitySettings", "customerFiles", "customerBranding", "monthlyReports", "customerDocuments", "paymentRecords", "competitorAnalyses", "socialMediaPlans"].includes(key)) {
       return Boolean(item.company_id);
     }
     return true;
@@ -231,6 +367,10 @@ async function upsertItems(key: keyof typeof tables, items: any[] = []) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Supabase kaydetme hatası.";
+    if (["customerBranding", "monthlyReports", "agencyTasks", "customerDocuments", "paymentRecords", "competitorAnalyses", "socialMediaPlans", "agencyExpenses", "sectorConfigs"].includes(key) && (message.includes("schema cache") || message.includes("relation") || message.includes("table"))) {
+      console.warn(`${table} tablosu canlı şemada bulunamadı; migration uygulanana kadar bu modül atlandı.`);
+      return [];
+    }
     if (message.includes("schema cache") || message.includes("column")) {
       const fallbackRecords = records.map(stripOptionalColumns);
       return await supabaseRest(`${table}?on_conflict=${conflictTarget}`, {
@@ -252,7 +392,7 @@ export async function GET() {
     return NextResponse.json({ error: "Supabase bağlantısı yapılandırılmadı." }, { status: 500 });
   }
 
-  const [companies, users, leads, campaigns, campaignMetrics, customerUpdates, customerVisibilitySettings, customerFiles, media] =
+  const [companies, users, leads, campaigns, campaignMetrics, customerUpdates, customerVisibilitySettings, customerFiles, media, customerBranding, monthlyReports, agencyTasks, customerDocuments, paymentRecords, competitorAnalyses, socialMediaPlans, agencyExpenses, sectorConfigs] =
     await Promise.all([
       supabaseRest("companies?select=*&order=created_at.desc"),
       supabaseRest("users?select=*&order=created_at.desc"),
@@ -262,7 +402,16 @@ export async function GET() {
       supabaseRest("customer_updates?select=*&order=created_at.desc"),
       supabaseRest("customer_visibility_settings?select=*&order=updated_at.desc"),
       supabaseRest("customer_files?select=*&order=uploaded_at.desc"),
-      supabaseRest("media_files?select=*&order=uploaded_at.desc")
+      supabaseRest("media_files?select=*&order=uploaded_at.desc"),
+      supabaseRest("customer_branding?select=*&order=updated_at.desc").catch(() => []),
+      supabaseRest("monthly_reports?select=*&order=updated_at.desc").catch(() => []),
+      supabaseRest("agency_tasks?select=*&order=due_date.asc").catch(() => []),
+      supabaseRest("customer_documents?select=*&order=document_date.desc").catch(() => []),
+      supabaseRest("payment_records?select=*&order=due_date.desc").catch(() => []),
+      supabaseRest("competitor_analyses?select=*&order=updated_at.desc").catch(() => []),
+      supabaseRest("social_media_plans?select=*&order=updated_at.desc").catch(() => []),
+      supabaseRest("agency_expenses?select=*&order=expense_date.desc").catch(() => []),
+      supabaseRest("sector_configs?select=*&order=sector_name.asc").catch(() => [])
     ]);
 
   return NextResponse.json({
@@ -274,7 +423,16 @@ export async function GET() {
     customerUpdates,
     customerVisibilitySettings,
     customerFiles,
-    media
+    media,
+    customerBranding,
+    monthlyReports,
+    agencyTasks,
+    customerDocuments,
+    paymentRecords,
+    competitorAnalyses,
+    socialMediaPlans,
+    agencyExpenses,
+    sectorConfigs
   });
 }
 
@@ -296,7 +454,16 @@ export async function PUT(request: Request) {
       upsertItems("campaignMetrics", payload.campaignMetrics),
       upsertItems("customerUpdates", payload.customerUpdates),
       upsertItems("customerVisibilitySettings", payload.customerVisibilitySettings),
-      upsertItems("customerFiles", payload.customerFiles)
+      upsertItems("customerFiles", payload.customerFiles),
+      upsertItems("customerBranding", payload.customerBranding),
+      upsertItems("monthlyReports", payload.monthlyReports),
+      upsertItems("agencyTasks", payload.agencyTasks),
+      upsertItems("customerDocuments", payload.customerDocuments),
+      upsertItems("paymentRecords", payload.paymentRecords),
+      upsertItems("competitorAnalyses", payload.competitorAnalyses),
+      upsertItems("socialMediaPlans", payload.socialMediaPlans),
+      upsertItems("agencyExpenses", payload.agencyExpenses),
+      upsertItems("sectorConfigs", payload.sectorConfigs)
     ]);
 
     await recordActivity({ session, action: "Güncelleme", entity: "Kontrol Merkezi", details: { message: "Kontrol merkezi kayıtları güncellendi" } });

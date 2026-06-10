@@ -9,7 +9,9 @@ export const adminModules = [
   "sosyal-medya-denetimi", "funnel-analizi", "reklam-firsatlari", "hazirlik", "ai-studio", "icerik-onerileri",
   "prompt-kutuphanesi", "kampanya-hazirligi", "teklifler", "teklif-listesi", "raporlar",
   "rapor-yorumlari", "disa-aktarimlar", "kullanicilar", "roller-yetkiler",
-  "site-ayarlari", "api-ayarlari", "tema-ayarlari", "medya", "sistem-loglari"
+  "site-ayarlari", "api-ayarlari", "tema-ayarlari", "medya", "sistem-loglari",
+  "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi",
+  "sosyal-medya-plani", "aylik-raporlar", "hk-asistan", "sektor-sistemleri"
 ] as const;
 
 export type AdminModule = (typeof adminModules)[number];
@@ -31,7 +33,8 @@ export const roleTemplates: Record<CanonicalRole, AdminModule[]> = {
     "dashboard", "genel-arama", "kullanim-kilavuzu", "crm", "leads", "musteriler",
     "takip-gorevleri", "notlar", "musteri-bulucu", "haritalar", "bolgesel-analiz",
     "kaydedilen-adaylar", "meta-analiz", "google-analiz", "sosyal-medya-denetimi", "hazirlik", "ai-studio", "teklifler", "teklif-listesi",
-    "raporlar", "rapor-yorumlari", "disa-aktarimlar"
+    "raporlar", "rapor-yorumlari", "disa-aktarimlar", "gorevler", "belgeler", "tahsilat", "karlilik",
+    "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "hk-asistan", "sektor-sistemleri"
   ],
   editor: [
     "dashboard", "genel-arama", "kullanim-kilavuzu", "crm", "leads", "hazirlik",

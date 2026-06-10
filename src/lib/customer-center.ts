@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { hasSupabaseConfig, supabaseRest } from "./supabase";
 
 export type CustomerCenterData = {
@@ -10,6 +11,10 @@ export type CustomerCenterData = {
   reports: any[];
   interpretations: any[];
   reportUpdates: any[];
+  branding: any;
+  documents: any[];
+  payments: any[];
+  monthlyReports: any[];
 };
 
 const defaultVisibility = {
@@ -35,12 +40,16 @@ export async function getCustomerCenterData(companyId?: string): Promise<Custome
       files: [],
       reports: [],
       interpretations: [],
-      reportUpdates: []
+      reportUpdates: [],
+      branding: null,
+      documents: [],
+      payments: [],
+      monthlyReports: []
     };
   }
 
   if (hasSupabaseConfig() && companyId) {
-    const [companies, visibilityRows, campaigns, metrics, updates, files, reports, interpretations, reportUpdates] = await Promise.all([
+    const [companies, visibilityRows, campaigns, metrics, updates, files, reports, interpretations, reportUpdates, brandingRows, documents, payments, monthlyReports] = await Promise.all([
       supabaseRest<any[]>(`companies?id=eq.${companyId}&select=*&limit=1`),
       supabaseRest<any[]>(`customer_visibility_settings?company_id=eq.${companyId}&select=*&limit=1`),
       supabaseRest<any[]>(`campaigns?company_id=eq.${companyId}&select=*&order=created_at.desc`),
@@ -49,7 +58,11 @@ export async function getCustomerCenterData(companyId?: string): Promise<Custome
       supabaseRest<any[]>(`customer_files?company_id=eq.${companyId}&visible_to_customer=eq.true&select=*&order=uploaded_at.desc`),
       supabaseRest<any[]>(`reports?company_id=eq.${companyId}&visible_to_customer=eq.true&archived=eq.false&select=*&order=created_at.desc`).catch(() => []),
       supabaseRest<any[]>(`report_interpretations?company_id=eq.${companyId}&select=*&order=created_at.desc`).catch(() => []),
-      supabaseRest<any[]>(`report_updates?company_id=eq.${companyId}&is_visible_to_customer=eq.true&select=*&order=is_pinned.desc,update_date.desc`).catch(() => [])
+      supabaseRest<any[]>(`report_updates?company_id=eq.${companyId}&is_visible_to_customer=eq.true&select=*&order=is_pinned.desc,update_date.desc`).catch(() => []),
+      supabaseRest<any[]>(`customer_branding?company_id=eq.${companyId}&select=*&limit=1`).catch(() => []),
+      supabaseRest<any[]>(`customer_documents?company_id=eq.${companyId}&visible_to_customer=eq.true&select=*&order=document_date.desc`).catch(() => []),
+      supabaseRest<any[]>(`payment_records?company_id=eq.${companyId}&visible_to_customer=eq.true&select=*&order=due_date.desc`).catch(() => []),
+      supabaseRest<any[]>(`monthly_reports?company_id=eq.${companyId}&visible_to_customer=eq.true&select=*&order=report_month.desc`).catch(() => [])
     ]);
 
     return {
@@ -61,7 +74,11 @@ export async function getCustomerCenterData(companyId?: string): Promise<Custome
       files,
       reports: reports.map(({ internal_note: _internalNote, raw_extracted_data: _rawExtractedData, ...report }) => report),
       interpretations,
-      reportUpdates
+      reportUpdates,
+      branding: brandingRows[0] || null,
+      documents,
+      payments,
+      monthlyReports
     };
   }
 
@@ -116,7 +133,11 @@ export async function getCustomerCenterData(companyId?: string): Promise<Custome
     files: [],
     reports: [],
     interpretations: [],
-    reportUpdates: []
+    reportUpdates: [],
+    branding: null,
+    documents: [],
+    payments: [],
+    monthlyReports: []
   };
 }
 

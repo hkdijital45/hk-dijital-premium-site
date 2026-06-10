@@ -366,7 +366,8 @@ export function AdminDashboard({
       const contentResponse = allowedModules.includes("site-ayarlari")
         ? await fetch("/api/content", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) })
         : new Response(JSON.stringify({ ok: true }), { status: 200 });
-      const centerResponse = supabaseConfigured && allowedModules.includes("musteriler")
+      const centerWritableModules = ["musteriler", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "sektor-sistemleri"];
+      const centerResponse = supabaseConfigured && centerWritableModules.some((module) => allowedModules.includes(module))
         ? await fetch("/api/admin/center-data", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) })
         : contentResponse;
       if (contentResponse.ok && centerResponse.ok) {
@@ -558,7 +559,7 @@ export function AdminDashboard({
             <button onClick={toggleTheme} className="min-h-10 rounded-[8px] border border-white/10 px-4 text-sm font-bold">
               {theme === "dark" ? "Aydınlık Tema" : "Karanlık Tema"}
             </button>
-            {(allowedModules.includes("site-ayarlari") || allowedModules.includes("musteriler")) && <button disabled={saving} onClick={() => save()} className="inline-flex min-h-10 items-center gap-2 rounded-[8px] bg-cyan-300 px-4 text-sm font-black text-slate-950 disabled:opacity-60"><Save size={17} /> {saving ? "Kaydediliyor..." : "Kaydet"}</button>}
+            {(allowedModules.includes("site-ayarlari") || ["musteriler", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "sektor-sistemleri"].some((module) => allowedModules.includes(module))) && <button disabled={saving} onClick={() => save()} className="inline-flex min-h-10 items-center gap-2 rounded-[8px] bg-cyan-300 px-4 text-sm font-black text-slate-950 disabled:opacity-60"><Save size={17} /> {saving ? "Kaydediliyor..." : "Kaydet"}</button>}
             <button onClick={logout} className="inline-flex min-h-10 items-center gap-2 rounded-[8px] border border-white/10 px-4 text-sm font-bold"><LogOut size={17} /> Çıkış</button>
           </div>
         </div>
@@ -570,6 +571,9 @@ export function AdminDashboard({
           {status && <p className={`mb-5 rounded-[8px] border p-3 text-sm ${status.includes("Kaydedilemedi") ? "border-red-300/30 bg-red-500/10 text-red-100" : "border-cyan-200/20 bg-cyan-200/10 text-cyan-100"}`}>{status}</p>}
           {dashboardAliases.includes(active) && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} systemStatus={systemStatus} currentSession={currentSession} allowedModules={allowedModules} />}
           {active === "CRM" && <CrmHub {...props} />}
+          {active === "Görevler" && <AgencyTasksCenter {...props} />}
+          {active === "Belgeler" && <DocumentCenter {...props} />}
+          {active === "Tahsilat" && <PaymentCenter {...props} />}
           {["Müşteri Bulucu", "İşletme Keşfi"].includes(active) && <CustomerFinder {...props} />}
           {["Lead Yönetimi", ...crmLeadViews].includes(active) && <Crm {...props} view={active === "Lead Yönetimi" ? "Lead Durumları" : active} setActive={setActive} />}
           {active === "Meta Analiz" && <MetaAnalysisSection />}
@@ -592,6 +596,13 @@ export function AdminDashboard({
           {["Takip Görevleri", "Takipler", "Notlar"].includes(active) && <Crm {...props} view={active} setActive={setActive} />}
           {["Bölgesel Analiz", "Rakip Listesi", "Kaydedilen Adaylar"].includes(active) && <MapsIntelligence {...props} setActive={setActive} mode={active} />}
           {["Funnel Analizi", "Reklam Fırsatları", "Rakip Reklamları"].includes(active) && <ChannelAnalysis {...props} channel={active === "Rakip Reklamları" ? "Reklam Fırsatları" : active} />}
+          {active === "Rakip Analizi" && <CompetitorAnalysisCenter {...props} />}
+          {active === "Sosyal Medya Planı" && <SocialPlanGenerator {...props} />}
+          {active === "Aylık Raporlar" && <MonthlyReportCenter {...props} />}
+          {active === "Karlılık" && <ProfitabilityCenter {...props} />}
+          {active === "HK Asistan" && <HKAssistantCenter {...props} />}
+          {active === "Sektör Sistemleri" && <SectorSystemsCenter {...props} />}
+          {active === "Müşteri Markalama" && <CustomerBrandingCenter {...props} />}
           {preparationAliases.includes(active) && <PreparationCenter {...props} setActive={setActive} mode={active} />}
           {reportAliases.includes(active) && <ReportsHub {...props} />}
           {active === "Genel Bakış" && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} systemStatus={systemStatus} currentSession={currentSession} allowedModules={allowedModules} />}
@@ -910,6 +921,9 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
   const users = useMemo(() => content.users ?? [], [content.users]);
   const reports = useMemo(() => content.reports ?? [], [content.reports]);
   const activityLogs = useMemo(() => content.activityLogs ?? [], [content.activityLogs]);
+  const agencyTasks = useMemo(() => content.agencyTasks ?? [], [content.agencyTasks]);
+  const paymentRecords = useMemo(() => content.paymentRecords ?? [], [content.paymentRecords]);
+  const agencyExpenses = useMemo(() => content.agencyExpenses ?? [], [content.agencyExpenses]);
   const [demoMessage, setDemoMessage] = useState("");
   const [demoLoading, setDemoLoading] = useState(false);
   const [customizing, setCustomizing] = useState(false);
@@ -925,6 +939,16 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
   const hotLeads = leads.filter((lead) => Number(lead.lead_heat_score || 0) >= 70);
   const activeCustomers = companies.filter((company) => company.status === "Aktif");
   const metricsThisMonth = metrics.filter((metric) => String(metric.date || "").startsWith(month));
+  const thisMonthPayments = paymentRecords.filter((item) => String(item.service_period || item.due_date || "").startsWith(month));
+  const expectedRevenue = thisMonthPayments.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const paidRevenue = thisMonthPayments.filter((item) => item.status === "Ödendi").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const pendingRevenue = thisMonthPayments.filter((item) => item.status !== "Ödendi" && item.status !== "İptal").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const overduePayments = paymentRecords.filter((item) => item.status === "Gecikmiş");
+  const monthExpenses = agencyExpenses.filter((item) => String(item.expense_date || "").startsWith(month));
+  const estimatedProfit = expectedRevenue - monthExpenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const todaysTasks = agencyTasks.filter((item) => item.due_date === today && item.status !== "Tamamlandı");
+  const overdueTasks = agencyTasks.filter((item) => item.due_date && item.due_date < today && item.status !== "Tamamlandı");
+  const criticalTasks = agencyTasks.filter((item) => item.priority === "Kritik" && item.status !== "Tamamlandı");
 
   useEffect(() => {
     try {
@@ -976,7 +1000,11 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     ["Teklifler", generatedProposals, "CRM teklif geçmişi kayıtları", <MessageSquareText size={17} />, "rose"],
     ["Müşteriler", activeCustomers.length, "Hizmeti devam eden firmalar", <Building2 size={17} />, "teal"],
     ["PDF Audit", socialAuditLeads.length, "Sosyal denetimden audit çıktıları", <FileBarChart size={17} />, "coral"],
-    ["WhatsApp Teklif", generatedProposals, "Teklif iletişimi için hazır akışlar", <MessageSquareText size={17} />, "lime"]
+    ["WhatsApp Teklif", generatedProposals, "Teklif iletişimi için hazır akışlar", <MessageSquareText size={17} />, "lime"],
+    ["Bugünkü Görevler", todaysTasks.length, "Bugün tamamlanması gereken operasyon işleri", <CircleCheck size={17} />, "cyan"],
+    ["Geciken Görev", overdueTasks.length, "Takip edilmesi gereken görevler", <AlertTriangle size={17} />, "red"],
+    ["Bekleyen Tahsilat", `${pendingRevenue.toLocaleString("tr-TR")} TL`, "Bu ay bekleyen ödeme toplamı", <Gauge size={17} />, "amber"],
+    ["Tahmini Kâr", `${estimatedProfit.toLocaleString("tr-TR")} TL`, "Gelir - kayıtlı gider tahmini", <BarChart3 size={17} />, "emerald"]
   ];
   const moduleAliases: Record<string, string> = { "Müşteri Bulucu": "musteri-bulucu" };
   const canOpen = (label: string) => allowedModules.includes(moduleAliases[label] || adminNavigationItems.find((item) => item.label === label)?.module);
@@ -988,14 +1016,19 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     ["Sosyal İstihbarat", "Sosyal İstihbarat Merkezi", <Sparkles size={19} />],
     ["Teklif Hazırla", "Teklif Motoru", <MessageSquareText size={19} />],
     ["Rapor Oluştur", "Raporlar", <FileBarChart size={19} />],
-    ["Müşteri Ekle", "Müşteriler", <Building2 size={19} />]
+    ["Müşteri Ekle", "Müşteriler", <Building2 size={19} />],
+    ["Görev Ekle", "Görevler", <CircleCheck size={19} />],
+    ["Tahsilat Takip", "Tahsilat", <Gauge size={19} />],
+    ["HK Asistan", "HK Asistan", <Bot size={19} />]
   ].filter(([, target]) => canOpen(target)).sort((a, b) => Number(preferences.favorites.includes(b[1])) - Number(preferences.favorites.includes(a[1])));
   const reportCompanyIds = new Set(reports.map((report) => report.company_id));
   const insightItems = [
     [hotLeads.filter((lead) => !["Kazanıldı", "Kaybedildi", "Dönüştürüldü"].includes(lead.status)).length, "Sıcak başvurular takip bekliyor", "Yüksek fırsat skorlu kayıtları bugün değerlendirin.", "Lead Yönetimi"],
     [leads.filter((lead) => !lead.ai_analysis || !Object.keys(lead.ai_analysis).length).length, "AI analizi eksik başvurular var", "Önceliklendirme için işletme analizlerini oluşturun.", "Lead Yönetimi"],
     [activeCustomers.filter((company) => !reportCompanyIds.has(company.id)).length, "Güncel raporu olmayan müşteriler var", "Müşteri iletişimini güçlendirmek için rapor hazırlayın.", "Raporlar"],
-    [leads.filter((lead) => !(Array.isArray(lead.proposal_history) && lead.proposal_history.length) && Number(lead.lead_heat_score || 0) >= 50).length, "Teklif hazırlanabilecek fırsatlar var", "Uygun müşteriler için MIN, ORTA ve MAX seçeneklerini oluşturun.", "Teklif Motoru"]
+    [leads.filter((lead) => !(Array.isArray(lead.proposal_history) && lead.proposal_history.length) && Number(lead.lead_heat_score || 0) >= 50).length, "Teklif hazırlanabilecek fırsatlar var", "Uygun müşteriler için MIN, ORTA ve MAX seçeneklerini oluşturun.", "Teklif Motoru"],
+    [criticalTasks.length, "Kritik görevler var", "Operasyon önceliği yüksek görevleri kapatın.", "Görevler"],
+    [overduePayments.length, "Geciken tahsilatlar var", "Müşteri ödeme durumunu takip edin.", "Tahsilat"]
   ].filter(([count, , , target]) => Number(count) > 0 && canOpen(target));
   const serviceItems = [
     ["OpenAI", systemStatus.openai, "Yapay zeka sağlayıcısı"],
@@ -1106,7 +1139,10 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     ["WhatsApp Teklifleri", generatedProposals, "Hazır teklif iletişimleri", <MessageSquareText size={20} />, "from-green-600 to-emerald-600", "WhatsApp Teklifi", "level2"],
     ["Müşteriler", activeCustomers.length, "Aktif müşteri portföyü", <Building2 size={20} />, "from-teal-600 to-cyan-700", "Müşteriler", "level2"],
     ["Google Analiz", googleLeadCount, "Arama görünürlüğü fırsatları", <Search size={20} />, "from-sky-600 to-blue-700", "Google Ads Analiz", "level2"],
-    ["Dönüşüm Oranı", `%${conversionRate}`, "Leadden müşteriye dönüşüm", <Gauge size={20} />, "from-amber-500 to-orange-600", "CRM", "level2"]
+    ["Dönüşüm Oranı", `%${conversionRate}`, "Leadden müşteriye dönüşüm", <Gauge size={20} />, "from-amber-500 to-orange-600", "CRM", "level2"],
+    ["Görevler", todaysTasks.length + overdueTasks.length, "Bugün ve geciken operasyonlar", <CircleCheck size={20} />, "from-cyan-600 to-blue-700", "Görevler", "level2"],
+    ["Tahsilat", `${pendingRevenue.toLocaleString("tr-TR")} TL`, "Bekleyen ödeme takibi", <Gauge size={20} />, "from-amber-500 to-orange-600", "Tahsilat", "level2"],
+    ["Karlılık", `${estimatedProfit.toLocaleString("tr-TR")} TL`, "Bu ay tahmini kâr", <BarChart3 size={20} />, "from-emerald-600 to-green-700", "Karlılık", "level2"]
   ].filter(([, , , , , target]) => canOpen(String(target)) || ["AI Durum Merkezi", "PDF Audit", "WhatsApp Teklifi"].includes(String(target)));
   const workspaceWidgets = [
     {
@@ -1280,6 +1316,207 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
 
 function KeyValue({ title, object, onChange }: any) {
   return <Panel title={title}><div className="grid gap-4 md:grid-cols-2">{Object.entries(object).map(([key, value]) => <Field key={key} label={key} value={value} onChange={(v) => onChange({ ...object, [key]: v })} />)}</div></Panel>;
+}
+
+function companyName(content: any, companyId?: string) {
+  return (content.companies || []).find((company) => company.id === companyId)?.name || "Firma seçilmedi";
+}
+
+function updateCollection(content: any, setContent: any, key: string, items: any[]) {
+  setContent({ ...content, [key]: items });
+}
+
+function AgencyStatCard({ label, value, note, tone = "cyan" }: any) {
+  const toneClass = tone === "red" ? "border-red-300/20 bg-red-300/10 text-red-100" : tone === "emerald" ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-100" : tone === "amber" ? "border-amber-300/20 bg-amber-300/10 text-amber-100" : "border-cyan-300/20 bg-cyan-300/10 text-cyan-100";
+  return <div className={`rounded-[8px] border p-4 ${toneClass}`}><p className="text-xs font-black uppercase tracking-[.14em] opacity-80">{label}</p><p className="mt-2 text-2xl font-black text-white">{value}</p><p className="mt-1 text-xs leading-5 opacity-80">{note}</p></div>;
+}
+
+function CustomerBrandingCenter({ content, setContent }: any) {
+  const items = content.customerBranding || [];
+  const update = (index, patch) => updateCollection(content, setContent, "customerBranding", items.map((item, i) => i === index ? { ...item, ...patch } : item));
+  return (
+    <Panel title="Müşteri Markalama">
+      <p className="mb-5 text-sm leading-6 text-slate-400">Her müşteri için Digital Center başlığı, logo ve renkleri özelleştirin. Eksik kayıtlar HK Dijital varsayılan görünümünü kullanır.</p>
+      <button onClick={() => updateCollection(content, setContent, "customerBranding", [{ id: `${Date.now()}`, company_id: "", primary_color: "#22d3ee", secondary_color: "#0f172a", welcome_text: "Performans raporlarınız, kampanya notlarınız ve dijital büyüme verileriniz burada." }, ...items])} className="mb-4 rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Markalama ekle</button>
+      <div className="grid gap-4">
+        {items.map((item, index) => (
+          <div key={item.id || index} className="rounded-[8px] border border-white/10 bg-black/15 p-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <CompanySelect value={item.company_id || ""} onChange={(value) => update(index, { company_id: value })} companies={content.companies} />
+              <Field label="Marka adı" value={item.brand_name || ""} onChange={(value) => update(index, { brand_name: value })} />
+              <Field label="Müşteri logo URL" value={item.logo_url || ""} onChange={(value) => update(index, { logo_url: value })} />
+              <Field label="Ana renk" type="color" value={item.primary_color || "#22d3ee"} onChange={(value) => update(index, { primary_color: value })} />
+              <Field label="İkincil renk" type="color" value={item.secondary_color || "#0f172a"} onChange={(value) => update(index, { secondary_color: value })} />
+              <TextArea label="Portal karşılama metni" value={item.welcome_text || ""} onChange={(value) => update(index, { welcome_text: value })} />
+            </div>
+            <button onClick={() => updateCollection(content, setContent, "customerBranding", items.filter((_, i) => i !== index))} className="mt-4 rounded-full border border-red-300/30 px-3 py-2 text-xs text-red-200">Sil</button>
+          </div>
+        ))}
+        {!items.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-sm text-slate-400">Henüz müşteri markalaması yok.</p>}
+      </div>
+    </Panel>
+  );
+}
+
+function MonthlyReportCenter({ content, setContent }: any) {
+  const items = content.monthlyReports || [];
+  const metrics = content.campaignMetrics || [];
+  const [busy, setBusy] = useState("");
+  const update = (index, patch) => updateCollection(content, setContent, "monthlyReports", items.map((item, i) => i === index ? { ...item, ...patch } : item));
+  function createReport() {
+    const company = (content.companies || [])[0];
+    const month = new Date().toISOString().slice(0, 7);
+    const monthMetrics = metrics.filter((metric) => String(metric.date || "").startsWith(month));
+    const totals = monthMetrics.reduce((total, item) => ({ impressions: total.impressions + Number(item.impressions || 0), reach: total.reach + Number(item.reach || 0), clicks: total.clicks + Number(item.clicks || 0), spent: total.spent + Number(item.spent || 0), leads: total.leads + Number(item.leads || item.results || 0) }), { impressions: 0, reach: 0, clicks: 0, spent: 0, leads: 0 });
+    updateCollection(content, setContent, "monthlyReports", [{ id: `${Date.now()}`, company_id: company?.id || "", report_month: month, summary: "Aylık performans raporu taslağı oluşturuldu.", meta_metrics: totals, google_metrics: {}, social_metrics: {}, ai_interpretation: "", next_month_recommendations: "Önümüzdeki ay kreatif testleri, bütçe optimizasyonu ve dönüşüm takibi güçlendirilecek.", status: "Taslak", visible_to_customer: false }, ...items]);
+  }
+  async function generateAi(index: number) {
+    const item = items[index];
+    setBusy(item.id || `${index}`);
+    const prompt = `${companyName(content, item.company_id)} için ${item.report_month} aylık rapor yorumu yaz. Meta: ${JSON.stringify(item.meta_metrics || {})}. Google: ${JSON.stringify(item.google_metrics || {})}. Sosyal: ${JSON.stringify(item.social_metrics || {})}. Türkçe, müşteri dostu, satış garantisi vermeden yaz.`;
+    const response = await fetch("/api/admin/ai-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt }) });
+    const data = await response.json().catch(() => ({}));
+    update(index, { ai_interpretation: data.output || "Bu ay görünürlük, trafik ve dönüşüm odaklı çalışmalar takip edildi. Önümüzdeki ay test ve optimizasyon adımları önerilir." });
+    setBusy("");
+  }
+  return <Panel title="Aylık Rapor Merkezi"><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-slate-400">Müşteri, ay ve platform metrikleriyle yayınlanabilir aylık rapor hazırlayın.</p><button onClick={createReport} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Aylık rapor oluştur</button></div><div className="grid gap-4">{items.map((item, index) => <div key={item.id || index} className="rounded-[8px] border border-white/10 bg-black/15 p-4"><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><CompanySelect value={item.company_id || ""} onChange={(value) => update(index, { company_id: value })} companies={content.companies} /><Field label="Ay" type="month" value={item.report_month || ""} onChange={(value) => update(index, { report_month: value })} /><SelectField label="Durum" value={item.status || "Taslak"} onChange={(value) => update(index, { status: value })} options={["Taslak", "Hazır", "Yayınlandı"]} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item.visible_to_customer)} onChange={(event) => update(index, { visible_to_customer: event.target.checked })} /> Müşteriye yayınla</label></div><TextArea label="Özet" value={item.summary || ""} onChange={(value) => update(index, { summary: value })} /><div className="grid gap-3 md:grid-cols-3"><TextArea label="Meta Ads metrikleri JSON" value={JSON.stringify(item.meta_metrics || {}, null, 2)} onChange={(value) => { try { update(index, { meta_metrics: JSON.parse(value || "{}") }); } catch {} }} /><TextArea label="Google Ads metrikleri JSON" value={JSON.stringify(item.google_metrics || {}, null, 2)} onChange={(value) => { try { update(index, { google_metrics: JSON.parse(value || "{}") }); } catch {} }} /><TextArea label="Sosyal medya metrikleri JSON" value={JSON.stringify(item.social_metrics || {}, null, 2)} onChange={(value) => { try { update(index, { social_metrics: JSON.parse(value || "{}") }); } catch {} }} /></div><TextArea label="AI yorumu" value={item.ai_interpretation || ""} onChange={(value) => update(index, { ai_interpretation: value })} /><TextArea label="Gelecek ay önerileri" value={item.next_month_recommendations || ""} onChange={(value) => update(index, { next_month_recommendations: value })} /><div className="mt-3 flex flex-wrap gap-2"><button disabled={busy === (item.id || `${index}`)} onClick={() => generateAi(index)} className="rounded-full border border-purple-200/30 px-4 py-2 text-xs font-black text-purple-100 disabled:opacity-60">AI yorum oluştur</button><button onClick={() => updateCollection(content, setContent, "monthlyReports", items.filter((_, i) => i !== index))} className="rounded-full border border-red-300/30 px-4 py-2 text-xs text-red-200">Sil</button></div></div>)}{!items.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-sm text-slate-400">Henüz aylık rapor yok.</p>}</div></Panel>;
+}
+
+function AgencyTasksCenter({ content, setContent }: any) {
+  const items = content.agencyTasks || [];
+  const today = new Date().toISOString().slice(0, 10);
+  const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - 7);
+  const completedWeek = items.filter((item) => item.status === "Tamamlandı" && new Date(item.updated_at || item.created_at || Date.now()) >= weekStart).length;
+  const update = (index, patch) => updateCollection(content, setContent, "agencyTasks", items.map((item, i) => i === index ? { ...item, ...patch } : item));
+  const add = () => updateCollection(content, setContent, "agencyTasks", [{ id: `${Date.now()}`, title: "Yeni görev", status: "Yapılacak", priority: "Orta", due_date: today, notes: "" }, ...items]);
+  return <Panel title="Görev Takip Sistemi"><div className="mb-5 grid gap-3 md:grid-cols-4"><AgencyStatCard label="Bugünkü görev" value={items.filter((item) => item.due_date === today).length} note="Bugün tamamlanması gereken işler" /><AgencyStatCard label="Geciken" value={items.filter((item) => item.due_date && item.due_date < today && item.status !== "Tamamlandı").length} note="Takip bekleyen gecikmiş işler" tone="red" /><AgencyStatCard label="Kritik" value={items.filter((item) => item.priority === "Kritik").length} note="Öncelikli operasyon işleri" tone="amber" /><AgencyStatCard label="Bu hafta tamamlandı" value={completedWeek} note="Son 7 günde kapanan görevler" tone="emerald" /></div><button onClick={add} className="mb-4 rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Görev ekle</button><div className="grid gap-3">{items.map((item, index) => <div key={item.id || index} className="grid gap-3 rounded-[8px] border border-white/10 bg-black/15 p-4 md:grid-cols-2 xl:grid-cols-4"><Field label="Başlık" value={item.title || ""} onChange={(value) => update(index, { title: value })} /><CompanySelect value={item.company_id || ""} onChange={(value) => update(index, { company_id: value })} companies={content.companies} /><SelectField label="Durum" value={item.status || "Yapılacak"} onChange={(value) => update(index, { status: value })} options={["Yapılacak", "Devam Ediyor", "Beklemede", "Tamamlandı"]} /><SelectField label="Öncelik" value={item.priority || "Orta"} onChange={(value) => update(index, { priority: value })} options={["Düşük", "Orta", "Yüksek", "Kritik"]} /><Field label="Bitiş tarihi" type="date" value={item.due_date || ""} onChange={(value) => update(index, { due_date: value })} /><SelectField label="Atanan kullanıcı" value={item.assigned_user_id || ""} onChange={(value) => update(index, { assigned_user_id: value })} options={(content.users || []).map((user) => ({ value: user.id, label: user.full_name || user.email }))} placeholder="Atanmadı" /><TextArea label="Notlar" value={item.notes || ""} onChange={(value) => update(index, { notes: value })} /><button onClick={() => updateCollection(content, setContent, "agencyTasks", items.filter((_, i) => i !== index))} className="h-fit w-fit self-end rounded-full border border-red-300/30 px-3 py-2 text-xs text-red-200">Sil</button></div>)}{!items.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-sm text-slate-400">Henüz görev yok.</p>}</div></Panel>;
+}
+
+function DocumentCenter({ content, setContent }: any) {
+  const items = content.customerDocuments || [];
+  const update = (index, patch) => updateCollection(content, setContent, "customerDocuments", items.map((item, i) => i === index ? { ...item, ...patch } : item));
+  return <Panel title="Belge Merkezi"><button onClick={() => updateCollection(content, setContent, "customerDocuments", [{ id: `${Date.now()}`, title: "Yeni belge", document_type: "Diğer", document_date: new Date().toISOString().slice(0, 10), visible_to_customer: false }, ...items])} className="mb-4 rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Belge ekle</button><div className="grid gap-3">{items.map((item, index) => <div key={item.id || index} className="rounded-[8px] border border-white/10 bg-black/15 p-4"><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4"><CompanySelect value={item.company_id || ""} onChange={(value) => update(index, { company_id: value })} companies={content.companies} /><Field label="Belge başlığı" value={item.title || ""} onChange={(value) => update(index, { title: value })} /><SelectField label="Belge türü" value={item.document_type || "Diğer"} onChange={(value) => update(index, { document_type: value })} options={["Teklif", "Sözleşme", "Fatura", "Rapor", "Diğer"]} /><Field label="Tarih" type="date" value={item.document_date || ""} onChange={(value) => update(index, { document_date: value })} /><Field label="Belge URL" value={item.document_url || ""} onChange={(value) => update(index, { document_url: value })} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item.visible_to_customer)} onChange={(event) => update(index, { visible_to_customer: event.target.checked })} /> Müşteriye göster</label></div><button onClick={() => updateCollection(content, setContent, "customerDocuments", items.filter((_, i) => i !== index))} className="mt-3 rounded-full border border-red-300/30 px-3 py-2 text-xs text-red-200">Sil</button></div>)}{!items.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-sm text-slate-400">Henüz belge yok.</p>}</div></Panel>;
+}
+
+function PaymentCenter({ content, setContent }: any) {
+  const items = content.paymentRecords || [];
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  const monthItems = items.filter((item) => String(item.service_period || item.due_date || "").startsWith(thisMonth));
+  const sum = (list, predicate) => list.filter(predicate).reduce((total, item) => total + Number(item.amount || 0), 0);
+  const update = (index, patch) => updateCollection(content, setContent, "paymentRecords", items.map((item, i) => i === index ? { ...item, ...patch } : item));
+  return <Panel title="Tahsilat Takibi"><div className="mb-5 grid gap-3 md:grid-cols-4"><AgencyStatCard label="Beklenen gelir" value={`${sum(monthItems, () => true).toLocaleString("tr-TR")} TL`} note="Bu ay planlanan tahsilat" /><AgencyStatCard label="Ödenen" value={`${sum(monthItems, (item) => item.status === "Ödendi").toLocaleString("tr-TR")} TL`} note="Tahsil edilmiş tutar" tone="emerald" /><AgencyStatCard label="Bekleyen" value={`${sum(monthItems, (item) => item.status === "Bekliyor").toLocaleString("tr-TR")} TL`} note="Henüz kapanmayan tutar" tone="amber" /><AgencyStatCard label="Gecikmiş" value={`${sum(items, (item) => item.status === "Gecikmiş").toLocaleString("tr-TR")} TL`} note="Aksiyon gerektirir" tone="red" /></div><button onClick={() => updateCollection(content, setContent, "paymentRecords", [{ id: `${Date.now()}`, amount: 0, due_date: new Date().toISOString().slice(0, 10), status: "Bekliyor", service_period: thisMonth, visible_to_customer: false }, ...items])} className="mb-4 rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Tahsilat kaydı ekle</button><div className="grid gap-3">{items.map((item, index) => <div key={item.id || index} className="grid gap-3 rounded-[8px] border border-white/10 bg-black/15 p-4 md:grid-cols-2 xl:grid-cols-4"><CompanySelect value={item.company_id || ""} onChange={(value) => update(index, { company_id: value })} companies={content.companies} /><Field label="Tutar" type="number" value={item.amount || 0} onChange={(value) => update(index, { amount: Number(value || 0) })} /><Field label="Son ödeme tarihi" type="date" value={item.due_date || ""} onChange={(value) => update(index, { due_date: value })} /><Field label="Ödeme tarihi" type="date" value={item.payment_date || ""} onChange={(value) => update(index, { payment_date: value })} /><SelectField label="Durum" value={item.status || "Bekliyor"} onChange={(value) => update(index, { status: value })} options={["Bekliyor", "Ödendi", "Gecikmiş", "İptal"]} /><Field label="Hizmet dönemi" type="month" value={item.service_period || ""} onChange={(value) => update(index, { service_period: value })} /><TextArea label="Ödeme notu" value={item.payment_note || ""} onChange={(value) => update(index, { payment_note: value })} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item.visible_to_customer)} onChange={(event) => update(index, { visible_to_customer: event.target.checked })} /> Müşteriye göster</label><button onClick={() => updateCollection(content, setContent, "paymentRecords", items.filter((_, i) => i !== index))} className="w-fit rounded-full border border-red-300/30 px-3 py-2 text-xs text-red-200">Sil</button></div>)}{!items.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-sm text-slate-400">Henüz tahsilat kaydı yok.</p>}</div></Panel>;
+}
+
+function buildDemoCompetitors(sector = "Yerel işletme", city = "Manisa") {
+  return ["Bölge Lideri", "Yeni Rakip", "Premium Alternatif"].map((name, index) => ({
+    name: `${city} ${sector} ${name}`,
+    website: index !== 1,
+    instagram: index !== 2,
+    rating: Number((4.1 + index * 0.2).toFixed(1)),
+    reviewCount: [82, 24, 140][index],
+    adSignal: index === 0 ? "Aktif reklam sinyali" : "Sınırlı görünürlük",
+    strengths: index === 0 ? "Yüksek yorum ve güçlü görünürlük" : "Niş hedef kitleye yakın mesaj",
+    weaknesses: index === 1 ? "Web sitesi ve yorum sayısı zayıf" : "Kreatif çeşitliliği sınırlı",
+    opportunities: "Daha net teklif, remarketing ve sosyal kanıt içerikleriyle ayrışma fırsatı"
+  }));
+}
+
+function CompetitorAnalysisCenter({ content, setContent }: any) {
+  const items = content.competitorAnalyses || [];
+  const [busy, setBusy] = useState("");
+  const update = (index, patch) => updateCollection(content, setContent, "competitorAnalyses", items.map((item, i) => i === index ? { ...item, ...patch } : item));
+  function add() {
+    const company = (content.companies || [])[0];
+    updateCollection(content, setContent, "competitorAnalyses", [{ id: `${Date.now()}`, company_id: company?.id || "", sector: company?.sector || "", city: company?.city || "", district: "", competitors: [], ai_summary: "", opportunities: "", recommended_actions: "" }, ...items]);
+  }
+  async function generate(index: number) {
+    const item = items[index];
+    const competitors = item.competitors?.length ? item.competitors : buildDemoCompetitors(item.sector, item.city);
+    setBusy(item.id || `${index}`);
+    const prompt = `${companyName(content, item.company_id)} için rakip analizi yaz. Rakipler: ${JSON.stringify(competitors)}. Rakip Özeti, Fırsatlar ve Önerilen Aksiyonlar başlıklarıyla Türkçe yaz.`;
+    const response = await fetch("/api/admin/ai-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt }) });
+    const data = await response.json().catch(() => ({}));
+    update(index, { competitors, ai_summary: data.output || "Rakipler görünürlük ve yorum gücü açısından takip edilmeli.", opportunities: "Web sitesi, Instagram içerikleri ve yorum yönetimiyle fark yaratılabilir.", recommended_actions: "Haftalık kreatif testleri, Google yorum aksiyonu ve Meta reklam takibi önerilir." });
+    setBusy("");
+  }
+  return <Panel title="Rakip Analizi"><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-slate-400">Rakipleri manuel girin veya demo rakip listesiyle güvenli analiz taslağı üretin.</p><button onClick={add} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Rakip analizi ekle</button></div><div className="grid gap-4">{items.map((item, index) => <div key={item.id || index} className="rounded-[8px] border border-white/10 bg-black/15 p-4"><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4"><CompanySelect value={item.company_id || ""} onChange={(value) => update(index, { company_id: value })} companies={content.companies} /><Field label="Sektör" value={item.sector || ""} onChange={(value) => update(index, { sector: value })} /><Field label="İl" value={item.city || ""} onChange={(value) => update(index, { city: value })} /><Field label="İlçe" value={item.district || ""} onChange={(value) => update(index, { district: value })} /></div><TextArea label="Rakipler JSON" value={JSON.stringify(item.competitors || [], null, 2)} onChange={(value) => { try { update(index, { competitors: JSON.parse(value || "[]") }); } catch {} }} /><div className="grid gap-3 md:grid-cols-3"><TextArea label="Rakip Özeti" value={item.ai_summary || ""} onChange={(value) => update(index, { ai_summary: value })} /><TextArea label="Fırsatlar" value={item.opportunities || ""} onChange={(value) => update(index, { opportunities: value })} /><TextArea label="Önerilen Aksiyonlar" value={item.recommended_actions || ""} onChange={(value) => update(index, { recommended_actions: value })} /></div><div className="mt-3 flex flex-wrap gap-2"><button disabled={busy === (item.id || `${index}`)} onClick={() => generate(index)} className="rounded-full border border-purple-200/30 px-4 py-2 text-xs font-black text-purple-100 disabled:opacity-60">AI rakip özeti üret</button><button onClick={() => update(index, { competitors: buildDemoCompetitors(item.sector, item.city) })} className="rounded-full border border-cyan-200/30 px-4 py-2 text-xs font-black text-cyan-100">Demo rakip listesi üret</button><button onClick={() => updateCollection(content, setContent, "competitorAnalyses", items.filter((_, i) => i !== index))} className="rounded-full border border-red-300/30 px-4 py-2 text-xs text-red-200">Sil</button></div></div>)}{!items.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-sm text-slate-400">Henüz rakip analizi yok.</p>}</div></Panel>;
+}
+
+function createSocialPlan({ sector, goal, platform, duration }: any) {
+  const count = duration === "7 gün" ? 7 : duration === "14 gün" ? 14 : 30;
+  const types = ["Reels", "Hikaye", "Gönderi", "Carousel (kaydırmalı gönderi)"];
+  return Array.from({ length: count }, (_, index) => ({
+    day: index + 1,
+    contentType: types[index % types.length],
+    caption: `${sector || "İşletme"} için ${goal || "Bilinirlik"} odaklı ${platform || "Instagram"} içerik fikri`,
+    visualIdea: index % 2 ? "Müşteri sorusu ve çözüm anlatımı" : "Hizmet/fayda odaklı kısa video",
+    cta: goal === "Satış" ? "Teklif alın" : goal === "Randevu" ? "Randevu oluşturun" : "Mesaj gönderin",
+    hashtags: [`#${String(sector || "hkdijital").replace(/\s+/g, "")}`, "#dijitalpazarlama", "#yerelisletme"]
+  }));
+}
+
+function SocialPlanGenerator({ content, setContent }: any) {
+  const items = content.socialMediaPlans || [];
+  const update = (index, patch) => updateCollection(content, setContent, "socialMediaPlans", items.map((item, i) => i === index ? { ...item, ...patch } : item));
+  function add() {
+    const company = (content.companies || [])[0];
+    const base = { id: `${Date.now()}`, company_id: company?.id || "", sector: company?.sector || "", goal: "Bilinirlik", platform: "Instagram", duration: "30 gün", plan_items: [] };
+    updateCollection(content, setContent, "socialMediaPlans", [{ ...base, plan_items: createSocialPlan(base) }, ...items]);
+  }
+  return <Panel title="Sosyal Medya Planı"><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-slate-400">Tek tıkla günlük içerik takvimi, caption fikri, görsel fikri, CTA (aksiyon çağrısı) ve hashtag önerileri üretin.</p><button onClick={add} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Plan oluştur</button></div><div className="grid gap-4">{items.map((item, index) => <div key={item.id || index} className="rounded-[8px] border border-white/10 bg-black/15 p-4"><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5"><CompanySelect value={item.company_id || ""} onChange={(value) => update(index, { company_id: value })} companies={content.companies} /><Field label="Sektör" value={item.sector || ""} onChange={(value) => update(index, { sector: value })} /><SelectField label="Hedef" value={item.goal || "Bilinirlik"} onChange={(value) => update(index, { goal: value })} options={["Bilinirlik", "Mesaj", "Trafik", "Satış", "Randevu"]} /><SelectField label="Platform" value={item.platform || "Instagram"} onChange={(value) => update(index, { platform: value })} options={["Instagram", "Facebook", "LinkedIn", "TikTok"]} /><SelectField label="Süre" value={item.duration || "30 gün"} onChange={(value) => update(index, { duration: value })} options={["7 gün", "14 gün", "30 gün"]} /></div><div className="mt-3 flex flex-wrap gap-2"><button onClick={() => update(index, { plan_items: createSocialPlan(item) })} className="rounded-full border border-cyan-200/30 px-4 py-2 text-xs font-black text-cyan-100">Takvimi yenile</button><button onClick={() => updateCollection(content, setContent, "socialMediaPlans", items.filter((_, i) => i !== index))} className="rounded-full border border-red-300/30 px-4 py-2 text-xs text-red-200">Sil</button></div><div className="premium-scrollbar mt-4 max-h-[420px] overflow-y-auto rounded-[8px] border border-white/10"><table className="w-full min-w-[760px] text-left text-xs"><thead className="bg-white/[0.06] text-slate-300"><tr><th className="p-3">Gün</th><th>Tür</th><th>Caption fikri</th><th>Görsel fikri</th><th>CTA</th><th>Hashtag</th></tr></thead><tbody>{(item.plan_items || []).map((plan) => <tr key={`${item.id}-${plan.day}`} className="border-t border-white/10"><td className="p-3 font-black">{plan.day}</td><td>{plan.contentType}</td><td className="max-w-xs pr-3">{plan.caption}</td><td className="max-w-xs pr-3">{plan.visualIdea}</td><td>{plan.cta}</td><td>{(plan.hashtags || []).join(" ")}</td></tr>)}</tbody></table></div></div>)}{!items.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-sm text-slate-400">Henüz sosyal medya planı yok.</p>}</div></Panel>;
+}
+
+function ProfitabilityCenter({ content, setContent }: any) {
+  const payments = content.paymentRecords || [];
+  const expenses = content.agencyExpenses || [];
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  const monthPayments = payments.filter((item) => String(item.service_period || item.due_date || "").startsWith(thisMonth));
+  const monthExpenses = expenses.filter((item) => String(item.expense_date || "").startsWith(thisMonth));
+  const revenue = monthPayments.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const paid = monthPayments.filter((item) => item.status === "Ödendi").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const pending = monthPayments.filter((item) => item.status !== "Ödendi" && item.status !== "İptal").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const expenseTotal = monthExpenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const activeCustomers = (content.companies || []).filter((company) => (company.status || "Aktif") === "Aktif").length;
+  const update = (index, patch) => updateCollection(content, setContent, "agencyExpenses", expenses.map((item, i) => i === index ? { ...item, ...patch } : item));
+  return <Panel title="Karlılık Dashboard"><div className="mb-5 grid gap-3 md:grid-cols-4"><AgencyStatCard label="Aylık gelir" value={`${revenue.toLocaleString("tr-TR")} TL`} note="Bu ay beklenen toplam" /><AgencyStatCard label="Ödenen / bekleyen" value={`${paid.toLocaleString("tr-TR")} / ${pending.toLocaleString("tr-TR")} TL`} note="Tahsilat dengesi" tone="emerald" /><AgencyStatCard label="Aktif müşteri" value={activeCustomers} note={`Müşteri başı ortalama: ${activeCustomers ? Math.round(revenue / activeCustomers).toLocaleString("tr-TR") : 0} TL`} /><AgencyStatCard label="Tahmini kâr" value={`${(revenue - expenseTotal).toLocaleString("tr-TR")} TL`} note={`Gider: ${expenseTotal.toLocaleString("tr-TR")} TL`} tone={revenue - expenseTotal >= 0 ? "emerald" : "red"} /></div><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h3 className="font-black">Gider takibi</h3><button onClick={() => updateCollection(content, setContent, "agencyExpenses", [{ id: `${Date.now()}`, title: "Yeni gider", amount: 0, expense_date: new Date().toISOString().slice(0, 10), category: "Diğer", note: "" }, ...expenses])} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Gider ekle</button></div><div className="grid gap-3">{expenses.map((item, index) => <div key={item.id || index} className="grid gap-3 rounded-[8px] border border-white/10 bg-black/15 p-4 md:grid-cols-2 xl:grid-cols-5"><Field label="Gider başlığı" value={item.title || ""} onChange={(value) => update(index, { title: value })} /><Field label="Tutar" type="number" value={item.amount || 0} onChange={(value) => update(index, { amount: Number(value || 0) })} /><Field label="Tarih" type="date" value={item.expense_date || ""} onChange={(value) => update(index, { expense_date: value })} /><SelectField label="Kategori" value={item.category || "Diğer"} onChange={(value) => update(index, { category: value })} options={["Reklam Araçları", "Yazılım", "Tasarım", "Personel", "Operasyon", "Diğer"]} /><Field label="Not" value={item.note || ""} onChange={(value) => update(index, { note: value })} /><button onClick={() => updateCollection(content, setContent, "agencyExpenses", expenses.filter((_, i) => i !== index))} className="w-fit rounded-full border border-red-300/30 px-3 py-2 text-xs text-red-200">Sil</button></div>)}</div></Panel>;
+}
+
+function HKAssistantCenter({ content }: any) {
+  const [prompt, setPrompt] = useState("Bugün hangi müşterilere odaklanmalıyım?");
+  const [answer, setAnswer] = useState("");
+  const [loading, setLoading] = useState(false);
+  const prompts = ["Bugün hangi müşterilere odaklanmalıyım?", "Geciken tahsilatlar hangileri?", "Bu müşteri için sonraki adım ne?", "Bu ay gelir durumum nasıl?", "Hangi leadlere teklif göndermeliyim?"];
+  function localAnswer() {
+    const tasks = content.agencyTasks || [];
+    const payments = content.paymentRecords || [];
+    const leads = content.leads || [];
+    const criticalTasks = tasks.filter((item) => item.priority === "Kritik" && item.status !== "Tamamlandı").slice(0, 5);
+    const overduePayments = payments.filter((item) => item.status === "Gecikmiş").slice(0, 5);
+    const hotLeads = leads.filter((lead) => Number(lead.lead_heat_score || 0) >= 70 && !["Kazandı", "Kaybedildi"].includes(lead.status)).slice(0, 5);
+    return [
+      "HK Intelligence Asistanı yerel değerlendirme:",
+      criticalTasks.length ? `Öncelikli görevler: ${criticalTasks.map((item) => item.title).join(", ")}` : "Kritik görev görünmüyor.",
+      overduePayments.length ? `Geciken tahsilatlar: ${overduePayments.map((item) => `${companyName(content, item.company_id)} ${item.amount || 0} TL`).join(", ")}` : "Geciken tahsilat görünmüyor.",
+      hotLeads.length ? `Teklif için sıcak leadler: ${hotLeads.map((lead) => lead.company || lead.name).join(", ")}` : "Sıcak lead listesi şu an sakin.",
+      "Öneri: Bugün kritik görevleri kapatın, geciken tahsilatları arayın ve sıcak leadlere teklif gönderin."
+    ].join("\n\n");
+  }
+  async function ask() {
+    setLoading(true);
+    const context = { tasks: (content.agencyTasks || []).slice(0, 20), payments: (content.paymentRecords || []).slice(0, 20), reports: (content.monthlyReports || []).slice(0, 10), leads: (content.leads || []).slice(0, 20) };
+    const response = await fetch("/api/admin/ai-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: `${prompt}\n\nYerel ajans verisi: ${JSON.stringify(context)}` }) });
+    const data = await response.json().catch(() => ({}));
+    setAnswer(data.output || localAnswer());
+    setLoading(false);
+  }
+  return <Panel title="HK Intelligence Asistanı"><div className="grid gap-5 xl:grid-cols-[280px_1fr]"><aside className="rounded-[8px] border border-white/10 bg-black/15 p-4"><p className="text-xs font-black uppercase tracking-[.14em] text-purple-200">Örnek komutlar</p><div className="mt-4 grid gap-2">{prompts.map((item) => <button key={item} onClick={() => setPrompt(item)} className="rounded-[8px] border border-white/10 p-3 text-left text-xs font-bold text-slate-300 hover:border-purple-200/30">{item}</button>)}</div></aside><section className="rounded-[8px] border border-white/10 bg-black/15 p-4"><TextArea label="Ajans sorusu" value={prompt} onChange={setPrompt} /><button disabled={loading} onClick={ask} className="mt-4 rounded-full bg-purple-300 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-60">{loading ? "Yanıt hazırlanıyor..." : "Asistana sor"}</button>{answer && <pre className="mt-4 whitespace-pre-wrap rounded-[8px] border border-purple-200/20 bg-purple-300/10 p-4 text-sm leading-7 text-purple-50">{answer}</pre>}</section></div></Panel>;
+}
+
+function SectorSystemsCenter({ content, setContent }: any) {
+  const fallback = ["Oto Galeri", "Emlak Ofisi", "Güzellik Merkezi", "Klinik", "Eğitim Merkezi"].map((sector) => ({ id: sector, sector_name: sector, suggested_crm_fields: [], suggested_package_labels: [], suggested_report_metrics: [], suggested_content_categories: [], is_active: true }));
+  const items = content.sectorConfigs?.length ? content.sectorConfigs : fallback;
+  const update = (index, patch) => updateCollection(content, setContent, "sectorConfigs", items.map((item, i) => i === index ? { ...item, ...patch } : item));
+  return <Panel title="Sektör Sistemleri Altyapısı"><p className="mb-5 text-sm leading-6 text-slate-400">Bu alan gelecekte oto galeri, emlak ofisi, güzellik merkezi, klinik ve eğitim merkezi gibi sektörlere özel CRM, teklif, rapor ve içerik şablonlarının temelini hazırlar. Mevcut uygulama davranışını değiştirmez.</p><div className="grid gap-4">{items.map((item, index) => <div key={item.id || item.sector_name || index} className="rounded-[8px] border border-white/10 bg-black/15 p-4"><div className="grid gap-3 md:grid-cols-2"><Field label="Sektör adı" value={item.sector_name || ""} onChange={(value) => update(index, { sector_name: value })} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={item.is_active !== false} onChange={(event) => update(index, { is_active: event.target.checked })} /> Aktif yapılandırma</label><TextArea label="Önerilen CRM alanları" value={(item.suggested_crm_fields || []).join("\n")} onChange={(value) => update(index, { suggested_crm_fields: value.split("\n").filter(Boolean) })} /><TextArea label="Önerilen teklif paketleri" value={(item.suggested_package_labels || []).join("\n")} onChange={(value) => update(index, { suggested_package_labels: value.split("\n").filter(Boolean) })} /><TextArea label="Önerilen rapor metrikleri" value={(item.suggested_report_metrics || []).join("\n")} onChange={(value) => update(index, { suggested_report_metrics: value.split("\n").filter(Boolean) })} /><TextArea label="Önerilen içerik kategorileri" value={(item.suggested_content_categories || []).join("\n")} onChange={(value) => update(index, { suggested_content_categories: value.split("\n").filter(Boolean) })} /></div></div>)}</div></Panel>;
 }
 
 async function uploadFile(file: File) {
