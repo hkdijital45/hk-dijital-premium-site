@@ -53,10 +53,13 @@ export function normalizeRole(role?: string | null): CanonicalRole {
 
 export function getAllowedModules(session?: AppSession | null): AdminModule[] {
   if (!session) return [];
+  const role = normalizeRole(session.role);
+  if (role === "admin") return roleTemplates.admin;
   const configured = Array.isArray(session.allowedModules)
     ? session.allowedModules.map(normalizeModule).filter((module): module is AdminModule => Boolean(module))
     : [];
-  return configured.length ? [...new Set(configured)] : roleTemplates[normalizeRole(session.role)];
+  if (role === "yonetici" && configured.length) return [...new Set([...configured, ...roleTemplates.yonetici])];
+  return configured.length ? [...new Set(configured)] : roleTemplates[role];
 }
 
 export function canAccessModule(session: AppSession | null | undefined, module: string) {

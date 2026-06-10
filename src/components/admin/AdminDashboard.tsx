@@ -17,6 +17,7 @@ const adminCategoryIcons: Record<string, any> = {
   Sparkles,
   FileBarChart,
   Bot,
+  Gauge,
   Settings2
 };
 
@@ -36,11 +37,12 @@ const uiPermissionGroups = [
   ["İstihbarat Merkezi", ["meta-analiz", "google-analiz", "sosyal-medya-denetimi", "reklam-firsatlari", "musteri-bulucu", "haritalar", "bolgesel-analiz", "rakip-listesi", "kaydedilen-adaylar", "funnel-analizi"]],
   ["İçerik & AI Studio", ["hazirlik", "ai-studio", "icerik-onerileri", "prompt-kutuphanesi", "kampanya-hazirligi"]],
   ["Teklif & Raporlama", ["teklifler", "teklif-listesi", "raporlar", "rapor-yorumlari", "disa-aktarimlar"]],
+  ["Ajans Operasyonları", ["gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "hk-asistan", "sektor-sistemleri"]],
   ["Ayarlar", ["kullanicilar", "roller-yetkiler", "site-ayarlari", "api-ayarlari", "tema-ayarlari", "medya", "sistem-loglari"]]
 ];
 const uiRoleTemplates = {
   admin: uiPermissionGroups.flatMap(([, modules]) => modules),
-  yonetici: ["dashboard", "genel-arama", "kullanim-kilavuzu", "crm", "leads", "musteriler", "takip-gorevleri", "notlar", "musteri-bulucu", "haritalar", "bolgesel-analiz", "kaydedilen-adaylar", "meta-analiz", "google-analiz", "sosyal-medya-denetimi", "hazirlik", "ai-studio", "teklifler", "teklif-listesi", "raporlar", "rapor-yorumlari", "disa-aktarimlar"],
+  yonetici: ["dashboard", "genel-arama", "kullanim-kilavuzu", "crm", "leads", "musteriler", "takip-gorevleri", "notlar", "musteri-bulucu", "haritalar", "bolgesel-analiz", "kaydedilen-adaylar", "meta-analiz", "google-analiz", "sosyal-medya-denetimi", "hazirlik", "ai-studio", "teklifler", "teklif-listesi", "raporlar", "rapor-yorumlari", "disa-aktarimlar", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "hk-asistan", "sektor-sistemleri"],
   editor: ["dashboard", "genel-arama", "kullanim-kilavuzu", "crm", "leads", "hazirlik", "ai-studio", "icerik-onerileri", "prompt-kutuphanesi", "kampanya-hazirligi", "teklifler", "teklif-listesi", "raporlar", "rapor-yorumlari", "disa-aktarimlar", "medya"],
   musteri: []
 };

@@ -99,6 +99,14 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
           </div>
         )}
 
+        <nav className="mb-6 flex flex-wrap gap-2 rounded-[8px] border border-white/10 bg-white/[0.04] p-3 text-sm font-bold">
+          {visibility.show_metrics && <a href="#performans" className="rounded-full border border-cyan-200/20 px-4 py-2 text-cyan-100 hover:bg-cyan-200/10">Performans</a>}
+          {data.reports.length > 0 || data.monthlyReports.length > 0 ? <a href="#raporlar" className="rounded-full border border-cyan-200/20 px-4 py-2 text-cyan-100 hover:bg-cyan-200/10">Raporlar</a> : null}
+          {visibility.show_work_updates && <a href="#notlar" className="rounded-full border border-cyan-200/20 px-4 py-2 text-cyan-100 hover:bg-cyan-200/10">Notlar</a>}
+          {(visibility.show_files || data.documents.length > 0) && <a href="#belgeler" className="rounded-full border border-cyan-200/20 px-4 py-2 text-cyan-100 hover:bg-cyan-200/10">Belgeler</a>}
+          {data.payments.length > 0 && <a href="#odemeler" className="rounded-full border border-amber-200/20 px-4 py-2 text-amber-100 hover:bg-amber-200/10">Ödemeler</a>}
+        </nav>
+
         <section className="glass-card mb-8 overflow-hidden p-6 sm:p-7">
           <div className="grid gap-6 lg:grid-cols-[1fr_360px] lg:items-center">
             <div>
@@ -111,7 +119,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
           </div>
         </section>
 
-        {visibility.show_metrics && <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {visibility.show_metrics && <section id="performans" className="grid scroll-mt-28 gap-4 md:grid-cols-2 lg:grid-cols-4">
           <MetricCard title="Reklamınız kaç kez gösterildi" value={totals.impressions} help="Reklamınızın ekranda toplam görüntülenme sayısıdır." />
           <MetricCard title="Reklamınız kaç kişiye ulaştı" value={totals.reach} help={`Reklamınız bu ay ${totals.reach} kişiye ulaştı.`} />
           <MetricCard title="Reklamlarınıza gelen tıklama" value={totals.clicks} help={`Reklamlarınıza ${totals.clicks} tıklama geldi.`} />
@@ -154,7 +162,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
         </section>
 
         {visibility.show_work_updates && (
-          <section className="glass-card mt-8 p-5">
+          <section id="notlar" className="glass-card mt-8 scroll-mt-28 p-5">
             <h2 className="text-xl font-black">Yapılan Çalışmalar ve Strateji Notları</h2>
             <div className="mt-5 grid gap-3 md:grid-cols-2">
               {visibleUpdates.map((update) => (
@@ -171,10 +179,10 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
           </section>
         )}
 
-        {visibility.show_metrics && <CustomerReports reports={data.reports} initialInterpretations={data.interpretations} reportUpdates={data.reportUpdates} />}
+        {visibility.show_metrics && <section id="raporlar" className="scroll-mt-28"><CustomerReports reports={data.reports} initialInterpretations={data.interpretations} reportUpdates={data.reportUpdates} /></section>}
 
         {data.monthlyReports.length > 0 && (
-          <section className="glass-card mt-8 p-5">
+          <section id={visibility.show_metrics ? undefined : "raporlar"} className="glass-card mt-8 scroll-mt-28 p-5">
             <h2 className="text-xl font-black">Aylık Raporlar</h2>
             <div className="mt-5 grid gap-3 md:grid-cols-2">
               {data.monthlyReports.map((report) => (
@@ -191,7 +199,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
         )}
 
         {visibility.show_files && (
-          <section className="glass-card mt-8 p-5">
+          <section id="belgeler" className="glass-card mt-8 scroll-mt-28 p-5">
             <h2 className="flex items-center gap-2 text-xl font-black"><FileText className="text-cyan-200" /> Dosyalar</h2>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {data.files.map((file) => (
@@ -205,7 +213,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
         )}
 
         {data.documents.length > 0 && (
-          <section className="glass-card mt-8 p-5">
+          <section id={visibility.show_files ? undefined : "belgeler"} className="glass-card mt-8 scroll-mt-28 p-5">
             <h2 className="flex items-center gap-2 text-xl font-black"><FileText className="text-cyan-200" /> Belgeler</h2>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {data.documents.map((document) => (
@@ -220,7 +228,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
         )}
 
         {data.payments.length > 0 && (
-          <section className="glass-card mt-8 p-5">
+          <section id="odemeler" className="glass-card mt-8 scroll-mt-28 p-5">
             <h2 className="text-xl font-black">Ödeme Durumu</h2>
             <div className="mt-5 grid gap-3 md:grid-cols-2">
               <div className="rounded-[8px] border border-emerald-300/20 bg-emerald-300/10 p-4"><p className="text-sm text-emerald-100">Ödenen toplam</p><p className="mt-2 text-2xl font-black">{paymentSummary.paid.toLocaleString("tr-TR")} TL</p></div>

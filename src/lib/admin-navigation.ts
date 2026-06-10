@@ -121,6 +121,23 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     ]
   },
   {
+    label: "Ajans Operasyonları",
+    description: "Görev, belge, tahsilat, karlılık ve ajans asistanı.",
+    icon: "Gauge",
+    badge: "Ajans",
+    accent: "from-cyan-500 via-blue-600 to-indigo-700",
+    items: [
+      { label: "Görevler", slug: "gorevler", module: "gorevler" },
+      { label: "Belgeler", slug: "belgeler", module: "belgeler" },
+      { label: "Tahsilat", slug: "tahsilat", module: "tahsilat" },
+      { label: "Karlılık", slug: "karlilik", module: "karlilik" },
+      { label: "Rakip Analizi", slug: "rakip-analizi", module: "rakip-analizi" },
+      { label: "Sosyal Medya Planı", slug: "sosyal-medya-plani", module: "sosyal-medya-plani" },
+      { label: "Aylık Raporlar", slug: "aylik-raporlar", module: "aylik-raporlar" },
+      { label: "HK Asistan", slug: "hk-asistan", module: "hk-asistan" }
+    ]
+  },
+  {
     label: "Ayarlar",
     description: "API, AI sağlayıcıları, kullanıcılar, tema ve sistem.",
     icon: "Settings2",
