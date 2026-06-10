@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
 import { recordActivity } from "@/lib/activity-log";
 import { scoreDiscoveredBusiness, type DiscoveredBusiness } from "@/lib/lead-scoring";
@@ -30,63 +31,166 @@ async function getPlaceDetails(placeId: string) {
   return data.result || {};
 }
 
+function numberFilter(value: unknown) {
+  const parsed = Number(value || 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function clean(value: unknown) {
+  return String(value || "").trim();
+}
+
+function phoneKey(value: unknown) {
+  return clean(value).replace(/\D/g, "");
+}
+
+function demoBusinesses(input: { city: string; district: string; businessType: string }) {
+  const city = input.city || "Manisa";
+  const district = input.district || "Yunusemre";
+  const category = input.businessType || "güzellik merkezi";
+  return [
+    {
+      placeId: `demo-${city}-${district}-1`,
+      name: `${district} ${category} Plus`,
+      city,
+      district,
+      address: `${district}, ${city}`,
+      phone: "0236 000 00 01",
+      website: "",
+      rating: 4.6,
+      googleRating: 4.6,
+      reviewCount: 18,
+      category,
+      source: "Demo Veri",
+      isDemo: true
+    },
+    {
+      placeId: `demo-${city}-${district}-2`,
+      name: `${city} ${category} Atölyesi`,
+      city,
+      district,
+      address: `${district} merkez, ${city}`,
+      phone: "0236 000 00 02",
+      website: `https://example.com/${encodeURIComponent(category.replace(/\s+/g, "-"))}`,
+      rating: 4.2,
+      googleRating: 4.2,
+      reviewCount: 74,
+      category,
+      source: "Demo Veri",
+      isDemo: true
+    },
+    {
+      placeId: `demo-${city}-${district}-3`,
+      name: `${district} Yeni ${category}`,
+      city,
+      district,
+      address: `${district} cadde, ${city}`,
+      phone: "",
+      website: "",
+      rating: 3.8,
+      googleRating: 3.8,
+      reviewCount: 7,
+      category,
+      source: "Demo Veri",
+      isDemo: true
+    }
+  ].map((business) => ({ ...business, ...scoreDiscoveredBusiness(business) }));
+}
+
+function applyDiscoveryFilters(
+  businesses: Array<Record<string, any>>,
+  filters: {
+    minimumRating: number;
+    minimumReviewCount: number;
+    website: string;
+    phone: string;
+    hideSaved?: boolean;
+    knownPlaceIds?: Set<string>;
+  }
+) {
+  return businesses.filter((business) => {
+    if (filters.hideSaved && business.placeId && filters.knownPlaceIds?.has(business.placeId)) return false;
+    if (Number(business.googleRating || business.rating || 0) < filters.minimumRating) return false;
+    if (Number(business.reviewCount || 0) < filters.minimumReviewCount) return false;
+    if (filters.website === "var" && !business.website) return false;
+    if (filters.website === "yok" && business.website) return false;
+    if (filters.phone === "var" && !business.phone) return false;
+    if (filters.phone === "yok" && business.phone) return false;
+    return true;
+  });
+}
+
+async function knownPlaceIds(hideSaved: boolean) {
+  if (!hideSaved || !hasSupabaseConfig()) return new Set<string>();
+  const rows = await supabaseRest<Array<{ google_place_id?: string }>>("leads?select=google_place_id&google_place_id=not.is.null").catch(() => []);
+  return new Set(rows.map((lead) => lead.google_place_id).filter(Boolean) as string[]);
+}
+
 export async function POST(request: Request) {
   if (!(await requireStaff())) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
-  if (!process.env.GOOGLE_MAPS_API_KEY) return NextResponse.json({ error: "Google Maps API anahtarı eksik." }, { status: 503 });
 
   const body = await request.json();
-  const keyword = String(body.keyword || "").trim();
-  const city = String(body.city || "").trim();
-  const district = String(body.district || "").trim();
-  const sector = String(body.sector || "").trim();
-  const minimumRating = Number(body.minimumRating || 0);
-  const minimumReviewCount = Number(body.minimumReviewCount || 0);
-  const website = String(body.website || "");
-  const phone = String(body.phone || "");
+  const keyword = clean(body.keyword || body.businessType);
+  const city = clean(body.city);
+  const district = clean(body.district);
+  const sector = clean(body.sector || body.businessType);
+  const minimumRating = numberFilter(body.minimumRating || body.minRating);
+  const minimumReviewCount = numberFilter(body.minimumReviewCount || body.minReviewCount);
+  const website = clean(body.website || body.websiteStatus);
+  const phone = clean(body.phone || body.phoneStatus);
   const hideSaved = Boolean(body.hideSaved);
-  if (!keyword && !sector) return NextResponse.json({ error: "Anahtar kelime veya sektör girin." }, { status: 400 });
-  if (!city) return NextResponse.json({ error: "Şehir seçin veya yazın." }, { status: 400 });
 
-  const query = [keyword, sector, district, city].filter(Boolean).join(" ");
+  if (!keyword && !sector) return NextResponse.json({ error: "İşletme / sektör alanı zorunludur." }, { status: 400 });
+  if (!city) return NextResponse.json({ error: "İl seçin veya yazın." }, { status: 400 });
+
+  const filters = { minimumRating, minimumReviewCount, website, phone, hideSaved, knownPlaceIds: await knownPlaceIds(hideSaved) };
+  const demoFallback = (apiError?: string) => {
+    const businesses = applyDiscoveryFilters(demoBusinesses({ city, district, businessType: sector || keyword }), filters);
+    return NextResponse.json({
+      businesses,
+      count: businesses.length,
+      isDemoFallback: true,
+      warning: "Google Maps verisi alınamadı. Demo veri ile devam ediliyor.",
+      apiError
+    });
+  };
+
+  if (!process.env.GOOGLE_MAPS_API_KEY) return demoFallback("Google Maps API anahtarı eksik.");
+
   try {
+    const query = [keyword, sector, district, city].filter(Boolean).join(" ");
     const response = await fetch(textSearchUrl(query), { cache: "no-store" });
     const data = await response.json();
     if (!response.ok || !["OK", "ZERO_RESULTS"].includes(data.status)) {
       console.error("[business-discovery] Google Maps arama hatası", { status: data.status, error: data.error_message });
-      return NextResponse.json({ error: data.error_message || "Google Maps işletme araması başarısız oldu." }, { status: 502 });
+      return demoFallback(data.error_message || "Google Maps işletme araması başarısız oldu.");
     }
+
     const baseResults = (data.results || []).slice(0, 12);
-    const knownPlaceIds = hideSaved && hasSupabaseConfig()
-      ? new Set((await supabaseRest<Array<{ google_place_id?: string }>>("leads?select=google_place_id&google_place_id=not.is.null")).map((lead) => lead.google_place_id).filter(Boolean))
-      : new Set<string>();
     const businesses = (await Promise.all(baseResults.map(async (place: any) => {
       const details = await getPlaceDetails(place.place_id).catch(() => ({}));
       const business = {
+        placeId: place.place_id,
         name: place.name,
+        city,
+        district,
         address: place.formatted_address || "",
         phone: details.formatted_phone_number || "",
         website: details.website || "",
+        rating: place.rating ?? null,
         googleRating: place.rating ?? null,
         reviewCount: Number(place.user_ratings_total || 0),
-        placeId: place.place_id,
         category: sector || (Array.isArray(place.types) ? place.types.slice(0, 3).join(", ") : ""),
-        district
+        source: "Google Maps",
+        isDemo: false
       };
       return { ...business, ...scoreDiscoveredBusiness(business) };
-    }))).filter((business) => {
-      if (hideSaved && knownPlaceIds.has(business.placeId)) return false;
-      if (Number(business.googleRating || 0) < minimumRating) return false;
-      if (Number(business.reviewCount || 0) < minimumReviewCount) return false;
-      if (website === "var" && !business.website) return false;
-      if (website === "yok" && business.website) return false;
-      if (phone === "var" && !business.phone) return false;
-      if (phone === "yok" && business.phone) return false;
-      return true;
-    });
-    return NextResponse.json({ businesses, count: businesses.length });
+    }))).filter(Boolean);
+    const filtered = applyDiscoveryFilters(businesses, filters);
+    return NextResponse.json({ businesses: filtered, count: filtered.length });
   } catch (error) {
     console.error("[business-discovery] İşletme araması çöktü", error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : "İşletme araması başarısız oldu." }, { status: 500 });
+    return demoFallback(error instanceof Error ? error.message : "İşletme araması başarısız oldu.");
   }
 }
 
@@ -96,13 +200,17 @@ export async function PUT(request: Request) {
   if (!hasSupabaseConfig()) return NextResponse.json({ error: "Supabase bağlantısı yapılandırılmadı. Canlı ortamda kaydetme çalışmaz." }, { status: 503 });
 
   const body = await request.json();
-  const businesses = Array.isArray(body.businesses) ? body.businesses : [];
+  const businesses = Array.isArray(body.businesses) ? businessesFromBody(body.businesses) : [];
   if (!businesses.length) return NextResponse.json({ error: "Kaydedilecek işletme seçin." }, { status: 400 });
 
   try {
-    const existing = await supabaseRest<Array<{ google_place_id?: string }>>("leads?select=google_place_id&google_place_id=not.is.null");
+    const existing = await supabaseRest<Array<{ google_place_id?: string; company?: string; phone?: string }>>("leads?select=google_place_id,company,phone");
     const knownPlaceIds = new Set(existing.map((lead) => lead.google_place_id).filter(Boolean));
-    const rows = businesses.filter((business: DiscoveredBusiness) => !business.placeId || !knownPlaceIds.has(business.placeId)).map((business: DiscoveredBusiness) => {
+    const knownNamePhones = new Set(existing.map((lead) => `${clean(lead.company).toLocaleLowerCase("tr-TR")}::${phoneKey(lead.phone)}`).filter((key) => key !== "::"));
+    const rows = businesses.filter((business) => {
+      const namePhone = `${clean(business.name).toLocaleLowerCase("tr-TR")}::${phoneKey(business.phone)}`;
+      return !((business.placeId && knownPlaceIds.has(business.placeId)) || (business.name && business.phone && knownNamePhones.has(namePhone)));
+    }).map((business) => {
       const scores = scoreDiscoveredBusiness(business);
       return {
         source: "Müşteri Bulucu",
@@ -110,18 +218,28 @@ export async function PUT(request: Request) {
         phone: business.phone || "",
         website: business.website || "",
         business_type: business.category || body.sector || "",
+        city: business.city || body.city || "",
+        district: business.district || body.district || "",
+        sector: business.category || body.sector || "",
         address: business.address || "",
         google_rating: business.googleRating ?? null,
         google_review_count: Number(business.reviewCount || 0),
         google_place_id: business.placeId || "",
         digital_maturity_score: scores.digitalMaturityScore,
         lead_heat_score: scores.leadHeatScore,
-        notes: [business.notes, body.notes, "Google Maps işletme keşfi ile kaydedildi."].filter(Boolean).join("\n"),
+        notes: [business.notes, body.notes, "Google Maps işletme keşfi ile kaydedildi.", ...(scores.scoreReasons?.heat || [])].filter(Boolean).join("\n"),
         status: "Yeni"
       };
     });
     if (!rows.length) return NextResponse.json({ leads: [], count: 0, skipped: businesses.length, message: "Seçilen işletmeler daha önce CRM listesine eklenmiş." });
-    const leads = await supabaseRest<any[]>("leads", { method: "POST", body: JSON.stringify(rows) });
+    let leads;
+    try {
+      leads = await supabaseRest<any[]>("leads", { method: "POST", body: JSON.stringify(rows) });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.includes("schema cache") && !message.includes("column")) throw error;
+      leads = await supabaseRest<any[]>("leads", { method: "POST", body: JSON.stringify(rows.map(stripOptionalDiscoveryColumns)) });
+    }
     await recordActivity({ session, action: "Oluşturma", entity: "Müşteri Bulucu", details: { message: `${leads.length} işletme CRM listesine eklendi`, count: leads.length } });
     return NextResponse.json({ leads, count: leads.length, skipped: businesses.length - leads.length, message: `${leads.length} işletme CRM listesine eklendi.` });
   } catch (error) {
@@ -129,4 +247,22 @@ export async function PUT(request: Request) {
     console.error("[business-discovery] Lead kayıt hatası", safe.detail);
     return NextResponse.json({ error: safe.title, supabaseError: safe.detail }, { status: 500 });
   }
+}
+
+function businessesFromBody(value: unknown[]): DiscoveredBusiness[] {
+  return value.map((business: any) => ({
+    ...business,
+    googleRating: business.googleRating ?? business.rating ?? null,
+    reviewCount: Number(business.reviewCount || business.google_review_count || 0),
+    category: business.category || business.business_type || business.sector || ""
+  }));
+}
+
+function stripOptionalDiscoveryColumns(record: Record<string, any>) {
+  const fallback = { ...record };
+  delete fallback.city;
+  delete fallback.district;
+  delete fallback.sector;
+  delete fallback.local_opportunity_notes;
+  return fallback;
 }

@@ -681,8 +681,8 @@ function Panel({ title, children }: any) {
   return <div><p className="text-[10px] font-black uppercase tracking-[.2em] text-cyan-200">HK Operating System</p><h2 className="mb-6 mt-2 text-2xl font-black">{title}</h2>{children}</div>;
 }
 
-function Field({ label, value, onChange, type = "text" }: any) {
-  return <label className="grid gap-2 text-sm font-semibold text-slate-200">{label}<input type={type} value={value ?? ""} onChange={(e) => onChange(e.target.value)} className="min-h-11 rounded-[8px] border border-white/10 bg-black/30 px-3 text-white" /></label>;
+function Field({ label, value, onChange, type = "text", placeholder = "" }: any) {
+  return <label className="grid gap-2 text-sm font-semibold text-slate-200">{label}<input type={type} value={value ?? ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="min-h-11 rounded-[8px] border border-white/10 bg-black/30 px-3 text-white placeholder:text-slate-500" /></label>;
 }
 
 function TextArea({ label, value, onChange, rows = 4 }: any) {
@@ -2667,6 +2667,14 @@ function opportunityLevel(score: any) {
   return { label: "Analiz Bekliyor", className: "border-slate-500/30 bg-slate-500/10 text-slate-300", pin: "bg-slate-400" };
 }
 
+function customerDiscoveryLevel(score: any) {
+  const value = Number(score || 0);
+  if (value >= 80) return { label: "Sıcak Fırsat", className: "border-red-300/45 bg-red-400/15 text-red-100", pin: "bg-red-400" };
+  if (value >= 60) return { label: "Takip Edilebilir", className: "border-emerald-300/40 bg-emerald-300/12 text-emerald-100", pin: "bg-emerald-400" };
+  if (value >= 40) return { label: "Orta Potansiyel", className: "border-amber-300/40 bg-amber-300/12 text-amber-100", pin: "bg-amber-300" };
+  return { label: "Düşük Öncelik", className: "border-slate-400/40 bg-slate-400/10 text-slate-200", pin: "bg-slate-400" };
+}
+
 function districtOf(item: any) {
   if (item.district) return item.district;
   const parts = String(item.address || "").split(",").map((part) => part.trim()).filter(Boolean);
@@ -2674,7 +2682,7 @@ function districtOf(item: any) {
 }
 
 function MapsIntelligence({ content, setContent, setActive, mode = "Haritalar", allowedModules = [] }: any) {
-  const emptySearch = { keyword: "", city: "Manisa", district: "", sector: "", minimumRating: "", minimumReviewCount: "", website: "", phone: "", hideSaved: true };
+  const emptySearch = { city: "Manisa", district: "", businessType: "", minimumRating: "", minimumReviewCount: "", website: "", phone: "", hideSaved: true };
   const [search, setSearch] = useState(emptySearch);
   const [results, setResults] = useState([]);
   const [tab, setTab] = useState(mode === "İşletme Keşfi" ? "Google Maps Müşteri Bulma" : "Fırsat Haritası");
@@ -2683,13 +2691,14 @@ function MapsIntelligence({ content, setContent, setActive, mode = "Haritalar", 
   const [selectedPlaceId, setSelectedPlaceId] = useState("");
   const [notePlaceId, setNotePlaceId] = useState("");
   const [noteDrafts, setNoteDrafts] = useState({});
+  const [whatsappDraft, setWhatsappDraft] = useState<any>(null);
   const saved = (content.leads || []).filter((lead) => lead.google_place_id || lead.address);
   const canDiscover = allowedModules.includes("musteri-bulucu") || allowedModules.includes("haritalar") || allowedModules.includes("business_discovery") || allowedModules.includes("maps");
   const source = tab === "Google Maps Müşteri Bulma" ? results : saved;
   const visible = source
     .filter((item) => tab !== "Sıcak Leadler" || Number(item.lead_heat_score || item.leadHeatScore || 0) >= 70)
     .filter((item) => !search.district || districtOf(item).toLocaleLowerCase("tr").includes(search.district.toLocaleLowerCase("tr")))
-    .filter((item) => !search.sector || (item.business_type || item.category) === search.sector);
+    .filter((item) => !search.businessType || String(item.business_type || item.category || "").toLocaleLowerCase("tr").includes(search.businessType.toLocaleLowerCase("tr")));
   const combined = [...saved, ...results.filter((result) => !saved.some((lead) => lead.google_place_id === result.placeId))];
   const districts = Object.values(combined.reduce((groups: any, item: any) => {
     const district = districtOf(item);
@@ -2700,14 +2709,20 @@ function MapsIntelligence({ content, setContent, setActive, mode = "Haritalar", 
     const values = group.items;
     const average = (key, fallback) => values.length ? Math.round(values.reduce((sum, item) => sum + Number(item[key] ?? item[fallback] ?? 0), 0) / values.length * 10) / 10 : 0;
     const sectors = [...new Set(values.map((item) => item.business_type || item.category).filter(Boolean))].slice(0, 3);
-    return { ...group, hot: values.filter((item) => Number(item.lead_heat_score || item.leadHeatScore || 0) >= 70).length, rating: average("google_rating", "googleRating"), maturity: average("digital_maturity_score", "digitalMaturityScore"), sectors, opportunity: opportunityLevel(average("lead_heat_score", "leadHeatScore")) };
+    return { ...group, hot: values.filter((item) => Number(item.lead_heat_score || item.leadHeatScore || 0) >= 70).length, rating: average("google_rating", "googleRating"), maturity: average("digital_maturity_score", "digitalMaturityScore"), sectors, opportunity: customerDiscoveryLevel(average("lead_heat_score", "leadHeatScore")) };
   });
   const sectors = mapSectorOptions.filter((sector) => sector !== "Diğer").map((sector) => {
-    const items = combined.filter((item) => (item.business_type || item.category) === sector);
+    const items = combined.filter((item) => String(item.business_type || item.category || "").toLocaleLowerCase("tr").includes(sector.toLocaleLowerCase("tr")));
     const average = items.length ? items.reduce((sum, item) => sum + Number(item.lead_heat_score || item.leadHeatScore || 0), 0) / items.length : 0;
-    return { sector, count: items.length, hot: items.filter((item) => Number(item.lead_heat_score || item.leadHeatScore || 0) >= 70).length, opportunity: opportunityLevel(average) };
+    return { sector, count: items.length, hot: items.filter((item) => Number(item.lead_heat_score || item.leadHeatScore || 0) >= 70).length, opportunity: customerDiscoveryLevel(average) };
   }).filter((item) => item.count);
 
+  function existingLeadFor(item) {
+    const placeId = item.placeId || item.google_place_id;
+    const normalizedPhone = String(item.phone || "").replace(/\D/g, "");
+    const normalizedName = String(item.name || item.company || "").toLocaleLowerCase("tr");
+    return item.id ? item : saved.find((lead) => lead.google_place_id === placeId || (normalizedPhone && String(lead.phone || "").replace(/\D/g, "") === normalizedPhone && String(lead.company || lead.name || "").toLocaleLowerCase("tr") === normalizedName));
+  }
   function patchLead(id, patch) {
     setContent({ ...content, leads: (content.leads || []).map((lead) => lead.id === id ? { ...lead, ...patch } : lead) });
     setMessage("Kayıt güncellendi. Kalıcı kayıt için üst çubuktaki Kaydet düğmesini kullanın.");
@@ -2716,26 +2731,32 @@ function MapsIntelligence({ content, setContent, setActive, mode = "Haritalar", 
     if (!canDiscover) return setMessage("İşletme keşfi araması için yetkiniz bulunmuyor.");
     setLoading("search");
     setMessage("Google Maps üzerinde işletmeler aranıyor...");
-    const response = await fetch("/api/admin/business-discovery", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(search) });
+    const response = await fetch("/api/admin/business-discovery", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...search, sector: search.businessType, keyword: search.businessType }) });
     const data = await response.json().catch(() => ({}));
     setLoading("");
     if (!response.ok) return setMessage(data.error || "İşletme araması başarısız oldu.");
     setResults(data.businesses || []);
     setTab("Google Maps Müşteri Bulma");
-    setMessage(data.count ? `${data.count} işletme bulundu.` : "Arama kriterlerine uygun işletme bulunamadı.");
+    if (data.warning) setMessage(data.warning);
+    else setMessage(data.count ? `${data.count} işletme bulundu.` : "Bu filtrelerle işletme bulunamadı. Yıldız puanı veya yorum sayısı filtresini genişletmeyi deneyin.");
   }
   async function saveBusiness(business) {
+    const existing = existingLeadFor(business);
+    if (existing?.id) {
+      setMessage("Bu işletme CRM’de zaten kayıtlı.");
+      return existing;
+    }
     setLoading(`save-${business.placeId}`);
-    const response = await fetch("/api/admin/business-discovery", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businesses: [{ ...business, notes: noteDrafts[business.placeId] || business.notes }], sector: search.sector }) });
+    const response = await fetch("/api/admin/business-discovery", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businesses: [{ ...business, notes: noteDrafts[business.placeId] || business.notes }], sector: search.businessType, city: search.city, district: search.district }) });
     const data = await response.json().catch(() => ({}));
     setLoading("");
     if (!response.ok) return setMessage(data.supabaseError ? `${data.error}: ${data.supabaseError}` : data.error || "İşletme kaydedilemedi.");
     setContent({ ...content, leads: [...(data.leads || []), ...(content.leads || [])] });
     setMessage(data.skipped ? "Bu işletme daha önce CRM listesine eklenmiş." : data.message);
-    return data.leads?.[0] || saved.find((lead) => lead.google_place_id === business.placeId);
+    return data.leads?.[0] || existingLeadFor(business);
   }
   async function analyze(item) {
-    const lead = item.id ? item : saved.find((savedLead) => savedLead.google_place_id === item.placeId) || await saveBusiness(item);
+    const lead = item.id ? item : existingLeadFor(item) || await saveBusiness(item);
     if (!lead?.id) return;
     setLoading(`analyze-${lead.id}`);
     setMessage("AI analizi hazırlanıyor...");
@@ -2746,23 +2767,50 @@ function MapsIntelligence({ content, setContent, setActive, mode = "Haritalar", 
     patchLead(lead.id, { ai_analysis: data.analysis });
     setMessage("AI analizi oluşturuldu.");
   }
+  function proposalFor(record) {
+    try {
+      localStorage.setItem("hk-proposal-prefill", JSON.stringify({ businessName: record.name || record.company, sector: record.category || record.business_type || search.businessType, city: record.city || search.city, platform: "Meta + Google", goal: "Lead generation" }));
+    } catch {}
+    setActive("Teklif Motoru");
+  }
+  function outreachText(record) {
+    const missingWebsite = record.website ? "" : "Web siteniz görünmediği için reklam trafiğini doğru bir landing page (açılış sayfası) ile toplama fırsatı var.";
+    const lowReview = Number(record.reviewCount ?? record.google_review_count ?? 0) < 25 ? "Google yorum sayınız artırılırsa yerel güven ve dönüşüm oranı güçlenebilir." : "Google yorumlarınız güçlü; bunu reklamlarda güven mesajına çevirebiliriz.";
+    return `Merhaba ${record.name || record.company || "iyi günler"}, HK Dijital olarak ${record.category || record.business_type || "işletmeniz"} için kısa bir dijital görünürlük ön analizi yaptık. ${missingWebsite} ${lowReview} İsterseniz size 10 dakikalık ücretsiz bir fırsat özeti paylaşabilirim.`;
+  }
   const clearFilters = () => setSearch(emptySearch);
-  const activeFilters = Object.entries(search).filter(([key, value]) => key !== "hideSaved" && Boolean(value));
+  const activeFilters = Object.entries(search).filter(([key, value]) => !["hideSaved"].includes(key) && Boolean(value));
   const renderBusiness = (item) => {
     const placeId = item.placeId || item.google_place_id;
-    const existingLead = item.id ? item : saved.find((lead) => lead.google_place_id === placeId);
+    const existingLead = existingLeadFor(item);
     const record = existingLead || item;
     const heat = record.leadHeatScore ?? record.lead_heat_score ?? 0;
     const maturity = record.digitalMaturityScore ?? record.digital_maturity_score ?? 0;
-    const level = opportunityLevel(heat);
-    return <div key={placeId || record.id} className={`rounded-[8px] border p-3 transition ${selectedPlaceId === placeId ? "border-cyan-200/60 bg-cyan-200/10" : "border-white/10 bg-black/15"}`}><button onClick={() => setSelectedPlaceId(placeId)} className="w-full text-left"><div className="flex items-start justify-between gap-2"><strong className="text-sm text-white">{record.name || record.company || "İsimsiz işletme"}</strong><div className="flex flex-wrap justify-end gap-1">{existingLead && <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-1 text-[9px] font-black text-emerald-100">Zaten CRM'de</span>}<span className={`rounded-full border px-2 py-1 text-[9px] font-black ${level.className}`}>{level.label}</span></div></div><span className="mt-2 block text-xs leading-5 text-slate-400">{record.address || "Adres bilgisi yok"}</span><span className="mt-2 block text-[10px] leading-5 text-slate-500">{record.phone || "Telefon yok"} · {record.website ? "Web sitesi var" : "Web sitesi yok"} · Puan {record.googleRating ?? record.google_rating ?? "-"} · {record.reviewCount ?? record.google_review_count ?? 0} yorum</span><span className="mt-1 block text-[10px] text-slate-500">{record.category || record.business_type || "Kategori belirtilmedi"} · Place ID: {placeId || "-"}</span><span className="mt-2 block text-[10px] font-black text-cyan-100">Olgunluk {maturity}/100 · Sıcaklık {heat}/100</span></button><div className="mt-3 flex flex-wrap gap-1.5">{!existingLead && <button disabled={loading === `save-${placeId}`} onClick={() => saveBusiness(item)} className="rounded-full bg-cyan-300 px-2.5 py-1.5 text-[10px] font-black text-slate-950">CRM'e Kaydet</button>}<button disabled={loading === `analyze-${existingLead?.id}`} onClick={() => analyze(record)} className="rounded-full border border-cyan-200/20 px-2.5 py-1.5 text-[10px] font-bold text-cyan-100">AI Analiz Yap</button>{existingLead && <button onClick={() => setActive("Lead Yönetimi")} className="rounded-full border border-white/10 px-2.5 py-1.5 text-[10px] font-bold">CRM Detayı</button>}<button onClick={() => setNotePlaceId(notePlaceId === placeId ? "" : placeId)} className="rounded-full border border-white/10 px-2.5 py-1.5 text-[10px] font-bold">Not Ekle</button><button onClick={() => setSelectedPlaceId(placeId)} className="rounded-full border border-white/10 px-2.5 py-1.5 text-[10px] font-bold">Haritada Aç</button>{record.website && <a target="_blank" rel="noreferrer" href={record.website} className="rounded-full border border-white/10 px-2.5 py-1.5 text-[10px] font-bold">Web Sitesi</a>}{placeId && <a target="_blank" rel="noreferrer" href={`https://www.google.com/maps/place/?q=place_id:${placeId}`} className="rounded-full border border-white/10 px-2.5 py-1.5 text-[10px] font-bold">Google Maps'te Aç</a>}</div>{notePlaceId === placeId && <div className="mt-3"><TextArea rows={2} label="Fırsat notu" value={existingLead?.local_opportunity_notes || noteDrafts[placeId] || ""} onChange={(local_opportunity_notes) => existingLead ? patchLead(existingLead.id, { local_opportunity_notes }) : setNoteDrafts({ ...noteDrafts, [placeId]: local_opportunity_notes })} /></div>}{existingLead && <div className="mt-3 grid gap-2"><SelectField label="Durum" value={existingLead.status || "Yeni"} onChange={(status) => patchLead(existingLead.id, { status })} options={leadStatuses} />{tab === "Rakip Analizi" && <TextArea rows={2} label="Rakip analizi notu" value={existingLead.competitor_notes || ""} onChange={(competitor_notes) => patchLead(existingLead.id, { competitor_notes })} />}</div>}</div>;
+    const level = customerDiscoveryLevel(heat);
+    const badges = [
+      !record.website && "Website Yok",
+      record.phone && "Telefon Var",
+      Number(record.googleRating ?? record.google_rating ?? 0) >= 4.5 && "Yüksek Puan",
+      Number(record.reviewCount ?? record.google_review_count ?? 0) < 25 && "Yorum Az",
+      record.isDemo && "Demo Veri",
+      existingLead && "CRM'de Kayıtlı"
+    ].filter(Boolean);
+    const reasons = record.scoreReasons || {
+      heat: [
+        !record.website ? "Website yok: reklam ve landing page fırsatı" : "Website var: açılış sayfası incelenebilir",
+        record.phone ? "Telefon var: ulaşılabilir lead" : "Telefon yok: iletişim kanalı eksik",
+        Number(record.reviewCount ?? record.google_review_count ?? 0) < 25 ? "Yorum sayısı düşük: itibar yönetimi fırsatı" : "Yorum sayısı güçlü: güven sinyali var"
+      ].filter(Boolean),
+      maturity: []
+    };
+    return <article key={placeId || record.id} className={`rounded-[8px] border p-4 transition ${selectedPlaceId === placeId ? "border-cyan-200/60 bg-cyan-200/10" : "border-white/10 bg-black/15"}`}><button onClick={() => setSelectedPlaceId(placeId)} className="w-full text-left"><div className="flex flex-wrap items-start justify-between gap-3"><div><strong className="text-base text-white">{record.name || record.company || "İsimsiz işletme"}</strong><p className="mt-1 text-xs text-slate-400">{record.city || search.city || "-"} / {districtOf(record)} · {record.category || record.business_type || search.businessType || "Sektör belirtilmedi"}</p></div><span className={`rounded-full border px-3 py-1 text-[10px] font-black ${level.className}`}>{level.label}</span></div><p className="mt-3 text-xs leading-5 text-slate-400">{record.address || "Adres bilgisi yok"}</p><div className="mt-3 grid gap-2 text-xs text-slate-300 sm:grid-cols-2"><span>Telefon: <strong>{record.phone || "Yok"}</strong></span><span>Website: <strong className="break-all">{record.website || "Yok"}</strong></span><span>Google puanı: <strong>{record.googleRating ?? record.google_rating ?? "-"}</strong></span><span>Yorum sayısı: <strong>{record.reviewCount ?? record.google_review_count ?? 0}</strong></span></div><div className="mt-3 flex flex-wrap gap-1.5">{badges.map((badge) => <span key={badge} className={`rounded-full px-2 py-1 text-[10px] font-black ${badge === "Demo Veri" ? "bg-amber-300 text-slate-950" : badge === "CRM'de Kayıtlı" ? "bg-emerald-300/15 text-emerald-100" : "bg-white/10 text-slate-200"}`}>{badge}</span>)}</div><div className="mt-4 grid gap-3 sm:grid-cols-2"><div className="rounded-[8px] border border-cyan-200/15 bg-cyan-200/10 p-3"><p className="text-[10px] font-black uppercase text-cyan-100">Müşteri Sıcaklık Puanı</p><p className="mt-1 text-2xl font-black text-white">{heat}<small className="text-xs text-slate-400">/100</small></p></div><div className="rounded-[8px] border border-violet-200/15 bg-violet-200/10 p-3"><p className="text-[10px] font-black uppercase text-violet-100">Dijital Olgunluk Skoru</p><p className="mt-1 text-2xl font-black text-white">{maturity}<small className="text-xs text-slate-400">/100</small></p></div></div></button><details className="mt-3 rounded-[8px] border border-white/10 bg-black/15 p-3"><summary className="cursor-pointer text-xs font-black text-cyan-100">Puan Detayı</summary><ul className="mt-2 grid gap-1 text-xs leading-5 text-slate-300">{[...(reasons.heat || []), ...(reasons.maturity || [])].map((reason, index) => <li key={`${reason}-${index}`}>• {reason}</li>)}</ul></details><div className="mt-3 flex flex-wrap gap-2">{!existingLead && <button disabled={loading === `save-${placeId}`} onClick={() => saveBusiness(item)} className="rounded-full bg-cyan-300 px-3 py-2 text-xs font-black text-slate-950">CRM'e Kaydet</button>}<button disabled={loading === `analyze-${existingLead?.id}`} onClick={() => analyze(record)} className="rounded-full border border-cyan-200/20 px-3 py-2 text-xs font-bold text-cyan-100">AI Analiz Yap</button><button onClick={() => proposalFor(record)} className="rounded-full border border-amber-200/25 px-3 py-2 text-xs font-bold text-amber-100">Teklif Oluştur</button><button onClick={() => setWhatsappDraft({ id: placeId || record.id, text: outreachText(record), phone: record.phone })} className="rounded-full border border-emerald-200/25 px-3 py-2 text-xs font-bold text-emerald-100">WhatsApp Mesajı Hazırla</button>{existingLead && <button onClick={() => setActive("Lead Yönetimi")} className="rounded-full border border-white/10 px-3 py-2 text-xs font-bold">CRM Detayı</button>}<button onClick={() => setNotePlaceId(notePlaceId === placeId ? "" : placeId)} className="rounded-full border border-white/10 px-3 py-2 text-xs font-bold">Not Ekle</button>{placeId && <a target="_blank" rel="noreferrer" href={`https://www.google.com/maps/place/?q=place_id:${placeId}`} className="rounded-full border border-white/10 px-3 py-2 text-xs font-bold">Google Maps'te Aç</a>}</div>{whatsappDraft?.id === (placeId || record.id) && <div className="mt-3 rounded-[8px] border border-emerald-200/20 bg-emerald-200/10 p-3"><p className="text-xs font-black text-emerald-100">Hazır WhatsApp mesajı</p><textarea value={whatsappDraft.text} onChange={(event) => setWhatsappDraft({ ...whatsappDraft, text: event.target.value })} className="mt-2 min-h-24 w-full rounded-[8px] border border-white/10 bg-black/30 p-3 text-xs leading-5 text-white" /><a target="_blank" rel="noreferrer" href={`https://wa.me/${String(whatsappDraft.phone || "").replace(/\D/g, "")}?text=${encodeURIComponent(whatsappDraft.text)}`} className="mt-2 inline-flex rounded-full bg-[#25D366] px-3 py-2 text-xs font-black text-white">WhatsApp’ta Aç</a></div>}{notePlaceId === placeId && <div className="mt-3"><TextArea rows={2} label="Fırsat notu" value={existingLead?.local_opportunity_notes || noteDrafts[placeId] || ""} onChange={(local_opportunity_notes) => existingLead ? patchLead(existingLead.id, { local_opportunity_notes }) : setNoteDrafts({ ...noteDrafts, [placeId]: local_opportunity_notes })} /></div>}</article>;
   };
 
   if (tab === "Fırsat Haritası") {
-    return <Panel title="Fırsat Haritası"><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><p className="max-w-3xl text-sm leading-6 text-slate-400">Bölgesel potansiyeli ilçe ve sektör seviyesinde okuyun; seçiminizi Google Maps müşteri bulma akışına aktararak gerçek işletmeleri keşfedin.</p><span className="rounded-full border border-orange-300/30 bg-orange-300/10 px-3 py-2 text-xs font-black text-orange-100">Opportunity Map</span></div><HubTabs items={mapTabs} active={tab} onChange={setTab} /><OpportunityMap search={search} setSearch={setSearch} setTab={setTab} setActive={setActive} saved={saved} /></Panel>;
+    return <Panel title="Fırsat Haritası"><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><p className="max-w-3xl text-sm leading-6 text-slate-400">Bölgesel potansiyeli ilçe ve sektör seviyesinde okuyun; seçiminizi Google Maps müşteri bulma akışına aktararak gerçek işletmeleri keşfedin.</p><span className="rounded-full border border-orange-300/30 bg-orange-300/10 px-3 py-2 text-xs font-black text-orange-100">Opportunity Map (Fırsat Haritası)</span></div><HubTabs items={mapTabs} active={tab} onChange={setTab} /><OpportunityMap search={{ ...search, sector: search.businessType }} setSearch={(next) => setSearch({ ...search, ...next, businessType: next.businessType || next.sector || search.businessType })} setTab={setTab} setActive={setActive} saved={saved} /></Panel>;
   }
 
-  return <Panel title={mode === "Haritalar" ? "Harita Zekâsı" : "İşletme Keşfi"}><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><p className="max-w-3xl text-sm leading-6 text-slate-400">Google Maps işletme keşfini, bölgesel fırsat katmanlarını ve CRM adaylarını tek çalışma alanında yönetin.</p><div className="flex gap-2 text-xs"><span className="rounded-full border border-white/10 px-3 py-2">{results.length} sonuç</span><span className="rounded-full border border-white/10 px-3 py-2">{saved.length} kayıtlı</span><span className="rounded-full border border-red-300/20 px-3 py-2 text-red-200">{saved.filter((lead) => Number(lead.lead_heat_score || 0) >= 70).length} sıcak lead</span></div></div><HubTabs items={mapTabs} active={tab} onChange={setTab} /><div className="grid gap-4 xl:grid-cols-[270px_minmax(0,1fr)_350px]"><aside className="rounded-[8px] border border-white/10 bg-black/15 p-4"><h3 className="font-black">Arama ve filtreler</h3><div className="mt-4 grid gap-3"><OtherSelectField label="Şehir" value={search.city} onChange={(city) => setSearch({ ...search, city })} options={cityOptions} manualLabel="Şehri yazın" /><Field label="İlçe" value={search.district} onChange={(district) => setSearch({ ...search, district })} /><OtherSelectField label="Sektör" value={search.sector} onChange={(sector) => setSearch({ ...search, sector })} options={mapSectorOptions} manualLabel="Sektörü yazın" /><Field label="Anahtar kelime" value={search.keyword} onChange={(keyword) => setSearch({ ...search, keyword })} /><Field label="Minimum Google puanı" type="number" value={search.minimumRating} onChange={(minimumRating) => setSearch({ ...search, minimumRating })} /><Field label="Minimum yorum sayısı" type="number" value={search.minimumReviewCount} onChange={(minimumReviewCount) => setSearch({ ...search, minimumReviewCount })} /><SelectField label="Web sitesi" value={search.website} onChange={(website) => setSearch({ ...search, website })} options={[{ value: "var", label: "Var" }, { value: "yok", label: "Yok" }]} placeholder="Farketmez" /><SelectField label="Telefon" value={search.phone} onChange={(phone) => setSearch({ ...search, phone })} options={[{ value: "var", label: "Var" }, { value: "yok", label: "Yok" }]} placeholder="Farketmez" /><label className="flex gap-2 text-xs text-slate-300"><input type="checkbox" checked={search.hideSaved} onChange={(event) => setSearch({ ...search, hideSaved: event.target.checked })} />Daha önce kaydedilenleri gizle</label></div><button disabled={loading === "search" || !canDiscover} onClick={runSearch} className="mt-4 w-full rounded-[8px] bg-cyan-300 px-4 py-3 text-sm font-black text-slate-950 disabled:opacity-50">{loading === "search" ? "Aranıyor..." : "Sonuçları Göster"}</button><button onClick={clearFilters} className="mt-2 w-full rounded-[8px] border border-white/10 px-4 py-2 text-xs font-bold">Filtreleri temizle</button><div className="mt-3 flex flex-wrap gap-1">{activeFilters.map(([key, value]) => <span key={key} className="rounded-full border border-cyan-200/20 px-2 py-1 text-[9px] text-cyan-100">{String(value)}</span>)}</div></aside><section className="min-w-0"><MapIntelligenceCanvas businesses={visible} districts={districts} sectors={sectors} selectedPlaceId={selectedPlaceId} setSelectedPlaceId={setSelectedPlaceId} setSearch={setSearch} search={search} /></section><aside className="premium-scrollbar max-h-[900px] overflow-y-auto rounded-[8px] border border-white/10 bg-black/15 p-3"><h3 className="px-1 font-black">{tab}</h3>{message && <p className="mt-3 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-xs leading-5 text-cyan-100">{message}</p>}<div className="mt-3 grid gap-2">{loading === "search" ? [1, 2, 3, 4].map((item) => <div key={item} className="h-32 animate-pulse rounded-[8px] bg-white/[0.06]" />) : visible.map(renderBusiness)}{!loading && !visible.length && <p className="rounded-[8px] border border-dashed border-white/10 p-5 text-center text-xs leading-5 text-slate-400">Bu görünüm için henüz veri yok. Sol panelden işletme araması yaparak gerçek Google Maps sonuçlarını getirin.</p>}</div></aside></div></Panel>;
+  return <Panel title={mode === "Haritalar" ? "Harita Zekâsı" : "İşletme Keşfi"}><div className="mb-5 flex flex-wrap items-center justify-between gap-3"><p className="max-w-3xl text-sm leading-6 text-slate-400">İl, ilçe, sektör, Google puanı ve yorum filtreleriyle işletmeleri tarayın; sıcaklık skoruna göre CRM’e taşıyıp AI analiz, teklif ve WhatsApp mesajı oluşturun.</p><div className="flex gap-2 text-xs"><span className="rounded-full border border-white/10 px-3 py-2">{results.length} sonuç</span><span className="rounded-full border border-white/10 px-3 py-2">{saved.length} kayıtlı</span><span className="rounded-full border border-red-300/20 px-3 py-2 text-red-200">{saved.filter((lead) => Number(lead.lead_heat_score || 0) >= 70).length} sıcak lead</span></div></div><HubTabs items={mapTabs} active={tab} onChange={setTab} /><div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)_420px]"><aside className="h-fit rounded-[8px] border border-white/10 bg-black/15 p-4"><h3 className="font-black">Arama ve filtreler</h3><div className="mt-4 grid gap-3"><OtherSelectField label="İl seçimi" value={search.city} onChange={(city) => setSearch({ ...search, city })} options={cityOptions} manualLabel="İli yazın" /><Field label="İlçe seçimi" value={search.district} onChange={(district) => setSearch({ ...search, district })} /><Field label="İşletme / sektör alanı" value={search.businessType} onChange={(businessType) => setSearch({ ...search, businessType })} placeholder="oto galeri, emlak ofisi, diş kliniği..." /><SelectField label="Minimum Google yıldız puanı" value={search.minimumRating} onChange={(minimumRating) => setSearch({ ...search, minimumRating })} options={[{ value: "", label: "Farketmez" }, { value: "3", label: "3.0+" }, { value: "3.5", label: "3.5+" }, { value: "4", label: "4.0+" }, { value: "4.5", label: "4.5+" }]} /><SelectField label="Minimum yorum sayısı" value={search.minimumReviewCount} onChange={(minimumReviewCount) => setSearch({ ...search, minimumReviewCount })} options={[{ value: "", label: "Farketmez" }, { value: "5", label: "5+" }, { value: "10", label: "10+" }, { value: "25", label: "25+" }, { value: "50", label: "50+" }, { value: "100", label: "100+" }]} /><SelectField label="Website durumu" value={search.website} onChange={(website) => setSearch({ ...search, website })} options={[{ value: "", label: "Farketmez" }, { value: "yok", label: "Websitesi olmayanlar" }, { value: "var", label: "Websitesi olanlar" }]} /><SelectField label="Telefon durumu" value={search.phone} onChange={(phone) => setSearch({ ...search, phone })} options={[{ value: "", label: "Farketmez" }, { value: "var", label: "Telefonu olanlar" }, { value: "yok", label: "Telefonu olmayanlar" }]} /><label className="flex gap-2 text-xs text-slate-300"><input type="checkbox" checked={search.hideSaved} onChange={(event) => setSearch({ ...search, hideSaved: event.target.checked })} />CRM’de kayıtlı olanları gizle</label></div><button disabled={loading === "search" || !canDiscover} onClick={runSearch} className="mt-4 w-full rounded-[8px] bg-cyan-300 px-4 py-3 text-sm font-black text-slate-950 disabled:opacity-50">{loading === "search" ? "Taranıyor..." : "İşletmeleri Tara"}</button><button onClick={clearFilters} className="mt-2 w-full rounded-[8px] border border-white/10 px-4 py-2 text-xs font-bold">Filtreleri temizle</button><div className="mt-3 flex flex-wrap gap-1">{activeFilters.map(([key, value]) => <span key={key} className="rounded-full border border-cyan-200/20 px-2 py-1 text-[9px] text-cyan-100">{String(value)}</span>)}</div></aside><section className="min-w-0"><MapIntelligenceCanvas businesses={visible} districts={districts} sectors={sectors} selectedPlaceId={selectedPlaceId} setSelectedPlaceId={setSelectedPlaceId} setSearch={(next) => setSearch({ ...search, ...next, businessType: next.businessType || next.sector || search.businessType })} search={{ ...search, sector: search.businessType }} /></section><aside className="premium-scrollbar max-h-[900px] overflow-y-auto rounded-[8px] border border-white/10 bg-black/15 p-3"><h3 className="px-1 font-black">Bulunan İşletmeler</h3>{message && <p className="mt-3 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-xs leading-5 text-cyan-100">{message}</p>}<div className="mt-3 grid gap-3">{loading === "search" ? [1, 2, 3, 4].map((item) => <div key={item} className="h-40 animate-pulse rounded-[8px] bg-white/[0.06]" />) : visible.map(renderBusiness)}{!loading && !visible.length && <p className="rounded-[8px] border border-dashed border-white/10 p-5 text-center text-xs leading-5 text-slate-400">{results.length ? "Bu filtrelerle işletme bulunamadı. Yıldız puanı veya yorum sayısı filtresini genişletmeyi deneyin." : "Henüz arama yapılmadı. Sol panelden il, ilçe ve işletme türü seçerek İşletmeleri Tara düğmesine basın."}</p>}</div></aside></div></Panel>;
 }
 
 function OpportunityMap({ search, setSearch, setTab, setActive, saved }: any) {
