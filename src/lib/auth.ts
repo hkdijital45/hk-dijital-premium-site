@@ -27,6 +27,7 @@ type UserProfileRow = {
   role: UserRole;
   company_id: string | null;
   is_active: boolean;
+  deleted_at?: string | null;
   allowed_modules?: string[] | null;
 };
 
@@ -107,7 +108,7 @@ export async function getSession() {
 
   try {
     const profile = await getProfileById(session.profileId);
-    if (!profile?.is_active) return null;
+    if (!profile?.is_active || profile.deleted_at) return null;
     return {
       ...session,
       authUserId: profile.auth_user_id || session.authUserId,
@@ -335,7 +336,7 @@ export async function authenticateUser({
     return { error: "Kullanıcı profiliniz tanımlı değil. Lütfen yöneticiyle iletişime geçin." as const };
   }
 
-  if (!profile.is_active) {
+  if (!profile.is_active || profile.deleted_at) {
     return { error: "Hesabınız pasif durumda." as const };
   }
 

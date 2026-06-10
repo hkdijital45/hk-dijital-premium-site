@@ -38,7 +38,7 @@ const uiPermissionGroups = [
   ["İçerik & AI Studio", ["hazirlik", "ai-studio", "icerik-onerileri", "prompt-kutuphanesi", "kampanya-hazirligi"]],
   ["Teklif & Raporlama", ["teklifler", "teklif-listesi", "raporlar", "rapor-yorumlari", "disa-aktarimlar"]],
   ["Ajans Operasyonları", ["gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "hk-asistan", "sektor-sistemleri"]],
-  ["Ayarlar", ["kullanicilar", "roller-yetkiler", "site-ayarlari", "api-ayarlari", "tema-ayarlari", "medya", "sistem-loglari"]]
+  ["Ayarlar", ["kullanicilar", "site-ayarlari", "api-ayarlari", "tema-ayarlari", "medya", "sistem-loglari"]]
 ];
 const uiRoleTemplates = {
   admin: uiPermissionGroups.flatMap(([, modules]) => modules),
@@ -449,9 +449,9 @@ export function AdminDashboard({
     .join("")
     .toLocaleUpperCase("tr");
   const dashboardAliases = ["Dashboard", "AI Durum Merkezi", "Canlı Aktivite", "Sistem Özeti"];
-  const crmLeadViews = ["Tüm Başvurular", "Yeni Başvurular", "Meta Analiz Leadleri", "Google Ads Analiz Leadleri", "Sosyal İstihbarat Leadleri", "Reddedilenler", "Silinenler"];
+  const crmLeadViews = ["Leadler", "Tüm Başvurular", "Yeni Başvurular", "Meta Analiz Leadleri", "Google Ads Analiz Leadleri", "Sosyal İstihbarat Leadleri", "Reddedilenler", "Silinenler"];
   const reportAliases = ["Teklifler", "Rapor Yorumları", "Dışa Aktarımlar", "Dışa Aktarma", "Müşteri Raporları", "Performans Raporları"];
-  const preparationAliases = ["İçerik Önerileri", "İçerik Fikirleri", "30 Günlük Sosyal Medya Planı", "Prompt Kütüphanesi", "Prompt Üretimi", "Kampanya Hazırlığı", "Kampanya Önerileri"];
+  const preparationAliases = ["İçerik Planları", "Promptlar", "İçerik Önerileri", "İçerik Fikirleri", "30 Günlük Sosyal Medya Planı", "Prompt Kütüphanesi", "Prompt Üretimi", "Kampanya Hazırlığı", "Kampanya Önerileri"];
 
   return (
     <main className={`relative min-h-screen overflow-x-hidden ${theme === "light" ? "admin-light" : ""} ${customTheme ? "admin-themed" : ""} ${shellClass}`} style={customTheme ? { backgroundColor: customTheme.background, color: customTheme.text, "--admin-surface": customTheme.surface, "--admin-border": customTheme.border, "--admin-sidebar": customTheme.sidebar, "--admin-header": customTheme.header, "--admin-muted": customTheme.mutedText, "--admin-button": customTheme.primaryButton } : undefined}>
@@ -579,18 +579,18 @@ export function AdminDashboard({
           {active === "Görevler" && <AgencyTasksCenter {...props} />}
           {active === "Belgeler" && <DocumentCenter {...props} />}
           {active === "Tahsilat" && <PaymentCenter {...props} />}
-          {["Müşteri Bulucu", "İşletme Keşfi"].includes(active) && <CustomerFinder {...props} />}
-          {["Lead Yönetimi", ...crmLeadViews].includes(active) && <Crm {...props} view={active === "Lead Yönetimi" ? "Lead Durumları" : active} setActive={setActive} />}
-          {active === "Meta Analiz" && <MetaAnalysisSection />}
-          {["Google Analiz", "Google Ads Analiz"].includes(active) && <GoogleAdsAnalysisSection />}
+          {["Müşteri Bulucu", "İşletme Keşfi", "Müşteri Bul"].includes(active) && <CustomerFinder {...props} />}
+          {["Lead Yönetimi", ...crmLeadViews].includes(active) && <Crm {...props} view={["Lead Yönetimi", "Leadler"].includes(active) ? "Lead Durumları" : active} setActive={setActive} />}
+          {["Meta Analiz", "Meta Raporları"].includes(active) && <MetaAnalysisSection />}
+          {["Google Analiz", "Google Ads Analiz", "Google Ads Raporları"].includes(active) && <GoogleAdsAnalysisSection />}
           {["Sosyal İstihbarat Merkezi", "Sosyal Medya Denetimi", "PDF Audit"].includes(active) && <SocialMediaAuditCenter />}
           {["AI Studio", "AI Analizleri"].includes(active) && <AiAssistant {...props} mode="AI Studio" />}
-          {["Teklif Motoru", "Teklif Hazırlama", "WhatsApp Teklifi"].includes(active) && <ProposalEngine {...props} />}
+          {["Teklif Motoru", "Teklif Hazırlama", "Teklif Oluştur", "WhatsApp Teklifi"].includes(active) && <ProposalEngine {...props} />}
           {active === "Raporlar" && <ReportsHub {...props} />}
           {active === "Müşteriler" && <CustomersAdmin {...props} />}
           {["Site Ayarları", "Sistem Ayarları"].includes(active) && <SiteSettingsHub {...props} />}
           {["API Ayarları", "API Durum Kontrolü", "AI Sağlayıcı Ayarları"].includes(active) && <ApiSettings {...props} />}
-          {active === "Medya / Logo" && <MediaLogoHub {...props} />}
+          {["Medya / Logo", "Medya"].includes(active) && <MediaLogoHub {...props} />}
           {active === "Kullanıcılar" && <UsersHub {...props} />}
           {active === "Genel Arama" && <GlobalSearchPage />}
           {["Haritalar", "Google Maps / İşletme Sinyalleri"].includes(active) && <MapsIntelligence {...props} setActive={setActive} mode={active} />}
@@ -1151,7 +1151,7 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
       count: `%${healthScore} sağlık`,
       icon: <Settings2 size={24} />,
       gradient: "from-slate-500 via-slate-700 to-slate-900",
-      actions: [["API Ayarları", "API Ayarları"], ["AI Ayarları", "AI Sağlayıcı Ayarları"], ["Kullanıcılar", "Kullanıcılar"]]
+      actions: [["API Ayarları", "API Ayarları"], ["AI Ayarları", "AI Sağlayıcı Ayarları"], ["Kullanıcı Yönetimi", "Kullanıcı Yönetimi"]]
     }
   ].map((card) => ({ ...card, actions: card.actions.filter(([, target]) => canOpen(target) || ["AI Sağlayıcı Ayarları", "PDF Audit", "Teklif Hazırlama", "30 Günlük Sosyal Medya Planı", "İçerik Fikirleri", "Yeni Başvurular"].includes(target)) })).filter((card) => card.actions.length);
   const dashboardPresets = {
@@ -2849,19 +2849,29 @@ function FilesAdmin({ content, setContent }: any) {
 }
 
 function UsersAdmin({ content, setContent, currentSession, customerOnly = false, mode = "Kullanıcı Yönetimi" }: any) {
+  const [tab, setTab] = useState(customerOnly ? "Kullanıcılar" : "Kullanıcılar");
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [editingUser, setEditingUser] = useState(null);
+  const [confirmAction, setConfirmAction] = useState(null);
   const [createForm, setCreateForm] = useState({ fullName: "", email: "", password: "", role: "editor", company_id: "", is_active: true, allowed_modules: uiRoleTemplates.editor });
+  const activeAdminUsers = (content.users || []).filter((user) => legacyRole(user.role) === "admin" && user.is_active && !user.deleted_at);
   const users = (content.users || [])
+    .filter((user) => !user.deleted_at)
     .filter((user) => !customerOnly || customerRole(user.role))
     .filter((user) => JSON.stringify(user).toLocaleLowerCase("tr").includes(query.toLocaleLowerCase("tr")))
     .filter((user) => !roleFilter || user.role === roleFilter)
     .filter((user) => !statusFilter || (statusFilter === "Aktif" ? user.is_active : !user.is_active));
   const update = (id, patch) => setContent({ ...content, users: content.users.map((user) => user.id === id ? { ...user, ...patch } : user) });
+  const removeUserFromState = (id) => setContent({ ...content, users: (content.users || []).filter((user) => user.id !== id) });
+  function blockedUserAction(user) {
+    if (currentSession?.profileId === user.id) return "Kendi hesabınızı silemez veya pasifleştiremezsiniz.";
+    if (legacyRole(user.role) === "admin" && user.is_active && activeAdminUsers.length <= 1) return "Son aktif yönetici hesabı silinemez veya pasifleştirilemez.";
+    return "";
+  }
   async function saveUser(user) {
     setError("");
     setMessage("Kullanıcı kaydediliyor...");
@@ -2878,6 +2888,40 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
     } else {
       setMessage("");
       setError(data.supabaseError ? `${data.error}: ${data.supabaseError}` : data.error || "Kullanıcı kaydedilemedi.");
+    }
+  }
+  async function disableUser(user) {
+    const blocked = blockedUserAction(user);
+    if (blocked) return setError(blocked);
+    setError("");
+    setMessage("Kullanıcı pasifleştiriliyor...");
+    const response = await fetch(`/api/admin/users/${user.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_active: false })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.ok) {
+      update(user.id, data.user || { ...user, is_active: false });
+      setMessage("Kullanıcı pasifleştirildi.");
+    } else {
+      setMessage("");
+      setError(data.supabaseError ? `${data.error}: ${data.supabaseError}` : data.error || "Kullanıcı pasifleştirilemedi.");
+    }
+  }
+  async function deleteUser(user) {
+    const blocked = blockedUserAction(user);
+    if (blocked) return setError(blocked);
+    setError("");
+    setMessage("Kullanıcı güvenli şekilde siliniyor...");
+    const response = await fetch(`/api/admin/users/${user.id}`, { method: "DELETE" });
+    const data = await response.json().catch(() => ({}));
+    if (response.ok) {
+      removeUserFromState(user.id);
+      setMessage(data.message || "Bu kullanıcı güvenli şekilde pasifleştirildi.");
+    } else {
+      setMessage("");
+      setError(data.supabaseError ? `${data.error}: ${data.supabaseError}` : data.error || "Kullanıcı silinemedi.");
     }
   }
   async function resetPassword(user) {
@@ -2912,7 +2956,8 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
   }
   return (
     <Panel title={customerOnly ? "Müşteri Giriş Bilgileri" : mode}>
-      <div className="mb-6 rounded-[8px] border border-white/10 p-4">
+      {!customerOnly && <HubTabs items={["Kullanıcılar", "Roller ve Yetkiler", "İzinler", "Yeni Kullanıcı Oluştur"]} active={tab} onChange={setTab} />}
+      {tab === "Yeni Kullanıcı Oluştur" && <div className="mb-6 rounded-[8px] border border-white/10 p-4">
         <h3 className="font-black">Yeni kullanıcı oluştur</h3>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <Field label="Ad Soyad" value={createForm.fullName} onChange={(v) => setCreateForm({ ...createForm, fullName: v })} />
@@ -2923,15 +2968,25 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={createForm.is_active} onChange={(e) => setCreateForm({ ...createForm, is_active: e.target.checked })} /> Aktif</label>
         </div>
         <button onClick={createUser} className="mt-4 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Kullanıcı oluştur</button>
-      </div>
-      <div className="mb-4 grid gap-3 md:grid-cols-3">
+      </div>}
+      {tab === "Roller ve Yetkiler" && <div className="mb-6 rounded-[8px] border border-white/10 bg-black/15 p-4">
+        <h3 className="font-black">Roller ve Yetkiler</h3>
+        <p className="mt-3 text-sm leading-6 text-slate-400">Yönetici tüm modülleri görür. Operasyon yöneticisi CRM, rapor ve ajans operasyonlarını yönetir. Editör içerik, AI ve raporlama araçlarında çalışır. Müşteri yalnızca kendi paneline erişir.</p>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">{roleOptions.map((role) => <div key={role.value} className="rounded-[8px] border border-white/10 bg-white/[0.035] p-4"><p className="font-black text-white">{role.label}</p><p className="mt-2 text-xs leading-5 text-slate-400">{(uiRoleTemplates[role.value] || []).length} modül yetkisi</p></div>)}</div>
+      </div>}
+      {tab === "İzinler" && <div className="mb-6 rounded-[8px] border border-white/10 bg-black/15 p-4">
+        <h3 className="font-black">İzinler</h3>
+        <p className="mt-2 text-sm text-slate-400">Kullanıcıyı düzenle butonuyla her hesap için modül izinlerini özelleştirebilirsiniz.</p>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">{uiPermissionGroups.map(([group, modules]) => <div key={group} className="rounded-[8px] border border-white/10 bg-black/20 p-3"><p className="text-xs font-black uppercase tracking-[.12em] text-cyan-100">{group}</p><div className="mt-3 flex flex-wrap gap-2">{modules.map((module) => <span key={module} className="rounded-full border border-white/10 px-2 py-1 text-[10px] font-bold text-slate-300">{module}</span>)}</div></div>)}</div>
+      </div>}
+      {["Kullanıcılar", "Roller ve Yetkiler", "İzinler"].includes(tab) && <div className="mb-4 grid gap-3 md:grid-cols-3">
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Kullanıcı ara..." className="min-h-11 rounded-[8px] border border-white/10 bg-black/30 px-3 text-white" />
         <SelectField label="Rol filtresi" value={roleFilter} onChange={setRoleFilter} options={roleOptions} placeholder="Tüm roller" />
         <SelectField label="Durum filtresi" value={statusFilter} onChange={setStatusFilter} options={statusOptions} placeholder="Tüm durumlar" />
-      </div>
+      </div>}
       {message && <p className="mb-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{message}</p>}
       {error && <p className="mb-4 rounded-[8px] border border-red-300/30 bg-red-500/10 p-3 text-sm text-red-100">{error}</p>}
-      <div className="grid gap-3">
+      {["Kullanıcılar", "Roller ve Yetkiler", "İzinler"].includes(tab) && <div className="grid gap-3">
         {users.map((user) => (
           <div key={user.id} className="rounded-[8px] border border-white/10 p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -2942,14 +2997,16 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
                 {currentSession?.profileId === user.id && <p className="mt-2 rounded-[8px] border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">Kendi hesabımı düzenliyorum. Yönetici rolünüz ve aktif durumunuz korunur.</p>}
               </div>
               <div className="flex flex-wrap gap-2">
-                <button onClick={() => setEditingUser({ ...user })} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Kullanıcıyı düzenle</button>
+                <button onClick={() => setEditingUser({ ...user })} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Düzenle</button>
                 <button onClick={() => resetPassword(user)} className="rounded-full border border-white/10 px-4 py-2 text-sm">Şifre sıfırla</button>
+                <button disabled={Boolean(blockedUserAction(user)) || !user.is_active} onClick={() => setConfirmAction({ type: "disable", user })} className="rounded-full border border-amber-300/30 px-4 py-2 text-sm text-amber-100 disabled:cursor-not-allowed disabled:opacity-45">Pasifleştir</button>
+                <button disabled={Boolean(blockedUserAction(user))} onClick={() => setConfirmAction({ type: "delete", user })} className="rounded-full border border-red-300/30 px-4 py-2 text-sm text-red-100 disabled:cursor-not-allowed disabled:opacity-45">Sil</button>
               </div>
             </div>
           </div>
         ))}
         {!users.length && <p className="text-sm text-slate-400">Kullanıcı bulunamadı.</p>}
-      </div>
+      </div>}
       {editingUser && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4">
           <div className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-[8px] border border-white/10 bg-[#080b17] p-5 shadow-2xl">
@@ -2974,6 +3031,19 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
             </div>
             <PermissionEditor user={editingUser} setUser={setEditingUser} />
             <button onClick={() => saveUser(editingUser)} className="mt-5 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Değişiklikleri kaydet</button>
+          </div>
+        </div>
+      )}
+      {confirmAction && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4">
+          <div className="w-full max-w-md rounded-[8px] border border-white/10 bg-[#080b17] p-5 shadow-2xl">
+            <h3 className="text-xl font-black">{confirmAction.type === "delete" ? "Kullanıcıyı sil" : "Kullanıcıyı pasifleştir"}</h3>
+            <p className="mt-3 text-sm leading-6 text-slate-300">Bu kullanıcıyı {confirmAction.type === "delete" ? "silmek" : "pasifleştirmek"} istediğinize emin misiniz?</p>
+            <p className="mt-3 rounded-[8px] border border-white/10 bg-black/20 p-3 text-sm font-bold text-white">{confirmAction.user.full_name || confirmAction.user.email}</p>
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <button onClick={() => setConfirmAction(null)} className="rounded-full border border-white/10 px-4 py-2 text-sm">Vazgeç</button>
+              <button onClick={async () => { const action = confirmAction; setConfirmAction(null); action.type === "delete" ? await deleteUser(action.user) : await disableUser(action.user); }} className="rounded-full bg-red-300 px-4 py-2 text-sm font-black text-slate-950">Onayla</button>
+            </div>
           </div>
         </div>
       )}

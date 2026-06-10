@@ -395,7 +395,7 @@ export async function GET() {
   const [companies, users, leads, campaigns, campaignMetrics, customerUpdates, customerVisibilitySettings, customerFiles, media, customerBranding, monthlyReports, agencyTasks, customerDocuments, paymentRecords, competitorAnalyses, socialMediaPlans, agencyExpenses, sectorConfigs] =
     await Promise.all([
       supabaseRest("companies?select=*&order=created_at.desc"),
-      supabaseRest("users?select=*&order=created_at.desc"),
+      supabaseRest("users?deleted_at=is.null&select=*&order=created_at.desc"),
       supabaseRest("leads?select=*&order=created_at.desc"),
       supabaseRest("campaigns?select=*&order=created_at.desc"),
       supabaseRest("campaign_metrics?select=*&order=date.desc"),

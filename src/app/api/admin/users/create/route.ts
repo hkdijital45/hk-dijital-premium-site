@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
 import {
   createSupabaseAuthUser,
@@ -50,6 +51,7 @@ export async function POST(request: Request) {
       role,
       company_id: companyId,
       is_active: payload.isActive ?? payload.is_active ?? true,
+      deleted_at: null,
       allowed_modules: Array.isArray(payload.allowed_modules)
         ? payload.allowed_modules.filter((module: string) => adminModules.includes(module as any))
         : roleTemplates[normalizeRole(role)],

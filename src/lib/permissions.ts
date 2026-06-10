@@ -18,7 +18,9 @@ export type AdminModule = (typeof adminModules)[number];
 
 const moduleAliases: Record<string, AdminModule> = {
   maps: "haritalar",
-  business_discovery: "musteri-bulucu"
+  business_discovery: "musteri-bulucu",
+  "kullanici-yonetimi": "kullanicilar",
+  "roller-yetkiler": "kullanicilar"
 };
 
 export function normalizeModule(module?: string | null): AdminModule | null {

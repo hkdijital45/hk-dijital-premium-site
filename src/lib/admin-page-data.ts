@@ -22,7 +22,7 @@ export async function getAdminPageData() {
       const [companies, users, customers, leads, contactForms, campaigns, campaignMetrics, customerUpdates, customerVisibilitySettings, customerFiles, mediaFiles, activityLogs, reports, reportInterpretations, reportUpdates, preparationNotes, customerBranding, monthlyReports, agencyTasks, customerDocuments, paymentRecords, competitorAnalyses, socialMediaPlans, agencyExpenses, sectorConfigs] =
         await Promise.all([
           supabaseRest("companies?select=*&order=created_at.desc"),
-          supabaseRest("users?select=*&order=created_at.desc"),
+          supabaseRest("users?deleted_at=is.null&select=*&order=created_at.desc"),
           supabaseRest("customers?select=*&order=created_at.desc").catch(() => []),
           supabaseRest("leads?select=*&order=created_at.desc"),
           supabaseRest("contact_forms?select=*&order=created_at.desc").catch(() => []),
