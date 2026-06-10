@@ -22,14 +22,19 @@ export async function PublicShell({ children }: { children: ReactNode }) {
   return (
     <>
       <Header content={content} />
-      <main className="min-h-screen bg-background text-foreground">{children}</main>
+      <main className="public-site relative min-h-screen overflow-hidden bg-background text-foreground">
+        <div className="public-impact-bg pointer-events-none fixed inset-0 z-0" aria-hidden="true" />
+        <div className="public-impact-grid pointer-events-none fixed inset-0 z-0" aria-hidden="true" />
+        <div className="public-impact-particles pointer-events-none fixed inset-0 z-0" aria-hidden="true" />
+        <div className="relative z-10">{children}</div>
+      </main>
       {whatsappUrl && (
         <a
           href={whatsappUrl}
           target="_blank"
           rel="noreferrer"
           aria-label="WhatsApp üzerinden iletişime geçin"
-          className="fixed bottom-5 right-5 z-40 inline-flex min-h-12 items-center gap-2 rounded-full border border-[#25D366]/50 bg-[#25D366] px-5 py-3 text-sm font-black text-white shadow-[0_0_44px_rgba(37,211,102,.35)] transition hover:-translate-y-1 hover:bg-[#20bd5b]"
+          className="impact-btn fixed bottom-5 right-5 z-40 inline-flex min-h-12 items-center gap-2 rounded-full border border-[#25D366]/50 bg-[#25D366] px-5 py-3 text-sm font-black text-white shadow-[0_0_44px_rgba(37,211,102,.35)] transition hover:-translate-y-1 hover:bg-[#20bd5b]"
         >
           <MessageCircle size={18} /> WhatsApp
         </a>

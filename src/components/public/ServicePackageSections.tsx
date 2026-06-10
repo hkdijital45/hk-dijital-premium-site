@@ -16,15 +16,16 @@ export function ServiceGrid({ services }: { services: Service[] }) {
         .map((service, index) => {
           const Icon = serviceIcons[service.icon] ?? serviceIcons.Sparkles;
           return (
-            <motion.div key={service.id} initial={{ opacity: 0, y: 28, rotateX: 5 }} whileInView={{ opacity: 1, y: 0, rotateX: 0 }} viewport={{ once: true, margin: "-70px" }} transition={{ duration: .6, delay: index * .06 }}>
-              <PremiumCard className="group relative h-full overflow-hidden">
-                <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-cyan-200/60 to-transparent opacity-0 transition group-hover:opacity-100" />
-                <div className="grid size-12 place-items-center rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 text-cyan-200 transition group-hover:scale-105 group-hover:bg-cyan-200/20">
+            <motion.div key={service.id} initial={{ opacity: 0, y: 58, rotateX: 12, scale: .94 }} whileInView={{ opacity: 1, y: 0, rotateX: 0, scale: 1 }} viewport={{ once: true, margin: "-90px" }} transition={{ duration: .58, delay: index * .055, ease: [0.16, 1, 0.3, 1] }} whileHover={{ y: -10, rotateX: 4, rotateY: index % 2 ? 4 : -4, scale: 1.012 }} whileTap={{ scale: .985 }}>
+              <PremiumCard className="group impact-card relative h-full overflow-hidden">
+                <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-cyan-200/80 to-yellow-200/70 opacity-0 transition group-hover:opacity-100" />
+                <div className="absolute -right-10 -top-10 size-28 rounded-full bg-cyan-300/10 blur-3xl transition group-hover:bg-yellow-300/20" />
+                <div className="grid size-12 place-items-center rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 text-cyan-200 transition group-hover:scale-110 group-hover:bg-cyan-200/20 group-hover:text-yellow-100">
                   <Icon size={22} />
                 </div>
                 <h2 className="mt-5 text-xl font-black text-white">{service.name}</h2>
                 <p className="mt-3 text-sm leading-7 text-slate-300">{service.description}</p>
-                <Link href="/teklif-al" className="mt-5 inline-flex text-sm font-bold text-cyan-200">
+                <Link href="/teklif-al" className="impact-link mt-5 inline-flex text-sm font-black text-cyan-200">
                   {service.cta}
                 </Link>
               </PremiumCard>
@@ -42,11 +43,11 @@ export function PackageCards({ packages }: { packages: PackageItem[] }) {
         .filter((item) => item.visible)
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
         .map((item, index) => (
-          <motion.div key={item.id} initial={{ opacity: 0, y: 32, scale: .96 }} whileInView={{ opacity: 1, y: 0, scale: 1 }} viewport={{ once: true, margin: "-70px" }} transition={{ duration: .65, delay: index * .08 }}>
-            <PremiumCard className={`h-full overflow-hidden ${item.recommended ? "relative border-cyan-200/50 bg-cyan-200/[0.08] shadow-[0_0_70px_rgba(34,211,238,.16)]" : "relative"}`}>
-              <div className="absolute -right-10 -top-12 h-32 w-32 rounded-full bg-cyan-300/10 blur-3xl" />
+          <motion.div key={item.id} initial={{ opacity: 0, y: 62, rotateX: 10, scale: .92 }} whileInView={{ opacity: 1, y: 0, rotateX: 0, scale: 1 }} viewport={{ once: true, margin: "-80px" }} transition={{ duration: .65, delay: index * .08, ease: [0.16, 1, 0.3, 1] }} whileHover={{ y: -12, rotateX: 4, rotateY: index === 1 ? 0 : index === 0 ? -4 : 4, scale: 1.015 }} whileTap={{ scale: .985 }}>
+            <PremiumCard className={`group impact-card h-full overflow-hidden ${item.recommended ? "relative border-cyan-200/50 bg-cyan-200/[0.08] shadow-[0_0_70px_rgba(34,211,238,.16)]" : "relative"}`}>
+              <div className="absolute -right-10 -top-12 h-32 w-32 rounded-full bg-cyan-300/10 blur-3xl transition group-hover:bg-yellow-300/20" />
               {item.recommended && (
-                <span className="absolute right-5 top-5 rounded-full bg-amber-300 px-3 py-1 text-xs font-black text-slate-950">
+                <span className="pulse-badge absolute right-5 top-5 rounded-full bg-amber-300 px-3 py-1 text-xs font-black text-slate-950">
                   Önerilen
                 </span>
               )}
@@ -61,7 +62,7 @@ export function PackageCards({ packages }: { packages: PackageItem[] }) {
                   </li>
                 ))}
               </ul>
-              <Link href="/teklif-al" onClick={() => trackEvent("package_clicked", { package: item.id })} className="mt-7 inline-flex min-h-12 w-full items-center justify-center rounded-full bg-white px-5 text-sm font-black text-slate-950 transition hover:bg-cyan-100">
+              <Link href="/teklif-al" onClick={() => trackEvent("package_clicked", { package: item.id })} className="impact-btn mt-7 inline-flex min-h-12 w-full items-center justify-center rounded-full bg-white px-5 text-sm font-black text-slate-950 transition hover:bg-cyan-100">
                 {item.cta}
               </Link>
             </PremiumCard>

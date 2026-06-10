@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { BarChart3, BrainCircuit, CheckCircle2, CircleDollarSign, Gauge, LineChart, Sparkles, Target } from "lucide-react";
 
 const accentStyles = {
@@ -25,20 +25,16 @@ const accentStyles = {
 };
 
 export function GlassCard({ children, className = "", interactive = false }: { children: ReactNode; className?: string; interactive?: boolean }) {
-  return <motion.div whileHover={interactive ? { y: -5, scale: 1.01 } : undefined} transition={{ duration: 0.24 }} className={`glass-card ${className}`}>{children}</motion.div>;
+  return <motion.div whileHover={interactive ? { y: -8, scale: 1.018, rotateX: 2, rotateY: -2 } : undefined} whileTap={interactive ? { scale: 0.985 } : undefined} transition={{ duration: 0.2 }} className={`glass-card ${interactive ? "impact-card" : ""} ${className}`}>{children}</motion.div>;
 }
 
 export function AnimatedKpiCounter({ value }: { value: string | number }) {
   const numeric = typeof value === "number" ? value : Number(String(value).replace(/[^\d.]/g, ""));
+  const reduceMotion = useReducedMotion();
   const [current, setCurrent] = useState(0);
 
   useEffect(() => {
-    if (!Number.isFinite(numeric)) return;
-    const reduce = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) {
-      setCurrent(numeric);
-      return;
-    }
+    if (!Number.isFinite(numeric) || reduceMotion) return;
     const start = performance.now();
     const duration = 900;
     let frame = 0;
@@ -49,9 +45,10 @@ export function AnimatedKpiCounter({ value }: { value: string | number }) {
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [numeric]);
+  }, [numeric, reduceMotion]);
 
   if (!Number.isFinite(numeric) || String(value).match(/[^\d]/)) return <>{value}</>;
+  if (reduceMotion) return <>{numeric}</>;
   return <>{current}</>;
 }
 
@@ -130,7 +127,7 @@ export function BrandEcosystemStrip({ compact = false }: { compact?: boolean }) 
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: .45, delay: index * .035 }}
-        className="inline-flex min-h-10 items-center gap-2 rounded-full border border-white/12 bg-white/[0.065] px-3 text-[10px] font-black uppercase tracking-[.12em] text-white shadow-[0_14px_38px_rgba(0,0,0,.2)] backdrop-blur-xl"
+        className="brand-chip inline-flex min-h-10 items-center gap-2 rounded-full border border-white/12 bg-white/[0.065] px-3 text-[10px] font-black uppercase tracking-[.12em] text-white shadow-[0_14px_38px_rgba(0,0,0,.2)] backdrop-blur-xl"
       >
         <span className={`grid size-6 place-items-center rounded-full bg-gradient-to-br ${color} text-[10px] font-black text-slate-950 shadow-[0_0_22px_rgba(255,255,255,.12)]`}>{mark}</span>
         {!compact && <span>{name}</span>}
@@ -161,10 +158,12 @@ export function FloatingBrandEcosystem({ subtle = false }: { subtle?: boolean })
 
 export function PremiumBackground({ className = "" }: { className?: string }) {
   return <div className={`pointer-events-none absolute inset-0 overflow-hidden ${className}`}>
-    <div className="premium-grid absolute inset-0 opacity-80" />
+    <div className="premium-grid public-grid-drive absolute inset-0 opacity-90" />
     <div className="cinematic-light cinematic-light-a" />
     <div className="cinematic-light cinematic-light-b" />
-    <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,rgba(125,211,252,.16),transparent_38%),linear-gradient(180deg,rgba(255,255,255,.03),transparent_24%)]" />
+    <div className="public-beam public-beam-a" />
+    <div className="public-beam public-beam-b" />
+    <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,rgba(125,211,252,.20),transparent_38%),linear-gradient(180deg,rgba(255,255,255,.035),transparent_24%)]" />
     <FloatingBrandEcosystem subtle />
     <div className="noise-layer absolute inset-0 opacity-[.08]" />
   </div>;
@@ -176,8 +175,8 @@ export function FloatingBadge({ label, className = "", delay = 0 }: { label: str
 
 export function AnimatedMarketingDashboard({ className = "" }: { className?: string }) {
   const chartValues = useMemo(() => [22, 38, 34, 58, 46, 72, 64, 86], []);
-  return <motion.div initial={{ opacity: 0, y: 30, rotateX: 8, rotateY: -8 }} animate={{ opacity: 1, y: 0, rotateX: 0, rotateY: 0 }} transition={{ duration: .8, ease: "easeOut" }} whileHover={{ rotateX: 2, rotateY: -3, y: -6 }} className={`perspective-scene relative mx-auto max-w-2xl ${className}`}>
-    <div className="relative rounded-[18px] border border-white/15 bg-slate-950/80 p-3 shadow-[0_36px_120px_rgba(0,0,0,.55),0_0_70px_rgba(34,211,238,.14)]">
+  return <motion.div initial={{ opacity: 0, y: 44, rotateX: 12, rotateY: -12, scale: .94 }} animate={{ opacity: 1, y: 0, rotateX: 0, rotateY: 0, scale: 1 }} transition={{ duration: .78, ease: [0.16, 1, 0.3, 1] }} whileHover={{ rotateX: 3, rotateY: -5, y: -10, scale: 1.015 }} className={`perspective-scene relative mx-auto max-w-2xl ${className}`}>
+    <div className="dashboard-impact-panel relative rounded-[18px] border border-white/15 bg-slate-950/80 p-3 shadow-[0_36px_120px_rgba(0,0,0,.55),0_0_70px_rgba(34,211,238,.14)]">
       <div className="flex h-7 items-center gap-2 rounded-t-[12px] border border-white/10 bg-white/[0.06] px-3">
         <span className="size-2 rounded-full bg-red-300" /><span className="size-2 rounded-full bg-amber-300" /><span className="size-2 rounded-full bg-emerald-300" />
         <span className="ml-3 text-[10px] font-black uppercase tracking-[.16em] text-slate-500">HK Dijital Command Center</span>
@@ -217,14 +216,14 @@ export function AnimatedMarketingDashboard({ className = "" }: { className?: str
 }
 
 export function PremiumAnimatedHero({ headline, subheadline, primaryCta, secondaryCta }: { headline: string; subheadline: string; primaryCta: ReactNode; secondaryCta: ReactNode }) {
-  return <section className="relative min-h-[760px] overflow-hidden border-b border-white/5 px-4 pb-20 pt-20 sm:px-6 lg:px-8 lg:pb-28 lg:pt-28">
+  return <section className="hero-impact relative min-h-[760px] overflow-hidden border-b border-white/5 px-4 pb-20 pt-20 sm:px-6 lg:px-8 lg:pb-28 lg:pt-28">
     <PremiumBackground />
     <div className="relative mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-[.95fr_1.05fr]">
-      <motion.div initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .75 }}>
-        <p className="inline-flex rounded-full border border-cyan-200/20 bg-cyan-200/10 px-4 py-2 text-sm font-bold text-cyan-100 shadow-[0_0_30px_rgba(34,211,238,.12)]">
+      <motion.div initial={{ opacity: 0, y: 46, skewY: 1.4 }} animate={{ opacity: 1, y: 0, skewY: 0 }} transition={{ duration: .74, ease: [0.16, 1, 0.3, 1] }}>
+        <p className="glitch-label inline-flex rounded-full border border-cyan-200/20 bg-cyan-200/10 px-4 py-2 text-sm font-black text-cyan-100 shadow-[0_0_30px_rgba(34,211,238,.12)]" data-text="HK Dijital Marketing OS">
           HK Dijital Marketing OS · Meta Ads · Google Ads · AI Raporlama
         </p>
-        <h1 className="mt-7 max-w-4xl text-4xl font-black leading-[1.04] tracking-tight text-white sm:text-6xl lg:text-7xl">
+        <h1 className="split-reveal mt-7 max-w-4xl text-4xl font-black leading-[1.04] tracking-tight text-white sm:text-6xl lg:text-7xl">
           {headline}
         </h1>
         <p className="mt-7 max-w-2xl text-base leading-8 text-slate-200 sm:text-lg">{subheadline}</p>
