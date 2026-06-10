@@ -18,14 +18,15 @@ export async function PublicShell({ children }: { children: ReactNode }) {
     (content.contact.whatsappNumber
       ? `https://wa.me/${content.contact.whatsappNumber.replace(/\D/g, "")}`
       : "");
+  const performanceMode = content.settings.performanceMode || "balanced";
 
   return (
     <>
       <Header content={content} />
-      <main className="public-site relative min-h-screen overflow-hidden bg-background text-foreground">
+      <main className={`public-site public-performance-${performanceMode} relative min-h-screen overflow-hidden bg-background text-foreground`}>
         <div className="public-impact-bg pointer-events-none fixed inset-0 z-0" aria-hidden="true" />
         <div className="public-impact-grid pointer-events-none fixed inset-0 z-0" aria-hidden="true" />
-        <div className="public-impact-particles pointer-events-none fixed inset-0 z-0" aria-hidden="true" />
+        {performanceMode === "ultra" && <div className="public-impact-particles pointer-events-none fixed inset-0 z-0" aria-hidden="true" />}
         <div className="relative z-10">{children}</div>
       </main>
       {whatsappUrl && (

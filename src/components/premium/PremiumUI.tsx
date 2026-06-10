@@ -147,7 +147,7 @@ export function FloatingBrandEcosystem({ subtle = false }: { subtle?: boolean })
         key={name}
         animate={{ y: [0, -12, 0], opacity: subtle ? [.18, .34, .18] : [.35, .72, .35] }}
         transition={{ duration: 7 + index * .35, delay: index * .25, repeat: Infinity, ease: "easeInOut" }}
-        className={`absolute ${positions[index]} rounded-full border border-white/10 bg-white/[0.055] px-3 py-2 text-[10px] font-black uppercase tracking-[.12em] text-white/80 shadow-[0_18px_60px_rgba(0,0,0,.22)] backdrop-blur-xl`}
+        className={`floating-brand-orbit absolute ${positions[index]} rounded-full border border-white/10 bg-white/[0.055] px-3 py-2 text-[10px] font-black uppercase tracking-[.12em] text-white/80 shadow-[0_18px_60px_rgba(0,0,0,.22)] backdrop-blur-xl`}
       >
         <span className={`mr-2 inline-grid size-5 place-items-center rounded-full bg-gradient-to-br ${color} text-[9px] text-slate-950`}>{mark}</span>
         {name}

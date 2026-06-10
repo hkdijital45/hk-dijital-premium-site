@@ -2,14 +2,13 @@
 
 import Link from "next/link";
 import { Bot, LogIn, Menu, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { SiteContent } from "@/lib/types";
 import { Logo } from "./Logo";
 
 const nav = [
   ["Ana Sayfa", "/"],
   ["Hakkımda", "/hakkimda"],
-  ["Sertifikalar", "/sertifikalar"],
   ["Hizmetler", "/hizmetler"],
   ["Paketler", "/paketler"],
   ["HK Intelligence", "/hk-intelligence"],
@@ -19,12 +18,27 @@ const nav = [
 export function Header({ content }: { content: SiteContent }) {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const scrolledRef = useRef(false);
 
   useEffect(() => {
-    const update = () => setScrolled(window.scrollY > 18);
+    let frame = 0;
+    const update = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        const next = window.scrollY > 18;
+        if (next !== scrolledRef.current) {
+          scrolledRef.current = next;
+          setScrolled(next);
+        }
+      });
+    };
     update();
     window.addEventListener("scroll", update, { passive: true });
-    return () => window.removeEventListener("scroll", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
   }, []);
 
   return (

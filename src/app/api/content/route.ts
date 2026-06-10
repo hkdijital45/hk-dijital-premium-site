@@ -3,12 +3,28 @@ import { getSiteContent, saveSiteContent } from "@/lib/content";
 import { requireModuleAccess } from "@/lib/permissions";
 import type { SiteContent } from "@/lib/types";
 
+const sensitiveApiKeys = [
+  "geminiApiKey",
+  "groqApiKey",
+  "openAiApiKey",
+  "meta_app_secret",
+  "meta_access_token",
+  "google_maps_key",
+  "google_ads_key",
+  "smtp_password",
+  "webhook_secret"
+];
+
 function withoutApiKeys(content: SiteContent) {
+  const api = { ...(content.settings.api as Record<string, unknown>) };
+  sensitiveApiKeys.forEach((key) => {
+    if (key in api) api[key] = "";
+  });
   return {
     ...content,
     settings: {
       ...content.settings,
-      api: { ...content.settings.api, geminiApiKey: "", groqApiKey: "", openAiApiKey: "" }
+      api
     }
   };
 }
@@ -26,16 +42,17 @@ export async function PUT(request: Request) {
   const content = (await request.json()) as SiteContent;
   try {
     const current = await getSiteContent();
+    const nextApi = { ...(content.settings.api as Record<string, unknown>) };
+    sensitiveApiKeys.forEach((key) => {
+      if (!nextApi[key] || nextApi[key] === "••••••••") {
+        nextApi[key] = (current.settings.api as Record<string, unknown>)[key] || "";
+      }
+    });
     const next = {
       ...content,
       settings: {
         ...content.settings,
-        api: {
-          ...content.settings.api,
-          geminiApiKey: content.settings.api.geminiApiKey || current.settings.api.geminiApiKey,
-          groqApiKey: content.settings.api.groqApiKey || current.settings.api.groqApiKey,
-          openAiApiKey: content.settings.api.openAiApiKey || current.settings.api.openAiApiKey
-        }
+        api: nextApi
       }
     };
     await saveSiteContent(next);

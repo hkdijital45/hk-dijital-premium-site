@@ -588,8 +588,8 @@ export function AdminDashboard({
           {["Teklif Motoru", "Teklif Hazırlama", "Teklif Oluştur", "WhatsApp Teklifi"].includes(active) && <ProposalEngine {...props} />}
           {active === "Raporlar" && <ReportsHub {...props} />}
           {active === "Müşteriler" && <CustomersAdmin {...props} />}
-          {["Site Ayarları", "Sistem Ayarları"].includes(active) && <SiteSettingsHub {...props} />}
-          {["API Ayarları", "API Durum Kontrolü", "AI Sağlayıcı Ayarları"].includes(active) && <ApiSettings {...props} />}
+          {["Site Ayarları", "Web Sitesi Yönetimi"].includes(active) && <WebsiteManagementCenter {...props} />}
+          {["API Ayarları", "API Durum Kontrolü", "AI Sağlayıcı Ayarları", "Entegrasyonlar"].includes(active) && <IntegrationsCenter {...props} />}
           {["Medya / Logo", "Medya"].includes(active) && <MediaLogoHub {...props} />}
           {active === "Kullanıcılar" && <UsersHub {...props} />}
           {active === "Genel Arama" && <GlobalSearchPage />}
@@ -1732,7 +1732,13 @@ function Pages({ content, setContent }: any) {
       <div className="grid gap-4">
         <TextArea label="Ana sayfa headline" value={pages.home.headline} onChange={(v) => updatePage("home", { headline: v })} />
         <TextArea label="Ana sayfa subheadline" value={pages.home.subheadline} onChange={(v) => updatePage("home", { subheadline: v })} />
+        <div className="grid gap-4 md:grid-cols-2">
+          <Field label="Ana sayfa birincil CTA" value={pages.home.primaryCta} onChange={(v) => updatePage("home", { primaryCta: v })} />
+          <Field label="Ana sayfa ikincil CTA" value={pages.home.secondaryCta} onChange={(v) => updatePage("home", { secondaryCta: v })} />
+        </div>
+        <Field label="Hakkımda başlık" value={pages.about.title} onChange={(v) => updatePage("about", { title: v })} />
         <TextArea label="Hakkımda içerik" value={pages.about.content} onChange={(v) => updatePage("about", { content: v })} />
+        <Field label="Sertifikalar başlık" value={pages.certificates.title} onChange={(v) => updatePage("certificates", { title: v })} />
         <TextArea label="Sertifikalar intro" value={pages.certificates.intro} onChange={(v) => updatePage("certificates", { intro: v })} />
         <TextArea label="Hizmetler intro" value={pages.services.intro} onChange={(v) => updatePage("services", { intro: v })} />
         <TextArea label="Paketler intro" value={pages.packages.intro} onChange={(v) => updatePage("packages", { intro: v })} />
@@ -2270,7 +2276,92 @@ function ApiSettings({ content, setContent }: any) {
 function Settings({ content, setContent }: any) {
   const settings = content.settings;
   const update = (patch) => setContent({ ...content, settings: { ...settings, ...patch } });
-  return <Panel title="Ayarlar"><div className="grid gap-4 md:grid-cols-2"><Field label="Site başlığı" value={settings.siteTitle} onChange={(v) => update({ siteTitle: v })} /><Field label="Site açıklaması" value={settings.siteDescription} onChange={(v) => update({ siteDescription: v })} /><Field label="Meta Pixel ID" value={settings.analyticsIds.metaPixel} onChange={(v) => update({ analyticsIds: { ...settings.analyticsIds, metaPixel: v } })} /><Field label="Google Tag Manager ID" value={settings.analyticsIds.googleTagManager} onChange={(v) => update({ analyticsIds: { ...settings.analyticsIds, googleTagManager: v } })} /><Field label="GA4 Measurement ID" value={settings.analyticsIds.gaMeasurement} onChange={(v) => update({ analyticsIds: { ...settings.analyticsIds, gaMeasurement: v } })} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.maintenanceMode} onChange={(e) => update({ maintenanceMode: e.target.checked })} /> Bakım modu</label><label className="grid gap-2 text-sm font-semibold text-slate-200">Varsayılan tema<select value={settings.defaultTheme} onChange={(e) => update({ defaultTheme: e.target.value })} className="min-h-11 rounded-[8px] border border-white/10 bg-black/30 px-3 text-white"><option value="dark">Koyu</option><option value="light">Açık</option></select></label><TextArea label="Yasal bilgilendirmeler" value={(settings.legalDisclaimers || []).join("\n")} onChange={(v) => update({ legalDisclaimers: v.split("\n").filter(Boolean) })} /></div><p className="mt-4 text-sm text-slate-400">Admin kullanıcı adı ve şifre .env üzerinden yönetilir. Üretimde hashlenmiş şifre, rate limit, audit log ve kullanıcı rolleri önerilir.</p></Panel>;
+  return <Panel title="Sistem Ayarları"><div className="grid gap-4 md:grid-cols-2"><SelectField label="Performans modu" value={settings.performanceMode || "balanced"} onChange={(v) => update({ performanceMode: v })} options={[{ value: "ultra", label: "Ultra Animasyon" }, { value: "balanced", label: "Dengeli" }, { value: "performance", label: "Performans" }]} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.maintenanceMode} onChange={(e) => update({ maintenanceMode: e.target.checked })} /> Bakım modu</label><label className="grid gap-2 text-sm font-semibold text-slate-200">Varsayılan tema<select value={settings.defaultTheme} onChange={(e) => update({ defaultTheme: e.target.value })} className="min-h-11 rounded-[8px] border border-white/10 bg-black/30 px-3 text-white"><option value="dark">Koyu</option><option value="light">Açık</option></select></label><TextArea label="Yasal bilgilendirmeler" value={(settings.legalDisclaimers || []).join("\n")} onChange={(v) => update({ legalDisclaimers: v.split("\n").filter(Boolean) })} /></div><p className="mt-4 text-sm text-slate-400">Performans modu public web sitesindeki animasyon yoğunluğunu yönetir. Varsayılan öneri: Dengeli.</p></Panel>;
+}
+
+function GeneralWebsiteSettings({ content, setContent }: any) {
+  const updateSettings = (patch) => setContent({ ...content, settings: { ...content.settings, ...patch } });
+  const updateBrand = (patch) => setContent({ ...content, brand: { ...content.brand, ...patch } });
+  const updateContact = (patch) => setContent({ ...content, contact: { ...content.contact, ...patch } });
+  return <Panel title="Genel Site Ayarları"><div className="grid gap-4 md:grid-cols-2"><Field label="Site adı" value={content.settings.siteTitle} onChange={(v) => updateSettings({ siteTitle: v })} /><Field label="Alt başlık" value={content.brand.slogan} onChange={(v) => updateBrand({ slogan: v })} /><TextArea label="Meta açıklaması" value={content.settings.siteDescription} onChange={(v) => updateSettings({ siteDescription: v })} /><TextArea label="Footer açıklaması" value={content.brand.footerDescription || content.brand.slogan} onChange={(v) => updateBrand({ footerDescription: v })} /><Field label="Telefon" value={content.contact.phone} onChange={(v) => updateContact({ phone: v })} /><Field label="WhatsApp" value={content.contact.whatsappNumber} onChange={(v) => updateContact({ whatsappNumber: v })} /><Field label="E-posta" value={content.contact.email} onChange={(v) => updateContact({ email: v })} /><Field label="Adres" value={content.contact.address} onChange={(v) => updateContact({ address: v })} /><Field label="Harita embed URL" value={content.contact.mapsEmbedUrl || ""} onChange={(v) => updateContact({ mapsEmbedUrl: v })} /></div></Panel>;
+}
+
+function LogoManagement({ content, setContent }: any) {
+  const brand = content.brand;
+  const update = (patch) => setContent({ ...content, brand: { ...brand, ...patch } });
+  return <Panel title="Logo Yönetimi"><div className="grid gap-4 md:grid-cols-3">{[["Header logo", "logoUrl"], ["Footer logo", "footerLogoUrl"], ["Favicon", "faviconUrl"]].map(([label, key]) => <div key={key} className="grid gap-3 rounded-[8px] border border-white/10 p-4"><Field label={label} value={brand[key] || ""} onChange={(v) => update({ [key]: v })} /><Upload onUrl={(url) => update({ [key]: url })} /></div>)}</div></Panel>;
+}
+
+function VisualManagement({ content, setContent }: any) {
+  const media = content.mediaAssets || {};
+  const update = (patch) => setContent({ ...content, mediaAssets: { ...media, ...patch } });
+  return <Panel title="Görsel Yönetimi"><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{[["Hero image", "heroImage"], ["About image", "aboutImage"], ["Service images", "serviceImage"], ["Background images", "backgroundImage"]].map(([label, key]) => <div key={key} className="grid gap-3 rounded-[8px] border border-white/10 p-4"><Field label={label} value={media[key] || ""} onChange={(v) => update({ [key]: v })} /><Upload onUrl={(url) => update({ [key]: url })} /></div>)}</div><p className="mt-4 text-sm text-slate-400">Görseller mevcut medya sistemiyle yüklenir. Public sayfalar görsel URL alanları dolduğunda bunları kullanacak şekilde genişletilebilir.</p></Panel>;
+}
+
+function AboutAndCertificatesManagement(props: any) {
+  return <div className="grid gap-5"><Pages {...props} /><Collection title="Sertifika Yönetimi" type="certificate" items={props.content.certificates} setItems={(items) => props.setContent({ ...props.content, certificates: items })} /></div>;
+}
+
+function WebsiteManagementCenter(props: any) {
+  const [tab, setTab] = useState("Genel Site Ayarları");
+  const items = ["Genel Site Ayarları", "Logo Yönetimi", "Görsel Yönetimi", "Sayfa İçerikleri", "Hakkımda + Sertifikalar", "Hizmetler", "Paketler", "İletişim", "Performans"];
+  return <div><HubTabs items={items} active={tab} onChange={setTab} />{tab === "Genel Site Ayarları" && <GeneralWebsiteSettings {...props} />}{tab === "Logo Yönetimi" && <LogoManagement {...props} />}{tab === "Görsel Yönetimi" && <VisualManagement {...props} />}{tab === "Sayfa İçerikleri" && <Pages {...props} />}{tab === "Hakkımda + Sertifikalar" && <AboutAndCertificatesManagement {...props} />}{tab === "Hizmetler" && <Collection title="Hizmet Yönetimi" type="service" items={props.content.services} setItems={(items) => props.setContent({ ...props.content, services: items })} />}{tab === "Paketler" && <Collection title="Paket Yönetimi" type="package" items={props.content.packages} setItems={(items) => props.setContent({ ...props.content, packages: items })} />}{tab === "İletişim" && <div className="grid gap-5"><GeneralWebsiteSettings {...props} /><KeyValue title="Sosyal Medya Yönetimi" object={props.content.socials} onChange={(object) => props.setContent({ ...props.content, socials: object })} /></div>}{tab === "Performans" && <Settings {...props} />}</div>;
+}
+
+function IntegrationsCenter({ content, setContent }: any) {
+  const [status, setStatus] = useState("");
+  const api = content.settings.api || {};
+  const analyticsIds = content.settings.analyticsIds || {};
+  const update = (patch) => setContent({ ...content, settings: { ...content.settings, api: { ...api, ...patch } } });
+  const updateAnalytics = (patch) => setContent({ ...content, settings: { ...content.settings, analyticsIds: { ...analyticsIds, ...patch } } });
+  const test = async () => {
+    setStatus("Bağlantılar test ediliyor...");
+    const response = await fetch("/api/ai/test", { method: "POST" });
+    const data = await response.json().catch(() => ({}));
+    update({ integrations_last_test_at: new Date().toISOString(), integrations_last_test_status: response.ok ? "Başarılı" : "Uyarı" });
+    setStatus(data.message || data.error || "Test tamamlandı.");
+  };
+  return <Panel title="Entegrasyonlar">
+    <p className="mb-5 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm leading-6 text-cyan-50">API anahtarları tarayıcıya gönderilmez. Bu alan bağlantı kimliklerini ve durum notlarını merkezi olarak düzenlemek içindir; gerçek gizli anahtarlar sunucu ortam değişkenlerinde kalmalıdır.</p>
+    <div className="grid gap-5">
+      <div className="rounded-[8px] border border-white/10 p-4">
+        <h3 className="font-black">Meta</h3>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <Field label="App ID" value={api.meta_app_id || ""} onChange={(v) => update({ meta_app_id: v })} />
+          <Field label="App Secret" value={api.meta_app_secret ? "••••••••" : ""} onChange={(v) => update({ meta_app_secret: v })} />
+          <Field label="Access Token" value={api.meta_access_token ? "••••••••" : ""} onChange={(v) => update({ meta_access_token: v })} />
+          <Field label="Business ID" value={api.meta_business_id || ""} onChange={(v) => update({ meta_business_id: v })} />
+          <Field label="Ad Account ID" value={api.meta_ad_account_id || ""} onChange={(v) => update({ meta_ad_account_id: v })} />
+          <Field label="Meta Pixel ID" value={analyticsIds.metaPixel || ""} onChange={(v) => updateAnalytics({ metaPixel: v })} />
+        </div>
+      </div>
+      <div className="rounded-[8px] border border-white/10 p-4">
+        <h3 className="font-black">Google</h3>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <Field label="Maps API" value={api.google_maps_key ? "••••••••" : ""} onChange={(v) => update({ google_maps_key: v })} />
+          <Field label="Ads API" value={api.google_ads_key ? "••••••••" : ""} onChange={(v) => update({ google_ads_key: v })} />
+          <Field label="Analytics" value={api.google_analytics_id || ""} onChange={(v) => update({ google_analytics_id: v })} />
+          <Field label="GA4 Measurement ID" value={analyticsIds.gaMeasurement || ""} onChange={(v) => updateAnalytics({ gaMeasurement: v })} />
+          <Field label="Google Tag Manager" value={analyticsIds.googleTagManager || ""} onChange={(v) => updateAnalytics({ googleTagManager: v })} />
+          <Field label="Search Console" value={api.google_search_console || ""} onChange={(v) => update({ google_search_console: v })} />
+        </div>
+      </div>
+      <ApiSettings content={content} setContent={setContent} />
+      <div className="rounded-[8px] border border-white/10 p-4">
+        <h3 className="font-black">Diğer</h3>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <Field label="SMTP" value={api.smtp_host || ""} onChange={(v) => update({ smtp_host: v })} />
+          <Field label="WhatsApp" value={api.whatsapp_provider || ""} onChange={(v) => update({ whatsapp_provider: v })} />
+          <Field label="Webhook URL" value={api.webhook_url || ""} onChange={(v) => update({ webhook_url: v })} />
+        </div>
+      </div>
+    </div>
+    <div className="mt-5 flex flex-wrap items-center gap-3">
+      <button onClick={test} className="rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Bağlantıyı test et</button>
+      <span className="rounded-full border border-white/10 px-3 py-2 text-xs text-slate-300">Son test: {api.integrations_last_test_at ? new Date(api.integrations_last_test_at).toLocaleString("tr-TR") : "Yok"} · {api.integrations_last_test_status || "Bekliyor"}</span>
+    </div>
+    {status && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{status}</p>}
+  </Panel>;
 }
 
 function CustomerPanelAdmin({ content, setContent }: any) {

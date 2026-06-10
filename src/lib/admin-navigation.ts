@@ -94,11 +94,10 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     badge: "Admin",
     accent: "from-slate-500 via-slate-700 to-slate-900",
     items: [
-      { label: "API Ayarları", slug: "api-ayarlari", module: "api-ayarlari" },
-      { label: "AI Sağlayıcı Ayarları", slug: "ai-saglayici-ayarlari", module: "api-ayarlari" },
+      { label: "Web Sitesi Yönetimi", slug: "web-sitesi-yonetimi", module: "site-ayarlari" },
+      { label: "Entegrasyonlar", slug: "entegrasyonlar", module: "api-ayarlari" },
       { label: "Kullanıcı Yönetimi", slug: "kullanici-yonetimi", module: "kullanicilar" },
       { label: "Tema / Logo", slug: "tema-logo", module: "tema-ayarlari" },
-      { label: "Site Ayarları", slug: "site-ayarlari", module: "site-ayarlari" },
       { label: "Sistem Ayarları", slug: "sistem-ayarlari", module: "site-ayarlari" },
       { label: "Sistem Logları", slug: "sistem-loglari", module: "sistem-loglari" }
     ]
@@ -128,6 +127,10 @@ const legacySlugRedirects: Record<string, string> = {
   "rapor-yorumlari": "musteri-raporlari",
   "disa-aktarma": "musteri-raporlari",
   "tema-ayarlari": "tema-logo",
+  "site-ayarlari": "web-sitesi-yonetimi",
+  "sayfa-icerikleri": "web-sitesi-yonetimi",
+  "api-ayarlari": "entegrasyonlar",
+  "ai-saglayici-ayarlari": "entegrasyonlar",
   "medya-logo": "medya",
   "medya-logo-yukleme": "medya",
   "30-gunluk-sosyal-medya-plani": "icerik-fikirleri",

@@ -104,6 +104,7 @@ export type SiteContent = {
     companyName: string;
     founder: string;
     slogan: string;
+    footerDescription?: string;
     logoUrl: string;
     footerLogoUrl: string;
     faviconUrl: string;
@@ -127,17 +128,20 @@ export type SiteContent = {
     address: string;
     mapsEmbedUrl: string;
   };
+  mediaAssets?: Record<string, string>;
   settings: {
     siteTitle: string;
     siteDescription: string;
     maintenanceMode: boolean;
     defaultTheme: "dark" | "light";
+    performanceMode?: "ultra" | "balanced" | "performance";
     analyticsIds: {
       metaPixel: string;
       googleTagManager: string;
       gaMeasurement: string;
     };
     api: {
+      [key: string]: unknown;
       geminiApiKey: string;
       groqApiKey: string;
       openAiApiKey: string;

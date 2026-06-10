@@ -88,16 +88,26 @@ export async function getAdminPageData() {
     }
   }
 
+  const safeApi = { ...(content.settings.api as Record<string, unknown>) };
+  [
+    "geminiApiKey",
+    "groqApiKey",
+    "openAiApiKey",
+    "meta_app_secret",
+    "meta_access_token",
+    "google_maps_key",
+    "google_ads_key",
+    "smtp_password",
+    "webhook_secret"
+  ].forEach((key) => {
+    if (key in safeApi) safeApi[key] = "";
+  });
+
   const safeContent = {
     ...content,
     settings: {
       ...content.settings,
-      api: {
-        ...content.settings.api,
-        geminiApiKey: "",
-        groqApiKey: "",
-        openAiApiKey: ""
-      }
+      api: safeApi
     }
   };
 
