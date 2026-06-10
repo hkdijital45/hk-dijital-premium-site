@@ -460,13 +460,16 @@ export function AdminDashboard({
       <header className={`sticky top-0 z-40 border-b ${headerClass} shadow-[0_10px_30px_rgba(0,0,0,.12)] backdrop-blur-2xl`}>
         <div className="relative flex flex-wrap items-center gap-3 px-4 py-3 lg:px-6">
           <div className="flex min-w-[220px] items-center gap-3">
-            <Logo content={content} compact />
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[.18em] text-cyan-200">HK Dijital</p>
-              <h1 className="text-lg font-black sm:text-xl">HK Operating System</h1>
-            </div>
+            <Link href="/hk-admin" aria-label="Ana dashboard'a dön" className="group flex items-center gap-3 rounded-[8px] px-2 py-1 transition hover:bg-white/[0.06]">
+              <Logo content={content} compact />
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[.18em] text-cyan-200">HK Dijital</p>
+                <h1 className="text-lg font-black transition group-hover:text-cyan-50 sm:text-xl">HK Operating System</h1>
+              </div>
+            </Link>
             {isDesktopApp && <span className="rounded-[8px] border border-amber-200/20 bg-amber-300/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[.12em] text-amber-100">Desktop</span>}
           </div>
+          <AdminBrowserControls />
           <nav className="order-3 grid w-full gap-2 lg:order-none lg:flex lg:w-auto lg:flex-1 lg:items-center lg:justify-center">
             <button type="button" onClick={() => setMobileNavOpen((current) => !current)} className="flex min-h-10 items-center justify-between rounded-[8px] border border-white/10 bg-white/[0.045] px-3 text-sm font-black text-slate-100 lg:hidden">
               Menü
@@ -772,6 +775,23 @@ function GlobalAdminSearch() {
   return <div className="relative"><button onClick={() => { setOpen(true); window.setTimeout(() => document.getElementById("hk-command-search")?.focus(), 0); }} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/10 bg-black/10 px-4 text-sm text-slate-300"><Search size={16} className="text-cyan-200" /><span className="hidden xl:inline">Modül ara...</span><kbd className="rounded border border-white/10 px-1.5 py-0.5 text-[10px] font-black text-slate-500">⌘K</kbd></button>{open && <div className="fixed inset-0 z-[90] flex justify-center bg-[#02040b]/75 px-4 pt-[12vh] backdrop-blur-sm" onMouseDown={() => setOpen(false)}><div className="h-fit w-full max-w-2xl overflow-hidden rounded-[8px] border border-cyan-200/20 bg-[#08101e]/95 shadow-[0_28px_110px_rgba(0,0,0,.55)]" onMouseDown={(event) => event.stopPropagation()}><label className="flex min-h-16 items-center gap-3 border-b border-white/10 px-5"><Search size={19} className="text-cyan-200" /><input id="hk-command-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Modül ara... CRM, Meta Analiz, Google Analiz, Sosyal İstihbarat, PDF Audit, API Ayarları, AI Ayarları, Raporlar" className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500" /><button onClick={() => setOpen(false)} title="Kapat" className="rounded border border-white/10 px-2 py-1 text-[10px] font-black text-slate-400">ESC</button></label><div className="premium-scrollbar max-h-[56vh] overflow-y-auto p-2">{results.map((result) => <Link key={result.id} href={result.href} onClick={() => { setQuery(""); setOpen(false); }} className="flex items-center justify-between gap-3 rounded-[8px] px-3 py-3 text-sm hover:bg-white/10"><span><strong className="block text-white">{result.title}</strong><span className="mt-1 block text-xs text-slate-400">{result.detail}</span></span><span className="rounded-full border border-cyan-200/20 px-2 py-1 text-[10px] font-black text-cyan-100">{result.type}</span></Link>)}{query.trim().length < 2 && <p className="px-3 py-5 text-sm leading-6 text-slate-400">En az iki karakter yazın. Yetkiniz olan modüller ve operasyon kayıtları içinde arama yapılır.</p>}{query.trim().length >= 2 && !results.length && <p className="px-3 py-5 text-sm text-slate-400">Eşleşen sonuç bulunamadı.</p>}</div></div></div>}</div>;
 }
 
+function AdminBrowserControls() {
+  const buttonClass = "inline-flex min-h-9 items-center gap-1.5 rounded-[8px] px-2.5 text-xs font-black text-slate-300 transition hover:bg-cyan-200/10 hover:text-cyan-50";
+  return (
+    <div className="flex items-center gap-1 rounded-[8px] border border-white/10 bg-white/[0.035] p-1">
+      <button type="button" title="Geri" aria-label="Geri" onClick={() => window.history.back()} className={buttonClass}>
+        <span aria-hidden="true">←</span><span className="hidden sm:inline">Geri</span>
+      </button>
+      <button type="button" title="İleri" aria-label="İleri" onClick={() => window.history.forward()} className={buttonClass}>
+        <span className="hidden sm:inline">İleri</span><span aria-hidden="true">→</span>
+      </button>
+      <button type="button" title="Yenile" aria-label="Yenile" onClick={() => window.location.reload()} className={buttonClass}>
+        Yenile
+      </button>
+    </div>
+  );
+}
+
 function GlobalSearchPage() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
@@ -928,6 +948,9 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
   const agencyExpenses = useMemo(() => content.agencyExpenses ?? [], [content.agencyExpenses]);
   const [demoMessage, setDemoMessage] = useState("");
   const [demoLoading, setDemoLoading] = useState(false);
+  const [dashboardAssistantPrompt, setDashboardAssistantPrompt] = useState("");
+  const [dashboardAssistantAnswer, setDashboardAssistantAnswer] = useState("");
+  const [dashboardAssistantLoading, setDashboardAssistantLoading] = useState(false);
   const [customizing, setCustomizing] = useState(false);
   const preferenceKey = `hk-dashboard-preferences:${currentSession?.id || currentSession?.userId || "admin"}`;
   const [preferences, setPreferences] = useState({ order: dashboardWidgetDefaults, hidden: [], favorites: ["Müşteri Bulucu", "CRM"] });
@@ -951,6 +974,12 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
   const todaysTasks = agencyTasks.filter((item) => item.due_date === today && item.status !== "Tamamlandı");
   const overdueTasks = agencyTasks.filter((item) => item.due_date && item.due_date < today && item.status !== "Tamamlandı");
   const criticalTasks = agencyTasks.filter((item) => item.priority === "Kritik" && item.status !== "Tamamlandı");
+  const completedTasks = agencyTasks.filter((item) => item.status === "Tamamlandı");
+  const overduePaymentTotal = overduePayments.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const importantDashboardTasks = [...criticalTasks, ...overdueTasks, ...todaysTasks]
+    .filter((item, index, list) => list.findIndex((candidate) => (candidate.id || candidate.title) === (item.id || item.title)) === index)
+    .slice(0, 5);
+  const dashboardAssistantPrompts = ["Bugün neye odaklanmalıyım?", "Geciken tahsilatlar var mı?", "Kritik görevler neler?", "Bu ay kârlılık durumu nasıl?"];
 
   useEffect(() => {
     try {
@@ -1226,6 +1255,55 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     setAiStatusLoading(false);
   }
 
+  function buildDashboardAssistantAnswer(question = dashboardAssistantPrompt) {
+    const focusTasks = importantDashboardTasks.length
+      ? `Öncelikli görevler: ${importantDashboardTasks.map((item) => item.title || "İsimsiz görev").join(", ")}.`
+      : "Bugün için kritik veya geciken görev görünmüyor.";
+    const collectionLine = overduePayments.length
+      ? `Geciken tahsilat: ${overduePayments.slice(0, 4).map((item) => `${companyName(content, item.company_id)} ${Number(item.amount || 0).toLocaleString("tr-TR")} TL`).join(", ")}.`
+      : "Geciken tahsilat görünmüyor.";
+    const profitLine = `Bu ay beklenen gelir ${expectedRevenue.toLocaleString("tr-TR")} TL, bekleyen tahsilat ${pendingRevenue.toLocaleString("tr-TR")} TL, tahmini kâr ${estimatedProfit.toLocaleString("tr-TR")} TL.`;
+    const leadLine = hotLeads.length
+      ? `Sıcak leadler: ${hotLeads.slice(0, 4).map((lead) => lead.company || lead.name || "İsimsiz lead").join(", ")}.`
+      : "Sıcak lead listesi şu an sakin.";
+    return [
+      `Soru: ${question || "Bugün neye odaklanmalıyım?"}`,
+      "HK Asistan yerel değerlendirme:",
+      focusTasks,
+      collectionLine,
+      profitLine,
+      leadLine,
+      "Öneri: Önce geciken tahsilat ve kritik görevleri kapatın; ardından sıcak leadler için teklif veya WhatsApp takibi başlatın."
+    ].join("\n\n");
+  }
+
+  async function askDashboardAssistant(promptText = dashboardAssistantPrompt) {
+    const question = (promptText || "Bugün neye odaklanmalıyım?").trim();
+    setDashboardAssistantPrompt(question);
+    setDashboardAssistantLoading(true);
+    const localAnswer = buildDashboardAssistantAnswer(question);
+    try {
+      const context = {
+        tasks: importantDashboardTasks,
+        overduePayments: overduePayments.slice(0, 10),
+        profitability: { expectedRevenue, pendingRevenue, overduePaymentTotal, estimatedProfit },
+        reports: reports.slice(0, 8),
+        leads: hotLeads.slice(0, 10)
+      };
+      const response = await fetch("/api/admin/ai-generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: `${question}\n\nYerel ajans verisi: ${JSON.stringify(context)}\n\nKısa, uygulanabilir ve Türkçe yanıt ver.` })
+      });
+      const data = await response.json().catch(() => ({}));
+      setDashboardAssistantAnswer(response.ok && data.output ? data.output : localAnswer);
+    } catch {
+      setDashboardAssistantAnswer(localAnswer);
+    } finally {
+      setDashboardAssistantLoading(false);
+    }
+  }
+
   const widgetNames = { metrics: "Sistem metrikleri", aiStatus: "AI Durum Merkezi", operations: "Canlı operasyon merkezi", pipeline: "CRM pipeline görseli", intelligence: "Intelligence merkezi", status: "Sistem durum merkezi", charts: "Gerçek veri grafikleri", insights: "AI içgörüleri", quickActions: "Hızlı aksiyonlar", crm: "CRM akışı", activity: "Son aktiviteler", demo: "Müşteri paneli testi" };
   const widgets: any = {
     metrics: <div><div className="mb-4 flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">Dashboard Widgets</p><h3 className="mt-1 text-lg font-black text-white">HK Business Operating System</h3><p className="mt-1 text-sm leading-5 text-slate-400">CRM, istihbarat, AI, rapor ve teklif akışlarını tek ekranda izleyin.</p></div><span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-black text-slate-300">Gerçek veriler</span></div><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">{osDashboardWidgets.map(([label, value, note, icon, gradient, target, level]) => <button key={label} type="button" onClick={() => setActive(target)} className={`admin-color-card group relative overflow-hidden rounded-[8px] border border-white/[0.12] bg-gradient-to-br ${gradient} text-left text-white shadow-[0_12px_34px_rgba(0,0,0,.18)] transition hover:-translate-y-0.5 hover:border-white/25 ${level === "level1" ? "min-h-40 p-5 xl:col-span-1" : "min-h-32 p-4"}`}><span className="relative flex items-start justify-between gap-3"><span className="grid size-10 place-items-center rounded-[8px] border border-white/20 bg-white/[0.12]">{icon}</span><span className="rounded-full border border-white/[0.18] bg-black/10 px-2 py-1 text-[10px] font-black uppercase tracking-[.10em] text-white/80">{level === "level1" ? "Öncelik" : "Modül"}</span></span><p className="relative mt-4 text-xs font-black uppercase tracking-[.12em] text-white/70">{label}</p><p className="relative mt-1.5 text-2xl font-black">{value}</p><p className="relative mt-2 text-xs leading-5 text-white/75">{note}</p></button>)}</div><details className="mt-4 rounded-[8px] border border-white/10 bg-black/10 p-3"><summary className="cursor-pointer text-xs font-black uppercase tracking-[.14em] text-slate-400">Tüm sistem metrikleri</summary><div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">{stats.map(([label, value, note, icon, accent]) => <MetricCard3D key={label} label={label} value={value} note={note} accent={accent} icon={icon} />)}</div></details></div>,
@@ -1250,6 +1328,102 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
         <p className="mt-3 text-base font-black text-white">Welcome to HK Operating System</p>
         <p className="mt-1 text-sm font-bold text-cyan-100">Digital Marketing Command Center</p>
         <p className="mt-1 text-[10px] font-black uppercase tracking-[.16em] text-slate-400">Powered by HK Dijital</p>
+      </div>
+      <div className="mb-5 grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(280px,.85fr)_minmax(280px,.85fr)]">
+        <GlassCard className="p-4 sm:p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[.16em] text-purple-200">HK Asistan</p>
+              <h3 className="mt-1 text-lg font-black text-white">Operasyon asistanı</h3>
+              <p className="mt-1 text-sm leading-5 text-slate-400">Görev, tahsilat, kârlılık ve lead verisine göre hızlı yönlendirme alın.</p>
+            </div>
+            <span className="grid size-10 place-items-center rounded-[8px] border border-purple-200/20 bg-purple-300/10 text-purple-100"><Bot size={18} /></span>
+          </div>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            {dashboardAssistantPrompts.map((item) => (
+              <button key={item} type="button" onClick={() => askDashboardAssistant(item)} className="rounded-[8px] border border-white/10 bg-black/15 px-3 py-2 text-left text-xs font-bold leading-5 text-slate-300 transition hover:border-purple-200/30 hover:bg-purple-300/10 hover:text-purple-50">
+                {item}
+              </button>
+            ))}
+          </div>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <input
+              value={dashboardAssistantPrompt}
+              onChange={(event) => setDashboardAssistantPrompt(event.target.value)}
+              onKeyDown={(event) => event.key === "Enter" && askDashboardAssistant()}
+              placeholder="HK Asistan’a sor…"
+              className="min-h-11 flex-1 rounded-[8px] border border-white/10 bg-black/20 px-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-purple-200/40"
+            />
+            <button type="button" disabled={dashboardAssistantLoading} onClick={() => askDashboardAssistant()} className="min-h-11 rounded-[8px] bg-purple-300 px-5 text-sm font-black text-slate-950 transition hover:bg-purple-200 disabled:opacity-60">
+              {dashboardAssistantLoading ? "Soruluyor..." : "Sor"}
+            </button>
+          </div>
+          <pre className="mt-4 min-h-24 whitespace-pre-wrap rounded-[8px] border border-purple-200/15 bg-purple-300/[0.08] p-3 text-xs leading-6 text-purple-50">
+            {dashboardAssistantAnswer || "Soru yazın veya hızlı komutlardan birini seçin. Veri yoksa yerel değerlendirme ile güvenli yanıt verilir."}
+          </pre>
+        </GlassCard>
+
+        <GlassCard className="p-4 sm:p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">Görevler</p>
+              <h3 className="mt-1 text-lg font-black text-white">Operasyon özeti</h3>
+            </div>
+            <span className="grid size-10 place-items-center rounded-[8px] border border-cyan-200/20 bg-cyan-300/10 text-cyan-100"><CircleCheck size={18} /></span>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+            {[
+              ["Bugünkü görevler", todaysTasks.length],
+              ["Geciken görevler", overdueTasks.length],
+              ["Kritik görevler", criticalTasks.length],
+              ["Tamamlananlar", completedTasks.length]
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-[8px] border border-white/10 bg-black/15 p-3">
+                <p className="text-[10px] font-black uppercase tracking-[.10em] text-slate-500">{label}</p>
+                <p className="mt-1 text-xl font-black text-white">{value}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 grid gap-2">
+            {importantDashboardTasks.map((item) => (
+              <div key={item.id || item.title} className="rounded-[8px] border border-white/10 bg-black/10 p-3">
+                <p className="text-sm font-black text-white">{item.title || "İsimsiz görev"}</p>
+                <p className="mt-1 text-xs text-slate-400">{item.priority || "Orta"} öncelik · {item.due_date || "Tarih yok"}</p>
+              </div>
+            ))}
+            {!importantDashboardTasks.length && <p className="rounded-[8px] border border-dashed border-white/10 p-4 text-sm text-slate-400">Öncelikli görev görünmüyor.</p>}
+          </div>
+          <button type="button" onClick={() => setActive("Görevler")} className="mt-4 w-full rounded-[8px] border border-cyan-200/20 bg-cyan-300/10 px-4 py-3 text-sm font-black text-cyan-50 transition hover:bg-cyan-300/20">
+            Tüm Görevleri Aç
+          </button>
+        </GlassCard>
+
+        <GlassCard className="p-4 sm:p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[.16em] text-emerald-200">Karlılık</p>
+              <h3 className="mt-1 text-lg font-black text-white">Finans özeti</h3>
+            </div>
+            <span className="grid size-10 place-items-center rounded-[8px] border border-emerald-200/20 bg-emerald-300/10 text-emerald-100"><BarChart3 size={18} /></span>
+          </div>
+          <div className="mt-4 grid gap-2">
+            {[
+              ["Bu Ay Gelir", expectedRevenue],
+              ["Bekleyen Tahsilat", pendingRevenue],
+              ["Geciken Tahsilat", overduePaymentTotal],
+              ["Tahmini Kâr", estimatedProfit]
+            ].map(([label, value]) => (
+              <div key={label} className="flex items-center justify-between gap-3 rounded-[8px] border border-white/10 bg-black/15 p-3">
+                <span className="text-xs font-bold text-slate-400">{label}</span>
+                <span className="text-sm font-black text-white">{Number(value || 0).toLocaleString("tr-TR")} TL</span>
+              </div>
+            ))}
+          </div>
+          {!paymentRecords.length && !agencyExpenses.length && <p className="mt-4 rounded-[8px] border border-dashed border-white/10 p-4 text-sm leading-6 text-slate-400">Henüz tahsilat veya gider verisi yok. Özet değerler ₺0 olarak gösteriliyor.</p>}
+          <button type="button" onClick={() => setActive("Karlılık")} className="mt-4 w-full rounded-[8px] border border-emerald-200/20 bg-emerald-300/10 px-4 py-3 text-sm font-black text-emerald-50 transition hover:bg-emerald-300/20">
+            Karlılık Detayını Aç
+          </button>
+        </GlassCard>
       </div>
       <div className="mb-5">
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
