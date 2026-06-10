@@ -17,6 +17,7 @@ const adminCategoryIcons: Record<string, any> = {
   Sparkles,
   FileBarChart,
   Bot,
+  MapPinned,
   Gauge,
   Settings2
 };
@@ -579,10 +580,10 @@ export function AdminDashboard({
           {active === "Görevler" && <AgencyTasksCenter {...props} />}
           {active === "Belgeler" && <DocumentCenter {...props} />}
           {active === "Tahsilat" && <PaymentCenter {...props} />}
-          {["Müşteri Bulucu", "İşletme Keşfi", "Müşteri Bul"].includes(active) && <CustomerFinder {...props} />}
-          {["Lead Yönetimi", ...crmLeadViews].includes(active) && <Crm {...props} view={["Lead Yönetimi", "Leadler"].includes(active) ? "Lead Durumları" : active} setActive={setActive} />}
-          {["Meta Analiz", "Meta Raporları"].includes(active) && <MetaAnalysisSection />}
-          {["Google Analiz", "Google Ads Analiz", "Google Ads Raporları"].includes(active) && <GoogleAdsAnalysisSection />}
+          {["Müşteri Bulucu", "İşletme Keşfi", "Müşteri Bul", "Müşteri Keşfi"].includes(active) && <CustomerFinder {...props} />}
+          {["Lead Yönetimi", "Lead Analizi", ...crmLeadViews].includes(active) && <Crm {...props} view={["Lead Yönetimi", "Leadler", "Lead Analizi"].includes(active) ? "Lead Durumları" : active} setActive={setActive} />}
+          {["Meta Analiz", "Meta Raporları", "Meta İstihbarat"].includes(active) && <MetaAnalysisSection />}
+          {["Google Analiz", "Google Ads Analiz", "Google Ads Raporları", "Google İstihbarat"].includes(active) && <GoogleAdsAnalysisSection />}
           {["Sosyal İstihbarat Merkezi", "Sosyal Medya Denetimi", "PDF Audit"].includes(active) && <SocialMediaAuditCenter />}
           {["AI Studio", "AI Analizleri"].includes(active) && <AiAssistant {...props} mode="AI Studio" />}
           {["Teklif Motoru", "Teklif Hazırlama", "Teklif Oluştur", "WhatsApp Teklifi"].includes(active) && <ProposalEngine {...props} />}

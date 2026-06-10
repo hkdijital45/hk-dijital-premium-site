@@ -31,17 +31,31 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
   },
   {
     label: "CRM & Müşteriler",
-    description: "Lead, müşteri, keşif ve teklif akışları.",
+    description: "Lead, müşteri ve teklif akışları.",
     icon: "UsersRound",
     badge: "CRM",
     accent: "from-emerald-400 via-teal-500 to-cyan-600",
     items: [
       { label: "Leadler", slug: "leads", module: "leads" },
       { label: "Müşteriler", slug: "musteriler", module: "musteriler" },
-      { label: "Müşteri Bul", slug: "isletme-kesfi", module: "musteri-bulucu" },
       { label: "Teklif Oluştur", slug: "teklif-hazirlama", module: "teklifler" },
       { label: "Müşteri Markalama", slug: "musteri-markalama", module: "musteriler" },
       { label: "Müşteri Onboarding", slug: "customers/onboarding", module: "musteriler" }
+    ]
+  },
+  {
+    label: "İstihbarat Merkezi",
+    description: "Müşteri keşfi, harita sinyalleri, Meta/Google istihbaratı ve lead analizi.",
+    icon: "MapPinned",
+    badge: "Intel",
+    accent: "from-amber-400 via-orange-500 to-rose-600",
+    items: [
+      { label: "Müşteri Keşfi", slug: "musteri-kesfi", module: "musteri-bulucu" },
+      { label: "Haritalar", slug: "haritalar", module: "haritalar" },
+      { label: "Meta İstihbarat", slug: "meta-istihbarat", module: "meta-analiz" },
+      { label: "Google İstihbarat", slug: "google-istihbarat", module: "google-analiz" },
+      { label: "Lead Analizi", slug: "lead-analizi", module: "leads" },
+      { label: "Rakip Analizi", slug: "rakip-analizi", module: "rakip-analizi" }
     ]
   },
   {
@@ -68,7 +82,6 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     items: [
       { label: "Belgeler", slug: "belgeler", module: "belgeler" },
       { label: "Tahsilat", slug: "tahsilat", module: "tahsilat" },
-      { label: "Rakip Analizi", slug: "rakip-analizi", module: "rakip-analizi" },
       { label: "Sosyal Medya Planı", slug: "sosyal-medya-plani", module: "sosyal-medya-plani" },
       { label: "Sektör Sistemleri", slug: "sektor-sistemleri", module: "sektor-sistemleri" }
     ]
@@ -116,9 +129,13 @@ const legacySlugRedirects: Record<string, string> = {
   "meta-analiz-leadleri": "leads",
   "google-ads-analiz-leadleri": "leads",
   "sosyal-istihbarat-leadleri": "leads",
+  "musteri-bul": "musteri-kesfi",
+  "musteri-bulucu": "musteri-kesfi",
+  "isletme-kesfi": "musteri-kesfi",
   reddedilenler: "leads",
   silinenler: "leads",
-  "lead-workspace": "leads",
+  "lead-workspace": "lead-analizi",
+  "lead-yonetimi": "lead-analizi",
   "teklifler": "teklif-hazirlama",
   "teklif-motoru": "teklif-hazirlama",
   "teklif-listesi": "musteri-raporlari",
@@ -137,13 +154,13 @@ const legacySlugRedirects: Record<string, string> = {
   "icerik-onerileri": "icerik-fikirleri",
   "prompt-kutuphanesi": "prompt-uretimi",
   "kampanya-hazirligi": "kampanya-onerileri",
-  "meta-integrations": "meta-analiz",
-  "google-integrations": "google-analiz",
+  "meta-integrations": "meta-istihbarat",
+  "google-integrations": "google-istihbarat",
   "rakip-reklamlari": "rakip-analizi",
   "rakip-listesi": "rakip-analizi",
-  "bolgesel-analiz": "isletme-kesfi",
-  "kaydedilen-adaylar": "isletme-kesfi",
-  "google-maps-isletme-sinyalleri": "isletme-kesfi",
+  "bolgesel-analiz": "musteri-kesfi",
+  "kaydedilen-adaylar": "musteri-kesfi",
+  "google-maps-isletme-sinyalleri": "haritalar",
   "sosyal-istihbarat-merkezi": "pdf-audit"
 };
 
