@@ -27,9 +27,16 @@ export async function recordActivity({
         actor_name: session?.fullName || session?.email || "Sistem",
         role: session?.role || "system",
         action,
+        action_type: action,
         entity,
+        module: entity,
         entity_id: entityId || null,
-        details: details || {}
+        details: details || {},
+        old_value: details?.old_value || details?.oldValue || null,
+        new_value: details?.new_value || details?.newValue || null,
+        status: "Görülmedi",
+        is_seen: false,
+        is_critical: Boolean(details?.critical || details?.is_critical)
       })
     });
   } catch (error) {

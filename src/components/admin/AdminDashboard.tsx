@@ -133,6 +133,12 @@ const reportTypes = ["Meta Reklam Raporu", "Google Ads Raporu", "Sosyal Medya Y�
 const reportTabs = ["Meta Reklamları", "Google Ads", "Sosyal Medya Yönetimi", "Genel Raporlar"];
 const socialPlatforms = ["Instagram", "Facebook", "TikTok", "YouTube", "LinkedIn", "X (Twitter)"];
 
+function createLocalId() {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  const source = `${Date.now()}${Math.random()}`.replace(/\D/g, "").padEnd(32, "0").slice(0, 32);
+  return `${source.slice(0, 8)}-${source.slice(8, 12)}-4${source.slice(13, 16)}-8${source.slice(17, 20)}-${source.slice(20, 32)}`;
+}
+
 function aiProviderLabel(value?: string) {
   const normalized = String(value || "").toLocaleLowerCase("tr");
   if (normalized.includes("openai")) return "OpenAI";
@@ -369,7 +375,7 @@ export function AdminDashboard({
       const contentResponse = allowedModules.includes("site-ayarlari")
         ? await fetch("/api/content", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) })
         : new Response(JSON.stringify({ ok: true }), { status: 200 });
-      const centerWritableModules = ["musteriler", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "sektor-sistemleri"];
+      const centerWritableModules = ["musteriler", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "sektor-sistemleri", "sistem-loglari"];
       const centerResponse = supabaseConfigured && centerWritableModules.some((module) => allowedModules.includes(module))
         ? await fetch("/api/admin/center-data", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) })
         : contentResponse;
@@ -417,7 +423,7 @@ export function AdminDashboard({
     setStartupApiLoading(false);
   }
 
-  const props = { content, setContent, currentSession, allowedModules, setActive };
+  const props = { content, setContent, currentSession, allowedModules, setActive, save };
   const visibleNavigationGroups = adminNavigationGroups
     .map((group) => ({ ...group, items: group.items.filter((item) => allowedModules.includes(item.module)) }))
     .filter((group) => group.items.length);
@@ -598,7 +604,7 @@ export function AdminDashboard({
           {active === "Hazırlık Merkezi" && <PreparationCenter {...props} setActive={setActive} />}
           {["Tema Ayarları", "Tema / Logo"].includes(active) && <ThemeEditor onApply={setCustomTheme} />}
           {["Roller & Yetkiler", "Kullanıcı Yönetimi"].includes(active) && <UsersAdmin {...props} mode={active} />}
-          {active === "Sistem Logları" && <ActivityLogs content={content} />}
+          {active === "Sistem Logları" && <ActivityLogs content={content} setContent={setContent} />}
           {["Takip Görevleri", "Takipler", "Notlar"].includes(active) && <Crm {...props} view={active} setActive={setActive} />}
           {["Bölgesel Analiz", "Rakip Listesi", "Kaydedilen Adaylar"].includes(active) && <MapsIntelligence {...props} setActive={setActive} mode={active} />}
           {["Funnel Analizi", "Reklam Fırsatları", "Rakip Reklamları"].includes(active) && <ChannelAnalysis {...props} channel={active === "Rakip Reklamları" ? "Reklam Fırsatları" : active} />}
@@ -633,7 +639,7 @@ export function AdminDashboard({
           {["İçerik Üretici", "Reklam Metni Üretici", "Rapor Özeti Üretici"].includes(active) && <AiAssistant {...props} mode={active} />}
           {active === "Ölçümleme Ayarları" && <TrackingSettings {...props} />}
           {["Kullanıcı Yönetimi", "Roller", "Güvenlik"].includes(active) && <UsersAdmin {...props} mode={active} />}
-          {active === "Log Hareketleri" && <ActivityLogs content={content} />}
+          {active === "Log Hareketleri" && <ActivityLogs content={content} setContent={setContent} />}
           {active === "Kullanım Kılavuzu" && <UsageGuide />}
         </section>
       </div>
@@ -1034,8 +1040,11 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     ["PDF Audit", socialAuditLeads.length, "Sosyal denetimden audit çıktıları", <FileBarChart size={17} />, "coral"],
     ["WhatsApp Teklif", generatedProposals, "Teklif iletişimi için hazır akışlar", <MessageSquareText size={17} />, "lime"],
     ["Bugünkü Görevler", todaysTasks.length, "Bugün tamamlanması gereken operasyon işleri", <CircleCheck size={17} />, "cyan"],
+    ["Kritik Görevler", criticalTasks.length, "Öncelikli aksiyon bekleyen görevler", <AlertTriangle size={17} />, "red"],
     ["Geciken Görev", overdueTasks.length, "Takip edilmesi gereken görevler", <AlertTriangle size={17} />, "red"],
     ["Bekleyen Tahsilat", `${pendingRevenue.toLocaleString("tr-TR")} TL`, "Bu ay bekleyen ödeme toplamı", <Gauge size={17} />, "amber"],
+    ["Geciken Tahsilat", `${overduePaymentTotal.toLocaleString("tr-TR")} TL`, "Vadesi geçmiş ödeme toplamı", <AlertTriangle size={17} />, "red"],
+    ["Bu Ay Ödenen", `${paidRevenue.toLocaleString("tr-TR")} TL`, "Bu ay tahsil edilen toplam", <CircleCheck size={17} />, "emerald"],
     ["Tahmini Kâr", `${estimatedProfit.toLocaleString("tr-TR")} TL`, "Gelir - kayıtlı gider tahmini", <BarChart3 size={17} />, "emerald"]
   ];
   const moduleAliases: Record<string, string> = { "Müşteri Bulucu": "musteri-bulucu" };
@@ -1559,14 +1568,14 @@ function MonthlyReportCenter({ content, setContent }: any) {
   return <Panel title="Aylık Rapor Merkezi"><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-slate-400">Müşteri, ay ve platform metrikleriyle yayınlanabilir aylık rapor hazırlayın.</p><button onClick={createReport} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Aylık rapor oluştur</button></div><div className="grid gap-4">{items.map((item, index) => <div key={item.id || index} className="rounded-[8px] border border-white/10 bg-black/15 p-4"><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><CompanySelect value={item.company_id || ""} onChange={(value) => update(index, { company_id: value })} companies={content.companies} /><Field label="Ay" type="month" value={item.report_month || ""} onChange={(value) => update(index, { report_month: value })} /><SelectField label="Durum" value={item.status || "Taslak"} onChange={(value) => update(index, { status: value })} options={["Taslak", "Hazır", "Yayınlandı"]} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item.visible_to_customer)} onChange={(event) => update(index, { visible_to_customer: event.target.checked })} /> Müşteriye yayınla</label></div><TextArea label="Özet" value={item.summary || ""} onChange={(value) => update(index, { summary: value })} /><div className="grid gap-3 md:grid-cols-3"><TextArea label="Meta Ads metrikleri JSON" value={JSON.stringify(item.meta_metrics || {}, null, 2)} onChange={(value) => { try { update(index, { meta_metrics: JSON.parse(value || "{}") }); } catch {} }} /><TextArea label="Google Ads metrikleri JSON" value={JSON.stringify(item.google_metrics || {}, null, 2)} onChange={(value) => { try { update(index, { google_metrics: JSON.parse(value || "{}") }); } catch {} }} /><TextArea label="Sosyal medya metrikleri JSON" value={JSON.stringify(item.social_metrics || {}, null, 2)} onChange={(value) => { try { update(index, { social_metrics: JSON.parse(value || "{}") }); } catch {} }} /></div><TextArea label="AI yorumu" value={item.ai_interpretation || ""} onChange={(value) => update(index, { ai_interpretation: value })} /><TextArea label="Gelecek ay önerileri" value={item.next_month_recommendations || ""} onChange={(value) => update(index, { next_month_recommendations: value })} /><div className="mt-3 flex flex-wrap gap-2"><button disabled={busy === (item.id || `${index}`)} onClick={() => generateAi(index)} className="rounded-full border border-purple-200/30 px-4 py-2 text-xs font-black text-purple-100 disabled:opacity-60">AI yorum oluştur</button><button onClick={() => updateCollection(content, setContent, "monthlyReports", items.filter((_, i) => i !== index))} className="rounded-full border border-red-300/30 px-4 py-2 text-xs text-red-200">Sil</button></div></div>)}{!items.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-sm text-slate-400">Henüz aylık rapor yok.</p>}</div></Panel>;
 }
 
-function AgencyTasksCenter({ content, setContent }: any) {
+function AgencyTasksCenter({ content, setContent, save }: any) {
   const items = content.agencyTasks || [];
   const today = new Date().toISOString().slice(0, 10);
   const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - 7);
   const completedWeek = items.filter((item) => item.status === "Tamamlandı" && new Date(item.updated_at || item.created_at || Date.now()) >= weekStart).length;
   const update = (index, patch) => updateCollection(content, setContent, "agencyTasks", items.map((item, i) => i === index ? { ...item, ...patch } : item));
-  const add = () => updateCollection(content, setContent, "agencyTasks", [{ id: `${Date.now()}`, title: "Yeni görev", status: "Yapılacak", priority: "Orta", due_date: today, notes: "" }, ...items]);
-  return <Panel title="Görev Takip Sistemi"><div className="mb-5 grid gap-3 md:grid-cols-4"><AgencyStatCard label="Bugünkü görev" value={items.filter((item) => item.due_date === today).length} note="Bugün tamamlanması gereken işler" /><AgencyStatCard label="Geciken" value={items.filter((item) => item.due_date && item.due_date < today && item.status !== "Tamamlandı").length} note="Takip bekleyen gecikmiş işler" tone="red" /><AgencyStatCard label="Kritik" value={items.filter((item) => item.priority === "Kritik").length} note="Öncelikli operasyon işleri" tone="amber" /><AgencyStatCard label="Bu hafta tamamlandı" value={completedWeek} note="Son 7 günde kapanan görevler" tone="emerald" /></div><button onClick={add} className="mb-4 rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Görev ekle</button><div className="grid gap-3">{items.map((item, index) => <div key={item.id || index} className="grid gap-3 rounded-[8px] border border-white/10 bg-black/15 p-4 md:grid-cols-2 xl:grid-cols-4"><Field label="Başlık" value={item.title || ""} onChange={(value) => update(index, { title: value })} /><CompanySelect value={item.company_id || ""} onChange={(value) => update(index, { company_id: value })} companies={content.companies} /><SelectField label="Durum" value={item.status || "Yapılacak"} onChange={(value) => update(index, { status: value })} options={["Yapılacak", "Devam Ediyor", "Beklemede", "Tamamlandı"]} /><SelectField label="Öncelik" value={item.priority || "Orta"} onChange={(value) => update(index, { priority: value })} options={["Düşük", "Orta", "Yüksek", "Kritik"]} /><Field label="Bitiş tarihi" type="date" value={item.due_date || ""} onChange={(value) => update(index, { due_date: value })} /><SelectField label="Atanan kullanıcı" value={item.assigned_user_id || ""} onChange={(value) => update(index, { assigned_user_id: value })} options={(content.users || []).map((user) => ({ value: user.id, label: user.full_name || user.email }))} placeholder="Atanmadı" /><TextArea label="Notlar" value={item.notes || ""} onChange={(value) => update(index, { notes: value })} /><button onClick={() => updateCollection(content, setContent, "agencyTasks", items.filter((_, i) => i !== index))} className="h-fit w-fit self-end rounded-full border border-red-300/30 px-3 py-2 text-xs text-red-200">Sil</button></div>)}{!items.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-sm text-slate-400">Henüz görev yok.</p>}</div></Panel>;
+  const add = () => updateCollection(content, setContent, "agencyTasks", [{ id: createLocalId(), title: "Yeni görev", description: "", status: "Yapılacak", priority: "Orta", due_date: today, notes: "" }, ...items]);
+  return <Panel title="Görev Takip Sistemi"><div className="mb-5 grid gap-3 md:grid-cols-4"><AgencyStatCard label="Bugünkü görev" value={items.filter((item) => item.due_date === today).length} note="Bugün tamamlanması gereken işler" /><AgencyStatCard label="Geciken" value={items.filter((item) => item.due_date && item.due_date < today && item.status !== "Tamamlandı").length} note="Takip bekleyen gecikmiş işler" tone="red" /><AgencyStatCard label="Kritik" value={items.filter((item) => item.priority === "Kritik").length} note="Öncelikli operasyon işleri" tone="amber" /><AgencyStatCard label="Bu hafta tamamlandı" value={completedWeek} note="Son 7 günde kapanan görevler" tone="emerald" /></div><button onClick={add} className="mb-4 rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Görev ekle</button><div className="grid gap-3">{items.map((item, index) => <div key={item.id || index} className="rounded-[8px] border border-white/10 bg-black/15 p-4"><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4"><Field label="Başlık" value={item.title || ""} onChange={(value) => update(index, { title: value })} /><CompanySelect value={item.company_id || ""} onChange={(value) => update(index, { company_id: value })} companies={content.companies} /><SelectField label="Durum" value={item.status || "Yapılacak"} onChange={(value) => update(index, { status: value })} options={["Yapılacak", "Devam Ediyor", "Beklemede", "Tamamlandı"]} /><SelectField label="Öncelik" value={item.priority || "Orta"} onChange={(value) => update(index, { priority: value })} options={["Düşük", "Orta", "Yüksek", "Kritik"]} /><Field label="Son tarih" type="date" value={item.due_date || ""} onChange={(value) => update(index, { due_date: value })} /><SelectField label="Atanan kullanıcı" value={item.assigned_user_id || ""} onChange={(value) => update(index, { assigned_user_id: value })} options={(content.users || []).map((user) => ({ value: user.id, label: user.full_name || user.email }))} placeholder="Atanmadı" /><TextArea label="Açıklama" value={item.description || item.notes || ""} onChange={(value) => update(index, { description: value, notes: value })} /><TextArea label="Not" value={item.notes || ""} onChange={(value) => update(index, { notes: value })} /></div><div className="mt-4 flex flex-wrap justify-end gap-2"><button onClick={() => save?.()} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Kaydet</button><button onClick={() => window.location.reload()} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200">Vazgeç</button><button onClick={() => updateCollection(content, setContent, "agencyTasks", items.filter((_, i) => i !== index))} className="rounded-full border border-red-300/30 px-4 py-2 text-xs text-red-200">Sil</button></div></div>)}{!items.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-sm text-slate-400">Henüz görev yok.</p>}</div></Panel>;
 }
 
 function DocumentCenter({ content, setContent }: any) {
@@ -1575,13 +1584,23 @@ function DocumentCenter({ content, setContent }: any) {
   return <Panel title="Belge Merkezi"><button onClick={() => updateCollection(content, setContent, "customerDocuments", [{ id: `${Date.now()}`, title: "Yeni belge", document_type: "Diğer", document_date: new Date().toISOString().slice(0, 10), visible_to_customer: false }, ...items])} className="mb-4 rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Belge ekle</button><div className="grid gap-3">{items.map((item, index) => <div key={item.id || index} className="rounded-[8px] border border-white/10 bg-black/15 p-4"><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4"><CompanySelect value={item.company_id || ""} onChange={(value) => update(index, { company_id: value })} companies={content.companies} /><Field label="Belge başlığı" value={item.title || ""} onChange={(value) => update(index, { title: value })} /><SelectField label="Belge türü" value={item.document_type || "Diğer"} onChange={(value) => update(index, { document_type: value })} options={["Teklif", "Sözleşme", "Fatura", "Rapor", "Diğer"]} /><Field label="Tarih" type="date" value={item.document_date || ""} onChange={(value) => update(index, { document_date: value })} /><Field label="Belge URL" value={item.document_url || ""} onChange={(value) => update(index, { document_url: value })} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item.visible_to_customer)} onChange={(event) => update(index, { visible_to_customer: event.target.checked })} /> Müşteriye göster</label></div><button onClick={() => updateCollection(content, setContent, "customerDocuments", items.filter((_, i) => i !== index))} className="mt-3 rounded-full border border-red-300/30 px-3 py-2 text-xs text-red-200">Sil</button></div>)}{!items.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-sm text-slate-400">Henüz belge yok.</p>}</div></Panel>;
 }
 
-function PaymentCenter({ content, setContent }: any) {
+function PaymentCenter({ content, setContent, save }: any) {
   const items = content.paymentRecords || [];
+  const [feedback, setFeedback] = useState("");
   const thisMonth = new Date().toISOString().slice(0, 7);
   const monthItems = items.filter((item) => String(item.service_period || item.due_date || "").startsWith(thisMonth));
   const sum = (list, predicate) => list.filter(predicate).reduce((total, item) => total + Number(item.amount || 0), 0);
   const update = (index, patch) => updateCollection(content, setContent, "paymentRecords", items.map((item, i) => i === index ? { ...item, ...patch } : item));
-  return <Panel title="Tahsilat Takibi"><div className="mb-5 grid gap-3 md:grid-cols-4"><AgencyStatCard label="Beklenen gelir" value={`${sum(monthItems, () => true).toLocaleString("tr-TR")} TL`} note="Bu ay planlanan tahsilat" /><AgencyStatCard label="Ödenen" value={`${sum(monthItems, (item) => item.status === "Ödendi").toLocaleString("tr-TR")} TL`} note="Tahsil edilmiş tutar" tone="emerald" /><AgencyStatCard label="Bekleyen" value={`${sum(monthItems, (item) => item.status === "Bekliyor").toLocaleString("tr-TR")} TL`} note="Henüz kapanmayan tutar" tone="amber" /><AgencyStatCard label="Gecikmiş" value={`${sum(items, (item) => item.status === "Gecikmiş").toLocaleString("tr-TR")} TL`} note="Aksiyon gerektirir" tone="red" /></div><button onClick={() => updateCollection(content, setContent, "paymentRecords", [{ id: `${Date.now()}`, amount: 0, due_date: new Date().toISOString().slice(0, 10), status: "Bekliyor", service_period: thisMonth, visible_to_customer: false }, ...items])} className="mb-4 rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Tahsilat kaydı ekle</button><div className="grid gap-3">{items.map((item, index) => <div key={item.id || index} className="grid gap-3 rounded-[8px] border border-white/10 bg-black/15 p-4 md:grid-cols-2 xl:grid-cols-4"><CompanySelect value={item.company_id || ""} onChange={(value) => update(index, { company_id: value })} companies={content.companies} /><Field label="Tutar" type="number" value={item.amount || 0} onChange={(value) => update(index, { amount: Number(value || 0) })} /><Field label="Son ödeme tarihi" type="date" value={item.due_date || ""} onChange={(value) => update(index, { due_date: value })} /><Field label="Ödeme tarihi" type="date" value={item.payment_date || ""} onChange={(value) => update(index, { payment_date: value })} /><SelectField label="Durum" value={item.status || "Bekliyor"} onChange={(value) => update(index, { status: value })} options={["Bekliyor", "Ödendi", "Gecikmiş", "İptal"]} /><Field label="Hizmet dönemi" type="month" value={item.service_period || ""} onChange={(value) => update(index, { service_period: value })} /><TextArea label="Ödeme notu" value={item.payment_note || ""} onChange={(value) => update(index, { payment_note: value })} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item.visible_to_customer)} onChange={(event) => update(index, { visible_to_customer: event.target.checked })} /> Müşteriye göster</label><button onClick={() => updateCollection(content, setContent, "paymentRecords", items.filter((_, i) => i !== index))} className="w-fit rounded-full border border-red-300/30 px-3 py-2 text-xs text-red-200">Sil</button></div>)}{!items.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-sm text-slate-400">Henüz tahsilat kaydı yok.</p>}</div></Panel>;
+  function addPayment() {
+    const hasEmptyDraft = items.some((item) => !item.company_id && !Number(item.amount || 0) && item.status === "Bekliyor");
+    if (hasEmptyDraft) {
+      setFeedback("Zaten boş bir tahsilat taslağı var. Önce onu doldurun.");
+      return;
+    }
+    setFeedback("Tahsilat taslağı eklendi. Kaydet düğmesiyle kalıcılaştırın.");
+    updateCollection(content, setContent, "paymentRecords", [{ id: createLocalId(), company_id: (content.companies || [])[0]?.id || "", amount: 0, due_date: new Date().toISOString().slice(0, 10), payment_date: "", status: "Bekliyor", service_period: thisMonth, payment_note: "", visible_to_customer: false }, ...items]);
+  }
+  return <Panel title="Tahsilat Takibi"><div className="mb-5 grid gap-3 md:grid-cols-4"><AgencyStatCard label="Beklenen gelir" value={`${sum(monthItems, () => true).toLocaleString("tr-TR")} TL`} note="Bu ay planlanan tahsilat" /><AgencyStatCard label="Ödenen" value={`${sum(monthItems, (item) => item.status === "Ödendi").toLocaleString("tr-TR")} TL`} note="Tahsil edilmiş tutar" tone="emerald" /><AgencyStatCard label="Bekleyen" value={`${sum(monthItems, (item) => item.status === "Bekliyor").toLocaleString("tr-TR")} TL`} note="Henüz kapanmayan tutar" tone="amber" /><AgencyStatCard label="Gecikmiş" value={`${sum(items, (item) => item.status === "Gecikmiş").toLocaleString("tr-TR")} TL`} note="Aksiyon gerektirir" tone="red" /></div><div className="mb-4 flex flex-wrap items-center gap-3"><button onClick={addPayment} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Tahsilat kaydı ekle</button>{feedback && <span className="rounded-full border border-cyan-200/20 px-3 py-2 text-xs text-cyan-100">{feedback}</span>}</div><div className="grid gap-3">{items.map((item, index) => <div key={item.id || index} className="rounded-[8px] border border-white/10 bg-black/15 p-4"><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4"><CompanySelect value={item.company_id || ""} onChange={(value) => update(index, { company_id: value })} companies={content.companies} /><Field label="Tutar" type="number" value={item.amount || 0} onChange={(value) => update(index, { amount: Number(value || 0) })} /><Field label="Son ödeme tarihi" type="date" value={item.due_date || ""} onChange={(value) => update(index, { due_date: value })} /><Field label="Ödeme tarihi" type="date" value={item.payment_date || ""} onChange={(value) => update(index, { payment_date: value })} /><SelectField label="Durum" value={item.status || "Bekliyor"} onChange={(value) => update(index, { status: value })} options={["Bekliyor", "Ödendi", "Gecikmiş", "İptal"]} /><Field label="Hizmet dönemi" type="month" value={item.service_period || ""} onChange={(value) => update(index, { service_period: value })} /><TextArea label="Not" value={item.payment_note || ""} onChange={(value) => update(index, { payment_note: value })} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item.visible_to_customer)} onChange={(event) => update(index, { visible_to_customer: event.target.checked })} /> Müşteriye görünür mü</label></div><div className="mt-4 flex flex-wrap justify-end gap-2"><button onClick={() => save?.()} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Kaydet</button><button onClick={() => window.location.reload()} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200">Vazgeç</button><button onClick={() => updateCollection(content, setContent, "paymentRecords", items.filter((_, i) => i !== index))} className="rounded-full border border-red-300/30 px-4 py-2 text-xs text-red-200">Sil</button></div></div>)}{!items.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-sm text-slate-400">Henüz tahsilat kaydı yok.</p>}</div></Panel>;
 }
 
 function buildDemoCompetitors(sector = "Yerel işletme", city = "Manisa") {
@@ -2376,7 +2395,7 @@ function CustomerPanelAdmin({ content, setContent }: any) {
   );
 }
 
-function CustomersAdmin({ content, setContent }: any) {
+function CustomersAdmin({ content, setContent, save }: any) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState("");
@@ -2575,6 +2594,7 @@ function CustomersAdmin({ content, setContent }: any) {
           setContent={setContent}
           updateCompany={updateCompany}
           saveCompany={saveCompany}
+          save={save}
           close={() => setDetailCompanyId("")}
         />
       )}
@@ -2582,7 +2602,7 @@ function CustomersAdmin({ content, setContent }: any) {
   );
 }
 
-function CustomerDetailDrawer({ company, content, setContent, updateCompany, saveCompany, close }: any) {
+function CustomerDetailDrawer({ company, content, setContent, updateCompany, saveCompany, save, close }: any) {
   const [tab, setTab] = useState("Genel Bilgi");
   if (!company) return null;
   const users = (content.users || []).filter((user) => customerRole(user.role) && user.company_id === company.id);
@@ -2592,6 +2612,8 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
   const files = (content.customerFiles || []).filter((item) => item.company_id === company.id);
   const reports = (content.reports || []).filter((item) => item.company_id === company.id);
   const activities = (content.activityLogs || []).filter((item) => item.company_id === company.id);
+  const payments = (content.paymentRecords || []).filter((item) => item.company_id === company.id);
+  const tasks = (content.agencyTasks || []).filter((item) => item.company_id === company.id);
   const visibilityItems = content.customerVisibilitySettings || [];
   const visibility = visibilityItems.find((item) => item.company_id === company.id) || {
     id: `visibility-${company.id}`,
@@ -2606,7 +2628,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
     show_files: true,
     show_contact_person: true
   };
-  const tabs = ["Genel Bilgi", "Giriş Bilgileri", "Kampanyalar", "Metrikler", "Raporlar", "Yapılan Çalışmalar", "Dosyalar", "Panel Görünürlüğü", "Aktivite Geçmişi", "Notlar"];
+  const tabs = ["Genel Bilgi", "Giriş Bilgileri", "Ödemeler", "Yapılacaklar", "Kampanyalar", "Metrikler", "Raporlar", "Yapılan Çalışmalar", "Dosyalar", "Panel Görünürlüğü", "Aktivite Geçmişi", "Notlar"];
   function updateVisibility(patch) {
     const next = { ...visibility, ...patch };
     const exists = visibilityItems.some((item) => item.company_id === company.id);
@@ -2645,6 +2667,8 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
       {tab === "Kampanyalar" && <CustomerRelatedList items={campaigns} empty="Bu müşteri için kampanya yok." render={(item) => `${item.name} · ${item.platform} · ${item.status}`} onVisibilityChange={(item, value) => updateRelated("campaigns", item.id, { visible_to_customer: value })} />}
       {tab === "Metrikler" && <CustomerRelatedList items={metrics} empty="Bu müşteri için metrik yok." render={(item) => `${formatDate(item.date)} · ${item.impressions || 0} gösterim · ${item.clicks || 0} tıklama · ${item.leads || 0} potansiyel müşteri · ${item.spent || 0} TL`} onVisibilityChange={(item, value) => updateRelated("campaignMetrics", item.id, { visible_to_customer: value })} />}
       {tab === "Raporlar" && <CustomerRelatedList items={reports} empty="Bu müşteri için kanal bazlı rapor yok." render={(item) => `${item.report_type} · ${item.period || "Dönem belirtilmedi"} · ${item.visible_to_customer ? "Müşteriye görünür" : "Dahili"}`} />}
+      {tab === "Ödemeler" && <CustomerPaymentsEditor company={company} content={content} setContent={setContent} save={save} items={payments} />}
+      {tab === "Yapılacaklar" && <CustomerTasksEditor company={company} content={content} setContent={setContent} save={save} items={tasks} />}
       {tab === "Yapılan Çalışmalar" && <CustomerRelatedList items={updates} empty="Bu müşteri için çalışma notu yok." render={(item) => `${item.title} · ${item.update_type}`} onVisibilityChange={(item, value) => updateRelated("customerUpdates", item.id, { visible_to_customer: value })} />}
       {tab === "Dosyalar" && <CustomerRelatedList items={files} empty="Bu müşteri için dosya yok." render={(item) => `${item.title} · ${item.file_type || "Dosya"}`} onVisibilityChange={(item, value) => updateRelated("customerFiles", item.id, { visible_to_customer: value })} />}
       {tab === "Panel Görünürlüğü" && <div><p className="mb-4 text-sm leading-6 text-slate-400">Müşteri panelinde görünmesini istediğiniz alanları seçin. Değişiklikleri üst menüdeki Kaydet düğmesi ile kalıcı hale getirin.</p><p className="mb-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">Müşteri panelindeki metrikler, teknik terimler yerine sade Türkçe açıklamalarla gösterilir.</p><div className="grid gap-3 md:grid-cols-2">{[
@@ -2668,38 +2692,117 @@ function CustomerRelatedList({ items, empty, render, onVisibilityChange }: any) 
   return <div className="grid gap-3">{items.map((item) => <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-white/10 bg-black/20 p-4 text-sm text-slate-200"><span>{render(item)}</span>{onVisibilityChange && <label className="flex items-center gap-2 text-xs text-slate-300"><input type="checkbox" checked={item.visible_to_customer ?? true} onChange={(event) => onVisibilityChange(item, event.target.checked)} /> Müşteriye göster</label>}</div>)}{!items.length && <p className="text-sm text-slate-400">{empty}</p>}</div>;
 }
 
-function ActivityLogs({ content }: any) {
+function CustomerPaymentsEditor({ company, content, setContent, save, items }: any) {
+  const allItems = content.paymentRecords || [];
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  const update = (id, patch) => updateCollection(content, setContent, "paymentRecords", allItems.map((item) => item.id === id ? { ...item, ...patch } : item));
+  const remove = (id) => updateCollection(content, setContent, "paymentRecords", allItems.filter((item) => item.id !== id));
+  function add() {
+    const duplicateDraft = allItems.some((item) => item.company_id === company.id && !Number(item.amount || 0) && item.status === "Bekliyor" && String(item.service_period || "").startsWith(thisMonth));
+    if (duplicateDraft) return;
+    updateCollection(content, setContent, "paymentRecords", [{ id: createLocalId(), company_id: company.id, amount: 0, due_date: new Date().toISOString().slice(0, 10), payment_date: "", status: "Bekliyor", service_period: thisMonth, payment_note: "", visible_to_customer: false }, ...allItems]);
+  }
+  return <div><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-white">Ödemeler</h3><p className="mt-1 text-sm text-slate-400">Bu kayıtlar Tahsilat, Karlılık ve Dashboard özetleriyle aynı veri kaynağını kullanır.</p></div><button onClick={add} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Ödeme Ekle</button></div><div className="grid gap-3">{items.map((item) => <div key={item.id} className="rounded-[8px] border border-white/10 bg-black/20 p-4"><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"><Field label="Tutar" type="number" value={item.amount || 0} onChange={(value) => update(item.id, { amount: Number(value || 0) })} /><Field label="Son ödeme tarihi" type="date" value={item.due_date || ""} onChange={(value) => update(item.id, { due_date: value })} /><Field label="Ödeme tarihi" type="date" value={item.payment_date || ""} onChange={(value) => update(item.id, { payment_date: value })} /><SelectField label="Durum" value={item.status || "Bekliyor"} onChange={(value) => update(item.id, { status: value })} options={["Bekliyor", "Ödendi", "Gecikmiş", "İptal"]} /><Field label="Hizmet dönemi" type="month" value={item.service_period || ""} onChange={(value) => update(item.id, { service_period: value })} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item.visible_to_customer)} onChange={(event) => update(item.id, { visible_to_customer: event.target.checked })} /> Müşteriye görünür mü</label><div className="md:col-span-2 xl:col-span-3"><TextArea label="Not" value={item.payment_note || ""} onChange={(value) => update(item.id, { payment_note: value })} /></div></div><div className="mt-4 flex flex-wrap justify-end gap-2"><button onClick={() => save?.()} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Kaydet</button><button onClick={() => window.location.reload()} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200">Vazgeç</button><button onClick={() => remove(item.id)} className="rounded-full border border-red-300/30 px-4 py-2 text-xs text-red-200">Sil</button></div></div>)}{!items.length && <p className="rounded-[8px] border border-dashed border-white/10 p-5 text-sm text-slate-400">Bu müşteri için ödeme kaydı yok.</p>}</div></div>;
+}
+
+function CustomerTasksEditor({ company, content, setContent, save, items }: any) {
+  const allItems = content.agencyTasks || [];
+  const update = (id, patch) => updateCollection(content, setContent, "agencyTasks", allItems.map((item) => item.id === id ? { ...item, ...patch } : item));
+  const remove = (id) => updateCollection(content, setContent, "agencyTasks", allItems.filter((item) => item.id !== id));
+  function add() {
+    updateCollection(content, setContent, "agencyTasks", [{ id: createLocalId(), company_id: company.id, title: "Yeni görev", description: "", status: "Yapılacak", priority: "Orta", due_date: new Date().toISOString().slice(0, 10), notes: "" }, ...allItems]);
+  }
+  return <div><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-white">Yapılacaklar</h3><p className="mt-1 text-sm text-slate-400">Bu görevler Görevler modülü ve Dashboard operasyon özetleriyle eş zamanlıdır.</p></div><button onClick={add} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Görev Ekle</button></div><div className="grid gap-3">{items.map((item) => <div key={item.id} className="rounded-[8px] border border-white/10 bg-black/20 p-4"><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"><Field label="Başlık" value={item.title || ""} onChange={(value) => update(item.id, { title: value })} /><SelectField label="Durum" value={item.status || "Yapılacak"} onChange={(value) => update(item.id, { status: value })} options={["Yapılacak", "Devam Ediyor", "Beklemede", "Tamamlandı"]} /><SelectField label="Öncelik" value={item.priority || "Orta"} onChange={(value) => update(item.id, { priority: value })} options={["Düşük", "Orta", "Yüksek", "Kritik"]} /><Field label="Son tarih" type="date" value={item.due_date || ""} onChange={(value) => update(item.id, { due_date: value })} /><SelectField label="Atanan kullanıcı" value={item.assigned_user_id || ""} onChange={(value) => update(item.id, { assigned_user_id: value })} options={(content.users || []).map((user) => ({ value: user.id, label: user.full_name || user.email }))} placeholder="Atanmadı" /><div className="md:col-span-2 xl:col-span-3"><TextArea label="Açıklama / not" value={item.description || item.notes || ""} onChange={(value) => update(item.id, { description: value, notes: value })} /></div></div><div className="mt-4 flex flex-wrap justify-end gap-2"><button onClick={() => update(item.id, { status: item.status === "Tamamlandı" ? "Yapılacak" : "Tamamlandı" })} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs text-emerald-100">{item.status === "Tamamlandı" ? "Tekrar Aç" : "Tamamlandı Yap"}</button><button onClick={() => save?.()} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Kaydet</button><button onClick={() => window.location.reload()} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200">Vazgeç</button><button onClick={() => remove(item.id)} className="rounded-full border border-red-300/30 px-4 py-2 text-xs text-red-200">Sil</button></div></div>)}{!items.length && <p className="rounded-[8px] border border-dashed border-white/10 p-5 text-sm text-slate-400">Bu müşteri için görev yok.</p>}</div></div>;
+}
+
+function ActivityLogs({ content, setContent }: any) {
   const [query, setQuery] = useState("");
-  const [userType, setUserType] = useState("");
-  const [role, setRole] = useState("");
+  const [userFilter, setUserFilter] = useState("");
+  const [moduleFilter, setModuleFilter] = useState("");
   const [action, setAction] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [criticalFilter, setCriticalFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [detailLog, setDetailLog] = useState(null);
   const activities = (content.activityLogs || [])
+    .filter((item) => !item.deleted_at)
     .filter((item) => !query || JSON.stringify(item).toLocaleLowerCase("tr").includes(query.toLocaleLowerCase("tr")))
-    .filter((item) => !userType || item.role === userType)
-    .filter((item) => !role || item.role === role)
-    .filter((item) => !action || item.action === action)
+    .filter((item) => !userFilter || String(item.actor_name || item.user_name || item.email || item.role || "").toLocaleLowerCase("tr").includes(userFilter.toLocaleLowerCase("tr")))
+    .filter((item) => !moduleFilter || (item.module || item.entity || "").includes(moduleFilter))
+    .filter((item) => !action || (item.action_type || item.action) === action)
+    .filter((item) => !statusFilter || (item.status || (item.is_seen ? "Görüldü" : "Görülmedi")) === statusFilter)
+    .filter((item) => !criticalFilter || String(Boolean(item.is_critical)) === criticalFilter)
     .filter((item) => !dateFrom || String(item.created_at || "").slice(0, 10) >= dateFrom)
     .filter((item) => !dateTo || String(item.created_at || "").slice(0, 10) <= dateTo);
+  const actionOptions = Array.from(new Set((content.activityLogs || []).map((item) => item.action_type || item.action).filter(Boolean)));
+  const moduleOptions = Array.from(new Set((content.activityLogs || []).map((item) => item.module || item.entity).filter(Boolean)));
+  function updateLogs(updater) {
+    setContent({ ...content, activityLogs: (content.activityLogs || []).map((item) => updater(item)) });
+  }
+  function updateLog(id, patch) {
+    updateLogs((item) => item.id === id ? { ...item, ...patch, updated_at: new Date().toISOString() } : item);
+  }
+  function bulk(patch) {
+    updateLogs((item) => selectedIds.includes(item.id) ? { ...item, ...patch, updated_at: new Date().toISOString() } : item);
+    setSelectedIds([]);
+  }
+  function toggleSelected(id) {
+    setSelectedIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+  }
+  function undoLog(log) {
+    const details = log.details || {};
+    if (String(log.entity || "").includes("Görev") && details.taskId) {
+      updateCollection(content, setContent, "agencyTasks", (content.agencyTasks || []).map((task) => task.id === details.taskId ? { ...task, status: "Yapılacak" } : task));
+      updateLog(log.id, { status: "Geri Alındı", details: { ...details, undo_message: "Görev tekrar açıldı." } });
+      return;
+    }
+    if (String(log.entity || "").includes("Belge") && details.documentId) {
+      updateCollection(content, setContent, "customerDocuments", (content.customerDocuments || []).map((doc) => doc.id === details.documentId ? { ...doc, archived_at: null, status: "Aktif" } : doc));
+      updateLog(log.id, { status: "Geri Alındı", details: { ...details, undo_message: "Belge arşivden çıkarıldı." } });
+      return;
+    }
+    if (String(log.entity || "").includes("Müşteri") && log.entity_id) {
+      updateCollection(content, setContent, "companies", (content.companies || []).map((company) => company.id === log.entity_id ? { ...company, status: "Aktif" } : company));
+      updateLog(log.id, { status: "Geri Alındı", details: { ...details, undo_message: "Müşteri tekrar aktifleştirildi." } });
+      return;
+    }
+    if (String(log.entity || "").includes("Kullanıcı") && log.entity_id) {
+      updateCollection(content, setContent, "users", (content.users || []).map((user) => user.id === log.entity_id ? { ...user, is_active: true } : user));
+      updateLog(log.id, { status: "Geri Alındı", details: { ...details, undo_message: "Kullanıcı tekrar aktifleştirildi." } });
+    }
+  }
   return (
     <Panel title="Log Hareketleri">
-      <p className="mb-5 text-sm leading-6 text-slate-400">Yönetici ve müşteri işlemlerini tarih, kullanıcı, rol ve işlem türüne göre inceleyin.</p>
-      <div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+      <p className="mb-5 text-sm leading-6 text-slate-400">Yönetici ve müşteri işlemlerini tarih, kullanıcı, modül, işlem türü, durum ve kritiklik durumuna göre inceleyin. Değişiklikleri üst menüdeki Kaydet düğmesiyle kalıcılaştırın.</p>
+      <div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-7">
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Kullanıcı veya işlem ara..." className="min-h-11 rounded-[8px] border border-white/10 bg-black/30 px-3 text-white" />
-        <SelectField label="Kullanıcı türü" value={userType} onChange={setUserType} options={roleOptions} placeholder="Tüm kullanıcılar" />
-        <SelectField label="Rol" value={role} onChange={setRole} options={roleOptions} placeholder="Tüm roller" />
-        <SelectField label="İşlem" value={action} onChange={setAction} options={["Giriş", "Oluşturma", "Güncelleme", "Silme", "İçe Aktarma", "Dışa Aktarma", "Şifre Sıfırlama", "Görüntüleme", "İndirme", "Dönüştürme"]} placeholder="Tüm işlemler" />
+        <Field label="Kullanıcı" value={userFilter} onChange={setUserFilter} placeholder="Kullanıcı adı / rol" />
+        <SelectField label="Modül" value={moduleFilter} onChange={setModuleFilter} options={moduleOptions} placeholder="Tüm modüller" />
+        <SelectField label="İşlem Türü" value={action} onChange={setAction} options={actionOptions.length ? actionOptions : ["Giriş", "Oluşturma", "Güncelleme", "Silme", "İçe Aktarma", "Dışa Aktarma", "Şifre Sıfırlama", "Görüntüleme", "İndirme", "Dönüştürme"]} placeholder="Tüm işlemler" />
+        <SelectField label="Durum" value={statusFilter} onChange={setStatusFilter} options={["Görülmedi", "Görüldü", "Arşivlendi", "Silindi", "Geri Alındı"]} placeholder="Tüm durumlar" />
+        <SelectField label="Kritik" value={criticalFilter} onChange={setCriticalFilter} options={[{ value: "true", label: "Kritik" }, { value: "false", label: "Normal" }]} placeholder="Tümü" />
         <Field label="Başlangıç tarihi" type="date" value={dateFrom} onChange={setDateFrom} />
         <Field label="Bitiş tarihi" type="date" value={dateTo} onChange={setDateTo} />
       </div>
-      <ActivityList items={activities} empty="Seçilen filtrelere uygun hareket kaydı yok." />
+      <div className="mb-4 flex flex-wrap gap-2">
+        <button disabled={!selectedIds.length} onClick={() => bulk({ is_seen: true, status: "Görüldü" })} className="rounded-full border border-emerald-300/30 px-3 py-2 text-xs text-emerald-100 disabled:opacity-40">Toplu Görüldü Yap</button>
+        <button disabled={!selectedIds.length} onClick={() => bulk({ archived_at: new Date().toISOString(), status: "Arşivlendi" })} className="rounded-full border border-amber-300/30 px-3 py-2 text-xs text-amber-100 disabled:opacity-40">Toplu Arşivle</button>
+        <button disabled={!selectedIds.length} onClick={() => confirm("Seçili logları silmek istediğinize emin misiniz?") && bulk({ deleted_at: new Date().toISOString(), status: "Silindi" })} className="rounded-full border border-red-300/30 px-3 py-2 text-xs text-red-200 disabled:opacity-40">Toplu Sil</button>
+      </div>
+      <ActivityList items={activities} empty="Seçilen filtrelere uygun hareket kaydı yok." selectedIds={selectedIds} toggleSelected={toggleSelected} updateLog={updateLog} openDetail={setDetailLog} undoLog={undoLog} />
+      {detailLog && <Drawer title="Log Detayı" close={() => setDetailLog(null)}><div className="grid gap-3 md:grid-cols-2"><InfoItem label="Kullanıcı" value={detailLog.actor_name || detailLog.user_name || "Sistem"} /><InfoItem label="Tarih" value={formatDateTime(detailLog.created_at)} /><InfoItem label="Modül" value={detailLog.module || detailLog.entity || "-"} /><InfoItem label="İşlem" value={detailLog.action_type || detailLog.action || "-"} /><InfoItem label="Eski Değer" value={JSON.stringify(detailLog.old_value || detailLog.details?.old_value || detailLog.details?.oldValue || {}, null, 2)} /><InfoItem label="Yeni Değer" value={JSON.stringify(detailLog.new_value || detailLog.details?.new_value || detailLog.details?.newValue || {}, null, 2)} /><div className="md:col-span-2"><InfoItem label="Ek Bilgi" value={JSON.stringify(detailLog.details || {}, null, 2)} /></div></div></Drawer>}
     </Panel>
   );
 }
 
-function ActivityList({ items, empty }: any) {
-  return <div className="grid gap-3">{items.map((item) => <div key={item.id} className="rounded-[8px] border border-white/10 bg-black/20 p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-black text-white">{item.details?.message || `${item.entity} · ${item.action}`}</p><p className="mt-1 text-sm text-slate-400">{item.actor_name || "Sistem"} · {roleOptions.find((role) => role.value === item.role)?.label || item.role || "Sistem"} · {item.entity}</p></div><span className="rounded-full bg-cyan-200/10 px-3 py-1 text-xs font-bold text-cyan-100">{item.action}</span></div><p className="mt-3 text-xs text-slate-500">{formatDateTime(item.created_at)}</p></div>)}{!items.length && <p className="text-sm text-slate-400">{empty}</p>}</div>;
+function ActivityList({ items, empty, selectedIds = [], toggleSelected, updateLog, openDetail, undoLog }: any) {
+  return <div className="grid gap-3">{items.map((item) => {
+    const status = item.status || (item.is_seen ? "Görüldü" : "Görülmedi");
+    const canUndo = String(item.entity || "").includes("Görev") || String(item.entity || "").includes("Belge") || String(item.entity || "").includes("Müşteri") || String(item.entity || "").includes("Kullanıcı");
+    return <div key={item.id} className={`rounded-[8px] border p-4 ${item.archived_at ? "border-amber-300/20 bg-amber-300/5" : "border-white/10 bg-black/20"}`}><div className="flex flex-wrap items-start justify-between gap-3"><div className="flex min-w-0 gap-3">{toggleSelected && <input type="checkbox" checked={selectedIds.includes(item.id)} onChange={() => toggleSelected(item.id)} className="mt-1" />}<div><p className="font-black text-white">{item.details?.message || `${item.entity} · ${item.action}`}</p><p className="mt-1 text-sm text-slate-400">{item.actor_name || "Sistem"} · {roleOptions.find((role) => role.value === item.role)?.label || item.role || "Sistem"} · {item.module || item.entity}</p><p className="mt-3 text-xs text-slate-500">{formatDateTime(item.created_at)}</p></div></div><div className="flex flex-wrap justify-end gap-2"><span className="rounded-full bg-cyan-200/10 px-3 py-1 text-xs font-bold text-cyan-100">{item.action_type || item.action}</span><span className="rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-slate-200">{status}</span>{item.is_critical && <span className="rounded-full bg-red-300/15 px-3 py-1 text-xs font-bold text-red-100">Kritik</span>}</div></div>{updateLog && <div className="mt-4 flex flex-wrap gap-2"><button onClick={() => updateLog(item.id, { is_seen: true, status: "Görüldü" })} className="rounded-full border border-emerald-300/30 px-3 py-2 text-xs text-emerald-100">Görüldü Yap</button><button onClick={() => updateLog(item.id, { is_seen: false, status: "Görülmedi" })} className="rounded-full border border-white/10 px-3 py-2 text-xs text-slate-200">Görülmedi Yap</button><button onClick={() => updateLog(item.id, { archived_at: new Date().toISOString(), status: "Arşivlendi" })} className="rounded-full border border-amber-300/30 px-3 py-2 text-xs text-amber-100">Arşivle</button><button onClick={() => confirm("Bu log kaydını silmek istediğinize emin misiniz?") && updateLog(item.id, { deleted_at: new Date().toISOString(), status: "Silindi" })} className="rounded-full border border-red-300/30 px-3 py-2 text-xs text-red-200">Sil</button>{canUndo && <button onClick={() => undoLog?.(item)} className="rounded-full border border-cyan-300/30 px-3 py-2 text-xs text-cyan-100">Geri Al</button>}<button onClick={() => openDetail?.(item)} className="ml-auto rounded-full bg-cyan-300 px-3 py-2 text-xs font-black text-slate-950">Detay</button></div>}</div>;
+  })}{!items.length && <p className="text-sm text-slate-400">{empty}</p>}</div>;
 }
 
 function ReportsAdmin({ content, setContent }: any) {

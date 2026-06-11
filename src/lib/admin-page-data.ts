@@ -32,7 +32,7 @@ export async function getAdminPageData() {
           supabaseRest("customer_visibility_settings?select=*&order=updated_at.desc"),
           supabaseRest("customer_files?select=*&order=uploaded_at.desc"),
           supabaseRest("media_files?select=*&order=uploaded_at.desc"),
-          supabaseRest("activity_logs?select=*&order=created_at.desc&limit=500").catch(() => []),
+          supabaseRest("activity_logs?deleted_at=is.null&select=*&order=created_at.desc&limit=500").catch(() => []),
           supabaseRest("reports?select=*&order=created_at.desc").catch(() => []),
           supabaseRest("report_interpretations?select=*&order=created_at.desc").catch(() => []),
           supabaseRest("report_updates?select=*&order=is_pinned.desc,update_date.desc").catch(() => [])

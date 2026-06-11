@@ -25,7 +25,8 @@ const tables = {
   competitorAnalyses: "competitor_analyses",
   socialMediaPlans: "social_media_plans",
   agencyExpenses: "agency_expenses",
-  sectorConfigs: "sector_configs"
+  sectorConfigs: "sector_configs",
+  activityLogs: "activity_logs"
 } as const;
 const allowedUpdateTypes = ["Yapılan Çalışma", "Reklam Güncellemesi", "Rapor Notu", "Strateji Notu", "Uyarı", "Başarı", "Diğer"];
 
@@ -217,6 +218,7 @@ function normalizeRecord(key: string, item: any) {
       ...base,
       company_id: item.company_id || null,
       title: item.title || "Yeni görev",
+      description: item.description || "",
       status: item.status || "Yapılacak",
       priority: item.priority || "Orta",
       due_date: item.due_date || item.dueDate || null,
@@ -308,13 +310,44 @@ function normalizeRecord(key: string, item: any) {
     };
   }
 
+  if (key === "activityLogs") {
+    return {
+      ...base,
+      actor_user_id: item.actor_user_id || item.user_id || null,
+      company_id: item.company_id || null,
+      actor_name: item.actor_name || item.user_name || "Sistem",
+      role: item.role || "system",
+      action: item.action || item.action_type || "Güncelleme",
+      action_type: item.action_type || item.action || "Güncelleme",
+      entity: item.entity || item.module || "Sistem",
+      module: item.module || item.entity || "Sistem",
+      entity_id: item.entity_id || null,
+      details: item.details || {},
+      old_value: item.old_value || item.details?.old_value || item.details?.oldValue || null,
+      new_value: item.new_value || item.details?.new_value || item.details?.newValue || null,
+      status: item.status || (item.is_seen ? "Görüldü" : "Görülmedi"),
+      is_seen: item.is_seen ?? item.status === "Görüldü",
+      is_critical: item.is_critical ?? false,
+      archived_at: item.archived_at || null,
+      deleted_at: item.deleted_at || null,
+      updated_at: new Date().toISOString()
+    };
+  }
+
   return { ...item, ...base };
 }
 
 async function upsertItems(key: keyof typeof tables, items: any[] = []) {
   if (!items.length || key === "users") return [];
   const table = tables[key];
-  const records = items.map((item) => normalizeRecord(key, item)).filter((item: any) => {
+  const normalized = items.map((item) => normalizeRecord(key, item));
+  const deduped = key === "paymentRecords"
+    ? normalized.filter((item: any, index: number, list: any[]) => {
+        const signature = [item.company_id, item.service_period, item.due_date, item.amount, item.status].join("|");
+        return list.findIndex((candidate: any) => [candidate.company_id, candidate.service_period, candidate.due_date, candidate.amount, candidate.status].join("|") === signature) === index;
+      })
+    : normalized;
+  const records = deduped.filter((item: any) => {
     if (["campaigns", "campaignMetrics", "customerUpdates", "customerVisibilitySettings", "customerFiles", "customerBranding", "monthlyReports", "customerDocuments", "paymentRecords", "competitorAnalyses", "socialMediaPlans"].includes(key)) {
       return Boolean(item.company_id);
     }
@@ -336,6 +369,21 @@ async function upsertItems(key: keyof typeof tables, items: any[] = []) {
     if (key === "customerUpdates") {
       delete copy.why_it_matters;
       delete copy.next_step;
+    }
+    if (key === "agencyTasks") {
+      delete copy.description;
+    }
+    if (key === "activityLogs") {
+      delete copy.status;
+      delete copy.is_seen;
+      delete copy.archived_at;
+      delete copy.deleted_at;
+      delete copy.is_critical;
+      delete copy.module;
+      delete copy.action_type;
+      delete copy.old_value;
+      delete copy.new_value;
+      delete copy.updated_at;
     }
     if (key === "leads") {
       delete copy.digital_maturity_score;
@@ -367,7 +415,7 @@ async function upsertItems(key: keyof typeof tables, items: any[] = []) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Supabase kaydetme hatası.";
-    if (["customerBranding", "monthlyReports", "agencyTasks", "customerDocuments", "paymentRecords", "competitorAnalyses", "socialMediaPlans", "agencyExpenses", "sectorConfigs"].includes(key) && (message.includes("schema cache") || message.includes("relation") || message.includes("table"))) {
+    if (["customerBranding", "monthlyReports", "agencyTasks", "customerDocuments", "paymentRecords", "competitorAnalyses", "socialMediaPlans", "agencyExpenses", "sectorConfigs", "activityLogs"].includes(key) && (message.includes("schema cache") || message.includes("relation") || message.includes("table"))) {
       console.warn(`${table} tablosu canlı şemada bulunamadı; migration uygulanana kadar bu modül atlandı.`);
       return [];
     }
@@ -392,7 +440,7 @@ export async function GET() {
     return NextResponse.json({ error: "Supabase bağlantısı yapılandırılmadı." }, { status: 500 });
   }
 
-  const [companies, users, leads, campaigns, campaignMetrics, customerUpdates, customerVisibilitySettings, customerFiles, media, customerBranding, monthlyReports, agencyTasks, customerDocuments, paymentRecords, competitorAnalyses, socialMediaPlans, agencyExpenses, sectorConfigs] =
+  const [companies, users, leads, campaigns, campaignMetrics, customerUpdates, customerVisibilitySettings, customerFiles, media, customerBranding, monthlyReports, agencyTasks, customerDocuments, paymentRecords, competitorAnalyses, socialMediaPlans, agencyExpenses, sectorConfigs, activityLogs] =
     await Promise.all([
       supabaseRest("companies?select=*&order=created_at.desc"),
       supabaseRest("users?deleted_at=is.null&select=*&order=created_at.desc"),
@@ -411,7 +459,8 @@ export async function GET() {
       supabaseRest("competitor_analyses?select=*&order=updated_at.desc").catch(() => []),
       supabaseRest("social_media_plans?select=*&order=updated_at.desc").catch(() => []),
       supabaseRest("agency_expenses?select=*&order=expense_date.desc").catch(() => []),
-      supabaseRest("sector_configs?select=*&order=sector_name.asc").catch(() => [])
+      supabaseRest("sector_configs?select=*&order=sector_name.asc").catch(() => []),
+      supabaseRest("activity_logs?deleted_at=is.null&select=*&order=created_at.desc&limit=500").catch(() => [])
     ]);
 
   return NextResponse.json({
@@ -432,7 +481,8 @@ export async function GET() {
     competitorAnalyses,
     socialMediaPlans,
     agencyExpenses,
-    sectorConfigs
+    sectorConfigs,
+    activityLogs
   });
 }
 
@@ -463,7 +513,8 @@ export async function PUT(request: Request) {
       upsertItems("competitorAnalyses", payload.competitorAnalyses),
       upsertItems("socialMediaPlans", payload.socialMediaPlans),
       upsertItems("agencyExpenses", payload.agencyExpenses),
-      upsertItems("sectorConfigs", payload.sectorConfigs)
+      upsertItems("sectorConfigs", payload.sectorConfigs),
+      upsertItems("activityLogs", payload.activityLogs)
     ]);
 
     await recordActivity({ session, action: "Güncelleme", entity: "Kontrol Merkezi", details: { message: "Kontrol merkezi kayıtları güncellendi" } });
