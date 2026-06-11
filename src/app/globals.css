@@ -666,6 +666,248 @@ html {
   background: rgba(103, 232, 249, .3);
 }
 
+.cinematic-home {
+  isolation: isolate;
+}
+
+.cinematic-home::before {
+  content: "";
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(circle at 16% 12%, rgba(34, 211, 238, .16), transparent 24rem),
+    radial-gradient(circle at 82% 16%, rgba(251, 146, 60, .13), transparent 22rem),
+    radial-gradient(circle at 62% 72%, rgba(59, 130, 246, .13), transparent 30rem);
+  animation: cinematic-aurora-drift 24s ease-in-out infinite;
+}
+
+.cinematic-aurora {
+  background:
+    linear-gradient(115deg, transparent 8%, rgba(34, 211, 238, .08), transparent 38%),
+    linear-gradient(65deg, transparent 16%, rgba(250, 204, 21, .07), transparent 46%);
+  filter: blur(.5px);
+  animation: cinematic-light-band 18s ease-in-out infinite;
+}
+
+.cinematic-floor {
+  border-bottom: 1px solid rgba(255, 255, 255, .055);
+}
+
+.cinematic-floor::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(125, 211, 252, .055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(125, 211, 252, .055) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: radial-gradient(circle at 50% 42%, black, transparent 72%);
+  opacity: .58;
+}
+
+.cinematic-floor-glow {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 80% 24%, rgba(34, 211, 238, .12), transparent 24rem),
+    radial-gradient(circle at 18% 68%, rgba(251, 146, 60, .10), transparent 22rem);
+}
+
+.cinematic-eyebrow {
+  text-shadow: 0 0 24px rgba(34, 211, 238, .42);
+}
+
+.cinematic-title {
+  background: linear-gradient(92deg, #fff 0%, #dffbff 35%, #facc15 70%, #fff 100%);
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: text-energy-scan 6s ease-in-out infinite;
+}
+
+.cinematic-card {
+  position: relative;
+  overflow: hidden;
+  transform-style: preserve-3d;
+  transition: border-color .25s ease, box-shadow .25s ease, transform .25s ease;
+}
+
+.cinematic-card::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 0%, rgba(255, 255, 255, .09) 46%, transparent 72%);
+  opacity: 0;
+  transform: translateX(-55%);
+  transition: opacity .35s ease, transform .65s ease;
+}
+
+.cinematic-card:hover {
+  border-color: rgba(103, 232, 249, .35);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, .34), 0 0 42px rgba(34, 211, 238, .12);
+}
+
+.cinematic-card:hover::after {
+  opacity: 1;
+  transform: translateX(55%);
+}
+
+.cinematic-press {
+  box-shadow: 0 14px 38px rgba(0, 0, 0, .24);
+}
+
+.cinematic-press:hover {
+  transform: translateY(-3px) scale(1.015);
+}
+
+.cinematic-press:active {
+  transform: translateY(1px) scale(.985);
+}
+
+.cinematic-orbit {
+  position: relative;
+  min-height: 620px;
+  transform-style: preserve-3d;
+}
+
+.cinematic-core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: grid;
+  width: min(62vw, 330px);
+  aspect-ratio: 1;
+  place-items: center;
+  translate: -50% -50%;
+  border: 1px solid rgba(103, 232, 249, .22);
+  border-radius: 32px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, .12), rgba(255, 255, 255, .035)),
+    radial-gradient(circle at 50% 0%, rgba(34, 211, 238, .18), transparent 60%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .14),
+    0 32px 120px rgba(0, 0, 0, .42),
+    0 0 80px rgba(34, 211, 238, .16);
+  text-align: center;
+  backdrop-filter: blur(22px);
+  animation: cinematic-core-float 7s ease-in-out infinite;
+}
+
+.cinematic-float-card {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  width: min(78vw, 250px);
+  gap: 12px;
+  border: 1px solid rgba(255, 255, 255, .11);
+  border-radius: 16px;
+  background: rgba(3, 7, 18, .72);
+  padding: 14px;
+  box-shadow: 0 22px 70px rgba(0, 0, 0, .32);
+  backdrop-filter: blur(20px);
+  animation: cinematic-chip-float 7s ease-in-out infinite;
+}
+
+.cinematic-float-0 { left: 3%; top: 8%; animation-delay: -.2s; }
+.cinematic-float-1 { right: 2%; top: 12%; animation-delay: -1.4s; }
+.cinematic-float-2 { left: 0; top: 43%; animation-delay: -2.5s; }
+.cinematic-float-3 { right: 0; top: 46%; animation-delay: -3.4s; }
+.cinematic-float-4 { left: 10%; bottom: 6%; animation-delay: -4.2s; }
+.cinematic-float-5 { right: 8%; bottom: 8%; animation-delay: -5.4s; }
+
+.cinematic-dashboard {
+  transform-style: preserve-3d;
+}
+
+.cinematic-dashboard::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border-radius: inherit;
+  background: linear-gradient(120deg, rgba(34, 211, 238, .34), rgba(250, 204, 21, .18), rgba(59, 130, 246, .24));
+  filter: blur(18px);
+  opacity: .45;
+}
+
+.elevator-nav {
+  animation: hard-drop .55s ease both;
+}
+
+@keyframes cinematic-aurora-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  50% {
+    transform: translate3d(2rem, -1.5rem, 0) scale(1.04);
+  }
+}
+
+@keyframes cinematic-light-band {
+  0%,
+  100% {
+    opacity: .58;
+    transform: translate3d(-4rem, 0, 0);
+  }
+
+  50% {
+    opacity: .92;
+    transform: translate3d(5rem, 1rem, 0);
+  }
+}
+
+@keyframes cinematic-core-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotateX(0deg);
+  }
+
+  50% {
+    transform: translate3d(0, -14px, 0) rotateX(4deg);
+  }
+}
+
+@keyframes cinematic-chip-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+
+  50% {
+    transform: translate3d(0, -12px, 0);
+  }
+}
+
+@media (max-width: 1023px) {
+  .cinematic-orbit {
+    min-height: 520px;
+  }
+
+  .cinematic-float-card {
+    position: relative;
+    inset: auto !important;
+    margin: 10px auto;
+    animation: none;
+  }
+
+  .cinematic-core {
+    position: relative;
+    left: auto;
+    top: auto;
+    margin: 0 auto 18px;
+    translate: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -685,6 +927,14 @@ html {
   .brand-chip,
   .split-reveal,
   .pulse-badge {
+    animation: none !important;
+  }
+
+  .cinematic-home::before,
+  .cinematic-aurora,
+  .cinematic-floor::before,
+  .cinematic-core,
+  .cinematic-float-card {
     animation: none !important;
   }
 }
