@@ -2,20 +2,22 @@
 
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, BarChart3, BrainCircuit, Gauge, Layers3, MessageCircle, MousePointerClick, Rocket, Search, ShieldCheck, Sparkles, Target, Zap } from "lucide-react";
+import { ArrowRight, BarChart3, BrainCircuit, CalendarDays, Gauge, Layers3, MessageCircle, MousePointerClick, PieChart, Rocket, Search, ShieldCheck, Sparkles, Target, Zap } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import type { SiteContent } from "@/lib/types";
 import { ContactForm } from "./ContactForm";
-import { ElevatorFloor, ElevatorNav } from "./ElevatorNav";
 import { PackageCards, ServiceGrid } from "./ServicePackageSections";
+import { PublicTopTabs } from "./PublicTopTabs";
+import type { PublicTabItem } from "./PublicTopTabs";
 
-const floors: ElevatorFloor[] = [
-  { id: "hero", number: "01", label: "Ana Sayfa" },
-  { id: "services", number: "02", label: "Hizmetler" },
-  { id: "intelligence", number: "03", label: "HK Intelligence" },
-  { id: "packages", number: "04", label: "Paketler" },
-  { id: "process", number: "05", label: "Süreç" },
-  { id: "contact", number: "06", label: "İletişim" }
+const tabs: PublicTabItem[] = [
+  { id: "hero", label: "Ana Sayfa" },
+  { id: "services", label: "Hizmetler" },
+  { id: "intelligence", label: "HK Intelligence" },
+  { id: "packages", label: "Paketler" },
+  { id: "process", label: "Süreç" },
+  { id: "contact", label: "İletişim" }
 ];
 
 const floatingCards = [
@@ -33,7 +35,7 @@ const fixedServices = [
   "Sosyal Medya Yönetimi",
   "AI Destekli Raporlama",
   "CRM ve Lead Takibi",
-  "Web Site & Landing Page"
+  "Web Site ve Landing Page (iniş sayfası)"
 ];
 
 const intelligenceMetrics = [
@@ -46,6 +48,22 @@ const intelligenceMetrics = [
 ];
 
 const processSteps = ["Keşif", "Analiz", "Strateji", "Kurulum", "Yayın", "Raporlama", "Optimizasyon"];
+
+const proofMetrics = [
+  ["CTR", "Tıklama oranı", "Reklamı görenlerin tıklama davranışını görünür hale getirir."],
+  ["CPC", "Tıklama başı maliyet", "Reklam bütçesini daha kontrollü yönetmeye yardımcı olur."],
+  ["ROAS", "Reklam harcamasının geri dönüşü", "Satış garantisi değil, ölçülebilir büyüme sistemi."],
+  ["Dönüşüm", "Form, arama, WhatsApp veya satış aksiyonu", "Aksiyonları tek ekranda takip etmeye yardımcı olur."]
+];
+
+const dashboardBlocks: Array<[string, string, LucideIcon]> = [
+  ["Meta Ads performans kartı", "Gösterim, erişim, mesaj ve kreatif testleri tek özet içinde takip edilir.", BarChart3],
+  ["Google Ads arama performansı", "Arama niyeti, tıklama maliyeti ve dönüşüm sinyali birlikte okunur.", Search],
+  ["Sosyal medya içerik takvimi", "Reels, hikâye, gönderi ve kampanya içerikleri planlı ilerler.", CalendarDays],
+  ["Lead pipeline kartı", "Yeni lead, teklif, takip ve kazanım aşamaları görünür kalır.", Target],
+  ["AI analiz kartı", "Metrikler sade Türkçe yorumlara ve sonraki aksiyonlara dönüşür.", BrainCircuit],
+  ["Aylık rapor önizleme", "Müşteriye sunulabilir rapor, notlar ve öneriler aynı akışta hazırlanır.", Layers3]
+];
 
 type SectionShellProps = {
   id: string;
@@ -115,6 +133,61 @@ function MiniOsPanel() {
   );
 }
 
+function MetricCounter({ value, label, text }: { value: string; label: string; text: string }) {
+  return (
+    <motion.div whileHover={{ y: -7, rotateX: 4 }} className="cinematic-card rounded-[16px] border border-white/10 bg-white/[0.045] p-5">
+      <p className="text-3xl font-black text-white">{value}</p>
+      <p className="mt-2 text-sm font-black text-cyan-100">{label}</p>
+      <p className="mt-3 text-xs leading-5 text-slate-400">{text}</p>
+    </motion.div>
+  );
+}
+
+function CampaignVisualGrid() {
+  return (
+    <div className="mt-12 grid gap-4 lg:grid-cols-[1fr_.8fr]">
+      <div className="cinematic-card rounded-[20px] border border-cyan-200/15 bg-[#06111f]/72 p-5">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[.2em] text-cyan-200">Kampanya panosu</p>
+            <h3 className="mt-2 text-2xl font-black text-white">Bütçe, funnel ve lead kalitesi</h3>
+          </div>
+          <span className="rounded-full bg-amber-300 px-3 py-1 text-xs font-black text-slate-950">Kontrollü büyüme</span>
+        </div>
+        <div className="mt-6 grid gap-3 md:grid-cols-4">
+          {proofMetrics.map(([value, label, text]) => <MetricCounter key={value} value={value} label={label} text={text} />)}
+        </div>
+        <div className="mt-6 grid gap-3 md:grid-cols-3">
+          {["Bütçe dağılımı", "Dönüşüm hunisi", "ROAS değerlendirme"].map((item, index) => (
+            <div key={item} className="rounded-[14px] border border-white/10 bg-black/18 p-4">
+              <p className="text-sm font-black text-white">{item}</p>
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10">
+                <div className="h-full rounded-full bg-gradient-to-r from-cyan-300 via-amber-200 to-orange-400" style={{ width: `${62 + index * 13}%` }} />
+              </div>
+              <p className="mt-3 text-xs leading-5 text-slate-400">Performansı görünür hale getirir; kesin satış garantisi vermez.</p>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="cinematic-card rounded-[20px] border border-amber-200/15 bg-amber-200/[0.055] p-5">
+        <PieChart className="text-amber-100" size={32} />
+        <h3 className="mt-5 text-2xl font-black text-white">Mini dönüşüm hunisi</h3>
+        <div className="mt-5 grid gap-3">
+          {["Görünürlük", "Tıklama", "Mesaj / Form", "Takip", "Teklif"].map((step, index) => (
+            <div key={step} className="flex items-center gap-3">
+              <span className="grid size-8 place-items-center rounded-full bg-cyan-300 text-xs font-black text-slate-950">{index + 1}</span>
+              <div className="h-9 flex-1 rounded-full bg-white/10 p-1">
+                <div className="h-full rounded-full bg-gradient-to-r from-cyan-300 to-amber-200" style={{ width: `${94 - index * 12}%` }} />
+              </div>
+              <span className="w-24 text-xs font-bold text-slate-300">{step}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function CinematicHomepage({ content }: { content: SiteContent }) {
   const reduced = useReducedMotion();
   const packages = content.packages?.length ? content.packages : [];
@@ -123,13 +196,13 @@ export function CinematicHomepage({ content }: { content: SiteContent }) {
 
   return (
     <div className="cinematic-home relative">
-      <ElevatorNav floors={floors} />
+      <PublicTopTabs items={tabs} />
       <div className="cinematic-aurora pointer-events-none absolute inset-0" aria-hidden="true" />
 
-      <section id="hero" className="cinematic-floor relative flex min-h-[calc(100svh-76px)] scroll-mt-24 items-center overflow-hidden px-4 py-16 sm:px-6 lg:px-8">
+      <section id="hero" className="cinematic-floor relative flex min-h-[calc(100svh-76px)] scroll-mt-32 items-center overflow-hidden px-4 py-20 sm:px-6 lg:px-8">
         <div className="cinematic-floor-glow" aria-hidden="true" />
-        <div className="relative mx-auto grid w-full max-w-7xl items-center gap-12 lg:grid-cols-[.95fr_1.05fr]">
-          <motion.div initial={reduced ? false : { opacity: 0, y: 40 }} animate={reduced ? undefined : { opacity: 1, y: 0 }} transition={{ duration: .75, ease: [0.16, 1, 0.3, 1] }}>
+        <div className="relative mx-auto grid w-full max-w-7xl items-center gap-14 lg:grid-cols-[1.05fr_.95fr]">
+          <motion.div initial={reduced ? false : { opacity: 0, y: 32 }} animate={reduced ? undefined : { opacity: 1, y: 0 }} transition={{ duration: .75, ease: [0.16, 1, 0.3, 1] }} className="relative z-10">
             <p className="cinematic-eyebrow text-xs font-black uppercase tracking-[.3em] text-amber-200">HK Dijital büyüme sistemi</p>
             <h1 className="cinematic-title mt-5 text-4xl font-black leading-[.96] tracking-tight text-white sm:text-6xl lg:text-7xl">
               Reklam vermek kolaydır. Büyümeyi yönetmek zordur.
@@ -143,7 +216,7 @@ export function CinematicHomepage({ content }: { content: SiteContent }) {
             </div>
           </motion.div>
 
-          <motion.div initial={reduced ? false : { opacity: 0, scale: .92, rotateX: 10 }} animate={reduced ? undefined : { opacity: 1, scale: 1, rotateX: 0 }} transition={{ duration: .9, delay: .15, ease: [0.16, 1, 0.3, 1] }} className="relative">
+          <motion.div initial={reduced ? false : { opacity: 0, scale: .96, y: 24 }} animate={reduced ? undefined : { opacity: 1, scale: 1, y: 0 }} transition={{ duration: .78, delay: .22, ease: [0.16, 1, 0.3, 1] }} className="relative z-0">
             <div className="cinematic-orbit">
               {floatingCards.map(([title, text, Icon], index) => (
                 <motion.div key={String(title)} initial={reduced ? false : { opacity: 0, y: 28 }} animate={reduced ? undefined : { opacity: 1, y: 0 }} transition={{ delay: .25 + index * .07, duration: .52 }} className={`cinematic-float-card cinematic-float-${index}`}>
@@ -180,6 +253,7 @@ export function CinematicHomepage({ content }: { content: SiteContent }) {
           })}
         </div>
         {services.length > 0 && <div className="mt-12"><ServiceGrid services={services} /></div>}
+        <CampaignVisualGrid />
       </SectionShell>
 
       <SectionShell id="intelligence" eyebrow="03 HK Intelligence" title="Ajans hizmeti değil, işletme işletim sistemi." text="HK Intelligence; reklam sinyallerini, lead kalitesini, müşteri takibini ve AI yorumlarını tek bir karar ekranına taşır.">
@@ -194,6 +268,15 @@ export function CinematicHomepage({ content }: { content: SiteContent }) {
           </div>
           <MiniOsPanel />
         </div>
+        <div className="mt-12 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {dashboardBlocks.map(([title, text, Icon]) => (
+            <div key={String(title)} className="cinematic-card rounded-[18px] border border-white/10 bg-white/[0.04] p-5">
+              <Icon className="text-cyan-100" size={26} />
+              <h3 className="mt-4 text-xl font-black text-white">{String(title)}</h3>
+              <p className="mt-3 text-sm leading-7 text-slate-300">{String(text)}</p>
+            </div>
+          ))}
+        </div>
       </SectionShell>
 
       <SectionShell id="packages" eyebrow="04 Paketler" title="Paketler net, sistem güçlü, karar süreci sade." text={content.pages.packages?.intro || "Başlangıç, büyüme ve premium operasyon ihtiyaçlarına göre paketleri karşılaştırın."}>
@@ -202,7 +285,7 @@ export function CinematicHomepage({ content }: { content: SiteContent }) {
         </div>
       </SectionShell>
 
-      <SectionShell id="process" eyebrow="05 Süreç" title="Her kat bir sonraki büyüme kararına çıkar." text="Keşiften optimizasyona kadar her adım ölçülebilir, takip edilebilir ve müşteriye anlatılabilir şekilde ilerler.">
+      <SectionShell id="process" eyebrow="05 Süreç" title="Her adım bir sonraki büyüme kararına bağlanır." text="Keşiften optimizasyona kadar her adım ölçülebilir, takip edilebilir ve müşteriye anlatılabilir şekilde ilerler.">
         <div className="relative mt-14">
           <div className="absolute left-5 top-0 hidden h-full w-px bg-gradient-to-b from-cyan-300 via-amber-200 to-orange-400 md:block" />
           <div className="grid gap-4">

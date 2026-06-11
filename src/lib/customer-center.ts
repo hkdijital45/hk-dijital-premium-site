@@ -65,6 +65,10 @@ export async function getCustomerCenterData(companyId?: string): Promise<Custome
       supabaseRest<any[]>(`monthly_reports?company_id=eq.${companyId}&visible_to_customer=eq.true&select=*&order=report_month.desc`).catch(() => [])
     ]);
 
+    const visibleReports = reports.map(({ internal_note: _internalNote, raw_extracted_data: _rawExtractedData, ...report }) => report);
+    const visibleReportIds = new Set(visibleReports.map((report) => report.id).filter(Boolean));
+    const visibleInterpretations = interpretations.filter((interpretation) => interpretation.report_id && visibleReportIds.has(interpretation.report_id));
+
     return {
       company: companies[0] || null,
       visibility: visibilityRows[0] || defaultVisibility,
@@ -72,8 +76,8 @@ export async function getCustomerCenterData(companyId?: string): Promise<Custome
       metrics: metrics.filter((item) => item.visible_to_customer !== false),
       updates,
       files,
-      reports: reports.map(({ internal_note: _internalNote, raw_extracted_data: _rawExtractedData, ...report }) => report),
-      interpretations,
+      reports: visibleReports,
+      interpretations: visibleInterpretations,
       reportUpdates,
       branding: brandingRows[0] || null,
       documents,
