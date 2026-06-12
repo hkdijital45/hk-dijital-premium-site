@@ -102,6 +102,16 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     ]
   },
   {
+    label: "Araçlar",
+    description: "Veri aktarma ve operasyon yardımcıları.",
+    icon: "Download",
+    badge: "Araç",
+    accent: "from-cyan-400 via-blue-500 to-indigo-600",
+    items: [
+      { label: "Veri Aktarma", slug: "veri-aktarma", module: "veri-aktarma" }
+    ]
+  },
+  {
     label: "Ayarlar",
     description: "API, AI sağlayıcıları, kullanıcı yönetimi, tema ve sistem.",
     icon: "Settings2",
@@ -112,6 +122,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: "Entegrasyonlar", slug: "entegrasyonlar", module: "api-ayarlari" },
       { label: "Kullanıcı Yönetimi", slug: "kullanici-yonetimi", module: "kullanicilar" },
       { label: "Tema / Logo", slug: "tema-logo", module: "tema-ayarlari" },
+      { label: "Sistem Sağlığı", slug: "sistem-sagligi", module: "sistem-sagligi" },
       { label: "Sistem Ayarları", slug: "sistem-ayarlari", module: "site-ayarlari" },
       { label: "Sistem Logları", slug: "sistem-loglari", module: "sistem-loglari" }
     ]
@@ -144,11 +155,14 @@ const legacySlugRedirects: Record<string, string> = {
   "performans-raporlari": "musteri-raporlari",
   "rapor-yorumlari": "musteri-raporlari",
   "disa-aktarma": "musteri-raporlari",
+  "export-center": "veri-aktarma",
+  "veri-aktarimi": "veri-aktarma",
   "tema-ayarlari": "tema-logo",
   "site-ayarlari": "web-sitesi-yonetimi",
   "sayfa-icerikleri": "web-sitesi-yonetimi",
   "api-ayarlari": "entegrasyonlar",
   "ai-saglayici-ayarlari": "entegrasyonlar",
+  "sistem-durumu": "sistem-sagligi",
   "medya-logo": "medya",
   "medya-logo-yukleme": "medya",
   "30-gunluk-sosyal-medya-plani": "icerik-fikirleri",
