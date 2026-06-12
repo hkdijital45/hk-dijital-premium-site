@@ -72,7 +72,7 @@ export async function getCustomerCenterData(companyId?: string): Promise<Custome
     return {
       company: companies[0] || null,
       visibility: visibilityRows[0] || defaultVisibility,
-      campaigns: campaigns.filter((item) => item.visible_to_customer !== false),
+      campaigns: campaigns.filter((item) => item.visible_to_customer !== false && !item.archived_at && !item.deleted_at && item.status !== "Arşivlendi"),
       metrics: metrics.filter((item) => item.visible_to_customer !== false),
       updates,
       files,
@@ -105,8 +105,11 @@ export async function getCustomerCenterData(companyId?: string): Promise<Custome
         platform: "Meta",
         objective: "Form",
         status: "Hazırlanıyor",
+        total_budget: 0,
+        spent_budget: 0,
         budget: 0,
         spent: 0,
+        visible_to_customer: true,
         notes: "Kampanya detayları güncellendiğinde burada gösterilir."
       }
     ],

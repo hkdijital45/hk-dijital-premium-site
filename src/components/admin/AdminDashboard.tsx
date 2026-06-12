@@ -37,13 +37,13 @@ const uiPermissionGroups = [
   ["CRM & Müşteriler", ["crm", "leads", "musteriler", "takip-gorevleri", "notlar"]],
   ["İstihbarat Merkezi", ["meta-analiz", "google-analiz", "sosyal-medya-denetimi", "reklam-firsatlari", "musteri-bulucu", "haritalar", "bolgesel-analiz", "rakip-listesi", "kaydedilen-adaylar", "funnel-analizi"]],
   ["İçerik & AI Studio", ["hazirlik", "ai-studio", "icerik-onerileri", "prompt-kutuphanesi", "kampanya-hazirligi"]],
-  ["Teklif & Raporlama", ["teklifler", "teklif-listesi", "raporlar", "rapor-yorumlari", "disa-aktarimlar"]],
+  ["Teklif & Raporlama", ["kampanyalar", "teklifler", "teklif-listesi", "raporlar", "rapor-yorumlari", "disa-aktarimlar"]],
   ["Ajans Operasyonları", ["gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "hk-asistan", "sektor-sistemleri"]],
   ["Ayarlar", ["kullanicilar", "site-ayarlari", "api-ayarlari", "tema-ayarlari", "medya", "sistem-loglari"]]
 ];
 const uiRoleTemplates = {
   admin: uiPermissionGroups.flatMap(([, modules]) => modules),
-  yonetici: ["dashboard", "genel-arama", "kullanim-kilavuzu", "crm", "leads", "musteriler", "takip-gorevleri", "notlar", "musteri-bulucu", "haritalar", "bolgesel-analiz", "kaydedilen-adaylar", "meta-analiz", "google-analiz", "sosyal-medya-denetimi", "hazirlik", "ai-studio", "teklifler", "teklif-listesi", "raporlar", "rapor-yorumlari", "disa-aktarimlar", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "hk-asistan", "sektor-sistemleri"],
+  yonetici: ["dashboard", "genel-arama", "kullanim-kilavuzu", "crm", "leads", "musteriler", "takip-gorevleri", "notlar", "musteri-bulucu", "haritalar", "bolgesel-analiz", "kaydedilen-adaylar", "meta-analiz", "google-analiz", "sosyal-medya-denetimi", "hazirlik", "ai-studio", "kampanyalar", "teklifler", "teklif-listesi", "raporlar", "rapor-yorumlari", "disa-aktarimlar", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "hk-asistan", "sektor-sistemleri"],
   editor: ["dashboard", "genel-arama", "kullanim-kilavuzu", "crm", "leads", "hazirlik", "ai-studio", "icerik-onerileri", "prompt-kutuphanesi", "kampanya-hazirligi", "teklifler", "teklif-listesi", "raporlar", "rapor-yorumlari", "disa-aktarimlar", "medya"],
   musteri: []
 };
@@ -94,9 +94,9 @@ const analysisDistrictOptions = {
   Muğla: ["Menteşe", "Bodrum", "Marmaris", "Fethiye", "Milas", "Datça"],
   Diğer: ["Merkez"]
 };
-const platformOptions = ["Meta", "Instagram", "Facebook", "Google", "TikTok", "LinkedIn", "YouTube", "Diğer"];
-const objectiveOptions = ["Bilinirlik", "Trafik", "Mesaj", "Form", "Satış", "Yeniden Pazarlama", "Video İzlenme", "Etkileşim", "Web Sitesi Ziyareti", "Diğer"];
-const campaignStatusOptions = ["Hazırlanıyor", "Aktif", "Duraklatıldı", "Tamamlandı", "İptal Edildi"];
+const platformOptions = ["Meta Ads", "Google Ads", "Instagram", "Facebook", "TikTok", "LinkedIn", "Diğer"];
+const objectiveOptions = ["Bilinirlik", "Trafik", "Mesaj", "Lead", "Satış", "Randevu", "Etkileşim"];
+const campaignStatusOptions = ["Planlandı", "Aktif", "Duraklatıldı", "Tamamlandı", "İptal", "Arşivlendi"];
 const metricPeriodOptions = ["Günlük", "Haftalık", "Aylık", "Özel Tarih"];
 const metricSourceOptions = ["Manuel Giriş", "Meta Raporu", "Google Ads Raporu", "Diğer"];
 const updateTypeOptions = ["Yapılan Çalışma", "Reklam Güncellemesi", "Rapor Notu", "Strateji Notu", "Uyarı", "Başarı", "Diğer"];
@@ -379,7 +379,7 @@ export function AdminDashboard({
       const contentResponse = allowedModules.includes("site-ayarlari")
         ? await fetch("/api/content", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) })
         : new Response(JSON.stringify({ ok: true }), { status: 200 });
-      const centerWritableModules = ["musteriler", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "sektor-sistemleri", "sistem-loglari"];
+      const centerWritableModules = ["musteriler", "kampanyalar", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "sektor-sistemleri", "sistem-loglari"];
       const centerResponse = supabaseConfigured && centerWritableModules.some((module) => allowedModules.includes(module))
         ? await fetch("/api/admin/center-data", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) })
         : contentResponse;
@@ -575,7 +575,7 @@ export function AdminDashboard({
             <button onClick={toggleTheme} className="min-h-10 rounded-[8px] border border-white/10 px-4 text-sm font-bold">
               {theme === "dark" ? "Aydınlık Tema" : "Karanlık Tema"}
             </button>
-            {(allowedModules.includes("site-ayarlari") || ["musteriler", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "sektor-sistemleri"].some((module) => allowedModules.includes(module))) && <button disabled={saving} onClick={() => save()} className="inline-flex min-h-10 items-center gap-2 rounded-[8px] bg-cyan-300 px-4 text-sm font-black text-slate-950 disabled:opacity-60"><Save size={17} /> {saving ? "Kaydediliyor..." : "Kaydet"}</button>}
+            {(allowedModules.includes("site-ayarlari") || ["musteriler", "kampanyalar", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "sektor-sistemleri"].some((module) => allowedModules.includes(module))) && <button disabled={saving} onClick={() => save()} className="inline-flex min-h-10 items-center gap-2 rounded-[8px] bg-cyan-300 px-4 text-sm font-black text-slate-950 disabled:opacity-60"><Save size={17} /> {saving ? "Kaydediliyor..." : "Kaydet"}</button>}
             <button onClick={logout} className="inline-flex min-h-10 items-center gap-2 rounded-[8px] border border-white/10 px-4 text-sm font-bold"><LogOut size={17} /> Çıkış</button>
           </div>
         </div>
@@ -989,6 +989,11 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
   const criticalTasks = activeTasks.filter((item) => item.priority === "Kritik" && !["Tamamlandı", "İptal"].includes(item.status));
   const completedTasks = activeTasks.filter((item) => item.status === "Tamamlandı");
   const overduePaymentTotal = overduePayments.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const activeCampaigns = campaigns.filter((item) => !isCampaignArchived(item) && item.status === "Aktif");
+  const plannedCampaigns = campaigns.filter((item) => !isCampaignArchived(item) && item.status === "Planlandı");
+  const campaignsEndingThisMonth = campaigns.filter((item) => !isCampaignArchived(item) && String(item.end_date || "").startsWith(month));
+  const visibleCampaigns = campaigns.filter((item) => !isCampaignArchived(item) && item.visible_to_customer);
+  const campaignSpendTotal = campaigns.filter((item) => !isCampaignArchived(item)).reduce((sum, item) => sum + Number(item.spent_budget ?? item.spent ?? 0), 0);
   const importantDashboardTasks = [...criticalTasks, ...overdueTasks, ...todaysTasks]
     .filter((item, index, list) => list.findIndex((candidate) => (candidate.id || candidate.title) === (item.id || item.title)) === index)
     .slice(0, 5);
@@ -1051,7 +1056,9 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     ["Bekleyen Tahsilat", `${pendingRevenue.toLocaleString("tr-TR")} TL`, "Bu ay bekleyen ödeme toplamı", <Gauge size={17} />, "amber"],
     ["Geciken Tahsilat", `${overduePaymentTotal.toLocaleString("tr-TR")} TL`, "Vadesi geçmiş ödeme toplamı", <AlertTriangle size={17} />, "red"],
     ["Bu Ay Ödenen", `${paidRevenue.toLocaleString("tr-TR")} TL`, "Bu ay tahsil edilen toplam", <CircleCheck size={17} />, "emerald"],
-    ["Tahmini Kâr", `${estimatedProfit.toLocaleString("tr-TR")} TL`, "Gelir - kayıtlı gider tahmini", <BarChart3 size={17} />, "emerald"]
+    ["Tahmini Kâr", `${estimatedProfit.toLocaleString("tr-TR")} TL`, "Gelir - kayıtlı gider tahmini", <BarChart3 size={17} />, "emerald"],
+    ["Aktif Kampanya", activeCampaigns.length, "Yayında görünen kampanyalar", <BarChart3 size={17} />, "cyan"],
+    ["Kampanya Harcaması", `${campaignSpendTotal.toLocaleString("tr-TR")} TL`, "Kayıtlı kampanya harcaması", <Gauge size={17} />, "amber"]
   ];
   const moduleAliases: Record<string, string> = { "Müşteri Bulucu": "musteri-bulucu" };
   const canOpen = (label: string) => allowedModules.includes(moduleAliases[label] || adminNavigationItems.find((item) => item.label === label)?.module);
@@ -1189,7 +1196,8 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     ["Dönüşüm Oranı", `%${conversionRate}`, "Leadden müşteriye dönüşüm", <Gauge size={20} />, "from-amber-500 to-orange-600", "CRM", "level2"],
     ["Görevler", todaysTasks.length + overdueTasks.length, "Bugün ve geciken operasyonlar", <CircleCheck size={20} />, "from-cyan-600 to-blue-700", "Görevler", "level2"],
     ["Tahsilat", `${pendingRevenue.toLocaleString("tr-TR")} TL`, "Bekleyen ödeme takibi", <Gauge size={20} />, "from-amber-500 to-orange-600", "Tahsilat", "level2"],
-    ["Karlılık", `${estimatedProfit.toLocaleString("tr-TR")} TL`, "Bu ay tahmini kâr", <BarChart3 size={20} />, "from-emerald-600 to-green-700", "Karlılık", "level2"]
+    ["Karlılık", `${estimatedProfit.toLocaleString("tr-TR")} TL`, "Bu ay tahmini kâr", <BarChart3 size={20} />, "from-emerald-600 to-green-700", "Karlılık", "level2"],
+    ["Kampanyalar", activeCampaigns.length + plannedCampaigns.length, "Aktif ve planlanan kampanyalar", <BarChart3 size={20} />, "from-orange-500 to-pink-600", "Kampanyalar", "level2"]
   ].filter(([, , , , , target]) => canOpen(String(target)) || ["AI Durum Merkezi", "PDF Audit", "WhatsApp Teklifi"].includes(String(target)));
   const workspaceWidgets = [
     {
@@ -1345,7 +1353,7 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
         <p className="mt-1 text-sm font-bold text-cyan-100">Digital Marketing Command Center</p>
         <p className="mt-1 text-[10px] font-black uppercase tracking-[.16em] text-slate-400">Powered by HK Dijital</p>
       </div>
-      <div className="mb-5 grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(280px,.85fr)_minmax(280px,.85fr)]">
+      <div className="mb-5 grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(260px,.75fr)_minmax(260px,.75fr)_minmax(260px,.75fr)]">
         <GlassCard className="p-4 sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -1449,6 +1457,36 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
               Ödeme Geçmişi
             </button>
           </div>
+        </GlassCard>
+
+        <GlassCard className="p-4 sm:p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[.16em] text-orange-200">Kampanyalar</p>
+              <h3 className="mt-1 text-lg font-black text-white">Reklam operasyonu</h3>
+            </div>
+            <span className="grid size-10 place-items-center rounded-[8px] border border-orange-200/20 bg-orange-300/10 text-orange-100"><BarChart3 size={18} /></span>
+          </div>
+          <div className="mt-4 grid gap-2">
+            {[
+              ["Aktif kampanyalar", activeCampaigns.length],
+              ["Planlanan kampanyalar", plannedCampaigns.length],
+              ["Bu ay biten", campaignsEndingThisMonth.length],
+              ["Müşteriye görünür", visibleCampaigns.length]
+            ].map(([label, value]) => (
+              <div key={label} className="flex items-center justify-between gap-3 rounded-[8px] border border-white/10 bg-black/15 p-3">
+                <span className="text-xs font-bold text-slate-400">{label}</span>
+                <span className="text-sm font-black text-white">{value}</span>
+              </div>
+            ))}
+            <div className="flex items-center justify-between gap-3 rounded-[8px] border border-white/10 bg-black/15 p-3">
+              <span className="text-xs font-bold text-slate-400">Toplam harcama</span>
+              <span className="text-sm font-black text-white">{campaignSpendTotal.toLocaleString("tr-TR")} TL</span>
+            </div>
+          </div>
+          <button type="button" onClick={() => setActive("Kampanyalar")} className="mt-4 w-full rounded-[8px] border border-orange-200/20 bg-orange-300/10 px-4 py-3 text-sm font-black text-orange-50 transition hover:bg-orange-300/20">
+            Kampanyaları Aç
+          </button>
         </GlassCard>
       </div>
       <div className="mb-5">
@@ -1575,6 +1613,35 @@ function filterPayments(items: any[], filters: any = {}) {
     }
     if (companyId && item.company_id !== companyId) return false;
     return matchesHistoryDate(item, "payment", startDate, endDate);
+  });
+}
+
+function isCampaignArchived(item: any) {
+  return Boolean(item?.archived_at || item?.deleted_at || item?.status === "Arşivlendi");
+}
+
+function filterCampaigns(items: any[], filters: any = {}) {
+  const { status = "Tüm kampanyalar", companyId = "", platform = "", startDate = "", endDate = "" } = filters;
+  return (items || []).filter((item) => {
+    const archived = isCampaignArchived(item);
+    if (status === "Arşivlenen kampanyalar") {
+      if (!archived) return false;
+    } else if (archived) {
+      return false;
+    } else if (status === "Aktif kampanyalar" && item.status !== "Aktif") {
+      return false;
+    } else if (status === "Planlanan kampanyalar" && item.status !== "Planlandı") {
+      return false;
+    } else if (status === "Tamamlanan kampanyalar" && item.status !== "Tamamlandı") {
+      return false;
+    } else if (status === "Durdurulan kampanyalar" && !["Duraklatıldı", "İptal"].includes(item.status)) {
+      return false;
+    }
+    if (companyId && item.company_id !== companyId) return false;
+    if (platform && item.platform !== platform) return false;
+    if (startDate && dateOnly(item.end_date || item.start_date) && dateOnly(item.end_date || item.start_date) < startDate) return false;
+    if (endDate && dateOnly(item.start_date || item.end_date) && dateOnly(item.start_date || item.end_date) > endDate) return false;
+    return true;
   });
 }
 
@@ -2542,7 +2609,7 @@ function CustomerPanelAdmin({ content, setContent }: any) {
   );
 }
 
-function CustomersAdmin({ content, setContent, save }: any) {
+function CustomersAdmin({ content, setContent, save, setActive }: any) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState("");
@@ -2742,6 +2809,7 @@ function CustomersAdmin({ content, setContent, save }: any) {
           updateCompany={updateCompany}
           saveCompany={saveCompany}
           save={save}
+          setActive={setActive}
           close={() => setDetailCompanyId("")}
         />
       )}
@@ -2749,7 +2817,7 @@ function CustomersAdmin({ content, setContent, save }: any) {
   );
 }
 
-function CustomerDetailDrawer({ company, content, setContent, updateCompany, saveCompany, save, close }: any) {
+function CustomerDetailDrawer({ company, content, setContent, updateCompany, saveCompany, save, setActive, close }: any) {
   const [tab, setTab] = useState("Genel Bilgi");
   if (!company) return null;
   const users = (content.users || []).filter((user) => customerRole(user.role) && user.company_id === company.id);
@@ -2811,7 +2879,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
         <p className="mb-4 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">Müşteri şifresi güvenlik nedeniyle düz metin olarak saklanmaz. Yeni geçici şifre oluşturabilirsiniz.</p>
         <div className="grid gap-3">{users.map((user) => <div key={user.id} className="rounded-[8px] border border-white/10 p-4"><p className="font-black">{user.full_name || user.email}</p><p className="mt-1 text-sm text-slate-400">{user.email} · Bağlı kullanıcı: Var · Durum: {user.is_active ? "Aktif" : "Pasif"} · Rol: Müşteri</p><p className="mt-2 text-xs leading-5 text-slate-500">Son giriş: {formatDateTime(user.last_login_at)} · Toplam giriş: {user.login_count || 0}</p><button onClick={() => resetPassword(user)} className="mt-3 rounded-full border border-white/10 px-4 py-2 text-sm">Şifre sıfırlama bağlantısı gönder</button></div>)}{!users.length && <p className="text-sm text-slate-400">Bağlı müşteri kullanıcısı yok. Müşteriler ekranındaki giriş hesabı oluşturma formunu kullanın.</p>}</div>
       </div>}
-      {tab === "Kampanyalar" && <CustomerRelatedList items={campaigns} empty="Bu müşteri için kampanya yok." render={(item) => `${item.name} · ${item.platform} · ${item.status}`} onVisibilityChange={(item, value) => updateRelated("campaigns", item.id, { visible_to_customer: value })} />}
+      {tab === "Kampanyalar" && <CustomerCampaignsEditor company={company} content={content} setContent={setContent} save={save} setActive={setActive} items={campaigns} />}
       {tab === "Metrikler" && <CustomerRelatedList items={metrics} empty="Bu müşteri için metrik yok." render={(item) => `${formatDate(item.date)} · ${item.impressions || 0} gösterim · ${item.clicks || 0} tıklama · ${item.leads || 0} potansiyel müşteri · ${item.spent || 0} TL`} onVisibilityChange={(item, value) => updateRelated("campaignMetrics", item.id, { visible_to_customer: value })} />}
       {tab === "Raporlar" && <CustomerRelatedList items={reports} empty="Bu müşteri için kanal bazlı rapor yok." render={(item) => `${item.report_type} · ${item.period || "Dönem belirtilmedi"} · ${item.visible_to_customer ? "Müşteriye görünür" : "Dahili"}`} />}
       {tab === "Ödemeler" && <CustomerPaymentsEditor company={company} content={content} setContent={setContent} save={save} items={payments} />}
@@ -2840,6 +2908,88 @@ function CustomerRelatedList({ items, empty, render, onVisibilityChange }: any) 
     const visible = item.visible_to_customer ?? true;
     return <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-white/10 bg-black/20 p-4 text-sm text-slate-200"><span>{render(item)}</span>{onVisibilityChange && <label className="flex items-center gap-2 text-xs text-slate-300"><input type="checkbox" checked={visible} onChange={(event) => onVisibilityChange(item, event.target.checked)} /> {visible ? "Müşteri Panelinde Görünür" : "Sadece Yönetici"}</label>}</div>;
   })}{!items.length && <p className="text-sm text-slate-400">{empty}</p>}</div>;
+}
+
+function CustomerCampaignsEditor({ company, content, setContent, save, setActive, items }: any) {
+  const allItems = content.campaigns || [];
+  const [statusFilter, setStatusFilter] = useState("Tüm kampanyalar");
+  const [platformFilter, setPlatformFilter] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const campaignTabs = ["Tüm kampanyalar", "Aktif kampanyalar", "Planlanan kampanyalar", "Tamamlanan kampanyalar", "Durdurulan kampanyalar", "Arşivlenen kampanyalar"];
+  const visibleItems = filterCampaigns(items, { status: statusFilter, platform: platformFilter, startDate, endDate });
+  const update = (id, patch) => updateCollection(content, setContent, "campaigns", allItems.map((item) => item.id === id ? { ...item, ...patch, updated_at: new Date().toISOString() } : item));
+  const add = () => updateCollection(content, setContent, "campaigns", [{ id: createLocalId(), company_id: company.id, name: "Yeni Kampanya", platform: "Meta Ads", objective: "Lead", status: "Planlandı", start_date: new Date().toISOString().slice(0, 10), end_date: "", daily_budget: 0, total_budget: 0, spent_budget: 0, budget: 0, spent: 0, notes: "", internal_notes: "", visible_to_customer: false }, ...allItems]);
+  const copy = (campaign) => updateCollection(content, setContent, "campaigns", [{ ...campaign, id: createLocalId(), company_id: company.id, name: `${campaign.name || "Kampanya"} Kopya`, status: "Planlandı", archived_at: null, deleted_at: null, visible_to_customer: false }, ...allItems]);
+  const archive = (campaign) => {
+    if (!confirm("Bu kampanyayı silmek/arşivlemek istediğinize emin misiniz?")) return;
+    update(campaign.id, { archived_at: new Date().toISOString(), status: "Arşivlendi" });
+  };
+  const createReport = (campaign) => {
+    updateCollection(content, setContent, "reports", [{ id: createLocalId(), company_id: company.id, campaign_id: campaign.id, report_type: `${campaign.platform || "Reklam"} Raporu`, period: campaign.start_date && campaign.end_date ? `${campaign.start_date} - ${campaign.end_date}` : "Kampanya dönemi", summary: `${campaign.name || "Kampanya"} için rapor taslağı.`, visible_to_customer: false, archived: false, metrics: {}, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }, ...(content.reports || [])]);
+    setActive?.("Müşteri Raporları");
+  };
+
+  return (
+    <div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="font-black text-white">Kampanyalar</h3>
+          <p className="mt-1 text-sm text-slate-400">Bu müşteri kampanyaları ana Kampanyalar modülü, raporlar ve müşteri paneli görünürlüğüyle aynı veri kaynağını kullanır.</p>
+        </div>
+        <button onClick={add} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Kampanya Ekle</button>
+      </div>
+      <div className="mb-4 grid gap-3 md:grid-cols-4">
+        <SelectField label="Liste" value={statusFilter} onChange={setStatusFilter} options={campaignTabs} />
+        <SelectField label="Platform" value={platformFilter} onChange={setPlatformFilter} options={platformOptions} placeholder="Tüm platformlar" />
+        <Field label="Başlangıç tarihi" type="date" value={startDate} onChange={setStartDate} />
+        <Field label="Bitiş tarihi" type="date" value={endDate} onChange={setEndDate} />
+      </div>
+      <div className="grid gap-3">
+        {visibleItems.map((campaign) => {
+          const archived = isCampaignArchived(campaign);
+          const totalBudget = campaign.total_budget ?? campaign.budget ?? 0;
+          const spentBudget = campaign.spent_budget ?? campaign.spent ?? 0;
+          return (
+            <div key={campaign.id} className={`rounded-[8px] border p-4 ${archived ? "border-amber-300/25 bg-amber-300/[0.06]" : "border-white/10 bg-black/20"}`}>
+              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">{campaign.platform || "Platform"}</p>
+                  <h4 className="mt-1 text-lg font-black text-white">{campaign.name || "İsimsiz kampanya"}</h4>
+                  <p className="mt-1 text-xs text-slate-400">{campaign.objective || "Amaç yok"} · {campaign.status || "Planlandı"} · {formatDate(campaign.start_date)} - {formatDate(campaign.end_date)}</p>
+                </div>
+                <span className="rounded-full border border-cyan-200/20 bg-cyan-200/10 px-3 py-1 text-xs font-black text-cyan-100">{campaign.visible_to_customer ? "Müşteri Panelinde Görünür" : "Sadece Yönetici"}</span>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                <Field label="Kampanya adı" value={campaign.name || ""} onChange={(value) => update(campaign.id, { name: value })} />
+                <SelectField label="Platform" value={campaign.platform || "Meta Ads"} onChange={(value) => update(campaign.id, { platform: value })} options={platformOptions} />
+                <SelectField label="Amaç" value={campaign.objective || "Lead"} onChange={(value) => update(campaign.id, { objective: value })} options={objectiveOptions} />
+                <SelectField label="Durum" value={campaign.status || "Planlandı"} onChange={(value) => update(campaign.id, { status: value, archived_at: value === "Arşivlendi" ? new Date().toISOString() : campaign.archived_at })} options={campaignStatusOptions} />
+                <Field label="Başlangıç tarihi" type="date" value={campaign.start_date || ""} onChange={(value) => update(campaign.id, { start_date: value })} />
+                <Field label="Bitiş tarihi" type="date" value={campaign.end_date || ""} onChange={(value) => update(campaign.id, { end_date: value })} />
+                <Field label="Günlük bütçe" type="number" value={campaign.daily_budget || 0} onChange={(value) => update(campaign.id, { daily_budget: Number(value || 0) })} />
+                <Field label="Toplam bütçe" type="number" value={totalBudget} onChange={(value) => update(campaign.id, { total_budget: Number(value || 0), budget: Number(value || 0) })} />
+                <Field label="Harcanan bütçe" type="number" value={spentBudget} onChange={(value) => update(campaign.id, { spent_budget: Number(value || 0), spent: Number(value || 0) })} />
+                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(campaign.visible_to_customer)} onChange={(event) => update(campaign.id, { visible_to_customer: event.target.checked })} /> Müşteriye görünür mü?</label>
+                <InfoItem label="Oluşturulma tarihi" value={formatDateTime(campaign.created_at)} />
+                <InfoItem label="Güncellenme tarihi" value={formatDateTime(campaign.updated_at)} />
+                <div className="md:col-span-2 xl:col-span-3"><TextArea label="Notlar" value={campaign.notes || ""} onChange={(value) => update(campaign.id, { notes: value })} /></div>
+                <div className="md:col-span-2 xl:col-span-3"><TextArea label="Dahili notlar" value={campaign.internal_notes || ""} onChange={(value) => update(campaign.id, { internal_notes: value })} /></div>
+              </div>
+              <div className="mt-4 flex flex-wrap justify-end gap-2">
+                <button onClick={() => createReport(campaign)} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs text-emerald-100">Rapor oluştur</button>
+                <button onClick={() => copy(campaign)} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200">Kopyala</button>
+                {archived ? <button onClick={() => update(campaign.id, { archived_at: null, deleted_at: null, status: "Planlandı" })} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-100">Arşivden Çıkar</button> : <button onClick={() => archive(campaign)} className="rounded-full border border-red-300/30 px-4 py-2 text-xs text-red-200">Sil / Arşivle</button>}
+                <button onClick={() => save?.()} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Kaydet</button>
+                <button onClick={() => window.location.reload()} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200">Vazgeç</button>
+              </div>
+            </div>
+          );
+        })}
+        {!visibleItems.length && <p className="rounded-[8px] border border-dashed border-white/10 p-5 text-sm text-slate-400">Bu müşteri için kampanya kaydı bulunamadı.</p>}
+      </div>
+    </div>
+  );
 }
 
 function CustomerPaymentsEditor({ company, content, setContent, save, items }: any) {
@@ -2980,27 +3130,84 @@ function ReportsAdmin({ content, setContent }: any) {
 
 function CampaignAdmin({ content, setContent }: any) {
   const campaigns = content.campaigns || [];
-  const update = (index, patch) => setContent({ ...content, campaigns: campaigns.map((item, i) => i === index ? { ...item, ...patch } : item) });
+  const [statusFilter, setStatusFilter] = useState("Tüm kampanyalar");
+  const [companyFilter, setCompanyFilter] = useState("");
+  const [platformFilter, setPlatformFilter] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const campaignTabs = ["Tüm kampanyalar", "Aktif kampanyalar", "Planlanan kampanyalar", "Tamamlanan kampanyalar", "Durdurulan kampanyalar", "Arşivlenen kampanyalar"];
+  const filteredCampaigns = filterCampaigns(campaigns, { status: statusFilter, companyId: companyFilter, platform: platformFilter, startDate, endDate });
+  const activeCampaigns = campaigns.filter((item) => !isCampaignArchived(item) && item.status === "Aktif");
+  const plannedCampaigns = campaigns.filter((item) => !isCampaignArchived(item) && item.status === "Planlandı");
+  const completedThisMonth = campaigns.filter((item) => !isCampaignArchived(item) && item.status === "Tamamlandı" && String(item.end_date || "").startsWith(new Date().toISOString().slice(0, 7)));
+  const visibleCampaigns = campaigns.filter((item) => !isCampaignArchived(item) && item.visible_to_customer);
+  const totalSpend = campaigns.filter((item) => !isCampaignArchived(item)).reduce((sum, item) => sum + Number(item.spent_budget ?? item.spent ?? 0), 0);
+  const update = (id, patch) => setContent({ ...content, campaigns: campaigns.map((item) => item.id === id ? { ...item, ...patch, updated_at: new Date().toISOString() } : item) });
+  const add = () => setContent({ ...content, campaigns: [{ id: createLocalId(), company_id: (content.companies || [])[0]?.id || "", name: "Yeni Kampanya", platform: "Meta Ads", objective: "Lead", status: "Planlandı", start_date: new Date().toISOString().slice(0, 10), end_date: "", daily_budget: 0, total_budget: 0, spent_budget: 0, budget: 0, spent: 0, notes: "", internal_notes: "", visible_to_customer: false }, ...campaigns] });
+  const copyCampaign = (campaign) => setContent({ ...content, campaigns: [{ ...campaign, id: createLocalId(), name: `${campaign.name || "Kampanya"} Kopya`, status: "Planlandı", archived_at: null, deleted_at: null, visible_to_customer: false }, ...campaigns] });
+  const archiveCampaign = (campaign) => {
+    if (!confirm("Bu kampanyayı silmek/arşivlemek istediğinize emin misiniz?")) return;
+    update(campaign.id, { archived_at: new Date().toISOString(), status: "Arşivlendi" });
+  };
   return (
-    <Panel title="Reklam Yönetimi">
-      <button onClick={() => setContent({ ...content, campaigns: [...campaigns, { id: `${Date.now()}`, name: "Yeni Kampanya", platform: "Meta", objective: "Form", status: "Hazırlanıyor", visible_to_customer: true }] })} className="mb-4 inline-flex items-center gap-2 rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950"><Plus size={16} /> Kampanya ekle</button>
+    <Panel title="Kampanyalar">
+      <div className="mb-5 grid gap-3 md:grid-cols-5">
+        <AgencyStatCard label="Aktif kampanyalar" value={activeCampaigns.length} note="Yayında veya operasyonel" />
+        <AgencyStatCard label="Planlanan" value={plannedCampaigns.length} note="Kurulum bekleyen" tone="amber" />
+        <AgencyStatCard label="Bu ay biten" value={completedThisMonth.length} note="Tamamlanan kampanyalar" tone="emerald" />
+        <AgencyStatCard label="Toplam harcama" value={`${totalSpend.toLocaleString("tr-TR")} TL`} note="Kayıtlı kampanya harcaması" />
+        <AgencyStatCard label="Müşteriye görünür" value={visibleCampaigns.length} note="Panelde gösterilen" tone="emerald" />
+      </div>
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <button onClick={add} className="inline-flex items-center gap-2 rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950"><Plus size={16} /> Kampanya Ekle</button>
+        <span className="rounded-full border border-white/10 px-3 py-2 text-xs text-slate-300">{filteredCampaigns.length} kampanya listeleniyor</span>
+      </div>
+      <div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <SelectField label="Liste" value={statusFilter} onChange={setStatusFilter} options={campaignTabs} />
+        <CompanySelect value={companyFilter} onChange={setCompanyFilter} companies={content.companies} />
+        <SelectField label="Platform" value={platformFilter} onChange={setPlatformFilter} options={platformOptions} placeholder="Tüm platformlar" />
+        <Field label="Başlangıç tarihi" type="date" value={startDate} onChange={setStartDate} />
+        <Field label="Bitiş tarihi" type="date" value={endDate} onChange={setEndDate} />
+      </div>
       <div className="grid gap-4">
-        {campaigns.map((campaign, index) => (
-          <div key={campaign.id || index} className="grid gap-3 rounded-[8px] border border-white/10 p-4 md:grid-cols-2">
-            <CompanySelect value={campaign.company_id || ""} onChange={(v) => update(index, { company_id: v })} companies={content.companies} />
-            <Field label="Kampanya Adı" value={campaign.name} onChange={(v) => update(index, { name: v })} />
-            <OtherSelectField label="Platform" value={campaign.platform} onChange={(v) => update(index, { platform: v })} options={platformOptions} manualLabel="Platformu yazın" />
-            <OtherSelectField label="Hedef" value={campaign.objective} onChange={(v) => update(index, { objective: v })} options={objectiveOptions} manualLabel="Hedefi yazın" />
-            <SelectField label="Durum" value={campaign.status} onChange={(v) => update(index, { status: v })} options={campaignStatusOptions} />
-            <Field label="Başlangıç Tarihi" type="date" value={campaign.start_date} onChange={(v) => update(index, { start_date: v })} />
-            <Field label="Bitiş Tarihi" type="date" value={campaign.end_date} onChange={(v) => update(index, { end_date: v })} />
-            <Field label="Bütçe" type="number" value={campaign.budget} onChange={(v) => update(index, { budget: v })} />
-            <Field label="Harcama" type="number" value={campaign.spent} onChange={(v) => update(index, { spent: v })} />
-            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={campaign.visible_to_customer ?? true} onChange={(e) => update(index, { visible_to_customer: e.target.checked })} /> Müşteri panelinde görünsün</label>
-            <TextArea label="Notlar" value={campaign.notes} onChange={(v) => update(index, { notes: v })} />
-            <button onClick={() => setContent({ ...content, campaigns: campaigns.filter((_, i) => i !== index) })} className="w-fit rounded-full border border-red-300/30 px-3 py-2 text-xs text-red-200">Sil</button>
-          </div>
-        ))}
+        {filteredCampaigns.map((campaign) => {
+          const archived = isCampaignArchived(campaign);
+          const totalBudget = campaign.total_budget ?? campaign.budget ?? 0;
+          const spentBudget = campaign.spent_budget ?? campaign.spent ?? 0;
+          return (
+            <div key={campaign.id} className={`rounded-[8px] border p-4 ${archived ? "border-amber-300/25 bg-amber-300/[0.06]" : "border-white/10 bg-black/15"}`}>
+              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">{campaign.platform || "Platform"}</p>
+                  <h3 className="mt-1 text-xl font-black text-white">{campaign.name || "İsimsiz kampanya"}</h3>
+                  <p className="mt-1 text-sm text-slate-400">{companyName(content, campaign.company_id)} · {campaign.objective || "Amaç yok"} · {campaign.status || "Planlandı"}</p>
+                </div>
+                <span className="rounded-full border border-cyan-200/20 bg-cyan-200/10 px-3 py-1 text-xs font-black text-cyan-100">{campaign.visible_to_customer ? "Müşteri Panelinde Görünür" : "Sadece Yönetici"}</span>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <CompanySelect value={campaign.company_id || ""} onChange={(v) => update(campaign.id, { company_id: v })} companies={content.companies} />
+                <Field label="Kampanya adı" value={campaign.name} onChange={(v) => update(campaign.id, { name: v })} />
+                <SelectField label="Platform" value={campaign.platform || "Meta Ads"} onChange={(v) => update(campaign.id, { platform: v })} options={platformOptions} />
+                <SelectField label="Amaç" value={campaign.objective || "Lead"} onChange={(v) => update(campaign.id, { objective: v })} options={objectiveOptions} />
+                <SelectField label="Durum" value={campaign.status || "Planlandı"} onChange={(v) => update(campaign.id, { status: v, archived_at: v === "Arşivlendi" ? new Date().toISOString() : campaign.archived_at })} options={campaignStatusOptions} />
+                <Field label="Başlangıç tarihi" type="date" value={campaign.start_date} onChange={(v) => update(campaign.id, { start_date: v })} />
+                <Field label="Bitiş tarihi" type="date" value={campaign.end_date} onChange={(v) => update(campaign.id, { end_date: v })} />
+                <Field label="Günlük bütçe" type="number" value={campaign.daily_budget || 0} onChange={(v) => update(campaign.id, { daily_budget: Number(v || 0) })} />
+                <Field label="Toplam bütçe" type="number" value={totalBudget} onChange={(v) => update(campaign.id, { total_budget: Number(v || 0), budget: Number(v || 0) })} />
+                <Field label="Harcanan bütçe" type="number" value={spentBudget} onChange={(v) => update(campaign.id, { spent_budget: Number(v || 0), spent: Number(v || 0) })} />
+                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(campaign.visible_to_customer)} onChange={(e) => update(campaign.id, { visible_to_customer: e.target.checked })} /> Müşteriye görünür mü?</label>
+                <InfoItem label="Oluşturulma / Güncelleme" value={`${formatDateTime(campaign.created_at)} · ${formatDateTime(campaign.updated_at)}`} />
+                <div className="md:col-span-2"><TextArea label="Notlar" value={campaign.notes} onChange={(v) => update(campaign.id, { notes: v })} /></div>
+                <div className="md:col-span-2"><TextArea label="Dahili notlar" value={campaign.internal_notes} onChange={(v) => update(campaign.id, { internal_notes: v })} /></div>
+              </div>
+              <div className="mt-4 flex flex-wrap justify-end gap-2">
+                <button onClick={() => copyCampaign(campaign)} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200">Kopyala</button>
+                {archived ? <button onClick={() => update(campaign.id, { archived_at: null, deleted_at: null, status: "Planlandı" })} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-100">Arşivden Çıkar</button> : <button onClick={() => archiveCampaign(campaign)} className="rounded-full border border-red-300/30 px-4 py-2 text-xs text-red-200">Sil / Arşivle</button>}
+              </div>
+            </div>
+          );
+        })}
+        {!filteredCampaigns.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-sm text-slate-400">Bu filtrelerle kampanya bulunamadı.</p>}
       </div>
     </Panel>
   );

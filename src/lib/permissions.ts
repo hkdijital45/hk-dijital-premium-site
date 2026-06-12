@@ -7,7 +7,7 @@ export const adminModules = [
   "takip-gorevleri", "notlar", "musteri-bulucu", "haritalar", "bolgesel-analiz",
   "rakip-listesi", "kaydedilen-adaylar", "meta-analiz", "google-analiz",
   "sosyal-medya-denetimi", "funnel-analizi", "reklam-firsatlari", "hazirlik", "ai-studio", "icerik-onerileri",
-  "prompt-kutuphanesi", "kampanya-hazirligi", "teklifler", "teklif-listesi", "raporlar",
+  "prompt-kutuphanesi", "kampanya-hazirligi", "kampanyalar", "teklifler", "teklif-listesi", "raporlar",
   "rapor-yorumlari", "disa-aktarimlar", "kullanicilar", "roller-yetkiler",
   "site-ayarlari", "api-ayarlari", "tema-ayarlari", "medya", "sistem-loglari",
   "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi",
@@ -34,7 +34,7 @@ export const roleTemplates: Record<CanonicalRole, AdminModule[]> = {
   yonetici: [
     "dashboard", "genel-arama", "kullanim-kilavuzu", "crm", "leads", "musteriler",
     "takip-gorevleri", "notlar", "musteri-bulucu", "haritalar", "bolgesel-analiz",
-    "kaydedilen-adaylar", "meta-analiz", "google-analiz", "sosyal-medya-denetimi", "hazirlik", "ai-studio", "teklifler", "teklif-listesi",
+    "kaydedilen-adaylar", "meta-analiz", "google-analiz", "sosyal-medya-denetimi", "hazirlik", "ai-studio", "kampanyalar", "teklifler", "teklif-listesi",
     "raporlar", "rapor-yorumlari", "disa-aktarimlar", "gorevler", "belgeler", "tahsilat", "karlilik",
     "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "hk-asistan", "sektor-sistemleri"
   ],

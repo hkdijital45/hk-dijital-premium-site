@@ -65,6 +65,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     badge: "Rapor",
     accent: "from-orange-400 via-pink-500 to-rose-600",
     items: [
+      { label: "Kampanyalar", slug: "kampanyalar", module: "kampanyalar" },
       { label: "Meta Raporları", slug: "meta-analiz", module: "meta-analiz" },
       { label: "Google Ads Raporları", slug: "google-analiz", module: "google-analiz" },
       { label: "Aylık Raporlar", slug: "aylik-raporlar", module: "aylik-raporlar" },

@@ -136,20 +136,25 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
             <GlassCard className="p-5">
               <h2 className="flex items-center gap-2 text-xl font-black"><BarChart3 className="text-cyan-200" /> Reklam Performansı</h2>
               <div className="mt-5 grid gap-3">
-                {data.campaigns.map((campaign) => (
-                  <div key={campaign.id} className="rounded-[8px] bg-black/25 p-4">
-                    <p className="font-black">{campaign.name}</p>
-                    <p className="mt-1 text-sm text-slate-400">{campaign.platform} · {campaign.objective} · {campaign.status}</p>
-                    <div className="mt-3 h-2 rounded-full bg-white/10">
-                      <div className="h-full rounded-full bg-cyan-300" style={{ width: `${Math.min(100, campaign.budget ? (Number(campaign.spent || 0) / Number(campaign.budget)) * 100 : 0)}%` }} />
+                {data.campaigns.map((campaign) => {
+                  const totalBudget = Number(campaign.total_budget ?? campaign.budget ?? 0);
+                  const spentBudget = Number(campaign.spent_budget ?? campaign.spent ?? 0);
+                  return (
+                    <div key={campaign.id} className="rounded-[8px] bg-black/25 p-4">
+                      <p className="font-black">{campaign.name}</p>
+                      <p className="mt-1 text-sm text-slate-400">{campaign.platform} · {campaign.objective} · {campaign.status}</p>
+                      <div className="mt-3 h-2 rounded-full bg-white/10">
+                        <div className="h-full rounded-full bg-cyan-300" style={{ width: `${Math.min(100, totalBudget ? (spentBudget / totalBudget) * 100 : 0)}%` }} />
+                      </div>
+                      <p className="mt-2 text-xs text-slate-400">
+                        {visibility.show_budget && `Bütçe: ${totalBudget} TL · `}
+                        {visibility.show_spent && `Harcama: ${spentBudget} TL · `}
+                        {campaign.notes}
+                      </p>
                     </div>
-                    <p className="mt-2 text-xs text-slate-400">
-                      {visibility.show_budget && `Bütçe: ${campaign.budget || 0} TL · `}
-                      {visibility.show_spent && `Harcama: ${campaign.spent || 0} TL · `}
-                      {campaign.notes}
-                    </p>
-                  </div>
-                ))}
+                  );
+                })}
+                {!data.campaigns.length && <p className="rounded-[8px] border border-dashed border-white/10 p-5 text-sm text-slate-400">Henüz görüntülenebilir kampanya bulunmuyor.</p>}
               </div>
             </GlassCard>
           )}

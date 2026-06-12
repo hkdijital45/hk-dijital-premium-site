@@ -59,19 +59,28 @@ function normalizeRecord(key: string, item: any) {
   }
 
   if (key === "campaigns") {
+    const totalBudget = Number(item.total_budget ?? item.totalBudget ?? item.budget ?? 0);
+    const spentBudget = Number(item.spent_budget ?? item.spentBudget ?? item.spent ?? 0);
     return {
       ...base,
       company_id: item.company_id || null,
+      customer_id: item.customer_id || item.customerId || null,
       name: item.name || "Yeni Kampanya",
-      platform: item.platform || "Meta",
-      objective: item.objective || "Form",
-      status: item.status || "Hazırlanıyor",
+      platform: item.platform || "Meta Ads",
+      objective: item.objective || "Lead",
+      status: item.status || "Planlandı",
       start_date: item.start_date || null,
       end_date: item.end_date || null,
-      budget: Number(item.budget || 0),
-      spent: Number(item.spent || 0),
+      daily_budget: Number(item.daily_budget ?? item.dailyBudget ?? 0),
+      total_budget: totalBudget,
+      spent_budget: spentBudget,
+      budget: totalBudget,
+      spent: spentBudget,
       notes: item.notes || null,
-      visible_to_customer: item.visible_to_customer ?? true,
+      internal_notes: item.internal_notes || item.internalNotes || null,
+      visible_to_customer: item.visible_to_customer ?? false,
+      archived_at: item.archived_at || (item.status === "Arşivlendi" ? new Date().toISOString() : null),
+      deleted_at: item.deleted_at || null,
       updated_at: new Date().toISOString()
     };
   }
@@ -369,7 +378,16 @@ async function upsertItems(key: keyof typeof tables, items: any[] = []) {
   const stripOptionalColumns = (record: any) => {
     const copy = { ...record };
     if (key === "companies") delete copy.notes;
-    if (key === "campaigns") delete copy.visible_to_customer;
+    if (key === "campaigns") {
+      delete copy.customer_id;
+      delete copy.daily_budget;
+      delete copy.total_budget;
+      delete copy.spent_budget;
+      delete copy.internal_notes;
+      delete copy.visible_to_customer;
+      delete copy.archived_at;
+      delete copy.deleted_at;
+    }
     if (key === "campaignMetrics") {
       delete copy.messages;
       delete copy.visible_to_customer;
