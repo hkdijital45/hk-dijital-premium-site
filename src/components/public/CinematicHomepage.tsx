@@ -8,23 +8,12 @@ import type { ReactNode } from "react";
 import type { SiteContent } from "@/lib/types";
 import { ContactForm } from "./ContactForm";
 import { PackageCards, ServiceGrid } from "./ServicePackageSections";
-import { PublicTopTabs } from "./PublicTopTabs";
-import type { PublicTabItem } from "./PublicTopTabs";
 
-const tabs: PublicTabItem[] = [
-  { id: "hero", label: "Ana Sayfa" },
-  { id: "services", label: "Hizmetler" },
-  { id: "intelligence", label: "HK Intelligence" },
-  { id: "packages", label: "Paketler" },
-  { id: "process", label: "Süreç" },
-  { id: "contact", label: "İletişim" }
-];
-
-const floatingCards = [
+const osModules: Array<[string, string, LucideIcon]> = [
   ["Meta Ads", "Kreatif, hedef kitle, dönüşüm", BarChart3],
   ["Google Ads", "Arama niyeti ve bütçe kontrolü", Search],
   ["AI Analiz", "Net yorum ve sonraki adım", BrainCircuit],
-  ["CRM", "Lead takibi ve müşteri akışı", Target],
+  ["Müşteri Akışı", "Lead, teklif ve takip düzeni", Target],
   ["Raporlama", "Anlaşılır performans merkezi", Layers3],
   ["Lead Skoru", "Öncelik ve satış potansiyeli", Gauge]
 ];
@@ -188,6 +177,48 @@ function CampaignVisualGrid() {
   );
 }
 
+function HeroOsVisual({ reduced }: { reduced: boolean | null }) {
+  return (
+    <motion.div
+      initial={reduced ? false : { opacity: 0, scale: .97, y: 22 }}
+      animate={reduced ? undefined : { opacity: 1, scale: 1, y: 0 }}
+      transition={{ duration: .72, delay: .2, ease: [0.16, 1, 0.3, 1] }}
+      className="hero-os-map relative mx-auto w-full max-w-2xl"
+    >
+      <div className="hero-os-connectors" aria-hidden="true" />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {osModules.slice(0, 3).map(([title, text, Icon], index) => (
+          <motion.div key={title} initial={reduced ? false : { opacity: 0, y: 18 }} animate={reduced ? undefined : { opacity: 1, y: 0 }} transition={{ delay: .32 + index * .06 }} className="hero-os-module">
+            <Icon size={20} className="text-cyan-200" />
+            <div>
+              <p className="font-black text-white">{title}</p>
+              <p className="mt-1 text-xs leading-5 text-slate-400">{text}</p>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+
+      <div className="hero-os-core">
+        <Sparkles className="text-amber-200" size={34} />
+        <p className="mt-4 text-sm font-black uppercase tracking-[.2em] text-cyan-100">Büyüme kontrol merkezi</p>
+        <p className="mt-3 text-5xl font-black text-white">HK OS</p>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {osModules.slice(3).map(([title, text, Icon], index) => (
+          <motion.div key={title} initial={reduced ? false : { opacity: 0, y: 18 }} animate={reduced ? undefined : { opacity: 1, y: 0 }} transition={{ delay: .5 + index * .06 }} className="hero-os-module">
+            <Icon size={20} className="text-cyan-200" />
+            <div>
+              <p className="font-black text-white">{title}</p>
+              <p className="mt-1 text-xs leading-5 text-slate-400">{text}</p>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </motion.div>
+  );
+}
+
 export function CinematicHomepage({ content }: { content: SiteContent }) {
   const reduced = useReducedMotion();
   const packages = content.packages?.length ? content.packages : [];
@@ -196,16 +227,15 @@ export function CinematicHomepage({ content }: { content: SiteContent }) {
 
   return (
     <div className="cinematic-home relative">
-      <PublicTopTabs items={tabs} />
       <div className="cinematic-aurora pointer-events-none absolute inset-0" aria-hidden="true" />
 
-      <section id="hero" className="cinematic-floor relative flex min-h-[calc(100svh-76px)] scroll-mt-32 items-center overflow-hidden px-4 py-20 sm:px-6 lg:px-8">
+      <section id="hero" className="cinematic-floor relative flex min-h-[calc(100svh-76px)] scroll-mt-20 items-center overflow-hidden px-4 py-20 sm:px-6 lg:px-8">
         <div className="cinematic-floor-glow" aria-hidden="true" />
-        <div className="relative mx-auto grid w-full max-w-7xl items-center gap-14 lg:grid-cols-[1.05fr_.95fr]">
+        <div className="relative mx-auto grid w-full max-w-7xl items-center gap-14 lg:grid-cols-[1fr_1fr]">
           <motion.div initial={reduced ? false : { opacity: 0, y: 32 }} animate={reduced ? undefined : { opacity: 1, y: 0 }} transition={{ duration: .75, ease: [0.16, 1, 0.3, 1] }} className="relative z-10">
             <p className="cinematic-eyebrow text-xs font-black uppercase tracking-[.3em] text-amber-200">HK Dijital büyüme sistemi</p>
             <h1 className="cinematic-title mt-5 text-4xl font-black leading-[.96] tracking-tight text-white sm:text-6xl lg:text-7xl">
-              Reklam vermek kolaydır. Büyümeyi yönetmek zordur.
+              Reklam vermek kolaydır.<br />Büyümeyi yönetmek zordur.
             </h1>
             <p className="mt-7 max-w-2xl text-base leading-8 text-slate-300 sm:text-xl">
               HK Dijital; Meta reklamları, Google Ads, sosyal medya yönetimi, CRM, raporlama ve yapay zekâ destekli analizleri tek merkezde birleştirir.
@@ -216,24 +246,7 @@ export function CinematicHomepage({ content }: { content: SiteContent }) {
             </div>
           </motion.div>
 
-          <motion.div initial={reduced ? false : { opacity: 0, scale: .96, y: 24 }} animate={reduced ? undefined : { opacity: 1, scale: 1, y: 0 }} transition={{ duration: .78, delay: .22, ease: [0.16, 1, 0.3, 1] }} className="relative z-0">
-            <div className="cinematic-orbit">
-              {floatingCards.map(([title, text, Icon], index) => (
-                <motion.div key={String(title)} initial={reduced ? false : { opacity: 0, y: 28 }} animate={reduced ? undefined : { opacity: 1, y: 0 }} transition={{ delay: .25 + index * .07, duration: .52 }} className={`cinematic-float-card cinematic-float-${index}`}>
-                  <Icon size={20} className="text-cyan-200" />
-                  <div>
-                    <p className="font-black text-white">{String(title)}</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-400">{String(text)}</p>
-                  </div>
-                </motion.div>
-              ))}
-              <div className="cinematic-core">
-                <Sparkles className="text-amber-200" size={34} />
-                <p className="mt-4 text-sm font-black uppercase tracking-[.2em] text-cyan-100">Büyüme kontrol merkezi</p>
-                <p className="mt-3 text-5xl font-black text-white">HK OS</p>
-              </div>
-            </div>
-          </motion.div>
+          <HeroOsVisual reduced={reduced} />
         </div>
       </section>
 
