@@ -51,6 +51,10 @@ const legacyRole = (role) => role === "sales" ? "yonetici" : role === "customer"
 const customerRole = (role) => ["customer", "musteri"].includes(role);
 const statusOptions = ["Aktif", "Pasif"];
 const companyStatusOptions = ["Aktif", "Pasif", "Beklemede", "Potansiyel", "Eski Müşteri"];
+const taskHistoryFilters = ["Tümü", "Yapılacak", "Devam Ediyor", "Beklemede", "Tamamlandı", "İptal", "Arşivlenenler"];
+const taskStatusOptions = ["Yapılacak", "Devam Ediyor", "Beklemede", "Tamamlandı", "İptal"];
+const paymentHistoryFilters = ["Tümü", "Bekliyor", "Ödendi", "Gecikmiş", "İptal", "Arşivlenenler"];
+const paymentStatusOptions = ["Bekliyor", "Ödendi", "Gecikmiş", "İptal"];
 
 function isLeadDeleted(lead: any) {
   return Boolean(lead?.deleted_at || lead?.deletedAt);
@@ -971,17 +975,19 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
   const hotLeads = leads.filter((lead) => Number(lead.lead_heat_score || 0) >= 70);
   const activeCustomers = companies.filter((company) => company.status === "Aktif");
   const metricsThisMonth = metrics.filter((metric) => String(metric.date || "").startsWith(month));
-  const thisMonthPayments = paymentRecords.filter((item) => String(item.service_period || item.due_date || "").startsWith(month));
+  const activePayments = paymentRecords.filter((item) => !isArchivedRecord(item));
+  const activeTasks = agencyTasks.filter((item) => !isArchivedRecord(item));
+  const thisMonthPayments = activePayments.filter((item) => String(item.service_period || item.due_date || "").startsWith(month));
   const expectedRevenue = thisMonthPayments.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const paidRevenue = thisMonthPayments.filter((item) => item.status === "Ödendi").reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const pendingRevenue = thisMonthPayments.filter((item) => item.status !== "Ödendi" && item.status !== "İptal").reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const overduePayments = paymentRecords.filter((item) => item.status === "Gecikmiş");
+  const overduePayments = activePayments.filter((item) => item.status === "Gecikmiş");
   const monthExpenses = agencyExpenses.filter((item) => String(item.expense_date || "").startsWith(month));
   const estimatedProfit = expectedRevenue - monthExpenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const todaysTasks = agencyTasks.filter((item) => item.due_date === today && item.status !== "Tamamlandı");
-  const overdueTasks = agencyTasks.filter((item) => item.due_date && item.due_date < today && item.status !== "Tamamlandı");
-  const criticalTasks = agencyTasks.filter((item) => item.priority === "Kritik" && item.status !== "Tamamlandı");
-  const completedTasks = agencyTasks.filter((item) => item.status === "Tamamlandı");
+  const todaysTasks = activeTasks.filter((item) => item.due_date === today && !["Tamamlandı", "İptal"].includes(item.status));
+  const overdueTasks = activeTasks.filter((item) => item.due_date && item.due_date < today && !["Tamamlandı", "İptal"].includes(item.status));
+  const criticalTasks = activeTasks.filter((item) => item.priority === "Kritik" && !["Tamamlandı", "İptal"].includes(item.status));
+  const completedTasks = activeTasks.filter((item) => item.status === "Tamamlandı");
   const overduePaymentTotal = overduePayments.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const importantDashboardTasks = [...criticalTasks, ...overdueTasks, ...todaysTasks]
     .filter((item, index, list) => list.findIndex((candidate) => (candidate.id || candidate.title) === (item.id || item.title)) === index)
@@ -1403,9 +1409,14 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
             ))}
             {!importantDashboardTasks.length && <p className="rounded-[8px] border border-dashed border-white/10 p-4 text-sm text-slate-400">Öncelikli görev görünmüyor.</p>}
           </div>
-          <button type="button" onClick={() => setActive("Görevler")} className="mt-4 w-full rounded-[8px] border border-cyan-200/20 bg-cyan-300/10 px-4 py-3 text-sm font-black text-cyan-50 transition hover:bg-cyan-300/20">
-            Tüm Görevleri Aç
-          </button>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            <button type="button" onClick={() => setActive("Görevler")} className="rounded-[8px] border border-cyan-200/20 bg-cyan-300/10 px-4 py-3 text-sm font-black text-cyan-50 transition hover:bg-cyan-300/20">
+              Tüm Görevleri Aç
+            </button>
+            <button type="button" onClick={() => setActive("Görevler")} className="rounded-[8px] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-slate-100 transition hover:bg-white/[0.08]">
+              Görev Geçmişi
+            </button>
+          </div>
         </GlassCard>
 
         <GlassCard className="p-4 sm:p-5">
@@ -1430,9 +1441,14 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
             ))}
           </div>
           {!paymentRecords.length && !agencyExpenses.length && <p className="mt-4 rounded-[8px] border border-dashed border-white/10 p-4 text-sm leading-6 text-slate-400">Henüz tahsilat veya gider verisi yok. Özet değerler ₺0 olarak gösteriliyor.</p>}
-          <button type="button" onClick={() => setActive("Karlılık")} className="mt-4 w-full rounded-[8px] border border-emerald-200/20 bg-emerald-300/10 px-4 py-3 text-sm font-black text-emerald-50 transition hover:bg-emerald-300/20">
-            Karlılık Detayını Aç
-          </button>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            <button type="button" onClick={() => setActive("Karlılık")} className="rounded-[8px] border border-emerald-200/20 bg-emerald-300/10 px-4 py-3 text-sm font-black text-emerald-50 transition hover:bg-emerald-300/20">
+              Karlılık Detayını Aç
+            </button>
+            <button type="button" onClick={() => setActive("Tahsilat")} className="rounded-[8px] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-slate-100 transition hover:bg-white/[0.08]">
+              Ödeme Geçmişi
+            </button>
+          </div>
         </GlassCard>
       </div>
       <div className="mb-5">
@@ -1508,6 +1524,86 @@ function companyName(content: any, companyId?: string) {
   return (content.companies || []).find((company) => company.id === companyId)?.name || "Firma seçilmedi";
 }
 
+function isArchivedRecord(item: any) {
+  return Boolean(item?.archived_at || item?.deleted_at);
+}
+
+function dateOnly(value: any) {
+  if (!value) return "";
+  return String(value).slice(0, 10);
+}
+
+function recordDateForFilter(item: any, kind: "task" | "payment") {
+  if (kind === "task") return dateOnly(item.due_date || item.completed_at || item.updated_at || item.created_at);
+  return dateOnly(item.due_date || item.payment_date || item.updated_at || item.created_at);
+}
+
+function matchesHistoryDate(item: any, kind: "task" | "payment", startDate = "", endDate = "") {
+  const date = recordDateForFilter(item, kind);
+  if (!date) return true;
+  if (startDate && date < startDate) return false;
+  if (endDate && date > endDate) return false;
+  return true;
+}
+
+function filterTasks(items: any[], filters: any = {}) {
+  const { status = "Tümü", companyId = "", startDate = "", endDate = "" } = filters;
+  return (items || []).filter((item) => {
+    const archived = isArchivedRecord(item);
+    if (status === "Arşivlenenler") {
+      if (!archived) return false;
+    } else if (archived) {
+      return false;
+    } else if (status !== "Tümü" && (item.status || "Yapılacak") !== status) {
+      return false;
+    }
+    if (companyId && item.company_id !== companyId) return false;
+    return matchesHistoryDate(item, "task", startDate, endDate);
+  });
+}
+
+function filterPayments(items: any[], filters: any = {}) {
+  const { status = "Tümü", companyId = "", startDate = "", endDate = "" } = filters;
+  return (items || []).filter((item) => {
+    const archived = isArchivedRecord(item);
+    if (status === "Arşivlenenler") {
+      if (!archived) return false;
+    } else if (archived) {
+      return false;
+    } else if (status !== "Tümü" && (item.status || "Bekliyor") !== status) {
+      return false;
+    }
+    if (companyId && item.company_id !== companyId) return false;
+    return matchesHistoryDate(item, "payment", startDate, endDate);
+  });
+}
+
+function stampTaskStatus(item: any, status: string) {
+  const now = new Date().toISOString();
+  return {
+    ...item,
+    status,
+    completed_at: status === "Tamamlandı" ? (item.completed_at || now) : null,
+    cancelled_at: status === "İptal" ? (item.cancelled_at || now) : null,
+    archived_at: status === "Yapılacak" ? null : item.archived_at || null,
+    deleted_at: status === "Yapılacak" ? null : item.deleted_at || null,
+    updated_at: now
+  };
+}
+
+function stampPaymentStatus(item: any, status: string) {
+  const now = new Date().toISOString();
+  return {
+    ...item,
+    status,
+    payment_date: status === "Ödendi" ? (item.payment_date || dateOnly(now)) : item.payment_date || "",
+    cancelled_at: status === "İptal" ? (item.cancelled_at || now) : null,
+    archived_at: status === "Bekliyor" ? null : item.archived_at || null,
+    deleted_at: status === "Bekliyor" ? null : item.deleted_at || null,
+    updated_at: now
+  };
+}
+
 function updateCollection(content: any, setContent: any, key: string, items: any[]) {
   setContent({ ...content, [key]: items });
 }
@@ -1570,12 +1666,24 @@ function MonthlyReportCenter({ content, setContent }: any) {
 
 function AgencyTasksCenter({ content, setContent, save }: any) {
   const items = content.agencyTasks || [];
+  const [statusFilter, setStatusFilter] = useState("Tümü");
+  const [companyFilter, setCompanyFilter] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const today = new Date().toISOString().slice(0, 10);
   const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - 7);
-  const completedWeek = items.filter((item) => item.status === "Tamamlandı" && new Date(item.updated_at || item.created_at || Date.now()) >= weekStart).length;
+  const activeItems = items.filter((item) => !isArchivedRecord(item));
+  const filteredItems = filterTasks(items, { status: statusFilter, companyId: companyFilter, startDate, endDate });
+  const completedWeek = activeItems.filter((item) => item.status === "Tamamlandı" && new Date(item.completed_at || item.updated_at || item.created_at || Date.now()) >= weekStart).length;
   const update = (index, patch) => updateCollection(content, setContent, "agencyTasks", items.map((item, i) => i === index ? { ...item, ...patch } : item));
+  const updateById = (id, patch) => updateCollection(content, setContent, "agencyTasks", items.map((item) => item.id === id ? { ...item, ...patch, updated_at: new Date().toISOString() } : item));
+  const setStatus = (id, status) => updateCollection(content, setContent, "agencyTasks", items.map((item) => item.id === id ? stampTaskStatus(item, status) : item));
   const add = () => updateCollection(content, setContent, "agencyTasks", [{ id: createLocalId(), title: "Yeni görev", description: "", status: "Yapılacak", priority: "Orta", due_date: today, notes: "" }, ...items]);
-  return <Panel title="Görev Takip Sistemi"><div className="mb-5 grid gap-3 md:grid-cols-4"><AgencyStatCard label="Bugünkü görev" value={items.filter((item) => item.due_date === today).length} note="Bugün tamamlanması gereken işler" /><AgencyStatCard label="Geciken" value={items.filter((item) => item.due_date && item.due_date < today && item.status !== "Tamamlandı").length} note="Takip bekleyen gecikmiş işler" tone="red" /><AgencyStatCard label="Kritik" value={items.filter((item) => item.priority === "Kritik").length} note="Öncelikli operasyon işleri" tone="amber" /><AgencyStatCard label="Bu hafta tamamlandı" value={completedWeek} note="Son 7 günde kapanan görevler" tone="emerald" /></div><button onClick={add} className="mb-4 rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Görev ekle</button><div className="grid gap-3">{items.map((item, index) => <div key={item.id || index} className="rounded-[8px] border border-white/10 bg-black/15 p-4"><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4"><Field label="Başlık" value={item.title || ""} onChange={(value) => update(index, { title: value })} /><CompanySelect value={item.company_id || ""} onChange={(value) => update(index, { company_id: value })} companies={content.companies} /><SelectField label="Durum" value={item.status || "Yapılacak"} onChange={(value) => update(index, { status: value })} options={["Yapılacak", "Devam Ediyor", "Beklemede", "Tamamlandı"]} /><SelectField label="Öncelik" value={item.priority || "Orta"} onChange={(value) => update(index, { priority: value })} options={["Düşük", "Orta", "Yüksek", "Kritik"]} /><Field label="Son tarih" type="date" value={item.due_date || ""} onChange={(value) => update(index, { due_date: value })} /><SelectField label="Atanan kullanıcı" value={item.assigned_user_id || ""} onChange={(value) => update(index, { assigned_user_id: value })} options={(content.users || []).map((user) => ({ value: user.id, label: user.full_name || user.email }))} placeholder="Atanmadı" /><TextArea label="Açıklama" value={item.description || item.notes || ""} onChange={(value) => update(index, { description: value, notes: value })} /><TextArea label="Not" value={item.notes || ""} onChange={(value) => update(index, { notes: value })} /></div><div className="mt-4 flex flex-wrap justify-end gap-2"><button onClick={() => save?.()} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Kaydet</button><button onClick={() => window.location.reload()} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200">Vazgeç</button><button onClick={() => updateCollection(content, setContent, "agencyTasks", items.filter((_, i) => i !== index))} className="rounded-full border border-red-300/30 px-4 py-2 text-xs text-red-200">Sil</button></div></div>)}{!items.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-sm text-slate-400">Henüz görev yok.</p>}</div></Panel>;
+  return <Panel title="Görev Takip Sistemi"><div className="mb-5 grid gap-3 md:grid-cols-4"><AgencyStatCard label="Bugünkü görev" value={activeItems.filter((item) => item.due_date === today && !["Tamamlandı", "İptal"].includes(item.status)).length} note="Bugün tamamlanması gereken işler" /><AgencyStatCard label="Geciken" value={activeItems.filter((item) => item.due_date && item.due_date < today && !["Tamamlandı", "İptal"].includes(item.status)).length} note="Takip bekleyen gecikmiş işler" tone="red" /><AgencyStatCard label="Kritik" value={activeItems.filter((item) => item.priority === "Kritik" && !["Tamamlandı", "İptal"].includes(item.status)).length} note="Öncelikli operasyon işleri" tone="amber" /><AgencyStatCard label="Bu hafta tamamlandı" value={completedWeek} note="Son 7 günde kapanan görevler" tone="emerald" /></div><div className="mb-4 flex flex-wrap items-center gap-3"><button onClick={add} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Görev ekle</button><span className="rounded-full border border-white/10 px-3 py-2 text-xs text-slate-300">Görev Geçmişi: {filteredItems.length} kayıt</span></div><div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5"><SelectField label="Durum filtresi" value={statusFilter} onChange={setStatusFilter} options={taskHistoryFilters} /><CompanySelect value={companyFilter} onChange={setCompanyFilter} companies={content.companies} /><Field label="Başlangıç tarihi" type="date" value={startDate} onChange={setStartDate} /><Field label="Bitiş tarihi" type="date" value={endDate} onChange={setEndDate} /><button onClick={() => { setStatusFilter("Tümü"); setCompanyFilter(""); setStartDate(""); setEndDate(""); }} className="self-end rounded-[8px] border border-white/10 px-4 py-3 text-sm font-black text-slate-100">Filtreleri Temizle</button></div><div className="grid gap-3">{filteredItems.map((item) => {
+    const index = items.findIndex((candidate) => candidate.id === item.id);
+    const archived = isArchivedRecord(item);
+    return <div key={item.id || index} className={`rounded-[8px] border p-4 ${archived ? "border-amber-300/25 bg-amber-300/[0.06]" : "border-white/10 bg-black/15"}`}><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4"><Field label="Başlık" value={item.title || ""} onChange={(value) => update(index, { title: value })} /><CompanySelect value={item.company_id || ""} onChange={(value) => update(index, { company_id: value })} companies={content.companies} /><SelectField label="Durum" value={item.status || "Yapılacak"} onChange={(value) => setStatus(item.id, value)} options={taskStatusOptions} /><SelectField label="Öncelik" value={item.priority || "Orta"} onChange={(value) => update(index, { priority: value })} options={["Düşük", "Orta", "Yüksek", "Kritik"]} /><Field label="Son tarih" type="date" value={item.due_date || ""} onChange={(value) => update(index, { due_date: value })} /><SelectField label="Atanan kullanıcı" value={item.assigned_user_id || ""} onChange={(value) => update(index, { assigned_user_id: value })} options={(content.users || []).map((user) => ({ value: user.id, label: user.full_name || user.email }))} placeholder="Atanmadı" /><InfoItem label="Tamamlanma tarihi" value={formatDateTime(item.completed_at)} /><InfoItem label="Oluşturulma / Güncelleme" value={`${formatDateTime(item.created_at)} · ${formatDateTime(item.updated_at)}`} /><div className="md:col-span-2 xl:col-span-4"><TextArea label="Açıklama / not" value={item.description || item.notes || ""} onChange={(value) => update(index, { description: value, notes: value })} /></div></div><div className="mt-4 flex flex-wrap justify-end gap-2">{archived ? <button onClick={() => updateById(item.id, { archived_at: null, deleted_at: null })} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-100">Arşivden Çıkar</button> : <button onClick={() => updateById(item.id, { archived_at: new Date().toISOString() })} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-100">Arşivle</button>}<button onClick={() => setStatus(item.id, item.status === "Tamamlandı" ? "Yapılacak" : "Tamamlandı")} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs text-emerald-100">{item.status === "Tamamlandı" ? "Tekrar Aç" : "Tamamlandı Yap"}</button><button onClick={() => save?.()} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Kaydet</button><button onClick={() => window.location.reload()} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200">Vazgeç</button></div></div>;
+  })}{!filteredItems.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-sm text-slate-400">Bu filtrelerle görev kaydı bulunamadı.</p>}</div></Panel>;
 }
 
 function DocumentCenter({ content, setContent }: any) {
@@ -1587,10 +1695,18 @@ function DocumentCenter({ content, setContent }: any) {
 function PaymentCenter({ content, setContent, save }: any) {
   const items = content.paymentRecords || [];
   const [feedback, setFeedback] = useState("");
+  const [statusFilter, setStatusFilter] = useState("Tümü");
+  const [companyFilter, setCompanyFilter] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const thisMonth = new Date().toISOString().slice(0, 7);
-  const monthItems = items.filter((item) => String(item.service_period || item.due_date || "").startsWith(thisMonth));
+  const activeItems = items.filter((item) => !isArchivedRecord(item));
+  const filteredItems = filterPayments(items, { status: statusFilter, companyId: companyFilter, startDate, endDate });
+  const monthItems = activeItems.filter((item) => String(item.service_period || item.due_date || "").startsWith(thisMonth));
   const sum = (list, predicate) => list.filter(predicate).reduce((total, item) => total + Number(item.amount || 0), 0);
   const update = (index, patch) => updateCollection(content, setContent, "paymentRecords", items.map((item, i) => i === index ? { ...item, ...patch } : item));
+  const updateById = (id, patch) => updateCollection(content, setContent, "paymentRecords", items.map((item) => item.id === id ? { ...item, ...patch, updated_at: new Date().toISOString() } : item));
+  const setStatus = (id, status) => updateCollection(content, setContent, "paymentRecords", items.map((item) => item.id === id ? stampPaymentStatus(item, status) : item));
   function addPayment() {
     const hasEmptyDraft = items.some((item) => !item.company_id && !Number(item.amount || 0) && item.status === "Bekliyor");
     if (hasEmptyDraft) {
@@ -1600,7 +1716,11 @@ function PaymentCenter({ content, setContent, save }: any) {
     setFeedback("Tahsilat taslağı eklendi. Kaydet düğmesiyle kalıcılaştırın.");
     updateCollection(content, setContent, "paymentRecords", [{ id: createLocalId(), company_id: (content.companies || [])[0]?.id || "", amount: 0, due_date: new Date().toISOString().slice(0, 10), payment_date: "", status: "Bekliyor", service_period: thisMonth, payment_note: "", visible_to_customer: false }, ...items]);
   }
-  return <Panel title="Tahsilat Takibi"><div className="mb-5 grid gap-3 md:grid-cols-4"><AgencyStatCard label="Beklenen gelir" value={`${sum(monthItems, () => true).toLocaleString("tr-TR")} TL`} note="Bu ay planlanan tahsilat" /><AgencyStatCard label="Ödenen" value={`${sum(monthItems, (item) => item.status === "Ödendi").toLocaleString("tr-TR")} TL`} note="Tahsil edilmiş tutar" tone="emerald" /><AgencyStatCard label="Bekleyen" value={`${sum(monthItems, (item) => item.status === "Bekliyor").toLocaleString("tr-TR")} TL`} note="Henüz kapanmayan tutar" tone="amber" /><AgencyStatCard label="Gecikmiş" value={`${sum(items, (item) => item.status === "Gecikmiş").toLocaleString("tr-TR")} TL`} note="Aksiyon gerektirir" tone="red" /></div><div className="mb-4 flex flex-wrap items-center gap-3"><button onClick={addPayment} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Tahsilat kaydı ekle</button>{feedback && <span className="rounded-full border border-cyan-200/20 px-3 py-2 text-xs text-cyan-100">{feedback}</span>}</div><div className="grid gap-3">{items.map((item, index) => <div key={item.id || index} className="rounded-[8px] border border-white/10 bg-black/15 p-4"><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4"><CompanySelect value={item.company_id || ""} onChange={(value) => update(index, { company_id: value })} companies={content.companies} /><Field label="Tutar" type="number" value={item.amount || 0} onChange={(value) => update(index, { amount: Number(value || 0) })} /><Field label="Son ödeme tarihi" type="date" value={item.due_date || ""} onChange={(value) => update(index, { due_date: value })} /><Field label="Ödeme tarihi" type="date" value={item.payment_date || ""} onChange={(value) => update(index, { payment_date: value })} /><SelectField label="Durum" value={item.status || "Bekliyor"} onChange={(value) => update(index, { status: value })} options={["Bekliyor", "Ödendi", "Gecikmiş", "İptal"]} /><Field label="Hizmet dönemi" type="month" value={item.service_period || ""} onChange={(value) => update(index, { service_period: value })} /><TextArea label="Not" value={item.payment_note || ""} onChange={(value) => update(index, { payment_note: value })} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item.visible_to_customer)} onChange={(event) => update(index, { visible_to_customer: event.target.checked })} /> Müşteriye görünür mü</label></div><div className="mt-4 flex flex-wrap justify-end gap-2"><button onClick={() => save?.()} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Kaydet</button><button onClick={() => window.location.reload()} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200">Vazgeç</button><button onClick={() => updateCollection(content, setContent, "paymentRecords", items.filter((_, i) => i !== index))} className="rounded-full border border-red-300/30 px-4 py-2 text-xs text-red-200">Sil</button></div></div>)}{!items.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-sm text-slate-400">Henüz tahsilat kaydı yok.</p>}</div></Panel>;
+  return <Panel title="Tahsilat Takibi"><div className="mb-5 grid gap-3 md:grid-cols-4"><AgencyStatCard label="Beklenen gelir" value={`${sum(monthItems, () => true).toLocaleString("tr-TR")} TL`} note="Bu ay planlanan tahsilat" /><AgencyStatCard label="Ödenen" value={`${sum(monthItems, (item) => item.status === "Ödendi").toLocaleString("tr-TR")} TL`} note="Tahsil edilmiş tutar" tone="emerald" /><AgencyStatCard label="Bekleyen" value={`${sum(monthItems, (item) => item.status === "Bekliyor").toLocaleString("tr-TR")} TL`} note="Henüz kapanmayan tutar" tone="amber" /><AgencyStatCard label="Gecikmiş" value={`${sum(activeItems, (item) => item.status === "Gecikmiş").toLocaleString("tr-TR")} TL`} note="Aksiyon gerektirir" tone="red" /></div><div className="mb-4 flex flex-wrap items-center gap-3"><button onClick={addPayment} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Tahsilat kaydı ekle</button><span className="rounded-full border border-white/10 px-3 py-2 text-xs text-slate-300">Ödeme Geçmişi: {filteredItems.length} kayıt</span>{feedback && <span className="rounded-full border border-cyan-200/20 px-3 py-2 text-xs text-cyan-100">{feedback}</span>}</div><div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5"><SelectField label="Durum filtresi" value={statusFilter} onChange={setStatusFilter} options={paymentHistoryFilters} /><CompanySelect value={companyFilter} onChange={setCompanyFilter} companies={content.companies} /><Field label="Başlangıç tarihi" type="date" value={startDate} onChange={setStartDate} /><Field label="Bitiş tarihi" type="date" value={endDate} onChange={setEndDate} /><button onClick={() => { setStatusFilter("Tümü"); setCompanyFilter(""); setStartDate(""); setEndDate(""); }} className="self-end rounded-[8px] border border-white/10 px-4 py-3 text-sm font-black text-slate-100">Filtreleri Temizle</button></div><div className="grid gap-3">{filteredItems.map((item) => {
+    const index = items.findIndex((candidate) => candidate.id === item.id);
+    const archived = isArchivedRecord(item);
+    return <div key={item.id || index} className={`rounded-[8px] border p-4 ${archived ? "border-amber-300/25 bg-amber-300/[0.06]" : "border-white/10 bg-black/15"}`}><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4"><CompanySelect value={item.company_id || ""} onChange={(value) => update(index, { company_id: value })} companies={content.companies} /><Field label="Tutar" type="number" value={item.amount || 0} onChange={(value) => update(index, { amount: Number(value || 0) })} /><SelectField label="Durum" value={item.status || "Bekliyor"} onChange={(value) => setStatus(item.id, value)} options={paymentStatusOptions} /><Field label="Hizmet dönemi" type="month" value={item.service_period || ""} onChange={(value) => update(index, { service_period: value })} /><Field label="Son ödeme tarihi" type="date" value={item.due_date || ""} onChange={(value) => update(index, { due_date: value })} /><Field label="Ödeme tarihi" type="date" value={item.payment_date || ""} onChange={(value) => update(index, { payment_date: value })} /><InfoItem label="Oluşturulma tarihi" value={formatDateTime(item.created_at)} /><InfoItem label="Güncellenme tarihi" value={formatDateTime(item.updated_at)} /><TextArea label="Not" value={item.payment_note || ""} onChange={(value) => update(index, { payment_note: value })} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item.visible_to_customer)} onChange={(event) => update(index, { visible_to_customer: event.target.checked })} /> Müşteri Panelinde Görünür</label></div><div className="mt-4 flex flex-wrap justify-end gap-2">{archived ? <button onClick={() => updateById(item.id, { archived_at: null, deleted_at: null })} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-100">Arşivden Çıkar</button> : <button onClick={() => updateById(item.id, { archived_at: new Date().toISOString() })} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-100">Arşivle</button>}{item.status === "İptal" && <button onClick={() => setStatus(item.id, "Bekliyor")} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs text-emerald-100">Tekrar Bekliyor Yap</button>}<button onClick={() => save?.()} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Kaydet</button><button onClick={() => window.location.reload()} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200">Vazgeç</button></div></div>;
+  })}{!filteredItems.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-sm text-slate-400">Bu filtrelerle ödeme kaydı bulunamadı.</p>}</div></Panel>;
 }
 
 function buildDemoCompetitors(sector = "Yerel işletme", city = "Manisa") {
@@ -1665,8 +1785,14 @@ function SocialPlanGenerator({ content, setContent }: any) {
 function ProfitabilityCenter({ content, setContent }: any) {
   const payments = content.paymentRecords || [];
   const expenses = content.agencyExpenses || [];
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState("Tümü");
+  const [paymentCompanyFilter, setPaymentCompanyFilter] = useState("");
+  const [paymentStartDate, setPaymentStartDate] = useState("");
+  const [paymentEndDate, setPaymentEndDate] = useState("");
   const thisMonth = new Date().toISOString().slice(0, 7);
-  const monthPayments = payments.filter((item) => String(item.service_period || item.due_date || "").startsWith(thisMonth));
+  const activePayments = payments.filter((item) => !isArchivedRecord(item));
+  const filteredPayments = filterPayments(payments, { status: paymentStatusFilter, companyId: paymentCompanyFilter, startDate: paymentStartDate, endDate: paymentEndDate });
+  const monthPayments = activePayments.filter((item) => String(item.service_period || item.due_date || "").startsWith(thisMonth));
   const monthExpenses = expenses.filter((item) => String(item.expense_date || "").startsWith(thisMonth));
   const revenue = monthPayments.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const paid = monthPayments.filter((item) => item.status === "Ödendi").reduce((sum, item) => sum + Number(item.amount || 0), 0);
@@ -1674,7 +1800,7 @@ function ProfitabilityCenter({ content, setContent }: any) {
   const expenseTotal = monthExpenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const activeCustomers = (content.companies || []).filter((company) => (company.status || "Aktif") === "Aktif").length;
   const update = (index, patch) => updateCollection(content, setContent, "agencyExpenses", expenses.map((item, i) => i === index ? { ...item, ...patch } : item));
-  return <Panel title="Karlılık Dashboard"><div className="mb-5 grid gap-3 md:grid-cols-4"><AgencyStatCard label="Aylık gelir" value={`${revenue.toLocaleString("tr-TR")} TL`} note="Bu ay beklenen toplam" /><AgencyStatCard label="Ödenen / bekleyen" value={`${paid.toLocaleString("tr-TR")} / ${pending.toLocaleString("tr-TR")} TL`} note="Tahsilat dengesi" tone="emerald" /><AgencyStatCard label="Aktif müşteri" value={activeCustomers} note={`Müşteri başı ortalama: ${activeCustomers ? Math.round(revenue / activeCustomers).toLocaleString("tr-TR") : 0} TL`} /><AgencyStatCard label="Tahmini kâr" value={`${(revenue - expenseTotal).toLocaleString("tr-TR")} TL`} note={`Gider: ${expenseTotal.toLocaleString("tr-TR")} TL`} tone={revenue - expenseTotal >= 0 ? "emerald" : "red"} /></div><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h3 className="font-black">Gider takibi</h3><button onClick={() => updateCollection(content, setContent, "agencyExpenses", [{ id: `${Date.now()}`, title: "Yeni gider", amount: 0, expense_date: new Date().toISOString().slice(0, 10), category: "Diğer", note: "" }, ...expenses])} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Gider ekle</button></div><div className="grid gap-3">{expenses.map((item, index) => <div key={item.id || index} className="grid gap-3 rounded-[8px] border border-white/10 bg-black/15 p-4 md:grid-cols-2 xl:grid-cols-5"><Field label="Gider başlığı" value={item.title || ""} onChange={(value) => update(index, { title: value })} /><Field label="Tutar" type="number" value={item.amount || 0} onChange={(value) => update(index, { amount: Number(value || 0) })} /><Field label="Tarih" type="date" value={item.expense_date || ""} onChange={(value) => update(index, { expense_date: value })} /><SelectField label="Kategori" value={item.category || "Diğer"} onChange={(value) => update(index, { category: value })} options={["Reklam Araçları", "Yazılım", "Tasarım", "Personel", "Operasyon", "Diğer"]} /><Field label="Not" value={item.note || ""} onChange={(value) => update(index, { note: value })} /><button onClick={() => updateCollection(content, setContent, "agencyExpenses", expenses.filter((_, i) => i !== index))} className="w-fit rounded-full border border-red-300/30 px-3 py-2 text-xs text-red-200">Sil</button></div>)}</div></Panel>;
+  return <Panel title="Karlılık Dashboard"><div className="mb-5 grid gap-3 md:grid-cols-4"><AgencyStatCard label="Aylık gelir" value={`${revenue.toLocaleString("tr-TR")} TL`} note="Bu ay beklenen toplam" /><AgencyStatCard label="Ödenen / bekleyen" value={`${paid.toLocaleString("tr-TR")} / ${pending.toLocaleString("tr-TR")} TL`} note="Tahsilat dengesi" tone="emerald" /><AgencyStatCard label="Aktif müşteri" value={activeCustomers} note={`Müşteri başı ortalama: ${activeCustomers ? Math.round(revenue / activeCustomers).toLocaleString("tr-TR") : 0} TL`} /><AgencyStatCard label="Tahmini kâr" value={`${(revenue - expenseTotal).toLocaleString("tr-TR")} TL`} note={`Gider: ${expenseTotal.toLocaleString("tr-TR")} TL`} tone={revenue - expenseTotal >= 0 ? "emerald" : "red"} /></div><div className="mb-6 rounded-[8px] border border-white/10 bg-black/15 p-4"><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-white">Ödeme Geçmişi</h3><p className="mt-1 text-sm text-slate-400">Karlılık hesabında kullanılan tahsilat kayıtlarını durum, müşteri ve tarihe göre inceleyin.</p></div><span className="rounded-full border border-white/10 px-3 py-2 text-xs text-slate-300">{filteredPayments.length} kayıt</span></div><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5"><SelectField label="Durum filtresi" value={paymentStatusFilter} onChange={setPaymentStatusFilter} options={paymentHistoryFilters} /><CompanySelect value={paymentCompanyFilter} onChange={setPaymentCompanyFilter} companies={content.companies} /><Field label="Başlangıç tarihi" type="date" value={paymentStartDate} onChange={setPaymentStartDate} /><Field label="Bitiş tarihi" type="date" value={paymentEndDate} onChange={setPaymentEndDate} /><button onClick={() => { setPaymentStatusFilter("Tümü"); setPaymentCompanyFilter(""); setPaymentStartDate(""); setPaymentEndDate(""); }} className="self-end rounded-[8px] border border-white/10 px-4 py-3 text-sm font-black text-slate-100">Filtreleri Temizle</button></div><div className="mt-4 grid gap-2">{filteredPayments.slice(0, 12).map((item) => <div key={item.id || `${item.company_id}-${item.due_date}`} className={`grid gap-2 rounded-[8px] border p-3 text-sm md:grid-cols-[1.2fr_.7fr_.7fr_.7fr] ${isArchivedRecord(item) ? "border-amber-300/25 bg-amber-300/[0.06]" : "border-white/10 bg-black/15"}`}><span className="font-black text-white">{companyName(content, item.company_id)}</span><span>{Number(item.amount || 0).toLocaleString("tr-TR")} TL</span><span>{item.status || "Bekliyor"}</span><span>{item.service_period || item.due_date || "-"}</span></div>)}{!filteredPayments.length && <p className="rounded-[8px] border border-dashed border-white/10 p-4 text-sm text-slate-400">Bu filtrelerle ödeme kaydı bulunamadı.</p>}</div></div><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h3 className="font-black">Gider takibi</h3><button onClick={() => updateCollection(content, setContent, "agencyExpenses", [{ id: `${Date.now()}`, title: "Yeni gider", amount: 0, expense_date: new Date().toISOString().slice(0, 10), category: "Diğer", note: "" }, ...expenses])} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Gider ekle</button></div><div className="grid gap-3">{expenses.map((item, index) => <div key={item.id || index} className="grid gap-3 rounded-[8px] border border-white/10 bg-black/15 p-4 md:grid-cols-2 xl:grid-cols-5"><Field label="Gider başlığı" value={item.title || ""} onChange={(value) => update(index, { title: value })} /><Field label="Tutar" type="number" value={item.amount || 0} onChange={(value) => update(index, { amount: Number(value || 0) })} /><Field label="Tarih" type="date" value={item.expense_date || ""} onChange={(value) => update(index, { expense_date: value })} /><SelectField label="Kategori" value={item.category || "Diğer"} onChange={(value) => update(index, { category: value })} options={["Reklam Araçları", "Yazılım", "Tasarım", "Personel", "Operasyon", "Diğer"]} /><Field label="Not" value={item.note || ""} onChange={(value) => update(index, { note: value })} /><button onClick={() => updateCollection(content, setContent, "agencyExpenses", expenses.filter((_, i) => i !== index))} className="w-fit rounded-full border border-red-300/30 px-3 py-2 text-xs text-red-200">Sil</button></div>)}</div></Panel>;
 }
 
 function HKAssistantCenter({ content }: any) {
@@ -2718,25 +2844,37 @@ function CustomerRelatedList({ items, empty, render, onVisibilityChange }: any) 
 
 function CustomerPaymentsEditor({ company, content, setContent, save, items }: any) {
   const allItems = content.paymentRecords || [];
+  const [statusFilter, setStatusFilter] = useState("Tümü");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const thisMonth = new Date().toISOString().slice(0, 7);
   const update = (id, patch) => updateCollection(content, setContent, "paymentRecords", allItems.map((item) => item.id === id ? { ...item, ...patch } : item));
-  const remove = (id) => updateCollection(content, setContent, "paymentRecords", allItems.filter((item) => item.id !== id));
+  const setStatus = (id, status) => updateCollection(content, setContent, "paymentRecords", allItems.map((item) => item.id === id ? stampPaymentStatus(item, status) : item));
+  const archive = (id) => update(id, { archived_at: new Date().toISOString() });
+  const restore = (id) => update(id, { archived_at: null, deleted_at: null });
+  const visibleItems = filterPayments(items, { status: statusFilter, startDate, endDate });
   function add() {
     const duplicateDraft = allItems.some((item) => item.company_id === company.id && !Number(item.amount || 0) && item.status === "Bekliyor" && String(item.service_period || "").startsWith(thisMonth));
     if (duplicateDraft) return;
     updateCollection(content, setContent, "paymentRecords", [{ id: createLocalId(), company_id: company.id, amount: 0, due_date: new Date().toISOString().slice(0, 10), payment_date: "", status: "Bekliyor", service_period: thisMonth, payment_note: "", visible_to_customer: false }, ...allItems]);
   }
-  return <div><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-white">Ödemeler</h3><p className="mt-1 text-sm text-slate-400">Bu kayıtlar Tahsilat, Karlılık ve Dashboard özetleriyle aynı veri kaynağını kullanır.</p></div><button onClick={add} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Ödeme Ekle</button></div><div className="grid gap-3">{items.map((item) => <div key={item.id} className="rounded-[8px] border border-white/10 bg-black/20 p-4"><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"><Field label="Tutar" type="number" value={item.amount || 0} onChange={(value) => update(item.id, { amount: Number(value || 0) })} /><Field label="Son ödeme tarihi" type="date" value={item.due_date || ""} onChange={(value) => update(item.id, { due_date: value })} /><Field label="Ödeme tarihi" type="date" value={item.payment_date || ""} onChange={(value) => update(item.id, { payment_date: value })} /><SelectField label="Durum" value={item.status || "Bekliyor"} onChange={(value) => update(item.id, { status: value })} options={["Bekliyor", "Ödendi", "Gecikmiş", "İptal"]} /><Field label="Hizmet dönemi" type="month" value={item.service_period || ""} onChange={(value) => update(item.id, { service_period: value })} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item.visible_to_customer)} onChange={(event) => update(item.id, { visible_to_customer: event.target.checked })} /> Müşteriye görünür mü</label><div className="md:col-span-2 xl:col-span-3"><TextArea label="Not" value={item.payment_note || ""} onChange={(value) => update(item.id, { payment_note: value })} /></div></div><div className="mt-4 flex flex-wrap justify-end gap-2"><button onClick={() => save?.()} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Kaydet</button><button onClick={() => window.location.reload()} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200">Vazgeç</button><button onClick={() => remove(item.id)} className="rounded-full border border-red-300/30 px-4 py-2 text-xs text-red-200">Sil</button></div></div>)}{!items.length && <p className="rounded-[8px] border border-dashed border-white/10 p-5 text-sm text-slate-400">Bu müşteri için ödeme kaydı yok.</p>}</div></div>;
+  return <div><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-white">Ödemeler</h3><p className="mt-1 text-sm text-slate-400">Bu kayıtlar Tahsilat, Karlılık ve Dashboard özetleriyle aynı veri kaynağını kullanır.</p></div><button onClick={add} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Ödeme Ekle</button></div><div className="mb-4 grid gap-3 md:grid-cols-4"><SelectField label="Durum filtresi" value={statusFilter} onChange={setStatusFilter} options={paymentHistoryFilters} /><Field label="Başlangıç tarihi" type="date" value={startDate} onChange={setStartDate} /><Field label="Bitiş tarihi" type="date" value={endDate} onChange={setEndDate} /><button onClick={() => { setStatusFilter("Tümü"); setStartDate(""); setEndDate(""); }} className="self-end rounded-[8px] border border-white/10 px-4 py-3 text-sm font-black text-slate-100">Filtreleri Temizle</button></div><div className="grid gap-3">{visibleItems.map((item) => <div key={item.id} className={`rounded-[8px] border p-4 ${isArchivedRecord(item) ? "border-amber-300/25 bg-amber-300/[0.06]" : "border-white/10 bg-black/20"}`}><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"><Field label="Tutar" type="number" value={item.amount || 0} onChange={(value) => update(item.id, { amount: Number(value || 0) })} /><Field label="Son ödeme tarihi" type="date" value={item.due_date || ""} onChange={(value) => update(item.id, { due_date: value })} /><Field label="Ödeme tarihi" type="date" value={item.payment_date || ""} onChange={(value) => update(item.id, { payment_date: value })} /><SelectField label="Durum" value={item.status || "Bekliyor"} onChange={(value) => setStatus(item.id, value)} options={paymentStatusOptions} /><Field label="Hizmet dönemi" type="month" value={item.service_period || ""} onChange={(value) => update(item.id, { service_period: value })} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item.visible_to_customer)} onChange={(event) => update(item.id, { visible_to_customer: event.target.checked })} /> Müşteri Panelinde Görünür</label><InfoItem label="Oluşturulma tarihi" value={formatDateTime(item.created_at)} /><InfoItem label="Güncellenme tarihi" value={formatDateTime(item.updated_at)} /><div className="md:col-span-2 xl:col-span-3"><TextArea label="Not" value={item.payment_note || ""} onChange={(value) => update(item.id, { payment_note: value })} /></div></div><div className="mt-4 flex flex-wrap justify-end gap-2">{isArchivedRecord(item) ? <button onClick={() => restore(item.id)} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-100">Arşivden Çıkar</button> : <button onClick={() => archive(item.id)} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-100">Arşivle</button>}{item.status === "İptal" && <button onClick={() => setStatus(item.id, "Bekliyor")} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs text-emerald-100">Tekrar Bekliyor Yap</button>}<button onClick={() => save?.()} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Kaydet</button><button onClick={() => window.location.reload()} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200">Vazgeç</button></div></div>)}{!visibleItems.length && <p className="rounded-[8px] border border-dashed border-white/10 p-5 text-sm text-slate-400">Bu müşteri için ödeme kaydı bulunamadı.</p>}</div></div>;
 }
 
 function CustomerTasksEditor({ company, content, setContent, save, items }: any) {
   const allItems = content.agencyTasks || [];
+  const [statusFilter, setStatusFilter] = useState("Tümü");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const update = (id, patch) => updateCollection(content, setContent, "agencyTasks", allItems.map((item) => item.id === id ? { ...item, ...patch } : item));
-  const remove = (id) => updateCollection(content, setContent, "agencyTasks", allItems.filter((item) => item.id !== id));
+  const setStatus = (id, status) => updateCollection(content, setContent, "agencyTasks", allItems.map((item) => item.id === id ? stampTaskStatus(item, status) : item));
+  const archive = (id) => update(id, { archived_at: new Date().toISOString() });
+  const restore = (id) => update(id, { archived_at: null, deleted_at: null });
+  const visibleItems = filterTasks(items, { status: statusFilter, startDate, endDate });
   function add() {
     updateCollection(content, setContent, "agencyTasks", [{ id: createLocalId(), company_id: company.id, title: "Yeni görev", description: "", status: "Yapılacak", priority: "Orta", due_date: new Date().toISOString().slice(0, 10), notes: "" }, ...allItems]);
   }
-  return <div><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-white">Yapılacaklar</h3><p className="mt-1 text-sm text-slate-400">Bu görevler Görevler modülü ve Dashboard operasyon özetleriyle eş zamanlıdır.</p></div><button onClick={add} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Görev Ekle</button></div><div className="grid gap-3">{items.map((item) => <div key={item.id} className="rounded-[8px] border border-white/10 bg-black/20 p-4"><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"><Field label="Başlık" value={item.title || ""} onChange={(value) => update(item.id, { title: value })} /><SelectField label="Durum" value={item.status || "Yapılacak"} onChange={(value) => update(item.id, { status: value })} options={["Yapılacak", "Devam Ediyor", "Beklemede", "Tamamlandı"]} /><SelectField label="Öncelik" value={item.priority || "Orta"} onChange={(value) => update(item.id, { priority: value })} options={["Düşük", "Orta", "Yüksek", "Kritik"]} /><Field label="Son tarih" type="date" value={item.due_date || ""} onChange={(value) => update(item.id, { due_date: value })} /><SelectField label="Atanan kullanıcı" value={item.assigned_user_id || ""} onChange={(value) => update(item.id, { assigned_user_id: value })} options={(content.users || []).map((user) => ({ value: user.id, label: user.full_name || user.email }))} placeholder="Atanmadı" /><div className="md:col-span-2 xl:col-span-3"><TextArea label="Açıklama / not" value={item.description || item.notes || ""} onChange={(value) => update(item.id, { description: value, notes: value })} /></div></div><div className="mt-4 flex flex-wrap justify-end gap-2"><button onClick={() => update(item.id, { status: item.status === "Tamamlandı" ? "Yapılacak" : "Tamamlandı" })} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs text-emerald-100">{item.status === "Tamamlandı" ? "Tekrar Aç" : "Tamamlandı Yap"}</button><button onClick={() => save?.()} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Kaydet</button><button onClick={() => window.location.reload()} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200">Vazgeç</button><button onClick={() => remove(item.id)} className="rounded-full border border-red-300/30 px-4 py-2 text-xs text-red-200">Sil</button></div></div>)}{!items.length && <p className="rounded-[8px] border border-dashed border-white/10 p-5 text-sm text-slate-400">Bu müşteri için görev yok.</p>}</div></div>;
+  return <div><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-white">Yapılacaklar</h3><p className="mt-1 text-sm text-slate-400">Bu görevler Görevler modülü ve Dashboard operasyon özetleriyle eş zamanlıdır.</p></div><button onClick={add} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Görev Ekle</button></div><div className="mb-4 grid gap-3 md:grid-cols-4"><SelectField label="Durum filtresi" value={statusFilter} onChange={setStatusFilter} options={taskHistoryFilters} /><Field label="Başlangıç tarihi" type="date" value={startDate} onChange={setStartDate} /><Field label="Bitiş tarihi" type="date" value={endDate} onChange={setEndDate} /><button onClick={() => { setStatusFilter("Tümü"); setStartDate(""); setEndDate(""); }} className="self-end rounded-[8px] border border-white/10 px-4 py-3 text-sm font-black text-slate-100">Filtreleri Temizle</button></div><div className="grid gap-3">{visibleItems.map((item) => <div key={item.id} className={`rounded-[8px] border p-4 ${isArchivedRecord(item) ? "border-amber-300/25 bg-amber-300/[0.06]" : "border-white/10 bg-black/20"}`}><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"><Field label="Başlık" value={item.title || ""} onChange={(value) => update(item.id, { title: value })} /><SelectField label="Durum" value={item.status || "Yapılacak"} onChange={(value) => setStatus(item.id, value)} options={taskStatusOptions} /><SelectField label="Öncelik" value={item.priority || "Orta"} onChange={(value) => update(item.id, { priority: value })} options={["Düşük", "Orta", "Yüksek", "Kritik"]} /><Field label="Son tarih" type="date" value={item.due_date || ""} onChange={(value) => update(item.id, { due_date: value })} /><SelectField label="Atanan kullanıcı" value={item.assigned_user_id || ""} onChange={(value) => update(item.id, { assigned_user_id: value })} options={(content.users || []).map((user) => ({ value: user.id, label: user.full_name || user.email }))} placeholder="Atanmadı" /><InfoItem label="Tamamlanma tarihi" value={formatDateTime(item.completed_at)} /><InfoItem label="Oluşturulma tarihi" value={formatDateTime(item.created_at)} /><InfoItem label="Güncellenme tarihi" value={formatDateTime(item.updated_at)} /><div className="md:col-span-2 xl:col-span-3"><TextArea label="Açıklama / not" value={item.description || item.notes || ""} onChange={(value) => update(item.id, { description: value, notes: value })} /></div></div><div className="mt-4 flex flex-wrap justify-end gap-2">{isArchivedRecord(item) ? <button onClick={() => restore(item.id)} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-100">Arşivden Çıkar</button> : <button onClick={() => archive(item.id)} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-100">Arşivle</button>}<button onClick={() => setStatus(item.id, item.status === "Tamamlandı" ? "Yapılacak" : "Tamamlandı")} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs text-emerald-100">{item.status === "Tamamlandı" ? "Tekrar Aç" : "Tamamlandı Yap"}</button><button onClick={() => save?.()} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Kaydet</button><button onClick={() => window.location.reload()} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200">Vazgeç</button></div></div>)}{!visibleItems.length && <p className="rounded-[8px] border border-dashed border-white/10 p-5 text-sm text-slate-400">Bu müşteri için görev kaydı bulunamadı.</p>}</div></div>;
 }
 
 function ActivityLogs({ content, setContent }: any) {

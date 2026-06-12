@@ -214,16 +214,22 @@ function normalizeRecord(key: string, item: any) {
   }
 
   if (key === "agencyTasks") {
+    const status = item.status || "Yapılacak";
+    const now = new Date().toISOString();
     return {
       ...base,
       company_id: item.company_id || null,
       title: item.title || "Yeni görev",
       description: item.description || "",
-      status: item.status || "Yapılacak",
+      status,
       priority: item.priority || "Orta",
       due_date: item.due_date || item.dueDate || null,
       notes: item.notes || "",
       assigned_user_id: item.assigned_user_id || item.assignedUserId || null,
+      completed_at: item.completed_at || (status === "Tamamlandı" ? now : null),
+      archived_at: item.archived_at || null,
+      deleted_at: item.deleted_at || null,
+      cancelled_at: item.cancelled_at || (status === "İptal" ? now : null),
       updated_at: new Date().toISOString()
     };
   }
@@ -242,16 +248,20 @@ function normalizeRecord(key: string, item: any) {
   }
 
   if (key === "paymentRecords") {
+    const status = item.status || "Bekliyor";
     return {
       ...base,
       company_id: item.company_id || null,
       amount: Number(item.amount || 0),
       due_date: item.due_date || item.dueDate || null,
       payment_date: item.payment_date || item.paymentDate || null,
-      status: item.status || "Bekliyor",
+      status,
       payment_note: item.payment_note || item.paymentNote || "",
       service_period: item.service_period || item.servicePeriod || new Date().toISOString().slice(0, 7),
       visible_to_customer: item.visible_to_customer ?? false,
+      archived_at: item.archived_at || null,
+      deleted_at: item.deleted_at || null,
+      cancelled_at: item.cancelled_at || (status === "İptal" ? new Date().toISOString() : null),
       updated_at: new Date().toISOString()
     };
   }
@@ -372,6 +382,15 @@ async function upsertItems(key: keyof typeof tables, items: any[] = []) {
     }
     if (key === "agencyTasks") {
       delete copy.description;
+      delete copy.completed_at;
+      delete copy.archived_at;
+      delete copy.deleted_at;
+      delete copy.cancelled_at;
+    }
+    if (key === "paymentRecords") {
+      delete copy.archived_at;
+      delete copy.deleted_at;
+      delete copy.cancelled_at;
     }
     if (key === "activityLogs") {
       delete copy.status;
