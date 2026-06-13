@@ -1328,6 +1328,9 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
   const campaignsEndingThisMonth = campaigns.filter((item) => !isCampaignArchived(item) && String(item.end_date || "").startsWith(month));
   const visibleCampaigns = campaigns.filter((item) => !isCampaignArchived(item) && item.visible_to_customer);
   const campaignSpendTotal = campaigns.filter((item) => !isCampaignArchived(item)).reduce((sum, item) => sum + Number(item.spent_budget ?? item.spent ?? 0), 0);
+  const metaMetricRows = (content.campaignMetrics || []).filter((item) => item.source === "Meta API" || item.source === "Meta Raporu" || String(item.platform || "").includes("Meta"));
+  const metaTotals = summarizeMetaRows(metaMetricRows);
+  const activeMetaCampaigns = campaigns.filter((item) => !isCampaignArchived(item) && item.platform === "Meta Ads" && item.status === "Aktif").length;
   const latestCustomer = [...companies].sort((a, b) => Number(new Date(b.created_at || b.updated_at || 0)) - Number(new Date(a.created_at || a.updated_at || 0)))[0];
   const importantDashboardTasks = [...criticalTasks, ...overdueTasks, ...todaysTasks]
     .filter((item, index, list) => list.findIndex((candidate) => (candidate.id || candidate.title) === (item.id || item.title)) === index)
@@ -1393,7 +1396,12 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     ["Bu Ay Ödenen", `${paidRevenue.toLocaleString("tr-TR")} TL`, "Bu ay tahsil edilen toplam", <CircleCheck size={17} />, "emerald"],
     ["Tahmini Kâr", `${estimatedProfit.toLocaleString("tr-TR")} TL`, "Gelir - kayıtlı gider tahmini", <BarChart3 size={17} />, "emerald"],
     ["Aktif Kampanya", activeCampaigns.length, "Yayında görünen kampanyalar", <BarChart3 size={17} />, "cyan"],
-    ["Kampanya Harcaması", `${campaignSpendTotal.toLocaleString("tr-TR")} TL`, "Kayıtlı kampanya harcaması", <Gauge size={17} />, "amber"]
+    ["Kampanya Harcaması", `${campaignSpendTotal.toLocaleString("tr-TR")} TL`, "Kayıtlı kampanya harcaması", <Gauge size={17} />, "amber"],
+    ["Meta Harcama", `${Number(metaTotals.spend || 0).toLocaleString("tr-TR")} TL`, "Meta API / CSV toplam harcama", <BarChart3 size={17} />, "orange"],
+    ["Meta Erişim", Number(metaTotals.reach || 0).toLocaleString("tr-TR"), "Toplam erişim", <UsersRound size={17} />, "cyan"],
+    ["Meta Tıklama", Number(metaTotals.clicks || 0).toLocaleString("tr-TR"), "Toplam tıklama", <Search size={17} />, "cyan"],
+    ["Meta Ortalama CTR", `${metaTotals.impressions ? ((metaTotals.clicks / metaTotals.impressions) * 100).toFixed(2) : "0.00"}%`, "Tıklama oranı", <Gauge size={17} />, "emerald"],
+    ["Aktif Meta Kampanya", activeMetaCampaigns, "Aktif Meta Ads kampanyaları", <BarChart3 size={17} />, "orange"]
   ];
   const moduleAliases: Record<string, string> = { "Müşteri Bulucu": "musteri-bulucu" };
   const canOpen = (label: string) => allowedModules.includes(moduleAliases[label] || adminNavigationItems.find((item) => item.label === label)?.module);
@@ -2254,6 +2262,39 @@ function stampPaymentStatus(item: any, status: string) {
 
 function updateCollection(content: any, setContent: any, key: string, items: any[]) {
   setContent({ ...content, [key]: items });
+}
+
+function maskSecret(value = "") {
+  if (!value) return "Tanımlı değil";
+  if (String(value).includes("•") || String(value).includes("*")) return value;
+  const text = String(value);
+  return text.length > 8 ? `${text.slice(0, 4)}****${text.slice(-4)}` : "****";
+}
+
+function summarizeMetaRows(rows: any[] = []) {
+  return rows.reduce((sum, row) => ({
+    impressions: sum.impressions + Number(row.impressions || 0),
+    reach: sum.reach + Number(row.reach || 0),
+    clicks: sum.clicks + Number(row.clicks || 0),
+    spend: sum.spend + Number(row.spend || row.spent || 0),
+    leads: sum.leads + Number(row.leads || row.results || 0),
+    messages: sum.messages + Number(row.messages || 0)
+  }), { impressions: 0, reach: 0, clicks: 0, spend: 0, leads: 0, messages: 0 });
+}
+
+function metaCampaignSummaries(rows: any[] = []) {
+  const grouped = rows.reduce((acc, row) => {
+    const key = row.campaignId || row.campaignName || "Meta Kampanya";
+    const current = acc[key] || { campaignId: key, campaignName: row.campaignName || key, spend: 0, results: 0, clicks: 0, impressions: 0, ctr: 0, cpc: 0, status: "Aktif" };
+    current.spend += Number(row.spend || row.spent || 0);
+    current.results += Number(row.results || row.leads || row.messages || 0);
+    current.clicks += Number(row.clicks || 0);
+    current.impressions += Number(row.impressions || 0);
+    current.ctr = current.impressions ? (current.clicks / current.impressions) * 100 : 0;
+    current.cpc = current.clicks ? current.spend / current.clicks : 0;
+    return { ...acc, [key]: current };
+  }, {});
+  return Object.values(grouped);
 }
 
 function normalizeAdminRole(role: any) {
@@ -3465,6 +3506,7 @@ function IntegrationsCenter({ content, setContent }: any) {
   return <Panel title="Entegrasyonlar">
     <p className="mb-5 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm leading-6 text-cyan-50">API anahtarları tarayıcıya gönderilmez. Bu alan bağlantı kimliklerini ve durum notlarını merkezi olarak düzenlemek içindir; gerçek gizli anahtarlar sunucu ortam değişkenlerinde kalmalıdır.</p>
     <div className="mb-5"><ReadinessPanel api={api} /></div>
+    <MetaAdsConnectionCenter content={content} setContent={setContent} api={api} updateApi={update} />
     <div className="grid gap-5">
       <div className="rounded-[8px] border border-white/10 p-4">
         <h3 className="font-black">Meta</h3>
@@ -3504,6 +3546,99 @@ function IntegrationsCenter({ content, setContent }: any) {
     </div>
     {status && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{status}</p>}
   </Panel>;
+}
+
+function MetaAdsConnectionCenter({ content, setContent, api, updateApi }: any) {
+  const [loading, setLoading] = useState("");
+  const [message, setMessage] = useState("");
+  const [status, setStatus] = useState<any>(null);
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [pages, setPages] = useState<any[]>([]);
+  const [instagramAccounts, setInstagramAccounts] = useState<any[]>([]);
+  const [form, setForm] = useState({ companyId: "", adAccountId: api.meta_ad_account_id || "", businessId: api.meta_business_id || "", pageId: "", instagramAccountId: "", rangePreset: "last_30d", dateFrom: "", dateTo: "" });
+  async function getAction(action: string) {
+    setLoading(action);
+    setMessage("");
+    const params = new URLSearchParams({ action });
+    if (form.businessId) params.set("businessId", form.businessId);
+    const response = await fetch(`/api/admin/meta-ads?${params}`);
+    const data = await response.json().catch(() => ({}));
+    if (action === "status") setStatus(data);
+    if (action === "adaccounts") setAccounts(data.accounts || []);
+    if (action === "pages") setPages(data.pages || []);
+    if (action === "instagram") setInstagramAccounts(data.instagramAccounts || []);
+    setMessage(data.message || (response.ok ? "İşlem tamamlandı." : "İşlem başarısız."));
+    setLoading("");
+  }
+  async function sync(action = "sync") {
+    setLoading(action);
+    setMessage("");
+    const response = await fetch("/api/admin/meta-ads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, companyId: form.companyId, adAccountId: form.adAccountId, businessId: form.businessId, pageId: form.pageId, instagramAccountId: form.instagramAccountId, rangePreset: form.rangePreset, dateFrom: form.dateFrom, dateTo: form.dateTo, visibleToCustomer: true })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (data.ok) {
+      const metricRows = (data.rows || []).map((row, index) => ({ id: `meta-sync-${Date.now()}-${index}`, company_id: form.companyId, date: row.date, period: data.range?.label || "Meta Sync", source: "Meta API", visible_to_customer: true, ...row }));
+      const summaries = metaCampaignSummaries(data.rows || []).map((item: any) => ({ id: `meta-campaign-${item.campaignId}`, company_id: form.companyId, meta_campaign_id: item.campaignId, name: item.campaignName, platform: "Meta Ads", objective: "Lead", status: item.status || "Aktif", spent_budget: item.spend, spent: item.spend, notes: "Meta API senkronizasyonundan oluşturuldu.", visible_to_customer: true, updated_at: new Date().toISOString() }));
+      setContent({
+        ...content,
+        campaignMetrics: [...metricRows, ...(content.campaignMetrics || [])],
+        campaigns: [...summaries.filter((summary: any) => !(content.campaigns || []).some((campaign: any) => campaign.meta_campaign_id === summary.meta_campaign_id || campaign.id === summary.id)), ...(content.campaigns || [])],
+        reports: data.report ? [data.report, ...(content.reports || [])] : (content.reports || [])
+      });
+      updateApi({ meta_last_success_at: new Date().toISOString(), meta_ad_account_id: form.adAccountId, meta_business_id: form.businessId });
+    }
+    setMessage(data.message || data.errorMessage || data.detail || "Meta işlemi tamamlandı.");
+    setLoading("");
+  }
+  const totals = summarizeMetaRows(content.campaignMetrics?.filter((row: any) => row.source === "Meta API" && (!form.companyId || row.company_id === form.companyId)) || []);
+  return (
+    <div className="mb-5 rounded-[18px] border border-cyan-200/20 bg-slate-950/35 p-4">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">Meta Reklam Bağlantıları</p>
+          <h3 className="mt-1 text-xl font-black text-white">Meta Business Manager veri merkezi</h3>
+          <p className="mt-1 text-sm leading-6 text-slate-300">Token değerleri sunucu tarafında kalır; bu ekranda sadece maskeli durum ve senkronizasyon sonuçları görünür.</p>
+        </div>
+        <span className="rounded-full border border-white/10 px-3 py-2 text-xs text-slate-300">Token: {status?.maskedToken || maskSecret(api.meta_access_token || "")}</span>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <InfoItem label="Meta App ID" value={api.meta_app_id || "Tanımlı değil"} />
+        <InfoItem label="Meta Business ID" value={form.businessId || "Tanımlı değil"} />
+        <InfoItem label="Meta System User ID" value={api.meta_system_user_id || "Tanımlı değil"} />
+        <InfoItem label="Token Status" value={status?.tokenStatus || (api.meta_access_token ? "Maskeli / test bekliyor" : "Token yok")} />
+        <InfoItem label="Last Sync Time" value={formatDateTime(api.meta_last_success_at)} />
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <CompanySelect value={form.companyId} onChange={(companyId) => setForm({ ...form, companyId })} companies={content.companies} />
+        <Field label="Meta Business ID" value={form.businessId} onChange={(businessId) => setForm({ ...form, businessId })} />
+        <Field label="Meta Ad Account ID" value={form.adAccountId} onChange={(adAccountId) => setForm({ ...form, adAccountId })} />
+        <SelectField label="Tarih aralığı" value={form.rangePreset} onChange={(rangePreset) => setForm({ ...form, rangePreset })} options={[{ value: "last_7d", label: "Son 7 Gün" }, { value: "last_30d", label: "Son 30 Gün" }, { value: "this_month", label: "Bu Ay" }, { value: "last_month", label: "Geçen Ay" }, { value: "custom", label: "Özel Tarih" }]} />
+        {form.rangePreset === "custom" ? <Field label="Başlangıç" type="date" value={form.dateFrom} onChange={(dateFrom) => setForm({ ...form, dateFrom })} /> : <InfoItem label="Özet" value={`${Number(totals.spend || 0).toLocaleString("tr-TR")} TL · ${Number(totals.clicks || 0).toLocaleString("tr-TR")} tıklama`} />}
+        {form.rangePreset === "custom" && <Field label="Bitiş" type="date" value={form.dateTo} onChange={(dateTo) => setForm({ ...form, dateTo })} />}
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button disabled={Boolean(loading)} onClick={() => getAction("status")} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950 disabled:opacity-60">{loading === "status" ? "Test ediliyor..." : "Bağlantıyı Test Et"}</button>
+        <button disabled={Boolean(loading)} onClick={() => getAction("adaccounts")} className="rounded-full border border-cyan-200/25 px-4 py-2 text-xs font-black text-cyan-100 disabled:opacity-60">Reklam Hesaplarını Getir</button>
+        <button disabled={Boolean(loading)} onClick={() => getAction("pages")} className="rounded-full border border-cyan-200/25 px-4 py-2 text-xs font-black text-cyan-100 disabled:opacity-60">Sayfaları Getir</button>
+        <button disabled={Boolean(loading)} onClick={() => getAction("instagram")} className="rounded-full border border-cyan-200/25 px-4 py-2 text-xs font-black text-cyan-100 disabled:opacity-60">Instagram Hesaplarını Getir</button>
+        <button disabled={Boolean(loading) || !form.adAccountId} onClick={() => sync("sync")} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs font-black text-emerald-100 disabled:opacity-60">{loading === "sync" ? "Senkronize ediliyor..." : "Manuel Senkronizasyon"}</button>
+        <button disabled={Boolean(loading) || !form.adAccountId || !form.companyId} onClick={() => sync("report")} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs font-black text-amber-100 disabled:opacity-60">Meta Verilerinden Rapor Oluştur</button>
+      </div>
+      {message && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{message}</p>}
+      {(accounts.length > 0 || pages.length > 0 || instagramAccounts.length > 0) && <div className="mt-4 grid gap-3 lg:grid-cols-3">
+        <MetaAssetList title="Reklam Hesapları" items={accounts} onPick={(item) => setForm({ ...form, adAccountId: item.id })} />
+        <MetaAssetList title="Facebook Sayfaları" items={pages} onPick={(item) => setForm({ ...form, pageId: item.id })} />
+        <MetaAssetList title="Instagram Hesapları" items={instagramAccounts} onPick={(item) => setForm({ ...form, instagramAccountId: item.id })} />
+      </div>}
+    </div>
+  );
+}
+
+function MetaAssetList({ title, items, onPick }: any) {
+  return <div className="rounded-[12px] border border-white/10 bg-black/15 p-3"><p className="text-xs font-black uppercase tracking-[.14em] text-slate-300">{title}</p><div className="mt-3 grid gap-2">{items.slice(0, 8).map((item: any) => <button key={item.id} onClick={() => onPick(item)} className="rounded-[8px] border border-white/10 p-2 text-left text-xs text-slate-300 transition hover:border-cyan-200/30 hover:bg-cyan-300/10"><strong className="block text-white">{item.name || item.username || item.id}</strong><span>{item.id}</span></button>)}{!items.length && <p className="text-xs text-slate-500">Henüz veri yok.</p>}</div></div>;
 }
 
 function CustomerPanelAdmin({ content, setContent }: any) {
@@ -3815,7 +3950,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
     show_files: true,
     show_contact_person: true
   };
-  const tabs = ["Genel Bilgi", "İletişim", "Satış Durumu", "Kampanyalar", "Teklifler", "Ödemeler", "Yapılacaklar", "Raporlar", "Dosyalar", "Zaman Çizelgesi", "Panel Görünürlüğü", "Giriş Bilgileri", "Metrikler", "Yapılan Çalışmalar", "Aktivite Geçmişi", "Notlar"];
+  const tabs = ["Genel Bilgi", "İletişim", "Satış Durumu", "Meta Hesapları", "Kampanyalar", "Teklifler", "Ödemeler", "Yapılacaklar", "Raporlar", "Dosyalar", "Zaman Çizelgesi", "Panel Görünürlüğü", "Giriş Bilgileri", "Metrikler", "Yapılan Çalışmalar", "Aktivite Geçmişi", "Notlar"];
   async function runProfileAction(label, action) {
     setProfileAction(`${label}...`);
     await Promise.resolve(action());
@@ -3963,6 +4098,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
           <AgencyStatCard label="Açık görev" value={tasks.filter((item) => !["Tamamlandı", "İptal"].includes(item.status)).length} note="Yapılacaklar ile senkron" tone="emerald" />
         </div>
       </div>}
+      {tab === "Meta Hesapları" && <CustomerMetaAccounts company={company} content={content} setContent={setContent} notify={notify} />}
       {tab === "Kampanyalar" && <CustomerCampaignsEditor company={company} content={content} setContent={setContent} save={save} setActive={setActive} items={campaigns} notify={notify} canManage={canManageCustomer} />}
       {tab === "Teklifler" && <CustomerProposalsEditor company={company} content={content} setContent={setContent} save={save} items={proposals} notify={notify} canManage={canManageCustomer} />}
       {tab === "Zaman Çizelgesi" && <CustomerTimeline company={company} campaigns={campaigns} payments={payments} tasks={tasks} documents={documents} reports={reports} activities={activities} />}
@@ -3986,6 +4122,117 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
       {tab === "Aktivite Geçmişi" && <ActivityList items={activities} empty="Bu müşteri için henüz aktivite kaydı yok." />}
       {tab === "Notlar" && <TextArea label="Dahili müşteri notları" value={company.notes} onChange={(v) => updateCompany(company.id, { notes: v })} rows={10} />}
     </Drawer>
+  );
+}
+
+function CustomerMetaAccounts({ company, content, setContent, notify }: any) {
+  const api = content.settings?.api || {};
+  const existing = (content.metaAccountLinks || []).find((item: any) => item.company_id === company.id) || {};
+  const [form, setForm] = useState({
+    adAccountId: existing.ad_account_id || api.meta_ad_account_id || "",
+    pageId: existing.page_id || "",
+    instagramAccountId: existing.instagram_account_id || "",
+    businessId: existing.business_id || api.meta_business_id || "",
+    rangePreset: "last_30d",
+    dateFrom: "",
+    dateTo: ""
+  });
+  const [loading, setLoading] = useState("");
+  const [message, setMessage] = useState("");
+  const [rows, setRows] = useState<any[]>([]);
+  const [linked, setLinked] = useState(existing);
+  const summaries = metaCampaignSummaries(rows.length ? rows : (content.campaignMetrics || []).filter((item: any) => item.company_id === company.id && item.source === "Meta API"));
+  async function connect() {
+    setLoading("connect");
+    const response = await fetch("/api/admin/meta-ads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "connect", companyId: company.id, adAccountId: form.adAccountId, businessId: form.businessId, pageId: form.pageId, instagramAccountId: form.instagramAccountId }) });
+    const data = await response.json().catch(() => ({}));
+    const next = { id: data.integration?.id || existing.id || `meta-link-${company.id}`, company_id: company.id, ad_account_id: form.adAccountId, business_id: form.businessId, page_id: form.pageId, instagram_account_id: form.instagramAccountId, account_name: data.integration?.ad_account_id || form.adAccountId, status: data.ok ? "Bağlı" : "Taslak", last_sync_at: existing.last_sync_at || "", updated_at: new Date().toISOString() };
+    setLinked(next);
+    setContent({ ...content, metaAccountLinks: [next, ...(content.metaAccountLinks || []).filter((item: any) => item.company_id !== company.id)] });
+    setMessage(data.message || "Meta hesabı bağlandı.");
+    notify?.(data.ok ? "✓ Meta hesabı bağlandı" : "⚠ Meta hesabı taslak olarak kaydedildi", data.ok ? "success" : "warning");
+    setLoading("");
+  }
+  async function test() {
+    setLoading("test");
+    const response = await fetch("/api/admin/meta-ads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "test", companyId: company.id, adAccountId: form.adAccountId }) });
+    const data = await response.json().catch(() => ({}));
+    setMessage(data.message || (data.ok ? "Meta bağlantısı başarılı" : "Token geçersiz"));
+    setLoading("");
+  }
+  async function pull(action = "sync") {
+    setLoading(action);
+    const response = await fetch("/api/admin/meta-ads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, companyId: company.id, adAccountId: form.adAccountId, businessId: form.businessId, rangePreset: form.rangePreset, dateFrom: form.dateFrom, dateTo: form.dateTo, visibleToCustomer: true }) });
+    const data = await response.json().catch(() => ({}));
+    if (data.ok) {
+      const metricRows = (data.rows || []).map((row: any, index: number) => ({ id: `meta-profile-${company.id}-${Date.now()}-${index}`, company_id: company.id, date: row.date, period: data.range?.label || "Meta Sync", source: "Meta API", visible_to_customer: true, ...row }));
+      const campaignCards = metaCampaignSummaries(data.rows || []).map((item: any) => ({ id: `meta-campaign-${item.campaignId}`, company_id: company.id, meta_campaign_id: item.campaignId, name: item.campaignName, platform: "Meta Ads", objective: "Lead", status: item.status || "Aktif", spent_budget: item.spend, spent: item.spend, notes: "Meta API senkronizasyonundan oluşturuldu.", visible_to_customer: true, updated_at: new Date().toISOString() }));
+      const nextLink = { ...linked, company_id: company.id, ad_account_id: form.adAccountId, business_id: form.businessId, page_id: form.pageId, instagram_account_id: form.instagramAccountId, account_name: form.adAccountId, status: "Senkronize edildi", last_sync_at: new Date().toISOString(), sync_error: "" };
+      setRows(data.rows || []);
+      setLinked(nextLink);
+      setContent({
+        ...content,
+        metaAccountLinks: [nextLink, ...(content.metaAccountLinks || []).filter((item: any) => item.company_id !== company.id)],
+        campaignMetrics: [...metricRows, ...(content.campaignMetrics || [])],
+        campaigns: [...campaignCards.filter((summary: any) => !(content.campaigns || []).some((campaign: any) => campaign.meta_campaign_id === summary.meta_campaign_id || campaign.id === summary.id)), ...(content.campaigns || [])],
+        reports: data.report ? [data.report, ...(content.reports || [])] : (content.reports || [])
+      });
+      notify?.(action === "report" ? "✓ Meta verilerinden rapor oluşturuldu" : "✓ Veri senkronizasyonu tamamlandı", "success");
+    }
+    setMessage(data.message || data.errorMessage || "Meta işlemi tamamlandı.");
+    setLoading("");
+  }
+  const totals = summarizeMetaRows(rows);
+  return (
+    <div className="grid gap-5">
+      <div className="rounded-[14px] border border-cyan-200/20 bg-cyan-300/[0.07] p-4">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-xl font-black text-white">Meta Hesapları</h3>
+            <p className="mt-1 text-sm leading-6 text-slate-300">Bu müşteriyi Meta Ad Account, Facebook Sayfası ve Instagram hesabıyla eşleştirin.</p>
+          </div>
+          <span className="rounded-full border border-white/10 px-3 py-2 text-xs text-slate-300">Durum: {linked.status || "Bağlı değil"}</span>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <Field label="Meta Ad Account ID" value={form.adAccountId} onChange={(adAccountId) => setForm({ ...form, adAccountId })} />
+          <Field label="Facebook Sayfası" value={form.pageId} onChange={(pageId) => setForm({ ...form, pageId })} />
+          <Field label="Instagram Hesabı" value={form.instagramAccountId} onChange={(instagramAccountId) => setForm({ ...form, instagramAccountId })} />
+          <Field label="Meta Business ID" value={form.businessId} onChange={(businessId) => setForm({ ...form, businessId })} />
+          <SelectField label="Veri aralığı" value={form.rangePreset} onChange={(rangePreset) => setForm({ ...form, rangePreset })} options={[{ value: "last_7d", label: "Son 7 Gün" }, { value: "last_30d", label: "Son 30 Gün" }, { value: "this_month", label: "Bu Ay" }, { value: "last_month", label: "Geçen Ay" }, { value: "custom", label: "Özel Tarih" }]} />
+          {form.rangePreset === "custom" && <Field label="Başlangıç tarihi" type="date" value={form.dateFrom} onChange={(dateFrom) => setForm({ ...form, dateFrom })} />}
+          {form.rangePreset === "custom" && <Field label="Bitiş tarihi" type="date" value={form.dateTo} onChange={(dateTo) => setForm({ ...form, dateTo })} />}
+          <InfoItem label="Son senkronizasyon" value={formatDateTime(linked.last_sync_at)} />
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button disabled={Boolean(loading) || !form.adAccountId} onClick={connect} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950 disabled:opacity-60">{loading === "connect" ? "Bağlanıyor..." : "Meta Hesabı Bağla"}</button>
+          <button disabled={Boolean(loading)} onClick={test} className="rounded-full border border-cyan-200/25 px-4 py-2 text-xs font-black text-cyan-100 disabled:opacity-60">{loading === "test" ? "Test ediliyor..." : "Test Et"}</button>
+          <button disabled={Boolean(loading) || !form.adAccountId} onClick={() => pull("sync")} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs font-black text-emerald-100 disabled:opacity-60">{loading === "sync" ? "Veriler çekiliyor..." : "Verileri Çek"}</button>
+          <button disabled={Boolean(loading) || !form.adAccountId} onClick={() => pull("report")} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs font-black text-amber-100 disabled:opacity-60">Meta Verilerinden Rapor Oluştur</button>
+        </div>
+        {message && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{message}</p>}
+      </div>
+      <div className="grid gap-3 md:grid-cols-5">
+        <AgencyStatCard label="Toplam Harcama" value={`${Number(totals.spend || 0).toLocaleString("tr-TR")} TL`} note="Seçili senkron verisi" />
+        <AgencyStatCard label="Toplam Erişim" value={Number(totals.reach || 0).toLocaleString("tr-TR")} note="Meta erişim" />
+        <AgencyStatCard label="Toplam Tıklama" value={Number(totals.clicks || 0).toLocaleString("tr-TR")} note="Link / toplam tıklama" />
+        <AgencyStatCard label="Ortalama CTR" value={`${totals.impressions ? ((totals.clicks / totals.impressions) * 100).toFixed(2) : "0.00"}%`} note="Tıklama oranı" />
+        <AgencyStatCard label="Aktif Kampanya" value={summaries.length} note="Meta kampanya keşfi" />
+      </div>
+      <div className="rounded-[14px] border border-white/10 bg-black/15 p-4">
+        <h3 className="font-black text-white">Meta Kampanyaları</h3>
+        <div className="mt-4 grid gap-3">
+          {summaries.map((item: any) => <div key={item.campaignId} className="grid gap-3 rounded-[10px] border border-white/10 p-3 md:grid-cols-[1fr_.5fr_.5fr_.5fr_.5fr_auto] md:items-center">
+            <span><strong className="block text-white">{item.campaignName}</strong><small className="text-slate-400">{item.status}</small></span>
+            <span className="text-sm text-slate-300">{Number(item.spend || 0).toLocaleString("tr-TR")} TL</span>
+            <span className="text-sm text-slate-300">{Number(item.results || 0).toLocaleString("tr-TR")} sonuç</span>
+            <span className="text-sm text-slate-300">{Number(item.ctr || 0).toFixed(2)}% CTR</span>
+            <span className="text-sm text-slate-300">{Number(item.cpc || 0).toFixed(2)} CPC</span>
+            <span className="flex flex-wrap gap-2"><button onClick={() => pull("report")} className="rounded-full border border-amber-300/30 px-3 py-1.5 text-xs text-amber-100">Rapor Oluştur</button><button onClick={() => recordActionDetail("Meta Kampanya Detayı", [["Kampanya", item.campaignName], ["Harcama", `${Number(item.spend || 0).toLocaleString("tr-TR")} TL`], ["Sonuçlar", item.results], ["CTR", `${Number(item.ctr || 0).toFixed(2)}%`], ["CPC", Number(item.cpc || 0).toFixed(2)]])} className="rounded-full border border-cyan-200/25 px-3 py-1.5 text-xs text-cyan-100">Detay Gör</button><button className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-slate-200">Kampanyayı Eşleştir</button></span>
+          </div>)}
+          {!summaries.length && <p className="rounded-[8px] border border-dashed border-white/10 p-5 text-sm text-slate-400">Henüz Meta kampanya verisi yok. “Verileri Çek” ile senkronizasyon başlatın.</p>}
+        </div>
+      </div>
+    </div>
   );
 }
 
