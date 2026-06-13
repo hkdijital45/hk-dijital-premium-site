@@ -315,7 +315,7 @@ export function AdminDashboard({
 
   useEffect(() => {
     setIsDesktopApp(Boolean(window.hkDesktop?.isDesktop));
-    setTheme(localStorage.getItem("hk-admin-theme") || "dark");
+    setTheme(localStorage.getItem("hk-admin-theme") || "light");
     try { setCustomTheme(JSON.parse(localStorage.getItem("hk-admin-custom-theme") || "null")); } catch {}
     let shouldShowBoot = true;
     try {
@@ -518,7 +518,7 @@ export function AdminDashboard({
             {isDesktopApp && <span className="rounded-[8px] border border-amber-200/20 bg-amber-300/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[.12em] text-amber-100">Desktop</span>}
           </div>
           <AdminBrowserControls />
-          <nav className="order-3 grid w-full gap-2 lg:order-none lg:flex lg:w-auto lg:flex-1 lg:items-center lg:justify-center">
+          <nav className={`order-3 grid w-full gap-2 lg:order-none lg:w-auto lg:flex-1 lg:items-center lg:justify-center ${theme === "light" ? "lg:hidden" : "lg:flex"}`}>
             <button type="button" onClick={() => setMobileNavOpen((current) => !current)} className="flex min-h-10 items-center justify-between rounded-[8px] border border-white/10 bg-white/[0.045] px-3 text-sm font-black text-slate-100 lg:hidden">
               Menü
               {mobileNavOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
@@ -617,7 +617,8 @@ export function AdminDashboard({
           </div>
         </div>
       </header>
-      <div className="relative px-3 py-4 sm:px-4 lg:px-6">
+      <div className="relative grid gap-4 px-3 py-4 sm:px-4 lg:grid-cols-[292px_minmax(0,1fr)] lg:px-6">
+        {theme === "light" && <AdminLightSidebar groups={visibleNavigationGroups} active={active} content={content} />}
         <section className={`min-w-0 rounded-[8px] border p-4 shadow-[0_16px_54px_rgba(0,0,0,.14)] sm:p-5 ${panelClass} ${saveFeedback === "success" ? "hk-action-success" : ""}`}>
           {!supabaseConfigured && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">Supabase bağlantısı yapılandırılmadı. Canlı ortamda kaydetme çalışmaz.</p>}
           {bootstrapWarning && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">Süper admin kurulum anahtarları hâlâ aktif. Güvenlik için Vercel ortam değişkenlerinden kaldırın.</p>}
@@ -764,6 +765,53 @@ function SystemBoot({ step }: { step: number }) {
       <p className="text-xs text-slate-500">Digital Marketing Command Center</p>
     </div>
   </div>;
+}
+
+function AdminLightSidebar({ groups, active, content }: any) {
+  const featured = ["Dashboard", "Müşteriler", "Kampanyalar", "Görevler", "Tahsilat", "Raporlar"];
+  return (
+    <aside className="admin-light-sidebar hidden h-[calc(100vh-104px)] overflow-y-auto rounded-[18px] border border-slate-200 bg-white p-4 shadow-[0_18px_45px_rgba(15,23,42,.08)] lg:sticky lg:top-24 lg:block">
+      <Link href="/hk-admin" className="mb-5 flex items-center gap-3 rounded-[14px] px-2 py-2 transition hover:bg-slate-50">
+        <Logo content={content} compact />
+        <span>
+          <span className="block text-[11px] font-black uppercase tracking-[.16em] text-sky-600">HK Intelligence</span>
+          <span className="block text-lg font-black text-slate-950">HK Dijital</span>
+        </span>
+      </Link>
+      <div className="mb-5 rounded-[16px] bg-gradient-to-br from-blue-600 to-cyan-500 p-4 text-white shadow-[0_12px_28px_rgba(37,99,235,.24)]">
+        <p className="text-xs font-black uppercase tracking-[.14em] text-white/70">Ajans Paneli</p>
+        <p className="mt-2 text-sm font-bold leading-5">Operasyon, müşteri ve rapor merkeziniz hazır.</p>
+      </div>
+      <div className="grid gap-4">
+        {groups.map((group) => {
+          const Icon = adminCategoryIcons[group.icon] || LayoutDashboard;
+          return (
+            <div key={group.label}>
+              <div className="mb-2 flex items-center justify-between gap-3 px-2">
+                <span className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[.12em] text-slate-500"><Icon size={14} /> {group.label}</span>
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black text-slate-500">{group.items.length}</span>
+              </div>
+              <div className="grid gap-1">
+                {group.items.map((item) => {
+                  const isActive = item.label === active || (item.slug === "" && active === "Dashboard");
+                  return (
+                    <Link
+                      key={item.slug}
+                      href={getAdminHref(item.slug)}
+                      className={`flex min-h-10 items-center justify-between gap-3 rounded-[12px] px-3 text-sm font-bold transition ${isActive ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-[0_10px_24px_rgba(37,99,235,.22)]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"}`}
+                    >
+                      <span className="truncate">{item.label}</span>
+                      {featured.includes(item.label) && <span className={`h-2 w-2 rounded-full ${isActive ? "bg-white" : "bg-cyan-400"}`} />}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </aside>
+  );
 }
 
 function Panel({ title, children }: any) {
@@ -1585,9 +1633,107 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     activity: <GlassCard className="p-5"><h3 className="text-lg font-black">Son aktivite akışı</h3><p className="mt-1 text-sm text-slate-400">CRM, rapor ve müşteri operasyonlarının son hareketleri.</p><div className="mt-4 grid gap-2">{recentActivity.map((item) => <div key={item.id} className="flex items-center justify-between gap-3 rounded-[8px] border border-white/10 bg-black/10 p-3 text-sm"><div><p className="font-bold text-white">{item.action || "Sistem hareketi"}</p><p className="mt-1 text-xs text-slate-400">{item.entity || item.actor_name || "HK Operating System"}</p></div><time className="shrink-0 text-[10px] font-bold text-slate-500">{item.created_at ? new Date(item.created_at).toLocaleDateString("tr-TR") : "-"}</time></div>)}{!recentActivity.length && <p className="rounded-[8px] border border-dashed border-white/10 p-5 text-center text-sm text-slate-400">Henüz operasyon hareketi yok.</p>}</div></GlassCard>,
     demo: <div className="rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-4"><h3 className="font-black text-cyan-50">Müşteri paneli testi</h3><p className="mt-2 text-sm leading-6 text-cyan-100/80">Geçici şifreli bir test hesabı ve örnek raporlar oluşturarak müşteri deneyimini doğrulayın.</p><button disabled={demoLoading} onClick={createDemoCustomer} className="mt-3 rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950 disabled:opacity-60">{demoLoading ? "Hazırlanıyor..." : "Demo müşteri oluştur"}</button>{demoMessage && <pre className="mt-3 whitespace-pre-wrap rounded-[8px] bg-black/20 p-3 text-xs leading-6 text-cyan-50">{demoMessage}</pre>}</div>
   };
+  const lightDashboardQuickActions = [
+    ["Müşteri Ekle", "Müşteriler", <Building2 size={20} />, "from-blue-500 to-cyan-400"],
+    ["Kampanya Ekle", "Kampanyalar", <BarChart3 size={20} />, "from-orange-500 to-amber-400"],
+    ["Görev Ekle", "Görevler", <CircleCheck size={20} />, "from-emerald-500 to-green-400"],
+    ["Tahsilat Ekle", "Tahsilat", <Gauge size={20} />, "from-sky-500 to-blue-500"],
+    ["Rapor Oluştur", "Müşteri Raporları", <FileBarChart size={20} />, "from-red-500 to-orange-400"],
+    ["Teklif Oluştur", "Teklif Hazırlama", <MessageSquareText size={20} />, "from-cyan-500 to-teal-400"]
+  ].filter(([, target]) => canOpen(target as string));
+  const lightOverviewCards = [
+    ["Aktif Müşteri", activeCustomers.length, "Hizmeti devam eden firmalar", <Building2 size={20} />, "bg-blue-50 text-blue-700"],
+    ["Aktif Kampanya", activeCampaigns.length, "Yayındaki kampanyalar", <BarChart3 size={20} />, "bg-cyan-50 text-cyan-700"],
+    ["Bekleyen Tahsilat", `${pendingRevenue.toLocaleString("tr-TR")} TL`, "Bu ay kapanmamış ödemeler", <Gauge size={20} />, "bg-orange-50 text-orange-700"],
+    ["Bu Ay Tahsil Edilen", `${paidRevenue.toLocaleString("tr-TR")} TL`, "Ödenen toplam", <CircleCheck size={20} />, "bg-green-50 text-green-700"],
+    ["Kritik Görev", criticalTasks.length, "Acil operasyon işleri", <AlertTriangle size={20} />, "bg-red-50 text-red-700"],
+    ["Son Eklenen Müşteri", latestCustomer?.name || "Henüz yok", "En yeni firma kaydı", <UsersRound size={20} />, "bg-yellow-50 text-yellow-700"]
+  ];
 
   return (
     <Panel title="Operasyon Merkezi">
+      <div className="admin-light-dashboard mb-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="grid gap-5">
+          <section className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,.08)] sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-black text-blue-600">{greeting[1]}, {userName}</p>
+                <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">Hoş geldiniz, Ajans Yöneticisi 👋</h2>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Müşteri, kampanya, tahsilat, görev ve rapor operasyonlarınızı tek merkezden yönetin.</p>
+              </div>
+              <div className="rounded-[18px] border border-blue-100 bg-blue-50 px-4 py-3 text-right">
+                <p className="text-xs font-black uppercase tracking-[.14em] text-blue-500">Sistem Sağlığı</p>
+                <p className="mt-1 text-2xl font-black text-blue-700">%{healthScore}</p>
+              </div>
+            </div>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+              {lightDashboardQuickActions.map(([label, target, icon, gradient]) => (
+                <button key={label as string} onClick={() => setActive(target as string)} className="group rounded-[18px] border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-[0_16px_30px_rgba(37,99,235,.12)]">
+                  <span className={`grid size-11 place-items-center rounded-[14px] bg-gradient-to-br ${gradient} text-white shadow-[0_10px_22px_rgba(37,99,235,.16)]`}>{icon}</span>
+                  <span className="mt-3 block text-sm font-black text-slate-950">{label}</span>
+                  <span className="mt-1 block text-xs font-semibold text-slate-500">Hızlı işlem</span>
+                </button>
+              ))}
+            </div>
+          </section>
+          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {lightOverviewCards.map(([label, value, note, icon, tone]) => (
+              <div key={label as string} className="rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[.12em] text-slate-500">{label}</p>
+                    <p className="mt-2 truncate text-2xl font-black text-slate-950">{value}</p>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">{note}</p>
+                  </div>
+                  <span className={`grid size-11 shrink-0 place-items-center rounded-[14px] ${tone}`}>{icon}</span>
+                </div>
+              </div>
+            ))}
+          </section>
+          <section className="grid gap-5 lg:grid-cols-2">
+            <div className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="mb-4 flex items-center justify-between gap-3"><h3 className="text-lg font-black text-slate-950">Son Aktiviteler</h3><button onClick={() => setActive("Sistem Logları")} className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-600">Tümünü Aç</button></div>
+              <div className="grid gap-3">
+                {recentActivity.slice(0, 5).map((item, index) => <div key={item.id || index} className="flex items-start gap-3 rounded-[14px] bg-slate-50 p-3"><span className="mt-1 h-2.5 w-2.5 rounded-full bg-cyan-500" /><span><strong className="block text-sm text-slate-950">{item.action || "Aktivite"}</strong><span className="mt-1 block text-xs text-slate-500">{item.entity || item.module || "-"} · {formatDateTime(item.created_at)}</span></span></div>)}
+                {!recentActivity.length && <p className="rounded-[14px] border border-dashed border-slate-200 p-4 text-sm text-slate-500">Henüz aktivite kaydı yok.</p>}
+              </div>
+            </div>
+            <div className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="mb-4 flex items-center justify-between gap-3"><h3 className="text-lg font-black text-slate-950">Yaklaşan Görevler</h3><button onClick={() => setActive("Görevler")} className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-black text-blue-700">Görevleri Aç</button></div>
+              <div className="grid gap-3">
+                {importantDashboardTasks.map((item) => <div key={item.id || item.title} className="flex items-center justify-between gap-3 rounded-[14px] bg-slate-50 p-3"><span><strong className="block text-sm text-slate-950">{item.title || "Görev"}</strong><span className="mt-1 block text-xs text-slate-500">{item.priority || "Orta"} · {item.due_date || "Tarih yok"}</span></span><span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-black text-slate-500">{item.status || "Yapılacak"}</span></div>)}
+                {!importantDashboardTasks.length && <p className="rounded-[14px] border border-dashed border-slate-200 p-4 text-sm text-slate-500">Yaklaşan kritik görev yok.</p>}
+              </div>
+            </div>
+          </section>
+          <section className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h3 className="text-lg font-black text-slate-950">Pipeline Özeti</h3><button onClick={() => setActive("Satış Hunisi")} className="rounded-full bg-blue-600 px-4 py-2 text-xs font-black text-white">Satış Hunisini Aç</button></div>
+            <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+              {pipelineStages.map(([stage, count, gradient]) => <div key={stage as string} className="rounded-[16px] border border-slate-200 bg-slate-50 p-3"><div className={`mb-3 h-1.5 rounded-full bg-gradient-to-r ${gradient}`} /><p className="text-xs font-black text-slate-500">{stage}</p><p className="mt-1 text-2xl font-black text-slate-950">{count}</p></div>)}
+            </div>
+          </section>
+        </div>
+        <aside className="grid h-fit gap-5">
+          <div className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 className="text-lg font-black text-slate-950">Bildirimler</h3>
+            <div className="mt-4 grid gap-3">
+              {buildAdminNotifications(content).slice(0, 4).map((item) => <div key={item.id} className="rounded-[14px] bg-slate-50 p-3"><p className="text-sm font-black text-slate-950">{item.label}</p><p className="mt-1 text-xs leading-5 text-slate-500">{item.text}</p></div>)}
+            </div>
+          </div>
+          <div className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 className="text-lg font-black text-slate-950">Hızlı Erişim</h3>
+            <div className="mt-4 grid gap-2">
+              {quickActions.slice(0, 6).map(([label, target, icon]) => <button key={label} onClick={() => setActive(target)} className="flex items-center gap-3 rounded-[14px] bg-slate-50 px-3 py-2 text-left text-sm font-bold text-slate-700 transition hover:bg-blue-50 hover:text-blue-700"><span className="grid size-8 place-items-center rounded-[10px] bg-white text-blue-600">{icon}</span>{label}</button>)}
+            </div>
+          </div>
+          <div className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 className="text-lg font-black text-slate-950">Sistem Sağlığı</h3>
+            <div className="mt-4 grid gap-2">
+              {serviceItems.slice(0, 5).map((item) => <div key={item.label} className="flex items-center justify-between gap-3 rounded-[14px] bg-slate-50 px-3 py-2"><span className="text-sm font-bold text-slate-700">{item.label}</span><span className={`rounded-full px-2 py-1 text-[10px] font-black ${item.state === "Aktif" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>{item.state}</span></div>)}
+            </div>
+          </div>
+        </aside>
+      </div>
       <div className="mb-5 overflow-hidden rounded-[8px] border border-cyan-200/15 bg-[linear-gradient(135deg,rgba(14,165,233,.13),rgba(30,41,59,.42))] p-4 shadow-[0_12px_34px_rgba(0,0,0,.16)] sm:p-5">
         <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">{greeting[0]}, {userName}</p>
         <h2 className="mt-1 text-xl font-black text-white">{greeting[1]}, {userName}</h2>
@@ -3277,7 +3423,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
     show_files: true,
     show_contact_person: true
   };
-  const tabs = ["Genel Bilgi", "İletişim", "Kampanyalar", "Teklifler", "Ödemeler", "Yapılacaklar", "Raporlar", "Dosyalar", "Zaman Çizelgesi", "Panel Görünürlüğü", "Giriş Bilgileri", "Metrikler", "Yapılan Çalışmalar", "Aktivite Geçmişi", "Notlar"];
+  const tabs = ["Genel Bilgi", "İletişim", "Satış Durumu", "Kampanyalar", "Teklifler", "Ödemeler", "Yapılacaklar", "Raporlar", "Dosyalar", "Zaman Çizelgesi", "Panel Görünürlüğü", "Giriş Bilgileri", "Metrikler", "Yapılan Çalışmalar", "Aktivite Geçmişi", "Notlar"];
   async function runProfileAction(label, action) {
     setProfileAction(`${label}...`);
     await Promise.resolve(action());
@@ -3388,6 +3534,42 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
         <div className="grid gap-3">{users.map((user) => <div key={user.id} className="rounded-[8px] border border-white/10 p-4"><p className="font-black">{user.full_name || user.email}</p><p className="mt-1 text-sm text-slate-400">{user.email} · Bağlı kullanıcı: Var · Durum: {user.is_active ? "Aktif" : "Pasif"} · Rol: Müşteri</p><p className="mt-2 text-xs leading-5 text-slate-500">Son giriş: {formatDateTime(user.last_login_at)} · Toplam giriş: {user.login_count || 0}</p><button onClick={() => resetPassword(user)} className="mt-3 rounded-full border border-white/10 px-4 py-2 text-sm">Şifre sıfırlama bağlantısı gönder</button></div>)}{!users.length && <p className="text-sm text-slate-400">Bağlı müşteri kullanıcısı yok. Müşteriler ekranındaki giriş hesabı oluşturma formunu kullanın.</p>}</div>
       </div>}
       {tab === "İletişim" && <ContactActionCenter record={company} type="customer" context="follow-up" />}
+      {tab === "Satış Durumu" && <div className="grid gap-4">
+        <div className="rounded-[8px] border border-cyan-200/20 bg-cyan-200/[0.08] p-4">
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[.14em] text-cyan-100">Satış Durumu</p>
+              <h3 className="mt-2 text-xl font-black text-white">{relatedLead ? pipelineStageForLead(relatedLead) : "Bu müşteri henüz satış hunisine bağlanmamış."}</h3>
+              <p className="mt-1 text-sm leading-6 text-cyan-50/80">Bu alanda yapılan değişiklikler Satış Hunisi, global arama ve dashboard pipeline özetleriyle aynı lead kaydını kullanır.</p>
+            </div>
+            {profileAction && <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-3 py-1 text-xs font-black text-emerald-100">{profileAction}</span>}
+          </div>
+          {relatedLead ? <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <SelectField label="Pipeline aşaması" value={pipelineStageForLead(relatedLead)} onChange={(value) => setPipelineLead({ status: value, pipeline_stage: value }, false, "")} options={salesPipelineStages} />
+            <Field label="Son temas tarihi" type="date" value={dateOnly(relatedLead.last_contact_at)} onChange={(value) => setPipelineLead({ last_contact_at: value }, false, "")} />
+            <Field label="Sıradaki aksiyon tarihi" type="date" value={dateOnly(relatedLead.next_action_at || relatedLead.follow_up_date)} onChange={(value) => setPipelineLead({ next_action_at: value, follow_up_date: value }, false, "")} />
+            <Field label="Sıradaki aksiyon notu" value={relatedLead.next_action || ""} onChange={(value) => setPipelineLead({ next_action: value }, false, "")} />
+            <div className="md:col-span-2 xl:col-span-4"><TextArea label="Takip notu" value={salesNote} onChange={setSalesNote} placeholder="Kısa takip notu yazın." /></div>
+            <div className="md:col-span-2 xl:col-span-4 flex flex-wrap gap-2">
+              <button onClick={() => setPipelineLead({}, true, "Satış durumu güncellendi")} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Durumu Güncelle</button>
+              <button onClick={() => setSalesMessageOpen((current) => !current)} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs text-emerald-100">WhatsApp Mesajı Hazırla</button>
+              <button onClick={() => {
+                if (!salesNote.trim()) return notify?.("⚠ Takip notu boş olamaz", "warning");
+                const currentNotes = relatedLead.notes ? `${relatedLead.notes}\n\n` : "";
+                setPipelineLead({ notes: `${currentNotes}${new Date().toLocaleDateString("tr-TR")} · ${salesNote.trim()}` }, true, "Takip notu eklendi");
+                setSalesNote("");
+              }} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-100">Takip Notu Ekle</button>
+              <button onClick={() => setActive("Satış Hunisi")} className="rounded-full border border-cyan-200/25 px-4 py-2 text-xs font-black text-cyan-100">Satış Hunisini Aç</button>
+            </div>
+            {salesMessageOpen && <div className="md:col-span-2 xl:col-span-4"><ContactActionCenter record={company} type="customer" context={pipelineStageForLead(relatedLead) === "Teklif Gönderildi" ? "proposal" : "follow-up"} /></div>}
+          </div> : <div className="rounded-[8px] border border-dashed border-white/10 p-5"><p className="text-sm leading-6 text-slate-300">Bu müşteri henüz satış hunisine bağlanmamış.</p><button onClick={() => setPipelineLead({}, true, "Müşteri satış hunisine eklendi")} className="mt-3 rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Satış Hunisine Ekle</button></div>}
+        </div>
+        <div className="grid gap-3 md:grid-cols-3">
+          <AgencyStatCard label="Kampanya" value={campaigns.length} note="Bu müşteriye bağlı kayıt" />
+          <AgencyStatCard label="Teklif" value={proposals.length} note="Belge merkezindeki teklif kayıtları" tone="amber" />
+          <AgencyStatCard label="Açık görev" value={tasks.filter((item) => !["Tamamlandı", "İptal"].includes(item.status)).length} note="Yapılacaklar ile senkron" tone="emerald" />
+        </div>
+      </div>}
       {tab === "Kampanyalar" && <CustomerCampaignsEditor company={company} content={content} setContent={setContent} save={save} setActive={setActive} items={campaigns} notify={notify} />}
       {tab === "Teklifler" && <CustomerProposalsEditor company={company} content={content} setContent={setContent} save={save} items={proposals} notify={notify} />}
       {tab === "Zaman Çizelgesi" && <CustomerTimeline company={company} campaigns={campaigns} payments={payments} tasks={tasks} documents={documents} reports={reports} activities={activities} />}
@@ -3455,10 +3637,10 @@ function CustomerProposalsEditor({ company, content, setContent, save, items, no
   const visibleItems = items.filter((item) => !item.deleted_at);
   const { run, label } = useCustomerActionFeedback(notify);
   const update = (id, patch) => updateCollection(content, setContent, "customerDocuments", allItems.map((item) => item.id === id ? { ...item, ...patch, updated_at: new Date().toISOString() } : item));
-  const add = () => updateCollection(content, setContent, "customerDocuments", [{ id: createLocalId(), company_id: company.id, title: `Teklif · ${company.name || "Müşteri"}`, document_type: "Teklif", document_date: new Date().toISOString().slice(0, 10), description: "Teklif içeriği hazırlanıyor.", document_url: "", visible_to_customer: false, status: "Taslak", created_at: new Date().toISOString(), updated_at: new Date().toISOString() }, ...allItems]);
+  const add = () => updateCollection(content, setContent, "customerDocuments", [{ id: createLocalId(), company_id: company.id, title: `Teklif · ${company.name || "Müşteri"}`, document_type: "Teklif", document_date: new Date().toISOString().slice(0, 10), package_type: "ORTA", service_fee: 0, ad_budget: 0, included_services: "Meta Ads yönetimi\nRaporlama\nWhatsApp teklif akışı", next_step: "Müşteri onayı sonrası kurulum planı hazırlanacak.", description: "Teklif içeriği hazırlanıyor.", document_url: "", visible_to_customer: false, status: "Taslak", created_at: new Date().toISOString(), updated_at: new Date().toISOString() }, ...allItems]);
   const archive = (item) => confirm("Bu teklifi arşivlemek istediğinize emin misiniz?") && update(item.id, { archived_at: new Date().toISOString(), status: "Arşivlendi" });
   const remove = (item) => confirm("Bu teklifi silmek istediğinize emin misiniz?") && update(item.id, { deleted_at: new Date().toISOString(), status: "Silindi" });
-  return <div><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-white">Teklifler</h3><p className="mt-1 text-sm text-slate-400">Bu teklifler Belge Merkezi ile aynı kayıtları kullanır. Müşteri paneline sadece görünür olarak işaretlenenler yansır.</p></div><button onClick={add} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Teklif Oluştur</button></div><div className="grid gap-3">{visibleItems.map((item) => <div key={item.id} className={`rounded-[8px] border p-4 ${isArchivedRecord(item) ? "border-amber-300/25 bg-amber-300/[0.06]" : "border-white/10 bg-black/20"}`}><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"><Field label="Teklif başlığı" value={item.title || ""} onChange={(value) => update(item.id, { title: value })} /><SelectField label="Durum" value={item.status || "Taslak"} onChange={(value) => update(item.id, { status: value })} options={["Taslak", "Hazır", "Gönderildi", "Arşivlendi"]} /><Field label="Tarih" type="date" value={item.document_date || ""} onChange={(value) => update(item.id, { document_date: value })} /><Field label="Belge URL" value={item.document_url || ""} onChange={(value) => update(item.id, { document_url: value })} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item.visible_to_customer)} onChange={(event) => update(item.id, { visible_to_customer: event.target.checked })} /> Müşteri Belgelerine Kaydet / Göster</label><InfoItem label="Güncellenme tarihi" value={formatDateTime(item.updated_at)} /><div className="md:col-span-2 xl:col-span-3"><TextArea label="Teklif içeriği / not" value={item.description || ""} onChange={(value) => update(item.id, { description: value })} /></div></div><div className="mt-4 flex flex-wrap justify-end gap-2"><button onClick={() => alert(`${item.title || "Teklif"}\n\n${item.description || "Önizleme içeriği yok."}`)} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-100">Önizle</button><button onClick={() => window.print()} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-100">Yazdır / PDF</button>{isArchivedRecord(item) ? <button onClick={() => update(item.id, { archived_at: null, deleted_at: null, status: "Taslak" })} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-100">Arşivden Çıkar</button> : <button onClick={() => archive(item)} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-100">Arşivle</button>}<button onClick={() => remove(item)} className="rounded-full border border-red-300/30 px-4 py-2 text-xs text-red-200">Sil</button><button onClick={() => run(`proposal-${item.id}`, "Kaydediliyor...", "Kaydedildi", () => save?.())} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">{label(`proposal-${item.id}`, "Kaydet")}</button><button onClick={() => window.location.reload()} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200">Vazgeç</button></div></div>)}{!visibleItems.length && <p className="rounded-[8px] border border-dashed border-white/10 p-5 text-sm text-slate-400">Bu müşteri için teklif dokümanı yok.</p>}</div></div>;
+  return <div><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-white">Teklifler</h3><p className="mt-1 text-sm text-slate-400">Bu teklifler Belge Merkezi ile aynı kayıtları kullanır. Müşteri paneline sadece görünür olarak işaretlenenler yansır.</p></div><button onClick={add} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Teklif Oluştur</button></div><div className="grid gap-3">{visibleItems.map((item) => <div key={item.id} className={`rounded-[8px] border p-4 ${isArchivedRecord(item) ? "border-amber-300/25 bg-amber-300/[0.06]" : "border-white/10 bg-black/20"}`}><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"><Field label="Teklif başlığı" value={item.title || ""} onChange={(value) => update(item.id, { title: value })} /><SelectField label="Paket tipi" value={item.package_type || "ORTA"} onChange={(value) => update(item.id, { package_type: value })} options={["MIN", "ORTA", "MAX", "Özel"]} /><SelectField label="Durum" value={item.status || "Taslak"} onChange={(value) => update(item.id, { status: value })} options={["Taslak", "Hazır", "Gönderildi", "Arşivlendi"]} /><Field label="Hizmet bedeli" type="number" value={item.service_fee || 0} onChange={(value) => update(item.id, { service_fee: Number(value || 0) })} /><Field label="Reklam bütçesi" type="number" value={item.ad_budget || 0} onChange={(value) => update(item.id, { ad_budget: Number(value || 0) })} /><Field label="Tarih" type="date" value={item.document_date || ""} onChange={(value) => update(item.id, { document_date: value })} /><Field label="Belge URL" value={item.document_url || ""} onChange={(value) => update(item.id, { document_url: value })} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item.visible_to_customer)} onChange={(event) => update(item.id, { visible_to_customer: event.target.checked })} /> Müşteri Belgelerine Kaydet / Göster</label><InfoItem label="Güncellenme tarihi" value={formatDateTime(item.updated_at)} /><div className="md:col-span-2 xl:col-span-3"><TextArea label="Dahil hizmetler" value={item.included_services || ""} onChange={(value) => update(item.id, { included_services: value })} /></div><div className="md:col-span-2 xl:col-span-3"><TextArea label="Notlar" value={item.description || ""} onChange={(value) => update(item.id, { description: value })} /></div><div className="md:col-span-2 xl:col-span-3"><TextArea label="Sonraki adım" value={item.next_step || ""} onChange={(value) => update(item.id, { next_step: value })} /></div></div><div className="mt-4 flex flex-wrap justify-end gap-2"><button onClick={() => alert(`${item.title || "Teklif"}\n\nPaket: ${item.package_type || "-"}\nHizmet bedeli: ${Number(item.service_fee || 0).toLocaleString("tr-TR")} TL\nReklam bütçesi: ${Number(item.ad_budget || 0).toLocaleString("tr-TR")} TL\n\n${item.included_services || ""}\n\n${item.description || ""}\n\nSonraki adım: ${item.next_step || "-"}`)} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-100">Önizle</button><button onClick={() => window.print()} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-100">Yazdır / PDF</button>{isArchivedRecord(item) ? <button onClick={() => update(item.id, { archived_at: null, deleted_at: null, status: "Taslak" })} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-100">Arşivden Çıkar</button> : <button onClick={() => archive(item)} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-100">Arşivle</button>}<button onClick={() => remove(item)} className="rounded-full border border-red-300/30 px-4 py-2 text-xs text-red-200">Sil</button><button onClick={() => run(`proposal-${item.id}`, "Kaydediliyor...", "Kaydedildi", () => save?.())} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">{label(`proposal-${item.id}`, "Kaydet")}</button><button onClick={() => window.location.reload()} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200">Vazgeç</button></div></div>)}{!visibleItems.length && <p className="rounded-[8px] border border-dashed border-white/10 p-5 text-sm text-slate-400">Bu müşteri için teklif dokümanı yok.</p>}</div></div>;
 }
 
 function CustomerReportsEditor({ company, content, setContent, save, items, notify }: any) {
