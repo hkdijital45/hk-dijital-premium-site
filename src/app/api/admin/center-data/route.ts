@@ -22,6 +22,7 @@ const tables = {
   agencyTasks: "agency_tasks",
   customerDocuments: "customer_documents",
   paymentRecords: "payment_records",
+  reports: "reports",
   competitorAnalyses: "competitor_analyses",
   socialMediaPlans: "social_media_plans",
   agencyExpenses: "agency_expenses",
@@ -192,7 +193,11 @@ function normalizeRecord(key: string, item: any) {
       description: item.description || "",
       file_url: item.file_url || item.url || "",
       file_type: item.file_type || item.type || "file",
-      visible_to_customer: item.visible_to_customer ?? true
+      visible_to_customer: item.visible_to_customer ?? true,
+      status: item.status || "Aktif",
+      archived_at: item.archived_at || null,
+      deleted_at: item.deleted_at || null,
+      updated_at: new Date().toISOString()
     };
   }
 
@@ -257,6 +262,34 @@ function normalizeRecord(key: string, item: any) {
       document_url: item.document_url || item.documentUrl || item.file_url || "",
       document_date: item.document_date || item.documentDate || new Date().toISOString().slice(0, 10),
       visible_to_customer: item.visible_to_customer ?? false,
+      status: item.status || "Aktif",
+      archived_at: item.archived_at || null,
+      deleted_at: item.deleted_at || null,
+      updated_at: new Date().toISOString()
+    };
+  }
+
+  if (key === "reports") {
+    return {
+      ...base,
+      company_id: item.company_id || null,
+      campaign_id: item.campaign_id || null,
+      report_type: item.report_type || "Genel Dijital Performans Raporu",
+      period: item.period || null,
+      start_date: item.start_date || item.startDate || null,
+      end_date: item.end_date || item.endDate || null,
+      platform: item.platform || null,
+      metrics: item.metrics || {},
+      time_series: item.time_series || item.timeSeries || [],
+      summary: item.summary || "",
+      customer_note: item.customer_note || item.customerNote || "",
+      internal_note: item.internal_note || item.internalNote || null,
+      ai_interpretation: item.ai_interpretation || item.aiInterpretation || "",
+      visible_to_customer: item.visible_to_customer ?? false,
+      archived: item.archived ?? Boolean(item.archived_at),
+      archived_at: item.archived_at || null,
+      deleted_at: item.deleted_at || null,
+      status: item.status || (item.visible_to_customer ? "Yayınlandı" : "Taslak"),
       updated_at: new Date().toISOString()
     };
   }
@@ -372,7 +405,7 @@ async function upsertItems(key: keyof typeof tables, items: any[] = []) {
       })
     : normalized;
   const records = deduped.filter((item: any) => {
-    if (["campaigns", "campaignMetrics", "customerUpdates", "customerVisibilitySettings", "customerFiles", "customerBranding", "monthlyReports", "customerDocuments", "paymentRecords", "competitorAnalyses", "socialMediaPlans"].includes(key)) {
+    if (["campaigns", "campaignMetrics", "customerUpdates", "customerVisibilitySettings", "customerFiles", "customerBranding", "monthlyReports", "customerDocuments", "paymentRecords", "reports", "competitorAnalyses", "socialMediaPlans"].includes(key)) {
       return Boolean(item.company_id);
     }
     return true;
@@ -414,6 +447,12 @@ async function upsertItems(key: keyof typeof tables, items: any[] = []) {
       delete copy.archived_at;
       delete copy.deleted_at;
       delete copy.cancelled_at;
+    }
+    if (key === "customerFiles" || key === "customerDocuments" || key === "reports") {
+      delete copy.status;
+      delete copy.archived_at;
+      delete copy.deleted_at;
+      if (key === "reports") delete copy.ai_interpretation;
     }
     if (key === "activityLogs") {
       delete copy.status;
@@ -457,7 +496,7 @@ async function upsertItems(key: keyof typeof tables, items: any[] = []) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Supabase kaydetme hatası.";
-    if (["customerBranding", "monthlyReports", "agencyTasks", "customerDocuments", "paymentRecords", "competitorAnalyses", "socialMediaPlans", "agencyExpenses", "sectorConfigs", "activityLogs"].includes(key) && (message.includes("schema cache") || message.includes("relation") || message.includes("table"))) {
+    if (["customerBranding", "monthlyReports", "agencyTasks", "customerDocuments", "paymentRecords", "reports", "competitorAnalyses", "socialMediaPlans", "agencyExpenses", "sectorConfigs", "activityLogs"].includes(key) && (message.includes("schema cache") || message.includes("relation") || message.includes("table"))) {
       console.warn(`${table} tablosu canlı şemada bulunamadı; migration uygulanana kadar bu modül atlandı.`);
       return [];
     }
@@ -482,7 +521,7 @@ export async function GET() {
     return NextResponse.json({ error: "Supabase bağlantısı yapılandırılmadı." }, { status: 500 });
   }
 
-  const [companies, users, leads, campaigns, campaignMetrics, customerUpdates, customerVisibilitySettings, customerFiles, media, customerBranding, monthlyReports, agencyTasks, customerDocuments, paymentRecords, competitorAnalyses, socialMediaPlans, agencyExpenses, sectorConfigs, activityLogs] =
+  const [companies, users, leads, campaigns, campaignMetrics, customerUpdates, customerVisibilitySettings, customerFiles, media, customerBranding, monthlyReports, agencyTasks, customerDocuments, paymentRecords, reports, competitorAnalyses, socialMediaPlans, agencyExpenses, sectorConfigs, activityLogs] =
     await Promise.all([
       supabaseRest("companies?select=*&order=created_at.desc"),
       supabaseRest("users?deleted_at=is.null&select=*&order=created_at.desc"),
@@ -498,6 +537,7 @@ export async function GET() {
       supabaseRest("agency_tasks?select=*&order=due_date.asc").catch(() => []),
       supabaseRest("customer_documents?select=*&order=document_date.desc").catch(() => []),
       supabaseRest("payment_records?select=*&order=due_date.desc").catch(() => []),
+      supabaseRest("reports?select=*&order=created_at.desc").catch(() => []),
       supabaseRest("competitor_analyses?select=*&order=updated_at.desc").catch(() => []),
       supabaseRest("social_media_plans?select=*&order=updated_at.desc").catch(() => []),
       supabaseRest("agency_expenses?select=*&order=expense_date.desc").catch(() => []),
@@ -520,6 +560,7 @@ export async function GET() {
     agencyTasks,
     customerDocuments,
     paymentRecords,
+    reports,
     competitorAnalyses,
     socialMediaPlans,
     agencyExpenses,
@@ -552,6 +593,7 @@ export async function PUT(request: Request) {
       upsertItems("agencyTasks", payload.agencyTasks),
       upsertItems("customerDocuments", payload.customerDocuments),
       upsertItems("paymentRecords", payload.paymentRecords),
+      upsertItems("reports", payload.reports),
       upsertItems("competitorAnalyses", payload.competitorAnalyses),
       upsertItems("socialMediaPlans", payload.socialMediaPlans),
       upsertItems("agencyExpenses", payload.agencyExpenses),

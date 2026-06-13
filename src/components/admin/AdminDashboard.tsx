@@ -474,7 +474,7 @@ export function AdminDashboard({
     saveNotificationState({ ...notificationState, read: [...new Set([...notificationState.read, ...items.map((item) => item.id)])] });
   }
 
-  const props = { content, setContent, currentSession, allowedModules, setActive, save };
+  const props = { content, setContent, currentSession, allowedModules, setActive, save, notify };
   const visibleNavigationGroups = adminNavigationGroups
     .map((group) => ({ ...group, items: group.items.filter((item) => allowedModules.includes(item.module)) }))
     .filter((group) => group.items.length);
@@ -3035,7 +3035,7 @@ function CustomerPanelAdmin({ content, setContent }: any) {
   );
 }
 
-function CustomersAdmin({ content, setContent, save, setActive }: any) {
+function CustomersAdmin({ content, setContent, save, setActive, notify }: any) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState("");
@@ -3236,6 +3236,7 @@ function CustomersAdmin({ content, setContent, save, setActive }: any) {
           saveCompany={saveCompany}
           save={save}
           setActive={setActive}
+          notify={notify}
           close={() => setDetailCompanyId("")}
         />
       )}
@@ -3243,8 +3244,11 @@ function CustomersAdmin({ content, setContent, save, setActive }: any) {
   );
 }
 
-function CustomerDetailDrawer({ company, content, setContent, updateCompany, saveCompany, save, setActive, close }: any) {
+function CustomerDetailDrawer({ company, content, setContent, updateCompany, saveCompany, save, setActive, close, notify }: any) {
   const [tab, setTab] = useState("Genel Bilgi");
+  const [profileAction, setProfileAction] = useState("");
+  const [salesNote, setSalesNote] = useState("");
+  const [salesMessageOpen, setSalesMessageOpen] = useState(false);
   if (!company) return null;
   const users = (content.users || []).filter((user) => customerRole(user.role) && user.company_id === company.id);
   const campaigns = (content.campaigns || []).filter((item) => item.company_id === company.id);
@@ -3257,6 +3261,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
   const payments = (content.paymentRecords || []).filter((item) => item.company_id === company.id);
   const tasks = (content.agencyTasks || []).filter((item) => item.company_id === company.id);
   const relatedLeads = (content.leads || []).filter((lead) => lead.company_id === company.id || String(lead.company || "").toLocaleLowerCase("tr") === String(company.name || "").toLocaleLowerCase("tr") || String(lead.email || "").toLocaleLowerCase("tr") === String(company.email || "").toLocaleLowerCase("tr"));
+  const relatedLead = relatedLeads[0];
   const proposals = documents.filter((item) => item.document_type === "Teklif" || String(item.title || "").toLocaleLowerCase("tr").includes("teklif"));
   const visibilityItems = content.customerVisibilitySettings || [];
   const visibility = visibilityItems.find((item) => item.company_id === company.id) || {
@@ -3272,7 +3277,43 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
     show_files: true,
     show_contact_person: true
   };
-  const tabs = ["Genel Bilgi", "Giriş Bilgileri", "Satış", "İletişim", "Ödemeler", "Yapılacaklar", "Kampanyalar", "Teklifler", "Zaman Çizelgesi", "Metrikler", "Raporlar", "Yapılan Çalışmalar", "Dosyalar", "Panel Görünürlüğü", "Aktivite Geçmişi", "Notlar"];
+  const tabs = ["Genel Bilgi", "İletişim", "Kampanyalar", "Teklifler", "Ödemeler", "Yapılacaklar", "Raporlar", "Dosyalar", "Zaman Çizelgesi", "Panel Görünürlüğü", "Giriş Bilgileri", "Metrikler", "Yapılan Çalışmalar", "Aktivite Geçmişi", "Notlar"];
+  async function runProfileAction(label, action) {
+    setProfileAction(`${label}...`);
+    await Promise.resolve(action());
+    setProfileAction(`${label.replace("iyor", "di")} ✓`);
+    notify?.(`✓ ${label.replace("iyor", "di")}`, "success");
+    setTimeout(() => setProfileAction(""), 2000);
+  }
+  function buildPipelineLead(patch = {}) {
+    const now = new Date().toISOString();
+    const base = relatedLead || {
+      id: createLocalId(),
+      source: "Müşteri Profili",
+      company_id: company.id,
+      name: company.name || "",
+      company: company.name || "",
+      phone: company.phone || "",
+      email: company.email || "",
+      instagram: company.instagram || "",
+      website: company.website || "",
+      business_type: company.sector || "",
+      sector: company.sector || "",
+      status: company.status === "Aktif" ? "Kazanıldı" : "Yeni Lead",
+      pipeline_stage: company.status === "Aktif" ? "Kazanıldı" : "Yeni Lead",
+      notes: "",
+      created_at: now
+    };
+    return { ...base, ...patch, company_id: company.id, updated_at: now };
+  }
+  function setPipelineLead(patch = {}, shouldSave = false, message = "Satış durumu güncellendi") {
+    const nextLead = buildPipelineLead(patch);
+    const exists = (content.leads || []).some((lead) => lead.id === nextLead.id);
+    const next = { ...content, leads: exists ? (content.leads || []).map((lead) => lead.id === nextLead.id ? nextLead : lead) : [nextLead, ...(content.leads || [])] };
+    setContent(next);
+    if (shouldSave) runProfileAction("Güncelleniyor", () => save?.(next));
+    if (message) notify?.(`✓ ${message}`, "success");
+  }
   function updateVisibility(patch) {
     const next = { ...visibility, ...patch };
     const exists = visibilityItems.some((item) => item.company_id === company.id);
@@ -3302,35 +3343,60 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
         <Field label="E-posta" value={company.email} onChange={(v) => updateCompany(company.id, { email: v })} />
         <SelectField label="Durum" value={company.status} onChange={(v) => updateCompany(company.id, { status: v })} options={companyStatusOptions} />
         <div className="md:col-span-2"><TextArea label="Dahili notlar" value={company.notes} onChange={(v) => updateCompany(company.id, { notes: v })} /></div>
+        <div className="md:col-span-2 rounded-[8px] border border-cyan-200/20 bg-cyan-200/[0.08] p-4">
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[.14em] text-cyan-100">Satış Durumu</p>
+              <h3 className="mt-2 text-xl font-black text-white">{relatedLead ? pipelineStageForLead(relatedLead) : "Satış hunisine bağlı değil"}</h3>
+              <p className="mt-1 text-sm leading-6 text-cyan-50/80">Kampanya, teklif, görev, ödeme ve rapor akışı bu müşteri profili üzerinden takip edilir.</p>
+            </div>
+            {profileAction && <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-3 py-1 text-xs font-black text-emerald-100">{profileAction}</span>}
+          </div>
+          {relatedLead ? (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <SelectField label="Pipeline aşaması" value={pipelineStageForLead(relatedLead)} onChange={(value) => setPipelineLead({ status: value, pipeline_stage: value }, false, "")} options={salesPipelineStages} />
+              <Field label="Son temas tarihi" type="date" value={dateOnly(relatedLead.last_contact_at)} onChange={(value) => setPipelineLead({ last_contact_at: value }, false, "")} />
+              <Field label="Sıradaki aksiyon tarihi" type="date" value={dateOnly(relatedLead.next_action_at || relatedLead.follow_up_date)} onChange={(value) => setPipelineLead({ next_action_at: value, follow_up_date: value }, false, "")} />
+              <Field label="Sıradaki aksiyon notu" value={relatedLead.next_action || ""} onChange={(value) => setPipelineLead({ next_action: value }, false, "")} />
+              <div className="md:col-span-2 xl:col-span-4">
+                <TextArea label="Takip notu" value={salesNote} onChange={setSalesNote} placeholder="Müşteriyle yapılan görüşme, itiraz, fiyat beklentisi veya sonraki adımı yazın." />
+              </div>
+              <div className="md:col-span-2 xl:col-span-4 flex flex-wrap gap-2">
+                <button onClick={() => setPipelineLead({}, true, "Satış durumu güncellendi")} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Durumu Güncelle</button>
+                <button onClick={() => setSalesMessageOpen((current) => !current)} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs text-emerald-100">WhatsApp Mesajı Hazırla</button>
+                <button onClick={() => {
+                  if (!salesNote.trim()) return notify?.("⚠ Takip notu boş olamaz", "warning");
+                  const currentNotes = relatedLead.notes ? `${relatedLead.notes}\n\n` : "";
+                  setPipelineLead({ notes: `${currentNotes}${new Date().toLocaleDateString("tr-TR")} · ${salesNote.trim()}` }, true, "Takip notu eklendi");
+                  setSalesNote("");
+                }} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-100">Takip Notu Ekle</button>
+                <button onClick={() => setActive("Satış Hunisi")} className="rounded-full border border-cyan-200/25 px-4 py-2 text-xs font-black text-cyan-100">Satış Hunisini Aç</button>
+              </div>
+              {salesMessageOpen && <div className="md:col-span-2 xl:col-span-4"><ContactActionCenter record={company} type="customer" context={pipelineStageForLead(relatedLead) === "Teklif Gönderildi" ? "proposal" : "follow-up"} /></div>}
+            </div>
+          ) : (
+            <div className="rounded-[8px] border border-dashed border-white/10 p-4">
+              <p className="text-sm leading-6 text-slate-300">Bu müşteri henüz satış hunisine bağlanmamış.</p>
+              <button onClick={() => setPipelineLead({}, true, "Müşteri satış hunisine eklendi")} className="mt-3 rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Satış Hunisine Ekle</button>
+            </div>
+          )}
+        </div>
         <button onClick={() => saveCompany(company)} className="w-fit rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Firma bilgilerini kaydet</button>
       </div>}
       {tab === "Giriş Bilgileri" && <div>
         <p className="mb-4 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">Müşteri şifresi güvenlik nedeniyle düz metin olarak saklanmaz. Yeni geçici şifre oluşturabilirsiniz.</p>
         <div className="grid gap-3">{users.map((user) => <div key={user.id} className="rounded-[8px] border border-white/10 p-4"><p className="font-black">{user.full_name || user.email}</p><p className="mt-1 text-sm text-slate-400">{user.email} · Bağlı kullanıcı: Var · Durum: {user.is_active ? "Aktif" : "Pasif"} · Rol: Müşteri</p><p className="mt-2 text-xs leading-5 text-slate-500">Son giriş: {formatDateTime(user.last_login_at)} · Toplam giriş: {user.login_count || 0}</p><button onClick={() => resetPassword(user)} className="mt-3 rounded-full border border-white/10 px-4 py-2 text-sm">Şifre sıfırlama bağlantısı gönder</button></div>)}{!users.length && <p className="text-sm text-slate-400">Bağlı müşteri kullanıcısı yok. Müşteriler ekranındaki giriş hesabı oluşturma formunu kullanın.</p>}</div>
       </div>}
-      {tab === "Satış" && <div className="grid gap-3">
-        <div className="rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-4">
-          <p className="text-xs font-black uppercase tracking-[.14em] text-cyan-100">Pipeline stage</p>
-          <h3 className="mt-2 text-xl font-black text-white">{relatedLeads[0] ? pipelineStageForLead(relatedLeads[0]) : "İlgili lead bulunamadı"}</h3>
-          <p className="mt-2 text-sm leading-6 text-cyan-50/80">Kampanyalar, teklifler, WhatsApp aksiyonları, görevler, ödemeler ve zaman çizelgesi bu müşteri profilinde bağlı olarak izlenir.</p>
-        </div>
-        <div className="grid gap-3 md:grid-cols-3">
-          <AgencyStatCard label="Kampanya" value={campaigns.length} note="Bu müşteriye bağlı kayıt" />
-          <AgencyStatCard label="Teklif" value={proposals.length} note="Belge merkezindeki teklif kayıtları" tone="amber" />
-          <AgencyStatCard label="Açık görev" value={tasks.filter((item) => !["Tamamlandı", "İptal"].includes(item.status)).length} note="Yapılacaklar ile senkron" tone="emerald" />
-        </div>
-        <button onClick={() => setActive("Satış Hunisi")} className="w-fit rounded-full border border-cyan-200/25 px-4 py-2 text-sm font-black text-cyan-100">Satış Hunisini Aç</button>
-      </div>}
       {tab === "İletişim" && <ContactActionCenter record={company} type="customer" context="follow-up" />}
-      {tab === "Kampanyalar" && <CustomerCampaignsEditor company={company} content={content} setContent={setContent} save={save} setActive={setActive} items={campaigns} />}
-      {tab === "Teklifler" && <CustomerRelatedList items={proposals} empty="Bu müşteri için teklif dokümanı yok." render={(item) => `${item.title || "Teklif"} · ${item.document_date || item.created_at || "-"} · ${item.visible_to_customer ? "Müşteriye görünür" : "Sadece yönetici"}`} onVisibilityChange={(item, value) => updateRelated("customerDocuments", item.id, { visible_to_customer: value })} />}
+      {tab === "Kampanyalar" && <CustomerCampaignsEditor company={company} content={content} setContent={setContent} save={save} setActive={setActive} items={campaigns} notify={notify} />}
+      {tab === "Teklifler" && <CustomerProposalsEditor company={company} content={content} setContent={setContent} save={save} items={proposals} notify={notify} />}
       {tab === "Zaman Çizelgesi" && <CustomerTimeline company={company} campaigns={campaigns} payments={payments} tasks={tasks} documents={documents} reports={reports} activities={activities} />}
       {tab === "Metrikler" && <CustomerRelatedList items={metrics} empty="Bu müşteri için metrik yok." render={(item) => `${formatDate(item.date)} · ${item.impressions || 0} gösterim · ${item.clicks || 0} tıklama · ${item.leads || 0} potansiyel müşteri · ${item.spent || 0} TL`} onVisibilityChange={(item, value) => updateRelated("campaignMetrics", item.id, { visible_to_customer: value })} />}
-      {tab === "Raporlar" && <CustomerRelatedList items={reports} empty="Bu müşteri için kanal bazlı rapor yok." render={(item) => `${item.report_type} · ${item.period || "Dönem belirtilmedi"} · ${item.visible_to_customer ? "Müşteriye görünür" : "Dahili"}`} />}
-      {tab === "Ödemeler" && <CustomerPaymentsEditor company={company} content={content} setContent={setContent} save={save} items={payments} />}
-      {tab === "Yapılacaklar" && <CustomerTasksEditor company={company} content={content} setContent={setContent} save={save} items={tasks} />}
+      {tab === "Raporlar" && <CustomerReportsEditor company={company} content={content} setContent={setContent} save={save} items={reports} notify={notify} />}
+      {tab === "Ödemeler" && <CustomerPaymentsEditor company={company} content={content} setContent={setContent} save={save} items={payments} notify={notify} />}
+      {tab === "Yapılacaklar" && <CustomerTasksEditor company={company} content={content} setContent={setContent} save={save} items={tasks} notify={notify} />}
       {tab === "Yapılan Çalışmalar" && <CustomerRelatedList items={updates} empty="Bu müşteri için çalışma notu yok." render={(item) => `${item.title} · ${item.update_type}`} onVisibilityChange={(item, value) => updateRelated("customerUpdates", item.id, { visible_to_customer: value })} />}
-      {tab === "Dosyalar" && <CustomerRelatedList items={files} empty="Bu müşteri için dosya yok." render={(item) => `${item.title} · ${item.file_type || "Dosya"}`} onVisibilityChange={(item, value) => updateRelated("customerFiles", item.id, { visible_to_customer: value })} />}
+      {tab === "Dosyalar" && <CustomerFilesEditor company={company} content={content} setContent={setContent} save={save} items={files} notify={notify} />}
       {tab === "Panel Görünürlüğü" && <div><p className="mb-4 text-sm leading-6 text-slate-400">Müşteri panelinde görünmesini istediğiniz alanları seçin. Değişiklikleri üst menüdeki Kaydet düğmesi ile kalıcı hale getirin.</p><p className="mb-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">Müşteri panelindeki metrikler, teknik terimler yerine sade Türkçe açıklamalarla gösterilir.</p><div className="grid gap-3 md:grid-cols-2">{[
         ["show_campaigns", "Kampanyalar"],
         ["show_metrics", "Reklam metrikleri"],
@@ -3371,8 +3437,52 @@ function CustomerTimeline({ company, campaigns, payments, tasks, documents, repo
   return <div><div className="mb-4"><h3 className="font-black text-white">Zaman Çizelgesi</h3><p className="mt-1 text-sm leading-6 text-slate-400">Müşteri geçmişi; kampanya, ödeme, görev, belge, rapor ve log hareketlerinden otomatik oluşturulur.</p></div><div className="grid gap-3">{rows.map((item, index) => <div key={`${item.action}-${item.date}-${index}`} className="grid gap-3 rounded-[8px] border border-white/10 bg-black/20 p-4 md:grid-cols-[170px_160px_1fr]"><time className="text-xs font-black text-cyan-100">{formatDateTime(item.date)}</time><span className="text-xs font-bold text-slate-400">{item.user}</span><span><strong className="block text-sm text-white">{item.action}</strong><span className="mt-1 block text-xs leading-5 text-slate-400">{item.description}</span></span></div>)}{!rows.length && <p className="rounded-[8px] border border-dashed border-white/10 p-5 text-sm text-slate-400">Bu müşteri için zaman çizelgesi kaydı henüz oluşmadı.</p>}</div></div>;
 }
 
-function CustomerCampaignsEditor({ company, content, setContent, save, setActive, items }: any) {
+function useCustomerActionFeedback(notify?: any) {
+  const [feedback, setFeedback] = useState({});
+  async function run(key: string, loading: string, done: string, action: any) {
+    setFeedback((current) => ({ ...current, [key]: loading }));
+    await Promise.resolve(action?.());
+    setFeedback((current) => ({ ...current, [key]: `${done} ✓` }));
+    notify?.(`✓ ${done}`, "success");
+    setTimeout(() => setFeedback((current) => ({ ...current, [key]: "" })), 2000);
+  }
+  const label = (key: string, fallback: string) => feedback[key] || fallback;
+  return { run, label, feedback };
+}
+
+function CustomerProposalsEditor({ company, content, setContent, save, items, notify }: any) {
+  const allItems = content.customerDocuments || [];
+  const visibleItems = items.filter((item) => !item.deleted_at);
+  const { run, label } = useCustomerActionFeedback(notify);
+  const update = (id, patch) => updateCollection(content, setContent, "customerDocuments", allItems.map((item) => item.id === id ? { ...item, ...patch, updated_at: new Date().toISOString() } : item));
+  const add = () => updateCollection(content, setContent, "customerDocuments", [{ id: createLocalId(), company_id: company.id, title: `Teklif · ${company.name || "Müşteri"}`, document_type: "Teklif", document_date: new Date().toISOString().slice(0, 10), description: "Teklif içeriği hazırlanıyor.", document_url: "", visible_to_customer: false, status: "Taslak", created_at: new Date().toISOString(), updated_at: new Date().toISOString() }, ...allItems]);
+  const archive = (item) => confirm("Bu teklifi arşivlemek istediğinize emin misiniz?") && update(item.id, { archived_at: new Date().toISOString(), status: "Arşivlendi" });
+  const remove = (item) => confirm("Bu teklifi silmek istediğinize emin misiniz?") && update(item.id, { deleted_at: new Date().toISOString(), status: "Silindi" });
+  return <div><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-white">Teklifler</h3><p className="mt-1 text-sm text-slate-400">Bu teklifler Belge Merkezi ile aynı kayıtları kullanır. Müşteri paneline sadece görünür olarak işaretlenenler yansır.</p></div><button onClick={add} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Teklif Oluştur</button></div><div className="grid gap-3">{visibleItems.map((item) => <div key={item.id} className={`rounded-[8px] border p-4 ${isArchivedRecord(item) ? "border-amber-300/25 bg-amber-300/[0.06]" : "border-white/10 bg-black/20"}`}><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"><Field label="Teklif başlığı" value={item.title || ""} onChange={(value) => update(item.id, { title: value })} /><SelectField label="Durum" value={item.status || "Taslak"} onChange={(value) => update(item.id, { status: value })} options={["Taslak", "Hazır", "Gönderildi", "Arşivlendi"]} /><Field label="Tarih" type="date" value={item.document_date || ""} onChange={(value) => update(item.id, { document_date: value })} /><Field label="Belge URL" value={item.document_url || ""} onChange={(value) => update(item.id, { document_url: value })} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item.visible_to_customer)} onChange={(event) => update(item.id, { visible_to_customer: event.target.checked })} /> Müşteri Belgelerine Kaydet / Göster</label><InfoItem label="Güncellenme tarihi" value={formatDateTime(item.updated_at)} /><div className="md:col-span-2 xl:col-span-3"><TextArea label="Teklif içeriği / not" value={item.description || ""} onChange={(value) => update(item.id, { description: value })} /></div></div><div className="mt-4 flex flex-wrap justify-end gap-2"><button onClick={() => alert(`${item.title || "Teklif"}\n\n${item.description || "Önizleme içeriği yok."}`)} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-100">Önizle</button><button onClick={() => window.print()} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-100">Yazdır / PDF</button>{isArchivedRecord(item) ? <button onClick={() => update(item.id, { archived_at: null, deleted_at: null, status: "Taslak" })} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-100">Arşivden Çıkar</button> : <button onClick={() => archive(item)} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-100">Arşivle</button>}<button onClick={() => remove(item)} className="rounded-full border border-red-300/30 px-4 py-2 text-xs text-red-200">Sil</button><button onClick={() => run(`proposal-${item.id}`, "Kaydediliyor...", "Kaydedildi", () => save?.())} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">{label(`proposal-${item.id}`, "Kaydet")}</button><button onClick={() => window.location.reload()} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200">Vazgeç</button></div></div>)}{!visibleItems.length && <p className="rounded-[8px] border border-dashed border-white/10 p-5 text-sm text-slate-400">Bu müşteri için teklif dokümanı yok.</p>}</div></div>;
+}
+
+function CustomerReportsEditor({ company, content, setContent, save, items, notify }: any) {
+  const allItems = content.reports || [];
+  const visibleItems = items.filter((item) => !item.deleted_at);
+  const { run, label } = useCustomerActionFeedback(notify);
+  const update = (id, patch) => updateCollection(content, setContent, "reports", allItems.map((item) => item.id === id ? { ...item, ...patch, updated_at: new Date().toISOString() } : item));
+  const add = () => updateCollection(content, setContent, "reports", [{ id: createLocalId(), company_id: company.id, report_type: "Genel Dijital Performans Raporu", period: new Date().toISOString().slice(0, 7), summary: "", customer_note: "", ai_interpretation: "", visible_to_customer: false, archived: false, status: "Taslak", metrics: {}, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }, ...allItems]);
+  const aiInterpret = (item) => update(item.id, { ai_interpretation: `${company.name || "Müşteri"} için rapor yorumu: mevcut metrikler, görünür rapor notları ve kampanya verileri birlikte takip edilmeli. Önümüzdeki 7 gün içinde düşük performanslı alanlar kontrol edilip müşteriyle net aksiyon planı paylaşılmalıdır.`, customer_note: item.customer_note || "Performansı görünür hale getirmek için rapor düzenli takip edilmelidir." });
+  return <div><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-white">Raporlar</h3><p className="mt-1 text-sm text-slate-400">Raporlar, müşteri paneli görünürlüğü ve PDF/Yazdır akışıyla birlikte yönetilir.</p></div><button onClick={add} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Rapor Oluştur</button></div><div className="grid gap-3">{visibleItems.map((item) => <div key={item.id} className={`rounded-[8px] border p-4 ${isArchivedRecord(item) || item.archived ? "border-amber-300/25 bg-amber-300/[0.06]" : "border-white/10 bg-black/20"}`}><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"><SelectField label="Rapor türü" value={item.report_type || "Genel Dijital Performans Raporu"} onChange={(value) => update(item.id, { report_type: value })} options={["Meta Reklam Raporu", "Google Ads Raporu", "Sosyal Medya Yönetimi Raporu", "Genel Dijital Performans Raporu"]} /><Field label="Dönem" value={item.period || ""} onChange={(value) => update(item.id, { period: value })} /><SelectField label="Durum" value={item.status || "Taslak"} onChange={(value) => update(item.id, { status: value })} options={["Taslak", "Hazır", "Yayınlandı", "Arşivlendi"]} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item.visible_to_customer)} onChange={(event) => update(item.id, { visible_to_customer: event.target.checked })} /> {item.visible_to_customer ? "Müşteriye Göster" : "Müşteriden Gizle"}</label><InfoItem label="Oluşturulma tarihi" value={formatDateTime(item.created_at)} /><InfoItem label="Güncellenme tarihi" value={formatDateTime(item.updated_at)} /><div className="md:col-span-2 xl:col-span-3"><TextArea label="Rapor özeti" value={item.summary || item.customer_note || ""} onChange={(value) => update(item.id, { summary: value, customer_note: value })} /></div><div className="md:col-span-2 xl:col-span-3"><TextArea label="AI yorum / sonraki öneri" value={item.ai_interpretation || ""} onChange={(value) => update(item.id, { ai_interpretation: value })} /></div></div><div className="mt-4 flex flex-wrap justify-end gap-2"><button onClick={() => aiInterpret(item)} className="rounded-full border border-cyan-200/25 px-4 py-2 text-xs text-cyan-100">AI Yorumla</button><button onClick={() => window.print()} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-100">PDF / Yazdır</button>{isArchivedRecord(item) || item.archived ? <button onClick={() => update(item.id, { archived_at: null, deleted_at: null, archived: false, status: "Taslak" })} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-100">Arşivden Çıkar</button> : <button onClick={() => update(item.id, { archived_at: new Date().toISOString(), archived: true, status: "Arşivlendi" })} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-100">Arşivle</button>}<button onClick={() => confirm("Bu raporu silmek istediğinize emin misiniz?") && update(item.id, { deleted_at: new Date().toISOString(), status: "Silindi" })} className="rounded-full border border-red-300/30 px-4 py-2 text-xs text-red-200">Sil</button><button onClick={() => run(`report-${item.id}`, "Kaydediliyor...", "Kaydedildi", () => save?.())} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">{label(`report-${item.id}`, "Kaydet")}</button><button onClick={() => window.location.reload()} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200">Vazgeç</button></div></div>)}{!visibleItems.length && <p className="rounded-[8px] border border-dashed border-white/10 p-5 text-sm text-slate-400">Bu müşteri için kanal bazlı rapor yok.</p>}</div></div>;
+}
+
+function CustomerFilesEditor({ company, content, setContent, save, items, notify }: any) {
+  const allItems = content.customerFiles || [];
+  const visibleItems = items.filter((item) => !item.deleted_at);
+  const { run, label } = useCustomerActionFeedback(notify);
+  const update = (id, patch) => updateCollection(content, setContent, "customerFiles", allItems.map((item) => item.id === id ? { ...item, ...patch, updated_at: new Date().toISOString() } : item));
+  const add = () => updateCollection(content, setContent, "customerFiles", [{ id: createLocalId(), company_id: company.id, title: "Yeni Dosya", file_type: "Diğer", description: "", file_url: "", visible_to_customer: false, status: "Aktif", created_at: new Date().toISOString(), updated_at: new Date().toISOString() }, ...allItems]);
+  return <div><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-white">Dosyalar</h3><p className="mt-1 text-sm text-slate-400">Müşteri panelinde sadece görünür olarak işaretlenen dosyalar gösterilir.</p></div><button onClick={add} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Dosya Ekle</button></div><div className="grid gap-3">{visibleItems.map((item) => <div key={item.id} className={`rounded-[8px] border p-4 ${isArchivedRecord(item) ? "border-amber-300/25 bg-amber-300/[0.06]" : "border-white/10 bg-black/20"}`}><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"><Field label="Dosya başlığı" value={item.title || ""} onChange={(value) => update(item.id, { title: value })} /><SelectField label="Dosya türü" value={item.file_type || "Diğer"} onChange={(value) => update(item.id, { file_type: value })} options={["Teklif", "Sözleşme", "Fatura", "Rapor", "Görsel", "Diğer"]} /><Field label="Dosya URL" value={item.file_url || ""} onChange={(value) => update(item.id, { file_url: value })} /><Upload onUrl={(url) => update(item.id, { file_url: url })} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item.visible_to_customer)} onChange={(event) => update(item.id, { visible_to_customer: event.target.checked })} /> {item.visible_to_customer ? "Müşteriye Göster" : "Sadece Yönetici"}</label><InfoItem label="Güncellenme tarihi" value={formatDateTime(item.updated_at)} /><div className="md:col-span-2 xl:col-span-3"><TextArea label="Açıklama" value={item.description || ""} onChange={(value) => update(item.id, { description: value })} /></div></div><div className="mt-4 flex flex-wrap justify-end gap-2">{isArchivedRecord(item) ? <button onClick={() => update(item.id, { archived_at: null, deleted_at: null, status: "Aktif" })} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-100">Arşivden Çıkar</button> : <button onClick={() => update(item.id, { archived_at: new Date().toISOString(), status: "Arşivlendi" })} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-100">Arşivle</button>}<button onClick={() => confirm("Bu dosyayı silmek istediğinize emin misiniz?") && update(item.id, { deleted_at: new Date().toISOString(), status: "Silindi" })} className="rounded-full border border-red-300/30 px-4 py-2 text-xs text-red-200">Sil</button><button onClick={() => run(`file-${item.id}`, "Kaydediliyor...", "Kaydedildi", () => save?.())} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">{label(`file-${item.id}`, "Kaydet")}</button><button onClick={() => window.location.reload()} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200">Vazgeç</button></div></div>)}{!visibleItems.length && <p className="rounded-[8px] border border-dashed border-white/10 p-5 text-sm text-slate-400">Bu müşteri için dosya yok.</p>}</div></div>;
+}
+
+function CustomerCampaignsEditor({ company, content, setContent, save, setActive, items, notify }: any) {
   const allItems = content.campaigns || [];
+  const { run, label } = useCustomerActionFeedback(notify);
   const [statusFilter, setStatusFilter] = useState("Tüm kampanyalar");
   const [platformFilter, setPlatformFilter] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -3380,11 +3490,18 @@ function CustomerCampaignsEditor({ company, content, setContent, save, setActive
   const campaignTabs = ["Tüm kampanyalar", "Aktif kampanyalar", "Planlanan kampanyalar", "Tamamlanan kampanyalar", "Durdurulan kampanyalar", "Arşivlenen kampanyalar"];
   const visibleItems = filterCampaigns(items, { status: statusFilter, platform: platformFilter, startDate, endDate });
   const update = (id, patch) => updateCollection(content, setContent, "campaigns", allItems.map((item) => item.id === id ? { ...item, ...patch, updated_at: new Date().toISOString() } : item));
-  const add = () => updateCollection(content, setContent, "campaigns", [{ id: createLocalId(), company_id: company.id, name: "Yeni Kampanya", platform: "Meta Ads", objective: "Lead", status: "Planlandı", start_date: new Date().toISOString().slice(0, 10), end_date: "", daily_budget: 0, total_budget: 0, spent_budget: 0, budget: 0, spent: 0, notes: "", internal_notes: "", visible_to_customer: false }, ...allItems]);
-  const copy = (campaign) => updateCollection(content, setContent, "campaigns", [{ ...campaign, id: createLocalId(), company_id: company.id, name: `${campaign.name || "Kampanya"} Kopya`, status: "Planlandı", archived_at: null, deleted_at: null, visible_to_customer: false }, ...allItems]);
+  const add = () => {
+    updateCollection(content, setContent, "campaigns", [{ id: createLocalId(), company_id: company.id, name: "Yeni Kampanya", platform: "Meta Ads", objective: "Lead", status: "Planlandı", start_date: new Date().toISOString().slice(0, 10), end_date: "", daily_budget: 0, total_budget: 0, spent_budget: 0, budget: 0, spent: 0, notes: "", internal_notes: "", visible_to_customer: false }, ...allItems]);
+    notify?.("✓ Kampanya taslağı oluşturuldu", "success");
+  };
+  const copy = (campaign) => {
+    updateCollection(content, setContent, "campaigns", [{ ...campaign, id: createLocalId(), company_id: company.id, name: `${campaign.name || "Kampanya"} Kopya`, status: "Planlandı", archived_at: null, deleted_at: null, visible_to_customer: false }, ...allItems]);
+    notify?.("✓ Kampanya kopyalandı", "success");
+  };
   const archive = (campaign) => {
     if (!confirm("Bu kampanyayı silmek/arşivlemek istediğinize emin misiniz?")) return;
     update(campaign.id, { archived_at: new Date().toISOString(), status: "Arşivlendi" });
+    notify?.("✓ Kampanya arşivlendi", "success");
   };
   const createReport = (campaign) => {
     updateCollection(content, setContent, "reports", [{ id: createLocalId(), company_id: company.id, campaign_id: campaign.id, report_type: `${campaign.platform || "Reklam"} Raporu`, period: campaign.start_date && campaign.end_date ? `${campaign.start_date} - ${campaign.end_date}` : "Kampanya dönemi", summary: `${campaign.name || "Kampanya"} için rapor taslağı.`, visible_to_customer: false, archived: false, metrics: {}, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }, ...(content.reports || [])]);
@@ -3438,10 +3555,10 @@ function CustomerCampaignsEditor({ company, content, setContent, save, setActive
                 <div className="md:col-span-2 xl:col-span-3"><TextArea label="Dahili notlar" value={campaign.internal_notes || ""} onChange={(value) => update(campaign.id, { internal_notes: value })} /></div>
               </div>
               <div className="mt-4 flex flex-wrap justify-end gap-2">
-                <button onClick={() => createReport(campaign)} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs text-emerald-100">Rapor oluştur</button>
+                <button onClick={() => createReport(campaign)} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs text-emerald-100">Rapor taslağı oluştur</button>
                 <button onClick={() => copy(campaign)} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200">Kopyala</button>
                 {archived ? <button onClick={() => update(campaign.id, { archived_at: null, deleted_at: null, status: "Planlandı" })} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-100">Arşivden Çıkar</button> : <button onClick={() => archive(campaign)} className="rounded-full border border-red-300/30 px-4 py-2 text-xs text-red-200">Sil / Arşivle</button>}
-                <button onClick={() => save?.()} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Kaydet</button>
+                <button onClick={() => run(`campaign-${campaign.id}`, "Kaydediliyor...", "Kaydedildi", () => save?.())} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">{label(`campaign-${campaign.id}`, "Kaydet")}</button>
                 <button onClick={() => window.location.reload()} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200">Vazgeç</button>
               </div>
             </div>
@@ -3453,8 +3570,9 @@ function CustomerCampaignsEditor({ company, content, setContent, save, setActive
   );
 }
 
-function CustomerPaymentsEditor({ company, content, setContent, save, items }: any) {
+function CustomerPaymentsEditor({ company, content, setContent, save, items, notify }: any) {
   const allItems = content.paymentRecords || [];
+  const { run, label } = useCustomerActionFeedback(notify);
   const [statusFilter, setStatusFilter] = useState("Tümü");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -3468,12 +3586,14 @@ function CustomerPaymentsEditor({ company, content, setContent, save, items }: a
     const duplicateDraft = allItems.some((item) => item.company_id === company.id && !Number(item.amount || 0) && item.status === "Bekliyor" && String(item.service_period || "").startsWith(thisMonth));
     if (duplicateDraft) return;
     updateCollection(content, setContent, "paymentRecords", [{ id: createLocalId(), company_id: company.id, amount: 0, due_date: new Date().toISOString().slice(0, 10), payment_date: "", status: "Bekliyor", service_period: thisMonth, payment_note: "", visible_to_customer: false }, ...allItems]);
+    notify?.("✓ Ödeme taslağı oluşturuldu", "success");
   }
-  return <div><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-white">Ödemeler</h3><p className="mt-1 text-sm text-slate-400">Bu kayıtlar Tahsilat, Karlılık ve Dashboard özetleriyle aynı veri kaynağını kullanır.</p></div><button onClick={add} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Ödeme Ekle</button></div><div className="mb-4 grid gap-3 md:grid-cols-4"><SelectField label="Durum filtresi" value={statusFilter} onChange={setStatusFilter} options={paymentHistoryFilters} /><Field label="Başlangıç tarihi" type="date" value={startDate} onChange={setStartDate} /><Field label="Bitiş tarihi" type="date" value={endDate} onChange={setEndDate} /><button onClick={() => { setStatusFilter("Tümü"); setStartDate(""); setEndDate(""); }} className="self-end rounded-[8px] border border-white/10 px-4 py-3 text-sm font-black text-slate-100">Filtreleri Temizle</button></div><div className="grid gap-3">{visibleItems.map((item) => <div key={item.id} className={`rounded-[8px] border p-4 ${isArchivedRecord(item) ? "border-amber-300/25 bg-amber-300/[0.06]" : "border-white/10 bg-black/20"}`}><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"><Field label="Tutar" type="number" value={item.amount || 0} onChange={(value) => update(item.id, { amount: Number(value || 0) })} /><Field label="Son ödeme tarihi" type="date" value={item.due_date || ""} onChange={(value) => update(item.id, { due_date: value })} /><Field label="Ödeme tarihi" type="date" value={item.payment_date || ""} onChange={(value) => update(item.id, { payment_date: value })} /><SelectField label="Durum" value={item.status || "Bekliyor"} onChange={(value) => setStatus(item.id, value)} options={paymentStatusOptions} /><Field label="Hizmet dönemi" type="month" value={item.service_period || ""} onChange={(value) => update(item.id, { service_period: value })} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item.visible_to_customer)} onChange={(event) => update(item.id, { visible_to_customer: event.target.checked })} /> Müşteri Panelinde Görünür</label><InfoItem label="Oluşturulma tarihi" value={formatDateTime(item.created_at)} /><InfoItem label="Güncellenme tarihi" value={formatDateTime(item.updated_at)} /><div className="md:col-span-2 xl:col-span-3"><TextArea label="Not" value={item.payment_note || ""} onChange={(value) => update(item.id, { payment_note: value })} /></div></div><div className="mt-4 flex flex-wrap justify-end gap-2">{isArchivedRecord(item) ? <button onClick={() => restore(item.id)} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-100">Arşivden Çıkar</button> : <button onClick={() => archive(item.id)} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-100">Arşivle</button>}{item.status === "İptal" && <button onClick={() => setStatus(item.id, "Bekliyor")} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs text-emerald-100">Tekrar Bekliyor Yap</button>}<button onClick={() => save?.()} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Kaydet</button><button onClick={() => window.location.reload()} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200">Vazgeç</button></div></div>)}{!visibleItems.length && <p className="rounded-[8px] border border-dashed border-white/10 p-5 text-sm text-slate-400">Bu müşteri için ödeme kaydı bulunamadı.</p>}</div></div>;
+  return <div><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-white">Ödemeler</h3><p className="mt-1 text-sm text-slate-400">Bu kayıtlar Tahsilat, Karlılık ve Dashboard özetleriyle aynı veri kaynağını kullanır.</p></div><button onClick={add} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Ödeme Ekle</button></div><div className="mb-4 grid gap-3 md:grid-cols-4"><SelectField label="Durum filtresi" value={statusFilter} onChange={setStatusFilter} options={paymentHistoryFilters} /><Field label="Başlangıç tarihi" type="date" value={startDate} onChange={setStartDate} /><Field label="Bitiş tarihi" type="date" value={endDate} onChange={setEndDate} /><button onClick={() => { setStatusFilter("Tümü"); setStartDate(""); setEndDate(""); }} className="self-end rounded-[8px] border border-white/10 px-4 py-3 text-sm font-black text-slate-100">Filtreleri Temizle</button></div><div className="grid gap-3">{visibleItems.map((item) => <div key={item.id} className={`rounded-[8px] border p-4 ${isArchivedRecord(item) ? "border-amber-300/25 bg-amber-300/[0.06]" : "border-white/10 bg-black/20"}`}><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"><Field label="Tutar" type="number" value={item.amount || 0} onChange={(value) => update(item.id, { amount: Number(value || 0) })} /><Field label="Son ödeme tarihi" type="date" value={item.due_date || ""} onChange={(value) => update(item.id, { due_date: value })} /><Field label="Ödeme tarihi" type="date" value={item.payment_date || ""} onChange={(value) => update(item.id, { payment_date: value })} /><SelectField label="Durum" value={item.status || "Bekliyor"} onChange={(value) => setStatus(item.id, value)} options={paymentStatusOptions} /><Field label="Hizmet dönemi" type="month" value={item.service_period || ""} onChange={(value) => update(item.id, { service_period: value })} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item.visible_to_customer)} onChange={(event) => update(item.id, { visible_to_customer: event.target.checked })} /> Müşteri Panelinde Görünür</label><InfoItem label="Oluşturulma tarihi" value={formatDateTime(item.created_at)} /><InfoItem label="Güncellenme tarihi" value={formatDateTime(item.updated_at)} /><div className="md:col-span-2 xl:col-span-3"><TextArea label="Not" value={item.payment_note || ""} onChange={(value) => update(item.id, { payment_note: value })} /></div></div><div className="mt-4 flex flex-wrap justify-end gap-2">{isArchivedRecord(item) ? <button onClick={() => restore(item.id)} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-100">Arşivden Çıkar</button> : <button onClick={() => archive(item.id)} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-100">Arşivle</button>}{item.status !== "Ödendi" && <button onClick={() => setStatus(item.id, "Ödendi")} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs text-emerald-100">Ödendi Yap</button>}{item.status === "İptal" && <button onClick={() => setStatus(item.id, "Bekliyor")} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs text-emerald-100">Tekrar Bekliyor Yap</button>}<button onClick={() => run(`payment-${item.id}`, "Kaydediliyor...", "Kaydedildi", () => save?.())} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">{label(`payment-${item.id}`, "Kaydet")}</button><button onClick={() => window.location.reload()} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200">Vazgeç</button></div></div>)}{!visibleItems.length && <p className="rounded-[8px] border border-dashed border-white/10 p-5 text-sm text-slate-400">Bu müşteri için ödeme kaydı bulunamadı.</p>}</div></div>;
 }
 
-function CustomerTasksEditor({ company, content, setContent, save, items }: any) {
+function CustomerTasksEditor({ company, content, setContent, save, items, notify }: any) {
   const allItems = content.agencyTasks || [];
+  const { run, label } = useCustomerActionFeedback(notify);
   const [statusFilter, setStatusFilter] = useState("Tümü");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -3484,8 +3604,9 @@ function CustomerTasksEditor({ company, content, setContent, save, items }: any)
   const visibleItems = filterTasks(items, { status: statusFilter, startDate, endDate });
   function add() {
     updateCollection(content, setContent, "agencyTasks", [{ id: createLocalId(), company_id: company.id, title: "Yeni görev", description: "", status: "Yapılacak", priority: "Orta", due_date: new Date().toISOString().slice(0, 10), notes: "" }, ...allItems]);
+    notify?.("✓ Görev taslağı oluşturuldu", "success");
   }
-  return <div><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-white">Yapılacaklar</h3><p className="mt-1 text-sm text-slate-400">Bu görevler Görevler modülü ve Dashboard operasyon özetleriyle eş zamanlıdır.</p></div><button onClick={add} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Görev Ekle</button></div><div className="mb-4 grid gap-3 md:grid-cols-4"><SelectField label="Durum filtresi" value={statusFilter} onChange={setStatusFilter} options={taskHistoryFilters} /><Field label="Başlangıç tarihi" type="date" value={startDate} onChange={setStartDate} /><Field label="Bitiş tarihi" type="date" value={endDate} onChange={setEndDate} /><button onClick={() => { setStatusFilter("Tümü"); setStartDate(""); setEndDate(""); }} className="self-end rounded-[8px] border border-white/10 px-4 py-3 text-sm font-black text-slate-100">Filtreleri Temizle</button></div><div className="grid gap-3">{visibleItems.map((item) => <div key={item.id} className={`rounded-[8px] border p-4 ${isArchivedRecord(item) ? "border-amber-300/25 bg-amber-300/[0.06]" : "border-white/10 bg-black/20"}`}><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"><Field label="Başlık" value={item.title || ""} onChange={(value) => update(item.id, { title: value })} /><SelectField label="Durum" value={item.status || "Yapılacak"} onChange={(value) => setStatus(item.id, value)} options={taskStatusOptions} /><SelectField label="Öncelik" value={item.priority || "Orta"} onChange={(value) => update(item.id, { priority: value })} options={["Düşük", "Orta", "Yüksek", "Kritik"]} /><Field label="Son tarih" type="date" value={item.due_date || ""} onChange={(value) => update(item.id, { due_date: value })} /><SelectField label="Atanan kullanıcı" value={item.assigned_user_id || ""} onChange={(value) => update(item.id, { assigned_user_id: value })} options={(content.users || []).map((user) => ({ value: user.id, label: user.full_name || user.email }))} placeholder="Atanmadı" /><InfoItem label="Tamamlanma tarihi" value={formatDateTime(item.completed_at)} /><InfoItem label="Oluşturulma tarihi" value={formatDateTime(item.created_at)} /><InfoItem label="Güncellenme tarihi" value={formatDateTime(item.updated_at)} /><div className="md:col-span-2 xl:col-span-3"><TextArea label="Açıklama / not" value={item.description || item.notes || ""} onChange={(value) => update(item.id, { description: value, notes: value })} /></div></div><div className="mt-4 flex flex-wrap justify-end gap-2">{isArchivedRecord(item) ? <button onClick={() => restore(item.id)} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-100">Arşivden Çıkar</button> : <button onClick={() => archive(item.id)} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-100">Arşivle</button>}<button onClick={() => setStatus(item.id, item.status === "Tamamlandı" ? "Yapılacak" : "Tamamlandı")} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs text-emerald-100">{item.status === "Tamamlandı" ? "Tekrar Aç" : "Tamamlandı Yap"}</button><button onClick={() => save?.()} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Kaydet</button><button onClick={() => window.location.reload()} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200">Vazgeç</button></div></div>)}{!visibleItems.length && <p className="rounded-[8px] border border-dashed border-white/10 p-5 text-sm text-slate-400">Bu müşteri için görev kaydı bulunamadı.</p>}</div></div>;
+  return <div><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-white">Yapılacaklar</h3><p className="mt-1 text-sm text-slate-400">Bu görevler Görevler modülü ve Dashboard operasyon özetleriyle eş zamanlıdır.</p></div><button onClick={add} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Görev Ekle</button></div><div className="mb-4 grid gap-3 md:grid-cols-4"><SelectField label="Durum filtresi" value={statusFilter} onChange={setStatusFilter} options={taskHistoryFilters} /><Field label="Başlangıç tarihi" type="date" value={startDate} onChange={setStartDate} /><Field label="Bitiş tarihi" type="date" value={endDate} onChange={setEndDate} /><button onClick={() => { setStatusFilter("Tümü"); setStartDate(""); setEndDate(""); }} className="self-end rounded-[8px] border border-white/10 px-4 py-3 text-sm font-black text-slate-100">Filtreleri Temizle</button></div><div className="grid gap-3">{visibleItems.map((item) => <div key={item.id} className={`rounded-[8px] border p-4 ${isArchivedRecord(item) ? "border-amber-300/25 bg-amber-300/[0.06]" : "border-white/10 bg-black/20"}`}><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"><Field label="Başlık" value={item.title || ""} onChange={(value) => update(item.id, { title: value })} /><SelectField label="Durum" value={item.status || "Yapılacak"} onChange={(value) => setStatus(item.id, value)} options={taskStatusOptions} /><SelectField label="Öncelik" value={item.priority || "Orta"} onChange={(value) => update(item.id, { priority: value })} options={["Düşük", "Orta", "Yüksek", "Kritik"]} /><Field label="Son tarih" type="date" value={item.due_date || ""} onChange={(value) => update(item.id, { due_date: value })} /><SelectField label="Atanan kullanıcı" value={item.assigned_user_id || ""} onChange={(value) => update(item.id, { assigned_user_id: value })} options={(content.users || []).map((user) => ({ value: user.id, label: user.full_name || user.email }))} placeholder="Atanmadı" /><InfoItem label="Tamamlanma tarihi" value={formatDateTime(item.completed_at)} /><InfoItem label="Oluşturulma tarihi" value={formatDateTime(item.created_at)} /><InfoItem label="Güncellenme tarihi" value={formatDateTime(item.updated_at)} /><div className="md:col-span-2 xl:col-span-3"><TextArea label="Açıklama / not" value={item.description || item.notes || ""} onChange={(value) => update(item.id, { description: value, notes: value })} /></div></div><div className="mt-4 flex flex-wrap justify-end gap-2">{isArchivedRecord(item) ? <button onClick={() => restore(item.id)} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-100">Arşivden Çıkar</button> : <button onClick={() => archive(item.id)} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-100">Arşivle</button>}<button onClick={() => setStatus(item.id, item.status === "Tamamlandı" ? "Yapılacak" : "Tamamlandı")} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs text-emerald-100">{item.status === "Tamamlandı" ? "Tekrar Aç" : "Tamamlandı Yap"}</button><button onClick={() => run(`task-${item.id}`, "Kaydediliyor...", "Kaydedildi", () => save?.())} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">{label(`task-${item.id}`, "Kaydet")}</button><button onClick={() => window.location.reload()} className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200">Vazgeç</button></div></div>)}{!visibleItems.length && <p className="rounded-[8px] border border-dashed border-white/10 p-5 text-sm text-slate-400">Bu müşteri için görev kaydı bulunamadı.</p>}</div></div>;
 }
 
 function ActivityLogs({ content, setContent }: any) {
