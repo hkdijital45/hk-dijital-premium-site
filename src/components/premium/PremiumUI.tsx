@@ -10,15 +10,15 @@ const accentStyles = {
   amber: "border-amber-100/45 bg-gradient-to-br from-yellow-300 via-amber-400 to-orange-500 text-white shadow-[0_22px_55px_rgba(245,158,11,.28)]",
   blue: "border-blue-100/45 bg-gradient-to-br from-blue-500 via-sky-500 to-cyan-400 text-white shadow-[0_22px_55px_rgba(59,130,246,.30)]",
   emerald: "border-emerald-100/45 bg-gradient-to-br from-emerald-400 via-green-500 to-teal-600 text-white shadow-[0_22px_55px_rgba(16,185,129,.30)]",
-  purple: "border-purple-100/45 bg-gradient-to-br from-violet-500 via-purple-500 to-fuchsia-500 text-white shadow-[0_22px_55px_rgba(168,85,247,.30)]",
+  purple: "border-cyan-100/45 bg-gradient-to-br from-sky-500 via-cyan-500 to-blue-600 text-white shadow-[0_22px_55px_rgba(14,165,233,.24)]",
   orange: "border-orange-100/45 bg-gradient-to-br from-orange-400 via-pink-500 to-rose-500 text-white shadow-[0_22px_55px_rgba(249,115,22,.30)]",
-  pink: "border-pink-100/45 bg-gradient-to-br from-pink-400 via-rose-500 to-fuchsia-500 text-white shadow-[0_22px_55px_rgba(236,72,153,.30)]",
-  indigo: "border-indigo-100/45 bg-gradient-to-br from-indigo-500 via-blue-600 to-violet-600 text-white shadow-[0_22px_55px_rgba(99,102,241,.30)]",
+  pink: "border-sky-100/45 bg-gradient-to-br from-sky-400 via-cyan-500 to-blue-600 text-white shadow-[0_22px_55px_rgba(14,165,233,.24)]",
+  indigo: "border-sky-100/45 bg-gradient-to-br from-sky-600 via-blue-600 to-cyan-600 text-white shadow-[0_22px_55px_rgba(14,165,233,.24)]",
   yellow: "border-yellow-100/45 bg-gradient-to-br from-yellow-300 via-amber-400 to-orange-400 text-white shadow-[0_22px_55px_rgba(250,204,21,.32)]",
   gold: "border-yellow-100/45 bg-gradient-to-br from-yellow-300 via-orange-400 to-amber-600 text-white shadow-[0_22px_55px_rgba(250,204,21,.34)]",
   red: "border-red-100/45 bg-gradient-to-br from-red-500 via-orange-500 to-amber-500 text-white shadow-[0_22px_55px_rgba(239,68,68,.30)]",
   slate: "border-cyan-100/35 bg-gradient-to-br from-slate-500 via-cyan-600 to-sky-700 text-white shadow-[0_22px_55px_rgba(14,165,233,.26)]",
-  rose: "border-rose-100/45 bg-gradient-to-br from-rose-500 via-pink-500 to-fuchsia-500 text-white shadow-[0_22px_55px_rgba(244,63,94,.30)]",
+  rose: "border-rose-100/45 bg-gradient-to-br from-red-500 via-orange-500 to-amber-500 text-white shadow-[0_22px_55px_rgba(239,68,68,.24)]",
   teal: "border-teal-100/45 bg-gradient-to-br from-teal-400 via-cyan-500 to-emerald-600 text-white shadow-[0_22px_55px_rgba(20,184,166,.30)]",
   coral: "border-orange-100/45 bg-gradient-to-br from-orange-400 via-red-400 to-pink-500 text-white shadow-[0_22px_55px_rgba(251,113,133,.30)]",
   lime: "border-lime-100/45 bg-gradient-to-br from-lime-400 via-green-500 to-emerald-600 text-white shadow-[0_22px_55px_rgba(132,204,22,.30)]"
@@ -113,7 +113,7 @@ const brandEcosystemItems = [
   ["LinkedIn", "in", "from-sky-400/90 to-blue-300/55"],
   ["WhatsApp", "WA", "from-green-300/90 to-lime-300/55"],
   ["OpenAI", "AI", "from-emerald-200/90 to-slate-100/55"],
-  ["Gemini", "Gem", "from-violet-300/90 to-cyan-300/55"],
+  ["Gemini", "Gem", "from-sky-300/90 to-cyan-300/55"],
   ["Groq", "GQ", "from-orange-300/90 to-amber-200/55"]
 ];
 
@@ -198,7 +198,7 @@ export function AnimatedMarketingDashboard({ className = "" }: { className?: str
           </div>
         </div>
         <div className="grid gap-3">
-          <div className="rounded-[8px] border border-purple-200/20 bg-purple-300/[0.08] p-3"><p className="text-xs font-black text-purple-100">AI Insight</p><p className="mt-2 text-[11px] leading-5 text-slate-300">Sıcak lead için teklif ve takip önerisi üretildi.</p></div>
+          <div className="rounded-[8px] border border-cyan-200/20 bg-cyan-300/[0.08] p-3"><p className="text-xs font-black text-cyan-100">AI Insight</p><p className="mt-2 text-[11px] leading-5 text-slate-300">Sıcak lead için teklif ve takip önerisi üretildi.</p></div>
           <AnimatedFunnel />
           <div className="rounded-[8px] border border-emerald-200/20 bg-emerald-300/[0.08] p-3"><p className="text-xs font-black text-emerald-100">CRM Lead</p><div className="mt-3 h-2 rounded-full bg-white/10"><motion.div initial={{ width: "20%" }} animate={{ width: ["42%", "78%", "64%"] }} transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }} className="h-full rounded-full bg-emerald-300" /></div></div>
         </div>

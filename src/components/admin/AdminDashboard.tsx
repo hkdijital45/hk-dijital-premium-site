@@ -294,6 +294,8 @@ export function AdminDashboard({
   const [active, setActive] = useState(initialActive);
   const [status, setStatus] = useState("");
   const [saving, setSaving] = useState(false);
+  const [saveFeedback, setSaveFeedback] = useState("idle");
+  const [toasts, setToasts] = useState<any[]>([]);
   const [theme, setTheme] = useState("dark");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -381,8 +383,17 @@ export function AdminDashboard({
     }, 120);
   }
 
+  function notify(message: string, type = "success") {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    setToasts((current) => [{ id, message, type }, ...current].slice(0, 5));
+    window.setTimeout(() => {
+      setToasts((current) => current.filter((toast) => toast.id !== id));
+    }, 2200);
+  }
+
   async function save(next = content) {
     setSaving(true);
+    setSaveFeedback("saving");
     setStatus("Kaydediliyor...");
     try {
       const contentResponse = allowedModules.includes("site-ayarlari")
@@ -400,15 +411,25 @@ export function AdminDashboard({
             setContent((current) => ({ ...current, ...latestData }));
           }
         }
-        setStatus("Başarıyla kaydedildi.");
+        setStatus("Kaydedildi ✓");
+        setSaveFeedback("success");
+        notify("✓ Kayıt başarıyla kaydedildi", "success");
+        window.setTimeout(() => setSaveFeedback("idle"), 1900);
       } else {
         const contentData = await contentResponse.json().catch(() => ({}));
         const centerData = await centerResponse.json().catch(() => ({}));
         const detail = centerData.supabaseError || centerData.error || contentData.error || "Supabase bağlantısını ve ortam değişkenlerini kontrol edin.";
         setStatus(`Kaydedilemedi: ${detail}`);
+        setSaveFeedback("error");
+        notify(`✖ İşlem başarısız: ${detail}`, "error");
+        window.setTimeout(() => setSaveFeedback("idle"), 2200);
       }
     } catch (error) {
-      setStatus(`Kaydedilemedi: ${error instanceof Error ? error.message : "Beklenmeyen hata"}`);
+      const detail = error instanceof Error ? error.message : "Beklenmeyen hata";
+      setStatus(`Kaydedilemedi: ${detail}`);
+      setSaveFeedback("error");
+      notify(`✖ İşlem başarısız: ${detail}`, "error");
+      window.setTimeout(() => setSaveFeedback("idle"), 2200);
     } finally {
       setSaving(false);
     }
@@ -462,7 +483,7 @@ export function AdminDashboard({
     if (!mobileNavOpen || !activeGroup || openGroups[activeGroup.label]) return;
     setOpenGroups((current) => ({ ...current, [activeGroup.label]: true }));
   }, [activeGroup?.label, mobileNavOpen]);
-  const shellClass = theme === "dark" ? "bg-[#050711] text-white" : "bg-slate-100 text-slate-950";
+  const shellClass = theme === "dark" ? "hk-admin-os admin-ambient bg-[#050711] text-white" : "hk-admin-os bg-slate-100 text-slate-950";
   const panelClass = theme === "dark" ? "border-white/10 bg-white/[0.045]" : "border-slate-200 bg-white";
   const headerClass = theme === "dark" ? "border-white/10 bg-[#050711]/90" : "border-slate-200 bg-white/90";
   const aiStatus = aiMetaFromApi(content.settings?.api || {});
@@ -591,13 +612,13 @@ export function AdminDashboard({
             <button onClick={toggleTheme} className="min-h-10 rounded-[8px] border border-white/10 px-4 text-sm font-bold">
               {theme === "dark" ? "Aydınlık Tema" : "Karanlık Tema"}
             </button>
-            {(allowedModules.includes("site-ayarlari") || ["musteriler", "kampanyalar", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "sektor-sistemleri"].some((module) => allowedModules.includes(module))) && <button disabled={saving} onClick={() => save()} className="inline-flex min-h-10 items-center gap-2 rounded-[8px] bg-cyan-300 px-4 text-sm font-black text-slate-950 disabled:opacity-60"><Save size={17} /> {saving ? "Kaydediliyor..." : "Kaydet"}</button>}
+            {(allowedModules.includes("site-ayarlari") || ["musteriler", "kampanyalar", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "sektor-sistemleri"].some((module) => allowedModules.includes(module))) && <button disabled={saving} onClick={() => save()} className={`inline-flex min-h-10 items-center gap-2 rounded-[8px] bg-cyan-300 px-4 text-sm font-black text-slate-950 disabled:opacity-60 ${saveFeedback === "success" ? "hk-action-success" : ""}`}><Save size={17} /> {saving ? "Kaydediliyor..." : saveFeedback === "success" ? "Kaydedildi ✓" : saveFeedback === "error" ? "Tekrar Dene" : "Kaydet"}</button>}
             <button onClick={logout} className="inline-flex min-h-10 items-center gap-2 rounded-[8px] border border-white/10 px-4 text-sm font-bold"><LogOut size={17} /> Çıkış</button>
           </div>
         </div>
       </header>
       <div className="relative px-3 py-4 sm:px-4 lg:px-6">
-        <section className={`min-w-0 rounded-[8px] border p-4 shadow-[0_16px_54px_rgba(0,0,0,.14)] sm:p-5 ${panelClass}`}>
+        <section className={`min-w-0 rounded-[8px] border p-4 shadow-[0_16px_54px_rgba(0,0,0,.14)] sm:p-5 ${panelClass} ${saveFeedback === "success" ? "hk-action-success" : ""}`}>
           {!supabaseConfigured && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">Supabase bağlantısı yapılandırılmadı. Canlı ortamda kaydetme çalışmaz.</p>}
           {bootstrapWarning && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">Süper admin kurulum anahtarları hâlâ aktif. Güvenlik için Vercel ortam değişkenlerinden kaldırın.</p>}
           {status && <p className={`mb-5 rounded-[8px] border p-3 text-sm ${status.includes("Kaydedilemedi") ? "border-red-300/30 bg-red-500/10 text-red-100" : "border-cyan-200/20 bg-cyan-200/10 text-cyan-100"}`}>{status}</p>}
@@ -702,6 +723,7 @@ export function AdminDashboard({
       )}
       <StartupApiStatusModal open={startupApiOpen} loading={startupApiLoading} data={startupApiData} message={startupApiMessage} onRetest={runStartupApiStatus} onClose={() => setStartupApiOpen(false)} onSettings={() => { setStartupApiOpen(false); setActive("API Ayarları"); }} />
       {bootVisible && <SystemBoot step={bootStep} />}
+      <ToastStack items={toasts} dismiss={(id) => setToasts((current) => current.filter((toast) => toast.id !== id))} />
     </main>
   );
 }
@@ -716,6 +738,19 @@ const bootSequence = [
   ["Initializing Customers...", "Müşteriler Başlatılıyor..."],
   ["Initializing Operations...", "Operasyonlar Başlatılıyor..."]
 ];
+
+function ToastStack({ items, dismiss }: any) {
+  return <div className="hk-toast-stack">
+    {items.map((toast) => {
+      const icon = toast.type === "error" ? "✖" : toast.type === "warning" ? "⚠" : "✓";
+      const tone = toast.type === "error" ? "hk-toast-error text-red-100" : toast.type === "warning" ? "hk-toast-warning text-amber-100" : "hk-toast-success text-emerald-100";
+      return <button key={toast.id} type="button" onClick={() => dismiss(toast.id)} className={`hk-toast ${tone} grid grid-cols-[28px_1fr] items-start gap-3 p-4 text-left`}>
+        <span className="grid size-7 place-items-center rounded-full border border-current/25 bg-white/[0.06] text-sm font-black">{icon}</span>
+        <span><strong className="block text-sm text-white">{toast.message}</strong><span className="mt-1 block text-xs text-slate-300">Kapatmak için tıklayın.</span></span>
+      </button>;
+    })}
+  </div>;
+}
 
 function SystemBoot({ step }: { step: number }) {
   const complete = step >= bootSequence.length;
