@@ -26,6 +26,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: "Görevler", slug: "gorevler", module: "gorevler" },
       { label: "Karlılık", slug: "karlilik", module: "karlilik" },
       { label: "Genel Arama", slug: "genel-arama", module: "genel-arama" },
+      { label: "Aktivite Akışı", slug: "aktivite-akisi", module: "sistem-loglari" },
       { label: "Kullanım Kılavuzu", slug: "kullanim-kilavuzu", module: "kullanim-kilavuzu" }
     ]
   },
@@ -84,6 +85,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     items: [
       { label: "Belgeler", slug: "belgeler", module: "belgeler" },
       { label: "Tahsilat", slug: "tahsilat", module: "tahsilat" },
+      { label: "Takvim", slug: "takvim", module: "gorevler" },
       { label: "Sosyal Medya Planı", slug: "sosyal-medya-plani", module: "sosyal-medya-plani" },
       { label: "Sektör Sistemleri", slug: "sektor-sistemleri", module: "sektor-sistemleri" }
     ]
@@ -167,6 +169,8 @@ const legacySlugRedirects: Record<string, string> = {
   "api-ayarlari": "entegrasyonlar",
   "ai-saglayici-ayarlari": "entegrasyonlar",
   "sistem-durumu": "sistem-sagligi",
+  "aktivite-akisi": "aktivite-akisi",
+  takvim: "takvim",
   "medya-logo": "medya",
   "medya-logo-yukleme": "medya",
   "30-gunluk-sosyal-medya-plani": "icerik-fikirleri",
