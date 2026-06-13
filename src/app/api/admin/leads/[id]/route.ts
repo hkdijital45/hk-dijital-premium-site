@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
 import { recordActivity } from "@/lib/activity-log";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
@@ -22,8 +23,12 @@ const editableFields = [
   "recommended_package",
   "message",
   "status",
+  "pipeline_stage",
   "notes",
   "follow_up_date",
+  "last_contact_at",
+  "next_action_at",
+  "next_action",
   "city",
   "district",
   "sector",

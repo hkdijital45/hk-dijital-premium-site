@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { getSession, isStaffRole } from "@/lib/auth";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
-const pipelineStages = ["Yeni Lead", "İletişim Kuruldu", "Teklif Gönderildi", "Takipte", "Kazandı", "Kaybedildi"];
+const pipelineStages = ["Yeni Lead", "İletişim Kuruldu", "Toplantı Yapıldı", "Teklif Gönderildi", "Takipte", "Kazanıldı", "Kaybedildi", "Kazandı"];
 
 export async function PATCH(request: Request) {
   const session = await getSession();
@@ -19,7 +19,7 @@ export async function PATCH(request: Request) {
 
     const rows = await supabaseRest<any[]>(`leads?id=eq.${encodeURIComponent(id)}`, {
       method: "PATCH",
-      body: JSON.stringify({ status, updated_at: new Date().toISOString() })
+      body: JSON.stringify({ status: status === "Kazandı" ? "Kazanıldı" : status, pipeline_stage: status === "Kazandı" ? "Kazanıldı" : status, updated_at: new Date().toISOString() })
     });
 
     return NextResponse.json({ ok: true, lead: rows[0], message: "Lead pipeline aşaması güncellendi." });

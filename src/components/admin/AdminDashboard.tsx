@@ -23,9 +23,10 @@ const adminCategoryIcons: Record<string, any> = {
   Download
 };
 
+const salesPipelineStages = ["Yeni Lead", "İletişim Kuruldu", "Toplantı Yapıldı", "Teklif Gönderildi", "Takipte", "Kazanıldı", "Kaybedildi"];
 const crmActiveStatuses = ["Yeni Başvuru", "İletişime Geçildi", "Takipte", "Teklif Gönderildi", "Müşteri Oldu"];
 const crmStatusTabs = ["Tüm Başvurular", "Yeni Başvurular", "İletişime Geçildi", "Takipte", "Teklif Gönderildi", "Müşteri Oldu", "Meta Analiz", "Google Ads Analiz", "Reddedilenler", "Silinenler"];
-const leadStatuses = [...crmActiveStatuses, "Yeni", "Görüşülecek", "Teklif Hazırlanıyor", "Kazanıldı", "Kaybedildi", "Dönüştürüldü", "Reddedildi"];
+const leadStatuses = [...new Set([...crmActiveStatuses, ...salesPipelineStages, "Yeni", "Görüşülecek", "Teklif Hazırlanıyor", "Kazanıldı", "Kaybedildi", "Dönüştürüldü", "Reddedildi"])];
 const leadSourceOptions = ["İletişim Formu", "Teklif Formu", "Teklif Sihirbazı", "Müşteri Bulucu", "Meta Analiz", "Google Ads Analiz", "Instagram", "WhatsApp", "Referans", "Manuel Giriş", "Diğer"];
 const roleOptions = [
   { value: "admin", label: "Yönetici" },
@@ -387,7 +388,7 @@ export function AdminDashboard({
       const contentResponse = allowedModules.includes("site-ayarlari")
         ? await fetch("/api/content", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) })
         : new Response(JSON.stringify({ ok: true }), { status: 200 });
-      const centerWritableModules = ["musteriler", "kampanyalar", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "sektor-sistemleri", "sistem-loglari"];
+      const centerWritableModules = ["musteriler", "leads", "crm", "kampanyalar", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "sektor-sistemleri", "sistem-loglari", "teklifler"];
       const centerResponse = supabaseConfigured && centerWritableModules.some((module) => allowedModules.includes(module))
         ? await fetch("/api/admin/center-data", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) })
         : contentResponse;
@@ -601,6 +602,7 @@ export function AdminDashboard({
           {bootstrapWarning && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">Süper admin kurulum anahtarları hâlâ aktif. Güvenlik için Vercel ortam değişkenlerinden kaldırın.</p>}
           {status && <p className={`mb-5 rounded-[8px] border p-3 text-sm ${status.includes("Kaydedilemedi") ? "border-red-300/30 bg-red-500/10 text-red-100" : "border-cyan-200/20 bg-cyan-200/10 text-cyan-100"}`}>{status}</p>}
           {dashboardAliases.includes(active) && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} systemStatus={systemStatus} currentSession={currentSession} allowedModules={allowedModules} />}
+          {active === "Satış Hunisi" && <SalesPipeline content={content} setContent={setContent} save={save} setActive={setActive} />}
           {active === "CRM" && <CrmHub {...props} />}
           {active === "Görevler" && <AgencyTasksCenter {...props} />}
           {active === "Belgeler" && <DocumentCenter {...props} />}
@@ -790,8 +792,22 @@ function buildAdminNotifications(content: any, startupApiData: any = {}) {
   const criticalTasks = tasks.filter((item) => item.priority === "Kritik" && !["Tamamlandı", "İptal"].includes(item.status));
   const endingCampaigns = campaigns.filter((item) => item.end_date && item.end_date >= today && item.end_date <= weekEnd && !["Tamamlandı", "İptal"].includes(item.status));
   const newRequests = leads.filter((lead) => ["Yeni", "Yeni Başvuru"].includes(lead.status || "Yeni"));
+  const followUpLeads = leads.filter((lead) => (lead.follow_up_date || lead.next_action_at) && String(lead.follow_up_date || lead.next_action_at).slice(0, 10) <= today && !["Kazanıldı", "Kaybedildi", "Dönüştürüldü", "Reddedildi"].includes(lead.status));
+  const proposalFollowUps = leads.filter((lead) => pipelineStageForLead(lead) === "Teklif Gönderildi" && !["Kazanıldı", "Kaybedildi"].includes(lead.status));
   const latestLead = newRequests[0];
   const notifications = [
+    followUpLeads.length && {
+      id: `lead-follow-up-${followUpLeads.length}-${followUpLeads[0]?.id || "lead"}`,
+      label: "Takip bekleyen leadler",
+      text: `${followUpLeads.length} lead için takip zamanı geldi. İlk kayıt: ${followUpLeads[0]?.company || followUpLeads[0]?.name || "Lead"}`,
+      tone: "amber"
+    },
+    proposalFollowUps.length && {
+      id: `proposal-follow-up-${proposalFollowUps.length}-${proposalFollowUps[0]?.id || "proposal"}`,
+      label: "Teklif takibi bekliyor",
+      text: `${proposalFollowUps.length} teklif gönderilmiş lead takip bekliyor. İlk kayıt: ${proposalFollowUps[0]?.company || proposalFollowUps[0]?.name || "Teklif"}`,
+      tone: "purple"
+    },
     overduePayments.length && {
       id: `overdue-payments-${overduePayments.map((item) => item.id || item.due_date).join("-")}`,
       label: "Geciken tahsilatlar",
@@ -899,7 +915,7 @@ function GlobalSearchPage() {
   return <Panel title="Genel Arama"><p className="mb-4 text-sm leading-6 text-slate-400">Yetkiniz bulunan modüller, başvurular, müşteriler ve raporlar içinde arama yapın.</p><div className="flex gap-2"><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => event.key === "Enter" && runSearch()} placeholder="Aramak istediğiniz kelimeyi yazın..." className="min-h-12 flex-1 rounded-[8px] border border-white/10 bg-black/30 px-4 text-white" /><button onClick={runSearch} className="rounded-[8px] bg-cyan-300 px-5 text-sm font-black text-slate-950">{loading ? "Aranıyor..." : "Ara"}</button></div><div className="mt-5 grid gap-3">{results.map((result) => <Link key={result.id} href={result.href} className="flex items-center justify-between gap-3 rounded-[8px] border border-white/10 bg-black/10 p-4 transition hover:border-cyan-200/40"><span><strong>{result.title}</strong><span className="mt-1 block text-sm text-slate-400">{result.detail}</span></span><span className="rounded-full border border-white/10 px-3 py-1 text-xs text-cyan-100">{result.type}</span></Link>)}{query && !loading && !results.length && <p className="rounded-[8px] border border-dashed border-white/10 p-6 text-center text-sm text-slate-400">Aramanızla eşleşen kayıt bulunamadı.</p>}</div></Panel>;
 }
 
-const dashboardWidgetDefaults = ["metrics", "aiStatus", "operations", "pipeline", "intelligence", "status", "charts", "insights", "quickActions", "crm", "activity", "demo"];
+const dashboardWidgetDefaults = ["assistant", "tasks", "profitability", "payments", "campaigns", "recentLeads", "notifications", "activity", "metrics", "aiStatus", "operations", "pipeline", "intelligence", "status", "charts", "insights", "quickActions", "crm", "demo"];
 
 function dateValue(item: any, ...keys: string[]) {
   const value = keys.map((key) => item?.[key]).find(Boolean);
@@ -1026,6 +1042,42 @@ function AiStatusCenterWidget({ statuses = {}, message, loading, onRefresh }: an
   return <GlassCard className="p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[.16em] text-pink-200">AI Durum Merkezi</p><h3 className="mt-2 text-xl font-black text-white">Sağlayıcı ve API bağlantıları</h3><p className="mt-1 text-sm text-slate-400">AI sağlayıcıları ve reklam/veri API durumlarını tek merkezden test edin.</p></div><div className="flex flex-wrap gap-2"><button disabled={loading} onClick={onRefresh} className="rounded-full border border-cyan-200/20 px-4 py-2 text-xs font-black text-cyan-100 disabled:opacity-60">AI Durumunu Yenile</button><button disabled={loading} onClick={onRefresh} className="rounded-full bg-amber-300 px-4 py-2 text-xs font-black text-slate-950 disabled:opacity-60">{loading ? "Test ediliyor..." : "Tüm Bağlantıları Test Et"}</button></div></div><div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{items.map(([label, item]) => <div key={label} className={`rounded-[8px] border p-4 ${aiStatusColor(item?.status)}`}><div className="flex items-center justify-between gap-3"><p className="font-black text-white">{label}</p><span className="rounded-full border border-current/20 px-2 py-1 text-[10px] font-black">{item?.status || "API Eksik"}</span></div><p className="mt-3 text-xs leading-5">Model: <strong>{item?.model || "-"}</strong></p><p className="mt-1 text-xs leading-5">Son test: <strong>{item?.lastTestTime ? new Date(item.lastTestTime).toLocaleString("tr-TR") : "-"}</strong></p>{item?.warning && <p className="mt-2 text-[11px] leading-5 opacity-80">{item.warning}</p>}</div>)}</div>{message && <p className="mt-4 rounded-[8px] border border-white/10 bg-black/15 p-3 text-xs text-slate-300">{message}</p>}</GlassCard>;
 }
 
+function maskKey(value: any) {
+  const text = String(value || "");
+  if (!text || text.includes("•")) return text ? "••••••••" : "";
+  if (text.length <= 8) return `${text.slice(0, 2)}****`;
+  return `${text.slice(0, 4)}****${text.slice(-4)}`;
+}
+
+function integrationReadiness(api: any = {}) {
+  const item = (label: string, value: any, guidance: string) => ({ label, ready: Boolean(value), masked: maskKey(value), guidance });
+  return [
+    item("Meta App ID", api.meta_app_id, "Bu alan eksik olduğu için Meta uygulama doğrulaması tamamlanamaz."),
+    item("Meta Access Token", api.meta_access_token, "Bu alan eksik olduğu için canlı Meta verisi çekilemez."),
+    item("Meta Business ID", api.meta_business_id, "Bu alan eksik olduğu için Business Manager varlıkları eşleştirilemez."),
+    item("Meta Ad Account ID", api.meta_ad_account_id, "Bu alan eksik olduğu için reklam hesabı metrikleri alınamaz."),
+    item("Google Maps API", api.google_maps_api_key || api.google_maps_key, "Bu alan eksik olduğu için Haritalar / işletme keşfi canlı veriye geçemez."),
+    item("Google Ads Developer Token", api.google_ads_developer_token || api.google_ads_key, "Bu alan eksik olduğu için Google Ads canlı kampanya verisi çekilemez."),
+    item("Google Client ID / Secret", api.google_client_id && (api.google_client_secret || api.google_ads_client_secret), "Bu alan eksik olduğu için OAuth bağlantısı test edilemez.")
+  ];
+}
+
+function ReadinessPanel({ api }: any) {
+  const items = integrationReadiness(api);
+  return <div className="rounded-[8px] border border-white/10 bg-black/15 p-4">
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div><p className="text-xs font-black uppercase tracking-[.14em] text-cyan-200">Meta & Google hazırlık kontrolü</p><h3 className="mt-1 font-black text-white">Canlı veri bağlantısı için gerekli alanlar</h3></div>
+      <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300">{items.filter((item) => item.ready).length}/{items.length} hazır</span>
+    </div>
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      {items.map((item) => <div key={item.label} className={`rounded-[8px] border p-3 ${item.ready ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-100" : "border-amber-300/20 bg-amber-300/10 text-amber-100"}`}>
+        <div className="flex items-center justify-between gap-3"><p className="text-sm font-black text-white">{item.label}</p><span className="rounded-full border border-current/20 px-2 py-1 text-[10px] font-black">{item.ready ? "Hazır" : "Eksik"}</span></div>
+        <p className="mt-2 text-xs leading-5 opacity-85">{item.ready ? `Bağlantı hazır görünüyor. Değer: ${item.masked || "kayıtlı"}` : `${item.guidance} Demo veri ile devam ediliyor.`}</p>
+      </div>)}
+    </div>
+  </div>;
+}
+
 function SystemHealthCenter({ content, startupApiData, runStartupApiStatus, startupApiLoading }: any) {
   const api = content.settings?.api || {};
   const aiStatuses = startupApiData?.results || api.ai_status || {};
@@ -1040,7 +1092,7 @@ function SystemHealthCenter({ content, startupApiData, runStartupApiStatus, star
     ["Storage", "Bağlı", "Medya ve belge kayıtları mevcut veri sistemi üzerinden izlenir.", startupApiData?.lastTestTime]
   ];
   const statusClass = (status: string) => status === "Bağlı" ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-100" : status === "Hata" ? "border-red-300/20 bg-red-300/10 text-red-100" : "border-amber-300/20 bg-amber-300/10 text-amber-100";
-  return <Panel title="Sistem Sağlığı"><div className="mb-5 flex flex-wrap items-center justify-between gap-3"><p className="max-w-3xl text-sm leading-6 text-slate-400">API ve altyapı bağlantılarını güvenli şekilde izleyin. Gizli anahtarlar tarayıcıda gösterilmez; sadece durum bilgisi görünür.</p><button disabled={startupApiLoading} onClick={runStartupApiStatus} className="rounded-[8px] bg-cyan-300 px-4 py-3 text-sm font-black text-slate-950 disabled:opacity-60">{startupApiLoading ? "Test ediliyor..." : "Bağlantıyı Test Et"}</button></div><div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">{healthItems.map(([label, status, description, lastCheck]) => <div key={label} className={`rounded-[8px] border p-4 ${statusClass(String(status))}`}><div className="flex items-center justify-between gap-3"><h3 className="font-black text-white">{label}</h3><span className="rounded-full border border-current/20 px-2 py-1 text-[10px] font-black">{status}</span></div><p className="mt-3 text-xs leading-5 opacity-90">{description}</p><p className="mt-3 text-[11px] leading-5 opacity-75">Son kontrol zamanı: {lastCheck ? new Date(String(lastCheck)).toLocaleString("tr-TR") : "Henüz kontrol edilmedi"}</p></div>)}</div><AiStatusCenterWidget statuses={aiStatuses} message={startupApiData?.lastTestTime ? `Son genel kontrol: ${new Date(startupApiData.lastTestTime).toLocaleString("tr-TR")}` : "Bağlantı testi bekleniyor."} loading={startupApiLoading} onRefresh={runStartupApiStatus} /></Panel>;
+  return <Panel title="Sistem Sağlığı"><div className="mb-5 flex flex-wrap items-center justify-between gap-3"><p className="max-w-3xl text-sm leading-6 text-slate-400">API ve altyapı bağlantılarını güvenli şekilde izleyin. Gizli anahtarlar tarayıcıda gösterilmez; sadece durum bilgisi görünür.</p><button disabled={startupApiLoading} onClick={runStartupApiStatus} className="rounded-[8px] bg-cyan-300 px-4 py-3 text-sm font-black text-slate-950 disabled:opacity-60">{startupApiLoading ? "Test ediliyor..." : "Bağlantıyı Test Et"}</button></div><div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">{healthItems.map(([label, status, description, lastCheck]) => <div key={label} className={`rounded-[8px] border p-4 ${statusClass(String(status))}`}><div className="flex items-center justify-between gap-3"><h3 className="font-black text-white">{label}</h3><span className="rounded-full border border-current/20 px-2 py-1 text-[10px] font-black">{status}</span></div><p className="mt-3 text-xs leading-5 opacity-90">{description}</p><p className="mt-3 text-[11px] leading-5 opacity-75">Son kontrol zamanı: {lastCheck ? new Date(String(lastCheck)).toLocaleString("tr-TR") : "Henüz kontrol edilmedi"}</p></div>)}</div><div className="mb-5"><ReadinessPanel api={api} /></div><AiStatusCenterWidget statuses={aiStatuses} message={startupApiData?.lastTestTime ? `Son genel kontrol: ${new Date(startupApiData.lastTestTime).toLocaleString("tr-TR")}` : "Bağlantı testi bekleniyor."} loading={startupApiLoading} onRefresh={runStartupApiStatus} /></Panel>;
 }
 
 function ExportCenter({ content }: any) {
@@ -1476,8 +1528,15 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     }
   }
 
-  const widgetNames = { metrics: "Sistem metrikleri", aiStatus: "AI Durum Merkezi", operations: "Canlı operasyon merkezi", pipeline: "CRM pipeline görseli", intelligence: "Intelligence merkezi", status: "Sistem durum merkezi", charts: "Gerçek veri grafikleri", insights: "AI içgörüleri", quickActions: "Hızlı aksiyonlar", crm: "CRM akışı", activity: "Son aktiviteler", demo: "Müşteri paneli testi" };
+  const widgetNames = { assistant: "HK Asistan", tasks: "Görevler", profitability: "Karlılık", payments: "Tahsilatlar", campaigns: "Kampanyalar", recentLeads: "Son Leadler", notifications: "Bildirimler", metrics: "Sistem metrikleri", aiStatus: "AI Durum Merkezi", operations: "Canlı operasyon merkezi", pipeline: "CRM pipeline görseli", intelligence: "Intelligence merkezi", status: "Sistem durum merkezi", charts: "Gerçek veri grafikleri", insights: "AI içgörüleri", quickActions: "Hızlı aksiyonlar", crm: "CRM akışı", activity: "Son aktiviteler", demo: "Müşteri paneli testi" };
   const widgets: any = {
+    assistant: <GlassCard className="p-5"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[.16em] text-purple-200">HK Asistan</p><h3 className="mt-2 text-xl font-black text-white">Satış operasyon önerileri</h3><p className="mt-1 text-sm text-slate-400">Lead, teklif, görev ve tahsilat akışını hızlı yorumlayın.</p></div><Bot className="text-purple-100" size={24} /></div><div className="mt-4 grid gap-2 sm:grid-cols-2">{dashboardAssistantPrompts.map((item) => <button key={item} onClick={() => askDashboardAssistant(item)} className="rounded-[8px] border border-white/10 bg-black/10 p-3 text-left text-xs font-bold text-slate-300 hover:border-purple-200/30 hover:bg-purple-300/10">{item}</button>)}</div>{dashboardAssistantAnswer && <p className="mt-4 rounded-[8px] border border-purple-200/20 bg-purple-300/10 p-3 text-sm leading-6 text-purple-50">{dashboardAssistantAnswer}</p>}</GlassCard>,
+    tasks: <GlassCard className="p-5"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">Görevler</p><h3 className="mt-2 text-xl font-black text-white">Öncelikli yapılacaklar</h3></div><button onClick={() => setActive("Görevler")} className="rounded-full border border-cyan-200/20 px-3 py-2 text-xs font-black text-cyan-100">Tüm Görevleri Aç</button></div><div className="mt-4 grid gap-3 md:grid-cols-3">{[["Bugün", todaysTasks.length], ["Geciken", overdueTasks.length], ["Kritik", criticalTasks.length]].map(([label, value]) => <div key={label} className="rounded-[8px] border border-white/10 bg-black/15 p-3"><p className="text-xs text-slate-400">{label}</p><p className="mt-1 text-2xl font-black text-white">{value}</p></div>)}</div><div className="mt-4 grid gap-2">{importantDashboardTasks.slice(0, 5).map((item) => <button key={item.id || item.title} onClick={() => setActive("Görevler")} className="rounded-[8px] border border-white/10 bg-black/10 p-3 text-left text-sm"><strong className="text-white">{item.title || "Görev"}</strong><span className="mt-1 block text-xs text-slate-400">{companyName(content, item.company_id)} · {item.priority || "Öncelik yok"} · {formatDate(item.due_date)}</span></button>)}{!importantDashboardTasks.length && <p className="rounded-[8px] border border-dashed border-white/10 p-4 text-sm text-slate-400">Öncelikli görev bulunmuyor.</p>}</div></GlassCard>,
+    profitability: <GlassCard className="p-5"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-emerald-200">Karlılık</p><h3 className="mt-2 text-xl font-black text-white">Gelir ve tahsilat dengesi</h3></div><button onClick={() => setActive("Karlılık")} className="rounded-full border border-emerald-200/20 px-3 py-2 text-xs font-black text-emerald-100">Karlılık Detayını Aç</button></div><div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[["Bu Ay Gelir", expectedRevenue], ["Bekleyen Tahsilat", pendingRevenue], ["Geciken Tahsilat", overduePaymentTotal], ["Tahmini Kâr", estimatedProfit]].map(([label, value]) => <div key={label} className="rounded-[8px] border border-emerald-200/15 bg-emerald-300/[0.06] p-3"><p className="text-xs text-emerald-100/75">{label}</p><p className="mt-1 text-xl font-black text-white">{Number(value || 0).toLocaleString("tr-TR")} TL</p></div>)}</div></GlassCard>,
+    payments: <GlassCard className="p-5"><p className="text-xs font-black uppercase tracking-[.16em] text-amber-200">Tahsilatlar</p><h3 className="mt-2 text-xl font-black text-white">Ödeme takip özeti</h3><div className="mt-4 grid gap-2">{overduePayments.slice(0, 5).map((item) => <button key={item.id || item.due_date} onClick={() => setActive("Tahsilat")} className="flex items-center justify-between gap-3 rounded-[8px] border border-amber-200/20 bg-amber-300/10 p-3 text-left text-sm"><span><strong className="block text-white">{companyName(content, item.company_id)}</strong><span className="text-xs text-amber-100/80">{formatDate(item.due_date)} · {item.status || "Gecikmiş"}</span></span><span className="font-black text-white">{Number(item.amount || 0).toLocaleString("tr-TR")} TL</span></button>)}{!overduePayments.length && <p className="rounded-[8px] border border-dashed border-white/10 p-4 text-sm text-slate-400">Geciken tahsilat bulunmuyor.</p>}</div></GlassCard>,
+    campaigns: <GlassCard className="p-5"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-orange-200">Kampanyalar</p><h3 className="mt-2 text-xl font-black text-white">Kampanya durumu</h3></div><button onClick={() => setActive("Kampanyalar")} className="rounded-full border border-orange-200/20 px-3 py-2 text-xs font-black text-orange-100">Kampanyaları Aç</button></div><div className="mt-4 grid gap-3 md:grid-cols-4">{[["Aktif", activeCampaigns.length], ["Planlanan", plannedCampaigns.length], ["Bu ay biten", campaignsEndingThisMonth.length], ["Toplam harcama", `${campaignSpendTotal.toLocaleString("tr-TR")} TL`]].map(([label, value]) => <div key={label} className="rounded-[8px] border border-orange-200/15 bg-orange-300/[0.07] p-3"><p className="text-xs text-orange-100/75">{label}</p><p className="mt-1 text-xl font-black text-white">{value}</p></div>)}</div></GlassCard>,
+    recentLeads: <GlassCard className="p-5"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-blue-200">Son Leadler</p><h3 className="mt-2 text-xl font-black text-white">Yeni fırsatlar</h3></div><button onClick={() => setActive("Satış Hunisi")} className="rounded-full border border-blue-200/20 px-3 py-2 text-xs font-black text-blue-100">Satış Hunisini Aç</button></div><div className="mt-4 grid gap-2">{leads.slice(0, 6).map((lead) => <button key={lead.id} onClick={() => setActive("Satış Hunisi")} className="rounded-[8px] border border-white/10 bg-black/10 p-3 text-left text-sm"><strong className="text-white">{lead.company || lead.name || "İsimsiz lead"}</strong><span className="mt-1 block text-xs text-slate-400">{lead.status || "Yeni Lead"} · Skor: {lead.lead_heat_score || 0}</span></button>)}</div></GlassCard>,
+    notifications: <GlassCard className="p-5"><p className="text-xs font-black uppercase tracking-[.16em] text-rose-200">Bildirimler</p><h3 className="mt-2 text-xl font-black text-white">Satış ve operasyon uyarıları</h3><div className="mt-4 grid gap-2">{buildAdminNotifications(content).slice(0, 6).map((item) => <div key={item.id} className="rounded-[8px] border border-white/10 bg-black/10 p-3"><p className="text-sm font-black text-white">{item.label}</p><p className="mt-1 text-xs leading-5 text-slate-400">{item.text}</p></div>)}</div></GlassCard>,
     metrics: <div><div className="mb-4 flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">Dashboard Widgets</p><h3 className="mt-1 text-lg font-black text-white">HK Business Operating System</h3><p className="mt-1 text-sm leading-5 text-slate-400">CRM, istihbarat, AI, rapor ve teklif akışlarını tek ekranda izleyin.</p></div><span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-black text-slate-300">Gerçek veriler</span></div><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">{osDashboardWidgets.map(([label, value, note, icon, gradient, target, level]) => <button key={label} type="button" onClick={() => setActive(target)} className={`admin-color-card group relative overflow-hidden rounded-[8px] border border-white/[0.12] bg-gradient-to-br ${gradient} text-left text-white shadow-[0_12px_34px_rgba(0,0,0,.18)] transition hover:-translate-y-0.5 hover:border-white/25 ${level === "level1" ? "min-h-40 p-5 xl:col-span-1" : "min-h-32 p-4"}`}><span className="relative flex items-start justify-between gap-3"><span className="grid size-10 place-items-center rounded-[8px] border border-white/20 bg-white/[0.12]">{icon}</span><span className="rounded-full border border-white/[0.18] bg-black/10 px-2 py-1 text-[10px] font-black uppercase tracking-[.10em] text-white/80">{level === "level1" ? "Öncelik" : "Modül"}</span></span><p className="relative mt-4 text-xs font-black uppercase tracking-[.12em] text-white/70">{label}</p><p className="relative mt-1.5 text-2xl font-black">{value}</p><p className="relative mt-2 text-xs leading-5 text-white/75">{note}</p></button>)}</div><details className="mt-4 rounded-[8px] border border-white/10 bg-black/10 p-3"><summary className="cursor-pointer text-xs font-black uppercase tracking-[.14em] text-slate-400">Tüm sistem metrikleri</summary><div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">{stats.map(([label, value, note, icon, accent]) => <MetricCard3D key={label} label={label} value={value} note={note} accent={accent} icon={icon} />)}</div></details></div>,
     aiStatus: <AiStatusCenterWidget statuses={aiStatusCenter} message={aiStatusMessage || (content.settings?.api?.ai_status_last_test_at ? `Son test: ${new Date(content.settings.api.ai_status_last_test_at).toLocaleString("tr-TR")}` : "Henüz test yapılmadı.")} loading={aiStatusLoading} onRefresh={refreshAiStatus} />,
     operations: <GlassCard className="overflow-hidden p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[.16em] text-lime-200">Canlı Aktivite</p><h3 className="mt-2 text-xl font-black text-white">Live Operations Center</h3><p className="mt-1 text-sm text-slate-400">Lead, CRM, AI, PDF, WhatsApp ve API hareketlerini tek akışta izleyin.</p></div><span className="rounded-full bg-lime-300 px-3 py-1 text-[10px] font-black uppercase tracking-[.12em] text-slate-950">Aktif</span></div><div className="mt-5 grid gap-5 lg:grid-cols-[1fr_320px]"><div className="grid gap-2">{liveOperations.map(([title, text, date, accent]) => <div key={title} className={`flex items-center justify-between gap-4 rounded-[8px] border p-3 ${accent === "blue" ? "border-blue-200/25 bg-blue-400/12" : accent === "indigo" ? "border-indigo-200/25 bg-indigo-400/12" : accent === "purple" ? "border-purple-200/25 bg-purple-400/12" : accent === "rose" ? "border-rose-200/25 bg-rose-400/12" : accent === "lime" ? "border-lime-200/25 bg-lime-400/12" : "border-cyan-200/25 bg-cyan-400/12"}`}><div><p className="text-sm font-black text-white">{title}</p><p className="mt-1 text-xs leading-5 text-slate-300">{text}</p></div><time className="shrink-0 text-[10px] font-bold text-slate-400">{date ? new Date(date).toLocaleDateString("tr-TR") : "Bekliyor"}</time></div>)}</div><div className="rounded-[8px] border border-white/10 bg-black/15 p-4"><p className="mb-4 text-xs font-black uppercase tracking-[.16em] text-cyan-100">Operasyon ritmi</p><AnimatedChart label="Aktivite sinyali" values={[18, Math.min(92, leads.length * 9), Math.min(88, activityLogs.length * 12), Math.min(82, aiAnalyzedLeads.length * 15), Math.min(76, reports.length * 13), Math.min(86, generatedProposals * 16)]} /></div></div></GlassCard>,
@@ -2427,6 +2486,123 @@ function formatDateTime(value: any) {
   return value ? new Date(value).toLocaleString("tr-TR") : "-";
 }
 
+function pipelineStageForLead(lead: any) {
+  const status = lead.pipeline_stage || lead.status || "Yeni Lead";
+  if (["Yeni Başvuru", "Yeni", "Görüşülecek"].includes(status)) return "Yeni Lead";
+  if (["İletişime Geçildi"].includes(status)) return "İletişim Kuruldu";
+  if (["Toplantı Yapıldı"].includes(status)) return "Toplantı Yapıldı";
+  if (["Teklif Hazırlanıyor", "Teklif Gönderildi"].includes(status)) return "Teklif Gönderildi";
+  if (["Takipte"].includes(status)) return "Takipte";
+  if (["Kazanıldı", "Müşteri Oldu", "Dönüştürüldü"].includes(status)) return "Kazanıldı";
+  if (["Kaybedildi", "Reddedildi"].includes(status)) return "Kaybedildi";
+  return salesPipelineStages.includes(status) ? status : "Yeni Lead";
+}
+
+function SalesPipeline({ content, setContent, save, setActive }: any) {
+  const [selectedLead, setSelectedLead] = useState(null);
+  const [message, setMessage] = useState("");
+  const [noteDraft, setNoteDraft] = useState("");
+  const activeLeads = (content.leads || []).filter((lead) => !isLeadDeleted(lead));
+  const updateLead = async (lead: any, patch: any, success = "Satış hunisi güncellendi.") => {
+    const nextLead = { ...lead, ...patch, updated_at: new Date().toISOString() };
+    const next = { ...content, leads: (content.leads || []).map((item) => item.id === lead.id ? nextLead : item) };
+    setContent(next);
+    setSelectedLead((current) => current?.id === lead.id ? nextLead : current);
+    setMessage(success);
+    await save(next);
+  };
+  const addNote = async () => {
+    if (!selectedLead || !noteDraft.trim()) return;
+    const oldNotes = selectedLead.notes || selectedLead.internalNotes || "";
+    await updateLead(selectedLead, { notes: `${oldNotes}${oldNotes ? "\n" : ""}${new Date().toLocaleString("tr-TR")} · ${noteDraft.trim()}`, last_contact_at: new Date().toISOString() }, "Takip notu eklendi.");
+    setNoteDraft("");
+  };
+  return <Panel title="Satış Hunisi">
+    <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+      <p className="max-w-3xl text-sm leading-6 text-slate-400">Leadleri ilk temas, toplantı, teklif, takip ve kazanım aşamalarında yönetin. Kartları güvenli şekilde durum seçimiyle taşıyabilirsiniz.</p>
+      <button onClick={() => setActive("CRM")} className="rounded-[8px] border border-cyan-200/20 px-4 py-3 text-sm font-black text-cyan-100">CRM Listesine Git</button>
+    </div>
+    {message && <p className="mb-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{message}</p>}
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <section className="premium-scrollbar grid gap-3 overflow-x-auto pb-2 xl:grid-cols-7">
+        {salesPipelineStages.map((stage) => {
+          const stageLeads = activeLeads.filter((lead) => pipelineStageForLead(lead) === stage);
+          return <div key={stage} className="min-w-[250px] rounded-[8px] border border-white/10 bg-black/15 p-3">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h3 className="text-sm font-black text-white">{stage}</h3>
+              <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] font-black text-slate-300">{stageLeads.length}</span>
+            </div>
+            <div className="grid gap-2">
+              {stageLeads.map((lead) => (
+                <button key={lead.id} onClick={() => setSelectedLead(lead)} className="rounded-[8px] border border-white/10 bg-white/[0.035] p-3 text-left transition hover:border-cyan-200/35 hover:bg-cyan-200/[0.07]">
+                  <strong className="block text-sm text-white">{lead.company || lead.name || "İsimsiz lead"}</strong>
+                  <span className="mt-1 block text-xs leading-5 text-slate-400">{lead.phone || lead.email || "İletişim yok"} · {lead.business_type || lead.businessType || "Sektör yok"}</span>
+                  <span className="mt-2 flex flex-wrap gap-1 text-[10px] font-bold text-slate-300"><span className="rounded-full border border-orange-200/20 px-2 py-1">Skor {lead.lead_heat_score || 0}</span><span className="rounded-full border border-white/10 px-2 py-1">Son temas {formatDate(lead.last_contact_at || lead.updated_at)}</span></span>
+                  <span className="mt-2 block text-[11px] leading-4 text-cyan-100">Sıradaki aksiyon: {lead.next_action || lead.next_action_at || "Takip planı girilmedi"}</span>
+                </button>
+              ))}
+              {!stageLeads.length && <p className="rounded-[8px] border border-dashed border-white/10 p-3 text-xs leading-5 text-slate-500">Bu aşamada lead yok.</p>}
+            </div>
+          </div>;
+        })}
+      </section>
+      <aside className="h-fit rounded-[8px] border border-white/10 bg-white/[0.04] p-4">
+        <p className="text-xs font-black uppercase tracking-[.14em] text-cyan-200">Lead aksiyon merkezi</p>
+        {selectedLead ? <div className="mt-4">
+          <h3 className="text-lg font-black text-white">{selectedLead.company || selectedLead.name}</h3>
+          <p className="mt-1 text-sm leading-6 text-slate-400">{selectedLead.source || "CRM"} · {selectedLead.phone || selectedLead.email || "İletişim yok"}</p>
+          <div className="mt-4 grid gap-3">
+            <SelectField label="Durum Güncelle" value={pipelineStageForLead(selectedLead)} onChange={(value) => updateLead(selectedLead, { status: value, pipeline_stage: value }, "Lead aşaması güncellendi.")} options={salesPipelineStages} />
+            <Field label="Sıradaki aksiyon" value={selectedLead.next_action || ""} onChange={(value) => updateLead(selectedLead, { next_action: value }, "Sıradaki aksiyon güncellendi.")} />
+            <Field label="Son temas tarihi" type="date" value={dateOnly(selectedLead.last_contact_at)} onChange={(value) => updateLead(selectedLead, { last_contact_at: value }, "Son temas tarihi güncellendi.")} />
+            <TextArea rows={3} label="Not Ekle" value={noteDraft} onChange={setNoteDraft} />
+            <button onClick={addNote} className="rounded-[8px] border border-white/10 px-4 py-2 text-sm font-black text-slate-100">Not Ekle</button>
+          </div>
+          <ContactActionCenter record={selectedLead} type="lead" context="follow-up" />
+          <div className="mt-4 grid gap-2">
+            <button onClick={() => setActive("Teklif Hazırlama")} className="rounded-[8px] border border-amber-200/25 px-4 py-3 text-sm font-black text-amber-100">Teklif Oluştur</button>
+            <button onClick={() => setActive("CRM")} className="rounded-[8px] border border-cyan-200/25 px-4 py-3 text-sm font-black text-cyan-100">CRM Detayına Git</button>
+          </div>
+        </div> : <p className="mt-4 rounded-[8px] border border-dashed border-white/10 p-4 text-sm leading-6 text-slate-400">Aksiyon almak için bir lead kartı seçin.</p>}
+      </aside>
+    </div>
+  </Panel>;
+}
+
+function contactMessageFor(record: any, template = "İlk temas") {
+  const name = record.company || record.name || "işletmeniz";
+  const templates: Record<string, string> = {
+    "İlk temas": `Merhaba, ben HK Dijital’den yazıyorum. ${name} için dijital reklam ve ölçümleme tarafında kısa bir fırsat analizi paylaşmak isterim. Uygun olduğunuzda 10 dakikalık bir görüşme yapabilir miyiz?`,
+    "Ücretsiz analiz": `Merhaba, ${name} için Google, Meta ve sosyal medya görünürlüğünü ücretsiz olarak hızlıca analiz edebiliriz. Size kısa ve uygulanabilir bir özet göndermemi ister misiniz?`,
+    "Teklif takibi": `Merhaba, ${name} için hazırladığımız teklif çalışmasıyla ilgili kısa bir takip yapmak istedim. Sorularınız varsa birlikte netleştirebiliriz.`,
+    "Ödeme hatırlatma": `Merhaba, HK Dijital hizmet dönemine ait ödeme durumunu hatırlatmak isterim. Uygunsa ödeme planını birlikte netleştirelim.`,
+    "Rapor bilgilendirme": `Merhaba, ${name} için son performans raporu hazır. Öne çıkan sonuçları ve önümüzdeki 7 gün aksiyonlarını sizinle paylaşabilirim.`
+  };
+  return templates[template] || templates["İlk temas"];
+}
+
+function ContactActionCenter({ record, type = "lead", context = "new-lead" }: any) {
+  const [template, setTemplate] = useState(context === "payment" ? "Ödeme hatırlatma" : context === "report" ? "Rapor bilgilendirme" : context === "proposal" ? "Teklif takibi" : "İlk temas");
+  const [message, setMessage] = useState(() => contactMessageFor(record, template));
+  useEffect(() => setMessage(contactMessageFor(record, template)), [template, record?.id]);
+  const phone = String(record.phone || record.contact_phone || "").replace(/\D/g, "");
+  const email = record.email || record.contact_email || "";
+  return <div className="mt-4 rounded-[8px] border border-emerald-200/20 bg-emerald-300/[0.06] p-4">
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div><p className="text-xs font-black uppercase tracking-[.14em] text-emerald-200">WhatsApp / İletişim Merkezi</p><p className="mt-1 text-sm text-slate-300">{type === "customer" ? "Müşteri profili için hızlı temas aksiyonları." : "Lead için güvenli temas aksiyonları."}</p></div>
+      <SelectField label="Mesaj şablonu" value={template} onChange={setTemplate} options={["İlk temas", "Ücretsiz analiz", "Teklif takibi", "Ödeme hatırlatma", "Rapor bilgilendirme"]} />
+    </div>
+    <TextArea rows={4} label="Hazır mesaj" value={message} onChange={setMessage} />
+    <div className="mt-3 flex flex-wrap gap-2">
+      {phone && <a target="_blank" rel="noreferrer" href={`https://wa.me/${phone}?text=${encodeURIComponent(message)}`} className="rounded-full bg-[#25D366] px-4 py-2 text-sm font-black text-white">WhatsApp Gönder</a>}
+      {phone && <a href={`tel:${phone}`} className="rounded-full border border-white/10 px-4 py-2 text-sm font-bold text-slate-100">Ara</a>}
+      {email && <a href={`mailto:${email}?subject=${encodeURIComponent("HK Dijital")}&body=${encodeURIComponent(message)}`} className="rounded-full border border-white/10 px-4 py-2 text-sm font-bold text-slate-100">E-posta Gönder</a>}
+      <button onClick={() => navigator.clipboard.writeText(message)} className="rounded-full border border-cyan-200/20 px-4 py-2 text-sm font-bold text-cyan-100">Mesajı Kopyala</button>
+    </div>
+    {!phone && !email && <p className="mt-3 rounded-[8px] border border-dashed border-white/10 p-3 text-xs text-slate-400">Telefon veya e-posta bilgisi bulunmadığı için otomatik bağlantı oluşturulamadı.</p>}
+  </div>;
+}
+
 function LeadDrawer({ lead, update, persistLead, permanentDelete, close, onConverted }: any) {
   const { askAiProvider, chooserModal } = useAiProviderChooser();
   const [conversionMessage, setConversionMessage] = useState("");
@@ -2547,17 +2723,21 @@ function LeadDrawer({ lead, update, persistLead, permanentDelete, close, onConve
         {details.map(([label, value]) => <InfoItem key={label} label={label} value={value || "-"} />)}
       </div>
       <div className="mt-5 grid gap-3 md:grid-cols-2">
+        <SelectField label="Satış hunisi aşaması" value={pipelineStageForLead(lead)} onChange={(value) => update(lead.id, { status: value, pipeline_stage: value })} options={salesPipelineStages} />
         <SelectField label="Durum" value={lead.status || "Yeni"} onChange={(value) => update(lead.id, { status: value })} options={leadStatuses} />
         <Field label="Takip tarihi" type="date" value={lead.follow_up_date || lead.followUpDate} onChange={(value) => update(lead.id, { follow_up_date: value, followUpDate: value })} />
+        <Field label="Son temas tarihi" type="date" value={dateOnly(lead.last_contact_at)} onChange={(value) => update(lead.id, { last_contact_at: value })} />
+        <Field label="Sıradaki aksiyon" value={lead.next_action || ""} onChange={(value) => update(lead.id, { next_action: value })} />
         <div className="md:col-span-2"><TextArea label="Dahili notlar" value={lead.notes || lead.internalNotes} onChange={(value) => update(lead.id, { notes: value, internalNotes: value })} /></div>
       </div>
+      <ContactActionCenter record={lead} type="lead" context={pipelineStageForLead(lead) === "Teklif Gönderildi" ? "proposal" : "follow-up"} />
       <div className="mt-5 flex flex-wrap gap-2">
         <button onClick={() => setEditOpen(true)} className="rounded-full bg-white px-4 py-2 text-sm font-black text-slate-950">Düzenle</button>
         <button onClick={convert} disabled={converting || ["Dönüştürüldü", "Müşteri Oldu"].includes(lead.status)} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-60">{converting ? "Dönüştürülüyor..." : ["Dönüştürüldü", "Müşteri Oldu"].includes(lead.status) ? "Müşteri oldu" : "Başvuruyu müşteriye dönüştür"}</button>
         <button onClick={() => persistLead(lead.id, { status: "Takipte", follow_up_date: lead.follow_up_date || new Date().toISOString().slice(0, 10) }, "Takip görevi oluşturuldu.")} className="rounded-full border border-white/10 px-4 py-2 text-sm">Takip görevi oluştur</button>
         <button onClick={() => askAiProvider(analyze)} disabled={analyzing || String(lead.id).startsWith("lead-")} className="inline-flex items-center gap-2 rounded-full border border-cyan-200/30 px-4 py-2 text-sm font-bold text-cyan-100 disabled:opacity-50"><Sparkles size={15} /> {analyzing ? "Analiz hazırlanıyor..." : "AI analizi oluştur"}</button>
         <button onClick={downloadLeadPdfAudit} className="inline-flex items-center gap-2 rounded-full border border-amber-200/30 px-4 py-2 text-sm font-bold text-amber-100"><Download size={15} /> PDF Audit Oluştur</button>
-        {whatsappUrl && <a href={whatsappUrl} target="_blank" rel="noreferrer" className="rounded-full bg-[#25D366] px-4 py-2 text-sm font-black text-white">WhatsApp mesajı gönder</a>}
+        {whatsappUrl && <a href={whatsappUrl} target="_blank" rel="noreferrer" className="rounded-full bg-[#25D366] px-4 py-2 text-sm font-black text-white">Hızlı WhatsApp</a>}
         {!deleted && !rejected && <button onClick={() => setConfirmAction("reject")} className="rounded-full border border-amber-300/30 px-4 py-2 text-sm font-bold text-amber-100">Reddet</button>}
         {!deleted && <button onClick={() => setConfirmAction("delete")} className="rounded-full border border-red-300/30 px-4 py-2 text-sm font-bold text-red-100">Sil</button>}
         {(deleted || rejected) && <button onClick={restore} className="rounded-full border border-emerald-300/30 px-4 py-2 text-sm font-bold text-emerald-100">Geri Yükle</button>}
@@ -2767,6 +2947,7 @@ function IntegrationsCenter({ content, setContent }: any) {
   };
   return <Panel title="Entegrasyonlar">
     <p className="mb-5 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm leading-6 text-cyan-50">API anahtarları tarayıcıya gönderilmez. Bu alan bağlantı kimliklerini ve durum notlarını merkezi olarak düzenlemek içindir; gerçek gizli anahtarlar sunucu ortam değişkenlerinde kalmalıdır.</p>
+    <div className="mb-5"><ReadinessPanel api={api} /></div>
     <div className="grid gap-5">
       <div className="rounded-[8px] border border-white/10 p-4">
         <h3 className="font-black">Meta</h3>
@@ -3040,6 +3221,8 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
   const activities = (content.activityLogs || []).filter((item) => item.company_id === company.id);
   const payments = (content.paymentRecords || []).filter((item) => item.company_id === company.id);
   const tasks = (content.agencyTasks || []).filter((item) => item.company_id === company.id);
+  const relatedLeads = (content.leads || []).filter((lead) => lead.company_id === company.id || String(lead.company || "").toLocaleLowerCase("tr") === String(company.name || "").toLocaleLowerCase("tr") || String(lead.email || "").toLocaleLowerCase("tr") === String(company.email || "").toLocaleLowerCase("tr"));
+  const proposals = documents.filter((item) => item.document_type === "Teklif" || String(item.title || "").toLocaleLowerCase("tr").includes("teklif"));
   const visibilityItems = content.customerVisibilitySettings || [];
   const visibility = visibilityItems.find((item) => item.company_id === company.id) || {
     id: `visibility-${company.id}`,
@@ -3054,7 +3237,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
     show_files: true,
     show_contact_person: true
   };
-  const tabs = ["Genel Bilgi", "Giriş Bilgileri", "Ödemeler", "Yapılacaklar", "Kampanyalar", "Zaman Çizelgesi", "Metrikler", "Raporlar", "Yapılan Çalışmalar", "Dosyalar", "Panel Görünürlüğü", "Aktivite Geçmişi", "Notlar"];
+  const tabs = ["Genel Bilgi", "Giriş Bilgileri", "Satış", "İletişim", "Ödemeler", "Yapılacaklar", "Kampanyalar", "Teklifler", "Zaman Çizelgesi", "Metrikler", "Raporlar", "Yapılan Çalışmalar", "Dosyalar", "Panel Görünürlüğü", "Aktivite Geçmişi", "Notlar"];
   function updateVisibility(patch) {
     const next = { ...visibility, ...patch };
     const exists = visibilityItems.some((item) => item.company_id === company.id);
@@ -3090,7 +3273,22 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
         <p className="mb-4 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">Müşteri şifresi güvenlik nedeniyle düz metin olarak saklanmaz. Yeni geçici şifre oluşturabilirsiniz.</p>
         <div className="grid gap-3">{users.map((user) => <div key={user.id} className="rounded-[8px] border border-white/10 p-4"><p className="font-black">{user.full_name || user.email}</p><p className="mt-1 text-sm text-slate-400">{user.email} · Bağlı kullanıcı: Var · Durum: {user.is_active ? "Aktif" : "Pasif"} · Rol: Müşteri</p><p className="mt-2 text-xs leading-5 text-slate-500">Son giriş: {formatDateTime(user.last_login_at)} · Toplam giriş: {user.login_count || 0}</p><button onClick={() => resetPassword(user)} className="mt-3 rounded-full border border-white/10 px-4 py-2 text-sm">Şifre sıfırlama bağlantısı gönder</button></div>)}{!users.length && <p className="text-sm text-slate-400">Bağlı müşteri kullanıcısı yok. Müşteriler ekranındaki giriş hesabı oluşturma formunu kullanın.</p>}</div>
       </div>}
+      {tab === "Satış" && <div className="grid gap-3">
+        <div className="rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-4">
+          <p className="text-xs font-black uppercase tracking-[.14em] text-cyan-100">Pipeline stage</p>
+          <h3 className="mt-2 text-xl font-black text-white">{relatedLeads[0] ? pipelineStageForLead(relatedLeads[0]) : "İlgili lead bulunamadı"}</h3>
+          <p className="mt-2 text-sm leading-6 text-cyan-50/80">Kampanyalar, teklifler, WhatsApp aksiyonları, görevler, ödemeler ve zaman çizelgesi bu müşteri profilinde bağlı olarak izlenir.</p>
+        </div>
+        <div className="grid gap-3 md:grid-cols-3">
+          <AgencyStatCard label="Kampanya" value={campaigns.length} note="Bu müşteriye bağlı kayıt" />
+          <AgencyStatCard label="Teklif" value={proposals.length} note="Belge merkezindeki teklif kayıtları" tone="amber" />
+          <AgencyStatCard label="Açık görev" value={tasks.filter((item) => !["Tamamlandı", "İptal"].includes(item.status)).length} note="Yapılacaklar ile senkron" tone="emerald" />
+        </div>
+        <button onClick={() => setActive("Satış Hunisi")} className="w-fit rounded-full border border-cyan-200/25 px-4 py-2 text-sm font-black text-cyan-100">Satış Hunisini Aç</button>
+      </div>}
+      {tab === "İletişim" && <ContactActionCenter record={company} type="customer" context="follow-up" />}
       {tab === "Kampanyalar" && <CustomerCampaignsEditor company={company} content={content} setContent={setContent} save={save} setActive={setActive} items={campaigns} />}
+      {tab === "Teklifler" && <CustomerRelatedList items={proposals} empty="Bu müşteri için teklif dokümanı yok." render={(item) => `${item.title || "Teklif"} · ${item.document_date || item.created_at || "-"} · ${item.visible_to_customer ? "Müşteriye görünür" : "Sadece yönetici"}`} onVisibilityChange={(item, value) => updateRelated("customerDocuments", item.id, { visible_to_customer: value })} />}
       {tab === "Zaman Çizelgesi" && <CustomerTimeline company={company} campaigns={campaigns} payments={payments} tasks={tasks} documents={documents} reports={reports} activities={activities} />}
       {tab === "Metrikler" && <CustomerRelatedList items={metrics} empty="Bu müşteri için metrik yok." render={(item) => `${formatDate(item.date)} · ${item.impressions || 0} gösterim · ${item.clicks || 0} tıklama · ${item.leads || 0} potansiyel müşteri · ${item.spent || 0} TL`} onVisibilityChange={(item, value) => updateRelated("campaignMetrics", item.id, { visible_to_customer: value })} />}
       {tab === "Raporlar" && <CustomerRelatedList items={reports} empty="Bu müşteri için kanal bazlı rapor yok." render={(item) => `${item.report_type} · ${item.period || "Dönem belirtilmedi"} · ${item.visible_to_customer ? "Müşteriye görünür" : "Dahili"}`} />}
@@ -5006,23 +5204,90 @@ function ChannelAnalysis({ content, channel }: any) {
   </Panel>;
 }
 
-function ProposalEngine({ content }: any) {
+function ProposalEngine({ content, setContent, save }: any) {
   const { askAiProvider, chooserModal } = useAiProviderChooser();
   const [leadId, setLeadId] = useState("");
-  const [anchor, setAnchor] = useState("10000");
+  const [companyId, setCompanyId] = useState("");
+  const [campaignId, setCampaignId] = useState("");
+  const [packageType, setPackageType] = useState("ORTA");
+  const [services, setServices] = useState("Meta Ads yönetimi\nGoogle Ads kurulumu\nCRM ve lead takibi\nAylık raporlama");
+  const [monthlyFee, setMonthlyFee] = useState("15000");
+  const [adBudget, setAdBudget] = useState("30000");
+  const [notes, setNotes] = useState("");
   const [result, setResult] = useState("");
   const [proposalAiMeta, setProposalAiMeta] = useState({ provider: "Groq", model: "llama-3.3-70b-versatile", mode: "Canlı", badge: "Groq ile üretildi" });
+  const selectedLead = (content.leads || []).find((item) => item.id === leadId);
+  const selectedCompany = (content.companies || []).find((item) => item.id === companyId) || (selectedLead ? (content.companies || []).find((company) => String(company.name || "").toLocaleLowerCase("tr") === String(selectedLead.company || "").toLocaleLowerCase("tr")) : null);
+  const selectedCampaign = (content.campaigns || []).find((item) => item.id === campaignId);
+  const target = selectedCompany || selectedLead || selectedCampaign || {};
+  const targetName = target.name || target.company || selectedCampaign?.name || "Seçili işletme";
+  const sector = target.sector || target.business_type || target.businessType || selectedLead?.business_type || "-";
   function generate(aiProvider = "Groq") {
-    const lead = (content.leads || []).find((item) => item.id === leadId);
-    if (!lead) return setResult("Teklif hazırlamak için bir başvuru seçin.");
-    const base = Number(anchor || 10000);
+    if (!selectedLead && !selectedCompany && !selectedCampaign) return setResult("Teklif hazırlamak için lead, müşteri veya kampanya seçin.");
+    const fee = Number(monthlyFee || 0);
+    const budget = Number(adBudget || 0);
+    const packageMultiplier = packageType === "MIN" ? 0.8 : packageType === "MAX" ? 1.35 : packageType === "Özel" ? 1 : 1;
+    const finalFee = Math.round(fee * packageMultiplier);
     setProposalAiMeta(aiMetaFromRecord({ provider: aiProvider, model: aiProvider === "Groq" ? "llama-3.3-70b-versatile" : aiProvider === "Gemini" ? "gemini-2.0-flash" : aiProvider === "OpenAI" ? "gpt-4.1-mini" : aiProvider === "Demo Modu" ? "demo-local" : aiProvider === "Yerel Mod" ? "local-rules" : "automatic-fallback", mode: ["Demo Modu", "Yerel Mod"].includes(aiProvider) ? (aiProvider === "Demo Modu" ? "Demo" : "Yerel") : "Canlı", isDemo: aiProvider === "Demo Modu", isLocal: aiProvider === "Yerel Mod", badge: `${aiProvider} ile üretildi` }));
-    setResult(`${lead.company || lead.name || "İşletme"} için teklif yaklaşımı\n\nMIN Paket · ${base.toLocaleString("tr-TR")} TL + KDV\nTemel reklam kurulumu, ölçümleme kontrolü ve aylık optimizasyon.\n\nORTA Paket · ${Math.round(base * 1.5).toLocaleString("tr-TR")} TL + KDV\nFarkındalık, trafik ve yeniden pazarlama adımlarını içeren düzenli performans yönetimi.\n\nMAX Paket · ${Math.round(base * 2.2).toLocaleString("tr-TR")} TL + KDV\nÇok kanallı kampanya planı, CRM destekli takip, raporlama ve kapsamlı funnel optimizasyonu.\n\nBeklenti yönetimi: Reklam bütçesi hizmet bedeline dahil değildir. Satış garantisi verilmez. Sonuçlar sektör, bütçe, hedef kitle, teklif ve rekabet koşullarına göre değişebilir.`);
+    setResult(`HK Dijital Teklif Önizlemesi
+
+Müşteri: ${targetName}
+Sektör: ${sector}
+Bağlı kampanya: ${selectedCampaign?.name || "Henüz seçilmedi"}
+
+Problem Özeti:
+${selectedLead?.message || selectedLead?.notes || notes || "Dijital reklam, takip ve raporlama süreçlerinin tek merkezden yönetilmesi gerekiyor."}
+
+Önerilen Paket: ${packageType}
+Hizmetler:
+${services.split("\n").filter(Boolean).map((item) => `- ${item}`).join("\n")}
+
+Önerilen Reklam Bütçesi: ${budget.toLocaleString("tr-TR")} TL
+Aylık Hizmet Bedeli: ${finalFee.toLocaleString("tr-TR")} TL + KDV
+
+Sonraki Adımlar:
+1. Ölçümleme ve hesap erişimlerinin kontrolü
+2. Kampanya ve kreatif planının hazırlanması
+3. Yayın, takip ve haftalık optimizasyon
+4. Aylık raporlama ve aksiyon planı
+
+Notlar:
+${notes || "Satış garantisi verilmez. Sistem; reklam bütçesini daha kontrollü yönetmeye, performansı görünür kılmaya ve lead takibini düzenlemeye yardımcı olur."}`);
+  }
+  function printProposal() {
+    if (!result) return;
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    printWindow.document.write(`<html><head><title>HK Dijital Teklif</title><style>body{font-family:Arial,sans-serif;padding:32px;line-height:1.6;color:#0f172a}pre{white-space:pre-wrap}h1{color:#0891b2}</style></head><body><h1>HK Dijital Teklif</h1><pre>${result.replace(/[<>&]/g, (char) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" })[char] || char)}</pre></body></html>`);
+    printWindow.document.close();
+    printWindow.print();
+  }
+  async function saveProposalDocument() {
+    if (!result) return setResult("Kaydetmeden önce teklif önizlemesi oluşturun.");
+    const company_id = selectedCompany?.id || companyId || selectedCampaign?.company_id || "";
+    const item = { id: createLocalId(), company_id, title: `Teklif · ${targetName}`, document_type: "Teklif", document_date: new Date().toISOString().slice(0, 10), description: result, document_url: "", visible_to_customer: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    const next = { ...content, customerDocuments: [item, ...(content.customerDocuments || [])] };
+    setContent(next);
+    await save(next);
+    setResult(`${result}\n\nTeklif müşteri profilindeki Belgeler/Teklifler alanına kaydedildi.`);
   }
   return <Panel title="Teklif Motoru">
-    <p className="mb-5 text-sm leading-6 text-slate-400">CRM başvurularından MIN, ORTA ve MAX hizmet yaklaşımı hazırlayın. Başlangıç referansı aylık 10.000 TL hizmet bedelidir; nihai kapsam müşteri ihtiyacına göre netleştirilir.</p>
-    <div className="grid gap-4 md:grid-cols-2"><SelectField label="Başvuru" value={leadId} onChange={setLeadId} options={(content.leads || []).map((lead) => ({ value: lead.id, label: lead.company || lead.name || lead.email || "İsimsiz başvuru" }))} placeholder="Başvuru seçin" /><Field label="Aylık hizmet bedeli referansı" type="number" value={anchor} onChange={setAnchor} /></div>
-    <button type="button" onClick={() => askAiProvider(generate)} className="mt-5 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Teklif yaklaşımı oluştur</button>
+    <p className="mb-5 text-sm leading-6 text-slate-400">Lead, müşteri veya kampanyadan müşteri-ready teklif önizlemesi hazırlayın. PDF desteği yoksa güvenli yazdırılabilir HTML teklif çıktısı kullanılır.</p>
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <SelectField label="Başvuru" value={leadId} onChange={setLeadId} options={(content.leads || []).map((lead) => ({ value: lead.id, label: lead.company || lead.name || lead.email || "İsimsiz başvuru" }))} placeholder="Başvuru seçin" />
+      <CompanySelect label="Müşteri" value={companyId} onChange={setCompanyId} companies={content.companies} />
+      <SelectField label="Kampanya" value={campaignId} onChange={setCampaignId} options={(content.campaigns || []).map((campaign) => ({ value: campaign.id, label: campaign.name || "İsimsiz kampanya" }))} placeholder="Kampanya seçin" />
+      <SelectField label="Paket" value={packageType} onChange={setPackageType} options={["MIN", "ORTA", "MAX", "Özel"]} />
+      <Field label="Aylık hizmet bedeli" type="number" value={monthlyFee} onChange={setMonthlyFee} />
+      <Field label="Önerilen reklam bütçesi" type="number" value={adBudget} onChange={setAdBudget} />
+      <div className="md:col-span-2 xl:col-span-3"><TextArea label="Hizmetler" value={services} onChange={setServices} /></div>
+      <div className="md:col-span-2 xl:col-span-3"><TextArea label="Notlar" value={notes} onChange={setNotes} /></div>
+    </div>
+    <div className="mt-5 flex flex-wrap gap-2">
+      <button type="button" onClick={() => askAiProvider(generate)} className="rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Teklif önizlemesi oluştur</button>
+      <button type="button" onClick={printProposal} className="rounded-full border border-white/10 px-5 py-3 text-sm font-black text-slate-100">PDF / Yazdır</button>
+      <button type="button" onClick={saveProposalDocument} className="rounded-full border border-emerald-200/25 px-5 py-3 text-sm font-black text-emerald-100">Müşteri Belgelerine Kaydet</button>
+    </div>
     {result && <div className="mt-5 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-4"><AiUsageBadge meta={proposalAiMeta} /><pre className="mt-4 whitespace-pre-wrap text-sm leading-7 text-cyan-50">{result}</pre><button type="button" onClick={() => navigator.clipboard.writeText(result)} className="mt-4 inline-flex items-center gap-2 rounded-full border border-cyan-100/20 px-4 py-2 text-sm text-cyan-50"><Copy size={15} /> Kopyala</button></div>}
     {chooserModal}
   </Panel>;

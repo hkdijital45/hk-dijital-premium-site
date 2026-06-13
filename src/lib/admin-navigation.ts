@@ -36,6 +36,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     badge: "CRM",
     accent: "from-emerald-400 via-teal-500 to-cyan-600",
     items: [
+      { label: "Satış Hunisi", slug: "satis-hunisi", module: "leads" },
       { label: "Leadler", slug: "leads", module: "leads" },
       { label: "Müşteriler", slug: "musteriler", module: "musteriler" },
       { label: "Teklif Oluştur", slug: "teklif-hazirlama", module: "teklifler" },
@@ -137,6 +138,9 @@ const legacySlugRedirects: Record<string, string> = {
   "kullanici-yonetimi": "kullanici-yonetimi",
   crm: "leads",
   "tum-basvurular": "leads",
+  "pipeline": "satis-hunisi",
+  "satis-pipeline": "satis-hunisi",
+  "satis-hunisi": "satis-hunisi",
   "yeni-basvurular": "leads",
   "meta-analiz-leadleri": "leads",
   "google-ads-analiz-leadleri": "leads",
