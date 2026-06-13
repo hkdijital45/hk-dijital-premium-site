@@ -23,6 +23,56 @@ const adminCategoryIcons: Record<string, any> = {
   Download
 };
 
+const adminLabelEmojis: Record<string, string> = {
+  "Kontrol Merkezi": "🖥️",
+  "CRM & Müşteriler": "👥",
+  "İstihbarat Merkezi": "🧭",
+  "Reklam & Raporlama": "📊",
+  "Ajans Operasyonları": "🗂️",
+  "İçerik & AI Studio": "✨",
+  "Araçlar": "🧰",
+  "Ayarlar": "⚙️",
+  Dashboard: "🏠",
+  "HK Asistan": "🤖",
+  Görevler: "✅",
+  Karlılık: "💰",
+  Müşteriler: "👥",
+  Leadler: "🎯",
+  CRM: "🎯",
+  "Satış Hunisi": "🧲",
+  Kampanyalar: "📣",
+  Tahsilat: "💳",
+  Teklifler: "📄",
+  "Teklif Oluştur": "📄",
+  Raporlar: "📈",
+  "Müşteri Raporları": "📈",
+  Belgeler: "🗃️",
+  "Zaman Çizelgesi": "🕒",
+  "Sistem Sağlığı": "🩺",
+  "Web Sitesi Yönetimi": "🌐",
+  Entegrasyonlar: "🔌",
+  "Kullanıcı Yönetimi": "👤",
+  "Tema / Logo": "🎨",
+  "Sistem Ayarları": "⚙️",
+  "Sistem Logları": "🧾",
+  "Veri Aktarma": "🧰",
+  "Meta Raporları": "📊",
+  "Google Ads Raporları": "📈",
+  "Aylık Raporlar": "🗓️",
+  "PDF Audit": "🖨️",
+  "WhatsApp Teklifi": "💬",
+  "Müşteri Keşfi": "🧭",
+  Haritalar: "🗺️",
+  "Meta İstihbarat": "📣",
+  "Google İstihbarat": "🔎",
+  "Lead Analizi": "🎯"
+};
+
+function withAdminEmoji(label: string) {
+  const emoji = adminLabelEmojis[label];
+  return emoji && !label.startsWith(emoji) ? `${emoji} ${label}` : label;
+}
+
 const salesPipelineStages = ["Yeni Lead", "İletişim Kuruldu", "Toplantı Yapıldı", "Teklif Gönderildi", "Takipte", "Kazanıldı", "Kaybedildi"];
 const crmActiveStatuses = ["Yeni Başvuru", "İletişime Geçildi", "Takipte", "Teklif Gönderildi", "Müşteri Oldu"];
 const crmStatusTabs = ["Tüm Başvurular", "Yeni Başvurular", "İletişime Geçildi", "Takipte", "Teklif Gönderildi", "Müşteri Oldu", "Meta Analiz", "Google Ads Analiz", "Reddedilenler", "Silinenler"];
@@ -518,7 +568,7 @@ export function AdminDashboard({
             {isDesktopApp && <span className="rounded-[8px] border border-amber-200/20 bg-amber-300/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[.12em] text-amber-100">Desktop</span>}
           </div>
           <AdminBrowserControls />
-          <nav className={`order-3 grid w-full gap-2 lg:order-none lg:w-auto lg:flex-1 lg:items-center lg:justify-center ${theme === "light" ? "lg:hidden" : "lg:flex"}`}>
+          <nav className="order-3 grid w-full gap-2 lg:order-none lg:flex lg:w-auto lg:flex-1 lg:items-center lg:justify-center">
             <button type="button" onClick={() => setMobileNavOpen((current) => !current)} className="flex min-h-10 items-center justify-between rounded-[8px] border border-white/10 bg-white/[0.045] px-3 text-sm font-black text-slate-100 lg:hidden">
               Menü
               {mobileNavOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
@@ -545,7 +595,7 @@ export function AdminDashboard({
                     >
                       <span className="flex min-w-0 items-center gap-2">
                         <CategoryIcon size={15} />
-                        <span className="truncate">{group.label}</span>
+                        <span className="truncate">{withAdminEmoji(group.label)}</span>
                       </span>
                       <span className="flex items-center gap-1">
                         <span className="rounded-full bg-white/[0.08] px-1.5 py-0.5 text-[10px] text-slate-300">{group.items.length}</span>
@@ -567,7 +617,7 @@ export function AdminDashboard({
                         >
                           <CategoryIcon size={15} className={`mt-0.5 shrink-0 ${active === item.label ? "text-slate-950" : "text-cyan-200"}`} />
                           <span className="min-w-0 flex-1">
-                            <span className="block whitespace-normal break-normal leading-5">{item.label}</span>
+                            <span className="block whitespace-normal break-normal leading-5">{withAdminEmoji(item.label)}</span>
                             <span className={`mt-1 block whitespace-normal break-normal text-[11px] font-medium leading-4 ${active === item.label ? "text-slate-700" : "text-slate-500"}`}>{group.description}</span>
                           </span>
                         </Link>
@@ -612,7 +662,7 @@ export function AdminDashboard({
             <button onClick={toggleTheme} className="min-h-10 rounded-[8px] border border-white/10 px-4 text-sm font-bold">
               {theme === "dark" ? "Aydınlık Tema" : "Karanlık Tema"}
             </button>
-            {(allowedModules.includes("site-ayarlari") || ["musteriler", "kampanyalar", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "sektor-sistemleri"].some((module) => allowedModules.includes(module))) && <button disabled={saving} onClick={() => save()} className={`inline-flex min-h-10 items-center gap-2 rounded-[8px] bg-cyan-300 px-4 text-sm font-black text-slate-950 disabled:opacity-60 ${saveFeedback === "success" ? "hk-action-success" : ""}`}><Save size={17} /> {saving ? "Kaydediliyor..." : saveFeedback === "success" ? "Kaydedildi ✓" : saveFeedback === "error" ? "Tekrar Dene" : "Kaydet"}</button>}
+            {(allowedModules.includes("site-ayarlari") || ["musteriler", "kampanyalar", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "sektor-sistemleri"].some((module) => allowedModules.includes(module))) && <button disabled={saving} onClick={() => save()} className={`inline-flex min-h-10 items-center gap-2 rounded-[8px] bg-cyan-300 px-4 text-sm font-black text-slate-950 disabled:opacity-60 ${saveFeedback === "success" ? "hk-action-success" : ""}`}><Save size={17} /> {saving ? "Kaydediliyor..." : saveFeedback === "success" ? "Kaydedildi ✓" : saveFeedback === "error" ? "Tekrar Dene" : "💾 Kaydet"}</button>}
             <button onClick={logout} className="inline-flex min-h-10 items-center gap-2 rounded-[8px] border border-white/10 px-4 text-sm font-bold"><LogOut size={17} /> Çıkış</button>
           </div>
         </div>
@@ -1759,7 +1809,7 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
           ].map(([label, target, icon]) => (
             <button key={label} type="button" onClick={() => setActive(target)} className="flex min-h-16 items-center gap-3 rounded-[8px] border border-white/10 bg-black/15 px-3 text-left text-sm font-black text-slate-100 transition hover:border-cyan-200/30 hover:bg-cyan-200/10">
               <span className="grid size-9 place-items-center rounded-[8px] bg-cyan-300/10 text-cyan-100">{icon}</span>
-              {label}
+              {withAdminEmoji(label as string)}
             </button>
           ))}
         </div>
@@ -1828,7 +1878,7 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
               className="min-h-11 flex-1 rounded-[8px] border border-white/10 bg-black/20 px-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-purple-200/40"
             />
             <button type="button" disabled={dashboardAssistantLoading} onClick={() => askDashboardAssistant()} className="min-h-11 rounded-[8px] bg-purple-300 px-5 text-sm font-black text-slate-950 transition hover:bg-purple-200 disabled:opacity-60">
-              {dashboardAssistantLoading ? "Soruluyor..." : "Sor"}
+              {dashboardAssistantLoading ? "Soruluyor..." : "🤖 Sor"}
             </button>
           </div>
           <pre className="mt-4 min-h-24 whitespace-pre-wrap rounded-[8px] border border-purple-200/15 bg-purple-300/[0.08] p-3 text-xs leading-6 text-purple-50">
@@ -1868,10 +1918,10 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
           </div>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             <button type="button" onClick={() => setActive("Görevler")} className="rounded-[8px] border border-cyan-200/20 bg-cyan-300/10 px-4 py-3 text-sm font-black text-cyan-50 transition hover:bg-cyan-300/20">
-              Tüm Görevleri Aç
+              ✅ Tüm Görevleri Aç
             </button>
             <button type="button" onClick={() => setActive("Görevler")} className="rounded-[8px] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-slate-100 transition hover:bg-white/[0.08]">
-              Görev Geçmişi
+              🕒 Görev Geçmişi
             </button>
           </div>
         </GlassCard>
@@ -1900,10 +1950,10 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
           {!paymentRecords.length && !agencyExpenses.length && <p className="mt-4 rounded-[8px] border border-dashed border-white/10 p-4 text-sm leading-6 text-slate-400">Henüz tahsilat veya gider verisi yok. Özet değerler ₺0 olarak gösteriliyor.</p>}
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             <button type="button" onClick={() => setActive("Karlılık")} className="rounded-[8px] border border-emerald-200/20 bg-emerald-300/10 px-4 py-3 text-sm font-black text-emerald-50 transition hover:bg-emerald-300/20">
-              Karlılık Detayını Aç
+              💰 Karlılık Detayını Aç
             </button>
             <button type="button" onClick={() => setActive("Tahsilat")} className="rounded-[8px] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-slate-100 transition hover:bg-white/[0.08]">
-              Ödeme Geçmişi
+              🕒 Ödeme Geçmişi
             </button>
           </div>
         </GlassCard>
@@ -1934,7 +1984,7 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
             </div>
           </div>
           <button type="button" onClick={() => setActive("Kampanyalar")} className="mt-4 w-full rounded-[8px] border border-orange-200/20 bg-orange-300/10 px-4 py-3 text-sm font-black text-orange-50 transition hover:bg-orange-300/20">
-            Kampanyaları Aç
+            📣 Kampanyaları Aç
           </button>
         </GlassCard>
       </div>

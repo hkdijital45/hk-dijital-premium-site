@@ -1045,6 +1045,21 @@ html {
   color: #f8fafc;
 }
 
+.hk-admin-os header {
+  backdrop-filter: blur(22px) saturate(1.35);
+  -webkit-backdrop-filter: blur(22px) saturate(1.35);
+}
+
+.hk-admin-os header > div {
+  gap: 14px;
+}
+
+.hk-admin-os .admin-dashboard-main {
+  border-radius: 22px !important;
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+}
+
 .hk-admin-os.admin-ambient {
   background:
     radial-gradient(circle at 15% 8%, rgba(34, 211, 238, .16), transparent 34%),
@@ -1100,6 +1115,7 @@ html {
 .hk-admin-os button,
 .hk-admin-os a.rounded-full,
 .hk-admin-os a.rounded-\[8px\] {
+  border-radius: 14px;
   transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background-color .16s ease, color .16s ease;
 }
 
@@ -1151,8 +1167,20 @@ html {
 .hk-admin-os aside.rounded-\[8px\],
 .hk-admin-os .admin-modal-panel,
 .hk-admin-os .admin-drawer-panel {
+  border-radius: 18px;
   border-color: rgba(125, 211, 252, .14);
-  box-shadow: 0 14px 42px rgba(2, 6, 23, .26);
+  box-shadow: 0 18px 54px rgba(2, 6, 23, .22);
+  backdrop-filter: blur(16px) saturate(1.15);
+  -webkit-backdrop-filter: blur(16px) saturate(1.15);
+}
+
+.hk-admin-os .admin-top-dropdown {
+  border-radius: 18px !important;
+  box-shadow: 0 24px 70px rgba(2, 6, 23, .34) !important;
+}
+
+.hk-admin-os .admin-top-dropdown a {
+  border-radius: 14px;
 }
 
 .hk-admin-os .shadow-\[0_24px_80px_rgba\(0\,0\,0\,\.32\)\],
