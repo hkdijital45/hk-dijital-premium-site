@@ -1338,6 +1338,131 @@ html {
   opacity: .08 !important;
 }
 
+.admin-light.hk-admin-os {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+.admin-light.hk-admin-os .admin-light-sidebar {
+  display: none !important;
+}
+
+.admin-light.hk-admin-os .admin-dashboard-main {
+  border-color: #e2e8f0 !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
+
+.admin-light.hk-admin-os .admin-dashboard-main h1,
+.admin-light.hk-admin-os .admin-dashboard-main h2,
+.admin-light.hk-admin-os .admin-dashboard-main h3,
+.admin-light.hk-admin-os .admin-dashboard-main h4,
+.admin-light.hk-admin-os .admin-dashboard-main label,
+.admin-light.hk-admin-os .admin-dashboard-main strong,
+.admin-light.hk-admin-os .admin-dashboard-main .font-black,
+.admin-light.hk-admin-os .admin-dashboard-main .font-bold {
+  color: #0f172a !important;
+}
+
+.admin-light.hk-admin-os .admin-dashboard-main p,
+.admin-light.hk-admin-os .admin-dashboard-main span,
+.admin-light.hk-admin-os .admin-dashboard-main li,
+.admin-light.hk-admin-os .admin-dashboard-main td,
+.admin-light.hk-admin-os .admin-dashboard-main th {
+  color: #334155;
+}
+
+.admin-light.hk-admin-os .admin-dashboard-main .text-slate-400,
+.admin-light.hk-admin-os .admin-dashboard-main .text-slate-500,
+.admin-light.hk-admin-os .admin-dashboard-main .text-slate-600 {
+  color: #475569 !important;
+}
+
+.admin-light.hk-admin-os .admin-dashboard-main .text-cyan-50,
+.admin-light.hk-admin-os .admin-dashboard-main .text-cyan-100,
+.admin-light.hk-admin-os .admin-dashboard-main .text-cyan-200 {
+  color: #0369a1 !important;
+}
+
+.admin-light.hk-admin-os .admin-dashboard-main .text-emerald-50,
+.admin-light.hk-admin-os .admin-dashboard-main .text-emerald-100,
+.admin-light.hk-admin-os .admin-dashboard-main .text-emerald-200 {
+  color: #047857 !important;
+}
+
+.admin-light.hk-admin-os .admin-dashboard-main .text-orange-50,
+.admin-light.hk-admin-os .admin-dashboard-main .text-orange-100,
+.admin-light.hk-admin-os .admin-dashboard-main .text-orange-200,
+.admin-light.hk-admin-os .admin-dashboard-main .text-amber-100,
+.admin-light.hk-admin-os .admin-dashboard-main .text-amber-200 {
+  color: #b45309 !important;
+}
+
+.admin-light.hk-admin-os .admin-dashboard-main .text-purple-50,
+.admin-light.hk-admin-os .admin-dashboard-main .text-purple-100,
+.admin-light.hk-admin-os .admin-dashboard-main .text-purple-200 {
+  color: #6d28d9 !important;
+}
+
+.admin-light.hk-admin-os .admin-dashboard-main .text-red-100,
+.admin-light.hk-admin-os .admin-dashboard-main .text-red-200 {
+  color: #b91c1c !important;
+}
+
+.admin-light.hk-admin-os .admin-dashboard-main input,
+.admin-light.hk-admin-os .admin-dashboard-main textarea,
+.admin-light.hk-admin-os .admin-dashboard-main select {
+  border-color: #cbd5e1 !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
+
+.admin-light.hk-admin-os .admin-dashboard-main input::placeholder,
+.admin-light.hk-admin-os .admin-dashboard-main textarea::placeholder {
+  color: #64748b !important;
+}
+
+.admin-light.hk-admin-os header button,
+.admin-light.hk-admin-os header a {
+  color: #0f172a;
+}
+
+.admin-light.hk-admin-os .admin-top-dropdown {
+  width: min(92vw, 520px);
+  border-color: #cbd5e1 !important;
+  background: rgba(255, 255, 255, .98) !important;
+  color: #0f172a !important;
+}
+
+.admin-light.hk-admin-os .admin-top-dropdown p,
+.admin-light.hk-admin-os .admin-top-dropdown span {
+  color: #334155;
+}
+
+.admin-light.hk-admin-os .admin-top-dropdown a {
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+.admin-light.hk-admin-os .admin-top-dropdown a:hover {
+  background: #f1f5f9 !important;
+}
+
+.admin-light.hk-admin-os .admin-color-card,
+.admin-light.hk-admin-os .admin-color-card h4,
+.admin-light.hk-admin-os .admin-color-card p,
+.admin-light.hk-admin-os .admin-color-card span,
+.admin-light.hk-admin-os .admin-color-card .font-black,
+.admin-light.hk-admin-os .admin-color-card .font-bold,
+.admin-light.hk-admin-os .admin-color-card .text-white,
+.admin-light.hk-admin-os .admin-color-card .text-slate-100,
+.admin-light.hk-admin-os .admin-color-card .text-slate-200,
+.admin-light.hk-admin-os .admin-color-card .text-slate-300,
+.admin-light.hk-admin-os .admin-color-card .text-slate-400,
+.admin-light.hk-admin-os .admin-color-card .text-slate-500 {
+  color: rgba(255, 255, 255, .94) !important;
+}
+
 @media (max-width: 640px) {
   .hk-toast-stack {
     left: 12px;

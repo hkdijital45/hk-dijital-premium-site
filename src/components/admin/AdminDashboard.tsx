@@ -486,7 +486,6 @@ export function AdminDashboard({
   const shellClass = theme === "dark" ? "hk-admin-os admin-ambient bg-[#050711] text-white" : "hk-admin-os bg-slate-100 text-slate-950";
   const panelClass = theme === "dark" ? "border-white/10 bg-white/[0.045]" : "border-slate-200 bg-white";
   const headerClass = theme === "dark" ? "border-white/10 bg-[#050711]/90" : "border-slate-200 bg-white/90";
-  const hasLightSidebar = theme === "light";
   const aiStatus = aiMetaFromApi(content.settings?.api || {});
   const headerNotifications = buildAdminNotifications(content, startupApiData).filter((item) => !notificationState.archived.includes(item.id));
   const unreadNotifications = headerNotifications.filter((item) => !notificationState.read.includes(item.id));
@@ -618,8 +617,7 @@ export function AdminDashboard({
           </div>
         </div>
       </header>
-      <div className={`relative grid w-full min-w-0 gap-4 px-3 py-4 sm:px-4 lg:px-6 ${hasLightSidebar ? "lg:grid-cols-[292px_minmax(0,1fr)]" : "lg:grid-cols-1"}`}>
-        {hasLightSidebar && <AdminLightSidebar groups={visibleNavigationGroups} active={active} content={content} />}
+      <div className="relative grid w-full min-w-0 gap-4 px-3 py-4 sm:px-4 lg:grid-cols-1 lg:px-6">
         <section className={`admin-dashboard-main min-w-0 w-full max-w-none rounded-[8px] border p-4 shadow-[0_16px_54px_rgba(0,0,0,.14)] sm:p-5 ${panelClass} ${saveFeedback === "success" ? "hk-action-success" : ""}`}>
           {!supabaseConfigured && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">Supabase bağlantısı yapılandırılmadı. Canlı ortamda kaydetme çalışmaz.</p>}
           {bootstrapWarning && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100">Süper admin kurulum anahtarları hâlâ aktif. Güvenlik için Vercel ortam değişkenlerinden kaldırın.</p>}
@@ -4912,6 +4910,22 @@ const themePresets = {
   "Agency Blue Orange": { background: "#07111f", surface: "#0d1b2f", text: "#f8fafc", mutedText: "#b5c2d7", primaryButton: "#38bdf8", secondaryButton: "#17365f", accent: "#fb923c", sidebar: "#08172a", header: "#07111f", border: "#31557f", success: "#34d399", warning: "#fb923c", danger: "#f87171" }
 };
 
+const themeFieldLabels: Record<string, string> = {
+  background: "Arka Plan",
+  surface: "Kart Zemini",
+  text: "Ana Yazı",
+  mutedText: "Yardımcı Yazı",
+  primaryButton: "Birincil Buton",
+  secondaryButton: "İkincil Buton",
+  accent: "Vurgu Rengi",
+  sidebar: "Menü Zemini",
+  header: "Üst Alan",
+  border: "Kenarlık",
+  success: "Başarı",
+  warning: "Uyarı",
+  danger: "Tehlike"
+};
+
 function ThemeEditor({ onApply }: any) {
   const [theme, setTheme] = useState(themePresets["HK Premium Dark"]);
   const [message, setMessage] = useState("");
@@ -4925,7 +4939,34 @@ function ThemeEditor({ onApply }: any) {
     const data = await response.json().catch(() => ({}));
     setMessage(response.ok ? data.message : data.supabaseError || data.error || "Tema kaydedilemedi.");
   }
-  return <Panel title="Tema Ayarları"><p className="mb-5 text-sm leading-6 text-slate-400">Admin paneli renklerini canlı önizleme ile düzenleyin. Tercih bu tarayıcıda anında uygulanır ve kaydettiğinizde Supabase içinde saklanır.</p><div className="mb-5 flex flex-wrap gap-2">{Object.entries(themePresets).map(([label, preset]) => <button key={label} onClick={() => apply(preset)} className="rounded-full border border-white/10 px-4 py-2 text-sm font-bold">{label}</button>)}</div><div className="grid gap-4 lg:grid-cols-[1fr_360px]"><div className="grid gap-3 sm:grid-cols-2">{Object.entries(theme).map(([key, value]) => <Field key={key} label={key} type="color" value={value} onChange={(next) => apply({ ...theme, [key]: next })} />)}</div><div className="rounded-[8px] border p-4" style={{ background: theme.surface, borderColor: theme.border, color: theme.text }}><p className="text-xs font-black uppercase" style={{ color: theme.accent }}>Canlı önizleme</p><h3 className="mt-3 text-xl font-black">HK Dijital Premium Panel</h3><p className="mt-2 text-sm" style={{ color: theme.mutedText }}>Kart, metin, buton ve durum renklerini burada birlikte değerlendirin.</p><button className="mt-5 rounded-full px-4 py-2 text-sm font-black" style={{ background: theme.primaryButton, color: theme.background }}>Birincil işlem</button></div></div><div className="mt-5 flex gap-2"><button onClick={save} className="rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Temayı kaydet</button><button onClick={() => apply(themePresets["HK Premium Dark"])} className="rounded-full border border-white/10 px-5 py-3 text-sm">Varsayılanlara dön</button></div>{message && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{message}</p>}</Panel>;
+  return (
+    <Panel title="Tema Ayarları">
+      <p className="mb-5 text-sm leading-6 text-slate-400">Admin paneli renklerini canlı önizleme ile düzenleyin. Tercih bu tarayıcıda anında uygulanır ve kaydettiğinizde Supabase içinde saklanır.</p>
+      <div className="mb-5 flex flex-wrap gap-2">
+        {Object.entries(themePresets).map(([label, preset]) => (
+          <button key={label} onClick={() => apply(preset)} className="rounded-full border border-white/10 px-4 py-2 text-sm font-bold">{label}</button>
+        ))}
+      </div>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="grid gap-3 sm:grid-cols-2">
+          {Object.entries(theme).map(([key, value]) => (
+            <Field key={key} label={themeFieldLabels[key] || key} type="color" value={value} onChange={(next) => apply({ ...theme, [key]: next })} />
+          ))}
+        </div>
+        <div className="rounded-[8px] border p-4" style={{ background: theme.surface, borderColor: theme.border, color: theme.text }}>
+          <p className="text-xs font-black uppercase" style={{ color: theme.accent }}>Canlı önizleme</p>
+          <h3 className="mt-3 text-xl font-black">HK Dijital Premium Panel</h3>
+          <p className="mt-2 text-sm" style={{ color: theme.mutedText }}>Kart, metin, buton ve durum renklerini burada birlikte değerlendirin.</p>
+          <button className="mt-5 rounded-full px-4 py-2 text-sm font-black" style={{ background: theme.primaryButton, color: theme.background }}>Birincil işlem</button>
+        </div>
+      </div>
+      <div className="mt-5 flex flex-wrap gap-2">
+        <button onClick={save} className="rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Temayı kaydet</button>
+        <button onClick={() => apply(themePresets["HK Premium Dark"])} className="rounded-full border border-white/10 px-5 py-3 text-sm">Varsayılanlara dön</button>
+      </div>
+      {message && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{message}</p>}
+    </Panel>
+  );
 }
 
 
