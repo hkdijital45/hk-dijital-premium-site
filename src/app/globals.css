@@ -2444,3 +2444,98 @@ html {
 .hk-admin-os .admin-color-card * {
   color: #ffffff !important;
 }
+
+/* Final admin cleanup: no navy/black/dark-gray visual blocks inside the admin app. */
+.hk-admin-os [class*="bg-[#020"],
+.hk-admin-os [class*="bg-[#030"],
+.hk-admin-os [class*="bg-[#050"],
+.hk-admin-os [class*="bg-[#070"],
+.hk-admin-os [class*="bg-[#071"],
+.hk-admin-os [class*="bg-[#080"],
+.hk-admin-os [class*="bg-[#081"],
+.hk-admin-os [class*="bg-[#090"],
+.hk-admin-os [class*="bg-[#091"],
+.hk-admin-os [class*="bg-[#0a"],
+.hk-admin-os [class*="bg-slate-900"],
+.hk-admin-os [class*="bg-slate-950"],
+.hk-admin-os [class*="bg-gray-900"],
+.hk-admin-os [class*="bg-zinc-900"],
+.hk-admin-os [class*="bg-neutral-900"],
+.hk-admin-os [class*="bg-black"],
+.hk-admin-os [class*="from-slate-"],
+.hk-admin-os [class*="via-slate-"],
+.hk-admin-os [class*="to-slate-"],
+.hk-admin-os [class*="to-black"],
+.hk-admin-os [class*="from-[#"],
+.hk-admin-os [class*="via-[#"],
+.hk-admin-os [class*="to-[#"],
+.hk-admin-os [class*="bg-gradient-to-"] {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  color: var(--admin-light-text) !important;
+  border-color: var(--admin-light-border) !important;
+}
+
+.hk-admin-os .admin-dashboard-main {
+  background: #f1f5f9 !important;
+  background-color: #f1f5f9 !important;
+}
+
+.hk-admin-os .admin-dashboard-main > *,
+.hk-admin-os .glass-card,
+.hk-admin-os .admin-card,
+.hk-admin-os [class*="rounded-[8px]"],
+.hk-admin-os [class*="rounded-[10px]"],
+.hk-admin-os [class*="rounded-[12px]"],
+.hk-admin-os [class*="rounded-[14px]"],
+.hk-admin-os [class*="rounded-[18px]"],
+.hk-admin-os [class*="rounded-[22px]"] {
+  border-color: var(--admin-light-border) !important;
+}
+
+.hk-admin-os .glass-card,
+.hk-admin-os .admin-card,
+.hk-admin-os section,
+.hk-admin-os aside,
+.hk-admin-os form,
+.hk-admin-os table,
+.hk-admin-os .admin-top-dropdown,
+.hk-admin-os .admin-modal-panel,
+.hk-admin-os .admin-drawer-panel {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  color: var(--admin-light-text) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .04), 0 8px 24px rgba(0, 0, 0, .05) !important;
+}
+
+.hk-admin-os .fixed.inset-0 {
+  background-color: rgba(15, 23, 42, .20) !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+.hk-admin-os .fixed.inset-0 > aside,
+.hk-admin-os .fixed.inset-0 > div,
+.hk-admin-os .fixed.inset-0 [class*="max-w-"] {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  color: var(--admin-light-text) !important;
+  border-color: var(--admin-light-border) !important;
+}
+
+.hk-admin-os .premium-grid {
+  opacity: 0 !important;
+}
+
+.hk-admin-os .shadow-2xl,
+.hk-admin-os [class*="shadow-[0_24px"],
+.hk-admin-os [class*="shadow-[0_28px"],
+.hk-admin-os [class*="shadow-[0_40px"],
+.hk-admin-os [class*="shadow-[0_18px"],
+.hk-admin-os [class*="shadow-[0_16px"] {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .04), 0 8px 24px rgba(0, 0, 0, .05) !important;
+}
+
+.hk-admin-os .ring-cyan-200\/70,
+.hk-admin-os .ring-cyan-200\/30 {
+  --tw-ring-color: rgba(34, 211, 238, .28) !important;
+}
