@@ -4207,6 +4207,7 @@ function CustomerMetaAccounts({ company, content, setContent, notify }: any) {
     businessId: existing.business_id || api.meta_business_id || "",
     googleAdsCustomerId: existing.google_ads_customer_id || company.google_ads_customer_id || api.google_ads_customer_id || "",
     googleAnalyticsId: existing.google_analytics_id || company.google_analytics_id || "",
+    googleMccId: existing.mcc_id || "",
     rangePreset: "last_30d",
     dateFrom: "",
     dateTo: ""
@@ -4216,8 +4217,96 @@ function CustomerMetaAccounts({ company, content, setContent, notify }: any) {
   const [rows, setRows] = useState<any[]>([]);
   const [linked, setLinked] = useState(existing);
   const summaries = metaCampaignSummaries(rows.length ? rows : (content.campaignMetrics || []).filter((item: any) => item.company_id === company.id && item.source === "Meta API"));
+  const helperText = {
+    businessId: "Meta Business Manager içindeki işletme ID’si.",
+    adAccountId: "Meta reklam hesabı ID’si. Örn: act_123456789 veya 123456789",
+    pageId: "Facebook sayfası ID’si.",
+    instagramAccountId: "Instagram işletme hesabı ID’si.",
+    googleAdsCustomerId: "Google Ads müşteri ID’si.",
+    googleAnalyticsId: "GA4 Measurement ID veya Analytics property ID.",
+    googleMccId: "Google Ads yönetici hesabı ID’si."
+  };
+  const withHelp = (field: any, help: string) => <div>{field}<p className="mt-1 text-xs leading-5 text-slate-300">{help}</p></div>;
+  function syncLocalMapping(metaPatch: any = {}, googlePatch: any = {}) {
+    const next = {
+      ...linked,
+      id: linked.id || existing.id || `ad-link-${company.id}`,
+      company_id: company.id,
+      ad_account_id: form.adAccountId,
+      business_id: form.businessId,
+      page_id: form.pageId,
+      instagram_account_id: form.instagramAccountId,
+      google_ads_customer_id: form.googleAdsCustomerId,
+      google_analytics_id: form.googleAnalyticsId,
+      mcc_id: form.googleMccId,
+      ...metaPatch,
+      ...googlePatch,
+      updated_at: new Date().toISOString()
+    };
+    setLinked(next);
+    setContent({ ...content, metaAccountLinks: [next, ...(content.metaAccountLinks || []).filter((item: any) => item.company_id !== company.id)] });
+    return next;
+  }
+  async function loadMappings() {
+    const response = await fetch(`/api/admin/integration-settings?companyId=${encodeURIComponent(company.id)}`, { cache: "no-store" });
+    const data = await response.json().catch(() => ({}));
+    const meta = data.mappings?.meta || {};
+    const google = data.mappings?.google || {};
+    if (!meta.id && !google.id) return;
+    const nextForm = {
+      ...form,
+      adAccountId: meta.adAccountId || meta.accountId || form.adAccountId,
+      pageId: meta.pageId || form.pageId,
+      instagramAccountId: meta.instagramAccountId || form.instagramAccountId,
+      businessId: meta.businessId || form.businessId,
+      googleAdsCustomerId: google.googleCustomerId || google.adAccountId || google.accountId || form.googleAdsCustomerId,
+      googleAnalyticsId: google.googleAnalyticsId || form.googleAnalyticsId,
+      googleMccId: google.mccId || form.googleMccId
+    };
+    setForm(nextForm);
+    const nextLink = {
+      ...existing,
+      company_id: company.id,
+      ad_account_id: nextForm.adAccountId,
+      business_id: nextForm.businessId,
+      page_id: nextForm.pageId,
+      instagram_account_id: nextForm.instagramAccountId,
+      google_ads_customer_id: nextForm.googleAdsCustomerId,
+      google_analytics_id: nextForm.googleAnalyticsId,
+      mcc_id: nextForm.googleMccId,
+      status: meta.status || google.status || existing.status,
+      last_sync_at: meta.lastSyncAt || google.lastSyncAt || existing.last_sync_at,
+      google_last_sync_at: google.lastSyncAt || existing.google_last_sync_at
+    };
+    setLinked(nextLink);
+    setContent({ ...content, metaAccountLinks: [nextLink, ...(content.metaAccountLinks || []).filter((item: any) => item.company_id !== company.id)] });
+  }
+  useEffect(() => { loadMappings().catch(() => null); }, [company.id]);
+  async function saveMapping(provider: "meta" | "google", action = "save") {
+    setLoading(`${provider}-${action}`);
+    const payload = provider === "meta"
+      ? { scope: "mapping", provider, action, companyId: company.id, businessId: form.businessId, adAccountId: form.adAccountId, pageId: form.pageId, instagramAccountId: form.instagramAccountId, accountName: form.adAccountId }
+      : { scope: "mapping", provider, action, companyId: company.id, googleCustomerId: form.googleAdsCustomerId, googleAnalyticsId: form.googleAnalyticsId, mccId: form.googleMccId, accountName: form.googleAdsCustomerId };
+    const response = await fetch("/api/admin/integration-settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.error) {
+      const text = data.error || "Eşleştirme kaydedilemedi.";
+      setMessage(text);
+      notify?.(`✖ ${text}`, "error");
+      setLoading("");
+      return null;
+    }
+    syncLocalMapping(provider === "meta" ? { status: data.mapping?.status || "Kaydedildi", last_sync_at: data.mapping?.lastSyncAt || linked.last_sync_at } : {}, provider === "google" ? { google_status: data.mapping?.status || "Kaydedildi", google_last_sync_at: data.mapping?.lastSyncAt || linked.google_last_sync_at } : {});
+    const text = action === "test" ? "Test tamamlandı ✓" : action === "sync" ? "Tamamlandı ✓" : "Kaydedildi ✓";
+    setMessage(text);
+    notify?.(`✓ ${provider === "meta" ? "Meta" : "Google"} eşleştirmesi ${action === "test" ? "test edildi" : action === "sync" ? "senkronize edildi" : "kaydedildi"}`, "success");
+    setLoading("");
+    setTimeout(() => setMessage(""), 2200);
+    return data.mapping;
+  }
   async function connect() {
     setLoading("connect");
+    await saveMapping("meta");
     const response = await fetch("/api/admin/meta-ads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "connect", companyId: company.id, adAccountId: form.adAccountId, businessId: form.businessId, pageId: form.pageId, instagramAccountId: form.instagramAccountId }) });
     const data = await response.json().catch(() => ({}));
     const next = { id: data.integration?.id || existing.id || `meta-link-${company.id}`, company_id: company.id, ad_account_id: form.adAccountId, business_id: form.businessId, page_id: form.pageId, instagram_account_id: form.instagramAccountId, account_name: data.integration?.ad_account_id || form.adAccountId, status: data.ok ? "Bağlı" : "Taslak", last_sync_at: existing.last_sync_at || "", updated_at: new Date().toISOString() };
@@ -4228,6 +4317,7 @@ function CustomerMetaAccounts({ company, content, setContent, notify }: any) {
     setLoading("");
   }
   async function test() {
+    await saveMapping("meta", "test");
     setLoading("test");
     const response = await fetch("/api/admin/meta-ads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "test", companyId: company.id, adAccountId: form.adAccountId }) });
     const data = await response.json().catch(() => ({}));
@@ -4236,6 +4326,7 @@ function CustomerMetaAccounts({ company, content, setContent, notify }: any) {
   }
   async function pull(action = "sync") {
     setLoading(action);
+    await saveMapping("meta", "sync");
     const response = await fetch("/api/admin/meta-ads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, companyId: company.id, adAccountId: form.adAccountId, businessId: form.businessId, rangePreset: form.rangePreset, dateFrom: form.dateFrom, dateTo: form.dateTo, visibleToCustomer: true }) });
     const data = await response.json().catch(() => ({}));
     if (data.ok) {
@@ -4258,13 +4349,15 @@ function CustomerMetaAccounts({ company, content, setContent, notify }: any) {
   }
   function testGoogle() {
     const ok = Boolean(form.googleAdsCustomerId);
+    saveMapping("google", "test");
     setMessage(ok ? "Google bağlantısı sync-ready durumda. Canlı Google Ads kimlikleri sunucuda tanımlandığında aynı akış gerçek veriyle çalışır." : "Google Ads Customer ID eksik.");
     notify?.(ok ? "✓ Google bağlantısı hazır" : "⚠ Google müşteri ID eksik", ok ? "success" : "warning");
   }
   function pullGoogle() {
+    saveMapping("google", "sync");
     const now = new Date().toISOString();
     const demoRows = [{ id: `google-profile-${company.id}-${Date.now()}`, company_id: company.id, date: now.slice(0, 10), period: "Google Sync Demo", source: "Google Ads Sync", visible_to_customer: true, impressions: 12400, clicks: 310, conversions: 18, spent: 4200, ctr: 2.5, cpc: 13.55, cost_per_lead: 233.33 }];
-    const nextLink = { ...linked, company_id: company.id, google_ads_customer_id: form.googleAdsCustomerId, google_analytics_id: form.googleAnalyticsId, google_status: "Sync-ready demo", google_last_sync_at: now, updated_at: now };
+    const nextLink = { ...linked, company_id: company.id, google_ads_customer_id: form.googleAdsCustomerId, google_analytics_id: form.googleAnalyticsId, mcc_id: form.googleMccId, google_status: "Sync-ready demo", google_last_sync_at: now, updated_at: now };
     setLinked(nextLink);
     setContent({ ...content, metaAccountLinks: [nextLink, ...(content.metaAccountLinks || []).filter((item: any) => item.company_id !== company.id)], campaignMetrics: [...demoRows, ...(content.campaignMetrics || [])] });
     setMessage("Google verileri için demo/sync-ready kayıt oluşturuldu. Gerçek Google Ads yetkileri sunucuda hazır olduğunda bu alan canlı metriklerle dolar.");
@@ -4277,29 +4370,49 @@ function CustomerMetaAccounts({ company, content, setContent, notify }: any) {
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
             <h3 className="text-xl font-black text-white">Reklam Hesapları</h3>
-            <p className="mt-1 text-sm leading-6 text-slate-300">Bu müşteriyi Meta ve Google reklam hesaplarıyla eşleştirin. Hassas token değerleri tarayıcıda gösterilmez.</p>
+            <p className="mt-1 text-sm leading-6 text-slate-300">Bu müşteriyi Meta ve Google reklam hesaplarıyla eşleştirin. Bu alan, Reklam Hesabı Eşleştirme merkeziyle aynı kayıtları kullanır.</p>
           </div>
           <span className="rounded-full border border-white/10 px-3 py-2 text-xs text-slate-300">Durum: {linked.status || "Bağlı değil"}</span>
         </div>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <Field label="Meta Ad Account ID" value={form.adAccountId} onChange={(adAccountId) => setForm({ ...form, adAccountId })} />
-          <Field label="Facebook Sayfası" value={form.pageId} onChange={(pageId) => setForm({ ...form, pageId })} />
-          <Field label="Instagram Hesabı" value={form.instagramAccountId} onChange={(instagramAccountId) => setForm({ ...form, instagramAccountId })} />
-          <Field label="Meta Business ID" value={form.businessId} onChange={(businessId) => setForm({ ...form, businessId })} />
-          <Field label="Google Ads Customer ID" value={form.googleAdsCustomerId} onChange={(googleAdsCustomerId) => setForm({ ...form, googleAdsCustomerId })} />
-          <Field label="Google Analytics ID" value={form.googleAnalyticsId} onChange={(googleAnalyticsId) => setForm({ ...form, googleAnalyticsId })} />
+        <div className="grid gap-4 xl:grid-cols-2">
+          <div className="rounded-[14px] border border-cyan-200/20 bg-black/20 p-4">
+            <h4 className="font-black text-white">Meta Hesap Bilgileri</h4>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              {withHelp(<Field label="Meta Business ID" value={form.businessId} onChange={(businessId) => setForm({ ...form, businessId })} />, helperText.businessId)}
+              {withHelp(<Field label="Meta Ads Account ID" value={form.adAccountId} onChange={(adAccountId) => setForm({ ...form, adAccountId })} />, helperText.adAccountId)}
+              {withHelp(<Field label="Facebook Sayfa ID" value={form.pageId} onChange={(pageId) => setForm({ ...form, pageId })} />, helperText.pageId)}
+              {withHelp(<Field label="Instagram Hesap ID" value={form.instagramAccountId} onChange={(instagramAccountId) => setForm({ ...form, instagramAccountId })} />, helperText.instagramAccountId)}
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button disabled={Boolean(loading)} onClick={() => saveMapping("meta")} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950 disabled:opacity-60">{loading === "meta-save" ? "Kaydediliyor..." : "Kaydet"}</button>
+              <button disabled={Boolean(loading)} onClick={test} className="rounded-full border border-cyan-200/25 px-4 py-2 text-xs font-black text-cyan-100 disabled:opacity-60">{loading === "test" || loading === "meta-test" ? "Test ediliyor..." : "Test Et"}</button>
+              <button disabled={Boolean(loading) || !form.adAccountId} onClick={() => pull("sync")} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs font-black text-emerald-100 disabled:opacity-60">{loading === "sync" || loading === "meta-sync" ? "Senkronize ediliyor..." : "Meta Verilerini Çek"}</button>
+            </div>
+          </div>
+          <div className="rounded-[14px] border border-blue-200/20 bg-black/20 p-4">
+            <h4 className="font-black text-white">Google Hesap Bilgileri</h4>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              {withHelp(<Field label="Google Ads Customer ID" value={form.googleAdsCustomerId} onChange={(googleAdsCustomerId) => setForm({ ...form, googleAdsCustomerId })} />, helperText.googleAdsCustomerId)}
+              {withHelp(<Field label="Google Analytics ID" value={form.googleAnalyticsId} onChange={(googleAnalyticsId) => setForm({ ...form, googleAnalyticsId })} />, helperText.googleAnalyticsId)}
+              {withHelp(<Field label="Google MCC ID" value={form.googleMccId} onChange={(googleMccId) => setForm({ ...form, googleMccId })} />, helperText.googleMccId)}
+              <InfoItem label="Son Google sync" value={formatDateTime(linked.google_last_sync_at)} />
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button disabled={Boolean(loading)} onClick={() => saveMapping("google")} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950 disabled:opacity-60">{loading === "google-save" ? "Kaydediliyor..." : "Kaydet"}</button>
+              <button type="button" disabled={Boolean(loading)} onClick={testGoogle} className="rounded-full border border-blue-300/30 px-4 py-2 text-xs font-black text-blue-100 disabled:opacity-60">{loading === "google-test" ? "Test ediliyor..." : "Test Et"}</button>
+              <button type="button" disabled={Boolean(loading)} onClick={pullGoogle} className="rounded-full border border-blue-300/30 px-4 py-2 text-xs font-black text-blue-100 disabled:opacity-60">{loading === "google-sync" ? "Senkronize ediliyor..." : "Google Verilerini Çek"}</button>
+            </div>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <SelectField label="Veri aralığı" value={form.rangePreset} onChange={(rangePreset) => setForm({ ...form, rangePreset })} options={[{ value: "last_7d", label: "Son 7 Gün" }, { value: "last_30d", label: "Son 30 Gün" }, { value: "this_month", label: "Bu Ay" }, { value: "last_month", label: "Geçen Ay" }, { value: "custom", label: "Özel Tarih" }]} />
           {form.rangePreset === "custom" && <Field label="Başlangıç tarihi" type="date" value={form.dateFrom} onChange={(dateFrom) => setForm({ ...form, dateFrom })} />}
           {form.rangePreset === "custom" && <Field label="Bitiş tarihi" type="date" value={form.dateTo} onChange={(dateTo) => setForm({ ...form, dateTo })} />}
-          <InfoItem label="Son senkronizasyon" value={formatDateTime(linked.last_sync_at)} />
+          <InfoItem label="Son Meta senkronizasyon" value={formatDateTime(linked.last_sync_at)} />
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           <button disabled={Boolean(loading) || !form.adAccountId} onClick={connect} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950 disabled:opacity-60">{loading === "connect" ? "Bağlanıyor..." : "Meta Hesabı Bağla"}</button>
-          <button disabled={Boolean(loading)} onClick={test} className="rounded-full border border-cyan-200/25 px-4 py-2 text-xs font-black text-cyan-100 disabled:opacity-60">{loading === "test" ? "Test ediliyor..." : "Test Et"}</button>
-          <button disabled={Boolean(loading) || !form.adAccountId} onClick={() => pull("sync")} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs font-black text-emerald-100 disabled:opacity-60">{loading === "sync" ? "Veriler çekiliyor..." : "Verileri Çek"}</button>
           <button disabled={Boolean(loading) || !form.adAccountId} onClick={() => pull("report")} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs font-black text-amber-100 disabled:opacity-60">Meta Verilerinden Rapor Oluştur</button>
-          <button type="button" onClick={testGoogle} className="rounded-full border border-blue-300/30 px-4 py-2 text-xs font-black text-blue-100">Google Bağlantısını Test Et</button>
-          <button type="button" onClick={pullGoogle} className="rounded-full border border-blue-300/30 px-4 py-2 text-xs font-black text-blue-100">Google Verilerini Çek</button>
         </div>
         {message && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{message}</p>}
       </div>
@@ -4630,24 +4743,66 @@ function ReportsAdmin({ content, setContent }: any) {
 
 function AdAccountMappingCenter({ content, setContent, save, notify }: any) {
   const [selectedCompanyId, setSelectedCompanyId] = useState("");
+  const [expandedCompanyId, setExpandedCompanyId] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [loading, setLoading] = useState("");
   const [message, setMessage] = useState("");
   const [logs, setLogs] = useState<any[]>([]);
+  const [mappingDrafts, setMappingDrafts] = useState<Record<string, any>>({});
   const [pulledCampaigns, setPulledCampaigns] = useState<any[]>([]);
   const [matching, setMatching] = useState<Record<string, string>>({});
   const links = content.metaAccountLinks || [];
   async function loadLogs() {
-    const response = await fetch("/api/admin/integration-settings", { cache: "no-store" });
+    const response = await fetch("/api/admin/integration-settings?mappings=1", { cache: "no-store" });
     const data = await response.json().catch(() => ({}));
     setLogs(data.logs || []);
+    const nextDrafts = { ...mappingDrafts };
+    (data.mappings || []).forEach((item: any) => {
+      if (!item.companyId) return;
+      const current = nextDrafts[item.companyId] || {};
+      nextDrafts[item.companyId] = item.provider === "meta"
+        ? { ...current, metaBusinessId: item.businessId || "", metaAdAccountId: item.adAccountId || item.accountId || "", facebookPageId: item.pageId || "", instagramAccountId: item.instagramAccountId || "", metaStatus: item.status || "", metaLastSync: item.lastSyncAt || "" }
+        : { ...current, googleAdsCustomerId: item.googleCustomerId || item.adAccountId || item.accountId || "", googleAnalyticsId: item.googleAnalyticsId || "", googleMccId: item.mccId || "", googleStatus: item.status || "", googleLastSync: item.lastSyncAt || "" };
+    });
+    setMappingDrafts(nextDrafts);
   }
   useEffect(() => { loadLogs(); }, []);
+  function draftFor(companyId: string) {
+    const link = links.find((item: any) => item.company_id === companyId) || {};
+    return {
+      metaBusinessId: link.business_id || "",
+      metaAdAccountId: link.ad_account_id || "",
+      facebookPageId: link.page_id || "",
+      instagramAccountId: link.instagram_account_id || "",
+      googleAdsCustomerId: link.google_ads_customer_id || "",
+      googleAnalyticsId: link.google_analytics_id || "",
+      googleMccId: link.mcc_id || "",
+      metaStatus: link.status || "",
+      googleStatus: link.google_status || "",
+      metaLastSync: link.last_sync_at || "",
+      googleLastSync: link.google_last_sync_at || "",
+      ...(mappingDrafts[companyId] || {})
+    };
+  }
   const rows = (content.companies || []).map((company: any) => {
-    const link = links.find((item: any) => item.company_id === company.id) || {};
+    const draft = draftFor(company.id);
+    const link = {
+      company_id: company.id,
+      business_id: draft.metaBusinessId,
+      ad_account_id: draft.metaAdAccountId,
+      page_id: draft.facebookPageId,
+      instagram_account_id: draft.instagramAccountId,
+      google_ads_customer_id: draft.googleAdsCustomerId,
+      google_analytics_id: draft.googleAnalyticsId,
+      mcc_id: draft.googleMccId,
+      status: draft.metaStatus,
+      google_status: draft.googleStatus,
+      last_sync_at: draft.metaLastSync,
+      google_last_sync_at: draft.googleLastSync
+    };
     const metrics = (content.campaignMetrics || []).filter((metric: any) => metric.company_id === company.id && ["Meta API", "Google Ads Sync", "Meta Import"].includes(metric.source));
     const lastMetric = metrics.sort((a: any, b: any) => Number(new Date(b.date || b.created_at || 0)) - Number(new Date(a.date || a.created_at || 0)))[0];
-    return { company, link, lastMetric };
+    return { company, link, lastMetric, draft };
   });
   function demoCampaigns(companyId: string) {
     const existing = (content.campaignMetrics || []).filter((metric: any) => metric.company_id === companyId && (metric.campaignName || metric.campaign_name || metric.campaign_id));
@@ -4662,20 +4817,62 @@ function AdAccountMappingCenter({ content, setContent, save, notify }: any) {
     setPulledCampaigns(demoCampaigns(companyId));
     setModalOpen(true);
   }
-  function updateLink(companyId: string, patch: any) {
-    const current = links.find((item: any) => item.company_id === companyId) || { id: createLocalId(), company_id: companyId };
-    const next = { ...current, ...patch, updated_at: new Date().toISOString() };
-    setContent({ ...content, metaAccountLinks: [next, ...links.filter((item: any) => item.company_id !== companyId)] });
+  function updateDraft(companyId: string, patch: any) {
+    setMappingDrafts((current) => ({ ...current, [companyId]: { ...draftFor(companyId), ...current[companyId], ...patch } }));
   }
-  async function persistCustomerMapping(companyId: string) {
-    const link = (content.metaAccountLinks || []).find((item: any) => item.company_id === companyId) || {};
-    if (link.ad_account_id) {
-      await fetch("/api/admin/integrations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider: "meta", companyId, adAccountId: link.ad_account_id, businessAccountId: link.business_id || "" }) }).catch(() => null);
+  function updateLink(companyId: string, draftPatch: any = {}) {
+    const draft = { ...draftFor(companyId), ...draftPatch };
+    const current = links.find((item: any) => item.company_id === companyId) || { id: createLocalId(), company_id: companyId };
+    const next = {
+      ...current,
+      company_id: companyId,
+      business_id: draft.metaBusinessId,
+      ad_account_id: draft.metaAdAccountId,
+      page_id: draft.facebookPageId,
+      instagram_account_id: draft.instagramAccountId,
+      google_ads_customer_id: draft.googleAdsCustomerId,
+      google_analytics_id: draft.googleAnalyticsId,
+      mcc_id: draft.googleMccId,
+      status: draft.metaStatus || current.status,
+      google_status: draft.googleStatus || current.google_status,
+      last_sync_at: draft.metaLastSync || current.last_sync_at,
+      google_last_sync_at: draft.googleLastSync || current.google_last_sync_at,
+      updated_at: new Date().toISOString()
+    };
+    setContent({ ...content, metaAccountLinks: [next, ...links.filter((item: any) => item.company_id !== companyId)] });
+    return next;
+  }
+  async function persistCustomerMapping(companyId: string, action = "save") {
+    setLoading(`${action}-${companyId}`);
+    const draft = draftFor(companyId);
+    const requests: Promise<Response>[] = [];
+    if (draft.metaBusinessId || draft.metaAdAccountId || draft.facebookPageId || draft.instagramAccountId) {
+      requests.push(fetch("/api/admin/integration-settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scope: "mapping", provider: "meta", action, companyId, businessId: draft.metaBusinessId, adAccountId: draft.metaAdAccountId, pageId: draft.facebookPageId, instagramAccountId: draft.instagramAccountId, accountName: draft.metaAdAccountId }) }));
     }
-    if (link.google_ads_customer_id) {
-      await fetch("/api/admin/integrations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider: "google", companyId, customerAccountId: link.google_ads_customer_id, businessAccountId: link.mcc_id || "" }) }).catch(() => null);
+    if (draft.googleAdsCustomerId || draft.googleAnalyticsId || draft.googleMccId) {
+      requests.push(fetch("/api/admin/integration-settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scope: "mapping", provider: "google", action, companyId, googleCustomerId: draft.googleAdsCustomerId, googleAnalyticsId: draft.googleAnalyticsId, mccId: draft.googleMccId, accountName: draft.googleAdsCustomerId }) }));
     }
-    notify?.("✓ Reklam hesabı eşleştirmesi kaydedildi", "success");
+    if (!requests.length) {
+      setLoading("");
+      notify?.("⚠ Kaydedilecek reklam hesabı alanı yok", "warning");
+      return;
+    }
+    const results = await Promise.all(requests);
+    const failed = results.find((result) => !result.ok);
+    if (failed) {
+      setLoading("");
+      notify?.("✖ Reklam hesabı eşleştirmesi kaydedilemedi", "error");
+      return;
+    }
+    updateLink(companyId, {
+      metaStatus: action === "test" ? "Test edildi" : action === "sync" ? "Senkronize edildi" : "Kaydedildi",
+      googleStatus: action === "test" ? "Test edildi" : action === "sync" ? "Senkronize edildi" : "Kaydedildi",
+      metaLastSync: action === "sync" ? new Date().toISOString() : draft.metaLastSync,
+      googleLastSync: action === "sync" ? new Date().toISOString() : draft.googleLastSync
+    });
+    notify?.(action === "test" ? "✓ Test tamamlandı" : action === "sync" ? "✓ Senkronizasyon kaydı tamamlandı" : "✓ Reklam hesabı eşleştirmesi kaydedildi", "success");
+    setLoading("");
+    loadLogs().catch(() => null);
   }
   async function syncCompany(companyId: string, source = "Meta") {
     setLoading(`sync-${companyId}`);
@@ -4712,14 +4909,42 @@ function AdAccountMappingCenter({ content, setContent, save, notify }: any) {
       <p className="mb-5 text-sm leading-6 text-slate-300">Meta ve Google reklam hesaplarını merkezi olarak müşterilerle eşleştirin, kampanyaları mevcut kayıtlara bağlayın veya yeni kampanya oluşturun.</p>
       {message && <p className="mb-4 rounded-[8px] border border-emerald-300/25 bg-emerald-300/10 p-3 text-sm font-bold text-emerald-50">{message}</p>}
       <div className="overflow-hidden rounded-[18px] border border-white/10 bg-slate-950/45">
-        <div className="grid gap-3 border-b border-white/10 bg-white/[0.03] p-4 text-xs font-black uppercase tracking-[.12em] text-slate-300 md:grid-cols-[1.2fr_1fr_1fr_1fr_.8fr]"><span>Müşteri</span><span>Meta Account</span><span>Google Account</span><span>Son Sync</span><span>Durum / Aksiyon</span></div>
+        <div className="grid gap-3 border-b border-white/10 bg-white/[0.03] p-4 text-xs font-black uppercase tracking-[.12em] text-slate-300 md:grid-cols-[1.2fr_1fr_1fr_1fr_1.2fr]"><span>Müşteri</span><span>Meta Ads Account ID</span><span>Google Ads Customer ID</span><span>Son Sync</span><span>Durum / Aksiyon</span></div>
         <div className="grid gap-2 p-3">
-          {rows.map(({ company, link, lastMetric }: any) => <div key={company.id} className="grid gap-3 rounded-[10px] border border-white/10 bg-black/20 p-4 text-sm md:grid-cols-[1.2fr_1fr_1fr_1fr_.8fr] md:items-center">
-            <div><p className="font-black text-white">{company.name}</p><p className="text-xs text-slate-400">{company.sector || "Sektör yok"}</p></div>
-            <Field label="Meta Account" value={link.ad_account_id || ""} onChange={(ad_account_id) => updateLink(company.id, { ad_account_id, status: "Taslak" })} />
-            <Field label="Google Account" value={link.google_ads_customer_id || ""} onChange={(google_ads_customer_id) => updateLink(company.id, { google_ads_customer_id, google_status: "Taslak" })} />
-            <div><p className="text-slate-200">{formatDateTime(link.last_sync_at || link.google_last_sync_at || lastMetric?.date)}</p><p className="mt-1 text-xs text-slate-400">{lastMetric?.source || "Veri bekleniyor"}</p></div>
-            <div className="flex flex-wrap gap-2"><button onClick={() => openMapping(company.id)} className="rounded-full bg-cyan-300 px-3 py-2 text-xs font-black text-slate-950">Eşleştir</button><button onClick={() => persistCustomerMapping(company.id)} className="rounded-full border border-cyan-200/25 px-3 py-2 text-xs text-cyan-100">Güncelle</button><button onClick={() => notify?.("✓ Test başarılı", "success")} className="rounded-full border border-emerald-300/25 px-3 py-2 text-xs text-emerald-100">Test Et</button><button disabled={loading === `sync-${company.id}`} onClick={() => syncCompany(company.id)} className="rounded-full border border-amber-300/25 px-3 py-2 text-xs text-amber-100">{loading === `sync-${company.id}` ? "Senkronize Ediliyor..." : "Senkronize Et"}</button></div>
+          {rows.map(({ company, link, lastMetric, draft }: any) => <div key={company.id} className="rounded-[10px] border border-white/10 bg-black/20 p-4 text-sm">
+            <div className="grid gap-3 md:grid-cols-[1.2fr_1fr_1fr_1fr_1.2fr] md:items-center">
+              <div><p className="font-black text-white">{company.name}</p><p className="text-xs text-slate-300">{company.sector || "Sektör yok"}</p></div>
+              <span className="rounded-[8px] border border-white/10 bg-black/20 px-3 py-2 text-slate-100">{link.ad_account_id || "Eklenmedi"}</span>
+              <span className="rounded-[8px] border border-white/10 bg-black/20 px-3 py-2 text-slate-100">{link.google_ads_customer_id || "Eklenmedi"}</span>
+              <div><p className="text-slate-100">{formatDateTime(link.last_sync_at || link.google_last_sync_at || lastMetric?.date)}</p><p className="mt-1 text-xs text-slate-300">{lastMetric?.source || link.status || link.google_status || "Veri bekleniyor"}</p></div>
+              <div className="flex flex-wrap gap-2">
+                <button onClick={() => openMapping(company.id)} className="rounded-full bg-cyan-300 px-3 py-2 text-xs font-black text-slate-950">Eşleştir</button>
+                <button onClick={() => setExpandedCompanyId(expandedCompanyId === company.id ? "" : company.id)} className="rounded-full border border-cyan-200/25 px-3 py-2 text-xs text-cyan-100">Detay / Düzenle</button>
+                <button disabled={loading === `save-${company.id}`} onClick={() => persistCustomerMapping(company.id)} className="rounded-full border border-cyan-200/25 px-3 py-2 text-xs text-cyan-100">{loading === `save-${company.id}` ? "Kaydediliyor..." : "Kaydet"}</button>
+                <button disabled={loading === `test-${company.id}`} onClick={() => persistCustomerMapping(company.id, "test")} className="rounded-full border border-emerald-300/25 px-3 py-2 text-xs text-emerald-100">{loading === `test-${company.id}` ? "Test ediliyor..." : "Test Et"}</button>
+                <button disabled={loading === `sync-${company.id}`} onClick={() => syncCompany(company.id)} className="rounded-full border border-amber-300/25 px-3 py-2 text-xs text-amber-100">{loading === `sync-${company.id}` ? "Senkronize Ediliyor..." : "Senkronize Et"}</button>
+              </div>
+            </div>
+            {expandedCompanyId === company.id && <div className="mt-4 grid gap-4 rounded-[14px] border border-cyan-200/20 bg-slate-950/60 p-4 xl:grid-cols-2">
+              <div>
+                <h3 className="font-black text-white">Meta Bilgileri</h3>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <div><Field label="Meta Business ID" value={draft.metaBusinessId || ""} onChange={(metaBusinessId) => updateDraft(company.id, { metaBusinessId })} /><p className="mt-1 text-xs text-slate-300">Meta Business Manager içindeki işletme ID’si.</p></div>
+                  <div><Field label="Meta Ads Account ID" value={draft.metaAdAccountId || ""} onChange={(metaAdAccountId) => updateDraft(company.id, { metaAdAccountId })} /><p className="mt-1 text-xs text-slate-300">Meta reklam hesabı ID’si. Örn: act_123456789 veya 123456789</p></div>
+                  <div><Field label="Facebook Sayfa ID" value={draft.facebookPageId || ""} onChange={(facebookPageId) => updateDraft(company.id, { facebookPageId })} /><p className="mt-1 text-xs text-slate-300">Facebook sayfası ID’si.</p></div>
+                  <div><Field label="Instagram Hesap ID" value={draft.instagramAccountId || ""} onChange={(instagramAccountId) => updateDraft(company.id, { instagramAccountId })} /><p className="mt-1 text-xs text-slate-300">Instagram işletme hesabı ID’si.</p></div>
+                </div>
+              </div>
+              <div>
+                <h3 className="font-black text-white">Google Bilgileri</h3>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <div><Field label="Google Ads Customer ID" value={draft.googleAdsCustomerId || ""} onChange={(googleAdsCustomerId) => updateDraft(company.id, { googleAdsCustomerId })} /><p className="mt-1 text-xs text-slate-300">Google Ads müşteri ID’si.</p></div>
+                  <div><Field label="Google Analytics ID" value={draft.googleAnalyticsId || ""} onChange={(googleAnalyticsId) => updateDraft(company.id, { googleAnalyticsId })} /><p className="mt-1 text-xs text-slate-300">GA4 Measurement ID veya Analytics property ID.</p></div>
+                  <div><Field label="Google MCC ID" value={draft.googleMccId || ""} onChange={(googleMccId) => updateDraft(company.id, { googleMccId })} /><p className="mt-1 text-xs text-slate-300">Google Ads yönetici hesabı ID’si.</p></div>
+                  <InfoItem label="Durum" value={`${draft.metaStatus || "Meta bekliyor"} · ${draft.googleStatus || "Google bekliyor"}`} />
+                </div>
+              </div>
+            </div>}
           </div>)}
         </div>
       </div>
