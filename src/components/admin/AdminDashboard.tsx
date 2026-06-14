@@ -357,13 +357,11 @@ export function AdminDashboard({
   const [saving, setSaving] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState("idle");
   const [toasts, setToasts] = useState<any[]>([]);
-  const [theme, setTheme] = useState("dark");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notificationState, setNotificationState] = useState({ read: [], archived: [] });
   const [hoveredNavGroup, setHoveredNavGroup] = useState("");
-  const [customTheme, setCustomTheme] = useState(null);
   const navCloseTimer = useRef<number | null>(null);
   const [bootVisible, setBootVisible] = useState(false);
   const [bootStep, setBootStep] = useState(0);
@@ -376,8 +374,6 @@ export function AdminDashboard({
 
   useEffect(() => {
     setIsDesktopApp(Boolean(window.hkDesktop?.isDesktop));
-    setTheme(localStorage.getItem("hk-admin-theme") || "dark");
-    try { setCustomTheme(JSON.parse(localStorage.getItem("hk-admin-custom-theme") || "null")); } catch {}
     let shouldShowBoot = true;
     try {
       shouldShowBoot = !sessionStorage.getItem("hk-os-boot-complete");
@@ -420,12 +416,6 @@ export function AdminDashboard({
     }, 360);
     return () => window.clearInterval(timer);
   }, [bootVisible]);
-
-  function toggleTheme() {
-    const next = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    localStorage.setItem("hk-admin-theme", next);
-  }
 
   function toggleGroup(label: string) {
     setOpenGroups((current) => ({ ...current, [label]: !current[label] }));
@@ -544,9 +534,9 @@ export function AdminDashboard({
     if (!mobileNavOpen || !activeGroup || openGroups[activeGroup.label]) return;
     setOpenGroups((current) => ({ ...current, [activeGroup.label]: true }));
   }, [activeGroup?.label, mobileNavOpen]);
-  const shellClass = theme === "dark" ? "hk-admin-os admin-ambient bg-[#050711] text-white" : "hk-admin-os bg-slate-100 text-slate-950";
-  const panelClass = theme === "dark" ? "border-white/10 bg-white/[0.045]" : "border-slate-200 bg-white";
-  const headerClass = theme === "dark" ? "border-white/10 bg-[#050711]/90" : "border-slate-200 bg-white/90";
+  const shellClass = "hk-admin-os admin-light bg-slate-50 text-slate-900";
+  const panelClass = "border-slate-200 bg-white";
+  const headerClass = "border-slate-200 bg-white";
   const aiStatus = aiMetaFromApi(content.settings?.api || {});
   const headerNotifications = buildAdminNotifications(content, startupApiData).filter((item) => !notificationState.archived.includes(item.id));
   const unreadNotifications = headerNotifications.filter((item) => !notificationState.read.includes(item.id));
@@ -563,7 +553,7 @@ export function AdminDashboard({
   const preparationAliases = ["İçerik Planları", "Promptlar", "İçerik Önerileri", "İçerik Fikirleri", "30 Günlük Sosyal Medya Planı", "Prompt Kütüphanesi", "Prompt Üretimi", "Kampanya Hazırlığı", "Kampanya Önerileri"];
 
   return (
-    <main className={`relative min-h-screen overflow-x-hidden ${theme === "light" ? "admin-light" : ""} ${customTheme ? "admin-themed" : ""} ${shellClass}`} style={customTheme ? { backgroundColor: customTheme.background, color: customTheme.text, "--admin-surface": customTheme.surface, "--admin-border": customTheme.border, "--admin-sidebar": customTheme.sidebar, "--admin-header": customTheme.header, "--admin-muted": customTheme.mutedText, "--admin-button": customTheme.primaryButton } : undefined}>
+    <main className={`relative min-h-screen overflow-x-hidden ${shellClass}`}>
       <div className="admin-ambient pointer-events-none absolute inset-0" />
       <div className="premium-grid pointer-events-none absolute inset-0 opacity-20" />
       <header className={`sticky top-0 z-40 border-b ${headerClass} shadow-[0_10px_30px_rgba(0,0,0,.12)] backdrop-blur-2xl`}>
@@ -670,9 +660,6 @@ export function AdminDashboard({
                 </div>
               )}
             </div>
-            <button onClick={toggleTheme} className="min-h-10 rounded-[8px] border border-white/10 px-4 text-sm font-bold">
-              {theme === "dark" ? "Aydınlık Tema" : "Karanlık Tema"}
-            </button>
             {(allowedModules.includes("site-ayarlari") || ["musteriler", "kampanyalar", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "sektor-sistemleri"].some((module) => allowedModules.includes(module))) && <button disabled={saving} onClick={() => save()} className={`inline-flex min-h-10 items-center gap-2 rounded-[8px] bg-cyan-300 px-4 text-sm font-black text-slate-950 disabled:opacity-60 ${saveFeedback === "success" ? "hk-action-success" : ""}`}><Save size={17} /> {saving ? "Kaydediliyor..." : saveFeedback === "success" ? "Kaydedildi ✓" : saveFeedback === "error" ? "Tekrar Dene" : "💾 Kaydet"}</button>}
             <button onClick={logout} className="inline-flex min-h-10 items-center gap-2 rounded-[8px] border border-white/10 px-4 text-sm font-bold"><LogOut size={17} /> Çıkış</button>
           </div>
@@ -713,7 +700,7 @@ export function AdminDashboard({
           {active === "Genel Arama" && <GlobalSearchPage />}
           {["Haritalar", "Google Maps / İşletme Sinyalleri"].includes(active) && <MapsIntelligence {...props} setActive={setActive} mode={active} />}
           {active === "Hazırlık Merkezi" && <PreparationCenter {...props} setActive={setActive} />}
-          {["Tema Ayarları", "Tema / Logo"].includes(active) && <ThemeEditor onApply={setCustomTheme} />}
+          {["Tema Ayarları", "Tema / Logo"].includes(active) && <ThemeEditor onApply={() => null} />}
           {["Roller & Yetkiler", "Kullanıcı Yönetimi"].includes(active) && <UsersAdmin {...props} mode={active} />}
           {active === "Sistem Sağlığı" && <SystemHealthCenter content={content} setContent={setContent} startupApiData={startupApiData} runStartupApiStatus={runStartupApiStatus} startupApiLoading={startupApiLoading} />}
           {active === "Veri Aktarma" && <ExportCenter content={content} />}

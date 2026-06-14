@@ -2152,3 +2152,295 @@ html {
     transition-duration: .01ms !important;
   }
 }
+
+/* Admin single readable light theme. Keep layout, remove dark/purple visual noise. */
+.hk-admin-os,
+.admin-light.hk-admin-os {
+  --admin-light-page: #f8fafc;
+  --admin-light-card: #ffffff;
+  --admin-light-header: #ffffff;
+  --admin-light-text: #0f172a;
+  --admin-light-secondary: #334155;
+  --admin-light-muted: #64748b;
+  --admin-light-border: #dbe4ef;
+  --admin-light-input: #ffffff;
+  --admin-light-cyan: #0891b2;
+  --admin-light-blue: #2563eb;
+  --admin-light-success: #16a34a;
+  --admin-light-warning: #d97706;
+  --admin-light-danger: #dc2626;
+  background: var(--admin-light-page) !important;
+  color: var(--admin-light-text) !important;
+}
+
+.hk-admin-os .admin-ambient,
+.hk-admin-os > .premium-grid {
+  display: none !important;
+}
+
+.hk-admin-os main,
+.hk-admin-os .admin-module-shell,
+.admin-light.hk-admin-os main,
+.admin-light.hk-admin-os .admin-module-shell {
+  background: var(--admin-light-page) !important;
+  color: var(--admin-light-text) !important;
+}
+
+.hk-admin-os header,
+.admin-light.hk-admin-os header {
+  border-color: var(--admin-light-border) !important;
+  background: var(--admin-light-header) !important;
+  color: var(--admin-light-text) !important;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, .08) !important;
+}
+
+.hk-admin-os .admin-dashboard-main,
+.hk-admin-os .glass-card,
+.hk-admin-os .admin-card,
+.hk-admin-os .admin-modal-panel,
+.hk-admin-os .admin-drawer-panel,
+.hk-admin-os section.rounded-\[8px\],
+.hk-admin-os aside.rounded-\[8px\],
+.hk-admin-os [class*="bg-[#071"],
+.hk-admin-os [class*="bg-[#081"],
+.hk-admin-os [class*="bg-[#0a"],
+.hk-admin-os [class*="bg-slate-950"],
+.hk-admin-os [class*="bg-black/"],
+.admin-light.hk-admin-os .admin-dashboard-main,
+.admin-light.hk-admin-os .glass-card,
+.admin-light.hk-admin-os .admin-card,
+.admin-light.hk-admin-os .admin-modal-panel,
+.admin-light.hk-admin-os .admin-drawer-panel {
+  border-color: var(--admin-light-border) !important;
+  background-color: var(--admin-light-card) !important;
+  color: var(--admin-light-text) !important;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, .07) !important;
+}
+
+.hk-admin-os h1,
+.hk-admin-os h2,
+.hk-admin-os h3,
+.hk-admin-os h4,
+.hk-admin-os h5,
+.hk-admin-os h6,
+.hk-admin-os label,
+.hk-admin-os strong,
+.hk-admin-os th,
+.hk-admin-os .font-black,
+.hk-admin-os .font-bold,
+.hk-admin-os .text-white,
+.hk-admin-os .text-slate-50,
+.hk-admin-os .text-slate-100,
+.hk-admin-os .text-slate-200,
+.hk-admin-os .text-slate-950,
+.hk-admin-os .admin-readable-text {
+  color: var(--admin-light-text) !important;
+}
+
+.hk-admin-os p,
+.hk-admin-os li,
+.hk-admin-os td,
+.hk-admin-os span,
+.hk-admin-os small,
+.hk-admin-os .text-slate-300,
+.hk-admin-os .text-slate-400,
+.hk-admin-os .text-slate-500,
+.hk-admin-os .text-slate-600,
+.hk-admin-os .text-slate-700,
+.hk-admin-os .text-gray-400,
+.hk-admin-os .text-gray-500,
+.hk-admin-os .admin-muted-text {
+  color: var(--admin-light-secondary) !important;
+}
+
+.hk-admin-os .text-\[10px\],
+.hk-admin-os .text-xs,
+.hk-admin-os .text-white\/20,
+.hk-admin-os .text-white\/30,
+.hk-admin-os .text-white\/40 {
+  color: var(--admin-light-muted) !important;
+}
+
+.hk-admin-os [class*="opacity-20"],
+.hk-admin-os [class*="opacity-30"],
+.hk-admin-os [class*="opacity-40"],
+.hk-admin-os [class*="opacity-50"] {
+  opacity: 1 !important;
+}
+
+.hk-admin-os input,
+.hk-admin-os textarea,
+.hk-admin-os select,
+.hk-admin-os .admin-input,
+.admin-light.hk-admin-os input,
+.admin-light.hk-admin-os textarea,
+.admin-light.hk-admin-os select {
+  border-color: var(--admin-light-border) !important;
+  background: var(--admin-light-input) !important;
+  color: var(--admin-light-text) !important;
+  box-shadow: none !important;
+}
+
+.hk-admin-os input::placeholder,
+.hk-admin-os textarea::placeholder {
+  color: var(--admin-light-muted) !important;
+}
+
+.hk-admin-os input:focus,
+.hk-admin-os textarea:focus,
+.hk-admin-os select:focus {
+  border-color: #22d3ee !important;
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, .20) !important;
+  outline: none !important;
+}
+
+.hk-admin-os header button:not([class*="bg-cyan-300"]):not([class*="bg-amber-300"]):not([class*="bg-yellow-300"]):not([class*="bg-red"]):not([class*="bg-emerald"]),
+.admin-light.hk-admin-os header button:not([class*="bg-cyan-300"]):not([class*="bg-amber-300"]):not([class*="bg-yellow-300"]):not([class*="bg-red"]):not([class*="bg-emerald"]) {
+  border-color: var(--admin-light-border) !important;
+  background: #ffffff !important;
+  color: var(--admin-light-secondary) !important;
+}
+
+.hk-admin-os header button:hover,
+.hk-admin-os .admin-top-dropdown a:hover {
+  border-color: #bae6fd !important;
+  background: #f0f9ff !important;
+  color: var(--admin-light-text) !important;
+}
+
+.hk-admin-os .admin-top-dropdown,
+.hk-admin-os .admin-dropdown,
+.admin-light.hk-admin-os .admin-top-dropdown {
+  border-color: var(--admin-light-border) !important;
+  background: #ffffff !important;
+  color: var(--admin-light-text) !important;
+  box-shadow: 0 24px 58px rgba(15, 23, 42, .16) !important;
+}
+
+.hk-admin-os .admin-top-dropdown p,
+.hk-admin-os .admin-top-dropdown span,
+.hk-admin-os .admin-top-dropdown small {
+  color: var(--admin-light-secondary) !important;
+}
+
+.hk-admin-os .admin-top-dropdown .font-black,
+.hk-admin-os .admin-top-dropdown .font-bold {
+  color: var(--admin-light-text) !important;
+}
+
+.hk-admin-os table {
+  color: var(--admin-light-secondary) !important;
+}
+
+.hk-admin-os table thead {
+  background: #f1f5f9 !important;
+  color: var(--admin-light-text) !important;
+}
+
+.hk-admin-os table tbody tr {
+  border-color: var(--admin-light-border) !important;
+}
+
+.hk-admin-os table tbody tr:hover {
+  background: #f8fafc !important;
+}
+
+.hk-admin-os .border-white\/10,
+.hk-admin-os .border-white\/20,
+.hk-admin-os .border-slate-200,
+.hk-admin-os .border-cyan-200\/20,
+.hk-admin-os .border-cyan-200\/25 {
+  border-color: var(--admin-light-border) !important;
+}
+
+.hk-admin-os .bg-white\/\[0\.035\],
+.hk-admin-os .bg-white\/\[0\.04\],
+.hk-admin-os .bg-white\/\[0\.045\],
+.hk-admin-os .bg-white\/\[0\.055\],
+.hk-admin-os .bg-white\/10,
+.hk-admin-os .bg-cyan-200\/10,
+.hk-admin-os .bg-blue-200\/10 {
+  background-color: #ffffff !important;
+}
+
+.hk-admin-os .text-cyan-50,
+.hk-admin-os .text-cyan-100,
+.hk-admin-os .text-cyan-200,
+.hk-admin-os .text-blue-100,
+.hk-admin-os .text-blue-200 {
+  color: var(--admin-light-cyan) !important;
+}
+
+.hk-admin-os .text-emerald-50,
+.hk-admin-os .text-emerald-100,
+.hk-admin-os .text-emerald-200,
+.hk-admin-os .text-green-100,
+.hk-admin-os .text-green-200 {
+  color: var(--admin-light-success) !important;
+}
+
+.hk-admin-os .text-amber-50,
+.hk-admin-os .text-amber-100,
+.hk-admin-os .text-amber-200,
+.hk-admin-os .text-yellow-100,
+.hk-admin-os .text-yellow-200,
+.hk-admin-os .text-orange-100,
+.hk-admin-os .text-orange-200 {
+  color: var(--admin-light-warning) !important;
+}
+
+.hk-admin-os .text-red-100,
+.hk-admin-os .text-red-200 {
+  color: var(--admin-light-danger) !important;
+}
+
+.hk-admin-os [class*="bg-emerald-"][class*="/10"],
+.hk-admin-os [class*="bg-green-"][class*="/10"] {
+  border-color: #bbf7d0 !important;
+  background-color: #ecfdf5 !important;
+  color: var(--admin-light-success) !important;
+}
+
+.hk-admin-os [class*="bg-amber-"][class*="/10"],
+.hk-admin-os [class*="bg-yellow-"][class*="/10"],
+.hk-admin-os [class*="bg-orange-"][class*="/10"] {
+  border-color: #fde68a !important;
+  background-color: #fffbeb !important;
+  color: var(--admin-light-warning) !important;
+}
+
+.hk-admin-os [class*="bg-red-"][class*="/10"] {
+  border-color: #fecaca !important;
+  background-color: #fef2f2 !important;
+  color: var(--admin-light-danger) !important;
+}
+
+.hk-admin-os [class*="bg-cyan-"][class*="/10"],
+.hk-admin-os [class*="bg-blue-"][class*="/10"] {
+  border-color: #bae6fd !important;
+  background-color: #f0f9ff !important;
+  color: var(--admin-light-cyan) !important;
+}
+
+.hk-admin-os .bg-cyan-300 {
+  background-color: #22d3ee !important;
+  color: #083344 !important;
+}
+
+.hk-admin-os .bg-amber-300,
+.hk-admin-os .bg-yellow-300 {
+  background-color: #facc15 !important;
+  color: #422006 !important;
+}
+
+.hk-admin-os .hk-toast {
+  background: #ffffff !important;
+  border-color: var(--admin-light-border) !important;
+  color: var(--admin-light-text) !important;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, .14) !important;
+}
+
+.hk-admin-os .admin-color-card,
+.hk-admin-os .admin-color-card * {
+  color: #ffffff !important;
+}
