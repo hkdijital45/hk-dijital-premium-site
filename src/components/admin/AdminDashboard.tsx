@@ -553,7 +553,7 @@ export function AdminDashboard({
   const preparationAliases = ["İçerik Planları", "Promptlar", "İçerik Önerileri", "İçerik Fikirleri", "30 Günlük Sosyal Medya Planı", "Prompt Kütüphanesi", "Prompt Üretimi", "Kampanya Hazırlığı", "Kampanya Önerileri"];
 
   return (
-    <main className={`relative min-h-screen overflow-x-hidden ${shellClass}`}>
+    <main data-admin="true" className={`admin-shell hk-admin relative min-h-screen overflow-x-hidden ${shellClass}`}>
       <div className="admin-ambient pointer-events-none absolute inset-0" />
       <div className="premium-grid pointer-events-none absolute inset-0 opacity-20" />
       <header className={`sticky top-0 z-40 border-b ${headerClass} shadow-[0_10px_30px_rgba(0,0,0,.12)] backdrop-blur-2xl`}>

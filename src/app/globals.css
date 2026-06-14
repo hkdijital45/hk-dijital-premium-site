@@ -2539,3 +2539,346 @@ html {
 .hk-admin-os .ring-cyan-200\/30 {
   --tw-ring-color: rgba(34, 211, 238, .28) !important;
 }
+
+/* Emergency true-light admin interface lock. */
+.admin-shell,
+.admin-shell *,
+.hk-admin,
+.hk-admin *,
+[data-admin],
+[data-admin] * {
+  color-scheme: light !important;
+}
+
+.admin-shell,
+.hk-admin,
+[data-admin] {
+  background: #f8fafc !important;
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+.admin-shell main,
+.admin-shell nav,
+.admin-shell header,
+.admin-shell section,
+.admin-shell aside,
+.admin-shell article,
+.admin-shell form,
+.admin-shell table,
+.hk-admin main,
+.hk-admin nav,
+.hk-admin header,
+.hk-admin section,
+.hk-admin aside,
+.hk-admin article,
+.hk-admin form,
+.hk-admin table,
+[data-admin] main,
+[data-admin] nav,
+[data-admin] header,
+[data-admin] section,
+[data-admin] aside,
+[data-admin] article,
+[data-admin] form,
+[data-admin] table {
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+.admin-shell header,
+.admin-shell nav,
+.hk-admin header,
+.hk-admin nav,
+[data-admin] header,
+[data-admin] nav {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+}
+
+.admin-shell .admin-dashboard-main,
+.hk-admin .admin-dashboard-main,
+[data-admin] .admin-dashboard-main {
+  background: #f1f5f9 !important;
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+.admin-shell .admin-card,
+.admin-shell .glass-card,
+.admin-shell [class*="card"],
+.admin-shell [class*="panel"],
+.admin-shell [class*="surface"],
+.admin-shell .admin-top-dropdown,
+.admin-shell .admin-modal-panel,
+.admin-shell .admin-drawer-panel,
+.admin-shell section,
+.admin-shell aside,
+.admin-shell article,
+.admin-shell table,
+.hk-admin .admin-card,
+.hk-admin .glass-card,
+.hk-admin [class*="card"],
+.hk-admin [class*="panel"],
+.hk-admin [class*="surface"],
+.hk-admin .admin-top-dropdown,
+.hk-admin .admin-modal-panel,
+.hk-admin .admin-drawer-panel,
+.hk-admin section,
+.hk-admin aside,
+.hk-admin article,
+.hk-admin table,
+[data-admin] .admin-card,
+[data-admin] .glass-card,
+[data-admin] [class*="card"],
+[data-admin] [class*="panel"],
+[data-admin] [class*="surface"],
+[data-admin] .admin-top-dropdown,
+[data-admin] .admin-modal-panel,
+[data-admin] .admin-drawer-panel,
+[data-admin] section,
+[data-admin] aside,
+[data-admin] article,
+[data-admin] table {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .04), 0 8px 24px rgba(0, 0, 0, .05) !important;
+}
+
+.admin-shell input,
+.admin-shell select,
+.admin-shell textarea,
+.hk-admin input,
+.hk-admin select,
+.hk-admin textarea,
+[data-admin] input,
+[data-admin] select,
+[data-admin] textarea {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+.admin-shell input::placeholder,
+.admin-shell textarea::placeholder,
+.hk-admin input::placeholder,
+.hk-admin textarea::placeholder,
+[data-admin] input::placeholder,
+[data-admin] textarea::placeholder {
+  color: #64748b !important;
+}
+
+.admin-shell h1,
+.admin-shell h2,
+.admin-shell h3,
+.admin-shell h4,
+.admin-shell h5,
+.admin-shell h6,
+.admin-shell strong,
+.admin-shell label,
+.admin-shell th,
+.admin-shell .font-black,
+.admin-shell .font-bold,
+.admin-shell .text-white,
+.admin-shell .text-slate-50,
+.admin-shell .text-slate-100,
+.admin-shell .text-slate-200,
+.hk-admin h1,
+.hk-admin h2,
+.hk-admin h3,
+.hk-admin h4,
+.hk-admin h5,
+.hk-admin h6,
+.hk-admin strong,
+.hk-admin label,
+.hk-admin th,
+.hk-admin .font-black,
+.hk-admin .font-bold,
+.hk-admin .text-white,
+.hk-admin .text-slate-50,
+.hk-admin .text-slate-100,
+.hk-admin .text-slate-200,
+[data-admin] h1,
+[data-admin] h2,
+[data-admin] h3,
+[data-admin] h4,
+[data-admin] h5,
+[data-admin] h6,
+[data-admin] strong,
+[data-admin] label,
+[data-admin] th,
+[data-admin] .font-black,
+[data-admin] .font-bold,
+[data-admin] .text-white,
+[data-admin] .text-slate-50,
+[data-admin] .text-slate-100,
+[data-admin] .text-slate-200 {
+  color: #0f172a !important;
+}
+
+.admin-shell p,
+.admin-shell span,
+.admin-shell small,
+.admin-shell li,
+.admin-shell td,
+.admin-shell .text-slate-300,
+.admin-shell .text-slate-400,
+.admin-shell .text-slate-500,
+.admin-shell .text-slate-600,
+.admin-shell .text-slate-700,
+.hk-admin p,
+.hk-admin span,
+.hk-admin small,
+.hk-admin li,
+.hk-admin td,
+.hk-admin .text-slate-300,
+.hk-admin .text-slate-400,
+.hk-admin .text-slate-500,
+.hk-admin .text-slate-600,
+.hk-admin .text-slate-700,
+[data-admin] p,
+[data-admin] span,
+[data-admin] small,
+[data-admin] li,
+[data-admin] td,
+[data-admin] .text-slate-300,
+[data-admin] .text-slate-400,
+[data-admin] .text-slate-500,
+[data-admin] .text-slate-600,
+[data-admin] .text-slate-700 {
+  color: #334155 !important;
+}
+
+.admin-shell .text-xs,
+.admin-shell .text-\[10px\],
+.hk-admin .text-xs,
+.hk-admin .text-\[10px\],
+[data-admin] .text-xs,
+[data-admin] .text-\[10px\] {
+  color: #64748b !important;
+}
+
+.admin-shell [class*="bg-[#020"],
+.admin-shell [class*="bg-[#030"],
+.admin-shell [class*="bg-[#050"],
+.admin-shell [class*="bg-[#070"],
+.admin-shell [class*="bg-[#071"],
+.admin-shell [class*="bg-[#080"],
+.admin-shell [class*="bg-[#081"],
+.admin-shell [class*="bg-[#090"],
+.admin-shell [class*="bg-[#091"],
+.admin-shell [class*="bg-[#0a"],
+.admin-shell [class*="bg-slate-800"],
+.admin-shell [class*="bg-slate-900"],
+.admin-shell [class*="bg-slate-950"],
+.admin-shell [class*="bg-gray-900"],
+.admin-shell [class*="bg-neutral-900"],
+.admin-shell [class*="bg-zinc-900"],
+.admin-shell [class*="bg-black"],
+.admin-shell [class*="bg-white/"],
+.admin-shell [class*="bg-white\\["],
+.admin-shell [class*="from-slate-"],
+.admin-shell [class*="via-slate-"],
+.admin-shell [class*="to-slate-"],
+.admin-shell [class*="from-[#"],
+.admin-shell [class*="via-[#"],
+.admin-shell [class*="to-[#"],
+.admin-shell [class*="to-black"],
+.admin-shell [class*="bg-gradient-to-"],
+.hk-admin [class*="bg-[#020"],
+.hk-admin [class*="bg-[#030"],
+.hk-admin [class*="bg-[#050"],
+.hk-admin [class*="bg-[#070"],
+.hk-admin [class*="bg-[#071"],
+.hk-admin [class*="bg-[#080"],
+.hk-admin [class*="bg-[#081"],
+.hk-admin [class*="bg-[#090"],
+.hk-admin [class*="bg-[#091"],
+.hk-admin [class*="bg-[#0a"],
+.hk-admin [class*="bg-slate-800"],
+.hk-admin [class*="bg-slate-900"],
+.hk-admin [class*="bg-slate-950"],
+.hk-admin [class*="bg-gray-900"],
+.hk-admin [class*="bg-neutral-900"],
+.hk-admin [class*="bg-zinc-900"],
+.hk-admin [class*="bg-black"],
+.hk-admin [class*="bg-white/"],
+.hk-admin [class*="bg-white\\["],
+.hk-admin [class*="from-slate-"],
+.hk-admin [class*="via-slate-"],
+.hk-admin [class*="to-slate-"],
+.hk-admin [class*="from-[#"],
+.hk-admin [class*="via-[#"],
+.hk-admin [class*="to-[#"],
+.hk-admin [class*="to-black"],
+.hk-admin [class*="bg-gradient-to-"],
+[data-admin] [class*="bg-[#020"],
+[data-admin] [class*="bg-[#030"],
+[data-admin] [class*="bg-[#050"],
+[data-admin] [class*="bg-[#070"],
+[data-admin] [class*="bg-[#071"],
+[data-admin] [class*="bg-[#080"],
+[data-admin] [class*="bg-[#081"],
+[data-admin] [class*="bg-[#090"],
+[data-admin] [class*="bg-[#091"],
+[data-admin] [class*="bg-[#0a"],
+[data-admin] [class*="bg-slate-800"],
+[data-admin] [class*="bg-slate-900"],
+[data-admin] [class*="bg-slate-950"],
+[data-admin] [class*="bg-gray-900"],
+[data-admin] [class*="bg-neutral-900"],
+[data-admin] [class*="bg-zinc-900"],
+[data-admin] [class*="bg-black"],
+[data-admin] [class*="bg-white/"],
+[data-admin] [class*="bg-white\\["],
+[data-admin] [class*="from-slate-"],
+[data-admin] [class*="via-slate-"],
+[data-admin] [class*="to-slate-"],
+[data-admin] [class*="from-[#"],
+[data-admin] [class*="via-[#"],
+[data-admin] [class*="to-[#"],
+[data-admin] [class*="to-black"],
+[data-admin] [class*="bg-gradient-to-"] {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+}
+
+.admin-shell .fixed.inset-0,
+.hk-admin .fixed.inset-0,
+[data-admin] .fixed.inset-0 {
+  background: rgba(15, 23, 42, .16) !important;
+  background-color: rgba(15, 23, 42, .16) !important;
+}
+
+.admin-shell button.bg-cyan-300,
+.admin-shell .bg-cyan-300,
+.hk-admin button.bg-cyan-300,
+.hk-admin .bg-cyan-300,
+[data-admin] button.bg-cyan-300,
+[data-admin] .bg-cyan-300 {
+  background: #22d3ee !important;
+  background-color: #22d3ee !important;
+  color: #083344 !important;
+}
+
+.admin-shell button.bg-amber-300,
+.admin-shell button.bg-yellow-300,
+.admin-shell .bg-amber-300,
+.admin-shell .bg-yellow-300,
+.hk-admin button.bg-amber-300,
+.hk-admin button.bg-yellow-300,
+.hk-admin .bg-amber-300,
+.hk-admin .bg-yellow-300,
+[data-admin] button.bg-amber-300,
+[data-admin] button.bg-yellow-300,
+[data-admin] .bg-amber-300,
+[data-admin] .bg-yellow-300 {
+  background: #facc15 !important;
+  background-color: #facc15 !important;
+  color: #422006 !important;
+}
