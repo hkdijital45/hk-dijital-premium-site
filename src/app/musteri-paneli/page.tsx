@@ -60,6 +60,16 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
   const portalTitle = `${portalName} Digital Center`;
   const welcomeText = branding.welcome_text || "Performans raporlarınız, kampanya notlarınız ve dijital büyüme verileriniz burada.";
   const paymentSummary = data.payments.reduce((total, item) => ({ paid: total.paid + (item.status === "Ödendi" ? Number(item.amount || 0) : 0), pending: total.pending + (item.status !== "Ödendi" && item.status !== "İptal" ? Number(item.amount || 0) : 0) }), { paid: 0, pending: 0 });
+  const visibleTimeline = [
+    ...data.campaigns.map((item) => ({ date: item.updated_at || item.created_at || item.start_date, title: "Kampanya güncellendi", text: `${item.name || "Kampanya"} · ${item.status || "Durum yok"}` })),
+    ...data.reports.map((item) => ({ date: item.created_at || item.report_date || item.endDate, title: "Rapor yayınlandı", text: item.report_type || "Müşteri raporu" })),
+    ...data.monthlyReports.map((item) => ({ date: item.report_month, title: "Aylık rapor hazır", text: item.summary || "Aylık performans özeti" })),
+    ...data.documents.map((item) => ({ date: item.document_date || item.created_at, title: "Belge eklendi", text: item.title || item.document_type || "Belge" })),
+    ...visibleUpdates.map((item) => ({ date: item.created_at || item.update_date, title: item.title || "Ajans notu", text: item.next_step || item.description || item.update_type || "Güncelleme" })),
+    ...data.payments.map((item) => ({ date: item.payment_date || item.due_date || item.created_at, title: item.status === "Ödendi" ? "Ödeme alındı" : "Ödeme kaydı", text: `${item.service_period || "Hizmet dönemi"} · ${item.status || "Bekliyor"}` }))
+  ].filter((item) => item.date).sort((a, b) => Number(new Date(b.date)) - Number(new Date(a.date))).slice(0, 8);
+  const nextSteps = visibleUpdates.filter((item) => item.next_step).slice(0, 4);
+  const activeCampaigns = data.campaigns.filter((item) => item.status === "Aktif");
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#050711] text-white">
@@ -102,6 +112,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
         <nav className="mb-6 flex flex-wrap gap-2 rounded-[8px] border border-white/10 bg-white/[0.04] p-3 text-sm font-bold">
           {visibility.show_metrics && <a href="#performans" className="rounded-full border border-cyan-200/20 px-4 py-2 text-cyan-100 hover:bg-cyan-200/10">Performans</a>}
           {data.reports.length > 0 || data.monthlyReports.length > 0 ? <a href="#raporlar" className="rounded-full border border-cyan-200/20 px-4 py-2 text-cyan-100 hover:bg-cyan-200/10">Raporlar</a> : null}
+          {data.campaigns.length > 0 ? <a href="#kampanyalar" className="rounded-full border border-cyan-200/20 px-4 py-2 text-cyan-100 hover:bg-cyan-200/10">Kampanyalar</a> : null}
           {visibility.show_work_updates && <a href="#notlar" className="rounded-full border border-cyan-200/20 px-4 py-2 text-cyan-100 hover:bg-cyan-200/10">Notlar</a>}
           {(visibility.show_files || data.documents.length > 0) && <a href="#belgeler" className="rounded-full border border-cyan-200/20 px-4 py-2 text-cyan-100 hover:bg-cyan-200/10">Belgeler</a>}
           {data.payments.length > 0 && <a href="#odemeler" className="rounded-full border border-amber-200/20 px-4 py-2 text-amber-100 hover:bg-amber-200/10">Ödemeler</a>}
@@ -119,6 +130,33 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
           </div>
         </section>
 
+        <section className="mb-8 grid gap-4 lg:grid-cols-[1.1fr_.9fr]">
+          <GlassCard className="p-5">
+            <p className="text-xs font-black uppercase tracking-[.18em] text-cyan-100">Customer Portal 2.0</p>
+            <h2 className="mt-2 text-2xl font-black">Bu ayki operasyon özeti</h2>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <MetricCard title="Bu ay performans" value={totals.impressions ? `${totals.impressions.toLocaleString("tr-TR")} gösterim` : "Veri yok"} help="Müşteriye görünür metriklerden hesaplanır." />
+              <MetricCard title="Aktif kampanya" value={activeCampaigns.length} help="Sadece müşteriye görünür kampanyalar listelenir." />
+              <MetricCard title="Yayınlanan rapor" value={data.reports.length + data.monthlyReports.length} help="Müşteri paneline açık raporlar." />
+              <MetricCard title="Görünür belge" value={data.documents.length + data.files.length} help="Sadece görünür olarak işaretlenen belgeler." />
+            </div>
+            <div className="mt-5 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-4">
+              <p className="font-black text-cyan-50">Sonraki adımlar</p>
+              <div className="mt-3 grid gap-2">
+                {nextSteps.map((item) => <p key={item.id} className="rounded-[8px] bg-black/20 p-3 text-sm leading-6 text-cyan-50">{item.next_step}</p>)}
+                {!nextSteps.length && <p className="text-sm text-cyan-100/80">Henüz görünür sonraki adım eklenmedi. Raporlar ve ajans notları yayınlandıkça burada görünür.</p>}
+              </div>
+            </div>
+          </GlassCard>
+          <GlassCard className="p-5">
+            <h2 className="text-xl font-black">Son görünür hareketler</h2>
+            <div className="mt-5 grid gap-3">
+              {visibleTimeline.map((item, index) => <div key={`${item.title}-${index}`} className="rounded-[8px] border border-white/10 bg-black/20 p-3"><p className="text-xs font-black text-cyan-100">{item.date ? new Date(item.date).toLocaleDateString("tr-TR") : "Tarih yok"}</p><p className="mt-1 font-black">{item.title}</p><p className="mt-1 text-sm leading-6 text-slate-300">{item.text}</p></div>)}
+              {!visibleTimeline.length && <p className="rounded-[8px] border border-dashed border-white/10 p-4 text-sm text-slate-400">Henüz müşteriye görünür hareket bulunmuyor.</p>}
+            </div>
+          </GlassCard>
+        </section>
+
         {visibility.show_metrics && <section id="performans" className="grid scroll-mt-28 gap-4 md:grid-cols-2 lg:grid-cols-4">
           <MetricCard title="Reklamınız kaç kez gösterildi" value={totals.impressions} help="Reklamınızın ekranda toplam görüntülenme sayısıdır." />
           <MetricCard title="Reklamınız kaç kişiye ulaştı" value={totals.reach} help={`Reklamınız bu ay ${totals.reach} kişiye ulaştı.`} />
@@ -131,7 +169,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
           <MetricCard title="Kampanya durumu" value={data.campaigns[0]?.status || "Hazırlanıyor"} help="Kampanya durumu, aktif çalışma aşamasını özetler." />
         </section>}
 
-        <section className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_.9fr]">
+        <section id="kampanyalar" className="mt-8 grid scroll-mt-28 gap-6 lg:grid-cols-[1.1fr_.9fr]">
           {visibility.show_campaigns && (
             <GlassCard className="p-5">
               <h2 className="flex items-center gap-2 text-xl font-black"><BarChart3 className="text-cyan-200" /> Reklam Performansı</h2>

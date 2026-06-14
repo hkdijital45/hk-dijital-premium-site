@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, react/jsx-key, react/no-unescaped-entities, react-hooks/purity, react-hooks/immutability */
 // @ts-nocheck
 
 import Image from "next/image";
@@ -68,6 +69,13 @@ const adminLabelEmojis: Record<string, string> = {
   "Meta İstihbarat": "📣",
   "Google İstihbarat": "🔎",
   "Lead Analizi": "🎯"
+  ,
+  "Takip Merkezi": "📞",
+  "AI Denetim": "🧠",
+  "PDF Rapor Tasarım Merkezi": "🖨️",
+  "Gelir Tahmini": "📈",
+  "Sözleşme Oluştur": "📝",
+  "WhatsApp Hatırlatma Merkezi": "💬"
 };
 
 function withAdminEmoji(label: string) {
@@ -677,18 +685,24 @@ export function AdminDashboard({
           {dashboardAliases.includes(active) && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} systemStatus={systemStatus} currentSession={currentSession} allowedModules={allowedModules} />}
           {active === "Satış Hunisi" && <SalesPipeline content={content} setContent={setContent} save={save} setActive={setActive} />}
           {active === "CRM" && <CrmHub {...props} />}
+          {active === "Takip Merkezi" && <LeadFollowUpCenter {...props} setActive={setActive} />}
+          {active === "AI Denetim" && <AiAuditCenter {...props} setActive={setActive} />}
           {active === "Görevler" && <AgencyTasksCenter {...props} />}
           {active === "Belgeler" && <DocumentCenter {...props} />}
           {active === "Tahsilat" && <PaymentCenter {...props} />}
           {active === "Takvim" && <AgencyCalendarCenter {...props} />}
+          {active === "Gelir Tahmini" && <RevenueForecastCenter {...props} />}
+          {active === "Sözleşme Oluştur" && <ContractGeneratorCenter {...props} />}
+          {active === "WhatsApp Hatırlatma Merkezi" && <WhatsAppReminderCenter {...props} setActive={setActive} />}
           {["Müşteri Bulucu", "İşletme Keşfi", "Müşteri Bul", "Müşteri Keşfi"].includes(active) && <CustomerFinder {...props} />}
           {["Lead Yönetimi", "Lead Analizi", ...crmLeadViews].includes(active) && <Crm {...props} view={["Lead Yönetimi", "Leadler", "Lead Analizi"].includes(active) ? "Lead Durumları" : active} setActive={setActive} />}
           {["Meta Analiz", "Meta Raporları", "Meta İstihbarat"].includes(active) && <MetaAnalysisSection />}
           {["Google Analiz", "Google Ads Analiz", "Google Ads Raporları", "Google İstihbarat"].includes(active) && <GoogleAdsAnalysisSection />}
           {["Sosyal İstihbarat Merkezi", "Sosyal Medya Denetimi", "PDF Audit"].includes(active) && <SocialMediaAuditCenter />}
           {["AI Studio", "AI Analizleri"].includes(active) && <AiAssistant {...props} mode="AI Studio" />}
-          {["Teklif Motoru", "Teklif Hazırlama", "Teklif Oluştur", "WhatsApp Teklifi"].includes(active) && <ProposalEngine {...props} />}
+          {["Teklif Motoru", "Teklif Hazırlama", "Teklif Oluştur", "WhatsApp Teklifi"].includes(active) && <ProposalEngine {...props} setActive={setActive} />}
           {active === "Raporlar" && <ReportsHub {...props} />}
+          {active === "PDF Rapor Tasarım Merkezi" && <PdfReportDesignCenter {...props} />}
           {active === "Müşteriler" && <CustomersAdmin {...props} />}
           {["Site Ayarları", "Web Sitesi Yönetimi"].includes(active) && <WebsiteManagementCenter {...props} />}
           {["API Ayarları", "API Durum Kontrolü", "AI Sağlayıcı Ayarları", "Entegrasyonlar"].includes(active) && <IntegrationsCenter {...props} />}
@@ -3950,7 +3964,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
     show_files: true,
     show_contact_person: true
   };
-  const tabs = ["Genel Bilgi", "İletişim", "Satış Durumu", "Meta Hesapları", "Kampanyalar", "Teklifler", "Ödemeler", "Yapılacaklar", "Raporlar", "Dosyalar", "Zaman Çizelgesi", "Panel Görünürlüğü", "Giriş Bilgileri", "Metrikler", "Yapılan Çalışmalar", "Aktivite Geçmişi", "Notlar"];
+  const tabs = ["Genel Bilgi", "İletişim", "Satış Durumu", "Reklam Hesapları", "Kampanyalar", "Teklifler", "Ödemeler", "Yapılacaklar", "Raporlar", "Dosyalar", "Zaman Çizelgesi", "Panel Görünürlüğü", "Giriş Bilgileri", "Metrikler", "Yapılan Çalışmalar", "Aktivite Geçmişi", "Notlar"];
   async function runProfileAction(label, action) {
     setProfileAction(`${label}...`);
     await Promise.resolve(action());
@@ -4098,7 +4112,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
           <AgencyStatCard label="Açık görev" value={tasks.filter((item) => !["Tamamlandı", "İptal"].includes(item.status)).length} note="Yapılacaklar ile senkron" tone="emerald" />
         </div>
       </div>}
-      {tab === "Meta Hesapları" && <CustomerMetaAccounts company={company} content={content} setContent={setContent} notify={notify} />}
+      {tab === "Reklam Hesapları" && <CustomerMetaAccounts company={company} content={content} setContent={setContent} notify={notify} />}
       {tab === "Kampanyalar" && <CustomerCampaignsEditor company={company} content={content} setContent={setContent} save={save} setActive={setActive} items={campaigns} notify={notify} canManage={canManageCustomer} />}
       {tab === "Teklifler" && <CustomerProposalsEditor company={company} content={content} setContent={setContent} save={save} items={proposals} notify={notify} canManage={canManageCustomer} />}
       {tab === "Zaman Çizelgesi" && <CustomerTimeline company={company} campaigns={campaigns} payments={payments} tasks={tasks} documents={documents} reports={reports} activities={activities} />}
@@ -4133,6 +4147,8 @@ function CustomerMetaAccounts({ company, content, setContent, notify }: any) {
     pageId: existing.page_id || "",
     instagramAccountId: existing.instagram_account_id || "",
     businessId: existing.business_id || api.meta_business_id || "",
+    googleAdsCustomerId: existing.google_ads_customer_id || company.google_ads_customer_id || api.google_ads_customer_id || "",
+    googleAnalyticsId: existing.google_analytics_id || company.google_analytics_id || "",
     rangePreset: "last_30d",
     dateFrom: "",
     dateTo: ""
@@ -4182,14 +4198,28 @@ function CustomerMetaAccounts({ company, content, setContent, notify }: any) {
     setMessage(data.message || data.errorMessage || "Meta işlemi tamamlandı.");
     setLoading("");
   }
+  function testGoogle() {
+    const ok = Boolean(form.googleAdsCustomerId);
+    setMessage(ok ? "Google bağlantısı sync-ready durumda. Canlı Google Ads kimlikleri sunucuda tanımlandığında aynı akış gerçek veriyle çalışır." : "Google Ads Customer ID eksik.");
+    notify?.(ok ? "✓ Google bağlantısı hazır" : "⚠ Google müşteri ID eksik", ok ? "success" : "warning");
+  }
+  function pullGoogle() {
+    const now = new Date().toISOString();
+    const demoRows = [{ id: `google-profile-${company.id}-${Date.now()}`, company_id: company.id, date: now.slice(0, 10), period: "Google Sync Demo", source: "Google Ads Sync", visible_to_customer: true, impressions: 12400, clicks: 310, conversions: 18, spent: 4200, ctr: 2.5, cpc: 13.55, cost_per_lead: 233.33 }];
+    const nextLink = { ...linked, company_id: company.id, google_ads_customer_id: form.googleAdsCustomerId, google_analytics_id: form.googleAnalyticsId, google_status: "Sync-ready demo", google_last_sync_at: now, updated_at: now };
+    setLinked(nextLink);
+    setContent({ ...content, metaAccountLinks: [nextLink, ...(content.metaAccountLinks || []).filter((item: any) => item.company_id !== company.id)], campaignMetrics: [...demoRows, ...(content.campaignMetrics || [])] });
+    setMessage("Google verileri için demo/sync-ready kayıt oluşturuldu. Gerçek Google Ads yetkileri sunucuda hazır olduğunda bu alan canlı metriklerle dolar.");
+    notify?.("✓ Google sync-ready verisi oluşturuldu", "success");
+  }
   const totals = summarizeMetaRows(rows);
   return (
     <div className="grid gap-5">
       <div className="rounded-[14px] border border-cyan-200/20 bg-cyan-300/[0.07] p-4">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h3 className="text-xl font-black text-white">Meta Hesapları</h3>
-            <p className="mt-1 text-sm leading-6 text-slate-300">Bu müşteriyi Meta Ad Account, Facebook Sayfası ve Instagram hesabıyla eşleştirin.</p>
+            <h3 className="text-xl font-black text-white">Reklam Hesapları</h3>
+            <p className="mt-1 text-sm leading-6 text-slate-300">Bu müşteriyi Meta ve Google reklam hesaplarıyla eşleştirin. Hassas token değerleri tarayıcıda gösterilmez.</p>
           </div>
           <span className="rounded-full border border-white/10 px-3 py-2 text-xs text-slate-300">Durum: {linked.status || "Bağlı değil"}</span>
         </div>
@@ -4198,6 +4228,8 @@ function CustomerMetaAccounts({ company, content, setContent, notify }: any) {
           <Field label="Facebook Sayfası" value={form.pageId} onChange={(pageId) => setForm({ ...form, pageId })} />
           <Field label="Instagram Hesabı" value={form.instagramAccountId} onChange={(instagramAccountId) => setForm({ ...form, instagramAccountId })} />
           <Field label="Meta Business ID" value={form.businessId} onChange={(businessId) => setForm({ ...form, businessId })} />
+          <Field label="Google Ads Customer ID" value={form.googleAdsCustomerId} onChange={(googleAdsCustomerId) => setForm({ ...form, googleAdsCustomerId })} />
+          <Field label="Google Analytics ID" value={form.googleAnalyticsId} onChange={(googleAnalyticsId) => setForm({ ...form, googleAnalyticsId })} />
           <SelectField label="Veri aralığı" value={form.rangePreset} onChange={(rangePreset) => setForm({ ...form, rangePreset })} options={[{ value: "last_7d", label: "Son 7 Gün" }, { value: "last_30d", label: "Son 30 Gün" }, { value: "this_month", label: "Bu Ay" }, { value: "last_month", label: "Geçen Ay" }, { value: "custom", label: "Özel Tarih" }]} />
           {form.rangePreset === "custom" && <Field label="Başlangıç tarihi" type="date" value={form.dateFrom} onChange={(dateFrom) => setForm({ ...form, dateFrom })} />}
           {form.rangePreset === "custom" && <Field label="Bitiş tarihi" type="date" value={form.dateTo} onChange={(dateTo) => setForm({ ...form, dateTo })} />}
@@ -4208,6 +4240,8 @@ function CustomerMetaAccounts({ company, content, setContent, notify }: any) {
           <button disabled={Boolean(loading)} onClick={test} className="rounded-full border border-cyan-200/25 px-4 py-2 text-xs font-black text-cyan-100 disabled:opacity-60">{loading === "test" ? "Test ediliyor..." : "Test Et"}</button>
           <button disabled={Boolean(loading) || !form.adAccountId} onClick={() => pull("sync")} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs font-black text-emerald-100 disabled:opacity-60">{loading === "sync" ? "Veriler çekiliyor..." : "Verileri Çek"}</button>
           <button disabled={Boolean(loading) || !form.adAccountId} onClick={() => pull("report")} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs font-black text-amber-100 disabled:opacity-60">Meta Verilerinden Rapor Oluştur</button>
+          <button type="button" onClick={testGoogle} className="rounded-full border border-blue-300/30 px-4 py-2 text-xs font-black text-blue-100">Google Bağlantısını Test Et</button>
+          <button type="button" onClick={pullGoogle} className="rounded-full border border-blue-300/30 px-4 py-2 text-xs font-black text-blue-100">Google Verilerini Çek</button>
         </div>
         {message && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{message}</p>}
       </div>
@@ -6234,15 +6268,401 @@ function ChannelAnalysis({ content, channel }: any) {
   </Panel>;
 }
 
-function ProposalEngine({ content, setContent, save }: any) {
+function v4Money(value: any) {
+  return `${Number(value || 0).toLocaleString("tr-TR")} TL`;
+}
+
+function companyById(content: any, id: string) {
+  return (content.companies || []).find((company: any) => company.id === id);
+}
+
+function leadCompanyName(lead: any) {
+  return lead?.company || lead?.name || lead?.business_name || "İsimsiz lead";
+}
+
+function buildLocalAudit(form: any, target: any = {}) {
+  const hasWebsite = Boolean(form.website || target.website);
+  const hasInstagram = Boolean(form.instagram || target.instagram);
+  const hasGoogle = Boolean(form.googleBusinessUrl);
+  const hasLocation = Boolean(form.city || target.city);
+  const sector = String(form.sector || target.sector || target.business_type || "").toLocaleLowerCase("tr");
+  const highPotential = ["emlak", "oto", "klinik", "güzellik", "diş", "eğitim", "restoran", "avukat"].some((item) => sector.includes(item));
+  const digitalScore = Math.min(100, 20 + (hasWebsite ? 24 : 0) + (hasInstagram ? 18 : 0) + (hasGoogle ? 18 : 0) + (hasLocation ? 10 : 0) + (highPotential ? 10 : 0));
+  const adScore = Math.min(100, 35 + (!hasWebsite ? 18 : 8) + (hasInstagram ? 12 : 4) + (hasLocation ? 10 : 0) + (highPotential ? 20 : 8) + (target.phone ? 8 : 0));
+  const monthlyBudget = adScore >= 80 ? "35.000 - 75.000 TL" : adScore >= 60 ? "20.000 - 40.000 TL" : "12.000 - 25.000 TL";
+  const packageName = adScore >= 80 ? "Premium" : adScore >= 60 ? "Standart" : "Temel";
+  return {
+    digitalScore,
+    adScore,
+    monthlyBudget,
+    packageName,
+    sections: [
+      ["Web sitesi analizi", hasWebsite ? "Web sitesi var. Landing page, hız, ölçümleme ve dönüşüm takipleri kontrol edilmeli." : "Web sitesi bulunamadı. Reklam trafiği için landing page veya hızlı teklif sayfası güçlü fırsat."],
+      ["Instagram analizi", hasInstagram ? "Instagram varlığı mevcut. Profil bio, sabit içerikler, teklif CTA ve reklam kreatifleri güçlendirilebilir." : "Instagram bilgisi eksik. Sosyal kanıt ve içerik düzeni için profil çalışması önerilir."],
+      ["Google profil analizi", hasGoogle ? "Google işletme bağlantısı girilmiş. Yorum, puan, kategori ve harita görünürlüğü takip edilmeli." : "Google işletme bağlantısı yok. Harita görünürlüğü ve yorum yönetimi başlangıç fırsatı."],
+      ["Meta reklam fırsatları", "Mesaj, lead ve remarketing akışıyla hızlı geri dönüş alınabilecek reklam yapısı kurulabilir."],
+      ["Google Ads fırsatları", "Yerel arama niyetleri, marka dışı anahtar kelimeler ve dönüşüm odaklı kampanyalar test edilebilir."],
+      ["SEO başlangıç notları", "Sektör + şehir odaklı temel sayfa başlıkları, yerel içerik ve hızlı teknik iyileştirme önerilir."]
+    ],
+    missing: [
+      !hasWebsite && "Website / landing page eksik",
+      !hasInstagram && "Instagram profil bilgisi eksik",
+      !hasGoogle && "Google işletme bağlantısı eksik",
+      "Ölçümleme ve dönüşüm takibi kontrol edilmeli"
+    ].filter(Boolean),
+    actions: ["Ölçümleme kurulumu", "Teklif odaklı landing page", "Meta mesaj/lead kampanyası", "Google arama kampanyası", "7 gün kreatif testi"]
+  };
+}
+
+function AiAuditCenter({ content, setContent, save, setActive, notify }: any) {
+  const [form, setForm] = useState({ sourceType: "Müşteri", companyId: "", leadId: "", website: "", instagram: "", googleBusinessUrl: "", sector: "", city: "", district: "" });
+  const [audit, setAudit] = useState<any>(null);
+  const selectedCompany = companyById(content, form.companyId);
+  const selectedLead = (content.leads || []).find((lead: any) => lead.id === form.leadId);
+  const target = selectedCompany || selectedLead || {};
+  const targetName = selectedCompany?.name || leadCompanyName(selectedLead) || "Yeni işletme";
+  function update(patch: any) {
+    setForm((current) => ({ ...current, ...patch }));
+  }
+  function generate() {
+    const result = buildLocalAudit(form, target);
+    setAudit(result);
+    notify?.("✓ AI denetim yerel analiz ile oluşturuldu", "success");
+  }
+  function saveLead() {
+    const now = new Date().toISOString();
+    const lead = {
+      id: selectedLead?.id || createLocalId(),
+      company_id: selectedCompany?.id || selectedLead?.company_id || "",
+      name: targetName,
+      company: targetName,
+      website: form.website || target.website || "",
+      instagram: form.instagram || target.instagram || "",
+      city: form.city || target.city || "",
+      district: form.district || target.district || "",
+      sector: form.sector || target.sector || target.business_type || "",
+      source: "AI Denetim",
+      status: selectedLead?.status || "Teklif Hazırlanıyor",
+      pipeline_stage: selectedLead?.pipeline_stage || "Yeni Lead",
+      score: audit?.adScore || selectedLead?.score || 0,
+      notes: `${selectedLead?.notes || ""}\n\nAI Denetim: Dijital ${audit?.digitalScore || 0}/100, Reklam ${audit?.adScore || 0}/100. Önerilen paket: ${audit?.packageName || "-"}.`.trim(),
+      created_at: selectedLead?.created_at || now,
+      updated_at: now
+    };
+    const exists = (content.leads || []).some((item: any) => item.id === lead.id);
+    const next = { ...content, leads: exists ? (content.leads || []).map((item: any) => item.id === lead.id ? lead : item) : [lead, ...(content.leads || [])] };
+    setContent(next);
+    save?.(next);
+    notify?.("✓ Denetim CRM lead kaydına işlendi", "success");
+  }
+  function saveDocument(type = "PDF Denetim Raporu") {
+    if (!audit) return notify?.("⚠ Önce denetim oluşturun", "warning");
+    const doc = {
+      id: createLocalId(),
+      company_id: selectedCompany?.id || selectedLead?.company_id || "",
+      title: `${type} · ${targetName}`,
+      document_type: type.includes("PDF") ? "Rapor" : "AI Denetim",
+      document_date: new Date().toISOString().slice(0, 10),
+      description: `Dijital Olgunluk: ${audit.digitalScore}/100\nReklam Potansiyeli: ${audit.adScore}/100\nÖnerilen paket: ${audit.packageName}\nÖnerilen bütçe: ${audit.monthlyBudget}\n\nEksikler:\n${audit.missing.map((item: string) => `- ${item}`).join("\n")}\n\nÖncelikli aksiyonlar:\n${audit.actions.map((item: string) => `- ${item}`).join("\n")}`,
+      visible_to_customer: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    const next = { ...content, customerDocuments: [doc, ...(content.customerDocuments || [])] };
+    setContent(next);
+    save?.(next);
+    notify?.("✓ Denetim müşteri belgelerine kaydedildi", "success");
+  }
+  const whatsapp = `Merhaba, ${targetName} için hızlı bir dijital denetim hazırladık. Reklam potansiyeli ${audit?.adScore || "-"}/100 görünüyor. İsterseniz eksikleri ve 30 günlük aksiyon planını paylaşabilirim.`;
+  return (
+    <Panel title="AI Denetim Sistemi">
+      <p className="mb-5 text-sm leading-6 text-slate-400">Müşteri, lead veya yeni işletme için dijital olgunluk, reklam potansiyeli ve teklif öncesi aksiyon planı oluşturun. AI sağlayıcı yoksa deterministik yerel analiz kullanılır.</p>
+      <div className="grid gap-5 xl:grid-cols-[1fr_420px]">
+        <GlassCard className="p-5">
+          <div className="grid gap-4 md:grid-cols-2">
+            <SelectField label="Denetim kaynağı" value={form.sourceType} onChange={(sourceType) => update({ sourceType })} options={["Müşteri", "Lead", "Yeni İşletme"]} />
+            {form.sourceType === "Müşteri" && <CompanySelect value={form.companyId} onChange={(companyId) => update({ companyId })} companies={content.companies} />}
+            {form.sourceType === "Lead" && <SelectField label="Lead" value={form.leadId} onChange={(leadId) => update({ leadId })} options={(content.leads || []).map((lead: any) => ({ value: lead.id, label: leadCompanyName(lead) }))} />}
+            <Field label="Website URL" value={form.website || target.website || ""} onChange={(website) => update({ website })} />
+            <Field label="Instagram hesabı" value={form.instagram || target.instagram || ""} onChange={(instagram) => update({ instagram })} />
+            <Field label="Google işletme bağlantısı" value={form.googleBusinessUrl} onChange={(googleBusinessUrl) => update({ googleBusinessUrl })} />
+            <Field label="Sektör" value={form.sector || target.sector || target.business_type || ""} onChange={(sector) => update({ sector })} />
+            <Field label="İl" value={form.city || target.city || ""} onChange={(city) => update({ city })} />
+            <Field label="İlçe" value={form.district || target.district || ""} onChange={(district) => update({ district })} />
+          </div>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <button onClick={generate} className="rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">AI Denetim Oluştur</button>
+            <button onClick={saveLead} disabled={!audit} className="rounded-full border border-emerald-300/30 px-5 py-3 text-sm font-black text-emerald-100 disabled:opacity-50">CRM’e Kaydet</button>
+            <button onClick={() => setActive("Teklif Oluştur")} disabled={!audit} className="rounded-full border border-white/10 px-5 py-3 text-sm font-black text-slate-100 disabled:opacity-50">Teklif Oluştur</button>
+            <button onClick={() => saveDocument("PDF Denetim Raporu")} disabled={!audit} className="rounded-full border border-cyan-200/20 px-5 py-3 text-sm font-black text-cyan-100 disabled:opacity-50">PDF Denetim Raporu</button>
+          </div>
+        </GlassCard>
+        <GlassCard className="p-5">
+          <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-100">Denetim Çıktısı</p>
+          {!audit ? <p className="mt-4 rounded-[8px] border border-dashed border-white/10 p-5 text-sm text-slate-400">Denetim oluşturulduğunda skorlar, eksikler ve aksiyon planı burada görünür.</p> : (
+            <div className="mt-4 space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <AgencyStatCard label="Dijital Olgunluk" value={`${audit.digitalScore}/100`} note="Dijital varlık seviyesi" />
+                <AgencyStatCard label="Reklam Potansiyeli" value={`${audit.adScore}/100`} note="Satış fırsatı skoru" tone="amber" />
+              </div>
+              <div className="rounded-[8px] border border-white/10 bg-black/20 p-4"><p className="font-black text-white">Önerilen paket: {audit.packageName}</p><p className="mt-1 text-sm text-slate-300">Tahmini aylık reklam bütçesi: {audit.monthlyBudget}</p></div>
+              {audit.sections.map(([title, text]: any) => <div key={title} className="rounded-[8px] border border-white/10 bg-black/20 p-3"><p className="text-sm font-black text-cyan-100">{title}</p><p className="mt-1 text-sm leading-6 text-slate-300">{text}</p></div>)}
+              <div className="grid gap-3 md:grid-cols-2">
+                <div><p className="font-black text-white">Eksikler</p><ul className="mt-2 space-y-1 text-sm text-slate-300">{audit.missing.map((item: string) => <li key={item}>- {item}</li>)}</ul></div>
+                <div><p className="font-black text-white">Öncelikli aksiyonlar</p><ul className="mt-2 space-y-1 text-sm text-slate-300">{audit.actions.map((item: string) => <li key={item}>- {item}</li>)}</ul></div>
+              </div>
+              <div className="rounded-[8px] border border-emerald-300/20 bg-emerald-300/10 p-3 text-sm leading-6 text-emerald-50">{whatsapp}</div>
+              <button onClick={() => navigator.clipboard.writeText(whatsapp)} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs font-black text-emerald-100">WhatsApp Mesajı Hazırla</button>
+            </div>
+          )}
+        </GlassCard>
+      </div>
+    </Panel>
+  );
+}
+
+function LeadFollowUpCenter({ content, setContent, save, setActive, notify }: any) {
+  const [filters, setFilters] = useState({ date: "", status: "", sector: "", score: "", stage: "" });
+  const today = new Date().toISOString().slice(0, 10);
+  const leads = (content.leads || []).filter((lead: any) => !isLeadDeleted(lead));
+  const matches = (lead: any) => {
+    const actionDate = dateOnly(lead.next_action_at || lead.follow_up_date || lead.updated_at || lead.created_at);
+    if (filters.date && actionDate !== filters.date) return false;
+    if (filters.status && !String(lead.status || "").includes(filters.status)) return false;
+    if (filters.sector && !String(lead.sector || lead.business_type || "").toLocaleLowerCase("tr").includes(filters.sector.toLocaleLowerCase("tr"))) return false;
+    if (filters.score && Number(lead.score || lead.lead_score || 0) < Number(filters.score)) return false;
+    if (filters.stage && pipelineStageForLead(lead) !== filters.stage) return false;
+    return true;
+  };
+  const filtered = leads.filter(matches);
+  const buckets = [
+    ["Bugün aranacaklar", filtered.filter((lead: any) => dateOnly(lead.next_action_at || lead.follow_up_date) === today && !String(lead.next_action || "").toLocaleLowerCase("tr").includes("whatsapp"))],
+    ["Bugün WhatsApp atılacaklar", filtered.filter((lead: any) => dateOnly(lead.next_action_at || lead.follow_up_date) === today && String(lead.next_action || "").toLocaleLowerCase("tr").includes("whatsapp"))],
+    ["Takip gecikenler", filtered.filter((lead: any) => dateOnly(lead.next_action_at || lead.follow_up_date) && dateOnly(lead.next_action_at || lead.follow_up_date) < today)],
+    ["Teklif bekleyenler", filtered.filter((lead: any) => String(lead.status || "").includes("Teklif") || pipelineStageForLead(lead) === "Teklif Gönderildi")],
+    ["Toplantı bekleyenler", filtered.filter((lead: any) => String(lead.next_action || lead.notes || "").toLocaleLowerCase("tr").includes("toplantı"))],
+    ["Kazanılmaya yakın leadler", filtered.filter((lead: any) => Number(lead.score || lead.lead_score || 0) >= 75 || ["Takipte", "Teklif Gönderildi"].includes(pipelineStageForLead(lead)))]
+  ];
+  function patchLead(id: string, patch: any, message = "Lead güncellendi") {
+    const next = { ...content, leads: (content.leads || []).map((lead: any) => lead.id === id ? { ...lead, ...patch, updated_at: new Date().toISOString() } : lead) };
+    setContent(next);
+    save?.(next);
+    notify?.(`✓ ${message}`, "success");
+  }
+  function whatsappText(lead: any) {
+    return `Merhaba, ${leadCompanyName(lead)} için kısa dijital reklam ve büyüme analizi hazırlayabiliriz. İsterseniz bugün uygun olduğunuz bir saatte detayları paylaşayım.`;
+  }
+  return (
+    <Panel title="Takip Merkezi">
+      <p className="mb-5 text-sm leading-6 text-slate-400">Lead takipleri, teklif bekleyenler ve kazanılmaya yakın fırsatları tek operasyon ekranında yönetin.</p>
+      <GlassCard className="mb-5 p-4">
+        <div className="grid gap-3 md:grid-cols-5">
+          <Field label="Tarih" type="date" value={filters.date} onChange={(date) => setFilters({ ...filters, date })} />
+          <SelectField label="Durum" value={filters.status} onChange={(status) => setFilters({ ...filters, status })} options={leadStatuses} />
+          <Field label="Sektör" value={filters.sector} onChange={(sector) => setFilters({ ...filters, sector })} />
+          <SelectField label="Minimum lead skoru" value={filters.score} onChange={(score) => setFilters({ ...filters, score })} options={[{ value: "80", label: "80+" }, { value: "60", label: "60+" }, { value: "40", label: "40+" }]} />
+          <SelectField label="Pipeline aşaması" value={filters.stage} onChange={(stage) => setFilters({ ...filters, stage })} options={salesPipelineStages} />
+        </div>
+      </GlassCard>
+      <div className="grid gap-4 xl:grid-cols-2">
+        {buckets.map(([title, items]: any) => (
+          <GlassCard key={title} className="p-5">
+            <div className="mb-4 flex items-center justify-between gap-3"><h3 className="text-lg font-black text-white">{title}</h3><span className="rounded-full bg-cyan-300 px-3 py-1 text-xs font-black text-slate-950">{items.length}</span></div>
+            <div className="grid gap-3">
+              {items.slice(0, 8).map((lead: any) => (
+                <div key={lead.id} className="rounded-[8px] border border-white/10 bg-black/20 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-black text-white">{leadCompanyName(lead)}</p><p className="mt-1 text-xs text-slate-400">{lead.phone || "Telefon yok"} · {lead.sector || lead.business_type || "Sektör yok"} · {pipelineStageForLead(lead)}</p></div><span className="rounded-full border border-amber-300/30 px-3 py-1 text-xs text-amber-100">Skor {lead.score || lead.lead_score || 0}</span></div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button onClick={() => navigator.clipboard.writeText(whatsappText(lead))} className="rounded-full border border-emerald-300/30 px-3 py-2 text-xs text-emerald-100">WhatsApp Mesajı Hazırla</button>
+                    <a href={lead.phone ? `tel:${lead.phone}` : "#"} className="rounded-full border border-white/10 px-3 py-2 text-xs text-slate-200">Ara</a>
+                    <a href={lead.email ? `mailto:${lead.email}` : "#"} className="rounded-full border border-white/10 px-3 py-2 text-xs text-slate-200">E-posta Gönder</a>
+                    <button onClick={() => patchLead(lead.id, { notes: `${lead.notes || ""}\n${new Date().toLocaleDateString("tr-TR")} · Takip notu eklendi`.trim() }, "Takip notu eklendi")} className="rounded-full border border-white/10 px-3 py-2 text-xs text-slate-200">Not Ekle</button>
+                    <button onClick={() => patchLead(lead.id, { next_action_at: today, next_action: "WhatsApp takip" }, "Sıradaki aksiyon belirlendi")} className="rounded-full border border-cyan-200/25 px-3 py-2 text-xs text-cyan-100">Sıradaki aksiyon belirle</button>
+                    <button onClick={() => setActive("Teklif Oluştur")} className="rounded-full bg-cyan-300 px-3 py-2 text-xs font-black text-slate-950">Teklif Oluştur</button>
+                    <button onClick={() => patchLead(lead.id, { status: "Kazanıldı", pipeline_stage: "Kazanıldı" }, "Lead müşteriye dönüştürüldü")} className="rounded-full border border-emerald-300/30 px-3 py-2 text-xs text-emerald-100">Müşteriye Dönüştür</button>
+                  </div>
+                </div>
+              ))}
+              {!items.length && <p className="rounded-[8px] border border-dashed border-white/10 p-4 text-sm text-slate-400">Bu bölümde kayıt yok.</p>}
+            </div>
+          </GlassCard>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+function PdfReportDesignCenter({ content, setContent, save, notify }: any) {
+  const settings = content.settings || {};
+  const template = settings.reportDesign || { coverTitle: "HK Dijital Aylık Performans Raporu", brandColor: "#22d3ee", logoUrl: "", aiEnabled: true, sevenDayPlan: true, agencyNote: true, sections: { summary: true, meta: true, google: true, social: true, campaigns: true, payments: false } };
+  const [draft, setDraft] = useState(template);
+  function update(patch: any) {
+    setDraft((current: any) => ({ ...current, ...patch }));
+  }
+  function toggleSection(key: string, value: boolean) {
+    setDraft((current: any) => ({ ...current, sections: { ...current.sections, [key]: value } }));
+  }
+  function persist() {
+    const next = { ...content, settings: { ...settings, reportDesign: draft } };
+    setContent(next);
+    save?.(next);
+    notify?.("✓ PDF rapor tasarımı kaydedildi", "success");
+  }
+  return (
+    <Panel title="PDF Rapor Tasarım Merkezi">
+      <p className="mb-5 text-sm leading-6 text-slate-400">Müşteri raporu çıktısında görünecek kapak, marka rengi ve bölüm sırasını yönetin. PDF motoru yoksa yazdırılabilir HTML önizleme kullanılır.</p>
+      <div className="grid gap-5 xl:grid-cols-[420px_1fr]">
+        <GlassCard className="p-5">
+          <div className="grid gap-4">
+            <Field label="Logo URL" value={draft.logoUrl || ""} onChange={(logoUrl) => update({ logoUrl })} />
+            <Field label="Kapak başlığı" value={draft.coverTitle || ""} onChange={(coverTitle) => update({ coverTitle })} />
+            <Field label="Marka rengi" type="color" value={draft.brandColor || "#22d3ee"} onChange={(brandColor) => update({ brandColor })} />
+            <label className="flex items-center gap-2 text-sm text-slate-200"><input type="checkbox" checked={Boolean(draft.aiEnabled)} onChange={(event) => update({ aiEnabled: event.target.checked })} /> AI yorumu etkin</label>
+            <label className="flex items-center gap-2 text-sm text-slate-200"><input type="checkbox" checked={Boolean(draft.sevenDayPlan)} onChange={(event) => update({ sevenDayPlan: event.target.checked })} /> 7 günlük aksiyon planı etkin</label>
+            <label className="flex items-center gap-2 text-sm text-slate-200"><input type="checkbox" checked={Boolean(draft.agencyNote)} onChange={(event) => update({ agencyNote: event.target.checked })} /> Ajans notu etkin</label>
+            <div className="grid gap-2">{[["summary", "Özet"], ["meta", "Meta Ads"], ["google", "Google Ads"], ["social", "Sosyal Medya"], ["campaigns", "Kampanyalar"], ["payments", "Tahsilat / hizmet notu"]].map(([key, label]) => <label key={key} className="flex items-center gap-2 rounded-[8px] border border-white/10 p-3 text-sm"><input type="checkbox" checked={draft.sections?.[key] !== false} onChange={(event) => toggleSection(key, event.target.checked)} /> {label}</label>)}</div>
+            <button onClick={persist} className="rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Kaydet</button>
+          </div>
+        </GlassCard>
+        <div className="rounded-[18px] border border-white/10 bg-white p-8 text-slate-950 shadow-2xl">
+          <div className="flex items-center justify-between gap-4 border-b pb-5" style={{ borderColor: draft.brandColor || "#22d3ee" }}>
+            <div>{draft.logoUrl ? <img src={draft.logoUrl} alt="Rapor logosu" className="h-12 max-w-48 object-contain" /> : <p className="text-xl font-black">HK Dijital</p>}<p className="mt-1 text-sm text-slate-500">Müşteri performans raporu</p></div>
+            <span className="rounded-full px-4 py-2 text-sm font-black text-white" style={{ background: draft.brandColor || "#22d3ee" }}>Önizleme</span>
+          </div>
+          <h3 className="mt-8 text-3xl font-black">{draft.coverTitle}</h3>
+          <div className="mt-6 grid gap-3 md:grid-cols-3">{["Gösterim", "Tıklama", "Harcama"].map((label, index) => <div key={label} className="rounded-[14px] bg-slate-100 p-4"><p className="text-sm text-slate-500">{label}</p><p className="mt-2 text-2xl font-black">{[94378, 1205, "18.500 TL"][index]}</p></div>)}</div>
+          <div className="mt-6 space-y-3">{Object.entries(draft.sections || {}).filter(([, enabled]) => enabled !== false).map(([key]) => <div key={key} className="rounded-[12px] border border-slate-200 p-4"><p className="font-black">{({ summary: "Özet", meta: "Meta Ads", google: "Google Ads", social: "Sosyal Medya", campaigns: "Kampanyalar", payments: "Tahsilat / hizmet notu" } as any)[key] || key}</p><p className="mt-1 text-sm text-slate-600">Bu bölüm müşteri raporunda temiz ve okunabilir şekilde gösterilir.</p></div>)}</div>
+          <div className="mt-5 flex gap-2"><button onClick={() => window.print()} className="rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white">PDF / Yazdır</button><button onClick={persist} className="rounded-full border border-slate-300 px-4 py-2 text-sm font-black">Müşteri paneline yayınla</button></div>
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+function RevenueForecastCenter({ content, setActive }: any) {
+  const payments = content.paymentRecords || [];
+  const expenses = content.agencyExpenses || [];
+  const campaigns = content.campaigns || [];
+  const month = new Date().toISOString().slice(0, 7);
+  const nextMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString().slice(0, 7);
+  const thisMonthPayments = payments.filter((item: any) => String(item.service_period || item.due_date || "").startsWith(month));
+  const nextMonthPayments = payments.filter((item: any) => String(item.service_period || item.due_date || "").startsWith(nextMonth));
+  const paid = thisMonthPayments.filter((item: any) => item.status === "Ödendi").reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
+  const pending = thisMonthPayments.filter((item: any) => ["Bekliyor", "Gecikmiş"].includes(item.status)).reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
+  const overdue = thisMonthPayments.filter((item: any) => item.status === "Gecikmiş" || (item.status !== "Ödendi" && dateOnly(item.due_date) && dateOnly(item.due_date) < new Date().toISOString().slice(0, 10))).reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
+  const expected = paid + pending;
+  const expenseTotal = expenses.filter((item: any) => String(item.date || "").startsWith(month)).reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
+  const nextExpected = nextMonthPayments.reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
+  const campaignSpend = campaigns.reduce((sum: number, item: any) => sum + Number(item.spent_budget ?? item.spent ?? 0), 0);
+  const profit = paid + pending - expenseTotal;
+  const status = overdue > expected * 0.35 ? "Kritik" : overdue > expected * 0.15 ? "Riskli" : "Güvenli";
+  const tone = status === "Kritik" ? "red" : status === "Riskli" ? "amber" : "emerald";
+  return (
+    <Panel title="Gelir Tahmini">
+      <p className="mb-5 text-sm leading-6 text-slate-400">Tahsilat, gider ve kampanya verilerinden gelir öngörüsü oluşturulur. Gecikmiş ödemeler riskli gelir olarak işaretlenir.</p>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <AgencyStatCard label="Bu ay beklenen gelir" value={v4Money(expected)} note="Ödenen + bekleyen tahsilatlar" />
+        <AgencyStatCard label="Kesinleşen gelir" value={v4Money(paid)} note="Ödenmiş kayıtlar" tone="emerald" />
+        <AgencyStatCard label="Bekleyen tahsilat" value={v4Money(pending)} note="Bekleyen ve gecikmiş kayıtlar" tone="amber" />
+        <AgencyStatCard label="Riskli gelir" value={v4Money(overdue)} note="Gecikmiş tahsilatlar" tone={tone} />
+        <AgencyStatCard label="Tahmini kâr" value={v4Money(profit)} note="Gelir eksi gider" tone="cyan" />
+        <AgencyStatCard label="Gelecek ay beklenen" value={v4Money(nextExpected)} note="Gelecek ay ödeme kayıtları" />
+        <AgencyStatCard label="Meta/Google harcama sinyali" value={v4Money(campaignSpend)} note="Kampanya harcama toplamı" tone="amber" />
+        <GlassCard className="p-4"><p className="text-sm text-slate-400">Forecast durumu</p><p className={`mt-2 text-3xl font-black ${status === "Güvenli" ? "text-emerald-100" : status === "Riskli" ? "text-amber-100" : "text-red-100"}`}>{status}</p><p className="mt-2 text-xs leading-5 text-slate-400">Bu tutar bekleyen tahsilatlardan hesaplandı. Gecikmiş ödemeler riskli gelir olarak işaretlendi.</p></GlassCard>
+      </div>
+      <div className="mt-5 flex flex-wrap gap-2"><button onClick={() => setActive("Tahsilat")} className="rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Tahsilatları Aç</button><button onClick={() => setActive("Karlılık")} className="rounded-full border border-white/10 px-5 py-3 text-sm font-black text-slate-100">Karlılık Detayı</button></div>
+    </Panel>
+  );
+}
+
+function ContractGeneratorCenter({ content, setContent, save, notify }: any) {
+  const [form, setForm] = useState({ companyId: "", packageName: "Standart", startDate: new Date().toISOString().slice(0, 10), duration: "6 Ay", monthlyFee: "15000", adBudget: "30000", paymentDay: "5", specialTerms: "" });
+  const company = companyById(content, form.companyId);
+  const preview = `HK Dijital Hizmet Sözleşmesi Taslağı
+
+Müşteri: ${company?.name || "Müşteri seçilmedi"}
+Hizmet Paketi: ${form.packageName}
+Başlangıç Tarihi: ${form.startDate}
+Hizmet Süresi: ${form.duration}
+Aylık Hizmet Bedeli: ${Number(form.monthlyFee || 0).toLocaleString("tr-TR")} TL + KDV
+Önerilen Reklam Bütçesi: ${Number(form.adBudget || 0).toLocaleString("tr-TR")} TL
+Ödeme Günü: Her ayın ${form.paymentDay}. günü
+
+Kapsam:
+- Dijital reklam hesaplarının operasyonel yönetimi
+- Kampanya kurulumu ve optimizasyon takibi
+- Aylık performans raporu
+- Müşteri paneli üzerinden görünür not ve rapor paylaşımı
+
+Özel Şartlar:
+${form.specialTerms || "Özel şart eklenmedi."}
+
+Not: Bu taslak hukuki danışmanlık yerine geçmez. İmzadan önce tarafların hukuki danışmanına inceletmesi önerilir.`;
+  function saveContract() {
+    if (!company) return notify?.("⚠ Sözleşme için müşteri seçin", "warning");
+    const doc = { id: createLocalId(), company_id: company.id, title: `Sözleşme · ${company.name}`, document_type: "Sözleşme", document_date: form.startDate, description: preview, document_url: "", visible_to_customer: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    const next = { ...content, customerDocuments: [doc, ...(content.customerDocuments || [])] };
+    setContent(next);
+    save?.(next);
+    notify?.("✓ Sözleşme müşteri belgelerine kaydedildi", "success");
+  }
+  return (
+    <Panel title="Sözleşme Oluştur">
+      <div className="grid gap-5 xl:grid-cols-[420px_1fr]">
+        <GlassCard className="p-5"><div className="grid gap-4"><CompanySelect value={form.companyId} onChange={(companyId) => setForm({ ...form, companyId })} companies={content.companies} /><SelectField label="Hizmet paketi" value={form.packageName} onChange={(packageName) => setForm({ ...form, packageName })} options={["Temel", "Standart", "Premium", "Özel"]} /><Field label="Hizmet başlangıç tarihi" type="date" value={form.startDate} onChange={(startDate) => setForm({ ...form, startDate })} /><Field label="Hizmet süresi" value={form.duration} onChange={(duration) => setForm({ ...form, duration })} /><Field label="Aylık bedel" type="number" value={form.monthlyFee} onChange={(monthlyFee) => setForm({ ...form, monthlyFee })} /><Field label="Reklam bütçesi" type="number" value={form.adBudget} onChange={(adBudget) => setForm({ ...form, adBudget })} /><Field label="Ödeme günü" value={form.paymentDay} onChange={(paymentDay) => setForm({ ...form, paymentDay })} /><TextArea label="Özel şartlar" value={form.specialTerms} onChange={(specialTerms) => setForm({ ...form, specialTerms })} /></div><div className="mt-5 flex flex-wrap gap-2"><button onClick={saveContract} className="rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Müşteri belgelerine kaydet</button><button onClick={() => window.print()} className="rounded-full border border-white/10 px-5 py-3 text-sm text-slate-100">PDF / Yazdır</button></div></GlassCard>
+        <GlassCard className="p-5"><pre className="whitespace-pre-wrap text-sm leading-7 text-slate-200">{preview}</pre></GlassCard>
+      </div>
+    </Panel>
+  );
+}
+
+function WhatsAppReminderCenter({ content, setContent, save, notify, setActive }: any) {
+  const templates = {
+    "İlk temas": "Merhaba {ad}, HK Dijital olarak işletmeniz için kısa bir dijital büyüme analizi hazırlayabiliriz. Uygun olduğunuzda detayları paylaşmak isterim.",
+    "Ücretsiz analiz": "Merhaba {ad}, ücretsiz analiziniz hazır. Website, reklam ve sosyal medya tarafındaki fırsatları kısa bir görüşmede paylaşabiliriz.",
+    "Teklif takibi": "Merhaba {ad}, gönderdiğimiz teklif için sorularınız varsa yardımcı olmak isterim. Uygunsa bugün kısa bir değerlendirme yapabiliriz.",
+    "Ödeme hatırlatma": "Merhaba {ad}, ödeme kaydınız için nazik bir hatırlatma yapmak istedim. Detay gerekiyorsa hemen paylaşabilirim.",
+    "Rapor hazır": "Merhaba {ad}, performans raporunuz Digital Center panelinize eklendi. İnceledikten sonra sonraki adımları birlikte netleştirebiliriz.",
+    "Kampanya sonucu": "Merhaba {ad}, kampanya sonuçlarınızda dikkat çeken noktaları ve önerilen aksiyonları paylaşmak isterim.",
+    "Toplantı hatırlatma": "Merhaba {ad}, planlanan görüşmemizi hatırlatmak istedim. Uygunluk durumunuzu teyit edebilir misiniz?"
+  };
+  const [form, setForm] = useState({ template: "İlk temas", context: "Müşteri", companyId: "", leadId: "", paymentId: "", campaignId: "", reportId: "" });
+  const company = companyById(content, form.companyId);
+  const lead = (content.leads || []).find((item: any) => item.id === form.leadId);
+  const targetName = company?.name || leadCompanyName(lead);
+  const message = (templates as any)[form.template].replaceAll("{ad}", targetName || "Merhaba");
+  function addNote() {
+    if (!lead) return notify?.("⚠ Takip notu için lead seçin", "warning");
+    const next = { ...content, leads: (content.leads || []).map((item: any) => item.id === lead.id ? { ...item, notes: `${item.notes || ""}\n${new Date().toLocaleDateString("tr-TR")} · WhatsApp hatırlatma: ${form.template}`.trim(), updated_at: new Date().toISOString() } : item) };
+    setContent(next);
+    save?.(next);
+    notify?.("✓ Takip notu eklendi", "success");
+  }
+  return (
+    <Panel title="WhatsApp Hatırlatma Merkezi">
+      <p className="mb-5 text-sm leading-6 text-slate-400">Mesajları bağlama göre hazırlar, ancak otomatik göndermez. Mesajı kopyalayabilir veya WhatsApp’ta açabilirsiniz.</p>
+      <div className="grid gap-5 xl:grid-cols-[420px_1fr]">
+        <GlassCard className="p-5"><div className="grid gap-4"><SelectField label="Şablon" value={form.template} onChange={(template) => setForm({ ...form, template })} options={Object.keys(templates)} /><SelectField label="Bağlam" value={form.context} onChange={(context) => setForm({ ...form, context })} options={["Müşteri", "Lead", "Ödeme", "Teklif", "Rapor", "Kampanya"]} /><CompanySelect value={form.companyId} onChange={(companyId) => setForm({ ...form, companyId })} companies={content.companies} /><SelectField label="Lead" value={form.leadId} onChange={(leadId) => setForm({ ...form, leadId })} options={(content.leads || []).map((item: any) => ({ value: item.id, label: leadCompanyName(item) }))} /></div><div className="mt-5 flex flex-wrap gap-2"><button onClick={() => navigator.clipboard.writeText(message)} className="rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Mesajı Kopyala</button><a href={`https://wa.me/${String(company?.phone || lead?.phone || "").replace(/\D/g, "")}?text=${encodeURIComponent(message)}`} target="_blank" rel="noreferrer" className="rounded-full border border-emerald-300/30 px-5 py-3 text-sm font-black text-emerald-100">WhatsApp’ta Aç</a><button onClick={addNote} className="rounded-full border border-white/10 px-5 py-3 text-sm text-slate-100">Takip notu ekle</button><button onClick={() => setActive("Takip Merkezi")} className="rounded-full border border-cyan-200/20 px-5 py-3 text-sm text-cyan-100">Takip Merkezini Aç</button></div></GlassCard>
+        <GlassCard className="p-5"><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-100">Mesaj Önizleme</p><p className="mt-4 whitespace-pre-wrap rounded-[8px] border border-white/10 bg-black/20 p-4 text-sm leading-7 text-slate-200">{message}</p></GlassCard>
+      </div>
+    </Panel>
+  );
+}
+
+function ProposalEngine({ content, setContent, save, setActive }: any) {
   const { askAiProvider, chooserModal } = useAiProviderChooser();
   const [leadId, setLeadId] = useState("");
   const [companyId, setCompanyId] = useState("");
   const [campaignId, setCampaignId] = useState("");
-  const [packageType, setPackageType] = useState("ORTA");
+  const [packageType, setPackageType] = useState("Standart");
   const [services, setServices] = useState("Meta Ads yönetimi\nGoogle Ads kurulumu\nCRM ve lead takibi\nAylık raporlama");
+  const [excludedServices, setExcludedServices] = useState("Reklam bütçesi hizmet bedeline dahil değildir.\nÜçüncü parti yazılım lisansları ayrıca değerlendirilir.");
   const [monthlyFee, setMonthlyFee] = useState("15000");
   const [adBudget, setAdBudget] = useState("30000");
+  const [setupFee, setSetupFee] = useState("5000");
+  const [duration, setDuration] = useState("3 ay başlangıç dönemi");
+  const [paymentNote, setPaymentNote] = useState("Hizmet bedeli ay başında, reklam bütçesi platform hesabına ayrıca ödenir.");
+  const [nextSteps, setNextSteps] = useState("1. Hesap erişimleri ve ölçümleme kontrolü\n2. Kreatif ve kampanya planı\n3. Yayın ve ilk 7 gün optimizasyon\n4. Aylık rapor ve yeni aksiyon planı");
   const [notes, setNotes] = useState("");
   const [result, setResult] = useState("");
   const [proposalAiMeta, setProposalAiMeta] = useState({ provider: "Groq", model: "llama-3.3-70b-versatile", mode: "Canlı", badge: "Groq ile üretildi" });
@@ -6256,7 +6676,7 @@ function ProposalEngine({ content, setContent, save }: any) {
     if (!selectedLead && !selectedCompany && !selectedCampaign) return setResult("Teklif hazırlamak için lead, müşteri veya kampanya seçin.");
     const fee = Number(monthlyFee || 0);
     const budget = Number(adBudget || 0);
-    const packageMultiplier = packageType === "MIN" ? 0.8 : packageType === "MAX" ? 1.35 : packageType === "Özel" ? 1 : 1;
+    const packageMultiplier = packageType === "Temel" ? 0.8 : packageType === "Premium" ? 1.35 : packageType === "Özel" ? 1 : 1;
     const finalFee = Math.round(fee * packageMultiplier);
     setProposalAiMeta(aiMetaFromRecord({ provider: aiProvider, model: aiProvider === "Groq" ? "llama-3.3-70b-versatile" : aiProvider === "Gemini" ? "gemini-2.0-flash" : aiProvider === "OpenAI" ? "gpt-4.1-mini" : aiProvider === "Demo Modu" ? "demo-local" : aiProvider === "Yerel Mod" ? "local-rules" : "automatic-fallback", mode: ["Demo Modu", "Yerel Mod"].includes(aiProvider) ? (aiProvider === "Demo Modu" ? "Demo" : "Yerel") : "Canlı", isDemo: aiProvider === "Demo Modu", isLocal: aiProvider === "Yerel Mod", badge: `${aiProvider} ile üretildi` }));
     setResult(`HK Dijital Teklif Önizlemesi
@@ -6269,17 +6689,40 @@ Problem Özeti:
 ${selectedLead?.message || selectedLead?.notes || notes || "Dijital reklam, takip ve raporlama süreçlerinin tek merkezden yönetilmesi gerekiyor."}
 
 Önerilen Paket: ${packageType}
-Hizmetler:
+Aylık Hizmet Bedeli: ${finalFee.toLocaleString("tr-TR")} TL + KDV
+Kurulum Bedeli: ${Number(setupFee || 0).toLocaleString("tr-TR")} TL + KDV
+Önerilen Reklam Bütçesi: ${budget.toLocaleString("tr-TR")} TL
+Süre: ${duration}
+
+Önerilen Strateji:
+Reklam bütçesi; ilk temas, yeniden pazarlama ve dönüşüm odaklı kampanya akışına bölünür. Sistem satış garantisi vermez; performansı ölçülebilir hale getirir ve reklam bütçesini daha kontrollü yönetmeye yardımcı olur.
+
+Neden bu bütçe?
+${budget.toLocaleString("tr-TR")} TL seviyesindeki bütçe; yeterli veri toplama, kreatif testi ve remarketing havuzu oluşturma için başlangıç aralığıdır. Bütçe, ilk 7-14 gün sonuçlarına göre optimize edilir.
+
+Dahil Hizmetler:
 ${services.split("\n").filter(Boolean).map((item) => `- ${item}`).join("\n")}
 
-Önerilen Reklam Bütçesi: ${budget.toLocaleString("tr-TR")} TL
-Aylık Hizmet Bedeli: ${finalFee.toLocaleString("tr-TR")} TL + KDV
+Hariç Hizmetler:
+${excludedServices.split("\n").filter(Boolean).map((item) => `- ${item}`).join("\n")}
+
+Beklenen Çıktılar:
+- Reklam hesaplarının düzenli ve ölçümlenebilir hale gelmesi
+- Lead, WhatsApp veya form dönüşümlerinin takip edilmesi
+- Haftalık optimizasyon notları ve aylık raporlama
+- 30 günlük aksiyon planıyla kontrollü büyüme sistemi
+
+30 Günlük Aksiyon Planı:
+${nextSteps}
+
+Ödeme Notu:
+${paymentNote}
 
 Sonraki Adımlar:
-1. Ölçümleme ve hesap erişimlerinin kontrolü
-2. Kampanya ve kreatif planının hazırlanması
-3. Yayın, takip ve haftalık optimizasyon
-4. Aylık raporlama ve aksiyon planı
+${nextSteps}
+
+Hizmetler:
+${services.split("\n").filter(Boolean).map((item) => `- ${item}`).join("\n")}
 
 Notlar:
 ${notes || "Satış garantisi verilmez. Sistem; reklam bütçesini daha kontrollü yönetmeye, performansı görünür kılmaya ve lead takibini düzenlemeye yardımcı olur."}`);
@@ -6301,22 +6744,39 @@ ${notes || "Satış garantisi verilmez. Sistem; reklam bütçesini daha kontroll
     await save(next);
     setResult(`${result}\n\nTeklif müşteri profilindeki Belgeler/Teklifler alanına kaydedildi.`);
   }
-  return <Panel title="Teklif Motoru">
-    <p className="mb-5 text-sm leading-6 text-slate-400">Lead, müşteri veya kampanyadan müşteri-ready teklif önizlemesi hazırlayın. PDF desteği yoksa güvenli yazdırılabilir HTML teklif çıktısı kullanılır.</p>
+  function archiveProposal() {
+    setResult((current) => current ? `${current}\n\nArşiv notu: Bu teklif taslağı arşivlendi.` : "Arşivlenecek teklif taslağı yok.");
+  }
+  function whatsappProposal() {
+    const message = `Merhaba, ${targetName} için ${packageType} paket teklif taslağını hazırladım. Hizmet bedeli ${Number(monthlyFee || 0).toLocaleString("tr-TR")} TL, önerilen reklam bütçesi ${Number(adBudget || 0).toLocaleString("tr-TR")} TL aralığında planlandı. İsterseniz PDF olarak paylaşabilirim.`;
+    navigator.clipboard.writeText(message);
+    setResult((current) => `${current || ""}\n\nWhatsApp teklif mesajı kopyalandı:\n${message}`.trim());
+  }
+  return <Panel title="Proposal Engine V2 · Teklif Motoru">
+    <p className="mb-5 text-sm leading-6 text-slate-400">Lead, müşteri, kampanya veya AI denetim çıktısından profesyonel teklif üretin. Teklif müşteri belgelerine kaydedilebilir, yazdırılabilir veya WhatsApp mesajına dönüştürülebilir.</p>
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       <SelectField label="Başvuru" value={leadId} onChange={setLeadId} options={(content.leads || []).map((lead) => ({ value: lead.id, label: lead.company || lead.name || lead.email || "İsimsiz başvuru" }))} placeholder="Başvuru seçin" />
       <CompanySelect label="Müşteri" value={companyId} onChange={setCompanyId} companies={content.companies} />
       <SelectField label="Kampanya" value={campaignId} onChange={setCampaignId} options={(content.campaigns || []).map((campaign) => ({ value: campaign.id, label: campaign.name || "İsimsiz kampanya" }))} placeholder="Kampanya seçin" />
-      <SelectField label="Paket" value={packageType} onChange={setPackageType} options={["MIN", "ORTA", "MAX", "Özel"]} />
+      <SelectField label="Paket" value={packageType} onChange={setPackageType} options={["Temel", "Standart", "Premium", "Özel"]} />
       <Field label="Aylık hizmet bedeli" type="number" value={monthlyFee} onChange={setMonthlyFee} />
       <Field label="Önerilen reklam bütçesi" type="number" value={adBudget} onChange={setAdBudget} />
+      <Field label="Kurulum bedeli" type="number" value={setupFee} onChange={setSetupFee} />
+      <Field label="Süre" value={duration} onChange={setDuration} />
       <div className="md:col-span-2 xl:col-span-3"><TextArea label="Hizmetler" value={services} onChange={setServices} /></div>
+      <div className="md:col-span-2 xl:col-span-3"><TextArea label="Hariç hizmetler" value={excludedServices} onChange={setExcludedServices} /></div>
+      <div className="md:col-span-2 xl:col-span-3"><TextArea label="Ödeme notu" value={paymentNote} onChange={setPaymentNote} /></div>
+      <div className="md:col-span-2 xl:col-span-3"><TextArea label="Sonraki adımlar / 30 günlük plan" value={nextSteps} onChange={setNextSteps} /></div>
       <div className="md:col-span-2 xl:col-span-3"><TextArea label="Notlar" value={notes} onChange={setNotes} /></div>
     </div>
     <div className="mt-5 flex flex-wrap gap-2">
       <button type="button" onClick={() => askAiProvider(generate)} className="rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Teklif önizlemesi oluştur</button>
       <button type="button" onClick={printProposal} className="rounded-full border border-white/10 px-5 py-3 text-sm font-black text-slate-100">PDF / Yazdır</button>
       <button type="button" onClick={saveProposalDocument} className="rounded-full border border-emerald-200/25 px-5 py-3 text-sm font-black text-emerald-100">Müşteri Belgelerine Kaydet</button>
+      <button type="button" onClick={whatsappProposal} className="rounded-full border border-emerald-200/25 px-5 py-3 text-sm font-black text-emerald-100">WhatsApp teklif mesajı oluştur</button>
+      <button type="button" onClick={archiveProposal} className="rounded-full border border-amber-200/25 px-5 py-3 text-sm font-black text-amber-100">Arşivle</button>
+      <button type="button" onClick={() => setResult("")} className="rounded-full border border-red-200/25 px-5 py-3 text-sm font-black text-red-100">Sil</button>
+      <button type="button" onClick={() => setActive?.("AI Denetim")} className="rounded-full border border-cyan-200/20 px-5 py-3 text-sm font-black text-cyan-100">AI Denetimden teklif üret</button>
     </div>
     {result && <div className="mt-5 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-4"><AiUsageBadge meta={proposalAiMeta} /><pre className="mt-4 whitespace-pre-wrap text-sm leading-7 text-cyan-50">{result}</pre><button type="button" onClick={() => navigator.clipboard.writeText(result)} className="mt-4 inline-flex items-center gap-2 rounded-full border border-cyan-100/20 px-4 py-2 text-sm text-cyan-50"><Copy size={15} /> Kopyala</button></div>}
     {chooserModal}

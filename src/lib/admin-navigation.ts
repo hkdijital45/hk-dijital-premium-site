@@ -39,6 +39,8 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     items: [
       { label: "Satış Hunisi", slug: "satis-hunisi", module: "leads" },
       { label: "Leadler", slug: "leads", module: "leads" },
+      { label: "Takip Merkezi", slug: "takip-merkezi", module: "leads" },
+      { label: "AI Denetim", slug: "ai-denetim", module: "leads" },
       { label: "Müşteriler", slug: "musteriler", module: "musteriler" },
       { label: "Teklif Oluştur", slug: "teklif-hazirlama", module: "teklifler" },
       { label: "Müşteri Markalama", slug: "musteri-markalama", module: "musteriler" },
@@ -72,6 +74,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: "Google Ads Raporları", slug: "google-analiz", module: "google-analiz" },
       { label: "Aylık Raporlar", slug: "aylik-raporlar", module: "aylik-raporlar" },
       { label: "Müşteri Raporları", slug: "musteri-raporlari", module: "raporlar" },
+      { label: "PDF Rapor Tasarım Merkezi", slug: "pdf-rapor-tasarim", module: "raporlar" },
       { label: "PDF Audit", slug: "pdf-audit", module: "sosyal-medya-denetimi" },
       { label: "WhatsApp Teklifi", slug: "whatsapp-teklifi", module: "teklifler" }
     ]
@@ -86,6 +89,9 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: "Belgeler", slug: "belgeler", module: "belgeler" },
       { label: "Tahsilat", slug: "tahsilat", module: "tahsilat" },
       { label: "Takvim", slug: "takvim", module: "gorevler" },
+      { label: "Gelir Tahmini", slug: "gelir-tahmini", module: "karlilik" },
+      { label: "Sözleşme Oluştur", slug: "sozlesme-olustur", module: "belgeler" },
+      { label: "WhatsApp Hatırlatma Merkezi", slug: "whatsapp-hatirlatma", module: "teklifler" },
       { label: "Sosyal Medya Planı", slug: "sosyal-medya-plani", module: "sosyal-medya-plani" },
       { label: "Sektör Sistemleri", slug: "sektor-sistemleri", module: "sektor-sistemleri" }
     ]
@@ -144,6 +150,10 @@ const legacySlugRedirects: Record<string, string> = {
   "satis-pipeline": "satis-hunisi",
   "satis-hunisi": "satis-hunisi",
   "yeni-basvurular": "leads",
+  "takipler": "takip-merkezi",
+  "lead-follow-up": "takip-merkezi",
+  "ai-audit": "ai-denetim",
+  "ai-denetim-sistemi": "ai-denetim",
   "meta-analiz-leadleri": "leads",
   "google-ads-analiz-leadleri": "leads",
   "sosyal-istihbarat-leadleri": "leads",
@@ -160,6 +170,8 @@ const legacySlugRedirects: Record<string, string> = {
   "raporlar": "musteri-raporlari",
   "performans-raporlari": "musteri-raporlari",
   "rapor-yorumlari": "musteri-raporlari",
+  "premium-pdf-report-design-center": "pdf-rapor-tasarim",
+  "pdf-rapor-tasarim-merkezi": "pdf-rapor-tasarim",
   "disa-aktarma": "musteri-raporlari",
   "export-center": "veri-aktarma",
   "veri-aktarimi": "veri-aktarma",
@@ -184,7 +196,12 @@ const legacySlugRedirects: Record<string, string> = {
   "bolgesel-analiz": "musteri-kesfi",
   "kaydedilen-adaylar": "musteri-kesfi",
   "google-maps-isletme-sinyalleri": "haritalar",
-  "sosyal-istihbarat-merkezi": "pdf-audit"
+  "sosyal-istihbarat-merkezi": "pdf-audit",
+  "contract-generator": "sozlesme-olustur",
+  "sozlesme-generator": "sozlesme-olustur",
+  "whatsapp-reminder-center": "whatsapp-hatirlatma",
+  "gelir-forecast": "gelir-tahmini",
+  "revenue-forecast": "gelir-tahmini"
 };
 
 export function getAdminSectionBySlug(slug = "") {
