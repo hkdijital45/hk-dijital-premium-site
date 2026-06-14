@@ -1824,6 +1824,85 @@ html {
   color: rgba(255, 255, 255, .95) !important;
 }
 
+.hk-admin-os:not(.admin-light) {
+  --admin-readable-bg: #030712;
+  --admin-readable-surface: rgba(15, 23, 42, .88);
+  --admin-readable-elevated: rgba(17, 24, 39, .94);
+  --admin-readable-border: rgba(148, 163, 184, .24);
+  --admin-readable-primary: #f8fafc;
+  --admin-readable-secondary: #cbd5e1;
+  --admin-readable-muted: #94a3b8;
+}
+
+.hk-admin-os:not(.admin-light) main,
+.hk-admin-os:not(.admin-light) .admin-module-shell {
+  background-color: var(--admin-readable-bg);
+  color: var(--admin-readable-primary);
+}
+
+.hk-admin-os:not(.admin-light) .glass-card,
+.hk-admin-os:not(.admin-light) [class*="bg-black/20"],
+.hk-admin-os:not(.admin-light) [class*="bg-slate-950/"] {
+  border-color: var(--admin-readable-border) !important;
+}
+
+.hk-admin-os:not(.admin-light) input,
+.hk-admin-os:not(.admin-light) textarea,
+.hk-admin-os:not(.admin-light) select {
+  border-color: rgba(148, 163, 184, .30) !important;
+  background: rgba(15, 23, 42, .86) !important;
+  color: #f8fafc !important;
+}
+
+.hk-admin-os:not(.admin-light) input::placeholder,
+.hk-admin-os:not(.admin-light) textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+.hk-admin-os:not(.admin-light) label,
+.hk-admin-os:not(.admin-light) th,
+.hk-admin-os:not(.admin-light) .text-slate-200 {
+  color: #e2e8f0 !important;
+}
+
+.hk-admin-os:not(.admin-light) .text-slate-300 {
+  color: #cbd5e1 !important;
+}
+
+.hk-admin-os:not(.admin-light) .text-slate-400 {
+  color: #a7b4c8 !important;
+}
+
+.hk-admin-os:not(.admin-light) .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+.hk-admin-os:not(.admin-light) table tbody tr {
+  border-color: rgba(148, 163, 184, .18) !important;
+}
+
+.hk-admin-os:not(.admin-light) table tbody tr:hover {
+  background: rgba(34, 211, 238, .07) !important;
+}
+
+.hk-admin-os:not(.admin-light) .border-red-300\/30 {
+  border-color: rgba(248, 113, 113, .42) !important;
+}
+
+.hk-admin-os:not(.admin-light) .border-amber-300\/30,
+.hk-admin-os:not(.admin-light) .border-yellow-300\/30 {
+  border-color: rgba(251, 191, 36, .42) !important;
+}
+
+.hk-admin-os:not(.admin-light) .border-emerald-300\/30 {
+  border-color: rgba(74, 222, 128, .42) !important;
+}
+
+.hk-admin-os:not(.admin-light) .border-cyan-200\/20,
+.hk-admin-os:not(.admin-light) .border-cyan-200\/25 {
+  border-color: rgba(103, 232, 249, .34) !important;
+}
+
 @media (max-width: 640px) {
   .hk-toast-stack {
     left: 12px;

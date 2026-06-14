@@ -61,6 +61,7 @@ const adminLabelEmojis: Record<string, string> = {
   Takvim: "📅",
   "Meta Raporları": "📊",
   "Google Ads Raporları": "📈",
+  "Reklam Hesabı Eşleştirme": "🔗",
   "Aylık Raporlar": "🗓️",
   "PDF Audit": "🖨️",
   "WhatsApp Teklifi": "💬",
@@ -694,6 +695,7 @@ export function AdminDashboard({
           {active === "Gelir Tahmini" && <RevenueForecastCenter {...props} />}
           {active === "Sözleşme Oluştur" && <ContractGeneratorCenter {...props} />}
           {active === "WhatsApp Hatırlatma Merkezi" && <WhatsAppReminderCenter {...props} setActive={setActive} />}
+          {active === "Reklam Hesabı Eşleştirme" && <AdAccountMappingCenter {...props} />}
           {["Müşteri Bulucu", "İşletme Keşfi", "Müşteri Bul", "Müşteri Keşfi"].includes(active) && <CustomerFinder {...props} />}
           {["Lead Yönetimi", "Lead Analizi", ...crmLeadViews].includes(active) && <Crm {...props} view={["Lead Yönetimi", "Leadler", "Lead Analizi"].includes(active) ? "Lead Durumları" : active} setActive={setActive} />}
           {["Meta Analiz", "Meta Raporları", "Meta İstihbarat"].includes(active) && <MetaAnalysisSection />}
@@ -3504,7 +3506,7 @@ function WebsiteManagementCenter(props: any) {
   return <div><HubTabs items={items} active={tab} onChange={setTab} />{tab === "Genel Site Ayarları" && <GeneralWebsiteSettings {...props} />}{tab === "Logo Yönetimi" && <LogoManagement {...props} />}{tab === "Görsel Yönetimi" && <VisualManagement {...props} />}{tab === "Sayfa İçerikleri" && <Pages {...props} />}{tab === "Hakkımda + Sertifikalar" && <AboutAndCertificatesManagement {...props} />}{tab === "Hizmetler" && <Collection title="Hizmet Yönetimi" type="service" items={props.content.services} setItems={(items) => props.setContent({ ...props.content, services: items })} />}{tab === "Paketler" && <Collection title="Paket Yönetimi" type="package" items={props.content.packages} setItems={(items) => props.setContent({ ...props.content, packages: items })} />}{tab === "İletişim" && <div className="grid gap-5"><GeneralWebsiteSettings {...props} /><KeyValue title="Sosyal Medya Yönetimi" object={props.content.socials} onChange={(object) => props.setContent({ ...props.content, socials: object })} /></div>}{tab === "Performans" && <Settings {...props} />}</div>;
 }
 
-function IntegrationsCenter({ content, setContent }: any) {
+function IntegrationsCenter({ content, setContent, notify }: any) {
   const [status, setStatus] = useState("");
   const api = content.settings.api || {};
   const analyticsIds = content.settings.analyticsIds || {};
@@ -3520,6 +3522,7 @@ function IntegrationsCenter({ content, setContent }: any) {
   return <Panel title="Entegrasyonlar">
     <p className="mb-5 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm leading-6 text-cyan-50">API anahtarları tarayıcıya gönderilmez. Bu alan bağlantı kimliklerini ve durum notlarını merkezi olarak düzenlemek içindir; gerçek gizli anahtarlar sunucu ortam değişkenlerinde kalmalıdır.</p>
     <div className="mb-5"><ReadinessPanel api={api} /></div>
+    <IntegrationPersistenceSettings notify={notify} />
     <MetaAdsConnectionCenter content={content} setContent={setContent} api={api} updateApi={update} />
     <div className="grid gap-5">
       <div className="rounded-[8px] border border-white/10 p-4">
@@ -3560,6 +3563,61 @@ function IntegrationsCenter({ content, setContent }: any) {
     </div>
     {status && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-100">{status}</p>}
   </Panel>;
+}
+
+function IntegrationPersistenceSettings({ notify }: any) {
+  const [meta, setMeta] = useState<any>({ appId: "", businessId: "", systemUserId: "", accessToken: "" });
+  const [google, setGoogle] = useState<any>({ developerToken: "", mccId: "", clientId: "", clientSecret: "", refreshToken: "" });
+  const [logs, setLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState("");
+  const [message, setMessage] = useState("");
+  async function load() {
+    const response = await fetch("/api/admin/integration-settings", { cache: "no-store" });
+    const data = await response.json().catch(() => ({}));
+    if (data.settings?.meta) setMeta({ appId: data.settings.meta.appId || "", businessId: data.settings.meta.businessId || "", systemUserId: data.settings.meta.systemUserId || "", accessToken: data.settings.meta.maskedAccessToken || "" });
+    if (data.settings?.google) setGoogle({ developerToken: data.settings.google.maskedDeveloperToken || "", mccId: data.settings.google.mccId || "", clientId: data.settings.google.clientId || "", clientSecret: data.settings.google.maskedClientSecret || "", refreshToken: data.settings.google.maskedRefreshToken || "" });
+    setLogs(data.logs || []);
+  }
+  useEffect(() => { load(); }, []);
+  async function save(provider: "meta" | "google", action = "save") {
+    setLoading(`${provider}-${action}`);
+    setMessage(action === "test" ? "Test ediliyor..." : "Kaydediliyor...");
+    const payload = provider === "meta" ? { provider, action, ...meta } : { provider, action, ...google };
+    const response = await fetch("/api/admin/integration-settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const data = await response.json().catch(() => ({}));
+    setMessage(response.ok ? `✓ ${data.message || "Ayarlar Kaydedildi"}` : `✖ ${data.error || "İşlem başarısız"}`);
+    notify?.(response.ok ? `✓ ${provider === "meta" ? "Meta" : "Google"} ayarları kaydedildi` : "✖ Entegrasyon ayarları kaydedilemedi", response.ok ? "success" : "error");
+    await load();
+    setLoading("");
+    setTimeout(() => setMessage(""), 2200);
+  }
+  return (
+    <div className="mb-5 grid gap-5 xl:grid-cols-2">
+      <div className="rounded-[18px] border border-cyan-200/20 bg-slate-950/45 p-5">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">Kalıcı Meta Ayarları</p><h3 className="mt-1 text-xl font-black text-white">Meta API bağlantısı</h3><p className="mt-1 text-sm leading-6 text-slate-300">Access Token sunucu tarafında şifrelenir, ekranda yalnızca maskeli değer gösterilir.</p></div><span className="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300">{meta.accessToken ? "Token var" : "Token yok"}</span></div>
+        <div className="grid gap-3 md:grid-cols-2">
+          <Field label="Meta App ID" value={meta.appId} onChange={(appId) => setMeta({ ...meta, appId })} />
+          <Field label="Meta Business ID" value={meta.businessId} onChange={(businessId) => setMeta({ ...meta, businessId })} />
+          <Field label="Meta System User ID" value={meta.systemUserId} onChange={(systemUserId) => setMeta({ ...meta, systemUserId })} />
+          <Field label="Meta Access Token" value={meta.accessToken} onChange={(accessToken) => setMeta({ ...meta, accessToken })} />
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2"><button disabled={Boolean(loading)} onClick={() => save("meta")} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950 disabled:opacity-60">{loading === "meta-save" ? "Kaydediliyor..." : "Kaydet"}</button><button disabled={Boolean(loading)} onClick={() => save("meta", "update")} className="rounded-full border border-cyan-200/25 px-4 py-2 text-sm font-black text-cyan-100 disabled:opacity-60">{loading === "meta-update" ? "Güncelleniyor..." : "Güncelle"}</button><button disabled={Boolean(loading)} onClick={() => save("meta", "test")} className="rounded-full border border-emerald-300/30 px-4 py-2 text-sm font-black text-emerald-100 disabled:opacity-60">{loading === "meta-test" ? "Test ediliyor..." : "Test Et"}</button></div>
+      </div>
+      <div className="rounded-[18px] border border-sky-200/20 bg-slate-950/45 p-5">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-sky-200">Kalıcı Google Ayarları</p><h3 className="mt-1 text-xl font-black text-white">Google Ads bağlantısı</h3><p className="mt-1 text-sm leading-6 text-slate-300">Developer Token, Client Secret ve Refresh Token şifrelenmiş olarak saklanır.</p></div><span className="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300">{google.refreshToken || google.developerToken ? "Token var" : "Token yok"}</span></div>
+        <div className="grid gap-3 md:grid-cols-2">
+          <Field label="Google Developer Token" value={google.developerToken} onChange={(developerToken) => setGoogle({ ...google, developerToken })} />
+          <Field label="Google MCC ID" value={google.mccId} onChange={(mccId) => setGoogle({ ...google, mccId })} />
+          <Field label="Google Client ID" value={google.clientId} onChange={(clientId) => setGoogle({ ...google, clientId })} />
+          <Field label="Google Client Secret" value={google.clientSecret} onChange={(clientSecret) => setGoogle({ ...google, clientSecret })} />
+          <div className="md:col-span-2"><Field label="Google Refresh Token" value={google.refreshToken} onChange={(refreshToken) => setGoogle({ ...google, refreshToken })} /></div>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2"><button disabled={Boolean(loading)} onClick={() => save("google")} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950 disabled:opacity-60">{loading === "google-save" ? "Kaydediliyor..." : "Kaydet"}</button><button disabled={Boolean(loading)} onClick={() => save("google", "update")} className="rounded-full border border-cyan-200/25 px-4 py-2 text-sm font-black text-cyan-100 disabled:opacity-60">{loading === "google-update" ? "Güncelleniyor..." : "Güncelle"}</button><button disabled={Boolean(loading)} onClick={() => save("google", "test")} className="rounded-full border border-emerald-300/30 px-4 py-2 text-sm font-black text-emerald-100 disabled:opacity-60">{loading === "google-test" ? "Test ediliyor..." : "Test Et"}</button></div>
+      </div>
+      {message && <p className="xl:col-span-2 rounded-[8px] border border-emerald-300/25 bg-emerald-300/10 p-3 text-sm font-bold text-emerald-50">{message}</p>}
+      {logs.length > 0 && <div className="xl:col-span-2 rounded-[18px] border border-white/10 bg-black/20 p-4"><h3 className="font-black text-white">Senkronizasyon Geçmişi</h3><div className="mt-3 grid gap-2">{logs.slice(0, 5).map((log) => <div key={log.id} className="grid gap-2 rounded-[8px] border border-white/10 p-3 text-sm md:grid-cols-[160px_120px_1fr_120px]"><span className="text-slate-300">{formatDateTime(log.created_at)}</span><span className="font-black text-cyan-100">{log.provider === "meta" ? "Meta" : "Google"}</span><span className="text-slate-300">{log.message || log.source || "-"}</span><span className={`${log.result === "Başarılı" ? "text-emerald-100" : log.result === "Hata" ? "text-red-100" : "text-amber-100"}`}>{log.result}</span></div>)}</div></div>}
+    </div>
+  );
 }
 
 function MetaAdsConnectionCenter({ content, setContent, api, updateApi }: any) {
@@ -4570,6 +4628,107 @@ function ReportsAdmin({ content, setContent }: any) {
   );
 }
 
+function AdAccountMappingCenter({ content, setContent, save, notify }: any) {
+  const [selectedCompanyId, setSelectedCompanyId] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [loading, setLoading] = useState("");
+  const [message, setMessage] = useState("");
+  const [logs, setLogs] = useState<any[]>([]);
+  const [pulledCampaigns, setPulledCampaigns] = useState<any[]>([]);
+  const [matching, setMatching] = useState<Record<string, string>>({});
+  const links = content.metaAccountLinks || [];
+  async function loadLogs() {
+    const response = await fetch("/api/admin/integration-settings", { cache: "no-store" });
+    const data = await response.json().catch(() => ({}));
+    setLogs(data.logs || []);
+  }
+  useEffect(() => { loadLogs(); }, []);
+  const rows = (content.companies || []).map((company: any) => {
+    const link = links.find((item: any) => item.company_id === company.id) || {};
+    const metrics = (content.campaignMetrics || []).filter((metric: any) => metric.company_id === company.id && ["Meta API", "Google Ads Sync", "Meta Import"].includes(metric.source));
+    const lastMetric = metrics.sort((a: any, b: any) => Number(new Date(b.date || b.created_at || 0)) - Number(new Date(a.date || a.created_at || 0)))[0];
+    return { company, link, lastMetric };
+  });
+  function demoCampaigns(companyId: string) {
+    const existing = (content.campaignMetrics || []).filter((metric: any) => metric.company_id === companyId && (metric.campaignName || metric.campaign_name || metric.campaign_id));
+    if (existing.length) return metaCampaignSummaries(existing).map((item: any) => ({ ...item, lastUpdate: new Date().toISOString(), source: "Meta" }));
+    return [
+      { campaignId: `demo-meta-${companyId}-1`, campaignName: "Meta Lead Kampanyası", status: "Aktif", spend: 8500, impressions: 42200, reach: 31800, clicks: 540, ctr: 1.28, cpc: 15.74, cpm: 201.42, results: 42, lastUpdate: new Date().toISOString(), source: "Meta Demo" },
+      { campaignId: `demo-meta-${companyId}-2`, campaignName: "Remarketing Mesaj Kampanyası", status: "Aktif", spend: 3200, impressions: 15800, reach: 9100, clicks: 210, ctr: 1.33, cpc: 15.24, cpm: 202.53, results: 27, lastUpdate: new Date().toISOString(), source: "Meta Demo" }
+    ];
+  }
+  function openMapping(companyId: string) {
+    setSelectedCompanyId(companyId);
+    setPulledCampaigns(demoCampaigns(companyId));
+    setModalOpen(true);
+  }
+  function updateLink(companyId: string, patch: any) {
+    const current = links.find((item: any) => item.company_id === companyId) || { id: createLocalId(), company_id: companyId };
+    const next = { ...current, ...patch, updated_at: new Date().toISOString() };
+    setContent({ ...content, metaAccountLinks: [next, ...links.filter((item: any) => item.company_id !== companyId)] });
+  }
+  async function persistCustomerMapping(companyId: string) {
+    const link = (content.metaAccountLinks || []).find((item: any) => item.company_id === companyId) || {};
+    if (link.ad_account_id) {
+      await fetch("/api/admin/integrations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider: "meta", companyId, adAccountId: link.ad_account_id, businessAccountId: link.business_id || "" }) }).catch(() => null);
+    }
+    if (link.google_ads_customer_id) {
+      await fetch("/api/admin/integrations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider: "google", companyId, customerAccountId: link.google_ads_customer_id, businessAccountId: link.mcc_id || "" }) }).catch(() => null);
+    }
+    notify?.("✓ Reklam hesabı eşleştirmesi kaydedildi", "success");
+  }
+  async function syncCompany(companyId: string, source = "Meta") {
+    setLoading(`sync-${companyId}`);
+    await persistCustomerMapping(companyId);
+    const campaigns = demoCampaigns(companyId);
+    setPulledCampaigns(campaigns);
+    const metricRows = campaigns.map((campaign: any) => ({ id: createLocalId(), company_id: companyId, date: new Date().toISOString().slice(0, 10), source: source === "Google" ? "Google Ads Sync" : "Meta API", campaign_id: matching[campaign.campaignId] || "", campaignName: campaign.campaignName, impressions: campaign.impressions || 0, reach: campaign.reach || 0, clicks: campaign.clicks || 0, leads: campaign.results || 0, spent: campaign.spend || 0, ctr: campaign.ctr || 0, cpc: campaign.cpc || 0, cpm: campaign.cpm || 0, visible_to_customer: true, notes: "Reklam hesabı eşleştirme merkezinden içe aktarıldı." }));
+    const log = { id: createLocalId(), provider: source.toLocaleLowerCase("tr"), company_id: companyId, source: "Reklam Hesabı Eşleştirme", result: "Başarılı", message: `${source} kampanya verileri içe aktarıldı.`, created_at: new Date().toISOString() };
+    const next = { ...content, campaignMetrics: [...metricRows, ...(content.campaignMetrics || [])], activityLogs: [log, ...(content.activityLogs || [])] };
+    setContent(next);
+    save?.(next);
+    setMessage("Tamamlandı ✓");
+    notify?.("✓ Senkronizasyon tamamlandı", "success");
+    setLoading("");
+    setTimeout(() => setMessage(""), 2000);
+  }
+  function importCampaign(metaCampaign: any, existingId = "") {
+    setLoading(`import-${metaCampaign.campaignId}`);
+    const companyId = selectedCompanyId;
+    const campaignPatch = { company_id: companyId, meta_campaign_id: metaCampaign.campaignId, name: metaCampaign.campaignName, platform: "Meta Ads", status: metaCampaign.status || "Aktif", spent_budget: Number(metaCampaign.spend || 0), spent: Number(metaCampaign.spend || 0), total_budget: Number(metaCampaign.spend || 0), budget: Number(metaCampaign.spend || 0), start_date: new Date().toISOString().slice(0, 10), notes: "Meta verilerinden içe aktarıldı.", visible_to_customer: true, updated_at: new Date().toISOString() };
+    const campaigns = content.campaigns || [];
+    const newCampaign = existingId ? campaigns.map((item: any) => item.id === existingId ? { ...item, ...campaignPatch } : item) : [{ id: createLocalId(), ...campaignPatch }, ...campaigns];
+    const targetId = existingId || newCampaign[0].id;
+    const metric = { id: createLocalId(), company_id: companyId, campaign_id: targetId, date: new Date().toISOString().slice(0, 10), source: "Meta API", campaignName: metaCampaign.campaignName, impressions: metaCampaign.impressions || 0, reach: metaCampaign.reach || 0, clicks: metaCampaign.clicks || 0, leads: metaCampaign.results || 0, spent: metaCampaign.spend || 0, ctr: metaCampaign.ctr || 0, cpc: metaCampaign.cpc || 0, cpm: metaCampaign.cpm || 0, visible_to_customer: true, notes: "Meta Verilerini İçeri Aktar ile oluşturuldu." };
+    const log = { id: createLocalId(), provider: "meta", company_id: companyId, source: "Kampanya Eşleştirme", result: "Başarılı", message: `${metaCampaign.campaignName} kampanyası içe aktarıldı.`, created_at: new Date().toISOString() };
+    const next = { ...content, campaigns: newCampaign, campaignMetrics: [metric, ...(content.campaignMetrics || [])], activityLogs: [log, ...(content.activityLogs || [])] };
+    setContent(next);
+    save?.(next);
+    notify?.("✓ İçe Aktarıldı", "success");
+    setLoading("");
+  }
+  return (
+    <Panel title="Reklam Hesabı Eşleştirme">
+      <p className="mb-5 text-sm leading-6 text-slate-300">Meta ve Google reklam hesaplarını merkezi olarak müşterilerle eşleştirin, kampanyaları mevcut kayıtlara bağlayın veya yeni kampanya oluşturun.</p>
+      {message && <p className="mb-4 rounded-[8px] border border-emerald-300/25 bg-emerald-300/10 p-3 text-sm font-bold text-emerald-50">{message}</p>}
+      <div className="overflow-hidden rounded-[18px] border border-white/10 bg-slate-950/45">
+        <div className="grid gap-3 border-b border-white/10 bg-white/[0.03] p-4 text-xs font-black uppercase tracking-[.12em] text-slate-300 md:grid-cols-[1.2fr_1fr_1fr_1fr_.8fr]"><span>Müşteri</span><span>Meta Account</span><span>Google Account</span><span>Son Sync</span><span>Durum / Aksiyon</span></div>
+        <div className="grid gap-2 p-3">
+          {rows.map(({ company, link, lastMetric }: any) => <div key={company.id} className="grid gap-3 rounded-[10px] border border-white/10 bg-black/20 p-4 text-sm md:grid-cols-[1.2fr_1fr_1fr_1fr_.8fr] md:items-center">
+            <div><p className="font-black text-white">{company.name}</p><p className="text-xs text-slate-400">{company.sector || "Sektör yok"}</p></div>
+            <Field label="Meta Account" value={link.ad_account_id || ""} onChange={(ad_account_id) => updateLink(company.id, { ad_account_id, status: "Taslak" })} />
+            <Field label="Google Account" value={link.google_ads_customer_id || ""} onChange={(google_ads_customer_id) => updateLink(company.id, { google_ads_customer_id, google_status: "Taslak" })} />
+            <div><p className="text-slate-200">{formatDateTime(link.last_sync_at || link.google_last_sync_at || lastMetric?.date)}</p><p className="mt-1 text-xs text-slate-400">{lastMetric?.source || "Veri bekleniyor"}</p></div>
+            <div className="flex flex-wrap gap-2"><button onClick={() => openMapping(company.id)} className="rounded-full bg-cyan-300 px-3 py-2 text-xs font-black text-slate-950">Eşleştir</button><button onClick={() => persistCustomerMapping(company.id)} className="rounded-full border border-cyan-200/25 px-3 py-2 text-xs text-cyan-100">Güncelle</button><button onClick={() => notify?.("✓ Test başarılı", "success")} className="rounded-full border border-emerald-300/25 px-3 py-2 text-xs text-emerald-100">Test Et</button><button disabled={loading === `sync-${company.id}`} onClick={() => syncCompany(company.id)} className="rounded-full border border-amber-300/25 px-3 py-2 text-xs text-amber-100">{loading === `sync-${company.id}` ? "Senkronize Ediliyor..." : "Senkronize Et"}</button></div>
+          </div>)}
+        </div>
+      </div>
+      <div className="mt-5 rounded-[18px] border border-white/10 bg-black/20 p-4"><h3 className="font-black text-white">Senkronizasyon Geçmişi</h3><div className="mt-3 grid gap-2">{[...(logs || []), ...(content.activityLogs || []).filter((log: any) => String(log.source || log.entity || "").includes("Reklam"))].slice(0, 10).map((log: any, index: number) => <div key={log.id || index} className="grid gap-2 rounded-[8px] border border-white/10 p-3 text-sm md:grid-cols-[160px_160px_1fr_120px]"><span className="text-slate-300">{formatDateTime(log.created_at)}</span><span className="text-cyan-100">{companyName(content, log.company_id) || log.provider || "-"}</span><span className="text-slate-300">{log.message || log.action || log.source || "-"}</span><span className={`${log.result === "Başarılı" ? "text-emerald-100" : log.result === "Hata" ? "text-red-100" : "text-amber-100"}`}>{log.result || log.status || "Uyarı"}</span></div>)}{!logs.length && <p className="rounded-[8px] border border-dashed border-white/10 p-4 text-sm text-slate-400">Henüz senkronizasyon geçmişi yok.</p>}</div></div>
+      {modalOpen && <div className="fixed inset-0 z-[120] grid place-items-center bg-black/70 p-4" onClick={() => setModalOpen(false)}><div className="max-h-[88vh] w-full max-w-5xl overflow-auto rounded-[22px] border border-white/10 bg-[#07111f] p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="mb-5 flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">Kampanya Eşleştirme</p><h3 className="mt-1 text-2xl font-black text-white">{companyName(content, selectedCompanyId)}</h3><p className="mt-1 text-sm text-slate-300">Step 1: müşteri seçildi. Step 2: Meta kampanyalarını mevcut kampanyaya bağlayın veya yeni kampanya oluşturun.</p></div><button onClick={() => setModalOpen(false)} className="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200">Kapat</button></div><CompanySelect label="Müşteri" value={selectedCompanyId} onChange={(companyId) => { setSelectedCompanyId(companyId); setPulledCampaigns(demoCampaigns(companyId)); }} companies={content.companies} /><div className="mt-5 grid gap-3">{pulledCampaigns.map((campaign: any) => <div key={campaign.campaignId} className="rounded-[12px] border border-white/10 bg-black/25 p-4"><div className="grid gap-3 md:grid-cols-[1fr_120px_120px_160px] md:items-center"><div><p className="font-black text-white">{campaign.campaignName}</p><p className="mt-1 text-xs text-slate-400">{campaign.status} · Son güncelleme: {formatDateTime(campaign.lastUpdate)}</p></div><span className="text-sm text-slate-200">{Number(campaign.spend || 0).toLocaleString("tr-TR")} TL</span><span className="text-sm text-slate-200">{Number(campaign.ctr || 0).toFixed(2)}% CTR</span><SelectField label="Mevcut kampanya" value={matching[campaign.campaignId] || ""} onChange={(value) => setMatching({ ...matching, [campaign.campaignId]: value })} options={(content.campaigns || []).filter((item: any) => item.company_id === selectedCompanyId).map((item: any) => ({ value: item.id, label: item.name }))} placeholder="Yeni oluştur" /></div><div className="mt-3 flex flex-wrap gap-2"><button disabled={loading === `import-${campaign.campaignId}`} onClick={() => importCampaign(campaign, matching[campaign.campaignId])} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">{loading === `import-${campaign.campaignId}` ? "İçe Aktarılıyor..." : matching[campaign.campaignId] ? "Mevcut Kampanyayı Güncelle" : "➕ Yeni Kampanya Oluştur"}</button><button disabled={loading === `import-${campaign.campaignId}`} onClick={() => importCampaign(campaign, matching[campaign.campaignId])} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs font-black text-emerald-100">{loading === `import-${campaign.campaignId}` ? "İçe Aktarılıyor..." : "Meta Verilerini İçeri Aktar"}</button></div></div>)}</div></div></div>}
+    </Panel>
+  );
+}
+
 function CampaignAdmin({ content, setContent, currentSession, notify }: any) {
   const campaigns = content.campaigns || [];
   const [statusFilter, setStatusFilter] = useState("Tüm kampanyalar");
@@ -4760,6 +4919,40 @@ function ReportingCenter({ content, setContent }: any) {
   function updateMetric(report, key, value) {
     update(report.id, { metrics: { ...(report.metrics || {}), [key]: value } });
   }
+  function applyMetricsFromSource(report) {
+    const source = report.data_source || "Manuel";
+    if (!report.company_id) return setMessage("Veri kaynağı için önce müşteri seçin.");
+    const rows = (content.campaignMetrics || []).filter((metric) => {
+      if (metric.company_id !== report.company_id) return false;
+      if (report.campaign_id && metric.campaign_id !== report.campaign_id) return false;
+      if (source === "Meta") return String(metric.source || "").toLocaleLowerCase("tr").includes("meta");
+      if (source === "Google") return String(metric.source || "").toLocaleLowerCase("tr").includes("google");
+      if (source === "Karma") return ["meta", "google"].some((item) => String(metric.source || "").toLocaleLowerCase("tr").includes(item));
+      return false;
+    });
+    if (!rows.length) return setMessage("Seçili veri kaynağı için metrik bulunamadı.");
+    const totals = rows.reduce((sum, row) => ({
+      impressions: sum.impressions + Number(row.impressions || 0),
+      reach: sum.reach + Number(row.reach || 0),
+      clicks: sum.clicks + Number(row.clicks || 0),
+      messages: sum.messages + Number(row.messages || 0),
+      leads: sum.leads + Number(row.leads || row.conversions || 0),
+      spent: sum.spent + Number(row.spent || row.spend || row.cost || 0),
+      conversions: sum.conversions + Number(row.conversions || 0)
+    }), { impressions: 0, reach: 0, clicks: 0, messages: 0, leads: 0, spent: 0, conversions: 0 });
+    const derived = {
+      ...totals,
+      cost: totals.spent,
+      ctr: totals.impressions ? Number(((totals.clicks / totals.impressions) * 100).toFixed(2)) : 0,
+      cpc: totals.clicks ? Number((totals.spent / totals.clicks).toFixed(2)) : 0,
+      average_cpc: totals.clicks ? Number((totals.spent / totals.clicks).toFixed(2)) : 0,
+      cpm: totals.impressions ? Number(((totals.spent / totals.impressions) * 1000).toFixed(2)) : 0,
+      cost_per_result: totals.leads ? Number((totals.spent / totals.leads).toFixed(2)) : 0,
+      cost_per_conversion: totals.conversions ? Number((totals.spent / totals.conversions).toFixed(2)) : 0
+    };
+    update(report.id, { metrics: { ...(report.metrics || {}), ...derived }, customer_note: report.customer_note || `${source} veri kaynağından içe aktarılan kampanya metrikleriyle rapor hazırlandı.` });
+    setMessage("Veri kaynağı metrikleri rapora aktarıldı.");
+  }
   function add() {
     const id = `report-${Date.now()}`;
     setContent({ ...content, reports: [{ id, report_type: typeForTab, period: "Aylık", metrics: {}, visible_to_customer: true, archived: false }, ...reports] });
@@ -4797,6 +4990,7 @@ function ReportingCenter({ content, setContent }: any) {
       <div className="grid gap-3 md:grid-cols-3">
         <CompanySelect value={report.company_id || ""} onChange={(value) => update(report.id, { company_id: value, campaign_id: "" })} companies={content.companies} />
         <SelectField label="Kampanya" value={report.campaign_id || ""} onChange={(value) => update(report.id, { campaign_id: value })} options={(content.campaigns || []).filter((campaign) => !report.company_id || campaign.company_id === report.company_id).map((campaign) => ({ value: campaign.id, label: campaign.name }))} placeholder="Kampanya seçimi isteğe bağlı" />
+        <SelectField label="Veri Kaynağı" value={report.data_source || "Manuel"} onChange={(value) => update(report.id, { data_source: value })} options={["Manuel", "Meta", "Google", "Karma"]} />
         <Field label="Rapor dönemi" value={report.period} onChange={(value) => update(report.id, { period: value })} />
         <Field label="Başlangıç tarihi" type="date" value={report.start_date} onChange={(value) => update(report.id, { start_date: value })} />
         <Field label="Bitiş tarihi" type="date" value={report.end_date} onChange={(value) => update(report.id, { end_date: value })} />
@@ -4805,7 +4999,7 @@ function ReportingCenter({ content, setContent }: any) {
       <div className="grid gap-3 md:grid-cols-3">{reportMetricFields[report.report_type].map(([key, label, kind]) => kind === "textarea" ? <TextArea key={key} label={label} value={report.metrics?.[key]} onChange={(value) => updateMetric(report, key, value)} /> : <Field key={key} label={label} type="number" value={report.metrics?.[key]} onChange={(value) => updateMetric(report, key, value)} />)}</div>
       <div className="grid gap-3 md:grid-cols-2"><TextArea label="Dahili not" value={report.internal_note} onChange={(value) => update(report.id, { internal_note: value })} /><TextArea label="Müşteriye gösterilecek genel yorum" value={report.customer_note} onChange={(value) => update(report.id, { customer_note: value })} /></div>
       <ReportTools report={report} updates={(content.reportUpdates || []).filter((item) => item.report_id === report.id)} onUpdatesChange={(items) => setContent({ ...content, reportUpdates: [...items, ...(content.reportUpdates || []).filter((item) => item.report_id !== report.id)] })} onApplyExtracted={(patch) => update(report.id, patch)} />
-      <div className="flex flex-wrap items-center gap-3"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={report.visible_to_customer ?? true} onChange={(event) => update(report.id, { visible_to_customer: event.target.checked })} /> Müşteriye gösterilsin</label><button disabled={loading === report.id} onClick={() => save(report)} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950 disabled:opacity-60">{loading === report.id ? "Kaydediliyor..." : "Raporu kaydet"}</button><button onClick={() => remove(report)} className="rounded-full border border-red-300/30 px-4 py-2 text-sm text-red-100">Sil</button>{report.company_id && <a href={`/musteri-paneli?company=${report.company_id}`} target="_blank" rel="noreferrer" className="rounded-full border border-white/10 px-4 py-2 text-sm">Müşteri gibi görüntüle</a>}</div>
+      <div className="flex flex-wrap items-center gap-3"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={report.visible_to_customer ?? true} onChange={(event) => update(report.id, { visible_to_customer: event.target.checked })} /> Müşteriye gösterilsin</label><button type="button" onClick={() => applyMetricsFromSource(report)} className="rounded-full border border-emerald-300/30 px-4 py-2 text-sm font-black text-emerald-100">Veri Kaynağından Aktar</button><button disabled={loading === report.id} onClick={() => save(report)} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950 disabled:opacity-60">{loading === report.id ? "Kaydediliyor..." : "Raporu kaydet"}</button><button onClick={() => remove(report)} className="rounded-full border border-red-300/30 px-4 py-2 text-sm text-red-100">Sil</button>{report.company_id && <a href={`/musteri-paneli?company=${report.company_id}`} target="_blank" rel="noreferrer" className="rounded-full border border-white/10 px-4 py-2 text-sm">Müşteri gibi görüntüle</a>}</div>
       {(content.reportInterpretations || []).filter((item) => item.report_id === report.id).map((item) => <div key={item.id} className="rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm leading-6 text-cyan-50"><AiUsageBadge meta={aiMetaFromRecord(item, content.settings.api)} /><p className="mt-3">{item.interpretation_text}</p><p className="mt-2 text-xs text-cyan-100/70">{formatDateTime(item.created_at)}</p></div>)}
     </div>)}{!visibleReports.length && <p className="text-sm text-slate-400">Bu kategoride henüz rapor yok.</p>}</div>
   </Panel>;

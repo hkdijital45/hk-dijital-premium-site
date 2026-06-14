@@ -70,6 +70,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     accent: "from-orange-400 via-pink-500 to-rose-600",
     items: [
       { label: "Kampanyalar", slug: "kampanyalar", module: "kampanyalar" },
+      { label: "Reklam Hesabı Eşleştirme", slug: "reklam-hesabi-eslestirme", module: "kampanyalar" },
       { label: "Meta Raporları", slug: "meta-analiz", module: "meta-analiz" },
       { label: "Google Ads Raporları", slug: "google-analiz", module: "google-analiz" },
       { label: "Aylık Raporlar", slug: "aylik-raporlar", module: "aylik-raporlar" },
@@ -172,6 +173,9 @@ const legacySlugRedirects: Record<string, string> = {
   "rapor-yorumlari": "musteri-raporlari",
   "premium-pdf-report-design-center": "pdf-rapor-tasarim",
   "pdf-rapor-tasarim-merkezi": "pdf-rapor-tasarim",
+  "campaign-mapping": "reklam-hesabi-eslestirme",
+  "kampanya-eslestirme": "reklam-hesabi-eslestirme",
+  "reklam-hesaplari": "reklam-hesabi-eslestirme",
   "disa-aktarma": "musteri-raporlari",
   "export-center": "veri-aktarma",
   "veri-aktarimi": "veri-aktarma",
