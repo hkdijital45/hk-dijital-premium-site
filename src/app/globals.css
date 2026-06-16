@@ -2882,3 +2882,483 @@ html {
   background-color: #facc15 !important;
   color: #422006 !important;
 }
+
+/* Premium basic light admin interface: clean SaaS surfaces with colorful actions. */
+.admin-shell,
+.hk-admin,
+[data-admin] {
+  --hk-admin-bg: #f7f8fb;
+  --hk-admin-section: #f1f5f9;
+  --hk-admin-card: #ffffff;
+  --hk-admin-border: #e5e7eb;
+  --hk-admin-text: #0f172a;
+  --hk-admin-secondary: #334155;
+  --hk-admin-muted: #64748b;
+  --hk-admin-shadow: 0 8px 30px rgba(15, 23, 42, .06);
+  background: var(--hk-admin-bg) !important;
+  color: var(--hk-admin-text) !important;
+}
+
+.admin-shell .admin-ambient,
+.hk-admin .admin-ambient,
+[data-admin] .admin-ambient {
+  background:
+    radial-gradient(circle at 8% 0%, rgba(34, 211, 238, .12), transparent 34%),
+    radial-gradient(circle at 92% 6%, rgba(250, 204, 21, .10), transparent 28%),
+    linear-gradient(180deg, #f7f8fb 0%, #f1f5f9 100%) !important;
+}
+
+.admin-shell .premium-grid,
+.hk-admin .premium-grid,
+[data-admin] .premium-grid {
+  opacity: .18 !important;
+}
+
+.admin-shell header,
+.admin-shell nav,
+.hk-admin header,
+.hk-admin nav,
+[data-admin] header,
+[data-admin] nav {
+  background: rgba(255, 255, 255, .94) !important;
+  border-color: var(--hk-admin-border) !important;
+  box-shadow: var(--hk-admin-shadow) !important;
+}
+
+.admin-shell .admin-dashboard-main,
+.hk-admin .admin-dashboard-main,
+[data-admin] .admin-dashboard-main {
+  background: var(--hk-admin-section) !important;
+  border-color: var(--hk-admin-border) !important;
+  box-shadow: var(--hk-admin-shadow) !important;
+}
+
+.admin-shell .admin-card,
+.admin-shell .glass-card,
+.admin-shell [class*="card"],
+.admin-shell [class*="panel"],
+.admin-shell [class*="surface"],
+.admin-shell .admin-top-dropdown,
+.admin-shell .admin-modal-panel,
+.admin-shell .admin-drawer-panel,
+.admin-shell section,
+.admin-shell aside,
+.admin-shell article,
+.admin-shell form,
+.admin-shell table,
+.hk-admin .admin-card,
+.hk-admin .glass-card,
+.hk-admin [class*="card"],
+.hk-admin [class*="panel"],
+.hk-admin [class*="surface"],
+.hk-admin .admin-top-dropdown,
+.hk-admin .admin-modal-panel,
+.hk-admin .admin-drawer-panel,
+.hk-admin section,
+.hk-admin aside,
+.hk-admin article,
+.hk-admin form,
+.hk-admin table,
+[data-admin] .admin-card,
+[data-admin] .glass-card,
+[data-admin] [class*="card"],
+[data-admin] [class*="panel"],
+[data-admin] [class*="surface"],
+[data-admin] .admin-top-dropdown,
+[data-admin] .admin-modal-panel,
+[data-admin] .admin-drawer-panel,
+[data-admin] section,
+[data-admin] aside,
+[data-admin] article,
+[data-admin] form,
+[data-admin] table {
+  background: var(--hk-admin-card) !important;
+  color: var(--hk-admin-text) !important;
+  border-color: var(--hk-admin-border) !important;
+  box-shadow: var(--hk-admin-shadow) !important;
+}
+
+.admin-shell h1,
+.admin-shell h2,
+.admin-shell h3,
+.admin-shell h4,
+.admin-shell h5,
+.admin-shell h6,
+.admin-shell strong,
+.admin-shell label,
+.admin-shell th,
+.admin-shell .font-black,
+.admin-shell .font-bold,
+.hk-admin h1,
+.hk-admin h2,
+.hk-admin h3,
+.hk-admin h4,
+.hk-admin h5,
+.hk-admin h6,
+.hk-admin strong,
+.hk-admin label,
+.hk-admin th,
+.hk-admin .font-black,
+.hk-admin .font-bold,
+[data-admin] h1,
+[data-admin] h2,
+[data-admin] h3,
+[data-admin] h4,
+[data-admin] h5,
+[data-admin] h6,
+[data-admin] strong,
+[data-admin] label,
+[data-admin] th,
+[data-admin] .font-black,
+[data-admin] .font-bold {
+  color: var(--hk-admin-text) !important;
+}
+
+.admin-shell p,
+.admin-shell span,
+.admin-shell small,
+.admin-shell li,
+.admin-shell td,
+.admin-shell .text-slate-300,
+.admin-shell .text-slate-400,
+.admin-shell .text-slate-500,
+.admin-shell .text-slate-600,
+.admin-shell .text-slate-700,
+.hk-admin p,
+.hk-admin span,
+.hk-admin small,
+.hk-admin li,
+.hk-admin td,
+.hk-admin .text-slate-300,
+.hk-admin .text-slate-400,
+.hk-admin .text-slate-500,
+.hk-admin .text-slate-600,
+.hk-admin .text-slate-700,
+[data-admin] p,
+[data-admin] span,
+[data-admin] small,
+[data-admin] li,
+[data-admin] td,
+[data-admin] .text-slate-300,
+[data-admin] .text-slate-400,
+[data-admin] .text-slate-500,
+[data-admin] .text-slate-600,
+[data-admin] .text-slate-700 {
+  color: var(--hk-admin-secondary) !important;
+}
+
+.admin-shell .text-xs,
+.admin-shell .text-\[10px\],
+.hk-admin .text-xs,
+.hk-admin .text-\[10px\],
+[data-admin] .text-xs,
+[data-admin] .text-\[10px\] {
+  color: var(--hk-admin-muted) !important;
+}
+
+.admin-shell input,
+.admin-shell select,
+.admin-shell textarea,
+.hk-admin input,
+.hk-admin select,
+.hk-admin textarea,
+[data-admin] input,
+[data-admin] select,
+[data-admin] textarea {
+  background: #ffffff !important;
+  color: var(--hk-admin-text) !important;
+  border-color: #dbe4ef !important;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, .04) !important;
+}
+
+.admin-shell input:focus,
+.admin-shell select:focus,
+.admin-shell textarea:focus,
+.hk-admin input:focus,
+.hk-admin select:focus,
+.hk-admin textarea:focus,
+[data-admin] input:focus,
+[data-admin] select:focus,
+[data-admin] textarea:focus {
+  border-color: #22d3ee !important;
+  box-shadow: 0 0 0 4px rgba(34, 211, 238, .16) !important;
+  outline: none !important;
+}
+
+.admin-shell input::placeholder,
+.admin-shell textarea::placeholder,
+.hk-admin input::placeholder,
+.hk-admin textarea::placeholder,
+[data-admin] input::placeholder,
+[data-admin] textarea::placeholder {
+  color: var(--hk-admin-muted) !important;
+}
+
+.admin-shell table thead,
+.hk-admin table thead,
+[data-admin] table thead {
+  background: #f8fafc !important;
+}
+
+.admin-shell table tbody tr,
+.hk-admin table tbody tr,
+[data-admin] table tbody tr {
+  border-color: var(--hk-admin-border) !important;
+}
+
+.admin-shell table tbody tr:hover,
+.hk-admin table tbody tr:hover,
+[data-admin] table tbody tr:hover {
+  background: #f8fafc !important;
+}
+
+.admin-shell .fixed.inset-0,
+.hk-admin .fixed.inset-0,
+[data-admin] .fixed.inset-0 {
+  background: rgba(248, 250, 252, .78) !important;
+  backdrop-filter: none !important;
+}
+
+.admin-shell button,
+.admin-shell a,
+.hk-admin button,
+.hk-admin a,
+[data-admin] button,
+[data-admin] a {
+  transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background-color .16s ease;
+}
+
+.admin-shell button:not(:disabled):hover,
+.admin-shell a:not([aria-disabled="true"]):hover,
+.hk-admin button:not(:disabled):hover,
+.hk-admin a:not([aria-disabled="true"]):hover,
+[data-admin] button:not(:disabled):hover,
+[data-admin] a:not([aria-disabled="true"]):hover {
+  transform: translateY(-1px);
+}
+
+.admin-shell button:not(:disabled):active,
+.hk-admin button:not(:disabled):active,
+[data-admin] button:not(:disabled):active {
+  transform: translateY(0) scale(.98);
+}
+
+.admin-shell button:disabled,
+.hk-admin button:disabled,
+[data-admin] button:disabled {
+  cursor: not-allowed;
+  opacity: .62 !important;
+}
+
+.admin-shell button.bg-cyan-300,
+.admin-shell button.bg-cyan-400,
+.admin-shell button.bg-cyan-500,
+.admin-shell .bg-cyan-300,
+.admin-shell .bg-cyan-400,
+.admin-shell .bg-cyan-500,
+.hk-admin button.bg-cyan-300,
+.hk-admin button.bg-cyan-400,
+.hk-admin button.bg-cyan-500,
+.hk-admin .bg-cyan-300,
+.hk-admin .bg-cyan-400,
+.hk-admin .bg-cyan-500,
+[data-admin] button.bg-cyan-300,
+[data-admin] button.bg-cyan-400,
+[data-admin] button.bg-cyan-500,
+[data-admin] .bg-cyan-300,
+[data-admin] .bg-cyan-400,
+[data-admin] .bg-cyan-500 {
+  background: linear-gradient(135deg, #22d3ee, #0ea5e9) !important;
+  color: #062333 !important;
+  box-shadow: 0 10px 24px rgba(14, 165, 233, .24) !important;
+}
+
+.admin-shell .bg-cyan-300 *,
+.admin-shell .bg-cyan-400 *,
+.admin-shell .bg-cyan-500 *,
+.hk-admin .bg-cyan-300 *,
+.hk-admin .bg-cyan-400 *,
+.hk-admin .bg-cyan-500 *,
+[data-admin] .bg-cyan-300 *,
+[data-admin] .bg-cyan-400 *,
+[data-admin] .bg-cyan-500 * {
+  color: #062333 !important;
+}
+
+.admin-shell button.bg-blue-500,
+.admin-shell button.bg-blue-600,
+.admin-shell .bg-blue-500,
+.admin-shell .bg-blue-600,
+.hk-admin button.bg-blue-500,
+.hk-admin button.bg-blue-600,
+.hk-admin .bg-blue-500,
+.hk-admin .bg-blue-600,
+[data-admin] button.bg-blue-500,
+[data-admin] button.bg-blue-600,
+[data-admin] .bg-blue-500,
+[data-admin] .bg-blue-600 {
+  background: linear-gradient(135deg, #38bdf8, #2563eb) !important;
+  color: #ffffff !important;
+  box-shadow: 0 10px 24px rgba(37, 99, 235, .24) !important;
+}
+
+.admin-shell .bg-blue-500 *,
+.admin-shell .bg-blue-600 *,
+.hk-admin .bg-blue-500 *,
+.hk-admin .bg-blue-600 *,
+[data-admin] .bg-blue-500 *,
+[data-admin] .bg-blue-600 * {
+  color: #ffffff !important;
+}
+
+.admin-shell button.bg-orange-500,
+.admin-shell .bg-orange-500,
+.hk-admin button.bg-orange-500,
+.hk-admin .bg-orange-500,
+[data-admin] button.bg-orange-500,
+[data-admin] .bg-orange-500 {
+  background: linear-gradient(135deg, #fb923c, #f59e0b) !important;
+  color: #431407 !important;
+  box-shadow: 0 10px 24px rgba(245, 158, 11, .24) !important;
+}
+
+.admin-shell .bg-orange-500 *,
+.hk-admin .bg-orange-500 *,
+[data-admin] .bg-orange-500 * {
+  color: #431407 !important;
+}
+
+.admin-shell button.bg-amber-300,
+.admin-shell button.bg-yellow-300,
+.admin-shell .bg-amber-300,
+.admin-shell .bg-yellow-300,
+.hk-admin button.bg-amber-300,
+.hk-admin button.bg-yellow-300,
+.hk-admin .bg-amber-300,
+.hk-admin .bg-yellow-300,
+[data-admin] button.bg-amber-300,
+[data-admin] button.bg-yellow-300,
+[data-admin] .bg-amber-300,
+[data-admin] .bg-yellow-300 {
+  background: linear-gradient(135deg, #fde047, #facc15) !important;
+  color: #422006 !important;
+  box-shadow: 0 10px 24px rgba(250, 204, 21, .24) !important;
+}
+
+.admin-shell .bg-amber-300 *,
+.admin-shell .bg-yellow-300 *,
+.hk-admin .bg-amber-300 *,
+.hk-admin .bg-yellow-300 *,
+[data-admin] .bg-amber-300 *,
+[data-admin] .bg-yellow-300 * {
+  color: #422006 !important;
+}
+
+.admin-shell button[class*="bg-emerald"],
+.admin-shell button[class*="bg-green"],
+.admin-shell [class*="bg-emerald-"][class*="/"],
+.admin-shell [class*="bg-green-"][class*="/"],
+.hk-admin button[class*="bg-emerald"],
+.hk-admin button[class*="bg-green"],
+.hk-admin [class*="bg-emerald-"][class*="/"],
+.hk-admin [class*="bg-green-"][class*="/"],
+[data-admin] button[class*="bg-emerald"],
+[data-admin] button[class*="bg-green"],
+[data-admin] [class*="bg-emerald-"][class*="/"],
+[data-admin] [class*="bg-green-"][class*="/"] {
+  background: #dcfce7 !important;
+  color: #166534 !important;
+  border-color: #86efac !important;
+}
+
+.admin-shell button[class*="bg-red"],
+.admin-shell [class*="bg-red-"][class*="/"],
+.hk-admin button[class*="bg-red"],
+.hk-admin [class*="bg-red-"][class*="/"],
+[data-admin] button[class*="bg-red"],
+[data-admin] [class*="bg-red-"][class*="/"] {
+  background: #fee2e2 !important;
+  color: #991b1b !important;
+  border-color: #fecaca !important;
+}
+
+.hk-toast-stack {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 9999;
+  display: grid;
+  width: min(430px, calc(100vw - 32px));
+  gap: 12px;
+  pointer-events: none;
+}
+
+.hk-toast {
+  pointer-events: auto;
+  overflow: hidden;
+  border-radius: 18px !important;
+  border: 1px solid var(--hk-admin-border, #e5e7eb) !important;
+  background: rgba(255, 255, 255, .98) !important;
+  box-shadow: 0 18px 55px rgba(15, 23, 42, .16) !important;
+  animation: hk-toast-slide-down .34s cubic-bezier(.2, .9, .2, 1.2) both !important;
+}
+
+.hk-toast-success {
+  border-left: 6px solid #22c55e !important;
+}
+
+.hk-toast-info {
+  border-left: 6px solid #0ea5e9 !important;
+}
+
+.hk-toast-warning {
+  border-left: 6px solid #f59e0b !important;
+}
+
+.hk-toast-error {
+  border-left: 6px solid #ef4444 !important;
+}
+
+.hk-toast-success .hk-toast-icon {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.hk-toast-info .hk-toast-icon {
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.hk-toast-warning .hk-toast-icon {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.hk-toast-error .hk-toast-icon {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+@keyframes hk-toast-slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-18px) scale(.96);
+  }
+  72% {
+    opacity: 1;
+    transform: translateY(2px) scale(1.01);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 640px) {
+  .hk-toast-stack {
+    left: 16px;
+    right: 16px;
+    top: 14px;
+    width: auto;
+  }
+}

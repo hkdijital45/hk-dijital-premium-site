@@ -436,7 +436,12 @@ export function AdminDashboard({
 
   function notify(message: string, type = "success") {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    setToasts((current) => [{ id, message, type }, ...current].slice(0, 5));
+    const cleanMessage = String(message || "")
+      .replace(/^[✓✔✅]\s*/u, "")
+      .replace(/^[✖✕❌]\s*/u, "")
+      .replace(/^[⚠️⚠]\s*/u, "")
+      .trim();
+    setToasts((current) => [{ id, message: cleanMessage || "İşlem tamamlandı.", type }, ...current].slice(0, 5));
     window.setTimeout(() => {
       setToasts((current) => current.filter((toast) => toast.id !== id));
     }, 2200);
@@ -534,9 +539,9 @@ export function AdminDashboard({
     if (!mobileNavOpen || !activeGroup || openGroups[activeGroup.label]) return;
     setOpenGroups((current) => ({ ...current, [activeGroup.label]: true }));
   }, [activeGroup?.label, mobileNavOpen]);
-  const shellClass = "hk-admin-os admin-light bg-slate-50 text-slate-900";
+  const shellClass = "hk-admin-os admin-light bg-[#f7f8fb] text-slate-900";
   const panelClass = "border-slate-200 bg-white";
-  const headerClass = "border-slate-200 bg-white";
+  const headerClass = "border-slate-200 bg-white/95";
   const aiStatus = aiMetaFromApi(content.settings?.api || {});
   const headerNotifications = buildAdminNotifications(content, startupApiData).filter((item) => !notificationState.archived.includes(item.id));
   const unreadNotifications = headerNotifications.filter((item) => !notificationState.read.includes(item.id));
@@ -556,7 +561,7 @@ export function AdminDashboard({
     <main data-admin="true" className={`admin-shell hk-admin relative min-h-screen overflow-x-hidden ${shellClass}`}>
       <div className="admin-ambient pointer-events-none absolute inset-0" />
       <div className="premium-grid pointer-events-none absolute inset-0 opacity-20" />
-      <header className={`sticky top-0 z-40 border-b ${headerClass} shadow-[0_10px_30px_rgba(0,0,0,.12)] backdrop-blur-sm`}>
+      <header className={`sticky top-0 z-40 border-b ${headerClass} shadow-[0_8px_30px_rgba(15,23,42,.06)] backdrop-blur-sm`}>
         <div className="relative flex flex-wrap items-center gap-3 px-4 py-3 lg:px-6">
           <div className="flex min-w-[220px] items-center gap-3">
             <Link href="/hk-admin" aria-label="Ana dashboard'a dön" className="group flex items-center gap-3 rounded-[8px] px-2 py-1 transition hover:bg-slate-50">
@@ -666,7 +671,7 @@ export function AdminDashboard({
         </div>
       </header>
       <div className="relative grid w-full min-w-0 gap-4 px-3 py-4 sm:px-4 lg:grid-cols-1 lg:px-6">
-        <section className={`admin-dashboard-main min-w-0 w-full max-w-none rounded-[8px] border p-4 shadow-[0_16px_54px_rgba(0,0,0,.14)] sm:p-5 ${panelClass} ${saveFeedback === "success" ? "hk-action-success" : ""}`}>
+        <section className={`admin-dashboard-main min-w-0 w-full max-w-none rounded-[18px] border p-4 shadow-[0_8px_30px_rgba(15,23,42,.06)] sm:p-5 ${panelClass} ${saveFeedback === "success" ? "hk-action-success" : ""}`}>
           {!supabaseConfigured && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-700">Supabase bağlantısı yapılandırılmadı. Canlı ortamda kaydetme çalışmaz.</p>}
           {bootstrapWarning && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-700">Süper admin kurulum anahtarları hâlâ aktif. Güvenlik için Vercel ortam değişkenlerinden kaldırın.</p>}
           {status && <p className={`mb-5 rounded-[8px] border p-3 text-sm ${status.includes("Kaydedilemedi") ? "border-red-300/30 bg-red-500/10 text-red-100" : "border-cyan-200/20 bg-cyan-200/10 text-cyan-700"}`}>{status}</p>}
@@ -796,13 +801,14 @@ const bootSequence = [
 ];
 
 function ToastStack({ items, dismiss }: any) {
-  return <div className="hk-toast-stack">
+  return <div className="hk-toast-stack" role="status" aria-live="polite">
     {items.map((toast) => {
-      const icon = toast.type === "error" ? "✖" : toast.type === "warning" ? "⚠" : "✓";
-      const tone = toast.type === "error" ? "hk-toast-error text-red-100" : toast.type === "warning" ? "hk-toast-warning text-amber-700" : "hk-toast-success text-emerald-700";
-      return <button key={toast.id} type="button" onClick={() => dismiss(toast.id)} className={`hk-toast ${tone} grid grid-cols-[28px_1fr] items-start gap-3 p-4 text-left`}>
-        <span className="grid size-7 place-items-center rounded-full border border-current/25 bg-slate-50 text-sm font-black">{icon}</span>
-        <span><strong className="block text-sm text-slate-900">{toast.message}</strong><span className="mt-1 block text-xs text-slate-600">Kapatmak için tıklayın.</span></span>
+      const icon = toast.type === "error" ? "❌" : toast.type === "warning" ? "⚠️" : toast.type === "info" ? "ℹ️" : "✅";
+      const label = toast.type === "error" ? "İşlem başarısız" : toast.type === "warning" ? "Dikkat" : toast.type === "info" ? "Bilgi" : "İşlem başarılı";
+      const tone = toast.type === "error" ? "hk-toast-error" : toast.type === "warning" ? "hk-toast-warning" : toast.type === "info" ? "hk-toast-info" : "hk-toast-success";
+      return <button key={toast.id} type="button" onClick={() => dismiss(toast.id)} className={`hk-toast ${tone} grid grid-cols-[34px_1fr] items-start gap-3 p-4 text-left`}>
+        <span className="hk-toast-icon grid size-8 place-items-center rounded-full text-base font-black">{icon}</span>
+        <span><strong className="block text-xs font-black uppercase tracking-[.08em] text-slate-500">{label}</strong><span className="mt-1 block text-sm font-bold text-slate-950">{toast.message}</span><span className="mt-1 block text-xs text-slate-500">Kapatmak için tıklayın.</span></span>
       </button>;
     })}
   </div>;
