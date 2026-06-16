@@ -34,12 +34,16 @@ async function staff() {
 }
 
 async function tokenForIntegration(integrationId?: string) {
+  const integrations = hasSupabaseConfig() ? await getIntegrations("meta") : [];
   if (integrationId && hasSupabaseConfig()) {
-    const rows = await getIntegrations("meta");
-    const found = rows.find((item) => item.id === integrationId);
+    const found = integrations.find((item) => item.id === integrationId);
     const token = decryptSecret(found?.access_token_encrypted);
     if (token) return { token, integration: found };
   }
+  const savedGlobal = integrations.find((item) => !item.company_id && item.access_token_encrypted)
+    || integrations.find((item) => String(item.ad_account_id || "") === "__global_meta" && item.access_token_encrypted);
+  const savedToken = decryptSecret(savedGlobal?.access_token_encrypted);
+  if (savedToken) return { token: savedToken, integration: savedGlobal || null };
   const envToken = metaToken();
   return { token: envToken, integration: null };
 }
@@ -88,6 +92,26 @@ function normalizeInsight(row: any) {
     leads,
     results: leads || messages,
     messages
+  };
+}
+
+function safeMappingForClient(row: any) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    provider: row.provider,
+    companyId: row.company_id,
+    accountName: row.account_name,
+    accountId: row.account_id || row.ad_account_id,
+    adAccountId: row.ad_account_id || row.account_id,
+    businessId: row.business_id || row.business_account_id,
+    pageId: row.page_id,
+    instagramAccountId: row.instagram_account_id,
+    status: row.status,
+    syncStatus: row.sync_status,
+    syncMessage: row.sync_message,
+    lastSyncAt: row.last_sync_at,
+    updatedAt: row.updated_at
   };
 }
 
@@ -156,6 +180,78 @@ async function saveReportFromMeta(input: any, pulled: any) {
   return rows[0] || null;
 }
 
+async function findCustomerMetaMapping(companyId?: string) {
+  if (!hasSupabaseConfig() || !companyId) return null;
+  const rows = await supabaseRest<any[]>(`ad_integrations?provider=eq.meta&company_id=eq.${encodeURIComponent(companyId)}&select=*&order=updated_at.desc&limit=1`).catch(() => []);
+  return rows[0] || null;
+}
+
+async function writeSyncLog(input: any, result: "Başarılı" | "Uyarı" | "Hata", message: string, details: Record<string, unknown> = {}) {
+  if (!hasSupabaseConfig()) return;
+  await supabaseRest("integration_sync_logs", {
+    method: "POST",
+    body: JSON.stringify({
+      provider: "meta",
+      company_id: input.companyId || null,
+      integration_id: input.integrationId || input.integration_id || null,
+      source: "Meta Verilerini Çek",
+      result,
+      message,
+      details
+    })
+  }).catch(() => null);
+}
+
+async function updateMappingSyncState(input: any, status: string, message: string) {
+  if (!hasSupabaseConfig() || !input.companyId) return null;
+  const mapping = await findCustomerMetaMapping(input.companyId);
+  if (!mapping?.id) return null;
+  const rows = await supabaseRest<any[]>(`ad_integrations?id=eq.${mapping.id}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({
+      status,
+      sync_status: status,
+      sync_message: message,
+      last_sync_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    })
+  }).catch(() => []);
+  return rows[0] || mapping;
+}
+
+async function saveMetaMetrics(input: any, pulled: any) {
+  if (!hasSupabaseConfig() || !input.companyId || !pulled.rows?.length) return [];
+  const records = pulled.rows.map((row: any) => ({
+    company_id: input.companyId,
+    campaign_id: input.campaignId || null,
+    meta_campaign_id: row.campaignId || null,
+    campaign_name: row.campaignName || null,
+    source: "Meta API",
+    date: row.date || new Date().toISOString().slice(0, 10),
+    period: pulled.range?.label || "Meta Sync",
+    impressions: Number(row.impressions || 0),
+    reach: Number(row.reach || 0),
+    clicks: Number(row.clicks || 0),
+    spend: Number(row.spend || row.spent || 0),
+    spent: Number(row.spent || row.spend || 0),
+    cpc: Number(row.cpc || 0),
+    cpm: Number(row.cpm || 0),
+    ctr: Number(row.ctr || 0),
+    leads: Number(row.leads || row.results || 0),
+    results: Number(row.results || row.leads || 0),
+    messages: Number(row.messages || 0),
+    conversions: Number(row.conversions || row.leads || row.results || 0),
+    visible_to_customer: Boolean(input.visibleToCustomer),
+    raw_data: row
+  }));
+  return supabaseRest<any[]>("campaign_metrics", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify(records)
+  });
+}
+
 export async function GET(request: Request) {
   if (!(await staff())) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
   const { searchParams } = new URL(request.url);
@@ -207,23 +303,69 @@ export async function POST(request: Request) {
     }
 
     const { token, integration } = await tokenForIntegration(body.integrationId);
-    if (!token) return NextResponse.json({ ok: false, message: "Token geçersiz veya bulunamadı.", errorCode: "META_TOKEN_MISSING" }, { status: 200 });
+    if (!token) {
+      await writeSyncLog(body, "Hata", "Meta access token kayıtlı değil.", { errorCode: "META_TOKEN_MISSING" });
+      return NextResponse.json({ ok: false, message: "Meta access token kayıtlı değil.", errorCode: "META_TOKEN_MISSING" }, { status: 200 });
+    }
 
     if (action === "test") {
       const result = await graphGet("me", token, { fields: "id,name" });
       return NextResponse.json({ ok: result.ok, maskedToken: maskToken(token), message: result.ok ? "Meta bağlantısı başarılı" : result.error?.errorMessage || "Token geçersiz" });
     }
 
-    const input = { ...body, adAccountId: body.adAccountId || integration?.ad_account_id, companyId: body.companyId || integration?.company_id };
+    const mapping = await findCustomerMetaMapping(body.companyId || integration?.company_id);
+    const input = {
+      ...body,
+      companyId: body.companyId || integration?.company_id || mapping?.company_id,
+      adAccountId: body.adAccountId || mapping?.ad_account_id || mapping?.account_id || integration?.ad_account_id,
+      businessId: body.businessId || mapping?.business_id || mapping?.business_account_id || integration?.business_id || integration?.business_account_id,
+      pageId: body.pageId || mapping?.page_id || integration?.page_id,
+      instagramAccountId: body.instagramAccountId || mapping?.instagram_account_id || integration?.instagram_account_id,
+      integrationId: mapping?.id || integration?.id || body.integrationId
+    };
+    if (!input.adAccountId) {
+      const message = "Meta Ads Account ID eksik.";
+      await writeSyncLog(input, "Hata", message, { errorCode: "META_AD_ACCOUNT_MISSING" });
+      await updateMappingSyncState(input, "Hata", message);
+      return NextResponse.json({ ok: false, message, errorCode: "META_AD_ACCOUNT_MISSING" }, { status: 200 });
+    }
     const pulled = await pullMetaData(input, token);
-    if (!pulled.ok) return NextResponse.json({ ...pulled, message: pulled.errorMessage || "Meta verisi alınamadı." }, { status: 200 });
+    if (!pulled.ok) {
+      const metaMessage = pulled.error?.isTokenExpired
+        ? "Token geçersiz."
+        : pulled.error?.isPermissionError
+          ? "Yetki eksik."
+          : pulled.error?.isRateLimit
+            ? "Meta API istek sınırına takıldı."
+            : pulled.errorMessage || "API hatası.";
+      await writeSyncLog(input, "Hata", metaMessage, { errorCode: pulled.error?.errorCode, detail: pulled.errorMessage });
+      await updateMappingSyncState(input, "Hata", metaMessage);
+      return NextResponse.json({ ...pulled, message: metaMessage, errorMessage: metaMessage }, { status: 200 });
+    }
+    let savedRows: any[] = [];
+    try {
+      savedRows = await saveMetaMetrics(input, pulled);
+    } catch (error) {
+      const safe = getSafeSupabaseError(error);
+      const schemaMessage = safe.detail.includes("schema cache") || safe.detail.includes("column") || safe.detail.includes("relation")
+        ? "Veritabanı şema hatası: campaign_metrics alanları eksik. Migration uygulanmalı."
+        : safe.title;
+      await writeSyncLog(input, "Hata", schemaMessage, { detail: safe.detail });
+      await updateMappingSyncState(input, "Hata", schemaMessage);
+      return NextResponse.json({ ok: false, message: schemaMessage, detail: safe.detail, errorCode: "META_SYNC_SCHEMA_ERROR" }, { status: 200 });
+    }
     const report = action === "report" || body.createReport ? await saveReportFromMeta(input, pulled) : null;
+    const successMessage = action === "report" ? "Meta verilerinden rapor oluşturuldu." : "Meta verileri başarıyla çekildi.";
+    const mappingRow = await updateMappingSyncState(input, "Başarılı", successMessage);
+    await writeSyncLog(input, "Başarılı", successMessage, { rows: savedRows.length, adAccountId: input.adAccountId });
     return NextResponse.json({
       ok: true,
-      message: action === "report" ? "Meta verilerinden rapor oluşturuldu." : "Veri senkronizasyonu tamamlandı.",
+      message: successMessage,
       metrics: pulled.metrics,
       rows: pulled.rows,
+      savedRows,
       campaigns: pulled.campaigns,
+      mapping: safeMappingForClient(mappingRow),
       report,
       range: pulled.range,
       responseTimeMs: pulled.responseTimeMs
