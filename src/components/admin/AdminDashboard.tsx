@@ -2024,17 +2024,51 @@ function summarizeMetaRows(rows: any[] = []) {
 
 function metaCampaignSummaries(rows: any[] = []) {
   const grouped = rows.reduce((acc, row) => {
-    const key = row.campaignId || row.campaignName || "Meta Kampanya";
-    const current = acc[key] || { campaignId: key, campaignName: row.campaignName || key, spend: 0, results: 0, clicks: 0, impressions: 0, ctr: 0, cpc: 0, status: "Aktif" };
+    const key = row.campaignId || row.meta_campaign_id || row.external_id || row.campaignName || row.campaign_name || "Meta Kampanya";
+    const current = acc[key] || {
+      campaignId: key,
+      campaignName: row.campaignName || row.campaign_name || row.name || key,
+      spend: 0,
+      results: 0,
+      clicks: 0,
+      impressions: 0,
+      reach: 0,
+      ctr: 0,
+      cpc: 0,
+      cpm: 0,
+      status: row.status || "Aktif",
+      date: row.date || row.date_start || row.created_at || ""
+    };
     current.spend += Number(row.spend || row.spent || 0);
     current.results += Number(row.results || row.leads || row.messages || 0);
     current.clicks += Number(row.clicks || 0);
     current.impressions += Number(row.impressions || 0);
+    current.reach += Number(row.reach || 0);
     current.ctr = current.impressions ? (current.clicks / current.impressions) * 100 : 0;
     current.cpc = current.clicks ? current.spend / current.clicks : 0;
+    current.cpm = current.impressions ? (current.spend / current.impressions) * 1000 : 0;
     return { ...acc, [key]: current };
   }, {});
   return Object.values(grouped);
+}
+
+function metaRowsForRange(rows: any[] = [], rangePreset = "last_30d", dateFrom = "", dateTo = "") {
+  const today = new Date();
+  const end = dateTo || today.toISOString().slice(0, 10);
+  const startDate = new Date(today);
+  if (rangePreset === "custom" && dateFrom) startDate.setTime(new Date(dateFrom).getTime());
+  else if (rangePreset === "last_7d") startDate.setDate(today.getDate() - 7);
+  else if (rangePreset === "this_month") startDate.setDate(1);
+  else if (rangePreset === "last_month") startDate.setMonth(today.getMonth() - 1, 1);
+  else startDate.setDate(today.getDate() - 30);
+  const start = rangePreset === "last_month"
+    ? new Date(today.getFullYear(), today.getMonth() - 1, 1).toISOString().slice(0, 10)
+    : startDate.toISOString().slice(0, 10);
+  const until = rangePreset === "last_month" ? new Date(today.getFullYear(), today.getMonth(), 0).toISOString().slice(0, 10) : end;
+  return rows.filter((row) => {
+    const rowDate = String(row.date || row.date_start || row.created_at || new Date().toISOString()).slice(0, 10);
+    return rowDate >= start && rowDate <= until;
+  });
 }
 
 function normalizeAdminRole(role: any) {
@@ -3942,9 +3976,15 @@ function CustomerMetaAccounts({ company, content, setContent, save, notify }: an
   const [linked, setLinked] = useState(existing);
   const [matchingCampaign, setMatchingCampaign] = useState<any>(null);
   const [matchingExistingId, setMatchingExistingId] = useState("");
-  const [matchedMetaCampaigns, setMatchedMetaCampaigns] = useState<Record<string, string>>({});
-  const summaries = metaCampaignSummaries(rows.length ? rows : (content.campaignMetrics || []).filter((item: any) => item.company_id === company.id && item.source === "Meta API"));
   const localCampaigns = (content.campaigns || []).filter((item: any) => item.company_id === company.id && !item.archived_at && !item.deleted_at);
+  const metaMetricRows = metaRowsForRange(
+    (rows.length ? rows.map((row) => ({ ...row, company_id: company.id, source: "Meta API" })) : (content.campaignMetrics || []))
+      .filter((item: any) => item.company_id === company.id && String(item.source || "").toLocaleLowerCase("tr").includes("meta")),
+    form.rangePreset,
+    form.dateFrom,
+    form.dateTo
+  );
+  const summaries = metaCampaignSummaries(metaMetricRows);
   const helperText = {
     businessId: "Meta Business Manager içindeki işletme ID’si.",
     adAccountId: "Meta reklam hesabı ID’si. Örn: act_123456789 veya 123456789",
@@ -4059,7 +4099,6 @@ function CustomerMetaAccounts({ company, content, setContent, save, notify }: an
     const data = await response.json().catch(() => ({}));
     if (data.ok) {
       const metricRows = (data.rows || []).map((row: any, index: number) => ({ id: `meta-profile-${company.id}-${Date.now()}-${index}`, company_id: company.id, date: row.date, period: data.range?.label || "Meta Sync", source: "Meta API", visible_to_customer: true, ...row }));
-      const campaignCards = metaCampaignSummaries(data.rows || []).map((item: any) => ({ id: `meta-campaign-${item.campaignId}`, company_id: company.id, meta_campaign_id: item.campaignId, name: item.campaignName, platform: "Meta Ads", objective: "Lead", status: item.status || "Aktif", spent_budget: item.spend, spent: item.spend, notes: "Meta API senkronizasyonundan oluşturuldu.", visible_to_customer: true, updated_at: new Date().toISOString() }));
       const nextLink = { ...linked, company_id: company.id, ad_account_id: form.adAccountId, business_id: form.businessId, page_id: form.pageId, instagram_account_id: form.instagramAccountId, account_name: form.adAccountId, status: data.mapping?.status || "Senkronize edildi", last_sync_at: data.mapping?.lastSyncAt || new Date().toISOString(), sync_status: data.mapping?.syncStatus || "Başarılı", sync_message: data.mapping?.syncMessage || data.message, sync_error: "" };
       setRows(data.rows || []);
       setLinked(nextLink);
@@ -4067,7 +4106,6 @@ function CustomerMetaAccounts({ company, content, setContent, save, notify }: an
         ...content,
         metaAccountLinks: [nextLink, ...(content.metaAccountLinks || []).filter((item: any) => item.company_id !== company.id)],
         campaignMetrics: [...metricRows, ...(content.campaignMetrics || [])],
-        campaigns: [...campaignCards.filter((summary: any) => !(content.campaigns || []).some((campaign: any) => campaign.meta_campaign_id === summary.meta_campaign_id || campaign.id === summary.id)), ...(content.campaigns || [])],
         reports: data.report ? [data.report, ...(content.reports || [])] : (content.reports || [])
       });
       notify?.(action === "report" ? "✓ Meta verilerinden rapor oluşturuldu" : "✓ Veri senkronizasyonu tamamlandı", "success");
@@ -4107,6 +4145,9 @@ function CustomerMetaAccounts({ company, content, setContent, save, notify }: an
     setMatchingCampaign(item);
     setMatchingExistingId(existingMatch?.id || "");
   }
+  function matchedCampaignFor(item: any) {
+    return localCampaigns.find((campaign: any) => campaign.meta_campaign_id === item.campaignId || campaign.external_id === item.campaignId);
+  }
   function closeCampaignMatch() {
     setMatchingCampaign(null);
     setMatchingExistingId("");
@@ -4130,7 +4171,7 @@ function CustomerMetaAccounts({ company, content, setContent, save, notify }: an
       external_id: matchingCampaign.campaignId,
       source: "Meta",
       name: matchingCampaign.campaignName || "Meta Kampanya",
-      platform: "Meta",
+      platform: "Meta Ads",
       status: matchingCampaign.status || "Aktif",
       start_date: matchingCampaign.date || now.slice(0, 10),
       spent_budget: Number(matchingCampaign.spend || 0),
@@ -4138,12 +4179,11 @@ function CustomerMetaAccounts({ company, content, setContent, save, notify }: an
       budget: Number(matchingCampaign.spend || 0),
       settings: { meta_campaign_id: matchingCampaign.campaignId, imported_from: "customer_profile_meta_campaigns" },
       notes: "Meta kampanya verilerinden eşleştirildi.",
-      visible_to_customer: true,
       updated_at: now
     };
     const campaigns = content.campaigns || [];
     const nextCampaigns = createNew
-      ? [{ id: targetId, ...campaignPatch }, ...campaigns]
+      ? [{ id: targetId, ...campaignPatch, visible_to_customer: false }, ...campaigns]
       : campaigns.map((campaign: any) => campaign.id === targetId ? { ...campaign, ...campaignPatch } : campaign);
     const metric = {
       id: createLocalId(),
@@ -4177,12 +4217,15 @@ function CustomerMetaAccounts({ company, content, setContent, save, notify }: an
     };
     setContent(next);
     save?.(next);
-    setMatchedMetaCampaigns({ ...matchedMetaCampaigns, [matchingCampaign.campaignId]: targetId });
     setMessage("Kampanya başarıyla eşleştirildi.");
     notify?.("✓ Kampanya başarıyla eşleştirildi.", "success");
     closeCampaignMatch();
   }
-  const totals = summarizeMetaRows(rows);
+  const totals = summarizeMetaRows(metaMetricRows);
+  const activeMetaCampaignCount = new Set([
+    ...metaMetricRows.map((row: any) => row.campaignId || row.meta_campaign_id || row.external_id || row.campaignName || row.campaign_name).filter(Boolean),
+    ...localCampaigns.filter((campaign: any) => campaign.meta_campaign_id || campaign.external_id || String(campaign.source || "").toLocaleLowerCase("tr") === "meta").map((campaign: any) => campaign.meta_campaign_id || campaign.external_id || campaign.id)
+  ]).size;
   return (
     <div className="grid gap-5">
       <div className="rounded-[14px] border border-cyan-200/20 bg-cyan-300/[0.07] p-4">
@@ -4246,18 +4289,18 @@ function CustomerMetaAccounts({ company, content, setContent, save, notify }: an
         <AgencyStatCard label="Toplam Erişim" value={Number(totals.reach || 0).toLocaleString("tr-TR")} note="Meta erişim" />
         <AgencyStatCard label="Toplam Tıklama" value={Number(totals.clicks || 0).toLocaleString("tr-TR")} note="Link / toplam tıklama" />
         <AgencyStatCard label="Ortalama CTR" value={`${totals.impressions ? ((totals.clicks / totals.impressions) * 100).toFixed(2) : "0.00"}%`} note="Tıklama oranı" />
-        <AgencyStatCard label="Aktif Kampanya" value={summaries.length} note="Meta kampanya keşfi" />
+        <AgencyStatCard label="Aktif Kampanya" value={activeMetaCampaignCount} note="Meta kampanya keşfi" />
       </div>
       <div className="rounded-[14px] border border-slate-200 bg-slate-50 p-4">
         <h3 className="font-black text-slate-900">Meta Kampanyaları</h3>
         <div className="mt-4 grid gap-3">
           {summaries.map((item: any) => <div key={item.campaignId} className="grid gap-3 rounded-[10px] border border-slate-200 p-3 md:grid-cols-[1fr_.5fr_.5fr_.5fr_.5fr_auto] md:items-center">
-            <span><strong className="block text-slate-900">{item.campaignName}</strong><small className="text-slate-400">{item.status}</small></span>
+            <span><strong className="block text-slate-900">{item.campaignName}</strong><small className="text-slate-400">{item.status}</small><small className="mt-1 block text-slate-500">Meta Campaign ID: {item.campaignId}</small><small className="mt-1 block font-bold text-slate-600">{matchedCampaignFor(item) ? `Eşleşen kampanya: ${matchedCampaignFor(item)?.name || "İsimsiz kampanya"}` : "Yerel kampanya eşleşmedi."}</small></span>
             <span className="text-sm text-slate-600">{Number(item.spend || 0).toLocaleString("tr-TR")} TL</span>
             <span className="text-sm text-slate-600">{Number(item.results || 0).toLocaleString("tr-TR")} sonuç</span>
             <span className="text-sm text-slate-600">{Number(item.ctr || 0).toFixed(2)}% CTR</span>
             <span className="text-sm text-slate-600">{Number(item.cpc || 0).toFixed(2)} CPC</span>
-            <span className="flex flex-wrap gap-2"><button onClick={() => pull("report")} className="rounded-full bg-amber-400 px-3 py-1.5 text-xs font-black text-slate-950">Rapor Oluştur</button><button onClick={() => recordActionDetail("Meta Kampanya Detayı", [["Kampanya", item.campaignName], ["Harcama", `${Number(item.spend || 0).toLocaleString("tr-TR")} TL`], ["Sonuçlar", item.results], ["CTR", `${Number(item.ctr || 0).toFixed(2)}%`], ["CPC", Number(item.cpc || 0).toFixed(2)]])} className="rounded-full border border-cyan-200/25 px-3 py-1.5 text-xs text-cyan-700">Detay Gör</button><button onClick={() => openCampaignMatch(item)} className="rounded-full bg-blue-600 px-3 py-1.5 text-xs font-black text-white">{matchedMetaCampaigns[item.campaignId] || localCampaigns.some((campaign: any) => campaign.meta_campaign_id === item.campaignId || campaign.external_id === item.campaignId) ? "Eşleştirildi" : "Kampanyayı Eşleştir"}</button></span>
+            <span className="flex flex-wrap gap-2"><button onClick={() => pull("report")} className="rounded-full bg-amber-400 px-3 py-1.5 text-xs font-black text-slate-950">Rapor Oluştur</button><button onClick={() => recordActionDetail("Meta Kampanya Detayı", [["Kampanya", item.campaignName], ["Harcama", `${Number(item.spend || 0).toLocaleString("tr-TR")} TL`], ["Sonuçlar", item.results], ["CTR", `${Number(item.ctr || 0).toFixed(2)}%`], ["CPC", Number(item.cpc || 0).toFixed(2)]])} className="rounded-full border border-cyan-200/25 px-3 py-1.5 text-xs text-cyan-700">Detay Gör</button><button onClick={() => openCampaignMatch(item)} className="rounded-full bg-blue-600 px-3 py-1.5 text-xs font-black text-white">{matchedCampaignFor(item) ? "Eşleştirildi" : "Kampanyayı Eşleştir"}</button></span>
           </div>)}
           {!summaries.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-5 text-sm text-slate-400">Henüz Meta kampanya verisi yok. “Verileri Çek” ile senkronizasyon başlatın.</p>}
         </div>

@@ -77,6 +77,10 @@ function normalizeRecord(key: string, item: any) {
       spent_budget: spentBudget,
       budget: totalBudget,
       spent: spentBudget,
+      meta_campaign_id: item.meta_campaign_id || item.metaCampaignId || null,
+      external_id: item.external_id || item.externalId || item.meta_campaign_id || null,
+      source: item.source || null,
+      settings: item.settings || {},
       notes: item.notes || null,
       internal_notes: item.internal_notes || item.internalNotes || null,
       visible_to_customer: item.visible_to_customer ?? false,
@@ -135,6 +139,8 @@ function normalizeRecord(key: string, item: any) {
       ...base,
       campaign_id: item.campaign_id || null,
       company_id: item.company_id || null,
+      meta_campaign_id: item.meta_campaign_id || item.metaCampaignId || null,
+      campaign_name: item.campaign_name || item.campaignName || null,
       date: item.date || new Date().toISOString().slice(0, 10),
       impressions: Number(item.impressions || 0),
       reach: Number(item.reach || 0),
@@ -148,7 +154,9 @@ function normalizeRecord(key: string, item: any) {
       cpc: Number(item.cpc || 0),
       cpm: Number(item.cpm || 0),
       cost_per_lead: Number(item.cost_per_lead || 0),
+      spend: Number(item.spend ?? item.spent ?? 0),
       spent: Number(item.spent || 0),
+      raw_data: item.raw_data || item.rawData || {},
       notes: item.notes || null,
       visible_to_customer: item.visible_to_customer ?? true
     };
@@ -435,7 +443,6 @@ async function upsertItems(key: keyof typeof tables, items: any[] = []) {
       delete copy.messages;
       delete copy.visible_to_customer;
       delete copy.period;
-      delete copy.source;
     }
     if (key === "customerUpdates") {
       delete copy.why_it_matters;
