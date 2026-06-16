@@ -1674,28 +1674,6 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     }
   }
 
-  const widgetNames = { assistant: "HK Asistan", tasks: "Görevler", profitability: "Karlılık", payments: "Tahsilatlar", campaigns: "Kampanyalar", recentLeads: "Son Leadler", notifications: "Bildirimler", metrics: "Sistem metrikleri", aiStatus: "AI Durum Merkezi", operations: "Canlı operasyon merkezi", pipeline: "CRM pipeline görseli", intelligence: "Intelligence merkezi", status: "Sistem durum merkezi", charts: "Gerçek veri grafikleri", insights: "AI içgörüleri", quickActions: "Hızlı aksiyonlar", crm: "CRM akışı", activity: "Son aktiviteler", demo: "Müşteri paneli testi" };
-  const widgets: any = {
-    assistant: <GlassCard className="p-5"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[.16em] text-purple-200">HK Asistan</p><h3 className="mt-2 text-xl font-black text-white">Satış operasyon önerileri</h3><p className="mt-1 text-sm text-slate-400">Lead, teklif, görev ve tahsilat akışını hızlı yorumlayın.</p></div><Bot className="text-purple-100" size={24} /></div><div className="mt-4 grid gap-2 sm:grid-cols-2">{dashboardAssistantPrompts.map((item) => <button key={item} onClick={() => askDashboardAssistant(item)} className="rounded-[8px] border border-white/10 bg-black/10 p-3 text-left text-xs font-bold text-slate-300 hover:border-purple-200/30 hover:bg-purple-300/10">{item}</button>)}</div>{dashboardAssistantAnswer && <p className="mt-4 rounded-[8px] border border-purple-200/20 bg-purple-300/10 p-3 text-sm leading-6 text-purple-50">{dashboardAssistantAnswer}</p>}</GlassCard>,
-    tasks: <GlassCard className="p-5"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">Görevler</p><h3 className="mt-2 text-xl font-black text-white">Öncelikli yapılacaklar</h3></div><button onClick={() => setActive("Görevler")} className="rounded-full border border-cyan-200/20 px-3 py-2 text-xs font-black text-cyan-100">Tüm Görevleri Aç</button></div><div className="mt-4 grid gap-3 md:grid-cols-3">{[["Bugün", todaysTasks.length], ["Geciken", overdueTasks.length], ["Kritik", criticalTasks.length]].map(([label, value]) => <div key={label} className="rounded-[8px] border border-white/10 bg-black/15 p-3"><p className="text-xs text-slate-400">{label}</p><p className="mt-1 text-2xl font-black text-white">{value}</p></div>)}</div><div className="mt-4 grid gap-2">{importantDashboardTasks.slice(0, 5).map((item) => <button key={item.id || item.title} onClick={() => setActive("Görevler")} className="rounded-[8px] border border-white/10 bg-black/10 p-3 text-left text-sm"><strong className="text-white">{item.title || "Görev"}</strong><span className="mt-1 block text-xs text-slate-400">{companyName(content, item.company_id)} · {item.priority || "Öncelik yok"} · {formatDate(item.due_date)}</span></button>)}{!importantDashboardTasks.length && <p className="rounded-[8px] border border-dashed border-white/10 p-4 text-sm text-slate-400">Öncelikli görev bulunmuyor.</p>}</div></GlassCard>,
-    profitability: <GlassCard className="p-5"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-emerald-200">Karlılık</p><h3 className="mt-2 text-xl font-black text-white">Gelir ve tahsilat dengesi</h3></div><button onClick={() => setActive("Karlılık")} className="rounded-full border border-emerald-200/20 px-3 py-2 text-xs font-black text-emerald-100">Karlılık Detayını Aç</button></div><div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[["Bu Ay Gelir", expectedRevenue], ["Bekleyen Tahsilat", pendingRevenue], ["Geciken Tahsilat", overduePaymentTotal], ["Tahmini Kâr", estimatedProfit]].map(([label, value]) => <div key={label} className="rounded-[8px] border border-emerald-200/15 bg-emerald-300/[0.06] p-3"><p className="text-xs text-emerald-100/75">{label}</p><p className="mt-1 text-xl font-black text-white">{Number(value || 0).toLocaleString("tr-TR")} TL</p></div>)}</div></GlassCard>,
-    payments: <GlassCard className="p-5"><p className="text-xs font-black uppercase tracking-[.16em] text-amber-200">Tahsilatlar</p><h3 className="mt-2 text-xl font-black text-white">Ödeme takip özeti</h3><div className="mt-4 grid gap-2">{overduePayments.slice(0, 5).map((item) => <button key={item.id || item.due_date} onClick={() => setActive("Tahsilat")} className="flex items-center justify-between gap-3 rounded-[8px] border border-amber-200/20 bg-amber-300/10 p-3 text-left text-sm"><span><strong className="block text-white">{companyName(content, item.company_id)}</strong><span className="text-xs text-amber-100/80">{formatDate(item.due_date)} · {item.status || "Gecikmiş"}</span></span><span className="font-black text-white">{Number(item.amount || 0).toLocaleString("tr-TR")} TL</span></button>)}{!overduePayments.length && <p className="rounded-[8px] border border-dashed border-white/10 p-4 text-sm text-slate-400">Geciken tahsilat bulunmuyor.</p>}</div></GlassCard>,
-    campaigns: <GlassCard className="p-5"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-orange-200">Kampanyalar</p><h3 className="mt-2 text-xl font-black text-white">Kampanya durumu</h3></div><button onClick={() => setActive("Kampanyalar")} className="rounded-full border border-orange-200/20 px-3 py-2 text-xs font-black text-orange-100">Kampanyaları Aç</button></div><div className="mt-4 grid gap-3 md:grid-cols-4">{[["Aktif", activeCampaigns.length], ["Planlanan", plannedCampaigns.length], ["Bu ay biten", campaignsEndingThisMonth.length], ["Toplam harcama", `${campaignSpendTotal.toLocaleString("tr-TR")} TL`]].map(([label, value]) => <div key={label} className="rounded-[8px] border border-orange-200/15 bg-orange-300/[0.07] p-3"><p className="text-xs text-orange-100/75">{label}</p><p className="mt-1 text-xl font-black text-white">{value}</p></div>)}</div></GlassCard>,
-    recentLeads: <GlassCard className="p-5"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-blue-200">Son Leadler</p><h3 className="mt-2 text-xl font-black text-white">Yeni fırsatlar</h3></div><button onClick={() => setActive("Satış Hunisi")} className="rounded-full border border-blue-200/20 px-3 py-2 text-xs font-black text-blue-100">Satış Hunisini Aç</button></div><div className="mt-4 grid gap-2">{leads.slice(0, 6).map((lead) => <button key={lead.id} onClick={() => setActive("Satış Hunisi")} className="rounded-[8px] border border-white/10 bg-black/10 p-3 text-left text-sm"><strong className="text-white">{lead.company || lead.name || "İsimsiz lead"}</strong><span className="mt-1 block text-xs text-slate-400">{lead.status || "Yeni Lead"} · Skor: {lead.lead_heat_score || 0}</span></button>)}</div></GlassCard>,
-    notifications: <GlassCard className="p-5"><p className="text-xs font-black uppercase tracking-[.16em] text-rose-200">Bildirimler</p><h3 className="mt-2 text-xl font-black text-white">Satış ve operasyon uyarıları</h3><div className="mt-4 grid gap-2">{buildAdminNotifications(content).slice(0, 6).map((item) => <div key={item.id} className="rounded-[8px] border border-white/10 bg-black/10 p-3"><p className="text-sm font-black text-white">{item.label}</p><p className="mt-1 text-xs leading-5 text-slate-400">{item.text}</p></div>)}</div></GlassCard>,
-    metrics: <div><div className="mb-4 flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">Dashboard Widgets</p><h3 className="mt-1 text-lg font-black text-white">HK Business Operating System</h3><p className="mt-1 text-sm leading-5 text-slate-400">CRM, istihbarat, AI, rapor ve teklif akışlarını tek ekranda izleyin.</p></div><span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-black text-slate-300">Gerçek veriler</span></div><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">{osDashboardWidgets.map(([label, value, note, icon, gradient, target, level]) => <button key={label} type="button" onClick={() => setActive(target)} className={`admin-color-card group relative overflow-hidden rounded-[8px] border border-white/[0.12] bg-gradient-to-br ${gradient} text-left text-white shadow-[0_12px_34px_rgba(0,0,0,.18)] transition hover:-translate-y-0.5 hover:border-white/25 ${level === "level1" ? "min-h-40 p-5 xl:col-span-1" : "min-h-32 p-4"}`}><span className="relative flex items-start justify-between gap-3"><span className="grid size-10 place-items-center rounded-[8px] border border-white/20 bg-white/[0.12]">{icon}</span><span className="rounded-full border border-white/[0.18] bg-black/10 px-2 py-1 text-[10px] font-black uppercase tracking-[.10em] text-white/80">{level === "level1" ? "Öncelik" : "Modül"}</span></span><p className="relative mt-4 text-xs font-black uppercase tracking-[.12em] text-white/70">{label}</p><p className="relative mt-1.5 text-2xl font-black">{value}</p><p className="relative mt-2 text-xs leading-5 text-white/75">{note}</p></button>)}</div><details className="mt-4 rounded-[8px] border border-white/10 bg-black/10 p-3"><summary className="cursor-pointer text-xs font-black uppercase tracking-[.14em] text-slate-400">Tüm sistem metrikleri</summary><div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">{stats.map(([label, value, note, icon, accent]) => <MetricCard3D key={label} label={label} value={value} note={note} accent={accent} icon={icon} />)}</div></details></div>,
-    aiStatus: <AiStatusCenterWidget statuses={aiStatusCenter} message={aiStatusMessage || (content.settings?.api?.ai_status_last_test_at ? `Son test: ${new Date(content.settings.api.ai_status_last_test_at).toLocaleString("tr-TR")}` : "Henüz test yapılmadı.")} loading={aiStatusLoading} onRefresh={refreshAiStatus} />,
-    operations: <GlassCard className="overflow-hidden p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[.16em] text-lime-200">Canlı Aktivite</p><h3 className="mt-2 text-xl font-black text-white">Live Operations Center</h3><p className="mt-1 text-sm text-slate-400">Lead, CRM, AI, PDF, WhatsApp ve API hareketlerini tek akışta izleyin.</p></div><span className="rounded-full bg-lime-300 px-3 py-1 text-[10px] font-black uppercase tracking-[.12em] text-slate-950">Aktif</span></div><div className="mt-5 grid gap-5 lg:grid-cols-[1fr_320px]"><div className="grid gap-2">{liveOperations.map(([title, text, date, accent]) => <div key={title} className={`flex items-center justify-between gap-4 rounded-[8px] border p-3 ${accent === "blue" ? "border-blue-200/25 bg-blue-400/12" : accent === "indigo" ? "border-indigo-200/25 bg-indigo-400/12" : accent === "purple" ? "border-purple-200/25 bg-purple-400/12" : accent === "rose" ? "border-rose-200/25 bg-rose-400/12" : accent === "lime" ? "border-lime-200/25 bg-lime-400/12" : "border-cyan-200/25 bg-cyan-400/12"}`}><div><p className="text-sm font-black text-white">{title}</p><p className="mt-1 text-xs leading-5 text-slate-300">{text}</p></div><time className="shrink-0 text-[10px] font-bold text-slate-400">{date ? new Date(date).toLocaleDateString("tr-TR") : "Bekliyor"}</time></div>)}</div><div className="rounded-[8px] border border-white/10 bg-black/15 p-4"><p className="mb-4 text-xs font-black uppercase tracking-[.16em] text-cyan-100">Operasyon ritmi</p><AnimatedChart label="Aktivite sinyali" values={[18, Math.min(92, leads.length * 9), Math.min(88, activityLogs.length * 12), Math.min(82, aiAnalyzedLeads.length * 15), Math.min(76, reports.length * 13), Math.min(86, generatedProposals * 16)]} /></div></div></GlassCard>,
-    pipeline: <GlassCard className="p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[.16em] text-blue-200">CRM Pipeline Visual</p><h3 className="mt-2 text-xl font-black text-white">Satış ve takip hattı</h3><p className="mt-1 text-sm text-slate-400">Aşamalar gerçek lead durumlarından hesaplanır.</p></div><button onClick={() => setActive("CRM")} className="rounded-full border border-blue-200/20 px-4 py-2 text-xs font-black text-blue-100">CRM Aç</button></div><div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-6">{pipelineStages.map(([stage, count, gradient], index) => <div key={stage} className={`relative min-h-36 overflow-hidden rounded-[8px] border border-white/15 bg-gradient-to-br ${gradient} p-4 text-white shadow-[0_20px_55px_rgba(0,0,0,.18)] transition hover:-translate-y-1`}><span className="absolute -right-8 -top-8 size-24 rounded-full bg-white/18 blur-2xl" /><p className="relative text-xs font-black uppercase tracking-[.13em] text-white/72">{stage}</p><p className="relative mt-5 text-3xl font-black">{count}</p><div className="relative mt-4 h-2 overflow-hidden rounded-full bg-white/22"><div className="h-full rounded-full bg-white/80" style={{ width: `${Math.min(100, Number(count) * 18 + 12)}%` }} /></div><p className="relative mt-3 text-[10px] font-bold text-white/72">Aşama {index + 1}</p></div>)}</div></GlassCard>,
-    intelligence: <div className="grid gap-4 xl:grid-cols-[1fr_360px]"><div className="grid gap-4 md:grid-cols-2">{intelligenceCards.map(([title, value, text, dateLabel, date, gradient]) => <div key={title} className={`relative min-h-44 overflow-hidden rounded-[8px] border border-white/15 bg-gradient-to-br ${gradient} p-5 text-white shadow-[0_24px_70px_rgba(0,0,0,.22)] transition hover:-translate-y-1`}><span className="absolute -right-12 -top-12 size-32 rounded-full bg-white/18 blur-3xl" /><p className="relative text-xs font-black uppercase tracking-[.16em] text-white/72">{title}</p><p className="relative mt-5 text-2xl font-black">{value}</p><p className="relative mt-2 text-sm leading-6 text-white/78">{text}</p><p className="relative mt-4 text-[10px] font-black uppercase tracking-[.14em] text-white/65">{dateLabel}: {date ? new Date(date).toLocaleDateString("tr-TR") : "Bekliyor"}</p></div>)}</div><GlassCard className="p-5"><p className="text-xs font-black uppercase tracking-[.16em] text-purple-200">AI Command Center</p><h3 className="mt-2 text-xl font-black text-white">Aktif sağlayıcı yönetimi</h3><div className="mt-4 grid gap-3 text-sm"><div className="rounded-[8px] border border-white/10 bg-black/15 p-3"><p className="text-slate-400">Active Provider</p><p className="mt-1 font-black text-white">{activeAiMeta.provider}</p></div><div className="rounded-[8px] border border-white/10 bg-black/15 p-3"><p className="text-slate-400">Active Model</p><p className="mt-1 break-all font-black text-white">{activeAiMeta.model}</p></div><div className="rounded-[8px] border border-white/10 bg-black/15 p-3"><p className="text-slate-400">Response Time / Last Request</p><p className="mt-1 font-black text-white">{aiStatusCenter.groq?.responseTimeMs || aiStatusCenter.gemini?.responseTimeMs || "-"} ms · {content.settings?.api?.ai_status_last_test_at ? new Date(content.settings.api.ai_status_last_test_at).toLocaleString("tr-TR") : "Bekliyor"}</p></div></div><div className="mt-4 flex flex-wrap gap-2"><button disabled={aiStatusLoading} onClick={refreshAiStatus} className="rounded-full bg-purple-300 px-4 py-2 text-xs font-black text-slate-950 disabled:opacity-60">Test Provider</button><button disabled={aiStatusLoading} onClick={refreshAiStatus} className="rounded-full border border-cyan-200/20 px-4 py-2 text-xs font-black text-cyan-100 disabled:opacity-60">Refresh Status</button><button onClick={() => setActive("API Ayarları")} className="rounded-full border border-white/10 px-4 py-2 text-xs font-black text-slate-200">Change Provider</button></div><div className="mt-5"><BrandEcosystemStrip compact /></div></GlassCard></div>,
-    status: <GlassCard className="p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-100">Sistem durum merkezi</p><h3 className="mt-2 text-xl font-black text-white">Altyapı sağlığı</h3></div><div className="rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 px-4 py-3 text-right"><p className="text-xs text-cyan-100">Genel sistem sağlığı</p><p className="text-2xl font-black text-white">%{healthScore}</p></div></div><div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{serviceItems.map((service) => <div key={service.label} className="flex items-center justify-between gap-3 rounded-[8px] border border-white/10 bg-black/10 p-3"><div><p className="text-sm font-bold text-white">{service.label}</p><p className="mt-1 text-xs text-slate-400">{service.description}</p></div><span className={`inline-flex items-center gap-1 text-xs font-black ${service.state === "Aktif" ? "text-emerald-300" : service.state === "Uyarı" ? "text-amber-300" : "text-red-300"}`}>{service.state === "Aktif" ? <CircleCheck size={14} /> : service.state === "Uyarı" ? <AlertTriangle size={14} /> : <CircleOff size={14} />}{service.state}</span></div>)}</div></GlassCard>,
-    charts: <div><div className="mb-4"><h3 className="text-lg font-black">Gerçek veri görselleştirmesi</h3><p className="mt-1 text-sm text-slate-400">Grafikler yalnızca sistemde bulunan operasyon verilerinden üretilir.</p></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{charts.map(([title, description, series, suffix]) => <DashboardChart key={title} title={title} description={description} series={series} suffix={suffix} />)}</div></div>,
-    insights: <GlassCard className="p-5"><div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-[8px] bg-amber-300/10 text-amber-200"><WandSparkles size={19} /></span><div><p className="text-xs font-black uppercase tracking-[.16em] text-amber-200">AI içgörüleri</p><h3 className="mt-1 text-lg font-black">Bugünün operasyon önerileri</h3></div></div><div className="mt-4 grid gap-3">{insightItems.map(([count, title, text, target]) => <button key={title} onClick={() => setActive(target)} className="flex items-center justify-between gap-4 rounded-[8px] border border-white/10 bg-black/10 p-4 text-left transition hover:border-cyan-200/30 hover:bg-cyan-200/[0.06]"><div><p className="text-sm font-black text-white">{title}</p><p className="mt-1 text-xs leading-5 text-slate-400">{text}</p></div><span className="grid size-9 shrink-0 place-items-center rounded-full bg-cyan-300 text-sm font-black text-slate-950">{count}</span></button>)}{!insightItems.length && <p className="rounded-[8px] border border-emerald-300/20 bg-emerald-300/10 p-4 text-sm text-emerald-100">Öncelikli aksiyon görünmüyor. Operasyon akışı düzenli ilerliyor.</p>}</div></GlassCard>,
-    quickActions: <div><h3 className="text-lg font-black">Hızlı aksiyon merkezi</h3><p className="mt-1 text-sm text-slate-400">Sık kullanılan işlemlere tek adımda ulaşın.</p><div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{quickActions.map(([label, target, icon], index) => <div key={label} className="relative"><button onClick={() => setActive(target)} className={`flex min-h-28 w-full flex-col justify-between rounded-[8px] border p-4 text-left shadow-[0_18px_50px_rgba(0,0,0,.14)] transition hover:-translate-y-1 hover:border-white/30 ${index % 6 === 0 ? "border-blue-300/25 bg-blue-400/[0.10]" : index % 6 === 1 ? "border-emerald-300/25 bg-emerald-400/[0.10]" : index % 6 === 2 ? "border-orange-300/25 bg-orange-400/[0.10]" : index % 6 === 3 ? "border-purple-300/25 bg-purple-400/[0.10]" : index % 6 === 4 ? "border-cyan-300/25 bg-cyan-400/[0.10]" : "border-amber-300/25 bg-amber-400/[0.10]"}`}><span className="text-cyan-100">{icon}</span><span className="text-sm font-black text-white">{label}</span></button><button onClick={() => toggleFavorite(target)} title="Favorilere ekle veya çıkar" className={`absolute right-3 top-3 ${preferences.favorites.includes(target) ? "text-amber-300" : "text-slate-600"}`}><Star size={15} fill={preferences.favorites.includes(target) ? "currentColor" : "none"} /></button></div>)}</div></div>,
-    crm: <GlassCard className="p-5"><div className="grid gap-5 xl:grid-cols-[1fr_.75fr]"><div><h3 className="text-lg font-black">CRM akışı</h3><p className="mt-1 text-sm text-slate-400">Potansiyel müşterilerin güncel takip dağılımı.</p><div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">{crmColumns.map((column, index) => <div key={column.status} className={`rounded-[8px] border p-3 ${index === 0 ? "border-blue-300/20 bg-blue-300/[0.08]" : index === 1 ? "border-cyan-300/20 bg-cyan-300/[0.08]" : index === 2 ? "border-amber-300/20 bg-amber-300/[0.08]" : index === 3 ? "border-purple-300/20 bg-purple-300/[0.08]" : "border-emerald-300/20 bg-emerald-300/[0.08]"}`}><p className="text-xs text-slate-400">{column.status}</p><p className="mt-2 text-2xl font-black text-white">{column.count}</p></div>)}</div></div><div className="rounded-[8px] border border-white/10 bg-black/10 p-4"><p className="mb-4 text-xs font-black uppercase tracking-[.16em] text-amber-100">Pipeline mini-chart</p><AnimatedFunnel /></div></div></GlassCard>,
-    activity: <GlassCard className="p-5"><h3 className="text-lg font-black">Son aktivite akışı</h3><p className="mt-1 text-sm text-slate-400">CRM, rapor ve müşteri operasyonlarının son hareketleri.</p><div className="mt-4 grid gap-2">{recentActivity.map((item) => <div key={item.id} className="flex items-center justify-between gap-3 rounded-[8px] border border-white/10 bg-black/10 p-3 text-sm"><div><p className="font-bold text-white">{item.action || "Sistem hareketi"}</p><p className="mt-1 text-xs text-slate-400">{item.entity || item.actor_name || "HK Operating System"}</p></div><time className="shrink-0 text-[10px] font-bold text-slate-500">{item.created_at ? new Date(item.created_at).toLocaleDateString("tr-TR") : "-"}</time></div>)}{!recentActivity.length && <p className="rounded-[8px] border border-dashed border-white/10 p-5 text-center text-sm text-slate-400">Henüz operasyon hareketi yok.</p>}</div></GlassCard>,
-    demo: <div className="rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-4"><h3 className="font-black text-cyan-50">Müşteri paneli testi</h3><p className="mt-2 text-sm leading-6 text-cyan-100/80">Geçici şifreli bir test hesabı ve örnek raporlar oluşturarak müşteri deneyimini doğrulayın.</p><button disabled={demoLoading} onClick={createDemoCustomer} className="mt-3 rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950 disabled:opacity-60">{demoLoading ? "Hazırlanıyor..." : "Demo müşteri oluştur"}</button>{demoMessage && <pre className="mt-3 whitespace-pre-wrap rounded-[8px] bg-black/20 p-3 text-xs leading-6 text-cyan-50">{demoMessage}</pre>}</div>
-  };
   const lightDashboardQuickActions = [
     ["Müşteri Ekle", "Müşteriler", <Building2 size={20} />, "from-blue-500 to-cyan-400"],
     ["Kampanya Ekle", "Kampanyalar", <BarChart3 size={20} />, "from-orange-500 to-amber-400"],
@@ -1710,359 +1688,118 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     ["Bekleyen Tahsilat", `${pendingRevenue.toLocaleString("tr-TR")} TL`, "Bu ay kapanmamış ödemeler", <Gauge size={20} />, "bg-orange-50 text-orange-700"],
     ["Bu Ay Tahsil Edilen", `${paidRevenue.toLocaleString("tr-TR")} TL`, "Ödenen toplam", <CircleCheck size={20} />, "bg-green-50 text-green-700"],
     ["Kritik Görev", criticalTasks.length, "Acil operasyon işleri", <AlertTriangle size={20} />, "bg-red-50 text-red-700"],
-    ["Son Eklenen Müşteri", latestCustomer?.name || "Henüz yok", "En yeni firma kaydı", <UsersRound size={20} />, "bg-yellow-50 text-yellow-700"]
+    ["Sistem Sağlığı", `%${healthScore}`, "Bağlantı ve operasyon durumu", <Gauge size={20} />, "bg-sky-50 text-sky-700"]
   ];
+  const hkIdentityCards = [
+    ["🤖 AI Durumu", activeAiMeta.provider || "Kayıt yok", activeAiMeta.model || "Henüz veri yok", "bg-indigo-50 text-indigo-700"],
+    ["📈 Reklam Performansı", metricsThisMonth.length ? `${metricsThisMonth.length} metrik` : "Henüz veri yok", "Bu ay kayıtlı performans verisi", "bg-blue-50 text-blue-700"],
+    ["🎯 Lead Kalitesi", hotLeads.length ? `${hotLeads.length} sıcak lead` : "Kayıt yok", "Yüksek fırsat skorlu kayıtlar", "bg-amber-50 text-amber-700"],
+    ["💰 Tahmini Gelir", expectedRevenue ? `${expectedRevenue.toLocaleString("tr-TR")} TL` : "Henüz veri yok", "Bu ay beklenen toplam gelir", "bg-emerald-50 text-emerald-700"]
+  ];
+  const visibleNotifications = buildAdminNotifications(content).slice(0, 5);
 
   return (
     <Panel title="Operasyon Merkezi">
-      <div className="admin-light-dashboard mb-6 grid w-full min-w-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="grid min-w-0 gap-5">
-          <section className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,.08)] sm:p-6">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <p className="text-sm font-black text-blue-600">{greeting[1]}, {userName}</p>
-                <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">Hoş geldiniz, Ajans Yöneticisi 👋</h2>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Müşteri, kampanya, tahsilat, görev ve rapor operasyonlarınızı tek merkezden yönetin.</p>
-              </div>
-              <div className="rounded-[18px] border border-blue-100 bg-blue-50 px-4 py-3 text-right">
-                <p className="text-xs font-black uppercase tracking-[.14em] text-blue-500">Sistem Sağlığı</p>
-                <p className="mt-1 text-2xl font-black text-blue-700">%{healthScore}</p>
-              </div>
+      <div className="admin-light-dashboard grid w-full min-w-0 gap-5">
+        <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_16px_42px_rgba(15,23,42,.07)] sm:p-6">
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_auto]">
+            <div className="min-w-0">
+              <p className="text-sm font-black text-blue-600">{greeting[1]}, {userName}</p>
+              <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">Hoş geldiniz, Ajans Yöneticisi 👋</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Müşteri, kampanya, tahsilat, görev ve rapor operasyonlarınızı tek merkezden yönetin.</p>
             </div>
-            <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
-              {lightDashboardQuickActions.map(([label, target, icon, gradient]) => (
-                <button key={label as string} onClick={() => setActive(target as string)} className="group rounded-[18px] border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-[0_16px_30px_rgba(37,99,235,.12)]">
-                  <span className={`grid size-11 place-items-center rounded-[14px] bg-gradient-to-br ${gradient} text-white shadow-[0_10px_22px_rgba(37,99,235,.16)]`}>{icon}</span>
-                  <span className="mt-3 block text-sm font-black text-slate-950">{label}</span>
-                  <span className="mt-1 block text-xs font-semibold text-slate-500">Hızlı işlem</span>
-                </button>
-              ))}
+            <div className="flex items-center gap-3 rounded-[18px] border border-blue-100 bg-blue-50 px-4 py-3">
+              <span className="grid size-10 place-items-center rounded-[14px] bg-white text-blue-600 shadow-sm"><Gauge size={18} /></span>
+              <span>
+                <span className="block text-xs font-black uppercase tracking-[.14em] text-blue-500">Sistem Sağlığı</span>
+                <span className="block text-2xl font-black text-blue-700">%{healthScore}</span>
+              </span>
             </div>
-          </section>
-          <section className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {lightOverviewCards.map(([label, value, note, icon, tone]) => (
-              <div key={label as string} className="rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[.12em] text-slate-500">{label}</p>
-                    <p className="mt-2 truncate text-2xl font-black text-slate-950">{value}</p>
-                    <p className="mt-1 text-xs font-semibold text-slate-500">{note}</p>
-                  </div>
-                  <span className={`grid size-11 shrink-0 place-items-center rounded-[14px] ${tone}`}>{icon}</span>
-                </div>
-              </div>
+          </div>
+          <div className="mt-5 flex flex-wrap gap-2.5">
+            {lightDashboardQuickActions.map(([label, target, icon, gradient]) => (
+              <button key={label as string} onClick={() => setActive(target as string)} className="group inline-flex min-h-12 items-center gap-3 rounded-[16px] border border-slate-200 bg-white px-3.5 py-2 text-left text-sm font-black text-slate-800 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 hover:shadow-[0_12px_24px_rgba(37,99,235,.10)]">
+                <span className={`grid size-9 shrink-0 place-items-center rounded-[12px] bg-gradient-to-br ${gradient} text-white shadow-[0_8px_18px_rgba(37,99,235,.14)]`}>{icon}</span>
+                {label}
+              </button>
             ))}
-          </section>
-          <section className="grid min-w-0 gap-5 xl:grid-cols-2">
-            <div className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mb-4 flex items-center justify-between gap-3"><h3 className="text-lg font-black text-slate-950">Son Aktiviteler</h3><button onClick={() => setActive("Sistem Logları")} className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-600">Tümünü Aç</button></div>
-              <div className="grid gap-3">
-                {recentActivity.slice(0, 5).map((item, index) => <div key={item.id || index} className="flex items-start gap-3 rounded-[14px] bg-slate-50 p-3"><span className="mt-1 h-2.5 w-2.5 rounded-full bg-cyan-500" /><span><strong className="block text-sm text-slate-950">{item.action || "Aktivite"}</strong><span className="mt-1 block text-xs text-slate-500">{item.entity || item.module || "-"} · {formatDateTime(item.created_at)}</span></span></div>)}
-                {!recentActivity.length && <p className="rounded-[14px] border border-dashed border-slate-200 p-4 text-sm text-slate-500">Henüz aktivite kaydı yok.</p>}
+          </div>
+        </section>
+
+        <section className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+          {lightOverviewCards.map(([label, value, note, icon, tone]) => (
+            <div key={label as string} className="rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-[0_16px_30px_rgba(15,23,42,.07)]">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-black uppercase tracking-[.12em] text-slate-500">{label}</p>
+                  <p className="mt-2 truncate text-2xl font-black text-slate-950">{value}</p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{note}</p>
+                </div>
+                <span className={`grid size-10 shrink-0 place-items-center rounded-[14px] ${tone}`}>{icon}</span>
               </div>
             </div>
-            <div className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mb-4 flex items-center justify-between gap-3"><h3 className="text-lg font-black text-slate-950">Yaklaşan Görevler</h3><button onClick={() => setActive("Görevler")} className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-black text-blue-700">Görevleri Aç</button></div>
-              <div className="grid gap-3">
-                {importantDashboardTasks.map((item) => <div key={item.id || item.title} className="flex items-center justify-between gap-3 rounded-[14px] bg-slate-50 p-3"><span><strong className="block text-sm text-slate-950">{item.title || "Görev"}</strong><span className="mt-1 block text-xs text-slate-500">{item.priority || "Orta"} · {item.due_date || "Tarih yok"}</span></span><span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-black text-slate-500">{item.status || "Yapılacak"}</span></div>)}
-                {!importantDashboardTasks.length && <p className="rounded-[14px] border border-dashed border-slate-200 p-4 text-sm text-slate-500">Yaklaşan kritik görev yok.</p>}
-              </div>
-            </div>
-          </section>
-          <section className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h3 className="text-lg font-black text-slate-950">Pipeline Özeti</h3><button onClick={() => setActive("Satış Hunisi")} className="rounded-full bg-blue-600 px-4 py-2 text-xs font-black text-white">Satış Hunisini Aç</button></div>
-            <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-              {pipelineStages.map(([stage, count, gradient]) => <div key={stage as string} className="rounded-[16px] border border-slate-200 bg-slate-50 p-3"><div className={`mb-3 h-1.5 rounded-full bg-gradient-to-r ${gradient}`} /><p className="text-xs font-black text-slate-500">{stage}</p><p className="mt-1 text-2xl font-black text-slate-950">{count}</p></div>)}
-            </div>
-          </section>
-        </div>
-        <aside className="grid h-fit min-w-0 gap-5">
+          ))}
+        </section>
+
+        <section className="grid min-w-0 gap-5 xl:grid-cols-2">
           <div className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm">
-            <h3 className="text-lg font-black text-slate-950">Bildirimler</h3>
-            <div className="mt-4 grid gap-3">
-              {buildAdminNotifications(content).slice(0, 4).map((item) => <div key={item.id} className="rounded-[14px] bg-slate-50 p-3"><p className="text-sm font-black text-slate-950">{item.label}</p><p className="mt-1 text-xs leading-5 text-slate-500">{item.text}</p></div>)}
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h3 className="text-lg font-black text-slate-950">Son Aktiviteler</h3>
+              <button onClick={() => setActive("Sistem Logları")} className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-600 transition hover:bg-slate-200">Tümünü Aç</button>
+            </div>
+            <div className="grid gap-3">
+              {recentActivity.slice(0, 6).map((item, index) => <div key={item.id || index} className="flex items-start gap-3 rounded-[14px] border border-slate-100 bg-slate-50 p-3"><span className="mt-1 h-2.5 w-2.5 rounded-full bg-cyan-500" /><span className="min-w-0"><strong className="block text-sm text-slate-950">{item.action || "Aktivite"}</strong><span className="mt-1 block text-xs text-slate-500">{item.entity || item.module || "-"} · {formatDateTime(item.created_at)}</span></span></div>)}
+              {!recentActivity.length && <p className="rounded-[14px] border border-dashed border-slate-200 p-4 text-sm text-slate-500">Henüz aktivite kaydı yok.</p>}
             </div>
           </div>
           <div className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm">
-            <h3 className="text-lg font-black text-slate-950">Hızlı Erişim</h3>
-            <div className="mt-4 grid gap-2">
-              {quickActions.slice(0, 6).map(([label, target, icon]) => <button key={label} onClick={() => setActive(target)} className="flex items-center gap-3 rounded-[14px] bg-slate-50 px-3 py-2 text-left text-sm font-bold text-slate-700 transition hover:bg-blue-50 hover:text-blue-700"><span className="grid size-8 place-items-center rounded-[10px] bg-white text-blue-600">{icon}</span>{label}</button>)}
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h3 className="text-lg font-black text-slate-950">Yaklaşan Görevler</h3>
+              <button onClick={() => setActive("Görevler")} className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-black text-blue-700 transition hover:bg-blue-100">Görevleri Aç</button>
+            </div>
+            <div className="grid gap-3">
+              {importantDashboardTasks.map((item) => <div key={item.id || item.title} className="flex items-center justify-between gap-3 rounded-[14px] border border-slate-100 bg-slate-50 p-3"><span className="min-w-0"><strong className="block truncate text-sm text-slate-950">{item.title || "Görev"}</strong><span className="mt-1 block text-xs text-slate-500">{item.priority || "Orta"} · {item.due_date || "Tarih yok"}</span></span><span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[10px] font-black text-slate-500 ring-1 ring-slate-200">{item.status || "Yapılacak"}</span></div>)}
+              {!importantDashboardTasks.length && <p className="rounded-[14px] border border-dashed border-slate-200 p-4 text-sm text-slate-500">Yaklaşan kritik görev yok.</p>}
+            </div>
+          </div>
+        </section>
+
+        <section className="grid min-w-0 gap-5 xl:grid-cols-3">
+          <div className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-lg font-black text-slate-950">Pipeline Özeti</h3>
+              <button onClick={() => setActive("Satış Hunisi")} className="rounded-full bg-blue-600 px-4 py-2 text-xs font-black text-white transition hover:bg-blue-700">Satış Hunisini Aç</button>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {pipelineStages.map(([stage, count, gradient]) => <div key={stage as string} className="rounded-[16px] border border-slate-200 bg-slate-50 p-3"><div className={`mb-3 h-1.5 rounded-full bg-gradient-to-r ${gradient}`} /><p className="text-xs font-black text-slate-500">{stage}</p><p className="mt-1 text-2xl font-black text-slate-950">{count}</p></div>)}
+            </div>
+          </div>
+          <div className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 className="text-lg font-black text-slate-950">Bildirimler</h3>
+            <div className="mt-4 grid gap-3">
+              {visibleNotifications.map((item) => <div key={item.id} className="rounded-[14px] border border-slate-100 bg-slate-50 p-3"><p className="text-sm font-black text-slate-950">{item.label}</p><p className="mt-1 text-xs leading-5 text-slate-500">{item.text}</p></div>)}
+              {!visibleNotifications.length && <p className="rounded-[14px] border border-dashed border-slate-200 p-4 text-sm text-slate-500">Okunacak bildirim yok.</p>}
             </div>
           </div>
           <div className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm">
             <h3 className="text-lg font-black text-slate-950">Sistem Sağlığı</h3>
             <div className="mt-4 grid gap-2">
-              {serviceItems.slice(0, 5).map((item) => <div key={item.label} className="flex items-center justify-between gap-3 rounded-[14px] bg-slate-50 px-3 py-2"><span className="text-sm font-bold text-slate-700">{item.label}</span><span className={`rounded-full px-2 py-1 text-[10px] font-black ${item.state === "Aktif" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>{item.state}</span></div>)}
+              {serviceItems.slice(0, 6).map((item) => <div key={item.label} className="flex items-center justify-between gap-3 rounded-[14px] border border-slate-100 bg-slate-50 px-3 py-2"><span className="text-sm font-bold text-slate-700">{item.label}</span><span className={`rounded-full px-2 py-1 text-[10px] font-black ${item.state === "Aktif" ? "bg-green-100 text-green-700" : item.state === "Uyarı" ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"}`}>{item.state}</span></div>)}
             </div>
-          </div>
-        </aside>
-      </div>
-      <div className="mb-5 overflow-hidden rounded-[8px] border border-cyan-200/15 bg-[linear-gradient(135deg,rgba(14,165,233,.13),rgba(30,41,59,.42))] p-4 shadow-[0_12px_34px_rgba(0,0,0,.16)] sm:p-5">
-        <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">{greeting[0]}, {userName}</p>
-        <h2 className="mt-1 text-xl font-black text-white">{greeting[1]}, {userName}</h2>
-        <p className="mt-3 text-base font-black text-white">Welcome to HK Operating System</p>
-        <p className="mt-1 text-sm font-bold text-cyan-100">Digital Marketing Command Center</p>
-        <p className="mt-1 text-[10px] font-black uppercase tracking-[.16em] text-slate-400">Powered by HK Dijital</p>
-      </div>
-      <div className="mb-5 rounded-[8px] border border-white/10 bg-white/[0.035] p-4">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">Hızlı İşlemler</p>
-            <h3 className="mt-1 text-lg font-black text-white">Operasyon kısayolları</h3>
-          </div>
-          <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] font-black text-slate-400">Mevcut formlar açılır</span>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
-          {[
-            ["Müşteri Ekle", "Müşteriler", <Building2 size={17} />],
-            ["Kampanya Ekle", "Kampanyalar", <BarChart3 size={17} />],
-            ["Görev Ekle", "Görevler", <CircleCheck size={17} />],
-            ["Tahsilat Ekle", "Tahsilat", <Gauge size={17} />],
-            ["Rapor Oluştur", "Müşteri Raporları", <FileBarChart size={17} />],
-            ["Teklif Oluştur", "Teklif Hazırlama", <MessageSquareText size={17} />]
-          ].map(([label, target, icon]) => (
-            <button key={label} type="button" onClick={() => setActive(target)} className="flex min-h-16 items-center gap-3 rounded-[8px] border border-white/10 bg-black/15 px-3 text-left text-sm font-black text-slate-100 transition hover:border-cyan-200/30 hover:bg-cyan-200/10">
-              <span className="grid size-9 place-items-center rounded-[8px] bg-cyan-300/10 text-cyan-100">{icon}</span>
-              {withAdminEmoji(label as string)}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="mb-5 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,.9fr)]">
-        <GlassCard className="p-4 sm:p-5">
-          <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">Bugünün Özeti</p>
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
-            {[
-              ["Aktif müşteri", activeCustomers.length],
-              ["Aktif kampanya", activeCampaigns.length],
-              ["Bekleyen tahsilat", `${pendingRevenue.toLocaleString("tr-TR")} TL`],
-              ["Bu ay tahsil edilen", `${paidRevenue.toLocaleString("tr-TR")} TL`],
-              ["Kritik görev", criticalTasks.length],
-              ["Son eklenen müşteri", latestCustomer?.name || "Henüz yok"]
-            ].map(([label, value]) => (
-              <div key={label} className="rounded-[8px] border border-white/10 bg-black/15 p-3">
-                <p className="text-[10px] font-black uppercase tracking-[.10em] text-slate-500">{label}</p>
-                <p className="mt-1 truncate text-lg font-black text-white">{value}</p>
-              </div>
-            ))}
-          </div>
-        </GlassCard>
-        <GlassCard className="p-4 sm:p-5">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[.16em] text-emerald-200">Son aktiviteler</p>
-              <h3 className="mt-1 text-lg font-black text-white">Operasyon akışı</h3>
-            </div>
-            <button onClick={() => setActive("Sistem Logları")} className="rounded-full border border-white/10 px-3 py-2 text-xs font-black text-slate-200">Logları Aç</button>
-          </div>
-          <div className="mt-4 grid gap-2">
-            {recentActivity.slice(0, 4).map((item) => (
-              <div key={item.id || `${item.action}-${item.created_at}`} className="rounded-[8px] border border-white/10 bg-black/15 p-3">
-                <p className="text-sm font-black text-white">{item.action || "Sistem hareketi"}</p>
-                <p className="mt-1 text-xs text-slate-400">{item.entity || item.actor_name || "HK OS"} · {formatDateTime(item.created_at)}</p>
-              </div>
-            ))}
-            {!recentActivity.length && <p className="rounded-[8px] border border-dashed border-white/10 p-4 text-sm text-slate-400">Henüz aktivite kaydı yok.</p>}
-          </div>
-        </GlassCard>
-      </div>
-      <div className="mb-5 grid min-w-0 gap-4 lg:grid-cols-2 2xl:grid-cols-[minmax(0,1.15fr)_minmax(260px,.75fr)_minmax(260px,.75fr)_minmax(260px,.75fr)]">
-        <GlassCard className="p-4 sm:p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[.16em] text-purple-200">HK Asistan</p>
-              <h3 className="mt-1 text-lg font-black text-white">Operasyon asistanı</h3>
-              <p className="mt-1 text-sm leading-5 text-slate-400">Görev, tahsilat, kârlılık ve lead verisine göre hızlı yönlendirme alın.</p>
-            </div>
-            <span className="grid size-10 place-items-center rounded-[8px] border border-purple-200/20 bg-purple-300/10 text-purple-100"><Bot size={18} /></span>
-          </div>
-          <div className="mt-4 grid gap-2 sm:grid-cols-2">
-            {dashboardAssistantPrompts.map((item) => (
-              <button key={item} type="button" onClick={() => askDashboardAssistant(item)} className="rounded-[8px] border border-white/10 bg-black/15 px-3 py-2 text-left text-xs font-bold leading-5 text-slate-300 transition hover:border-purple-200/30 hover:bg-purple-300/10 hover:text-purple-50">
-                {item}
-              </button>
-            ))}
-          </div>
-          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-            <input
-              value={dashboardAssistantPrompt}
-              onChange={(event) => setDashboardAssistantPrompt(event.target.value)}
-              onKeyDown={(event) => event.key === "Enter" && askDashboardAssistant()}
-              placeholder="HK Asistan’a sor…"
-              className="min-h-11 flex-1 rounded-[8px] border border-white/10 bg-black/20 px-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-purple-200/40"
-            />
-            <button type="button" disabled={dashboardAssistantLoading} onClick={() => askDashboardAssistant()} className="min-h-11 rounded-[8px] bg-purple-300 px-5 text-sm font-black text-slate-950 transition hover:bg-purple-200 disabled:opacity-60">
-              {dashboardAssistantLoading ? "Soruluyor..." : "🤖 Sor"}
-            </button>
-          </div>
-          <pre className="mt-4 min-h-24 whitespace-pre-wrap rounded-[8px] border border-purple-200/15 bg-purple-300/[0.08] p-3 text-xs leading-6 text-purple-50">
-            {dashboardAssistantAnswer || "Soru yazın veya hızlı komutlardan birini seçin. Veri yoksa yerel değerlendirme ile güvenli yanıt verilir."}
-          </pre>
-        </GlassCard>
-
-        <GlassCard className="p-4 sm:p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">Görevler</p>
-              <h3 className="mt-1 text-lg font-black text-white">Operasyon özeti</h3>
-            </div>
-            <span className="grid size-10 place-items-center rounded-[8px] border border-cyan-200/20 bg-cyan-300/10 text-cyan-100"><CircleCheck size={18} /></span>
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
-            {[
-              ["Bugünkü görevler", todaysTasks.length],
-              ["Geciken görevler", overdueTasks.length],
-              ["Kritik görevler", criticalTasks.length],
-              ["Tamamlananlar", completedTasks.length]
-            ].map(([label, value]) => (
-              <div key={label} className="rounded-[8px] border border-white/10 bg-black/15 p-3">
-                <p className="text-[10px] font-black uppercase tracking-[.10em] text-slate-500">{label}</p>
-                <p className="mt-1 text-xl font-black text-white">{value}</p>
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 grid gap-2">
-            {importantDashboardTasks.map((item) => (
-              <div key={item.id || item.title} className="rounded-[8px] border border-white/10 bg-black/10 p-3">
-                <p className="text-sm font-black text-white">{item.title || "İsimsiz görev"}</p>
-                <p className="mt-1 text-xs text-slate-400">{item.priority || "Orta"} öncelik · {item.due_date || "Tarih yok"}</p>
-              </div>
-            ))}
-            {!importantDashboardTasks.length && <p className="rounded-[8px] border border-dashed border-white/10 p-4 text-sm text-slate-400">Öncelikli görev görünmüyor.</p>}
-          </div>
-          <div className="mt-4 grid gap-2 sm:grid-cols-2">
-            <button type="button" onClick={() => setActive("Görevler")} className="rounded-[8px] border border-cyan-200/20 bg-cyan-300/10 px-4 py-3 text-sm font-black text-cyan-50 transition hover:bg-cyan-300/20">
-              ✅ Tüm Görevleri Aç
-            </button>
-            <button type="button" onClick={() => setActive("Görevler")} className="rounded-[8px] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-slate-100 transition hover:bg-white/[0.08]">
-              🕒 Görev Geçmişi
-            </button>
-          </div>
-        </GlassCard>
-
-        <GlassCard className="p-4 sm:p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[.16em] text-emerald-200">Karlılık</p>
-              <h3 className="mt-1 text-lg font-black text-white">Finans özeti</h3>
-            </div>
-            <span className="grid size-10 place-items-center rounded-[8px] border border-emerald-200/20 bg-emerald-300/10 text-emerald-100"><BarChart3 size={18} /></span>
-          </div>
-          <div className="mt-4 grid gap-2">
-            {[
-              ["Bu Ay Gelir", expectedRevenue],
-              ["Bekleyen Tahsilat", pendingRevenue],
-              ["Geciken Tahsilat", overduePaymentTotal],
-              ["Tahmini Kâr", estimatedProfit]
-            ].map(([label, value]) => (
-              <div key={label} className="flex items-center justify-between gap-3 rounded-[8px] border border-white/10 bg-black/15 p-3">
-                <span className="text-xs font-bold text-slate-400">{label}</span>
-                <span className="text-sm font-black text-white">{Number(value || 0).toLocaleString("tr-TR")} TL</span>
-              </div>
-            ))}
-          </div>
-          {!paymentRecords.length && !agencyExpenses.length && <p className="mt-4 rounded-[8px] border border-dashed border-white/10 p-4 text-sm leading-6 text-slate-400">Henüz tahsilat veya gider verisi yok. Özet değerler ₺0 olarak gösteriliyor.</p>}
-          <div className="mt-4 grid gap-2 sm:grid-cols-2">
-            <button type="button" onClick={() => setActive("Karlılık")} className="rounded-[8px] border border-emerald-200/20 bg-emerald-300/10 px-4 py-3 text-sm font-black text-emerald-50 transition hover:bg-emerald-300/20">
-              💰 Karlılık Detayını Aç
-            </button>
-            <button type="button" onClick={() => setActive("Tahsilat")} className="rounded-[8px] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-slate-100 transition hover:bg-white/[0.08]">
-              🕒 Ödeme Geçmişi
-            </button>
-          </div>
-        </GlassCard>
-
-        <GlassCard className="p-4 sm:p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[.16em] text-orange-200">Kampanyalar</p>
-              <h3 className="mt-1 text-lg font-black text-white">Reklam operasyonu</h3>
-            </div>
-            <span className="grid size-10 place-items-center rounded-[8px] border border-orange-200/20 bg-orange-300/10 text-orange-100"><BarChart3 size={18} /></span>
-          </div>
-          <div className="mt-4 grid gap-2">
-            {[
-              ["Aktif kampanyalar", activeCampaigns.length],
-              ["Planlanan kampanyalar", plannedCampaigns.length],
-              ["Bu ay biten", campaignsEndingThisMonth.length],
-              ["Müşteriye görünür", visibleCampaigns.length]
-            ].map(([label, value]) => (
-              <div key={label} className="flex items-center justify-between gap-3 rounded-[8px] border border-white/10 bg-black/15 p-3">
-                <span className="text-xs font-bold text-slate-400">{label}</span>
-                <span className="text-sm font-black text-white">{value}</span>
-              </div>
-            ))}
-            <div className="flex items-center justify-between gap-3 rounded-[8px] border border-white/10 bg-black/15 p-3">
-              <span className="text-xs font-bold text-slate-400">Toplam harcama</span>
-              <span className="text-sm font-black text-white">{campaignSpendTotal.toLocaleString("tr-TR")} TL</span>
-            </div>
-          </div>
-          <button type="button" onClick={() => setActive("Kampanyalar")} className="mt-4 w-full rounded-[8px] border border-orange-200/20 bg-orange-300/10 px-4 py-3 text-sm font-black text-orange-50 transition hover:bg-orange-300/20">
-            📣 Kampanyaları Aç
-          </button>
-        </GlassCard>
-      </div>
-      <div className="mb-5">
-        <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">HK OS v2 Workspace</p>
-            <h3 className="mt-1 text-lg font-black text-white">Modüler operasyon widget'ları</h3>
-          </div>
-          <span className="rounded-full border border-cyan-200/20 bg-cyan-200/10 px-3 py-1 text-[10px] font-black text-cyan-100">Widget sıralaması yakında sürükle-bırak ile düzenlenebilir.</span>
-        </div>
-        <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
-          {workspaceWidgets.map((widget) => (
-            <button key={widget.title} type="button" onClick={() => setActive(widget.target)} className={`admin-color-card group overflow-hidden rounded-[8px] border border-white/15 bg-gradient-to-br ${widget.gradient} p-4 text-left text-white shadow-[0_14px_40px_rgba(0,0,0,.18)] transition hover:-translate-y-0.5 hover:border-white/25`}>
-              <span className="flex items-start justify-between gap-3">
-                <span className="grid size-10 place-items-center rounded-[8px] border border-white/20 bg-white/[0.14]">{widget.icon}</span>
-                <span className="rounded-full border border-white/20 bg-black/10 px-2.5 py-1 text-[10px] font-black text-white/80">{widget.subtitle}</span>
-              </span>
-              <h4 className="mt-4 text-base font-black">{widget.title}</h4>
-              <p className="mt-2 min-h-10 text-xs leading-5 text-white/78">{widget.description}</p>
-              <span className="mt-4 grid grid-cols-3 gap-2">
-                {widget.stats.map(([label, value]) => (
-                  <span key={`${widget.title}-${label}`} className="rounded-[8px] border border-white/15 bg-white/[0.12] p-2">
-                    <span className="block truncate text-[10px] font-black uppercase tracking-[.08em] text-white/65">{label}</span>
-                    <span className="mt-1 block truncate text-sm font-black">{value}</span>
-                  </span>
-                ))}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="mb-5 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(280px,.9fr)]">
-        <section className="rounded-[8px] border border-white/10 bg-white/[0.035] p-4 shadow-[0_12px_34px_rgba(0,0,0,.14)]">
-          <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">Recent Leads Widget</p><h3 className="mt-1 text-lg font-black text-white">Son başvurular</h3></div><button onClick={() => setActive("CRM")} className="rounded-[8px] border border-cyan-200/20 px-3 py-2 text-xs font-black text-cyan-100">CRM Aç</button></div>
-          <div className="mt-4 grid gap-2">
-            {leads.slice(0, 6).map((lead) => {
-              const heat = Number(lead.lead_heat_score || 0);
-              const temp = heat >= 70 ? "Sıcak" : heat >= 50 ? "Ilık" : "Soğuk";
-              return <button key={lead.id || `${lead.name}-${lead.created_at}`} onClick={() => setActive("CRM")} className="grid gap-2 rounded-[8px] border border-white/10 bg-black/10 p-3 text-left transition hover:border-cyan-200/30 sm:grid-cols-[1fr_auto]"><span><span className="block text-sm font-black text-white">{lead.company || lead.name || "İsimsiz başvuru"}</span><span className="mt-1 block text-xs text-slate-400">{lead.source || "Form"} · {lead.status || "Yeni"} · {formatDate(lead.created_at || lead.createdAt)}</span></span><span className={`w-fit rounded-full px-2.5 py-1 text-[10px] font-black ${temp === "Sıcak" ? "bg-red-300/15 text-red-100" : temp === "Ilık" ? "bg-amber-300/15 text-amber-100" : "bg-slate-300/10 text-slate-300"}`}>{temp}</span></button>;
-            })}
-            {!leads.length && <p className="rounded-[8px] border border-dashed border-white/10 p-5 text-sm text-slate-400">Henüz başvuru yok.</p>}
           </div>
         </section>
-        <section className="grid gap-4">
-          <div className="rounded-[8px] border border-white/10 bg-white/[0.035] p-4 shadow-[0_12px_34px_rgba(0,0,0,.14)]">
-            <p className="text-xs font-black uppercase tracking-[.16em] text-orange-200">Intelligence Widget</p>
-            <div className="mt-4 grid gap-2 sm:grid-cols-3">{intelligenceCards.slice(0, 3).map(([title, value, text, dateLabel, date]) => <button key={title} onClick={() => setActive(title.includes("Meta") ? "Meta Analiz" : title.includes("Google") ? "Google Ads Analiz" : "Sosyal İstihbarat Merkezi")} className="rounded-[8px] border border-white/10 bg-black/10 p-3 text-left hover:border-orange-200/30"><p className="text-xs font-black text-white">{title}</p><p className="mt-2 text-lg font-black text-orange-100">{value}</p><p className="mt-1 text-[11px] leading-4 text-slate-400">{text}</p><p className="mt-2 text-[10px] text-slate-500">{dateLabel}: {date ? formatDate(date) : "Bekliyor"}</p></button>)}</div>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <button onClick={() => setActive("PDF Audit")} className="rounded-[8px] border border-emerald-200/20 bg-emerald-300/[0.08] p-4 text-left"><p className="text-xs font-black uppercase tracking-[.14em] text-emerald-200">Reports/PDF Widget</p><p className="mt-2 text-2xl font-black text-white">{reports.length + socialAuditLeads.length}</p><p className="mt-1 text-xs leading-5 text-slate-300">Son PDF audit ve müşteri raporu çıktıları</p></button>
-            <button onClick={() => setActive("WhatsApp Teklifi")} className="rounded-[8px] border border-green-200/20 bg-green-300/[0.08] p-4 text-left"><p className="text-xs font-black uppercase tracking-[.14em] text-green-200">WhatsApp Proposal Widget</p><p className="mt-2 text-2xl font-black text-white">{generatedProposals}</p><p className="mt-1 text-xs leading-5 text-slate-300">Hazırlanan teklif mesajları ve hızlı iletişim</p></button>
-          </div>
-          <div className="rounded-[8px] border border-purple-200/20 bg-purple-300/[0.08] p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.14em] text-purple-200">AI Command Widget</p><p className="mt-1 text-sm font-black text-white">{activeAiMeta.provider} · {activeAiMeta.model}</p><p className="mt-1 text-xs text-slate-300">Mod: {activeAiMeta.mode} · Sağlık: %{healthScore}</p></div><button disabled={aiStatusLoading} onClick={refreshAiStatus} className="rounded-[8px] bg-purple-300 px-3 py-2 text-xs font-black text-slate-950 disabled:opacity-60">AI Durumunu Kontrol Et</button></div>
-          </div>
+
+        <section className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {hkIdentityCards.map(([title, value, note, tone]) => (
+            <div key={title as string} className="rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm">
+              <p className="text-sm font-black text-slate-950">{title}</p>
+              <p className="mt-3 truncate text-xl font-black text-slate-950">{value}</p>
+              <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{note}</p>
+              <span className={`mt-4 inline-flex rounded-full px-3 py-1 text-[10px] font-black ${tone}`}>HK Intelligence</span>
+            </div>
+          ))}
         </section>
       </div>
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-cyan-200/15 bg-cyan-200/[0.05] p-4">
-        <div><p className="text-sm font-black text-cyan-50">Dashboard düzeniniz</p><p className="mt-1 text-xs text-slate-400">Widget görünürlüğünü, sırasını ve favori modüllerinizi kişiselleştirin. Widget sıralaması yakında sürükle-bırak ile düzenlenebilir.</p></div>
-        <button onClick={() => setCustomizing((current) => !current)} className="inline-flex min-h-10 items-center gap-2 rounded-full border border-cyan-200/20 px-4 text-xs font-black text-cyan-50"><Settings2 size={15} /> Dashboard'u düzenle</button>
-      </div>
-      {customizing && <GlassCard className="mb-5 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-black">Widget tercihleri</h3><button onClick={() => savePreferences({ order: dashboardWidgetDefaults, hidden: [], favorites: ["Müşteri Bulucu", "CRM"] })} className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-2 text-xs font-bold"><RotateCcw size={14} /> Varsayılan düzene dön</button></div><div className="mt-4 flex flex-wrap gap-2">{Object.entries(dashboardPresets).map(([label, preset]) => <button key={label} onClick={() => savePreferences(preset)} className="rounded-full border border-cyan-200/20 px-3 py-2 text-xs font-black text-cyan-100 transition hover:bg-cyan-200/10">{label}</button>)}</div><div className="mt-4 grid gap-2 md:grid-cols-2">{preferences.order.map((id, index) => <div key={id} className="flex items-center gap-2 rounded-[8px] border border-white/10 bg-black/10 p-2"><GripVertical size={15} className="text-slate-500" /><label className="flex flex-1 items-center gap-2 text-xs font-bold"><input type="checkbox" checked={!preferences.hidden.includes(id)} onChange={() => toggleWidget(id)} />{widgetNames[id]}</label><button disabled={!index} onClick={() => moveWidget(id, -1)} title="Yukarı taşı" className="rounded p-1 disabled:opacity-30"><ArrowUp size={14} /></button><button disabled={index === preferences.order.length - 1} onClick={() => moveWidget(id, 1)} title="Aşağı taşı" className="rounded p-1 disabled:opacity-30"><ArrowDown size={14} /></button></div>)}</div></GlassCard>}
-      <div className="grid gap-6">{preferences.order.filter((id) => !preferences.hidden.includes(id)).map((id) => <section key={id}>{widgets[id]}</section>)}</div>
     </Panel>
   );
 }
