@@ -264,7 +264,7 @@ const aiChooserOptions = [
 function AiProviderChooserModal({ open, selected, setSelected, onContinue, onCancel }: any) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[80] grid place-items-center bg-white/65 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[80] grid place-items-center bg-white/70 p-4 ">
       <div className="w-full max-w-xl rounded-[8px] border border-slate-200 bg-white p-5 text-slate-900 shadow-[0_24px_90px_rgba(0,0,0,.45)]">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -744,7 +744,7 @@ export function AdminDashboard({
         </section>
       </div>
       {notificationsOpen && (
-        <div className="fixed inset-0 z-[80] flex justify-end bg-white/65 backdrop-blur-sm" onMouseDown={() => setNotificationsOpen(false)}>
+        <div className="fixed inset-0 z-[80] flex justify-end bg-white/70 " onMouseDown={() => setNotificationsOpen(false)}>
           <aside className="h-full w-full max-w-md overflow-y-auto border-l border-slate-200 bg-white p-5 text-slate-900 shadow-[0_24px_90px_rgba(0,0,0,.42)]" onMouseDown={(event) => event.stopPropagation()}>
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -810,7 +810,7 @@ function ToastStack({ items, dismiss }: any) {
 
 function SystemBoot({ step }: { step: number }) {
   const complete = step >= bootSequence.length;
-  return <div className="fixed inset-0 z-[100] grid place-items-center bg-white/65 px-5 backdrop-blur-sm">
+  return <div className="fixed inset-0 z-[100] grid place-items-center bg-white/70 px-5 ">
     <div className="w-full max-w-xl overflow-hidden rounded-[8px] border border-cyan-200/20 bg-white p-6 shadow-[0_28px_120px_rgba(34,211,238,.2)] sm:p-8">
       <div className="flex items-center justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[.2em] text-cyan-700">HK Operating System</p><p className="mt-2 text-[11px] font-bold uppercase tracking-[.18em] text-slate-500">Powered by HK Dijital</p></div><span className="grid size-11 place-items-center rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 text-cyan-700"><Sparkles size={20} /></span></div>
       <div className="mt-7 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-cyan-300 transition-all duration-300" style={{ width: `${Math.min(100, step / bootSequence.length * 100)}%` }} /></div>
@@ -1018,7 +1018,7 @@ function GlobalAdminSearch() {
     }, 220);
     return () => clearTimeout(timer);
   }, [query]);
-  return <div className="relative"><button onClick={() => { setOpen(true); window.setTimeout(() => document.getElementById("hk-command-search")?.focus(), 0); }} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 text-sm text-slate-600"><Search size={16} className="text-cyan-700" /><span className="hidden xl:inline">Spotlight arama...</span><kbd className="rounded border border-slate-200 px-1.5 py-0.5 text-[10px] font-black text-slate-500">⌘K / Ctrl+K</kbd></button>{open && <div className="fixed inset-0 z-[90] flex justify-center bg-white/65 px-4 pt-[12vh] backdrop-blur-sm" onMouseDown={() => setOpen(false)}><div className="h-fit w-full max-w-3xl overflow-hidden rounded-[8px] border border-cyan-200/20 bg-white shadow-[0_28px_110px_rgba(0,0,0,.55)]" onMouseDown={(event) => event.stopPropagation()}><label className="flex min-h-16 items-center gap-3 border-b border-slate-200 px-5"><Search size={19} className="text-cyan-700" /><input id="hk-command-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Spotlight arama... müşteri, lead, kampanya, görev, tahsilat, belge, rapor veya log" className="w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-500" /><button onClick={() => setOpen(false)} title="Kapat" className="rounded border border-slate-200 px-2 py-1 text-[10px] font-black text-slate-400">ESC</button></label><div className="premium-scrollbar max-h-[56vh] overflow-y-auto p-2">{results.map((result) => <Link key={result.id} href={result.href} onClick={() => { setQuery(""); setOpen(false); }} className="grid gap-3 rounded-[8px] px-3 py-3 text-sm hover:bg-white/10 sm:grid-cols-[120px_1fr_auto] sm:items-center"><span className="rounded-full border border-cyan-200/20 px-2 py-1 text-center text-[10px] font-black text-cyan-700">{result.type}</span><span><strong className="block text-slate-900">{result.title}</strong><span className="mt-1 block text-xs text-slate-400">{result.detail}</span></span><span className="rounded-full bg-cyan-300 px-3 py-1.5 text-xs font-black text-slate-950">Aç</span></Link>)}{query.trim().length < 2 && <p className="px-3 py-5 text-sm leading-6 text-slate-400">En az iki karakter yazın. Yetkiniz olan modüller ve operasyon kayıtları içinde arama yapılır.</p>}{query.trim().length >= 2 && !results.length && <p className="px-3 py-5 text-sm text-slate-400">Eşleşen sonuç bulunamadı.</p>}</div></div></div>}</div>;
+  return <div className="relative"><button onClick={() => { setOpen(true); window.setTimeout(() => document.getElementById("hk-command-search")?.focus(), 0); }} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 text-sm text-slate-600"><Search size={16} className="text-cyan-700" /><span className="hidden xl:inline">Spotlight arama...</span><kbd className="rounded border border-slate-200 px-1.5 py-0.5 text-[10px] font-black text-slate-500">⌘K / Ctrl+K</kbd></button>{open && <div className="fixed inset-0 z-[90] flex justify-center bg-white/70 px-4 pt-[12vh] " onMouseDown={() => setOpen(false)}><div className="h-fit w-full max-w-3xl overflow-hidden rounded-[8px] border border-cyan-200/20 bg-white shadow-[0_28px_110px_rgba(0,0,0,.55)]" onMouseDown={(event) => event.stopPropagation()}><label className="flex min-h-16 items-center gap-3 border-b border-slate-200 px-5"><Search size={19} className="text-cyan-700" /><input id="hk-command-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Spotlight arama... müşteri, lead, kampanya, görev, tahsilat, belge, rapor veya log" className="w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-500" /><button onClick={() => setOpen(false)} title="Kapat" className="rounded border border-slate-200 px-2 py-1 text-[10px] font-black text-slate-400">ESC</button></label><div className="premium-scrollbar max-h-[56vh] overflow-y-auto p-2">{results.map((result) => <Link key={result.id} href={result.href} onClick={() => { setQuery(""); setOpen(false); }} className="grid gap-3 rounded-[8px] px-3 py-3 text-sm hover:bg-white/10 sm:grid-cols-[120px_1fr_auto] sm:items-center"><span className="rounded-full border border-cyan-200/20 px-2 py-1 text-center text-[10px] font-black text-cyan-700">{result.type}</span><span><strong className="block text-slate-900">{result.title}</strong><span className="mt-1 block text-xs text-slate-400">{result.detail}</span></span><span className="rounded-full bg-cyan-300 px-3 py-1.5 text-xs font-black text-slate-950">Aç</span></Link>)}{query.trim().length < 2 && <p className="px-3 py-5 text-sm leading-6 text-slate-400">En az iki karakter yazın. Yetkiniz olan modüller ve operasyon kayıtları içinde arama yapılır.</p>}{query.trim().length >= 2 && !results.length && <p className="px-3 py-5 text-sm text-slate-400">Eşleşen sonuç bulunamadı.</p>}</div></div></div>}</div>;
 }
 
 function AdminBrowserControls() {
@@ -1133,7 +1133,7 @@ function StartupApiStatusModal({ open, loading, data = {}, message, onRetest, on
     ["Supabase", statuses.supabase]
   ];
   return (
-    <div className="fixed inset-0 z-[75] grid place-items-center bg-white/65 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[75] grid place-items-center bg-white/70 p-4 ">
       <div className="w-full max-w-2xl rounded-[8px] border border-slate-200 bg-white p-5 text-slate-900 shadow-[0_24px_90px_rgba(0,0,0,.45)]">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -3085,7 +3085,7 @@ function LeadEditModal({ lead, close, save }: any) {
     return () => window.removeEventListener("keydown", handleEscape);
   }, [close]);
   const update = (patch) => setForm({ ...form, ...patch });
-  return <div onMouseDown={close} className="fixed inset-0 z-[70] grid place-items-center bg-white/65 p-4 backdrop-blur-sm"><div onMouseDown={(event) => event.stopPropagation()} className="admin-modal-panel max-h-[92vh] w-full max-w-4xl overflow-auto rounded-[8px] border border-slate-200 bg-white p-5 shadow-2xl"><div className="mb-5 flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">CRM Başvuru Yönetimi</p><h2 className="mt-1 text-2xl font-black text-slate-900">Başvuruyu Düzenle</h2></div><button onClick={close} className="grid size-10 place-items-center rounded-full border border-slate-200"><X size={18} /></button></div><div className="grid gap-4 md:grid-cols-2"><SelectField label="Kaynak" value={form.source} onChange={(source) => update({ source })} options={leadSourceOptions} /><SelectField label="Durum" value={form.status} onChange={(status) => update({ status })} options={crmActiveStatuses} /><Field label="Ad Soyad" value={form.name} onChange={(name) => update({ name })} /><Field label="Firma" value={form.company} onChange={(company) => update({ company })} /><Field label="Telefon" value={form.phone} onChange={(phone) => update({ phone })} /><Field label="E-posta" value={form.email} onChange={(email) => update({ email })} /><Field label="Instagram" value={form.instagram} onChange={(instagram) => update({ instagram })} /><Field label="Web sitesi" value={form.website} onChange={(website) => update({ website })} /><OtherSelectField label="Sektör" value={form.business_type} onChange={(business_type) => update({ business_type })} options={sectorOptions} manualLabel="Sektörü yazın" /><Field label="Bütçe" value={form.budget} onChange={(budget) => update({ budget })} /><Field label="Önerilen paket" value={form.recommended_package} onChange={(recommended_package) => update({ recommended_package })} /><Field label="Takip tarihi" type="date" value={form.follow_up_date} onChange={(follow_up_date) => update({ follow_up_date })} /><div className="md:col-span-2"><TextArea label="Hedef" value={form.goal} onChange={(goal) => update({ goal })} /></div><div className="md:col-span-2"><TextArea label="Mesaj" value={form.message} onChange={(message) => update({ message })} /></div><div className="md:col-span-2"><TextArea label="Dahili notlar" value={form.notes} onChange={(notes) => update({ notes })} /></div><div className="md:col-span-2"><TextArea rows={3} label="Red nedeni" value={form.rejection_reason} onChange={(rejection_reason) => update({ rejection_reason })} /></div></div><div className="mt-6 flex flex-wrap justify-end gap-2"><button onClick={close} className="rounded-full border border-slate-200 px-4 py-2 text-sm">Vazgeç</button><button onClick={() => save(form)} className="rounded-full bg-cyan-300 px-5 py-2 text-sm font-black text-slate-950">Değişiklikleri Kaydet</button></div></div></div>;
+  return <div onMouseDown={close} className="fixed inset-0 z-[70] grid place-items-center bg-white/70 p-4 "><div onMouseDown={(event) => event.stopPropagation()} className="admin-modal-panel max-h-[92vh] w-full max-w-4xl overflow-auto rounded-[8px] border border-slate-200 bg-white p-5 shadow-2xl"><div className="mb-5 flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">CRM Başvuru Yönetimi</p><h2 className="mt-1 text-2xl font-black text-slate-900">Başvuruyu Düzenle</h2></div><button onClick={close} className="grid size-10 place-items-center rounded-full border border-slate-200"><X size={18} /></button></div><div className="grid gap-4 md:grid-cols-2"><SelectField label="Kaynak" value={form.source} onChange={(source) => update({ source })} options={leadSourceOptions} /><SelectField label="Durum" value={form.status} onChange={(status) => update({ status })} options={crmActiveStatuses} /><Field label="Ad Soyad" value={form.name} onChange={(name) => update({ name })} /><Field label="Firma" value={form.company} onChange={(company) => update({ company })} /><Field label="Telefon" value={form.phone} onChange={(phone) => update({ phone })} /><Field label="E-posta" value={form.email} onChange={(email) => update({ email })} /><Field label="Instagram" value={form.instagram} onChange={(instagram) => update({ instagram })} /><Field label="Web sitesi" value={form.website} onChange={(website) => update({ website })} /><OtherSelectField label="Sektör" value={form.business_type} onChange={(business_type) => update({ business_type })} options={sectorOptions} manualLabel="Sektörü yazın" /><Field label="Bütçe" value={form.budget} onChange={(budget) => update({ budget })} /><Field label="Önerilen paket" value={form.recommended_package} onChange={(recommended_package) => update({ recommended_package })} /><Field label="Takip tarihi" type="date" value={form.follow_up_date} onChange={(follow_up_date) => update({ follow_up_date })} /><div className="md:col-span-2"><TextArea label="Hedef" value={form.goal} onChange={(goal) => update({ goal })} /></div><div className="md:col-span-2"><TextArea label="Mesaj" value={form.message} onChange={(message) => update({ message })} /></div><div className="md:col-span-2"><TextArea label="Dahili notlar" value={form.notes} onChange={(notes) => update({ notes })} /></div><div className="md:col-span-2"><TextArea rows={3} label="Red nedeni" value={form.rejection_reason} onChange={(rejection_reason) => update({ rejection_reason })} /></div></div><div className="mt-6 flex flex-wrap justify-end gap-2"><button onClick={close} className="rounded-full border border-slate-200 px-4 py-2 text-sm">Vazgeç</button><button onClick={() => save(form)} className="rounded-full bg-cyan-300 px-5 py-2 text-sm font-black text-slate-950">Değişiklikleri Kaydet</button></div></div></div>;
 }
 
 function ConfirmDialog({ title, description, confirmLabel, tone = "danger", children, onCancel, onConfirm }: any) {
@@ -3097,7 +3097,7 @@ function ConfirmDialog({ title, description, confirmLabel, tone = "danger", chil
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
   }, [onCancel]);
-  return <div onMouseDown={onCancel} className="fixed inset-0 z-[80] grid place-items-center bg-white/65 p-4 backdrop-blur-sm"><div onMouseDown={(event) => event.stopPropagation()} className="admin-modal-panel w-full max-w-lg rounded-[8px] border border-slate-200 bg-white p-5 shadow-2xl"><h2 className="text-xl font-black text-slate-900">{title}</h2><p className="mt-2 text-sm leading-6 text-slate-400">{description}</p>{children && <div className="mt-4">{children}</div>}<div className="mt-6 flex flex-wrap justify-end gap-2"><button onClick={onCancel} className="rounded-full border border-slate-200 px-4 py-2 text-sm">Vazgeç</button><button onClick={onConfirm} className={`rounded-full px-5 py-2 text-sm font-black ${danger ? "bg-red-500 text-slate-900" : "bg-amber-300 text-slate-950"}`}>{confirmLabel}</button></div></div></div>;
+  return <div onMouseDown={onCancel} className="fixed inset-0 z-[80] grid place-items-center bg-white/70 p-4 "><div onMouseDown={(event) => event.stopPropagation()} className="admin-modal-panel w-full max-w-lg rounded-[8px] border border-slate-200 bg-white p-5 shadow-2xl"><h2 className="text-xl font-black text-slate-900">{title}</h2><p className="mt-2 text-sm leading-6 text-slate-400">{description}</p>{children && <div className="mt-4">{children}</div>}<div className="mt-6 flex flex-wrap justify-end gap-2"><button onClick={onCancel} className="rounded-full border border-slate-200 px-4 py-2 text-sm">Vazgeç</button><button onClick={onConfirm} className={`rounded-full px-5 py-2 text-sm font-black ${danger ? "bg-red-500 text-slate-900" : "bg-amber-300 text-slate-950"}`}>{confirmLabel}</button></div></div></div>;
 }
 
 function Drawer({ title, close, children }: any) {
@@ -3109,7 +3109,7 @@ function Drawer({ title, close, children }: any) {
     return () => window.removeEventListener("keydown", handleEscape);
   }, [close]);
   return (
-    <div onMouseDown={close} className="fixed inset-0 z-50 flex justify-end bg-white/65 backdrop-blur-sm">
+    <div onMouseDown={close} className="fixed inset-0 z-50 flex justify-end bg-white/70 ">
       <div onMouseDown={(event) => event.stopPropagation()} className="admin-drawer-panel h-full w-full max-w-4xl overflow-auto border-l border-slate-200 bg-white p-5 shadow-2xl sm:p-7">
         <div className="mb-6 flex items-center justify-between gap-3">
           <h2 className="text-2xl font-black text-slate-900">{title}</h2>
@@ -3421,7 +3421,7 @@ function MetaAdsConnectionCenter({ content, setContent, api, updateApi }: any) {
         <button disabled={Boolean(loading)} onClick={() => getAction("pages")} className="rounded-full border border-cyan-200/25 px-4 py-2 text-xs font-black text-cyan-700 disabled:opacity-60">Sayfaları Getir</button>
         <button disabled={Boolean(loading)} onClick={() => getAction("instagram")} className="rounded-full border border-cyan-200/25 px-4 py-2 text-xs font-black text-cyan-700 disabled:opacity-60">Instagram Hesaplarını Getir</button>
         <button disabled={Boolean(loading) || !form.adAccountId} onClick={() => sync("sync")} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs font-black text-emerald-700 disabled:opacity-60">{loading === "sync" ? "Senkronize ediliyor..." : "Manuel Senkronizasyon"}</button>
-        <button disabled={Boolean(loading) || !form.adAccountId || !form.companyId} onClick={() => sync("report")} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs font-black text-amber-700 disabled:opacity-60">Meta Verilerinden Rapor Oluştur</button>
+        <button disabled={Boolean(loading) || !form.adAccountId || !form.companyId} onClick={() => sync("report")} className="rounded-full bg-amber-400 px-4 py-2 text-xs font-black text-slate-950 shadow-sm disabled:opacity-60">Meta Verilerinden Rapor Oluştur</button>
       </div>
       {message && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-700">{message}</p>}
       {(accounts.length > 0 || pages.length > 0 || instagramAccounts.length > 0) && <div className="mt-4 grid gap-3 lg:grid-cols-3">
@@ -3894,7 +3894,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
           <AgencyStatCard label="Açık görev" value={tasks.filter((item) => !["Tamamlandı", "İptal"].includes(item.status)).length} note="Yapılacaklar ile senkron" tone="emerald" />
         </div>
       </div>}
-      {tab === "Reklam Hesapları" && <CustomerMetaAccounts company={company} content={content} setContent={setContent} notify={notify} />}
+      {tab === "Reklam Hesapları" && <CustomerMetaAccounts company={company} content={content} setContent={setContent} save={save} notify={notify} />}
       {tab === "Kampanyalar" && <CustomerCampaignsEditor company={company} content={content} setContent={setContent} save={save} setActive={setActive} items={campaigns} notify={notify} canManage={canManageCustomer} />}
       {tab === "Teklifler" && <CustomerProposalsEditor company={company} content={content} setContent={setContent} save={save} items={proposals} notify={notify} canManage={canManageCustomer} />}
       {tab === "Zaman Çizelgesi" && <CustomerTimeline company={company} campaigns={campaigns} payments={payments} tasks={tasks} documents={documents} reports={reports} activities={activities} />}
@@ -3921,7 +3921,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
   );
 }
 
-function CustomerMetaAccounts({ company, content, setContent, notify }: any) {
+function CustomerMetaAccounts({ company, content, setContent, save, notify }: any) {
   const api = content.settings?.api || {};
   const existing = (content.metaAccountLinks || []).find((item: any) => item.company_id === company.id) || {};
   const [form, setForm] = useState({
@@ -3940,7 +3940,11 @@ function CustomerMetaAccounts({ company, content, setContent, notify }: any) {
   const [message, setMessage] = useState("");
   const [rows, setRows] = useState<any[]>([]);
   const [linked, setLinked] = useState(existing);
+  const [matchingCampaign, setMatchingCampaign] = useState<any>(null);
+  const [matchingExistingId, setMatchingExistingId] = useState("");
+  const [matchedMetaCampaigns, setMatchedMetaCampaigns] = useState<Record<string, string>>({});
   const summaries = metaCampaignSummaries(rows.length ? rows : (content.campaignMetrics || []).filter((item: any) => item.company_id === company.id && item.source === "Meta API"));
+  const localCampaigns = (content.campaigns || []).filter((item: any) => item.company_id === company.id && !item.archived_at && !item.deleted_at);
   const helperText = {
     businessId: "Meta Business Manager içindeki işletme ID’si.",
     adAccountId: "Meta reklam hesabı ID’si. Örn: act_123456789 veya 123456789",
@@ -4093,6 +4097,91 @@ function CustomerMetaAccounts({ company, content, setContent, notify }: any) {
     setMessage("Google verileri için demo/sync-ready kayıt oluşturuldu. Gerçek Google Ads yetkileri sunucuda hazır olduğunda bu alan canlı metriklerle dolar.");
     notify?.("✓ Google sync-ready verisi oluşturuldu", "success");
   }
+  function openCampaignMatch(item: any) {
+    if (!item?.campaignId) {
+      setMessage("Meta kampanya verisi bulunamadı.");
+      notify?.("✖ Meta kampanya verisi bulunamadı.", "error");
+      return;
+    }
+    const existingMatch = localCampaigns.find((campaign: any) => campaign.meta_campaign_id === item.campaignId || campaign.external_id === item.campaignId);
+    setMatchingCampaign(item);
+    setMatchingExistingId(existingMatch?.id || "");
+  }
+  function closeCampaignMatch() {
+    setMatchingCampaign(null);
+    setMatchingExistingId("");
+  }
+  function saveCampaignMatch(createNew = false) {
+    if (!matchingCampaign?.campaignId) {
+      setMessage("Meta kampanya verisi bulunamadı.");
+      notify?.("✖ Meta kampanya verisi bulunamadı.", "error");
+      return;
+    }
+    if (!createNew && !matchingExistingId) {
+      setMessage("Kampanya seçilmedi.");
+      notify?.("⚠ Kampanya seçilmedi.", "warning");
+      return;
+    }
+    const now = new Date().toISOString();
+    const targetId = createNew ? createLocalId() : matchingExistingId;
+    const campaignPatch = {
+      company_id: company.id,
+      meta_campaign_id: matchingCampaign.campaignId,
+      external_id: matchingCampaign.campaignId,
+      source: "Meta",
+      name: matchingCampaign.campaignName || "Meta Kampanya",
+      platform: "Meta",
+      status: matchingCampaign.status || "Aktif",
+      start_date: matchingCampaign.date || now.slice(0, 10),
+      spent_budget: Number(matchingCampaign.spend || 0),
+      spent: Number(matchingCampaign.spend || 0),
+      budget: Number(matchingCampaign.spend || 0),
+      settings: { meta_campaign_id: matchingCampaign.campaignId, imported_from: "customer_profile_meta_campaigns" },
+      notes: "Meta kampanya verilerinden eşleştirildi.",
+      visible_to_customer: true,
+      updated_at: now
+    };
+    const campaigns = content.campaigns || [];
+    const nextCampaigns = createNew
+      ? [{ id: targetId, ...campaignPatch }, ...campaigns]
+      : campaigns.map((campaign: any) => campaign.id === targetId ? { ...campaign, ...campaignPatch } : campaign);
+    const metric = {
+      id: createLocalId(),
+      company_id: company.id,
+      campaign_id: targetId,
+      meta_campaign_id: matchingCampaign.campaignId,
+      campaign_name: matchingCampaign.campaignName,
+      date: matchingCampaign.date || now.slice(0, 10),
+      period: form.rangePreset === "custom" ? `${form.dateFrom || "-"} - ${form.dateTo || "-"}` : "Meta Kampanya Eşleştirme",
+      source: "Meta API",
+      impressions: Number(matchingCampaign.impressions || 0),
+      reach: Number(matchingCampaign.reach || 0),
+      clicks: Number(matchingCampaign.clicks || 0),
+      leads: Number(matchingCampaign.results || matchingCampaign.leads || 0),
+      results: Number(matchingCampaign.results || matchingCampaign.leads || 0),
+      spend: Number(matchingCampaign.spend || 0),
+      spent: Number(matchingCampaign.spend || 0),
+      ctr: Number(matchingCampaign.ctr || 0),
+      cpc: Number(matchingCampaign.cpc || 0),
+      cpm: Number(matchingCampaign.cpm || 0),
+      visible_to_customer: true,
+      raw_data: matchingCampaign,
+      notes: "Meta Verilerini Kampanyaya Aktar ile oluşturuldu."
+    };
+    const log = { id: createLocalId(), provider: "meta", company_id: company.id, source: "Kampanya Eşleştirme", result: "Başarılı", message: `${matchingCampaign.campaignName} kampanyası eşleştirildi.`, created_at: now };
+    const next = {
+      ...content,
+      campaigns: nextCampaigns,
+      campaignMetrics: [metric, ...(content.campaignMetrics || [])],
+      activityLogs: [log, ...(content.activityLogs || [])]
+    };
+    setContent(next);
+    save?.(next);
+    setMatchedMetaCampaigns({ ...matchedMetaCampaigns, [matchingCampaign.campaignId]: targetId });
+    setMessage("Kampanya başarıyla eşleştirildi.");
+    notify?.("✓ Kampanya başarıyla eşleştirildi.", "success");
+    closeCampaignMatch();
+  }
   const totals = summarizeMetaRows(rows);
   return (
     <div className="grid gap-5">
@@ -4122,7 +4211,7 @@ function CustomerMetaAccounts({ company, content, setContent, notify }: any) {
             <div className="mt-4 flex flex-wrap gap-2">
               <button disabled={Boolean(loading)} onClick={() => saveMapping("meta")} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950 disabled:opacity-60">{loading === "meta-save" ? "Kaydediliyor..." : "Kaydet"}</button>
               <button disabled={Boolean(loading)} onClick={test} className="rounded-full border border-cyan-200/25 px-4 py-2 text-xs font-black text-cyan-700 disabled:opacity-60">{loading === "test" || loading === "meta-test" ? "Test ediliyor..." : "Test Et"}</button>
-              <button disabled={Boolean(loading) || !form.adAccountId} onClick={() => pull("sync")} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs font-black text-emerald-700 disabled:opacity-60">{loading === "sync" || loading === "meta-sync" ? "Senkronize ediliyor..." : "Meta Verilerini Çek"}</button>
+              <button disabled={Boolean(loading) || !form.adAccountId} onClick={() => pull("sync")} className="rounded-full bg-cyan-500 px-4 py-2 text-xs font-black text-white shadow-sm disabled:opacity-60">{loading === "sync" || loading === "meta-sync" ? "Senkronize ediliyor..." : "Meta Verilerini Çek"}</button>
             </div>
           </div>
           <div className="rounded-[14px] border border-blue-200/20 bg-slate-50 p-4">
@@ -4135,8 +4224,8 @@ function CustomerMetaAccounts({ company, content, setContent, notify }: any) {
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
               <button disabled={Boolean(loading)} onClick={() => saveMapping("google")} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950 disabled:opacity-60">{loading === "google-save" ? "Kaydediliyor..." : "Kaydet"}</button>
-              <button type="button" disabled={Boolean(loading)} onClick={testGoogle} className="rounded-full border border-blue-300/30 px-4 py-2 text-xs font-black text-blue-700 disabled:opacity-60">{loading === "google-test" ? "Test ediliyor..." : "Test Et"}</button>
-              <button type="button" disabled={Boolean(loading)} onClick={pullGoogle} className="rounded-full border border-blue-300/30 px-4 py-2 text-xs font-black text-blue-700 disabled:opacity-60">{loading === "google-sync" ? "Senkronize ediliyor..." : "Google Verilerini Çek"}</button>
+              <button type="button" disabled={Boolean(loading)} onClick={testGoogle} className="rounded-full border border-emerald-400 bg-emerald-50 px-4 py-2 text-xs font-black text-emerald-700 disabled:opacity-60">{loading === "google-test" ? "Test ediliyor..." : "Test Et"}</button>
+              <button type="button" disabled={Boolean(loading)} onClick={pullGoogle} className="rounded-full bg-orange-500 px-4 py-2 text-xs font-black text-white shadow-sm disabled:opacity-60">{loading === "google-sync" ? "Senkronize ediliyor..." : "Google Verilerini Çek"}</button>
             </div>
           </div>
         </div>
@@ -4148,7 +4237,7 @@ function CustomerMetaAccounts({ company, content, setContent, notify }: any) {
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           <button disabled={Boolean(loading) || !form.adAccountId} onClick={connect} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950 disabled:opacity-60">{loading === "connect" ? "Bağlanıyor..." : "Meta Hesabı Bağla"}</button>
-          <button disabled={Boolean(loading) || !form.adAccountId} onClick={() => pull("report")} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs font-black text-amber-700 disabled:opacity-60">Meta Verilerinden Rapor Oluştur</button>
+          <button disabled={Boolean(loading) || !form.adAccountId} onClick={() => pull("report")} className="rounded-full bg-amber-400 px-4 py-2 text-xs font-black text-slate-950 shadow-sm disabled:opacity-60">Meta Verilerinden Rapor Oluştur</button>
         </div>
         {message && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-700">{message}</p>}
       </div>
@@ -4168,11 +4257,44 @@ function CustomerMetaAccounts({ company, content, setContent, notify }: any) {
             <span className="text-sm text-slate-600">{Number(item.results || 0).toLocaleString("tr-TR")} sonuç</span>
             <span className="text-sm text-slate-600">{Number(item.ctr || 0).toFixed(2)}% CTR</span>
             <span className="text-sm text-slate-600">{Number(item.cpc || 0).toFixed(2)} CPC</span>
-            <span className="flex flex-wrap gap-2"><button onClick={() => pull("report")} className="rounded-full border border-amber-300/30 px-3 py-1.5 text-xs text-amber-700">Rapor Oluştur</button><button onClick={() => recordActionDetail("Meta Kampanya Detayı", [["Kampanya", item.campaignName], ["Harcama", `${Number(item.spend || 0).toLocaleString("tr-TR")} TL`], ["Sonuçlar", item.results], ["CTR", `${Number(item.ctr || 0).toFixed(2)}%`], ["CPC", Number(item.cpc || 0).toFixed(2)]])} className="rounded-full border border-cyan-200/25 px-3 py-1.5 text-xs text-cyan-700">Detay Gör</button><button className="rounded-full border border-slate-200 px-3 py-1.5 text-xs text-slate-700">Kampanyayı Eşleştir</button></span>
+            <span className="flex flex-wrap gap-2"><button onClick={() => pull("report")} className="rounded-full bg-amber-400 px-3 py-1.5 text-xs font-black text-slate-950">Rapor Oluştur</button><button onClick={() => recordActionDetail("Meta Kampanya Detayı", [["Kampanya", item.campaignName], ["Harcama", `${Number(item.spend || 0).toLocaleString("tr-TR")} TL`], ["Sonuçlar", item.results], ["CTR", `${Number(item.ctr || 0).toFixed(2)}%`], ["CPC", Number(item.cpc || 0).toFixed(2)]])} className="rounded-full border border-cyan-200/25 px-3 py-1.5 text-xs text-cyan-700">Detay Gör</button><button onClick={() => openCampaignMatch(item)} className="rounded-full bg-blue-600 px-3 py-1.5 text-xs font-black text-white">{matchedMetaCampaigns[item.campaignId] || localCampaigns.some((campaign: any) => campaign.meta_campaign_id === item.campaignId || campaign.external_id === item.campaignId) ? "Eşleştirildi" : "Kampanyayı Eşleştir"}</button></span>
           </div>)}
           {!summaries.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-5 text-sm text-slate-400">Henüz Meta kampanya verisi yok. “Verileri Çek” ile senkronizasyon başlatın.</p>}
         </div>
       </div>
+      {matchingCampaign && <div className="fixed inset-0 z-[120] grid place-items-center bg-white/70 p-4" onMouseDown={closeCampaignMatch}>
+        <div className="w-full max-w-3xl rounded-[18px] border border-slate-200 bg-white p-5 shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[.16em] text-blue-700">Kampanya Eşleştir</p>
+              <h3 className="mt-1 text-2xl font-black text-slate-900">{matchingCampaign.campaignName}</h3>
+              <p className="mt-1 text-sm text-slate-600">Meta campaign ID: {matchingCampaign.campaignId}</p>
+            </div>
+            <button onClick={closeCampaignMatch} className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-700">Kapat</button>
+          </div>
+          <div className="mt-5 grid gap-3 md:grid-cols-5">
+            <InfoItem label="Spend" value={`${Number(matchingCampaign.spend || 0).toLocaleString("tr-TR")} TL`} />
+            <InfoItem label="Reach" value={Number(matchingCampaign.reach || 0).toLocaleString("tr-TR")} />
+            <InfoItem label="Clicks" value={Number(matchingCampaign.clicks || 0).toLocaleString("tr-TR")} />
+            <InfoItem label="CTR" value={`${Number(matchingCampaign.ctr || 0).toFixed(2)}%`} />
+            <InfoItem label="CPC" value={Number(matchingCampaign.cpc || 0).toFixed(2)} />
+          </div>
+          <div className="mt-5 rounded-[14px] border border-slate-200 bg-slate-50 p-4">
+            <p className="font-black text-slate-900">Step 1: Mevcut kampanya seç</p>
+            <div className="mt-3">
+              <SelectField label="Mevcut kampanya seç" value={matchingExistingId} onChange={setMatchingExistingId} options={localCampaigns.map((campaign: any) => ({ value: campaign.id, label: campaign.name || "İsimsiz kampanya" }))} placeholder="Kampanya seçilmedi" />
+            </div>
+          </div>
+          <div className="mt-4 rounded-[14px] border border-slate-200 bg-white p-4">
+            <p className="font-black text-slate-900">Step 2: Eşleştir veya yeni kampanya oluştur</p>
+            <p className="mt-1 text-sm text-slate-600">Yerel kampanya yoksa Meta kampanya adı, platform, durum ve harcama bilgileriyle yeni kayıt oluşturulur.</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button onClick={() => saveCampaignMatch(false)} className="rounded-full bg-blue-600 px-4 py-2 text-sm font-black text-white">Meta Verilerini Kampanyaya Aktar</button>
+              <button onClick={() => saveCampaignMatch(true)} className="rounded-full bg-cyan-500 px-4 py-2 text-sm font-black text-white">Yeni Kampanya Oluştur</button>
+            </div>
+          </div>
+        </div>
+      </div>}
     </div>
   );
 }
@@ -4685,7 +4807,7 @@ function AdAccountMappingCenter({ content, setContent, save, notify }: any) {
         </div>
       </div>
       <div className="mt-5 rounded-[18px] border border-slate-200 bg-slate-50 p-4"><h3 className="font-black text-slate-900">Senkronizasyon Geçmişi</h3><div className="mt-3 grid gap-2">{[...(logs || []), ...(content.activityLogs || []).filter((log: any) => String(log.source || log.entity || "").includes("Reklam"))].slice(0, 10).map((log: any, index: number) => <div key={log.id || index} className="grid gap-2 rounded-[8px] border border-slate-200 p-3 text-sm md:grid-cols-[160px_160px_1fr_120px]"><span className="text-slate-600">{formatDateTime(log.created_at)}</span><span className="text-cyan-700">{companyName(content, log.company_id) || log.provider || "-"}</span><span className="text-slate-600">{log.message || log.action || log.source || "-"}</span><span className={`${log.result === "Başarılı" ? "text-emerald-700" : log.result === "Hata" ? "text-red-100" : "text-amber-700"}`}>{log.result || log.status || "Uyarı"}</span></div>)}{!logs.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-4 text-sm text-slate-400">Henüz senkronizasyon geçmişi yok.</p>}</div></div>
-      {modalOpen && <div className="fixed inset-0 z-[120] grid place-items-center bg-white/65 p-4" onClick={() => setModalOpen(false)}><div className="max-h-[88vh] w-full max-w-5xl overflow-auto rounded-[22px] border border-slate-200 bg-white p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="mb-5 flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Kampanya Eşleştirme</p><h3 className="mt-1 text-2xl font-black text-slate-900">{companyName(content, selectedCompanyId)}</h3><p className="mt-1 text-sm text-slate-600">Step 1: müşteri seçildi. Step 2: Meta kampanyalarını mevcut kampanyaya bağlayın veya yeni kampanya oluşturun.</p></div><button onClick={() => setModalOpen(false)} className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-700">Kapat</button></div><CompanySelect label="Müşteri" value={selectedCompanyId} onChange={(companyId) => { setSelectedCompanyId(companyId); setPulledCampaigns(demoCampaigns(companyId)); }} companies={content.companies} /><div className="mt-5 grid gap-3">{pulledCampaigns.map((campaign: any) => <div key={campaign.campaignId} className="rounded-[12px] border border-slate-200 bg-slate-50 p-4"><div className="grid gap-3 md:grid-cols-[1fr_120px_120px_160px] md:items-center"><div><p className="font-black text-slate-900">{campaign.campaignName}</p><p className="mt-1 text-xs text-slate-400">{campaign.status} · Son güncelleme: {formatDateTime(campaign.lastUpdate)}</p></div><span className="text-sm text-slate-700">{Number(campaign.spend || 0).toLocaleString("tr-TR")} TL</span><span className="text-sm text-slate-700">{Number(campaign.ctr || 0).toFixed(2)}% CTR</span><SelectField label="Mevcut kampanya" value={matching[campaign.campaignId] || ""} onChange={(value) => setMatching({ ...matching, [campaign.campaignId]: value })} options={(content.campaigns || []).filter((item: any) => item.company_id === selectedCompanyId).map((item: any) => ({ value: item.id, label: item.name }))} placeholder="Yeni oluştur" /></div><div className="mt-3 flex flex-wrap gap-2"><button disabled={loading === `import-${campaign.campaignId}`} onClick={() => importCampaign(campaign, matching[campaign.campaignId])} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">{loading === `import-${campaign.campaignId}` ? "İçe Aktarılıyor..." : matching[campaign.campaignId] ? "Mevcut Kampanyayı Güncelle" : "➕ Yeni Kampanya Oluştur"}</button><button disabled={loading === `import-${campaign.campaignId}`} onClick={() => importCampaign(campaign, matching[campaign.campaignId])} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs font-black text-emerald-700">{loading === `import-${campaign.campaignId}` ? "İçe Aktarılıyor..." : "Meta Verilerini İçeri Aktar"}</button></div></div>)}</div></div></div>}
+      {modalOpen && <div className="fixed inset-0 z-[120] grid place-items-center bg-white/70 p-4" onClick={() => setModalOpen(false)}><div className="max-h-[88vh] w-full max-w-5xl overflow-auto rounded-[22px] border border-slate-200 bg-white p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="mb-5 flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Kampanya Eşleştirme</p><h3 className="mt-1 text-2xl font-black text-slate-900">{companyName(content, selectedCompanyId)}</h3><p className="mt-1 text-sm text-slate-600">Step 1: müşteri seçildi. Step 2: Meta kampanyalarını mevcut kampanyaya bağlayın veya yeni kampanya oluşturun.</p></div><button onClick={() => setModalOpen(false)} className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-700">Kapat</button></div><CompanySelect label="Müşteri" value={selectedCompanyId} onChange={(companyId) => { setSelectedCompanyId(companyId); setPulledCampaigns(demoCampaigns(companyId)); }} companies={content.companies} /><div className="mt-5 grid gap-3">{pulledCampaigns.map((campaign: any) => <div key={campaign.campaignId} className="rounded-[12px] border border-slate-200 bg-slate-50 p-4"><div className="grid gap-3 md:grid-cols-[1fr_120px_120px_160px] md:items-center"><div><p className="font-black text-slate-900">{campaign.campaignName}</p><p className="mt-1 text-xs text-slate-400">{campaign.status} · Son güncelleme: {formatDateTime(campaign.lastUpdate)}</p></div><span className="text-sm text-slate-700">{Number(campaign.spend || 0).toLocaleString("tr-TR")} TL</span><span className="text-sm text-slate-700">{Number(campaign.ctr || 0).toFixed(2)}% CTR</span><SelectField label="Mevcut kampanya" value={matching[campaign.campaignId] || ""} onChange={(value) => setMatching({ ...matching, [campaign.campaignId]: value })} options={(content.campaigns || []).filter((item: any) => item.company_id === selectedCompanyId).map((item: any) => ({ value: item.id, label: item.name }))} placeholder="Yeni oluştur" /></div><div className="mt-3 flex flex-wrap gap-2"><button disabled={loading === `import-${campaign.campaignId}`} onClick={() => importCampaign(campaign, matching[campaign.campaignId])} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">{loading === `import-${campaign.campaignId}` ? "İçe Aktarılıyor..." : matching[campaign.campaignId] ? "Mevcut Kampanyayı Güncelle" : "➕ Yeni Kampanya Oluştur"}</button><button disabled={loading === `import-${campaign.campaignId}`} onClick={() => importCampaign(campaign, matching[campaign.campaignId])} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs font-black text-emerald-700">{loading === `import-${campaign.campaignId}` ? "İçe Aktarılıyor..." : "Meta Verilerini İçeri Aktar"}</button></div></div>)}</div></div></div>}
     </Panel>
   );
 }
@@ -5174,7 +5296,7 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
         {!users.length && <p className="text-sm text-slate-400">Kullanıcı bulunamadı.</p>}
       </div>}
       {editingUser && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-white/65 p-4">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-white/70 p-4">
           <div className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-[8px] border border-slate-200 bg-white p-5 shadow-2xl">
             <div className="mb-4 flex items-center justify-between gap-3">
               <h3 className="text-xl font-black">Kullanıcıyı düzenle</h3>
@@ -5201,7 +5323,7 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
         </div>
       )}
       {confirmAction && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-white/65 p-4">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-white/70 p-4">
           <div className="w-full max-w-md rounded-[8px] border border-slate-200 bg-white p-5 shadow-2xl">
             <h3 className="text-xl font-black">{confirmAction.type === "delete" ? "Kullanıcıyı sil" : "Kullanıcıyı pasifleştir"}</h3>
             <p className="mt-3 text-sm leading-6 text-slate-600">Bu kullanıcıyı {confirmAction.type === "delete" ? "silmek" : "pasifleştirmek"} istediğinize emin misiniz?</p>
@@ -5828,7 +5950,7 @@ function AnalysisDetailModal({ kind, item, form, aiMeta, saved, saving, message,
     ["Google search link", links.googleSearch]
   ].filter(([, url]) => url);
   return (
-    <div className="fixed inset-0 z-[80] grid place-items-center bg-white/65 p-4">
+    <div className="fixed inset-0 z-[80] grid place-items-center bg-white/70 p-4">
       <div className="premium-scrollbar max-h-[92vh] w-full max-w-4xl overflow-auto rounded-[8px] border border-slate-200 bg-white p-5 shadow-2xl">
         <div className="mb-5 flex items-start justify-between gap-3">
           <div>
