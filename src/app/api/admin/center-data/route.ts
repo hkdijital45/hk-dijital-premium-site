@@ -208,7 +208,7 @@ function normalizeRecord(key: string, item: any) {
       logo_url: item.logo_url || item.logoUrl || "",
       brand_name: item.brand_name || item.brandName || "",
       primary_color: item.primary_color || item.primaryColor || "#22d3ee",
-      secondary_color: item.secondary_color || item.secondaryColor || "#0f172a",
+      secondary_color: item.secondary_color || item.secondaryColor || "#0ea5e9",
       welcome_text: item.welcome_text || item.welcomeText || "",
       updated_at: new Date().toISOString()
     };

@@ -27,19 +27,19 @@ export function AdminLogin() {
   }
 
   return (
-    <main className="grid min-h-screen place-items-center bg-[#050711] px-4 text-white">
-      <form onSubmit={login} className="w-full max-w-md rounded-[8px] border border-white/10 bg-white/[0.06] p-8 shadow-2xl backdrop-blur-xl">
+    <main className="grid min-h-screen place-items-center bg-slate-50 px-4 text-slate-900">
+      <form onSubmit={login} className="w-full max-w-md rounded-[8px] border border-slate-200 bg-white/[0.06] p-8 shadow-2xl backdrop-blur-xl">
         <p className="text-sm font-bold uppercase tracking-[.22em] text-cyan-200">Powered by HK Dijital</p>
         <h1 className="mt-3 text-3xl font-black">HK Operating System</h1>
         <p className="mt-2 text-xs font-black uppercase tracking-[.18em] text-cyan-100">Digital Marketing Command Center</p>
         <p className="mt-3 text-sm leading-6 text-slate-400">Digital Center alanına güvenli giriş yapın.</p>
         <label className="mt-6 grid gap-2 text-sm font-semibold">
           E-posta
-          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="min-h-12 rounded-[8px] border border-white/10 bg-black/30 px-4 text-white" />
+          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="min-h-12 rounded-[8px] border border-slate-200 bg-white px-4 text-slate-900" />
         </label>
         <label className="mt-4 grid gap-2 text-sm font-semibold">
           Şifre
-          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} className="min-h-12 rounded-[8px] border border-white/10 bg-black/30 px-4 text-white" />
+          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} className="min-h-12 rounded-[8px] border border-slate-200 bg-white px-4 text-slate-900" />
         </label>
         {error && <p className="mt-4 rounded-[8px] bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
         <button disabled={loading} className="mt-6 min-h-12 w-full rounded-full bg-cyan-300 font-black text-slate-950 disabled:opacity-60">{loading ? "Giriş yapılıyor..." : "Digital Center’a Giriş Yap"}</button>
