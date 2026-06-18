@@ -4200,6 +4200,53 @@ function CustomerMetaAccounts({ company, content, setContent, save, notify }: an
     form.dateTo
   );
   const summaries = metaCampaignSummaries(metaMetricRows);
+  const metaAdsets = (content.metaAdsetMetrics || []).filter((item: any) => item.company_id === company.id);
+  const metaAds = (content.metaAdMetrics || []).filter((item: any) => item.company_id === company.id);
+  const metaConversions = (content.metaConversionEvents || []).filter((item: any) => item.company_id === company.id);
+  const metaAnalyses = (content.metaAnalysisSnapshots || []).filter((item: any) => item.company_id === company.id);
+  const reportVisibility = (content.customerReportVisibility || []).filter((item: any) => item.company_id === company.id);
+  const visibilitySections = [
+    ["overview", "Genel Özet"],
+    ["campaigns", "Kampanyalar"],
+    ["adsets", "Reklam Setleri"],
+    ["ads", "Reklamlar"],
+    ["creatives", "Kreatifler"],
+    ["conversions", "Dönüşümler"],
+    ["breakdowns", "Kırılımlar"],
+    ["video", "Video Performansı"],
+    ["analysis", "HK Intelligence Analizi"]
+  ];
+  const visibilityMetrics = [
+    ["spend", "Harcama"],
+    ["reach", "Erişim"],
+    ["impressions", "Gösterim"],
+    ["clicks", "Tıklama"],
+    ["ctr", "CTR"],
+    ["cpc", "CPC"],
+    ["cpm", "CPM"],
+    ["roas", "ROAS"],
+    ["leads", "Lead"],
+    ["messages", "Mesaj"],
+    ["purchases", "Satın alma"],
+    ["add_to_cart", "Add To Cart"],
+    ["checkout", "Checkout"],
+    ["age_breakdown", "Yaş kırılımı"],
+    ["gender_breakdown", "Cinsiyet kırılımı"],
+    ["location_breakdown", "Şehir kırılımı"],
+    ["placement_breakdown", "Placement"],
+    ["creative_media", "Kreatif görseller"],
+    ["ad_text", "Reklam metinleri"],
+    ["cta", "CTA"],
+    ["best_creative", "En iyi kreatif"],
+    ["weakest_creative", "En kötü kreatif"],
+    ["budget_recommendation", "Bütçe önerisi"],
+    ["pause_recommendations", "Kapatılacak reklamlar"],
+    ["scale_recommendations", "Ölçeklenecek reklamlar"],
+    ["lifecycle_start", "Başlangıç Tarihi"],
+    ["lifecycle_end", "Bitiş Tarihi"],
+    ["lifecycle_status", "Durum"],
+    ["lifecycle_days_remaining", "Gün Kaldı"]
+  ];
   const helperText = {
     businessId: "Meta Business Manager içindeki işletme ID’si.",
     adAccountId: "Meta reklam hesabı ID’si. Örn: act_123456789 veya 123456789",
@@ -4336,15 +4383,20 @@ function CustomerMetaAccounts({ company, content, setContent, save, notify }: an
     if (data.ok) {
       const metricRows = (data.rows || []).map((row: any, index: number) => ({ id: `meta-profile-${company.id}-${Date.now()}-${index}`, company_id: company.id, date: row.date, period: data.range?.label || "Meta Sync", source: "Meta API", visible_to_customer: true, ...row }));
       const nextLink = { ...linked, company_id: company.id, ad_account_id: form.adAccountId, business_id: form.businessId, page_id: form.pageId, instagram_account_id: form.instagramAccountId, account_name: form.adAccountId, status: data.mapping?.status || "Senkronize edildi", last_sync_at: data.mapping?.lastSyncAt || new Date().toISOString(), sync_status: data.mapping?.syncStatus || "Başarılı", sync_message: data.mapping?.syncMessage || data.message, sync_error: "" };
+      const advanced = data.advanced || {};
       setRows(data.rows || []);
       setLinked(nextLink);
       setContent({
         ...content,
         metaAccountLinks: [nextLink, ...(content.metaAccountLinks || []).filter((item: any) => item.company_id !== company.id)],
         campaignMetrics: [...metricRows, ...(content.campaignMetrics || [])],
+        metaAdsetMetrics: [...(advanced.adsets || []), ...(content.metaAdsetMetrics || [])],
+        metaAdMetrics: [...(advanced.ads || []), ...(content.metaAdMetrics || [])],
+        metaConversionEvents: [...(advanced.conversions || []), ...(content.metaConversionEvents || [])],
+        metaAnalysisSnapshots: advanced.analysis ? [advanced.analysis, ...(content.metaAnalysisSnapshots || [])] : (content.metaAnalysisSnapshots || []),
         reports: data.report ? [data.report, ...(content.reports || [])] : (content.reports || [])
       });
-      notify?.(action === "report" ? "✓ Meta verilerinden rapor oluşturuldu" : "✓ Veri senkronizasyonu tamamlandı", "success");
+      notify?.(action === "report" ? "✓ Meta verilerinden rapor oluşturuldu" : data.warnings?.length ? "⚠ Veri çekildi, bazı ileri veri grupları eksik" : "✓ Veri senkronizasyonu tamamlandı", data.warnings?.length ? "warning" : "success");
     } else {
       const errorText = data.message || data.errorMessage || data.detail || "Meta verisi alınamadı.";
       const nextLink = { ...linked, company_id: company.id, ad_account_id: form.adAccountId, business_id: form.businessId, page_id: form.pageId, instagram_account_id: form.instagramAccountId, status: "Hata", sync_status: "Hata", sync_message: errorText, sync_error: errorText };
@@ -4387,6 +4439,46 @@ function CustomerMetaAccounts({ company, content, setContent, save, notify }: an
     const selectedId = campaignMetaId(item);
     if (!selectedId) return null;
     return localCampaigns.find((campaign: any) => campaign.meta_campaign_id === selectedId || campaign.external_id === selectedId);
+  }
+  function visibilityRule(sectionKey: string, metricKey = "__section") {
+    return reportVisibility.find((item: any) => item.section_key === sectionKey && item.metric_key === metricKey);
+  }
+  function isReportVisible(sectionKey: string, metricKey = "__section") {
+    const rule = visibilityRule(sectionKey, metricKey);
+    return rule?.is_visible ?? true;
+  }
+  function updateReportVisibility(sectionKey: string, metricKey: string, is_visible: boolean) {
+    const nextRule = {
+      id: visibilityRule(sectionKey, metricKey)?.id || createLocalId(),
+      company_id: company.id,
+      section_key: sectionKey,
+      metric_key: metricKey,
+      is_visible,
+      display_order: metricKey === "__section" ? visibilitySections.findIndex(([key]) => key === sectionKey) : visibilityMetrics.findIndex(([key]) => key === metricKey),
+      updated_at: new Date().toISOString()
+    };
+    const nextRules = [
+      nextRule,
+      ...(content.customerReportVisibility || []).filter((item: any) => !(item.company_id === company.id && item.section_key === sectionKey && item.metric_key === metricKey))
+    ];
+    setContent({ ...content, customerReportVisibility: nextRules });
+  }
+  function bulkVisibility(is_visible: boolean) {
+    const now = new Date().toISOString();
+    const nextRules = [
+      ...visibilitySections.map(([sectionKey], index) => ({ id: visibilityRule(sectionKey)?.id || createLocalId(), company_id: company.id, section_key: sectionKey, metric_key: "__section", is_visible, display_order: index, updated_at: now })),
+      ...visibilityMetrics.map(([metricKey], index) => ({ id: visibilityRule("metrics", metricKey)?.id || createLocalId(), company_id: company.id, section_key: "metrics", metric_key: metricKey, is_visible, display_order: index, updated_at: now })),
+      ...(content.customerReportVisibility || []).filter((item: any) => item.company_id !== company.id)
+    ];
+    setContent({ ...content, customerReportVisibility: nextRules });
+  }
+  function resetVisibility() {
+    setContent({ ...content, customerReportVisibility: (content.customerReportVisibility || []).filter((item: any) => item.company_id !== company.id) });
+    notify?.("✓ Varsayılan görünürlük ayarları yüklendi", "success");
+  }
+  function saveReportVisibility() {
+    save?.({ ...content });
+    notify?.("✓ Rapor görünürlüğü kaydedildi", "success");
   }
   function closeCampaignMatch() {
     setCampaignMatchModalOpen(false);
@@ -4501,6 +4593,11 @@ function CustomerMetaAccounts({ company, content, setContent, save, notify }: an
               <button disabled={Boolean(loading)} onClick={() => saveMapping("meta")} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950 disabled:opacity-60">{loading === "meta-save" ? "Kaydediliyor..." : "Kaydet"}</button>
               <button disabled={Boolean(loading)} onClick={test} className="rounded-full border border-cyan-200/25 px-4 py-2 text-xs font-black text-cyan-700 disabled:opacity-60">{loading === "test" || loading === "meta-test" ? "Test ediliyor..." : "Test Et"}</button>
               <button disabled={Boolean(loading) || !form.adAccountId} onClick={() => pull("sync")} className="rounded-full bg-cyan-500 px-4 py-2 text-xs font-black text-white shadow-sm disabled:opacity-60">{loading === "sync" || loading === "meta-sync" ? "Senkronize ediliyor..." : "Meta Verilerini Çek"}</button>
+              <button disabled={Boolean(loading) || !form.adAccountId} onClick={() => pull("advanced_sync")} className="rounded-full bg-blue-600 px-4 py-2 text-xs font-black text-white shadow-sm disabled:opacity-60">{loading === "advanced_sync" ? "Tüm veriler çekiliyor..." : "Tüm Verileri Çek"}</button>
+              <button disabled={Boolean(loading) || !form.adAccountId} onClick={() => pull("creative_sync")} className="rounded-full border border-blue-200 px-4 py-2 text-xs font-black text-blue-700 disabled:opacity-60">Kreatifleri Çek</button>
+              <button disabled={Boolean(loading) || !form.adAccountId} onClick={() => pull("breakdown_sync")} className="rounded-full border border-blue-200 px-4 py-2 text-xs font-black text-blue-700 disabled:opacity-60">Kırılımları Çek</button>
+              <button disabled={Boolean(loading) || !form.adAccountId} onClick={() => pull("conversion_sync")} className="rounded-full border border-blue-200 px-4 py-2 text-xs font-black text-blue-700 disabled:opacity-60">Dönüşümleri Çek</button>
+              <button disabled={Boolean(loading) || !form.adAccountId} onClick={() => pull("video_sync")} className="rounded-full border border-blue-200 px-4 py-2 text-xs font-black text-blue-700 disabled:opacity-60">Video Verilerini Çek</button>
             </div>
           </div>
           <div className="rounded-[14px] border border-blue-200/20 bg-slate-50 p-4">
@@ -4549,6 +4646,85 @@ function CustomerMetaAccounts({ company, content, setContent, save, notify }: an
             <span className="flex flex-wrap gap-2"><button onClick={() => pull("report")} className="rounded-full bg-amber-400 px-3 py-1.5 text-xs font-black text-slate-950">Rapor Oluştur</button><button onClick={() => recordActionDetail("Meta Kampanya Detayı", [["Kampanya", item.campaignName], ["Harcama", `${Number(item.spend || 0).toLocaleString("tr-TR")} TL`], ["Sonuçlar", item.results], ["CTR", `${Number(item.ctr || 0).toFixed(2)}%`], ["CPC", Number(item.cpc || 0).toFixed(2)]])} className="rounded-full border border-cyan-200/25 px-3 py-1.5 text-xs text-cyan-700">Detay Gör</button><button onClick={() => openCampaignMatch(item)} className="rounded-full bg-blue-600 px-3 py-1.5 text-xs font-black text-white">{matchedCampaignFor(item) ? "Eşleştirildi" : "Kampanyayı Eşleştir"}</button></span>
           </div>)}
           {!summaries.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-5 text-sm text-slate-400">Henüz Meta kampanya verisi yok. “Verileri Çek” ile senkronizasyon başlatın.</p>}
+        </div>
+      </div>
+      <div className="grid gap-4 xl:grid-cols-2">
+        <div className="rounded-[14px] border border-slate-200 bg-white p-4">
+          <h3 className="font-black text-slate-900">Reklam Setleri</h3>
+          <p className="mt-1 text-sm text-slate-600">Hedefleme, yaş/cinsiyet/şehir/placement kırılımları ve lifecycle bilgileri.</p>
+          <div className="mt-4 grid gap-3">
+            {metaAdsets.slice(0, 6).map((item: any) => <div key={item.id || item.meta_adset_id} className="rounded-[10px] border border-slate-200 bg-slate-50 p-3 text-sm">
+              <p className="font-black text-slate-900">{item.adset_name || "Reklam seti"}</p>
+              <p className="mt-1 text-xs text-slate-600">ID: {item.meta_adset_id || "-"} · Durum: {item.status || "-"} · Optimizasyon: {item.optimization_goal || "-"}</p>
+              <p className="mt-2 text-xs text-slate-600">Harcama {Number(item.spend || 0).toLocaleString("tr-TR")} TL · Erişim {Number(item.reach || 0).toLocaleString("tr-TR")} · Kalan gün {item.days_remaining ?? "Veri yok"}</p>
+            </div>)}
+            {!metaAdsets.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-4 text-sm text-slate-500">Bu veri henüz çekilmedi veya Meta tarafından sağlanmadı.</p>}
+          </div>
+        </div>
+        <div className="rounded-[14px] border border-slate-200 bg-white p-4">
+          <h3 className="font-black text-slate-900">Reklamlar ve Kreatifler</h3>
+          <p className="mt-1 text-sm text-slate-600">Ad seviyesi metrikler, kreatif önizleme, metin, CTA ve video verileri.</p>
+          <div className="mt-4 grid gap-3">
+            {metaAds.slice(0, 6).map((item: any) => <div key={item.id || item.meta_ad_id} className="grid gap-3 rounded-[10px] border border-slate-200 bg-slate-50 p-3 text-sm sm:grid-cols-[72px_1fr]">
+              <div className="h-16 w-16 overflow-hidden rounded-[10px] border border-slate-200 bg-white">{item.creative_thumbnail_url ? <img src={item.creative_thumbnail_url} alt={item.ad_name || "Kreatif"} className="h-full w-full object-cover" /> : <span className="grid h-full place-items-center px-2 text-center text-[10px] text-slate-500">Önizleme yok</span>}</div>
+              <div>
+                <p className="font-black text-slate-900">{item.ad_name || "Reklam"}</p>
+                <p className="mt-1 text-xs text-slate-600">ID: {item.meta_ad_id || "-"} · Durum: {item.status || "-"} · CTA: {item.cta || "-"}</p>
+                <p className="mt-2 text-xs text-slate-600">CTR {Number(item.ctr || 0).toFixed(2)}% · CPC {Number(item.cpc || 0).toFixed(2)} · ROAS {Number(item.roas || 0).toFixed(2)}</p>
+                {item.ad_text && <p className="mt-2 line-clamp-2 text-xs text-slate-500">{item.ad_text}</p>}
+              </div>
+            </div>)}
+            {!metaAds.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-4 text-sm text-slate-500">Kreatif önizleme alınamadı veya ad seviyesi veri henüz çekilmedi.</p>}
+          </div>
+        </div>
+        <div className="rounded-[14px] border border-slate-200 bg-white p-4">
+          <h3 className="font-black text-slate-900">Dönüşümler ve Video Performansı</h3>
+          <div className="mt-4 grid gap-3">
+            {metaConversions.slice(0, 8).map((item: any) => <div key={item.id || `${item.meta_ad_id}-${item.event_name}`} className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-slate-200 bg-slate-50 p-3 text-sm">
+              <span><strong className="block text-slate-900">{item.event_name}</strong><small className="text-slate-600">{item.date || "-"}</small></span>
+              <span className="font-black text-slate-900">{Number(item.event_count || 0).toLocaleString("tr-TR")}</span>
+              <span className="text-xs text-slate-600">Maliyet: {Number(item.cost_per_event || 0).toFixed(2)} TL</span>
+            </div>)}
+            {!metaConversions.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-4 text-sm text-slate-500">Bu veri henüz çekilmedi veya Meta tarafından sağlanmadı.</p>}
+            {metaAds.some((item: any) => Number(item.video_3s_views || 0) > 0) && <div className="rounded-[10px] border border-cyan-200 bg-cyan-50 p-3 text-sm text-cyan-900">Thumb Stop Rate, 3 saniye izlenme / gösterim hesabıyla hesaplanır. En yüksek değer: {Math.max(...metaAds.map((item: any) => Number(item.thumb_stop_rate || 0))).toFixed(2)}%</div>}
+          </div>
+        </div>
+        <div className="rounded-[14px] border border-slate-200 bg-white p-4">
+          <h3 className="font-black text-slate-900">HK Intelligence Analizi</h3>
+          {metaAnalyses[0] ? <div className="mt-4 grid gap-3 text-sm">
+            <InfoItem label="En iyi kreatif" value={metaAnalyses[0].best_creative?.ad_name || metaAnalyses[0].best_creative?.campaignName || "Veri yok"} />
+            <InfoItem label="En zayıf kreatif" value={metaAnalyses[0].weakest_creative?.ad_name || "Veri yok"} />
+            <p className="rounded-[10px] border border-slate-200 bg-slate-50 p-3 text-slate-700">{metaAnalyses[0].budget_recommendation}</p>
+            <p className="rounded-[10px] border border-slate-200 bg-slate-50 p-3 text-slate-700">{metaAnalyses[0].funnel_diagnosis}</p>
+          </div> : <p className="mt-4 rounded-[8px] border border-dashed border-slate-200 p-4 text-sm text-slate-500">HK Intelligence analizi henüz oluşturulmadı.</p>}
+        </div>
+      </div>
+      <div className="rounded-[14px] border border-slate-200 bg-white p-4">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="font-black text-slate-900">Müşteriye Gösterilecekler</h3>
+            <p className="mt-1 text-sm text-slate-600">Meta raporları, müşteri paneli ve PDF çıktılarında hangi bölüm/metriklerin görüneceğini seçin.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => bulkVisibility(true)} className="rounded-full bg-cyan-500 px-4 py-2 text-xs font-black text-white">Tümünü Göster</button>
+            <button onClick={() => bulkVisibility(false)} className="rounded-full bg-slate-600 px-4 py-2 text-xs font-black text-white">Tümünü Gizle</button>
+            <button onClick={resetVisibility} className="rounded-full border border-slate-200 px-4 py-2 text-xs font-black text-slate-700">Varsayılana Dön</button>
+            <button onClick={saveReportVisibility} className="rounded-full bg-blue-600 px-4 py-2 text-xs font-black text-white">Kaydet</button>
+          </div>
+        </div>
+        <div className="grid gap-4 xl:grid-cols-2">
+          <div>
+            <p className="mb-2 text-xs font-black uppercase tracking-[.14em] text-slate-500">Bölümler</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {visibilitySections.map(([key, label]) => <label key={key} className="flex items-center gap-2 rounded-[10px] border border-slate-200 bg-slate-50 p-3 text-sm font-bold text-slate-700"><input type="checkbox" checked={isReportVisible(key)} onChange={(event) => updateReportVisibility(key, "__section", event.target.checked)} /> {label}</label>)}
+            </div>
+          </div>
+          <div>
+            <p className="mb-2 text-xs font-black uppercase tracking-[.14em] text-slate-500">Metrikler</p>
+            <div className="grid max-h-[360px] gap-2 overflow-auto pr-1 sm:grid-cols-2">
+              {visibilityMetrics.map(([key, label]) => <label key={key} className="flex items-center gap-2 rounded-[10px] border border-slate-200 bg-slate-50 p-3 text-sm font-bold text-slate-700"><input type="checkbox" checked={isReportVisible("metrics", key)} onChange={(event) => updateReportVisibility("metrics", key, event.target.checked)} /> {label}</label>)}
+            </div>
+          </div>
         </div>
       </div>
       {campaignMatchModalOpen && matchingCampaign && <div className="fixed inset-0 z-[120] grid place-items-center bg-white/70 p-4" onMouseDown={closeCampaignMatch}>
@@ -5025,6 +5201,34 @@ function AdAccountMappingCenter({ content, setContent, save, notify }: any) {
   async function syncCompany(companyId: string, source = "Meta") {
     setLoading(`sync-${companyId}`);
     await persistCustomerMapping(companyId);
+    const draft = draftFor(companyId);
+    if (source === "Meta" && draft.metaAdAccountId) {
+      const response = await fetch("/api/admin/meta-ads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "advanced_sync", companyId, adAccountId: draft.metaAdAccountId, businessId: draft.metaBusinessId, pageId: draft.facebookPageId, instagramAccountId: draft.instagramAccountId, visibleToCustomer: true })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (data.ok) {
+        const metricRows = (data.rows || []).map((row: any, index: number) => ({ id: `meta-mapping-${companyId}-${Date.now()}-${index}`, company_id: companyId, date: row.date, period: data.range?.label || "Meta Sync", source: "Meta API", visible_to_customer: true, ...row }));
+        const next = {
+          ...content,
+          campaignMetrics: [...metricRows, ...(content.campaignMetrics || [])],
+          metaAdsetMetrics: [...(data.advanced?.adsets || []), ...(content.metaAdsetMetrics || [])],
+          metaAdMetrics: [...(data.advanced?.ads || []), ...(content.metaAdMetrics || [])],
+          metaConversionEvents: [...(data.advanced?.conversions || []), ...(content.metaConversionEvents || [])],
+          metaAnalysisSnapshots: data.advanced?.analysis ? [data.advanced.analysis, ...(content.metaAnalysisSnapshots || [])] : (content.metaAnalysisSnapshots || [])
+        };
+        setContent(next);
+        setMessage(data.message || "Tamamlandı ✓");
+        notify?.(data.warnings?.length ? "⚠ Meta verileri çekildi, bazı gruplar eksik" : "✓ Meta senkronizasyonu tamamlandı", data.warnings?.length ? "warning" : "success");
+        setLoading("");
+        return;
+      }
+      notify?.(`✖ ${data.message || data.errorMessage || "Meta verisi alınamadı."}`, "error");
+      setLoading("");
+      return;
+    }
     const campaigns = demoCampaigns(companyId);
     setPulledCampaigns(campaigns);
     const metricRows = campaigns.map((campaign: any) => ({ id: createLocalId(), company_id: companyId, date: new Date().toISOString().slice(0, 10), source: source === "Google" ? "Google Ads Sync" : "Meta API", campaign_id: matching[campaign.campaignId] || "", campaignName: campaign.campaignName, impressions: campaign.impressions || 0, reach: campaign.reach || 0, clicks: campaign.clicks || 0, leads: campaign.results || 0, spent: campaign.spend || 0, ctr: campaign.ctr || 0, cpc: campaign.cpc || 0, cpm: campaign.cpm || 0, visible_to_customer: true, notes: "Reklam hesabı eşleştirme merkezinden içe aktarıldı." }));
@@ -5091,6 +5295,15 @@ function AdAccountMappingCenter({ content, setContent, save, notify }: any) {
                   <div><Field label="Google MCC ID" value={draft.googleMccId || ""} onChange={(googleMccId) => updateDraft(company.id, { googleMccId })} /><p className="mt-1 text-xs text-slate-600">Google Ads yönetici hesabı ID’si.</p></div>
                   <InfoItem label="Durum" value={`${draft.metaStatus || "Meta bekliyor"} · ${draft.googleStatus || "Google bekliyor"}`} />
                 </div>
+              </div>
+              <div className="xl:col-span-2 rounded-[12px] border border-slate-200 bg-white p-3">
+                <p className="mb-3 text-xs font-black uppercase tracking-[.14em] text-slate-500">Gelişmiş Meta Sync Kontrolleri</p>
+                <div className="flex flex-wrap gap-2">
+                  {["Temel verileri çek", "Tüm verileri çek", "Kreatifleri çek", "Kırılımları çek", "Dönüşümleri çek", "Video verilerini çek"].map((label) => (
+                    <button key={label} disabled={loading === `sync-${company.id}`} onClick={() => syncCompany(company.id, "Meta")} className="rounded-full bg-blue-600 px-3 py-2 text-xs font-black text-white disabled:opacity-60">{loading === `sync-${company.id}` ? "Senkronize Ediliyor..." : label}</button>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs leading-5 text-slate-600">Yetki olmayan veri grupları hata üretmeden uyarı olarak senkronizasyon geçmişine yazılır.</p>
               </div>
             </div>}
           </div>)}

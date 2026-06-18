@@ -9,6 +9,11 @@ export type CustomerCenterData = {
   updates: any[];
   files: any[];
   reports: any[];
+  customerReportVisibility: any[];
+  metaAdsetMetrics: any[];
+  metaAdMetrics: any[];
+  metaConversionEvents: any[];
+  metaAnalysisSnapshots: any[];
   interpretations: any[];
   reportUpdates: any[];
   branding: any;
@@ -39,6 +44,11 @@ export async function getCustomerCenterData(companyId?: string): Promise<Custome
       updates: [],
       files: [],
       reports: [],
+      customerReportVisibility: [],
+      metaAdsetMetrics: [],
+      metaAdMetrics: [],
+      metaConversionEvents: [],
+      metaAnalysisSnapshots: [],
       interpretations: [],
       reportUpdates: [],
       branding: null,
@@ -49,11 +59,16 @@ export async function getCustomerCenterData(companyId?: string): Promise<Custome
   }
 
   if (hasSupabaseConfig() && companyId) {
-    const [companies, visibilityRows, campaigns, metrics, updates, files, reports, interpretations, reportUpdates, brandingRows, documents, payments, monthlyReports] = await Promise.all([
+    const [companies, visibilityRows, campaigns, metrics, reportVisibility, metaAdsets, metaAds, metaConversions, metaAnalyses, updates, files, reports, interpretations, reportUpdates, brandingRows, documents, payments, monthlyReports] = await Promise.all([
       supabaseRest<any[]>(`companies?id=eq.${companyId}&select=*&limit=1`),
       supabaseRest<any[]>(`customer_visibility_settings?company_id=eq.${companyId}&select=*&limit=1`),
       supabaseRest<any[]>(`campaigns?company_id=eq.${companyId}&select=*&order=created_at.desc`),
       supabaseRest<any[]>(`campaign_metrics?company_id=eq.${companyId}&select=*&order=date.desc`),
+      supabaseRest<any[]>(`customer_report_visibility?company_id=eq.${companyId}&select=*&order=display_order.asc`).catch(() => []),
+      supabaseRest<any[]>(`meta_adset_metrics?company_id=eq.${companyId}&select=*&order=date.desc`).catch(() => []),
+      supabaseRest<any[]>(`meta_ad_metrics?company_id=eq.${companyId}&select=*&order=date.desc`).catch(() => []),
+      supabaseRest<any[]>(`meta_conversion_events?company_id=eq.${companyId}&select=*&order=date.desc`).catch(() => []),
+      supabaseRest<any[]>(`meta_analysis_snapshots?company_id=eq.${companyId}&select=*&order=created_at.desc`).catch(() => []),
       supabaseRest<any[]>(`customer_updates?company_id=eq.${companyId}&visible_to_customer=eq.true&select=*&order=created_at.desc`),
       supabaseRest<any[]>(`customer_files?company_id=eq.${companyId}&visible_to_customer=eq.true&select=*&order=uploaded_at.desc`),
       supabaseRest<any[]>(`reports?company_id=eq.${companyId}&visible_to_customer=eq.true&archived=eq.false&select=*&order=created_at.desc`).catch(() => []),
@@ -74,6 +89,11 @@ export async function getCustomerCenterData(companyId?: string): Promise<Custome
       visibility: visibilityRows[0] || defaultVisibility,
       campaigns: campaigns.filter((item) => item.visible_to_customer !== false && !item.archived_at && !item.deleted_at && item.status !== "Arşivlendi"),
       metrics: metrics.filter((item) => item.visible_to_customer !== false),
+      customerReportVisibility: reportVisibility,
+      metaAdsetMetrics: metaAdsets,
+      metaAdMetrics: metaAds,
+      metaConversionEvents: metaConversions,
+      metaAnalysisSnapshots: metaAnalyses,
       updates,
       files,
       reports: visibleReports,
@@ -139,6 +159,11 @@ export async function getCustomerCenterData(companyId?: string): Promise<Custome
     ],
     files: [],
     reports: [],
+    customerReportVisibility: [],
+    metaAdsetMetrics: [],
+    metaAdMetrics: [],
+    metaConversionEvents: [],
+    metaAnalysisSnapshots: [],
     interpretations: [],
     reportUpdates: [],
     branding: null,

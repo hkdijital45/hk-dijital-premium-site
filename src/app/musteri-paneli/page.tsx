@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Metadata } from "next";
 import Image from "next/image";
 import { redirect } from "next/navigation";
@@ -52,6 +53,11 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
   }
   const totals = summarizeMetrics(data.metrics);
   const visibility = data.visibility;
+  const reportVisibility = data.customerReportVisibility || [];
+  const canShowReport = (sectionKey: string, metricKey = "__section") => {
+    const rule = reportVisibility.find((item: any) => item.section_key === sectionKey && item.metric_key === metricKey);
+    return rule?.is_visible ?? true;
+  };
   const hasCompany = Boolean(selectedCompanyId && data.company);
   const visibleUpdates = visibility.show_strategy_notes ? data.updates : data.updates.filter((update) => update.update_type !== "Strateji Notu");
   const latestUpdate = visibleUpdates[0];
@@ -157,20 +163,20 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
           </GlassCard>
         </section>
 
-        {visibility.show_metrics && <section id="performans" className="grid scroll-mt-28 gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <MetricCard title="Reklamınız kaç kez gösterildi" value={totals.impressions} help="Reklamınızın ekranda toplam görüntülenme sayısıdır." />
-          <MetricCard title="Reklamınız kaç kişiye ulaştı" value={totals.reach} help={`Reklamınız bu ay ${totals.reach} kişiye ulaştı.`} />
-          <MetricCard title="Reklamlarınıza gelen tıklama" value={totals.clicks} help={`Reklamlarınıza ${totals.clicks} tıklama geldi.`} />
-          <MetricCard title="Mesaj başlatma" value={totals.messages || 0} help={`Bu süreçte ${totals.messages || 0} kişi mesaj ile iletişime geçti.`} />
-          {visibility.show_leads && <MetricCard title="Potansiyel müşteri" value={totals.leads} help={`Bu süreçte ${totals.leads} potansiyel müşteri oluştu.`} />}
-          {visibility.show_spent && <MetricCard title="Harcanan reklam bütçesi" value={`${totals.spent} TL`} help="Reklam platformlarında kullanılan toplam bütçedir." />}
-          {visibility.show_spent && <MetricCard title="Ortalama tıklama maliyeti" value={`${totals.cpc} TL`} help="CPC: Reklam tıklaması başına ortalama maliyeti gösterir." />}
-          {visibility.show_leads && visibility.show_spent && <MetricCard title="Ortalama potansiyel müşteri maliyeti" value={`${totals.cost_per_lead} TL`} help="Bir potansiyel müşteri kaydı için ortalama reklam maliyetidir." />}
+        {visibility.show_metrics && canShowReport("overview") && <section id="performans" className="grid scroll-mt-28 gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {canShowReport("metrics", "impressions") && <MetricCard title="Reklamınız kaç kez gösterildi" value={totals.impressions} help="Reklamınızın ekranda toplam görüntülenme sayısıdır." />}
+          {canShowReport("metrics", "reach") && <MetricCard title="Reklamınız kaç kişiye ulaştı" value={totals.reach} help={`Reklamınız bu ay ${totals.reach} kişiye ulaştı.`} />}
+          {canShowReport("metrics", "clicks") && <MetricCard title="Reklamlarınıza gelen tıklama" value={totals.clicks} help={`Reklamlarınıza ${totals.clicks} tıklama geldi.`} />}
+          {canShowReport("metrics", "messages") && <MetricCard title="Mesaj başlatma" value={totals.messages || 0} help={`Bu süreçte ${totals.messages || 0} kişi mesaj ile iletişime geçti.`} />}
+          {visibility.show_leads && canShowReport("metrics", "leads") && <MetricCard title="Potansiyel müşteri" value={totals.leads} help={`Bu süreçte ${totals.leads} potansiyel müşteri oluştu.`} />}
+          {visibility.show_spent && canShowReport("metrics", "spend") && <MetricCard title="Harcanan reklam bütçesi" value={`${totals.spent} TL`} help="Reklam platformlarında kullanılan toplam bütçedir." />}
+          {visibility.show_spent && canShowReport("metrics", "cpc") && <MetricCard title="Ortalama tıklama maliyeti" value={`${totals.cpc} TL`} help="CPC: Reklam tıklaması başına ortalama maliyeti gösterir." />}
+          {visibility.show_leads && visibility.show_spent && canShowReport("metrics", "leads") && <MetricCard title="Ortalama potansiyel müşteri maliyeti" value={`${totals.cost_per_lead} TL`} help="Bir potansiyel müşteri kaydı için ortalama reklam maliyetidir." />}
           <MetricCard title="Kampanya durumu" value={data.campaigns[0]?.status || "Hazırlanıyor"} help="Kampanya durumu, aktif çalışma aşamasını özetler." />
         </section>}
 
         <section id="kampanyalar" className="mt-8 grid scroll-mt-28 gap-6 lg:grid-cols-[1.1fr_.9fr]">
-          {visibility.show_campaigns && (
+          {visibility.show_campaigns && canShowReport("campaigns") && (
             <GlassCard className="p-5">
               <h2 className="flex items-center gap-2 text-xl font-black"><BarChart3 className="text-cyan-200" /> Reklam Performansı</h2>
               <div className="mt-5 grid gap-3">
@@ -180,7 +186,12 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
                   return (
                     <div key={campaign.id} className="rounded-[8px] bg-black/25 p-4">
                       <p className="font-black">{campaign.name}</p>
-                      <p className="mt-1 text-sm text-slate-400">{campaign.platform} · {campaign.objective} · {campaign.status}</p>
+                      <p className="mt-1 text-sm text-slate-400">{campaign.platform} · {campaign.objective}{canShowReport("metrics", "lifecycle_status") ? ` · ${campaign.status}` : ""}</p>
+                      {(canShowReport("metrics", "lifecycle_start") || canShowReport("metrics", "lifecycle_end") || canShowReport("metrics", "lifecycle_days_remaining")) && <p className="mt-2 text-xs text-slate-400">
+                        {canShowReport("metrics", "lifecycle_start") && `Başlangıç: ${campaign.meta_start_time || campaign.start_date || "Veri yok"} · `}
+                        {canShowReport("metrics", "lifecycle_end") && `Bitiş: ${campaign.meta_stop_time || campaign.end_date || "Veri yok"} · `}
+                        {canShowReport("metrics", "lifecycle_days_remaining") && `Gün kaldı: ${campaign.days_remaining ?? "Veri yok"}`}
+                      </p>}
                       <div className="mt-3 h-2 rounded-full bg-white/10">
                         <div className="h-full rounded-full bg-cyan-300" style={{ width: `${Math.min(100, totalBudget ? (spentBudget / totalBudget) * 100 : 0)}%` }} />
                       </div>
@@ -222,7 +233,31 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
           </section>
         )}
 
-        {visibility.show_metrics && <section id="raporlar" className="scroll-mt-28"><CustomerReports reports={data.reports} initialInterpretations={data.interpretations} reportUpdates={data.reportUpdates} /></section>}
+        {visibility.show_metrics && <section id="raporlar" className="scroll-mt-28"><CustomerReports reports={data.reports} initialInterpretations={data.interpretations} reportUpdates={data.reportUpdates} visibilityRules={reportVisibility} /></section>}
+
+        {(canShowReport("adsets") || canShowReport("ads") || canShowReport("conversions") || canShowReport("video") || canShowReport("analysis")) && (
+          <section className="glass-card mt-8 scroll-mt-28 p-5">
+            <h2 className="text-xl font-black">Meta Gelişmiş Reklam Verileri</h2>
+            <div className="mt-5 grid gap-4 lg:grid-cols-2">
+              {canShowReport("adsets") && <div className="rounded-[8px] border border-white/10 bg-black/25 p-4">
+                <h3 className="font-black">Reklam Setleri</h3>
+                <div className="mt-3 grid gap-2">{data.metaAdsetMetrics.slice(0, 5).map((item: any) => <p key={item.id} className="text-sm text-slate-300">{item.adset_name || "Reklam seti"} · {item.status || "-"} · {canShowReport("metrics", "lifecycle_days_remaining") ? `Gün kaldı: ${item.days_remaining ?? "Veri yok"}` : `${Number(item.spend || 0).toLocaleString("tr-TR")} TL`}</p>)}{!data.metaAdsetMetrics.length && <p className="text-sm text-slate-400">Bu veri henüz çekilmedi veya Meta tarafından sağlanmadı.</p>}</div>
+              </div>}
+              {canShowReport("ads") && <div className="rounded-[8px] border border-white/10 bg-black/25 p-4">
+                <h3 className="font-black">Reklamlar / Kreatifler</h3>
+                <div className="mt-3 grid gap-2">{data.metaAdMetrics.slice(0, 5).map((item: any) => <p key={item.id} className="text-sm text-slate-300">{item.ad_name || "Reklam"} · CTR {Number(item.ctr || 0).toFixed(2)}% {canShowReport("metrics", "roas") ? `· ROAS ${Number(item.roas || 0).toFixed(2)}` : ""}</p>)}{!data.metaAdMetrics.length && <p className="text-sm text-slate-400">Bu veri henüz çekilmedi veya Meta tarafından sağlanmadı.</p>}</div>
+              </div>}
+              {canShowReport("conversions") && <div className="rounded-[8px] border border-white/10 bg-black/25 p-4">
+                <h3 className="font-black">Dönüşümler</h3>
+                <div className="mt-3 grid gap-2">{data.metaConversionEvents.slice(0, 5).map((item: any) => <p key={item.id} className="text-sm text-slate-300">{item.event_name} · {Number(item.event_count || 0).toLocaleString("tr-TR")} · {Number(item.cost_per_event || 0).toFixed(2)} TL</p>)}{!data.metaConversionEvents.length && <p className="text-sm text-slate-400">Bu veri henüz çekilmedi veya Meta tarafından sağlanmadı.</p>}</div>
+              </div>}
+              {canShowReport("analysis") && <div className="rounded-[8px] border border-white/10 bg-black/25 p-4">
+                <h3 className="font-black">HK Intelligence Analizi</h3>
+                <p className="mt-3 text-sm leading-6 text-slate-300">{data.metaAnalysisSnapshots[0]?.ai_summary || data.metaAnalysisSnapshots[0]?.funnel_diagnosis || "Bu veri henüz çekilmedi veya Meta tarafından sağlanmadı."}</p>
+              </div>}
+            </div>
+          </section>
+        )}
 
         {data.monthlyReports.length > 0 && (
           <section id={visibility.show_metrics ? undefined : "raporlar"} className="glass-card mt-8 scroll-mt-28 p-5">

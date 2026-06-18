@@ -13,6 +13,11 @@ const tables = {
   leads: "leads",
   campaigns: "campaigns",
   campaignMetrics: "campaign_metrics",
+  metaAdsetMetrics: "meta_adset_metrics",
+  metaAdMetrics: "meta_ad_metrics",
+  metaConversionEvents: "meta_conversion_events",
+  metaAnalysisSnapshots: "meta_analysis_snapshots",
+  customerReportVisibility: "customer_report_visibility",
   customerUpdates: "customer_updates",
   customerVisibilitySettings: "customer_visibility_settings",
   customerFiles: "customer_files",
@@ -159,6 +164,18 @@ function normalizeRecord(key: string, item: any) {
       raw_data: item.raw_data || item.rawData || {},
       notes: item.notes || null,
       visible_to_customer: item.visible_to_customer ?? true
+    };
+  }
+
+  if (key === "customerReportVisibility") {
+    return {
+      ...base,
+      company_id: item.company_id || null,
+      section_key: item.section_key || item.sectionKey || "",
+      metric_key: item.metric_key || item.metricKey || "__section",
+      is_visible: item.is_visible ?? item.isVisible ?? true,
+      display_order: Number(item.display_order ?? item.displayOrder ?? 0),
+      updated_at: new Date().toISOString()
     };
   }
 
@@ -418,14 +435,14 @@ async function upsertItems(key: keyof typeof tables, items: any[] = []) {
       })
     : normalized;
   const records = deduped.filter((item: any) => {
-    if (["campaigns", "campaignMetrics", "customerUpdates", "customerVisibilitySettings", "customerFiles", "customerBranding", "monthlyReports", "customerDocuments", "paymentRecords", "reports", "competitorAnalyses", "socialMediaPlans"].includes(key)) {
+    if (["campaigns", "campaignMetrics", "metaAdsetMetrics", "metaAdMetrics", "metaConversionEvents", "metaAnalysisSnapshots", "customerReportVisibility", "customerUpdates", "customerVisibilitySettings", "customerFiles", "customerBranding", "monthlyReports", "customerDocuments", "paymentRecords", "reports", "competitorAnalyses", "socialMediaPlans"].includes(key)) {
       return Boolean(item.company_id);
     }
     return true;
   });
   if (!records.length) return [];
 
-  const conflictTarget = key === "customerVisibilitySettings" ? "company_id" : "id";
+  const conflictTarget = key === "customerVisibilitySettings" ? "company_id" : key === "customerReportVisibility" ? "company_id,section_key,metric_key" : "id";
   const stripOptionalColumns = (record: any) => {
     const copy = { ...record };
     if (key === "companies") delete copy.notes;
@@ -508,7 +525,7 @@ async function upsertItems(key: keyof typeof tables, items: any[] = []) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Supabase kaydetme hatası.";
-    if (["customerBranding", "monthlyReports", "agencyTasks", "customerDocuments", "paymentRecords", "reports", "competitorAnalyses", "socialMediaPlans", "agencyExpenses", "sectorConfigs", "activityLogs"].includes(key) && (message.includes("schema cache") || message.includes("relation") || message.includes("table"))) {
+    if (["metaAdsetMetrics", "metaAdMetrics", "metaConversionEvents", "metaAnalysisSnapshots", "customerReportVisibility", "customerBranding", "monthlyReports", "agencyTasks", "customerDocuments", "paymentRecords", "reports", "competitorAnalyses", "socialMediaPlans", "agencyExpenses", "sectorConfigs", "activityLogs"].includes(key) && (message.includes("schema cache") || message.includes("relation") || message.includes("table"))) {
       console.warn(`${table} tablosu canlı şemada bulunamadı; migration uygulanana kadar bu modül atlandı.`);
       return [];
     }
@@ -533,13 +550,18 @@ export async function GET() {
     return NextResponse.json({ error: "Supabase bağlantısı yapılandırılmadı." }, { status: 500 });
   }
 
-  const [companies, users, leads, campaigns, campaignMetrics, customerUpdates, customerVisibilitySettings, customerFiles, media, customerBranding, monthlyReports, agencyTasks, customerDocuments, paymentRecords, reports, competitorAnalyses, socialMediaPlans, agencyExpenses, sectorConfigs, activityLogs] =
+  const [companies, users, leads, campaigns, campaignMetrics, metaAdsetMetrics, metaAdMetrics, metaConversionEvents, metaAnalysisSnapshots, customerReportVisibility, customerUpdates, customerVisibilitySettings, customerFiles, media, customerBranding, monthlyReports, agencyTasks, customerDocuments, paymentRecords, reports, competitorAnalyses, socialMediaPlans, agencyExpenses, sectorConfigs, activityLogs] =
     await Promise.all([
       supabaseRest("companies?select=*&order=created_at.desc"),
       supabaseRest("users?deleted_at=is.null&select=*&order=created_at.desc"),
       supabaseRest("leads?select=*&order=created_at.desc"),
       supabaseRest("campaigns?select=*&order=created_at.desc"),
       supabaseRest("campaign_metrics?select=*&order=date.desc"),
+      supabaseRest("meta_adset_metrics?select=*&order=date.desc").catch(() => []),
+      supabaseRest("meta_ad_metrics?select=*&order=date.desc").catch(() => []),
+      supabaseRest("meta_conversion_events?select=*&order=date.desc").catch(() => []),
+      supabaseRest("meta_analysis_snapshots?select=*&order=created_at.desc").catch(() => []),
+      supabaseRest("customer_report_visibility?select=*&order=display_order.asc").catch(() => []),
       supabaseRest("customer_updates?select=*&order=created_at.desc"),
       supabaseRest("customer_visibility_settings?select=*&order=updated_at.desc"),
       supabaseRest("customer_files?select=*&order=uploaded_at.desc"),
@@ -563,6 +585,11 @@ export async function GET() {
     leads,
     campaigns,
     campaignMetrics,
+    metaAdsetMetrics,
+    metaAdMetrics,
+    metaConversionEvents,
+    metaAnalysisSnapshots,
+    customerReportVisibility,
     customerUpdates,
     customerVisibilitySettings,
     customerFiles,
@@ -597,6 +624,7 @@ export async function PUT(request: Request) {
       upsertItems("leads", payload.leads),
       upsertItems("campaigns", payload.campaigns),
       upsertItems("campaignMetrics", payload.campaignMetrics),
+      upsertItems("customerReportVisibility", payload.customerReportVisibility),
       upsertItems("customerUpdates", payload.customerUpdates),
       upsertItems("customerVisibilitySettings", payload.customerVisibilitySettings),
       upsertItems("customerFiles", payload.customerFiles),

@@ -1,9 +1,23 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { reportHighlights } from "./report-metrics";
 import { buildActionPlan, calculateHKIntelligenceScore, calculateHealthScore, formatCurrency, formatNumber, getLeadTracking, getWorkLogItems } from "./report-insights";
 
 export type ExportFormat = "excel" | "word" | "pdf";
 
-function lines(report: any, company: any, interpretation?: any, updates: any[] = []) {
+const exportMetricAliases: Record<string, string> = {
+  spent: "spend",
+  average_cpc: "cpc",
+  cost_per_conversion: "cost_per_lead",
+  conversions: "leads",
+  link_clicks: "clicks"
+};
+
+function lines(report: any, company: any, interpretation?: any, updates: any[] = [], visibilityRules: any[] = []) {
+  const canShowMetric = (key: string) => {
+    const metricKey = exportMetricAliases[key] || key;
+    const rule = visibilityRules.find((item) => item.section_key === "metrics" && item.metric_key === metricKey);
+    return rule?.is_visible ?? true;
+  };
   const health = calculateHealthScore(report);
   const intelligence = calculateHKIntelligenceScore(report, updates);
   const leadTracking = getLeadTracking(report);
@@ -22,11 +36,11 @@ function lines(report: any, company: any, interpretation?: any, updates: any[] =
     `HK Intelligence Skoru: ${intelligence.score}/100 - ${intelligence.label}`,
     "",
     "Öne Çıkan Metrikler",
-    ...reportHighlights(report).map((metric) => `${metric.label}: ${metric.value} - ${metric.explanation}`),
+    ...reportHighlights(report).filter((metric) => canShowMetric(metric.key)).map((metric) => `${metric.label}: ${metric.value} - ${metric.explanation}`),
     "",
     "Lead / WhatsApp Takibi",
     `Toplam lead: ${formatNumber(leadTracking.total)} | Arandı: ${formatNumber(leadTracking.called)} | Teklif verildi: ${formatNumber(leadTracking.proposed)} | Satış oldu: ${formatNumber(leadTracking.sold)} | Takip bekliyor: ${formatNumber(leadTracking.pending)}`,
-    `Harcama: ${formatCurrency(Number(report.metrics?.spent || report.metrics?.cost || 0))}`,
+    ...(canShowMetric("spent") ? [`Harcama: ${formatCurrency(Number(report.metrics?.spent || report.metrics?.cost || 0))}`] : []),
     "",
     `Ajans Notu: ${report.customer_note || "Ajans değerlendirmesi eklenecek."}`,
     "",
@@ -43,8 +57,8 @@ function lines(report: any, company: any, interpretation?: any, updates: any[] =
   ];
 }
 
-export async function generateReportExport(format: ExportFormat, report: any, company: any, interpretation?: any, updates: any[] = []) {
-  const content = lines(report, company, interpretation, updates);
+export async function generateReportExport(format: ExportFormat, report: any, company: any, interpretation?: any, updates: any[] = [], visibilityRules: any[] = []) {
+  const content = lines(report, company, interpretation, updates, visibilityRules);
   if (format === "excel") {
     const escape = (value: string) => `<Row><Cell><Data ss:Type="String">${value.replaceAll("&", "&amp;").replaceAll("<", "&lt;")}</Data></Cell></Row>`;
     const xml = `<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Performans Raporu"><Table>${content.map(escape).join("")}</Table></Worksheet></Workbook>`;

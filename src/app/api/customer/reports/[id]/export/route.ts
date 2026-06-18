@@ -1,9 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
 import { getSession, isCustomerRole } from "@/lib/auth";
 import { recordActivity } from "@/lib/activity-log";
 import { filterUpdatesForRange, filteredReportsForPeriod, getCustomerDateRange, platformFilterLabel, type CustomerPlatformFilter } from "@/lib/reports/customer-period";
 import { generateReportExport, type ExportFormat } from "@/lib/reports/report-exports";
 import { getReportBundle } from "@/lib/reports/report-server";
+import { supabaseRest } from "@/lib/supabase";
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getSession();
@@ -20,7 +22,8 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   if (!filteredReport) return NextResponse.json({ error: "Bu tarih aralığında rapor verisi bulunamadı." }, { status: 404 });
   filteredReport.period = `${range.label} · ${platformFilterLabel(platform)}`;
   const updates = filterUpdatesForRange(bundle.updates, range, [bundle.report.id]);
-  const file = await generateReportExport(format, filteredReport, bundle.company, bundle.interpretation, updates);
+  const visibilityRules = await supabaseRest<any[]>(`customer_report_visibility?company_id=eq.${bundle.report.company_id}&select=*`).catch(() => []);
+  const file = await generateReportExport(format, filteredReport, bundle.company, bundle.interpretation, updates, visibilityRules);
   await recordActivity({ session, action: "Dışa Aktarma", entity: "Rapor", entityId: id, companyId: bundle.report.company_id, details: { message: "Müşteri seçili dönem raporu indirdi", format, period: range.label, platform: platformFilterLabel(platform) } });
   const safeName = String(bundle.company?.name || "Musteri").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9-]+/g, "-").replace(/^-|-$/g, "") || "Musteri";
   const fileName = `HK-Dijital-Rapor-${safeName}-${range.start.slice(0, 7)}.${file.extension}`;

@@ -19,7 +19,7 @@ export async function getAdminPageData() {
   let relationalContent = {};
   if (hasSupabaseConfig()) {
     try {
-      const [companies, users, customers, leads, contactForms, campaigns, campaignMetrics, customerUpdates, customerVisibilitySettings, customerFiles, mediaFiles, activityLogs, reports, reportInterpretations, reportUpdates, preparationNotes, customerBranding, monthlyReports, agencyTasks, customerDocuments, paymentRecords, competitorAnalyses, socialMediaPlans, agencyExpenses, sectorConfigs] =
+      const [companies, users, customers, leads, contactForms, campaigns, campaignMetrics, metaAdsetMetrics, metaAdMetrics, metaConversionEvents, metaAnalysisSnapshots, customerReportVisibility, customerUpdates, customerVisibilitySettings, customerFiles, mediaFiles, activityLogs, reports, reportInterpretations, reportUpdates, preparationNotes, customerBranding, monthlyReports, agencyTasks, customerDocuments, paymentRecords, competitorAnalyses, socialMediaPlans, agencyExpenses, sectorConfigs] =
         await Promise.all([
           supabaseRest("companies?select=*&order=created_at.desc"),
           supabaseRest("users?deleted_at=is.null&select=*&order=created_at.desc"),
@@ -28,6 +28,11 @@ export async function getAdminPageData() {
           supabaseRest("contact_forms?select=*&order=created_at.desc").catch(() => []),
           supabaseRest("campaigns?select=*&order=created_at.desc"),
           supabaseRest("campaign_metrics?select=*&order=date.desc"),
+          supabaseRest("meta_adset_metrics?select=*&order=date.desc").catch(() => []),
+          supabaseRest("meta_ad_metrics?select=*&order=date.desc").catch(() => []),
+          supabaseRest("meta_conversion_events?select=*&order=date.desc").catch(() => []),
+          supabaseRest("meta_analysis_snapshots?select=*&order=created_at.desc").catch(() => []),
+          supabaseRest("customer_report_visibility?select=*&order=display_order.asc").catch(() => []),
           supabaseRest("customer_updates?select=*&order=created_at.desc"),
           supabaseRest("customer_visibility_settings?select=*&order=updated_at.desc"),
           supabaseRest("customer_files?select=*&order=uploaded_at.desc"),
@@ -56,6 +61,11 @@ export async function getAdminPageData() {
         contactForms,
         campaigns,
         campaignMetrics,
+        metaAdsetMetrics,
+        metaAdMetrics,
+        metaConversionEvents,
+        metaAnalysisSnapshots,
+        customerReportVisibility,
         customerUpdates,
         customerVisibilitySettings,
         customerFiles,

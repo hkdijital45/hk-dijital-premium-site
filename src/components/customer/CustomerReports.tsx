@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { useEffect, useMemo, useState } from "react";
 import { BarChart3, CalendarDays, Download, Filter, Sparkles } from "lucide-react";
@@ -81,7 +82,15 @@ function exportHref(reportId: string, format: string, range: ReturnType<typeof g
   return `/api/customer/reports/${reportId}/export?${params.toString()}`;
 }
 
-export function CustomerReports({ reports, initialInterpretations, reportUpdates }: { reports: any[]; initialInterpretations: any[]; reportUpdates: any[] }) {
+const metricVisibilityAliases: Record<string, string> = {
+  spent: "spend",
+  average_cpc: "cpc",
+  cost_per_conversion: "cost_per_lead",
+  conversions: "leads",
+  link_clicks: "clicks"
+};
+
+export function CustomerReports({ reports, initialInterpretations, reportUpdates, visibilityRules = [] }: { reports: any[]; initialInterpretations: any[]; reportUpdates: any[]; visibilityRules?: any[] }) {
   const [interpretations, setInterpretations] = useState(initialInterpretations || []);
   const [periodInterpretation, setPeriodInterpretation] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -196,6 +205,11 @@ export function CustomerReports({ reports, initialInterpretations, reportUpdates
   const overviewPlan = buildActionPlan(currentAggregate, periodUpdates);
   const overviewLeads = getLeadTracking(currentAggregate);
   const roi = calculateRoasRoi({ adSpend: currentAggregate.metrics?.spent, ...roiInput });
+  const canShowMetric = (key: string) => {
+    const metricKey = metricVisibilityAliases[key] || key;
+    const rule = visibilityRules.find((item) => item.section_key === "metrics" && item.metric_key === metricKey);
+    return rule?.is_visible ?? true;
+  };
 
   return (
     <section className="glass-card mt-8 p-5">
@@ -263,7 +277,7 @@ export function CustomerReports({ reports, initialInterpretations, reportUpdates
       ) : (
         <>
           <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {customerMetricDefinitions.map((metric) => {
+            {customerMetricDefinitions.filter((metric) => canShowMetric(metric.key)).map((metric) => {
               const current = Number(currentAggregate.metrics?.[metric.key] || 0);
               const previous = Number(previousAggregate.metrics?.[metric.key] || 0);
               const percent = comparisonPercent(current, previous);
@@ -401,7 +415,7 @@ export function CustomerReports({ reports, initialInterpretations, reportUpdates
                         <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3"><div className="flex justify-between gap-3"><strong className="text-cyan-100">Reklam Sağlık Skoru</strong><span className={`rounded-full border px-3 py-1 text-xs font-black ${scoreTone(health.score)}`}>{health.score}/100 · {health.label}</span></div><p className="mt-2 text-xs leading-5 text-slate-400">{health.explanation}</p></div>
                         <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3"><div className="flex justify-between gap-3"><strong className="text-cyan-100">HK Intelligence Skoru</strong><span className={`rounded-full border px-3 py-1 text-xs font-black ${scoreTone(intelligence.score)}`}>{intelligence.score}/100 · {intelligence.label}</span></div><p className="mt-2 text-xs leading-5 text-slate-400">Reklam, sosyal/dönüşüm ve ajans aktivitesi birlikte değerlendirilir.</p></div>
                       </div>
-                      <div className="mt-4 grid gap-2 sm:grid-cols-2">{reportHighlights(report).map((metric) => <CustomerMetricBox key={metric.key} label={metric.label} value={metric.value} explanation={metric.explanation} />)}</div>
+                      <div className="mt-4 grid gap-2 sm:grid-cols-2">{reportHighlights(report).filter((metric) => canShowMetric(metric.key)).map((metric) => <CustomerMetricBox key={metric.key} label={metric.label} value={metric.value} explanation={metric.explanation} />)}</div>
                       {report.customer_note && <p className="mt-4 text-sm leading-6 text-slate-300">Ajans notu: {report.customer_note}</p>}
                       {history.map((item) => {
                         const meta = aiMeta(item);

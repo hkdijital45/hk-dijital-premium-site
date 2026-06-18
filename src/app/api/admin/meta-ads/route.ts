@@ -65,18 +65,58 @@ async function graphGet(path: string, token: string, params: Record<string, stri
   return { ok: true, data, responseTimeMs };
 }
 
-function actionValue(actions: any[] = [], names: string[]) {
+function actionValues(actions: any[] = [], names: string[]) {
   const normalized = names.map((name) => name.toLocaleLowerCase("tr"));
-  const match = actions.find((item) => normalized.includes(String(item.action_type || item.type || "").toLocaleLowerCase("tr")));
-  return Number(match?.value || 0);
+  return actions
+    .filter((item) => normalized.includes(String(item.action_type || item.type || "").toLocaleLowerCase("tr")))
+    .reduce((sum, item) => sum + Number(item.value || 0), 0);
+}
+
+function normalizeActions(row: any) {
+  const actions = row.actions || [];
+  const values = row.action_values || [];
+  const spend = Number(row.spend || 0);
+  const leads = actionValues(actions, ["lead", "onsite_conversion.lead_grouped", "offsite_conversion.fb_pixel_lead"]);
+  const messages = actionValues(actions, ["onsite_conversion.messaging_conversation_started_7d", "messaging_conversation_started_7d", "messaging_conversation_started"]);
+  const purchases = actionValues(actions, ["purchase", "offsite_conversion.fb_pixel_purchase"]);
+  const addToCart = actionValues(actions, ["add_to_cart", "offsite_conversion.fb_pixel_add_to_cart"]);
+  const checkout = actionValues(actions, ["initiate_checkout", "offsite_conversion.fb_pixel_initiate_checkout"]);
+  const purchaseValue = actionValues(values, ["purchase", "offsite_conversion.fb_pixel_purchase"]);
+  const videoViews = actionValues(actions, ["video_view"]);
+  const video3s = actionValues(actions, ["video_view_3s", "video_3_sec_watched_actions"]);
+  const thruplay = actionValues(actions, ["video_thruplay_watched_actions", "thruplay"]);
+  const videoP25 = actionValues(actions, ["video_p25_watched_actions"]);
+  const videoP50 = actionValues(actions, ["video_p50_watched_actions"]);
+  const videoP75 = actionValues(actions, ["video_p75_watched_actions"]);
+  const videoP95 = actionValues(actions, ["video_p95_watched_actions"]);
+  return {
+    leads,
+    messages,
+    purchases,
+    add_to_cart: addToCart,
+    checkout,
+    purchase_value: purchaseValue,
+    roas: spend ? purchaseValue / spend : 0,
+    cost_per_lead: leads ? spend / leads : 0,
+    cost_per_purchase: purchases ? spend / purchases : 0,
+    video_views: videoViews,
+    video_3s_views: video3s,
+    video_thruplay: thruplay,
+    video_p25: videoP25,
+    video_p50: videoP50,
+    video_p75: videoP75,
+    video_p95: videoP95,
+    thumb_stop_rate: Number(row.impressions || 0) && video3s ? (video3s / Number(row.impressions || 0)) * 100 : 0
+  };
 }
 
 function normalizeInsight(row: any) {
   const spend = Number(row.spend || 0);
   const impressions = Number(row.impressions || 0);
   const clicks = Number(row.inline_link_clicks || row.clicks || 0);
-  const leads = actionValue(row.actions, ["lead", "onsite_conversion.lead_grouped", "offsite_conversion.fb_pixel_lead"]);
-  const messages = actionValue(row.actions, ["onsite_conversion.messaging_conversation_started_7d", "messaging_conversation_started_7d"]);
+  const advanced = normalizeActions(row);
+  const leads = advanced.leads;
+  const messages = advanced.messages;
   return {
     date: row.date_start || row.date_stop || new Date().toISOString().slice(0, 10),
     campaignId: row.campaign_id || "",
@@ -91,7 +131,40 @@ function normalizeInsight(row: any) {
     cpm: Number(row.cpm || 0) || (impressions ? (spend / impressions) * 1000 : 0),
     leads,
     results: leads || messages,
-    messages
+    messages,
+    ...advanced
+  };
+}
+
+function lifecycleStats(start?: string, stop?: string, spend = 0, budget = 0) {
+  const today = new Date();
+  const startDate = start ? new Date(start) : null;
+  const stopDate = stop ? new Date(stop) : null;
+  const daysRunning = startDate ? Math.max(0, Math.ceil((today.getTime() - startDate.getTime()) / 86400000)) : null;
+  const daysRemaining = stopDate ? Math.ceil((stopDate.getTime() - today.getTime()) / 86400000) : null;
+  return {
+    days_running: daysRunning,
+    days_remaining: daysRemaining,
+    budget_consumption_percentage: budget ? Math.min(999, (spend / budget) * 100) : 0,
+    estimated_finish_date: stopDate ? stopDate.toISOString().slice(0, 10) : null
+  };
+}
+
+function normalizeCreative(creative: any = {}) {
+  const story = creative.object_story_spec || {};
+  const link = story.link_data || {};
+  const video = story.video_data || {};
+  const photo = story.photo_data || {};
+  const cta = link.call_to_action || video.call_to_action || {};
+  return {
+    creative_id: creative.id || "",
+    creative_thumbnail_url: creative.thumbnail_url || video.image_url || link.picture || photo.url || null,
+    creative_media_url: creative.image_url || video.video_id || link.picture || null,
+    ad_text: creative.body || link.message || video.message || "",
+    headline: creative.title || link.name || video.title || "",
+    description: creative.description || link.description || "",
+    cta: cta.type || "",
+    destination_url: cta.value?.link || link.link || video.call_to_action?.value?.link || ""
   };
 }
 
@@ -139,13 +212,166 @@ async function pullMetaData(input: any, token: string) {
   if (!adAccount) return { ok: false, errorMessage: "Hesap bulunamadı", rows: [], campaigns: [] };
   const range = dateRangeForPreset(input.rangePreset || "last_30d", input.dateFrom, input.dateTo);
   const timeRange = JSON.stringify({ since: range.since, until: range.until });
-  const fields = "campaign_id,campaign_name,impressions,reach,clicks,inline_link_clicks,spend,ctr,cpc,cpm,actions,date_start,date_stop";
+  const fields = "campaign_id,campaign_name,impressions,reach,clicks,inline_link_clicks,spend,ctr,cpc,cpm,actions,action_values,date_start,date_stop";
   const insights = await graphGet(`act_${adAccount}/insights`, token, { fields, level: "campaign", time_increment: "1", time_range: timeRange, limit: "200" });
   if (!insights.ok) return { ok: false, errorMessage: insights.error?.errorMessage || "Meta verisi alınamadı.", error: insights.error, rows: [], campaigns: [] };
   const rows = (insights.data?.data || []).map(normalizeInsight);
-  const campaignStatus = await graphGet(`act_${adAccount}/campaigns`, token, { fields: "id,name,status,effective_status,objective", limit: "100" });
+  const campaignStatus = await graphGet(`act_${adAccount}/campaigns`, token, { fields: "id,name,status,effective_status,objective,start_time,stop_time,created_time,updated_time,daily_budget,lifetime_budget", limit: "100" });
   const campaigns = campaignStatus.ok ? (campaignStatus.data?.data || []) : [];
   return { ok: true, rows, campaigns, metrics: sumInsights(rows), range, responseTimeMs: insights.responseTimeMs };
+}
+
+async function safeGraph(path: string, token: string, params: Record<string, string>, warnings: string[], label: string) {
+  const result = await graphGet(path, token, params);
+  if (!result.ok) {
+    warnings.push(`${label}: ${result.error?.errorMessage || "alınamadı"}`);
+    return [];
+  }
+  return result.data?.data || [];
+}
+
+async function pullAdvancedMetaData(input: any, token: string, base: any) {
+  const adAccount = String(input.adAccountId || "").replace(/^act_/, "");
+  const warnings: string[] = [];
+  const range = base.range || dateRangeForPreset(input.rangePreset || "last_30d", input.dateFrom, input.dateTo);
+  const timeRange = JSON.stringify({ since: range.since, until: range.until });
+  const insightFields = "campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,impressions,reach,clicks,inline_link_clicks,spend,ctr,cpc,cpm,actions,action_values,date_start,date_stop";
+  const [adsetInsights, adInsights] = await Promise.all([
+    safeGraph(`act_${adAccount}/insights`, token, { fields: insightFields, level: "adset", time_range: timeRange, limit: "200" }, warnings, "Reklam seti verileri"),
+    safeGraph(`act_${adAccount}/insights`, token, { fields: insightFields, level: "ad", time_range: timeRange, limit: "100" }, warnings, "Reklam verileri")
+  ]);
+  const [adsets, ads] = await Promise.all([
+    safeGraph(`act_${adAccount}/adsets`, token, { fields: "id,name,campaign_id,status,effective_status,start_time,end_time,daily_budget,lifetime_budget,optimization_goal,targeting,updated_time,created_time", limit: "200" }, warnings, "Reklam seti yaşam döngüsü"),
+    safeGraph(`act_${adAccount}/ads`, token, { fields: "id,name,campaign_id,adset_id,status,effective_status,created_time,updated_time,creative{id,thumbnail_url,image_url,object_story_spec,body,title,description}", limit: "100" }, warnings, "Kreatif verileri")
+  ]);
+  const [ageBreakdown, genderBreakdown, placementBreakdown, locationBreakdown] = await Promise.all([
+    safeGraph(`act_${adAccount}/insights`, token, { fields: insightFields, level: "adset", breakdowns: "age", time_range: timeRange, limit: "200" }, warnings, "Yaş kırılımı"),
+    safeGraph(`act_${adAccount}/insights`, token, { fields: insightFields, level: "adset", breakdowns: "gender", time_range: timeRange, limit: "200" }, warnings, "Cinsiyet kırılımı"),
+    safeGraph(`act_${adAccount}/insights`, token, { fields: insightFields, level: "adset", breakdowns: "publisher_platform,platform_position", time_range: timeRange, limit: "200" }, warnings, "Placement kırılımı"),
+    safeGraph(`act_${adAccount}/insights`, token, { fields: insightFields, level: "adset", breakdowns: "region", time_range: timeRange, limit: "200" }, warnings, "Şehir/bölge kırılımı")
+  ]);
+  const adsetMap = new Map(adsets.map((item: any) => [item.id, item]));
+  const adMap = new Map(ads.map((item: any) => [item.id, item]));
+  const byAdset = (rows: any[], id: string) => rows.filter((row) => row.adset_id === id || row.adsetId === id);
+  const adsetRows = adsetInsights.map((row: any) => {
+    const lifecycle = adsetMap.get(row.adset_id) || {};
+    const actions = normalizeActions(row);
+    const budget = Number(lifecycle.lifetime_budget || lifecycle.daily_budget || 0) / 100;
+    return {
+      company_id: input.companyId,
+      meta_campaign_id: row.campaign_id,
+      meta_adset_id: row.adset_id,
+      adset_name: row.adset_name || lifecycle.name,
+      date: row.date_start || range.until,
+      spend: Number(row.spend || 0),
+      impressions: Number(row.impressions || 0),
+      reach: Number(row.reach || 0),
+      clicks: Number(row.inline_link_clicks || row.clicks || 0),
+      ctr: Number(row.ctr || 0),
+      cpc: Number(row.cpc || 0),
+      cpm: Number(row.cpm || 0),
+      results: actions.leads || actions.messages || actions.purchases,
+      leads: actions.leads,
+      purchases: actions.purchases,
+      messages: actions.messages,
+      targeting_summary: lifecycle.targeting || {},
+      age_breakdown: byAdset(ageBreakdown, row.adset_id),
+      gender_breakdown: byAdset(genderBreakdown, row.adset_id),
+      location_breakdown: byAdset(locationBreakdown, row.adset_id),
+      placement_breakdown: byAdset(placementBreakdown, row.adset_id),
+      start_time: lifecycle.start_time || null,
+      stop_time: lifecycle.end_time || lifecycle.stop_time || null,
+      daily_budget: Number(lifecycle.daily_budget || 0) / 100,
+      lifetime_budget: Number(lifecycle.lifetime_budget || 0) / 100,
+      optimization_goal: lifecycle.optimization_goal || "",
+      status: lifecycle.effective_status || lifecycle.status || row.status || "",
+      ...lifecycleStats(lifecycle.start_time, lifecycle.end_time || lifecycle.stop_time, Number(row.spend || 0), budget),
+      raw_data: { insight: row, lifecycle }
+    };
+  });
+  const adRows = adInsights.map((row: any) => {
+    const lifecycle = adMap.get(row.ad_id) || {};
+    const creative = normalizeCreative(lifecycle.creative || {});
+    const actions = normalizeActions(row);
+    return {
+      company_id: input.companyId,
+      meta_campaign_id: row.campaign_id,
+      meta_adset_id: row.adset_id,
+      meta_ad_id: row.ad_id,
+      ad_name: row.ad_name || lifecycle.name,
+      ...creative,
+      date: row.date_start || range.until,
+      spend: Number(row.spend || 0),
+      impressions: Number(row.impressions || 0),
+      reach: Number(row.reach || 0),
+      clicks: Number(row.inline_link_clicks || row.clicks || 0),
+      ctr: Number(row.ctr || 0),
+      cpc: Number(row.cpc || 0),
+      cpm: Number(row.cpm || 0),
+      results: actions.leads || actions.messages || actions.purchases,
+      leads: actions.leads,
+      purchases: actions.purchases,
+      add_to_cart: actions.add_to_cart,
+      checkout: actions.checkout,
+      messages: actions.messages,
+      purchase_value: actions.purchase_value,
+      roas: actions.roas,
+      cost_per_lead: actions.cost_per_lead,
+      cost_per_purchase: actions.cost_per_purchase,
+      video_views: actions.video_views,
+      video_3s_views: actions.video_3s_views,
+      video_thruplay: actions.video_thruplay,
+      video_p25: actions.video_p25,
+      video_p50: actions.video_p50,
+      video_p75: actions.video_p75,
+      video_p95: actions.video_p95,
+      thumb_stop_rate: actions.thumb_stop_rate,
+      created_time: lifecycle.created_time || null,
+      updated_time: lifecycle.updated_time || null,
+      status: lifecycle.effective_status || lifecycle.status || "",
+      ...lifecycleStats(lifecycle.created_time, null, Number(row.spend || 0), 0),
+      raw_data: { insight: row, lifecycle }
+    };
+  });
+  const conversionRows = adRows.flatMap((ad: any) => [
+    ["lead", ad.leads, ad.cost_per_lead],
+    ["message", ad.messages, ad.messages ? ad.spend / ad.messages : 0],
+    ["purchase", ad.purchases, ad.cost_per_purchase],
+    ["add_to_cart", ad.add_to_cart, ad.add_to_cart ? ad.spend / ad.add_to_cart : 0],
+    ["initiate_checkout", ad.checkout, ad.checkout ? ad.spend / ad.checkout : 0]
+  ].filter(([, count]) => Number(count || 0) > 0).map(([eventName, count, cost]) => ({
+    company_id: input.companyId,
+    meta_campaign_id: ad.meta_campaign_id,
+    meta_adset_id: ad.meta_adset_id,
+    meta_ad_id: ad.meta_ad_id,
+    event_name: eventName,
+    event_count: Number(count || 0),
+    event_value: eventName === "purchase" ? Number(ad.purchase_value || 0) : 0,
+    cost_per_event: Number(cost || 0),
+    date: ad.date,
+    raw_data: ad.raw_data || {}
+  })));
+  const bestCreative = [...adRows].sort((a: any, b: any) => Number(b.roas || b.ctr || 0) - Number(a.roas || a.ctr || 0))[0] || {};
+  const weakestCreative = [...adRows].filter((item: any) => Number(item.impressions || 0) > 0).sort((a: any, b: any) => Number(a.ctr || 0) - Number(b.ctr || 0))[0] || {};
+  const bestCampaign = [...(base.rows || [])].sort((a: any, b: any) => Number(b.results || b.leads || 0) - Number(a.results || a.leads || 0))[0] || {};
+  const weakestCampaign = [...(base.rows || [])].filter((item: any) => Number(item.spend || 0) > 0).sort((a: any, b: any) => Number(a.results || a.leads || 0) - Number(b.results || b.leads || 0))[0] || {};
+  const analysis = {
+    company_id: input.companyId,
+    period_start: range.since,
+    period_end: range.until,
+    best_creative: bestCreative,
+    weakest_creative: weakestCreative,
+    best_campaign: bestCampaign,
+    weakest_campaign: weakestCampaign,
+    budget_recommendation: "Bütçeyi yüksek CTR/ROAS üreten reklam ve kampanyalara kontrollü şekilde kaydırın.",
+    pause_recommendations: adRows.filter((ad: any) => Number(ad.spend || 0) > 0 && Number(ad.ctr || 0) < 0.7).slice(0, 5),
+    scale_recommendations: adRows.filter((ad: any) => Number(ad.ctr || 0) >= 1.5 || Number(ad.roas || 0) > 1).slice(0, 5),
+    audience_recommendation: "Yaş, cinsiyet, placement ve bölge kırılımlarında düşük maliyetli dönüşüm getiren segmentlere ayrı test bütçesi açın.",
+    creative_recommendation: "En iyi kreatifin mesaj açısını yeni varyasyonlarla test edin; zayıf kreatiflerde ilk 3 saniye dikkat unsurunu güçlendirin.",
+    funnel_diagnosis: "Üst huni görünürlük, orta huni etkileşim ve alt huni dönüşüm verileri ayrı izlenmeli; eksik pixel olayları ayrıca kontrol edilmelidir.",
+    ai_summary: "HK Intelligence analizi yerel kurallarla oluşturuldu. AI sağlayıcı aktifse bu özet daha sonra genişletilebilir."
+  };
+  return { adsetRows, adRows, conversionRows, analysis, warnings };
 }
 
 async function saveReportFromMeta(input: any, pulled: any) {
@@ -194,7 +420,7 @@ async function writeSyncLog(input: any, result: "Başarılı" | "Uyarı" | "Hata
       provider: "meta",
       company_id: input.companyId || null,
       integration_id: input.integrationId || input.integration_id || null,
-      source: "Meta Verilerini Çek",
+      source: String(details.source || "Meta Verilerini Çek"),
       result,
       message,
       details
@@ -242,6 +468,13 @@ async function saveMetaMetrics(input: any, pulled: any) {
     results: Number(row.results || row.leads || 0),
     messages: Number(row.messages || 0),
     conversions: Number(row.conversions || row.leads || row.results || 0),
+    purchases: Number(row.purchases || 0),
+    add_to_cart: Number(row.add_to_cart || 0),
+    checkout: Number(row.checkout || 0),
+    purchase_value: Number(row.purchase_value || 0),
+    roas: Number(row.roas || 0),
+    cost_per_lead: Number(row.cost_per_lead || 0),
+    cost_per_purchase: Number(row.cost_per_purchase || 0),
     visible_to_customer: Boolean(input.visibleToCustomer),
     raw_data: row
   }));
@@ -250,6 +483,88 @@ async function saveMetaMetrics(input: any, pulled: any) {
     headers: { Prefer: "return=representation" },
     body: JSON.stringify(records)
   });
+}
+
+async function localCampaignMap(companyId: string) {
+  if (!hasSupabaseConfig() || !companyId) return new Map<string, any>();
+  const campaigns = await supabaseRest<any[]>(`campaigns?company_id=eq.${encodeURIComponent(companyId)}&select=id,name,meta_campaign_id,external_id,settings`).catch(() => []);
+  const map = new Map<string, any>();
+  campaigns.forEach((campaign) => {
+    [campaign.meta_campaign_id, campaign.external_id, campaign.name].filter(Boolean).forEach((key) => map.set(String(key), campaign));
+  });
+  return map;
+}
+
+async function saveCampaignLifecycle(input: any, pulled: any) {
+  if (!hasSupabaseConfig() || !input.companyId || !pulled.campaigns?.length) return [];
+  const campaigns = await supabaseRest<any[]>(`campaigns?company_id=eq.${encodeURIComponent(input.companyId)}&select=id,name,meta_campaign_id,external_id,settings`).catch(() => []);
+  const updates = pulled.campaigns.map((meta: any) => {
+    const local = campaigns.find((campaign) => campaign.meta_campaign_id === meta.id || campaign.external_id === meta.id || campaign.name === meta.name);
+    if (!local?.id) return null;
+    const budget = Number(meta.lifetime_budget || meta.daily_budget || 0) / 100;
+    const spent = Number((pulled.rows || []).filter((row: any) => row.campaignId === meta.id).reduce((sum: number, row: any) => sum + Number(row.spend || 0), 0));
+    const lifecycle = lifecycleStats(meta.start_time, meta.stop_time, spent, budget);
+    return supabaseRest(`campaigns?id=eq.${local.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        meta_campaign_id: meta.id,
+        external_id: meta.id,
+        source: "Meta",
+        status: meta.effective_status || meta.status || undefined,
+        meta_start_time: meta.start_time || null,
+        meta_stop_time: meta.stop_time || null,
+        meta_created_time: meta.created_time || null,
+        meta_updated_time: meta.updated_time || null,
+        days_running: lifecycle.days_running,
+        days_remaining: lifecycle.days_remaining,
+        budget_consumption_percentage: lifecycle.budget_consumption_percentage,
+        estimated_finish_date: lifecycle.estimated_finish_date,
+        settings: { ...(local.settings || {}), meta_lifecycle: meta },
+        updated_at: new Date().toISOString()
+      })
+    }).catch(() => null);
+  }).filter(Boolean);
+  return Promise.all(updates);
+}
+
+async function saveAdvancedMetaData(input: any, advanced: any) {
+  const warnings = [...(advanced?.warnings || [])];
+  if (!hasSupabaseConfig() || !input.companyId) return { adsets: [], ads: [], conversions: [], analysis: null, warnings };
+  const campaigns = await localCampaignMap(input.companyId);
+  const campaignFor = (row: any) => campaigns.get(String(row.meta_campaign_id || "")) || campaigns.get(String(row.campaign_name || row.adset_name || row.ad_name || ""));
+  const withCampaign = (row: any) => ({ ...row, campaign_id: row.campaign_id || campaignFor(row)?.id || null });
+  const postRows = async (table: string, rows: any[], label: string) => {
+    if (!rows.length) return [];
+    try {
+      return await supabaseRest<any[]>(table, {
+        method: "POST",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify(rows.map(withCampaign))
+      });
+    } catch (error) {
+      const safe = getSafeSupabaseError(error);
+      warnings.push(`${label}: ${safe.title}`);
+      return [];
+    }
+  };
+  const adsets = await postRows("meta_adset_metrics", advanced.adsetRows || [], "Reklam seti kayıtları");
+  const ads = await postRows("meta_ad_metrics", advanced.adRows || [], "Reklam/kreatif kayıtları");
+  const conversions = await postRows("meta_conversion_events", advanced.conversionRows || [], "Dönüşüm kayıtları");
+  let analysis: any = null;
+  if (advanced.analysis) {
+    try {
+      const rows = await supabaseRest<any[]>("meta_analysis_snapshots", {
+        method: "POST",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify(advanced.analysis)
+      });
+      analysis = rows[0] || null;
+    } catch (error) {
+      const safe = getSafeSupabaseError(error);
+      warnings.push(`HK Intelligence analizi: ${safe.title}`);
+    }
+  }
+  return { adsets, ads, conversions, analysis, warnings };
 }
 
 export async function GET(request: Request) {
@@ -343,8 +658,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ ...pulled, message: metaMessage, errorMessage: metaMessage }, { status: 200 });
     }
     let savedRows: any[] = [];
+    let advancedSaved: any = { adsets: [], ads: [], conversions: [], analysis: null, warnings: [] };
     try {
       savedRows = await saveMetaMetrics(input, pulled);
+      await saveCampaignLifecycle(input, pulled);
+      const advanced = await pullAdvancedMetaData(input, token, pulled);
+      advancedSaved = await saveAdvancedMetaData(input, advanced);
     } catch (error) {
       const safe = getSafeSupabaseError(error);
       const schemaMessage = safe.detail.includes("schema cache") || safe.detail.includes("column") || safe.detail.includes("relation")
@@ -355,9 +674,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, message: schemaMessage, detail: safe.detail, errorCode: "META_SYNC_SCHEMA_ERROR" }, { status: 200 });
     }
     const report = action === "report" || body.createReport ? await saveReportFromMeta(input, pulled) : null;
-    const successMessage = action === "report" ? "Meta verilerinden rapor oluşturuldu." : "Meta verileri başarıyla çekildi.";
-    const mappingRow = await updateMappingSyncState(input, "Başarılı", successMessage);
-    await writeSyncLog(input, "Başarılı", successMessage, { rows: savedRows.length, adAccountId: input.adAccountId });
+    const hasAdvancedWarnings = Boolean(advancedSaved.warnings?.length);
+    const successMessage = action === "report" ? "Meta verilerinden rapor oluşturuldu." : hasAdvancedWarnings ? "Meta verileri çekildi; bazı ileri seviye veri gruplarında uyarı var." : "Meta verileri başarıyla çekildi.";
+    const mappingRow = await updateMappingSyncState(input, hasAdvancedWarnings ? "Uyarı" : "Başarılı", successMessage);
+    await writeSyncLog(input, hasAdvancedWarnings ? "Uyarı" : "Başarılı", successMessage, {
+      source: "advanced_sync",
+      rows: savedRows.length,
+      adsets: advancedSaved.adsets?.length || 0,
+      ads: advancedSaved.ads?.length || 0,
+      conversions: advancedSaved.conversions?.length || 0,
+      warnings: advancedSaved.warnings || [],
+      adAccountId: input.adAccountId
+    });
     return NextResponse.json({
       ok: true,
       message: successMessage,
@@ -365,6 +693,14 @@ export async function POST(request: Request) {
       rows: pulled.rows,
       savedRows,
       campaigns: pulled.campaigns,
+      advanced: {
+        adsets: advancedSaved.adsets || [],
+        ads: advancedSaved.ads || [],
+        conversions: advancedSaved.conversions || [],
+        analysis: advancedSaved.analysis,
+        warnings: advancedSaved.warnings || []
+      },
+      warnings: advancedSaved.warnings || [],
       mapping: safeMappingForClient(mappingRow),
       report,
       range: pulled.range,
