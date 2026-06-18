@@ -6030,10 +6030,10 @@ function PreparationCenter({ content, setContent, setActive, mode = "Hazırlık 
 }
 
 const themePresets = {
-  "HK Premium Dark": { background: "#f8fafc", surface: "#ffffff", text: "#334155", mutedText: "#64748b", primaryButton: "#0ea5e9", secondaryButton: "#e0f2fe", accent: "#facc15", sidebar: "#ffffff", header: "#ffffff", border: "#e2e8f0", success: "#16a34a", warning: "#f59e0b", danger: "#dc2626" },
-  "HK Premium Light": { background: "#eef4fa", surface: "#ffffff", text: "#2563eb", mutedText: "#475569", primaryButton: "#0369a1", secondaryButton: "#dbeafe", accent: "#b45309", sidebar: "#ffffff", header: "#f8fafc", border: "#b8c7d9", success: "#047857", warning: "#b45309", danger: "#b91c1c" },
-  "HK Yellow Black": { background: "#fffdf2", surface: "#ffffff", text: "#1f2937", mutedText: "#64748b", primaryButton: "#eab308", secondaryButton: "#fef3c7", accent: "#facc15", sidebar: "#ffffff", header: "#ffffff", border: "#fde68a", success: "#16a34a", warning: "#d97706", danger: "#dc2626" },
-  "Agency Blue Orange": { background: "#f8fafc", surface: "#ffffff", text: "#f8fafc", mutedText: "#b5c2d7", primaryButton: "#38bdf8", secondaryButton: "#17365f", accent: "#fb923c", sidebar: "#ffffff", header: "#f8fafc", border: "#31557f", success: "#34d399", warning: "#fb923c", danger: "#f87171" }
+  "HK Premium Marka": { background: "#f8fafc", surface: "#ffffff", text: "#334155", mutedText: "#64748b", primaryButton: "#0ea5e9", secondaryButton: "#e0f2fe", accent: "#facc15", sidebar: "#ffffff", header: "#ffffff", border: "#e2e8f0", success: "#16a34a", warning: "#f59e0b", danger: "#dc2626" },
+  "HK Light Marka": { background: "#eef4fa", surface: "#ffffff", text: "#2563eb", mutedText: "#475569", primaryButton: "#0369a1", secondaryButton: "#dbeafe", accent: "#b45309", sidebar: "#ffffff", header: "#f8fafc", border: "#b8c7d9", success: "#047857", warning: "#b45309", danger: "#b91c1c" },
+  "HK Sarı Vurgu": { background: "#fffdf2", surface: "#ffffff", text: "#1f2937", mutedText: "#64748b", primaryButton: "#eab308", secondaryButton: "#fef3c7", accent: "#facc15", sidebar: "#ffffff", header: "#ffffff", border: "#fde68a", success: "#16a34a", warning: "#d97706", danger: "#dc2626" },
+  "Ajans Mavi Turuncu": { background: "#f8fafc", surface: "#ffffff", text: "#1e293b", mutedText: "#64748b", primaryButton: "#38bdf8", secondaryButton: "#e0f2fe", accent: "#fb923c", sidebar: "#ffffff", header: "#f8fafc", border: "#dbe4ef", success: "#16a34a", warning: "#fb923c", danger: "#dc2626" }
 };
 
 const themeFieldLabels: Record<string, string> = {
@@ -6052,13 +6052,11 @@ const themeFieldLabels: Record<string, string> = {
   danger: "Tehlike"
 };
 
-function ThemeEditor({ onApply }: any) {
-  const [theme, setTheme] = useState(themePresets["HK Premium Dark"]);
+function ThemeEditor() {
+  const [theme, setTheme] = useState(themePresets["HK Light Marka"]);
   const [message, setMessage] = useState("");
   function apply(next) {
     setTheme(next);
-    onApply(next);
-    localStorage.setItem("hk-admin-custom-theme", JSON.stringify(next));
   }
   async function save() {
     const response = await fetch("/api/admin/theme", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(theme) });
@@ -6067,7 +6065,8 @@ function ThemeEditor({ onApply }: any) {
   }
   return (
     <Panel title="Tema Ayarları">
-      <p className="mb-5 text-sm leading-6 text-slate-400">Admin paneli renklerini canlı önizleme ile düzenleyin. Tercih bu tarayıcıda anında uygulanır ve kaydettiğinizde Supabase içinde saklanır.</p>
+      <p className="mb-3 text-sm leading-6 text-slate-600">Admin panel artık sabit okunur light tema kullanır. Renk ayarları web sitesi veya marka alanları için kullanılır.</p>
+      <p className="mb-5 rounded-[8px] border border-cyan-200 bg-cyan-50 p-3 text-sm font-semibold leading-6 text-cyan-800">Bu ekrandaki renk önizlemeleri admin arayüzü yüzeylerini değiştirmez; admin panel beyaz, okunur ve sabit light tema ile çalışır.</p>
       <div className="mb-5 flex flex-wrap gap-2">
         {Object.entries(themePresets).map(([label, preset]) => (
           <button key={label} onClick={() => apply(preset)} className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold">{label}</button>
@@ -6082,13 +6081,13 @@ function ThemeEditor({ onApply }: any) {
         <div className="rounded-[8px] border p-4" style={{ backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }}>
           <p className="text-xs font-black uppercase" style={{ color: theme.accent }}>Canlı önizleme</p>
           <h3 className="mt-3 text-xl font-black">HK Dijital Premium Panel</h3>
-          <p className="mt-2 text-sm" style={{ color: theme.mutedText }}>Kart, metin, buton ve durum renklerini burada birlikte değerlendirin.</p>
+          <p className="mt-2 text-sm" style={{ color: theme.mutedText }}>Marka ve web sitesi renklerini burada birlikte değerlendirin.</p>
           <button className="mt-5 rounded-full px-4 py-2 text-sm font-black" style={{ backgroundColor: theme.primaryButton, color: theme.background }}>Birincil işlem</button>
         </div>
       </div>
       <div className="mt-5 flex flex-wrap gap-2">
         <button onClick={save} className="rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Temayı kaydet</button>
-        <button onClick={() => apply(themePresets["HK Premium Dark"])} className="rounded-full border border-slate-200 px-5 py-3 text-sm">Varsayılanlara dön</button>
+        <button onClick={() => apply(themePresets["HK Light Marka"])} className="rounded-full border border-slate-200 px-5 py-3 text-sm">Varsayılanlara dön</button>
       </div>
       {message && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-700">{message}</p>}
     </Panel>
