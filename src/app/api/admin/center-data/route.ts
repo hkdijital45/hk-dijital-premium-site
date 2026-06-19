@@ -32,6 +32,8 @@ const tables = {
   socialMediaPlans: "social_media_plans",
   agencyExpenses: "agency_expenses",
   sectorConfigs: "sector_configs",
+  systemTestRuns: "system_test_runs",
+  systemTestChecklist: "system_test_checklist",
   activityLogs: "activity_logs"
 } as const;
 const allowedUpdateTypes = ["Yapılan Çalışma", "Reklam Güncellemesi", "Rapor Notu", "Strateji Notu", "Uyarı", "Başarı", "Diğer"];
@@ -397,6 +399,44 @@ function normalizeRecord(key: string, item: any) {
     };
   }
 
+  if (key === "systemTestRuns") {
+    return {
+      ...base,
+      score: Number(item.score || 0),
+      status: item.status || "Bekliyor",
+      total_tests: Number(item.total_tests ?? item.totalTests ?? 0),
+      success_count: Number(item.success_count ?? item.successCount ?? 0),
+      warning_count: Number(item.warning_count ?? item.warningCount ?? 0),
+      error_count: Number(item.error_count ?? item.errorCount ?? 0),
+      tester_id: item.tester_id || item.testerId || null,
+      tester_name: item.tester_name || item.testerName || "Admin",
+      summary: item.summary || "",
+      results: item.results || [],
+      issues: item.issues || [],
+      recommendations: item.recommendations || [],
+      export_payload: item.export_payload || item.exportPayload || {},
+      deleted_at: item.deleted_at || null,
+      updated_at: new Date().toISOString()
+    };
+  }
+
+  if (key === "systemTestChecklist") {
+    return {
+      ...base,
+      category: item.category || "Genel",
+      item_key: item.item_key || item.itemKey || item.id || null,
+      title: item.title || "Test maddesi",
+      status: item.status || "Bekliyor",
+      notes: item.notes || "",
+      tester_id: item.tester_id || item.testerId || null,
+      tester_name: item.tester_name || item.testerName || "Admin",
+      sort_order: Number(item.sort_order ?? item.sortOrder ?? 0),
+      last_tested_at: item.last_tested_at || item.lastTestedAt || null,
+      deleted_at: item.deleted_at || null,
+      updated_at: new Date().toISOString()
+    };
+  }
+
   if (key === "activityLogs") {
     return {
       ...base,
@@ -442,7 +482,7 @@ async function upsertItems(key: keyof typeof tables, items: any[] = []) {
   });
   if (!records.length) return [];
 
-  const conflictTarget = key === "customerVisibilitySettings" ? "company_id" : key === "customerReportVisibility" ? "company_id,section_key,metric_key" : "id";
+  const conflictTarget = key === "customerVisibilitySettings" ? "company_id" : key === "customerReportVisibility" ? "company_id,section_key,metric_key" : key === "systemTestChecklist" ? "item_key" : "id";
   const stripOptionalColumns = (record: any) => {
     const copy = { ...record };
     if (key === "companies") delete copy.notes;
@@ -525,7 +565,7 @@ async function upsertItems(key: keyof typeof tables, items: any[] = []) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Supabase kaydetme hatası.";
-    if (["metaAdsetMetrics", "metaAdMetrics", "metaConversionEvents", "metaAnalysisSnapshots", "customerReportVisibility", "customerBranding", "monthlyReports", "agencyTasks", "customerDocuments", "paymentRecords", "reports", "competitorAnalyses", "socialMediaPlans", "agencyExpenses", "sectorConfigs", "activityLogs"].includes(key) && (message.includes("schema cache") || message.includes("relation") || message.includes("table"))) {
+    if (["metaAdsetMetrics", "metaAdMetrics", "metaConversionEvents", "metaAnalysisSnapshots", "customerReportVisibility", "customerBranding", "monthlyReports", "agencyTasks", "customerDocuments", "paymentRecords", "reports", "competitorAnalyses", "socialMediaPlans", "agencyExpenses", "sectorConfigs", "systemTestRuns", "systemTestChecklist", "activityLogs"].includes(key) && (message.includes("schema cache") || message.includes("relation") || message.includes("table"))) {
       console.warn(`${table} tablosu canlı şemada bulunamadı; migration uygulanana kadar bu modül atlandı.`);
       return [];
     }
@@ -550,7 +590,7 @@ export async function GET() {
     return NextResponse.json({ error: "Supabase bağlantısı yapılandırılmadı." }, { status: 500 });
   }
 
-  const [companies, users, leads, campaigns, campaignMetrics, metaAdsetMetrics, metaAdMetrics, metaConversionEvents, metaAnalysisSnapshots, customerReportVisibility, customerUpdates, customerVisibilitySettings, customerFiles, media, customerBranding, monthlyReports, agencyTasks, customerDocuments, paymentRecords, reports, competitorAnalyses, socialMediaPlans, agencyExpenses, sectorConfigs, activityLogs] =
+  const [companies, users, leads, campaigns, campaignMetrics, metaAdsetMetrics, metaAdMetrics, metaConversionEvents, metaAnalysisSnapshots, customerReportVisibility, customerUpdates, customerVisibilitySettings, customerFiles, media, customerBranding, monthlyReports, agencyTasks, customerDocuments, paymentRecords, reports, competitorAnalyses, socialMediaPlans, agencyExpenses, sectorConfigs, systemTestRuns, systemTestChecklist, activityLogs] =
     await Promise.all([
       supabaseRest("companies?select=*&order=created_at.desc"),
       supabaseRest("users?deleted_at=is.null&select=*&order=created_at.desc"),
@@ -576,6 +616,8 @@ export async function GET() {
       supabaseRest("social_media_plans?select=*&order=updated_at.desc").catch(() => []),
       supabaseRest("agency_expenses?select=*&order=expense_date.desc").catch(() => []),
       supabaseRest("sector_configs?select=*&order=sector_name.asc").catch(() => []),
+      supabaseRest("system_test_runs?deleted_at=is.null&select=*&order=created_at.desc").catch(() => []),
+      supabaseRest("system_test_checklist?deleted_at=is.null&select=*&order=sort_order.asc").catch(() => []),
       supabaseRest("activity_logs?deleted_at=is.null&select=*&order=created_at.desc&limit=500").catch(() => [])
     ]);
 
@@ -604,6 +646,8 @@ export async function GET() {
     socialMediaPlans,
     agencyExpenses,
     sectorConfigs,
+    systemTestRuns,
+    systemTestChecklist,
     activityLogs
   });
 }
@@ -638,6 +682,8 @@ export async function PUT(request: Request) {
       upsertItems("socialMediaPlans", payload.socialMediaPlans),
       upsertItems("agencyExpenses", payload.agencyExpenses),
       upsertItems("sectorConfigs", payload.sectorConfigs),
+      upsertItems("systemTestRuns", payload.systemTestRuns),
+      upsertItems("systemTestChecklist", payload.systemTestChecklist),
       upsertItems("activityLogs", payload.activityLogs)
     ]);
 

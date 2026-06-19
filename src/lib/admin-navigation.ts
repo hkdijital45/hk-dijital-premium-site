@@ -133,6 +133,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: "Kullanıcı Yönetimi", slug: "kullanici-yonetimi", module: "kullanicilar" },
       { label: "Tema / Logo", slug: "tema-logo", module: "tema-ayarlari" },
       { label: "Sistem Sağlığı", slug: "sistem-sagligi", module: "sistem-sagligi" },
+      { label: "Sistem Test Merkezi", slug: "sistem-test-merkezi", module: "sistem-test-merkezi" },
       { label: "Sistem Ayarları", slug: "sistem-ayarlari", module: "site-ayarlari" },
       { label: "Sistem Logları", slug: "sistem-loglari", module: "sistem-loglari" }
     ]
@@ -185,6 +186,8 @@ const legacySlugRedirects: Record<string, string> = {
   "api-ayarlari": "entegrasyonlar",
   "ai-saglayici-ayarlari": "entegrasyonlar",
   "sistem-durumu": "sistem-sagligi",
+  "sistem-testleri": "sistem-test-merkezi",
+  "system-test-center": "sistem-test-merkezi",
   "aktivite-akisi": "aktivite-akisi",
   takvim: "takvim",
   "medya-logo": "medya",

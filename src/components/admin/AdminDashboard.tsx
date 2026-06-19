@@ -50,6 +50,7 @@ const adminLabelEmojis: Record<string, string> = {
   Belgeler: "🗃️",
   "Zaman Çizelgesi": "🕒",
   "Sistem Sağlığı": "🩺",
+  "Sistem Test Merkezi": "🧪",
   "Web Sitesi Yönetimi": "🌐",
   Entegrasyonlar: "🔌",
   "Kullanıcı Yönetimi": "👤",
@@ -103,7 +104,7 @@ const uiPermissionGroups = [
   ["Teklif & Raporlama", ["kampanyalar", "teklifler", "teklif-listesi", "raporlar", "rapor-yorumlari", "disa-aktarimlar"]],
   ["Ajans Operasyonları", ["gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "hk-asistan", "sektor-sistemleri"]],
   ["Araçlar", ["veri-aktarma"]],
-  ["Ayarlar", ["kullanicilar", "site-ayarlari", "api-ayarlari", "tema-ayarlari", "medya", "sistem-sagligi", "sistem-loglari"]]
+  ["Ayarlar", ["kullanicilar", "site-ayarlari", "api-ayarlari", "tema-ayarlari", "medya", "sistem-sagligi", "sistem-test-merkezi", "sistem-loglari"]]
 ];
 const uiRoleTemplates = {
   admin: uiPermissionGroups.flatMap(([, modules]) => modules),
@@ -456,7 +457,7 @@ export function AdminDashboard({
       const contentResponse = allowedModules.includes("site-ayarlari")
         ? await fetch("/api/content", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) })
         : new Response(JSON.stringify({ ok: true }), { status: 200 });
-      const centerWritableModules = ["musteriler", "leads", "crm", "kampanyalar", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "sektor-sistemleri", "sistem-loglari", "teklifler"];
+      const centerWritableModules = ["musteriler", "leads", "crm", "kampanyalar", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "sektor-sistemleri", "sistem-loglari", "sistem-test-merkezi", "teklifler"];
       const centerResponse = supabaseConfigured && centerWritableModules.some((module) => allowedModules.includes(module))
         ? await fetch("/api/admin/center-data", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) })
         : contentResponse;
@@ -712,6 +713,7 @@ export function AdminDashboard({
           {["Tema Ayarları", "Tema / Logo"].includes(active) && <ThemeEditor onApply={() => null} />}
           {["Roller & Yetkiler", "Kullanıcı Yönetimi"].includes(active) && <UsersAdmin {...props} mode={active} />}
           {active === "Sistem Sağlığı" && <SystemHealthCenter content={content} setContent={setContent} startupApiData={startupApiData} runStartupApiStatus={runStartupApiStatus} startupApiLoading={startupApiLoading} />}
+          {active === "Sistem Test Merkezi" && <SystemTestCenter content={content} setContent={setContent} save={save} currentSession={currentSession} notify={notify} systemStatus={systemStatus} supabaseConfigured={supabaseConfigured} />}
           {active === "Veri Aktarma" && <ExportCenter content={content} />}
           {["Sistem Logları", "Aktivite Akışı"].includes(active) && <ActivityLogs content={content} setContent={setContent} />}
           {["Takip Görevleri", "Takipler", "Notlar"].includes(active) && <Crm {...props} view={active} setActive={setActive} />}
@@ -1288,6 +1290,329 @@ function ReadinessPanel({ api }: any) {
       </div>)}
     </div>
   </div>;
+}
+
+const systemTestCategories = [
+  ["auth", "🔐 Yetkilendirme Testleri"],
+  ["supabase", "🗄 Supabase Testleri"],
+  ["dashboard", "📊 Dashboard Testleri"],
+  ["customers", "👤 Müşteri Modülü Testleri"],
+  ["payments", "💰 Tahsilat Testleri"],
+  ["campaigns", "📈 Kampanya Testleri"],
+  ["meta", "📢 Meta Testleri"],
+  ["google", "🔎 Google Testleri"],
+  ["reports", "📄 Raporlama Testleri"],
+  ["copilot", "🤖 HK Copilot Testleri"],
+  ["notifications", "🔔 Bildirim Testleri"],
+  ["system", "⚙ Sistem Testleri"]
+];
+
+const systemChecklistDefaults = [
+  ["login", "Login", "Yetkilendirme"],
+  ["customers", "Customers", "Müşteri Modülü"],
+  ["campaigns", "Campaigns", "Kampanya"],
+  ["meta", "Meta", "Meta"],
+  ["google", "Google", "Google"],
+  ["reports", "Reports", "Raporlama"],
+  ["tasks", "Tasks", "Görevler"],
+  ["payments", "Payments", "Tahsilat"],
+  ["customerPortal", "Customer Portal", "Müşteri Paneli"],
+  ["notifications", "Notifications", "Bildirimler"]
+];
+
+function scoreSystemTests(results: any[]) {
+  const total = Math.max(results.length, 1);
+  const success = results.filter((item) => item.status === "Başarılı").length;
+  const warning = results.filter((item) => item.status === "Uyarı").length;
+  const error = results.filter((item) => item.status === "Hata").length;
+  const raw = success * 1 + warning * -0.5 + error * -2;
+  const score = Math.max(0, Math.min(100, Math.round((raw / total) * 100)));
+  const label = score >= 95 ? "Mükemmel" : score >= 85 ? "Çok İyi" : score >= 70 ? "İyi" : score >= 50 ? "Zayıf" : "Kritik";
+  const emoji = score >= 85 ? "🟢" : score >= 70 ? "🟡" : score >= 50 ? "🟠" : "🔴";
+  return { score, label, emoji, total, success, warning, error };
+}
+
+function buildSystemTests(content: any, currentSession: any, systemStatus: any, supabaseConfigured: boolean) {
+  const api = content.settings?.api || {};
+  const companies = content.companies || [];
+  const leads = content.leads || [];
+  const campaigns = content.campaigns || [];
+  const campaignMetrics = content.campaignMetrics || [];
+  const payments = content.paymentRecords || [];
+  const tasks = content.agencyTasks || [];
+  const reports = [...(content.reports || []), ...(content.monthlyReports || [])];
+  const visibility = content.customerReportVisibility || [];
+  const logs = content.activityLogs || [];
+  const metaMetrics = campaignMetrics.filter((metric: any) => String(metric.source || "").toLocaleLowerCase("tr").includes("meta") || metric.meta_campaign_id);
+  const mappedMetaCampaigns = campaigns.filter((campaign: any) => campaign.meta_campaign_id || campaign.external_id);
+  const mappedMetricCount = metaMetrics.filter((metric: any) => metric.campaign_id).length;
+  const googleReady = Boolean(api.google_ads_developer_token || api.google_ads_key || api.google_ads_customer_id || api.google_maps_api_key || api.google_maps_key);
+  const metaReady = Boolean(api.meta_access_token || api.meta_business_id || api.meta_ad_account_id);
+  const today = new Date().toISOString().slice(0, 10);
+  const overduePayments = payments.filter((payment: any) => payment.status !== "Ödendi" && payment.due_date && dateOnly(payment.due_date) < today);
+  const overdueTasks = tasks.filter((task: any) => !["Tamamlandı", "İptal"].includes(task.status) && task.due_date && dateOnly(task.due_date) < today);
+  const missingCustomerMappings = companies.filter((company: any) => {
+    const hasCampaign = campaigns.some((campaign: any) => campaign.company_id === company.id);
+    const hasReport = reports.some((report: any) => report.company_id === company.id);
+    return !hasCampaign && !hasReport;
+  }).length;
+  const result = (category: string, name: string, status: string, message: string, solution: string, priority = status === "Hata" ? "Yüksek" : status === "Uyarı" ? "Orta" : "Düşük") => ({
+    id: `${category}-${name}`.replace(/\s+/g, "-").toLocaleLowerCase("tr"),
+    category,
+    name,
+    status,
+    message,
+    module: systemTestCategories.find(([key]) => key === category)?.[1] || category,
+    impact: status === "Başarılı" ? "Operasyon beklenen şekilde çalışabilir." : message,
+    priority,
+    solution
+  });
+  return [
+    result("auth", "Admin oturumu", currentSession?.role === "admin" ? "Başarılı" : "Uyarı", currentSession ? `Aktif rol: ${currentSession.role || "bilinmiyor"}.` : "Aktif oturum okunamadı.", "Digital Center oturum ve rol yapılandırmasını kontrol edin."),
+    result("supabase", "Supabase bağlantısı", supabaseConfigured ? "Başarılı" : "Hata", supabaseConfigured ? "Supabase ortam değişkenleri yapılandırılmış." : "Supabase bağlantısı yapılandırılmamış.", "Supabase URL ve service role ortam değişkenlerini kontrol edin."),
+    result("supabase", "Temel tablolar", companies.length || leads.length || campaigns.length ? "Başarılı" : "Uyarı", "Müşteri, lead veya kampanya kayıtları veri merkezinde okunuyor.", "Canlı şemada companies, leads ve campaigns tablolarını kontrol edin."),
+    result("dashboard", "Dashboard verisi", companies.length || payments.length || tasks.length ? "Başarılı" : "Uyarı", "Dashboard için müşteri, tahsilat veya görev verisi beklenir.", "Örnek müşteri, görev veya tahsilat kaydı oluşturun."),
+    result("customers", "Müşteri kayıtları", companies.length ? "Başarılı" : "Uyarı", `${companies.length} müşteri kaydı yüklendi.`, "Müşteri modülünden aktif müşteri kaydı ekleyin."),
+    result("customers", "Müşteri eşleşmeleri", missingCustomerMappings ? "Uyarı" : "Başarılı", missingCustomerMappings ? `${missingCustomerMappings} müşteri kampanya/rapor bağlantısı olmadan duruyor.` : "Müşteri bağlantılarında kritik eksik görünmüyor.", "Müşteri profilinden kampanya veya rapor eşleştirmelerini tamamlayın."),
+    result("payments", "Tahsilat kayıtları", payments.length ? "Başarılı" : "Uyarı", `${payments.length} tahsilat kaydı bulundu.`, "Tahsilat modülünden ödeme kaydı ekleyin."),
+    result("payments", "Geciken tahsilatlar", overduePayments.length ? "Uyarı" : "Başarılı", overduePayments.length ? `${overduePayments.length} geciken tahsilat var.` : "Geciken tahsilat görünmüyor.", "Tahsilat merkezinden ödeme durumlarını güncelleyin."),
+    result("campaigns", "Kampanya kayıtları", campaigns.length ? "Başarılı" : "Uyarı", `${campaigns.length} kampanya kaydı bulundu.`, "Kampanyalar modülünden kampanya oluşturun."),
+    result("campaigns", "Kampanya eşleştirme", metaMetrics.length && !mappedMetaCampaigns.length ? "Hata" : mappedMetaCampaigns.length ? "Başarılı" : "Uyarı", metaMetrics.length ? `${mappedMetricCount}/${metaMetrics.length} Meta metrik satırı kampanyaya bağlı.` : "Meta metrik verisi henüz yok.", "Reklam Hesabı Eşleştirme veya müşteri profilinden kampanya eşleştirmesini tamamlayın."),
+    result("meta", "Meta yapılandırması", metaReady ? "Başarılı" : "Uyarı", metaReady ? "Meta ayarları kısmen/ tamamen yapılandırılmış." : "Meta token veya hesap ID alanları eksik.", "Entegrasyonlar ekranında Meta ayarlarını kaydedin."),
+    result("meta", "Meta metrikleri", metaMetrics.length ? "Başarılı" : "Uyarı", `${metaMetrics.length} Meta metrik kaydı bulundu.`, "Müşteri profilinden Meta Verilerini Çek işlemini çalıştırın."),
+    result("google", "Google yapılandırması", googleReady ? "Başarılı" : "Uyarı", googleReady ? "Google ayarları kısmen/ tamamen yapılandırılmış." : "Google Ads / Maps yapılandırması eksik.", "Entegrasyonlar ekranında Google ayarlarını kaydedin."),
+    result("reports", "Rapor kayıtları", reports.length ? "Başarılı" : "Uyarı", `${reports.length} rapor kaydı bulundu.`, "Raporlama merkezinden müşteri raporu oluşturun."),
+    result("reports", "Müşteri görünürlüğü", visibility.length ? "Başarılı" : "Uyarı", visibility.length ? `${visibility.length} görünürlük kuralı var.` : "Rapor/metrik görünürlük ayarı bulunamadı.", "Müşteri profilinden Müşteriye Gösterilecekler ayarını kaydedin."),
+    result("copilot", "HK Copilot veri zemini", logs.length || companies.length ? "Başarılı" : "Uyarı", "Copilot için müşteri ve aktivite verisi kontrol edildi.", "Aktivite logları ve müşteri verilerini besleyin."),
+    result("notifications", "Bildirim zemini", logs.length ? "Başarılı" : "Uyarı", `${logs.length} aktivite/log kaydı bulundu.`, "Aktivite ve bildirim kayıtlarının oluştuğunu kontrol edin."),
+    result("system", "Görev gecikmeleri", overdueTasks.length ? "Uyarı" : "Başarılı", overdueTasks.length ? `${overdueTasks.length} geciken görev var.` : "Geciken görev görünmüyor.", "Görevler ekranında tarih ve durumları güncelleyin."),
+    result("system", "AI sağlayıcı durumu", systemStatus?.openai || systemStatus?.groq || systemStatus?.gemini ? "Başarılı" : "Uyarı", "AI sağlayıcı ortam değişkenleri kontrol edildi.", "OpenAI, Groq veya Gemini anahtarlarından en az birini server tarafında yapılandırın.")
+  ];
+}
+
+function systemAuditIssues(results: any[]) {
+  return results.filter((item) => item.status !== "Başarılı").map((item) => ({
+    id: item.id,
+    issue: item.name,
+    module: item.module,
+    impact: item.impact,
+    priority: item.priority,
+    solution: item.solution
+  }));
+}
+
+function downloadSystemTestFile(format: "pdf" | "excel" | "word", run: any) {
+  const timestamp = new Date().toLocaleString("tr-TR");
+  const title = `HK Sistem Test Raporu - ${timestamp}`;
+  const rows = [
+    title,
+    `Skor: ${run.score}/100`,
+    `Durum: ${run.status}`,
+    `Toplam Test: ${run.total_tests}`,
+    `Başarılı: ${run.success_count}`,
+    `Uyarı: ${run.warning_count}`,
+    `Hata: ${run.error_count}`,
+    "",
+    "Sonuçlar:",
+    ...(run.results || []).map((item: any) => `${item.status} | ${item.module} | ${item.name} | ${item.message}`),
+    "",
+    "Öneriler:",
+    ...(run.issues || []).map((item: any) => `${item.priority} | ${item.issue} | ${item.solution}`)
+  ];
+  const safe = (value: any) => String(value ?? "").replace(/[<>&]/g, (char) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" })[char] || char);
+  let blob: Blob;
+  let extension = format;
+  if (format === "excel") {
+    extension = "xls";
+    blob = new Blob([`<table>${rows.map((row) => `<tr><td>${safe(row)}</td></tr>`).join("")}</table>`], { type: "application/vnd.ms-excel;charset=utf-8" });
+  } else if (format === "word") {
+    extension = "doc";
+    blob = new Blob([`<html><body><h1>${safe(title)}</h1>${rows.map((row) => `<p>${safe(row)}</p>`).join("")}</body></html>`], { type: "application/msword;charset=utf-8" });
+  } else {
+    const text = rows.join("\n");
+    const escaped = text.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+    const stream = `BT /F1 10 Tf 48 790 Td 12 TL (${escaped.slice(0, 2600).replace(/\n/g, ") Tj T* (")}) Tj ET`;
+    const objects = [
+      "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj",
+      "2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj",
+      "3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >> endobj",
+      "4 0 obj << /Type /Font /Subtype /Helvetica /BaseFont /Helvetica >> endobj",
+      `5 0 obj << /Length ${stream.length} >> stream\n${stream}\nendstream endobj`
+    ];
+    let pdf = "%PDF-1.4\n";
+    const offsets = [0];
+    objects.forEach((object) => {
+      offsets.push(pdf.length);
+      pdf += `${object}\n`;
+    });
+    const xref = pdf.length;
+    pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.slice(1).map((offset) => `${String(offset).padStart(10, "0")} 00000 n `).join("\n")}\ntrailer << /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+    blob = new Blob([pdf], { type: "application/pdf" });
+  }
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `HK-Sistem-Test-Raporu-${new Date().toISOString().slice(0, 10)}.${extension}`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function SystemTestCenter({ content, setContent, save, currentSession, notify, systemStatus, supabaseConfigured }: any) {
+  const [running, setRunning] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [selectedRun, setSelectedRun] = useState<any>(null);
+  const storedChecklist = content.systemTestChecklist || [];
+  const checklist = systemChecklistDefaults.map(([itemKey, title, category], index) => {
+    const existing = storedChecklist.find((item: any) => item.item_key === itemKey || item.itemKey === itemKey);
+    return existing || { id: createLocalId(), item_key: itemKey, title, category, status: "Bekliyor", notes: "", sort_order: index };
+  });
+  const latestRun = (content.systemTestRuns || [])[0];
+  const currentResults = latestRun?.results?.length ? latestRun.results : buildSystemTests(content, currentSession, systemStatus, supabaseConfigured);
+  const score = scoreSystemTests(currentResults);
+  const issues = latestRun?.issues?.length ? latestRun.issues : systemAuditIssues(currentResults);
+  const grouped = systemTestCategories.map(([key, label]) => ({ key, label, items: currentResults.filter((item: any) => item.category === key) }));
+  const runPayload = (results: any[], extra: any = {}) => {
+    const calculated = scoreSystemTests(results);
+    const run = {
+      id: createLocalId(),
+      score: calculated.score,
+      status: calculated.label,
+      total_tests: calculated.total,
+      success_count: calculated.success,
+      warning_count: calculated.warning,
+      error_count: calculated.error,
+      tester_id: currentSession?.userId || currentSession?.id || null,
+      tester_name: currentSession?.email || currentSession?.name || "Admin",
+      summary: `Sistem testleri ${calculated.score}/100 skorla tamamlandı.`,
+      results,
+      issues: systemAuditIssues(results),
+      recommendations: systemAuditIssues(results).map((item) => ({ title: item.issue, recommendation: item.solution })),
+      export_payload: { generated_at: new Date().toISOString(), ...extra },
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    return run;
+  };
+  async function runAllTests() {
+    setRunning(true);
+    notify("Test Başladı", "info");
+    const results = buildSystemTests(content, currentSession, systemStatus, supabaseConfigured);
+    const run = runPayload(results, { type: "automatic" });
+    const next = { ...content, systemTestRuns: [run, ...(content.systemTestRuns || [])].slice(0, 50) };
+    setContent(next);
+    await save(next);
+    setSelectedRun(run);
+    setRunning(false);
+    notify("Test Tamamlandı", run.error_count ? "warning" : "success");
+  }
+  async function updateChecklist(itemKey: string, status: string) {
+    const now = new Date().toISOString();
+    const nextChecklist = checklist.map((item: any) => item.item_key === itemKey ? {
+      ...item,
+      status,
+      tester_id: currentSession?.userId || currentSession?.id || null,
+      tester_name: currentSession?.email || currentSession?.name || "Admin",
+      last_tested_at: now,
+      updated_at: now
+    } : item);
+    const next = { ...content, systemTestChecklist: nextChecklist };
+    setContent(next);
+    await save(next);
+  }
+  async function runAiAudit() {
+    setAiLoading(true);
+    notify("AI Sistem Denetimi Başlatıldı", "info");
+    const results = buildSystemTests(content, currentSession, systemStatus, supabaseConfigured);
+    const localIssues = systemAuditIssues(results);
+    const prompt = `HK Operating System için sistem denetimi yap. Sorun, Etki, Önerilen Çözüm formatında Türkçe özetle:\n${JSON.stringify(localIssues.slice(0, 12))}`;
+    let aiSummary = localIssues.map((item) => `Sorun: ${item.issue}\nEtki: ${item.impact}\nÇözüm: ${item.solution}`).join("\n\n");
+    try {
+      const response = await fetch("/api/admin/ai-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt, task: "system-audit" }) });
+      const data = await response.json().catch(() => ({}));
+      aiSummary = data.text || data.output || data.result || aiSummary;
+    } catch {
+      aiSummary = `${aiSummary}\n\nAI sağlayıcı yanıt vermediği için yerel denetim özeti kullanıldı.`;
+    }
+    const run = runPayload(results, { type: "ai-audit", ai_summary: aiSummary });
+    const next = { ...content, systemTestRuns: [run, ...(content.systemTestRuns || [])].slice(0, 50) };
+    setContent(next);
+    await save(next);
+    setSelectedRun({ ...run, aiSummary });
+    setAiLoading(false);
+    notify("AI denetimi tamamlandı", run.error_count ? "warning" : "success");
+  }
+  async function deleteRun(id: string) {
+    const markedRuns = (content.systemTestRuns || []).map((run: any) => run.id === id ? { ...run, deleted_at: new Date().toISOString() } : run);
+    setContent({ ...content, systemTestRuns: markedRuns.filter((run: any) => !run.deleted_at) });
+    await save({ ...content, systemTestRuns: markedRuns });
+    notify("Test geçmişi silindi", "success");
+  }
+  const exportRun = selectedRun || latestRun || runPayload(currentResults, { type: "preview" });
+  const statusClass = (status: string) => status === "Başarılı" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : status === "Hata" ? "border-red-200 bg-red-50 text-red-700" : status === "Uyarı" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-slate-200 bg-slate-50 text-slate-600";
+  return <Panel title="Sistem Test Merkezi">
+    <div className="mb-6 rounded-[22px] border border-slate-200 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,.06)]">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[.18em] text-cyan-700">Merkezi kalite kontrol</p>
+          <h3 className="mt-2 text-3xl font-black text-slate-950">Sistem Sağlık Skoru: {score.score} / 100</h3>
+          <p className="mt-2 text-sm font-semibold text-slate-600">{score.emoji} {score.label} · Son sonuçlara göre hesaplandı.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button disabled={running} onClick={runAllTests} className="rounded-[14px] bg-cyan-500 px-4 py-3 text-sm font-black text-white shadow-[0_10px_24px_rgba(6,182,212,.24)] disabled:opacity-60">{running ? "Testler çalışıyor..." : "Tüm Testleri Çalıştır"}</button>
+          <button disabled={aiLoading} onClick={runAiAudit} className="rounded-[14px] bg-violet-600 px-4 py-3 text-sm font-black text-white shadow-[0_10px_24px_rgba(124,58,237,.22)] disabled:opacity-60">{aiLoading ? "Denetleniyor..." : "AI Sistem Denetimi Başlat"}</button>
+        </div>
+      </div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {[["Toplam Test", score.total, "bg-slate-100 text-slate-700"], ["Başarılı", score.success, "bg-emerald-100 text-emerald-700"], ["Uyarı", score.warning, "bg-amber-100 text-amber-700"], ["Hata", score.error, "bg-red-100 text-red-700"]].map(([label, value, cls]) => <div key={label} className="rounded-[18px] border border-slate-200 bg-slate-50 p-4"><p className="text-xs font-bold text-slate-500">{label}</p><p className="mt-2 text-3xl font-black text-slate-950">{value}</p><span className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-black ${cls}`}>{label}</span></div>)}
+      </div>
+    </div>
+
+    <div className="mb-6 grid gap-4 xl:grid-cols-3">
+      <div className="xl:col-span-2 rounded-[22px] border border-slate-200 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,.06)]">
+        <div className="mb-4 flex items-center justify-between gap-3"><h3 className="text-lg font-black text-slate-950">Test Kategorileri</h3><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">{systemTestCategories.length} grup</span></div>
+        <div className="grid gap-3 md:grid-cols-2">
+          {grouped.map((group) => {
+            const groupScore = scoreSystemTests(group.items);
+            return <div key={group.key} className="rounded-[18px] border border-slate-200 bg-slate-50 p-4"><div className="flex items-center justify-between gap-3"><h4 className="font-black text-slate-900">{group.label}</h4><span className={`rounded-full border px-2.5 py-1 text-[11px] font-black ${groupScore.error ? "border-red-200 bg-red-50 text-red-700" : groupScore.warning ? "border-amber-200 bg-amber-50 text-amber-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>{groupScore.score}/100</span></div><div className="mt-3 grid gap-2">{group.items.map((item: any) => <div key={item.id} className="flex items-start justify-between gap-3 rounded-[14px] bg-white p-3"><div><p className="text-sm font-black text-slate-900">{item.name}</p><p className="mt-1 text-xs leading-5 text-slate-600">{item.message}</p></div><span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-black ${statusClass(item.status)}`}>{item.status}</span></div>)}</div></div>;
+          })}
+        </div>
+      </div>
+      <div className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,.06)]">
+        <h3 className="text-lg font-black text-slate-950">Hata Analizi</h3>
+        <p className="mt-2 text-sm leading-6 text-slate-600">Uyarı ve hatalar için etki, öncelik ve çözüm önerileri.</p>
+        <div className="mt-4 grid gap-3">
+          {issues.slice(0, 8).map((issue: any) => <div key={issue.id} className="rounded-[16px] border border-amber-200 bg-amber-50 p-3"><p className="text-sm font-black text-slate-950">Sorun: {issue.issue}</p><p className="mt-1 text-xs font-bold text-amber-700">Modül: {issue.module} · Öncelik: {issue.priority}</p><p className="mt-2 text-xs leading-5 text-slate-700">Etki: {issue.impact}</p><p className="mt-1 text-xs leading-5 text-slate-700">Çözüm: {issue.solution}</p></div>)}
+          {!issues.length && <div className="rounded-[16px] border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-700">Kritik uyarı görünmüyor.</div>}
+        </div>
+      </div>
+    </div>
+
+    <div className="mb-6 grid gap-4 xl:grid-cols-2">
+      <div className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,.06)]">
+        <h3 className="text-lg font-black text-slate-950">Manuel Test Checklist</h3>
+        <p className="mt-2 text-sm text-slate-600">Admin elle doğrulama yapabilir. Durumlar kalıcı olarak saklanır.</p>
+        <div className="mt-4 grid gap-3">
+          {checklist.map((item: any) => <div key={item.item_key} className="flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-slate-200 bg-slate-50 p-3"><div><p className="text-sm font-black text-slate-900">{item.title}</p><p className="text-xs text-slate-500">{item.category} · Son test: {item.last_tested_at ? formatDateTime(item.last_tested_at) : "Henüz yok"}</p></div><div className="flex flex-wrap gap-2">{["Bekliyor", "Başarılı", "Başarısız"].map((status) => <button key={status} onClick={() => updateChecklist(item.item_key, status)} className={`rounded-full px-3 py-2 text-xs font-black ${item.status === status ? status === "Başarılı" ? "bg-emerald-500 text-white" : status === "Başarısız" ? "bg-red-500 text-white" : "bg-slate-700 text-white" : "border border-slate-200 bg-white text-slate-700"}`}>{status}</button>)}</div></div>)}
+        </div>
+      </div>
+      <div className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,.06)]">
+        <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-lg font-black text-slate-950">Dışa Aktarma</h3><p className="mt-2 text-sm text-slate-600">Skor, test sonuçları, uyarılar, hatalar ve öneriler tarih damgasıyla dışa aktarılır.</p></div><span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-black text-cyan-700">PDF · Excel · Word</span></div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button onClick={() => { downloadSystemTestFile("pdf", exportRun); notify("PDF Oluşturuldu", "success"); }} className="rounded-[14px] bg-amber-400 px-4 py-3 text-sm font-black text-slate-950">PDF İndir</button>
+          <button onClick={() => { downloadSystemTestFile("excel", exportRun); notify("Excel Oluşturuldu", "success"); }} className="rounded-[14px] bg-emerald-500 px-4 py-3 text-sm font-black text-white">Excel İndir</button>
+          <button onClick={() => { downloadSystemTestFile("word", exportRun); notify("Word Oluşturuldu", "success"); }} className="rounded-[14px] bg-blue-600 px-4 py-3 text-sm font-black text-white">Word İndir</button>
+        </div>
+        {selectedRun?.aiSummary && <div className="mt-4 rounded-[16px] border border-violet-200 bg-violet-50 p-4"><p className="text-sm font-black text-violet-700">AI Denetim Özeti</p><pre className="mt-2 whitespace-pre-wrap text-xs leading-5 text-slate-700">{selectedRun.aiSummary}</pre></div>}
+      </div>
+    </div>
+
+    <div className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,.06)]">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h3 className="text-lg font-black text-slate-950">Test Geçmişi</h3><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">{(content.systemTestRuns || []).length} kayıt</span></div>
+      <div className="premium-scrollbar max-h-[420px] overflow-auto rounded-[16px] border border-slate-200">
+        <table className="w-full min-w-[780px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-[.12em] text-slate-500"><tr><th className="p-3">Tarih</th><th className="p-3">Skor</th><th className="p-3">Uyarı</th><th className="p-3">Hata</th><th className="p-3">Test Eden</th><th className="p-3">İşlem</th></tr></thead><tbody>{(content.systemTestRuns || []).map((run: any) => <tr key={run.id} className="border-t border-slate-200"><td className="p-3 text-slate-600">{formatDateTime(run.created_at)}</td><td className="p-3 font-black text-slate-950">{run.score}/100 · {run.status}</td><td className="p-3 text-amber-700">{run.warning_count || 0}</td><td className="p-3 text-red-700">{run.error_count || 0}</td><td className="p-3 text-slate-600">{run.tester_name || "Admin"}</td><td className="p-3"><div className="flex gap-2"><button onClick={() => setSelectedRun(run)} className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-black text-slate-700">View</button><button onClick={() => deleteRun(run.id)} className="rounded-full bg-red-500 px-3 py-1.5 text-xs font-black text-white">Delete</button></div></td></tr>)}{!(content.systemTestRuns || []).length && <tr><td colSpan={6} className="p-6 text-center text-slate-500">Henüz test geçmişi yok.</td></tr>}</tbody></table>
+      </div>
+    </div>
+  </Panel>;
 }
 
 function SystemHealthCenter({ content, startupApiData, runStartupApiStatus, startupApiLoading }: any) {

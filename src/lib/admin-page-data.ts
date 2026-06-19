@@ -19,7 +19,7 @@ export async function getAdminPageData() {
   let relationalContent = {};
   if (hasSupabaseConfig()) {
     try {
-      const [companies, users, customers, leads, contactForms, campaigns, campaignMetrics, metaAdsetMetrics, metaAdMetrics, metaConversionEvents, metaAnalysisSnapshots, customerReportVisibility, customerUpdates, customerVisibilitySettings, customerFiles, mediaFiles, activityLogs, reports, reportInterpretations, reportUpdates, preparationNotes, customerBranding, monthlyReports, agencyTasks, customerDocuments, paymentRecords, competitorAnalyses, socialMediaPlans, agencyExpenses, sectorConfigs] =
+      const [companies, users, customers, leads, contactForms, campaigns, campaignMetrics, metaAdsetMetrics, metaAdMetrics, metaConversionEvents, metaAnalysisSnapshots, customerReportVisibility, customerUpdates, customerVisibilitySettings, customerFiles, mediaFiles, activityLogs, reports, reportInterpretations, reportUpdates, preparationNotes, customerBranding, monthlyReports, agencyTasks, customerDocuments, paymentRecords, competitorAnalyses, socialMediaPlans, agencyExpenses, sectorConfigs, systemTestRuns, systemTestChecklist] =
         await Promise.all([
           supabaseRest("companies?select=*&order=created_at.desc"),
           supabaseRest("users?deleted_at=is.null&select=*&order=created_at.desc"),
@@ -51,7 +51,9 @@ export async function getAdminPageData() {
           supabaseRest("competitor_analyses?select=*&order=updated_at.desc").catch(() => []),
           supabaseRest("social_media_plans?select=*&order=updated_at.desc").catch(() => []),
           supabaseRest("agency_expenses?select=*&order=expense_date.desc").catch(() => []),
-          supabaseRest("sector_configs?select=*&order=sector_name.asc").catch(() => [])
+          supabaseRest("sector_configs?select=*&order=sector_name.asc").catch(() => []),
+          supabaseRest("system_test_runs?deleted_at=is.null&select=*&order=created_at.desc").catch(() => []),
+          supabaseRest("system_test_checklist?deleted_at=is.null&select=*&order=sort_order.asc").catch(() => [])
         ]);
       relationalContent = {
         companies,
@@ -83,6 +85,8 @@ export async function getAdminPageData() {
         socialMediaPlans,
         agencyExpenses,
         sectorConfigs,
+        systemTestRuns,
+        systemTestChecklist,
         media: Array.isArray(mediaFiles)
           ? mediaFiles.map((item: any) => ({
               id: item.id,

@@ -12,7 +12,7 @@ export const adminModules = [
   "site-ayarlari", "api-ayarlari", "tema-ayarlari", "medya", "sistem-loglari",
   "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi",
   "sosyal-medya-plani", "aylik-raporlar", "hk-asistan", "sektor-sistemleri",
-  "sistem-sagligi", "veri-aktarma"
+  "sistem-sagligi", "sistem-test-merkezi", "veri-aktarma"
 ] as const;
 
 export type AdminModule = (typeof adminModules)[number];
