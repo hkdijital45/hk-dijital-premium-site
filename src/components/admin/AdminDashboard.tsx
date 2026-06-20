@@ -1308,16 +1308,24 @@ const systemTestCategories = [
 ];
 
 const systemChecklistDefaults = [
-  ["login", "Login", "Yetkilendirme"],
-  ["customers", "Customers", "Müşteri Modülü"],
-  ["campaigns", "Campaigns", "Kampanya"],
-  ["meta", "Meta", "Meta"],
-  ["google", "Google", "Google"],
-  ["reports", "Reports", "Raporlama"],
-  ["tasks", "Tasks", "Görevler"],
-  ["payments", "Payments", "Tahsilat"],
-  ["customerPortal", "Customer Portal", "Müşteri Paneli"],
-  ["notifications", "Notifications", "Bildirimler"]
+  { itemKey: "login", title: "🔐 Giriş Sistemi", category: "Yetkilendirme", description: "Yönetici ve müşteri giriş ekranlarının doğru çalıştığını kontrol eder." },
+  { itemKey: "customers", title: "👥 Müşteri Yönetimi", category: "Müşteri Modülü", description: "Müşteri kayıtları, profil sayfaları ve müşteri aksiyonlarının çalıştığını doğrular." },
+  { itemKey: "campaigns", title: "📢 Kampanya Yönetimi", category: "Kampanya", description: "Kampanya ekleme, düzenleme, eşleştirme ve listeleme akışlarını kontrol eder." },
+  { itemKey: "meta", title: "📘 Meta Entegrasyonu", category: "Meta", description: "Meta hesap bilgileri, token durumu ve reklam hesabı bağlantılarını kontrol eder." },
+  { itemKey: "google", title: "🔎 Google Entegrasyonu", category: "Google", description: "Google Ads, Analytics ve Maps bağlantı ayarlarının hazır olup olmadığını kontrol eder." },
+  { itemKey: "reports", title: "📊 Raporlama Sistemi", category: "Raporlama", description: "Rapor oluşturma, yayınlama, görünürlük ve dışa aktarma akışlarını doğrular." },
+  { itemKey: "tasks", title: "✅ Görev Yönetimi", category: "Görevler", description: "Görev oluşturma, durum güncelleme, gecikme ve tamamlanma akışlarını kontrol eder." },
+  { itemKey: "payments", title: "💰 Tahsilat ve Ödemeler", category: "Tahsilat", description: "Bekleyen, ödenmiş, gecikmiş ve iptal edilmiş ödeme kayıtlarını kontrol eder." },
+  { itemKey: "customerPortal", title: "👤 Müşteri Paneli", category: "Müşteri Paneli", description: "Müşteriye açık rapor, belge, ödeme ve kampanya görünürlüğünü doğrular." },
+  { itemKey: "notifications", title: "🔔 Bildirim Merkezi", category: "Bildirimler", description: "Bildirimlerin, uyarıların ve işlem sonrası bilgilendirmelerin çalıştığını kontrol eder." },
+  { itemKey: "aiServices", title: "🤖 Yapay Zeka Servisleri", category: "AI", description: "HK Copilot, AI denetim ve yorumlama servislerinin yanıt verebildiğini kontrol eder." },
+  { itemKey: "databaseHealth", title: "🗄️ Veritabanı Sağlığı", category: "Supabase", description: "Temel tabloların okunabildiğini ve kayıt akışlarının sağlıklı olduğunu doğrular." },
+  { itemKey: "roles", title: "🔑 Yetki ve Roller", category: "Yetkilendirme", description: "Admin, yönetici ve müşteri izinlerinin doğru sınırlandığını kontrol eder." },
+  { itemKey: "websiteManagement", title: "🌐 Web Sitesi Yönetimi", category: "Web Sitesi", description: "Web sitesi içerik, paket, marka ve görsel yönetimi alanlarının erişilebilir olduğunu kontrol eder." },
+  { itemKey: "mediaLibrary", title: "📁 Medya Kütüphanesi", category: "Medya", description: "Medya, belge ve dosya kayıtlarının yönetilebilir olduğunu doğrular." },
+  { itemKey: "metaDataSync", title: "📈 Meta Veri Senkronizasyonu", category: "Meta", description: "Meta verilerinin çekilip kampanya metriklerine aktarılabildiğini kontrol eder." },
+  { itemKey: "googleDataSync", title: "📉 Google Veri Senkronizasyonu", category: "Google", description: "Google reklam/veri senkronizasyonu için gerekli ayarların hazır olduğunu kontrol eder." },
+  { itemKey: "formsLeads", title: "📨 Form ve Lead Sistemi", category: "Lead", description: "Form başvuruları, lead kayıtları ve takip akışlarının çalıştığını doğrular." }
 ];
 
 function scoreSystemTests(results: any[]) {
@@ -1462,9 +1470,9 @@ function SystemTestCenter({ content, setContent, save, currentSession, notify, s
   const [aiLoading, setAiLoading] = useState(false);
   const [selectedRun, setSelectedRun] = useState<any>(null);
   const storedChecklist = content.systemTestChecklist || [];
-  const checklist = systemChecklistDefaults.map(([itemKey, title, category], index) => {
+  const checklist = systemChecklistDefaults.map(({ itemKey, title, category, description }, index) => {
     const existing = storedChecklist.find((item: any) => item.item_key === itemKey || item.itemKey === itemKey);
-    return existing || { id: createLocalId(), item_key: itemKey, title, category, status: "Bekliyor", notes: "", sort_order: index };
+    return { ...(existing || {}), id: existing?.id || createLocalId(), item_key: itemKey, title, category, description, status: existing?.status || "Bekliyor", notes: existing?.notes || "", sort_order: index };
   });
   const latestRun = (content.systemTestRuns || [])[0];
   const currentResults = latestRun?.results?.length ? latestRun.results : buildSystemTests(content, currentSession, systemStatus, supabaseConfigured);
@@ -1589,10 +1597,27 @@ function SystemTestCenter({ content, setContent, save, currentSession, notify, s
 
     <div className="mb-6 grid gap-4 xl:grid-cols-2">
       <div className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,.06)]">
-        <h3 className="text-lg font-black text-slate-950">Manuel Test Checklist</h3>
+        <h3 className="text-lg font-black text-slate-950">Manuel Test Kontrol Listesi</h3>
         <p className="mt-2 text-sm text-slate-600">Admin elle doğrulama yapabilir. Durumlar kalıcı olarak saklanır.</p>
         <div className="mt-4 grid gap-3">
-          {checklist.map((item: any) => <div key={item.item_key} className="flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-slate-200 bg-slate-50 p-3"><div><p className="text-sm font-black text-slate-900">{item.title}</p><p className="text-xs text-slate-500">{item.category} · Son test: {item.last_tested_at ? formatDateTime(item.last_tested_at) : "Henüz yok"}</p></div><div className="flex flex-wrap gap-2">{["Bekliyor", "Başarılı", "Başarısız"].map((status) => <button key={status} onClick={() => updateChecklist(item.item_key, status)} className={`rounded-full px-3 py-2 text-xs font-black ${item.status === status ? status === "Başarılı" ? "bg-emerald-500 text-white" : status === "Başarısız" ? "bg-red-500 text-white" : "bg-slate-700 text-white" : "border border-slate-200 bg-white text-slate-700"}`}>{status}</button>)}</div></div>)}
+          {checklist.map((item: any) => {
+            const badgeClass = item.status === "Başarılı" ? "bg-emerald-100 text-emerald-700 border-emerald-200" : item.status === "Başarısız" ? "bg-red-100 text-red-700 border-red-200" : "bg-slate-100 text-slate-700 border-slate-200";
+            return <div key={item.item_key} className="rounded-[20px] border border-slate-200 bg-white p-4 shadow-[0_8px_26px_rgba(15,23,42,.05)]">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-base font-black leading-6 text-slate-950">{item.title}</p>
+                    <span className={`rounded-full border px-2.5 py-1 text-[11px] font-black ${badgeClass}`}>{item.status || "Bekliyor"}</span>
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">{item.description}</p>
+                  <p className="mt-2 text-xs font-semibold text-slate-500">{item.category} · Son test: {item.last_tested_at ? formatDateTime(item.last_tested_at) : "Henüz test edilmedi"}</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {["Bekliyor", "Başarılı", "Başarısız"].map((status) => <button key={status} onClick={() => updateChecklist(item.item_key, status)} className={`rounded-full px-3 py-2 text-xs font-black transition hover:-translate-y-0.5 ${item.status === status ? status === "Başarılı" ? "bg-emerald-500 text-white shadow-[0_8px_18px_rgba(34,197,94,.18)]" : status === "Başarısız" ? "bg-red-500 text-white shadow-[0_8px_18px_rgba(239,68,68,.18)]" : "bg-slate-700 text-white shadow-[0_8px_18px_rgba(15,23,42,.16)]" : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-white"}`}>{status}</button>)}
+                </div>
+              </div>
+            </div>;
+          })}
         </div>
       </div>
       <div className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,.06)]">
