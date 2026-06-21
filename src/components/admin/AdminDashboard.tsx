@@ -5,6 +5,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Activity, AlertTriangle, ArrowDown, ArrowUp, BarChart3, Bell, Bot, Building2, ChevronDown, ChevronRight, CircleCheck, CircleOff, Copy, Download, FileBarChart, Gauge, GripVertical, HelpCircle, ImagePlus, LayoutDashboard, LogOut, MapPinned, MessageSquareText, Plus, RotateCcw, Save, Search, Settings2, Sparkles, Star, Trash2, UsersRound, WandSparkles, X } from "lucide-react";
 import type { SiteContent } from "@/lib/types";
 import { ReportTools } from "@/components/admin/reports/ReportTools";
@@ -4539,6 +4540,7 @@ function CustomerMetaAccounts({ company, content, setContent, save, notify }: an
   const [rows, setRows] = useState<any[]>([]);
   const [linked, setLinked] = useState(existing);
   const [matchingCampaign, setMatchingCampaign] = useState<any>(null);
+  const [selectedMetaCampaign, setSelectedMetaCampaign] = useState<any>(null);
   const [campaignMatchModalOpen, setCampaignMatchModalOpen] = useState(false);
   const [matchingExistingId, setMatchingExistingId] = useState("");
   const localCampaigns = (content.campaigns || []).filter((item: any) => item.company_id === company.id && !item.archived_at && !item.deleted_at);
@@ -4683,6 +4685,12 @@ function CustomerMetaAccounts({ company, content, setContent, save, notify }: an
     setContent({ ...content, metaAccountLinks: [nextLink, ...(content.metaAccountLinks || []).filter((item: any) => item.company_id !== company.id)] });
   }
   useEffect(() => { loadMappings().catch(() => null); }, [company.id]);
+  useEffect(() => {
+    console.log("MODAL STATE", campaignMatchModalOpen);
+  }, [campaignMatchModalOpen]);
+  useEffect(() => {
+    console.log("SELECTED META CAMPAIGN", selectedMetaCampaign);
+  }, [selectedMetaCampaign]);
   async function saveMapping(provider: "meta" | "google", action = "save") {
     setLoading(`${provider}-${action}`);
     const payload = provider === "meta"
@@ -4775,12 +4783,14 @@ function CustomerMetaAccounts({ company, content, setContent, save, notify }: an
   }
   function openCampaignMatch(item: any) {
     const selected = normalizeMetaCampaign(item);
+    console.log("MATCH CLICK", selected.campaignId, selected.campaignName);
     if (!selected.campaignId) {
       setMessage("Meta kampanya verisi bulunamadı.");
       notify?.("✖ Meta kampanya verisi bulunamadı.", "error");
       return;
     }
     const existingMatch = localCampaigns.find((campaign: any) => campaign.meta_campaign_id === selected.campaignId || campaign.external_id === selected.campaignId);
+    setSelectedMetaCampaign(selected);
     setMatchingCampaign(selected);
     setMatchingExistingId(existingMatch?.id || "");
     setCampaignMatchModalOpen(true);
@@ -4832,12 +4842,13 @@ function CustomerMetaAccounts({ company, content, setContent, save, notify }: an
   }
   function closeCampaignMatch() {
     setCampaignMatchModalOpen(false);
+    setSelectedMetaCampaign(null);
     setMatchingCampaign(null);
     setMatchingExistingId("");
     setLoading("");
   }
   function saveCampaignMatch(createNew = false) {
-    const selected = normalizeMetaCampaign(matchingCampaign);
+    const selected = normalizeMetaCampaign(selectedMetaCampaign || matchingCampaign);
     if (!selected.campaignId) {
       setMessage("Meta kampanya verisi bulunamadı.");
       notify?.("✖ Meta kampanya verisi bulunamadı.", "error");
@@ -4914,6 +4925,7 @@ function CustomerMetaAccounts({ company, content, setContent, save, notify }: an
     ...metaMetricRows.map((row: any) => row.campaignId || row.meta_campaign_id || row.external_id || row.campaignName || row.campaign_name).filter(Boolean),
     ...localCampaigns.filter((campaign: any) => campaign.meta_campaign_id || campaign.external_id || String(campaign.source || "").toLocaleLowerCase("tr") === "meta").map((campaign: any) => campaign.meta_campaign_id || campaign.external_id || campaign.id)
   ]).size;
+  const activeMatchingCampaign = selectedMetaCampaign || matchingCampaign;
   return (
     <div className="grid gap-5">
       <div className="rounded-[14px] border border-cyan-200/20 bg-cyan-300/[0.07] p-4">
@@ -5077,22 +5089,22 @@ function CustomerMetaAccounts({ company, content, setContent, save, notify }: an
           </div>
         </div>
       </div>
-      {campaignMatchModalOpen && matchingCampaign && <div className="fixed inset-0 z-[120] grid place-items-center bg-white/70 p-4" onMouseDown={closeCampaignMatch}>
+      {campaignMatchModalOpen && activeMatchingCampaign && typeof document !== "undefined" && createPortal(<div className="fixed inset-0 z-[9999] grid place-items-center bg-white/75 p-4" onMouseDown={closeCampaignMatch}>
         <div className="w-full max-w-3xl rounded-[18px] border border-slate-200 bg-white p-5 shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-xs font-black uppercase tracking-[.16em] text-blue-700">Kampanya Eşleştir</p>
-              <h3 className="mt-1 text-2xl font-black text-slate-900">{matchingCampaign.campaignName}</h3>
-              <p className="mt-1 text-sm text-slate-600">Meta campaign ID: {matchingCampaign.campaignId}</p>
+              <h3 className="mt-1 text-2xl font-black text-slate-900">{activeMatchingCampaign.campaignName}</h3>
+              <p className="mt-1 text-sm text-slate-600">Meta campaign ID: {activeMatchingCampaign.campaignId}</p>
             </div>
             <button onClick={closeCampaignMatch} className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-700">Kapat</button>
           </div>
           <div className="mt-5 grid gap-3 md:grid-cols-5">
-            <InfoItem label="Spend" value={`${Number(matchingCampaign.spend || 0).toLocaleString("tr-TR")} TL`} />
-            <InfoItem label="Reach" value={Number(matchingCampaign.reach || 0).toLocaleString("tr-TR")} />
-            <InfoItem label="Clicks" value={Number(matchingCampaign.clicks || 0).toLocaleString("tr-TR")} />
-            <InfoItem label="CTR" value={`${Number(matchingCampaign.ctr || 0).toFixed(2)}%`} />
-            <InfoItem label="CPC" value={Number(matchingCampaign.cpc || 0).toFixed(2)} />
+            <InfoItem label="Spend" value={`${Number(activeMatchingCampaign.spend || 0).toLocaleString("tr-TR")} TL`} />
+            <InfoItem label="Reach" value={Number(activeMatchingCampaign.reach || 0).toLocaleString("tr-TR")} />
+            <InfoItem label="Clicks" value={Number(activeMatchingCampaign.clicks || 0).toLocaleString("tr-TR")} />
+            <InfoItem label="CTR" value={`${Number(activeMatchingCampaign.ctr || 0).toFixed(2)}%`} />
+            <InfoItem label="CPC" value={Number(activeMatchingCampaign.cpc || 0).toFixed(2)} />
           </div>
           <div className="mt-5 rounded-[14px] border border-slate-200 bg-slate-50 p-4">
             <p className="font-black text-slate-900">Step 1: Mevcut kampanya seç</p>
@@ -5110,7 +5122,7 @@ function CustomerMetaAccounts({ company, content, setContent, save, notify }: an
             </div>
           </div>
         </div>
-      </div>}
+      </div>, document.body)}
     </div>
   );
 }
