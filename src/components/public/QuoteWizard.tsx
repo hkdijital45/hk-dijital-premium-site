@@ -82,9 +82,7 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
       return;
     }
     setError("");
-    setSent(true);
-    trackEvent("quote_form_submitted", { package: recommendation.recommended.id });
-    await fetch("/api/leads", {
+    const response = await fetch("/api/leads", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -97,6 +95,12 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
         alternativePackage: recommendation.alternative.name
       })
     });
+    if (!response.ok) {
+      setError("Form gönderilemedi. Lütfen bilgileri kontrol edip tekrar deneyin.");
+      return;
+    }
+    setSent(true);
+    trackEvent("quote_form_submitted", { package: recommendation.recommended.id, form_name: "Paket Öneri Robotu" });
   }
 
   const whatsappMessage = encodeURIComponent(

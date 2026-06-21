@@ -15,7 +15,7 @@ export function ContactForm() {
         onSubmit={async (event) => {
           event.preventDefault();
           const formData = new FormData(event.currentTarget);
-          await fetch("/api/leads", {
+          const response = await fetch("/api/leads", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -27,8 +27,9 @@ export function ContactForm() {
               note: formData.get("note")
             })
           });
+          if (!response.ok) return;
           setSent(true);
-          trackEvent("contact_form_submitted");
+          trackEvent("contact_form_submitted", { form_name: "İletişim Formu" });
           // Replace local JSON submission storage with real backend/API integration here.
         }}
       >

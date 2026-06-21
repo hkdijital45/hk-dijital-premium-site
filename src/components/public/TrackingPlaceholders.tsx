@@ -1,5 +1,7 @@
 "use client";
 
+import { trackMetaContact, trackMetaCtaClick, trackMetaCustomEvent, trackMetaEvent, trackMetaLead } from "@/lib/meta-pixel";
+
 type Props = {
   ids: {
     metaPixel: string;
@@ -11,7 +13,22 @@ type Props = {
 export function trackEvent(name: string, payload?: Record<string, unknown>) {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent("hk_tracking_event", { detail: { name, payload } }));
-  // Integrate Meta Pixel, GA4 and GTM events here when real IDs are configured.
+  if (name.includes("whatsapp")) {
+    trackMetaContact({ source: name, ...(payload as Record<string, string | number | boolean | null | undefined> | undefined) });
+    return;
+  }
+  if (name.includes("form_submitted")) {
+    trackMetaLead({ source: name, ...(payload as Record<string, string | number | boolean | null | undefined> | undefined) });
+    return;
+  }
+  if (name.includes("package") || name.includes("cta")) {
+    if (name.includes("package")) {
+      trackMetaEvent("InitiateCheckout", { source: name, ...(payload as Record<string, string | number | boolean | null | undefined> | undefined) });
+    }
+    trackMetaCtaClick(name, typeof payload?.href === "string" ? payload.href : undefined);
+    return;
+  }
+  trackMetaCustomEvent(`HK_${name}`, payload as Record<string, string | number | boolean | null | undefined> | undefined);
 }
 
 export function TrackingPlaceholders({ ids }: Props) {

@@ -8,6 +8,7 @@ import type { ReactNode } from "react";
 import type { SiteContent } from "@/lib/types";
 import { ContactForm } from "./ContactForm";
 import { PackageCards, ServiceGrid } from "./ServicePackageSections";
+import { trackMetaCtaClick } from "@/lib/meta-pixel";
 
 const osModules: Array<[string, string, LucideIcon]> = [
   ["Meta Ads", "Kreatif, hedef kitle, dönüşüm", BarChart3],
@@ -89,11 +90,11 @@ function SectionShell({ id, eyebrow, title, text, children, className = "" }: Se
   );
 }
 
-function CinematicButton({ href, children, variant = "primary" }: { href: string; children: ReactNode; variant?: "primary" | "ghost" }) {
+function CinematicButton({ href, children, variant = "primary", trackingLabel = "Public CTA" }: { href: string; children: ReactNode; variant?: "primary" | "ghost"; trackingLabel?: string }) {
   const className = variant === "primary"
     ? "border-cyan-200/50 bg-cyan-300 text-slate-950 shadow-[0_0_54px_rgba(34,211,238,.28)] hover:bg-cyan-100"
     : "border-white/15 bg-white/[0.055] text-white hover:border-amber-200/50 hover:bg-amber-200/10";
-  return <Link href={href} className={`cinematic-press inline-flex min-h-13 items-center justify-center gap-2 rounded-full border px-6 text-sm font-black transition focus:outline-none focus:ring-2 focus:ring-cyan-300 ${className}`}>{children}</Link>;
+  return <Link href={href} onClick={() => trackMetaCtaClick(trackingLabel, href)} className={`cinematic-press inline-flex min-h-13 items-center justify-center gap-2 rounded-full border px-6 text-sm font-black transition focus:outline-none focus:ring-2 focus:ring-cyan-300 ${className}`}>{children}</Link>;
 }
 
 function MiniOsPanel() {
@@ -241,8 +242,8 @@ export function CinematicHomepage({ content }: { content: SiteContent }) {
               HK Dijital; Meta reklamları, Google Ads, sosyal medya yönetimi, CRM, raporlama ve yapay zekâ destekli analizleri tek merkezde birleştirir.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <CinematicButton href="/teklif-al">Teklif Al <ArrowRight size={18} /></CinematicButton>
-              <CinematicButton href="/digital-center" variant="ghost">Demo Gör <MousePointerClick size={18} /></CinematicButton>
+              <CinematicButton href="/teklif-al" trackingLabel="Hero Teklif Al">Teklif Al <ArrowRight size={18} /></CinematicButton>
+              <CinematicButton href="/digital-center" variant="ghost" trackingLabel="Hero Demo Gör">Demo Gör <MousePointerClick size={18} /></CinematicButton>
             </div>
           </motion.div>
 
@@ -322,8 +323,8 @@ export function CinematicHomepage({ content }: { content: SiteContent }) {
             <h3 className="mt-5 text-2xl font-black text-white">Hızlı başlangıç</h3>
             <p className="mt-4 text-sm leading-7 text-slate-300">İsterseniz WhatsApp üzerinden doğrudan yazın, isterseniz teklif formunu açıp işletmenizin hedeflerini gönderin.</p>
             <div className="mt-7 flex flex-wrap gap-3">
-              <CinematicButton href={whatsappUrl}>WhatsApp ile Görüş</CinematicButton>
-              <CinematicButton href="/teklif-al" variant="ghost">Teklif Formunu Aç</CinematicButton>
+              <CinematicButton href={whatsappUrl} trackingLabel="Final WhatsApp ile Görüş">WhatsApp ile Görüş</CinematicButton>
+              <CinematicButton href="/teklif-al" variant="ghost" trackingLabel="Final Teklif Formunu Aç">Teklif Formunu Aç</CinematicButton>
             </div>
           </div>
           <ContactForm />

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Bot, LogIn, Menu, X } from "lucide-react";
 import { useState } from "react";
 import type { SiteContent } from "@/lib/types";
+import { trackMetaCtaClick } from "@/lib/meta-pixel";
 import { Logo } from "./Logo";
 
 const nav = [
@@ -36,10 +37,10 @@ export function Header({ content }: { content: SiteContent }) {
         </nav>
 
         <div className="hidden items-center gap-2 lg:flex">
-          <Link href="/teklif-al" className="impact-btn inline-flex min-h-11 items-center gap-2 rounded-full border border-cyan-200/40 bg-cyan-300 px-5 text-sm font-black text-slate-950 shadow-[0_0_42px_rgba(18,217,255,.38)] transition hover:-translate-y-0.5 hover:bg-cyan-200">
+          <Link href="/teklif-al" onClick={() => trackMetaCtaClick("Header Paket Öneri Robotu", "/teklif-al")} className="impact-btn inline-flex min-h-11 items-center gap-2 rounded-full border border-cyan-200/40 bg-cyan-300 px-5 text-sm font-black text-slate-950 shadow-[0_0_42px_rgba(18,217,255,.38)] transition hover:-translate-y-0.5 hover:bg-cyan-200">
             <Bot size={17} /> Paket Öneri Robotu
           </Link>
-          <Link href="/digital-center" className="impact-btn inline-flex min-h-11 items-center gap-2 rounded-full border border-yellow-200/40 bg-yellow-300 px-5 text-sm font-black text-slate-950 shadow-[0_0_32px_rgba(250,204,21,.24)] transition hover:-translate-y-0.5 hover:bg-yellow-200">
+          <Link href="/digital-center" onClick={() => trackMetaCtaClick("Header Digital Center", "/digital-center")} className="impact-btn inline-flex min-h-11 items-center gap-2 rounded-full border border-yellow-200/40 bg-yellow-300 px-5 text-sm font-black text-slate-950 shadow-[0_0_32px_rgba(250,204,21,.24)] transition hover:-translate-y-0.5 hover:bg-yellow-200">
             <LogIn size={17} /> Digital Center
           </Link>
         </div>
@@ -57,10 +58,10 @@ export function Header({ content }: { content: SiteContent }) {
                 {label}
               </Link>
             ))}
-            <Link href="/teklif-al" onClick={() => setOpen(false)} className="impact-btn rounded-2xl bg-cyan-300 px-4 py-3 text-base font-black text-slate-950 shadow-[0_0_32px_rgba(18,217,255,.28)]">
+            <Link href="/teklif-al" onClick={() => { trackMetaCtaClick("Mobil Paket Öneri Robotu", "/teklif-al"); setOpen(false); }} className="impact-btn rounded-2xl bg-cyan-300 px-4 py-3 text-base font-black text-slate-950 shadow-[0_0_32px_rgba(18,217,255,.28)]">
               <span className="inline-flex items-center gap-2"><Bot size={17} /> Paket Öneri Robotu</span>
             </Link>
-            <Link href="/digital-center" onClick={() => setOpen(false)} className="impact-btn rounded-2xl bg-yellow-300 px-4 py-3 text-base font-black text-slate-950">
+            <Link href="/digital-center" onClick={() => { trackMetaCtaClick("Mobil Digital Center", "/digital-center"); setOpen(false); }} className="impact-btn rounded-2xl bg-yellow-300 px-4 py-3 text-base font-black text-slate-950">
               <span className="inline-flex items-center gap-2"><LogIn size={17} /> Digital Center</span>
             </Link>
           </nav>

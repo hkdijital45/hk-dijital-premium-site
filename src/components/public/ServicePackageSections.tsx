@@ -25,7 +25,7 @@ export function ServiceGrid({ services }: { services: Service[] }) {
                 </div>
                 <h2 className="mt-5 text-xl font-black text-white">{service.name}</h2>
                 <p className="mt-3 text-sm leading-7 text-slate-300">{service.description}</p>
-                <Link href="/teklif-al" className="impact-link mt-5 inline-flex text-sm font-black text-cyan-200">
+                <Link href="/teklif-al" onClick={() => trackEvent("service_cta_clicked", { service: service.id, href: "/teklif-al" })} className="impact-link mt-5 inline-flex text-sm font-black text-cyan-200">
                   {service.cta}
                 </Link>
               </PremiumCard>
@@ -62,7 +62,7 @@ export function PackageCards({ packages }: { packages: PackageItem[] }) {
                   </li>
                 ))}
               </ul>
-              <Link href="/teklif-al" onClick={() => trackEvent("package_clicked", { package: item.id })} className="impact-btn mt-7 inline-flex min-h-12 w-full items-center justify-center rounded-full bg-white px-5 text-sm font-black text-slate-950 transition hover:bg-cyan-100">
+              <Link href="/teklif-al" onClick={() => trackEvent("package_clicked", { package: item.id, href: "/teklif-al" })} className="impact-btn mt-7 inline-flex min-h-12 w-full items-center justify-center rounded-full bg-white px-5 text-sm font-black text-slate-950 transition hover:bg-cyan-100">
                 {item.cta}
               </Link>
             </PremiumCard>
