@@ -2590,6 +2590,8 @@ function summarizeMetaRows(rows: any[] = []) {
 function metaCampaignSummaries(rows: any[] = []) {
   const grouped = rows.reduce((acc, row) => {
     const key = row.campaignId || row.meta_campaign_id || row.external_id || row.campaignName || row.campaign_name || "Meta Kampanya";
+    const rowStart = dateOnly(row.period_start || row.date_start || row.date || row.created_at || "");
+    const rowEnd = dateOnly(row.period_end || row.date_stop || row.date || row.updated_at || row.created_at || "");
     const current = acc[key] || {
       campaignId: key,
       campaignName: row.campaignName || row.campaign_name || row.name || key,
@@ -2602,7 +2604,11 @@ function metaCampaignSummaries(rows: any[] = []) {
       cpc: 0,
       cpm: 0,
       status: row.status || "Aktif",
-      date: row.date || row.date_start || row.created_at || ""
+      date: row.date || row.date_start || row.created_at || "",
+      periodStart: rowStart,
+      periodEnd: rowEnd,
+      dateRangeLabel: row.date_range_label || row.period || "",
+      lastDataDate: rowEnd || rowStart
     };
     current.spend += Number(row.spend || row.spent || 0);
     current.results += Number(row.results || row.leads || row.messages || 0);
@@ -2612,12 +2618,17 @@ function metaCampaignSummaries(rows: any[] = []) {
     current.ctr = current.impressions ? (current.clicks / current.impressions) * 100 : 0;
     current.cpc = current.clicks ? current.spend / current.clicks : 0;
     current.cpm = current.impressions ? (current.spend / current.impressions) * 1000 : 0;
+    current.periodStart = [current.periodStart, rowStart].filter(Boolean).sort()[0] || "";
+    current.periodEnd = [current.periodEnd, rowEnd].filter(Boolean).sort().slice(-1)[0] || "";
+    current.dateRangeLabel = current.dateRangeLabel || row.date_range_label || row.period || "";
+    current.lastDataDate = [current.lastDataDate, rowEnd || rowStart].filter(Boolean).sort().slice(-1)[0] || "";
     return { ...acc, [key]: current };
   }, {});
   return Object.values(grouped);
 }
 
 function metaRowsForRange(rows: any[] = [], rangePreset = "last_30d", dateFrom = "", dateTo = "") {
+  if (rangePreset === "all_time") return rows;
   const today = new Date();
   const end = dateTo || today.toISOString().slice(0, 10);
   const startDate = new Date(today);
@@ -2631,9 +2642,26 @@ function metaRowsForRange(rows: any[] = [], rangePreset = "last_30d", dateFrom =
     : startDate.toISOString().slice(0, 10);
   const until = rangePreset === "last_month" ? new Date(today.getFullYear(), today.getMonth(), 0).toISOString().slice(0, 10) : end;
   return rows.filter((row) => {
-    const rowDate = String(row.date || row.date_start || row.created_at || new Date().toISOString()).slice(0, 10);
+    const rowDate = String(row.period_end || row.date_stop || row.date || row.period_start || row.date_start || row.created_at || new Date().toISOString()).slice(0, 10);
     return rowDate >= start && rowDate <= until;
   });
+}
+
+function metaRangeLabel(rangePreset = "last_30d", dateFrom = "", dateTo = "", rows: any[] = []) {
+  if (rangePreset === "all_time") return "Tüm Tarihler";
+  if (rangePreset === "custom") return dateFrom && dateTo ? `${formatDate(dateFrom)} - ${formatDate(dateTo)}` : "Özel Tarih";
+  if (rangePreset === "last_7d") return "Son 7 Gün";
+  if (rangePreset === "this_month") return "Bu Ay";
+  if (rangePreset === "last_month") return "Geçen Ay";
+  const label = rows.find((row) => row.date_range_label)?.date_range_label;
+  return label || "Son 30 Gün";
+}
+
+function metaPeriodText(item: any) {
+  if (item?.periodStart && item?.periodEnd) return `${formatDate(item.periodStart)} - ${formatDate(item.periodEnd)}`;
+  if (item?.dateRangeLabel) return item.dateRangeLabel;
+  if (item?.lastDataDate || item?.date) return formatDate(item.lastDataDate || item.date);
+  return "Veri tarihi bilinmiyor";
 }
 
 function normalizeAdminRole(role: any) {
@@ -3975,7 +4003,7 @@ function MetaAdsConnectionCenter({ content, setContent, api, updateApi }: any) {
     });
     const data = await response.json().catch(() => ({}));
     if (data.ok) {
-      const metricRows = (data.rows || []).map((row, index) => ({ id: `meta-sync-${Date.now()}-${index}`, company_id: form.companyId, date: row.date, period: data.range?.label || "Meta Sync", source: "Meta API", visible_to_customer: true, ...row }));
+      const metricRows = (data.rows || []).map((row, index) => ({ id: `meta-sync-${Date.now()}-${index}`, company_id: form.companyId, date: row.date, period: data.range?.label || "Meta Sync", period_start: row.period_start || data.range?.since || row.date || "", period_end: row.period_end || data.range?.until || row.date || "", date_range_label: row.date_range_label || data.range?.label || "Meta Sync", source: "Meta API", visible_to_customer: true, ...row }));
       const summaries = metaCampaignSummaries(data.rows || []).map((item: any) => ({ id: `meta-campaign-${item.campaignId}`, company_id: form.companyId, meta_campaign_id: item.campaignId, name: item.campaignName, platform: "Meta Ads", objective: "Lead", status: item.status || "Aktif", spent_budget: item.spend, spent: item.spend, notes: "Meta API senkronizasyonundan oluşturuldu.", visible_to_customer: true, updated_at: new Date().toISOString() }));
       setContent({
         ...content,
@@ -4010,7 +4038,7 @@ function MetaAdsConnectionCenter({ content, setContent, api, updateApi }: any) {
         <CompanySelect value={form.companyId} onChange={(companyId) => setForm({ ...form, companyId })} companies={content.companies} />
         <Field label="Meta Business ID" value={form.businessId} onChange={(businessId) => setForm({ ...form, businessId })} />
         <Field label="Meta Ad Account ID" value={form.adAccountId} onChange={(adAccountId) => setForm({ ...form, adAccountId })} />
-        <SelectField label="Tarih aralığı" value={form.rangePreset} onChange={(rangePreset) => setForm({ ...form, rangePreset })} options={[{ value: "last_7d", label: "Son 7 Gün" }, { value: "last_30d", label: "Son 30 Gün" }, { value: "this_month", label: "Bu Ay" }, { value: "last_month", label: "Geçen Ay" }, { value: "custom", label: "Özel Tarih" }]} />
+        <SelectField label="Tarih aralığı" value={form.rangePreset} onChange={(rangePreset) => setForm({ ...form, rangePreset })} options={[{ value: "last_7d", label: "Son 7 Gün" }, { value: "last_30d", label: "Son 30 Gün" }, { value: "this_month", label: "Bu Ay" }, { value: "last_month", label: "Geçen Ay" }, { value: "custom", label: "Özel Tarih" }, { value: "all_time", label: "Tüm Tarihler" }]} />
         {form.rangePreset === "custom" ? <Field label="Başlangıç" type="date" value={form.dateFrom} onChange={(dateFrom) => setForm({ ...form, dateFrom })} /> : <InfoItem label="Özet" value={`${Number(totals.spend || 0).toLocaleString("tr-TR")} TL · ${Number(totals.clicks || 0).toLocaleString("tr-TR")} tıklama`} />}
         {form.rangePreset === "custom" && <Field label="Bitiş" type="date" value={form.dateTo} onChange={(dateTo) => setForm({ ...form, dateTo })} />}
       </div>
@@ -4551,6 +4579,7 @@ function CustomerMetaAccounts({ company, content, setContent, save, notify }: an
     form.dateFrom,
     form.dateTo
   );
+  const selectedMetaRangeLabel = metaRangeLabel(form.rangePreset, form.dateFrom, form.dateTo, metaMetricRows);
   const summaries = metaCampaignSummaries(metaMetricRows);
   const metaAdsets = (content.metaAdsetMetrics || []).filter((item: any) => item.company_id === company.id);
   const metaAds = (content.metaAdMetrics || []).filter((item: any) => item.company_id === company.id);
@@ -4739,8 +4768,21 @@ function CustomerMetaAccounts({ company, content, setContent, save, notify }: an
     const response = await fetch("/api/admin/meta-ads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, companyId: company.id, adAccountId: form.adAccountId, businessId: form.businessId, pageId: form.pageId, instagramAccountId: form.instagramAccountId, rangePreset: form.rangePreset, dateFrom: form.dateFrom, dateTo: form.dateTo, visibleToCustomer: true }) });
     const data = await response.json().catch(() => ({}));
     if (data.ok) {
-      const metricRows = (data.rows || []).map((row: any, index: number) => ({ id: `meta-profile-${company.id}-${Date.now()}-${index}`, company_id: company.id, date: row.date, period: data.range?.label || "Meta Sync", source: "Meta API", visible_to_customer: true, ...row }));
-      const nextLink = { ...linked, company_id: company.id, ad_account_id: form.adAccountId, business_id: form.businessId, page_id: form.pageId, instagram_account_id: form.instagramAccountId, account_name: form.adAccountId, status: data.mapping?.status || "Senkronize edildi", last_sync_at: data.mapping?.lastSyncAt || new Date().toISOString(), sync_status: data.mapping?.syncStatus || "Başarılı", sync_message: data.mapping?.syncMessage || data.message, sync_error: "" };
+      const rangeLabel = data.range?.label || selectedMetaRangeLabel || "Meta Sync";
+      const metricRows = (data.rows || []).map((row: any, index: number) => ({
+        id: `meta-profile-${company.id}-${Date.now()}-${index}`,
+        company_id: company.id,
+        date: row.date,
+        period: rangeLabel,
+        period_start: row.period_start || data.range?.since || row.date || "",
+        period_end: row.period_end || data.range?.until || row.date || "",
+        date_range_label: row.date_range_label || rangeLabel,
+        source: "Meta API",
+        visible_to_customer: true,
+        ...row
+      }));
+      const lastDataDate = metricRows.map((row: any) => row.period_end || row.date).filter(Boolean).sort().slice(-1)[0] || "";
+      const nextLink = { ...linked, company_id: company.id, ad_account_id: form.adAccountId, business_id: form.businessId, page_id: form.pageId, instagram_account_id: form.instagramAccountId, account_name: form.adAccountId, status: data.mapping?.status || "Senkronize edildi", last_sync_at: data.mapping?.lastSyncAt || new Date().toISOString(), sync_status: data.mapping?.syncStatus || "Başarılı", sync_message: data.warnings?.[0] || data.mapping?.syncMessage || data.message, sync_error: "", last_data_range_label: rangeLabel, last_data_date: lastDataDate, last_data_period_start: data.range?.since || "", last_data_period_end: data.range?.until || "" };
       const advanced = data.advanced || {};
       setRows(data.rows || []);
       setLinked(nextLink);
@@ -4891,7 +4933,10 @@ function CustomerMetaAccounts({ company, content, setContent, save, notify }: an
       campaign_name: selected.campaignName,
       campaignName: selected.campaignName,
       date: selected.date || now.slice(0, 10),
-      period: form.rangePreset === "custom" ? `${form.dateFrom || "-"} - ${form.dateTo || "-"}` : "Meta Kampanya Eşleştirme",
+      period: selected.dateRangeLabel || selected.date_range_label || selectedMetaRangeLabel || "Meta Kampanya Eşleştirme",
+      period_start: selected.periodStart || selected.period_start || (form.rangePreset === "custom" ? form.dateFrom : ""),
+      period_end: selected.periodEnd || selected.period_end || (form.rangePreset === "custom" ? form.dateTo : selected.date || now.slice(0, 10)),
+      date_range_label: selected.dateRangeLabel || selected.date_range_label || selectedMetaRangeLabel || "Meta Kampanya Eşleştirme",
       source: "Meta",
       impressions: Number(selected.impressions || 0),
       reach: Number(selected.reach || 0),
@@ -4936,10 +4981,12 @@ function CustomerMetaAccounts({ company, content, setContent, save, notify }: an
           </div>
           <span className="rounded-full border border-slate-200 px-3 py-2 text-xs text-slate-600">Durum: {linked.status || "Bağlı değil"}</span>
         </div>
-        <div className="mb-4 grid gap-3 rounded-[12px] border border-slate-200 bg-white p-3 text-xs md:grid-cols-4">
+        <div className="mb-4 grid gap-3 rounded-[12px] border border-slate-200 bg-white p-3 text-xs md:grid-cols-6">
           <InfoItem label="Token durumu" value={linked.sync_status === "Hata" ? "Kontrol gerekli" : "Sunucuda kayıtlı / maskeli"} />
           <InfoItem label="Meta Ads Account ID" value={form.adAccountId || "Eksik"} />
           <InfoItem label="Son senkronizasyon" value={formatDateTime(linked.last_sync_at)} />
+          <InfoItem label="Son çekilen veri aralığı" value={linked.last_data_range_label || selectedMetaRangeLabel || "Veri yok"} />
+          <InfoItem label="Son veri tarihi" value={linked.last_data_date ? formatDate(linked.last_data_date) : "Veri yok"} />
           <InfoItem label="Son hata mesajı" value={linked.sync_error || linked.sync_message || "Hata yok"} />
         </div>
         <div className="grid gap-4 xl:grid-cols-2">
@@ -4978,7 +5025,7 @@ function CustomerMetaAccounts({ company, content, setContent, save, notify }: an
           </div>
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <SelectField label="Veri aralığı" value={form.rangePreset} onChange={(rangePreset) => setForm({ ...form, rangePreset })} options={[{ value: "last_7d", label: "Son 7 Gün" }, { value: "last_30d", label: "Son 30 Gün" }, { value: "this_month", label: "Bu Ay" }, { value: "last_month", label: "Geçen Ay" }, { value: "custom", label: "Özel Tarih" }]} />
+          <SelectField label="Veri aralığı" value={form.rangePreset} onChange={(rangePreset) => setForm({ ...form, rangePreset })} options={[{ value: "last_7d", label: "Son 7 Gün" }, { value: "last_30d", label: "Son 30 Gün" }, { value: "this_month", label: "Bu Ay" }, { value: "last_month", label: "Geçen Ay" }, { value: "custom", label: "Özel Tarih" }, { value: "all_time", label: "Tüm Tarihler" }]} />
           {form.rangePreset === "custom" && <Field label="Başlangıç tarihi" type="date" value={form.dateFrom} onChange={(dateFrom) => setForm({ ...form, dateFrom })} />}
           {form.rangePreset === "custom" && <Field label="Bitiş tarihi" type="date" value={form.dateTo} onChange={(dateTo) => setForm({ ...form, dateTo })} />}
           <InfoItem label="Son Meta senkronizasyon" value={formatDateTime(linked.last_sync_at)} />
@@ -4989,6 +5036,7 @@ function CustomerMetaAccounts({ company, content, setContent, save, notify }: an
         </div>
         {message && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-700">{message}</p>}
       </div>
+      <p className="rounded-[12px] border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700">Seçili veri aralığı: {selectedMetaRangeLabel}</p>
       <div className="grid gap-3 md:grid-cols-5">
         <AgencyStatCard label="Toplam Harcama" value={`${Number(totals.spend || 0).toLocaleString("tr-TR")} TL`} note="Seçili senkron verisi" />
         <AgencyStatCard label="Toplam Erişim" value={Number(totals.reach || 0).toLocaleString("tr-TR")} note="Meta erişim" />
@@ -5000,7 +5048,7 @@ function CustomerMetaAccounts({ company, content, setContent, save, notify }: an
         <h3 className="font-black text-slate-900">Meta Kampanyaları</h3>
         <div className="mt-4 grid gap-3">
           {summaries.map((item: any) => <div key={item.campaignId} className="grid gap-3 rounded-[10px] border border-slate-200 p-3 md:grid-cols-[1fr_.5fr_.5fr_.5fr_.5fr_auto] md:items-center">
-            <span><strong className="block text-slate-900">{item.campaignName}</strong><small className="text-slate-400">{item.status}</small><small className="mt-1 block text-slate-500">Meta Campaign ID: {item.campaignId}</small><small className="mt-1 block font-bold text-slate-600">{matchedCampaignFor(item) ? `Eşleşen kampanya: ${matchedCampaignFor(item)?.name || "İsimsiz kampanya"}` : "Yerel kampanya eşleşmedi."}</small></span>
+            <span><strong className="block text-slate-900">{item.campaignName}</strong><small className="text-slate-500">{item.status}</small><small className="mt-1 block text-slate-500">Meta Campaign ID: {item.campaignId}</small><small className="mt-1 block text-slate-500">Veri Aralığı: {item.dateRangeLabel || selectedMetaRangeLabel}</small><small className="mt-1 block text-slate-500">{item.periodStart && item.periodEnd ? `Veri dönemi: ${metaPeriodText(item)}` : item.lastDataDate ? `Veri tarihi: ${formatDate(item.lastDataDate)}` : "Veri tarihi bilinmiyor"}</small><small className="mt-1 block text-slate-500">Son veri tarihi: {item.lastDataDate ? formatDate(item.lastDataDate) : "Veri tarihi bilinmiyor"}</small><small className="mt-1 block font-bold text-slate-600">{matchedCampaignFor(item) ? `Eşleşen kampanya: ${matchedCampaignFor(item)?.name || "İsimsiz kampanya"}` : "Yerel kampanya eşleşmedi."}</small></span>
             <span className="text-sm text-slate-600">{Number(item.spend || 0).toLocaleString("tr-TR")} TL</span>
             <span className="text-sm text-slate-600">{Number(item.results || 0).toLocaleString("tr-TR")} sonuç</span>
             <span className="text-sm text-slate-600">{Number(item.ctr || 0).toFixed(2)}% CTR</span>

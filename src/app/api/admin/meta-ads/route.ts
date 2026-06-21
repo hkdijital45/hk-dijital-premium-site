@@ -19,6 +19,10 @@ function dateRangeForPreset(preset = "last_30d", from = "", to = "") {
   const today = new Date();
   const end = today.toISOString().slice(0, 10);
   const start = new Date(today);
+  if (preset === "all_time") {
+    start.setDate(today.getDate() - 365);
+    return { since: start.toISOString().slice(0, 10), until: end, label: "Tüm Tarihler", datePreset: "maximum", isAllTime: true };
+  }
   if (preset === "last_7d") start.setDate(today.getDate() - 7);
   else if (preset === "this_month") start.setDate(1);
   else if (preset === "last_month") {
@@ -27,6 +31,20 @@ function dateRangeForPreset(preset = "last_30d", from = "", to = "") {
     return { since: start.toISOString().slice(0, 10), until: lastMonthEnd, label: "Geçen Ay" };
   } else start.setDate(today.getDate() - 30);
   return { since: start.toISOString().slice(0, 10), until: end, label: preset === "last_7d" ? "Son 7 Gün" : preset === "this_month" ? "Bu Ay" : "Son 30 Gün" };
+}
+
+function metaRangeParams(range: any) {
+  if (range?.datePreset) return { date_preset: String(range.datePreset) };
+  return { time_range: JSON.stringify({ since: range.since, until: range.until }) };
+}
+
+function withMetricPeriod(row: any, range: any) {
+  return {
+    ...row,
+    period_start: row.period_start || range?.since || row.date_start || row.date || null,
+    period_end: row.period_end || range?.until || row.date_stop || row.date || null,
+    date_range_label: row.date_range_label || range?.label || ""
+  };
 }
 
 async function staff() {
@@ -210,15 +228,20 @@ function sumInsights(rows: any[]) {
 async function pullMetaData(input: any, token: string) {
   const adAccount = String(input.adAccountId || "").replace(/^act_/, "");
   if (!adAccount) return { ok: false, errorMessage: "Hesap bulunamadı", rows: [], campaigns: [] };
-  const range = dateRangeForPreset(input.rangePreset || "last_30d", input.dateFrom, input.dateTo);
-  const timeRange = JSON.stringify({ since: range.since, until: range.until });
+  let range = dateRangeForPreset(input.rangePreset || "last_30d", input.dateFrom, input.dateTo);
+  const warnings: string[] = [];
   const fields = "campaign_id,campaign_name,impressions,reach,clicks,inline_link_clicks,spend,ctr,cpc,cpm,actions,action_values,date_start,date_stop";
-  const insights = await graphGet(`act_${adAccount}/insights`, token, { fields, level: "campaign", time_increment: "1", time_range: timeRange, limit: "200" });
+  let insights = await graphGet(`act_${adAccount}/insights`, token, { fields, level: "campaign", time_increment: "1", ...metaRangeParams(range), limit: "200" });
+  if (!insights.ok && range.isAllTime) {
+    range = { ...dateRangeForPreset("last_30d"), since: range.since, until: range.until, label: "Tüm Tarihler", fallbackUsed: true };
+    warnings.push("Meta tüm tarih aralığını desteklemediği için son 365 gün çekildi.");
+    insights = await graphGet(`act_${adAccount}/insights`, token, { fields, level: "campaign", time_increment: "1", ...metaRangeParams(range), limit: "200" });
+  }
   if (!insights.ok) return { ok: false, errorMessage: insights.error?.errorMessage || "Meta verisi alınamadı.", error: insights.error, rows: [], campaigns: [] };
-  const rows = (insights.data?.data || []).map(normalizeInsight);
+  const rows = (insights.data?.data || []).map((row: any) => withMetricPeriod(normalizeInsight(row), range));
   const campaignStatus = await graphGet(`act_${adAccount}/campaigns`, token, { fields: "id,name,status,effective_status,objective,start_time,stop_time,created_time,updated_time,daily_budget,lifetime_budget", limit: "100" });
   const campaigns = campaignStatus.ok ? (campaignStatus.data?.data || []) : [];
-  return { ok: true, rows, campaigns, metrics: sumInsights(rows), range, responseTimeMs: insights.responseTimeMs };
+  return { ok: true, rows, campaigns, metrics: sumInsights(rows), range, warnings, responseTimeMs: insights.responseTimeMs };
 }
 
 async function safeGraph(path: string, token: string, params: Record<string, string>, warnings: string[], label: string) {
@@ -234,21 +257,21 @@ async function pullAdvancedMetaData(input: any, token: string, base: any) {
   const adAccount = String(input.adAccountId || "").replace(/^act_/, "");
   const warnings: string[] = [];
   const range = base.range || dateRangeForPreset(input.rangePreset || "last_30d", input.dateFrom, input.dateTo);
-  const timeRange = JSON.stringify({ since: range.since, until: range.until });
+  const rangeParams = metaRangeParams(range);
   const insightFields = "campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,impressions,reach,clicks,inline_link_clicks,spend,ctr,cpc,cpm,actions,action_values,date_start,date_stop";
   const [adsetInsights, adInsights] = await Promise.all([
-    safeGraph(`act_${adAccount}/insights`, token, { fields: insightFields, level: "adset", time_range: timeRange, limit: "200" }, warnings, "Reklam seti verileri"),
-    safeGraph(`act_${adAccount}/insights`, token, { fields: insightFields, level: "ad", time_range: timeRange, limit: "100" }, warnings, "Reklam verileri")
+    safeGraph(`act_${adAccount}/insights`, token, { fields: insightFields, level: "adset", ...rangeParams, limit: "200" }, warnings, "Reklam seti verileri"),
+    safeGraph(`act_${adAccount}/insights`, token, { fields: insightFields, level: "ad", ...rangeParams, limit: "100" }, warnings, "Reklam verileri")
   ]);
   const [adsets, ads] = await Promise.all([
     safeGraph(`act_${adAccount}/adsets`, token, { fields: "id,name,campaign_id,status,effective_status,start_time,end_time,daily_budget,lifetime_budget,optimization_goal,targeting,updated_time,created_time", limit: "200" }, warnings, "Reklam seti yaşam döngüsü"),
     safeGraph(`act_${adAccount}/ads`, token, { fields: "id,name,campaign_id,adset_id,status,effective_status,created_time,updated_time,creative{id,thumbnail_url,image_url,object_story_spec,body,title,description}", limit: "100" }, warnings, "Kreatif verileri")
   ]);
   const [ageBreakdown, genderBreakdown, placementBreakdown, locationBreakdown] = await Promise.all([
-    safeGraph(`act_${adAccount}/insights`, token, { fields: insightFields, level: "adset", breakdowns: "age", time_range: timeRange, limit: "200" }, warnings, "Yaş kırılımı"),
-    safeGraph(`act_${adAccount}/insights`, token, { fields: insightFields, level: "adset", breakdowns: "gender", time_range: timeRange, limit: "200" }, warnings, "Cinsiyet kırılımı"),
-    safeGraph(`act_${adAccount}/insights`, token, { fields: insightFields, level: "adset", breakdowns: "publisher_platform,platform_position", time_range: timeRange, limit: "200" }, warnings, "Placement kırılımı"),
-    safeGraph(`act_${adAccount}/insights`, token, { fields: insightFields, level: "adset", breakdowns: "region", time_range: timeRange, limit: "200" }, warnings, "Şehir/bölge kırılımı")
+    safeGraph(`act_${adAccount}/insights`, token, { fields: insightFields, level: "adset", breakdowns: "age", ...rangeParams, limit: "200" }, warnings, "Yaş kırılımı"),
+    safeGraph(`act_${adAccount}/insights`, token, { fields: insightFields, level: "adset", breakdowns: "gender", ...rangeParams, limit: "200" }, warnings, "Cinsiyet kırılımı"),
+    safeGraph(`act_${adAccount}/insights`, token, { fields: insightFields, level: "adset", breakdowns: "publisher_platform,platform_position", ...rangeParams, limit: "200" }, warnings, "Placement kırılımı"),
+    safeGraph(`act_${adAccount}/insights`, token, { fields: insightFields, level: "adset", breakdowns: "region", ...rangeParams, limit: "200" }, warnings, "Şehir/bölge kırılımı")
   ]);
   const adsetMap = new Map(adsets.map((item: any) => [item.id, item]));
   const adMap = new Map(ads.map((item: any) => [item.id, item]));
@@ -263,6 +286,9 @@ async function pullAdvancedMetaData(input: any, token: string, base: any) {
       meta_adset_id: row.adset_id,
       adset_name: row.adset_name || lifecycle.name,
       date: row.date_start || range.until,
+      period_start: range.since,
+      period_end: range.until,
+      date_range_label: range.label,
       spend: Number(row.spend || 0),
       impressions: Number(row.impressions || 0),
       reach: Number(row.reach || 0),
@@ -301,6 +327,9 @@ async function pullAdvancedMetaData(input: any, token: string, base: any) {
       ad_name: row.ad_name || lifecycle.name,
       ...creative,
       date: row.date_start || range.until,
+      period_start: range.since,
+      period_end: range.until,
+      date_range_label: range.label,
       spend: Number(row.spend || 0),
       impressions: Number(row.impressions || 0),
       reach: Number(row.reach || 0),
@@ -378,6 +407,7 @@ async function saveReportFromMeta(input: any, pulled: any) {
   if (!hasSupabaseConfig() || !input.companyId) return null;
   const period = pulled.range?.label || "Meta Sync";
   const fallback = [
+    `Rapor veri aralığı: ${period}.`,
     "Meta reklam verileri otomatik olarak incelendi.",
     `Toplam harcama ${Number(pulled.metrics?.spend || 0).toLocaleString("tr-TR")} TL, erişim ${Number(pulled.metrics?.reach || 0).toLocaleString("tr-TR")} ve tıklama ${Number(pulled.metrics?.clicks || 0).toLocaleString("tr-TR")} seviyesinde.`,
     "Güçlü kampanyalar daha fazla bütçe testiyle, zayıf kampanyalar ise kreatif ve hedef kitle revizyonuyla takip edilmelidir.",
@@ -398,7 +428,7 @@ async function saveReportFromMeta(input: any, pulled: any) {
       end_date: pulled.range?.until,
       metrics: pulled.metrics || {},
       time_series: pulled.rows || [],
-      raw_extracted_data: { source: "Meta Graph API", adAccountId: input.adAccountId, campaigns: pulled.campaigns || [], ai },
+      raw_extracted_data: { source: "Meta Graph API", adAccountId: input.adAccountId, campaigns: pulled.campaigns || [], range: pulled.range || null, ai },
       customer_note: ai.text,
       visible_to_customer: Boolean(input.visibleToCustomer)
     })
@@ -454,8 +484,11 @@ async function saveMetaMetrics(input: any, pulled: any) {
     meta_campaign_id: row.campaignId || null,
     campaign_name: row.campaignName || null,
     source: "Meta API",
-    date: row.date || new Date().toISOString().slice(0, 10),
-    period: pulled.range?.label || "Meta Sync",
+      date: row.date || new Date().toISOString().slice(0, 10),
+      period: pulled.range?.label || "Meta Sync",
+      period_start: row.period_start || pulled.range?.since || row.date || null,
+      period_end: row.period_end || pulled.range?.until || row.date || null,
+      date_range_label: row.date_range_label || pulled.range?.label || "Meta Sync",
     impressions: Number(row.impressions || 0),
     reach: Number(row.reach || 0),
     clicks: Number(row.clicks || 0),
@@ -476,7 +509,7 @@ async function saveMetaMetrics(input: any, pulled: any) {
     cost_per_lead: Number(row.cost_per_lead || 0),
     cost_per_purchase: Number(row.cost_per_purchase || 0),
     visible_to_customer: Boolean(input.visibleToCustomer),
-    raw_data: row
+      raw_data: { ...row, date_range: pulled.range || null }
   }));
   return supabaseRest<any[]>("campaign_metrics", {
     method: "POST",
@@ -674,7 +707,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, message: schemaMessage, detail: safe.detail, errorCode: "META_SYNC_SCHEMA_ERROR" }, { status: 200 });
     }
     const report = action === "report" || body.createReport ? await saveReportFromMeta(input, pulled) : null;
-    const hasAdvancedWarnings = Boolean(advancedSaved.warnings?.length);
+    const allWarnings = [...(pulled.warnings || []), ...(advancedSaved.warnings || [])];
+    const hasAdvancedWarnings = Boolean(allWarnings.length);
     const successMessage = action === "report" ? "Meta verilerinden rapor oluşturuldu." : hasAdvancedWarnings ? "Meta verileri çekildi; bazı ileri seviye veri gruplarında uyarı var." : "Meta verileri başarıyla çekildi.";
     const mappingRow = await updateMappingSyncState(input, hasAdvancedWarnings ? "Uyarı" : "Başarılı", successMessage);
     await writeSyncLog(input, hasAdvancedWarnings ? "Uyarı" : "Başarılı", successMessage, {
@@ -683,7 +717,7 @@ export async function POST(request: Request) {
       adsets: advancedSaved.adsets?.length || 0,
       ads: advancedSaved.ads?.length || 0,
       conversions: advancedSaved.conversions?.length || 0,
-      warnings: advancedSaved.warnings || [],
+      warnings: allWarnings,
       adAccountId: input.adAccountId
     });
     return NextResponse.json({
@@ -698,9 +732,9 @@ export async function POST(request: Request) {
         ads: advancedSaved.ads || [],
         conversions: advancedSaved.conversions || [],
         analysis: advancedSaved.analysis,
-        warnings: advancedSaved.warnings || []
+        warnings: allWarnings
       },
-      warnings: advancedSaved.warnings || [],
+      warnings: allWarnings,
       mapping: safeMappingForClient(mappingRow),
       report,
       range: pulled.range,
