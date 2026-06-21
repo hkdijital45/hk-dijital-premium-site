@@ -1739,3 +1739,50 @@ html {
     width: auto;
   }
 }
+
+.customer-portal {
+  color-scheme: light;
+}
+
+.customer-portal .glass-card {
+  overflow: hidden;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 22px !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, .06) !important;
+  backdrop-filter: none !important;
+}
+
+.customer-portal .glass-card::before {
+  display: none !important;
+}
+
+.customer-portal [class*="bg-black/"],
+.customer-portal [class*="bg-white/["],
+.customer-portal [class*="border-white/"] {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+.customer-portal [class*="text-white"],
+.customer-portal [class*="text-slate-100"],
+.customer-portal [class*="text-slate-200"] {
+  color: #0f172a !important;
+}
+
+.customer-portal [class*="text-slate-300"],
+.customer-portal [class*="text-slate-400"],
+.customer-portal [class*="text-cyan-50"],
+.customer-portal [class*="text-cyan-100"] {
+  color: #334155 !important;
+}
+
+.customer-portal [class*="text-slate-500"] {
+  color: #64748b !important;
+}
+
+.customer-portal .metric-card-3d,
+.customer-portal .metric-card-3d * {
+  color: #0f172a !important;
+}

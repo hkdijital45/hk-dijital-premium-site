@@ -78,61 +78,91 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
   const activeCampaigns = data.campaigns.filter((item) => item.status === "Aktif");
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#050711] text-white">
-      <div className="premium-grid pointer-events-none absolute inset-0 opacity-45" />
-      <header className="relative border-b border-white/10 bg-[#050711]/90 px-4 py-5 shadow-[0_16px_48px_rgba(0,0,0,.2)] backdrop-blur-2xl">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4">
+    <main className="customer-portal relative min-h-screen overflow-hidden bg-[#f7f8fb] text-slate-950">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-[radial-gradient(circle_at_20%_20%,rgba(34,211,238,.18),transparent_32%),radial-gradient(circle_at_78%_10%,rgba(250,204,21,.14),transparent_28%)]" />
+      <header className="relative border-b border-slate-200 bg-white/90 px-4 py-5 shadow-[0_8px_30px_rgba(15,23,42,.06)] backdrop-blur-xl">
+        <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             {branding.logo_url ? <Image src={branding.logo_url} alt={`${portalName} logosu`} width={170} height={48} unoptimized className="h-12 max-w-[170px] rounded-[8px] object-contain" /> : <Logo content={siteContent} compact />}
             <div>
-            <p className="text-sm font-bold uppercase tracking-[.22em] text-cyan-200">Müşteri Performans Merkezi</p>
+            <p className="text-sm font-bold uppercase tracking-[.22em] text-cyan-700">Müşteri Performans Merkezi</p>
             <h1 className="mt-2 text-3xl font-black">{portalTitle}</h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">{welcomeText}</p>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">{welcomeText}</p>
             </div>
           </div>
           <form action="/api/auth/logout" method="post">
-            <button className="rounded-full border border-white/10 px-5 py-3 text-sm font-bold">Çıkış Yap</button>
+            <button className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 shadow-sm transition hover:border-cyan-200 hover:text-cyan-700">Çıkış Yap</button>
           </form>
         </div>
       </header>
 
-      <div className="relative mx-auto max-w-7xl px-4 py-8">
+      <div className="relative mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
         {!hasSupabaseConfig() && (
-          <div className="mb-6 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-4 text-sm text-amber-100">
+          <div className="mb-6 rounded-[14px] border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
             Panel verileri şu anda yüklenemiyor. Lütfen kısa süre sonra yeniden deneyin veya HK Dijital ile iletişime geçin.
           </div>
         )}
 
         {!hasCompany && (
-          <div className="mb-6 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-4 text-sm leading-6 text-amber-100">
+          <div className="mb-6 rounded-[14px] border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
             Hesabınıza henüz bir firma atanmamış. Müşteri paneli verilerinin görünmesi için HK Dijital Kontrol Merkezi üzerinden firma ataması yapılmalıdır.
           </div>
         )}
 
         {isAdminPreview && (
-          <div className="mb-6 rounded-[8px] border border-cyan-200/30 bg-cyan-200/10 p-4 text-sm text-cyan-100">
+          <div className="mb-6 rounded-[14px] border border-cyan-200 bg-cyan-50 p-4 text-sm text-cyan-800">
             Yönetici önizlemesi: Bu ekran seçilen müşterinin göreceği bilgilerle hazırlanmıştır.
           </div>
         )}
 
-        <nav className="mb-6 flex flex-wrap gap-2 rounded-[8px] border border-white/10 bg-white/[0.04] p-3 text-sm font-bold">
-          {visibility.show_metrics && <a href="#performans" className="rounded-full border border-cyan-200/20 px-4 py-2 text-cyan-100 hover:bg-cyan-200/10">Performans</a>}
-          {data.reports.length > 0 || data.monthlyReports.length > 0 ? <a href="#raporlar" className="rounded-full border border-cyan-200/20 px-4 py-2 text-cyan-100 hover:bg-cyan-200/10">Raporlar</a> : null}
-          {data.campaigns.length > 0 ? <a href="#kampanyalar" className="rounded-full border border-cyan-200/20 px-4 py-2 text-cyan-100 hover:bg-cyan-200/10">Kampanyalar</a> : null}
-          {visibility.show_work_updates && <a href="#notlar" className="rounded-full border border-cyan-200/20 px-4 py-2 text-cyan-100 hover:bg-cyan-200/10">Notlar</a>}
-          {(visibility.show_files || data.documents.length > 0) && <a href="#belgeler" className="rounded-full border border-cyan-200/20 px-4 py-2 text-cyan-100 hover:bg-cyan-200/10">Belgeler</a>}
-          {data.payments.length > 0 && <a href="#odemeler" className="rounded-full border border-amber-200/20 px-4 py-2 text-amber-100 hover:bg-amber-200/10">Ödemeler</a>}
+        <nav className="mb-6 flex flex-wrap gap-2 rounded-[18px] border border-slate-200 bg-white p-3 text-sm font-bold shadow-[0_8px_30px_rgba(15,23,42,.05)]">
+          {visibility.show_metrics && <a href="#performans" className="rounded-full border border-cyan-200 bg-cyan-50 px-4 py-2 text-cyan-800 hover:bg-cyan-100">Performans</a>}
+          {data.reports.length > 0 || data.monthlyReports.length > 0 ? <a href="#raporlar" className="rounded-full border border-slate-200 px-4 py-2 text-slate-700 hover:border-cyan-200 hover:bg-cyan-50">Raporlar</a> : null}
+          {data.campaigns.length > 0 ? <a href="#kampanyalar" className="rounded-full border border-slate-200 px-4 py-2 text-slate-700 hover:border-cyan-200 hover:bg-cyan-50">Kampanyalar</a> : null}
+          {visibility.show_work_updates && <a href="#notlar" className="rounded-full border border-slate-200 px-4 py-2 text-slate-700 hover:border-cyan-200 hover:bg-cyan-50">Notlar</a>}
+          {(visibility.show_files || data.documents.length > 0) && <a href="#belgeler" className="rounded-full border border-slate-200 px-4 py-2 text-slate-700 hover:border-cyan-200 hover:bg-cyan-50">Belgeler</a>}
+          {data.payments.length > 0 && <a href="#odemeler" className="rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-amber-800 hover:bg-amber-100">Ödemeler</a>}
         </nav>
 
         <section className="glass-card mb-8 overflow-hidden p-6 sm:p-7">
-          <div className="grid gap-6 lg:grid-cols-[1fr_360px] lg:items-center">
+          <div className="grid gap-6 xl:grid-cols-[1fr_420px] xl:items-center">
             <div>
-              <p className="text-xs font-black uppercase tracking-[.18em] text-cyan-100">Hoş geldiniz</p>
+              <p className="text-xs font-black uppercase tracking-[.18em] text-cyan-700">Hoş geldiniz</p>
               <h2 className="mt-3 text-3xl font-black">{portalTitle}</h2>
-              <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300">{welcomeText}</p>
-              <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-4 py-2 text-xs font-black text-emerald-100"><Sparkles size={15} /> {data.campaigns[0]?.status || "Raporlama hazırlanıyor"}</div>
+              <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">{welcomeText}</p>
+              <div className="mt-5 flex flex-wrap gap-2">
+                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-black text-emerald-800"><Sparkles size={15} /> {data.campaigns[0]?.status || "Raporlama hazırlanıyor"}</div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-black text-slate-700">Son güncelleme: {latestUpdate?.created_at ? new Date(latestUpdate.created_at).toLocaleDateString("tr-TR") : "Henüz yok"}</div>
+              </div>
             </div>
             <AnimatedChart label="Son dönem performans eğilimi" values={[24, 29, 41, 38, 54, 61, 72, 79]} />
+          </div>
+        </section>
+
+        <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+          <div className="rounded-[18px] border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.05)]">
+            <p className="text-xs font-black uppercase tracking-[.14em] text-slate-500">Müşteri</p>
+            <p className="mt-3 text-lg font-black text-slate-950">{data.company?.name || "Şirket ataması bekleniyor"}</p>
+          </div>
+          <div className="rounded-[18px] border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.05)]">
+            <p className="text-xs font-black uppercase tracking-[.14em] text-slate-500">Aktif hizmet</p>
+            <p className="mt-3 text-lg font-black text-slate-950">{data.company?.sector || activeCampaigns[0]?.objective || "Dijital büyüme"}</p>
+          </div>
+          <div className="rounded-[18px] border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.05)]">
+            <p className="text-xs font-black uppercase tracking-[.14em] text-slate-500">Son rapor</p>
+            <p className="mt-3 text-lg font-black text-slate-950">{data.reports[0]?.created_at ? new Date(data.reports[0].created_at).toLocaleDateString("tr-TR") : "Henüz yok"}</p>
+          </div>
+          <div className="rounded-[18px] border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.05)]">
+            <p className="text-xs font-black uppercase tracking-[.14em] text-slate-500">Kampanya durumu</p>
+            <p className="mt-3 text-lg font-black text-slate-950">{activeCampaigns[0]?.status || data.campaigns[0]?.status || "Hazırlanıyor"}</p>
+          </div>
+          <div className="rounded-[18px] border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.05)]">
+            <p className="text-xs font-black uppercase tracking-[.14em] text-slate-500">Reklam sağlık skoru</p>
+            <p className="mt-3 text-lg font-black text-emerald-700">{totals.impressions || totals.clicks ? "İyi" : "Veri bekleniyor"}</p>
+          </div>
+          <div className="rounded-[18px] border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.05)]">
+            <p className="text-xs font-black uppercase tracking-[.14em] text-slate-500">Son güncelleme</p>
+            <p className="mt-3 text-lg font-black text-slate-950">{latestUpdate?.created_at ? new Date(latestUpdate.created_at).toLocaleDateString("tr-TR") : "Henüz yok"}</p>
           </div>
         </section>
 

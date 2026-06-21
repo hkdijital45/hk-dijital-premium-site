@@ -13,5 +13,6 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const bundle = await getReportBundle(id);
   const file = await generateReportExport(format, bundle.report, bundle.company, bundle.interpretation, bundle.updates);
   await recordActivity({ session, action: "Dışa Aktarma", entity: "Rapor", entityId: id, companyId: bundle.report.company_id, details: { message: "Yönetici raporu dışa aktardı", format } });
-  return new NextResponse(file.buffer, { headers: { "Content-Type": file.contentType, "Content-Disposition": `attachment; filename="hk-dijital-rapor.${file.extension}"` } });
+  const fileName = `hk-dijital-rapor.${file.extension}`;
+  return new NextResponse(file.buffer, { headers: { "Content-Type": file.contentType, "Content-Disposition": `attachment; filename="${fileName}"; filename*=UTF-8''${encodeURIComponent(fileName)}` } });
 }

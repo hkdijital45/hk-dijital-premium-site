@@ -39,6 +39,14 @@ const pageTitles = [
   "Closing"
 ];
 
+function turkishText(value: unknown) {
+  return String(value || "").normalize("NFC").replace(/\u0000/g, "");
+}
+
+function escapeHtml(value: unknown) {
+  return turkishText(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+}
+
 function safeText(value: unknown) {
   return String(value || "")
     .replace(/İ/g, "I")
@@ -128,6 +136,35 @@ export function auditPdfFilename(payload: PdfAuditPayload) {
 }
 
 export async function generateMiniAuditPdf(payload: PdfAuditPayload) {
+  try {
+    const { chromium } = await import("playwright");
+    const ai = payload.ai || payload.outputs?.find((item) => item.ai)?.ai || {};
+    const businessName = turkishText(payload.businessName || "İşletme");
+    const html = `<!doctype html><html lang="tr"><head><meta charset="utf-8" /><style>
+      @page { size: A4; margin: 18mm; }
+      body { margin:0; background:#f8fafc; color:#0f172a; font-family: Inter, Arial, Helvetica, sans-serif; font-size:13px; line-height:1.55; }
+      main { background:#fff; border:1px solid #e2e8f0; border-radius:18px; padding:28px; }
+      h1 { font-size:30px; margin:8px 0 12px; }
+      h2 { margin:22px 0 8px; color:#075985; border-top:1px solid #e2e8f0; padding-top:14px; }
+      p { white-space:pre-wrap; overflow-wrap:anywhere; }
+      .brand { color:#0891b2; font-weight:900; letter-spacing:.14em; text-transform:uppercase; }
+    </style></head><body><main>
+      <p class="brand">HK Dijital</p>
+      <h1>${escapeHtml(businessName)} Mini Audit Raporu</h1>
+      <p>Tarih: ${escapeHtml(payload.date || new Date().toISOString().slice(0, 10))}</p>
+      <p>Lead Skoru: ${escapeHtml(payload.leadScore?.score != null ? `${payload.leadScore.score}/100 ${payload.leadScore.temperature || ""}` : "-")}</p>
+      <p>Kullanılan AI Sağlayıcısı: ${escapeHtml(ai.provider || "-")} · Model: ${escapeHtml(ai.model || "-")} · Mod: ${escapeHtml(ai.mode || "-")}</p>
+      ${pageTitles.map((title) => `<h2>${escapeHtml(title)}</h2><p>${escapeHtml(sectionText(payload, title))}</p>`).join("")}
+    </main></body></html>`;
+    const browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage({ locale: "tr-TR" });
+    await page.setContent(html, { waitUntil: "load" });
+    const pdf = await page.pdf({ format: "A4", printBackground: true, preferCSSPageSize: true });
+    await browser.close();
+    return Buffer.from(pdf);
+  } catch {
+    // Fallback keeps the existing lightweight pdf-lib path if a browser binary is unavailable.
+  }
   const pdfDoc = await PDFDocument.create();
   const regular = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);

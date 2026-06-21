@@ -20,6 +20,7 @@ function demoInterpretation(report: any) {
 function systemPrompt(report: any) {
   const { internal_note: _internalNote, raw_extracted_data: _rawExtractedData, ...customerSafeReport } = report;
   return `HK Dijital müşterisi için aşağıdaki raporu sade Türkçe ile yorumla.
+Yanıtı tamamen Türkçe ver. Teknik terim kullanırsan parantez içinde kısa açıklamasını yaz.
 Teknik kavramları kısa ve anlaşılır biçimde açıkla. Satış garantisi verme.
 Aşağıdaki başlıkları kısa ve müşteri dostu biçimde kullan:
 - Ne oldu?

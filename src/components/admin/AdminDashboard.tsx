@@ -1326,7 +1326,12 @@ const systemChecklistDefaults = [
   { itemKey: "mediaLibrary", title: "📁 Medya Kütüphanesi", category: "Medya", description: "Medya, belge ve dosya kayıtlarının yönetilebilir olduğunu doğrular." },
   { itemKey: "metaDataSync", title: "📈 Meta Veri Senkronizasyonu", category: "Meta", description: "Meta verilerinin çekilip kampanya metriklerine aktarılabildiğini kontrol eder." },
   { itemKey: "googleDataSync", title: "📉 Google Veri Senkronizasyonu", category: "Google", description: "Google reklam/veri senkronizasyonu için gerekli ayarların hazır olduğunu kontrol eder." },
-  { itemKey: "formsLeads", title: "📨 Form ve Lead Sistemi", category: "Lead", description: "Form başvuruları, lead kayıtları ve takip akışlarının çalıştığını doğrular." }
+  { itemKey: "formsLeads", title: "📨 Form ve Lead Sistemi", category: "Lead", description: "Form başvuruları, lead kayıtları ve takip akışlarının çalıştığını doğrular." },
+  { itemKey: "pdfTurkishExport", title: "🖨️ PDF Türkçe Karakter Testi", category: "Raporlama", description: "PDF çıktılarında İşletme, müşteri, gösterim, tıklama ve öneri gibi Türkçe metinlerin doğru göründüğünü kontrol eder." },
+  { itemKey: "wordTurkishExport", title: "📄 Word Türkçe Karakter Testi", category: "Raporlama", description: "Word çıktılarında AI yorumları, rapor notları ve müşteri adlarının Türkçe karakterlerle bozulmadan açıldığını doğrular." },
+  { itemKey: "excelTurkishExport", title: "📊 Excel Türkçe Karakter Testi", category: "Raporlama", description: "Excel başlık ve hücrelerinde Müşteri, Kampanya, Harcama, Gösterim, Dönüşüm ve Açıklama alanlarının doğru yazıldığını kontrol eder." },
+  { itemKey: "customerPanelVisibility", title: "👁️ Müşteri Paneli Görünürlük Testi", category: "Müşteri Paneli", description: "Müşteri panelinde yalnızca müşteriye görünür rapor, kampanya, ödeme, belge ve notların listelendiğini doğrular." },
+  { itemKey: "customerPanelExport", title: "⬇️ Müşteri Paneli Export Testi", category: "Müşteri Paneli", description: "Müşteri panelinden PDF, Word ve Excel indirme akışlarının güvenli ve Türkçe uyumlu çalıştığını kontrol eder." }
 ];
 
 function scoreSystemTests(results: any[]) {
