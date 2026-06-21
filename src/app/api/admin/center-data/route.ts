@@ -213,14 +213,18 @@ function normalizeRecord(key: string, item: any) {
   }
 
   if (key === "customerFiles") {
+    const fileUrl = item.file_url || item.fileUrl || item.document_url || item.documentUrl || item.url || "";
+    const fileType = item.file_type || item.fileType || item.document_type || item.type || "Diğer";
     return {
       ...base,
       company_id: item.company_id || null,
       title: item.title || "Yeni Dosya",
       description: item.description || "",
-      file_url: item.file_url || item.url || "",
-      file_type: item.file_type || item.type || "file",
+      file_url: fileUrl,
+      document_url: item.document_url || item.documentUrl || fileUrl,
+      file_type: fileType,
       visible_to_customer: item.visible_to_customer ?? true,
+      show_in_creative_center: item.show_in_creative_center ?? item.showInCreativeCenter ?? ["Görsel", "Reklam Görseli", "Kreatif"].includes(fileType),
       status: item.status || "Aktif",
       archived_at: item.archived_at || null,
       deleted_at: item.deleted_at || null,

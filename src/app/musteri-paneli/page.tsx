@@ -76,6 +76,23 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
   ].filter((item) => item.date).sort((a, b) => Number(new Date(b.date)) - Number(new Date(a.date))).slice(0, 8);
   const nextSteps = visibleUpdates.filter((item) => item.next_step).slice(0, 4);
   const activeCampaigns = data.campaigns.filter((item) => item.status === "Aktif");
+  const getCustomerFileUrl = (file: any) => file.file_url || file.document_url || file.url || "";
+  const getCustomerFileType = (file: any) => file.file_type || file.document_type || file.type || "Diğer";
+  const imageTypeLabels = ["Görsel", "Reklam Görseli", "Kreatif"];
+  const isImageFile = (file: any) => {
+    const url = getCustomerFileUrl(file);
+    const type = getCustomerFileType(file);
+    return imageTypeLabels.includes(type) || /\.(png|jpe?g|webp|gif|svg)(\?|$)/i.test(url);
+  };
+  const isPdfFile = (file: any) => getCustomerFileType(file).toLocaleLowerCase("tr").includes("pdf") || /\.pdf(\?|$)/i.test(getCustomerFileUrl(file));
+  const isVideoFile = (file: any) => getCustomerFileType(file).toLocaleLowerCase("tr").includes("video") || /\.(mp4|mov|webm|m4v)(\?|$)/i.test(getCustomerFileUrl(file));
+  const fileButtonLabel = (file: any) => {
+    if (isPdfFile(file)) return "PDF Aç";
+    if (isVideoFile(file)) return "Videoyu Aç";
+    if (isImageFile(file)) return "Görseli Aç";
+    return "Dosyayı Aç";
+  };
+  const creativeFiles = data.files.filter((file: any) => file.visible_to_customer !== false && (file.show_in_creative_center || imageTypeLabels.includes(getCustomerFileType(file))));
 
   return (
     <main className="customer-portal relative min-h-screen overflow-hidden bg-[#f7f8fb] text-slate-950">
@@ -309,13 +326,62 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
         {visibility.show_files && (
           <section id="belgeler" className="glass-card mt-8 scroll-mt-28 p-5">
             <h2 className="flex items-center gap-2 text-xl font-black"><FileText className="text-cyan-200" /> Dosyalar</h2>
-            <div className="mt-5 grid gap-3 md:grid-cols-3">
+            <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {data.files.map((file) => (
-                <a key={file.id} href={`/api/customer/files/${file.id}`} target="_blank" className="rounded-[8px] bg-black/25 p-4 text-sm font-bold text-cyan-100">
-                  {file.title}
-                </a>
+                <div key={file.id} className="overflow-hidden rounded-[14px] border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,.05)]">
+                  {isImageFile(file) && getCustomerFileUrl(file) ? (
+                    <img src={getCustomerFileUrl(file)} alt={file.title || "Müşteri dosyası"} className="h-40 w-full bg-slate-100 object-cover" />
+                  ) : (
+                    <div className="flex h-32 items-center justify-center bg-slate-50 text-sm font-black text-slate-500">
+                      {getCustomerFileType(file)}
+                    </div>
+                  )}
+                  <div className="p-4">
+                    <span className="inline-flex rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-[11px] font-black text-cyan-800">{getCustomerFileType(file)}</span>
+                    <h3 className="mt-3 font-black text-slate-950">{file.title || "Müşteri dosyası"}</h3>
+                    {file.description && <p className="mt-2 text-sm leading-6 text-slate-600">{file.description}</p>}
+                    {getCustomerFileUrl(file) ? (
+                      <a href={`/api/customer/files/${file.id}`} target="_blank" rel="noreferrer" className="mt-4 inline-flex rounded-full bg-cyan-600 px-4 py-2 text-sm font-black text-white shadow-sm transition hover:bg-cyan-700">
+                        {fileButtonLabel(file)}
+                      </a>
+                    ) : (
+                      <p className="mt-4 rounded-[8px] border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-800">Dosya bağlantısı bulunamadı.</p>
+                    )}
+                  </div>
+                </div>
               ))}
               {!data.files.length && <p className="text-sm text-slate-400">Henüz görünür dosya yok.</p>}
+            </div>
+          </section>
+        )}
+
+        {visibility.show_files && (
+          <section id="kreatif-merkezi" className="glass-card mt-8 scroll-mt-28 p-5">
+            <h2 className="flex items-center gap-2 text-xl font-black"><Sparkles className="text-cyan-600" /> Kreatif Merkezi</h2>
+            <p className="mt-2 text-sm text-slate-600">Müşteriye görünür olarak işaretlenen kreatif ve reklam görselleri burada listelenir.</p>
+            <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {creativeFiles.map((file: any) => (
+                <div key={file.id} className="overflow-hidden rounded-[14px] border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,.05)]">
+                  {getCustomerFileUrl(file) ? (
+                    <img src={getCustomerFileUrl(file)} alt={file.title || "Kreatif görsel"} className="h-48 w-full bg-slate-100 object-cover" />
+                  ) : (
+                    <div className="flex h-48 items-center justify-center bg-slate-50 text-sm font-bold text-slate-500">Önizleme yok</div>
+                  )}
+                  <div className="p-4">
+                    <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-black text-amber-800">{getCustomerFileType(file)}</span>
+                    <h3 className="mt-3 font-black text-slate-950">{file.title || "Kreatif"}</h3>
+                    {file.description && <p className="mt-2 text-sm leading-6 text-slate-600">{file.description}</p>}
+                    {getCustomerFileUrl(file) ? (
+                      <a href={`/api/customer/files/${file.id}`} target="_blank" rel="noreferrer" className="mt-4 inline-flex rounded-full bg-cyan-600 px-4 py-2 text-sm font-black text-white shadow-sm transition hover:bg-cyan-700">
+                        Görseli Aç
+                      </a>
+                    ) : (
+                      <p className="mt-4 rounded-[8px] border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-800">Dosya bağlantısı bulunamadı.</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {!creativeFiles.length && <p className="rounded-[14px] border border-dashed border-slate-200 bg-slate-50 p-5 text-sm text-slate-500">Henüz müşteriye görünür kreatif eklenmedi.</p>}
             </div>
           </section>
         )}

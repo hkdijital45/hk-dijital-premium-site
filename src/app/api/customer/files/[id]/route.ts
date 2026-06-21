@@ -14,8 +14,9 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     `customer_files?id=eq.${encodeURIComponent(id)}&company_id=eq.${encodeURIComponent(session.companyId)}&visible_to_customer=eq.true&select=*&limit=1`
   );
   const file = rows[0];
-  if (!file?.file_url) {
-    return NextResponse.json({ error: "Dosya bulunamadı." }, { status: 404 });
+  const fileUrl = file?.file_url || file?.document_url || file?.url;
+  if (!fileUrl) {
+    return NextResponse.json({ error: "Dosya bağlantısı bulunamadı." }, { status: 404 });
   }
 
   await recordActivity({
@@ -27,5 +28,5 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     details: { message: `${file.title} dosyasını görüntüledi`, title: file.title }
   });
 
-  return NextResponse.redirect(file.file_url);
+  return NextResponse.redirect(fileUrl);
 }
