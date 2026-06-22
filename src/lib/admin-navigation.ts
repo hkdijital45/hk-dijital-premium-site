@@ -75,6 +75,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: "Google Ads Raporları", slug: "google-analiz", module: "google-analiz" },
       { label: "Aylık Raporlar", slug: "aylik-raporlar", module: "aylik-raporlar" },
       { label: "Müşteri Raporları", slug: "musteri-raporlari", module: "raporlar" },
+      { label: "Web Site Analitiği", slug: "website-analytics", module: "website-analytics" },
       { label: "PDF Rapor Tasarım Merkezi", slug: "pdf-rapor-tasarim", module: "raporlar" },
       { label: "PDF Audit", slug: "pdf-audit", module: "sosyal-medya-denetimi" },
       { label: "WhatsApp Teklifi", slug: "whatsapp-teklifi", module: "teklifler" }
@@ -172,6 +173,7 @@ const legacySlugRedirects: Record<string, string> = {
   "raporlar": "musteri-raporlari",
   "performans-raporlari": "musteri-raporlari",
   "rapor-yorumlari": "musteri-raporlari",
+  "web-site-analitigi": "website-analytics",
   "premium-pdf-report-design-center": "pdf-rapor-tasarim",
   "pdf-rapor-tasarim-merkezi": "pdf-rapor-tasarim",
   "campaign-mapping": "reklam-hesabi-eslestirme",

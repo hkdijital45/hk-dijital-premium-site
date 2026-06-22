@@ -9,6 +9,8 @@ import { createPortal } from "react-dom";
 import { Activity, AlertTriangle, ArrowDown, ArrowUp, BarChart3, Bell, Bot, Building2, ChevronDown, ChevronRight, CircleCheck, CircleOff, Copy, Download, FileBarChart, Gauge, GripVertical, HelpCircle, ImagePlus, LayoutDashboard, LogOut, MapPinned, MessageSquareText, Plus, RotateCcw, Save, Search, Settings2, Sparkles, Star, Trash2, UsersRound, WandSparkles, X } from "lucide-react";
 import type { SiteContent } from "@/lib/types";
 import { ReportTools } from "@/components/admin/reports/ReportTools";
+import { WebsiteAnalyticsCenter } from "@/components/admin/WebsiteAnalyticsCenter";
+import { WebsiteAnalyticsSummaryCards } from "@/components/admin/WebsiteAnalyticsSummaryCards";
 import { Logo } from "@/components/public/Logo";
 import { adminNavigationGroups, adminNavigationItems, getAdminHref } from "@/lib/admin-navigation";
 import { AnimatedChart, AnimatedFunnel, BrandEcosystemStrip, GlassCard, MetricCard3D } from "@/components/premium/PremiumUI";
@@ -79,6 +81,8 @@ const adminLabelEmojis: Record<string, string> = {
   "Gelir Tahmini": "📈",
   "Sözleşme Oluştur": "📝",
   "WhatsApp Hatırlatma Merkezi": "💬"
+  ,
+  "Web Site Analitiği": "📊"
 };
 
 function withAdminEmoji(label: string) {
@@ -102,15 +106,15 @@ const uiPermissionGroups = [
   ["CRM & Müşteriler", ["crm", "leads", "musteriler", "takip-gorevleri", "notlar"]],
   ["İstihbarat Merkezi", ["meta-analiz", "google-analiz", "sosyal-medya-denetimi", "reklam-firsatlari", "musteri-bulucu", "haritalar", "bolgesel-analiz", "rakip-listesi", "kaydedilen-adaylar", "funnel-analizi"]],
   ["İçerik & AI Studio", ["hazirlik", "ai-studio", "icerik-onerileri", "prompt-kutuphanesi", "kampanya-hazirligi"]],
-  ["Teklif & Raporlama", ["kampanyalar", "teklifler", "teklif-listesi", "raporlar", "rapor-yorumlari", "disa-aktarimlar"]],
+  ["Teklif & Raporlama", ["kampanyalar", "teklifler", "teklif-listesi", "raporlar", "website-analytics", "rapor-yorumlari", "disa-aktarimlar"]],
   ["Ajans Operasyonları", ["gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "hk-asistan", "sektor-sistemleri"]],
   ["Araçlar", ["veri-aktarma"]],
   ["Ayarlar", ["kullanicilar", "site-ayarlari", "api-ayarlari", "tema-ayarlari", "medya", "sistem-sagligi", "sistem-test-merkezi", "sistem-loglari"]]
 ];
 const uiRoleTemplates = {
   admin: uiPermissionGroups.flatMap(([, modules]) => modules),
-  yonetici: ["dashboard", "genel-arama", "kullanim-kilavuzu", "crm", "leads", "musteriler", "takip-gorevleri", "notlar", "musteri-bulucu", "haritalar", "bolgesel-analiz", "kaydedilen-adaylar", "meta-analiz", "google-analiz", "sosyal-medya-denetimi", "hazirlik", "ai-studio", "kampanyalar", "teklifler", "teklif-listesi", "raporlar", "rapor-yorumlari", "disa-aktarimlar", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "hk-asistan", "sektor-sistemleri", "sistem-sagligi", "veri-aktarma"],
-  editor: ["dashboard", "genel-arama", "kullanim-kilavuzu", "crm", "leads", "hazirlik", "ai-studio", "icerik-onerileri", "prompt-kutuphanesi", "kampanya-hazirligi", "teklifler", "teklif-listesi", "raporlar", "rapor-yorumlari", "disa-aktarimlar", "medya"],
+  yonetici: ["dashboard", "genel-arama", "kullanim-kilavuzu", "crm", "leads", "musteriler", "takip-gorevleri", "notlar", "musteri-bulucu", "haritalar", "bolgesel-analiz", "kaydedilen-adaylar", "meta-analiz", "google-analiz", "sosyal-medya-denetimi", "hazirlik", "ai-studio", "kampanyalar", "teklifler", "teklif-listesi", "raporlar", "website-analytics", "rapor-yorumlari", "disa-aktarimlar", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "hk-asistan", "sektor-sistemleri", "sistem-sagligi", "veri-aktarma"],
+  editor: ["dashboard", "genel-arama", "kullanim-kilavuzu", "crm", "leads", "hazirlik", "ai-studio", "icerik-onerileri", "prompt-kutuphanesi", "kampanya-hazirligi", "teklifler", "teklif-listesi", "raporlar", "website-analytics", "rapor-yorumlari", "disa-aktarimlar", "medya"],
   musteri: []
 };
 const legacyRole = (role) => role === "sales" ? "yonetici" : role === "customer" ? "musteri" : role;
@@ -702,6 +706,7 @@ export function AdminDashboard({
           {["AI Studio", "AI Analizleri"].includes(active) && <AiAssistant {...props} mode="AI Studio" />}
           {["Teklif Motoru", "Teklif Hazırlama", "Teklif Oluştur", "WhatsApp Teklifi"].includes(active) && <ProposalEngine {...props} setActive={setActive} />}
           {active === "Raporlar" && <ReportsHub {...props} />}
+          {active === "Web Site Analitiği" && <WebsiteAnalyticsCenter />}
           {active === "PDF Rapor Tasarım Merkezi" && <PdfReportDesignCenter {...props} />}
           {active === "Müşteriler" && <CustomersAdmin {...props} />}
           {["Site Ayarları", "Web Sitesi Yönetimi"].includes(active) && <WebsiteManagementCenter {...props} />}
@@ -2245,6 +2250,7 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
         </section>
         {ceoMode && <div className="fixed inset-0 z-[82] overflow-y-auto bg-white/85 p-4" onMouseDown={() => setCeoMode(false)}><div className="mx-auto mt-10 max-w-6xl rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_28px_90px_rgba(15,23,42,.18)]" onMouseDown={(event) => event.stopPropagation()}><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[.18em] text-blue-600">CEO Modu</p><h2 className="mt-2 text-3xl font-black text-slate-950">Yönetici özeti</h2><p className="mt-2 text-sm text-slate-500">Sadece karar verilecek sayılar ve kritik aksiyonlar.</p></div><button onClick={() => setCeoMode(false)} className="grid size-11 place-items-center rounded-[14px] border border-slate-200"><X size={18} /></button></div><div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{[["Gelir", `${expectedRevenue.toLocaleString("tr-TR")} TL`], ["Kâr", `${estimatedProfit.toLocaleString("tr-TR")} TL`], ["Tahsilat", `${paidRevenue.toLocaleString("tr-TR")} TL`], ["Aktif müşteri", activeCustomers.length], ["Riskli müşteri", riskyCustomers.length], ["Kritik görev", criticalTasks.length], ["Bekleyen teklif", leads.filter((lead) => !lead.proposal_history?.length && Number(lead.lead_heat_score || 0) >= 60).length], ["Bu hafta yapılacak", activeTasks.filter((item) => isOpenTask(item)).length]].map(([label, value]) => <div key={label as string} className="rounded-[22px] border border-slate-200 bg-slate-50 p-5"><p className="text-xs font-black uppercase tracking-[.12em] text-slate-500">{label}</p><p className="mt-3 text-3xl font-black text-slate-950">{value}</p></div>)}</div><div className="mt-6 grid gap-4 lg:grid-cols-2"><div className="rounded-[22px] border border-slate-200 bg-white p-5"><h3 className="font-black text-slate-950">Riskli müşteriler</h3><div className="mt-3 grid gap-2">{riskyCustomers.map((item) => <p key={item.company.id} className="rounded-[12px] bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{item.company.name} · {item.health.score}/100</p>)}{!riskyCustomers.length && <p className="text-sm text-slate-500">Riskli müşteri görünmüyor.</p>}</div></div><div className="rounded-[22px] border border-slate-200 bg-white p-5"><h3 className="font-black text-slate-950">Bu hafta yapılacaklar</h3><div className="mt-3 grid gap-2">{importantDashboardTasks.map((item) => <p key={item.id || item.title} className="rounded-[12px] bg-blue-50 px-3 py-2 text-sm font-bold text-blue-700">{item.title}</p>)}{!importantDashboardTasks.length && <p className="text-sm text-slate-500">Kritik görev yok.</p>}</div></div></div></div></div>}
         {customizing && <section className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-lg font-black text-slate-950">Widget Sistemi</h3><p className="mt-1 text-sm text-slate-500">Göster/gizle, yukarı/aşağı taşı ve varsayılan düzene dön. Tercihler bu cihazda saklanır.</p></div><button onClick={() => savePreferences({ order: dashboardWidgetDefaults, hidden: [], favorites: ["Müşteri Bulucu", "CRM"] })} className="rounded-full border border-slate-200 px-4 py-2 text-xs font-black text-slate-700">Düzeni Sıfırla</button></div><div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-4">{preferences.order.map((id) => { const widget = dashboardWidgetLabels[id] || { label: id, description: "Bu widget için açıklama hazırlanıyor." }; return <div key={id} className="flex items-center justify-between gap-3 rounded-[14px] border border-slate-200 bg-slate-50 p-3"><span className="min-w-0"><strong className="block text-sm font-black text-slate-800">{widget.label}</strong><span className="mt-1 block text-xs leading-5 text-slate-500">{widget.description}</span></span><span className="flex shrink-0 gap-1"><button onClick={() => moveWidget(id, -1)} className="rounded border border-slate-200 px-2 py-1 text-xs">↑</button><button onClick={() => moveWidget(id, 1)} className="rounded border border-slate-200 px-2 py-1 text-xs">↓</button><button onClick={() => toggleWidget(id)} className={`rounded px-2 py-1 text-xs font-black ${preferences.hidden.includes(id) ? "bg-slate-200 text-slate-600" : "bg-green-100 text-green-700"}`}>{preferences.hidden.includes(id) ? "Gizli" : "Açık"}</button></span></div>; })}</div></section>}
+        <WebsiteAnalyticsSummaryCards onOpen={() => setActive("Web Site Analitiği")} />
         <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_16px_42px_rgba(15,23,42,.07)] sm:p-6">
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_auto]">
             <div className="min-w-0">
