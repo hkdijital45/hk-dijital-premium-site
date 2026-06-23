@@ -17,10 +17,11 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const bundle = await getReportBundle(id);
   if (bundle.report.company_id !== session.companyId || !bundle.report.visible_to_customer) return NextResponse.json({ error: "Bu raporu indirme yetkiniz yok." }, { status: 403 });
   const platform = (searchParams.get("platform") || "all") as CustomerPlatformFilter;
+  const viewMode = ["basic", "premium", "executive"].includes(searchParams.get("viewMode") || "") ? searchParams.get("viewMode")! : "executive";
   const range = getCustomerDateRange("custom", searchParams.get("start") || bundle.report.start_date || bundle.report.end_date, searchParams.get("end") || bundle.report.end_date || bundle.report.start_date);
   const filteredReport = filteredReportsForPeriod([bundle.report], range, platform)[0];
   if (!filteredReport) return NextResponse.json({ error: "Bu tarih aralığında rapor verisi bulunamadı." }, { status: 404 });
-  filteredReport.period = `${range.label} · ${platformFilterLabel(platform)}`;
+  filteredReport.period = `${viewMode === "basic" ? "Basic" : viewMode === "premium" ? "Premium" : "Executive"} Rapor · ${range.label} · ${platformFilterLabel(platform)}`;
   const updates = filterUpdatesForRange(bundle.updates, range, [bundle.report.id]);
   const visibilityRules = await supabaseRest<any[]>(`customer_report_visibility?company_id=eq.${bundle.report.company_id}&select=*`).catch(() => []);
   const file = await generateReportExport(format, filteredReport, bundle.company, bundle.interpretation, updates, visibilityRules);

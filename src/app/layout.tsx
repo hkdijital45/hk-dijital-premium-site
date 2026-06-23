@@ -4,6 +4,7 @@ import "./globals.css";
 import { TrackingPlaceholders } from "@/components/public/TrackingPlaceholders";
 import { MetaPixel } from "@/components/public/MetaPixel";
 import { getSiteContent } from "@/lib/content";
+import { getGlobalMetaPixelId } from "@/lib/meta-pixel-settings";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -21,12 +22,13 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const content = await getSiteContent();
+  const metaPixelId = await getGlobalMetaPixelId(content.settings.analyticsIds?.metaPixel || "");
 
   return (
     <html lang="tr" className={`${geistSans.variable} ${geistMono.variable} h-full scroll-smooth antialiased`}>
       <body className="min-h-full bg-[#050711] font-sans text-white">
         <TrackingPlaceholders ids={content.settings.analyticsIds} />
-        <MetaPixel />
+        <MetaPixel pixelId={metaPixelId} />
         {children}
       </body>
     </html>

@@ -61,7 +61,7 @@ export function WebsiteAnalyticsSummaryCards({ onOpen }: { onOpen?: () => void }
     <section className="rounded-[18px] border border-slate-200 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Website Analytics</p>
+          <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Web Site Analitiği</p>
           <h3 className="mt-1 text-lg font-black text-slate-950">Public site ölçüm özeti</h3>
           <p className="mt-1 text-sm text-slate-600">Meta Pixel ve GA4 (Google Analytics 4) verileri için yönetim özeti.</p>
         </div>

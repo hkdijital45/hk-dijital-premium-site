@@ -11,6 +11,7 @@ import type { SiteContent } from "@/lib/types";
 import { ReportTools } from "@/components/admin/reports/ReportTools";
 import { WebsiteAnalyticsCenter } from "@/components/admin/WebsiteAnalyticsCenter";
 import { WebsiteAnalyticsSummaryCards } from "@/components/admin/WebsiteAnalyticsSummaryCards";
+import { AdminCustomerSelector, GlobalMetaPixelSettings, MetaPixelSettingsPanel } from "@/components/admin/AdminCustomerOperations";
 import { Logo } from "@/components/public/Logo";
 import { adminNavigationGroups, adminNavigationItems, getAdminHref } from "@/lib/admin-navigation";
 import { AnimatedChart, AnimatedFunnel, BrandEcosystemStrip, GlassCard, MetricCard3D } from "@/components/premium/PremiumUI";
@@ -378,6 +379,7 @@ export function AdminDashboard({
   const [startupApiData, setStartupApiData] = useState<any>({ results: content.settings?.api?.ai_status || {}, lastTestTime: content.settings?.api?.ai_status_last_test_at });
   const [startupApiMessage, setStartupApiMessage] = useState("");
   const [isDesktopApp, setIsDesktopApp] = useState(false);
+  const [selectedCompanyId, setSelectedCompanyId] = useState("");
 
   useEffect(() => {
     setIsDesktopApp(Boolean(window.hkDesktop?.isDesktop));
@@ -407,7 +409,16 @@ export function AdminDashboard({
     } catch {
       setNotificationState({ read: [], archived: [] });
     }
+    const activeCompanies = (initialContent.companies || []).filter((company: any) => !company.status || company.status === "Aktif");
+    const rememberedCompany = localStorage.getItem("hk-admin-selected-company") || "";
+    setSelectedCompanyId(activeCompanies.some((company: any) => company.id === rememberedCompany) ? rememberedCompany : activeCompanies[0]?.id || "");
   }, []);
+
+  function selectCompany(companyId: string) {
+    setSelectedCompanyId(companyId);
+    if (companyId) localStorage.setItem("hk-admin-selected-company", companyId);
+    else localStorage.removeItem("hk-admin-selected-company");
+  }
 
   useEffect(() => {
     if (!bootVisible) return;
@@ -685,6 +696,7 @@ export function AdminDashboard({
           {!supabaseConfigured && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-700">Supabase bağlantısı yapılandırılmadı. Canlı ortamda kaydetme çalışmaz.</p>}
           {bootstrapWarning && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-700">Süper admin kurulum anahtarları hâlâ aktif. Güvenlik için Vercel ortam değişkenlerinden kaldırın.</p>}
           {status && <p className={`mb-5 rounded-[8px] border p-3 text-sm ${status.includes("Kaydedilemedi") ? "border-red-300/30 bg-red-500/10 text-red-100" : "border-cyan-200/20 bg-cyan-200/10 text-cyan-700"}`}>{status}</p>}
+          <div className="mb-5"><AdminCustomerSelector companies={content.companies || []} value={selectedCompanyId} onChange={selectCompany} /></div>
           {dashboardAliases.includes(active) && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} systemStatus={systemStatus} currentSession={currentSession} allowedModules={allowedModules} notify={notify} />}
           {active === "Satış Hunisi" && <SalesPipeline content={content} setContent={setContent} save={save} setActive={setActive} />}
           {active === "CRM" && <CrmHub {...props} />}
@@ -705,12 +717,12 @@ export function AdminDashboard({
           {["Sosyal İstihbarat Merkezi", "Sosyal Medya Denetimi", "PDF Audit"].includes(active) && <SocialMediaAuditCenter />}
           {["AI Studio", "AI Analizleri"].includes(active) && <AiAssistant {...props} mode="AI Studio" />}
           {["Teklif Motoru", "Teklif Hazırlama", "Teklif Oluştur", "WhatsApp Teklifi"].includes(active) && <ProposalEngine {...props} setActive={setActive} />}
-          {active === "Raporlar" && <ReportsHub {...props} />}
+          {active === "Raporlar" && <ReportsHub {...props} selectedCompanyId={selectedCompanyId} />}
           {active === "Web Site Analitiği" && <WebsiteAnalyticsCenter />}
           {active === "PDF Rapor Tasarım Merkezi" && <PdfReportDesignCenter {...props} />}
           {active === "Müşteriler" && <CustomersAdmin {...props} />}
           {["Site Ayarları", "Web Sitesi Yönetimi"].includes(active) && <WebsiteManagementCenter {...props} />}
-          {["API Ayarları", "API Durum Kontrolü", "AI Sağlayıcı Ayarları", "Entegrasyonlar"].includes(active) && <IntegrationsCenter {...props} />}
+          {["API Ayarları", "API Durum Kontrolü", "AI Sağlayıcı Ayarları", "Entegrasyonlar"].includes(active) && <IntegrationsCenter {...props} selectedCompanyId={selectedCompanyId} />}
           {["Medya / Logo", "Medya"].includes(active) && <MediaLogoHub {...props} />}
           {active === "Kullanıcılar" && <UsersHub {...props} />}
           {active === "Genel Arama" && <GlobalSearchPage />}
@@ -733,7 +745,7 @@ export function AdminDashboard({
           {active === "Sektör Sistemleri" && <SectorSystemsCenter {...props} />}
           {active === "Müşteri Markalama" && <CustomerBrandingCenter {...props} />}
           {preparationAliases.includes(active) && <PreparationCenter {...props} setActive={setActive} mode={active} />}
-          {reportAliases.includes(active) && <ReportsHub {...props} />}
+          {reportAliases.includes(active) && <ReportsHub {...props} selectedCompanyId={selectedCompanyId} />}
           {active === "Genel Bakış" && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} systemStatus={systemStatus} currentSession={currentSession} allowedModules={allowedModules} notify={notify} />}
           {active === "Sayfa İçerikleri" && <Pages {...props} />}
           {active === "Marka Ayarları" && <Brand {...props} />}
@@ -3889,7 +3901,7 @@ function WebsiteManagementCenter(props: any) {
   return <div><HubTabs items={items} active={tab} onChange={setTab} />{tab === "Genel Site Ayarları" && <GeneralWebsiteSettings {...props} />}{tab === "Logo Yönetimi" && <LogoManagement {...props} />}{tab === "Görsel Yönetimi" && <VisualManagement {...props} />}{tab === "Sayfa İçerikleri" && <Pages {...props} />}{tab === "Hakkımda + Sertifikalar" && <AboutAndCertificatesManagement {...props} />}{tab === "Hizmetler" && <Collection title="Hizmet Yönetimi" type="service" items={props.content.services} setItems={(items) => props.setContent({ ...props.content, services: items })} />}{tab === "Paketler" && <Collection title="Paket Yönetimi" type="package" items={props.content.packages} setItems={(items) => props.setContent({ ...props.content, packages: items })} />}{tab === "İletişim" && <div className="grid gap-5"><GeneralWebsiteSettings {...props} /><KeyValue title="Sosyal Medya Yönetimi" object={props.content.socials} onChange={(object) => props.setContent({ ...props.content, socials: object })} /></div>}{tab === "Performans" && <Settings {...props} />}</div>;
 }
 
-function IntegrationsCenter({ content, setContent, notify }: any) {
+function IntegrationsCenter({ content, setContent, notify, selectedCompanyId }: any) {
   const [status, setStatus] = useState("");
   const api = content.settings.api || {};
   const analyticsIds = content.settings.analyticsIds || {};
@@ -3905,6 +3917,7 @@ function IntegrationsCenter({ content, setContent, notify }: any) {
   return <Panel title="Entegrasyonlar">
     <p className="mb-5 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm leading-6 text-cyan-700">API anahtarları tarayıcıya gönderilmez. Bu alan bağlantı kimliklerini ve durum notlarını merkezi olarak düzenlemek içindir; gerçek gizli anahtarlar sunucu ortam değişkenlerinde kalmalıdır.</p>
     <div className="mb-5"><ReadinessPanel api={api} /></div>
+    <div className="mb-5 grid gap-5"><GlobalMetaPixelSettings /><div className="rounded-[18px] border border-slate-200 bg-white p-5"><h3 className="mb-4 text-lg font-black text-slate-900">Müşteri Meta Pixel & Conversion API</h3><MetaPixelSettingsPanel companyId={selectedCompanyId} companyName={(content.companies || []).find((company: any) => company.id === selectedCompanyId)?.name} /></div></div>
     <IntegrationPersistenceSettings notify={notify} />
     <MetaAdsConnectionCenter content={content} setContent={setContent} api={api} updateApi={update} />
     <div className="grid gap-5">
@@ -4553,7 +4566,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
           <AgencyStatCard label="Açık görev" value={tasks.filter((item) => !["Tamamlandı", "İptal"].includes(item.status)).length} note="Yapılacaklar ile senkron" tone="emerald" />
         </div>
       </div>}
-      {tab === "Reklam Hesapları" && <CustomerMetaAccounts company={company} content={content} setContent={setContent} save={save} notify={notify} />}
+      {tab === "Reklam Hesapları" && <div className="grid gap-5"><CustomerMetaAccounts company={company} content={content} setContent={setContent} save={save} notify={notify} /><div className="rounded-[18px] border border-slate-200 bg-white p-5"><MetaPixelSettingsPanel companyId={company.id} companyName={company.name} /></div></div>}
       {tab === "Kampanyalar" && <CustomerCampaignsEditor company={company} content={content} setContent={setContent} save={save} setActive={setActive} items={campaigns} notify={notify} canManage={canManageCustomer} />}
       {tab === "Teklifler" && <CustomerProposalsEditor company={company} content={content} setContent={setContent} save={save} items={proposals} notify={notify} canManage={canManageCustomer} />}
       {tab === "Zaman Çizelgesi" && <CustomerTimeline company={company} campaigns={campaigns} payments={payments} tasks={tasks} documents={documents} reports={reports} activities={activities} />}
@@ -4572,7 +4585,10 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
         ["show_work_updates", "Yapılan çalışmalar"],
         ["show_strategy_notes", "Strateji notları"],
         ["show_files", "Dosyalar"],
-        ["show_contact_person", "İletişim bilgileri"]
+        ["show_contact_person", "İletişim bilgileri"],
+        ["show_payments", "Ödemeler"],
+        ["show_tasks", "Müşteriye açık görevler"],
+        ["show_meta_status", "Meta Pixel / Conversion API durumu"]
       ].map(([key, label]) => <label key={key} className="flex items-center gap-3 rounded-[8px] border border-slate-200 p-3 text-sm"><input type="checkbox" checked={visibility[key] ?? true} onChange={(event) => updateVisibility({ [key]: event.target.checked })} /> {label}</label>)}</div></div>}
       {tab === "Aktivite Geçmişi" && <ActivityList items={activities} empty="Bu müşteri için henüz aktivite kaydı yok." />}
       {tab === "Notlar" && <TextArea label="Dahili müşteri notları" value={company.notes} onChange={(v) => updateCompany(company.id, { notes: v })} rows={10} />}
@@ -5936,13 +5952,13 @@ const reportMetricFields = {
   ]
 };
 
-function ReportingCenter({ content, setContent }: any) {
+function ReportingCenter({ content, setContent, selectedCompanyId }: any) {
   const [tab, setTab] = useState("Meta Reklamları");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState("");
   const reports = content.reports || [];
   const typeForTab = { "Meta Reklamları": "Meta Reklam Raporu", "Google Ads": "Google Ads Raporu", "Sosyal Medya Yönetimi": "Sosyal Medya Yönetimi Raporu", "Genel Raporlar": "Genel Dijital Performans Raporu" }[tab];
-  const visibleReports = reports.filter((report) => report.report_type === typeForTab);
+  const visibleReports = reports.filter((report) => report.report_type === typeForTab && (!selectedCompanyId || report.company_id === selectedCompanyId));
   function update(id, patch) {
     setContent({ ...content, reports: reports.map((report) => report.id === id ? { ...report, ...patch } : report) });
   }
@@ -5985,7 +6001,7 @@ function ReportingCenter({ content, setContent }: any) {
   }
   function add() {
     const id = `report-${Date.now()}`;
-    setContent({ ...content, reports: [{ id, report_type: typeForTab, period: "Aylık", metrics: {}, visible_to_customer: true, archived: false }, ...reports] });
+    setContent({ ...content, reports: [{ id, company_id: selectedCompanyId || "", report_type: typeForTab, period: "Aylık", metrics: {}, visible_to_customer: true, archived: false }, ...reports] });
   }
   async function save(report) {
     setLoading(report.id);

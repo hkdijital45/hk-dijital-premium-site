@@ -1,3 +1,5 @@
+import { getGlobalMetaPixelId } from "./meta-pixel-settings";
+
 export type WebsiteAnalyticsStatus = "demo" | "live" | "partial";
 
 export type WebsiteAnalyticsSetup = {
@@ -159,6 +161,7 @@ async function fetchGa4AnalyticsIfConfigured(setup: WebsiteAnalyticsSetup) {
 
 export async function getWebsiteAnalytics(): Promise<WebsiteAnalyticsResponse> {
   const setup = getWebsiteAnalyticsSetup();
+  setup.metaPixelId = Boolean(await getGlobalMetaPixelId());
   const status = resolveStatus(setup);
 
   await Promise.all([

@@ -19,6 +19,8 @@ export type CustomerCenterData = {
   branding: any;
   documents: any[];
   payments: any[];
+  tasks: any[];
+  pixelStatus: any;
   monthlyReports: any[];
 };
 
@@ -31,7 +33,10 @@ const defaultVisibility = {
   show_strategy_notes: true,
   show_work_updates: true,
   show_files: true,
-  show_contact_person: true
+  show_contact_person: true,
+  show_payments: true,
+  show_tasks: false,
+  show_meta_status: false
 };
 
 export async function getCustomerCenterData(companyId?: string): Promise<CustomerCenterData> {
@@ -54,12 +59,14 @@ export async function getCustomerCenterData(companyId?: string): Promise<Custome
       branding: null,
       documents: [],
       payments: [],
+      tasks: [],
+      pixelStatus: null,
       monthlyReports: []
     };
   }
 
   if (hasSupabaseConfig() && companyId) {
-    const [companies, visibilityRows, campaigns, metrics, reportVisibility, metaAdsets, metaAds, metaConversions, metaAnalyses, updates, files, reports, interpretations, reportUpdates, brandingRows, documents, payments, monthlyReports] = await Promise.all([
+    const [companies, visibilityRows, campaigns, metrics, reportVisibility, metaAdsets, metaAds, metaConversions, metaAnalyses, updates, files, reports, interpretations, reportUpdates, brandingRows, documents, payments, tasks, pixelRows, monthlyReports] = await Promise.all([
       supabaseRest<any[]>(`companies?id=eq.${companyId}&select=*&limit=1`),
       supabaseRest<any[]>(`customer_visibility_settings?company_id=eq.${companyId}&select=*&limit=1`),
       supabaseRest<any[]>(`campaigns?company_id=eq.${companyId}&select=*&order=created_at.desc`),
@@ -77,6 +84,8 @@ export async function getCustomerCenterData(companyId?: string): Promise<Custome
       supabaseRest<any[]>(`customer_branding?company_id=eq.${companyId}&select=*&limit=1`).catch(() => []),
       supabaseRest<any[]>(`customer_documents?company_id=eq.${companyId}&visible_to_customer=eq.true&select=*&order=document_date.desc`).catch(() => []),
       supabaseRest<any[]>(`payment_records?company_id=eq.${companyId}&visible_to_customer=eq.true&select=*&order=due_date.desc`).catch(() => []),
+      supabaseRest<any[]>(`agency_tasks?company_id=eq.${companyId}&visible_to_customer=eq.true&select=*&order=due_date.asc`).catch(() => []),
+      supabaseRest<any[]>(`ad_integrations?company_id=eq.${companyId}&provider=eq.meta&select=pixel_enabled,capi_enabled,pixel_status,capi_status,last_pixel_test_at,last_capi_test_at,last_event_at,sync_message&limit=1`).catch(() => []),
       supabaseRest<any[]>(`monthly_reports?company_id=eq.${companyId}&visible_to_customer=eq.true&select=*&order=report_month.desc`).catch(() => [])
     ]);
 
@@ -102,6 +111,8 @@ export async function getCustomerCenterData(companyId?: string): Promise<Custome
       branding: brandingRows[0] || null,
       documents,
       payments,
+      tasks,
+      pixelStatus: pixelRows[0] || null,
       monthlyReports
     };
   }
@@ -169,6 +180,8 @@ export async function getCustomerCenterData(companyId?: string): Promise<Custome
     branding: null,
     documents: [],
     payments: [],
+    tasks: [],
+    pixelStatus: null,
     monthlyReports: []
   };
 }

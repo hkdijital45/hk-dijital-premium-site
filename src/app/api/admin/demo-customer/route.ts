@@ -19,11 +19,13 @@ const requiredSchema = [
   ["reports", "id,company_id,campaign_id,report_type,metrics,time_series,raw_extracted_data,customer_note,visible_to_customer"],
   ["report_updates", "id,report_id,company_id,update_date,title,customer_note,next_action,is_visible_to_customer,is_pinned,created_by"],
   ["report_interpretations", "id,report_id,company_id,generated_by_user_id,interpretation_text,provider"],
-  ["customer_visibility_settings", "id,company_id,show_campaigns,show_metrics,show_budget,show_spent,show_leads,show_strategy_notes,show_work_updates,show_files,show_contact_person"],
+  ["customer_visibility_settings", "id,company_id,show_campaigns,show_metrics,show_budget,show_spent,show_leads,show_strategy_notes,show_work_updates,show_files,show_contact_person,show_payments,show_tasks"],
   ["campaigns", "id,company_id,name,platform,objective,status,start_date,budget,spent,notes"],
   ["campaign_metrics", "id,campaign_id,company_id,date,impressions,reach,clicks,leads,conversions,spent,ctr,cpc,cpm,cost_per_lead,notes"],
   ["customer_updates", "id,company_id,title,description,update_type,visible_to_customer"],
-  ["customer_files", "id,company_id,title,description,file_url,file_type,visible_to_customer"]
+  ["customer_files", "id,company_id,title,description,file_url,file_type,visible_to_customer"],
+  ["payment_records", "id,company_id,amount,status,due_date,description,visible_to_customer"],
+  ["agency_tasks", "id,company_id,title,status,priority,due_date,visible_to_customer"]
 ] as const;
 
 function diagnosticLog(stage: string, detail?: Record<string, unknown>) {
@@ -137,6 +139,8 @@ async function ensureVisibility(companyId: string) {
       show_work_updates: true,
       show_files: true,
       show_contact_person: true,
+      show_payments: true,
+      show_tasks: true,
       updated_at: new Date().toISOString()
     })
   });
@@ -235,6 +239,20 @@ async function createCustomerFile(companyId: string) {
       visible_to_customer: true
     })
   });
+  return rows[0];
+}
+
+async function ensurePayment(companyId: string) {
+  const existing = await supabaseRest<any[]>(`payment_records?company_id=eq.${companyId}&service_period=eq.Demo%20Dönemi&select=*&limit=1`);
+  if (existing[0]) return existing[0];
+  const rows = await supabaseRest<any[]>("payment_records", { method: "POST", body: JSON.stringify({ company_id: companyId, amount: 12500, status: "Bekliyor", due_date: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10), service_period: "Demo Dönemi", description: "Aylık dijital pazarlama hizmet bedeli", visible_to_customer: true }) });
+  return rows[0];
+}
+
+async function ensureTask(companyId: string) {
+  const existing = await supabaseRest<any[]>(`agency_tasks?company_id=eq.${companyId}&title=eq.Demo%20Rapor%20Toplantısı&select=*&limit=1`);
+  if (existing[0]) return existing[0];
+  const rows = await supabaseRest<any[]>("agency_tasks", { method: "POST", body: JSON.stringify({ company_id: companyId, title: "Demo Rapor Toplantısı", description: "Aylık performans sonuçlarının müşteriyle değerlendirilmesi.", status: "Yapılacak", priority: "Normal", due_date: new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10), visible_to_customer: true }) });
   return rows[0];
 }
 
@@ -370,6 +388,10 @@ export async function POST() {
     const updates = await createUpdates(company.id);
     stage = "müşteri dosyası oluşturma";
     const file = await createCustomerFile(company.id);
+    stage = "ödeme kaydı oluşturma";
+    const payment = await ensurePayment(company.id);
+    stage = "görev kaydı oluşturma";
+    const task = await ensureTask(company.id);
     stage = "rapor oluşturma";
     const reports = await ensureReports(company.id, campaign.id);
     stage = "rapor güncellemeleri ve yorumları oluşturma";
@@ -394,6 +416,8 @@ export async function POST() {
       metric,
       updates,
       file,
+      payment,
+      task,
       reports
     });
   } catch (error) {

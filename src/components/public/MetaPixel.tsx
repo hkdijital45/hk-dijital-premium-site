@@ -23,17 +23,17 @@ function isPublicTrackedPath(pathname: string) {
   return !privatePathPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
-export function MetaPixel() {
+export function MetaPixel({ pixelId = META_PIXEL_ID }: { pixelId?: string }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!META_PIXEL_ID || !pathname || !isPublicTrackedPath(pathname)) return;
+    if (!pixelId || !pathname || !isPublicTrackedPath(pathname)) return;
     const query = window.location.search.replace(/^\?/, "");
     trackMetaPageView(query ? `${pathname}?${query}` : pathname);
-  }, [pathname]);
+  }, [pathname, pixelId]);
 
   useEffect(() => {
-    if (!META_PIXEL_ID) return undefined;
+    if (!pixelId) return undefined;
     const onClick = (event: MouseEvent) => {
       const target = event.target instanceof Element ? event.target.closest("a") : null;
       const href = target?.getAttribute("href") || "";
@@ -45,9 +45,9 @@ export function MetaPixel() {
     };
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);
-  }, []);
+  }, [pixelId]);
 
-  if (!META_PIXEL_ID) return null;
+  if (!pixelId) return null;
 
   return (
     <>
@@ -61,7 +61,7 @@ export function MetaPixel() {
           t.src=v;s=b.getElementsByTagName(e)[0];
           s.parentNode.insertBefore(t,s)}(window, document,'script',
           'https://connect.facebook.net/en_US/fbevents.js');
-          fbq('init', '${META_PIXEL_ID}');
+          fbq('init', '${pixelId}');
         `}
       </Script>
       <noscript>
@@ -70,7 +70,7 @@ export function MetaPixel() {
           height="1"
           width="1"
           style={{ display: "none" }}
-          src={`https://www.facebook.com/tr?id=${META_PIXEL_ID}&ev=PageView&noscript=1`}
+          src={`https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1`}
           alt=""
         />
       </noscript>

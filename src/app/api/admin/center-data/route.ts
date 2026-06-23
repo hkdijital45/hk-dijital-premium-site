@@ -208,6 +208,9 @@ function normalizeRecord(key: string, item: any) {
       show_work_updates: item.show_work_updates ?? true,
       show_files: item.show_files ?? true,
       show_contact_person: item.show_contact_person ?? true,
+      show_payments: item.show_payments ?? true,
+      show_tasks: item.show_tasks ?? false,
+      show_meta_status: item.show_meta_status ?? false,
       updated_at: new Date().toISOString()
     };
   }

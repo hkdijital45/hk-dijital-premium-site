@@ -73,8 +73,8 @@ export function WebsiteAnalyticsCenter() {
       <section className="overflow-hidden rounded-[22px] border border-slate-200 bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-black uppercase tracking-[.18em] text-cyan-700">Website Analytics Center</p>
-            <h2 className="mt-2 text-2xl font-black text-slate-950">Website Analytics</h2>
+            <p className="text-xs font-black uppercase tracking-[.18em] text-cyan-700">Web Site Analitik Merkezi</p>
+            <h2 className="mt-2 text-2xl font-black text-slate-950">Web Site Analitiği</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
               Public HK Dijital web sitesindeki PageView (sayfa görüntüleme), Event (olay), Contact (iletişim) ve Lead (potansiyel müşteri) sinyallerini izlemek için güvenli yönetim merkezi.
             </p>

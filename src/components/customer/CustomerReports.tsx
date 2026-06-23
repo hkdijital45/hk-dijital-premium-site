@@ -71,13 +71,14 @@ function scoreTone(score: number) {
   return "border-rose-300/30 bg-rose-400/15 text-rose-100";
 }
 
-function exportHref(reportId: string, format: string, range: ReturnType<typeof getCustomerDateRange>, platform: CustomerPlatformFilter) {
+function exportHref(reportId: string, format: string, range: ReturnType<typeof getCustomerDateRange>, platform: CustomerPlatformFilter, viewMode = "executive") {
   const params = new URLSearchParams({
     format,
     start: range.start,
     end: range.end,
     platform,
-    rangeLabel: range.label
+    rangeLabel: range.label,
+    viewMode
   });
   return `/api/customer/reports/${reportId}/export?${params.toString()}`;
 }
@@ -91,6 +92,7 @@ const metricVisibilityAliases: Record<string, string> = {
 };
 
 export function CustomerReports({ reports, initialInterpretations, reportUpdates, visibilityRules = [] }: { reports: any[]; initialInterpretations: any[]; reportUpdates: any[]; visibilityRules?: any[] }) {
+  const [viewMode, setViewMode] = useState<"basic" | "premium" | "executive">("executive");
   const [interpretations, setInterpretations] = useState(initialInterpretations || []);
   const [periodInterpretation, setPeriodInterpretation] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -204,6 +206,8 @@ export function CustomerReports({ reports, initialInterpretations, reportUpdates
   const overviewIntelligence = calculateHKIntelligenceScore(currentAggregate, periodUpdates);
   const overviewPlan = buildActionPlan(currentAggregate, periodUpdates);
   const overviewLeads = getLeadTracking(currentAggregate);
+  const executiveText = `Merhaba,\n\n${range.label} reklam çalışmalarınızın özetini paylaşmak isteriz.\n\n• ${formatNumber(overviewLeads.total)} kişi iletişime geçti\n• ${formatNumber(overviewLeads.proposed)} teklif sürecine ilerledi\n• ${formatNumber(overviewLeads.sold)} satış kaydı oluştu\n\nBu süreçte toplam ${formatCurrency(currentAggregate.metrics?.spent || 0)} reklam harcaması yapıldı.\n\nPerformans düzenli olarak izleniyor. Daha fazla dönüşüm için güçlü reklam gruplarına kontrollü bütçe aktarımı değerlendirilebilir.\n\nSatış garantisi değil, ölçülebilir büyüme sistemi.\n\nHK Dijital`;
+  const executiveWhatsapp = `https://wa.me/?text=${encodeURIComponent(executiveText)}`;
   const roi = calculateRoasRoi({ adSpend: currentAggregate.metrics?.spent, ...roiInput });
   const canShowMetric = (key: string) => {
     const metricKey = metricVisibilityAliases[key] || key;
@@ -221,6 +225,14 @@ export function CustomerReports({ reports, initialInterpretations, reportUpdates
         <button disabled={loading || !filteredReports.length} onClick={interpretPeriod} className="inline-flex items-center gap-2 rounded-full bg-cyan-300 px-5 py-3 text-xs font-black text-slate-950 shadow-[0_14px_40px_rgba(103,232,249,.24)] disabled:opacity-60">
           <Sparkles size={15} /> {loading ? "Yorumlanıyor..." : "AI Yorumla"}
         </button>
+      </div>
+
+      <div className="mt-5 rounded-[18px] border border-slate-200 bg-white p-5 text-slate-900 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div><h3 className="font-black">Akıllı Rapor Görünümü</h3><p className="mt-1 text-sm text-slate-600">Sonuç odaklı Executive, sade Basic veya metrik odaklı Premium görünümü seçin.</p></div>
+          <div className="flex flex-wrap gap-2">{[["executive", "Executive Rapor"], ["basic", "Basic Rapor"], ["premium", "Premium Rapor"]].map(([key, label]) => <button key={key} onClick={() => setViewMode(key as "basic" | "premium" | "executive")} className={`rounded-full px-4 py-2 text-xs font-black ${viewMode === key ? "bg-cyan-500 text-white" : "bg-slate-100 text-slate-700"}`}>{label}</button>)}</div>
+        </div>
+        {viewMode === "executive" && <div className="mt-4 rounded-[14px] bg-slate-50 p-4"><pre className="whitespace-pre-wrap font-sans text-sm leading-7 text-slate-700">{executiveText}</pre><div className="mt-4 flex flex-wrap gap-2"><button onClick={() => navigator.clipboard.writeText(executiveText)} className="rounded-full bg-slate-900 px-4 py-2 text-xs font-black text-white">Kopyala</button><a href={executiveWhatsapp} target="_blank" rel="noreferrer" className="rounded-full bg-emerald-500 px-4 py-2 text-xs font-black text-white">WhatsApp&apos;a Gönder</a><button disabled={loading} onClick={interpretPeriod} className="rounded-full bg-purple-600 px-4 py-2 text-xs font-black text-white">{loading ? "Hazırlanıyor..." : "AI Rapor Hazırla"}</button></div></div>}
       </div>
 
       <CustomerReportDashboardSummary reports={reports} />
@@ -406,7 +418,7 @@ export function CustomerReports({ reports, initialInterpretations, reportUpdates
                         </div>
                         <div className="flex flex-wrap gap-2">
                           <button disabled={reportLoading === report.id} onClick={() => interpretSingleReport(report)} className="inline-flex items-center gap-2 rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950 disabled:opacity-60"><Sparkles size={13} /> {reportLoading === report.id ? "Yorumlanıyor..." : "AI Yorumla"}</button>
-                          <a href={exportHref(report.id, "pdf", range, appliedPlatform)} className="inline-flex items-center gap-2 rounded-full border border-cyan-200/30 px-4 py-2 text-xs font-black text-cyan-100"><Download size={13} /> PDF Rapor Oluştur</a>
+                          <a href={exportHref(report.id, "pdf", range, appliedPlatform, viewMode)} className="inline-flex items-center gap-2 rounded-full border border-cyan-200/30 px-4 py-2 text-xs font-black text-cyan-100"><Download size={13} /> {viewMode === "basic" ? "Basic PDF" : viewMode === "premium" ? "Premium PDF" : "Executive PDF"}</a>
                         </div>
                       </div>
                       <p className="mt-3 text-sm font-bold text-slate-200">{summary(report)}</p>
@@ -464,7 +476,7 @@ export function CustomerReports({ reports, initialInterpretations, reportUpdates
                         <summary className="cursor-pointer text-sm font-black text-cyan-100">Rapor indir</summary>
                         <div className="mt-3 flex flex-wrap gap-2">
                           {[["excel", "Excel indir"], ["word", "Word indir"], ["pdf", "PDF indir"]].map(([format, label]) => (
-                            <a key={format} href={exportHref(report.id, format, range, appliedPlatform)} className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-2 text-xs font-bold text-white hover:border-cyan-200/40">
+                            <a key={format} href={exportHref(report.id, format, range, appliedPlatform, viewMode)} className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-2 text-xs font-bold text-white hover:border-cyan-200/40">
                               <Download size={13} /> {label}
                             </a>
                           ))}

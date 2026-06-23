@@ -4,8 +4,8 @@ export const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID || "";
 
 declare global {
   interface Window {
-    fbq?: (...args: any[]) => void;
-    _fbq?: (...args: any[]) => void;
+    fbq?: (...args: unknown[]) => void;
+    _fbq?: (...args: unknown[]) => void;
   }
 }
 
@@ -16,12 +16,12 @@ export function hasMetaPixel() {
 }
 
 export function trackMetaEvent(eventName: string, payload?: MetaPixelPayload) {
-  if (typeof window === "undefined" || !META_PIXEL_ID || typeof window.fbq !== "function") return;
+  if (typeof window === "undefined" || typeof window.fbq !== "function") return;
   window.fbq("track", eventName, payload || {});
 }
 
 export function trackMetaCustomEvent(eventName: string, payload?: MetaPixelPayload) {
-  if (typeof window === "undefined" || !META_PIXEL_ID || typeof window.fbq !== "function") return;
+  if (typeof window === "undefined" || typeof window.fbq !== "function") return;
   window.fbq("trackCustom", eventName, payload || {});
 }
 
