@@ -12,7 +12,7 @@ export const adminModules = [
   "site-ayarlari", "api-ayarlari", "tema-ayarlari", "medya", "sistem-loglari",
   "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi",
   "sosyal-medya-plani", "aylik-raporlar", "hk-asistan", "sektor-sistemleri",
-  "sistem-sagligi", "sistem-test-merkezi", "veri-aktarma"
+  "sistem-sagligi", "sistem-test-merkezi", "sistem-rehberi", "veri-aktarma"
 ] as const;
 
 export type AdminModule = (typeof adminModules)[number];
@@ -37,12 +37,12 @@ export const roleTemplates: Record<CanonicalRole, AdminModule[]> = {
     "takip-gorevleri", "notlar", "musteri-bulucu", "haritalar", "bolgesel-analiz",
     "kaydedilen-adaylar", "meta-analiz", "google-analiz", "sosyal-medya-denetimi", "hazirlik", "ai-studio", "kampanyalar", "teklifler", "teklif-listesi",
     "raporlar", "website-analytics", "rapor-yorumlari", "disa-aktarimlar", "gorevler", "belgeler", "tahsilat", "karlilik",
-    "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "hk-asistan", "sektor-sistemleri", "sistem-sagligi", "veri-aktarma"
+    "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "hk-asistan", "sektor-sistemleri", "sistem-sagligi", "sistem-rehberi", "veri-aktarma"
   ],
   editor: [
     "dashboard", "genel-arama", "kullanim-kilavuzu", "crm", "leads", "hazirlik",
     "ai-studio", "icerik-onerileri", "prompt-kutuphanesi", "kampanya-hazirligi",
-    "teklifler", "teklif-listesi", "raporlar", "website-analytics", "rapor-yorumlari", "disa-aktarimlar", "medya"
+    "teklifler", "teklif-listesi", "raporlar", "website-analytics", "rapor-yorumlari", "disa-aktarimlar", "medya", "sistem-rehberi"
   ],
   musteri: []
 };

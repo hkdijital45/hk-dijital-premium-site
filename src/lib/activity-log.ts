@@ -1,7 +1,7 @@
 import { supabaseRest } from "./supabase";
 import { isCustomerRole, type AppSession } from "./auth";
 
-export type ActivityAction = "Giriş" | "Oluşturma" | "Güncelleme" | "Silme" | "İçe Aktarma" | "Dışa Aktarma" | "Şifre Sıfırlama" | "Görüntüleme" | "İndirme" | "Dönüştürme";
+export type ActivityAction = "Giriş" | "Çıkış" | "Oluşturma" | "Güncelleme" | "Silme" | "Arşivleme" | "Yetki Değişikliği" | "API İşlemi" | "İçe Aktarma" | "Dışa Aktarma" | "Şifre Sıfırlama" | "Görüntüleme" | "İndirme" | "Dönüştürme";
 
 export async function recordActivity({
   session,

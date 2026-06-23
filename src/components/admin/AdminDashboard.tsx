@@ -11,6 +11,7 @@ import type { SiteContent } from "@/lib/types";
 import { ReportTools } from "@/components/admin/reports/ReportTools";
 import { WebsiteAnalyticsCenter } from "@/components/admin/WebsiteAnalyticsCenter";
 import { WebsiteAnalyticsSummaryCards } from "@/components/admin/WebsiteAnalyticsSummaryCards";
+import { SystemGuideCenter } from "@/components/admin/SystemGuideCenter";
 import { AdminCustomerSelector, GlobalMetaPixelSettings, MetaPixelSettingsPanel } from "@/components/admin/AdminCustomerOperations";
 import { Logo } from "@/components/public/Logo";
 import { adminNavigationGroups, adminNavigationItems, getAdminHref } from "@/lib/admin-navigation";
@@ -37,6 +38,7 @@ const adminLabelEmojis: Record<string, string> = {
   "Tahsilat & Operasyon": "💳",
   "İçerik & AI Studio": "✨",
   "Araçlar": "🧰",
+  "Araçlar & Yardım": "🧰",
   "Ayarlar": "⚙️",
   Dashboard: "🏠",
   "HK Asistan": "🤖",
@@ -55,6 +57,9 @@ const adminLabelEmojis: Record<string, string> = {
   Belgeler: "🗃️",
   "Zaman Çizelgesi": "🕒",
   "Sistem Sağlığı": "🩺",
+  "Sistem Sağlık Merkezi": "🩺",
+  "HK Dijital Sistem Rehberi": "📚",
+  "Log ve Aktivite Merkezi": "🧾",
   "Sistem Test Merkezi": "🧪",
   "Web Sitesi Yönetimi": "🌐",
   Entegrasyonlar: "🔌",
@@ -382,6 +387,8 @@ export function AdminDashboard({
   const [isDesktopApp, setIsDesktopApp] = useState(false);
   const [selectedCompanyId, setSelectedCompanyId] = useState("");
   const [pendingCompanyId, setPendingCompanyId] = useState("");
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState(0);
 
   useEffect(() => {
     setIsDesktopApp(Boolean(window.hkDesktop?.isDesktop));
@@ -395,17 +402,9 @@ export function AdminDashboard({
     if (shouldShowBoot) {
       setBootVisible(true);
     }
-    let shouldShowApiStatus = true;
     try {
-      shouldShowApiStatus = !sessionStorage.getItem("hk-api-status-popup-complete");
-      if (shouldShowApiStatus) sessionStorage.setItem("hk-api-status-popup-complete", "true");
-    } catch {
-      shouldShowApiStatus = true;
-    }
-    if (shouldShowApiStatus) {
-      setStartupApiOpen(true);
-      runStartupApiStatus();
-    }
+      if (legacyRole(currentSession?.role) === "admin" && !localStorage.getItem("hk-admin-onboarding-complete")) setOnboardingOpen(true);
+    } catch {}
     try {
       setNotificationState(JSON.parse(localStorage.getItem("hk-admin-notification-state") || "null") || { read: [], archived: [] });
     } catch {
@@ -590,6 +589,7 @@ export function AdminDashboard({
     "Meta Raporları", "Meta İstihbarat", "Google Ads Raporları", "Google İstihbarat", "Entegrasyonlar"
   ];
   const showCustomerFilter = customerFilterModules.includes(active);
+  const activeNavigationItem = adminNavigationItems.find((item) => item.label === active);
 
   return (
     <main data-admin="true" className={`admin-shell hk-admin relative min-h-screen overflow-x-hidden ${shellClass}`}>
@@ -712,6 +712,8 @@ export function AdminDashboard({
           {!supabaseConfigured && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-700">Supabase bağlantısı yapılandırılmadı. Canlı ortamda kaydetme çalışmaz.</p>}
           {bootstrapWarning && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-700">Süper admin kurulum anahtarları hâlâ aktif. Güvenlik için Vercel ortam değişkenlerinden kaldırın.</p>}
           {status && <p className={`mb-5 rounded-[8px] border p-3 text-sm ${status.includes("Kaydedilemedi") ? "border-red-300/30 bg-red-500/10 text-red-100" : "border-cyan-200/20 bg-cyan-200/10 text-cyan-700"}`}>{status}</p>}
+          {!dashboardAliases.includes(active) && activeNavigationItem && <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-cyan-200 bg-cyan-50 p-4"><div><h2 className="font-black text-slate-950">{withAdminEmoji(activeNavigationItem.label)}</h2><p className="mt-1 text-sm text-slate-600">{activeNavigationItem.description}</p></div><Link href={`/hk-admin/sistem-rehberi?topic=${activeNavigationItem.slug}`} className="rounded-[10px] bg-white px-4 py-2.5 text-sm font-black text-cyan-700 shadow-sm ring-1 ring-cyan-200">? Yardım</Link></div>}
+          {active === "Sistem Ayarları" && <button onClick={() => { localStorage.removeItem("hk-admin-onboarding-complete"); setOnboardingStep(0); setOnboardingOpen(true); }} className="mb-5 rounded-[10px] border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-black text-blue-700">İlk Kurulum Sihirbazını Yeniden Başlat</button>}
           {showCustomerFilter && <div className="mb-5"><AdminCustomerSelector companies={content.companies || []} value={pendingCompanyId} appliedValue={selectedCompanyId} onChange={setPendingCompanyId} onApply={applyCompanyFilter} onClear={clearCompanyFilter} /></div>}
           {dashboardAliases.includes(active) && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} systemStatus={systemStatus} currentSession={currentSession} allowedModules={allowedModules} notify={notify} />}
           {active === "Satış Hunisi" && <SalesPipeline content={content} setContent={setContent} save={save} setActive={setActive} notify={notify} />}
@@ -746,10 +748,12 @@ export function AdminDashboard({
           {active === "Hazırlık Merkezi" && <PreparationCenter {...props} setActive={setActive} />}
           {["Tema Ayarları", "Tema / Logo"].includes(active) && <ThemeEditor onApply={() => null} />}
           {["Roller & Yetkiler", "Kullanıcı Yönetimi"].includes(active) && <UsersAdmin {...props} mode={active} />}
-          {active === "Sistem Sağlığı" && <SystemHealthCenter content={content} setContent={setContent} startupApiData={startupApiData} runStartupApiStatus={runStartupApiStatus} startupApiLoading={startupApiLoading} />}
+          {["Sistem Sağlığı", "Sistem Sağlık Merkezi"].includes(active) && <SystemHealthCenter content={content} setContent={setContent} startupApiData={startupApiData} runStartupApiStatus={runStartupApiStatus} startupApiLoading={startupApiLoading} />}
           {active === "Sistem Test Merkezi" && <SystemTestCenter content={content} setContent={setContent} save={save} currentSession={currentSession} notify={notify} systemStatus={systemStatus} supabaseConfigured={supabaseConfigured} />}
           {active === "Veri Aktarma" && <ExportCenter content={content} />}
-          {["Sistem Logları", "Aktivite Akışı"].includes(active) && <ActivityLogs content={content} setContent={setContent} />}
+          {["Sistem Logları", "Aktivite Akışı", "Log ve Aktivite Merkezi"].includes(active) && <ActivityLogs content={content} setContent={setContent} />}
+          {active === "HK Dijital Sistem Rehberi" && <SystemGuideCenter currentSession={currentSession} notify={notify} />}
+          {active === "Sistem Ayarları" && <Settings {...props} />}
           {["Takip Görevleri", "Takipler", "Notlar"].includes(active) && <Crm {...props} view={active} setActive={setActive} />}
           {["Bölgesel Analiz", "Rakip Listesi", "Kaydedilen Adaylar"].includes(active) && <MapsIntelligence {...props} setActive={setActive} mode={active} />}
           {["Funnel Analizi", "Reklam Fırsatları", "Rakip Reklamları"].includes(active) && <ChannelAnalysis {...props} channel={active === "Rakip Reklamları" ? "Reklam Fırsatları" : active} />}
@@ -785,7 +789,7 @@ export function AdminDashboard({
           {active === "Ölçümleme Ayarları" && <TrackingSettings {...props} />}
           {["Kullanıcı Yönetimi", "Roller", "Güvenlik"].includes(active) && <UsersAdmin {...props} mode={active} />}
           {active === "Log Hareketleri" && <ActivityLogs content={content} setContent={setContent} />}
-          {active === "Kullanım Kılavuzu" && <UsageGuide />}
+          {active === "Kullanım Kılavuzu" && <SystemGuideCenter currentSession={currentSession} notify={notify} />}
         </section>
       </div>
       {notificationsOpen && (
@@ -824,6 +828,7 @@ export function AdminDashboard({
         </div>
       )}
       {copilotOpen && <GlobalCopilotPanel content={content} setActive={setActive} onClose={() => setCopilotOpen(false)} notify={notify} />}
+      {onboardingOpen && <AdminOnboardingWizard step={onboardingStep} setStep={setOnboardingStep} setActive={setActive} onClose={() => setOnboardingOpen(false)} onComplete={() => { localStorage.setItem("hk-admin-onboarding-complete", "true"); setOnboardingOpen(false); notify("İlk kurulum sihirbazı tamamlandı.", "success"); }} />}
       <StartupApiStatusModal open={startupApiOpen} loading={startupApiLoading} data={startupApiData} message={startupApiMessage} onRetest={runStartupApiStatus} onClose={() => setStartupApiOpen(false)} onSettings={() => { setStartupApiOpen(false); setActive("API Ayarları"); }} />
       {bootVisible && <SystemBoot step={bootStep} />}
       <ToastStack items={toasts} dismiss={(id) => setToasts((current) => current.filter((toast) => toast.id !== id))} />
@@ -854,6 +859,19 @@ function ToastStack({ items, dismiss }: any) {
       </button>;
     })}
   </div>;
+}
+
+function AdminOnboardingWizard({ step, setStep, setActive, onClose, onComplete }: any) {
+  const steps = [
+    { title: "Logo yükle", description: "Marka logonuzu ve favicon görselini Web Sitesi Yönetimi alanından ekleyin.", target: "Web Sitesi Yönetimi" },
+    { title: "Firma bilgilerini gir", description: "Telefon, e-posta, adres ve marka metinlerini tamamlayın.", target: "Web Sitesi Yönetimi" },
+    { title: "Meta bağlantısını kur", description: "Meta reklam hesabı, Pixel ve Conversion API hazırlığını tamamlayın.", target: "Entegrasyonlar" },
+    { title: "Google bağlantısını kur", description: "Google Ads, GA4 ve Maps bağlantı kimliklerini kontrol edin.", target: "Entegrasyonlar" },
+    { title: "İlk müşteriyi oluştur", description: "Firma profili, iletişim bilgileri ve panel görünürlüğünü kaydedin.", target: "Müşteriler" },
+    { title: "İlk raporu oluştur", description: "Müşteri için dönemsel performans raporunu hazırlayıp görünürlüğünü belirleyin.", target: "Müşteri Raporları" }
+  ];
+  const current = steps[step];
+  return <div className="fixed inset-0 z-[120] grid place-items-center bg-slate-100/85 p-4" onMouseDown={onClose}><section className="w-full max-w-2xl rounded-[24px] border border-slate-200 bg-white p-6 shadow-2xl" onMouseDown={(event) => event.stopPropagation()}><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">İlk Kurulum Sihirbazı</p><h2 className="mt-2 text-2xl font-black text-slate-950">HK Operating System'i kullanıma hazırlayın</h2><p className="mt-2 text-sm leading-6 text-slate-600">Altı temel adımı tamamladığınızda müşteri ve raporlama operasyonları hazır olur.</p></div><button onClick={onClose} className="grid size-10 place-items-center rounded-full border border-slate-200"><X size={18} /></button></div><div className="mt-5 flex gap-2">{steps.map((item, index) => <button key={item.title} onClick={() => setStep(index)} className={`h-2 flex-1 rounded-full ${index <= step ? "bg-cyan-500" : "bg-slate-200"}`} aria-label={item.title} />)}</div><div className="mt-6 rounded-[18px] border border-cyan-200 bg-cyan-50 p-5"><span className="text-xs font-black text-cyan-700">Adım {step + 1} / {steps.length}</span><h3 className="mt-2 text-xl font-black text-slate-950">{current.title}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{current.description}</p><button onClick={() => { setActive(current.target); onClose(); }} className="mt-4 rounded-[12px] bg-white px-4 py-3 text-sm font-black text-cyan-700 ring-1 ring-cyan-200">İlgili Ekranı Aç</button></div><div className="mt-6 flex justify-between gap-2"><button disabled={step === 0} onClick={() => setStep(Math.max(0, step - 1))} className="rounded-[12px] border border-slate-300 px-4 py-3 text-sm font-black text-slate-700 disabled:opacity-40">Geri</button>{step === steps.length - 1 ? <button onClick={onComplete} className="rounded-[12px] bg-emerald-600 px-5 py-3 text-sm font-black text-white">Kurulumu Tamamla</button> : <button onClick={() => setStep(step + 1)} className="rounded-[12px] bg-cyan-500 px-5 py-3 text-sm font-black text-white">Tamamlandı, Devam Et</button>}</div></section></div>;
 }
 
 function SystemBoot({ step }: { step: number }) {
@@ -1704,17 +1722,20 @@ function SystemHealthCenter({ content, startupApiData, runStartupApiStatus, star
   const api = content.settings?.api || {};
   const aiStatuses = startupApiData?.results || api.ai_status || {};
   const healthItems = [
-    ["Supabase", "Bağlı", "Veri ve oturum altyapısı", api.ai_status_last_test_at || startupApiData?.lastTestTime],
-    ["Meta API", api.meta_access_token ? "Bağlı" : "Uyarı", api.meta_access_token ? "Meta token yapılandırılmış." : "Meta token eksik veya test bekliyor.", api.meta_last_success_at || api.meta_last_error_at],
-    ["Google API", api.google_maps_api_key || api.google_ads_customer_id ? "Bağlı" : "Uyarı", "Maps / Ads bağlantı ayarları", api.google_last_success_at || startupApiData?.lastTestTime],
-    ["OpenAI", aiStatuses.openai?.status === "Aktif" ? "Bağlı" : "Uyarı", aiStatuses.openai?.warning || "OpenAI bağlantı durumu", aiStatuses.openai?.lastTestTime],
-    ["Groq", aiStatuses.groq?.status === "Aktif" ? "Bağlı" : "Uyarı", aiStatuses.groq?.warning || "Groq bağlantı durumu", aiStatuses.groq?.lastTestTime],
-    ["SMTP", api.smtp_host ? "Bağlı" : "Uyarı", api.smtp_host ? "SMTP ayarı mevcut." : "SMTP ayarı eksik.", api.smtp_last_success_at],
-    ["WhatsApp", api.whatsapp_token || api.whatsapp_phone_number_id ? "Bağlı" : "Uyarı", api.whatsapp_token || api.whatsapp_phone_number_id ? "WhatsApp ayarı mevcut." : "WhatsApp ayarı eksik.", api.whatsapp_last_success_at],
-    ["Storage", "Bağlı", "Medya ve belge kayıtları mevcut veri sistemi üzerinden izlenir.", startupApiData?.lastTestTime]
+    ["Veritabanı / Supabase", "Çalışıyor", "Veri, auth ve storage altyapısı.", startupApiData?.lastTestTime, null],
+    ["Meta API", api.meta_access_token ? "Çalışıyor" : "Uyarı", api.meta_access_token ? "Meta bağlantı bilgisi kayıtlı." : "Meta token yapılandırması eksik.", api.meta_last_success_at, api.meta_last_error_at],
+    ["Meta Pixel", api.meta_pixel_id || api.meta_dataset_id ? "Çalışıyor" : "Uyarı", "Public site olay ve dönüşüm ölçümleme durumu.", api.last_pixel_test_at, api.meta_last_error_at],
+    ["Conversion API", api.capi_enabled || api.conversion_api_token ? "Çalışıyor" : "Uyarı", "Sunucu tarafı dönüşüm olayı hazırlığı.", api.last_capi_test_at, api.capi_last_error_at],
+    ["Google Ads", api.google_ads_customer_id || api.google_developer_token ? "Çalışıyor" : "Uyarı", "Google Ads müşteri ve yönetici hesap bağlantısı.", api.google_last_success_at, api.google_last_error_at],
+    ["Google Analytics", api.google_analytics_id || api.ga_measurement_id ? "Çalışıyor" : "Uyarı", "GA4 ölçüm kimliği ve veri hazırlığı.", api.google_last_success_at, api.google_last_error_at],
+    ["Search Console", api.search_console_site ? "Çalışıyor" : "Uyarı", "Organik arama ve site sahipliği bağlantısı.", api.search_console_last_success_at, api.search_console_last_error_at],
+    ["Website Analytics", content.settings?.analyticsIds?.metaPixelId || content.settings?.analyticsIds?.gaMeasurementId ? "Çalışıyor" : "Uyarı", "Public site PageView, Contact ve Lead ölçümü.", api.website_analytics_last_sync_at, api.website_analytics_last_error_at],
+    ["SMTP", api.smtp_host ? "Çalışıyor" : "Uyarı", "Sistem e-postalarının gönderim sunucusu.", api.smtp_last_success_at, api.smtp_last_error_at],
+    ["AI Sağlayıcı", Object.values(aiStatuses).some((item: any) => item?.status === "Aktif") ? "Çalışıyor" : "Uyarı", "OpenAI, Groq veya Gemini bağlantı durumu.", startupApiData?.lastTestTime, api.ai_last_error_at],
+    ["API Sağlığı", startupApiData?.lastTestTime ? "Çalışıyor" : "Uyarı", "Server route ve entegrasyon testlerinin genel sonucu.", startupApiData?.lastTestTime, api.last_api_error_at]
   ];
-  const statusClass = (status: string) => status === "Bağlı" ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-700" : status === "Hata" ? "border-red-300/20 bg-red-300/10 text-red-100" : "border-amber-300/20 bg-amber-300/10 text-amber-700";
-  return <Panel title="Sistem Sağlığı"><div className="mb-5 flex flex-wrap items-center justify-between gap-3"><p className="max-w-3xl text-sm leading-6 text-slate-400">API ve altyapı bağlantılarını güvenli şekilde izleyin. Gizli anahtarlar tarayıcıda gösterilmez; sadece durum bilgisi görünür.</p><button disabled={startupApiLoading} onClick={runStartupApiStatus} className="rounded-[8px] bg-cyan-300 px-4 py-3 text-sm font-black text-slate-950 disabled:opacity-60">{startupApiLoading ? "Test ediliyor..." : "Bağlantıyı Test Et"}</button></div><div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">{healthItems.map(([label, status, description, lastCheck]) => <div key={label} className={`rounded-[8px] border p-4 ${statusClass(String(status))}`}><div className="flex items-center justify-between gap-3"><h3 className="font-black text-slate-900">{label}</h3><span className="rounded-full border border-current/20 px-2 py-1 text-[10px] font-black">{status}</span></div><p className="mt-3 text-xs leading-5 opacity-90">{description}</p><p className="mt-3 text-[11px] leading-5 opacity-75">Son kontrol zamanı: {lastCheck ? new Date(String(lastCheck)).toLocaleString("tr-TR") : "Henüz kontrol edilmedi"}</p></div>)}</div><div className="mb-5"><ReadinessPanel api={api} /></div><AiStatusCenterWidget statuses={aiStatuses} message={startupApiData?.lastTestTime ? `Son genel kontrol: ${new Date(startupApiData.lastTestTime).toLocaleString("tr-TR")}` : "Bağlantı testi bekleniyor."} loading={startupApiLoading} onRefresh={runStartupApiStatus} /></Panel>;
+  const statusClass = (status: string) => status === "Çalışıyor" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : status === "Hata" ? "border-red-200 bg-red-50 text-red-700" : "border-amber-200 bg-amber-50 text-amber-700";
+  return <Panel title="Sistem Sağlık Merkezi"><div className="mb-5 flex flex-wrap items-center justify-between gap-3"><p className="max-w-3xl text-sm leading-6 text-slate-600">Teknik servislerin son kontrol, başarı ve hata durumlarını merkezi olarak izleyin. Bu ekran yalnız menüden açılır; girişte otomatik çalışmaz ve gizli anahtar göstermez.</p><button disabled={startupApiLoading} onClick={runStartupApiStatus} className="rounded-[10px] bg-cyan-500 px-4 py-3 text-sm font-black text-white disabled:opacity-60">{startupApiLoading ? "Test ediliyor..." : "Tüm Servisleri Yenile"}</button></div><div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{healthItems.map(([label, status, description, lastCheck, lastError]) => <div key={String(label)} className={`rounded-[16px] border p-4 ${statusClass(String(status))}`}><div className="flex items-center justify-between gap-3"><h3 className="font-black text-slate-950">{label}</h3><span className="rounded-full border border-current/20 px-2 py-1 text-[10px] font-black">{status}</span></div><p className="mt-3 text-xs leading-5 text-slate-700">{description}</p><div className="mt-3 grid gap-1 text-[11px] text-slate-600"><span>Son kontrol: {lastCheck ? new Date(String(lastCheck)).toLocaleString("tr-TR") : "Henüz kontrol edilmedi"}</span><span>Son başarılı işlem: {lastCheck ? new Date(String(lastCheck)).toLocaleString("tr-TR") : "Kayıt yok"}</span><span>Son hata: {lastError ? String(lastError) : "Hata kaydı yok"}</span></div><button disabled={startupApiLoading} onClick={runStartupApiStatus} className="mt-4 rounded-[9px] bg-white px-3 py-2 text-xs font-black text-slate-700 shadow-sm ring-1 ring-slate-200">Test Et / Yenile</button></div>)}</div><div className="mb-5"><ReadinessPanel api={api} /></div><AiStatusCenterWidget statuses={aiStatuses} message={startupApiData?.lastTestTime ? `Son genel kontrol: ${new Date(startupApiData.lastTestTime).toLocaleString("tr-TR")}` : "Bağlantı testi bekleniyor."} loading={startupApiLoading} onRefresh={runStartupApiStatus} /></Panel>;
 }
 
 function ExportCenter({ content }: any) {
@@ -2169,19 +2190,22 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     ["Rapor Oluştur", "Müşteri Raporları", <FileBarChart size={20} />, "from-red-500 to-orange-400"],
     ["Teklif Oluştur", "Teklif Hazırlama", <MessageSquareText size={20} />, "from-cyan-500 to-teal-400"]
   ].filter(([, target]) => canOpen(target as string));
+  const openLeadCount = leads.filter((lead) => !isLeadDeleted(lead) && !["Kazanıldı", "Kaybedildi", "Dönüştürüldü", "Müşteri Oldu"].includes(pipelineStageForLead(lead))).length;
+  const pendingProposalCount = leads.filter((lead) => ["Teklif Hazırlanıyor", "Teklif Gönderildi", "Teklif Görüntülendi", "Revize İstendi"].includes(lead.proposal_status || lead.status)).length;
   const lightOverviewCards = [
-    ["Aktif Müşteri", activeCustomers.length, "Hizmeti devam eden firmalar", <Building2 size={20} />, "bg-blue-50 text-blue-700"],
-    ["Aktif Kampanya", activeCampaigns.length, "Yayındaki kampanyalar", <BarChart3 size={20} />, "bg-cyan-50 text-cyan-700"],
-    ["Bekleyen Tahsilat", `${pendingRevenue.toLocaleString("tr-TR")} TL`, "Bu ay kapanmamış ödemeler", <Gauge size={20} />, "bg-orange-50 text-orange-700"],
     ["Bu Ay Tahsil Edilen", `${paidRevenue.toLocaleString("tr-TR")} TL`, "Ödenen toplam", <CircleCheck size={20} />, "bg-green-50 text-green-700"],
+    ["Bekleyen Tahsilatlar", `${pendingRevenue.toLocaleString("tr-TR")} TL`, "Bu ay kapanmamış ödemeler", <Gauge size={20} />, "bg-orange-50 text-orange-700"],
+    ["Açık Lead Sayısı", openLeadCount, "Satış süreci devam eden fırsatlar", <UsersRound size={20} />, "bg-cyan-50 text-cyan-700"],
+    ["Bekleyen Teklifler", pendingProposalCount, "Karar veya revize bekleyen teklifler", <FileBarChart size={20} />, "bg-amber-50 text-amber-700"],
     ["Kritik Görev", criticalTasks.length, "Acil operasyon işleri", <AlertTriangle size={20} />, "bg-red-50 text-red-700"],
-    ["Sistem Sağlığı", `%${healthScore}`, "Bağlantı ve operasyon durumu", <Gauge size={20} />, "bg-sky-50 text-sky-700"]
+    ["Aktif Müşteriler", activeCustomers.length, "Hizmeti devam eden firmalar", <Building2 size={20} />, "bg-blue-50 text-blue-700"]
   ];
   const hkIdentityCards = [
-    ["🤖 AI Durumu", activeAiMeta.provider || "Kayıt yok", activeAiMeta.model || "Henüz veri yok", "bg-indigo-50 text-indigo-700"],
-    ["📈 Reklam Performansı", metricsThisMonth.length ? `${metricsThisMonth.length} metrik` : "Henüz veri yok", "Bu ay kayıtlı performans verisi", "bg-blue-50 text-blue-700"],
-    ["🎯 Lead Kalitesi", hotLeads.length ? `${hotLeads.length} sıcak lead` : "Kayıt yok", "Yüksek fırsat skorlu kayıtlar", "bg-amber-50 text-amber-700"],
-    ["💰 Tahmini Gelir", expectedRevenue ? `${expectedRevenue.toLocaleString("tr-TR")} TL` : "Henüz veri yok", "Bu ay beklenen toplam gelir", "bg-emerald-50 text-emerald-700"]
+    ["Meta", content.settings?.api?.meta_access_token ? "Çalışıyor" : "Uyarı", "Reklam ve Pixel bağlantısı", "bg-blue-50 text-blue-700"],
+    ["Google", content.settings?.api?.google_ads_customer_id || content.settings?.api?.google_maps_api_key ? "Çalışıyor" : "Uyarı", "Ads ve Analytics hazırlığı", "bg-amber-50 text-amber-700"],
+    ["SMTP", content.settings?.api?.smtp_host ? "Çalışıyor" : "Uyarı", "E-posta gönderim altyapısı", "bg-emerald-50 text-emerald-700"],
+    ["AI", activeAiMeta.provider || "Uyarı", activeAiMeta.model || "Sağlayıcı testi bekleniyor", "bg-purple-50 text-purple-700"],
+    ["Website Analytics", content.settings?.analyticsIds?.metaPixelId || content.settings?.analyticsIds?.gaMeasurementId ? "Çalışıyor" : "Uyarı", "Public site dönüşüm takibi", "bg-cyan-50 text-cyan-700"]
   ];
   const visibleNotifications = buildAdminNotifications(content).slice(0, 5);
   const customerHealthRows = companies.map((company) => ({ company, health: calculateCustomerHealth(company, {
@@ -4191,10 +4215,21 @@ function ApiSettings({ content, setContent }: any) {
   return <Panel title="API Ayarları"><p className="mb-5 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm leading-6 text-cyan-700">API anahtarları güvenlik nedeniyle bu ekranda gösterilmez veya tarayıcıya gönderilmez. Groq, Gemini, OpenAI ve Google Maps anahtarlarını Vercel ortam değişkenleri üzerinden yönetin.</p><div className="mb-5 rounded-[8px] border border-amber-200/20 bg-amber-200/10 p-4"><div className="flex flex-wrap items-center gap-2"><p className="text-sm font-black text-amber-700">AI Ayarları</p><span className="rounded-full bg-amber-300 px-2 py-1 text-[10px] font-black text-slate-950">Groq Önerilen</span></div><p className="mt-1 text-xs text-amber-700/75">Varsayılan canlı sağlayıcı Groq’tur. Belirli sağlayıcı seçilirse sessiz fallback yapılmaz.</p><AiUsageBadge meta={aiMeta} /></div><div className="grid gap-4 md:grid-cols-2"><SelectField label="Aktif AI Sağlayıcısı" value={aiProviderLabel(api.active_ai_provider || api.activeProvider || "Groq")} onChange={updateProvider} options={apiProviderOptions} /><Field label="Yapay zekâ modeli" value={api.active_ai_model || api.model || "llama-3.3-70b-versatile"} onChange={(v) => update({ active_ai_model: v, model: v })} /><SelectField label="AI modu" value={api.ai_mode || (api.demoMode ? "demo" : "live")} onChange={(v) => update({ ai_mode: v, demoMode: v === "demo", active_ai_provider: v === "demo" ? "demo" : v === "local" ? "local" : api.active_ai_provider || "groq", activeProvider: v === "demo" ? "demo" : v === "local" ? "local" : api.activeProvider || "groq" })} options={[{ value: "live", label: "Canlı" }, { value: "demo", label: "Demo" }, { value: "local", label: "Yerel" }]} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(api.demoMode)} onChange={(e) => update({ demoMode: e.target.checked, active_ai_provider: e.target.checked ? "demo" : "groq", activeProvider: e.target.checked ? "demo" : "groq", ai_mode: e.target.checked ? "demo" : "live", active_ai_model: e.target.checked ? "demo-local" : "llama-3.3-70b-versatile", model: e.target.checked ? "demo-local" : "llama-3.3-70b-versatile" })} /> Demo modu</label></div><div className="mt-5 rounded-[8px] border border-slate-200 bg-white p-4"><p className="text-sm font-black text-slate-900">AI Öncelik Sırası</p><p className="mt-1 text-xs text-slate-400">Bu sıra yalnızca “Otomatik” seçildiğinde kullanılır.</p><div className="mt-4 grid gap-3 md:grid-cols-5">{aiPriorityKeys.map((key, index) => <SelectField key={`${key}-${index}`} label={`${index + 1}. Öncelik`} value={aiKeyLabels[priority[index] || key] || "Groq"} onChange={(value) => updatePriority(index, value)} options={aiPriorityOptions} />)}</div></div><div className="mt-5 flex flex-wrap gap-2"><button onClick={saveAiSettings} className="rounded-full bg-amber-300 px-5 py-3 text-sm font-black text-slate-950">AI ayarlarını kaydet</button><button onClick={testApi} className="rounded-full border border-cyan-200/20 px-5 py-3 text-sm font-black text-cyan-700">API bağlantısını test et</button></div>{result && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-700">{result}</p>}<p className="mt-4 text-sm text-slate-400">Sunucu tarafı değişkenleri: GOOGLE_MAPS_API_KEY, GEMINI_API_KEY, GROQ_API_KEY ve OPENAI_API_KEY. Kullanılmayan AI sağlayıcılarının anahtarlarını eklemek zorunda değilsiniz.</p></Panel>;
 }
 
-function Settings({ content, setContent }: any) {
+function Settings({ content, setContent, setActive }: any) {
   const settings = content.settings;
   const update = (patch) => setContent({ ...content, settings: { ...settings, ...patch } });
-  return <Panel title="Sistem Ayarları"><div className="grid gap-4 md:grid-cols-2"><SelectField label="Performans modu" value={settings.performanceMode || "balanced"} onChange={(v) => update({ performanceMode: v })} options={[{ value: "ultra", label: "Ultra Animasyon" }, { value: "balanced", label: "Dengeli" }, { value: "performance", label: "Performans" }]} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.maintenanceMode} onChange={(e) => update({ maintenanceMode: e.target.checked })} /> Bakım modu</label><label className="grid gap-2 text-sm font-semibold text-slate-700">Varsayılan tema<select value={settings.defaultTheme} onChange={(e) => update({ defaultTheme: e.target.value })} className="min-h-11 rounded-[8px] border border-slate-200 bg-slate-50 px-3 text-slate-900"><option value="dark">Koyu</option><option value="light">Açık</option></select></label><TextArea label="Yasal bilgilendirmeler" value={(settings.legalDisclaimers || []).join("\n")} onChange={(v) => update({ legalDisclaimers: v.split("\n").filter(Boolean) })} /></div><p className="mt-4 text-sm text-slate-400">Performans modu public web sitesindeki animasyon yoğunluğunu yönetir. Varsayılan öneri: Dengeli.</p></Panel>;
+  const sections = [
+    ["Güvenlik Ayarları", "Oturum, parola ve güvenli erişim tercihleri.", "Kullanıcı Yönetimi"],
+    ["Kullanıcı ve Yetki Ayarları", "Admin, yönetici, editör ve müşteri modül izinleri.", "Kullanıcı Yönetimi"],
+    ["SMTP / E-Posta Ayarları", "Sistem e-postalarının gönderimi için kullanılan sunucu ayarları.", "Entegrasyonlar"],
+    ["WhatsApp Ayarları", "Mesaj şablonları ve WhatsApp bağlantı durumu.", "WhatsApp Hatırlatma Merkezi"],
+    ["Yapay Zeka Ayarları", "OpenAI, Groq, Gemini ve demo fallback seçimi.", "Entegrasyonlar"],
+    ["Meta Ayarları", "Meta Pixel, Conversion API ve reklam entegrasyonları.", "Entegrasyonlar"],
+    ["Google Ayarları", "Google Ads, Analytics, Maps ve ölçümleme bağlantıları.", "Entegrasyonlar"],
+    ["Web Site Ayarları", "Logo, hizmet, paket ve public iletişim içerikleri.", "Web Sitesi Yönetimi"],
+    ["Yedekleme ve Loglama Ayarları", "Dışa aktarma, aktivite kaydı ve sistem denetimi.", "Log ve Aktivite Merkezi"]
+  ];
+  return <Panel title="Sistem Ayarları"><div className="rounded-[18px] border border-slate-200 bg-white p-5"><h3 className="text-lg font-black text-slate-950">Genel Sistem Ayarları</h3><p className="mt-1 text-sm text-slate-600">Uygulamanın genel çalışma, bakım ve public site performans tercihleri.</p><div className="mt-4 grid gap-4 md:grid-cols-2"><SelectField label="Performans modu" value={settings.performanceMode || "balanced"} onChange={(v) => update({ performanceMode: v })} options={[{ value: "ultra", label: "Ultra Animasyon" }, { value: "balanced", label: "Dengeli" }, { value: "performance", label: "Performans" }]} /><label className="flex items-center gap-2 text-sm font-bold text-slate-700"><input type="checkbox" checked={Boolean(settings.maintenanceMode)} onChange={(e) => update({ maintenanceMode: e.target.checked })} /> Bakım modu</label><div className="md:col-span-2"><TextArea label="Yasal bilgilendirmeler" value={(settings.legalDisclaimers || []).join("\n")} onChange={(v) => update({ legalDisclaimers: v.split("\n").filter(Boolean) })} /></div></div><p className="mt-3 text-xs text-slate-500">Admin panel sabit okunur arayüz kullanır. Performans modu yalnız public web sitesindeki animasyon yoğunluğunu yönetir.</p></div><div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">{sections.map(([title, description, target]) => <article key={title} className="rounded-[18px] border border-slate-200 bg-white p-5"><h3 className="font-black text-slate-950">{title}</h3><p className="mt-2 min-h-12 text-sm leading-6 text-slate-600">{description}</p><button onClick={() => setActive(target)} className="mt-4 rounded-[10px] border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-black text-cyan-700">Ayarları Aç</button></article>)}</div></Panel>;
 }
 
 function GeneralWebsiteSettings({ content, setContent }: any) {
@@ -5755,19 +5790,23 @@ function ActivityLogs({ content, setContent }: any) {
   const [criticalFilter, setCriticalFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
+  const [applied, setApplied] = useState<any>({});
   const [selectedIds, setSelectedIds] = useState([]);
   const [detailLog, setDetailLog] = useState(null);
   const activities = (content.activityLogs || [])
     .filter((item) => !item.deleted_at)
-    .filter((item) => !query || JSON.stringify(item).toLocaleLowerCase("tr").includes(query.toLocaleLowerCase("tr")))
-    .filter((item) => !userFilter || String(item.actor_name || item.user_name || item.email || item.role || "").toLocaleLowerCase("tr").includes(userFilter.toLocaleLowerCase("tr")))
-    .filter((item) => !companyFilter || item.company_id === companyFilter || item.entity_id === companyFilter || JSON.stringify(item.details || {}).includes(companyFilter))
-    .filter((item) => !moduleFilter || (item.module || item.entity || "").includes(moduleFilter))
-    .filter((item) => !action || (item.action_type || item.action) === action)
-    .filter((item) => !statusFilter || (item.status || (item.is_seen ? "Görüldü" : "Görülmedi")) === statusFilter)
-    .filter((item) => !criticalFilter || String(Boolean(item.is_critical)) === criticalFilter)
-    .filter((item) => !dateFrom || String(item.created_at || "").slice(0, 10) >= dateFrom)
-    .filter((item) => !dateTo || String(item.created_at || "").slice(0, 10) <= dateTo)
+    .filter((item) => !applied.query || JSON.stringify(item).toLocaleLowerCase("tr").includes(applied.query.toLocaleLowerCase("tr")))
+    .filter((item) => !applied.userFilter || String(item.actor_name || item.user_name || item.email || "").toLocaleLowerCase("tr").includes(applied.userFilter.toLocaleLowerCase("tr")))
+    .filter((item) => !applied.roleFilter || legacyRole(item.role) === applied.roleFilter)
+    .filter((item) => !applied.companyFilter || item.company_id === applied.companyFilter || item.entity_id === applied.companyFilter || JSON.stringify(item.details || {}).includes(applied.companyFilter))
+    .filter((item) => !applied.moduleFilter || (item.module || item.entity || "").includes(applied.moduleFilter))
+    .filter((item) => !applied.action || (item.action_type || item.action) === applied.action)
+    .filter((item) => !applied.statusFilter || String(item.details?.result || item.result || item.status || "").includes(applied.statusFilter))
+    .filter((item) => !applied.criticalFilter || String(Boolean(item.is_critical)) === applied.criticalFilter)
+    .filter((item) => !applied.dateFrom || String(item.created_at || "").slice(0, 10) >= applied.dateFrom)
+    .filter((item) => !applied.dateTo || String(item.created_at || "").slice(0, 10) <= applied.dateTo)
+    .map((item) => ({ ...item, company_name: companyName(content, item.company_id) }))
     .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
   const actionOptions = Array.from(new Set((content.activityLogs || []).map((item) => item.action_type || item.action).filter(Boolean)));
   const moduleOptions = Array.from(new Set((content.activityLogs || []).map((item) => item.module || item.entity).filter(Boolean)));
@@ -5806,27 +5845,50 @@ function ActivityLogs({ content, setContent }: any) {
       updateLog(log.id, { status: "Geri Alındı", details: { ...details, undo_message: "Kullanıcı tekrar aktifleştirildi." } });
     }
   }
+  const filterDraft = { query, userFilter, roleFilter, companyFilter, moduleFilter, action, statusFilter, criticalFilter, dateFrom, dateTo };
+  const activeFilterCount = Object.values(applied).filter(Boolean).length;
+  const today = new Date().toISOString().slice(0, 10);
+  const todayItems = (content.activityLogs || []).filter((item) => String(item.created_at || "").startsWith(today));
+  const moduleCount = (term: string) => todayItems.filter((item) => `${item.module || ""} ${item.entity || ""}`.toLocaleLowerCase("tr").includes(term)).length;
+  const errorCount = todayItems.filter((item) => item.details?.error || ["Hata", "Başarısız"].includes(item.details?.result || item.result)).length;
+  const criticalItems = activities.filter((item) => item.is_critical || item.details?.error || ["Silme", "Yetki Değişikliği", "Giriş"].includes(item.action_type || item.action)).slice(0, 6);
+  function clearFilters() {
+    setQuery(""); setUserFilter(""); setRoleFilter(""); setCompanyFilter(""); setModuleFilter(""); setAction(""); setStatusFilter(""); setCriticalFilter(""); setDateFrom(""); setDateTo(""); setApplied({});
+  }
+  function exportLogs(format: "csv" | "excel" | "pdf") {
+    if (format === "pdf") return window.print();
+    const rows = activities.map((item) => ({ Tarih: formatDateTime(item.created_at), Firma: item.company_name, Kullanıcı: item.actor_name || "Sistem", Rol: item.role || "Sistem", Modül: item.module || item.entity, İşlem: item.action_type || item.action, Sonuç: item.details?.result || item.result || "Başarılı" }));
+    const columns = ["Tarih", "Firma", "Kullanıcı", "Rol", "Modül", "İşlem", "Sonuç"];
+    const output = format === "csv" ? toCsv(rows, columns) : toExcelTable(rows, columns);
+    const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob([output], { type: format === "csv" ? "text/csv;charset=utf-8" : "application/vnd.ms-excel;charset=utf-8" })); link.download = `HK-Log-Aktivite-${today}.${format === "csv" ? "csv" : "xls"}`; link.click(); URL.revokeObjectURL(link.href);
+  }
   return (
-    <Panel title="Aktivite Akışı">
-      <p className="mb-5 text-sm leading-6 text-slate-400">Yönetici ve müşteri işlemlerini en yeniden eskiye tarih, kullanıcı, müşteri, modül, işlem türü, durum ve kritiklik durumuna göre inceleyin. Değişiklikleri üst menüdeki Kaydet düğmesiyle kalıcılaştırın.</p>
-      <div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-8">
+    <Panel title="Log ve Aktivite Merkezi">
+      <p className="mb-5 text-sm leading-6 text-slate-600">Kullanıcı işlemlerini, CRM değişikliklerini, API olaylarını ve sistem hatalarını tek denetim merkezinde inceleyin. Filtreler yalnız Filtrele düğmesiyle uygulanır.</p>
+      <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-6"><AgencyStatCard label="Bugünkü toplam işlem" value={todayItems.length} note="Tüm modüller" /><AgencyStatCard label="CRM işlemleri" value={moduleCount("crm")} note="Lead ve müşteri" /><AgencyStatCard label="Tahsilat işlemleri" value={moduleCount("tahsilat")} note="Ödeme hareketleri" /><AgencyStatCard label="Meta işlemleri" value={moduleCount("meta")} note="Reklam ve Pixel" /><AgencyStatCard label="Google işlemleri" value={moduleCount("google")} note="Ads ve Analytics" /><AgencyStatCard label="Hatalı işlemler" value={errorCount} note="Bugünkü hata kayıtları" tone={errorCount ? "red" : "emerald"} /></div>
+      <div className="mb-5 grid gap-3 rounded-[16px] border border-slate-200 bg-slate-50 p-4 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-6">
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Kullanıcı veya işlem ara..." className="min-h-11 rounded-[8px] border border-slate-200 bg-slate-50 px-3 text-slate-900" />
         <Field label="Kullanıcı" value={userFilter} onChange={setUserFilter} placeholder="Kullanıcı adı / rol" />
         <CompanySelect value={companyFilter} onChange={setCompanyFilter} companies={content.companies} />
+        <SelectField label="Kullanıcı Türü" value={roleFilter} onChange={setRoleFilter} options={[{ value: "admin", label: "Admin" }, { value: "editor", label: "Editor" }, { value: "yonetici", label: "Staff" }, { value: "musteri", label: "Customer" }]} placeholder="Tüm roller" />
         <SelectField label="Modül" value={moduleFilter} onChange={setModuleFilter} options={moduleOptions} placeholder="Tüm modüller" />
-        <SelectField label="İşlem Türü" value={action} onChange={setAction} options={actionOptions.length ? actionOptions : ["Giriş", "Oluşturma", "Güncelleme", "Silme", "İçe Aktarma", "Dışa Aktarma", "Şifre Sıfırlama", "Görüntüleme", "İndirme", "Dönüştürme"]} placeholder="Tüm işlemler" />
-        <SelectField label="Durum" value={statusFilter} onChange={setStatusFilter} options={["Görülmedi", "Görüldü", "Arşivlendi", "Silindi", "Geri Alındı"]} placeholder="Tüm durumlar" />
+        <SelectField label="İşlem Türü" value={action} onChange={setAction} options={actionOptions.length ? actionOptions : ["Giriş", "Çıkış", "Oluşturma", "Güncelleme", "Silme", "Arşivleme", "Yetki Değişikliği", "API İşlemi", "İçe Aktarma", "Dışa Aktarma", "Şifre Sıfırlama", "Görüntüleme", "İndirme", "Dönüştürme"]} placeholder="Tüm işlemler" />
+        <SelectField label="Sonuç Durumu" value={statusFilter} onChange={setStatusFilter} options={["Başarılı", "Uyarı", "Hata"]} placeholder="Tüm sonuçlar" />
         <SelectField label="Kritik" value={criticalFilter} onChange={setCriticalFilter} options={[{ value: "true", label: "Kritik" }, { value: "false", label: "Normal" }]} placeholder="Tümü" />
         <Field label="Başlangıç tarihi" type="date" value={dateFrom} onChange={setDateFrom} />
         <Field label="Bitiş tarihi" type="date" value={dateTo} onChange={setDateTo} />
       </div>
       <div className="mb-4 flex flex-wrap gap-2">
+        <button onClick={() => setApplied(filterDraft)} className="rounded-full bg-cyan-500 px-4 py-2 text-xs font-black text-white">Filtrele</button>
+        <button onClick={clearFilters} className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-black text-slate-700">Temizle</button>
+        {activeFilterCount > 0 && <span className="rounded-full bg-cyan-50 px-3 py-2 text-xs font-black text-cyan-700">{activeFilterCount} aktif filtre</span>}
+        <button onClick={() => exportLogs("csv")} className="ml-auto rounded-full border border-blue-200 px-3 py-2 text-xs font-black text-blue-700">CSV</button><button onClick={() => exportLogs("excel")} className="rounded-full border border-emerald-200 px-3 py-2 text-xs font-black text-emerald-700">Excel</button><button onClick={() => exportLogs("pdf")} className="rounded-full border border-amber-200 px-3 py-2 text-xs font-black text-amber-700">PDF</button>
         <button disabled={!selectedIds.length} onClick={() => bulk({ is_seen: true, status: "Görüldü" })} className="rounded-full border border-emerald-300/30 px-3 py-2 text-xs text-emerald-700 disabled:opacity-40">Toplu Görüldü Yap</button>
         <button disabled={!selectedIds.length} onClick={() => bulk({ archived_at: new Date().toISOString(), status: "Arşivlendi" })} className="rounded-full border border-amber-300/30 px-3 py-2 text-xs text-amber-700 disabled:opacity-40">Toplu Arşivle</button>
         <button disabled={!selectedIds.length} onClick={() => confirm("Seçili logları silmek istediğinize emin misiniz?") && bulk({ deleted_at: new Date().toISOString(), status: "Silindi" })} className="rounded-full border border-red-300/30 px-3 py-2 text-xs text-red-200 disabled:opacity-40">Toplu Sil</button>
       </div>
-      <ActivityList items={activities} empty="Seçilen filtrelere uygun hareket kaydı yok." selectedIds={selectedIds} toggleSelected={toggleSelected} updateLog={updateLog} openDetail={setDetailLog} undoLog={undoLog} />
-      {detailLog && <Drawer title="Log Detayı" close={() => setDetailLog(null)}><div className="grid gap-3 md:grid-cols-2"><InfoItem label="Kullanıcı" value={detailLog.actor_name || detailLog.user_name || "Sistem"} /><InfoItem label="Tarih" value={formatDateTime(detailLog.created_at)} /><InfoItem label="Modül" value={detailLog.module || detailLog.entity || "-"} /><InfoItem label="İşlem" value={detailLog.action_type || detailLog.action || "-"} /><InfoItem label="Eski Değer" value={JSON.stringify(detailLog.old_value || detailLog.details?.old_value || detailLog.details?.oldValue || {}, null, 2)} /><InfoItem label="Yeni Değer" value={JSON.stringify(detailLog.new_value || detailLog.details?.new_value || detailLog.details?.newValue || {}, null, 2)} /><div className="md:col-span-2"><InfoItem label="Ek Bilgi" value={JSON.stringify(detailLog.details || {}, null, 2)} /></div></div></Drawer>}
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]"><ActivityList items={activities} empty="Seçilen filtrelere uygun hareket kaydı yok." selectedIds={selectedIds} toggleSelected={toggleSelected} updateLog={updateLog} openDetail={setDetailLog} undoLog={undoLog} /><aside className="h-fit rounded-[16px] border border-red-200 bg-red-50 p-4"><h3 className="font-black text-slate-950">Son Kritik Olaylar</h3><div className="mt-3 grid gap-2">{criticalItems.map((item) => <button key={item.id} onClick={() => setDetailLog(item)} className="rounded-[10px] bg-white p-3 text-left text-xs text-slate-700 shadow-sm"><strong className="block text-slate-950">{item.details?.message || `${item.entity} · ${item.action}`}</strong><span className="mt-1 block text-slate-500">{formatDateTime(item.created_at)}</span></button>)}{!criticalItems.length && <p className="text-xs text-slate-500">Kritik olay bulunmuyor.</p>}</div></aside></div>
+      {detailLog && <Drawer title="Log Detayı" close={() => setDetailLog(null)}><div className="grid gap-3 md:grid-cols-2"><InfoItem label="Ne oldu?" value={detailLog.details?.message || `${detailLog.entity} · ${detailLog.action}`} /><InfoItem label="Kim yaptı?" value={detailLog.actor_name || detailLog.user_name || "Sistem"} /><InfoItem label="Firma" value={detailLog.company_name || companyName(content, detailLog.company_id)} /><InfoItem label="Kullanıcı Türü" value={detailLog.role || "Sistem"} /><InfoItem label="Tarih / Saat" value={formatDateTime(detailLog.created_at)} /><InfoItem label="Modül" value={detailLog.module || detailLog.entity || "-"} /><InfoItem label="İşlem Türü" value={detailLog.action_type || detailLog.action || "-"} /><InfoItem label="Değişen Kayıt" value={detailLog.entity_id || "-"} /><InfoItem label="Önceki Değer" value={JSON.stringify(detailLog.old_value || detailLog.details?.old_value || detailLog.details?.oldValue || {}, null, 2)} /><InfoItem label="Yeni Değer" value={JSON.stringify(detailLog.new_value || detailLog.details?.new_value || detailLog.details?.newValue || {}, null, 2)} /><InfoItem label="IP" value={detailLog.details?.ip || "Kaydedilmedi"} /><InfoItem label="Tarayıcı" value={detailLog.details?.user_agent || detailLog.details?.browser || "Kaydedilmedi"} /><div className="md:col-span-2"><InfoItem label="Hata / Ek Bilgi" value={detailLog.details?.error || JSON.stringify(detailLog.details || {}, null, 2)} /></div></div></Drawer>}
     </Panel>
   );
 }
@@ -5835,7 +5897,8 @@ function ActivityList({ items, empty, selectedIds = [], toggleSelected, updateLo
   return <div className="grid gap-3">{items.map((item) => {
     const status = item.status || (item.is_seen ? "Görüldü" : "Görülmedi");
     const canUndo = String(item.entity || "").includes("Görev") || String(item.entity || "").includes("Belge") || String(item.entity || "").includes("Müşteri") || String(item.entity || "").includes("Kullanıcı");
-    return <div key={item.id} className={`rounded-[8px] border p-4 ${item.archived_at ? "border-amber-300/20 bg-amber-300/5" : "border-slate-200 bg-slate-50"}`}><div className="flex flex-wrap items-start justify-between gap-3"><div className="flex min-w-0 gap-3">{toggleSelected && <input type="checkbox" checked={selectedIds.includes(item.id)} onChange={() => toggleSelected(item.id)} className="mt-1" />}<div><p className="font-black text-slate-900">{item.details?.message || `${item.entity} · ${item.action}`}</p><p className="mt-1 text-sm text-slate-400">{item.actor_name || "Sistem"} · {roleOptions.find((role) => role.value === item.role)?.label || item.role || "Sistem"} · {item.module || item.entity}</p><p className="mt-3 text-xs text-slate-500">{formatDateTime(item.created_at)}</p></div></div><div className="flex flex-wrap justify-end gap-2"><span className="rounded-full bg-cyan-200/10 px-3 py-1 text-xs font-bold text-cyan-700">{item.action_type || item.action}</span><span className="rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-slate-700">{status}</span>{item.is_critical && <span className="rounded-full bg-red-300/15 px-3 py-1 text-xs font-bold text-red-100">Kritik</span>}</div></div>{updateLog && <div className="mt-4 flex flex-wrap gap-2"><button onClick={() => updateLog(item.id, { is_seen: true, status: "Görüldü" })} className="rounded-full border border-emerald-300/30 px-3 py-2 text-xs text-emerald-700">Görüldü Yap</button><button onClick={() => updateLog(item.id, { is_seen: false, status: "Görülmedi" })} className="rounded-full border border-slate-200 px-3 py-2 text-xs text-slate-700">Görülmedi Yap</button><button onClick={() => updateLog(item.id, { archived_at: new Date().toISOString(), status: "Arşivlendi" })} className="rounded-full border border-amber-300/30 px-3 py-2 text-xs text-amber-700">Arşivle</button><button onClick={() => confirm("Bu log kaydını silmek istediğinize emin misiniz?") && updateLog(item.id, { deleted_at: new Date().toISOString(), status: "Silindi" })} className="rounded-full border border-red-300/30 px-3 py-2 text-xs text-red-200">Sil</button>{canUndo && <button onClick={() => undoLog?.(item)} className="rounded-full border border-cyan-300/30 px-3 py-2 text-xs text-cyan-700">Geri Al</button>}<button onClick={() => openDetail?.(item)} className="ml-auto rounded-full bg-cyan-300 px-3 py-2 text-xs font-black text-slate-950">Detay</button></div>}</div>;
+    const result = item.details?.error ? "Hata" : item.details?.result || item.result || "Başarılı";
+    return <div key={item.id} className={`rounded-[12px] border p-4 ${item.archived_at ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white"}`}><div className="flex flex-wrap items-start justify-between gap-3"><div className="flex min-w-0 gap-3">{toggleSelected && <input type="checkbox" checked={selectedIds.includes(item.id)} onChange={() => toggleSelected(item.id)} className="mt-1" />}<div><p className="font-black text-slate-950">{item.details?.message || `${item.entity} · ${item.action}`}</p><div className="mt-2 grid gap-1 text-xs text-slate-600 sm:grid-cols-2"><span><strong>Firma:</strong> {item.company_name || "Genel sistem"}</span><span><strong>Kullanıcı:</strong> {item.actor_name || "Sistem"}</span><span><strong>Rol:</strong> {roleOptions.find((role) => role.value === item.role)?.label || item.role || "Sistem"}</span><span><strong>Modül:</strong> {item.module || item.entity}</span><span><strong>İşlem:</strong> {item.action_type || item.action}</span><span><strong>Tarih:</strong> {formatDateTime(item.created_at)}</span></div></div></div><div className="flex flex-wrap justify-end gap-2"><span className={`rounded-full px-3 py-1 text-xs font-bold ${result === "Hata" ? "bg-red-100 text-red-700" : result === "Uyarı" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>{result}</span><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">{status}</span>{item.is_critical && <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-700">Kritik</span>}</div></div>{updateLog && <div className="mt-4 flex flex-wrap gap-2"><button onClick={() => updateLog(item.id, { is_seen: true, status: "Görüldü" })} className="rounded-full border border-emerald-300 px-3 py-2 text-xs text-emerald-700">Görüldü Yap</button><button onClick={() => updateLog(item.id, { is_seen: false, status: "Görülmedi" })} className="rounded-full border border-slate-300 px-3 py-2 text-xs text-slate-700">Görülmedi Yap</button><button onClick={() => updateLog(item.id, { archived_at: new Date().toISOString(), status: "Arşivlendi" })} className="rounded-full border border-amber-300 px-3 py-2 text-xs text-amber-700">Arşivle</button><button onClick={() => confirm("Bu log kaydını silmek istediğinize emin misiniz?") && updateLog(item.id, { deleted_at: new Date().toISOString(), status: "Silindi" })} className="rounded-full border border-red-300 px-3 py-2 text-xs text-red-700">Sil</button>{canUndo && <button onClick={() => undoLog?.(item)} className="rounded-full border border-cyan-300 px-3 py-2 text-xs text-cyan-700">Geri Al</button>}<button onClick={() => openDetail?.(item)} className="ml-auto rounded-full bg-cyan-500 px-3 py-2 text-xs font-black text-white">Görüntüle</button></div>}</div>;
   })}{!items.length && <p className="text-sm text-slate-400">{empty}</p>}</div>;
 }
 

@@ -24,8 +24,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     items: [
       { label: "Dashboard", slug: "", module: "dashboard", description: "Ajans KPI'ları, öncelikler ve günlük operasyon özeti." },
       { label: "HK Asistan", slug: "hk-asistan", module: "hk-asistan", description: "Mevcut sistem verileriyle çalışan operasyon asistanı." },
-      { label: "Genel Arama", slug: "genel-arama", module: "genel-arama", description: "Müşteri, kampanya, görev ve belgelerde hızlı arama." },
-      { label: "Aktivite Akışı", slug: "aktivite-akisi", module: "sistem-loglari", description: "Ajans genelindeki son kullanıcı ve sistem hareketleri." }
+      { label: "Genel Arama", slug: "genel-arama", module: "genel-arama", description: "Müşteri, kampanya, görev ve belgelerde hızlı arama." }
     ]
   },
   {
@@ -109,20 +108,21 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     badge: "API",
     accent: "from-emerald-400 via-cyan-500 to-blue-600",
     items: [
-      { label: "Entegrasyonlar", slug: "entegrasyonlar", module: "api-ayarlari", description: "Meta, Google, AI ve iletişim servis ayarları." },
-      { label: "Sistem Sağlığı", slug: "sistem-sagligi", module: "sistem-sagligi", description: "API, veritabanı ve servis bağlantı durumları." }
+      { label: "Entegrasyonlar", slug: "entegrasyonlar", module: "api-ayarlari", description: "Meta, Google, AI ve iletişim servis ayarları." }
     ]
   },
   {
-    label: "Araçlar",
-    description: "Veri aktarma ve operasyon yardımcıları.",
+    label: "Araçlar & Yardım",
+    description: "Sistem rehberi, sağlık, denetim ve veri araçları.",
     icon: "Download",
     badge: "Araç",
     accent: "from-cyan-400 via-blue-500 to-indigo-600",
     items: [
+      { label: "HK Dijital Sistem Rehberi", slug: "sistem-rehberi", module: "sistem-rehberi", description: "Tüm modüllerin kullanım kılavuzu, eğitim içerikleri ve sorun giderme rehberleri." },
+      { label: "Log ve Aktivite Merkezi", slug: "log-aktivite-merkezi", module: "sistem-loglari", description: "Kullanıcı işlemleri, teknik olaylar, hatalar ve denetim kayıtları." },
+      { label: "Sistem Sağlık Merkezi", slug: "sistem-sagligi", module: "sistem-sagligi", description: "API, veritabanı, ölçümleme ve servis bağlantı durumları." },
       { label: "Veri Aktarma", slug: "veri-aktarma", module: "veri-aktarma", description: "Müşteri ve operasyon verilerini dışa aktarma." },
-      { label: "Sistem Test Merkezi", slug: "sistem-test-merkezi", module: "sistem-test-merkezi", description: "Otomatik ve manuel sistem kalite kontrolleri." },
-      { label: "Kullanım Kılavuzu", slug: "kullanim-kilavuzu", module: "kullanim-kilavuzu", description: "Modüllerin kullanım adımları ve açıklamaları." }
+      { label: "Sistem Test Merkezi", slug: "sistem-test-merkezi", module: "sistem-test-merkezi", description: "Otomatik ve manuel sistem kalite kontrolleri." }
     ]
   },
   {
@@ -135,8 +135,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: "Web Sitesi Yönetimi", slug: "web-sitesi-yonetimi", module: "site-ayarlari", description: "Public site içerikleri, paketler ve marka alanları." },
       { label: "Kullanıcı Yönetimi", slug: "kullanici-yonetimi", module: "kullanicilar", description: "Yönetici, ekip ve müşteri kullanıcı yetkileri." },
       { label: "Tema / Logo", slug: "tema-logo", module: "tema-ayarlari", description: "Logo ve marka görselleri için merkezi ayarlar." },
-      { label: "Sistem Ayarları", slug: "sistem-ayarlari", module: "site-ayarlari", description: "Genel uygulama davranışı ve sistem tercihleri." },
-      { label: "Sistem Logları", slug: "sistem-loglari", module: "sistem-loglari", description: "Kullanıcı işlemleri, uyarılar ve denetim kayıtları." }
+      { label: "Sistem Ayarları", slug: "sistem-ayarlari", module: "site-ayarlari", description: "Genel uygulama davranışı ve sistem tercihleri." }
     ]
   }
 ];
@@ -190,7 +189,9 @@ const legacySlugRedirects: Record<string, string> = {
   "sistem-durumu": "sistem-sagligi",
   "sistem-testleri": "sistem-test-merkezi",
   "system-test-center": "sistem-test-merkezi",
-  "aktivite-akisi": "aktivite-akisi",
+  "sistem-loglari": "log-aktivite-merkezi",
+  "aktivite-akisi": "log-aktivite-merkezi",
+  "kullanim-kilavuzu": "sistem-rehberi",
   takvim: "takvim",
   "medya-logo": "medya",
   "medya-logo-yukleme": "medya",
