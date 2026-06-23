@@ -6,18 +6,29 @@ import { CheckCircle2, CreditCard, DatabaseZap, ListChecks, Save, TestTube2 } fr
 
 type Company = { id: string; name: string; status?: string; website?: string };
 
-export function AdminCustomerSelector({ companies, value, onChange }: { companies: Company[]; value: string; onChange: (value: string) => void }) {
+export function AdminCustomerSelector({ companies, value, appliedValue, onChange, onApply, onClear }: { companies: Company[]; value: string; appliedValue: string; onChange: (value: string) => void; onApply: () => void; onClear: () => void }) {
   const active = companies.filter((company) => !company.status || company.status === "Aktif");
+  const appliedCompany = active.find((company) => company.id === appliedValue);
   return (
     <div className="rounded-[14px] border border-cyan-200 bg-cyan-50 p-3">
-      <label className="grid gap-2 text-xs font-black uppercase tracking-[.12em] text-cyan-800">
-        Genel müşteri seçimi
-        <select value={value} onChange={(event) => onChange(event.target.value)} className="min-h-11 rounded-[10px] border border-slate-300 bg-white px-3 text-sm font-bold normal-case tracking-normal text-slate-900 outline-none focus:border-cyan-500">
-          <option value="">Müşteri seçin</option>
-          {active.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
-        </select>
-      </label>
-      <p className="mt-2 text-xs leading-5 text-slate-600">Seçim bu tarayıcıda hatırlanır ve müşteri operasyonları, raporlar, dosyalar, görevler ile ödemelerde kullanılır.</p>
+      <div className="grid gap-3 lg:grid-cols-[minmax(240px,1fr)_auto] lg:items-end">
+        <label className="grid gap-2 text-xs font-black uppercase tracking-[.12em] text-cyan-800">
+          Müşteri filtresi
+          <select value={value} onChange={(event) => onChange(event.target.value)} className="min-h-11 rounded-[10px] border border-slate-300 bg-white px-3 text-sm font-bold normal-case tracking-normal text-slate-900 outline-none focus:border-cyan-500">
+            <option value="">Tüm aktif müşteriler</option>
+            {active.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
+          </select>
+        </label>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={onApply} className="min-h-11 rounded-[10px] bg-cyan-500 px-5 text-sm font-black text-white transition hover:bg-cyan-600">Filtrele</button>
+          <button type="button" onClick={onClear} className="min-h-11 rounded-[10px] border border-slate-300 bg-white px-5 text-sm font-black text-slate-700 transition hover:bg-slate-50">Temizle</button>
+        </div>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs leading-5 text-slate-600">Seçim yalnızca Filtrele düğmesine bastığınızda uygulanır ve bu tarayıcıda hatırlanır.</p>
+        {appliedCompany && <span className="rounded-full border border-cyan-200 bg-white px-3 py-1 text-xs font-black text-cyan-800">Filtre: {appliedCompany.name}</span>}
+      </div>
+      {!active.length && <p className="mt-3 rounded-[10px] border border-dashed border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">Filtrelenebilecek aktif müşteri bulunmuyor.</p>}
     </div>
   );
 }
