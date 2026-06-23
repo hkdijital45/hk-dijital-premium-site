@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { randomBytes } from "crypto";
 import { NextResponse } from "next/server";
 import {
@@ -14,7 +15,7 @@ function temporaryPassword() {
   return `Hk!${randomBytes(9).toString("base64url")}9`;
 }
 
-export async function POST(_request: Request, context: { params: Promise<{ id: string }> }) {
+export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getSession();
   if (!isStaffRole(session?.role)) {
     return NextResponse.json({ error: "Bu işlem için yönetici yetkisi gerekir." }, { status: 403 });
@@ -24,6 +25,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
   }
 
   const { id } = await context.params;
+  const options = await request.json().catch(() => ({}));
   try {
     const leads = await supabaseRest<any[]>(`leads?id=eq.${encodeURIComponent(id)}&select=*&limit=1`);
     const lead = leads[0];
@@ -36,6 +38,10 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
     }
     if (!company && lead.company) {
       const rows = await supabaseRest<any[]>(`companies?name=ilike.${encodeURIComponent(lead.company)}&select=*&limit=1`);
+      company = rows[0];
+    }
+    if (!company && lead.phone) {
+      const rows = await supabaseRest<any[]>(`companies?phone=eq.${encodeURIComponent(lead.phone)}&select=*&limit=1`);
       company = rows[0];
     }
     if (!company) {
@@ -117,9 +123,56 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
       });
     }
 
+    const onboardingTasks = [
+      ["Sözleşme ve teklif kontrolü", 0],
+      ["Reklam hesap erişimleri", 1],
+      ["Meta Pixel kontrolü", 2],
+      ["İlk rapor tarihi planı", 7]
+    ] as const;
+    for (const [title, delay] of onboardingTasks) {
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + delay);
+      await supabaseRest("agency_tasks?on_conflict=automation_key", {
+        method: "POST",
+        headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+        body: JSON.stringify({
+          company_id: company.id,
+          lead_id: lead.id,
+          automation_key: `lead:${lead.id}:onboarding:${title}`,
+          title,
+          description: `${lead.company || lead.name || "Yeni müşteri"} için onboarding görevi.`,
+          notes: `${lead.company || lead.name || "Yeni müşteri"} için onboarding görevi.`,
+          status: "Yapılacak",
+          priority: delay < 2 ? "Yüksek" : "Normal",
+          due_date: dueDate.toISOString().slice(0, 10),
+          visible_to_customer: false,
+          updated_at: new Date().toISOString()
+        })
+      });
+    }
+
+    if (options.createInitialPayment && Number(options.initialPaymentAmount || 0) > 0) {
+      const paymentNote = `Lead dönüşümü başlangıç tahsilatı · ${lead.id}`;
+      const existingPayments = await supabaseRest<any[]>(`payment_records?company_id=eq.${encodeURIComponent(company.id)}&payment_note=eq.${encodeURIComponent(paymentNote)}&select=id&limit=1`);
+      if (!existingPayments[0]) {
+        await supabaseRest("payment_records", {
+          method: "POST",
+          body: JSON.stringify({
+            company_id: company.id,
+            amount: Number(options.initialPaymentAmount),
+            due_date: new Date().toISOString().slice(0, 10),
+            status: "Bekliyor",
+            payment_note: paymentNote,
+            visible_to_customer: false,
+            updated_at: new Date().toISOString()
+          })
+        });
+      }
+    }
+
     const updatedLeads = await supabaseRest<any[]>(`leads?id=eq.${encodeURIComponent(lead.id)}`, {
       method: "PATCH",
-      body: JSON.stringify({ company_id: company.id, status: "Müşteri Oldu", updated_at: new Date().toISOString() })
+      body: JSON.stringify({ company_id: company.id, status: "Müşteri Oldu", pipeline_stage: "Kazanıldı", updated_at: new Date().toISOString() })
     });
 
     await recordActivity({

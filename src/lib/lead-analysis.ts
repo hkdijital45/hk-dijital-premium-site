@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { generateAiText } from "./ai-provider";
 
 function demoAnalysis(lead: any) {
@@ -9,18 +10,20 @@ function demoAnalysis(lead: any) {
     Number(lead.google_review_count || 0) > 0 ? `${lead.google_review_count} Google yorumu bulunuyor; sosyal kanıt mesajlarda kullanılabilir.` : "Google yorum görünürlüğü sınırlı; yerel güven sinyalleri güçlendirilebilir."
   ];
   return [
-    `${lead.company || lead.name || "İşletme"} için HK Intelligence ön analizi hazırlandı.`,
-    `Dijital olgunluk skoru ${score}/100, lead sıcaklık puanı ${heat}/100 seviyesinde.`,
-    ...strengths,
-    "Önerilen ilk adım: kısa bir ön görüşme ile hedef kitle, teklif yapısı ve aylık reklam bütçesini netleştirmek.",
-    "Satış garantisi verilmez; sonuçlar sektör, bütçe, hedef kitle, teklif ve rekabet koşullarına göre değişebilir."
+    `Satın alma ihtimali: ${heat >= 80 ? "Yüksek" : heat >= 50 ? "Orta" : "Geliştirilmeli"}.`,
+    `Aciliyet: ${lead.next_action_at ? "Planlı takip tarihi mevcut" : "Takip tarihi planlanmalı"}.`,
+    `Tahmini reklam bütçesi: ${lead.budget || "İhtiyaç görüşmesinde netleştirilmeli"}.`,
+    `Önerilen ilk mesaj: ${lead.company || lead.name || "İşletme"} için kısa fırsat analizini paylaşarak 10 dakikalık ön görüşme talep edin.`,
+    `Riskler: ${strengths.join(" ")}`,
+    "Sonraki en iyi aksiyon: hedef kitle, teklif yapısı ve aylık reklam bütçesini kısa bir görüşmede netleştirin.",
+    `Dijital olgunluk ${score}/100, lead skoru ${heat}/100. Satış garantisi verilmez; sonuçlar sektör, bütçe, teklif ve rekabete göre değişir.`
   ].join("\n\n");
 }
 
 function leadPrompt(lead: any) {
   return `HK Dijital ajansı için aşağıdaki potansiyel müşteriyi analiz et.
 Türkçe, profesyonel ve kısa yaz. Teknik kavramları gerektiğinde açıkla.
-Şunları ayrı başlıklarla belirt: genel değerlendirme, güçlü sinyaller, eksikler, önerilen ilk temas, önerilen reklam yaklaşımı.
+Şunları ayrı başlıklarla belirt: Satın alma ihtimali, Aciliyet, Tahmini reklam bütçesi, Önerilen ilk mesaj, Riskler, Sonraki en iyi aksiyon.
 Satış garantisi verme. En fazla 280 kelime kullan.
 
 Potansiyel müşteri:
