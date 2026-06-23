@@ -714,7 +714,7 @@ export function AdminDashboard({
           {status && <p className={`mb-5 rounded-[8px] border p-3 text-sm ${status.includes("Kaydedilemedi") ? "border-red-300/30 bg-red-500/10 text-red-100" : "border-cyan-200/20 bg-cyan-200/10 text-cyan-700"}`}>{status}</p>}
           {showCustomerFilter && <div className="mb-5"><AdminCustomerSelector companies={content.companies || []} value={pendingCompanyId} appliedValue={selectedCompanyId} onChange={setPendingCompanyId} onApply={applyCompanyFilter} onClear={clearCompanyFilter} /></div>}
           {dashboardAliases.includes(active) && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} systemStatus={systemStatus} currentSession={currentSession} allowedModules={allowedModules} notify={notify} />}
-          {active === "Satış Hunisi" && <SalesPipeline content={content} setContent={setContent} save={save} setActive={setActive} />}
+          {active === "Satış Hunisi" && <SalesPipeline content={content} setContent={setContent} save={save} setActive={setActive} notify={notify} />}
           {active === "CRM" && <CrmHub {...props} />}
           {active === "Takip Merkezi" && <LeadFollowUpCenter {...props} setActive={setActive} />}
           {active === "AI Denetim" && <AiAuditCenter {...props} setActive={setActive} />}
@@ -3518,74 +3518,181 @@ function pipelineStageForLead(lead: any) {
   return salesPipelineStages.includes(status) ? status : "Yeni Lead";
 }
 
-function SalesPipeline({ content, setContent, save, setActive }: any) {
-  const [selectedLead, setSelectedLead] = useState(null);
-  const [message, setMessage] = useState("");
+function SalesPipeline({ content, setContent, save, setActive, notify }: any) {
+  const [selectedLead, setSelectedLead] = useState<any>(null);
+  const [editDraft, setEditDraft] = useState<any>(null);
+  const [deleteLead, setDeleteLead] = useState<any>(null);
   const [noteDraft, setNoteDraft] = useState("");
-  const activeLeads = (content.leads || []).filter((lead) => !isLeadDeleted(lead));
+  const [sideDraft, setSideDraft] = useState({ stage: "Yeni Lead", nextAction: "", lastContact: "" });
+  const emptyFilters = { query: "", stage: "Tümü", minScore: "", maxScore: "", lastContact: "", sector: "" };
+  const [draftFilters, setDraftFilters] = useState(emptyFilters);
+  const [appliedFilters, setAppliedFilters] = useState(emptyFilters);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkStage, setBulkStage] = useState("Takipte");
+  const [bulkNextAction, setBulkNextAction] = useState("");
+  const [bulkAction, setBulkAction] = useState<"stage" | "archive" | "next-action" | "">("");
+
+  useEffect(() => {
+    if (!selectedLead) return;
+    setSideDraft({ stage: pipelineStageForLead(selectedLead), nextAction: selectedLead.next_action || "", lastContact: dateOnly(selectedLead.last_contact_at) });
+  }, [selectedLead?.id]);
+
+  const allActiveLeads = (content.leads || []).filter((lead) => !isLeadDeleted(lead));
+  const sectors = [...new Set(allActiveLeads.map((lead) => lead.sector || lead.business_type || lead.businessType).filter(Boolean))];
+  const filteredLeads = allActiveLeads.filter((lead) => {
+    const searchable = `${lead.company || ""} ${lead.name || ""} ${lead.phone || ""} ${lead.sector || lead.business_type || lead.businessType || ""}`.toLocaleLowerCase("tr");
+    const score = Number(lead.lead_heat_score || 0);
+    if (appliedFilters.query && !searchable.includes(appliedFilters.query.toLocaleLowerCase("tr"))) return false;
+    if (appliedFilters.stage !== "Tümü" && pipelineStageForLead(lead) !== appliedFilters.stage) return false;
+    if (appliedFilters.minScore !== "" && score < Number(appliedFilters.minScore)) return false;
+    if (appliedFilters.maxScore !== "" && score > Number(appliedFilters.maxScore)) return false;
+    if (appliedFilters.lastContact && dateOnly(lead.last_contact_at) !== appliedFilters.lastContact) return false;
+    if (appliedFilters.sector && (lead.sector || lead.business_type || lead.businessType) !== appliedFilters.sector) return false;
+    return true;
+  });
+  const visibleStages = appliedFilters.stage === "Tümü" ? salesPipelineStages : salesPipelineStages.filter((stage) => stage === appliedFilters.stage);
+  const activeFilterCount = Object.entries(appliedFilters).filter(([key, value]) => value && !(key === "stage" && value === "Tümü")).length;
+
   const updateLead = async (lead: any, patch: any, success = "Satış hunisi güncellendi.") => {
     const nextLead = { ...lead, ...patch, updated_at: new Date().toISOString() };
     const next = { ...content, leads: (content.leads || []).map((item) => item.id === lead.id ? nextLead : item) };
     setContent(next);
     setSelectedLead((current) => current?.id === lead.id ? nextLead : current);
-    setMessage(success);
     await save(next);
+    notify?.(success, "success");
+    return nextLead;
   };
+
   const addNote = async () => {
-    if (!selectedLead || !noteDraft.trim()) return;
+    if (!selectedLead) return;
+    if (!noteDraft.trim()) return notify?.("Boş not kaydedilemez.", "warning");
     const oldNotes = selectedLead.notes || selectedLead.internalNotes || "";
     await updateLead(selectedLead, { notes: `${oldNotes}${oldNotes ? "\n" : ""}${new Date().toLocaleString("tr-TR")} · ${noteDraft.trim()}`, last_contact_at: new Date().toISOString() }, "Takip notu eklendi.");
     setNoteDraft("");
   };
+
+  const saveSideDraft = async () => {
+    if (!selectedLead) return;
+    await updateLead(selectedLead, { status: sideDraft.stage, pipeline_stage: sideDraft.stage, next_action: sideDraft.nextAction, last_contact_at: sideDraft.lastContact || null }, "Lead aksiyon bilgileri güncellendi.");
+  };
+
+  const saveEditDraft = async () => {
+    if (!editDraft) return;
+    const updated = await updateLead(editDraft, {
+      company: editDraft.company,
+      name: editDraft.company,
+      phone: editDraft.phone,
+      sector: editDraft.sector,
+      business_type: editDraft.sector,
+      businessType: editDraft.sector,
+      lead_heat_score: Number(editDraft.lead_heat_score || 0),
+      status: editDraft.stage,
+      pipeline_stage: editDraft.stage,
+      last_contact_at: editDraft.last_contact_at || null,
+      next_action: editDraft.next_action,
+      notes: editDraft.notes
+    }, "Lead bilgileri güncellendi.");
+    setSelectedLead(updated);
+    setSideDraft({ stage: pipelineStageForLead(updated), nextAction: updated.next_action || "", lastContact: dateOnly(updated.last_contact_at) });
+    setEditDraft(null);
+  };
+
+  const archiveLead = async () => {
+    if (!deleteLead) return;
+    await updateLead(deleteLead, { deleted_at: new Date().toISOString(), deletedAt: new Date().toISOString() }, "Lead arşivlendi. CRM Arşiv alanından geri alınabilir.");
+    setSelectedIds((current) => current.filter((id) => id !== deleteLead.id));
+    if (selectedLead?.id === deleteLead.id) setSelectedLead(null);
+    setDeleteLead(null);
+  };
+
+  const requestBulkAction = (action: "stage" | "archive" | "next-action") => {
+    if (!selectedIds.length) return notify?.("Toplu işlem için en az bir lead seçin.", "warning");
+    if (action === "next-action" && !bulkNextAction.trim()) return notify?.("Sıradaki aksiyon alanı boş olamaz.", "warning");
+    setBulkAction(action);
+  };
+
+  const applyBulkAction = async () => {
+    const now = new Date().toISOString();
+    const nextLeads = (content.leads || []).map((lead) => {
+      if (!selectedIds.includes(lead.id)) return lead;
+      if (bulkAction === "stage") return { ...lead, status: bulkStage, pipeline_stage: bulkStage, updated_at: now };
+      if (bulkAction === "next-action") return { ...lead, next_action: bulkNextAction.trim(), updated_at: now };
+      return { ...lead, deleted_at: now, deletedAt: now, updated_at: now };
+    });
+    const next = { ...content, leads: nextLeads };
+    setContent(next);
+    await save(next);
+    notify?.(`${selectedIds.length} lead için toplu işlem tamamlandı.`, "success");
+    setSelectedIds([]);
+    setBulkAction("");
+  };
+
+  const openWhatsapp = (lead: any) => {
+    const phone = String(lead.phone || "").replace(/\D/g, "");
+    if (!phone) return notify?.("Bu lead için telefon bilgisi bulunmuyor.", "warning");
+    const message = contactMessageFor(lead, "İlk temas");
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+  };
+
   return <Panel title="Satış Hunisi">
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-      <p className="max-w-3xl text-sm leading-6 text-slate-400">Leadleri ilk temas, toplantı, teklif, takip ve kazanım aşamalarında yönetin. Kartları güvenli şekilde durum seçimiyle taşıyabilirsiniz.</p>
-      <button onClick={() => setActive("CRM")} className="rounded-[8px] border border-cyan-200/20 px-4 py-3 text-sm font-black text-cyan-700">CRM Listesine Git</button>
+      <div><p className="max-w-4xl text-sm leading-6 text-slate-600">Leadleri ilk temas, toplantı, teklif, takip ve kazanım aşamalarında yönetin. Kartları güvenli şekilde durum seçimiyle taşıyabilirsiniz.</p><p className="mt-1 text-xs text-slate-500">Filtreler yalnızca Filtrele düğmesine bastığınızda uygulanır; CRM kayıtları soft-delete ile korunur.</p></div>
+      <button onClick={() => setActive("CRM")} className="rounded-[10px] border border-cyan-200 bg-white px-4 py-3 text-sm font-black text-cyan-700">CRM Listesine Git</button>
     </div>
-    {message && <p className="mb-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-700">{message}</p>}
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-      <section className="premium-scrollbar grid gap-3 overflow-x-auto pb-2 xl:grid-cols-7">
-        {salesPipelineStages.map((stage) => {
-          const stageLeads = activeLeads.filter((lead) => pipelineStageForLead(lead) === stage);
-          return <div key={stage} className="min-w-[250px] rounded-[8px] border border-slate-200 bg-slate-50 p-3">
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <h3 className="text-sm font-black text-slate-900">{stage}</h3>
-              <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] font-black text-slate-600">{stageLeads.length}</span>
-            </div>
+
+    <section className="mb-5 rounded-[16px] border border-slate-200 bg-slate-50 p-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+        <label className="grid gap-2 text-sm font-bold text-slate-700 xl:col-span-2">Arama<input value={draftFilters.query} onChange={(event) => setDraftFilters({ ...draftFilters, query: event.target.value })} placeholder="Firma, telefon veya sektör" className="min-h-11 rounded-[8px] border border-slate-300 bg-white px-3 text-slate-900" /></label>
+        <SelectField label="Aşama" value={draftFilters.stage} onChange={(stage) => setDraftFilters({ ...draftFilters, stage })} options={["Tümü", ...salesPipelineStages]} />
+        <label className="grid gap-2 text-sm font-bold text-slate-700">Minimum skor<input type="number" min="0" max="100" value={draftFilters.minScore} onChange={(event) => setDraftFilters({ ...draftFilters, minScore: event.target.value })} className="min-h-11 rounded-[8px] border border-slate-300 bg-white px-3 text-slate-900" /></label>
+        <label className="grid gap-2 text-sm font-bold text-slate-700">Maksimum skor<input type="number" min="0" max="100" value={draftFilters.maxScore} onChange={(event) => setDraftFilters({ ...draftFilters, maxScore: event.target.value })} className="min-h-11 rounded-[8px] border border-slate-300 bg-white px-3 text-slate-900" /></label>
+        <SelectField label="Sektör" value={draftFilters.sector} onChange={(sector) => setDraftFilters({ ...draftFilters, sector })} options={sectors} placeholder="Tüm sektörler" />
+        <Field label="Son temas tarihi" type="date" value={draftFilters.lastContact} onChange={(lastContact) => setDraftFilters({ ...draftFilters, lastContact })} />
+      </div>
+      <div className="mt-4 flex flex-wrap items-center gap-2"><button onClick={() => setAppliedFilters({ ...draftFilters })} className="rounded-[10px] bg-cyan-500 px-5 py-3 text-sm font-black text-white">Filtrele</button><button onClick={() => { setDraftFilters(emptyFilters); setAppliedFilters(emptyFilters); }} className="rounded-[10px] border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700">Temizle</button>{activeFilterCount > 0 && <span className="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-black text-cyan-800">{activeFilterCount} aktif filtre</span>}</div>
+    </section>
+
+    {selectedIds.length > 0 && <section className="mb-5 rounded-[16px] border border-blue-200 bg-blue-50 p-4"><div className="flex flex-wrap items-end gap-3"><span className="self-center rounded-full bg-blue-600 px-3 py-2 text-xs font-black text-white">{selectedIds.length} lead seçildi</span><SelectField label="Yeni aşama" value={bulkStage} onChange={setBulkStage} options={salesPipelineStages} /><button onClick={() => requestBulkAction("stage")} className="rounded-[10px] bg-blue-600 px-4 py-3 text-sm font-black text-white">Aşama Değiştir</button><label className="grid min-w-[240px] flex-1 gap-2 text-sm font-bold text-slate-700">Sıradaki aksiyon<input value={bulkNextAction} onChange={(event) => setBulkNextAction(event.target.value)} className="min-h-11 rounded-[8px] border border-slate-300 bg-white px-3" /></label><button onClick={() => requestBulkAction("next-action")} className="rounded-[10px] bg-cyan-500 px-4 py-3 text-sm font-black text-white">Aksiyon Ata</button><button onClick={() => requestBulkAction("archive")} className="rounded-[10px] bg-slate-700 px-4 py-3 text-sm font-black text-white">Arşivle</button><button onClick={() => setSelectedIds([])} className="rounded-[10px] border border-slate-300 bg-white px-4 py-3 text-sm font-black text-slate-700">Seçimi Temizle</button></div></section>}
+
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <section className="premium-scrollbar grid min-w-0 grid-cols-1 gap-3 md:flex md:overflow-x-auto md:pb-3">
+        {visibleStages.map((stage) => {
+          const stageLeads = filteredLeads.filter((lead) => pipelineStageForLead(lead) === stage);
+          const stageTone = stage === "Kazanıldı" ? "border-emerald-200 bg-emerald-50/60" : stage === "Kaybedildi" ? "border-slate-300 bg-slate-100" : "border-slate-200 bg-slate-50";
+          return <div key={stage} className={`w-full rounded-[14px] border p-3 md:min-w-[280px] md:max-w-[300px] ${stageTone}`}>
+            <div className="mb-3 flex items-center justify-between gap-2"><h3 className="truncate text-sm font-black text-slate-900">{stage}</h3><span className={`grid min-w-9 place-items-center rounded-full px-2 py-1 text-xs font-black ${stage === "Kazanıldı" ? "bg-emerald-600 text-white" : stage === "Kaybedildi" ? "bg-slate-500 text-white" : "bg-cyan-500 text-white"}`}>{stageLeads.length}</span></div>
+            <label className="mb-2 flex items-center gap-2 px-1 text-[11px] font-bold text-slate-500"><input type="checkbox" checked={stageLeads.length > 0 && stageLeads.every((lead) => selectedIds.includes(lead.id))} onChange={(event) => setSelectedIds((current) => event.target.checked ? [...new Set([...current, ...stageLeads.map((lead) => lead.id)])] : current.filter((id) => !stageLeads.some((lead) => lead.id === id)))} /> Bu aşamadakileri seç</label>
             <div className="grid gap-2">
-              {stageLeads.map((lead) => (
-                <button key={lead.id} onClick={() => setSelectedLead(lead)} className="rounded-[8px] border border-slate-200 bg-white p-3 text-left transition hover:border-cyan-200/35 hover:bg-cyan-200/[0.07]">
-                  <strong className="block text-sm text-slate-900">{lead.company || lead.name || "İsimsiz lead"}</strong>
-                  <span className="mt-1 block text-xs leading-5 text-slate-400">{lead.phone || lead.email || "İletişim yok"} · {lead.business_type || lead.businessType || "Sektör yok"}</span>
-                  <span className="mt-2 flex flex-wrap gap-1 text-[10px] font-bold text-slate-600"><span className="rounded-full border border-orange-200/20 px-2 py-1">Skor {lead.lead_heat_score || 0}</span><span className="rounded-full border border-slate-200 px-2 py-1">Son temas {formatDate(lead.last_contact_at || lead.updated_at)}</span></span>
-                  <span className="mt-2 block text-[11px] leading-4 text-cyan-700">Sıradaki aksiyon: {lead.next_action || lead.next_action_at || "Takip planı girilmedi"}</span>
-                </button>
-              ))}
-              {!stageLeads.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-3 text-xs leading-5 text-slate-500">Bu aşamada lead yok.</p>}
+              {stageLeads.map((lead) => {
+                const lastContact = lead.last_contact_at || lead.updated_at;
+                const contactOverdue = lastContact && Date.now() - new Date(lastContact).getTime() > 14 * 24 * 60 * 60 * 1000;
+                return <article key={lead.id} onClick={() => setSelectedLead(lead)} className={`min-w-0 cursor-pointer rounded-[12px] border bg-white p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-300 hover:shadow-[0_10px_28px_rgba(15,23,42,.12)] ${selectedLead?.id === lead.id ? "border-cyan-400 ring-2 ring-cyan-100" : "border-slate-200"}`}>
+                  <div className="flex items-start gap-2"><input type="checkbox" checked={selectedIds.includes(lead.id)} onClick={(event) => event.stopPropagation()} onChange={(event) => setSelectedIds((current) => event.target.checked ? [...current, lead.id] : current.filter((id) => id !== lead.id))} className="mt-1" /><div className="min-w-0 flex-1"><strong className="block truncate text-sm text-slate-900">{lead.company || lead.name || "İsimsiz lead"}</strong><span className="mt-1 block truncate text-xs text-slate-500">{lead.phone || lead.email || "İletişim yok"}</span><span className="block truncate text-xs text-slate-500">{lead.sector || lead.business_type || lead.businessType || "Sektör yok"}</span></div>{stage === "Kazanıldı" && <span className="rounded-full bg-emerald-100 px-2 py-1 text-[9px] font-black text-emerald-700">Kazanıldı</span>}</div>
+                  <div className="mt-2 flex flex-wrap gap-1 text-[10px] font-bold"><span className="rounded-full border border-orange-200 bg-orange-50 px-2 py-1 text-orange-700">Skor {lead.lead_heat_score || 0}</span><span className="rounded-full border border-slate-200 px-2 py-1 text-slate-600">Son temas {formatDate(lastContact)}</span>{contactOverdue && <span className="rounded-full bg-red-100 px-2 py-1 text-red-700">Temas gecikti</span>}</div>
+                  <p className={`mt-2 truncate text-[11px] ${lead.next_action || lead.next_action_at ? "text-cyan-700" : "font-bold text-amber-700"}`}>{lead.next_action || lead.next_action_at || "Aksiyon girilmedi"}</p>
+                  <div className="mt-3 flex flex-wrap gap-1.5"><button type="button" onClick={(event) => { event.stopPropagation(); setEditDraft({ ...lead, company: lead.company || lead.name || "", sector: lead.sector || lead.business_type || lead.businessType || "", stage: pipelineStageForLead(lead), notes: lead.notes || lead.internalNotes || "" }); }} className="rounded-[8px] border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-[10px] font-black text-blue-700">Düzenle</button><button type="button" onClick={(event) => { event.stopPropagation(); setDeleteLead(lead); }} className="rounded-[8px] border border-red-200 bg-red-50 px-2.5 py-1.5 text-[10px] font-black text-red-700">Sil</button><button type="button" onClick={(event) => { event.stopPropagation(); setSelectedLead(lead); setActive("CRM"); }} className="rounded-[8px] border border-cyan-200 bg-cyan-50 px-2.5 py-1.5 text-[10px] font-black text-cyan-700">CRM'e Git</button></div>
+                </article>;
+              })}
+              {!stageLeads.length && <div className="grid min-h-28 place-items-center rounded-[10px] border border-dashed border-slate-300 bg-white/70 p-4 text-center text-xs text-slate-500">Bu aşamada lead yok</div>}
             </div>
           </div>;
         })}
       </section>
-      <aside className="h-fit rounded-[8px] border border-slate-200 bg-white p-4">
-        <p className="text-xs font-black uppercase tracking-[.14em] text-cyan-700">Lead aksiyon merkezi</p>
+
+      <aside className="h-fit rounded-[16px] border border-slate-200 bg-white p-4 shadow-[0_12px_34px_rgba(15,23,42,.08)] xl:sticky xl:top-28">
+        <p className="text-xs font-black uppercase tracking-[.14em] text-cyan-700">Lead Aksiyon Merkezi</p><p className="mt-1 text-xs leading-5 text-slate-500">Seçili leadin iletişim, aşama ve takip işlemlerini tek yerden yönetin.</p>
         {selectedLead ? <div className="mt-4">
-          <h3 className="text-lg font-black text-slate-900">{selectedLead.company || selectedLead.name}</h3>
-          <p className="mt-1 text-sm leading-6 text-slate-400">{selectedLead.source || "CRM"} · {selectedLead.phone || selectedLead.email || "İletişim yok"}</p>
-          <div className="mt-4 grid gap-3">
-            <SelectField label="Durum Güncelle" value={pipelineStageForLead(selectedLead)} onChange={(value) => updateLead(selectedLead, { status: value, pipeline_stage: value }, "Lead aşaması güncellendi.")} options={salesPipelineStages} />
-            <Field label="Sıradaki aksiyon" value={selectedLead.next_action || ""} onChange={(value) => updateLead(selectedLead, { next_action: value }, "Sıradaki aksiyon güncellendi.")} />
-            <Field label="Son temas tarihi" type="date" value={dateOnly(selectedLead.last_contact_at)} onChange={(value) => updateLead(selectedLead, { last_contact_at: value }, "Son temas tarihi güncellendi.")} />
-            <TextArea rows={3} label="Not Ekle" value={noteDraft} onChange={setNoteDraft} />
-            <button onClick={addNote} className="rounded-[8px] border border-slate-200 px-4 py-2 text-sm font-black text-slate-700">Not Ekle</button>
-          </div>
-          <ContactActionCenter record={selectedLead} type="lead" context="follow-up" />
-          <div className="mt-4 grid gap-2">
-            <button onClick={() => setActive("Teklif Hazırlama")} className="rounded-[8px] border border-amber-200/25 px-4 py-3 text-sm font-black text-amber-700">Teklif Oluştur</button>
-            <button onClick={() => setActive("CRM")} className="rounded-[8px] border border-cyan-200/25 px-4 py-3 text-sm font-black text-cyan-700">CRM Detayına Git</button>
-          </div>
-        </div> : <p className="mt-4 rounded-[8px] border border-dashed border-slate-200 p-4 text-sm leading-6 text-slate-400">Aksiyon almak için bir lead kartı seçin.</p>}
+          <div className="rounded-[14px] border border-cyan-100 bg-cyan-50 p-4"><h3 className="truncate text-lg font-black text-slate-900">{selectedLead.company || selectedLead.name}</h3><div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-1"><InfoItem label="Telefon" value={selectedLead.phone || "Kayıt yok"} /><InfoItem label="Sektör" value={selectedLead.sector || selectedLead.business_type || selectedLead.businessType || "Kayıt yok"} /><InfoItem label="Skor" value={`${selectedLead.lead_heat_score || 0}/100`} /><InfoItem label="Son temas" value={formatDate(selectedLead.last_contact_at)} /><InfoItem label="Sıradaki aksiyon" value={selectedLead.next_action || "Aksiyon girilmedi"} /></div></div>
+          <div className="mt-4 grid grid-cols-2 gap-2"><button onClick={() => openWhatsapp(selectedLead)} className="rounded-[10px] bg-emerald-500 px-3 py-2.5 text-xs font-black text-white">WhatsApp Gönder</button><a href={selectedLead.phone ? `tel:${selectedLead.phone}` : undefined} onClick={(event) => { if (!selectedLead.phone) { event.preventDefault(); notify?.("Telefon bilgisi bulunmuyor.", "warning"); } }} className="rounded-[10px] bg-blue-600 px-3 py-2.5 text-center text-xs font-black text-white">Ara</a><button onClick={() => setActive("CRM")} className="rounded-[10px] border border-cyan-200 bg-cyan-50 px-3 py-2.5 text-xs font-black text-cyan-700">CRM Profilini Aç</button><a href={`/hk-admin/teklif-hazirlama?leadId=${encodeURIComponent(selectedLead.id)}`} className="rounded-[10px] border border-amber-200 bg-amber-50 px-3 py-2.5 text-center text-xs font-black text-amber-700">Teklif Oluştur</a><a href={`/hk-admin/ai-denetim?leadId=${encodeURIComponent(selectedLead.id)}`} className="col-span-2 rounded-[10px] border border-purple-200 bg-purple-50 px-3 py-2.5 text-center text-xs font-black text-purple-700">Rapor / Analiz Aç</a></div>
+          <div className="mt-4 grid gap-3 rounded-[14px] border border-slate-200 bg-slate-50 p-4"><SelectField label="Durum Güncelle" value={sideDraft.stage} onChange={(stage) => setSideDraft({ ...sideDraft, stage })} options={salesPipelineStages} /><Field label="Sıradaki aksiyon" value={sideDraft.nextAction} onChange={(nextAction) => setSideDraft({ ...sideDraft, nextAction })} /><Field label="Son temas tarihi" type="date" value={sideDraft.lastContact} onChange={(lastContact) => setSideDraft({ ...sideDraft, lastContact })} /><button onClick={saveSideDraft} className="rounded-[10px] bg-cyan-500 px-4 py-3 text-sm font-black text-white">Durumu Kaydet</button></div>
+          <div className="mt-4 grid gap-2"><TextArea rows={3} label="Not Ekle" value={noteDraft} onChange={setNoteDraft} /><button onClick={addNote} disabled={!noteDraft.trim()} className="rounded-[10px] border border-slate-300 bg-white px-4 py-2.5 text-sm font-black text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">Not Ekle</button></div>
+        </div> : <p className="mt-4 rounded-[10px] border border-dashed border-slate-300 bg-slate-50 p-5 text-center text-sm leading-6 text-slate-500">Aksiyon almak için bir lead kartı seçin.</p>}
       </aside>
     </div>
+
+    {editDraft && typeof document !== "undefined" && createPortal(<div className="fixed inset-0 z-[9999] grid place-items-center bg-slate-100/80 p-4" onMouseDown={() => setEditDraft(null)}><div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[20px] border border-slate-200 bg-white p-5 shadow-2xl" onMouseDown={(event) => event.stopPropagation()}><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.14em] text-cyan-700">Lead Düzenle</p><h3 className="mt-1 text-2xl font-black text-slate-900">{editDraft.company || "Lead bilgileri"}</h3></div><button onClick={() => setEditDraft(null)} className="grid size-10 place-items-center rounded-full border border-slate-200"><X size={17} /></button></div><div className="mt-5 grid gap-4 md:grid-cols-2"><Field label="Firma / müşteri adı" value={editDraft.company} onChange={(company) => setEditDraft({ ...editDraft, company })} /><Field label="Telefon" value={editDraft.phone || ""} onChange={(phone) => setEditDraft({ ...editDraft, phone })} /><Field label="Sektör" value={editDraft.sector || ""} onChange={(sector) => setEditDraft({ ...editDraft, sector })} /><Field label="Skor" type="number" value={editDraft.lead_heat_score || 0} onChange={(lead_heat_score) => setEditDraft({ ...editDraft, lead_heat_score })} /><SelectField label="Durum / aşama" value={editDraft.stage} onChange={(stage) => setEditDraft({ ...editDraft, stage })} options={salesPipelineStages} /><Field label="Son temas tarihi" type="date" value={dateOnly(editDraft.last_contact_at)} onChange={(last_contact_at) => setEditDraft({ ...editDraft, last_contact_at })} /><div className="md:col-span-2"><Field label="Sıradaki aksiyon" value={editDraft.next_action || ""} onChange={(next_action) => setEditDraft({ ...editDraft, next_action })} /></div><div className="md:col-span-2"><TextArea rows={5} label="Not" value={editDraft.notes || ""} onChange={(notes) => setEditDraft({ ...editDraft, notes })} /></div></div><div className="mt-5 flex justify-end gap-2"><button onClick={() => setEditDraft(null)} className="rounded-[10px] border border-slate-300 px-5 py-3 text-sm font-black text-slate-700">Vazgeç</button><button onClick={saveEditDraft} className="rounded-[10px] bg-cyan-500 px-5 py-3 text-sm font-black text-white">Kaydet</button></div></div></div>, document.body)}
+    {deleteLead && typeof document !== "undefined" && createPortal(<div className="fixed inset-0 z-[9999] grid place-items-center bg-slate-100/80 p-4" onMouseDown={() => setDeleteLead(null)}><div className="w-full max-w-md rounded-[20px] border border-slate-200 bg-white p-6 text-center shadow-2xl" onMouseDown={(event) => event.stopPropagation()}><span className="mx-auto grid size-12 place-items-center rounded-full bg-red-100 text-red-600"><Trash2 size={20} /></span><h3 className="mt-4 text-xl font-black text-slate-900">Lead'i arşivle</h3><p className="mt-2 text-sm leading-6 text-slate-600">Bu lead'i satış hunisinden kaldırmak istiyor musunuz?</p><p className="mt-2 text-xs text-slate-500">Kayıt kalıcı olarak silinmez; CRM Arşiv alanından geri alınabilir.</p><div className="mt-5 flex justify-center gap-2"><button onClick={() => setDeleteLead(null)} className="rounded-[10px] border border-slate-300 px-5 py-3 text-sm font-black text-slate-700">Vazgeç</button><button onClick={archiveLead} className="rounded-[10px] bg-red-600 px-5 py-3 text-sm font-black text-white">Arşivle</button></div></div></div>, document.body)}
+    {bulkAction && typeof document !== "undefined" && createPortal(<div className="fixed inset-0 z-[9999] grid place-items-center bg-slate-100/80 p-4" onMouseDown={() => setBulkAction("")}><div className="w-full max-w-md rounded-[20px] border border-slate-200 bg-white p-6 text-center shadow-2xl" onMouseDown={(event) => event.stopPropagation()}><h3 className="text-xl font-black text-slate-900">Toplu işlemi onaylayın</h3><p className="mt-2 text-sm leading-6 text-slate-600">{selectedIds.length} lead için {bulkAction === "stage" ? `aşama ${bulkStage} olarak değiştirilecek` : bulkAction === "next-action" ? "sıradaki aksiyon atanacak" : "arşivleme yapılacak"}. Devam etmek istiyor musunuz?</p><div className="mt-5 flex justify-center gap-2"><button onClick={() => setBulkAction("")} className="rounded-[10px] border border-slate-300 px-5 py-3 text-sm font-black text-slate-700">Vazgeç</button><button onClick={applyBulkAction} className="rounded-[10px] bg-blue-600 px-5 py-3 text-sm font-black text-white">Uygula</button></div></div></div>, document.body)}
   </Panel>;
 }
 
