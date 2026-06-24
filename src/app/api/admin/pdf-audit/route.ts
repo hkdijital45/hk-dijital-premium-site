@@ -22,13 +22,6 @@ export async function POST(request: Request) {
     };
     const buffer = await generateMiniAuditPdf(payload);
     const header = buffer.subarray(0, 5).toString("utf8");
-    console.log("[pdf-audit] generated", {
-      size: buffer.length,
-      contentType: "application/pdf",
-      responseLength: buffer.byteLength,
-      header
-    });
-
     if (buffer.length <= 1024 || !header.startsWith("%PDF-")) {
       throw new Error("PDF oluşturulamadı. Geçersiz PDF verisi alındı.");
     }

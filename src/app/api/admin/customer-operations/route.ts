@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
 import { getSession, isStaffRole } from "@/lib/auth";
-import { recordActivity } from "@/lib/activity-log";
+import { recordActionFailure, recordActivity } from "@/lib/activity-log";
 import { getSafeSupabaseError, supabaseRest } from "@/lib/supabase";
 import { uuidPattern } from "@/lib/meta-pixel-admin";
 
@@ -11,14 +11,21 @@ async function staffSession() {
 }
 
 export async function GET(request: Request) {
-  if (!(await staffSession())) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 403 });
+  const session = await staffSession();
+  if (!session) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 403 });
   const companyId = new URL(request.url).searchParams.get("companyId") || "";
   if (!uuidPattern.test(companyId)) return NextResponse.json({ error: "Geçerli bir müşteri seçin." }, { status: 400 });
-  const [payments, tasks] = await Promise.all([
-    supabaseRest<any[]>(`payment_records?company_id=eq.${companyId}&archived_at=is.null&select=*&order=due_date.desc`).catch(() => []),
-    supabaseRest<any[]>(`agency_tasks?company_id=eq.${companyId}&archived_at=is.null&select=*&order=due_date.asc`).catch(() => [])
-  ]);
-  return NextResponse.json({ payments, tasks });
+  try {
+    const [payments, tasks] = await Promise.all([
+      supabaseRest<any[]>(`payment_records?company_id=eq.${companyId}&archived_at=is.null&select=*&order=due_date.desc`),
+      supabaseRest<any[]>(`agency_tasks?company_id=eq.${companyId}&archived_at=is.null&select=*&order=due_date.asc`)
+    ]);
+    return NextResponse.json({ payments, tasks });
+  } catch (error) {
+    const safe = getSafeSupabaseError(error);
+    await recordActionFailure({ session, entity: "Müşteri Profili", action: "Görev ve tahsilat kayıtlarını yükleme", error, companyId }).catch(() => null);
+    return NextResponse.json({ error: safe.title, detail: safe.detail }, { status: 500 });
+  }
 }
 
 export async function POST(request: Request) {
@@ -32,6 +39,7 @@ export async function POST(request: Request) {
     const table = resource === "payment" ? "payment_records" : resource === "task" ? "agency_tasks" : "";
     if (!table) return NextResponse.json({ error: "Geçersiz kayıt türü." }, { status: 400 });
     const now = new Date().toISOString();
+    if (resource === "task" && !String(item.title || "").trim()) return NextResponse.json({ error: "Görev başlığı zorunludur." }, { status: 400 });
     const payload = resource === "payment" ? {
       company_id: item.company_id,
       amount: Number(item.amount || 0),
@@ -45,8 +53,9 @@ export async function POST(request: Request) {
       updated_at: now
     } : {
       company_id: item.company_id,
-      title: item.title || "Yeni görev",
+      title: String(item.title).trim(),
       description: item.description || null,
+      notes: item.notes || item.description || null,
       status: item.status || "Yapılacak",
       priority: item.priority || "Normal",
       due_date: item.due_date || null,
@@ -58,10 +67,12 @@ export async function POST(request: Request) {
     const rows = item.id && uuidPattern.test(String(item.id))
       ? await supabaseRest<any[]>(`${table}?id=eq.${item.id}`, { method: "PATCH", body: JSON.stringify(payload) })
       : await supabaseRest<any[]>(table, { method: "POST", body: JSON.stringify(payload) });
+    if (!rows[0]) return NextResponse.json({ error: "Kayıt bulunamadı veya güncellenemedi." }, { status: 404 });
     await recordActivity({ session, action: item.id ? "Güncelleme" : "Oluşturma", entity: resource === "payment" ? "Tahsilat" : "Görev", entityId: rows[0]?.id, companyId: item.company_id, details: { message: resource === "payment" ? "Tahsilat kaydı güncellendi" : "Görev kaydı güncellendi" } });
     return NextResponse.json({ ok: true, item: rows[0], message: resource === "payment" ? "Ödeme kaydedildi." : "Görev kaydedildi." });
   } catch (error) {
     const safe = getSafeSupabaseError(error);
+    await recordActionFailure({ session, entity: resource === "payment" ? "Tahsilat" : "Müşteri Görevleri", action: item.id ? "Kayıt güncelleme" : "Kayıt oluşturma", error, entityId: item.id, companyId: item.company_id }).catch(() => null);
     return NextResponse.json({ error: safe.title, detail: safe.detail }, { status: 500 });
   }
 }
@@ -72,7 +83,14 @@ export async function DELETE(request: Request) {
   const body = await request.json().catch(() => ({}));
   const table = body.resource === "payment" ? "payment_records" : body.resource === "task" ? "agency_tasks" : "";
   if (!table || !uuidPattern.test(String(body.id || ""))) return NextResponse.json({ error: "Geçersiz kayıt." }, { status: 400 });
-  await supabaseRest(`${table}?id=eq.${body.id}`, { method: "PATCH", body: JSON.stringify({ archived_at: new Date().toISOString() }) });
-  await recordActivity({ session, action: "Silme", entity: body.resource === "payment" ? "Tahsilat" : "Görev", entityId: body.id, companyId: body.company_id || null, details: { message: "Kayıt güvenli şekilde arşivlendi" } });
-  return NextResponse.json({ ok: true, message: "Kayıt arşivlendi." });
+  try {
+    const rows = await supabaseRest<any[]>(`${table}?id=eq.${body.id}`, { method: "PATCH", body: JSON.stringify({ archived_at: new Date().toISOString(), updated_at: new Date().toISOString() }) });
+    if (!rows[0]) return NextResponse.json({ error: "Arşivlenecek kayıt bulunamadı." }, { status: 404 });
+    await recordActivity({ session, action: "Arşivleme", entity: body.resource === "payment" ? "Tahsilat" : "Görev", entityId: body.id, companyId: body.company_id || null, details: { message: "Kayıt güvenli şekilde arşivlendi", result: "Başarılı" } });
+    return NextResponse.json({ ok: true, item: rows[0], message: "Kayıt arşivlendi." });
+  } catch (error) {
+    const safe = getSafeSupabaseError(error);
+    await recordActionFailure({ session, entity: body.resource === "payment" ? "Tahsilat" : "Müşteri Görevleri", action: "Kayıt arşivleme", error, entityId: body.id, companyId: body.company_id }).catch(() => null);
+    return NextResponse.json({ error: safe.title, detail: safe.detail }, { status: 500 });
+  }
 }

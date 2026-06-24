@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
 import { getSession, isStaffRole } from "@/lib/auth";
-import { recordActivity } from "@/lib/activity-log";
+import { recordActionFailure, recordActivity } from "@/lib/activity-log";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 import { normalizeRole } from "@/lib/permissions";
 
@@ -251,6 +251,12 @@ function normalizeRecord(key: string, item: any) {
       primary_color: item.primary_color || item.primaryColor || "#22d3ee",
       secondary_color: item.secondary_color || item.secondaryColor || "#0ea5e9",
       welcome_text: item.welcome_text || item.welcomeText || "",
+      report_title: item.report_title || item.reportTitle || "",
+      contact_phone: item.contact_phone || item.contactPhone || "",
+      contact_email: item.contact_email || item.contactEmail || "",
+      contact_whatsapp: item.contact_whatsapp || item.contactWhatsapp || "",
+      onboarding_data: item.onboarding_data || item.onboardingData || {},
+      onboarding_completed_at: item.onboarding_completed_at || item.onboardingCompletedAt || null,
       updated_at: new Date().toISOString()
     };
   }
@@ -579,7 +585,8 @@ async function upsertItems(key: keyof typeof tables, items: any[] = []) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Supabase kaydetme hatası.";
-    if (["metaAdsetMetrics", "metaAdMetrics", "metaConversionEvents", "metaAnalysisSnapshots", "customerReportVisibility", "customerBranding", "monthlyReports", "agencyTasks", "customerDocuments", "paymentRecords", "reports", "competitorAnalyses", "socialMediaPlans", "agencyExpenses", "sectorConfigs", "systemTestRuns", "systemTestChecklist", "activityLogs"].includes(key) && (message.includes("schema cache") || message.includes("relation") || message.includes("table"))) {
+    if (["companies", "leads", "campaigns", "agencyTasks", "paymentRecords", "customerBranding", "customerVisibilitySettings"].includes(key)) throw error;
+    if (["metaAdsetMetrics", "metaAdMetrics", "metaConversionEvents", "metaAnalysisSnapshots", "customerReportVisibility", "monthlyReports", "customerDocuments", "reports", "competitorAnalyses", "socialMediaPlans", "agencyExpenses", "sectorConfigs", "systemTestRuns", "systemTestChecklist", "activityLogs"].includes(key) && (message.includes("schema cache") || message.includes("relation") || message.includes("table"))) {
       console.warn(`${table} tablosu canlı şemada bulunamadı; migration uygulanana kadar bu modül atlandı.`);
       return [];
     }
@@ -707,6 +714,7 @@ export async function PUT(request: Request) {
     return NextResponse.json({ ok: true });
   } catch (error) {
     const safeError = getSafeSupabaseError(error);
+    await recordActionFailure({ session, entity: "Kontrol Merkezi", action: "Toplu admin kaydı", error }).catch(() => null);
     return NextResponse.json(
       {
         error: safeError.title,

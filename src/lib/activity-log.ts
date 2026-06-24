@@ -44,6 +44,41 @@ export async function recordActivity({
   }
 }
 
+export async function recordActionFailure({
+  session,
+  entity,
+  action,
+  error,
+  entityId,
+  companyId
+}: {
+  session?: AppSession | null;
+  entity: string;
+  action: string;
+  error: unknown;
+  entityId?: string | null;
+  companyId?: string | null;
+}) {
+  const message = error instanceof Error ? error.message : String(error || "Bilinmeyen hata");
+  const errorCode = message.match(/\b(PGRST\d+|22P\d+|23\d+|42P\d+)\b/i)?.[1]?.toUpperCase() || "UNKNOWN";
+  await recordActivity({
+    session,
+    action: "API İşlemi",
+    entity,
+    entityId,
+    companyId,
+    details: {
+      message: `${action} başarısız oldu`,
+      operation: action,
+      result: "Hata",
+      error: true,
+      error_code: errorCode,
+      error_message: message,
+      critical: true
+    }
+  });
+}
+
 export async function recordCustomerLogin(session: AppSession) {
   if (!session.profileId || !isCustomerRole(session.role)) return;
   try {

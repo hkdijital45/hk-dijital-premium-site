@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
-import { recordActivity } from "@/lib/activity-log";
-import { getSession } from "@/lib/auth";
+import { recordActionFailure, recordActivity } from "@/lib/activity-log";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 import { requireModuleAccess } from "@/lib/permissions";
 
@@ -142,66 +141,89 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const { id } = await context.params;
   const body = await request.json().catch(() => ({}));
   const patch = sanitizeLeadPatch(body);
+  let compatibilityWarning = "";
+  const automationWarnings: string[] = [];
 
   try {
     const existingRows = await supabaseRest<any[]>(`leads?id=eq.${encodeURIComponent(id)}&select=*&limit=1`);
     if (!existingRows[0]) return NextResponse.json({ error: "Başvuru bulunamadı." }, { status: 404 });
-    const rows = await supabaseRest<any[]>(`leads?id=eq.${encodeURIComponent(id)}`, {
-      method: "PATCH",
-      body: JSON.stringify(patch)
-    });
+    let rows: any[];
+    try {
+      rows = await supabaseRest<any[]>(`leads?id=eq.${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: JSON.stringify(patch)
+      });
+    } catch (writeError) {
+      const message = writeError instanceof Error ? writeError.message : String(writeError);
+      if (!message.includes("PGRST204") || !message.includes("calendar_follow_up_at")) throw writeError;
+      compatibilityWarning = "calendar_follow_up_at canlı şemada bulunamadı. Takip tarihi next_action_at alanına kaydedildi; schema repair migration uygulanmalıdır.";
+      const compatiblePatch = { ...patch };
+      delete compatiblePatch.calendar_follow_up_at;
+      rows = await supabaseRest<any[]>(`leads?id=eq.${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: JSON.stringify(compatiblePatch)
+      });
+    }
     if (!rows[0]) return NextResponse.json({ error: "Başvuru bulunamadı." }, { status: 404 });
     const requestedStage = String(patch.pipeline_stage || patch.status || "");
     const previousStage = String(existingRows[0].pipeline_stage || existingRows[0].status || "");
     if (requestedStage && requestedStage !== previousStage) {
       await createStageTasks(rows[0], requestedStage).catch((taskError) => {
-        console.error("[crm-lead] Otomatik görev oluşturma hatası", taskError);
+        const detail = taskError instanceof Error ? taskError.message : String(taskError);
+        automationWarnings.push(`Otomatik görev oluşturulamadı: ${detail}`);
       });
     }
     if (patch.meeting_at || patch.calendar_follow_up_at || patch.proposal_sent_at) {
       await createCalendarTasks(rows[0], patch).catch((taskError) => {
-        console.error("[crm-lead] Takvim görevi oluşturma hatası", taskError);
+        const detail = taskError instanceof Error ? taskError.message : String(taskError);
+        automationWarnings.push(`Takvim görevi oluşturulamadı: ${detail}`);
       });
     }
+    const warning = [compatibilityWarning, ...automationWarnings].filter(Boolean).join(" ");
     await recordActivity({
       session,
       action: "Güncelleme",
       entity: "Başvuru",
       entityId: id,
       companyId: rows[0].company_id,
-      details: { message: "CRM başvurusu güncellendi", fields: Object.keys(patch).filter((key) => key !== "updated_at") }
+      details: { message: "CRM başvurusu güncellendi", fields: Object.keys(patch).filter((key) => key !== "updated_at"), result: warning ? "Uyarı" : "Başarılı", warning: warning || undefined }
     });
-    return NextResponse.json({ ok: true, lead: rows[0], message: "Başvuru güncellendi." });
+    if (warning) {
+      await recordActivity({ session, action: "API İşlemi", entity: "Satış Hunisi Otomasyonu", entityId: id, companyId: rows[0].company_id, details: { message: warning, result: "Uyarı", warning } });
+    }
+    return NextResponse.json({ ok: true, lead: rows[0], message: "Başvuru güncellendi.", warning: warning || undefined });
   } catch (error) {
     const safe = getSafeSupabaseError(error);
     console.error("[crm-lead] Başvuru güncelleme hatası", safe.detail);
+    await recordActionFailure({ session, entity: "Satış Hunisi", action: "Lead güncelleme", error, entityId: id }).catch(() => null);
     return NextResponse.json({ error: safe.title, supabaseError: safe.detail }, { status: 500 });
   }
 }
 
 export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
-  const session = await getSession();
-  if (session?.role !== "admin") return NextResponse.json({ error: "Kalıcı silme yalnızca admin rolüne açıktır." }, { status: 403 });
+  const session = await requireCrmAccess();
+  if (!session) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 403 });
   if (!hasSupabaseConfig()) return NextResponse.json({ error: "Supabase bağlantısı yapılandırılmadı." }, { status: 503 });
 
   const { id } = await context.params;
   try {
     const rows = await supabaseRest<any[]>(`leads?id=eq.${encodeURIComponent(id)}`, {
-      method: "DELETE",
-      headers: { Prefer: "return=representation" }
+      method: "PATCH",
+      body: JSON.stringify({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     });
     await recordActivity({
       session,
-      action: "Kalıcı Silme",
+      action: "Arşivleme",
       entity: "Başvuru",
       entityId: id,
       companyId: rows?.[0]?.company_id,
-      details: { message: "CRM başvurusu kalıcı olarak silindi" }
+      details: { message: "CRM başvurusu güvenli şekilde arşivlendi" }
     });
-    return NextResponse.json({ ok: true, lead: rows?.[0] || null, message: "Başvuru kalıcı olarak silindi." });
+    return NextResponse.json({ ok: true, lead: rows?.[0] || null, message: "Başvuru arşivlendi." });
   } catch (error) {
     const safe = getSafeSupabaseError(error);
-    console.error("[crm-lead] Başvuru kalıcı silme hatası", safe.detail);
+    await recordActionFailure({ session, entity: "Satış Hunisi", action: "Lead arşivleme", error, entityId: id }).catch(() => null);
+    console.error("[crm-lead] Başvuru arşivleme hatası", safe.detail);
     return NextResponse.json({ error: safe.title, supabaseError: safe.detail }, { status: 500 });
   }
 }

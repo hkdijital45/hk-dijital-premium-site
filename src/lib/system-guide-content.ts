@@ -87,6 +87,7 @@ const definitions: Array<[string, string, string, string]> = [
   ["WhatsApp ayarları", "Ayarlar", "WhatsApp bağlantı kimliklerini ve hazır mesaj akışlarını yönetin.", "entegrasyonlar"],
   ["AI sağlayıcı ayarları", "Ayarlar", "OpenAI, Groq, Gemini ve fallback modunu güvenli biçimde yapılandırın.", "entegrasyonlar"],
   ["Sistem ayarları", "Ayarlar", "Performans, güvenlik, yedekleme ve uygulama tercihlerini yönetin.", "sistem-ayarlari"],
+  ["Butonlar ve İşlem Mantığı", "Ayarlar", "Kaydetme, güncelleme, arşivleme, hata bildirimi ve kalıcılık davranışlarını doğrulayın.", "sistem-test-merkezi"],
   ["Logo ve marka yönetimi", "Web Site Yönetimi", "Public site logo, favicon ve marka metinlerini güncelleyin.", "web-sitesi-yonetimi"],
   ["Hizmet ve paket yönetimi", "Web Site Yönetimi", "Public sitedeki hizmet ve paket içeriklerini düzenleyin.", "web-sitesi-yonetimi"],
   ["İletişim ve sosyal bağlantılar", "Web Site Yönetimi", "Telefon, e-posta, adres ve sosyal medya bağlantılarını yönetin.", "web-sitesi-yonetimi"],

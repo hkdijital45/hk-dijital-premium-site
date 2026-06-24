@@ -8,7 +8,7 @@ import {
   isStaffRole,
   updateSupabaseAuthUser
 } from "@/lib/auth";
-import { recordActivity } from "@/lib/activity-log";
+import { recordActionFailure, recordActivity } from "@/lib/activity-log";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
 function temporaryPassword() {
@@ -196,6 +196,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   } catch (error) {
     const safeError = getSafeSupabaseError(error);
     console.error("Başvuru dönüştürme Supabase hatası:", safeError.detail);
+    await recordActionFailure({ session, entity: "Satış Hunisi", action: "Lead müşteriye dönüştürme", error, entityId: id }).catch(() => null);
     return NextResponse.json({ error: safeError.title, supabaseError: safeError.detail }, { status: 500 });
   }
 }

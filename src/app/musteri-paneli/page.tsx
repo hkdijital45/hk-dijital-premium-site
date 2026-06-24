@@ -63,8 +63,10 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
   const latestUpdate = visibleUpdates[0];
   const branding = data.branding || {};
   const portalName = branding.brand_name || data.company?.name || "HK Dijital";
-  const portalTitle = `${portalName} Digital Center`;
+  const portalTitle = branding.report_title || `${portalName} Digital Center`;
   const welcomeText = branding.welcome_text || "Performans raporlarınız, kampanya notlarınız ve dijital büyüme verileriniz burada.";
+  const contactWhatsapp = String(branding.contact_whatsapp || "").replace(/\D/g, "");
+  const contactHref = contactWhatsapp ? `https://wa.me/${contactWhatsapp}` : branding.contact_email ? `mailto:${branding.contact_email}` : branding.contact_phone ? `tel:${branding.contact_phone}` : "/iletisim";
   const paymentSummary = data.payments.reduce((total, item) => ({ paid: total.paid + (item.status === "Ödendi" ? Number(item.amount || 0) : 0), pending: total.pending + (item.status !== "Ödendi" && item.status !== "İptal" ? Number(item.amount || 0) : 0) }), { paid: 0, pending: 0 });
   const visibleTimeline = [
     ...data.campaigns.map((item) => ({ date: item.updated_at || item.created_at || item.start_date, title: "Kampanya güncellendi", text: `${item.name || "Kampanya"} · ${item.status || "Durum yok"}` })),
@@ -145,12 +147,12 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
           {data.payments.length > 0 && <a href="#odemeler" className="rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-amber-800 hover:bg-amber-100">Ödemeler</a>}
         </nav>
 
-        <section className="glass-card mb-8 overflow-hidden p-6 sm:p-7">
+        <section className="glass-card mb-8 overflow-hidden border-t-4 p-6 sm:p-7" style={{ borderTopColor: branding.primary_color || "#22d3ee" }}>
           <div className="grid gap-6 xl:grid-cols-[1fr_420px] xl:items-center">
             <div>
               <p className="text-xs font-black uppercase tracking-[.18em] text-cyan-700">Genel Bakış</p>
               <h2 className="mt-3 text-3xl font-black">{portalTitle}</h2>
-              <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">Bu alan reklamlarınızın genel sonucunu sade şekilde gösterir. Raporlar, kampanyalar, kreatifler ve yapılan çalışmalar müşteri görünürlüğü açık olan kayıtlarla hazırlanır.</p>
+              <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">{welcomeText}</p>
               <div className="mt-5 flex flex-wrap gap-2">
                 <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-black text-emerald-800"><Sparkles size={15} /> {data.campaigns[0]?.status || "Raporlama hazırlanıyor"}</div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-black text-slate-700">Son güncelleme: {latestUpdate?.created_at ? new Date(latestUpdate.created_at).toLocaleDateString("tr-TR") : "Henüz yok"}</div>
@@ -444,8 +446,8 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
           {visibility.show_contact_person && (
           <section className="glass-card p-5">
             <h2 className="flex items-center gap-2 text-xl font-black"><MessageCircle className="text-cyan-600" /> İletişim</h2>
-            <p className="mt-3 text-sm text-slate-600">Raporlar veya kampanya notları için HK Dijital ile iletişime geçebilirsiniz.</p>
-            <a href="/iletisim" className="mt-4 inline-flex rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">HK Dijital ile iletişime geçin</a>
+            <p className="mt-3 text-sm text-slate-600">Raporlar, kampanya notları veya sonraki adımlar için kayıtlı iletişim kanalını kullanabilirsiniz.</p>
+            <a href={contactHref} target={contactHref.startsWith("http") ? "_blank" : undefined} rel={contactHref.startsWith("http") ? "noreferrer" : undefined} className="mt-4 inline-flex rounded-full px-4 py-2 text-sm font-black text-white" style={{ backgroundColor: branding.primary_color || "#0891b2" }}>{contactWhatsapp ? "WhatsApp ile iletişime geçin" : branding.contact_email ? "E-posta gönderin" : "İletişime geçin"}</a>
           </section>
           )}
           <section className="glass-card p-5">
