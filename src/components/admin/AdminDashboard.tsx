@@ -12,6 +12,7 @@ import { ReportTools } from "@/components/admin/reports/ReportTools";
 import { WebsiteAnalyticsCenter } from "@/components/admin/WebsiteAnalyticsCenter";
 import { WebsiteAnalyticsSummaryCards } from "@/components/admin/WebsiteAnalyticsSummaryCards";
 import { SystemGuideCenter } from "@/components/admin/SystemGuideCenter";
+import { HKIntelligenceCommandCenter } from "@/components/admin/HKIntelligenceCommandCenter";
 import { AdminCustomerSelector, GlobalMetaPixelSettings, MetaPixelSettingsPanel } from "@/components/admin/AdminCustomerOperations";
 import { Logo } from "@/components/public/Logo";
 import { adminNavigationGroups, adminNavigationItems, getAdminHref } from "@/lib/admin-navigation";
@@ -58,6 +59,8 @@ const adminLabelEmojis: Record<string, string> = {
   "Zaman Çizelgesi": "🕒",
   "Sistem Sağlığı": "🩺",
   "Sistem Sağlık Merkezi": "🩺",
+  "HK Intelligence Command Center": "🧠",
+  "Risk Merkezi": "🚨",
   "HK Dijital Sistem Rehberi": "📚",
   "Log ve Aktivite Merkezi": "🧾",
   "Sistem Test Merkezi": "🧪",
@@ -98,6 +101,7 @@ function withAdminEmoji(label: string) {
 }
 
 const salesPipelineStages = ["Yeni Lead", "İletişim Kuruldu", "Toplantı Yapıldı", "Teklif Gönderildi", "Takipte", "Kazanıldı", "Kaybedildi"];
+const customerLifecycleStages = ["Lead", "Görüşme", "Teklif", "Kazanıldı", "Onboarding", "Aktif Müşteri", "Raporlama", "Tahsilat", "Yenileme", "Referans"];
 const crmActiveStatuses = ["Yeni Başvuru", "İletişime Geçildi", "Takipte", "Teklif Gönderildi", "Müşteri Oldu"];
 const crmStatusTabs = ["Tüm Başvurular", "Yeni Başvurular", "İletişime Geçildi", "Takipte", "Teklif Gönderildi", "Müşteri Oldu", "Meta Analiz", "Google Ads Analiz", "Reddedilenler", "Silinenler"];
 const leadStatuses = [...new Set([...crmActiveStatuses, ...salesPipelineStages, "Yeni", "Görüşülecek", "Teklif Hazırlanıyor", "Kazanıldı", "Kaybedildi", "Dönüştürüldü", "Reddedildi"])];
@@ -716,6 +720,8 @@ export function AdminDashboard({
           {active === "Sistem Ayarları" && <button onClick={() => { localStorage.removeItem("hk-admin-onboarding-complete"); setOnboardingStep(0); setOnboardingOpen(true); }} className="mb-5 rounded-[10px] border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-black text-blue-700">İlk Kurulum Sihirbazını Yeniden Başlat</button>}
           {showCustomerFilter && <div className="mb-5"><AdminCustomerSelector companies={content.companies || []} value={pendingCompanyId} appliedValue={selectedCompanyId} onChange={setPendingCompanyId} onApply={applyCompanyFilter} onClear={clearCompanyFilter} /></div>}
           {dashboardAliases.includes(active) && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} systemStatus={systemStatus} currentSession={currentSession} allowedModules={allowedModules} notify={notify} />}
+          {active === "HK Intelligence Command Center" && <HKIntelligenceCommandCenter {...props} />}
+          {active === "Risk Merkezi" && <HKIntelligenceCommandCenter {...props} initialView="risk" />}
           {active === "Satış Hunisi" && <SalesPipeline content={content} setContent={setContent} save={save} setActive={setActive} notify={notify} />}
           {active === "CRM" && <CrmHub {...props} />}
           {active === "Takip Merkezi" && <LeadFollowUpCenter {...props} setActive={setActive} />}
@@ -2291,6 +2297,7 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
             </div>
             <div className="flex flex-wrap gap-2">
               <button onClick={generateDailyPlan} className="rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Bugün Ne Yapmalıyım?</button>
+              <button onClick={() => setActive("HK Intelligence Command Center")} className="rounded-full bg-purple-600 px-5 py-3 text-sm font-black text-white">Command Center'ı Aç</button>
               <button onClick={() => setCeoMode(true)} className="rounded-full bg-blue-600 px-5 py-3 text-sm font-black text-white">CEO Modu</button>
               <button onClick={() => setCustomizing((current) => !current)} className="rounded-full border border-slate-200 px-5 py-3 text-sm font-black text-slate-700">Widget Ayarları</button>
             </div>
@@ -4702,6 +4709,16 @@ function Customer360Summary({ company, campaigns, payments, tasks, reports, acti
   const lastReport = latestDateValue(reports, ["report_date", "published_at", "updated_at", "created_at", "endDate", "end_date"]);
   const lastContact = latestDateValue([relatedLead, company, ...activities], ["last_contact_at", "next_action_at", "updated_at", "created_at"]);
   const overdueTasks = openTasks.filter((item) => item.due_date && item.due_date < today).length;
+  const leadPipelineStage = relatedLead ? pipelineStageForLead(relatedLead) : "";
+  const lifecycleStage = /referans/i.test(company.lifecycle_stage || company.status || "") ? "Referans"
+    : /yenile/i.test(company.lifecycle_stage || "") ? "Yenileme"
+    : pendingPayments.length ? "Tahsilat"
+    : reports.length ? "Raporlama"
+    : company.status === "Aktif" && activeCampaigns.length ? "Aktif Müşteri"
+    : /kazan|müşteri|dönüştür/i.test(leadPipelineStage) ? "Kazanıldı"
+    : /teklif/i.test(leadPipelineStage) ? "Teklif"
+    : /iletişim|görüş|toplantı|takip/i.test(leadPipelineStage) ? "Görüşme"
+    : relatedLead ? "Lead" : "Onboarding";
   const summaryCards = [
     { label: "Aktif kampanyalar", value: activeCampaigns.length, note: "Yayında / operasyonel", tab: "Kampanyalar" },
     { label: "Bekleyen tahsilatlar", value: `${pendingTotal.toLocaleString("tr-TR")} TL`, note: `${pendingPayments.length} kayıt`, tab: "Ödemeler" },
@@ -4730,6 +4747,16 @@ function Customer360Summary({ company, campaigns, payments, tasks, reports, acti
             <span className="mt-1 block text-xs leading-5 text-slate-600">{card.note}</span>
           </button>
         ))}
+      </div>
+      <div className="mt-4 overflow-x-auto rounded-[14px] border border-slate-200 bg-slate-50 p-3">
+        <div className="flex min-w-[980px] items-center gap-2">
+          {customerLifecycleStages.map((stage, index) => {
+            const activeIndex = customerLifecycleStages.indexOf(lifecycleStage);
+            const complete = index < activeIndex;
+            const activeStage = stage === lifecycleStage;
+            return <div key={stage} className="flex min-w-0 flex-1 items-center gap-2"><span className={`grid size-7 shrink-0 place-items-center rounded-full text-[10px] font-black ${activeStage ? "bg-cyan-600 text-white" : complete ? "bg-emerald-100 text-emerald-700" : "bg-white text-slate-400 ring-1 ring-slate-200"}`}>{complete ? "✓" : index + 1}</span><span className={`truncate text-[11px] font-black ${activeStage ? "text-cyan-700" : complete ? "text-emerald-700" : "text-slate-400"}`}>{stage}</span>{index < customerLifecycleStages.length - 1 && <span className="h-px flex-1 bg-slate-200" />}</div>;
+          })}
+        </div>
       </div>
       <div className="mt-4 rounded-[14px] border border-slate-200 bg-slate-50 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">

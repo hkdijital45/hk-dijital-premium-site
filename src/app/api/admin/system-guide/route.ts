@@ -5,16 +5,14 @@ import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/sup
 import { systemGuideCategories, systemGuideSeeds } from "@/lib/system-guide-content";
 
 async function ensureSeedData() {
-  const existing = await supabaseRest<any[]>("system_guides?select=id&limit=1");
-  if (existing.length) return;
   await supabaseRest("system_guide_categories?on_conflict=name", {
     method: "POST",
-    headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+    headers: { Prefer: "resolution=ignore-duplicates,return=minimal" },
     body: JSON.stringify(systemGuideCategories.map((name, index) => ({ name, description: `${name} kullanım ve sorun giderme içerikleri.`, sort_order: index })))
   });
   await supabaseRest("system_guides?on_conflict=slug", {
     method: "POST",
-    headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+    headers: { Prefer: "resolution=ignore-duplicates,return=minimal" },
     body: JSON.stringify(systemGuideSeeds.map((guide) => ({ slug: guide.slug, title: guide.title, category: guide.category, description: guide.description, route: guide.route, content: guide.content, video_url: guide.videoUrl || null, is_published: true })))
   });
 }

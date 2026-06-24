@@ -345,11 +345,27 @@ export function executiveSummary(data: { leads?: any[]; companies?: any[]; repor
 
 export async function operationsAssistantQuestion(question: string, context: any) {
   const reports = context.reports || [];
+  const leads = context.leads || [];
+  const payments = context.payments || [];
+  const tasks = context.tasks || [];
+  const integrations = context.integrations || [];
+  const companies = context.companies || [];
+  const today = new Date().toISOString().slice(0, 10);
   const risky = reports.map((report: any) => ({ id: report.id, type: report.report_type, health: calculateHealthScore(report), company_id: report.company_id })).filter((item: any) => item.health.score < 50);
+  const overduePayments = payments.filter((item: any) => !["Ödendi", "Tahsil Edildi", "İptal"].includes(item.status) && item.due_date && item.due_date < today);
+  const criticalTasks = tasks.filter((item: any) => !["Tamamlandı", "İptal"].includes(item.status) && (item.priority === "Kritik" || item.due_date && item.due_date < today));
+  const followUps = leads.filter((item: any) => !["Kazanıldı", "Kazandı", "Kaybedildi", "Dönüştürüldü", "Müşteri Oldu"].includes(item.status) && (item.next_action_at && item.next_action_at <= today || item.follow_up_date && item.follow_up_date <= today));
+  const proposals = leads.filter((item: any) => ["Teklif Hazırlanıyor", "Teklif Gönderildi", "Teklif Görüntülendi", "Revize İstendi"].includes(item.proposal_status || item.status));
+  const integrationErrors = integrations.filter((item: any) => /hata|geçersiz|başarısız|yetki eksik/i.test(`${item.status || ""} ${item.sync_status || ""} ${item.sync_message || ""} ${item.pixel_status || ""}`));
+  const companyLabel = (companyId: string) => companies.find((item: any) => item.id === companyId)?.name || "Firma belirtilmedi";
   const fallback = [
-    "HK Intelligence Assistant özeti:",
-    risky.length ? `Dikkat isteyen ${risky.length} rapor var. Öncelik düşük sağlık skoruna sahip müşterilerde olmalı.` : "Kritik risk sinyali sınırlı görünüyor.",
-    "Önceliklendirme: sıcak leadler, bekleyen teklifler ve düşük performanslı kampanyalar."
+    "HK Intelligence günlük operasyon özeti:",
+    overduePayments.length ? `1. Tahsilat: ${overduePayments.length} gecikmiş kayıt var. Önce ${overduePayments.slice(0, 3).map((item: any) => companyLabel(item.company_id)).join(", ")} ile iletişime geçin.` : "1. Tahsilat: Gecikmiş kayıt görünmüyor.",
+    criticalTasks.length ? `2. Görevler: ${criticalTasks.length} kritik veya gecikmiş görev var. İlk olarak ${criticalTasks.slice(0, 3).map((item: any) => item.title || "İsimsiz görev").join(", ")} tamamlanmalı.` : "2. Görevler: Kritik gecikme görünmüyor.",
+    followUps.length ? `3. Lead takibi: ${followUps.length} lead bugün takip bekliyor. ${followUps.slice(0, 3).map((item: any) => item.company || item.name || "İsimsiz lead").join(", ")} önceliklendirilmeli.` : `3. Lead takibi: Tarihi gelen takip yok; ${proposals.length} açık teklif kontrol edilmeli.`,
+    integrationErrors.length ? `4. Entegrasyonlar: ${integrationErrors.length} bağlantı veya Pixel sorunu var; veri sürekliliği için Entegrasyonlar ekranından test edin.` : "4. Entegrasyonlar: Kayıtlı bağlantılarda kritik hata sinyali yok.",
+    risky.length ? `5. Raporlama: Sağlık skoru düşük ${risky.length} rapor var; müşteri iletişiminden önce yorum ve sonraki adımları güncelleyin.` : "5. Raporlama: Kritik rapor sinyali sınırlı görünüyor.",
+    "Öneri sırası: gelir riski → teslim riski → sıcak lead → entegrasyon sürekliliği → raporlama."
   ].join("\n");
   return generateAiText(`HK Dijital operasyon sorusunu Türkçe yanıtla: ${question}\n\nBağlam:${JSON.stringify({ ...context, risky })}`, fallback).catch(() => ({ text: fallback, provider: "Yerel Mod", model: "local-rules", mode: "Yerel" }));
 }

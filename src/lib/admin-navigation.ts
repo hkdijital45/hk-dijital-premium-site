@@ -23,6 +23,8 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     accent: "from-cyan-400 via-sky-500 to-blue-600",
     items: [
       { label: "Dashboard", slug: "", module: "dashboard", description: "Ajans KPI'ları, öncelikler ve günlük operasyon özeti." },
+      { label: "HK Intelligence Command Center", slug: "intelligence-command-center", module: "dashboard", description: "Günlük öncelikler, müşteri sağlığı, risk ve kârlılık karar merkezi." },
+      { label: "Risk Merkezi", slug: "risk-merkezi", module: "dashboard", description: "Tahsilat, görev, entegrasyon ve müşteri risklerini öncelik puanıyla izleyin." },
       { label: "HK Asistan", slug: "hk-asistan", module: "hk-asistan", description: "Mevcut sistem verileriyle çalışan operasyon asistanı." },
       { label: "Genel Arama", slug: "genel-arama", module: "genel-arama", description: "Müşteri, kampanya, görev ve belgelerde hızlı arama." }
     ]

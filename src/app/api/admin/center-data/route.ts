@@ -604,7 +604,7 @@ export async function GET() {
     return NextResponse.json({ error: "Supabase bağlantısı yapılandırılmadı." }, { status: 500 });
   }
 
-  const [companies, users, leads, campaigns, campaignMetrics, metaAdsetMetrics, metaAdMetrics, metaConversionEvents, metaAnalysisSnapshots, customerReportVisibility, customerUpdates, customerVisibilitySettings, customerFiles, media, customerBranding, monthlyReports, agencyTasks, customerDocuments, paymentRecords, reports, competitorAnalyses, socialMediaPlans, agencyExpenses, sectorConfigs, systemTestRuns, systemTestChecklist, activityLogs] =
+  const [companies, users, leads, campaigns, campaignMetrics, metaAdsetMetrics, metaAdMetrics, metaConversionEvents, metaAnalysisSnapshots, customerReportVisibility, customerUpdates, customerVisibilitySettings, customerFiles, media, customerBranding, monthlyReports, agencyTasks, customerDocuments, paymentRecords, reports, competitorAnalyses, socialMediaPlans, agencyExpenses, sectorConfigs, systemTestRuns, systemTestChecklist, activityLogs, adIntegrations] =
     await Promise.all([
       supabaseRest("companies?select=*&order=created_at.desc"),
       supabaseRest("users?deleted_at=is.null&select=*&order=created_at.desc"),
@@ -632,7 +632,8 @@ export async function GET() {
       supabaseRest("sector_configs?select=*&order=sector_name.asc").catch(() => []),
       supabaseRest("system_test_runs?deleted_at=is.null&select=*&order=created_at.desc").catch(() => []),
       supabaseRest("system_test_checklist?deleted_at=is.null&select=*&order=sort_order.asc").catch(() => []),
-      supabaseRest("activity_logs?deleted_at=is.null&select=*&order=created_at.desc&limit=500").catch(() => [])
+      supabaseRest("activity_logs?deleted_at=is.null&select=*&order=created_at.desc&limit=500").catch(() => []),
+      supabaseRest("ad_integrations?select=id,company_id,provider,pixel_id,pixel_enabled,pixel_status,capi_enabled,capi_status,status,sync_status,sync_message,last_sync_at,updated_at&order=updated_at.desc").catch(() => [])
     ]);
 
   return NextResponse.json({
@@ -662,7 +663,8 @@ export async function GET() {
     sectorConfigs,
     systemTestRuns,
     systemTestChecklist,
-    activityLogs
+    activityLogs,
+    adIntegrations
   });
 }
 

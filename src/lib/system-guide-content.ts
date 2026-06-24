@@ -25,6 +25,10 @@ export const systemGuideCategories = [
 
 const definitions: Array<[string, string, string, string]> = [
   ["Dashboard nedir?", "Dashboard & Kontrol Merkezi", "Ajansın günlük KPI, risk ve aksiyonlarını tek ekranda izleyin.", ""],
+  ["HK Intelligence Command Center", "Dashboard & Kontrol Merkezi", "Tahsilat, lead, teklif, görev, müşteri ve entegrasyon sinyallerini günlük öncelik sırasına dönüştürün.", "intelligence-command-center"],
+  ["Risk Merkezi", "Dashboard & Kontrol Merkezi", "Operasyon risklerini etki ve aciliyet puanına göre inceleyip ilgili kayda ilerleyin.", "risk-merkezi"],
+  ["Müşteri yaşam döngüsü", "CRM & Müşteriler", "Lead aşamasından referansa kadar her müşterinin operasyon evresini izleyin.", "intelligence-command-center"],
+  ["Müşteri sağlık ve kârlılık analizi", "Tahsilat & Karlılık", "Tahsilat, görev, temas, rapor ve maliyet sinyallerinden müşteri riskini ve tahmini kârlılığı okuyun.", "intelligence-command-center"],
   ["KPI kartlarını okuma", "Dashboard & Kontrol Merkezi", "Gelir, tahsilat, müşteri, kampanya ve görev kartlarını doğru yorumlayın.", ""],
   ["Kritik görevleri yönetme", "Dashboard & Kontrol Merkezi", "Geciken ve kritik görevleri önceliklendirip ilgili kayda ilerleyin.", "gorevler"],
   ["Hızlı işlemler", "Dashboard & Kontrol Merkezi", "Müşteri, kampanya, görev, tahsilat ve rapor formlarını doğrudan açın.", ""],
