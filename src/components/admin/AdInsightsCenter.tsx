@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { useMemo, useState } from "react";
-import { BarChart3, Brain, FileText, MessageSquareText, RefreshCw, Search, Send, ShieldAlert } from "lucide-react";
+import { BarChart3, Brain, FileText, MessageSquareText, RefreshCw, Search, Send, ShieldAlert, Sparkles, Trophy } from "lucide-react";
 
 const ranges = [
   ["today", "Bugün"],
@@ -71,6 +71,16 @@ function connectionLabel(value: any, missing: string) {
   return value ? <span className="font-black text-slate-950">{value}</span> : <span className="font-bold text-amber-700">{missing}</span>;
 }
 
+function changeBadge(value: any) {
+  const number = Number(value || 0);
+  const tone = number > 0 ? "border-emerald-200 bg-emerald-50 text-emerald-800" : number < 0 ? "border-red-200 bg-red-50 text-red-800" : "border-slate-200 bg-slate-50 text-slate-700";
+  return <span className={`rounded-full border px-2.5 py-1 text-xs font-black ${tone}`}>{number > 0 ? "+" : ""}{number.toLocaleString("tr-TR", { maximumFractionDigits: 1 })}%</span>;
+}
+
+function adTitle(ad: any) {
+  return ad?.name || ad?.campaign_name || ad?.ad_name || "Reklam verisi yok";
+}
+
 export function AdInsightsCenter({ content, notify }: { content: any; notify?: (message: string, type?: string) => void }) {
   const companies = useMemo(() => (content.companies || []).filter((company: any) => !company.status || company.status === "Aktif"), [content.companies]);
   const [companyId, setCompanyId] = useState(companies[0]?.id || "");
@@ -104,6 +114,16 @@ export function AdInsightsCenter({ content, notify }: { content: any; notify?: (
     }
   }
 
+  function clearFilters() {
+    setCompanyId("");
+    setRange("last_30d");
+    setPlatform("all");
+    setFrom("");
+    setTo("");
+    setData(null);
+    notify?.("Filtreler temizlendi.", "info");
+  }
+
   const metrics = data?.metrics || {};
   const analysis = data?.analysis || {};
   return <div className="grid gap-6">
@@ -134,8 +154,12 @@ export function AdInsightsCenter({ content, notify }: { content: any; notify?: (
         </label>
         {range === "custom" && <label className="grid gap-2 text-sm font-bold text-slate-700">Başlangıç<input type="date" value={from} onChange={(event) => setFrom(event.target.value)} className="min-h-11 rounded-[12px] border border-slate-300 px-3" /></label>}
         {range === "custom" && <label className="grid gap-2 text-sm font-bold text-slate-700">Bitiş<input type="date" value={to} onChange={(event) => setTo(event.target.value)} className="min-h-11 rounded-[12px] border border-slate-300 px-3" /></label>}
-        <button onClick={() => request("/api/admin/ad-insights")} disabled={Boolean(loading)} className="self-end rounded-[14px] bg-cyan-500 px-5 py-3 text-sm font-black text-white disabled:opacity-60"><Search size={16} className="mr-2 inline" />{loading ? "Getiriliyor..." : "Analizi Getir"}</button>
+        <div className="flex items-end gap-2">
+          <button onClick={() => request("/api/admin/ad-insights")} disabled={Boolean(loading)} className="rounded-[14px] bg-cyan-500 px-5 py-3 text-sm font-black text-white disabled:opacity-60"><Search size={16} className="mr-2 inline" />{loading ? "Getiriliyor..." : "Filtrele"}</button>
+          <button onClick={clearFilters} className="rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700">Temizle</button>
+        </div>
       </div>
+      {(companyId || data) && <p className="mt-4 inline-flex rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-xs font-black text-cyan-800">Aktif filtre: {selectedCompany?.name || selectedCompany?.company_name || "Müşteri seçilmedi"} / {ranges.find(([value]) => value === range)?.[1]} / {platforms.find(([value]) => value === platform)?.[1]}</p>}
     </section>
 
     {!selectedCompany && <p className="rounded-[18px] border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-600">Reklam yorumlarını görmek için aktif bir müşteri seçin.</p>}
@@ -165,6 +189,60 @@ export function AdInsightsCenter({ content, notify }: { content: any; notify?: (
         <strong className="mt-2 block text-2xl font-black text-slate-950">{formatMetric(key, metrics[key])}</strong>
         <p className="mt-2 text-xs leading-5 text-slate-500">{descriptions[key]}</p>
       </div>)}
+    </section>}
+
+    {data && <section className="grid gap-4 lg:grid-cols-[1.15fr_.85fr]">
+      <div className="rounded-[20px] border border-slate-200 bg-white p-6">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="font-black text-slate-950">Haftalık Değişim</h3>
+            <p className="mt-1 text-sm text-slate-500">Seçili dönem önceki aynı dönemle karşılaştırılır.</p>
+          </div>
+          <BarChart3 className="text-cyan-600" />
+        </div>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {["ctr", "cpc", "cpm", "spend", "impressions", "clicks", "leads", "messages"].map((key) => <div key={key} className="rounded-[16px] border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-black uppercase tracking-[.12em] text-slate-500">{metricExplanations[key] || key}</p>
+            <div className="mt-2">{changeBadge(data.weeklyChange?.[key])}</div>
+          </div>)}
+        </div>
+      </div>
+      <div className="rounded-[20px] border border-slate-200 bg-white p-6">
+        <h3 className="font-black text-slate-950">AI Sağlık Skoru Nedenleri</h3>
+        <div className="mt-4 grid gap-2 text-sm text-slate-700">
+          <p className="rounded-[12px] bg-slate-50 p-3">CTR değişimi: {changeBadge(data.weeklyChange?.ctr)}</p>
+          <p className="rounded-[12px] bg-slate-50 p-3">CPC değişimi: {changeBadge(data.weeklyChange?.cpc)}</p>
+          <p className="rounded-[12px] bg-slate-50 p-3">CPM değişimi: {changeBadge(data.weeklyChange?.cpm)}</p>
+          <p className="rounded-[12px] bg-slate-50 p-3">Boşa harcanan bütçe tahmini: <strong>{Number(data.wastedBudgetEstimate || 0) ? `${Number(data.wastedBudgetEstimate).toLocaleString("tr-TR", { maximumFractionDigits: 2 })} TL` : "Hesaplanamadı"}</strong></p>
+        </div>
+      </div>
+    </section>}
+
+    {data && <section className="grid gap-4 lg:grid-cols-3">
+      <div className="rounded-[20px] border border-emerald-200 bg-white p-6">
+        <Trophy className="text-emerald-600" />
+        <h3 className="mt-3 font-black text-slate-950">En İyi Reklam</h3>
+        <p className="mt-2 text-sm font-bold text-slate-700">{adTitle(data.bestAd)}</p>
+        <p className="mt-2 text-xs leading-5 text-slate-500">Yüksek CTR, düşük maliyet ve sonuç sinyallerine göre seçilir.</p>
+      </div>
+      <div className="rounded-[20px] border border-red-200 bg-white p-6">
+        <ShieldAlert className="text-red-600" />
+        <h3 className="mt-3 font-black text-slate-950">En Zayıf Reklam</h3>
+        <p className="mt-2 text-sm font-bold text-slate-700">{adTitle(data.worstAd)}</p>
+        <p className="mt-2 text-xs leading-5 text-slate-500">Düşük CTR, yüksek CPC veya düşük dönüşüm sinyalleriyle belirlenir.</p>
+      </div>
+      <div className="rounded-[20px] border border-purple-200 bg-white p-6">
+        <Sparkles className="text-purple-600" />
+        <h3 className="mt-3 font-black text-slate-950">Kazanan Kreatif</h3>
+        {data.winningCreative?.creative_thumbnail_url ? <img src={data.winningCreative.creative_thumbnail_url} alt="Kazanan kreatif" className="mt-3 aspect-video w-full rounded-[14px] object-cover" /> : <p className="mt-2 text-sm text-slate-600">{data.winningCreative?.ad_text || "Kreatif görsel/video verisi yok. Başlık/metin üzerinden analiz yapılır."}</p>}
+      </div>
+    </section>}
+
+    {data && <section className="rounded-[20px] border border-slate-200 bg-white p-6">
+      <h3 className="font-black text-slate-950">AI Otomatik Aksiyon Önerileri</h3>
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        {(data.actionRecommendations || []).map((item: string, index: number) => <p key={index} className="rounded-[14px] border border-cyan-100 bg-cyan-50 p-4 text-sm font-bold leading-6 text-cyan-900">{item}</p>)}
+      </div>
     </section>}
 
     {data && <section className="grid gap-4 lg:grid-cols-2">

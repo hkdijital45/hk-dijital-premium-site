@@ -31,6 +31,96 @@ function avg(rows: any[], key: string) {
   return values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
 }
 
+function summarizeRows(rows: any[]) {
+  const impressions = sum(rows, "impressions");
+  const reach = sum(rows, "reach");
+  const clicks = sum(rows, "clicks");
+  const spend = sum(rows, "spend") || sum(rows, "spent");
+  const leads = sum(rows, "leads");
+  const messages = sum(rows, "messages");
+  const conversions = sum(rows, "conversions");
+  const purchaseValue = sum(rows, "purchase_value");
+  return {
+    spend,
+    impressions,
+    reach,
+    clicks,
+    ctr: impressions ? (clicks / impressions) * 100 : avg(rows, "ctr"),
+    cpc: clicks ? spend / clicks : avg(rows, "cpc"),
+    cpm: impressions ? (spend / impressions) * 1000 : avg(rows, "cpm"),
+    messages,
+    leads,
+    conversions,
+    frequency: reach ? impressions / reach : 0,
+    roas: spend ? purchaseValue / spend : avg(rows, "roas")
+  };
+}
+
+function previousPeriod(dateRange: { from: string; to: string }) {
+  const from = new Date(dateRange.from);
+  const to = new Date(dateRange.to);
+  const days = Math.max(1, Math.round((to.getTime() - from.getTime()) / 86400000) + 1);
+  const previousTo = new Date(from);
+  previousTo.setDate(from.getDate() - 1);
+  const previousFrom = new Date(previousTo);
+  previousFrom.setDate(previousTo.getDate() - days + 1);
+  return { from: previousFrom.toISOString().slice(0, 10), to: previousTo.toISOString().slice(0, 10) };
+}
+
+function change(current = 0, previous = 0) {
+  if (!previous && !current) return 0;
+  if (!previous) return 100;
+  return ((current - previous) / Math.abs(previous)) * 100;
+}
+
+function weeklyChanges(current: any, previous: any) {
+  return Object.fromEntries(["spend", "impressions", "clicks", "ctr", "cpc", "cpm", "leads", "messages"].map((key) => [key, change(current[key], previous[key])]));
+}
+
+function adScore(row: any) {
+  const spend = Number(row.spend || row.spent || 0);
+  const ctr = Number(row.ctr || 0);
+  const cpc = Number(row.cpc || 0);
+  const leads = Number(row.leads || row.results || row.conversions || 0);
+  return ctr * 10 + leads * 4 - cpc * 0.4 - spend * 0.01;
+}
+
+function pickAd(rows: any[], direction: "best" | "worst") {
+  const scored = rows.map((row) => ({
+    id: row.meta_ad_id || row.meta_campaign_id || row.campaign_id || row.id,
+    name: row.ad_name || row.campaign_name || row.name || "Reklam",
+    spend: Number(row.spend || row.spent || 0),
+    ctr: Number(row.ctr || 0),
+    cpc: Number(row.cpc || 0),
+    leads: Number(row.leads || row.results || row.conversions || 0),
+    creative_thumbnail_url: row.creative_thumbnail_url || row.raw_data?.creative_thumbnail_url || "",
+    creative_media_url: row.creative_media_url || row.raw_data?.creative_media_url || "",
+    ad_text: row.ad_text || row.headline || row.description || "",
+    score: adScore(row)
+  })).filter((row) => row.id || row.name);
+  scored.sort((a, b) => direction === "best" ? b.score - a.score : a.score - b.score);
+  return scored[0] || null;
+}
+
+function estimateWastedBudget(rows: any[], metrics: any) {
+  if (!rows.length || !Number(metrics.spend || 0)) return 0;
+  const weakSpend = rows
+    .filter((row) => Number(row.ctr || 0) < 0.7 || Number(row.cpc || 0) > Math.max(30, Number(metrics.cpc || 0) * 1.5))
+    .reduce((total, row) => total + Number(row.spend || row.spent || 0), 0);
+  return Number(weakSpend.toFixed(2));
+}
+
+function recommendations(metrics: any, weeklyChange: any) {
+  const items = [];
+  if (weeklyChange.ctr < -10) items.push("CTR düşüyor; en düşük tıklama oranlı kreatifleri yenileyin.");
+  if (weeklyChange.cpc > 15) items.push("CPC artıyor; hedef kitle ve teklif stratejisini daraltarak test edin.");
+  if (weeklyChange.cpm > 20) items.push("CPM yükseliyor; yerleşim ve hedef kitle kırılımlarını ayrı test edin.");
+  if (!metrics.leads && !metrics.messages) items.push("Lead/mesaj sinyali yok; çağrı metni ve dönüşüm akışını kontrol edin.");
+  if (metrics.frequency > 4) items.push("Frekans yüksek; kreatif yorgunluğu riskine karşı yeni varyasyon hazırlayın.");
+  if (!items.length) items.push("Performans stabil; güçlü kampanyaları 3 gün daha izleyip kontrollü bütçe artışı değerlendirin.");
+  return items;
+}
+
 function scoreFromMetrics(metrics: any) {
   let score = 50;
   if (metrics.ctr >= 2) score += 15;
@@ -79,42 +169,52 @@ export async function getAdInsightsData({
   const dateRange = adInsightDateRange(range, customFrom, customTo);
   if (!hasSupabaseConfig()) {
     const metrics = { spend: 0, impressions: 0, reach: 0, clicks: 0, ctr: 0, cpc: 0, cpm: 0, messages: 0, leads: 0, conversions: 0, frequency: 0, roas: 0 };
-    return { status: "demo", dateRange, sourceType: "Demo veri", connection: {}, metrics, healthScore: scoreFromMetrics(metrics), analysis: buildFallbackAnalysis("Demo Müşteri", metrics, 50), snapshots: [] };
+    const previousMetrics = summarizeRows([]);
+    const weeklyChange = weeklyChanges(metrics, previousMetrics);
+    return {
+      status: "demo",
+      dateRange,
+      sourceType: "Demo veri",
+      connection: {},
+      metrics,
+      previousMetrics,
+      weeklyChange,
+      wastedBudgetEstimate: 0,
+      bestAd: null,
+      worstAd: null,
+      winningCreative: null,
+      actionRecommendations: recommendations(metrics, weeklyChange),
+      healthScore: scoreFromMetrics(metrics),
+      analysis: buildFallbackAnalysis("Demo Müşteri", metrics, 50),
+      snapshots: []
+    };
   }
 
-  const [companyRows, integrations, campaignMetrics, snapshots] = await Promise.all([
+  const [companyRows, integrations, campaignMetrics, adMetrics, snapshots] = await Promise.all([
     supabaseRest<any[]>(`companies?id=eq.${encodeURIComponent(companyId)}&select=*&limit=1`),
     supabaseRest<any[]>(`ad_integrations?company_id=eq.${encodeURIComponent(companyId)}&select=*&order=updated_at.desc`).catch(() => []),
     supabaseRest<any[]>(`campaign_metrics?company_id=eq.${encodeURIComponent(companyId)}&date=gte.${dateRange.from}&date=lte.${dateRange.to}&select=*&order=date.desc`).catch(() => []),
+    supabaseRest<any[]>(`meta_ad_metrics?company_id=eq.${encodeURIComponent(companyId)}&date=gte.${dateRange.from}&date=lte.${dateRange.to}&select=*&order=date.desc`).catch(() => []),
     supabaseRest<any[]>(`ad_insight_snapshots?customer_id=eq.${encodeURIComponent(companyId)}&date_from=gte.${dateRange.from}&date_to=lte.${dateRange.to}&select=*&order=created_at.desc&limit=20`).catch(() => [])
   ]);
 
   const company = companyRows[0] || {};
   const meta = integrations.find((item) => item.provider === "meta") || {};
   const google = integrations.find((item) => item.provider === "google") || {};
+  const previous = previousPeriod(dateRange);
+  const previousRows = await supabaseRest<any[]>(`campaign_metrics?company_id=eq.${encodeURIComponent(companyId)}&date=gte.${previous.from}&date=lte.${previous.to}&select=*&order=date.desc`).catch(() => []);
   const rows = platform === "all" ? campaignMetrics : campaignMetrics.filter((row) => String(row.source || "").toLocaleLowerCase("tr").includes(platform === "google" ? "google" : "meta"));
-  const impressions = sum(rows, "impressions");
-  const reach = sum(rows, "reach");
-  const clicks = sum(rows, "clicks");
-  const spend = sum(rows, "spend") || sum(rows, "spent");
-  const leads = sum(rows, "leads");
-  const messages = sum(rows, "messages");
-  const conversions = sum(rows, "conversions");
-  const purchaseValue = sum(rows, "purchase_value");
-  const metrics = {
-    spend,
-    impressions,
-    reach,
-    clicks,
-    ctr: impressions ? (clicks / impressions) * 100 : avg(rows, "ctr"),
-    cpc: clicks ? spend / clicks : avg(rows, "cpc"),
-    cpm: impressions ? (spend / impressions) * 1000 : avg(rows, "cpm"),
-    messages,
-    leads,
-    conversions,
-    frequency: reach ? impressions / reach : 0,
-    roas: spend ? purchaseValue / spend : avg(rows, "roas")
-  };
+  const filteredAdRows = platform === "all" ? adMetrics : adMetrics.filter((row) => String(row.source || "").toLocaleLowerCase("tr").includes(platform === "google" ? "google" : "meta"));
+  const previousFilteredRows = platform === "all" ? previousRows : previousRows.filter((row) => String(row.source || "").toLocaleLowerCase("tr").includes(platform === "google" ? "google" : "meta"));
+  const metrics = rows.length ? summarizeRows(rows) : snapshots[0]?.metrics || summarizeRows([]);
+  const previousMetrics = previousFilteredRows.length ? summarizeRows(previousFilteredRows) : snapshots[0]?.previous_metrics || summarizeRows([]);
+  const weeklyChange = Object.keys(snapshots[0]?.weekly_change || {}).length ? snapshots[0]?.weekly_change : weeklyChanges(metrics, previousMetrics);
+  const combinedAdRows = filteredAdRows.length ? filteredAdRows : rows;
+  const bestAd = pickAd(combinedAdRows, "best");
+  const worstAd = pickAd(combinedAdRows, "worst");
+  const winningCreative = bestAd?.creative_thumbnail_url || bestAd?.creative_media_url || bestAd?.ad_text ? bestAd : null;
+  const wastedBudgetEstimate = Number(snapshots[0]?.wasted_budget_estimate || estimateWastedBudget(combinedAdRows, metrics));
+  const actionRecommendations = Array.isArray(snapshots[0]?.action_recommendations) && snapshots[0]?.action_recommendations.length ? snapshots[0]?.action_recommendations : recommendations(metrics, weeklyChange);
   const healthScore = scoreFromMetrics(metrics);
   const fallback = buildFallbackAnalysis(company.name || company.company_name || "Müşteri", metrics, healthScore);
   let analysis = fallback;
@@ -141,6 +241,13 @@ export async function getAdInsightsData({
       metaPixelId: meta.pixel_id || meta.dataset_id || ""
     },
     metrics,
+    previousMetrics,
+    weeklyChange,
+    wastedBudgetEstimate,
+    bestAd: snapshots[0]?.best_ad && Object.keys(snapshots[0].best_ad || {}).length ? snapshots[0].best_ad : bestAd,
+    worstAd: snapshots[0]?.worst_ad && Object.keys(snapshots[0].worst_ad || {}).length ? snapshots[0].worst_ad : worstAd,
+    winningCreative: snapshots[0]?.winning_creative && Object.keys(snapshots[0].winning_creative || {}).length ? snapshots[0].winning_creative : winningCreative,
+    actionRecommendations,
     healthScore,
     healthLabel: healthLabel(healthScore),
     analysis,

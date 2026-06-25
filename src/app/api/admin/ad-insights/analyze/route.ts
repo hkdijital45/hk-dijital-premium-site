@@ -29,7 +29,15 @@ export async function POST(request: Request) {
           date_from: data.dateRange.from,
           date_to: data.dateRange.to,
           metrics: data.metrics,
-          insights: data.analysis,
+          insights: {
+            analysis: data.analysis,
+            weekly_change: data.weeklyChange || {},
+            wasted_budget_estimate: data.wastedBudgetEstimate || 0,
+            best_ad: data.bestAd || {},
+            worst_ad: data.worstAd || {},
+            winning_creative: data.winningCreative || {},
+            action_recommendations: data.actionRecommendations || []
+          },
           health_score: data.healthScore,
           source_type: data.sourceType
         })

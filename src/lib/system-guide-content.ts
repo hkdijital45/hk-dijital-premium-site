@@ -100,7 +100,14 @@ const definitions: Array<[string, string, string, string]> = [
   ["Müşteri giriş yapamıyor", "Sorun Giderme", "Kullanıcının aktifliği, firma bağı ve rolünü kontrol edin.", "kullanici-yonetimi"],
   ["Rapor veya export görünmüyor", "Sorun Giderme", "Rapor durumu, müşteri görünürlüğü ve dosya üretim sonucunu kontrol edin.", "musteri-raporlari"],
   ["Görev veya ödeme görünmüyor", "Sorun Giderme", "Arşiv, tarih, müşteri ve görünürlük filtrelerini kontrol edin.", "sistem-test-merkezi"],
-  ["AI çalışmıyor", "Sorun Giderme", "Aktif sağlayıcı, model, API anahtarı ve demo fallback durumunu kontrol edin.", "sistem-test-merkezi"]
+  ["AI çalışmıyor", "Sorun Giderme", "Aktif sağlayıcı, model, API anahtarı ve demo fallback durumunu kontrol edin.", "sistem-test-merkezi"],
+  ["QA Center nasıl kullanılır?", "Ayarlar", "Sayfa, API, migration, env, güvenlik ve buton risklerini tek QA ekranından tarayın.", "qa-center"],
+  ["Reklam Yorum Merkezi nasıl yorumlanır?", "Raporlama Merkezi", "Reklam sağlık skoru, haftalık değişim ve AI aksiyon önerilerini müşteriye uygun şekilde okuyun.", "ad-insights"],
+  ["Görev şablonları nasıl kullanılır?", "Görev Yönetimi", "Onboarding, Pixel, rapor, teklif takip ve tahsilat hatırlatma görevlerini hazır şablondan oluşturun.", "musteriler"],
+  ["Tekrarlayan görev nasıl oluşturulur?", "Görev Yönetimi", "Günlük, haftalık, aylık veya özel tekrar kuralı ile düzenli operasyon görevleri planlayın.", "musteriler"],
+  ["Alt görev nedir?", "Görev Yönetimi", "Büyük işleri küçük kontrol maddelerine bölerek ana görevin altında takip edin.", "musteriler"],
+  ["Reklam sağlık skoru ne anlama gelir?", "Raporlama Merkezi", "CTR, CPC, CPM, lead/mesaj sinyali, frekans ve bütçe verimliliğinden oluşan 0-100 performans puanını yorumlayın.", "ad-insights"],
+  ["Boşa harcanan bütçe nasıl yorumlanır?", "Raporlama Merkezi", "Düşük CTR veya yüksek CPC sinyali veren reklam harcamasını durdurma, izleme veya kreatif yenileme kararı için kullanın.", "ad-insights"]
 ];
 
 function slugify(value: string) {

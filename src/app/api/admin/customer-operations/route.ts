@@ -18,7 +18,7 @@ export async function GET(request: Request) {
   try {
     const [payments, tasks] = await Promise.all([
       supabaseRest<any[]>(`payment_records?company_id=eq.${companyId}&archived_at=is.null&select=*&order=due_date.desc`),
-      supabaseRest<any[]>(`agency_tasks?company_id=eq.${companyId}&archived_at=is.null&select=*&order=due_date.asc`)
+      supabaseRest<any[]>(`agency_tasks?company_id=eq.${companyId}&archived_at=is.null&select=*&order=sort_order.asc&order=due_date.asc`)
     ]);
     return NextResponse.json({ payments, tasks });
   } catch (error) {
@@ -54,6 +54,8 @@ export async function POST(request: Request) {
       updated_at: now
     } : {
       company_id: item.company_id,
+      parent_task_id: item.parent_task_id || null,
+      is_subtask: Boolean(item.parent_task_id || item.is_subtask),
       title: String(item.title).trim(),
       description: item.description || null,
       notes: item.notes || item.description || null,
@@ -63,6 +65,14 @@ export async function POST(request: Request) {
       assigned_user_id: item.assigned_user_id || null,
       visible_to_customer: Boolean(item.visible_to_customer),
       completed_at: item.status === "Tamamlandı" ? item.completed_at || now : null,
+      sort_order: Number(item.sort_order || 0),
+      recurring_rule: item.recurring_rule || null,
+      recurring_interval: Number(item.recurring_interval || 0) || null,
+      recurring_until: item.recurring_until || null,
+      reminder_at: item.reminder_at || null,
+      template_key: item.template_key || null,
+      ai_generated: Boolean(item.ai_generated),
+      metadata: item.metadata || {},
       updated_at: now
     };
     const rows = isExistingRecord

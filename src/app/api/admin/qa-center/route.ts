@@ -3,6 +3,7 @@ import { existsSync, readFileSync, readdirSync } from "fs";
 import path from "path";
 import { recordActionFailure, recordActivity } from "@/lib/activity-log";
 import { requireModuleAccess } from "@/lib/permissions";
+import { hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
 type QaSeverity = "kritik" | "orta" | "dusuk";
 
@@ -26,6 +27,16 @@ function readAllMigrations() {
   return readdirSync(dir).filter((file) => file.endsWith(".sql")).map((file) => readFileSync(path.join(dir, file), "utf8")).join("\n").toLocaleLowerCase("tr");
 }
 
+function walkFiles(dir: string, extensions = [".ts", ".tsx"]) {
+  if (!existsSync(dir)) return [] as string[];
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(dir, entry.name);
+    if (entry.name === "node_modules" || entry.name === ".next") return [];
+    if (entry.isDirectory()) return walkFiles(full, extensions);
+    return extensions.some((extension) => entry.name.endsWith(extension)) ? [full] : [];
+  });
+}
+
 function fileExists(relativePath: string) {
   return existsSync(path.join(/* turbopackIgnore: true */ process.cwd(), relativePath));
 }
@@ -46,11 +57,61 @@ function classify(message: string): QaSeverity {
   return "dusuk";
 }
 
+function makeFinding(input: {
+  category: string;
+  severity: QaSeverity;
+  module: string;
+  file_path?: string;
+  title: string;
+  description: string;
+  recommendation: string;
+  status?: string;
+  metadata?: Record<string, unknown>;
+}) {
+  return { status: "Açık", ...input };
+}
+
+function scanSourcesForFindings(migrations: string) {
+  const root = /* turbopackIgnore: true */ process.cwd();
+  const srcFiles = walkFiles(path.join(root, "src"));
+  const sourceText = srcFiles.map((file) => ({ file, text: readFileSync(file, "utf8") }));
+  const findings: ReturnType<typeof makeFinding>[] = [];
+
+  for (const { file, text } of sourceText) {
+    const relative = path.relative(root, file);
+    if (/console\.log\(/.test(text)) findings.push(makeFinding({ category: "Konsol Hataları", severity: "dusuk", module: "Kod Kalitesi", file_path: relative, title: "console.log bulundu", description: "Üretim kodunda console.log çağrısı kalmış.", recommendation: "Debug çıktısını kaldırın veya kontrollü log altyapısına taşıyın." }));
+    if (/debugger/.test(text)) findings.push(makeFinding({ category: "Konsol Hataları", severity: "orta", module: "Kod Kalitesi", file_path: relative, title: "debugger bulundu", description: "Kod içinde debugger ifadesi var.", recommendation: "Debugger satırını kaldırın." }));
+    if (/TODO|FIXME/.test(text)) findings.push(makeFinding({ category: "Placeholder Aksiyonlar", severity: "dusuk", module: "Kod Kalitesi", file_path: relative, title: "TODO/FIXME notu bulundu", description: "Tamamlanması gereken geliştirici notu var.", recommendation: "Notu gerçek aksiyona dönüştürün veya takip kaydı açın." }));
+    if (/<button(?![\s\S]{0,260}onClick=)(?![\s\S]{0,260}type=["']submit["'])/g.test(text)) findings.push(makeFinding({ category: "Çalışmayan Butonlar", severity: "orta", module: "UI Aksiyonları", file_path: relative, title: "Handler sinyali zayıf buton", description: "Bir butonda yakın çevrede onClick veya submit davranışı bulunamadı.", recommendation: "Butonun gerçek handler, açıklama veya disabled gerekçesi olduğunu doğrulayın." }));
+    if (/process\.env\.(?!NEXT_PUBLIC_)[A-Z0-9_]+/.test(text) && relative.includes("components/")) findings.push(makeFinding({ category: "RLS / Yetki Riskleri", severity: "kritik", module: "Güvenlik", file_path: relative, title: "Client component içinde gizli env riski", description: "Client tarafına sızmaması gereken process.env kullanımı sinyali var.", recommendation: "Gizli env değerlerini server route/service katmanına taşıyın." }));
+  }
+
+  const envUsage = [...new Set(sourceText.flatMap(({ text }) => [...text.matchAll(/process\.env\.([A-Z0-9_]+)/g)].map((match) => match[1])))];
+  const envExamplePath = path.join(root, ".env.example");
+  const envExample = existsSync(envExamplePath) ? readFileSync(envExamplePath, "utf8") : "";
+  for (const key of envUsage) {
+    if (!envExample.includes(key)) findings.push(makeFinding({ category: "Eksik ENV Değişkenleri", severity: key.startsWith("NEXT_PUBLIC_") ? "dusuk" : "orta", module: "ENV", file_path: ".env.example", title: `${key} .env.example içinde yok`, description: "Kodda kullanılan env değişkeni örnek env dosyasında görünmüyor.", recommendation: ".env.example içine açıklamalı ve boş değerli kayıt ekleyin.", metadata: { env_key: key } }));
+  }
+
+  if (!migrations.includes("qa_audit_findings")) findings.push(makeFinding({ category: "Migration Eksikleri", severity: "orta", module: "QA Merkezi", file_path: "supabase/migrations", title: "qa_audit_findings tablosu migrationlarda görünmüyor", description: "QA bulgularını kalıcı izlemek için tablo gerekir.", recommendation: "Idempotent qa_audit_findings migrationını çalıştırın." }));
+  if (!migrations.includes("sort_order") || !migrations.includes("parent_task_id") || !migrations.includes("reminder_at")) findings.push(makeFinding({ category: "Migration Eksikleri", severity: "orta", module: "Görevler", file_path: "supabase/migrations", title: "Görev Phase 2 kolonları eksik olabilir", description: "Alt görev, sıralama veya hatırlatma alanları migrationlarda tam görünmüyor.", recommendation: "agency_tasks Phase 2 kolon migrationını çalıştırın." }));
+  if (!migrations.includes("weekly_change") || !migrations.includes("wasted_budget_estimate")) findings.push(makeFinding({ category: "Migration Eksikleri", severity: "orta", module: "Reklam Yorum Merkezi", file_path: "supabase/migrations", title: "Reklam analiz Phase 2 kolonları eksik olabilir", description: "Haftalık değişim ve boşa bütçe kolonları migrationlarda görünmüyor.", recommendation: "ad_insight_snapshots Phase 2 kolon migrationını çalıştırın." }));
+
+  const adminPages = walkFiles(path.join(root, "src", "app", "hk-admin"), [".tsx"]).filter((file) => file.endsWith("page.tsx")).length;
+  const adminComponents = walkFiles(path.join(root, "src", "components", "admin"), [".tsx"]).length;
+  if (adminComponents > adminPages * 3) findings.push(makeFinding({ category: "Kullanılmayan Component’ler", severity: "dusuk", module: "Kod Organizasyonu", file_path: "src/components/admin", title: "Admin component sayısı yüksek", description: "Statik oran orphan component ihtimalini gösteriyor.", recommendation: "Kullanılmayan componentleri ayrıca import grafiğiyle doğrulayın.", metadata: { adminComponents, adminPages } }));
+  const dashboardSize = sourceText.find((item) => item.file.endsWith("AdminDashboard.tsx"))?.text.length || 0;
+  if (dashboardSize > 150000) findings.push(makeFinding({ category: "Performans Sorunları", severity: "orta", module: "Dashboard", file_path: "src/components/admin/AdminDashboard.tsx", title: "AdminDashboard çok büyük", description: "Büyük client component re-render ve bakım riskini artırır.", recommendation: "Müşteri profili, görevler ve modül içeriklerini daha küçük componentlere bölün." }));
+
+  return findings;
+}
+
 export async function GET() {
   const session = await requireModuleAccess("qa-center");
   if (!session) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 403 });
   try {
     const migrations = readAllMigrations();
+    const staticFindings = scanSourcesForFindings(migrations);
     const checks = modules.flatMap((module) => {
       const pagePath = module.slug ? `src/app/hk-admin/${module.slug}/page.tsx` : "src/app/hk-admin/page.tsx";
       const dynamicPage = fileExists("src/app/hk-admin/[module]/page.tsx");
@@ -64,16 +125,35 @@ export async function GET() {
         { module: module.name, check: "Buton/aksiyon", ok: sourceContains(module.name) || sourceContains(module.slug), detail: sourceContains(module.name) || sourceContains(module.slug) ? "Admin kaynaklarında modül aksiyon referansı bulundu." : "Statik analizde aksiyon referansı sınırlı; manuel doğrulama gerekli.", severity: "dusuk" as QaSeverity }
       ];
     });
-    const issues = checks.filter((item) => !item.ok).map((item) => ({ ...item, priority: classify(item.detail) }));
+    const issues = [
+      ...checks.filter((item) => !item.ok).map((item) => ({ ...item, priority: classify(item.detail), category: item.check, title: `${item.module}: ${item.check}`, description: item.detail, recommendation: "İlgili route, API veya migration eşleşmesini doğrulayın." })),
+      ...staticFindings.map((item) => ({ ...item, check: item.category, ok: false, priority: item.severity, detail: item.description }))
+    ];
     const summary = {
-      total: checks.length,
+      score: Math.max(0, Math.round(100 - issues.filter((item) => item.priority === "kritik").length * 12 - issues.filter((item) => item.priority === "orta").length * 5 - issues.filter((item) => item.priority === "dusuk").length * 2)),
+      total: checks.length + staticFindings.length,
       success: checks.filter((item) => item.ok).length,
       failed: issues.length,
       critical: issues.filter((item) => item.priority === "kritik").length,
+      warning: issues.filter((item) => item.priority === "orta").length,
+      info: issues.filter((item) => item.priority === "dusuk").length,
       lastRunAt: new Date().toISOString()
     };
+    if (hasSupabaseConfig() && staticFindings.length) {
+      await supabaseRest("qa_audit_findings", {
+        method: "POST",
+        body: JSON.stringify(staticFindings.slice(0, 80))
+      }).catch(() => null);
+    }
     await recordActivity({ session, action: "Görüntüleme", entity: "QA Merkezi", details: { message: "QA statik taraması çalıştırıldı", result: issues.length ? "Uyarı" : "Başarılı", summary } }).catch(() => null);
-    return NextResponse.json({ summary, checks, issues, migrationSuggestions: issues.filter((item) => item.check === "Supabase şema") });
+    return NextResponse.json({
+      summary,
+      checks,
+      findings: staticFindings,
+      issues,
+      migrationSuggestions: issues.filter((item) => item.check === "Supabase şema" || item.category === "Migration Eksikleri"),
+      mode: "Statik kod ve migration analizi"
+    });
   } catch (error) {
     await recordActionFailure({ session, entity: "QA Merkezi", action: "QA taraması", error }).catch(() => null);
     return NextResponse.json({ error: error instanceof Error ? error.message : "QA taraması başarısız oldu." }, { status: 500 });
