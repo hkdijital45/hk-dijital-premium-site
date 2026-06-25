@@ -13,6 +13,8 @@ import { WebsiteAnalyticsCenter } from "@/components/admin/WebsiteAnalyticsCente
 import { WebsiteAnalyticsSummaryCards } from "@/components/admin/WebsiteAnalyticsSummaryCards";
 import { SystemGuideCenter } from "@/components/admin/SystemGuideCenter";
 import { HKIntelligenceCommandCenter } from "@/components/admin/HKIntelligenceCommandCenter";
+import { AdInsightsCenter } from "@/components/admin/AdInsightsCenter";
+import { QaCenter } from "@/components/admin/QaCenter";
 import { AdminCustomerSelector, GlobalMetaPixelSettings, MetaPixelSettingsPanel } from "@/components/admin/AdminCustomerOperations";
 import { Logo } from "@/components/public/Logo";
 import { adminNavigationGroups, adminNavigationItems, getAdminHref } from "@/lib/admin-navigation";
@@ -92,7 +94,9 @@ const adminLabelEmojis: Record<string, string> = {
   "Sözleşme Oluştur": "📝",
   "WhatsApp Hatırlatma Merkezi": "💬"
   ,
-  "Web Site Analitiği": "📊"
+  "Web Site Analitiği": "📊",
+  "Reklam Yorum Merkezi": "🧠",
+  "QA Merkezi": "🧪"
 };
 
 function withAdminEmoji(label: string) {
@@ -741,6 +745,8 @@ export function AdminDashboard({
           {["Teklif Motoru", "Teklif Hazırlama", "Teklif Oluştur", "WhatsApp Teklifi"].includes(active) && <ProposalEngine {...props} setActive={setActive} />}
           {active === "Raporlar" && <ReportsHub {...props} selectedCompanyId={selectedCompanyId} />}
           {active === "Web Site Analitiği" && <WebsiteAnalyticsCenter />}
+          {active === "Reklam Yorum Merkezi" && <AdInsightsCenter content={content} notify={notify} />}
+          {active === "QA Merkezi" && <QaCenter notify={notify} />}
           {active === "PDF Rapor Tasarım Merkezi" && <PdfReportDesignCenter {...props} />}
           {active === "Müşteriler" && <CustomersAdmin {...props} selectedCompanyId={selectedCompanyId} />}
           {["Site Ayarları", "Web Sitesi Yönetimi"].includes(active) && <WebsiteManagementCenter {...props} />}
@@ -2294,6 +2300,21 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
         {ceoMode && <div className="fixed inset-0 z-[82] overflow-y-auto bg-white/85 p-4" onMouseDown={() => setCeoMode(false)}><div className="mx-auto mt-10 max-w-6xl rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_28px_90px_rgba(15,23,42,.18)]" onMouseDown={(event) => event.stopPropagation()}><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[.18em] text-blue-600">CEO Modu</p><h2 className="mt-2 text-3xl font-black text-slate-950">Yönetici özeti</h2><p className="mt-2 text-sm text-slate-500">Sadece karar verilecek sayılar ve kritik aksiyonlar.</p></div><button onClick={() => setCeoMode(false)} className="grid size-11 place-items-center rounded-[14px] border border-slate-200"><X size={18} /></button></div><div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{[["Gelir", `${expectedRevenue.toLocaleString("tr-TR")} TL`], ["Kâr", `${estimatedProfit.toLocaleString("tr-TR")} TL`], ["Tahsilat", `${paidRevenue.toLocaleString("tr-TR")} TL`], ["Aktif müşteri", activeCustomers.length], ["Riskli müşteri", riskyCustomers.length], ["Kritik görev", criticalTasks.length], ["Bekleyen teklif", leads.filter((lead) => !lead.proposal_history?.length && Number(lead.lead_heat_score || 0) >= 60).length], ["Bu hafta yapılacak", activeTasks.filter((item) => isOpenTask(item)).length]].map(([label, value]) => <div key={label as string} className="rounded-[22px] border border-slate-200 bg-slate-50 p-5"><p className="text-xs font-black uppercase tracking-[.12em] text-slate-500">{label}</p><p className="mt-3 text-3xl font-black text-slate-950">{value}</p></div>)}</div><div className="mt-6 grid gap-4 lg:grid-cols-2"><div className="rounded-[22px] border border-slate-200 bg-white p-5"><h3 className="font-black text-slate-950">Riskli müşteriler</h3><div className="mt-3 grid gap-2">{riskyCustomers.map((item) => <p key={item.company.id} className="rounded-[12px] bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{item.company.name} · {item.health.score}/100</p>)}{!riskyCustomers.length && <p className="text-sm text-slate-500">Riskli müşteri görünmüyor.</p>}</div></div><div className="rounded-[22px] border border-slate-200 bg-white p-5"><h3 className="font-black text-slate-950">Bu hafta yapılacaklar</h3><div className="mt-3 grid gap-2">{importantDashboardTasks.map((item) => <p key={item.id || item.title} className="rounded-[12px] bg-blue-50 px-3 py-2 text-sm font-bold text-blue-700">{item.title}</p>)}{!importantDashboardTasks.length && <p className="text-sm text-slate-500">Kritik görev yok.</p>}</div></div></div></div></div>}
         {customizing && <section className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-lg font-black text-slate-950">Widget Sistemi</h3><p className="mt-1 text-sm text-slate-500">Göster/gizle, yukarı/aşağı taşı ve varsayılan düzene dön. Tercihler bu cihazda saklanır.</p></div><button onClick={() => savePreferences({ order: dashboardWidgetDefaults, hidden: [], favorites: ["Müşteri Bulucu", "CRM"] })} className="rounded-full border border-slate-200 px-4 py-2 text-xs font-black text-slate-700">Düzeni Sıfırla</button></div><div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-4">{preferences.order.map((id) => { const widget = dashboardWidgetLabels[id] || { label: id, description: "Bu widget için açıklama hazırlanıyor." }; return <div key={id} className="flex items-center justify-between gap-3 rounded-[14px] border border-slate-200 bg-slate-50 p-3"><span className="min-w-0"><strong className="block text-sm font-black text-slate-800">{widget.label}</strong><span className="mt-1 block text-xs leading-5 text-slate-500">{widget.description}</span></span><span className="flex shrink-0 gap-1"><button onClick={() => moveWidget(id, -1)} className="rounded border border-slate-200 px-2 py-1 text-xs">↑</button><button onClick={() => moveWidget(id, 1)} className="rounded border border-slate-200 px-2 py-1 text-xs">↓</button><button onClick={() => toggleWidget(id)} className={`rounded px-2 py-1 text-xs font-black ${preferences.hidden.includes(id) ? "bg-slate-200 text-slate-600" : "bg-green-100 text-green-700"}`}>{preferences.hidden.includes(id) ? "Gizli" : "Açık"}</button></span></div>; })}</div></section>}
         <WebsiteAnalyticsSummaryCards onOpen={() => setActive("Web Site Analitiği")} />
+        <section className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-[0_12px_34px_rgba(15,23,42,.06)]">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[.16em] text-purple-700">HK Reklam Zekası</p>
+              <h3 className="mt-2 text-xl font-black text-slate-950">Reklam Yorum Merkezi</h3>
+              <p className="mt-1 text-sm leading-6 text-slate-600">Meta, Google ve sosyal reklam verilerinden sağlık skoru, aksiyon planı ve müşteri özeti üretin.</p>
+            </div>
+            <button onClick={() => setActive("Reklam Yorum Merkezi")} className="rounded-full bg-purple-600 px-5 py-3 text-sm font-black text-white">Hızlı Giriş</button>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-[14px] bg-slate-50 p-4"><span className="text-xs font-black uppercase text-slate-500">Kritik müşteri</span><strong className="mt-2 block text-2xl text-slate-950">{riskyCustomers.length}</strong></div>
+            <div className="rounded-[14px] bg-slate-50 p-4"><span className="text-xs font-black uppercase text-slate-500">Son yorumlanan</span><strong className="mt-2 block truncate text-base text-slate-950">{latestCustomer?.name || "Henüz yok"}</strong></div>
+            <div className="rounded-[14px] bg-slate-50 p-4"><span className="text-xs font-black uppercase text-slate-500">Ortalama skor</span><strong className="mt-2 block text-2xl text-slate-950">{metaMetricRows.length ? Math.max(40, Math.min(95, Math.round(Number(metaTotals.ctr || 0) * 12 + 55))) : "-"}</strong></div>
+          </div>
+        </section>
         <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_16px_42px_rgba(15,23,42,.07)] sm:p-6">
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_auto]">
             <div className="min-w-0">
@@ -5872,7 +5893,7 @@ function CustomerTasksEditor({ company, content, setContent, items, notify, canM
   const visibleItems = filterTasks(items, { status: statusFilter, startDate, endDate });
 
   function add() {
-    const draft = { id: createLocalId(), company_id: company.id, title: "", description: "", notes: "", status: "Yapılacak", priority: "Orta", due_date: new Date().toISOString().slice(0, 10), assigned_user_id: "", visible_to_customer: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    const draft = { id: createLocalId(), _draft: true, isNew: true, company_id: company.id, title: "", description: "", notes: "", status: "Yapılacak", priority: "Orta", due_date: new Date().toISOString().slice(0, 10), assigned_user_id: "", visible_to_customer: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     setContent((current: any) => ({ ...current, agencyTasks: [draft, ...(current.agencyTasks || [])] }));
     notify?.("Görev taslağı açıldı. Başlık girip Kaydet düğmesine basın.", "info");
   }
@@ -5888,7 +5909,13 @@ function CustomerTasksEditor({ company, content, setContent, items, notify, canM
       const response = await fetch("/api/admin/customer-operations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ resource: "task", item: candidate }) });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.item) throw new Error(data.detail || data.error || "Görev kaydedilemedi.");
-      setContent((current: any) => ({ ...current, agencyTasks: (current.agencyTasks || []).map((currentItem: any) => currentItem.id === item.id ? data.item : currentItem) }));
+      const refreshed = await fetch(`/api/admin/customer-operations?companyId=${encodeURIComponent(company.id)}`).then((res) => res.json()).catch(() => null);
+      setContent((current: any) => ({
+        ...current,
+        agencyTasks: Array.isArray(refreshed?.tasks)
+          ? [...refreshed.tasks, ...(current.agencyTasks || []).filter((currentItem: any) => currentItem.company_id !== company.id)]
+          : (current.agencyTasks || []).map((currentItem: any) => currentItem.id === item.id ? data.item : currentItem)
+      }));
       notify?.(successMessage, "success");
       return data.item;
     } catch (error) {

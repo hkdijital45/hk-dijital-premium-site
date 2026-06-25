@@ -40,6 +40,7 @@ export async function POST(request: Request) {
     if (!table) return NextResponse.json({ error: "Geçersiz kayıt türü." }, { status: 400 });
     const now = new Date().toISOString();
     if (resource === "task" && !String(item.title || "").trim()) return NextResponse.json({ error: "Görev başlığı zorunludur." }, { status: 400 });
+    const isExistingRecord = Boolean(item.id && uuidPattern.test(String(item.id)) && !item._draft && !item.isNew);
     const payload = resource === "payment" ? {
       company_id: item.company_id,
       amount: Number(item.amount || 0),
@@ -64,7 +65,7 @@ export async function POST(request: Request) {
       completed_at: item.status === "Tamamlandı" ? item.completed_at || now : null,
       updated_at: now
     };
-    const rows = item.id && uuidPattern.test(String(item.id))
+    const rows = isExistingRecord
       ? await supabaseRest<any[]>(`${table}?id=eq.${item.id}`, { method: "PATCH", body: JSON.stringify(payload) })
       : await supabaseRest<any[]>(table, { method: "POST", body: JSON.stringify(payload) });
     if (!rows[0]) return NextResponse.json({ error: "Kayıt bulunamadı veya güncellenemedi." }, { status: 404 });

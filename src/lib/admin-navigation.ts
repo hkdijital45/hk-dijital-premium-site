@@ -85,6 +85,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: "Gelir Tahmini", slug: "gelir-tahmini", module: "karlilik", description: "Beklenen, riskli ve gecikmiş gelir öngörüsü." },
       { label: "Sözleşme Oluştur", slug: "sozlesme-olustur", module: "belgeler", description: "Müşteri ve hizmet paketinden sözleşme taslağı." },
       { label: "WhatsApp Hatırlatma Merkezi", slug: "whatsapp-hatirlatma", module: "teklifler", description: "Takip, ödeme ve rapor mesaj şablonları." },
+      { label: "Reklam Yorum Merkezi", slug: "ad-insights", module: "ad-insights", description: "Müşteri reklam hesaplarını yorumlayan HK Reklam Zekası merkezi." },
       { label: "Sosyal Medya Planı", slug: "sosyal-medya-plani", module: "sosyal-medya-plani", description: "Müşteri bazlı sosyal medya içerik takvimi." },
       { label: "Sektör Sistemleri", slug: "sektor-sistemleri", module: "sektor-sistemleri", description: "Sektöre özel operasyon ve takip şablonları." }
     ]
@@ -123,6 +124,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: "HK Dijital Sistem Rehberi", slug: "sistem-rehberi", module: "sistem-rehberi", description: "Tüm modüllerin kullanım kılavuzu, eğitim içerikleri ve sorun giderme rehberleri." },
       { label: "Log ve Aktivite Merkezi", slug: "log-aktivite-merkezi", module: "sistem-loglari", description: "Kullanıcı işlemleri, teknik olaylar, hatalar ve denetim kayıtları." },
       { label: "Sistem Sağlık Merkezi", slug: "sistem-sagligi", module: "sistem-sagligi", description: "API, veritabanı, ölçümleme ve servis bağlantı durumları." },
+      { label: "QA Merkezi", slug: "qa-center", module: "qa-center", description: "Admin aksiyonları, API uçları ve Supabase migration uyumunu denetler." },
       { label: "Veri Aktarma", slug: "veri-aktarma", module: "veri-aktarma", description: "Müşteri ve operasyon verilerini dışa aktarma." },
       { label: "Sistem Test Merkezi", slug: "sistem-test-merkezi", module: "sistem-test-merkezi", description: "Otomatik ve manuel sistem kalite kontrolleri." }
     ]
@@ -213,7 +215,10 @@ const legacySlugRedirects: Record<string, string> = {
   "sozlesme-generator": "sozlesme-olustur",
   "whatsapp-reminder-center": "whatsapp-hatirlatma",
   "gelir-forecast": "gelir-tahmini",
-  "revenue-forecast": "gelir-tahmini"
+  "revenue-forecast": "gelir-tahmini",
+  "reklam-yorum-merkezi": "ad-insights",
+  "hk-reklam-zekasi": "ad-insights",
+  "qa-merkezi": "qa-center"
 };
 
 export function getAdminSectionBySlug(slug = "") {
