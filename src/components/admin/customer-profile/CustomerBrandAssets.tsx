@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, react-hooks/exhaustive-deps, @next/next/no-img-element */
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Copy, FileText, ImagePlus, Loader2, Palette, Trash2, UploadCloud } from "lucide-react";
@@ -66,6 +67,11 @@ const jsonKeyByAsset: Partial<Record<CustomerAssetType, string>> = {
   brand_document: "brand_document_url"
 };
 
+const imageAccept = "image/png,image/jpeg,image/jpg,image/webp,image/svg+xml,.png,.jpg,.jpeg,.webp,.svg";
+const documentAssetTypes = new Set<CustomerAssetType>(["letterhead", "business_card", "brochure", "proposal_document", "brand_document"]);
+const allowedImageTypes = new Set(["image/png", "image/jpeg", "image/jpg", "image/webp", "image/svg+xml"]);
+const allowedImageExtensions = new Set(["png", "jpg", "jpeg", "webp", "svg"]);
+
 function assetUrl(branding: any, assetType: CustomerAssetType) {
   if (assetType === "logo") return branding.logo_url || "";
   if (assetType === "logo_light") return branding.logo_light_url || "";
@@ -111,9 +117,21 @@ function AssetUploadCard({ assetType, branding, companyId, onUploaded, notify, c
   const [progress, setProgress] = useState(0);
   const url = assetUrl(branding, assetType);
   const isImage = isImageUrl(url);
+  const acceptsDocuments = documentAssetTypes.has(assetType);
+  const acceptValue = acceptsDocuments ? `${imageAccept},application/pdf,.pdf` : imageAccept;
+
+  function isSupportedFile(file: File) {
+    const ext = file.name.split(".").pop()?.toLowerCase() || "";
+    if (allowedImageTypes.has(file.type) || allowedImageExtensions.has(ext)) return true;
+    return acceptsDocuments && (file.type === "application/pdf" || ext === "pdf");
+  }
 
   async function upload(file: File | null) {
     if (!file) return;
+    if (!isSupportedFile(file)) {
+      notify?.("Logo yüklenemedi. PNG, JPG, JPEG, WEBP veya güvenli SVG dosyası seçin.", "error");
+      return;
+    }
     if (file.size > 5 * 1024 * 1024) {
       notify?.("Logo yüklenemedi. Dosya formatını ve boyutunu kontrol edin.", "error");
       return;
@@ -179,7 +197,7 @@ function AssetUploadCard({ assetType, branding, companyId, onUploaded, notify, c
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-black text-slate-950">{assetLabels[assetType]}</p>
-          <p className="mt-1 text-xs text-slate-500">PNG, JPG, WEBP ve güvenli SVG. En fazla 5 MB.</p>
+          <p className="mt-1 text-xs text-slate-500">PNG, JPG, JPEG, WEBP ve güvenli SVG desteklenir. En fazla 5 MB.</p>
         </div>
         <UploadCloud className="h-5 w-5 text-cyan-600" />
       </div>
@@ -199,7 +217,7 @@ function AssetUploadCard({ assetType, branding, companyId, onUploaded, notify, c
         </div>
       )}
       <div className="mt-4 flex flex-wrap gap-2">
-        <input ref={inputRef} type="file" accept=".png,.jpg,.jpeg,.webp,.svg,.pdf" className="hidden" onChange={(event) => upload(event.target.files?.[0] || null)} />
+        <input ref={inputRef} type="file" accept={acceptValue} className="hidden" onChange={(event) => upload(event.target.files?.[0] || null)} />
         <button type="button" disabled={uploading} onClick={() => inputRef.current?.click()} className="rounded-[12px] bg-cyan-500 px-3 py-2 text-xs font-black text-white transition hover:-translate-y-0.5 disabled:opacity-50">
           {uploading ? <span className="inline-flex items-center gap-2"><Loader2 className="h-3 w-3 animate-spin" /> Yükleniyor</span> : url ? "Dosyayı değiştir" : "Dosya seç"}
         </button>
