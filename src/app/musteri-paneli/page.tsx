@@ -65,6 +65,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
   const portalName = branding.brand_name || data.company?.name || "HK Dijital";
   const portalTitle = branding.report_title || `${portalName} Digital Center`;
   const welcomeText = branding.welcome_text || "Performans raporlarınız, kampanya notlarınız ve dijital büyüme verileriniz burada.";
+  const brandAccentColor = branding.brand_accent_color || branding.primary_color || "#0891b2";
   const contactWhatsapp = String(branding.contact_whatsapp || "").replace(/\D/g, "");
   const contactHref = contactWhatsapp ? `https://wa.me/${contactWhatsapp}` : branding.contact_email ? `mailto:${branding.contact_email}` : branding.contact_phone ? `tel:${branding.contact_phone}` : "/iletisim";
   const paymentSummary = data.payments.reduce((total, item) => ({ paid: total.paid + (item.status === "Ödendi" ? Number(item.amount || 0) : 0), pending: total.pending + (item.status !== "Ödendi" && item.status !== "İptal" ? Number(item.amount || 0) : 0) }), { paid: 0, pending: 0 });
@@ -447,7 +448,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
           <section className="glass-card p-5">
             <h2 className="flex items-center gap-2 text-xl font-black"><MessageCircle className="text-cyan-600" /> İletişim</h2>
             <p className="mt-3 text-sm text-slate-600">Raporlar, kampanya notları veya sonraki adımlar için kayıtlı iletişim kanalını kullanabilirsiniz.</p>
-            <a href={contactHref} target={contactHref.startsWith("http") ? "_blank" : undefined} rel={contactHref.startsWith("http") ? "noreferrer" : undefined} className="mt-4 inline-flex rounded-full px-4 py-2 text-sm font-black text-white" style={{ backgroundColor: branding.primary_color || "#0891b2" }}>{contactWhatsapp ? "WhatsApp ile iletişime geçin" : branding.contact_email ? "E-posta gönderin" : "İletişime geçin"}</a>
+            <a href={contactHref} target={contactHref.startsWith("http") ? "_blank" : undefined} rel={contactHref.startsWith("http") ? "noreferrer" : undefined} className="mt-4 inline-flex rounded-full px-4 py-2 text-sm font-black text-white" style={{ backgroundColor: brandAccentColor }}>{contactWhatsapp ? "WhatsApp ile iletişime geçin" : branding.contact_email ? "E-posta gönderin" : "İletişime geçin"}</a>
           </section>
           )}
           <section className="glass-card p-5">
