@@ -79,7 +79,7 @@ export function SuperAdminBootstrapForm({ enabled = true }: { enabled?: boolean 
         </div>
       )}
 
-      <button disabled={loading || !enabled} className="min-h-12 rounded-full bg-cyan-300 font-black text-slate-950 disabled:opacity-60">
+      <button type="submit" disabled={loading || !enabled} title={!enabled ? "Süper admin kurulumu kapalı." : undefined} className="min-h-12 rounded-full bg-cyan-300 font-black text-slate-950 disabled:opacity-60">
         {loading ? "Süper admin hazırlanıyor..." : "Süper Admin Oluştur / Onar"}
       </button>
     </form>

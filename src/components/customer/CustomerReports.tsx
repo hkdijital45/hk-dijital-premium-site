@@ -185,15 +185,6 @@ export function CustomerReports({ reports, initialInterpretations, reportUpdates
   }
 
   function applyFilters() {
-    const nextRange = getCustomerDateRange(rangeKey, customStart, customEnd);
-    if (process.env.NODE_ENV === "development") {
-      console.debug("[customer-reports] date filter selected range", {
-        start: nextRange.start,
-        end: nextRange.end,
-        label: nextRange.label,
-        platform
-      });
-    }
     setAppliedFilters({ rangeKey, platform, customStart, customEnd });
     setError("");
   }

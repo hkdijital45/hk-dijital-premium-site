@@ -119,7 +119,7 @@ export function QaCenter({ notify }: { notify?: (message: string, type?: string)
               <td className="border-b border-slate-100 py-3 font-black text-slate-900">{item.module}</td>
               <td className="border-b border-slate-100 py-3 text-slate-700">{item.category || item.check}</td>
               <td className="border-b border-slate-100 py-3"><span className={`rounded-full border px-3 py-1 text-xs font-black ${badge(false, item.priority)}`}>{item.priority === "kritik" ? "Kritik" : item.priority === "orta" ? "Orta" : "Düşük"}</span></td>
-              <td className="border-b border-slate-100 py-3 text-slate-600"><strong className="text-slate-900">{item.title || item.check}</strong><br />{item.description || item.detail}<br /><span className="text-xs text-slate-400">{item.file_path || ""}</span></td>
+              <td className="border-b border-slate-100 py-3 text-slate-600"><strong className="text-slate-900">{item.title || item.check}</strong><br />{item.description || item.detail}<br /><span className="text-xs text-slate-400">{item.file_path || ""}{item.metadata?.line ? `:${item.metadata.line}` : ""}</span>{item.metadata?.context && <code className="mt-2 block rounded bg-slate-100 px-2 py-1 text-[11px] text-slate-600">{item.metadata.context}</code>}</td>
               <td className="border-b border-slate-100 py-3 text-slate-600">{item.recommendation || "Manuel doğrulama yapın."}</td>
             </tr>)}</tbody>
           </table>

@@ -55,7 +55,7 @@ export function ResetPasswordForm() {
       </label>
       {error && <p className="rounded-[8px] bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
       {message && <p className="rounded-[8px] bg-emerald-500/10 p-3 text-sm text-emerald-200">{message}</p>}
-      <button disabled={loading || !accessToken} className="min-h-12 rounded-full bg-cyan-300 font-black text-slate-950 disabled:opacity-60">
+      <button type="submit" disabled={loading || !accessToken} title={!accessToken ? "Şifre sıfırlama bağlantısı gerekli." : undefined} className="min-h-12 rounded-full bg-cyan-300 font-black text-slate-950 disabled:opacity-60">
         {loading ? "Şifre güncelleniyor..." : "Şifremi Güncelle"}
       </button>
       <a href="/digital-center" className="text-center text-sm font-semibold text-cyan-100">Digital Center’a dön</a>

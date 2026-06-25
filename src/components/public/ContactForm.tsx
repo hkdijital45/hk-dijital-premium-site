@@ -6,6 +6,7 @@ import { PremiumCard } from "./ui";
 
 export function ContactForm() {
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
 
   return (
     <PremiumCard>
@@ -14,6 +15,8 @@ export function ContactForm() {
         className="mt-6 grid gap-4"
         onSubmit={async (event) => {
           event.preventDefault();
+          setError("");
+          setSent(false);
           const formData = new FormData(event.currentTarget);
           const response = await fetch("/api/leads", {
             method: "POST",
@@ -27,10 +30,12 @@ export function ContactForm() {
               note: formData.get("note")
             })
           });
-          if (!response.ok) return;
+          if (!response.ok) {
+            setError("Mesajınız gönderilemedi. Lütfen daha sonra tekrar deneyin veya WhatsApp üzerinden iletişime geçin.");
+            return;
+          }
           setSent(true);
           trackEvent("contact_form_submitted", { form_name: "İletişim Formu" });
-          // Replace local JSON submission storage with real backend/API integration here.
         }}
       >
         {[
@@ -48,7 +53,8 @@ export function ContactForm() {
           Mesajınız
           <textarea name="note" required rows={5} className="rounded-[8px] border border-white/10 bg-black/30 px-4 py-3 text-white focus:ring-2 focus:ring-cyan-300" />
         </label>
-        <button className="min-h-12 rounded-full bg-cyan-300 px-6 text-sm font-black text-slate-950">Gönder</button>
+        <button type="submit" className="min-h-12 rounded-full bg-cyan-300 px-6 text-sm font-black text-slate-950">Gönder</button>
+        {error && <p className="rounded-[8px] bg-red-500/10 p-4 text-sm text-red-100">{error}</p>}
         {sent && <p className="rounded-[8px] bg-cyan-300/10 p-4 text-sm text-cyan-100">Mesajınız alındı. HK Dijital ekibi bilgilerinizi inceleyip uygun zamanda dönüş yapacaktır.</p>}
       </form>
     </PremiumCard>

@@ -91,7 +91,7 @@ export function LoginForm({ desktopMode = false }: { desktopMode?: boolean }) {
       {resetMessage && <p className="mt-4 rounded-[8px] bg-emerald-500/10 p-3 text-sm text-emerald-200">{resetMessage}</p>}
       {error && <p className="mt-4 rounded-[8px] bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
 
-      <button disabled={loading} className="mt-6 min-h-12 w-full rounded-full bg-cyan-300 font-black text-slate-950 disabled:opacity-60">
+      <button type="submit" disabled={loading} className="mt-6 min-h-12 w-full rounded-full bg-cyan-300 font-black text-slate-950 disabled:opacity-60">
         {loading ? "Giriş yapılıyor..." : "Digital Center’a Giriş Yap"}
       </button>
       <p className="mt-4 text-center text-xs leading-5 text-slate-500">Güvenli erişim alanı. Hesabınıza ait performans ve rapor verileri korunur.</p>

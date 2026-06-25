@@ -113,7 +113,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
             </div>
           </div>
           <form action="/api/auth/logout" method="post">
-            <button className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 shadow-sm transition hover:border-cyan-200 hover:text-cyan-700">Çıkış Yap</button>
+            <button type="submit" className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 shadow-sm transition hover:border-cyan-200 hover:text-cyan-700">Çıkış Yap</button>
           </form>
         </div>
       </header>

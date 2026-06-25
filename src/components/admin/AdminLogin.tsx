@@ -42,7 +42,7 @@ export function AdminLogin() {
           <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} className="min-h-12 rounded-[8px] border border-slate-200 bg-white px-4 text-slate-900" />
         </label>
         {error && <p className="mt-4 rounded-[8px] bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
-        <button disabled={loading} className="mt-6 min-h-12 w-full rounded-full bg-cyan-300 font-black text-slate-950 disabled:opacity-60">{loading ? "Giriş yapılıyor..." : "Digital Center’a Giriş Yap"}</button>
+        <button type="submit" disabled={loading} className="mt-6 min-h-12 w-full rounded-full bg-cyan-300 font-black text-slate-950 disabled:opacity-60">{loading ? "Giriş yapılıyor..." : "Digital Center’a Giriş Yap"}</button>
         <a href="/digital-center" className="mt-4 block text-center text-sm text-cyan-100">Digital Center giriş ekranına git</a>
       </form>
     </main>

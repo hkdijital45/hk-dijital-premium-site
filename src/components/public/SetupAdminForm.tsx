@@ -93,7 +93,7 @@ export function SetupAdminForm() {
       </label>
       {error && <p className="rounded-[8px] bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
       {message && <p className="rounded-[8px] bg-emerald-500/10 p-3 text-sm text-emerald-200">{message}</p>}
-      <button disabled={loading} className="min-h-12 rounded-full bg-cyan-300 font-black text-slate-950 disabled:opacity-60">
+      <button type="submit" disabled={loading} className="min-h-12 rounded-full bg-cyan-300 font-black text-slate-950 disabled:opacity-60">
         {loading ? "Hesap oluşturuluyor..." : "İlk Yönetici Hesabını Oluştur"}
       </button>
     </form>

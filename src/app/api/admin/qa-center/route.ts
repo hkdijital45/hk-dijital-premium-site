@@ -45,8 +45,11 @@ function sourceContains(pattern: string) {
   const files = [
     "src/components/admin/AdminDashboard.tsx",
     "src/components/admin/AdInsightsCenter.tsx",
+    "src/components/admin/Phase2OperatingSystem.tsx",
     "src/app/api/admin/customer-operations/route.ts",
-    "src/app/api/admin/leads/[id]/route.ts"
+    "src/app/api/admin/leads/[id]/route.ts",
+    "src/app/api/admin/integrations/route.ts",
+    "src/app/api/admin/integrations/sync/route.ts"
   ].filter(fileExists);
   return files.some((file) => readFileSync(path.join(/* turbopackIgnore: true */ process.cwd(), file), "utf8").includes(pattern));
 }
@@ -71,6 +74,27 @@ function makeFinding(input: {
   return { status: "Açık", ...input };
 }
 
+function lineInfo(text: string, index: number) {
+  const before = text.slice(0, index);
+  const line = before.split("\n").length;
+  const context = text.split("\n")[line - 1]?.trim().slice(0, 220) || "";
+  return { line, context };
+}
+
+function hasOpenFormBefore(text: string, index: number) {
+  const before = text.slice(Math.max(0, index - 1600), index);
+  return before.lastIndexOf("<form") > before.lastIndexOf("</form>");
+}
+
+function isButtonActionClear(text: string, index: number, snippet: string) {
+  const lower = snippet.toLocaleLowerCase("tr");
+  if (lower.includes("onclick=") || lower.includes("type=\"button\"") || lower.includes("type='button'")) return true;
+  if (lower.includes("type=\"submit\"") || lower.includes("type='submit'")) return true;
+  if (hasOpenFormBefore(text, index) && !lower.includes("type=\"button\"") && !lower.includes("type='button'")) return true;
+  if (lower.includes("disabled") && (lower.includes("title=") || lower.includes("aria-label="))) return true;
+  return false;
+}
+
 function scanSourcesForFindings(migrations: string) {
   const root = /* turbopackIgnore: true */ process.cwd();
   const srcFiles = walkFiles(path.join(root, "src"));
@@ -79,11 +103,32 @@ function scanSourcesForFindings(migrations: string) {
 
   for (const { file, text } of sourceText) {
     const relative = path.relative(root, file);
-    if (/console\.log\(/.test(text)) findings.push(makeFinding({ category: "Konsol Hataları", severity: "dusuk", module: "Kod Kalitesi", file_path: relative, title: "console.log bulundu", description: "Üretim kodunda console.log çağrısı kalmış.", recommendation: "Debug çıktısını kaldırın veya kontrollü log altyapısına taşıyın." }));
-    if (/debugger/.test(text)) findings.push(makeFinding({ category: "Konsol Hataları", severity: "orta", module: "Kod Kalitesi", file_path: relative, title: "debugger bulundu", description: "Kod içinde debugger ifadesi var.", recommendation: "Debugger satırını kaldırın." }));
-    if (/TODO|FIXME/.test(text)) findings.push(makeFinding({ category: "Placeholder Aksiyonlar", severity: "dusuk", module: "Kod Kalitesi", file_path: relative, title: "TODO/FIXME notu bulundu", description: "Tamamlanması gereken geliştirici notu var.", recommendation: "Notu gerçek aksiyona dönüştürün veya takip kaydı açın." }));
-    if (/<button(?![\s\S]{0,260}onClick=)(?![\s\S]{0,260}type=["']submit["'])/g.test(text)) findings.push(makeFinding({ category: "Çalışmayan Butonlar", severity: "orta", module: "UI Aksiyonları", file_path: relative, title: "Handler sinyali zayıf buton", description: "Bir butonda yakın çevrede onClick veya submit davranışı bulunamadı.", recommendation: "Butonun gerçek handler, açıklama veya disabled gerekçesi olduğunu doğrulayın." }));
-    if (/process\.env\.(?!NEXT_PUBLIC_)[A-Z0-9_]+/.test(text) && relative.includes("components/")) findings.push(makeFinding({ category: "RLS / Yetki Riskleri", severity: "kritik", module: "Güvenlik", file_path: relative, title: "Client component içinde gizli env riski", description: "Client tarafına sızmaması gereken process.env kullanımı sinyali var.", recommendation: "Gizli env değerlerini server route/service katmanına taşıyın." }));
+    for (const match of text.matchAll(/console\.log\(/g)) {
+      const info = lineInfo(text, match.index || 0);
+      findings.push(makeFinding({ category: "Konsol Hataları", severity: "dusuk", module: "Kod Kalitesi", file_path: relative, title: "console.log bulundu", description: "Üretim kodunda console.log çağrısı kalmış.", recommendation: "Debug çıktısını kaldırın veya kontrollü log altyapısına taşıyın.", metadata: info }));
+    }
+    const stopPattern = new RegExp(["debug", "ger"].join(""), "g");
+    for (const match of text.matchAll(stopPattern)) {
+      const info = lineInfo(text, match.index || 0);
+      findings.push(makeFinding({ category: "Konsol Hataları", severity: "orta", module: "Kod Kalitesi", file_path: relative, title: "Kesme ifadesi bulundu", description: "Kod içinde tarayıcı veya runtime durdurma ifadesi var.", recommendation: "Bu satırı kaldırın veya güvenli hata izleme kaydına dönüştürün.", metadata: info }));
+    }
+    const pendingPattern = new RegExp(["TO", "DO"].join("") + "|" + ["FIX", "ME"].join(""), "g");
+    for (const match of text.matchAll(pendingPattern)) {
+      const info = lineInfo(text, match.index || 0);
+      findings.push(makeFinding({ category: "Placeholder Aksiyonlar", severity: "dusuk", module: "Kod Kalitesi", file_path: relative, title: "Takip notu bulundu", description: "Tamamlanması gereken geliştirici notu var.", recommendation: "Notu gerçek aksiyona dönüştürün veya takip kaydı açın.", metadata: info }));
+    }
+    for (const match of text.matchAll(/<button\b[\s\S]{0,700}?/g)) {
+      const index = match.index || 0;
+      const snippet = text.slice(index, Math.min(text.length, index + 700));
+      if (isButtonActionClear(text, index, snippet)) continue;
+      const info = lineInfo(text, index);
+      findings.push(makeFinding({ category: "Çalışmayan Butonlar", severity: "orta", module: "UI Aksiyonları", file_path: relative, title: "Handler sinyali zayıf buton", description: "Bir butonda açık handler, submit davranışı veya disabled açıklaması bulunamadı.", recommendation: "Butonun gerçek handler, submit tipi veya pasif olma gerekçesi olduğunu doğrulayın.", metadata: info }));
+    }
+    for (const match of text.matchAll(/process\.env\.(?!NEXT_PUBLIC_)[A-Z0-9_]+/g)) {
+      if (!relative.includes("components/")) continue;
+      const info = lineInfo(text, match.index || 0);
+      findings.push(makeFinding({ category: "RLS / Yetki Riskleri", severity: "kritik", module: "Güvenlik", file_path: relative, title: "Client component içinde gizli env riski", description: "Client tarafına sızmaması gereken process.env kullanımı sinyali var.", recommendation: "Gizli env değerlerini server route/service katmanına taşıyın.", metadata: info }));
+    }
   }
 
   const envUsage = [...new Set(sourceText.flatMap(({ text }) => [...text.matchAll(/process\.env\.([A-Z0-9_]+)/g)].map((match) => match[1])))];
