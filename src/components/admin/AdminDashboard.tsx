@@ -4515,12 +4515,42 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
   const [companyQuery, setCompanyQuery] = useState("");
   const [editingCompanyId, setEditingCompanyId] = useState("");
   const [detailCompanyId, setDetailCompanyId] = useState("");
+  const [openForm, setOpenForm] = useState<"company" | "login" | "">("");
+  const [view, setView] = useState<"active" | "passive" | "archived" | "deleted">("active");
   const updateCompany = (id, patch) => setContent({ ...content, companies: (content.companies || []).map((company) => company.id === id ? { ...company, ...patch } : company) });
-  const companies = (content.companies || []).filter((company) => (!selectedCompanyId || company.id === selectedCompanyId) && JSON.stringify(company).toLocaleLowerCase("tr").includes(companyQuery.toLocaleLowerCase("tr")));
+  const allCompanies = content.companies || [];
+  const users = content.users || [];
+  const isDeletedCompany = (company: any) => Boolean(company.deleted_at);
+  const isArchivedCompany = (company: any) => Boolean(company.archived_at) || String(company.status || "").toLocaleLowerCase("tr").includes("arşiv");
+  const isPassiveCompany = (company: any) => !isDeletedCompany(company) && !isArchivedCompany(company) && (company.is_active === false || ["pasif", "inactive"].includes(String(company.status || "").toLocaleLowerCase("tr")));
+  const isActiveCompany = (company: any) => !isDeletedCompany(company) && !isArchivedCompany(company) && !isPassiveCompany(company);
+  const viewCompanies = allCompanies.filter((company) => {
+    if (view === "deleted") return isDeletedCompany(company);
+    if (view === "archived") return !isDeletedCompany(company) && isArchivedCompany(company);
+    if (view === "passive") return isPassiveCompany(company);
+    return !isDeletedCompany(company) && !isArchivedCompany(company);
+  });
+  const companies = viewCompanies.filter((company) => (!selectedCompanyId || company.id === selectedCompanyId) && JSON.stringify(company).toLocaleLowerCase("tr").includes(companyQuery.toLocaleLowerCase("tr")));
   const canManageCustomers = canManageRecord(currentSession, "musteriler");
+  const viewButtons = [
+    { key: "active", label: "Aktif Müşteriler", count: allCompanies.filter((company) => !isDeletedCompany(company) && !isArchivedCompany(company)).length },
+    { key: "passive", label: "Pasif Müşteriler", count: allCompanies.filter(isPassiveCompany).length },
+    { key: "archived", label: "Arşivlenenler", count: allCompanies.filter((company) => !isDeletedCompany(company) && isArchivedCompany(company)).length },
+    { key: "deleted", label: "Silinenler", count: allCompanies.filter(isDeletedCompany).length }
+  ];
 
   function showApiError(data, fallback) {
     setError(data.supabaseError ? `${data.error || fallback}: ${data.supabaseError}` : data.error || fallback);
+    notify?.(data.error || fallback, "error");
+  }
+
+  function upsertCompanyInState(company) {
+    setContent((current) => ({
+      ...current,
+      companies: (current.companies || []).some((item) => item.id === company.id)
+        ? (current.companies || []).map((item) => item.id === company.id ? company : item)
+        : [company, ...(current.companies || [])]
+    }));
   }
 
   async function createCompany() {
@@ -4539,9 +4569,11 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
     const data = await response.json().catch(() => ({}));
     setLoading("");
     if (response.ok) {
-      setContent({ ...content, companies: [data.company, ...(content.companies || [])] });
+      upsertCompanyInState(data.company);
       setCompanyForm({ name: "", sector: "", city: "Manisa", website: "", instagram: "", phone: "", email: "", status: "Aktif", notes: "" });
-      setMessage("Firma başarıyla oluşturuldu. Artık müşteri hesabı bu firmaya bağlanabilir.");
+      setOpenForm("");
+      setMessage("Firma oluşturuldu.");
+      notify?.("Firma oluşturuldu.", "success");
     } else {
       showApiError(data, "Firma oluşturulamadı.");
     }
@@ -4562,29 +4594,48 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
       updateCompany(company.id, data.company || company);
       setEditingCompanyId("");
       setMessage("Firma başarıyla kaydedildi.");
+      notify?.("Firma başarıyla kaydedildi.", "success");
     } else {
       showApiError(data, "Firma kaydedilemedi.");
     }
   }
 
-  async function deleteCompany(company) {
-    if (!confirm(`${company.name} firmasını silmek istediğinizden emin misiniz? Bu işlem bağlı kampanya ve müşteri kayıtlarını etkileyebilir.`)) return;
+  async function runLifecycleAction(company, action) {
+    const confirmMessages = {
+      deactivate: `${company.name} müşterisi pasifleştirilsin mi?`,
+      activate: `${company.name} müşterisi aktifleştirilsin mi?`,
+      archive: `${company.name} müşterisi arşivlensin mi? Arşivlenenler sekmesinden bulunabilir.`,
+      unarchive: `${company.name} müşterisi arşivden çıkarılsın mı?`,
+      delete: "Bu müşteriyi silinenlere taşıyacaksınız. Müşteri verileri kalıcı olarak silinmez.",
+      restore: `${company.name} müşterisi geri yüklensin mi?`
+    };
+    if (!confirm(confirmMessages[action] || "İşlem uygulansın mı?")) return;
     setMessage("");
     setError("");
-    setLoading(`delete-${company.id}`);
-    const response = await fetch(`/api/admin/companies/${company.id}`, { method: "DELETE" });
+    setLoading(`${action}-${company.id}`);
+    const response = await fetch(`/api/admin/customers/${company.id}/status`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action })
+    });
     const data = await response.json().catch(() => ({}));
     setLoading("");
     if (response.ok) {
-      setContent({ ...content, companies: (content.companies || []).filter((item) => item.id !== company.id) });
-      setMessage("Firma silindi.");
+      upsertCompanyInState(data.company || company);
+      const successMessages = {
+        deactivate: "Müşteri pasifleştirildi.",
+        activate: "Müşteri aktifleştirildi.",
+        archive: "Müşteri arşivlendi. Arşivlenenler sekmesinden bulabilirsiniz.",
+        unarchive: "Müşteri arşivden çıkarıldı.",
+        delete: "Müşteri silinenlere taşındı.",
+        restore: "Müşteri geri yüklendi."
+      };
+      const successMessage = data.message || successMessages[action] || "İşlem tamamlandı.";
+      setMessage(successMessage);
+      notify?.(successMessage, "success");
     } else {
-      showApiError(data, "Firma silinemedi.");
+      showApiError(data, "Müşteri durumu güncellenemedi.");
     }
-  }
-
-  async function archiveCompany(company) {
-    await saveCompany({ ...company, status: "Pasif" });
   }
 
   async function createLogin() {
@@ -4614,53 +4665,75 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
       setContent({ ...content, users: [data.user, ...(content.users || [])] });
       setForm({ fullName: "", email: "", password: "", company_id: "", role: "customer", is_active: true });
       setMessage("Müşteri giriş hesabı oluşturuldu.");
+      setOpenForm("");
+      notify?.("Müşteri giriş hesabı oluşturuldu.", "success");
     } else {
       showApiError(data, "Kullanıcı oluşturulamadı.");
     }
   }
 
+  function statusBadge(company) {
+    if (isDeletedCompany(company)) return <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-black text-red-700">Silinenlerde</span>;
+    if (isArchivedCompany(company)) return <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-700">Arşivli</span>;
+    if (isPassiveCompany(company)) return <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">Pasif</span>;
+    return <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-700">Aktif</span>;
+  }
+
+  const FormModal = ({ title, children, onClose }: any) => (
+    <div className="fixed inset-0 z-[130] grid place-items-center bg-white/75 p-4" onMouseDown={onClose}>
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-auto rounded-[22px] border border-slate-200 bg-white p-5 shadow-[0_28px_90px_rgba(15,23,42,.2)]" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Müşteri Yönetimi</p><h3 className="mt-1 text-2xl font-black text-slate-950">{title}</h3></div>
+          <button onClick={onClose} className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700">Kapat</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+
   return (
     <Panel title="Müşteriler">
-      {message && <p className="mb-4 rounded-[8px] border border-emerald-300/30 bg-emerald-500/10 p-3 text-sm text-emerald-700">{message}</p>}
-      {error && <p className="mb-4 rounded-[8px] border border-red-300/30 bg-red-500/10 p-3 text-sm text-red-100">{error}</p>}
-      <div className="mb-6 rounded-[8px] border border-slate-200 p-4">
-        <h3 className="font-black">Hızlı firma oluştur</h3>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <Field label="Firma Adı" value={companyForm.name} onChange={(v) => setCompanyForm({ ...companyForm, name: v })} />
-          <OtherSelectField label="Sektör" value={companyForm.sector} onChange={(v) => setCompanyForm({ ...companyForm, sector: v })} options={sectorOptions} manualLabel="Sektörü yazın" />
-          <OtherSelectField label="Şehir" value={companyForm.city} onChange={(v) => setCompanyForm({ ...companyForm, city: v })} options={cityOptions} manualLabel="Şehri yazın" />
-          <Field label="Web Sitesi" value={companyForm.website} onChange={(v) => setCompanyForm({ ...companyForm, website: v })} />
-          <Field label="Instagram" value={companyForm.instagram} onChange={(v) => setCompanyForm({ ...companyForm, instagram: v })} />
-          <Field label="Telefon" value={companyForm.phone} onChange={(v) => setCompanyForm({ ...companyForm, phone: v })} />
-          <Field label="E-posta" value={companyForm.email} onChange={(v) => setCompanyForm({ ...companyForm, email: v })} />
-          <SelectField label="Durum" value={companyForm.status} onChange={(v) => setCompanyForm({ ...companyForm, status: v })} options={companyStatusOptions} />
-          <TextArea label="Notlar" value={companyForm.notes} onChange={(v) => setCompanyForm({ ...companyForm, notes: v })} />
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4 rounded-[18px] border border-cyan-200 bg-cyan-50 p-5">
+        <div>
+          <h2 className="text-2xl font-black text-slate-950">Müşteriler</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Firmaları, yetkileri ve müşteri panel ayarlarını yönetin. Arşivlenen müşteriler üstteki “Arşivlenenler” butonundan, silinen müşteriler “Silinenler” görünümünden bulunur.</p>
         </div>
-        {canManageCustomers && <button disabled={loading === "company"} onClick={createCompany} className="mt-4 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-60">
-          {loading === "company" ? "Firma oluşturuluyor..." : "Firmayı oluştur"}
-        </button>}
+        <div className="flex flex-wrap gap-2">
+          {canManageCustomers && <button onClick={() => setOpenForm("company")} className="rounded-[12px] bg-cyan-500 px-4 py-3 text-sm font-black text-white">+ Yeni Firma Oluştur</button>}
+          {canManageCustomers && <button onClick={() => setOpenForm("login")} className="rounded-[12px] bg-blue-600 px-4 py-3 text-sm font-black text-white">+ Müşteri Giriş Hesabı Oluştur</button>}
+          <button onClick={() => setView("archived")} className="rounded-[12px] border border-amber-200 bg-white px-4 py-3 text-sm font-black text-amber-700">Arşivlenenler</button>
+          <button onClick={() => setActive?.("HK Dijital Sistem Rehberi")} className="rounded-[12px] border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700">Yardım</button>
+        </div>
       </div>
+      {message && <p className="mb-4 rounded-[8px] border border-emerald-300/30 bg-emerald-500/10 p-3 text-sm text-emerald-700">{message}</p>}
+      {error && <p className="mb-4 rounded-[8px] border border-red-300/30 bg-red-500/10 p-3 text-sm text-red-700">{error}</p>}
       <div className="mb-6 rounded-[8px] border border-slate-200 p-4">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h3 className="font-black">Müşteri / firma listesi</h3>
-          <input value={companyQuery} onChange={(e) => setCompanyQuery(e.target.value)} placeholder="Firma ara..." className="min-h-10 rounded-[8px] border border-slate-200 bg-slate-50 px-3 text-slate-900" />
+          <div><h3 className="font-black">Müşteri / firma listesi</h3><p className="mt-1 text-xs text-slate-500">Varsayılan görünüm aktif ve pasif müşterileri gösterir; arşivli ve silinen kayıtlar ayrı görünümde tutulur.</p></div>
+          <input value={companyQuery} onChange={(e) => setCompanyQuery(e.target.value)} placeholder="Firma, şehir, sektör ara..." className="min-h-10 rounded-[8px] border border-slate-200 bg-slate-50 px-3 text-slate-900" />
+        </div>
+        <div className="mb-4 flex flex-wrap gap-2">
+          {viewButtons.map((button) => <button key={button.key} onClick={() => setView(button.key as any)} className={`rounded-full px-4 py-2 text-xs font-black ${view === button.key ? "bg-cyan-500 text-white" : "border border-slate-200 bg-white text-slate-700"}`}>{button.label} · {button.count}</button>)}
         </div>
         <div className="grid gap-3">
           {companies.map((company) => {
-            const hasLogin = (content.users || []).some((user) => customerRole(user.role) && user.company_id === company.id);
+            const hasLogin = users.some((user) => customerRole(user.role) && user.company_id === company.id);
             const editing = editingCompanyId === company.id;
             return (
-              <div key={company.id} className="rounded-[8px] border border-slate-200 bg-slate-50 p-4">
+              <div key={company.id} className="rounded-[14px] border border-slate-200 bg-white p-4 shadow-[0_8px_30px_rgba(15,23,42,.04)]">
                 <div className="flex flex-wrap justify-between gap-3">
                   <div>
-                    <h4 className="font-black">{company.name}</h4>
-                    <p className="text-sm text-slate-400">{company.sector || "-"} · {company.city || "-"} · Müşteri girişi: {hasLogin ? "Var" : "Yok"}</p>
+                    <div className="flex flex-wrap items-center gap-2"><h4 className="font-black text-slate-950">{company.name}</h4>{statusBadge(company)}<span className={`rounded-full px-3 py-1 text-xs font-black ${hasLogin ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600"}`}>Giriş: {hasLogin ? "Var" : "Yok"}</span></div>
+                    <p className="mt-2 text-sm text-slate-500">{company.sector || "Sektör yok"} · {company.city || "Şehir yok"} · Son güncelleme: {formatDate(company.updated_at || company.created_at)}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <button onClick={() => setDetailCompanyId(company.id)} className="rounded-full bg-cyan-300 px-3 py-2 text-xs font-black text-slate-950">Müşteri detayını aç</button>
                     {canManageCustomers && <button onClick={() => setEditingCompanyId(editing ? "" : company.id)} className="rounded-full border border-slate-200 px-3 py-2 text-xs">Düzenle</button>}
-                    {canManageCustomers && <button onClick={() => archiveCompany(company)} className="rounded-full border border-amber-300/30 px-3 py-2 text-xs text-amber-700">Pasifleştir</button>}
-                    {canManageCustomers && <button onClick={() => deleteCompany(company)} className="rounded-full border border-red-300/30 px-3 py-2 text-xs text-red-200">Sil</button>}
+                    {canManageCustomers && !isDeletedCompany(company) && !isArchivedCompany(company) && (isPassiveCompany(company) ? <button disabled={loading === `activate-${company.id}`} onClick={() => runLifecycleAction(company, "activate")} className="rounded-full border border-emerald-300/30 px-3 py-2 text-xs text-emerald-700">Aktifleştir</button> : <button disabled={loading === `deactivate-${company.id}`} onClick={() => runLifecycleAction(company, "deactivate")} className="rounded-full border border-amber-300/30 px-3 py-2 text-xs text-amber-700">Pasifleştir</button>)}
+                    {canManageCustomers && !isDeletedCompany(company) && (isArchivedCompany(company) ? <button disabled={loading === `unarchive-${company.id}`} onClick={() => runLifecycleAction(company, "unarchive")} className="rounded-full border border-cyan-300/30 px-3 py-2 text-xs text-cyan-700">Arşivden çıkar</button> : <button disabled={loading === `archive-${company.id}`} onClick={() => runLifecycleAction(company, "archive")} className="rounded-full border border-slate-300 px-3 py-2 text-xs text-slate-700">Arşivle</button>)}
+                    {canManageCustomers && !isDeletedCompany(company) && <button disabled={loading === `delete-${company.id}`} onClick={() => runLifecycleAction(company, "delete")} className="rounded-full border border-red-300/30 px-3 py-2 text-xs text-red-700">Sil</button>}
+                    {canManageCustomers && isDeletedCompany(company) && <button disabled={loading === `restore-${company.id}`} onClick={() => runLifecycleAction(company, "restore")} className="rounded-full border border-emerald-300/30 px-3 py-2 text-xs text-emerald-700">Geri yükle</button>}
+                    {canManageCustomers && isDeletedCompany(company) && <button disabled={loading === `archive-${company.id}`} onClick={() => runLifecycleAction(company, "archive")} className="rounded-full border border-amber-300/30 px-3 py-2 text-xs text-amber-700">Arşivle</button>}
                   </div>
                 </div>
                 {editing && (
@@ -4682,12 +4755,27 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
               </div>
             );
           })}
-          {!companies.length && <p className="text-sm text-slate-400">Firma bulunamadı.</p>}
+          {!companies.length && <p className="rounded-[12px] border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">Bu görünümde firma bulunamadı.</p>}
         </div>
       </div>
-      <div className="rounded-[8px] border border-slate-200 p-4">
-        <h3 className="font-black">Müşteri giriş hesabı oluştur</h3>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
+      {openForm === "company" && <FormModal title="Yeni Firma Oluştur" onClose={() => setOpenForm("")}>
+        <div className="grid gap-3 md:grid-cols-2">
+          <Field label="Firma Adı" value={companyForm.name} onChange={(v) => setCompanyForm({ ...companyForm, name: v })} />
+          <OtherSelectField label="Sektör" value={companyForm.sector} onChange={(v) => setCompanyForm({ ...companyForm, sector: v })} options={sectorOptions} manualLabel="Sektörü yazın" />
+          <OtherSelectField label="Şehir" value={companyForm.city} onChange={(v) => setCompanyForm({ ...companyForm, city: v })} options={cityOptions} manualLabel="Şehri yazın" />
+          <Field label="Web Sitesi" value={companyForm.website} onChange={(v) => setCompanyForm({ ...companyForm, website: v })} />
+          <Field label="Instagram" value={companyForm.instagram} onChange={(v) => setCompanyForm({ ...companyForm, instagram: v })} />
+          <Field label="Telefon" value={companyForm.phone} onChange={(v) => setCompanyForm({ ...companyForm, phone: v })} />
+          <Field label="E-posta" value={companyForm.email} onChange={(v) => setCompanyForm({ ...companyForm, email: v })} />
+          <SelectField label="Durum" value={companyForm.status} onChange={(v) => setCompanyForm({ ...companyForm, status: v })} options={companyStatusOptions} />
+          <TextArea label="Notlar" value={companyForm.notes} onChange={(v) => setCompanyForm({ ...companyForm, notes: v })} />
+        </div>
+        {canManageCustomers && <button disabled={loading === "company"} onClick={createCompany} className="mt-4 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-60">
+          {loading === "company" ? "Firma oluşturuluyor..." : "Firmayı oluştur"}
+        </button>}
+      </FormModal>}
+      {openForm === "login" && <FormModal title="Müşteri Giriş Hesabı Oluştur" onClose={() => setOpenForm("")}>
+        <div className="grid gap-3 md:grid-cols-2">
           <Field label="Ad Soyad" value={form.fullName} onChange={(v) => setForm({ ...form, fullName: v })} />
           <Field label="E-posta" value={form.email} onChange={(v) => setForm({ ...form, email: v })} />
           <Field label="Geçici Şifre" type="password" value={form.password} onChange={(v) => setForm({ ...form, password: v })} />
@@ -4698,7 +4786,7 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
         {canManageCustomers && <button disabled={loading === "user"} onClick={createLogin} className="mt-4 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-60">
           {loading === "user" ? "Hesap oluşturuluyor..." : "Giriş hesabı oluştur"}
         </button>}
-      </div>
+      </FormModal>}
       {detailCompanyId && (
         <CustomerDetailDrawer
           company={(content.companies || []).find((company) => company.id === detailCompanyId)}

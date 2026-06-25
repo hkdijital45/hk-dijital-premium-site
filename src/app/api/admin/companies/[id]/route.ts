@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
 import { recordActivity } from "@/lib/activity-log";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
@@ -28,6 +29,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     phone: payload.phone || "",
     email: payload.email || "",
     status: payload.status || "Aktif",
+    is_active: payload.status === "Pasif" || payload.is_active === false ? false : true,
+    notes: payload.notes || "",
     updated_at: new Date().toISOString()
   };
 

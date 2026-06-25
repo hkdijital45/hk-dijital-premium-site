@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
 import { recordActivity } from "@/lib/activity-log";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
@@ -31,7 +32,9 @@ export async function POST(request: Request) {
         instagram: payload.instagram || "",
         phone: payload.phone || "",
         email: payload.email || "",
-        status: payload.status || "Aktif"
+        status: payload.status || "Aktif",
+        is_active: payload.status === "Pasif" ? false : true,
+        notes: payload.notes || ""
       })
     });
 
