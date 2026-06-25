@@ -20,11 +20,11 @@ export async function GET(request: Request) {
       customTo: params.get("to") || "",
       analyze: params.get("analyze") === "true"
     });
-    await recordActivity({ session, action: "Görüntüleme", entity: "Reklam Yorum Merkezi", companyId, details: { message: "Reklam analizi görüntülendi", result: "Başarılı" } }).catch(() => null);
+    await recordActivity({ session, action: "Görüntüleme", entity: "Reklam Doktoru Pro", companyId, details: { message: "Reklam analizi görüntülendi", result: "Başarılı" } }).catch(() => null);
     return NextResponse.json(data);
   } catch (error) {
     const safe = getSafeSupabaseError(error);
-    await recordActionFailure({ session, entity: "Reklam Yorum Merkezi", action: "Analiz verisi yükleme", error, companyId }).catch(() => null);
+    await recordActionFailure({ session, entity: "Reklam Doktoru Pro", action: "Analiz verisi yükleme", error, companyId }).catch(() => null);
     return NextResponse.json({ error: safe.title, detail: safe.detail }, { status: 500 });
   }
 }

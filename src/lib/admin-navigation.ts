@@ -60,6 +60,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: "Reklam Hesabı Eşleştirme", slug: "reklam-hesabi-eslestirme", module: "kampanyalar", description: "Meta ve Google hesaplarını müşteri kayıtlarıyla bağlama." },
       { label: "Meta İstihbarat", slug: "meta-istihbarat", module: "meta-analiz", description: "Meta kampanya, kreatif ve dönüşüm performansı." },
       { label: "Google İstihbarat", slug: "google-istihbarat", module: "google-analiz", description: "Google Ads arama ve dönüşüm performansı." },
+      { label: "Reklam Doktoru Pro", slug: "ad-insights", module: "ad-insights", description: "Reklam performansını teşhis eder, sorunları bulur ve aksiyon reçetesi oluşturur." },
       { label: "Meta Raporları", slug: "meta-analiz", module: "meta-analiz", description: "Meta reklam verilerinden müşteri raporları." },
       { label: "Google Ads Raporları", slug: "google-analiz", module: "google-analiz", description: "Google Ads metrikleri ve manuel rapor girişi." },
       { label: "Aylık Raporlar", slug: "aylik-raporlar", module: "aylik-raporlar", description: "Aylık performans, çalışma ve öneri özetleri." },
@@ -85,7 +86,6 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: "Gelir Tahmini", slug: "gelir-tahmini", module: "karlilik", description: "Beklenen, riskli ve gecikmiş gelir öngörüsü." },
       { label: "Sözleşme Oluştur", slug: "sozlesme-olustur", module: "belgeler", description: "Müşteri ve hizmet paketinden sözleşme taslağı." },
       { label: "WhatsApp Hatırlatma Merkezi", slug: "whatsapp-hatirlatma", module: "teklifler", description: "Takip, ödeme ve rapor mesaj şablonları." },
-      { label: "Reklam Yorum Merkezi", slug: "ad-insights", module: "ad-insights", description: "Müşteri reklam hesaplarını yorumlayan HK Reklam Zekası merkezi." },
       { label: "Sosyal Medya Planı", slug: "sosyal-medya-plani", module: "sosyal-medya-plani", description: "Müşteri bazlı sosyal medya içerik takvimi." },
       { label: "Sektör Sistemleri", slug: "sektor-sistemleri", module: "sektor-sistemleri", description: "Sektöre özel operasyon ve takip şablonları." }
     ]
@@ -218,6 +218,8 @@ const legacySlugRedirects: Record<string, string> = {
   "revenue-forecast": "gelir-tahmini",
   "reklam-yorum-merkezi": "ad-insights",
   "hk-reklam-zekasi": "ad-insights",
+  "reklam-doktoru-pro": "ad-insights",
+  "hk-reklam-doktoru-pro": "ad-insights",
   "qa-merkezi": "qa-center"
 };
 

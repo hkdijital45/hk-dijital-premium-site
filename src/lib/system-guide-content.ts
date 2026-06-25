@@ -103,7 +103,7 @@ const definitions: Array<[string, string, string, string]> = [
   ["AI çalışmıyor", "Sorun Giderme", "Aktif sağlayıcı, model, API anahtarı ve demo fallback durumunu kontrol edin.", "sistem-test-merkezi"],
   ["Admin modülleri ve bakım yapısı", "Ayarlar", "AdminDashboard içindeki büyük modüllerin küçük bileşenlere nasıl ayrıldığını ve QA performans uyarılarının nasıl yorumlanacağını öğrenin.", "sistem-rehberi"],
   ["QA Center nasıl kullanılır?", "Ayarlar", "Sayfa, API, migration, env, güvenlik ve buton risklerini tek QA ekranından tarayın.", "qa-center"],
-  ["Reklam Yorum Merkezi nasıl yorumlanır?", "Raporlama Merkezi", "Reklam sağlık skoru, haftalık değişim ve AI aksiyon önerilerini müşteriye uygun şekilde okuyun.", "ad-insights"],
+  ["HK Reklam Doktoru Pro nasıl yorumlanır?", "Raporlama Merkezi", "Reklam sağlık skoru, doktor teşhisleri, reçete aksiyonları, kreatif yorgunluğu ve müşteri özetini birlikte okuyun.", "ad-insights"],
   ["Görev şablonları nasıl kullanılır?", "Görev Yönetimi", "Onboarding, Pixel, rapor, teklif takip ve tahsilat hatırlatma görevlerini hazır şablondan oluşturun.", "musteriler"],
   ["Tekrarlayan görev nasıl oluşturulur?", "Görev Yönetimi", "Günlük, haftalık, aylık veya özel tekrar kuralı ile düzenli operasyon görevleri planlayın.", "musteriler"],
   ["Alt görev nedir?", "Görev Yönetimi", "Büyük işleri küçük kontrol maddelerine bölerek ana görevin altında takip edin.", "musteriler"],

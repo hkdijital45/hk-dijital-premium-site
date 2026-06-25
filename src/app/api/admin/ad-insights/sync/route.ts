@@ -37,17 +37,30 @@ export async function POST(request: Request) {
           worst_ad: data.worstAd || {},
           winning_creative: data.winningCreative || {},
           action_recommendations: data.actionRecommendations || [],
-          insights: { connection: data.connection, sourceType: data.sourceType, analysis: data.analysis },
+          insights: {
+            connection: data.connection,
+            sourceType: data.sourceType,
+            analysis: data.analysis,
+            diagnoses: data.diagnoses || [],
+            prescription: data.prescription || {},
+            creative_analysis: data.creativeAnalysis || {},
+            trend_analysis: data.trendAnalysis || {},
+            competitor_analysis: data.competitorAnalysis || {},
+            doctor_summary: data.doctorSummary || {},
+            customer_message: data.customerMessage || "",
+            urgency: data.urgency || {},
+            potential_improvement: data.potentialImprovement || 0
+          },
           health_score: data.healthScore,
           source_type: data.sourceType
         })
       }).catch(() => null);
     }
-    await recordActivity({ session, action: "API İşlemi", entity: "Reklam Yorum Merkezi", companyId, details: { message: "Reklam analiz snapshot kaydı oluşturuldu", result: "Başarılı", source_type: data.sourceType } }).catch(() => null);
+    await recordActivity({ session, action: "API İşlemi", entity: "Reklam Doktoru Pro", companyId, details: { message: "Reklam analiz snapshot kaydı oluşturuldu", result: "Başarılı", source_type: data.sourceType } }).catch(() => null);
     return NextResponse.json({ ...data, message: "Analiz snapshot kaydı oluşturuldu." });
   } catch (error) {
     const safe = getSafeSupabaseError(error);
-    await recordActionFailure({ session, entity: "Reklam Yorum Merkezi", action: "Analiz snapshot kaydetme", error, companyId }).catch(() => null);
+    await recordActionFailure({ session, entity: "Reklam Doktoru Pro", action: "Analiz snapshot kaydetme", error, companyId }).catch(() => null);
     return NextResponse.json({ error: safe.title, detail: safe.detail }, { status: 500 });
   }
 }

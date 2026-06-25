@@ -97,6 +97,7 @@ const adminLabelEmojis: Record<string, string> = {
   ,
   "Web Site Analitiği": "📊",
   "Reklam Yorum Merkezi": "🧠",
+  "Reklam Doktoru Pro": "🧠",
   "QA Merkezi": "🧪"
 };
 
@@ -746,7 +747,7 @@ export function AdminDashboard({
           {["Teklif Motoru", "Teklif Hazırlama", "Teklif Oluştur", "WhatsApp Teklifi"].includes(active) && <ProposalEngine {...props} setActive={setActive} />}
           {active === "Raporlar" && <ReportsHub {...props} selectedCompanyId={selectedCompanyId} />}
           {active === "Web Site Analitiği" && <WebsiteAnalyticsCenter />}
-          {active === "Reklam Yorum Merkezi" && <AdInsightsCenter content={content} notify={notify} />}
+          {(active === "Reklam Yorum Merkezi" || active === "Reklam Doktoru Pro") && <AdInsightsCenter content={content} notify={notify} />}
           {active === "QA Merkezi" && <QaCenter notify={notify} />}
           {active === "PDF Rapor Tasarım Merkezi" && <PdfReportDesignCenter {...props} />}
           {active === "Müşteriler" && <CustomersAdmin {...props} selectedCompanyId={selectedCompanyId} />}
@@ -2305,10 +2306,10 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-xs font-black uppercase tracking-[.16em] text-purple-700">HK Reklam Zekası</p>
-              <h3 className="mt-2 text-xl font-black text-slate-950">Reklam Yorum Merkezi</h3>
+              <h3 className="mt-2 text-xl font-black text-slate-950">Reklam Doktoru Pro</h3>
               <p className="mt-1 text-sm leading-6 text-slate-600">Meta, Google ve sosyal reklam verilerinden sağlık skoru, aksiyon planı ve müşteri özeti üretin.</p>
             </div>
-            <button onClick={() => setActive("Reklam Yorum Merkezi")} className="rounded-full bg-purple-600 px-5 py-3 text-sm font-black text-white">Hızlı Giriş</button>
+            <button onClick={() => setActive("Reklam Doktoru Pro")} className="rounded-full bg-purple-600 px-5 py-3 text-sm font-black text-white">Hızlı Giriş</button>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <div className="rounded-[14px] bg-slate-50 p-4"><span className="text-xs font-black uppercase text-slate-500">Kritik müşteri</span><strong className="mt-2 block text-2xl text-slate-950">{riskyCustomers.length}</strong></div>

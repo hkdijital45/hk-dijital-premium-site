@@ -121,6 +121,266 @@ function recommendations(metrics: any, weeklyChange: any) {
   return items;
 }
 
+function doctorStatus(score: number) {
+  if (score >= 70) return "Sağlıklı";
+  if (score >= 40) return "Riskli";
+  return "Kritik";
+}
+
+function urgencyFromScore(score: number) {
+  if (score < 40) return { label: "Acil", tone: "Kritik", description: "Bugün müdahale edilmesi gereken performans sinyalleri var." };
+  if (score < 70) return { label: "Yüksek", tone: "Uyarı", description: "Önümüzdeki 3 gün içinde optimizasyon yapılmalı." };
+  return { label: "Normal", tone: "Bilgi", description: "Düzenli takip ve kontrollü test yeterli görünüyor." };
+}
+
+function buildDiagnoses(metrics: any, weeklyChange: any, rows: any[]) {
+  const diagnoses: any[] = [];
+  const push = (item: any) => diagnoses.push({
+    affected: item.affected || "Genel reklam hesabı",
+    estimatedImpact: item.estimatedImpact || "Orta",
+    ...item
+  });
+  if (!rows.length) {
+    push({
+      name: "Veri eksik",
+      level: "Uyarı",
+      symptom: "Seçili dönem için kampanya veya reklam metriği bulunamadı.",
+      likelyCause: "Meta/Google senkronizasyonu yapılmamış, hesap bağlantısı eksik veya tarih filtresi veri içermiyor olabilir.",
+      businessImpact: "Sağlıklı teşhis ve reçete oluşturmak için yeterli performans sinyali oluşmaz.",
+      recommendation: "Reklam hesabı bağlantılarını kontrol edin ve son 30 gün verisini yeniden senkronize edin.",
+      priorityScore: 78
+    });
+    return diagnoses;
+  }
+  if (Number(metrics.ctr || 0) < 0.7) push({
+    name: "CTR düşük",
+    level: "Kritik",
+    symptom: `CTR ${Number(metrics.ctr || 0).toFixed(2)} seviyesinde.`,
+    likelyCause: "Kreatif başlık, görsel veya hedef kitle reklamı yeterince çekici bulmuyor.",
+    businessImpact: "Tıklama hacmi düşer, algoritma kalite sinyali zayıflar ve maliyetler artabilir.",
+    recommendation: "En düşük CTR üreten kreatifleri durdurup yeni başlık/görsel varyasyonları test edin.",
+    priorityScore: 92,
+    estimatedImpact: "Yüksek"
+  });
+  if (Number(metrics.cpc || 0) > 30 || Number(weeklyChange.cpc || 0) > 15) push({
+    name: "CPC yükseliyor",
+    level: Number(metrics.cpc || 0) > 50 ? "Kritik" : "Uyarı",
+    symptom: `Ortalama CPC ${Number(metrics.cpc || 0).toFixed(2)} TL, değişim ${Number(weeklyChange.cpc || 0).toFixed(1)}%.`,
+    likelyCause: "Hedef kitle, teklif stratejisi veya reklam kalitesi maliyeti yukarı çekiyor.",
+    businessImpact: "Aynı bütçeyle daha az ziyaretçi veya lead alınır.",
+    recommendation: "Yüksek CPC kampanyalarını ayrı inceleyin, hedef kitle ve yerleşim kırılımı testi yapın.",
+    priorityScore: 84
+  });
+  if (Number(metrics.cpm || 0) > 250 || Number(weeklyChange.cpm || 0) > 20) push({
+    name: "CPM yüksek",
+    level: "Uyarı",
+    symptom: `CPM ${Number(metrics.cpm || 0).toFixed(2)} TL seviyesinde.`,
+    likelyCause: "Hedef kitle daralmış, rekabet artmış veya yerleşim maliyeti yükselmiş olabilir.",
+    businessImpact: "Görünürlük maliyeti artar ve bütçenin öğrenme kapasitesi düşer.",
+    recommendation: "Hedef kitle genişletme, yerleşim testi ve farklı kampanya hedefi deneyin.",
+    priorityScore: 70
+  });
+  if (Number(metrics.frequency || 0) > 4 && Number(weeklyChange.ctr || 0) < 0) push({
+    name: "Kreatif yorgunluğu",
+    level: "Kritik",
+    symptom: `Frekans ${Number(metrics.frequency || 0).toFixed(2)} ve CTR düşüşte.`,
+    likelyCause: "Aynı kullanıcılar reklamı çok kez görüyor ve kreatife tepki azalıyor.",
+    businessImpact: "Tıklama oranı düşer, CPC yükselir ve marka algısı yorulabilir.",
+    recommendation: "Yeni kreatif seti yayınlayın, frekans yüksek kampanyaları sınırlayın.",
+    priorityScore: 90,
+    estimatedImpact: "Yüksek"
+  });
+  if (!Number(metrics.leads || 0) && !Number(metrics.messages || 0) && Number(metrics.spend || 0) > 0) push({
+    name: "Harcama var sonuç yok",
+    level: "Kritik",
+    symptom: `${Number(metrics.spend || 0).toFixed(2)} TL harcama var ama lead/mesaj sinyali yok.`,
+    likelyCause: "Dönüşüm olayı kurulmamış, form/WhatsApp akışı zayıf veya reklam hedefi yanlış seçilmiş olabilir.",
+    businessImpact: "Bütçe görünürlük üretir ama satış fırsatına dönüşmeyebilir.",
+    recommendation: "Dönüşüm takibini, açılış sayfasını ve çağrı mesajını bugün kontrol edin.",
+    priorityScore: 95,
+    estimatedImpact: "Çok yüksek"
+  });
+  if (Number(weeklyChange.spend || 0) > 15 && Number(weeklyChange.leads || 0) <= 0 && Number(weeklyChange.messages || 0) <= 0) push({
+    name: "Bütçe kaçağı",
+    level: "Kritik",
+    symptom: "Harcama artıyor ancak lead/mesaj artışı görünmüyor.",
+    likelyCause: "Bütçe düşük performanslı kampanyalara kayıyor olabilir.",
+    businessImpact: "Performans üretmeyen reklamlar bütçe tüketir.",
+    recommendation: "Bütçeyi en iyi kampanyaya yönlendirin, düşük sonuçlu reklamları 3 gün izleme veya durdurma listesine alın.",
+    priorityScore: 88
+  });
+  if (!diagnoses.length) push({
+    name: "Performans stabil",
+    level: "Bilgi",
+    symptom: "Kritik maliyet veya düşüş sinyali görünmüyor.",
+    likelyCause: "Kampanyalar seçili dönemde dengeli performans üretiyor.",
+    businessImpact: "Kontrollü büyüme ve kreatif testi için alan var.",
+    recommendation: "Güçlü kampanyalarda küçük bütçe artışı ve yeni kreatif A/B testi planlayın.",
+    priorityScore: 42,
+    estimatedImpact: "Orta"
+  });
+  return diagnoses.sort((a, b) => Number(b.priorityScore || 0) - Number(a.priorityScore || 0));
+}
+
+function buildPrescription(diagnoses: any[], metrics: any, bestAd: any, worstAd: any) {
+  const today = [
+    {
+      title: "Dönüşüm ve mesaj akışını kontrol et",
+      description: "Pixel/CAPI, WhatsApp linki, form ve müşteri iletişim kanallarının çalıştığını doğrulayın.",
+      related: "Genel hesap",
+      priority: Number(metrics.leads || 0) || Number(metrics.messages || 0) ? "Orta" : "Kritik",
+      expectedImpact: "Boşa harcama riskini azaltır.",
+      owner: "",
+      status: "Bekliyor",
+      dueInDays: 0
+    },
+    {
+      title: "En zayıf reklamı incele",
+      description: `${worstAd?.name || "Düşük performanslı reklam"} için CTR, CPC ve kreatif mesajını kontrol edin.`,
+      related: worstAd?.name || "Zayıf reklam",
+      priority: "Yüksek",
+      expectedImpact: "Maliyet artışını sınırlayabilir.",
+      owner: "",
+      status: "Bekliyor",
+      dueInDays: 0
+    }
+  ];
+  const threeDays = [
+    {
+      title: "Yeni kreatif varyasyonları hazırla",
+      description: "3 başlık, 3 açıklama ve 2 görsel/video varyasyonu ile düşük CTR riskini test edin.",
+      related: "Kreatif seti",
+      priority: diagnoses.some((item) => item.name.includes("Kreatif")) ? "Kritik" : "Yüksek",
+      expectedImpact: "CTR ve kalite sinyalini artırabilir.",
+      owner: "",
+      status: "Bekliyor",
+      dueInDays: 3
+    },
+    {
+      title: "Bütçeyi güçlü kampanyaya kaydır",
+      description: `${bestAd?.name || "En iyi performanslı reklam"} lehine kontrollü bütçe dağılımı yapın.`,
+      related: bestAd?.name || "Güçlü kampanya",
+      priority: "Orta",
+      expectedImpact: "Aynı bütçeyle daha fazla sonuç üretme ihtimali sağlar.",
+      owner: "",
+      status: "Bekliyor",
+      dueInDays: 3
+    }
+  ];
+  const sevenDays = [
+    {
+      title: "7 günlük performans kontrol toplantısı",
+      description: "CTR, CPC, CPM, lead/mesaj maliyeti ve kreatif sonuçlarını yeniden değerlendirin.",
+      related: "Haftalık optimizasyon",
+      priority: "Orta",
+      expectedImpact: "Sürdürülebilir optimizasyon rutini oluşturur.",
+      owner: "",
+      status: "Bekliyor",
+      dueInDays: 7
+    }
+  ];
+  return { today, threeDays, sevenDays, all: [...today, ...threeDays, ...sevenDays] };
+}
+
+function buildCreativeAnalysis(rows: any[], bestAd: any) {
+  const sourceRows = rows.length ? rows : bestAd ? [bestAd] : [];
+  if (!sourceRows.length) {
+    return {
+      available: false,
+      score: 0,
+      summary: "Kreatif görsel/video verisi yok. Başlık ve metin verileri geldiğinde kreatif doktoru daha net analiz yapar.",
+      items: [],
+      suggestions: {
+        headlines: ["Teklifinizi netleştiren kısa başlık kullanın.", "Problem ve çözümü aynı başlıkta verin.", "Yerel/segment odaklı başlık test edin."],
+        descriptions: ["Mesajı sadeleştirin ve tek aksiyon çağrısı bırakın.", "Fiyat/teklif net değilse küçük açıklama ekleyin.", "Sosyal kanıt veya güven unsuru ekleyin."],
+        ctas: ["WhatsApp'tan Bilgi Al", "Hemen Teklif Al", "Randevu Oluştur"],
+        videoIdea: "İlk 3 saniyede problemi gösteren, ardından çözümü ve net CTA'yı veren 15 saniyelik kısa video.",
+        staticIdea: "Sol tarafta problem, sağ tarafta çözüm/teklif ve altta tek CTA bulunan mobil uyumlu görsel."
+      }
+    };
+  }
+  const items = sourceRows.slice(0, 6).map((row) => {
+    const text = String(row.ad_text || row.headline || row.description || row.name || "");
+    const hasCta = /al|başvur|ara|mesaj|teklif|randevu|satın|incele/i.test(text);
+    const score = Math.max(20, Math.min(100, Math.round(55 + Number(row.ctr || 0) * 8 - Number(row.cpc || 0) * 0.4 + (hasCta ? 12 : -8))));
+    return {
+      name: row.name || row.ad_name || row.campaign_name || "Kreatif",
+      score,
+      thumbnail: row.creative_thumbnail_url || row.raw_data?.creative_thumbnail_url || "",
+      mediaUrl: row.creative_media_url || row.raw_data?.creative_media_url || "",
+      hasCta,
+      hasClearOffer: /%|tl|₺|ücretsiz|paket|kampanya|teklif/i.test(text),
+      brandVisible: Boolean(row.creative_thumbnail_url || row.creative_media_url || row.raw_data?.image_url),
+      headlineStrong: text.length > 12,
+      mobileClarity: text.length <= 140,
+      fatigueRisk: Number(row.frequency || 0) > 4 || Number(row.ctr || 0) < 0.7,
+      recommendedVariation: hasCta ? "Aynı mesajı daha güçlü görsel açılışla test edin." : "Net bir CTA ekleyin ve teklif dilini sadeleştirin."
+    };
+  });
+  const averageScore = Math.round(items.reduce((total, item) => total + item.score, 0) / items.length);
+  return {
+    available: true,
+    score: averageScore,
+    summary: averageScore >= 70 ? "Kreatif sinyali güçlü; yeni varyasyonlarla ölçeklenebilir." : "Kreatifler yenilenmeli; CTA, teklif ve mobil netlik güçlendirilmeli.",
+    items,
+    suggestions: {
+      headlines: ["Bugün Daha Fazla Başvuru Alın", "Reklam Bütçenizi Daha Verimli Kullanın", "Sizin İçin Hazırlanan Özel Çözüm"],
+      descriptions: ["Tek aksiyon çağrısı ve net fayda ile mesajı sadeleştirin.", "En güçlü kampanya sonucunu görselde öne çıkarın.", "WhatsApp veya form aksiyonunu ilk ekranda belirginleştirin."],
+      ctas: ["WhatsApp'tan Bilgi Al", "Teklif Al", "Hemen İncele"],
+      videoIdea: "Müşteri problemini ilk 3 saniyede gösteren, sonuç ve CTA ile biten kısa dikey video.",
+      staticIdea: "Başlık, tek fayda, sosyal kanıt ve CTA içeren temiz mobil görsel."
+    }
+  };
+}
+
+function buildTrendAnalysis(metrics: any, weeklyChange: any) {
+  const rules = [];
+  if (Number(metrics.frequency || 0) > 4 && Number(weeklyChange.ctr || 0) < 0) rules.push("Frekans yükselip CTR düştüğü için kreatif yorgunluğu riski var.");
+  if (Number(weeklyChange.spend || 0) > 15 && Number(weeklyChange.leads || 0) <= 0 && Number(weeklyChange.messages || 0) <= 0) rules.push("Harcama artıyor ancak sonuç artmıyor; bütçe kaçağı kontrol edilmeli.");
+  if (Number(weeklyChange.cpc || 0) > 15 && Number(weeklyChange.ctr || 0) < 0) rules.push("CPC artarken CTR düşüyor; mesaj/kreatif problemi olası.");
+  if (Number(weeklyChange.cpm || 0) > 20) rules.push("CPM yükseliyor; hedef kitle veya rekabet baskısı olabilir.");
+  if (!rules.length) rules.push("Trendlerde kritik bozulma yok; kontrollü test ve izleme önerilir.");
+  return {
+    frequencyTrend: Number(metrics.frequency || 0),
+    ctrTrend: Number(weeklyChange.ctr || 0),
+    cpcTrend: Number(weeklyChange.cpc || 0),
+    cpmTrend: Number(weeklyChange.cpm || 0),
+    spendTrend: Number(weeklyChange.spend || 0),
+    resultTrend: Math.max(Number(weeklyChange.leads || 0), Number(weeklyChange.messages || 0), Number(weeklyChange.conversions || 0)),
+    rules
+  };
+}
+
+function buildCompetitorAnalysis() {
+  return {
+    available: false,
+    message: "Rakip verisi bağlı değil. Meta Ad Library veya Rakip Analizi modülünden veri eklenirse burada kıyaslama yapılır.",
+    activeAds: null,
+    videoStaticRatio: null,
+    offerLanguage: "Veri yok",
+    ctaDensity: "Veri yok",
+    differences: [],
+    counterMoves: ["Rakip reklamlarını Meta Ad Library üzerinden toplayın.", "Teklif dili, CTA ve kreatif formatlarını karşılaştırın.", "Güçlü rakip tekliflerine karşı alternatif varyasyon hazırlayın."]
+  };
+}
+
+function buildDoctorSummary(companyName: string, metrics: any, healthScore: number, diagnoses: any[], prescription: any, bestAd: any, worstAd: any) {
+  const topDiagnosis = diagnoses[0];
+  const bestName = bestAd?.name || "en iyi performanslı reklam";
+  const worstName = worstAd?.name || "sorunlu reklam";
+  return {
+    general: `${companyName} için reklam sağlık skoru ${healthScore}/100 (${doctorStatus(healthScore)}). ${topDiagnosis?.name ? `Öne çıkan teşhis: ${topDiagnosis.name}.` : "Kritik teşhis bulunmadı."}`,
+    why: [
+      Number(metrics.ctr || 0) < 0.7 ? "CTR düşük olduğu için kalite ve ilgi sinyali zayıf." : "CTR kabul edilebilir seviyede.",
+      Number(metrics.cpc || 0) > 30 ? "CPC yüksek olduğu için tıklama maliyeti baskı oluşturuyor." : "CPC kontrol edilebilir seviyede.",
+      Number(metrics.frequency || 0) > 4 ? "Frekans yüksek olduğu için kreatif yorgunluğu riski var." : "Frekans kritik seviyede değil."
+    ],
+    topProblems: diagnoses.slice(0, 3).map((item) => item.name),
+    firstActions: prescription.all.slice(0, 3).map((item: any) => item.title),
+    customerMessage: `Merhaba,\n\n${companyName} reklam çalışmalarının bu dönem özetini paylaşmak isteriz.\n\nToplam ${Number(metrics.spend || 0).toLocaleString("tr-TR", { maximumFractionDigits: 2 })} TL harcama ile ${Number(metrics.reach || 0).toLocaleString("tr-TR")} kişiye erişildi ve ${Number(metrics.clicks || 0).toLocaleString("tr-TR")} tıklama alındı.\n\nEn iyi sinyal ${bestName} tarafında görünüyor. İyileştirme gereken alan ise ${worstName} ve ${topDiagnosis?.name || "kreatif/mesaj optimizasyonu"} başlığıdır.\n\nÖnümüzdeki süreçte düşük performanslı reklamları kontrol edip güçlü kreatiflere daha fazla ağırlık vermeyi öneriyoruz.\n\nHK Dijital`
+  };
+}
+
 function scoreFromMetrics(metrics: any) {
   let score = 50;
   if (metrics.ctr >= 2) score += 15;
@@ -136,8 +396,7 @@ function scoreFromMetrics(metrics: any) {
 }
 
 export function healthLabel(score: number) {
-  if (score >= 80) return "Çok iyi";
-  if (score >= 60) return "İyileştirilebilir";
+  if (score >= 70) return "Sağlıklı";
   if (score >= 40) return "Riskli";
   return "Kritik";
 }
@@ -171,6 +430,13 @@ export async function getAdInsightsData({
     const metrics = { spend: 0, impressions: 0, reach: 0, clicks: 0, ctr: 0, cpc: 0, cpm: 0, messages: 0, leads: 0, conversions: 0, frequency: 0, roas: 0 };
     const previousMetrics = summarizeRows([]);
     const weeklyChange = weeklyChanges(metrics, previousMetrics);
+    const healthScore = scoreFromMetrics(metrics);
+    const diagnoses = buildDiagnoses(metrics, weeklyChange, []);
+    const prescription = buildPrescription(diagnoses, metrics, null, null);
+    const creativeAnalysis = buildCreativeAnalysis([], null);
+    const trendAnalysis = buildTrendAnalysis(metrics, weeklyChange);
+    const competitorAnalysis = buildCompetitorAnalysis();
+    const doctorSummary = buildDoctorSummary("Demo Müşteri", metrics, healthScore, diagnoses, prescription, null, null);
     return {
       status: "demo",
       dateRange,
@@ -184,8 +450,19 @@ export async function getAdInsightsData({
       worstAd: null,
       winningCreative: null,
       actionRecommendations: recommendations(metrics, weeklyChange),
-      healthScore: scoreFromMetrics(metrics),
-      analysis: buildFallbackAnalysis("Demo Müşteri", metrics, 50),
+      healthScore,
+      healthLabel: healthLabel(healthScore),
+      doctorStatus: doctorStatus(healthScore),
+      urgency: urgencyFromScore(healthScore),
+      potentialImprovement: 0,
+      diagnoses,
+      prescription,
+      creativeAnalysis,
+      trendAnalysis,
+      competitorAnalysis,
+      doctorSummary,
+      customerMessage: doctorSummary.customerMessage,
+      analysis: buildFallbackAnalysis("Demo Müşteri", metrics, healthScore),
       snapshots: []
     };
   }
@@ -216,6 +493,13 @@ export async function getAdInsightsData({
   const wastedBudgetEstimate = Number(snapshots[0]?.wasted_budget_estimate || estimateWastedBudget(combinedAdRows, metrics));
   const actionRecommendations = Array.isArray(snapshots[0]?.action_recommendations) && snapshots[0]?.action_recommendations.length ? snapshots[0]?.action_recommendations : recommendations(metrics, weeklyChange);
   const healthScore = scoreFromMetrics(metrics);
+  const diagnoses = snapshots[0]?.insights?.diagnoses || buildDiagnoses(metrics, weeklyChange, combinedAdRows);
+  const prescription = snapshots[0]?.insights?.prescription || buildPrescription(diagnoses, metrics, bestAd, worstAd);
+  const creativeAnalysis = snapshots[0]?.insights?.creative_analysis || buildCreativeAnalysis(combinedAdRows, bestAd);
+  const trendAnalysis = snapshots[0]?.insights?.trend_analysis || buildTrendAnalysis(metrics, weeklyChange);
+  const competitorAnalysis = snapshots[0]?.insights?.competitor_analysis || buildCompetitorAnalysis();
+  const doctorSummary = snapshots[0]?.insights?.doctor_summary || buildDoctorSummary(company.name || company.company_name || "Müşteri", metrics, healthScore, diagnoses, prescription, bestAd, worstAd);
+  const potentialImprovement = Math.max(0, Math.min(65, Math.round((100 - healthScore) * 0.6)));
   const fallback = buildFallbackAnalysis(company.name || company.company_name || "Müşteri", metrics, healthScore);
   let analysis = fallback;
   if (analyze) {
@@ -250,6 +534,16 @@ export async function getAdInsightsData({
     actionRecommendations,
     healthScore,
     healthLabel: healthLabel(healthScore),
+    doctorStatus: doctorStatus(healthScore),
+    urgency: urgencyFromScore(healthScore),
+    potentialImprovement,
+    diagnoses,
+    prescription,
+    creativeAnalysis,
+    trendAnalysis,
+    competitorAnalysis,
+    doctorSummary,
+    customerMessage: doctorSummary.customerMessage,
     analysis,
     snapshots,
     updatedAt: new Date().toISOString()

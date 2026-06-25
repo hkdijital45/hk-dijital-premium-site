@@ -7,5 +7,5 @@ export const dynamic = "force-dynamic";
 
 export default async function AdInsightsPage() {
   if (!(await requireModuleAccess("ad-insights"))) redirect("/hk-admin");
-  return <AdminDashboard {...await getAdminPageData()} initialActive="Reklam Yorum Merkezi" />;
+  return <AdminDashboard {...await getAdminPageData()} initialActive="Reklam Doktoru Pro" />;
 }
