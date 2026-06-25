@@ -101,6 +101,7 @@ const definitions: Array<[string, string, string, string]> = [
   ["Rapor veya export görünmüyor", "Sorun Giderme", "Rapor durumu, müşteri görünürlüğü ve dosya üretim sonucunu kontrol edin.", "musteri-raporlari"],
   ["Görev veya ödeme görünmüyor", "Sorun Giderme", "Arşiv, tarih, müşteri ve görünürlük filtrelerini kontrol edin.", "sistem-test-merkezi"],
   ["AI çalışmıyor", "Sorun Giderme", "Aktif sağlayıcı, model, API anahtarı ve demo fallback durumunu kontrol edin.", "sistem-test-merkezi"],
+  ["Admin modülleri ve bakım yapısı", "Ayarlar", "AdminDashboard içindeki büyük modüllerin küçük bileşenlere nasıl ayrıldığını ve QA performans uyarılarının nasıl yorumlanacağını öğrenin.", "sistem-rehberi"],
   ["QA Center nasıl kullanılır?", "Ayarlar", "Sayfa, API, migration, env, güvenlik ve buton risklerini tek QA ekranından tarayın.", "qa-center"],
   ["Reklam Yorum Merkezi nasıl yorumlanır?", "Raporlama Merkezi", "Reklam sağlık skoru, haftalık değişim ve AI aksiyon önerilerini müşteriye uygun şekilde okuyun.", "ad-insights"],
   ["Görev şablonları nasıl kullanılır?", "Görev Yönetimi", "Onboarding, Pixel, rapor, teklif takip ve tahsilat hatırlatma görevlerini hazır şablondan oluşturun.", "musteriler"],

@@ -146,7 +146,21 @@ function scanSourcesForFindings(migrations: string) {
   const adminComponents = walkFiles(path.join(root, "src", "components", "admin"), [".tsx"]).length;
   if (adminComponents > adminPages * 3) findings.push(makeFinding({ category: "Kullanılmayan Component’ler", severity: "dusuk", module: "Kod Organizasyonu", file_path: "src/components/admin", title: "Admin component sayısı yüksek", description: "Statik oran orphan component ihtimalini gösteriyor.", recommendation: "Kullanılmayan componentleri ayrıca import grafiğiyle doğrulayın.", metadata: { adminComponents, adminPages } }));
   const dashboardSize = sourceText.find((item) => item.file.endsWith("AdminDashboard.tsx"))?.text.length || 0;
-  if (dashboardSize > 150000) findings.push(makeFinding({ category: "Performans Sorunları", severity: "orta", module: "Dashboard", file_path: "src/components/admin/AdminDashboard.tsx", title: "AdminDashboard çok büyük", description: "Büyük client component re-render ve bakım riskini artırır.", recommendation: "Müşteri profili, görevler ve modül içeriklerini daha küçük componentlere bölün." }));
+  const extractedAdminModules = [
+    "src/components/admin/customer-profile/CustomerProfileTasks.tsx"
+  ].filter(fileExists);
+  if (dashboardSize > 150000) findings.push(makeFinding({
+    category: "Performans Sorunları",
+    severity: extractedAdminModules.length ? "dusuk" : "orta",
+    module: "Dashboard",
+    file_path: "src/components/admin/AdminDashboard.tsx",
+    title: extractedAdminModules.length ? "AdminDashboard refactor süreci başladı" : "AdminDashboard çok büyük",
+    description: "Büyük client component re-render ve bakım riskini artırır; modüller aşamalı olarak ayrıştırılmalıdır.",
+    recommendation: extractedAdminModules.length
+      ? `Refactor başlatıldı: ${extractedAdminModules.map((file) => path.basename(file)).join(", ")} ayrıştırıldı. Kalan müşteri profili, satış hunisi ve raporlama parçaları güvenli aşamalarla taşınmalı.`
+      : "Müşteri profili, görevler ve modül içeriklerini daha küçük componentlere bölün.",
+    metadata: { dashboardSize, extractedAdminModules }
+  }));
 
   return findings;
 }
