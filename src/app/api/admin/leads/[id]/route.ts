@@ -56,6 +56,16 @@ function sanitizeLeadPatch(body: Record<string, unknown>) {
   return patch;
 }
 
+function stripOptionalLeadPatchColumns(patch: Record<string, unknown>) {
+  const compatiblePatch = { ...patch };
+  delete compatiblePatch.city;
+  delete compatiblePatch.district;
+  delete compatiblePatch.sector;
+  delete compatiblePatch.address;
+  delete compatiblePatch.source_url;
+  return compatiblePatch;
+}
+
 const stageTaskRules: Record<string, { title: string; delay: number; priority: string }> = {
   "Teklif Gönderildi": { title: "Teklif dönüşü takibi", delay: 3, priority: "Yüksek" },
   "Takipte": { title: "Son karar için takip araması", delay: 2, priority: "Yüksek" },
@@ -155,10 +165,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       });
     } catch (writeError) {
       const message = writeError instanceof Error ? writeError.message : String(writeError);
-      if (!message.includes("PGRST204") || !message.includes("calendar_follow_up_at")) throw writeError;
-      compatibilityWarning = "calendar_follow_up_at canlı şemada bulunamadı. Takip tarihi next_action_at alanına kaydedildi; schema repair migration uygulanmalıdır.";
-      const compatiblePatch = { ...patch };
-      delete compatiblePatch.calendar_follow_up_at;
+      const compatiblePatch = stripOptionalLeadPatchColumns(patch);
+      if (message.includes("PGRST204") && message.includes("calendar_follow_up_at")) {
+        compatibilityWarning = "calendar_follow_up_at canlı şemada bulunamadı. Takip tarihi next_action_at alanına kaydedildi; schema repair migration uygulanmalıdır.";
+        delete compatiblePatch.calendar_follow_up_at;
+      } else if (message.includes("schema cache") || message.includes("Could not find") || message.includes("column")) {
+        compatibilityWarning = "Canlı leads şemasında bazı opsiyonel lokasyon kolonları bulunamadı. Migration uygulanana kadar kayıt uyumlu alanlarla güncellendi.";
+      } else {
+        throw writeError;
+      }
       rows = await supabaseRest<any[]>(`leads?id=eq.${encodeURIComponent(id)}`, {
         method: "PATCH",
         body: JSON.stringify(compatiblePatch)

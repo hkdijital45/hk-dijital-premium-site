@@ -585,18 +585,19 @@ async function upsertItems(key: keyof typeof tables, items: any[] = []) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Supabase kaydetme hatası.";
-    if (["companies", "leads", "campaigns", "agencyTasks", "paymentRecords", "customerBranding", "customerVisibilitySettings"].includes(key)) throw error;
-    if (["metaAdsetMetrics", "metaAdMetrics", "metaConversionEvents", "metaAnalysisSnapshots", "customerReportVisibility", "monthlyReports", "customerDocuments", "reports", "competitorAnalyses", "socialMediaPlans", "agencyExpenses", "sectorConfigs", "systemTestRuns", "systemTestChecklist", "activityLogs"].includes(key) && (message.includes("schema cache") || message.includes("relation") || message.includes("table"))) {
-      console.warn(`${table} tablosu canlı şemada bulunamadı; migration uygulanana kadar bu modül atlandı.`);
-      return [];
-    }
-    if (message.includes("schema cache") || message.includes("column")) {
+    const isSchemaColumnError = message.includes("schema cache") || message.includes("Could not find") || message.includes("column");
+    if (isSchemaColumnError) {
       const fallbackRecords = records.map(stripOptionalColumns);
       return await supabaseRest(`${table}?on_conflict=${conflictTarget}`, {
         method: "POST",
         headers: { Prefer: "resolution=merge-duplicates,return=representation" },
         body: JSON.stringify(fallbackRecords)
       });
+    }
+    if (["companies", "leads", "campaigns", "agencyTasks", "paymentRecords", "customerBranding", "customerVisibilitySettings"].includes(key)) throw error;
+    if (["metaAdsetMetrics", "metaAdMetrics", "metaConversionEvents", "metaAnalysisSnapshots", "customerReportVisibility", "monthlyReports", "customerDocuments", "reports", "competitorAnalyses", "socialMediaPlans", "agencyExpenses", "sectorConfigs", "systemTestRuns", "systemTestChecklist", "activityLogs"].includes(key) && (message.includes("schema cache") || message.includes("relation") || message.includes("table"))) {
+      console.warn(`${table} tablosu canlı şemada bulunamadı; migration uygulanana kadar bu modül atlandı.`);
+      return [];
     }
     console.error(`${table} kaydetme Supabase hatası:`, message);
     throw error;
