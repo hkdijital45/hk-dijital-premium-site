@@ -1786,3 +1786,41 @@ html {
 .customer-portal .metric-card-3d * {
   color: #0f172a !important;
 }
+
+.hk-mobile-operation-mode .admin-dashboard-main {
+  font-size: 1.02rem;
+}
+
+.hk-mobile-operation-mode article,
+.hk-mobile-operation-mode aside,
+.hk-mobile-operation-mode section {
+  scroll-margin-bottom: 96px;
+}
+
+.hk-mobile-operation-mode button,
+.hk-mobile-operation-mode a[role="button"] {
+  min-height: 44px;
+}
+
+.hk-mobile-operation-mode [class*="grid-cols-"],
+.hk-mobile-operation-mode [class*="xl:grid-cols-"],
+.hk-mobile-operation-mode [class*="md:grid-cols-"] {
+  gap: 1rem;
+}
+
+@media (max-width: 900px) {
+  .hk-mobile-operation-mode nav > div {
+    overflow-x: auto;
+    padding-bottom: .25rem;
+  }
+
+  .hk-mobile-operation-mode .admin-top-dropdown {
+    max-height: 70vh;
+  }
+
+  .hk-mobile-operation-mode article,
+  .hk-mobile-operation-mode aside,
+  .hk-mobile-operation-mode section {
+    border-radius: 14px !important;
+  }
+}

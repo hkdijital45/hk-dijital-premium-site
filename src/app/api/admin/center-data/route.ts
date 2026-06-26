@@ -34,7 +34,13 @@ const tables = {
   sectorConfigs: "sector_configs",
   systemTestRuns: "system_test_runs",
   systemTestChecklist: "system_test_checklist",
-  activityLogs: "activity_logs"
+  activityLogs: "activity_logs",
+  agencyOpportunities: "agency_opportunities",
+  agencyOpportunityEvents: "agency_opportunity_events",
+  agencyDailyTasks: "agency_daily_tasks",
+  agencyTargets: "agency_targets",
+  agencyLearningSignals: "agency_learning_signals",
+  proposalFollowups: "proposal_followups"
 } as const;
 const allowedUpdateTypes = ["Yapılan Çalışma", "Reklam Güncellemesi", "Rapor Notu", "Strateji Notu", "Uyarı", "Başarı", "Diğer"];
 
@@ -481,6 +487,114 @@ function normalizeRecord(key: string, item: any) {
     };
   }
 
+  if (key === "agencyOpportunities") {
+    return {
+      ...base,
+      lead_id: item.lead_id || item.leadId || null,
+      customer_id: item.customer_id || item.customerId || null,
+      sector: item.sector || "",
+      sub_sector: item.sub_sector || item.subSector || "",
+      city: item.city || "",
+      district: item.district || "",
+      priority_score: Number(item.priority_score ?? item.priorityScore ?? 0),
+      priority_level: item.priority_level || item.priorityLevel || "Normal",
+      pipeline_status: item.pipeline_status || item.pipelineStatus || "Keşfedildi",
+      estimated_monthly_revenue: Number(item.estimated_monthly_revenue ?? item.estimatedMonthlyRevenue ?? 0),
+      estimated_ad_budget: Number(item.estimated_ad_budget ?? item.estimatedAdBudget ?? 0),
+      close_probability: Number(item.close_probability ?? item.closeProbability ?? 0),
+      estimated_sales_cycle: item.estimated_sales_cycle || item.estimatedSalesCycle || "",
+      assigned_to: item.assigned_to || item.assignedTo || "",
+      next_recommended_action: item.next_recommended_action || item.nextRecommendedAction || "",
+      ai_reason: item.ai_reason || item.aiReason || "",
+      ltv_estimate: Number(item.ltv_estimate ?? item.ltvEstimate ?? 0),
+      last_call_at: item.last_call_at || item.lastCallAt || null,
+      last_offer_at: item.last_offer_at || item.lastOfferAt || null,
+      last_meeting_at: item.last_meeting_at || item.lastMeetingAt || null,
+      last_note_at: item.last_note_at || item.lastNoteAt || null,
+      won_lost_status: item.won_lost_status || item.wonLostStatus || null,
+      won_lost_reason: item.won_lost_reason || item.wonLostReason || "",
+      data_source: item.data_source || item.dataSource || "Tahmini veri",
+      updated_at: new Date().toISOString()
+    };
+  }
+
+  if (key === "agencyOpportunityEvents") {
+    return {
+      ...base,
+      opportunity_id: item.opportunity_id || item.opportunityId || null,
+      event_type: item.event_type || item.eventType || "Güncelleme",
+      title: item.title || "Operasyon olayı",
+      description: item.description || "",
+      metadata: item.metadata || {},
+      created_by: item.created_by || item.createdBy || "Admin"
+    };
+  }
+
+  if (key === "agencyDailyTasks") {
+    const status = item.status || "open";
+    return {
+      ...base,
+      task_date: item.task_date || item.taskDate || new Date().toISOString().slice(0, 10),
+      title: item.title || "Günlük aksiyon",
+      description: item.description || "",
+      related_opportunity_id: item.related_opportunity_id || item.relatedOpportunityId || null,
+      status,
+      priority: item.priority || "Normal",
+      action_type: item.action_type || item.actionType || "follow_up",
+      due_at: item.due_at || item.dueAt || null,
+      completed_at: item.completed_at || (status === "done" || status === "Tamamlandı" ? new Date().toISOString() : null),
+      updated_at: new Date().toISOString()
+    };
+  }
+
+  if (key === "agencyTargets") {
+    return {
+      ...base,
+      month: item.month || new Date().toISOString().slice(0, 7),
+      target_revenue: Number(item.target_revenue ?? item.targetRevenue ?? 50000),
+      target_customers: Number(item.target_customers ?? item.targetCustomers ?? 3),
+      target_offers: Number(item.target_offers ?? item.targetOffers ?? 10),
+      target_meetings: Number(item.target_meetings ?? item.targetMeetings ?? 8),
+      target_collections: Number(item.target_collections ?? item.targetCollections ?? 50000),
+      updated_at: new Date().toISOString()
+    };
+  }
+
+  if (key === "agencyLearningSignals") {
+    return {
+      ...base,
+      opportunity_id: item.opportunity_id || item.opportunityId || null,
+      sector: item.sector || "",
+      city: item.city || "",
+      package_name: item.package_name || item.packageName || "",
+      ad_budget: Number(item.ad_budget ?? item.adBudget ?? 0),
+      service_fee: Number(item.service_fee ?? item.serviceFee ?? 0),
+      outcome: item.outcome || "",
+      loss_reason: item.loss_reason || item.lossReason || "",
+      close_days: Number(item.close_days ?? item.closeDays ?? 0),
+      notes: item.notes || ""
+    };
+  }
+
+  if (key === "proposalFollowups") {
+    return {
+      ...base,
+      opportunity_id: item.opportunity_id || item.opportunityId || null,
+      lead_id: item.lead_id || item.leadId || null,
+      customer_id: item.customer_id || item.customerId || null,
+      proposal_title: item.proposal_title || item.proposalTitle || "Teklif",
+      proposal_amount: Number(item.proposal_amount ?? item.proposalAmount ?? 0),
+      status: item.status || "Yanıt bekliyor",
+      sent_at: item.sent_at || item.sentAt || null,
+      first_followup_at: item.first_followup_at || item.firstFollowupAt || null,
+      second_followup_at: item.second_followup_at || item.secondFollowupAt || null,
+      final_followup_at: item.final_followup_at || item.finalFollowupAt || null,
+      next_followup_at: item.next_followup_at || item.nextFollowupAt || null,
+      last_followup_note: item.last_followup_note || item.lastFollowupNote || "",
+      updated_at: new Date().toISOString()
+    };
+  }
+
   return { ...item, ...base };
 }
 
@@ -585,19 +699,18 @@ async function upsertItems(key: keyof typeof tables, items: any[] = []) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Supabase kaydetme hatası.";
-    const isSchemaColumnError = message.includes("schema cache") || message.includes("Could not find") || message.includes("column");
-    if (isSchemaColumnError) {
+    if (["companies", "leads", "campaigns", "agencyTasks", "paymentRecords", "customerBranding", "customerVisibilitySettings"].includes(key)) throw error;
+    if (["metaAdsetMetrics", "metaAdMetrics", "metaConversionEvents", "metaAnalysisSnapshots", "customerReportVisibility", "monthlyReports", "customerDocuments", "reports", "competitorAnalyses", "socialMediaPlans", "agencyExpenses", "sectorConfigs", "systemTestRuns", "systemTestChecklist", "activityLogs", "agencyOpportunities", "agencyOpportunityEvents", "agencyDailyTasks", "agencyTargets", "agencyLearningSignals", "proposalFollowups"].includes(key) && (message.includes("schema cache") || message.includes("relation") || message.includes("table"))) {
+      console.warn(`${table} tablosu canlı şemada bulunamadı; migration uygulanana kadar bu modül atlandı.`);
+      return [];
+    }
+    if (message.includes("schema cache") || message.includes("column")) {
       const fallbackRecords = records.map(stripOptionalColumns);
       return await supabaseRest(`${table}?on_conflict=${conflictTarget}`, {
         method: "POST",
         headers: { Prefer: "resolution=merge-duplicates,return=representation" },
         body: JSON.stringify(fallbackRecords)
       });
-    }
-    if (["companies", "leads", "campaigns", "agencyTasks", "paymentRecords", "customerBranding", "customerVisibilitySettings"].includes(key)) throw error;
-    if (["metaAdsetMetrics", "metaAdMetrics", "metaConversionEvents", "metaAnalysisSnapshots", "customerReportVisibility", "monthlyReports", "customerDocuments", "reports", "competitorAnalyses", "socialMediaPlans", "agencyExpenses", "sectorConfigs", "systemTestRuns", "systemTestChecklist", "activityLogs"].includes(key) && (message.includes("schema cache") || message.includes("relation") || message.includes("table"))) {
-      console.warn(`${table} tablosu canlı şemada bulunamadı; migration uygulanana kadar bu modül atlandı.`);
-      return [];
     }
     console.error(`${table} kaydetme Supabase hatası:`, message);
     throw error;
@@ -612,7 +725,7 @@ export async function GET() {
     return NextResponse.json({ error: "Supabase bağlantısı yapılandırılmadı." }, { status: 500 });
   }
 
-  const [companies, users, leads, campaigns, campaignMetrics, metaAdsetMetrics, metaAdMetrics, metaConversionEvents, metaAnalysisSnapshots, customerReportVisibility, customerUpdates, customerVisibilitySettings, customerFiles, media, customerBranding, monthlyReports, agencyTasks, customerDocuments, paymentRecords, reports, competitorAnalyses, socialMediaPlans, agencyExpenses, sectorConfigs, systemTestRuns, systemTestChecklist, activityLogs, adIntegrations] =
+  const [companies, users, leads, campaigns, campaignMetrics, metaAdsetMetrics, metaAdMetrics, metaConversionEvents, metaAnalysisSnapshots, customerReportVisibility, customerUpdates, customerVisibilitySettings, customerFiles, media, customerBranding, monthlyReports, agencyTasks, customerDocuments, paymentRecords, reports, competitorAnalyses, socialMediaPlans, agencyExpenses, sectorConfigs, systemTestRuns, systemTestChecklist, activityLogs, adIntegrations, agencyOpportunities, agencyOpportunityEvents, agencyDailyTasks, agencyTargets, agencyLearningSignals, proposalFollowups] =
     await Promise.all([
       supabaseRest("companies?select=*&order=created_at.desc"),
       supabaseRest("users?deleted_at=is.null&select=*&order=created_at.desc"),
@@ -641,7 +754,13 @@ export async function GET() {
       supabaseRest("system_test_runs?deleted_at=is.null&select=*&order=created_at.desc").catch(() => []),
       supabaseRest("system_test_checklist?deleted_at=is.null&select=*&order=sort_order.asc").catch(() => []),
       supabaseRest("activity_logs?deleted_at=is.null&select=*&order=created_at.desc&limit=500").catch(() => []),
-      supabaseRest("ad_integrations?select=id,company_id,provider,pixel_id,pixel_enabled,pixel_status,capi_enabled,capi_status,status,sync_status,sync_message,last_sync_at,updated_at&order=updated_at.desc").catch(() => [])
+      supabaseRest("ad_integrations?select=id,company_id,provider,pixel_id,pixel_enabled,pixel_status,capi_enabled,capi_status,status,sync_status,sync_message,last_sync_at,updated_at&order=updated_at.desc").catch(() => []),
+      supabaseRest("agency_opportunities?select=*&order=updated_at.desc").catch(() => []),
+      supabaseRest("agency_opportunity_events?select=*&order=created_at.desc&limit=500").catch(() => []),
+      supabaseRest("agency_daily_tasks?select=*&order=task_date.asc").catch(() => []),
+      supabaseRest("agency_targets?select=*&order=month.desc").catch(() => []),
+      supabaseRest("agency_learning_signals?select=*&order=created_at.desc").catch(() => []),
+      supabaseRest("proposal_followups?select=*&order=next_followup_at.asc").catch(() => [])
     ]);
 
   return NextResponse.json({
@@ -672,7 +791,13 @@ export async function GET() {
     systemTestRuns,
     systemTestChecklist,
     activityLogs,
-    adIntegrations
+    adIntegrations,
+    agencyOpportunities,
+    agencyOpportunityEvents,
+    agencyDailyTasks,
+    agencyTargets,
+    agencyLearningSignals,
+    proposalFollowups
   });
 }
 
@@ -708,7 +833,13 @@ export async function PUT(request: Request) {
       upsertItems("sectorConfigs", payload.sectorConfigs),
       upsertItems("systemTestRuns", payload.systemTestRuns),
       upsertItems("systemTestChecklist", payload.systemTestChecklist),
-      upsertItems("activityLogs", payload.activityLogs)
+      upsertItems("activityLogs", payload.activityLogs),
+      upsertItems("agencyOpportunities", payload.agencyOpportunities),
+      upsertItems("agencyOpportunityEvents", payload.agencyOpportunityEvents),
+      upsertItems("agencyDailyTasks", payload.agencyDailyTasks),
+      upsertItems("agencyTargets", payload.agencyTargets),
+      upsertItems("agencyLearningSignals", payload.agencyLearningSignals),
+      upsertItems("proposalFollowups", payload.proposalFollowups)
     ]);
 
     await recordActivity({ session, action: "Güncelleme", entity: "Kontrol Merkezi", details: { message: "Kontrol merkezi kayıtları güncellendi" } });

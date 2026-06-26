@@ -30,7 +30,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     ]
   },
   {
-    label: "CRM & Müşteriler",
+    label: "Müşteri & Satış",
     description: "Lead keşfinden müşteri profiline uzanan satış akışları.",
     icon: "UsersRound",
     badge: "CRM",
@@ -38,7 +38,10 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     items: [
       { label: "Satış Hunisi", slug: "satis-hunisi", module: "leads", description: "Lead aşamaları, fırsatlar ve satış ilerleme görünümü." },
       { label: "Leadler", slug: "leads", module: "leads", description: "Başvurular, iletişim bilgileri ve lead durumları." },
+      { label: "CRM & Lead Workspace", slug: "lead-workspace", module: "leads", description: "CRM kayıtları, segmentler ve lead detay çalışma alanı." },
       { label: "Takip Merkezi", slug: "takip-merkezi", module: "leads", description: "Arama, WhatsApp, toplantı ve teklif takipleri." },
+      { label: "Teklif Takip Merkezi", slug: "teklif-takip-merkezi", module: "teklifler", description: "Teklif sonrası 3, 7, 14 ve 21 günlük takip akışları." },
+      { label: "Kazanıldı / Kaybedildi Analizi", slug: "kazanildi-kaybedildi-analizi", module: "leads", description: "Kapanan fırsatlardan sektör, şehir, paket ve itiraz öğrenimi." },
       { label: "Müşteri Keşfi", slug: "musteri-kesfi", module: "musteri-bulucu", description: "Yeni işletme adayları ve dijital fırsat sinyalleri." },
       { label: "Haritalar", slug: "haritalar", module: "haritalar", description: "Bölgesel işletme keşfi ve Google Maps sinyalleri." },
       { label: "Lead Analizi", slug: "lead-analizi", module: "leads", description: "Lead kalitesi, sıcaklık ve dönüşüm potansiyeli analizi." },
@@ -72,7 +75,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     ]
   },
   {
-    label: "Tahsilat & Operasyon",
+    label: "Ajans Operasyonu",
     description: "Ödeme, görev, belge ve ajans operasyon takibi.",
     icon: "Gauge",
     badge: "Ajans",
@@ -82,6 +85,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: "Görevler", slug: "gorevler", module: "gorevler", description: "Ajans içi yapılacak işler ve müşteri görünür görevler." },
       { label: "Takvim", slug: "takvim", module: "gorevler", description: "Görev, kampanya, rapor ve tahsilat tarihleri." },
       { label: "Karlılık", slug: "karlilik", module: "karlilik", description: "Gelir, gider ve tahmini kârlılık görünümü." },
+      { label: "Ajans Hedefleri", slug: "ajans-hedefleri", module: "karlilik", description: "Aylık gelir, müşteri, teklif, görüşme ve tahsilat hedefleri." },
       { label: "Belgeler", slug: "belgeler", module: "belgeler", description: "Müşteri belgeleri, sözleşmeler ve paylaşılabilir dosyalar." },
       { label: "Gelir Tahmini", slug: "gelir-tahmini", module: "karlilik", description: "Beklenen, riskli ve gecikmiş gelir öngörüsü." },
       { label: "Sözleşme Oluştur", slug: "sozlesme-olustur", module: "belgeler", description: "Müşteri ve hizmet paketinden sözleşme taslağı." },
@@ -91,13 +95,14 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     ]
   },
   {
-    label: "İçerik & AI Studio",
+    label: "İçerik & AI",
     description: "AI üretim alanı, içerik planları, promptlar ve medya.",
     icon: "Bot",
     badge: "AI",
     accent: "from-blue-500 via-indigo-500 to-violet-600",
     items: [
       { label: "AI Studio", slug: "ai-studio", module: "ai-studio", description: "İçerik, analiz ve rapor üretim araçları." },
+      { label: "AI Satış Koçu", slug: "ai-satis-kocu", module: "ai-studio", description: "Lead ve fırsatlar için arama, WhatsApp, e-posta ve itiraz cevapları." },
       { label: "İçerik Planları", slug: "icerik-fikirleri", module: "icerik-onerileri", description: "Kanal ve hedefe göre içerik fikirleri." },
       { label: "Promptlar", slug: "prompt-uretimi", module: "prompt-kutuphanesi", description: "Tekrar kullanılabilir yapay zekâ komutları." },
       { label: "Medya", slug: "medya", module: "medya", description: "Görsel, video ve marka dosyaları." },
@@ -139,7 +144,8 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: "Web Sitesi Yönetimi", slug: "web-sitesi-yonetimi", module: "site-ayarlari", description: "Public site içerikleri, paketler ve marka alanları." },
       { label: "Kullanıcı Yönetimi", slug: "kullanici-yonetimi", module: "kullanicilar", description: "Yönetici, ekip ve müşteri kullanıcı yetkileri." },
       { label: "Tema / Logo", slug: "tema-logo", module: "tema-ayarlari", description: "Logo ve marka görselleri için merkezi ayarlar." },
-      { label: "Sistem Ayarları", slug: "sistem-ayarlari", module: "site-ayarlari", description: "Genel uygulama davranışı ve sistem tercihleri." }
+      { label: "Sistem Ayarları", slug: "sistem-ayarlari", module: "site-ayarlari", description: "Genel uygulama davranışı ve sistem tercihleri." },
+      { label: "Mobil Operasyon Modu", slug: "mobil-operasyon-modu", module: "site-ayarlari", description: "Saha kullanımı için büyük butonlu admin görünüm tercihi." }
     ]
   }
 ];
@@ -168,8 +174,14 @@ const legacySlugRedirects: Record<string, string> = {
   "isletme-kesfi": "musteri-kesfi",
   reddedilenler: "leads",
   silinenler: "leads",
-  "lead-workspace": "lead-analizi",
   "lead-yonetimi": "lead-analizi",
+  "crm-lead-workspace": "lead-workspace",
+  "teklif-takip": "teklif-takip-merkezi",
+  "proposal-followups": "teklif-takip-merkezi",
+  "won-lost-analysis": "kazanildi-kaybedildi-analizi",
+  "ajans-hedef-panosu": "ajans-hedefleri",
+  "agency-targets": "ajans-hedefleri",
+  "ai-sales-coach": "ai-satis-kocu",
   "teklifler": "teklif-hazirlama",
   "teklif-motoru": "teklif-hazirlama",
   "teklif-listesi": "musteri-raporlari",

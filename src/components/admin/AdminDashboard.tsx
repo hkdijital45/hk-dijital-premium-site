@@ -399,25 +399,7 @@ export function AdminDashboard({
   const [isDesktopApp, setIsDesktopApp] = useState(false);
   const [selectedCompanyId, setSelectedCompanyId] = useState("");
   const [pendingCompanyId, setPendingCompanyId] = useState("");
-  const [mobileOperationMode, setMobileOperationMode] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem("hk-mobile-operation-mode") === "true";
-  });
-  useEffect(() => {
-    const syncMobileOperationMode = () => {
-      try {
-        setMobileOperationMode(localStorage.getItem("hk-mobile-operation-mode") === "true");
-      } catch {
-        setMobileOperationMode(false);
-      }
-    };
-    window.addEventListener("storage", syncMobileOperationMode);
-    window.addEventListener("hk-mobile-operation-mode-change", syncMobileOperationMode);
-    return () => {
-      window.removeEventListener("storage", syncMobileOperationMode);
-      window.removeEventListener("hk-mobile-operation-mode-change", syncMobileOperationMode);
-    };
-  }, []);
+  const [mobileOperationMode, setMobileOperationMode] = useState(false);
 
   useEffect(() => {
     setIsDesktopApp(Boolean(window.hkDesktop?.isDesktop));
@@ -435,6 +417,11 @@ export function AdminDashboard({
       setNotificationState(JSON.parse(localStorage.getItem("hk-admin-notification-state") || "null") || { read: [], archived: [] });
     } catch {
       setNotificationState({ read: [], archived: [] });
+    }
+    try {
+      setMobileOperationMode(localStorage.getItem("hk-mobile-operation-mode") === "true");
+    } catch {
+      setMobileOperationMode(false);
     }
     const activeCompanies = (initialContent.companies || []).filter((company: any) => !company.status || company.status === "Aktif");
     const rememberedCompany = localStorage.getItem("hk-admin-selected-company") || "";
@@ -456,14 +443,14 @@ export function AdminDashboard({
   }
 
   function toggleMobileOperationMode() {
-    const next = !mobileOperationMode;
-    setMobileOperationMode(next);
-    try {
-      localStorage.setItem("hk-mobile-operation-mode", String(next));
-      window.dispatchEvent(new CustomEvent("hk-mobile-operation-mode-change", { detail: next }));
-    } catch {
-      // Görünüm tercihi kaydedilemezse admin akışı bozulmasın.
-    }
+    setMobileOperationMode((current) => {
+      const next = !current;
+      try {
+        localStorage.setItem("hk-mobile-operation-mode", next ? "true" : "false");
+      } catch {}
+      notify(next ? "Mobil Operasyon Modu açıldı." : "Masaüstü Modu açıldı.", "success");
+      return next;
+    });
   }
 
   useEffect(() => {
@@ -519,7 +506,7 @@ export function AdminDashboard({
       const contentResponse = allowedModules.includes("site-ayarlari")
         ? await fetch("/api/content", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) })
         : new Response(JSON.stringify({ ok: true }), { status: 200 });
-      const centerWritableModules = ["musteriler", "leads", "crm", "kampanyalar", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "sektor-sistemleri", "sistem-loglari", "sistem-test-merkezi", "teklifler"];
+      const centerWritableModules = ["musteriler", "leads", "crm", "kampanyalar", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "sektor-sistemleri", "sistem-loglari", "sistem-test-merkezi", "teklifler", "musteri-bulucu", "haritalar", "site-ayarlari"];
       const centerResponse = supabaseConfigured && centerWritableModules.some((module) => allowedModules.includes(module))
         ? await fetch("/api/admin/center-data", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) })
         : contentResponse;
@@ -632,7 +619,7 @@ export function AdminDashboard({
   const activeNavigationItem = adminNavigationItems.find((item) => item.label === active);
 
   return (
-    <main data-admin="true" className={`admin-shell hk-admin relative min-h-screen overflow-x-hidden ${shellClass}`}>
+    <main data-admin="true" data-mobile-operation-mode={mobileOperationMode ? "true" : "false"} className={`admin-shell hk-admin relative min-h-screen overflow-x-hidden ${mobileOperationMode ? "hk-mobile-operation-mode" : ""} ${shellClass}`}>
       <div className="admin-ambient pointer-events-none absolute inset-0" />
       <div className="premium-grid pointer-events-none absolute inset-0 opacity-20" />
       <header className={`sticky top-0 z-40 border-b ${headerClass} shadow-[0_8px_30px_rgba(15,23,42,.06)] backdrop-blur-sm`}>
@@ -717,6 +704,16 @@ export function AdminDashboard({
             <button onClick={() => setCopilotOpen(true)} className="inline-flex min-h-10 items-center gap-2 rounded-[8px] bg-purple-100 px-4 text-sm font-black text-purple-700 ring-1 ring-purple-200 transition hover:bg-purple-200">
               <Bot size={17} /> HK Copilot
             </button>
+            <button
+              type="button"
+              aria-label="Mobil Operasyon Modu Toggle"
+              aria-pressed={mobileOperationMode}
+              onClick={toggleMobileOperationMode}
+              className={`inline-flex min-h-10 items-center gap-2 rounded-[8px] border px-4 text-sm font-black transition ${mobileOperationMode ? "border-cyan-300 bg-cyan-300 text-slate-950 shadow-[0_12px_30px_rgba(6,182,212,.22)]" : "border-slate-200 bg-white text-slate-700 hover:border-cyan-200 hover:bg-cyan-50"}`}
+              title="Mobil Operasyon Modu yalnızca admin arayüz görünüm tercihini değiştirir; CRM veya lead kaydı güncellemez."
+            >
+              {mobileOperationMode ? "🖥️ Masaüstü Mod" : "📱 Mobil Mod"}
+            </button>
             <div className="relative">
               <button onClick={() => setNotificationsOpen((current) => !current)} className="relative grid min-h-10 min-w-10 place-items-center rounded-[8px] border border-slate-200 bg-white text-slate-700 transition hover:border-cyan-200/30 hover:bg-cyan-200/10" aria-label="Bildirimler">
                 <Bell size={17} />
@@ -742,16 +739,6 @@ export function AdminDashboard({
                 </div>
               )}
             </div>
-            <button
-              type="button"
-              onClick={toggleMobileOperationMode}
-              aria-label="Mobil Operasyon Modu Toggle"
-              aria-pressed={mobileOperationMode}
-              title={mobileOperationMode ? "Mobil operasyon görünümünü kapat" : "Mobil operasyon görünümünü aç"}
-              className={`inline-flex min-h-10 items-center gap-2 rounded-[8px] px-4 text-sm font-black transition ${mobileOperationMode ? "border border-slate-900 bg-slate-900 text-white shadow-[0_10px_24px_rgba(15,23,42,.18)]" : "border border-slate-200 bg-white text-slate-700 hover:border-cyan-200 hover:bg-cyan-50"}`}
-            >
-              {mobileOperationMode ? "🖥️ Masaüstü Mod" : "📱 Mobil Mod"}
-            </button>
             {(allowedModules.includes("site-ayarlari") || ["musteriler", "kampanyalar", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "sektor-sistemleri"].some((module) => allowedModules.includes(module))) && <button disabled={saving} onClick={() => save()} className={`inline-flex min-h-10 items-center gap-2 rounded-[8px] bg-cyan-300 px-4 text-sm font-black text-slate-950 disabled:opacity-60 ${saveFeedback === "success" ? "hk-action-success" : ""}`}><Save size={17} /> {saving ? "Kaydediliyor..." : saveFeedback === "success" ? "Kaydedildi ✓" : saveFeedback === "error" ? "Tekrar Dene" : "💾 Kaydet"}</button>}
             <button onClick={logout} className="inline-flex min-h-10 items-center gap-2 rounded-[8px] border border-slate-200 px-4 text-sm font-bold"><LogOut size={17} /> Çıkış</button>
           </div>
@@ -769,7 +756,13 @@ export function AdminDashboard({
           {active === "Risk Merkezi" && <HKIntelligenceCommandCenter {...props} initialView="risk" />}
           {active === "Satış Hunisi" && <SalesPipeline content={content} setContent={setContent} save={save} setActive={setActive} notify={notify} />}
           {active === "CRM" && <CrmHub {...props} />}
+          {active === "CRM & Lead Workspace" && <Crm {...props} view="Lead Durumları" setActive={setActive} />}
           {active === "Takip Merkezi" && <LeadFollowUpCenter {...props} setActive={setActive} />}
+          {active === "Teklif Takip Merkezi" && <ProposalFollowupCenter {...props} setActive={setActive} />}
+          {active === "Kazanıldı / Kaybedildi Analizi" && <WonLostAnalysisCenter {...props} />}
+          {active === "Ajans Hedefleri" && <AgencyTargetsCenter {...props} />}
+          {active === "AI Satış Koçu" && <AiSalesCoachCenter {...props} />}
+          {active === "Mobil Operasyon Modu" && <MobileOperationModeCenter />}
           {active === "AI Denetim" && <AiAuditCenter {...props} setActive={setActive} />}
           {active === "Görevler" && <AgencyTasksCenter {...props} selectedCompanyId={selectedCompanyId} />}
           {active === "Belgeler" && <DocumentCenter {...props} selectedCompanyId={selectedCompanyId} />}
@@ -1853,11 +1846,6 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
   const [aiStatusMessage, setAiStatusMessage] = useState("");
   const [aiStatusLoading, setAiStatusLoading] = useState(false);
   const today = new Date().toISOString().slice(0, 10);
-  const dailyActionKey = `hk-daily-agency-actions:${today}`;
-  const [completedDailyActions, setCompletedDailyActions] = useState(() => {
-    if (typeof window === "undefined") return {};
-    try { return JSON.parse(localStorage.getItem(dailyActionKey) || "{}"); } catch { return {}; }
-  });
   const month = today.slice(0, 7);
   const aiAnalyzedLeads = leads.filter((lead) => lead.ai_analysis && Object.keys(lead.ai_analysis).length);
   const generatedProposals = leads.reduce((sum, lead) => sum + (Array.isArray(lead.proposal_history) ? lead.proposal_history.length : 0), 0);
@@ -2271,116 +2259,6 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     ["Yaklaşan raporlar", upcomingReports.length, "Müşteri Raporları", "bg-purple-50 text-purple-700"],
     ["Kampanya bitişleri", upcomingCampaigns.length, "Kampanyalar", "bg-orange-50 text-orange-700"]
   ];
-  const monthlyAgencyTarget = 50000;
-  const openProposalLeads = leads.filter((lead) => ["Teklif Hazırlanıyor", "Teklif Gönderildi", "Teklif Görüntülendi", "Revize İstendi"].includes(lead.proposal_status || lead.status));
-  const aiPendingOpportunities = leads.filter((lead) => Number(lead.lead_heat_score || 0) >= 60 && !(lead.ai_analysis || lead.aiAnalysis) && !["Kazanıldı", "Kaybedildi", "Dönüştürüldü"].includes(lead.status));
-  const proposalNeededOpportunities = leads.filter((lead) => Number(lead.lead_heat_score || 0) >= 65 && !lead.proposal_status && !["Kazanıldı", "Kaybedildi", "Dönüştürüldü"].includes(lead.status));
-  const wonThisMonth = leads.filter((lead) => ["Kazanıldı", "Dönüştürüldü", "Müşteri Oldu"].includes(lead.status) && String(lead.updated_at || lead.created_at || "").startsWith(month)).length;
-  const proposalRevenueEstimate = openProposalLeads.reduce((sum, lead) => sum + Number(lead.proposal_amount || lead.estimated_monthly_revenue || 15000), 0);
-  const weightedExpectedRevenue = leads.filter((lead) => !["Kaybedildi"].includes(lead.status)).reduce((sum, lead) => {
-    const stage = pipelineStageForLead(lead);
-    const weight = stage === "Kazanıldı" ? 1 : stage === "Teklif Gönderildi" ? 0.55 : stage === "Takipte" ? 0.7 : stage === "Toplantı Yapıldı" ? 0.35 : stage === "İletişim Kuruldu" ? 0.2 : 0.1;
-    return sum + Number(lead.proposal_amount || lead.estimated_monthly_revenue || 12000) * weight;
-  }, 0);
-  const targetGapRevenue = Math.max(0, monthlyAgencyTarget - paidRevenue - weightedExpectedRevenue);
-  const neededCustomersForTarget = Math.max(0, Math.ceil(targetGapRevenue / 15000));
-  const agencyPriorityRows = [
-    {
-      title: followUpLeads[0]?.company || followUpLeads[0]?.name || "Yeni sıcak fırsat keşfi",
-      text: followUpLeads[0]
-        ? `Bugün önce ${followUpLeads[0].company || followUpLeads[0].name} fırsatını işle. Kapanış olasılığı %${Math.max(55, Math.min(90, Number(followUpLeads[0].lead_heat_score || 60)))}.`
-        : "Bugün yeni fırsat havuzu oluşturmak için İşletme Keşfi ekranında şehir ve sektör taraması başlat.",
-      action: followUpLeads[0] ? "Sıcak lead takibi" : "Yeni müşteri bulma",
-      target: followUpLeads[0] ? "Satış Hunisi" : "Müşteri Bulucu"
-    },
-    {
-      title: openProposalLeads[0]?.company || openProposalLeads[0]?.name || "Teklif takibi",
-      text: openProposalLeads.length ? `${openProposalLeads.length} teklif takip bekliyor. Teklif sonrası 3 gün geçtiyse tekrar temas önerilir.` : "Bekleyen teklif yok; yüksek skorlu fırsatlar için yeni teklif hazırlayın.",
-      action: "Teklifleri takip et",
-      target: "Teklif Motoru"
-    },
-    {
-      title: aiPendingOpportunities[0]?.company || aiPendingOpportunities[0]?.name || "AI analizi bekleyen fırsatlar",
-      text: aiPendingOpportunities.length ? `${aiPendingOpportunities.length} fırsat için AI satış analizi eksik. Önce en yüksek skorlu fırsatı yorumlatın.` : "AI analizi bekleyen sıcak fırsat görünmüyor.",
-      action: "AI analizi hazırla",
-      target: "AI Studio"
-    },
-    {
-      title: proposalNeededOpportunities[0]?.company || proposalNeededOpportunities[0]?.name || "Teklif hazırlanacak fırsatlar",
-      text: proposalNeededOpportunities.length ? `${proposalNeededOpportunities.length} fırsat teklif aşamasına alınabilir. İlk paketi ve bütçe aralığını netleştirin.` : "Teklif hazırlanacak yeni sıcak fırsat yok.",
-      action: "Teklif oluştur",
-      target: "Teklif Motoru"
-    }
-  ];
-  const weeklyLeads = leads.filter((lead) => {
-    const created = new Date(lead.created_at || lead.updated_at || 0);
-    const weekAgo = new Date();
-    weekAgo.setDate(weekAgo.getDate() - 7);
-    return created >= weekAgo;
-  });
-  const weeklyAddedToCrm = weeklyLeads.filter((lead) => ["Müşteri Bulucu", "Fırsat Motoru", "Google Maps"].includes(lead.source || lead.lead_source || ""));
-  const weeklyProposals = leads.filter((lead) => (lead.proposal_status || Array.isArray(lead.proposal_history)) && String(lead.updated_at || lead.created_at || "").slice(0, 10) >= (() => { const d = new Date(); d.setDate(d.getDate() - 7); return d.toISOString().slice(0, 10); })());
-  const weeklyMeetings = leads.filter((lead) => ["Toplantı Yapıldı", "İlk Görüşme", "Görüşme"].includes(lead.status || lead.pipeline_stage || ""));
-  const weeklyWon = weeklyLeads.filter((lead) => ["Kazanıldı", "Dönüştürüldü", "Müşteri Oldu"].includes(lead.status)).length;
-  const weeklyLost = weeklyLeads.filter((lead) => lead.status === "Kaybedildi").length;
-  const weeklySuccessRate = weeklyWon + weeklyLost ? Math.round((weeklyWon / (weeklyWon + weeklyLost)) * 100) : 0;
-  const averageServiceFee = Math.round((proposalRevenueEstimate || expectedRevenue || 0) / Math.max(1, openProposalLeads.length || activeCustomers.length || 1));
-  const yearlyAgencyTarget = monthlyAgencyTarget * 12;
-  const revenuePanelRows = [
-    ["Gerçekleşen gelir", `${paidRevenue.toLocaleString("tr-TR")} TL`],
-    ["Beklenen gelir", `${Math.round(weightedExpectedRevenue).toLocaleString("tr-TR")} TL`],
-    ["Teklif aşamasındaki gelir", `${Math.round(proposalRevenueEstimate).toLocaleString("tr-TR")} TL`],
-    ["Tahsil edilmeyen gelir", `${pendingRevenue.toLocaleString("tr-TR")} TL`],
-    ["Hedefe kalan gelir", `${Math.round(targetGapRevenue).toLocaleString("tr-TR")} TL`],
-    ["Aylık hedef", `${monthlyAgencyTarget.toLocaleString("tr-TR")} TL`],
-    ["Yıllık hedef", `${yearlyAgencyTarget.toLocaleString("tr-TR")} TL`]
-  ];
-  const salesKpiRows = [
-    ["İncelenen işletme", weeklyLeads.length],
-    ["CRM’e eklenen", weeklyAddedToCrm.length],
-    ["Hazırlanan teklif", weeklyProposals.length],
-    ["Yapılan görüşme", weeklyMeetings.length],
-    ["Kazanılan müşteri", weeklyWon],
-    ["Kaybedilen müşteri", weeklyLost],
-    ["Başarı oranı", `%${weeklySuccessRate}`],
-    ["Ortalama satış süresi", openProposalLeads.length ? "7-14 gün" : "Veri bekleniyor"],
-    ["Ortalama hizmet bedeli", `${averageServiceFee.toLocaleString("tr-TR")} TL`]
-  ];
-  const salesPerformanceRows = [{
-    name: currentSession?.name || currentSession?.email || "Ben",
-    proposals: weeklyProposals.length,
-    meetings: weeklyMeetings.length,
-    won: weeklyWon,
-    rate: `%${weeklySuccessRate}`,
-    closing: openProposalLeads.length ? "7-14 gün" : "Veri bekleniyor"
-  }];
-  const calendarRows = [
-    ["Bugün", activeTasks.filter((item) => item.due_date === today).length, "Görevler"],
-    ["Yarın", activeTasks.filter((item) => { const d = new Date(); d.setDate(d.getDate() + 1); return item.due_date === d.toISOString().slice(0, 10); }).length, "Görevler"],
-    ["Bu hafta", activeTasks.filter((item) => item.due_date && item.due_date >= today).slice(0, 7).length, "Görevler"]
-  ];
-  const operationCards = [
-    ["Bugün ilk aranacak fırsat", followUpLeads[0]?.company || followUpLeads[0]?.name || "Yeni fırsat keşfi başlat", "Müşteri Bulucu"],
-    ["Takip edilecek teklifler", openProposalLeads.length ? `${openProposalLeads.length} teklif takipte` : "Bekleyen teklif yok", "Teklif Motoru"],
-    ["AI analizi eksik fırsatlar", aiPendingOpportunities.length ? `${aiPendingOpportunities.length} fırsat eksik` : "Eksik analiz yok", "AI Studio"],
-    ["Bekleyen tahsilatlar", `${pendingRevenue.toLocaleString("tr-TR")} TL`, "Tahsilat"],
-    ["Kritik görevler", criticalTasks.length, "Görevler"],
-    ["Hedefe kalan müşteri", neededCustomersForTarget, "Müşteri Bulucu"],
-    ["Beklenen aylık gelir", `${Math.round(weightedExpectedRevenue).toLocaleString("tr-TR")} TL`, "Tahsilat"],
-    ["Son kazanılan müşteri", leads.find((lead) => ["Kazanıldı", "Dönüştürüldü", "Müşteri Oldu"].includes(lead.status))?.company || "Henüz kayıt yok", "Satış Hunisi"]
-  ];
-  const dailyActionRows = [
-    ["call-sector", "5 kuaför ara", "Müşteri Bulucu"],
-    ["proposal-dentist", "2 diş kliniğine teklif gönder", "Teklif Motoru"],
-    ["analyze-gallery", "1 galeriyi analiz et", "AI Studio"],
-    ["follow-proposals", "3 teklifi takip et", "Teklif Motoru"],
-    ["collection-reminder", "Bekleyen tahsilatı hatırlat", "Tahsilat"]
-  ];
-  function toggleDailyAction(id: string) {
-    const next = { ...completedDailyActions, [id]: !completedDailyActions[id] };
-    setCompletedDailyActions(next);
-    try { localStorage.setItem(dailyActionKey, JSON.stringify(next)); } catch {}
-  }
   const aiHealthDimensions = [
     ["Reklam Sağlığı", activeCampaigns.length ? Math.min(100, 55 + activeCampaigns.length * 8) : 42, activeCampaigns.length ? "Aktif kampanya var; performans takibi yapılabilir." : "Aktif kampanya az veya yok."],
     ["İçerik Sağlığı", (content.socialMediaPlans || []).length ? 78 : 48, (content.socialMediaPlans || []).length ? "İçerik planı kayıtları mevcut." : "Düzenli içerik planı için kayıt az."],
@@ -2436,60 +2314,6 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
   return (
     <Panel title="Operasyon Merkezi">
       <div className="admin-light-dashboard grid w-full min-w-0 gap-5">
-        <section className="rounded-[30px] border border-slate-200 bg-white p-5 shadow-[0_24px_70px_rgba(15,23,42,.09)] sm:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[.18em] text-slate-500">AI Ajans Direktörü</p>
-              <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">HK OPERASYON MERKEZİ</h1>
-              <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">Bugün ilk aranacak fırsatları, takipteki teklifleri, eksik AI analizlerini, tahsilat risklerini ve hedefe kalan geliri tek alanda önceliklendirir.</p>
-            </div>
-            <button onClick={generateDailyPlan} className="rounded-full bg-slate-950 px-5 py-3 text-sm font-black text-white">AI Günlük Özeti Hazırla</button>
-          </div>
-          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {operationCards.map(([label, value, target]) => (
-              <div key={label as string} className="rounded-[18px] border border-slate-200 bg-slate-50 p-4">
-                <p className="text-[11px] font-black uppercase tracking-[.12em] text-slate-500">{label}</p>
-                <p className="mt-2 truncate text-lg font-black text-slate-950">{value}</p>
-                <button onClick={() => setActive(target as string)} className="mt-3 rounded-full bg-white px-3 py-2 text-[11px] font-black text-slate-700 ring-1 ring-slate-200">Aç</button>
-              </div>
-            ))}
-          </div>
-          <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-            <div className="rounded-[22px] border border-cyan-100 bg-cyan-50 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-lg font-black text-slate-950">Günlük Yapılacaklar</h3>
-                  <p className="mt-1 text-xs leading-5 text-slate-600">Tamamlanan önerileri işaretleyin. Tercih bugün için cihazda saklanır.</p>
-                </div>
-                <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black text-cyan-700 ring-1 ring-cyan-100">{dailyActionRows.filter(([id]) => completedDailyActions[id as string]).length}/{dailyActionRows.length} tamamlandı</span>
-              </div>
-              <div className="mt-4 grid gap-2 md:grid-cols-2">
-                {dailyActionRows.map(([id, title, target]) => (
-                  <label key={id as string} className="flex items-center justify-between gap-3 rounded-[14px] bg-white p-3 text-sm font-bold text-slate-700 ring-1 ring-cyan-100">
-                    <span className="flex min-w-0 items-center gap-2">
-                      <input type="checkbox" checked={Boolean(completedDailyActions[id as string])} onChange={() => toggleDailyAction(id as string)} />
-                      <span className={completedDailyActions[id as string] ? "truncate text-slate-400 line-through" : "truncate"}>{title}</span>
-                    </span>
-                    <button type="button" onClick={(event) => { event.preventDefault(); setActive(target as string); }} className="shrink-0 rounded-full bg-cyan-100 px-2.5 py-1 text-[10px] font-black text-cyan-800">Git</button>
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div className="rounded-[22px] border border-amber-100 bg-amber-50 p-4">
-              <h3 className="text-lg font-black text-slate-950">Yaklaşan İşler</h3>
-              <p className="mt-1 text-xs leading-5 text-slate-600">Takvim özeti görev tarihleri üzerinden hesaplanır.</p>
-              <div className="mt-4 grid gap-2">
-                {calendarRows.map(([label, value, target]) => (
-                  <button key={label as string} onClick={() => setActive(target as string)} className="flex items-center justify-between rounded-[14px] bg-white px-3 py-3 text-left ring-1 ring-amber-100">
-                    <span className="text-sm font-black text-slate-800">{label}</span>
-                    <strong className="text-lg text-amber-700">{value}</strong>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
         <section className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-[0_18px_44px_rgba(15,23,42,.07)] sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -2565,89 +2389,6 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
               </div>
             </div>
           ))}
-        </section>
-
-        <section className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
-          <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[.16em] text-blue-700">Satış KPI Paneli</p>
-                <h3 className="mt-2 text-xl font-black text-slate-950">Bu hafta satış performansı</h3>
-              </div>
-              <span className="rounded-full bg-blue-50 px-3 py-1 text-[10px] font-black text-blue-700">Son 7 gün</span>
-            </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {salesKpiRows.map(([label, value]) => (
-                <div key={label as string} className="rounded-[16px] border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-[10px] font-black uppercase tracking-[.12em] text-slate-500">{label}</p>
-                  <p className="mt-2 text-xl font-black text-slate-950">{value}</p>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 rounded-[16px] border border-slate-200 bg-white p-4">
-              <h4 className="text-sm font-black text-slate-950">Satış performansı</h4>
-              <div className="mt-3 grid gap-2">
-                {salesPerformanceRows.map((row) => (
-                  <div key={row.name} className="grid gap-2 rounded-[12px] bg-slate-50 p-3 text-xs text-slate-600 md:grid-cols-6">
-                    <strong className="text-slate-950">{row.name}</strong>
-                    <span>Teklif: {row.proposals}</span>
-                    <span>Görüşme: {row.meetings}</span>
-                    <span>Kazanım: {row.won}</span>
-                    <span>Başarı: {row.rate}</span>
-                    <span>Kapanış: {row.closing}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className="rounded-[24px] border border-emerald-100 bg-white p-5 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[.16em] text-emerald-700">Gelir Paneli</p>
-            <h3 className="mt-2 text-xl font-black text-slate-950">Hedef ve tahsilat görünümü</h3>
-            <div className="mt-4 grid gap-2">
-              {revenuePanelRows.map(([label, value]) => <InfoItem key={label as string} label={label} value={value} />)}
-            </div>
-          </div>
-        </section>
-
-        <section className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,.65fr)]">
-          <div className="rounded-[24px] border border-cyan-100 bg-white p-5 shadow-[0_16px_42px_rgba(15,23,42,.06)]">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Ajans Satış Operasyon Merkezi</p>
-                <h3 className="mt-2 text-xl font-black text-slate-950">Bugünün Ajans Öncelikleri</h3>
-                <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">Sıcak lead, teklif, AI analiz ve görev sinyallerinden bugün yapılacak satış aksiyonlarını çıkarır.</p>
-              </div>
-              <button onClick={() => setActive("Müşteri Bulucu")} className="rounded-full bg-cyan-500 px-4 py-2 text-xs font-black text-white">Fırsatı Aç</button>
-            </div>
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              {agencyPriorityRows.map((item) => (
-                <div key={item.title + item.action} className="rounded-[18px] border border-slate-200 bg-slate-50 p-4">
-                  <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-black text-slate-500 ring-1 ring-slate-200">{item.action}</span>
-                  <h4 className="mt-3 truncate text-sm font-black text-slate-950">{item.title}</h4>
-                  <p className="mt-2 min-h-12 text-xs leading-5 text-slate-600">{item.text}</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <button onClick={() => setActive(item.target)} className="rounded-full bg-slate-900 px-3 py-2 text-[11px] font-black text-white">Aç</button>
-                    <button onClick={() => setActive("Müşteri Bulucu")} className="rounded-full border border-cyan-200 bg-white px-3 py-2 text-[11px] font-black text-cyan-700">İşletme Keşfine Git</button>
-                    <button onClick={() => setActive("AI Studio")} className="rounded-full border border-purple-200 bg-white px-3 py-2 text-[11px] font-black text-purple-700">AI Analizi Hazırla</button>
-                    <button onClick={() => setActive("Teklif Motoru")} className="rounded-full border border-amber-200 bg-white px-3 py-2 text-[11px] font-black text-amber-700">Teklif Oluştur</button>
-                    <button onClick={() => setActive("Görevler")} className="rounded-full border border-emerald-200 bg-white px-3 py-2 text-[11px] font-black text-emerald-700">Görev Oluştur</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="rounded-[24px] border border-emerald-100 bg-white p-5 shadow-[0_16px_42px_rgba(15,23,42,.06)]">
-            <p className="text-xs font-black uppercase tracking-[.16em] text-emerald-700">Gelir hedefi</p>
-            <h3 className="mt-2 text-xl font-black text-slate-950">Ajans Gelir Tahmini</h3>
-            <div className="mt-4 grid gap-3">
-              <InfoItem label="Bu ay kazanılan müşteri" value={wonThisMonth} />
-              <InfoItem label="Teklif aşamasındaki gelir" value={`${Math.round(proposalRevenueEstimate).toLocaleString("tr-TR")} TL`} />
-              <InfoItem label="Olasılığa göre beklenen gelir" value={`${Math.round(weightedExpectedRevenue).toLocaleString("tr-TR")} TL`} />
-              <InfoItem label="Hedefe kalan" value={`${Math.round(targetGapRevenue).toLocaleString("tr-TR")} TL`} />
-              <InfoItem label="Gereken yeni müşteri" value={neededCustomersForTarget} />
-            </div>
-            <p className="mt-4 rounded-[14px] bg-emerald-50 p-3 text-xs leading-5 text-emerald-800">Fallback aylık hedef 50.000 TL olarak hesaplanır. Ayarlara taşınana kadar karar desteği için yerel hedef kullanılır.</p>
-          </div>
         </section>
 
         <section className="grid min-w-0 gap-5 xl:grid-cols-2">
@@ -3525,172 +3266,11 @@ function HKAssistantCenter({ content }: any) {
   return <Panel title="HK Intelligence Asistanı"><div className="grid gap-5 xl:grid-cols-[300px_1fr]"><aside className="rounded-[8px] border border-slate-200 bg-slate-50 p-4"><p className="text-xs font-black uppercase tracking-[.14em] text-cyan-700">Operasyon komutları</p><div className="mt-4 grid gap-2">{prompts.map((item) => <button key={item} onClick={() => setPrompt(item)} className="rounded-[8px] border border-slate-200 p-3 text-left text-xs font-bold text-slate-600 hover:border-cyan-200/30 hover:bg-cyan-300/10">{item}</button>)}</div></aside><section className="rounded-[8px] border border-slate-200 bg-slate-50 p-4"><TextArea label="Ajans sorusu" value={prompt} onChange={setPrompt} /><button disabled={loading} onClick={ask} className="mt-4 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-60">{loading ? "Yanıt hazırlanıyor..." : "Asistana sor"}</button>{answer && <pre className="mt-4 whitespace-pre-wrap rounded-[8px] border border-cyan-200/20 bg-cyan-300/10 p-4 text-sm leading-7 text-cyan-700">{answer}</pre>}</section></div></Panel>;
 }
 
-const sectorDecisionProfiles = [
-  { keys: ["diş", "klinik", "estetik", "sağlık", "fizik", "psikolog", "veteriner"], score: 92, google: 94, meta: 44, budget: "30.000-100.000 TL", fee: "15.000-35.000 TL", value: "75.000 TL", lifetime: "12-24 ay", subs: ["Diş Kliniği", "Estetik Merkezi", "Fizik Tedavi", "Psikolog", "Veteriner"], cities: ["İstanbul", "İzmir", "Ankara", "Bursa", "Antalya", "Kocaeli"], services: ["Google Ads", "Meta Ads", "Landing Page", "SEO", "WhatsApp Yönlendirme", "CRM Takibi", "Fotoğraf / Video İçerik"] },
-  { keys: ["emlak", "gayrimenkul", "inşaat"], score: 86, google: 88, meta: 62, budget: "30.000-100.000 TL", fee: "10.000-25.000 TL", value: "55.000 TL", lifetime: "6-12 ay", subs: ["Emlak Ofisi", "Lüks Konut", "Arsa", "Kiralık Ticari", "Proje Satışı"], cities: ["İstanbul", "İzmir", "Ankara", "Bursa", "Antalya", "Muğla"], services: ["Google Ads", "Meta Ads", "Landing Page", "Reklam Raporlama", "WhatsApp Yönlendirme", "Fotoğraf / Video İçerik"] },
-  { keys: ["oto", "galeri", "otomotiv", "servis"], score: 82, google: 86, meta: 58, budget: "20.000-70.000 TL", fee: "10.000-25.000 TL", value: "48.000 TL", lifetime: "6-12 ay", subs: ["Oto Galeri", "Ekspertiz", "Oto Servis", "Lastik", "Araç Kiralama"], cities: ["İstanbul", "Ankara", "İzmir", "Bursa", "Konya", "Adana"], services: ["Google Ads", "Meta Ads", "Landing Page", "SEO", "CRM Takibi", "Reklam Raporlama"] },
-  { keys: ["eğitim", "kurs", "okul", "anaokulu"], score: 80, google: 84, meta: 68, budget: "20.000-60.000 TL", fee: "10.000-25.000 TL", value: "42.000 TL", lifetime: "6-12 ay", subs: ["Dil Kursu", "Kolej", "Anaokulu", "Sürücü Kursu", "Online Eğitim"], cities: ["İstanbul", "Ankara", "İzmir", "Bursa", "Antalya", "Kocaeli"], services: ["Google Ads", "Meta Ads", "SEO", "Landing Page", "Sosyal Medya Yönetimi", "Reklam Raporlama"] },
-  { keys: ["restoran", "kafe", "butik pasta", "gıda"], score: 72, google: 70, meta: 74, budget: "10.000-30.000 TL", fee: "5.000-15.000 TL", value: "24.000 TL", lifetime: "3-6 ay", subs: ["Kafe", "Restoran", "Butik Pasta", "Kahvaltı Mekanı", "Paket Servis"], cities: ["İstanbul", "İzmir", "Ankara", "Bursa", "Antalya", "Muğla"], services: ["Meta Ads", "Sosyal Medya Yönetimi", "Google Ads", "Fotoğraf / Video İçerik", "WhatsApp Yönlendirme"] },
-  { keys: ["dernek", "stk"], score: 56, google: 44, meta: 52, budget: "5.000-15.000 TL", fee: "3.000-8.000 TL", value: "12.000 TL", lifetime: "3-6 ay", subs: ["Dernek", "Vakıf", "Topluluk", "Etkinlik", "Bağış Kampanyası"], cities: ["İstanbul", "Ankara", "İzmir", "Bursa", "Konya", "Adana"], services: ["Sosyal Medya Yönetimi", "Landing Page", "Meta Ads", "İçerik Planı"] }
-];
-
-function clampSectorScore(value: any, fallback = 70) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return fallback;
-  return Math.max(0, Math.min(100, Math.round(number)));
-}
-
-function sectorProfileFor(name: string) {
-  const normalized = String(name || "").toLocaleLowerCase("tr");
-  return sectorDecisionProfiles.find((profile) => profile.keys.some((key) => normalized.includes(key))) || { score: 68, google: 62, meta: 70, budget: "10.000-30.000 TL", fee: "5.000-15.000 TL", value: "25.000 TL", lifetime: "3-6 ay", subs: ["Yerel Hizmet", "Bölgesel İşletme", "Randevulu Hizmet", "Kurumsal Hizmet", "Perakende"], cities: ["İstanbul", "İzmir", "Ankara", "Bursa", "Antalya", "Kocaeli"], services: ["Google Ads", "Meta Ads", "Landing Page", "Reklam Raporlama", "CRM Takibi"] };
-}
-
-function sectorStars(score: number) {
-  const filled = Math.max(1, Math.min(5, Math.round(score / 20)));
-  return "★★★★★".slice(0, filled) + "☆☆☆☆☆".slice(0, 5 - filled);
-}
-
-function sectorOfferPriority(score: number) {
-  if (score >= 90) return { label: "🔥 HEMEN TEKLİF VER", short: "🔥 Hemen teklif ver. İlk temas bugün yapılmalı.", tone: "border-amber-200 bg-amber-50 text-amber-800" };
-  if (score >= 80) return { label: "✅ ÖNCELİKLİ TEKLİF VER", short: "✅ Öncelikli listeye al. Bu hafta görüşülmeli.", tone: "border-emerald-200 bg-emerald-50 text-emerald-800" };
-  if (score >= 70) return { label: "👍 TEKLİF VER", short: "👍 Teklif verilebilir. Fırsat varsa değerlendir.", tone: "border-cyan-200 bg-cyan-50 text-cyan-800" };
-  if (score >= 60) return { label: "⏳ ZAMAN KALIRSA TEKLİF VER", short: "⏳ Şimdilik beklet. Boş zamanda görüş.", tone: "border-orange-200 bg-orange-50 text-orange-800" };
-  return { label: "❌ TEKLİF VERME", short: "❌ Zaman harcama. Düşük bütçe ve düşük dönüşüm riski var.", tone: "border-red-200 bg-red-50 text-red-800" };
-}
-
-function sectorOpportunityLevel(score: number) {
-  if (score >= 90) return "Çok Yüksek";
-  if (score >= 80) return "Yüksek";
-  if (score >= 70) return "Orta";
-  if (score >= 60) return "Düşük";
-  return "Çok Düşük";
-}
-
-function metaCompetitionLabel(score: number) {
-  if (score <= 35) return "Çok Düşük";
-  if (score <= 50) return "Düşük";
-  if (score <= 68) return "Orta";
-  if (score <= 82) return "Yüksek";
-  return "Çok Yüksek";
-}
-
-function buildSectorDecision(item: any) {
-  const name = item.sector_name || item.sector || "Yeni sektör";
-  const profile = sectorProfileFor(name);
-  const serviceCount = ["suggested_crm_fields", "suggested_package_labels", "suggested_report_metrics", "suggested_content_categories"].reduce((sum, key) => sum + (Array.isArray(item[key]) ? item[key].length : 0), 0);
-  const totalScore = clampSectorScore(item.opportunity_score || item.total_score || item.score, clampSectorScore(profile.score + Math.min(8, serviceCount), profile.score));
-  const googleScore = clampSectorScore(item.google_score || item.google_potential, profile.google);
-  const metaCompetition = clampSectorScore(item.meta_competition_score || item.meta_competition, profile.meta);
-  const hkFitScore = clampSectorScore((totalScore * 0.32) + (googleScore * 0.18) + ((100 - metaCompetition) * 0.1) + (Math.min(100, serviceCount * 11) * 0.18) + (profile.score * 0.22), totalScore);
-  const priority = sectorOfferPriority(totalScore);
-  const googleLabel = googleScore >= 85 ? "★★★★★ Çok Güçlü" : googleScore >= 70 ? "★★★★ Güçlü" : googleScore >= 55 ? "★★★ Orta" : googleScore >= 40 ? "★★ Düşük" : "★ Çok Düşük";
-  const profitableServices = ["Google Ads", "Landing Page", "Meta Ads", "SEO", "CRM", "Video Çekimi"].filter((service) => profile.services.includes(service) || ["Google Ads", "Landing Page", "Meta Ads"].includes(service));
-  const risks = [
-    metaCompetition > 75 ? "Meta tarafında güçlü kreatif ve bütçe baskısı olabilir." : "Rekabet düşük görünse de kreatif kalitesi sonuçları belirler.",
-    totalScore < 70 ? "Düşük bütçeli işletmelerle zaman kaybı yaşanabilir." : "Karar vericiye hızlı ulaşılmazsa satış süreci uzayabilir.",
-    googleScore < 60 ? "Google arama talebi sınırlı olduğu için teklif kapsamı dar tutulmalı." : "Google Ads maliyetleri bölgeye göre hızlı artabilir."
-  ];
-  const opportunities = [
-    googleScore >= 70 ? "Google arama talebi güçlü; Google Ads teklifi mantıklı." : "Google tarafında niş arama fırsatları test edilebilir.",
-    metaCompetition <= 60 ? "Meta rekabeti yönetilebilir; doğru kreatif ile hızlı test yapılabilir." : "Meta tarafında rakip analiziyle ayrışma fırsatı var.",
-    hkFitScore >= 80 ? "HK Dijital hizmet modeliyle yüksek uyum gösteriyor." : "Başlangıç paketiyle düşük riskli deneme yapılabilir."
-  ];
-  const firstContact = totalScore >= 85 ? "Telefon + WhatsApp" : googleScore >= 70 ? "Telefon" : metaCompetition <= 55 ? "Instagram DM" : "E-posta";
-  const firstPackage = hkFitScore >= 90 ? "Premium Paket" : hkFitScore >= 78 ? "Standart Paket" : hkFitScore >= 65 ? "Başlangıç Paketi" : "Özel Teklif";
-  const winProbability = Math.max(28, Math.min(86, Math.round((totalScore + hkFitScore + googleScore - metaCompetition / 2) / 2.8)));
-  return {
-    name,
-    totalScore,
-    hkFitScore,
-    priority,
-    googleLabel,
-    googleScore,
-    googleExplanation: googleScore >= 70 ? "Google’da bu sektör yüksek arama hacmine sahiptir." : "Google arama hacmi düşüktür; teklif küçük ve kontrollü başlamalıdır.",
-    metaCompetition,
-    metaCompetitionLabel: metaCompetitionLabel(metaCompetition),
-    budget: item.estimated_ad_budget || profile.budget,
-    fee: item.estimated_agency_fee || profile.fee,
-    averageCustomerValue: profile.value,
-    customerLifetime: profile.lifetime,
-    opportunityLevel: sectorOpportunityLevel(totalScore),
-    profitabilityStars: sectorStars(totalScore),
-    continuityStars: sectorStars(totalScore - 5),
-    purchaseStars: sectorStars(hkFitScore),
-    referenceStars: sectorStars(totalScore - 10),
-    negotiationRisk: totalScore >= 85 ? "Düşük" : totalScore >= 70 ? "Orta" : "Yüksek",
-    paymentRisk: totalScore >= 80 ? "Düşük" : totalScore >= 65 ? "Orta" : "Yüksek",
-    difficulty: totalScore >= 80 ? "🟢 Kolay" : totalScore >= 65 ? "🟡 Orta" : "🔴 Zor",
-    salesDifficultyScore: 100 - totalScore + Math.round(metaCompetition / 4),
-    winProbability,
-    subs: profile.subs,
-    targetCities: profile.cities,
-    services: profile.services,
-    profitableServices,
-    firstContact,
-    firstPackage,
-    firstSentence: `"Merhaba, ${name} alanında Google ve sosyal medya görünürlüğünüzü inceledim. Rakiplerinizin öne çıktığı birkaç nokta gördüm. Size 5 dakikalık ücretsiz bir dijital görünürlük değerlendirmesi sunabilirim."`,
-    risks,
-    opportunities,
-    hkComment: [
-      `Bu sektör toplam ${totalScore}/100 fırsat puanı ile ${sectorOpportunityLevel(totalScore).toLocaleLowerCase("tr")} seviyede değerlendiriliyor.`,
-      googleScore >= 70 ? "Google tarafında aktif talep var; arama niyeti satış görüşmesi için güçlü sinyal üretir." : "Google talebi sınırlı; reklam teklifi daha çok niş kelime ve lokal arama üzerinden kurulmalı.",
-      metaCompetition <= 60 ? "Meta rekabeti yönetilebilir; düşük bütçeli kreatif testleriyle hızlı öğrenme alınabilir." : "Meta rekabeti yoğun; kreatif kalitesi ve teklif dili satış başarısı için kritik olur.",
-      `Tahmini reklam bütçesi ${item.estimated_ad_budget || profile.budget} aralığında planlanabilir.`,
-      `Ajans hizmet bedeli ${item.estimated_agency_fee || profile.fee} seviyesinde konumlandırılabilir.`,
-      `HK Dijital Uygunluk Skoru ${hkFitScore}/100; önerilen hizmetler ${profile.services.slice(0, 4).join(", ")} ile başlatılabilir.`,
-      `Ortalama müşteri ömrü ${profile.lifetime}; devamlılık potansiyeli ${sectorStars(totalScore - 5)} olarak izlenmelidir.`,
-      priority.short,
-      "Satış ekibi ilk görüşmede net reklam bütçesi, karar verici ve mevcut dijital kanalları mutlaka sormalıdır."
-    ],
-    hkAdvice: totalScore >= 85 ? "HK Intelligence bu sektörü ilk 5 hedef sektör arasında önermektedir." : totalScore >= 70 ? "HK Intelligence bu sektörü satış listesine almayı ve kontrollü teklif vermeyi önerir." : "Bu sektör düşük bütçe veya uzun satış döngüsü riski nedeniyle öncelikli hedef değildir.",
-    why: [
-      `Toplam puan Google arama hacmi, Meta rekabeti, reklam bütçesi, ajans karlılığı, devamlılık, LTV, ROAS ve dönüşüm potansiyelinin ağırlıklı ortalamasıdır.`,
-      googleScore >= 70 ? "Google güçlü çünkü bu sektörde kullanıcılar aktif olarak hizmet arama eğilimindedir." : "Google zayıf çünkü arama niyeti sınırlı veya daha niş kelimelere dağılmış görünüyor.",
-      metaCompetition <= 60 ? "Meta rekabeti yönetilebilir olduğu için düşük bütçeli kreatif testleri fırsat yaratabilir." : "Meta rekabeti yüksek olduğu için daha fazla bütçe ve güçlü kreatif gerekir.",
-      hkFitScore >= 80 ? "HK Dijital için uygundur çünkü Google Ads, Meta Ads, Landing Page ve raporlama hizmetleri birlikte satılabilir." : "HK Dijital için sınırlı uygundur; önce küçük paketle ihtiyaç doğrulamak gerekir.",
-      totalScore >= 70 ? "Teklif verilmeli çünkü bütçe ve dönüşüm potansiyeli satış eforunu karşılayabilir." : "Teklif önceliği düşüktür çünkü zaman maliyeti potansiyel gelirin üzerinde kalabilir."
-    ],
-    actionPlan: {
-      approach: `${firstContact} ile kısa dijital görünürlük değerlendirmesi teklif edin.`,
-      service: profile.services.slice(0, 3).join(" + "),
-      package: firstPackage,
-      objections: ["Bütçe yüksek gelirse 14 günlük test paketi önerin.", "Sonuç garantisi vermeden ölçüm planını anlatın.", "Mevcut reklamları varsa önce ücretsiz mini audit sunun."],
-      closing: "İsterseniz bu hafta 20 dakikalık bir analiz toplantısı yapalım ve ilk test planını birlikte netleştirelim.",
-      followUp: ["1. gün: İlk temas ve mini analiz", "3. gün: Teklif + örnek plan gönderimi", "7. gün: Karar takibi ve paket netleştirme"]
-    }
-  };
-}
-
-function CustomerFormModal({ title, children, onClose }: any) {
-  return (
-    <div className="fixed inset-0 z-[130] grid place-items-center bg-white/75 p-4" onMouseDown={onClose}>
-      <div className="max-h-[90vh] w-full max-w-3xl overflow-auto rounded-[22px] border border-slate-200 bg-white p-5 shadow-[0_28px_90px_rgba(15,23,42,.2)]" onMouseDown={(event) => event.stopPropagation()}>
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Müşteri Yönetimi</p><h3 className="mt-1 text-2xl font-black text-slate-950">{title}</h3></div>
-          <button onClick={onClose} className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700">Kapat</button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-}
-
 function SectorSystemsCenter({ content, setContent }: any) {
   const fallback = ["Oto Galeri", "Emlak Ofisi", "Güzellik Merkezi", "Klinik", "Eğitim Merkezi"].map((sector) => ({ id: sector, sector_name: sector, suggested_crm_fields: [], suggested_package_labels: [], suggested_report_metrics: [], suggested_content_categories: [], is_active: true }));
   const items = content.sectorConfigs?.length ? content.sectorConfigs : fallback;
-  const [expandedWhy, setExpandedWhy] = useState<Record<string, boolean>>({});
-  const [salesPlan, setSalesPlan] = useState<any>(null);
-  const decisions = useMemo(() => items.map((item) => buildSectorDecision(item)), [items]);
   const update = (index, patch) => updateCollection(content, setContent, "sectorConfigs", items.map((item, i) => i === index ? { ...item, ...patch } : item));
-  return <Panel title="HK Intelligence - Sektör Analiz Motoru"><div className="mb-6 rounded-[20px] border border-cyan-100 bg-gradient-to-br from-white via-cyan-50 to-slate-50 p-5 shadow-[0_10px_30px_rgba(15,23,42,.06)]"><p className="text-xs font-black uppercase tracking-[.18em] text-cyan-700">Ajans Karar Motoru</p><h2 className="mt-2 text-2xl font-black text-slate-950">Sektöre teklif verilir mi, ne kadar zaman ayrılır, hangi hizmet satılır?</h2><p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">Mevcut sektör puanlama mantığı korunur; Google potansiyeli, Meta rekabeti, reklam bütçesi, ajans karlılığı, müşteri devamlılığı, LTV, ROAS ve HK Dijital hizmet uyumu birlikte değerlendirilir.</p></div><div className="grid gap-5">{items.map((item, index) => { const decision = decisions[index]; const key = item.id || item.sector_name || index; return <article key={key} className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_10px_30px_rgba(15,23,42,.06)]"><div className="border-b border-slate-100 bg-slate-50/80 p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><span className={`inline-flex rounded-full border px-4 py-2 text-xs font-black ${decision.priority.tone}`}>{decision.priority.label}</span><h3 className="mt-4 text-2xl font-black text-slate-950">{decision.name}</h3><p className="mt-1 text-sm text-slate-500">Fırsat Seviyesi: <strong className="text-slate-800">{decision.opportunityLevel}</strong></p></div><div className="rounded-[20px] border border-slate-200 bg-white p-4 text-center shadow-sm"><p className="text-xs font-black uppercase tracking-[.14em] text-slate-500">Toplam Fırsat Puanı</p><p className="mt-1 text-4xl font-black text-slate-950">{decision.totalScore}<span className="text-lg text-slate-400">/100</span></p></div></div></div><div className="grid gap-4 p-5 xl:grid-cols-[1.25fr_.9fr]"><section className="grid gap-4"><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"><SectorDecisionMetric icon={<Search size={17} />} label="Google Potansiyeli" value={decision.googleLabel} help={decision.googleExplanation} /><SectorDecisionMetric icon={<Gauge size={17} />} label="Meta Rekabeti" value={decision.metaCompetitionLabel} help="Meta Rekabeti, Facebook ve Instagram reklamlarında aynı sektörde reklam veren firma yoğunluğunu ifade eder. Düşük rekabet yeni müşteri kazanmayı kolaylaştırabilir. Yüksek rekabet daha fazla bütçe ve güçlü kreatif gerektirir." /><SectorDecisionMetric icon={<Sparkles size={17} />} label="HK Dijital Uygunluk" value={`${decision.hkFitScore}/100`} help="Bu skor Google Ads, Meta Ads, SEO, Landing Page, CRM, sosyal medya, video/fotoğraf ve aylık çalışma potansiyelinin HK Dijital hizmetleriyle uyumunu gösterir." /><SectorDecisionMetric icon={<BarChart3 size={17} />} label="Tahmini Reklam Bütçesi" value={decision.budget} help="Bu sektör için ortalama aylık reklam bütçesi aralığıdır." /><SectorDecisionMetric icon={<FileBarChart size={17} />} label="Tahmini Ajans Bedeli" value={decision.fee} help="Reklam yönetimi ve ek hizmetler için tekliflenebilir aylık hizmet bedelidir." /><SectorDecisionMetric icon={<UsersRound size={17} />} label="Ortalama Müşteri Değeri" value={decision.averageCustomerValue} help="Ajans hizmet bedeli, reklam yönetimi, upsell ve cross sell potansiyelinden türetilir." /></div><div className="grid gap-3 md:grid-cols-2"><div className="rounded-[18px] border border-emerald-100 bg-emerald-50 p-4"><h4 className="font-black text-emerald-900">Fırsatlar</h4><ul className="mt-3 grid gap-2 text-sm text-emerald-800">{decision.opportunities.map((text) => <li key={text}>✔ {text}</li>)}</ul></div><div className="rounded-[18px] border border-orange-100 bg-orange-50 p-4"><h4 className="font-black text-orange-900">Riskler</h4><ul className="mt-3 grid gap-2 text-sm text-orange-800">{decision.risks.map((text) => <li key={text}>• {text}</li>)}</ul></div></div><div className="rounded-[18px] border border-slate-200 bg-slate-50 p-4"><h4 className="font-black text-slate-950">HK Intelligence Yorumu</h4><div className="mt-3 grid gap-1 text-sm leading-6 text-slate-600">{decision.hkComment.map((line) => <p key={line}>{line}</p>)}</div></div><div className="grid gap-3 md:grid-cols-2"><div className="rounded-[18px] border border-slate-200 bg-white p-4"><h4 className="font-black text-slate-950">İlk Gidilecek Alt Sektörler</h4><div className="mt-3 flex flex-wrap gap-2">{decision.subs.map((sub) => <span key={sub} className="rounded-full border border-cyan-100 bg-cyan-50 px-3 py-1.5 text-xs font-black text-cyan-800">✔ {sub}</span>)}</div></div><div className="rounded-[18px] border border-slate-200 bg-white p-4"><h4 className="font-black text-slate-950">Önerilen Hizmetler</h4><div className="mt-3 flex flex-wrap gap-2">{decision.services.map((service) => <span key={service} className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-800">{service}</span>)}</div></div></div></section><aside className="grid gap-4"><div className={`rounded-[22px] border p-5 ${decision.priority.tone}`}><p className="text-xs font-black uppercase tracking-[.14em]">Kısaca Ne Yapmalıyım?</p><p className="mt-3 text-xl font-black">{decision.priority.short}</p></div><div className="rounded-[18px] border border-slate-200 bg-white p-4"><h4 className="font-black text-slate-950">Satış Stratejisi</h4><div className="mt-3 grid gap-2 text-sm text-slate-600"><InfoItem label="İlk temas yöntemi" value={decision.firstContact} /><InfoItem label="İlk teklif paketi" value={decision.firstPackage} /><InfoItem label="Kazanma ihtimali" value={`%${decision.winProbability}`} /><InfoItem label="Satış zorluğu" value={`${decision.salesDifficultyScore}/100`} /><InfoItem label="Ortalama müşteri ömrü" value={decision.customerLifetime} /><InfoItem label="Zorluk seviyesi" value={decision.difficulty} /></div></div><div className="rounded-[18px] border border-slate-200 bg-white p-4"><h4 className="font-black text-slate-950">Ajans Gelir Potansiyeli</h4><div className="mt-3 grid gap-2 text-sm text-slate-600"><InfoItem label="Ajans karlılık skoru" value={`${decision.profitabilityStars} · Uzun süreli çalışma potansiyeli`} /><InfoItem label="Müşteri devamlılığı" value={decision.continuityStars} /><InfoItem label="Satın alma ihtimali" value={`${decision.purchaseStars} · Bu sektör profesyonel ajans hizmeti satın almaya yatkındır.`} /><InfoItem label="Fiyat pazarlığı riski" value={decision.negotiationRisk} /><InfoItem label="Ödeme düzeni riski" value={decision.paymentRisk} /><InfoItem label="Referans potansiyeli" value={decision.referenceStars} /></div></div><div className="rounded-[18px] border border-slate-200 bg-white p-4"><h4 className="font-black text-slate-950">En Karlı Hizmetler</h4><ol className="mt-3 grid gap-2 text-sm text-slate-600">{decision.profitableServices.slice(0, 6).map((service, order) => <li key={service}><strong>{order === 0 ? "🥇" : order === 1 ? "🥈" : order === 2 ? "🥉" : `${order + 1}.`}</strong> {service}</li>)}</ol></div><div className="rounded-[18px] border border-slate-200 bg-white p-4"><h4 className="font-black text-slate-950">İlk Cümle Önerisi</h4><p className="mt-3 text-sm leading-6 text-slate-600">{decision.firstSentence}</p></div><div className="rounded-[18px] border border-slate-200 bg-white p-4"><h4 className="font-black text-slate-950">İlk Hedef Şehirler</h4><div className="mt-3 flex flex-wrap gap-2">{decision.targetCities.map((city) => <span key={city} className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700">{city}</span>)}</div></div><div className="rounded-[18px] border border-amber-100 bg-amber-50 p-4"><p className="text-lg font-black text-amber-900">HK Intelligence Sonucu</p><p className="mt-2 text-sm leading-6 text-amber-800">{decision.hkAdvice}</p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => setExpandedWhy({ ...expandedWhy, [key]: !expandedWhy[key] })} className="inline-flex items-center gap-2 rounded-[12px] border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700"><HelpCircle size={16} /> Neden?</button><button type="button" onClick={() => setSalesPlan(decision)} className="rounded-[12px] bg-cyan-500 px-4 py-2 text-sm font-black text-white shadow-[0_12px_26px_rgba(6,182,212,.2)]">Satış Planı Oluştur</button></div></aside></div>{expandedWhy[key] && <div className="border-t border-slate-100 bg-slate-50 p-5"><h4 className="font-black text-slate-950">Bu karar neden verildi?</h4><div className="mt-3 grid gap-2 text-sm leading-6 text-slate-600">{decision.why.map((why) => <p key={why}>• {why}</p>)}</div></div>}<details className="border-t border-slate-100 bg-white p-5"><summary className="cursor-pointer text-sm font-black text-slate-700">Sektör yapılandırmasını düzenle</summary><div className="mt-4 grid gap-3 md:grid-cols-2"><Field label="Sektör adı" value={item.sector_name || ""} onChange={(value) => update(index, { sector_name: value })} /><label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={item.is_active !== false} onChange={(event) => update(index, { is_active: event.target.checked })} /> Aktif yapılandırma</label><TextArea label="Önerilen CRM alanları" value={(item.suggested_crm_fields || []).join("\n")} onChange={(value) => update(index, { suggested_crm_fields: value.split("\n").filter(Boolean) })} /><TextArea label="Önerilen teklif paketleri" value={(item.suggested_package_labels || []).join("\n")} onChange={(value) => update(index, { suggested_package_labels: value.split("\n").filter(Boolean) })} /><TextArea label="Önerilen rapor metrikleri" value={(item.suggested_report_metrics || []).join("\n")} onChange={(value) => update(index, { suggested_report_metrics: value.split("\n").filter(Boolean) })} /><TextArea label="Önerilen içerik kategorileri" value={(item.suggested_content_categories || []).join("\n")} onChange={(value) => update(index, { suggested_content_categories: value.split("\n").filter(Boolean) })} /></div></details></article>; })}</div>{salesPlan && typeof document !== "undefined" && createPortal(<div className="fixed inset-0 z-[9999] grid place-items-center bg-slate-100/80 p-4" onMouseDown={() => setSalesPlan(null)}><div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[24px] border border-slate-200 bg-white p-6 shadow-2xl" onMouseDown={(event) => event.stopPropagation()}><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Satış Planı</p><h3 className="mt-1 text-2xl font-black text-slate-950">{salesPlan.name}</h3></div><button type="button" onClick={() => setSalesPlan(null)} className="grid size-10 place-items-center rounded-full border border-slate-200"><X size={17} /></button></div><div className="mt-5 grid gap-4"><SectorPlanRow title="Bu sektöre nasıl yaklaşılır?" text={salesPlan.actionPlan.approach} /><SectorPlanRow title="Hangi hizmetle başlanır?" text={salesPlan.actionPlan.service} /><SectorPlanRow title="Hangi paket önerilir?" text={salesPlan.actionPlan.package} /><SectorPlanRow title="İlk mesaj ne olmalı?" text={salesPlan.firstSentence} /><SectorPlanRow title="İtiraz gelirse ne cevap verilmeli?" text={salesPlan.actionPlan.objections.join(" ")} /><SectorPlanRow title="Kapanış cümlesi" text={salesPlan.actionPlan.closing} /><div className="rounded-[16px] border border-slate-200 bg-slate-50 p-4"><h4 className="font-black text-slate-950">Takip planı</h4><ul className="mt-3 grid gap-2 text-sm text-slate-600">{salesPlan.actionPlan.followUp.map((item) => <li key={item}>• {item}</li>)}</ul></div></div></div></div>, document.body)}</Panel>;
-}
-
-function SectorDecisionMetric({ icon, label, value, help }: any) {
-  return <div className="group relative rounded-[18px] border border-slate-200 bg-white p-4 shadow-sm"><div className="flex items-center gap-2 text-slate-500">{icon}<span className="text-xs font-black uppercase tracking-[.12em]">{label}</span><HelpCircle size={14} className="ml-auto text-slate-300" /></div><p className="mt-3 text-lg font-black text-slate-950">{value}</p><p className="mt-2 text-xs leading-5 text-slate-500">{help}</p></div>;
-}
-
-function SectorPlanRow({ title, text }: any) {
-  return <div className="rounded-[16px] border border-slate-200 bg-white p-4"><h4 className="font-black text-slate-950">{title}</h4><p className="mt-2 text-sm leading-6 text-slate-600">{text}</p></div>;
+  return <Panel title="Sektör Sistemleri Altyapısı"><p className="mb-5 text-sm leading-6 text-slate-400">Bu alan gelecekte oto galeri, emlak ofisi, güzellik merkezi, klinik ve eğitim merkezi gibi sektörlere özel CRM, teklif, rapor ve içerik şablonlarının temelini hazırlar. Mevcut uygulama davranışını değiştirmez.</p><div className="grid gap-4">{items.map((item, index) => <div key={item.id || item.sector_name || index} className="rounded-[8px] border border-slate-200 bg-slate-50 p-4"><div className="grid gap-3 md:grid-cols-2"><Field label="Sektör adı" value={item.sector_name || ""} onChange={(value) => update(index, { sector_name: value })} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={item.is_active !== false} onChange={(event) => update(index, { is_active: event.target.checked })} /> Aktif yapılandırma</label><TextArea label="Önerilen CRM alanları" value={(item.suggested_crm_fields || []).join("\n")} onChange={(value) => update(index, { suggested_crm_fields: value.split("\n").filter(Boolean) })} /><TextArea label="Önerilen teklif paketleri" value={(item.suggested_package_labels || []).join("\n")} onChange={(value) => update(index, { suggested_package_labels: value.split("\n").filter(Boolean) })} /><TextArea label="Önerilen rapor metrikleri" value={(item.suggested_report_metrics || []).join("\n")} onChange={(value) => update(index, { suggested_report_metrics: value.split("\n").filter(Boolean) })} /><TextArea label="Önerilen içerik kategorileri" value={(item.suggested_content_categories || []).join("\n")} onChange={(value) => update(index, { suggested_content_categories: value.split("\n").filter(Boolean) })} /></div></div>)}</div></Panel>;
 }
 
 async function uploadFile(file: File) {
@@ -4641,15 +4221,6 @@ function AiAssistant({ content, setContent }: any) {
   const [output, setOutput] = useState("");
   const [meta, setMeta] = useState(aiMetaFromApi(content.settings.api));
   const [message, setMessage] = useState("");
-  useEffect(() => {
-    try {
-      const prefill = localStorage.getItem("hk-ai-studio-prefill");
-      if (prefill) {
-        setPrompt(prefill);
-        localStorage.removeItem("hk-ai-studio-prefill");
-      }
-    } catch {}
-  }, []);
   async function generate(aiProvider = "Groq") {
     setMessage("Yapay zekâ çıktısı hazırlanıyor...");
     setOutput("");
@@ -5141,6 +4712,18 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
     return <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-700">Aktif</span>;
   }
 
+  const FormModal = ({ title, children, onClose }: any) => (
+    <div className="fixed inset-0 z-[130] grid place-items-center bg-white/75 p-4" onMouseDown={onClose}>
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-auto rounded-[22px] border border-slate-200 bg-white p-5 shadow-[0_28px_90px_rgba(15,23,42,.2)]" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Müşteri Yönetimi</p><h3 className="mt-1 text-2xl font-black text-slate-950">{title}</h3></div>
+          <button onClick={onClose} className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700">Kapat</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+
   return (
     <Panel title="Müşteriler">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4 rounded-[18px] border border-cyan-200 bg-cyan-50 p-5">
@@ -5208,7 +4791,7 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
           {!companies.length && <p className="rounded-[12px] border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">Bu görünümde firma bulunamadı.</p>}
         </div>
       </div>
-      {openForm === "company" && <CustomerFormModal title="Yeni Firma Oluştur" onClose={() => setOpenForm("")}>
+      {openForm === "company" && <FormModal title="Yeni Firma Oluştur" onClose={() => setOpenForm("")}>
         <div className="grid gap-3 md:grid-cols-2">
           <Field label="Firma Adı" value={companyForm.name} onChange={(v) => setCompanyForm({ ...companyForm, name: v })} />
           <OtherSelectField label="Sektör" value={companyForm.sector} onChange={(v) => setCompanyForm({ ...companyForm, sector: v })} options={sectorOptions} manualLabel="Sektörü yazın" />
@@ -5223,8 +4806,8 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
         {canManageCustomers && <button disabled={loading === "company"} onClick={createCompany} className="mt-4 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-60">
           {loading === "company" ? "Firma oluşturuluyor..." : "Firmayı oluştur"}
         </button>}
-      </CustomerFormModal>}
-      {openForm === "login" && <CustomerFormModal title="Müşteri Giriş Hesabı Oluştur" onClose={() => setOpenForm("")}>
+      </FormModal>}
+      {openForm === "login" && <FormModal title="Müşteri Giriş Hesabı Oluştur" onClose={() => setOpenForm("")}>
         <div className="grid gap-3 md:grid-cols-2">
           <Field label="Ad Soyad" value={form.fullName} onChange={(v) => setForm({ ...form, fullName: v })} />
           <Field label="E-posta" value={form.email} onChange={(v) => setForm({ ...form, email: v })} />
@@ -5236,7 +4819,7 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
         {canManageCustomers && <button disabled={loading === "user"} onClick={createLogin} className="mt-4 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-60">
           {loading === "user" ? "Hesap oluşturuluyor..." : "Giriş hesabı oluştur"}
         </button>}
-      </CustomerFormModal>}
+      </FormModal>}
       {detailCompanyId && (
         <CustomerDetailDrawer
           company={(content.companies || []).find((company) => company.id === detailCompanyId)}
@@ -7546,7 +7129,7 @@ function districtOf(item: any) {
   return parts.length > 2 ? parts[parts.length - 2] : "İlçe belirtilmedi";
 }
 
-function MapsIntelligence({ content, setContent, setActive, mode = "Haritalar", allowedModules = [] }: any) {
+function MapsIntelligence({ content, setContent, setActive, save, notify, mode = "Haritalar", allowedModules = [] }: any) {
   const emptySearch = { city: "Manisa", district: "", businessType: "", minimumRating: "", minimumReviewCount: "", website: "", phone: "", hideSaved: true };
   const [search, setSearch] = useState(emptySearch);
   const [results, setResults] = useState([]);
@@ -7592,16 +7175,14 @@ function MapsIntelligence({ content, setContent, setActive, mode = "Haritalar", 
     setContent({ ...content, leads: (content.leads || []).map((lead) => lead.id === id ? { ...lead, ...patch } : lead) });
     setMessage("Kayıt güncellendi. Kalıcı kayıt için üst çubuktaki Kaydet düğmesini kullanın.");
   }
-  async function runSearch(overrideSearch = search) {
+  async function runSearch() {
     if (!canDiscover) return setMessage("İşletme keşfi araması için yetkiniz bulunmuyor.");
     setLoading("search");
     setMessage("Google Maps üzerinde işletmeler aranıyor...");
-    const querySearch = { ...search, ...overrideSearch };
-    const response = await fetch("/api/admin/business-discovery", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...querySearch, sector: querySearch.businessType, keyword: querySearch.businessType }) });
+    const response = await fetch("/api/admin/business-discovery", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...search, sector: search.businessType, keyword: search.businessType }) });
     const data = await response.json().catch(() => ({}));
     setLoading("");
     if (!response.ok) return setMessage(data.error || "İşletme araması başarısız oldu.");
-    setSearch(querySearch);
     setResults(data.businesses || []);
     setTab("Google Maps Müşteri Bulma");
     if (data.warning) setMessage(data.warning);
@@ -7726,38 +7307,16 @@ function MapsIntelligence({ content, setContent, setActive, mode = "Haritalar", 
   };
 
   if (tab === "Fırsat Haritası") {
-    return <Panel title="Fırsat Haritası"><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><p className="max-w-3xl text-sm leading-6 text-slate-400">Bölgesel potansiyeli ilçe ve sektör seviyesinde okuyun; seçiminizi Google Maps müşteri bulma akışına aktararak gerçek işletmeleri keşfedin.</p><span className="rounded-full border border-orange-300/30 bg-orange-300/10 px-3 py-2 text-xs font-black text-orange-700">Opportunity Map (Fırsat Haritası)</span></div><HubTabs items={mapTabs} active={tab} onChange={setTab} /><OpportunityMap content={content} setContent={setContent} search={{ ...search, sector: search.businessType }} setSearch={(next) => setSearch({ ...search, ...next, businessType: next.businessType || next.sector || search.businessType })} setTab={setTab} setActive={setActive} saved={saved} runSearch={runSearch} /></Panel>;
+    return <Panel title="Fırsat Haritası"><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><p className="max-w-3xl text-sm leading-6 text-slate-400">Bölgesel potansiyeli ilçe ve sektör seviyesinde okuyun; seçiminizi Google Maps müşteri bulma akışına aktararak gerçek işletmeleri keşfedin.</p><span className="rounded-full border border-orange-300/30 bg-orange-300/10 px-3 py-2 text-xs font-black text-orange-700">Opportunity Map (Fırsat Haritası)</span></div><HubTabs items={mapTabs} active={tab} onChange={setTab} /><OpportunityMap content={content} setContent={setContent} save={save} notify={notify} search={{ ...search, sector: search.businessType }} setSearch={(next) => setSearch({ ...search, ...next, businessType: next.businessType || next.sector || search.businessType })} setTab={setTab} setActive={setActive} saved={saved} /></Panel>;
   }
 
   return <Panel title={mode === "Haritalar" ? "Harita Zekâsı" : "İşletme Keşfi"}><div className="mb-5 flex flex-wrap items-center justify-between gap-3"><p className="max-w-3xl text-sm leading-6 text-slate-400">İl, ilçe, sektör, Google puanı ve yorum filtreleriyle işletmeleri tarayın; sıcaklık skoruna göre CRM’e taşıyıp AI analiz, teklif ve WhatsApp mesajı oluşturun.</p><div className="flex gap-2 text-xs"><span className="rounded-full border border-slate-200 px-3 py-2">{results.length} sonuç</span><span className="rounded-full border border-slate-200 px-3 py-2">{saved.length} kayıtlı</span><span className="rounded-full border border-red-300/20 px-3 py-2 text-red-200">{saved.filter((lead) => Number(lead.lead_heat_score || 0) >= 70).length} sıcak lead</span></div></div><HubTabs items={mapTabs} active={tab} onChange={setTab} /><div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)_420px]"><aside className="h-fit rounded-[8px] border border-slate-200 bg-slate-50 p-4"><h3 className="font-black">Arama ve filtreler</h3><div className="mt-4 grid gap-3"><OtherSelectField label="İl seçimi" value={search.city} onChange={(city) => setSearch({ ...search, city })} options={cityOptions} manualLabel="İli yazın" /><Field label="İlçe seçimi" value={search.district} onChange={(district) => setSearch({ ...search, district })} /><Field label="İşletme / sektör alanı" value={search.businessType} onChange={(businessType) => setSearch({ ...search, businessType })} placeholder="oto galeri, emlak ofisi, diş kliniği..." /><SelectField label="Minimum Google yıldız puanı" value={search.minimumRating} onChange={(minimumRating) => setSearch({ ...search, minimumRating })} options={[{ value: "", label: "Farketmez" }, { value: "3", label: "3.0+" }, { value: "3.5", label: "3.5+" }, { value: "4", label: "4.0+" }, { value: "4.5", label: "4.5+" }]} /><SelectField label="Minimum yorum sayısı" value={search.minimumReviewCount} onChange={(minimumReviewCount) => setSearch({ ...search, minimumReviewCount })} options={[{ value: "", label: "Farketmez" }, { value: "5", label: "5+" }, { value: "10", label: "10+" }, { value: "25", label: "25+" }, { value: "50", label: "50+" }, { value: "100", label: "100+" }]} /><SelectField label="Website durumu" value={search.website} onChange={(website) => setSearch({ ...search, website })} options={[{ value: "", label: "Farketmez" }, { value: "yok", label: "Websitesi olmayanlar" }, { value: "var", label: "Websitesi olanlar" }]} /><SelectField label="Telefon durumu" value={search.phone} onChange={(phone) => setSearch({ ...search, phone })} options={[{ value: "", label: "Farketmez" }, { value: "var", label: "Telefonu olanlar" }, { value: "yok", label: "Telefonu olmayanlar" }]} /><label className="flex gap-2 text-xs text-slate-600"><input type="checkbox" checked={search.hideSaved} onChange={(event) => setSearch({ ...search, hideSaved: event.target.checked })} />CRM’de kayıtlı olanları gizle</label></div><button disabled={loading === "search" || !canDiscover} onClick={runSearch} className="mt-4 w-full rounded-[8px] bg-cyan-300 px-4 py-3 text-sm font-black text-slate-950 disabled:opacity-50">{loading === "search" ? "Taranıyor..." : "İşletmeleri Tara"}</button><button onClick={clearFilters} className="mt-2 w-full rounded-[8px] border border-slate-200 px-4 py-2 text-xs font-bold">Filtreleri temizle</button><div className="mt-3 flex flex-wrap gap-1">{activeFilters.map(([key, value]) => <span key={key} className="rounded-full border border-cyan-200/20 px-2 py-1 text-[9px] text-cyan-700">{String(value)}</span>)}</div><div className="mt-4"><ScoringGuidePanel /></div></aside><section className="min-w-0"><MapIntelligenceCanvas businesses={visible} districts={districts} sectors={sectors} selectedPlaceId={selectedPlaceId} setSelectedPlaceId={setSelectedPlaceId} setSearch={(next) => setSearch({ ...search, ...next, businessType: next.businessType || next.sector || search.businessType })} search={{ ...search, sector: search.businessType }} /></section><aside className="premium-scrollbar max-h-[900px] overflow-y-auto rounded-[8px] border border-slate-200 bg-slate-50 p-3"><h3 className="px-1 font-black">Bulunan İşletmeler</h3>{message && <p className="mt-3 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-xs leading-5 text-cyan-700">{message}</p>}<div className="mt-3 grid gap-3">{loading === "search" ? [1, 2, 3, 4].map((item) => <div key={item} className="h-40 animate-pulse rounded-[8px] bg-slate-50" />) : visible.map(renderBusiness)}{!loading && !visible.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-5 text-center text-xs leading-5 text-slate-400">{results.length ? "Bu filtrelerle işletme bulunamadı. Yıldız puanı veya yorum sayısı filtresini genişletmeyi deneyin." : "Henüz arama yapılmadı. Sol panelden il, ilçe ve işletme türü seçerek İşletmeleri Tara düğmesine basın."}</p>}</div></aside></div></Panel>;
 }
 
-function OpportunityMap({ content, setContent, search, setSearch, setTab, setActive, saved, runSearch }: any) {
+function OpportunityMap({ content, setContent, save, notify, search, setSearch, setTab, setActive, saved }: any) {
   const [district, setDistrict] = useState(search.district || "");
   const [sector, setSector] = useState(search.sector || "");
-  const [mobileOperationMode, setMobileOperationMode] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem("hk-mobile-operation-mode") === "true";
-  });
-  useEffect(() => {
-    const syncMobileOperationMode = () => {
-      try {
-        setMobileOperationMode(localStorage.getItem("hk-mobile-operation-mode") === "true");
-      } catch {
-        setMobileOperationMode(false);
-      }
-    };
-    window.addEventListener("storage", syncMobileOperationMode);
-    window.addEventListener("hk-mobile-operation-mode-change", syncMobileOperationMode);
-    return () => {
-      window.removeEventListener("storage", syncMobileOperationMode);
-      window.removeEventListener("hk-mobile-operation-mode-change", syncMobileOperationMode);
-    };
-  }, []);
-  const [pipelineMemory, setPipelineMemory] = useState(() => {
-    if (typeof window === "undefined") return {};
-    try { return JSON.parse(localStorage.getItem("hk-opportunity-pipeline") || "{}"); } catch { return {}; }
-  });
+  const [planOpen, setPlanOpen] = useState(false);
   const liveDistricts = districtOpportunitySeed.map(([name, score, meta, google, category, action]) => {
     const items = saved.filter((lead) => districtOf(lead).toLocaleLowerCase("tr").includes(String(name).toLocaleLowerCase("tr")));
     const liveScore = items.length ? Math.round(items.reduce((sum, lead) => sum + Number(lead.lead_heat_score || 0), 0) / items.length) : Number(score);
@@ -7765,158 +7324,6 @@ function OpportunityMap({ content, setContent, search, setSearch, setTab, setAct
   });
   const cards = district ? sectorOpportunitySeed.map((item) => ({ ...item, score: Math.min(100, item.score + (district === "Yunusemre" ? 4 : district === "Şehzadeler" ? 2 : 0)) })) : liveDistricts;
   const selected = district ? cards.find((item) => item.name === sector) || cards[0] : cards.find((item) => item.name === district) || cards[0];
-  const selectedSector = sector || (district ? selected?.name : selected?.category) || search.sector || selected?.name || "";
-  const selectedSubSector = selected?.subSector || selected?.category || selectedSector;
-  const selectedCity = search.city || "Manisa";
-  const relatedLeads = saved.filter((lead) => {
-    const leadSector = String(lead.business_type || lead.category || lead.sector || "").toLocaleLowerCase("tr");
-    const leadDistrict = districtOf(lead).toLocaleLowerCase("tr");
-    return (!selectedSector || leadSector.includes(String(selectedSector).toLocaleLowerCase("tr")) || leadSector.includes(String(selectedSubSector).toLocaleLowerCase("tr"))) && (!district || leadDistrict.includes(String(district).toLocaleLowerCase("tr")));
-  });
-  const lastProposalLead = relatedLeads.find((lead) => lead.proposal_status || ["Teklif Hazırlanıyor", "Teklif Gönderildi", "Teklif Görüntülendi", "Revize İstendi"].includes(lead.status));
-  const hasAiAnalysis = relatedLeads.some((lead) => lead.ai_analysis || lead.aiAnalysis);
-  const workflowStatus = lastProposalLead ? { label: "🟢 Teklif Hazır", tone: "bg-emerald-100 text-emerald-800 border-emerald-200" } : hasAiAnalysis ? { label: "🔵 AI Analiz Hazır", tone: "bg-blue-100 text-blue-800 border-blue-200" } : relatedLeads.length ? { label: "🟠 CRM'e Aktarıldı", tone: "bg-orange-100 text-orange-800 border-orange-200" } : district || sector ? { label: "🟡 Keşif Başladı", tone: "bg-amber-100 text-amber-800 border-amber-200" } : { label: "○ Henüz İşlenmedi", tone: "bg-slate-100 text-slate-700 border-slate-200" };
-  const nextSearch = { ...search, city: selectedCity, district, sector: selectedSector, businessType: selectedSector };
-  const suggestedBudget = Number(selected?.score || 0) >= 85 ? "30.000 - 100.000 TL" : Number(selected?.score || 0) >= 70 ? "15.000 - 50.000 TL" : "10.000 - 25.000 TL";
-  const suggestedPackage = Number(selected?.score || 0) >= 85 ? "Google Ads + Meta Ads + Landing Page Premium Paketi" : Number(selected?.score || 0) >= 70 ? "Google Ads + Meta Ads Standart Paketi" : "Başlangıç görünürlük paketi";
-  const whatsappDraft = `Merhaba, ${selectedCity}${district ? ` / ${district}` : ""} bölgesinde ${selectedSubSector || selectedSector} alanındaki dijital fırsatları inceledik. Google arama potansiyeli ve reklam görünürlüğü tarafında hızlı kazanım alanları var. Size 10 dakikalık kısa bir fırsat değerlendirmesi paylaşabiliriz.`;
-  const emailDraft = `${selectedSubSector || selectedSector} sektörü için dijital görünürlük ve reklam fırsatı\n\nMerhaba,\n\n${selectedCity}${district ? ` / ${district}` : ""} bölgesinde ${selectedSubSector || selectedSector} alanındaki işletmeler için Google Ads, Meta Ads ve dönüşüm odaklı landing page fırsatlarını inceledik. İlk değerlendirmemize göre bu sektörde ${selected?.score || 0}/100 fırsat puanı bulunuyor.\n\nKısa bir görüşmede reklam bütçesi, hizmet paketi ve ilk 30 günlük aksiyon planını paylaşabiliriz.\n\nHK Dijital`;
-  const opportunityKey = [selectedCity, district || "tüm-il", selectedSector || selected?.name, selectedSubSector].filter(Boolean).join("::").toLocaleLowerCase("tr");
-  const opportunityOverride = pipelineMemory[opportunityKey] || {};
-  const priorityScore = Math.max(0, Math.min(100, Math.round(Number(selected?.score || 0) * 0.72 + (String(selected?.google || "").includes("Çok") ? 10 : String(selected?.google || "").includes("Yüksek") ? 8 : 5) + (String(selected?.meta || "").includes("Düşük") ? 8 : 4) + (relatedLeads.length ? 5 : 0))));
-  const priorityLevel = priorityScore >= 85 ? "Acil" : priorityScore >= 72 ? "Yüksek" : priorityScore >= 58 ? "Normal" : "Düşük";
-  const priorityTone = priorityLevel === "Acil" ? "bg-red-600 text-white" : priorityLevel === "Yüksek" ? "bg-orange-500 text-white" : priorityLevel === "Normal" ? "bg-cyan-100 text-cyan-800" : "bg-slate-100 text-slate-700";
-  const closeProbability = Math.max(25, Math.min(92, priorityScore - (String(selected?.meta || "").includes("Yüksek") ? 8 : 0) + (relatedLeads.length ? 4 : 0)));
-  const estimatedMonthlyRevenue = priorityScore >= 85 ? "25.000 - 45.000 TL" : priorityScore >= 70 ? "15.000 - 30.000 TL" : priorityScore >= 55 ? "8.000 - 18.000 TL" : "5.000 - 12.000 TL";
-  const estimatedSalesCycle = priorityScore >= 85 ? "3 - 7 gün" : priorityScore >= 70 ? "7 - 14 gün" : priorityScore >= 55 ? "14 - 21 gün" : "21+ gün";
-  const pipelineStatus = opportunityOverride.pipeline_status || (lastProposalLead ? "Teklif Hazırlandı" : hasAiAnalysis ? "AI Analizi Hazır" : relatedLeads.length ? "Araştırılıyor" : "Keşfedildi");
-  const lastActionAt = opportunityOverride.last_action_at || lastProposalLead?.updated_at || lastProposalLead?.created_at || relatedLeads[0]?.updated_at || relatedLeads[0]?.created_at || "";
-  const assignedTo = opportunityOverride.assigned_to || "Satış ekibi";
-  const nextActionByStatus = {
-    "Keşfedildi": "CRM’e aktar ve ilk 5 işletmeyi araştır.",
-    "Araştırılıyor": "AI satış analizi hazırla ve ilk temas listesini çıkar.",
-    "AI Analizi Hazır": "Teklif paketini oluştur ve WhatsApp taslağını hazırla.",
-    "Teklif Hazırlandı": "3 gün içinde teklif takibi yap.",
-    "İlk Görüşme": "2 gün içinde tekrar ara ve ihtiyaçları netleştir.",
-    "Takipte": "Karar sürecini sor ve itirazları kapat.",
-    "Kazanıldı": "Onboarding görevlerini başlat.",
-    "Kaybedildi": "Kaybedilme nedenini not et."
-  };
-  const nextRecommendedAction = opportunityOverride.next_recommended_action || nextActionByStatus[pipelineStatus] || "İlk temas planını oluştur.";
-  const followUpWarning = !["Kazanıldı", "Kaybedildi"].includes(pipelineStatus) && (
-    pipelineStatus === "Teklif Hazırlandı" ? "Teklif hazırlandıysa 3 gün içinde takip önerilir." :
-    pipelineStatus === "İlk Görüşme" ? "İlk görüşmeden sonra 2 gün içinde tekrar arama önerilir." :
-    pipelineStatus === "AI Analizi Hazır" ? "AI analizi hazır; teklif hazırlama aşamasına geçin." :
-    pipelineStatus === "Keşfedildi" ? "Keşfedildi ama CRM’e aktarılmadı; işletme keşfini başlatın." : ""
-  );
-  const hkIntelligenceComment = `Bu fırsat ${priorityLevel.toLocaleLowerCase("tr")} öncelikli. Bölgede ${selectedSubSector || selectedSector} için dijital talep sinyali güçlü, tahmini aylık hizmet geliri ${estimatedMonthlyRevenue} aralığında ve kapanış olasılığı %${closeProbability}. ${nextRecommendedAction}`;
-  const firstMeetingPlan = [
-    `İlk 30 saniye: ${selectedCity}${district ? ` / ${district}` : ""} bölgesinde ${selectedSubSector || selectedSector} işletmelerinin Google ve Meta görünürlüğünü incelediğinizi söyleyin.`,
-    "İlk soru: Şu an yeni müşteri kaynaklarınızın en güçlüsü hangisi?",
-    "İlk soru: Reklam veya sosyal medya tarafında daha önce ne denediniz?",
-    "İlk soru: Aylık kaç yeni başvuru sizin için yeterli olur?",
-    "İtiraz cevabı: Önce küçük bütçeli testle başlayıp performansı raporlayabiliriz.",
-    "Kapanış: İsterseniz ilk 30 günlük planı ve örnek bütçeyi bugün paylaşayım."
-  ];
-  const objectionLibrary = [
-    ["Pahalı", "Haklısınız, bu yüzden önce ölçülebilir küçük bir test öneriyoruz. Sonuç görmeden bütçeyi büyütmeyiz."],
-    ["Ajansımız var", "Mevcut ajansınızı değiştirmek zorunda değilsiniz; biz ikinci göz olarak fırsat ve kaçak analizi çıkarabiliriz."],
-    ["Reklama inanmıyorum", "Satış garantisi vermiyoruz; ancak arama talebi olan alanlarda doğru takip ve raporla neyin çalıştığını net gösteriyoruz."],
-    ["Daha önce olmadı", "Genelde sorun reklam vermek değil, ölçümleme, teklif dili ve landing page tarafında oluyor. Önce bunu teşhis edelim."],
-    ["Bütçem yok", "O zaman düşük riskli görünürlük planıyla başlayıp bütçe hazır olduğunda büyütülebilecek altyapıyı kurabiliriz."]
-  ];
-  const sameSectorLeads = saved.filter((lead) => String(lead.business_type || lead.category || lead.sector || "").toLocaleLowerCase("tr").includes(String(selectedSector || selectedSubSector).toLocaleLowerCase("tr")));
-  const learnedWins = sameSectorLeads.filter((lead) => ["Kazanıldı", "Dönüştürüldü", "Müşteri Oldu"].includes(lead.status)).length;
-  const learnedLosses = sameSectorLeads.filter((lead) => lead.status === "Kaybedildi").length;
-  const learnedCloseRate = learnedWins + learnedLosses ? Math.round((learnedWins / (learnedWins + learnedLosses)) * 100) : closeProbability;
-  const averageCustomerMonths = priorityScore >= 85 ? 12 : priorityScore >= 70 ? 9 : priorityScore >= 55 ? 6 : 3;
-  const monthlyFeeNumber = priorityScore >= 85 ? 35000 : priorityScore >= 70 ? 22000 : priorityScore >= 55 ? 13000 : 7500;
-  const lifetimeValue = monthlyFeeNumber * averageCustomerMonths;
-  const lastCallAt = relatedLeads.find((lead) => lead.last_call_at || lead.last_contact_at)?.last_call_at || relatedLeads.find((lead) => lead.last_call_at || lead.last_contact_at)?.last_contact_at || "";
-  const lastOfferAt = opportunityOverride.last_offer_at || lastProposalLead?.updated_at || lastProposalLead?.created_at || "";
-  const lastMeetingAt = relatedLeads.find((lead) => lead.meeting_date || lead.last_meeting_at)?.meeting_date || relatedLeads.find((lead) => lead.meeting_date || lead.last_meeting_at)?.last_meeting_at || "";
-  const lastNoteAt = relatedLeads.find((lead) => lead.notes || lead.local_opportunity_notes)?.updated_at || "";
-  const daysSinceAction = lastActionAt ? Math.max(0, Math.floor((Date.now() - new Date(lastActionAt).getTime()) / 86400000)) : null;
-  const digitalChecklist = [
-    ["Website", relatedLeads.some((lead) => lead.website) ? "Var" : "Bilinmiyor"],
-    ["Google Business", relatedLeads.some((lead) => lead.google_place_id || lead.googlePlaceId || lead.google_rating) ? "Var" : "Bilinmiyor"],
-    ["Instagram", relatedLeads.some((lead) => lead.instagram || lead.instagram_username) ? "Var" : "Bilinmiyor"],
-    ["Facebook", relatedLeads.some((lead) => lead.facebook || lead.facebook_page_id) ? "Var" : "Bilinmiyor"],
-    ["WhatsApp", relatedLeads.some((lead) => lead.whatsapp || lead.phone) ? "Var" : "Bilinmiyor"],
-    ["Meta Pixel", "Bilinmiyor"],
-    ["Google Analytics", "Bilinmiyor"],
-    ["Google Ads", String(selected?.google || "").includes("Güçlü") ? "Var" : "Bilinmiyor"],
-    ["SEO", relatedLeads.some((lead) => lead.website) ? "Eksik" : "Bilinmiyor"],
-    ["Google Reviews", relatedLeads.some((lead) => Number(lead.google_review_count || lead.reviewCount || 0) > 10) ? "Var" : "Bilinmiyor"]
-  ];
-  const timelineRows = [
-    ["Keşfedildi", relatedLeads[0]?.created_at || opportunityOverride.created_at || ""],
-    ["CRM’e aktarıldı", relatedLeads[0]?.created_at || ""],
-    ["AI Analizi", hasAiAnalysis ? relatedLeads.find((lead) => lead.ai_analysis || lead.aiAnalysis)?.updated_at || "" : ""],
-    ["Teklif", lastOfferAt],
-    ["Telefon", lastCallAt],
-    ["Takip", lastActionAt],
-    ["Kazanıldı", relatedLeads.find((lead) => ["Kazanıldı", "Dönüştürüldü", "Müşteri Oldu"].includes(lead.status))?.updated_at || ""],
-    ["Kaybedildi", relatedLeads.find((lead) => lead.status === "Kaybedildi")?.updated_at || ""]
-  ];
-
-  function copyText(text: string) {
-    navigator.clipboard?.writeText(text).catch(() => null);
-  }
-
-  function persistPipeline(next: any) {
-    setPipelineMemory(next);
-    try { localStorage.setItem("hk-opportunity-pipeline", JSON.stringify(next)); } catch {}
-  }
-  function updateOpportunityPipeline(patch: any) {
-    const next = { ...pipelineMemory, [opportunityKey]: { ...opportunityOverride, ...patch, updated_at: new Date().toISOString() } };
-    persistPipeline(next);
-  }
-  function logOpportunity(action: string) {
-    if (!content || !setContent) return;
-    const log = {
-      id: createLocalId(),
-      module: "Ajans Satış Operasyon Merkezi",
-      entity: selectedSubSector || selectedSector || selected?.name,
-      action,
-      result: "Başarılı",
-      created_at: new Date().toISOString(),
-      details: { city: selectedCity, district, sector: selectedSector, sub_sector: selectedSubSector, priority_score: priorityScore, pipeline_status: pipelineStatus }
-    };
-    setContent((current: any) => ({ ...current, activityLogs: [log, ...(current.activityLogs || [])] }));
-  }
-  function setPipelineStatus(status: string) {
-    updateOpportunityPipeline({ pipeline_status: status, last_action_at: new Date().toISOString(), next_recommended_action: nextActionByStatus[status] || nextRecommendedAction });
-    logOpportunity(`Pipeline durumu değişti: ${status}`);
-  }
-  function toggleMobileMode() {
-    const next = !mobileOperationMode;
-    setMobileOperationMode(next);
-    try {
-      localStorage.setItem("hk-mobile-operation-mode", String(next));
-      window.dispatchEvent(new CustomEvent("hk-mobile-operation-mode-change", { detail: next }));
-    } catch {}
-  }
-  function createOpportunityTask() {
-    if (!content || !setContent) return;
-    const task = {
-      id: createLocalId(),
-      title: `${selectedSubSector || selectedSector} fırsatı: ${nextRecommendedAction}`,
-      description: `${selectedCity}${district ? ` / ${district}` : ""} için ${priorityLevel} öncelikli fırsat. Tahmini gelir: ${estimatedMonthlyRevenue}. Kapanış olasılığı: %${closeProbability}.`,
-      status: "Yapılacak",
-      priority: priorityLevel === "Acil" ? "Kritik" : priorityLevel === "Yüksek" ? "Yüksek" : "Orta",
-      due_date: new Date().toISOString().slice(0, 10),
-      visible_to_customer: false,
-      source: "Fırsat Motoru",
-      opportunity_key: opportunityKey,
-      metadata: { sector: selectedSector, sub_sector: selectedSubSector, city: selectedCity, district, priority_score: priorityScore, close_probability: closeProbability, estimated_monthly_revenue: estimatedMonthlyRevenue },
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-    setContent((current: any) => ({ ...current, agencyTasks: [task, ...(current.agencyTasks || [])] }));
-    logOpportunity("Görev oluşturuldu");
-  }
-
   function select(item) {
     if (district) setSector(item.name);
     else {
@@ -7924,190 +7331,233 @@ function OpportunityMap({ content, setContent, search, setSearch, setTab, setAct
       setSearch({ ...search, district: item.name });
     }
   }
-  function startOpportunity(autoRun = true) {
-    setSearch(nextSearch);
-    setTab("Google Maps Müşteri Bulma");
-    if (autoRun && typeof runSearch === "function") runSearch(nextSearch);
-    updateOpportunityPipeline({ pipeline_status: "Araştırılıyor", last_action_at: new Date().toISOString(), next_recommended_action: nextActionByStatus["Araştırılıyor"] });
-    logOpportunity(autoRun ? "Fırsat işlendi ve işletme keşfi başlatıldı" : "İşletme keşfi filtreleri hazırlandı");
+  const selectedSector = district ? selected?.name || sector || selected?.category || search.sector || "" : selected?.category || search.sector || "";
+  const selectedSubSector = selected?.subSector || selected?.category || selectedSector || "";
+  const selectedCity = search.city || "Manisa";
+  const selectedDistrict = district || search.district || "";
+  const relatedLeads = saved.filter((lead) => {
+    const leadDistrict = districtOf(lead).toLocaleLowerCase("tr");
+    const leadSector = String(lead.business_type || lead.category || "").toLocaleLowerCase("tr");
+    return (!selectedDistrict || leadDistrict.includes(selectedDistrict.toLocaleLowerCase("tr"))) && (!selectedSector || leadSector.includes(String(selectedSector).toLocaleLowerCase("tr")));
+  });
+  const existingOpportunity = (content.agencyOpportunities || []).find((item: any) =>
+    String(item.city || "") === selectedCity &&
+    String(item.district || "") === selectedDistrict &&
+    String(item.sector || "") === selectedSector &&
+    String(item.sub_sector || "") === selectedSubSector
+  );
+  const opportunityId = existingOpportunity?.id || createLocalId();
+  const estimatedMonthlyRevenue = Number(existingOpportunity?.estimated_monthly_revenue || (Number(selected?.score || 0) >= 85 ? 25000 : Number(selected?.score || 0) >= 70 ? 15000 : 8000));
+  const estimatedAdBudget = Number(existingOpportunity?.estimated_ad_budget || (Number(selected?.score || 0) >= 85 ? 60000 : Number(selected?.score || 0) >= 70 ? 30000 : 12000));
+  const closeProbability = Number(existingOpportunity?.close_probability || Math.min(92, Math.max(25, Math.round(Number(selected?.score || 0) * 0.86))));
+  const priorityLevel = existingOpportunity?.priority_level || (Number(selected?.score || 0) >= 85 ? "Acil" : Number(selected?.score || 0) >= 70 ? "Yüksek" : Number(selected?.score || 0) >= 60 ? "Normal" : "Düşük");
+  const pipelineStatus = existingOpportunity?.pipeline_status || "Keşfedildi";
+  const nextAction = existingOpportunity?.next_recommended_action || (pipelineStatus === "Teklif Hazırlandı" ? "3 gün içinde teklif takibi yap" : pipelineStatus === "AI Analizi Hazır" ? "Teklif hazırla" : pipelineStatus === "Araştırılıyor" ? "5 işletme ara ve 2 işletmeyi CRM’e ekle" : "Fırsatı işlemeye başla");
+  const dataSource = relatedLeads.length ? "Gerçek veri" : existingOpportunity ? existingOpportunity.data_source || "Tahmini veri" : "Tahmini veri";
+  const events = (content.agencyOpportunityEvents || []).filter((event: any) => event.opportunity_id === opportunityId || event.opportunity_id === existingOpportunity?.id).sort((a: any, b: any) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
+
+  function buildOpportunity(patch: any = {}) {
+    return {
+      id: opportunityId,
+      sector: selectedSector,
+      sub_sector: selectedSubSector,
+      city: selectedCity,
+      district: selectedDistrict,
+      priority_score: Number(selected?.score || 0),
+      priority_level: priorityLevel,
+      pipeline_status: pipelineStatus,
+      estimated_monthly_revenue: estimatedMonthlyRevenue,
+      estimated_ad_budget: estimatedAdBudget,
+      close_probability: closeProbability,
+      estimated_sales_cycle: Number(selected?.score || 0) >= 80 ? "7-14 gün" : "14-30 gün",
+      assigned_to: existingOpportunity?.assigned_to || "Ben",
+      next_recommended_action: nextAction,
+      ai_reason: existingOpportunity?.ai_reason || `Bu fırsat ${priorityLevel.toLocaleLowerCase("tr")} öncelikli; bölgesel işletme yoğunluğu, Google potansiyeli ve tahmini aylık hizmet geliri birlikte değerlendirildi.`,
+      ltv_estimate: estimatedMonthlyRevenue * 8,
+      data_source: dataSource,
+      created_at: existingOpportunity?.created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      ...existingOpportunity,
+      ...patch
+    };
   }
-  function openAiSalesAnalysis() {
-    const prompt = `HK Dijital için satış analizi hazırla.\n\nSektör: ${selectedSector || selected?.name}\nAlt sektör: ${selectedSubSector}\nŞehir: ${selectedCity}\nİlçe: ${district || "Tüm il"}\nFırsat puanı: ${selected?.score}/100\nSatış önceliği: ${priorityLevel}\nKapanış olasılığı: %${closeProbability}\nTahmini aylık hizmet geliri: ${estimatedMonthlyRevenue}\nGoogle potansiyeli: ${selected?.google}\nMeta rekabet yoğunluğu: ${selected?.meta}\nTahmini reklam bütçesi: ${suggestedBudget}\nÖnerilen paket: ${suggestedPackage}\nSonraki önerilen aksiyon: ${nextRecommendedAction}\n\nŞu başlıklarla Türkçe ve satış odaklı analiz üret:\n- sektör analizi\n- dijital eksikler\n- reklam önerileri\n- teklif stratejisi\n- rakip avantajları\n- satış yaklaşımı\n- tahmini reklam bütçesi\n- olası hizmet paketi\n- ilk 30 saniyelik konuşma açılışı\n- ilk sorulacak 3 soru\n- muhtemel itirazlar ve cevaplar\n- kapanış cümlesi\n- ilk WhatsApp mesajı\n- ilk e-posta taslağı`;
-    try { localStorage.setItem("hk-ai-studio-prefill", prompt); } catch {}
-    updateOpportunityPipeline({ pipeline_status: "AI Analizi Hazır", last_action_at: new Date().toISOString(), next_recommended_action: nextActionByStatus["AI Analizi Hazır"] });
-    logOpportunity("AI analizi üretildi");
+
+  function persistOpportunity(patch: any, eventTitle: string, eventType = "operation") {
+    const opportunity = buildOpportunity(patch);
+    const opportunityEvents = [{ id: createLocalId(), opportunity_id: opportunity.id, event_type: eventType, title: eventTitle, description: opportunity.next_recommended_action || nextAction, metadata: { sector: selectedSector, city: selectedCity, pipeline_status: opportunity.pipeline_status }, created_by: "Admin", created_at: new Date().toISOString() }, ...(content.agencyOpportunityEvents || [])];
+    const next = {
+      ...content,
+      agencyOpportunities: [opportunity, ...(content.agencyOpportunities || []).filter((item: any) => item.id !== opportunity.id)],
+      agencyOpportunityEvents: opportunityEvents
+    };
+    setContent(next);
+    save?.(next);
+    notify?.(`${eventTitle} kaydedildi.`, "success");
+    return next;
+  }
+
+  function transfer(status = "Araştırılıyor", title = "Fırsat işlendi") {
+    setSearch({ ...search, city: selectedCity, district: selectedDistrict, sector: selectedSector, businessType: selectedSector });
+    setTab("Google Maps Müşteri Bulma");
+    persistOpportunity({ pipeline_status: status, last_action_at: new Date().toISOString(), next_recommended_action: "Filtrelerle işletme keşfi yap ve uygun işletmeleri CRM’e aktar." }, title, "pipeline");
+  }
+
+  function openAiAnalysis() {
+    const prompt = `HK Dijital için ${selectedCity} ${selectedDistrict} bölgesinde ${selectedSector} / ${selectedSubSector} fırsatını analiz et. Dijital eksikler, reklam önerileri, teklif stratejisi, rakip avantajları, tahmini reklam bütçesi, olası hizmet paketi, ilk WhatsApp mesajı ve itiraz cevaplarını Türkçe hazırla. Fırsat puanı: ${selected?.score}/100.`;
+    try {
+      localStorage.setItem("hk-ai-studio-prefill", prompt);
+    } catch {}
+    persistOpportunity({ pipeline_status: "AI Analizi Hazır", last_action_at: new Date().toISOString(), next_recommended_action: "AI analiz çıktısından teklif metni hazırla." }, "AI analizi hazırlandı", "ai_analysis");
     setActive("AI Studio");
   }
+
   function openProposalDraft() {
+    const now = new Date();
+    const addDays = (days: number) => {
+      const date = new Date(now);
+      date.setDate(date.getDate() + days);
+      return date.toISOString();
+    };
+    const proposal = {
+      id: createLocalId(),
+      opportunity_id: opportunityId,
+      proposal_title: `${selectedSector || "Fırsat"} için HK Dijital teklif taslağı`,
+      proposal_amount: estimatedMonthlyRevenue,
+      status: "Yanıt bekliyor",
+      sent_at: now.toISOString(),
+      first_followup_at: addDays(3),
+      second_followup_at: addDays(7),
+      final_followup_at: addDays(14),
+      next_followup_at: addDays(3),
+      last_followup_note: "Teklif hazırlandıktan sonra 3, 7 ve 14 gün takip önerilir.",
+      created_at: now.toISOString(),
+      updated_at: now.toISOString()
+    };
     try {
-      localStorage.setItem("hk-proposal-prefill", JSON.stringify({
-        businessName: `${selectedCity} ${selectedSubSector || selectedSector} fırsatı`,
-        sector: selectedSector,
-        subSector: selectedSubSector,
-        city: selectedCity,
-        district,
-        platform: "Google Ads + Meta Ads",
-        goal: "Lead generation",
-        opportunityScore: selected?.score,
-        suggestedBudget,
-        suggestedPackage,
-        priorityLevel,
-        priorityScore,
-        closeProbability,
-        estimatedMonthlyRevenue,
-        proposalText: `${selectedSubSector || selectedSector} sektörü için ${suggestedBudget} reklam bütçesiyle başlayacak, Google Ads + Meta Ads + dönüşüm odaklı landing page önerilir.`,
-        discoveryNotes: `${selectedCity}${district ? ` / ${district}` : ""} bölgesinde fırsat puanı ${selected?.score}/100. ${selected?.action || "İşletme keşfiyle aday havuzu oluşturulmalı."}`,
-        whatsappDraft,
-        emailDraft
-      }));
+      localStorage.setItem("hk-proposal-prefill", JSON.stringify({ sector: selectedSector, subSector: selectedSubSector, city: selectedCity, district: selectedDistrict, opportunityScore: selected?.score, budget: estimatedAdBudget, serviceFee: estimatedMonthlyRevenue, note: nextAction, whatsapp: `Merhaba, ${selectedCity} ${selectedSector} alanında görünürlük ve reklam fırsatlarını inceledim. Size kısa bir teklif özeti paylaşmak isterim.` }));
     } catch {}
-    updateOpportunityPipeline({ pipeline_status: "Teklif Hazırlandı", last_action_at: new Date().toISOString(), next_recommended_action: nextActionByStatus["Teklif Hazırlandı"], last_offer_at: new Date().toISOString() });
-    logOpportunity("Teklif hazırlandı");
+    const next = persistOpportunity({ pipeline_status: "Teklif Hazırlandı", last_offer_at: now.toISOString(), last_action_at: now.toISOString(), next_recommended_action: "3 gün sonra teklif dönüşü alın." }, "Teklif hazırlandı", "proposal");
+    const nextWithProposal = { ...next, proposalFollowups: [proposal, ...(next.proposalFollowups || content.proposalFollowups || [])] };
+    setContent(nextWithProposal);
+    save?.(nextWithProposal);
     setActive("Teklif Motoru");
   }
-  return (
-    <div className={mobileOperationMode ? "hk-mobile-operation-mode" : ""}>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-slate-200 bg-slate-50 p-4">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[.16em] text-orange-700">{district ? `${district} · sektör görünümü` : `${search.city || "Manisa"} · ilçe görünümü`}</p>
-          <h3 className="mt-2 text-xl font-black text-slate-900">{district ? "Sektör fırsatlarını karşılaştırın" : "Öncelikli bölgeleri keşfedin"}</h3>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button onClick={toggleMobileMode} className={`rounded-full px-4 py-2 text-xs font-black ${mobileOperationMode ? "bg-slate-900 text-white" : "border border-slate-200 text-slate-700"}`}>{mobileOperationMode ? "🖥️ Masaüstü Mod" : "📱 Mobil Mod"}</button>
-          {district && <button onClick={() => { setDistrict(""); setSector(""); setSearch({ ...search, district: "", sector: "" }); }} className="rounded-full border border-slate-200 px-4 py-2 text-xs font-black">İlçe görünümüne dön</button>}
-        </div>
-      </div>
-      <div className={`grid gap-4 ${mobileOperationMode ? "xl:grid-cols-1" : "xl:grid-cols-[minmax(0,1fr)_420px]"}`}>
-        <section className={`grid gap-3 ${mobileOperationMode ? "grid-cols-1" : "sm:grid-cols-2"}`}>
-          {cards.map((item) => {
-            const level = opportunityLevel(item.score);
-            const active = item.name === (district ? sector : district);
-            return (
-              <button key={item.name} onClick={() => select(item)} className={`min-h-56 rounded-[8px] border p-5 text-left shadow-[0_18px_54px_rgba(0,0,0,.16)] transition hover:-translate-y-1 ${level.className} ${active ? "ring-2 ring-cyan-200/70" : ""}`}>
-                <div className="flex items-start justify-between gap-3">
-                  <h4 className="text-lg font-black text-slate-900">{item.name}</h4>
-                  <span className="text-3xl font-black text-slate-900">{item.score}<small className="text-sm">/100</small></span>
-                </div>
-                <p className="mt-3 text-xs font-black uppercase">{level.label}</p>
-                <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-50"><div className="h-full rounded-full bg-current" style={{ width: `${item.score}%` }} /></div>
-                <div className="mt-5 grid gap-1 text-xs leading-5">
-                  <span>Meta rekabet yoğunluğu: <strong>{item.meta}</strong></span>
-                  <span>Google potansiyeli: <strong>{item.google}</strong></span>
-                  <span>{district ? "Başlangıç alt sektörü" : "Öne çıkan kategori"}: <strong>{item.subSector || item.category}</strong></span>
-                  {!district && <span>Kayıtlı işletme: <strong>{item.count}</strong></span>}
-                </div>
-              </button>
-            );
-          })}
-        </section>
-        <aside className="h-fit rounded-[18px] border border-cyan-100 bg-white p-5 shadow-[0_22px_70px_rgba(15,23,42,.10)]">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Ajans Satış Operasyon Merkezi</p>
-              <h3 className="mt-3 text-2xl font-black text-slate-900">{selected?.name}</h3>
-            </div>
-            <span className={`rounded-full px-3 py-1 text-[10px] font-black ${priorityTone}`}>{priorityLevel}</span>
-          </div>
-          <span className={`mt-3 inline-flex rounded-full border px-3 py-1 text-[10px] font-black ${workflowStatus.tone}`}>Operasyon Durumu: {workflowStatus.label}</span>
-          <div className="mt-4 grid gap-2 rounded-[14px] border border-slate-200 bg-slate-50 p-3">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs font-black uppercase tracking-[.12em] text-slate-500">Öncelik skoru</span>
-              <strong className="text-2xl text-slate-950">{priorityScore}<small className="text-xs text-slate-500">/100</small></strong>
-            </div>
-            <p className="text-xs leading-5 text-slate-600">Neden? Bu fırsat {priorityLevel.toLocaleLowerCase("tr")} öncelikli çünkü bölgede işletme yoğunluğu ve reklam potansiyeli güçlü, kapanış olasılığı %{closeProbability} ve tahmini hizmet geliri {estimatedMonthlyRevenue} aralığında.</p>
-          </div>
-          <div className="mt-4 grid gap-2 text-xs leading-5 text-slate-600">
-            <InfoItem label="💰 Tahmini aylık hizmet geliri" value={estimatedMonthlyRevenue} />
-            <InfoItem label="🎯 Kapanış olasılığı" value={`%${closeProbability}`} />
-            <InfoItem label="📈 Ortalama reklam bütçesi" value={suggestedBudget} />
-            <InfoItem label="⏱ Tahmini satış süresi" value={estimatedSalesCycle} />
-            <InfoItem label="👤 Satış sorumlusu" value={assignedTo} />
-            <InfoItem label="📅 Son işlem tarihi" value={lastActionAt ? formatDateTime(lastActionAt) : "Henüz işlem yok"} />
-            <InfoItem label="🔄 Sonraki aksiyon" value={nextRecommendedAction} />
-          </div>
-          <div className="mt-4 grid gap-3 rounded-[12px] border border-slate-200 bg-slate-50 p-3">
-            <p className="text-xs font-black uppercase tracking-[.12em] text-slate-500">AI Öğrenme Sistemi</p>
-            <p className="text-xs leading-5 text-slate-600">Bu sektör için geçmiş sonuç: {learnedWins} kazanım, {learnedLosses} kayıp. Öğrenilmiş kapanış oranı %{learnedCloseRate}. Öncelik skoru bu sinyali karar açıklamasında dikkate alır.</p>
-            <div className="grid gap-2 sm:grid-cols-3">
-              <InfoItem label="Ortalama müşteri süresi" value={`${averageCustomerMonths} ay`} />
-              <InfoItem label="Aylık hizmet bedeli" value={`${monthlyFeeNumber.toLocaleString("tr-TR")} TL`} />
-              <InfoItem label="Tahmini LTV" value={`${lifetimeValue.toLocaleString("tr-TR")} TL`} />
-            </div>
-          </div>
-          <div className="mt-4 rounded-[12px] border border-slate-200 bg-white p-3">
-            <p className="text-xs font-black uppercase tracking-[.12em] text-slate-500">Dijital Eksiklik Analizi</p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              {digitalChecklist.map(([label, state]) => (
-                <div key={label} className="flex items-center justify-between rounded-[10px] bg-slate-50 px-3 py-2 text-xs">
-                  <span className="font-bold text-slate-700">{label}</span>
-                  <span className={`rounded-full px-2 py-1 text-[10px] font-black ${state === "Var" ? "bg-emerald-100 text-emerald-700" : state === "Eksik" ? "bg-red-100 text-red-700" : "bg-slate-200 text-slate-600"}`}>{state}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="mt-4 grid gap-2 rounded-[12px] border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">
-            <p className="font-black uppercase tracking-[.12em] text-slate-500">Son işlem sayaçları</p>
-            <InfoItem label="Son arama" value={lastCallAt ? formatDateTime(lastCallAt) : "Kayıt yok"} />
-            <InfoItem label="Son teklif" value={lastOfferAt ? formatDateTime(lastOfferAt) : "Kayıt yok"} />
-            <InfoItem label="Son görüşme" value={lastMeetingAt ? formatDateTime(lastMeetingAt) : "Kayıt yok"} />
-            <InfoItem label="Son not" value={lastNoteAt ? formatDateTime(lastNoteAt) : "Kayıt yok"} />
-            <span className={`rounded-[10px] px-3 py-2 text-xs font-black ${daysSinceAction === null ? "bg-slate-100 text-slate-600" : daysSinceAction >= 7 ? "bg-red-100 text-red-700" : daysSinceAction >= 3 ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>{daysSinceAction === null ? "Henüz işlem yok" : `${daysSinceAction} gündür işlem yok`}</span>
-          </div>
-          <div className="mt-4 grid gap-3 rounded-[12px] border border-slate-200 bg-white p-3">
-            <SelectField label="Pipeline durumu" value={pipelineStatus} onChange={setPipelineStatus} options={Object.keys(nextActionByStatus)} />
-            <Field label="Atanmış satış sorumlusu" value={assignedTo} onChange={(assigned_to) => updateOpportunityPipeline({ assigned_to, last_action_at: new Date().toISOString() })} />
-          </div>
-          {followUpWarning && <p className="mt-3 rounded-[10px] border border-orange-200 bg-orange-50 p-3 text-xs font-bold leading-5 text-orange-800">{followUpWarning}</p>}
-          {relatedLeads.length > 0 && <p className="mt-3 rounded-[10px] border border-amber-200 bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-800">Bu sektör için aktif keşif mevcut. CRM’de {relatedLeads.length} kayıt görünüyor.</p>}
-          {lastProposalLead && <p className="mt-3 rounded-[10px] border border-emerald-200 bg-emerald-50 p-3 text-xs font-bold leading-5 text-emerald-800">Son teklif: {formatDate(lastProposalLead.updated_at || lastProposalLead.created_at)}</p>}
-          <details className="mt-3 rounded-[12px] border border-blue-100 bg-blue-50 p-3">
-            <summary className="cursor-pointer text-xs font-black text-blue-800">🧠 HK Intelligence yorumu ve ilk görüşme planı</summary>
-            <p className="mt-3 text-xs leading-6 text-blue-900">{hkIntelligenceComment}</p>
-            <div className="mt-3 grid gap-2">{firstMeetingPlan.map((line) => <p key={line} className="rounded-[8px] bg-white/70 px-3 py-2 text-xs leading-5 text-slate-700">{line}</p>)}</div>
-          </details>
-          <details className="mt-3 rounded-[12px] border border-slate-200 bg-slate-50 p-3">
-            <summary className="cursor-pointer text-xs font-black text-slate-800">İtiraz kütüphanesi</summary>
-            <div className="mt-3 grid gap-2">{objectionLibrary.map(([title, answer]) => <div key={title} className="rounded-[8px] bg-white p-3 text-xs leading-5"><div className="flex items-center justify-between gap-2"><strong className="text-slate-900">{title}</strong><button onClick={() => copyText(answer)} className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-600">Kopyala</button></div><p className="mt-1 text-slate-600">{answer}</p></div>)}</div>
-          </details>
-          <details className="mt-3 rounded-[12px] border border-slate-200 bg-white p-3">
-            <summary className="cursor-pointer text-xs font-black text-slate-800">Operasyon geçmişi</summary>
-            <div className="mt-3 grid gap-2">
-              {timelineRows.map(([label, date]) => (
-                <div key={label} className="flex items-center justify-between rounded-[10px] bg-slate-50 px-3 py-2 text-xs">
-                  <span className="font-bold text-slate-700">{label}</span>
-                  <span className={date ? "text-slate-600" : "text-slate-400"}>{date ? formatDateTime(date) : "Henüz yok"}</span>
-                </div>
-              ))}
-            </div>
-          </details>
-          <div className="mt-5 grid gap-2">
-            <button onClick={() => startOpportunity(true)} className={`rounded-[14px] bg-cyan-500 px-4 font-black text-white shadow-[0_16px_36px_rgba(6,182,212,.25)] ${mobileOperationMode ? "min-h-16 text-base" : "py-4 text-sm"}`}>🚀 {mobileOperationMode ? "Fırsatı İşle" : "Fırsatı İşlemeye Başla"}</button>
-            <div className={`grid gap-2 ${mobileOperationMode ? "grid-cols-1" : "sm:grid-cols-2"}`}>
-              <button onClick={() => startOpportunity(false)} className="rounded-[12px] border border-cyan-200 bg-cyan-50 px-3 py-3 text-xs font-black text-cyan-800">🔍 Keşfe Git</button>
-              <button onClick={openAiSalesAnalysis} className="rounded-[12px] border border-purple-200 bg-purple-50 px-3 py-3 text-xs font-black text-purple-800">🤖 AI Analiz</button>
-              <button onClick={openProposalDraft} className="rounded-[12px] border border-amber-200 bg-amber-50 px-3 py-3 text-xs font-black text-amber-800">📄 Teklif</button>
-              <button onClick={createOpportunityTask} className="rounded-[12px] border border-emerald-200 bg-emerald-50 px-3 py-3 text-xs font-black text-emerald-800">✅ Görev Oluştur</button>
-            </div>
-          </div>
-          <p className="mt-4 text-[11px] leading-5 text-slate-500">Ana CTA filtreleri doldurur, işletme keşfi ekranına geçer ve destek varsa Google Maps aramasını başlatır. AI ve teklif butonları ilgili ekranları hazır bağlamla açar.</p>
-          {mobileOperationMode && (
-            <div className="sticky bottom-3 z-20 mt-4 grid grid-cols-5 gap-1 rounded-[18px] border border-slate-200 bg-white/95 p-2 shadow-[0_16px_40px_rgba(15,23,42,.18)] backdrop-blur">
-              <button onClick={() => startOpportunity(true)} className="rounded-[12px] bg-cyan-500 px-2 py-3 text-[11px] font-black text-white">🚀 İşle</button>
-              <button onClick={() => startOpportunity(false)} className="rounded-[12px] bg-cyan-50 px-2 py-3 text-[11px] font-black text-cyan-800">🔍 Keşfet</button>
-              <button onClick={openAiSalesAnalysis} className="rounded-[12px] bg-purple-50 px-2 py-3 text-[11px] font-black text-purple-800">🤖 AI</button>
-              <button onClick={openProposalDraft} className="rounded-[12px] bg-amber-50 px-2 py-3 text-[11px] font-black text-amber-800">📄 Teklif</button>
-              <button onClick={createOpportunityTask} className="rounded-[12px] bg-emerald-50 px-2 py-3 text-[11px] font-black text-emerald-800">✅ Görev</button>
-            </div>
-          )}
-        </aside>
-      </div>
-      <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">{opportunityLegend.map(([score, label, text, action]) => { const level = opportunityLevel(score); return <div key={label} className={`rounded-[8px] border p-3 ${level.className}`}><p className="text-xs font-black">{label}</p><p className="mt-2 text-[11px] leading-5">{text}</p><p className="mt-2 text-[10px] leading-4 opacity-80">{action}</p></div>; })}</div>
-    </div>
-  );
+
+  function createTask() {
+    const task = { id: createLocalId(), task_date: new Date().toISOString().slice(0, 10), title: `${selectedSector} fırsatı için takip`, description: `${selectedCity} ${selectedDistrict} bölgesinde ${selectedSubSector} fırsatı. Sonraki aksiyon: ${nextAction}`, related_opportunity_id: opportunityId, status: "open", priority: priorityLevel === "Acil" ? "Kritik" : priorityLevel, action_type: "Fırsat Takibi", due_at: new Date().toISOString(), created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    const next = persistOpportunity({ last_action_at: new Date().toISOString(), next_recommended_action: "Oluşturulan görev üzerinden işletmeleri ara." }, "Görev oluşturuldu", "task");
+    const withTask = { ...next, agencyDailyTasks: [task, ...(next.agencyDailyTasks || content.agencyDailyTasks || [])] };
+    setContent(withTask);
+    save?.(withTask);
+  }
+
+  function updatePipeline(status: string) {
+    const patch: any = { pipeline_status: status, last_action_at: new Date().toISOString(), next_recommended_action: status === "Kazanıldı" ? "Onboarding ve ilk tahsilat görevlerini oluştur." : status === "Kaybedildi" ? "Kaybedilme sebebini öğrenme sinyali olarak kaydet." : "Bir sonraki satış aksiyonunu planla." };
+    const next = persistOpportunity(patch, `Pipeline durumu ${status} olarak güncellendi`, "pipeline");
+    if (["Kazanıldı", "Kaybedildi"].includes(status)) {
+      const signal = { id: createLocalId(), opportunity_id: opportunityId, sector: selectedSector, city: selectedCity, package_name: Number(selected?.score || 0) >= 80 ? "Premium Paket" : "Standart Paket", ad_budget: estimatedAdBudget, service_fee: estimatedMonthlyRevenue, outcome: status, loss_reason: status === "Kaybedildi" ? "Takip/teklif sonucu kaybedildi" : "", close_days: status === "Kazanıldı" ? 14 : 21, notes: nextAction, created_at: new Date().toISOString() };
+      const withSignal = { ...next, agencyLearningSignals: [signal, ...(next.agencyLearningSignals || content.agencyLearningSignals || [])] };
+      setContent(withSignal);
+      save?.(withSignal);
+    }
+  }
+  return <div><div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-slate-200 bg-slate-50 p-4"><div><p className="text-xs font-black uppercase tracking-[.16em] text-orange-700">{district ? `${district} · sektör görünümü` : `${search.city || "Manisa"} · ilçe görünümü`}</p><h3 className="mt-2 text-xl font-black text-slate-900">{district ? "Sektör fırsatlarını karşılaştırın" : "Öncelikli bölgeleri keşfedin"}</h3></div>{district && <button onClick={() => { setDistrict(""); setSector(""); setSearch({ ...search, district: "", sector: "" }); }} className="rounded-full border border-slate-200 px-4 py-2 text-xs font-black">İlçe görünümüne dön</button>}</div><div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px]"><section className="grid gap-3 sm:grid-cols-2">{cards.map((item) => { const level = opportunityLevel(item.score); const active = item.name === (district ? sector : district); return <button key={item.name} onClick={() => select(item)} className={`min-h-56 rounded-[8px] border p-5 text-left shadow-[0_18px_54px_rgba(0,0,0,.16)] transition hover:-translate-y-1 ${level.className} ${active ? "ring-2 ring-cyan-200/70" : ""}`}><div className="flex items-start justify-between gap-3"><h4 className="text-lg font-black text-slate-900">{item.name}</h4><span className="text-3xl font-black text-slate-900">{item.score}<small className="text-sm">/100</small></span></div><p className="mt-3 text-xs font-black uppercase">{level.label}</p><div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-50"><div className="h-full rounded-full bg-current" style={{ width: `${item.score}%` }} /></div><div className="mt-5 grid gap-1 text-xs leading-5"><span>Meta rekabet yoğunluğu: <strong>{item.meta}</strong></span><span>Google potansiyeli: <strong>{item.google}</strong></span><span>{district ? "Başlangıç alt sektörü" : "Öne çıkan kategori"}: <strong>{item.subSector || item.category}</strong></span>{!district && <span>Kayıtlı işletme: <strong>{item.count}</strong></span>}</div></button>; })}</section><aside className="h-fit rounded-[8px] border border-cyan-200/20 bg-white p-5 shadow-[0_22px_70px_rgba(0,0,0,.18)]"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Ajans Satış Operasyon Merkezi</p><h3 className="mt-3 text-2xl font-black text-slate-900">{selected?.name}</h3></div><span className={`rounded-full px-3 py-1 text-[10px] font-black ${dataSource === "Gerçek veri" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>{dataSource}</span></div><div className="mt-4 grid gap-3 rounded-[12px] border border-slate-200 bg-slate-50 p-4"><div className="flex items-center justify-between gap-3"><span className="text-xs font-black text-slate-500">Öncelik skoru</span><strong className="text-3xl text-orange-700">{selected?.score}<small className="text-sm text-slate-400">/100</small></strong></div><div className="grid gap-2 text-xs leading-5 text-slate-600"><span>Pipeline: <strong>{pipelineStatus}</strong></span><span>Öncelik: <strong>{priorityLevel}</strong></span><span>Kapanış olasılığı: <strong>%{closeProbability}</strong></span><span>Tahmini aylık hizmet geliri: <strong>{estimatedMonthlyRevenue.toLocaleString("tr-TR")} TL</strong></span><span>Ortalama reklam bütçesi: <strong>{estimatedAdBudget.toLocaleString("tr-TR")} TL</strong></span><span>Sonraki önerilen aksiyon: <strong>{nextAction}</strong></span></div><p className="rounded-[8px] border border-cyan-200 bg-white p-3 text-xs leading-5 text-slate-600">{existingOpportunity?.ai_reason || `Bu fırsat ${priorityLevel.toLocaleLowerCase("tr")} öncelikli çünkü ${selectedCity} bölgesinde ${selectedSector || selectedSubSector} talebi, reklam bütçesi potansiyeli ve ajans hizmet geliri birlikte güçlü sinyal veriyor.`}</p></div><div className="mt-4 grid gap-2"><button onClick={() => transfer("Araştırılıyor", "Fırsat işlemeye başlandı")} className="rounded-[10px] bg-cyan-300 px-4 py-4 text-sm font-black text-slate-950">🚀 Fırsatı İşlemeye Başla</button><div className="grid gap-2 sm:grid-cols-2"><button onClick={() => transfer("Araştırılıyor", "İşletme keşfi başlatıldı")} className="rounded-[10px] border border-cyan-200 px-3 py-3 text-xs font-black text-cyan-700">🔍 İşletme Keşfi</button><button onClick={openAiAnalysis} className="rounded-[10px] border border-purple-200 px-3 py-3 text-xs font-black text-purple-700">🤖 AI Analizi</button><button onClick={openProposalDraft} className="rounded-[10px] border border-amber-200 px-3 py-3 text-xs font-black text-amber-700">📄 Teklif Hazırla</button><button onClick={createTask} className="rounded-[10px] border border-emerald-200 px-3 py-3 text-xs font-black text-emerald-700">✅ Görev Oluştur</button></div></div><div className="mt-4 grid gap-2"><SelectField label="Pipeline durumu" value={pipelineStatus} onChange={updatePipeline} options={["Keşfedildi", "Araştırılıyor", "AI Analizi Hazır", "Teklif Hazırlandı", "İlk Görüşme", "Takipte", "Kazanıldı", "Kaybedildi"]} /><button onClick={() => setPlanOpen((current) => !current)} className="rounded-[10px] border border-slate-200 px-4 py-3 text-xs font-black">AI Satış Koçu Planı</button></div>{planOpen && <div className="mt-4 rounded-[12px] border border-purple-200 bg-purple-50 p-4 text-xs leading-6 text-slate-700"><p className="font-black text-purple-700">İlk görüşme planı</p><p>İlk temas: “Merhaba, {selectedCity} bölgesinde {selectedSector || selectedSubSector} alanında dijital görünürlüğünüzü inceledim. Size 5 dakikalık ücretsiz bir fırsat özeti paylaşabilir miyim?”</p><p>İlk sorular: Reklam bütçeniz var mı? Yeni müşteri hedefiniz nedir? Şu an en çok hangi kanaldan talep alıyorsunuz?</p><p>İtiraz cevabı: “Bütçeyi büyütmeden önce küçük bir test kampanyasıyla ölçülebilir sonuç görmeyi öneriyoruz.”</p><p>Kapanış: “İsterseniz ilk adım olarak iki kampanya ve bir landing page (açılış sayfası) önerisini yazılı paylaşayım.”</p></div>}<div className="mt-4 rounded-[12px] border border-slate-200 bg-slate-50 p-4"><p className="text-xs font-black text-slate-700">Operasyon geçmişi</p><div className="mt-3 grid gap-2">{events.slice(0, 4).map((event: any) => <div key={event.id} className="rounded-[8px] bg-white p-3 text-xs leading-5"><strong>{event.title}</strong><span className="ml-2 text-slate-400">{formatDateTime(event.created_at)}</span><p className="text-slate-500">{event.description}</p></div>)}{!events.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-3 text-xs text-slate-400">Henüz operasyon kaydı yok. Ana CTA ile fırsatı işlemeye başlayın.</p>}</div></div></aside></div><div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">{opportunityLegend.map(([score, label, text, action]) => { const level = opportunityLevel(score); return <div key={label} className={`rounded-[8px] border p-3 ${level.className}`}><p className="text-xs font-black">{label}</p><p className="mt-2 text-[11px] leading-5">{text}</p><p className="mt-2 text-[10px] leading-4 opacity-80">{action}</p></div>; })}</div></div>;
 }
 
 function MapIntelligenceCanvas({ businesses, districts, sectors, selectedPlaceId, setSelectedPlaceId, setSearch, search }: any) {
   return <div className="overflow-hidden rounded-[8px] border border-slate-200 bg-white"><div className="border-b border-slate-200 p-4"><div className="flex flex-wrap justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Map Intelligence Canvas</p><h3 className="mt-1 text-lg font-black">Bölgesel fırsat haritası</h3></div><div className="flex flex-wrap gap-1.5">{opportunityLegend.map(([score, label]) => <span key={label} className={`rounded-full border px-2 py-1 text-[9px] font-black ${opportunityLevel(score).className}`}>{label}</span>)}</div></div><div className="mt-3 flex flex-wrap gap-1.5">{sectors.map((item) => <button key={item.sector} onClick={() => setSearch({ ...search, sector: item.sector })} className={`rounded-full border px-2.5 py-1.5 text-[10px] font-bold ${search.sector === item.sector ? "border-cyan-200/60 bg-cyan-200/15 text-cyan-700" : "border-slate-200 text-slate-400"}`}>{item.sector} · {item.count} · {item.hot} sıcak · {item.opportunity.label}</button>)}</div></div><div className="relative min-h-[420px] overflow-hidden p-4"><div className="premium-grid absolute inset-0 opacity-70" /><div className="relative grid gap-3 sm:grid-cols-2">{districts.map((district) => <button key={district.name} onClick={() => setSearch({ ...search, district: district.name })} className={`relative min-h-36 overflow-hidden rounded-[8px] border p-4 text-left transition hover:-translate-y-1 ${district.opportunity.className}`}><span className="text-sm font-black text-slate-900">{district.name}</span><span className="mt-2 block text-xs">{district.items.length} işletme · {district.hot} sıcak lead</span><span className="mt-1 block text-xs">Ort. puan {district.rating} · Olgunluk {district.maturity}</span><span className="mt-3 block text-[10px] font-black uppercase">{district.opportunity.label}</span>{district.sectors.length > 0 && <span className="mt-2 block text-[10px] opacity-80">{district.sectors.join(" · ")}</span>}</button>)}{!districts.length && <div className="col-span-full grid min-h-72 place-items-center rounded-[8px] border border-dashed border-slate-200 bg-slate-50 p-8 text-center"><div><MapPinned className="mx-auto text-cyan-700" size={34} /><p className="mt-4 font-black">Harita katmanı veri bekliyor</p><p className="mt-2 max-w-md text-xs leading-5 text-slate-400">İşletme araması yaptığınızda ilçeler, sektörler ve fırsat yoğunlukları gerçek sonuçlardan otomatik oluşur.</p></div></div>}</div><div className="pointer-events-none absolute inset-0">{businesses.slice(0, 16).map((item, index) => { const placeId = item.placeId || item.google_place_id; const level = opportunityLevel(item.leadHeatScore ?? item.lead_heat_score); return <button key={placeId || index} onClick={() => setSelectedPlaceId(placeId)} className={`pointer-events-auto absolute grid size-5 place-items-center rounded-full border-2 border-white/70 shadow-lg transition hover:scale-150 ${level.pin} ${selectedPlaceId === placeId ? "scale-150 ring-4 ring-cyan-200/30" : ""}`} style={{ left: `${12 + index * 23 % 78}%`, top: `${18 + index * 31 % 68}%` }} title={item.name || item.company}><span className="size-1.5 rounded-full bg-white" /></button>; })}</div></div></div>;
+}
+
+function ProposalFollowupCenter({ content, setContent, save, notify, setActive }: any) {
+  const followups = content.proposalFollowups || [];
+  const today = new Date().toISOString().slice(0, 10);
+  const overdue = followups.filter((item: any) => item.next_followup_at && item.next_followup_at.slice(0, 10) < today && !["Kazanıldı", "Kaybedildi"].includes(item.status));
+  const dueToday = followups.filter((item: any) => item.next_followup_at?.slice(0, 10) === today && !["Kazanıldı", "Kaybedildi"].includes(item.status));
+  const waiting = followups.filter((item: any) => !["Kazanıldı", "Kaybedildi"].includes(item.status));
+  function persist(items: any[], message: string) {
+    const next = { ...content, proposalFollowups: items };
+    setContent(next);
+    save?.(next);
+    notify?.(message, "success");
+  }
+  function update(id: string, patch: any, message: string) {
+    persist(followups.map((item: any) => item.id === id ? { ...item, ...patch, updated_at: new Date().toISOString() } : item), message);
+  }
+  function createTask(item: any) {
+    const task = { id: createLocalId(), task_date: today, title: `Teklif takibi: ${item.proposal_title || "Teklif"}`, description: item.last_followup_note || "Teklif sonrası takip yapılacak.", related_opportunity_id: item.opportunity_id || null, status: "open", priority: "Yüksek", action_type: "Teklif Takibi", due_at: new Date().toISOString(), created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    const next = { ...content, agencyDailyTasks: [task, ...(content.agencyDailyTasks || [])] };
+    setContent(next);
+    save?.(next);
+    notify?.("Teklif takip görevi oluşturuldu.", "success");
+  }
+  function copyText(text: string) {
+    navigator.clipboard?.writeText(text);
+    notify?.("Kopyalandı.", "success");
+  }
+  const staleCount = followups.filter((item: any) => item.sent_at && Math.floor((Date.now() - new Date(item.sent_at).getTime()) / 86400000) >= 21 && !["Kazanıldı", "Kaybedildi"].includes(item.status)).length;
+  return <Panel title="Teklif Takip Merkezi"><p className="mb-5 text-sm leading-6 text-slate-500">Teklif gönderildikten sonra 3, 7, 14 ve 21 günlük takip akışlarını kalıcı olarak yönetin.</p><div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6"><AgencyStatCard label="Bugün takip" value={dueToday.length} note="Bugün aranacak teklifler" /><AgencyStatCard label="Geciken" value={overdue.length} tone="amber" note="Takip tarihi geçmiş" /><AgencyStatCard label="Yanıt bekleyen" value={waiting.length} note="Açık teklif" /><AgencyStatCard label="Kazanılan" value={followups.filter((item: any) => item.status === "Kazanıldı").length} tone="emerald" note="Kapanan teklif" /><AgencyStatCard label="Kaybedilen" value={followups.filter((item: any) => item.status === "Kaybedildi").length} tone="rose" note="Kayıp teklif" /><AgencyStatCard label="Pasif önerisi" value={staleCount} tone="amber" note="21 gün işlem yok" /></div><div className="mt-5 grid gap-3">{followups.map((item: any) => <div key={item.id} className="rounded-[12px] border border-slate-200 bg-slate-50 p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-black text-slate-900">{item.proposal_title || "Teklif"}</h3><p className="mt-1 text-xs text-slate-500">Tutar: {Number(item.proposal_amount || 0).toLocaleString("tr-TR")} TL · Sonraki takip: {formatDateTime(item.next_followup_at)}</p></div><span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-700">{item.status || "Yanıt bekliyor"}</span></div><p className="mt-3 text-xs leading-5 text-slate-500">{item.last_followup_note || "Takip notu girilmedi."}</p><div className="mt-4 flex flex-wrap gap-2"><button onClick={() => copyText(`Merhaba, gönderdiğimiz teklif hakkında kısa bir dönüş alabilir miyim? Uygunsa bugün 5 dakikalık bir görüşmeyle netleştirelim.`)} className="rounded-full border border-emerald-200 px-3 py-2 text-xs font-black text-emerald-700">WhatsApp takip mesajını kopyala</button><button onClick={() => copyText(`Merhaba,\n\nPaylaştığımız teklif için uygun olduğunuzda kısa bir değerlendirme yapmak isteriz.\n\nİyi çalışmalar.`)} className="rounded-full border border-blue-200 px-3 py-2 text-xs font-black text-blue-700">E-posta taslağını kopyala</button><button onClick={() => createTask(item)} className="rounded-full border border-cyan-200 px-3 py-2 text-xs font-black text-cyan-700">Görev oluştur</button><button onClick={() => update(item.id, { status: "Takip edildi", next_followup_at: new Date(Date.now() + 7 * 86400000).toISOString(), last_followup_note: "Takip edildi, 7 gün sonra yeniden kontrol edilecek." }, "Teklif takip edildi olarak işaretlendi.")} className="rounded-full border border-slate-200 px-3 py-2 text-xs font-black">Takip edildi</button><button onClick={() => update(item.id, { status: "Kazanıldı" }, "Teklif kazanıldı olarak işaretlendi.")} className="rounded-full bg-emerald-500 px-3 py-2 text-xs font-black text-white">Kazanıldı yap</button><button onClick={() => update(item.id, { status: "Kaybedildi" }, "Teklif kaybedildi olarak işaretlendi.")} className="rounded-full bg-slate-500 px-3 py-2 text-xs font-black text-white">Kaybedildi yap</button></div></div>)}{!followups.length && <p className="rounded-[12px] border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">Henüz teklif takip kaydı yok. Fırsat Haritası veya Teklif Motoru üzerinden teklif taslağı oluşturun.</p>}</div><button onClick={() => setActive("Teklif Motoru")} className="mt-5 rounded-[10px] bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Teklif Motoruna Git</button></Panel>;
+}
+
+function WonLostAnalysisCenter({ content }: any) {
+  const signals = content.agencyLearningSignals || [];
+  const opportunities = content.agencyOpportunities || [];
+  const closed = [...signals, ...opportunities.filter((item: any) => ["Kazanıldı", "Kaybedildi"].includes(item.won_lost_status || item.pipeline_status))];
+  const countBy = (key: string, outcome?: string) => closed.filter((item: any) => !outcome || (item.outcome || item.won_lost_status || item.pipeline_status) === outcome).reduce((groups: any, item: any) => {
+    const value = item[key] || "Belirtilmedi";
+    groups[value] = (groups[value] || 0) + 1;
+    return groups;
+  }, {});
+  const rows = (title: string, data: any) => <div className="rounded-[12px] border border-slate-200 bg-slate-50 p-4"><h3 className="font-black text-slate-900">{title}</h3><div className="mt-3 grid gap-2">{Object.entries(data).slice(0, 6).map(([label, count]) => <div key={label} className="flex justify-between rounded-[8px] bg-white px-3 py-2 text-xs"><span>{label}</span><strong>{String(count)}</strong></div>)}{!Object.keys(data).length && <p className="text-xs text-slate-400">Yeterli veri yok.</p>}</div></div>;
+  return <Panel title="Kazanıldı / Kaybedildi Analizi"><p className="mb-5 text-sm leading-6 text-slate-500">Kapanan fırsatlar arttıkça sistem hangi sektör, şehir, paket ve bütçe aralığının daha kolay kapandığını öğrenir.</p>{!closed.length && <p className="mb-5 rounded-[12px] border border-dashed border-slate-200 p-5 text-sm text-slate-500">Yeterli veri yok. Fırsatlar Kazanıldı veya Kaybedildi olarak işaretlendikçe analiz oluşacak.</p>}<div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{rows("En çok kazanılan sektörler", countBy("sector", "Kazanıldı"))}{rows("En çok kaybedilen sektörler", countBy("sector", "Kaybedildi"))}{rows("En iyi şehirler", countBy("city", "Kazanıldı"))}{rows("En iyi paketler", countBy("package_name", "Kazanıldı"))}{rows("Kaybedilme sebepleri", countBy("loss_reason", "Kaybedildi"))}{rows("İtiraz sinyalleri", countBy("won_lost_reason", "Kaybedildi"))}</div></Panel>;
+}
+
+function AgencyTargetsCenter({ content, setContent, save, notify }: any) {
+  const month = new Date().toISOString().slice(0, 7);
+  const current = (content.agencyTargets || []).find((item: any) => item.month === month) || { id: createLocalId(), month, target_revenue: 50000, target_customers: 3, target_offers: 10, target_meetings: 8, target_collections: 50000 };
+  const [draft, setDraft] = useState(current);
+  const wonRevenue = (content.proposalFollowups || []).filter((item: any) => item.status === "Kazanıldı").reduce((sum: number, item: any) => sum + Number(item.proposal_amount || 0), 0);
+  const expectedRevenue = (content.agencyOpportunities || []).reduce((sum: number, item: any) => sum + Number(item.estimated_monthly_revenue || 0) * Number(item.close_probability || 0) / 100, 0);
+  function persist() {
+    const item = { ...draft, updated_at: new Date().toISOString(), created_at: draft.created_at || new Date().toISOString() };
+    const next = { ...content, agencyTargets: [item, ...(content.agencyTargets || []).filter((target: any) => target.id !== item.id && target.month !== item.month)] };
+    setContent(next);
+    save?.(next);
+    notify?.("Ajans hedefleri kaydedildi.", "success");
+  }
+  return <Panel title="Ajans Hedef Panosu"><p className="mb-5 text-sm leading-6 text-slate-500">Aylık gelir, müşteri, teklif, görüşme ve tahsilat hedeflerini kalıcı yönetin.</p><div className="grid gap-3 md:grid-cols-5"><AgencyStatCard label="Gerçekleşen gelir" value={`${wonRevenue.toLocaleString("tr-TR")} TL`} note="Kazanılan tekliflerden" /><AgencyStatCard label="Beklenen gelir" value={`${Math.round(expectedRevenue).toLocaleString("tr-TR")} TL`} note="Kapanış olasılığı ağırlıklı" /><AgencyStatCard label="Hedefe kalan" value={`${Math.max(0, Number(draft.target_revenue || 0) - wonRevenue).toLocaleString("tr-TR")} TL`} tone="amber" note="Aylık hedefe göre" /><AgencyStatCard label="Hedef müşteri" value={draft.target_customers} note="Bu ay" /><AgencyStatCard label="Hedef teklif" value={draft.target_offers} note="Bu ay" /></div><div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3"><Field label="Ay" type="month" value={draft.month} onChange={(month) => setDraft({ ...draft, month })} /><Field label="Hedef gelir" type="number" value={draft.target_revenue} onChange={(target_revenue) => setDraft({ ...draft, target_revenue: Number(target_revenue || 0) })} /><Field label="Hedef müşteri" type="number" value={draft.target_customers} onChange={(target_customers) => setDraft({ ...draft, target_customers: Number(target_customers || 0) })} /><Field label="Hedef teklif" type="number" value={draft.target_offers} onChange={(target_offers) => setDraft({ ...draft, target_offers: Number(target_offers || 0) })} /><Field label="Hedef görüşme" type="number" value={draft.target_meetings} onChange={(target_meetings) => setDraft({ ...draft, target_meetings: Number(target_meetings || 0) })} /><Field label="Hedef tahsilat" type="number" value={draft.target_collections} onChange={(target_collections) => setDraft({ ...draft, target_collections: Number(target_collections || 0) })} /></div><button onClick={persist} className="mt-5 rounded-[10px] bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Ajans Hedeflerini Kaydet</button></Panel>;
+}
+
+function AiSalesCoachCenter({ content, notify }: any) {
+  const opportunities = content.agencyOpportunities || [];
+  const leads = content.leads || [];
+  const [selectedId, setSelectedId] = useState(opportunities[0]?.id || leads[0]?.id || "");
+  const selected = opportunities.find((item: any) => item.id === selectedId) || leads.find((item: any) => item.id === selectedId) || {};
+  const sector = selected.sector || selected.business_type || selected.category || "işletme";
+  const city = selected.city || "bölgeniz";
+  const message = `Merhaba, ${city} bölgesinde ${sector} alanındaki dijital görünürlüğünüzü inceledim. Google ve Meta tarafında değerlendirebileceğimiz net fırsatlar var. Size 5 dakikalık ücretsiz bir ön analiz paylaşabilir miyim?`;
+  const email = `Merhaba,\n\n${city} ${sector} alanında görünürlük, reklam ve dönüşüm tarafında kısa bir fırsat analizi hazırlayabiliriz.\n\nUygunsa bu hafta 10 dakikalık bir görüşme planlayalım.\n\nİyi çalışmalar.`;
+  function copy(text: string) {
+    navigator.clipboard?.writeText(text);
+    notify?.("Kopyalandı.", "success");
+  }
+  return <Panel title="AI Satış Koçu"><p className="mb-5 text-sm leading-6 text-slate-500">Fırsat veya lead için arama metni, WhatsApp mesajı, e-posta taslağı, itiraz cevapları ve kapanış cümlesi üretir.</p><SelectField label="Fırsat / lead seç" value={selectedId} onChange={setSelectedId} options={[...opportunities.map((item: any) => ({ value: item.id, label: `${item.sector || "Fırsat"} · ${item.city || "Şehir yok"}` })), ...leads.map((item: any) => ({ value: item.id, label: `${item.company || item.name || "Lead"} · ${item.business_type || item.sector || "Sektör yok"}` }))]} /><div className="mt-5 grid gap-4 md:grid-cols-2"><div className="rounded-[12px] border border-slate-200 bg-slate-50 p-4"><h3 className="font-black">İlk WhatsApp mesajı</h3><p className="mt-3 text-sm leading-6 text-slate-600">{message}</p><button onClick={() => copy(message)} className="mt-4 rounded-full bg-emerald-500 px-4 py-2 text-xs font-black text-white">WhatsApp mesajını kopyala</button></div><div className="rounded-[12px] border border-slate-200 bg-slate-50 p-4"><h3 className="font-black">E-posta taslağı</h3><pre className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">{email}</pre><button onClick={() => copy(email)} className="mt-4 rounded-full bg-blue-500 px-4 py-2 text-xs font-black text-white">E-posta metnini kopyala</button></div><div className="rounded-[12px] border border-amber-200 bg-amber-50 p-4"><h3 className="font-black">İtiraz cevapları</h3><ul className="mt-3 grid gap-2 text-sm leading-6 text-slate-700"><li><strong>Pahalı:</strong> Önce küçük bütçeli testle ölçülebilir sonuç görelim.</li><li><strong>Ajansımız var:</strong> Mevcut yapınızı bozmayıp ikinci görüş olarak performans açığı çıkarabiliriz.</li><li><strong>Daha önce denedik:</strong> Eski kampanyayı analiz edip neden sonuç alınmadığını netleştirelim.</li></ul><button onClick={() => copy("Önce küçük bütçeli testle ölçülebilir sonuç görelim. Mevcut yapınızı bozmayıp performans açığını netleştirebiliriz.")} className="mt-4 rounded-full border border-amber-300 px-4 py-2 text-xs font-black text-amber-700">İtiraz cevabını kopyala</button></div><div className="rounded-[12px] border border-purple-200 bg-purple-50 p-4"><h3 className="font-black">Kapanış cümlesi</h3><p className="mt-3 text-sm leading-6 text-slate-700">İsterseniz ilk adım olarak bu hafta kısa bir analiz ve uygulanabilir teklif planını yazılı paylaşayım.</p><button onClick={() => copy("İsterseniz ilk adım olarak bu hafta kısa bir analiz ve uygulanabilir teklif planını yazılı paylaşayım.")} className="mt-4 rounded-full border border-purple-300 px-4 py-2 text-xs font-black text-purple-700">Kapanış cümlesini kopyala</button></div></div></Panel>;
+}
+
+function MobileOperationModeCenter() {
+  const [enabled, setEnabled] = useState(false);
+  useEffect(() => {
+    try {
+      setEnabled(localStorage.getItem("hk-mobile-operation-mode") === "true");
+    } catch {}
+  }, []);
+  function toggle() {
+    const next = !enabled;
+    setEnabled(next);
+    try {
+      localStorage.setItem("hk-mobile-operation-mode", next ? "true" : "false");
+    } catch {}
+  }
+  return <Panel title="Mobil Operasyon Modu"><p className="mb-5 text-sm leading-6 text-slate-500">Saha kullanımında fırsat kartları, keşif, AI analiz, teklif ve görev aksiyonlarını daha büyük ve tek sütunlu gösterir. Bu tercih yalnızca localStorage üzerinde saklanır; CRM veya lead verisi güncellemez.</p><button onClick={toggle} className={`rounded-[12px] px-6 py-4 text-sm font-black ${enabled ? "bg-cyan-300 text-slate-950" : "border border-slate-200 bg-white text-slate-700"}`}>{enabled ? "🖥️ Masaüstü Mod" : "📱 Mobil Mod"}</button><div className="mt-5 grid gap-3 md:grid-cols-3"><div className="rounded-[12px] border border-slate-200 bg-slate-50 p-4"><h3 className="font-black">Etkilediği alanlar</h3><p className="mt-2 text-sm leading-6 text-slate-500">Fırsat detayları, Ajans Satış Operasyon Merkezi, İşletme Keşfi, AI Analizi ve Teklif aksiyonları.</p></div><div className="rounded-[12px] border border-slate-200 bg-slate-50 p-4"><h3 className="font-black">Veri güvenliği</h3><p className="mt-2 text-sm leading-6 text-slate-500">Bu ayar Supabase’e lead kaydı olarak yazılmaz. Yalnızca admin arayüz tercihidir.</p></div><div className="rounded-[12px] border border-slate-200 bg-slate-50 p-4"><h3 className="font-black">Mobil davranış</h3><p className="mt-2 text-sm leading-6 text-slate-500">Butonlar büyür, kartlar tek sütuna iner ve kritik aksiyonlar daha kolay basılabilir hale gelir.</p></div></div></Panel>;
 }
 
 function PreparationCenter({ content, setContent, setActive, mode = "Hazırlık Merkezi" }: any) {

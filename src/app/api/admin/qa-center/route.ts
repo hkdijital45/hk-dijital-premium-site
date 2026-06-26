@@ -16,8 +16,10 @@ const modules = [
   { name: "Raporlama", slug: "musteri-raporlari", api: "reports", table: "reports", columns: ["company_id", "title", "visible_to_customer"] },
   { name: "Meta Entegrasyonları", slug: "meta-istihbarat", api: "meta-ads", table: "ad_integrations", columns: ["provider", "account_id", "business_id"] },
   { name: "Google Entegrasyonları", slug: "google-istihbarat", api: "google-analysis", table: "ad_integrations", columns: ["google_customer_id", "google_analytics_id"] },
-  { name: "Ajans Satış Operasyon Merkezi", slug: "musteri-kesfi", api: "business-discovery", table: "leads", columns: ["source", "business_type", "lead_heat_score"] },
   { name: "Reklam Yorum Merkezi", slug: "ad-insights", api: "ad-insights", table: "ad_insight_snapshots", columns: ["customer_id", "metrics", "health_score"] },
+  { name: "Ajans Operasyon Kalıcılığı", slug: "musteri-kesfi", api: "center-data", table: "agency_opportunities", columns: ["pipeline_status", "next_recommended_action", "last_offer_at"] },
+  { name: "Teklif Takip Merkezi", slug: "teklif-takip-merkezi", api: "center-data", table: "proposal_followups", columns: ["next_followup_at", "status", "proposal_amount"] },
+  { name: "Ajans Hedef Panosu", slug: "ajans-hedefleri", api: "center-data", table: "agency_targets", columns: ["month", "target_revenue", "target_customers"] },
   { name: "Sistem Rehberi", slug: "sistem-rehberi", api: "system-guide", table: "system_guides", columns: ["title", "content", "category"] },
   { name: "Sistem Sağlığı", slug: "sistem-sagligi", api: "ai-status", table: "integration_sync_logs", columns: ["provider", "result", "message"] }
 ];
@@ -47,6 +49,8 @@ function sourceContains(pattern: string) {
     "src/components/admin/AdminDashboard.tsx",
     "src/components/admin/AdInsightsCenter.tsx",
     "src/components/admin/Phase2OperatingSystem.tsx",
+    "src/lib/admin-navigation.ts",
+    "src/lib/system-guide-content.ts",
     "src/app/api/admin/customer-operations/route.ts",
     "src/app/api/admin/leads/[id]/route.ts",
     "src/app/api/admin/integrations/route.ts",
@@ -142,23 +146,23 @@ function scanSourcesForFindings(migrations: string) {
   if (!migrations.includes("qa_audit_findings")) findings.push(makeFinding({ category: "Migration Eksikleri", severity: "orta", module: "QA Merkezi", file_path: "supabase/migrations", title: "qa_audit_findings tablosu migrationlarda görünmüyor", description: "QA bulgularını kalıcı izlemek için tablo gerekir.", recommendation: "Idempotent qa_audit_findings migrationını çalıştırın." }));
   if (!migrations.includes("sort_order") || !migrations.includes("parent_task_id") || !migrations.includes("reminder_at")) findings.push(makeFinding({ category: "Migration Eksikleri", severity: "orta", module: "Görevler", file_path: "supabase/migrations", title: "Görev Phase 2 kolonları eksik olabilir", description: "Alt görev, sıralama veya hatırlatma alanları migrationlarda tam görünmüyor.", recommendation: "agency_tasks Phase 2 kolon migrationını çalıştırın." }));
   if (!migrations.includes("weekly_change") || !migrations.includes("wasted_budget_estimate")) findings.push(makeFinding({ category: "Migration Eksikleri", severity: "orta", module: "Reklam Yorum Merkezi", file_path: "supabase/migrations", title: "Reklam analiz Phase 2 kolonları eksik olabilir", description: "Haftalık değişim ve boşa bütçe kolonları migrationlarda görünmüyor.", recommendation: "ad_insight_snapshots Phase 2 kolon migrationını çalıştırın." }));
-  const opportunityChecks = [
-    ["Mobil Mod butonu", "hk-mobile-operation-mode", "Mobil Operasyon Modu geçişi kaynakta görünmüyor."],
-    ["Mobil mod toggle görünür ve çalışıyor mu?", "Mobil Operasyon Modu Toggle", "Admin toolbar içindeki global Mobil Mod / Masaüstü Mod toggle görünmüyor."],
-    ["Fırsat ana CTA", "Fırsatı İşlemeye Başla", "Fırsat işlemeye başlama butonu kaynakta görünmüyor."],
-    ["AI prefill", "hk-ai-studio-prefill", "AI Studio hazır prompt aktarımı kaynakta görünmüyor."],
-    ["Teklif prefill", "hk-proposal-prefill", "Teklif Motoru hazır veri aktarımı kaynakta görünmüyor."],
-    ["Görev oluşturma", "Görev Oluştur", "Fırsat kartından görev oluşturma aksiyonu kaynakta görünmüyor."],
-    ["Operasyon Merkezi", "HK OPERASYON MERKEZİ", "Dashboard üst operasyon merkezi kaynakta görünmüyor."],
-    ["Takip sistemi", "Akıllı takip", "Akıllı takip veya takip önerisi kaynakta görünmüyor."],
-    ["AI öğrenme", "AI Öğrenme Sistemi", "Kazanıldı/Kaybedildi sinyallerinden öğrenme özeti kaynakta görünmüyor."],
-    ["Pipeline güncelleme", "setPipelineStatus", "Pipeline durum güncelleme handlerı kaynakta görünmüyor."],
-    ["Takvim özeti", "Yaklaşan İşler", "Dashboard takvim özeti kaynakta görünmüyor."],
-    ["Mobil sticky aksiyon", "sticky bottom-3", "Mobil mod sticky hızlı aksiyon çubuğu kaynakta görünmüyor."]
-  ];
-  for (const [title, pattern, description] of opportunityChecks) {
-    if (!sourceContains(pattern)) findings.push(makeFinding({ category: "Çalışmayan Butonlar", severity: "orta", module: "Ajans Satış Operasyon Merkezi", file_path: "src/components/admin/AdminDashboard.tsx", title, description, recommendation: "Fırsat kartı CTA, prefill veya mobil mod akışını doğrulayın." }));
-  }
+  [
+    ["Menü kategorileri duplicate mi?", "Müşteri & Satış", "admin-navigation.ts içinde müşteri/satış modülleri tek kategori altında toplanmalı."],
+    ["Aynı route iki farklı isimle gösteriliyor mu?", "legacySlugRedirects", "Eski slug değerleri canonical route’a yönlenmeli."],
+    ["Mobil mod toggle görünüyor mu?", "Mobil Operasyon Modu Toggle", "Admin toolbar üzerinde görünür toggle bulunmalı."],
+    ["Mobil mod localStorage tercihi korunuyor mu?", "hk-mobile-operation-mode", "Mobil mod tercihi CRM/lead kaydı yerine localStorage’da tutulmalı."],
+    ["Fırsat operasyon verileri Supabase’e kaydediliyor mu?", "agencyOpportunities", "Fırsat kartı center-data üzerinden agency_opportunities koleksiyonuna yazmalı."],
+    ["Pipeline değişimi timeline’a yazılıyor mu?", "agencyOpportunityEvents", "Pipeline ve aksiyon kayıtları agency_opportunity_events koleksiyonuna eklenmeli."],
+    ["Teklif takip akışı oluşuyor mu?", "proposalFollowups", "Teklif taslağı 3/7/14 günlük takip tarihleriyle kayıt üretmeli."],
+    ["Günlük görevler kalıcı mı?", "agencyDailyTasks", "Fırsat kartından görev oluşturma agency_daily_tasks koleksiyonuna yazmalı."],
+    ["Ajans hedefleri kalıcı mı?", "agencyTargets", "Ajans Hedef Panosu hedefleri agency_targets koleksiyonuna kaydetmeli."],
+    ["Gerçek/tahmini veri etiketi görünüyor mu?", "Tahmini veri", "Karar panellerinde veri kaynağı etiketi bulunmalı."],
+    ["Rehber güncel mi?", "Teklif Takip Merkezi", "Sistem Rehberi yeni operasyon başlıklarını içermeli."],
+    ["Migration gerekli ama eksik mi?", "agency_opportunities", "Ajans operasyon migrationı çalıştırılabilir olmalı."]
+  ].forEach(([title, pattern, recommendation]) => {
+    const inSource = sourceContains(pattern) || migrations.includes(String(pattern).toLocaleLowerCase("tr"));
+    if (!inSource) findings.push(makeFinding({ category: "Ajans Operasyonu QA", severity: "orta", module: "Ajans Operasyon Kalıcılığı", file_path: "src/components/admin/AdminDashboard.tsx", title, description: `${pattern} sinyali statik analizde bulunamadı.`, recommendation }));
+  });
 
   const adminPages = walkFiles(path.join(root, "src", "app", "hk-admin"), [".tsx"]).filter((file) => file.endsWith("page.tsx")).length;
   const adminComponents = walkFiles(path.join(root, "src", "components", "admin"), [".tsx"]).length;
