@@ -17,6 +17,7 @@ const modules = [
   { name: "Meta Entegrasyonları", slug: "meta-istihbarat", api: "meta-ads", table: "ad_integrations", columns: ["provider", "account_id", "business_id"] },
   { name: "Google Entegrasyonları", slug: "google-istihbarat", api: "google-analysis", table: "ad_integrations", columns: ["google_customer_id", "google_analytics_id"] },
   { name: "Reklam Yorum Merkezi", slug: "ad-insights", api: "ad-insights", table: "ad_insight_snapshots", columns: ["customer_id", "metrics", "health_score"] },
+  { name: "HK Agent Hub", slug: "agent-hub", api: "agent-hub/providers", table: "agent_runs", columns: ["task_type", "selected_provider", "output_payload"] },
   { name: "Ajans Operasyon Kalıcılığı", slug: "musteri-kesfi", api: "center-data", table: "agency_opportunities", columns: ["pipeline_status", "next_recommended_action", "last_offer_at"] },
   { name: "Teklif Takip Merkezi", slug: "teklif-takip-merkezi", api: "center-data", table: "proposal_followups", columns: ["next_followup_at", "status", "proposal_amount"] },
   { name: "Ajans Hedef Panosu", slug: "ajans-hedefleri", api: "center-data", table: "agency_targets", columns: ["month", "target_revenue", "target_customers"] },
@@ -47,9 +48,11 @@ function fileExists(relativePath: string) {
 function sourceContains(pattern: string) {
   const files = [
     "src/components/admin/AdminDashboard.tsx",
+    "src/components/admin/AgentHubCenter.tsx",
     "src/components/admin/AdInsightsCenter.tsx",
     "src/components/admin/Phase2OperatingSystem.tsx",
     "src/lib/admin-navigation.ts",
+    "src/lib/agent-hub.ts",
     "src/lib/system-guide-content.ts",
     "src/app/api/admin/customer-operations/route.ts",
     "src/app/api/admin/leads/[id]/route.ts",
@@ -159,6 +162,11 @@ function scanSourcesForFindings(migrations: string) {
     ["Gerçek/tahmini veri etiketi görünüyor mu?", "Tahmini veri", "Karar panellerinde veri kaynağı etiketi bulunmalı."],
     ["Rehber güncel mi?", "Teklif Takip Merkezi", "Sistem Rehberi yeni operasyon başlıklarını içermeli."],
     ["Migration gerekli ama eksik mi?", "agency_opportunities", "Ajans operasyon migrationı çalıştırılabilir olmalı."]
+    ,
+    ["Agent Hub route var mı?", "HK Agent Hub", "Agent Hub menüden açılmalı ve /hk-admin/agent-hub route'u erişilebilir olmalı."],
+    ["Agent provider secretları client'a sızıyor mu?", "secret_value", "Agent provider secretları sadece server-side route içinde kalmalı; client response maskeli olmalı."],
+    ["Manus varsayılan değil mi?", "Derin Araştırma Uzmanı", "Manus günlük kısa cevap değil, derin araştırma görevleri için konumlandırılmalı."],
+    ["Agent run log kalıcı mı?", "agent_runs", "Agent görevleri agent_runs tablosuna yazılmalı."]
   ].forEach(([title, pattern, recommendation]) => {
     const inSource = sourceContains(pattern) || migrations.includes(String(pattern).toLocaleLowerCase("tr"));
     if (!inSource) findings.push(makeFinding({ category: "Ajans Operasyonu QA", severity: "orta", module: "Ajans Operasyon Kalıcılığı", file_path: "src/components/admin/AdminDashboard.tsx", title, description: `${pattern} sinyali statik analizde bulunamadı.`, recommendation }));

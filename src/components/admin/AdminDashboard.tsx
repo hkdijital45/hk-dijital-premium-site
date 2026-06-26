@@ -14,6 +14,7 @@ import { WebsiteAnalyticsSummaryCards } from "@/components/admin/WebsiteAnalytic
 import { SystemGuideCenter } from "@/components/admin/SystemGuideCenter";
 import { HKIntelligenceCommandCenter } from "@/components/admin/HKIntelligenceCommandCenter";
 import { AdInsightsCenter } from "@/components/admin/AdInsightsCenter";
+import { AgentHubCenter } from "@/components/admin/AgentHubCenter";
 import { QaCenter } from "@/components/admin/QaCenter";
 import { AdminCustomerSelector, GlobalMetaPixelSettings, MetaPixelSettingsPanel } from "@/components/admin/AdminCustomerOperations";
 import { CustomerProfileTasks } from "@/components/admin/customer-profile/CustomerProfileTasks";
@@ -99,6 +100,7 @@ const adminLabelEmojis: Record<string, string> = {
   "Web Site Analitiği": "📊",
   "Reklam Yorum Merkezi": "🧠",
   "Reklam Doktoru Pro": "🧠",
+  "HK Agent Hub": "🤖",
   "QA Merkezi": "🧪"
 };
 
@@ -782,6 +784,7 @@ export function AdminDashboard({
           {active === "Raporlar" && <ReportsHub {...props} selectedCompanyId={selectedCompanyId} />}
           {active === "Web Site Analitiği" && <WebsiteAnalyticsCenter />}
           {(active === "Reklam Yorum Merkezi" || active === "Reklam Doktoru Pro") && <AdInsightsCenter content={content} notify={notify} />}
+          {active === "HK Agent Hub" && <AgentHubCenter content={content} notify={notify} />}
           {active === "QA Merkezi" && <QaCenter notify={notify} />}
           {active === "PDF Rapor Tasarım Merkezi" && <PdfReportDesignCenter {...props} />}
           {active === "Müşteriler" && <CustomersAdmin {...props} selectedCompanyId={selectedCompanyId} />}
@@ -4539,6 +4542,20 @@ function CustomerPanelAdmin({ content, setContent }: any) {
   );
 }
 
+function CustomerFormModal({ title, children, onClose }: any) {
+  return (
+    <div className="fixed inset-0 z-[130] grid place-items-center bg-white/75 p-4" onMouseDown={onClose}>
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-auto rounded-[22px] border border-slate-200 bg-white p-5 shadow-[0_28px_90px_rgba(15,23,42,.2)]" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Müşteri Yönetimi</p><h3 className="mt-1 text-2xl font-black text-slate-950">{title}</h3></div>
+          <button onClick={onClose} className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700">Kapat</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function CustomersAdmin({ content, setContent, save, setActive, notify, currentSession, selectedCompanyId = "" }: any) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -4712,18 +4729,6 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
     return <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-700">Aktif</span>;
   }
 
-  const FormModal = ({ title, children, onClose }: any) => (
-    <div className="fixed inset-0 z-[130] grid place-items-center bg-white/75 p-4" onMouseDown={onClose}>
-      <div className="max-h-[90vh] w-full max-w-3xl overflow-auto rounded-[22px] border border-slate-200 bg-white p-5 shadow-[0_28px_90px_rgba(15,23,42,.2)]" onMouseDown={(event) => event.stopPropagation()}>
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Müşteri Yönetimi</p><h3 className="mt-1 text-2xl font-black text-slate-950">{title}</h3></div>
-          <button onClick={onClose} className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700">Kapat</button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-
   return (
     <Panel title="Müşteriler">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4 rounded-[18px] border border-cyan-200 bg-cyan-50 p-5">
@@ -4791,7 +4796,7 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
           {!companies.length && <p className="rounded-[12px] border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">Bu görünümde firma bulunamadı.</p>}
         </div>
       </div>
-      {openForm === "company" && <FormModal title="Yeni Firma Oluştur" onClose={() => setOpenForm("")}>
+      {openForm === "company" && <CustomerFormModal title="Yeni Firma Oluştur" onClose={() => setOpenForm("")}>
         <div className="grid gap-3 md:grid-cols-2">
           <Field label="Firma Adı" value={companyForm.name} onChange={(v) => setCompanyForm({ ...companyForm, name: v })} />
           <OtherSelectField label="Sektör" value={companyForm.sector} onChange={(v) => setCompanyForm({ ...companyForm, sector: v })} options={sectorOptions} manualLabel="Sektörü yazın" />
@@ -4806,8 +4811,8 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
         {canManageCustomers && <button disabled={loading === "company"} onClick={createCompany} className="mt-4 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-60">
           {loading === "company" ? "Firma oluşturuluyor..." : "Firmayı oluştur"}
         </button>}
-      </FormModal>}
-      {openForm === "login" && <FormModal title="Müşteri Giriş Hesabı Oluştur" onClose={() => setOpenForm("")}>
+      </CustomerFormModal>}
+      {openForm === "login" && <CustomerFormModal title="Müşteri Giriş Hesabı Oluştur" onClose={() => setOpenForm("")}>
         <div className="grid gap-3 md:grid-cols-2">
           <Field label="Ad Soyad" value={form.fullName} onChange={(v) => setForm({ ...form, fullName: v })} />
           <Field label="E-posta" value={form.email} onChange={(v) => setForm({ ...form, email: v })} />
@@ -4819,7 +4824,7 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
         {canManageCustomers && <button disabled={loading === "user"} onClick={createLogin} className="mt-4 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-60">
           {loading === "user" ? "Hesap oluşturuluyor..." : "Giriş hesabı oluştur"}
         </button>}
-      </FormModal>}
+      </CustomerFormModal>}
       {detailCompanyId && (
         <CustomerDetailDrawer
           company={(content.companies || []).find((company) => company.id === detailCompanyId)}

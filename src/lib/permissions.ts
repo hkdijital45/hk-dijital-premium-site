@@ -11,7 +11,7 @@ export const adminModules = [
   "rapor-yorumlari", "disa-aktarimlar", "kullanicilar", "roller-yetkiler",
   "site-ayarlari", "api-ayarlari", "tema-ayarlari", "medya", "sistem-loglari",
   "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi",
-  "sosyal-medya-plani", "aylik-raporlar", "hk-asistan", "sektor-sistemleri",
+  "sosyal-medya-plani", "aylik-raporlar", "hk-asistan", "agent-hub", "sektor-sistemleri",
   "sistem-sagligi", "sistem-test-merkezi", "sistem-rehberi", "veri-aktarma", "qa-center"
 ] as const;
 
@@ -35,13 +35,13 @@ export const roleTemplates: Record<CanonicalRole, AdminModule[]> = {
   yonetici: [
     "dashboard", "genel-arama", "kullanim-kilavuzu", "crm", "leads", "musteriler",
     "takip-gorevleri", "notlar", "musteri-bulucu", "haritalar", "bolgesel-analiz",
-    "kaydedilen-adaylar", "meta-analiz", "google-analiz", "sosyal-medya-denetimi", "hazirlik", "ai-studio", "kampanyalar", "teklifler", "teklif-listesi",
+    "kaydedilen-adaylar", "meta-analiz", "google-analiz", "sosyal-medya-denetimi", "hazirlik", "ai-studio", "agent-hub", "kampanyalar", "teklifler", "teklif-listesi",
     "raporlar", "website-analytics", "ad-insights", "rapor-yorumlari", "disa-aktarimlar", "gorevler", "belgeler", "tahsilat", "karlilik",
     "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "hk-asistan", "sektor-sistemleri", "sistem-sagligi", "sistem-rehberi", "veri-aktarma"
   ],
   editor: [
     "dashboard", "genel-arama", "kullanim-kilavuzu", "crm", "leads", "hazirlik",
-    "ai-studio", "icerik-onerileri", "prompt-kutuphanesi", "kampanya-hazirligi",
+    "ai-studio", "agent-hub", "icerik-onerileri", "prompt-kutuphanesi", "kampanya-hazirligi",
     "teklifler", "teklif-listesi", "raporlar", "website-analytics", "rapor-yorumlari", "disa-aktarimlar", "medya", "sistem-rehberi"
   ],
   musteri: []

@@ -20,7 +20,7 @@ export const systemGuideCategories = [
   "Dashboard & Kontrol Merkezi", "CRM & Müşteriler", "Müşteri & Satış", "Ajans Operasyonu", "Satış Hunisi", "Tahsilat & Karlılık",
   "Görev Yönetimi", "Raporlama Merkezi", "Meta Entegrasyonları", "Google Entegrasyonları",
   "HK Intelligence", "AI Studio", "Dosya & Belge Merkezi", "Kullanıcı Yönetimi", "Ayarlar",
-  "Web Site Yönetimi", "Müşteri Paneli", "Sorun Giderme"
+  "Web Site Yönetimi", "Müşteri Paneli", "Sorun Giderme", "HK Agent Hub"
 ];
 
 const definitions: Array<[string, string, string, string]> = [
@@ -86,6 +86,13 @@ const definitions: Array<[string, string, string, string]> = [
   ["SMTP ayarları", "Ayarlar", "Sistem e-postalarının sunucu bağlantısı ve gönderim durumunu yönetin.", "entegrasyonlar"],
   ["WhatsApp ayarları", "Ayarlar", "WhatsApp bağlantı kimliklerini ve hazır mesaj akışlarını yönetin.", "entegrasyonlar"],
   ["AI sağlayıcı ayarları", "Ayarlar", "OpenAI, Groq, Gemini ve fallback modunu güvenli biçimde yapılandırın.", "entegrasyonlar"],
+  ["Agent Hub nedir?", "HK Agent Hub", "ChatGPT, Claude, Gemini, Groq, Manus ve yerel/alternatif modelleri görev tipine göre yöneten AI orkestrasyon merkezini kullanın.", "agent-hub"],
+  ["Manus neden varsayılan değildir?", "HK Agent Hub", "Manus günlük kısa cevaplar yerine rakip analizi, pazar araştırması, fiyat karşılaştırması, sektör keşfi ve kapsamlı rapor görevlerinde kullanılır.", "agent-hub"],
+  ["Hangi görevde hangi AI kullanılır?", "HK Agent Hub", "Reklam analizi, CRM özeti, içerik üretimi, derin araştırma ve hızlı cevap görevlerinin sağlayıcı önceliğini okuyun.", "agent-hub"],
+  ["Agent Hub API key yönetimi", "HK Agent Hub", "Production’da API anahtarlarını Vercel Project Settings > Environment Variables alanına ekleyin; anahtarlar frontend’e gönderilmez.", "agent-hub"],
+  ["Agent Hub failover mantığı", "HK Agent Hub", "Bir sağlayıcı pasif, hatalı veya yapılandırılmamışsa sıradaki sağlayıcıya geçiş ve demo/local fallback davranışını kontrol edin.", "agent-hub"],
+  ["Agent logları nasıl okunur?", "HK Agent Hub", "Görev tipi, seçilen sağlayıcı, durum, süre, tahmini maliyet, token ve hata alanlarıyla agent çalışmalarını denetleyin.", "agent-hub"],
+  ["Agent maliyet takibi", "HK Agent Hub", "Bugünkü görev, aylık görev, tahmini maliyet, başarı oranı ve Manus derin araştırma sayısını takip edin.", "agent-hub"],
   ["Sistem ayarları", "Ayarlar", "Performans, güvenlik, yedekleme ve uygulama tercihlerini yönetin.", "sistem-ayarlari"],
   ["Butonlar ve İşlem Mantığı", "Ayarlar", "Kaydetme, güncelleme, arşivleme, hata bildirimi ve kalıcılık davranışlarını doğrulayın.", "sistem-test-merkezi"],
   ["Logo ve marka yönetimi", "Web Site Yönetimi", "Public site logo, favicon ve marka metinlerini güncelleyin.", "web-sitesi-yonetimi"],

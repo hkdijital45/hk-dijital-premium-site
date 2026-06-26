@@ -102,6 +102,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     accent: "from-blue-500 via-indigo-500 to-violet-600",
     items: [
       { label: "AI Studio", slug: "ai-studio", module: "ai-studio", description: "İçerik, analiz ve rapor üretim araçları." },
+      { label: "HK Agent Hub", slug: "agent-hub", module: "agent-hub", description: "Yapay zekâ sağlayıcılarını, görev yönlendirmeyi ve agent iş akışlarını tek merkezden yönet." },
       { label: "AI Satış Koçu", slug: "ai-satis-kocu", module: "ai-studio", description: "Lead ve fırsatlar için arama, WhatsApp, e-posta ve itiraz cevapları." },
       { label: "İçerik Planları", slug: "icerik-fikirleri", module: "icerik-onerileri", description: "Kanal ve hedefe göre içerik fikirleri." },
       { label: "Promptlar", slug: "prompt-uretimi", module: "prompt-kutuphanesi", description: "Tekrar kullanılabilir yapay zekâ komutları." },
@@ -182,6 +183,8 @@ const legacySlugRedirects: Record<string, string> = {
   "ajans-hedef-panosu": "ajans-hedefleri",
   "agency-targets": "ajans-hedefleri",
   "ai-sales-coach": "ai-satis-kocu",
+  "hk-agent-hub": "agent-hub",
+  "ai-otomasyon": "agent-hub",
   "teklifler": "teklif-hazirlama",
   "teklif-motoru": "teklif-hazirlama",
   "teklif-listesi": "musteri-raporlari",
