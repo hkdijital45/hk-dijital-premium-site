@@ -147,7 +147,13 @@ function scanSourcesForFindings(migrations: string) {
     ["Fırsat ana CTA", "Fırsatı İşlemeye Başla", "Fırsat işlemeye başlama butonu kaynakta görünmüyor."],
     ["AI prefill", "hk-ai-studio-prefill", "AI Studio hazır prompt aktarımı kaynakta görünmüyor."],
     ["Teklif prefill", "hk-proposal-prefill", "Teklif Motoru hazır veri aktarımı kaynakta görünmüyor."],
-    ["Görev oluşturma", "Görev Oluştur", "Fırsat kartından görev oluşturma aksiyonu kaynakta görünmüyor."]
+    ["Görev oluşturma", "Görev Oluştur", "Fırsat kartından görev oluşturma aksiyonu kaynakta görünmüyor."],
+    ["Operasyon Merkezi", "HK OPERASYON MERKEZİ", "Dashboard üst operasyon merkezi kaynakta görünmüyor."],
+    ["Takip sistemi", "Akıllı takip", "Akıllı takip veya takip önerisi kaynakta görünmüyor."],
+    ["AI öğrenme", "AI Öğrenme Sistemi", "Kazanıldı/Kaybedildi sinyallerinden öğrenme özeti kaynakta görünmüyor."],
+    ["Pipeline güncelleme", "setPipelineStatus", "Pipeline durum güncelleme handlerı kaynakta görünmüyor."],
+    ["Takvim özeti", "Yaklaşan İşler", "Dashboard takvim özeti kaynakta görünmüyor."],
+    ["Mobil sticky aksiyon", "sticky bottom-3", "Mobil mod sticky hızlı aksiyon çubuğu kaynakta görünmüyor."]
   ];
   for (const [title, pattern, description] of opportunityChecks) {
     if (!sourceContains(pattern)) findings.push(makeFinding({ category: "Çalışmayan Butonlar", severity: "orta", module: "Ajans Satış Operasyon Merkezi", file_path: "src/components/admin/AdminDashboard.tsx", title, description, recommendation: "Fırsat kartı CTA, prefill veya mobil mod akışını doğrulayın." }));

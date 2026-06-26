@@ -1813,6 +1813,11 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
   const [aiStatusMessage, setAiStatusMessage] = useState("");
   const [aiStatusLoading, setAiStatusLoading] = useState(false);
   const today = new Date().toISOString().slice(0, 10);
+  const dailyActionKey = `hk-daily-agency-actions:${today}`;
+  const [completedDailyActions, setCompletedDailyActions] = useState(() => {
+    if (typeof window === "undefined") return {};
+    try { return JSON.parse(localStorage.getItem(dailyActionKey) || "{}"); } catch { return {}; }
+  });
   const month = today.slice(0, 7);
   const aiAnalyzedLeads = leads.filter((lead) => lead.ai_analysis && Object.keys(lead.ai_analysis).length);
   const generatedProposals = leads.reduce((sum, lead) => sum + (Array.isArray(lead.proposal_history) ? lead.proposal_history.length : 0), 0);
@@ -2267,6 +2272,75 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
       target: "Teklif Motoru"
     }
   ];
+  const weeklyLeads = leads.filter((lead) => {
+    const created = new Date(lead.created_at || lead.updated_at || 0);
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    return created >= weekAgo;
+  });
+  const weeklyAddedToCrm = weeklyLeads.filter((lead) => ["Müşteri Bulucu", "Fırsat Motoru", "Google Maps"].includes(lead.source || lead.lead_source || ""));
+  const weeklyProposals = leads.filter((lead) => (lead.proposal_status || Array.isArray(lead.proposal_history)) && String(lead.updated_at || lead.created_at || "").slice(0, 10) >= (() => { const d = new Date(); d.setDate(d.getDate() - 7); return d.toISOString().slice(0, 10); })());
+  const weeklyMeetings = leads.filter((lead) => ["Toplantı Yapıldı", "İlk Görüşme", "Görüşme"].includes(lead.status || lead.pipeline_stage || ""));
+  const weeklyWon = weeklyLeads.filter((lead) => ["Kazanıldı", "Dönüştürüldü", "Müşteri Oldu"].includes(lead.status)).length;
+  const weeklyLost = weeklyLeads.filter((lead) => lead.status === "Kaybedildi").length;
+  const weeklySuccessRate = weeklyWon + weeklyLost ? Math.round((weeklyWon / (weeklyWon + weeklyLost)) * 100) : 0;
+  const averageServiceFee = Math.round((proposalRevenueEstimate || expectedRevenue || 0) / Math.max(1, openProposalLeads.length || activeCustomers.length || 1));
+  const yearlyAgencyTarget = monthlyAgencyTarget * 12;
+  const revenuePanelRows = [
+    ["Gerçekleşen gelir", `${paidRevenue.toLocaleString("tr-TR")} TL`],
+    ["Beklenen gelir", `${Math.round(weightedExpectedRevenue).toLocaleString("tr-TR")} TL`],
+    ["Teklif aşamasındaki gelir", `${Math.round(proposalRevenueEstimate).toLocaleString("tr-TR")} TL`],
+    ["Tahsil edilmeyen gelir", `${pendingRevenue.toLocaleString("tr-TR")} TL`],
+    ["Hedefe kalan gelir", `${Math.round(targetGapRevenue).toLocaleString("tr-TR")} TL`],
+    ["Aylık hedef", `${monthlyAgencyTarget.toLocaleString("tr-TR")} TL`],
+    ["Yıllık hedef", `${yearlyAgencyTarget.toLocaleString("tr-TR")} TL`]
+  ];
+  const salesKpiRows = [
+    ["İncelenen işletme", weeklyLeads.length],
+    ["CRM’e eklenen", weeklyAddedToCrm.length],
+    ["Hazırlanan teklif", weeklyProposals.length],
+    ["Yapılan görüşme", weeklyMeetings.length],
+    ["Kazanılan müşteri", weeklyWon],
+    ["Kaybedilen müşteri", weeklyLost],
+    ["Başarı oranı", `%${weeklySuccessRate}`],
+    ["Ortalama satış süresi", openProposalLeads.length ? "7-14 gün" : "Veri bekleniyor"],
+    ["Ortalama hizmet bedeli", `${averageServiceFee.toLocaleString("tr-TR")} TL`]
+  ];
+  const salesPerformanceRows = [{
+    name: currentSession?.name || currentSession?.email || "Ben",
+    proposals: weeklyProposals.length,
+    meetings: weeklyMeetings.length,
+    won: weeklyWon,
+    rate: `%${weeklySuccessRate}`,
+    closing: openProposalLeads.length ? "7-14 gün" : "Veri bekleniyor"
+  }];
+  const calendarRows = [
+    ["Bugün", activeTasks.filter((item) => item.due_date === today).length, "Görevler"],
+    ["Yarın", activeTasks.filter((item) => { const d = new Date(); d.setDate(d.getDate() + 1); return item.due_date === d.toISOString().slice(0, 10); }).length, "Görevler"],
+    ["Bu hafta", activeTasks.filter((item) => item.due_date && item.due_date >= today).slice(0, 7).length, "Görevler"]
+  ];
+  const operationCards = [
+    ["Bugün ilk aranacak fırsat", followUpLeads[0]?.company || followUpLeads[0]?.name || "Yeni fırsat keşfi başlat", "Müşteri Bulucu"],
+    ["Takip edilecek teklifler", openProposalLeads.length ? `${openProposalLeads.length} teklif takipte` : "Bekleyen teklif yok", "Teklif Motoru"],
+    ["AI analizi eksik fırsatlar", aiPendingOpportunities.length ? `${aiPendingOpportunities.length} fırsat eksik` : "Eksik analiz yok", "AI Studio"],
+    ["Bekleyen tahsilatlar", `${pendingRevenue.toLocaleString("tr-TR")} TL`, "Tahsilat"],
+    ["Kritik görevler", criticalTasks.length, "Görevler"],
+    ["Hedefe kalan müşteri", neededCustomersForTarget, "Müşteri Bulucu"],
+    ["Beklenen aylık gelir", `${Math.round(weightedExpectedRevenue).toLocaleString("tr-TR")} TL`, "Tahsilat"],
+    ["Son kazanılan müşteri", leads.find((lead) => ["Kazanıldı", "Dönüştürüldü", "Müşteri Oldu"].includes(lead.status))?.company || "Henüz kayıt yok", "Satış Hunisi"]
+  ];
+  const dailyActionRows = [
+    ["call-sector", "5 kuaför ara", "Müşteri Bulucu"],
+    ["proposal-dentist", "2 diş kliniğine teklif gönder", "Teklif Motoru"],
+    ["analyze-gallery", "1 galeriyi analiz et", "AI Studio"],
+    ["follow-proposals", "3 teklifi takip et", "Teklif Motoru"],
+    ["collection-reminder", "Bekleyen tahsilatı hatırlat", "Tahsilat"]
+  ];
+  function toggleDailyAction(id: string) {
+    const next = { ...completedDailyActions, [id]: !completedDailyActions[id] };
+    setCompletedDailyActions(next);
+    try { localStorage.setItem(dailyActionKey, JSON.stringify(next)); } catch {}
+  }
   const aiHealthDimensions = [
     ["Reklam Sağlığı", activeCampaigns.length ? Math.min(100, 55 + activeCampaigns.length * 8) : 42, activeCampaigns.length ? "Aktif kampanya var; performans takibi yapılabilir." : "Aktif kampanya az veya yok."],
     ["İçerik Sağlığı", (content.socialMediaPlans || []).length ? 78 : 48, (content.socialMediaPlans || []).length ? "İçerik planı kayıtları mevcut." : "Düzenli içerik planı için kayıt az."],
@@ -2322,6 +2396,60 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
   return (
     <Panel title="Operasyon Merkezi">
       <div className="admin-light-dashboard grid w-full min-w-0 gap-5">
+        <section className="rounded-[30px] border border-slate-200 bg-white p-5 shadow-[0_24px_70px_rgba(15,23,42,.09)] sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[.18em] text-slate-500">AI Ajans Direktörü</p>
+              <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">HK OPERASYON MERKEZİ</h1>
+              <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">Bugün ilk aranacak fırsatları, takipteki teklifleri, eksik AI analizlerini, tahsilat risklerini ve hedefe kalan geliri tek alanda önceliklendirir.</p>
+            </div>
+            <button onClick={generateDailyPlan} className="rounded-full bg-slate-950 px-5 py-3 text-sm font-black text-white">AI Günlük Özeti Hazırla</button>
+          </div>
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {operationCards.map(([label, value, target]) => (
+              <div key={label as string} className="rounded-[18px] border border-slate-200 bg-slate-50 p-4">
+                <p className="text-[11px] font-black uppercase tracking-[.12em] text-slate-500">{label}</p>
+                <p className="mt-2 truncate text-lg font-black text-slate-950">{value}</p>
+                <button onClick={() => setActive(target as string)} className="mt-3 rounded-full bg-white px-3 py-2 text-[11px] font-black text-slate-700 ring-1 ring-slate-200">Aç</button>
+              </div>
+            ))}
+          </div>
+          <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="rounded-[22px] border border-cyan-100 bg-cyan-50 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-black text-slate-950">Günlük Yapılacaklar</h3>
+                  <p className="mt-1 text-xs leading-5 text-slate-600">Tamamlanan önerileri işaretleyin. Tercih bugün için cihazda saklanır.</p>
+                </div>
+                <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black text-cyan-700 ring-1 ring-cyan-100">{dailyActionRows.filter(([id]) => completedDailyActions[id as string]).length}/{dailyActionRows.length} tamamlandı</span>
+              </div>
+              <div className="mt-4 grid gap-2 md:grid-cols-2">
+                {dailyActionRows.map(([id, title, target]) => (
+                  <label key={id as string} className="flex items-center justify-between gap-3 rounded-[14px] bg-white p-3 text-sm font-bold text-slate-700 ring-1 ring-cyan-100">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <input type="checkbox" checked={Boolean(completedDailyActions[id as string])} onChange={() => toggleDailyAction(id as string)} />
+                      <span className={completedDailyActions[id as string] ? "truncate text-slate-400 line-through" : "truncate"}>{title}</span>
+                    </span>
+                    <button type="button" onClick={(event) => { event.preventDefault(); setActive(target as string); }} className="shrink-0 rounded-full bg-cyan-100 px-2.5 py-1 text-[10px] font-black text-cyan-800">Git</button>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-[22px] border border-amber-100 bg-amber-50 p-4">
+              <h3 className="text-lg font-black text-slate-950">Yaklaşan İşler</h3>
+              <p className="mt-1 text-xs leading-5 text-slate-600">Takvim özeti görev tarihleri üzerinden hesaplanır.</p>
+              <div className="mt-4 grid gap-2">
+                {calendarRows.map(([label, value, target]) => (
+                  <button key={label as string} onClick={() => setActive(target as string)} className="flex items-center justify-between rounded-[14px] bg-white px-3 py-3 text-left ring-1 ring-amber-100">
+                    <span className="text-sm font-black text-slate-800">{label}</span>
+                    <strong className="text-lg text-amber-700">{value}</strong>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-[0_18px_44px_rgba(15,23,42,.07)] sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -2397,6 +2525,48 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
               </div>
             </div>
           ))}
+        </section>
+
+        <section className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+          <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[.16em] text-blue-700">Satış KPI Paneli</p>
+                <h3 className="mt-2 text-xl font-black text-slate-950">Bu hafta satış performansı</h3>
+              </div>
+              <span className="rounded-full bg-blue-50 px-3 py-1 text-[10px] font-black text-blue-700">Son 7 gün</span>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {salesKpiRows.map(([label, value]) => (
+                <div key={label as string} className="rounded-[16px] border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-[10px] font-black uppercase tracking-[.12em] text-slate-500">{label}</p>
+                  <p className="mt-2 text-xl font-black text-slate-950">{value}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 rounded-[16px] border border-slate-200 bg-white p-4">
+              <h4 className="text-sm font-black text-slate-950">Satış performansı</h4>
+              <div className="mt-3 grid gap-2">
+                {salesPerformanceRows.map((row) => (
+                  <div key={row.name} className="grid gap-2 rounded-[12px] bg-slate-50 p-3 text-xs text-slate-600 md:grid-cols-6">
+                    <strong className="text-slate-950">{row.name}</strong>
+                    <span>Teklif: {row.proposals}</span>
+                    <span>Görüşme: {row.meetings}</span>
+                    <span>Kazanım: {row.won}</span>
+                    <span>Başarı: {row.rate}</span>
+                    <span>Kapanış: {row.closing}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="rounded-[24px] border border-emerald-100 bg-white p-5 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[.16em] text-emerald-700">Gelir Paneli</p>
+            <h3 className="mt-2 text-xl font-black text-slate-950">Hedef ve tahsilat görünümü</h3>
+            <div className="mt-4 grid gap-2">
+              {revenuePanelRows.map(([label, value]) => <InfoItem key={label as string} label={label} value={value} />)}
+            </div>
+          </div>
         </section>
 
         <section className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,.65fr)]">
@@ -7600,6 +7770,44 @@ function OpportunityMap({ content, setContent, search, setSearch, setTab, setAct
     ["Daha önce olmadı", "Genelde sorun reklam vermek değil, ölçümleme, teklif dili ve landing page tarafında oluyor. Önce bunu teşhis edelim."],
     ["Bütçem yok", "O zaman düşük riskli görünürlük planıyla başlayıp bütçe hazır olduğunda büyütülebilecek altyapıyı kurabiliriz."]
   ];
+  const sameSectorLeads = saved.filter((lead) => String(lead.business_type || lead.category || lead.sector || "").toLocaleLowerCase("tr").includes(String(selectedSector || selectedSubSector).toLocaleLowerCase("tr")));
+  const learnedWins = sameSectorLeads.filter((lead) => ["Kazanıldı", "Dönüştürüldü", "Müşteri Oldu"].includes(lead.status)).length;
+  const learnedLosses = sameSectorLeads.filter((lead) => lead.status === "Kaybedildi").length;
+  const learnedCloseRate = learnedWins + learnedLosses ? Math.round((learnedWins / (learnedWins + learnedLosses)) * 100) : closeProbability;
+  const averageCustomerMonths = priorityScore >= 85 ? 12 : priorityScore >= 70 ? 9 : priorityScore >= 55 ? 6 : 3;
+  const monthlyFeeNumber = priorityScore >= 85 ? 35000 : priorityScore >= 70 ? 22000 : priorityScore >= 55 ? 13000 : 7500;
+  const lifetimeValue = monthlyFeeNumber * averageCustomerMonths;
+  const lastCallAt = relatedLeads.find((lead) => lead.last_call_at || lead.last_contact_at)?.last_call_at || relatedLeads.find((lead) => lead.last_call_at || lead.last_contact_at)?.last_contact_at || "";
+  const lastOfferAt = opportunityOverride.last_offer_at || lastProposalLead?.updated_at || lastProposalLead?.created_at || "";
+  const lastMeetingAt = relatedLeads.find((lead) => lead.meeting_date || lead.last_meeting_at)?.meeting_date || relatedLeads.find((lead) => lead.meeting_date || lead.last_meeting_at)?.last_meeting_at || "";
+  const lastNoteAt = relatedLeads.find((lead) => lead.notes || lead.local_opportunity_notes)?.updated_at || "";
+  const daysSinceAction = lastActionAt ? Math.max(0, Math.floor((Date.now() - new Date(lastActionAt).getTime()) / 86400000)) : null;
+  const digitalChecklist = [
+    ["Website", relatedLeads.some((lead) => lead.website) ? "Var" : "Bilinmiyor"],
+    ["Google Business", relatedLeads.some((lead) => lead.google_place_id || lead.googlePlaceId || lead.google_rating) ? "Var" : "Bilinmiyor"],
+    ["Instagram", relatedLeads.some((lead) => lead.instagram || lead.instagram_username) ? "Var" : "Bilinmiyor"],
+    ["Facebook", relatedLeads.some((lead) => lead.facebook || lead.facebook_page_id) ? "Var" : "Bilinmiyor"],
+    ["WhatsApp", relatedLeads.some((lead) => lead.whatsapp || lead.phone) ? "Var" : "Bilinmiyor"],
+    ["Meta Pixel", "Bilinmiyor"],
+    ["Google Analytics", "Bilinmiyor"],
+    ["Google Ads", String(selected?.google || "").includes("Güçlü") ? "Var" : "Bilinmiyor"],
+    ["SEO", relatedLeads.some((lead) => lead.website) ? "Eksik" : "Bilinmiyor"],
+    ["Google Reviews", relatedLeads.some((lead) => Number(lead.google_review_count || lead.reviewCount || 0) > 10) ? "Var" : "Bilinmiyor"]
+  ];
+  const timelineRows = [
+    ["Keşfedildi", relatedLeads[0]?.created_at || opportunityOverride.created_at || ""],
+    ["CRM’e aktarıldı", relatedLeads[0]?.created_at || ""],
+    ["AI Analizi", hasAiAnalysis ? relatedLeads.find((lead) => lead.ai_analysis || lead.aiAnalysis)?.updated_at || "" : ""],
+    ["Teklif", lastOfferAt],
+    ["Telefon", lastCallAt],
+    ["Takip", lastActionAt],
+    ["Kazanıldı", relatedLeads.find((lead) => ["Kazanıldı", "Dönüştürüldü", "Müşteri Oldu"].includes(lead.status))?.updated_at || ""],
+    ["Kaybedildi", relatedLeads.find((lead) => lead.status === "Kaybedildi")?.updated_at || ""]
+  ];
+
+  function copyText(text: string) {
+    navigator.clipboard?.writeText(text).catch(() => null);
+  }
 
   function persistPipeline(next: any) {
     setPipelineMemory(next);
@@ -7759,6 +7967,34 @@ function OpportunityMap({ content, setContent, search, setSearch, setTab, setAct
             <InfoItem label="📅 Son işlem tarihi" value={lastActionAt ? formatDateTime(lastActionAt) : "Henüz işlem yok"} />
             <InfoItem label="🔄 Sonraki aksiyon" value={nextRecommendedAction} />
           </div>
+          <div className="mt-4 grid gap-3 rounded-[12px] border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs font-black uppercase tracking-[.12em] text-slate-500">AI Öğrenme Sistemi</p>
+            <p className="text-xs leading-5 text-slate-600">Bu sektör için geçmiş sonuç: {learnedWins} kazanım, {learnedLosses} kayıp. Öğrenilmiş kapanış oranı %{learnedCloseRate}. Öncelik skoru bu sinyali karar açıklamasında dikkate alır.</p>
+            <div className="grid gap-2 sm:grid-cols-3">
+              <InfoItem label="Ortalama müşteri süresi" value={`${averageCustomerMonths} ay`} />
+              <InfoItem label="Aylık hizmet bedeli" value={`${monthlyFeeNumber.toLocaleString("tr-TR")} TL`} />
+              <InfoItem label="Tahmini LTV" value={`${lifetimeValue.toLocaleString("tr-TR")} TL`} />
+            </div>
+          </div>
+          <div className="mt-4 rounded-[12px] border border-slate-200 bg-white p-3">
+            <p className="text-xs font-black uppercase tracking-[.12em] text-slate-500">Dijital Eksiklik Analizi</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {digitalChecklist.map(([label, state]) => (
+                <div key={label} className="flex items-center justify-between rounded-[10px] bg-slate-50 px-3 py-2 text-xs">
+                  <span className="font-bold text-slate-700">{label}</span>
+                  <span className={`rounded-full px-2 py-1 text-[10px] font-black ${state === "Var" ? "bg-emerald-100 text-emerald-700" : state === "Eksik" ? "bg-red-100 text-red-700" : "bg-slate-200 text-slate-600"}`}>{state}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="mt-4 grid gap-2 rounded-[12px] border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">
+            <p className="font-black uppercase tracking-[.12em] text-slate-500">Son işlem sayaçları</p>
+            <InfoItem label="Son arama" value={lastCallAt ? formatDateTime(lastCallAt) : "Kayıt yok"} />
+            <InfoItem label="Son teklif" value={lastOfferAt ? formatDateTime(lastOfferAt) : "Kayıt yok"} />
+            <InfoItem label="Son görüşme" value={lastMeetingAt ? formatDateTime(lastMeetingAt) : "Kayıt yok"} />
+            <InfoItem label="Son not" value={lastNoteAt ? formatDateTime(lastNoteAt) : "Kayıt yok"} />
+            <span className={`rounded-[10px] px-3 py-2 text-xs font-black ${daysSinceAction === null ? "bg-slate-100 text-slate-600" : daysSinceAction >= 7 ? "bg-red-100 text-red-700" : daysSinceAction >= 3 ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>{daysSinceAction === null ? "Henüz işlem yok" : `${daysSinceAction} gündür işlem yok`}</span>
+          </div>
           <div className="mt-4 grid gap-3 rounded-[12px] border border-slate-200 bg-white p-3">
             <SelectField label="Pipeline durumu" value={pipelineStatus} onChange={setPipelineStatus} options={Object.keys(nextActionByStatus)} />
             <Field label="Atanmış satış sorumlusu" value={assignedTo} onChange={(assigned_to) => updateOpportunityPipeline({ assigned_to, last_action_at: new Date().toISOString() })} />
@@ -7773,7 +8009,18 @@ function OpportunityMap({ content, setContent, search, setSearch, setTab, setAct
           </details>
           <details className="mt-3 rounded-[12px] border border-slate-200 bg-slate-50 p-3">
             <summary className="cursor-pointer text-xs font-black text-slate-800">İtiraz kütüphanesi</summary>
-            <div className="mt-3 grid gap-2">{objectionLibrary.map(([title, answer]) => <div key={title} className="rounded-[8px] bg-white p-3 text-xs leading-5"><strong className="text-slate-900">{title}</strong><p className="mt-1 text-slate-600">{answer}</p></div>)}</div>
+            <div className="mt-3 grid gap-2">{objectionLibrary.map(([title, answer]) => <div key={title} className="rounded-[8px] bg-white p-3 text-xs leading-5"><div className="flex items-center justify-between gap-2"><strong className="text-slate-900">{title}</strong><button onClick={() => copyText(answer)} className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-600">Kopyala</button></div><p className="mt-1 text-slate-600">{answer}</p></div>)}</div>
+          </details>
+          <details className="mt-3 rounded-[12px] border border-slate-200 bg-white p-3">
+            <summary className="cursor-pointer text-xs font-black text-slate-800">Operasyon geçmişi</summary>
+            <div className="mt-3 grid gap-2">
+              {timelineRows.map(([label, date]) => (
+                <div key={label} className="flex items-center justify-between rounded-[10px] bg-slate-50 px-3 py-2 text-xs">
+                  <span className="font-bold text-slate-700">{label}</span>
+                  <span className={date ? "text-slate-600" : "text-slate-400"}>{date ? formatDateTime(date) : "Henüz yok"}</span>
+                </div>
+              ))}
+            </div>
           </details>
           <div className="mt-5 grid gap-2">
             <button onClick={() => startOpportunity(true)} className={`rounded-[14px] bg-cyan-500 px-4 font-black text-white shadow-[0_16px_36px_rgba(6,182,212,.25)] ${mobileOperationMode ? "min-h-16 text-base" : "py-4 text-sm"}`}>🚀 {mobileOperationMode ? "Fırsatı İşle" : "Fırsatı İşlemeye Başla"}</button>
@@ -7785,6 +8032,15 @@ function OpportunityMap({ content, setContent, search, setSearch, setTab, setAct
             </div>
           </div>
           <p className="mt-4 text-[11px] leading-5 text-slate-500">Ana CTA filtreleri doldurur, işletme keşfi ekranına geçer ve destek varsa Google Maps aramasını başlatır. AI ve teklif butonları ilgili ekranları hazır bağlamla açar.</p>
+          {mobileOperationMode && (
+            <div className="sticky bottom-3 z-20 mt-4 grid grid-cols-5 gap-1 rounded-[18px] border border-slate-200 bg-white/95 p-2 shadow-[0_16px_40px_rgba(15,23,42,.18)] backdrop-blur">
+              <button onClick={() => startOpportunity(true)} className="rounded-[12px] bg-cyan-500 px-2 py-3 text-[11px] font-black text-white">🚀 İşle</button>
+              <button onClick={() => startOpportunity(false)} className="rounded-[12px] bg-cyan-50 px-2 py-3 text-[11px] font-black text-cyan-800">🔍 Keşfet</button>
+              <button onClick={openAiSalesAnalysis} className="rounded-[12px] bg-purple-50 px-2 py-3 text-[11px] font-black text-purple-800">🤖 AI</button>
+              <button onClick={openProposalDraft} className="rounded-[12px] bg-amber-50 px-2 py-3 text-[11px] font-black text-amber-800">📄 Teklif</button>
+              <button onClick={createOpportunityTask} className="rounded-[12px] bg-emerald-50 px-2 py-3 text-[11px] font-black text-emerald-800">✅ Görev</button>
+            </div>
+          )}
         </aside>
       </div>
       <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">{opportunityLegend.map(([score, label, text, action]) => { const level = opportunityLevel(score); return <div key={label} className={`rounded-[8px] border p-3 ${level.className}`}><p className="text-xs font-black">{label}</p><p className="mt-2 text-[11px] leading-5">{text}</p><p className="mt-2 text-[10px] leading-4 opacity-80">{action}</p></div>; })}</div>
