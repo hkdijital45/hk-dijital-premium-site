@@ -144,6 +144,7 @@ function scanSourcesForFindings(migrations: string) {
   if (!migrations.includes("weekly_change") || !migrations.includes("wasted_budget_estimate")) findings.push(makeFinding({ category: "Migration Eksikleri", severity: "orta", module: "Reklam Yorum Merkezi", file_path: "supabase/migrations", title: "Reklam analiz Phase 2 kolonları eksik olabilir", description: "Haftalık değişim ve boşa bütçe kolonları migrationlarda görünmüyor.", recommendation: "ad_insight_snapshots Phase 2 kolon migrationını çalıştırın." }));
   const opportunityChecks = [
     ["Mobil Mod butonu", "hk-mobile-operation-mode", "Mobil Operasyon Modu geçişi kaynakta görünmüyor."],
+    ["Mobil mod toggle görünür ve çalışıyor mu?", "Mobil Operasyon Modu Toggle", "Admin toolbar içindeki global Mobil Mod / Masaüstü Mod toggle görünmüyor."],
     ["Fırsat ana CTA", "Fırsatı İşlemeye Başla", "Fırsat işlemeye başlama butonu kaynakta görünmüyor."],
     ["AI prefill", "hk-ai-studio-prefill", "AI Studio hazır prompt aktarımı kaynakta görünmüyor."],
     ["Teklif prefill", "hk-proposal-prefill", "Teklif Motoru hazır veri aktarımı kaynakta görünmüyor."],

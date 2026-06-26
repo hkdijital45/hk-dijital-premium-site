@@ -95,6 +95,7 @@ const definitions: Array<[string, string, string, string]> = [
   ["Görev oluşturma akışı nasıl işler?", "Görev Yönetimi", "Fırsat kartından oluşturulan görev, sektör ve tahmini gelir bilgisiyle ajans görev listesine eklenir.", "gorevler"],
   ["CRM’e aktarılan fırsatlar nerede görünür?", "CRM & Müşteriler", "Fırsat Motoru kaynaklı kayıtlar CRM, Satış Hunisi ve Lead Workspace içinde sektör, şehir ve skor bilgisiyle izlenir.", "lead-analizi"],
   ["Mobil Operasyon Modu", "HK Intelligence", "Saha kullanımında fırsat kartlarını tek sütuna alır, butonları büyütür ve ana aksiyonları telefonda daha kolay kullanılacak hale getirir.", "musteri-kesfi"],
+  ["Mobil Operasyon Modu Toggle", "HK Intelligence", "Admin üst toolbar alanındaki Mobil Mod / Masaüstü Mod düğmesiyle saha kullanımına uygun görünümü açıp kapatın. Tercih localStorage’da saklanır; sayfa yenilense de son seçim korunur.", "musteri-kesfi"],
   ["Mobil sticky aksiyon çubuğu", "HK Intelligence", "Mobil Mod açıkken İşle, Keşfet, AI, Teklif ve Görev aksiyonları kartın altında sabit hızlı işlem çubuğu olarak görünür.", "musteri-kesfi"],
   ["Haritalar keşfi", "HK Intelligence", "Yerel işletme sinyallerini harita ve Google profili verileriyle inceleyin.", "haritalar"],
   ["Rakip analizi", "HK Intelligence", "Rakip görünürlüğü, reklam fırsatı ve önerilen aksiyonları karşılaştırın.", "rakip-analizi"],

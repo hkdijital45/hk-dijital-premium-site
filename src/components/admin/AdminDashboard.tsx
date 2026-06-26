@@ -399,6 +399,25 @@ export function AdminDashboard({
   const [isDesktopApp, setIsDesktopApp] = useState(false);
   const [selectedCompanyId, setSelectedCompanyId] = useState("");
   const [pendingCompanyId, setPendingCompanyId] = useState("");
+  const [mobileOperationMode, setMobileOperationMode] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("hk-mobile-operation-mode") === "true";
+  });
+  useEffect(() => {
+    const syncMobileOperationMode = () => {
+      try {
+        setMobileOperationMode(localStorage.getItem("hk-mobile-operation-mode") === "true");
+      } catch {
+        setMobileOperationMode(false);
+      }
+    };
+    window.addEventListener("storage", syncMobileOperationMode);
+    window.addEventListener("hk-mobile-operation-mode-change", syncMobileOperationMode);
+    return () => {
+      window.removeEventListener("storage", syncMobileOperationMode);
+      window.removeEventListener("hk-mobile-operation-mode-change", syncMobileOperationMode);
+    };
+  }, []);
 
   useEffect(() => {
     setIsDesktopApp(Boolean(window.hkDesktop?.isDesktop));
@@ -434,6 +453,17 @@ export function AdminDashboard({
     setPendingCompanyId("");
     setSelectedCompanyId("");
     localStorage.removeItem("hk-admin-selected-company");
+  }
+
+  function toggleMobileOperationMode() {
+    const next = !mobileOperationMode;
+    setMobileOperationMode(next);
+    try {
+      localStorage.setItem("hk-mobile-operation-mode", String(next));
+      window.dispatchEvent(new CustomEvent("hk-mobile-operation-mode-change", { detail: next }));
+    } catch {
+      // Görünüm tercihi kaydedilemezse admin akışı bozulmasın.
+    }
   }
 
   useEffect(() => {
@@ -712,6 +742,16 @@ export function AdminDashboard({
                 </div>
               )}
             </div>
+            <button
+              type="button"
+              onClick={toggleMobileOperationMode}
+              aria-label="Mobil Operasyon Modu Toggle"
+              aria-pressed={mobileOperationMode}
+              title={mobileOperationMode ? "Mobil operasyon görünümünü kapat" : "Mobil operasyon görünümünü aç"}
+              className={`inline-flex min-h-10 items-center gap-2 rounded-[8px] px-4 text-sm font-black transition ${mobileOperationMode ? "border border-slate-900 bg-slate-900 text-white shadow-[0_10px_24px_rgba(15,23,42,.18)]" : "border border-slate-200 bg-white text-slate-700 hover:border-cyan-200 hover:bg-cyan-50"}`}
+            >
+              {mobileOperationMode ? "🖥️ Masaüstü Mod" : "📱 Mobil Mod"}
+            </button>
             {(allowedModules.includes("site-ayarlari") || ["musteriler", "kampanyalar", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "sektor-sistemleri"].some((module) => allowedModules.includes(module))) && <button disabled={saving} onClick={() => save()} className={`inline-flex min-h-10 items-center gap-2 rounded-[8px] bg-cyan-300 px-4 text-sm font-black text-slate-950 disabled:opacity-60 ${saveFeedback === "success" ? "hk-action-success" : ""}`}><Save size={17} /> {saving ? "Kaydediliyor..." : saveFeedback === "success" ? "Kaydedildi ✓" : saveFeedback === "error" ? "Tekrar Dene" : "💾 Kaydet"}</button>}
             <button onClick={logout} className="inline-flex min-h-10 items-center gap-2 rounded-[8px] border border-slate-200 px-4 text-sm font-bold"><LogOut size={17} /> Çıkış</button>
           </div>
@@ -7699,6 +7739,21 @@ function OpportunityMap({ content, setContent, search, setSearch, setTab, setAct
     if (typeof window === "undefined") return false;
     return localStorage.getItem("hk-mobile-operation-mode") === "true";
   });
+  useEffect(() => {
+    const syncMobileOperationMode = () => {
+      try {
+        setMobileOperationMode(localStorage.getItem("hk-mobile-operation-mode") === "true");
+      } catch {
+        setMobileOperationMode(false);
+      }
+    };
+    window.addEventListener("storage", syncMobileOperationMode);
+    window.addEventListener("hk-mobile-operation-mode-change", syncMobileOperationMode);
+    return () => {
+      window.removeEventListener("storage", syncMobileOperationMode);
+      window.removeEventListener("hk-mobile-operation-mode-change", syncMobileOperationMode);
+    };
+  }, []);
   const [pipelineMemory, setPipelineMemory] = useState(() => {
     if (typeof window === "undefined") return {};
     try { return JSON.parse(localStorage.getItem("hk-opportunity-pipeline") || "{}"); } catch { return {}; }
@@ -7837,7 +7892,10 @@ function OpportunityMap({ content, setContent, search, setSearch, setTab, setAct
   function toggleMobileMode() {
     const next = !mobileOperationMode;
     setMobileOperationMode(next);
-    try { localStorage.setItem("hk-mobile-operation-mode", String(next)); } catch {}
+    try {
+      localStorage.setItem("hk-mobile-operation-mode", String(next));
+      window.dispatchEvent(new CustomEvent("hk-mobile-operation-mode-change", { detail: next }));
+    } catch {}
   }
   function createOpportunityTask() {
     if (!content || !setContent) return;
