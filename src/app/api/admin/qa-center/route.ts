@@ -16,6 +16,7 @@ const modules = [
   { name: "Raporlama", slug: "musteri-raporlari", api: "reports", table: "reports", columns: ["company_id", "title", "visible_to_customer"] },
   { name: "Meta Entegrasyonları", slug: "meta-istihbarat", api: "meta-ads", table: "ad_integrations", columns: ["provider", "account_id", "business_id"] },
   { name: "Google Entegrasyonları", slug: "google-istihbarat", api: "google-analysis", table: "ad_integrations", columns: ["google_customer_id", "google_analytics_id"] },
+  { name: "Ajans Satış Operasyon Merkezi", slug: "musteri-kesfi", api: "business-discovery", table: "leads", columns: ["source", "business_type", "lead_heat_score"] },
   { name: "Reklam Yorum Merkezi", slug: "ad-insights", api: "ad-insights", table: "ad_insight_snapshots", columns: ["customer_id", "metrics", "health_score"] },
   { name: "Sistem Rehberi", slug: "sistem-rehberi", api: "system-guide", table: "system_guides", columns: ["title", "content", "category"] },
   { name: "Sistem Sağlığı", slug: "sistem-sagligi", api: "ai-status", table: "integration_sync_logs", columns: ["provider", "result", "message"] }
@@ -141,6 +142,16 @@ function scanSourcesForFindings(migrations: string) {
   if (!migrations.includes("qa_audit_findings")) findings.push(makeFinding({ category: "Migration Eksikleri", severity: "orta", module: "QA Merkezi", file_path: "supabase/migrations", title: "qa_audit_findings tablosu migrationlarda görünmüyor", description: "QA bulgularını kalıcı izlemek için tablo gerekir.", recommendation: "Idempotent qa_audit_findings migrationını çalıştırın." }));
   if (!migrations.includes("sort_order") || !migrations.includes("parent_task_id") || !migrations.includes("reminder_at")) findings.push(makeFinding({ category: "Migration Eksikleri", severity: "orta", module: "Görevler", file_path: "supabase/migrations", title: "Görev Phase 2 kolonları eksik olabilir", description: "Alt görev, sıralama veya hatırlatma alanları migrationlarda tam görünmüyor.", recommendation: "agency_tasks Phase 2 kolon migrationını çalıştırın." }));
   if (!migrations.includes("weekly_change") || !migrations.includes("wasted_budget_estimate")) findings.push(makeFinding({ category: "Migration Eksikleri", severity: "orta", module: "Reklam Yorum Merkezi", file_path: "supabase/migrations", title: "Reklam analiz Phase 2 kolonları eksik olabilir", description: "Haftalık değişim ve boşa bütçe kolonları migrationlarda görünmüyor.", recommendation: "ad_insight_snapshots Phase 2 kolon migrationını çalıştırın." }));
+  const opportunityChecks = [
+    ["Mobil Mod butonu", "hk-mobile-operation-mode", "Mobil Operasyon Modu geçişi kaynakta görünmüyor."],
+    ["Fırsat ana CTA", "Fırsatı İşlemeye Başla", "Fırsat işlemeye başlama butonu kaynakta görünmüyor."],
+    ["AI prefill", "hk-ai-studio-prefill", "AI Studio hazır prompt aktarımı kaynakta görünmüyor."],
+    ["Teklif prefill", "hk-proposal-prefill", "Teklif Motoru hazır veri aktarımı kaynakta görünmüyor."],
+    ["Görev oluşturma", "Görev Oluştur", "Fırsat kartından görev oluşturma aksiyonu kaynakta görünmüyor."]
+  ];
+  for (const [title, pattern, description] of opportunityChecks) {
+    if (!sourceContains(pattern)) findings.push(makeFinding({ category: "Çalışmayan Butonlar", severity: "orta", module: "Ajans Satış Operasyon Merkezi", file_path: "src/components/admin/AdminDashboard.tsx", title, description, recommendation: "Fırsat kartı CTA, prefill veya mobil mod akışını doğrulayın." }));
+  }
 
   const adminPages = walkFiles(path.join(root, "src", "app", "hk-admin"), [".tsx"]).filter((file) => file.endsWith("page.tsx")).length;
   const adminComponents = walkFiles(path.join(root, "src", "components", "admin"), [".tsx"]).length;
