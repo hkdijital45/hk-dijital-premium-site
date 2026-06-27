@@ -186,13 +186,22 @@ function scanSourcesForFindings(migrations: string) {
     ["System Repair Phase 3: export route güvenli payload üretiyor mu?", "prepared_payload", "Export butonları bozuk link yerine print-ready HTML, metin veya slayt taslağı üretmeli."],
     ["System Repair Phase 3: e-posta gönderim route'u var mı?", "email-send", "E-posta taslağı kullanıcı onayıyla gönderim route'una bağlanmalı."],
     ["System Repair Phase 3: WhatsApp özeti var mı?", "whatsapp-summary", "Agent final raporundan kısa WhatsApp metni üretilebilmeli."],
-    ["System Repair Phase 3: webhook bildirimleri var mı?", "SLACK_WEBHOOK_URL", "Slack/Discord webhook env değerleri varsa bildirim endpointi çalışmalı."],
+    ["Agent Hub Slack butonu kaldırıldı mı?", "Slack bildirimi kaldırıldı", "Slack kullanıcı arayüzünden kaldırılmalı; Discord tek bildirim seçeneği olarak kalmalı."],
+    ["System Repair Phase 3: webhook bildirimleri var mı?", "DISCORD_WEBHOOK_URL", "Discord webhook env değeri varsa bildirim endpointi çalışmalı."],
     ["System Repair Phase 3: queue yönetimi var mı?", "agent-hub/queue", "Agent görevleri queue panelinde iptal/tekrar çalıştır aksiyonlarıyla izlenmeli."],
     ["System Repair Phase 3: Agent Memory var mı?", "agent_memories", "Müşteri geçmişi ve agent öğrenimleri kalıcı hafızaya yazılmalı."],
     ["System Repair Phase 3: AI Training Center var mı?", "agent_training_rules", "HK Intelligence dil ve risk kuralları yönetilebilir olmalı."],
     ["System Repair Phase 3: Prompt Versioning var mı?", "agent_prompt_versions", "Prompt geçmişi ve geri dönüş migration/API desteği bulunmalı."],
     ["System Repair Phase 3: Benchmark var mı?", "agent_benchmarks", "Aynı prompt farklı sağlayıcılarla kıyaslanabilmeli."],
     ["System Repair Phase 3: Manus endpoint env var mı?", "MANUS_API_ENDPOINT", "Manus endpoint hardcode edilmeden env üzerinden yapılandırılmalı."]
+    ,
+    ["Agent Hub sekmeleri Türkçe mi?", "İş Akışı Oluşturucu", "Agent Hub sekmeleri ve görünür teknik terimler Türkçe olmalı."],
+    ["Auto Router varsayılan mı?", "Otomatik Seçim aktif", "Yeni görev formunda normal kullanıcı Auto Router ile başlamalı."],
+    ["AI seçim nedeni gösteriliyor mu?", "AI Seçim Nedeni", "Run sonucunda seçilen sağlayıcının nedeni görünmeli."],
+    ["Sonucu Kaydet çalışıyor mu?", "Sonucu Kaydet", "Agent sonucu agent_runs üzerinde kaydedilebilir olmalı."],
+    ["AI Hafızasına Kaydet çalışıyor mu?", "AI Hafızasına Kaydet", "Agent sonucu agent_memories tablosuna kaydedilebilir olmalı."],
+    ["Demo fallback kullanıcıya açıkça belirtiliyor mu?", "Demo / Yerel Yedek Akış", "Gerçek AI çalışmadığında kullanıcı bunu açıkça görmeli."],
+    ["Entegrasyon Kontrolü eksik env'leri gösteriyor mu?", "Entegrasyon Kontrolü", "Eksik API anahtarları secret göstermeden listelenmeli."]
   ].forEach(([title, pattern, recommendation]) => {
     const inSource = sourceContains(pattern) || migrations.includes(String(pattern).toLocaleLowerCase("tr"));
     if (!inSource) findings.push(makeFinding({ category: "Ajans Operasyonu QA", severity: "orta", module: "Ajans Operasyon Kalıcılığı", file_path: "src/components/admin/AdminDashboard.tsx", title, description: `${pattern} sinyali statik analizde bulunamadı.`, recommendation }));

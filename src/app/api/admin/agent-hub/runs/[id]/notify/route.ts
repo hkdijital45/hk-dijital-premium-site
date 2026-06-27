@@ -21,8 +21,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!session) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 403 });
   const { id } = await params;
   const body = await request.json().catch(() => ({}));
-  const channel = String(body.channel || "slack");
-  const webhookUrl = channel === "discord" ? process.env.DISCORD_WEBHOOK_URL : process.env.SLACK_WEBHOOK_URL;
+  const channel = String(body.channel || "discord");
+  if (channel !== "discord") return NextResponse.json({ ok: false, status: "passive", message: "Slack bildirimi kaldırıldı. Bildirim için Discord Webhook kullanılabilir." });
+  const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
   if (!webhookUrl) return NextResponse.json({ ok: false, status: "not_configured", message: "Bildirim entegrasyonu yapılandırılmadı." });
 
   const rows = hasSupabaseConfig()
@@ -39,5 +40,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   ].join("\n");
 
   await sendWebhook(webhookUrl, message);
-  return NextResponse.json({ ok: true, status: "sent", channel });
+  return NextResponse.json({ ok: true, status: "sent", channel: "discord" });
 }

@@ -70,6 +70,18 @@ export type AgentFinalReport = {
   rawOutputs: unknown[];
 };
 
+export type AgentRouterDecision = {
+  selectedProvider: AgentProviderKey | "";
+  providerLabel: string;
+  routerDecisionReason: string;
+  rejectedProviders: Array<{ provider: AgentProviderKey; label: string; reason: string }>;
+  fallbackReason: string | null;
+  dataSourcesUsed: string[];
+  confidenceScore: number;
+  missingApiKeys: string[];
+  recommendedFix: string;
+};
+
 type AgentMemoryRow = {
   id?: string;
   company_id?: string | null;
@@ -238,6 +250,15 @@ function envConfigured(provider: AgentProviderKey) {
   return envSecretKeys[provider].some((key) => Boolean(process.env[key]));
 }
 
+function providerDisplayName(provider: AgentProviderKey) {
+  return defaultAgentProviders.find((item) => item.provider_key === provider)?.provider_name || provider;
+}
+
+function missingApiKeysFor(provider: AgentProviderKey) {
+  if (provider === "demo") return [];
+  return envSecretKeys[provider].filter((key) => !process.env[key]);
+}
+
 export function getProviderPriority(taskType: AgentTaskType) {
   return taskPriority[taskType] || taskPriority.workflow_task;
 }
@@ -401,6 +422,44 @@ export function buildHKIntelligenceFinalReport(outputs: ReturnType<typeof normal
     ],
     unavailableProviders: outputs.filter((item) => item.provider === "demo").length ? ["Bazı sağlayıcılarda yedek akış kullanıldı"] : [],
     rawOutputs: outputs.map((item) => item.rawOutput)
+  };
+}
+
+export function buildRouterDecision(input: AgentRunInput, providers: AgentProvider[], selectedProvider: AgentProvider, outputs: Array<ReturnType<typeof normalizeAgentOutput> & { usedFallback?: boolean; errorMessage?: string }>, finalReport: AgentFinalReport): AgentRouterDecision {
+  const taskLabel = agentTaskLabels[input.taskType] || input.taskType;
+  const priority = getProviderPriority(input.taskType);
+  const selectedKey = selectedProvider.provider_key;
+  const fallbackUsed = outputs.some((item) => item.provider === "demo" || item.usedFallback);
+  const missingKeys = [...new Set(priority.flatMap((provider) => missingApiKeysFor(provider)))];
+  const rejectedProviders = providers
+    .filter((provider) => provider.provider_key !== selectedKey && provider.provider_key !== "demo")
+    .slice(0, 6)
+    .map((provider) => ({
+      provider: provider.provider_key,
+      label: provider.provider_name,
+      reason: provider.provider_key === "manus" && !shouldUseManus(input.taskType, input.prompt)
+        ? "Manus derin araştırma görevleri için ayrıldı; bu kısa/orta analizde önerilmedi."
+        : shouldFallbackProvider(provider)
+          ? "Sağlayıcı pasif, hatalı veya API anahtarı eksik görünüyor."
+          : "Bu görev için öncelik sırasında daha uygun bir sağlayıcı seçildi."
+    }));
+  const reason = selectedKey === "demo"
+    ? `${taskLabel} için gerçek sağlayıcı çalıştırılamadığı için Demo / Yerel Yedek Akış seçildi.`
+    : `${taskLabel} için ${selectedProvider.provider_name} seçildi. Bu sağlayıcı görev tipi, hız/maliyet dengesi ve aktif yapılandırma açısından en uygun seçenek olarak değerlendirildi.`;
+  return {
+    selectedProvider: selectedKey,
+    providerLabel: selectedProvider.provider_name,
+    routerDecisionReason: selectedKey === "manus"
+      ? `${reason} Manus yalnızca rakip analizi, pazar araştırması, fiyat karşılaştırması, sektör keşfi, uzun web araştırması ve kapsamlı rapor görevlerinde önceliklidir.`
+      : reason,
+    rejectedProviders,
+    fallbackReason: fallbackUsed ? (outputs.map((item) => item.errorMessage).filter(Boolean).join(" | ") || "Seçili sağlayıcı kullanılamadığı için yedek akış devreye girdi.") : null,
+    dataSourcesUsed: finalReport.dataSources || [],
+    confidenceScore: Math.round(finalReport.confidence * 100),
+    missingApiKeys: missingKeys,
+    recommendedFix: fallbackUsed || missingKeys.length
+      ? `${missingKeys.slice(0, 3).join(", ") || "ilgili sağlayıcı API anahtarı"} Vercel Environment Variables alanına eklenip redeploy yapılmalı.`
+      : "Ek düzeltme gerekmiyor; seçilen sağlayıcı aktif görünüyor."
   };
 }
 
@@ -582,6 +641,7 @@ export async function runAgentTask(input: AgentRunInput) {
   const outputText = finalReport.executiveSummary;
   const outputPayload = finalReport;
   const selectedProvider = chainProviders[0] || await getRecommendedProvider(input.taskType, { providers });
+  const routerDecision = buildRouterDecision(input, providers, selectedProvider, outputs, finalReport);
   const totalTokens = outputs.reduce((sum, item) => sum + Number(item.tokensUsed || 0), 0);
   const estimatedCost = outputs.reduce((sum, item) => sum + estimateAgentCost(item.provider, Number(item.tokensUsed || input.prompt.length)), 0);
   const status = manualManusWarning ? "completed_with_warning" : outputs.some((item) => item.provider === "demo") ? "completed_with_fallback" : "completed";
@@ -611,7 +671,7 @@ export async function runAgentTask(input: AgentRunInput) {
     current_step: "Tamamlandı",
     progress_events: progressEvents,
     final_report: finalReport,
-    export_payload: buildAgentExportPayload(finalReport, input),
+    export_payload: { ...buildAgentExportPayload(finalReport, input), routerDecision },
     email_draft: {},
     retry_count: input.retryCount || 0,
     parent_run_id: input.parentRunId || null,
@@ -636,6 +696,8 @@ export async function runAgentTask(input: AgentRunInput) {
     responseMs,
     output: outputPayload,
     finalReport,
+    routerDecision,
+    selectedProviderLabel: providerDisplayName(selectedProvider.provider_key),
     progressEvents
   };
 }

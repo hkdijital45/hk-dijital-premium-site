@@ -65,15 +65,30 @@ type AgentFinalReport = {
   sevenDayPlan?: string[];
   customerMessageDraft?: string;
   internalNotes?: string;
+  dataSources?: string[];
+};
+type RouterDecision = {
+  selectedProvider?: string;
+  providerLabel?: string;
+  routerDecisionReason?: string;
+  rejectedProviders?: Array<{ provider?: string; label?: string; reason?: string }>;
+  fallbackReason?: string | null;
+  dataSourcesUsed?: string[];
+  confidenceScore?: number;
+  missingApiKeys?: string[];
+  recommendedFix?: string;
 };
 type RunResult = {
   runId?: string;
   status?: string;
   responseMs?: number;
   estimatedCost?: number;
+  tokensUsed?: number;
   errorMessage?: string | null;
   selectedProvider?: ProviderRow;
+  selectedProviderLabel?: string;
   providerChain?: ProviderRow[];
+  routerDecision?: RouterDecision;
   finalReport?: AgentFinalReport;
   output?: AgentFinalReport;
   progressEvents?: Array<{ step: string; progress: number; provider?: string; at?: string }>;
@@ -126,6 +141,16 @@ type BenchmarkRow = {
   hk_decision?: string | null;
   created_at?: string | null;
 };
+type IntegrationRow = {
+  key: string;
+  name: string;
+  status: string;
+  missingEnv?: string[];
+  lastTestAt?: string | null;
+  responseMs?: number | null;
+  lastError?: string | null;
+  fix?: string;
+};
 
 const providerOptions: Array<{ value: AgentProviderKey | "auto"; label: string }> = [
   { value: "auto", label: "Auto AI Router" },
@@ -136,7 +161,7 @@ const providerOptions: Array<{ value: AgentProviderKey | "auto"; label: string }
   { value: "manus", label: "Manus AI" },
   { value: "openrouter", label: "OpenRouter" },
   { value: "ollama", label: "Ollama" },
-  { value: "demo", label: "Demo / Local fallback" }
+  { value: "demo", label: "Demo / Yerel Yedek Akış" }
 ];
 
 const agentTaskLabels: Record<AgentTaskType, string> = {
@@ -153,7 +178,7 @@ const agentTaskLabels: Record<AgentTaskType, string> = {
   customer_report: "Müşteri raporu",
   code_review: "Kod inceleme",
   fast_answer: "Hızlı cevap",
-  workflow_task: "Workflow görevi",
+  workflow_task: "İş akışı görevi",
   long_web_research: "Uzun web araştırması"
 };
 
@@ -200,6 +225,23 @@ const workflows = [
 const primaryButtonClass = "rounded-[14px] bg-gradient-to-r from-cyan-400 to-blue-500 px-5 py-3 text-sm font-black text-slate-950 shadow-[0_12px_24px_rgba(14,165,233,.22)] transition hover:from-cyan-300 hover:to-blue-400 disabled:cursor-not-allowed disabled:opacity-60";
 const secondaryButtonClass = "rounded-[12px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-700 transition hover:border-cyan-200 hover:bg-cyan-50";
 const softButtonClass = "rounded-[12px] border border-cyan-200 bg-cyan-50 px-4 py-2.5 text-sm font-black text-cyan-800 transition hover:bg-cyan-100";
+
+function humanStatus(status?: string | null) {
+  const map: Record<string, string> = {
+    completed: "Tamamlandı",
+    completed_with_fallback: "Yedek akışla tamamlandı",
+    completed_with_warning: "Uyarıyla tamamlandı",
+    failed: "Başarısız",
+    running: "Çalışıyor",
+    queued: "Sırada",
+    cancelled: "İptal edildi",
+    routing: "AI yönlendirmesi yapılıyor",
+    provider_running: "Sağlayıcı çalışıyor",
+    multi_agent_running: "Çoklu AI çalışıyor",
+    hk_finalizing: "HK Intelligence final raporu hazırlıyor"
+  };
+  return map[String(status || "")] || status || "-";
+}
 
 function statusClass(status?: string | null) {
   if (status === "active") return "border-emerald-200 bg-emerald-50 text-emerald-800";
@@ -249,6 +291,7 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
   const [memories, setMemories] = useState<MemoryRow[]>([]);
   const [trainingRules, setTrainingRules] = useState<TrainingRuleRow[]>([]);
   const [benchmarks, setBenchmarks] = useState<BenchmarkRow[]>([]);
+  const [integrations, setIntegrations] = useState<IntegrationRow[]>([]);
   const [scheduledTasks, setScheduledTasks] = useState<ScheduledTask[]>([]);
   const [summary, setSummary] = useState<Record<string, string | number>>({});
   const [stats, setStats] = useState<{ summary?: Record<string, string | number>; charts?: Record<string, Record<string, number>> }>({});
@@ -261,6 +304,7 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
   const [emailDraft, setEmailDraft] = useState<Record<string, unknown> | null>(null);
   const [whatsappSummary, setWhatsappSummary] = useState("");
   const [notificationStatus, setNotificationStatus] = useState("");
+  const [advancedProviderOpen, setAdvancedProviderOpen] = useState(false);
   const [form, setForm] = useState({
     customerId: "",
     taskType: "ad_analysis" as AgentTaskType,
@@ -312,6 +356,7 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
         fetch("/api/admin/agent-hub/training"),
         fetch("/api/admin/agent-hub/benchmark")
       ]);
+      const integrationResponse = await fetch("/api/admin/agent-hub/integrations");
       const providerData = await providerResponse.json().catch(() => ({}));
       const logData = await logResponse.json().catch(() => ({}));
       const statsData = await statsResponse.json().catch(() => ({}));
@@ -320,7 +365,8 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
       const memoryData = await memoryResponse.json().catch(() => ({}));
       const trainingData = await trainingResponse.json().catch(() => ({}));
       const benchmarkData = await benchmarkResponse.json().catch(() => ({}));
-      if (!providerResponse.ok) throw new Error(providerData.error || "Provider listesi alınamadı.");
+      const integrationData = await integrationResponse.json().catch(() => ({}));
+      if (!providerResponse.ok) throw new Error(providerData.error || "Sağlayıcı listesi alınamadı.");
       setProviders(providerData.providers || []);
       setLogs(logData.logs || []);
       setSummary(logData.summary || {});
@@ -330,6 +376,7 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
       setMemories(memoryData.memories || []);
       setTrainingRules(trainingData.rules || []);
       setBenchmarks(benchmarkData.benchmarks || []);
+      setIntegrations(integrationData.integrations || []);
     } catch (error) {
       notify?.(error instanceof Error ? error.message : "Agent Hub verileri alınamadı.", "error");
     } finally {
@@ -439,7 +486,7 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
       return;
     }
     if (!runResult?.runId) {
-      const payload = { format, status: "local_payload_ready", executiveSummary: report.executiveSummary, providerChain: report.providerChain };
+      const payload = { format, status: "hazırlık_verisi_hazır", executiveSummary: report.executiveSummary, providerChain: report.providerChain };
       setExportPayload(payload);
       if (format === "copy_text") copyText(finalReportText(report), notify);
       notify?.("Hazırlık verisi oluşturuldu.", "success");
@@ -518,7 +565,7 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
     notify?.("WhatsApp özeti hazırlandı.", "success");
   }
 
-  async function notifyChannel(channel: "slack" | "discord") {
+  async function notifyChannel(channel: "discord") {
     if (!runResult?.runId) {
       notify?.("Bildirim için kayıtlı agent görevi gerekir.", "warning");
       return;
@@ -531,6 +578,50 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
     const data = await response.json().catch(() => ({}));
     setNotificationStatus(data.message || data.status || "");
     notify?.(data.message || (data.status === "sent" ? "Bildirim gönderildi." : "Bildirim entegrasyonu yapılandırılmadı."), data.status === "sent" ? "success" : "warning");
+  }
+
+  async function saveRun() {
+    if (!runResult?.runId) return notify?.("Kaydetmek için önce kayıtlı agent görevi çalıştırılmalı.", "warning");
+    const response = await fetch(`/api/admin/agent-hub/runs/${runResult.runId}/save`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: finalReport?.executiveSummary?.slice(0, 120) || "Kaydedilen Agent Analizi" })
+    });
+    const data = await response.json().catch(() => ({}));
+    notify?.(data.message || data.error || "Kayıt işlemi tamamlandı.", response.ok ? "success" : "error");
+  }
+
+  async function saveRunMemory() {
+    if (!runResult?.runId) return notify?.("AI Hafızasına kaydetmek için önce agent görevi çalıştırılmalı.", "warning");
+    const response = await fetch(`/api/admin/agent-hub/runs/${runResult.runId}/save-memory`, { method: "POST" });
+    const data = await response.json().catch(() => ({}));
+    notify?.(data.message || data.error || "AI Hafızası işlemi tamamlandı.", response.ok ? "success" : "error");
+    if (response.ok) await loadData();
+  }
+
+  async function saveCustomerNote() {
+    if (!runResult?.runId) return notify?.("Müşteri notu için önce agent görevi çalıştırılmalı.", "warning");
+    const response = await fetch(`/api/admin/agent-hub/runs/${runResult.runId}/save-customer-note`, { method: "POST" });
+    const data = await response.json().catch(() => ({}));
+    notify?.(data.message || data.error || "Müşteri notu işlemi tamamlandı.", response.ok ? "success" : "warning");
+  }
+
+  async function convertToTask() {
+    if (!runResult?.runId) return notify?.("Göreve dönüştürmek için önce agent görevi çalıştırılmalı.", "warning");
+    const response = await fetch(`/api/admin/agent-hub/runs/${runResult.runId}/convert-task`, { method: "POST" });
+    const data = await response.json().catch(() => ({}));
+    notify?.(data.message || data.error || "Görev işlemi tamamlandı.", response.ok ? "success" : "warning");
+  }
+
+  async function testIntegration(key: string) {
+    const response = await fetch("/api/admin/agent-hub/integrations/test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key })
+    });
+    const data = await response.json().catch(() => ({}));
+    notify?.(data.message || "Entegrasyon testi tamamlandı.", data.ok ? "success" : "warning");
+    await loadData();
   }
 
   async function cancelRun(id?: string) {
@@ -597,7 +688,7 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
 
   async function runBenchmark() {
     if (!benchmarkForm.prompt.trim()) {
-      notify?.("Benchmark promptu boş olamaz.", "warning");
+      notify?.("Karşılaştırmalı test promptu boş olamaz.", "warning");
       return;
     }
     setLoading(true);
@@ -608,11 +699,11 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
         body: JSON.stringify(benchmarkForm)
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Benchmark çalıştırılamadı.");
-      notify?.("AI benchmark tamamlandı.", "success");
+      if (!response.ok) throw new Error(data.error || "Karşılaştırmalı test çalıştırılamadı.");
+      notify?.("AI karşılaştırmalı test tamamlandı.", "success");
       await loadData();
     } catch (error) {
-      notify?.(error instanceof Error ? error.message : "Benchmark çalıştırılamadı.", "error");
+      notify?.(error instanceof Error ? error.message : "Karşılaştırmalı test çalıştırılamadı.", "error");
     } finally {
       setLoading(false);
     }
@@ -641,6 +732,8 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
   const monthlyManusRuns = Number(statsSummary.manusRuns || logs.filter((log) => log.selected_provider === "manus").length);
   const topProvider = String(statsSummary.topProvider || "-");
   const finalReport = runResult?.finalReport || runResult?.output;
+  const routerDecision = runResult?.routerDecision;
+  const discordConfigured = integrations.some((item) => item.key === "discord" && item.status === "Çalışıyor");
 
   return <div className="grid gap-6">
     <section className="rounded-[28px] border border-slate-200 bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 p-6 text-white shadow-[0_22px_70px_rgba(15,23,42,.18)]">
@@ -648,7 +741,7 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
         <div>
           <p className="text-xs font-black uppercase tracking-[.18em] text-cyan-200">AI & Otomasyon</p>
           <h2 className="mt-3 text-3xl font-black">HK Agent Hub Phase 3</h2>
-          <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-200">Gerçek AI sağlayıcıları, güvenli yedek akış, agent hafızası, görev sırası, export, e-posta, WhatsApp ve benchmark merkezi.</p>
+          <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-200">Otomatik AI seçimi, seçim nedeni açıklaması, güvenli yedek akış, AI Hafızası, görev sırası, çıktı hazırlama, e-posta, WhatsApp ve karşılaştırmalı test merkezi.</p>
         </div>
         <button onClick={loadData} disabled={loading} className="rounded-[14px] border border-white/20 bg-white px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-60"><RefreshCw size={16} className="mr-2 inline" />Yenile</button>
       </div>
@@ -675,12 +768,13 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
         ["providers", "AI Sağlayıcıları", ShieldCheck],
         ["run", "Yeni Agent Görevi", Play],
         ["prompts", "Prompt Merkezi", FileText],
-        ["workflows", "Workflow Builder", Workflow],
-        ["queue", "Agent Queue", Route],
-        ["memory", "Agent Hafızası", Database],
+        ["workflows", "İş Akışı Oluşturucu", Workflow],
+        ["queue", "Görev Sırası", Route],
+        ["memory", "AI Hafızası", Database],
         ["training", "AI Eğitim", ShieldCheck],
-        ["benchmark", "AI Benchmark", FlaskConical],
-        ["logs", "Agent Logları", History],
+        ["benchmark", "AI Karşılaştırma Testi", FlaskConical],
+        ["integrations", "Entegrasyon Kontrolü", ShieldCheck],
+        ["logs", "İşlem Kayıtları", History],
         ["scheduled", "Planlanmış Görevler", CalendarClock]
       ].map(([key, label, Icon]) => {
         const TabIcon = Icon as typeof Bot;
@@ -748,7 +842,7 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
     {activeTab === "run" && <section className="grid gap-5 lg:grid-cols-[.42fr_1fr]">
       <div className="rounded-[22px] border border-slate-200 bg-white p-5">
         <h3 className="text-xl font-black text-slate-950">Yeni Agent Görevi</h3>
-        <p className="mt-2 text-sm leading-6 text-slate-600">Varsayılan mod Auto AI Router’dır. HK Intelligence görev tipine, maliyete, uygun sağlayıcıya ve yedek akışa göre karar verir.</p>
+        <p className="mt-2 text-sm leading-6 text-slate-600">Varsayılan mod Otomatik Seçim’dir. HK Intelligence görev tipini, veri ihtiyacını, hız/maliyet dengesini ve aktif API anahtarlarını kontrol ederek en uygun AI sağlayıcısını seçer.</p>
         <div className="mt-4 grid gap-3">
           <label className="grid gap-1 text-sm font-bold text-slate-700">Müşteri
             <select value={form.customerId} onChange={(event) => setForm({ ...form, customerId: event.target.value })} className="rounded-[12px] border border-slate-200 px-3 py-3">
@@ -762,9 +856,14 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
           <label className="grid gap-1 text-sm font-bold text-slate-700">Öncelik
             <select value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value })} className="rounded-[12px] border border-slate-200 px-3 py-3"><option>düşük</option><option>normal</option><option>yüksek</option><option>kritik</option></select>
           </label>
-          <label className="grid gap-1 text-sm font-bold text-slate-700">Kullanılacak sağlayıcı
+          <div className="rounded-[14px] border border-cyan-200 bg-cyan-50 p-4 text-sm text-cyan-950">
+            <strong>Otomatik Seçim aktif</strong>
+            <p className="mt-1 leading-6">Normal kullanımda sağlayıcı seçmen gerekmez. Sistem görev tipine göre OpenAI, Gemini, Claude, Groq, Manus veya yerel yedek akışı seçer.</p>
+            <button type="button" onClick={() => setAdvancedProviderOpen((value) => !value)} className="mt-3 rounded-[10px] border border-cyan-200 bg-white px-3 py-2 text-xs font-black text-cyan-800">{advancedProviderOpen ? "Gelişmiş sağlayıcı seçimini kapat" : "Gelişmiş: Sağlayıcıyı Elle Seç"}</button>
+          </div>
+          {advancedProviderOpen && <label className="grid gap-1 text-sm font-bold text-slate-700">Manuel sağlayıcı seçimi
             <select value={form.requestedProvider} onChange={(event) => setForm({ ...form, requestedProvider: event.target.value as AgentProviderKey | "auto" })} className="rounded-[12px] border border-slate-200 px-3 py-3">{providerOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
-          </label>
+          </label>}
           {manualManusWarning && <div className="rounded-[14px] border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-900">Manus bu görev için ideal değildir. Auto Router OpenAI/Gemini/Claude önerir.</div>}
           <label className="flex items-start gap-3 rounded-[14px] border border-slate-200 bg-slate-50 p-3 text-sm font-bold text-slate-700">
             <input type="checkbox" checked={form.multiAgent} onChange={(event) => setForm({ ...form, multiAgent: event.target.checked })} className="mt-1 size-4 accent-cyan-600" />
@@ -786,7 +885,7 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
         <h3 className="text-xl font-black text-slate-950">HK Intelligence Final Raporu</h3>
         {!runResult && <p className="mt-4 rounded-[16px] border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">Görev çalıştırılınca canlı ilerleme, sağlayıcı zinciri, final rapor, export ve e-posta taslağı burada görünür.</p>}
         {runResult && <div className="mt-4 grid gap-4">
-          <div className="rounded-[16px] border border-cyan-200 bg-cyan-50 p-4 text-sm text-cyan-900"><Route size={16} className="mr-2 inline" />Durum: <strong>{runResult.status}</strong> · Süre: <strong>{runResult.responseMs || 0} ms</strong> · Maliyet: <strong>{Number(runResult.estimatedCost || 0).toLocaleString("tr-TR")} $</strong></div>
+          <div className="rounded-[16px] border border-cyan-200 bg-cyan-50 p-4 text-sm text-cyan-900"><Route size={16} className="mr-2 inline" />Durum: <strong>{humanStatus(runResult.status)}</strong> · Süre: <strong>{runResult.responseMs || 0} ms</strong> · Maliyet: <strong>{Number(runResult.estimatedCost || 0).toLocaleString("tr-TR")} $</strong> · İşlem metni: <strong>{Number(runResult.tokensUsed || 0).toLocaleString("tr-TR")}</strong></div>
           {runResult.errorMessage && <div className="rounded-[16px] border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-900">{runResult.errorMessage}</div>}
           <div className="rounded-[16px] border border-slate-200 p-4">
             <h4 className="font-black text-slate-950">Canlı Görev İlerlemesi</h4>
@@ -799,6 +898,16 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
           <div className="rounded-[16px] border border-slate-200 p-4">
             <h4 className="font-black text-slate-950">Kullanılan AI Zinciri</h4>
             <div className="mt-3 flex flex-wrap gap-2">{(finalReport?.providerChain || selectedChain).map((provider) => <span key={provider} className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-black text-blue-800">{providerLabel(provider)}</span>)}</div>
+            <p className="mt-3 text-sm leading-6 text-slate-600">Gerçek AI çalışmadıysa sonuç Demo / Yerel Yedek Akış ile üretilir. Gerçek analiz için ilgili API anahtarını Vercel’e ekleyip redeploy yapmalısın.</p>
+          </div>
+          <div className="rounded-[16px] border border-amber-200 bg-amber-50 p-4">
+            <h4 className="font-black text-amber-950">AI Seçim Nedeni</h4>
+            <p className="mt-2 text-sm leading-7 text-amber-900"><strong>Seçilen sağlayıcı:</strong> {routerDecision?.providerLabel || runResult.selectedProviderLabel || providerLabel(String(finalReport?.selectedProvider || "demo"))}</p>
+            <p className="mt-2 text-sm leading-7 text-amber-900">{routerDecision?.routerDecisionReason || "Auto Router görev tipi ve aktif sağlayıcı durumuna göre seçim yaptı."}</p>
+            {routerDecision?.fallbackReason && <p className="mt-2 text-sm font-bold text-amber-950">Yedek akış nedeni: {routerDecision.fallbackReason}</p>}
+            {!!routerDecision?.missingApiKeys?.length && <p className="mt-2 text-sm text-amber-900">Eksik API anahtarları: {routerDecision.missingApiKeys.join(", ")}</p>}
+            <p className="mt-2 text-sm text-amber-900">Önerilen düzeltme: {routerDecision?.recommendedFix || "Ek düzeltme gerekmiyor."}</p>
+            {!!routerDecision?.rejectedProviders?.length && <details className="mt-3"><summary className="cursor-pointer text-sm font-black text-amber-950">Kullanılmayan sağlayıcılar ve nedenleri</summary><ul className="mt-2 grid gap-2 text-sm text-amber-900">{routerDecision.rejectedProviders.map((item) => <li key={`${item.provider}-${item.reason}`}>- {item.label || item.provider}: {item.reason}</li>)}</ul></details>}
           </div>
           <div className="rounded-[16px] border border-blue-100 bg-blue-50 p-4">
             <h4 className="font-black text-blue-950">Yönetici Özeti</h4>
@@ -822,17 +931,12 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
             <h4 className="font-black text-emerald-950">Müşteriye Gönderilebilir Özet</h4>
             <p className="mt-2 text-sm leading-7 text-emerald-900">{finalReport?.customerMessageDraft}</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button onClick={() => exportRun("docx")} className={secondaryButtonClass}><Download size={16} className="mr-2 inline" />Word hazırla</button>
-            <button onClick={() => exportRun("pdf")} className={secondaryButtonClass}><Download size={16} className="mr-2 inline" />PDF hazırla</button>
-            <button onClick={() => exportRun("pptx")} className={secondaryButtonClass}><Download size={16} className="mr-2 inline" />PowerPoint hazırla</button>
-            <button onClick={() => exportRun("copy_text")} className={softButtonClass}><Clipboard size={16} className="mr-2 inline" />Çıktıyı kopyala</button>
-            <button onClick={createEmailDraft} className={softButtonClass}><Mail size={16} className="mr-2 inline" />Müşteriye E-posta Hazırla</button>
-            <button onClick={createWhatsappSummary} className={softButtonClass}><Clipboard size={16} className="mr-2 inline" />WhatsApp Özeti Oluştur</button>
-            <button onClick={() => notifyChannel("slack")} className={secondaryButtonClass}>Slack’e Bildir</button>
-            <button onClick={() => notifyChannel("discord")} className={secondaryButtonClass}>Discord’a Bildir</button>
+          <div className="grid gap-3">
+            <div className="rounded-[16px] border border-slate-200 p-4"><strong className="text-slate-950">Çıktı</strong><div className="mt-3 flex flex-wrap gap-2"><button onClick={() => exportRun("docx")} className={secondaryButtonClass}><Download size={16} className="mr-2 inline" />Word Hazırla</button><button onClick={() => exportRun("pdf")} className={secondaryButtonClass}><Download size={16} className="mr-2 inline" />PDF Hazırla</button><button onClick={() => exportRun("pptx")} className={secondaryButtonClass}><Download size={16} className="mr-2 inline" />PowerPoint Hazırla</button><button onClick={() => exportRun("copy_text")} className={softButtonClass}><Clipboard size={16} className="mr-2 inline" />Kopyala</button></div></div>
+            <div className="rounded-[16px] border border-slate-200 p-4"><strong className="text-slate-950">Müşteri</strong><div className="mt-3 flex flex-wrap gap-2"><button onClick={createEmailDraft} className={softButtonClass}><Mail size={16} className="mr-2 inline" />E-posta Hazırla</button><button onClick={createWhatsappSummary} className={softButtonClass}><Clipboard size={16} className="mr-2 inline" />WhatsApp Özeti</button><button onClick={saveCustomerNote} className={secondaryButtonClass}>Müşteri Notu Olarak Kaydet</button></div></div>
+            <div className="rounded-[16px] border border-slate-200 p-4"><strong className="text-slate-950">Sistem</strong><div className="mt-3 flex flex-wrap gap-2"><button onClick={saveRun} className={softButtonClass}>Sonucu Kaydet</button><button onClick={saveRunMemory} className={softButtonClass}>AI Hafızasına Kaydet</button><button onClick={convertToTask} className={secondaryButtonClass}>Göreve Dönüştür</button>{discordConfigured && <button onClick={() => notifyChannel("discord")} className={secondaryButtonClass}>Discord’a Bildir</button>}</div>{!discordConfigured && <p className="mt-2 text-xs text-slate-500">Discord bildirimi için DISCORD_WEBHOOK_URL yapılandırılmadı; buton gizlendi.</p>}</div>
           </div>
-          {exportPayload && <div className="rounded-[14px] border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">Export durumu: <strong>{String(exportPayload.status || "hazır")}</strong></div>}
+          {exportPayload && <div className="rounded-[14px] border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">Çıktı hazırlama durumu: <strong>{String(exportPayload.status || "hazır")}</strong></div>}
           {whatsappSummary && <pre className="whitespace-pre-wrap rounded-[14px] border border-emerald-200 bg-emerald-50 p-4 text-sm leading-7 text-emerald-900">{whatsappSummary}</pre>}
           {notificationStatus && <div className="rounded-[14px] border border-blue-100 bg-blue-50 p-3 text-sm font-bold text-blue-900">{notificationStatus}</div>}
           {emailDraft && <div className="grid gap-3 rounded-[14px] border border-slate-200 bg-slate-50 p-4">
@@ -858,21 +962,21 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
         <div className="flex items-start justify-between gap-3"><h3 className="text-lg font-black text-slate-950">{workflow.name}</h3><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">Aktif</span></div>
         <p className="mt-3 text-sm leading-6 text-slate-600">{workflow.description}</p>
         <ol className="mt-4 grid gap-2 text-sm text-slate-700">{workflow.steps.map((step, index) => <li key={step} className="rounded-[12px] bg-slate-50 p-3"><strong>{index + 1}.</strong> {step}</li>)}</ol>
-        <div className="mt-4 grid grid-cols-3 gap-2"><button onClick={() => setActiveTab("run")} className={softButtonClass}>Çalıştır</button><button onClick={() => notify?.("Workflow detayları kart üzerinde listelendi.", "info")} className={secondaryButtonClass}>Detay</button><button onClick={() => copyText(JSON.stringify(workflow, null, 2), notify)} className={secondaryButtonClass}>Kopyala</button></div>
+        <div className="mt-4 grid grid-cols-3 gap-2"><button onClick={() => setActiveTab("run")} className={softButtonClass}>Çalıştır</button><button onClick={() => notify?.("İş akışı detayları kart üzerinde listelendi.", "info")} className={secondaryButtonClass}>Detay</button><button onClick={() => copyText(JSON.stringify(workflow, null, 2), notify)} className={secondaryButtonClass}>Kopyala</button></div>
       </div>)}
     </section>}
 
     {activeTab === "queue" && <section className="rounded-[22px] border border-slate-200 bg-white p-5">
-      <h3 className="text-xl font-black text-slate-950">Agent Queue (Görev Sırası)</h3>
+      <h3 className="text-xl font-black text-slate-950">Görev Sırası</h3>
       <p className="mt-2 text-sm text-slate-600">Uzun süren görevler sırada, çalışan, tamamlanan veya iptal edilen durumlarıyla izlenir.</p>
       <div className="mt-4 grid gap-3">
         {queueRuns.map((run) => <div key={run.id || `${run.created_at}-${run.task_type}`} className="rounded-[16px] border border-slate-200 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <strong className="text-slate-950">{run.task_type ? agentTaskLabels[run.task_type] : "Agent görevi"}</strong>
-              <p className="mt-1 text-sm text-slate-600">{run.current_step || run.status || "-"} · %{run.progress || 0} · Tekrar: {run.retry_count || 0}</p>
+              <p className="mt-1 text-sm text-slate-600">{run.current_step || humanStatus(run.status)} · %{run.progress || 0} · Tekrar: {run.retry_count || 0}</p>
             </div>
-            <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-black text-blue-800">{run.status || "queued"}</span>
+            <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-black text-blue-800">{humanStatus(run.status)}</span>
           </div>
           <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100"><span className="block h-full bg-cyan-500" style={{ width: `${Math.min(Number(run.progress || 0), 100)}%` }} /></div>
           {run.cancel_reason && <p className="mt-2 text-xs font-bold text-amber-700">{run.cancel_reason}</p>}
@@ -888,7 +992,7 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
 
     {activeTab === "memory" && <section className="grid gap-5 lg:grid-cols-[.38fr_1fr]">
       <div className="rounded-[22px] border border-slate-200 bg-white p-5">
-        <h3 className="text-xl font-black text-slate-950">Agent Hafızası</h3>
+        <h3 className="text-xl font-black text-slate-950">AI Hafızası</h3>
         <p className="mt-2 text-sm leading-6 text-slate-600">Müşteri geçmişi, öneriler ve uygulanan aksiyonlar sonraki analizlerde bağlam olarak kullanılır.</p>
         <div className="mt-4 grid gap-3">
           <select value={memoryForm.companyId} onChange={(event) => setMemoryForm({ ...memoryForm, companyId: event.target.value })} className="rounded-[12px] border border-slate-200 px-3 py-3 text-sm">
@@ -934,30 +1038,47 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
 
     {activeTab === "benchmark" && <section className="grid gap-5 lg:grid-cols-[.38fr_1fr]">
       <div className="rounded-[22px] border border-slate-200 bg-white p-5">
-        <h3 className="text-xl font-black text-slate-950">AI Benchmark (Karşılaştırmalı Test)</h3>
+        <h3 className="text-xl font-black text-slate-950">AI Karşılaştırma Testi</h3>
         <p className="mt-2 text-sm leading-6 text-slate-600">Aynı görevi birden fazla sağlayıcıya verip süre, maliyet, güven ve kalite açısından kıyaslar.</p>
         <div className="mt-4 grid gap-3">
           <select value={benchmarkForm.taskType} onChange={(event) => setBenchmarkForm({ ...benchmarkForm, taskType: event.target.value as AgentTaskType })} className="rounded-[12px] border border-slate-200 px-3 py-3 text-sm">{taskTypes.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
           <textarea value={benchmarkForm.prompt} onChange={(event) => setBenchmarkForm({ ...benchmarkForm, prompt: event.target.value })} rows={6} className="rounded-[12px] border border-slate-200 px-3 py-3 text-sm" />
-          <button onClick={runBenchmark} disabled={loading} className={primaryButtonClass}>Benchmark Başlat</button>
+          <button onClick={runBenchmark} disabled={loading} className={primaryButtonClass}>Karşılaştırmalı Test Başlat</button>
         </div>
       </div>
       <div className="rounded-[22px] border border-slate-200 bg-white p-5">
-        <h3 className="text-xl font-black text-slate-950">Benchmark Sonuçları</h3>
+        <h3 className="text-xl font-black text-slate-950">Karşılaştırmalı Test Sonuçları</h3>
         <div className="mt-4 grid gap-3">{benchmarks.map((benchmark) => <div key={benchmark.id || benchmark.created_at || ""} className="rounded-[16px] border border-slate-200 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3"><strong className="text-slate-950">{benchmark.task_type ? agentTaskLabels[benchmark.task_type] : "Benchmark"}</strong><span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">Kazanan: {benchmark.winner_provider || "-"}</span></div>
           <p className="mt-2 text-sm leading-6 text-slate-600">{benchmark.hk_decision || "HK Intelligence kararı bekleniyor."}</p>
           <div className="mt-3 grid gap-2 md:grid-cols-2">{(benchmark.results || []).map((result) => <div key={result.provider} className="rounded-[12px] bg-slate-50 p-3 text-xs text-slate-600"><strong>{result.provider}</strong> · {result.responseMs || 0} ms · Güven %{Math.round(Number(result.confidence || 0) * 100)}<br />{result.strongSide}</div>)}</div>
         </div>)}
-        {!benchmarks.length && <p className="rounded-[16px] border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">Henüz benchmark yok.</p>}</div>
+        {!benchmarks.length && <p className="rounded-[16px] border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">Henüz karşılaştırmalı test yok.</p>}</div>
+      </div>
+    </section>}
+
+    {activeTab === "integrations" && <section className="rounded-[22px] border border-slate-200 bg-white p-5">
+      <h3 className="text-xl font-black text-slate-950">Entegrasyon Kontrolü</h3>
+      <p className="mt-2 text-sm leading-6 text-slate-600">AI sağlayıcıları, e-posta, Discord, Supabase, Meta, Google Ads ve planlı görev anahtarları burada secret göstermeden kontrol edilir.</p>
+      <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {integrations.map((item) => <div key={item.key} className="rounded-[18px] border border-slate-200 bg-slate-50 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div><strong className="text-slate-950">{item.name}</strong><p className="mt-1 text-xs text-slate-500">Son test: {item.lastTestAt ? new Date(item.lastTestAt).toLocaleString("tr-TR") : "Test edilmedi"}</p></div>
+            <span className={`rounded-full px-3 py-1 text-xs font-black ${item.status === "Çalışıyor" ? "bg-emerald-50 text-emerald-700" : item.status === "Hatalı" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700"}`}>{item.status}</span>
+          </div>
+          {!!item.missingEnv?.length && <p className="mt-3 text-xs font-bold text-amber-800">Eksik env: {item.missingEnv.join(", ")}</p>}
+          {item.lastError && <p className="mt-2 text-xs text-red-700">{item.lastError}</p>}
+          <p className="mt-3 text-sm leading-6 text-slate-600">{item.fix || "Bu entegrasyon için ek açıklama yok."}</p>
+          <button onClick={() => testIntegration(item.key)} className={`${secondaryButtonClass} mt-4`}>Test Et</button>
+        </div>)}
       </div>
     </section>}
 
     {activeTab === "logs" && <section className="rounded-[22px] border border-slate-200 bg-white p-5">
-      <h3 className="text-xl font-black text-slate-950">Agent Logları</h3>
+      <h3 className="text-xl font-black text-slate-950">İşlem Kayıtları</h3>
       <div className="mt-4 overflow-x-auto">
         <table className="w-full min-w-[920px] text-left text-sm"><thead className="text-xs uppercase tracking-[.12em] text-slate-500"><tr><th className="border-b py-3">Tarih</th><th className="border-b py-3">Görev tipi</th><th className="border-b py-3">Sağlayıcı</th><th className="border-b py-3">Durum</th><th className="border-b py-3">Süre</th><th className="border-b py-3">Maliyet</th><th className="border-b py-3">İşlem</th></tr></thead>
-          <tbody>{logs.map((log) => <tr key={log.id || `${log.created_at}-${log.task_type}`} className="border-b border-slate-100"><td className="py-3 text-slate-600">{log.created_at ? new Date(log.created_at).toLocaleString("tr-TR") : "-"}</td><td className="py-3 font-bold">{log.task_type ? agentTaskLabels[log.task_type] : "-"}</td><td className="py-3">{log.selected_provider || "-"}</td><td className="py-3">{log.status || "-"}</td><td className="py-3">{log.response_ms || 0} ms</td><td className="py-3">{Number(log.estimated_cost || 0).toLocaleString("tr-TR")} $</td><td className="py-3"><button onClick={() => copyText(log.output_summary || JSON.stringify(log.output_payload || {}), notify)} className={secondaryButtonClass}>Çıktıyı Kopyala</button></td></tr>)}
+          <tbody>{logs.map((log) => <tr key={log.id || `${log.created_at}-${log.task_type}`} className="border-b border-slate-100"><td className="py-3 text-slate-600">{log.created_at ? new Date(log.created_at).toLocaleString("tr-TR") : "-"}</td><td className="py-3 font-bold">{log.task_type ? agentTaskLabels[log.task_type] : "-"}</td><td className="py-3">{log.selected_provider || "-"}</td><td className="py-3">{humanStatus(log.status)}</td><td className="py-3">{log.response_ms || 0} ms</td><td className="py-3">{Number(log.estimated_cost || 0).toLocaleString("tr-TR")} $</td><td className="py-3"><button onClick={() => copyText(log.output_summary || JSON.stringify(log.output_payload || {}), notify)} className={secondaryButtonClass}>Çıktıyı Kopyala</button></td></tr>)}
           {!logs.length && <tr><td colSpan={7} className="py-8 text-center text-slate-500"><XCircle size={20} className="mx-auto mb-2" />Henüz agent log kaydı yok.</td></tr>}</tbody></table>
       </div>
     </section>}
