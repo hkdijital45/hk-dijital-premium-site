@@ -1,6 +1,6 @@
 import { getSiteContent } from "./content";
 
-export type AiProviderKey = "automatic" | "openai" | "groq" | "gemini" | "demo" | "local";
+export type AiProviderKey = "automatic" | "auto" | "openai" | "groq" | "gemini" | "anthropic" | "manus" | "openrouter" | "demo" | "local" | "ollama";
 
 type AiSettings = {
   activeProvider?: string;
@@ -13,37 +13,50 @@ type AiSettings = {
 };
 
 const providerLabels: Record<AiProviderKey, string> = {
-  automatic: "Otomatik",
-  openai: "OpenAI",
+  automatic: "Auto AI Router / Otomatik Seçim",
+  auto: "Auto AI Router / Otomatik Seçim",
+  openai: "OpenAI / ChatGPT",
   groq: "Groq",
-  gemini: "Gemini",
-  demo: "Demo Modu",
-  local: "Yerel Mod"
+  gemini: "Google Gemini",
+  anthropic: "Anthropic / Claude",
+  manus: "Manus AI",
+  openrouter: "OpenRouter",
+  demo: "Demo / Yerel Yedek Akış",
+  local: "Ollama / Yerel Model",
+  ollama: "Ollama / Yerel Model"
 };
 
 const defaultModels: Record<AiProviderKey, string> = {
   automatic: "automatic-fallback",
+  auto: "automatic-fallback",
   openai: process.env.OPENAI_MODEL || "gpt-4.1-mini",
   groq: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
   gemini: process.env.GEMINI_MODEL || "gemini-2.0-flash",
+  anthropic: process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-latest",
+  manus: "manus-deep-research",
+  openrouter: process.env.OPENROUTER_MODEL || "openrouter/auto",
   demo: "demo-local",
-  local: "local-rules"
+  local: process.env.OLLAMA_MODEL || "local-rules",
+  ollama: process.env.OLLAMA_MODEL || "local-rules"
 };
 
-export const defaultAiProviderPriority: AiProviderKey[] = ["groq", "gemini", "openai", "demo", "local"];
+export const defaultAiProviderPriority: AiProviderKey[] = ["gemini", "openai", "anthropic", "groq", "openrouter", "demo", "local"];
 
 export const professionalAiInstruction =
   "Analyze and provide recommendations as a senior digital marketing consultant, social media strategist, media buyer, growth marketer, agency owner, and business development expert. Focus on practical actions, conversion optimization, lead generation, funnel strategy, advertising opportunities, customer psychology, positioning, branding, realistic growth recommendations, expectation management, and client communication.";
 
 export function normalizeAiProvider(value?: string | null, demoMode = false): AiProviderKey {
   const normalized = String(value || "").toLocaleLowerCase("tr").trim();
-  if (["automatic", "auto", "otomatik"].includes(normalized)) return "automatic";
-  if (["openai", "open ai"].includes(normalized)) return "openai";
+  if (["automatic", "auto", "otomatik", "auto ai router", "auto ai router / otomatik seçim"].includes(normalized)) return "automatic";
+  if (["openai", "open ai", "chatgpt", "openai / chatgpt"].includes(normalized)) return "openai";
   if (normalized === "groq") return "groq";
-  if (normalized === "gemini") return "gemini";
-  if (["demo", "demo mode", "demo modu"].includes(normalized)) return "demo";
-  if (["local", "local mode", "yerel", "yerel mod"].includes(normalized)) return "local";
-  return demoMode ? "demo" : "groq";
+  if (["gemini", "google gemini"].includes(normalized)) return "gemini";
+  if (["anthropic", "claude", "anthropic / claude"].includes(normalized)) return "anthropic";
+  if (["manus", "manus ai"].includes(normalized)) return "manus";
+  if (normalized === "openrouter") return "openrouter";
+  if (["demo", "demo mode", "demo modu", "demo / yerel yedek akış"].includes(normalized)) return "demo";
+  if (["local", "local mode", "yerel", "yerel mod", "ollama", "ollama / yerel model"].includes(normalized)) return "local";
+  return demoMode ? "demo" : "automatic";
 }
 
 function normalizePriority(value?: string[] | string): AiProviderKey[] {
@@ -55,20 +68,21 @@ function normalizePriority(value?: string[] | string): AiProviderKey[] {
 function configuredProvider(settings: AiSettings = {}) {
   const primary = normalizeAiProvider(settings.active_ai_provider, settings.demoMode);
   const legacy = normalizeAiProvider(settings.activeProvider, settings.demoMode);
-  if (primary === "automatic" && legacy !== "automatic") return legacy;
-  if (["demo", "local"].includes(primary) && ["openai", "groq", "gemini"].includes(legacy) && !settings.demoMode) return legacy;
-  return settings.active_ai_provider || settings.activeProvider || "groq";
+  if (primary === "automatic" && legacy !== "automatic" && settings.active_ai_provider && settings.active_ai_provider !== "automatic") return legacy;
+  if (["demo", "local"].includes(primary) && ["openai", "groq", "gemini", "anthropic", "openrouter"].includes(legacy) && !settings.demoMode) return legacy;
+  return settings.active_ai_provider || settings.activeProvider || "automatic";
 }
 
 export function aiMetadata(provider: AiProviderKey, model?: string) {
   const isDemo = provider === "demo";
-  const isLocal = provider === "local";
-  const mode = isLocal ? "Yerel" : isDemo ? "Demo" : "Canlı";
-  const label = providerLabels[provider];
+  const normalizedProvider = provider === "auto" ? "automatic" : provider === "ollama" ? "local" : provider;
+  const isLocal = normalizedProvider === "local";
+  const mode = isLocal ? "Yerel" : isDemo ? "Demo" : normalizedProvider === "automatic" ? "Otomatik" : "Canlı";
+  const label = providerLabels[normalizedProvider];
   return {
     provider: label,
-    providerKey: provider,
-    model: model || defaultModels[provider],
+    providerKey: normalizedProvider,
+    model: model || defaultModels[normalizedProvider],
     mode,
     isDemo,
     isLocal,
@@ -83,10 +97,11 @@ export function aiSettingsMetadata(settings: AiSettings = {}) {
 }
 
 export function aiSettingsForProviderChoice(choice?: string | null): AiSettings | undefined {
-  const provider = normalizeAiProvider(choice || "groq");
+  const provider = normalizeAiProvider(choice || "automatic");
   if (provider === "automatic") return { active_ai_provider: "automatic", activeProvider: "automatic", demoMode: false, ai_provider_priority: defaultAiProviderPriority };
   if (provider === "demo") return { active_ai_provider: "demo", activeProvider: "demo", demoMode: true, ai_mode: "demo", active_ai_model: defaultModels.demo, model: defaultModels.demo };
   if (provider === "local") return { active_ai_provider: "local", activeProvider: "local", demoMode: false, ai_mode: "local", active_ai_model: defaultModels.local, model: defaultModels.local };
+  if (["anthropic", "manus", "openrouter"].includes(provider)) return { active_ai_provider: provider, activeProvider: provider, demoMode: false, ai_mode: "live", active_ai_model: defaultModels[provider], model: defaultModels[provider] };
   return { active_ai_provider: provider, activeProvider: provider, demoMode: false, ai_mode: "live", active_ai_model: defaultModels[provider], model: defaultModels[provider] };
 }
 
@@ -143,15 +158,17 @@ async function requestGemini(prompt: string, model: string) {
 
 async function generateWithProvider(provider: AiProviderKey, prompt: string, fallbackText: string, configuredModel?: string) {
   const startedAt = Date.now();
-  const model = configuredModel && configuredModel !== "demo-local" ? configuredModel : defaultModels[provider];
+  const normalizedProvider = normalizeAiProvider(provider);
+  const model = configuredModel && configuredModel !== "demo-local" ? configuredModel : defaultModels[normalizedProvider];
   const withTiming = <T extends ReturnType<typeof aiMetadata> & { text: string }>(result: T) => ({ ...result, responseTimeMs: Date.now() - startedAt });
-  if (provider === "openai") return withTiming({ text: await requestOpenAi(prompt, model), ...aiMetadata(provider, model) });
-  if (provider === "groq") {
+  if (normalizedProvider === "openai") return withTiming({ text: await requestOpenAi(prompt, model), ...aiMetadata(normalizedProvider, model) });
+  if (normalizedProvider === "groq") {
     const result = await requestGroq(prompt, model);
-    return withTiming({ text: result.text, ...aiMetadata(provider, result.model) });
+    return withTiming({ text: result.text, ...aiMetadata(normalizedProvider, result.model) });
   }
-  if (provider === "gemini") return withTiming({ text: await requestGemini(prompt, model), ...aiMetadata(provider, model) });
-  if (provider === "local") return withTiming({ text: fallbackText, ...aiMetadata("local", defaultModels.local) });
+  if (normalizedProvider === "gemini") return withTiming({ text: await requestGemini(prompt, model), ...aiMetadata(normalizedProvider, model) });
+  if (["anthropic", "manus", "openrouter"].includes(normalizedProvider)) return withTiming({ text: fallbackText, ...aiMetadata(normalizedProvider, model) });
+  if (normalizedProvider === "local") return withTiming({ text: fallbackText, ...aiMetadata("local", defaultModels.local) });
   return withTiming({ text: fallbackText, ...aiMetadata("demo", defaultModels.demo) });
 }
 

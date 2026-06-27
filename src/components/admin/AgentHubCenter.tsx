@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import type { SiteContent } from "@/lib/types";
 import type { AgentProviderKey, AgentTaskType } from "@/lib/agent-hub";
+import { unifiedAiProviderOptions } from "@/lib/ai-provider-options";
 
 type Notify = (message: string, type?: string) => void;
 type CompanyOption = { id?: string; name?: string; company_name?: string; title?: string };
@@ -152,17 +153,10 @@ type IntegrationRow = {
   fix?: string;
 };
 
-const providerOptions: Array<{ value: AgentProviderKey | "auto"; label: string }> = [
-  { value: "auto", label: "Auto AI Router" },
-  { value: "openai", label: "OpenAI / ChatGPT" },
-  { value: "anthropic", label: "Claude" },
-  { value: "gemini", label: "Gemini" },
-  { value: "groq", label: "Groq" },
-  { value: "manus", label: "Manus AI" },
-  { value: "openrouter", label: "OpenRouter" },
-  { value: "ollama", label: "Ollama" },
-  { value: "demo", label: "Demo / Yerel Yedek Akış" }
-];
+const providerOptions: Array<{ value: AgentProviderKey | "auto"; label: string }> = unifiedAiProviderOptions.map((item) => ({
+  value: item.key as AgentProviderKey | "auto",
+  label: item.label
+}));
 
 const agentTaskLabels: Record<AgentTaskType, string> = {
   ad_analysis: "Reklam analizi",

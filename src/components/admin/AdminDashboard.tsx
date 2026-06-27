@@ -19,8 +19,10 @@ import { QaCenter } from "@/components/admin/QaCenter";
 import { AdminCustomerSelector, GlobalMetaPixelSettings, MetaPixelSettingsPanel } from "@/components/admin/AdminCustomerOperations";
 import { CustomerProfileTasks } from "@/components/admin/customer-profile/CustomerProfileTasks";
 import { CustomerBrandAssets } from "@/components/admin/customer-profile/CustomerBrandAssets";
+import { AiProviderSelector } from "@/components/admin/AiProviderSelector";
 import { Logo } from "@/components/public/Logo";
 import { adminNavigationGroups, adminNavigationItems, getAdminHref } from "@/lib/admin-navigation";
+import { aiProviderKeyForApi, buildAiSelectionReason, labelForAiProvider, normalizeUnifiedAiProvider, unifiedAiProviderOptions, unifiedAiPriorityKeys } from "@/lib/ai-provider-options";
 import { AnimatedChart, AnimatedFunnel, BrandEcosystemStrip, GlassCard, MetricCard3D } from "@/components/premium/PremiumUI";
 
 const adminCategoryIcons: Record<string, any> = {
@@ -194,12 +196,11 @@ const updateTypeOptions = ["Yapılan Çalışma", "Reklam Güncellemesi", "Rapor
 const fileCategoryOptions = ["Görsel", "Reklam Görseli", "Kreatif", "PDF", "Video", "Diğer"];
 const serviceCategoryOptions = ["Meta Reklamları", "Google Reklamları", "Sosyal Medya Yönetimi", "SEO", "Web Sitesi", "CRM", "Raporlama", "Yapay Zeka Analizi", "Diğer"];
 const packageTypeOptions = ["Başlangıç", "Standart", "Profesyonel", "Premium", "Özel Paket", "Diğer"];
-const apiProviderOptions = ["Groq", "Gemini", "OpenAI", "Otomatik", "Demo Modu", "Yerel Mod"];
-const aiProviderOptions = apiProviderOptions;
-const aiPriorityOptions = ["Groq", "Gemini", "OpenAI", "Demo Modu", "Yerel Mod"];
-const aiPriorityKeys = ["groq", "gemini", "openai", "demo", "local"];
-const aiKeyLabels: Record<string, string> = { gemini: "Gemini", openai: "OpenAI", groq: "Groq", demo: "Demo Modu", local: "Yerel Mod" };
-const aiLabelKeys: Record<string, string> = { Gemini: "gemini", OpenAI: "openai", Groq: "groq", "Demo Modu": "demo", "Yerel Mod": "local" };
+const apiProviderOptions = unifiedAiProviderOptions.map((item) => item.label);
+const aiPriorityOptions = unifiedAiProviderOptions.filter((item) => item.key !== "auto").map((item) => item.label);
+const aiPriorityKeys = unifiedAiPriorityKeys.map((key) => key === "ollama" ? "local" : key);
+const aiKeyLabels: Record<string, string> = Object.fromEntries(unifiedAiProviderOptions.map((item) => [item.key === "ollama" ? "local" : item.key, item.label]));
+const aiLabelKeys: Record<string, string> = Object.fromEntries(unifiedAiProviderOptions.flatMap((item) => [[item.label, item.key === "ollama" ? "local" : item.key], [item.shortLabel, item.key === "ollama" ? "local" : item.key], ...item.legacyLabels.map((label) => [label, item.key === "ollama" ? "local" : item.key])]));
 const metaMetricFields = [
   ["date", "Tarih", "Kayıt dönemi tarihi"],
   ["impressions", "Gösterim", "Reklamın ekranda kaç kez göründüğü"],
@@ -235,14 +236,7 @@ function createLocalId() {
 }
 
 function aiProviderLabel(value?: string) {
-  const normalized = String(value || "").toLocaleLowerCase("tr");
-  if (normalized.includes("openai")) return "OpenAI";
-  if (normalized.includes("groq")) return "Groq";
-  if (normalized.includes("gemini")) return "Gemini";
-  if (normalized.includes("yerel") || normalized.includes("local")) return "Yerel Mod";
-  if (normalized.includes("demo")) return "Demo Modu";
-  if (normalized.includes("auto") || normalized.includes("otomatik")) return "Otomatik";
-  return value || "Groq";
+  return labelForAiProvider(value || "auto");
 }
 
 function aiModeLabel(meta: any) {
@@ -253,13 +247,12 @@ function aiModeLabel(meta: any) {
 }
 
 function aiMetaFromApi(api: any = {}) {
-  const primary = api.active_ai_provider ? aiProviderLabel(api.active_ai_provider) : "";
-  const legacy = api.activeProvider ? aiProviderLabel(api.activeProvider) : "";
-  const provider = primary === "Otomatik" && legacy !== "Otomatik" ? legacy : ["Demo Modu", "Yerel Mod"].includes(primary) && ["Gemini", "OpenAI", "Groq"].includes(legacy) && !api.demoMode ? legacy : aiProviderLabel(api.active_ai_provider || api.activeProvider || (api.demoMode ? "Demo Modu" : "Groq"));
+  const provider = aiProviderLabel(api.active_ai_provider || api.activeProvider || (api.demoMode ? "demo" : "auto"));
+  const providerKey = normalizeUnifiedAiProvider(provider);
   return {
     provider,
-    model: api.active_ai_model || api.model || (provider === "Groq" ? "llama-3.3-70b-versatile" : provider === "Gemini" ? "gemini-2.0-flash" : provider === "Demo Modu" ? "demo-local" : "automatic-fallback"),
-    mode: api.ai_mode === "local" ? "Yerel" : api.demoMode || provider === "Demo Modu" ? "Demo" : provider === "Yerel Mod" ? "Yerel" : "Canlı",
+    model: api.active_ai_model || api.model || (providerKey === "groq" ? "llama-3.3-70b-versatile" : providerKey === "gemini" ? "gemini-2.0-flash" : providerKey === "openai" ? "gpt-4.1-mini" : providerKey === "anthropic" ? "claude-3-5-sonnet-latest" : providerKey === "demo" ? "demo-local" : providerKey === "ollama" ? "local-rules" : "automatic-fallback"),
+    mode: api.ai_mode === "local" || providerKey === "ollama" ? "Yerel" : api.demoMode || providerKey === "demo" ? "Demo" : providerKey === "auto" ? "Otomatik" : "Canlı",
     badge: `${provider} ile üretildi`
   };
 }
@@ -279,16 +272,21 @@ function AiUsageBadge({ meta }: any) {
   return <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-[.1em]"><span className="rounded-full border border-cyan-200/20 bg-cyan-200/10 px-3 py-1 text-cyan-700">{data.badge}</span><span className="rounded-full border border-slate-200 px-3 py-1 text-slate-600">Kullanılan AI Sağlayıcısı: {data.provider}</span><span className="rounded-full border border-slate-200 px-3 py-1 text-slate-600">Model: {data.model}</span><span className="rounded-full border border-slate-200 px-3 py-1 text-slate-600">Mod: {data.mode}</span></div>;
 }
 
-const aiChooserOptions = [
-  ["Groq", "Hızlı ve düşük maliyetli önerilen sağlayıcı"],
-  ["Gemini", "Google tabanlı alternatif sağlayıcı"],
-  ["OpenAI", "Yüksek kaliteli ücretli sağlayıcı"],
-  ["Otomatik", "Sıralamaya göre uygun sağlayıcıyı dener"],
-  ["Demo", "Gerçek API kullanmadan örnek çıktı üretir"],
-  ["Yerel", "Basit yerel analiz modu"]
-];
+function AiSelectionReasonCard({ moduleLabel, provider, fallbackReason }: any) {
+  const reason = buildAiSelectionReason(moduleLabel || "AI analizi", provider || "auto", fallbackReason);
+  return <div className="mt-4 rounded-[12px] border border-cyan-200 bg-cyan-50 p-4 text-sm text-cyan-950">
+    <p className="font-black">AI Seçim Nedeni</p>
+    <p className="mt-2 leading-6">{reason.reason}</p>
+    <div className="mt-3 grid gap-2 text-xs font-bold md:grid-cols-2">
+      <span>Seçilen sağlayıcı: {reason.selectedProvider}</span>
+      <span>Yedek akış: {reason.fallbackUsed ? "Kullanıldı" : "Kullanılmadı"}</span>
+      <span>Eksik API anahtarları: {reason.missingApiKeys.length ? reason.missingApiKeys.join(", ") : "Yok"}</span>
+      <span>Önerilen düzeltme: {reason.recommendedFix}</span>
+    </div>
+  </div>;
+}
 
-function AiProviderChooserModal({ open, selected, setSelected, onContinue, onCancel }: any) {
+function AiProviderChooserModal({ open, selected, setSelected, onContinue, onCancel, recommendedKeys = ["auto"], orderedKeys }: any) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[80] grid place-items-center bg-white/70 p-4 ">
@@ -296,29 +294,15 @@ function AiProviderChooserModal({ open, selected, setSelected, onContinue, onCan
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-black uppercase tracking-[.18em] text-amber-700">AI sağlayıcı seçimi</p>
-            <h3 className="mt-2 text-xl font-black">Hangi AI aracı kullanılacak?</h3>
+            <h3 className="mt-2 text-xl font-black">AI sağlayıcı nasıl seçilsin?</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-500">Auto AI Router önerilir. HK Intelligence görev tipini, aktif API anahtarlarını, hız/maliyet dengesini ve yedek akışı kontrol ederek en uygun sağlayıcıyı seçer.</p>
           </div>
           <button onClick={onCancel} className="rounded-full border border-slate-200 p-2 text-slate-600 hover:bg-white/10"><X size={17} /></button>
         </div>
-        <div className="mt-5 grid gap-2">
-          {aiChooserOptions.map(([label, description]) => (
-            <button
-              key={label}
-              type="button"
-              onClick={() => setSelected(label)}
-              className={`rounded-[8px] border p-4 text-left transition ${selected === label ? "border-amber-200 bg-amber-300 text-slate-950 shadow-[0_16px_45px_rgba(251,191,36,.18)]" : "border-slate-200 bg-white/[0.045] hover:border-cyan-200/30 hover:bg-cyan-200/[0.07]"}`}
-            >
-              <span className="flex items-center justify-between gap-3 text-sm font-black">
-                {label}
-                {label === "Groq" && <span className="rounded-full bg-white/20 px-2 py-1 text-[10px] font-black">Önerilen</span>}
-              </span>
-              <span className={`mt-1 block text-xs leading-5 ${selected === label ? "text-slate-800" : "text-slate-400"}`}>{description}</span>
-            </button>
-          ))}
-        </div>
+        <AiProviderSelector value={selected || "auto"} onChange={setSelected} recommendedKeys={recommendedKeys} orderedKeys={orderedKeys} />
         <div className="mt-5 flex flex-wrap justify-end gap-2">
           <button onClick={onCancel} className="rounded-full border border-slate-200 px-5 py-2 text-sm font-bold text-slate-700">Vazgeç</button>
-          <button onClick={() => onContinue(selected || "Groq")} className="rounded-full bg-amber-300 px-5 py-2 text-sm font-black text-slate-950">Devam Et</button>
+          <button onClick={() => onContinue(selected || "auto")} className="rounded-full bg-amber-300 px-5 py-2 text-sm font-black text-slate-950">Devam Et</button>
         </div>
       </div>
     </div>
@@ -327,20 +311,22 @@ function AiProviderChooserModal({ open, selected, setSelected, onContinue, onCan
 
 function useAiProviderChooser() {
   const [chooserOpen, setChooserOpen] = useState(false);
-  const [chooserSelected, setChooserSelected] = useState("Groq");
+  const [chooserSelected, setChooserSelected] = useState("auto");
   const [chooserAction, setChooserAction] = useState<any>(null);
+  const [chooserOptions, setChooserOptions] = useState<any>({});
   useEffect(() => {
     try {
-      setChooserSelected(sessionStorage.getItem("hk-ai-last-provider") || "Groq");
+      setChooserSelected(sessionStorage.getItem("hk-ai-last-provider") || "auto");
     } catch {}
   }, []);
-  const askAiProvider = (action: any) => {
+  const askAiProvider = (action: any, options: any = {}) => {
     try {
-      setChooserSelected(sessionStorage.getItem("hk-ai-last-provider") || "Groq");
+      setChooserSelected(sessionStorage.getItem("hk-ai-last-provider") || "auto");
     } catch {
-      setChooserSelected("Groq");
+      setChooserSelected("auto");
     }
     setChooserAction(() => action);
+    setChooserOptions(options || {});
     setChooserOpen(true);
   };
   const chooserModal = (
@@ -348,10 +334,12 @@ function useAiProviderChooser() {
       open={chooserOpen}
       selected={chooserSelected}
       setSelected={setChooserSelected}
+      recommendedKeys={chooserOptions.recommendedKeys || ["auto"]}
+      orderedKeys={chooserOptions.orderedKeys}
       onCancel={() => setChooserOpen(false)}
       onContinue={(provider: string) => {
         try {
-          sessionStorage.setItem("hk-ai-last-provider", provider || "Groq");
+          sessionStorage.setItem("hk-ai-last-provider", provider || "auto");
         } catch {}
         setChooserOpen(false);
         chooserAction?.(provider);
@@ -1323,7 +1311,7 @@ function StartupApiStatusModal({ open, loading, data = {}, message, onRetest, on
           <div>
             <p className="text-xs font-black uppercase tracking-[.18em] text-cyan-700">HK OS başlangıç testi</p>
             <h3 className="mt-2 text-2xl font-black">Sistem Durum Kontrolü</h3>
-            <p className="mt-2 text-sm text-slate-400">Aktif sağlayıcı: <strong className="text-slate-900">{aiProviderLabel(data.activeProvider || "Groq")}</strong> · Mod: <strong className="text-slate-900">{data.mode || "Canlı"}</strong></p>
+            <p className="mt-2 text-sm text-slate-400">Aktif sağlayıcı: <strong className="text-slate-900">{aiProviderLabel(data.activeProvider || "auto")}</strong> · Mod: <strong className="text-slate-900">{data.mode || "Otomatik"}</strong></p>
           </div>
           <button onClick={onClose} className="rounded-full border border-slate-200 p-2 text-slate-600 hover:bg-white/10"><X size={17} /></button>
         </div>
@@ -4032,10 +4020,10 @@ function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanently
     onConverted(data);
     setConversionMessage(data.temporaryPassword ? `${data.message} Tek seferlik geçici şifre: ${data.temporaryPassword}` : data.message);
   }
-  async function analyze(aiProvider = "Groq") {
+  async function analyze(aiProvider = "auto") {
     setAnalyzing(true);
     setAnalysisMessage("AI analizi hazırlanıyor...");
-    const response = await fetch(`/api/admin/leads/${lead.id}/analyze`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ aiProvider }) });
+    const response = await fetch(`/api/admin/leads/${lead.id}/analyze`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ aiProvider: aiProviderKeyForApi(aiProvider) }) });
     const data = await response.json().catch(() => ({}));
     setAnalyzing(false);
     if (!response.ok) {
@@ -4225,10 +4213,10 @@ function AiAssistant({ content, setContent }: any) {
   const [output, setOutput] = useState("");
   const [meta, setMeta] = useState(aiMetaFromApi(content.settings.api));
   const [message, setMessage] = useState("");
-  async function generate(aiProvider = "Groq") {
+  async function generate(aiProvider = "auto") {
     setMessage("Yapay zekâ çıktısı hazırlanıyor...");
     setOutput("");
-    const response = await fetch("/api/admin/ai-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt, aiProvider }) });
+    const response = await fetch("/api/admin/ai-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt, aiProvider: aiProviderKeyForApi(aiProvider) }) });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) return setMessage(data.error || "Analiz sırasında bir hata oluştu.");
     setOutput(data.output || "");
@@ -4237,7 +4225,7 @@ function AiAssistant({ content, setContent }: any) {
   }
   const shortcuts = ["CRM lead analizi üret.", "Meta reklam stratejisi yaz.", "Google Ads anahtar kelime planı hazırla.", "30 günlük sosyal medya planı oluştur."];
   const activeMeta = aiMetaFromApi(content.settings.api);
-  return <Panel title="AI Studio"><div className="grid gap-5 xl:grid-cols-[240px_minmax(0,1fr)_300px]"><aside className="rounded-[8px] border border-slate-200 bg-white p-4"><p className="text-xs font-black uppercase tracking-[.14em] text-purple-700">Prompt Library</p><div className="mt-4 grid gap-2">{shortcuts.map((item) => <button key={item} onClick={() => setPrompt(item)} className="rounded-[8px] border border-slate-200 bg-slate-50 p-3 text-left text-xs font-bold leading-5 text-slate-600 hover:border-purple-200/30 hover:text-purple-700">{item}</button>)}</div></aside><section className="rounded-[8px] border border-slate-200 bg-white p-5"><div className="mb-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3"><p className="text-sm font-black text-cyan-700">ChatGPT + Claude tarzı çalışma alanı</p><AiUsageBadge meta={activeMeta} /></div><TextArea label="Komut" value={prompt} onChange={setPrompt} /><button onClick={() => askAiProvider(generate)} className="mt-4 inline-flex w-fit items-center gap-2 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950"><Sparkles size={17} /> AI çıktı üret</button>{message && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-700">{message}</p>}{output && <div className="mt-4 rounded-[8px] border border-slate-200 bg-slate-50 p-4"><pre className="whitespace-pre-wrap text-sm leading-7 text-slate-700">{output}</pre><div className="mt-4 flex flex-wrap gap-2"><button onClick={() => navigator.clipboard.writeText(output)} className="inline-flex gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm"><Copy size={16} /> Kopyala</button><button onClick={() => setContent({ ...content, pages: { ...content.pages, home: { ...content.pages.home, subheadline: output } } })} className="rounded-full border border-slate-200 px-4 py-2 text-sm">Ana sayfa alt metnine ekle</button></div></div>}{chooserModal}</section><aside className="rounded-[8px] border border-slate-200 bg-white p-4"><p className="text-xs font-black uppercase tracking-[.14em] text-indigo-200">Output Metadata</p><div className="mt-4 grid gap-3 text-sm"><InfoItem label="Provider" value={meta.provider || activeMeta.provider} /><InfoItem label="Model" value={meta.model || activeMeta.model} /><InfoItem label="Mod" value={meta.mode || activeMeta.mode} /><InfoItem label="Durum" value={output ? "Yanıt üretildi" : message || "Bekliyor"} /></div></aside></div></Panel>;
+  return <Panel title="AI Studio"><div className="grid gap-5 xl:grid-cols-[240px_minmax(0,1fr)_300px]"><aside className="rounded-[8px] border border-slate-200 bg-white p-4"><p className="text-xs font-black uppercase tracking-[.14em] text-purple-700">Prompt Library</p><div className="mt-4 grid gap-2">{shortcuts.map((item) => <button key={item} onClick={() => setPrompt(item)} className="rounded-[8px] border border-slate-200 bg-slate-50 p-3 text-left text-xs font-bold leading-5 text-slate-600 hover:border-purple-200/30 hover:text-purple-700">{item}</button>)}</div></aside><section className="rounded-[8px] border border-slate-200 bg-white p-5"><div className="mb-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3"><p className="text-sm font-black text-cyan-700">ChatGPT + Claude tarzı çalışma alanı</p><AiUsageBadge meta={activeMeta} /></div><TextArea label="Komut" value={prompt} onChange={setPrompt} /><button onClick={() => askAiProvider(generate)} className="mt-4 inline-flex w-fit items-center gap-2 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950"><Sparkles size={17} /> AI çıktı üret</button>{message && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-700">{message}</p>}{output && <div className="mt-4 rounded-[8px] border border-slate-200 bg-slate-50 p-4"><AiSelectionReasonCard moduleLabel="AI Studio" provider={meta.provider || activeMeta.provider} fallbackReason={meta.mode === "Demo" ? "Gerçek sağlayıcı kullanılamadığı için Demo / Yerel Yedek Akış kullanıldı." : ""} /><pre className="mt-4 whitespace-pre-wrap text-sm leading-7 text-slate-700">{output}</pre><div className="mt-4 flex flex-wrap gap-2"><button onClick={() => navigator.clipboard.writeText(output)} className="inline-flex gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm"><Copy size={16} /> Kopyala</button><button onClick={() => setContent({ ...content, pages: { ...content.pages, home: { ...content.pages.home, subheadline: output } } })} className="rounded-full border border-slate-200 px-4 py-2 text-sm">Ana sayfa alt metnine ekle</button></div></div>}{chooserModal}</section><aside className="rounded-[8px] border border-slate-200 bg-white p-4"><p className="text-xs font-black uppercase tracking-[.14em] text-indigo-200">Output Metadata</p><div className="mt-4 grid gap-3 text-sm"><InfoItem label="Provider" value={meta.provider || activeMeta.provider} /><InfoItem label="Model" value={meta.model || activeMeta.model} /><InfoItem label="Mod" value={meta.mode || activeMeta.mode} /><InfoItem label="Durum" value={output ? "Yanıt üretildi" : message || "Bekliyor"} /></div></aside></div></Panel>;
 }
 
 function ApiSettings({ content, setContent }: any) {
@@ -4247,8 +4235,8 @@ function ApiSettings({ content, setContent }: any) {
   const aiMeta = aiMetaFromApi(api);
   const priority = Array.isArray(api.ai_provider_priority) && api.ai_provider_priority.length ? api.ai_provider_priority : aiPriorityKeys;
   const updateProvider = (value: string) => {
-    const key = aiLabelKeys[value] || value;
-    const model = key === "groq" ? "llama-3.3-70b-versatile" : key === "gemini" ? "gemini-2.0-flash" : key === "demo" ? "demo-local" : key === "local" ? "local-rules" : "automatic-fallback";
+    const key = aiProviderKeyForApi(aiLabelKeys[value] || value);
+    const model = key === "groq" ? "llama-3.3-70b-versatile" : key === "gemini" ? "gemini-2.0-flash" : key === "openai" ? "gpt-4.1-mini" : key === "anthropic" ? "claude-3-5-sonnet-latest" : key === "demo" ? "demo-local" : key === "local" ? "local-rules" : "automatic-fallback";
     update({
       active_ai_provider: key,
       activeProvider: key,
@@ -4275,7 +4263,7 @@ function ApiSettings({ content, setContent }: any) {
     const data = await response.json();
     setResult(data.message || "Test tamamlandı.");
   }
-  return <Panel title="API Ayarları"><p className="mb-5 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm leading-6 text-cyan-700">API anahtarları güvenlik nedeniyle bu ekranda gösterilmez veya tarayıcıya gönderilmez. Groq, Gemini, OpenAI ve Google Maps anahtarlarını Vercel ortam değişkenleri üzerinden yönetin.</p><div className="mb-5 rounded-[8px] border border-amber-200/20 bg-amber-200/10 p-4"><div className="flex flex-wrap items-center gap-2"><p className="text-sm font-black text-amber-700">AI Ayarları</p><span className="rounded-full bg-amber-300 px-2 py-1 text-[10px] font-black text-slate-950">Groq Önerilen</span></div><p className="mt-1 text-xs text-amber-700/75">Varsayılan canlı sağlayıcı Groq’tur. Belirli sağlayıcı seçilirse sessiz fallback yapılmaz.</p><AiUsageBadge meta={aiMeta} /></div><div className="grid gap-4 md:grid-cols-2"><SelectField label="Aktif AI Sağlayıcısı" value={aiProviderLabel(api.active_ai_provider || api.activeProvider || "Groq")} onChange={updateProvider} options={apiProviderOptions} /><Field label="Yapay zekâ modeli" value={api.active_ai_model || api.model || "llama-3.3-70b-versatile"} onChange={(v) => update({ active_ai_model: v, model: v })} /><SelectField label="AI modu" value={api.ai_mode || (api.demoMode ? "demo" : "live")} onChange={(v) => update({ ai_mode: v, demoMode: v === "demo", active_ai_provider: v === "demo" ? "demo" : v === "local" ? "local" : api.active_ai_provider || "groq", activeProvider: v === "demo" ? "demo" : v === "local" ? "local" : api.activeProvider || "groq" })} options={[{ value: "live", label: "Canlı" }, { value: "demo", label: "Demo" }, { value: "local", label: "Yerel" }]} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(api.demoMode)} onChange={(e) => update({ demoMode: e.target.checked, active_ai_provider: e.target.checked ? "demo" : "groq", activeProvider: e.target.checked ? "demo" : "groq", ai_mode: e.target.checked ? "demo" : "live", active_ai_model: e.target.checked ? "demo-local" : "llama-3.3-70b-versatile", model: e.target.checked ? "demo-local" : "llama-3.3-70b-versatile" })} /> Demo modu</label></div><div className="mt-5 rounded-[8px] border border-slate-200 bg-white p-4"><p className="text-sm font-black text-slate-900">AI Öncelik Sırası</p><p className="mt-1 text-xs text-slate-400">Bu sıra yalnızca “Otomatik” seçildiğinde kullanılır.</p><div className="mt-4 grid gap-3 md:grid-cols-5">{aiPriorityKeys.map((key, index) => <SelectField key={`${key}-${index}`} label={`${index + 1}. Öncelik`} value={aiKeyLabels[priority[index] || key] || "Groq"} onChange={(value) => updatePriority(index, value)} options={aiPriorityOptions} />)}</div></div><div className="mt-5 flex flex-wrap gap-2"><button onClick={saveAiSettings} className="rounded-full bg-amber-300 px-5 py-3 text-sm font-black text-slate-950">AI ayarlarını kaydet</button><button onClick={testApi} className="rounded-full border border-cyan-200/20 px-5 py-3 text-sm font-black text-cyan-700">API bağlantısını test et</button></div>{result && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-700">{result}</p>}<p className="mt-4 text-sm text-slate-400">Sunucu tarafı değişkenleri: GOOGLE_MAPS_API_KEY, GEMINI_API_KEY, GROQ_API_KEY ve OPENAI_API_KEY. Kullanılmayan AI sağlayıcılarının anahtarlarını eklemek zorunda değilsiniz.</p></Panel>;
+  return <Panel title="API Ayarları"><p className="mb-5 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm leading-6 text-cyan-700">API anahtarları güvenlik nedeniyle bu ekranda gösterilmez veya tarayıcıya gönderilmez. OpenAI, Gemini, Groq, Claude, OpenRouter, Manus, Ollama ve Google Maps anahtarlarını Vercel ortam değişkenleri üzerinden yönetin.</p><div className="mb-5 rounded-[8px] border border-amber-200/20 bg-amber-200/10 p-4"><div className="flex flex-wrap items-center gap-2"><p className="text-sm font-black text-amber-700">AI Ayarları</p><span className="rounded-full bg-amber-300 px-2 py-1 text-[10px] font-black text-slate-950">Auto Router Önerilen</span></div><p className="mt-1 text-xs text-amber-700/75">Varsayılan seçim Auto AI Router’dır. HK Intelligence görev tipini, aktif API anahtarlarını ve yedek akışı değerlendirir.</p><AiUsageBadge meta={aiMeta} /></div><div className="grid gap-4 md:grid-cols-2"><SelectField label="Aktif AI Sağlayıcısı" value={aiProviderLabel(api.active_ai_provider || api.activeProvider || "auto")} onChange={updateProvider} options={apiProviderOptions} /><Field label="Yapay zekâ modeli" value={api.active_ai_model || api.model || "automatic-fallback"} onChange={(v) => update({ active_ai_model: v, model: v })} /><SelectField label="AI modu" value={api.ai_mode || (api.demoMode ? "demo" : "live")} onChange={(v) => update({ ai_mode: v, demoMode: v === "demo", active_ai_provider: v === "demo" ? "demo" : v === "local" ? "local" : api.active_ai_provider || "automatic", activeProvider: v === "demo" ? "demo" : v === "local" ? "local" : api.activeProvider || "automatic" })} options={[{ value: "live", label: "Canlı" }, { value: "demo", label: "Demo" }, { value: "local", label: "Yerel" }]} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(api.demoMode)} onChange={(e) => update({ demoMode: e.target.checked, active_ai_provider: e.target.checked ? "demo" : "automatic", activeProvider: e.target.checked ? "demo" : "automatic", ai_mode: e.target.checked ? "demo" : "live", active_ai_model: e.target.checked ? "demo-local" : "automatic-fallback", model: e.target.checked ? "demo-local" : "automatic-fallback" })} /> Demo modu</label></div><div className="mt-5 rounded-[8px] border border-slate-200 bg-white p-4"><p className="text-sm font-black text-slate-900">AI Öncelik Sırası</p><p className="mt-1 text-xs text-slate-400">Bu sıra yalnızca “Auto AI Router / Otomatik Seçim” seçildiğinde kullanılır.</p><div className="mt-4 grid gap-3 md:grid-cols-5">{aiPriorityKeys.map((key, index) => <SelectField key={`${key}-${index}`} label={`${index + 1}. Öncelik`} value={aiKeyLabels[priority[index] || key] || aiProviderLabel("gemini")} onChange={(value) => updatePriority(index, value)} options={aiPriorityOptions} />)}</div></div><div className="mt-5 flex flex-wrap gap-2"><button onClick={saveAiSettings} className="rounded-full bg-amber-300 px-5 py-3 text-sm font-black text-slate-950">AI ayarlarını kaydet</button><button onClick={testApi} className="rounded-full border border-cyan-200/20 px-5 py-3 text-sm font-black text-cyan-700">API bağlantısını test et</button></div>{result && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-700">{result}</p>}<p className="mt-4 text-sm text-slate-400">Sunucu tarafı değişkenleri: OPENAI_API_KEY, GEMINI_API_KEY, GROQ_API_KEY, ANTHROPIC_API_KEY, OPENROUTER_API_KEY, MANUS_API_KEY, MANUS_API_BASE_URL, MANUS_API_ENDPOINT ve OLLAMA_BASE_URL. Kullanılmayan AI sağlayıcılarının anahtarlarını eklemek zorunda değilsiniz.</p></Panel>;
 }
 
 function Settings({ content, setContent, setActive }: any) {
@@ -7901,13 +7889,13 @@ function MetaAnalysisSection() {
   const [aiMeta, setAiMeta] = useState(aiMetaFromApi({ activeProvider: "Demo Modu", model: "meta-analysis-demo", demoMode: true }));
   const [metaStatusMessage, setMetaStatusMessage] = useState("");
   const crm = useAnalysisCrmSaving("meta", form);
-  async function analyze(aiProvider = "Groq") {
+  async function analyze(aiProvider = "auto") {
     setLoading(true);
     setError("");
     setWarning("");
     setResults([]);
     try {
-      const response = await fetch("/api/admin/meta-analysis", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, aiProvider }) });
+      const response = await fetch("/api/admin/meta-analysis", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, aiProvider: aiProviderKeyForApi(aiProvider) }) });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Analiz sırasında bir hata oluştu.");
       setWarning(data.warning || "");
@@ -7925,11 +7913,12 @@ function MetaAnalysisSection() {
     const data = await response.json().catch(() => ({}));
     setMetaStatusMessage(response.ok ? data.message || "Meta bağlantısı test edildi." : data.errorMessage || data.error || "Meta bağlantısı test edilemedi.");
   }
-  return <Panel title="Meta Analiz"><div className="mb-5 rounded-[8px] border border-orange-300/20 bg-gradient-to-br from-orange-300/12 via-yellow-200/5 to-transparent p-5"><div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"><div><p className="text-xs font-black uppercase tracking-[.16em] text-orange-700">Meta Business Suite Workspace</p><h2 className="mt-2 text-2xl font-black text-slate-900">Facebook ve Instagram reklam sinyallerini ayrı analiz edin</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">İl, ilçe ve sektör seçimine göre Meta Ad Library odaklı gözlemler, CTA ve kreatif metin özetleri üretir.</p></div><div className="flex flex-wrap gap-2"><button disabled={loading} onClick={() => askAiProvider(analyze)} className="rounded-[8px] bg-orange-300 px-4 py-3 text-xs font-black text-slate-950 disabled:opacity-60">Meta Sonuçlarını Yenile</button><button onClick={testMetaConnection} className="rounded-[8px] border border-orange-200/30 px-4 py-3 text-xs font-black text-orange-700">Meta Bağlantısını Test Et</button></div></div></div><div className="mb-5 grid gap-3 md:grid-cols-3"><div className="rounded-[8px] border border-orange-200/20 bg-orange-300/[0.08] p-4"><p className="text-xs font-black text-orange-700">Ad Preview</p><p className="mt-2 text-sm leading-6 text-slate-600">Kreatif, CTA ve platform sinyalleri kart bazında okunur.</p></div><div className="rounded-[8px] border border-cyan-200/20 bg-cyan-300/[0.08] p-4"><p className="text-xs font-black text-cyan-700">CTA Analysis</p><p className="mt-2 text-sm leading-6 text-slate-600">Mesaj, form, trafik ve teklif açısı birlikte değerlendirilir.</p></div><div className="rounded-[8px] border border-pink-200/20 bg-pink-300/[0.08] p-4"><p className="text-xs font-black text-pink-100">Creative Analysis</p><p className="mt-2 text-sm leading-6 text-slate-600">Reklam dili ve kreatif fırsatlar CRM'e taşınabilir.</p></div></div><AnalysisSearchForm form={form} setForm={setForm} loading={loading} onSubmit={() => askAiProvider(analyze)} buttonLabel="Meta Reklamlarını Analiz Et" />{metaStatusMessage && <p className="mt-4 rounded-[8px] border border-orange-300/25 bg-orange-300/10 p-3 text-sm text-orange-700">{metaStatusMessage}</p>}{warning && <p className="mt-4 rounded-[8px] border border-amber-300/25 bg-amber-300/10 p-3 text-sm text-amber-700">{warning}</p>}{error && <p className="mt-4 rounded-[8px] border border-red-300/25 bg-red-500/10 p-3 text-sm text-red-100">{error}</p>}<div className="mt-5 grid gap-4 lg:grid-cols-2">{results.map((item) => { const id = item.id || item.name; return <AnalysisResultCard key={id} kind="meta" item={item} form={form} aiMeta={aiMeta} saved={crm.savedIds[id]} saving={crm.savingId === id} message={crm.messages[id]} onOpen={() => askAiProvider(() => crm.setSelected(item))} onSave={() => crm.save(item)} />; })}{!loading && !error && !results.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-6 text-center text-sm text-slate-400 lg:col-span-2">Bu seçim için sonuç bulunamadı.</p>}</div>{crm.selected && <AnalysisDetailModal kind="meta" item={crm.selected} form={form} aiMeta={aiMeta} saved={crm.savedIds[crm.selected.id || crm.selected.name]} saving={crm.savingId === (crm.selected.id || crm.selected.name)} message={crm.messages[crm.selected.id || crm.selected.name]} onClose={() => crm.setSelected(null)} onSave={() => crm.save(crm.selected)} />}{chooserModal}</Panel>;
+  return <Panel title="Meta Analiz"><div className="mb-5 rounded-[8px] border border-orange-300/20 bg-gradient-to-br from-orange-300/12 via-yellow-200/5 to-transparent p-5"><div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"><div><p className="text-xs font-black uppercase tracking-[.16em] text-orange-700">Meta Business Suite Workspace</p><h2 className="mt-2 text-2xl font-black text-slate-900">Facebook ve Instagram reklam sinyallerini ayrı analiz edin</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">İl, ilçe ve sektör seçimine göre Meta Ad Library odaklı gözlemler, CTA ve kreatif metin özetleri üretir.</p></div><div className="flex flex-wrap gap-2"><button disabled={loading} onClick={() => askAiProvider(analyze)} className="rounded-[8px] bg-orange-300 px-4 py-3 text-xs font-black text-slate-950 disabled:opacity-60">Meta Sonuçlarını Yenile</button><button onClick={testMetaConnection} className="rounded-[8px] border border-orange-200/30 px-4 py-3 text-xs font-black text-orange-700">Meta Bağlantısını Test Et</button></div></div></div><div className="mb-5 grid gap-3 md:grid-cols-3"><div className="rounded-[8px] border border-orange-200/20 bg-orange-300/[0.08] p-4"><p className="text-xs font-black text-orange-700">Ad Preview</p><p className="mt-2 text-sm leading-6 text-slate-600">Kreatif, CTA ve platform sinyalleri kart bazında okunur.</p></div><div className="rounded-[8px] border border-cyan-200/20 bg-cyan-300/[0.08] p-4"><p className="text-xs font-black text-cyan-700">CTA Analysis</p><p className="mt-2 text-sm leading-6 text-slate-600">Mesaj, form, trafik ve teklif açısı birlikte değerlendirilir.</p></div><div className="rounded-[8px] border border-pink-200/20 bg-pink-300/[0.08] p-4"><p className="text-xs font-black text-pink-100">Creative Analysis</p><p className="mt-2 text-sm leading-6 text-slate-600">Reklam dili ve kreatif fırsatlar CRM'e taşınabilir.</p></div></div><AnalysisSearchForm form={form} setForm={setForm} loading={loading} onSubmit={() => askAiProvider(analyze)} buttonLabel="Meta Reklamlarını Analiz Et" /><AiSelectionReasonCard moduleLabel="Meta İstihbarat" provider={aiMeta.provider} fallbackReason={aiMeta.mode === "Demo" ? "Gerçek sağlayıcı kullanılamadığı için Demo / Yerel Yedek Akış kullanıldı." : ""} />{metaStatusMessage && <p className="mt-4 rounded-[8px] border border-orange-300/25 bg-orange-300/10 p-3 text-sm text-orange-700">{metaStatusMessage}</p>}{warning && <p className="mt-4 rounded-[8px] border border-amber-300/25 bg-amber-300/10 p-3 text-sm text-amber-700">{warning}</p>}{error && <p className="mt-4 rounded-[8px] border border-red-300/25 bg-red-500/10 p-3 text-sm text-red-100">{error}</p>}<div className="mt-5 grid gap-4 lg:grid-cols-2">{results.map((item) => { const id = item.id || item.name; return <AnalysisResultCard key={id} kind="meta" item={item} form={form} aiMeta={aiMeta} saved={crm.savedIds[id]} saving={crm.savingId === id} message={crm.messages[id]} onOpen={() => askAiProvider(() => crm.setSelected(item))} onSave={() => crm.save(item)} />; })}{!loading && !error && !results.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-6 text-center text-sm text-slate-400 lg:col-span-2">Bu seçim için sonuç bulunamadı.</p>}</div>{crm.selected && <AnalysisDetailModal kind="meta" item={crm.selected} form={form} aiMeta={aiMeta} saved={crm.savedIds[crm.selected.id || crm.selected.name]} saving={crm.savingId === (crm.selected.id || crm.selected.name)} message={crm.messages[crm.selected.id || crm.selected.name]} onClose={() => crm.setSelected(null)} onSave={() => crm.save(crm.selected)} />}{chooserModal}</Panel>;
 }
 
 function GoogleAdsAnalysisSection() {
   const { askAiProvider, chooserModal } = useAiProviderChooser();
+  const googleProviderChooser = { orderedKeys: ["auto", "gemini", "openai", "anthropic", "groq", "manus", "openrouter", "ollama", "demo"], recommendedKeys: ["auto", "gemini", "openai"] };
   const [form, setForm] = useState({ city: "Manisa", district: "Yunusemre", sector: "Restoran" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -7937,13 +7926,13 @@ function GoogleAdsAnalysisSection() {
   const [results, setResults] = useState([]);
   const [aiMeta, setAiMeta] = useState(aiMetaFromApi({ activeProvider: "Demo Modu", model: "google-analysis-demo", demoMode: true }));
   const crm = useAnalysisCrmSaving("google", form);
-  async function analyze(aiProvider = "Groq") {
+  async function analyze(aiProvider = "auto") {
     setLoading(true);
     setError("");
     setWarning("");
     setResults([]);
     try {
-      const response = await fetch("/api/admin/google-analysis", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, aiProvider }) });
+      const response = await fetch("/api/admin/google-analysis", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, aiProvider: aiProviderKeyForApi(aiProvider) }) });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Analiz sırasında bir hata oluştu.");
       setWarning(data.warning || "");
@@ -7955,15 +7944,12 @@ function GoogleAdsAnalysisSection() {
       setLoading(false);
     }
   }
-  return <Panel title="Google Ads Analiz"><div className="mb-5 rounded-[8px] border border-yellow-300/20 bg-gradient-to-br from-yellow-300/12 via-orange-200/5 to-transparent p-5"><p className="text-xs font-black uppercase tracking-[.16em] text-yellow-200">Google Ads Workspace</p><h2 className="mt-2 text-2xl font-black text-slate-900">Arama görünürlüğü ve yerel reklam fırsatlarını ayrı analiz edin</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">Google Maps ve işletme sinyallerinden arama görünürlüğü, anahtar kelime fırsatı ve kampanya tipi önerileri üretir.</p></div><div className="mb-5 grid gap-3 md:grid-cols-4"><div className="rounded-[8px] border border-sky-200/20 bg-sky-300/[0.08] p-4"><p className="text-xs font-black text-sky-100">Keyword Opportunities</p><p className="mt-2 text-sm leading-6 text-slate-600">Yüksek niyetli arama kelimeleri.</p></div><div className="rounded-[8px] border border-emerald-200/20 bg-emerald-300/[0.08] p-4"><p className="text-xs font-black text-emerald-700">Business Signals</p><p className="mt-2 text-sm leading-6 text-slate-600">Maps, yorum ve görünürlük sinyalleri.</p></div><div className="rounded-[8px] border border-amber-200/20 bg-amber-300/[0.08] p-4"><p className="text-xs font-black text-amber-700">Competition Level</p><p className="mt-2 text-sm leading-6 text-slate-600">Rekabet ve bütçe önerileri.</p></div><div className="rounded-[8px] border border-indigo-200/20 bg-indigo-300/[0.08] p-4"><p className="text-xs font-black text-indigo-100">Campaign Cards</p><p className="mt-2 text-sm leading-6 text-slate-600">Arama, lokal ve remarketing açısı.</p></div></div><AnalysisSearchForm form={form} setForm={setForm} loading={loading} onSubmit={() => askAiProvider(analyze)} buttonLabel="Google Reklamlarını Analiz Et" />{warning && <p className="mt-4 rounded-[8px] border border-amber-300/25 bg-amber-300/10 p-3 text-sm text-amber-700">{warning}</p>}{error && <p className="mt-4 rounded-[8px] border border-red-300/25 bg-red-500/10 p-3 text-sm text-red-100">{error}</p>}<div className="mt-5 grid gap-4 lg:grid-cols-2">{results.map((item) => { const id = item.id || item.name; return <AnalysisResultCard key={id} kind="google" item={item} form={form} aiMeta={aiMeta} saved={crm.savedIds[id]} saving={crm.savingId === id} message={crm.messages[id]} onOpen={() => askAiProvider(() => crm.setSelected(item))} onSave={() => crm.save(item)} />; })}{!loading && !error && !results.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-6 text-center text-sm text-slate-400 lg:col-span-2">Bu seçim için sonuç bulunamadı.</p>}</div>{crm.selected && <AnalysisDetailModal kind="google" item={crm.selected} form={form} aiMeta={aiMeta} saved={crm.savedIds[crm.selected.id || crm.selected.name]} saving={crm.savingId === (crm.selected.id || crm.selected.name)} message={crm.messages[crm.selected.id || crm.selected.name]} onClose={() => crm.setSelected(null)} onSave={() => crm.save(crm.selected)} />}{chooserModal}</Panel>;
+  return <Panel title="Google Ads Analiz"><div className="mb-5 rounded-[8px] border border-yellow-300/20 bg-gradient-to-br from-yellow-300/12 via-orange-200/5 to-transparent p-5"><p className="text-xs font-black uppercase tracking-[.16em] text-yellow-200">Google Ads Workspace</p><h2 className="mt-2 text-2xl font-black text-slate-900">Arama görünürlüğü ve yerel reklam fırsatlarını ayrı analiz edin</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">Google Maps ve işletme sinyallerinden arama görünürlüğü, anahtar kelime fırsatı ve kampanya tipi önerileri üretir.</p></div><div className="mb-5 grid gap-3 md:grid-cols-4"><div className="rounded-[8px] border border-sky-200/20 bg-sky-300/[0.08] p-4"><p className="text-xs font-black text-sky-100">Keyword Opportunities</p><p className="mt-2 text-sm leading-6 text-slate-600">Yüksek niyetli arama kelimeleri.</p></div><div className="rounded-[8px] border border-emerald-200/20 bg-emerald-300/[0.08] p-4"><p className="text-xs font-black text-emerald-700">Business Signals</p><p className="mt-2 text-sm leading-6 text-slate-600">Maps, yorum ve görünürlük sinyalleri.</p></div><div className="rounded-[8px] border border-amber-200/20 bg-amber-300/[0.08] p-4"><p className="text-xs font-black text-amber-700">Competition Level</p><p className="mt-2 text-sm leading-6 text-slate-600">Rekabet ve bütçe önerileri.</p></div><div className="rounded-[8px] border border-indigo-200/20 bg-indigo-300/[0.08] p-4"><p className="text-xs font-black text-indigo-100">Campaign Cards</p><p className="mt-2 text-sm leading-6 text-slate-600">Arama, lokal ve remarketing açısı.</p></div></div><AnalysisSearchForm form={form} setForm={setForm} loading={loading} onSubmit={() => askAiProvider(analyze, googleProviderChooser)} buttonLabel="Google Reklamlarını Analiz Et" /><AiSelectionReasonCard moduleLabel="Google İstihbarat" provider={aiMeta.provider} fallbackReason={aiMeta.mode === "Demo" ? "Gemini/OpenAI anahtarı eksik veya sağlayıcı kullanılamadığı için Demo / Yerel Yedek Akış kullanıldı." : ""} />{warning && <p className="mt-4 rounded-[8px] border border-amber-300/25 bg-amber-300/10 p-3 text-sm text-amber-700">{warning}</p>}{error && <p className="mt-4 rounded-[8px] border border-red-300/25 bg-red-500/10 p-3 text-sm text-red-100">{error}</p>}<div className="mt-5 grid gap-4 lg:grid-cols-2">{results.map((item) => { const id = item.id || item.name; return <AnalysisResultCard key={id} kind="google" item={item} form={form} aiMeta={aiMeta} saved={crm.savedIds[id]} saving={crm.savingId === id} message={crm.messages[id]} onOpen={() => askAiProvider(() => crm.setSelected(item), googleProviderChooser)} onSave={() => crm.save(item)} />; })}{!loading && !error && !results.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-6 text-center text-sm text-slate-400 lg:col-span-2">Bu seçim için sonuç bulunamadı.</p>}</div>{crm.selected && <AnalysisDetailModal kind="google" item={crm.selected} form={form} aiMeta={aiMeta} saved={crm.savedIds[crm.selected.id || crm.selected.name]} saving={crm.savingId === (crm.selected.id || crm.selected.name)} message={crm.messages[crm.selected.id || crm.selected.name]} onClose={() => crm.setSelected(null)} onSave={() => crm.save(crm.selected)} />}{chooserModal}</Panel>;
 }
-
-const socialAuditActions = ["Düzeltilmesi Gerekenler", "30 Günlük Sosyal Medya Planı", "Meta Reklam Stratejisi", "Google Reklam Stratejisi", "İçerik Fikirleri", "Teklif Hazırlama", "PDF Audit Oluştur", "WhatsApp Teklifi Hazırla", "CRM’e Kaydet"];
-const socialAiOptions = ["Groq", "Gemini", "OpenAI", "Otomatik", "Demo Modu", "Yerel Mod"];
 
 function SocialMediaAuditCenter() {
   const { askAiProvider, chooserModal } = useAiProviderChooser();
-  const [form, setForm] = useState({ businessName: "", city: "Manisa", district: "Yunusemre", sector: "Restoran", notes: "", aiProvider: "Groq" });
+  const [form, setForm] = useState({ businessName: "", city: "Manisa", district: "Yunusemre", sector: "Restoran", notes: "", aiProvider: "auto" });
   const [platforms, setPlatforms] = useState(socialPlatforms.map((platform) => ({
     platform,
     username: "",
@@ -8090,7 +8076,7 @@ function SocialMediaAuditCenter() {
     }
   }
   const primaryProfile = activePlatforms()[0] || platforms[0];
-  async function runAudit(aiProvider = "Groq") {
+  async function runAudit(aiProvider = "auto") {
     if (!hasInput) {
       setMessage("Analiz için en az bir profil bilgisi, ekran görüntüsü veya işletme bilgisi girin.");
       return;
@@ -8103,7 +8089,7 @@ function SocialMediaAuditCenter() {
     const response = await fetch("/api/admin/social-audit", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, platforms: activePlatforms(), instagramProfile: activePlatforms().find((item) => item.platform === "Instagram") || null, allPlatformUrls: activePlatforms().map((item) => ({ platform: item.platform, profileUrl: item.profileUrl })), screenshots: screenshots.map(({ name, type, order }) => ({ name, type, order })), selectedActions: analysisActions, aiProvider, actions: analysisActions })
+      body: JSON.stringify({ ...form, aiProvider: aiProviderKeyForApi(aiProvider), platforms: activePlatforms(), instagramProfile: activePlatforms().find((item) => item.platform === "Instagram") || null, allPlatformUrls: activePlatforms().map((item) => ({ platform: item.platform, profileUrl: item.profileUrl })), screenshots: screenshots.map(({ name, type, order }) => ({ name, type, order })), selectedActions: analysisActions, actions: analysisActions })
     });
     const data = await response.json().catch(() => ({}));
     if (response.ok) {
@@ -8205,7 +8191,9 @@ function SocialMediaAuditCenter() {
             <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">İşletme bilgileri, profil alanları, ekran görüntüleri ve seçili aksiyonlar daha temiz bir akışta birlikte değerlendirilir.</p>
           </div>
           <div className="w-full max-w-xs rounded-[8px] border border-slate-200 bg-slate-50 p-3">
-            <SelectField label="AI sağlayıcısı" value={form.aiProvider} onChange={(aiProvider) => setForm({ ...form, aiProvider })} options={socialAiOptions} />
+            <label className="grid gap-1 text-sm font-bold text-slate-700">AI sağlayıcısı
+              <AiProviderSelector compact value={form.aiProvider} onChange={(aiProvider) => setForm({ ...form, aiProvider })} />
+            </label>
           </div>
         </div>
       </div>
@@ -8330,6 +8318,7 @@ function SocialMediaAuditCenter() {
         </div>
       </section>
 
+      <AiSelectionReasonCard moduleLabel="Sosyal İstihbarat" provider={form.aiProvider} fallbackReason={outputs.some((item) => aiMetaFromRecord(item.ai).mode === "Demo") ? "Gerçek sağlayıcı kullanılamadığı için Demo / Yerel Yedek Akış kullanıldı." : ""} />
       {leadScore && <div className={"mt-5 rounded-[8px] border p-4 " + (leadScore.temperature === "Sıcak" ? "border-red-300/25 bg-red-300/10 text-red-100" : leadScore.temperature === "Ilık" ? "border-amber-300/25 bg-amber-300/10 text-amber-700" : "border-slate-300/20 bg-slate-300/10 text-slate-700")}><p className="text-xs font-black uppercase tracking-[.16em]">Lead Score</p><p className="mt-2 text-2xl font-black">{leadScore.score}/100 · {leadScore.temperature}</p><p className="mt-2 text-sm opacity-80">Skor; website/profil URL, platform sayısı, ekran görüntüsü, teklif ihtiyacı ve ticari fırsat sinyallerinden hesaplandı.</p></div>}
       {message && <p className="mt-4 rounded-[8px] border border-amber-300/25 bg-amber-300/10 p-3 text-sm text-amber-700">{message}</p>}
       {crmMessage && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-700">{crmMessage}</p>}
@@ -8756,20 +8745,21 @@ function ProposalEngine({ content, setContent, save, setActive }: any) {
   const [nextSteps, setNextSteps] = useState("1. Hesap erişimleri ve ölçümleme kontrolü\n2. Kreatif ve kampanya planı\n3. Yayın ve ilk 7 gün optimizasyon\n4. Aylık rapor ve yeni aksiyon planı");
   const [notes, setNotes] = useState("");
   const [result, setResult] = useState("");
-  const [proposalAiMeta, setProposalAiMeta] = useState({ provider: "Groq", model: "llama-3.3-70b-versatile", mode: "Canlı", badge: "Groq ile üretildi" });
+  const [proposalAiMeta, setProposalAiMeta] = useState(aiMetaFromApi({ activeProvider: "auto", model: "automatic-fallback" }));
   const selectedLead = (content.leads || []).find((item) => item.id === leadId);
   const selectedCompany = (content.companies || []).find((item) => item.id === companyId) || (selectedLead ? (content.companies || []).find((company) => String(company.name || "").toLocaleLowerCase("tr") === String(selectedLead.company || "").toLocaleLowerCase("tr")) : null);
   const selectedCampaign = (content.campaigns || []).find((item) => item.id === campaignId);
   const target = selectedCompany || selectedLead || selectedCampaign || {};
   const targetName = target.name || target.company || selectedCampaign?.name || "Seçili işletme";
   const sector = target.sector || target.business_type || target.businessType || selectedLead?.business_type || "-";
-  function generate(aiProvider = "Groq") {
+  function generate(aiProvider = "auto") {
     if (!selectedLead && !selectedCompany && !selectedCampaign) return setResult("Teklif hazırlamak için lead, müşteri veya kampanya seçin.");
     const fee = Number(monthlyFee || 0);
     const budget = Number(adBudget || 0);
     const packageMultiplier = packageType === "Temel" ? 0.8 : packageType === "Premium" ? 1.35 : packageType === "Özel" ? 1 : 1;
     const finalFee = Math.round(fee * packageMultiplier);
-    setProposalAiMeta(aiMetaFromRecord({ provider: aiProvider, model: aiProvider === "Groq" ? "llama-3.3-70b-versatile" : aiProvider === "Gemini" ? "gemini-2.0-flash" : aiProvider === "OpenAI" ? "gpt-4.1-mini" : aiProvider === "Demo Modu" ? "demo-local" : aiProvider === "Yerel Mod" ? "local-rules" : "automatic-fallback", mode: ["Demo Modu", "Yerel Mod"].includes(aiProvider) ? (aiProvider === "Demo Modu" ? "Demo" : "Yerel") : "Canlı", isDemo: aiProvider === "Demo Modu", isLocal: aiProvider === "Yerel Mod", badge: `${aiProvider} ile üretildi` }));
+    const providerKey = normalizeUnifiedAiProvider(aiProvider);
+    setProposalAiMeta(aiMetaFromRecord({ provider: providerKey, model: providerKey === "groq" ? "llama-3.3-70b-versatile" : providerKey === "gemini" ? "gemini-2.0-flash" : providerKey === "openai" ? "gpt-4.1-mini" : providerKey === "anthropic" ? "claude-3-5-sonnet-latest" : providerKey === "demo" ? "demo-local" : providerKey === "ollama" ? "local-rules" : "automatic-fallback", mode: providerKey === "demo" ? "Demo" : providerKey === "ollama" ? "Yerel" : providerKey === "auto" ? "Otomatik" : "Canlı", isDemo: providerKey === "demo", isLocal: providerKey === "ollama", badge: `${labelForAiProvider(providerKey)} ile üretildi` }));
     setResult(`HK Dijital Teklif Önizlemesi
 
 Müşteri: ${targetName}
@@ -8869,7 +8859,7 @@ ${notes || "Satış garantisi verilmez. Sistem; reklam bütçesini daha kontroll
       <button type="button" onClick={() => setResult("")} className="rounded-full border border-red-200/25 px-5 py-3 text-sm font-black text-red-100">Sil</button>
       <button type="button" onClick={() => setActive?.("AI Denetim")} className="rounded-full border border-cyan-200/20 px-5 py-3 text-sm font-black text-cyan-700">AI Denetimden teklif üret</button>
     </div>
-    {result && <div className="mt-5 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-4"><AiUsageBadge meta={proposalAiMeta} /><pre className="mt-4 whitespace-pre-wrap text-sm leading-7 text-cyan-700">{result}</pre><button type="button" onClick={() => navigator.clipboard.writeText(result)} className="mt-4 inline-flex items-center gap-2 rounded-full border border-cyan-100/20 px-4 py-2 text-sm text-cyan-700"><Copy size={15} /> Kopyala</button></div>}
+    {result && <div className="mt-5 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-4"><AiUsageBadge meta={proposalAiMeta} /><AiSelectionReasonCard moduleLabel="Teklif Motoru" provider={proposalAiMeta.provider} fallbackReason={proposalAiMeta.mode === "Demo" ? "Gerçek sağlayıcı kullanılamadığı için Demo / Yerel Yedek Akış kullanıldı." : ""} /><pre className="mt-4 whitespace-pre-wrap text-sm leading-7 text-cyan-700">{result}</pre><button type="button" onClick={() => navigator.clipboard.writeText(result)} className="mt-4 inline-flex items-center gap-2 rounded-full border border-cyan-100/20 px-4 py-2 text-sm text-cyan-700"><Copy size={15} /> Kopyala</button></div>}
     {chooserModal}
   </Panel>;
 }

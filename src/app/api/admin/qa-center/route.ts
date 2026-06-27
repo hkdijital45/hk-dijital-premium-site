@@ -201,7 +201,13 @@ function scanSourcesForFindings(migrations: string) {
     ["Sonucu Kaydet çalışıyor mu?", "Sonucu Kaydet", "Agent sonucu agent_runs üzerinde kaydedilebilir olmalı."],
     ["AI Hafızasına Kaydet çalışıyor mu?", "AI Hafızasına Kaydet", "Agent sonucu agent_memories tablosuna kaydedilebilir olmalı."],
     ["Demo fallback kullanıcıya açıkça belirtiliyor mu?", "Demo / Yerel Yedek Akış", "Gerçek AI çalışmadığında kullanıcı bunu açıkça görmeli."],
-    ["Entegrasyon Kontrolü eksik env'leri gösteriyor mu?", "Entegrasyon Kontrolü", "Eksik API anahtarları secret göstermeden listelenmeli."]
+    ["Entegrasyon Kontrolü eksik env'leri gösteriyor mu?", "Entegrasyon Kontrolü", "Eksik API anahtarları secret göstermeden listelenmeli."],
+    ["AI provider selector merkezi mi?", "AiProviderSelector", "AI kullanan admin modülleri tek merkezi sağlayıcı seçiciyi kullanmalı."],
+    ["Google İstihbarat eski hardcoded listeyi kullanıyor mu?", "Google İstihbarat", "Google İstihbarat modalı Auto Router, Gemini, OpenAI, Claude, Groq, Manus, OpenRouter, Ollama ve Demo sırasını merkezi kaynaktan almalı."],
+    ["Tüm AI sağlayıcıları listeleniyor mu?", "unifiedAiProviderOptions", "Sağlayıcı listesi Agent Hub ve diğer modüllerde aynı source of truth üzerinden gelmeli."],
+    ["Auto Router en üstte mi?", "Auto AI Router / Otomatik Seçim", "Auto Router tüm AI seçimlerinde ilk ve önerilen seçenek olmalı."],
+    ["AI secretları frontend'e sızıyor mu?", "maskedKey", "Provider durum endpointi sadece durum/maskeli bilgi döndürmeli, gerçek API key dönmemeli."],
+    ["Manus kısa analizlerde varsayılan mı?", "Manus günlük kısa cevaplar için değil", "Manus yalnız derin araştırma, rakip/pazar analizi ve kapsamlı raporlarda önerilmeli."]
   ].forEach(([title, pattern, recommendation]) => {
     const inSource = sourceContains(pattern) || migrations.includes(String(pattern).toLocaleLowerCase("tr"));
     if (!inSource) findings.push(makeFinding({ category: "Ajans Operasyonu QA", severity: "orta", module: "Ajans Operasyon Kalıcılığı", file_path: "src/components/admin/AdminDashboard.tsx", title, description: `${pattern} sinyali statik analizde bulunamadı.`, recommendation }));
