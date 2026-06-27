@@ -1,8 +1,22 @@
 import { NextResponse } from "next/server";
-import { aiMetadata } from "@/lib/ai-provider";
+import { aiExecutionMetadata, generateAiText, normalizeAiProvider, type AiProviderKey } from "@/lib/ai-provider";
 import { requireModuleAccess } from "@/lib/permissions";
 
-const googleAnalysisCache = new Map<string, { expires: number; value: any }>();
+type GooglePlace = Record<string, unknown> & {
+  place_id?: string;
+  name?: string;
+  formatted_address?: string;
+  business_status?: string;
+  rating?: number | string | null;
+  user_ratings_total?: number | string | null;
+  website?: string;
+  formatted_phone_number?: string;
+  international_phone_number?: string;
+  url?: string;
+  types?: string[];
+};
+
+const googleAnalysisCache = new Map<string, { expires: number; value: Record<string, unknown> }>();
 
 function demoGoogleResults(city: string, district: string, sector: string) {
   return [
@@ -53,7 +67,7 @@ function demoGoogleResults(city: string, district: string, sector: string) {
   ];
 }
 
-function scorePlace(place: any) {
+function scorePlace(place: GooglePlace) {
   const rating = Number(place.rating || 0);
   const reviews = Number(place.user_ratings_total || 0);
   const websiteBonus = place.website ? 12 : 0;
@@ -68,9 +82,103 @@ async function getPlaceDetails(placeId: string, key: string) {
     language: "tr"
   });
   const response = await fetch(`https://maps.googleapis.com/maps/api/place/details/json?${params}`, { cache: "no-store" });
-  if (!response.ok) return {};
-  const data = await response.json();
-  return data.result || {};
+  if (!response.ok) return {} as GooglePlace;
+  const data = await response.json().catch(() => ({})) as { result?: GooglePlace };
+  return data.result || {} as GooglePlace;
+}
+
+function cleanProviderError(error: unknown) {
+  return (error instanceof Error ? error.message : "AI sağlayıcısı çalıştırılamadı.")
+    .replace(/sk-[A-Za-z0-9_-]+/g, "[redacted]")
+    .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer [redacted]")
+    .slice(0, 260);
+}
+
+function providerEnvMissing(provider: AiProviderKey) {
+  if (provider === "groq") return !process.env.GROQ_API_KEY ? "GROQ_API_KEY eksik." : "";
+  if (provider === "gemini") return !(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY) ? "GEMINI_API_KEY eksik." : "";
+  if (provider === "openai") return !process.env.OPENAI_API_KEY ? "OPENAI_API_KEY eksik." : "";
+  if (provider === "anthropic") return !process.env.ANTHROPIC_API_KEY ? "ANTHROPIC_API_KEY eksik." : "";
+  if (provider === "openrouter") return !process.env.OPENROUTER_API_KEY ? "OPENROUTER_API_KEY eksik." : "";
+  if (provider === "manus") return !(process.env.MANUS_API_KEY && process.env.MANUS_API_BASE_URL && process.env.MANUS_API_ENDPOINT) ? "Manus API yapılandırması eksik." : "";
+  if (provider === "local" || provider === "ollama") return !process.env.OLLAMA_BASE_URL ? "OLLAMA_BASE_URL eksik." : "";
+  return "";
+}
+
+async function googleAiExecutionMeta(requestedProvider: AiProviderKey, city: string, district: string, sector: string) {
+  const prompt = `Google İstihbarat sağlayıcı doğrulaması yap. Bağlam: ${city} / ${district} / ${sector}. Kısa Türkçe teknik kontrol yanıtı üret.`;
+  const fallback = `${city} ${district} ${sector} için Google Maps sinyalleri üzerinden analiz hazırlanıyor.`;
+  if (requestedProvider !== "automatic" && requestedProvider !== "auto") {
+    const missing = providerEnvMissing(requestedProvider);
+    if (missing) {
+      return aiExecutionMetadata({
+        requestedProvider,
+        actualProvider: "demo",
+        model: "demo-local",
+        fallbackReason: `${requestedProvider.toUpperCase()} manuel seçildi ancak ${missing} Bu nedenle Demo / Yerel Yedek Akış kullanıldı.`,
+        providerError: missing,
+        routerReason: "Manuel seçim yapıldığı için Auto Router devreye girmedi.",
+        dataSources: ["Google Maps API", "Manuel sağlayıcı seçimi"]
+      });
+    }
+    try {
+      const result = await generateAiText(prompt, fallback, {
+        active_ai_provider: requestedProvider === "ollama" ? "local" : requestedProvider,
+        activeProvider: requestedProvider === "ollama" ? "local" : requestedProvider,
+        active_ai_model: undefined,
+        model: undefined,
+        demoMode: requestedProvider === "demo",
+        ai_mode: requestedProvider === "demo" ? "demo" : requestedProvider === "local" || requestedProvider === "ollama" ? "local" : "live"
+      });
+      return aiExecutionMetadata({
+        requestedProvider,
+        actualProvider: normalizeAiProvider(result.providerKey || result.provider),
+        model: result.model,
+        fallbackReason: result.providerKey && normalizeAiProvider(result.providerKey) !== normalizeAiProvider(requestedProvider) ? "Seçilen sağlayıcı hata verdiği için yedek akış kullanıldı." : null,
+        routerReason: "Manuel seçim yapıldığı için sistem önce seçilen sağlayıcıyı çalıştırdı.",
+        dataSources: ["Google Maps API", "Manuel sağlayıcı seçimi"]
+      });
+    } catch (error) {
+      const reason = cleanProviderError(error);
+      return aiExecutionMetadata({
+        requestedProvider,
+        actualProvider: "demo",
+        model: "demo-local",
+        fallbackReason: `${requestedProvider.toUpperCase()} manuel seçildi ancak çalıştırılamadı: ${reason}. Raporu bozmamak için Demo / Yerel Yedek Akış kullanıldı.`,
+        providerError: reason,
+        routerReason: "Manuel seçim yapıldığı için Auto Router devreye girmedi.",
+        dataSources: ["Google Maps API", "Demo / Yerel Yedek Akış"]
+      });
+    }
+  }
+  try {
+    const result = await generateAiText(prompt, fallback, {
+      active_ai_provider: "automatic",
+      activeProvider: "automatic",
+      ai_provider_priority: ["gemini", "openai", "groq", "anthropic", "demo", "local"],
+      demoMode: false,
+      ai_mode: "live"
+    });
+    return aiExecutionMetadata({
+      requestedProvider: "automatic",
+      actualProvider: normalizeAiProvider(result.providerKey || result.provider),
+      model: result.model,
+      fallbackReason: ["demo", "local"].includes(String(result.providerKey || "")) ? "Canlı sağlayıcı kullanılamadığı için yedek akış kullanıldı." : null,
+      routerReason: "Otomatik Seçim kullanıldı. Google İstihbarat görevi için Gemini ilk sırada, OpenAI ve Groq yedek olarak değerlendirildi.",
+      dataSources: ["Google Maps API", "Auto Router"]
+    });
+  } catch (error) {
+    const reason = cleanProviderError(error);
+    return aiExecutionMetadata({
+      requestedProvider: "automatic",
+      actualProvider: "demo",
+      model: "demo-local",
+      fallbackReason: `Auto Router canlı sağlayıcı bulamadı: ${reason}. Demo / Yerel Yedek Akış kullanıldı.`,
+      providerError: reason,
+      routerReason: "Otomatik Seçim kullanıldı ancak canlı sağlayıcılar başarısız oldu.",
+      dataSources: ["Google Maps API", "Demo / Yerel Yedek Akış"]
+    });
+  }
 }
 
 export async function POST(request: Request) {
@@ -81,15 +189,17 @@ export async function POST(request: Request) {
   const city = String(body.city || "Manisa");
   const district = String(body.district || "Yunusemre");
   const sector = String(body.sector || "Restoran");
+  const requestedProvider = normalizeAiProvider(body.aiProvider || "automatic");
   const key = process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_API_KEY;
-  const cacheKey = `${city}:${district}:${sector}`.toLocaleLowerCase("tr");
+  const cacheKey = `${city}:${district}:${sector}:${requestedProvider}`.toLocaleLowerCase("tr");
   const cached = googleAnalysisCache.get(cacheKey);
   if (cached && cached.expires > Date.now()) return NextResponse.json(cached.value);
+  const ai = await googleAiExecutionMeta(requestedProvider, city, district, sector);
 
   if (!key) {
     const value = {
       warning: "Google API bağlantısı bulunamadı. Demo sonuçlar gösteriliyor.",
-      ai: aiMetadata("demo", "google-analysis-demo"),
+      ai: ai.fallbackUsed ? ai : aiExecutionMetadata({ requestedProvider, actualProvider: "demo", model: "google-analysis-demo", fallbackReason: "Google Maps API anahtarı eksik olduğu için demo sonuçlar gösterildi.", dataSources: ["Demo Google verisi"] }),
       results: demoGoogleResults(city, district, sector)
     };
     googleAnalysisCache.set(cacheKey, { expires: Date.now() + 1000 * 60 * 5, value });
@@ -99,17 +209,17 @@ export async function POST(request: Request) {
   try {
     const params = new URLSearchParams({ query: `${sector} ${district} ${city}`, key, language: "tr", region: "tr" });
     const response = await fetch(`https://maps.googleapis.com/maps/api/place/textsearch/json?${params}`, { cache: "no-store" });
-    const data = await response.json();
+    const data = await response.json().catch(() => ({})) as { status?: string; results?: GooglePlace[] };
     if (!response.ok || !["OK", "ZERO_RESULTS"].includes(data.status)) {
       console.error("[google-analysis] Google API hatası", data);
       return NextResponse.json({
         warning: "Google API bağlantısı bulunamadı. Demo sonuçlar gösteriliyor.",
-        ai: aiMetadata("demo", "google-analysis-demo"),
+        ai: ai.fallbackUsed ? ai : aiExecutionMetadata({ requestedProvider, actualProvider: "demo", model: "google-analysis-demo", fallbackReason: "Google Maps API yanıtı alınamadığı için demo sonuçlar gösterildi.", dataSources: ["Demo Google verisi"] }),
         results: demoGoogleResults(city, district, sector)
       });
     }
     const places = (data.results || []).slice(0, 8);
-    const results = await Promise.all(places.map(async (place: any) => {
+    const results = await Promise.all(places.map(async (place: GooglePlace) => {
       const details = await getPlaceDetails(place.place_id, key).catch(() => ({}));
       const item = { ...place, ...details };
       const visibility = scorePlace(item);
@@ -137,7 +247,7 @@ export async function POST(request: Request) {
         competitionLevel: visibility >= 80 ? "Yüksek" : visibility >= 55 ? "Orta" : "Düşük"
       };
     }));
-    const value = { ai: aiMetadata("local", "google-maps-signals"), results };
+    const value = { ai, results };
     googleAnalysisCache.set(cacheKey, { expires: Date.now() + 1000 * 60 * 5, value });
     return NextResponse.json(value);
   } catch (error) {

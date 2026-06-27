@@ -80,6 +80,7 @@ export type AgentRouterDecision = {
   confidenceScore: number;
   missingApiKeys: string[];
   recommendedFix: string;
+  providerScores?: Array<{ provider: AgentProviderKey; score: number; reasons: string[]; penalties: string[] }>;
 };
 
 type AgentMemoryRow = {
@@ -272,18 +273,74 @@ export function shouldUseMultiAgent(taskType: AgentTaskType, outputFormat = "", 
   return Boolean(multiAgentChains[taskType]) || outputFormat.includes("detaylı") || outputFormat.includes("rapor") || priority === "kritik";
 }
 
+export function scoreProviderForTask(provider: AgentProvider, taskType: AgentTaskType, options: { averageResponseMs?: number; successRate?: number } = {}) {
+  const priority = getProviderPriority(taskType);
+  const reasons: string[] = [];
+  const penalties: string[] = [];
+  let score = 50;
+  const priorityIndex = priority.indexOf(provider.provider_key);
+  if (priorityIndex >= 0) {
+    score += Math.max(5, 30 - priorityIndex * 7);
+    reasons.push("Görev tipi için öncelik listesinde yer alıyor.");
+  }
+  if (provider.configured) {
+    score += 18;
+    reasons.push("API anahtarı veya server-side yapılandırma mevcut.");
+  } else if (provider.provider_key !== "demo") {
+    score -= 35;
+    penalties.push("API anahtarı veya endpoint eksik.");
+  }
+  if (provider.provider_key === "manus" && !manusTaskTypes.includes(taskType)) {
+    score -= 30;
+    penalties.push("Manus kısa analizler için varsayılan değildir.");
+  }
+  if (provider.provider_key === "groq" && ["fast_answer", "crm_summary", "ad_analysis"].includes(taskType)) {
+    score += 12;
+    reasons.push("Groq hızlı kısa analizlerde avantajlıdır.");
+  }
+  if (provider.provider_key === "gemini" && ["seo_analysis", "market_research", "ad_analysis"].includes(taskType)) {
+    score += 12;
+    reasons.push("Gemini Google/SEO bağlamında avantajlıdır.");
+  }
+  if (provider.provider_key === "anthropic" && ["proposal_generation", "deep_report", "customer_report"].includes(taskType)) {
+    score += 12;
+    reasons.push("Claude uzun rapor ve teklif dilinde avantajlıdır.");
+  }
+  if (options.successRate != null) {
+    score += Math.round((options.successRate - 0.75) * 30);
+    reasons.push(`Son başarı oranı yaklaşık %${Math.round(options.successRate * 100)}.`);
+  }
+  if (options.averageResponseMs && options.averageResponseMs > 12000) {
+    score -= 8;
+    penalties.push("Ortalama yanıt süresi yüksek.");
+  }
+  if (shouldFallbackProvider(provider)) {
+    score -= 45;
+    penalties.push("Sağlayıcı pasif, hatalı veya yapılandırılmamış görünüyor.");
+  }
+  return { provider: provider.provider_key, score: Math.max(0, Math.min(100, score)), reasons, penalties };
+}
+
 export async function buildProviderChain(taskType: AgentTaskType, options: { requestedProvider?: AgentProviderKey | "auto"; providers?: AgentProvider[]; outputFormat?: string; priority?: string; multiAgent?: boolean; input?: string } = {}) {
   const providers = options.providers || await getAgentProviders();
   if (options.requestedProvider && options.requestedProvider !== "auto") {
     const manual = providers.find((provider) => provider.provider_key === options.requestedProvider);
     return manual ? [manual] : [];
   }
+  const scoredProviders = providers
+    .filter((provider) => provider.provider_key !== "demo" && !shouldFallbackProvider(provider))
+    .map((provider) => ({ provider, score: scoreProviderForTask(provider, taskType).score }))
+    .sort((a, b) => b.score - a.score)
+    .map((item) => item.provider);
   const chainKeys = options.multiAgent || shouldUseMultiAgent(taskType, options.outputFormat, options.priority)
     ? multiAgentChains[taskType] || getProviderPriority(taskType).slice(0, 2)
     : getProviderPriority(taskType).slice(0, 1);
-  const chain = chainKeys
+  const preferredChain = chainKeys
     .map((key) => providers.find((provider) => provider.provider_key === key))
     .filter((provider): provider is AgentProvider => Boolean(provider && !shouldFallbackProvider(provider)));
+  const chain = options.multiAgent || shouldUseMultiAgent(taskType, options.outputFormat, options.priority)
+    ? preferredChain
+    : scoredProviders.slice(0, 1);
   return chain.length ? chain : [providers.find((provider) => provider.provider_key === "demo") || defaultAgentProviders[defaultAgentProviders.length - 1]];
 }
 
@@ -431,6 +488,10 @@ export function buildRouterDecision(input: AgentRunInput, providers: AgentProvid
   const selectedKey = selectedProvider.provider_key;
   const fallbackUsed = outputs.some((item) => item.provider === "demo" || item.usedFallback);
   const missingKeys = [...new Set(priority.flatMap((provider) => missingApiKeysFor(provider)))];
+  const providerScores = providers
+    .filter((provider) => provider.provider_key !== "demo")
+    .map((provider) => scoreProviderForTask(provider, input.taskType))
+    .sort((a, b) => b.score - a.score);
   const rejectedProviders = providers
     .filter((provider) => provider.provider_key !== selectedKey && provider.provider_key !== "demo")
     .slice(0, 6)
@@ -456,6 +517,7 @@ export function buildRouterDecision(input: AgentRunInput, providers: AgentProvid
     fallbackReason: fallbackUsed ? (outputs.map((item) => item.errorMessage).filter(Boolean).join(" | ") || "Seçili sağlayıcı kullanılamadığı için yedek akış devreye girdi.") : null,
     dataSourcesUsed: finalReport.dataSources || [],
     confidenceScore: Math.round(finalReport.confidence * 100),
+    providerScores,
     missingApiKeys: missingKeys,
     recommendedFix: fallbackUsed || missingKeys.length
       ? `${missingKeys.slice(0, 3).join(", ") || "ilgili sağlayıcı API anahtarı"} Vercel Environment Variables alanına eklenip redeploy yapılmalı.`
@@ -551,6 +613,11 @@ export async function createAgentRunLog(payload: {
   priority?: string;
   requested_provider?: string | null;
   selected_provider?: string | null;
+  actual_provider?: string | null;
+  provider_mode?: string | null;
+  provider_error?: string | null;
+  provider_health_snapshot?: unknown;
+  router_decision?: unknown;
   fallback_provider?: string | null;
   status?: string;
   input_summary?: string | null;
@@ -642,6 +709,8 @@ export async function runAgentTask(input: AgentRunInput) {
   const outputPayload = finalReport;
   const selectedProvider = chainProviders[0] || await getRecommendedProvider(input.taskType, { providers });
   const routerDecision = buildRouterDecision(input, providers, selectedProvider, outputs, finalReport);
+  const actualProvider = outputs.find((item) => item.provider !== "demo")?.provider || outputs[0]?.provider || selectedProvider.provider_key;
+  const providerMode = input.requestedProvider && input.requestedProvider !== "auto" ? "manual" : "auto";
   const totalTokens = outputs.reduce((sum, item) => sum + Number(item.tokensUsed || 0), 0);
   const estimatedCost = outputs.reduce((sum, item) => sum + estimateAgentCost(item.provider, Number(item.tokensUsed || input.prompt.length)), 0);
   const status = manualManusWarning ? "completed_with_warning" : outputs.some((item) => item.provider === "demo") ? "completed_with_fallback" : "completed";
@@ -655,6 +724,18 @@ export async function runAgentTask(input: AgentRunInput) {
     priority: input.priority || "normal",
     requested_provider: input.requestedProvider || "auto",
     selected_provider: selectedProvider.provider_key,
+    actual_provider: actualProvider,
+    provider_mode: providerMode,
+    provider_error: errorMessage,
+    provider_health_snapshot: {
+      selectedProvider: selectedProvider.provider_key,
+      actualProvider,
+      providerMode,
+      responseMs,
+      estimatedCost,
+      fallbackUsed: outputs.some((item) => item.usedFallback || item.provider === "demo")
+    },
+    router_decision: routerDecision,
     fallback_provider: status === "completed_with_fallback" ? "demo" : null,
     status,
     input_summary: input.prompt.slice(0, 500),

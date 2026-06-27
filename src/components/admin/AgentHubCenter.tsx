@@ -152,6 +152,21 @@ type IntegrationRow = {
   lastError?: string | null;
   fix?: string;
 };
+type ProviderHealthRow = {
+  key: string;
+  name: string;
+  status: string;
+  missingEnv?: string[];
+  lastTestAt?: string | null;
+  lastSuccessAt?: string | null;
+  responseMs?: number | null;
+  lastError?: string | null;
+  errorCount24h?: number;
+  successRate24h?: number | null;
+  averageCost?: number;
+  averageResponseMs?: number | null;
+  score?: { score: number; reasons: string[]; penalties: string[] } | null;
+};
 
 const providerOptions: Array<{ value: AgentProviderKey | "auto"; label: string }> = unifiedAiProviderOptions.map((item) => ({
   value: item.key as AgentProviderKey | "auto",
@@ -286,11 +301,13 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
   const [trainingRules, setTrainingRules] = useState<TrainingRuleRow[]>([]);
   const [benchmarks, setBenchmarks] = useState<BenchmarkRow[]>([]);
   const [integrations, setIntegrations] = useState<IntegrationRow[]>([]);
+  const [providerHealth, setProviderHealth] = useState<ProviderHealthRow[]>([]);
   const [scheduledTasks, setScheduledTasks] = useState<ScheduledTask[]>([]);
   const [summary, setSummary] = useState<Record<string, string | number>>({});
   const [stats, setStats] = useState<{ summary?: Record<string, string | number>; charts?: Record<string, Record<string, number>> }>({});
   const [loading, setLoading] = useState(false);
   const [testingProvider, setTestingProvider] = useState("");
+  const [testingIntegration, setTestingIntegration] = useState("");
   const [editingProvider, setEditingProvider] = useState<ProviderRow | null>(null);
   const [providerForm, setProviderForm] = useState({ status: "not_configured", defaultModel: "", dailyLimit: "", monthlyLimit: "", estimatedMonthlyCost: "", notes: "", apiKey: "" });
   const [runResult, setRunResult] = useState<RunResult | null>(null);
@@ -351,6 +368,7 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
         fetch("/api/admin/agent-hub/benchmark")
       ]);
       const integrationResponse = await fetch("/api/admin/agent-hub/integrations");
+      const providerHealthResponse = await fetch("/api/admin/ai-providers/health");
       const providerData = await providerResponse.json().catch(() => ({}));
       const logData = await logResponse.json().catch(() => ({}));
       const statsData = await statsResponse.json().catch(() => ({}));
@@ -360,6 +378,7 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
       const trainingData = await trainingResponse.json().catch(() => ({}));
       const benchmarkData = await benchmarkResponse.json().catch(() => ({}));
       const integrationData = await integrationResponse.json().catch(() => ({}));
+      const providerHealthData = await providerHealthResponse.json().catch(() => ({}));
       if (!providerResponse.ok) throw new Error(providerData.error || "Sağlayıcı listesi alınamadı.");
       setProviders(providerData.providers || []);
       setLogs(logData.logs || []);
@@ -371,6 +390,7 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
       setTrainingRules(trainingData.rules || []);
       setBenchmarks(benchmarkData.benchmarks || []);
       setIntegrations(integrationData.integrations || []);
+      setProviderHealth(providerHealthData.providers || []);
     } catch (error) {
       notify?.(error instanceof Error ? error.message : "Agent Hub verileri alınamadı.", "error");
     } finally {
@@ -608,14 +628,29 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
   }
 
   async function testIntegration(key: string) {
+    setTestingIntegration(key);
     const response = await fetch("/api/admin/agent-hub/integrations/test", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ key })
     });
     const data = await response.json().catch(() => ({}));
+    setTestingIntegration("");
     notify?.(data.message || "Entegrasyon testi tamamlandı.", data.ok ? "success" : "warning");
     await loadData();
+  }
+
+  async function testProviderHealth(key: string) {
+    setTestingIntegration(key);
+    const response = await fetch("/api/admin/ai-providers/health", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ provider: key })
+    });
+    const data = await response.json().catch(() => ({}));
+    setTestingIntegration("");
+    notify?.(data.message || (response.ok ? "Sağlayıcı sağlık testi tamamlandı." : "Sağlayıcı sağlık testi tamamlanamadı."), response.ok && data.status !== "Hatalı" ? "success" : "warning");
+    loadData();
   }
 
   async function cancelRun(id?: string) {
@@ -1054,6 +1089,35 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
     {activeTab === "integrations" && <section className="rounded-[22px] border border-slate-200 bg-white p-5">
       <h3 className="text-xl font-black text-slate-950">Entegrasyon Kontrolü</h3>
       <p className="mt-2 text-sm leading-6 text-slate-600">AI sağlayıcıları, e-posta, Discord, Supabase, Meta, Google Ads ve planlı görev anahtarları burada secret göstermeden kontrol edilir.</p>
+      <div className="mt-5 rounded-[18px] border border-cyan-100 bg-cyan-50 p-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h4 className="font-black text-cyan-950">Sağlayıcı Sağlığı</h4>
+            <p className="mt-1 text-sm text-cyan-900">Son 24 saat başarı oranı, yanıt süresi, hata sayısı, tahmini maliyet ve Auto Router skoru.</p>
+          </div>
+          <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-cyan-800 ring-1 ring-cyan-200">{providerHealth.length} sağlayıcı</span>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {providerHealth.map((item) => <div key={item.key} className="rounded-[14px] border border-cyan-100 bg-white p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div><strong className="text-slate-950">{item.name}</strong><p className="mt-1 text-xs text-slate-500">Son başarılı test: {item.lastSuccessAt ? new Date(item.lastSuccessAt).toLocaleString("tr-TR") : "Yok"}</p></div>
+              <span className={`rounded-full px-2 py-1 text-[10px] font-black ${item.status === "Çalışıyor" || item.status === "Demo" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}>{item.status}</span>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-600">
+              <span>Başarı: {item.successRate24h == null ? "Veri yok" : `%${item.successRate24h}`}</span>
+              <span>Hata: {item.errorCount24h || 0}</span>
+              <span>Süre: {item.averageResponseMs ? `${item.averageResponseMs} ms` : "Veri yok"}</span>
+              <span>Maliyet: {Number(item.averageCost || 0).toLocaleString("tr-TR")} $</span>
+              <span>Skor: {item.score ? `${item.score.score}/100` : "-"}</span>
+              <span>Son test: {item.lastTestAt ? new Date(item.lastTestAt).toLocaleTimeString("tr-TR") : "Yok"}</span>
+            </div>
+            {!!item.missingEnv?.length && <p className="mt-3 text-xs font-bold text-amber-800">Eksik env: {item.missingEnv.join(", ")}</p>}
+            {item.lastError && <p className="mt-2 text-xs text-red-700">{item.lastError}</p>}
+            {item.score?.reasons?.[0] && <p className="mt-2 text-xs text-cyan-900">{item.score.reasons[0]}</p>}
+            <button onClick={() => testProviderHealth(item.key)} disabled={testingIntegration === item.key || item.key === "auto"} className={`${secondaryButtonClass} mt-4 disabled:cursor-not-allowed disabled:opacity-60`}>{testingIntegration === item.key ? "Test ediliyor..." : item.key === "auto" ? "Auto Router test edilmez" : "Sağlık Testi"}</button>
+          </div>)}
+        </div>
+      </div>
       <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {integrations.map((item) => <div key={item.key} className="rounded-[18px] border border-slate-200 bg-slate-50 p-4">
           <div className="flex items-start justify-between gap-3">
@@ -1063,7 +1127,7 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
           {!!item.missingEnv?.length && <p className="mt-3 text-xs font-bold text-amber-800">Eksik env: {item.missingEnv.join(", ")}</p>}
           {item.lastError && <p className="mt-2 text-xs text-red-700">{item.lastError}</p>}
           <p className="mt-3 text-sm leading-6 text-slate-600">{item.fix || "Bu entegrasyon için ek açıklama yok."}</p>
-          <button onClick={() => testIntegration(item.key)} className={`${secondaryButtonClass} mt-4`}>Test Et</button>
+          <button onClick={() => testIntegration(item.key)} disabled={testingIntegration === item.key} className={`${secondaryButtonClass} mt-4 disabled:opacity-60`}>{testingIntegration === item.key ? "Test ediliyor..." : "Test Et"}</button>
         </div>)}
       </div>
     </section>}

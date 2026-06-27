@@ -207,7 +207,14 @@ function scanSourcesForFindings(migrations: string) {
     ["Tüm AI sağlayıcıları listeleniyor mu?", "unifiedAiProviderOptions", "Sağlayıcı listesi Agent Hub ve diğer modüllerde aynı source of truth üzerinden gelmeli."],
     ["Auto Router en üstte mi?", "Auto AI Router / Otomatik Seçim", "Auto Router tüm AI seçimlerinde ilk ve önerilen seçenek olmalı."],
     ["AI secretları frontend'e sızıyor mu?", "maskedKey", "Provider durum endpointi sadece durum/maskeli bilgi döndürmeli, gerçek API key dönmemeli."],
-    ["Manus kısa analizlerde varsayılan mı?", "Manus günlük kısa cevaplar için değil", "Manus yalnız derin araştırma, rakip/pazar analizi ve kapsamlı raporlarda önerilmeli."]
+    ["Manus kısa analizlerde varsayılan mı?", "Manus günlük kısa cevaplar için değil", "Manus yalnız derin araştırma, rakip/pazar analizi ve kapsamlı raporlarda önerilmeli."],
+    ["Manuel Groq seçimi Ollama'ya düşüyor mu?", "requestedProvider", "Manuel sağlayıcı seçilirse sistem önce seçilen provider key'i denemeli; Groq seçimi sessizce Ollama'ya dönüşmemeli."],
+    ["selectedProvider ile actualProvider farkı açıklanıyor mu?", "actualProvider", "Yedek akış kullanıldığında kullanıcı seçilen ve kullanılan sağlayıcıyı ayrı ayrı görmeli."],
+    ["Auto Router sadece auto seçiliyken mi devreye giriyor?", "Manuel seçim yapıldığı için Auto Router devreye girmedi", "Manuel seçimde Auto Router sağlayıcı kararını ezmemeli."],
+    ["Provider key alias mapping doğru mu?", "normalizeAiProvider", "groq, gemini, openai, anthropic, manus, openrouter, ollama ve demo alias eşleşmeleri merkezi normalize edilmeli."],
+    ["Google İstihbarat sonuç kartları doğru provider gösteriyor mu?", "aiExecutionMetadata", "Google İstihbarat route'u sonuç meta bilgisini istenen ve kullanılan sağlayıcı ayrımıyla üretmeli."],
+    ["Sağlayıcı sağlık paneli var mı?", "Sağlayıcı Sağlığı", "Agent Hub içinde son 24 saat başarı, hata, yanıt süresi, maliyet ve router skoru görünmeli."],
+    ["HK Intelligence final layer tüm AI çıktılarında çalışıyor mu?", "HK Intelligence final", "AI çıktıları yönetici özeti, riskler, fırsatlar ve aksiyon planı formatına normalize edilmeli."]
   ].forEach(([title, pattern, recommendation]) => {
     const inSource = sourceContains(pattern) || migrations.includes(String(pattern).toLocaleLowerCase("tr"));
     if (!inSource) findings.push(makeFinding({ category: "Ajans Operasyonu QA", severity: "orta", module: "Ajans Operasyon Kalıcılığı", file_path: "src/components/admin/AdminDashboard.tsx", title, description: `${pattern} sinyali statik analizde bulunamadı.`, recommendation }));

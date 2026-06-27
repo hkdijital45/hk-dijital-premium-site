@@ -1,9 +1,31 @@
 import { NextResponse } from "next/server";
-import { aiMetadata } from "@/lib/ai-provider";
+import { aiExecutionMetadata, normalizeAiProvider, type AiProviderKey } from "@/lib/ai-provider";
 import { cacheFallbackError, classifyMetaError, metaToken, noMetaTokenError, recordMetaError, recordMetaSuccess } from "@/lib/meta-api";
 import { requireModuleAccess } from "@/lib/permissions";
 
-const metaAnalysisCache = new Map<string, { expires: number; value: any; staleUntil: number }>();
+type MetaAdSnapshot = {
+  page_name?: string;
+  body?: { text?: string };
+  title?: string;
+  caption?: string;
+  link_description?: string;
+  cta_text?: string;
+};
+
+type MetaAdRecord = Record<string, unknown> & {
+  id?: string;
+  ad_archive_id?: string;
+  page_name?: string;
+  ad_delivery_start_time?: string;
+  ad_delivery_stop_time?: string;
+  ad_snapshot_url?: string;
+  publisher_platforms?: string[];
+  creative_body?: string;
+  cta_type?: string;
+  snapshot?: MetaAdSnapshot;
+};
+
+const metaAnalysisCache = new Map<string, { expires: number; value: Record<string, unknown>; staleUntil: number }>();
 const META_CACHE_MS = 1000 * 60 * 5;
 const META_STALE_FALLBACK_MS = 1000 * 60 * 60 * 24;
 
@@ -70,7 +92,7 @@ function demoMetaResults(city: string, district: string, sector: string) {
   ];
 }
 
-function normalizeMetaAd(ad: any, city: string, district: string, sector: string) {
+function normalizeMetaAd(ad: MetaAdRecord, city: string, district: string, sector: string) {
   const snapshot = ad.snapshot || {};
   const name = ad.page_name || snapshot.page_name || "Meta reklam kaydı";
   return {
@@ -102,6 +124,28 @@ function normalizeMetaAd(ad: any, city: string, district: string, sector: string
   };
 }
 
+function metaProviderMissing(provider: AiProviderKey) {
+  if (provider === "groq") return !process.env.GROQ_API_KEY ? "GROQ_API_KEY eksik." : "";
+  if (provider === "gemini") return !(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY) ? "GEMINI_API_KEY eksik." : "";
+  if (provider === "openai") return !process.env.OPENAI_API_KEY ? "OPENAI_API_KEY eksik." : "";
+  if (provider === "anthropic") return !process.env.ANTHROPIC_API_KEY ? "ANTHROPIC_API_KEY eksik." : "";
+  if (provider === "openrouter") return !process.env.OPENROUTER_API_KEY ? "OPENROUTER_API_KEY eksik." : "";
+  if (provider === "manus") return !(process.env.MANUS_API_KEY && process.env.MANUS_API_BASE_URL && process.env.MANUS_API_ENDPOINT) ? "Manus API yapılandırması eksik." : "";
+  if (provider === "local" || provider === "ollama") return !process.env.OLLAMA_BASE_URL ? "OLLAMA_BASE_URL eksik." : "";
+  return "";
+}
+
+function metaAiMeta(requestedProvider: AiProviderKey) {
+  if (requestedProvider !== "automatic" && requestedProvider !== "auto") {
+    const missing = metaProviderMissing(requestedProvider);
+    return missing
+      ? aiExecutionMetadata({ requestedProvider, actualProvider: "demo", model: "meta-analysis-demo", fallbackReason: `${requestedProvider.toUpperCase()} manuel seçildi ancak ${missing} Bu nedenle Demo / Yerel Yedek Akış kullanıldı.`, providerError: missing, routerReason: "Manuel seçim yapıldığı için Auto Router devreye girmedi.", dataSources: ["Meta Ad Library", "Demo / Yerel Yedek Akış"] })
+      : aiExecutionMetadata({ requestedProvider, actualProvider: requestedProvider, model: requestedProvider === "groq" ? process.env.GROQ_MODEL || "llama-3.3-70b-versatile" : requestedProvider === "gemini" ? process.env.GEMINI_MODEL || "gemini-1.5-flash" : requestedProvider === "openai" ? process.env.OPENAI_MODEL || "gpt-4.1-mini" : "meta-ad-library-signals", routerReason: "Manuel seçim yapıldığı için sistem seçilen sağlayıcıyı kullandı.", dataSources: ["Meta Ad Library", "Manuel sağlayıcı seçimi"] });
+  }
+  const actualProvider = process.env.OPENAI_API_KEY ? "openai" : process.env.GEMINI_API_KEY ? "gemini" : process.env.GROQ_API_KEY ? "groq" : "demo";
+  return aiExecutionMetadata({ requestedProvider: "automatic", actualProvider, model: actualProvider === "demo" ? "meta-analysis-demo" : "meta-ad-library-signals", fallbackReason: actualProvider === "demo" ? "Canlı sağlayıcı API anahtarı bulunamadığı için Demo / Yerel Yedek Akış kullanıldı." : null, routerReason: "Otomatik Seçim kullanıldı. Meta İstihbarat için OpenAI, Gemini ve Groq yedekleri değerlendirildi.", dataSources: ["Meta Ad Library", "Auto Router"] });
+}
+
 export async function POST(request: Request) {
   const session = await requireModuleAccess("meta-analiz");
   if (!session) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
@@ -110,9 +154,10 @@ export async function POST(request: Request) {
   const city = String(body.city || "Manisa");
   const district = String(body.district || "Yunusemre");
   const sector = String(body.sector || "Restoran");
+  const requestedProvider = normalizeAiProvider(body.aiProvider || "automatic");
   const token = metaToken();
   const forceRefresh = Boolean(body.forceRefresh);
-  const cacheKey = `${city}:${district}:${sector}`.toLocaleLowerCase("tr");
+  const cacheKey = `${city}:${district}:${sector}:${requestedProvider}`.toLocaleLowerCase("tr");
   const cached = metaAnalysisCache.get(cacheKey);
   if (!forceRefresh && cached && cached.expires > Date.now()) return NextResponse.json(cached.value);
 
@@ -127,7 +172,7 @@ export async function POST(request: Request) {
       isTokenExpired: structuredError.isTokenExpired,
       isPermissionError: structuredError.isPermissionError,
       isCacheFallback: structuredError.isCacheFallback,
-      ai: aiMetadata("demo", "meta-analysis-demo"),
+      ai: metaAiMeta(requestedProvider),
       results: demoMetaResults(city, district, sector)
     };
     recordMetaError(structuredError, 0);
@@ -144,7 +189,7 @@ export async function POST(request: Request) {
       limit: "12"
     });
     const response = await fetch(`https://graph.facebook.com/v20.0/ads_archive?${params}`, { cache: "no-store" });
-    const data = await response.json().catch(() => ({}));
+    const data = await response.json().catch(() => ({})) as { data?: MetaAdRecord[] };
     const responseTimeMs = Date.now() - startedAt;
     if (!response.ok) {
       const structuredError = classifyMetaError(data);
@@ -159,12 +204,12 @@ export async function POST(request: Request) {
         isTokenExpired: structuredError.isTokenExpired,
         isPermissionError: structuredError.isPermissionError,
         isCacheFallback: Boolean(cached?.value),
-        ai: aiMetadata("demo", "meta-analysis-demo"),
+        ai: metaAiMeta(requestedProvider),
         results: cached?.value?.results || demoMetaResults(city, district, sector)
       });
     }
-    const results = Array.isArray(data.data) ? data.data.map((item: any) => normalizeMetaAd(item, city, district, sector)) : [];
-    const value = { ai: aiMetadata("local", "meta-ad-library-signals"), results, responseTimeMs };
+    const results = Array.isArray(data.data) ? data.data.map((item: MetaAdRecord) => normalizeMetaAd(item, city, district, sector)) : [];
+    const value = { ai: metaAiMeta(requestedProvider), results, responseTimeMs };
     recordMetaSuccess(responseTimeMs);
     metaAnalysisCache.set(cacheKey, { expires: Date.now() + META_CACHE_MS, staleUntil: Date.now() + META_STALE_FALLBACK_MS, value });
     return NextResponse.json(value);
@@ -183,7 +228,7 @@ export async function POST(request: Request) {
       isTokenExpired: structuredError.isTokenExpired,
       isPermissionError: structuredError.isPermissionError,
       isCacheFallback: staleCacheAvailable,
-      ai: aiMetadata("demo", "meta-analysis-demo"),
+      ai: metaAiMeta(requestedProvider),
       results: staleCacheAvailable ? cached?.value?.results : demoMetaResults(city, district, sector)
     });
   }

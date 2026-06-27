@@ -90,6 +90,54 @@ export function aiMetadata(provider: AiProviderKey, model?: string) {
   };
 }
 
+export function aiExecutionMetadata({
+  requestedProvider,
+  actualProvider,
+  model,
+  fallbackReason,
+  routerReason,
+  providerError,
+  dataSources = []
+}: {
+  requestedProvider?: AiProviderKey | string | null;
+  actualProvider: AiProviderKey;
+  model?: string;
+  fallbackReason?: string | null;
+  routerReason?: string | null;
+  providerError?: string | null;
+  dataSources?: string[];
+}) {
+  const requested = normalizeAiProvider(requestedProvider || "automatic");
+  const actual = normalizeAiProvider(actualProvider);
+  const base = aiMetadata(actual, model);
+  const requestedLabel = providerLabels[requested] || providerLabels.automatic;
+  const actualLabel = providerLabels[actual] || providerLabels.demo;
+  const fallbackUsed = requested !== "automatic" && requested !== actual;
+  const autoRouterUsed = requested === "automatic";
+  return {
+    ...base,
+    requestedProvider: requestedLabel,
+    requestedProviderKey: requested,
+    actualProvider: actualLabel,
+    actualProviderKey: actual,
+    fallbackUsed,
+    fallbackReason: fallbackReason || null,
+    providerError: providerError || null,
+    autoRouterUsed,
+    routerDecision: {
+      requestedProvider: requested,
+      actualProvider: actual,
+      autoRouterUsed,
+      reason: routerReason || (autoRouterUsed
+        ? "Otomatik Seçim kullanıldı. HK Intelligence görev tipini, aktif API anahtarlarını, hız/maliyet dengesini ve yedek akışı değerlendirdi."
+        : `${requestedLabel} manuel olarak seçildi. Sistem önce bu sağlayıcıyı kullanmayı denedi.`),
+      fallbackReason: fallbackReason || null
+    },
+    dataSources,
+    badge: fallbackUsed ? `${requestedLabel} seçildi, ${actualLabel} yedek akış kullanıldı` : `${actualLabel} ile üretildi`
+  };
+}
+
 export function aiSettingsMetadata(settings: AiSettings = {}) {
   const provider = normalizeAiProvider(configuredProvider(settings), settings.demoMode);
   const model = settings.active_ai_model || settings.model || defaultModels[provider];
