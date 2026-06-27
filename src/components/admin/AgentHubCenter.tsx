@@ -7,6 +7,7 @@ import {
   CalendarClock,
   CheckCircle2,
   Clipboard,
+  Database,
   Download,
   FileText,
   FlaskConical,
@@ -89,6 +90,41 @@ type ScheduledTask = {
   is_active?: boolean | null;
   last_run_at?: string | null;
   next_run_at?: string | null;
+};
+type QueueRun = LogRow & {
+  progress?: number | null;
+  current_step?: string | null;
+  retry_count?: number | null;
+  cancel_reason?: string | null;
+};
+type MemoryRow = {
+  id?: string;
+  company_id?: string | null;
+  memory_type?: string | null;
+  title?: string | null;
+  content?: string | null;
+  impact_score?: number | string | null;
+  tags?: string[] | null;
+  is_active?: boolean | null;
+  created_at?: string | null;
+};
+type TrainingRuleRow = {
+  id?: string;
+  rule_type?: string | null;
+  title?: string | null;
+  content?: string | null;
+  priority?: number | null;
+  is_active?: boolean | null;
+};
+type BenchmarkRow = {
+  id?: string;
+  task_type?: AgentTaskType | null;
+  prompt?: string | null;
+  providers?: string[] | null;
+  results?: Array<{ provider?: string; responseMs?: number; confidence?: number; strongSide?: string; weakSide?: string }> | null;
+  winner_provider?: string | null;
+  hk_decision?: string | null;
+  created_at?: string | null;
 };
 
 const providerOptions: Array<{ value: AgentProviderKey | "auto"; label: string }> = [
@@ -209,6 +245,10 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
   const [activeTab, setActiveTab] = useState("overview");
   const [providers, setProviders] = useState<ProviderRow[]>([]);
   const [logs, setLogs] = useState<LogRow[]>([]);
+  const [queueRuns, setQueueRuns] = useState<QueueRun[]>([]);
+  const [memories, setMemories] = useState<MemoryRow[]>([]);
+  const [trainingRules, setTrainingRules] = useState<TrainingRuleRow[]>([]);
+  const [benchmarks, setBenchmarks] = useState<BenchmarkRow[]>([]);
   const [scheduledTasks, setScheduledTasks] = useState<ScheduledTask[]>([]);
   const [summary, setSummary] = useState<Record<string, string | number>>({});
   const [stats, setStats] = useState<{ summary?: Record<string, string | number>; charts?: Record<string, Record<string, number>> }>({});
@@ -219,6 +259,8 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
   const [runResult, setRunResult] = useState<RunResult | null>(null);
   const [exportPayload, setExportPayload] = useState<Record<string, unknown> | null>(null);
   const [emailDraft, setEmailDraft] = useState<Record<string, unknown> | null>(null);
+  const [whatsappSummary, setWhatsappSummary] = useState("");
+  const [notificationStatus, setNotificationStatus] = useState("");
   const [form, setForm] = useState({
     customerId: "",
     taskType: "ad_analysis" as AgentTaskType,
@@ -239,6 +281,13 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
     multiAgent: false,
     prompt: "Haftalık reklam sağlık kontrolü yap ve HK Intelligence aksiyon planı üret."
   });
+  const [memoryForm, setMemoryForm] = useState({ companyId: "", title: "", content: "", memoryType: "manual_note", impactScore: "0" });
+  const [trainingForm, setTrainingForm] = useState({ ruleType: "custom", title: "", content: "", priority: "100" });
+  const [benchmarkForm, setBenchmarkForm] = useState({
+    taskType: "ad_analysis" as AgentTaskType,
+    prompt: "Aynı reklam performans özetini farklı AI sağlayıcılarıyla kıyasla.",
+    providers: ["openai", "gemini", "anthropic", "groq"]
+  });
 
   const selectedChain = useMemo(() => {
     if (form.requestedProvider !== "auto") return [form.requestedProvider];
@@ -257,16 +306,30 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
         fetch("/api/admin/agent-hub/stats"),
         fetch("/api/admin/agent-hub/scheduled")
       ]);
+      const [queueResponse, memoryResponse, trainingResponse, benchmarkResponse] = await Promise.all([
+        fetch("/api/admin/agent-hub/queue"),
+        fetch("/api/admin/agent-hub/memory"),
+        fetch("/api/admin/agent-hub/training"),
+        fetch("/api/admin/agent-hub/benchmark")
+      ]);
       const providerData = await providerResponse.json().catch(() => ({}));
       const logData = await logResponse.json().catch(() => ({}));
       const statsData = await statsResponse.json().catch(() => ({}));
       const scheduledData = await scheduledResponse.json().catch(() => ({}));
+      const queueData = await queueResponse.json().catch(() => ({}));
+      const memoryData = await memoryResponse.json().catch(() => ({}));
+      const trainingData = await trainingResponse.json().catch(() => ({}));
+      const benchmarkData = await benchmarkResponse.json().catch(() => ({}));
       if (!providerResponse.ok) throw new Error(providerData.error || "Provider listesi alınamadı.");
       setProviders(providerData.providers || []);
       setLogs(logData.logs || []);
       setSummary(logData.summary || {});
       setStats(statsData || {});
       setScheduledTasks(scheduledData.tasks || []);
+      setQueueRuns(queueData.runs || []);
+      setMemories(memoryData.memories || []);
+      setTrainingRules(trainingData.rules || []);
+      setBenchmarks(benchmarkData.benchmarks || []);
     } catch (error) {
       notify?.(error instanceof Error ? error.message : "Agent Hub verileri alınamadı.", "error");
     } finally {
@@ -296,6 +359,8 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
     setRunResult(null);
     setExportPayload(null);
     setEmailDraft(null);
+    setWhatsappSummary("");
+    setNotificationStatus("");
     try {
       const response = await fetch("/api/admin/agent-hub/run", {
         method: "POST",
@@ -418,7 +483,139 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
       return;
     }
     setEmailDraft(data.draft);
-    notify?.("E-posta taslağı hazırlandı.", "success");
+    notify?.(data.draft?.status === "missing_email" ? "E-posta taslağı hazırlandı, ancak müşteri e-postası kayıtlı değil." : "E-posta taslağı hazırlandı.", data.draft?.status === "missing_email" ? "warning" : "success");
+  }
+
+  async function sendEmailDraft() {
+    if (!runResult?.runId || !emailDraft) {
+      notify?.("Önce e-posta taslağı hazırlanmalı.", "warning");
+      return;
+    }
+    const response = await fetch(`/api/admin/agent-hub/runs/${runResult.runId}/email-send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(emailDraft)
+    });
+    const data = await response.json().catch(() => ({}));
+    notify?.(data.message || (data.status === "sent" ? "E-posta gönderildi." : "E-posta gönderilemedi."), data.status === "sent" ? "success" : "warning");
+  }
+
+  async function createWhatsappSummary() {
+    if (!runResult?.runId) {
+      const text = finalReport?.customerMessageDraft || finalReportText(finalReport);
+      setWhatsappSummary(text);
+      copyText(text, notify);
+      return;
+    }
+    const response = await fetch(`/api/admin/agent-hub/runs/${runResult.runId}/whatsapp-summary`, { method: "POST" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      notify?.(data.error || "WhatsApp özeti hazırlanamadı.", "error");
+      return;
+    }
+    setWhatsappSummary(data.text || "");
+    copyText(data.text || "", notify);
+    notify?.("WhatsApp özeti hazırlandı.", "success");
+  }
+
+  async function notifyChannel(channel: "slack" | "discord") {
+    if (!runResult?.runId) {
+      notify?.("Bildirim için kayıtlı agent görevi gerekir.", "warning");
+      return;
+    }
+    const response = await fetch(`/api/admin/agent-hub/runs/${runResult.runId}/notify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ channel })
+    });
+    const data = await response.json().catch(() => ({}));
+    setNotificationStatus(data.message || data.status || "");
+    notify?.(data.message || (data.status === "sent" ? "Bildirim gönderildi." : "Bildirim entegrasyonu yapılandırılmadı."), data.status === "sent" ? "success" : "warning");
+  }
+
+  async function cancelRun(id?: string) {
+    if (!id) return;
+    const response = await fetch(`/api/admin/agent-hub/runs/${id}/cancel`, { method: "POST" });
+    const data = await response.json().catch(() => ({}));
+    notify?.(data.error || "Agent görevi iptal edildi.", response.ok ? "success" : "error");
+    await loadData();
+  }
+
+  async function retryRun(id?: string) {
+    if (!id) return;
+    const response = await fetch(`/api/admin/agent-hub/runs/${id}/retry`, { method: "POST" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      notify?.(data.error || "Agent görevi tekrar çalıştırılamadı.", "error");
+      return;
+    }
+    setRunResult(data);
+    setActiveTab("run");
+    notify?.("Agent görevi tekrar çalıştırıldı.", "success");
+    await loadData();
+  }
+
+  async function createMemory() {
+    if (!memoryForm.companyId || !memoryForm.title.trim() || !memoryForm.content.trim()) {
+      notify?.("Müşteri, başlık ve içerik zorunludur.", "warning");
+      return;
+    }
+    const response = await fetch("/api/admin/agent-hub/memory", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(memoryForm)
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      notify?.(data.error || "Agent hafızası kaydedilemedi.", "error");
+      return;
+    }
+    setMemoryForm({ companyId: "", title: "", content: "", memoryType: "manual_note", impactScore: "0" });
+    notify?.("Agent hafızası kaydedildi.", "success");
+    await loadData();
+  }
+
+  async function createTrainingRule() {
+    if (!trainingForm.title.trim() || !trainingForm.content.trim()) {
+      notify?.("Kural başlığı ve içeriği zorunludur.", "warning");
+      return;
+    }
+    const response = await fetch("/api/admin/agent-hub/training", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(trainingForm)
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      notify?.(data.error || "Eğitim kuralı kaydedilemedi.", "error");
+      return;
+    }
+    setTrainingForm({ ruleType: "custom", title: "", content: "", priority: "100" });
+    notify?.("AI eğitim kuralı kaydedildi.", "success");
+    await loadData();
+  }
+
+  async function runBenchmark() {
+    if (!benchmarkForm.prompt.trim()) {
+      notify?.("Benchmark promptu boş olamaz.", "warning");
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await fetch("/api/admin/agent-hub/benchmark", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(benchmarkForm)
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Benchmark çalıştırılamadı.");
+      notify?.("AI benchmark tamamlandı.", "success");
+      await loadData();
+    } catch (error) {
+      notify?.(error instanceof Error ? error.message : "Benchmark çalıştırılamadı.", "error");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function createScheduledTask() {
@@ -450,8 +647,8 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs font-black uppercase tracking-[.18em] text-cyan-200">AI & Otomasyon</p>
-          <h2 className="mt-3 text-3xl font-black">HK Agent Hub Phase 2</h2>
-          <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-200">Auto AI Router, çoklu AI işbirliği, HK Intelligence final katmanı, canlı görev ilerlemesi ve raporlaştırılabilir agent çıktıları.</p>
+          <h2 className="mt-3 text-3xl font-black">HK Agent Hub Phase 3</h2>
+          <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-200">Gerçek AI sağlayıcıları, güvenli yedek akış, agent hafızası, görev sırası, export, e-posta, WhatsApp ve benchmark merkezi.</p>
         </div>
         <button onClick={loadData} disabled={loading} className="rounded-[14px] border border-white/20 bg-white px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-60"><RefreshCw size={16} className="mr-2 inline" />Yenile</button>
       </div>
@@ -461,10 +658,10 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
           ["Bu ay görev", statsSummary.monthRuns || logs.length],
           ["Başarı oranı", `%${Math.round(Number(statsSummary.successRate || 100))}`],
           ["Ortalama süre", `${Number(statsSummary.averageMs || 0)} ms`],
-          ["Tahmini maliyet", `${Number(statsSummary.estimatedCost || 0).toLocaleString("tr-TR")} $`],
+          ["Bu ay maliyet", `${Number(statsSummary.monthCost || statsSummary.estimatedCost || 0).toLocaleString("tr-TR")} $`],
           ["En çok kullanılan", topProvider],
           ["Manus araştırma", monthlyManusRuns],
-          ["Çoklu AI", statsSummary.multiAgentRuns || 0]
+          ["Yedek akış", statsSummary.fallbackRuns || 0]
         ].map(([label, value]) => <div key={String(label)} className="rounded-[18px] border border-white/10 bg-white/10 p-4">
           <strong className="block text-2xl font-black">{value}</strong>
           <span className="mt-1 block text-xs font-bold text-slate-300">{label}</span>
@@ -479,6 +676,10 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
         ["run", "Yeni Agent Görevi", Play],
         ["prompts", "Prompt Merkezi", FileText],
         ["workflows", "Workflow Builder", Workflow],
+        ["queue", "Agent Queue", Route],
+        ["memory", "Agent Hafızası", Database],
+        ["training", "AI Eğitim", ShieldCheck],
+        ["benchmark", "AI Benchmark", FlaskConical],
         ["logs", "Agent Logları", History],
         ["scheduled", "Planlanmış Görevler", CalendarClock]
       ].map(([key, label, Icon]) => {
@@ -627,9 +828,18 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
             <button onClick={() => exportRun("pptx")} className={secondaryButtonClass}><Download size={16} className="mr-2 inline" />PowerPoint hazırla</button>
             <button onClick={() => exportRun("copy_text")} className={softButtonClass}><Clipboard size={16} className="mr-2 inline" />Çıktıyı kopyala</button>
             <button onClick={createEmailDraft} className={softButtonClass}><Mail size={16} className="mr-2 inline" />Müşteriye E-posta Hazırla</button>
+            <button onClick={createWhatsappSummary} className={softButtonClass}><Clipboard size={16} className="mr-2 inline" />WhatsApp Özeti Oluştur</button>
+            <button onClick={() => notifyChannel("slack")} className={secondaryButtonClass}>Slack’e Bildir</button>
+            <button onClick={() => notifyChannel("discord")} className={secondaryButtonClass}>Discord’a Bildir</button>
           </div>
           {exportPayload && <div className="rounded-[14px] border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">Export durumu: <strong>{String(exportPayload.status || "hazır")}</strong></div>}
-          {emailDraft && <pre className="whitespace-pre-wrap rounded-[14px] border border-slate-200 bg-slate-50 p-4 text-sm leading-7 text-slate-700">{String(emailDraft.body || "")}</pre>}
+          {whatsappSummary && <pre className="whitespace-pre-wrap rounded-[14px] border border-emerald-200 bg-emerald-50 p-4 text-sm leading-7 text-emerald-900">{whatsappSummary}</pre>}
+          {notificationStatus && <div className="rounded-[14px] border border-blue-100 bg-blue-50 p-3 text-sm font-bold text-blue-900">{notificationStatus}</div>}
+          {emailDraft && <div className="grid gap-3 rounded-[14px] border border-slate-200 bg-slate-50 p-4">
+            <div className="text-sm font-bold text-slate-700">Durum: {String(emailDraft.status || "draft_ready")} · E-posta: {String(emailDraft.customerEmail || "kayıtlı değil")}</div>
+            <pre className="whitespace-pre-wrap text-sm leading-7 text-slate-700">{String(emailDraft.body || "")}</pre>
+            <button onClick={sendEmailDraft} disabled={emailDraft.status === "missing_email"} className={emailDraft.status === "missing_email" ? secondaryButtonClass : softButtonClass}>E-postayı Gönder</button>
+          </div>}
         </div>}
       </div>
     </section>}
@@ -650,6 +860,97 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
         <ol className="mt-4 grid gap-2 text-sm text-slate-700">{workflow.steps.map((step, index) => <li key={step} className="rounded-[12px] bg-slate-50 p-3"><strong>{index + 1}.</strong> {step}</li>)}</ol>
         <div className="mt-4 grid grid-cols-3 gap-2"><button onClick={() => setActiveTab("run")} className={softButtonClass}>Çalıştır</button><button onClick={() => notify?.("Workflow detayları kart üzerinde listelendi.", "info")} className={secondaryButtonClass}>Detay</button><button onClick={() => copyText(JSON.stringify(workflow, null, 2), notify)} className={secondaryButtonClass}>Kopyala</button></div>
       </div>)}
+    </section>}
+
+    {activeTab === "queue" && <section className="rounded-[22px] border border-slate-200 bg-white p-5">
+      <h3 className="text-xl font-black text-slate-950">Agent Queue (Görev Sırası)</h3>
+      <p className="mt-2 text-sm text-slate-600">Uzun süren görevler sırada, çalışan, tamamlanan veya iptal edilen durumlarıyla izlenir.</p>
+      <div className="mt-4 grid gap-3">
+        {queueRuns.map((run) => <div key={run.id || `${run.created_at}-${run.task_type}`} className="rounded-[16px] border border-slate-200 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <strong className="text-slate-950">{run.task_type ? agentTaskLabels[run.task_type] : "Agent görevi"}</strong>
+              <p className="mt-1 text-sm text-slate-600">{run.current_step || run.status || "-"} · %{run.progress || 0} · Tekrar: {run.retry_count || 0}</p>
+            </div>
+            <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-black text-blue-800">{run.status || "queued"}</span>
+          </div>
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100"><span className="block h-full bg-cyan-500" style={{ width: `${Math.min(Number(run.progress || 0), 100)}%` }} /></div>
+          {run.cancel_reason && <p className="mt-2 text-xs font-bold text-amber-700">{run.cancel_reason}</p>}
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button onClick={() => retryRun(run.id)} className={softButtonClass}>Tekrar Çalıştır</button>
+            <button onClick={() => cancelRun(run.id)} disabled={run.status === "cancelled"} className={secondaryButtonClass}>İptal Et</button>
+            <button onClick={() => copyText(JSON.stringify(run, null, 2), notify)} className={secondaryButtonClass}>Detay Gör</button>
+          </div>
+        </div>)}
+        {!queueRuns.length && <p className="rounded-[16px] border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">Sırada bekleyen agent görevi yok.</p>}
+      </div>
+    </section>}
+
+    {activeTab === "memory" && <section className="grid gap-5 lg:grid-cols-[.38fr_1fr]">
+      <div className="rounded-[22px] border border-slate-200 bg-white p-5">
+        <h3 className="text-xl font-black text-slate-950">Agent Hafızası</h3>
+        <p className="mt-2 text-sm leading-6 text-slate-600">Müşteri geçmişi, öneriler ve uygulanan aksiyonlar sonraki analizlerde bağlam olarak kullanılır.</p>
+        <div className="mt-4 grid gap-3">
+          <select value={memoryForm.companyId} onChange={(event) => setMemoryForm({ ...memoryForm, companyId: event.target.value })} className="rounded-[12px] border border-slate-200 px-3 py-3 text-sm">
+            <option value="">Müşteri seç</option>
+            {companies.map((company) => <option key={company.id} value={company.id}>{company.name || company.company_name || company.title || "İsimsiz müşteri"}</option>)}
+          </select>
+          <input value={memoryForm.title} onChange={(event) => setMemoryForm({ ...memoryForm, title: event.target.value })} className="rounded-[12px] border border-slate-200 px-3 py-3 text-sm" placeholder="Hafıza başlığı" />
+          <textarea value={memoryForm.content} onChange={(event) => setMemoryForm({ ...memoryForm, content: event.target.value })} rows={5} className="rounded-[12px] border border-slate-200 px-3 py-3 text-sm" placeholder="Müşteri bağlamı veya öğrenilen bilgi" />
+          <button onClick={createMemory} className={primaryButtonClass}>Hafızaya Ekle</button>
+        </div>
+      </div>
+      <div className="rounded-[22px] border border-slate-200 bg-white p-5">
+        <h3 className="text-xl font-black text-slate-950">Kayıtlı Hafızalar</h3>
+        <div className="mt-4 grid gap-3">{memories.map((memory) => <div key={memory.id || memory.title || ""} className="rounded-[16px] border border-slate-200 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3"><strong className="text-slate-950">{memory.title}</strong><span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-black text-cyan-800">{memory.memory_type || "memory"}</span></div>
+          <p className="mt-2 text-sm leading-6 text-slate-600">{memory.content}</p>
+          <p className="mt-2 text-xs text-slate-500">Etki skoru: {String(memory.impact_score || 0)} · {memory.created_at ? new Date(memory.created_at).toLocaleString("tr-TR") : "-"}</p>
+        </div>)}
+        {!memories.length && <p className="rounded-[16px] border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">Henüz agent hafızası yok.</p>}</div>
+      </div>
+    </section>}
+
+    {activeTab === "training" && <section className="grid gap-5 lg:grid-cols-[.38fr_1fr]">
+      <div className="rounded-[22px] border border-slate-200 bg-white p-5">
+        <h3 className="text-xl font-black text-slate-950">AI Eğitim Merkezi</h3>
+        <p className="mt-2 text-sm leading-6 text-slate-600">HK Intelligence’ın dil, risk, teklif ve rapor kuralları buradan yönetilir.</p>
+        <div className="mt-4 grid gap-3">
+          <input value={trainingForm.title} onChange={(event) => setTrainingForm({ ...trainingForm, title: event.target.value })} className="rounded-[12px] border border-slate-200 px-3 py-3 text-sm" placeholder="Kural başlığı" />
+          <textarea value={trainingForm.content} onChange={(event) => setTrainingForm({ ...trainingForm, content: event.target.value })} rows={5} className="rounded-[12px] border border-slate-200 px-3 py-3 text-sm" placeholder="Kural içeriği" />
+          <button onClick={createTrainingRule} className={primaryButtonClass}>Eğitim Kuralı Ekle</button>
+        </div>
+      </div>
+      <div className="rounded-[22px] border border-slate-200 bg-white p-5">
+        <h3 className="text-xl font-black text-slate-950">Aktif Kurallar</h3>
+        <div className="mt-4 grid gap-3">{trainingRules.map((rule) => <div key={rule.id || rule.title || ""} className="rounded-[16px] border border-slate-200 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3"><strong className="text-slate-950">{rule.title}</strong><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">{rule.is_active === false ? "Pasif" : "Aktif"}</span></div>
+          <p className="mt-2 text-sm leading-6 text-slate-600">{rule.content}</p>
+          <p className="mt-2 text-xs text-slate-500">Öncelik: {rule.priority || 100} · Tip: {rule.rule_type || "custom"}</p>
+        </div>)}
+        {!trainingRules.length && <p className="rounded-[16px] border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">Henüz eğitim kuralı yok.</p>}</div>
+      </div>
+    </section>}
+
+    {activeTab === "benchmark" && <section className="grid gap-5 lg:grid-cols-[.38fr_1fr]">
+      <div className="rounded-[22px] border border-slate-200 bg-white p-5">
+        <h3 className="text-xl font-black text-slate-950">AI Benchmark (Karşılaştırmalı Test)</h3>
+        <p className="mt-2 text-sm leading-6 text-slate-600">Aynı görevi birden fazla sağlayıcıya verip süre, maliyet, güven ve kalite açısından kıyaslar.</p>
+        <div className="mt-4 grid gap-3">
+          <select value={benchmarkForm.taskType} onChange={(event) => setBenchmarkForm({ ...benchmarkForm, taskType: event.target.value as AgentTaskType })} className="rounded-[12px] border border-slate-200 px-3 py-3 text-sm">{taskTypes.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
+          <textarea value={benchmarkForm.prompt} onChange={(event) => setBenchmarkForm({ ...benchmarkForm, prompt: event.target.value })} rows={6} className="rounded-[12px] border border-slate-200 px-3 py-3 text-sm" />
+          <button onClick={runBenchmark} disabled={loading} className={primaryButtonClass}>Benchmark Başlat</button>
+        </div>
+      </div>
+      <div className="rounded-[22px] border border-slate-200 bg-white p-5">
+        <h3 className="text-xl font-black text-slate-950">Benchmark Sonuçları</h3>
+        <div className="mt-4 grid gap-3">{benchmarks.map((benchmark) => <div key={benchmark.id || benchmark.created_at || ""} className="rounded-[16px] border border-slate-200 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3"><strong className="text-slate-950">{benchmark.task_type ? agentTaskLabels[benchmark.task_type] : "Benchmark"}</strong><span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">Kazanan: {benchmark.winner_provider || "-"}</span></div>
+          <p className="mt-2 text-sm leading-6 text-slate-600">{benchmark.hk_decision || "HK Intelligence kararı bekleniyor."}</p>
+          <div className="mt-3 grid gap-2 md:grid-cols-2">{(benchmark.results || []).map((result) => <div key={result.provider} className="rounded-[12px] bg-slate-50 p-3 text-xs text-slate-600"><strong>{result.provider}</strong> · {result.responseMs || 0} ms · Güven %{Math.round(Number(result.confidence || 0) * 100)}<br />{result.strongSide}</div>)}</div>
+        </div>)}
+        {!benchmarks.length && <p className="rounded-[16px] border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">Henüz benchmark yok.</p>}</div>
+      </div>
     </section>}
 
     {activeTab === "logs" && <section className="rounded-[22px] border border-slate-200 bg-white p-5">

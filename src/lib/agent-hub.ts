@@ -1,4 +1,4 @@
-import { generateAiText } from "@/lib/ai-provider";
+import { runRealAgentProvider } from "@/lib/agent-providers";
 import { hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
 export type AgentProviderKey = "openai" | "anthropic" | "gemini" | "groq" | "manus" | "openrouter" | "ollama" | "demo";
@@ -49,6 +49,8 @@ export type AgentRunInput = {
   outputFormat?: string;
   multiAgent?: boolean;
   createdBy?: string | null;
+  parentRunId?: string | null;
+  retryCount?: number;
 };
 
 export type AgentFinalReport = {
@@ -63,7 +65,31 @@ export type AgentFinalReport = {
   sevenDayPlan: string[];
   customerMessageDraft: string;
   internalNotes: string;
+  dataSources?: string[];
+  unavailableProviders?: string[];
   rawOutputs: unknown[];
+};
+
+type AgentMemoryRow = {
+  id?: string;
+  company_id?: string | null;
+  customer_id?: string | null;
+  memory_type?: string | null;
+  title?: string | null;
+  content?: string | null;
+  impact_score?: number | null;
+  tags?: unknown;
+  is_active?: boolean | null;
+  created_at?: string | null;
+};
+
+type AgentTrainingRuleRow = {
+  id?: string;
+  rule_type?: string | null;
+  title?: string | null;
+  content?: string | null;
+  is_active?: boolean | null;
+  priority?: number | null;
 };
 
 export const agentTaskLabels: Record<AgentTaskType, string> = {
@@ -192,6 +218,17 @@ const envSecretKeys: Record<AgentProviderKey, string[]> = {
   demo: []
 };
 
+const pricingPerThousandTextUnits: Record<AgentProviderKey, number> = {
+  openai: 0.025,
+  anthropic: 0.035,
+  gemini: 0.015,
+  groq: 0.006,
+  manus: 0.08,
+  openrouter: 0.02,
+  ollama: 0,
+  demo: 0
+};
+
 function maskSecret(value?: string | null) {
   if (!value) return null;
   return value.length <= 4 ? "****" : `${"*".repeat(12)}${value.slice(-4)}`;
@@ -236,8 +273,12 @@ export function shouldFallbackProvider(provider?: Pick<AgentProvider, "status" |
 }
 
 export function estimateProviderCost(provider: AgentProviderKey, inputSize = 1000) {
-  const unit = provider === "manus" ? 0.08 : provider === "anthropic" ? 0.035 : provider === "openai" ? 0.025 : provider === "gemini" ? 0.015 : provider === "groq" ? 0.006 : 0;
+  const unit = pricingPerThousandTextUnits[provider] || 0;
   return Number(((Math.max(inputSize, 1) / 1000) * unit).toFixed(4));
+}
+
+export function estimateAgentCost(provider: AgentProviderKey, textUnits = 1000) {
+  return estimateProviderCost(provider, textUnits);
 }
 
 export async function getAgentProviders(): Promise<AgentProvider[]> {
@@ -353,6 +394,12 @@ export function buildHKIntelligenceFinalReport(outputs: ReturnType<typeof normal
     ],
     customerMessageDraft: "Merhaba, mevcut verileri inceledik. Performansı güçlendirmek için ölçülü ve uygulanabilir aksiyonlar belirledik. Önceliğimiz, bütçeyi daha verimli kullanmak ve sonuçları düzenli takip etmek olacaktır.",
     internalNotes: "Bu çıktı satış garantisi içermez. API anahtarı eksik sağlayıcılarda demo/local yedek akış kullanılmış olabilir.",
+    dataSources: [
+      taskContext.customerId ? "Müşteri bağlamı kullanıldı" : "Müşteri seçilmedi",
+      "Agent Hafızası ve eğitim kuralları varsa prompt bağlamına eklendi",
+      "Meta/Google son kayıtları mevcutsa bağlam olarak kullanılabilir"
+    ],
+    unavailableProviders: outputs.filter((item) => item.provider === "demo").length ? ["Bazı sağlayıcılarda yedek akış kullanıldı"] : [],
     rawOutputs: outputs.map((item) => item.rawOutput)
   };
 }
@@ -361,23 +408,81 @@ function progressEvent(step: string, progress: number, provider?: string) {
   return { step, progress, provider, at: new Date().toISOString() };
 }
 
-async function runProvider(provider: AgentProvider, input: AgentRunInput) {
+async function loadAgentMemories(companyId?: string | null) {
+  if (!companyId || !hasSupabaseConfig()) return [] as AgentMemoryRow[];
+  return supabaseRest<AgentMemoryRow[]>(`agent_memories?company_id=eq.${encodeURIComponent(companyId)}&is_active=eq.true&select=*&order=created_at.desc&limit=8`).catch(() => []);
+}
+
+async function loadTrainingRules() {
+  if (!hasSupabaseConfig()) return [] as AgentTrainingRuleRow[];
+  return supabaseRest<AgentTrainingRuleRow[]>("agent_training_rules?is_active=eq.true&select=*&order=priority.asc,created_at.asc&limit=20").catch(() => []);
+}
+
+async function saveMemoryFromReport(input: AgentRunInput, runId: string, finalReport: AgentFinalReport) {
+  if (!input.customerId || !hasSupabaseConfig()) return null;
+  const content = [
+    finalReport.executiveSummary,
+    "Aksiyonlar:",
+    ...finalReport.recommendedActions.map((item) => `- ${item}`),
+    "Riskler:",
+    ...finalReport.risks.map((item) => `- ${item}`)
+  ].join("\n");
+  return supabaseRest("agent_memories", {
+    method: "POST",
+    body: JSON.stringify({
+      company_id: input.customerId,
+      customer_id: input.customerId,
+      memory_type: input.taskType,
+      title: `Agent sonucu - ${agentTaskLabels[input.taskType]}`,
+      content: content.slice(0, 5000),
+      source_run_id: runId || null,
+      impact_score: Math.round(finalReport.confidence * 100),
+      tags: [input.taskType, input.outputFormat || "aksiyon planı"],
+      is_active: true
+    })
+  }).catch(() => null);
+}
+
+function buildSystemPrompt(provider: AgentProvider, input: AgentRunInput, memories: AgentMemoryRow[], rules: AgentTrainingRuleRow[]) {
+  const memoryContext = memories.length
+    ? `\nGeçmiş müşteri bağlamı:\n${memories.map((item) => `- ${item.title}: ${item.content}`).join("\n").slice(0, 4000)}`
+    : "";
+  const ruleContext = rules.length
+    ? `\nHK Intelligence eğitim kuralları:\n${rules.map((item) => `- ${item.title}: ${item.content}`).join("\n").slice(0, 4000)}`
+    : "";
+  return [
+    "Yanıtı tamamen Türkçe ver.",
+    "Teknik terim kullanırsan parantez içinde kısa açıklamasını yaz.",
+    "Satış garantisi verme; riskleri saklama, ölçülü anlat.",
+    `Sağlayıcı rolü: ${provider.role_label || provider.provider_name}`,
+    `Görev tipi: ${agentTaskLabels[input.taskType]}`,
+    `Öncelik: ${input.priority || "normal"}`,
+    `Çıktı formatı: ${input.outputFormat || "aksiyon planı"}`,
+    memoryContext,
+    ruleContext
+  ].join("\n");
+}
+
+async function runProvider(provider: AgentProvider, input: AgentRunInput, memories: AgentMemoryRow[], rules: AgentTrainingRuleRow[]) {
   const fallbackPayload = buildAgentFallback(input, provider);
-  if (!["openai", "groq", "gemini", "demo"].includes(provider.provider_key)) {
-    const note = provider.provider_key === "manus" && !process.env.MANUS_API_BASE_URL
-      ? "Manus API endpoint yapılandırması bekleniyor; derin araştırma demo/local yedek akışla simüle edildi."
-      : `${provider.provider_name} için güvenli demo/local yedek akış kullanıldı.`;
-    return normalizeAgentOutput({ ...fallbackPayload, summary: `${fallbackPayload.summary} ${note}` }, provider.provider_key, input.taskType);
-  }
-  try {
-    const generated = await generateAiText(
-      `Yanıtı tamamen Türkçe ver. Teknik terim kullanırsan parantez içinde kısa açıklamasını yaz.\nSağlayıcı rolü: ${provider.role_label || provider.provider_name}\nGörev tipi: ${agentTaskLabels[input.taskType]}\nÖncelik: ${input.priority || "normal"}\nÇıktı formatı: ${input.outputFormat || "aksiyon planı"}\nGörev açıklaması:\n${input.prompt}`,
-      fallbackPayload.summary
-    );
-    return normalizeAgentOutput(generated.text, provider.provider_key, input.taskType);
-  } catch {
-    return normalizeAgentOutput(fallbackPayload, "demo", input.taskType);
-  }
+  const result = await runRealAgentProvider({
+    provider: provider.provider_key,
+    taskType: input.taskType,
+    model: provider.default_model,
+    systemPrompt: buildSystemPrompt(provider, input, memories, rules),
+    prompt: input.prompt,
+    timeoutMs: provider.provider_key === "manus" ? 50000 : 24000
+  });
+  const normalized = normalizeAgentOutput(result.usedFallback ? { ...fallbackPayload, summary: result.text, error: result.errorMessage } : result.text, result.provider, input.taskType);
+  return {
+    ...normalized,
+    provider: result.provider,
+    tokensUsed: result.tokensUsed,
+    responseMs: result.responseMs,
+    usedFallback: result.usedFallback,
+    model: result.model,
+    errorMessage: result.errorMessage
+  };
 }
 
 export async function createAgentRunLog(payload: {
@@ -409,6 +514,10 @@ export async function createAgentRunLog(payload: {
   started_at?: string | null;
   updated_at?: string | null;
   completed_at?: string | null;
+  cancelled_at?: string | null;
+  cancel_reason?: string | null;
+  retry_count?: number;
+  parent_run_id?: string | null;
 }) {
   if (!hasSupabaseConfig()) return null;
   const rows = await supabaseRest<unknown[]>("agent_runs", {
@@ -421,6 +530,8 @@ export async function createAgentRunLog(payload: {
 export async function runAgentTask(input: AgentRunInput) {
   const startedAt = Date.now();
   const providers = await getAgentProviders();
+  const memories = await loadAgentMemories(input.customerId);
+  const trainingRules = await loadTrainingRules();
   const manualManusWarning = input.requestedProvider === "manus" && !shouldUseManus(input.taskType, input.prompt)
     ? "Manus bu görev için ideal değildir. Auto Router OpenAI/Gemini/Claude önerir."
     : null;
@@ -437,19 +548,44 @@ export async function runAgentTask(input: AgentRunInput) {
     progressEvent("Görev oluşturuldu", 10),
     progressEvent("AI Router görev tipini analiz ediyor", 25)
   ];
-  const outputs = [];
-  for (const [index, provider] of chainProviders.entries()) {
-    progressEvents.push(progressEvent(`${provider.provider_name} çalışıyor`, 35 + index * 15, provider.provider_key));
-    outputs.push(await runProvider(provider, input));
+  let outputs: Array<ReturnType<typeof normalizeAgentOutput> & { tokensUsed?: number; responseMs?: number; usedFallback?: boolean; errorMessage?: string; model?: string }> = [];
+  if (chainProviders.length > 1) {
+    const [firstProvider, ...parallelProviders] = chainProviders;
+    if (firstProvider?.provider_key === "manus") {
+      progressEvents.push(progressEvent(`${firstProvider.provider_name} derin araştırma yapıyor`, 35, firstProvider.provider_key));
+      outputs.push(await runProvider(firstProvider, input, memories, trainingRules));
+    } else if (firstProvider) {
+      parallelProviders.unshift(firstProvider);
+    }
+    progressEvents.push(progressEvent("Bağımsız sağlayıcılar paralel çalışıyor", 55));
+    const settled = await Promise.allSettled(parallelProviders.map((provider) => runProvider(provider, input, memories, trainingRules)));
+    outputs = [
+      ...outputs,
+      ...settled.map((result, index) => result.status === "fulfilled"
+        ? result.value
+        : {
+          ...normalizeAgentOutput({ error: "Sağlayıcı kullanılamadı", provider: parallelProviders[index]?.provider_key }, "demo", input.taskType),
+          tokensUsed: 0,
+          responseMs: 0,
+          usedFallback: true,
+          errorMessage: "Sağlayıcı kullanılamadı"
+        })
+    ];
+  } else {
+    for (const [index, provider] of chainProviders.entries()) {
+      progressEvents.push(progressEvent(`${provider.provider_name} çalışıyor`, 35 + index * 15, provider.provider_key));
+      outputs.push(await runProvider(provider, input, memories, trainingRules));
+    }
   }
   progressEvents.push(progressEvent("HK Intelligence final raporu oluşturuyor", 85));
   const finalReport = buildHKIntelligenceFinalReport(outputs, input);
   const outputText = finalReport.executiveSummary;
   const outputPayload = finalReport;
   const selectedProvider = chainProviders[0] || await getRecommendedProvider(input.taskType, { providers });
-  const estimatedCost = chainProviders.reduce((sum, provider) => sum + estimateProviderCost(provider.provider_key, input.prompt.length), 0);
+  const totalTokens = outputs.reduce((sum, item) => sum + Number(item.tokensUsed || 0), 0);
+  const estimatedCost = outputs.reduce((sum, item) => sum + estimateAgentCost(item.provider, Number(item.tokensUsed || input.prompt.length)), 0);
   const status = manualManusWarning ? "completed_with_warning" : outputs.some((item) => item.provider === "demo") ? "completed_with_fallback" : "completed";
-  const errorMessage = manualManusWarning;
+  const errorMessage = [manualManusWarning, ...outputs.map((item) => item.errorMessage).filter(Boolean)].filter(Boolean).join(" | ") || null;
   progressEvents.push(progressEvent("Çıktı hazır", 100));
 
   const responseMs = Date.now() - startedAt;
@@ -466,6 +602,7 @@ export async function runAgentTask(input: AgentRunInput) {
     output_payload: outputPayload,
     error_message: errorMessage,
     estimated_cost: estimatedCost,
+    tokens_used: totalTokens,
     response_ms: responseMs,
     created_by: input.createdBy || null,
     run_mode: runMode,
@@ -475,6 +612,9 @@ export async function runAgentTask(input: AgentRunInput) {
     progress_events: progressEvents,
     final_report: finalReport,
     export_payload: buildAgentExportPayload(finalReport, input),
+    email_draft: {},
+    retry_count: input.retryCount || 0,
+    parent_run_id: input.parentRunId || null,
     started_at: new Date(startedAt).toISOString(),
     updated_at: new Date().toISOString(),
     completed_at: new Date().toISOString()
@@ -482,6 +622,7 @@ export async function runAgentTask(input: AgentRunInput) {
   const runId = Array.isArray(logRows) && logRows[0] && typeof logRows[0] === "object" && "id" in logRows[0]
     ? String((logRows[0] as { id?: string }).id || "")
     : "";
+  await saveMemoryFromReport(input, runId, finalReport);
 
   return {
     ok: true,
@@ -491,6 +632,7 @@ export async function runAgentTask(input: AgentRunInput) {
     status,
     errorMessage,
     estimatedCost,
+    tokensUsed: totalTokens,
     responseMs,
     output: outputPayload,
     finalReport,

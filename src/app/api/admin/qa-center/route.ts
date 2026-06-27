@@ -19,6 +19,9 @@ const modules = [
   { name: "Reklam Yorum Merkezi", slug: "ad-insights", api: "ad-insights", table: "ad_insight_snapshots", columns: ["customer_id", "metrics", "health_score"] },
   { name: "HK Agent Hub", slug: "agent-hub", api: "agent-hub/providers", table: "agent_runs", columns: ["task_type", "selected_provider", "output_payload", "final_report", "provider_chain", "progress_events"] },
   { name: "HK Agent Hub Planlı Görevler", slug: "agent-hub", api: "agent-hub/scheduled", table: "agent_scheduled_tasks", columns: ["task_type", "schedule_frequency", "next_run_at", "multi_agent"] },
+  { name: "HK Agent Hub Hafıza", slug: "agent-hub", api: "agent-hub/memory", table: "agent_memories", columns: ["company_id", "memory_type", "impact_score", "is_active"] },
+  { name: "HK Agent Hub Eğitim", slug: "agent-hub", api: "agent-hub/training", table: "agent_training_rules", columns: ["rule_type", "priority", "is_active"] },
+  { name: "HK Agent Hub Benchmark", slug: "agent-hub", api: "agent-hub/benchmark", table: "agent_benchmarks", columns: ["task_type", "providers", "results", "winner_provider"] },
   { name: "Ajans Operasyon Kalıcılığı", slug: "musteri-kesfi", api: "center-data", table: "agency_opportunities", columns: ["pipeline_status", "next_recommended_action", "last_offer_at"] },
   { name: "Teklif Takip Merkezi", slug: "teklif-takip-merkezi", api: "center-data", table: "proposal_followups", columns: ["next_followup_at", "status", "proposal_amount"] },
   { name: "Ajans Hedef Panosu", slug: "ajans-hedefleri", api: "center-data", table: "agency_targets", columns: ["month", "target_revenue", "target_customers"] },
@@ -178,7 +181,18 @@ function scanSourcesForFindings(migrations: string) {
     ["Müşteriler ayarlar altında mı kalmış?", "Müşteri & Satış", "Müşteri yönetimi Ayarlar altında değil, Müşteri & Satış kategorisinde konumlanmalı."],
     ["Agent Hub final_report kolonları bekleniyor mu?", "final_report", "Agent run kayıtları HK Intelligence final raporunu saklamalı."],
     ["Agent Hub scheduled endpoint var mı?", "agent-hub/scheduled", "Planlanmış agent görevleri için API endpoint görünmeli."],
-    ["Env eksikse kullanıcı dostu uyarı var mı?", "API anahtarı eklenmedi", "Sağlayıcı kartları eksik API anahtarı durumunu secret göstermeden açıklamalı."]
+    ["Env eksikse kullanıcı dostu uyarı var mı?", "API anahtarı eklenmedi", "Sağlayıcı kartları eksik API anahtarı durumunu secret göstermeden açıklamalı."],
+    ["System Repair Phase 3: gerçek provider runner var mı?", "runRealAgentProvider", "Agent Hub gerçek API key varsa server-side sağlayıcı çağrısı yapmalı."],
+    ["System Repair Phase 3: export route güvenli payload üretiyor mu?", "prepared_payload", "Export butonları bozuk link yerine print-ready HTML, metin veya slayt taslağı üretmeli."],
+    ["System Repair Phase 3: e-posta gönderim route'u var mı?", "email-send", "E-posta taslağı kullanıcı onayıyla gönderim route'una bağlanmalı."],
+    ["System Repair Phase 3: WhatsApp özeti var mı?", "whatsapp-summary", "Agent final raporundan kısa WhatsApp metni üretilebilmeli."],
+    ["System Repair Phase 3: webhook bildirimleri var mı?", "SLACK_WEBHOOK_URL", "Slack/Discord webhook env değerleri varsa bildirim endpointi çalışmalı."],
+    ["System Repair Phase 3: queue yönetimi var mı?", "agent-hub/queue", "Agent görevleri queue panelinde iptal/tekrar çalıştır aksiyonlarıyla izlenmeli."],
+    ["System Repair Phase 3: Agent Memory var mı?", "agent_memories", "Müşteri geçmişi ve agent öğrenimleri kalıcı hafızaya yazılmalı."],
+    ["System Repair Phase 3: AI Training Center var mı?", "agent_training_rules", "HK Intelligence dil ve risk kuralları yönetilebilir olmalı."],
+    ["System Repair Phase 3: Prompt Versioning var mı?", "agent_prompt_versions", "Prompt geçmişi ve geri dönüş migration/API desteği bulunmalı."],
+    ["System Repair Phase 3: Benchmark var mı?", "agent_benchmarks", "Aynı prompt farklı sağlayıcılarla kıyaslanabilmeli."],
+    ["System Repair Phase 3: Manus endpoint env var mı?", "MANUS_API_ENDPOINT", "Manus endpoint hardcode edilmeden env üzerinden yapılandırılmalı."]
   ].forEach(([title, pattern, recommendation]) => {
     const inSource = sourceContains(pattern) || migrations.includes(String(pattern).toLocaleLowerCase("tr"));
     if (!inSource) findings.push(makeFinding({ category: "Ajans Operasyonu QA", severity: "orta", module: "Ajans Operasyon Kalıcılığı", file_path: "src/components/admin/AdminDashboard.tsx", title, description: `${pattern} sinyali statik analizde bulunamadı.`, recommendation }));
