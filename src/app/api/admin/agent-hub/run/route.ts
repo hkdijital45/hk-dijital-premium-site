@@ -16,7 +16,8 @@ const allowedTaskTypes = new Set([
   "customer_report",
   "code_review",
   "fast_answer",
-  "workflow_task"
+  "workflow_task",
+  "long_web_research"
 ]);
 
 export async function POST(request: Request) {
@@ -36,6 +37,7 @@ export async function POST(request: Request) {
     requestedProvider: body.requestedProvider || "auto",
     outputFormat: body.outputFormat || "aksiyon planı",
     prompt,
+    multiAgent: Boolean(body.multiAgent),
     createdBy: session.profileId || session.authUserId || null
   });
 

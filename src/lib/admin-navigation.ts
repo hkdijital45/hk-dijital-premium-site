@@ -36,6 +36,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     badge: "CRM",
     accent: "from-emerald-400 via-teal-500 to-cyan-600",
     items: [
+      { label: "Müşteriler", slug: "musteriler", module: "musteriler", description: "Aktif, pasif ve aday müşteri kayıtlarını yönet." },
       { label: "Satış Hunisi", slug: "satis-hunisi", module: "leads", description: "Lead aşamaları, fırsatlar ve satış ilerleme görünümü." },
       { label: "Leadler", slug: "leads", module: "leads", description: "Başvurular, iletişim bilgileri ve lead durumları." },
       { label: "CRM & Lead Workspace", slug: "lead-workspace", module: "leads", description: "CRM kayıtları, segmentler ve lead detay çalışma alanı." },
@@ -46,7 +47,6 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: "Haritalar", slug: "haritalar", module: "haritalar", description: "Bölgesel işletme keşfi ve Google Maps sinyalleri." },
       { label: "Lead Analizi", slug: "lead-analizi", module: "leads", description: "Lead kalitesi, sıcaklık ve dönüşüm potansiyeli analizi." },
       { label: "AI Denetim", slug: "ai-denetim", module: "leads", description: "İşletmeler için AI destekli dijital durum denetimi." },
-      { label: "Müşteriler", slug: "musteriler", module: "musteriler", description: "Firma profilleri, yetkiler ve müşteri paneli ayarları." },
       { label: "Teklif Oluştur", slug: "teklif-hazirlama", module: "teklifler", description: "Lead veya müşteri verisinden teklif hazırlama." },
       { label: "Müşteri Markalama", slug: "musteri-markalama", module: "musteriler", description: "Müşteri paneli logo, renk ve karşılama ayarları." },
       { label: "Müşteri Onboarding", slug: "customers/onboarding", module: "musteriler", description: "Yeni müşteri kurulum ve başlangıç kontrol adımları." }
@@ -173,6 +173,11 @@ const legacySlugRedirects: Record<string, string> = {
   "musteri-bul": "musteri-kesfi",
   "musteri-bulucu": "musteri-kesfi",
   "isletme-kesfi": "musteri-kesfi",
+  "customers": "musteriler",
+  "firmalar": "musteriler",
+  "aktif-musteriler": "musteriler",
+  "pasif-musteriler": "musteriler",
+  "musteri-yonetimi": "musteriler",
   reddedilenler: "leads",
   silinenler: "leads",
   "lead-yonetimi": "lead-analizi",

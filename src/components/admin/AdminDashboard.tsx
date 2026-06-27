@@ -2325,9 +2325,10 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">Görev, tahsilat, lead, müşteri, rapor ve kampanya sinyallerini tek satırda okuyun.</p>
             </div>
             <div className="flex flex-wrap gap-2">
+              <button onClick={() => setActive("Müşteriler")} className="rounded-full bg-amber-300 px-5 py-3 text-sm font-black text-slate-950">Müşterilere Git</button>
               <button onClick={generateDailyPlan} className="rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Bugün Ne Yapmalıyım?</button>
-              <button onClick={() => setActive("HK Intelligence Command Center")} className="rounded-full bg-purple-600 px-5 py-3 text-sm font-black text-white">Command Center'ı Aç</button>
-              <button onClick={() => setCeoMode(true)} className="rounded-full bg-blue-600 px-5 py-3 text-sm font-black text-white">CEO Modu</button>
+              <button onClick={() => setActive("HK Intelligence Command Center")} className="rounded-full border border-purple-200 bg-purple-50 px-5 py-3 text-sm font-black text-purple-800">Command Center'ı Aç</button>
+              <button onClick={() => setCeoMode(true)} className="rounded-full border border-blue-200 bg-blue-50 px-5 py-3 text-sm font-black text-blue-800">CEO Modu</button>
               <button onClick={() => setCustomizing((current) => !current)} className="rounded-full border border-slate-200 px-5 py-3 text-sm font-black text-slate-700">Widget Ayarları</button>
             </div>
           </div>

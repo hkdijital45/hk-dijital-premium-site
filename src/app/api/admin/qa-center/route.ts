@@ -17,7 +17,8 @@ const modules = [
   { name: "Meta Entegrasyonları", slug: "meta-istihbarat", api: "meta-ads", table: "ad_integrations", columns: ["provider", "account_id", "business_id"] },
   { name: "Google Entegrasyonları", slug: "google-istihbarat", api: "google-analysis", table: "ad_integrations", columns: ["google_customer_id", "google_analytics_id"] },
   { name: "Reklam Yorum Merkezi", slug: "ad-insights", api: "ad-insights", table: "ad_insight_snapshots", columns: ["customer_id", "metrics", "health_score"] },
-  { name: "HK Agent Hub", slug: "agent-hub", api: "agent-hub/providers", table: "agent_runs", columns: ["task_type", "selected_provider", "output_payload"] },
+  { name: "HK Agent Hub", slug: "agent-hub", api: "agent-hub/providers", table: "agent_runs", columns: ["task_type", "selected_provider", "output_payload", "final_report", "provider_chain", "progress_events"] },
+  { name: "HK Agent Hub Planlı Görevler", slug: "agent-hub", api: "agent-hub/scheduled", table: "agent_scheduled_tasks", columns: ["task_type", "schedule_frequency", "next_run_at", "multi_agent"] },
   { name: "Ajans Operasyon Kalıcılığı", slug: "musteri-kesfi", api: "center-data", table: "agency_opportunities", columns: ["pipeline_status", "next_recommended_action", "last_offer_at"] },
   { name: "Teklif Takip Merkezi", slug: "teklif-takip-merkezi", api: "center-data", table: "proposal_followups", columns: ["next_followup_at", "status", "proposal_amount"] },
   { name: "Ajans Hedef Panosu", slug: "ajans-hedefleri", api: "center-data", table: "agency_targets", columns: ["month", "target_revenue", "target_customers"] },
@@ -31,8 +32,8 @@ function readAllMigrations() {
   return readdirSync(dir).filter((file) => file.endsWith(".sql")).map((file) => readFileSync(path.join(dir, file), "utf8")).join("\n").toLocaleLowerCase("tr");
 }
 
-function walkFiles(dir: string, extensions = [".ts", ".tsx"]) {
-  if (!existsSync(dir)) return [] as string[];
+function walkFiles(dir: string, extensions = [".ts", ".tsx"]): string[] {
+  if (!existsSync(dir)) return [];
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const full = path.join(dir, entry.name);
     if (entry.name === "node_modules" || entry.name === ".next") return [];
@@ -137,9 +138,15 @@ function scanSourcesForFindings(migrations: string) {
       const info = lineInfo(text, match.index || 0);
       findings.push(makeFinding({ category: "RLS / Yetki Riskleri", severity: "kritik", module: "Güvenlik", file_path: relative, title: "Client component içinde gizli env riski", description: "Client tarafına sızmaması gereken process.env kullanımı sinyali var.", recommendation: "Gizli env değerlerini server route/service katmanına taşıyın.", metadata: info }));
     }
+    for (const match of text.matchAll(/<button\b[\s\S]{0,500}?className=(?:\{`|["'`])[\s\S]{0,260}?bg-(?:black|slate-950|gray-950)/g)) {
+      const info = lineInfo(text, match.index || 0);
+      findings.push(makeFinding({ category: "Buton Okunabilirliği", severity: "orta", module: "UI", file_path: relative, title: "Siyah/dark buton sınıfı bulundu", description: "Açık temada okunabilirliği düşürebilecek koyu buton sınıfı tespit edildi.", recommendation: "Primary butonları marka uyumlu cyan/amber/blue varyantlara veya açık zeminli secondary stile taşıyın.", metadata: info }));
+    }
   }
 
-  const envUsage = [...new Set(sourceText.flatMap(({ text }) => [...text.matchAll(/process\.env\.([A-Z0-9_]+)/g)].map((match) => match[1])))];
+  const envUsage = [...new Set(sourceText
+    .flatMap(({ text }: { text: string }) => [...text.matchAll(/process\.env\.([A-Z0-9_]+)/g)].map((match) => match[1]))
+    .filter((key): key is string => Boolean(key)))];
   const envExamplePath = path.join(root, ".env.example");
   const envExample = existsSync(envExamplePath) ? readFileSync(envExamplePath, "utf8") : "";
   for (const key of envUsage) {
@@ -166,7 +173,12 @@ function scanSourcesForFindings(migrations: string) {
     ["Agent Hub route var mı?", "HK Agent Hub", "Agent Hub menüden açılmalı ve /hk-admin/agent-hub route'u erişilebilir olmalı."],
     ["Agent provider secretları client'a sızıyor mu?", "secret_value", "Agent provider secretları sadece server-side route içinde kalmalı; client response maskeli olmalı."],
     ["Manus varsayılan değil mi?", "Derin Araştırma Uzmanı", "Manus günlük kısa cevap değil, derin araştırma görevleri için konumlandırılmalı."],
-    ["Agent run log kalıcı mı?", "agent_runs", "Agent görevleri agent_runs tablosuna yazılmalı."]
+    ["Agent run log kalıcı mı?", "agent_runs", "Agent görevleri agent_runs tablosuna yazılmalı."],
+    ["Müşteriler ana navigasyonda görünür mü?", "Aktif, pasif ve aday müşteri kayıtlarını yönet.", "Müşteriler ana CRM grubunda ve görünür ilk öğeler arasında olmalı."],
+    ["Müşteriler ayarlar altında mı kalmış?", "Müşteri & Satış", "Müşteri yönetimi Ayarlar altında değil, Müşteri & Satış kategorisinde konumlanmalı."],
+    ["Agent Hub final_report kolonları bekleniyor mu?", "final_report", "Agent run kayıtları HK Intelligence final raporunu saklamalı."],
+    ["Agent Hub scheduled endpoint var mı?", "agent-hub/scheduled", "Planlanmış agent görevleri için API endpoint görünmeli."],
+    ["Env eksikse kullanıcı dostu uyarı var mı?", "API anahtarı eklenmedi", "Sağlayıcı kartları eksik API anahtarı durumunu secret göstermeden açıklamalı."]
   ].forEach(([title, pattern, recommendation]) => {
     const inSource = sourceContains(pattern) || migrations.includes(String(pattern).toLocaleLowerCase("tr"));
     if (!inSource) findings.push(makeFinding({ category: "Ajans Operasyonu QA", severity: "orta", module: "Ajans Operasyon Kalıcılığı", file_path: "src/components/admin/AdminDashboard.tsx", title, description: `${pattern} sinyali statik analizde bulunamadı.`, recommendation }));

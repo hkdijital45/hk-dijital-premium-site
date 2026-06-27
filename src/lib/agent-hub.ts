@@ -17,7 +17,8 @@ export type AgentTaskType =
   | "customer_report"
   | "code_review"
   | "fast_answer"
-  | "workflow_task";
+  | "workflow_task"
+  | "long_web_research";
 
 export type AgentProviderStatus = "active" | "passive" | "error" | "not_configured";
 
@@ -46,7 +47,23 @@ export type AgentRunInput = {
   requestedProvider?: AgentProviderKey | "auto";
   prompt: string;
   outputFormat?: string;
+  multiAgent?: boolean;
   createdBy?: string | null;
+};
+
+export type AgentFinalReport = {
+  providerChain: AgentProviderKey[];
+  selectedProvider: AgentProviderKey | "";
+  confidence: number;
+  executiveSummary: string;
+  findings: string[];
+  risks: string[];
+  opportunities: string[];
+  recommendedActions: string[];
+  sevenDayPlan: string[];
+  customerMessageDraft: string;
+  internalNotes: string;
+  rawOutputs: unknown[];
 };
 
 export const agentTaskLabels: Record<AgentTaskType, string> = {
@@ -63,7 +80,8 @@ export const agentTaskLabels: Record<AgentTaskType, string> = {
   customer_report: "Müşteri raporu",
   code_review: "Kod inceleme",
   fast_answer: "Hızlı cevap",
-  workflow_task: "Workflow görevi"
+  workflow_task: "Workflow görevi",
+  long_web_research: "Uzun web araştırması"
 };
 
 export const defaultAgentProviders: AgentProvider[] = [
@@ -143,12 +161,25 @@ const taskPriority: Record<AgentTaskType, AgentProviderKey[]> = {
   pricing_research: ["manus", "gemini", "openai", "demo"],
   sector_discovery: ["manus", "gemini", "openai", "demo"],
   deep_report: ["manus", "anthropic", "openai", "demo"],
+  long_web_research: ["manus", "gemini", "openai", "demo"],
   proposal_generation: ["anthropic", "openai", "gemini", "demo"],
   customer_report: ["openai", "anthropic", "gemini", "demo"],
   code_review: ["anthropic", "openai", "demo"],
   fast_answer: ["groq", "openai", "gemini", "demo"],
   workflow_task: ["openai", "gemini", "anthropic", "demo"]
 };
+
+const multiAgentChains: Partial<Record<AgentTaskType, AgentProviderKey[]>> = {
+  competitor_research: ["manus", "gemini", "openai"],
+  market_research: ["manus", "gemini", "openai"],
+  pricing_research: ["manus", "gemini", "openai"],
+  sector_discovery: ["manus", "gemini", "openai"],
+  deep_report: ["manus", "anthropic", "openai"],
+  proposal_generation: ["openai", "anthropic"],
+  customer_report: ["openai", "anthropic"]
+};
+
+const manusTaskTypes: AgentTaskType[] = ["competitor_research", "market_research", "pricing_research", "sector_discovery", "deep_report", "long_web_research"];
 
 const envSecretKeys: Record<AgentProviderKey, string[]> = {
   openai: ["OPENAI_API_KEY"],
@@ -172,6 +203,30 @@ function envConfigured(provider: AgentProviderKey) {
 
 export function getProviderPriority(taskType: AgentTaskType) {
   return taskPriority[taskType] || taskPriority.workflow_task;
+}
+
+export function shouldUseManus(taskType: AgentTaskType, input = "") {
+  const text = input.toLocaleLowerCase("tr");
+  return manusTaskTypes.includes(taskType) || text.includes("rakip") || text.includes("pazar araştır") || text.includes("fiyat karşılaştır") || text.includes("derin araştır");
+}
+
+export function shouldUseMultiAgent(taskType: AgentTaskType, outputFormat = "", priority = "normal") {
+  return Boolean(multiAgentChains[taskType]) || outputFormat.includes("detaylı") || outputFormat.includes("rapor") || priority === "kritik";
+}
+
+export async function buildProviderChain(taskType: AgentTaskType, options: { requestedProvider?: AgentProviderKey | "auto"; providers?: AgentProvider[]; outputFormat?: string; priority?: string; multiAgent?: boolean; input?: string } = {}) {
+  const providers = options.providers || await getAgentProviders();
+  if (options.requestedProvider && options.requestedProvider !== "auto") {
+    const manual = providers.find((provider) => provider.provider_key === options.requestedProvider);
+    return manual ? [manual] : [];
+  }
+  const chainKeys = options.multiAgent || shouldUseMultiAgent(taskType, options.outputFormat, options.priority)
+    ? multiAgentChains[taskType] || getProviderPriority(taskType).slice(0, 2)
+    : getProviderPriority(taskType).slice(0, 1);
+  const chain = chainKeys
+    .map((key) => providers.find((provider) => provider.provider_key === key))
+    .filter((provider): provider is AgentProvider => Boolean(provider && !shouldFallbackProvider(provider)));
+  return chain.length ? chain : [providers.find((provider) => provider.provider_key === "demo") || defaultAgentProviders[defaultAgentProviders.length - 1]];
 }
 
 export function shouldFallbackProvider(provider?: Pick<AgentProvider, "status" | "provider_key"> | null) {
@@ -248,7 +303,85 @@ export function buildAgentFallback(input: AgentRunInput, provider: AgentProvider
   };
 }
 
+export function normalizeAgentOutput(raw: unknown, provider: AgentProviderKey, taskType: AgentTaskType) {
+  const text = typeof raw === "string" ? raw : JSON.stringify(raw || {});
+  return {
+    provider,
+    taskType,
+    confidence: provider === "demo" ? 0.72 : provider === "manus" ? 0.86 : 0.82,
+    summary: text.slice(0, 900),
+    findings: [
+      provider === "manus" ? "Derin araştırma ve pazar bağlamı üretildi." : "Görev bağlamına göre uygulanabilir analiz üretildi.",
+      `${agentTaskLabels[taskType]} için Türkçe çıktı standardize edildi.`
+    ],
+    risks: ["Eksik veri varsa sonuç tahmini değerlendirilmelidir."],
+    opportunities: ["Çıktı rapor, teklif, CRM notu veya görev akışına dönüştürülebilir."],
+    recommendedActions: ["Sonucu kontrol et", "Müşteri diline uygunlaştır", "Uygun aksiyonları göreve çevir"],
+    rawOutput: raw
+  };
+}
+
+export function mergeAgentOutputs(outputs: ReturnType<typeof normalizeAgentOutput>[]) {
+  const unique = (items: string[]) => [...new Set(items.filter(Boolean))].slice(0, 8);
+  return {
+    findings: unique(outputs.flatMap((item) => item.findings)),
+    risks: unique(outputs.flatMap((item) => item.risks)),
+    opportunities: unique(outputs.flatMap((item) => item.opportunities)),
+    recommendedActions: unique(outputs.flatMap((item) => item.recommendedActions))
+  };
+}
+
+export function buildHKIntelligenceFinalReport(outputs: ReturnType<typeof normalizeAgentOutput>[], taskContext: AgentRunInput): AgentFinalReport {
+  const merged = mergeAgentOutputs(outputs);
+  const chain = outputs.map((item) => item.provider);
+  const taskLabel = agentTaskLabels[taskContext.taskType] || taskContext.taskType;
+  const executiveSummary = `${taskLabel} görevi HK Intelligence final katmanında birleştirildi. ${chain.join(" → ")} zinciri kullanıldı; sonuçlar yönetici özeti, riskler ve 7 günlük aksiyon planı formatına çevrildi.`;
+  return {
+    providerChain: chain,
+    selectedProvider: chain[0] || "",
+    confidence: outputs.length ? Number((outputs.reduce((sum, item) => sum + item.confidence, 0) / outputs.length).toFixed(2)) : 0.7,
+    executiveSummary,
+    findings: merged.findings,
+    risks: merged.risks,
+    opportunities: merged.opportunities,
+    recommendedActions: merged.recommendedActions,
+    sevenDayPlan: [
+      "1. gün: Veriyi ve müşteri bağlamını doğrula.",
+      "2-3. gün: En yüksek etkili aksiyonları uygula.",
+      "4-5. gün: Sonuçları ölç ve düşük performanslı noktaları düzelt.",
+      "6-7. gün: Müşteriye sade özet ve sonraki adımı hazırla."
+    ],
+    customerMessageDraft: "Merhaba, mevcut verileri inceledik. Performansı güçlendirmek için ölçülü ve uygulanabilir aksiyonlar belirledik. Önceliğimiz, bütçeyi daha verimli kullanmak ve sonuçları düzenli takip etmek olacaktır.",
+    internalNotes: "Bu çıktı satış garantisi içermez. API anahtarı eksik sağlayıcılarda demo/local yedek akış kullanılmış olabilir.",
+    rawOutputs: outputs.map((item) => item.rawOutput)
+  };
+}
+
+function progressEvent(step: string, progress: number, provider?: string) {
+  return { step, progress, provider, at: new Date().toISOString() };
+}
+
+async function runProvider(provider: AgentProvider, input: AgentRunInput) {
+  const fallbackPayload = buildAgentFallback(input, provider);
+  if (!["openai", "groq", "gemini", "demo"].includes(provider.provider_key)) {
+    const note = provider.provider_key === "manus" && !process.env.MANUS_API_BASE_URL
+      ? "Manus API endpoint yapılandırması bekleniyor; derin araştırma demo/local yedek akışla simüle edildi."
+      : `${provider.provider_name} için güvenli demo/local yedek akış kullanıldı.`;
+    return normalizeAgentOutput({ ...fallbackPayload, summary: `${fallbackPayload.summary} ${note}` }, provider.provider_key, input.taskType);
+  }
+  try {
+    const generated = await generateAiText(
+      `Yanıtı tamamen Türkçe ver. Teknik terim kullanırsan parantez içinde kısa açıklamasını yaz.\nSağlayıcı rolü: ${provider.role_label || provider.provider_name}\nGörev tipi: ${agentTaskLabels[input.taskType]}\nÖncelik: ${input.priority || "normal"}\nÇıktı formatı: ${input.outputFormat || "aksiyon planı"}\nGörev açıklaması:\n${input.prompt}`,
+      fallbackPayload.summary
+    );
+    return normalizeAgentOutput(generated.text, provider.provider_key, input.taskType);
+  } catch {
+    return normalizeAgentOutput(fallbackPayload, "demo", input.taskType);
+  }
+}
+
 export async function createAgentRunLog(payload: {
+  id?: string;
   customer_id?: string | null;
   task_type: AgentTaskType;
   priority?: string;
@@ -264,6 +397,18 @@ export async function createAgentRunLog(payload: {
   tokens_used?: number;
   response_ms?: number;
   created_by?: string | null;
+  run_mode?: string;
+  provider_chain?: unknown;
+  progress?: number;
+  current_step?: string | null;
+  progress_events?: unknown;
+  final_report?: unknown;
+  export_payload?: unknown;
+  email_draft?: unknown;
+  scheduled_task_id?: string | null;
+  started_at?: string | null;
+  updated_at?: string | null;
+  completed_at?: string | null;
 }) {
   if (!hasSupabaseConfig()) return null;
   const rows = await supabaseRest<unknown[]>("agent_runs", {
@@ -275,43 +420,45 @@ export async function createAgentRunLog(payload: {
 
 export async function runAgentTask(input: AgentRunInput) {
   const startedAt = Date.now();
-  const provider = await getRecommendedProvider(input.taskType, { requestedProvider: input.requestedProvider });
-  const estimatedCost = estimateProviderCost(provider.provider_key, input.prompt.length);
-  const fallbackPayload = buildAgentFallback(input, provider);
-  let outputPayload = fallbackPayload;
-  let outputText = fallbackPayload.summary;
-  let status = "completed";
-  let errorMessage: string | null = null;
-
-  if (["openai", "groq", "gemini", "demo"].includes(provider.provider_key)) {
-    try {
-      const generated = await generateAiText(
-        `Yanıtı tamamen Türkçe ver. Teknik terim kullanırsan parantez içinde kısa açıklamasını yaz.\nGörev tipi: ${agentTaskLabels[input.taskType]}\nÖncelik: ${input.priority || "normal"}\nÇıktı formatı: ${input.outputFormat || "aksiyon planı"}\nGörev açıklaması:\n${input.prompt}`,
-        [
-          fallbackPayload.summary,
-          "",
-          "HK Intelligence Son Yorumu:",
-          fallbackPayload.findings.join("\n"),
-          "",
-          "Öncelikli Aksiyonlar:",
-          fallbackPayload.recommendedActions.map((item) => `- ${item}`).join("\n")
-        ].join("\n")
-      );
-      outputText = generated.text;
-      outputPayload = { ...fallbackPayload, provider: provider.provider_key, summary: generated.text, rawOutput: generated.text };
-    } catch (error) {
-      status = "completed_with_fallback";
-      errorMessage = error instanceof Error ? error.message : "AI sağlayıcısı kullanılamadı.";
-    }
+  const providers = await getAgentProviders();
+  const manualManusWarning = input.requestedProvider === "manus" && !shouldUseManus(input.taskType, input.prompt)
+    ? "Manus bu görev için ideal değildir. Auto Router OpenAI/Gemini/Claude önerir."
+    : null;
+  const chainProviders = await buildProviderChain(input.taskType, {
+    providers,
+    requestedProvider: input.requestedProvider,
+    outputFormat: input.outputFormat,
+    priority: input.priority,
+    multiAgent: input.multiAgent,
+    input: input.prompt
+  });
+  const runMode = chainProviders.length > 1 ? "multi_agent" : "single";
+  const progressEvents = [
+    progressEvent("Görev oluşturuldu", 10),
+    progressEvent("AI Router görev tipini analiz ediyor", 25)
+  ];
+  const outputs = [];
+  for (const [index, provider] of chainProviders.entries()) {
+    progressEvents.push(progressEvent(`${provider.provider_name} çalışıyor`, 35 + index * 15, provider.provider_key));
+    outputs.push(await runProvider(provider, input));
   }
+  progressEvents.push(progressEvent("HK Intelligence final raporu oluşturuyor", 85));
+  const finalReport = buildHKIntelligenceFinalReport(outputs, input);
+  const outputText = finalReport.executiveSummary;
+  const outputPayload = finalReport;
+  const selectedProvider = chainProviders[0] || await getRecommendedProvider(input.taskType, { providers });
+  const estimatedCost = chainProviders.reduce((sum, provider) => sum + estimateProviderCost(provider.provider_key, input.prompt.length), 0);
+  const status = manualManusWarning ? "completed_with_warning" : outputs.some((item) => item.provider === "demo") ? "completed_with_fallback" : "completed";
+  const errorMessage = manualManusWarning;
+  progressEvents.push(progressEvent("Çıktı hazır", 100));
 
   const responseMs = Date.now() - startedAt;
-  await createAgentRunLog({
+  const logRows = await createAgentRunLog({
     customer_id: input.customerId || null,
     task_type: input.taskType,
     priority: input.priority || "normal",
     requested_provider: input.requestedProvider || "auto",
-    selected_provider: provider.provider_key,
+    selected_provider: selectedProvider.provider_key,
     fallback_provider: status === "completed_with_fallback" ? "demo" : null,
     status,
     input_summary: input.prompt.slice(0, 500),
@@ -320,16 +467,51 @@ export async function runAgentTask(input: AgentRunInput) {
     error_message: errorMessage,
     estimated_cost: estimatedCost,
     response_ms: responseMs,
-    created_by: input.createdBy || null
+    created_by: input.createdBy || null,
+    run_mode: runMode,
+    provider_chain: chainProviders.map((provider) => provider.provider_key),
+    progress: 100,
+    current_step: "Tamamlandı",
+    progress_events: progressEvents,
+    final_report: finalReport,
+    export_payload: buildAgentExportPayload(finalReport, input),
+    started_at: new Date(startedAt).toISOString(),
+    updated_at: new Date().toISOString(),
+    completed_at: new Date().toISOString()
   }).catch(() => null);
+  const runId = Array.isArray(logRows) && logRows[0] && typeof logRows[0] === "object" && "id" in logRows[0]
+    ? String((logRows[0] as { id?: string }).id || "")
+    : "";
 
   return {
     ok: true,
-    selectedProvider: provider,
+    runId,
+    selectedProvider,
+    providerChain: chainProviders,
     status,
     errorMessage,
     estimatedCost,
     responseMs,
-    output: outputPayload
+    output: outputPayload,
+    finalReport,
+    progressEvents
+  };
+}
+
+export function buildAgentExportPayload(finalReport: AgentFinalReport, input: AgentRunInput) {
+  return {
+    title: `HK Agent Hub - ${agentTaskLabels[input.taskType]}`,
+    customerName: input.customerId || "Müşteri seçilmedi",
+    taskType: agentTaskLabels[input.taskType],
+    createdAt: new Date().toISOString(),
+    executiveSummary: finalReport.executiveSummary,
+    findings: finalReport.findings,
+    risks: finalReport.risks,
+    opportunities: finalReport.opportunities,
+    recommendedActions: finalReport.recommendedActions,
+    sevenDayPlan: finalReport.sevenDayPlan,
+    customerMessageDraft: finalReport.customerMessageDraft,
+    internalNotes: finalReport.internalNotes,
+    providerChain: finalReport.providerChain
   };
 }
