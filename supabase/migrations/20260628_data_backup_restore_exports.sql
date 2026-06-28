@@ -5,7 +5,7 @@ create table if not exists public.data_import_logs (
   status text,
   summary jsonb default '{}'::jsonb,
   error_message text,
-  created_by uuid nullable,
+  created_by uuid,
   created_at timestamptz default now()
 );
 
@@ -14,7 +14,7 @@ create table if not exists public.data_export_logs (
   export_type text,
   format text,
   summary jsonb default '{}'::jsonb,
-  created_by uuid nullable,
+  created_by uuid,
   created_at timestamptz default now()
 );
 
