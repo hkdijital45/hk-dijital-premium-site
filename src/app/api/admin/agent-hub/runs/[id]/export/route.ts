@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireModuleAccess } from "@/lib/permissions";
 import { hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
+import { buildPrintableHtmlReport } from "@/lib/report-export";
 
 const allowedFormats = new Set(["docx", "pdf", "pptx", "copy_text"]);
 type FinalReportPayload = {
@@ -50,11 +51,6 @@ function buildPlainText(payload: Record<string, unknown>) {
   ].filter(Boolean).join("\n");
 }
 
-function buildHtml(payload: Record<string, unknown>) {
-  const section = (title: string, items: unknown) => `<h2>${title}</h2><ul>${(Array.isArray(items) ? items : []).map((item) => `<li>${String(item)}</li>`).join("")}</ul>`;
-  return `<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>${String(payload.title || "HK Agent Hub Raporu")}</title><style>body{font-family:Inter,Arial,sans-serif;color:#0f172a;line-height:1.6;padding:32px}h1{font-size:28px}h2{font-size:18px;margin-top:24px}.meta{color:#475569}.card{border:1px solid #e2e8f0;border-radius:16px;padding:18px;margin:16px 0}</style></head><body><h1>${String(payload.title || "HK Agent Hub Raporu")}</h1><p class="meta">${String(payload.createdAt || "")}</p><div class="card"><strong>Yönetici Özeti</strong><p>${String(payload.executiveSummary || "")}</p></div>${section("Bulgular", payload.findings)}${section("Riskler", payload.risks)}${section("Fırsatlar", payload.opportunities)}${section("Önerilen Aksiyonlar", payload.recommendedActions)}${section("7 Günlük Plan", payload.sevenDayPlan)}<div class="card"><strong>Müşteri Özeti</strong><p>${String(payload.customerMessageDraft || "")}</p></div></body></html>`;
-}
-
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireModuleAccess("agent-hub");
   if (!session) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 403 });
@@ -95,7 +91,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
             : "PowerPoint için slayt içerik taslağı hazırlandı.",
     contentType: format === "pdf" ? "text/html" : format === "pptx" ? "application/json" : "text/markdown",
     text: buildPlainText(basePayload),
-    html: format === "pdf" ? buildHtml(basePayload) : undefined,
+    html: format === "pdf" ? buildPrintableHtmlReport({
+      title: String(basePayload.title),
+      customerName: String(basePayload.customerId || "-"),
+      period: String(basePayload.createdAt || "-"),
+      summary: String(basePayload.executiveSummary || ""),
+      sections: [
+        { title: "Bulgular", items: basePayload.findings },
+        { title: "Riskler", items: basePayload.risks },
+        { title: "Fırsatlar", items: basePayload.opportunities },
+        { title: "Öncelikli Aksiyonlar", items: basePayload.recommendedActions },
+        { title: "7 Günlük Plan", items: basePayload.sevenDayPlan },
+        { title: "Müşteriye Gönderilebilir Özet", text: String(basePayload.customerMessageDraft || "") },
+        { title: "İç Notlar", text: String(basePayload.internalNotes || "") }
+      ]
+    }) : undefined,
     slides: format === "pptx" ? [
       { title: "Yönetici Özeti", bullets: [basePayload.executiveSummary] },
       { title: "Bulgular", bullets: basePayload.findings },

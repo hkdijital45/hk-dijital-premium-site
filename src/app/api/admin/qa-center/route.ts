@@ -214,7 +214,19 @@ function scanSourcesForFindings(migrations: string) {
     ["Provider key alias mapping doğru mu?", "normalizeAiProvider", "groq, gemini, openai, anthropic, manus, openrouter, ollama ve demo alias eşleşmeleri merkezi normalize edilmeli."],
     ["Google İstihbarat sonuç kartları doğru provider gösteriyor mu?", "aiExecutionMetadata", "Google İstihbarat route'u sonuç meta bilgisini istenen ve kullanılan sağlayıcı ayrımıyla üretmeli."],
     ["Sağlayıcı sağlık paneli var mı?", "Sağlayıcı Sağlığı", "Agent Hub içinde son 24 saat başarı, hata, yanıt süresi, maliyet ve router skoru görünmeli."],
-    ["HK Intelligence final layer tüm AI çıktılarında çalışıyor mu?", "HK Intelligence final", "AI çıktıları yönetici özeti, riskler, fırsatlar ve aksiyon planı formatına normalize edilmeli."]
+    ["HK Intelligence final layer tüm AI çıktılarında çalışıyor mu?", "HK Intelligence final", "AI çıktıları yönetici özeti, riskler, fırsatlar ve aksiyon planı formatına normalize edilmeli."],
+    ["Veri Aktarma tam yedek admin-only mi?", "Tüm Sistem Yedeği", "Tam sistem yedeği ve geri yükleme yalnız admin rolüne görünmeli."],
+    ["Secret alanlar export dışı mı?", "blockedKeyPattern", "API key, token, secret, şifre hash'i ve auth hassas alanları export edilmemeli."],
+    ["Import önizleme olmadan commit yapılamıyor mu?", "confirmedPreview", "Geri yükleme işlemi dosya önizlemesi ve açık onay olmadan database'e yazmamalı."],
+    ["Müşteri export butonları var mı?", "Müşteri Bilgilerini İndir", "Müşteriler ekranında Excel, Word, PDF ve CSV indirme aksiyonları bulunmalı."],
+    ["Rapor çıktıları screenshot yerine rapor payload kullanıyor mu?", "buildPrintableHtmlReport", "Çıktı alma ekran görüntüsü yerine profesyonel rapor şablonu üretmeli."],
+    ["CSV Türkçe karakter desteği var mı?", "\\uFEFF", "CSV/Excel uyumlu dışa aktarımlarda UTF-8 BOM ile Türkçe karakterler korunmalı."],
+    ["Export/import log tutuluyor mu?", "data_export_logs", "Dışa ve içe aktarma işlemleri log tablolarına yazılmalı."],
+    ["Sistem Rehberi'nin ilk bölümü Bir Müşterinin Serüveni mi?", "bir-musterinin-seruveni", "Rehberin ilk seed'i müşteri serüveni olmalı."],
+    ["Müşteri kaydından sözleşme bitimine kadar süreç var mı?", "Sözleşme bitiminde veri yedekleme", "Rehber lead aşamasından kapanış/yedekleme adımına kadar süreci anlatmalı."],
+    ["İlgili sayfa butonları bozuk link veriyor mu?", "customerJourneyActions", "Bir Müşterinin Serüveni hızlı aksiyonları mevcut hk-admin route'larına gitmeli."],
+    ["Token/API bilgileri için güvenlik uyarısı var mı?", "Token, API anahtarı", "Rehber token ve API anahtarlarının güvenli entegrasyon alanlarına girilmesini belirtmeli."],
+    ["Kapanış/pasifleştirme/yedekleme adımları var mı?", "Pasifleştir", "Rehber kapanış, pasife alma, arşivleme ve veri yedekleme adımlarını içermeli."]
   ].forEach(([title, pattern, recommendation]) => {
     const inSource = sourceContains(pattern) || migrations.includes(String(pattern).toLocaleLowerCase("tr"));
     if (!inSource) findings.push(makeFinding({ category: "Ajans Operasyonu QA", severity: "orta", module: "Ajans Operasyon Kalıcılığı", file_path: "src/components/admin/AdminDashboard.tsx", title, description: `${pattern} sinyali statik analizde bulunamadı.`, recommendation }));

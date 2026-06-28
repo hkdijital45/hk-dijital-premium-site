@@ -799,7 +799,7 @@ export function AdminDashboard({
           {["Roller & Yetkiler", "Kullanıcı Yönetimi"].includes(active) && <UsersAdmin {...props} mode={active} />}
           {["Sistem Sağlığı", "Sistem Sağlık Merkezi"].includes(active) && <SystemHealthCenter content={content} setContent={setContent} startupApiData={startupApiData} runStartupApiStatus={runStartupApiStatus} startupApiLoading={startupApiLoading} />}
           {active === "Sistem Test Merkezi" && <SystemTestCenter content={content} setContent={setContent} save={save} currentSession={currentSession} notify={notify} systemStatus={systemStatus} supabaseConfigured={supabaseConfigured} />}
-          {active === "Veri Aktarma" && <ExportCenter content={content} />}
+          {active === "Veri Aktarma" && <ExportCenter content={content} currentSession={currentSession} notify={notify} />}
           {["Sistem Logları", "Aktivite Akışı", "Log ve Aktivite Merkezi"].includes(active) && <ActivityLogs content={content} setContent={setContent} />}
           {active === "HK Dijital Sistem Rehberi" && <SystemGuideCenter currentSession={currentSession} notify={notify} />}
           {active === "Sistem Ayarları" && <Settings {...props} />}
@@ -1773,12 +1773,21 @@ function SystemHealthCenter({ content, startupApiData, runStartupApiStatus, star
   return <Panel title="Sistem Sağlık Merkezi"><div className="mb-5 flex flex-wrap items-center justify-between gap-3"><p className="max-w-3xl text-sm leading-6 text-slate-600">Teknik servislerin son kontrol, başarı ve hata durumlarını merkezi olarak izleyin. Bu ekran yalnız menüden açılır; girişte otomatik çalışmaz ve gizli anahtar göstermez.</p><button disabled={startupApiLoading} onClick={runStartupApiStatus} className="rounded-[10px] bg-cyan-500 px-4 py-3 text-sm font-black text-white disabled:opacity-60">{startupApiLoading ? "Test ediliyor..." : "Tüm Servisleri Yenile"}</button></div><div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{healthItems.map(([label, status, description, lastCheck, lastError]) => <div key={String(label)} className={`rounded-[16px] border p-4 ${statusClass(String(status))}`}><div className="flex items-center justify-between gap-3"><h3 className="font-black text-slate-950">{label}</h3><span className="rounded-full border border-current/20 px-2 py-1 text-[10px] font-black">{status}</span></div><p className="mt-3 text-xs leading-5 text-slate-700">{description}</p><div className="mt-3 grid gap-1 text-[11px] text-slate-600"><span>Son kontrol: {lastCheck ? new Date(String(lastCheck)).toLocaleString("tr-TR") : "Henüz kontrol edilmedi"}</span><span>Son başarılı işlem: {lastCheck ? new Date(String(lastCheck)).toLocaleString("tr-TR") : "Kayıt yok"}</span><span>Son hata: {lastError ? String(lastError) : "Hata kaydı yok"}</span></div><button disabled={startupApiLoading} onClick={runStartupApiStatus} className="mt-4 rounded-[9px] bg-white px-3 py-2 text-xs font-black text-slate-700 shadow-sm ring-1 ring-slate-200">Test Et / Yenile</button></div>)}</div><div className="mb-5"><ReadinessPanel api={api} /></div><AiStatusCenterWidget statuses={aiStatuses} message={startupApiData?.lastTestTime ? `Son genel kontrol: ${new Date(startupApiData.lastTestTime).toLocaleString("tr-TR")}` : "Bağlantı testi bekleniyor."} loading={startupApiLoading} onRefresh={runStartupApiStatus} /></Panel>;
 }
 
-function ExportCenter({ content }: any) {
+function ExportCenter({ content, currentSession, notify }: any) {
   const [dataset, setDataset] = useState("companies");
   const [companyFilter, setCompanyFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [backupFormat, setBackupFormat] = useState("json");
+  const [importType, setImportType] = useState("customers");
+  const [conflictBehavior, setConflictBehavior] = useState("skip");
+  const [importFileName, setImportFileName] = useState("");
+  const [importContent, setImportContent] = useState("");
+  const [importPreview, setImportPreview] = useState<any>(null);
+  const [importMessage, setImportMessage] = useState("");
+  const [importLoading, setImportLoading] = useState("");
+  const isAdmin = currentSession?.role === "admin";
   const exportSets = [
     ["companies", "Müşteriler", content.companies || [], "/hk-admin/musteriler"],
     ["campaigns", "Kampanyalar", content.campaigns || [], "/hk-admin/kampanyalar"],
@@ -1809,7 +1818,53 @@ function ExportCenter({ content }: any) {
     link.click();
     URL.revokeObjectURL(url);
   }
-  return <Panel title="Veri Aktarma"><div className="mb-5 flex flex-wrap items-center justify-between gap-3"><p className="max-w-3xl text-sm leading-6 text-slate-400">Müşteri, kampanya, görev, tahsilat, belge ve rapor kayıtlarını mevcut veri kaynaklarından dışa aktarın. Bu ekran yeni kayıt oluşturmaz.</p><span className="rounded-full border border-cyan-200/20 bg-cyan-200/10 px-3 py-2 text-xs font-black text-cyan-700">{records.length} kayıt hazır</span></div><div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5"><SelectField label="Veri türü" value={dataset} onChange={setDataset} options={exportSets.map(([value, label]) => ({ value, label }))} /><CompanySelect value={companyFilter} onChange={setCompanyFilter} companies={content.companies} label="Müşteri filtresi" /><SelectField label="Durum" value={statusFilter} onChange={setStatusFilter} options={statusOptionsForSet} placeholder="Tüm durumlar" /><Field label="Başlangıç tarihi" type="date" value={startDate} onChange={setStartDate} /><Field label="Bitiş tarihi" type="date" value={endDate} onChange={setEndDate} /></div><div className="mb-5 flex flex-wrap gap-2"><button onClick={() => download("csv")} className="rounded-[8px] bg-cyan-300 px-4 py-3 text-sm font-black text-slate-950">CSV indir</button><button onClick={() => download("excel")} className="rounded-[8px] border border-emerald-300/30 px-4 py-3 text-sm font-black text-emerald-700">Excel indir</button><button onClick={() => window.print()} className="rounded-[8px] border border-slate-200 px-4 py-3 text-sm font-black text-slate-700">PDF özet yazdır</button><Link href={selected[3] as string} className="rounded-[8px] border border-slate-200 px-4 py-3 text-sm font-black text-slate-700">Kaynağı aç</Link></div><div className="premium-scrollbar max-h-[520px] overflow-auto rounded-[8px] border border-slate-200"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-[.12em] text-slate-400"><tr><th className="p-3">Tür</th><th className="p-3">Başlık</th><th className="p-3">Müşteri</th><th className="p-3">Durum</th><th className="p-3">Tarih</th></tr></thead><tbody>{records.slice(0, 100).map((item, index) => <tr key={item.id || index} className="border-t border-slate-200"><td className="p-3">{selected[1]}</td><td className="p-3 font-bold text-slate-900">{item.name || item.title || item.report_type || `${item.amount || 0} TL`}</td><td className="p-3 text-slate-600">{companyName(content, item.company_id || item.id)}</td><td className="p-3 text-slate-600">{item.status || item.report_type || item.document_type || "-"}</td><td className="p-3 text-slate-400">{formatDate(item.created_at || item.updated_at || item.start_date || item.due_date || item.document_date || item.report_month)}</td></tr>)}{!records.length && <tr><td colSpan={5} className="p-6 text-center text-slate-400">Bu filtrelerle dışa aktarılacak kayıt bulunamadı.</td></tr>}</tbody></table></div></Panel>;
+  async function readImportFile(file: File) {
+    setImportFileName(file.name);
+    setImportPreview(null);
+    setImportMessage("");
+    setImportContent(await file.text());
+  }
+  async function previewImport() {
+    if (!importContent) return setImportMessage("Önizleme için dosya seçmelisin.");
+    setImportLoading("preview");
+    const response = await fetch("/api/admin/data-import/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fileName: importFileName, importType, content: importContent })
+    });
+    const data = await response.json().catch(() => ({}));
+    setImportLoading("");
+    if (!response.ok) {
+      setImportMessage(data.error || "Dosya okunamadı.");
+      notify?.(data.error || "Dosya okunamadı.", "error");
+      return;
+    }
+    setImportPreview(data.summary);
+    setImportMessage("Önizleme hazırlandı. Onaylamadan veri yazılmaz.");
+  }
+  async function commitImport() {
+    if (!importPreview) return setImportMessage("İçe aktarma için önce önizleme yapılmalıdır.");
+    if (!confirm("Önizlemeyi onaylıyor musunuz? Bu işlem destructive değildir; desteklenmeyen alanlar atlanır.")) return;
+    setImportLoading("commit");
+    const response = await fetch("/api/admin/data-import/commit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fileName: importFileName, importType, conflictBehavior, content: importContent, confirmedPreview: true })
+    });
+    const data = await response.json().catch(() => ({}));
+    setImportLoading("");
+    setImportMessage(data.message || data.error || "İşlem tamamlandı.");
+    notify?.(data.message || data.error || "İşlem tamamlandı.", response.ok ? "success" : "error");
+  }
+  const backupTypes = [
+    ["full-backup", "Tam Yedek İndir"],
+    ["customers", "Müşteri Verilerini İndir"],
+    ["reports", "Rapor Verilerini İndir"],
+    ["payments", "Tahsilat Verilerini İndir"],
+    ["tasks", "Görev Verilerini İndir"],
+    ["documents", "Belgeler Listesini İndir"]
+  ];
+  return <Panel title="Veri Aktarma"><div className="mb-5 flex flex-wrap items-center justify-between gap-3"><p className="max-w-3xl text-sm leading-6 text-slate-400">Müşteri, kampanya, görev, tahsilat, belge ve rapor kayıtlarını mevcut veri kaynaklarından dışa aktarın. Bu ekran yeni kayıt oluşturmaz.</p><span className="rounded-full border border-cyan-200/20 bg-cyan-200/10 px-3 py-2 text-xs font-black text-cyan-700">{records.length} kayıt hazır</span></div>{isAdmin ? <div className="mb-6 grid gap-4 xl:grid-cols-2"><section className="rounded-[18px] border border-cyan-200 bg-cyan-50 p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><span className="rounded-full bg-cyan-600 px-3 py-1 text-xs font-black text-white">Yalnızca Admin</span><h3 className="mt-3 text-xl font-black text-slate-950">Tüm Sistem Yedeği</h3><p className="mt-2 text-sm leading-6 text-slate-700">Müşteri, kampanya, görev, tahsilat, belge, rapor ve operasyon verilerini güvenli şekilde dışa aktar. API key, token, secret, şifre ve auth hassas alanları dışa aktarılmaz.</p></div><SelectField label="Format" value={backupFormat} onChange={setBackupFormat} options={[{ value: "json", label: "JSON (sistem yedek dosyası)" }, { value: "csv", label: "CSV (tablo dosyası)" }, { value: "excel", label: "Excel uyumlu CSV" }, { value: "pdf", label: "PDF özet / yazdırılabilir HTML" }, { value: "word", label: "Word uyumlu metin" }]} /></div><div className="mt-4 flex flex-wrap gap-2">{backupTypes.map(([type, label]) => <a key={type} href={`/api/admin/data-export/${type}?format=${backupFormat}`} className="rounded-[10px] bg-white px-4 py-3 text-sm font-black text-cyan-800 shadow-sm ring-1 ring-cyan-200">{label}</a>)}</div><p className="mt-4 text-xs leading-5 text-cyan-900">Son yedek ve export/import geçmişi migration sonrası data_export_logs ve data_import_logs tablolarından izlenir.</p></section><section className="rounded-[18px] border border-amber-200 bg-amber-50 p-5"><span className="rounded-full bg-amber-500 px-3 py-1 text-xs font-black text-white">Yalnızca Admin</span><h3 className="mt-3 text-xl font-black text-slate-950">Sistemi Geri Yükle</h3><p className="mt-2 text-sm leading-6 text-amber-900">Geri yükleme işlemi mevcut verilerle çakışabilir. Önce önizleme yapmadan içe aktarma yapılamaz.</p><div className="mt-4 grid gap-3 md:grid-cols-2"><label className="rounded-[12px] border border-amber-200 bg-white p-3 text-sm font-bold text-slate-700">Dosya seç<input type="file" accept=".json,.csv,.xls,.xlsx,application/json,text/csv" onChange={(event) => event.target.files?.[0] && readImportFile(event.target.files[0])} className="mt-2 block w-full text-xs" /></label><SelectField label="Import tipi (içe aktarma)" value={importType} onChange={setImportType} options={[{ value: "full_backup", label: "Tam yedekten geri yükle" }, { value: "customers", label: "Sadece müşteri verisi" }, { value: "reports", label: "Sadece rapor verisi" }, { value: "payments", label: "Sadece tahsilat verisi" }, { value: "tasks", label: "Sadece görev verisi" }]} /><SelectField label="Çakışma davranışı" value={conflictBehavior} onChange={setConflictBehavior} options={[{ value: "skip", label: "Var olanı atla" }, { value: "update", label: "Var olanı güncelle" }, { value: "new", label: "Yeni kayıt olarak ekle" }]} /><a href={`data:text/csv;charset=utf-8,${encodeURIComponent("company_name,contact_name,email,phone,city,sector,website,instagram,status,notes\nÖrnek Firma,Ayşe Yılmaz,ornek@firma.com,05550000000,İstanbul,Sağlık,https://ornek.com,@ornek,Aktif,İlk görüşme notu")}`} download="hk-dijital-musteri-import-sablonu.csv" className="rounded-[12px] border border-amber-200 bg-white px-4 py-3 text-sm font-black text-amber-800">Örnek CSV Şablonu İndir</a></div><div className="mt-4 flex flex-wrap gap-2"><button onClick={previewImport} disabled={importLoading === "preview"} className="rounded-[10px] bg-amber-400 px-4 py-3 text-sm font-black text-slate-950 disabled:opacity-60">{importLoading === "preview" ? "Önizleniyor..." : "Önizleme"}</button><button onClick={commitImport} disabled={!importPreview || importLoading === "commit"} className="rounded-[10px] bg-emerald-500 px-4 py-3 text-sm font-black text-white disabled:opacity-50">{importLoading === "commit" ? "İçe aktarılıyor..." : "Onayla ve İçe Aktar"}</button></div>{importMessage && <p className="mt-3 rounded-[10px] border border-amber-200 bg-white p-3 text-sm font-bold text-amber-900">{importMessage}</p>}{importPreview && <div className="mt-3 rounded-[12px] bg-white p-4 text-sm text-slate-700"><strong>Önizleme Özeti</strong><div className="mt-2 grid gap-1">{Object.entries(importPreview.counts || {}).map(([key, value]) => <span key={key}>{key}: <b>{String(value)}</b></span>)}<span>Bozuk/eksik kayıt: <b>{importPreview.brokenRecords || 0}</b></span><span>Çakışma: {importPreview.conflictCheck}</span></div></div>}</section></div> : <div className="mb-6 rounded-[16px] border border-slate-200 bg-slate-50 p-5 text-sm text-slate-600">Tam yedekleme ve geri yükleme alanı yalnızca admin kullanıcılar içindir.</div>}<div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5"><SelectField label="Veri türü" value={dataset} onChange={setDataset} options={exportSets.map(([value, label]) => ({ value, label }))} /><CompanySelect value={companyFilter} onChange={setCompanyFilter} companies={content.companies} label="Müşteri filtresi" /><SelectField label="Durum" value={statusFilter} onChange={setStatusFilter} options={statusOptionsForSet} placeholder="Tüm durumlar" /><Field label="Başlangıç tarihi" type="date" value={startDate} onChange={setStartDate} /><Field label="Bitiş tarihi" type="date" value={endDate} onChange={setEndDate} /></div><div className="mb-5 flex flex-wrap gap-2"><button onClick={() => download("csv")} className="rounded-[8px] bg-cyan-300 px-4 py-3 text-sm font-black text-slate-950">CSV indir</button><button onClick={() => download("excel")} className="rounded-[8px] border border-emerald-300/30 px-4 py-3 text-sm font-black text-emerald-700">Excel indir</button><a href={`/api/admin/data-export/${dataset === "paymentRecords" ? "payments" : dataset === "agencyTasks" ? "tasks" : dataset === "customerDocuments" ? "documents" : dataset === "companies" ? "customers" : dataset === "reports" ? "reports" : "full-backup"}?format=pdf`} className="rounded-[8px] border border-slate-200 px-4 py-3 text-sm font-black text-slate-700">PDF özet indir</a><Link href={selected[3] as string} className="rounded-[8px] border border-slate-200 px-4 py-3 text-sm font-black text-slate-700">Kaynağı aç</Link></div><div className="premium-scrollbar max-h-[520px] overflow-auto rounded-[8px] border border-slate-200"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-[.12em] text-slate-400"><tr><th className="p-3">Tür</th><th className="p-3">Başlık</th><th className="p-3">Müşteri</th><th className="p-3">Durum</th><th className="p-3">Tarih</th></tr></thead><tbody>{records.slice(0, 100).map((item, index) => <tr key={item.id || index} className="border-t border-slate-200"><td className="p-3">{selected[1]}</td><td className="p-3 font-bold text-slate-900">{item.name || item.title || item.report_type || `${item.amount || 0} TL`}</td><td className="p-3 text-slate-600">{companyName(content, item.company_id || item.id)}</td><td className="p-3 text-slate-600">{item.status || item.report_type || item.document_type || "-"}</td><td className="p-3 text-slate-400">{formatDate(item.created_at || item.updated_at || item.start_date || item.due_date || item.document_date || item.report_month)}</td></tr>)}{!records.length && <tr><td colSpan={5} className="p-6 text-center text-slate-400">Bu filtrelerle dışa aktarılacak kayıt bulunamadı.</td></tr>}</tbody></table></div></Panel>;
 }
 
 function toCsv(rows: any[], columns: string[]) {
@@ -4723,14 +4778,16 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
     }
   }
 
-  function statusBadge(company) {
-    if (isDeletedCompany(company)) return <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-black text-red-700">Silinenlerde</span>;
-    if (isArchivedCompany(company)) return <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-700">Arşivli</span>;
-    if (isPassiveCompany(company)) return <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">Pasif</span>;
-    return <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-700">Aktif</span>;
-  }
+	  function statusBadge(company) {
+	    if (isDeletedCompany(company)) return <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-black text-red-700">Silinenlerde</span>;
+	    if (isArchivedCompany(company)) return <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-700">Arşivli</span>;
+	    if (isPassiveCompany(company)) return <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">Pasif</span>;
+	    return <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-700">Aktif</span>;
+	  }
+	  const customerExportStatus = view === "active" ? "active" : view === "archived" ? "archived" : view === "deleted" ? "deleted" : "passive";
+	  const customerExportUrl = (format: string) => `/api/admin/customers/export?format=${format}&status=${customerExportStatus}&q=${encodeURIComponent(companyQuery)}`;
 
-  return (
+	  return (
     <Panel title="Müşteriler">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4 rounded-[18px] border border-cyan-200 bg-cyan-50 p-5">
         <div>
@@ -4747,10 +4804,19 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
       {message && <p className="mb-4 rounded-[8px] border border-emerald-300/30 bg-emerald-500/10 p-3 text-sm text-emerald-700">{message}</p>}
       {error && <p className="mb-4 rounded-[8px] border border-red-300/30 bg-red-500/10 p-3 text-sm text-red-700">{error}</p>}
       <div className="mb-6 rounded-[8px] border border-slate-200 p-4">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div><h3 className="font-black">Müşteri / firma listesi</h3><p className="mt-1 text-xs text-slate-500">Varsayılan görünüm aktif ve pasif müşterileri gösterir; arşivli ve silinen kayıtlar ayrı görünümde tutulur.</p></div>
-          <input value={companyQuery} onChange={(e) => setCompanyQuery(e.target.value)} placeholder="Firma, şehir, sektör ara..." className="min-h-10 rounded-[8px] border border-slate-200 bg-slate-50 px-3 text-slate-900" />
-        </div>
+	        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+	          <div><h3 className="font-black">Müşteri / firma listesi</h3><p className="mt-1 text-xs text-slate-500">Varsayılan görünüm aktif ve pasif müşterileri gösterir; arşivli ve silinen kayıtlar ayrı görünümde tutulur.</p></div>
+	          <div className="flex flex-wrap items-center gap-2">
+	            <input value={companyQuery} onChange={(e) => setCompanyQuery(e.target.value)} placeholder="Firma, şehir, sektör ara..." className="min-h-10 rounded-[8px] border border-slate-200 bg-slate-50 px-3 text-slate-900" />
+	            <div className="flex flex-wrap gap-1 rounded-[12px] border border-slate-200 bg-white p-1">
+	              <span className="px-2 py-2 text-xs font-black text-slate-500">Müşteri Bilgilerini İndir</span>
+	              <a href={customerExportUrl("excel")} className="rounded-[8px] bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700">Excel</a>
+	              <a href={customerExportUrl("word")} className="rounded-[8px] bg-blue-50 px-3 py-2 text-xs font-black text-blue-700">Word</a>
+	              <a href={customerExportUrl("pdf")} className="rounded-[8px] bg-amber-50 px-3 py-2 text-xs font-black text-amber-700">PDF</a>
+	              <a href={customerExportUrl("csv")} className="rounded-[8px] bg-slate-50 px-3 py-2 text-xs font-black text-slate-700">CSV</a>
+	            </div>
+	          </div>
+	        </div>
         <div className="mb-4 flex flex-wrap gap-2">
           {viewButtons.map((button) => <button key={button.key} onClick={() => setView(button.key as any)} className={`rounded-full px-4 py-2 text-xs font-black ${view === button.key ? "bg-cyan-500 text-white" : "border border-slate-200 bg-white text-slate-700"}`}>{button.label} · {button.count}</button>)}
         </div>

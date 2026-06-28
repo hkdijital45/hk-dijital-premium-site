@@ -17,7 +17,7 @@ export type SystemGuideSeed = {
 };
 
 export const systemGuideCategories = [
-  "Dashboard & Kontrol Merkezi", "CRM & Müşteriler", "Müşteri & Satış", "Ajans Operasyonu", "Satış Hunisi", "Tahsilat & Karlılık",
+  "Müşteri Serüveni", "Dashboard & Kontrol Merkezi", "CRM & Müşteriler", "Müşteri & Satış", "Ajans Operasyonu", "Satış Hunisi", "Tahsilat & Karlılık",
   "Görev Yönetimi", "Raporlama Merkezi", "Meta Entegrasyonları", "Google Entegrasyonları",
   "HK Intelligence", "AI Studio", "Dosya & Belge Merkezi", "Kullanıcı Yönetimi", "Ayarlar",
   "Web Site Yönetimi", "Müşteri Paneli", "Sorun Giderme", "HK Agent Hub"
@@ -130,6 +130,13 @@ const definitions: Array<[string, string, string, string]> = [
   ["Agent Hub Vercel env listesi", "HK Agent Hub", "Production’da OPENAI_API_KEY, GEMINI_API_KEY, GROQ_API_KEY, ANTHROPIC_API_KEY, OPENROUTER_API_KEY, MANUS_API_KEY, MANUS_API_BASE_URL, MANUS_API_ENDPOINT, OLLAMA_BASE_URL, AGENT_HUB_CRON_SECRET, SMTP/RESEND ve DISCORD_WEBHOOK_URL değerlerini Vercel Environment Variables alanına ekleyin.", "agent-hub"],
   ["Müşterilere direkt erişim", "CRM & Müşteriler", "Admin panelde Müşteriler öğesini Müşteri & Satış grubunun ilk sırasında ve dashboard hızlı aksiyonlarında bulun.", "musteriler"],
   ["Admin buton okunabilirliği standardı", "Ayarlar", "Siyah/dark primary butonlar yerine açık temada okunur cyan, amber, blue veya border tabanlı admin buton stillerini kullanın.", "sistem-rehberi"],
+  ["Tam sistem yedeği nasıl alınır?", "Ayarlar", "Veri Aktarma ekranında yalnız admin rolüyle Tam Yedek İndir butonunu kullanarak güvenli JSON, CSV, Excel uyumlu CSV veya özet rapor çıktısı alın.", "veri-aktarma"],
+  ["Yedeğe hangi veriler dahil edilir?", "Ayarlar", "Müşteri, kampanya, görev, tahsilat, belge, rapor ve operasyon özetleri yedeğe dahil edilir; tablo bulunamazsa özet raporda uyarı gösterilir.", "veri-aktarma"],
+  ["Hangi veriler dışarı aktarılmaz?", "Ayarlar", "API key, access token, refresh token, secret, password, hash, service role ve agent provider secret değerleri güvenlik nedeniyle export dışı bırakılır.", "veri-aktarma"],
+  ["Dosyadan geri yükleme nasıl yapılır?", "Ayarlar", "Veri Aktarma ekranında dosya seçin, import tipini ve çakışma davranışını belirleyin, önce Önizleme yapın ve yalnız onaydan sonra içe aktarın.", "veri-aktarma"],
+  ["Müşteri bilgileri nasıl Excel/PDF/Word alınır?", "CRM & Müşteriler", "Müşteriler ekranında aktif, pasif, arşivli veya silinen görünümünü filtreleyip Müşteri Bilgilerini İndir grubundan Excel, Word, PDF veya CSV seçin.", "musteriler"],
+  ["Rapor çıktıları nasıl hazırlanır?", "Raporlama Merkezi", "Rapor çıktıları ekran görüntüsü yerine HK Dijital başlıklı profesyonel rapor şablonu, yönetici özeti, tablo, bulgular, riskler, fırsatlar ve aksiyon planı ile oluşturulur.", "raporlar"],
+  ["Import önizleme neden zorunludur?", "Ayarlar", "Önizleme kayıt sayısı, bozuk kayıt, çakışma ve uyarıları gösterir; destructive olmayan güvenli import için onay öncesi kontrol zorunludur.", "veri-aktarma"],
   ["Sistem ayarları", "Ayarlar", "Performans, güvenlik, yedekleme ve uygulama tercihlerini yönetin.", "sistem-ayarlari"],
   ["Butonlar ve İşlem Mantığı", "Ayarlar", "Kaydetme, güncelleme, arşivleme, hata bildirimi ve kalıcılık davranışlarını doğrulayın.", "sistem-test-merkezi"],
   ["Logo ve marka yönetimi", "Web Site Yönetimi", "Public site logo, favicon ve marka metinlerini güncelleyin.", "web-sitesi-yonetimi"],
@@ -168,11 +175,67 @@ const definitions: Array<[string, string, string, string]> = [
   ["Migration sonrası Supabase kontrolü", "Ayarlar", "Yeni migration çalıştırıldıktan sonra PostgREST schema cache yenileme ve QA Merkezi kontrollerini doğrulayın.", "qa-center"]
 ];
 
+const customerJourneyGuide: SystemGuideSeed = {
+  slug: "bir-musterinin-seruveni",
+  title: "Bir Müşterinin Serüveni",
+  category: "Müşteri Serüveni",
+  description: "İlk kayıttan sözleşme bitimine kadar HK Dijital’de müşteri yönetimi nasıl yapılır?",
+  route: "/hk-admin/musteriler",
+  content: {
+    purpose: "Bu rehber, yeni bir müşteriyle ilk temas kurulduğu andan kampanya kurulumu, reklam verileri, raporlama, tahsilat, görev takibi, yedekleme ve sözleşme bitişine kadar tüm süreci adım adım anlatır.",
+    whenToUse: "Yeni ekip arkadaşı onboarding sürecinde, yeni müşteri açarken, müşteri bilgilerini tamamlarken, rapor/tahsilat/görev akışını kontrol ederken ve sözleşme kapanışında kullanılır.",
+    steps: [
+      "Lead → Firma Kaydı → Müşteri Hesabı → Entegrasyonlar → Kampanya → Rapor → Tahsilat → Revizyon → Yenileme / Kapanış akışını takip edin.",
+      "1. Aday müşteri / lead oluşturma: Müşteri & Satış > Müşteri Keşfi veya CRM ekranına gidin. CRM’e Kaydet, Lead Oluştur veya Müşteri Keşfine Git aksiyonuyla aday kaydı açın. Sonraki adım: ilk iletişim bilgisini tamamlayın.",
+      "2. İlk iletişim bilgilerini kaydetme: CRM veya Lead Workspace içinde yetkili adı, telefon, e-posta, Instagram, website ve not alanlarını doldurun. Gizli token veya şifreleri not alanına yazmayın.",
+      "3. Firma ve müşteri kaydı oluşturma: Müşteri & Satış > Müşteriler ekranında + Yeni Firma Oluştur butonunu kullanın. Firma adı, sektör, şehir, telefon, e-posta ve not bilgisini girin.",
+      "4. Müşteri giriş hesabı oluşturma: Müşteriler ekranında + Müşteri Giriş Hesabı Oluştur butonunu kullanın. Geçici şifre ve firma eşleşmesini kontrol edin.",
+      "5. Yetkili kişi, telefon, e-posta, sektör ve şehir bilgilerini tamamlama: Müşteri detayını aç, Düzenle ve Kaydet butonlarıyla eksik alanları tamamlayın.",
+      "6. Sosyal medya, web sitesi ve reklam hesap bilgilerini ekleme: Müşteri profili ve entegrasyon alanlarında website, Instagram, Facebook, Meta Business ve Google bilgilerini girin.",
+      "7. Meta Business / Pixel / reklam hesabı bilgilerini kaydetme: Entegrasyonlar > Meta Entegrasyonları veya müşteri profilindeki reklam hesap alanında Meta bilgisi ekle, Token test et ve Verileri senkronize et akışını kullanın.",
+      "8. Google Ads / Analytics / Search Console / Maps bilgilerini kaydetme: Google Entegrasyonları veya Google İstihbarat alanında Google Ads ID, Analytics ID, Search Console ve Maps bilgilerini ekleyin; Test Et butonuyla doğrulayın.",
+      "9. Token, API ve entegrasyon bilgilerini güvenli ekleme: Ayarlar > Entegrasyonlar veya Agent Hub > Entegrasyon Kontrolü ekranını kullanın. API anahtarı ekle ve Test Et aksiyonlarını kullanın; tokenları not alanlarına yazmayın.",
+      "10. Kampanya oluşturma: Reklam & Raporlama > Kampanyalar alanında Kampanya oluştur, Rapor ekle veya Veri gir butonlarını kullanın. Reklam bütçesi ve hizmet bedelini ayrı takip edin.",
+      "11. Reklam bütçesi ve hizmet bedeli belirleme: Kampanya, teklif veya tahsilat ekranında reklam bütçesini medya harcaması; hizmet bedelini ajans geliri olarak ayrı kaydedin.",
+      "12. Görev ve yapılacaklar oluşturma: Ajans Operasyonu > Görevler veya müşteri profilindeki Yapılacaklar sekmesinde Görev oluştur ve Takip görevi oluştur aksiyonlarını kullanın.",
+      "13. İçerik / kreatif / belge dosyalarını ekleme: Ajans Operasyonu > Belgeler alanında Belge ekle ve Müşteriye görünür yap seçeneklerini kontrollü kullanın.",
+      "14. Rapor verisi girme veya entegrasyonla çekme: Reklam & Raporlama > Aylık Raporlar ekranında Rapor oluştur, veri gir veya entegrasyondan çek akışını kullanın.",
+      "15. AI ile reklam yorumu / HK Intelligence analizi alma: Reklam Doktoru Pro veya Agent Hub’da Yeni Agent Görevi, Auto Router, Sonucu Kaydet ve AI Hafızasına Kaydet aksiyonlarını kullanın.",
+      "16. Müşteriye görünür alanları kontrol etme: Müşteri profili görünürlük ayarlarında rapor, belge, görev ve notların müşteriye uygun olup olmadığını kontrol edin.",
+      "17. Müşteri paneli erişimini test etme: Müşteri hesabıyla panel görünürlüğünü kontrol edin; görünmemesi gereken iç not, token veya dahili görev paylaşılmamalıdır.",
+      "18. Tahsilat ve ödeme takibi: Ajans Operasyonu > Tahsilat ekranında Tahsilat ekle, Ödeme durumu güncelle ve Filtrele aksiyonlarını kullanın.",
+      "19. Aylık rapor oluşturma: Reklam & Raporlama > Aylık Raporlar alanında Rapor oluştur, AI yorumla ve PDF/Word/Excel indir aksiyonlarını kullanın.",
+      "20. Revizyon / iyileştirme planı oluşturma: Rapor, görev ve Agent Hub çıktılarından 7 günlük aksiyon planı oluşturun; satış veya ciro garantisi vermeyin.",
+      "21. Sözleşme yenileme, pasife alma veya arşivleme: Müşteriler > Müşteri detayı alanında Pasifleştir, Arşivle veya Kapanış notu ekle akışını kullanın.",
+      "22. Sözleşme bitiminde veri yedekleme ve kapanış notu: Veri Aktarma ekranında Tam Yedek İndir, gerekirse Önizleme ve Onayla ve İçe Aktar akışını kullanın; son rapor ve ödeme durumunu kontrol edin."
+    ],
+    example: "Yeni bir müşteri için önce Müşteriler ekranında firma kaydı açın, müşteri giriş hesabını oluşturun, Meta/Google bilgilerini ekleyin, ilk kampanya ve görevleri planlayın, tahsilat kaydını açın, ilk ay raporunu oluşturun ve müşteri panelinde görünürlük kontrolü yapın.",
+    commonErrors: [
+      "Token, API anahtarı veya şifreyi müşteri notu gibi açık alanlara yazmak.",
+      "Reklam bütçesi ile ajans hizmet bedelini aynı kayıt gibi takip etmek.",
+      "Müşteriye görünür yapılacak rapor, belge veya notları kontrol etmeden paylaşmak.",
+      "Sözleşme bitiminde son rapor, ödeme durumu ve veri yedeğini kontrol etmeden müşteriyi pasife almak."
+    ],
+    tips: [
+      "Hızlı aksiyonlar: Müşterilere Git, Yeni Firma Oluştur, Müşteri Keşfine Git, Kampanya Oluştur, Tahsilat Ekle, Rapor Oluştur, Agent Hub’a Git, Veri Yedekleme.",
+      "Yeni müşteri checklist: firma adı, yetkili, telefon, e-posta, şehir/sektör, website/Instagram, müşteri hesabı, panel erişimi, Meta Pixel, Google Ads ID, Analytics ID, bütçe, hizmet bedeli, ilk kampanya, görevler, rapor görünürlüğü, tahsilat ve ilk ay raporu.",
+      "Raporlarda ölçülü ve veriye dayalı dil kullanın; satış, lead veya ciro garantisi vermeyin.",
+      "Kapanışta müşteri pasife alınmadan önce yedek ve kapanış notu oluşturun."
+    ],
+    warnings: [
+      "Güvenlik: Token, API anahtarı ve şifre gibi bilgiler yalnızca güvenli entegrasyon alanlarına girilmelidir.",
+      "Müşteri paneli: Müşteriye görünür rapor, belge ve notlar gönderilmeden önce mutlaka kontrol edilmelidir.",
+      "Tahsilat: Reklam bütçesi ve hizmet bedeli ayrı takip edilmelidir.",
+      "Kapanış: Sözleşme bitiminde son rapor, ödeme durumu ve veri yedeği kontrol edilmelidir."
+    ]
+  }
+};
+
 function slugify(value: string) {
   return value.toLocaleLowerCase("tr").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ı/g, "i").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
-export const systemGuideSeeds: SystemGuideSeed[] = definitions.map(([title, category, description, route]) => ({
+export const systemGuideSeeds: SystemGuideSeed[] = [customerJourneyGuide, ...definitions.map(([title, category, description, route]) => ({
   slug: slugify(title),
   title,
   category,
@@ -191,4 +254,4 @@ export const systemGuideSeeds: SystemGuideSeed[] = definitions.map(([title, cate
     tips: ["Önce filtreleri temizleyip doğru kaydı seçin.", "Kritik değişikliklerden sonra ilgili müşteri panelini veya raporu kontrol edin."],
     warnings: ["Token, API anahtarı, dahili not veya müşteri için gizli bilgileri paylaşılabilir alanlara yazmayın.", "Silme yerine mevcutsa arşivleme akışını tercih edin."]
   }
-}));
+}))];
