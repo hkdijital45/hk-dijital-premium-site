@@ -23,6 +23,7 @@ const tables = {
   customerFiles: "customer_files",
   media: "media_files",
   customerBranding: "customer_branding",
+  customerIntegrations: "customer_integrations",
   monthlyReports: "monthly_reports",
   agencyTasks: "agency_tasks",
   customerDocuments: "customer_documents",
@@ -263,6 +264,39 @@ function normalizeRecord(key: string, item: any) {
       contact_whatsapp: item.contact_whatsapp || item.contactWhatsapp || "",
       onboarding_data: item.onboarding_data || item.onboardingData || {},
       onboarding_completed_at: item.onboarding_completed_at || item.onboardingCompletedAt || null,
+      updated_at: new Date().toISOString()
+    };
+  }
+
+  if (key === "customerIntegrations") {
+    return {
+      ...base,
+      company_id: item.company_id || null,
+      domain: item.domain || "",
+      website_url: item.website_url || item.websiteUrl || "",
+      cms_provider: item.cms_provider || item.cmsProvider || "",
+      hosting_notes: item.hosting_notes || item.hostingNotes || "",
+      meta_business_id: item.meta_business_id || item.metaBusinessId || "",
+      meta_ad_account_id: item.meta_ad_account_id || item.metaAdAccountId || "",
+      meta_pixel_id: item.meta_pixel_id || item.metaPixelId || "",
+      meta_dataset_id: item.meta_dataset_id || item.metaDatasetId || "",
+      meta_page_id: item.meta_page_id || item.metaPageId || "",
+      instagram_business_id: item.instagram_business_id || item.instagramBusinessId || "",
+      meta_access_token_masked: item.meta_access_token_masked || item.metaAccessTokenMasked || "",
+      ga4_measurement_id: item.ga4_measurement_id || item.ga4MeasurementId || "",
+      ga4_property_id: item.ga4_property_id || item.ga4PropertyId || "",
+      google_ads_customer_id: item.google_ads_customer_id || item.googleAdsCustomerId || "",
+      search_console_site_url: item.search_console_site_url || item.searchConsoleSiteUrl || "",
+      gtm_container_id: item.gtm_container_id || item.gtmContainerId || "",
+      google_service_account_email: item.google_service_account_email || item.googleServiceAccountEmail || "",
+      google_service_account_status: item.google_service_account_status || item.googleServiceAccountStatus || "not_configured",
+      clarity_project_id: item.clarity_project_id || item.clarityProjectId || "",
+      hotjar_site_id: item.hotjar_site_id || item.hotjarSiteId || "",
+      preferred_ai_provider: item.preferred_ai_provider || item.preferredAiProvider || "auto",
+      ai_notes: item.ai_notes || item.aiNotes || "",
+      setup_status: item.setup_status || item.setupStatus || {},
+      setup_progress: Number(item.setup_progress ?? item.setupProgress ?? 0),
+      last_checked_at: item.last_checked_at || item.lastCheckedAt || null,
       updated_at: new Date().toISOString()
     };
   }
@@ -609,14 +643,14 @@ async function upsertItems(key: keyof typeof tables, items: any[] = []) {
       })
     : normalized;
   const records = deduped.filter((item: any) => {
-    if (["campaigns", "campaignMetrics", "metaAdsetMetrics", "metaAdMetrics", "metaConversionEvents", "metaAnalysisSnapshots", "customerReportVisibility", "customerUpdates", "customerVisibilitySettings", "customerFiles", "customerBranding", "monthlyReports", "customerDocuments", "paymentRecords", "reports", "competitorAnalyses", "socialMediaPlans"].includes(key)) {
+    if (["campaigns", "campaignMetrics", "metaAdsetMetrics", "metaAdMetrics", "metaConversionEvents", "metaAnalysisSnapshots", "customerReportVisibility", "customerUpdates", "customerVisibilitySettings", "customerFiles", "customerBranding", "customerIntegrations", "monthlyReports", "customerDocuments", "paymentRecords", "reports", "competitorAnalyses", "socialMediaPlans"].includes(key)) {
       return Boolean(item.company_id);
     }
     return true;
   });
   if (!records.length) return [];
 
-  const conflictTarget = key === "customerVisibilitySettings" ? "company_id" : key === "customerReportVisibility" ? "company_id,section_key,metric_key" : key === "systemTestChecklist" ? "item_key" : "id";
+  const conflictTarget = key === "customerVisibilitySettings" || key === "customerIntegrations" ? "company_id" : key === "customerReportVisibility" ? "company_id,section_key,metric_key" : key === "systemTestChecklist" ? "item_key" : "id";
   const stripOptionalColumns = (record: any) => {
     const copy = { ...record };
     if (key === "companies") delete copy.notes;
@@ -700,7 +734,7 @@ async function upsertItems(key: keyof typeof tables, items: any[] = []) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Supabase kaydetme hatası.";
     if (["companies", "leads", "campaigns", "agencyTasks", "paymentRecords", "customerBranding", "customerVisibilitySettings"].includes(key)) throw error;
-    if (["metaAdsetMetrics", "metaAdMetrics", "metaConversionEvents", "metaAnalysisSnapshots", "customerReportVisibility", "monthlyReports", "customerDocuments", "reports", "competitorAnalyses", "socialMediaPlans", "agencyExpenses", "sectorConfigs", "systemTestRuns", "systemTestChecklist", "activityLogs", "agencyOpportunities", "agencyOpportunityEvents", "agencyDailyTasks", "agencyTargets", "agencyLearningSignals", "proposalFollowups"].includes(key) && (message.includes("schema cache") || message.includes("relation") || message.includes("table"))) {
+    if (["metaAdsetMetrics", "metaAdMetrics", "metaConversionEvents", "metaAnalysisSnapshots", "customerReportVisibility", "customerIntegrations", "monthlyReports", "customerDocuments", "reports", "competitorAnalyses", "socialMediaPlans", "agencyExpenses", "sectorConfigs", "systemTestRuns", "systemTestChecklist", "activityLogs", "agencyOpportunities", "agencyOpportunityEvents", "agencyDailyTasks", "agencyTargets", "agencyLearningSignals", "proposalFollowups"].includes(key) && (message.includes("schema cache") || message.includes("relation") || message.includes("table"))) {
       console.warn(`${table} tablosu canlı şemada bulunamadı; migration uygulanana kadar bu modül atlandı.`);
       return [];
     }
@@ -725,7 +759,7 @@ export async function GET() {
     return NextResponse.json({ error: "Supabase bağlantısı yapılandırılmadı." }, { status: 500 });
   }
 
-  const [companies, users, leads, campaigns, campaignMetrics, metaAdsetMetrics, metaAdMetrics, metaConversionEvents, metaAnalysisSnapshots, customerReportVisibility, customerUpdates, customerVisibilitySettings, customerFiles, media, customerBranding, monthlyReports, agencyTasks, customerDocuments, paymentRecords, reports, competitorAnalyses, socialMediaPlans, agencyExpenses, sectorConfigs, systemTestRuns, systemTestChecklist, activityLogs, adIntegrations, agencyOpportunities, agencyOpportunityEvents, agencyDailyTasks, agencyTargets, agencyLearningSignals, proposalFollowups] =
+  const [companies, users, leads, campaigns, campaignMetrics, metaAdsetMetrics, metaAdMetrics, metaConversionEvents, metaAnalysisSnapshots, customerReportVisibility, customerUpdates, customerVisibilitySettings, customerFiles, media, customerBranding, customerIntegrations, monthlyReports, agencyTasks, customerDocuments, paymentRecords, reports, competitorAnalyses, socialMediaPlans, agencyExpenses, sectorConfigs, systemTestRuns, systemTestChecklist, activityLogs, adIntegrations, agencyOpportunities, agencyOpportunityEvents, agencyDailyTasks, agencyTargets, agencyLearningSignals, proposalFollowups] =
     await Promise.all([
       supabaseRest("companies?select=*&order=created_at.desc"),
       supabaseRest("users?deleted_at=is.null&select=*&order=created_at.desc"),
@@ -742,6 +776,7 @@ export async function GET() {
       supabaseRest("customer_files?select=*&order=uploaded_at.desc"),
       supabaseRest("media_files?select=*&order=uploaded_at.desc"),
       supabaseRest("customer_branding?select=*&order=updated_at.desc").catch(() => []),
+      supabaseRest("customer_integrations?select=*&order=updated_at.desc").catch(() => []),
       supabaseRest("monthly_reports?select=*&order=updated_at.desc").catch(() => []),
       supabaseRest("agency_tasks?select=*&order=due_date.asc").catch(() => []),
       supabaseRest("customer_documents?select=*&order=document_date.desc").catch(() => []),
@@ -779,6 +814,7 @@ export async function GET() {
     customerFiles,
     media,
     customerBranding,
+    customerIntegrations,
     monthlyReports,
     agencyTasks,
     customerDocuments,
@@ -822,6 +858,7 @@ export async function PUT(request: Request) {
       upsertItems("customerVisibilitySettings", payload.customerVisibilitySettings),
       upsertItems("customerFiles", payload.customerFiles),
       upsertItems("customerBranding", payload.customerBranding),
+      upsertItems("customerIntegrations", payload.customerIntegrations),
       upsertItems("monthlyReports", payload.monthlyReports),
       upsertItems("agencyTasks", payload.agencyTasks),
       upsertItems("customerDocuments", payload.customerDocuments),

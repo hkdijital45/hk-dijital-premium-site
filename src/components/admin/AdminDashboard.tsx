@@ -19,6 +19,7 @@ import { QaCenter } from "@/components/admin/QaCenter";
 import { AdminCustomerSelector, GlobalMetaPixelSettings, MetaPixelSettingsPanel } from "@/components/admin/AdminCustomerOperations";
 import { CustomerProfileTasks } from "@/components/admin/customer-profile/CustomerProfileTasks";
 import { CustomerBrandAssets } from "@/components/admin/customer-profile/CustomerBrandAssets";
+import { CustomerIntegrationsPanel } from "@/components/admin/customer-profile/CustomerIntegrationsPanel";
 import { AiProviderSelector } from "@/components/admin/AiProviderSelector";
 import { Logo } from "@/components/public/Logo";
 import { adminNavigationGroups, adminNavigationItems, getAdminHref } from "@/lib/admin-navigation";
@@ -426,7 +427,8 @@ export function AdminDashboard({
       setMobileOperationMode(false);
     }
     const activeCompanies = (initialContent.companies || []).filter((company: any) => !company.status || company.status === "Aktif");
-    const rememberedCompany = localStorage.getItem("hk-admin-selected-company") || "";
+    const queryCompanyId = new URLSearchParams(window.location.search).get("companyId") || "";
+    const rememberedCompany = queryCompanyId || localStorage.getItem("hk-admin-selected-company") || "";
     const validRememberedCompany = activeCompanies.some((company: any) => company.id === rememberedCompany) ? rememberedCompany : "";
     setSelectedCompanyId(validRememberedCompany);
     setPendingCompanyId(validRememberedCompany);
@@ -5017,7 +5019,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
     show_files: true,
     show_contact_person: true
   };
-  const tabs = ["Genel Bilgi", "Müşteri Kurulumu", "Marka Varlıkları", "İletişim", "Satış Durumu", "Reklam Hesapları", "Kampanyalar", "Teklifler", "Ödemeler", "Yapılacaklar", "Raporlar", "Dosyalar", "Zaman Çizelgesi", "Panel Görünürlüğü", "Giriş Bilgileri", "Metrikler", "Yapılan Çalışmalar", "Aktivite Geçmişi", "Notlar"];
+  const tabs = ["Genel Bilgi", "Müşteri Kurulumu", "Entegrasyonlar", "Marka Varlıkları", "İletişim", "Satış Durumu", "Reklam Hesapları", "Kampanyalar", "Teklifler", "Ödemeler", "Yapılacaklar", "Raporlar", "Dosyalar", "Zaman Çizelgesi", "Panel Görünürlüğü", "Giriş Bilgileri", "Metrikler", "Yapılan Çalışmalar", "Aktivite Geçmişi", "Notlar"];
   async function runProfileAction(label, action) {
     setProfileAction(`${label}...`);
     try {
@@ -5134,6 +5136,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
         <button onClick={() => saveCompany(company)} className="w-fit rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Firma bilgilerini kaydet</button>
       </div>}
       {tab === "Müşteri Kurulumu" && <CustomerOnboardingEditor company={company} content={content} setContent={setContent} setTab={setTab} notify={notify} />}
+      {tab === "Entegrasyonlar" && <CustomerIntegrationsPanel company={company} users={users} campaigns={campaigns} reports={reports} content={content} setContent={setContent} notify={notify} />}
       {tab === "Marka Varlıkları" && <CustomerBrandAssets company={company} content={content} setContent={setContent} notify={notify} mode="full" />}
       {tab === "Giriş Bilgileri" && <div>
         <p className="mb-4 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-700">Müşteri şifresi güvenlik nedeniyle düz metin olarak saklanmaz. Yeni geçici şifre oluşturabilirsiniz.</p>

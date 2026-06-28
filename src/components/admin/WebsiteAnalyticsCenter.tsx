@@ -1,8 +1,9 @@
 "use client";
+/* eslint-disable react-hooks/set-state-in-effect, @typescript-eslint/no-explicit-any */
 
 import { useEffect, useMemo, useState } from "react";
-import { Activity, BarChart3, CheckCircle2, MousePointerClick, RefreshCcw, Settings2, ShieldCheck, XCircle } from "lucide-react";
-import type { WebsiteAnalyticsResponse } from "@/lib/website-analytics";
+import { Activity, BarChart3, CheckCircle2, ExternalLink, MousePointerClick, RefreshCcw, Settings2, ShieldCheck, XCircle } from "lucide-react";
+import type { AnalyticsCheckStatus, AnalyticsStatusItem, WebsiteAnalyticsResponse } from "@/lib/website-analytics";
 import { WebsiteAnalyticsSummaryCards } from "@/components/admin/WebsiteAnalyticsSummaryCards";
 
 const numberFormat = new Intl.NumberFormat("tr-TR");
@@ -20,6 +21,42 @@ function statusLabel(status?: WebsiteAnalyticsResponse["status"]) {
 
 function setupRow(label: string, ready: boolean, description: string) {
   return { label, ready, description };
+}
+
+function integrationStatusLabel(status: AnalyticsCheckStatus) {
+  if (status === "ready") return "Hazır";
+  if (status === "error") return "Hatalı";
+  if (status === "optional") return "Opsiyonel";
+  if (status === "not_configured") return "Yapılandırılmadı";
+  return "Eksik";
+}
+
+function integrationStatusClass(status: AnalyticsCheckStatus) {
+  if (status === "ready") return "bg-emerald-100 text-emerald-700";
+  if (status === "error") return "bg-red-100 text-red-700";
+  if (status === "optional") return "bg-sky-100 text-sky-700";
+  if (status === "not_configured") return "bg-slate-100 text-slate-700";
+  return "bg-amber-100 text-amber-700";
+}
+
+function IntegrationCard({ item }: { item: AnalyticsStatusItem }) {
+  return (
+    <article className="rounded-[16px] border border-slate-200 bg-slate-50 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-black text-slate-950">{item.label}</p>
+          <p className="mt-1 text-xs leading-5 text-slate-500">{item.help}</p>
+        </div>
+        <span className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-black ${integrationStatusClass(item.status)}`}>{integrationStatusLabel(item.status)}</span>
+      </div>
+      {item.missingEnv.length > 0 && (
+        <p className="mt-3 rounded-[12px] border border-amber-200 bg-amber-50 p-3 text-xs font-semibold leading-5 text-amber-800">
+          Eksik env: {item.missingEnv.join(", ")}
+        </p>
+      )}
+      {item.isSecret && <p className="mt-2 text-[11px] font-bold text-slate-500">Secret değer gösterilmez; yalnızca var/yok durumu kontrol edilir.</p>}
+    </article>
+  );
 }
 
 export function WebsiteAnalyticsCenter() {
@@ -59,6 +96,7 @@ export function WebsiteAnalyticsCenter() {
   }, [data?.setup]);
 
   const summary = data?.summary;
+  const criticalMissing = data?.integrationStatus?.criticalMissing || [];
   const overviewCards = [
     { label: "PageView", value: summary?.last7DaysPageViews ?? 0, description: "Son 7 günlük sayfa görüntüleme." },
     { label: "Contact", value: summary?.contacts ?? 0, description: "WhatsApp ve iletişim tıklamaları." },
@@ -97,6 +135,24 @@ export function WebsiteAnalyticsCenter() {
       </section>
 
       <WebsiteAnalyticsSummaryCards />
+
+      <section className="rounded-[22px] border border-amber-200 bg-amber-50 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[.16em] text-amber-700">Eksik Entegrasyonlar</p>
+            <h3 className="mt-2 text-xl font-black text-slate-950">
+              {criticalMissing.length ? `${criticalMissing.length} gelişmiş ölçüm eksiği var` : "Temel ölçüm hazır görünüyor"}
+            </h3>
+            <p className="mt-1 text-sm leading-6 text-amber-900">
+              Pixel ve GA4 public ölçüm varsa temel ölçüm çalışır. Meta Dataset ve Google servis hesabı gelişmiş server-side raporlama için gerekir.
+            </p>
+          </div>
+          <a href="https://vercel.com/docs/projects/environment-variables" target="_blank" rel="noreferrer" className="rounded-full border border-amber-300 bg-white px-4 py-2 text-xs font-black text-amber-800">
+            Vercel env rehberi
+          </a>
+        </div>
+        {criticalMissing.length > 0 && <p className="mt-3 text-sm font-semibold text-amber-900">Öncelikli eksikler: {criticalMissing.slice(0, 6).join(", ")}</p>}
+      </section>
 
       <section className="grid gap-4 lg:grid-cols-3">
         {overviewCards.map((card) => (
@@ -224,6 +280,93 @@ export function WebsiteAnalyticsCenter() {
           </div>
         </div>
       </section>
+
+      <section className="rounded-[22px] border border-slate-200 bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
+        <div className="mb-5 flex items-center gap-3">
+          <span className="grid size-11 place-items-center rounded-[16px] bg-cyan-100 text-cyan-700"><Settings2 size={20} /></span>
+          <div>
+            <h3 className="text-lg font-black text-slate-950">Veri Kaynakları ve Güvenli Env Kontrolü</h3>
+            <p className="text-sm text-slate-500">Token, private key ve secret değerleri tarayıcıya gönderilmeden yalnızca durum olarak gösterilir.</p>
+          </div>
+        </div>
+        <div className="grid gap-5 xl:grid-cols-2">
+          {[
+            ["Meta", data?.integrationStatus?.meta || []],
+            ["Google Analytics 4", data?.integrationStatus?.ga4 || []],
+            ["Search Console", data?.integrationStatus?.searchConsole || []],
+            ["Google Ads", data?.integrationStatus?.googleAds || []],
+            ["Google Tag Manager", data?.integrationStatus?.tagManager || []],
+            ["Microsoft Clarity", data?.integrationStatus?.clarity || []],
+            ["Hotjar", data?.integrationStatus?.hotjar || []]
+          ].map(([title, items]: any) => (
+            <div key={title} className="rounded-[18px] border border-slate-200 p-4">
+              <h4 className="mb-3 font-black text-slate-950">{title}</h4>
+              <div className="grid gap-3">{items.map((item: AnalyticsStatusItem) => <IntegrationCard key={item.key} item={item} />)}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-[22px] border border-slate-200 bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
+        <div className="mb-5 flex items-center gap-3">
+          <span className="grid size-11 place-items-center rounded-[16px] bg-emerald-100 text-emerald-700"><BarChart3 size={20} /></span>
+          <div>
+            <h3 className="text-lg font-black text-slate-950">Müşteri Entegrasyon Durumu</h3>
+            <p className="text-sm text-slate-500">Her müşterinin domain, Meta, Google, GA4, Google Ads ve davranış analitiği hazırlığını özetler.</p>
+          </div>
+        </div>
+        <div className="grid gap-3">
+          {(data?.customerIntegrations || []).map((item) => (
+            <article key={item.companyId} className="rounded-[16px] border border-slate-200 bg-slate-50 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="font-black text-slate-950">{item.companyName}</p>
+                  <p className="text-xs font-semibold text-slate-500">{item.domain || "Domain girilmedi"} · Son kontrol: {item.lastCheckedAt ? new Date(item.lastCheckedAt).toLocaleString("tr-TR") : "Henüz yok"}</p>
+                </div>
+                <a href={`/hk-admin/musteriler?companyId=${item.companyId}&tab=integrations`} className="inline-flex items-center gap-2 rounded-full bg-cyan-500 px-4 py-2 text-xs font-black text-white">
+                  Müşteri Profilinde Düzenle <ExternalLink size={13} />
+                </a>
+              </div>
+              <div className="mt-4 grid gap-2 md:grid-cols-5">
+                <MiniStatus label="Kurulum" value={`%${item.setupProgress}`} status={item.setupProgress >= 70 ? "ready" : "missing"} />
+                <MiniStatus label="Meta" value={integrationStatusLabel(item.metaStatus)} status={item.metaStatus} />
+                <MiniStatus label="GA4" value={integrationStatusLabel(item.ga4Status)} status={item.ga4Status} />
+                <MiniStatus label="Google Ads" value={integrationStatusLabel(item.googleAdsStatus)} status={item.googleAdsStatus} />
+                <MiniStatus label="Clarity/Hotjar" value={integrationStatusLabel(item.behaviorStatus)} status={item.behaviorStatus} />
+              </div>
+            </article>
+          ))}
+          {!data?.customerIntegrations?.length && <p className="rounded-[16px] border border-dashed border-slate-200 p-5 text-sm font-semibold text-slate-500">Henüz müşteri entegrasyon kaydı yok. Müşteri profilindeki Entegrasyonlar sekmesinden başlayın.</p>}
+        </div>
+      </section>
+
+      <section className="rounded-[22px] border border-slate-200 bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
+        <h3 className="text-lg font-black text-slate-950">Kurulum Rehberi</h3>
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          {[
+            ["Meta Dataset ID nasıl alınır?", "Meta Business > Events Manager > Pixel/Dataset > Settings alanından Dataset ID değerini kopyalayıp Vercel Environment Variables içine META_DATASET_ID olarak ekleyin."],
+            ["Google servis hesabı nasıl oluşturulur?", "Google Cloud Console’da servis hesabı oluşturun, Analytics Data API’yi etkinleştirin, client_email/private_key/project_id değerlerini Vercel’e ekleyin ve GA4 Property Access Management alanında yetki verin."],
+            ["Search Console nasıl bağlanır?", "GOOGLE_SEARCH_CONSOLE_SITE_URL env değerini ekleyin, servis hesabı mailine property yetkisi verin ve Search Console API erişimini aktif edin."],
+            ["Google Ads nasıl bağlanır?", "GOOGLE_ADS_CUSTOMER_ID, developer token, OAuth Client ID/Secret ve refresh token gerekir. MCC kullanıyorsanız LOGIN_CUSTOMER_ID ekleyin."],
+            ["Vercel redeploy uyarısı", "Environment Variable ekledikten sonra Vercel’de Redeploy yapmalısın. Aksi halde yeni değerler production runtime’a geçmez."],
+            ["Private key formatı", "GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY çok satırlı olabilir; Vercel’de newline karakterleri \\n olarak saklanabilir."]
+          ].map(([title, text]) => (
+            <div key={title} className="rounded-[16px] border border-slate-200 bg-slate-50 p-4">
+              <p className="font-black text-slate-950">{title}</p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{text}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function MiniStatus({ label, value, status }: { label: string; value: string; status: AnalyticsCheckStatus }) {
+  return (
+    <div className="rounded-[12px] bg-white p-3">
+      <p className="text-xs font-bold text-slate-500">{label}</p>
+      <p className={`mt-2 inline-flex rounded-full px-3 py-1 text-[11px] font-black ${integrationStatusClass(status)}`}>{value}</p>
     </div>
   );
 }

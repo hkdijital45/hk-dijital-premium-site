@@ -55,10 +55,15 @@ function sourceContains(pattern: string) {
     "src/components/admin/AgentHubCenter.tsx",
     "src/components/admin/AdInsightsCenter.tsx",
     "src/components/admin/Phase2OperatingSystem.tsx",
+    "src/components/admin/WebsiteAnalyticsCenter.tsx",
+    "src/components/admin/customer-profile/CustomerIntegrationsPanel.tsx",
     "src/lib/admin-navigation.ts",
     "src/lib/agent-hub.ts",
+    "src/lib/customer-onboarding.ts",
+    "src/lib/website-analytics.ts",
     "src/lib/system-guide-content.ts",
     "src/app/api/admin/customer-operations/route.ts",
+    "src/app/api/admin/customers/[id]/integrations/route.ts",
     "src/app/api/admin/leads/[id]/route.ts",
     "src/app/api/admin/integrations/route.ts",
     "src/app/api/admin/integrations/sync/route.ts"
@@ -227,6 +232,21 @@ function scanSourcesForFindings(migrations: string) {
     ["İlgili sayfa butonları bozuk link veriyor mu?", "customerJourneyActions", "Bir Müşterinin Serüveni hızlı aksiyonları mevcut hk-admin route'larına gitmeli."],
     ["Token/API bilgileri için güvenlik uyarısı var mı?", "Token, API anahtarı", "Rehber token ve API anahtarlarının güvenli entegrasyon alanlarına girilmesini belirtmeli."],
     ["Kapanış/pasifleştirme/yedekleme adımları var mı?", "Pasifleştir", "Rehber kapanış, pasife alma, arşivleme ve veri yedekleme adımlarını içermeli."]
+    ,
+    ["Meta Dataset ID durumu kontrol ediliyor mu?", "META_DATASET_ID", "Website Analytics Center Meta Dataset ID durumunu secret göstermeden kontrol etmeli."],
+    ["Google servis hesabı secret sızdırmadan kontrol ediliyor mu?", "GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY", "Google servis hesabı private key değeri sadece server-side var/yok ve format kontrolünden geçmeli."],
+    ["GA4 Property ID ve Measurement ID format kontrolü var mı?", "GA4_PROPERTY_ID", "GA4 Property ID numeric, Measurement ID G- formatı kontrol edilmeli."],
+    ["Search Console hazırlığı var mı?", "GOOGLE_SEARCH_CONSOLE_SITE_URL", "Search Console site URL ve servis hesabı yetki hazırlığı görünmeli."],
+    ["Google Ads env kontrolü var mı?", "GOOGLE_ADS_REFRESH_TOKEN", "Google Ads Customer ID, developer token, OAuth ve refresh token eksikleri listelenmeli."],
+    ["Website Analytics kurulum rehberi var mı?", "Meta Dataset ID nasıl alınır?", "Website Analytics Center içinde Meta, Google servis hesabı, Search Console ve Google Ads kurulum rehberi bulunmalı."],
+    ["Eksik env sonrası kullanıcı dostu uyarı var mı?", "Eksik Entegrasyonlar", "Eksik env değerleri panik yaratmadan temel/gelişmiş ölçüm ayrımıyla açıklanmalı."],
+    ["Müşteri profilinde Entegrasyonlar sekmesi var mı?", "CustomerIntegrationsPanel", "Müşteri detay profilinde Entegrasyonlar sekmesi ve düzenleme paneli bulunmalı."],
+    ["customer_integrations tablosu bekleniyor mu?", "customer_integrations", "Müşteri bazlı entegrasyon bilgileri kalıcı customer_integrations tablosuna yazılmalı."],
+    ["Setup progress 14 adım üzerinden hesaplanıyor mu?", "getCustomerSetupSteps", "Müşteri kurulum ilerlemesi 14 adımlı helper çıktısından hesaplanmalı."],
+    ["Secret değerleri müşteri profilinde açık gösteriliyor mu?", "meta_access_token_masked", "Müşteri profilinde yalnız maskeli/durum alanları tutulmalı; gerçek token/private key saklanmamalı."],
+    ["Website Analytics Center müşteri entegrasyon durumunu gösteriyor mu?", "customerIntegrations", "Genel merkez müşteri entegrasyon yüzdesi ve düzenleme linkini göstermeli."],
+    ["Entegrasyon düzenleme admin-only mi?", "requireModuleAccess(\"musteriler\")", "Müşteri entegrasyon API route'ları admin/staff yetki kontrolüne bağlı olmalı."],
+    ["GA4/GTM/Meta ID validasyonları var mı?", "GA4 Measurement ID G-", "Kaydetmeden önce GA4, GTM, Meta Pixel/Dataset ve Search Console URL formatları doğrulanmalı."]
   ].forEach(([title, pattern, recommendation]) => {
     const inSource = sourceContains(pattern) || migrations.includes(String(pattern).toLocaleLowerCase("tr"));
     if (!inSource) findings.push(makeFinding({ category: "Ajans Operasyonu QA", severity: "orta", module: "Ajans Operasyon Kalıcılığı", file_path: "src/components/admin/AdminDashboard.tsx", title, description: `${pattern} sinyali statik analizde bulunamadı.`, recommendation }));
