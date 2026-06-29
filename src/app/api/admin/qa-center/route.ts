@@ -21,6 +21,7 @@ const modules = [
   { name: "HK Digital Team", slug: "hk-intelligence-ceo", api: "hk-intelligence-ceo/status", table: "hk_virtual_agents", columns: ["agent_key", "role_label", "preferred_provider"] },
   { name: "HK Risk Events", slug: "hk-intelligence-ceo", api: "hk-intelligence-ceo/status", table: "hk_risk_events", columns: ["risk_key", "severity", "recommendation"] },
   { name: "Customer Branches", slug: "hk-intelligence-ceo", api: "hk-intelligence-ceo/status", table: "customer_branches", columns: ["company_id", "branch_name", "kpi_snapshot"] },
+  { name: "HK CEO Marketplace", slug: "hk-intelligence-ceo", api: "hk-intelligence-ceo/marketplace", table: "hk_marketplace_packages", columns: ["package_name", "sector", "workflow_steps", "operation_plan"] },
   { name: "HK Agent Hub", slug: "agent-hub", api: "agent-hub/providers", table: "agent_runs", columns: ["task_type", "selected_provider", "output_payload", "final_report", "provider_chain", "progress_events"] },
   { name: "HK Agent Hub Planlı Görevler", slug: "agent-hub", api: "agent-hub/scheduled", table: "agent_scheduled_tasks", columns: ["task_type", "schedule_frequency", "next_run_at", "multi_agent"] },
   { name: "HK Agent Hub Hafıza", slug: "agent-hub", api: "agent-hub/memory", table: "agent_memories", columns: ["company_id", "memory_type", "impact_score", "is_active"] },
@@ -73,7 +74,11 @@ function sourceContains(pattern: string) {
     "src/app/api/admin/integrations/route.ts",
     "src/app/api/admin/integrations/sync/route.ts",
     "src/app/api/admin/hk-intelligence-ceo/status/route.ts",
-    "src/app/api/admin/hk-intelligence-ceo/copilot/route.ts"
+    "src/app/api/admin/hk-intelligence-ceo/copilot/route.ts",
+    "src/app/api/admin/hk-intelligence-ceo/marketplace/route.ts",
+    "src/app/api/admin/hk-intelligence-ceo/marketplace/generate/route.ts",
+    "src/app/api/admin/hk-intelligence-ceo/agents/route.ts",
+    "src/app/api/admin/hk-intelligence-ceo/operations/route.ts"
   ].filter(fileExists);
   return files.some((file) => readFileSync(path.join(/* turbopackIgnore: true */ process.cwd(), file), "utf8").includes(pattern));
 }
@@ -270,6 +275,16 @@ function scanSourcesForFindings(migrations: string) {
     ["Çok şubeli yapı migrationı var mı?", "customer_branches", "Müşterinin birden fazla şubesini aynı panel altında ayıran tablo beklenmeli."],
     ["HK Intelligence Final Layer zorunlu mu?", "HK Intelligence Final Layer", "Hiçbir AI çıktısı doğrudan değil, final karar katmanı üzerinden sunulmalı."],
     ["Secret client'a dönüyor mu?", "secretsReturned: false", "Status endpointleri secret değerleri yerine yalnız hazır/eksik durumunu döndürmeli."]
+    ,
+    ["HK CEO kartları tıklanabilir mi?", "openDetail", "CEO ekranındaki kartlar modal, yönlendirme veya payload aksiyonuna bağlanmalı."],
+    ["Marketplace Prompt Üret çalışıyor mu?", "marketplace/generate", "Marketplace prompt/workflow/KPI/rapor/teklif çıktısı üreten route kullanmalı."],
+    ["Yeni Paket Üret butonu var mı?", "Yeni Paket Üret", "Marketplace üstünde yeni paket modalı açan aksiyon bulunmalı."],
+    ["Smart Command Palette linkleri bozuk mu?", "commandToTarget", "Komut satırları mevcut admin modül hedeflerine yönlenmeli."],
+    ["Copilot cevap veriyor mu?", "HK Intelligence ile Yanıtla", "Copilot route bağlamla Türkçe cevap üretmeli ve aksiyon butonları göstermeli."],
+    ["Agent kartları düzenleniyor mu?", "hk-intelligence-ceo/agents", "Sanal ajanlar API üzerinden listelenebilir, düzenlenebilir ve çalıştırma payload'ı üretebilir olmalı."],
+    ["Operasyon takvimi düzenleniyor mu?", "hk-intelligence-ceo/operations", "Operasyon takvimi GET/POST/PATCH route'larıyla planlanabilir olmalı."],
+    ["Risk/öneri görev oluşturabiliyor mu?", "convert-task", "Öneriler görev payload'ına veya agency_tasks kaydına dönüşebilmeli."],
+    ["Migration SQL final raporda veriliyor mu?", "hk_ceo_functional_actions", "Yeni migration SQL'i final raporda SQL Editor için tam içerikle paylaşılmalı."]
   ].forEach(([title, pattern, recommendation]) => {
     const inSource = sourceContains(pattern) || migrations.includes(String(pattern).toLocaleLowerCase("tr"));
     if (!inSource) findings.push(makeFinding({ category: "Ajans Operasyonu QA", severity: "orta", module: "Ajans Operasyon Kalıcılığı", file_path: "src/components/admin/AdminDashboard.tsx", title, description: `${pattern} sinyali statik analizde bulunamadı.`, recommendation }));
