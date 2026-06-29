@@ -4,6 +4,8 @@ import { recordActivity } from "@/lib/activity-log";
 import { requireModuleAccess } from "@/lib/permissions";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 import { uuidPattern } from "@/lib/meta-pixel-admin";
+import { buildActionResult } from "@/lib/action-result";
+import { isEmptyLikeValue, normalizePhoneInput } from "@/lib/phone-format";
 
 const editableFields = [
   "branch_name",
@@ -29,7 +31,8 @@ const editableFields = [
 ] as const;
 
 function cleanString(value: unknown) {
-  return String(value ?? "").trim();
+  const cleaned = String(value ?? "").trim();
+  return isEmptyLikeValue(cleaned) ? "" : cleaned;
 }
 
 function cleanNumber(value: unknown) {
@@ -69,6 +72,7 @@ function patchPayload(body: Record<string, any>, profileId?: string | null) {
   for (const field of editableFields) {
     if (!(field in body)) continue;
     if (field === "monthly_ad_budget" || field === "monthly_service_fee") payload[field] = cleanNumber(body[field]);
+    else if (field === "phone" || field === "whatsapp") payload[field] = normalizePhoneInput(body[field]);
     else if (field === "status") payload[field] = normalizeStatus(body[field]);
     else payload[field] = cleanString(body[field]);
   }
@@ -100,7 +104,29 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       companyId: id,
       details: { message: "Müşteri şubesi güncellendi.", branch_name: branch.branch_name, status: branch.status, result: "Başarılı" }
     }).catch(() => null);
-    return NextResponse.json({ ok: true, branch, message: branch.status === "passive" ? "Şube pasife alındı." : "Şube güncellendi." });
+    const passive = branch.status === "passive";
+    return NextResponse.json({
+      ok: true,
+      branch,
+      message: passive ? "Şube pasife alındı." : "Şube güncellendi.",
+      ...buildActionResult({
+        title: passive ? "Şube pasife alındı" : "Şube güncellendi",
+        summary: passive ? `${branch.branch_name || "Şube"} aktif operasyon listesinden çıkarıldı; kayıt silinmedi.` : `${branch.branch_name || "Şube"} bilgileri güncellendi.`,
+        entityType: "Şube",
+        entityId: branchId,
+        companyId: id,
+        branchId,
+        status: "success",
+        createdRecords: [{ label: "Şube", count: 1, status: passive ? "Pasife alındı" : "Güncellendi" }],
+        nextActions: passive ? ["Pasif şubeye bağlı görevleri kontrol et.", "Gerekirse rapor ve kampanya filtrelerini güncelle."] : ["Şube entegrasyonlarını kontrol et.", "Şube için rapor veya Agent analizi başlat."],
+        checkLinks: [
+          { label: "Müşteri Profilini Aç", href: `/hk-admin/musteriler?companyId=${id}&tab=branches` },
+          { label: "Şube Analizi", href: `/hk-admin/agent-hub?companyId=${id}&branchId=${branchId}&taskType=branch_analysis` }
+        ],
+        customerVisibility: { showToCustomer: false, label: "Bu şube işlemi müşteri paneline otomatik açılmadı." },
+        technicalDetails: { branch_id: branchId, company_id: id, status: branch.status }
+      })
+    });
   } catch (error) {
     const safe = getSafeSupabaseError(error);
     return NextResponse.json({ error: safe.title, supabaseError: safe.detail }, { status: 500 });

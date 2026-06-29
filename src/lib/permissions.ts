@@ -10,7 +10,7 @@ export const adminModules = [
   "prompt-kutuphanesi", "kampanya-hazirligi", "kampanyalar", "teklifler", "teklif-listesi", "raporlar", "website-analytics", "ad-insights",
   "rapor-yorumlari", "disa-aktarimlar", "kullanicilar", "roller-yetkiler",
   "site-ayarlari", "api-ayarlari", "tema-ayarlari", "medya", "sistem-loglari",
-  "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi",
+  "gorevler", "belgeler", "tahsilat", "karlilik", "muhasebe", "muhasebe-export", "rakip-analizi",
   "sosyal-medya-plani", "aylik-raporlar", "hk-asistan", "agent-hub", "hk-intelligence-ceo", "sektor-sistemleri",
   "sistem-sagligi", "sistem-test-merkezi", "sistem-rehberi", "veri-aktarma", "qa-center"
 ] as const;
@@ -36,7 +36,7 @@ export const roleTemplates: Record<CanonicalRole, AdminModule[]> = {
     "dashboard", "genel-arama", "kullanim-kilavuzu", "crm", "leads", "musteriler",
     "takip-gorevleri", "notlar", "musteri-bulucu", "haritalar", "bolgesel-analiz",
     "kaydedilen-adaylar", "meta-analiz", "google-analiz", "sosyal-medya-denetimi", "hazirlik", "ai-studio", "agent-hub", "hk-intelligence-ceo", "kampanyalar", "teklifler", "teklif-listesi",
-    "raporlar", "website-analytics", "ad-insights", "rapor-yorumlari", "disa-aktarimlar", "gorevler", "belgeler", "tahsilat", "karlilik",
+    "raporlar", "website-analytics", "ad-insights", "rapor-yorumlari", "disa-aktarimlar", "gorevler", "belgeler",
     "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "hk-asistan", "sektor-sistemleri", "sistem-sagligi", "sistem-rehberi", "veri-aktarma"
   ],
   editor: [
@@ -86,4 +86,10 @@ export async function requireModuleAccess(module: string) {
 export async function requireAdmin() {
   const session = await getSession();
   return normalizeRole(session?.role) === "admin" ? session : null;
+}
+
+export function canViewAccounting(session?: AppSession | null) {
+  const role = normalizeRole(session?.role);
+  const allowed = Array.isArray(session?.allowedModules) ? session.allowedModules : [];
+  return role === "admin" || ["owner", "finance"].includes(String(session?.role || "").toLocaleLowerCase("tr")) || allowed.includes("muhasebe");
 }

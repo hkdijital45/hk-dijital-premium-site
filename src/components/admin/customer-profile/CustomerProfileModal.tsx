@@ -3,6 +3,9 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
+import { ActionResultPanel } from "@/components/admin/ActionResultPanel";
+import type { ActionResult } from "@/lib/action-result";
+import { formatTurkishPhone, isEmptyLikeValue, normalizePhoneInput } from "@/lib/phone-format";
 
 const paidStatuses = ["Ödendi", "Tahsil Edildi"];
 
@@ -106,10 +109,22 @@ function toBranchForm(branch?: any) {
   return {
     ...emptyBranchForm,
     ...(branch || {}),
+    phone: formatTurkishPhone(branch?.phone || ""),
+    whatsapp: formatTurkishPhone(branch?.whatsapp || ""),
     monthly_ad_budget: branch?.monthly_ad_budget ? String(branch.monthly_ad_budget) : "",
     monthly_service_fee: branch?.monthly_service_fee ? String(branch.monthly_service_fee) : "",
     status: branch?.status || (branch?.is_active === false ? "passive" : "active")
   };
+}
+
+function branchDisplay(value: unknown) {
+  return isEmptyLikeValue(value) ? "Mevcut değil" : String(value || "Mevcut değil");
+}
+
+function googleMapsTarget(branch: any) {
+  if (branch?.google_maps_url) return String(branch.google_maps_url);
+  const query = [branch?.address, branch?.district, branch?.city, branch?.branch_name].filter(Boolean).join(" ");
+  return query ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}` : "";
 }
 
 export function CustomerProfileModal({
@@ -142,6 +157,8 @@ export function CustomerProfileModal({
   const [branchForm, setBranchForm] = useState<Record<string, any>>(emptyBranchForm);
   const [branchSaving, setBranchSaving] = useState(false);
   const [branchMessage, setBranchMessage] = useState("");
+  const [actionResult, setActionResult] = useState<ActionResult | null>(null);
+  const [branchAction, setBranchAction] = useState<any>(null);
   const branches = localBranches;
   const latestApplication = applications[0] || {};
   const missingIntegrations = [
@@ -199,6 +216,7 @@ export function CustomerProfileModal({
       setBranchEditor(saved);
       setBranchForm(toBranchForm(saved));
       setBranchMessage(payload.message || "Şube kaydedildi.");
+      setActionResult(payload.actionResult || null);
     } catch (error) {
       setBranchMessage(error instanceof Error ? error.message : "Şube kaydedilemedi.");
     } finally {
@@ -220,6 +238,7 @@ export function CustomerProfileModal({
       const saved = payload.branch;
       setLocalBranches((items) => items.map((item) => item.id === saved.id ? saved : item));
       setBranchMessage(payload.message || "Şube pasife alındı.");
+      setActionResult(payload.actionResult || null);
     } catch (error) {
       setBranchMessage(error instanceof Error ? error.message : "Şube pasife alınamadı.");
     } finally {
@@ -227,9 +246,32 @@ export function CustomerProfileModal({
     }
   }
 
+  function openMaps(branch: any) {
+    const target = googleMapsTarget(branch);
+    if (!target) {
+      setBranchAction({ type: "message", title: "Google Maps bağlantısı eksik", branch, message: "Google Maps bağlantısı için adres veya Google Maps URL gir." });
+      return;
+    }
+    window.open(target, "_blank", "noopener,noreferrer");
+  }
+
+  function startBranchAnalysis(branch: any) {
+    const missing = [
+      !branch.meta_ad_account_id ? "Meta Ad Account ID" : "",
+      !branch.google_ads_customer_id ? "Google Ads Customer ID" : "",
+      !branch.ga4_property_id ? "GA4 Property ID" : "",
+      !branch.search_console_site_url ? "Search Console URL" : ""
+    ].filter(Boolean);
+    setBranchAction({ type: "agent", title: "Şube Analizi Başlat", branch, missing });
+  }
+
+  function createBranchReport(branch: any) {
+    setBranchAction({ type: "report", title: "Şube Raporu Hazırla", branch, reportType: "Haftalık şube özeti" });
+  }
+
   return (
     <div className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/50 p-0 sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className="flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-auto sm:max-h-[85vh] sm:max-w-6xl sm:rounded-[26px]" onMouseDown={(event) => event.stopPropagation()}>
+      <section className="flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-auto sm:max-h-[88vh] sm:w-[min(1200px,94vw)] sm:rounded-[26px]" onMouseDown={(event) => event.stopPropagation()}>
         <header className="flex items-start justify-between gap-3 border-b border-slate-200 p-5">
           <div>
             <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Müşteri Profili</p>
@@ -239,6 +281,7 @@ export function CustomerProfileModal({
           <button onClick={onClose} aria-label="Kapat" className="rounded-full border border-slate-200 p-2 text-slate-500"><X size={18} /></button>
         </header>
         <div className="flex-1 overflow-y-auto p-5">
+          {actionResult && <div className="mb-5"><ActionResultPanel result={actionResult} onNavigate={(href) => window.location.assign(href)} /></div>}
           {showOverview && (
             <>
               <div className="grid gap-4 md:grid-cols-2">
@@ -281,25 +324,49 @@ export function CustomerProfileModal({
                     </div>
                   </div>
                   <div className="mt-3 grid gap-1 text-xs leading-5 text-slate-600">
-                    <span>Adres: {branch.address || "Yok"}</span>
-                    <span>Telefon/WhatsApp: {branch.phone || branch.whatsapp || "Yok"}</span>
-                    <span>E-posta: {branch.email || "Yok"}</span>
-                    <span>Website/Landing: {branch.website_url || branch.landing_page_url || "Yok"}</span>
+                    <span>Adres: {branchDisplay(branch.address)}</span>
+                    <span>Telefon/WhatsApp: {formatTurkishPhone(branch.phone || branch.whatsapp) || "Mevcut değil"}</span>
+                    <span>E-posta: {branchDisplay(branch.email)}</span>
+                    <span>Website/Landing: {branchDisplay(branch.website_url || branch.landing_page_url)}</span>
                     <span>Meta: {branch.meta_ad_account_id || "Eksik"} · Google Ads: {branch.google_ads_customer_id || "Eksik"} · GA4: {branch.ga4_property_id || "Eksik"}</span>
                     <span>Sorumlu: {branch.responsible_person || "Belirtilmedi"}</span>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button onClick={() => openBranchForm(branch)} className="rounded-[10px] bg-cyan-500 px-3 py-1.5 text-xs font-black text-white">Şubeyi Düzenle</button>
                     <button onClick={() => passiveBranch(branch)} disabled={branchSaving || branch.status === "passive" || branch.is_active === false} className="rounded-[10px] border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-600 disabled:opacity-50">Şubeyi Pasife Al</button>
-                    <button onClick={() => onGo?.("Müşteri Raporları", "Şube raporu oluşturma alanı açıldı.")} className="rounded-[10px] border border-cyan-200 bg-white px-3 py-1.5 text-xs font-black text-cyan-700">Şube Raporu Oluştur</button>
-                    <button onClick={() => onGo?.("HK Agent Hub", "Şube için Agent analizi açıldı.")} className="rounded-[10px] border border-cyan-200 bg-white px-3 py-1.5 text-xs font-black text-cyan-700">Şube İçin Agent Analizi</button>
-                    {branch.google_maps_url && <button onClick={() => window.open(branch.google_maps_url, "_blank", "noopener,noreferrer")} className="rounded-[10px] border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-600">Google Maps’te Aç</button>}
+                    <button onClick={() => createBranchReport(branch)} className="rounded-[10px] border border-cyan-200 bg-white px-3 py-1.5 text-xs font-black text-cyan-700">Şube Raporu Oluştur</button>
+                    <button onClick={() => startBranchAnalysis(branch)} className="rounded-[10px] border border-cyan-200 bg-white px-3 py-1.5 text-xs font-black text-cyan-700">Şube İçin Agent Analizi</button>
+                    <button onClick={() => openMaps(branch)} className="rounded-[10px] border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-600">Google Maps’te Aç</button>
                   </div>
                 </div>
               ))}
               {!branches.length && <p className="rounded-[14px] border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">Bu müşteri için henüz şube yok. İlk şubeyi ekleyerek şube bazlı rapor ve reklam takibine başlayabilirsin.</p>}
             </div>
             {branchMessage && <p className="mt-3 rounded-[12px] border border-cyan-200 bg-cyan-50 p-3 text-sm font-bold text-cyan-800">{branchMessage}</p>}
+          </section>
+          <section className="mt-5 rounded-[18px] border border-slate-200 bg-white p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="font-black text-slate-950">Rakipler</h3>
+                <p className="mt-1 text-sm text-slate-500">Rakip firma izleme, reklam sinyali ve Google yorum takibi için hazırlık merkezi.</p>
+              </div>
+              <button onClick={() => onGo?.("Rakip Analizi", "Rakip ekleme ve AI ile rakip bulma alanı açıldı.")} className="rounded-[12px] bg-cyan-500 px-4 py-2.5 text-sm font-black text-white">Rakip Analizine Git</button>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              {(content?.competitorWatchlist || content?.competitorAnalyses || []).filter((item: any) => item.company_id === company?.id).slice(0, 4).map((item: any) => (
+                <div key={item.id || item.competitor_name || item.name} className="rounded-[14px] border border-slate-200 bg-slate-50 p-3 text-sm">
+                  <p className="font-black text-slate-950">{item.competitor_name || item.name || item.sector || "Rakip kaydı"}</p>
+                  <p className="mt-1 text-xs text-slate-500">{item.website_url || item.website || "Web sitesi yok"} · {item.city || company.city || "Şehir yok"}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button onClick={() => onGo?.("HK Agent Hub", "Rakip için Agent analizi açıldı.")} className="rounded-[10px] border border-cyan-200 bg-white px-3 py-1.5 text-xs font-black text-cyan-700">Agent ile analiz et</button>
+                    <button onClick={() => onGo?.("Rakip Analizi", "Rakip reklam kontrolü açıldı.")} className="rounded-[10px] border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-700">Reklamları kontrol et</button>
+                  </div>
+                </div>
+              ))}
+              {!(content?.competitorWatchlist || content?.competitorAnalyses || []).filter((item: any) => item.company_id === company?.id).length && (
+                <p className="rounded-[14px] border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">Henüz rakip kaydı yok. Rakip Analizi ekranından rakip ekleyebilir veya AI ile öneri üretebilirsin.</p>
+              )}
+            </div>
           </section>
           <section className="mt-5 rounded-[18px] border border-cyan-200 bg-cyan-50 p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -350,6 +417,7 @@ export function CustomerProfileModal({
           onGo={onGo}
         />
       )}
+      {branchAction && <BranchActionModal action={branchAction} company={company} onClose={() => setBranchAction(null)} onGo={onGo} />}
     </div>
   );
 }
@@ -392,7 +460,12 @@ function BranchEditorModal({ branch, form, setForm, saving, message, onSave, onC
             {fields.map(([key, label]) => (
               <label key={key} className="grid gap-1 text-sm font-bold text-slate-700">
                 {label}
-                <input value={form[key] || ""} onChange={(event) => setForm({ ...form, [key]: event.target.value })} className="rounded-[12px] border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-900" />
+                <input
+                  value={form[key] || ""}
+                  onChange={(event) => setForm({ ...form, [key]: key === "phone" || key === "whatsapp" ? formatTurkishPhone(event.target.value) : event.target.value })}
+                  onBlur={() => (key === "phone" || key === "whatsapp") && setForm({ ...form, [key]: formatTurkishPhone(normalizePhoneInput(form[key])) })}
+                  className="rounded-[12px] border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-900"
+                />
               </label>
             ))}
             <label className="grid gap-1 text-sm font-bold text-slate-700">
@@ -412,7 +485,7 @@ function BranchEditorModal({ branch, form, setForm, saving, message, onSave, onC
         </div>
         <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 p-5">
           <div className="flex flex-wrap gap-2">
-            {form.google_maps_url && <button onClick={() => window.open(form.google_maps_url, "_blank", "noopener,noreferrer")} className="rounded-[12px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-700">Google Maps’te Aç</button>}
+            <button onClick={() => window.open(form.google_maps_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([form.address, form.district, form.city, form.branch_name].filter(Boolean).join(" "))}`, "_blank", "noopener,noreferrer")} className="rounded-[12px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-700">Google Maps’te Aç</button>
             <button onClick={() => onGo?.("HK Agent Hub", "Şube için Agent analizi açıldı.")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-2.5 text-sm font-black text-cyan-700">Şube İçin Agent Analizi</button>
             <button onClick={() => onGo?.("Müşteri Raporları", "Şube raporu oluşturma alanı açıldı.")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-2.5 text-sm font-black text-cyan-700">Şube Raporu Oluştur</button>
           </div>
@@ -421,6 +494,53 @@ function BranchEditorModal({ branch, form, setForm, saving, message, onSave, onC
             <button onClick={onSave} disabled={saving} className="rounded-[12px] bg-cyan-500 px-4 py-2.5 text-sm font-black text-white disabled:opacity-60">{saving ? "Kaydediliyor..." : editing ? "Şubeyi Güncelle" : "Kaydet"}</button>
           </div>
         </footer>
+      </section>
+    </div>
+  );
+}
+
+function BranchActionModal({ action, company, onClose, onGo }: any) {
+  const branch = action.branch || {};
+  const reportTypes = ["Haftalık şube özeti", "Google Maps görünürlük", "Reklam performansı", "Entegrasyon kontrolü", "7 günlük aksiyon planı"];
+  const [reportType, setReportType] = useState(action.reportType || reportTypes[0]);
+  const agentHref = `/hk-admin/agent-hub?companyId=${encodeURIComponent(company.id)}&branchId=${encodeURIComponent(branch.id || "")}&taskType=${action.type === "agent" ? "branch_analysis" : "customer_report"}&prompt=${encodeURIComponent(`${branch.branch_name || "Şube"} için ${action.type === "agent" ? "reklam, SEO, Maps ve rakip" : reportType} analizi hazırla.`)}`;
+  const reportPayload = {
+    title: `${branch.branch_name || "Şube"} - ${reportType}`,
+    customerName: company.name,
+    branchName: branch.branch_name,
+    createdAt: new Date().toISOString(),
+    sections: ["Yönetici özeti", "Eksik entegrasyonlar", "Bulgular", "Riskler", "7 günlük aksiyon planı"]
+  };
+
+  return (
+    <div className="fixed inset-0 z-[130] grid place-items-center bg-slate-950/55 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className="w-full max-w-2xl rounded-[22px] bg-white p-5 shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[.14em] text-cyan-700">Şube Aksiyonu</p>
+            <h3 className="mt-1 text-xl font-black text-slate-950">{action.title}</h3>
+            <p className="mt-1 text-sm text-slate-500">{branch.branch_name || "Şube"} · {company.name}</p>
+          </div>
+          <button onClick={onClose} className="rounded-full border border-slate-200 p-2 text-slate-500"><X size={18} /></button>
+        </div>
+        {action.type === "message" && <p className="mt-4 rounded-[14px] border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-800">{action.message}</p>}
+        {action.type === "agent" && (
+          <div className="mt-4 grid gap-3">
+            <p className="text-sm text-slate-600">Eksik entegrasyonlar: <b>{action.missing?.length ? action.missing.join(", ") : "Kritik eksik görünmüyor"}</b></p>
+            <div className="grid gap-2 sm:grid-cols-5">{["reklam", "SEO", "Maps", "rakip", "genel"].map((item) => <span key={item} className="rounded-full bg-cyan-50 px-3 py-2 text-center text-xs font-black text-cyan-700 ring-1 ring-cyan-200">{item}</span>)}</div>
+            <button onClick={() => window.location.assign(agentHref)} className="rounded-[12px] bg-cyan-500 px-4 py-3 text-sm font-black text-white">Agent Hub’da Şube Analizi Başlat</button>
+          </div>
+        )}
+        {action.type === "report" && (
+          <div className="mt-4 grid gap-3">
+            <label className="grid gap-2 text-sm font-bold text-slate-700">Rapor türü<select value={reportType} onChange={(event) => setReportType(event.target.value)} className="rounded-[12px] border border-slate-200 bg-slate-50 px-3 py-3 text-slate-900">{reportTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
+            <pre className="max-h-48 overflow-auto rounded-[12px] bg-slate-950 p-3 text-xs text-cyan-50">{JSON.stringify(reportPayload, null, 2)}</pre>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => onGo?.("Müşteri Raporları", `${reportType} hazırlık verisi oluşturuldu.`)} className="rounded-[12px] bg-cyan-500 px-4 py-3 text-sm font-black text-white">Rapor Oluştur</button>
+              <button onClick={() => navigator.clipboard?.writeText(JSON.stringify(reportPayload, null, 2))} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-3 text-sm font-black text-cyan-700">Hazırlık Verisini Kopyala</button>
+            </div>
+          </div>
+        )}
       </section>
     </div>
   );

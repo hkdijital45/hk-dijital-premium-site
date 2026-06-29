@@ -4,6 +4,8 @@ import { recordActivity } from "@/lib/activity-log";
 import { requireModuleAccess } from "@/lib/permissions";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 import { uuidPattern } from "@/lib/meta-pixel-admin";
+import { buildActionResult } from "@/lib/action-result";
+import { isEmptyLikeValue, normalizePhoneInput } from "@/lib/phone-format";
 
 const allowedFields = [
   "branch_name",
@@ -29,7 +31,8 @@ const allowedFields = [
 ] as const;
 
 function cleanString(value: unknown) {
-  return String(value ?? "").trim();
+  const cleaned = String(value ?? "").trim();
+  return isEmptyLikeValue(cleaned) ? "" : cleaned;
 }
 
 function cleanNumber(value: unknown) {
@@ -68,6 +71,7 @@ function branchPayload(companyId: string, body: Record<string, any>, profileId?:
   };
   for (const field of allowedFields) {
     if (field === "monthly_ad_budget" || field === "monthly_service_fee") payload[field] = cleanNumber(body[field]);
+    else if (field === "phone" || field === "whatsapp") payload[field] = normalizePhoneInput(body[field]);
     else if (field === "status") payload[field] = normalizeStatus(body[field]);
     else payload[field] = cleanString(body[field]);
   }
@@ -127,7 +131,29 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       companyId: id,
       details: { message: "Müşteri şubesi eklendi.", branch_name: rows[0]?.branch_name, result: "Başarılı" }
     }).catch(() => null);
-    return NextResponse.json({ ok: true, branch: rows[0], message: "Şube kaydedildi." });
+    return NextResponse.json({
+      ok: true,
+      branch: rows[0],
+      message: "Şube kaydedildi.",
+      ...buildActionResult({
+        title: "Şube başarıyla eklendi",
+        summary: `${rows[0]?.branch_name || "Yeni şube"} kaydedildi. Artık bu şube için ayrı rapor, görev, reklam ve entegrasyon takibi yapabilirsin.`,
+        entityType: "Şube",
+        entityId: rows[0]?.id,
+        companyId: id,
+        branchId: rows[0]?.id,
+        status: "success",
+        createdRecords: [{ label: "Şube", count: 1, status: "Oluşturuldu" }],
+        nextActions: ["Şube entegrasyonlarını kontrol et.", "Şube için Agent analizi başlat.", "İlk şube raporu veya görevini oluştur."],
+        checkLinks: [
+          { label: "Müşteri Profilini Aç", href: `/hk-admin/musteriler?companyId=${id}&tab=branches` },
+          { label: "Agent Hub’da Aç", href: `/hk-admin/agent-hub?companyId=${id}&branchId=${rows[0]?.id}&taskType=branch_analysis` },
+          { label: "Raporları Gör", href: `/hk-admin/musteri-raporlari?companyId=${id}&branchId=${rows[0]?.id}` }
+        ],
+        customerVisibility: { showToCustomer: false, label: "Bu şube kaydı şu anda sadece admin tarafında görünüyor." },
+        technicalDetails: { branch_id: rows[0]?.id, company_id: id }
+      })
+    });
   } catch (error) {
     const safe = getSafeSupabaseError(error);
     return NextResponse.json({ error: safe.title, supabaseError: safe.detail }, { status: 500 });

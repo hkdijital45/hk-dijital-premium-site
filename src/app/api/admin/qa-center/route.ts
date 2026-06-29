@@ -433,6 +433,23 @@ function scanSourcesForFindings(migrations: string) {
     ["Ajans operasyon planları üretiliyor mu?", "social_media_plan", "Paket üretici sosyal medya planı, onay akışı, kampanya operasyonu, müşteri iletişimi ve rapor onay akışı üretmeli."],
     ["İngilizce/teknik ifadeler temiz mi?", "AI ile Otomatik Doldur", "Kullanıcı arayüzünde workflow/draft/payload yerine iş akışı, taslak ve hazırlık verisi karşılıkları kullanılmalı."],
     ["Secret frontend'e sızıyor mu?", "secret", "Yeni şube ve paket akışları token/private key değerlerini client tarafına taşımamalı."]
+    ,
+    ["Şube Ekle formu gerçekten açılıyor mu?", "Yeni Şube Ekle", "Müşteri profilindeki Şube Ekle butonu gerçek modal/drawer formu açmalı."],
+    ["Google Maps butonu doğru URL açıyor mu?", "googleMapsTarget", "Şubede Google Maps URL varsa onu, yoksa adres/şehir/ilçe arama URL'ini açmalı."],
+    ["Agent analizi context ile açılıyor mu?", "branchId", "Şube analizi Agent Hub'a companyId, branchId ve taskType query bağlamıyla gitmeli."],
+    ["Şube raporu boş sayfa yerine rapor payload üretiyor mu?", "Şube Raporu Hazırla", "Şube raporu en az print-ready veya JSON hazırlık verisi üretmeli."],
+    ["Telefon format helper tüm formlarda kullanılıyor mu?", "formatTurkishPhone", "Telefon ve WhatsApp alanları ortak 0 (***) *** ** ** format helper'ını kullanmalı."],
+    ["yok / mevcut değil validasyonu kabul ediliyor mu?", "isEmptyLikeValue", "Boş, yok, mevcut değil ve - değerleri opsiyonel alanlarda hata üretmemeli."],
+    ["Müşteri popup geniş ve sekmeli mi?", "max-w-6xl", "Müşteri popup dar görünmemeli; kendi içinde scroll ve geniş layout kullanmalı."],
+    ["Rakipler sekmesi var mı?", "Rakipler", "Müşteri profilinde rakip kayıtları ve Rakip Analizi yönlendirmesi görünmeli."],
+    ["Muhasebe menüsü yetkisiz kullanıcıya gizli mi?", "Muhasebe", "Tahsilat, kârlılık ve finans export alanları admin/finance yetkisine bağlanmalı."],
+    ["Müşteriye gösterilsin toggle'ı var mı?", "Müşteriye gösterilsin", "Görev ve müşteriyle ilişkili kayıtlarda müşteri görünürlüğü açıkça yönetilmeli."],
+    ["Kritik işlemler ActionResultPanel kullanıyor mu?", "ActionResultPanel", "Şube ve toplu görev gibi önemli işlemlerden sonra ne oldu/sonraki adım paneli görünmeli."],
+    ["API response içinde actionResult var mı?", "actionResult", "Yeni veya güncellenen route'lar standart işlem sonucu payload'ı döndürmeli."],
+    ["Raw JSON kullanıcıya açık gösteriliyor mu?", "Teknik detayı göster", "Ham teknik detaylar varsayılan kapalı accordion içinde kalmalı."],
+    ["İşlem sonrası Ne oldu alanı var mı?", "Ne oldu?", "Önemli işlemlerden sonra kullanıcıya işlemin sonucu açıklanmalı."],
+    ["İşlem sonrası şimdi ne yapmalısın alanı var mı?", "Şimdi ne yapmalısın?", "İşlem sonrası takip edilecek öneriler gösterilmeli."],
+    ["Nereden kontrol edeceksin butonları var mı?", "checkLinks", "İşlem sonucu panelinde ilgili sayfalara güvenli yönlendirme butonları bulunmalı."]
   ].forEach(([title, pattern, recommendation]) => {
     const inSource = sourceContains(pattern) || migrations.includes(String(pattern).toLocaleLowerCase("tr"));
     if (!inSource) findings.push(makeFinding({ category: "Ajans Operasyonu QA", severity: "orta", module: "Ajans Operasyon Kalıcılığı", file_path: "src/components/admin/AdminDashboard.tsx", title, description: `${pattern} sinyali statik analizde bulunamadı.`, recommendation }));

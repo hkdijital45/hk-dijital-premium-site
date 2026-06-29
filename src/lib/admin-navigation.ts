@@ -77,15 +77,13 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
   },
   {
     label: "Ajans Operasyonu",
-    description: "Ödeme, görev, belge ve ajans operasyon takibi.",
+    description: "Görev, belge, takvim ve ajans operasyon takibi.",
     icon: "Gauge",
     badge: "Ajans",
     accent: "from-cyan-500 via-blue-600 to-indigo-700",
     items: [
-      { label: "Tahsilat", slug: "tahsilat", module: "tahsilat", description: "Ödemeler, vade takibi ve aylık gelir özeti." },
       { label: "Görevler", slug: "gorevler", module: "gorevler", description: "Ajans içi yapılacak işler ve müşteri görünür görevler." },
       { label: "Takvim", slug: "takvim", module: "gorevler", description: "Görev, kampanya, rapor ve tahsilat tarihleri." },
-      { label: "Karlılık", slug: "karlilik", module: "karlilik", description: "Gelir, gider ve tahmini kârlılık görünümü." },
       { label: "Ajans Hedefleri", slug: "ajans-hedefleri", module: "karlilik", description: "Aylık gelir, müşteri, teklif, görüşme ve tahsilat hedefleri." },
       { label: "Belgeler", slug: "belgeler", module: "belgeler", description: "Müşteri belgeleri, sözleşmeler ve paylaşılabilir dosyalar." },
       { label: "Gelir Tahmini", slug: "gelir-tahmini", module: "karlilik", description: "Beklenen, riskli ve gecikmiş gelir öngörüsü." },
@@ -93,6 +91,21 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: "WhatsApp Hatırlatma Merkezi", slug: "whatsapp-hatirlatma", module: "teklifler", description: "Takip, ödeme ve rapor mesaj şablonları." },
       { label: "Sosyal Medya Planı", slug: "sosyal-medya-plani", module: "sosyal-medya-plani", description: "Müşteri bazlı sosyal medya içerik takvimi." },
       { label: "Sektör Sistemleri", slug: "sektor-sistemleri", module: "sektor-sistemleri", description: "Sektöre özel operasyon ve takip şablonları." }
+    ]
+  },
+  {
+    label: "Muhasebe",
+    description: "Tahsilat, kârlılık, gelir/gider ve finansal export alanları.",
+    icon: "Gauge",
+    badge: "Finans",
+    accent: "from-emerald-500 via-teal-600 to-cyan-700",
+    items: [
+      { label: "Tahsilatlar", slug: "tahsilat", module: "tahsilat", description: "Ödemeler, vade takibi ve aylık gelir özeti." },
+      { label: "Kârlılık", slug: "karlilik", module: "karlilik", description: "Gelir, gider ve tahmini kârlılık görünümü." },
+      { label: "Gelir/Gider", slug: "gelir-tahmini", module: "karlilik", description: "Beklenen gelir, gider ve kârlılık projeksiyonu." },
+      { label: "Bekleyen Ödemeler", slug: "tahsilat", module: "tahsilat", description: "Vadesi yaklaşan ve geciken tahsilatlar." },
+      { label: "Müşteri Finans Özeti", slug: "karlilik", module: "karlilik", description: "Müşteri bazlı finansal görünüm ve ajans kârlılığı." },
+      { label: "Export", slug: "veri-aktarma", module: "muhasebe-export", description: "Yetkili finans dışa aktarma işlemleri." }
     ]
   },
   {
