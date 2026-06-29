@@ -21,6 +21,7 @@ import { AdminCustomerSelector, GlobalMetaPixelSettings, MetaPixelSettingsPanel 
 import { CustomerProfileTasks } from "@/components/admin/customer-profile/CustomerProfileTasks";
 import { CustomerBrandAssets } from "@/components/admin/customer-profile/CustomerBrandAssets";
 import { CustomerIntegrationsPanel } from "@/components/admin/customer-profile/CustomerIntegrationsPanel";
+import { CustomerProfileModal } from "@/components/admin/customer-profile/CustomerProfileModal";
 import { AiProviderSelector } from "@/components/admin/AiProviderSelector";
 import { Logo } from "@/components/public/Logo";
 import { adminNavigationGroups, adminNavigationItems, getAdminHref } from "@/lib/admin-navigation";
@@ -5082,7 +5083,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
     alert(response.ok ? data.message || "Şifre sıfırlama bağlantısı gönderildi." : data.error || "Şifre sıfırlama bağlantısı gönderilemedi.");
   }
   return (
-    <Drawer title={`${company.name} · Müşteri Detayı`} close={close}>
+    <CustomerProfileModal company={company} content={content} onClose={close} onGo={(target, message) => { setActive?.(target); if (message) notify?.(message, "success"); }} showOverview={false}>
       <Customer360Summary company={company} campaigns={campaigns} payments={payments} tasks={tasks} reports={reports} activities={activities} relatedLead={relatedLead} setTab={setTab} setActive={setActive} />
       <div className="mb-5 flex flex-wrap gap-2">
         {tabs.map((item) => <button key={item} onClick={() => setTab(item)} className={`rounded-full px-3 py-2 text-xs font-bold ${tab === item ? "bg-cyan-300 text-slate-950" : "border border-slate-200 text-slate-600"}`}>{item}</button>)}
@@ -5208,7 +5209,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
       ].map(([key, label]) => <label key={key} className="flex items-center gap-3 rounded-[8px] border border-slate-200 p-3 text-sm"><input type="checkbox" checked={visibility[key] ?? true} onChange={(event) => updateVisibility({ [key]: event.target.checked })} /> {label}</label>)}</div></div>}
       {tab === "Aktivite Geçmişi" && <ActivityList items={activities} empty="Bu müşteri için henüz aktivite kaydı yok." />}
       {tab === "Notlar" && <TextArea label="Dahili müşteri notları" value={company.notes} onChange={(v) => updateCompany(company.id, { notes: v })} rows={10} />}
-    </Drawer>
+    </CustomerProfileModal>
   );
 }
 

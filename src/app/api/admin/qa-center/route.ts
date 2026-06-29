@@ -64,6 +64,7 @@ function sourceContains(pattern: string) {
     "src/components/admin/Phase2OperatingSystem.tsx",
     "src/components/admin/WebsiteAnalyticsCenter.tsx",
     "src/components/admin/customer-profile/CustomerIntegrationsPanel.tsx",
+    "src/components/admin/customer-profile/CustomerProfileModal.tsx",
     "src/lib/admin-navigation.ts",
     "src/lib/agent-hub.ts",
     "src/lib/customer-onboarding.ts",
@@ -293,11 +294,19 @@ function scanSourcesForFindings(migrations: string) {
     ["Agent Memory kaydı oluşuyor mu?", "marketplace_package", "Paket stratejisi agent_memories içine marketplace_package türüyle kaydedilmeli."],
     ["Görev taslakları oluşuyor mu?", "30 günlük görev planı oluştur", "Uygulama wizardı agency_tasks kayıtları veya görev payload'ı üretmeli."],
     ["Müşteri notu oluşuyor mu?", "Müşteri notu oluştur", "Uygulama sonucu customer_updates veya güvenli payload ile müşteri notu üretmeli."],
-    ["Müşteri profil popup açılıyor mu?", "CustomerProfilePopup", "Müşteriyi Görüntüle aksiyonları sayfadan çıkmadan modal/popup açmalı."],
+    ["Müşteri profil popup açılıyor mu?", "CustomerProfileModal", "Müşteriyi Görüntüle aksiyonları müşteriler ekranıyla ortak modal component'i açmalı."],
     ["Popup X ile kapanıyor mu?", "onClose", "Müşteri profil popup X butonuyla kapanmalı."],
     ["Popup dışına tıklayınca kapanıyor mu?", "event.currentTarget", "Popup overlay dış tıklamayla kapanmalı."],
     ["Popup iç scroll çalışıyor mu?", "overflow-y-auto", "Popup içerik alanı max-height içinde scroll olmalı."],
     ["Boş payload gösterip işlem yapmayan modal kaldı mı?", "Paketi Uygula", "Marketplace apply modalı gerçek uygulama butonuna ve kayıt route'una bağlanmalı."]
+    ,
+    ["Marketplace başarı ekranı JSON yerine Türkçe özet gösteriyor mu?", "Paket müşteriye uygulandı", "Paket uygulama sonucu teknik JSON yerine kullanıcı dostu kayıt kartları göstermeli."],
+    ["Oluşan kayıtlara yönlendirme butonları var mı?", "Sonraki Adımlar", "Başarı ekranında müşteri, görev, hafıza, iş akışı, rapor, teklif ve uygulama kaydı butonları bulunmalı."],
+    ["Müşteri popup müşteriler ekranındaki modal ile aynı component'i kullanıyor mu?", "CustomerProfileModal", "HK CEO ve Müşteriler ekranı aynı shared müşteri profil modalını kullanmalı."],
+    ["Escape ile kapanıyor mu?", "Escape", "Shared müşteri modalı Escape tuşuyla kapanmalı."],
+    ["HK CEO ekranında İngilizce başlık kaldı mı?", "AI Yardımcı Sohbet", "AI Copilot Chat, Marketplace, Global Search gibi başlıklar Türkçeleştirilmeli."],
+    ["Payload/workflow/draft/template terimleri Türkçeleştirildi mi?", "Hazırlık verisi", "Payload, workflow, draft ve template kullanıcı arayüzünde Türkçe karşılıklarla gösterilmeli."],
+    ["Uygulanan paketler müşteri profilinde görünüyor mu?", "Uygulanan Paketler", "Müşteri profil modalında marketplace uygulama kayıtları özetlenmeli."]
   ].forEach(([title, pattern, recommendation]) => {
     const inSource = sourceContains(pattern) || migrations.includes(String(pattern).toLocaleLowerCase("tr"));
     if (!inSource) findings.push(makeFinding({ category: "Ajans Operasyonu QA", severity: "orta", module: "Ajans Operasyon Kalıcılığı", file_path: "src/components/admin/AdminDashboard.tsx", title, description: `${pattern} sinyali statik analizde bulunamadı.`, recommendation }));

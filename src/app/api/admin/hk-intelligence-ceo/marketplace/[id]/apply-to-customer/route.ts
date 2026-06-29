@@ -63,6 +63,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const plan = taskTitles(pkg);
   const createdRecords: Record<string, unknown> = {};
   const resultSummary = {
+    packageName,
+    sector,
     memory: 0,
     customerNote: 0,
     tasks: 0,
@@ -100,7 +102,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         company_id: companyId,
         title: `${packageName} uygulandı`,
         description: `${packageName} bu müşteri için uygulandı. İlk 30 günlük operasyon planı, KPI ve rapor şablonu hazırlandı.`,
-        update_type: "Marketplace Paketi",
+        update_type: "Strateji Notu",
         visible_to_customer: false
       });
       if (Array.isArray(note)) { resultSummary.customerNote = 1; createdRecords.customerNote = note[0]?.id || true; }

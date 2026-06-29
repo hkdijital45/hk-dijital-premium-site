@@ -32,6 +32,7 @@ import {
   X,
   Zap
 } from "lucide-react";
+import { CustomerProfileModal } from "@/components/admin/customer-profile/CustomerProfileModal";
 
 const paidStatuses = ["Ödendi", "Tahsil Edildi"];
 const doneStatuses = ["Tamamlandı", "İptal"];
@@ -107,13 +108,13 @@ function teamAgents(content: any) {
     ["Google Ads Uzmanı", "Google Ads ve Search Console", "Gemini", LineChart],
     ["Meta Ads Uzmanı", "Pixel, Dataset ve kreatif performansı", "OpenAI / Gemini", Megaphone],
     ["SEO Uzmanı", "SEO ve teknik görünürlük", "Gemini", Search],
-    ["Creative Director", "Kreatif yön ve format", "Claude / OpenAI", Palette],
-    ["Video Specialist", "Reels, Shorts, video fikirleri", "OpenAI", Zap],
-    ["Copywriter", "Metin ve kampanya dili", "Claude", MessageSquareText],
-    ["Data Analyst", "KPI, ROAS, LTV analizi", "Gemini / OpenAI", Gauge],
-    ["Finance Manager", "Tahsilat ve kârlılık", "Yerel karar motoru", CircleDollarSign],
-    ["Reporting Manager", "Rapor ve müşteri özeti", "Claude / OpenAI", FileText],
-    ["Customer Success", "Risk, onboarding ve yenileme", "HK Intelligence", HeartPulse]
+    ["Kreatif Direktör", "Kreatif yön ve format", "Claude / OpenAI", Palette],
+    ["Video Uzmanı", "Reels, Shorts, video fikirleri", "OpenAI", Zap],
+    ["Reklam Metni Yazarı", "Metin ve kampanya dili", "Claude", MessageSquareText],
+    ["Veri Analisti", "KPI, ROAS, LTV analizi", "Gemini / OpenAI", Gauge],
+    ["Finans Yöneticisi", "Tahsilat ve kârlılık", "Yerel karar motoru", CircleDollarSign],
+    ["Raporlama Yöneticisi", "Rapor ve müşteri özeti", "Claude / OpenAI", FileText],
+    ["Müşteri Başarı Uzmanı", "Risk, onboarding ve yenileme", "HK Intelligence", HeartPulse]
   ];
   return roles.map(([name, task, ai, Icon], index) => {
     const relatedRun = agentRuns[index % Math.max(agentRuns.length, 1)] || {};
@@ -133,7 +134,7 @@ function teamAgents(content: any) {
 
 function recommendations(content: any, riskyCustomers: any[], overduePayments: any[], openLeads: any[]) {
   const list = [
-    riskyCustomers[0] ? { title: `${riskyCustomers[0].company.name} için müşteri kurtarma planı`, impact: "Yüksek", difficulty: "Orta", duration: "2 saat", cost: "Düşük", probability: 78, action: "Customer Success görevi oluştur" } : null,
+    riskyCustomers[0] ? { title: `${riskyCustomers[0].company.name} için müşteri kurtarma planı`, impact: "Yüksek", difficulty: "Orta", duration: "2 saat", cost: "Düşük", probability: 78, action: "Müşteri başarı görevi oluştur" } : null,
     overduePayments[0] ? { title: `${companyName(content.companies || [], overduePayments[0].company_id)} tahsilat hatırlatması`, impact: "Yüksek", difficulty: "Kolay", duration: "15 dk", cost: "Yok", probability: 70, action: "WhatsApp takip mesajı hazırla" } : null,
     openLeads[0] ? { title: `${openLeads[0].company || openLeads[0].name} için teklif ve arama planı`, impact: "Orta", difficulty: "Kolay", duration: "30 dk", cost: "Yok", probability: 64, action: "AI Satış Asistanı çalıştır" } : null,
     { title: "Aktif müşteriler için haftalık remarketing kontrolü", impact: "Orta", difficulty: "Orta", duration: "1 saat", cost: "Düşük", probability: 58, action: "Meta/Google kontrol görevi oluştur" },
@@ -155,6 +156,7 @@ export function HKAutonomousAgencyCenter({ content, setActive, notify, compact =
   const [selectedCompanyId, setSelectedCompanyId] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
   const [selectedCustomerProfile, setSelectedCustomerProfile] = useState<any>(null);
+  const [applicationDetail, setApplicationDetail] = useState<any>(null);
   const [applyOptions, setApplyOptions] = useState({
     saveMemory: true,
     createCustomerNote: true,
@@ -244,10 +246,11 @@ export function HKAutonomousAgencyCenter({ content, setActive, notify, compact =
   const filteredCustomers = data.companies.filter((company: any) => `${company.name || ""} ${company.status || ""} ${company.city || ""}`.toLocaleLowerCase("tr").includes(customerSearch.toLocaleLowerCase("tr")));
 
   useEffect(() => {
-    if (!selectedCustomerProfile && !applyWizard && !detail && !marketplaceOpen) return;
+    if (!selectedCustomerProfile && !applicationDetail && !applyWizard && !detail && !marketplaceOpen) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setSelectedCustomerProfile(null);
+        setApplicationDetail(null);
         setApplyWizard(null);
         setDetail(null);
         setMarketplaceOpen(false);
@@ -259,7 +262,7 @@ export function HKAutonomousAgencyCenter({ content, setActive, notify, compact =
       document.body.style.overflow = "";
       window.removeEventListener("keydown", onKey);
     };
-  }, [selectedCustomerProfile, applyWizard, detail, marketplaceOpen]);
+  }, [selectedCustomerProfile, applicationDetail, applyWizard, detail, marketplaceOpen]);
 
   function go(target: string, message?: string) {
     setActive(target);
@@ -273,6 +276,10 @@ export function HKAutonomousAgencyCenter({ content, setActive, notify, compact =
   function openCustomerProfile(company: any) {
     const health = customerHealth(company, content);
     setSelectedCustomerProfile({ company, health });
+  }
+
+  function openApplicationDetail(application: any, company?: any, packageData?: any, options?: any) {
+    setApplicationDetail({ application, company, packageData, options });
   }
 
   function openApplyWizard(sector: string, draft?: any) {
@@ -306,7 +313,7 @@ export function HKAutonomousAgencyCenter({ content, setActive, notify, compact =
       if (!response.ok) throw new Error(payload.error || "Paket üretilemedi.");
       setMarketplaceDraft(payload.package);
       setMarketplaceOpen(true);
-      notify?.("Marketplace paketi üretildi.", "success");
+      notify?.("Hazır paket üretildi.", "success");
     } catch (error) {
       const fallback = buildMarketplaceFallback({ ...packageForm, sector });
       setMarketplaceDraft(fallback);
@@ -324,7 +331,7 @@ export function HKAutonomousAgencyCenter({ content, setActive, notify, compact =
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(marketplaceDraft)
     });
-    if (response.ok) notify?.("Marketplace paketi kaydedildi.", "success");
+    if (response.ok) notify?.("Hazır paket kaydedildi.", "success");
     else notify?.("Paket kaydedilemedi; Supabase bağlantısını kontrol edin.", "error");
   }
 
@@ -345,7 +352,8 @@ export function HKAutonomousAgencyCenter({ content, setActive, notify, compact =
       setApplyResult(payload);
       return;
     }
-    setApplyResult(payload);
+    const selectedCompany = data.companies.find((company: any) => company.id === selectedCompanyId);
+    setApplyResult({ ...payload, company: selectedCompany, packageData: applyWizard });
     notify?.(payload.message || "Paket müşteriye uygulandı.", "success");
   }
 
@@ -403,7 +411,7 @@ export function HKAutonomousAgencyCenter({ content, setActive, notify, compact =
           <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{kpis.map(([label, value, note, Icon]: any) => <div key={label} className="rounded-[18px] border border-slate-200 bg-white p-4 shadow-sm"><span className="grid size-10 place-items-center rounded-[13px] bg-cyan-50 text-cyan-700"><Icon size={18} /></span><p className="mt-3 text-xs font-bold text-slate-500">{label}</p><p className="mt-1 text-2xl font-black text-slate-950">{value}</p><p className="mt-1 text-xs text-slate-500">{note}</p></div>)}</section>
 
           <section className="grid gap-5 xl:grid-cols-[1.1fr_.9fr]">
-            <PanelCard title="HK Digital Team" subtitle="Sanal ajans ekibi ve görev dağılımı" icon={<Bot size={20} />}>
+            <PanelCard title="HK Dijital Ekibi" subtitle="Sanal ajans ekibi ve görev dağılımı" icon={<Bot size={20} />}>
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{agents.map(({ Icon, ...agent }: any) => <button key={agent.name} onClick={() => openDetail(agent.name, `${agent.task} Ajan durumu, kullandığı AI, başarı oranı, maliyet ve performans geçmişi buradan yönetilir.`, [{ label: "Agent Çalıştır", target: "HK Agent Hub" }, { label: "Görev Oluştur", target: "Görevler" }, { label: "Performans Geçmişi", target: "HK Agent Hub" }], agent)} className="rounded-[16px] border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-cyan-200 hover:bg-cyan-50"><div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-[13px] bg-white text-cyan-700"><Icon size={18} /></span><div className="min-w-0"><p className="font-black text-slate-950">{agent.name}</p><p className="mt-1 text-xs leading-5 text-slate-500">{agent.task}</p></div></div><div className="mt-3 grid gap-2 text-xs text-slate-600"><span>Durum: <strong>{agent.status}</strong></span><span>Başarı: <strong>%{agent.success}</strong></span><span>AI: <strong>{agent.ai}</strong></span><span>Maliyet: <strong>{agent.cost}</strong></span></div><span className="mt-3 inline-flex text-xs font-black text-cyan-700">Detay aç</span></button>)}</div>
             </PanelCard>
             <PanelCard title="AI Operasyon Takvimi" subtitle="Haftalık ajans ritmi" icon={<CalendarDays size={20} />}>
@@ -418,56 +426,60 @@ export function HKAutonomousAgencyCenter({ content, setActive, notify, compact =
             <PanelCard title="Rakip Alarm Merkezi" subtitle="Rakip reklam, fiyat ve web değişim sinyalleri" icon={<Megaphone size={20} />}>
               {["Rakip yeni kampanya açtı mı kontrol et", "Rakip fiyat değişimi için haftalık tarama", "Google yorum artışı ve sosyal büyüme sinyali", "Rakip web sitesi ve landing page değişimi"].map((item) => <ActionRow key={item} title={item} note="Derin araştırma için Manus / Gemini zinciri önerilir." onClick={() => openDetail(item, "Rakip alarmı için watchlist kaydı, agent araştırması ve takip görevi hazırlanır.", [{ label: "Agent çalıştır", target: "HK Agent Hub" }, { label: "Görev oluştur", target: "Görevler" }, { label: "Rakip Analizi aç", target: "Rakip Analizi" }])} />)}
             </PanelCard>
-            <PanelCard title="AI Recommendation Engine" subtitle="Beklenen etki, süre, maliyet ve başarı olasılığı" icon={<BrainCircuit size={20} />}>
-              {recs.map((item) => <button key={item.title} onClick={() => openDetail(item.title, `Etki: ${item.impact}. Zorluk: ${item.difficulty}. Süre: ${item.duration}. Maliyet: ${item.cost}. Başarı olasılığı: %${item.probability}.`, [{ label: "Görev oluştur", target: "Görevler" }, { label: "Müşteriye not olarak kaydet", target: "Müşteriler" }, { label: "Agent Memory’ye kaydet", target: "HK Agent Hub" }, { label: "Uygula / planla", target: "Takvim" }, ...(data.riskyCustomers[0]?.company ? [{ label: "Müşteriyi Görüntüle", payload: { companyId: data.riskyCustomers[0].company.id } }] : [])], item)} className="rounded-[14px] border border-slate-200 bg-slate-50 p-3 text-left transition hover:border-cyan-200 hover:bg-cyan-50"><p className="font-black text-slate-950">{item.title}</p><p className="mt-1 text-xs text-slate-500">Etki: {item.impact} · Zorluk: {item.difficulty} · Süre: {item.duration} · Maliyet: {item.cost} · Başarı: %{item.probability}</p><p className="mt-2 text-xs font-black text-cyan-700">{item.action}</p></button>)}
+            <PanelCard title="AI Öneri Motoru" subtitle="Beklenen etki, süre, maliyet ve başarı olasılığı" icon={<BrainCircuit size={20} />}>
+              {recs.map((item) => <button key={item.title} onClick={() => openDetail(item.title, `Etki: ${item.impact}. Zorluk: ${item.difficulty}. Süre: ${item.duration}. Maliyet: ${item.cost}. Başarı olasılığı: %${item.probability}.`, [{ label: "Görev oluştur", target: "Görevler" }, { label: "Müşteriye not olarak kaydet", target: "Müşteriler" }, { label: "AI Hafızasına kaydet", target: "HK Agent Hub" }, { label: "Uygula / planla", target: "Takvim" }, ...(data.riskyCustomers[0]?.company ? [{ label: "Müşteriyi Görüntüle", payload: { companyId: data.riskyCustomers[0].company.id } }] : [])], item)} className="rounded-[14px] border border-slate-200 bg-slate-50 p-3 text-left transition hover:border-cyan-200 hover:bg-cyan-50"><p className="font-black text-slate-950">{item.title}</p><p className="mt-1 text-xs text-slate-500">Etki: {item.impact} · Zorluk: {item.difficulty} · Süre: {item.duration} · Maliyet: {item.cost} · Başarı: %{item.probability}</p><p className="mt-2 text-xs font-black text-cyan-700">{item.action}</p></button>)}
             </PanelCard>
           </section>
 
           <section className="grid gap-5 xl:grid-cols-3">
-            <PanelCard title="AI Copilot Chat" subtitle="Tüm sistem için doğal dil komut ekranı" icon={<MessageSquareText size={20} />}>
+            <PanelCard title="AI Yardımcı Sohbet" subtitle="Tüm sistem için doğal dil komut ekranı" icon={<MessageSquareText size={20} />}>
               <textarea value={copilotQuestion} onChange={(event) => setCopilotQuestion(event.target.value)} className="min-h-24 w-full rounded-[14px] border border-slate-200 bg-slate-50 p-3 text-sm text-slate-900" />
               <button onClick={askCopilot} className="mt-3 rounded-[12px] bg-cyan-500 px-4 py-3 text-sm font-black text-white">HK Intelligence ile Yanıtla</button>
               {copilotAnswer && <div className="mt-3 rounded-[14px] bg-cyan-50 p-3"><p className="whitespace-pre-line text-sm leading-6 text-cyan-950">{copilotAnswer}</p><div className="mt-3 flex flex-wrap gap-2"><SmallButton onClick={() => go("Müşteriler")}>Müşterilere git</SmallButton><SmallButton onClick={() => go("Görevler")}>Görev oluştur</SmallButton><SmallButton onClick={() => go("HK Agent Hub")}>Agent Hub’da analiz et</SmallButton><SmallButton onClick={() => go("Müşteri Raporları")}>Rapor oluştur</SmallButton></div></div>}
             </PanelCard>
-            <PanelCard title="Smart Command Palette" subtitle="Cmd/Ctrl+K komut mantığı" icon={<Command size={20} />}>
+            <PanelCard title="Akıllı Komut Merkezi" subtitle="Cmd/Ctrl+K komut mantığı" icon={<Command size={20} />}>
               <input value={commandQuery} onChange={(event) => setCommandQuery(event.target.value)} placeholder="Komut ara: müşteri aç, rapor oluştur..." className="w-full rounded-[14px] border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
               <div className="mt-3 grid gap-2">{filteredCommands.map((item) => <button key={item} onClick={() => go(commandToTarget(item), `${item} komutu açıldı.`)} className="flex items-center justify-between rounded-[12px] bg-slate-50 px-3 py-2 text-left text-sm font-bold text-slate-700 transition hover:bg-cyan-50 hover:text-cyan-700"><span>{item}</span><ArrowRight size={14} /></button>)}</div>
             </PanelCard>
-            <PanelCard title="Global Search" subtitle="Müşteri, görev, belge, rapor ve hafıza araması" icon={<Search size={20} />}>
+            <PanelCard title="Genel Arama" subtitle="Müşteri, görev, belge, rapor ve hafıza araması" icon={<Search size={20} />}>
               {[["Müşteriler", data.companies.length], ["Görevler", data.tasks.length], ["Raporlar", data.reports.length], ["Tahsilatlar", data.payments.length], ["Kampanyalar", data.campaigns.length], ["Agent Memory", (content.agentMemories || []).length]].map(([label, count]) => <ActionRow key={label} title={`${label}: ${count}`} note="Kategori bazlı arama indeksine dahil." onClick={() => String(label).includes("Müşteri") && data.companies[0] ? openCustomerProfile(data.companies[0]) : go(searchTarget(String(label)))} />)}
             </PanelCard>
           </section>
 
           <section className="grid gap-5 xl:grid-cols-4">
-            <MiniModule title="AI Kreatif Stüdyosu" icon={<Palette size={19} />} items={["Instagram", "Facebook", "Google Display", "Carousel", "Story", "Reels", "TikTok", "YouTube Shorts", "Banner", "Thumbnail", "Blog", "Mail", "WhatsApp", "SMS"]} onClick={() => openDetail("AI Kreatif Stüdyosu", "Seçilen formatlar için prompt göstermeden kreatif brief, metin ve üretim payload’ı hazırlanır.", [{ label: "AI Studio aç", target: "AI Studio" }, { label: "Prompt üret", target: "HK Agent Hub" }])} />
-            <MiniModule title="AI Satış Asistanı" icon={<Target size={19} />} items={["Arama metni", "WhatsApp", "Teklif", "Toplantı", "Takip görevi", "CRM güncelle"]} onClick={() => openDetail("AI Satış Asistanı", "Lead için arama metni, WhatsApp, teklif, toplantı ve CRM takip payload’ı üretir.", [{ label: "Lead Workspace aç", target: "CRM & Lead Workspace" }, { label: "Teklif oluştur", target: "Teklif Oluştur" }])} />
-            <MiniModule title="HK Learning Center" icon={<BrainCircuit size={19} />} items={["Başarılı reklam", "Kreatif", "Hedef kitle", "Teklif", "Satış süreci", "Agent Memory"]} onClick={() => openDetail("HK Learning Center", "Başarılı reklam, kreatif ve satış süreçleri Agent Memory’ye öğrenme kaydı olarak hazırlanır.", [{ label: "Agent Hub aç", target: "HK Agent Hub" }, { label: "Kaydet", payload: "learning" }])} />
-            <MiniModule title="Digital Twin" icon={<Layers3 size={19} />} items={["12 ay", "Google", "Meta", "SEO", "CRM", "Rapor", "Tahsilat", "Notlar"]} onClick={() => openDetail("Digital Twin", "Müşteri geçmişi, raporları, tahsilatları, notları ve entegrasyonları tek müşteri ikizi bağlamında özetlenir.", [{ label: "Müşteri seç", target: "Müşteriler" }, { label: "Agent ile sor", target: "HK Agent Hub" }])} />
+            <MiniModule title="AI Kreatif Stüdyosu" icon={<Palette size={19} />} items={["Instagram", "Facebook", "Google Display", "Carousel", "Story", "Reels", "TikTok", "YouTube Shorts", "Banner", "Thumbnail", "Blog", "Mail", "WhatsApp", "SMS"]} onClick={() => openDetail("AI Kreatif Stüdyosu", "Seçilen formatlar için komut metni göstermeden kreatif brief, metin ve üretim hazırlığı yapılır.", [{ label: "AI Studio aç", target: "AI Studio" }, { label: "Komut metni üret", target: "HK Agent Hub" }])} />
+            <MiniModule title="AI Satış Asistanı" icon={<Target size={19} />} items={["Arama metni", "WhatsApp", "Teklif", "Toplantı", "Takip görevi", "CRM güncelle"]} onClick={() => openDetail("AI Satış Asistanı", "Lead için arama metni, WhatsApp, teklif, toplantı ve CRM takip hazırlık verisi üretir.", [{ label: "Lead Workspace aç", target: "CRM & Lead Workspace" }, { label: "Teklif oluştur", target: "Teklif Oluştur" }])} />
+            <MiniModule title="HK Öğrenme Merkezi" icon={<BrainCircuit size={19} />} items={["Başarılı reklam", "Kreatif", "Hedef kitle", "Teklif", "Satış süreci", "AI Hafızası"]} onClick={() => openDetail("HK Öğrenme Merkezi", "Başarılı reklam, kreatif ve satış süreçleri AI Hafızasına öğrenme kaydı olarak hazırlanır.", [{ label: "Agent Hub aç", target: "HK Agent Hub" }, { label: "Kaydet", payload: "learning" }])} />
+            <MiniModule title="Dijital İkiz" icon={<Layers3 size={19} />} items={["12 ay", "Google", "Meta", "SEO", "CRM", "Rapor", "Tahsilat", "Notlar"]} onClick={() => openDetail("Dijital İkiz", "Müşteri geçmişi, raporları, tahsilatları, notları ve entegrasyonları tek müşteri ikizi bağlamında özetlenir.", [{ label: "Müşteri seç", target: "Müşteriler" }, { label: "Agent ile sor", target: "HK Agent Hub" }])} />
           </section>
 
           <section className="grid gap-5 xl:grid-cols-3">
-            <PanelCard title="Marketplace" subtitle="Hazır AI paketleri" icon={<BriefcaseBusiness size={20} />}>
+            <PanelCard title="Hazır Paketler" subtitle="Hazır AI paketleri" icon={<BriefcaseBusiness size={20} />}>
               <button onClick={() => setMarketplaceOpen(true)} className="mb-3 inline-flex items-center gap-2 rounded-[12px] bg-cyan-500 px-4 py-2.5 text-sm font-black text-white"><Plus size={16} /> Yeni Paket Üret</button>
-              <div className="grid gap-2 sm:grid-cols-2">{marketplaceSectors.map((item) => <div key={item} className="rounded-[12px] border border-slate-200 bg-slate-50 p-3"><div className="flex items-start justify-between gap-2"><p className="font-black text-slate-900">{item}</p><span className="rounded-full bg-amber-50 px-2 py-1 text-[10px] font-black text-amber-700 ring-1 ring-amber-200">Hazırlık</span></div><p className="mt-1 text-xs text-slate-500">Prompt, workflow (iş akışı), AI Team, KPI ve rapor şablonu.</p><div className="mt-3 flex flex-wrap gap-1.5"><TinyButton onClick={() => generateMarketplacePackage(item)}>Paketi Aç</TinyButton><TinyButton onClick={() => openApplyWizard(item)}>Müşteriye Uygula</TinyButton></div></div>)}</div>
+              <div className="grid gap-2 sm:grid-cols-2">{marketplaceSectors.map((item) => <div key={item} className="rounded-[12px] border border-slate-200 bg-slate-50 p-3"><div className="flex items-start justify-between gap-2"><p className="font-black text-slate-900">{item}</p><span className="rounded-full bg-amber-50 px-2 py-1 text-[10px] font-black text-amber-700 ring-1 ring-amber-200">Hazırlık</span></div><p className="mt-1 text-xs text-slate-500">Komut metni, iş akışı, AI ekibi, KPI ve rapor şablonu.</p><div className="mt-3 flex flex-wrap gap-1.5"><TinyButton onClick={() => generateMarketplacePackage(item)}>Paketi Aç</TinyButton><TinyButton onClick={() => openApplyWizard(item)}>Müşteriye Uygula</TinyButton></div></div>)}</div>
             </PanelCard>
             <PanelCard title="Çok Şubeli Yapı" subtitle="Tek panel, ayrı şube KPI ve raporları" icon={<BuildingIcon />}>
               {data.companies.slice(0, 5).map((company: any) => <ActionRow key={company.id} title={company.name} note="Şube altyapısı customer_branches tablosu ile hazır." onClick={() => openCustomerProfile(company)} />)}
             </PanelCard>
-            <PanelCard title="Health / Cost / Backup Center" subtitle="Sistem sağlığı, AI maliyeti ve yedekleme" icon={<Database size={20} />}>
+            <PanelCard title="Sağlık / Maliyet / Yedekleme Merkezi" subtitle="Sistem sağlığı, AI maliyeti ve yedekleme" icon={<Database size={20} />}>
               {["Database, Supabase, Storage, Cron, Queue, API", "OpenAI, Gemini, Claude, Groq, OpenRouter, Manus, Ollama", "Meta API, Google Ads API, GA4, Search Console, SMTP, Resend, Discord", "Otomatik günlük/haftalık/aylık yedek hazırlığı"].map((item) => <ActionRow key={item} title={item} note="Durum, son kontrol, yanıt süresi ve çözüm önerisi izlenir." onClick={() => go(healthTarget(item))} />)}
               <div className="mt-3 flex flex-wrap gap-2"><SmallButton onClick={() => go("QA Merkezi")}>Sağlık Kontrolü Yap</SmallButton><SmallButton onClick={() => go("HK Agent Hub")}>AI Maliyetlerini Aç</SmallButton><SmallButton onClick={() => go("Veri Aktarma")}>Yedeğe Git</SmallButton></div>
             </PanelCard>
           </section>
 
-          <PanelCard title="Customer Timeline" subtitle="Müşteri tarihçesi ve operasyon olayları" icon={<ClipboardList size={20} />}>
+          <PanelCard title="Müşteri Zaman Çizelgesi" subtitle="Müşteri tarihçesi ve operasyon olayları" icon={<ClipboardList size={20} />}>
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">{data.healthRows.slice(0, 8).map(({ company, health }: any) => <button key={company.id} onClick={() => openCustomerProfile(company)} className="rounded-[16px] border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-cyan-200 hover:bg-cyan-50"><p className="font-black text-slate-950">{company.name}</p><p className="mt-1 text-xs text-slate-500">Oluşturuldu → İlk görüşme → Teklif → Sözleşme → Pixel/GA4 → Kampanya → Rapor → Tahsilat</p><span className={`mt-3 inline-flex rounded-full px-3 py-1 text-[11px] font-black ring-1 ${toneForSeverity(health.status === "Kritik" ? "Kritik" : health.status === "Riskli" ? "Orta" : "Bilgi")}`}>{health.score}/100</span></button>)}</div>
           </PanelCard>
         </>
       )}
-      {detail && <ActionModal detail={detail} onClose={() => setDetail(null)} onGo={go} onCopy={copyText} />}
+      {detail && <ActionModal detail={detail} onClose={() => setDetail(null)} onGo={go} onCopy={copyText} onOpenCustomerById={(companyId: string) => {
+        const company = data.companies.find((item: any) => item.id === companyId);
+        if (company) openCustomerProfile(company);
+      }} />}
       {marketplaceOpen && <MarketplaceModal form={packageForm} setForm={setPackageForm} draft={marketplaceDraft} loading={marketplaceLoading} onClose={() => setMarketplaceOpen(false)} onGenerate={() => generateMarketplacePackage()} onSave={saveMarketplacePackage} onCopy={copyText} />}
-      {applyWizard && <ApplyWizardModal packageData={applyWizard} companies={filteredCustomers} search={customerSearch} setSearch={setCustomerSearch} selectedCompanyId={selectedCompanyId} setSelectedCompanyId={setSelectedCompanyId} options={applyOptions} setOptions={setApplyOptions} result={applyResult} onApply={applyPackageToCustomer} onClose={() => setApplyWizard(null)} onOpenCustomer={(company: any) => openCustomerProfile(company)} />}
-      {selectedCustomerProfile && <CustomerProfilePopup profile={selectedCustomerProfile} content={content} onClose={() => setSelectedCustomerProfile(null)} onGo={go} />}
+      {applyWizard && <ApplyWizardModal packageData={applyWizard} companies={filteredCustomers} search={customerSearch} setSearch={setCustomerSearch} selectedCompanyId={selectedCompanyId} setSelectedCompanyId={setSelectedCompanyId} options={applyOptions} setOptions={setApplyOptions} result={applyResult} onApply={applyPackageToCustomer} onClose={() => setApplyWizard(null)} onOpenCustomer={(company: any) => openCustomerProfile(company)} onGo={go} onApplicationDetail={openApplicationDetail} />}
+      {applicationDetail && <ApplicationDetailModal detail={applicationDetail} onClose={() => setApplicationDetail(null)} onGo={go} onOpenCustomer={(company: any) => company && openCustomerProfile(company)} />}
+      {selectedCustomerProfile && <CustomerProfileModal company={selectedCustomerProfile.company} content={content} health={selectedCustomerProfile.health} onClose={() => setSelectedCustomerProfile(null)} onGo={go} />}
     </div>
   );
 }
@@ -525,8 +537,8 @@ function buildMarketplaceFallback(input: any) {
     generated_prompt: `${sector} sektörü için Google, Meta, SEO, WhatsApp ve raporlama verilerini analiz et. Satış garantisi verme. İlk 30 gün için öncelikli aksiyon, risk, fırsat, KPI ve teklif dilini Türkçe üret.`,
     workflowSteps: ["Müşteri hedefini doğrula", "Rakip ve arama görünürlüğünü incele", "Google/Meta fırsatlarını çıkar", "Landing page ve WhatsApp akışını planla", "İlk teklif ve 7 günlük takip planı üret"],
     workflow_steps: ["Müşteri hedefini doğrula", "Rakip ve arama görünürlüğünü incele", "Google/Meta fırsatlarını çıkar", "Landing page ve WhatsApp akışını planla", "İlk teklif ve 7 günlük takip planı üret"],
-    aiTeam: ["CEO", "Satış Müdürü", "Google Ads Uzmanı", "Meta Ads Uzmanı", "SEO Uzmanı", "Creative Director", "Reporting Manager"],
-    ai_team: ["CEO", "Satış Müdürü", "Google Ads Uzmanı", "Meta Ads Uzmanı", "SEO Uzmanı", "Creative Director", "Reporting Manager"],
+    aiTeam: ["CEO", "Satış Müdürü", "Google Ads Uzmanı", "Meta Ads Uzmanı", "SEO Uzmanı", "Kreatif Direktör", "Raporlama Yöneticisi"],
+    ai_team: ["CEO", "Satış Müdürü", "Google Ads Uzmanı", "Meta Ads Uzmanı", "SEO Uzmanı", "Kreatif Direktör", "Raporlama Yöneticisi"],
     kpiTemplate: ["Lead sayısı", "Randevu oranı", "CPL", "ROAS", "WhatsApp dönüşümü", "Rapor görünürlüğü"],
     kpi_template: ["Lead sayısı", "Randevu oranı", "CPL", "ROAS", "WhatsApp dönüşümü", "Rapor görünürlüğü"],
     reportTemplate: ["Yönetici özeti", "Kanal performansı", "Riskler", "Fırsatlar", "7 günlük plan"],
@@ -575,7 +587,7 @@ function TinyButton({ children, onClick }: { children: ReactNode; onClick: () =>
   return <button onClick={onClick} className="rounded-full border border-cyan-200 bg-white px-2.5 py-1 text-[10px] font-black text-cyan-700 transition hover:bg-cyan-100">{children}</button>;
 }
 
-function ActionModal({ detail, onClose, onGo, onCopy }: { detail: any; onClose: () => void; onGo: (target: string, message?: string) => void; onCopy: (text: string) => void }) {
+function ActionModal({ detail, onClose, onGo, onCopy, onOpenCustomerById }: { detail: any; onClose: () => void; onGo: (target: string, message?: string) => void; onCopy: (text: string) => void; onOpenCustomerById?: (companyId: string) => void }) {
   const payload = JSON.stringify(detail.payload || { title: detail.title, description: detail.description }, null, 2);
   return (
     <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/45 p-4">
@@ -586,11 +598,18 @@ function ActionModal({ detail, onClose, onGo, onCopy }: { detail: any; onClose: 
         </div>
         <p className="mt-4 whitespace-pre-line text-sm leading-7 text-slate-700">{detail.description}</p>
         <div className="mt-4 rounded-[16px] bg-slate-50 p-3">
-          <p className="text-xs font-black text-slate-500">Kullanılabilir payload</p>
+          <p className="text-xs font-black text-slate-500">Hazırlık verisi</p>
           <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap text-xs leading-5 text-slate-700">{payload}</pre>
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
-          {(detail.actions || []).map((action: any) => <button key={action.label} onClick={() => action.target ? onGo(action.target, `${action.label} açıldı.`) : onCopy(JSON.stringify(action.payload || detail.payload || detail, null, 2))} className="rounded-[12px] bg-cyan-500 px-4 py-2.5 text-sm font-black text-white">{action.label}</button>)}
+          {(detail.actions || []).map((action: any) => <button key={action.label} onClick={() => {
+            if (action.payload?.companyId && action.label.includes("Müşteri")) {
+              onOpenCustomerById?.(action.payload.companyId);
+              return;
+            }
+            if (action.target) onGo(action.target, `${action.label} açıldı.`);
+            else onCopy(JSON.stringify(action.payload || detail.payload || detail, null, 2));
+          }} className="rounded-[12px] bg-cyan-500 px-4 py-2.5 text-sm font-black text-white">{action.label}</button>)}
           <button onClick={() => onCopy(payload)} className="inline-flex items-center gap-2 rounded-[12px] border border-slate-200 px-4 py-2.5 text-sm font-black text-slate-700"><Copy size={15} /> Kopyala</button>
           <button onClick={onClose} className="rounded-[12px] border border-slate-200 px-4 py-2.5 text-sm font-black text-slate-500">Kapat</button>
         </div>
@@ -605,7 +624,7 @@ function MarketplaceModal({ form, setForm, draft, loading, onClose, onGenerate, 
     <div className="fixed inset-0 z-[90] grid place-items-center bg-slate-950/45 p-4">
       <section className="max-h-[92vh] w-full max-w-4xl overflow-auto rounded-[24px] bg-white p-5 shadow-2xl">
         <div className="flex items-start justify-between gap-3">
-          <div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Marketplace</p><h2 className="mt-1 text-2xl font-black text-slate-950">Yeni Paket Üret</h2></div>
+          <div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Hazır Paketler</p><h2 className="mt-1 text-2xl font-black text-slate-950">Yeni Paket Üret</h2></div>
           <button onClick={onClose} className="rounded-full border border-slate-200 p-2 text-slate-500"><X size={18} /></button>
         </div>
         <div className="mt-5 grid gap-3 md:grid-cols-2">
@@ -620,7 +639,7 @@ function MarketplaceModal({ form, setForm, draft, loading, onClose, onGenerate, 
           ].map(([key, label]) => <label key={key} className="grid gap-1 text-sm font-bold text-slate-700">{label}<input value={form[key]} onChange={(event) => setForm({ ...form, [key]: event.target.value })} className="rounded-[12px] border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-900" /></label>)}
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
-          <button disabled={loading} onClick={onGenerate} className="inline-flex items-center gap-2 rounded-[12px] bg-cyan-500 px-4 py-2.5 text-sm font-black text-white disabled:opacity-60"><Sparkles size={16} /> {loading ? "Üretiliyor..." : "Prompt / Workflow / KPI Üret"}</button>
+          <button disabled={loading} onClick={onGenerate} className="inline-flex items-center gap-2 rounded-[12px] bg-cyan-500 px-4 py-2.5 text-sm font-black text-white disabled:opacity-60"><Sparkles size={16} /> {loading ? "Üretiliyor..." : "Komut Metni / İş Akışı / KPI Üret"}</button>
           {draft && <button onClick={onSave} className="inline-flex items-center gap-2 rounded-[12px] border border-cyan-200 bg-cyan-50 px-4 py-2.5 text-sm font-black text-cyan-700"><Save size={16} /> Kaydet</button>}
           {draft && <button onClick={() => onCopy(draftText)} className="inline-flex items-center gap-2 rounded-[12px] border border-slate-200 px-4 py-2.5 text-sm font-black text-slate-700"><Copy size={16} /> Çıktıyı Kopyala</button>}
         </div>
@@ -630,7 +649,88 @@ function MarketplaceModal({ form, setForm, draft, loading, onClose, onGenerate, 
   );
 }
 
-function ApplyWizardModal({ packageData, companies, search, setSearch, selectedCompanyId, setSelectedCompanyId, options, setOptions, result, onApply, onClose, onOpenCustomer }: any) {
+function resultCards(result: any, options: any) {
+  const summary = result?.summary || {};
+  const mode = result?.mode === "prepared_payload" ? "Hazırlık modu" : "";
+  const rows = [
+    ["memory", "AI Hafızası", "kayıt oluşturuldu", "Oluşturuldu"],
+    ["customerNote", "Müşteri Notu", "not oluşturuldu", "Oluşturuldu"],
+    ["tasks", "Görevler", "görev taslağı oluşturuldu", "Oluşturuldu"],
+    ["workflowDraft", "İş Akışı Taslağı", "taslak hazırlandı", "Hazırlandı"],
+    ["kpiTemplate", "KPI Şablonu", "şablon hazırlandı", "Hazırlandı"],
+    ["reportTemplate", "Rapor Şablonu", "şablon hazırlandı", "Hazırlandı"],
+    ["proposalDraft", "Teklif Taslağı", "taslak hazırlandı", "Hazırlandı"]
+  ];
+  const optionKey: Record<string, string> = {
+    memory: "saveMemory",
+    customerNote: "createCustomerNote",
+    tasks: "createTasks",
+    workflowDraft: "createWorkflowDraft",
+    kpiTemplate: "createKpiTemplate",
+    reportTemplate: "createReportTemplate",
+    proposalDraft: "createProposalDraft"
+  };
+  return rows.map(([key, label, suffix, okLabel]) => {
+    const selected = Boolean(options?.[optionKey[key]]);
+    const count = Number(summary?.[key] || 0);
+    const status = !selected ? "Atlandı" : mode || (count > 0 ? okLabel : "Kontrol gerekli");
+    return { key, label, text: !selected ? "Seçilmedi" : count > 0 ? `${count} ${suffix}` : mode || "Kayıt doğrulanmalı", status };
+  });
+}
+
+function ResultBadge({ status }: { status: string }) {
+  const tone = status === "Oluşturuldu" || status === "Hazırlandı"
+    ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+    : status === "Atlandı"
+      ? "bg-slate-50 text-slate-600 ring-slate-200"
+      : status === "Hazırlık modu"
+        ? "bg-amber-50 text-amber-700 ring-amber-200"
+        : "bg-red-50 text-red-700 ring-red-200";
+  return <span className={`rounded-full px-2 py-1 text-[10px] font-black ring-1 ${tone}`}>{status}</span>;
+}
+
+function ApplySuccessPanel({ result, selectedCompany, packageData, options, onOpenCustomer, onGo, onApplicationDetail }: any) {
+  const packageName = result?.summary?.packageName || packageData.package_name || packageData.packageName || "Paket";
+  const customerName = selectedCompany?.name || result?.company?.name || "seçilen müşteri";
+  const cards = resultCards(result, options);
+  return (
+    <section className="rounded-[18px] border border-emerald-200 bg-emerald-50 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-lg font-black text-emerald-950">Paket müşteriye uygulandı</h3>
+          <p className="mt-1 text-sm leading-6 text-emerald-900">{packageName}, {customerName} müşterisine başarıyla uygulandı.</p>
+        </div>
+        <ResultBadge status={result?.mode === "prepared_payload" ? "Hazırlık modu" : "Oluşturuldu"} />
+      </div>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        {cards.map((card) => (
+          <div key={card.key} className="rounded-[14px] border border-emerald-200 bg-white p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="font-black text-slate-950">{card.label}</p>
+              <ResultBadge status={card.status} />
+            </div>
+            <p className="mt-1 text-xs text-slate-600">{card.text}</p>
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 rounded-[14px] border border-emerald-200 bg-white p-3">
+        <h4 className="font-black text-slate-950">Sonraki Adımlar</h4>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button onClick={() => selectedCompany && onOpenCustomer(selectedCompany)} className="rounded-[12px] bg-cyan-500 px-4 py-2.5 text-sm font-black text-white">Müşteri Profilini Aç</button>
+          <button onClick={() => onGo("Görevler", "Görevler açıldı.")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-2.5 text-sm font-black text-cyan-700">Görevleri Gör</button>
+          <button onClick={() => onGo("HK Agent Hub", "AI Hafızası açıldı.")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-2.5 text-sm font-black text-cyan-700">AI Hafızasında Aç</button>
+          <button onClick={() => onGo("HK Agent Hub", "İş akışları açıldı.")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-2.5 text-sm font-black text-cyan-700">İş Akışını Aç</button>
+          <button onClick={() => onGo("Müşteri Raporları", "Rapor şablonu açıldı.")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-2.5 text-sm font-black text-cyan-700">Rapor Şablonunu Gör</button>
+          <button onClick={() => onGo("Teklif Oluştur", "Teklif taslağı açıldı.")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-2.5 text-sm font-black text-cyan-700">Teklif Taslağını Gör</button>
+          <button onClick={() => onApplicationDetail(result?.application || result, selectedCompany, packageData, options)} className="rounded-[12px] border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-black text-emerald-700">Uygulama Kaydını Aç</button>
+          <button onClick={() => onGo("HK Agent Hub", "Agent Hub analizi açıldı.")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-2.5 text-sm font-black text-cyan-700">Agent Hub’da Analiz Et</button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ApplyWizardModal({ packageData, companies, search, setSearch, selectedCompanyId, setSelectedCompanyId, options, setOptions, result, onApply, onClose, onOpenCustomer, onGo, onApplicationDetail }: any) {
   const selectedCompany = companies.find((company: any) => company.id === selectedCompanyId) || companies[0];
   const workflow = packageData.workflow_steps || packageData.workflowSteps || [];
   const kpis = packageData.kpi_template || packageData.kpiTemplate || [];
@@ -641,7 +741,7 @@ function ApplyWizardModal({ packageData, companies, search, setSearch, selectedC
     <div className="fixed inset-0 z-[95] grid place-items-center bg-slate-950/50 p-0 sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <section className="flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-auto sm:max-h-[85vh] sm:max-w-5xl sm:rounded-[26px]">
         <header className="flex items-start justify-between gap-3 border-b border-slate-200 p-5">
-          <div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Marketplace Wizard</p><h2 className="mt-1 text-2xl font-black text-slate-950">Paketi Müşteriye Uygula</h2><p className="mt-1 text-sm text-slate-500">{packageData.package_name || packageData.packageName} · {packageData.sector}</p></div>
+          <div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Paket Uygulama Sihirbazı</p><h2 className="mt-1 text-2xl font-black text-slate-950">Paketi Müşteriye Uygula</h2><p className="mt-1 text-sm text-slate-500">{packageData.package_name || packageData.packageName} · {packageData.sector}</p></div>
           <button onClick={onClose} className="rounded-full border border-slate-200 p-2 text-slate-500"><X size={18} /></button>
         </header>
         <div className="grid flex-1 gap-5 overflow-y-auto p-5 lg:grid-cols-[.95fr_1.05fr]">
@@ -651,9 +751,9 @@ function ApplyWizardModal({ packageData, companies, search, setSearch, selectedC
               <div className="mt-3 grid gap-2 text-sm text-slate-600">
                 <span><b>Paket:</b> {packageData.package_name || packageData.packageName}</span>
                 <span><b>Sektör:</b> {packageData.sector}</span>
-                <span><b>Ana hedef:</b> {packageData.main_goal || packageData.mainGoal || "lead"}</span>
+                <span><b>Ana hedef:</b> {packageData.main_goal || packageData.mainGoal || "lead / randevu"}</span>
                 <span><b>Kanallar:</b> {(packageData.channels || []).join(", ") || "Meta, Google Ads, SEO"}</span>
-                <span><b>Varlıklar:</b> AI hafızası, müşteri notu, görev planı, workflow, KPI, rapor ve teklif taslağı</span>
+                <span><b>Varlıklar:</b> AI hafızası, müşteri notu, görev planı, iş akışı, KPI, rapor ve teklif taslağı</span>
               </div>
             </div>
             <div className="rounded-[18px] border border-slate-200 bg-white p-4">
@@ -676,7 +776,7 @@ function ApplyWizardModal({ packageData, companies, search, setSearch, selectedC
                   ["saveMemory", "AI Hafızasına strateji kaydet"],
                   ["createCustomerNote", "Müşteri notu oluştur"],
                   ["createTasks", "30 günlük görev planı oluştur"],
-                  ["createWorkflowDraft", "Agent Hub workflow taslağı hazırla"],
+                  ["createWorkflowDraft", "Agent Hub iş akışı taslağı hazırla"],
                   ["createKpiTemplate", "KPI şablonu hazırla"],
                   ["createReportTemplate", "Rapor şablonu hazırla"],
                   ["createProposalDraft", "Teklif taslağı hazırla"]
@@ -692,20 +792,20 @@ function ApplyWizardModal({ packageData, companies, search, setSearch, selectedC
                 <span>Oluşacak görev sayısı: <b>{options.createTasks ? Math.max(5, tasks.length || 5) : 0}</b></span>
                 <span>Hafıza özeti: <b>{options.saveMemory ? "Strateji + operasyon planı" : "Kapalı"}</b></span>
                 <span>Müşteri notu: <b>{options.createCustomerNote ? "Uygulama özeti" : "Kapalı"}</b></span>
-                <span>Workflow adımları: <b>{options.createWorkflowDraft ? workflow.length || 5 : 0}</b></span>
+                <span>İş akışı adımları: <b>{options.createWorkflowDraft ? workflow.length || 5 : 0}</b></span>
                 <span>KPI başlıkları: <b>{options.createKpiTemplate ? kpis.join(", ") || "Lead, CPL, ROAS" : "Kapalı"}</b></span>
                 <span>Rapor başlıkları: <b>{options.createReportTemplate ? reports.join(", ") || "Yönetici özeti, riskler" : "Kapalı"}</b></span>
               </div>
             </div>
             <div className="rounded-[18px] border border-slate-200 bg-white p-4">
               <h3 className="font-black text-slate-950">5. Uygula</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-600">Seçili {selectedCount} varlık için kayıt oluşturulur. Uygun tablo yoksa uygulama loguna payload olarak kaydedilir.</p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">Seçili {selectedCount} varlık için kayıt oluşturulur. Uygun tablo yoksa uygulama kaydına hazırlık verisi olarak eklenir.</p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <button disabled={!selectedCompanyId} onClick={onApply} className="rounded-[12px] bg-cyan-500 px-4 py-3 text-sm font-black text-white disabled:opacity-50">Paketi Uygula</button>
                 {selectedCompany && <button onClick={() => onOpenCustomer(selectedCompany)} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-3 text-sm font-black text-cyan-700">Müşteriyi Görüntüle</button>}
               </div>
             </div>
-            {result && <div className="rounded-[18px] border border-emerald-200 bg-emerald-50 p-4"><h3 className="font-black text-emerald-950">{result.message || "Paket uygulandı."}</h3><pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap text-xs leading-5 text-emerald-950">{JSON.stringify(result.summary || result.payload || result, null, 2)}</pre></div>}
+            {result && <ApplySuccessPanel result={result} selectedCompany={selectedCompany} packageData={packageData} options={options} onOpenCustomer={onOpenCustomer} onGo={onGo} onApplicationDetail={onApplicationDetail} />}
           </div>
         </div>
       </section>
@@ -713,42 +813,73 @@ function ApplyWizardModal({ packageData, companies, search, setSearch, selectedC
   );
 }
 
-function CustomerProfilePopup({ profile, content, onClose, onGo }: any) {
-  const { company, health } = profile;
-  const integration = (content.customerIntegrations || []).find((item: any) => item.company_id === company.id) || {};
-  const tasks = (content.agencyTasks || []).filter((item: any) => item.company_id === company.id);
-  const reports = (content.reports || []).filter((item: any) => item.company_id === company.id);
-  const payments = (content.paymentRecords || []).filter((item: any) => item.company_id === company.id);
-  const campaigns = (content.campaigns || []).filter((item: any) => item.company_id === company.id);
+function ApplicationDetailModal({ detail, onClose, onGo, onOpenCustomer }: any) {
+  const application = detail?.application || {};
+  const company = detail?.company;
+  const packageData = detail?.packageData || {};
+  const summary = application.result_summary || detail?.summary || {};
+  const createdRecords = application.created_records || detail?.createdRecords || {};
+  const options = application.options || detail?.options || {};
+  const packageName = summary.packageName || packageData.package_name || packageData.packageName || "Hazır paket";
+  const statusText = application.status === "failed" ? "Hata" : application.status === "applied" ? "Uygulandı" : application.status || detail?.mode || "Uygulandı";
+  const optionLabels: Record<string, string> = {
+    saveMemory: "AI Hafızasına strateji kaydet",
+    createCustomerNote: "Müşteri notu oluştur",
+    createTasks: "30 günlük görev planı oluştur",
+    createWorkflowDraft: "İş akışı taslağı hazırla",
+    createKpiTemplate: "KPI şablonu hazırla",
+    createReportTemplate: "Rapor şablonu hazırla",
+    createProposalDraft: "Teklif taslağı hazırla"
+  };
+  const recordLines = resultCards({ summary }, options).map((item) => `${item.label}: ${item.text}`);
   return (
-    <div className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/50 p-0 sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className="flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-auto sm:max-h-[85vh] sm:max-w-4xl sm:rounded-[26px]">
+    <div className="fixed inset-0 z-[105] grid place-items-center bg-slate-950/50 p-0 sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className="flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-auto sm:max-h-[85vh] sm:max-w-3xl sm:rounded-[26px]">
         <header className="flex items-start justify-between gap-3 border-b border-slate-200 p-5">
-          <div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Müşteri Profili</p><h2 className="mt-1 text-2xl font-black text-slate-950">{company.name}</h2><p className="mt-1 text-sm text-slate-500">{company.status || "Aktif"} · {company.city || "Şehir yok"} · {company.sector || "Sektör yok"}</p></div>
+          <div>
+            <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Uygulama Kaydı</p>
+            <h2 className="mt-1 text-2xl font-black text-slate-950">Paket Uygulama Kaydı</h2>
+            <p className="mt-1 text-sm text-slate-500">{packageName} · {company?.name || "Müşteri seçimi"}</p>
+          </div>
           <button onClick={onClose} className="rounded-full border border-slate-200 p-2 text-slate-500"><X size={18} /></button>
         </header>
         <div className="flex-1 overflow-y-auto p-5">
-          <div className="grid gap-4 md:grid-cols-2">
-            <SummaryBox title="Genel bilgiler" lines={[`Firma: ${company.name}`, `Yetkili: ${company.contact_name || company.authorized_person || "Yok"}`, `Web: ${company.website || "Yok"}`, `Instagram: ${company.instagram || "Yok"}`]} />
-            <SummaryBox title="İletişim" lines={[`E-posta: ${company.email || "Yok"}`, `Telefon: ${company.phone || "Yok"}`, `Şehir: ${company.city || "Yok"}`, `Not: ${company.notes || "Yok"}`]} />
-            <SummaryBox title="Kurulum durumu" lines={[`Sağlık skoru: ${health.score}/100`, `Durum: ${health.status}`, ...health.reasons]} />
-            <SummaryBox title="Entegrasyonlar" lines={[`Pixel: ${integration.meta_pixel_id ? "Var" : "Eksik"}`, `Dataset: ${integration.meta_dataset_id ? "Var" : "Eksik"}`, `GA4: ${integration.ga4_measurement_id || integration.ga4_property_id ? "Var" : "Eksik"}`, `Google Ads: ${integration.google_ads_customer_id ? "Var" : "Eksik"}`]} />
-            <SummaryBox title="Operasyon özeti" lines={[`Görev: ${tasks.length}`, `Rapor: ${reports.length}`, `Tahsilat: ${payments.length}`, `Kampanya: ${campaigns.length}`]} />
-            <SummaryBox title="Tahsilat özeti" lines={[`Toplam kayıt: ${payments.length}`, `Bekleyen: ${payments.filter((item: any) => !paidStatuses.includes(item.status)).length}`, `Tahsil edilen: ${payments.filter((item: any) => paidStatuses.includes(item.status)).length}`]} />
+          <div className="grid gap-3 md:grid-cols-2">
+            <InfoTile label="Paket adı" value={packageName} />
+            <InfoTile label="Müşteri adı" value={company?.name || application.company_name || "Müşteri bilgisi yok"} />
+            <InfoTile label="Uygulama tarihi" value={application.created_at ? new Date(application.created_at).toLocaleString("tr-TR") : "Yeni oluşturuldu"} />
+            <InfoTile label="Durum" value={statusText} />
           </div>
-          <div className="mt-5 flex flex-wrap gap-2">
-            <button onClick={() => onGo("Müşteriler", "Müşteri detayına gidildi.")} className="rounded-[12px] bg-cyan-500 px-4 py-3 text-sm font-black text-white">Müşteri detayına git</button>
-            <button onClick={() => onGo("Web Site Analitiği")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-3 text-sm font-black text-cyan-700">Entegrasyonlar sekmesine git</button>
-            <button onClick={() => onGo("HK Agent Hub")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-3 text-sm font-black text-cyan-700">Agent Hub’da analiz et</button>
-            <button onClick={() => onGo("Müşteri Raporları")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-3 text-sm font-black text-cyan-700">Rapor oluştur</button>
-            <button onClick={() => onGo("Görevler")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-3 text-sm font-black text-cyan-700">Görev oluştur</button>
-          </div>
+          <section className="mt-4 rounded-[16px] border border-slate-200 bg-slate-50 p-4">
+            <h3 className="font-black text-slate-950">Uygulanan seçenekler</h3>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {Object.entries(optionLabels).map(([key, label]) => <span key={key} className={`rounded-full px-3 py-1 text-xs font-black ring-1 ${options[key] === false ? "bg-slate-50 text-slate-500 ring-slate-200" : "bg-cyan-50 text-cyan-700 ring-cyan-200"}`}>{options[key] === false ? "Atlandı" : "Uygulandı"} · {label}</span>)}
+            </div>
+          </section>
+          <section className="mt-4 rounded-[16px] border border-slate-200 bg-white p-4">
+            <h3 className="font-black text-slate-950">Oluşturulan kayıtlar</h3>
+            <div className="mt-3 grid gap-2 text-sm text-slate-700">{recordLines.map((line) => <span key={line}>{line}</span>)}</div>
+            {application.error_message && <p className="mt-3 rounded-[12px] border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">Hata: {application.error_message}</p>}
+          </section>
+          <section className="mt-4 rounded-[16px] border border-emerald-200 bg-emerald-50 p-4">
+            <h3 className="font-black text-emerald-950">Sonraki önerilen adım</h3>
+            <p className="mt-2 text-sm leading-6 text-emerald-900">Önce müşteri profilinde Uygulanan Paketler bölümünü kontrol edin, ardından görevler ve Agent Hub iş akışı taslaklarını açın.</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button onClick={() => onOpenCustomer(company)} className="rounded-[12px] bg-cyan-500 px-4 py-2.5 text-sm font-black text-white">Müşteri Profilini Aç</button>
+              <button onClick={() => onGo("Görevler")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-2.5 text-sm font-black text-cyan-700">Görevleri Gör</button>
+              <button onClick={() => onGo("HK Agent Hub")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-2.5 text-sm font-black text-cyan-700">Agent Hub’da Aç</button>
+            </div>
+          </section>
+          <details className="mt-4 rounded-[16px] border border-slate-200 bg-slate-50 p-4">
+            <summary className="cursor-pointer text-sm font-black text-slate-700">Teknik detayı göster</summary>
+            <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap text-xs leading-5 text-slate-700">{JSON.stringify({ application, createdRecords }, null, 2)}</pre>
+          </details>
         </div>
       </section>
     </div>
   );
 }
 
-function SummaryBox({ title, lines }: { title: string; lines: string[] }) {
-  return <div className="rounded-[18px] border border-slate-200 bg-slate-50 p-4"><h3 className="font-black text-slate-950">{title}</h3><div className="mt-3 grid gap-1 text-sm text-slate-600">{lines.map((line) => <span key={line}>{line}</span>)}</div></div>;
+function InfoTile({ label, value }: { label: string; value: string }) {
+  return <div className="rounded-[14px] border border-slate-200 bg-slate-50 p-3"><p className="text-[11px] font-black uppercase tracking-[.12em] text-slate-500">{label}</p><p className="mt-1 font-black text-slate-950">{value}</p></div>;
 }

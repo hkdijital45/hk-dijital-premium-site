@@ -41,7 +41,8 @@ const tables = {
   agencyDailyTasks: "agency_daily_tasks",
   agencyTargets: "agency_targets",
   agencyLearningSignals: "agency_learning_signals",
-  proposalFollowups: "proposal_followups"
+  proposalFollowups: "proposal_followups",
+  hkMarketplacePackageApplications: "hk_marketplace_package_applications"
 } as const;
 const allowedUpdateTypes = ["Yapılan Çalışma", "Reklam Güncellemesi", "Rapor Notu", "Strateji Notu", "Uyarı", "Başarı", "Diğer"];
 
@@ -734,7 +735,7 @@ async function upsertItems(key: keyof typeof tables, items: any[] = []) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Supabase kaydetme hatası.";
     if (["companies", "leads", "campaigns", "agencyTasks", "paymentRecords", "customerBranding", "customerVisibilitySettings"].includes(key)) throw error;
-    if (["metaAdsetMetrics", "metaAdMetrics", "metaConversionEvents", "metaAnalysisSnapshots", "customerReportVisibility", "customerIntegrations", "monthlyReports", "customerDocuments", "reports", "competitorAnalyses", "socialMediaPlans", "agencyExpenses", "sectorConfigs", "systemTestRuns", "systemTestChecklist", "activityLogs", "agencyOpportunities", "agencyOpportunityEvents", "agencyDailyTasks", "agencyTargets", "agencyLearningSignals", "proposalFollowups"].includes(key) && (message.includes("schema cache") || message.includes("relation") || message.includes("table"))) {
+    if (["metaAdsetMetrics", "metaAdMetrics", "metaConversionEvents", "metaAnalysisSnapshots", "customerReportVisibility", "customerIntegrations", "monthlyReports", "customerDocuments", "reports", "competitorAnalyses", "socialMediaPlans", "agencyExpenses", "sectorConfigs", "systemTestRuns", "systemTestChecklist", "activityLogs", "agencyOpportunities", "agencyOpportunityEvents", "agencyDailyTasks", "agencyTargets", "agencyLearningSignals", "proposalFollowups", "hkMarketplacePackageApplications"].includes(key) && (message.includes("schema cache") || message.includes("relation") || message.includes("table"))) {
       console.warn(`${table} tablosu canlı şemada bulunamadı; migration uygulanana kadar bu modül atlandı.`);
       return [];
     }
@@ -759,7 +760,7 @@ export async function GET() {
     return NextResponse.json({ error: "Supabase bağlantısı yapılandırılmadı." }, { status: 500 });
   }
 
-  const [companies, users, leads, campaigns, campaignMetrics, metaAdsetMetrics, metaAdMetrics, metaConversionEvents, metaAnalysisSnapshots, customerReportVisibility, customerUpdates, customerVisibilitySettings, customerFiles, media, customerBranding, customerIntegrations, monthlyReports, agencyTasks, customerDocuments, paymentRecords, reports, competitorAnalyses, socialMediaPlans, agencyExpenses, sectorConfigs, systemTestRuns, systemTestChecklist, activityLogs, adIntegrations, agencyOpportunities, agencyOpportunityEvents, agencyDailyTasks, agencyTargets, agencyLearningSignals, proposalFollowups] =
+  const [companies, users, leads, campaigns, campaignMetrics, metaAdsetMetrics, metaAdMetrics, metaConversionEvents, metaAnalysisSnapshots, customerReportVisibility, customerUpdates, customerVisibilitySettings, customerFiles, media, customerBranding, customerIntegrations, monthlyReports, agencyTasks, customerDocuments, paymentRecords, reports, competitorAnalyses, socialMediaPlans, agencyExpenses, sectorConfigs, systemTestRuns, systemTestChecklist, activityLogs, adIntegrations, agencyOpportunities, agencyOpportunityEvents, agencyDailyTasks, agencyTargets, agencyLearningSignals, proposalFollowups, hkMarketplacePackageApplications] =
     await Promise.all([
       supabaseRest("companies?select=*&order=created_at.desc"),
       supabaseRest("users?deleted_at=is.null&select=*&order=created_at.desc"),
@@ -795,7 +796,8 @@ export async function GET() {
       supabaseRest("agency_daily_tasks?select=*&order=task_date.asc").catch(() => []),
       supabaseRest("agency_targets?select=*&order=month.desc").catch(() => []),
       supabaseRest("agency_learning_signals?select=*&order=created_at.desc").catch(() => []),
-      supabaseRest("proposal_followups?select=*&order=next_followup_at.asc").catch(() => [])
+      supabaseRest("proposal_followups?select=*&order=next_followup_at.asc").catch(() => []),
+      supabaseRest("hk_marketplace_package_applications?select=*&order=created_at.desc").catch(() => [])
     ]);
 
   return NextResponse.json({
@@ -833,7 +835,8 @@ export async function GET() {
     agencyDailyTasks,
     agencyTargets,
     agencyLearningSignals,
-    proposalFollowups
+    proposalFollowups,
+    hkMarketplacePackageApplications
   });
 }
 
