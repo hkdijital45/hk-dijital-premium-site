@@ -7,10 +7,19 @@ function packagePayload(body: Record<string, any>, createdBy?: string | null) {
   return {
     package_name: body.package_name || body.packageName || `${body.sector || "Sektör"} Paketi`,
     sector: body.sector || "Sektör",
+    niche: body.niche || body.subSector || null,
+    region: body.region || body.city || null,
     target_customer: body.target_customer || body.targetCustomer || null,
     service_types: body.service_types || body.serviceTypes || [],
     channels: body.channels || [],
     monthly_budget_range: body.monthly_budget_range || body.monthlyBudgetRange || null,
+    service_fee_range: body.service_fee_range || body.serviceFeeRange || null,
+    customer_problem: body.customer_problem || body.customerProblem || null,
+    competition_level: body.competition_level || body.competitionLevel || null,
+    sales_process: body.sales_process || body.salesProcess || null,
+    offer_tone: body.offer_tone || body.offerTone || null,
+    package_level: body.package_level || body.packageLevel || null,
+    package_duration: body.package_duration || body.packageDuration || null,
     main_goal: body.main_goal || body.mainGoal || null,
     generated_prompt: body.generated_prompt || body.generatedPrompt || null,
     workflow_steps: body.workflow_steps || body.workflowSteps || [],
@@ -19,6 +28,15 @@ function packagePayload(body: Record<string, any>, createdBy?: string | null) {
     report_template: body.report_template || body.reportTemplate || [],
     proposal_draft: body.proposal_draft || body.proposalDraft || null,
     operation_plan: body.operation_plan || body.operationPlan || [],
+    risks: body.risks || [],
+    opportunities: body.opportunities || [],
+    sales_arguments: body.sales_arguments || body.salesArguments || [],
+    customer_summary: body.customer_summary || body.customerSummary || null,
+    seven_day_plan: body.seven_day_plan || body.sevenDayPlan || [],
+    thirty_day_plan: body.thirty_day_plan || body.thirtyDayPlan || [],
+    tracking_metrics: body.tracking_metrics || body.trackingMetrics || [],
+    version_number: Number(body.version_number || body.versionNumber || 1),
+    source: body.source || "ai_generated",
     status: body.status || "draft",
     created_by: createdBy || null,
     updated_at: new Date().toISOString()
@@ -43,7 +61,7 @@ export async function POST(request: Request) {
       method: "POST",
       body: JSON.stringify(packagePayload(body, session.profileId || session.authUserId || null))
     });
-    return NextResponse.json({ ok: true, package: rows[0], message: "Marketplace paketi kaydedildi." });
+    return NextResponse.json({ ok: true, package: rows[0], message: "Hazır paket kaydedildi." });
   } catch (error) {
     const safe = getSafeSupabaseError(error);
     return NextResponse.json({ error: safe.title, detail: safe.detail }, { status: 500 });

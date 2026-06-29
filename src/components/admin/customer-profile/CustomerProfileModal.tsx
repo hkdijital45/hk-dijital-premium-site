@@ -46,6 +46,10 @@ function countFromSummary(application: any, key: string) {
   return Number(application?.result_summary?.[key] || 0);
 }
 
+function applicationStatus(status: string) {
+  return status === "applied" ? "Uygulandı" : status === "failed" ? "Hata" : status || "Uygulandı";
+}
+
 function SummaryBox({ title, lines }: { title: string; lines: string[] }) {
   return (
     <div className="rounded-[18px] border border-slate-200 bg-slate-50 p-4">
@@ -131,8 +135,8 @@ export function CustomerProfileModal({
           <section className="mt-5 rounded-[18px] border border-cyan-200 bg-cyan-50 p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h3 className="font-black text-slate-950">Uygulanan Paketler</h3>
-                <p className="mt-1 text-sm text-cyan-900">Hazır paket uygulamaları ve oluşturulan kayıt özetleri.</p>
+                <h3 className="font-black text-slate-950">Uygulanan Paketler / Planlar</h3>
+                <p className="mt-1 text-sm text-cyan-900">Hazır paket uygulamaları, takip metrikleri ve ilk 7/30 günlük plan özetleri.</p>
               </div>
               <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-cyan-700 ring-1 ring-cyan-200">{applications.length} kayıt</span>
             </div>
@@ -141,7 +145,7 @@ export function CustomerProfileModal({
                 <div key={application.id || application.created_at} className="rounded-[14px] border border-cyan-200 bg-white p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="font-black text-slate-950">{packageTitle(application)}</p>
-                    <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700 ring-1 ring-emerald-200">{application.status || "applied"}</span>
+                    <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700 ring-1 ring-emerald-200">{applicationStatus(application.status)}</span>
                   </div>
                   <p className="mt-1 text-xs text-slate-500">Uygulama tarihi: {application.created_at ? new Date(application.created_at).toLocaleString("tr-TR") : "Tarih yok"}</p>
                   <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-bold text-slate-600">
@@ -149,6 +153,13 @@ export function CustomerProfileModal({
                     <span>Hafıza: {countFromSummary(application, "memory")}</span>
                     <span>Rapor: {countFromSummary(application, "reportTemplate")}</span>
                     <span>Teklif: {countFromSummary(application, "proposalDraft")}</span>
+                    <span>Takip metriği: {(application.tracking_metrics || []).length}</span>
+                    <span>7 gün: {(application.seven_day_plan || []).length} adım</span>
+                    <span>30 gün: {(application.thirty_day_plan || []).length} hafta</span>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button onClick={() => onGo?.("HK Intelligence CEO", "Uygulanan plan açıldı.")} className="rounded-[10px] bg-cyan-500 px-3 py-1.5 text-xs font-black text-white">Aç / Devam Et</button>
+                    <button onClick={() => onGo?.("Müşteri Raporları", "Rapor oluşturma alanı açıldı.")} className="rounded-[10px] border border-cyan-200 bg-white px-3 py-1.5 text-xs font-black text-cyan-700">Rapor Oluştur</button>
                   </div>
                 </div>
               ))}
