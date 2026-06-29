@@ -22,6 +22,7 @@ const modules = [
   { name: "HK Risk Events", slug: "hk-intelligence-ceo", api: "hk-intelligence-ceo/status", table: "hk_risk_events", columns: ["risk_key", "severity", "recommendation"] },
   { name: "Customer Branches", slug: "hk-intelligence-ceo", api: "hk-intelligence-ceo/status", table: "customer_branches", columns: ["company_id", "branch_name", "kpi_snapshot"] },
   { name: "HK CEO Marketplace", slug: "hk-intelligence-ceo", api: "hk-intelligence-ceo/marketplace", table: "hk_marketplace_packages", columns: ["package_name", "sector", "workflow_steps", "operation_plan"] },
+  { name: "HK CEO Marketplace Uygulama Logları", slug: "hk-intelligence-ceo", api: "hk-intelligence-ceo/marketplace", table: "hk_marketplace_package_applications", columns: ["package_id", "company_id", "result_summary", "created_records"] },
   { name: "HK Agent Hub", slug: "agent-hub", api: "agent-hub/providers", table: "agent_runs", columns: ["task_type", "selected_provider", "output_payload", "final_report", "provider_chain", "progress_events"] },
   { name: "HK Agent Hub Planlı Görevler", slug: "agent-hub", api: "agent-hub/scheduled", table: "agent_scheduled_tasks", columns: ["task_type", "schedule_frequency", "next_run_at", "multi_agent"] },
   { name: "HK Agent Hub Hafıza", slug: "agent-hub", api: "agent-hub/memory", table: "agent_memories", columns: ["company_id", "memory_type", "impact_score", "is_active"] },
@@ -77,6 +78,7 @@ function sourceContains(pattern: string) {
     "src/app/api/admin/hk-intelligence-ceo/copilot/route.ts",
     "src/app/api/admin/hk-intelligence-ceo/marketplace/route.ts",
     "src/app/api/admin/hk-intelligence-ceo/marketplace/generate/route.ts",
+    "src/app/api/admin/hk-intelligence-ceo/marketplace/[id]/apply-to-customer/route.ts",
     "src/app/api/admin/hk-intelligence-ceo/agents/route.ts",
     "src/app/api/admin/hk-intelligence-ceo/operations/route.ts"
   ].filter(fileExists);
@@ -285,6 +287,17 @@ function scanSourcesForFindings(migrations: string) {
     ["Operasyon takvimi düzenleniyor mu?", "hk-intelligence-ceo/operations", "Operasyon takvimi GET/POST/PATCH route'larıyla planlanabilir olmalı."],
     ["Risk/öneri görev oluşturabiliyor mu?", "convert-task", "Öneriler görev payload'ına veya agency_tasks kaydına dönüşebilmeli."],
     ["Migration SQL final raporda veriliyor mu?", "hk_ceo_functional_actions", "Yeni migration SQL'i final raporda SQL Editor için tam içerikle paylaşılmalı."]
+    ,
+    ["Marketplace Müşteriye Uygula gerçek müşteri seçtiriyor mu?", "Paketi Müşteriye Uygula", "Marketplace apply wizard müşteri arama/seçim adımı göstermeli."],
+    ["Uygulama sonrası application log oluşuyor mu?", "hk_marketplace_package_applications", "Paket uygulama sonucu log tablosuna result_summary ve created_records yazmalı."],
+    ["Agent Memory kaydı oluşuyor mu?", "marketplace_package", "Paket stratejisi agent_memories içine marketplace_package türüyle kaydedilmeli."],
+    ["Görev taslakları oluşuyor mu?", "30 günlük görev planı oluştur", "Uygulama wizardı agency_tasks kayıtları veya görev payload'ı üretmeli."],
+    ["Müşteri notu oluşuyor mu?", "Müşteri notu oluştur", "Uygulama sonucu customer_updates veya güvenli payload ile müşteri notu üretmeli."],
+    ["Müşteri profil popup açılıyor mu?", "CustomerProfilePopup", "Müşteriyi Görüntüle aksiyonları sayfadan çıkmadan modal/popup açmalı."],
+    ["Popup X ile kapanıyor mu?", "onClose", "Müşteri profil popup X butonuyla kapanmalı."],
+    ["Popup dışına tıklayınca kapanıyor mu?", "event.currentTarget", "Popup overlay dış tıklamayla kapanmalı."],
+    ["Popup iç scroll çalışıyor mu?", "overflow-y-auto", "Popup içerik alanı max-height içinde scroll olmalı."],
+    ["Boş payload gösterip işlem yapmayan modal kaldı mı?", "Paketi Uygula", "Marketplace apply modalı gerçek uygulama butonuna ve kayıt route'una bağlanmalı."]
   ].forEach(([title, pattern, recommendation]) => {
     const inSource = sourceContains(pattern) || migrations.includes(String(pattern).toLocaleLowerCase("tr"));
     if (!inSource) findings.push(makeFinding({ category: "Ajans Operasyonu QA", severity: "orta", module: "Ajans Operasyon Kalıcılığı", file_path: "src/components/admin/AdminDashboard.tsx", title, description: `${pattern} sinyali statik analizde bulunamadı.`, recommendation }));
