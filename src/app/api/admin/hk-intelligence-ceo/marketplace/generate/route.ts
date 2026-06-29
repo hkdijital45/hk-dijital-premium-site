@@ -30,6 +30,29 @@ function buildPackage(body: Record<string, unknown>) {
     "İlk kampanya, landing page ve WhatsApp takip akışını hazırla",
     "7 günlük aksiyon planı ve aylık rapor şablonu üret"
   ];
+  const socialMediaPlan = [
+    "Haftalık 3 post: güven kanıtı, hizmet anlatımı ve kampanya çağrısı",
+    "Haftalık 2 Reels: süreç, sonuç ve müşteri sorusu formatı",
+    "Günlük Story: randevu/iletişim çağrısı ve sosyal kanıt",
+    "Ayda 1 müşteri başarı hikayesi veya vaka özeti"
+  ];
+  const contentCalendar = [
+    "Pazartesi: problem farkındalığı içeriği",
+    "Çarşamba: hizmet/fayda anlatımı",
+    "Cuma: kampanya ve WhatsApp çağrısı",
+    "Pazar: haftalık özet ve güven içeriği"
+  ];
+  const creativeIdeas = [
+    `${sectorLabel} için önce/sonra veya süreç odaklı kısa video`,
+    "Google arama niyetine uygun landing page banner başlığı",
+    "WhatsApp mesajına yönlendiren sosyal kanıt kreatifi",
+    "Bölgesel güven ve hızlı dönüş vurgulu reklam görseli"
+  ];
+  const approvalWorkflow = ["İç brief hazırlandı", "Kreatif taslak üretildi", "İç onay", "Müşteri onayı", "Revize istendi", "Yayına hazır", "Yayınlandı"];
+  const campaignOperations = ["Kampanya kurulumu", "Pixel/Dataset kontrolü", "GA4 kontrolü", "Reklam bütçesi", "Hedef kitle", "Kreatif", "İlk 72 saat kontrolü", "7 günlük optimizasyon"];
+  const clientCommunicationPlan = ["İlk arama", "Teklif gönderildi", "Sözleşme", "Kurulum bilgilendirmesi", "Haftalık rapor", "Aylık değerlendirme", "Yenileme görüşmesi"];
+  const reportApprovalFlow = ["Rapor oluşturuldu", "İç kontrol", "Müşteriye hazır", "Gönderildi", "Müşteri görüntüledi"];
+  const ninetyDayPlan = ["1. ay: Ölçümleme, kurulum ve ilk öğrenme", "2. ay: Kreatif, hedef kitle ve teklif optimizasyonu", "3. ay: Bütçe ölçekleme, rapor standardı ve yenileme planı"];
   return {
     package_name: `${sectorLabel} Growth OS Paketi`,
     packageName: `${sectorLabel} Growth OS Paketi`,
@@ -77,6 +100,22 @@ function buildPackage(body: Record<string, unknown>) {
     sevenDayPlan: ["Gün 1: Kurulum kontrolü", "Gün 2: Reklam ve hedef kitle kontrolü", "Gün 3: Kreatif kontrolü", "Gün 4: İlk optimizasyon", "Gün 5: Ara rapor", "Gün 6: Müşteri geri bildirimi", "Gün 7: Haftalık rapor ve yeni aksiyonlar"],
     thirty_day_plan: ["1. hafta: Kurulum ve veri toplama", "2. hafta: İlk optimizasyon", "3. hafta: Kreatif / teklif / hedef kitle iyileştirme", "4. hafta: Raporlama ve yenileme önerisi"],
     thirtyDayPlan: ["1. hafta: Kurulum ve veri toplama", "2. hafta: İlk optimizasyon", "3. hafta: Kreatif / teklif / hedef kitle iyileştirme", "4. hafta: Raporlama ve yenileme önerisi"],
+    ninety_day_plan: ninetyDayPlan,
+    ninetyDayPlan,
+    social_media_plan: socialMediaPlan,
+    socialMediaPlan,
+    content_calendar: contentCalendar,
+    contentCalendar,
+    creative_ideas: creativeIdeas,
+    creativeIdeas,
+    approval_workflow: approvalWorkflow,
+    approvalWorkflow,
+    campaign_operations: campaignOperations,
+    campaignOperations,
+    client_communication_plan: clientCommunicationPlan,
+    clientCommunicationPlan,
+    report_approval_flow: reportApprovalFlow,
+    reportApprovalFlow,
     tracking_metrics: ["Lead sayısı", "Mesaj sayısı", "Randevu oranı", "CPL", "CTR", "CPC", "ROAS", "Harcama", "WhatsApp dönüşümü", "Google yorumları", "Website form dönüşümü"],
     trackingMetrics: ["Lead sayısı", "Mesaj sayısı", "Randevu oranı", "CPL", "CTR", "CPC", "ROAS", "Harcama", "WhatsApp dönüşümü", "Google yorumları", "Website form dönüşümü"],
     risks: ["Ölçümleme eksikse kampanya öğrenmesi yavaşlar", "Düşük kreatif çeşitliliği performansı sınırlar", "Takip yapılmazsa lead kalitesi düşer"],

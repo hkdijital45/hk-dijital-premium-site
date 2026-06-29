@@ -59,6 +59,12 @@ function defaultThirtyDayPlan(pkg: Record<string, any>) {
   return (plan.length ? plan : fallback).map((title, index) => ({ week: index + 1, title, status: "Planlandı", focus: title.split(":")[1]?.trim() || title }));
 }
 
+function defaultNinetyDayPlan(pkg: Record<string, any>) {
+  const plan = asArray(packageField(pkg, "ninety_day_plan", "ninetyDayPlan", []));
+  const fallback = ["1. ay: Ölçümleme, kurulum ve ilk öğrenme", "2. ay: Kreatif, hedef kitle ve teklif optimizasyonu", "3. ay: Bütçe ölçekleme, rapor standardı ve yenileme planı"];
+  return (plan.length ? plan : fallback).map((title, index) => ({ month: index + 1, title, status: "Planlandı" }));
+}
+
 function buildNextActions(plan: string[]) {
   const owners = ["CRM Uzmanı", "Meta Ads Uzmanı", "Veri Analisti", "Google Ads Uzmanı", "Kreatif Direktör", "Raporlama Yöneticisi", "Müşteri Başarı Uzmanı"];
   return plan.slice(0, 7).map((title, index) => ({
@@ -80,6 +86,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const { id } = await context.params;
   const body = await request.json().catch(() => ({}));
   const companyId = String(body.companyId || body.company_id || "");
+  const branchId = body.branchId || body.branch_id ? String(body.branchId || body.branch_id) : "";
   if (!companyId) return NextResponse.json({ error: "Paketi uygulamak için müşteri seçin." }, { status: 400 });
 
   const options = { ...defaultOptions, ...(body.options || {}) };
@@ -87,6 +94,11 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     ? await supabaseRest<any[]>(`hk_marketplace_packages?id=eq.${encodeURIComponent(id)}&select=*&limit=1`).catch(() => [])
     : [];
   const pkg = packageRows[0] || body.package || {};
+  const branchRows = hasSupabaseConfig() && branchId
+    ? await supabaseRest<any[]>(`customer_branches?id=eq.${encodeURIComponent(branchId)}&select=*&limit=1`).catch(() => [])
+    : [];
+  const branch = branchRows[0] || null;
+  const branchLabel = branch?.branch_name ? `Şube: ${branch.branch_name}` : "Tüm şubeler";
   const packageName = packageField(pkg, "package_name", "packageName", "Hazır Paket");
   const sector = packageField(pkg, "sector", "sector", "Sektör");
   const prompt = packageField(pkg, "generated_prompt", "generatedPrompt", "");
@@ -95,21 +107,31 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const kpis = asArray(packageField(pkg, "kpi_template", "kpiTemplate", []));
   const reports = asArray(packageField(pkg, "report_template", "reportTemplate", []));
   const proposal = packageField(pkg, "proposal_draft", "proposalDraft", "");
+  const socialMediaPlan = packageField(pkg, "social_media_plan", "socialMediaPlan", []);
+  const contentCalendar = packageField(pkg, "content_calendar", "contentCalendar", []);
+  const creativeIdeas = packageField(pkg, "creative_ideas", "creativeIdeas", []);
+  const approvalWorkflow = packageField(pkg, "approval_workflow", "approvalWorkflow", []);
+  const campaignOperations = packageField(pkg, "campaign_operations", "campaignOperations", []);
+  const clientCommunicationPlan = packageField(pkg, "client_communication_plan", "clientCommunicationPlan", []);
+  const reportApprovalFlow = packageField(pkg, "report_approval_flow", "reportApprovalFlow", []);
   const plan = taskTitles(pkg);
   const trackingMetrics = defaultTrackingMetrics(pkg);
   const sevenDayPlan = defaultSevenDayPlan(pkg);
   const thirtyDayPlan = defaultThirtyDayPlan(pkg);
+  const ninetyDayPlan = defaultNinetyDayPlan(pkg);
   const nextActions = buildNextActions(plan);
   const postApplyPlan = {
     packageName,
     sector,
+    branchId: branchId || null,
+    branchName: branch?.branch_name || "Tüm şubeler",
     mainGoal: packageField(pkg, "main_goal", "mainGoal", "lead / randevu"),
     channels: packageField(pkg, "channels", "channels", []),
     successTarget: "İlk 30 günde ölçümleme, düzenli takip ve raporlanabilir aksiyon planı kurmak",
     estimatedDuration: packageField(pkg, "package_duration", "packageDuration", "30 gün"),
     difficulty: packageField(pkg, "competition_level", "competitionLevel", "Orta"),
     aiProvider: packageField(pkg, "mode", "mode", process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY ? "Gerçek AI hazır" : "Demo / Yerel yedek akış"),
-    whatHappened: `Bu işlemle seçilen müşteri için ${packageName} planı kuruldu. Sistem görev planı, AI hafızası, iş akışı taslağı, KPI ve rapor şablonu hazırladı. İlk adım entegrasyonları kontrol edip 7 günlük reklam sağlık raporunu başlatmaktır.`
+    whatHappened: `Bu işlemle seçilen müşteri için ${packageName} planı ${branchLabel.toLocaleLowerCase("tr")} kapsamında kuruldu. Sistem görev planı, AI hafızası, iş akışı taslağı, KPI ve rapor şablonu hazırladı. İlk adım entegrasyonları kontrol edip 7 günlük reklam sağlık raporunu başlatmaktır.`
   };
   const createdRecords: Record<string, unknown> = {};
   const resultSummary = {
@@ -135,7 +157,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       trackingMetrics,
       sevenDayPlan,
       thirtyDayPlan,
-      payload: { packageId: id, companyId, options, package: pkg, tasks: plan, workflow, kpis, reports, proposal }
+      ninetyDayPlan,
+      payload: { packageId: id, companyId, branchId: branchId || null, options, package: pkg, tasks: plan, workflow, kpis, reports, proposal }
     });
   }
 
@@ -145,8 +168,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         company_id: companyId,
         memory_type: "marketplace_package",
         title: `${packageName}`,
-        content: [prompt, `Operasyon planı: ${plan.join(" | ")}`, `AI Team: ${aiTeam.join(", ")}`].filter(Boolean).join("\n"),
-        tags: ["paket-pazari", "hk-ceo", sector],
+        content: [prompt, branch ? `Şube bağlamı: ${branch.branch_name} · ${branch.city || "şehir yok"}` : "Şube bağlamı: Tüm şubeler", `Operasyon planı: ${plan.join(" | ")}`, `AI Team: ${aiTeam.join(", ")}`].filter(Boolean).join("\n"),
+        tags: ["paket-pazari", "hk-ceo", sector, branchId ? `branch:${branchId}` : "tum-subeler"],
         is_active: true
       });
       if (Array.isArray(memory)) { resultSummary.memory = 1; createdRecords.memory = memory[0]?.id || true; }
@@ -156,7 +179,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       const note = await safeInsert("customer_updates", {
         company_id: companyId,
         title: `${packageName} uygulandı`,
-        description: `${packageName} bu müşteri için uygulandı. İlk 30 günlük operasyon planı, KPI ve rapor şablonu hazırlandı.`,
+        description: `${packageName} bu müşteri için ${branchLabel.toLocaleLowerCase("tr")} kapsamında uygulandı. İlk 30 günlük operasyon planı, KPI ve rapor şablonu hazırlandı.`,
         update_type: "Strateji Notu",
         visible_to_customer: false
       });
@@ -168,7 +191,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       const tasks = await safeInsert("agency_tasks", plan.map((title, index) => ({
         company_id: companyId,
         title,
-        description: `${packageName} uygulama planı görevi. Kaynak: HK Intelligence CEO Paket Pazarı.`,
+        description: `${packageName} uygulama planı görevi. ${branchLabel}. Kaynak: HK Intelligence CEO Paket Pazarı.`,
         status: "Yapılacak",
         priority: index < 2 ? "Yüksek" : "Normal",
         due_date: new Date(dueBase + (index + 1) * 86400000).toISOString().slice(0, 10),
@@ -190,6 +213,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const applicationRows = await safeInsert("hk_marketplace_package_applications", {
       package_id: id === "prepared" ? null : id,
       company_id: companyId,
+      branch_id: branchId || null,
       status: "applied",
       options,
       result_summary: resultSummary,
@@ -198,13 +222,21 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         kpiTemplate: options.createKpiTemplate ? kpis : [],
         reportTemplate: options.createReportTemplate ? reports : [],
         proposalDraft: options.createProposalDraft ? proposal : null,
-        workflowPayload: workflow
+        workflowPayload: workflow,
+        socialMediaPlan,
+        contentCalendar,
+        creativeIdeas,
+        approvalWorkflow,
+        campaignOperations,
+        clientCommunicationPlan,
+        reportApprovalFlow
       },
       post_apply_plan: postApplyPlan,
       next_actions: nextActions,
       tracking_metrics: trackingMetrics,
       seven_day_plan: sevenDayPlan,
       thirty_day_plan: thirtyDayPlan,
+      ninety_day_plan: ninetyDayPlan,
       created_by: session.profileId || session.authUserId || null
     });
 
@@ -220,6 +252,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       trackingMetrics,
       sevenDayPlan,
       thirtyDayPlan,
+      ninetyDayPlan,
       application
     });
   } catch (error) {
@@ -227,6 +260,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     await safeInsert("hk_marketplace_package_applications", {
       package_id: id === "prepared" ? null : id,
       company_id: companyId,
+      branch_id: branchId || null,
       status: "failed",
       options,
       result_summary: resultSummary,
@@ -236,6 +270,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       tracking_metrics: trackingMetrics,
       seven_day_plan: sevenDayPlan,
       thirty_day_plan: thirtyDayPlan,
+      ninety_day_plan: ninetyDayPlan,
       error_message: safe.detail,
       created_by: session.profileId || session.authUserId || null
     }).catch(() => null);

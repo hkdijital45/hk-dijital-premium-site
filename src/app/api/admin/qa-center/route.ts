@@ -316,6 +316,17 @@ function scanSourcesForFindings(migrations: string) {
     ["Yeni Paket Üret ile özel sektör paketi oluşturulabiliyor mu?", "AI Destekli Yeni Paket Üret", "Kullanıcı sektör, niş, bütçe, rekabet ve teklif diliyle yeni paket üretebilmeli."],
     ["Benim Paketlerim listeleniyor mu?", "Benim Paketlerim", "Kaydedilmiş kullanıcı paketleri hazır paketlerden ayrı görünmeli."],
     ["Paketi Aç modalı okunabilir sekmeli mi?", "Satış Argümanları", "Paket detayı komut metni, iş akışı, KPI, rapor, teklif, risk/fırsat ve satış argümanlarını ayrı başlıklarda göstermeli."]
+    ,
+    ["Yeni Paket Üret AI ile otomatik dolduruyor mu?", "AI ile Doldur", "Paket üretici AI ile Otomatik Doldur modunda sektör bağlamından strateji, plan, KPI, teklif ve içerik fikirleri üretmeli."],
+    ["Manuel mod hâlâ çalışıyor mu?", "Manuel Doldur", "Paket üretici manuel modda alanları elle doldurup Paketi Önizle aksiyonuyla hazırlık verisi üretebilmeli."],
+    ["Benim Paketlerim çalışıyor mu?", "Benim Paketlerim", "Kaydedilen paketler hazır paketlerden ayrı listelenmeli ve Paketi Aç / Müşteriye Uygula aksiyonları çalışmalı."],
+    ["Müşteri profilinde Şubeler sekmesi var mı?", "Şubeler", "Ortak müşteri profil modalında şube kartları ve şube aksiyonları görünmeli."],
+    ["Şube ekleme/düzenleme çalışıyor mu?", "Şube Ekle", "Müşteri profilinde Şube Ekle ve Şubeyi Düzenle aksiyonları mevcut müşteri yönetimi akışına yönlenmeli."],
+    ["Müşteri + şube filtresi ortak component ile kullanılıyor mu?", "CustomerBranchFilter", "Paket uygulama sihirbazı müşteri + şube seçimini ortak CustomerBranchFilter bileşeniyle yapmalı."],
+    ["Paket şubeye uygulanabiliyor mu?", "branch_id", "Marketplace apply route branch_id değerini uygulama loguna yazmalı ve şube bağlamını plan özetine eklemeli."],
+    ["Ajans operasyon planları üretiliyor mu?", "social_media_plan", "Paket üretici sosyal medya planı, onay akışı, kampanya operasyonu, müşteri iletişimi ve rapor onay akışı üretmeli."],
+    ["İngilizce/teknik ifadeler temiz mi?", "AI ile Otomatik Doldur", "Kullanıcı arayüzünde workflow/draft/payload yerine iş akışı, taslak ve hazırlık verisi karşılıkları kullanılmalı."],
+    ["Secret frontend'e sızıyor mu?", "secret", "Yeni şube ve paket akışları token/private key değerlerini client tarafına taşımamalı."]
   ].forEach(([title, pattern, recommendation]) => {
     const inSource = sourceContains(pattern) || migrations.includes(String(pattern).toLocaleLowerCase("tr"));
     if (!inSource) findings.push(makeFinding({ category: "Ajans Operasyonu QA", severity: "orta", module: "Ajans Operasyon Kalıcılığı", file_path: "src/components/admin/AdminDashboard.tsx", title, description: `${pattern} sinyali statik analizde bulunamadı.`, recommendation }));

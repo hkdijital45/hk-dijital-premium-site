@@ -38,6 +38,12 @@ function packageApplications(company: any, content: any) {
     .sort((a: any, b: any) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
 }
 
+function customerBranches(company: any, content: any) {
+  return (content?.customerBranches || [])
+    .filter((item: any) => item.company_id === company?.id && !isArchived(item))
+    .sort((a: any, b: any) => String(a.branch_name || "").localeCompare(String(b.branch_name || ""), "tr"));
+}
+
 function packageTitle(application: any) {
   return application?.result_summary?.packageName || application?.created_records?.packageName || application?.package_name || "Hazır paket";
 }
@@ -85,6 +91,15 @@ export function CustomerProfileModal({
   const payments = (content?.paymentRecords || []).filter((item: any) => item.company_id === company?.id);
   const campaigns = (content?.campaigns || []).filter((item: any) => item.company_id === company?.id);
   const applications = packageApplications(company, content);
+  const branches = customerBranches(company, content);
+  const latestApplication = applications[0] || {};
+  const missingIntegrations = [
+    !integration.meta_pixel_id ? "Meta Pixel" : "",
+    !integration.meta_dataset_id ? "Meta Dataset" : "",
+    !integration.ga4_measurement_id && !integration.ga4_property_id ? "GA4" : "",
+    !integration.google_ads_customer_id ? "Google Ads" : "",
+    !integration.search_console_site_url ? "Search Console" : ""
+  ].filter(Boolean);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -121,6 +136,7 @@ export function CustomerProfileModal({
                 <SummaryBox title="Kurulum durumu" lines={[`Sağlık skoru: ${profileHealth.score}/100`, `Durum: ${profileHealth.status}`, ...(profileHealth.reasons || [])]} />
                 <SummaryBox title="Entegrasyonlar" lines={[`Pixel: ${integration.meta_pixel_id ? "Var" : "Eksik"}`, `Dataset: ${integration.meta_dataset_id ? "Var" : "Eksik"}`, `GA4: ${integration.ga4_measurement_id || integration.ga4_property_id ? "Var" : "Eksik"}`, `Google Ads: ${integration.google_ads_customer_id ? "Var" : "Eksik"}`]} />
                 <SummaryBox title="Operasyon özeti" lines={[`Görev: ${tasks.length}`, `Rapor: ${reports.length}`, `Tahsilat: ${payments.length}`, `Kampanya: ${campaigns.length}`]} />
+                <SummaryBox title="Ajans Operasyon Özeti" lines={[`Uygulanan paket: ${applications.length}`, `Şube: ${branches.length}`, `Aktif görev: ${tasks.filter((item: any) => !["Tamamlandı", "İptal"].includes(item.status)).length}`, `Bekleyen rapor: ${reports.filter((item: any) => !item.visible_to_customer).length}`, `Eksik entegrasyon: ${missingIntegrations.length ? missingIntegrations.join(", ") : "Yok"}`, `Sonraki 7 gün planı: ${(latestApplication.seven_day_plan || []).length} adım`]} />
                 <SummaryBox title="Tahsilat özeti" lines={[`Toplam kayıt: ${payments.length}`, `Bekleyen: ${payments.filter((item: any) => !paidStatuses.includes(item.status)).length}`, `Tahsil edilen: ${payments.filter((item: any) => paidStatuses.includes(item.status)).length}`]} />
               </div>
               <div className="mt-5 flex flex-wrap gap-2">
@@ -132,6 +148,43 @@ export function CustomerProfileModal({
               </div>
             </>
           )}
+          <section className="mt-5 rounded-[18px] border border-slate-200 bg-white p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="font-black text-slate-950">Şubeler</h3>
+                <p className="mt-1 text-sm text-slate-500">Şube bazlı reklam, rapor, entegrasyon ve KPI yönetimi için kayıtlı lokasyonlar.</p>
+              </div>
+              <button onClick={() => onGo?.("Müşteriler", "Şube ekleme için müşteri detayları açıldı.")} className="rounded-[12px] bg-cyan-500 px-4 py-2.5 text-sm font-black text-white">Şube Ekle</button>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              {branches.map((branch: any) => (
+                <div key={branch.id} className="rounded-[16px] border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="font-black text-slate-950">{branch.branch_name || "Adsız şube"}</p>
+                      <p className="mt-1 text-xs text-slate-500">{branch.city || "Şehir yok"} · {branch.district || "İlçe yok"} · {branch.status || (branch.is_active === false ? "pasif" : "active")}</p>
+                    </div>
+                    <span className="rounded-full bg-white px-2 py-1 text-[10px] font-black text-cyan-700 ring-1 ring-cyan-200">{branch.monthly_ad_budget ? `Bütçe ${branch.monthly_ad_budget} TL` : "Bütçe yok"}</span>
+                  </div>
+                  <div className="mt-3 grid gap-1 text-xs leading-5 text-slate-600">
+                    <span>Adres: {branch.address || "Yok"}</span>
+                    <span>Telefon/WhatsApp: {branch.phone || branch.whatsapp || "Yok"}</span>
+                    <span>E-posta: {branch.email || "Yok"}</span>
+                    <span>Website/Landing: {branch.website_url || branch.landing_page_url || "Yok"}</span>
+                    <span>Meta: {branch.meta_ad_account_id || "Eksik"} · Google Ads: {branch.google_ads_customer_id || "Eksik"} · GA4: {branch.ga4_property_id || "Eksik"}</span>
+                    <span>Sorumlu: {branch.responsible_person || "Belirtilmedi"}</span>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button onClick={() => onGo?.("Müşteriler", "Şube düzenleme için müşteri detayları açıldı.")} className="rounded-[10px] bg-cyan-500 px-3 py-1.5 text-xs font-black text-white">Şubeyi Düzenle</button>
+                    <button onClick={() => onGo?.("Müşteri Raporları", "Şube raporu oluşturma alanı açıldı.")} className="rounded-[10px] border border-cyan-200 bg-white px-3 py-1.5 text-xs font-black text-cyan-700">Şube Raporu Oluştur</button>
+                    <button onClick={() => onGo?.("HK Agent Hub", "Şube için Agent analizi açıldı.")} className="rounded-[10px] border border-cyan-200 bg-white px-3 py-1.5 text-xs font-black text-cyan-700">Şube İçin Agent Analizi</button>
+                    {branch.google_maps_url && <button onClick={() => window.open(branch.google_maps_url, "_blank", "noopener,noreferrer")} className="rounded-[10px] border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-600">Google Maps’te Aç</button>}
+                  </div>
+                </div>
+              ))}
+              {!branches.length && <p className="rounded-[14px] border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">Bu müşteri için henüz şube kaydı yok. Şube Ekle ile ilk lokasyonu tanımlayabilirsin.</p>}
+            </div>
+          </section>
           <section className="mt-5 rounded-[18px] border border-cyan-200 bg-cyan-50 p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>

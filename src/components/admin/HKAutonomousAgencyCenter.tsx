@@ -33,6 +33,7 @@ import {
   Zap
 } from "lucide-react";
 import { CustomerProfileModal } from "@/components/admin/customer-profile/CustomerProfileModal";
+import { CustomerBranchFilter, getCompanyBranches } from "@/components/admin/customer-profile/CustomerBranchFilter";
 
 const paidStatuses = ["Ödendi", "Tahsil Edildi"];
 const doneStatuses = ["Tamamlandı", "İptal"];
@@ -138,7 +139,7 @@ function recommendations(content: any, riskyCustomers: any[], overduePayments: a
     overduePayments[0] ? { title: `${companyName(content.companies || [], overduePayments[0].company_id)} tahsilat hatırlatması`, impact: "Yüksek", difficulty: "Kolay", duration: "15 dk", cost: "Yok", probability: 70, action: "WhatsApp takip mesajı hazırla" } : null,
     openLeads[0] ? { title: `${openLeads[0].company || openLeads[0].name} için teklif ve arama planı`, impact: "Orta", difficulty: "Kolay", duration: "30 dk", cost: "Yok", probability: 64, action: "AI Satış Asistanı çalıştır" } : null,
     { title: "Aktif müşteriler için haftalık remarketing kontrolü", impact: "Orta", difficulty: "Orta", duration: "1 saat", cost: "Düşük", probability: 58, action: "Meta/Google kontrol görevi oluştur" },
-    { title: "En iyi kreatifleri HK Learning Center hafızasına al", impact: "Orta", difficulty: "Kolay", duration: "20 dk", cost: "Yok", probability: 66, action: "Agent Memory güncelle" }
+    { title: "En iyi kreatifleri HK Öğrenme Merkezi hafızasına al", impact: "Orta", difficulty: "Kolay", duration: "20 dk", cost: "Yok", probability: 66, action: "AI Hafızası güncelle" }
   ].filter(Boolean);
   return list as Array<Record<string, any>>;
 }
@@ -154,7 +155,9 @@ export function HKAutonomousAgencyCenter({ content, setActive, notify, compact =
   const [applyWizard, setApplyWizard] = useState<any>(null);
   const [applyResult, setApplyResult] = useState<any>(null);
   const [selectedCompanyId, setSelectedCompanyId] = useState("");
+  const [selectedBranchId, setSelectedBranchId] = useState("all");
   const [customerSearch, setCustomerSearch] = useState("");
+  const [packageBuilderMode, setPackageBuilderMode] = useState<"ai" | "manual">("ai");
   const [selectedCustomerProfile, setSelectedCustomerProfile] = useState<any>(null);
   const [applicationDetail, setApplicationDetail] = useState<any>(null);
   const [applyOptions, setApplyOptions] = useState({
@@ -206,6 +209,7 @@ export function HKAutonomousAgencyCenter({ content, setActive, notify, compact =
     const activeCampaigns = campaigns.filter((item: any) => item.status === "Aktif");
     const reports = (content.reports || []).filter((item: any) => !isArchived(item));
     const integrations = content.customerIntegrations || [];
+    const customerBranches = (content.customerBranches || []).filter((item: any) => !isArchived(item));
     const healthRows = companies.map((company: any) => ({ company, health: customerHealth(company, content) })).sort((a: any, b: any) => a.health.score - b.health.score);
     const riskyCustomers = healthRows.filter((item: any) => item.health.score < 70);
     const revenue = paidThisMonth.reduce((sum: number, item: any) => sum + n(item.amount), 0);
@@ -219,17 +223,22 @@ export function HKAutonomousAgencyCenter({ content, setActive, notify, compact =
       ...integrations.filter((item: any) => !item.meta_dataset_id).slice(0, 6).map((item: any) => ({ title: `${companyName(companies, item.company_id)} Dataset eksik`, severity: "Orta", module: "Meta Dataset", detail: "Conversions API hazırlığı eksik." })),
       ...integrations.filter((item: any) => !item.ga4_property_id && !item.ga4_measurement_id).slice(0, 6).map((item: any) => ({ title: `${companyName(companies, item.company_id)} GA4 eksik`, severity: "Bilgi", module: "GA4", detail: "Analytics raporlaması sınırlı." }))
     ];
-    return { today, month, companies, activeCustomers, passiveCustomers, leads, openLeads, newLeads, tasks, criticalTasks, completedToday, payments, pendingPayments, overduePayments, paidThisMonth, campaigns, activeCampaigns, reports, integrations, healthRows, riskyCustomers, revenue, receivable, adSpend, roasRows, risks };
+    return { today, month, companies, activeCustomers, passiveCustomers, leads, openLeads, newLeads, tasks, criticalTasks, completedToday, payments, pendingPayments, overduePayments, paidThisMonth, campaigns, activeCampaigns, reports, integrations, customerBranches, healthRows, riskyCustomers, revenue, receivable, adSpend, roasRows, risks };
   }, [content]);
 
   const agents = useMemo(() => teamAgents(content), [content]);
   const myPackages = useMemo(() => (content.hkMarketplacePackages || []).filter((item: any) => !isArchived(item)), [content.hkMarketplacePackages]);
   const recs = useMemo(() => recommendations(content, data.riskyCustomers, data.overduePayments, data.openLeads), [content, data.riskyCustomers, data.overduePayments, data.openLeads]);
+  const packageFollowups = (content.hkMarketplacePackageApplications || []).filter((item: any) => item.status === "applied" && !(item.result_summary?.tasks > 0)).slice(0, 3);
+  const branchSetupMissing = data.customerBranches.filter((branch: any) => branch.status !== "passive" && (!branch.meta_ad_account_id || !branch.google_ads_customer_id || !branch.ga4_property_id)).slice(0, 3);
   const todayAdvice = [
     ...data.criticalTasks.slice(0, 3).map((task: any) => ({ title: task.title || "Kritik görev", note: companyName(data.companies, task.company_id), target: "Görevler" })),
     ...data.riskyCustomers.slice(0, 3).map((item: any) => ({ title: `${item.company.name} kontrol edilmeli`, note: `Sağlık skoru ${item.health.score}/100`, company: item.company })),
     ...data.integrations.filter((item: any) => !item.meta_pixel_id || !item.ga4_measurement_id).slice(0, 3).map((item: any) => ({ title: `${companyName(data.companies, item.company_id)} entegrasyon kontrolü`, note: "Pixel / GA4 bilgisi eksik olabilir.", target: "Web Site Analitiği" })),
-    ...data.reports.slice(0, 2).map((report: any) => ({ title: report.title || "Rapor kontrolü", note: "Rapor görünürlüğünü ve aksiyonları kontrol et.", target: "Müşteri Raporları" }))
+    ...packageFollowups.map((item: any) => ({ title: `${companyName(data.companies, item.company_id)} paket takip kontrolü`, note: "Paket uygulanmış; takip görevleri ve plan durumu kontrol edilmeli.", target: "HK Intelligence CEO" })),
+    ...branchSetupMissing.map((branch: any) => ({ title: `${branch.branch_name || "Şube"} kurulumu eksik`, note: `${companyName(data.companies, branch.company_id)} · Meta/Google/GA4 alanlarını kontrol et.`, target: "Web Site Analitiği" })),
+    ...data.pendingPayments.slice(0, 2).map((payment: any) => ({ title: `${companyName(data.companies, payment.company_id)} tahsilat bekliyor`, note: `${money(payment.amount)} · ${payment.due_date || "vade yok"}`, target: "Tahsilat" })),
+    ...data.reports.filter((report: any) => !report.visible_to_customer).slice(0, 2).map((report: any) => ({ title: report.title || report.report_type || "Rapor bekliyor", note: "Rapor görünürlüğünü ve aksiyonları kontrol et.", target: "Müşteri Raporları" }))
   ].slice(0, 6);
   const ceoSummary = [
     `Bugün ${data.criticalTasks.length} kritik görev, ${data.overduePayments.length} geciken tahsilat ve ${data.newLeads.length} yeni lead var.`,
@@ -303,6 +312,7 @@ export function HKAutonomousAgencyCenter({ content, setActive, notify, compact =
     const prepared = draft || buildMarketplaceFallback({ ...packageForm, sector });
     setMarketplaceDraft(prepared);
     setSelectedCompanyId(data.companies[0]?.id || "");
+    setSelectedBranchId("all");
     setApplyResult(null);
     setApplyWizard(prepared);
   }
@@ -361,7 +371,7 @@ export function HKAutonomousAgencyCenter({ content, setActive, notify, compact =
     const response = await fetch(`/api/admin/hk-intelligence-ceo/marketplace/${encodeURIComponent(packageId)}/apply-to-customer`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ companyId: selectedCompanyId, package: applyWizard, options: applyOptions })
+      body: JSON.stringify({ companyId: selectedCompanyId, branchId: selectedBranchId === "all" ? null : selectedBranchId, package: applyWizard, options: applyOptions })
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -370,7 +380,8 @@ export function HKAutonomousAgencyCenter({ content, setActive, notify, compact =
       return;
     }
     const selectedCompany = data.companies.find((company: any) => company.id === selectedCompanyId);
-    setApplyResult({ ...payload, company: selectedCompany, packageData: applyWizard });
+    const selectedBranch = data.customerBranches.find((branch: any) => branch.id === selectedBranchId);
+    setApplyResult({ ...payload, company: selectedCompany, branch: selectedBranch, packageData: applyWizard });
     notify?.(payload.message || "Paket müşteriye uygulandı.", "success");
   }
 
@@ -477,7 +488,7 @@ export function HKAutonomousAgencyCenter({ content, setActive, notify, compact =
               <div className="mt-3 grid gap-2">{filteredCommands.map((item) => <button key={item} onClick={() => go(commandToTarget(item), `${item} komutu açıldı.`)} className="flex items-center justify-between rounded-[12px] bg-slate-50 px-3 py-2 text-left text-sm font-bold text-slate-700 transition hover:bg-cyan-50 hover:text-cyan-700"><span>{item}</span><ArrowRight size={14} /></button>)}</div>
             </PanelCard>
             <PanelCard title="Genel Arama" subtitle="Müşteri, görev, belge, rapor ve hafıza araması" icon={<Search size={20} />}>
-              {[["Müşteriler", data.companies.length], ["Görevler", data.tasks.length], ["Raporlar", data.reports.length], ["Tahsilatlar", data.payments.length], ["Kampanyalar", data.campaigns.length], ["Agent Memory", (content.agentMemories || []).length]].map(([label, count]) => <ActionRow key={label} title={`${label}: ${count}`} note="Kategori bazlı arama indeksine dahil." onClick={() => String(label).includes("Müşteri") && data.companies[0] ? openCustomerProfile(data.companies[0]) : go(searchTarget(String(label)))} />)}
+              {[["Müşteriler", data.companies.length], ["Görevler", data.tasks.length], ["Raporlar", data.reports.length], ["Tahsilatlar", data.payments.length], ["Kampanyalar", data.campaigns.length], ["AI Hafızası", (content.agentMemories || []).length]].map(([label, count]) => <ActionRow key={label} title={`${label}: ${count}`} note="Kategori bazlı arama indeksine dahil." onClick={() => String(label).includes("Müşteri") && data.companies[0] ? openCustomerProfile(data.companies[0]) : go(searchTarget(String(label)))} />)}
             </PanelCard>
           </section>
 
@@ -523,8 +534,8 @@ export function HKAutonomousAgencyCenter({ content, setActive, notify, compact =
         const company = data.companies.find((item: any) => item.id === companyId);
         if (company) openCustomerProfile(company);
       }} />}
-      {marketplaceOpen && <MarketplaceModal form={packageForm} setForm={setPackageForm} draft={marketplaceDraft} loading={marketplaceLoading} onClose={() => setMarketplaceOpen(false)} onGenerate={() => generateMarketplacePackage()} onSave={saveMarketplacePackage} onCopy={copyText} />}
-      {applyWizard && <ApplyWizardModal packageData={applyWizard} companies={filteredCustomers} search={customerSearch} setSearch={setCustomerSearch} selectedCompanyId={selectedCompanyId} setSelectedCompanyId={setSelectedCompanyId} options={applyOptions} setOptions={setApplyOptions} result={applyResult} onApply={applyPackageToCustomer} onClose={() => setApplyWizard(null)} onOpenCustomer={(company: any) => openCustomerProfile(company)} onGo={go} onApplicationDetail={openApplicationDetail} />}
+      {marketplaceOpen && <MarketplaceModal form={packageForm} setForm={setPackageForm} draft={marketplaceDraft} loading={marketplaceLoading} mode={packageBuilderMode} setMode={setPackageBuilderMode} onClose={() => setMarketplaceOpen(false)} onGenerate={() => generateMarketplacePackage()} onPreview={() => { setMarketplaceDraft(buildMarketplaceFallback(packageForm)); notify?.("Manuel paket önizlemesi hazırlandı.", "success"); }} onSave={saveMarketplacePackage} onCopy={copyText} onApply={(draftPackage: any) => openApplyWizard(draftPackage.sector || packageForm.sector, draftPackage)} />}
+      {applyWizard && <ApplyWizardModal packageData={applyWizard} companies={filteredCustomers} branches={data.customerBranches} search={customerSearch} setSearch={setCustomerSearch} selectedCompanyId={selectedCompanyId} setSelectedCompanyId={setSelectedCompanyId} selectedBranchId={selectedBranchId} setSelectedBranchId={setSelectedBranchId} options={applyOptions} setOptions={setApplyOptions} result={applyResult} onApply={applyPackageToCustomer} onClose={() => setApplyWizard(null)} onOpenCustomer={(company: any) => openCustomerProfile(company)} onGo={go} onApplicationDetail={openApplicationDetail} />}
       {applicationDetail && <ApplicationDetailModal detail={applicationDetail} onClose={() => setApplicationDetail(null)} onGo={go} onOpenCustomer={(company: any) => company && openCustomerProfile(company)} />}
       {selectedCustomerProfile && <CustomerProfileModal company={selectedCustomerProfile.company} content={content} health={selectedCustomerProfile.health} onClose={() => setSelectedCustomerProfile(null)} onGo={go} />}
     </div>
@@ -616,6 +627,22 @@ function buildMarketplaceFallback(input: any) {
     seven_day_plan: ["Gün 1: Kurulum kontrolü", "Gün 2: Reklam ve hedef kitle kontrolü", "Gün 3: Kreatif kontrolü", "Gün 4: İlk optimizasyon", "Gün 5: Ara rapor", "Gün 6: Müşteri geri bildirimi", "Gün 7: Haftalık rapor ve yeni aksiyonlar"],
     thirtyDayPlan: ["1. hafta: Kurulum ve veri toplama", "2. hafta: İlk optimizasyon", "3. hafta: Kreatif / teklif / hedef kitle iyileştirme", "4. hafta: Raporlama ve yenileme önerisi"],
     thirty_day_plan: ["1. hafta: Kurulum ve veri toplama", "2. hafta: İlk optimizasyon", "3. hafta: Kreatif / teklif / hedef kitle iyileştirme", "4. hafta: Raporlama ve yenileme önerisi"],
+    ninetyDayPlan: ["1. ay: Ölçümleme, kurulum ve ilk öğrenme", "2. ay: Kreatif, hedef kitle ve teklif optimizasyonu", "3. ay: Bütçe ölçekleme, rapor standardı ve yenileme planı"],
+    ninety_day_plan: ["1. ay: Ölçümleme, kurulum ve ilk öğrenme", "2. ay: Kreatif, hedef kitle ve teklif optimizasyonu", "3. ay: Bütçe ölçekleme, rapor standardı ve yenileme planı"],
+    socialMediaPlan: ["Haftalık 3 post: güven kanıtı, hizmet anlatımı ve kampanya çağrısı", "Haftalık 2 Reels: süreç, sonuç ve müşteri sorusu formatı", "Günlük Story: randevu/iletişim çağrısı ve sosyal kanıt", "Ayda 1 müşteri başarı hikayesi"],
+    social_media_plan: ["Haftalık 3 post: güven kanıtı, hizmet anlatımı ve kampanya çağrısı", "Haftalık 2 Reels: süreç, sonuç ve müşteri sorusu formatı", "Günlük Story: randevu/iletişim çağrısı ve sosyal kanıt", "Ayda 1 müşteri başarı hikayesi"],
+    contentCalendar: ["Pazartesi: problem farkındalığı", "Çarşamba: hizmet/fayda anlatımı", "Cuma: kampanya ve WhatsApp çağrısı", "Pazar: haftalık güven içeriği"],
+    content_calendar: ["Pazartesi: problem farkındalığı", "Çarşamba: hizmet/fayda anlatımı", "Cuma: kampanya ve WhatsApp çağrısı", "Pazar: haftalık güven içeriği"],
+    creativeIdeas: [`${sectorLabel} için önce/sonra veya süreç odaklı kısa video`, "WhatsApp mesajına yönlendiren sosyal kanıt kreatifi", "Bölgesel güven vurgulu reklam görseli"],
+    creative_ideas: [`${sectorLabel} için önce/sonra veya süreç odaklı kısa video`, "WhatsApp mesajına yönlendiren sosyal kanıt kreatifi", "Bölgesel güven vurgulu reklam görseli"],
+    approvalWorkflow: ["İç brief hazırlandı", "Kreatif taslak üretildi", "İç onay", "Müşteri onayı", "Revize istendi", "Yayına hazır", "Yayınlandı"],
+    approval_workflow: ["İç brief hazırlandı", "Kreatif taslak üretildi", "İç onay", "Müşteri onayı", "Revize istendi", "Yayına hazır", "Yayınlandı"],
+    campaignOperations: ["Kampanya kurulumu", "Pixel/Dataset kontrolü", "GA4 kontrolü", "Reklam bütçesi", "Hedef kitle", "Kreatif", "İlk 72 saat kontrolü", "7 günlük optimizasyon"],
+    campaign_operations: ["Kampanya kurulumu", "Pixel/Dataset kontrolü", "GA4 kontrolü", "Reklam bütçesi", "Hedef kitle", "Kreatif", "İlk 72 saat kontrolü", "7 günlük optimizasyon"],
+    clientCommunicationPlan: ["İlk arama", "Teklif gönderildi", "Sözleşme", "Kurulum bilgilendirmesi", "Haftalık rapor", "Aylık değerlendirme", "Yenileme görüşmesi"],
+    client_communication_plan: ["İlk arama", "Teklif gönderildi", "Sözleşme", "Kurulum bilgilendirmesi", "Haftalık rapor", "Aylık değerlendirme", "Yenileme görüşmesi"],
+    reportApprovalFlow: ["Rapor oluşturuldu", "İç kontrol", "Müşteriye hazır", "Gönderildi", "Müşteri görüntüledi"],
+    report_approval_flow: ["Rapor oluşturuldu", "İç kontrol", "Müşteriye hazır", "Gönderildi", "Müşteri görüntüledi"],
     trackingMetrics: ["Lead sayısı", "Mesaj sayısı", "Randevu oranı", "CPL", "CTR", "CPC", "ROAS", "Harcama", "WhatsApp dönüşümü", "Google yorumları", "Website form dönüşümü"],
     tracking_metrics: ["Lead sayısı", "Mesaj sayısı", "Randevu oranı", "CPL", "CTR", "CPC", "ROAS", "Harcama", "WhatsApp dönüşümü", "Google yorumları", "Website form dönüşümü"],
     risks: ["Ölçümleme eksikse kampanya öğrenmesi yavaşlar", "Kreatif çeşitliliği düşük kalırsa performans sınırlanır"],
@@ -698,11 +725,15 @@ function ActionModal({ detail, onClose, onGo, onCopy, onOpenCustomerById }: { de
   );
 }
 
-function MarketplaceModal({ form, setForm, draft, loading, onClose, onGenerate, onSave, onCopy }: any) {
+function MarketplaceModal({ form, setForm, draft, loading, mode, setMode, onClose, onGenerate, onPreview, onSave, onCopy, onApply }: any) {
+  const [activeSection, setActiveSection] = useState("Özet");
   const draftText = draft ? JSON.stringify(draft, null, 2) : "";
   const draftSections = draft ? [
     ["Özet", [draft.customer_summary || draft.customerSummary || `${draft.sector} için paket özeti hazırlandı.`, `Hedef müşteri: ${draft.target_customer || draft.targetCustomer || "Belirtilmedi"}`, `Ana hedef: ${draft.main_goal || draft.mainGoal || "Belirtilmedi"}`]],
-    ["Komut Metni", [draft.generated_prompt || draft.generatedPrompt || "Komut metni henüz üretilmedi."]],
+    ["Strateji", [draft.generated_prompt || draft.generatedPrompt || "Strateji komut metni henüz üretilmedi."]],
+    ["Reklam Planı", draft.campaign_operations || draft.campaignOperations || draft.workflow_steps || draft.workflowSteps || []],
+    ["Sosyal Medya Planı", draft.social_media_plan || draft.socialMediaPlan || []],
+    ["İçerik Takvimi", draft.content_calendar || draft.contentCalendar || []],
     ["İş Akışı", draft.workflow_steps || draft.workflowSteps || []],
     ["AI Ekibi", draft.ai_team || draft.aiTeam || []],
     ["KPI", draft.kpi_template || draft.kpiTemplate || []],
@@ -710,16 +741,27 @@ function MarketplaceModal({ form, setForm, draft, loading, onClose, onGenerate, 
     ["Teklif", [draft.proposal_draft || draft.proposalDraft || "Teklif taslağı henüz yok."]],
     ["7 Günlük Plan", draft.seven_day_plan || draft.sevenDayPlan || []],
     ["30 Günlük Plan", draft.thirty_day_plan || draft.thirtyDayPlan || []],
+    ["90 Günlük Plan", draft.ninety_day_plan || draft.ninetyDayPlan || []],
+    ["Onay Akışı", draft.approval_workflow || draft.approvalWorkflow || []],
+    ["Müşteri İletişimi", draft.client_communication_plan || draft.clientCommunicationPlan || []],
+    ["Rapor Onayı", draft.report_approval_flow || draft.reportApprovalFlow || []],
+    ["Kreatif Fikirler", draft.creative_ideas || draft.creativeIdeas || []],
     ["Riskler", draft.risks || []],
     ["Fırsatlar", draft.opportunities || []],
-    ["Satış Argümanları", draft.sales_arguments || draft.salesArguments || []]
+    ["Satış Argümanları", draft.sales_arguments || draft.salesArguments || []],
+    ["Uygulama Geçmişi", ["Bu paket müşteriye uygulandığında kayıtlar müşteri profilindeki Uygulanan Paketler / Planlar bölümünde görünür."]]
   ] : [];
+  const activeLines = (draftSections.find(([title]) => title === activeSection)?.[1] || []) as string[];
   return (
     <div className="fixed inset-0 z-[90] grid place-items-center bg-slate-950/45 p-4">
       <section className="max-h-[92vh] w-full max-w-4xl overflow-auto rounded-[24px] bg-white p-5 shadow-2xl">
         <div className="flex items-start justify-between gap-3">
           <div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Paket Pazarı</p><h2 className="mt-1 text-2xl font-black text-slate-950">AI Destekli Yeni Paket Üret</h2><p className="mt-1 text-sm text-slate-500">Sektör bilgisinden uygulanabilir komut metni, iş akışı, KPI, rapor ve teklif paketi üret.</p></div>
           <button onClick={onClose} className="rounded-full border border-slate-200 p-2 text-slate-500"><X size={18} /></button>
+        </div>
+        <div className="mt-5 grid gap-2 rounded-[18px] border border-cyan-200 bg-cyan-50 p-3 sm:grid-cols-2">
+          <button onClick={() => setMode("ai")} className={`rounded-[14px] px-4 py-3 text-left text-sm font-black transition ${mode === "ai" ? "bg-cyan-500 text-white" : "bg-white text-cyan-800"}`}>AI ile Otomatik Doldur<p className="mt-1 text-xs font-medium opacity-80">Sadece temel bilgileri gir, sistem strateji, plan, KPI ve içerikleri üretir.</p></button>
+          <button onClick={() => setMode("manual")} className={`rounded-[14px] px-4 py-3 text-left text-sm font-black transition ${mode === "manual" ? "bg-cyan-500 text-white" : "bg-white text-cyan-800"}`}>Manuel Doldur<p className="mt-1 text-xs font-medium opacity-80">Tüm alanları kendin doldurup önizleme ve kayıt al.</p></button>
         </div>
         <div className="mt-5 grid gap-3 md:grid-cols-3">
           {[
@@ -743,8 +785,10 @@ function MarketplaceModal({ form, setForm, draft, loading, onClose, onGenerate, 
           ].map(([key, label]) => <label key={key} className="grid gap-1 text-sm font-bold text-slate-700">{label}<input value={form[key]} onChange={(event) => setForm({ ...form, [key]: event.target.value })} className="rounded-[12px] border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-900" /></label>)}
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
-          <button disabled={loading} onClick={onGenerate} className="inline-flex items-center gap-2 rounded-[12px] bg-cyan-500 px-4 py-2.5 text-sm font-black text-white disabled:opacity-60"><Sparkles size={16} /> {loading ? "Üretiliyor..." : "AI ile Paketi Üret"}</button>
+          <button disabled={loading} onClick={onGenerate} className="inline-flex items-center gap-2 rounded-[12px] bg-cyan-500 px-4 py-2.5 text-sm font-black text-white disabled:opacity-60"><Sparkles size={16} /> {loading ? "Üretiliyor..." : mode === "ai" ? "AI ile Doldur" : "AI ile Paketi Üret"}</button>
+          <button onClick={onPreview} className="inline-flex items-center gap-2 rounded-[12px] border border-cyan-200 bg-white px-4 py-2.5 text-sm font-black text-cyan-700">Paketi Önizle</button>
           {draft && <button onClick={onSave} className="inline-flex items-center gap-2 rounded-[12px] border border-cyan-200 bg-cyan-50 px-4 py-2.5 text-sm font-black text-cyan-700"><Save size={16} /> Paketi Kaydet</button>}
+          {draft && <button onClick={() => onApply(draft)} className="inline-flex items-center gap-2 rounded-[12px] bg-emerald-500 px-4 py-2.5 text-sm font-black text-white">Müşteriye Uygula</button>}
           {draft && <button onClick={() => onCopy(draftText)} className="inline-flex items-center gap-2 rounded-[12px] border border-slate-200 px-4 py-2.5 text-sm font-black text-slate-700"><Copy size={16} /> Çıktıyı Kopyala</button>}
           {draft && <button onClick={onGenerate} className="inline-flex items-center gap-2 rounded-[12px] border border-slate-200 px-4 py-2.5 text-sm font-black text-slate-700">Yeni Versiyon Üret</button>}
         </div>
@@ -754,16 +798,21 @@ function MarketplaceModal({ form, setForm, draft, loading, onClose, onGenerate, 
               <h3 className="font-black text-slate-950">{draft.package_name || draft.packageName}</h3>
               <p className="mt-1 text-sm leading-6 text-cyan-950">{draft.customer_summary || draft.customerSummary || "Paket özeti hazırlandı."}</p>
             </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              {draftSections.map(([title, lines]: any) => (
-                <section key={title} className="rounded-[16px] border border-slate-200 bg-slate-50 p-4">
-                  <h4 className="font-black text-slate-950">{title}</h4>
-                  <div className="mt-2 grid gap-1 text-sm leading-6 text-slate-600">
-                    {(Array.isArray(lines) && lines.length ? lines : ["Bu alan için veri üretilmedi."]).map((line: string, index: number) => <span key={`${title}-${index}`}>{line}</span>)}
-                  </div>
-                </section>
-              ))}
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {draftSections.map(([title]) => <button key={title} onClick={() => setActiveSection(String(title))} className={`shrink-0 rounded-full px-3 py-2 text-xs font-black ${activeSection === title ? "bg-cyan-500 text-white" : "bg-slate-100 text-slate-600"}`}>{title}</button>)}
             </div>
+            <section className="rounded-[16px] border border-slate-200 bg-slate-50 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h4 className="font-black text-slate-950">{activeSection}</h4>
+                <div className="flex gap-2">
+                  <TinyButton onClick={() => onCopy((activeLines.length ? activeLines : ["Bu alan için veri üretilmedi."]).join("\n"))}>Kopyala</TinyButton>
+                  <TinyButton onClick={onSave}>Kaydet</TinyButton>
+                </div>
+              </div>
+              <div className="mt-3 grid gap-2 text-sm leading-6 text-slate-600">
+                {(Array.isArray(activeLines) && activeLines.length ? activeLines : ["Bu alan için veri üretilmedi."]).map((line: string, index: number) => <span key={`${activeSection}-${index}`}>{line}</span>)}
+              </div>
+            </section>
           </div>
         )}
       </section>
@@ -811,7 +860,7 @@ function ResultBadge({ status }: { status: string }) {
   return <span className={`rounded-full px-2 py-1 text-[10px] font-black ring-1 ${tone}`}>{status}</span>;
 }
 
-function ApplySuccessPanel({ result, selectedCompany, packageData, options, onOpenCustomer, onGo, onApplicationDetail }: any) {
+function ApplySuccessPanel({ result, selectedCompany, selectedBranch, packageData, options, onOpenCustomer, onGo, onApplicationDetail }: any) {
   const packageName = result?.summary?.packageName || packageData.package_name || packageData.packageName || "Paket";
   const customerName = selectedCompany?.name || result?.company?.name || "seçilen müşteri";
   const cards = resultCards(result, options);
@@ -842,6 +891,7 @@ function ApplySuccessPanel({ result, selectedCompany, packageData, options, onOp
           <div className="mt-3 grid gap-2 text-sm text-slate-600">
             <span><b>Paket adı:</b> {packageName}</span>
             <span><b>Uygulanan müşteri:</b> {customerName}</span>
+            <span><b>Şube:</b> {selectedBranch?.branch_name || postPlan.branchName || "Tüm şubeler"}</span>
             <span><b>Uygulama tarihi:</b> {application.created_at ? new Date(application.created_at).toLocaleString("tr-TR") : "Yeni oluşturuldu"}</span>
             <span><b>Ana hedef:</b> {postPlan.mainGoal || packageData.main_goal || packageData.mainGoal || "lead / randevu"}</span>
             <span><b>Kanallar:</b> {Array.isArray(channels) ? channels.join(", ") : String(channels || "Meta, Google Ads, SEO")}</span>
@@ -912,8 +962,9 @@ function ApplySuccessPanel({ result, selectedCompany, packageData, options, onOp
   );
 }
 
-function ApplyWizardModal({ packageData, companies, search, setSearch, selectedCompanyId, setSelectedCompanyId, options, setOptions, result, onApply, onClose, onOpenCustomer, onGo, onApplicationDetail }: any) {
+function ApplyWizardModal({ packageData, companies, branches, search, setSearch, selectedCompanyId, setSelectedCompanyId, selectedBranchId, setSelectedBranchId, options, setOptions, result, onApply, onClose, onOpenCustomer, onGo, onApplicationDetail }: any) {
   const selectedCompany = companies.find((company: any) => company.id === selectedCompanyId) || companies[0];
+  const selectedBranch = getCompanyBranches(branches, selectedCompanyId).find((branch: any) => branch.id === selectedBranchId);
   const workflow = packageData.workflow_steps || packageData.workflowSteps || [];
   const kpis = packageData.kpi_template || packageData.kpiTemplate || [];
   const reports = packageData.report_template || packageData.reportTemplate || [];
@@ -940,6 +991,17 @@ function ApplyWizardModal({ packageData, companies, search, setSearch, selectedC
             </div>
             <div className="rounded-[18px] border border-slate-200 bg-white p-4">
               <h3 className="font-black text-slate-950">2. Müşteri seçimi</h3>
+              <div className="mt-3 rounded-[14px] border border-cyan-200 bg-cyan-50 p-3">
+                <CustomerBranchFilter
+                  companies={companies}
+                  branches={branches}
+                  selectedCompanyId={selectedCompanyId}
+                  selectedBranchId={selectedBranchId}
+                  onCompanyChange={setSelectedCompanyId}
+                  onBranchChange={setSelectedBranchId}
+                  compact
+                />
+              </div>
               <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Müşteri/firma ara..." className="mt-3 w-full rounded-[12px] border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm" />
               <div className="mt-3 grid max-h-72 gap-2 overflow-y-auto pr-1">
                 {companies.map((company: any) => (
@@ -969,7 +1031,7 @@ function ApplyWizardModal({ packageData, companies, search, setSearch, selectedC
           <div className="grid content-start gap-4">
             <div className="rounded-[18px] border border-cyan-200 bg-cyan-50 p-4">
               <h3 className="font-black text-slate-950">4. Önizleme</h3>
-              <p className="mt-2 text-sm leading-6 text-cyan-950">{selectedCompany ? `${packageData.sector} paketi ${selectedCompany.name} müşterisine uygulanacak.` : "Uygulamak için müşteri seçin."}</p>
+              <p className="mt-2 text-sm leading-6 text-cyan-950">{selectedCompany ? `${packageData.sector} paketi ${selectedCompany.name} müşterisine ${selectedBranch ? `${selectedBranch.branch_name} şubesi için` : "tüm şubeler kapsamında"} uygulanacak.` : "Uygulamak için müşteri seçin."}</p>
               <div className="mt-3 grid gap-2 text-sm text-slate-700">
                 <span>Oluşacak görev sayısı: <b>{options.createTasks ? Math.max(5, tasks.length || 5) : 0}</b></span>
                 <span>Hafıza özeti: <b>{options.saveMemory ? "Strateji + operasyon planı" : "Kapalı"}</b></span>
@@ -987,7 +1049,7 @@ function ApplyWizardModal({ packageData, companies, search, setSearch, selectedC
                 {selectedCompany && <button onClick={() => onOpenCustomer(selectedCompany)} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-3 text-sm font-black text-cyan-700">Müşteriyi Görüntüle</button>}
               </div>
             </div>
-            {result && <ApplySuccessPanel result={result} selectedCompany={selectedCompany} packageData={packageData} options={options} onOpenCustomer={onOpenCustomer} onGo={onGo} onApplicationDetail={onApplicationDetail} />}
+            {result && <ApplySuccessPanel result={result} selectedCompany={selectedCompany} selectedBranch={selectedBranch} packageData={packageData} options={options} onOpenCustomer={onOpenCustomer} onGo={onGo} onApplicationDetail={onApplicationDetail} />}
           </div>
         </div>
       </section>
