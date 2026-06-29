@@ -17,6 +17,10 @@ const modules = [
   { name: "Meta Entegrasyonları", slug: "meta-istihbarat", api: "meta-ads", table: "ad_integrations", columns: ["provider", "account_id", "business_id"] },
   { name: "Google Entegrasyonları", slug: "google-istihbarat", api: "google-analysis", table: "ad_integrations", columns: ["google_customer_id", "google_analytics_id"] },
   { name: "Reklam Yorum Merkezi", slug: "ad-insights", api: "ad-insights", table: "ad_insight_snapshots", columns: ["customer_id", "metrics", "health_score"] },
+  { name: "HK Intelligence CEO", slug: "hk-intelligence-ceo", api: "hk-intelligence-ceo/status", table: "hk_intelligence_ceo_runs", columns: ["command_text", "agent_plan", "final_report"] },
+  { name: "HK Digital Team", slug: "hk-intelligence-ceo", api: "hk-intelligence-ceo/status", table: "hk_virtual_agents", columns: ["agent_key", "role_label", "preferred_provider"] },
+  { name: "HK Risk Events", slug: "hk-intelligence-ceo", api: "hk-intelligence-ceo/status", table: "hk_risk_events", columns: ["risk_key", "severity", "recommendation"] },
+  { name: "Customer Branches", slug: "hk-intelligence-ceo", api: "hk-intelligence-ceo/status", table: "customer_branches", columns: ["company_id", "branch_name", "kpi_snapshot"] },
   { name: "HK Agent Hub", slug: "agent-hub", api: "agent-hub/providers", table: "agent_runs", columns: ["task_type", "selected_provider", "output_payload", "final_report", "provider_chain", "progress_events"] },
   { name: "HK Agent Hub Planlı Görevler", slug: "agent-hub", api: "agent-hub/scheduled", table: "agent_scheduled_tasks", columns: ["task_type", "schedule_frequency", "next_run_at", "multi_agent"] },
   { name: "HK Agent Hub Hafıza", slug: "agent-hub", api: "agent-hub/memory", table: "agent_memories", columns: ["company_id", "memory_type", "impact_score", "is_active"] },
@@ -52,6 +56,7 @@ function fileExists(relativePath: string) {
 function sourceContains(pattern: string) {
   const files = [
     "src/components/admin/AdminDashboard.tsx",
+    "src/components/admin/HKAutonomousAgencyCenter.tsx",
     "src/components/admin/AgentHubCenter.tsx",
     "src/components/admin/AdInsightsCenter.tsx",
     "src/components/admin/Phase2OperatingSystem.tsx",
@@ -66,7 +71,9 @@ function sourceContains(pattern: string) {
     "src/app/api/admin/customers/[id]/integrations/route.ts",
     "src/app/api/admin/leads/[id]/route.ts",
     "src/app/api/admin/integrations/route.ts",
-    "src/app/api/admin/integrations/sync/route.ts"
+    "src/app/api/admin/integrations/sync/route.ts",
+    "src/app/api/admin/hk-intelligence-ceo/status/route.ts",
+    "src/app/api/admin/hk-intelligence-ceo/copilot/route.ts"
   ].filter(fileExists);
   return files.some((file) => readFileSync(path.join(/* turbopackIgnore: true */ process.cwd(), file), "utf8").includes(pattern));
 }
@@ -247,6 +254,22 @@ function scanSourcesForFindings(migrations: string) {
     ["Website Analytics Center müşteri entegrasyon durumunu gösteriyor mu?", "customerIntegrations", "Genel merkez müşteri entegrasyon yüzdesi ve düzenleme linkini göstermeli."],
     ["Entegrasyon düzenleme admin-only mi?", "requireModuleAccess(\"musteriler\")", "Müşteri entegrasyon API route'ları admin/staff yetki kontrolüne bağlı olmalı."],
     ["GA4/GTM/Meta ID validasyonları var mı?", "GA4 Measurement ID G-", "Kaydetmeden önce GA4, GTM, Meta Pixel/Dataset ve Search Console URL formatları doğrulanmalı."]
+    ,
+    ["HK Intelligence CEO modülü var mı?", "HKAutonomousAgencyCenter", "Autonomous Agency Operating System tek component üzerinden dashboard ve route'a bağlanmalı."],
+    ["HK CEO Masası ana ekranda mı?", "HK CEO Masası", "Executive Command Center dashboard üstünde ve ayrı modül olarak görünmeli."],
+    ["AI Copilot Chat route çalışıyor mu?", "hk-intelligence-ceo/copilot", "Copilot doğal dil sorusunu HK Intelligence final layer formatında cevaplamalı."],
+    ["Smart Command Palette görünüyor mu?", "Smart Command Palette", "Komut merkezi müşteri, görev, teklif, agent, rapor, tahsilat ve rehber hedeflerine bağlanmalı."],
+    ["Global Search merkezi var mı?", "Global Search", "Müşteri, görev, belge, rapor, tahsilat, kampanya, prompt ve memory araması kategori bazlı görünmeli."],
+    ["Health Center sinyali var mı?", "Health / Cost / Backup Center", "Database, Supabase, Storage, Cron, Queue, API ve AI sağlayıcı sağlıkları izlenmeli."],
+    ["AI Cost Center sinyali var mı?", "estimated_monthly_cost", "Sanal ajan ve agent run maliyetleri tahmini olarak izlenmeli."],
+    ["Backup Center sinyali var mı?", "Otomatik günlük/haftalık/aylık yedek", "Veri Aktarma merkezi backup center mantığıyla günlük, haftalık ve aylık yedek hazırlığı göstermeli."],
+    ["Customer Timeline var mı?", "Customer Timeline", "Müşteri olayları kronolojik operasyon zaman çizelgesiyle görünmeli."],
+    ["AI Recommendation Engine var mı?", "AI Recommendation Engine", "Her öneride beklenen etki, zorluk, süre, maliyet ve başarı olasılığı bulunmalı."],
+    ["Digital Twin var mı?", "Digital Twin", "Müşteri için Google, Meta, SEO, CRM, rapor, tahsilat ve not bağlamı tek müşteri ikizinde toplanmalı."],
+    ["Marketplace hazır paketleri var mı?", "Marketplace", "Sektör paketleri prompt, workflow, AI Team, KPI ve rapor şablonuyla görünmeli."],
+    ["Çok şubeli yapı migrationı var mı?", "customer_branches", "Müşterinin birden fazla şubesini aynı panel altında ayıran tablo beklenmeli."],
+    ["HK Intelligence Final Layer zorunlu mu?", "HK Intelligence Final Layer", "Hiçbir AI çıktısı doğrudan değil, final karar katmanı üzerinden sunulmalı."],
+    ["Secret client'a dönüyor mu?", "secretsReturned: false", "Status endpointleri secret değerleri yerine yalnız hazır/eksik durumunu döndürmeli."]
   ].forEach(([title, pattern, recommendation]) => {
     const inSource = sourceContains(pattern) || migrations.includes(String(pattern).toLocaleLowerCase("tr"));
     if (!inSource) findings.push(makeFinding({ category: "Ajans Operasyonu QA", severity: "orta", module: "Ajans Operasyon Kalıcılığı", file_path: "src/components/admin/AdminDashboard.tsx", title, description: `${pattern} sinyali statik analizde bulunamadı.`, recommendation }));

@@ -23,6 +23,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     accent: "from-cyan-400 via-sky-500 to-blue-600",
     items: [
       { label: "Dashboard", slug: "", module: "dashboard", description: "Ajans KPI'ları, öncelikler ve günlük operasyon özeti." },
+      { label: "HK Intelligence CEO", slug: "hk-intelligence-ceo", module: "hk-intelligence-ceo", description: "AI ajanlarını, riskleri, KPI'ları ve ajans operasyon kararlarını tek executive masadan yönetin." },
       { label: "HK Intelligence Command Center", slug: "intelligence-command-center", module: "dashboard", description: "Günlük öncelikler, müşteri sağlığı, risk ve kârlılık karar merkezi." },
       { label: "Risk Merkezi", slug: "risk-merkezi", module: "dashboard", description: "Tahsilat, görev, entegrasyon ve müşteri risklerini öncelik puanıyla izleyin." },
       { label: "HK Asistan", slug: "hk-asistan", module: "hk-asistan", description: "Mevcut sistem verileriyle çalışan operasyon asistanı." },
@@ -190,6 +191,10 @@ const legacySlugRedirects: Record<string, string> = {
   "ai-sales-coach": "ai-satis-kocu",
   "hk-agent-hub": "agent-hub",
   "ai-otomasyon": "agent-hub",
+  "hk-ceo-masasi": "hk-intelligence-ceo",
+  "executive-command-center": "hk-intelligence-ceo",
+  "autonomous-agency": "hk-intelligence-ceo",
+  "hk-intelligence-autonomous-agency": "hk-intelligence-ceo",
   "teklifler": "teklif-hazirlama",
   "teklif-motoru": "teklif-hazirlama",
   "teklif-listesi": "musteri-raporlari",

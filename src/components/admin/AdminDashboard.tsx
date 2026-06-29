@@ -13,6 +13,7 @@ import { WebsiteAnalyticsCenter } from "@/components/admin/WebsiteAnalyticsCente
 import { WebsiteAnalyticsSummaryCards } from "@/components/admin/WebsiteAnalyticsSummaryCards";
 import { SystemGuideCenter } from "@/components/admin/SystemGuideCenter";
 import { HKIntelligenceCommandCenter } from "@/components/admin/HKIntelligenceCommandCenter";
+import { HKAutonomousAgencyCenter } from "@/components/admin/HKAutonomousAgencyCenter";
 import { AdInsightsCenter } from "@/components/admin/AdInsightsCenter";
 import { AgentHubCenter } from "@/components/admin/AgentHubCenter";
 import { QaCenter } from "@/components/admin/QaCenter";
@@ -755,7 +756,9 @@ export function AdminDashboard({
           {status && <p className={`mb-5 rounded-[8px] border p-3 text-sm ${status.includes("Kaydedilemedi") ? "border-red-300/30 bg-red-500/10 text-red-100" : "border-cyan-200/20 bg-cyan-200/10 text-cyan-700"}`}>{status}</p>}
           {!dashboardAliases.includes(active) && activeNavigationItem && <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-cyan-200 bg-cyan-50 p-4"><div><h2 className="font-black text-slate-950">{withAdminEmoji(activeNavigationItem.label)}</h2><p className="mt-1 text-sm text-slate-600">{activeNavigationItem.description}</p></div><Link href={`/hk-admin/sistem-rehberi?topic=${activeNavigationItem.slug}`} className="rounded-[10px] bg-white px-4 py-2.5 text-sm font-black text-cyan-700 shadow-sm ring-1 ring-cyan-200">? Yardım</Link></div>}
           {showCustomerFilter && <div className="mb-5"><AdminCustomerSelector companies={content.companies || []} value={pendingCompanyId} appliedValue={selectedCompanyId} onChange={setPendingCompanyId} onApply={applyCompanyFilter} onClear={clearCompanyFilter} /></div>}
+          {dashboardAliases.includes(active) && <HKAutonomousAgencyCenter content={content} setActive={setActive} notify={notify} compact />}
           {dashboardAliases.includes(active) && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} systemStatus={systemStatus} currentSession={currentSession} allowedModules={allowedModules} notify={notify} />}
+          {active === "HK Intelligence CEO" && <HKAutonomousAgencyCenter content={content} setActive={setActive} notify={notify} />}
           {active === "HK Intelligence Command Center" && <HKIntelligenceCommandCenter {...props} />}
           {active === "Risk Merkezi" && <HKIntelligenceCommandCenter {...props} initialView="risk" />}
           {active === "Satış Hunisi" && <SalesPipeline content={content} setContent={setContent} save={save} setActive={setActive} notify={notify} />}
