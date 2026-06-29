@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 
 const paidStatuses = ["Ödendi", "Tahsil Edildi"];
@@ -67,6 +67,51 @@ function SummaryBox({ title, lines }: { title: string; lines: string[] }) {
   );
 }
 
+const emptyBranchForm = {
+  branch_name: "",
+  city: "",
+  district: "",
+  address: "",
+  phone: "",
+  whatsapp: "",
+  email: "",
+  google_maps_url: "",
+  website_url: "",
+  landing_page_url: "",
+  meta_ad_account_id: "",
+  google_ads_customer_id: "",
+  ga4_property_id: "",
+  search_console_site_url: "",
+  gtm_container_id: "",
+  monthly_ad_budget: "",
+  monthly_service_fee: "",
+  responsible_person: "",
+  status: "active",
+  notes: ""
+};
+
+function statusLabel(status: string, isActive?: boolean) {
+  if (status === "passive" || isActive === false) return "Pasif";
+  if (status === "needs_review") return "Kontrol gerekli";
+  return "Aktif";
+}
+
+function statusTone(status: string, isActive?: boolean) {
+  if (status === "passive" || isActive === false) return "bg-slate-50 text-slate-600 ring-slate-200";
+  if (status === "needs_review") return "bg-amber-50 text-amber-700 ring-amber-200";
+  return "bg-emerald-50 text-emerald-700 ring-emerald-200";
+}
+
+function toBranchForm(branch?: any) {
+  return {
+    ...emptyBranchForm,
+    ...(branch || {}),
+    monthly_ad_budget: branch?.monthly_ad_budget ? String(branch.monthly_ad_budget) : "",
+    monthly_service_fee: branch?.monthly_service_fee ? String(branch.monthly_service_fee) : "",
+    status: branch?.status || (branch?.is_active === false ? "passive" : "active")
+  };
+}
+
 export function CustomerProfileModal({
   company,
   content,
@@ -91,7 +136,13 @@ export function CustomerProfileModal({
   const payments = (content?.paymentRecords || []).filter((item: any) => item.company_id === company?.id);
   const campaigns = (content?.campaigns || []).filter((item: any) => item.company_id === company?.id);
   const applications = packageApplications(company, content);
-  const branches = customerBranches(company, content);
+  const [localBranches, setLocalBranches] = useState<any[]>(() => customerBranches(company, content));
+  const [branchModalOpen, setBranchModalOpen] = useState(false);
+  const [branchEditor, setBranchEditor] = useState<any>(null);
+  const [branchForm, setBranchForm] = useState<Record<string, any>>(emptyBranchForm);
+  const [branchSaving, setBranchSaving] = useState(false);
+  const [branchMessage, setBranchMessage] = useState("");
+  const branches = localBranches;
   const latestApplication = applications[0] || {};
   const missingIntegrations = [
     !integration.meta_pixel_id ? "Meta Pixel" : "",
@@ -115,6 +166,66 @@ export function CustomerProfileModal({
   }, [onClose]);
 
   if (!company) return null;
+
+  function openBranchForm(branch?: any) {
+    setBranchEditor(branch || null);
+    setBranchForm(toBranchForm(branch));
+    setBranchMessage("");
+    setBranchModalOpen(true);
+  }
+
+  async function saveBranch() {
+    if (!company?.id) return;
+    setBranchSaving(true);
+    setBranchMessage("");
+    const editing = Boolean(branchEditor?.id);
+    const url = editing
+      ? `/api/admin/customers/${encodeURIComponent(company.id)}/branches/${encodeURIComponent(branchEditor.id)}`
+      : `/api/admin/customers/${encodeURIComponent(company.id)}/branches`;
+    try {
+      const response = await fetch(url, {
+        method: editing ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(branchForm)
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.details?.join?.(" ") || payload.error || "Şube kaydedilemedi.");
+      const saved = payload.branch;
+      setLocalBranches((items) => {
+        const exists = items.some((item) => item.id === saved.id);
+        const next = exists ? items.map((item) => item.id === saved.id ? saved : item) : [...items, saved];
+        return next.sort((a, b) => String(a.branch_name || "").localeCompare(String(b.branch_name || ""), "tr"));
+      });
+      setBranchEditor(saved);
+      setBranchForm(toBranchForm(saved));
+      setBranchMessage(payload.message || "Şube kaydedildi.");
+    } catch (error) {
+      setBranchMessage(error instanceof Error ? error.message : "Şube kaydedilemedi.");
+    } finally {
+      setBranchSaving(false);
+    }
+  }
+
+  async function passiveBranch(branch: any) {
+    setBranchSaving(true);
+    setBranchMessage("");
+    try {
+      const response = await fetch(`/api/admin/customers/${encodeURIComponent(company.id)}/branches/${encodeURIComponent(branch.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "passive" })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "Şube pasife alınamadı.");
+      const saved = payload.branch;
+      setLocalBranches((items) => items.map((item) => item.id === saved.id ? saved : item));
+      setBranchMessage(payload.message || "Şube pasife alındı.");
+    } catch (error) {
+      setBranchMessage(error instanceof Error ? error.message : "Şube pasife alınamadı.");
+    } finally {
+      setBranchSaving(false);
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/50 p-0 sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
@@ -154,7 +265,7 @@ export function CustomerProfileModal({
                 <h3 className="font-black text-slate-950">Şubeler</h3>
                 <p className="mt-1 text-sm text-slate-500">Şube bazlı reklam, rapor, entegrasyon ve KPI yönetimi için kayıtlı lokasyonlar.</p>
               </div>
-              <button onClick={() => onGo?.("Müşteriler", "Şube ekleme için müşteri detayları açıldı.")} className="rounded-[12px] bg-cyan-500 px-4 py-2.5 text-sm font-black text-white">Şube Ekle</button>
+              <button onClick={() => openBranchForm()} className="rounded-[12px] bg-cyan-500 px-4 py-2.5 text-sm font-black text-white">Şube Ekle</button>
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               {branches.map((branch: any) => (
@@ -162,9 +273,12 @@ export function CustomerProfileModal({
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <p className="font-black text-slate-950">{branch.branch_name || "Adsız şube"}</p>
-                      <p className="mt-1 text-xs text-slate-500">{branch.city || "Şehir yok"} · {branch.district || "İlçe yok"} · {branch.status || (branch.is_active === false ? "pasif" : "active")}</p>
+                      <p className="mt-1 text-xs text-slate-500">{branch.city || "Şehir yok"} · {branch.district || "İlçe yok"}</p>
                     </div>
-                    <span className="rounded-full bg-white px-2 py-1 text-[10px] font-black text-cyan-700 ring-1 ring-cyan-200">{branch.monthly_ad_budget ? `Bütçe ${branch.monthly_ad_budget} TL` : "Bütçe yok"}</span>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <span className={`rounded-full px-2 py-1 text-[10px] font-black ring-1 ${statusTone(branch.status, branch.is_active)}`}>{statusLabel(branch.status, branch.is_active)}</span>
+                      <span className="rounded-full bg-white px-2 py-1 text-[10px] font-black text-cyan-700 ring-1 ring-cyan-200">{branch.monthly_ad_budget ? `Bütçe ${branch.monthly_ad_budget} TL` : "Bütçe yok"}</span>
+                    </div>
                   </div>
                   <div className="mt-3 grid gap-1 text-xs leading-5 text-slate-600">
                     <span>Adres: {branch.address || "Yok"}</span>
@@ -175,15 +289,17 @@ export function CustomerProfileModal({
                     <span>Sorumlu: {branch.responsible_person || "Belirtilmedi"}</span>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <button onClick={() => onGo?.("Müşteriler", "Şube düzenleme için müşteri detayları açıldı.")} className="rounded-[10px] bg-cyan-500 px-3 py-1.5 text-xs font-black text-white">Şubeyi Düzenle</button>
+                    <button onClick={() => openBranchForm(branch)} className="rounded-[10px] bg-cyan-500 px-3 py-1.5 text-xs font-black text-white">Şubeyi Düzenle</button>
+                    <button onClick={() => passiveBranch(branch)} disabled={branchSaving || branch.status === "passive" || branch.is_active === false} className="rounded-[10px] border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-600 disabled:opacity-50">Şubeyi Pasife Al</button>
                     <button onClick={() => onGo?.("Müşteri Raporları", "Şube raporu oluşturma alanı açıldı.")} className="rounded-[10px] border border-cyan-200 bg-white px-3 py-1.5 text-xs font-black text-cyan-700">Şube Raporu Oluştur</button>
                     <button onClick={() => onGo?.("HK Agent Hub", "Şube için Agent analizi açıldı.")} className="rounded-[10px] border border-cyan-200 bg-white px-3 py-1.5 text-xs font-black text-cyan-700">Şube İçin Agent Analizi</button>
                     {branch.google_maps_url && <button onClick={() => window.open(branch.google_maps_url, "_blank", "noopener,noreferrer")} className="rounded-[10px] border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-600">Google Maps’te Aç</button>}
                   </div>
                 </div>
               ))}
-              {!branches.length && <p className="rounded-[14px] border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">Bu müşteri için henüz şube kaydı yok. Şube Ekle ile ilk lokasyonu tanımlayabilirsin.</p>}
+              {!branches.length && <p className="rounded-[14px] border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">Bu müşteri için henüz şube yok. İlk şubeyi ekleyerek şube bazlı rapor ve reklam takibine başlayabilirsin.</p>}
             </div>
+            {branchMessage && <p className="mt-3 rounded-[12px] border border-cyan-200 bg-cyan-50 p-3 text-sm font-bold text-cyan-800">{branchMessage}</p>}
           </section>
           <section className="mt-5 rounded-[18px] border border-cyan-200 bg-cyan-50 p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -221,6 +337,90 @@ export function CustomerProfileModal({
           </section>
           {children && <div className="mt-5">{children}</div>}
         </div>
+      </section>
+      {branchModalOpen && (
+        <BranchEditorModal
+          branch={branchEditor}
+          form={branchForm}
+          setForm={setBranchForm}
+          saving={branchSaving}
+          message={branchMessage}
+          onSave={saveBranch}
+          onClose={() => { setBranchModalOpen(false); setBranchEditor(null); setBranchMessage(""); }}
+          onGo={onGo}
+        />
+      )}
+    </div>
+  );
+}
+
+function BranchEditorModal({ branch, form, setForm, saving, message, onSave, onClose, onGo }: any) {
+  const editing = Boolean(branch?.id);
+  const fields = [
+    ["branch_name", "Şube adı"],
+    ["city", "Şehir"],
+    ["district", "İlçe"],
+    ["address", "Adres"],
+    ["phone", "Telefon"],
+    ["whatsapp", "WhatsApp"],
+    ["email", "E-posta"],
+    ["google_maps_url", "Google Maps URL"],
+    ["website_url", "Web sitesi"],
+    ["landing_page_url", "Landing Page URL"],
+    ["meta_ad_account_id", "Meta Ad Account ID"],
+    ["google_ads_customer_id", "Google Ads Customer ID"],
+    ["ga4_property_id", "GA4 Property ID"],
+    ["search_console_site_url", "Search Console URL"],
+    ["gtm_container_id", "GTM ID"],
+    ["monthly_ad_budget", "Aylık reklam bütçesi"],
+    ["monthly_service_fee", "Aylık hizmet bedeli"],
+    ["responsible_person", "Sorumlu kişi"]
+  ];
+  return (
+    <div className="fixed inset-0 z-[120] grid place-items-center bg-slate-950/55 p-0 sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className="flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-auto sm:max-h-[88vh] sm:max-w-4xl sm:rounded-[24px]" onMouseDown={(event) => event.stopPropagation()}>
+        <header className="flex items-start justify-between gap-3 border-b border-slate-200 p-5">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Şube Yönetimi</p>
+            <h2 className="mt-1 text-2xl font-black text-slate-950">{editing ? "Şubeyi Düzenle" : "Yeni Şube Ekle"}</h2>
+            <p className="mt-1 text-sm text-slate-500">Şube bazlı reklam, rapor ve entegrasyon takibi için gerekli alanları doldurun.</p>
+          </div>
+          <button onClick={onClose} aria-label="Kapat" className="rounded-full border border-slate-200 p-2 text-slate-500"><X size={18} /></button>
+        </header>
+        <div className="flex-1 overflow-y-auto p-5">
+          <div className="grid gap-3 md:grid-cols-3">
+            {fields.map(([key, label]) => (
+              <label key={key} className="grid gap-1 text-sm font-bold text-slate-700">
+                {label}
+                <input value={form[key] || ""} onChange={(event) => setForm({ ...form, [key]: event.target.value })} className="rounded-[12px] border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-900" />
+              </label>
+            ))}
+            <label className="grid gap-1 text-sm font-bold text-slate-700">
+              Durum
+              <select value={form.status || "active"} onChange={(event) => setForm({ ...form, status: event.target.value })} className="rounded-[12px] border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-900">
+                <option value="active">Aktif</option>
+                <option value="passive">Pasif</option>
+                <option value="needs_review">Kontrol gerekli</option>
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm font-bold text-slate-700 md:col-span-3">
+              Notlar
+              <textarea value={form.notes || ""} onChange={(event) => setForm({ ...form, notes: event.target.value })} className="min-h-24 rounded-[12px] border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-900" />
+            </label>
+          </div>
+          {message && <p className="mt-4 rounded-[12px] border border-cyan-200 bg-cyan-50 p-3 text-sm font-bold text-cyan-800">{message}</p>}
+        </div>
+        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 p-5">
+          <div className="flex flex-wrap gap-2">
+            {form.google_maps_url && <button onClick={() => window.open(form.google_maps_url, "_blank", "noopener,noreferrer")} className="rounded-[12px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-700">Google Maps’te Aç</button>}
+            <button onClick={() => onGo?.("HK Agent Hub", "Şube için Agent analizi açıldı.")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-2.5 text-sm font-black text-cyan-700">Şube İçin Agent Analizi</button>
+            <button onClick={() => onGo?.("Müşteri Raporları", "Şube raporu oluşturma alanı açıldı.")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-2.5 text-sm font-black text-cyan-700">Şube Raporu Oluştur</button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={onClose} className="rounded-[12px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-600">Vazgeç</button>
+            <button onClick={onSave} disabled={saving} className="rounded-[12px] bg-cyan-500 px-4 py-2.5 text-sm font-black text-white disabled:opacity-60">{saving ? "Kaydediliyor..." : editing ? "Şubeyi Güncelle" : "Kaydet"}</button>
+          </div>
+        </footer>
       </section>
     </div>
   );

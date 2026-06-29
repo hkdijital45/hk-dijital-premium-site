@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
 import { existsSync, readFileSync, readdirSync } from "fs";
 import path from "path";
@@ -20,7 +21,7 @@ const modules = [
   { name: "HK Intelligence CEO", slug: "hk-intelligence-ceo", api: "hk-intelligence-ceo/status", table: "hk_intelligence_ceo_runs", columns: ["command_text", "agent_plan", "final_report"] },
   { name: "HK Dijital Ekibi", slug: "hk-intelligence-ceo", api: "hk-intelligence-ceo/status", table: "hk_virtual_agents", columns: ["agent_key", "role_label", "preferred_provider"] },
   { name: "HK Risk Events", slug: "hk-intelligence-ceo", api: "hk-intelligence-ceo/status", table: "hk_risk_events", columns: ["risk_key", "severity", "recommendation"] },
-  { name: "Müşteri Şubeleri", slug: "hk-intelligence-ceo", api: "hk-intelligence-ceo/status", table: "customer_branches", columns: ["company_id", "branch_name", "kpi_snapshot"] },
+  { name: "Müşteri Şubeleri", slug: "hk-intelligence-ceo", api: "customers/[id]/branches", table: "customer_branches", columns: ["company_id", "branch_name", "status", "created_by", "updated_by"] },
   { name: "HK CEO Paket Pazarı", slug: "hk-intelligence-ceo", api: "hk-intelligence-ceo/marketplace", table: "hk_marketplace_packages", columns: ["package_name", "sector", "workflow_steps", "operation_plan", "tracking_metrics", "seven_day_plan"] },
   { name: "HK CEO Paket Uygulama Logları", slug: "hk-intelligence-ceo", api: "hk-intelligence-ceo/marketplace", table: "hk_marketplace_package_applications", columns: ["package_id", "company_id", "result_summary", "created_records", "post_apply_plan", "next_actions"] },
   { name: "HK Agent Hub", slug: "agent-hub", api: "agent-hub/providers", table: "agent_runs", columns: ["task_type", "selected_provider", "output_payload", "final_report", "provider_chain", "progress_events"] },
@@ -63,14 +64,18 @@ function sourceContains(pattern: string) {
     "src/components/admin/AdInsightsCenter.tsx",
     "src/components/admin/Phase2OperatingSystem.tsx",
     "src/components/admin/WebsiteAnalyticsCenter.tsx",
+    "src/components/admin/QaCenter.tsx",
     "src/components/admin/customer-profile/CustomerIntegrationsPanel.tsx",
     "src/components/admin/customer-profile/CustomerProfileModal.tsx",
+    "src/components/admin/customer-profile/CustomerBranchFilter.tsx",
     "src/lib/admin-navigation.ts",
     "src/lib/agent-hub.ts",
     "src/lib/customer-onboarding.ts",
     "src/lib/website-analytics.ts",
     "src/lib/system-guide-content.ts",
     "src/app/api/admin/customer-operations/route.ts",
+    "src/app/api/admin/customers/[id]/branches/route.ts",
+    "src/app/api/admin/customers/[id]/branches/[branchId]/route.ts",
     "src/app/api/admin/customers/[id]/integrations/route.ts",
     "src/app/api/admin/leads/[id]/route.ts",
     "src/app/api/admin/integrations/route.ts",
@@ -104,6 +109,107 @@ function makeFinding(input: {
   metadata?: Record<string, unknown>;
 }) {
   return { status: "Açık", ...input };
+}
+
+function friendlySeverity(severity: string) {
+  if (severity === "kritik") return "Kritik";
+  if (severity === "orta") return "Orta";
+  return "Düşük";
+}
+
+function friendlyMeaning(issue: any) {
+  const title = String(issue.title || issue.check || "");
+  const category = String(issue.category || issue.check || "");
+  if (title.includes("Handler sinyali zayıf buton")) {
+    return "Bu, butonun ekranda göründüğü ama tıklanınca gerçek işlem başlatıp başlatmadığının statik analizle netleşmediği anlamına gelir. Kullanıcı açısından buton çalışmıyor gibi görünebilir.";
+  }
+  if (category.includes("Migration") || title.includes("migration") || title.includes("Supabase şema")) {
+    return "Bu uyarı, kodun beklediği tablo veya kolonun migration dosyalarında tam görünmediğini belirtir. Canlı veritabanında ilgili SQL çalışmadıysa kayıt işlemleri hata verebilir.";
+  }
+  if (category.includes("Güvenlik") || title.includes("secret") || title.includes("env")) {
+    return "Bu uyarı, API key, token, secret veya private key gibi hassas bilgilerin yanlış katmanda kullanılma ihtimalini gösterir.";
+  }
+  if (title.includes("Slack")) return "Slack bildirimi artık kullanıcı arayüzünden kaldırıldı; bildirim tarafında Discord tercih edilir. Bu kontrol eski Slack beklentisinin tekrar görünmemesini izler.";
+  if (title.includes("Auto Router") || title.includes("Provider") || title.includes("Groq")) {
+    return "Bu kontrol, manuel AI sağlayıcı seçiminin Auto Router tarafından ezilmediğini ve yedek akış varsa bunun kullanıcıya açıklandığını doğrular.";
+  }
+  if (title.includes("Rapor") || category.includes("Raporlama")) {
+    return "Bu kontrol, rapor çıktısının ekran görüntüsü yerine profesyonel rapor verisi, HTML, CSV veya metin taslağı olarak üretildiğini doğrular.";
+  }
+  if (title.includes("CSV")) return "Bu kontrol, Türkçe karakterlerin Excel/CSV çıktılarında bozulmaması için UTF-8 BOM kullanımını doğrular.";
+  return "Bu bulgu sistemin hemen çöktüğü anlamına gelmez; ilgili modülün daha güvenilir, anlaşılır veya sürdürülebilir hale getirilmesi gereken bir noktasını gösterir.";
+}
+
+function userImpact(issue: any) {
+  const category = String(issue.category || issue.check || "");
+  const title = String(issue.title || issue.check || "");
+  if (title.includes("Handler sinyali")) return "Kullanıcı butona bastığında hiçbir şey olmuyor gibi algılayabilir.";
+  if (category.includes("Migration")) return "Kayıt veya güncelleme sırasında Supabase şema hatası alınabilir.";
+  if (category.includes("Güvenlik")) return "Hassas bilginin yanlışlıkla client tarafına taşınması riski oluşabilir.";
+  if (category.includes("Buton Okunabilirliği")) return "Açık temada buton metni zor okunabilir.";
+  if (category.includes("Eksik ENV")) return "Canlı entegrasyon yerine demo/yedek akış çalışabilir.";
+  return "İlgili modülde kullanıcı deneyimi, bakım kolaylığı veya operasyon güvenilirliği azalabilir.";
+}
+
+function technicalReason(issue: any) {
+  const file = issue.file_path ? `${issue.file_path}${issue.metadata?.line ? `:${issue.metadata.line}` : ""}` : "Statik analiz";
+  const context = issue.metadata?.context ? ` Kod bağlamı: ${issue.metadata.context}` : "";
+  return `${file} üzerinde statik analiz sinyali üretildi.${context}`;
+}
+
+function routeForModule(moduleName: string) {
+  const found = modules.find((module) => module.name === moduleName || module.slug === moduleName);
+  if (!found) return "/hk-admin/qa-center";
+  return found.slug ? `/hk-admin/${found.slug}` : "/hk-admin";
+}
+
+function repairCategory(issue: any) {
+  const category = String(issue.category || issue.check || "");
+  if (issue.priority === "kritik") return "Kritik";
+  if (category.includes("Güvenlik") || category.includes("RLS")) return "Güvenlik";
+  if (category.includes("Migration") || String(issue.title || "").includes("migration")) return "Migration";
+  if (category.includes("Buton") || category.includes("UI") || String(issue.title || "").includes("Buton")) return "UI/UX";
+  if (String(issue.module || "").includes("Agent")) return "Agent Hub";
+  if (category.includes("Rapor")) return "Raporlama";
+  if (issue.priority === "orta") return "Orta";
+  return "Teknik borç";
+}
+
+function enrichIssue(issue: any) {
+  return {
+    ...issue,
+    status: issue.status || "Açık",
+    riskLevel: friendlySeverity(issue.priority || issue.severity || "dusuk"),
+    where: issue.file_path || issue.module || "Genel sistem",
+    meaning: friendlyMeaning(issue),
+    userImpact: userImpact(issue),
+    technicalReason: technicalReason(issue),
+    suggestedSolution: issue.recommendation || "İlgili route, API, handler veya migration eşleşmesini doğrulayın.",
+    actionRoute: routeForModule(issue.module),
+    codeReference: issue.file_path ? `${issue.file_path}${issue.metadata?.line ? `:${issue.metadata.line}` : ""}` : "",
+    repairCategory: repairCategory(issue),
+    canMarkFixed: true,
+    canRetest: true
+  };
+}
+
+function buildRepairPlan(issues: any[]) {
+  const groups = ["Kritik", "Orta", "Düşük", "Teknik borç", "UI/UX", "Güvenlik", "Raporlama", "Agent Hub", "Migration"];
+  return groups.map((group) => {
+    const rows = issues.filter((issue) =>
+      issue.repairCategory === group ||
+      (group === "Orta" && issue.priority === "orta") ||
+      (group === "Düşük" && issue.priority === "dusuk")
+    );
+    return {
+      category: group,
+      count: rows.length,
+      topIssues: rows.slice(0, 3).map((issue) => issue.title || issue.check),
+      modules: [...new Set(rows.map((issue) => issue.module).filter(Boolean))].slice(0, 5),
+      nextStep: rows.length ? rows[0].suggestedSolution : "Bu kategoride aktif sorun görünmüyor.",
+      priority: group === "Kritik" || group === "Güvenlik" ? "Önce" : group === "Migration" || group === "UI/UX" ? "Sıradaki" : "Planlı"
+    };
+  });
 }
 
 function lineInfo(text: string, index: number) {
@@ -374,10 +480,12 @@ export async function GET() {
         { module: module.name, check: "Buton/aksiyon", ok: sourceContains(module.name) || sourceContains(module.slug), detail: sourceContains(module.name) || sourceContains(module.slug) ? "Admin kaynaklarında modül aksiyon referansı bulundu." : "Statik analizde aksiyon referansı sınırlı; manuel doğrulama gerekli.", severity: "dusuk" as QaSeverity }
       ];
     });
-    const issues = [
+    const rawIssues = [
       ...checks.filter((item) => !item.ok).map((item) => ({ ...item, priority: classify(item.detail), category: item.check, title: `${item.module}: ${item.check}`, description: item.detail, recommendation: "İlgili route, API veya migration eşleşmesini doğrulayın." })),
       ...staticFindings.map((item) => ({ ...item, check: item.category, ok: false, priority: item.severity, detail: item.description }))
     ];
+    const issues = rawIssues.map(enrichIssue);
+    const repairPlan = buildRepairPlan(issues);
     const summary = {
       score: Math.max(0, Math.round(100 - issues.filter((item) => item.priority === "kritik").length * 12 - issues.filter((item) => item.priority === "orta").length * 5 - issues.filter((item) => item.priority === "dusuk").length * 2)),
       total: checks.length + staticFindings.length,
@@ -400,6 +508,12 @@ export async function GET() {
       checks,
       findings: staticFindings,
       issues,
+      repairPlan,
+      help: {
+        title: "Bu ekran ne işe yarar?",
+        description: "QA Center, sistemde çalışmayan butonları, eksik migrationları, bozuk API bağlantılarını, güvenlik risklerini, eksik yönlendirmeleri ve teknik borçları kontrol eder. Buradaki uyarılar sistemin hemen çöktüğü anlamına gelmez; hangi alanların güçlendirilmesi gerektiğini gösterir.",
+        primaryAction: "Öncelikli onarım planını göster"
+      },
       migrationSuggestions: issues.filter((item) => item.check === "Supabase şema" || item.category === "Migration Eksikleri"),
       mode: "Statik kod ve migration analizi"
     });
