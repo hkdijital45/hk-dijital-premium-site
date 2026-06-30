@@ -14,7 +14,8 @@ const allowedFields = [
   "google_place_id", "google_rating", "google_review_count", "phone", "category", "latitude", "longitude",
   "competitor_score", "threat_score", "opportunity_score", "score_breakdown", "score_reason",
   "agency_decision", "recommended_actions", "discovery_source", "discovery_query", "maps_raw", "meta_raw",
-  "last_maps_checked_at", "last_meta_checked_at", "last_ad_seen_at"
+  "last_maps_checked_at", "last_meta_checked_at", "last_ad_seen_at", "is_tracking", "archived_at",
+  "deleted_at", "last_signal_at", "next_check_at", "notification_channels"
 ];
 
 function sanitize(body: Record<string, any>) {
@@ -25,6 +26,9 @@ function sanitize(body: Record<string, any>) {
   row.competitor_name = row.competitor_name || body.name || "Yeni rakip";
   row.status = row.status || "active";
   row.monitoring_frequency = row.monitoring_frequency || "weekly";
+  row.is_tracking = Boolean(row.is_tracking || body.track || body.notify || row.notify_on_new_ads || row.notify_on_review_change || row.notify_on_price_change);
+  if (row.is_tracking && !row.next_check_at) row.next_check_at = nextCheckAt(row.monitoring_frequency);
+  if (row.is_tracking && !row.notification_channels) row.notification_channels = ["system"];
   row.updated_at = new Date().toISOString();
   if (!row.customer_summary) {
     const customer = buildCompetitorCustomerSummary(row);
@@ -34,6 +38,13 @@ function sanitize(body: Record<string, any>) {
   }
   row.internal_analysis = buildCompetitorInternalAnalysis(row);
   return row;
+}
+
+function nextCheckAt(frequency = "weekly") {
+  const date = new Date();
+  const days = frequency === "daily" ? 1 : frequency === "monthly" ? 30 : frequency === "biweekly" ? 14 : 7;
+  date.setDate(date.getDate() + days);
+  return date.toISOString();
 }
 
 export async function GET(request: Request) {

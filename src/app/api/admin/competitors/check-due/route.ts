@@ -5,13 +5,20 @@ import { buildCompetitorSignals, enrichCompetitorDiscoveryResult, isCompetitorDu
 import { requireModuleAccess } from "@/lib/permissions";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
+function nextCheckAt(frequency = "weekly") {
+  const date = new Date();
+  const days = frequency === "daily" ? 1 : frequency === "monthly" ? 30 : frequency === "biweekly" ? 14 : 7;
+  date.setDate(date.getDate() + days);
+  return date.toISOString();
+}
+
 export async function POST() {
   const session = await requireModuleAccess("rakip-analizi");
   if (!session) return NextResponse.json({ success: false, message: "Rakip kontrol kuyruğu için yetki gerekir." }, { status: 403 });
   if (!hasSupabaseConfig()) return NextResponse.json({ success: false, message: "Supabase bağlantısı yapılandırılmadı." }, { status: 500 });
   try {
-    const rows = await supabaseRest<any[]>("competitor_watchlist?status=neq.passive&select=*&order=last_checked_at.asc");
-    const due = rows.filter((item) => isCompetitorDue(item));
+    const rows = await supabaseRest<any[]>("competitor_watchlist?status=neq.passive&deleted_at=is.null&select=*&order=last_checked_at.asc");
+    const due = rows.filter((item) => (item.is_tracking || item.notify_on_new_ads || item.notify_on_review_change || item.notify_on_price_change) && isCompetitorDue(item));
     const now = new Date().toISOString();
     const updatedIds: string[] = [];
     let signalCount = 0;
@@ -23,8 +30,10 @@ export async function POST() {
         company_id: item.company_id || null,
         show_to_customer: Boolean(item.show_to_customer || item.show_customer_summary),
         customer_summary: scored.customer_summary,
+        customer_visible_summary: scored.customer_summary,
         customer_recommendations: scored.customer_recommendations || [],
         customer_action_plan: scored.customer_action_plan || [],
+        agency_action: scored.agency_decision,
         metadata: { checkMode: "due_check", competitor_score: scored.competitor_score, threat_score: scored.threat_score, opportunity_score: scored.opportunity_score }
       }));
       await supabaseRest<any[]>("competitor_signals", { method: "POST", body: JSON.stringify(signals) }).catch(() => []);
@@ -45,6 +54,9 @@ export async function POST() {
           last_checked_at: now,
           last_maps_checked_at: now,
           last_meta_checked_at: now,
+          last_signal_at: signals.length ? now : item.last_signal_at || null,
+          next_check_at: nextCheckAt(item.monitoring_frequency || "weekly"),
+          is_tracking: true,
           updated_at: now
         })
       }).catch(() => []);

@@ -478,6 +478,16 @@ function scanSourcesForFindings(migrations: string) {
     ["Admin API kullanılıyor mu?", "Admin entegrasyonu", "Google Maps ve Meta Ad Library çağrıları müşteri API bilgisi istemeden HK Dijital admin ENV değerleriyle server-side çalışmalıdır."],
     ["Müşteri API’sine bağımlılık yok mu?", "Müşteriden ayrıca API anahtarı istenmez", "Rakip keşfi müşteri profilindeki API alanlarına zorunlu bağımlılık kurmamalıdır."],
     ["Rakip detay modalı var mı?", "Detaylı Rakip İncelemesi", "Detaylı Gör aksiyonu genel bilgi, Maps verisi, reklam sinyali, skor detayı ve teknik detay sekmelerini modalda göstermelidir."]
+    ,
+    ["Takip Edilen Rakipler paneli var mı?", "Takip Edilen Rakipler", "Rakip Analizi ekranında izlemeye alınmış rakipler ayrı panelde, skor ve son kontrol bilgisiyle görünmelidir."],
+    ["Yeni Sinyaller paneli var mı?", "Yeni Sinyaller", "Rakip değişimleri competitor_signals verisinden yeni sinyal kartları olarak gösterilmelidir."],
+    ["Periyodik kontrol endpoint’i çalışıyor mu?", "/api/admin/competitors/check-due", "Kontrol zamanı gelen rakipleri skorlayıp sinyal oluşturan cron-ready endpoint bulunmalıdır."],
+    ["Rakip toplu işlem endpoint’i var mı?", "/api/admin/competitors/bulk", "Kaydet, takip, görünürlük, bildirim, arşiv, pasif ve sil aksiyonları toplu route üzerinden yapılmalıdır."],
+    ["Rakip sinyalleri müşteri bazlı görünüyor mu?", "competitorSignals", "Center-data ve müşteri profil popup competitor_signals kayıtlarını müşteri bağlamında göstermelidir."],
+    ["Müşteriye göster/gizle toggle’ı çalışıyor mu?", "show_to_customer", "Rakip ve sinyal kartlarında müşteri görünürlüğü açıkça yönetilmelidir."],
+    ["Sinyalden görev oluşturulabiliyor mu?", "Görev Oluştur", "Yeni sinyal kartları görev taslağı veya görev ekranı aksiyonuna bağlanmalıdır."],
+    ["Müşteri özeti teknik detaydan ayrılmış mı?", "Müşteriye Gönderilecek Özet", "Rakip sinyal ve rakip analizlerinde teknik detay kapalı, müşteri özeti sade dilde olmalıdır."],
+    ["Tam Sistem Onarım Taraması var mı?", "Tam Sistem Onarım Taraması", "QA Center bulguları çalışmayan buton, hrefsiz link, siyah buton, müşteri görünürlüğü ve secret risklerini anlaşılır açıklamalıdır."]
   ].forEach(([title, pattern, recommendation]) => {
     const inSource = sourceContains(pattern) || migrations.includes(String(pattern).toLocaleLowerCase("tr"));
     if (!inSource) findings.push(makeFinding({ category: "Ajans Operasyonu QA", severity: "orta", module: "Ajans Operasyon Kalıcılığı", file_path: "src/components/admin/AdminDashboard.tsx", title, description: `${pattern} sinyali statik analizde bulunamadı.`, recommendation }));

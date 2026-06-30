@@ -382,6 +382,34 @@ export function CustomerProfileModal({
               {!(content?.competitorWatchlist || content?.competitorAnalyses || []).filter((item: any) => item.company_id === company?.id).length && (
                 <p className="rounded-[14px] border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">Henüz rakip kaydı yok. Rakip Analizi ekranından rakip ekleyebilir veya AI ile öneri üretebilirsin.</p>
               )}
+            <div className="mt-5 grid gap-4 lg:grid-cols-2">
+              <div className="rounded-[14px] border border-emerald-200 bg-emerald-50 p-3">
+                <h4 className="font-black text-slate-950">Takip Edilen Rakipler</h4>
+                <div className="mt-3 grid gap-2">
+                  {(content?.competitorWatchlist || []).filter((item: any) => item.company_id === company?.id && (item.is_tracking || item.notify_on_new_ads || item.notify_on_review_change || item.notify_on_price_change)).slice(0, 4).map((item: any) => (
+                    <div key={item.id || item.competitor_name} className="rounded-[10px] bg-white p-2 text-xs text-slate-700 ring-1 ring-emerald-200">
+                      <p className="font-black text-slate-950">{item.competitor_name || item.name || "Rakip"}</p>
+                      <p>Skor: {item.competitor_score || 0} · Tehdit: {item.threat_score || 0} · Son kontrol: {item.last_checked_at ? new Date(item.last_checked_at).toLocaleDateString("tr-TR") : "Henüz yok"}</p>
+                      <p>{item.show_to_customer || item.show_customer_summary ? "Müşteriye açık" : "Sadece admin"} · Bildirim: {item.notification_channels?.length || item.notify_on_new_ads ? "Açık" : "Kapalı"}</p>
+                    </div>
+                  ))}
+                  {!(content?.competitorWatchlist || []).filter((item: any) => item.company_id === company?.id && (item.is_tracking || item.notify_on_new_ads || item.notify_on_review_change || item.notify_on_price_change)).length && <p className="text-sm text-emerald-800">Bu müşteri için takip edilen rakip yok.</p>}
+                </div>
+              </div>
+              <div className="rounded-[14px] border border-blue-200 bg-blue-50 p-3">
+                <h4 className="font-black text-slate-950">Yeni Sinyaller</h4>
+                <div className="mt-3 grid gap-2">
+                  {(content?.competitorSignals || []).filter((signal: any) => signal.company_id === company?.id).slice(0, 4).map((signal: any) => (
+                    <div key={signal.id || signal.title} className="rounded-[10px] bg-white p-2 text-xs text-slate-700 ring-1 ring-blue-200">
+                      <p className="font-black text-slate-950">{signal.title || "Rakip sinyali"}</p>
+                      <p>{signal.customer_visible_summary || signal.summary || "Sinyal özeti hazırlanıyor."}</p>
+                      <p>{signal.show_to_customer ? "Müşteriye açık" : "Sadece admin"} · {signal.resolved_at ? "Çözüldü" : "Aksiyon bekliyor"}</p>
+                    </div>
+                  ))}
+                  {!(content?.competitorSignals || []).filter((signal: any) => signal.company_id === company?.id).length && <p className="text-sm text-blue-800">Bu müşteri için yeni rakip sinyali yok.</p>}
+                </div>
+              </div>
+            </div>
             </div>
           </section>
           <section className="mt-5 rounded-[18px] border border-cyan-200 bg-cyan-50 p-4">

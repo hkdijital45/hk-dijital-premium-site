@@ -14,7 +14,8 @@ const allowedFields = [
   "google_place_id", "google_rating", "google_review_count", "phone", "category", "latitude", "longitude",
   "competitor_score", "threat_score", "opportunity_score", "score_breakdown", "score_reason",
   "agency_decision", "recommended_actions", "discovery_source", "discovery_query", "maps_raw", "meta_raw",
-  "last_maps_checked_at", "last_meta_checked_at", "last_ad_seen_at"
+  "last_maps_checked_at", "last_meta_checked_at", "last_ad_seen_at", "is_tracking", "archived_at",
+  "deleted_at", "last_signal_at", "next_check_at", "notification_channels"
 ];
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
