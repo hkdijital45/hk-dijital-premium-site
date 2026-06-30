@@ -450,6 +450,19 @@ function scanSourcesForFindings(migrations: string) {
     ["İşlem sonrası Ne oldu alanı var mı?", "Ne oldu?", "Önemli işlemlerden sonra kullanıcıya işlemin sonucu açıklanmalı."],
     ["İşlem sonrası şimdi ne yapmalısın alanı var mı?", "Şimdi ne yapmalısın?", "İşlem sonrası takip edilecek öneriler gösterilmeli."],
     ["Nereden kontrol edeceksin butonları var mı?", "checkLinks", "İşlem sonucu panelinde ilgili sayfalara güvenli yönlendirme butonları bulunmalı."]
+    ,
+    ["Rakip listesi ham JSON göstermiyor mu?", "Rakip İstihbarat Merkezi", "Rakip Analizi ekranı ham JSON textarea yerine kart, tablo ve teknik detay accordion düzeni kullanmalı."],
+    ["AI ile rakip bul öneri kartları üretiyor mu?", "Rakip olarak kaydet", "AI ile Rakip Bul akışı önerileri kart halinde göstermeli ve seçilenleri rakip listesine kaydetmelidir."],
+    ["Rakip kaydetme çalışıyor mu?", "/api/admin/competitors", "Rakip kaydı GET/POST/PATCH route’larıyla competitor_watchlist tablosuna yazılmalıdır."],
+    ["Rakip bildirim ayarları çalışıyor mu?", "notify-settings", "Yeni reklam, paylaşım, yorum, web sitesi ve fiyat/kampanya bildirim tercihleri route üzerinden güncellenmelidir."],
+    ["Rakip kontrol sonucu ActionResultPanel gösteriyor mu?", "Rakip kontrolü tamamlandı", "Rakip kontrolünden sonra ne oldu, hangi sinyal oluştu ve sonraki adım ActionResultPanel ile anlatılmalıdır."],
+    ["Müşteri profilinde Rakipler sekmesi gerçek veriye bağlı mı?", "competitorWatchlist", "Müşteri profilindeki Rakipler bölümü competitorWatchlist verisinden son kontrol, bildirim ve görünürlük durumunu göstermelidir."],
+    ["Müşteriye gösterilsin toggle’ı kritik modüllerde var mı?", "Müşteriye gösterilsin", "Rakip, görev, rapor, belge ve müşteriyle ilişkili kayıtlarda müşteri görünürlüğü açıkça yönetilmelidir."],
+    ["Müşteri paneli sadece görünür kayıtları gösteriyor mu?", "competitorSummaries", "Müşteri paneli yalnız show_to_customer veya show_customer_summary açık rakip özetlerini göstermelidir."],
+    ["Rakip analizinde Müşteriye Gönderilecek Özet alanı var mı?", "Müşteriye Gönderilecek Özet", "Admin teknik analizi ile müşteriye gönderilecek sade özet ayrı bölümlerde tutulmalıdır."],
+    ["Admin analizi ve müşteri özeti ayrıldı mı?", "Admin İç Analiz", "Teknik gözlemler, iç operasyon notları ve müşteri metni farklı alanlarda görünmelidir."],
+    ["Ham JSON müşteriye gösterilmiyor mu?", "Teknik Detayı Göster", "Teknik payload varsayılan kapalı teknik detay alanında kalmalı; müşteri paneline taşınmamalıdır."],
+    ["WhatsApp özeti kopyalama çalışıyor mu?", "WhatsApp Özeti Kopyala", "Müşteriye gönderilecek rakip özeti kısa ve sade WhatsApp metni olarak kopyalanabilmelidir."]
   ].forEach(([title, pattern, recommendation]) => {
     const inSource = sourceContains(pattern) || migrations.includes(String(pattern).toLocaleLowerCase("tr"));
     if (!inSource) findings.push(makeFinding({ category: "Ajans Operasyonu QA", severity: "orta", module: "Ajans Operasyon Kalıcılığı", file_path: "src/components/admin/AdminDashboard.tsx", title, description: `${pattern} sinyali statik analizde bulunamadı.`, recommendation }));

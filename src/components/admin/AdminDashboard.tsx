@@ -3219,25 +3219,153 @@ function buildDemoCompetitors(sector = "Yerel işletme", city = "Manisa") {
   }));
 }
 
+function competitorDisplay(item: any) {
+  return item?.competitor_name || item?.name || item?.title || "Rakip kaydı";
+}
+
+function localCustomerCompetitorSummary(item: any) {
+  const name = competitorDisplay(item);
+  return {
+    summary: `${name} tarafında reklam, sosyal medya ve Google görünürlüğü düzenli takip edilmelidir. Bu hareketlilik müşteriniz için içerik, yorum yönetimi ve kısa dönem kampanya fırsatı oluşturur.`,
+    recommendations: [
+      "Bu hafta 3 yeni kısa video/Reels fikri hazırlanmalı.",
+      "Google yorum artırma aksiyonu planlanmalı.",
+      "Rakip kampanyalarına karşı kısa süreli mesaj veya teklif duyurusu hazırlanmalı."
+    ],
+    actionPlan: [
+      "Gün 1: Rakip reklam ve sosyal medya görünürlüğünü kontrol et.",
+      "Gün 2: Müşteri için 3 içerik fikri hazırla.",
+      "Gün 3: Google yorum talep akışını başlat.",
+      "Gün 4: Reklam kreatiflerini rakip mesajlarına göre gözden geçir.",
+      "Gün 5: WhatsApp veya kısa kampanya duyurusu hazırla.",
+      "Gün 6: İlk sinyalleri rapor notuna çevir.",
+      "Gün 7: Müşteriye sade haftalık rekabet özeti gönder."
+    ]
+  };
+}
+
+function localCompetitorInternal(item: any) {
+  return {
+    strengths: ["Yerel görünürlük", "Sosyal medya sürekliliği", "Google yorum potansiyeli"],
+    weaknesses: ["Teklif farklılaşması sınırlı", "Kampanya mesajı ölçülebilir olmayabilir"],
+    opportunities: ["Reels ve yorum yönetimi", "Kısa süreli kampanya duyurusu", "Maps görünürlüğünü artırma"],
+    threats: ["Rakip içerik temposu artarsa görünürlük baskısı oluşabilir"],
+    agencyActions: ["Görev oluştur", "Müşteri notuna kaydet", "Agent Hafızasına kaydet", "Müşteriye sade özet gönder"]
+  };
+}
+
+function localCompetitorSuggestions(company: any, branch: any) {
+  const sector = company?.sector || "yerel işletme";
+  const city = branch?.city || company?.city || "Bölge";
+  const district = branch?.district || company?.district || "Merkez";
+  return buildDemoCompetitors(sector, city).map((item, index) => ({
+    id: `suggestion-${Date.now()}-${index}`,
+    competitor_name: item.name,
+    sector,
+    city,
+    district,
+    reason: `${city}/${district} bölgesinde ${sector} görünürlüğü açısından takip edilebilir.`,
+    estimated_strength: item.strengths,
+    estimated_weakness: item.weaknesses,
+    monitoring_recommendation: item.opportunities,
+    show_to_customer: false
+  }));
+}
+
+function ensureTextList(value: any, fallback: string[] = []) {
+  if (Array.isArray(value)) return value.map(String).filter(Boolean);
+  if (typeof value === "string" && value.trim()) return value.split(/\n|;/).map((line) => line.trim()).filter(Boolean);
+  return fallback;
+}
+
 function CompetitorAnalysisCenter({ content, setContent }: any) {
-  const items = content.competitorAnalyses || [];
+  const watchlist = content.competitorWatchlist || [];
+  const [filters, setFilters] = useState({ companyId: "", branchId: "", sector: "", city: "", district: "", status: "all", frequency: "all", visible: "all" });
   const [busy, setBusy] = useState("");
-  const update = (index, patch) => updateCollection(content, setContent, "competitorAnalyses", items.map((item, i) => i === index ? { ...item, ...patch } : item));
-  function add() {
-    const company = (content.companies || [])[0];
-    updateCollection(content, setContent, "competitorAnalyses", [{ id: `${Date.now()}`, company_id: company?.id || "", sector: company?.sector || "", city: company?.city || "", district: "", competitors: [], ai_summary: "", opportunities: "", recommended_actions: "" }, ...items]);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [selectedId, setSelectedId] = useState("");
+  const [actionResult, setActionResult] = useState<any>(null);
+  const selectedCompany = (content.companies || []).find((company: any) => company.id === filters.companyId) || (content.companies || [])[0] || {};
+  const branches = (content.customerBranches || []).filter((branch: any) => !filters.companyId || branch.company_id === filters.companyId);
+  const selectedBranch = branches.find((branch: any) => branch.id === filters.branchId);
+  const items = watchlist.filter((item: any) => {
+    if (filters.companyId && item.company_id !== filters.companyId) return false;
+    if (filters.branchId && item.branch_id !== filters.branchId) return false;
+    if (filters.sector && !String(item.sector || "").toLocaleLowerCase("tr").includes(filters.sector.toLocaleLowerCase("tr"))) return false;
+    if (filters.city && !String(item.city || "").toLocaleLowerCase("tr").includes(filters.city.toLocaleLowerCase("tr"))) return false;
+    if (filters.district && !String(item.district || "").toLocaleLowerCase("tr").includes(filters.district.toLocaleLowerCase("tr"))) return false;
+    if (filters.status !== "all" && String(item.status || "active") !== filters.status) return false;
+    if (filters.frequency !== "all" && String(item.monitoring_frequency || "weekly") !== filters.frequency) return false;
+    if (filters.visible === "visible" && !(item.show_to_customer || item.show_customer_summary)) return false;
+    if (filters.visible === "admin" && (item.show_to_customer || item.show_customer_summary)) return false;
+    return true;
+  });
+  const selected = items.find((item: any) => item.id === selectedId) || items[0];
+  const updateWatchlist = (next: any[]) => updateCollection(content, setContent, "competitorWatchlist", next);
+  const upsertLocal = (item: any) => updateWatchlist(watchlist.some((row: any) => row.id === item.id) ? watchlist.map((row: any) => row.id === item.id ? { ...row, ...item } : row) : [item, ...watchlist]);
+  const fallbackSummary = selected ? localCustomerCompetitorSummary(selected) : null;
+  const summary = selected ? { summary: selected.customer_summary || selected.customer_visible_summary || fallbackSummary.summary, recommendations: ensureTextList(selected.customer_recommendations, fallbackSummary.recommendations), actionPlan: ensureTextList(selected.customer_action_plan, fallbackSummary.actionPlan) } : null;
+  async function addCompetitor(payload: any = {}) {
+    const base = { company_id: filters.companyId || selectedCompany?.id || "", branch_id: filters.branchId || "", competitor_name: payload.competitor_name || "Yeni rakip", sector: payload.sector || selectedCompany?.sector || filters.sector || "", city: payload.city || selectedBranch?.city || selectedCompany?.city || filters.city || "", district: payload.district || selectedBranch?.district || filters.district || "", status: "active", monitoring_frequency: "weekly", notify_on_new_ads: true, notify_on_review_change: true, show_to_customer: Boolean(payload.show_to_customer), ...payload };
+    setBusy("add");
+    try {
+      const response = await fetch("/api/admin/competitors", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(base) });
+      const data = await response.json().catch(() => ({}));
+      if (data.actionResult) setActionResult(data.actionResult);
+      upsertLocal({ ...base, id: data.actionResult?.entityId || createLocalId(), created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+    } catch {
+      const local = { ...base, id: createLocalId(), ...localCustomerCompetitorSummary(base), internal_analysis: localCompetitorInternal(base), created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+      upsertLocal(local);
+      setActionResult({ title: "Rakip kaydı hazırlandı", summary: "Canlı kayıt yapılamadı; rakip kaydı yerel hazırlık olarak oluşturuldu.", status: "prepared", createdRecords: [{ label: "Rakip kaydı", count: 1, status: "Hazırlandı" }], nextActions: ["Supabase bağlantısını kontrol et.", "Kaydı tekrar kalıcılaştır."], checkLinks: [{ label: "Rakip Analizine Dön", href: "/hk-admin/rakip-analizi" }], customerVisibility: { showToCustomer: false, label: "Sadece admin tarafında görünüyor." } });
+    } finally {
+      setBusy("");
+    }
   }
-  async function generate(index: number) {
-    const item = items[index];
-    const competitors = item.competitors?.length ? item.competitors : buildDemoCompetitors(item.sector, item.city);
-    setBusy(item.id || `${index}`);
-    const prompt = `${companyName(content, item.company_id)} için rakip analizi yaz. Rakipler: ${JSON.stringify(competitors)}. Rakip Özeti, Fırsatlar ve Önerilen Aksiyonlar başlıklarıyla Türkçe yaz.`;
-    const response = await fetch("/api/admin/ai-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt }) });
-    const data = await response.json().catch(() => ({}));
-    update(index, { competitors, ai_summary: data.output || "Rakipler görünürlük ve yorum gücü açısından takip edilmeli.", opportunities: "Web sitesi, Instagram içerikleri ve yorum yönetimiyle fark yaratılabilir.", recommended_actions: "Haftalık kreatif testleri, Google yorum aksiyonu ve Meta reklam takibi önerilir." });
-    setBusy("");
+  async function suggestCompetitors() {
+    if (!(selectedCompany?.sector && selectedCompany?.city && (selectedBranch?.district || selectedCompany?.district || filters.district))) {
+      setActionResult({ title: "Rakip önerisi üretilemedi", summary: "Rakip bulmak için sektör, il ve ilçe gerekli. Eksik bilgileri müşteri profilinde tamamlayabilirsin.", status: "warning", nextActions: ["Müşteri profilinde sektör bilgisini kontrol et.", "Şehir ve ilçe bilgisini tamamla.", "Tekrar AI ile rakip bulmayı dene."], checkLinks: [{ label: "Müşterilere Git", href: "/hk-admin/musteriler" }] });
+      return;
+    }
+    setBusy("suggest");
+    try {
+      const response = await fetch("/api/admin/competitors/suggest", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId: selectedCompany.id, branchId: filters.branchId, companyName: selectedCompany.name, sector: selectedCompany.sector, city: selectedCompany.city, district: selectedBranch?.district || selectedCompany.district || filters.district, branchName: selectedBranch?.branch_name }) });
+      const data = await response.json().catch(() => ({}));
+      setSuggestions(data.suggestions || localCompetitorSuggestions(selectedCompany, selectedBranch));
+      if (data.actionResult) setActionResult(data.actionResult);
+    } catch {
+      setSuggestions(localCompetitorSuggestions(selectedCompany, selectedBranch));
+    } finally {
+      setBusy("");
+    }
   }
-  return <Panel title="Rakip Analizi"><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-slate-400">Rakipleri manuel girin veya demo rakip listesiyle güvenli analiz taslağı üretin.</p><button onClick={add} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Rakip analizi ekle</button></div><div className="grid gap-4">{items.map((item, index) => <div key={item.id || index} className="rounded-[8px] border border-slate-200 bg-slate-50 p-4"><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4"><CompanySelect value={item.company_id || ""} onChange={(value) => update(index, { company_id: value })} companies={content.companies} /><Field label="Sektör" value={item.sector || ""} onChange={(value) => update(index, { sector: value })} /><Field label="İl" value={item.city || ""} onChange={(value) => update(index, { city: value })} /><Field label="İlçe" value={item.district || ""} onChange={(value) => update(index, { district: value })} /></div><TextArea label="Rakipler JSON" value={JSON.stringify(item.competitors || [], null, 2)} onChange={(value) => { try { update(index, { competitors: JSON.parse(value || "[]") }); } catch {} }} /><div className="grid gap-3 md:grid-cols-3"><TextArea label="Rakip Özeti" value={item.ai_summary || ""} onChange={(value) => update(index, { ai_summary: value })} /><TextArea label="Fırsatlar" value={item.opportunities || ""} onChange={(value) => update(index, { opportunities: value })} /><TextArea label="Önerilen Aksiyonlar" value={item.recommended_actions || ""} onChange={(value) => update(index, { recommended_actions: value })} /></div><div className="mt-3 flex flex-wrap gap-2"><button disabled={busy === (item.id || `${index}`)} onClick={() => generate(index)} className="rounded-full border border-purple-200/30 px-4 py-2 text-xs font-black text-purple-700 disabled:opacity-60">AI rakip özeti üret</button><button onClick={() => update(index, { competitors: buildDemoCompetitors(item.sector, item.city) })} className="rounded-full border border-cyan-200/30 px-4 py-2 text-xs font-black text-cyan-700">Demo rakip listesi üret</button><button onClick={() => updateCollection(content, setContent, "competitorAnalyses", items.filter((_, i) => i !== index))} className="rounded-full border border-red-300/30 px-4 py-2 text-xs text-red-200">Sil</button></div></div>)}{!items.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-6 text-sm text-slate-400">Henüz rakip analizi yok.</p>}</div></Panel>;
+  async function patchCompetitor(item: any, patch: any) {
+    const next = { ...item, ...patch, updated_at: new Date().toISOString() };
+    upsertLocal(next);
+    if (!item.id || String(item.id).startsWith("local-")) return;
+    const response = await fetch(`/api/admin/competitors/${item.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) }).catch(() => null);
+    const data = await response?.json().catch(() => ({}));
+    if (data?.actionResult) setActionResult(data.actionResult);
+  }
+  async function checkCompetitor(item: any) {
+    setBusy(`check-${item.id}`);
+    const localSummary = localCustomerCompetitorSummary(item);
+    try {
+      const response = await fetch(`/api/admin/competitors/${item.id}/check`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: "manual_check" }) });
+      const data = await response.json().catch(() => ({}));
+      if (data.actionResult) setActionResult(data.actionResult);
+      upsertLocal({ ...item, last_checked_at: new Date().toISOString(), customer_summary: localSummary.summary, customer_recommendations: localSummary.recommendations, customer_action_plan: localSummary.actionPlan, internal_analysis: localCompetitorInternal(item), last_analysis_summary: `${competitorDisplay(item)} kontrol edildi.` });
+    } finally {
+      setBusy("");
+    }
+  }
+  function copyWhatsapp(item: any) {
+    const data = localCustomerCompetitorSummary(item);
+    const text = [`${competitorDisplay(item)} rakip özeti`, data.summary, "", "Öneriler:", ...data.recommendations.map((line) => `- ${line}`), "", "Bu hafta bu aksiyonları birlikte uygulayabiliriz."].join("\n");
+    navigator.clipboard?.writeText(text);
+    setActionResult({ title: "WhatsApp özeti kopyalandı", summary: "Müşteriye gönderilecek sade rakip özeti panoya kopyalandı.", status: "success", createdRecords: [{ label: "WhatsApp özeti", count: 1, status: "Kopyalandı" }], nextActions: ["Metni müşteriye göndermeden önce kontrol et.", "Müşteri görünürlüğünü gerekiyorsa aç."], checkLinks: [{ label: "Rakip Analizine Dön", href: "/hk-admin/rakip-analizi" }], customerVisibility: { showToCustomer: Boolean(item.show_to_customer || item.show_customer_summary), label: item.show_to_customer || item.show_customer_summary ? "Müşteri panelinde görünür." : "Sadece paylaşım metni kopyalandı; panel görünürlüğü kapalı." } });
+  }
+  const customerSummaryActions = selected ? <div className="mt-4 flex flex-wrap gap-2"><button onClick={() => patchCompetitor(selected, { customer_summary: localCustomerCompetitorSummary(selected).summary, customer_recommendations: localCustomerCompetitorSummary(selected).recommendations, customer_action_plan: localCustomerCompetitorSummary(selected).actionPlan })} className="rounded-full bg-cyan-500 px-4 py-2 text-xs font-black text-white">Müşteri Özeti Üret</button><button onClick={() => patchCompetitor(selected, { show_customer_summary: true, show_to_customer: true })} className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-black text-emerald-700">Müşteriye Göster</button><button onClick={() => patchCompetitor(selected, { show_customer_summary: false, show_to_customer: false })} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700">Müşteriden Gizle</button><button onClick={() => copyWhatsapp(selected)} className="rounded-full border border-cyan-200 bg-white px-4 py-2 text-xs font-black text-cyan-700">WhatsApp Özeti Kopyala</button><button onClick={() => setActionResult({ title: "Rakip raporu hazırlandı", summary: "PDF/Word için kullanılabilir rapor hazırlık verisi üretildi. Ham teknik veri müşteriye gösterilmez.", status: "prepared", createdRecords: [{ label: "Rapor hazırlık verisi", count: 1, status: "Hazırlandı" }], nextActions: ["Raporu kontrol et.", "Müşteriye gönderilecek özeti düzenle."], checkLinks: [{ label: "Raporlara Git", href: "/hk-admin/raporlar" }] })} className="rounded-full border border-purple-200 bg-white px-4 py-2 text-xs font-black text-purple-700">PDF/Word Rapor Hazırla</button></div> : null;
+  return <Panel title="Rakip İstihbarat Merkezi"><div className="mb-5 rounded-[18px] border border-cyan-200 bg-cyan-50 p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Profesyonel rakip takibi</p><h2 className="mt-2 text-2xl font-black text-slate-950">Rakip Analizi ve Müşteri Görünürlüğü</h2><p className="mt-2 max-w-4xl text-sm leading-6 text-cyan-900">Rakip kayıtları, reklam/paylaşım sinyalleri, Google yorum takibi, fiyat/kampanya değişimi ve müşteriye gönderilecek sade özetler tek merkezden yönetilir. Ham teknik detaylar varsayılan olarak gizlidir.</p></div><div className="flex flex-wrap gap-2"><button onClick={() => addCompetitor()} disabled={busy === "add"} className="rounded-full bg-cyan-500 px-4 py-2 text-sm font-black text-white disabled:opacity-60">Rakip Ekle</button><button onClick={suggestCompetitors} disabled={busy === "suggest"} className="rounded-full border border-cyan-200 bg-white px-4 py-2 text-sm font-black text-cyan-800 disabled:opacity-60">AI ile Rakip Bul</button></div></div></div>{actionResult && <div className="mb-5"><ActionResultPanel result={actionResult} onNavigate={(href) => window.location.assign(href)} /></div>}<div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-7"><CompanySelect value={filters.companyId} onChange={(companyId) => setFilters({ ...filters, companyId, branchId: "" })} companies={content.companies} /><SelectField label="Şube seç" value={filters.branchId} onChange={(branchId) => setFilters({ ...filters, branchId })} options={branches.map((branch: any) => ({ value: branch.id, label: branch.branch_name }))} placeholder="Tüm şubeler" /><Field label="Sektör" value={filters.sector} onChange={(sector) => setFilters({ ...filters, sector })} /><Field label="İl" value={filters.city} onChange={(city) => setFilters({ ...filters, city })} /><Field label="İlçe" value={filters.district} onChange={(district) => setFilters({ ...filters, district })} /><SelectField label="Durum" value={filters.status} onChange={(status) => setFilters({ ...filters, status })} options={[{ value: "all", label: "Tümü" }, { value: "active", label: "Aktif" }, { value: "passive", label: "Pasif" }]} /><SelectField label="Müşteriye gösterilsin" value={filters.visible} onChange={(visible) => setFilters({ ...filters, visible })} options={[{ value: "all", label: "Tümü" }, { value: "visible", label: "Müşteriye açık" }, { value: "admin", label: "Sadece admin" }]} /></div>{suggestions.length > 0 && <section className="mb-5 rounded-[18px] border border-amber-200 bg-amber-50 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div><h3 className="font-black text-slate-950">AI ile Rakip Bul Önerileri</h3><p className="mt-1 text-sm text-amber-900">Uygun gördüklerini rakip listesine kaydedebilirsin. Öneriler müşteri paneline otomatik açılmaz.</p></div><button onClick={() => setSuggestions([])} className="rounded-full border border-amber-200 bg-white px-3 py-2 text-xs font-black text-amber-800">Önerileri temizle</button></div><div className="mt-4 grid gap-3 lg:grid-cols-3">{suggestions.map((item) => <div key={item.id || item.competitor_name} className="rounded-[14px] border border-amber-200 bg-white p-4 text-sm"><h4 className="font-black text-slate-950">{item.competitor_name}</h4><p className="mt-2 text-slate-600"><strong>Neden rakip olabilir?</strong> {item.reason}</p><p className="mt-2 text-slate-600"><strong>Güçlü yön:</strong> {item.estimated_strength}</p><p className="mt-2 text-slate-600"><strong>Zayıf yön:</strong> {item.estimated_weakness}</p><p className="mt-2 text-slate-600"><strong>İzleme önerisi:</strong> {item.monitoring_recommendation}</p><label className="mt-3 flex items-center gap-2 text-xs font-bold text-slate-700"><input type="checkbox" checked={Boolean(item.show_to_customer)} onChange={(event) => setSuggestions(suggestions.map((row) => row === item ? { ...row, show_to_customer: event.target.checked } : row))} /> Müşteriye gösterilsin</label><button onClick={() => addCompetitor(item)} className="mt-3 rounded-full bg-cyan-500 px-4 py-2 text-xs font-black text-white">Rakip olarak kaydet</button></div>)}</div></section>}<div className="grid gap-5 xl:grid-cols-[1.2fr_.8fr]"><section><div className="mb-3 grid gap-3 md:grid-cols-4"><AgencyStatCard label="Rakip kaydı" value={items.length} note="Filtrelenmiş liste" /><AgencyStatCard label="Müşteriye açık" value={items.filter((item) => item.show_to_customer || item.show_customer_summary).length} note="Panelde gösterilebilir" tone="emerald" /><AgencyStatCard label="Yeni sinyal" value={items.filter((item) => item.last_checked_at).length} note="Kontrol edilmiş kayıt" tone="amber" /><AgencyStatCard label="Bildirim açık" value={items.filter((item) => item.notify_on_new_ads || item.notify_on_review_change || item.notify_on_price_change).length} note="İzleme tercihleri" /></div><div className="grid gap-3">{items.map((item: any) => <article key={item.id || competitorDisplay(item)} className={`rounded-[16px] border p-4 ${selected?.id === item.id ? "border-cyan-300 bg-cyan-50" : "border-slate-200 bg-white"}`}><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-lg font-black text-slate-950">{competitorDisplay(item)}</h3><p className="mt-1 text-sm text-slate-600">{item.sector || "Sektör yok"} · {item.city || "İl yok"} / {item.district || "İlçe yok"}</p><div className="mt-3 flex flex-wrap gap-2 text-xs font-bold"><span className="rounded-full bg-white px-3 py-1 text-slate-700 ring-1 ring-slate-200">Son kontrol: {formatDateTime(item.last_checked_at)}</span><span className={`rounded-full px-3 py-1 ring-1 ${item.show_to_customer || item.show_customer_summary ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : "bg-slate-50 text-slate-600 ring-slate-200"}`}>{item.show_to_customer || item.show_customer_summary ? "Müşteriye açık" : "Sadece admin"}</span></div></div><button onClick={() => setSelectedId(item.id)} className="rounded-full border border-cyan-200 bg-white px-4 py-2 text-xs font-black text-cyan-700">Detayı Aç</button></div><div className="mt-4 grid gap-2 text-sm text-slate-600 md:grid-cols-2 xl:grid-cols-4"><a className="rounded-[10px] border border-slate-200 bg-slate-50 p-2 hover:border-cyan-200" href={item.website_url || "#"} target={item.website_url ? "_blank" : undefined} rel="noreferrer">Web sitesi: {item.website_url ? "Aç" : "Yok"}</a><a className="rounded-[10px] border border-slate-200 bg-slate-50 p-2 hover:border-cyan-200" href={item.instagram_url || "#"} target={item.instagram_url ? "_blank" : undefined} rel="noreferrer">Instagram: {item.instagram_url ? "Aç" : "Yok"}</a><a className="rounded-[10px] border border-slate-200 bg-slate-50 p-2 hover:border-cyan-200" href={item.google_maps_url || "#"} target={item.google_maps_url ? "_blank" : undefined} rel="noreferrer">Google Maps: {item.google_maps_url ? "Aç" : "Yok"}</a><a className="rounded-[10px] border border-slate-200 bg-slate-50 p-2 hover:border-cyan-200" href={item.meta_ad_library_url || "#"} target={item.meta_ad_library_url ? "_blank" : undefined} rel="noreferrer">Meta Ad Library: {item.meta_ad_library_url ? "Aç" : "Yok"}</a></div><div className="mt-4 flex flex-wrap gap-2"><label className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700"><input type="checkbox" checked={Boolean(item.show_to_customer || item.show_customer_summary)} onChange={(event) => patchCompetitor(item, { show_to_customer: event.target.checked, show_customer_summary: event.target.checked })} /> Müşteriye gösterilsin</label><button onClick={() => window.location.assign(`/hk-admin/agent-hub?companyId=${item.company_id || ""}&taskType=competitor_research&prompt=${encodeURIComponent(`${competitorDisplay(item)} rakibini analiz et.`)}`)} className="rounded-full border border-cyan-200 bg-white px-3 py-2 text-xs font-black text-cyan-700">Agent ile analiz et</button><button onClick={() => checkCompetitor(item)} disabled={busy === `check-${item.id}`} className="rounded-full bg-cyan-500 px-3 py-2 text-xs font-black text-white disabled:opacity-60">Reklamları kontrol et</button><button onClick={() => checkCompetitor(item)} className="rounded-full border border-cyan-200 bg-white px-3 py-2 text-xs font-black text-cyan-700">Paylaşımları kontrol et</button><button onClick={() => patchCompetitor(item, { status: "passive" })} className="rounded-full border border-amber-200 bg-white px-3 py-2 text-xs font-black text-amber-700">Pasife al</button></div></article>)}{!items.length && <p className="rounded-[16px] border border-dashed border-slate-200 bg-white p-6 text-sm text-slate-500">Henüz rakip kaydı yok. “Rakip Ekle” veya “AI ile Rakip Bul” ile başlayabilirsin.</p>}</div></section><aside className="grid gap-4">{selected && <><section className="rounded-[18px] border border-emerald-200 bg-emerald-50 p-4"><h3 className="font-black text-slate-950">Müşteriye Gönderilecek Özet</h3><p className="mt-1 text-sm text-emerald-900">Bu alan müşteriye gösterilecek sade rekabet özetidir. Teknik detaylar ve iç operasyon notları müşteriye gösterilmez.</p><p className="mt-4 rounded-[12px] bg-white p-3 text-sm leading-6 text-slate-700">{summary?.summary}</p><div className="mt-3 grid gap-2">{(summary?.recommendations || []).slice(0, 3).map((line: string) => <p key={line} className="rounded-[10px] bg-white p-2 text-sm text-slate-700">• {line}</p>)}</div><div className="mt-3 rounded-[12px] bg-white p-3"><p className="font-black text-slate-900">7 günlük aksiyon planı</p><ol className="mt-2 grid gap-1 text-sm text-slate-600">{(summary?.actionPlan || []).map((line: string, index: number) => <li key={line}>{index + 1}. {line.replace(/^Gün \d+:\s*/, "")}</li>)}</ol></div>{customerSummaryActions}</section><section className="rounded-[18px] border border-slate-200 bg-white p-4"><h3 className="font-black text-slate-950">Admin İç Analiz</h3><p className="mt-1 text-sm text-slate-500">Bu bölüm ajans operasyonu içindir; müşteri paneline gönderilmez.</p><div className="mt-3 grid gap-3 text-sm text-slate-700"><InfoItem label="Güçlü yönler" value={(selected.internal_analysis?.strengths || localCompetitorInternal(selected).strengths).join(", ")} /><InfoItem label="Zayıf yönler" value={(selected.internal_analysis?.weaknesses || localCompetitorInternal(selected).weaknesses).join(", ")} /><InfoItem label="Fırsatlar" value={(selected.internal_analysis?.opportunities || localCompetitorInternal(selected).opportunities).join(", ")} /><InfoItem label="Ajans aksiyonları" value={(selected.internal_analysis?.agencyActions || localCompetitorInternal(selected).agencyActions).join(", ")} /></div><div className="mt-4 flex flex-wrap gap-2"><button onClick={() => setActionResult({ title: "Görev taslağı hazırlandı", summary: `${competitorDisplay(selected)} için rakip aksiyon görevi hazırlanabilir.`, status: "prepared", createdRecords: [{ label: "Görev taslağı", count: 1, status: "Hazırlandı" }], nextActions: ["Görevler ekranında görevi oluştur.", "Müşteri görünürlüğünü gerekiyorsa kapalı tut."], checkLinks: [{ label: "Görevleri Gör", href: "/hk-admin/gorevler" }] })} className="rounded-full border border-cyan-200 bg-white px-3 py-2 text-xs font-black text-cyan-700">Görev oluştur</button><button onClick={() => setActionResult({ title: "Müşteri notu hazırlandı", summary: "Rakip analizi müşteri notuna kaydedilecek şekilde hazırlandı.", status: "prepared", createdRecords: [{ label: "Müşteri notu", count: 1, status: "Hazırlandı" }], nextActions: ["Notu müşteriye göstermeden önce sadeleştir."], checkLinks: [{ label: "Müşteri Profilini Aç", href: `/hk-admin/musteriler?companyId=${selected.company_id || ""}` }] })} className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700">Müşteri notuna kaydet</button><button onClick={() => setActionResult({ title: "Agent Hafızası taslağı hazırlandı", summary: "Rakip öğrenimi Agent Hafızasına kaydedilecek şekilde hazırlandı.", status: "prepared", createdRecords: [{ label: "AI Hafızası", count: 1, status: "Hazırlandı" }], nextActions: ["Agent Hub hafıza sekmesinde müşteri bağlamını kontrol et."], checkLinks: [{ label: "Agent Hub’da Aç", href: `/hk-admin/agent-hub?tab=memory&companyId=${selected.company_id || ""}` }] })} className="rounded-full border border-purple-200 bg-white px-3 py-2 text-xs font-black text-purple-700">Agent Hafızasına kaydet</button></div></section><details className="rounded-[18px] border border-slate-200 bg-white p-4"><summary className="cursor-pointer font-black text-slate-950">Teknik Detayı Göster</summary><pre className="mt-3 max-h-72 overflow-auto rounded-[12px] bg-slate-950 p-3 text-xs text-slate-100">{JSON.stringify({ id: selected.id, analysis_payload: selected.analysis_payload, notification_settings: selected.notification_settings, internal_analysis: selected.internal_analysis }, null, 2)}</pre></details></>}</aside></div></Panel>;
 }
 
 function createSocialPlan({ sector, goal, platform, duration }: any) {

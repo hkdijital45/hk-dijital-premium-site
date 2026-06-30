@@ -145,6 +145,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
           {data.campaigns.length > 0 ? <a href="#kampanyalar" className="rounded-full border border-slate-200 px-4 py-2 text-slate-700 hover:border-cyan-200 hover:bg-cyan-50">Kampanyalar</a> : null}
           {visibility.show_work_updates && <a href="#notlar" className="rounded-full border border-slate-200 px-4 py-2 text-slate-700 hover:border-cyan-200 hover:bg-cyan-50">Notlar</a>}
           {(visibility.show_files || data.documents.length > 0) && <a href="#belgeler" className="rounded-full border border-slate-200 px-4 py-2 text-slate-700 hover:border-cyan-200 hover:bg-cyan-50">Belgeler</a>}
+          {data.competitorSummaries.length > 0 && <a href="#rakip-ozeti" className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-emerald-800 hover:bg-emerald-100">Rakip Özeti</a>}
           {data.payments.length > 0 && <a href="#odemeler" className="rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-amber-800 hover:bg-amber-100">Ödemeler</a>}
         </nav>
 
@@ -285,6 +286,48 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
                   <p className="mt-3 text-xs text-slate-500">{new Date(update.created_at).toLocaleDateString("tr-TR")}</p>
                 </div>
               ))}
+            </div>
+          </section>
+        )}
+
+        {data.competitorSummaries.length > 0 && (
+          <section id="rakip-ozeti" className="glass-card mt-8 scroll-mt-28 p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[.18em] text-emerald-700">Rakip Görünürlük Özeti</p>
+                <h2 className="mt-2 text-xl font-black">Bu hafta rakiplerde ne değişti?</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600">HK Dijital ekibinin müşteriye açık olarak işaretlediği sade rekabet özetleri burada görünür. Teknik analiz ve iç operasyon notları gösterilmez.</p>
+              </div>
+              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-800">{data.competitorSummaries.length} görünür özet</span>
+            </div>
+            <div className="mt-5 grid gap-4 lg:grid-cols-2">
+              {data.competitorSummaries.map((item: any) => {
+                const recommendations = Array.isArray(item.customer_recommendations) ? item.customer_recommendations.slice(0, 3) : [];
+                const actionPlan = Array.isArray(item.customer_action_plan) ? item.customer_action_plan.slice(0, 7) : [];
+                return (
+                  <article key={item.id} className="rounded-[16px] border border-emerald-200 bg-emerald-50 p-4">
+                    <h3 className="font-black text-slate-950">{item.competitor_name || "Rakip görünürlük özeti"}</h3>
+                    <p className="mt-3 text-sm leading-7 text-slate-700">{item.customer_summary || item.customer_visible_summary || "Rakip hareketleri bu hafta takip edildi. Uygulanabilir aksiyonlar aşağıda özetlendi."}</p>
+                    {recommendations.length > 0 && (
+                      <div className="mt-4 rounded-[12px] bg-white p-3">
+                        <p className="font-black text-slate-900">3 kısa öneri</p>
+                        <div className="mt-2 grid gap-2 text-sm text-slate-700">
+                          {recommendations.map((line: string) => <p key={line}>• {line}</p>)}
+                        </div>
+                      </div>
+                    )}
+                    {actionPlan.length > 0 && (
+                      <div className="mt-4 rounded-[12px] bg-white p-3">
+                        <p className="font-black text-slate-900">Bu hafta yapılacaklar</p>
+                        <ol className="mt-2 grid gap-1 text-sm text-slate-700">
+                          {actionPlan.map((line: string, index: number) => <li key={line}>{index + 1}. {String(line).replace(/^Gün \d+:\s*/, "")}</li>)}
+                        </ol>
+                      </div>
+                    )}
+                    <p className="mt-3 text-xs font-bold text-emerald-800">Son kontrol: {item.last_checked_at ? new Date(item.last_checked_at).toLocaleDateString("tr-TR") : "Henüz kontrol tarihi yok"}</p>
+                  </article>
+                );
+              })}
             </div>
           </section>
         )}

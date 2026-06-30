@@ -348,18 +348,29 @@ export function CustomerProfileModal({
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h3 className="font-black text-slate-950">Rakipler</h3>
-                <p className="mt-1 text-sm text-slate-500">Rakip firma izleme, reklam sinyali ve Google yorum takibi için hazırlık merkezi.</p>
+                <p className="mt-1 text-sm text-slate-500">Rakip firma izleme, reklam/paylaşım sinyali, Google yorum takibi ve müşteriye açık rekabet özeti.</p>
               </div>
               <button onClick={() => onGo?.("Rakip Analizi", "Rakip ekleme ve AI ile rakip bulma alanı açıldı.")} className="rounded-[12px] bg-cyan-500 px-4 py-2.5 text-sm font-black text-white">Rakip Analizine Git</button>
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
-              {(content?.competitorWatchlist || content?.competitorAnalyses || []).filter((item: any) => item.company_id === company?.id).slice(0, 4).map((item: any) => (
+              {(content?.competitorWatchlist || content?.competitorAnalyses || []).filter((item: any) => item.company_id === company?.id).slice(0, 6).map((item: any) => (
                 <div key={item.id || item.competitor_name || item.name} className="rounded-[14px] border border-slate-200 bg-slate-50 p-3 text-sm">
-                  <p className="font-black text-slate-950">{item.competitor_name || item.name || item.sector || "Rakip kaydı"}</p>
-                  <p className="mt-1 text-xs text-slate-500">{item.website_url || item.website || "Web sitesi yok"} · {item.city || company.city || "Şehir yok"}</p>
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="font-black text-slate-950">{item.competitor_name || item.name || item.sector || "Rakip kaydı"}</p>
+                      <p className="mt-1 text-xs text-slate-500">{item.website_url || item.website || "Web sitesi yok"} · {item.city || company.city || "Şehir yok"} / {item.district || "İlçe yok"}</p>
+                    </div>
+                    <span className={`rounded-full px-2 py-1 text-[10px] font-black ring-1 ${item.show_to_customer || item.show_customer_summary ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : "bg-white text-slate-600 ring-slate-200"}`}>{item.show_to_customer || item.show_customer_summary ? "Müşteriye açık" : "Sadece admin"}</span>
+                  </div>
+                  <div className="mt-3 grid gap-1 text-xs text-slate-600">
+                    <span>Son kontrol: {item.last_checked_at ? new Date(item.last_checked_at).toLocaleDateString("tr-TR") : "Henüz yok"}</span>
+                    <span>Bildirimler: {item.notify_on_new_ads || item.notify_on_review_change || item.notify_on_price_change ? "Aktif" : "Kapalı"}</span>
+                    <span>{item.customer_summary || item.customer_visible_summary || item.last_analysis_summary || "Müşteri özeti henüz üretilmedi."}</span>
+                  </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button onClick={() => onGo?.("HK Agent Hub", "Rakip için Agent analizi açıldı.")} className="rounded-[10px] border border-cyan-200 bg-white px-3 py-1.5 text-xs font-black text-cyan-700">Agent ile analiz et</button>
                     <button onClick={() => onGo?.("Rakip Analizi", "Rakip reklam kontrolü açıldı.")} className="rounded-[10px] border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-700">Reklamları kontrol et</button>
+                    <button onClick={() => onGo?.("Rakip Analizi", "AI ile rakip bulma ve müşteri özeti alanı açıldı.")} className="rounded-[10px] border border-emerald-200 bg-white px-3 py-1.5 text-xs font-black text-emerald-700">AI ile rakip bul</button>
                   </div>
                 </div>
               ))}
