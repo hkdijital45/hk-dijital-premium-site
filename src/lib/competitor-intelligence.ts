@@ -179,17 +179,37 @@ export function enrichCompetitorDiscoveryResult(item: any, input: CompetitorSugg
 export async function discoverGoogleMapsCompetitors(input: CompetitorSuggestionInput) {
   const key = process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_API_KEY || "";
   const limit = Math.min(Number(input.limit || 10), 50);
-  const query = [input.sector, input.niche, input.district, input.city].filter(Boolean).join(" ");
+  const niches = String(input.niche || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const searchTerms = Array.from(new Set((niches.length ? niches : [input.sector || "yerel işletme"]).map((term) => [term, input.district, input.city].filter(Boolean).join(" "))));
+  const query = searchTerms[0] || [input.sector, input.district, input.city].filter(Boolean).join(" ");
   if (!key) {
     return { source: "local-fallback", warning: "Google Maps API anahtarı eksik. Rakipler güvenli yerel yedek akışla tahmini üretildi.", results: buildCompetitorSuggestions(input).slice(0, limit) };
   }
-  const params = new URLSearchParams({ query, key, language: "tr", region: "tr" });
-  const response = await fetch(`https://maps.googleapis.com/maps/api/place/textsearch/json?${params}`, { cache: "no-store" });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || !["OK", "ZERO_RESULTS"].includes(data.status)) {
-    return { source: "local-fallback", warning: data.error_message || "Google Maps yanıtı alınamadı. Yerel yedek akış kullanıldı.", results: buildCompetitorSuggestions(input).slice(0, limit) };
+  const allPlaces: any[] = [];
+  let lastError = "";
+  for (const searchQuery of searchTerms.slice(0, 6)) {
+    const params = new URLSearchParams({ query: searchQuery, key, language: "tr", region: "tr" });
+    const response = await fetch(`https://maps.googleapis.com/maps/api/place/textsearch/json?${params}`, { cache: "no-store" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !["OK", "ZERO_RESULTS"].includes(data.status)) {
+      lastError = data.error_message || "Google Maps yanıtı alınamadı.";
+      continue;
+    }
+    allPlaces.push(...(data.results || []).map((place: any) => ({ ...place, discovery_query: searchQuery })));
+    if (allPlaces.length >= limit * 3) break;
   }
-  const raw = (data.results || []).slice(0, limit * 2);
+  if (!allPlaces.length) {
+    return { source: "local-fallback", warning: lastError || "Google Maps gerçek işletme listesi alınamadı. Yerel yedek akış kullanıldı.", results: buildCompetitorSuggestions(input).slice(0, limit) };
+  }
+  const unique = new Map<string, any>();
+  for (const place of allPlaces) {
+    const keyPart = String(place.place_id || place.name || "").toLocaleLowerCase("tr");
+    if (keyPart && !unique.has(keyPart)) unique.set(keyPart, place);
+  }
+  const raw = Array.from(unique.values()).slice(0, limit * 2);
   const results = (await Promise.all(raw.map(async (place: any) => {
     const detailParams = new URLSearchParams({ place_id: place.place_id, fields: "formatted_phone_number,international_phone_number,website,url,geometry,formatted_address,types", key, language: "tr" });
     const detailsResponse = await fetch(`https://maps.googleapis.com/maps/api/place/details/json?${detailParams}`, { cache: "no-store" }).catch(() => null);
@@ -212,7 +232,8 @@ export async function discoverGoogleMapsCompetitors(input: CompetitorSuggestionI
       city: input.city,
       district: input.district,
       discovery_source: "google_maps",
-      maps_raw: { place_id: place.place_id, business_status: place.business_status, types: place.types || [] }
+      discovery_query: place.discovery_query || query,
+      maps_raw: { place_id: place.place_id, business_status: place.business_status, types: place.types || [], query: place.discovery_query || query }
     };
     return enrichCompetitorDiscoveryResult(candidate, input);
   }))).filter((candidate) => !sameBusiness(candidate, input));

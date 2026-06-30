@@ -370,8 +370,11 @@ export function CustomerProfileModal({
                     <span>{item.customer_summary || item.customer_visible_summary || item.last_analysis_summary || "Müşteri özeti henüz üretilmedi."}</span>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
+                    <a href={item.google_place_id ? `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(item.google_place_id)}` : item.google_maps_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([item.competitor_name || item.name, item.address, item.city, item.district].filter(Boolean).join(" "))}`} target="_blank" rel="noreferrer" className="rounded-[10px] border border-cyan-200 bg-white px-3 py-1.5 text-xs font-black text-cyan-700">Google Maps’te aç</a>
+                    <a href={item.meta_ad_library_url || `https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=TR&q=${encodeURIComponent(item.competitor_name || item.name || "")}`} target="_blank" rel="noreferrer" className="rounded-[10px] border border-blue-200 bg-white px-3 py-1.5 text-xs font-black text-blue-700">Meta reklamlarını aç</a>
                     <button onClick={() => onGo?.("HK Agent Hub", "Rakip için Agent analizi açıldı.")} className="rounded-[10px] border border-cyan-200 bg-white px-3 py-1.5 text-xs font-black text-cyan-700">Agent ile analiz et</button>
                     <button onClick={() => onGo?.("Rakip Analizi", "Rakip reklam kontrolü açıldı.")} className="rounded-[10px] border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-700">Reklamları kontrol et</button>
+                    <button onClick={() => onGo?.("Rakip Analizi", "Rakip detay inceleme modalı açıldı.")} className="rounded-[10px] border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-700">Detaylı gör</button>
                     <button onClick={() => onGo?.("Rakip Analizi", "AI ile rakip bulma ve müşteri özeti alanı açıldı.")} className="rounded-[10px] border border-emerald-200 bg-white px-3 py-1.5 text-xs font-black text-emerald-700">AI ile rakip bul</button>
                   </div>
                 </div>

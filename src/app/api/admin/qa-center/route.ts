@@ -470,7 +470,14 @@ function scanSourcesForFindings(migrations: string) {
     ["Kaç rakip seçimi çalışıyor mu?", "Kaç rakip bulunsun", "Kullanıcı 5, 10, 20 veya 50 rakip hedefi seçebilmelidir."],
     ["Otomatik müşteri profilinden veri çekiyor mu?", "Profil bilgilerinden doldur", "Müşteri profilinden sektör, il, ilçe, adres ve şube bilgileri discovery formuna taşınmalıdır."],
     ["Manuel arama çalışıyor mu?", "Manuel Rakip Arama", "Kullanıcı müşteri profilinden bağımsız sektör, il, ilçe, yarıçap, rakip tipi ve minimum skor filtresi girebilmelidir."],
-    ["Rakip kayıtları müşteri profiline bağlanıyor mu?", "Rakip skoru:", "Müşteri profilindeki Rakipler bölümü kayıtlı rakiplerin skorlarını, son Maps/Meta kontrolünü ve görünürlük durumunu göstermelidir."]
+    ["Rakip kayıtları müşteri profiline bağlanıyor mu?", "Rakip skoru:", "Müşteri profilindeki Rakipler bölümü kayıtlı rakiplerin skorlarını, son Maps/Meta kontrolünü ve görünürlük durumunu göstermelidir."],
+    ["Rakip keşfi adımlı akışa sahip mi?", "Rakip Keşif Akışı", "Rakip Analizi ekranı profil doldurma, alt niş, Maps keşfi, skor, kayıt ve müşteri özeti sırasını göstermelidir."],
+    ["Alt niş önerileri üretiliyor mu?", "Alt Niş Öner", "Sektöre göre seçilebilir alt niş önerileri üretip Maps aramasına dahil etmelidir."],
+    ["Seçilenler kaydediliyor mu?", "Seçilenleri Kaydet", "Bulunan rakipler tek tek veya toplu olarak competitor_watchlist kaydına dönüştürülmelidir."],
+    ["Müşteri özeti oluşturuluyor mu?", "Müşteri Özeti Oluştur", "En güçlü rakipler, yorum sinyali, reklam sinyali ve yerel fırsatlardan sade müşteri özeti hazırlanmalıdır."],
+    ["Admin API kullanılıyor mu?", "Admin entegrasyonu", "Google Maps ve Meta Ad Library çağrıları müşteri API bilgisi istemeden HK Dijital admin ENV değerleriyle server-side çalışmalıdır."],
+    ["Müşteri API’sine bağımlılık yok mu?", "Müşteriden ayrıca API anahtarı istenmez", "Rakip keşfi müşteri profilindeki API alanlarına zorunlu bağımlılık kurmamalıdır."],
+    ["Rakip detay modalı var mı?", "Detaylı Rakip İncelemesi", "Detaylı Gör aksiyonu genel bilgi, Maps verisi, reklam sinyali, skor detayı ve teknik detay sekmelerini modalda göstermelidir."]
   ].forEach(([title, pattern, recommendation]) => {
     const inSource = sourceContains(pattern) || migrations.includes(String(pattern).toLocaleLowerCase("tr"));
     if (!inSource) findings.push(makeFinding({ category: "Ajans Operasyonu QA", severity: "orta", module: "Ajans Operasyon Kalıcılığı", file_path: "src/components/admin/AdminDashboard.tsx", title, description: `${pattern} sinyali statik analizde bulunamadı.`, recommendation }));
