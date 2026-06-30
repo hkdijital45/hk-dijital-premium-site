@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
 import { buildActionResult } from "@/lib/action-result";
-import { buildCompetitorCustomerSummary, buildCompetitorInternalAnalysis, buildCompetitorSignals, competitorDisplayName } from "@/lib/competitor-intelligence";
+import { buildCompetitorCustomerSummary, buildCompetitorInternalAnalysis, buildCompetitorSignals, competitorDisplayName, enrichCompetitorDiscoveryResult } from "@/lib/competitor-intelligence";
 import { recordActivity } from "@/lib/activity-log";
 import { requireModuleAccess } from "@/lib/permissions";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
@@ -19,6 +19,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const customer = buildCompetitorCustomerSummary(current);
     const internal = buildCompetitorInternalAnalysis(current);
     const signals = buildCompetitorSignals(current);
+    const scored = enrichCompetitorDiscoveryResult(current, { sector: current.sector, city: current.city, district: current.district });
     const now = new Date().toISOString();
     const signalRows = signals.map((signal) => ({
       ...signal,
@@ -42,6 +43,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       customer_recommendations: customer.recommendations,
       customer_action_plan: customer.actionPlan,
       internal_analysis: internal,
+      competitor_score: scored.competitor_score,
+      threat_score: scored.threat_score,
+      opportunity_score: scored.opportunity_score,
+      score_breakdown: scored.score_breakdown,
+      score_reason: scored.score_reason,
+      agency_decision: scored.agency_decision,
+      recommended_actions: scored.recommended_actions,
       analysis_payload: { signals, generatedAt: now, source: "local-fallback", note: "Gerçek harici API entegrasyonu yoksa güvenli yerel kontrol sonucu üretilir." },
       updated_at: now
     };

@@ -1,0 +1,28 @@
+alter table public.competitor_watchlist add column if not exists google_place_id text;
+alter table public.competitor_watchlist add column if not exists google_rating numeric;
+alter table public.competitor_watchlist add column if not exists google_review_count integer;
+alter table public.competitor_watchlist add column if not exists phone text;
+alter table public.competitor_watchlist add column if not exists category text;
+alter table public.competitor_watchlist add column if not exists latitude numeric;
+alter table public.competitor_watchlist add column if not exists longitude numeric;
+alter table public.competitor_watchlist add column if not exists competitor_score integer default 0;
+alter table public.competitor_watchlist add column if not exists threat_score integer default 0;
+alter table public.competitor_watchlist add column if not exists opportunity_score integer default 0;
+alter table public.competitor_watchlist add column if not exists score_breakdown jsonb default '{}'::jsonb;
+alter table public.competitor_watchlist add column if not exists score_reason text;
+alter table public.competitor_watchlist add column if not exists agency_decision text;
+alter table public.competitor_watchlist add column if not exists recommended_actions jsonb default '[]'::jsonb;
+alter table public.competitor_watchlist add column if not exists discovery_source text;
+alter table public.competitor_watchlist add column if not exists discovery_query text;
+alter table public.competitor_watchlist add column if not exists maps_raw jsonb default '{}'::jsonb;
+alter table public.competitor_watchlist add column if not exists meta_raw jsonb default '{}'::jsonb;
+alter table public.competitor_watchlist add column if not exists last_maps_checked_at timestamptz;
+alter table public.competitor_watchlist add column if not exists last_meta_checked_at timestamptz;
+
+create index if not exists competitor_watchlist_place_idx on public.competitor_watchlist(google_place_id);
+create index if not exists competitor_watchlist_score_idx on public.competitor_watchlist(competitor_score);
+create index if not exists competitor_watchlist_threat_idx on public.competitor_watchlist(threat_score);
+create index if not exists competitor_watchlist_opportunity_idx on public.competitor_watchlist(opportunity_score);
+create index if not exists competitor_watchlist_discovery_idx on public.competitor_watchlist(discovery_source);
+create index if not exists competitor_watchlist_maps_checked_idx on public.competitor_watchlist(last_maps_checked_at);
+create index if not exists competitor_watchlist_meta_checked_idx on public.competitor_watchlist(last_meta_checked_at);

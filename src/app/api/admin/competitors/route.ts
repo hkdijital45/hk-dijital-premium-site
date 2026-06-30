@@ -10,7 +10,11 @@ const allowedFields = [
   "company_id", "branch_id", "competitor_name", "website_url", "instagram_url", "google_maps_url",
   "meta_ad_library_url", "sector", "city", "district", "address", "status", "monitoring_frequency",
   "notify_on_new_ads", "notify_on_price_change", "notify_on_review_change", "show_to_customer",
-  "show_customer_summary", "customer_summary", "customer_recommendations", "customer_action_plan"
+  "show_customer_summary", "customer_summary", "customer_recommendations", "customer_action_plan",
+  "google_place_id", "google_rating", "google_review_count", "phone", "category", "latitude", "longitude",
+  "competitor_score", "threat_score", "opportunity_score", "score_breakdown", "score_reason",
+  "agency_decision", "recommended_actions", "discovery_source", "discovery_query", "maps_raw", "meta_raw",
+  "last_maps_checked_at", "last_meta_checked_at", "last_ad_seen_at"
 ];
 
 function sanitize(body: Record<string, any>) {

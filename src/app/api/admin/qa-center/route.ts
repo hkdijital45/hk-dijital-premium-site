@@ -462,7 +462,15 @@ function scanSourcesForFindings(migrations: string) {
     ["Rakip analizinde Müşteriye Gönderilecek Özet alanı var mı?", "Müşteriye Gönderilecek Özet", "Admin teknik analizi ile müşteriye gönderilecek sade özet ayrı bölümlerde tutulmalıdır."],
     ["Admin analizi ve müşteri özeti ayrıldı mı?", "Admin İç Analiz", "Teknik gözlemler, iç operasyon notları ve müşteri metni farklı alanlarda görünmelidir."],
     ["Ham JSON müşteriye gösterilmiyor mu?", "Teknik Detayı Göster", "Teknik payload varsayılan kapalı teknik detay alanında kalmalı; müşteri paneline taşınmamalıdır."],
-    ["WhatsApp özeti kopyalama çalışıyor mu?", "WhatsApp Özeti Kopyala", "Müşteriye gönderilecek rakip özeti kısa ve sade WhatsApp metni olarak kopyalanabilmelidir."]
+    ["WhatsApp özeti kopyalama çalışıyor mu?", "WhatsApp Özeti Kopyala", "Müşteriye gönderilecek rakip özeti kısa ve sade WhatsApp metni olarak kopyalanabilmelidir."],
+    ["Google Maps gerçek rakip buluyor mu?", "/api/admin/competitors/discover", "Rakip keşfi server-side Google Maps Places endpoint’iyle çalışmalı; anahtar yoksa yedek akış açıkça belirtilmelidir."],
+    ["Meta API varsa reklam sinyali geliyor mu?", "META_ACCESS_TOKEN", "Meta Ad Library erişimi server-side kontrol edilmeli; token yoksa sahte gerçek veri gibi gösterilmemelidir."],
+    ["Rakip skoru hesaplanıyor mu?", "competitor_score", "Her rakip 0-100 arası rakip skoru ile önceliklendirilmelidir."],
+    ["Tehdit/fırsat skoru üretiliyor mu?", "threat_score", "Rakip kartlarında tehdit skoru ve fırsat skoru ayrı gösterilmelidir."],
+    ["Kaç rakip seçimi çalışıyor mu?", "Kaç rakip bulunsun", "Kullanıcı 5, 10, 20 veya 50 rakip hedefi seçebilmelidir."],
+    ["Otomatik müşteri profilinden veri çekiyor mu?", "Profil bilgilerinden doldur", "Müşteri profilinden sektör, il, ilçe, adres ve şube bilgileri discovery formuna taşınmalıdır."],
+    ["Manuel arama çalışıyor mu?", "Manuel Rakip Arama", "Kullanıcı müşteri profilinden bağımsız sektör, il, ilçe, yarıçap, rakip tipi ve minimum skor filtresi girebilmelidir."],
+    ["Rakip kayıtları müşteri profiline bağlanıyor mu?", "Rakip skoru:", "Müşteri profilindeki Rakipler bölümü kayıtlı rakiplerin skorlarını, son Maps/Meta kontrolünü ve görünürlük durumunu göstermelidir."]
   ].forEach(([title, pattern, recommendation]) => {
     const inSource = sourceContains(pattern) || migrations.includes(String(pattern).toLocaleLowerCase("tr"));
     if (!inSource) findings.push(makeFinding({ category: "Ajans Operasyonu QA", severity: "orta", module: "Ajans Operasyon Kalıcılığı", file_path: "src/components/admin/AdminDashboard.tsx", title, description: `${pattern} sinyali statik analizde bulunamadı.`, recommendation }));

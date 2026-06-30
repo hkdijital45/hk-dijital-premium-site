@@ -363,7 +363,9 @@ export function CustomerProfileModal({
                     <span className={`rounded-full px-2 py-1 text-[10px] font-black ring-1 ${item.show_to_customer || item.show_customer_summary ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : "bg-white text-slate-600 ring-slate-200"}`}>{item.show_to_customer || item.show_customer_summary ? "Müşteriye açık" : "Sadece admin"}</span>
                   </div>
                   <div className="mt-3 grid gap-1 text-xs text-slate-600">
+                    <span>Rakip skoru: {item.competitor_score || 0} · Tehdit: {item.threat_score || 0} · Fırsat: {item.opportunity_score || 0}</span>
                     <span>Son kontrol: {item.last_checked_at ? new Date(item.last_checked_at).toLocaleDateString("tr-TR") : "Henüz yok"}</span>
+                    <span>Google Maps kontrolü: {item.last_maps_checked_at ? new Date(item.last_maps_checked_at).toLocaleDateString("tr-TR") : "Henüz yok"} · Meta kontrolü: {item.last_meta_checked_at ? new Date(item.last_meta_checked_at).toLocaleDateString("tr-TR") : "Henüz yok"}</span>
                     <span>Bildirimler: {item.notify_on_new_ads || item.notify_on_review_change || item.notify_on_price_change ? "Aktif" : "Kapalı"}</span>
                     <span>{item.customer_summary || item.customer_visible_summary || item.last_analysis_summary || "Müşteri özeti henüz üretilmedi."}</span>
                   </div>
