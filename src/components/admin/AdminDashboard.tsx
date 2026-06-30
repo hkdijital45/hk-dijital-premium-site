@@ -26,6 +26,7 @@ import { ActionResultPanel } from "@/components/admin/ActionResultPanel";
 import { AiProviderSelector } from "@/components/admin/AiProviderSelector";
 import { Logo } from "@/components/public/Logo";
 import { adminNavigationGroups, adminNavigationItems, getAdminHref } from "@/lib/admin-navigation";
+import { canViewAccounting } from "@/lib/accounting-permissions";
 import { aiProviderKeyForApi, buildAiSelectionReason, labelForAiProvider, normalizeUnifiedAiProvider, unifiedAiProviderOptions, unifiedAiPriorityKeys } from "@/lib/ai-provider-options";
 import { AnimatedChart, AnimatedFunnel, BrandEcosystemStrip, GlassCard, MetricCard3D } from "@/components/premium/PremiumUI";
 
@@ -71,6 +72,7 @@ const adminLabelEmojis: Record<string, string> = {
   "Sistem Sağlığı": "🩺",
   "Sistem Sağlık Merkezi": "🩺",
   "HK Intelligence Command Center": "🧠",
+  "HK Intelligence Commander": "🧠",
   "Risk Merkezi": "🚨",
   "HK Dijital Sistem Rehberi": "📚",
   "Log ve Aktivite Merkezi": "🧾",
@@ -100,6 +102,11 @@ const adminLabelEmojis: Record<string, string> = {
   "AI Denetim": "🧠",
   "PDF Rapor Tasarım Merkezi": "🖨️",
   "Gelir Tahmini": "📈",
+  "Gelir / Gider": "💸",
+  "Kârlılık": "💰",
+  "Bekleyen Ödemeler": "⏳",
+  "Müşteri Finans Özeti": "🧾",
+  Export: "📤",
   "Sözleşme Oluştur": "📝",
   "WhatsApp Hatırlatma Merkezi": "💬"
   ,
@@ -593,6 +600,7 @@ export function AdminDashboard({
 
   const props = { content, setContent, currentSession, allowedModules, setActive, save, notify };
   const visibleNavigationGroups = adminNavigationGroups
+    .filter((group) => group.label !== "Muhasebe" || canViewAccounting(currentSession))
     .map((group) => ({ ...group, items: group.items.filter((item) => allowedModules.includes(item.module)) }))
     .filter((group) => group.items.length);
   const activeGroup = visibleNavigationGroups.find((group) => group.items.some((item) => item.label === active || item.slug === "" && active === "Dashboard"));
@@ -761,7 +769,7 @@ export function AdminDashboard({
           {dashboardAliases.includes(active) && <HKAutonomousAgencyCenter content={content} setActive={setActive} notify={notify} compact />}
           {dashboardAliases.includes(active) && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} systemStatus={systemStatus} currentSession={currentSession} allowedModules={allowedModules} notify={notify} />}
           {active === "HK Intelligence CEO" && <HKAutonomousAgencyCenter content={content} setActive={setActive} notify={notify} />}
-          {active === "HK Intelligence Command Center" && <HKIntelligenceCommandCenter {...props} />}
+          {["HK Intelligence Command Center", "HK Intelligence Commander"].includes(active) && <HKIntelligenceCommandCenter {...props} />}
           {active === "Risk Merkezi" && <HKIntelligenceCommandCenter {...props} initialView="risk" />}
           {active === "Satış Hunisi" && <SalesPipeline content={content} setContent={setContent} save={save} setActive={setActive} notify={notify} />}
           {active === "CRM" && <CrmHub {...props} />}
@@ -775,7 +783,7 @@ export function AdminDashboard({
           {active === "AI Denetim" && <AiAuditCenter {...props} setActive={setActive} />}
           {active === "Görevler" && <AgencyTasksCenter {...props} selectedCompanyId={selectedCompanyId} />}
           {active === "Belgeler" && <DocumentCenter {...props} selectedCompanyId={selectedCompanyId} />}
-          {active === "Tahsilat" && <PaymentCenter {...props} selectedCompanyId={selectedCompanyId} onClearCompanyFilter={clearCompanyFilter} />}
+          {["Tahsilat", "Tahsilatlar", "Bekleyen Ödemeler"].includes(active) && <PaymentCenter {...props} selectedCompanyId={selectedCompanyId} onClearCompanyFilter={clearCompanyFilter} />}
           {active === "Takvim" && <AgencyCalendarCenter {...props} />}
           {active === "Gelir Tahmini" && <RevenueForecastCenter {...props} />}
           {active === "Sözleşme Oluştur" && <ContractGeneratorCenter {...props} />}
@@ -789,14 +797,14 @@ export function AdminDashboard({
           {["AI Studio", "AI Analizleri"].includes(active) && <AiAssistant {...props} mode="AI Studio" />}
           {["Teklif Motoru", "Teklif Hazırlama", "Teklif Oluştur", "WhatsApp Teklifi"].includes(active) && <ProposalEngine {...props} setActive={setActive} />}
           {active === "Raporlar" && <ReportsHub {...props} selectedCompanyId={selectedCompanyId} />}
-          {active === "Web Site Analitiği" && <WebsiteAnalyticsCenter />}
+          {["Web Site Analitiği", "GTM Bağlantıları"].includes(active) && <WebsiteAnalyticsCenter />}
           {(active === "Reklam Yorum Merkezi" || active === "Reklam Doktoru Pro") && <AdInsightsCenter content={content} notify={notify} />}
           {active === "HK Agent Hub" && <AgentHubCenter content={content} notify={notify} />}
           {active === "QA Merkezi" && <QaCenter notify={notify} />}
           {active === "PDF Rapor Tasarım Merkezi" && <PdfReportDesignCenter {...props} />}
           {active === "Müşteriler" && <CustomersAdmin {...props} selectedCompanyId={selectedCompanyId} />}
           {["Site Ayarları", "Web Sitesi Yönetimi"].includes(active) && <WebsiteManagementCenter {...props} />}
-          {["API Ayarları", "API Durum Kontrolü", "AI Sağlayıcı Ayarları", "Entegrasyonlar"].includes(active) && <IntegrationsCenter {...props} selectedCompanyId={selectedCompanyId} />}
+          {["API Ayarları", "API Durum Kontrolü", "AI Sağlayıcı Ayarları", "Entegrasyonlar", "Meta / Pixel / Dataset", "Google / GA4 / Search Console"].includes(active) && <IntegrationsCenter {...props} selectedCompanyId={selectedCompanyId} />}
           {["Medya / Logo", "Medya"].includes(active) && <MediaLogoHub {...props} />}
           {active === "Kullanıcılar" && <UsersHub {...props} />}
           {active === "Genel Arama" && <GlobalSearchPage />}
@@ -806,7 +814,7 @@ export function AdminDashboard({
           {["Roller & Yetkiler", "Kullanıcı Yönetimi"].includes(active) && <UsersAdmin {...props} mode={active} />}
           {["Sistem Sağlığı", "Sistem Sağlık Merkezi"].includes(active) && <SystemHealthCenter content={content} setContent={setContent} startupApiData={startupApiData} runStartupApiStatus={runStartupApiStatus} startupApiLoading={startupApiLoading} />}
           {active === "Sistem Test Merkezi" && <SystemTestCenter content={content} setContent={setContent} save={save} currentSession={currentSession} notify={notify} systemStatus={systemStatus} supabaseConfigured={supabaseConfigured} />}
-          {active === "Veri Aktarma" && <ExportCenter content={content} currentSession={currentSession} notify={notify} />}
+          {["Veri Aktarma", "Export"].includes(active) && <ExportCenter content={content} currentSession={currentSession} notify={notify} />}
           {["Sistem Logları", "Aktivite Akışı", "Log ve Aktivite Merkezi"].includes(active) && <ActivityLogs content={content} setContent={setContent} />}
           {active === "HK Dijital Sistem Rehberi" && <SystemGuideCenter currentSession={currentSession} notify={notify} />}
           {active === "Sistem Ayarları" && <Settings {...props} />}
@@ -816,7 +824,7 @@ export function AdminDashboard({
           {active === "Rakip Analizi" && <CompetitorAnalysisCenter {...props} />}
           {active === "Sosyal Medya Planı" && <SocialPlanGenerator {...props} />}
           {active === "Aylık Raporlar" && <MonthlyReportCenter {...props} />}
-          {active === "Karlılık" && <ProfitabilityCenter {...props} />}
+          {["Karlılık", "Kârlılık", "Gelir / Gider", "Müşteri Finans Özeti"].includes(active) && <ProfitabilityCenter {...props} />}
           {active === "HK Asistan" && <HKAssistantCenter {...props} />}
           {active === "Sektör Sistemleri" && <SectorSystemsCenter {...props} />}
           {active === "Müşteri Markalama" && <CustomerBrandingCenter {...props} />}

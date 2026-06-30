@@ -24,10 +24,13 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     items: [
       { label: "Dashboard", slug: "", module: "dashboard", description: "Ajans KPI'ları, öncelikler ve günlük operasyon özeti." },
       { label: "HK Intelligence CEO", slug: "hk-intelligence-ceo", module: "hk-intelligence-ceo", description: "AI ajanlarını, riskleri, KPI'ları ve ajans operasyon kararlarını tek executive masadan yönetin." },
-      { label: "HK Intelligence Command Center", slug: "intelligence-command-center", module: "dashboard", description: "Günlük öncelikler, müşteri sağlığı, risk ve kârlılık karar merkezi." },
+      { label: "HK Intelligence Commander", slug: "intelligence-command-center", module: "dashboard", description: "Günlük öncelikler, müşteri sağlığı, risk ve kârlılık karar merkezi." },
       { label: "Risk Merkezi", slug: "risk-merkezi", module: "dashboard", description: "Tahsilat, görev, entegrasyon ve müşteri risklerini öncelik puanıyla izleyin." },
       { label: "HK Asistan", slug: "hk-asistan", module: "hk-asistan", description: "Mevcut sistem verileriyle çalışan operasyon asistanı." },
-      { label: "Genel Arama", slug: "genel-arama", module: "genel-arama", description: "Müşteri, kampanya, görev ve belgelerde hızlı arama." }
+      { label: "Genel Arama", slug: "genel-arama", module: "genel-arama", description: "Müşteri, kampanya, görev ve belgelerde hızlı arama." },
+      { label: "QA Merkezi", slug: "qa-center", module: "qa-center", description: "Admin aksiyonları, API uçları ve Supabase migration uyumunu denetler." },
+      { label: "Sistem Sağlık Merkezi", slug: "sistem-sagligi", module: "sistem-sagligi", description: "API, veritabanı, ölçümleme ve servis bağlantı durumları." },
+      { label: "Sistem Test Merkezi", slug: "sistem-test-merkezi", module: "sistem-test-merkezi", description: "Otomatik ve manuel sistem kalite kontrolleri." }
     ]
   },
   {
@@ -47,7 +50,6 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: "Müşteri Keşfi", slug: "musteri-kesfi", module: "musteri-bulucu", description: "Yeni işletme adayları ve dijital fırsat sinyalleri." },
       { label: "Haritalar", slug: "haritalar", module: "haritalar", description: "Bölgesel işletme keşfi ve Google Maps sinyalleri." },
       { label: "Lead Analizi", slug: "lead-analizi", module: "leads", description: "Lead kalitesi, sıcaklık ve dönüşüm potansiyeli analizi." },
-      { label: "AI Denetim", slug: "ai-denetim", module: "leads", description: "İşletmeler için AI destekli dijital durum denetimi." },
       { label: "Teklif Oluştur", slug: "teklif-hazirlama", module: "teklifler", description: "Lead veya müşteri verisinden teklif hazırlama." },
       { label: "Müşteri Markalama", slug: "musteri-markalama", module: "musteriler", description: "Müşteri paneli logo, renk ve karşılama ayarları." },
       { label: "Müşteri Onboarding", slug: "customers/onboarding", module: "musteriler", description: "Yeni müşteri kurulum ve başlangıç kontrol adımları." }
@@ -86,7 +88,6 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: "Takvim", slug: "takvim", module: "gorevler", description: "Görev, kampanya, rapor ve tahsilat tarihleri." },
       { label: "Ajans Hedefleri", slug: "ajans-hedefleri", module: "karlilik", description: "Aylık gelir, müşteri, teklif, görüşme ve tahsilat hedefleri." },
       { label: "Belgeler", slug: "belgeler", module: "belgeler", description: "Müşteri belgeleri, sözleşmeler ve paylaşılabilir dosyalar." },
-      { label: "Gelir Tahmini", slug: "gelir-tahmini", module: "karlilik", description: "Beklenen, riskli ve gecikmiş gelir öngörüsü." },
       { label: "Sözleşme Oluştur", slug: "sozlesme-olustur", module: "belgeler", description: "Müşteri ve hizmet paketinden sözleşme taslağı." },
       { label: "WhatsApp Hatırlatma Merkezi", slug: "whatsapp-hatirlatma", module: "teklifler", description: "Takip, ödeme ve rapor mesaj şablonları." },
       { label: "Sosyal Medya Planı", slug: "sosyal-medya-plani", module: "sosyal-medya-plani", description: "Müşteri bazlı sosyal medya içerik takvimi." },
@@ -101,11 +102,12 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     accent: "from-emerald-500 via-teal-600 to-cyan-700",
     items: [
       { label: "Tahsilatlar", slug: "tahsilat", module: "tahsilat", description: "Ödemeler, vade takibi ve aylık gelir özeti." },
+      { label: "Bekleyen Ödemeler", slug: "bekleyen-odemeler", module: "tahsilat", description: "Vadesi yaklaşan ve geciken tahsilatlar." },
+      { label: "Gelir / Gider", slug: "gelir-gider", module: "karlilik", description: "Ajans gelir, gider ve net kârlılık takibi." },
+      { label: "Gelir Tahmini", slug: "gelir-tahmini", module: "karlilik", description: "Beklenen, riskli ve gecikmiş gelir öngörüsü." },
       { label: "Kârlılık", slug: "karlilik", module: "karlilik", description: "Gelir, gider ve tahmini kârlılık görünümü." },
-      { label: "Gelir/Gider", slug: "gelir-tahmini", module: "karlilik", description: "Beklenen gelir, gider ve kârlılık projeksiyonu." },
-      { label: "Bekleyen Ödemeler", slug: "tahsilat", module: "tahsilat", description: "Vadesi yaklaşan ve geciken tahsilatlar." },
-      { label: "Müşteri Finans Özeti", slug: "karlilik", module: "karlilik", description: "Müşteri bazlı finansal görünüm ve ajans kârlılığı." },
-      { label: "Export", slug: "veri-aktarma", module: "muhasebe-export", description: "Yetkili finans dışa aktarma işlemleri." }
+      { label: "Müşteri Finans Özeti", slug: "musteri-finans-ozeti", module: "karlilik", description: "Müşteri bazlı finansal görünüm ve ajans kârlılığı." },
+      { label: "Export", slug: "finans-export", module: "muhasebe-export", description: "Yetkili finans dışa aktarma işlemleri." }
     ]
   },
   {
@@ -131,22 +133,23 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     badge: "API",
     accent: "from-emerald-400 via-cyan-500 to-blue-600",
     items: [
-      { label: "Entegrasyonlar", slug: "entegrasyonlar", module: "api-ayarlari", description: "Meta, Google, AI ve iletişim servis ayarları." }
+      { label: "Entegrasyonlar", slug: "entegrasyonlar", module: "api-ayarlari", description: "Meta, Google, AI ve iletişim servis ayarları." },
+      { label: "Meta / Pixel / Dataset", slug: "meta-pixel-dataset", module: "api-ayarlari", description: "Meta Pixel, Dataset ve Conversions API bağlantı durumu." },
+      { label: "Google / GA4 / Search Console", slug: "google-ga4-search-console", module: "api-ayarlari", description: "GA4, Search Console, Google Ads ve servis hesabı bağlantıları." },
+      { label: "GTM Bağlantıları", slug: "gtm-baglantilari", module: "website-analytics", description: "Google Tag Manager ve web analitiği kurulum durumu." }
     ]
   },
   {
     label: "Araçlar & Yardım",
-    description: "Sistem rehberi, sağlık, denetim ve veri araçları.",
+    description: "Sistem rehberi, aktivite kayıtları ve veri araçları.",
     icon: "Download",
     badge: "Araç",
     accent: "from-cyan-400 via-blue-500 to-indigo-600",
     items: [
       { label: "HK Dijital Sistem Rehberi", slug: "sistem-rehberi", module: "sistem-rehberi", description: "Tüm modüllerin kullanım kılavuzu, eğitim içerikleri ve sorun giderme rehberleri." },
       { label: "Log ve Aktivite Merkezi", slug: "log-aktivite-merkezi", module: "sistem-loglari", description: "Kullanıcı işlemleri, teknik olaylar, hatalar ve denetim kayıtları." },
-      { label: "Sistem Sağlık Merkezi", slug: "sistem-sagligi", module: "sistem-sagligi", description: "API, veritabanı, ölçümleme ve servis bağlantı durumları." },
-      { label: "QA Merkezi", slug: "qa-center", module: "qa-center", description: "Admin aksiyonları, API uçları ve Supabase migration uyumunu denetler." },
       { label: "Veri Aktarma", slug: "veri-aktarma", module: "veri-aktarma", description: "Müşteri ve operasyon verilerini dışa aktarma." },
-      { label: "Sistem Test Merkezi", slug: "sistem-test-merkezi", module: "sistem-test-merkezi", description: "Otomatik ve manuel sistem kalite kontrolleri." }
+      { label: "Mobil Operasyon Modu", slug: "mobil-operasyon-modu", module: "site-ayarlari", description: "Saha kullanımı için büyük butonlu admin görünüm tercihi." }
     ]
   },
   {
@@ -159,8 +162,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: "Web Sitesi Yönetimi", slug: "web-sitesi-yonetimi", module: "site-ayarlari", description: "Public site içerikleri, paketler ve marka alanları." },
       { label: "Kullanıcı Yönetimi", slug: "kullanici-yonetimi", module: "kullanicilar", description: "Yönetici, ekip ve müşteri kullanıcı yetkileri." },
       { label: "Tema / Logo", slug: "tema-logo", module: "tema-ayarlari", description: "Logo ve marka görselleri için merkezi ayarlar." },
-      { label: "Sistem Ayarları", slug: "sistem-ayarlari", module: "site-ayarlari", description: "Genel uygulama davranışı ve sistem tercihleri." },
-      { label: "Mobil Operasyon Modu", slug: "mobil-operasyon-modu", module: "site-ayarlari", description: "Saha kullanımı için büyük butonlu admin görünüm tercihi." }
+      { label: "Sistem Ayarları", slug: "sistem-ayarlari", module: "site-ayarlari", description: "Genel uygulama davranışı ve sistem tercihleri." }
     ]
   }
 ];
@@ -215,6 +217,9 @@ const legacySlugRedirects: Record<string, string> = {
   "performans-raporlari": "musteri-raporlari",
   "rapor-yorumlari": "musteri-raporlari",
   "web-site-analitigi": "website-analytics",
+  "meta-pixel-dataset": "meta-pixel-dataset",
+  "google-ga4-search-console": "google-ga4-search-console",
+  "gtm": "gtm-baglantilari",
   "premium-pdf-report-design-center": "pdf-rapor-tasarim",
   "pdf-rapor-tasarim-merkezi": "pdf-rapor-tasarim",
   "campaign-mapping": "reklam-hesabi-eslestirme",
@@ -254,6 +259,10 @@ const legacySlugRedirects: Record<string, string> = {
   "whatsapp-reminder-center": "whatsapp-hatirlatma",
   "gelir-forecast": "gelir-tahmini",
   "revenue-forecast": "gelir-tahmini",
+  "bekleyen-odemeler": "bekleyen-odemeler",
+  "gelir-gider": "gelir-gider",
+  "musteri-finans-ozeti": "musteri-finans-ozeti",
+  "finans-export": "finans-export",
   "reklam-yorum-merkezi": "ad-insights",
   "hk-reklam-zekasi": "ad-insights",
   "reklam-doktoru-pro": "ad-insights",

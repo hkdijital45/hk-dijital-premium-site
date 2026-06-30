@@ -1,6 +1,7 @@
 import { getSession, type AppSession } from "./auth";
+import { canViewAccounting } from "./accounting-permissions";
 
-export type CanonicalRole = "admin" | "yonetici" | "editor" | "musteri";
+export type CanonicalRole = "admin" | "owner" | "finance" | "yonetici" | "editor" | "musteri";
 
 export const adminModules = [
   "dashboard", "genel-arama", "kullanim-kilavuzu", "crm", "leads", "musteriler",
@@ -32,6 +33,8 @@ export function normalizeModule(module?: string | null): AdminModule | null {
 
 export const roleTemplates: Record<CanonicalRole, AdminModule[]> = {
   admin: [...adminModules],
+  owner: [...adminModules],
+  finance: ["dashboard", "genel-arama", "tahsilat", "karlilik", "muhasebe", "muhasebe-export", "veri-aktarma", "sistem-rehberi"],
   yonetici: [
     "dashboard", "genel-arama", "kullanim-kilavuzu", "crm", "leads", "musteriler",
     "takip-gorevleri", "notlar", "musteri-bulucu", "haritalar", "bolgesel-analiz",
@@ -50,6 +53,7 @@ export const roleTemplates: Record<CanonicalRole, AdminModule[]> = {
 export function normalizeRole(role?: string | null): CanonicalRole {
   if (role === "sales") return "yonetici";
   if (role === "customer") return "musteri";
+  if (role === "owner" || role === "finance") return role;
   if (role === "yonetici" || role === "editor" || role === "musteri") return role;
   return "admin";
 }
@@ -88,8 +92,4 @@ export async function requireAdmin() {
   return normalizeRole(session?.role) === "admin" ? session : null;
 }
 
-export function canViewAccounting(session?: AppSession | null) {
-  const role = normalizeRole(session?.role);
-  const allowed = Array.isArray(session?.allowedModules) ? session.allowedModules : [];
-  return role === "admin" || ["owner", "finance"].includes(String(session?.role || "").toLocaleLowerCase("tr")) || allowed.includes("muhasebe");
-}
+export { canViewAccounting };

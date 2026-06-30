@@ -487,7 +487,13 @@ function scanSourcesForFindings(migrations: string) {
     ["Müşteriye göster/gizle toggle’ı çalışıyor mu?", "show_to_customer", "Rakip ve sinyal kartlarında müşteri görünürlüğü açıkça yönetilmelidir."],
     ["Sinyalden görev oluşturulabiliyor mu?", "Görev Oluştur", "Yeni sinyal kartları görev taslağı veya görev ekranı aksiyonuna bağlanmalıdır."],
     ["Müşteri özeti teknik detaydan ayrılmış mı?", "Müşteriye Gönderilecek Özet", "Rakip sinyal ve rakip analizlerinde teknik detay kapalı, müşteri özeti sade dilde olmalıdır."],
-    ["Tam Sistem Onarım Taraması var mı?", "Tam Sistem Onarım Taraması", "QA Center bulguları çalışmayan buton, hrefsiz link, siyah buton, müşteri görünürlüğü ve secret risklerini anlaşılır açıklamalıdır."]
+    ["Tam Sistem Onarım Taraması var mı?", "Tam Sistem Onarım Taraması", "QA Center bulguları çalışmayan buton, hrefsiz link, siyah buton, müşteri görünürlüğü ve secret risklerini anlaşılır açıklamalıdır."],
+    ["Gelir Tahmini Muhasebe altında mı?", "label: \"Muhasebe\"", "Gelir Tahmini finansal karar ekranıdır; Ajans Operasyonu altında değil Muhasebe grubunda bulunmalıdır."],
+    ["Finansal sayfalar yetkisiz kullanıcıya kapalı mı?", "canViewAccounting", "Muhasebe grubu admin, owner, finance veya açık muhasebe yetkisi olan kullanıcılarla sınırlanmalıdır."],
+    ["Duplicate menü kaydı var mı?", "QA Merkezi", "QA Merkezi, Sistem Sağlık Merkezi ve Sistem Test Merkezi tek profesyonel kategoride görünmeli; Araçlar altında tekrar etmemelidir."],
+    ["Boş/yanlış route var mı?", "getAdminHref", "Navigation slug değerleri mevcut /hk-admin route yapısını bozmadan canonical route üretmelidir."],
+    ["Menü açıklamaları Türkçe mi?", "description", "Admin menü açıklamaları kısa, Türkçe ve kullanıcıya yol gösteren metinler olmalıdır."],
+    ["Ana kategoriler mantıklı mı?", "Kontrol Merkezi", "Kontrol, Müşteri & Satış, Reklam & Raporlama, Ajans Operasyonu, Muhasebe, İçerik & AI, Entegrasyonlar, Araçlar & Yardım ve Ayarlar kategorileri korunmalıdır."]
   ].forEach(([title, pattern, recommendation]) => {
     const inSource = sourceContains(pattern) || migrations.includes(String(pattern).toLocaleLowerCase("tr"));
     if (!inSource) findings.push(makeFinding({ category: "Ajans Operasyonu QA", severity: "orta", module: "Ajans Operasyon Kalıcılığı", file_path: "src/components/admin/AdminDashboard.tsx", title, description: `${pattern} sinyali statik analizde bulunamadı.`, recommendation }));
