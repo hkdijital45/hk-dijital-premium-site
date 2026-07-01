@@ -45,13 +45,9 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     accent: "from-emerald-400 via-teal-500 to-cyan-600",
     items: [
       { label: "Müşteriler", slug: "musteriler", module: "musteriler", description: "Aktif, pasif ve aday müşteri kayıtlarını yönet." },
-      { label: "Firma Yönetimi", slug: "musteriler", module: "musteriler", description: "Firma kayıtları, yetkililer ve müşteri durumu." },
-      { label: "Müşteri Profilleri", slug: "musteriler", module: "musteriler", description: "Müşteri profil popup, entegrasyon, görev, rapor ve not özetleri." },
-      { label: "Şubeler", slug: "musteriler", module: "musteriler", description: "Müşteri şubeleri, şube raporu ve şube bazlı aksiyonlar." },
       { label: "Onboarding", slug: "customers/onboarding", module: "musteriler", description: "Yeni müşteri kurulum ve başlangıç kontrol adımları." },
-      { label: "Entegrasyon Durumu", slug: "entegrasyonlar", module: "api-ayarlari", description: "Müşteri bazlı Meta, Google, GA4, GTM ve web analitiği durumu." },
-      { label: "Müşteri Notları", slug: "musteriler", module: "musteriler", description: "Müşteri aktiviteleri, iç notlar ve görünürlük kontrolleri." },
-      { label: "Müşteri Paketleri", slug: "hk-intelligence-ceo", module: "hk-intelligence-ceo", description: "Uygulanan paketler, planlar ve AI operasyon çıktıları." },
+      { label: "Müşteri Entegrasyonları", slug: "musteri-entegrasyonlari", module: "api-ayarlari", description: "Müşteri bazlı Meta, Google, GA4, GTM ve web analitiği durumu." },
+      { label: "Müşteri Paketleri", slug: "musteri-paketleri", module: "hk-intelligence-ceo", description: "Uygulanan paketler, planlar ve AI operasyon çıktıları." },
       { label: "Müşteri Markalama", slug: "musteri-markalama", module: "musteriler", description: "Müşteri paneli logo, renk ve karşılama ayarları." }
     ]
   },
@@ -63,11 +59,8 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     accent: "from-blue-400 via-cyan-500 to-emerald-600",
     items: [
       { label: "Lead Merkezi", slug: "leads", module: "leads", description: "Başvurular, iletişim bilgileri ve lead durumları." },
-      { label: "Leadler", slug: "leads", module: "leads", description: "Başvurular, iletişim bilgileri ve lead durumları." },
       { label: "Müşteri Keşfi", slug: "musteri-kesfi", module: "musteri-bulucu", description: "Yeni işletme adayları ve dijital fırsat sinyalleri." },
       { label: "Haritalar", slug: "haritalar", module: "haritalar", description: "Bölgesel işletme keşfi ve Google Maps sinyalleri." },
-      { label: "Google Maps", slug: "haritalar", module: "haritalar", description: "Google Maps işletme sinyalleri ve yerel keşif." },
-      { label: "CRM", slug: "leads", module: "leads", description: "CRM kayıtları, segmentler ve müşteri adayları." },
       { label: "Lead Workspace", slug: "lead-workspace", module: "leads", description: "Lead detay çalışma alanı ve satış notları." },
       { label: "Lead Analizi", slug: "lead-analizi", module: "leads", description: "Lead kalitesi, sıcaklık ve dönüşüm potansiyeli analizi." },
       { label: "Takip Merkezi", slug: "takip-merkezi", module: "leads", description: "Arama, WhatsApp, toplantı ve teklif takipleri." },
@@ -90,11 +83,9 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: "Meta İstihbarat", slug: "meta-istihbarat", module: "meta-analiz", description: "Meta kampanya, kreatif ve dönüşüm performansı." },
       { label: "Website Analytics", slug: "website-analytics", module: "website-analytics", description: "Pixel, GA4 ve public site dönüşüm takibi." },
       { label: "Reklam Doktoru Pro", slug: "ad-insights", module: "ad-insights", description: "Reklam performansını teşhis eder, sorunları bulur ve aksiyon reçetesi oluşturur." },
-      { label: "Meta Raporları", slug: "meta-analiz", module: "meta-analiz", description: "Meta reklam verilerinden müşteri raporları." },
-      { label: "Google Ads Raporları", slug: "google-analiz", module: "google-analiz", description: "Google Ads metrikleri ve manuel rapor girişi." },
-      { label: "Rakip Analizi", slug: "rakip-analizi", module: "rakip-analizi", description: "Rakiplerin dijital görünürlük ve reklam fırsatları." },
-      { label: "Rakip Alarm Merkezi", slug: "rakip-analizi", module: "rakip-analizi", description: "Takip edilen rakip sinyalleri ve alarm ayarları." },
-      { label: "Kreatif Performansı", slug: "kampanya-onerileri", module: "kampanya-hazirligi", description: "Kreatif fikir, kampanya önerisi ve reklam içeriği performans takibi." }
+      { label: "Meta Raporları", slug: "meta-raporlari", module: "meta-analiz", description: "Meta reklam verilerinden müşteri raporları." },
+      { label: "Google Ads Raporları", slug: "google-ads-raporlari", module: "google-analiz", description: "Google Ads metrikleri ve manuel rapor girişi." },
+      { label: "Rakip Analizi", slug: "rakip-analizi", module: "rakip-analizi", description: "Rakip görünürlüğü, reklam fırsatları, alarm ve sinyal takipleri." }
     ]
   },
   {
@@ -104,12 +95,9 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     badge: "AI",
     accent: "from-blue-500 via-indigo-500 to-violet-600",
     items: [
-      { label: "Agent Hub", slug: "agent-hub", module: "agent-hub", description: "Yapay zekâ sağlayıcılarını, görev yönlendirmeyi ve agent iş akışlarını tek merkezden yönet." },
+      { label: "Agent Hub", slug: "agent-hub", module: "agent-hub", description: "Agent, workflow, hafıza, öğrenme, benchmark ve sağlayıcı yönetimi." },
       { label: "AI Studio", slug: "ai-studio", module: "ai-studio", description: "İçerik, analiz ve rapor üretim araçları." },
-      { label: "Workflow", slug: "agent-hub", module: "agent-hub", description: "Agent workflow taslakları, otomasyonlar ve görev zincirleri." },
       { label: "Prompt Merkezi", slug: "prompt-uretimi", module: "prompt-kutuphanesi", description: "Tekrar kullanılabilir yapay zekâ komutları." },
-      { label: "AI Hafıza", slug: "agent-hub", module: "agent-hub", description: "Agent memory, müşteri bağlamı ve öğrenilen operasyon bilgileri." },
-      { label: "AI Öğrenme", slug: "agent-hub", module: "agent-hub", description: "Training rules, benchmark ve sağlayıcı öğrenimleri." },
       { label: "AI Satış Koçu", slug: "ai-satis-kocu", module: "ai-studio", description: "Lead ve fırsatlar için arama, WhatsApp, e-posta ve itiraz cevapları." }
     ]
   },
@@ -126,9 +114,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: "Belgeler", slug: "belgeler", module: "belgeler", description: "Müşteri belgeleri, sözleşmeler ve paylaşılabilir dosyalar." },
       { label: "Sözleşme Oluştur", slug: "sozlesme-olustur", module: "belgeler", description: "Müşteri ve hizmet paketinden sözleşme taslağı." },
       { label: "WhatsApp Hatırlatma Merkezi", slug: "whatsapp-hatirlatma", module: "teklifler", description: "Takip, ödeme ve rapor mesaj şablonları." },
-      { label: "Sosyal Medya Planı", slug: "sosyal-medya-plani", module: "sosyal-medya-plani", description: "Müşteri bazlı sosyal medya içerik takvimi." },
-      { label: "İçerik Takvimi", slug: "sosyal-medya-plani", module: "sosyal-medya-plani", description: "Haftalık içerik, Reels, Story ve yayın planı." },
-      { label: "İçerik Onayı", slug: "sosyal-medya-plani", module: "sosyal-medya-plani", description: "İç onay, müşteri onayı ve yayın durumu takibi." },
+      { label: "Sosyal Medya Planı", slug: "sosyal-medya-plani", module: "sosyal-medya-plani", description: "İçerik takvimi, Reels/Story planı ve müşteri onayı." },
       { label: "Sektör Sistemleri", slug: "sektor-sistemleri", module: "sektor-sistemleri", description: "Sektöre özel operasyon ve takip şablonları." }
     ]
   },
@@ -156,11 +142,10 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     items: [
       { label: "Aylık Raporlar", slug: "aylik-raporlar", module: "aylik-raporlar", description: "Aylık performans, çalışma ve öneri özetleri." },
       { label: "Müşteri Raporları", slug: "musteri-raporlari", module: "raporlar", description: "Meta, Google ve manuel performans raporları." },
-      { label: "PDF", slug: "pdf-rapor-tasarim", module: "raporlar", description: "PDF rapor tasarım, audit ve çıktı hazırlıkları." },
-      { label: "Word", slug: "musteri-raporlari", module: "raporlar", description: "Word uyumlu müşteri raporu metinleri." },
-      { label: "PowerPoint", slug: "musteri-raporlari", module: "raporlar", description: "Sunum uyumlu rapor taslakları ve çıktı hazırlığı." },
+      { label: "PDF Rapor Tasarım Merkezi", slug: "pdf-rapor-tasarim", module: "raporlar", description: "PDF rapor görünümü ve bölüm ayarları." },
       { label: "PDF Audit", slug: "pdf-audit", module: "sosyal-medya-denetimi", description: "Dijital denetim sonuçlarını PDF olarak hazırlama." },
-      { label: "Export", slug: "veri-aktarma", module: "veri-aktarma", description: "Rapor ve veri dışa aktarım araçları." }
+      { label: "Rapor Çıktıları", slug: "rapor-ciktilari", module: "raporlar", description: "PDF, Word ve PowerPoint uyumlu rapor çıktıları." },
+      { label: "Dışa Aktar", slug: "rapor-disa-aktar", module: "veri-aktarma", description: "Rapor ve veri dışa aktarım araçları." }
     ]
   },
   {
@@ -171,10 +156,9 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     accent: "from-fuchsia-400 via-pink-500 to-rose-600",
     items: [
       { label: "İçerik Planları", slug: "icerik-fikirleri", module: "icerik-onerileri", description: "Kanal ve hedefe göre içerik fikirleri." },
-      { label: "Sosyal Medya Planı", slug: "sosyal-medya-plani", module: "sosyal-medya-plani", description: "Müşteri bazlı sosyal medya içerik takvimi." },
-      { label: "Kreatif Stüdyo", slug: "kampanya-onerileri", module: "kampanya-hazirligi", description: "Kreatif öneriler, reklam metni ve içerik taslakları." },
-      { label: "Medya", slug: "medya", module: "medya", description: "Görsel, video ve marka dosyaları." },
-      { label: "Kampanya Önerileri", slug: "kampanya-onerileri", module: "kampanya-hazirligi", description: "Hedef ve sektöre göre kampanya fikirleri." }
+      { label: "Sosyal Medya Planı", slug: "sosyal-medya-icerik-plani", module: "sosyal-medya-plani", description: "Müşteri bazlı sosyal medya içerik takvimi." },
+      { label: "Kreatif Stüdyo", slug: "kampanya-onerileri", module: "kampanya-hazirligi", description: "Kreatif öneriler, reklam metni, kampanya fikirleri ve içerik taslakları." },
+      { label: "Medya", slug: "medya", module: "medya", description: "Görsel, video ve marka dosyaları." }
     ]
   },
   {
@@ -184,20 +168,12 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     badge: "API",
     accent: "from-emerald-400 via-cyan-500 to-blue-600",
     items: [
-      { label: "Entegrasyonlar", slug: "entegrasyonlar", module: "api-ayarlari", description: "Meta, Google, AI ve iletişim servis ayarları." },
-      { label: "Meta", slug: "meta-integrations", module: "api-ayarlari", description: "Meta işletme, reklam hesabı ve token bağlantıları." },
-      { label: "Pixel", slug: "meta-pixel-dataset", module: "api-ayarlari", description: "Meta Pixel ve ölçümleme kurulumu." },
-      { label: "Dataset", slug: "meta-pixel-dataset", module: "api-ayarlari", description: "Meta Dataset ve Conversions API hazırlığı." },
-      { label: "Google", slug: "google-integrations", module: "api-ayarlari", description: "Google servisleri ve hesap bağlantıları." },
-      { label: "GA4", slug: "google-ga4-search-console", module: "api-ayarlari", description: "GA4 Measurement ID ve Property ID durumu." },
-      { label: "Search Console", slug: "google-ga4-search-console", module: "api-ayarlari", description: "Search Console site URL ve servis hesabı hazırlığı." },
-      { label: "Google Ads", slug: "google-ga4-search-console", module: "api-ayarlari", description: "Google Ads Customer ID, OAuth ve developer token hazırlığı." },
-      { label: "GTM", slug: "gtm-baglantilari", module: "website-analytics", description: "Google Tag Manager container durumu." },
-      { label: "Clarity", slug: "website-analytics", module: "website-analytics", description: "Microsoft Clarity proje durumu." },
-      { label: "Hotjar", slug: "website-analytics", module: "website-analytics", description: "Hotjar site ID durumu." },
-      { label: "SMTP", slug: "entegrasyonlar", module: "api-ayarlari", description: "SMTP ve e-posta gönderim ayarları." },
-      { label: "Discord", slug: "agent-hub", module: "agent-hub", description: "Discord webhook bildirim hazırlığı." },
-      { label: "API Durumu", slug: "entegrasyonlar", module: "api-ayarlari", description: "Secret göstermeden genel API ve entegrasyon durumu." }
+      { label: "Entegrasyonlar", slug: "entegrasyonlar", module: "api-ayarlari", description: "Meta, Pixel, Dataset, Google, GA4, Search Console, Ads, GTM, Clarity, Hotjar, SMTP ve API durumu." },
+      { label: "Meta", slug: "meta-integrations", module: "api-ayarlari", description: "Meta işletme, reklam hesabı, Pixel ve Dataset bağlantıları." },
+      { label: "Google", slug: "google-integrations", module: "api-ayarlari", description: "Google, GA4, Search Console ve Google Ads bağlantıları." },
+      { label: "Website Analytics", slug: "web-analitik-entegrasyonlari", module: "website-analytics", description: "GTM, Clarity, Hotjar ve web analitiği kurulum durumu." },
+      { label: "Discord", slug: "discord-entegrasyonu", module: "agent-hub", description: "Discord webhook bildirim hazırlığı." },
+      { label: "API Durumu", slug: "api-durumu", module: "api-ayarlari", description: "Secret göstermeden genel API ve entegrasyon durumu." }
     ]
   },
   {
@@ -213,7 +189,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: "Tema / Logo", slug: "tema-logo", module: "tema-ayarlari", description: "Logo ve marka görselleri için merkezi ayarlar." },
       { label: "Sistem Ayarları", slug: "sistem-ayarlari", module: "site-ayarlari", description: "Genel uygulama davranışı ve sistem tercihleri." },
       { label: "Mobil Operasyon Modu", slug: "mobil-operasyon-modu", module: "site-ayarlari", description: "Saha kullanımı için büyük butonlu admin görünüm tercihi." },
-      { label: "Güvenlik", slug: "kullanici-yonetimi", module: "kullanicilar", description: "Kullanıcı erişimi, rol güvenliği ve yönetim kontrolleri." }
+      { label: "Güvenlik", slug: "guvenlik", module: "kullanicilar", description: "Kullanıcı erişimi, rol güvenliği ve yönetim kontrolleri." }
     ]
   }
 ];

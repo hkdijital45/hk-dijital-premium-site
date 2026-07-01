@@ -485,19 +485,22 @@ export function AdminDashboard({
   }, [bootVisible]);
 
   function toggleGroup(label: string) {
-    setOpenGroups((current) => ({ ...current, [label]: !current[label] }));
+    setHoveredNavGroup("");
+    setOpenGroups((current) => {
+      const nextOpen = !current[label];
+      return Object.fromEntries(adminNavigationGroups.map((group) => [group.label, group.label === label ? nextOpen : false]));
+    });
   }
 
   function openNavGroup(label: string) {
     if (navCloseTimer.current) window.clearTimeout(navCloseTimer.current);
-    setHoveredNavGroup(label);
+    setHoveredNavGroup("");
   }
 
   function closeNavGroup(label: string) {
     if (navCloseTimer.current) window.clearTimeout(navCloseTimer.current);
     navCloseTimer.current = window.setTimeout(() => {
       setHoveredNavGroup((current) => (current === label ? "" : current));
-      setOpenGroups((current) => ({ ...current, [label]: false }));
     }, 120);
   }
 
@@ -611,6 +614,25 @@ export function AdminDashboard({
     if (!mobileNavOpen || !activeGroup || openGroups[activeGroup.label]) return;
     setOpenGroups((current) => ({ ...current, [activeGroup.label]: true }));
   }, [activeGroup?.label, mobileNavOpen]);
+  useEffect(() => {
+    function closeMenus() {
+      setHoveredNavGroup("");
+      setOpenGroups(Object.fromEntries(adminNavigationGroups.map((group) => [group.label, false])));
+    }
+    function handlePointerDown(event: MouseEvent) {
+      if ((event.target as HTMLElement | null)?.closest("[data-admin-nav]")) return;
+      closeMenus();
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") closeMenus();
+    }
+    window.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
   const shellClass = "hk-admin-os admin-light bg-[#f7f8fb] text-slate-900";
   const panelClass = "border-slate-200 bg-white";
   const headerClass = "border-slate-200 bg-white/95";
@@ -666,15 +688,12 @@ export function AdminDashboard({
                 return (
                   <div
                     key={group.label}
+                    data-admin-nav="true"
                     className="relative"
-                    onMouseEnter={() => openNavGroup(group.label)}
-                    onMouseLeave={() => closeNavGroup(group.label)}
-                    onFocus={() => openNavGroup(group.label)}
                   >
                     <button
                       type="button"
                       onClick={() => toggleGroup(group.label)}
-                      onBlur={() => closeNavGroup(group.label)}
                       aria-expanded={expanded}
                       className={`flex min-h-10 w-full items-center justify-between gap-2 rounded-[8px] border px-3 text-sm font-black transition lg:w-auto ${activeInGroup ? "border-cyan-300/40 bg-cyan-300/10 text-cyan-700" : "border-slate-200 bg-white text-slate-600 hover:border-cyan-200/25 hover:bg-white/[0.065] hover:text-slate-900"}`}
                     >
@@ -688,16 +707,14 @@ export function AdminDashboard({
                       </span>
                     </button>
                     <div
-                      onMouseEnter={() => openNavGroup(group.label)}
-                      onMouseLeave={() => closeNavGroup(group.label)}
-                      className={`admin-top-dropdown premium-scrollbar ${expanded ? "flex" : "hidden"} mt-2 max-h-[calc(100vh-104px)] w-full max-w-full flex-col gap-2 overflow-y-auto rounded-[8px] border border-slate-200 bg-white/98 p-3 shadow-[0_18px_50px_rgba(0,0,0,.24)] lg:absolute lg:left-1/2 lg:top-full lg:z-50 lg:mt-3 lg:w-[min(520px,calc(100vw-32px))] lg:min-w-[420px] lg:-translate-x-1/2`}
+                      className={`admin-top-dropdown premium-scrollbar ${expanded ? "grid" : "hidden"} mt-2 max-h-[min(70vh,620px)] w-full max-w-full gap-2 overflow-y-auto rounded-[8px] border border-slate-200 bg-white/98 p-3 shadow-[0_18px_50px_rgba(0,0,0,.24)] lg:absolute lg:left-1/2 lg:top-full lg:z-50 lg:mt-3 lg:w-[min(720px,calc(100vw-32px))] lg:min-w-[420px] lg:-translate-x-1/2 lg:grid-cols-2 xl:grid-cols-3`}
                     >
                       {group.items.map((item) => (
                         <Link
                           key={`${group.label}-${item.label}-${item.slug}`}
                           href={getAdminHref(item.slug)}
                           title={item.label}
-                          onClick={() => { setMobileNavOpen(false); setHoveredNavGroup(""); }}
+                          onClick={() => { setMobileNavOpen(false); setHoveredNavGroup(""); setOpenGroups(Object.fromEntries(adminNavigationGroups.map((navGroup) => [navGroup.label, false]))); }}
                           className={`flex w-full min-w-0 items-start gap-3 rounded-[8px] border px-3.5 py-3 text-sm font-bold transition ${active === item.label ? "border-cyan-200/50 bg-cyan-300 text-slate-950" : "border-slate-200 text-slate-700 hover:border-cyan-200/25 hover:bg-white/[0.07] hover:text-cyan-700"}`}
                         >
                           <CategoryIcon size={15} className={`mt-0.5 shrink-0 ${active === item.label ? "text-slate-950" : "text-cyan-700"}`} />
@@ -719,6 +736,7 @@ export function AdminDashboard({
               <span className="block text-[10px] text-cyan-700/70">Mod: {aiStatus.mode}</span>
             </button>
             <GlobalAdminSearch />
+            {allowedModules.includes("musteriler") && <Link href="/hk-admin/musteriler" className="inline-flex min-h-10 items-center gap-2 rounded-[8px] bg-emerald-100 px-4 text-sm font-black text-emerald-700 ring-1 ring-emerald-200 transition hover:bg-emerald-200"><UsersRound size={17} /> Müşteriler</Link>}
             <button onClick={() => setCopilotOpen(true)} className="inline-flex min-h-10 items-center gap-2 rounded-[8px] bg-purple-100 px-4 text-sm font-black text-purple-700 ring-1 ring-purple-200 transition hover:bg-purple-200">
               <Bot size={17} /> HK Copilot
             </button>

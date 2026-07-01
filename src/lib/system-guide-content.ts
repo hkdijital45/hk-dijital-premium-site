@@ -17,7 +17,7 @@ export type SystemGuideSeed = {
 };
 
 export const systemGuideCategories = [
-  "Müşteri Serüveni", "Admin Mimarisi", "Dashboard & Kontrol Merkezi", "CRM & Müşteriler", "Müşteri & Satış", "Ajans Operasyonu", "Satış Hunisi", "Muhasebe", "Tahsilat & Karlılık",
+  "Müşteri Serüveni", "Admin Mimarisi", "Menü ve Kategori Düzeni", "Dashboard & Kontrol Merkezi", "CRM & Müşteriler", "Müşteri & Satış", "Ajans Operasyonu", "Satış Hunisi", "Muhasebe", "Tahsilat & Karlılık",
   "Görev Yönetimi", "Raporlama Merkezi", "Meta Entegrasyonları", "Google Entegrasyonları",
   "HK Intelligence", "AI Studio", "Dosya & Belge Merkezi", "Kullanıcı Yönetimi", "Ayarlar",
   "Web Site Yönetimi", "Müşteri Paneli", "Sorun Giderme", "HK Agent Hub"
@@ -27,6 +27,12 @@ const definitions: Array<[string, string, string, string]> = [
   ["Dashboard nedir?", "Dashboard & Kontrol Merkezi", "Ajansın günlük KPI, risk ve aksiyonlarını tek ekranda izleyin.", ""],
   ["HK Admin Mimarisi", "Admin Mimarisi", "Admin panelinde her modül kendi bağımsız route ve component akışında kalır. Menü yalnız profesyonel kategorilere ayrılır: Kontrol Merkezi, Müşteri Merkezi, Satış & CRM, Reklam & Performans, AI Merkezi, Ajans Operasyonu, Muhasebe, Rapor Merkezi, Entegrasyonlar, İçerik & Medya ve Ayarlar.", "sistem-rehberi"],
   ["Yeni admin menü kategorileri", "Admin Mimarisi", "Ana menü modülleri kaybetmeden doğru kategori altında gösterir. Eski sayfa adresleri korunur; çalışan modüller Dashboard içine veya tek merkez component içine gömülmez.", "sistem-rehberi"],
+  ["Menü ve Kategori Düzeni", "Menü ve Kategori Düzeni", "Üst menü profesyonel ajans kategorilerine ayrılır. Aynı route’a giden tekrarlar görünür menüden sadeleştirilir; çalışan route ve page.tsx dosyaları korunur.", "sistem-rehberi"],
+  ["Müşteriler nerede?", "Menü ve Kategori Düzeni", "Müşteriler, Müşteri Merkezi kategorisinin ilk kaydıdır. Üst alandaki Müşteriler hızlı erişimi de /hk-admin/musteriler sayfasını açar.", "musteriler"],
+  ["Rakip Analizi nerede?", "Menü ve Kategori Düzeni", "Rakip Analizi ve rakip alarm/sinyal takibi Reklam & Performans kategorisindeki Rakip Analizi modülünden yönetilir.", "rakip-analizi"],
+  ["Gelir Tahmini nerede?", "Menü ve Kategori Düzeni", "Gelir Tahmini finansal bir modüldür ve Muhasebe kategorisinde bulunur.", "gelir-tahmini"],
+  ["Agent Hub nerede?", "Menü ve Kategori Düzeni", "Agent Hub, AI Merkezi kategorisinde bulunur. Workflow, AI Hafıza ve AI Öğrenme işlemleri aynı Agent Hub modülü içinde yönetilir.", "agent-hub"],
+  ["Entegrasyonlar nerede?", "Menü ve Kategori Düzeni", "Meta, Pixel, Dataset, Google, GA4, Search Console, Google Ads, GTM, Clarity, Hotjar, SMTP, Discord ve API Durumu Entegrasyonlar kategorisinde sade başlıklarla bulunur.", "entegrasyonlar"],
   ["Kontrol Merkezi ne işe yarar?", "Admin Mimarisi", "Dashboard, HK Intelligence CEO, Bugün, Risk Merkezi, QA Merkezi, Sistem Sağlığı, Sistem Testleri, Log Merkezi ve Veri Yedekleme günlük denetim ve sistem kontrol işleri içindir.", ""],
   ["Müşteri Merkezi ne işe yarar?", "Admin Mimarisi", "Müşteriler, firma yönetimi, müşteri profilleri, şubeler, onboarding, entegrasyon durumu, müşteri notları ve müşteri paketleri bu kategoride bulunur.", "musteriler"],
   ["Satış & CRM ne işe yarar?", "Admin Mimarisi", "Lead Merkezi, müşteri keşfi, haritalar, Google Maps, CRM, Lead Workspace, satış hunisi, teklifler ve takip akışları bu kategoride bulunur.", "leads"],
