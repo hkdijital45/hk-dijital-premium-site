@@ -380,7 +380,7 @@ export function AdminDashboard({
   systemStatus,
   bootstrapWarning = false,
   initialActive = "Dashboard",
-  initialAccountingTab = ""
+  initialCenterTab = ""
 }: {
   initialContent: SiteContent;
   supabaseConfigured?: boolean;
@@ -389,7 +389,7 @@ export function AdminDashboard({
   systemStatus?: any;
   bootstrapWarning?: boolean;
   initialActive?: string;
-  initialAccountingTab?: string;
+  initialCenterTab?: string;
 }) {
   const [content, setContent] = useState(initialContent as any);
   const [active, setActive] = useState(initialActive);
@@ -601,7 +601,8 @@ export function AdminDashboard({
   }
 
   const props = { content, setContent, currentSession, allowedModules, setActive, save, notify };
-  const accountingAliases = ["Muhasebe Merkezi", "Tahsilat", "Tahsilatlar", "Bekleyen Ödemeler", "Gelir / Gider", "Gelir Tahmini", "Karlılık", "Kârlılık", "Müşteri Finans Özeti", "Export", "Muhasebe Raporları"];
+  const adminCenterLabels = ["Kontrol Merkezi", "Müşteri Merkezi", "Satış & CRM", "Reklam & Performans", "Rapor Merkezi", "Ajans Operasyonu", "Muhasebe Merkezi", "AI & Otomasyon", "Entegrasyon Merkezi", "İçerik & Medya", "Ayarlar & Yönetim"];
+  const accountingAliases = ["Tahsilat", "Tahsilatlar", "Bekleyen Ödemeler", "Gelir / Gider", "Gelir Tahmini", "Karlılık", "Kârlılık", "Müşteri Finans Özeti", "Export", "Muhasebe Raporları"];
   const visibleNavigationGroups = adminNavigationGroups
     .filter((group) => group.label !== "Muhasebe" || canViewAccounting(currentSession))
     .map((group) => ({ ...group, items: group.items.filter((item) => allowedModules.includes(item.module)) }))
@@ -769,6 +770,8 @@ export function AdminDashboard({
           {status && <p className={`mb-5 rounded-[8px] border p-3 text-sm ${status.includes("Kaydedilemedi") ? "border-red-300/30 bg-red-500/10 text-red-100" : "border-cyan-200/20 bg-cyan-200/10 text-cyan-700"}`}>{status}</p>}
           {!dashboardAliases.includes(active) && activeNavigationItem && <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-cyan-200 bg-cyan-50 p-4"><div><h2 className="font-black text-slate-950">{withAdminEmoji(activeNavigationItem.label)}</h2><p className="mt-1 text-sm text-slate-600">{activeNavigationItem.description}</p></div><Link href={`/hk-admin/sistem-rehberi?topic=${activeNavigationItem.slug}`} className="rounded-[10px] bg-white px-4 py-2.5 text-sm font-black text-cyan-700 shadow-sm ring-1 ring-cyan-200">? Yardım</Link></div>}
           {showCustomerFilter && <div className="mb-5"><AdminCustomerSelector companies={content.companies || []} value={pendingCompanyId} appliedValue={selectedCompanyId} onChange={setPendingCompanyId} onApply={applyCompanyFilter} onClear={clearCompanyFilter} /></div>}
+          {adminCenterLabels.includes(active) && <AdminModuleCenter centerLabel={active} initialTab={initialCenterTab} content={content} setContent={setContent} currentSession={currentSession} allowedModules={allowedModules} setActive={setActive} save={save} notify={notify} systemStatus={systemStatus} supabaseConfigured={supabaseConfigured} startupApiData={startupApiData} runStartupApiStatus={runStartupApiStatus} startupApiLoading={startupApiLoading} selectedCompanyId={selectedCompanyId} onClearCompanyFilter={clearCompanyFilter} />}
+          {!adminCenterLabels.includes(active) && <>
           {dashboardAliases.includes(active) && <HKAutonomousAgencyCenter content={content} setActive={setActive} notify={notify} compact />}
           {dashboardAliases.includes(active) && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} systemStatus={systemStatus} currentSession={currentSession} allowedModules={allowedModules} notify={notify} />}
           {active === "HK Intelligence CEO" && <HKAutonomousAgencyCenter content={content} setActive={setActive} notify={notify} />}
@@ -825,7 +828,7 @@ export function AdminDashboard({
           {active === "Rakip Analizi" && <CompetitorAnalysisCenter {...props} />}
           {active === "Sosyal Medya Planı" && <SocialPlanGenerator {...props} />}
           {active === "Aylık Raporlar" && <MonthlyReportCenter {...props} />}
-          {accountingAliases.includes(active) && <AccountingCenter {...props} initialTab={initialAccountingTab || accountingTabForActive(active)} selectedCompanyId={selectedCompanyId} onClearCompanyFilter={clearCompanyFilter} />}
+          {accountingAliases.includes(active) && <AccountingCenter {...props} initialTab={initialCenterTab || accountingTabForActive(active)} selectedCompanyId={selectedCompanyId} onClearCompanyFilter={clearCompanyFilter} />}
           {active === "HK Asistan" && <HKAssistantCenter {...props} />}
           {active === "Sektör Sistemleri" && <SectorSystemsCenter {...props} />}
           {active === "Müşteri Markalama" && <CustomerBrandingCenter {...props} />}
@@ -855,6 +858,7 @@ export function AdminDashboard({
           {["Kullanıcı Yönetimi", "Roller", "Güvenlik"].includes(active) && <UsersAdmin {...props} mode={active} />}
           {active === "Log Hareketleri" && <ActivityLogs content={content} setContent={setContent} />}
           {active === "Kullanım Kılavuzu" && <SystemGuideCenter currentSession={currentSession} notify={notify} />}
+          </>}
         </section>
       </div>
       {notificationsOpen && (
@@ -3128,6 +3132,271 @@ function AgencyTasksCenter({ content, setContent, save, currentSession, notify, 
     const open = expandedTask === (item.id || `${index}`);
     return <div key={item.id || index} className={`rounded-[12px] border p-4 ${archived ? "border-amber-300/25 bg-amber-50" : "border-slate-200 bg-slate-50"}`}><div className="flex flex-wrap items-center gap-3"><input type="checkbox" checked={selectedTasks.includes(item.id)} onChange={() => toggleTask(item.id)} className="size-4" /><div className="min-w-0 flex-1"><h3 className="truncate font-black text-slate-950">{item.title || "Adsız görev"}</h3><p className="mt-1 text-xs text-slate-500">{companyName(content, item.company_id)}{item.branch_id ? ` · ${branchName(item.branch_id)}` : ""} · Son tarih: {formatDate(item.due_date)}</p></div><span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-700 ring-1 ring-slate-200">{item.status || "Yapılacak"}</span><span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-black text-cyan-700 ring-1 ring-cyan-200">{item.priority || "Orta"}</span><span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-600">{(content.users || []).find((user) => user.id === item.assigned_user_id)?.full_name || "Atanmadı"}</span><RecordActionButton tone="cyan" onClick={() => setExpandedTask(open ? "" : (item.id || `${index}`))}>{open ? "Detayı Kapat" : "Görüntüle"}</RecordActionButton>{canManage && <RecordActionButton tone="emerald" onClick={() => setStatus(item.id, item.status === "Tamamlandı" ? "Yapılacak" : "Tamamlandı")}>{item.status === "Tamamlandı" ? "Tekrar Aç" : "Tamamlandı Yap"}</RecordActionButton>}</div>{open && <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4"><Field label="Başlık" value={item.title || ""} onChange={(value) => update(index, { title: value })} /><CompanySelect value={item.company_id || ""} onChange={(value) => update(index, { company_id: value, branch_id: "" })} companies={content.companies} /><SelectField label="Şube" value={item.branch_id || ""} onChange={(value) => update(index, { branch_id: value })} options={(content.customerBranches || []).filter((branch) => branch.company_id === item.company_id).map((branch) => ({ value: branch.id, label: branch.branch_name }))} placeholder="Tüm şubeler" /><SelectField label="Durum" value={item.status || "Yapılacak"} onChange={(value) => canManage && setStatus(item.id, value)} options={taskStatusOptions} /><SelectField label="Öncelik" value={item.priority || "Orta"} onChange={(value) => update(index, { priority: value })} options={["Düşük", "Orta", "Yüksek", "Kritik"]} /><Field label="Son tarih" type="date" value={item.due_date || ""} onChange={(value) => update(index, { due_date: value })} /><SelectField label="Atanan kullanıcı" value={item.assigned_user_id || ""} onChange={(value) => update(index, { assigned_user_id: value })} options={(content.users || []).map((user) => ({ value: user.id, label: user.full_name || user.email }))} placeholder="Atanmadı" /><label className="flex items-center gap-2 self-end rounded-[10px] border border-cyan-200 bg-white px-3 py-3 text-sm font-bold text-cyan-800"><input type="checkbox" checked={Boolean(item.visible_to_customer || item.show_to_customer)} onChange={(event) => update(index, { visible_to_customer: event.target.checked, show_to_customer: event.target.checked })} /> Müşteriye gösterilsin</label><div className="md:col-span-2 xl:col-span-4"><TextArea label="Açıklama / not" value={item.description || item.notes || ""} onChange={(value) => update(index, { description: value, notes: value })} /></div><div className="md:col-span-2 xl:col-span-4 flex flex-wrap justify-end gap-2">{canManage && (archived ? <RecordActionButton tone="amber" onClick={() => updateById(item.id, { archived_at: null, deleted_at: null }, "Görev arşivden çıkarıldı")}>Arşivden Çıkar</RecordActionButton> : <RecordActionButton tone="amber" onClick={() => updateById(item.id, { archived_at: new Date().toISOString() }, "Görev arşivlendi")}>Arşivle</RecordActionButton>)}{canManage && <RecordActionButton tone="red" onClick={() => deleteTask(item.id)}>Sil</RecordActionButton>}{canManage && <button onClick={() => save?.()} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Kaydet</button>}</div></div>}</div>;
   })}{!filteredItems.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-6 text-sm text-slate-400">Bu filtrelerle görev kaydı bulunamadı.</p>}</div></Panel>;
+}
+
+
+function centerSlugForLabel(label = "") {
+  return ({
+    "Kontrol Merkezi": "kontrol-merkezi",
+    "Müşteri Merkezi": "musteri-merkezi",
+    "Satış & CRM": "satis-crm",
+    "Reklam & Performans": "reklam-performans",
+    "Rapor Merkezi": "rapor-merkezi",
+    "Ajans Operasyonu": "ajans-operasyon",
+    "Muhasebe Merkezi": "muhasebe",
+    "AI & Otomasyon": "ai-otomasyon",
+    "Entegrasyon Merkezi": "entegrasyon-merkezi",
+    "İçerik & Medya": "icerik-medya",
+    "Ayarlar & Yönetim": "ayarlar-yonetim"
+  } as Record<string, string>)[label] || "kontrol-merkezi";
+}
+
+function centerTabsFor(label = "") {
+  const tabs: Record<string, Array<[string, string, string]>> = {
+    "Kontrol Merkezi": [
+      ["dashboard", "Genel Dashboard", "Ajans KPI, risk ve günlük operasyon özeti."],
+      ["hk-intelligence-ceo", "HK Intelligence CEO", "AI ajans işletim masası."],
+      ["bugun", "Bugün Ne Yapmalıyım?", "Öncelikli işler ve aksiyonlar."],
+      ["risk", "Risk Merkezi", "Müşteri, tahsilat ve entegrasyon riskleri."],
+      ["qa", "QA Merkezi", "Kalite kontrol ve onarım raporu."],
+      ["saglik", "Sistem Sağlığı", "API, DB ve servis durumları."],
+      ["test", "Sistem Testleri", "Manuel ve otomatik sistem testleri."],
+      ["loglar", "Log ve Aktivite", "Aktivite ve denetim kayıtları."],
+      ["veri-yedekleme", "Veri Yedekleme", "Export, import ve yedekleme işlemleri."]
+    ],
+    "Müşteri Merkezi": [
+      ["musteriler", "Müşteriler", "Müşteri kayıtları ve filtreler."],
+      ["profiller", "Müşteri Profilleri", "Profil popup ve 360 derece özet."],
+      ["onboarding", "Onboarding / Kurulum", "Yeni müşteri kurulum adımları."],
+      ["subeler", "Şubeler", "Şube bazlı takip ve operasyon."],
+      ["entegrasyon", "Entegrasyon Durumu", "Müşteri bazlı bağlantı durumu."],
+      ["notlar", "Müşteri Notları", "CRM notları ve takip kayıtları."],
+      ["finans", "Müşteri Finans Özeti", "Müşteri tahsilat ve risk özeti."],
+      ["paketler", "Uygulanan Paketler", "Paket/plan uygulama geçmişi."],
+      ["rakipler", "Rakipler", "Müşteri rakipleri ve sinyalleri."],
+      ["yasam", "Müşteri Yaşam Döngüsü", "İlk kayıt, kampanya, rapor ve kapanış akışı."]
+    ],
+    "Satış & CRM": [
+      ["leadler", "Leadler", "Başvuru ve lead listesi."],
+      ["musteri-kesfi", "Müşteri Keşfi", "Yeni işletme keşfi."],
+      ["haritalar", "Haritalar", "Maps sinyalleri ve bölgesel keşif."],
+      ["lead-analizi", "Lead Analizi", "Lead kalite ve fırsat analizi."],
+      ["lead-workspace", "CRM & Lead Workspace", "CRM çalışma alanı."],
+      ["takip", "Takip Merkezi", "Arama, WhatsApp ve teklif takipleri."],
+      ["satis-hunisi", "Satış Hunisi", "Pipeline aşamaları."],
+      ["teklif", "Teklif Oluştur", "Teklif hazırlama motoru."],
+      ["teklif-takip", "Teklif Takip Merkezi", "Teklif sonrası takip."],
+      ["won-lost", "Kazanıldı / Kaybedildi Analizi", "Kapanış analizi."]
+    ],
+    "Reklam & Performans": [
+      ["kampanyalar", "Kampanyalar", "Reklam kampanyaları."],
+      ["hesap-eslestirme", "Reklam Hesabı Eşleştirme", "Müşteri-hesap bağlantısı."],
+      ["meta-istihbarat", "Meta İstihbarat", "Meta reklam sinyalleri."],
+      ["google-istihbarat", "Google İstihbarat", "Google Ads sinyalleri."],
+      ["reklam-doktoru", "Reklam Doktoru Pro", "Performans teşhisleri."],
+      ["meta-raporlari", "Meta Raporları", "Meta rapor verileri."],
+      ["google-raporlari", "Google Ads Raporları", "Google rapor verileri."],
+      ["website-analytics", "Website Analytics", "GA4, Pixel ve site ölçümü."],
+      ["rakip-analizi", "Rakip Analizi", "Rakip keşfi ve skorları."],
+      ["rakip-sinyalleri", "Rakip Sinyalleri", "Takip edilen rakip hareketleri."],
+      ["kreatif", "Kreatif Performans", "Kreatif ve içerik performansı."]
+    ],
+    "Rapor Merkezi": [
+      ["aylik-raporlar", "Aylık Raporlar", "Aylık müşteri raporu."],
+      ["musteri-raporlari", "Müşteri Raporları", "Rapor listesi ve görünürlük."],
+      ["pdf-tasarim", "PDF Rapor Tasarım Merkezi", "Rapor tasarım ayarları."],
+      ["pdf-audit", "PDF Audit", "Audit ve denetim çıktıları."],
+      ["ciktilar", "Word / PDF / PowerPoint Çıktılar", "Profesyonel çıktı hazırlığı."],
+      ["onay", "Rapor Onayı", "İç kontrol ve müşteri onayı."],
+      ["musteriye-gosterilecek", "Müşteriye Gösterilecek Raporlar", "Müşteri paneli görünürlüğü."],
+      ["disa-aktarim", "Dışa Aktarım", "CSV, Word ve HTML export."]
+    ],
+    "Ajans Operasyonu": [
+      ["gorevler", "Görevler", "Görev takip sistemi."],
+      ["takvim", "Takvim", "Ajans operasyon takvimi."],
+      ["ajans-hedefleri", "Ajans Hedefleri", "Aylık operasyon hedefleri."],
+      ["belgeler", "Belgeler", "Belge ve dosya yönetimi."],
+      ["sozlesmeler", "Sözleşmeler", "Sözleşme taslakları."],
+      ["whatsapp", "WhatsApp Hatırlatma", "Mesaj şablonları."],
+      ["sosyal-medya-plani", "Sosyal Medya Planı", "Sosyal medya takvimi."],
+      ["icerik-takvimi", "İçerik Takvimi", "İçerik operasyon planı."],
+      ["onay-akisi", "Onay Akışı", "İç ve müşteri onay adımları."],
+      ["kampanya-operasyon", "Kampanya Operasyon Takibi", "Kurulum ve optimizasyon."],
+      ["ekip-isleri", "Ekip İşleri", "Sektör sistemleri ve ekip işi."]
+    ],
+    "Muhasebe Merkezi": [
+      ["genel", "Genel Bakış", "Finans dashboard."],
+      ["tahsilatlar", "Tahsilatlar", "Ödeme kayıtları."],
+      ["bekleyen", "Bekleyen Ödemeler", "Açık tahsilatlar."],
+      ["gelir-gider", "Gelir / Gider", "Gelir ve gider tablosu."],
+      ["gelir-tahmini", "Gelir Tahmini", "Gelir projeksiyonu."],
+      ["karlilik", "Kârlılık", "Kâr ve marj analizi."],
+      ["musteri-finans", "Müşteri Finans Özeti", "Müşteri finans görünümü."],
+      ["raporlar", "Raporlar", "Finans raporları."],
+      ["export", "Dışa Aktar", "Finans export."]
+    ],
+    "AI & Otomasyon": [
+      ["agent-hub", "HK Agent Hub", "AI agent ve sağlayıcı merkezi."],
+      ["ai-studio", "AI Studio", "AI içerik ve analiz üretimi."],
+      ["satis-kocu", "AI Satış Koçu", "Satış metinleri ve itirazlar."],
+      ["promptlar", "Prompt Merkezi", "Komut metinleri."],
+      ["workflow", "Workflow Builder", "İş akışı taslakları."],
+      ["hafiza", "Agent Hafızası", "AI öğrenme kayıtları."],
+      ["benchmark", "AI Benchmark", "Sağlayıcı kıyasları."],
+      ["cost", "AI Cost Dashboard", "Maliyet ve token takibi."],
+      ["scheduled", "Zamanlanmış Agent Görevleri", "Planlı agent işleri."],
+      ["automation", "Automation Center", "Otomasyon merkezi."]
+    ],
+    "Entegrasyon Merkezi": [
+      ["genel", "Genel Entegrasyon Durumu", "Tüm bağlantı özeti."],
+      ["meta", "Meta", "Meta bağlantıları."],
+      ["pixel", "Pixel", "Pixel durumu."],
+      ["dataset", "Dataset", "Meta Dataset ID."],
+      ["google", "Google", "Google servisleri."],
+      ["ga4", "GA4", "Analytics durumu."],
+      ["search-console", "Search Console", "Search Console hazırlığı."],
+      ["google-ads", "Google Ads", "Google Ads API durumu."],
+      ["gtm", "GTM", "Tag Manager."],
+      ["clarity", "Clarity", "Microsoft Clarity."],
+      ["hotjar", "Hotjar", "Hotjar durumu."],
+      ["smtp", "SMTP / Resend", "E-posta servisleri."],
+      ["discord", "Discord", "Bildirim entegrasyonu."],
+      ["api-anahtar", "API Anahtar Durumu", "Secret göstermeyen durum kontrolü."]
+    ],
+    "İçerik & Medya": [
+      ["icerik-planlari", "İçerik Planları", "İçerik fikirleri."],
+      ["sosyal-medya-plani", "Sosyal Medya Planı", "Sosyal medya planı."],
+      ["kreatif", "Kreatif Stüdyo", "Kreatif üretim alanı."],
+      ["medya", "Medya", "Görsel ve dosya yönetimi."],
+      ["kampanya-onerileri", "Kampanya Önerileri", "Kampanya fikirleri."],
+      ["reels-story", "Reels / Story Planları", "Kısa video planları."],
+      ["onay-bekleyen", "Müşteri Onayı Bekleyen İçerikler", "Onay bekleyen içerikler."]
+    ],
+    "Ayarlar & Yönetim": [
+      ["web-site", "Web Sitesi Yönetimi", "Public site içerikleri."],
+      ["kullanicilar", "Kullanıcı Yönetimi", "Admin ve müşteri kullanıcıları."],
+      ["roller", "Roller ve Yetkiler", "Yetki yönetimi."],
+      ["tema-logo", "Tema / Logo", "Marka görünümü."],
+      ["sistem", "Sistem Ayarları", "Genel sistem tercihleri."],
+      ["portal", "Müşteri Portal Ayarları", "Müşteri paneli ayarları."],
+      ["guvenlik", "Güvenlik", "Erişim ve güvenlik kontrolleri."]
+    ]
+  };
+  return tabs[label] || tabs["Kontrol Merkezi"];
+}
+
+function AdminModuleCenter({ centerLabel, initialTab = "", content, setContent, currentSession, allowedModules, setActive, save, notify, systemStatus, supabaseConfigured, startupApiData, runStartupApiStatus, startupApiLoading, selectedCompanyId = "", onClearCompanyFilter }: any) {
+  const tabs = centerTabsFor(centerLabel);
+  const defaultTab = tabs[0]?.[0] || "genel";
+  const [tab, setTab] = useState(initialTab && tabs.some(([key]) => key === initialTab) ? initialTab : defaultTab);
+  const [branchId, setBranchId] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const centerSlug = centerSlugForLabel(centerLabel);
+  const needsCustomerFilter = ["Müşteri Merkezi", "Reklam & Performans", "Rapor Merkezi", "Ajans Operasyonu", "Muhasebe Merkezi", "AI & Otomasyon"].includes(centerLabel);
+  const branches = (content.customerBranches || []).filter((branch: any) => !selectedCompanyId || branch.company_id === selectedCompanyId);
+  const adminOwnerOnly = ["admin", "owner"].includes(String(currentSession?.role || ""));
+  useEffect(() => {
+    if (initialTab && tabs.some(([key]) => key === initialTab)) setTab(initialTab);
+  }, [initialTab, centerLabel]);
+  function changeTab(next: string) {
+    setTab(next);
+    if (typeof window !== "undefined") window.history.replaceState(null, "", `/hk-admin/${centerSlug}?tab=${encodeURIComponent(next)}`);
+  }
+  const props = { content, setContent, currentSession, allowedModules, setActive, save, notify };
+  function placeholder(title: string, detail: string, target?: string) {
+    return <GlassCard className="p-5"><h3 className="text-xl font-black text-slate-950">{title}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{detail}</p><div className="mt-4 flex flex-wrap gap-2"><button onClick={() => target ? setActive(target) : notify?.("Bu sekme mevcut merkez içinde hazırlık görünümü olarak tutuluyor.", "info")} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">İlgili modülü aç</button><Link href={`/hk-admin/sistem-rehberi?topic=${centerSlug}`} className="rounded-full border border-cyan-200 bg-white px-4 py-2 text-sm font-black text-cyan-700">Rehberi aç</Link></div></GlassCard>;
+  }
+  function renderTab() {
+    if (centerLabel === "Kontrol Merkezi") {
+      if (tab === "dashboard") return <><HKAutonomousAgencyCenter content={content} setActive={setActive} notify={notify} compact /><Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} systemStatus={systemStatus} currentSession={currentSession} allowedModules={allowedModules} notify={notify} /></>;
+      if (tab === "hk-intelligence-ceo") return <HKAutonomousAgencyCenter content={content} setActive={setActive} notify={notify} />;
+      if (tab === "bugun") return <HKAutonomousAgencyCenter content={content} setActive={setActive} notify={notify} compact />;
+      if (tab === "risk") return <HKIntelligenceCommandCenter {...props} initialView="risk" />;
+      if (tab === "qa") return <QaCenter notify={notify} />;
+      if (tab === "saglik") return <SystemHealthCenter content={content} setContent={setContent} startupApiData={startupApiData} runStartupApiStatus={runStartupApiStatus} startupApiLoading={startupApiLoading} />;
+      if (tab === "test") return <SystemTestCenter content={content} setContent={setContent} save={save} currentSession={currentSession} notify={notify} systemStatus={systemStatus} supabaseConfigured={supabaseConfigured} />;
+      if (tab === "loglar") return <ActivityLogs content={content} setContent={setContent} />;
+      if (tab === "veri-yedekleme") return <ExportCenter content={content} currentSession={currentSession} notify={notify} />;
+    }
+    if (centerLabel === "Müşteri Merkezi") {
+      if (["musteriler", "profiller", "subeler", "notlar", "paketler", "yasam"].includes(tab)) return <CustomersAdmin {...props} selectedCompanyId={selectedCompanyId} />;
+      if (tab === "onboarding") return <CustomersAdmin {...props} selectedCompanyId={selectedCompanyId} />;
+      if (tab === "entegrasyon") return <IntegrationsCenter {...props} selectedCompanyId={selectedCompanyId} />;
+      if (tab === "finans") return <AccountingCenter {...props} initialTab="musteri-finans" selectedCompanyId={selectedCompanyId} onClearCompanyFilter={onClearCompanyFilter} />;
+      if (tab === "rakipler") return <CompetitorAnalysisCenter {...props} />;
+      if (tab === "markalama") return <CustomerBrandingCenter {...props} />;
+    }
+    if (centerLabel === "Satış & CRM") {
+      if (tab === "leadler") return <Crm {...props} view="Lead Durumları" setActive={setActive} />;
+      if (tab === "musteri-kesfi") return <CustomerFinder {...props} />;
+      if (tab === "haritalar") return <MapsIntelligence {...props} setActive={setActive} mode="Haritalar" />;
+      if (tab === "lead-analizi") return <Crm {...props} view="Lead Durumları" setActive={setActive} />;
+      if (tab === "lead-workspace") return <Crm {...props} view="Lead Durumları" setActive={setActive} />;
+      if (tab === "takip") return <LeadFollowUpCenter {...props} setActive={setActive} />;
+      if (tab === "satis-hunisi") return <SalesPipeline content={content} setContent={setContent} save={save} setActive={setActive} notify={notify} />;
+      if (tab === "teklif") return <ProposalEngine {...props} setActive={setActive} />;
+      if (tab === "teklif-takip") return <ProposalFollowupCenter {...props} setActive={setActive} />;
+      if (tab === "won-lost") return <WonLostAnalysisCenter {...props} />;
+    }
+    if (centerLabel === "Reklam & Performans") {
+      if (tab === "kampanyalar") return <CampaignAdmin {...props} />;
+      if (tab === "hesap-eslestirme") return <AdAccountMappingCenter {...props} />;
+      if (tab === "meta-istihbarat" || tab === "meta-raporlari") return <MetaAnalysisSection />;
+      if (tab === "google-istihbarat" || tab === "google-raporlari") return <GoogleAdsAnalysisSection />;
+      if (tab === "reklam-doktoru") return <AdInsightsCenter content={content} notify={notify} />;
+      if (tab === "website-analytics") return <WebsiteAnalyticsCenter />;
+      if (tab === "rakip-analizi" || tab === "rakip-sinyalleri") return <CompetitorAnalysisCenter {...props} />;
+      if (tab === "kreatif") return <PreparationCenter {...props} setActive={setActive} mode="Kampanya Önerileri" />;
+    }
+    if (centerLabel === "Rapor Merkezi") {
+      if (tab === "aylik-raporlar") return <MonthlyReportCenter {...props} />;
+      if (tab === "musteri-raporlari" || tab === "musteriye-gosterilecek" || tab === "disa-aktarim") return <ReportsHub {...props} selectedCompanyId={selectedCompanyId} />;
+      if (tab === "pdf-tasarim") return <PdfReportDesignCenter {...props} />;
+      if (tab === "pdf-audit") return <SocialMediaAuditCenter />;
+      if (["ciktilar", "onay"].includes(tab)) return placeholder(tabs.find(([key]) => key === tab)?.[1] || "Rapor Sekmesi", "Bu rapor akışı mevcut rapor merkezi verileri ve profesyonel export helperlarıyla çalışır.", "Raporlar");
+    }
+    if (centerLabel === "Ajans Operasyonu") {
+      if (tab === "gorevler") return <AgencyTasksCenter {...props} selectedCompanyId={selectedCompanyId} />;
+      if (tab === "takvim") return <AgencyCalendarCenter {...props} />;
+      if (tab === "ajans-hedefleri") return <AgencyTargetsCenter {...props} />;
+      if (tab === "belgeler") return <DocumentCenter {...props} selectedCompanyId={selectedCompanyId} />;
+      if (tab === "sozlesmeler") return <ContractGeneratorCenter {...props} />;
+      if (tab === "whatsapp") return <WhatsAppReminderCenter {...props} setActive={setActive} />;
+      if (tab === "sosyal-medya-plani" || tab === "icerik-takvimi") return <SocialPlanGenerator {...props} />;
+      if (["onay-akisi", "kampanya-operasyon"].includes(tab)) return placeholder(tabs.find(([key]) => key === tab)?.[1] || "Operasyon Sekmesi", "Bu operasyon sekmesi görevler, sosyal medya planı ve kampanya takibiyle birlikte kullanılır.", "Görevler");
+      if (tab === "ekip-isleri") return <SectorSystemsCenter {...props} />;
+    }
+    if (centerLabel === "Muhasebe Merkezi") return <AccountingCenter {...props} initialTab={tab} selectedCompanyId={selectedCompanyId} onClearCompanyFilter={onClearCompanyFilter} />;
+    if (centerLabel === "AI & Otomasyon") {
+      if (["agent-hub", "workflow", "hafiza", "benchmark", "cost", "scheduled", "automation"].includes(tab)) return <AgentHubCenter content={content} notify={notify} />;
+      if (tab === "ai-studio") return <AiAssistant {...props} mode="AI Studio" />;
+      if (tab === "satis-kocu") return <AiSalesCoachCenter {...props} />;
+      if (tab === "promptlar") return <PreparationCenter {...props} setActive={setActive} mode="Promptlar" />;
+    }
+    if (centerLabel === "Entegrasyon Merkezi") {
+      if (tab === "api-anahtar" && !adminOwnerOnly) return placeholder("Yetki gerekli", "API anahtar durumu sadece admin ve owner rollerine açıktır. Secret değerler bu ekranda da gösterilmez.");
+      return <IntegrationsCenter {...props} selectedCompanyId={selectedCompanyId} />;
+    }
+    if (centerLabel === "İçerik & Medya") {
+      if (tab === "icerik-planlari") return <PreparationCenter {...props} setActive={setActive} mode="İçerik Planları" />;
+      if (tab === "sosyal-medya-plani" || tab === "reels-story" || tab === "onay-bekleyen") return <SocialPlanGenerator {...props} />;
+      if (tab === "kreatif") return <PreparationCenter {...props} setActive={setActive} mode="Kampanya Önerileri" />;
+      if (tab === "medya") return <MediaLogoHub {...props} />;
+      if (tab === "kampanya-onerileri") return <PreparationCenter {...props} setActive={setActive} mode="Kampanya Önerileri" />;
+    }
+    if (centerLabel === "Ayarlar & Yönetim") {
+      if (tab === "web-site") return <WebsiteManagementCenter {...props} />;
+      if (["kullanicilar", "roller", "guvenlik"].includes(tab) && !adminOwnerOnly) return placeholder("Yetki gerekli", "Kullanıcı yönetimi, roller/yetkiler ve güvenlik sekmeleri sadece admin ve owner rollerine açıktır.");
+      if (["kullanicilar", "roller", "guvenlik"].includes(tab)) return <UsersAdmin {...props} mode={tab === "roller" ? "Roller & Yetkiler" : "Kullanıcı Yönetimi"} />;
+      if (tab === "tema-logo") return <ThemeEditor onApply={() => null} />;
+      if (tab === "sistem") return <Settings {...props} />;
+      if (tab === "portal") return <CustomerPanelAdmin {...props} />;
+    }
+    return placeholder("Sekme hazırlanıyor", "Bu sekme ilgili merkezin altında konumlandırıldı. Var olan route kırılmadan korunur.");
+  }
+  return <div className="space-y-5"><div className="rounded-[18px] border border-cyan-200 bg-cyan-50 p-5"><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">HK Admin Merkez Mimarisi</p><h2 className="mt-2 text-2xl font-black text-slate-950">{centerLabel}</h2><p className="mt-2 max-w-4xl text-sm leading-6 text-slate-700">Bu merkez ilgili işleri tek route altında sekmelerle toplar. Eski sayfa adresleri bozulmadan bu merkezin doğru sekmesine yönlendirilir.</p></div>{needsCustomerFilter && <div className="rounded-[16px] border border-slate-200 bg-slate-50 p-4"><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5"><CompanySelect label="Müşteri" value={selectedCompanyId || ""} onChange={() => notify?.("Müşteri filtresi üst bar üzerinden uygulanır.", "info")} companies={content.companies} /><SelectField label="Şube" value={branchId} onChange={setBranchId} options={[{ value: "", label: "Tüm şubeler" }, ...branches.map((branch: any) => ({ value: branch.id, label: branch.branch_name || branch.name || "Şube" }))]} /><Field label="Başlangıç" type="date" value={dateFrom} onChange={setDateFrom} /><Field label="Bitiş" type="date" value={dateTo} onChange={setDateTo} /><Field label="Durum" value={statusFilter} onChange={setStatusFilter} placeholder="Tümü" /></div><div className="mt-3 flex flex-wrap gap-2"><button onClick={() => notify?.("Filtre bağlamı bu merkezdeki sekmelere uygulanır.", "info")} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Filtrele</button><button onClick={() => { setBranchId(""); setDateFrom(""); setDateTo(""); setStatusFilter(""); onClearCompanyFilter?.(); }} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700">Temizle</button></div></div>}<div className="premium-scrollbar flex gap-2 overflow-x-auto rounded-[16px] border border-slate-200 bg-white p-2">{tabs.map(([key, label, detail]) => <button key={key} onClick={() => changeTab(key)} title={detail} className={`shrink-0 rounded-full px-4 py-2 text-sm font-black transition ${tab === key ? "bg-cyan-300 text-slate-950" : "border border-slate-200 bg-white text-slate-700 hover:bg-cyan-50"}`}>{label}</button>)}</div><div className="rounded-[16px] border border-slate-200 bg-white p-4"><div className="mb-4 rounded-[12px] border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600"><strong className="text-slate-950">Bu merkezde ne yapabilirsin?</strong><span className="ml-2">{tabs.find(([key]) => key === tab)?.[2] || "İlgili ajans işini yönetebilirsiniz."}</span></div>{renderTab()}</div></div>;
 }
 
 function DocumentCenter({ content, setContent, selectedCompanyId = "" }: any) {

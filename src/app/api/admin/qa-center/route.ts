@@ -496,10 +496,27 @@ function scanSourcesForFindings(migrations: string) {
     ["Muhasebe rapor çıktıları payload mı?", "PDF-ready HTML", "Muhasebe raporları ekran görüntüsü yerine CSV, PDF-ready HTML veya Word uyumlu metin çıktısı üretmelidir."],
     ["Muhasebede müşteriye gösterilsin toggle’ı var mı?", "visible_to_customer", "Tahsilat veya finans kayıtlarında müşteri paneli görünürlüğü açıkça yönetilmelidir."],
     ["Muhasebe siyah buton kullanıyor mu?", "bg-cyan", "Muhasebe Merkezi aksiyonları siyah primary yerine cyan, mavi, yeşil, sarı veya kırmızı anlam renkleriyle verilmelidir."],
+    ["Menü ve Merkez Mimarisi Kontrolü var mı?", "HK Admin Merkez Mimarisi", "QA Center yeni merkez mimarisini ve eski route yönlendirmelerini açıkça kontrol etmelidir."],
+    ["Ana menü 11 merkezden fazla şişiyor mu?", "Ayarlar & Yönetim", "Admin navigation yalnız 11 profesyonel ana merkezi göstermelidir."],
+    ["Her route bir merkeze bağlı mı?", "legacySlugRedirects", "Eski route slug değerleri ilgili merkez ve sekmeye canonical olarak bağlanmalıdır."],
+    ["Müşteriler Müşteri Merkezi altında mı?", "musteri-merkezi?tab=musteriler", "Müşteriler eski route kırılmadan Müşteri Merkezi > Müşteriler sekmesine yönlenmelidir."],
+    ["Rakip analizi Reklam & Performans altında mı?", "reklam-performans?tab=rakip-analizi", "Rakip Analizi reklam performansı ve istihbarat bağlamında Reklam & Performans merkezine taşınmalıdır."],
+    ["Website Analytics Reklam & Performans altında mı?", "reklam-performans?tab=website-analytics", "Website Analytics eski route ile açıldığında Reklam & Performans merkezinin ilgili sekmesine gitmelidir."],
+    ["Gelir Tahmini Muhasebe altında mı?", "muhasebe?tab=gelir-tahmini", "Gelir Tahmini finansal karar ekranıdır; Muhasebe Merkezi içinde sekme olarak açılmalıdır."],
+    ["Bekleyen Ödemeler Muhasebe altında mı?", "muhasebe?tab=bekleyen", "Bekleyen ödemeler ana menü kalabalığı yapmadan Muhasebe Merkezi içinde çalışmalıdır."],
+    ["Agent Hub AI & Otomasyon altında mı?", "ai-otomasyon?tab=agent-hub", "HK Agent Hub AI sağlayıcı, hafıza, benchmark ve otomasyon işleriyle AI & Otomasyon merkezinde konumlanmalıdır."],
+    ["Entegrasyonlar Entegrasyon Merkezi altında mı?", "entegrasyon-merkezi?tab=genel", "Meta, Google, GA4 ve API anahtar durumları tek Entegrasyon Merkezi altında toplanmalıdır."],
+    ["QA Merkezi Kontrol Merkezi altında mı?", "kontrol-merkezi?tab=qa", "QA Merkezi Kontrol Merkezi içinde tek yerde görünmeli ve duplicate menü kaydı oluşturmamalıdır."],
+    ["Veri Yedekleme Kontrol Merkezi altında mı?", "kontrol-merkezi?tab=veri-yedekleme", "Veri Aktarma eski route'u Kontrol Merkezi > Veri Yedekleme sekmesine yönlenmelidir."],
+    ["Web sitesi yönetimi Ayarlar altında mı?", "ayarlar-yonetim?tab=web-site", "Web sitesi yönetimi Ayarlar & Yönetim merkezinde görünmelidir."],
+    ["Finansal sayfalar yetkisiz kullanıcıya kapalı mı?", "canViewAccounting", "Muhasebe grubu admin, owner, finance veya muhasebe yetkisi olan kullanıcılarla sınırlanmalıdır."],
+    ["Kullanıcı yönetimi admin/owner ile sınırlı mı?", "adminOwnerOnly", "Kullanıcı yönetimi, roller ve güvenlik sekmeleri admin/owner dışında içerik göstermemelidir."],
+    ["API Anahtar Durumu admin/owner ile sınırlı mı?", "api-anahtar", "API anahtar durumu sekmesi secret göstermeden yalnız admin/owner rolüne açılmalıdır."],
+    ["Eski route’lar kırılıyor mu?", "redirect(\"/hk-admin/reklam-performans?tab=website-analytics\")", "Özel eski route dosyaları merkez route'una redirect ederek kırılmadan çalışmalıdır."],
     ["Duplicate menü kaydı var mı?", "QA Merkezi", "QA Merkezi, Sistem Sağlık Merkezi ve Sistem Test Merkezi tek profesyonel kategoride görünmeli; Araçlar altında tekrar etmemelidir."],
     ["Boş/yanlış route var mı?", "getAdminHref", "Navigation slug değerleri mevcut /hk-admin route yapısını bozmadan canonical route üretmelidir."],
     ["Menü açıklamaları Türkçe mi?", "description", "Admin menü açıklamaları kısa, Türkçe ve kullanıcıya yol gösteren metinler olmalıdır."],
-    ["Ana kategoriler mantıklı mı?", "Kontrol Merkezi", "Kontrol, Müşteri & Satış, Reklam & Raporlama, Ajans Operasyonu, Muhasebe, İçerik & AI, Entegrasyonlar, Araçlar & Yardım ve Ayarlar kategorileri korunmalıdır."]
+    ["Ana kategoriler mantıklı mı?", "Kontrol Merkezi", "Kontrol Merkezi, Müşteri Merkezi, Satış & CRM, Reklam & Performans, Rapor Merkezi, Ajans Operasyonu, Muhasebe, AI & Otomasyon, Entegrasyonlar, İçerik & Medya ve Ayarlar & Yönetim kategorileri korunmalıdır."]
   ].forEach(([title, pattern, recommendation]) => {
     const inSource = sourceContains(pattern) || migrations.includes(String(pattern).toLocaleLowerCase("tr"));
     if (!inSource) findings.push(makeFinding({ category: "Ajans Operasyonu QA", severity: "orta", module: "Ajans Operasyon Kalıcılığı", file_path: "src/components/admin/AdminDashboard.tsx", title, description: `${pattern} sinyali statik analizde bulunamadı.`, recommendation }));

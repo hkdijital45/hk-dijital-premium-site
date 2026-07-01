@@ -18,5 +18,5 @@ export default async function AdminModulePage({
   const section = getAdminSectionBySlug(module);
   if (!section) redirect("/hk-admin");
   if (!(await requireModuleAccess(section.module))) redirect("/hk-admin");
-  return <AdminDashboard {...await getAdminPageData()} initialActive={section.label} initialAccountingTab={query?.tab} />;
+  return <AdminDashboard {...await getAdminPageData()} initialActive={section.label} initialCenterTab={query?.tab} />;
 }

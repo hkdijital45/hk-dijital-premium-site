@@ -1,11 +1,7 @@
-import { IntegrationCenter } from "@/components/admin/Phase2OperatingSystem";
-import { getAdminPageData } from "@/lib/admin-page-data";
-import { getIntegrations, safeIntegrationForClient } from "@/lib/business-flow";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function GoogleIntegrationsPage() {
-  const data = await getAdminPageData();
-  const integrations = (await getIntegrations("google")).map(safeIntegrationForClient);
-  return <IntegrationCenter provider="google" content={data.initialContent} integrations={integrations} />;
+  redirect("/hk-admin/entegrasyon-merkezi?tab=google");
 }
