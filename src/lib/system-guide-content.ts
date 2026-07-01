@@ -19,7 +19,7 @@ export type SystemGuideSeed = {
 export const systemGuideCategories = [
   "Müşteri Serüveni", "Admin Mimarisi", "Menü ve Kategori Düzeni", "Dashboard & Kontrol Merkezi", "CRM & Müşteriler", "Müşteri & Satış", "Ajans Operasyonu", "Satış Hunisi", "Muhasebe", "Tahsilat & Karlılık",
   "Görev Yönetimi", "Raporlama Merkezi", "Meta Entegrasyonları", "Google Entegrasyonları",
-  "HK Intelligence", "AI Studio", "Dosya & Belge Merkezi", "Kullanıcı Yönetimi", "Ayarlar",
+  "HK Intelligence", "HK Digital OS v2.0", "AI Studio", "Dosya & Belge Merkezi", "Kullanıcı Yönetimi", "Ayarlar",
   "Web Site Yönetimi", "Müşteri Paneli", "Sorun Giderme", "HK Agent Hub"
 ];
 
@@ -58,6 +58,16 @@ const definitions: Array<[string, string, string, string]> = [
   ["AI agent çalıştırma nerede?", "Admin Mimarisi", "AI Merkezi > Agent Hub bağlantısı /hk-admin/agent-hub route’unu açar.", "agent-hub"],
   ["Entegrasyon kontrolü nerede?", "Admin Mimarisi", "Entegrasyonlar kategorisindeki Entegrasyonlar, Meta, Google, GA4, Search Console ve API Durumu bağlantılarını kullanın.", "entegrasyonlar"],
   ["Veri yedekleme nerede?", "Admin Mimarisi", "Kontrol Merkezi > Veri Yedekleme bağlantısı /hk-admin/veri-aktarma route’unu açar.", "veri-aktarma"],
+  ["HK Digital OS v2.0 nedir?", "HK Digital OS v2.0", "HK Digital OS v2.0; rakip istihbaratı, görev, müşteri profili, CEO kokpiti, AI ajans asistanı, bildirim merkezi ve müşteri operasyon zincirini birbirine bağlayan ajans işletim katmanıdır.", "hk-intelligence-ceo"],
+  ["Rakip İstihbarat Merkezi nasıl kullanılır?", "HK Digital OS v2.0", "Rakip Analizi ekranında Google Maps’ten rakip bul, skorları hesapla, seçilenleri kaydet, takip edilen rakipleri ve yeni sinyalleri izle, müşteriye gönderilecek sade özeti hazırla.", "rakip-analizi"],
+  ["Takip Edilen Rakipler ne işe yarar?", "HK Digital OS v2.0", "İzlemeye alınan rakiplerde Google yorum, puan, reklam, web ve skor değişimlerini günlük, haftalık, aylık veya manuel kontrol akışıyla takip eder.", "rakip-analizi"],
+  ["Yeni Sinyaller nasıl okunur?", "HK Digital OS v2.0", "Yeni Sinyaller paneli rakip reklam açtı, paylaşım yaptı, yorum sayısı arttı, puan değişti veya tehdit skoru yükseldi gibi hareketleri müşteri ve görev aksiyonuna dönüştürür.", "rakip-analizi"],
+  ["Görev Kanban nasıl kullanılır?", "HK Digital OS v2.0", "Görevler ekranında Liste, Kanban, Takvim ve Müşteri bazlı görünüm arasında geçiş yaparak ajans işlerini durum, son tarih ve müşteri bağlamında takip edin.", "gorevler"],
+  ["Müşteri profilinde sonraki aksiyon nasıl okunur?", "HK Digital OS v2.0", "Müşteri profilindeki Sonraki En İyi Aksiyon alanı tahsilat, görev, rakip sinyali, rapor ve kampanya durumundan sıradaki işi önerir.", "musteriler"],
+  ["CEO Kokpiti ne işe yarar?", "HK Digital OS v2.0", "Ajans CEO Kokpiti kritik işler, tahsilat bekleyenler, geciken ödemeler, yeni rakip sinyalleri, eksik entegrasyonlar, içerik onayları ve QA uyarılarını tek karar panelinde gösterir.", ""],
+  ["AI Ajans Asistanı nasıl kullanılır?", "HK Digital OS v2.0", "AI Ajans Asistanı bu ay teklif verilecek müşteriler, performansı düşen müşteriler, tahsilat riski, eksik entegrasyon ve rakip reklam sinyalleri hakkında aksiyon kartlı yanıt üretir.", "agent-hub"],
+  ["Bildirim Merkezi ne işe yarar?", "HK Digital OS v2.0", "Bildirim Merkezi rakip sinyali, görev tarihi, ödeme gecikmesi, QA uyarısı, API bağlantı sorunu ve ajans bildirimlerini öncelik, kaynak ve müşteri görünürlüğüyle toplar.", ""],
+  ["Müşteri Operasyon Zinciri nasıl çalışır?", "HK Digital OS v2.0", "Müşteri Operasyon Zinciri müşteri profili içinde Rakip Analizi, AI Strateji, Paket Önerisi, Görev, İçerik Takvimi, Reklam Kurulumu, Rapor, Tahsilat ve Yenileme adımlarını birbirine bağlar.", "musteriler"],
   ["Kullanıcı yönetimi nerede?", "Admin Mimarisi", "Ayarlar > Kullanıcı Yönetimi bağlantısı yetkili kullanıcılar için /hk-admin/kullanici-yonetimi route’unu açar.", "kullanici-yonetimi"],
   ["Kontrol Merkezi'nde hangi sayfalar var?", "Dashboard & Kontrol Merkezi", "Dashboard, HK Intelligence CEO, HK Intelligence Commander, Risk Merkezi, HK Asistan, Genel Arama, QA Merkezi, Sistem Sağlık Merkezi ve Sistem Test Merkezi günlük yönetim ve denetim işleri için Kontrol Merkezi altındadır.", ""],
   ["Müşteri & Satış menüsü nasıl kullanılır?", "Müşteri & Satış", "Müşteriler, Müşteri Keşfi, Haritalar, Lead Analizi, Leadler, CRM & Lead Workspace, Takip Merkezi, Satış Hunisi, Teklif Oluştur, Teklif Takip Merkezi, Müşteri Onboarding, Kazanıldı/Kaybedildi Analizi ve Müşteri Markalama satış yaşam döngüsünü takip eder.", "musteriler"],

@@ -526,6 +526,48 @@ export function CustomerProfileModal({
               {!applications.length && <p className="rounded-[12px] border border-dashed border-cyan-200 bg-white p-4 text-sm text-cyan-800">Bu müşteri için uygulanmış hazır paket henüz yok.</p>}
             </div>
           </section>
+          <section className="mt-5 grid gap-4 lg:grid-cols-2">
+            <div className="rounded-[18px] border border-purple-200 bg-purple-50 p-4">
+              <h3 className="font-black text-slate-950">Son AI Önerileri</h3>
+              <p className="mt-1 text-sm text-purple-900">Rakip, paket ve görev sinyallerinden gelen son ajans aksiyonları.</p>
+              <div className="mt-3 grid gap-2">
+                {[
+                  ...((content?.competitorSignals || []).filter((item: any) => item.company_id === company?.id).map((item: any) => item.agency_action || item.customer_visible_summary || item.summary).filter(Boolean)),
+                  ...((latestApplication?.next_actions || []).map((item: any) => typeof item === "string" ? item : item.title || item.action).filter(Boolean))
+                ].slice(0, 5).map((line: string) => <p key={line} className="rounded-[10px] bg-white p-2 text-sm leading-5 text-slate-700 ring-1 ring-purple-100">{line}</p>)}
+                {!((content?.competitorSignals || []).filter((item: any) => item.company_id === company?.id).length || (latestApplication?.next_actions || []).length) && <p className="rounded-[10px] bg-white p-3 text-sm text-purple-800">Henüz AI önerisi yok. Rakip analizi, paket uygulaması veya Agent Hub çalıştırıldığında burada görünür.</p>}
+              </div>
+            </div>
+            <div className="rounded-[18px] border border-slate-200 bg-white p-4">
+              <h3 className="font-black text-slate-950">Son Aktiviteler</h3>
+              <p className="mt-1 text-sm text-slate-500">Müşteri operasyon zincirinde son kayıtlar.</p>
+              <div className="mt-3 grid gap-2">
+                {[
+                  ...((content?.activityLogs || []).filter((item: any) => item.company_id === company?.id).map((item: any) => ({ title: item.action_type || item.title || "Aktivite", date: item.created_at }))),
+                  ...tasks.slice(0, 3).map((item: any) => ({ title: `Görev: ${item.title || "Görev"}`, date: item.updated_at || item.created_at })),
+                  ...reports.slice(0, 3).map((item: any) => ({ title: `Rapor: ${item.title || item.report_month || "Rapor"}`, date: item.created_at || item.updated_at }))
+                ].slice(0, 6).map((item: any) => <p key={`${item.title}-${item.date || ""}`} className="rounded-[10px] bg-slate-50 p-2 text-sm text-slate-700 ring-1 ring-slate-200"><strong>{item.title}</strong><span className="ml-2 text-xs text-slate-500">{item.date ? new Date(item.date).toLocaleDateString("tr-TR") : "Tarih yok"}</span></p>)}
+                {!((content?.activityLogs || []).filter((item: any) => item.company_id === company?.id).length || tasks.length || reports.length) && <p className="rounded-[10px] bg-slate-50 p-3 text-sm text-slate-500">Henüz operasyon aktivitesi yok.</p>}
+              </div>
+            </div>
+          </section>
+          <section className="mt-5 rounded-[18px] border border-emerald-200 bg-emerald-50 p-4">
+            <h3 className="font-black text-slate-950">Müşteri Operasyon Zinciri</h3>
+            <p className="mt-1 text-sm text-emerald-900">Müşteri → Rakip Analizi → AI Strateji → Paket Önerisi → Görev → İçerik Takvimi → Reklam Kurulumu → Rapor → Tahsilat → Yenileme hattını tek yerden takip et.</p>
+            <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-5">
+              {[
+                ["Rakip Analizi", "Rakip Analizi"],
+                ["AI Strateji", "HK Agent Hub"],
+                ["Paket Önerisi", "HK Intelligence CEO"],
+                ["Görev Oluştur", "Görevler"],
+                ["İçerik Takvimi", "Sosyal Medya Planı"],
+                ["Reklam Kurulumu", "Kampanyalar"],
+                ["Rapor", "Müşteri Raporları"],
+                ["Tahsilat", "Tahsilat"],
+                ["Yenileme", "Takip Merkezi"]
+              ].map(([label, target]) => <button key={label} onClick={() => onGo?.(target, `${label} adımı açıldı.`)} className="rounded-[12px] border border-emerald-200 bg-white p-3 text-left text-xs font-black text-emerald-800 hover:bg-emerald-50"><span className="block">{label}</span><span className="mt-1 block font-medium text-slate-500">Git / görev oluştur</span></button>)}
+            </div>
+          </section>
           {showOverview && children && <div className="mt-5">{children}</div>}
         </div>
       </section>

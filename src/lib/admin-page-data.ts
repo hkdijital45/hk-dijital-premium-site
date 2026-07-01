@@ -19,7 +19,7 @@ export async function getAdminPageData() {
   let relationalContent = {};
   if (hasSupabaseConfig()) {
     try {
-      const [companies, users, customers, leads, contactForms, campaigns, campaignMetrics, metaAdsetMetrics, metaAdMetrics, metaConversionEvents, metaAnalysisSnapshots, customerReportVisibility, customerUpdates, customerVisibilitySettings, customerFiles, mediaFiles, activityLogs, reports, reportInterpretations, reportUpdates, preparationNotes, customerBranding, monthlyReports, agencyTasks, customerDocuments, paymentRecords, competitorAnalyses, competitorWatchlist, socialMediaPlans, agencyExpenses, sectorConfigs, systemTestRuns, systemTestChecklist, customerBranches] =
+      const [companies, users, customers, leads, contactForms, campaigns, campaignMetrics, metaAdsetMetrics, metaAdMetrics, metaConversionEvents, metaAnalysisSnapshots, customerReportVisibility, customerUpdates, customerVisibilitySettings, customerFiles, mediaFiles, activityLogs, reports, reportInterpretations, reportUpdates, preparationNotes, customerBranding, monthlyReports, agencyTasks, customerDocuments, paymentRecords, competitorAnalyses, competitorWatchlist, competitorSignals, agencyNotifications, socialMediaPlans, agencyExpenses, sectorConfigs, systemTestRuns, systemTestChecklist, customerBranches] =
         await Promise.all([
           supabaseRest("companies?select=*&order=created_at.desc"),
           supabaseRest("users?deleted_at=is.null&select=*&order=created_at.desc"),
@@ -50,6 +50,8 @@ export async function getAdminPageData() {
           supabaseRest("payment_records?select=*&order=due_date.desc").catch(() => []),
           supabaseRest("competitor_analyses?select=*&order=updated_at.desc").catch(() => []),
           supabaseRest("competitor_watchlist?select=*&order=updated_at.desc").catch(() => []),
+          supabaseRest("competitor_signals?select=*&order=detected_at.desc&limit=500").catch(() => []),
+          supabaseRest("agency_notifications?select=*&order=created_at.desc&limit=500").catch(() => []),
           supabaseRest("social_media_plans?select=*&order=updated_at.desc").catch(() => []),
           supabaseRest("agency_expenses?select=*&order=expense_date.desc").catch(() => []),
           supabaseRest("sector_configs?select=*&order=sector_name.asc").catch(() => []),
@@ -85,6 +87,8 @@ export async function getAdminPageData() {
         paymentRecords,
         competitorAnalyses,
         competitorWatchlist,
+        competitorSignals,
+        agencyNotifications,
         socialMediaPlans,
         agencyExpenses,
         sectorConfigs,
