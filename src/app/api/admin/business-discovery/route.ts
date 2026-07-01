@@ -10,18 +10,18 @@ async function requireStaff() {
 }
 
 function textSearchUrl(query: string) {
-  const key = process.env.GOOGLE_MAPS_API_KEY;
+  const key = process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_API_KEY;
   if (!key) throw new Error("Google Maps API anahtarı eksik.");
   const params = new URLSearchParams({ query, key, language: "tr", region: "tr" });
   return `https://maps.googleapis.com/maps/api/place/textsearch/json?${params}`;
 }
 
 async function getPlaceDetails(placeId: string) {
-  const key = process.env.GOOGLE_MAPS_API_KEY;
+  const key = process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_API_KEY;
   if (!key) throw new Error("Google Maps API anahtarı eksik.");
   const params = new URLSearchParams({
     place_id: placeId,
-    fields: "formatted_phone_number,website",
+    fields: "formatted_phone_number,website,url,geometry,types,name,formatted_address",
     key,
     language: "tr"
   });
@@ -42,6 +42,32 @@ function clean(value: unknown) {
 
 function phoneKey(value: unknown) {
   return clean(value).replace(/\D/g, "");
+}
+
+function opportunityPayload(business: Record<string, any>) {
+  const scored = scoreDiscoveredBusiness(business);
+  const heat = Number(scored.leadHeatScore || business.leadHeatScore || business.lead_heat_score || 0);
+  const maturity = Number(scored.digitalMaturityScore || business.digitalMaturityScore || business.digital_maturity_score || 0);
+  const reviews = Number(business.reviewCount || business.google_review_count || 0);
+  const rating = Number(business.googleRating || business.google_rating || business.rating || 0);
+  const websiteMissing = !business.website;
+  const phoneMissing = !business.phone;
+  const digitalGapScore = Math.min(100, Math.max(0, 100 - maturity + (websiteMissing ? 12 : 0) + (phoneMissing ? 6 : 0)));
+  const adPotentialScore = Math.min(100, Math.round(heat * 0.7 + (rating >= 4 ? 8 : 0) + (reviews < 30 ? 10 : 0) + (websiteMissing ? 10 : 0)));
+  const opportunityScore = Math.min(100, Math.round((heat + digitalGapScore + adPotentialScore) / 3));
+  const aiSuggestion = websiteMissing
+    ? "Web sitesi veya açılış sayfası teklifiyle başlanmalı; Google profil ve reklam potansiyeli birlikte anlatılmalı."
+    : reviews < 25
+      ? "Google yorum artırma ve yerel reklam paketiyle temas kurulmalı."
+      : "Reklam performansı, teklif dili ve dönüşüm takibi üzerinden teklif hazırlanmalı.";
+  return {
+    ...scored,
+    opportunityScore,
+    digitalGapScore,
+    adPotentialScore,
+    crmStatus: business.crmStatus || "CRM’de yok",
+    aiSuggestion
+  };
 }
 
 function demoBusinesses(input: { city: string; district: string; businessType: string }) {
@@ -94,7 +120,7 @@ function demoBusinesses(input: { city: string; district: string; businessType: s
       source: "Demo Veri",
       isDemo: true
     }
-  ].map((business) => ({ ...business, ...scoreDiscoveredBusiness(business) }));
+  ].map((business) => ({ ...business, ...opportunityPayload(business) }));
 }
 
 function applyDiscoveryFilters(
@@ -106,6 +132,9 @@ function applyDiscoveryFilters(
     phone: string;
     hideSaved?: boolean;
     knownPlaceIds?: Set<string>;
+    instagram?: string;
+    highOpportunity?: boolean;
+    highAdPotential?: boolean;
   }
 ) {
   return businesses.filter((business) => {
@@ -116,6 +145,10 @@ function applyDiscoveryFilters(
     if (filters.website === "yok" && business.website) return false;
     if (filters.phone === "var" && !business.phone) return false;
     if (filters.phone === "yok" && business.phone) return false;
+    if (filters.instagram === "var" && !String(business.website || "").toLocaleLowerCase("tr-TR").includes("instagram")) return false;
+    if (filters.instagram === "yok" && String(business.website || "").toLocaleLowerCase("tr-TR").includes("instagram")) return false;
+    if (filters.highOpportunity && Number(business.opportunityScore || business.leadHeatScore || 0) < 70) return false;
+    if (filters.highAdPotential && Number(business.adPotentialScore || 0) < 70) return false;
     return true;
   });
 }
@@ -133,17 +166,22 @@ export async function POST(request: Request) {
   const keyword = clean(body.keyword || body.businessType);
   const city = clean(body.city);
   const district = clean(body.district);
+  const neighborhood = clean(body.neighborhood);
   const sector = clean(body.sector || body.businessType);
   const minimumRating = numberFilter(body.minimumRating || body.minRating);
   const minimumReviewCount = numberFilter(body.minimumReviewCount || body.minReviewCount);
   const website = clean(body.website || body.websiteStatus);
   const phone = clean(body.phone || body.phoneStatus);
+  const instagram = clean(body.instagram || body.instagramStatus);
   const hideSaved = Boolean(body.hideSaved);
+  const highOpportunity = Boolean(body.highOpportunity);
+  const highAdPotential = Boolean(body.highAdPotential);
+  const limit = Math.max(1, Math.min(50, Number(body.limit || body.requestedCount || body.count || 20) || 20));
 
   if (!keyword && !sector) return NextResponse.json({ error: "İşletme / sektör alanı zorunludur." }, { status: 400 });
   if (!city) return NextResponse.json({ error: "İl seçin veya yazın." }, { status: 400 });
 
-  const filters = { minimumRating, minimumReviewCount, website, phone, hideSaved, knownPlaceIds: await knownPlaceIds(hideSaved) };
+  const filters = { minimumRating, minimumReviewCount, website, phone, instagram, hideSaved, highOpportunity, highAdPotential, knownPlaceIds: await knownPlaceIds(hideSaved) };
   const demoFallback = (apiError?: string) => {
     const businesses = applyDiscoveryFilters(demoBusinesses({ city, district, businessType: sector || keyword }), filters);
     return NextResponse.json({
@@ -155,10 +193,10 @@ export async function POST(request: Request) {
     });
   };
 
-  if (!process.env.GOOGLE_MAPS_API_KEY) return demoFallback("Google Maps API anahtarı eksik.");
+  if (!(process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_API_KEY)) return demoFallback("Google Maps API anahtarı eksik.");
 
   try {
-    const query = [keyword, sector, district, city].filter(Boolean).join(" ");
+    const query = [keyword, sector, neighborhood, district, city].filter(Boolean).join(" ");
     const response = await fetch(textSearchUrl(query), { cache: "no-store" });
     const data = await response.json();
     if (!response.ok || !["OK", "ZERO_RESULTS"].includes(data.status)) {
@@ -166,7 +204,7 @@ export async function POST(request: Request) {
       return demoFallback(data.error_message || "Google Maps işletme araması başarısız oldu.");
     }
 
-    const baseResults = (data.results || []).slice(0, 12);
+    const baseResults = (data.results || []).slice(0, limit);
     const businesses = (await Promise.all(baseResults.map(async (place: any) => {
       const details = await getPlaceDetails(place.place_id).catch(() => ({}));
       const business = {
@@ -174,17 +212,22 @@ export async function POST(request: Request) {
         name: place.name,
         city,
         district,
+        neighborhood,
         address: place.formatted_address || "",
         phone: details.formatted_phone_number || "",
         website: details.website || "",
+        googleMapsUrl: details.url || `https://www.google.com/maps/place/?q=place_id:${place.place_id}`,
         rating: place.rating ?? null,
         googleRating: place.rating ?? null,
         reviewCount: Number(place.user_ratings_total || 0),
         category: sector || (Array.isArray(place.types) ? place.types.slice(0, 3).join(", ") : ""),
+        latitude: details.geometry?.location?.lat ?? place.geometry?.location?.lat ?? null,
+        longitude: details.geometry?.location?.lng ?? place.geometry?.location?.lng ?? null,
+        sourceQuery: query,
         source: "Google Maps",
         isDemo: false
       };
-      return { ...business, ...scoreDiscoveredBusiness(business) };
+      return { ...business, ...opportunityPayload(business) };
     }))).filter(Boolean);
     const filtered = applyDiscoveryFilters(businesses, filters);
     return NextResponse.json({ businesses: filtered, count: filtered.length });
@@ -225,6 +268,10 @@ export async function PUT(request: Request) {
         google_rating: business.googleRating ?? null,
         google_review_count: Number(business.reviewCount || 0),
         google_place_id: business.placeId || "",
+        google_maps_url: business.googleMapsUrl || business.google_maps_url || (business.placeId ? `https://www.google.com/maps/place/?q=place_id:${business.placeId}` : ""),
+        opportunity_score: business.opportunityScore || scores.leadHeatScore,
+        digital_gap_score: business.digitalGapScore || Math.max(0, 100 - Number(scores.digitalMaturityScore || 0)),
+        ad_potential_score: business.adPotentialScore || scores.leadHeatScore,
         digital_maturity_score: scores.digitalMaturityScore,
         lead_heat_score: scores.leadHeatScore,
         notes: [business.notes, body.notes, "Google Maps işletme keşfi ile kaydedildi.", ...(scores.scoreReasons?.heat || [])].filter(Boolean).join("\n"),
@@ -264,5 +311,9 @@ function stripOptionalDiscoveryColumns(record: Record<string, any>) {
   delete fallback.district;
   delete fallback.sector;
   delete fallback.local_opportunity_notes;
+  delete fallback.google_maps_url;
+  delete fallback.opportunity_score;
+  delete fallback.digital_gap_score;
+  delete fallback.ad_potential_score;
   return fallback;
 }
