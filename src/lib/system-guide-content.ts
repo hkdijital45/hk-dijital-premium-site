@@ -17,7 +17,7 @@ export type SystemGuideSeed = {
 };
 
 export const systemGuideCategories = [
-  "Müşteri Serüveni", "Dashboard & Kontrol Merkezi", "CRM & Müşteriler", "Müşteri & Satış", "Ajans Operasyonu", "Satış Hunisi", "Tahsilat & Karlılık",
+  "Müşteri Serüveni", "Dashboard & Kontrol Merkezi", "CRM & Müşteriler", "Müşteri & Satış", "Ajans Operasyonu", "Satış Hunisi", "Muhasebe", "Tahsilat & Karlılık",
   "Görev Yönetimi", "Raporlama Merkezi", "Meta Entegrasyonları", "Google Entegrasyonları",
   "HK Intelligence", "AI Studio", "Dosya & Belge Merkezi", "Kullanıcı Yönetimi", "Ayarlar",
   "Web Site Yönetimi", "Müşteri Paneli", "Sorun Giderme", "HK Agent Hub"
@@ -30,7 +30,13 @@ const definitions: Array<[string, string, string, string]> = [
   ["Müşteri & Satış menüsü nasıl kullanılır?", "Müşteri & Satış", "Müşteriler, Müşteri Keşfi, Haritalar, Lead Analizi, Leadler, CRM & Lead Workspace, Takip Merkezi, Satış Hunisi, Teklif Oluştur, Teklif Takip Merkezi, Müşteri Onboarding, Kazanıldı/Kaybedildi Analizi ve Müşteri Markalama satış yaşam döngüsünü takip eder.", "musteriler"],
   ["Reklam & Raporlama menüsü nasıl kullanılır?", "Raporlama Merkezi", "Kampanyalar, reklam hesabı eşleştirme, Meta/Google istihbarat, Reklam Doktoru Pro, Meta/Google raporları, aylık raporlar, müşteri raporları, web site analitiği, PDF rapor tasarımı, PDF Audit ve Rakip Analizi reklam performansı ve raporlama işleri içindir.", "musteri-raporlari"],
   ["Ajans Operasyonu menüsü nasıl kullanılır?", "Ajans Operasyonu", "Görevler, Takvim, Ajans Hedefleri, Belgeler, Sözleşme Oluştur, WhatsApp Hatırlatma Merkezi, Sosyal Medya Planı ve Sektör Sistemi ekip operasyonlarını yönetmek için kullanılır.", "gorevler"],
-  ["Muhasebe menüsünde hangi sayfalar var?", "Tahsilat & Karlılık", "Tahsilatlar, Bekleyen Ödemeler, Gelir / Gider, Gelir Tahmini, Kârlılık, Müşteri Finans Özeti ve Export yalnız finansal yetkisi olan kullanıcıların göreceği Muhasebe grubu altındadır.", "tahsilat"],
+  ["Muhasebe Merkezi nasıl kullanılır?", "Muhasebe", "Muhasebe menüsünde Muhasebe Merkezi, Tahsilatlar, Gelir / Gider, Kârlılık ve Muhasebe Raporları görünür. Gelir tahmini, bekleyen ödemeler, müşteri finans özeti ve dışa aktarım merkez içindeki sekmelerden yönetilir.", "muhasebe"],
+  ["Gelir/gider nasıl eklenir?", "Muhasebe", "Muhasebe Merkezi > Gelir / Gider sekmesinde Gelir Ekle veya Gider Ekle butonunu kullanın. Gelir kayıtları tahsilat mantığıyla, gider kayıtları ajans giderleri olarak takip edilir.", "muhasebe"],
+  ["Tahsilat nasıl takip edilir?", "Muhasebe", "Muhasebe Merkezi > Tahsilatlar sekmesinde ödeme durumunu, müşteriyi, ödeme türünü, ay/yıl ve tarih aralığını filtreleyin. Bekleyen Ödemeler sekmesi açık tahsilat takibini hızlandırır.", "muhasebe"],
+  ["Gelir tahmini nasıl okunur?", "Muhasebe", "Gelir Tahmini sekmesi bu ay beklenen gelir, kesinleşmiş gelir, riskli gelir, gider tahmini, tahmini net kâr ve 30/60/90 günlük projeksiyon kararlarını tahsilat verisinden üretir.", "muhasebe"],
+  ["Kârlılık nasıl değerlendirilir?", "Muhasebe", "Kârlılık sekmesi müşteri bazlı gelir, hizmet bedeli, reklam bütçesi, gider, net kâr ve kâr marjını gösterir. Düşük marjlı müşteriler için fiyat güncellemesi veya kapsam azaltma düşünülmelidir.", "muhasebe"],
+  ["Müşteri finans özeti nereden görülür?", "Muhasebe", "Muhasebe Merkezi > Müşteri Finans Özeti sekmesinde müşteri seçerek toplam tahsilat, bekleyen ödeme, geciken ödeme, son ödeme tarihi, kârlılık ve risk durumunu okuyun. Aynı özet müşteri profil popup içinde de görünür.", "muhasebe"],
+  ["Muhasebe menüsünde hangi sayfalar var?", "Muhasebe", "Muhasebe altında yalnız Muhasebe Merkezi, Tahsilatlar, Gelir / Gider, Kârlılık ve Muhasebe Raporları görünür. Diğer finans ekranları merkez sekmelerine taşınmıştır.", "muhasebe"],
   ["İçerik & AI menüsü nasıl kullanılır?", "AI Studio", "AI Studio, HK Agent Hub, AI Satış Koçu, İçerik Planları, Promptlar, Medya ve Kampanya Önerileri üretim ve yapay zekâ destekli içerik işleri için kullanılır.", "ai-studio"],
   ["Entegrasyonlar menüsü nasıl kullanılır?", "Google Entegrasyonları", "Entegrasyonlar grubu Meta, Pixel, Dataset, Google, GA4, Search Console ve GTM bağlantılarını merkezi olarak kontrol etmek için kullanılır.", "entegrasyonlar"],
   ["Araçlar & Yardım ve Ayarlar farkı nedir?", "Ayarlar", "Araçlar & Yardım; Sistem Rehberi, Log ve Aktivite Merkezi, Veri Aktarma ve Mobil Operasyon Modu gibi kullanım araçlarını içerir. Ayarlar; Web Sitesi Yönetimi, Kullanıcı Yönetimi, Tema/Logo ve Sistem Ayarları içindir.", "sistem-rehberi"],

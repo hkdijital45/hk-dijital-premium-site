@@ -379,7 +379,8 @@ export function AdminDashboard({
   allowedModules = [],
   systemStatus,
   bootstrapWarning = false,
-  initialActive = "Dashboard"
+  initialActive = "Dashboard",
+  initialAccountingTab = ""
 }: {
   initialContent: SiteContent;
   supabaseConfigured?: boolean;
@@ -388,6 +389,7 @@ export function AdminDashboard({
   systemStatus?: any;
   bootstrapWarning?: boolean;
   initialActive?: string;
+  initialAccountingTab?: string;
 }) {
   const [content, setContent] = useState(initialContent as any);
   const [active, setActive] = useState(initialActive);
@@ -599,6 +601,7 @@ export function AdminDashboard({
   }
 
   const props = { content, setContent, currentSession, allowedModules, setActive, save, notify };
+  const accountingAliases = ["Muhasebe Merkezi", "Tahsilat", "Tahsilatlar", "Bekleyen Ödemeler", "Gelir / Gider", "Gelir Tahmini", "Karlılık", "Kârlılık", "Müşteri Finans Özeti", "Export", "Muhasebe Raporları"];
   const visibleNavigationGroups = adminNavigationGroups
     .filter((group) => group.label !== "Muhasebe" || canViewAccounting(currentSession))
     .map((group) => ({ ...group, items: group.items.filter((item) => allowedModules.includes(item.module)) }))
@@ -783,9 +786,7 @@ export function AdminDashboard({
           {active === "AI Denetim" && <AiAuditCenter {...props} setActive={setActive} />}
           {active === "Görevler" && <AgencyTasksCenter {...props} selectedCompanyId={selectedCompanyId} />}
           {active === "Belgeler" && <DocumentCenter {...props} selectedCompanyId={selectedCompanyId} />}
-          {["Tahsilat", "Tahsilatlar", "Bekleyen Ödemeler"].includes(active) && <PaymentCenter {...props} selectedCompanyId={selectedCompanyId} onClearCompanyFilter={clearCompanyFilter} />}
           {active === "Takvim" && <AgencyCalendarCenter {...props} />}
-          {active === "Gelir Tahmini" && <RevenueForecastCenter {...props} />}
           {active === "Sözleşme Oluştur" && <ContractGeneratorCenter {...props} />}
           {active === "WhatsApp Hatırlatma Merkezi" && <WhatsAppReminderCenter {...props} setActive={setActive} />}
           {active === "Reklam Hesabı Eşleştirme" && <AdAccountMappingCenter {...props} />}
@@ -814,7 +815,7 @@ export function AdminDashboard({
           {["Roller & Yetkiler", "Kullanıcı Yönetimi"].includes(active) && <UsersAdmin {...props} mode={active} />}
           {["Sistem Sağlığı", "Sistem Sağlık Merkezi"].includes(active) && <SystemHealthCenter content={content} setContent={setContent} startupApiData={startupApiData} runStartupApiStatus={runStartupApiStatus} startupApiLoading={startupApiLoading} />}
           {active === "Sistem Test Merkezi" && <SystemTestCenter content={content} setContent={setContent} save={save} currentSession={currentSession} notify={notify} systemStatus={systemStatus} supabaseConfigured={supabaseConfigured} />}
-          {["Veri Aktarma", "Export"].includes(active) && <ExportCenter content={content} currentSession={currentSession} notify={notify} />}
+          {active === "Veri Aktarma" && <ExportCenter content={content} currentSession={currentSession} notify={notify} />}
           {["Sistem Logları", "Aktivite Akışı", "Log ve Aktivite Merkezi"].includes(active) && <ActivityLogs content={content} setContent={setContent} />}
           {active === "HK Dijital Sistem Rehberi" && <SystemGuideCenter currentSession={currentSession} notify={notify} />}
           {active === "Sistem Ayarları" && <Settings {...props} />}
@@ -824,7 +825,7 @@ export function AdminDashboard({
           {active === "Rakip Analizi" && <CompetitorAnalysisCenter {...props} />}
           {active === "Sosyal Medya Planı" && <SocialPlanGenerator {...props} />}
           {active === "Aylık Raporlar" && <MonthlyReportCenter {...props} />}
-          {["Karlılık", "Kârlılık", "Gelir / Gider", "Müşteri Finans Özeti"].includes(active) && <ProfitabilityCenter {...props} />}
+          {accountingAliases.includes(active) && <AccountingCenter {...props} initialTab={initialAccountingTab || accountingTabForActive(active)} selectedCompanyId={selectedCompanyId} onClearCompanyFilter={clearCompanyFilter} />}
           {active === "HK Asistan" && <HKAssistantCenter {...props} />}
           {active === "Sektör Sistemleri" && <SectorSystemsCenter {...props} />}
           {active === "Müşteri Markalama" && <CustomerBrandingCenter {...props} />}
@@ -3136,11 +3137,137 @@ function DocumentCenter({ content, setContent, selectedCompanyId = "" }: any) {
   return <Panel title="Belge Merkezi"><button onClick={() => updateCollection(content, setContent, "customerDocuments", [{ id: `${Date.now()}`, company_id: selectedCompanyId || "", title: "Yeni belge", document_type: "Diğer", document_date: new Date().toISOString().slice(0, 10), visible_to_customer: false }, ...items])} className="mb-4 rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Belge ekle</button><div className="grid gap-3">{visibleItems.map((item) => { const index = items.findIndex((candidate) => candidate.id === item.id); return <div key={item.id || index} className="rounded-[8px] border border-slate-200 bg-slate-50 p-4"><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4"><CompanySelect value={item.company_id || ""} onChange={(value) => update(index, { company_id: value })} companies={content.companies} /><Field label="Belge başlığı" value={item.title || ""} onChange={(value) => update(index, { title: value })} /><SelectField label="Belge türü" value={item.document_type || "Diğer"} onChange={(value) => update(index, { document_type: value })} options={["Teklif", "Sözleşme", "Fatura", "Rapor", "Diğer"]} /><Field label="Tarih" type="date" value={item.document_date || ""} onChange={(value) => update(index, { document_date: value })} /><Field label="Belge URL" value={item.document_url || ""} onChange={(value) => update(index, { document_url: value })} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item.visible_to_customer)} onChange={(event) => update(index, { visible_to_customer: event.target.checked })} /> {item.visible_to_customer ? "Müşteri Panelinde Görünür" : "Sadece Yönetici"}</label></div><button onClick={() => updateCollection(content, setContent, "customerDocuments", items.filter((_, i) => i !== index))} className="mt-3 rounded-full border border-red-300/30 px-3 py-2 text-xs text-red-200">Sil</button></div>; })}{!visibleItems.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-6 text-sm text-slate-400">Bu müşteri filtresinde belge bulunamadı.</p>}</div></Panel>;
 }
 
-function PaymentCenter({ content, setContent, save, currentSession, notify, selectedCompanyId = "", onClearCompanyFilter }: any) {
+function accountingTabForActive(active = "") {
+  if (["Tahsilat", "Tahsilatlar"].includes(active)) return "tahsilatlar";
+  if (active === "Bekleyen Ödemeler") return "bekleyen";
+  if (active === "Gelir / Gider") return "gelir-gider";
+  if (active === "Gelir Tahmini") return "gelir-tahmini";
+  if (["Karlılık", "Kârlılık"].includes(active)) return "karlilik";
+  if (active === "Müşteri Finans Özeti") return "musteri-finans";
+  if (["Export", "Muhasebe Raporları"].includes(active)) return "raporlar";
+  return "genel";
+}
+
+function AccountingCenter({ content, setContent, save, currentSession, notify, setActive, initialTab = "genel", selectedCompanyId = "", onClearCompanyFilter }: any) {
+  const validTabs = ["genel", "tahsilatlar", "bekleyen", "gelir-gider", "gelir-tahmini", "karlilik", "musteri-finans", "raporlar", "export"];
+  const [tab, setTab] = useState(validTabs.includes(initialTab) ? initialTab : "genel");
+  const [customerId, setCustomerId] = useState(selectedCompanyId || "");
+  const payments = (content.paymentRecords || []).filter((item: any) => !isArchivedRecord(item) && item.status !== "İptal");
+  const expenses = content.agencyExpenses || [];
+  const today = new Date().toISOString().slice(0, 10);
+  const month = new Date().toISOString().slice(0, 7);
+  const monthPayments = payments.filter((item: any) => String(item.service_period || item.payment_date || item.due_date || "").startsWith(month));
+  const monthExpenses = expenses.filter((item: any) => String(item.expense_date || item.record_date || "").startsWith(month));
+  const paid = monthPayments.filter((item: any) => item.status === "Ödendi").reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
+  const pending = monthPayments.filter((item: any) => item.status === "Bekliyor").reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
+  const overdue = monthPayments.filter((item: any) => ["Gecikmiş", "Gecikti"].includes(item.status) || (item.status !== "Ödendi" && item.due_date && item.due_date < today)).reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
+  const expenseTotal = monthExpenses.reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
+  const activeCustomers = (content.companies || []).filter((company: any) => (company.status || "Aktif") === "Aktif");
+  const netProfit = paid + pending - expenseTotal;
+  const profitMargin = paid + pending ? Math.round(netProfit / (paid + pending) * 100) : 0;
+  const averageRevenue = activeCustomers.length ? Math.round((paid + pending) / activeCustomers.length) : 0;
+  const riskyCustomers = activeCustomers
+    .map((company: any) => ({ company, overdue: payments.filter((item: any) => item.company_id === company.id && item.status !== "Ödendi" && item.due_date && item.due_date < today).reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0) }))
+    .filter((item: any) => item.overdue > 0)
+    .slice(0, 5);
+  const upcomingPayments = payments.filter((item: any) => item.status !== "Ödendi" && item.due_date && item.due_date >= today).sort((a: any, b: any) => String(a.due_date).localeCompare(String(b.due_date))).slice(0, 6);
+  const tabs = [
+    ["genel", "Genel Bakış"],
+    ["tahsilatlar", "Tahsilatlar"],
+    ["bekleyen", "Bekleyen Ödemeler"],
+    ["gelir-gider", "Gelir / Gider"],
+    ["gelir-tahmini", "Gelir Tahmini"],
+    ["karlilik", "Kârlılık"],
+    ["musteri-finans", "Müşteri Finans Özeti"],
+    ["raporlar", "Raporlar"],
+    ["export", "Dışa Aktar"]
+  ];
+  useEffect(() => {
+    if (initialTab && validTabs.includes(initialTab)) setTab(initialTab);
+  }, [initialTab]);
+  useEffect(() => setCustomerId(selectedCompanyId || ""), [selectedCompanyId]);
+
+  function addIncome() {
+    const nextRecord = { id: createLocalId(), company_id: customerId || (content.companies || [])[0]?.id || "", amount: 0, due_date: today, payment_date: "", status: "Bekliyor", payment_type: "Hizmet Bedeli", service_period: month, payment_note: "Muhasebe Merkezi gelir kaydı", visible_to_customer: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    updateCollection(content, setContent, "paymentRecords", [nextRecord, ...(content.paymentRecords || [])]);
+    notify?.("✓ Gelir taslağı eklendi", "success");
+  }
+  function addExpense() {
+    const nextRecord = { id: createLocalId(), title: "Yeni gider", amount: 0, expense_date: today, category: "Diğer", note: "", show_to_customer: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    updateCollection(content, setContent, "agencyExpenses", [nextRecord, ...expenses]);
+    notify?.("✓ Gider taslağı eklendi", "success");
+  }
+  function exportAccounting(format: "csv" | "word" | "html") {
+    const rows = [
+      ["Tür", "Müşteri", "Kategori", "Tutar", "Durum", "Tarih"],
+      ...payments.map((item: any) => ["Gelir", companyName(content, item.company_id), item.payment_type || "Hizmet Bedeli", Number(item.amount || 0), item.status || "Bekliyor", item.payment_date || item.due_date || item.service_period || ""]),
+      ...expenses.map((item: any) => ["Gider", "", item.category || item.title || "Diğer", Number(item.amount || 0), "Gider", item.expense_date || ""])
+    ];
+    const summary = `HK Dijital Muhasebe Özeti\n\nBu ay tahsil edilen: ${v4Money(paid)}\nBekleyen tahsilat: ${v4Money(pending)}\nGeciken ödeme: ${v4Money(overdue)}\nGider: ${v4Money(expenseTotal)}\nTahmini kâr: ${v4Money(netProfit)}\nNet kâr marjı: %${profitMargin}\n`;
+    const body = format === "csv"
+      ? `\uFEFF${rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(";")).join("\n")}`
+      : format === "html"
+        ? `<html><meta charset="utf-8"><body><h1>HK Dijital Muhasebe Raporu</h1><pre>${summary}</pre><table border="1" cellspacing="0" cellpadding="8">${rows.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`).join("")}</table></body></html>`
+        : `${summary}\n\n${rows.map((row) => row.join(" | ")).join("\n")}`;
+    const mime = format === "csv" ? "text/csv;charset=utf-8" : format === "html" ? "text/html;charset=utf-8" : "text/plain;charset=utf-8";
+    const extension = format === "csv" ? "csv" : format === "html" ? "html" : "doc";
+    const url = URL.createObjectURL(new Blob([body], { type: mime }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `hk-dijital-muhasebe-${new Date().toISOString().slice(0, 10)}.${extension}`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+  function updateExpense(index: number, patch: any) {
+    updateCollection(content, setContent, "agencyExpenses", expenses.map((item: any, itemIndex: number) => itemIndex === index ? { ...item, ...patch, updated_at: new Date().toISOString() } : item));
+  }
+  const selectedCompany = companyById(content, customerId);
+  const selectedPayments = customerId ? payments.filter((item: any) => item.company_id === customerId) : [];
+  const selectedPaid = selectedPayments.filter((item: any) => item.status === "Ödendi").reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
+  const selectedPending = selectedPayments.filter((item: any) => item.status !== "Ödendi").reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
+
+  return (
+    <Panel title="Muhasebe Merkezi">
+      <div className="mb-5 rounded-[18px] border border-emerald-200 bg-emerald-50 p-5">
+        <p className="text-xs font-black uppercase tracking-[.16em] text-emerald-700">Yalnızca yetkili finans kullanıcıları</p>
+        <h2 className="mt-2 text-2xl font-black text-slate-950">Ajans gelir, gider, tahsilat ve kârlılık kontrol merkezi</h2>
+        <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-700">Tahsilatlar, bekleyen ödemeler, gelir tahmini, kârlılık, müşteri finans özeti ve dışa aktarım tek ekranda toplanır. Eski finans route’ları bu merkezde ilgili sekmeyi açar.</p>
+      </div>
+      <div className="mb-5 flex flex-wrap gap-2">{tabs.map(([key, label]) => <button key={key} onClick={() => setTab(key)} className={`rounded-full px-4 py-2 text-sm font-black transition ${tab === key ? "bg-cyan-300 text-slate-950" : "border border-slate-200 bg-white text-slate-700 hover:bg-cyan-50"}`}>{label}</button>)}</div>
+      {tab === "genel" && <div className="space-y-5">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <AgencyStatCard label="Bu ay tahsil edilen" value={v4Money(paid)} note="Ödenen kayıtlar" tone="emerald" />
+          <AgencyStatCard label="Bu ay bekleyen tahsilat" value={v4Money(pending)} note="Vadesi gelmemiş açık kayıtlar" tone="amber" />
+          <AgencyStatCard label="Geciken ödeme" value={v4Money(overdue)} note="Acil takip gerekir" tone="red" />
+          <AgencyStatCard label="Bu ay gider" value={v4Money(expenseTotal)} note="Ajans gider kayıtları" />
+          <AgencyStatCard label="Tahmini kâr" value={v4Money(netProfit)} note={`Net marj: %${profitMargin}`} tone={netProfit >= 0 ? "emerald" : "red"} />
+          <AgencyStatCard label="Müşteri başı ortalama gelir" value={v4Money(averageRevenue)} note={`${activeCustomers.length} aktif müşteri`} />
+          <AgencyStatCard label="Riskli müşteriler" value={riskyCustomers.length} note="Geciken tahsilat sinyali" tone={riskyCustomers.length ? "red" : "emerald"} />
+          <AgencyStatCard label="Yaklaşan ödemeler" value={upcomingPayments.length} note="Sıradaki tahsilat kayıtları" tone="amber" />
+          <AgencyStatCard label="Reklam / hizmet ayrımı" value="Ayrı takip" note="Payment type alanından izlenir" />
+          <AgencyStatCard label="Karar durumu" value={overdue > pending ? "Dikkat" : "Kontrol altında"} note="Ajans karar paneli sinyali" tone={overdue > pending ? "red" : "emerald"} />
+        </div>
+        <div className="grid gap-4 xl:grid-cols-2">
+          <GlassCard className="p-5"><h3 className="text-lg font-black text-slate-950">Ajans Karar Paneli</h3><div className="mt-4 grid gap-3 text-sm text-slate-700"><InfoItem label="Bu ay nakit akışı" value={netProfit >= 0 ? "Pozitif görünüyor" : "Gider veya geciken tahsilat baskısı var"} /><InfoItem label="Ödeme beklenen müşteriler" value={upcomingPayments.slice(0, 3).map((item: any) => companyName(content, item.company_id)).join(", ") || "Yaklaşan ödeme yok"} /><InfoItem label="Fiyat güncelleme önerisi" value={profitMargin < 25 ? "Düşük marjlı müşterileri inceleyin" : "Marj seviyesi kabul edilebilir"} /><InfoItem label="7 günlük finans aksiyonu" value="Geciken tahsilatları kapat, bekleyen ödemeler için hatırlatma hazırla, gider artışlarını kontrol et." /></div><div className="mt-4 flex flex-wrap gap-2"><button onClick={() => setActive?.("Görevler")} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Görev oluştur</button><button onClick={() => setActive?.("WhatsApp Hatırlatma Merkezi")} className="rounded-full border border-emerald-300 px-4 py-2 text-xs font-black text-emerald-700">WhatsApp mesajı hazırla</button><button onClick={() => setTab("gelir-tahmini")} className="rounded-full border border-slate-200 px-4 py-2 text-xs font-black text-slate-700">Gelir tahminini güncelle</button></div></GlassCard>
+          <GlassCard className="p-5"><h3 className="text-lg font-black text-slate-950">Riskli ve yaklaşan kayıtlar</h3><div className="mt-4 grid gap-2">{[...riskyCustomers.map((item: any) => `${item.company.name}: ${v4Money(item.overdue)} gecikmiş`), ...upcomingPayments.slice(0, 3).map((item: any) => `${companyName(content, item.company_id)}: ${v4Money(item.amount)} · ${formatDate(item.due_date)}`)].slice(0, 6).map((line) => <p key={line} className="rounded-[10px] border border-slate-200 bg-white p-3 text-sm text-slate-700">{line}</p>)}{!riskyCustomers.length && !upcomingPayments.length && <p className="rounded-[10px] border border-dashed border-slate-200 p-4 text-sm text-slate-500">Bugün için kritik finans kaydı bulunamadı.</p>}</div></GlassCard>
+        </div>
+      </div>}
+      {tab === "tahsilatlar" && <PaymentCenter content={content} setContent={setContent} save={save} currentSession={currentSession} notify={notify} selectedCompanyId={selectedCompanyId} onClearCompanyFilter={onClearCompanyFilter} />}
+      {tab === "bekleyen" && <PaymentCenter content={content} setContent={setContent} save={save} currentSession={currentSession} notify={notify} selectedCompanyId={selectedCompanyId} onClearCompanyFilter={onClearCompanyFilter} initialStatus="Bekliyor" />}
+      {tab === "gelir-gider" && <div className="space-y-5"><div className="flex flex-wrap gap-2"><button onClick={addIncome} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Gelir Ekle</button><button onClick={addExpense} className="rounded-full bg-blue-100 px-4 py-2 text-sm font-black text-blue-700 ring-1 ring-blue-200">Gider Ekle</button><button onClick={() => exportAccounting("csv")} className="rounded-full border border-emerald-300 px-4 py-2 text-sm font-black text-emerald-700">Excel/CSV dışa aktar</button><button onClick={() => exportAccounting("html")} className="rounded-full border border-cyan-300 px-4 py-2 text-sm font-black text-cyan-700">PDF-ready HTML</button></div><div className="premium-scrollbar overflow-x-auto rounded-[16px] border border-slate-200"><table className="w-full min-w-[920px] text-left text-sm"><thead className="bg-slate-50 text-slate-600"><tr><th className="p-3">Tür</th><th>Müşteri</th><th>Kategori</th><th>Tutar</th><th>Tarih</th><th>Durum</th><th>Müşteriye gösterilsin</th></tr></thead><tbody>{payments.map((item: any) => <tr key={`income-${item.id}`} className="border-t border-slate-200"><td className="p-3 font-black text-emerald-700">Gelir</td><td>{companyName(content, item.company_id)}</td><td>{item.payment_type || "Hizmet Bedeli"}</td><td>{v4Money(item.amount)}</td><td>{item.payment_date || item.due_date || item.service_period || "-"}</td><td>{item.status || "Bekliyor"}</td><td>{item.visible_to_customer ? "Müşteriye açık" : "Sadece admin"}</td></tr>)}{expenses.map((item: any, index: number) => <tr key={`expense-${item.id || index}`} className="border-t border-slate-200"><td className="p-3 font-black text-red-700">Gider</td><td>-</td><td><input value={item.category || item.title || ""} onChange={(event) => updateExpense(index, { category: event.target.value })} className="w-full rounded border border-slate-200 px-2 py-1" /></td><td><input type="number" value={item.amount || 0} onChange={(event) => updateExpense(index, { amount: Number(event.target.value || 0) })} className="w-28 rounded border border-slate-200 px-2 py-1" /></td><td><input type="date" value={item.expense_date || ""} onChange={(event) => updateExpense(index, { expense_date: event.target.value })} className="rounded border border-slate-200 px-2 py-1" /></td><td>Gider</td><td>Sadece admin</td></tr>)}</tbody></table></div></div>}
+      {tab === "gelir-tahmini" && <RevenueForecastCenter content={content} setActive={(target: string) => setTab(accountingTabForActive(target))} />}
+      {tab === "karlilik" && <ProfitabilityCenter content={content} setContent={setContent} setActive={(target: string) => setTab(accountingTabForActive(target))} currentSession={currentSession} notify={notify} />}
+      {tab === "musteri-finans" && <GlassCard className="p-5"><div className="grid gap-4 md:grid-cols-[360px_1fr]"><CompanySelect label="Müşteri seç" value={customerId} onChange={setCustomerId} companies={content.companies} /><div className="rounded-[14px] border border-slate-200 bg-slate-50 p-4">{selectedCompany ? <div><h3 className="text-xl font-black text-slate-950">{selectedCompany.name}</h3><div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4"><AgencyStatCard label="Toplam tahsilat" value={v4Money(selectedPaid)} note="Ödenmiş kayıtlar" tone="emerald" /><AgencyStatCard label="Bekleyen ödeme" value={v4Money(selectedPending)} note="Açık kayıtlar" tone="amber" /><AgencyStatCard label="Son ödeme tarihi" value={selectedPayments[0]?.due_date || "-"} note="En güncel ödeme kaydı" /><AgencyStatCard label="Risk durumu" value={selectedPending ? "Takip" : "Temiz"} note="Müşteri finans sağlığı" tone={selectedPending ? "amber" : "emerald"} /></div><button onClick={() => setActive?.("Müşteriler")} className="mt-4 rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Müşteri profilini aç</button></div> : <p className="text-sm text-slate-500">Müşteri seçince toplam tahsilat, bekleyen ödeme, geciken ödeme, hizmet bedeli, reklam bütçesi, ödeme geçmişi ve risk durumu burada görünür.</p>}</div></div></GlassCard>}
+      {["raporlar", "export"].includes(tab) && <div className="grid gap-4 xl:grid-cols-2"><GlassCard className="p-5"><h3 className="text-lg font-black text-slate-950">Muhasebe raporları</h3><p className="mt-2 text-sm leading-6 text-slate-600">Raporlar ekran görüntüsü değil; gerçek finans özeti, tablo ve metin çıktısı olarak hazırlanır.</p><div className="mt-4 grid gap-2">{["Aylık muhasebe özeti", "Müşteri finans özeti", "Tahsilat raporu", "Gelir/gider raporu", "Kârlılık raporu", "Geciken ödeme raporu"].map((item) => <button key={item} onClick={() => exportAccounting("html")} className="rounded-[10px] border border-slate-200 bg-white px-4 py-3 text-left text-sm font-black text-slate-700 hover:border-cyan-300 hover:bg-cyan-50">{item}</button>)}</div></GlassCard><GlassCard className="p-5"><h3 className="text-lg font-black text-slate-950">Dışa aktar</h3><div className="mt-4 flex flex-wrap gap-2"><button onClick={() => exportAccounting("csv")} className="rounded-full bg-emerald-100 px-4 py-2 text-sm font-black text-emerald-700 ring-1 ring-emerald-200">Excel/CSV</button><button onClick={() => exportAccounting("html")} className="rounded-full bg-cyan-100 px-4 py-2 text-sm font-black text-cyan-700 ring-1 ring-cyan-200">PDF-ready HTML</button><button onClick={() => exportAccounting("word")} className="rounded-full bg-blue-100 px-4 py-2 text-sm font-black text-blue-700 ring-1 ring-blue-200">Word uyumlu metin</button></div><p className="mt-4 text-xs leading-5 text-slate-500">Finansal export yalnız muhasebe yetkisi olan kullanıcıların menüsünde görünür.</p></GlassCard></div>}
+    </Panel>
+  );
+}
+
+function PaymentCenter({ content, setContent, save, currentSession, notify, selectedCompanyId = "", onClearCompanyFilter, initialStatus = "Tümü" }: any) {
   const items = content.paymentRecords || [];
   const [feedback, setFeedback] = useState("");
   const currentYear = String(new Date().getFullYear());
-  const emptyFilters = { status: "Tümü", companyId: selectedCompanyId, paymentType: "Tümü", month: "", year: "", startDate: "", endDate: "" };
+  const emptyFilters = { status: initialStatus, companyId: selectedCompanyId, paymentType: "Tümü", month: "", year: "", startDate: "", endDate: "" };
   const [draftFilters, setDraftFilters] = useState(emptyFilters);
   const [appliedFilters, setAppliedFilters] = useState(emptyFilters);
   const canManage = canManageRecord(currentSession, "tahsilat");

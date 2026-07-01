@@ -5,15 +5,18 @@ import { getAdminHref, getAdminSectionBySlug, getCanonicalAdminSlug } from "@/li
 import { requireModuleAccess } from "@/lib/permissions";
 
 export default async function AdminModulePage({
-  params
+  params,
+  searchParams
 }: {
   params: Promise<{ module: string }>;
+  searchParams?: Promise<{ tab?: string }>;
 }) {
   const { module } = await params;
+  const query = await searchParams;
   const canonicalSlug = getCanonicalAdminSlug(module);
   if (canonicalSlug !== module) redirect(getAdminHref(canonicalSlug));
   const section = getAdminSectionBySlug(module);
   if (!section) redirect("/hk-admin");
   if (!(await requireModuleAccess(section.module))) redirect("/hk-admin");
-  return <AdminDashboard {...await getAdminPageData()} initialActive={section.label} />;
+  return <AdminDashboard {...await getAdminPageData()} initialActive={section.label} initialAccountingTab={query?.tab} />;
 }
