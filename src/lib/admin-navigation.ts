@@ -24,17 +24,12 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     items: [
       { label: "Dashboard", slug: "", module: "dashboard", description: "Ajans KPI'ları, öncelikler ve günlük operasyon özeti." },
       { label: "HK Intelligence CEO", slug: "hk-intelligence-ceo", module: "hk-intelligence-ceo", description: "AI ajanlarını, riskleri, KPI'ları ve ajans operasyon kararlarını tek executive masadan yönetin." },
-      { label: "HK Intelligence Commander", slug: "intelligence-command-center", module: "dashboard", description: "Günlük öncelikler, müşteri sağlığı, risk ve kârlılık karar merkezi." },
-      { label: "Bugün", slug: "dashboard", module: "dashboard", description: "Bugünün kritik işleri, riskleri ve hızlı aksiyonları." },
-      { label: "Risk Merkezi", slug: "risk-merkezi", module: "dashboard", description: "Tahsilat, görev, entegrasyon ve müşteri risklerini öncelik puanıyla izleyin." },
-      { label: "HK Asistan", slug: "hk-asistan", module: "hk-asistan", description: "Mevcut sistem verileriyle çalışan operasyon asistanı." },
-      { label: "Genel Arama", slug: "genel-arama", module: "genel-arama", description: "Müşteri, kampanya, görev ve belgelerde hızlı arama." },
       { label: "QA Merkezi", slug: "qa-center", module: "qa-center", description: "Admin aksiyonları, API uçları ve Supabase migration uyumunu denetler." },
-      { label: "Sistem Sağlık Merkezi", slug: "sistem-sagligi", module: "sistem-sagligi", description: "API, veritabanı, ölçümleme ve servis bağlantı durumları." },
+      { label: "Sistem Sağlığı", slug: "sistem-sagligi", module: "sistem-sagligi", description: "API, veritabanı, ölçümleme ve servis bağlantı durumları." },
       { label: "Sistem Test Merkezi", slug: "sistem-test-merkezi", module: "sistem-test-merkezi", description: "Otomatik ve manuel sistem kalite kontrolleri." },
       { label: "Log Merkezi", slug: "log-aktivite-merkezi", module: "sistem-loglari", description: "Kullanıcı işlemleri, teknik olaylar ve denetim kayıtları." },
       { label: "Veri Yedekleme", slug: "veri-aktarma", module: "veri-aktarma", description: "Tam yedek, export, import önizleme ve veri aktarma işlemleri." },
-      { label: "HK Dijital Sistem Rehberi", slug: "sistem-rehberi", module: "sistem-rehberi", description: "Tüm modüllerin kullanım kılavuzu, eğitim içerikleri ve sorun giderme rehberleri." }
+      { label: "Sistem Rehberi", slug: "sistem-rehberi", module: "sistem-rehberi", description: "Tüm modüllerin kullanım kılavuzu, eğitim içerikleri ve sorun giderme rehberleri." }
     ]
   },
   {

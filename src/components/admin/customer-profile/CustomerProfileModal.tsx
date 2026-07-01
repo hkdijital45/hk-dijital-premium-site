@@ -345,6 +345,7 @@ export function CustomerProfileModal({
         </header>
         <div className="flex-1 overflow-y-auto p-5">
           {actionResult && <div className="mb-5"><ActionResultPanel result={actionResult} onNavigate={(href) => window.location.assign(href)} /></div>}
+          {!showOverview && children && <div className="mb-5">{children}</div>}
           {showOverview && (
             <>
               <div className="sticky top-0 z-10 -mx-5 -mt-5 border-b border-slate-200 bg-white/95 px-5 py-3 backdrop-blur">
@@ -525,7 +526,7 @@ export function CustomerProfileModal({
               {!applications.length && <p className="rounded-[12px] border border-dashed border-cyan-200 bg-white p-4 text-sm text-cyan-800">Bu müşteri için uygulanmış hazır paket henüz yok.</p>}
             </div>
           </section>
-          {children && <div className="mt-5">{children}</div>}
+          {showOverview && children && <div className="mt-5">{children}</div>}
         </div>
       </section>
       {branchModalOpen && (

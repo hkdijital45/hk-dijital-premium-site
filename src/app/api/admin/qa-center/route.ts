@@ -285,6 +285,40 @@ function scanSourcesForFindings(migrations: string) {
   if (!migrations.includes("qa_audit_findings")) findings.push(makeFinding({ category: "Migration Eksikleri", severity: "orta", module: "QA Merkezi", file_path: "supabase/migrations", title: "qa_audit_findings tablosu migrationlarda görünmüyor", description: "QA bulgularını kalıcı izlemek için tablo gerekir.", recommendation: "Idempotent qa_audit_findings migrationını çalıştırın." }));
   if (!migrations.includes("sort_order") || !migrations.includes("parent_task_id") || !migrations.includes("reminder_at")) findings.push(makeFinding({ category: "Migration Eksikleri", severity: "orta", module: "Görevler", file_path: "supabase/migrations", title: "Görev Phase 2 kolonları eksik olabilir", description: "Alt görev, sıralama veya hatırlatma alanları migrationlarda tam görünmüyor.", recommendation: "agency_tasks Phase 2 kolon migrationını çalıştırın." }));
   if (!migrations.includes("weekly_change") || !migrations.includes("wasted_budget_estimate")) findings.push(makeFinding({ category: "Migration Eksikleri", severity: "orta", module: "Reklam Yorum Merkezi", file_path: "supabase/migrations", title: "Reklam analiz Phase 2 kolonları eksik olabilir", description: "Haftalık değişim ve boşa bütçe kolonları migrationlarda görünmüyor.", recommendation: "ad_insight_snapshots Phase 2 kolon migrationını çalıştırın." }));
+  const customerModalPath = path.join(root, "src", "components", "admin", "customer-profile", "CustomerProfileModal.tsx");
+  const adminDashboardPath = path.join(root, "src", "components", "admin", "AdminDashboard.tsx");
+  const navigationPath = path.join(root, "src", "lib", "admin-navigation.ts");
+  const customerModalText = readFileSync(customerModalPath, "utf8");
+  const adminDashboardText = readFileSync(adminDashboardPath, "utf8");
+  const navigationText = readFileSync(navigationPath, "utf8");
+  const modalChildrenIndex = customerModalText.indexOf("{!showOverview && children");
+  const modalOperationIndex = customerModalText.indexOf("Operasyon Detayları");
+  const modalBranchesIndex = customerModalText.indexOf(">Şubeler<");
+  const modalCompetitorsIndex = customerModalText.indexOf(">Rakipler<");
+  if (!(modalChildrenIndex > -1 && modalOperationIndex > modalChildrenIndex && modalBranchesIndex > modalOperationIndex && modalCompetitorsIndex > modalOperationIndex)) {
+    findings.push(makeFinding({ category: "Müşteri Profili QA", severity: "kritik", module: "CustomerProfileModal", file_path: "src/components/admin/customer-profile/CustomerProfileModal.tsx", title: "Müşteri profilinde sekmeler Şubeler/Rakipler’den önce render edilmiyor", description: "CustomerProfileModal içinde çocuk sekme içeriği Operasyon Detayları, Şubeler ve Rakipler bloklarından önce gelmelidir.", recommendation: "JSX sırasını header > sekmeler/aktif içerik > 360 özet > Operasyon Detayları olacak şekilde fiziksel olarak düzenleyin." }));
+  }
+  const dashboardModalIndex = adminDashboardText.indexOf("<CustomerProfileModal");
+  const dashboardTabsIndex = adminDashboardText.indexOf("tabs.map", dashboardModalIndex);
+  const dashboardSummaryIndex = adminDashboardText.indexOf("<Customer360Summary", dashboardModalIndex);
+  if (!(dashboardModalIndex > -1 && dashboardTabsIndex > dashboardModalIndex && dashboardSummaryIndex > dashboardTabsIndex)) {
+    findings.push(makeFinding({ category: "Müşteri Profili QA", severity: "kritik", module: "AdminDashboard", file_path: "src/components/admin/AdminDashboard.tsx", title: "Müşteriler ekranı sekmeleri 360 özetten önce render etmiyor", description: "Müşteriler ekranındaki modal children içeriğinde sekme chipleri ilk görünür blok olmalıdır.", recommendation: "Customer360Summary bileşenini sekmeler ve aktif sekme içeriğinden sonra render edin." }));
+  }
+  const controlBlock = navigationText.match(/label: "Kontrol Merkezi",[\s\S]*?items: \[([\s\S]*?)\n\s*\]/)?.[1] || "";
+  const settingsBlock = navigationText.match(/label: "Ayarlar",[\s\S]*?items: \[([\s\S]*?)\n\s*\]/)?.[1] || "";
+  const forbiddenControlLabels = ["Web Sitesi Yönetimi", "Kullanıcı Yönetimi", "Roller", "Tema / Logo", "Sistem Ayarları", "Mobil Operasyon Modu", "Güvenlik"];
+  const forbiddenInControl = forbiddenControlLabels.filter((label) => controlBlock.includes(`label: "${label}"`));
+  if (forbiddenInControl.length) {
+    findings.push(makeFinding({ category: "Menü Mimarisi QA", severity: "kritik", module: "Admin Navigation", file_path: "src/lib/admin-navigation.ts", title: "Kontrol Merkezi’nde yasaklı Ayarlar sayfası var", description: `Kontrol Merkezi içinde yanlış görünen kayıtlar: ${forbiddenInControl.join(", ")}.`, recommendation: "Ayarlar sayfalarını yalnız Ayarlar kategorisinde bırakın." }));
+  }
+  const missingSettings = forbiddenControlLabels.filter((label) => !settingsBlock.includes(`label: "${label}"`));
+  if (missingSettings.length) {
+    findings.push(makeFinding({ category: "Menü Mimarisi QA", severity: "orta", module: "Admin Navigation", file_path: "src/lib/admin-navigation.ts", title: "Ayarlar kategorisinde beklenen kayıt eksik", description: `Ayarlar içinde görünmeyen kayıtlar: ${missingSettings.join(", ")}.`, recommendation: "Web sitesi, kullanıcı, roller, tema, sistem, mobil operasyon ve güvenlik kayıtlarını Ayarlar kategorisinde tutun." }));
+  }
+  const customerBlock = navigationText.match(/label: "Müşteri Merkezi",[\s\S]*?items: \[([\s\S]*?)\n\s*\]/)?.[1] || "";
+  if (!customerBlock.trim().startsWith('{ label: "Müşteriler"')) {
+    findings.push(makeFinding({ category: "Menü Mimarisi QA", severity: "kritik", module: "Admin Navigation", file_path: "src/lib/admin-navigation.ts", title: "Müşteriler Müşteri Merkezi’nde ilk sırada değil", description: "Müşteri Merkezi dropdown ilk görünür kaydı Müşteriler olmalıdır.", recommendation: "Müşteriler kayıt objesini Müşteri Merkezi items listesinin ilk elemanı yapın." }));
+  }
   [
     ["Menü kategorileri duplicate mi?", "Müşteri & Satış", "admin-navigation.ts içinde müşteri/satış modülleri tek kategori altında toplanmalı."],
     ["Aynı route iki farklı isimle gösteriliyor mu?", "legacySlugRedirects", "Eski slug değerleri canonical route’a yönlenmeli."],
