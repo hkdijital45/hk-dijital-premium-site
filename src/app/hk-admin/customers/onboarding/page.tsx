@@ -1,7 +1,9 @@
-import { redirect } from "next/navigation";
+import { OnboardingCenter } from "@/components/admin/Phase2OperatingSystem";
+import { getAdminPageData } from "@/lib/admin-page-data";
 
 export const dynamic = "force-dynamic";
 
 export default async function CustomerOnboardingPage() {
-  redirect("/hk-admin/musteri-merkezi?tab=onboarding");
+  const data = await getAdminPageData();
+  return <OnboardingCenter content={data.initialContent} />;
 }
