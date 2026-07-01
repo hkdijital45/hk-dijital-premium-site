@@ -70,6 +70,29 @@ function SummaryBox({ title, lines }: { title: string; lines: string[] }) {
   );
 }
 
+const profileTabs = [
+  "Genel Bilgi",
+  "Müşteri Kurulumu",
+  "Entegrasyonlar",
+  "Marka Varlıkları",
+  "İletişim",
+  "Satış Durumu",
+  "Reklam Hesapları",
+  "Kampanyalar",
+  "Teklifler",
+  "Ödemeler",
+  "Yapılacaklar",
+  "Raporlar",
+  "Dosyalar",
+  "Zaman Çizelgesi",
+  "Panel Görünürlüğü",
+  "Giriş Bilgileri",
+  "Metrikler",
+  "Yapılan Çalışmalar",
+  "Aktivite Geçmişi",
+  "Notlar"
+];
+
 const emptyBranchForm = {
   branch_name: "",
   city: "",
@@ -151,6 +174,8 @@ export function CustomerProfileModal({
   const payments = (content?.paymentRecords || []).filter((item: any) => item.company_id === company?.id);
   const campaigns = (content?.campaigns || []).filter((item: any) => item.company_id === company?.id);
   const applications = packageApplications(company, content);
+  const today = new Date().toISOString().slice(0, 10);
+  const overduePayments = payments.filter((item: any) => !paidStatuses.includes(item.status) && item.due_date && item.due_date < today);
   const [localBranches, setLocalBranches] = useState<any[]>(() => customerBranches(company, content));
   const [branchModalOpen, setBranchModalOpen] = useState(false);
   const [branchEditor, setBranchEditor] = useState<any>(null);
@@ -159,6 +184,7 @@ export function CustomerProfileModal({
   const [branchMessage, setBranchMessage] = useState("");
   const [actionResult, setActionResult] = useState<ActionResult | null>(null);
   const [branchAction, setBranchAction] = useState<any>(null);
+  const [activeProfileTab, setActiveProfileTab] = useState("Genel Bilgi");
   const branches = localBranches;
   const latestApplication = applications[0] || {};
   const missingIntegrations = [
@@ -269,6 +295,43 @@ export function CustomerProfileModal({
     setBranchAction({ type: "report", title: "Şube Raporu Hazırla", branch, reportType: "Haftalık şube özeti" });
   }
 
+  function activeTabCards() {
+    if (activeProfileTab === "Entegrasyonlar") {
+      return [
+        { title: "Entegrasyonlar", lines: [`Pixel: ${integration.meta_pixel_id ? "Var" : "Eksik"}`, `Dataset: ${integration.meta_dataset_id ? "Var" : "Eksik"}`, `GA4: ${integration.ga4_measurement_id || integration.ga4_property_id ? "Var" : "Eksik"}`, `Google Ads: ${integration.google_ads_customer_id ? "Var" : "Eksik"}`, `Eksikler: ${missingIntegrations.length ? missingIntegrations.join(", ") : "Yok"}`] },
+        { title: "Web analitiği", lines: [`Website: ${company.website || "Yok"}`, `Search Console: ${integration.search_console_site_url ? "Var" : "Eksik"}`, `GTM: ${integration.gtm_container_id ? "Var" : "Eksik"}`, `Analytics durumu: ${integration.setup_progress || 0}%`] }
+      ];
+    }
+    if (activeProfileTab === "İletişim") {
+      return [
+        { title: "İletişim", lines: [`Yetkili: ${company.contact_name || company.authorized_person || "Yok"}`, `E-posta: ${company.email || "Yok"}`, `Telefon: ${formatTurkishPhone(company.phone) || "Yok"}`, `Instagram: ${company.instagram || "Yok"}`] },
+        { title: "Adres", lines: [`Şehir: ${company.city || "Yok"}`, `Sektör: ${company.sector || "Yok"}`, `Web sitesi: ${company.website || "Yok"}`, `Not: ${company.notes || "Yok"}`] }
+      ];
+    }
+    if (activeProfileTab === "Ödemeler") {
+      return [
+        { title: "Müşteri Finans Özeti", lines: [`Toplam tahsilat kaydı: ${payments.length}`, `Bekleyen ödeme: ${payments.filter((item: any) => !paidStatuses.includes(item.status)).length}`, `Tahsil edilen: ${payments.filter((item: any) => paidStatuses.includes(item.status)).length}`, `Geciken ödeme: ${overduePayments.length}`] },
+        { title: "Ödeme sinyalleri", lines: [`Son ödeme: ${payments[0]?.paid_at || payments[0]?.due_date || "Yok"}`, `Tahsilat durumu: ${overduePayments.length ? "Kontrol gerekli" : "Normal"}`, `Müşteriye açık kayıt: ${payments.filter((item: any) => item.show_to_customer).length}`] }
+      ];
+    }
+    if (activeProfileTab === "Yapılacaklar") {
+      return [
+        { title: "Yapılacaklar", lines: [`Toplam görev: ${tasks.length}`, `Aktif görev: ${tasks.filter((item: any) => !["Tamamlandı", "İptal"].includes(item.status)).length}`, `Geciken görev: ${tasks.filter((item: any) => item.due_date && item.due_date < new Date().toISOString().slice(0, 10)).length}`, `Müşteriye açık görev: ${tasks.filter((item: any) => item.show_to_customer).length}`] },
+        { title: "Sonraki aksiyon", lines: [`Eksik entegrasyon: ${missingIntegrations.length ? missingIntegrations.join(", ") : "Yok"}`, `Sonraki 7 gün planı: ${(latestApplication.seven_day_plan || []).length} adım`, `Aktif kampanya: ${campaigns.length}`] }
+      ];
+    }
+    if (activeProfileTab === "Raporlar") {
+      return [
+        { title: "Raporlar", lines: [`Toplam rapor: ${reports.length}`, `Müşteriye açık rapor: ${reports.filter((item: any) => item.show_to_customer || item.visible_to_customer).length}`, `Bekleyen rapor: ${reports.filter((item: any) => !item.visible_to_customer).length}`, `Son rapor: ${reports[0]?.created_at ? new Date(reports[0].created_at).toLocaleDateString("tr-TR") : "Yok"}`] },
+        { title: "Rapor aksiyonu", lines: [`Kampanya: ${campaigns.length}`, `Paket planı: ${applications.length}`, `Rapor önerisi: ${reports.length ? "Güncelle" : "İlk raporu hazırla"}`] }
+      ];
+    }
+    return [
+      { title: "Genel bilgiler", lines: [`Firma: ${company.name}`, `Sektör: ${company.sector || "Yok"}`, `Şehir: ${company.city || "Yok"}`, `Web: ${company.website || "Yok"}`, `Instagram: ${company.instagram || "Yok"}`] },
+      { title: "Temel iletişim", lines: [`Yetkili: ${company.contact_name || company.authorized_person || "Yok"}`, `E-posta: ${company.email || "Yok"}`, `Telefon: ${formatTurkishPhone(company.phone) || "Yok"}`, `Durum: ${company.status || "Aktif"}`, `Dahili not: ${company.notes || "Yok"}`] }
+    ];
+  }
+
   return (
     <div className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/50 p-0 sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <section className="flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-auto sm:max-h-[88vh] sm:w-[min(1200px,94vw)] sm:rounded-[26px]" onMouseDown={(event) => event.stopPropagation()}>
@@ -284,11 +347,20 @@ export function CustomerProfileModal({
           {actionResult && <div className="mb-5"><ActionResultPanel result={actionResult} onNavigate={(href) => window.location.assign(href)} /></div>}
           {showOverview && (
             <>
-              <div className="grid gap-4 md:grid-cols-2">
-                <SummaryBox title="Genel bilgiler" lines={[`Firma: ${company.name}`, `Yetkili: ${company.contact_name || company.authorized_person || "Yok"}`, `Web: ${company.website || "Yok"}`, `Instagram: ${company.instagram || "Yok"}`]} />
-                <SummaryBox title="İletişim" lines={[`E-posta: ${company.email || "Yok"}`, `Telefon: ${company.phone || "Yok"}`, `Şehir: ${company.city || "Yok"}`, `Not: ${company.notes || "Yok"}`]} />
+              <div className="sticky top-0 z-10 -mx-5 -mt-5 border-b border-slate-200 bg-white/95 px-5 py-3 backdrop-blur">
+                <div className="premium-scrollbar flex gap-2 overflow-x-auto pb-1">
+                  {profileTabs.map((tab) => (
+                    <button key={tab} type="button" onClick={() => setActiveProfileTab(tab)} className={`shrink-0 rounded-full px-3 py-2 text-xs font-black ring-1 transition ${activeProfileTab === tab ? "bg-cyan-500 text-white ring-cyan-500" : "bg-slate-50 text-slate-600 ring-slate-200 hover:bg-cyan-50 hover:text-cyan-700"}`}>
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="mt-5 grid gap-4 md:grid-cols-2">
+                {activeTabCards().map((card) => <SummaryBox key={card.title} title={card.title} lines={card.lines} />)}
+              </div>
+              <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 <SummaryBox title="Kurulum durumu" lines={[`Sağlık skoru: ${profileHealth.score}/100`, `Durum: ${profileHealth.status}`, ...(profileHealth.reasons || [])]} />
-                <SummaryBox title="Entegrasyonlar" lines={[`Pixel: ${integration.meta_pixel_id ? "Var" : "Eksik"}`, `Dataset: ${integration.meta_dataset_id ? "Var" : "Eksik"}`, `GA4: ${integration.ga4_measurement_id || integration.ga4_property_id ? "Var" : "Eksik"}`, `Google Ads: ${integration.google_ads_customer_id ? "Var" : "Eksik"}`]} />
                 <SummaryBox title="Operasyon özeti" lines={[`Görev: ${tasks.length}`, `Rapor: ${reports.length}`, `Tahsilat: ${payments.length}`, `Kampanya: ${campaigns.length}`]} />
                 <SummaryBox title="Ajans Operasyon Özeti" lines={[`Uygulanan paket: ${applications.length}`, `Şube: ${branches.length}`, `Aktif görev: ${tasks.filter((item: any) => !["Tamamlandı", "İptal"].includes(item.status)).length}`, `Bekleyen rapor: ${reports.filter((item: any) => !item.visible_to_customer).length}`, `Eksik entegrasyon: ${missingIntegrations.length ? missingIntegrations.join(", ") : "Yok"}`, `Sonraki 7 gün planı: ${(latestApplication.seven_day_plan || []).length} adım`]} />
                 <SummaryBox title="Müşteri Finans Özeti" lines={[`Toplam tahsilat kaydı: ${payments.length}`, `Bekleyen ödeme: ${payments.filter((item: any) => !paidStatuses.includes(item.status)).length}`, `Tahsil edilen: ${payments.filter((item: any) => paidStatuses.includes(item.status)).length}`, `Geciken ödeme: ${overduePayments.length}`]} />
@@ -302,7 +374,14 @@ export function CustomerProfileModal({
               </div>
             </>
           )}
-          <section className="mt-5 rounded-[18px] border border-slate-200 bg-white p-4">
+          <section className="mt-6 rounded-[22px] border border-slate-200 bg-slate-50 p-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[.14em] text-cyan-700">Operasyon Detayları</p>
+              <h3 className="mt-1 text-lg font-black text-slate-950">Şubeler, rakipler ve uygulanan planlar</h3>
+              <p className="mt-1 text-sm text-slate-500">Bu bloklar temel müşteri bilgileri ve sekme içeriklerinden sonra gösterilir.</p>
+            </div>
+          </section>
+          <section className="mt-4 rounded-[18px] border border-slate-200 bg-white p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h3 className="font-black text-slate-950">Şubeler</h3>

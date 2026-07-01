@@ -707,7 +707,7 @@ export function AdminDashboard({
                       </span>
                     </button>
                     <div
-                      className={`admin-top-dropdown premium-scrollbar ${expanded ? "grid" : "hidden"} mt-2 max-h-[min(70vh,620px)] w-full max-w-full gap-2 overflow-y-auto rounded-[8px] border border-slate-200 bg-white/98 p-3 shadow-[0_18px_50px_rgba(0,0,0,.24)] lg:absolute lg:left-1/2 lg:top-full lg:z-50 lg:mt-3 lg:w-[min(720px,calc(100vw-32px))] lg:min-w-[420px] lg:-translate-x-1/2 lg:grid-cols-2 xl:grid-cols-3`}
+                      className={`admin-top-dropdown premium-scrollbar ${expanded ? "grid" : "hidden"} mt-2 max-h-[min(72vh,640px)] w-full max-w-full gap-2 overflow-y-auto rounded-[8px] border border-slate-200 bg-white/98 p-3 shadow-[0_18px_50px_rgba(0,0,0,.24)] lg:absolute lg:left-1/2 lg:top-full lg:z-50 lg:mt-3 lg:w-[min(560px,calc(100vw-32px))] lg:min-w-[420px] lg:-translate-x-1/2 xl:w-[min(680px,calc(100vw-32px))] xl:grid-cols-2`}
                     >
                       {group.items.map((item) => (
                         <Link
@@ -715,12 +715,12 @@ export function AdminDashboard({
                           href={getAdminHref(item.slug)}
                           title={item.label}
                           onClick={() => { setMobileNavOpen(false); setHoveredNavGroup(""); setOpenGroups(Object.fromEntries(adminNavigationGroups.map((navGroup) => [navGroup.label, false]))); }}
-                          className={`flex w-full min-w-0 items-start gap-3 rounded-[8px] border px-3.5 py-3 text-sm font-bold transition ${active === item.label ? "border-cyan-200/50 bg-cyan-300 text-slate-950" : "border-slate-200 text-slate-700 hover:border-cyan-200/25 hover:bg-white/[0.07] hover:text-cyan-700"}`}
+                          className={`flex w-full min-w-0 items-start gap-3 rounded-[8px] border px-3.5 py-2.5 text-sm font-bold transition ${active === item.label ? "border-cyan-200/50 bg-cyan-300 text-slate-950" : "border-slate-200 text-slate-700 hover:border-cyan-200/25 hover:bg-white/[0.07] hover:text-cyan-700"}`}
                         >
                           <CategoryIcon size={15} className={`mt-0.5 shrink-0 ${active === item.label ? "text-slate-950" : "text-cyan-700"}`} />
                           <span className="min-w-0 flex-1">
                             <span className="block whitespace-normal break-normal leading-5">{withAdminEmoji(item.label)}</span>
-                            <span className={`mt-1 block whitespace-normal break-normal text-[11px] font-medium leading-4 ${active === item.label ? "text-slate-700" : "text-slate-500"}`}>{item.description}</span>
+                            <span className={`mt-1 line-clamp-2 block whitespace-normal break-normal text-[11px] font-medium leading-4 ${active === item.label ? "text-slate-700" : "text-slate-500"}`}>{item.description}</span>
                           </span>
                         </Link>
                       ))}
