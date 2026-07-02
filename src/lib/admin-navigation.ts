@@ -56,6 +56,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: "Lead Merkezi", slug: "leads", module: "leads", description: "Başvurular, iletişim bilgileri ve lead durumları." },
       { label: "Müşteri Keşfi", slug: "musteri-kesfi", module: "musteri-bulucu", description: "Yeni işletme adayları ve dijital fırsat sinyalleri." },
       { label: "Haritalar", slug: "haritalar", module: "haritalar", description: "Bölgesel işletme keşfi ve Google Maps sinyalleri." },
+      { label: "Rakip İstihbarat Merkezi", slug: "rakip-analizi", module: "rakip-analizi", description: "Lead veya müşteri için gerçek rakip keşfi, skor ve sinyal takibi." },
       { label: "Lead Workspace", slug: "lead-workspace", module: "leads", description: "Lead detay çalışma alanı ve satış notları." },
       { label: "Lead Analizi", slug: "lead-analizi", module: "leads", description: "Lead kalitesi, sıcaklık ve dönüşüm potansiyeli analizi." },
       { label: "Takip Merkezi", slug: "takip-merkezi", module: "leads", description: "Arama, WhatsApp, toplantı ve teklif takipleri." },
