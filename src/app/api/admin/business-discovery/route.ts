@@ -247,16 +247,20 @@ export async function PUT(request: Request) {
   if (!businesses.length) return NextResponse.json({ error: "Kaydedilecek işletme seçin." }, { status: 400 });
 
   try {
-    const existing = await supabaseRest<Array<{ google_place_id?: string; company?: string; phone?: string }>>("leads?select=google_place_id,company,phone");
+    const existing = await supabaseRest<Array<{ google_place_id?: string; company?: string; phone?: string; website?: string; district?: string }>>("leads?select=google_place_id,company,phone,website,district");
     const knownPlaceIds = new Set(existing.map((lead) => lead.google_place_id).filter(Boolean));
     const knownNamePhones = new Set(existing.map((lead) => `${clean(lead.company).toLocaleLowerCase("tr-TR")}::${phoneKey(lead.phone)}`).filter((key) => key !== "::"));
+    const knownWebsites = new Set(existing.map((lead) => clean(lead.website).toLocaleLowerCase("tr-TR").replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/$/, "")).filter(Boolean));
+    const knownNameDistricts = new Set(existing.map((lead) => `${clean(lead.company).toLocaleLowerCase("tr-TR")}::${clean(lead.district).toLocaleLowerCase("tr-TR")}`).filter((key) => key !== "::"));
     const rows = businesses.filter((business) => {
       const namePhone = `${clean(business.name).toLocaleLowerCase("tr-TR")}::${phoneKey(business.phone)}`;
-      return !((business.placeId && knownPlaceIds.has(business.placeId)) || (business.name && business.phone && knownNamePhones.has(namePhone)));
+      const website = clean(business.website).toLocaleLowerCase("tr-TR").replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/$/, "");
+      const nameDistrict = `${clean(business.name).toLocaleLowerCase("tr-TR")}::${clean(business.district || body.district).toLocaleLowerCase("tr-TR")}`;
+      return !((business.placeId && knownPlaceIds.has(business.placeId)) || (business.name && business.phone && knownNamePhones.has(namePhone)) || (website && knownWebsites.has(website)) || (business.name && (business.district || body.district) && knownNameDistricts.has(nameDistrict)));
     }).map((business) => {
       const scores = scoreDiscoveredBusiness(business);
       return {
-        source: "Müşteri Bulucu",
+        source: "Google Maps / Müşteri Keşfi",
         company: business.name || "",
         phone: business.phone || "",
         website: business.website || "",
@@ -275,7 +279,8 @@ export async function PUT(request: Request) {
         digital_maturity_score: scores.digitalMaturityScore,
         lead_heat_score: scores.leadHeatScore,
         notes: [business.notes, body.notes, "Google Maps işletme keşfi ile kaydedildi.", ...(scores.scoreReasons?.heat || [])].filter(Boolean).join("\n"),
-        status: "Yeni"
+        status: "Yeni Lead",
+        lead_stage: "Yeni Lead"
       };
     });
     if (!rows.length) return NextResponse.json({ leads: [], count: 0, skipped: businesses.length, message: "Seçilen işletmeler daha önce CRM listesine eklenmiş." });
@@ -315,5 +320,6 @@ function stripOptionalDiscoveryColumns(record: Record<string, any>) {
   delete fallback.opportunity_score;
   delete fallback.digital_gap_score;
   delete fallback.ad_potential_score;
+  delete fallback.lead_stage;
   return fallback;
 }
