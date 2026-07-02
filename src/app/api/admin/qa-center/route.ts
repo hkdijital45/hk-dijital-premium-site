@@ -320,7 +320,7 @@ function scanSourcesForFindings(migrations: string) {
     findings.push(makeFinding({ category: "Menü Mimarisi QA", severity: "kritik", module: "Admin Navigation", file_path: "src/lib/admin-navigation.ts", title: "Müşteriler Müşteri Merkezi’nde ilk sırada değil", description: "Müşteri Merkezi dropdown ilk görünür kaydı Müşteriler olmalıdır.", recommendation: "Müşteriler kayıt objesini Müşteri Merkezi items listesinin ilk elemanı yapın." }));
   }
   [
-    ["Menü kategorileri duplicate mi?", "Müşteri & Satış", "admin-navigation.ts içinde müşteri/satış modülleri tek kategori altında toplanmalı."],
+    ["Menü kategorileri duplicate mi?", "CRM Merkezi", "admin-navigation.ts içinde lead, keşif ve satış modülleri CRM Merkezi altında toplanmalı."],
     ["Aynı route iki farklı isimle gösteriliyor mu?", "legacySlugRedirects", "Eski slug değerleri canonical route’a yönlenmeli."],
     ["Mobil mod toggle görünüyor mu?", "Mobil Operasyon Modu Toggle", "Admin toolbar üzerinde görünür toggle bulunmalı."],
     ["Mobil mod localStorage tercihi korunuyor mu?", "hk-mobile-operation-mode", "Mobil mod tercihi CRM/lead kaydı yerine localStorage’da tutulmalı."],
@@ -338,7 +338,7 @@ function scanSourcesForFindings(migrations: string) {
     ["Manus varsayılan değil mi?", "Derin Araştırma Uzmanı", "Manus günlük kısa cevap değil, derin araştırma görevleri için konumlandırılmalı."],
     ["Agent run log kalıcı mı?", "agent_runs", "Agent görevleri agent_runs tablosuna yazılmalı."],
     ["Müşteriler ana navigasyonda görünür mü?", "Aktif, pasif ve aday müşteri kayıtlarını yönet.", "Müşteriler ana CRM grubunda ve görünür ilk öğeler arasında olmalı."],
-    ["Müşteriler ayarlar altında mı kalmış?", "Müşteri & Satış", "Müşteri yönetimi Ayarlar altında değil, Müşteri & Satış kategorisinde konumlanmalı."],
+    ["Müşteriler ayarlar altında mı kalmış?", "Müşteri Merkezi", "Müşteri yönetimi Ayarlar altında değil, Müşteri Merkezi kategorisinde konumlanmalı."],
     ["Agent Hub final_report kolonları bekleniyor mu?", "final_report", "Agent run kayıtları HK Intelligence final raporunu saklamalı."],
     ["Agent Hub scheduled endpoint var mı?", "agent-hub/scheduled", "Planlanmış agent görevleri için API endpoint görünmeli."],
     ["Env eksikse kullanıcı dostu uyarı var mı?", "API anahtarı eklenmedi", "Sağlayıcı kartları eksik API anahtarı durumunu secret göstermeden açıklamalı."],
@@ -476,6 +476,11 @@ function scanSourcesForFindings(migrations: string) {
     ["Bulunan işletmeler kart kart gösteriliyor mu?", "Bulunan İşletmeler", "Google Maps sonuçları ham JSON yerine işletme kartlarında puan, yorum, iletişim, skor ve aksiyonlarla görünmelidir."],
     ["Seçilen işletmeler CRM’e kaydediliyor mu?", "Seçilenleri CRM’e Kaydet", "Haritalar modülü seçilen işletmeleri business-discovery PUT route’u ile lead kaydına dönüştürmelidir."],
     ["Haritalar işlem sonucu paneli var mı?", "Google Maps müşteri araması tamamlandı", "Arama ve CRM’e aktarma sonrası ActionResultPanel ne oldu/sonraki adım bilgisini göstermelidir."],
+    ["Detay butonu sağ paneli dolduruyor mu?", "Seçilen İşletme Detayı", "İşletme kartındaki Detay aksiyonu selectedPlaceId değerini güncelleyip sağ panelde seçilen işletme bilgisini göstermelidir."],
+    ["İşletmeler orta alanda kart kart görünüyor mu?", "Lead sonuç merkezi", "Bulunan işletmeler dar sağ kolon yerine orta alandaki responsive kart görünümünde listelenmelidir."],
+    ["Sağ panel seçilen işletme detayını gösteriyor mu?", "BusinessLeadDetailPanel", "Sağ panel işletme adı, adres, telefon, website, skorlar, AI yorumu ve aksiyon butonlarını göstermelidir."],
+    ["Toplu seçim aksiyonları var mı?", "Seçilenler için Görev Oluştur", "Seçili işletmeler için CRM, teklif, rakip analizi ve görev aksiyonları tek bar içinde bulunmalıdır."],
+    ["CRM Merkezi adı güncellendi mi?", "CRM Merkezi", "Üst menüde Satış & CRM yerine CRM Merkezi etiketi görünmelidir."],
     ["Agent analizi context ile açılıyor mu?", "branchId", "Şube analizi Agent Hub'a companyId, branchId ve taskType query bağlamıyla gitmeli."],
     ["Şube raporu boş sayfa yerine rapor payload üretiyor mu?", "Şube Raporu Hazırla", "Şube raporu en az print-ready veya JSON hazırlık verisi üretmeli."],
     ["Telefon format helper tüm formlarda kullanılıyor mu?", "formatTurkishPhone", "Telefon ve WhatsApp alanları ortak 0 (***) *** ** ** format helper'ını kullanmalı."],
@@ -575,7 +580,7 @@ function scanSourcesForFindings(migrations: string) {
     ["Duplicate menü kaydı var mı?", "QA Merkezi", "QA Merkezi, Sistem Sağlık Merkezi ve Sistem Test Merkezi tek profesyonel kategoride görünmeli; Araçlar altında tekrar etmemelidir."],
     ["Boş/yanlış route var mı?", "getAdminHref", "Navigation slug değerleri mevcut /hk-admin route yapısını bozmadan canonical route üretmelidir."],
     ["Menü açıklamaları Türkçe mi?", "description", "Admin menü açıklamaları kısa, Türkçe ve kullanıcıya yol gösteren metinler olmalıdır."],
-    ["Ana kategoriler mantıklı mı?", "Kontrol Merkezi", "Kontrol Merkezi, Müşteri Merkezi, Satış & CRM, Reklam & Performans, AI Merkezi, Ajans Operasyonu, Muhasebe, Rapor Merkezi, Entegrasyonlar, İçerik & Medya ve Ayarlar kategorileri korunmalıdır."]
+    ["Ana kategoriler mantıklı mı?", "Kontrol Merkezi", "Kontrol Merkezi, Müşteri Merkezi, CRM Merkezi, Reklam & Performans, AI Merkezi, Ajans Operasyonu, Muhasebe, Rapor Merkezi, Entegrasyonlar, İçerik & Medya ve Ayarlar kategorileri korunmalıdır."]
   ].forEach(([title, pattern, recommendation]) => {
     const inSource = sourceContains(pattern) || migrations.includes(String(pattern).toLocaleLowerCase("tr"));
     if (!inSource) findings.push(makeFinding({ category: "Ajans Operasyonu QA", severity: "orta", module: "Ajans Operasyon Kalıcılığı", file_path: "src/components/admin/AdminDashboard.tsx", title, description: `${pattern} sinyali statik analizde bulunamadı.`, recommendation }));

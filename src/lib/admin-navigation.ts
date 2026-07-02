@@ -47,8 +47,8 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     ]
   },
   {
-    label: "Satış & CRM",
-    description: "Lead, keşif, teklif ve satış hunisi akışları.",
+    label: "CRM Merkezi",
+    description: "Lead, müşteri keşfi, satış hunisi ve teklif takibi.",
     icon: "UsersRound",
     badge: "CRM",
     accent: "from-blue-400 via-cyan-500 to-emerald-600",

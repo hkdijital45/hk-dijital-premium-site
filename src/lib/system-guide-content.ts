@@ -17,7 +17,7 @@ export type SystemGuideSeed = {
 };
 
 export const systemGuideCategories = [
-  "Müşteri Serüveni", "Admin Mimarisi", "Menü ve Kategori Düzeni", "Dashboard & Kontrol Merkezi", "CRM & Müşteriler", "Müşteri & Satış", "Ajans Operasyonu", "Satış Hunisi", "Muhasebe", "Tahsilat & Karlılık",
+  "Müşteri Serüveni", "Admin Mimarisi", "Menü ve Kategori Düzeni", "Dashboard & Kontrol Merkezi", "CRM & Müşteriler", "CRM Merkezi", "Müşteri & Satış", "Ajans Operasyonu", "Satış Hunisi", "Muhasebe", "Tahsilat & Karlılık",
   "Görev Yönetimi", "Raporlama Merkezi", "Meta Entegrasyonları", "Google Entegrasyonları",
   "HK Intelligence", "HK Digital OS v2.0", "AI Studio", "Dosya & Belge Merkezi", "Kullanıcı Yönetimi", "Ayarlar",
   "Web Site Yönetimi", "Müşteri Paneli", "Sorun Giderme", "HK Agent Hub"
@@ -25,7 +25,7 @@ export const systemGuideCategories = [
 
 const definitions: Array<[string, string, string, string]> = [
   ["Dashboard nedir?", "Dashboard & Kontrol Merkezi", "Ajansın günlük KPI, risk ve aksiyonlarını tek ekranda izleyin.", ""],
-  ["HK Admin Mimarisi", "Admin Mimarisi", "Admin panelinde her modül kendi bağımsız route ve component akışında kalır. Menü yalnız profesyonel kategorilere ayrılır: Kontrol Merkezi, Müşteri Merkezi, Satış & CRM, Reklam & Performans, AI Merkezi, Ajans Operasyonu, Muhasebe, Rapor Merkezi, Entegrasyonlar, İçerik & Medya ve Ayarlar.", "sistem-rehberi"],
+  ["HK Admin Mimarisi", "Admin Mimarisi", "Admin panelinde her modül kendi bağımsız route ve component akışında kalır. Menü yalnız profesyonel kategorilere ayrılır: Kontrol Merkezi, Müşteri Merkezi, CRM Merkezi, Reklam & Performans, AI Merkezi, Ajans Operasyonu, Muhasebe, Rapor Merkezi, Entegrasyonlar, İçerik & Medya ve Ayarlar.", "sistem-rehberi"],
   ["Yeni admin menü kategorileri", "Admin Mimarisi", "Ana menü modülleri kaybetmeden doğru kategori altında gösterir. Eski sayfa adresleri korunur; çalışan modüller Dashboard içine veya tek merkez component içine gömülmez.", "sistem-rehberi"],
   ["Menü ve Kategori Düzeni", "Menü ve Kategori Düzeni", "Üst menü profesyonel ajans kategorilerine ayrılır. Aynı route’a giden tekrarlar görünür menüden sadeleştirilir; çalışan route ve page.tsx dosyaları korunur.", "sistem-rehberi"],
   ["Müşteri profili nasıl okunur?", "Menü ve Kategori Düzeni", "Müşteri profil popup açıldığında üstte müşteri adı, durum, şehir ve sektör; hemen altında sekmeler; sonra seçili sekmenin temel bilgileri ve operasyon özetleri görünür.", "musteriler"],
@@ -39,12 +39,16 @@ const definitions: Array<[string, string, string, string]> = [
   ["Kontrol Merkezi ne işe yarar?", "Menü ve Kategori Düzeni", "Kontrol Merkezi yalnız Dashboard, HK Intelligence CEO, QA Merkezi, Sistem Sağlığı, Sistem Test Merkezi, Log Merkezi, Veri Yedekleme ve Sistem Rehberi ekranlarını toplar.", ""],
   ["Kontrol Merkezi ne işe yarar?", "Admin Mimarisi", "Dashboard, HK Intelligence CEO, QA Merkezi, Sistem Sağlığı, Sistem Test Merkezi, Log Merkezi, Veri Yedekleme ve Sistem Rehberi günlük denetim ve sistem kontrol işleri içindir.", ""],
   ["Müşteri Merkezi ne işe yarar?", "Admin Mimarisi", "Müşteriler, firma yönetimi, müşteri profilleri, şubeler, onboarding, entegrasyon durumu, müşteri notları ve müşteri paketleri bu kategoride bulunur.", "musteriler"],
-  ["Satış & CRM ne işe yarar?", "Admin Mimarisi", "Lead Merkezi, müşteri keşfi, haritalar, Google Maps, CRM, Lead Workspace, satış hunisi, teklifler ve takip akışları bu kategoride bulunur.", "leads"],
-  ["Haritalar modülü ne işe yarar?", "Müşteri & Satış", "Haritalar modülü bölgesel fırsatları, Google Maps işletme keşfini, sıcak leadleri ve CRM’e aktarılacak adayları tek ekranda yönetir.", "haritalar"],
-  ["Fırsat Haritası nasıl kullanılır?", "Müşteri & Satış", "Haritalar ekranındaki ilk sekme Fırsat Haritası’dır. İlçe bazlı fırsat skorlarını, sektör yoğunluğunu, düşük dijital varlık sinyallerini ve önerilen aksiyonu buradan okuyun.", "haritalar"],
-  ["Google Maps’ten müşteri nasıl bulunur?", "Müşteri & Satış", "Google Maps Müşteri Bulma sekmesinde il, ilçe, mahalle, sektör, alt niş, yarıçap, işletme sayısı, puan, yorum, website ve telefon filtrelerini seçip Google Maps’ten Bul butonunu kullanın.", "haritalar"],
-  ["Lead CRM’e nasıl aktarılır?", "Müşteri & Satış", "Bulunan işletme kartlarında tek tek CRM’e Kaydet veya checkbox ile seçip Seçilenleri CRM’e Kaydet aksiyonunu kullanın. Kayıt sonrası işlem sonucu paneli hangi leadlerin oluştuğunu ve sonraki adımı gösterir.", "haritalar"],
-  ["Fırsat skoru nasıl yorumlanır?", "Müşteri & Satış", "Fırsat skoru işletmenin Google görünürlüğü, yorum sayısı, iletişim bilgileri, website eksikleri ve reklam potansiyelinden üretilir. 70+ skorlar öncelikli satış adayı kabul edilir.", "haritalar"],
+  ["CRM Merkezi ne işe yarar?", "Admin Mimarisi", "Lead, müşteri keşfi, haritalar, Google Maps, CRM, Lead Workspace, satış hunisi, teklifler ve takip akışları bu kategoride bulunur.", "leads"],
+  ["Haritalar modülü ne işe yarar?", "CRM Merkezi", "Haritalar modülü bölgesel fırsatları, Google Maps işletme keşfini, sıcak leadleri ve CRM’e aktarılacak adayları tek ekranda yönetir.", "haritalar"],
+  ["Fırsat Haritası nasıl kullanılır?", "CRM Merkezi", "Haritalar ekranındaki ilk sekme Fırsat Haritası’dır. İlçe bazlı fırsat skorlarını, sektör yoğunluğunu, düşük dijital varlık sinyallerini ve önerilen aksiyonu buradan okuyun.", "haritalar"],
+  ["Google Maps’ten müşteri nasıl bulunur?", "CRM Merkezi", "Google Maps Müşteri Bulma sekmesinde il, ilçe, mahalle, sektör, alt niş, yarıçap, işletme sayısı, puan, yorum, website ve telefon filtrelerini seçip Google Maps’ten Bul butonunu kullanın.", "haritalar"],
+  ["Google Maps Müşteri Bulma nasıl kullanılır?", "CRM Merkezi", "CRM Merkezi > Haritalar ekranında Google Maps Müşteri Bulma sekmesini açın. Sol filtreleri doldurun, Google Maps’ten Bul butonunu çalıştırın, orta alandaki kartlardan adayları seçin ve sağ detay panelinden aksiyon alın.", "haritalar"],
+  ["Kart görünümü nasıl okunur?", "CRM Merkezi", "Kart Görünümü işletme adı, puan, yorum, adres, telefon, website durumu, CRM durumu, fırsat skoru, dijital eksik skoru, reklam potansiyeli ve AI önerisini birlikte gösterir.", "haritalar"],
+  ["Sağ detay paneli ne işe yarar?", "CRM Merkezi", "Detay butonu seçilen işletmeyi sağ panele taşır. Panelde iletişim bilgileri, skorlar, AI yorumu, satış yaklaşımı, 7 günlük takip planı ve CRM/teklif/WhatsApp/rakip analizi aksiyonları bulunur.", "haritalar"],
+  ["Lead CRM’e nasıl aktarılır?", "CRM Merkezi", "Bulunan işletme kartlarında tek tek CRM’e Kaydet veya checkbox ile seçip Seçilenleri CRM’e Kaydet aksiyonunu kullanın. Kayıt sonrası işlem sonucu paneli hangi leadlerin oluştuğunu ve sonraki adımı gösterir.", "haritalar"],
+  ["Teklif / WhatsApp / Rakip Analizi aksiyonları nasıl kullanılır?", "CRM Merkezi", "İşletme kartında veya sağ detay panelinde Teklif Hazırla, WhatsApp Mesajı Hazırla ve Rakip Analizine Gönder butonlarını kullanın. Kayıt altyapısı yoksa sistem ActionResultPanel ile hazırlık verisini ve kontrol edilecek ekranı gösterir.", "haritalar"],
+  ["Fırsat skoru nasıl yorumlanır?", "CRM Merkezi", "Fırsat skoru işletmenin Google görünürlüğü, yorum sayısı, iletişim bilgileri, website eksikleri ve reklam potansiyelinden üretilir. 70+ skorlar öncelikli satış adayı kabul edilir.", "haritalar"],
   ["Reklam & Performans ne işe yarar?", "Admin Mimarisi", "Google İstihbarat, Meta İstihbarat, Website Analytics, Reklam Doktoru, Rakip Analizi, Rakip Alarm Merkezi ve kreatif performans modülleri burada görünür.", "google-istihbarat"],
   ["AI Merkezi ne işe yarar?", "Admin Mimarisi", "Agent Hub, AI Studio, Workflow, Prompt Merkezi, AI Hafıza, AI Öğrenme ve AI Satış Koçu kendi route’ları korunarak bu kategoride listelenir.", "agent-hub"],
   ["Ajans Operasyonu ne işe yarar?", "Admin Mimarisi", "Görevler, takvim, belgeler, sözleşmeler, sosyal medya planı, içerik takvimi ve içerik onayı günlük ajans operasyon kategorisidir.", "gorevler"],
