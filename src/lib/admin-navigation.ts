@@ -98,6 +98,18 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     ]
   },
   {
+    label: "Growth Engine",
+    description: "Funnel, kampanya planı, kreatif ihtiyaç ve paket stratejileri.",
+    icon: "Sparkles",
+    badge: "Growth",
+    accent: "from-purple-500 via-cyan-500 to-emerald-500",
+    items: [
+      { label: "Büyüme Motoru", slug: "growth-engine", module: "growth-engine", description: "Müşteri satış yolculuğunu, funnel yapısını, kreatif ihtiyacını ve takip planını oluştur." },
+      { label: "Funnel Builder", slug: "funnel-builder", module: "funnel-builder", description: "Müşteriye özel funnel amacı, kanal ve eksik adımları kart tabanlı planla." },
+      { label: "Marketplace", slug: "marketplace", module: "marketplace", description: "Paket ve modül kartlarından Growth Engine planı başlat." }
+    ]
+  },
+  {
     label: "Ajans Operasyonu",
     description: "Görev, belge, takvim ve ajans operasyon takibi.",
     icon: "Gauge",
@@ -295,6 +307,13 @@ const legacySlugRedirects: Record<string, string> = {
   "hk-reklam-zekasi": "ad-insights",
   "reklam-doktoru-pro": "ad-insights",
   "hk-reklam-doktoru-pro": "ad-insights",
+  "buyume-motoru": "growth-engine",
+  "growth-os": "growth-engine",
+  "growth-engine": "growth-engine",
+  "funnel-builder": "funnel-builder",
+  "funnel-kur": "funnel-builder",
+  "marketplace": "marketplace",
+  "paket-pazari": "marketplace",
   "qa-merkezi": "qa-center"
 };
 

@@ -17,6 +17,7 @@ import { HKAutonomousAgencyCenter } from "@/components/admin/HKAutonomousAgencyC
 import { AdInsightsCenter } from "@/components/admin/AdInsightsCenter";
 import { AgentHubCenter } from "@/components/admin/AgentHubCenter";
 import { QaCenter } from "@/components/admin/QaCenter";
+import { CustomerGrowthPanel, FunnelBuilderCenter, GrowthEngineCenter, GrowthMarketplaceCenter } from "@/components/admin/GrowthOperatingSystem";
 import { AdminCustomerSelector, GlobalMetaPixelSettings, MetaPixelSettingsPanel } from "@/components/admin/AdminCustomerOperations";
 import { CustomerProfileTasks } from "@/components/admin/customer-profile/CustomerProfileTasks";
 import { CustomerBrandAssets } from "@/components/admin/customer-profile/CustomerBrandAssets";
@@ -50,6 +51,7 @@ const adminLabelEmojis: Record<string, string> = {
   "Ajans Operasyonları": "🗂️",
   "Tahsilat & Operasyon": "💳",
   "İçerik & AI Studio": "✨",
+  "Growth Engine": "🚀",
   "Araçlar": "🧰",
   "Araçlar & Yardım": "🧰",
   "Ayarlar": "⚙️",
@@ -72,6 +74,9 @@ const adminLabelEmojis: Record<string, string> = {
   "Sistem Sağlığı": "🩺",
   "Sistem Sağlık Merkezi": "🩺",
   "HK Intelligence Command Center": "🧠",
+  "Büyüme Motoru": "🚀",
+  "Funnel Builder": "🧭",
+  "Marketplace": "🛍️",
   "HK Intelligence Commander": "🧠",
   "Risk Merkezi": "🚨",
   "HK Dijital Sistem Rehberi": "📚",
@@ -807,6 +812,9 @@ export function AdminDashboard({
           {active === "Takvim" && <AgencyCalendarCenter {...props} />}
           {active === "Sözleşme Oluştur" && <ContractGeneratorCenter {...props} />}
           {active === "WhatsApp Hatırlatma Merkezi" && <WhatsAppReminderCenter {...props} setActive={setActive} />}
+          {active === "Büyüme Motoru" && <GrowthEngineCenter content={content} setActive={setActive} />}
+          {active === "Funnel Builder" && <FunnelBuilderCenter content={content} setActive={setActive} />}
+          {active === "Marketplace" && <GrowthMarketplaceCenter content={content} setActive={setActive} />}
           {active === "Reklam Hesabı Eşleştirme" && <AdAccountMappingCenter {...props} />}
           {["Müşteri Bulucu", "İşletme Keşfi", "Müşteri Bul", "Müşteri Keşfi"].includes(active) && <CustomerFinder {...props} />}
           {["Lead Yönetimi", "Lead Analizi", ...crmLeadViews].includes(active) && <Crm {...props} view={["Lead Yönetimi", "Leadler", "Lead Analizi"].includes(active) ? "Lead Durumları" : active} setActive={setActive} />}
@@ -5933,7 +5941,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
     show_files: true,
     show_contact_person: true
   };
-  const tabs = ["Genel Bilgi", "Müşteri Kurulumu", "Entegrasyonlar", "Marka Varlıkları", "İletişim", "Satış Durumu", "Reklam Hesapları", "Kampanyalar", "Teklifler", "Ödemeler", "Yapılacaklar", "Raporlar", "Dosyalar", "Zaman Çizelgesi", "Panel Görünürlüğü", "Giriş Bilgileri", "Metrikler", "Yapılan Çalışmalar", "Aktivite Geçmişi", "Notlar"];
+  const tabs = ["Genel Bilgi", "Growth / Büyüme", "Müşteri Kurulumu", "Entegrasyonlar", "Marka Varlıkları", "İletişim", "Satış Durumu", "Reklam Hesapları", "Kampanyalar", "Teklifler", "Ödemeler", "Yapılacaklar", "Raporlar", "Dosyalar", "Zaman Çizelgesi", "Panel Görünürlüğü", "Giriş Bilgileri", "Metrikler", "Yapılan Çalışmalar", "Aktivite Geçmişi", "Notlar"];
   async function runProfileAction(label, action) {
     setProfileAction(`${label}...`);
     try {
@@ -6049,6 +6057,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
         <button onClick={() => saveCompany(company)} className="w-fit rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Firma bilgilerini kaydet</button>
       </div>}
       {tab === "Müşteri Kurulumu" && <CustomerOnboardingEditor company={company} content={content} setContent={setContent} setTab={setTab} notify={notify} />}
+      {tab === "Growth / Büyüme" && <CustomerGrowthPanel company={company} content={content} setActive={setActive} />}
       {tab === "Entegrasyonlar" && <CustomerIntegrationsPanel company={company} users={users} campaigns={campaigns} reports={reports} content={content} setContent={setContent} notify={notify} />}
       {tab === "Marka Varlıkları" && <CustomerBrandAssets company={company} content={content} setContent={setContent} notify={notify} mode="full" />}
       {tab === "Giriş Bilgileri" && <div>
@@ -6755,6 +6764,7 @@ function CustomerRelatedList({ items, empty, render, onVisibilityChange }: any) 
 function CustomerTimeline({ company, campaigns, payments, tasks, documents, reports, activities }: any) {
   const rows = [
     { date: company.created_at || company.updated_at, user: "Sistem", action: "Müşteri oluşturuldu", description: company.name },
+    { date: company.updated_at || company.created_at, user: "HK Growth OS", action: "Growth planı oluşturuldu", description: "Müşteri sağlık skoru, funnel yol haritası ve 7/30 günlük büyüme önerisi hazırlandı." },
     ...campaigns.flatMap((item) => [
       { date: item.created_at, user: "Sistem", action: "Kampanya eklendi", description: item.name },
       { date: item.updated_at, user: "Sistem", action: "Kampanya güncellendi", description: `${item.name} · ${item.status || "Durum yok"}` }

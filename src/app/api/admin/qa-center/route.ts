@@ -350,6 +350,21 @@ function scanSourcesForFindings(migrations: string) {
       findings.push(makeFinding({ category: "HK Growth OS QA", severity: "orta", module: "Dashboard", file_path: "src/components/admin/AdminDashboard.tsx", title, description: `${pattern} sinyali AdminDashboard içinde bulunamadı.`, recommendation }));
     }
   }
+  const growthPhase2Checks: Array<[string, string, string, string]> = [
+    ["Growth Engine route var mı?", "growth-engine", "src/lib/admin-navigation.ts", "Büyüme Motoru /hk-admin/growth-engine route’u dynamic admin route üzerinden açılmalıdır."],
+    ["Funnel Builder route var mı?", "funnel-builder", "src/lib/admin-navigation.ts", "Funnel Builder /hk-admin/funnel-builder route’u navigation ve izin sisteminde görünmelidir."],
+    ["Marketplace route var mı?", "marketplace", "src/lib/admin-navigation.ts", "Marketplace /hk-admin/marketplace route’u paketlerden plan oluşturma akışına bağlanmalıdır."],
+    ["Müşteri profilinde Growth bölümü var mı?", "Growth / Büyüme", "src/components/admin/AdminDashboard.tsx", "CustomerProfileModal sekmeleri içinde Growth / Büyüme bölümü bulunmalıdır."],
+    ["Timeline görünümü Growth olayını içeriyor mu?", "Growth planı oluşturuldu", "src/components/admin/AdminDashboard.tsx", "Müşteri zaman çizelgesi growth planı ve operasyon olaylarını göstermelidir."],
+    ["White Label hazırlık kartı var mı?", "White Label Hazırlık", "src/components/admin/GrowthOperatingSystem.tsx", "Müşteri profilindeki Growth panelinde müşteri logosu, panel başlığı, marka rengi, rapor dili ve marka görünümü hazırlığı gösterilmelidir."],
+    ["Yayın öncesi kontrol listesi var mı?", "Yayın Öncesi Kontrolü Hazırla", "src/components/admin/GrowthOperatingSystem.tsx", "Gerçek reklam yayına alma yapılmadan Meta, Google, Pixel/GA4, kreatif ve CRM kontrol listesi gösterilmelidir."]
+  ];
+  for (const [title, pattern, filePath, recommendation] of growthPhase2Checks) {
+    const fileText = sourceText.find((item) => path.relative(root, item.file) === filePath)?.text || "";
+    if (!fileText.includes(pattern)) {
+      findings.push(makeFinding({ category: "HK Growth OS Phase 2 QA", severity: "orta", module: "Growth OS", file_path: filePath, title, description: `${pattern} sinyali ilgili dosyada bulunamadı.`, recommendation }));
+    }
+  }
   [
     ["Menü kategorileri duplicate mi?", "CRM Merkezi", "admin-navigation.ts içinde lead, keşif ve satış modülleri CRM Merkezi altında toplanmalı."],
     ["Aynı route iki farklı isimle gösteriliyor mu?", "legacySlugRedirects", "Eski slug değerleri canonical route’a yönlenmeli."],
