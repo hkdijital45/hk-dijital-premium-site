@@ -5213,9 +5213,37 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
   const [detailCompanyId, setDetailCompanyId] = useState("");
   const [openForm, setOpenForm] = useState<"company" | "login" | "">("");
   const [view, setView] = useState<"active" | "passive" | "archived" | "deleted">("active");
+  const [smartSearch, setSmartSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [quickFilters, setQuickFilters] = useState<string[]>([]);
+  const [healthFilter, setHealthFilter] = useState("Tümü");
+  const [favoriteCustomerIds, setFavoriteCustomerIds] = useState<string[]>([]);
+  const [recentCustomerIds, setRecentCustomerIds] = useState<string[]>([]);
+  const [selectedCustomerIds, setSelectedCustomerIds] = useState<string[]>([]);
+  const [customerActionResult, setCustomerActionResult] = useState<any>(null);
   const updateCompany = (id, patch) => setContent({ ...content, companies: (content.companies || []).map((company) => company.id === id ? { ...company, ...patch } : company) });
   const allCompanies = content.companies || [];
   const users = content.users || [];
+  const tasks = content.agencyTasks || content.tasks || [];
+  const payments = content.paymentRecords || content.payments || [];
+  const reports = content.reports || content.monthlyReports || [];
+  const competitors = content.competitorWatchlist || content.competitors || [];
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(smartSearch), 220);
+    return () => window.clearTimeout(timer);
+  }, [smartSearch]);
+  useEffect(() => {
+    try {
+      setFavoriteCustomerIds(JSON.parse(localStorage.getItem("hk-customer-favorites") || "[]"));
+      setRecentCustomerIds(JSON.parse(localStorage.getItem("hk-recent-customers") || "[]"));
+    } catch {}
+  }, []);
+  useEffect(() => {
+    try { localStorage.setItem("hk-customer-favorites", JSON.stringify(favoriteCustomerIds.slice(0, 50))); } catch {}
+  }, [favoriteCustomerIds]);
+  useEffect(() => {
+    try { localStorage.setItem("hk-recent-customers", JSON.stringify(recentCustomerIds.slice(0, 5))); } catch {}
+  }, [recentCustomerIds]);
   const isDeletedCompany = (company: any) => Boolean(company.deleted_at);
   const isArchivedCompany = (company: any) => Boolean(company.archived_at) || String(company.status || "").toLocaleLowerCase("tr").includes("arşiv");
   const isPassiveCompany = (company: any) => !isDeletedCompany(company) && !isArchivedCompany(company) && (company.is_active === false || ["pasif", "inactive"].includes(String(company.status || "").toLocaleLowerCase("tr")));
@@ -5226,7 +5254,53 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
     if (view === "passive") return isPassiveCompany(company);
     return !isDeletedCompany(company) && !isArchivedCompany(company);
   });
-  const companies = viewCompanies.filter((company) => (!selectedCompanyId || company.id === selectedCompanyId) && JSON.stringify(company).toLocaleLowerCase("tr").includes(companyQuery.toLocaleLowerCase("tr")));
+  const companyUsers = (companyId: string) => users.filter((user) => customerRole(user.role) && user.company_id === companyId);
+  const companyTasks = (companyId: string) => tasks.filter((item: any) => item.company_id === companyId);
+  const companyPayments = (companyId: string) => payments.filter((item: any) => item.company_id === companyId);
+  const companyReports = (companyId: string) => reports.filter((item: any) => item.company_id === companyId);
+  const companyCompetitors = (companyId: string) => competitors.filter((item: any) => item.company_id === companyId);
+  const companyHealth = (company: any) => calculateCustomerHealth(company, { campaigns: (content.campaigns || []).filter((item: any) => item.company_id === company.id), payments: companyPayments(company.id), tasks: companyTasks(company.id), reports: companyReports(company.id), activities: (content.activityLogs || []).filter((item: any) => item.company_id === company.id) });
+  const companySearchText = (company: any) => [
+    company.name, company.contact_name, company.owner_name, company.responsible_person, company.phone, company.whatsapp, company.email,
+    company.sector, company.business_type, company.city, company.district, company.instagram, company.website, company.notes, company.internal_notes,
+    company.sales_stage, company.status, ...(Array.isArray(company.tags) ? company.tags : []),
+    ...companyUsers(company.id).map((user: any) => [user.full_name, user.email, user.phone].join(" ")),
+    ...companyTasks(company.id).map((task: any) => [task.title, task.description, task.notes, task.status].join(" ")),
+    ...companyReports(company.id).map((report: any) => [report.report_type, report.summary, report.status].join(" "))
+  ].filter(Boolean).join(" ").toLocaleLowerCase("tr");
+  const matchesQuickFilter = (company: any, filter: string) => {
+    const hasLogin = companyUsers(company.id).length > 0;
+    const openTasks = companyTasks(company.id).filter((item: any) => isOpenTask(item));
+    const pendingPayments = companyPayments(company.id).filter((item: any) => ["Bekliyor", "Gecikmiş", "Gecikti"].includes(item.status || "Bekliyor"));
+    const overduePayments = pendingPayments.filter((item: any) => item.status === "Gecikmiş" || item.status === "Gecikti" || (item.due_date && item.due_date < new Date().toISOString().slice(0, 10)));
+    const hasRecentReport = companyReports(company.id).some((item: any) => new Date(item.created_at || item.updated_at || item.report_month || 0).getTime() > Date.now() - 45 * 86400000);
+    const health = companyHealth(company);
+    const integrationMissing = !(company.meta_account_id || company.google_ads_customer_id || company.ga4_property_id || company.search_console_site_url || company.gtm_container_id);
+    if (filter === "Aktif") return isActiveCompany(company);
+    if (filter === "Pasif") return isPassiveCompany(company);
+    if (filter === "Giriş hesabı var") return hasLogin;
+    if (filter === "Giriş hesabı yok") return !hasLogin;
+    if (filter === "Ödemesi geciken") return overduePayments.length > 0;
+    if (filter === "Rapor bekleyen") return !hasRecentReport;
+    if (filter === "Açık görevi olan") return openTasks.length > 0;
+    if (filter === "Entegrasyonu eksik") return integrationMissing;
+    if (filter === "Rakip takibi açık") return companyCompetitors(company.id).some((item: any) => item.is_tracking);
+    if (filter === "Bu hafta aranacak") return openTasks.some((item: any) => item.due_date && item.due_date <= new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10)) || !company.last_contact_at;
+    if (filter === "Teklif bekleyen") return String(company.sales_stage || company.status || "").toLocaleLowerCase("tr").includes("teklif");
+    if (filter === "Riskli müşteri") return health.score < 60;
+    if (filter === "Sağlıklı müşteri") return health.score >= 75;
+    return true;
+  };
+  const matchesHealthFilter = (company: any) => {
+    const health = companyHealth(company);
+    if (healthFilter === "Riskli") return health.score < 60;
+    if (healthFilter === "Kontrol gerekli") return health.score >= 60 && health.score < 75;
+    if (healthFilter === "Sağlıklı") return health.score >= 75;
+    if (healthFilter === "Büyüme potansiyeli") return health.score >= 70 && companyCompetitors(company.id).length > 0;
+    return true;
+  };
+  const query = (debouncedSearch || companyQuery).toLocaleLowerCase("tr").trim();
+  const companies = viewCompanies.filter((company) => (!selectedCompanyId || company.id === selectedCompanyId) && (!query || companySearchText(company).includes(query)) && quickFilters.every((filter) => matchesQuickFilter(company, filter)) && matchesHealthFilter(company));
   const canManageCustomers = canManageRecord(currentSession, "musteriler");
   const viewButtons = [
     { key: "active", label: "Aktif Müşteriler", count: allCompanies.filter((company) => !isDeletedCompany(company) && !isArchivedCompany(company)).length },
@@ -5234,6 +5308,51 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
     { key: "archived", label: "Arşivlenenler", count: allCompanies.filter((company) => !isDeletedCompany(company) && isArchivedCompany(company)).length },
     { key: "deleted", label: "Silinenler", count: allCompanies.filter(isDeletedCompany).length }
   ];
+  const quickFilterOptions = ["Aktif", "Pasif", "Giriş hesabı var", "Giriş hesabı yok", "Ödemesi geciken", "Rapor bekleyen", "Açık görevi olan", "Entegrasyonu eksik", "Rakip takibi açık", "Bu hafta aranacak", "Teklif bekleyen", "Riskli müşteri", "Sağlıklı müşteri"];
+  const recentCustomers = recentCustomerIds.map((id) => allCompanies.find((company) => company.id === id)).filter(Boolean).slice(0, 5);
+  const favoriteCustomers = favoriteCustomerIds.map((id) => allCompanies.find((company) => company.id === id)).filter(Boolean).slice(0, 5);
+  const priorityCustomers = allCompanies.map((company) => {
+    const health = companyHealth(company);
+    const openTasks = companyTasks(company.id).filter((item: any) => isOpenTask(item)).length;
+    const overduePayment = companyPayments(company.id).some((item: any) => item.status === "Gecikmiş" || item.status === "Gecikti" || (item.due_date && item.due_date < new Date().toISOString().slice(0, 10) && item.status !== "Ödendi"));
+    const missingIntegration = !(company.meta_account_id || company.google_ads_customer_id || company.ga4_property_id || company.search_console_site_url || company.gtm_container_id);
+    const reason = overduePayment ? "Ödemesi geciken müşteri" : openTasks ? `${openTasks} açık görevi var` : missingIntegration ? "Entegrasyon bilgileri eksik" : health.score < 70 ? "Sağlık skoru kontrol gerektiriyor" : !company.last_contact_at ? "Son temas bilgisi eksik" : "Büyüme potansiyeli var";
+    return { company, health, reason, action: overduePayment ? "Tahsilat hatırlatması hazırla" : openTasks ? "Görevleri kontrol et" : missingIntegration ? "Entegrasyonları tamamla" : "Müşteri profilini gözden geçir" };
+  }).filter((item) => item.health.score < 75 || item.reason !== "Büyüme potansiyeli var").sort((a, b) => a.health.score - b.health.score).slice(0, 6);
+
+  function openCustomerProfile(company: any) {
+    setDetailCompanyId(company.id);
+    setRecentCustomerIds((current) => [company.id, ...current.filter((id) => id !== company.id)].slice(0, 5));
+  }
+  function toggleFavoriteCustomer(companyId: string) {
+    setFavoriteCustomerIds((current) => current.includes(companyId) ? current.filter((id) => id !== companyId) : [companyId, ...current].slice(0, 50));
+  }
+  function toggleQuickFilter(filter: string) {
+    setQuickFilters((current) => current.includes(filter) ? current.filter((item) => item !== filter) : [...current, filter]);
+  }
+  function clearCustomerFilters() {
+    setSmartSearch("");
+    setDebouncedSearch("");
+    setCompanyQuery("");
+    setQuickFilters([]);
+    setHealthFilter("Tümü");
+    setSelectedCustomerIds([]);
+  }
+  function toggleSelectedCustomer(companyId: string) {
+    setSelectedCustomerIds((current) => current.includes(companyId) ? current.filter((id) => id !== companyId) : [...current, companyId]);
+  }
+  function runCustomerBulkAction(title: string, nextActions: string[]) {
+    if (!selectedCustomerIds.length) return setMessage("Toplu işlem için en az bir müşteri seçin.");
+    setCustomerActionResult({
+      title,
+      summary: `${selectedCustomerIds.length} müşteri için işlem hazırlığı oluşturuldu.`,
+      status: "prepared",
+      createdRecords: [{ label: "Seçili müşteri", count: selectedCustomerIds.length, status: "Hazırlandı" }],
+      nextActions,
+      checkLinks: [{ label: "Görevleri Gör", href: "/hk-admin/gorevler" }, { label: "Rapor Merkezi", href: "/hk-admin/raporlar" }],
+      customerVisibility: { showToCustomer: false, label: "Toplu işlem taslakları sadece admin tarafında görünüyor." }
+    });
+  }
 
   function showApiError(data, fallback) {
     setError(data.supabaseError ? `${data.error || fallback}: ${data.supabaseError}` : data.error || fallback);
@@ -5393,6 +5512,28 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
       </div>
       {message && <p className="mb-4 rounded-[8px] border border-emerald-300/30 bg-emerald-500/10 p-3 text-sm text-emerald-700">{message}</p>}
       {error && <p className="mb-4 rounded-[8px] border border-red-300/30 bg-red-500/10 p-3 text-sm text-red-700">{error}</p>}
+      {customerActionResult && <div className="mb-5"><ActionResultPanel result={customerActionResult} onNavigate={(href) => window.location.assign(href)} /></div>}
+      <section className="mb-6 rounded-[22px] border border-cyan-200 bg-gradient-to-br from-cyan-50 to-white p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">CRM öncelik alanı</p>
+            <h2 className="mt-2 text-2xl font-black text-slate-950">Müşteri Arama ve Öncelik Merkezi</h2>
+            <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">Firma, kişi, telefon, sektör, şehir, ödeme, görev ve entegrasyon durumuna göre müşterileri hızlıca bulun.</p>
+          </div>
+          <div className="flex flex-wrap gap-2 text-xs"><span className="rounded-full bg-white px-3 py-2 font-black text-slate-700 ring-1 ring-slate-200">{companies.length} eşleşme</span><span className="rounded-full bg-white px-3 py-2 font-black text-red-700 ring-1 ring-red-200">{allCompanies.filter((company) => companyHealth(company).score < 60).length} riskli</span><span className="rounded-full bg-white px-3 py-2 font-black text-amber-700 ring-1 ring-amber-200">{selectedCustomerIds.length} seçili</span></div>
+        </div>
+        <div className="mt-5">
+          <input value={smartSearch} onChange={(event) => { setSmartSearch(event.target.value); setCompanyQuery(event.target.value); }} placeholder="Firma, kişi, telefon, WhatsApp, e-posta, sektör, şehir, Instagram, web sitesi veya not ara…" className="min-h-14 w-full rounded-[14px] border border-cyan-200 bg-white px-4 text-base font-bold text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-cyan-200" />
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">{quickFilterOptions.map((filter) => <button key={filter} onClick={() => toggleQuickFilter(filter)} className={`rounded-full px-3 py-2 text-xs font-black ${quickFilters.includes(filter) ? "bg-cyan-500 text-white" : "border border-slate-200 bg-white text-slate-700"}`}>{filter}</button>)}<button onClick={clearCustomerFilters} className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700">Filtreleri temizle</button></div>
+        <div className="mt-4 flex flex-wrap items-center gap-2"><span className="text-xs font-black text-slate-600">Sağlık / öncelik:</span>{["Tümü", "Riskli", "Kontrol gerekli", "Sağlıklı", "Büyüme potansiyeli"].map((filter) => <button key={filter} onClick={() => setHealthFilter(filter)} className={`rounded-full px-3 py-2 text-xs font-black ${healthFilter === filter ? "bg-emerald-500 text-white" : "border border-emerald-200 bg-white text-emerald-700"}`}>{filter}</button>)}</div>
+        <div className="mt-5 grid gap-4 xl:grid-cols-[1fr_1fr_1.4fr]">
+          <div className="rounded-[16px] border border-slate-200 bg-white p-4"><h3 className="font-black text-slate-950">Son Açılan Müşteriler</h3><div className="mt-3 grid gap-2">{recentCustomers.map((company: any) => <button key={company.id} onClick={() => openCustomerProfile(company)} className="rounded-[10px] bg-slate-50 p-3 text-left text-xs font-bold text-slate-700 ring-1 ring-slate-200"><span className="block text-sm font-black text-slate-950">{company.name}</span>{company.city || "Şehir yok"} · {company.sector || "Sektör yok"}</button>)}{!recentCustomers.length && <p className="text-xs leading-5 text-slate-500">Henüz müşteri profili açılmadı.</p>}</div></div>
+          <div className="rounded-[16px] border border-amber-200 bg-white p-4"><h3 className="font-black text-slate-950">Favoriler</h3><div className="mt-3 grid gap-2">{favoriteCustomers.map((company: any) => <button key={company.id} onClick={() => openCustomerProfile(company)} className="rounded-[10px] bg-amber-50 p-3 text-left text-xs font-bold text-amber-800 ring-1 ring-amber-200"><span className="block text-sm font-black text-slate-950">★ {company.name}</span>{company.city || "Şehir yok"} · {company.sector || "Sektör yok"}</button>)}{!favoriteCustomers.length && <p className="text-xs leading-5 text-slate-500">Müşteri kartındaki yıldız ile favorilere ekleyin.</p>}</div></div>
+          <div className="rounded-[16px] border border-purple-200 bg-purple-50 p-4"><h3 className="font-black text-slate-950">Bugün Öncelikli Bakılacaklar</h3><div className="mt-3 grid gap-2">{priorityCustomers.map(({ company, health, reason, action }: any) => <div key={company.id} className="rounded-[12px] bg-white p-3 text-xs ring-1 ring-purple-100"><div className="flex flex-wrap items-start justify-between gap-2"><div><strong className="block text-sm text-slate-950">{company.name}</strong><span className="text-slate-600">{reason}</span></div><span className="rounded-full bg-purple-50 px-2 py-1 font-black text-purple-700">{health.score}/100</span></div><p className="mt-2 font-bold text-purple-800">Önerilen aksiyon: {action}</p><div className="mt-2 flex flex-wrap gap-1"><button onClick={() => openCustomerProfile(company)} className="rounded-full border border-cyan-200 bg-white px-2.5 py-1.5 font-black text-cyan-700">Müşteri profilini aç</button><button onClick={() => runCustomerBulkAction(`${company.name} için görev taslağı`, ["Görevler ekranında sorumlu ve son tarih belirle."])} className="rounded-full border border-purple-200 bg-white px-2.5 py-1.5 font-black text-purple-700">Görev oluştur</button><button onClick={() => setCustomerActionResult({ title: "WhatsApp mesajı hazırlandı", summary: `${company.name} için kısa müşteri temas mesajı hazırlandı.`, status: "prepared", createdRecords: [{ label: "WhatsApp taslağı", count: 1, status: "Hazırlandı" }], nextActions: ["Mesajı kontrol et.", "Gönderim sonrası son temas tarihini güncelle."] })} className="rounded-full border border-emerald-200 bg-white px-2.5 py-1.5 font-black text-emerald-700">WhatsApp mesajı hazırla</button></div></div>)}{!priorityCustomers.length && <p className="text-xs leading-5 text-purple-900">Bugün için kritik müşteri kaydı bulunmadı.</p>}</div></div>
+        </div>
+        {selectedCustomerIds.length > 0 && <div className="mt-5 rounded-[16px] border border-cyan-200 bg-cyan-50 p-4"><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><strong className="text-sm text-cyan-950">{selectedCustomerIds.length} müşteri seçildi</strong><button onClick={() => setSelectedCustomerIds([])} className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700">Seçimi temizle</button></div><div className="flex flex-wrap gap-2"><button onClick={() => runCustomerBulkAction("Toplu WhatsApp mesajı hazırlandı", ["Mesajları kontrol et.", "Gönderim sonrası son temas tarihlerini güncelle."])} className="rounded-full border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-700">Toplu WhatsApp mesajı hazırla</button><button onClick={() => runCustomerBulkAction("Toplu görev taslağı hazırlandı", ["Görevler ekranında görevleri oluştur.", "Sorumlu kişi ve son tarih ata."])} className="rounded-full border border-cyan-200 bg-white px-3 py-2 text-xs font-black text-cyan-700">Toplu görev oluştur</button><button onClick={() => runCustomerBulkAction("Toplu rapor taslağı hazırlandı", ["Rapor Merkezi’nde müşteri raporlarını kontrol et."])} className="rounded-full border border-blue-200 bg-white px-3 py-2 text-xs font-black text-blue-700">Toplu rapor oluştur</button><button onClick={() => runCustomerBulkAction("Toplu etiket hazırlığı oluşturuldu", ["Etiket bilgisini müşteri kartında kaydet."])} className="rounded-full border border-amber-200 bg-white px-3 py-2 text-xs font-black text-amber-800">Toplu etiket ekle</button><button onClick={() => runCustomerBulkAction("Toplu export hazırlandı", ["Veri Aktarma ekranından müşterileri dışa aktar."])} className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700">Toplu export</button></div></div>}
+      </section>
       <div className="mb-6 rounded-[8px] border border-slate-200 p-4">
 	        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
 	          <div><h3 className="font-black">Müşteri / firma listesi</h3><p className="mt-1 text-xs text-slate-500">Varsayılan görünüm aktif ve pasif müşterileri gösterir; arşivli ve silinen kayıtlar ayrı görünümde tutulur.</p></div>
@@ -5414,16 +5555,38 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
           {companies.map((company) => {
             const hasLogin = users.some((user) => customerRole(user.role) && user.company_id === company.id);
             const editing = editingCompanyId === company.id;
+            const health = companyHealth(company);
+            const openTaskCount = companyTasks(company.id).filter((item: any) => isOpenTask(item)).length;
+            const pendingPaymentTotal = companyPayments(company.id).filter((item: any) => ["Bekliyor", "Gecikmiş", "Gecikti"].includes(item.status || "Bekliyor")).reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
+            const lastReport = companyReports(company.id).slice().sort((a: any, b: any) => Number(new Date(b.created_at || b.updated_at || b.report_month || 0)) - Number(new Date(a.created_at || a.updated_at || a.report_month || 0)))[0];
+            const integrationOk = Boolean(company.meta_account_id || company.google_ads_customer_id || company.ga4_property_id || company.search_console_site_url || company.gtm_container_id);
+            const competitorTracking = companyCompetitors(company.id).some((item: any) => item.is_tracking);
+            const panelActive = hasLogin && company.customer_panel_enabled !== false;
+            const customerVisibleContent = [...companyReports(company.id), ...companyTasks(company.id)].some((item: any) => item.visible_to_customer || item.show_to_customer);
             return (
               <div key={company.id} className="rounded-[14px] border border-slate-200 bg-white p-4 shadow-[0_8px_30px_rgba(15,23,42,.04)]">
                 <div className="flex flex-wrap justify-between gap-3">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2"><h4 className="font-black text-slate-950">{company.name}</h4>{statusBadge(company)}<span className={`rounded-full px-3 py-1 text-xs font-black ${hasLogin ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600"}`}>Giriş: {hasLogin ? "Var" : "Yok"}</span></div>
-                    <p className="mt-2 text-sm text-slate-500">{company.sector || "Sektör yok"} · {company.city || "Şehir yok"} · Son güncelleme: {formatDate(company.updated_at || company.created_at)}</p>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2"><input type="checkbox" checked={selectedCustomerIds.includes(company.id)} onChange={() => toggleSelectedCustomer(company.id)} className="size-4" /><button onClick={() => toggleFavoriteCustomer(company.id)} className={`rounded-full px-2 py-1 text-sm font-black ${favoriteCustomerIds.includes(company.id) ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"}`}>★</button><h4 className="font-black text-slate-950">{company.name}</h4>{statusBadge(company)}<span className={`rounded-full px-3 py-1 text-xs font-black ${hasLogin ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600"}`}>Giriş: {hasLogin ? "Var" : "Yok"}</span><span className={`rounded-full px-3 py-1 text-xs font-black ${health.score < 60 ? "bg-red-100 text-red-700" : health.score < 75 ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>Sağlık: {health.score}/100</span></div>
+                    <p className="mt-2 text-sm text-slate-500">{company.sector || company.business_type || "Sektör yok"} · {company.city || "Şehir yok"}{company.district ? ` / ${company.district}` : ""} · Yetkili: {company.contact_name || company.owner_name || company.responsible_person || "Belirtilmedi"}</p>
+                    <div className="mt-3 grid gap-2 text-xs text-slate-600 md:grid-cols-2 xl:grid-cols-4">
+                      <span>Telefon: <strong>{company.phone || company.whatsapp || "Yok"}</strong></span>
+                      <span>Açık görev: <strong>{openTaskCount}</strong></span>
+                      <span>Bekleyen ödeme: <strong>{pendingPaymentTotal.toLocaleString("tr-TR")} TL</strong></span>
+                      <span>Son temas: <strong>{formatDate(company.last_contact_at || company.updated_at)}</strong></span>
+                      <span>Son rapor: <strong>{formatDate(lastReport?.created_at || lastReport?.updated_at || lastReport?.report_month)}</strong></span>
+                      <span>Entegrasyon: <strong>{integrationOk ? "Tamam" : "Eksik"}</strong></span>
+                      <span>Rakip takip: <strong>{competitorTracking ? "Açık" : "Kapalı"}</strong></span>
+                      <span>Panel: <strong>{panelActive ? "Aktif" : "Pasif"} · {customerVisibleContent ? "Açık içerik var" : "Açık içerik yok"}</strong></span>
+                    </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <button onClick={() => setDetailCompanyId(company.id)} className="rounded-full bg-cyan-300 px-3 py-2 text-xs font-black text-slate-950">Müşteri detayını aç</button>
+                    <button onClick={() => openCustomerProfile(company)} className="rounded-full bg-cyan-300 px-3 py-2 text-xs font-black text-slate-950">Müşteri detayını aç</button>
                     {canManageCustomers && <button onClick={() => setEditingCompanyId(editing ? "" : company.id)} className="rounded-full border border-slate-200 px-3 py-2 text-xs">Düzenle</button>}
+                    <button onClick={() => company.phone ? window.open(`https://wa.me/${String(company.phone).replace(/\D/g, "").startsWith("90") ? String(company.phone).replace(/\D/g, "") : `90${String(company.phone).replace(/\D/g, "").replace(/^0/, "")}`}`, "_blank") : setCustomerActionResult({ title: "WhatsApp için telefon yok", summary: `${company.name} için telefon/WhatsApp bilgisi girilmemiş.`, status: "warning", nextActions: ["Müşteri kartında telefon bilgisini tamamla."] })} className="rounded-full border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-700">WhatsApp</button>
+                    <button onClick={() => setCustomerActionResult({ title: `${company.name} için görev taslağı hazırlandı`, summary: "Müşteriyle ilgili takip görevi oluşturmak için Görevler ekranına geçebilirsiniz.", status: "prepared", createdRecords: [{ label: "Görev taslağı", count: 1, status: "Hazırlandı" }], nextActions: ["Görevler ekranında sorumlu kişi ve son tarih belirle.", "Müşteri profilindeki açık görevleri kontrol et."], checkLinks: [{ label: "Görevleri Gör", href: "/hk-admin/gorevler" }] })} className="rounded-full border border-purple-200 bg-white px-3 py-2 text-xs font-black text-purple-700">Görev oluştur</button>
+                    <button onClick={() => setActive?.("Raporlar")} className="rounded-full border border-blue-200 bg-white px-3 py-2 text-xs font-black text-blue-700">Rapor oluştur</button>
+                    <button onClick={() => setActive?.("Tahsilat")} className="rounded-full border border-amber-200 bg-white px-3 py-2 text-xs font-black text-amber-800">Tahsilat ekle</button>
                     {canManageCustomers && !isDeletedCompany(company) && !isArchivedCompany(company) && (isPassiveCompany(company) ? <button disabled={loading === `activate-${company.id}`} onClick={() => runLifecycleAction(company, "activate")} className="rounded-full border border-emerald-300/30 px-3 py-2 text-xs text-emerald-700">Aktifleştir</button> : <button disabled={loading === `deactivate-${company.id}`} onClick={() => runLifecycleAction(company, "deactivate")} className="rounded-full border border-amber-300/30 px-3 py-2 text-xs text-amber-700">Pasifleştir</button>)}
                     {canManageCustomers && !isDeletedCompany(company) && (isArchivedCompany(company) ? <button disabled={loading === `unarchive-${company.id}`} onClick={() => runLifecycleAction(company, "unarchive")} className="rounded-full border border-cyan-300/30 px-3 py-2 text-xs text-cyan-700">Arşivden çıkar</button> : <button disabled={loading === `archive-${company.id}`} onClick={() => runLifecycleAction(company, "archive")} className="rounded-full border border-slate-300 px-3 py-2 text-xs text-slate-700">Arşivle</button>)}
                     {canManageCustomers && !isDeletedCompany(company) && <button disabled={loading === `delete-${company.id}`} onClick={() => runLifecycleAction(company, "delete")} className="rounded-full border border-red-300/30 px-3 py-2 text-xs text-red-700">Sil</button>}
@@ -5450,7 +5613,7 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
               </div>
             );
           })}
-          {!companies.length && <p className="rounded-[12px] border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">Bu görünümde firma bulunamadı.</p>}
+          {!companies.length && <div className="rounded-[16px] border border-dashed border-slate-200 bg-slate-50 p-6 text-center"><h3 className="font-black text-slate-950">Bu aramayla eşleşen müşteri bulunamadı.</h3><p className="mt-2 text-sm text-slate-500">Arama terimini veya hızlı filtreleri genişletebilir, yeni müşteri ya da lead keşfi başlatabilirsiniz.</p><div className="mt-4 flex flex-wrap justify-center gap-2">{canManageCustomers && <button onClick={() => setOpenForm("company")} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Yeni Firma Oluştur</button>}<button onClick={() => setActive?.("Haritalar")} className="rounded-full border border-cyan-200 bg-white px-4 py-2 text-xs font-black text-cyan-700">Google Maps’te Müşteri Ara</button><button onClick={() => setActive?.("Lead Merkezi")} className="rounded-full border border-purple-200 bg-white px-4 py-2 text-xs font-black text-purple-700">Lead Olarak Kaydet</button><button onClick={clearCustomerFilters} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700">Filtreleri Temizle</button></div></div>}
         </div>
       </div>
       {openForm === "company" && <CustomerFormModal title="Yeni Firma Oluştur" onClose={() => setOpenForm("")}>

@@ -319,6 +319,23 @@ function scanSourcesForFindings(migrations: string) {
   if (!customerBlock.trim().startsWith('{ label: "Müşteriler"')) {
     findings.push(makeFinding({ category: "Menü Mimarisi QA", severity: "kritik", module: "Admin Navigation", file_path: "src/lib/admin-navigation.ts", title: "Müşteriler Müşteri Merkezi’nde ilk sırada değil", description: "Müşteri Merkezi dropdown ilk görünür kaydı Müşteriler olmalıdır.", recommendation: "Müşteriler kayıt objesini Müşteri Merkezi items listesinin ilk elemanı yapın." }));
   }
+  const customerPriorityChecks: Array<[string, string, string]> = [
+    ["Müşteriler sayfasının en üstünde arama merkezi var mı?", "Müşteri Arama ve Öncelik Merkezi", "Müşteri listesinden önce arama, filtre ve öncelik merkezi görünmelidir."],
+    ["Akıllı arama firma/telefon/sektör/şehir/not alanlarında çalışıyor mu?", "companySearchText", "Arama metni firma, kişi, telefon, WhatsApp, e-posta, sektör, şehir, Instagram, web sitesi, dahili not, müşteri notu, satış aşaması ve etiketleri kapsamalıdır."],
+    ["Hızlı filtre chipleri var mı?", "quickFilterOptions", "Aktif, pasif, giriş hesabı, ödeme, rapor, görev, entegrasyon, rakip takibi ve risk/sağlık filtreleri chip olarak seçilebilir olmalıdır."],
+    ["Sağlık skoru filtresi var mı?", "Sağlık / öncelik", "Riskli, kontrol gerekli, sağlıklı ve büyüme potansiyeli kırılımları müşteri listesini filtrelemelidir."],
+    ["Son açılanlar var mı?", "Son Açılan Müşteriler", "Müşteri profili açıldığında son açılan müşteri localStorage ile hızlı erişime eklenmelidir."],
+    ["Favoriler var mı?", "hk-customer-favorites", "Müşteri kartındaki favori yıldızı localStorage ile favori müşteri listesine ekleme/çıkarma yapmalıdır."],
+    ["AI öneri kartları var mı?", "Bugün Öncelikli Bakılacaklar", "Ödeme, görev, entegrasyon, rapor ve sağlık sinyallerinden öncelikli müşteri önerileri üretilmelidir."],
+    ["Boş sonuç ekranı var mı?", "Bu aramayla eşleşen müşteri bulunamadı", "Filtre sonucu boşsa yeni firma, Maps arama, lead kaydı ve filtre temizleme aksiyonları görünmelidir."],
+    ["Toplu müşteri aksiyonları var mı?", "Toplu WhatsApp mesajı hazırla", "Seçili müşteriler için WhatsApp, görev, rapor, etiket ve export aksiyonları görünmelidir."],
+    ["Mevcut müşteri detay açma bozulmuş mu?", "openCustomerProfile", "Müşteri detayını aç aksiyonu profil modalını açmalı ve son açılanlar listesine müşteri eklemelidir."]
+  ];
+  for (const [title, pattern, recommendation] of customerPriorityChecks) {
+    if (!adminDashboardText.includes(pattern)) {
+      findings.push(makeFinding({ category: "Müşteri Arama QA", severity: "orta", module: "Müşteriler", file_path: "src/components/admin/AdminDashboard.tsx", title, description: `${pattern} sinyali AdminDashboard içinde bulunamadı.`, recommendation }));
+    }
+  }
   [
     ["Menü kategorileri duplicate mi?", "CRM Merkezi", "admin-navigation.ts içinde lead, keşif ve satış modülleri CRM Merkezi altında toplanmalı."],
     ["Aynı route iki farklı isimle gösteriliyor mu?", "legacySlugRedirects", "Eski slug değerleri canonical route’a yönlenmeli."],
