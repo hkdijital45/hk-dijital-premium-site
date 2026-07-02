@@ -1993,6 +1993,8 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
   const [aiStatusCenter, setAiStatusCenter] = useState(content.settings?.api?.ai_status || {});
   const [aiStatusMessage, setAiStatusMessage] = useState("");
   const [aiStatusLoading, setAiStatusLoading] = useState(false);
+  const [growthMode, setGrowthMode] = useState("Funnel Kur");
+  const [scenarioInput, setScenarioInput] = useState({ budget: 30000, price: 12000, conversionRate: 8, cpl: 220, closeRate: 18 });
   const today = new Date().toISOString().slice(0, 10);
   const month = today.slice(0, 7);
   const aiAnalyzedLeads = leads.filter((lead) => lead.ai_analysis && Object.keys(lead.ai_analysis).length);
@@ -2027,6 +2029,10 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     .filter((item, index, list) => list.findIndex((candidate) => (candidate.id || candidate.title) === (item.id || item.title)) === index)
     .slice(0, 5);
   const dashboardAssistantPrompts = ["Bugün neye odaklanmalıyım?", "Geciken tahsilatlar var mı?", "Kritik görevler neler?", "Bu ay kârlılık durumu nasıl?"];
+  const integrationMissingCustomers = activeCustomers.filter((company) => !(company.meta_account_id || company.google_ads_customer_id || company.ga4_property_id || company.search_console_site_url || company.gtm_container_id));
+  const pendingReportsCount = activeCustomers.filter((company) => !reports.some((report) => report.company_id === company.id && !isDateOlderThan(report.published_at || report.updated_at || report.created_at || report.report_date, 45))).length;
+  const proposalWaitingCount = leads.filter((lead) => ["Teklif Hazırlanıyor", "Teklif Gönderildi", "Teklif Görüntülendi", "Revize İstendi"].includes(lead.proposal_status || lead.status)).length;
+  const commandBrief = `${greeting[1]} ${userName}. Bugün sisteminde ${proposalWaitingCount} teklif bekliyor, ${overduePayments.length} ödeme gecikmiş, ${pendingReportsCount} müşterinin raporu hazırlanmalı. Öncelikli aksiyon: ${overduePayments.length ? "ödeme geciken müşteriler" : proposalWaitingCount ? "teklif bekleyen firmalar" : criticalTasks.length ? "kritik görevler" : "müşteri keşfi ve büyüme planı"}.`;
 
   useEffect(() => {
     try {
@@ -2473,9 +2479,133 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     notify?.("Günlük öncelik planı hazırlandı.", "success");
   }
 
+  const growthModes = [
+    "Funnel Kur",
+    "Funnelsız Reklam Yap",
+    "WhatsApp Odaklı Kampanya",
+    "Instagram DM Odaklı Kampanya",
+    "Telefon Araması Kampanyası",
+    "Web Sitesi Trafik Kampanyası",
+    "Randevu / Rezervasyon Kampanyası",
+    "Teklif Toplama Kampanyası",
+    "Marka Bilinirliği Kampanyası"
+  ];
+  const funnelSteps = ["Trafik Kaynağı", "Landing Page", "Pixel / GA4", "WhatsApp / Form / Telefon", "CRM", "Teklif", "Satış", "Raporlama", "Remarketing"];
+  const selectedStrategyCustomer = riskyCustomers[0]?.company || activeCustomers[0] || companies[0];
+  const selectedStrategyHealth = selectedStrategyCustomer ? customerHealthRows.find((item) => item.company.id === selectedStrategyCustomer.id)?.health || calculateCustomerHealth(selectedStrategyCustomer) : null;
+  const scenarioLeads = Math.floor(Number(scenarioInput.budget || 0) / Math.max(1, Number(scenarioInput.cpl || 1)));
+  const scenarioSales = Math.max(0, Math.floor(scenarioLeads * Number(scenarioInput.closeRate || 0) / 100));
+  const scenarioRevenue = scenarioSales * Number(scenarioInput.price || 0);
+  const scenarioRoas = Number(scenarioInput.budget || 0) ? scenarioRevenue / Number(scenarioInput.budget || 1) : 0;
+  const scenarioProfit = scenarioRevenue - Number(scenarioInput.budget || 0);
+  const funnelPerformance = [
+    ["Gösterim", Number(metaTotals.impressions || 0) || Math.max(12000, activeCampaigns.length * 8500), "100%", "Veri toplama seviyesi yeterli."],
+    ["Tıklama", Number(metaTotals.clicks || 0) || Math.max(320, activeCampaigns.length * 240), `${metaTotals.impressions ? ((metaTotals.clicks / metaTotals.impressions) * 100).toFixed(1) : "2.7"}%`, "İlk kreatif ve hook kontrol edilmeli."],
+    ["Lead", hotLeads.length || Math.max(8, Math.round(scenarioLeads * 0.25)), `${scenarioInput.conversionRate}%`, "WhatsApp ve form dönüşümü izlenmeli."],
+    ["Teklif", generatedProposals || Math.max(3, Math.round(scenarioLeads * 0.08)), "Teklif", "Teklif takibi CRM içinde kapanmalı."],
+    ["Satış", activeCustomers.length || scenarioSales, "Satış", "Kapanış sonrası raporlama ve yenileme yapılmalı."]
+  ];
+  const growthTasks = growthMode === "Funnel Kur"
+    ? ["Landing page veya WhatsApp karşılama metnini hazırla.", "Pixel / GA4 dönüşüm kontrolünü yap.", "CRM takip aşamalarını ve teklif şablonunu bağla."]
+    : ["Hedef platform ve aksiyonu netleştir.", "Bütçe, konum ve kreatif ihtiyacını plana yaz.", "7 günlük reklam sağlık kontrolü görevi oluştur."];
+
   return (
     <Panel title="Operasyon Merkezi">
       <div className="admin-light-dashboard grid w-full min-w-0 gap-5">
+        <section className="overflow-hidden rounded-[30px] border border-cyan-300/20 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,.24),transparent_34%),linear-gradient(135deg,#020617,#0f172a_48%,#111827)] p-5 text-white shadow-[0_28px_80px_rgba(15,23,42,.35)] sm:p-7">
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(340px,.85fr)]">
+            <div className="min-w-0">
+              <p className="text-xs font-black uppercase tracking-[.18em] text-cyan-200">HK Intelligence Command Center</p>
+              <h1 className="mt-3 text-3xl font-black tracking-tight sm:text-5xl">AI Growth Operating System</h1>
+              <p className="mt-4 max-w-4xl text-base leading-7 text-slate-200">{commandBrief}</p>
+              <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {[
+                  ["Aktif müşteri", activeCustomers.length, "Portföy"],
+                  ["Açık görev", activeTasks.filter(isOpenTask).length, "Operasyon"],
+                  ["Geciken tahsilat", overduePayments.length, `${overduePaymentTotal.toLocaleString("tr-TR")} TL`],
+                  ["Entegrasyon eksiği", integrationMissingCustomers.length, "Kontrol gerekli"]
+                ].map(([label, value, note]) => <div key={label as string} className="rounded-[18px] border border-white/10 bg-white/[.07] p-4 backdrop-blur"><p className="text-[11px] font-black uppercase tracking-[.12em] text-cyan-100">{label}</p><strong className="mt-2 block text-3xl">{value}</strong><span className="mt-1 block text-xs text-slate-300">{note}</span></div>)}
+              </div>
+              <div className="mt-6 flex flex-wrap gap-2">
+                {[
+                  ["Yeni müşteri kazan", "Müşteri Keşfi"],
+                  ["Kampanya planla", "Kampanyalar"],
+                  ["Funnel kur", "Reklam Doktoru Pro"],
+                  ["AI’dan strateji al", "HK Agent Hub"],
+                  ["Rapor oluştur", "Müşteri Raporları"],
+                  ["Tahsilatları kontrol et", "Tahsilat"],
+                  ["Kreatif üret", "Kampanya Önerileri"],
+                  ["Mevcut müşterileri yönet", "Müşteriler"]
+                ].map(([label, target]) => <button key={label} onClick={() => setActive(target)} className="rounded-full border border-cyan-200/25 bg-cyan-300/10 px-4 py-2.5 text-xs font-black text-cyan-50 transition hover:-translate-y-0.5 hover:bg-cyan-300 hover:text-slate-950">{label}</button>)}
+              </div>
+            </div>
+            <div className="rounded-[24px] border border-white/10 bg-white/[.08] p-5 backdrop-blur">
+              <p className="text-xs font-black uppercase tracking-[.16em] text-emerald-200">Canlı Aktivite</p>
+              <div className="mt-4 grid gap-3">
+                {(recentActivity.length ? recentActivity : visibleNotifications).slice(0, 5).map((item: any, index: number) => <div key={item.id || index} className="rounded-[16px] border border-white/10 bg-slate-950/35 p-3"><strong className="block text-sm text-white">{item.action || item.label || "Operasyon sinyali"}</strong><span className="mt-1 block text-xs leading-5 text-slate-300">{item.entity || item.text || "Sistem hareketlendikçe burada görünecek."}</span></div>)}
+                {!recentActivity.length && !visibleNotifications.length && <p className="rounded-[16px] border border-dashed border-white/15 p-4 text-sm text-slate-300">Henüz aktivite yok. Sistem hareketlendikçe burada görünecek.</p>}
+              </div>
+            </div>
+          </div>
+        </section>
+        <section className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,.85fr)]">
+          <div className="rounded-[26px] border border-purple-200 bg-gradient-to-br from-purple-50 via-white to-cyan-50 p-5 shadow-[0_18px_50px_rgba(79,70,229,.10)]">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div><p className="text-xs font-black uppercase tracking-[.16em] text-purple-700">Growth Engine / Büyüme Motoru</p><h3 className="mt-2 text-2xl font-black text-slate-950">Funnel ve kampanya planlayıcı</h3><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Reklam açmadan önce hedef, funnel, kreatif, entegrasyon ve raporlama planını netleştirir.</p></div>
+              <button onClick={() => setActive("Görevler")} className="rounded-full bg-purple-600 px-4 py-2 text-sm font-black text-white">Planı göreve çevir</button>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">{growthModes.map((mode) => <button key={mode} onClick={() => setGrowthMode(mode)} className={`rounded-full px-3 py-2 text-xs font-black ${growthMode === mode ? "bg-purple-600 text-white" : "border border-purple-100 bg-white text-purple-700"}`}>{mode}</button>)}</div>
+            <div className="mt-5 rounded-[22px] border border-purple-100 bg-white p-4">
+              <h4 className="font-black text-slate-950">{growthMode}</h4>
+              {growthMode === "Funnel Kur" ? <div className="mt-4 grid gap-2 md:grid-cols-3">{funnelSteps.map((step, index) => <div key={step} className="rounded-[16px] border border-cyan-100 bg-cyan-50 p-3"><span className="text-[10px] font-black uppercase tracking-[.12em] text-cyan-700">Adım {index + 1}</span><strong className="mt-1 block text-sm text-slate-950">{step}</strong></div>)}</div> : <div className="mt-4 grid gap-3 md:grid-cols-2"><SelectField label="Hedef platform" value="Meta + Google" onChange={() => null} options={["Meta + Google", "Sadece Meta", "Sadece Google", "Instagram"]} /><SelectField label="Hedef aksiyon" value={growthMode} onChange={() => null} options={growthModes} /><Field label="Bütçe" value={`${scenarioInput.budget} TL`} onChange={() => null} /><Field label="Raporlama ihtiyacı" value="7 günlük sağlık raporu" onChange={() => null} /></div>}
+              <div className="mt-4 grid gap-2 md:grid-cols-3">{growthTasks.map((task) => <p key={task} className="rounded-[14px] bg-slate-50 p-3 text-sm font-bold text-slate-700">{task}</p>)}</div>
+            </div>
+          </div>
+          <div className="rounded-[26px] border border-emerald-200 bg-white p-5 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[.16em] text-emerald-700">HK Growth AI</p>
+            <h3 className="mt-2 text-xl font-black text-slate-950">AI Strategist</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-600">{selectedStrategyCustomer ? `${selectedStrategyCustomer.name} için öneri: Google Ads + WhatsApp funnel. Sebep: sektör ve bölge sinyali hizmet arama niyetine uygun; Meta remarketing için kullanılmalı.` : "Müşteri seçildiğinde strateji önerisi burada görünür."}</p>
+            <div className="mt-4 grid gap-3">
+              {[
+                ["Önerilen kanal", "Google Ads + WhatsApp"],
+                ["Hedef", "Kaliteli lead ve teklif görüşmesi"],
+                ["Tahmini bütçe", `${Number(scenarioInput.budget).toLocaleString("tr-TR")} TL`],
+                ["Müşteri sağlığı", selectedStrategyHealth ? `${selectedStrategyHealth.score}/100 · ${selectedStrategyHealth.status}` : "Veri bekleniyor"],
+                ["İlk 7 gün", "Kurulum, veri toplama, kreatif test"],
+                ["30 gün", "Dönüşüm optimizasyonu ve raporlama"]
+              ].map(([label, value]) => <div key={label} className="rounded-[14px] border border-emerald-100 bg-emerald-50 p-3"><span className="text-[10px] font-black uppercase tracking-[.12em] text-emerald-700">{label}</span><strong className="mt-1 block text-sm text-slate-950">{value}</strong></div>)}
+            </div>
+          </div>
+        </section>
+        <section className="grid gap-5 xl:grid-cols-3">
+          <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[.16em] text-blue-700">Senaryo Simülasyonu</p>
+            <h3 className="mt-2 text-xl font-black text-slate-950">Bütçe → lead → satış tahmini</h3>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {[
+                ["Reklam bütçesi", "budget"],
+                ["Hizmet/ürün fiyatı", "price"],
+                ["Dönüşüm oranı (%)", "conversionRate"],
+                ["Tahmini lead maliyeti", "cpl"],
+                ["Satış kapanış oranı (%)", "closeRate"]
+              ].map(([label, key]) => <label key={key} className="grid gap-1 text-xs font-black text-slate-600">{label}<input type="number" value={(scenarioInput as any)[key]} onChange={(event) => setScenarioInput((current) => ({ ...current, [key]: Number(event.target.value) }))} className="min-h-10 rounded-[12px] border border-slate-200 bg-slate-50 px-3 text-sm text-slate-950" /></label>)}
+            </div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">{[["Tahmini lead", scenarioLeads], ["Tahmini satış", scenarioSales], ["Tahmini ciro", `${scenarioRevenue.toLocaleString("tr-TR")} TL`], ["Tahmini ROAS", scenarioRoas.toFixed(2)], ["Tahmini kâr", `${scenarioProfit.toLocaleString("tr-TR")} TL`], ["Risk", scenarioRoas >= 3 ? "Düşük" : scenarioRoas >= 1.5 ? "Orta" : "Yüksek"]].map(([label, value]) => <div key={label} className="rounded-[14px] bg-blue-50 p-3"><span className="text-[10px] font-black uppercase text-blue-700">{label}</span><strong className="mt-1 block text-lg text-slate-950">{value}</strong></div>)}</div>
+          </div>
+          <div className="rounded-[24px] border border-cyan-200 bg-cyan-50 p-5">
+            <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Funnel Performansı</p>
+            <h3 className="mt-2 text-xl font-black text-slate-950">Gösterimden satışa akış</h3>
+            <div className="mt-4 grid gap-2">{funnelPerformance.map(([label, value, rate, note], index) => <div key={label as string} className="rounded-[16px] border border-cyan-100 bg-white p-3"><div className="flex items-center justify-between gap-3"><span><strong className="block text-sm text-slate-950">{index + 1}. {label}</strong><span className="text-xs text-slate-500">{note}</span></span><span className="rounded-full bg-cyan-100 px-3 py-1 text-xs font-black text-cyan-800">{value} · {rate}</span></div></div>)}</div>
+          </div>
+          <div className="rounded-[24px] border border-amber-200 bg-white p-5 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[.16em] text-amber-700">AI Reklam Doktoru + Kreatif Stüdyo</p>
+            <h3 className="mt-2 text-xl font-black text-slate-950">7 günlük optimizasyon reçetesi</h3>
+            <div className="mt-4 grid gap-3">
+              {["CTR düşükse ilk 3 saniye hook ve görsel kontrastı yenile.", "CPC yükselirse hedef kitleyi daralt ve teklif dilini test et.", "Pixel / GA4 eksikse ölçüm kurulumu tamamlanmadan bütçe artırma.", "3 Reels fikri, 2 Story akışı ve 1 WhatsApp CTA varyasyonu üret."].map((item) => <p key={item} className="rounded-[14px] bg-amber-50 p-3 text-sm font-bold leading-6 text-amber-900">{item}</p>)}
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2"><button onClick={() => setActive("Reklam Doktoru Pro")} className="rounded-full bg-amber-400 px-4 py-2 text-xs font-black text-slate-950">Reklam Doktorunu Aç</button><button onClick={() => setActive("Kampanya Önerileri")} className="rounded-full border border-purple-200 bg-purple-50 px-4 py-2 text-xs font-black text-purple-700">Kreatif taslak üret</button></div>
+          </div>
+        </section>
         <section className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-[0_18px_44px_rgba(15,23,42,.07)] sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>

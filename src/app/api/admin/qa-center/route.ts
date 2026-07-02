@@ -336,6 +336,20 @@ function scanSourcesForFindings(migrations: string) {
       findings.push(makeFinding({ category: "Müşteri Arama QA", severity: "orta", module: "Müşteriler", file_path: "src/components/admin/AdminDashboard.tsx", title, description: `${pattern} sinyali AdminDashboard içinde bulunamadı.`, recommendation }));
     }
   }
+  const growthOsChecks: Array<[string, string, string]> = [
+    ["HK Intelligence Command Center premium brief var mı?", "AI Growth Operating System", "Dashboard üstünde koyu premium AI brief alanı ve gerçek veri özetleri görünmelidir."],
+    ["Growth Engine / Büyüme Motoru var mı?", "Growth Engine / Büyüme Motoru", "Dashboard içinde funnel kurma ve funnelsız reklam planı için deneyim bulunmalıdır."],
+    ["Funnel performans görseli var mı?", "Funnel Performansı", "Gösterim, tıklama, lead, teklif ve satış katmanları tek kartta görünmelidir."],
+    ["Senaryo Simülasyonu var mı?", "Senaryo Simülasyonu", "Reklam bütçesi, lead maliyeti, kapanış oranı ve fiyat üzerinden tahmini lead, satış, ciro, ROAS ve kâr hesaplanmalıdır."],
+    ["HK Growth AI strateji kartı var mı?", "HK Growth AI", "Seçili veya riskli müşteri için kanal, hedef, bütçe, ilk 7 gün ve 30 gün stratejisi gösterilmelidir."],
+    ["AI Reklam Doktoru ve kreatif reçete var mı?", "AI Reklam Doktoru + Kreatif Stüdyo", "CTR, CPC, Pixel/GA4 ve kreatif aksiyonları için 7 günlük optimizasyon reçetesi görünmelidir."],
+    ["Quick Actions mevcut route’lara bağlı mı?", "Kampanya Önerileri", "Kreatif ve büyüme aksiyonları yeni kırık route üretmeden mevcut hazırlık veya reklam modüllerine yönlenmelidir."]
+  ];
+  for (const [title, pattern, recommendation] of growthOsChecks) {
+    if (!adminDashboardText.includes(pattern)) {
+      findings.push(makeFinding({ category: "HK Growth OS QA", severity: "orta", module: "Dashboard", file_path: "src/components/admin/AdminDashboard.tsx", title, description: `${pattern} sinyali AdminDashboard içinde bulunamadı.`, recommendation }));
+    }
+  }
   [
     ["Menü kategorileri duplicate mi?", "CRM Merkezi", "admin-navigation.ts içinde lead, keşif ve satış modülleri CRM Merkezi altında toplanmalı."],
     ["Aynı route iki farklı isimle gösteriliyor mu?", "legacySlugRedirects", "Eski slug değerleri canonical route’a yönlenmeli."],
