@@ -127,11 +127,11 @@ function friendlyMeaning(issue: any) {
     return "Bu uyarı, kodun beklediği tablo veya kolonun migration dosyalarında tam görünmediğini belirtir. Canlı veritabanında ilgili SQL çalışmadıysa kayıt işlemleri hata verebilir.";
   }
   if (category.includes("Güvenlik") || title.includes("secret") || title.includes("env")) {
-    return "Bu uyarı, API key, token, secret veya private key gibi hassas bilgilerin yanlış katmanda kullanılma ihtimalini gösterir.";
+    return "Bu uyarı, API anahtarı, token, secret veya private key gibi hassas bilgilerin yanlış katmanda kullanılma ihtimalini gösterir.";
   }
   if (title.includes("Slack")) return "Slack bildirimi artık kullanıcı arayüzünden kaldırıldı; bildirim tarafında Discord tercih edilir. Bu kontrol eski Slack beklentisinin tekrar görünmemesini izler.";
   if (title.includes("Auto Router") || title.includes("Provider") || title.includes("Groq")) {
-    return "Bu kontrol, manuel AI sağlayıcı seçiminin Auto Router tarafından ezilmediğini ve yedek akış varsa bunun kullanıcıya açıklandığını doğrular.";
+    return "Bu kontrol, manuel yapay zekâ sağlayıcı seçiminin Auto Router tarafından ezilmediğini ve yedek akış varsa bunun kullanıcıya açıklandığını doğrular.";
   }
   if (title.includes("Rapor") || category.includes("Raporlama")) {
     return "Bu kontrol, rapor çıktısının ekran görüntüsü yerine profesyonel rapor verisi, HTML, CSV veya metin taslağı olarak üretildiğini doğrular.";
@@ -157,7 +157,7 @@ function technicalReason(issue: any) {
   return `${file} üzerinde statik analiz sinyali üretildi.${context}`;
 }
 
-function routeForModule(moduleName: string) {
+function rotaForModule(moduleName: string) {
   const found = modules.find((module) => module.name === moduleName || module.slug === moduleName);
   if (!found) return "/hk-admin/qa-center";
   return found.slug ? `/hk-admin/${found.slug}` : "/hk-admin";
@@ -184,8 +184,8 @@ function enrichIssue(issue: any) {
     meaning: friendlyMeaning(issue),
     userImpact: userImpact(issue),
     technicalReason: technicalReason(issue),
-    suggestedSolution: issue.recommendation || "İlgili route, API, handler veya migration eşleşmesini doğrulayın.",
-    actionRoute: routeForModule(issue.module),
+    suggestedSolution: issue.recommendation || "İlgili rota, API, handler veya migration eşleşmesini doğrulayın.",
+    actionRoute: rotaForModule(issue.module),
     codeReference: issue.file_path ? `${issue.file_path}${issue.metadata?.line ? `:${issue.metadata.line}` : ""}` : "",
     repairCategory: repairCategory(issue),
     canMarkFixed: true,
@@ -265,7 +265,7 @@ function scanSourcesForFindings(migrations: string) {
     for (const match of text.matchAll(/process\.env\.(?!NEXT_PUBLIC_)[A-Z0-9_]+/g)) {
       if (!relative.includes("components/")) continue;
       const info = lineInfo(text, match.index || 0);
-      findings.push(makeFinding({ category: "RLS / Yetki Riskleri", severity: "kritik", module: "Güvenlik", file_path: relative, title: "Client component içinde gizli env riski", description: "Client tarafına sızmaması gereken process.env kullanımı sinyali var.", recommendation: "Gizli env değerlerini server route/service katmanına taşıyın.", metadata: info }));
+      findings.push(makeFinding({ category: "RLS / Yetki Riskleri", severity: "kritik", module: "Güvenlik", file_path: relative, title: "Client component içinde gizli env riski", description: "Client tarafına sızmaması gereken process.env kullanımı sinyali var.", recommendation: "Gizli env değerlerini server rota/service katmanına taşıyın.", metadata: info }));
     }
     for (const match of text.matchAll(/<button\b[\s\S]{0,500}?className=(?:\{`|["'`])[\s\S]{0,260}?bg-(?:black|slate-950|gray-950)/g)) {
       const info = lineInfo(text, match.index || 0);
@@ -290,7 +290,7 @@ function scanSourcesForFindings(migrations: string) {
   const navigationPath = path.join(root, "src", "lib", "admin-navigation.ts");
   const customerModalText = readFileSync(customerModalPath, "utf8");
   const adminDashboardText = readFileSync(adminDashboardPath, "utf8");
-  const navigationText = readFileSync(navigationPath, "utf8");
+  const navigasyonText = readFileSync(navigationPath, "utf8");
   const modalChildrenIndex = customerModalText.indexOf("{!showOverview && children");
   const modalOperationIndex = customerModalText.indexOf("Operasyon Detayları");
   const modalBranchesIndex = customerModalText.indexOf(">Şubeler<");
@@ -304,8 +304,8 @@ function scanSourcesForFindings(migrations: string) {
   if (!(dashboardModalIndex > -1 && dashboardTabsIndex > dashboardModalIndex && dashboardSummaryIndex > dashboardTabsIndex)) {
     findings.push(makeFinding({ category: "Müşteri Profili QA", severity: "kritik", module: "AdminDashboard", file_path: "src/components/admin/AdminDashboard.tsx", title: "Müşteriler ekranı sekmeleri 360 özetten önce render etmiyor", description: "Müşteriler ekranındaki modal children içeriğinde sekme chipleri ilk görünür blok olmalıdır.", recommendation: "Customer360Summary bileşenini sekmeler ve aktif sekme içeriğinden sonra render edin." }));
   }
-  const controlBlock = navigationText.match(/label: "Kontrol Merkezi",[\s\S]*?items: \[([\s\S]*?)\n\s*\]/)?.[1] || "";
-  const settingsBlock = navigationText.match(/label: "Ayarlar",[\s\S]*?items: \[([\s\S]*?)\n\s*\]/)?.[1] || "";
+  const controlBlock = navigasyonText.match(/label: "Kontrol Merkezi",[\s\S]*?items: \[([\s\S]*?)\n\s*\]/)?.[1] || "";
+  const settingsBlock = navigasyonText.match(/label: "Ayarlar",[\s\S]*?items: \[([\s\S]*?)\n\s*\]/)?.[1] || "";
   const forbiddenControlLabels = ["Web Sitesi Yönetimi", "Kullanıcı Yönetimi", "Roller", "Tema / Logo", "Sistem Ayarları", "Mobil Operasyon Modu", "Güvenlik"];
   const forbiddenInControl = forbiddenControlLabels.filter((label) => controlBlock.includes(`label: "${label}"`));
   if (forbiddenInControl.length) {
@@ -315,7 +315,7 @@ function scanSourcesForFindings(migrations: string) {
   if (missingSettings.length) {
     findings.push(makeFinding({ category: "Menü Mimarisi QA", severity: "orta", module: "Admin Navigation", file_path: "src/lib/admin-navigation.ts", title: "Ayarlar kategorisinde beklenen kayıt eksik", description: `Ayarlar içinde görünmeyen kayıtlar: ${missingSettings.join(", ")}.`, recommendation: "Web sitesi, kullanıcı, roller, tema, sistem, mobil operasyon ve güvenlik kayıtlarını Ayarlar kategorisinde tutun." }));
   }
-  const customerBlock = navigationText.match(/label: "Müşteri Merkezi",[\s\S]*?items: \[([\s\S]*?)\n\s*\]/)?.[1] || "";
+  const customerBlock = navigasyonText.match(/label: "Müşteri Merkezi",[\s\S]*?items: \[([\s\S]*?)\n\s*\]/)?.[1] || "";
   if (!customerBlock.trim().startsWith('{ label: "Müşteriler"')) {
     findings.push(makeFinding({ category: "Menü Mimarisi QA", severity: "kritik", module: "Admin Navigation", file_path: "src/lib/admin-navigation.ts", title: "Müşteriler Müşteri Merkezi’nde ilk sırada değil", description: "Müşteri Merkezi dropdown ilk görünür kaydı Müşteriler olmalıdır.", recommendation: "Müşteriler kayıt objesini Müşteri Merkezi items listesinin ilk elemanı yapın." }));
   }
@@ -326,7 +326,7 @@ function scanSourcesForFindings(migrations: string) {
     ["Sağlık skoru filtresi var mı?", "Sağlık / öncelik", "Riskli, kontrol gerekli, sağlıklı ve büyüme potansiyeli kırılımları müşteri listesini filtrelemelidir."],
     ["Son açılanlar var mı?", "Son Açılan Müşteriler", "Müşteri profili açıldığında son açılan müşteri localStorage ile hızlı erişime eklenmelidir."],
     ["Favoriler var mı?", "hk-customer-favorites", "Müşteri kartındaki favori yıldızı localStorage ile favori müşteri listesine ekleme/çıkarma yapmalıdır."],
-    ["AI öneri kartları var mı?", "Bugün Öncelikli Bakılacaklar", "Ödeme, görev, entegrasyon, rapor ve sağlık sinyallerinden öncelikli müşteri önerileri üretilmelidir."],
+    ["Yapay zekâ öneri kartları var mı?", "Bugün Öncelikli Bakılacaklar", "Ödeme, görev, entegrasyon, rapor ve sağlık sinyallerinden öncelikli müşteri önerileri üretilmelidir."],
     ["Boş sonuç ekranı var mı?", "Bu aramayla eşleşen müşteri bulunamadı", "Filtre sonucu boşsa yeni firma, Maps arama, lead kaydı ve filtre temizleme aksiyonları görünmelidir."],
     ["Toplu müşteri aksiyonları var mı?", "Toplu WhatsApp mesajı hazırla", "Seçili müşteriler için WhatsApp, görev, rapor, etiket ve export aksiyonları görünmelidir."],
     ["Mevcut müşteri detay açma bozulmuş mu?", "openCustomerProfile", "Müşteri detayını aç aksiyonu profil modalını açmalı ve son açılanlar listesine müşteri eklemelidir."]
@@ -337,37 +337,37 @@ function scanSourcesForFindings(migrations: string) {
     }
   }
   const growthOsChecks: Array<[string, string, string]> = [
-    ["HK Intelligence Command Center premium brief var mı?", "AI Growth Operating System", "Dashboard üstünde koyu premium AI brief alanı ve gerçek veri özetleri görünmelidir."],
-    ["Growth Engine / Büyüme Motoru var mı?", "Growth Engine / Büyüme Motoru", "Dashboard içinde funnel kurma ve funnelsız reklam planı için deneyim bulunmalıdır."],
+    ["HK Intelligence Kontrol Merkezi premium brief var mı?", "Yapay Zekâ Destekli Büyüme Sistemi", "Dashboard üstünde koyu premium yapay zekâ özeti alanı ve gerçek veri özetleri görünmelidir."],
+    ["Büyüme Motoru var mı?", "Büyüme Motoru", "Dashboard içinde funnel kurma ve funnelsız reklam planı için deneyim bulunmalıdır."],
     ["Funnel performans görseli var mı?", "Funnel Performansı", "Gösterim, tıklama, lead, teklif ve satış katmanları tek kartta görünmelidir."],
-    ["Senaryo Simülasyonu var mı?", "Senaryo Simülasyonu", "Reklam bütçesi, lead maliyeti, kapanış oranı ve fiyat üzerinden tahmini lead, satış, ciro, ROAS ve kâr hesaplanmalıdır."],
-    ["HK Growth AI strateji kartı var mı?", "HK Growth AI", "Seçili veya riskli müşteri için kanal, hedef, bütçe, ilk 7 gün ve 30 gün stratejisi gösterilmelidir."],
-    ["AI Reklam Doktoru ve kreatif reçete var mı?", "AI Reklam Doktoru + Kreatif Stüdyo", "CTR, CPC, Pixel/GA4 ve kreatif aksiyonları için 7 günlük optimizasyon reçetesi görünmelidir."],
-    ["Quick Actions mevcut route’lara bağlı mı?", "Kampanya Önerileri", "Kreatif ve büyüme aksiyonları yeni kırık route üretmeden mevcut hazırlık veya reklam modüllerine yönlenmelidir."]
+    ["Senaryo Simülasyonu var mı?", "Senaryo Simülasyonu", "Reklam bütçesi, potansiyel müşteri maliyeti, kapanış oranı ve fiyat üzerinden tahmini potansiyel müşteri, satış, ciro, ROAS ve kâr hesaplanmalıdır."],
+    ["HK Büyüme Yapay Zekâsı strateji kartı var mı?", "HK Büyüme Yapay Zekâsı", "Seçili veya riskli müşteri için kanal, hedef, bütçe, ilk 7 gün ve 30 gün stratejisi gösterilmelidir."],
+    ["Yapay Zekâ Reklam Doktoru ve kreatif reçete var mı?", "Yapay Zekâ Reklam Doktoru + Kreatif Stüdyo", "CTR, CPC, Pixel/GA4 ve kreatif aksiyonları için 7 günlük optimizasyon reçetesi görünmelidir."],
+    ["Hızlı İşlemler mevcut rota’lara bağlı mı?", "Kampanya Önerileri", "Kreatif ve büyüme aksiyonları yeni kırık rota üretmeden mevcut hazırlık veya reklam modüllerine yönlenmelidir."]
   ];
   for (const [title, pattern, recommendation] of growthOsChecks) {
     if (!adminDashboardText.includes(pattern)) {
-      findings.push(makeFinding({ category: "HK Growth OS QA", severity: "orta", module: "Dashboard", file_path: "src/components/admin/AdminDashboard.tsx", title, description: `${pattern} sinyali AdminDashboard içinde bulunamadı.`, recommendation }));
+      findings.push(makeFinding({ category: "HK Büyüme Sistemi QA", severity: "orta", module: "Dashboard", file_path: "src/components/admin/AdminDashboard.tsx", title, description: `${pattern} sinyali AdminDashboard içinde bulunamadı.`, recommendation }));
     }
   }
   const growthPhase2Checks: Array<[string, string, string, string]> = [
-    ["Growth Engine route var mı?", "growth-engine", "src/lib/admin-navigation.ts", "Büyüme Motoru /hk-admin/growth-engine route’u dynamic admin route üzerinden açılmalıdır."],
-    ["Funnel Builder route var mı?", "funnel-builder", "src/lib/admin-navigation.ts", "Funnel Builder /hk-admin/funnel-builder route’u navigation ve izin sisteminde görünmelidir."],
-    ["Marketplace route var mı?", "marketplace", "src/lib/admin-navigation.ts", "Marketplace /hk-admin/marketplace route’u paketlerden plan oluşturma akışına bağlanmalıdır."],
-    ["Müşteri profilinde Growth bölümü var mı?", "Growth / Büyüme", "src/components/admin/AdminDashboard.tsx", "CustomerProfileModal sekmeleri içinde Growth / Büyüme bölümü bulunmalıdır."],
-    ["Timeline görünümü Growth olayını içeriyor mu?", "Growth planı oluşturuldu", "src/components/admin/AdminDashboard.tsx", "Müşteri zaman çizelgesi growth planı ve operasyon olaylarını göstermelidir."],
-    ["White Label hazırlık kartı var mı?", "White Label Hazırlık", "src/components/admin/GrowthOperatingSystem.tsx", "Müşteri profilindeki Growth panelinde müşteri logosu, panel başlığı, marka rengi, rapor dili ve marka görünümü hazırlığı gösterilmelidir."],
+    ["Büyüme Motoru sayfa bağlantısı var mı?", "growth-engine", "src/lib/admin-navigation.ts", "Büyüme Motoru /hk-admin/growth-engine sayfa bağlantısı dinamik admin sayfa bağlantısı üzerinden açılmalıdır."],
+    ["Funnel Planlayıcı sayfa bağlantısı var mı?", "funnel-builder", "src/lib/admin-navigation.ts", "Funnel Planlayıcı /hk-admin/funnel-builder sayfa bağlantısı navigasyon ve izin sisteminde görünmelidir."],
+    ["Modül Pazarı sayfa bağlantısı var mı?", "marketplace", "src/lib/admin-navigation.ts", "Modül Pazarı /hk-admin/marketplace sayfa bağlantısı paketlerden plan oluşturma akışına bağlanmalıdır."],
+    ["Müşteri profilinde Büyüme bölümü var mı?", "Büyüme", "src/components/admin/AdminDashboard.tsx", "CustomerProfileModal sekmeleri içinde Büyüme bölümü bulunmalıdır."],
+    ["Zaman Akışı görünümü Büyüme olayını içeriyor mu?", "Büyüme planı oluşturuldu", "src/components/admin/AdminDashboard.tsx", "Müşteri zaman çizelgesi büyüme planı ve operasyon olaylarını göstermelidir."],
+    ["Marka Özelleştirme hazırlık kartı var mı?", "Marka Özelleştirme Hazırlık", "src/components/admin/GrowthOperatingSystem.tsx", "Müşteri profilindeki Büyüme panelinde müşteri logosu, panel başlığı, marka rengi, rapor dili ve marka görünümü hazırlığı gösterilmelidir."],
     ["Yayın öncesi kontrol listesi var mı?", "Yayın Öncesi Kontrolü Hazırla", "src/components/admin/GrowthOperatingSystem.tsx", "Gerçek reklam yayına alma yapılmadan Meta, Google, Pixel/GA4, kreatif ve CRM kontrol listesi gösterilmelidir."]
   ];
   for (const [title, pattern, filePath, recommendation] of growthPhase2Checks) {
     const fileText = sourceText.find((item) => path.relative(root, item.file) === filePath)?.text || "";
     if (!fileText.includes(pattern)) {
-      findings.push(makeFinding({ category: "HK Growth OS Phase 2 QA", severity: "orta", module: "Growth OS", file_path: filePath, title, description: `${pattern} sinyali ilgili dosyada bulunamadı.`, recommendation }));
+      findings.push(makeFinding({ category: "HK Büyüme Sistemi Faz 2 QA", severity: "orta", module: "Büyüme Sistemi", file_path: filePath, title, description: `${pattern} sinyali ilgili dosyada bulunamadı.`, recommendation }));
     }
   }
   [
     ["Menü kategorileri duplicate mi?", "CRM Merkezi", "admin-navigation.ts içinde lead, keşif ve satış modülleri CRM Merkezi altında toplanmalı."],
-    ["Aynı route iki farklı isimle gösteriliyor mu?", "legacySlugRedirects", "Eski slug değerleri canonical route’a yönlenmeli."],
+    ["Aynı rota iki farklı isimle gösteriliyor mu?", "legacySlugRedirects", "Eski slug değerleri canonical rota’a yönlenmeli."],
     ["Mobil mod toggle görünüyor mu?", "Mobil Operasyon Modu Toggle", "Admin toolbar üzerinde görünür toggle bulunmalı."],
     ["Mobil mod localStorage tercihi korunuyor mu?", "hk-mobile-operation-mode", "Mobil mod tercihi CRM/lead kaydı yerine localStorage’da tutulmalı."],
     ["Fırsat operasyon verileri Supabase’e kaydediliyor mu?", "agencyOpportunities", "Fırsat kartı center-data üzerinden agency_opportunities koleksiyonuna yazmalı."],
@@ -379,8 +379,8 @@ function scanSourcesForFindings(migrations: string) {
     ["Rehber güncel mi?", "Teklif Takip Merkezi", "Sistem Rehberi yeni operasyon başlıklarını içermeli."],
     ["Migration gerekli ama eksik mi?", "agency_opportunities", "Ajans operasyon migrationı çalıştırılabilir olmalı."]
     ,
-    ["Agent Hub route var mı?", "HK Agent Hub", "Agent Hub menüden açılmalı ve /hk-admin/agent-hub route'u erişilebilir olmalı."],
-    ["Agent provider secretları client'a sızıyor mu?", "secret_value", "Agent provider secretları sadece server-side route içinde kalmalı; client response maskeli olmalı."],
+    ["Agent Hub sayfa bağlantısı var mı?", "HK Agent Hub", "Agent Hub menüden açılmalı ve /hk-admin/agent-hub rotası erişilebilir olmalı."],
+    ["Agent provider secretları client'a sızıyor mu?", "secret_value", "Agent provider secretları sadece server-side rota içinde kalmalı; client cevabı maskeli olmalı."],
     ["Manus varsayılan değil mi?", "Derin Araştırma Uzmanı", "Manus günlük kısa cevap değil, derin araştırma görevleri için konumlandırılmalı."],
     ["Agent run log kalıcı mı?", "agent_runs", "Agent görevleri agent_runs tablosuna yazılmalı."],
     ["Müşteriler ana navigasyonda görünür mü?", "Aktif, pasif ve aday müşteri kayıtlarını yönet.", "Müşteriler ana CRM grubunda ve görünür ilk öğeler arasında olmalı."],
@@ -388,9 +388,9 @@ function scanSourcesForFindings(migrations: string) {
     ["Agent Hub final_report kolonları bekleniyor mu?", "final_report", "Agent run kayıtları HK Intelligence final raporunu saklamalı."],
     ["Agent Hub scheduled endpoint var mı?", "agent-hub/scheduled", "Planlanmış agent görevleri için API endpoint görünmeli."],
     ["Env eksikse kullanıcı dostu uyarı var mı?", "API anahtarı eklenmedi", "Sağlayıcı kartları eksik API anahtarı durumunu secret göstermeden açıklamalı."],
-    ["System Repair Phase 3: gerçek provider runner var mı?", "runRealAgentProvider", "Agent Hub gerçek API key varsa server-side sağlayıcı çağrısı yapmalı."],
-    ["System Repair Phase 3: export route güvenli payload üretiyor mu?", "prepared_payload", "Export butonları bozuk link yerine print-ready HTML, metin veya slayt taslağı üretmeli."],
-    ["System Repair Phase 3: e-posta gönderim route'u var mı?", "email-send", "E-posta taslağı kullanıcı onayıyla gönderim route'una bağlanmalı."],
+    ["System Repair Phase 3: gerçek provider runner var mı?", "runRealAgentProvider", "Agent Hub gerçek API anahtarı varsa server-side sağlayıcı çağrısı yapmalı."],
+    ["System Repair Phase 3: export rota güvenli payload üretiyor mu?", "prepared_payload", "Export butonları bozuk link yerine print-ready HTML, metin veya slayt taslağı üretmeli."],
+    ["System Repair Phase 3: e-posta gönderim rotası var mı?", "email-send", "E-posta taslağı kullanıcı onayıyla gönderim rotasına bağlanmalı."],
     ["System Repair Phase 3: WhatsApp özeti var mı?", "whatsapp-summary", "Agent final raporundan kısa WhatsApp metni üretilebilmeli."],
     ["Agent Hub Slack butonu kaldırıldı mı?", "Slack bildirimi kaldırıldı", "Slack kullanıcı arayüzünden kaldırılmalı; Discord tek bildirim seçeneği olarak kalmalı."],
     ["System Repair Phase 3: webhook bildirimleri var mı?", "DISCORD_WEBHOOK_URL", "Discord webhook env değeri varsa bildirim endpointi çalışmalı."],
@@ -405,24 +405,24 @@ function scanSourcesForFindings(migrations: string) {
     ["Auto Router varsayılan mı?", "Otomatik Seçim aktif", "Yeni görev formunda normal kullanıcı Auto Router ile başlamalı."],
     ["AI seçim nedeni gösteriliyor mu?", "AI Seçim Nedeni", "Run sonucunda seçilen sağlayıcının nedeni görünmeli."],
     ["Sonucu Kaydet çalışıyor mu?", "Sonucu Kaydet", "Agent sonucu agent_runs üzerinde kaydedilebilir olmalı."],
-    ["AI Hafızasına Kaydet çalışıyor mu?", "AI Hafızasına Kaydet", "Agent sonucu agent_memories tablosuna kaydedilebilir olmalı."],
+    ["Yapay Zekâ Hafızasına Kaydet çalışıyor mu?", "Yapay Zekâ Hafızasına Kaydet", "Agent sonucu agent_memories tablosuna kaydedilebilir olmalı."],
     ["Demo fallback kullanıcıya açıkça belirtiliyor mu?", "Demo / Yerel Yedek Akış", "Gerçek AI çalışmadığında kullanıcı bunu açıkça görmeli."],
     ["Entegrasyon Kontrolü eksik env'leri gösteriyor mu?", "Entegrasyon Kontrolü", "Eksik API anahtarları secret göstermeden listelenmeli."],
-    ["AI provider selector merkezi mi?", "AiProviderSelector", "AI kullanan admin modülleri tek merkezi sağlayıcı seçiciyi kullanmalı."],
+    ["yapay zekâ sağlayıcı seçici merkezi mi?", "AiProviderSelector", "AI kullanan admin modülleri tek merkezi sağlayıcı seçiciyi kullanmalı."],
     ["Google İstihbarat eski hardcoded listeyi kullanıyor mu?", "Google İstihbarat", "Google İstihbarat modalı Auto Router, Gemini, OpenAI, Claude, Groq, Manus, OpenRouter, Ollama ve Demo sırasını merkezi kaynaktan almalı."],
-    ["Tüm AI sağlayıcıları listeleniyor mu?", "unifiedAiProviderOptions", "Sağlayıcı listesi Agent Hub ve diğer modüllerde aynı source of truth üzerinden gelmeli."],
+    ["Tüm yapay zekâ sağlayıcıları listeleniyor mu?", "unifiedAiProviderOptions", "Sağlayıcı listesi Agent Hub ve diğer modüllerde aynı tek doğruluk kaynağı üzerinden gelmeli."],
     ["Auto Router en üstte mi?", "Auto AI Router / Otomatik Seçim", "Auto Router tüm AI seçimlerinde ilk ve önerilen seçenek olmalı."],
-    ["AI secretları frontend'e sızıyor mu?", "maskedKey", "Provider durum endpointi sadece durum/maskeli bilgi döndürmeli, gerçek API key dönmemeli."],
+    ["AI secretları frontend'e sızıyor mu?", "maskedKey", "Provider durum endpointi sadece durum/maskeli bilgi döndürmeli, gerçek API anahtarı dönmemeli."],
     ["Manus kısa analizlerde varsayılan mı?", "Manus günlük kısa cevaplar için değil", "Manus yalnız derin araştırma, rakip/pazar analizi ve kapsamlı raporlarda önerilmeli."],
     ["Manuel Groq seçimi Ollama'ya düşüyor mu?", "requestedProvider", "Manuel sağlayıcı seçilirse sistem önce seçilen provider key'i denemeli; Groq seçimi sessizce Ollama'ya dönüşmemeli."],
     ["selectedProvider ile actualProvider farkı açıklanıyor mu?", "actualProvider", "Yedek akış kullanıldığında kullanıcı seçilen ve kullanılan sağlayıcıyı ayrı ayrı görmeli."],
     ["Auto Router sadece auto seçiliyken mi devreye giriyor?", "Manuel seçim yapıldığı için Auto Router devreye girmedi", "Manuel seçimde Auto Router sağlayıcı kararını ezmemeli."],
-    ["Provider key alias mapping doğru mu?", "normalizeAiProvider", "groq, gemini, openai, anthropic, manus, openrouter, ollama ve demo alias eşleşmeleri merkezi normalize edilmeli."],
-    ["Google İstihbarat sonuç kartları doğru provider gösteriyor mu?", "aiExecutionMetadata", "Google İstihbarat route'u sonuç meta bilgisini istenen ve kullanılan sağlayıcı ayrımıyla üretmeli."],
-    ["Sağlayıcı sağlık paneli var mı?", "Sağlayıcı Sağlığı", "Agent Hub içinde son 24 saat başarı, hata, yanıt süresi, maliyet ve router skoru görünmeli."],
-    ["HK Intelligence final layer tüm AI çıktılarında çalışıyor mu?", "HK Intelligence final", "AI çıktıları yönetici özeti, riskler, fırsatlar ve aksiyon planı formatına normalize edilmeli."],
+    ["Provider anahtar alias mapping doğru mu?", "normalizeAiProvider", "groq, gemini, openai, anthropic, manus, openrotar, ollama ve demo alias eşleşmeleri merkezi normalize edilmeli."],
+    ["Google İstihbarat sonuç kartları doğru sağlayıcı gösteriyor mu?", "aiExecutionMetadata", "Google İstihbarat rotası sonuç meta bilgisini istenen ve kullanılan sağlayıcı ayrımıyla üretmeli."],
+    ["Sağlayıcı sağlık paneli var mı?", "Sağlayıcı Sağlığı", "Agent Hub içinde son 24 saat başarı, hata, yanıt süresi, maliyet ve rotar skoru görünmeli."],
+    ["HK Intelligence final katman tüm Yapay zekâ çıktılarında çalışıyor mu?", "HK Intelligence final", "Yapay zekâ çıktıları yönetici özeti, riskler, fırsatlar ve aksiyon planı formatına normalize edilmeli."],
     ["Veri Aktarma tam yedek admin-only mi?", "Tüm Sistem Yedeği", "Tam sistem yedeği ve geri yükleme yalnız admin rolüne görünmeli."],
-    ["Secret alanlar export dışı mı?", "blockedKeyPattern", "API key, token, secret, şifre hash'i ve auth hassas alanları export edilmemeli."],
+    ["Secret alanlar export dışı mı?", "blockedKeyPattern", "API anahtarı, token, secret, şifre hash'i ve auth hassas alanları export edilmemeli."],
     ["Import önizleme olmadan commit yapılamıyor mu?", "confirmedPreview", "Geri yükleme işlemi dosya önizlemesi ve açık onay olmadan database'e yazmamalı."],
     ["Müşteri export butonları var mı?", "Müşteri Bilgilerini İndir", "Müşteriler ekranında Excel, Word, PDF ve CSV indirme aksiyonları bulunmalı."],
     ["Rapor çıktıları screenshot yerine rapor payload kullanıyor mu?", "buildPrintableHtmlReport", "Çıktı alma ekran görüntüsü yerine profesyonel rapor şablonu üretmeli."],
@@ -430,7 +430,7 @@ function scanSourcesForFindings(migrations: string) {
     ["Export/import log tutuluyor mu?", "data_export_logs", "Dışa ve içe aktarma işlemleri log tablolarına yazılmalı."],
     ["Sistem Rehberi'nin ilk bölümü Bir Müşterinin Serüveni mi?", "bir-musterinin-seruveni", "Rehberin ilk seed'i müşteri serüveni olmalı."],
     ["Müşteri kaydından sözleşme bitimine kadar süreç var mı?", "Sözleşme bitiminde veri yedekleme", "Rehber lead aşamasından kapanış/yedekleme adımına kadar süreci anlatmalı."],
-    ["İlgili sayfa butonları bozuk link veriyor mu?", "customerJourneyActions", "Bir Müşterinin Serüveni hızlı aksiyonları mevcut hk-admin route'larına gitmeli."],
+    ["İlgili sayfa butonları bozuk link veriyor mu?", "customerJourneyActions", "Bir Müşterinin Serüveni hızlı aksiyonları mevcut hk-admin rotalarına gitmeli."],
     ["Token/API bilgileri için güvenlik uyarısı var mı?", "Token, API anahtarı", "Rehber token ve API anahtarlarının güvenli entegrasyon alanlarına girilmesini belirtmeli."],
     ["Kapanış/pasifleştirme/yedekleme adımları var mı?", "Pasifleştir", "Rehber kapanış, pasife alma, arşivleme ve veri yedekleme adımlarını içermeli."]
     ,
@@ -446,45 +446,45 @@ function scanSourcesForFindings(migrations: string) {
     ["Setup progress 14 adım üzerinden hesaplanıyor mu?", "getCustomerSetupSteps", "Müşteri kurulum ilerlemesi 14 adımlı helper çıktısından hesaplanmalı."],
     ["Secret değerleri müşteri profilinde açık gösteriliyor mu?", "meta_access_token_masked", "Müşteri profilinde yalnız maskeli/durum alanları tutulmalı; gerçek token/private key saklanmamalı."],
     ["Website Analytics Center müşteri entegrasyon durumunu gösteriyor mu?", "customerIntegrations", "Genel merkez müşteri entegrasyon yüzdesi ve düzenleme linkini göstermeli."],
-    ["Entegrasyon düzenleme admin-only mi?", "requireModuleAccess(\"musteriler\")", "Müşteri entegrasyon API route'ları admin/staff yetki kontrolüne bağlı olmalı."],
+    ["Entegrasyon düzenleme admin-only mi?", "requireModuleAccess(\"musteriler\")", "Müşteri entegrasyon API rotaları admin/staff yetki kontrolüne bağlı olmalı."],
     ["GA4/GTM/Meta ID validasyonları var mı?", "GA4 Measurement ID G-", "Kaydetmeden önce GA4, GTM, Meta Pixel/Dataset ve Search Console URL formatları doğrulanmalı."]
     ,
-    ["HK Intelligence CEO modülü var mı?", "HKAutonomousAgencyCenter", "Autonomous Agency Operating System tek component üzerinden dashboard ve route'a bağlanmalı."],
-    ["HK CEO Masası ana ekranda mı?", "HK CEO Masası", "Executive Command Center dashboard üstünde ve ayrı modül olarak görünmeli."],
-    ["AI Yardımcı Sohbet route çalışıyor mu?", "hk-intelligence-ceo/copilot", "Copilot doğal dil sorusunu HK Intelligence final layer formatında cevaplamalı."],
+    ["HK Intelligence CEO modülü var mı?", "HKAutonomousAgencyCenter", "Autonomous Agency Operating System tek component üzerinden dashboard ve rotaya bağlanmalı."],
+    ["HK CEO Masası ana ekranda mı?", "HK CEO Masası", "Executive Kontrol Merkezi dashboard üstünde ve ayrı modül olarak görünmeli."],
+    ["AI Yardımcı Sohbet rota çalışıyor mu?", "hk-intelligence-ceo/copilot", "Copilot doğal dil sorusunu HK Intelligence final katman formatında cevaplamalı."],
     ["Akıllı Komut Merkezi görünüyor mu?", "Akıllı Komut Merkezi", "Komut merkezi müşteri, görev, teklif, agent, rapor, tahsilat ve rehber hedeflerine bağlanmalı."],
     ["Genel Arama merkezi var mı?", "Genel Arama", "Müşteri, görev, belge, rapor, tahsilat, kampanya, komut metni ve hafıza araması kategori bazlı görünmeli."],
-    ["Sağlık Merkezi sinyali var mı?", "Sağlık / Maliyet / Yedekleme Merkezi", "Database, Supabase, Storage, Cron, Queue, API ve AI sağlayıcı sağlıkları izlenmeli."],
+    ["Sağlık Merkezi sinyali var mı?", "Sağlık / Maliyet / Yedekleme Merkezi", "Database, Supabase, Storage, Cron, Queue, API ve yapay zekâ sağlayıcı sağlıkları izlenmeli."],
     ["AI Cost Center sinyali var mı?", "estimated_monthly_cost", "Sanal ajan ve agent run maliyetleri tahmini olarak izlenmeli."],
     ["Backup Center sinyali var mı?", "Otomatik günlük/haftalık/aylık yedek", "Veri Aktarma merkezi backup center mantığıyla günlük, haftalık ve aylık yedek hazırlığı göstermeli."],
     ["Müşteri Zaman Çizelgesi var mı?", "Müşteri Zaman Çizelgesi", "Müşteri olayları kronolojik operasyon zaman çizelgesiyle görünmeli."],
-    ["AI Öneri Motoru var mı?", "AI Öneri Motoru", "Her öneride beklenen etki, zorluk, süre, maliyet ve başarı olasılığı bulunmalı."],
+    ["Yapay Zekâ Öneri Motoru var mı?", "Yapay Zekâ Öneri Motoru", "Her öneride beklenen etki, zorluk, süre, maliyet ve başarı olasılığı bulunmalı."],
     ["Dijital İkiz var mı?", "Dijital İkiz", "Müşteri için Google, Meta, SEO, CRM, rapor, tahsilat ve not bağlamı tek müşteri ikizinde toplanmalı."],
     ["Paket Pazarı hazır paketleri var mı?", "Paket Pazarı", "Sektör paketleri komut metni, iş akışı, AI ekibi, KPI ve rapor şablonuyla görünmeli."],
     ["Çok şubeli yapı migrationı var mı?", "customer_branches", "Müşterinin birden fazla şubesini aynı panel altında ayıran tablo beklenmeli."],
-    ["HK Intelligence Final Layer zorunlu mu?", "HK Intelligence Final Layer", "Hiçbir AI çıktısı doğrudan değil, final karar katmanı üzerinden sunulmalı."],
+    ["HK Intelligence Final Layer zorunlu mu?", "HK Intelligence Final Layer", "Hiçbir Yapay zekâ çıktısı doğrudan değil, final karar katmanı üzerinden sunulmalı."],
     ["Secret client'a dönüyor mu?", "secretsReturned: false", "Status endpointleri secret değerleri yerine yalnız hazır/eksik durumunu döndürmeli."]
     ,
     ["HK CEO kartları tıklanabilir mi?", "openDetail", "CEO ekranındaki kartlar modal, yönlendirme veya hazırlık verisi aksiyonuna bağlanmalı."],
-    ["Paket Pazarı komut metni üretimi çalışıyor mu?", "marketplace/generate", "Paket Pazarı komut metni, iş akışı, KPI, rapor ve teklif çıktısı üreten route kullanmalı."],
+    ["Paket Pazarı komut metni üretimi çalışıyor mu?", "marketplace/generate", "Paket Pazarı komut metni, iş akışı, KPI, rapor ve teklif çıktısı üreten rota kullanmalı."],
     ["Yeni Paket Üret butonu var mı?", "Yeni Paket Üret", "Paket Pazarı üstünde yeni paket modalı açan aksiyon bulunmalı."],
     ["Akıllı Komut Merkezi linkleri bozuk mu?", "commandToTarget", "Komut satırları mevcut admin modül hedeflerine yönlenmeli."],
-    ["Copilot cevap veriyor mu?", "HK Intelligence ile Yanıtla", "Copilot route bağlamla Türkçe cevap üretmeli ve aksiyon butonları göstermeli."],
+    ["Copilot cevap veriyor mu?", "HK Intelligence ile Yanıtla", "Copilot rota bağlamla Türkçe cevap üretmeli ve aksiyon butonları göstermeli."],
     ["Agent kartları düzenleniyor mu?", "hk-intelligence-ceo/agents", "Sanal ajanlar API üzerinden listelenebilir, düzenlenebilir ve çalıştırma hazırlık verisi üretebilir olmalı."],
-    ["Operasyon takvimi düzenleniyor mu?", "hk-intelligence-ceo/operations", "Operasyon takvimi GET/POST/PATCH route'larıyla planlanabilir olmalı."],
+    ["Operasyon takvimi düzenleniyor mu?", "hk-intelligence-ceo/operations", "Operasyon takvimi GET/POST/PATCH rotalarıyla planlanabilir olmalı."],
     ["Risk/öneri görev oluşturabiliyor mu?", "convert-task", "Öneriler görev hazırlık verisine veya agency_tasks kaydına dönüşebilmeli."],
     ["Migration SQL final raporda veriliyor mu?", "hk_ceo_functional_actions", "Yeni migration SQL'i final raporda SQL Editor için tam içerikle paylaşılmalı."]
     ,
     ["Paket Pazarı Müşteriye Uygula gerçek müşteri seçtiriyor mu?", "Paketi Müşteriye Uygula", "Paket uygulama sihirbazı müşteri arama/seçim adımı göstermeli."],
     ["Uygulama sonrası kayıt oluşuyor mu?", "hk_marketplace_package_applications", "Paket uygulama sonucu log tablosuna result_summary ve created_records yazmalı."],
-    ["AI Hafızası kaydı oluşuyor mu?", "marketplace_package", "Paket stratejisi agent_memories içine marketplace_package türüyle kaydedilmeli."],
+    ["Yapay Zekâ Hafızası kaydı oluşuyor mu?", "marketplace_package", "Paket stratejisi agent_memories içine marketplace_package türüyle kaydedilmeli."],
     ["Görev taslakları oluşuyor mu?", "30 günlük görev planı oluştur", "Uygulama sihirbazı agency_tasks kayıtları veya görev hazırlık verisi üretmeli."],
     ["Müşteri notu oluşuyor mu?", "Müşteri notu oluştur", "Uygulama sonucu customer_updates veya güvenli payload ile müşteri notu üretmeli."],
     ["Müşteri profil popup açılıyor mu?", "CustomerProfileModal", "Müşteriyi Görüntüle aksiyonları müşteriler ekranıyla ortak modal component'i açmalı."],
     ["Popup X ile kapanıyor mu?", "onClose", "Müşteri profil popup X butonuyla kapanmalı."],
     ["Popup dışına tıklayınca kapanıyor mu?", "event.currentTarget", "Popup overlay dış tıklamayla kapanmalı."],
     ["Popup iç scroll çalışıyor mu?", "overflow-y-auto", "Popup içerik alanı max-height içinde scroll olmalı."],
-    ["Boş hazırlık verisi gösterip işlem yapmayan modal kaldı mı?", "Paketi Uygula", "Paket uygulama modalı gerçek uygulama butonuna ve kayıt route'una bağlanmalı."]
+    ["Boş hazırlık verisi gösterip işlem yapmayan modal kaldı mı?", "Paketi Uygula", "Paket uygulama modalı gerçek uygulama butonuna ve kayıt rotasına bağlanmalı."]
     ,
     ["Paket Pazarı başarı ekranı JSON yerine Türkçe özet gösteriyor mu?", "Paket müşteriye uygulandı", "Paket uygulama sonucu teknik JSON yerine kullanıcı dostu kayıt kartları göstermeli."],
     ["Oluşan kayıtlara yönlendirme butonları var mı?", "Sonraki Adımlar", "Başarı ekranında müşteri, görev, hafıza, iş akışı, rapor, teklif ve uygulama kaydı butonları bulunmalı."],
@@ -509,7 +509,7 @@ function scanSourcesForFindings(migrations: string) {
     ["Müşteri profilinde Şubeler sekmesi var mı?", "Şubeler", "Ortak müşteri profil modalında şube kartları ve şube aksiyonları görünmeli."],
     ["Şube ekleme/düzenleme çalışıyor mu?", "Şube Ekle", "Müşteri profilinde Şube Ekle ve Şubeyi Düzenle aksiyonları mevcut müşteri yönetimi akışına yönlenmeli."],
     ["Müşteri + şube filtresi ortak component ile kullanılıyor mu?", "CustomerBranchFilter", "Paket uygulama sihirbazı müşteri + şube seçimini ortak CustomerBranchFilter bileşeniyle yapmalı."],
-    ["Paket şubeye uygulanabiliyor mu?", "branch_id", "Marketplace apply route branch_id değerini uygulama loguna yazmalı ve şube bağlamını plan özetine eklemeli."],
+    ["Paket şubeye uygulanabiliyor mu?", "branch_id", "Modül Pazarı apply rota branch_id değerini uygulama loguna yazmalı ve şube bağlamını plan özetine eklemeli."],
     ["Ajans operasyon planları üretiliyor mu?", "social_media_plan", "Paket üretici sosyal medya planı, onay akışı, kampanya operasyonu, müşteri iletişimi ve rapor onay akışı üretmeli."],
     ["İngilizce/teknik ifadeler temiz mi?", "AI ile Otomatik Doldur", "Kullanıcı arayüzünde workflow/draft/payload yerine iş akışı, taslak ve hazırlık verisi karşılıkları kullanılmalı."],
     ["Secret frontend'e sızıyor mu?", "secret", "Yeni şube ve paket akışları token/private key değerlerini client tarafına taşımamalı."]
@@ -518,20 +518,20 @@ function scanSourcesForFindings(migrations: string) {
     ["Google Maps butonu doğru URL açıyor mu?", "googleMapsTarget", "Şubede Google Maps URL varsa onu, yoksa adres/şehir/ilçe arama URL'ini açmalı."],
     ["Fırsat Haritası sekmelerde görünüyor mu?", "Fırsat Haritası", "Haritalar modülünde Fırsat Haritası ilk ve kalıcı sekme olarak görünmelidir."],
     ["Google Maps Müşteri Bulma sekmesi çalışıyor mu?", "google-maps-musteri-bulma", "Aktif Haritalar sekmesi URL query ile takip edilmeli ve Google Maps müşteri bulma ekranı açılmalıdır."],
-    ["Google Maps API key frontend’e sızıyor mu?", "GOOGLE_MAPS_API_KEY", "Google Maps anahtarı yalnız server-side business-discovery route içinde kullanılmalı; client component anahtarı okumamalıdır."],
+    ["Google Maps API anahtarı frontend’e sızıyor mu?", "GOOGLE_MAPS_API_KEY", "Google Maps anahtarı yalnız server-side business-discovery rota içinde kullanılmalı; client component anahtarı okumamalıdır."],
     ["Bulunan işletmeler kart kart gösteriliyor mu?", "Bulunan İşletmeler", "Google Maps sonuçları ham JSON yerine işletme kartlarında puan, yorum, iletişim, skor ve aksiyonlarla görünmelidir."],
-    ["Seçilen işletmeler CRM’e kaydediliyor mu?", "Seçilenleri CRM’e Kaydet", "Haritalar modülü seçilen işletmeleri business-discovery PUT route’u ile lead kaydına dönüştürmelidir."],
+    ["Seçilen işletmeler CRM’e kaydediliyor mu?", "Seçilenleri CRM’e Kaydet", "Haritalar modülü seçilen işletmeleri business-discovery PUT sayfa bağlantısı ile lead kaydına dönüştürmelidir."],
     ["Haritalar işlem sonucu paneli var mı?", "Google Maps müşteri araması tamamlandı", "Arama ve CRM’e aktarma sonrası ActionResultPanel ne oldu/sonraki adım bilgisini göstermelidir."],
     ["Detay butonu sağ paneli dolduruyor mu?", "Seçilen İşletme Detayı", "İşletme kartındaki Detay aksiyonu selectedPlaceId değerini güncelleyip sağ panelde seçilen işletme bilgisini göstermelidir."],
     ["İşletmeler orta alanda kart kart görünüyor mu?", "Lead sonuç merkezi", "Bulunan işletmeler dar sağ kolon yerine orta alandaki responsive kart görünümünde listelenmelidir."],
     ["Sağ panel seçilen işletme detayını gösteriyor mu?", "BusinessLeadDetailPanel", "Sağ panel işletme adı, adres, telefon, website, skorlar, AI yorumu ve aksiyon butonlarını göstermelidir."],
     ["Toplu seçim aksiyonları var mı?", "Seçilenler için Görev Oluştur", "Seçili işletmeler için CRM, teklif, rakip analizi ve görev aksiyonları tek bar içinde bulunmalıdır."],
     ["CRM Merkezi adı güncellendi mi?", "CRM Merkezi", "Üst menüde Satış & CRM yerine CRM Merkezi etiketi görünmelidir."],
-    ["Rakip Analizi sayfası bağımsız route olarak geri geldi mi?", "active === \"Rakip Analizi\"", "Rakip bulma ekranı Dashboard içine gömülmeden /hk-admin/rakip-analizi route’u ve menü modülü üzerinden açılmalıdır."],
+    ["Rakip Analizi sayfası bağımsız rota olarak geri geldi mi?", "active === \"Rakip Analizi\"", "Rakip bulma ekranı Dashboard içine gömülmeden /hk-admin/rakip-analizi sayfa bağlantısı ve menü modülü üzerinden açılmalıdır."],
     ["Rakip İstihbarat Merkezi CRM Merkezi içinde görünüyor mu?", "Rakip İstihbarat Merkezi", "CRM Merkezi menüsünde lead keşfinden rakip istihbaratına doğrudan geçiş bulunmalıdır."],
     ["Müşteri Keşfi içinde Rakiplerini Bul butonu var mı?", "Rakiplerini Bul", "Google Maps müşteri bulma kartları ve detay paneli seçilen işletme için rakip keşfi başlatabilmelidir."],
     ["Detay panelinde rakip bölümü var mı?", "Bu işletmeye benzer rakipleri", "Seçilen işletme detay panelinde aynı bölgedeki rakipleri tarama ve Rakip Analizine gönderme bölümü bulunmalıdır."],
-    ["Aynı Bölgede Rakipleri Tara çalışıyor mu?", "Aynı bölgede rakipleri tara", "Sağ detay paneli sektör, il, ilçe, adres ve kategori bilgileriyle competitor discover route’unu çağırmalıdır."],
+    ["Aynı Bölgede Rakipleri Tara çalışıyor mu?", "Aynı bölgede rakipleri tara", "Sağ detay paneli sektör, il, ilçe, adres ve kategori bilgileriyle competitor discover sayfa bağlantısınu çağırmalıdır."],
     ["Maps’te Aç butonu doğru URL açıyor mu?", "Maps’te Aç", "Adres satırındaki Maps butonu place_id, google_maps_url veya işletme adı/adres aramasıyla Google Maps’e gitmelidir."],
     ["Web Sitesini Aç butonu doğru URL açıyor mu?", "Web Sitesini Aç", "Website varsa yeni sekmede açılmalı; yoksa kullanıcıya Mevcut değil durumu gösterilmelidir."],
     ["Sol filtre butonları sade mi?", "Seçilenleri CRM’e Kaydet", "Sol filtre panelinde Alt Niş Öner, Google Maps’ten Bul, CRM’e Kaydet, Teklif Hazırla ve Filtreleri Temizle ana aksiyonları kalmalıdır."],
@@ -557,7 +557,7 @@ function scanSourcesForFindings(migrations: string) {
     ["Muhasebe menüsü yetkisiz kullanıcıya gizli mi?", "Muhasebe", "Tahsilat, kârlılık ve finans export alanları admin/finance yetkisine bağlanmalı."],
     ["Müşteriye gösterilsin toggle'ı var mı?", "Müşteriye gösterilsin", "Görev ve müşteriyle ilişkili kayıtlarda müşteri görünürlüğü açıkça yönetilmeli."],
     ["Kritik işlemler ActionResultPanel kullanıyor mu?", "ActionResultPanel", "Şube ve toplu görev gibi önemli işlemlerden sonra ne oldu/sonraki adım paneli görünmeli."],
-    ["API response içinde actionResult var mı?", "actionResult", "Yeni veya güncellenen route'lar standart işlem sonucu payload'ı döndürmeli."],
+    ["API response içinde actionResult var mı?", "actionResult", "Yeni veya güncellenen rotalar standart işlem sonucu payload'ı döndürmeli."],
     ["Raw JSON kullanıcıya açık gösteriliyor mu?", "Teknik detayı göster", "Ham teknik detaylar varsayılan kapalı accordion içinde kalmalı."],
     ["İşlem sonrası Ne oldu alanı var mı?", "Ne oldu?", "Önemli işlemlerden sonra kullanıcıya işlemin sonucu açıklanmalı."],
     ["İşlem sonrası şimdi ne yapmalısın alanı var mı?", "Şimdi ne yapmalısın?", "İşlem sonrası takip edilecek öneriler gösterilmeli."],
@@ -565,8 +565,8 @@ function scanSourcesForFindings(migrations: string) {
     ,
     ["Rakip listesi ham JSON göstermiyor mu?", "Rakip İstihbarat Merkezi", "Rakip Analizi ekranı ham JSON textarea yerine kart, tablo ve teknik detay accordion düzeni kullanmalı."],
     ["AI ile rakip bul öneri kartları üretiyor mu?", "Rakip olarak kaydet", "AI ile Rakip Bul akışı önerileri kart halinde göstermeli ve seçilenleri rakip listesine kaydetmelidir."],
-    ["Rakip kaydetme çalışıyor mu?", "/api/admin/competitors", "Rakip kaydı GET/POST/PATCH route’larıyla competitor_watchlist tablosuna yazılmalıdır."],
-    ["Rakip bildirim ayarları çalışıyor mu?", "notify-settings", "Yeni reklam, paylaşım, yorum, web sitesi ve fiyat/kampanya bildirim tercihleri route üzerinden güncellenmelidir."],
+    ["Rakip kaydetme çalışıyor mu?", "/api/admin/competitors", "Rakip kaydı GET/POST/PATCH rota’larıyla competitor_watchlist tablosuna yazılmalıdır."],
+    ["Rakip bildirim ayarları çalışıyor mu?", "notify-settings", "Yeni reklam, paylaşım, yorum, web sitesi ve fiyat/kampanya bildirim tercihleri rota üzerinden güncellenmelidir."],
     ["Rakip kontrol sonucu ActionResultPanel gösteriyor mu?", "Rakip kontrolü tamamlandı", "Rakip kontrolünden sonra ne oldu, hangi sinyal oluştu ve sonraki adım ActionResultPanel ile anlatılmalıdır."],
     ["Müşteri profilinde Rakipler sekmesi gerçek veriye bağlı mı?", "competitorWatchlist", "Müşteri profilindeki Rakipler bölümü competitorWatchlist verisinden son kontrol, bildirim ve görünürlük durumunu göstermelidir."],
     ["Müşteriye gösterilsin toggle’ı kritik modüllerde var mı?", "Müşteriye gösterilsin", "Rakip, görev, rapor, belge ve müşteriyle ilişkili kayıtlarda müşteri görünürlüğü açıkça yönetilmelidir."],
@@ -597,13 +597,13 @@ function scanSourcesForFindings(migrations: string) {
     ["Görev Kanban görünümü var mı?", "Kanban", "Görev sistemi listeye ek olarak Kanban, takvim ve müşteri bazlı görünüm sunmalıdır."],
     ["Müşteri profilinde sonraki en iyi aksiyon var mı?", "Sonraki En İyi Aksiyon", "Müşteri profilinde görev, tahsilat, rapor, kampanya ve rakip sinyalinden önerilen sıradaki aksiyon görünmelidir."],
     ["CEO Kokpiti kritik işleri gösteriyor mu?", "Ajans CEO Kokpiti", "Dashboard veya HK Intelligence CEO içinde kritik işler, tahsilat, rakip sinyali, entegrasyon ve QA uyarıları görünmelidir."],
-    ["AI Asistan aksiyon kartı döndürüyor mu?", "AI Ajans Asistanı", "AI asistan cevabı müşteri profili, görev, rakip analizi, rapor, teklif ve WhatsApp aksiyon kartlarıyla desteklenmelidir."],
+    ["Yapay Zekâ Asistan aksiyon kartı döndürüyor mu?", "Yapay Zekâ Ajans Asistanı", "Yapay zekâ asistan cevabı müşteri profili, görev, rakip analizi, rapor, teklif ve WhatsApp aksiyon kartlarıyla desteklenmelidir."],
     ["Bildirim Merkezi ajans olaylarını topluyor mu?", "agencyNotifications", "Bildirim Merkezi agency_notifications ve competitor_signals kayıtlarını görev, tahsilat, rakip ve API uyarılarıyla birlikte göstermelidir."],
     ["Müşteri Operasyon Zinciri var mı?", "Müşteri Operasyon Zinciri", "Müşteri profili veya kokpit müşteri → rakip analizi → AI strateji → görev → rapor → tahsilat zincirini görünür kılmalıdır."],
-    ["Secret frontend’e sızıyor mu?", "safeApi", "Server-side API anahtarları maskelenmeli; Google Maps, Meta ve AI tokenları client response içinde açık dönmemelidir."],
+    ["Secret frontend’e sızıyor mu?", "safeApi", "Server-side API anahtarları maskelenmeli; Google Maps, Meta ve AI tokenları client cevabı içinde açık dönmemelidir."],
     ["Siyah buton var mı?", "bg-cyan", "Yeni aksiyonlarda siyah primary buton yerine cyan, mavi, yeşil, sarı veya kırmızı anlam renkleri kullanılmalıdır."],
     ["Periyodik kontrol endpoint’i çalışıyor mu?", "/api/admin/competitors/check-due", "Kontrol zamanı gelen rakipleri skorlayıp sinyal oluşturan cron-ready endpoint bulunmalıdır."],
-    ["Rakip toplu işlem endpoint’i var mı?", "/api/admin/competitors/bulk", "Kaydet, takip, görünürlük, bildirim, arşiv, pasif ve sil aksiyonları toplu route üzerinden yapılmalıdır."],
+    ["Rakip toplu işlem endpoint’i var mı?", "/api/admin/competitors/bulk", "Kaydet, takip, görünürlük, bildirim, arşiv, pasif ve sil aksiyonları toplu rota üzerinden yapılmalıdır."],
     ["Rakip sinyalleri müşteri bazlı görünüyor mu?", "competitorSignals", "Center-data ve müşteri profil popup competitor_signals kayıtlarını müşteri bağlamında göstermelidir."],
     ["Müşteriye göster/gizle toggle’ı çalışıyor mu?", "show_to_customer", "Rakip ve sinyal kartlarında müşteri görünürlüğü açıkça yönetilmelidir."],
     ["Sinyalden görev oluşturulabiliyor mu?", "Görev Oluştur", "Yeni sinyal kartları görev taslağı veya görev ekranı aksiyonuna bağlanmalıdır."],
@@ -630,24 +630,24 @@ function scanSourcesForFindings(migrations: string) {
     ["Dropdown ekran dışına taşıyor mu?", "max-h-[min(72vh,640px)]", "Dropdown viewport yüksekliğine göre sınırlandırılmalı ve kendi içinde scroll olmalıdır."],
     ["Müşteriler Müşteri Merkezi’nin en üstünde mi?", "label: \"Müşteriler\", slug: \"musteriler\"", "Müşteri Merkezi kategorisinde ilk görünür kayıt Müşteriler olmalıdır."],
     ["Müşteriler hızlı erişimi var mı?", "href=\"/hk-admin/musteriler\"", "Üst alanda Müşteriler sayfasına hızlı erişim bulunmalıdır."],
-    ["Duplicate route menüleri sadeleşti mi?", "Rapor Çıktıları", "PDF/Word/PowerPoint gibi aynı route’a giden tekrarlar tek çıktı başlığı altında toplanmalıdır."],
-    ["Her route menü kategorisine bağlı mı?", "legacySlugRedirects", "Eski alias route değerleri bağımsız modül slug değerlerine yönlenmelidir; çalışan modüller sekmeye zorlanmamalıdır."],
+    ["Duplicate rota menüleri sadeleşti mi?", "Rapor Çıktıları", "PDF/Word/PowerPoint gibi aynı rota’a giden tekrarlar tek çıktı başlığı altında toplanmalıdır."],
+    ["Her rota menü kategorisine bağlı mı?", "legacySlugRedirects", "Eski alias rota değerleri bağımsız modül slug değerlerine yönlenmelidir; çalışan modüller sekmeye zorlanmamalıdır."],
     ["Müşteriler Müşteri Merkezi altında mı?", "label: \"Müşteri Merkezi\"", "Müşteriler, firma yönetimi, şubeler ve onboarding Müşteri Merkezi kategorisinde görünmelidir."],
     ["Rakip analizi Reklam & Performans altında mı?", "label: \"Reklam & Performans\"", "Rakip Analizi reklam performansı ve istihbarat bağlamında Reklam & Performans kategorisinde olmalıdır."],
-    ["Website Analytics bağımsız route ile çalışıyor mu?", "slug: \"website-analytics\"", "Website Analytics kendi /hk-admin/website-analytics sayfasını korumalı ve menüden doğrudan açılmalıdır."],
-    ["Agent Hub AI Merkezi altında mı?", "label: \"AI Merkezi\"", "Agent Hub, workflow, prompt, hafıza ve AI öğrenme aksiyonları AI Merkezi kategorisinde olmalıdır."],
+    ["Website Analytics bağımsız rota ile çalışıyor mu?", "slug: \"website-analytics\"", "Website Analytics kendi /hk-admin/website-analytics sayfasını korumalı ve menüden doğrudan açılmalıdır."],
+    ["Agent Hub Yapay Zekâ Merkezi altında mı?", "label: \"Yapay Zekâ Merkezi\"", "Agent Hub, workflow, prompt, hafıza ve AI öğrenme aksiyonları Yapay Zekâ Merkezi kategorisinde olmalıdır."],
     ["Entegrasyonlar bağımsız modül olarak duruyor mu?", "label: \"Entegrasyonlar\"", "Meta, Pixel, Dataset, Google, GA4, Search Console, GTM ve API Durumu Entegrasyonlar kategorisinde görünmelidir."],
-    ["QA Merkezi Kontrol Merkezi altında mı?", "slug: \"qa-center\"", "QA Merkezi Kontrol Merkezi altında tek bağımsız route olarak görünmelidir."],
-    ["Veri Yedekleme Kontrol Merkezi altında mı?", "slug: \"veri-aktarma\"", "Veri Aktarma/Veri Yedekleme Kontrol Merkezi altında bağımsız route olarak görünmelidir."],
-    ["Web sitesi yönetimi Ayarlar altında mı?", "slug: \"web-sitesi-yonetimi\"", "Web sitesi yönetimi Ayarlar kategorisinde bağımsız route olarak görünmelidir."],
+    ["QA Merkezi Kontrol Merkezi altında mı?", "slug: \"qa-center\"", "QA Merkezi Kontrol Merkezi altında tek bağımsız rota olarak görünmelidir."],
+    ["Veri Yedekleme Kontrol Merkezi altında mı?", "slug: \"veri-aktarma\"", "Veri Aktarma/Veri Yedekleme Kontrol Merkezi altında bağımsız rota olarak görünmelidir."],
+    ["Web sitesi yönetimi Ayarlar altında mı?", "slug: \"web-sitesi-yonetimi\"", "Web sitesi yönetimi Ayarlar kategorisinde bağımsız rota olarak görünmelidir."],
     ["Finansal sayfalar yetkisiz kullanıcıya kapalı mı?", "canViewAccounting", "Muhasebe grubu admin, owner, finance veya muhasebe yetkisi olan kullanıcılarla sınırlanmalıdır."],
     ["Kullanıcı yönetimi admin/owner ile sınırlı mı?", "Kullanıcı Yönetimi", "Kullanıcı yönetimi ve roller yetkili kullanıcılarla sınırlı kalmalıdır."],
     ["API Anahtar Durumu secret göstermiyor mu?", "masked", "API durum ekranları yalnız durum/maskeli bilgi döndürmeli, secret göstermemelidir."],
-    ["Eski route’lar kırılıyor mu?", "getCanonicalAdminSlug", "Eski alias route değerleri çalışan bağımsız modüllere yönlenmelidir."],
+    ["Eski rota’lar kırılıyor mu?", "getCanonicalAdminSlug", "Eski alias rota değerleri çalışan bağımsız modüllere yönlenmelidir."],
     ["Duplicate menü kaydı var mı?", "QA Merkezi", "QA Merkezi, Sistem Sağlık Merkezi ve Sistem Test Merkezi tek profesyonel kategoride görünmeli; Araçlar altında tekrar etmemelidir."],
-    ["Boş/yanlış route var mı?", "getAdminHref", "Navigation slug değerleri mevcut /hk-admin route yapısını bozmadan canonical route üretmelidir."],
+    ["Boş/yanlış sayfa bağlantısı var mı?", "getAdminHref", "Navigation slug değerleri mevcut /hk-admin rota yapısını bozmadan canonical rota üretmelidir."],
     ["Menü açıklamaları Türkçe mi?", "description", "Admin menü açıklamaları kısa, Türkçe ve kullanıcıya yol gösteren metinler olmalıdır."],
-    ["Ana kategoriler mantıklı mı?", "Kontrol Merkezi", "Kontrol Merkezi, Müşteri Merkezi, CRM Merkezi, Reklam & Performans, AI Merkezi, Ajans Operasyonu, Muhasebe, Rapor Merkezi, Entegrasyonlar, İçerik & Medya ve Ayarlar kategorileri korunmalıdır."]
+    ["Ana kategoriler mantıklı mı?", "Kontrol Merkezi", "Kontrol Merkezi, Müşteri Merkezi, CRM Merkezi, Reklam & Performans, Yapay Zekâ Merkezi, Ajans Operasyonu, Muhasebe, Rapor Merkezi, Entegrasyonlar, İçerik & Medya ve Ayarlar kategorileri korunmalıdır."]
   ].forEach(([title, pattern, recommendation]) => {
     const inSource = sourceContains(pattern) || migrations.includes(String(pattern).toLocaleLowerCase("tr"));
     if (!inSource) findings.push(makeFinding({ category: "Ajans Operasyonu QA", severity: "orta", module: "Ajans Operasyon Kalıcılığı", file_path: "src/components/admin/AdminDashboard.tsx", title, description: `${pattern} sinyali statik analizde bulunamadı.`, recommendation }));
@@ -684,19 +684,19 @@ export async function GET() {
     const staticFindings = scanSourcesForFindings(migrations);
     const checks = modules.flatMap((module) => {
       const pagePath = module.slug ? `src/app/hk-admin/${module.slug}/page.tsx` : "src/app/hk-admin/page.tsx";
-      const dynamicPage = fileExists("src/app/hk-admin/[module]/page.tsx");
+      const dinamikPage = fileExists("src/app/hk-admin/[module]/page.tsx");
       const apiPath = `src/app/api/admin/${module.api}/route.ts`;
       const tableFound = migrations.includes(`create table if not exists public.${module.table}`) || migrations.includes(`create table if not exists ${module.table}`) || migrations.includes(`alter table if exists public.${module.table}`);
       const missingColumns = module.columns.filter((column) => !migrations.includes(column.toLocaleLowerCase("tr")));
       return [
-        { module: module.name, check: "Sayfa", ok: fileExists(pagePath) || dynamicPage, detail: fileExists(pagePath) || dynamicPage ? "Sayfa/dinamik modül route mevcut." : "Sayfa route dosyası bulunamadı.", severity: "kritik" as QaSeverity },
+        { module: module.name, check: "Sayfa", ok: fileExists(pagePath) || dinamikPage, detail: fileExists(pagePath) || dinamikPage ? "Sayfa/dinamik modül rota mevcut." : "Sayfa rota dosyası bulunamadı.", severity: "kritik" as QaSeverity },
         { module: module.name, check: "API", ok: fileExists(apiPath), detail: fileExists(apiPath) ? "İlgili API endpoint mevcut." : "İlgili API endpoint dosyası bulunamadı.", severity: "orta" as QaSeverity },
         { module: module.name, check: "Supabase şema", ok: tableFound && missingColumns.length === 0, detail: tableFound ? missingColumns.length ? `Manuel doğrulama gerekli. Eksik kolon sinyali: ${missingColumns.join(", ")}` : "Migrationlarda tablo/kolon beklentisi görünüyor." : `Migrationlarda ${module.table} tablo tanımı bulunamadı.`, severity: missingColumns.length ? "orta" as QaSeverity : "kritik" as QaSeverity },
         { module: module.name, check: "Buton/aksiyon", ok: sourceContains(module.name) || sourceContains(module.slug), detail: sourceContains(module.name) || sourceContains(module.slug) ? "Admin kaynaklarında modül aksiyon referansı bulundu." : "Statik analizde aksiyon referansı sınırlı; manuel doğrulama gerekli.", severity: "dusuk" as QaSeverity }
       ];
     });
     const rawIssues = [
-      ...checks.filter((item) => !item.ok).map((item) => ({ ...item, priority: classify(item.detail), category: item.check, title: `${item.module}: ${item.check}`, description: item.detail, recommendation: "İlgili route, API veya migration eşleşmesini doğrulayın." })),
+      ...checks.filter((item) => !item.ok).map((item) => ({ ...item, priority: classify(item.detail), category: item.check, title: `${item.module}: ${item.check}`, description: item.detail, recommendation: "İlgili rota, API veya migration eşleşmesini doğrulayın." })),
       ...staticFindings.map((item) => ({ ...item, check: item.category, ok: false, priority: item.severity, detail: item.description }))
     ];
     const issues = rawIssues.map(enrichIssue);

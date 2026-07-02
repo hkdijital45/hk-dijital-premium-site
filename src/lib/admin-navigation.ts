@@ -85,28 +85,28 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     ]
   },
   {
-    label: "AI Merkezi",
-    description: "Agent Hub, AI Studio, workflow, prompt ve AI hafıza akışları.",
+    label: "Yapay Zekâ Merkezi",
+    description: "Agent Hub, Yapay Zekâ Stüdyosu, workflow, prompt ve AI hafıza akışları.",
     icon: "Bot",
-    badge: "AI",
+    badge: "YZ",
     accent: "from-blue-500 via-indigo-500 to-violet-600",
     items: [
       { label: "Agent Hub", slug: "agent-hub", module: "agent-hub", description: "Agent, workflow, hafıza, öğrenme, benchmark ve sağlayıcı yönetimi." },
-      { label: "AI Studio", slug: "ai-studio", module: "ai-studio", description: "İçerik, analiz ve rapor üretim araçları." },
+      { label: "Yapay Zekâ Stüdyosu", slug: "ai-studio", module: "ai-studio", description: "İçerik, analiz ve rapor üretim araçları." },
       { label: "Prompt Merkezi", slug: "prompt-uretimi", module: "prompt-kutuphanesi", description: "Tekrar kullanılabilir yapay zekâ komutları." },
-      { label: "AI Satış Koçu", slug: "ai-satis-kocu", module: "ai-studio", description: "Lead ve fırsatlar için arama, WhatsApp, e-posta ve itiraz cevapları." }
+      { label: "Yapay Zekâ Satış Koçu", slug: "ai-satis-kocu", module: "ai-studio", description: "Potansiyel müşteri ve fırsatlar için arama, WhatsApp, e-posta ve itiraz cevapları." }
     ]
   },
   {
-    label: "Growth Engine",
+    label: "Büyüme Motoru",
     description: "Funnel, kampanya planı, kreatif ihtiyaç ve paket stratejileri.",
     icon: "Sparkles",
-    badge: "Growth",
+    badge: "Büyüme",
     accent: "from-purple-500 via-cyan-500 to-emerald-500",
     items: [
       { label: "Büyüme Motoru", slug: "growth-engine", module: "growth-engine", description: "Müşteri satış yolculuğunu, funnel yapısını, kreatif ihtiyacını ve takip planını oluştur." },
-      { label: "Funnel Builder", slug: "funnel-builder", module: "funnel-builder", description: "Müşteriye özel funnel amacı, kanal ve eksik adımları kart tabanlı planla." },
-      { label: "Marketplace", slug: "marketplace", module: "marketplace", description: "Paket ve modül kartlarından Growth Engine planı başlat." }
+      { label: "Funnel Planlayıcı", slug: "funnel-builder", module: "funnel-builder", description: "Müşteriye özel funnel amacı, kanal ve eksik adımları kart tabanlı planla." },
+      { label: "Modül Pazarı", slug: "marketplace", module: "marketplace", description: "Paket ve modül kartlarından Büyüme Motoru planı başlat." }
     ]
   },
   {
