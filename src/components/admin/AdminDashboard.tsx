@@ -2037,6 +2037,9 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     .filter((item, index, list) => list.findIndex((candidate) => (candidate.id || candidate.title) === (item.id || item.title)) === index)
     .slice(0, 5);
   const dashboardAssistantPrompts = ["Bugün neye odaklanmalıyım?", "Geciken tahsilatlar var mı?", "Kritik görevler neler?", "Bu ay kârlılık durumu nasıl?"];
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? ["Good Morning", "Günaydın"] : hour < 18 ? ["Good Afternoon", "İyi Günler"] : ["Good Evening", "İyi Akşamlar"];
+  const userName = currentSession?.fullName || currentSession?.email?.split("@")?.[0] || "Hayri";
   const integrationMissingCustomers = activeCustomers.filter((company) => !(company.meta_account_id || company.google_ads_customer_id || company.ga4_property_id || company.search_console_site_url || company.gtm_container_id));
   const pendingReportsCount = activeCustomers.filter((company) => !reports.some((report) => report.company_id === company.id && !isDateOlderThan(report.published_at || report.updated_at || report.created_at || report.report_date, 45))).length;
   const proposalWaitingCount = leads.filter((lead) => ["Teklif Hazırlanıyor", "Teklif Gönderildi", "Teklif Görüntülendi", "Revize İstendi"].includes(lead.proposal_status || lead.status)).length;
@@ -2180,9 +2183,6 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     ["Teklif üretimi", "CRM teklif geçmişinden hesaplanan son 6 aylık üretim.", buildMonthlySeries(leads.flatMap((lead) => Array.isArray(lead.proposal_history) ? lead.proposal_history : []), (proposal) => dateValue(proposal, "created_at", "generated_at", "date"))],
     ["Aylık performans", "Reklam metriklerinde kayıtlı aylık harcama hareketi.", buildMonthlySeries(metrics, (metric) => dateValue(metric, "date", "created_at"), (metric) => Number(metric.spent || 0)), " TL"]
   ];
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? ["Good Morning", "Günaydın"] : hour < 18 ? ["Good Afternoon", "İyi Günler"] : ["Good Evening", "İyi Akşamlar"];
-  const userName = currentSession?.fullName || currentSession?.email?.split("@")?.[0] || "Hayri";
   const categoryCards = [
     {
       title: "CRM & Müşteriler",

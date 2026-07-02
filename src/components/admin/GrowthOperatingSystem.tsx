@@ -16,16 +16,13 @@ const channels = ["Meta", "Google", "Instagram", "TikTok", "Web", "WhatsApp"];
 const fullFunnelSteps = ["Trafik Kaynağı", "Landing Page", "Pixel / GA4", "WhatsApp / Form / Telefon", "CRM", "Teklif", "Satış", "Raporlama", "Remarketing"];
 const simpleAdSteps = ["Reklam", "CTA", "WhatsApp / DM / Telefon", "CRM", "Takip", "Raporlama"];
 
-function companyName(content: any, companyId?: string) {
-  return (content?.companies || []).find((item: any) => item.id === companyId)?.name || "Firma seçilmedi";
-}
-
-function scoreCustomer(company: any, content: any) {
+function scoreCustomer(company: any, content: any = {}) {
+  const data = content || {};
   if (!company) return { score: 0, status: "Veri yok", tone: "slate", reasons: ["Müşteri seçildiğinde büyüme sinyalleri hesaplanır."] };
   const today = new Date().toISOString().slice(0, 10);
-  const tasks = (content.agencyTasks || []).filter((item: any) => item.company_id === company.id && !["Tamamlandı", "İptal"].includes(item.status));
-  const payments = (content.paymentRecords || []).filter((item: any) => item.company_id === company.id);
-  const reports = (content.reports || []).filter((item: any) => item.company_id === company.id);
+  const tasks = (data.agencyTasks || []).filter((item: any) => item.company_id === company.id && !["Tamamlandı", "İptal"].includes(item.status));
+  const payments = (data.paymentRecords || []).filter((item: any) => item.company_id === company.id);
+  const reports = (data.reports || []).filter((item: any) => item.company_id === company.id);
   const overduePayments = payments.filter((item: any) => item.status === "Gecikmiş" || (item.due_date && item.due_date < today && item.status !== "Ödendi"));
   const integrationMissing = !(company.meta_account_id || company.google_ads_customer_id || company.ga4_property_id || company.search_console_site_url || company.gtm_container_id);
   let score = 86;
@@ -72,8 +69,9 @@ export function FunnelStepCard({ step, index, status = "hazır", action = "Kontr
   return <div className={`rounded-[16px] border p-4 ${tone}`}><span className="text-[10px] font-black uppercase tracking-[.12em] opacity-70">Adım {index + 1}</span><strong className="mt-1 block text-sm">{step}</strong><span className="mt-2 inline-flex rounded-full bg-white/70 px-2 py-1 text-[10px] font-black">{status} · {action}</span></div>;
 }
 
-function CustomerPicker({ companies, value, onChange }: any) {
-  return <label className="grid gap-2 text-sm font-black text-slate-700">Müşteri Seç<select value={value} onChange={(event) => onChange(event.target.value)} className="min-h-11 rounded-[12px] border border-slate-200 bg-white px-3 text-sm text-slate-900"><option value="">Demo / genel plan</option>{companies.map((company: any) => <option key={company.id} value={company.id}>{company.name}</option>)}</select></label>;
+function CustomerPicker({ companies = [], value, onChange }: any) {
+  const safeCompanies = Array.isArray(companies) ? companies : [];
+  return <label className="grid gap-2 text-sm font-black text-slate-700">Müşteri Seç<select value={value || ""} onChange={(event) => onChange(event.target.value)} className="min-h-11 rounded-[12px] border border-slate-200 bg-white px-3 text-sm text-slate-900"><option value="">Demo / genel plan</option>{safeCompanies.map((company: any) => <option key={company.id} value={company.id}>{company.name}</option>)}</select></label>;
 }
 
 function AiRecommendationCard({ mode, customer, content }: any) {
@@ -92,7 +90,8 @@ function AiRecommendationCard({ mode, customer, content }: any) {
 }
 
 export function GrowthEngineCenter({ content, setActive }: GrowthProps) {
-  const companies = (content.companies || []).filter((company: any) => company.status !== "Pasif");
+  const data = content || {};
+  const companies = (data.companies || []).filter((company: any) => company.status !== "Pasif");
   const [mode, setMode] = useState("Funnel Kur");
   const [companyId, setCompanyId] = useState(companies[0]?.id || "");
   const selectedCompany = companies.find((company: any) => company.id === companyId);
@@ -116,13 +115,14 @@ export function GrowthEngineCenter({ content, setActive }: GrowthProps) {
         <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">{mode === "Funnel Kur" ? "Funnel Planı" : "Funnelsız Reklam Planı"}</p><h3 className="mt-2 text-xl font-black text-slate-950">{selectedCompany?.name || "Genel müşteri"} yol haritası</h3></div><button onClick={() => setActive?.("Görevler")} className="rounded-full bg-cyan-500 px-4 py-2 text-sm font-black text-white">Plan çıktısını görevlerde aç</button></div>
         <div className="mt-4 grid gap-3 md:grid-cols-3 xl:grid-cols-4">{steps.map((step, index) => <FunnelStepCard key={step} step={step} index={index} status={index < 2 ? "hazır" : index < 5 ? "öneriliyor" : "eksik"} action={index < 2 ? "Hazırla" : "Planla"} />)}</div>
       </GlassPanel>
-      <AiRecommendationCard mode={mode} customer={selectedCompany} content={content} />
+      <AiRecommendationCard mode={mode} customer={selectedCompany} content={data} />
     </div>
   );
 }
 
 export function FunnelBuilderCenter({ content, setActive }: GrowthProps) {
-  const companies = content.companies || [];
+  const data = content || {};
+  const companies = data.companies || [];
   const [companyId, setCompanyId] = useState(companies[0]?.id || "");
   const [goal, setGoal] = useState("Lead");
   const [channel, setChannel] = useState("Meta");
@@ -149,10 +149,20 @@ export function GrowthMarketplaceCenter({ setActive }: GrowthProps) {
 }
 
 export function CustomerGrowthPanel({ company, content, setActive }: GrowthProps) {
-  const health = scoreCustomer(company, content);
-  const tasks = (content.agencyTasks || []).filter((item: any) => item.company_id === company?.id && !["Tamamlandı", "İptal"].includes(item.status));
-  const payments = (content.paymentRecords || []).filter((item: any) => item.company_id === company?.id);
-  const reports = (content.reports || []).filter((item: any) => item.company_id === company?.id);
+  const data = content || {};
+  if (!company) {
+    return (
+      <GlassPanel tone="amber">
+        <p className="text-xs font-black uppercase tracking-[.16em] text-amber-700">Growth / Büyüme</p>
+        <h3 className="mt-2 text-xl font-black text-slate-950">Müşteri seçimi bekleniyor</h3>
+        <p className="mt-2 text-sm leading-6 text-amber-900">Büyüme planı, sağlık skoru ve funnel yol haritası için önce müşteri profili seçilmelidir.</p>
+      </GlassPanel>
+    );
+  }
+  const health = scoreCustomer(company, data);
+  const tasks = (data.agencyTasks || []).filter((item: any) => item.company_id === company?.id && !["Tamamlandı", "İptal"].includes(item.status));
+  const payments = (data.paymentRecords || []).filter((item: any) => item.company_id === company?.id);
+  const reports = (data.reports || []).filter((item: any) => item.company_id === company?.id);
   const integrationMissing = !(company?.meta_account_id || company?.google_ads_customer_id || company?.ga4_property_id || company?.search_console_site_url || company?.gtm_container_id);
   const recommendedFunnel = integrationMissing ? "Funnel Kur + Pixel/GA4 tamamla" : health.score < 65 ? "WhatsApp Odaklı Kampanya" : "Google Ads + Remarketing Funnel";
   const actionPlan = integrationMissing
