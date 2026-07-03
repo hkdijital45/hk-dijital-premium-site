@@ -72,6 +72,7 @@ function sourceContains(pattern: string) {
     "src/lib/admin-navigation.ts",
     "src/lib/agent-hub.ts",
     "src/lib/customer-onboarding.ts",
+    "src/lib/customer-center.ts",
     "src/lib/website-analytics.ts",
     "src/lib/system-guide-content.ts",
     "src/app/api/admin/customer-operations/route.ts",
@@ -384,12 +385,18 @@ function scanSourcesForFindings(migrations: string) {
   }
   const adsOpsChecks: Array<[string, string, string, string]> = [
     ["Reklam Operasyon Merkezi route var mı?", "reklam-operasyon-merkezi", "src/lib/admin-navigation.ts", "Reklam Operasyon Merkezi /hk-admin/reklam-operasyon-merkezi bağlantısı navigation içinde görünmelidir."],
+    ["Reklam Operasyon Merkezi menüde tek mi?", "label: \"Reklam Operasyon Merkezi\"", "src/lib/admin-navigation.ts", "Reklam Operasyon Merkezi yalnız Reklam & Performans altında tek görünür menü kaydı olmalıdır."],
+    ["Eski reklam slug’ları sadece alias mı?", "\"ads-operating-system\": \"reklam-operasyon-merkezi\"", "src/lib/admin-navigation.ts", "Eski reklam operasyon slug’ları ayrı menü öğesi değil canonical route alias’ı olarak kalmalıdır."],
     ["Reklam Operasyon Merkezi component render ediyor mu?", "AdsOperatingCenter", "src/components/admin/AdminDashboard.tsx", "AdminDashboard aktif modül etiketiyle AdsOperatingCenter component’ini render etmelidir."],
     ["Kanal Komuta Merkezi var mı?", "Kanal Komuta Merkezi", "src/components/admin/GrowthOperatingSystem.tsx", "Meta, Google, Instagram, Website ve WhatsApp sağlık kartları görünmelidir."],
     ["Reklam Sağlığı puanı var mı?", "Reklam Sağlığı", "src/components/admin/GrowthOperatingSystem.tsx", "100 puanlık reklam sağlığı ve gerekçeleri gösterilmelidir."],
+    ["Reklam verisi müşteri hesabı ile filtreleniyor mu?", "metaAdAccountId", "src/components/admin/GrowthOperatingSystem.tsx", "Müşteri seçilince Meta Ad Account ID ve Google Ads Customer ID yoksa tüm HK Dijital hesap verileri toplanmamalıdır."],
+    ["Müşteri profili entegrasyon sekmesine yönlendirme var mı?", "tab=entegrasyonlar", "src/components/admin/GrowthOperatingSystem.tsx", "Eksik hesap ID uyarılarında Müşteri Entegrasyonlarını Aç aksiyonu doğru müşteri profil sekmesine gitmelidir."],
     ["Yapay Zekâ Stratejisti paneli var mı?", "Yapay Zekâ Stratejisti", "src/components/admin/GrowthOperatingSystem.tsx", "İyi/kötü gidenler, 7 günlük plan, 30 günlük plan ve bütçe önerisi görünmelidir."],
     ["Reklam Doktoru kontrolleri var mı?", "Gerçek kontrol listesi", "src/components/admin/GrowthOperatingSystem.tsx", "CTR, CPA, Pixel, GA4, kreatif ve bütçe kontrolleri durum/risk/çözüm/öncelik ile gösterilmelidir."],
-    ["Yayın öncesi plan gerçek reklam açmadan çalışıyor mu?", "Gerçek reklam açmadan yayın öncesi taslak oluştur", "src/components/admin/GrowthOperatingSystem.tsx", "Kampanya Planlayıcı gerçek reklam yayına alma yapmadan taslak ve kontrol listesi üretmelidir."]
+    ["Yayın öncesi plan gerçek reklam açmadan çalışıyor mu?", "Yayın Öncesi Kontrol", "src/components/admin/GrowthOperatingSystem.tsx", "Kampanya Planlayıcı gerçek reklam yayına alma yapmadan taslak ve kontrol listesi üretmelidir."],
+    ["Müşteri paneli teknik terimleri sadeleştiriyor mu?", "Tıklama Oranı", "src/app/musteri-paneli/page.tsx", "Müşteri panelinde CTR, CPC, CPA ve ROAS gibi teknik metrikler sade Türkçe açıklamalarla gösterilmelidir."],
+    ["Müşteri paneli yalnız görünür kayıtları mı gösteriyor?", "visible_to_customer=eq.true", "src/lib/customer-center.ts", "Müşteri paneli yalnız müşteriye açık rapor, dosya, görev, ödeme ve rakip özetlerini göstermelidir."]
   ];
   for (const [title, pattern, filePath, recommendation] of adsOpsChecks) {
     const fileText = sourceText.find((item) => path.relative(root, item.file) === filePath)?.text || "";

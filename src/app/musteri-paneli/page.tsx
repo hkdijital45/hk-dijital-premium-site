@@ -15,8 +15,8 @@ import { getSiteContent } from "@/lib/content";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "HK Dijital Marketing Center",
-  description: "Reklam çalışmalarınızı, süreç notlarınızı ve performans özetlerinizi tek ekrandan takip edin."
+  title: "HK Dijital Müşteri Paneli",
+  description: "Reklam performansı, raporlar, yapılan çalışmalar ve ödeme özetlerini sade dille takip edin."
 };
 
 function MetricCard({ title, value, help }: { title: string; value: string | number; help: string }) {
@@ -99,6 +99,16 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
   };
   const creativeFiles = data.files.filter((file: any) => file.visible_to_customer !== false && (file.show_in_creative_center || imageTypeLabels.includes(getCustomerFileType(file))));
   const fileUpdatedLabel = (file: any) => file.updated_at || file.uploaded_at || file.created_at ? new Date(file.updated_at || file.uploaded_at || file.created_at).toLocaleDateString("tr-TR") : "Tarih yok";
+  const portalSections = [
+    ["Genel Durum", "Size açık son kampanya, rapor ve çalışma özetleri.", "bg-cyan-50 text-cyan-700", <Sparkles key="genel" size={22} />],
+    ["Reklam Performansı", "Tıklama, mesaj, form ve maliyetleri sade dille okuyun.", "bg-blue-50 text-blue-700", <BarChart3 key="reklam" size={22} />],
+    ["Raporlar", "Yayınlanan rapor ve aylık özetleri görüntüleyin.", "bg-purple-50 text-purple-700", <FileText key="rapor" size={22} />],
+    ["Görevler / Yapılan Çalışmalar", "Ajans ekibinin sizin için yaptığı işleri takip edin.", "bg-emerald-50 text-emerald-700", <Lightbulb key="isler" size={22} />],
+    ["Dosyalar", "Müşteriye açık kreatif, belge ve dosyalara ulaşın.", "bg-amber-50 text-amber-700", <Download key="dosya" size={22} />],
+    ["Rakip Görünürlük Özeti", "Onaylı rakip özetlerini teknik detay olmadan görün.", "bg-teal-50 text-teal-700", <Sparkles key="rakip" size={22} />],
+    ["Ödemeler / Tahsilatlar", "Müşteriye açık ödeme durumunu kontrol edin.", "bg-green-50 text-green-700", <FileText key="odeme" size={22} />],
+    ["İletişim", "HK Dijital ekibiyle kayıtlı kanaldan iletişim kurun.", "bg-sky-50 text-sky-700", <MessageCircle key="iletisim" size={22} />]
+  ];
 
   return (
     <main className="customer-portal relative min-h-screen overflow-hidden bg-[#f7f8fb] text-slate-950">
@@ -108,9 +118,9 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
           <div className="flex items-center gap-4">
             {branding.logo_url ? <Image src={branding.logo_url} alt={`${portalName} logosu`} width={170} height={48} unoptimized className="h-12 max-w-[170px] rounded-[8px] object-contain" /> : <Logo content={siteContent} compact />}
             <div>
-            <p className="text-sm font-bold uppercase tracking-[.22em] text-cyan-700">Müşteri Performans Merkezi</p>
-            <h1 className="mt-2 text-3xl font-black">Performans Merkeziniz</h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Reklam, rapor, çalışma notları ve dosyalarınızı tek yerden takip edin.</p>
+            <p className="text-sm font-bold uppercase tracking-[.22em] text-cyan-700">Müşteri Paneli</p>
+            <h1 className="mt-2 text-3xl font-black">Dijital Operasyon Özetiniz</h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Size açık reklam performansı, raporlar, yapılan çalışmalar, dosyalar ve ödeme özetlerini sade dille takip edin.</p>
             </div>
           </div>
           <form action="/api/auth/logout" method="post">
@@ -148,6 +158,17 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
           {data.competitorSummaries.length > 0 && <a href="#rakip-ozeti" className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-emerald-800 hover:bg-emerald-100">Rakip Özeti</a>}
           {data.payments.length > 0 && <a href="#odemeler" className="rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-amber-800 hover:bg-amber-100">Ödemeler</a>}
         </nav>
+
+        <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {portalSections.map(([title, description, tone, icon]) => (
+            <div key={String(title)} className="rounded-[20px] border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.05)]">
+              <div className={`mb-4 inline-flex rounded-[16px] p-3 ${tone}`}>{icon}</div>
+              <h2 className="text-lg font-black text-slate-950">{title}</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{description}</p>
+              <p className="mt-3 rounded-[12px] bg-slate-50 p-3 text-xs font-bold leading-5 text-slate-600">Bu ne anlama geliyor? Bu bölüm yalnız HK Dijital ekibinin sizinle paylaşmayı onayladığı kayıtları gösterir.</p>
+            </div>
+          ))}
+        </section>
 
         <section className="glass-card mb-8 overflow-hidden border-t-4 p-6 sm:p-7" style={{ borderTopColor: branding.primary_color || "#22d3ee" }}>
           <div className="grid gap-6 xl:grid-cols-[1fr_420px] xl:items-center">
@@ -223,10 +244,10 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
           {canShowReport("metrics", "reach") && <MetricCard title="Erişim" value={totals.reach} help="Erişim: Reklamınızı gören benzersiz kişi sayısıdır." />}
           {canShowReport("metrics", "impressions") && <MetricCard title="Gösterim" value={totals.impressions} help="Gösterim: Reklamınızın ekranda toplam görüntülenme sayısıdır." />}
           {canShowReport("metrics", "clicks") && <MetricCard title="Tıklama" value={totals.clicks} help="Tıklama: Reklamınızdan web sitesi, WhatsApp veya form alanına giden aksiyon sayısıdır." />}
-          <MetricCard title="CTR" value={`%${ctrValue}`} help="CTR (tıklama oranı): Tıklamaların gösterimlere oranıdır." />
+          <MetricCard title="Tıklama Oranı" value={`%${ctrValue}`} help="Reklamı gören kişilerin ne kadarının tıkladığını gösterir." />
           {visibility.show_leads && canShowReport("metrics", "leads") && <MetricCard title="Lead / Mesaj / Dönüşüm" value={totals.leads + (totals.messages || 0)} help="Lead, mesaj veya dönüşüm gibi müşteri aksiyonlarının toplam görünür özetidir." />}
-          {visibility.show_spent && canShowReport("metrics", "cpc") && <MetricCard title="Ortalama tıklama maliyeti" value={`${totals.cpc} TL`} help="CPC: Reklam tıklaması başına ortalama maliyeti gösterir." />}
-          {visibility.show_leads && visibility.show_spent && canShowReport("metrics", "leads") && <MetricCard title="Ortalama potansiyel müşteri maliyeti" value={`${totals.cost_per_lead} TL`} help="Bir potansiyel müşteri kaydı için ortalama reklam maliyetidir." />}
+          {visibility.show_spent && canShowReport("metrics", "cpc") && <MetricCard title="Tıklama Maliyeti" value={`${totals.cpc} TL`} help="Bir reklam tıklaması için ortalama kullanılan bütçedir." />}
+          {visibility.show_leads && visibility.show_spent && canShowReport("metrics", "leads") && <MetricCard title="Dönüşüm Maliyeti" value={`${totals.cost_per_lead} TL`} help="Bir mesaj, form veya potansiyel müşteri için ortalama reklam maliyetidir." />}
           <MetricCard title="Kampanya durumu" value={data.campaigns[0]?.status || "Hazırlanıyor"} help="Kampanya durumu, aktif çalışma aşamasını özetler." />
         </section>}
 
@@ -379,18 +400,19 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
 
         {(canShowReport("adsets") || canShowReport("ads") || canShowReport("conversions") || canShowReport("video") || canShowReport("analysis")) && (
           <section className="glass-card mt-8 scroll-mt-28 p-5">
-            <h2 className="text-xl font-black">Meta Gelişmiş Reklam Verileri</h2>
+            <h2 className="text-xl font-black">Detaylı Reklam Verileri</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">Bu bölümde teknik adlar yerine sonuç odaklı, müşteriye açık performans özetleri gösterilir.</p>
             <div className="mt-5 grid gap-4 lg:grid-cols-2">
               {canShowReport("adsets") && <div className="rounded-[14px] border border-slate-200 bg-slate-50 p-4">
-                <h3 className="font-black">Reklam Setleri</h3>
+                <h3 className="font-black">Hedef Kitle Grupları</h3>
                 <div className="mt-3 grid gap-2">{data.metaAdsetMetrics.slice(0, 5).map((item: any) => <p key={item.id} className="text-sm text-slate-600">{item.adset_name || "Reklam seti"} · {item.status || "-"} · {canShowReport("metrics", "lifecycle_days_remaining") ? `Gün kaldı: ${item.days_remaining ?? "Veri yok"}` : `${Number(item.spend || 0).toLocaleString("tr-TR")} TL`}</p>)}{!data.metaAdsetMetrics.length && <p className="text-sm text-slate-500">Bu veri henüz çekilmedi veya Meta tarafından sağlanmadı.</p>}</div>
               </div>}
               {canShowReport("ads") && <div className="rounded-[14px] border border-slate-200 bg-slate-50 p-4">
                 <h3 className="font-black">Reklamlar / Kreatifler</h3>
-                <div className="mt-3 grid gap-2">{data.metaAdMetrics.slice(0, 5).map((item: any) => <p key={item.id} className="text-sm text-slate-600">{item.ad_name || "Reklam"} · CTR {Number(item.ctr || 0).toFixed(2)}% {canShowReport("metrics", "roas") ? `· ROAS ${Number(item.roas || 0).toFixed(2)}` : ""}</p>)}{!data.metaAdMetrics.length && <p className="text-sm text-slate-500">Bu veri henüz çekilmedi veya Meta tarafından sağlanmadı.</p>}</div>
+                <div className="mt-3 grid gap-2">{data.metaAdMetrics.slice(0, 5).map((item: any) => <p key={item.id} className="text-sm text-slate-600">{item.ad_name || "Reklam"} · Tıklama Oranı {Number(item.ctr || 0).toFixed(2)}% {canShowReport("metrics", "roas") ? `· Reklam Getiri Oranı ${Number(item.roas || 0).toFixed(2)}` : ""}</p>)}{!data.metaAdMetrics.length && <p className="text-sm text-slate-500">Bu veri henüz çekilmedi veya reklam platformu tarafından sağlanmadı.</p>}</div>
               </div>}
               {canShowReport("conversions") && <div className="rounded-[14px] border border-slate-200 bg-slate-50 p-4">
-                <h3 className="font-black">Dönüşümler</h3>
+                <h3 className="font-black">Mesaj / Form / Satış Aksiyonları</h3>
                 <div className="mt-3 grid gap-2">{data.metaConversionEvents.slice(0, 5).map((item: any) => <p key={item.id} className="text-sm text-slate-600">{item.event_name} · {Number(item.event_count || 0).toLocaleString("tr-TR")} · {Number(item.cost_per_event || 0).toFixed(2)} TL</p>)}{!data.metaConversionEvents.length && <p className="text-sm text-slate-500">Bu veri henüz çekilmedi veya Meta tarafından sağlanmadı.</p>}</div>
               </div>}
               {canShowReport("analysis") && <div className="rounded-[14px] border border-slate-200 bg-slate-50 p-4">
