@@ -655,6 +655,9 @@ export function AdminDashboard({
   const crmLeadViews = ["Leadler", "Tüm Başvurular", "Yeni Başvurular", "Meta Analiz Leadleri", "Google Ads Analiz Leadleri", "Sosyal İstihbarat Leadleri", "Reddedilenler", "Silinenler"];
   const reportAliases = ["Teklifler", "Rapor Yorumları", "Dışa Aktarımlar", "Dışa Aktarma", "Müşteri Raporları", "Performans Raporları"];
   const preparationAliases = ["İçerik Planları", "Promptlar", "İçerik Önerileri", "İçerik Fikirleri", "30 Günlük Sosyal Medya Planı", "Prompt Kütüphanesi", "Prompt Üretimi", "Kampanya Hazırlığı", "Kampanya Önerileri"];
+  const dataBackupAliases = ["Veri Yedekleme", "Veri Aktarma", "Dışa Aktar", "Export Center"];
+  const logCenterAliases = ["Log Merkezi", "Log ve Aktivite Merkezi", "Sistem Logları", "Aktivite Akışı", "Log Hareketleri"];
+  const systemGuideAliases = ["Sistem Rehberi", "HK Dijital Sistem Rehberi", "Kullanım Kılavuzu"];
   const customerFilterModules = [
     "Raporlar", "Müşteri Raporları", "Performans Raporları", "Tahsilat", "Görevler", "Müşteriler",
     "Belgeler", "Müşteri Dosyaları", "Panel Görünürlüğü", "Reklam Hesabı Eşleştirme",
@@ -841,9 +844,9 @@ export function AdminDashboard({
           {["Roller & Yetkiler", "Kullanıcı Yönetimi"].includes(active) && <UsersAdmin {...props} mode={active} />}
           {["Sistem Sağlığı", "Sistem Sağlık Merkezi"].includes(active) && <SystemHealthCenter content={content} setContent={setContent} startupApiData={startupApiData} runStartupApiStatus={runStartupApiStatus} startupApiLoading={startupApiLoading} />}
           {active === "Sistem Test Merkezi" && <SystemTestCenter content={content} setContent={setContent} save={save} currentSession={currentSession} notify={notify} systemStatus={systemStatus} supabaseConfigured={supabaseConfigured} />}
-          {active === "Veri Aktarma" && <ExportCenter content={content} currentSession={currentSession} notify={notify} />}
-          {["Sistem Logları", "Aktivite Akışı", "Log ve Aktivite Merkezi"].includes(active) && <ActivityLogs content={content} setContent={setContent} />}
-          {active === "HK Dijital Sistem Rehberi" && <SystemGuideCenter currentSession={currentSession} notify={notify} />}
+          {dataBackupAliases.includes(active) && <ExportCenter content={content} currentSession={currentSession} notify={notify} />}
+          {logCenterAliases.includes(active) && <ActivityLogs content={content} setContent={setContent} />}
+          {systemGuideAliases.includes(active) && <SystemGuideCenter currentSession={currentSession} notify={notify} />}
           {active === "Sistem Ayarları" && <Settings {...props} />}
           {["Takip Görevleri", "Takipler", "Notlar"].includes(active) && <Crm {...props} view={active} setActive={setActive} />}
           {["Bölgesel Analiz", "Rakip Listesi", "Kaydedilen Adaylar"].includes(active) && <MapsIntelligence {...props} setActive={setActive} mode={active} />}
@@ -879,8 +882,6 @@ export function AdminDashboard({
           {["İçerik Üretici", "Reklam Metni Üretici", "Rapor Özeti Üretici"].includes(active) && <AiAssistant {...props} mode={active} />}
           {active === "Ölçümleme Ayarları" && <TrackingSettings {...props} />}
           {["Kullanıcı Yönetimi", "Roller", "Güvenlik"].includes(active) && <UsersAdmin {...props} mode={active} />}
-          {active === "Log Hareketleri" && <ActivityLogs content={content} setContent={setContent} />}
-          {active === "Kullanım Kılavuzu" && <SystemGuideCenter currentSession={currentSession} notify={notify} />}
         </section>
       </div>
       {notificationsOpen && (

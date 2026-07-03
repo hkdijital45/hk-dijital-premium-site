@@ -336,6 +336,22 @@ function scanSourcesForFindings(migrations: string) {
       findings.push(makeFinding({ category: "Müşteri Arama QA", severity: "orta", module: "Müşteriler", file_path: "src/components/admin/AdminDashboard.tsx", title, description: `${pattern} sinyali AdminDashboard içinde bulunamadı.`, recommendation }));
     }
   }
+  const utilityModuleChecks: Array<[string, string, string, string]> = [
+    ["Sistem Test Merkezi içerik render ediyor mu?", "SystemTestCenter", "Sistem Test Merkezi", "Sistem Test Merkezi navigation label’ı gerçek sistem test component’ine bağlanmalıdır."],
+    ["Log Merkezi içerik render ediyor mu?", "logCenterAliases", "Log Merkezi", "Log Merkezi label’ı Log ve Aktivite Merkezi component’ini açmalıdır."],
+    ["Veri Yedekleme içerik render ediyor mu?", "dataBackupAliases", "Veri Yedekleme", "Veri Yedekleme label’ı Veri Aktarma / ExportCenter component’ini açmalıdır."],
+    ["Sistem Rehberi içerik render ediyor mu?", "systemGuideAliases", "Sistem Rehberi", "Sistem Rehberi label’ı SystemGuideCenter component’ini açmalıdır."],
+    ["Navigation key ve permission key eşleşiyor mu?", "sistem-test-merkezi", "Admin Navigation", "Sistem test, log, yedekleme ve rehber modüllerinin navigation module key değerleri izin sisteminde karşılık bulmalıdır."],
+    ["Boş admin modül var mı?", "activeNavigationItem", "Admin Dashboard", "Navigation’da görünen modüller boş placeholder yerine gerçek component veya güvenli içerik göstermelidir."]
+  ];
+  for (const [title, pattern, module, recommendation] of utilityModuleChecks) {
+    const inNavigation = navigationText.includes(pattern) || navigationText.includes(module);
+    const inDashboard = adminDashboardText.includes(pattern) || adminDashboardText.includes(module);
+    const inPermissions = permissionsText.includes(pattern) || permissionsText.includes("sistem-test-merkezi") && permissionsText.includes("sistem-loglari") && permissionsText.includes("veri-aktarma") && permissionsText.includes("sistem-rehberi");
+    if (!inNavigation && !inDashboard && !inPermissions) {
+      findings.push(makeFinding({ category: "Admin Yardımcı Modüller QA", severity: "kritik", module, file_path: "src/components/admin/AdminDashboard.tsx", title, description: `${module} için navigation, permission veya renderer sinyali bulunamadı.`, recommendation }));
+    }
+  }
   const growthOsChecks: Array<[string, string, string]> = [
     ["HK Intelligence Kontrol Merkezi premium brief var mı?", "Yapay Zekâ Destekli Büyüme Sistemi", "Dashboard üstünde koyu premium yapay zekâ özeti alanı ve gerçek veri özetleri görünmelidir."],
     ["Büyüme Motoru var mı?", "Büyüme Motoru", "Dashboard içinde funnel kurma ve funnelsız reklam planı için deneyim bulunmalıdır."],
