@@ -9,6 +9,7 @@ export const adminModules = [
   "rakip-listesi", "kaydedilen-adaylar", "meta-analiz", "google-analiz",
   "sosyal-medya-denetimi", "funnel-analizi", "reklam-firsatlari", "hazirlik", "ai-studio", "icerik-onerileri",
   "prompt-kutuphanesi", "kampanya-hazirligi", "kampanyalar", "teklifler", "teklif-listesi", "raporlar", "website-analytics", "ad-insights",
+  "reklam-operasyon-merkezi",
   "rapor-yorumlari", "disa-aktarimlar", "kullanicilar", "roller-yetkiler",
   "site-ayarlari", "api-ayarlari", "tema-ayarlari", "medya", "sistem-loglari",
   "growth-engine", "funnel-builder", "marketplace",
@@ -39,14 +40,14 @@ export const roleTemplates: Record<CanonicalRole, AdminModule[]> = {
   yonetici: [
     "dashboard", "genel-arama", "kullanim-kilavuzu", "crm", "leads", "musteriler",
     "takip-gorevleri", "notlar", "musteri-bulucu", "haritalar", "bolgesel-analiz",
-    "kaydedilen-adaylar", "meta-analiz", "google-analiz", "sosyal-medya-denetimi", "hazirlik", "ai-studio", "agent-hub", "hk-intelligence-ceo", "kampanyalar", "teklifler", "teklif-listesi",
+    "kaydedilen-adaylar", "meta-analiz", "google-analiz", "sosyal-medya-denetimi", "hazirlik", "ai-studio", "agent-hub", "hk-intelligence-ceo", "kampanyalar", "reklam-operasyon-merkezi", "teklifler", "teklif-listesi",
     "raporlar", "website-analytics", "ad-insights", "growth-engine", "funnel-builder", "marketplace", "rapor-yorumlari", "disa-aktarimlar", "gorevler", "belgeler",
     "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "hk-asistan", "sektor-sistemleri", "sistem-sagligi", "sistem-rehberi", "veri-aktarma"
   ],
   editor: [
     "dashboard", "genel-arama", "kullanim-kilavuzu", "crm", "leads", "hazirlik",
     "ai-studio", "agent-hub", "icerik-onerileri", "prompt-kutuphanesi", "kampanya-hazirligi",
-    "teklifler", "teklif-listesi", "raporlar", "website-analytics", "growth-engine", "funnel-builder", "marketplace", "rapor-yorumlari", "disa-aktarimlar", "medya", "sistem-rehberi"
+    "teklifler", "teklif-listesi", "raporlar", "website-analytics", "reklam-operasyon-merkezi", "growth-engine", "funnel-builder", "marketplace", "rapor-yorumlari", "disa-aktarimlar", "medya", "sistem-rehberi"
   ],
   musteri: []
 };

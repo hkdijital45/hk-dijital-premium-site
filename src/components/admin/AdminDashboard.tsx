@@ -17,7 +17,7 @@ import { HKAutonomousAgencyCenter } from "@/components/admin/HKAutonomousAgencyC
 import { AdInsightsCenter } from "@/components/admin/AdInsightsCenter";
 import { AgentHubCenter } from "@/components/admin/AgentHubCenter";
 import { QaCenter } from "@/components/admin/QaCenter";
-import { CustomerGrowthPanel, FunnelBuilderCenter, GrowthEngineCenter, GrowthMarketplaceCenter } from "@/components/admin/GrowthOperatingSystem";
+import { AdsOperatingCenter, CustomerGrowthPanel, FunnelBuilderCenter, GrowthEngineCenter, GrowthMarketplaceCenter } from "@/components/admin/GrowthOperatingSystem";
 import { AdminCustomerSelector, GlobalMetaPixelSettings, MetaPixelSettingsPanel } from "@/components/admin/AdminCustomerOperations";
 import { CustomerProfileTasks } from "@/components/admin/customer-profile/CustomerProfileTasks";
 import { CustomerBrandAssets } from "@/components/admin/customer-profile/CustomerBrandAssets";
@@ -52,6 +52,7 @@ const adminLabelEmojis: Record<string, string> = {
   "Tahsilat & Operasyon": "💳",
   "İçerik & Yapay Zekâ Stüdyosu": "✨",
   "Büyüme Motoru": "🚀",
+  "Reklam Operasyon Merkezi": "📡",
   "Araçlar": "🧰",
   "Araçlar & Yardım": "🧰",
   "Ayarlar": "⚙️",
@@ -75,6 +76,7 @@ const adminLabelEmojis: Record<string, string> = {
   "Sistem Sağlık Merkezi": "🩺",
   "HK Intelligence Kontrol Merkezi": "🧠",
   "Büyüme Motoru": "🚀",
+  "Reklam Operasyon Merkezi": "📡",
   "Funnel Planlayıcı": "🧭",
   "Modül Pazarı": "🛍️",
   "HK Intelligence Commander": "🧠",
@@ -661,7 +663,7 @@ export function AdminDashboard({
   const customerFilterModules = [
     "Raporlar", "Müşteri Raporları", "Performans Raporları", "Tahsilat", "Görevler", "Müşteriler",
     "Belgeler", "Müşteri Dosyaları", "Panel Görünürlüğü", "Reklam Hesabı Eşleştirme",
-    "Meta Raporları", "Meta İstihbarat", "Google Ads Raporları", "Google İstihbarat", "Entegrasyonlar"
+    "Meta Raporları", "Meta İstihbarat", "Google Ads Raporları", "Google İstihbarat", "Entegrasyonlar", "Reklam Operasyon Merkezi"
   ];
   const showCustomerFilter = customerFilterModules.includes(active);
   const activeNavigationItem = adminNavigationItems.find((item) => item.label === active);
@@ -816,6 +818,7 @@ export function AdminDashboard({
           {active === "Sözleşme Oluştur" && <ContractGeneratorCenter {...props} />}
           {active === "WhatsApp Hatırlatma Merkezi" && <WhatsAppReminderCenter {...props} setActive={setActive} />}
           {active === "Büyüme Motoru" && <GrowthEngineCenter content={content} setActive={setActive} />}
+          {active === "Reklam Operasyon Merkezi" && <AdsOperatingCenter content={content} setActive={setActive} />}
           {active === "Funnel Planlayıcı" && <FunnelBuilderCenter content={content} setActive={setActive} />}
           {active === "Modül Pazarı" && <GrowthMarketplaceCenter content={content} setActive={setActive} />}
           {active === "Reklam Hesabı Eşleştirme" && <AdAccountMappingCenter {...props} />}

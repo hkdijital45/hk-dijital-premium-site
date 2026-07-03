@@ -62,6 +62,7 @@ function sourceContains(pattern: string) {
     "src/components/admin/HKAutonomousAgencyCenter.tsx",
     "src/components/admin/AgentHubCenter.tsx",
     "src/components/admin/AdInsightsCenter.tsx",
+    "src/components/admin/GrowthOperatingSystem.tsx",
     "src/components/admin/Phase2OperatingSystem.tsx",
     "src/components/admin/WebsiteAnalyticsCenter.tsx",
     "src/components/admin/QaCenter.tsx",
@@ -379,6 +380,21 @@ function scanSourcesForFindings(migrations: string) {
     const fileText = sourceText.find((item) => path.relative(root, item.file) === filePath)?.text || "";
     if (!fileText.includes(pattern)) {
       findings.push(makeFinding({ category: "HK Büyüme Sistemi Faz 2 QA", severity: "orta", module: "Büyüme Sistemi", file_path: filePath, title, description: `${pattern} sinyali ilgili dosyada bulunamadı.`, recommendation }));
+    }
+  }
+  const adsOpsChecks: Array<[string, string, string, string]> = [
+    ["Reklam Operasyon Merkezi route var mı?", "reklam-operasyon-merkezi", "src/lib/admin-navigation.ts", "Reklam Operasyon Merkezi /hk-admin/reklam-operasyon-merkezi bağlantısı navigation içinde görünmelidir."],
+    ["Reklam Operasyon Merkezi component render ediyor mu?", "AdsOperatingCenter", "src/components/admin/AdminDashboard.tsx", "AdminDashboard aktif modül etiketiyle AdsOperatingCenter component’ini render etmelidir."],
+    ["Kanal Komuta Merkezi var mı?", "Kanal Komuta Merkezi", "src/components/admin/GrowthOperatingSystem.tsx", "Meta, Google, Instagram, Website ve WhatsApp sağlık kartları görünmelidir."],
+    ["Reklam Sağlığı puanı var mı?", "Reklam Sağlığı", "src/components/admin/GrowthOperatingSystem.tsx", "100 puanlık reklam sağlığı ve gerekçeleri gösterilmelidir."],
+    ["Yapay Zekâ Stratejisti paneli var mı?", "Yapay Zekâ Stratejisti", "src/components/admin/GrowthOperatingSystem.tsx", "İyi/kötü gidenler, 7 günlük plan, 30 günlük plan ve bütçe önerisi görünmelidir."],
+    ["Reklam Doktoru kontrolleri var mı?", "Gerçek kontrol listesi", "src/components/admin/GrowthOperatingSystem.tsx", "CTR, CPA, Pixel, GA4, kreatif ve bütçe kontrolleri durum/risk/çözüm/öncelik ile gösterilmelidir."],
+    ["Yayın öncesi plan gerçek reklam açmadan çalışıyor mu?", "Gerçek reklam açmadan yayın öncesi taslak oluştur", "src/components/admin/GrowthOperatingSystem.tsx", "Kampanya Planlayıcı gerçek reklam yayına alma yapmadan taslak ve kontrol listesi üretmelidir."]
+  ];
+  for (const [title, pattern, filePath, recommendation] of adsOpsChecks) {
+    const fileText = sourceText.find((item) => path.relative(root, item.file) === filePath)?.text || "";
+    if (!fileText.includes(pattern)) {
+      findings.push(makeFinding({ category: "Reklam Operasyon Merkezi QA", severity: "kritik", module: "Reklam Operasyon Merkezi", file_path: filePath, title, description: `${pattern} sinyali ilgili dosyada bulunamadı.`, recommendation }));
     }
   }
   [

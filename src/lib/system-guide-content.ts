@@ -18,7 +18,7 @@ export type SystemGuideSeed = {
 
 export const systemGuideCategories = [
   "Müşteri Serüveni", "Admin Mimarisi", "Menü ve Kategori Düzeni", "Dashboard & Kontrol Merkezi", "CRM & Müşteriler", "CRM Merkezi", "Müşteri & Satış", "Ajans Operasyonu", "Satış Hunisi", "Muhasebe", "Tahsilat & Karlılık",
-  "Görev Yönetimi", "Raporlama Merkezi", "Meta Entegrasyonları", "Google Entegrasyonları",
+  "Görev Yönetimi", "Raporlama Merkezi", "Reklam Operasyon Merkezi", "Meta Entegrasyonları", "Google Entegrasyonları",
   "HK Intelligence", "HK Digital OS v2.0", "Yapay Zekâ Stüdyosu", "Dosya & Belge Merkezi", "Kullanıcı Yönetimi", "Ayarlar",
   "Web Site Yönetimi", "Müşteri Paneli", "Sorun Giderme", "HK Agent Hub"
 ];
@@ -57,6 +57,13 @@ const definitions: Array<[string, string, string, string]> = [
   ["Teklif / WhatsApp / Rakip Analizi aksiyonları nasıl kullanılır?", "CRM Merkezi", "İşletme kartında veya sağ detay panelinde Teklif Hazırla, WhatsApp Mesajı Hazırla ve Rakip Analizine Gönder butonlarını kullanın. Kayıt altyapısı yoksa sistem ActionResultPanel ile hazırlık verisini ve kontrol edilecek ekranı gösterir.", "haritalar"],
   ["Fırsat skoru nasıl yorumlanır?", "CRM Merkezi", "Fırsat skoru işletmenin Google görünürlüğü, yorum sayısı, iletişim bilgileri, website eksikleri ve reklam potansiyelinden üretilir. 70+ skorlar öncelikli satış adayı kabul edilir.", "haritalar"],
   ["Reklam & Performans ne işe yarar?", "Admin Mimarisi", "Google İstihbarat, Meta İstihbarat, Website Analytics, Reklam Doktoru, Rakip Analizi, Rakip Alarm Merkezi ve kreatif performans modülleri burada görünür.", "google-istihbarat"],
+  ["Reklam Operasyon Merkezi nedir?", "Reklam Operasyon Merkezi", "Müşteri seçildiğinde mevcut Meta, Google Ads, Pixel, GA4, Website, WhatsApp, CRM, tahsilat, görev ve rapor sinyallerini tek ajans reklam operasyon ekranında toplar.", "reklam-operasyon-merkezi"],
+  ["Operasyon dashboard nasıl okunur?", "Reklam Operasyon Merkezi", "Toplam harcama, Meta harcaması, Google harcaması, Lead, teklif, satış, ROAS, CTR, CPA, CPC, CPM, gösterim, erişim, tıklama, mesaj, WhatsApp, telefon ve form kartlarını dönem seçimiyle birlikte okuyun.", "reklam-operasyon-merkezi"],
+  ["Kanal Komuta Merkezi ne gösterir?", "Reklam Operasyon Merkezi", "Meta, Google, Instagram, Website ve WhatsApp kartları bağlı/eksik durumunu, Pixel/GA4 ölçüm sinyalini, son veri tarihini, sağlık ve hata ihtimalini gösterir.", "reklam-operasyon-merkezi"],
+  ["Reklam Sağlığı puanı nasıl yorumlanır?", "Reklam Operasyon Merkezi", "100 puanlık reklam sağlığı Pixel, GA4, CTR, CPA, ROAS, website, rapor ve açık görev sinyallerinden güvenli şekilde hesaplanır. Düşük puan önce ölçümleme ve funnel kontrolü gerektirir.", "reklam-operasyon-merkezi"],
+  ["Yapay Zekâ Stratejisti nasıl kullanılır?", "Reklam Operasyon Merkezi", "Panel müşterinin mevcut reklam, görev, tahsilat, rapor ve entegrasyon durumundan ilk yapılacak 5 işi, 7 günlük planı, 30 günlük planı, riskleri, fırsatları ve bütçe önerisini çıkarır.", "reklam-operasyon-merkezi"],
+  ["Funnel Merkezi nasıl kullanılır?", "Reklam Operasyon Merkezi", "Funnelsız Reklam, WhatsApp Funnel, Web Sitesi Funnel, Telefon Funnel, Teklif Funnel, Rezervasyon Funnel ve Marka Bilinirliği Funnel seçeneklerinden birini seçerek trafik, iniş sayfası, Pixel, CRM, teklif, satış, raporlama ve yeniden pazarlama akışını kontrol edin.", "reklam-operasyon-merkezi"],
+  ["Kampanya Planlayıcı gerçek reklam açar mı?", "Reklam Operasyon Merkezi", "Hayır. Bu merkez gerçek Meta veya Google kampanyası yayına almaz. Platform, amaç, bütçe, hedef, kitle, kreatif, ölçümleme, yayın öncesi kontrol ve taslak adımlarını güvenli plan olarak gösterir.", "reklam-operasyon-merkezi"],
   ["Yapay Zekâ Merkezi ne işe yarar?", "Admin Mimarisi", "Agent Hub, Yapay Zekâ Stüdyosu, Workflow, Prompt Merkezi, Yapay Zekâ Hafıza, Yapay Zekâ Öğrenme ve Yapay Zekâ Satış Koçu kendi rotaları korunarak bu kategoride listelenir.", "agent-hub"],
   ["Ajans Operasyonu ne işe yarar?", "Admin Mimarisi", "Görevler, takvim, belgeler, sözleşmeler, sosyal medya planı, içerik takvimi ve içerik onayı günlük ajans operasyon kategorisidir.", "gorevler"],
   ["Muhasebe ne işe yarar?", "Admin Mimarisi", "Muhasebe Merkezi, tahsilatlar, gelir gider, bekleyen ödemeler, gelir tahmini ve kârlılık yalnız yetkili finans kullanıcılarına görünür.", "muhasebe"],

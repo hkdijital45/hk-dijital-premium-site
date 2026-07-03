@@ -89,6 +89,159 @@ function AiRecommendationCard({ mode, customer, content }: any) {
   );
 }
 
+function numberValue(item: any, keys: string[]) {
+  for (const key of keys) {
+    const value = Number(item?.[key]);
+    if (Number.isFinite(value)) return value;
+  }
+  return 0;
+}
+
+function belongsToCustomer(item: any, customerId?: string) {
+  if (!customerId) return true;
+  return item?.company_id === customerId || item?.customer_id === customerId || item?.client_id === customerId;
+}
+
+function integrationReady(customer: any, keys: string[]) {
+  return keys.some((key) => Boolean(customer?.[key] || customer?.integrations?.[key]));
+}
+
+function metricSource(item: any) {
+  return String(item?.source || item?.platform || item?.channel || item?.network || "").toLocaleLowerCase("tr");
+}
+
+function ratio(numerator: number, denominator: number, fallback = 0) {
+  return denominator > 0 ? numerator / denominator : fallback;
+}
+
+export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
+  const data = content || {};
+  const companies = Array.isArray(data.companies) ? data.companies : [];
+  const activeCompanies = companies.filter((company: any) => company?.status !== "Pasif");
+  const [companyId, setCompanyId] = useState(activeCompanies[0]?.id || companies[0]?.id || "");
+  const [period, setPeriod] = useState("Son 30 Gün");
+  const [funnelMode, setFunnelMode] = useState("WhatsApp Funnel");
+  const customer = companies.find((company: any) => company?.id === companyId) || activeCompanies[0] || companies[0];
+  const customerId = customer?.id;
+  const campaigns = (Array.isArray(data.campaigns) ? data.campaigns : []).filter((item: any) => belongsToCustomer(item, customerId));
+  const metrics = (Array.isArray(data.campaignMetrics) ? data.campaignMetrics : []).filter((item: any) => belongsToCustomer(item, customerId));
+  const tasks = (Array.isArray(data.agencyTasks) ? data.agencyTasks : []).filter((item: any) => belongsToCustomer(item, customerId) && !["Tamamlandı", "İptal"].includes(item?.status));
+  const reports = [...(Array.isArray(data.reports) ? data.reports : []), ...(Array.isArray(data.monthlyReports) ? data.monthlyReports : [])].filter((item: any) => belongsToCustomer(item, customerId));
+  const payments = (Array.isArray(data.paymentRecords) ? data.paymentRecords : []).filter((item: any) => belongsToCustomer(item, customerId));
+  const leads = (Array.isArray(data.leads) ? data.leads : []).filter((item: any) => belongsToCustomer(item, customerId));
+  const proposals = (Array.isArray(data.proposals) ? data.proposals : []).filter((item: any) => belongsToCustomer(item, customerId));
+  const metaRows = metrics.filter((item: any) => metricSource(item).includes("meta") || item?.meta_campaign_id);
+  const googleRows = metrics.filter((item: any) => metricSource(item).includes("google") || item?.google_campaign_id);
+  const spend = metrics.reduce((sum: number, item: any) => sum + numberValue(item, ["spend", "spent", "cost", "amount", "harcama"]), 0) || campaigns.reduce((sum: number, item: any) => sum + numberValue(item, ["spent_budget", "spent", "budget_used", "budget"]), 0);
+  const metaSpend = metaRows.reduce((sum: number, item: any) => sum + numberValue(item, ["spend", "spent", "cost", "amount"]), 0);
+  const googleSpend = googleRows.reduce((sum: number, item: any) => sum + numberValue(item, ["spend", "spent", "cost", "amount"]), 0);
+  const impressions = metrics.reduce((sum: number, item: any) => sum + numberValue(item, ["impressions", "gosterim"]), 0);
+  const reach = metrics.reduce((sum: number, item: any) => sum + numberValue(item, ["reach", "erisim"]), 0);
+  const clicks = metrics.reduce((sum: number, item: any) => sum + numberValue(item, ["clicks", "link_clicks", "tiklama"]), 0);
+  const messages = metrics.reduce((sum: number, item: any) => sum + numberValue(item, ["messages", "whatsapp_messages", "message_count"]), 0);
+  const conversions = metrics.reduce((sum: number, item: any) => sum + numberValue(item, ["conversions", "leads", "form_leads", "sales"]), 0) || leads.length;
+  const revenue = payments.filter((item: any) => ["Ödendi", "Tahsil Edildi", "paid"].includes(String(item?.status))).reduce((sum: number, item: any) => sum + numberValue(item, ["amount", "total", "price"]), 0);
+  const ctr = ratio(clicks, impressions) * 100;
+  const cpc = ratio(spend, clicks);
+  const cpa = ratio(spend, conversions);
+  const cpm = ratio(spend, impressions) * 1000;
+  const roas = ratio(revenue, spend);
+  const hasMeta = integrationReady(customer, ["meta_account_id", "meta_ad_account_id", "meta_pixel_id", "meta_business_id"]);
+  const hasGoogle = integrationReady(customer, ["google_ads_customer_id", "google_ads_account_id"]);
+  const hasPixel = integrationReady(customer, ["meta_pixel_id", "pixel_id"]);
+  const hasGa4 = integrationReady(customer, ["ga4_property_id", "ga4_measurement_id"]);
+  const hasWebsite = Boolean(customer?.website || customer?.website_url || customer?.domain);
+  const healthReasons = [
+    !hasPixel ? "Pixel eksik olduğu için dönüşüm ölçümü zayıf." : "",
+    !hasGa4 ? "GA4 eksik veya müşteri profilinde görünmüyor." : "",
+    ctr && ctr < 1 ? "CTR düşük; kreatif ve ilk mesaj güçlendirilmeli." : "",
+    cpa && cpa > 750 ? "CPA yüksek; hedefleme ve teklif akışı gözden geçirilmeli." : "",
+    roas && roas < 2 ? "ROAS düşük; bütçe ve teklif kalitesi kontrol edilmeli." : "",
+    !hasWebsite ? "Website veya iniş sayfası bilgisi eksik." : "",
+    !reports.length ? "Son rapor kaydı bulunmadı." : ""
+  ].filter(Boolean);
+  const healthScore = Math.max(0, Math.min(100, 96 - healthReasons.length * 9 - (tasks.length > 4 ? 8 : 0)));
+  const channelCards = [
+    ["Meta", hasMeta, hasPixel, metaRows[0]?.updated_at || metaRows[0]?.created_at, metaRows.length],
+    ["Google", hasGoogle, hasGa4, googleRows[0]?.updated_at || googleRows[0]?.created_at, googleRows.length],
+    ["Instagram", Boolean(customer?.instagram || customer?.instagram_url), hasMeta, customer?.updated_at, campaigns.filter((item: any) => String(item?.platform || "").includes("Instagram")).length],
+    ["Website", hasWebsite, hasGa4, customer?.updated_at, reports.length],
+    ["WhatsApp", Boolean(customer?.whatsapp || customer?.phone), Boolean(customer?.phone), customer?.updated_at, messages]
+  ];
+  const doctorChecks = [
+    ["CTR", ctr >= 1 ? "İyi" : "Risk", ctr >= 1 ? "İlk mesaj ve kreatif yeterli sinyal veriyor." : "Yeni hook, daha net teklif ve güçlü görsel test edin.", ctr >= 1 ? "Orta" : "Yüksek"],
+    ["CPA", !cpa || cpa < 750 ? "İyi" : "Risk", !cpa || cpa < 750 ? "Maliyet baskısı yönetilebilir." : "Hedef kitle, teklif ve funnel adımlarını sadeleştirin.", cpa < 750 ? "Orta" : "Yüksek"],
+    ["Pixel", hasPixel ? "İyi" : "Eksik", hasPixel ? "Pixel sinyali müşteri profilinde var." : "Pixel kurulumu ve event kontrolü yapılmalı.", hasPixel ? "Düşük" : "Yüksek"],
+    ["GA4", hasGa4 ? "İyi" : "Eksik", hasGa4 ? "GA4 sinyali müşteri profilinde var." : "GA4 Property / Measurement ID tamamlanmalı.", hasGa4 ? "Düşük" : "Yüksek"],
+    ["Kreatif", campaigns.length ? "Kontrol" : "Eksik", campaigns.length ? "Kampanya var; kreatif yorgunluğu takip edilmeli." : "İlk kreatif brief ve metin hazırlanmalı.", "Orta"],
+    ["Bütçe", spend > 0 ? "Kontrol" : "Eksik", spend > 0 ? "Harcama verisi okunuyor." : "Bütçe planı veya metrik girişi eksik.", spend > 0 ? "Orta" : "Yüksek"]
+  ];
+  const funnelSteps = funnelMode === "Funnelsız Reklam" ? simpleAdSteps : fullFunnelSteps;
+  const formatMoney = (value: number) => `${Math.round(value || 0).toLocaleString("tr-TR")} TL`;
+  const formatNumber = (value: number) => Math.round(value || 0).toLocaleString("tr-TR");
+  return (
+    <div className="grid gap-5">
+      <PremiumPageHeader eyebrow="Reklam Operasyon Merkezi" title="Ajans reklam operasyonunu tek ekrandan yönet" description="Müşteri seç, mevcut Meta, Google, Pixel, GA4, Website, CRM, tahsilat, görev ve rapor sinyallerini birlikte oku; reklam sağlığı, funnel, doktor kontrolleri ve yayın öncesi planı tek merkezde takip et." actionLabel="Reklam Doktorunu Aç" onAction={() => setActive?.("Reklam Doktoru Pro")} />
+      <GlassPanel tone="purple">
+        <div className="grid gap-4 lg:grid-cols-[minmax(260px,.7fr)_minmax(0,1.3fr)]">
+          <CustomerPicker companies={companies} value={customerId || ""} onChange={setCompanyId} />
+          <div className="grid gap-3 md:grid-cols-4">
+            {["Son 30 Gün", "Son 7 Gün", "Bugün", "Canlı durum"].map((item) => <button key={item} onClick={() => setPeriod(item)} className={`rounded-[14px] px-4 py-3 text-sm font-black ${period === item ? "bg-purple-600 text-white" : "border border-purple-100 bg-white text-purple-700"}`}>{item}</button>)}
+          </div>
+        </div>
+        <p className="mt-4 text-sm leading-6 text-purple-900">{customer?.name ? `${customer.name} için mevcut sistem verileri okunuyor.` : "Müşteri verisi yoksa genel ajans operasyon görünümü güvenli fallback ile gösterilir."} Yeni API anahtarı veya müşteri tarafından ayrı veri istenmez.</p>
+      </GlassPanel>
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+        {[["Toplam Harcama", formatMoney(spend)], ["Meta Harcaması", formatMoney(metaSpend)], ["Google Harcaması", formatMoney(googleSpend)], ["Lead", formatNumber(conversions)], ["Teklif", formatNumber(proposals.length)], ["Satış", formatNumber(payments.filter((item: any) => ["Ödendi", "Tahsil Edildi", "paid"].includes(String(item?.status))).length)], ["ROAS", roas ? roas.toFixed(2) : "-"], ["CTR", `${ctr.toFixed(2)}%`], ["CPA", cpa ? formatMoney(cpa) : "-"], ["CPC", cpc ? formatMoney(cpc) : "-"], ["CPM", cpm ? formatMoney(cpm) : "-"], ["Gösterim", formatNumber(impressions)], ["Erişim", formatNumber(reach)], ["Tıklama", formatNumber(clicks)], ["Mesaj", formatNumber(messages)], ["WhatsApp", formatNumber(messages)], ["Telefon", formatNumber(leads.filter((item: any) => item?.phone).length)], ["Form", formatNumber(leads.filter((item: any) => String(item?.source || "").includes("Form")).length)]].map(([label, value]) => (
+          <div key={label} className="rounded-[18px] border border-cyan-100 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-300">
+            <span className="text-[10px] font-black uppercase tracking-[.12em] text-cyan-700">{label}</span>
+            <strong className="mt-2 block text-2xl text-slate-950">{value}</strong>
+            <span className="mt-1 block text-xs font-bold text-slate-500">{period}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <GlassPanel>
+          <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Kanal Komuta Merkezi</p><h3 className="mt-2 text-xl font-black text-slate-950">Meta, Google, Instagram, Website ve WhatsApp durumu</h3></div><button onClick={() => setActive?.("Entegrasyonlar")} className="rounded-full bg-cyan-500 px-4 py-2 text-xs font-black text-white">Entegrasyonları Kontrol Et</button></div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">{channelCards.map(([name, connected, tracking, lastSync, count]: any) => <div key={name} className="rounded-[16px] border border-slate-200 bg-white p-4"><strong className="block text-slate-950">{name}</strong><span className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-black ${connected ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}>{connected ? "Bağlı" : "Eksik"}</span><p className="mt-3 text-xs leading-5 text-slate-600">Ölçüm: {tracking ? "Hazır" : "Kontrol gerekli"}<br />Son veri: {lastSync ? new Date(lastSync).toLocaleDateString("tr-TR") : "Yok"}<br />Kayıt: {count || 0}</p></div>)}</div>
+        </GlassPanel>
+        <GlassPanel tone={healthScore >= 80 ? "emerald" : healthScore >= 60 ? "amber" : "purple"}>
+          <p className="text-xs font-black uppercase tracking-[.16em] text-slate-700">Reklam Sağlığı</p>
+          <h3 className="mt-2 text-5xl font-black text-slate-950">{healthScore}/100</h3>
+          <div className="mt-4 h-3 overflow-hidden rounded-full bg-white"><span className="block h-full rounded-full bg-gradient-to-r from-cyan-400 via-purple-500 to-emerald-400" style={{ width: `${healthScore}%` }} /></div>
+          <div className="mt-4 grid gap-2">{(healthReasons.length ? healthReasons : ["Temel reklam operasyon sinyalleri sağlıklı görünüyor."]).map((reason: string) => <p key={reason} className="rounded-[12px] bg-white p-3 text-xs font-bold leading-5 text-slate-700">{reason}</p>)}</div>
+        </GlassPanel>
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-2">
+        <GlassPanel tone="emerald">
+          <p className="text-xs font-black uppercase tracking-[.16em] text-emerald-700">Yapay Zekâ Stratejisti</p>
+          <h3 className="mt-2 text-xl font-black text-slate-950">{customer?.name || "Seçili müşteri"} için operasyon yorumu</h3>
+          <div className="mt-4 grid gap-2">{["İyi giden taraf: mevcut müşteri, kampanya veya rapor sinyalleri tek merkezde okunuyor.", `İlk yapılacak 5 iş: ${hasPixel ? "Pixel doğrula" : "Pixel kur"}, ${hasGa4 ? "GA4 raporunu kontrol et" : "GA4 tamamla"}, kreatif test planla, CRM takip aşamasını güncelle, haftalık raporu hazırla.`, "7 günlük plan: ölçümleme kontrolü, kreatif testi, bütçe dağılımı, teklif takipleri ve rapor özeti.", "30 günlük plan: funnel optimizasyonu, yeniden pazarlama, teklif dönüşüm analizi ve müşteri yenileme aksiyonu.", `Bütçe önerisi: ${spend ? `${formatMoney(Math.max(spend * 0.15, 5000))} optimizasyon payı ayır.` : "İlk kampanya için kontrollü test bütçesi belirle."}`].map((item) => <p key={item} className="rounded-[12px] bg-white p-3 text-sm font-bold leading-6 text-slate-700">{item}</p>)}</div>
+        </GlassPanel>
+        <GlassPanel tone="amber">
+          <p className="text-xs font-black uppercase tracking-[.16em] text-amber-700">Reklam Doktoru</p>
+          <h3 className="mt-2 text-xl font-black text-slate-950">Gerçek kontrol listesi</h3>
+          <div className="mt-4 grid gap-2">{doctorChecks.map(([name, status, solution, priority]) => <div key={name} className="rounded-[12px] bg-white p-3"><div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-slate-950">{name}</strong><span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-black text-amber-800">{status} · Öncelik: {priority}</span></div><p className="mt-2 text-xs font-bold leading-5 text-slate-600">{solution}</p></div>)}</div>
+        </GlassPanel>
+      </div>
+
+      <GlassPanel>
+        <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Funnel Merkezi</p><h3 className="mt-2 text-xl font-black text-slate-950">Reklam akışını seç ve yayın öncesi kontrol et</h3></div><button onClick={() => setActive?.("Funnel Planlayıcı")} className="rounded-full bg-cyan-500 px-4 py-2 text-xs font-black text-white">Funnel Planlayıcıya Git</button></div>
+        <div className="mt-4 flex flex-wrap gap-2">{["Funnelsız Reklam", "WhatsApp Funnel", "Web Sitesi Funnel", "Telefon Funnel", "Teklif Funnel", "Rezervasyon Funnel", "Marka Bilinirliği Funnel"].map((item) => <button key={item} onClick={() => setFunnelMode(item)} className={`rounded-full px-3 py-2 text-xs font-black ${funnelMode === item ? "bg-purple-600 text-white" : "border border-slate-200 bg-white text-slate-700"}`}>{item}</button>)}</div>
+        <div className="mt-4 grid gap-3 md:grid-cols-3 xl:grid-cols-4">{funnelSteps.map((step, index) => <FunnelStepCard key={step} step={step} index={index} status={index < 2 ? "hazır" : index < 5 ? "öneriliyor" : "eksik"} action={index < 2 ? "Kontrol et" : "Planla"} />)}</div>
+      </GlassPanel>
+
+      <div className="grid gap-5 xl:grid-cols-2">
+        <GlassPanel tone="purple"><p className="text-xs font-black uppercase tracking-[.16em] text-purple-700">Kreatif Merkezi</p><h3 className="mt-2 text-xl font-black text-slate-950">Mevcut kreatif ve kampanya hazırlıklarına erişim</h3><p className="mt-2 text-sm leading-6 text-slate-700">Görseller, videolar, son yüklenenler, eksikler ve yapay zekâ önerileri mevcut içerik / medya akışlarından yönetilir.</p><div className="mt-4 flex flex-wrap gap-2"><button onClick={() => setActive?.("Medya")} className="rounded-full bg-purple-600 px-4 py-2 text-xs font-black text-white">Medya Merkezini Aç</button><button onClick={() => setActive?.("Kampanya Önerileri")} className="rounded-full border border-purple-200 bg-white px-4 py-2 text-xs font-black text-purple-700">Kreatif Önerisi Hazırla</button></div></GlassPanel>
+        <GlassPanel tone="emerald"><p className="text-xs font-black uppercase tracking-[.16em] text-emerald-700">Kampanya Planlayıcı</p><h3 className="mt-2 text-xl font-black text-slate-950">Gerçek reklam açmadan yayın öncesi taslak oluştur</h3><div className="mt-4 grid gap-2">{["Platform", "Amaç", "Bütçe", "Hedef", "Kitle", "Kreatif", "Ölçümleme", "Yayın öncesi kontrol", "Taslak"].map((item, index) => <p key={item} className="rounded-[12px] bg-white p-3 text-sm font-bold text-slate-700">{index + 1}. {item}</p>)}</div></GlassPanel>
+      </div>
+    </div>
+  );
+}
+
 export function GrowthEngineCenter({ content, setActive }: GrowthProps) {
   const data = content || {};
   const companies = (data.companies || []).filter((company: any) => company.status !== "Pasif");
