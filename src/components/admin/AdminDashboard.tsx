@@ -3165,6 +3165,57 @@ function AgencyStatCard({ label, value, note, tone = "cyan" }: any) {
   return <div className={`rounded-[8px] border p-4 ${toneClass}`}><p className="text-xs font-black uppercase tracking-[.14em] opacity-80">{label}</p><p className="mt-2 text-2xl font-black text-slate-900">{value}</p><p className="mt-1 text-xs leading-5 opacity-80">{note}</p></div>;
 }
 
+function CustomerConnectionCredentialsPanel({ company, notify }: any) {
+  const [rows, setRows] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [visibleSecrets, setVisibleSecrets] = useState<Record<string, boolean>>({});
+  async function load() {
+    if (!company?.id) return;
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/admin/customer-integrations/credentials?customerId=${company.id}`, { cache: "no-store" });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.supabaseError || payload.error || "Bağlantı bilgileri alınamadı.");
+      setRows(payload.credentials || []);
+      setMessage(payload.message || "");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Bağlantı bilgileri alınamadı.");
+    } finally {
+      setLoading(false);
+    }
+  }
+  useEffect(() => { load(); }, [company?.id]);
+  const row = rows[0] || {};
+  const assets = Array.isArray(row.integration_assets) ? row.integration_assets : [];
+  const sensitiveKeys = ["login_email", "login_username", "login_password", "recovery_email", "two_factor_note", "access_note"];
+  const sensitiveCount = sensitiveKeys.filter((key) => row?.[key]).length;
+  const waitingCount = assets.filter((item: any) => item.admin_review_status === "waiting" || item.status === "pending_review").length + (row.admin_review_status === "waiting" ? 1 : 0);
+  const missingCount = assets.filter((item: any) => ["missing_info", "error"].includes(item.status)).length;
+  async function patch(update: Record<string, string>) {
+    if (!row.id) return;
+    setLoading(true);
+    try {
+      const response = await fetch("/api/admin/customer-integrations/credentials", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: row.id, ...update }) });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.supabaseError || payload.error || "Güncelleme yapılamadı.");
+      setRows([payload.credential]);
+      notify?.("✓ Bağlantı bilgisi güncellendi.", "success");
+    } catch (error) {
+      notify?.(error instanceof Error ? error.message : "Güncelleme yapılamadı.", "error");
+    } finally {
+      setLoading(false);
+    }
+  }
+  async function copyValue(value: string) {
+    if (!value) return;
+    await navigator.clipboard?.writeText(value).catch(() => null);
+    notify?.("✓ Değer kopyalandı.", "success");
+  }
+  if (!row.id && !loading) return <div className="rounded-[18px] border border-dashed border-slate-200 bg-slate-50 p-6"><h3 className="text-xl font-black text-slate-950">Bu müşteri henüz hesap bilgisi eklemedi.</h3><p className="mt-2 text-sm leading-6 text-slate-600">Müşteri panelindeki Hesap Bağla alanından manuel hesap bilgileri eklendiğinde burada görünür.</p></div>;
+  return <div className="grid gap-5"><section className="rounded-[20px] border border-cyan-200 bg-cyan-50 p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Admin Only</p><h3 className="mt-2 text-2xl font-black text-slate-950">Bağlantı Bilgileri</h3><p className="mt-1 text-sm leading-6 text-cyan-900">Bu sekme yalnız admin/staff kullanıcılar içindir. Hassas bilgiler müşteri paneline geri dönmez.</p></div><button onClick={load} disabled={loading} className="rounded-full bg-cyan-500 px-4 py-2 text-xs font-black text-white disabled:opacity-60">Yenile</button></div>{message && <p className="mt-3 rounded-[12px] bg-white p-3 text-sm font-bold text-cyan-900">{message}</p>}</section><section className="grid gap-3 md:grid-cols-4">{[["Toplam Bağlantı", assets.length || (row.id ? 1 : 0)], ["Kontrol Bekleyen", waitingCount], ["Eksik Bilgi", missingCount], ["Hassas Bilgi İçeren", sensitiveCount]].map(([label, value]) => <div key={label} className="rounded-[16px] border border-slate-200 bg-white p-4"><p className="text-xs font-black uppercase tracking-[.12em] text-slate-500">{label}</p><p className="mt-2 text-2xl font-black text-slate-950">{value}</p></div>)}</section><section className="grid gap-3 xl:grid-cols-2">{(assets.length ? assets : [{ platform_label: "Genel Entegrasyon", asset_type: "customer_integrations", status: row.status, admin_review_status: row.admin_review_status, updated_at: row.updated_at }]).map((asset: any) => <article key={`${asset.platform}-${asset.asset_type}`} className="rounded-[18px] border border-slate-200 bg-white p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><h4 className="text-lg font-black text-slate-950">{asset.platform_label || asset.platform || "Platform"}</h4><p className="mt-1 text-sm text-slate-600">{asset.asset_type || "Varlık"} · {asset.asset_name || "Hesap adı yok"}</p></div><span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-black text-cyan-800">{asset.status || row.status || "pending_review"}</span></div><div className="mt-4 grid gap-2 text-sm text-slate-700"><p><strong>Hesap ID:</strong> {asset.account_id || row.meta_ad_account_id || row.google_ads_customer_id || "Yok"}</p><p><strong>Varlık ID:</strong> {asset.asset_id || row.meta_pixel_id || row.ga4_property_id || "Yok"}</p><p><strong>Website:</strong> {asset.website_url || row.website_url || "Yok"}</p><p><strong>Son güncelleme:</strong> {asset.updated_at || row.updated_at ? new Date(asset.updated_at || row.updated_at).toLocaleString("tr-TR") : "Yok"}</p></div><div className="mt-4 flex flex-wrap gap-2"><button onClick={() => patch({ status: "connected", admin_review_status: "approved" })} className="rounded-full bg-emerald-500 px-4 py-2 text-xs font-black text-white">Onayla</button><button onClick={() => patch({ status: "missing_info", admin_review_status: "missing_info" })} className="rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-black text-amber-800">Eksik Bilgi İste</button><button onClick={() => patch({ status: "error", admin_review_status: "error" })} className="rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-black text-rose-700">Hatalı İşaretle</button><button onClick={() => setMessage("Senkronizasyon kontrolü admin tarafından işaretlendi.")} className="rounded-full border border-cyan-200 bg-cyan-50 px-4 py-2 text-xs font-black text-cyan-800">Senkronize Et</button></div></article>)}</section><section className="rounded-[20px] border border-amber-200 bg-amber-50 p-5"><h4 className="text-lg font-black text-amber-950">Hassas Erişim Notları</h4><p className="mt-1 text-sm leading-6 text-amber-900">Şifre alanı düz metin saklama için ideal değildir. Mevcut sistemde bu değerler yalnız admin endpointinden döner; müşteri endpointi maskeli döndürür. İleride encryption helper ile şifreleme önerilir.</p><div className="mt-4 grid gap-3 md:grid-cols-2">{sensitiveKeys.map((key) => { const value = row?.[key] || ""; const visible = visibleSecrets[key]; return <div key={key} className="rounded-[14px] bg-white p-4"><p className="text-xs font-black uppercase tracking-[.12em] text-amber-700">{key}</p><p className="mt-2 min-h-6 font-mono text-sm text-slate-800">{value ? (visible ? value : "••••••") : "Yok"}</p><div className="mt-3 flex gap-2"><button onClick={() => setVisibleSecrets((current) => ({ ...current, [key]: !current[key] }))} className="rounded-full border border-amber-200 px-3 py-1.5 text-xs font-black text-amber-800">{visible ? "Gizle" : "Göster"}</button><button onClick={() => copyValue(value)} disabled={!value} className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-black text-slate-700 disabled:opacity-50">Kopyala</button></div></div>; })}</div></section></div>;
+}
+
 function CustomerBrandingCenter({ content, setContent }: any) {
   const items = content.customerBranding || [];
   const update = (index, patch) => updateCollection(content, setContent, "customerBranding", items.map((item, i) => i === index ? { ...item, ...patch } : item));
@@ -5945,7 +5996,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
     show_files: true,
     show_contact_person: true
   };
-  const tabs = ["Genel Bilgi", "Büyüme", "Müşteri Kurulumu", "Entegrasyonlar", "Marka Varlıkları", "İletişim", "Satış Durumu", "Reklam Hesapları", "Kampanyalar", "Teklifler", "Ödemeler", "Yapılacaklar", "Raporlar", "Dosyalar", "Zaman Çizelgesi", "Panel Görünürlüğü", "Giriş Bilgileri", "Metrikler", "Yapılan Çalışmalar", "Aktivite Geçmişi", "Notlar"];
+  const tabs = ["Genel Bilgi", "Büyüme", "Müşteri Kurulumu", "Entegrasyonlar", "Bağlantı Bilgileri", "Marka Varlıkları", "İletişim", "Satış Durumu", "Reklam Hesapları", "Kampanyalar", "Teklifler", "Ödemeler", "Yapılacaklar", "Raporlar", "Dosyalar", "Zaman Çizelgesi", "Panel Görünürlüğü", "Giriş Bilgileri", "Metrikler", "Yapılan Çalışmalar", "Aktivite Geçmişi", "Notlar"];
   async function runProfileAction(label, action) {
     setProfileAction(`${label}...`);
     try {
@@ -6063,6 +6114,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
       {tab === "Müşteri Kurulumu" && <CustomerOnboardingEditor company={company} content={content} setContent={setContent} setTab={setTab} notify={notify} />}
       {tab === "Büyüme" && <CustomerGrowthPanel company={company} content={content} setActive={setActive} />}
       {tab === "Entegrasyonlar" && <CustomerIntegrationsPanel company={company} users={users} campaigns={campaigns} reports={reports} content={content} setContent={setContent} notify={notify} />}
+      {tab === "Bağlantı Bilgileri" && <CustomerConnectionCredentialsPanel company={company} notify={notify} />}
       {tab === "Marka Varlıkları" && <CustomerBrandAssets company={company} content={content} setContent={setContent} notify={notify} mode="full" />}
       {tab === "Giriş Bilgileri" && <div>
         <p className="mb-4 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-700">Müşteri şifresi güvenlik nedeniyle düz metin olarak saklanmaz. Yeni geçici şifre oluşturabilirsiniz.</p>

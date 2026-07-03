@@ -8,6 +8,7 @@ import { recordActivity } from "@/lib/activity-log";
 import { getCustomerCenterData, summarizeMetrics } from "@/lib/customer-center";
 import { hasSupabaseConfig } from "@/lib/supabase";
 import { CustomerReports } from "@/components/customer/CustomerReports";
+import { CustomerAccountConnectCenter } from "@/components/customer/CustomerAccountConnectCenter";
 import { AnimatedChart, CustomerMetricCard } from "@/components/premium/PremiumUI";
 import { Logo } from "@/components/public/Logo";
 import { getSiteContent } from "@/lib/content";
@@ -157,6 +158,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
           {(visibility.show_files || data.documents.length > 0) && <a href="#belgeler" className="rounded-full border border-slate-200 px-4 py-2 text-slate-700 hover:border-cyan-200 hover:bg-cyan-50">Belgeler</a>}
           {data.competitorSummaries.length > 0 && <a href="#rakip-ozeti" className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-emerald-800 hover:bg-emerald-100">Rakip Özeti</a>}
           {data.payments.length > 0 && <a href="#odemeler" className="rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-amber-800 hover:bg-amber-100">Ödemeler</a>}
+          <a href="#hesap-bagla" className="rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-blue-800 hover:bg-blue-100">Hesap Bağla</a>
         </nav>
 
         <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -186,6 +188,8 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
             <AnimatedChart label="Son dönem performans eğilimi" values={[24, 29, 41, 38, 54, 61, 72, 79]} />
           </div>
         </section>
+
+        <CustomerAccountConnectCenter />
 
         <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
           <div className="rounded-[18px] border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.05)]">
