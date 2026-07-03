@@ -388,14 +388,17 @@ function scanSourcesForFindings(migrations: string) {
     ["Reklam Operasyon Merkezi menüde tek mi?", "label: \"Reklam Operasyon Merkezi\"", "src/lib/admin-navigation.ts", "Reklam Operasyon Merkezi yalnız Reklam & Performans altında tek görünür menü kaydı olmalıdır."],
     ["Eski reklam slug’ları sadece alias mı?", "\"ads-operating-system\": \"reklam-operasyon-merkezi\"", "src/lib/admin-navigation.ts", "Eski reklam operasyon slug’ları ayrı menü öğesi değil canonical route alias’ı olarak kalmalıdır."],
     ["Reklam Operasyon Merkezi component render ediyor mu?", "AdsOperatingCenter", "src/components/admin/AdminDashboard.tsx", "AdminDashboard aktif modül etiketiyle AdsOperatingCenter component’ini render etmelidir."],
-    ["Kanal Komuta Merkezi var mı?", "Kanal Komuta Merkezi", "src/components/admin/GrowthOperatingSystem.tsx", "Meta, Google, Instagram, Website ve WhatsApp sağlık kartları görünmelidir."],
+    ["Kanal Durumu var mı?", "Kanal Durumu", "src/components/admin/GrowthOperatingSystem.tsx", "Meta, Google, Instagram, Website ve WhatsApp sağlık kartları görünmelidir."],
     ["Reklam Sağlığı puanı var mı?", "Reklam Sağlığı", "src/components/admin/GrowthOperatingSystem.tsx", "100 puanlık reklam sağlığı ve gerekçeleri gösterilmelidir."],
     ["Reklam verisi müşteri hesabı ile filtreleniyor mu?", "metaAdAccountId", "src/components/admin/GrowthOperatingSystem.tsx", "Müşteri seçilince Meta Ad Account ID ve Google Ads Customer ID yoksa tüm HK Dijital hesap verileri toplanmamalıdır."],
     ["Müşteri profili entegrasyon sekmesine yönlendirme var mı?", "tab=entegrasyonlar", "src/components/admin/GrowthOperatingSystem.tsx", "Eksik hesap ID uyarılarında Müşteri Entegrasyonlarını Aç aksiyonu doğru müşteri profil sekmesine gitmelidir."],
-    ["Yapay Zekâ Stratejisti paneli var mı?", "Yapay Zekâ Stratejisti", "src/components/admin/GrowthOperatingSystem.tsx", "İyi/kötü gidenler, 7 günlük plan, 30 günlük plan ve bütçe önerisi görünmelidir."],
-    ["Reklam Doktoru kontrolleri var mı?", "Gerçek kontrol listesi", "src/components/admin/GrowthOperatingSystem.tsx", "CTR, CPA, Pixel, GA4, kreatif ve bütçe kontrolleri durum/risk/çözüm/öncelik ile gösterilmelidir."],
+    ["Yapay zekâ önerileri veri sinyali içeriyor mu?", "Kanıt / veri sinyali", "src/components/admin/GrowthOperatingSystem.tsx", "Öneri kartları sorun, kanıt/veri sinyali, aksiyon, öncelik, beklenen etki ve ilgili modül bağlantısı göstermelidir."],
+    ["Sonraki Aksiyon standardı var mı?", "Ne oldu?", "src/components/admin/GrowthOperatingSystem.tsx", "Reklam operasyon kontrolünden sonra ne oldu, şimdi ne yapılmalı, nereden kontrol edilmeli ve müşteri görünürlüğü açıklanmalıdır."],
+    ["Reklam Doktoru kontrolleri var mı?", "Pixel / Dataset", "src/components/admin/GrowthOperatingSystem.tsx", "Ölçüm, Pixel/Dataset, GA4, kreatif, bütçe, hedef kitle, funnel ve raporlama kontrolleri durum/risk/çözüm/öncelik ile gösterilmelidir."],
     ["Yayın öncesi plan gerçek reklam açmadan çalışıyor mu?", "Yayın Öncesi Kontrol", "src/components/admin/GrowthOperatingSystem.tsx", "Kampanya Planlayıcı gerçek reklam yayına alma yapmadan taslak ve kontrol listesi üretmelidir."],
+    ["Funnel merkezi timeline gibi mi?", "Timeline akışı", "src/components/admin/GrowthOperatingSystem.tsx", "Funnel adımları trafik, landing page, Pixel/GA4, CRM, teklif, satış, rapor ve yeniden pazarlama sırasıyla görünmelidir."],
     ["Müşteri paneli teknik terimleri sadeleştiriyor mu?", "Tıklama Oranı", "src/app/musteri-paneli/page.tsx", "Müşteri panelinde CTR, CPC, CPA ve ROAS gibi teknik metrikler sade Türkçe açıklamalarla gösterilmelidir."],
+    ["Müşteri paneli premium bölüm kartları var mı?", "Bu ne anlama geliyor?", "src/app/musteri-paneli/page.tsx", "Müşteri panelindeki ana bölümler ikon, açıklama, son güncelleme ve sade anlam açıklamasıyla görünmelidir."],
     ["Müşteri paneli yalnız görünür kayıtları mı gösteriyor?", "visible_to_customer=eq.true", "src/lib/customer-center.ts", "Müşteri paneli yalnız müşteriye açık rapor, dosya, görev, ödeme ve rakip özetlerini göstermelidir."]
   ];
   for (const [title, pattern, filePath, recommendation] of adsOpsChecks) {

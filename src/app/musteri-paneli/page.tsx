@@ -100,14 +100,14 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
   const creativeFiles = data.files.filter((file: any) => file.visible_to_customer !== false && (file.show_in_creative_center || imageTypeLabels.includes(getCustomerFileType(file))));
   const fileUpdatedLabel = (file: any) => file.updated_at || file.uploaded_at || file.created_at ? new Date(file.updated_at || file.uploaded_at || file.created_at).toLocaleDateString("tr-TR") : "Tarih yok";
   const portalSections = [
-    ["Genel Durum", "Size açık son kampanya, rapor ve çalışma özetleri.", "bg-cyan-50 text-cyan-700", <Sparkles key="genel" size={22} />],
-    ["Reklam Performansı", "Tıklama, mesaj, form ve maliyetleri sade dille okuyun.", "bg-blue-50 text-blue-700", <BarChart3 key="reklam" size={22} />],
-    ["Raporlar", "Yayınlanan rapor ve aylık özetleri görüntüleyin.", "bg-purple-50 text-purple-700", <FileText key="rapor" size={22} />],
-    ["Görevler / Yapılan Çalışmalar", "Ajans ekibinin sizin için yaptığı işleri takip edin.", "bg-emerald-50 text-emerald-700", <Lightbulb key="isler" size={22} />],
-    ["Dosyalar", "Müşteriye açık kreatif, belge ve dosyalara ulaşın.", "bg-amber-50 text-amber-700", <Download key="dosya" size={22} />],
-    ["Rakip Görünürlük Özeti", "Onaylı rakip özetlerini teknik detay olmadan görün.", "bg-teal-50 text-teal-700", <Sparkles key="rakip" size={22} />],
-    ["Ödemeler / Tahsilatlar", "Müşteriye açık ödeme durumunu kontrol edin.", "bg-green-50 text-green-700", <FileText key="odeme" size={22} />],
-    ["İletişim", "HK Dijital ekibiyle kayıtlı kanaldan iletişim kurun.", "bg-sky-50 text-sky-700", <MessageCircle key="iletisim" size={22} />]
+    { title: "Genel Durum", description: "Size açık son kampanya, rapor ve çalışma özetleri.", tone: "bg-cyan-50 text-cyan-700", icon: <Sparkles key="genel" size={22} />, updatedAt: latestUpdate?.created_at, action: "Özeti Gör", href: "#genel-bakis" },
+    { title: "Reklam Performansı", description: "Tıklama, mesaj, form ve maliyetleri sade dille okuyun.", tone: "bg-blue-50 text-blue-700", icon: <BarChart3 key="reklam" size={22} />, updatedAt: data.metaAdMetrics[0]?.created_at || latestReportDate, action: "Performansa Git", href: "#performans" },
+    { title: "Raporlar", description: "Yayınlanan rapor ve aylık özetleri görüntüleyin.", tone: "bg-purple-50 text-purple-700", icon: <FileText key="rapor" size={22} />, updatedAt: latestReportDate, action: "Raporları Aç", href: "#raporlar" },
+    { title: "Yapılan Çalışmalar", description: "Ajans ekibinin sizin için yaptığı işleri takip edin.", tone: "bg-emerald-50 text-emerald-700", icon: <Lightbulb key="isler" size={22} />, updatedAt: latestUpdate?.created_at, action: "Çalışmaları Gör", href: "#notlar" },
+    { title: "Dosyalar", description: "Müşteriye açık kreatif, belge ve dosyalara ulaşın.", tone: "bg-amber-50 text-amber-700", icon: <Download key="dosya" size={22} />, updatedAt: data.files[0]?.uploaded_at || data.documents[0]?.created_at, action: "Dosyaları Aç", href: "#belgeler" },
+    { title: "Rakip Görünürlük Özeti", description: "Onaylı rakip özetlerini teknik detay olmadan görün.", tone: "bg-teal-50 text-teal-700", icon: <Sparkles key="rakip" size={22} />, updatedAt: data.competitorSummaries[0]?.last_checked_at, action: "Rakip Özetine Git", href: "#rakip-ozeti" },
+    { title: "Ödemeler", description: "Müşteriye açık ödeme durumunu kontrol edin.", tone: "bg-green-50 text-green-700", icon: <FileText key="odeme" size={22} />, updatedAt: data.payments[0]?.due_date || data.payments[0]?.created_at, action: "Ödemeleri Gör", href: "#odemeler" },
+    { title: "İletişim", description: "HK Dijital ekibiyle kayıtlı kanaldan iletişim kurun.", tone: "bg-sky-50 text-sky-700", icon: <MessageCircle key="iletisim" size={22} />, updatedAt: latestUpdate?.created_at, action: "İletişime Geç", href: contactHref }
   ];
 
   return (
@@ -160,17 +160,19 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
         </nav>
 
         <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {portalSections.map(([title, description, tone, icon]) => (
-            <div key={String(title)} className="rounded-[20px] border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.05)]">
-              <div className={`mb-4 inline-flex rounded-[16px] p-3 ${tone}`}>{icon}</div>
-              <h2 className="text-lg font-black text-slate-950">{title}</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">{description}</p>
+          {portalSections.map((section) => (
+            <div key={section.title} className="rounded-[20px] border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.05)] transition hover:-translate-y-0.5 hover:border-cyan-200">
+              <div className={`mb-4 inline-flex rounded-[16px] p-3 ${section.tone}`}>{section.icon}</div>
+              <h2 className="text-lg font-black text-slate-950">{section.title}</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{section.description}</p>
+              <p className="mt-3 text-xs font-black text-slate-500">Son güncelleme: {section.updatedAt ? new Date(section.updatedAt).toLocaleDateString("tr-TR") : "Henüz yok"}</p>
               <p className="mt-3 rounded-[12px] bg-slate-50 p-3 text-xs font-bold leading-5 text-slate-600">Bu ne anlama geliyor? Bu bölüm yalnız HK Dijital ekibinin sizinle paylaşmayı onayladığı kayıtları gösterir.</p>
+              <a href={section.href} className="mt-4 inline-flex rounded-full bg-cyan-500 px-4 py-2 text-xs font-black text-white">{section.action}</a>
             </div>
           ))}
         </section>
 
-        <section className="glass-card mb-8 overflow-hidden border-t-4 p-6 sm:p-7" style={{ borderTopColor: branding.primary_color || "#22d3ee" }}>
+        <section id="genel-bakis" className="glass-card mb-8 overflow-hidden border-t-4 p-6 sm:p-7" style={{ borderTopColor: branding.primary_color || "#22d3ee" }}>
           <div className="grid gap-6 xl:grid-cols-[1fr_420px] xl:items-center">
             <div>
               <p className="text-xs font-black uppercase tracking-[.18em] text-cyan-700">Genel Bakış</p>
