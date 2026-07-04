@@ -174,11 +174,14 @@ function normalizeIntegrationAccounts(rows: any[]) {
     const isTikTok = provider.includes("tiktok") || platformKey.includes("tiktok");
     const isGoogleAds = platformKey.includes("google_ads") || typeKey.includes("google_ads") || typeKey.includes("ads_customer") || Boolean(googleAdsId);
     const isGa4 = platformKey.includes("analytics") || platformKey.includes("ga4") || typeKey.includes("ga4") || typeKey.includes("analytics") || Boolean(ga4Id);
+    const isYouTube = platformKey.includes("youtube") || typeKey.includes("youtube");
     const isSearch = platformKey.includes("search_console") || typeKey.includes("search_console") || Boolean(searchConsoleUrl);
+    const isX = provider === "x" || platformKey.includes("twitter") || platformKey.includes("x_twitter") || typeKey.includes("x_");
     const isWebsite = platformKey.includes("website") || platformKey.includes("pixel") || typeKey.includes("website") || typeKey.includes("pixel") || Boolean(websiteUrl || pixelId);
     const isMetaAd = isMeta && (typeKey.includes("ad_account") || typeKey.includes("meta_ads") || Boolean(metaAdId));
     const isPixel = typeKey.includes("pixel") || typeKey.includes("dataset") || Boolean(pixelId);
     const isTikTokAd = isTikTok && (typeKey.includes("advertiser") || typeKey.includes("ads") || Boolean(accountId));
+    const isXAds = isX && typeKey.includes("ads");
 
     const add = (kind: string, id: string, name = accountName) => {
       if (!id && !["instagram", "website"].includes(kind)) return;
@@ -187,7 +190,10 @@ function normalizeIntegrationAccounts(rows: any[]) {
     if (isMetaAd) add("meta_ad_account", metaAdId || accountId);
     if (isGoogleAds) add("google_ads_customer", googleAdsId || accountId);
     if (isTikTokAd) add("tiktok_advertiser", accountId);
+    if (isXAds) add("x_ads_account", accountId);
+    if (isX && !isXAds) add("x_profile", accountId);
     if (isGa4) add("ga4_property", ga4Id || accountId);
+    if (isYouTube) add("youtube_channel", accountId);
     if (isPixel) add("pixel_dataset", pixelId || accountId);
     if (isInstagram) add("instagram", accountId || firstValue(raw?.username, raw?.instagram_account_id, raw?.provider_account_name));
     if (isWebsite) add("website", websiteUrl || accountId);
@@ -229,13 +235,16 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
   const linkedAccounts = normalizeIntegrationAccounts(integrationRows);
   const selectedLinkedAccount = linkedAccounts.find((item) => item.id === adAccount);
   const accountOptions = linkedAccounts
-    .filter((item) => ["meta_ad_account", "google_ads_customer", "tiktok_advertiser"].includes(item.kind))
-    .map((item) => ({ value: item.id, label: `${item.kind === "meta_ad_account" ? "Meta" : item.kind === "google_ads_customer" ? "Google Ads" : "TikTok"} · ${item.accountName || "Hesap"} · ${item.accountId || "ID yok"}` }));
+    .filter((item) => ["meta_ad_account", "google_ads_customer", "tiktok_advertiser", "x_ads_account"].includes(item.kind))
+    .map((item) => ({ value: item.id, label: `${item.kind === "meta_ad_account" ? "Meta" : item.kind === "google_ads_customer" ? "Google Ads" : item.kind === "x_ads_account" ? "X Ads" : "TikTok"} · ${item.accountName || "Hesap"} · ${item.accountId || "ID yok"}` }));
   const accountByKind = (kind: string) => linkedAccounts.find((item) => item.kind === kind);
   const metaAccount = accountByKind("meta_ad_account");
   const googleAdsAccount = accountByKind("google_ads_customer");
   const tiktokAccount = accountByKind("tiktok_advertiser");
+  const xAdsAccount = accountByKind("x_ads_account");
+  const xProfileAccount = accountByKind("x_profile");
   const ga4Account = accountByKind("ga4_property");
+  const youtubeAccount = accountByKind("youtube_channel");
   const pixelAccount = accountByKind("pixel_dataset");
   const websiteAccount = accountByKind("website");
   const instagramAccount = accountByKind("instagram");
@@ -340,7 +349,9 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
     { name: "Website", account: websiteAccount, connected: Boolean(websiteUrl), tracking: Boolean(ga4PropertyId || gtmId || pixelId), lastSync: websiteAccount?.lastDate || customer?.updated_at, action: websiteUrl ? "Detay Gör" : "Hesap Ekle" },
     { name: "WhatsApp", account: null, connected: Boolean(customer?.whatsapp || customer?.phone), tracking: Boolean(customer?.phone), lastSync: customer?.updated_at, action: "Müşteri Profilini Aç" },
     { name: "TikTok", account: tiktokAccount, connected: Boolean(tiktokAccount), tracking: Boolean(tiktokAccount), lastSync: tiktokAccount?.lastDate, action: tiktokAccount ? "Detay Gör" : "Hesap Ekle" },
+    { name: "X / Twitter", account: xAdsAccount || xProfileAccount, connected: Boolean(xAdsAccount || xProfileAccount), tracking: Boolean(xAdsAccount), lastSync: xAdsAccount?.lastDate || xProfileAccount?.lastDate, action: xAdsAccount || xProfileAccount ? "Detay Gör" : "Hesap Ekle" },
     { name: "Google Analytics", account: ga4Account, connected: Boolean(ga4PropertyId), tracking: Boolean(ga4PropertyId), lastSync: ga4Account?.lastDate, action: ga4PropertyId ? "Detay Gör" : "Hesap Ekle" },
+    { name: "YouTube", account: youtubeAccount, connected: Boolean(youtubeAccount), tracking: Boolean(youtubeAccount), lastSync: youtubeAccount?.lastDate, action: youtubeAccount ? "Detay Gör" : "Hesap Ekle" },
     { name: "Search Console", account: searchConsoleAccount, connected: Boolean(searchConsoleAccount), tracking: Boolean(searchConsoleAccount), lastSync: searchConsoleAccount?.lastDate, action: searchConsoleAccount ? "Detay Gör" : "Hesap Ekle" }
   ];
   const doctorChecks = [
@@ -404,6 +415,8 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
     ["Meta hesap sayısı", linkedAccounts.filter((item) => item.kind === "meta_ad_account").length],
     ["Google Ads hesap sayısı", linkedAccounts.filter((item) => item.kind === "google_ads_customer").length],
     ["GA4 kayıt sayısı", linkedAccounts.filter((item) => item.kind === "ga4_property").length],
+    ["YouTube kayıt sayısı", linkedAccounts.filter((item) => item.kind === "youtube_channel").length],
+    ["X/Twitter kayıt sayısı", linkedAccounts.filter((item) => item.kind === "x_ads_account" || item.kind === "x_profile").length],
     ["Pixel kayıt sayısı", linkedAccounts.filter((item) => item.kind === "pixel_dataset").length],
     ["Son API hatası", integrationError || "Yok"],
     ["Son yenileme", integrationsRefreshedAt ? new Date(integrationsRefreshedAt).toLocaleString("tr-TR") : "Henüz yok"]

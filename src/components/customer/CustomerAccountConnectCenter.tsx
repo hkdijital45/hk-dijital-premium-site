@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 
 import { useEffect, useMemo, useState } from "react";
-import { BarChart3, Globe2, ImagePlus, Megaphone, Search, ShieldCheck, Smartphone } from "lucide-react";
+import { AtSign, BarChart3, Globe2, ImagePlus, Megaphone, PlayCircle, Search, ShieldCheck, Smartphone } from "lucide-react";
 
 const platformCards = [
   { key: "meta", title: "Meta / Facebook", type: "meta_ads", oauthProvider: "meta", autoLabel: "Meta ile Giriş Yap", typeLabel: "Business Manager, reklam hesabı, sayfa, Instagram ve Pixel seçimi", icon: Megaphone, tone: "bg-blue-50 text-blue-700", fields: [
@@ -31,9 +31,18 @@ const platformCards = [
     ["ga4_property_id", "Property ID", "Google Analytics mülk kimliği."],
     ["ga4_stream_id", "Stream ID", "Google Analytics veri akışı kimliği."]
   ] },
+  { key: "youtube", title: "YouTube", type: "youtube_channel", oauthProvider: "google", autoLabel: "Google ile Giriş Yap", typeLabel: "YouTube kanal seçimi Google provider üzerinden yapılır", icon: PlayCircle, tone: "bg-red-50 text-red-700", fields: [
+    ["youtube_channel_id", "YouTube Kanal ID", "YouTube kanal kimliği."],
+    ["profile_url", "Kanal linki", "YouTube kanal bağlantısı."]
+  ] },
   { key: "search_console", title: "Google Search Console", type: "search_console", oauthProvider: "google", autoLabel: "Search Console Hesabını Seç", typeLabel: "Google Search Console site seçimi", icon: Search, tone: "bg-sky-50 text-sky-700", fields: [
     ["search_console_site_url", "Site URL", "Google Search Console içindeki doğrulanmış site adresi."],
     ["domain_property", "Domain Property", "Varsa domain mülk adı."]
+  ] },
+  { key: "x_twitter", title: "X / Twitter", type: "x_profile", oauthProvider: "x", autoLabel: "X ile Giriş Yap", typeLabel: "X hesabı ve uygun izin varsa X Ads hesabı seçimi", icon: AtSign, tone: "bg-slate-50 text-slate-800", fields: [
+    ["username", "X kullanıcı adı", "@ ile başlayan X kullanıcı adı."],
+    ["profile_url", "X profil linki", "X profil bağlantısı."],
+    ["x_ads_account_id", "X Ads Account ID", "Varsa X reklam hesabı kimliği."]
   ] },
   { key: "website_pixel", title: "Website / Pixel Bilgileri", type: "website_pixel", oauthProvider: "meta", autoLabel: "Pixel Bağlantısını Hazırla", typeLabel: "Website, Pixel, GTM ve Search Console kontrolü", icon: Globe2, tone: "bg-cyan-50 text-cyan-700", fields: [
     ["website_url", "Web site URL", "Ana web sitesi adresiniz."],
@@ -73,13 +82,15 @@ const methodLabel: Record<string, string> = {
 const providerMissingMessages: Record<string, string> = {
   meta: "Meta bağlantısı için uygulama ayarları henüz tamamlanmamış.",
   google: "Google bağlantısı için OAuth ayarları henüz tamamlanmamış.",
-  tiktok: "TikTok bağlantısı için uygulama ayarları henüz tamamlanmamış."
+  tiktok: "TikTok bağlantısı için uygulama ayarları henüz tamamlanmamış.",
+  x: "X/Twitter bağlantısı için OAuth ayarları henüz tamamlanmamış."
 };
 
 const integrationErrorMessages: Record<string, string> = {
   meta_env_missing: "Meta bağlantısı için uygulama ayarları eksik. Manuel bilgi girebilir veya HK Dijital ekibinden kurulum isteyebilirsiniz.",
   google_env_missing: "Google bağlantısı için OAuth ayarları eksik. Manuel bilgi girebilir veya HK Dijital ekibinden kurulum isteyebilirsiniz.",
   tiktok_env_missing: "TikTok bağlantısı için uygulama ayarları eksik. Manuel bilgi girebilir veya HK Dijital ekibinden kurulum isteyebilirsiniz.",
+  x_env_missing: "X/Twitter bağlantısı için OAuth ayarları eksik. Manuel bilgi girebilir veya HK Dijital ekibinden kurulum isteyebilirsiniz.",
   session_missing: "Oturum doğrulanamadı. Lütfen panelden çıkış yapıp tekrar giriş yapın.",
   company_mismatch: "Bağlantı isteği bu müşteri oturumuyla eşleşmiyor.",
   state_invalid: "OAuth güvenlik doğrulaması başarısız oldu. Lütfen bağlantıyı yeniden başlatın.",
@@ -269,11 +280,14 @@ export function CustomerAccountConnectCenter() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           provider: selected[0]?.provider || active.oauthProvider,
-          platform: selected[0]?.platform || active.key,
-          provider_account_id: selected[0]?.provider_account_id || selected[0]?.account_id || selected[0]?.id,
-          provider_account_name: selected[0]?.provider_account_name || selected[0]?.asset_name || active.title,
-          account_type: selected[0]?.account_type || active.type,
-          metadata: selected[0]?.metadata || selected[0]
+          accounts: selected.map((item: any) => ({
+            provider: item.provider || active.oauthProvider,
+            platform: item.platform || active.key,
+            provider_account_id: item.provider_account_id || item.account_id || item.asset_id || item.id,
+            provider_account_name: item.provider_account_name || item.asset_name || item.name || active.title,
+            account_type: item.account_type || item.asset_type || active.type,
+            metadata: item.metadata || item
+          }))
         })
       });
       const payload = await response.json().catch(() => ({}));

@@ -5,7 +5,7 @@ import crypto from "crypto";
 import { getSession, isCustomerRole, isStaffRole } from "@/lib/auth";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
-type Provider = "meta" | "google" | "tiktok";
+type Provider = "meta" | "google" | "tiktok" | "x";
 type OAuthState = {
   provider: Provider;
   platform: string;
@@ -35,8 +35,8 @@ const providerConfig: Record<Provider, {
     label: "Google",
     env: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI"],
     authBase: "https://accounts.google.com/o/oauth2/v2/auth",
-    scope: "https://www.googleapis.com/auth/adwords https://www.googleapis.com/auth/analytics.readonly https://www.googleapis.com/auth/webmasters.readonly",
-    assetTypes: ["Google Ads Customer", "GA4 Property", "Search Console Site"]
+    scope: "https://www.googleapis.com/auth/adwords https://www.googleapis.com/auth/analytics.readonly https://www.googleapis.com/auth/webmasters.readonly https://www.googleapis.com/auth/youtube.readonly openid email profile",
+    assetTypes: ["Google Ads Customer", "GA4 Property", "YouTube Channel", "Search Console Site"]
   },
   tiktok: {
     label: "TikTok",
@@ -44,6 +44,13 @@ const providerConfig: Record<Provider, {
     authBase: "https://business-api.tiktok.com/portal/auth",
     scope: "business,ad_account,report",
     assetTypes: ["Business Center", "Ads Account", "Pixel"]
+  },
+  x: {
+    label: "X / Twitter",
+    env: ["X_CLIENT_ID", "X_CLIENT_SECRET", "X_REDIRECT_URI"],
+    authBase: "https://twitter.com/i/oauth2/authorize",
+    scope: "tweet.read users.read offline.access",
+    assetTypes: ["X Profile", "X Ads Account"]
   }
 };
 
@@ -100,21 +107,34 @@ function providerCredentials(provider: Provider) {
       redirectUri: process.env.GOOGLE_REDIRECT_URI || ""
     };
   }
+  if (provider === "tiktok") {
+    return {
+      clientId: process.env.TIKTOK_CLIENT_KEY || "",
+      clientSecret: process.env.TIKTOK_CLIENT_SECRET || "",
+      redirectUri: process.env.TIKTOK_REDIRECT_URI || ""
+    };
+  }
   return {
-    clientId: process.env.TIKTOK_CLIENT_KEY || "",
-    clientSecret: process.env.TIKTOK_CLIENT_SECRET || "",
-    redirectUri: process.env.TIKTOK_REDIRECT_URI || ""
+    clientId: firstEnv(["X_CLIENT_ID", "TWITTER_CLIENT_ID"]),
+    clientSecret: firstEnv(["X_CLIENT_SECRET", "TWITTER_CLIENT_SECRET"]),
+    redirectUri: firstEnv(["X_REDIRECT_URI", "TWITTER_REDIRECT_URI"])
   };
 }
 
-function missingProviderEnv(provider: Provider) {
+function pkceChallenge(verifier: string) {
+  return crypto.createHash("sha256").update(verifier).digest("base64url");
+}
+
+function providerEnvPairs(provider: Provider) {
   const credentials = providerCredentials(provider);
-  const names = provider === "meta"
-    ? [["META_APP_ID veya META_CLIENT_ID", credentials.clientId], ["META_APP_SECRET veya META_CLIENT_SECRET", credentials.clientSecret], ["META_REDIRECT_URI", credentials.redirectUri]]
-    : provider === "google"
-      ? [["GOOGLE_CLIENT_ID", credentials.clientId], ["GOOGLE_CLIENT_SECRET", credentials.clientSecret], ["GOOGLE_REDIRECT_URI", credentials.redirectUri]]
-      : [["TIKTOK_CLIENT_KEY", credentials.clientId], ["TIKTOK_CLIENT_SECRET", credentials.clientSecret], ["TIKTOK_REDIRECT_URI", credentials.redirectUri]];
-  return names.filter(([, value]) => !value).map(([name]) => name);
+  if (provider === "meta") return [["META_APP_ID veya META_CLIENT_ID", credentials.clientId], ["META_APP_SECRET veya META_CLIENT_SECRET", credentials.clientSecret], ["META_REDIRECT_URI", credentials.redirectUri]];
+  if (provider === "google") return [["GOOGLE_CLIENT_ID", credentials.clientId], ["GOOGLE_CLIENT_SECRET", credentials.clientSecret], ["GOOGLE_REDIRECT_URI", credentials.redirectUri]];
+  if (provider === "tiktok") return [["TIKTOK_CLIENT_KEY", credentials.clientId], ["TIKTOK_CLIENT_SECRET", credentials.clientSecret], ["TIKTOK_REDIRECT_URI", credentials.redirectUri]];
+  return [["X_CLIENT_ID veya TWITTER_CLIENT_ID", credentials.clientId], ["X_CLIENT_SECRET veya TWITTER_CLIENT_SECRET", credentials.clientSecret], ["X_REDIRECT_URI veya TWITTER_REDIRECT_URI", credentials.redirectUri]];
+}
+
+function missingProviderEnv(provider: Provider) {
+  return providerEnvPairs(provider).filter(([, value]) => !value).map(([name]) => name);
 }
 
 function stateSecret() {
@@ -254,10 +274,19 @@ export async function oauthConnect(provider: Provider, request: Request) {
   const platform = clean(url.searchParams.get("platform")) || provider;
   const nonce = crypto.randomBytes(18).toString("base64url");
   const state = encodeState({ provider, platform, customerId: session.companyId, returnTo, nonce, exp: Date.now() + 10 * 60 * 1000 });
+  const codeVerifier = provider === "x" ? crypto.randomBytes(48).toString("base64url") : "";
   const params = new URLSearchParams(provider === "tiktok" ? {
     app_id: credentials.clientId,
     redirect_uri: credentials.redirectUri,
     state
+  } : provider === "x" ? {
+    client_id: credentials.clientId,
+    redirect_uri: credentials.redirectUri,
+    response_type: "code",
+    state,
+    scope: config.scope,
+    code_challenge: pkceChallenge(codeVerifier),
+    code_challenge_method: "S256"
   } : {
     client_id: credentials.clientId,
     redirect_uri: credentials.redirectUri,
@@ -272,10 +301,11 @@ export async function oauthConnect(provider: Provider, request: Request) {
   if (provider === "tiktok") params.set("scope", config.scope);
   const response = NextResponse.redirect(`${config.authBase}?${params.toString()}`);
   response.cookies.set(`hk_oauth_state_${provider}`, nonce, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 600, path: "/" });
+  if (codeVerifier) response.cookies.set(`hk_oauth_pkce_${provider}`, codeVerifier, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 600, path: "/" });
   return response;
 }
 
-async function exchangeCode(provider: Provider, code: string) {
+async function exchangeCode(provider: Provider, code: string, codeVerifier = "") {
   const credentials = providerCredentials(provider);
   if (provider === "meta") {
     const params = new URLSearchParams({ client_id: credentials.clientId, client_secret: credentials.clientSecret, redirect_uri: credentials.redirectUri, code });
@@ -294,15 +324,28 @@ async function exchangeCode(provider: Provider, code: string) {
     if (!response.ok) throw new Error(payload.error_description || payload.error || "Google token alınamadı.");
     return { accessToken: payload.access_token, refreshToken: payload.refresh_token, expiresIn: payload.expires_in, scope: payload.scope };
   }
-  const response = await fetch("https://business-api.tiktok.com/open_api/v1.3/oauth2/access_token/", {
+  if (provider === "tiktok") {
+    const response = await fetch("https://business-api.tiktok.com/open_api/v1.3/oauth2/access_token/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ app_id: credentials.clientId, secret: credentials.clientSecret, auth_code: code })
+    });
+    const payload = await response.json().catch(() => ({}));
+    const accessToken = payload.data?.access_token || payload.access_token;
+    if (!response.ok || !accessToken) throw new Error(payload.message || "TikTok token alınamadı.");
+    return { accessToken, refreshToken: payload.data?.refresh_token, expiresIn: payload.data?.expires_in, scope: providerConfig.tiktok.scope };
+  }
+  const response = await fetch("https://api.twitter.com/2/oauth2/token", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ app_id: credentials.clientId, secret: credentials.clientSecret, auth_code: code })
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Authorization: `Basic ${Buffer.from(`${credentials.clientId}:${credentials.clientSecret}`).toString("base64")}`
+    },
+    body: new URLSearchParams({ client_id: credentials.clientId, redirect_uri: credentials.redirectUri, code, grant_type: "authorization_code", code_verifier: codeVerifier })
   });
   const payload = await response.json().catch(() => ({}));
-  const accessToken = payload.data?.access_token || payload.access_token;
-  if (!response.ok || !accessToken) throw new Error(payload.message || "TikTok token alınamadı.");
-  return { accessToken, refreshToken: payload.data?.refresh_token, expiresIn: payload.data?.expires_in, scope: providerConfig.tiktok.scope };
+  if (!response.ok || !payload.access_token) throw new Error(payload.error_description || payload.error || "X/Twitter token alınamadı.");
+  return { accessToken: payload.access_token, refreshToken: payload.refresh_token, expiresIn: payload.expires_in, scope: payload.scope || providerConfig.x.scope };
 }
 
 export async function oauthCallback(provider: Provider, request: Request) {
@@ -317,6 +360,7 @@ export async function oauthCallback(provider: Provider, request: Request) {
   if (missingProviderEnv(provider).length) return redirectWithIntegrationError(request, returnTo, provider, `${provider}_env_missing`);
   const cookieStore = await cookies();
   const expectedNonce = cookieStore.get(`hk_oauth_state_${provider}`)?.value;
+  const codeVerifier = cookieStore.get(`hk_oauth_pkce_${provider}`)?.value || "";
   const target = new URL(returnTo, baseUrl(request));
   if (providerError) {
     return redirectWithIntegrationError(request, returnTo, provider, "permission_denied", { integration_message: providerError });
@@ -325,7 +369,7 @@ export async function oauthCallback(provider: Provider, request: Request) {
     return redirectWithIntegrationError(request, returnTo, provider, "state_invalid");
   }
   try {
-    const token = await exchangeCode(provider, code);
+    const token = await exchangeCode(provider, code, codeVerifier);
     const expiresAt = token.expiresIn ? new Date(Date.now() + Number(token.expiresIn) * 1000).toISOString() : "";
     target.searchParams.set("integration_provider", provider);
     target.searchParams.set("integration_success", provider);
@@ -333,6 +377,7 @@ export async function oauthCallback(provider: Provider, request: Request) {
     if (!target.hash) target.hash = "hesap-bagla";
     const response = NextResponse.redirect(target);
     response.cookies.delete(`hk_oauth_state_${provider}`);
+    response.cookies.delete(`hk_oauth_pkce_${provider}`);
     response.cookies.set(`hk_oauth_session_${provider}`, encryptSession({ provider, customerId: session.companyId, accessToken: token.accessToken, expiresAt, scope: token.scope }), { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 900, path: "/" });
     return response;
   } catch (error) {
@@ -376,40 +421,73 @@ export async function oauthAssets(provider: Provider, request: Request) {
 
 async function fetchMetaAccounts(accessToken: string) {
   const endpoints = [
-    ["business", "Business hesapları", `https://graph.facebook.com/v20.0/me/businesses?fields=id,name&access_token=${encodeURIComponent(accessToken)}`],
-    ["ad_account", "Reklam hesapları", `https://graph.facebook.com/v20.0/me/adaccounts?fields=id,name,account_status,currency&access_token=${encodeURIComponent(accessToken)}`],
-    ["page", "Facebook sayfaları", `https://graph.facebook.com/v20.0/me/accounts?fields=id,name&access_token=${encodeURIComponent(accessToken)}`]
+    ["meta_business", "Business hesapları", `https://graph.facebook.com/v20.0/me/businesses?fields=id,name&access_token=${encodeURIComponent(accessToken)}`],
+    ["meta_ad_account", "Reklam hesapları", `https://graph.facebook.com/v20.0/me/adaccounts?fields=id,name,account_status,currency&access_token=${encodeURIComponent(accessToken)}`],
+    ["facebook_page", "Facebook sayfaları", `https://graph.facebook.com/v20.0/me/accounts?fields=id,name,instagram_business_account{id,username,name}&access_token=${encodeURIComponent(accessToken)}`]
   ];
   const groups = await Promise.all(endpoints.map(async ([type, label, endpoint]) => {
     const response = await fetch(endpoint, { cache: "no-store" });
     const payload = await response.json().catch(() => ({}));
     return { type, label, ok: response.ok, data: Array.isArray(payload.data) ? payload.data : [], error: payload.error?.message || "" };
   }));
-  return groups.flatMap((group) => group.data.map((item: any) => ({
-    id: `meta-${group.type}-${item.id}`,
-    provider: "meta",
-    platform: group.type === "page" ? "instagram" : "meta",
-    account_type: group.type,
-    provider_account_id: item.id,
-    provider_account_name: item.name || item.id,
-    status: item.account_status ? `Durum: ${item.account_status}` : "Seçilebilir",
-    metadata: item
-  })));
+  return groups.flatMap((group) => group.data.flatMap((item: any) => {
+    const base = {
+      id: `meta-${group.type}-${item.id}`,
+      provider: "meta",
+      platform: group.type === "facebook_page" ? "facebook" : "meta",
+      account_type: group.type,
+      provider_account_id: item.id,
+      provider_account_name: item.name || item.id,
+      status: item.account_status ? `Durum: ${item.account_status}` : "Seçilebilir",
+      metadata: item
+    };
+    const instagram = item.instagram_business_account ? [{
+      id: `meta-instagram_business-${item.instagram_business_account.id}`,
+      provider: "meta",
+      platform: "instagram",
+      account_type: "instagram_business",
+      provider_account_id: item.instagram_business_account.id,
+      provider_account_name: item.instagram_business_account.username || item.instagram_business_account.name || item.instagram_business_account.id,
+      status: "Seçilebilir",
+      metadata: { page_id: item.id, ...item.instagram_business_account }
+    }] : [];
+    return [base, ...instagram];
+  }));
 }
 
 async function fetchGoogleAccounts(accessToken: string) {
   const userResponse = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", { headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" });
   const user = await userResponse.json().catch(() => ({}));
-  return [{
+  const accounts: any[] = [{
     id: `google-profile-${user.sub || "authorized"}`,
     provider: "google",
     platform: "google_ads",
-    account_type: "google_authorized_profile",
+    account_type: "google_ads_customer",
     provider_account_id: user.sub || "",
     provider_account_name: user.email || user.name || "Google hesabı doğrulandı",
-    status: process.env.GOOGLE_ADS_DEVELOPER_TOKEN ? "Seçilebilir" : "Google hesabı doğrulandı; Ads/Analytics listeleme için ek API izni gerekebilir.",
-    metadata: { email: user.email || "", note: "Google Ads/GA4/Search Console varlıkları için ilgili API izinleri gerekir." }
+    status: process.env.GOOGLE_ADS_DEVELOPER_TOKEN ? "Seçilebilir" : "Google Ads hesaplarını listelemek için GOOGLE_ADS_DEVELOPER_TOKEN gerekiyor.",
+    metadata: { email: user.email || "", note: "Google Ads varlıkları için developer token gerekebilir." }
   }];
+  const [ga4, sites, youtube] = await Promise.allSettled([
+    fetch("https://analyticsadmin.googleapis.com/v1beta/accountSummaries", { headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" }).then((response) => response.json()),
+    fetch("https://www.googleapis.com/webmasters/v3/sites", { headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" }).then((response) => response.json()),
+    fetch("https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true", { headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" }).then((response) => response.json())
+  ]);
+  if (ga4.status === "fulfilled") {
+    const summaries = Array.isArray(ga4.value.accountSummaries) ? ga4.value.accountSummaries : [];
+    summaries.flatMap((summary: any) => Array.isArray(summary.propertySummaries) ? summary.propertySummaries : []).forEach((property: any) => {
+      accounts.push({ id: `google-ga4-${property.property}`, provider: "google", platform: "google_analytics", account_type: "ga4_property", provider_account_id: String(property.property || "").replace("properties/", ""), provider_account_name: property.displayName || property.property, status: "Seçilebilir", metadata: property });
+    });
+  }
+  if (sites.status === "fulfilled") {
+    const entries = Array.isArray(sites.value.siteEntry) ? sites.value.siteEntry : [];
+    entries.forEach((site: any) => accounts.push({ id: `google-search-${site.siteUrl}`, provider: "google", platform: "search_console", account_type: "search_console_site", provider_account_id: site.siteUrl, provider_account_name: site.siteUrl, status: site.permissionLevel || "Seçilebilir", metadata: site }));
+  }
+  if (youtube.status === "fulfilled") {
+    const channels = Array.isArray(youtube.value.items) ? youtube.value.items : [];
+    channels.forEach((channel: any) => accounts.push({ id: `google-youtube-${channel.id}`, provider: "google", platform: "youtube", account_type: "youtube_channel", provider_account_id: channel.id, provider_account_name: channel.snippet?.title || channel.id, status: "Seçilebilir", metadata: { title: channel.snippet?.title || "" } }));
+  }
+  return accounts;
 }
 
 async function fetchTikTokAccounts(accessToken: string) {
@@ -428,11 +506,28 @@ async function fetchTikTokAccounts(accessToken: string) {
   }));
 }
 
+async function fetchXAccounts(accessToken: string) {
+  const response = await fetch("https://api.twitter.com/2/users/me?user.fields=username,name,verified,profile_image_url", { headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" });
+  const payload = await response.json().catch(() => ({}));
+  const user = payload.data || {};
+  if (!response.ok || !user.id) throw new Error(payload.detail || payload.title || "X/Twitter profil bilgisi alınamadı.");
+  return [{
+    id: `x-profile-${user.id}`,
+    provider: "x",
+    platform: "x_twitter",
+    account_type: "x_profile",
+    provider_account_id: user.id,
+    provider_account_name: user.username ? `@${user.username}` : user.name || user.id,
+    status: "Seçilebilir; X Ads hesabı için ek API onayı gerekebilir.",
+    metadata: { username: user.username || "", name: user.name || "", verified: Boolean(user.verified) }
+  }];
+}
+
 export async function oauthAccounts(request: Request) {
   const session = await requireIntegrationSession();
   if (!session) return NextResponse.json({ error: "Oturum gerekir." }, { status: 403 });
   const provider = clean(new URL(request.url).searchParams.get("provider")) as Provider;
-  if (!["meta", "google", "tiktok"].includes(provider)) return NextResponse.json({ error: "Geçerli platform seçin." }, { status: 400 });
+  if (!["meta", "google", "tiktok", "x"].includes(provider)) return NextResponse.json({ error: "Geçerli platform seçin." }, { status: 400 });
   const missing = missingProviderEnv(provider);
   if (missing.length) return NextResponse.json({ ok: false, provider, accounts: [], code: "oauth_not_configured", missingEnv: missing, message: "Bağlantı yapılandırması eksik." }, { status: 501 });
   const cookieStore = await cookies();
@@ -442,7 +537,7 @@ export async function oauthAccounts(request: Request) {
   }
   try {
     const accessToken = String(oauthSession.accessToken || "");
-    const accounts = provider === "meta" ? await fetchMetaAccounts(accessToken) : provider === "google" ? await fetchGoogleAccounts(accessToken) : await fetchTikTokAccounts(accessToken);
+    const accounts = provider === "meta" ? await fetchMetaAccounts(accessToken) : provider === "google" ? await fetchGoogleAccounts(accessToken) : provider === "tiktok" ? await fetchTikTokAccounts(accessToken) : await fetchXAccounts(accessToken);
     return NextResponse.json({ ok: true, provider, accounts, message: accounts.length ? "Yetkili hesaplar listelendi." : "Hesap bulunamadı veya yetki kapsamı yetersiz." });
   } catch (error) {
     return NextResponse.json({ ok: false, provider, accounts: [], code: "provider_fetch_failed", message: error instanceof Error ? error.message : "Yetkili hesaplar alınamadı." }, { status: 502 });
@@ -454,62 +549,70 @@ export async function selectOAuthAccount(request: Request) {
   if (!session || !isCustomerRole(session.role) || !session.companyId) return NextResponse.json({ error: "Müşteri oturumu gerekir." }, { status: 403 });
   if (!hasSupabaseConfig()) return NextResponse.json({ error: "Supabase bağlantısı yapılandırılmadı." }, { status: 500 });
   const body = await request.json().catch(() => ({}));
-  const provider = clean(body.provider);
-  const platform = clean(body.platform || provider);
-  const providerAccountId = clean(body.provider_account_id);
-  const providerAccountName = clean(body.provider_account_name);
-  const accountType = clean(body.account_type || body.asset_type || platform);
-  if (!provider || !platform || !providerAccountId) return NextResponse.json({ error: "Provider, platform ve hesap ID zorunludur." }, { status: 400 });
+  const inputs = Array.isArray(body.accounts) && body.accounts.length ? body.accounts : [body];
+  const normalizedInputs = inputs.map((item: any) => ({
+    provider: clean(item.provider || body.provider),
+    platform: clean(item.platform || body.platform || item.provider || body.provider),
+    providerAccountId: clean(item.provider_account_id || item.account_id || item.asset_id),
+    providerAccountName: clean(item.provider_account_name || item.asset_name || item.name),
+    accountType: clean(item.account_type || item.asset_type || item.platform || body.account_type || body.asset_type),
+    scopes: Array.isArray(item.scopes || body.scopes) ? (item.scopes || body.scopes).map(clean).filter(Boolean) : [],
+    metadata: item.metadata && typeof item.metadata === "object" ? item.metadata : {}
+  })).filter((item: any) => item.provider && item.platform && item.providerAccountId);
+  if (!normalizedInputs.length) return NextResponse.json({ error: "Kaydetmek için en az bir geçerli hesap seçin." }, { status: 400 });
   try {
     const existingRows = await supabaseRest<any[]>(`customer_integrations?company_id=eq.${encodeURIComponent(session.companyId)}&select=*&limit=1`).catch(() => []);
     const existing = existingRows[0] || null;
     const currentAssets = Array.isArray(existing?.integration_assets) ? existing.integration_assets : [];
-    const asset = {
-      id: `${provider}-${accountType}-${providerAccountId}`,
-      provider,
-      platform,
-      platform_label: providerConfig[provider as Provider]?.label || provider,
-      asset_type: accountType,
-      asset_name: providerAccountName || providerAccountId,
-      asset_id: providerAccountId,
-      account_id: providerAccountId,
-      provider_account_id: providerAccountId,
-      provider_account_name: providerAccountName || providerAccountId,
-      account_type: accountType,
+    const now = new Date().toISOString();
+    const newAssets = normalizedInputs.map((item: any) => ({
+      id: `${item.provider}-${item.accountType}-${item.providerAccountId}`,
+      provider: item.provider,
+      platform: item.platform,
+      platform_label: providerConfig[item.provider as Provider]?.label || item.provider,
+      asset_type: item.accountType,
+      asset_name: item.providerAccountName || item.providerAccountId,
+      asset_id: item.providerAccountId,
+      account_id: item.providerAccountId,
+      provider_account_id: item.providerAccountId,
+      provider_account_name: item.providerAccountName || item.providerAccountId,
+      account_type: item.accountType,
       status: "connected_oauth",
       source: "customer",
       connection_mode: "oauth",
       connection_method: "oauth",
       admin_review_status: "approved",
       oauth_status: "connected",
-      last_synced_at: new Date().toISOString(),
-      metadata: body.metadata && typeof body.metadata === "object" ? body.metadata : {}
-    };
-    const nextAssets = [asset, ...currentAssets.filter((item: any) => `${item.provider || item.platform}-${item.account_type || item.asset_type}-${item.provider_account_id || item.account_id || item.asset_id}` !== `${provider}-${accountType}-${providerAccountId}`)];
+      last_synced_at: now,
+      metadata: item.metadata
+    }));
+    const newKeys = new Set(newAssets.map((item: any) => `${item.provider || item.platform}-${item.account_type || item.asset_type}-${item.provider_account_id || item.account_id || item.asset_id}`));
+    const nextAssets = [...newAssets, ...currentAssets.filter((item: any) => !newKeys.has(`${item.provider || item.platform}-${item.account_type || item.asset_type}-${item.provider_account_id || item.account_id || item.asset_id}`))];
+    const primary = newAssets[0];
     const patch = {
       company_id: session.companyId,
-      provider,
-      provider_account_id: providerAccountId,
-      provider_account_name: providerAccountName || providerAccountId,
-      account_type: accountType,
+      provider: primary.provider,
+      provider_account_id: primary.provider_account_id,
+      provider_account_name: primary.provider_account_name,
+      account_type: primary.account_type,
       status: "connected_oauth",
       source: "customer",
       connection_mode: "oauth",
       connection_method: "oauth",
       admin_review_status: "approved",
       oauth_status: "connected",
-      oauth_account_id: providerAccountId,
-      oauth_asset_id: providerAccountId,
-      oauth_asset_type: accountType,
-      scopes: Array.isArray(body.scopes) ? body.scopes.map(clean).filter(Boolean) : [],
-      metadata: body.metadata && typeof body.metadata === "object" ? body.metadata : {},
+      oauth_account_id: primary.provider_account_id,
+      oauth_asset_id: primary.provider_account_id,
+      oauth_asset_type: primary.account_type,
+      scopes: normalizedInputs.flatMap((item: any) => item.scopes),
+      metadata: primary.metadata || {},
       integration_assets: nextAssets,
-      last_synced_at: new Date().toISOString(),
+      last_synced_at: now,
       updated_by: session.profileId || null,
       created_by: existing?.created_by || session.profileId || null
     };
     const rows = await supabaseRest<any[]>("customer_integrations?on_conflict=company_id", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify(patch) });
-    return NextResponse.json({ ok: true, integration: rows[0], assets: nextAssets, message: "Seçili hesap bağlandı ve admin paneline aktarıldı." });
+    return NextResponse.json({ ok: true, integration: rows[0], assets: nextAssets, savedCount: newAssets.length, message: `${newAssets.length} hesap bağlandı ve admin paneline aktarıldı.` });
   } catch (error) {
     const safe = getSafeSupabaseError(error);
     return NextResponse.json({ error: safe.title, supabaseError: safe.detail }, { status: 500 });

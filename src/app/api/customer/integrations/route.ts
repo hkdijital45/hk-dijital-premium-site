@@ -10,7 +10,9 @@ const platformLabels: Record<string, string> = {
   tiktok: "TikTok",
   google_ads: "Google Ads",
   google_analytics: "Google Analytics",
+  youtube: "YouTube",
   search_console: "Google Search Console",
+  x_twitter: "X / Twitter",
   website_pixel: "Website / Pixel Bilgileri"
 };
 
