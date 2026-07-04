@@ -1,0 +1,17 @@
+{
+  "appName": "HK Dijital",
+  "productionUrl": "https://11245911.com",
+  "supportUrl": "https://11245911.com/iletisim",
+  "version": "1.0.0",
+  "updateCheckUrl": "",
+  "allowedHosts": [
+    "11245911.com",
+    "www.11245911.com",
+    "hkdijital.com.tr",
+    "www.hkdijital.com.tr"
+  ],
+  "platformNotes": {
+    "macos": "SwiftUI ve WKWebView ile canlı web uygulamasını açar. İmza ve notarization opsiyoneldir.",
+    "windows": ".NET WPF ve WebView2 ile canlı web uygulamasını açar. Installer için Inno Setup önerilir."
+  }
+}

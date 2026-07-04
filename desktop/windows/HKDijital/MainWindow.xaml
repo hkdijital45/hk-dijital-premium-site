@@ -1,0 +1,44 @@
+<Window x:Class="HKDijital.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        Title="HK Dijital" MinWidth="1100" MinHeight="720" Width="1280" Height="820"
+        Background="#F7F8FB">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="48" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <DockPanel Grid.Row="0" LastChildFill="False" Background="#0F172A">
+            <TextBlock Text="HK Dijital" Foreground="White" FontWeight="Bold" FontSize="16" VerticalAlignment="Center" Margin="18,0" />
+            <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" Margin="0,0,12,0">
+                <Button x:Name="BackButton" Content="Geri" Click="Back_Click" Margin="4" Padding="12,4" />
+                <Button x:Name="ForwardButton" Content="İleri" Click="Forward_Click" Margin="4" Padding="12,4" />
+                <Button Content="Yenile" Click="Refresh_Click" Margin="4" Padding="12,4" />
+            </StackPanel>
+        </DockPanel>
+
+        <wv2:WebView2 x:Name="Browser" Grid.Row="1" />
+
+        <Border x:Name="LoadingPanel" Grid.RowSpan="2" Background="#CCF8FAFC">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <ProgressBar IsIndeterminate="True" Width="260" Height="8" />
+                <TextBlock Text="Digital Center yükleniyor..." FontWeight="Bold" FontSize="18" Margin="0,18,0,0" HorizontalAlignment="Center" />
+            </StackPanel>
+        </Border>
+
+        <Border x:Name="ErrorPanel" Grid.RowSpan="2" Background="#EFFFFFFF" Visibility="Collapsed">
+            <Border Width="520" Padding="28" Background="White" CornerRadius="18" BorderBrush="#E2E8F0" BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel>
+                    <TextBlock Text="Bağlantı kurulamadı" FontWeight="Black" FontSize="26" />
+                    <TextBlock x:Name="ErrorText" Text="İnternet bağlantınızı veya HK Dijital adresini kontrol edin." TextWrapping="Wrap" Foreground="#475569" Margin="0,12,0,18" />
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="Yeniden Dene" Click="Retry_Click" Padding="16,8" Margin="0,0,8,0" />
+                        <Button Content="Destek" Click="Support_Click" Padding="16,8" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Border>
+    </Grid>
+</Window>
