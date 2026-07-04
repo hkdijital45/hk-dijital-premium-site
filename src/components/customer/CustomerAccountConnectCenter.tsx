@@ -1,8 +1,8 @@
 "use client";
-/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect */
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 
 import { useEffect, useMemo, useState } from "react";
-import { BarChart3, CheckSquare2, Globe2, ImagePlus, Megaphone, PlugZap, Search, ShieldCheck, Smartphone } from "lucide-react";
+import { BarChart3, Globe2, ImagePlus, Megaphone, Search, ShieldCheck, Smartphone } from "lucide-react";
 
 const platformCards = [
   { key: "meta", title: "Meta / Facebook", type: "meta_ads", oauthProvider: "meta", autoLabel: "Meta ile Giriş Yap", typeLabel: "Business Manager, reklam hesabı, sayfa, Instagram ve Pixel seçimi", icon: Megaphone, tone: "bg-blue-50 text-blue-700", fields: [
@@ -63,6 +63,19 @@ const oauthStatusLabel: Record<string, string> = {
   error: "Bağlantı hatası"
 };
 
+const methodLabel: Record<string, string> = {
+  oauth: "Otomatik OAuth",
+  oauth_ready: "Otomatik hazırlık",
+  manual: "Manuel bilgi",
+  demo: "Demo bağlantı"
+};
+
+const providerMissingMessages: Record<string, string> = {
+  meta: "Meta bağlantısı için uygulama ayarları henüz tamamlanmamış.",
+  google: "Google bağlantısı için OAuth ayarları henüz tamamlanmamış.",
+  tiktok: "TikTok bağlantısı için uygulama ayarları henüz tamamlanmamış."
+};
+
 function emptyForm(platform = "meta", assetType = "meta_ads") {
   return {
     platform,
@@ -79,6 +92,7 @@ function emptyForm(platform = "meta", assetType = "meta_ads") {
 export function CustomerAccountConnectCenter() {
   const [assets, setAssets] = useState<any[]>([]);
   const [active, setActive] = useState(platformCards[0]);
+  const [modeByPlatform, setModeByPlatform] = useState<Record<string, "manual" | "auto">>({});
   const [mode, setMode] = useState<"manual" | "auto">("auto");
   const [form, setForm] = useState<Record<string, string>>(emptyForm(platformCards[0].key, platformCards[0].type));
   const [loading, setLoading] = useState(false);
@@ -122,13 +136,23 @@ export function CustomerAccountConnectCenter() {
 
   function selectPlatform(card: any) {
     const current = assets.find((item) => item.platform === card.key);
+    const nextMode = modeByPlatform[card.key] || (!current || ["oauth_ready", "oauth"].includes(current?.connection_mode || current?.connection_method) ? "auto" : "manual");
     setActive(card);
     setForm({ ...emptyForm(card.key, card.type), ...(current || {}) });
-    setMode(!current || current?.connection_mode === "oauth_ready" || current?.connection_mode === "oauth" ? "auto" : "manual");
+    setMode(nextMode);
     setOauthInfo(null);
     setAssetPickerOpen(false);
     setSelectedAssetIds([]);
     setMessage("");
+  }
+
+  function changeMode(nextMode: "manual" | "auto") {
+    setMode(nextMode);
+    setModeByPlatform((current) => ({ ...current, [active.key]: nextMode }));
+    setMessage("");
+    if (nextMode === "manual") {
+      setAssetPickerOpen(false);
+    }
   }
 
   function update(key: string, value: string) {
@@ -138,11 +162,26 @@ export function CustomerAccountConnectCenter() {
   async function save() {
     setLoading(true);
     setMessage("");
+    const manualPayload = Object.fromEntries([
+      ["asset_name", form.asset_name],
+      ...active.fields.map(([key]) => [key, form[key]]),
+      ["notes", form.notes]
+    ].filter(([, value]) => String(value || "").trim() !== ""));
     try {
       const response = await fetch("/api/customer/integrations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, platform: active.key, asset_type: active.type, asset_name: form.asset_name || active.title, status: mode === "auto" ? "pending_review" : "manual_pending_review", connection_mode: mode === "auto" ? "oauth_ready" : "manual", connection_method: mode === "auto" ? "oauth_ready" : "manual" })
+        body: JSON.stringify({
+          ...form,
+          platform: active.key,
+          provider: active.oauthProvider,
+          asset_type: active.type,
+          asset_name: form.asset_name || active.title,
+          status: "manual_pending_review",
+          connection_mode: "manual",
+          connection_method: "manual",
+          manual_payload: manualPayload
+        })
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.supabaseError || payload.error || "Bilgiler kaydedilemedi.");
@@ -156,6 +195,11 @@ export function CustomerAccountConnectCenter() {
   }
 
   async function startOAuth() {
+    if (active.key === "website_pixel") {
+      changeMode("manual");
+      setMessage("Website / Pixel bilgileri manuel girilir. Manuel Bilgi Gir alanı açıldı.");
+      return;
+    }
     setOauthLoading(true);
     setMessage("Platform giriş ekranına yönlendiriliyorsunuz...");
     const returnUrl = `${window.location.origin}${window.location.pathname}?tab=hesap-bagla`;
@@ -163,6 +207,11 @@ export function CustomerAccountConnectCenter() {
   }
 
   async function loadOAuthAssets(provider = active.oauthProvider) {
+    if (active.key === "website_pixel") {
+      changeMode("manual");
+      setMessage("Website / Pixel için yetkili hesap listeleme yok. Website URL, Pixel, GTM ve Analytics bilgilerini manuel girin.");
+      return;
+    }
     setOauthLoading(true);
     setMessage("");
     try {
@@ -237,6 +286,7 @@ export function CustomerAccountConnectCenter() {
           {platformCards.map((card) => {
             const Icon = card.icon;
             const asset = assets.find((item) => item.platform === card.key);
+            const connectionMethod = asset?.connection_method || asset?.connection_mode || "";
             return (
               <button key={card.key} onClick={() => selectPlatform(card)} className={`rounded-[18px] border p-4 text-left transition hover:-translate-y-0.5 ${active.key === card.key ? "border-cyan-300 bg-cyan-50" : "border-slate-200 bg-white"}`}>
                 <div className="flex items-start gap-3">
@@ -244,7 +294,8 @@ export function CustomerAccountConnectCenter() {
                   <span>
                     <strong className="block text-slate-950">{card.title}</strong>
                     <span className="mt-1 block text-xs font-bold text-slate-500">Durum: {statusLabel[asset?.status] || "Eksik"}</span>
-                    <span className="mt-1 block text-[11px] font-bold text-slate-400">{asset?.connection_mode === "oauth_ready" ? "Otomatik bağlantı hazırlığı" : "Manuel bilgi"}</span>
+                    <span className="mt-1 block text-[11px] font-bold text-slate-400">Bağlantı yöntemi: {connectionMethod ? methodLabel[connectionMethod] || connectionMethod : "Yok"}</span>
+                    <span className="mt-1 block text-[11px] text-slate-400">Son güncelleme: {asset?.updated_at ? new Date(asset.updated_at).toLocaleDateString("tr-TR") : "Henüz yok"}</span>
                   </span>
                 </div>
               </button>
@@ -256,41 +307,53 @@ export function CustomerAccountConnectCenter() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 className="text-xl font-black text-slate-950">{active.title} bilgileri</h3>
-                  <p className="mt-1 text-sm leading-6 text-slate-600">Önce otomatik bağlantıyı deneyin. OAuth henüz aktif değilse yalnız bağlantı notu bırakabilirsiniz.</p>
+              <p className="mt-1 text-sm leading-6 text-slate-600">{active.typeLabel}. Önce bağlantı yöntemini seçin; otomatik bağlantı hazır değilse manuel bilgi girebilirsiniz.</p>
             </div>
             <button type="button" onClick={() => setMessage("Bağlantı testi talebi kaydedildi. HK Dijital ekibi kontrol edecek.")} className="rounded-full border border-cyan-200 bg-white px-4 py-2 text-xs font-black text-cyan-800">Bağlantıyı Test Et</button>
           </div>
 
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <button type="button" onClick={() => setMode("auto")} className={`rounded-[16px] border p-4 text-left transition ${mode === "auto" ? "border-cyan-300 bg-white shadow-sm" : "border-slate-200 bg-white/70"}`}>
-              <span className="flex items-center gap-2 font-black text-slate-950"><PlugZap size={18} className="text-cyan-700" /> Otomatik Bağlan</span>
-              <span className="mt-2 block text-sm leading-6 text-slate-600">{active.typeLabel}. OAuth hazırsa platform giriş akışı açılır; değilse hazırlık modu gösterilir.</span>
-            </button>
-            <button type="button" onClick={() => setMode("manual")} className={`rounded-[16px] border p-4 text-left transition ${mode === "manual" ? "border-cyan-300 bg-white shadow-sm" : "border-slate-200 bg-white/70"}`}>
-              <span className="flex items-center gap-2 font-black text-slate-950"><CheckSquare2 size={18} className="text-emerald-700" /> Bağlantı Notu Bırak</span>
-              <span className="mt-2 block text-sm leading-6 text-slate-600">Platforma göre ID, link ve not alanlarını doldurun. Access token veya şifre istemiyoruz.</span>
-            </button>
+          <div className="mt-4 rounded-[18px] border border-cyan-200 bg-white p-4">
+            <p className="text-sm font-black text-slate-950">Bağlantı yöntemi:</p>
+            <div className="mt-3 inline-flex w-full rounded-[16px] border border-slate-200 bg-slate-50 p-1 sm:w-auto">
+              <button type="button" onClick={() => changeMode("auto")} className={`flex-1 rounded-[12px] px-4 py-2 text-sm font-black transition sm:flex-none ${mode === "auto" ? "bg-cyan-500 text-white shadow-sm" : "text-slate-600 hover:bg-white"}`}>
+                Otomatik Bağlan
+              </button>
+              <button type="button" onClick={() => changeMode("manual")} className={`flex-1 rounded-[12px] px-4 py-2 text-sm font-black transition sm:flex-none ${mode === "manual" ? "bg-emerald-500 text-white shadow-sm" : "text-slate-600 hover:bg-white"}`}>
+                Manuel Bilgi Gir
+              </button>
+            </div>
+            <p className="mt-3 text-xs leading-5 text-slate-500">
+              {mode === "auto" ? "Otomatik modda sadece platform giriş ve yetkili hesap listeleme işlemleri görünür." : "Manuel modda yalnız seçili platforma ait ID, link ve not alanları görünür."}
+            </p>
           </div>
 
-          {mode === "auto" && (
+          {mode === "auto" && active.key === "website_pixel" && (
+            <div className="mt-4 rounded-[18px] border border-amber-200 bg-amber-50 p-4">
+              <h4 className="font-black text-amber-950">Website / Pixel bilgileri manuel girilir</h4>
+              <p className="mt-1 text-sm leading-6 text-amber-900">Website URL, Meta Pixel ID, Google Tag Manager ID ve Analytics ölçüm kimliği için otomatik bağlantı uygun değil.</p>
+              <button type="button" onClick={() => changeMode("manual")} className="mt-3 rounded-full bg-emerald-500 px-4 py-2 text-sm font-black text-white">Manuel Bilgi Gir</button>
+            </div>
+          )}
+
+          {mode === "auto" && active.key !== "website_pixel" && (
             <div className="mt-4 rounded-[18px] border border-blue-200 bg-blue-50 p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h4 className="font-black text-blue-950">Otomatik Bağlantı</h4>
-                  <p className="mt-1 text-sm leading-6 text-blue-900">OAuth env değerleri tanımlıysa platform giriş ekranına yönlenir, dönüşte yetkili hesaplar listelenir ve seçtiğiniz hesap kaydedilir.</p>
+                  <p className="mt-1 text-sm leading-6 text-blue-900">Platform girişini tamamladıktan sonra yetkili hesaplarınızı listeleyip seçebilirsiniz. Env ayarları eksikse manuel bilgi girişi kullanılabilir.</p>
                 </div>
                 <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-blue-800">{oauthStatusLabel[oauthInfo?.oauthStatus] || "Kontrol edilmedi"}</span>
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
-                <button type="button" onClick={startOAuth} disabled={oauthLoading} className="rounded-full bg-cyan-500 px-4 py-2 text-sm font-black text-white disabled:opacity-60">{oauthLoading ? "Kontrol ediliyor..." : active.autoLabel}</button>
+                <button type="button" onClick={startOAuth} disabled={oauthLoading} className="rounded-full bg-cyan-500 px-4 py-2 text-sm font-black text-white disabled:opacity-60">{oauthLoading ? "Kontrol ediliyor..." : active.oauthProvider === "google" ? "Google ile Giriş Yap" : active.autoLabel}</button>
                 <button type="button" onClick={loadOAuthAssets} disabled={oauthLoading} className="rounded-full border border-blue-200 bg-white px-4 py-2 text-sm font-black text-blue-800 disabled:opacity-60">Yetkili Hesapları Listele</button>
                 {oauthInfo?.authUrl && <a href={oauthInfo.authUrl} target="_blank" rel="noreferrer" className="rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-black text-emerald-800">Platform Girişini Aç</a>}
               </div>
-              {oauthInfo?.missingEnv?.length > 0 && <p className="mt-3 rounded-[12px] bg-white p-3 text-sm font-bold text-blue-900">Otomatik bağlantı için eksik env: {oauthInfo.missingEnv.join(", ")}. Manuel bilgi girebilirsiniz.</p>}
+              {oauthInfo?.missingEnv?.length > 0 && <p className="mt-3 rounded-[12px] bg-white p-3 text-sm font-bold text-blue-900">{providerMissingMessages[active.oauthProvider] || "Otomatik bağlantı ayarları henüz tamamlanmamış."} Manuel bilgi girebilirsiniz.</p>}
             </div>
           )}
 
-          {assetPickerOpen && (
+          {mode === "auto" && assetPickerOpen && (
             <div className="mt-4 rounded-[18px] border border-slate-200 bg-white p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -310,8 +373,8 @@ export function CustomerAccountConnectCenter() {
           )}
 
           {mode === "manual" && (
-            <details className="mt-4 rounded-[18px] border border-slate-200 bg-white p-4" open>
-              <summary className="cursor-pointer text-sm font-black text-slate-950">Manuel Bilgi Gir</summary>
+            <div className="mt-4 rounded-[18px] border border-emerald-200 bg-white p-4">
+              <h4 className="text-sm font-black text-slate-950">Manuel Bilgi Gir</h4>
               <p className="mt-2 text-sm leading-6 text-slate-600">Otomatik bağlantı aktif değilse platforma ait ID/link bilgilerini ekleyin. Access token, şifre veya gizli anahtar yazmayın.</p>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 <label className="grid gap-1 text-sm font-bold text-slate-700">Hesap veya sayfa adı<input value={form.asset_name || ""} onChange={(event) => update("asset_name", event.target.value)} className="min-h-11 rounded-[12px] border border-slate-200 bg-white px-3" placeholder={active.title} /></label>
@@ -321,14 +384,13 @@ export function CustomerAccountConnectCenter() {
                 <label className="md:col-span-2 grid gap-1 text-sm font-bold text-slate-700">Açıklama / not<textarea value={form.notes || ""} onChange={(event) => update("notes", event.target.value)} className="min-h-24 rounded-[12px] border border-slate-200 bg-white p-3" placeholder="Eklemek istediğiniz açıklamayı yazın." /></label>
               </div>
               <p className="mt-3 flex items-start gap-2 rounded-[14px] border border-amber-200 bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-900"><ShieldCheck size={15} />Güvenlik için bu ekranda şifre, token veya gizli anahtar paylaşmayın. Gerekirse HK Dijital ekibi güvenli yönlendirme yapar.</p>
-            </details>
+              <div className="mt-4 flex flex-wrap justify-end gap-2">
+                <button type="button" onClick={save} disabled={loading} className="rounded-full bg-cyan-500 px-5 py-3 text-sm font-black text-white disabled:opacity-60">{loading ? "Kaydediliyor..." : "Manuel Bilgileri Kaydet"}</button>
+              </div>
+            </div>
           )}
 
           {message && <p className="mt-4 rounded-[14px] border border-cyan-200 bg-white p-3 text-sm font-bold text-cyan-900">{message}</p>}
-          <div className="mt-4 flex flex-wrap justify-end gap-2">
-            <button type="button" onClick={() => setMessage("HK Dijital ekibine kontrol bildirimi hazırlandı.")} className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700">Admin’e Bildir</button>
-            <button type="button" onClick={save} disabled={loading} className="rounded-full bg-cyan-500 px-5 py-3 text-sm font-black text-white disabled:opacity-60">{loading ? "Kaydediliyor..." : mode === "auto" ? "OAuth Hazırlığını Kaydet" : "Manuel Bilgiyi Kaydet"}</button>
-          </div>
         </div>
       </div>
     </section>
