@@ -10,6 +10,7 @@ import { hasSupabaseConfig } from "@/lib/supabase";
 import { CustomerReports } from "@/components/customer/CustomerReports";
 import { CustomerAccountConnectCenter } from "@/components/customer/CustomerAccountConnectCenter";
 import { AnimatedChart, CustomerMetricCard } from "@/components/premium/PremiumUI";
+import { HKAssistantWidget } from "@/components/shared/HKAssistantWidget";
 import { Logo } from "@/components/public/Logo";
 import { getSiteContent } from "@/lib/content";
 
@@ -528,6 +529,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
           </section>
         </section>
       </div>
+      <HKAssistantWidget context="customer" />
     </main>
   );
 }

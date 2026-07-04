@@ -65,8 +65,16 @@ export function LoginForm({ desktopMode = false }: { desktopMode?: boolean }) {
   return (
     <form onSubmit={submit} className={`glass-card mx-auto w-full p-6 sm:p-8 ${desktopMode ? "max-w-md" : "max-w-xl"}`}>
       <p className="text-xs font-black uppercase tracking-[.18em] text-cyan-100">HK Dijital Güvenli Giriş</p>
-      <h2 className="mt-3 text-3xl font-black text-white">Digital Center</h2>
+      <h2 className="mt-3 text-3xl font-black text-white">Digital Center’a Giriş Yap</h2>
       <p className="mt-2 text-sm leading-6 text-slate-400">Admin operasyon merkezi ve müşteri paneli için rapor, entegrasyon, reklam performansı ve proje verilerine güvenli erişim.</p>
+
+      <div className="mt-5 grid gap-2 sm:grid-cols-2">
+        {["Google ile giriş", "Meta ile giriş"].map((item) => (
+          <button key={item} type="button" disabled className="flex min-h-11 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-4 text-sm font-black text-slate-300 opacity-80">
+            {item} <span className="rounded-full bg-amber-300 px-2 py-0.5 text-[10px] font-black text-slate-950">Yakında</span>
+          </button>
+        ))}
+      </div>
 
       <label className="mt-6 grid gap-2 text-sm font-semibold text-slate-200">
         E-posta
@@ -94,7 +102,7 @@ export function LoginForm({ desktopMode = false }: { desktopMode?: boolean }) {
       <button type="submit" disabled={loading} className="mt-6 min-h-12 w-full rounded-full bg-cyan-300 font-black text-slate-950 disabled:opacity-60">
         {loading ? "Giriş yapılıyor..." : "Digital Center’a Giriş Yap"}
       </button>
-      <p className="mt-4 text-center text-xs leading-5 text-slate-500">Rolünüze göre admin paneline veya müşteri paneline yönlendirilirsiniz. Oturum ve yetki akışı korunur.</p>
+      <p className="mt-4 text-center text-xs leading-5 text-slate-500">Müşteriyseniz hesabınız ajans tarafından oluşturulur. Rolünüze göre admin paneline veya müşteri paneline yönlendirilirsiniz.</p>
     </form>
   );
 }

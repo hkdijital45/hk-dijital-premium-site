@@ -25,6 +25,7 @@ import { CustomerIntegrationsPanel } from "@/components/admin/customer-profile/C
 import { CustomerProfileModal } from "@/components/admin/customer-profile/CustomerProfileModal";
 import { ActionResultPanel } from "@/components/admin/ActionResultPanel";
 import { AiProviderSelector } from "@/components/admin/AiProviderSelector";
+import { HKAssistantWidget } from "@/components/shared/HKAssistantWidget";
 import { Logo } from "@/components/public/Logo";
 import { adminNavigationGroups, adminNavigationItems, getAdminHref } from "@/lib/admin-navigation";
 import { canViewAccounting } from "@/lib/accounting-permissions";
@@ -933,6 +934,7 @@ export function AdminDashboard({
       <StartupApiStatusModal open={startupApiOpen} loading={startupApiLoading} data={startupApiData} message={startupApiMessage} onRetest={runStartupApiStatus} onClose={() => setStartupApiOpen(false)} onSettings={() => { setStartupApiOpen(false); setActive("API Ayarları"); }} />
       {bootVisible && <SystemBoot step={bootStep} />}
       <ToastStack items={toasts} dismiss={(id) => setToasts((current) => current.filter((toast) => toast.id !== id))} />
+      <HKAssistantWidget context="admin" />
     </main>
   );
 }

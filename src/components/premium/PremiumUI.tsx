@@ -257,9 +257,39 @@ export function ScrollScene3D({ children, className = "" }: { children: ReactNod
 }
 
 export function LoginShell3D({ children, logo }: { children: ReactNode; logo?: ReactNode }) {
-  return <section className="relative overflow-hidden px-4 py-16 sm:px-6 lg:px-8 lg:py-24"><div className="premium-grid absolute inset-0 opacity-70" /><div className="relative mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-[.95fr_1.05fr]"><div>{logo && <div className="mb-8">{logo}</div>}<p className="text-xs font-black uppercase tracking-[.24em] text-cyan-700">Digital Marketing Command Center</p><h1 className="mt-5 text-4xl font-black leading-tight text-slate-900 sm:text-6xl">HK Operating System</h1><p className="mt-3 text-sm font-black uppercase tracking-[.2em] text-amber-100">Powered by HK Dijital</p><p className="mt-5 max-w-xl text-base leading-8 text-slate-600">Müşteri panelinize veya yönetim merkezine güvenli giriş yapın. Raporlarınız, süreç notlarınız ve performans özetleriniz tek merkezde.</p></div><div>{children}</div></div></section>;
+  const cards = [
+    ["AI rapor kartı", "Raporlar sade özet ve sonraki aksiyonla okunur."],
+    ["Reklam paneli", "Meta, Google ve TikTok süreçleri tek merkezde takip edilir."],
+    ["Ajans operasyonu", "Görev, teklif, tahsilat ve müşteri notları birlikte akar."]
+  ];
+  return (
+    <section className="relative overflow-hidden bg-[#020617] px-4 py-16 text-white sm:px-6 lg:px-8 lg:py-24">
+      <div className="premium-grid absolute inset-0 opacity-60" />
+      <div className="absolute -left-24 top-16 size-72 rounded-full bg-cyan-400/20 blur-3xl" aria-hidden="true" />
+      <div className="absolute -right-24 bottom-10 size-80 rounded-full bg-violet-500/20 blur-3xl" aria-hidden="true" />
+      <div className="relative mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-[.95fr_1.05fr]">
+        <div>
+          {logo && <div className="mb-8">{logo}</div>}
+          <p className="text-xs font-black uppercase tracking-[.24em] text-cyan-200">HK Dijital Digital Center</p>
+          <h1 className="mt-5 text-4xl font-black leading-tight text-white sm:text-6xl">Ajans operasyonunuzu tek merkezden yönetin.</h1>
+          <p className="mt-3 text-sm font-black uppercase tracking-[.2em] text-amber-200">Reklam · Rapor · CRM · Hesap Bağlantıları</p>
+          <p className="mt-5 max-w-xl text-base leading-8 text-slate-300">Admin paneline veya müşteri paneline güvenli giriş yapın. Reklam performansı, raporlar, görevler ve bağlı hesaplar yetkinize göre tek ekranda görünür.</p>
+          <div className="mt-7 grid max-w-2xl gap-3 sm:grid-cols-3">
+            {cards.map(([title, text]) => (
+              <div key={title} className="rounded-[18px] border border-white/10 bg-white/[0.07] p-4 shadow-[0_24px_80px_rgba(0,0,0,.18)] backdrop-blur">
+                <p className="text-sm font-black text-cyan-100">{title}</p>
+                <p className="mt-2 text-xs leading-5 text-slate-300">{text}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-6"><PlatformSignalStrip /></div>
+        </div>
+        <div>{children}</div>
+      </div>
+    </section>
+  );
 }
 
 export function PlatformSignalStrip() {
-  return <div className="flex flex-wrap gap-2">{[["ADS", CircleDollarSign], ["AI", BrainCircuit], ["CRM", Target], ["META", BarChart3], ["GOOGLE", LineChart], ["ROAS", Gauge], ["REPORT", Sparkles], ["LEADS", CheckCircle2]].map(([label, Icon]) => <div key={String(label)} className="keyboard-key"><Icon size={14} /><span>{String(label)}</span></div>)}</div>;
+  return <div className="flex flex-wrap gap-2">{[["Reklam", CircleDollarSign], ["AI", BrainCircuit], ["CRM", Target], ["Meta", BarChart3], ["Google", LineChart], ["ROAS", Gauge], ["Rapor", Sparkles], ["Potansiyel", CheckCircle2]].map(([label, Icon]) => <div key={String(label)} className="keyboard-key"><Icon size={14} /><span>{String(label)}</span></div>)}</div>;
 }

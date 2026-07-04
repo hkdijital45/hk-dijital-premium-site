@@ -31,6 +31,10 @@ const platformCards = [
     ["ga4_property_id", "Property ID", "Google Analytics mülk kimliği."],
     ["website_url", "Web site URL", "Ölçüm yapılan web sitesi adresi."]
   ] },
+  { key: "search_console", title: "Google Search Console", type: "search_console", oauthProvider: "google", autoLabel: "Search Console Hesabını Seç", typeLabel: "Google Search Console site seçimi", icon: Search, tone: "bg-sky-50 text-sky-700", fields: [
+    ["search_console_site_url", "Search Console site adresi", "Google Search Console içindeki doğrulanmış site adresi."],
+    ["website_url", "Web site URL", "Bağlanacak ana web sitesi adresi."]
+  ] },
   { key: "website_pixel", title: "Website / Pixel Bilgileri", type: "website_pixel", oauthProvider: "meta", autoLabel: "Pixel Bağlantısını Hazırla", typeLabel: "Website, Pixel, GTM ve Search Console kontrolü", icon: Globe2, tone: "bg-cyan-50 text-cyan-700", fields: [
     ["website_url", "Web site URL", "Ana web sitesi adresiniz."],
     ["meta_pixel_id", "Meta Pixel ID", "Meta web sitesi takip kimliği."],
@@ -78,7 +82,7 @@ function emptyForm(platform = "meta", assetType = "meta_ads") {
 export function CustomerAccountConnectCenter() {
   const [assets, setAssets] = useState<any[]>([]);
   const [active, setActive] = useState(platformCards[0]);
-  const [mode, setMode] = useState<"manual" | "auto">("manual");
+  const [mode, setMode] = useState<"manual" | "auto">("auto");
   const [form, setForm] = useState<Record<string, string>>(emptyForm(platformCards[0].key, platformCards[0].type));
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState(false);
@@ -107,7 +111,7 @@ export function CustomerAccountConnectCenter() {
     const current = assets.find((item) => item.platform === card.key);
     setActive(card);
     setForm({ ...emptyForm(card.key, card.type), ...(current || {}) });
-    setMode(current?.connection_mode === "oauth_ready" || current?.connection_mode === "oauth" ? "auto" : "manual");
+    setMode(!current || current?.connection_mode === "oauth_ready" || current?.connection_mode === "oauth" ? "auto" : "manual");
     setOauthInfo(null);
     setAssetPickerOpen(false);
     setSelectedAssetIds([]);
@@ -143,7 +147,7 @@ export function CustomerAccountConnectCenter() {
     setMessage("");
     setOauthInfo(null);
     try {
-      const response = await fetch(`/api/customer/integrations/oauth/${active.oauthProvider}/start?platform=${active.key}&assetType=${active.type}`, { cache: "no-store" });
+      const response = await fetch(`/api/integrations/${active.oauthProvider}/connect?platform=${active.key}&assetType=${active.type}`, { cache: "no-store" });
       const payload = await response.json().catch(() => ({}));
       setOauthInfo(payload);
       if (!response.ok) {
@@ -223,7 +227,7 @@ export function CustomerAccountConnectCenter() {
           <h2 className="mt-2 text-2xl font-black text-slate-950">Reklam ve analiz hesaplarınızı ekleyin</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Reklam, sosyal medya ve analiz hesaplarınızı buradan ekleyin. HK Dijital ekibi bu bilgilerle rapor, reklam yorumu ve optimizasyon sürecini daha doğru yönetir.</p>
         </div>
-        <span className="rounded-full border border-cyan-200 bg-cyan-50 px-4 py-2 text-xs font-black text-cyan-800">Manuel + OAuth hazırlık modu</span>
+        <span className="rounded-full border border-cyan-200 bg-cyan-50 px-4 py-2 text-xs font-black text-cyan-800">OAuth öncelikli güvenli bağlantı</span>
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -259,7 +263,7 @@ export function CustomerAccountConnectCenter() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 className="text-xl font-black text-slate-950">{active.title} bilgileri</h3>
-              <p className="mt-1 text-sm leading-6 text-slate-600">Bağlantı yöntemini seçin. Otomatik bağlantı hazır değilse manuel bilgi girişiyle HK Dijital ekibi kontrol süreci başlar.</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">Önce otomatik bağlantıyı deneyin. OAuth henüz aktif değilse yalnız bağlantı notu bırakabilirsiniz.</p>
             </div>
             <button type="button" onClick={() => setMessage("Bağlantı testi talebi kaydedildi. HK Dijital ekibi kontrol edecek.")} className="rounded-full border border-cyan-200 bg-white px-4 py-2 text-xs font-black text-cyan-800">Bağlantıyı Test Et</button>
           </div>
@@ -270,8 +274,8 @@ export function CustomerAccountConnectCenter() {
               <span className="mt-2 block text-sm leading-6 text-slate-600">{active.typeLabel}. OAuth hazırsa platform giriş akışı açılır; değilse hazırlık modu gösterilir.</span>
             </button>
             <button type="button" onClick={() => setMode("manual")} className={`rounded-[16px] border p-4 text-left transition ${mode === "manual" ? "border-cyan-300 bg-white shadow-sm" : "border-slate-200 bg-white/70"}`}>
-              <span className="flex items-center gap-2 font-black text-slate-950"><CheckSquare2 size={18} className="text-emerald-700" /> Manuel Bilgi Gir</span>
-              <span className="mt-2 block text-sm leading-6 text-slate-600">Hesap ID, profil linki, Pixel, Analytics ve notları güvenli inceleme için kaydedin.</span>
+              <span className="flex items-center gap-2 font-black text-slate-950"><CheckSquare2 size={18} className="text-emerald-700" /> Bağlantı Notu Bırak</span>
+              <span className="mt-2 block text-sm leading-6 text-slate-600">Hesap ID, access token veya şifre istemiyoruz. Yalnız profil/website linki ve açıklama bırakabilirsiniz.</span>
             </button>
           </div>
 
@@ -311,36 +315,23 @@ export function CustomerAccountConnectCenter() {
             </div>
           )}
 
-          {mode === "manual" && <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <label className="grid gap-1 text-sm font-bold text-slate-700">Hesap adı<input value={form.asset_name || ""} onChange={(event) => update("asset_name", event.target.value)} className="min-h-11 rounded-[12px] border border-slate-200 bg-white px-3" placeholder={active.title} /></label>
-            {active.fields.map(([key, label, help]) => (
-              <label key={key} className="grid gap-1 text-sm font-bold text-slate-700">{label}<input value={form[key] || ""} onChange={(event) => update(key, event.target.value)} className="min-h-11 rounded-[12px] border border-slate-200 bg-white px-3" /><span className="text-xs font-medium text-slate-500">{help}</span></label>
-            ))}
-            <label className="md:col-span-2 grid gap-1 text-sm font-bold text-slate-700">Açıklama / not<textarea value={form.notes || ""} onChange={(event) => update("notes", event.target.value)} className="min-h-24 rounded-[12px] border border-slate-200 bg-white p-3" placeholder="Eklemek istediğiniz açıklamayı yazın." /></label>
-          </div>}
-
-          <div className="mt-5 rounded-[16px] border border-amber-200 bg-amber-50 p-4">
-            <h4 className="font-black text-amber-900">İsteğe Bağlı Erişim Notları</h4>
-            <p className="mt-1 text-sm leading-6 text-amber-900">Bu alanları doldurmak zorunlu değildir. İsterseniz sadece hesap ID ve bağlantı linklerini ekleyebilirsiniz.</p>
-            <div className="mt-3 grid gap-3 md:grid-cols-2">
-              {[
-                ["login_email", "Giriş e-postası"],
-                ["login_username", "Kullanıcı adı"],
-                ["login_password", "Şifre"],
-                ["recovery_email", "Kurtarma e-postası"],
-                ["two_factor_note", "2FA / doğrulama notu"],
-                ["access_note", "Ek açıklama"]
-              ].map(([key, label]) => (
-                <label key={key} className="grid gap-1 text-sm font-bold text-amber-950">{label}<input type={key === "login_password" ? "password" : "text"} value={form[key] || ""} onChange={(event) => update(key, event.target.value)} className="min-h-11 rounded-[12px] border border-amber-200 bg-white px-3" /></label>
-              ))}
-            </div>
-            <p className="mt-3 flex items-start gap-2 text-xs font-bold leading-5 text-amber-900"><ShieldCheck size={15} />Şifre paylaşmak zorunda değilsiniz. Dilerseniz sadece hesap ID/link bilgilerini girin.</p>
-          </div>
+          {mode === "manual" && (
+            <details className="mt-4 rounded-[18px] border border-slate-200 bg-white p-4" open>
+              <summary className="cursor-pointer text-sm font-black text-slate-950">Bağlantı notu</summary>
+              <p className="mt-2 text-sm leading-6 text-slate-600">Bu alan otomatik bağlantı aktif değilse HK Dijital ekibine yönlendirme notu bırakmak içindir. Access token, hesap ID veya şifre yazmayın.</p>
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <label className="grid gap-1 text-sm font-bold text-slate-700">Hesap veya sayfa adı<input value={form.asset_name || ""} onChange={(event) => update("asset_name", event.target.value)} className="min-h-11 rounded-[12px] border border-slate-200 bg-white px-3" placeholder={active.title} /></label>
+                <label className="grid gap-1 text-sm font-bold text-slate-700">Profil veya web site linki<input value={form.profile_url || form.website_url || ""} onChange={(event) => { update("profile_url", event.target.value); update("website_url", event.target.value); }} className="min-h-11 rounded-[12px] border border-slate-200 bg-white px-3" placeholder="https://..." /><span className="text-xs font-medium text-slate-500">Platform profilinizin veya web sitenizin bağlantısı.</span></label>
+                <label className="md:col-span-2 grid gap-1 text-sm font-bold text-slate-700">Açıklama / not<textarea value={form.notes || ""} onChange={(event) => update("notes", event.target.value)} className="min-h-24 rounded-[12px] border border-slate-200 bg-white p-3" placeholder="Eklemek istediğiniz açıklamayı yazın." /></label>
+              </div>
+              <p className="mt-3 flex items-start gap-2 rounded-[14px] border border-amber-200 bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-900"><ShieldCheck size={15} />Güvenlik için bu ekranda şifre, token veya gizli anahtar paylaşmayın. Gerekirse HK Dijital ekibi güvenli yönlendirme yapar.</p>
+            </details>
+          )}
 
           {message && <p className="mt-4 rounded-[14px] border border-cyan-200 bg-white p-3 text-sm font-bold text-cyan-900">{message}</p>}
           <div className="mt-4 flex flex-wrap justify-end gap-2">
             <button type="button" onClick={() => setMessage("HK Dijital ekibine kontrol bildirimi hazırlandı.")} className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700">Admin’e Bildir</button>
-            <button type="button" onClick={save} disabled={loading} className="rounded-full bg-cyan-500 px-5 py-3 text-sm font-black text-white disabled:opacity-60">{loading ? "Kaydediliyor..." : mode === "auto" ? "OAuth Hazırlığını Kaydet" : "Kaydet"}</button>
+            <button type="button" onClick={save} disabled={loading} className="rounded-full bg-cyan-500 px-5 py-3 text-sm font-black text-white disabled:opacity-60">{loading ? "Kaydediliyor..." : mode === "auto" ? "OAuth Hazırlığını Kaydet" : "Bağlantı Notunu Kaydet"}</button>
           </div>
         </div>
       </div>

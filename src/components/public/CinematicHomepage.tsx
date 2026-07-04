@@ -234,16 +234,21 @@ export function CinematicHomepage({ content }: { content: SiteContent }) {
         <div className="cinematic-floor-glow" aria-hidden="true" />
         <div className="relative mx-auto grid w-full max-w-7xl items-center gap-14 lg:grid-cols-[1fr_1fr]">
           <motion.div initial={reduced ? false : { opacity: 0, y: 32 }} animate={reduced ? undefined : { opacity: 1, y: 0 }} transition={{ duration: .75, ease: [0.16, 1, 0.3, 1] }} className="relative z-10">
-            <p className="cinematic-eyebrow text-xs font-black uppercase tracking-[.3em] text-amber-200">HK Dijital büyüme sistemi</p>
+            <p className="cinematic-eyebrow text-xs font-black uppercase tracking-[.3em] text-amber-200">HK Dijital SaaS ajans platformu</p>
             <h1 className="cinematic-title mt-5 text-4xl font-black leading-[.96] tracking-tight text-white sm:text-6xl lg:text-7xl">
-              Reklam vermek kolaydır.<br />Büyümeyi yönetmek zordur.
+              Reklam, Sosyal Medya ve Raporlamayı Tek Merkezden Yönet.
             </h1>
             <p className="mt-7 max-w-2xl text-base leading-8 text-slate-300 sm:text-xl">
-              HK Dijital; Meta reklamları, Google Ads, sosyal medya yönetimi, CRM, raporlama ve yapay zekâ destekli analizleri tek merkezde birleştirir.
+              HK Dijital ile Meta, Google, TikTok ve içerik süreçlerini daha düzenli takip edin; müşterileriniz için anlaşılır raporlar, görevler ve AI destekli öneriler üretin.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <CinematicButton href="/teklif-al" trackingLabel="Hero Teklif Al">Teklif Al <ArrowRight size={18} /></CinematicButton>
-              <CinematicButton href="/digital-center" variant="ghost" trackingLabel="Hero Demo Gör">Demo Gör <MousePointerClick size={18} /></CinematicButton>
+              <CinematicButton href="/teklif-al" trackingLabel="Hero Ön Görüşme Al">Ücretsiz Ön Görüşme Al <ArrowRight size={18} /></CinematicButton>
+              <CinematicButton href="/digital-center" variant="ghost" trackingLabel="Hero Digital Center Giriş">Digital Center’a Giriş Yap <MousePointerClick size={18} /></CinematicButton>
+            </div>
+            <div className="mt-6 flex flex-wrap gap-2 text-xs font-black text-slate-300">
+              {["Meta", "Instagram", "TikTok", "YouTube", "Google Ads", "Google Analytics"].map((item) => (
+                <span key={item} className="rounded-full border border-cyan-200/20 bg-white/[0.06] px-3 py-2 shadow-[0_0_24px_rgba(34,211,238,.08)]">{item}</span>
+              ))}
             </div>
           </motion.div>
 
