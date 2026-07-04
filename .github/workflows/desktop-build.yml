@@ -1,0 +1,63 @@
+name: Desktop Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  macos-dmg:
+    name: Build macOS DMG
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build DMG
+        run: npm run desktop:mac
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HK-Dijital.dmg
+          path: desktop/dist/macos/HK-Dijital.dmg
+          if-no-files-found: error
+
+  windows-exe:
+    name: Build Windows EXE
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Install Inno Setup
+        shell: powershell
+        run: choco install innosetup --yes --no-progress
+
+      - name: Add Inno Setup to PATH
+        shell: powershell
+        run: echo "C:\Program Files (x86)\Inno Setup 6" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Build EXE installer
+        shell: powershell
+        run: npm run desktop:win
+
+      - name: Upload EXE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HK-Dijital-Setup.exe
+          path: desktop/dist/windows/HK-Dijital-Setup.exe
+          if-no-files-found: error

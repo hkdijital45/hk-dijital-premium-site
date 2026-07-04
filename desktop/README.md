@@ -6,7 +6,7 @@ Ana mantık:
 
 - macOS: SwiftUI + WKWebView wrapper
 - Windows: .NET WPF + WebView2 wrapper
-- Uygulama canlı Vercel/production URL'ini açar.
+- Uygulama canlı production URL'ini açar: `https://hkdijital.com.tr`
 - Web tarafı Vercel'e deploy edildiğinde masaüstü uygulama yeni web sürümünü otomatik gösterir.
 - Native wrapper token, şifre veya refresh token saklamaz.
 
@@ -17,12 +17,21 @@ Ana mantık:
 Varsayılan production URL:
 
 ```text
-https://11245911.com
+https://hkdijital.com.tr
 ```
 
-Bu değeri değiştirip paketleri yeniden üretmeniz yeterlidir.
+Allowlist yalnız şu hostları içerir:
+
+```text
+hkdijital.com.tr
+www.hkdijital.com.tr
+```
+
+Production URL değişirse config güncellenmeli ve paketler yeniden üretilmelidir.
 
 ## macOS .dmg
+
+Lokal macOS build:
 
 ```bash
 npm run desktop:mac
@@ -41,7 +50,7 @@ Gereksinimler:
 - `swiftc`
 - `hdiutil`
 
-Apple imza/notarization yoksa kullanıcı Gatekeeper uyarısı görebilir.
+Apple imza/notarization yoksa kullanıcı macOS Gatekeeper uyarısı görebilir. Müşteriye dağıtım için Apple Developer sertifikasıyla imza ve notarization önerilir.
 
 ## Windows .exe Installer
 
@@ -64,7 +73,28 @@ Gereksinimler:
 - WebView2 Runtime
 - Inno Setup (`iscc`)
 
-Code signing yoksa SmartScreen uyarısı çıkabilir.
+Code signing yoksa Windows SmartScreen uyarısı çıkabilir. Müşteriye dağıtım için imzalı installer önerilir.
+
+## GitHub Actions ile DMG/EXE Üretimi
+
+Workflow dosyası:
+
+```text
+.github/workflows/desktop-build.yml
+```
+
+Manuel çalıştırma:
+
+1. GitHub repository sayfasına girin.
+2. `Actions` sekmesini açın.
+3. `Desktop Build` workflow'unu seçin.
+4. `Run workflow` butonuyla çalıştırın.
+5. Job tamamlanınca run detayındaki `Artifacts` bölümünden dosyaları indirin.
+
+Artifact isimleri:
+
+- `HK-Dijital.dmg`
+- `HK-Dijital-Setup.exe`
 
 ## Harici Link ve Domain Güvenliği
 
@@ -81,4 +111,8 @@ Dosyaları ekleyin:
 - `desktop/shared/icons/AppIcon.icns`
 - `desktop/shared/icons/AppIcon.ico`
 
-Sonra ilgili build komutunu yeniden çalıştırın.
+Sonra ilgili build komutunu veya GitHub Actions workflow'unu yeniden çalıştırın.
+
+## Git'e Eklenmeyen Çıktılar
+
+`desktop/dist/`, `desktop/build/` ve `desktop/windows/publish/` build çıktıları Git'e eklenmez. Dağıtım dosyaları GitHub Actions artifact olarak üretilir.

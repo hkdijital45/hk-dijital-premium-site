@@ -6,7 +6,9 @@ $PublishDir = Join-Path $Root "desktop\windows\publish"
 $DistDir = Join-Path $Root "desktop\dist\windows"
 $Installer = Join-Path $DistDir "HK-Dijital-Setup.exe"
 
-if (-not $IsWindows) {
+$IsRunningOnWindows = [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Runtime.InteropServices.OSPlatform]::Windows)
+
+if (-not $IsRunningOnWindows) {
   Write-Error "Windows .exe installer build'i Windows üzerinde çalışır. Bu script Windows + .NET SDK + WebView2 + Inno Setup gerektirir."
 }
 

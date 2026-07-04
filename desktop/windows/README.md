@@ -2,6 +2,12 @@
 
 Bu yapı Electron veya PWA kullanmaz. .NET WPF + Microsoft WebView2 ile canlı HK Dijital web uygulamasını açan hafif native wrapper üretir.
 
+Canlı URL:
+
+```text
+https://hkdijital.com.tr
+```
+
 ## Gereksinimler
 
 - Windows 10/11
@@ -10,7 +16,7 @@ Bu yapı Electron veya PWA kullanmaz. .NET WPF + Microsoft WebView2 ile canlı H
 - Inno Setup, `iscc` komutu PATH içinde olmalı
 - Code signing sertifikası opsiyonel
 
-## Build
+## Lokal Build
 
 PowerShell:
 
@@ -36,12 +42,19 @@ Inno Setup yoksa installer üretilemez; ancak publish çıktısı burada oluşur
 desktop/windows/publish/
 ```
 
+## GitHub Actions Build
+
+1. GitHub'da `Actions` sekmesine gidin.
+2. `Desktop Build` workflow'unu açın.
+3. `Run workflow` ile manuel çalıştırın.
+4. `windows-exe` job tamamlanınca artifact bölümünden `HK-Dijital-Setup.exe` dosyasını indirin.
+
 ## Production URL
 
 URL `desktop/shared/desktop-config.json` içindeki `productionUrl` alanından okunur. Test için environment override:
 
 ```powershell
-$env:HK_DESKTOP_APP_URL="https://11245911.com"
+$env:HK_DESKTOP_APP_URL="https://hkdijital.com.tr"
 powershell -ExecutionPolicy Bypass -File desktop/windows/build-exe.ps1
 ```
 
