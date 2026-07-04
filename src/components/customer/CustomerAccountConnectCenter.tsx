@@ -76,6 +76,19 @@ const providerMissingMessages: Record<string, string> = {
   tiktok: "TikTok bağlantısı için uygulama ayarları henüz tamamlanmamış."
 };
 
+const integrationErrorMessages: Record<string, string> = {
+  meta_env_missing: "Meta bağlantısı için uygulama ayarları eksik. Manuel bilgi girebilir veya HK Dijital ekibinden kurulum isteyebilirsiniz.",
+  google_env_missing: "Google bağlantısı için OAuth ayarları eksik. Manuel bilgi girebilir veya HK Dijital ekibinden kurulum isteyebilirsiniz.",
+  tiktok_env_missing: "TikTok bağlantısı için uygulama ayarları eksik. Manuel bilgi girebilir veya HK Dijital ekibinden kurulum isteyebilirsiniz.",
+  session_missing: "Oturum doğrulanamadı. Lütfen panelden çıkış yapıp tekrar giriş yapın.",
+  company_mismatch: "Bağlantı isteği bu müşteri oturumuyla eşleşmiyor.",
+  state_invalid: "OAuth güvenlik doğrulaması başarısız oldu. Lütfen bağlantıyı yeniden başlatın.",
+  token_exchange_failed: "Platform girişinden sonra erişim doğrulaması tamamlanamadı.",
+  permission_denied: "Platform izni verilmedi veya bağlantı iptal edildi.",
+  accounts_fetch_failed: "Yetkili hesaplar alınamadı. Platform izinlerini kontrol edin.",
+  oauth_session_missing: "Yetkili hesapları listelemek için önce platform girişini tamamlayın."
+};
+
 function emptyForm(platform = "meta", assetType = "meta_ads") {
   return {
     platform,
@@ -113,11 +126,13 @@ export function CustomerAccountConnectCenter() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const provider = params.get("oauth_provider");
+    const provider = params.get("integration_provider") || params.get("oauth_provider");
     const status = params.get("oauth_status");
-    const error = params.get("oauth_error");
-    if (error) setMessage(error === "oauth_not_configured" ? "Otomatik bağlantı için gerekli ortam değişkenleri eksik. Manuel bilgi girebilir veya ajans ekibinden kurulum isteyebilirsiniz." : "Otomatik bağlantı tamamlanamadı. Lütfen tekrar deneyin veya manuel bilgi girin.");
-    if (provider && status === "accounts_ready") {
+    const error = params.get("integration_error") || params.get("oauth_error");
+    const success = params.get("integration_success");
+    if (error) setMessage(integrationErrorMessages[error] || "Otomatik bağlantı tamamlanamadı. Lütfen tekrar deneyin veya manuel bilgi girin.");
+    if (success && provider) setMessage("Bağlantı başarılı. Yetkili hesaplarınızı listeleyebilirsiniz.");
+    if (provider && (status === "accounts_ready" || success)) {
       const card = platformCards.find((item) => item.oauthProvider === provider);
       if (card) {
         setActive(card);
@@ -202,8 +217,20 @@ export function CustomerAccountConnectCenter() {
     }
     setOauthLoading(true);
     setMessage("Platform giriş ekranına yönlendiriliyorsunuz...");
-    const returnUrl = `${window.location.origin}${window.location.pathname}?tab=hesap-bagla`;
-    window.location.href = `/api/integrations/${active.oauthProvider}/connect?platform=${encodeURIComponent(active.key)}&assetType=${encodeURIComponent(active.type)}&returnUrl=${encodeURIComponent(returnUrl)}`;
+    const currentParams = new URLSearchParams(window.location.search);
+    const companyId = currentParams.get("company") || currentParams.get("customer") || currentParams.get("customerId") || assets.find((item) => item.company_id || item.customer_id)?.company_id || assets.find((item) => item.company_id || item.customer_id)?.customer_id || "";
+    const returnParams = new URLSearchParams(window.location.search);
+    ["integration_error", "integration_success", "integration_provider", "integration_message", "oauth_error", "oauth_provider", "oauth_status", "missing_env"].forEach((key) => returnParams.delete(key));
+    if (companyId) returnParams.set("company", String(companyId));
+    const query = returnParams.toString();
+    const returnTo = `${window.location.pathname}${query ? `?${query}` : ""}#hesap-bagla`;
+    const connectParams = new URLSearchParams({
+      platform: active.key,
+      assetType: active.type,
+      returnTo
+    });
+    if (companyId) connectParams.set("company", String(companyId));
+    window.location.href = `/api/integrations/${active.oauthProvider}/connect?${connectParams.toString()}`;
   }
 
   async function loadOAuthAssets(provider = active.oauthProvider) {

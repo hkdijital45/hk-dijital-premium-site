@@ -10,7 +10,7 @@ type OAuthState = {
   provider: Provider;
   platform: string;
   customerId: string;
-  returnUrl: string;
+  returnTo: string;
   nonce: string;
   exp: number;
 };
@@ -54,6 +54,31 @@ function clean(value: unknown) {
 function baseUrl(request: Request) {
   const url = new URL(request.url);
   return `${url.protocol}//${url.host}`;
+}
+
+function wantsJson(request: Request) {
+  return request.headers.get("accept")?.includes("application/json") || new URL(request.url).searchParams.get("format") === "json";
+}
+
+function safeReturnTo(value: string, fallback = "/musteri-paneli#hesap-bagla") {
+  const raw = clean(value) || fallback;
+  try {
+    const parsed = new URL(raw, "https://hkdijital.local");
+    return `${parsed.pathname}${parsed.search}${parsed.hash || "#hesap-bagla"}`;
+  } catch {
+    return fallback;
+  }
+}
+
+function redirectWithIntegrationError(request: Request, returnTo: string, provider: Provider, code: string, params: Record<string, string> = {}) {
+  const target = new URL(safeReturnTo(returnTo), baseUrl(request));
+  target.searchParams.set("integration_provider", provider);
+  target.searchParams.set("integration_error", code);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) target.searchParams.set(key, value);
+  });
+  if (!target.hash) target.hash = "hesap-bagla";
+  return NextResponse.redirect(target);
 }
 
 function firstEnv(keys: string[]) {
@@ -204,22 +229,36 @@ export async function oauthStart(provider: Provider, request: Request) {
 export async function oauthConnect(provider: Provider, request: Request) {
   const session = await requireCustomerSession();
   const url = new URL(request.url);
-  const returnUrl = clean(url.searchParams.get("returnUrl")) || "/musteri-paneli?tab=hesap-bagla";
-  if (!session) return NextResponse.redirect(new URL(`/digital-center?error=yetkisiz`, baseUrl(request)));
+  const returnTo = safeReturnTo(clean(url.searchParams.get("returnTo")) || clean(url.searchParams.get("returnUrl")) || "/musteri-paneli#hesap-bagla");
+  if (!session) {
+    if (wantsJson(request)) {
+      return NextResponse.json({ ok: false, error: "SESSION_MISSING", message: "Oturum doğrulanamadı. Lütfen panelden çıkış yapıp tekrar giriş yapın." }, { status: 401 });
+    }
+    return redirectWithIntegrationError(request, returnTo, provider, "session_missing");
+  }
+  const requestedCompany = clean(url.searchParams.get("company") || url.searchParams.get("customerId"));
+  if (requestedCompany && requestedCompany !== session.companyId) {
+    if (wantsJson(request)) return NextResponse.json({ ok: false, error: "COMPANY_MISMATCH", message: "Bu bağlantı isteği mevcut müşteri oturumuyla eşleşmiyor." }, { status: 403 });
+    return redirectWithIntegrationError(request, returnTo, provider, "company_mismatch");
+  }
   const missing = missingProviderEnv(provider);
   if (missing.length) {
-    const target = new URL(returnUrl, baseUrl(request));
-    target.searchParams.set("oauth_provider", provider);
-    target.searchParams.set("oauth_error", "oauth_not_configured");
-    target.searchParams.set("missing_env", missing.join(","));
-    return NextResponse.redirect(target);
+    const errorCode = `${provider}_env_missing`;
+    if (wantsJson(request)) {
+      return NextResponse.json({ ok: false, error: errorCode.toUpperCase(), provider, missingEnv: missing, message: `${providerConfig[provider].label} bağlantısı için uygulama ayarları eksik.` }, { status: 501 });
+    }
+    return redirectWithIntegrationError(request, returnTo, provider, errorCode, { missing_env: missing.join(",") });
   }
   const config = providerConfig[provider];
   const credentials = providerCredentials(provider);
   const platform = clean(url.searchParams.get("platform")) || provider;
   const nonce = crypto.randomBytes(18).toString("base64url");
-  const state = encodeState({ provider, platform, customerId: session.companyId, returnUrl, nonce, exp: Date.now() + 10 * 60 * 1000 });
-  const params = new URLSearchParams({
+  const state = encodeState({ provider, platform, customerId: session.companyId, returnTo, nonce, exp: Date.now() + 10 * 60 * 1000 });
+  const params = new URLSearchParams(provider === "tiktok" ? {
+    app_id: credentials.clientId,
+    redirect_uri: credentials.redirectUri,
+    state
+  } : {
     client_id: credentials.clientId,
     redirect_uri: credentials.redirectUri,
     response_type: "code",
@@ -230,6 +269,7 @@ export async function oauthConnect(provider: Provider, request: Request) {
     params.set("access_type", "offline");
     params.set("prompt", "consent");
   }
+  if (provider === "tiktok") params.set("scope", config.scope);
   const response = NextResponse.redirect(`${config.authBase}?${params.toString()}`);
   response.cookies.set(`hk_oauth_state_${provider}`, nonce, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 600, path: "/" });
   return response;
@@ -267,35 +307,36 @@ async function exchangeCode(provider: Provider, code: string) {
 
 export async function oauthCallback(provider: Provider, request: Request) {
   const session = await requireCustomerSession();
-  if (!session) return NextResponse.json({ error: "Müşteri oturumu gerekir." }, { status: 403 });
-  if (missingProviderEnv(provider).length) return notConfigured(provider);
   const url = new URL(request.url);
   const code = clean(url.searchParams.get("code"));
+  const providerError = clean(url.searchParams.get("error"));
   const rawState = clean(url.searchParams.get("state"));
   const state = decodeState(rawState);
+  const returnTo = safeReturnTo(state?.returnTo || "/musteri-paneli#hesap-bagla");
+  if (!session) return redirectWithIntegrationError(request, returnTo, provider, "session_missing");
+  if (missingProviderEnv(provider).length) return redirectWithIntegrationError(request, returnTo, provider, `${provider}_env_missing`);
   const cookieStore = await cookies();
   const expectedNonce = cookieStore.get(`hk_oauth_state_${provider}`)?.value;
-  const returnUrl = state?.returnUrl || "/musteri-paneli?tab=hesap-bagla";
-  const target = new URL(returnUrl, baseUrl(request));
+  const target = new URL(returnTo, baseUrl(request));
+  if (providerError) {
+    return redirectWithIntegrationError(request, returnTo, provider, "permission_denied", { integration_message: providerError });
+  }
   if (!code || !state || state.provider !== provider || state.customerId !== session.companyId || state.nonce !== expectedNonce) {
-    target.searchParams.set("oauth_provider", provider);
-    target.searchParams.set("oauth_error", "state_invalid");
-    return NextResponse.redirect(target);
+    return redirectWithIntegrationError(request, returnTo, provider, "state_invalid");
   }
   try {
     const token = await exchangeCode(provider, code);
     const expiresAt = token.expiresIn ? new Date(Date.now() + Number(token.expiresIn) * 1000).toISOString() : "";
-    target.searchParams.set("oauth_provider", provider);
+    target.searchParams.set("integration_provider", provider);
+    target.searchParams.set("integration_success", provider);
     target.searchParams.set("oauth_status", "accounts_ready");
+    if (!target.hash) target.hash = "hesap-bagla";
     const response = NextResponse.redirect(target);
     response.cookies.delete(`hk_oauth_state_${provider}`);
     response.cookies.set(`hk_oauth_session_${provider}`, encryptSession({ provider, customerId: session.companyId, accessToken: token.accessToken, expiresAt, scope: token.scope }), { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 900, path: "/" });
     return response;
   } catch (error) {
-    target.searchParams.set("oauth_provider", provider);
-    target.searchParams.set("oauth_error", "token_exchange_failed");
-    target.searchParams.set("oauth_message", error instanceof Error ? error.message : "OAuth token alınamadı.");
-    return NextResponse.redirect(target);
+    return redirectWithIntegrationError(request, returnTo, provider, "token_exchange_failed", { integration_message: error instanceof Error ? error.message : "OAuth token alınamadı." });
   }
 }
 
