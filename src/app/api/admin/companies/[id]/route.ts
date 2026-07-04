@@ -20,21 +20,34 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
   const { id } = await context.params;
   const payload = await request.json();
-  const patch = {
-    name: payload.name || "",
-    sector: payload.sector || "",
-    city: payload.city || "",
-    website: payload.website || "",
-    instagram: payload.instagram || "",
-    phone: payload.phone || "",
-    email: payload.email || "",
-    status: payload.status || "Aktif",
-    is_active: payload.status === "Pasif" || payload.is_active === false ? false : true,
-    notes: payload.notes || "",
-    updated_at: new Date().toISOString()
-  };
+  const editableFields = [
+    "name",
+    "sector",
+    "custom_sector",
+    "city",
+    "website",
+    "instagram",
+    "phone",
+    "email",
+    "status",
+    "notes",
+    "contact_name",
+    "authorized_person",
+    "sales_status",
+    "pipeline_stage",
+    "lifecycle_stage",
+    "last_contact_at",
+    "next_action_at",
+    "next_action",
+    "follow_up_note"
+  ];
+  const patch: Record<string, any> = { updated_at: new Date().toISOString() };
+  for (const field of editableFields) {
+    if (field in payload) patch[field] = payload[field] === "" && ["last_contact_at", "next_action_at"].includes(field) ? null : payload[field];
+  }
+  if ("status" in patch || "is_active" in payload) patch.is_active = patch.status === "Pasif" || payload.is_active === false ? false : true;
 
-  if (!patch.name.trim()) {
+  if ("name" in patch && !String(patch.name || "").trim()) {
     return NextResponse.json({ error: "Zorunlu alan eksik", supabaseError: "Firma adı zorunludur." }, { status: 400 });
   }
 
@@ -43,7 +56,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       method: "PATCH",
       body: JSON.stringify(patch)
     });
-    await recordActivity({ session, action: "Güncelleme", entity: "Firma", entityId: id, companyId: id, details: { message: `${patch.name} firması güncellendi` } });
+    await recordActivity({ session, action: "Güncelleme", entity: "Firma", entityId: id, companyId: id, details: { message: `${patch.name || id} müşteri profili güncellendi` } });
     return NextResponse.json({ ok: true, company: rows[0] });
   } catch (error) {
     const safeError = getSafeSupabaseError(error);

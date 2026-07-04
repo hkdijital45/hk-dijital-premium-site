@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { ActionResultPanel } from "@/components/admin/ActionResultPanel";
 import type { ActionResult } from "@/lib/action-result";
@@ -74,6 +74,8 @@ const profileTabs = [
   "Genel Bilgi",
   "Müşteri Kurulumu",
   "Entegrasyonlar",
+  "Bağlantı Bilgileri",
+  "Büyüme",
   "Marka Varlıkları",
   "İletişim",
   "Satış Durumu",
@@ -115,6 +117,71 @@ const emptyBranchForm = {
   status: "active",
   notes: ""
 };
+
+const editableProfileTabs = new Set(["Genel Bilgi", "İletişim", "Satış Durumu", "Müşteri Kurulumu", "Notlar"]);
+
+function toProfileForm(company: any) {
+  return {
+    name: company?.name || "",
+    sector: company?.sector || "",
+    custom_sector: company?.custom_sector || company?.sector_other || "",
+    city: company?.city || "",
+    website: company?.website || "",
+    instagram: company?.instagram || "",
+    phone: formatTurkishPhone(company?.phone || ""),
+    email: company?.email || "",
+    status: company?.status || "Aktif",
+    notes: company?.notes || "",
+    contact_name: company?.contact_name || company?.authorized_person || "",
+    sales_status: company?.sales_status || "",
+    pipeline_stage: company?.pipeline_stage || company?.lifecycle_stage || "",
+    last_contact_at: company?.last_contact_at ? String(company.last_contact_at).slice(0, 10) : "",
+    next_action_at: company?.next_action_at ? String(company.next_action_at).slice(0, 10) : "",
+    next_action: company?.next_action || "",
+    follow_up_note: company?.follow_up_note || ""
+  };
+}
+
+function profilePayload(form: Record<string, any>) {
+  return {
+    name: form.name,
+    sector: form.custom_sector || form.sector,
+    custom_sector: form.custom_sector,
+    city: form.city,
+    website: form.website,
+    instagram: form.instagram,
+    phone: normalizePhoneInput(form.phone),
+    email: form.email,
+    status: form.status,
+    notes: form.notes,
+    contact_name: form.contact_name,
+    lifecycle_stage: form.pipeline_stage,
+    sales_status: form.sales_status,
+    pipeline_stage: form.pipeline_stage,
+    last_contact_at: form.last_contact_at || null,
+    next_action_at: form.next_action_at || null,
+    next_action: form.next_action,
+    follow_up_note: form.follow_up_note
+  };
+}
+
+function FieldBox({ label, children, help }: { label: string; children: ReactNode; help?: string }) {
+  return (
+    <label className="grid gap-1 text-sm font-bold text-slate-700">
+      {label}
+      {children}
+      {help && <span className="text-xs font-medium text-slate-500">{help}</span>}
+    </label>
+  );
+}
+
+function TextInput({ value, onChange, type = "text", placeholder = "" }: { value: string; onChange: (value: string) => void; type?: string; placeholder?: string }) {
+  return <input type={type} value={value || ""} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="min-h-11 rounded-[12px] border border-slate-200 bg-white px-3 text-slate-900 outline-none focus:ring-2 focus:ring-cyan-300" />;
+}
+
+function TextBox({ value, onChange, placeholder = "" }: { value: string; onChange: (value: string) => void; placeholder?: string }) {
+  return <textarea value={value || ""} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="min-h-24 rounded-[12px] border border-slate-200 bg-white p-3 text-slate-900 outline-none focus:ring-2 focus:ring-cyan-300" />;
+}
 
 function statusLabel(status: string, isActive?: boolean) {
   if (status === "passive" || isActive === false) return "Pasif";
@@ -169,6 +236,11 @@ export function CustomerProfileModal({
 }) {
   const profileHealth = health || defaultHealth(company, content);
   const integration = integrationSummary(company, content);
+  const integrationAssets = Array.isArray(integration?.integration_assets)
+    ? integration.integration_assets
+    : Array.isArray(integration?.assets)
+      ? integration.assets
+      : (content?.customerIntegrations || []).filter((item: any) => item.company_id === company?.id);
   const tasks = (content?.agencyTasks || []).filter((item: any) => item.company_id === company?.id);
   const reports = (content?.reports || []).filter((item: any) => item.company_id === company?.id);
   const payments = (content?.paymentRecords || []).filter((item: any) => item.company_id === company?.id);
@@ -185,6 +257,12 @@ export function CustomerProfileModal({
   const [actionResult, setActionResult] = useState<ActionResult | null>(null);
   const [branchAction, setBranchAction] = useState<any>(null);
   const [activeProfileTab, setActiveProfileTab] = useState("Genel Bilgi");
+  const [profileCompanyId, setProfileCompanyId] = useState(company?.id || "");
+  const [profileForm, setProfileForm] = useState<Record<string, any>>(() => toProfileForm(company));
+  const [profileDirty, setProfileDirty] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMessage, setProfileMessage] = useState("");
+  const [lastSavedAt, setLastSavedAt] = useState("");
   const branches = localBranches;
   const latestApplication = applications[0] || {};
   const missingIntegrations = [
@@ -195,9 +273,22 @@ export function CustomerProfileModal({
     !integration.search_console_site_url ? "Search Console" : ""
   ].filter(Boolean);
 
+  if (company?.id && profileCompanyId !== company.id) {
+    setProfileCompanyId(company.id);
+    setProfileForm(toProfileForm(company));
+    setProfileDirty(false);
+    setProfileMessage("");
+    setLastSavedAt("");
+  }
+
+  const requestClose = useCallback(() => {
+    if (profileDirty && !window.confirm("Kaydedilmemiş değişiklikler var. Kapatmak istediğinize emin misiniz?")) return;
+    onClose();
+  }, [onClose, profileDirty]);
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") requestClose();
     };
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -206,9 +297,51 @@ export function CustomerProfileModal({
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = previous;
     };
-  }, [onClose]);
+  }, [requestClose]);
 
   if (!company) return null;
+
+  function updateProfile(key: string, value: string) {
+    setProfileForm((current) => ({ ...current, [key]: value }));
+    setProfileDirty(true);
+    setProfileMessage("");
+  }
+
+  async function saveProfile() {
+    if (!company?.id || !profileDirty) return;
+    setProfileSaving(true);
+    setProfileMessage("");
+    try {
+      const response = await fetch(`/api/admin/companies/${encodeURIComponent(company.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(profilePayload(profileForm))
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.supabaseError || payload.error || "Müşteri bilgileri kaydedilemedi.");
+      setProfileDirty(false);
+      setLastSavedAt(new Date().toLocaleString("tr-TR"));
+      setProfileMessage("Müşteri bilgileri kaydedildi.");
+      setActionResult({
+        title: "Müşteri profili güncellendi",
+        status: "success",
+        summary: `${profileForm.name || company.name} için profil bilgileri kaydedildi.`,
+        nextActions: ["Değişiklikleri müşteri listesinde kontrol edin.", "Entegrasyon veya rapor sekmelerinde ilgili aksiyona devam edin."],
+        customerVisibility: { showToCustomer: false, label: "Sadece admin" },
+        technicalDetails: { endpoint: `/api/admin/companies/${company.id}`, scope: "customer_profile_partial_update" }
+      } as ActionResult);
+    } catch (error) {
+      setProfileMessage(error instanceof Error ? error.message : "Müşteri bilgileri kaydedilemedi.");
+    } finally {
+      setProfileSaving(false);
+    }
+  }
+
+  function cancelProfileChanges() {
+    setProfileForm(toProfileForm(company));
+    setProfileDirty(false);
+    setProfileMessage("Değişiklikler geri alındı.");
+  }
 
   function openBranchForm(branch?: any) {
     setBranchEditor(branch || null);
@@ -302,6 +435,33 @@ export function CustomerProfileModal({
         { title: "Web analitiği", lines: [`Website: ${company.website || "Yok"}`, `Search Console: ${integration.search_console_site_url ? "Var" : "Eksik"}`, `GTM: ${integration.gtm_container_id ? "Var" : "Eksik"}`, `Analytics durumu: ${integration.setup_progress || 0}%`] }
       ];
     }
+    if (activeProfileTab === "Bağlantı Bilgileri") {
+      const sensitiveCount = integrationAssets.filter((item: any) => item.login_email || item.login_username || item.login_password || item.access_note || item.sensitive_metadata).length;
+      const lastSyncedAsset = integrationAssets.find((item: any) => item.last_synced_at);
+      return [
+        {
+          title: "Bağlı hesap özeti",
+          lines: [
+            `Toplam bağlantı: ${integrationAssets.length}`,
+            `Kontrol bekleyen: ${integrationAssets.filter((item: any) => ["pending_review", "waiting", "Kontrol Bekliyor"].includes(item.status || item.admin_review_status)).length}`,
+            `Hassas bilgi içeren: ${sensitiveCount}`,
+            `Son senkronizasyon: ${lastSyncedAsset?.last_synced_at ? new Date(lastSyncedAsset.last_synced_at).toLocaleString("tr-TR") : "Yok"}`
+          ]
+        },
+        {
+          title: "Platform kayıtları",
+          lines: integrationAssets.length
+            ? integrationAssets.slice(0, 5).map((item: any) => `${item.platform || item.provider || "Platform"} · ${item.asset_type || item.account_type || "Varlık"} · ${item.provider_account_name || item.asset_name || item.account_id || item.provider_account_id || "Hesap adı yok"} · ${item.connection_method || item.connection_mode || item.source || "Manuel"}`)
+            : ["Bu müşteri henüz hesap bilgisi eklemedi.", "Müşteri panelindeki Hesap Bağla alanından veya Entegrasyon Merkezi’nden eklenebilir."]
+        }
+      ];
+    }
+    if (activeProfileTab === "Büyüme") {
+      return [
+        { title: "Büyüme özeti", lines: [`Sağlık skoru: ${profileHealth.score}/100`, `Durum: ${profileHealth.status}`, `Açık görev: ${tasks.filter((item: any) => !["Tamamlandı", "İptal"].includes(item.status)).length}`, `Eksik entegrasyon: ${missingIntegrations.length ? missingIntegrations.join(", ") : "Yok"}`] },
+        { title: "Önerilen aksiyon", lines: [`İlk iş: ${missingIntegrations.length ? "Entegrasyonları tamamla" : overduePayments.length ? "Tahsilatı kontrol et" : "Büyüme planını güncelle"}`, `7 günlük plan: ${(latestApplication.seven_day_plan || []).length || "Hazırlanmalı"} adım`, `30 günlük plan: ${(latestApplication.thirty_day_plan || []).length || "Hazırlanmalı"} hafta`] }
+      ];
+    }
     if (activeProfileTab === "İletişim") {
       return [
         { title: "İletişim", lines: [`Yetkili: ${company.contact_name || company.authorized_person || "Yok"}`, `E-posta: ${company.email || "Yok"}`, `Telefon: ${formatTurkishPhone(company.phone) || "Yok"}`, `Instagram: ${company.instagram || "Yok"}`] },
@@ -332,8 +492,69 @@ export function CustomerProfileModal({
     ];
   }
 
+  function profileFormSection() {
+    if (!editableProfileTabs.has(activeProfileTab)) {
+      return (
+        <section className="mt-5 rounded-[18px] border border-dashed border-slate-200 bg-slate-50 p-5">
+          <h3 className="font-black text-slate-950">Bu bölüm bilgilendirme amaçlıdır</h3>
+          <p className="mt-2 text-sm leading-6 text-slate-600">{activeProfileTab} sekmesinde düzenlenebilir alan yoksa kayıtlar ilgili modülde yönetilir. Alt sabit kaydet butonu yalnız profil formunda değişiklik olduğunda aktifleşir.</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="button" onClick={() => onGo?.("Müşteriler", "İlgili müşteri modülü açıldı.")} className="rounded-full border border-cyan-200 bg-white px-4 py-2 text-xs font-black text-cyan-700">İlgili modüle git</button>
+            <button type="button" onClick={() => setProfileMessage(`${activeProfileTab} sekmesi bilgi amaçlıdır; kaydedilecek form alanı bulunmuyor.`)} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700">Açıklamayı göster</button>
+          </div>
+        </section>
+      );
+    }
+
+    return (
+      <section className="mt-5 rounded-[20px] border border-cyan-200 bg-cyan-50 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[.14em] text-cyan-700">Düzenlenebilir Profil Alanları</p>
+            <h3 className="mt-1 text-lg font-black text-slate-950">{activeProfileTab} kaydı</h3>
+            <p className="mt-1 text-sm text-cyan-900">Değişiklikler alt sabit bardaki “Değişiklikleri Kaydet” butonu ile kaydedilir.</p>
+          </div>
+          <span className={`rounded-full px-3 py-1 text-xs font-black ${profileDirty ? "bg-amber-100 text-amber-800 ring-1 ring-amber-200" : "bg-white text-slate-600 ring-1 ring-slate-200"}`}>{profileDirty ? "Kaydedilmemiş değişiklik var" : "Değişiklik yok"}</span>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          {["Genel Bilgi", "Müşteri Kurulumu", "Notlar"].includes(activeProfileTab) && (
+            <>
+              <FieldBox label="Firma adı"><TextInput value={profileForm.name} onChange={(value) => updateProfile("name", value)} /></FieldBox>
+              <FieldBox label="Sektör"><TextInput value={profileForm.sector} onChange={(value) => updateProfile("sector", value)} /></FieldBox>
+              <FieldBox label="Sektörü yazın" help="Hazır sektör listesinde yoksa özel sektör adını yazın."><TextInput value={profileForm.custom_sector} onChange={(value) => updateProfile("custom_sector", value)} /></FieldBox>
+              <FieldBox label="Şehir"><TextInput value={profileForm.city} onChange={(value) => updateProfile("city", value)} /></FieldBox>
+              <FieldBox label="Web sitesi"><TextInput value={profileForm.website} onChange={(value) => updateProfile("website", value)} placeholder="https://..." /></FieldBox>
+              <FieldBox label="Instagram"><TextInput value={profileForm.instagram} onChange={(value) => updateProfile("instagram", value)} placeholder="@hesap veya profil linki" /></FieldBox>
+              <FieldBox label="Durum"><select value={profileForm.status} onChange={(event) => updateProfile("status", event.target.value)} className="min-h-11 rounded-[12px] border border-slate-200 bg-white px-3 text-slate-900 outline-none focus:ring-2 focus:ring-cyan-300">{["Aktif", "Pasif", "Kontrol gerekli", "Onboarding", "Teklif", "Beklemede"].map((item) => <option key={item}>{item}</option>)}</select></FieldBox>
+              <FieldBox label="Dahili notlar"><TextBox value={profileForm.notes} onChange={(value) => updateProfile("notes", value)} /></FieldBox>
+            </>
+          )}
+          {activeProfileTab === "İletişim" && (
+            <>
+              <FieldBox label="Yetkili kişi"><TextInput value={profileForm.contact_name} onChange={(value) => updateProfile("contact_name", value)} /></FieldBox>
+              <FieldBox label="Telefon"><TextInput value={profileForm.phone} onChange={(value) => updateProfile("phone", formatTurkishPhone(value))} /></FieldBox>
+              <FieldBox label="E-posta"><TextInput type="email" value={profileForm.email} onChange={(value) => updateProfile("email", value)} /></FieldBox>
+              <FieldBox label="Instagram"><TextInput value={profileForm.instagram} onChange={(value) => updateProfile("instagram", value)} /></FieldBox>
+              <FieldBox label="Takip notu"><TextBox value={profileForm.follow_up_note} onChange={(value) => updateProfile("follow_up_note", value)} /></FieldBox>
+            </>
+          )}
+          {activeProfileTab === "Satış Durumu" && (
+            <>
+              <FieldBox label="Satış durumu"><TextInput value={profileForm.sales_status} onChange={(value) => updateProfile("sales_status", value)} placeholder="Teklif, Takipte, Kazanıldı..." /></FieldBox>
+              <FieldBox label="Pipeline aşaması"><TextInput value={profileForm.pipeline_stage} onChange={(value) => updateProfile("pipeline_stage", value)} placeholder="Onboarding, Aktif, Riskli..." /></FieldBox>
+              <FieldBox label="Son temas tarihi"><TextInput type="date" value={profileForm.last_contact_at} onChange={(value) => updateProfile("last_contact_at", value)} /></FieldBox>
+              <FieldBox label="Sıradaki aksiyon tarihi"><TextInput type="date" value={profileForm.next_action_at} onChange={(value) => updateProfile("next_action_at", value)} /></FieldBox>
+              <FieldBox label="Sıradaki aksiyon notu"><TextBox value={profileForm.next_action} onChange={(value) => updateProfile("next_action", value)} /></FieldBox>
+              <FieldBox label="Takip notu"><TextBox value={profileForm.follow_up_note} onChange={(value) => updateProfile("follow_up_note", value)} /></FieldBox>
+            </>
+          )}
+        </div>
+      </section>
+    );
+  }
+
   return (
-    <div className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/50 p-0 sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <div className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/50 p-0 sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) requestClose(); }}>
       <section className="flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-auto sm:max-h-[88vh] sm:w-[min(1200px,94vw)] sm:rounded-[26px]" onMouseDown={(event) => event.stopPropagation()}>
         <header className="flex items-start justify-between gap-3 border-b border-slate-200 p-5">
           <div>
@@ -341,7 +562,7 @@ export function CustomerProfileModal({
             <h2 className="mt-1 text-2xl font-black text-slate-950">{company.name}</h2>
             <p className="mt-1 text-sm text-slate-500">{company.status || "Aktif"} · {company.city || "Şehir yok"} · {company.sector || "Sektör yok"}</p>
           </div>
-          <button onClick={onClose} aria-label="Kapat" className="rounded-full border border-slate-200 p-2 text-slate-500"><X size={18} /></button>
+          <button onClick={requestClose} aria-label="Kapat" className="rounded-full border border-slate-200 p-2 text-slate-500"><X size={18} /></button>
         </header>
         <div className="flex-1 overflow-y-auto p-5">
           {actionResult && <div className="mb-5"><ActionResultPanel result={actionResult} onNavigate={(href) => window.location.assign(href)} /></div>}
@@ -360,6 +581,7 @@ export function CustomerProfileModal({
               <div className="mt-5 grid gap-4 md:grid-cols-2">
                 {activeTabCards().map((card) => <SummaryBox key={card.title} title={card.title} lines={card.lines} />)}
               </div>
+              {profileFormSection()}
               <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 <SummaryBox title="Kurulum durumu" lines={[`Sağlık skoru: ${profileHealth.score}/100`, `Durum: ${profileHealth.status}`, ...(profileHealth.reasons || [])]} />
                 <SummaryBox title="Operasyon özeti" lines={[`Görev: ${tasks.length}`, `Rapor: ${reports.length}`, `Tahsilat: ${payments.length}`, `Kampanya: ${campaigns.length}`]} />
@@ -570,6 +792,44 @@ export function CustomerProfileModal({
           </section>
           {showOverview && children && <div className="mt-5">{children}</div>}
         </div>
+        <footer className="sticky bottom-0 z-20 border-t border-slate-200 bg-white/95 p-4 backdrop-blur">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="grid gap-1 text-xs font-bold text-slate-600">
+              <span className={profileDirty ? "text-amber-700" : "text-emerald-700"}>
+                {profileDirty ? "Kaydedilmemiş değişiklik var. Kapatmadan önce kaydetmeniz önerilir." : "Kaydedilmemiş değişiklik yok."}
+              </span>
+              <span>Son kaydetme zamanı: {lastSavedAt || "Bu oturumda henüz kayıt yapılmadı."}</span>
+              {profileMessage && <span className="text-cyan-700">{profileMessage}</span>}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={cancelProfileChanges}
+                disabled={!profileDirty || profileSaving}
+                title={!profileDirty ? "Geri alınacak değişiklik yok." : "Kaydedilmemiş değişiklikleri geri alır."}
+                className="rounded-[12px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Vazgeç
+              </button>
+              <button
+                type="button"
+                onClick={requestClose}
+                className="rounded-[12px] border border-cyan-200 bg-cyan-50 px-4 py-2.5 text-sm font-black text-cyan-800"
+              >
+                Kapat
+              </button>
+              <button
+                type="button"
+                onClick={saveProfile}
+                disabled={!profileDirty || profileSaving}
+                title={!profileDirty ? "Kaydedilecek değişiklik yok." : "Profil formundaki değişiklikleri kaydeder."}
+                className="rounded-[12px] bg-cyan-500 px-4 py-2.5 text-sm font-black text-white shadow-lg shadow-cyan-500/20 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+              >
+                {profileSaving ? "Kaydediliyor..." : "Değişiklikleri Kaydet"}
+              </button>
+            </div>
+          </div>
+        </footer>
       </section>
       {branchModalOpen && (
         <BranchEditorModal
