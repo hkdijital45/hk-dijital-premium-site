@@ -41,7 +41,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     items: [
       { label: "Müşteriler", slug: "musteriler", module: "musteriler", description: "Aktif, pasif ve aday müşteri kayıtlarını yönet." },
       { label: "Onboarding", slug: "customers/onboarding", module: "musteriler", description: "Yeni müşteri kurulum ve başlangıç kontrol adımları." },
-      { label: "Müşteri Entegrasyonları", slug: "musteri-entegrasyonlari", module: "api-ayarlari", description: "Müşteri bazlı Meta, Google, GA4, GTM ve web analitiği durumu." },
+      { label: "Müşteri Entegrasyonları", slug: "musteri-entegrasyonlari", module: "api-ayarlari", description: "Müşteri bazlı manuel/OAuth hazırlık bağlantıları, Meta, Google, GA4, GTM ve web analitiği durumu." },
       { label: "Müşteri Paketleri", slug: "musteri-paketleri", module: "hk-intelligence-ceo", description: "Uygulanan paketler, planlar ve AI operasyon çıktıları." },
       { label: "Müşteri Markalama", slug: "musteri-markalama", module: "musteriler", description: "Müşteri paneli logo, renk ve karşılama ayarları." }
     ]
@@ -177,7 +177,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     badge: "API",
     accent: "from-emerald-400 via-cyan-500 to-blue-600",
     items: [
-      { label: "Entegrasyonlar", slug: "entegrasyonlar", module: "api-ayarlari", description: "Meta, Pixel, Dataset, Google, GA4, Search Console, Ads, GTM, Clarity, Hotjar, SMTP ve API durumu." },
+      { label: "Entegrasyonlar", slug: "entegrasyonlar", module: "api-ayarlari", description: "Müşteri bazlı hesap bağlantıları, OAuth hazırlığı, Meta, Pixel, Dataset, Google, GA4, Search Console, Ads, GTM, Clarity, Hotjar, SMTP ve API durumu." },
       { label: "Meta", slug: "meta-integrations", module: "api-ayarlari", description: "Meta işletme, reklam hesabı, Pixel ve Dataset bağlantıları." },
       { label: "Google", slug: "google-integrations", module: "api-ayarlari", description: "Google, GA4, Search Console ve Google Ads bağlantıları." },
       { label: "Website Analytics", slug: "web-analitik-entegrasyonlari", module: "website-analytics", description: "GTM, Clarity, Hotjar ve web analitiği kurulum durumu." },

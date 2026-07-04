@@ -18,10 +18,22 @@ function normalizePatch(body: Record<string, any>) {
     "recovery_email",
     "two_factor_note",
     "access_note",
-    "notes"
+    "notes",
+    "provider",
+    "oauth_status",
+    "oauth_account_id",
+    "oauth_asset_id",
+    "oauth_asset_type",
+    "connection_error",
+    "last_sync_status",
+    "last_sync_message"
   ];
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   for (const field of allowed) if (field in body) patch[field] = clean(body[field]);
+  if ("auto_discovered" in body) patch.auto_discovered = Boolean(body.auto_discovered);
+  if ("last_tested_at" in body) patch.last_tested_at = body.last_tested_at || null;
+  if ("token_expires_at" in body) patch.token_expires_at = body.token_expires_at || null;
+  if (Array.isArray(body.oauth_scopes)) patch.oauth_scopes = body.oauth_scopes.map(clean).filter(Boolean);
   if (body.sensitive_metadata && typeof body.sensitive_metadata === "object") patch.sensitive_metadata = body.sensitive_metadata;
   return patch;
 }

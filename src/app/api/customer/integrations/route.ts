@@ -31,6 +31,8 @@ function normalizeAsset(body: Record<string, any>) {
   const platform = clean(body.platform);
   const assetType = clean(body.asset_type || body.assetType || platform);
   if (!platform || !assetType) return null;
+  const connectionMode = clean(body.connection_mode || body.connectionMode) || "manual";
+  const oauthStatus = clean(body.oauth_status || body.oauthStatus) || (connectionMode === "oauth_ready" ? "not_configured" : "not_configured");
   return {
     id: clean(body.id) || `${platform}-${Date.now()}`,
     platform,
@@ -43,8 +45,21 @@ function normalizeAsset(body: Record<string, any>) {
     profile_url: clean(body.profile_url || body.profileUrl),
     status: "pending_review",
     source: "customer",
-    connection_mode: "manual",
+    connection_mode: connectionMode,
     admin_review_status: "waiting",
+    provider: clean(body.provider) || platform,
+    oauth_status: oauthStatus,
+    oauth_account_id: clean(body.oauth_account_id || body.oauthAccountId),
+    oauth_asset_id: clean(body.oauth_asset_id || body.oauthAssetId || body.asset_id),
+    oauth_asset_type: clean(body.oauth_asset_type || body.oauthAssetType || assetType),
+    oauth_scopes: Array.isArray(body.oauth_scopes) ? body.oauth_scopes.filter(Boolean).map(clean) : [],
+    token_expires_at: clean(body.token_expires_at || body.tokenExpiresAt),
+    connection_error: clean(body.connection_error || body.connectionError),
+    last_tested_at: clean(body.last_tested_at || body.lastTestedAt),
+    last_sync_status: clean(body.last_sync_status || body.lastSyncStatus),
+    last_sync_message: clean(body.last_sync_message || body.lastSyncMessage),
+    auto_discovered: Boolean(body.auto_discovered || connectionMode === "oauth_ready"),
+    oauth_assets: Array.isArray(body.oauth_assets) ? body.oauth_assets : [],
     notes: clean(body.notes),
     updated_at: new Date().toISOString()
   };
@@ -54,8 +69,20 @@ function topLevelPatch(asset: any, body: Record<string, any>) {
   const patch: Record<string, unknown> = {
     status: "pending_review",
     source: "customer",
-    connection_mode: "manual",
+    connection_mode: asset.connection_mode || "manual",
     admin_review_status: "waiting",
+    provider: asset.provider || asset.platform,
+    oauth_status: asset.oauth_status || "not_configured",
+    oauth_account_id: asset.oauth_account_id || "",
+    oauth_asset_id: asset.oauth_asset_id || "",
+    oauth_asset_type: asset.oauth_asset_type || asset.asset_type,
+    oauth_scopes: asset.oauth_scopes || [],
+    token_expires_at: asset.token_expires_at || null,
+    connection_error: asset.connection_error || "",
+    last_tested_at: asset.last_tested_at || null,
+    last_sync_status: asset.last_sync_status || "",
+    last_sync_message: asset.last_sync_message || "",
+    auto_discovered: Boolean(asset.auto_discovered),
     updated_at: new Date().toISOString()
   };
   if (asset.platform === "meta") {

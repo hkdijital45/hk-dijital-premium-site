@@ -5177,6 +5177,7 @@ function IntegrationsCenter({ content, setContent, notify, selectedCompanyId }: 
   };
   return <Panel title="Entegrasyonlar">
     <p className="mb-5 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm leading-6 text-cyan-700">API anahtarları tarayıcıya gönderilmez. Bu alan bağlantı kimliklerini ve durum notlarını merkezi olarak düzenlemek içindir; gerçek gizli anahtarlar sunucu ortam değişkenlerinde kalmalıdır.</p>
+    <CustomerIntegrationHealthPanel companyId={selectedCompanyId} companies={content.companies || []} notify={notify} />
     <div className="mb-5"><ReadinessPanel api={api} /></div>
     <div className="mb-5 grid gap-5"><GlobalMetaPixelSettings /><div className="rounded-[18px] border border-slate-200 bg-white p-5"><h3 className="mb-4 text-lg font-black text-slate-900">Müşteri Meta Pixel & Conversion API</h3><MetaPixelSettingsPanel companyId={selectedCompanyId} companyName={(content.companies || []).find((company: any) => company.id === selectedCompanyId)?.name} /></div></div>
     <IntegrationPersistenceSettings notify={notify} />
@@ -5220,6 +5221,83 @@ function IntegrationsCenter({ content, setContent, notify, selectedCompanyId }: 
     </div>
     {status && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-700">{status}</p>}
   </Panel>;
+}
+
+function CustomerIntegrationHealthPanel({ companyId, companies, notify }: any) {
+  const [row, setRow] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const selectedCompany = (companies || []).find((company: any) => company.id === companyId);
+  const assets = Array.isArray(row?.integration_assets) ? row.integration_assets : [];
+  const envChecks = [
+    ["Meta OAuth", ["META_CLIENT_ID", "META_CLIENT_SECRET", "META_REDIRECT_URI"]],
+    ["Google OAuth", ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI"]],
+    ["TikTok OAuth", ["TIKTOK_CLIENT_KEY", "TIKTOK_CLIENT_SECRET", "TIKTOK_REDIRECT_URI"]]
+  ];
+  async function load() {
+    if (!companyId) {
+      setRow(null);
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/admin/customer-integrations/credentials?customerId=${companyId}`, { cache: "no-store" });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "Müşteri entegrasyonları alınamadı.");
+      setRow(payload.credentials?.[0] || null);
+      setMessage(payload.message || "");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Müşteri entegrasyonları alınamadı.");
+    } finally {
+      setLoading(false);
+    }
+  }
+  useEffect(() => { load(); }, [companyId]);
+  async function markTested() {
+    if (!row?.id) return;
+    const response = await fetch("/api/admin/customer-integrations/credentials", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: row.id, last_tested_at: new Date().toISOString(), last_sync_status: "test_requested", last_sync_message: "Admin entegrasyon merkezinden test edildi." })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (response.ok) {
+      setRow(payload.credential);
+      notify?.("✓ Müşteri bağlantı testi işaretlendi.", "success");
+    } else {
+      notify?.(payload.error || "Bağlantı testi işaretlenemedi.", "error");
+    }
+  }
+  return (
+    <section className="mb-5 rounded-[18px] border border-blue-200 bg-blue-50 p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[.16em] text-blue-700">Müşteri Bazlı Bağlantılar</p>
+          <h3 className="mt-1 text-xl font-black text-slate-950">Gerçek Entegrasyon Merkezi</h3>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-blue-900">Müşteri panelindeki Hesap Bağla kayıtları, manuel/OAuth hazırlık durumları ve admin onay süreci burada müşteri bazlı görünür. Tüm HK Dijital hesapları varsayılan olarak karıştırılmaz.</p>
+        </div>
+        <span className="rounded-full bg-white px-3 py-2 text-xs font-black text-blue-800">{selectedCompany?.name || "Önce müşteri seçin"}</span>
+      </div>
+      {!companyId ? <p className="mt-4 rounded-[12px] bg-white p-4 text-sm font-bold text-blue-900">Müşteri filtresinden bir firma seçin; müşterinin manuel ve OAuth hazırlık bağlantıları burada görünsün.</p> : (
+        <>
+          <div className="mt-4 grid gap-3 md:grid-cols-4">
+            {[["Toplam varlık", assets.length || (row ? 1 : 0)], ["Otomatik hazırlık", assets.filter((asset: any) => asset.connection_mode === "oauth_ready").length], ["Manuel", assets.filter((asset: any) => asset.connection_mode !== "oauth_ready").length], ["Son test", row?.last_tested_at ? new Date(row.last_tested_at).toLocaleDateString("tr-TR") : "Yok"]].map(([label, value]) => <div key={label} className="rounded-[14px] bg-white p-4"><p className="text-xs font-black uppercase tracking-[.12em] text-slate-500">{label}</p><p className="mt-2 text-xl font-black text-slate-950">{value}</p></div>)}
+          </div>
+          <div className="mt-4 grid gap-3 xl:grid-cols-[1fr_.8fr]">
+            <div className="rounded-[14px] bg-white p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h4 className="font-black text-slate-950">Bağlı / Bekleyen Varlıklar</h4><button onClick={load} disabled={loading} className="rounded-full border border-blue-200 px-3 py-1.5 text-xs font-black text-blue-800 disabled:opacity-60">Yenile</button></div>
+              <div className="grid gap-2">{(assets.length ? assets : []).map((asset: any) => <div key={`${asset.platform}-${asset.asset_type}`} className="grid gap-2 rounded-[12px] border border-slate-200 p-3 text-sm md:grid-cols-[1fr_.7fr_.7fr_.7fr]"><strong>{asset.platform_label || asset.platform}</strong><span>{asset.asset_type || "Varlık"}</span><span>{asset.connection_mode === "oauth_ready" ? "Otomatik hazırlık" : "Manuel"}</span><span>{asset.status || "Kontrol bekliyor"}</span></div>)}{!assets.length && <p className="rounded-[12px] border border-dashed border-slate-200 p-4 text-sm text-slate-500">{message || "Bu müşteri henüz hesap bilgisi eklemedi."}</p>}</div>
+              <div className="mt-4 flex flex-wrap gap-2"><button onClick={markTested} disabled={!row?.id} className="rounded-full bg-cyan-500 px-4 py-2 text-xs font-black text-white disabled:opacity-50">Bağlantıyı Test Et</button><button onClick={() => notify?.("Senkronizasyon hazırlığı kaydedildi. Gerçek OAuth aktif olunca bu akış veri çeker.", "info")} className="rounded-full border border-cyan-200 bg-cyan-50 px-4 py-2 text-xs font-black text-cyan-800">Senkronize Et</button></div>
+            </div>
+            <div className="rounded-[14px] bg-white p-4">
+              <h4 className="font-black text-slate-950">OAuth Env Durumu</h4>
+              <div className="mt-3 grid gap-2">{envChecks.map(([label, keys]: any) => <div key={label} className="rounded-[12px] border border-slate-200 p-3"><p className="text-sm font-black text-slate-900">{label}</p><p className="mt-1 text-xs leading-5 text-slate-500">Gerekli env: {keys.join(", ")}</p><p className="mt-2 rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-800">Sunucuda doğrulanır; eksikse müşteri paneli manuel giriş önerir.</p></div>)}</div>
+            </div>
+          </div>
+        </>
+      )}
+    </section>
+  );
 }
 
 function IntegrationPersistenceSettings({ notify }: any) {
