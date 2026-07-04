@@ -1,20 +1,20 @@
 "use client";
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect */
 
 import { useEffect, useMemo, useState } from "react";
 import { BarChart3, CheckSquare2, Globe2, ImagePlus, Megaphone, PlugZap, Search, ShieldCheck, Smartphone } from "lucide-react";
 
 const platformCards = [
   { key: "meta", title: "Meta / Facebook", type: "meta_ads", oauthProvider: "meta", autoLabel: "Meta ile Giriş Yap", typeLabel: "Business Manager, reklam hesabı, sayfa, Instagram ve Pixel seçimi", icon: Megaphone, tone: "bg-blue-50 text-blue-700", fields: [
-    ["meta_business_id", "Meta Business ID", "Meta işletme hesabınızın kimliği."],
+    ["meta_business_id", "Business Manager ID", "Meta işletme hesabınızın kimliği."],
     ["meta_ad_account_id", "Reklam Hesabı ID", "Meta reklam hesabınızın numarası."],
-    ["meta_page_id", "Sayfa adı veya linki", "Facebook sayfanızın adı veya bağlantısı."],
+    ["meta_page_id", "Facebook Sayfa ID", "Facebook sayfanızın ID bilgisi."],
     ["meta_pixel_id", "Pixel ID", "Web sitenizde dönüşüm takibi için kullanılan takip kimliğidir."]
   ] },
   { key: "instagram", title: "Instagram", type: "instagram_profile", oauthProvider: "meta", autoLabel: "Instagram Hesabını Bağla", typeLabel: "Instagram Business hesabı ve bağlı Meta sayfası", icon: ImagePlus, tone: "bg-pink-50 text-pink-700", fields: [
     ["username", "Instagram kullanıcı adı", "@ ile başlayan kullanıcı adı."],
-    ["profile_url", "Profil linki", "Instagram profil bağlantısı."],
-    ["meta_page_id", "Bağlı Meta sayfası", "Varsa bağlı Facebook sayfası."]
+    ["instagram_account_id", "Instagram hesap ID", "Instagram Business hesap kimliği."],
+    ["meta_page_id", "Bağlı Facebook Sayfası", "Varsa bağlı Facebook sayfası."]
   ] },
   { key: "tiktok", title: "TikTok", type: "tiktok_ads", oauthProvider: "tiktok", autoLabel: "TikTok ile Giriş Yap", typeLabel: "Business Center, Ads Account ve Pixel seçimi", icon: Smartphone, tone: "bg-slate-50 text-slate-700", fields: [
     ["username", "TikTok kullanıcı adı", "TikTok profil kullanıcı adı."],
@@ -24,27 +24,30 @@ const platformCards = [
   ] },
   { key: "google_ads", title: "Google Ads", type: "google_ads", oauthProvider: "google", autoLabel: "Google ile Giriş Yap", typeLabel: "Google Ads müşteri hesabı seçimi", icon: Search, tone: "bg-amber-50 text-amber-700", fields: [
     ["google_ads_customer_id", "Google Ads Customer ID", "Google Ads hesabınızın 10 haneli müşteri numarasıdır."],
-    ["mcc_note", "MCC var mı?", "Ajans hesabına bağlı üst hesap bilgisi varsa not edin."]
+    ["mcc_id", "MCC ID opsiyonel", "Varsa bağlı üst hesap kimliği."]
   ] },
   { key: "google_analytics", title: "Google Analytics", type: "ga4", oauthProvider: "google", autoLabel: "Analytics Hesabını Seç", typeLabel: "GA4 mülkü ve Search Console site seçimi", icon: BarChart3, tone: "bg-emerald-50 text-emerald-700", fields: [
     ["ga4_measurement_id", "GA4 Measurement ID", "G- ile başlayan Google Analytics ölçüm kimliğidir."],
     ["ga4_property_id", "Property ID", "Google Analytics mülk kimliği."],
-    ["website_url", "Web site URL", "Ölçüm yapılan web sitesi adresi."]
+    ["ga4_stream_id", "Stream ID", "Google Analytics veri akışı kimliği."]
   ] },
   { key: "search_console", title: "Google Search Console", type: "search_console", oauthProvider: "google", autoLabel: "Search Console Hesabını Seç", typeLabel: "Google Search Console site seçimi", icon: Search, tone: "bg-sky-50 text-sky-700", fields: [
-    ["search_console_site_url", "Search Console site adresi", "Google Search Console içindeki doğrulanmış site adresi."],
-    ["website_url", "Web site URL", "Bağlanacak ana web sitesi adresi."]
+    ["search_console_site_url", "Site URL", "Google Search Console içindeki doğrulanmış site adresi."],
+    ["domain_property", "Domain Property", "Varsa domain mülk adı."]
   ] },
   { key: "website_pixel", title: "Website / Pixel Bilgileri", type: "website_pixel", oauthProvider: "meta", autoLabel: "Pixel Bağlantısını Hazırla", typeLabel: "Website, Pixel, GTM ve Search Console kontrolü", icon: Globe2, tone: "bg-cyan-50 text-cyan-700", fields: [
     ["website_url", "Web site URL", "Ana web sitesi adresiniz."],
     ["meta_pixel_id", "Meta Pixel ID", "Meta web sitesi takip kimliği."],
     ["gtm_container_id", "Google Tag Manager ID", "GTM- ile başlayan etiket yöneticisi kimliği."],
-    ["search_console_site_url", "Search Console doğrulama bilgisi", "Google Search Console site adresi veya doğrulama notu."]
+    ["ga4_measurement_id", "Google Analytics Measurement ID", "G- ile başlayan ölçüm kimliği."]
   ] }
 ];
 
 const statusLabel: Record<string, string> = {
   connected: "Bağlı",
+  connected_oauth: "OAuth ile Bağlı",
+  connected_manual: "Manuel Bağlı",
+  manual_pending_review: "Manuel Kontrol Bekliyor",
   pending_review: "Kontrol Bekliyor",
   missing_info: "Eksik Bilgi Gerekli",
   error: "Hatalı",
@@ -69,13 +72,7 @@ function emptyForm(platform = "meta", assetType = "meta_ads") {
     account_id: "",
     website_url: "",
     profile_url: "",
-    notes: "",
-    login_email: "",
-    login_username: "",
-    login_password: "",
-    recovery_email: "",
-    two_factor_note: "",
-    access_note: ""
+    notes: ""
   };
 }
 
@@ -100,9 +97,25 @@ export function CustomerAccountConnectCenter() {
     return () => { mounted = false; };
   }, []);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const provider = params.get("oauth_provider");
+    const status = params.get("oauth_status");
+    const error = params.get("oauth_error");
+    if (error) setMessage(error === "oauth_not_configured" ? "Otomatik bağlantı için gerekli ortam değişkenleri eksik. Manuel bilgi girebilir veya ajans ekibinden kurulum isteyebilirsiniz." : "Otomatik bağlantı tamamlanamadı. Lütfen tekrar deneyin veya manuel bilgi girin.");
+    if (provider && status === "accounts_ready") {
+      const card = platformCards.find((item) => item.oauthProvider === provider);
+      if (card) {
+        setActive(card);
+        setMode("auto");
+        loadOAuthAssets(provider);
+      }
+    }
+  }, []);
+
   const summary = useMemo(() => ({
-    connected: assets.filter((item) => item.status === "connected").length,
-    pending: assets.filter((item) => item.status === "pending_review").length,
+    connected: assets.filter((item) => ["connected", "connected_oauth", "connected_manual"].includes(item.status)).length,
+    pending: assets.filter((item) => ["pending_review", "manual_pending_review"].includes(item.status)).length,
     missing: assets.filter((item) => item.status === "missing_info" || item.status === "error").length,
     last: assets.map((item) => item.updated_at).filter(Boolean).sort().at(-1)
   }), [assets]);
@@ -129,7 +142,7 @@ export function CustomerAccountConnectCenter() {
       const response = await fetch("/api/customer/integrations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, platform: active.key, asset_type: active.type, asset_name: form.asset_name || active.title, connection_mode: mode === "auto" ? "oauth_ready" : "manual" })
+        body: JSON.stringify({ ...form, platform: active.key, asset_type: active.type, asset_name: form.asset_name || active.title, status: mode === "auto" ? "pending_review" : "manual_pending_review", connection_mode: mode === "auto" ? "oauth_ready" : "manual", connection_method: mode === "auto" ? "oauth_ready" : "manual" })
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.supabaseError || payload.error || "Bilgiler kaydedilemedi.");
@@ -144,37 +157,20 @@ export function CustomerAccountConnectCenter() {
 
   async function startOAuth() {
     setOauthLoading(true);
-    setMessage("");
-    setOauthInfo(null);
-    try {
-      const response = await fetch(`/api/integrations/${active.oauthProvider}/connect?platform=${active.key}&assetType=${active.type}`, { cache: "no-store" });
-      const payload = await response.json().catch(() => ({}));
-      setOauthInfo(payload);
-      if (!response.ok) {
-        setMessage(payload.message || payload.error || "Bu platform için otomatik bağlantı henüz aktif değil. Manuel bilgi girebilirsiniz.");
-        return;
-      }
-      if (payload.authUrl) {
-        setMessage("OAuth hazırlığı tamam. Yeni pencerede platform giriş ekranını açabilirsiniz veya manuel bilgileri kaydedebilirsiniz.");
-      } else {
-        setMessage(payload.message || "Otomatik bağlantı hazırlığı kaydedildi.");
-      }
-    } catch {
-      setMessage("Otomatik bağlantı hazırlığı kontrol edilemedi. Manuel bilgi girebilirsiniz.");
-    } finally {
-      setOauthLoading(false);
-    }
+    setMessage("Platform giriş ekranına yönlendiriliyorsunuz...");
+    const returnUrl = `${window.location.origin}${window.location.pathname}?tab=hesap-bagla`;
+    window.location.href = `/api/integrations/${active.oauthProvider}/connect?platform=${encodeURIComponent(active.key)}&assetType=${encodeURIComponent(active.type)}&returnUrl=${encodeURIComponent(returnUrl)}`;
   }
 
-  async function loadOAuthAssets() {
+  async function loadOAuthAssets(provider = active.oauthProvider) {
     setOauthLoading(true);
     setMessage("");
     try {
-      const response = await fetch(`/api/customer/integrations/oauth/${active.oauthProvider}/assets?platform=${active.key}`, { cache: "no-store" });
+      const response = await fetch(`/api/integrations/accounts?provider=${provider}`, { cache: "no-store" });
       const payload = await response.json().catch(() => ({}));
       setOauthInfo(payload);
       setAssetPickerOpen(true);
-      setSelectedAssetIds((payload.assets || []).slice(0, 1).map((item: any) => item.id));
+      setSelectedAssetIds((payload.accounts || []).slice(0, 1).map((item: any) => item.id));
       if (!response.ok) setMessage(payload.message || "Yetkili hesap listesi şu an alınamadı. Manuel giriş kullanabilirsiniz.");
     } catch {
       setMessage("Hesap listesi alınamadı. Manuel giriş kullanabilirsiniz.");
@@ -184,7 +180,7 @@ export function CustomerAccountConnectCenter() {
   }
 
   async function saveSelectedOAuthAssets() {
-    const selected = (oauthInfo?.assets || []).filter((item: any) => selectedAssetIds.includes(item.id));
+    const selected = (oauthInfo?.accounts || []).filter((item: any) => selectedAssetIds.includes(item.id));
     if (!selected.length) {
       setMessage("Kaydetmek için en az bir hesap seçin.");
       return;
@@ -192,26 +188,23 @@ export function CustomerAccountConnectCenter() {
     setLoading(true);
     setMessage("");
     try {
-      const response = await fetch("/api/customer/integrations", {
+      const response = await fetch("/api/integrations/accounts/select", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          platform: active.key,
-          asset_type: active.type,
-          asset_name: selected[0]?.asset_name || selected[0]?.name || active.title,
-          asset_id: selected[0]?.asset_id || selected[0]?.id,
-          account_id: selected[0]?.account_id || selected[0]?.id,
-          connection_mode: "oauth_ready",
-          oauth_status: oauthInfo?.configured ? "oauth_ready" : "not_configured",
-          oauth_assets: selected,
-          notes: "Otomatik bağlantı hazırlık modundan seçildi."
+          provider: selected[0]?.provider || active.oauthProvider,
+          platform: selected[0]?.platform || active.key,
+          provider_account_id: selected[0]?.provider_account_id || selected[0]?.account_id || selected[0]?.id,
+          provider_account_name: selected[0]?.provider_account_name || selected[0]?.asset_name || active.title,
+          account_type: selected[0]?.account_type || active.type,
+          metadata: selected[0]?.metadata || selected[0]
         })
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.supabaseError || payload.error || "Seçilen hesaplar kaydedilemedi.");
       setAssets(payload.assets || []);
       setAssetPickerOpen(false);
-      setMessage("Seçilen hesaplar kaydedildi. HK Dijital ekibi kontrol edecek.");
+      setMessage(payload.message || "Seçilen hesap bağlandı ve admin paneline aktarıldı.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Seçilen hesaplar kaydedilemedi.");
     } finally {
@@ -275,7 +268,7 @@ export function CustomerAccountConnectCenter() {
             </button>
             <button type="button" onClick={() => setMode("manual")} className={`rounded-[16px] border p-4 text-left transition ${mode === "manual" ? "border-cyan-300 bg-white shadow-sm" : "border-slate-200 bg-white/70"}`}>
               <span className="flex items-center gap-2 font-black text-slate-950"><CheckSquare2 size={18} className="text-emerald-700" /> Bağlantı Notu Bırak</span>
-              <span className="mt-2 block text-sm leading-6 text-slate-600">Hesap ID, access token veya şifre istemiyoruz. Yalnız profil/website linki ve açıklama bırakabilirsiniz.</span>
+              <span className="mt-2 block text-sm leading-6 text-slate-600">Platforma göre ID, link ve not alanlarını doldurun. Access token veya şifre istemiyoruz.</span>
             </button>
           </div>
 
@@ -283,8 +276,8 @@ export function CustomerAccountConnectCenter() {
             <div className="mt-4 rounded-[18px] border border-blue-200 bg-blue-50 p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <h4 className="font-black text-blue-950">Otomatik Bağlantı Hazırlığı</h4>
-                  <p className="mt-1 text-sm leading-6 text-blue-900">Gerçek OAuth env değerleri tanımlıysa platform giriş URL’i hazırlanır. Eksikse bu alan güvenli hazırlık modunda kalır ve manuel giriş önerilir.</p>
+                  <h4 className="font-black text-blue-950">Otomatik Bağlantı</h4>
+                  <p className="mt-1 text-sm leading-6 text-blue-900">OAuth env değerleri tanımlıysa platform giriş ekranına yönlenir, dönüşte yetkili hesaplar listelenir ve seçtiğiniz hesap kaydedilir.</p>
                 </div>
                 <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-blue-800">{oauthStatusLabel[oauthInfo?.oauthStatus] || "Kontrol edilmedi"}</span>
               </div>
@@ -302,26 +295,29 @@ export function CustomerAccountConnectCenter() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h4 className="font-black text-slate-950">Bağlanacak Hesapları Seç</h4>
-                  <p className="mt-1 text-sm text-slate-600">OAuth hazır olduğunda gerçek yetkili hesaplar burada listelenir. Şu an env durumuna göre güvenli hazırlık listesi gösterilir.</p>
+                  <p className="mt-1 text-sm text-slate-600">Platform girişinden sonra yetkili hesaplar burada listelenir. Hesap bulunamazsa yetki kapsamı veya platform onayı eksik olabilir.</p>
                 </div>
                 <button type="button" onClick={saveSelectedOAuthAssets} disabled={loading} className="rounded-full bg-emerald-500 px-4 py-2 text-sm font-black text-white disabled:opacity-60">Seçilenleri Kaydet</button>
               </div>
               <div className="mt-4 max-h-72 overflow-auto rounded-[14px] border border-slate-200">
                 <table className="w-full min-w-[760px] text-left text-sm">
                   <thead className="bg-slate-50 text-xs uppercase tracking-[.12em] text-slate-500"><tr><th className="p-3">Seç</th><th>Hesap Adı</th><th>Platform</th><th>Varlık Türü</th><th>Durum</th><th>Hesap ID</th><th>Son Senkronizasyon</th></tr></thead>
-                  <tbody>{(oauthInfo?.assets || []).map((item: any) => <tr key={item.id} className="border-t border-slate-200"><td className="p-3"><input type="checkbox" checked={selectedAssetIds.includes(item.id)} onChange={(event) => setSelectedAssetIds((current) => event.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id))} /></td><td className="font-bold text-slate-900">{item.asset_name || item.name}</td><td>{item.platform || active.title}</td><td>{item.asset_type || active.type}</td><td>{item.status || "OAuth hazırlık"}</td><td>{item.account_id || item.asset_id || item.id}</td><td>{item.last_synced_at ? new Date(item.last_synced_at).toLocaleString("tr-TR") : "Henüz yok"}</td></tr>)}</tbody>
+                  <tbody>{(oauthInfo?.accounts || []).map((item: any) => <tr key={item.id} className="border-t border-slate-200"><td className="p-3"><input type="checkbox" checked={selectedAssetIds.includes(item.id)} onChange={(event) => setSelectedAssetIds((current) => event.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id))} /></td><td className="font-bold text-slate-900">{item.provider_account_name || item.asset_name || item.name}</td><td>{item.provider || item.platform || active.title}</td><td>{item.account_type || item.asset_type || active.type}</td><td>{item.status || "Seçilebilir"}</td><td>{item.provider_account_id || item.account_id || item.asset_id || item.id}</td><td>{item.last_synced_at ? new Date(item.last_synced_at).toLocaleString("tr-TR") : "Henüz yok"}</td></tr>)}</tbody>
                 </table>
               </div>
+              {!(oauthInfo?.accounts || []).length && <p className="mt-3 rounded-[12px] border border-dashed border-slate-200 p-3 text-sm font-bold text-slate-600">{oauthInfo?.message || "Henüz listelenecek yetkili hesap yok."}</p>}
             </div>
           )}
 
           {mode === "manual" && (
             <details className="mt-4 rounded-[18px] border border-slate-200 bg-white p-4" open>
-              <summary className="cursor-pointer text-sm font-black text-slate-950">Bağlantı notu</summary>
-              <p className="mt-2 text-sm leading-6 text-slate-600">Bu alan otomatik bağlantı aktif değilse HK Dijital ekibine yönlendirme notu bırakmak içindir. Access token, hesap ID veya şifre yazmayın.</p>
+              <summary className="cursor-pointer text-sm font-black text-slate-950">Manuel Bilgi Gir</summary>
+              <p className="mt-2 text-sm leading-6 text-slate-600">Otomatik bağlantı aktif değilse platforma ait ID/link bilgilerini ekleyin. Access token, şifre veya gizli anahtar yazmayın.</p>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 <label className="grid gap-1 text-sm font-bold text-slate-700">Hesap veya sayfa adı<input value={form.asset_name || ""} onChange={(event) => update("asset_name", event.target.value)} className="min-h-11 rounded-[12px] border border-slate-200 bg-white px-3" placeholder={active.title} /></label>
-                <label className="grid gap-1 text-sm font-bold text-slate-700">Profil veya web site linki<input value={form.profile_url || form.website_url || ""} onChange={(event) => { update("profile_url", event.target.value); update("website_url", event.target.value); }} className="min-h-11 rounded-[12px] border border-slate-200 bg-white px-3" placeholder="https://..." /><span className="text-xs font-medium text-slate-500">Platform profilinizin veya web sitenizin bağlantısı.</span></label>
+                {active.fields.map(([key, label, help]) => (
+                  <label key={key} className="grid gap-1 text-sm font-bold text-slate-700">{label}<input value={form[key] || ""} onChange={(event) => update(key, event.target.value)} className="min-h-11 rounded-[12px] border border-slate-200 bg-white px-3" /><span className="text-xs font-medium text-slate-500">{help}</span></label>
+                ))}
                 <label className="md:col-span-2 grid gap-1 text-sm font-bold text-slate-700">Açıklama / not<textarea value={form.notes || ""} onChange={(event) => update("notes", event.target.value)} className="min-h-24 rounded-[12px] border border-slate-200 bg-white p-3" placeholder="Eklemek istediğiniz açıklamayı yazın." /></label>
               </div>
               <p className="mt-3 flex items-start gap-2 rounded-[14px] border border-amber-200 bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-900"><ShieldCheck size={15} />Güvenlik için bu ekranda şifre, token veya gizli anahtar paylaşmayın. Gerekirse HK Dijital ekibi güvenli yönlendirme yapar.</p>
@@ -331,7 +327,7 @@ export function CustomerAccountConnectCenter() {
           {message && <p className="mt-4 rounded-[14px] border border-cyan-200 bg-white p-3 text-sm font-bold text-cyan-900">{message}</p>}
           <div className="mt-4 flex flex-wrap justify-end gap-2">
             <button type="button" onClick={() => setMessage("HK Dijital ekibine kontrol bildirimi hazırlandı.")} className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700">Admin’e Bildir</button>
-            <button type="button" onClick={save} disabled={loading} className="rounded-full bg-cyan-500 px-5 py-3 text-sm font-black text-white disabled:opacity-60">{loading ? "Kaydediliyor..." : mode === "auto" ? "OAuth Hazırlığını Kaydet" : "Bağlantı Notunu Kaydet"}</button>
+            <button type="button" onClick={save} disabled={loading} className="rounded-full bg-cyan-500 px-5 py-3 text-sm font-black text-white disabled:opacity-60">{loading ? "Kaydediliyor..." : mode === "auto" ? "OAuth Hazırlığını Kaydet" : "Manuel Bilgiyi Kaydet"}</button>
           </div>
         </div>
       </div>

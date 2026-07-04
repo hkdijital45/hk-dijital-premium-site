@@ -10,6 +10,7 @@ const platformLabels: Record<string, string> = {
   tiktok: "TikTok",
   google_ads: "Google Ads",
   google_analytics: "Google Analytics",
+  search_console: "Google Search Console",
   website_pixel: "Website / Pixel Bilgileri"
 };
 
@@ -32,7 +33,9 @@ function normalizeAsset(body: Record<string, any>) {
   const assetType = clean(body.asset_type || body.assetType || platform);
   if (!platform || !assetType) return null;
   const connectionMode = clean(body.connection_mode || body.connectionMode) || "manual";
+  const connectionMethod = clean(body.connection_method || body.connectionMethod) || connectionMode;
   const oauthStatus = clean(body.oauth_status || body.oauthStatus) || (connectionMode === "oauth_ready" ? "not_configured" : "not_configured");
+  const manualPayload = Object.fromEntries(Object.entries(body).filter(([key, value]) => !sensitiveFields.includes(key) && !["platform", "asset_type", "assetType", "asset_name", "assetName", "connection_mode", "connectionMode", "connection_method", "connectionMethod"].includes(key) && value !== undefined && value !== null && String(value).trim() !== ""));
   return {
     id: clean(body.id) || `${platform}-${Date.now()}`,
     platform,
@@ -43,9 +46,10 @@ function normalizeAsset(body: Record<string, any>) {
     account_id: clean(body.account_id || body.accountId),
     website_url: clean(body.website_url || body.websiteUrl),
     profile_url: clean(body.profile_url || body.profileUrl),
-    status: "pending_review",
+    status: clean(body.status) || (connectionMode === "manual" ? "manual_pending_review" : "pending_review"),
     source: "customer",
     connection_mode: connectionMode,
+    connection_method: connectionMethod,
     admin_review_status: "waiting",
     provider: clean(body.provider) || platform,
     oauth_status: oauthStatus,
@@ -60,6 +64,11 @@ function normalizeAsset(body: Record<string, any>) {
     last_sync_message: clean(body.last_sync_message || body.lastSyncMessage),
     auto_discovered: Boolean(body.auto_discovered || connectionMode === "oauth_ready"),
     oauth_assets: Array.isArray(body.oauth_assets) ? body.oauth_assets : [],
+    provider_account_id: clean(body.provider_account_id || body.account_id || body.asset_id),
+    provider_account_name: clean(body.provider_account_name || body.asset_name),
+    account_type: clean(body.account_type || assetType),
+    metadata: body.metadata && typeof body.metadata === "object" ? body.metadata : {},
+    manual_payload: body.manual_payload && typeof body.manual_payload === "object" ? body.manual_payload : manualPayload,
     notes: clean(body.notes),
     updated_at: new Date().toISOString()
   };
@@ -67,11 +76,15 @@ function normalizeAsset(body: Record<string, any>) {
 
 function topLevelPatch(asset: any, body: Record<string, any>) {
   const patch: Record<string, unknown> = {
-    status: "pending_review",
+    status: asset.status || "pending_review",
     source: "customer",
     connection_mode: asset.connection_mode || "manual",
+    connection_method: asset.connection_method || asset.connection_mode || "manual",
     admin_review_status: "waiting",
     provider: asset.provider || asset.platform,
+    provider_account_id: asset.provider_account_id || "",
+    provider_account_name: asset.provider_account_name || "",
+    account_type: asset.account_type || asset.asset_type,
     oauth_status: asset.oauth_status || "not_configured",
     oauth_account_id: asset.oauth_account_id || "",
     oauth_asset_id: asset.oauth_asset_id || "",
@@ -83,6 +96,8 @@ function topLevelPatch(asset: any, body: Record<string, any>) {
     last_sync_status: asset.last_sync_status || "",
     last_sync_message: asset.last_sync_message || "",
     auto_discovered: Boolean(asset.auto_discovered),
+    metadata: asset.metadata || {},
+    manual_payload: asset.manual_payload || {},
     updated_at: new Date().toISOString()
   };
   if (asset.platform === "meta") {
@@ -92,11 +107,16 @@ function topLevelPatch(asset: any, body: Record<string, any>) {
     patch.meta_pixel_id = clean(body.meta_pixel_id || body.pixel_id);
   }
   if (asset.platform === "instagram") patch.instagram_business_id = clean(body.instagram_business_id || body.username || asset.asset_id);
+  if (asset.platform === "tiktok") {
+    patch.provider_account_id = clean(body.account_id || body.asset_id || asset.provider_account_id);
+    patch.provider_account_name = clean(body.asset_name || body.username || asset.provider_account_name);
+  }
   if (asset.platform === "google_ads") patch.google_ads_customer_id = clean(body.google_ads_customer_id || asset.account_id);
   if (asset.platform === "google_analytics") {
     patch.ga4_measurement_id = clean(body.ga4_measurement_id);
     patch.ga4_property_id = clean(body.ga4_property_id || asset.asset_id);
   }
+  if (asset.platform === "search_console") patch.search_console_site_url = clean(body.search_console_site_url || body.website_url);
   if (asset.platform === "website_pixel") {
     patch.website_url = clean(body.website_url || asset.website_url);
     patch.meta_pixel_id = clean(body.meta_pixel_id || body.pixel_id);
@@ -139,13 +159,6 @@ export async function POST(request: Request) {
       company_id: session.companyId,
       ...topLevelPatch(asset, body),
       integration_assets: nextAssets,
-      login_email: clean(body.login_email),
-      login_username: clean(body.login_username),
-      login_password: clean(body.login_password),
-      recovery_email: clean(body.recovery_email),
-      two_factor_note: clean(body.two_factor_note),
-      access_note: clean(body.access_note),
-      sensitive_metadata: body.sensitive_metadata && typeof body.sensitive_metadata === "object" ? body.sensitive_metadata : {},
       updated_by: session.profileId || null,
       created_by: existing?.created_by || session.profileId || null
     };
