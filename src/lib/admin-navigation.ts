@@ -180,6 +180,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: "Entegrasyonlar", slug: "entegrasyonlar", module: "api-ayarlari", description: "Müşteri bazlı hesap bağlantıları, OAuth hazırlığı, Meta, Pixel, Dataset, Google, GA4, Search Console, Ads, GTM, Clarity, Hotjar, SMTP ve API durumu." },
       { label: "Meta", slug: "meta-integrations", module: "api-ayarlari", description: "Meta işletme, reklam hesabı, Pixel ve Dataset bağlantıları." },
       { label: "Google", slug: "google-integrations", module: "api-ayarlari", description: "Google, GA4, Search Console ve Google Ads bağlantıları." },
+      { label: "OAuth Kurulum Durumu", slug: "oauth-kurulum-durumu", module: "api-ayarlari", description: "Meta, Google, TikTok ve X otomatik bağlantı ENV ve callback durumunu denetler." },
       { label: "Website Analytics", slug: "web-analitik-entegrasyonlari", module: "website-analytics", description: "GTM, Clarity, Hotjar ve web analitiği kurulum durumu." },
       { label: "Discord", slug: "discord-entegrasyonu", module: "agent-hub", description: "Discord webhook bildirim hazırlığı." },
       { label: "API Durumu", slug: "api-durumu", module: "api-ayarlari", description: "Secret göstermeden genel API ve entegrasyon durumu." }
@@ -198,7 +199,8 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: "Tema / Logo", slug: "tema-logo", module: "tema-ayarlari", description: "Logo ve marka görselleri için merkezi ayarlar." },
       { label: "Sistem Ayarları", slug: "sistem-ayarlari", module: "site-ayarlari", description: "Genel uygulama davranışı ve sistem tercihleri." },
       { label: "Mobil Operasyon Modu", slug: "mobil-operasyon-modu", module: "site-ayarlari", description: "Saha kullanımı için büyük butonlu admin görünüm tercihi." },
-      { label: "Güvenlik", slug: "guvenlik", module: "kullanicilar", description: "Kullanıcı erişimi, rol güvenliği ve yönetim kontrolleri." }
+      { label: "Güvenlik", slug: "guvenlik", module: "kullanicilar", description: "Kullanıcı erişimi, rol güvenliği ve yönetim kontrolleri." },
+      { label: "HK Asistan Ayarları", slug: "hk-asistan-ayarlari", module: "hk-asistan", description: "Müşteri bazlı HK Asistan izinleri, sağlayıcı modu ve günlük limitler." }
     ]
   }
 ];
@@ -268,7 +270,9 @@ const legacySlugRedirects: Record<string, string> = {
   "site-ayarlari": "web-sitesi-yonetimi",
   "sayfa-icerikleri": "web-sitesi-yonetimi",
   "api-ayarlari": "entegrasyonlar",
+  "oauth-kurulum": "oauth-kurulum-durumu",
   "ai-saglayici-ayarlari": "entegrasyonlar",
+  "hk-asistan-ayarlari": "hk-asistan-ayarlari",
   "sistem-durumu": "sistem-sagligi",
   "sistem-testleri": "sistem-test-merkezi",
   "system-test-center": "sistem-test-merkezi",

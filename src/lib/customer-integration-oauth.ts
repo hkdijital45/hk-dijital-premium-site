@@ -5,7 +5,7 @@ import crypto from "crypto";
 import { getSession, isCustomerRole, isStaffRole } from "@/lib/auth";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
-type Provider = "meta" | "google" | "tiktok" | "x";
+export type Provider = "meta" | "google" | "tiktok" | "x";
 type OAuthState = {
   provider: Provider;
   platform: string;
@@ -135,6 +135,58 @@ function providerEnvPairs(provider: Provider) {
 
 function missingProviderEnv(provider: Provider) {
   return providerEnvPairs(provider).filter(([, value]) => !value).map(([name]) => name);
+}
+
+export const oauthProviders = ["meta", "google", "tiktok", "x"] as const;
+
+const expectedRedirectUris: Record<Provider, string> = {
+  meta: "https://hkdijital.com.tr/api/integrations/callback/meta",
+  google: "https://hkdijital.com.tr/api/integrations/callback/google",
+  tiktok: "https://hkdijital.com.tr/api/integrations/callback/tiktok",
+  x: "https://hkdijital.com.tr/api/integrations/callback/x"
+};
+
+function buildAuthorizePreview(provider: Provider, redirectUri: string) {
+  const config = providerConfig[provider];
+  const params = new URLSearchParams(provider === "tiktok" ? {
+    app_id: "<configured>",
+    redirect_uri: redirectUri || expectedRedirectUris[provider],
+    state: "<signed-state>",
+    scope: config.scope
+  } : {
+    client_id: "<configured>",
+    redirect_uri: redirectUri || expectedRedirectUris[provider],
+    response_type: "code",
+    scope: config.scope,
+    state: "<signed-state>"
+  });
+  if (provider === "google") {
+    params.set("access_type", "offline");
+    params.set("prompt", "consent");
+  }
+  if (provider === "x") {
+    params.set("code_challenge", "<pkce>");
+    params.set("code_challenge_method", "S256");
+  }
+  return `${config.authBase}?${params.toString()}`;
+}
+
+export function getOAuthProviderStatus(provider: Provider) {
+  const credentials = providerCredentials(provider);
+  const missing = missingProviderEnv(provider);
+  const expectedRedirectUri = expectedRedirectUris[provider];
+  const redirectUriMatches = Boolean(credentials.redirectUri) && credentials.redirectUri === expectedRedirectUri;
+  return {
+    provider,
+    label: providerConfig[provider].label,
+    ready: missing.length === 0 && redirectUriMatches,
+    configured: missing.length === 0,
+    missing,
+    redirectUri: credentials.redirectUri,
+    expectedRedirectUri,
+    redirectUriMatches,
+    authorizeUrlPreview: buildAuthorizePreview(provider, credentials.redirectUri || expectedRedirectUri)
+  };
 }
 
 function stateSecret() {

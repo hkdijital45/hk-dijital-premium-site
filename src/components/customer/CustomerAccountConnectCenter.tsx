@@ -79,18 +79,11 @@ const methodLabel: Record<string, string> = {
   demo: "Demo bağlantı"
 };
 
-const providerMissingMessages: Record<string, string> = {
-  meta: "Meta bağlantısı için uygulama ayarları henüz tamamlanmamış.",
-  google: "Google bağlantısı için OAuth ayarları henüz tamamlanmamış.",
-  tiktok: "TikTok bağlantısı için uygulama ayarları henüz tamamlanmamış.",
-  x: "X/Twitter bağlantısı için OAuth ayarları henüz tamamlanmamış."
-};
-
 const integrationErrorMessages: Record<string, string> = {
-  meta_env_missing: "Meta bağlantısı için uygulama ayarları eksik. Manuel bilgi girebilir veya HK Dijital ekibinden kurulum isteyebilirsiniz.",
-  google_env_missing: "Google bağlantısı için OAuth ayarları eksik. Manuel bilgi girebilir veya HK Dijital ekibinden kurulum isteyebilirsiniz.",
-  tiktok_env_missing: "TikTok bağlantısı için uygulama ayarları eksik. Manuel bilgi girebilir veya HK Dijital ekibinden kurulum isteyebilirsiniz.",
-  x_env_missing: "X/Twitter bağlantısı için OAuth ayarları eksik. Manuel bilgi girebilir veya HK Dijital ekibinden kurulum isteyebilirsiniz.",
+  meta_env_missing: "Bu platform için otomatik bağlantı ayarları henüz tamamlanmamış. Manuel bilgi girebilir veya HK Dijital ekibinden kurulum isteyebilirsiniz.",
+  google_env_missing: "Bu platform için otomatik bağlantı ayarları henüz tamamlanmamış. Manuel bilgi girebilir veya HK Dijital ekibinden kurulum isteyebilirsiniz.",
+  tiktok_env_missing: "Bu platform için otomatik bağlantı ayarları henüz tamamlanmamış. Manuel bilgi girebilir veya HK Dijital ekibinden kurulum isteyebilirsiniz.",
+  x_env_missing: "Bu platform için otomatik bağlantı ayarları henüz tamamlanmamış. Manuel bilgi girebilir veya HK Dijital ekibinden kurulum isteyebilirsiniz.",
   session_missing: "Oturum doğrulanamadı. Lütfen panelden çıkış yapıp tekrar giriş yapın.",
   company_mismatch: "Bağlantı isteği bu müşteri oturumuyla eşleşmiyor.",
   state_invalid: "OAuth güvenlik doğrulaması başarısız oldu. Lütfen bağlantıyı yeniden başlatın.",
@@ -390,7 +383,7 @@ export function CustomerAccountConnectCenter() {
                 <button type="button" onClick={loadOAuthAssets} disabled={oauthLoading} className="rounded-full border border-blue-200 bg-white px-4 py-2 text-sm font-black text-blue-800 disabled:opacity-60">Yetkili Hesapları Listele</button>
                 {oauthInfo?.authUrl && <a href={oauthInfo.authUrl} target="_blank" rel="noreferrer" className="rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-black text-emerald-800">Platform Girişini Aç</a>}
               </div>
-              {oauthInfo?.missingEnv?.length > 0 && <p className="mt-3 rounded-[12px] bg-white p-3 text-sm font-bold text-blue-900">{providerMissingMessages[active.oauthProvider] || "Otomatik bağlantı ayarları henüz tamamlanmamış."} Manuel bilgi girebilirsiniz.</p>}
+              {oauthInfo?.missingEnv?.length > 0 && <p className="mt-3 rounded-[12px] bg-white p-3 text-sm font-bold text-blue-900">Bu platform için otomatik bağlantı ayarları henüz tamamlanmamış. Manuel bilgi girebilir veya HK Dijital ekibinden kurulum isteyebilirsiniz.</p>}
             </div>
           )}
 

@@ -838,7 +838,7 @@ export function AdminDashboard({
           {active === "PDF Rapor Tasarım Merkezi" && <PdfReportDesignCenter {...props} />}
           {active === "Müşteriler" && <CustomersAdmin {...props} selectedCompanyId={selectedCompanyId} />}
           {["Site Ayarları", "Web Sitesi Yönetimi"].includes(active) && <WebsiteManagementCenter {...props} />}
-          {["API Ayarları", "API Durum Kontrolü", "Yapay Zekâ Sağlayıcı Ayarları", "Entegrasyonlar", "Meta / Pixel / Dataset", "Google / GA4 / Search Console"].includes(active) && <IntegrationsCenter {...props} selectedCompanyId={selectedCompanyId} />}
+          {["API Ayarları", "API Durum Kontrolü", "Yapay Zekâ Sağlayıcı Ayarları", "Entegrasyonlar", "OAuth Kurulum Durumu", "HK Asistan Ayarları", "Meta / Pixel / Dataset", "Google / GA4 / Search Console"].includes(active) && <IntegrationsCenter {...props} selectedCompanyId={selectedCompanyId} />}
           {["Medya / Logo", "Medya"].includes(active) && <MediaLogoHub {...props} />}
           {active === "Kullanıcılar" && <UsersHub {...props} />}
           {active === "Genel Arama" && <GlobalSearchPage />}
@@ -1502,6 +1502,151 @@ function ReadinessPanel({ api }: any) {
       </div>)}
     </div>
   </div>;
+}
+
+function OAuthSetupStatusPanel() {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  async function load() {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/admin/integrations/oauth-status", { cache: "no-store" });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "OAuth durum bilgisi alınamadı.");
+      setData(payload);
+      setMessage("");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "OAuth durum bilgisi alınamadı.");
+    } finally {
+      setLoading(false);
+    }
+  }
+  useEffect(() => { load(); }, []);
+  const rows = Object.entries(data || {});
+  return <section className="mb-5 rounded-[18px] border border-violet-200 bg-violet-50 p-5">
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <p className="text-xs font-black uppercase tracking-[.16em] text-violet-700">OAuth Kurulum Durumu</p>
+        <h3 className="mt-1 text-xl font-black text-slate-950">Platform otomatik bağlantı kontrolleri</h3>
+        <p className="mt-1 max-w-3xl text-sm leading-6 text-violet-900">Meta, Google, TikTok ve X için App ID, secret ve callback URL değerlerini secret sızdırmadan denetler.</p>
+      </div>
+      <button onClick={load} disabled={loading} className="rounded-full bg-violet-500 px-4 py-2 text-xs font-black text-white disabled:opacity-60">{loading ? "Kontrol ediliyor..." : "Yenile"}</button>
+    </div>
+    {message && <p className="mt-3 rounded-[12px] bg-white p-3 text-sm font-bold text-violet-900">{message}</p>}
+    <div className="mt-4 grid gap-3 xl:grid-cols-2">
+      {rows.map(([key, item]: any) => {
+        const ready = item.ready;
+        const configured = item.configured;
+        return <article key={key} className="rounded-[16px] border border-white bg-white p-4 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h4 className="font-black text-slate-950">{item.label || key}</h4>
+            <span className={`rounded-full px-3 py-1 text-xs font-black ${ready ? "bg-emerald-50 text-emerald-700" : configured ? "bg-amber-50 text-amber-800" : "bg-rose-50 text-rose-700"}`}>{ready ? "Hazır" : configured ? "Redirect hatalı" : "Eksik"}</span>
+          </div>
+          <div className="mt-3 grid gap-2 text-xs leading-5 text-slate-600">
+            <p><strong>Canlı callback URL:</strong> {item.expectedRedirectUri}</p>
+            <p><strong>ENV redirect URI:</strong> {item.redirectUri || "Eksik"}</p>
+            <p><strong>Redirect doğru mu?</strong> {item.redirectUriMatches ? "Evet" : "Hayır"}</p>
+            <p><strong>Eksik ENV:</strong> {item.missing?.length ? item.missing.join(", ") : "Yok"}</p>
+          </div>
+          <details className="mt-3 rounded-[12px] border border-slate-200 bg-slate-50 p-3">
+            <summary className="cursor-pointer text-xs font-black text-slate-700">Authorize URL önizlemesi</summary>
+            <p className="mt-2 break-all font-mono text-[11px] leading-5 text-slate-500">{item.authorizeUrlPreview}</p>
+          </details>
+        </article>;
+      })}
+      {!rows.length && <p className="rounded-[12px] border border-dashed border-violet-200 bg-white p-4 text-sm text-violet-900">OAuth durum bilgisi henüz yüklenmedi.</p>}
+    </div>
+  </section>;
+}
+
+function CustomerAiSettingsAdminPanel({ companyId, companies, notify }: any) {
+  const [settings, setSettings] = useState<any>(null);
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+  const selectedCompany = (companies || []).find((company: any) => company.id === companyId);
+  const contextOptions = [
+    ["general", "Genel öneriler"],
+    ["reports", "Raporlar"],
+    ["ads", "Reklam performansı"],
+    ["tasks", "Görevler"],
+    ["payments", "Ödemeler"],
+    ["files", "Dosyalar"]
+  ];
+  async function load() {
+    if (!companyId) {
+      setSettings(null);
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/admin/companies/${companyId}/ai-settings`, { cache: "no-store" });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "HK Asistan ayarları alınamadı.");
+      setSettings(payload.settings);
+      setMessage("");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "HK Asistan ayarları alınamadı.");
+    } finally {
+      setLoading(false);
+    }
+  }
+  useEffect(() => { load(); }, [companyId]);
+  async function save() {
+    if (!companyId || !settings) return;
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/admin/companies/${companyId}/ai-settings`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings)
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "HK Asistan ayarları kaydedilemedi.");
+      setSettings(payload.settings);
+      setMessage(payload.message || "HK Asistan ayarları kaydedildi.");
+      notify?.("✓ HK Asistan ayarları kaydedildi.", "success");
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "HK Asistan ayarları kaydedilemedi.";
+      setMessage(detail);
+      notify?.(detail, "error");
+    } finally {
+      setLoading(false);
+    }
+  }
+  const toggleContext = (key: string) => setSettings((current: any) => {
+    const allowed = Array.isArray(current?.allowed_contexts) ? current.allowed_contexts : ["general"];
+    return { ...current, allowed_contexts: allowed.includes(key) ? allowed.filter((item: string) => item !== key) : [...allowed, key] };
+  });
+  return <section className="mb-5 rounded-[18px] border border-purple-200 bg-purple-50 p-5">
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <p className="text-xs font-black uppercase tracking-[.16em] text-purple-700">HK Asistan Ayarları</p>
+        <h3 className="mt-1 text-xl font-black text-slate-950">Müşteri bazlı yapay zekâ izinleri</h3>
+        <p className="mt-1 max-w-3xl text-sm leading-6 text-purple-900">Asistan görünürlüğünü, gerçek AI sağlayıcısını, demo modu ve müşterinin erişebileceği veri kapsamlarını seçin.</p>
+      </div>
+      <span className="rounded-full bg-white px-3 py-2 text-xs font-black text-purple-800">{selectedCompany?.name || "Önce müşteri seçin"}</span>
+    </div>
+    {!companyId ? <p className="mt-4 rounded-[12px] bg-white p-4 text-sm font-bold text-purple-900">Müşteri filtresinden bir firma seçin; HK Asistan ayarları burada düzenlenir.</p> : !settings ? <p className="mt-4 rounded-[12px] bg-white p-4 text-sm font-bold text-purple-900">{loading ? "Yükleniyor..." : message || "Ayarlar yüklenemedi."}</p> : (
+      <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_.8fr]">
+        <div className="rounded-[14px] bg-white p-4">
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="flex items-center gap-2 rounded-[12px] border border-slate-200 p-3 text-sm font-bold text-slate-700"><input type="checkbox" checked={settings.assistant_enabled} onChange={(event) => setSettings({ ...settings, assistant_enabled: event.target.checked })} /> HK Asistan aktif</label>
+            <label className="flex items-center gap-2 rounded-[12px] border border-slate-200 p-3 text-sm font-bold text-slate-700"><input type="checkbox" checked={settings.real_ai_enabled} onChange={(event) => setSettings({ ...settings, real_ai_enabled: event.target.checked })} /> Gerçek AI kullanabilir</label>
+            <SelectField label="Sağlayıcı" value={settings.provider || "demo"} onChange={(provider) => setSettings({ ...settings, provider })} options={["auto", "openai", "gemini", "groq", "demo"]} />
+            <Field label="Günlük mesaj limiti" value={String(settings.daily_message_limit || 20)} onChange={(daily_message_limit) => setSettings({ ...settings, daily_message_limit })} />
+          </div>
+          <div className="mt-4 grid gap-2 md:grid-cols-3">{contextOptions.map(([key, label]) => <label key={key} className="flex items-center gap-2 rounded-[12px] border border-slate-200 bg-slate-50 p-3 text-xs font-black text-slate-700"><input type="checkbox" checked={(settings.allowed_contexts || []).includes(key)} onChange={() => toggleContext(key)} /> {label}</label>)}</div>
+        </div>
+        <div className="rounded-[14px] bg-white p-4">
+          <TextArea label="Müşteriye gösterilecek karşılama metni" value={settings.welcome_message || ""} onChange={(welcome_message) => setSettings({ ...settings, welcome_message })} />
+          <div className="mt-3"><TextArea label="Admin notu" value={settings.admin_note || ""} onChange={(admin_note) => setSettings({ ...settings, admin_note })} /></div>
+          <button onClick={save} disabled={loading} className="mt-4 rounded-full bg-purple-500 px-5 py-3 text-sm font-black text-white disabled:opacity-60">{loading ? "Kaydediliyor..." : "Ayarları Kaydet"}</button>
+          {message && <p className="mt-3 rounded-[12px] bg-purple-50 p-3 text-sm font-bold text-purple-900">{message}</p>}
+        </div>
+      </div>
+    )}
+  </section>;
 }
 
 const systemTestCategories = [
@@ -5179,6 +5324,8 @@ function IntegrationsCenter({ content, setContent, notify, selectedCompanyId }: 
   };
   return <Panel title="Entegrasyonlar">
     <p className="mb-5 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm leading-6 text-cyan-700">API anahtarları tarayıcıya gönderilmez. Bu alan bağlantı kimliklerini ve durum notlarını merkezi olarak düzenlemek içindir; gerçek gizli anahtarlar sunucu ortam değişkenlerinde kalmalıdır.</p>
+    <OAuthSetupStatusPanel />
+    <CustomerAiSettingsAdminPanel companyId={selectedCompanyId} companies={content.companies || []} notify={notify} />
     <CustomerIntegrationHealthPanel companyId={selectedCompanyId} companies={content.companies || []} notify={notify} />
     <div className="mb-5"><ReadinessPanel api={api} /></div>
     <div className="mb-5 grid gap-5"><GlobalMetaPixelSettings /><div className="rounded-[18px] border border-slate-200 bg-white p-5"><h3 className="mb-4 text-lg font-black text-slate-900">Müşteri Meta Pixel & Conversion API</h3><MetaPixelSettingsPanel companyId={selectedCompanyId} companyName={(content.companies || []).find((company: any) => company.id === selectedCompanyId)?.name} /></div></div>
