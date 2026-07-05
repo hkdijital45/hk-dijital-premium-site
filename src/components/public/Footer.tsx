@@ -23,6 +23,9 @@ export function Footer({ content }: { content: SiteContent }) {
             <Link href="/paketler">Paketler</Link>
             <Link href="/hk-intelligence">HK Intelligence</Link>
             <Link href="/teklif-al">Teklif Al</Link>
+            <Link href="/gizlilik-politikasi">Gizlilik Politikası</Link>
+            <Link href="/kullanim-sartlari">Kullanım Şartları</Link>
+            <Link href="/veri-silme">Veri Silme</Link>
           </div>
         </div>
         <div className="relative">
