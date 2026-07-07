@@ -22,13 +22,15 @@ const providerConfig: Record<Provider, {
   env: string[];
   authBase: string;
   scope: string;
+  advancedScope?: string;
   assetTypes: string[];
 }> = {
   meta: {
     label: "Meta",
     env: ["META_CLIENT_ID", "META_CLIENT_SECRET", "META_REDIRECT_URI"],
     authBase: "https://www.facebook.com/v20.0/dialog/oauth",
-    scope: "business_management,ads_read,pages_show_list,instagram_basic",
+    scope: "public_profile,email",
+    advancedScope: "business_management,ads_read,pages_show_list,instagram_basic",
     assetTypes: ["Business Manager", "Ad Account", "Page", "Instagram Business Account", "Pixel"]
   },
   google: {
@@ -125,6 +127,20 @@ function pkceChallenge(verifier: string) {
   return crypto.createHash("sha256").update(verifier).digest("base64url");
 }
 
+function advancedScopesEnabled(provider: Provider) {
+  return provider === "meta" && process.env.META_ADVANCED_SCOPES_ENABLED === "true";
+}
+
+function effectiveProviderScope(provider: Provider) {
+  const config = providerConfig[provider];
+  if (!advancedScopesEnabled(provider) || !config.advancedScope) return config.scope;
+  return `${config.scope},${config.advancedScope}`;
+}
+
+function providerScopeList(provider: Provider) {
+  return effectiveProviderScope(provider).split(/[,\s]+/).map((scope) => scope.trim()).filter(Boolean);
+}
+
 function providerEnvPairs(provider: Provider) {
   const credentials = providerCredentials(provider);
   if (provider === "meta") return [["META_APP_ID veya META_CLIENT_ID", credentials.clientId], ["META_APP_SECRET veya META_CLIENT_SECRET", credentials.clientSecret], ["META_REDIRECT_URI", credentials.redirectUri]];
@@ -148,16 +164,17 @@ const expectedRedirectUris: Record<Provider, string> = {
 
 function buildAuthorizePreview(provider: Provider, redirectUri: string) {
   const config = providerConfig[provider];
+  const scope = effectiveProviderScope(provider);
   const params = new URLSearchParams(provider === "tiktok" ? {
     app_id: "<configured>",
     redirect_uri: redirectUri || expectedRedirectUris[provider],
     state: "<signed-state>",
-    scope: config.scope
+    scope
   } : {
     client_id: "<configured>",
     redirect_uri: redirectUri || expectedRedirectUris[provider],
     response_type: "code",
-    scope: config.scope,
+    scope,
     state: "<signed-state>"
   });
   if (provider === "google") {
@@ -182,6 +199,9 @@ export function getOAuthProviderStatus(provider: Provider) {
     ready: missing.length === 0 && redirectUriMatches,
     configured: missing.length === 0,
     missing,
+    scope: effectiveProviderScope(provider),
+    scopes: providerScopeList(provider),
+    advancedScopesEnabled: advancedScopesEnabled(provider),
     redirectUri: credentials.redirectUri,
     expectedRedirectUri,
     redirectUriMatches,
@@ -254,6 +274,7 @@ function configuredPayload(provider: Provider, request: Request) {
   const url = new URL(request.url);
   const platform = url.searchParams.get("platform") || provider;
   const { redirectUri, clientId } = providerCredentials(provider);
+  const scope = effectiveProviderScope(provider);
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
@@ -264,13 +285,16 @@ function configuredPayload(provider: Provider, request: Request) {
     params.set("access_type", "offline");
     params.set("prompt", "consent");
   }
-  params.set("scope", config.scope);
+  params.set("scope", scope);
   return {
     ok: true,
     configured: true,
     provider,
     providerLabel: config.label,
     oauthStatus: "oauth_ready",
+    scope,
+    scopes: providerScopeList(provider),
+    advancedScopesEnabled: advancedScopesEnabled(provider),
     authUrl: `${config.authBase}?${params.toString()}`,
     message: `${config.label} otomatik bağlantı URL'i hazırlandı. Callback tamamlandığında yetkili hesap seçimi açılacak.`
   };
@@ -323,6 +347,7 @@ export async function oauthConnect(provider: Provider, request: Request) {
   }
   const config = providerConfig[provider];
   const credentials = providerCredentials(provider);
+  const scope = effectiveProviderScope(provider);
   const platform = clean(url.searchParams.get("platform")) || provider;
   const nonce = crypto.randomBytes(18).toString("base64url");
   const state = encodeState({ provider, platform, customerId: session.companyId, returnTo, nonce, exp: Date.now() + 10 * 60 * 1000 });
@@ -336,7 +361,7 @@ export async function oauthConnect(provider: Provider, request: Request) {
     redirect_uri: credentials.redirectUri,
     response_type: "code",
     state,
-    scope: config.scope,
+    scope,
     code_challenge: pkceChallenge(codeVerifier),
     code_challenge_method: "S256"
   } : {
@@ -344,13 +369,13 @@ export async function oauthConnect(provider: Provider, request: Request) {
     redirect_uri: credentials.redirectUri,
     response_type: "code",
     state,
-    scope: config.scope
+    scope
   });
   if (provider === "google") {
     params.set("access_type", "offline");
     params.set("prompt", "consent");
   }
-  if (provider === "tiktok") params.set("scope", config.scope);
+  if (provider === "tiktok") params.set("scope", scope);
   const response = NextResponse.redirect(`${config.authBase}?${params.toString()}`);
   response.cookies.set(`hk_oauth_state_${provider}`, nonce, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 600, path: "/" });
   if (codeVerifier) response.cookies.set(`hk_oauth_pkce_${provider}`, codeVerifier, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 600, path: "/" });
@@ -364,7 +389,7 @@ async function exchangeCode(provider: Provider, code: string, codeVerifier = "")
     const response = await fetch(`https://graph.facebook.com/v20.0/oauth/access_token?${params.toString()}`, { cache: "no-store" });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error?.message || "Meta token alınamadı.");
-    return { accessToken: payload.access_token, expiresIn: payload.expires_in, scope: providerConfig.meta.scope };
+    return { accessToken: payload.access_token, expiresIn: payload.expires_in, scope: effectiveProviderScope("meta") };
   }
   if (provider === "google") {
     const response = await fetch("https://oauth2.googleapis.com/token", {
@@ -385,7 +410,7 @@ async function exchangeCode(provider: Provider, code: string, codeVerifier = "")
     const payload = await response.json().catch(() => ({}));
     const accessToken = payload.data?.access_token || payload.access_token;
     if (!response.ok || !accessToken) throw new Error(payload.message || "TikTok token alınamadı.");
-    return { accessToken, refreshToken: payload.data?.refresh_token, expiresIn: payload.data?.expires_in, scope: providerConfig.tiktok.scope };
+    return { accessToken, refreshToken: payload.data?.refresh_token, expiresIn: payload.data?.expires_in, scope: effectiveProviderScope("tiktok") };
   }
   const response = await fetch("https://api.twitter.com/2/oauth2/token", {
     method: "POST",
@@ -397,7 +422,7 @@ async function exchangeCode(provider: Provider, code: string, codeVerifier = "")
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || !payload.access_token) throw new Error(payload.error_description || payload.error || "X/Twitter token alınamadı.");
-  return { accessToken: payload.access_token, refreshToken: payload.refresh_token, expiresIn: payload.expires_in, scope: payload.scope || providerConfig.x.scope };
+  return { accessToken: payload.access_token, refreshToken: payload.refresh_token, expiresIn: payload.expires_in, scope: payload.scope || effectiveProviderScope("x") };
 }
 
 export async function oauthCallback(provider: Provider, request: Request) {

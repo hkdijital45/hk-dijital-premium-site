@@ -1548,6 +1548,8 @@ function OAuthSetupStatusPanel() {
             <p><strong>ENV redirect URI:</strong> {item.redirectUri || "Eksik"}</p>
             <p><strong>Redirect doğru mu?</strong> {item.redirectUriMatches ? "Evet" : "Hayır"}</p>
             <p><strong>Eksik ENV:</strong> {item.missing?.length ? item.missing.join(", ") : "Yok"}</p>
+            <p><strong>Aktif scope listesi:</strong> {item.scopes?.length ? item.scopes.join(", ") : item.scope || "Yok"}</p>
+            {key === "meta" && <p><strong>Gelişmiş Meta izinleri:</strong> {item.advancedScopesEnabled ? "Açık" : "Kapalı"} · Açmak için META_ADVANCED_SCOPES_ENABLED=true</p>}
           </div>
           <details className="mt-3 rounded-[12px] border border-slate-200 bg-slate-50 p-3">
             <summary className="cursor-pointer text-xs font-black text-slate-700">Authorize URL önizlemesi</summary>
