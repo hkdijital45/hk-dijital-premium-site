@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { getSession, isCustomerRole } from "@/lib/auth";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
-const sensitiveFields = ["login_email", "login_username", "login_password", "recovery_email", "two_factor_note", "access_note", "sensitive_metadata"];
+const sensitiveFields = ["login_email", "login_username", "login_password", "recovery_email", "two_factor_note", "access_note", "sensitive_metadata", "access_token_encrypted", "refresh_token_encrypted"];
 const platformLabels: Record<string, string> = {
   meta: "Meta Ads",
   instagram: "Instagram",
@@ -23,6 +23,16 @@ function maskSecret(value: unknown) {
 function sanitize(row: any = {}) {
   const next = { ...row };
   for (const field of sensitiveFields) next[field] = field === "sensitive_metadata" ? {} : maskSecret(next[field]);
+  if (Array.isArray(next.integration_assets)) {
+    next.integration_assets = next.integration_assets.map((asset: any) => {
+      const safe = { ...(asset || {}) };
+      delete safe.access_token;
+      delete safe.refresh_token;
+      delete safe.access_token_encrypted;
+      delete safe.refresh_token_encrypted;
+      return safe;
+    });
+  }
   return next;
 }
 

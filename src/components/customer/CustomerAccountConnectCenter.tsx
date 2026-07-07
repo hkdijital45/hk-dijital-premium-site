@@ -88,6 +88,9 @@ const integrationErrorMessages: Record<string, string> = {
   company_mismatch: "Bağlantı isteği bu müşteri oturumuyla eşleşmiyor.",
   state_invalid: "OAuth güvenlik doğrulaması başarısız oldu. Lütfen bağlantıyı yeniden başlatın.",
   token_exchange_failed: "Platform girişinden sonra erişim doğrulaması tamamlanamadı.",
+  invalid_scope: "Meta bu izin kapsamını kabul etmedi. Lütfen HK Dijital ekibinden Meta uygulama izinlerini kontrol etmesini isteyin.",
+  redirect_uri_mismatch: "Platform callback adresi eşleşmedi. HK Dijital ekibi uygulama ayarlarını kontrol edecek.",
+  user_info_fetch_failed: "Meta girişi tamamlandı ancak kullanıcı bilgisi okunamadı. Lütfen tekrar deneyin.",
   permission_denied: "Platform izni verilmedi veya bağlantı iptal edildi.",
   accounts_fetch_failed: "Yetkili hesaplar alınamadı. Platform izinlerini kontrol edin.",
   oauth_session_missing: "Yetkili hesapları listelemek için önce platform girişini tamamlayın."
@@ -152,6 +155,7 @@ export function CustomerAccountConnectCenter() {
     missing: assets.filter((item) => item.status === "missing_info" || item.status === "error").length,
     last: assets.map((item) => item.updated_at).filter(Boolean).sort().at(-1)
   }), [assets]);
+  const activeAsset = useMemo(() => assets.find((item) => item.platform === active.key || (active.key === "meta" && item.provider === "meta" && item.account_type === "meta_user")), [assets, active.key]);
 
   function selectPlatform(card: any) {
     const current = assets.find((item) => item.platform === card.key);
@@ -241,6 +245,19 @@ export function CustomerAccountConnectCenter() {
     if (active.key === "website_pixel") {
       changeMode("manual");
       setMessage("Website / Pixel için yetkili hesap listeleme yok. Website URL, Pixel, GTM ve Analytics bilgilerini manuel girin.");
+      return;
+    }
+    if (active.key === "meta" && activeAsset?.account_type === "meta_user") {
+      setOauthInfo({
+        ok: true,
+        provider: "meta",
+        phase: "meta_oauth_phase_1",
+        accounts: [activeAsset],
+        message: "Reklam hesaplarını listelemek için gelişmiş Meta izinleri gerekir. Önce temel giriş tamamlandı."
+      });
+      setAssetPickerOpen(true);
+      setSelectedAssetIds([activeAsset.id || `meta-user-${activeAsset.provider_account_id}`]);
+      setMessage("Reklam hesaplarını listelemek için gelişmiş Meta izinleri gerekir. Önce temel giriş tamamlandı.");
       return;
     }
     setOauthLoading(true);
@@ -346,6 +363,25 @@ export function CustomerAccountConnectCenter() {
             <button type="button" onClick={() => setMessage("Bağlantı testi talebi kaydedildi. HK Dijital ekibi kontrol edecek.")} className="rounded-full border border-cyan-200 bg-white px-4 py-2 text-xs font-black text-cyan-800">Bağlantıyı Test Et</button>
           </div>
 
+          {activeAsset && (
+            <div className="mt-4 rounded-[18px] border border-emerald-200 bg-emerald-50 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[.14em] text-emerald-700">Bağlantı Durumu</p>
+                  <h4 className="mt-1 font-black text-emerald-950">{statusLabel[activeAsset.status] || "Bağlı"}</h4>
+                </div>
+                <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-emerald-800">{methodLabel[activeAsset.connection_method || activeAsset.connection_mode] || activeAsset.connection_method || "OAuth"}</span>
+              </div>
+              <div className="mt-3 grid gap-2 text-sm leading-6 text-emerald-950 md:grid-cols-2">
+                <p><strong>Meta kullanıcı adı:</strong> {activeAsset.provider_account_name || activeAsset.metadata?.meta_user_name || "Yok"}</p>
+                <p><strong>Meta kullanıcı ID:</strong> {activeAsset.provider_account_id || activeAsset.account_id || activeAsset.metadata?.meta_user_id || "Yok"}</p>
+                <p><strong>Bağlantı tarihi:</strong> {activeAsset.last_synced_at || activeAsset.updated_at ? new Date(activeAsset.last_synced_at || activeAsset.updated_at).toLocaleString("tr-TR") : "Yok"}</p>
+                <p><strong>İzin kapsamı:</strong> {(activeAsset.scopes || activeAsset.oauth_scopes || ["public_profile", "email"]).join(", ")}</p>
+              </div>
+              {active.key === "meta" && <p className="mt-3 rounded-[12px] bg-white p-3 text-xs font-bold leading-5 text-emerald-900">Temel Facebook Login tamamlandı. Reklam hesabı, sayfa ve Instagram Business varlıklarını listelemek için gelişmiş Meta izinleri ayrıca açılmalıdır.</p>}
+            </div>
+          )}
+
           <div className="mt-4 rounded-[18px] border border-cyan-200 bg-white p-4">
             <p className="text-sm font-black text-slate-950">Bağlantı yöntemi:</p>
             <div className="mt-3 inline-flex w-full rounded-[16px] border border-slate-200 bg-slate-50 p-1 sm:w-auto">
@@ -384,6 +420,7 @@ export function CustomerAccountConnectCenter() {
                 {oauthInfo?.authUrl && <a href={oauthInfo.authUrl} target="_blank" rel="noreferrer" className="rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-black text-emerald-800">Platform Girişini Aç</a>}
               </div>
               {oauthInfo?.missingEnv?.length > 0 && <p className="mt-3 rounded-[12px] bg-white p-3 text-sm font-bold text-blue-900">Bu platform için otomatik bağlantı ayarları henüz tamamlanmamış. Manuel bilgi girebilir veya HK Dijital ekibinden kurulum isteyebilirsiniz.</p>}
+              {oauthInfo?.phase === "meta_oauth_phase_1" && <p className="mt-3 rounded-[12px] bg-white p-3 text-sm font-bold text-blue-900">{oauthInfo.message || "Reklam hesaplarını listelemek için gelişmiş Meta izinleri gerekir. Önce temel giriş tamamlandı."}</p>}
             </div>
           )}
 

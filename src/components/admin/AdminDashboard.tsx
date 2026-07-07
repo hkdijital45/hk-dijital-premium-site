@@ -1549,6 +1549,8 @@ function OAuthSetupStatusPanel() {
             <p><strong>Redirect doğru mu?</strong> {item.redirectUriMatches ? "Evet" : "Hayır"}</p>
             <p><strong>Eksik ENV:</strong> {item.missing?.length ? item.missing.join(", ") : "Yok"}</p>
             <p><strong>Aktif scope listesi:</strong> {item.scopes?.length ? item.scopes.join(", ") : item.scope || "Yok"}</p>
+            {key === "meta" && <p><strong>Aktif Meta App ID:</strong> {item.activeClientIdMasked || item.activeClientId || "Eksik"}</p>}
+            {key === "meta" && <p><strong>Temel login hazır mı?</strong> {item.basicLoginReady ? "Evet" : "Hayır"}</p>}
             {key === "meta" && <p><strong>Gelişmiş Meta izinleri:</strong> {item.advancedScopesEnabled ? "Açık" : "Kapalı"} · Açmak için META_ADVANCED_SCOPES_ENABLED=true</p>}
           </div>
           <details className="mt-3 rounded-[12px] border border-slate-200 bg-slate-50 p-3">

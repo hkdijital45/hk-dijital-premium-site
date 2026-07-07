@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import crypto from "crypto";
 import { getSession, isCustomerRole, isStaffRole } from "@/lib/auth";
+import { encryptSecret } from "@/lib/business-flow";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
 export type Provider = "meta" | "google" | "tiktok" | "x";
@@ -123,6 +124,12 @@ function providerCredentials(provider: Provider) {
   };
 }
 
+function maskClientId(value = "") {
+  if (!value) return "";
+  if (value.length <= 8) return value;
+  return `${value.slice(0, 4)}...${value.slice(-4)}`;
+}
+
 function pkceChallenge(verifier: string) {
   return crypto.createHash("sha256").update(verifier).digest("base64url");
 }
@@ -196,7 +203,10 @@ export function getOAuthProviderStatus(provider: Provider) {
   return {
     provider,
     label: providerConfig[provider].label,
+    activeClientId: credentials.clientId,
+    activeClientIdMasked: maskClientId(credentials.clientId),
     ready: missing.length === 0 && redirectUriMatches,
+    basicLoginReady: provider === "meta" ? missing.length === 0 && redirectUriMatches && providerScopeList(provider).includes("public_profile") : undefined,
     configured: missing.length === 0,
     missing,
     scope: effectiveProviderScope(provider),
@@ -425,11 +435,104 @@ async function exchangeCode(provider: Provider, code: string, codeVerifier = "")
   return { accessToken: payload.access_token, refreshToken: payload.refresh_token, expiresIn: payload.expires_in, scope: payload.scope || effectiveProviderScope("x") };
 }
 
+async function fetchMetaUserInfo(accessToken: string) {
+  const response = await fetch(`https://graph.facebook.com/v20.0/me?${new URLSearchParams({ fields: "id,name,email", access_token: accessToken }).toString()}`, { cache: "no-store" });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.id) throw new Error(payload.error?.message || "Meta kullanıcı bilgisi alınamadı.");
+  return {
+    id: clean(payload.id),
+    name: clean(payload.name),
+    email: clean(payload.email)
+  };
+}
+
+async function saveMetaPhase1Integration(session: any, token: any, metaUser: { id: string; name: string; email: string }, expiresAt: string) {
+  if (!hasSupabaseConfig()) throw new Error("Supabase bağlantısı yapılandırılmadı.");
+  const rows = await supabaseRest<any[]>(`customer_integrations?company_id=eq.${encodeURIComponent(session.companyId)}&select=*&limit=1`).catch(() => []);
+  const existing = rows[0] || null;
+  const currentAssets = Array.isArray(existing?.integration_assets) ? existing.integration_assets : [];
+  const now = new Date().toISOString();
+  const scopes = providerScopeList("meta");
+  const phase1Asset = {
+    id: `meta-user-${metaUser.id}`,
+    provider: "meta",
+    platform: "meta",
+    platform_label: "Meta / Facebook",
+    asset_type: "meta_user",
+    asset_name: metaUser.name || metaUser.email || metaUser.id,
+    asset_id: metaUser.id,
+    account_id: metaUser.id,
+    provider_account_id: metaUser.id,
+    provider_account_name: metaUser.name || metaUser.email || metaUser.id,
+    account_type: "meta_user",
+    status: "connected_oauth",
+    source: "customer",
+    connection_mode: "oauth",
+    connection_method: "oauth",
+    admin_review_status: "approved",
+    oauth_status: "connected",
+    oauth_scopes: scopes,
+    scopes,
+    token_expires_at: expiresAt || null,
+    last_synced_at: now,
+    metadata: {
+      phase: "meta_oauth_phase_1",
+      meta_user_id: metaUser.id,
+      meta_user_name: metaUser.name,
+      meta_user_email: metaUser.email,
+      advanced_permissions_enabled: advancedScopesEnabled("meta"),
+      advanced_permissions_note: "Reklam hesabı listeleme için business_management, ads_read, pages_show_list ve instagram_basic gibi gelişmiş izinler ayrıca açılmalıdır."
+    }
+  };
+  const nextAssets = [
+    phase1Asset,
+    ...currentAssets.filter((item: any) => `${item.provider || item.platform}-${item.account_type || item.asset_type}-${item.provider_account_id || item.account_id || item.asset_id}` !== `meta-meta_user-${metaUser.id}`)
+  ];
+  const patch = {
+    company_id: session.companyId,
+    customer_id: session.companyId,
+    provider: "meta",
+    platform: "meta",
+    account_type: "meta_user",
+    provider_account_id: metaUser.id,
+    provider_account_name: metaUser.name || metaUser.email || metaUser.id,
+    status: "connected_oauth",
+    source: "customer",
+    connection_mode: "oauth",
+    connection_method: "oauth",
+    admin_review_status: "approved",
+    oauth_status: "connected",
+    oauth_account_id: metaUser.id,
+    oauth_asset_id: metaUser.id,
+    oauth_asset_type: "meta_user",
+    scopes,
+    access_token_encrypted: encryptSecret(token.accessToken || ""),
+    token_expires_at: expiresAt || null,
+    metadata: phase1Asset.metadata,
+    integration_assets: nextAssets,
+    last_synced_at: now,
+    sync_error: "",
+    updated_by: session.profileId || null,
+    created_by: existing?.created_by || session.profileId || null
+  };
+  await supabaseRest<any[]>("customer_integrations?on_conflict=company_id", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify(patch) });
+  return phase1Asset;
+}
+
+function callbackErrorCode(providerError: string, description: string) {
+  const text = `${providerError} ${description}`.toLocaleLowerCase("tr-TR");
+  if (text.includes("invalid scope") || text.includes("invalid_scopes")) return "invalid_scope";
+  if (text.includes("redirect_uri")) return "redirect_uri_mismatch";
+  if (text.includes("access_denied") || text.includes("denied")) return "permission_denied";
+  return "permission_denied";
+}
+
 export async function oauthCallback(provider: Provider, request: Request) {
   const session = await requireCustomerSession();
   const url = new URL(request.url);
   const code = clean(url.searchParams.get("code"));
   const providerError = clean(url.searchParams.get("error"));
+  const providerErrorDescription = clean(url.searchParams.get("error_description") || url.searchParams.get("error_message"));
   const rawState = clean(url.searchParams.get("state"));
   const state = decodeState(rawState);
   const returnTo = safeReturnTo(state?.returnTo || "/musteri-paneli#hesap-bagla");
@@ -440,7 +543,7 @@ export async function oauthCallback(provider: Provider, request: Request) {
   const codeVerifier = cookieStore.get(`hk_oauth_pkce_${provider}`)?.value || "";
   const target = new URL(returnTo, baseUrl(request));
   if (providerError) {
-    return redirectWithIntegrationError(request, returnTo, provider, "permission_denied", { integration_message: providerError });
+    return redirectWithIntegrationError(request, returnTo, provider, callbackErrorCode(providerError, providerErrorDescription));
   }
   if (!code || !state || state.provider !== provider || state.customerId !== session.companyId || state.nonce !== expectedNonce) {
     return redirectWithIntegrationError(request, returnTo, provider, "state_invalid");
@@ -448,6 +551,16 @@ export async function oauthCallback(provider: Provider, request: Request) {
   try {
     const token = await exchangeCode(provider, code, codeVerifier);
     const expiresAt = token.expiresIn ? new Date(Date.now() + Number(token.expiresIn) * 1000).toISOString() : "";
+    let metaUser = null;
+    if (provider === "meta") {
+      try {
+        metaUser = await fetchMetaUserInfo(token.accessToken);
+        await saveMetaPhase1Integration(session, token, metaUser, expiresAt);
+      } catch (error) {
+        console.error("Meta OAuth Phase 1 user info/save failed", error instanceof Error ? error.message : "unknown_error");
+        return redirectWithIntegrationError(request, returnTo, provider, "user_info_fetch_failed");
+      }
+    }
     target.searchParams.set("integration_provider", provider);
     target.searchParams.set("integration_success", provider);
     target.searchParams.set("oauth_status", "accounts_ready");
@@ -455,7 +568,7 @@ export async function oauthCallback(provider: Provider, request: Request) {
     const response = NextResponse.redirect(target);
     response.cookies.delete(`hk_oauth_state_${provider}`);
     response.cookies.delete(`hk_oauth_pkce_${provider}`);
-    response.cookies.set(`hk_oauth_session_${provider}`, encryptSession({ provider, customerId: session.companyId, accessToken: token.accessToken, expiresAt, scope: token.scope }), { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 900, path: "/" });
+    response.cookies.set(`hk_oauth_session_${provider}`, encryptSession({ provider, customerId: session.companyId, accessToken: token.accessToken, expiresAt, scope: token.scope, metaUser }), { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 900, path: "/" });
     return response;
   } catch (error) {
     return redirectWithIntegrationError(request, returnTo, provider, "token_exchange_failed", { integration_message: error instanceof Error ? error.message : "OAuth token alınamadı." });
@@ -530,6 +643,32 @@ async function fetchMetaAccounts(accessToken: string) {
     }] : [];
     return [base, ...instagram];
   }));
+}
+
+function metaPhase1AccountFromSession(oauthSession: any) {
+  const metaUser = oauthSession?.metaUser || {};
+  const userId = clean(metaUser.id);
+  if (!userId) return null;
+  const scopes = providerScopeList("meta");
+  return {
+    id: `meta-user-${userId}`,
+    provider: "meta",
+    platform: "meta",
+    account_type: "meta_user",
+    provider_account_id: userId,
+    provider_account_name: clean(metaUser.name || metaUser.email || userId),
+    status: "Temel giriş tamamlandı. Reklam hesaplarını listelemek için gelişmiş Meta izinleri gerekir.",
+    last_synced_at: new Date().toISOString(),
+    scopes,
+    metadata: {
+      phase: "meta_oauth_phase_1",
+      meta_user_id: userId,
+      meta_user_name: clean(metaUser.name),
+      meta_user_email: clean(metaUser.email),
+      advanced_permissions_enabled: false,
+      advanced_permissions_note: "Önce temel Facebook Login tamamlandı. Reklam hesabı listeleme için gelişmiş Meta izinleri ayrıca açılmalıdır."
+    }
+  };
 }
 
 async function fetchGoogleAccounts(accessToken: string) {
@@ -614,6 +753,17 @@ export async function oauthAccounts(request: Request) {
   }
   try {
     const accessToken = String(oauthSession.accessToken || "");
+    if (provider === "meta" && !advancedScopesEnabled("meta")) {
+      const phase1Account = metaPhase1AccountFromSession(oauthSession);
+      return NextResponse.json({
+        ok: true,
+        provider,
+        accounts: phase1Account ? [phase1Account] : [],
+        phase: "meta_oauth_phase_1",
+        advancedScopesEnabled: false,
+        message: "Reklam hesaplarını listelemek için gelişmiş Meta izinleri gerekir. Önce temel giriş tamamlandı."
+      });
+    }
     const accounts = provider === "meta" ? await fetchMetaAccounts(accessToken) : provider === "google" ? await fetchGoogleAccounts(accessToken) : provider === "tiktok" ? await fetchTikTokAccounts(accessToken) : await fetchXAccounts(accessToken);
     return NextResponse.json({ ok: true, provider, accounts, message: accounts.length ? "Yetkili hesaplar listelendi." : "Hesap bulunamadı veya yetki kapsamı yetersiz." });
   } catch (error) {
