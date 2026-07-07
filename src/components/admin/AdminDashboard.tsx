@@ -1552,6 +1552,9 @@ function OAuthSetupStatusPanel() {
             {key === "meta" && <p><strong>Aktif Meta App ID:</strong> {item.activeClientIdMasked || item.activeClientId || "Eksik"}</p>}
             {key === "meta" && <p><strong>Temel login hazır mı?</strong> {item.basicLoginReady ? "Evet" : "Hayır"}</p>}
             {key === "meta" && <p><strong>Gelişmiş Meta izinleri:</strong> {item.advancedScopesEnabled ? "Açık" : "Kapalı"} · Açmak için META_ADVANCED_SCOPES_ENABLED=true</p>}
+            {key === "meta" && <p><strong>Business varlık listeleme:</strong> {item.businessAssetListingReady ? "Hazır" : "Kapalı / App Review bekliyor"}</p>}
+            {key === "meta" && <p><strong>Gereken izinler:</strong> {item.advancedRequiredScopes?.join(", ") || "Yok"}</p>}
+            {key === "meta" && <p><strong>Açıklama:</strong> {item.businessAssetListingMessage}</p>}
           </div>
           <details className="mt-3 rounded-[12px] border border-slate-200 bg-slate-50 p-3">
             <summary className="cursor-pointer text-xs font-black text-slate-700">Authorize URL önizlemesi</summary>

@@ -156,6 +156,14 @@ export function CustomerAccountConnectCenter() {
     last: assets.map((item) => item.updated_at).filter(Boolean).sort().at(-1)
   }), [assets]);
   const activeAsset = useMemo(() => assets.find((item) => item.platform === active.key || (active.key === "meta" && item.provider === "meta" && item.account_type === "meta_user")), [assets, active.key]);
+  const groupedOAuthAccounts = useMemo(() => {
+    const accounts = Array.isArray(oauthInfo?.accounts) ? oauthInfo.accounts : [];
+    return accounts.reduce((groups: Record<string, any[]>, item: any) => {
+      const key = item.category || (item.account_type === "meta_business" ? "Business Manager" : item.account_type === "meta_ad_account" ? "Reklam Hesapları" : item.account_type === "facebook_page" ? "Facebook Sayfaları" : item.account_type === "instagram_business" ? "Instagram Business" : "Diğer Hesaplar");
+      groups[key] = [...(groups[key] || []), item];
+      return groups;
+    }, {});
+  }, [oauthInfo]);
 
   function selectPlatform(card: any) {
     const current = assets.find((item) => item.platform === card.key);
@@ -245,19 +253,6 @@ export function CustomerAccountConnectCenter() {
     if (active.key === "website_pixel") {
       changeMode("manual");
       setMessage("Website / Pixel için yetkili hesap listeleme yok. Website URL, Pixel, GTM ve Analytics bilgilerini manuel girin.");
-      return;
-    }
-    if (active.key === "meta" && activeAsset?.account_type === "meta_user") {
-      setOauthInfo({
-        ok: true,
-        provider: "meta",
-        phase: "meta_oauth_phase_1",
-        accounts: [activeAsset],
-        message: "Reklam hesaplarını listelemek için gelişmiş Meta izinleri gerekir. Önce temel giriş tamamlandı."
-      });
-      setAssetPickerOpen(true);
-      setSelectedAssetIds([activeAsset.id || `meta-user-${activeAsset.provider_account_id}`]);
-      setMessage("Reklam hesaplarını listelemek için gelişmiş Meta izinleri gerekir. Önce temel giriş tamamlandı.");
       return;
     }
     setOauthLoading(true);
@@ -421,6 +416,8 @@ export function CustomerAccountConnectCenter() {
               </div>
               {oauthInfo?.missingEnv?.length > 0 && <p className="mt-3 rounded-[12px] bg-white p-3 text-sm font-bold text-blue-900">Bu platform için otomatik bağlantı ayarları henüz tamamlanmamış. Manuel bilgi girebilir veya HK Dijital ekibinden kurulum isteyebilirsiniz.</p>}
               {oauthInfo?.phase === "meta_oauth_phase_1" && <p className="mt-3 rounded-[12px] bg-white p-3 text-sm font-bold text-blue-900">{oauthInfo.message || "Reklam hesaplarını listelemek için gelişmiş Meta izinleri gerekir. Önce temel giriş tamamlandı."}</p>}
+              {oauthInfo?.phase === "meta_business_phase_2" && <p className="mt-3 rounded-[12px] bg-white p-3 text-sm font-bold text-blue-900">Business Manager, reklam hesapları, Facebook Sayfaları ve Instagram Business varlıkları listelendi. Kullanmak istediğiniz varlıkları seçip kaydedin.</p>}
+              {Array.isArray(oauthInfo?.warnings) && oauthInfo.warnings.length > 0 && <p className="mt-3 rounded-[12px] bg-amber-50 p-3 text-sm font-bold text-amber-900">{oauthInfo.warnings.join(" · ")}</p>}
             </div>
           )}
 
@@ -433,10 +430,14 @@ export function CustomerAccountConnectCenter() {
                 </div>
                 <button type="button" onClick={saveSelectedOAuthAssets} disabled={loading} className="rounded-full bg-emerald-500 px-4 py-2 text-sm font-black text-white disabled:opacity-60">Seçilenleri Kaydet</button>
               </div>
+              {Object.keys(groupedOAuthAccounts).length > 0 && <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">{Object.entries(groupedOAuthAccounts).map(([label, items]) => <div key={label} className="rounded-[12px] border border-slate-200 bg-slate-50 p-3"><p className="text-xs font-black uppercase tracking-[.12em] text-slate-500">{label}</p><p className="mt-1 text-xl font-black text-slate-950">{items.length}</p></div>)}</div>}
               <div className="mt-4 max-h-72 overflow-auto rounded-[14px] border border-slate-200">
                 <table className="w-full min-w-[760px] text-left text-sm">
                   <thead className="bg-slate-50 text-xs uppercase tracking-[.12em] text-slate-500"><tr><th className="p-3">Seç</th><th>Hesap Adı</th><th>Platform</th><th>Varlık Türü</th><th>Durum</th><th>Hesap ID</th><th>Son Senkronizasyon</th></tr></thead>
-                  <tbody>{(oauthInfo?.accounts || []).map((item: any) => <tr key={item.id} className="border-t border-slate-200"><td className="p-3"><input type="checkbox" checked={selectedAssetIds.includes(item.id)} onChange={(event) => setSelectedAssetIds((current) => event.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id))} /></td><td className="font-bold text-slate-900">{item.provider_account_name || item.asset_name || item.name}</td><td>{item.provider || item.platform || active.title}</td><td>{item.account_type || item.asset_type || active.type}</td><td>{item.status || "Seçilebilir"}</td><td>{item.provider_account_id || item.account_id || item.asset_id || item.id}</td><td>{item.last_synced_at ? new Date(item.last_synced_at).toLocaleString("tr-TR") : "Henüz yok"}</td></tr>)}</tbody>
+                  <tbody>{Object.entries(groupedOAuthAccounts).flatMap(([label, items]) => [
+                    <tr key={`group-${label}`} className="border-t border-slate-200 bg-slate-50"><td colSpan={7} className="p-3 text-xs font-black uppercase tracking-[.14em] text-slate-500">{label}</td></tr>,
+                    ...items.map((item: any) => <tr key={item.id} className="border-t border-slate-200"><td className="p-3"><input type="checkbox" checked={selectedAssetIds.includes(item.id)} onChange={(event) => setSelectedAssetIds((current) => event.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id))} /></td><td className="font-bold text-slate-900">{item.provider_account_name || item.asset_name || item.name}</td><td>{item.provider || item.platform || active.title}</td><td>{item.account_type || item.asset_type || active.type}</td><td>{item.status || "Seçilebilir"}</td><td>{item.provider_account_id || item.account_id || item.asset_id || item.id}</td><td>{item.last_synced_at ? new Date(item.last_synced_at).toLocaleString("tr-TR") : "Henüz yok"}</td></tr>)
+                  ])}</tbody>
                 </table>
               </div>
               {!(oauthInfo?.accounts || []).length && <p className="mt-3 rounded-[12px] border border-dashed border-slate-200 p-3 text-sm font-bold text-slate-600">{oauthInfo?.message || "Henüz listelenecek yetkili hesap yok."}</p>}

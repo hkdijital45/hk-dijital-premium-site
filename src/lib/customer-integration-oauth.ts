@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import crypto from "crypto";
 import { getSession, isCustomerRole, isStaffRole } from "@/lib/auth";
 import { encryptSecret } from "@/lib/business-flow";
+import { listMetaBusinessAssets, META_BUSINESS_REQUIRED_SCOPES, tokenForCustomerMetaIntegration } from "@/lib/meta-business-phase2";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
 export type Provider = "meta" | "google" | "tiktok" | "x";
@@ -212,6 +213,13 @@ export function getOAuthProviderStatus(provider: Provider) {
     scope: effectiveProviderScope(provider),
     scopes: providerScopeList(provider),
     advancedScopesEnabled: advancedScopesEnabled(provider),
+    advancedRequiredScopes: provider === "meta" ? META_BUSINESS_REQUIRED_SCOPES : undefined,
+    businessAssetListingReady: provider === "meta" ? advancedScopesEnabled(provider) && META_BUSINESS_REQUIRED_SCOPES.every((scope) => providerScopeList(provider).includes(scope)) : undefined,
+    businessAssetListingMessage: provider === "meta"
+      ? advancedScopesEnabled(provider)
+        ? "Business Manager, reklam hesabı, Facebook Sayfası ve Instagram Business listeleme modu aktif."
+        : "Business Manager, reklam hesabı, Facebook Sayfası ve Instagram Business listeleme için META_ADVANCED_SCOPES_ENABLED=true ve Meta App Review izinleri gerekir."
+      : undefined,
     redirectUri: credentials.redirectUri,
     expectedRedirectUri,
     redirectUriMatches,
@@ -609,45 +617,9 @@ export async function oauthAssets(provider: Provider, request: Request) {
   }, { status: missing.length ? 501 : 200 });
 }
 
-async function fetchMetaAccounts(accessToken: string) {
-  const endpoints = [
-    ["meta_business", "Business hesapları", `https://graph.facebook.com/v20.0/me/businesses?fields=id,name&access_token=${encodeURIComponent(accessToken)}`],
-    ["meta_ad_account", "Reklam hesapları", `https://graph.facebook.com/v20.0/me/adaccounts?fields=id,name,account_status,currency&access_token=${encodeURIComponent(accessToken)}`],
-    ["facebook_page", "Facebook sayfaları", `https://graph.facebook.com/v20.0/me/accounts?fields=id,name,instagram_business_account{id,username,name}&access_token=${encodeURIComponent(accessToken)}`]
-  ];
-  const groups = await Promise.all(endpoints.map(async ([type, label, endpoint]) => {
-    const response = await fetch(endpoint, { cache: "no-store" });
-    const payload = await response.json().catch(() => ({}));
-    return { type, label, ok: response.ok, data: Array.isArray(payload.data) ? payload.data : [], error: payload.error?.message || "" };
-  }));
-  return groups.flatMap((group) => group.data.flatMap((item: any) => {
-    const base = {
-      id: `meta-${group.type}-${item.id}`,
-      provider: "meta",
-      platform: group.type === "facebook_page" ? "facebook" : "meta",
-      account_type: group.type,
-      provider_account_id: item.id,
-      provider_account_name: item.name || item.id,
-      status: item.account_status ? `Durum: ${item.account_status}` : "Seçilebilir",
-      metadata: item
-    };
-    const instagram = item.instagram_business_account ? [{
-      id: `meta-instagram_business-${item.instagram_business_account.id}`,
-      provider: "meta",
-      platform: "instagram",
-      account_type: "instagram_business",
-      provider_account_id: item.instagram_business_account.id,
-      provider_account_name: item.instagram_business_account.username || item.instagram_business_account.name || item.instagram_business_account.id,
-      status: "Seçilebilir",
-      metadata: { page_id: item.id, ...item.instagram_business_account }
-    }] : [];
-    return [base, ...instagram];
-  }));
-}
-
 function metaPhase1AccountFromSession(oauthSession: any) {
   const metaUser = oauthSession?.metaUser || {};
-  const userId = clean(metaUser.id);
+  const userId = clean(metaUser.id || metaUser.meta_user_id);
   if (!userId) return null;
   const scopes = providerScopeList("meta");
   return {
@@ -656,15 +628,15 @@ function metaPhase1AccountFromSession(oauthSession: any) {
     platform: "meta",
     account_type: "meta_user",
     provider_account_id: userId,
-    provider_account_name: clean(metaUser.name || metaUser.email || userId),
+    provider_account_name: clean(metaUser.name || metaUser.meta_user_name || metaUser.email || metaUser.meta_user_email || userId),
     status: "Temel giriş tamamlandı. Reklam hesaplarını listelemek için gelişmiş Meta izinleri gerekir.",
     last_synced_at: new Date().toISOString(),
     scopes,
     metadata: {
       phase: "meta_oauth_phase_1",
       meta_user_id: userId,
-      meta_user_name: clean(metaUser.name),
-      meta_user_email: clean(metaUser.email),
+      meta_user_name: clean(metaUser.name || metaUser.meta_user_name),
+      meta_user_email: clean(metaUser.email || metaUser.meta_user_email),
       advanced_permissions_enabled: false,
       advanced_permissions_note: "Önce temel Facebook Login tamamlandı. Reklam hesabı listeleme için gelişmiş Meta izinleri ayrıca açılmalıdır."
     }
@@ -748,13 +720,21 @@ export async function oauthAccounts(request: Request) {
   if (missing.length) return NextResponse.json({ ok: false, provider, accounts: [], code: "oauth_not_configured", missingEnv: missing, message: "Bağlantı yapılandırması eksik." }, { status: 501 });
   const cookieStore = await cookies();
   const oauthSession = decryptSession(cookieStore.get(`hk_oauth_session_${provider}`)?.value);
-  if (!oauthSession || oauthSession.provider !== provider || (isCustomerRole(session.role) && oauthSession.customerId !== session.companyId)) {
+  let accessToken = "";
+  let metaSessionForPhase1 = oauthSession;
+  if (oauthSession && oauthSession.provider === provider && (!isCustomerRole(session.role) || oauthSession.customerId === session.companyId)) {
+    accessToken = String(oauthSession.accessToken || "");
+  } else if (provider === "meta" && isCustomerRole(session.role) && session.companyId) {
+    const stored = await tokenForCustomerMetaIntegration(session.companyId);
+    accessToken = stored.token;
+    metaSessionForPhase1 = { provider, customerId: session.companyId, metaUser: stored.integration?.metadata || {} };
+  }
+  if (!accessToken) {
     return NextResponse.json({ ok: false, provider, accounts: [], code: "oauth_session_missing", message: "Hesap listelemek için önce platform girişini tamamlayın." }, { status: 401 });
   }
   try {
-    const accessToken = String(oauthSession.accessToken || "");
     if (provider === "meta" && !advancedScopesEnabled("meta")) {
-      const phase1Account = metaPhase1AccountFromSession(oauthSession);
+      const phase1Account = metaPhase1AccountFromSession(metaSessionForPhase1);
       return NextResponse.json({
         ok: true,
         provider,
@@ -764,7 +744,11 @@ export async function oauthAccounts(request: Request) {
         message: "Reklam hesaplarını listelemek için gelişmiş Meta izinleri gerekir. Önce temel giriş tamamlandı."
       });
     }
-    const accounts = provider === "meta" ? await fetchMetaAccounts(accessToken) : provider === "google" ? await fetchGoogleAccounts(accessToken) : provider === "tiktok" ? await fetchTikTokAccounts(accessToken) : await fetchXAccounts(accessToken);
+    if (provider === "meta") {
+      const result = await listMetaBusinessAssets(accessToken);
+      return NextResponse.json({ ok: true, provider, accounts: result.accounts, groups: result.groups, warnings: result.warnings, phase: "meta_business_phase_2", advancedScopesEnabled: true, message: result.message });
+    }
+    const accounts = provider === "google" ? await fetchGoogleAccounts(accessToken) : provider === "tiktok" ? await fetchTikTokAccounts(accessToken) : await fetchXAccounts(accessToken);
     return NextResponse.json({ ok: true, provider, accounts, message: accounts.length ? "Yetkili hesaplar listelendi." : "Hesap bulunamadı veya yetki kapsamı yetersiz." });
   } catch (error) {
     return NextResponse.json({ ok: false, provider, accounts: [], code: "provider_fetch_failed", message: error instanceof Error ? error.message : "Yetkili hesaplar alınamadı." }, { status: 502 });
