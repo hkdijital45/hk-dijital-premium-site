@@ -799,9 +799,10 @@ export function AdminDashboard({
           {!dashboardAliases.includes(active) && activeNavigationItem && <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-cyan-200 bg-cyan-50 p-4"><div><p className="mb-1 text-xs font-black uppercase tracking-[.14em] text-cyan-700">Admin / {activeGroup?.label || "Modül"} / {activeNavigationItem.label}</p><h2 className="font-black text-slate-950">{withAdminEmoji(activeNavigationItem.label)}</h2><p className="mt-1 text-sm text-slate-600">{activeNavigationItem.description}</p></div><Link href={`/hk-admin/sistem-rehberi?topic=${activeNavigationItem.slug}`} className="rounded-[10px] bg-white px-4 py-2.5 text-sm font-black text-cyan-700 shadow-sm ring-1 ring-cyan-200">? Yardım</Link></div>}
           {showCustomerFilter && <div className="mb-5"><AdminCustomerSelector companies={content.companies || []} value={pendingCompanyId} appliedValue={selectedCompanyId} onChange={setPendingCompanyId} onApply={applyCompanyFilter} onClear={clearCompanyFilter} /></div>}
           {dashboardAliases.includes(active) && <HKAutonomousAgencyCenter content={content} setActive={setActive} notify={notify} compact />}
+          {dashboardAliases.includes(active) && <IntelligenceMvpPanel compact />}
           {dashboardAliases.includes(active) && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} systemStatus={systemStatus} currentSession={currentSession} allowedModules={allowedModules} notify={notify} />}
           {active === "HK Intelligence CEO" && <HKAutonomousAgencyCenter content={content} setActive={setActive} notify={notify} />}
-          {["HK Intelligence Kontrol Merkezi", "HK Intelligence Commander"].includes(active) && <HKIntelligenceCommandCenter {...props} />}
+          {["HK Intelligence Kontrol Merkezi", "HK Intelligence Commander"].includes(active) && <><IntelligenceMvpPanel /><HKIntelligenceCommandCenter {...props} /></>}
           {active === "Risk Merkezi" && <HKIntelligenceCommandCenter {...props} initialView="risk" />}
           {active === "Satış Hunisi" && <SalesPipeline content={content} setContent={setContent} save={save} setActive={setActive} notify={notify} />}
           {active === "CRM" && <CrmHub {...props} />}
@@ -826,13 +827,13 @@ export function AdminDashboard({
           {["Müşteri Bulucu", "İşletme Keşfi", "Müşteri Bul", "Müşteri Keşfi"].includes(active) && <CustomerFinder {...props} />}
           {["Lead Yönetimi", "Lead Analizi", ...crmLeadViews].includes(active) && <Crm {...props} view={["Lead Yönetimi", "Leadler", "Lead Analizi"].includes(active) ? "Lead Durumları" : active} setActive={setActive} />}
           {["Meta Analiz", "Meta Raporları", "Meta İstihbarat"].includes(active) && <MetaAnalysisSection />}
-          {["Google Analiz", "Google Ads Analiz", "Google Ads Raporları", "Google İstihbarat"].includes(active) && <GoogleAdsAnalysisSection />}
+          {["Google Analiz", "Google Ads Analiz", "Google Ads Raporları", "Google İstihbarat"].includes(active) && <><IntelligenceMvpPanel compact /><GoogleAdsAnalysisSection /></>}
           {["Sosyal İstihbarat Merkezi", "Sosyal Medya Denetimi", "PDF Audit"].includes(active) && <SocialMediaAuditCenter />}
           {["Yapay Zekâ Stüdyosu", "AI Studio", "Yapay Zekâ Analizleri"].includes(active) && <AiAssistant {...props} mode="Yapay Zekâ Stüdyosu" />}
           {["Teklif Motoru", "Teklif Hazırlama", "Teklif Oluştur", "WhatsApp Teklifi"].includes(active) && <ProposalEngine {...props} setActive={setActive} />}
           {active === "Raporlar" && <ReportsHub {...props} selectedCompanyId={selectedCompanyId} />}
           {["Web Site Analitiği", "GTM Bağlantıları"].includes(active) && <WebsiteAnalyticsCenter />}
-          {(active === "Reklam Yorum Merkezi" || active === "Reklam Doktoru Pro") && <AdInsightsCenter content={content} notify={notify} />}
+          {(active === "Reklam Yorum Merkezi" || active === "Reklam Doktoru Pro") && <><AdDoctorMvpPanel /><AdInsightsCenter content={content} notify={notify} /></>}
           {active === "HK Agent Hub" && <AgentHubCenter content={content} notify={notify} />}
           {active === "QA Merkezi" && <QaCenter notify={notify} />}
           {active === "PDF Rapor Tasarım Merkezi" && <PdfReportDesignCenter {...props} />}
@@ -1568,6 +1569,97 @@ function OAuthSetupStatusPanel() {
         </article>;
       })}
       {!rows.length && <p className="rounded-[12px] border border-dashed border-violet-200 bg-white p-4 text-sm text-violet-900">OAuth durum bilgisi henüz yüklenmedi.</p>}
+    </div>
+  </section>;
+}
+
+function IntelligenceMvpPanel({ compact = false }: any) {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  async function load() {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/admin/intelligence/overview", { cache: "no-store" });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "HK Intelligence özeti alınamadı.");
+      setData(payload);
+      setMessage("");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "HK Intelligence özeti alınamadı.");
+    } finally {
+      setLoading(false);
+    }
+  }
+  useEffect(() => { load(); }, []);
+  const cards = [
+    ["Kritik müşteri", data?.criticalCustomers ?? 0, "Tracking veya performans sorunu yüksek öncelikli."],
+    ["Bağlantı bekleyen", data?.waitingConnectionCustomers ?? 0, "Google/Meta kaynaklarında veri bekleyen müşteri."],
+    ["Fırsat bulunan", data?.opportunityCustomers ?? 0, "SEO, reklam veya dönüşüm fırsatı üreten müşteri."],
+    ["Bu hafta aksiyon", data?.recommendedActionCount ?? 0, "HK Intelligence öneri sayısı."],
+    ["Meta App Review", data?.metaAppReviewWaitingCustomers ?? 0, "Meta ads_read / App Review bekleyen müşteri."]
+  ];
+  return <section className={`mb-5 rounded-[22px] border border-indigo-200 bg-gradient-to-br from-indigo-50 via-white to-cyan-50 p-5 ${compact ? "shadow-sm" : "shadow-[0_18px_44px_rgba(79,70,229,.10)]"}`}>
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <p className="text-xs font-black uppercase tracking-[.16em] text-indigo-700">HK Intelligence 2.0 MVP</p>
+        <h3 className="mt-1 text-xl font-black text-slate-950">Google Intelligence + CEO karar özeti</h3>
+        <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">Google Ads, GA4, Search Console, Google Business Profile ve mevcut Meta durumlarını tek müşteri sağlığı özetine dönüştürür. Veri yoksa bekleme durumuna düşer.</p>
+      </div>
+      <button onClick={load} disabled={loading} className="rounded-full bg-indigo-500 px-4 py-2 text-xs font-black text-white disabled:opacity-60">{loading ? "Yenileniyor..." : "Yenile"}</button>
+    </div>
+    {message && <p className="mt-3 rounded-[12px] border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-800">{message}</p>}
+    <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      {cards.map(([label, value, detail]) => <div key={label as string} className="rounded-[16px] border border-white bg-white p-4 shadow-sm">
+        <p className="text-[11px] font-black uppercase tracking-[.12em] text-slate-500">{label}</p>
+        <strong className="mt-2 block text-2xl text-slate-950">{value as any}</strong>
+        <span className="mt-1 block text-xs leading-5 text-slate-500">{detail}</span>
+      </div>)}
+    </div>
+    <div className="mt-4 grid gap-3 lg:grid-cols-2">
+      <div className="rounded-[16px] border border-indigo-100 bg-white p-4">
+        <h4 className="font-black text-slate-950">Bugün neye bakmalıyım?</h4>
+        <div className="mt-3 grid gap-2">
+          {(data?.priorityList || []).slice(0, 5).map((item: string) => <p key={item} className="rounded-[12px] bg-indigo-50 px-3 py-2 text-sm font-bold text-indigo-800">{item}</p>)}
+          {!data?.priorityList?.length && <p className="text-sm text-slate-500">Henüz canlı sinyal yok. Bağlantılar tamamlandığında öncelik listesi oluşur.</p>}
+        </div>
+      </div>
+      <div className="rounded-[16px] border border-cyan-100 bg-white p-4">
+        <h4 className="font-black text-slate-950">Kaynak sağlık durumu</h4>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {["Google Ads", "GA4", "Search Console", "Google Business Profile", "Meta"].map((label) => <span key={label} className="rounded-full border border-cyan-100 bg-cyan-50 px-3 py-1.5 text-xs font-black text-cyan-800">{label}: bağlantı/veri durumuna göre izlenir</span>)}
+        </div>
+        <p className="mt-3 text-xs leading-5 text-slate-500">Meta için ads_read ve App Review bekleniyorsa manuel reklam hesabı varlığı sistemde gerçek asset olarak görünür; canlı metrik bekleniyor durumu korunur.</p>
+      </div>
+    </div>
+  </section>;
+}
+
+function AdDoctorMvpPanel() {
+  const [doctor, setDoctor] = useState<any>(null);
+  const [message, setMessage] = useState("");
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/admin/ad-doctor", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((payload) => { if (!cancelled) setDoctor(payload.doctor || null); })
+      .catch((error) => { if (!cancelled) setMessage(error instanceof Error ? error.message : "Reklam Doktoru özeti alınamadı."); });
+    return () => { cancelled = true; };
+  }, []);
+  return <section className="mb-5 rounded-[20px] border border-purple-200 bg-purple-50 p-5">
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <p className="text-xs font-black uppercase tracking-[.16em] text-purple-700">Reklam Doktoru MVP</p>
+        <h3 className="mt-1 text-xl font-black text-slate-950">Temel yorum motoru</h3>
+        <p className="mt-1 max-w-3xl text-sm leading-6 text-purple-900">CTR (Tıklama Oranı), CPC (Tıklama Başına Maliyet), CPA (Dönüşüm Maliyeti), ROAS ve tracking sinyallerinden deterministik öneri üretir.</p>
+      </div>
+      <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-purple-800">AI yoksa fallback çalışır</span>
+    </div>
+    {message && <p className="mt-3 rounded-[12px] bg-white p-3 text-sm font-bold text-purple-900">{message}</p>}
+    <div className="mt-4 grid gap-3 lg:grid-cols-3">
+      <div className="rounded-[14px] bg-white p-4"><p className="text-xs font-black uppercase text-slate-500">Teşhis</p><p className="mt-2 text-sm leading-6 text-slate-700">{doctor?.diagnosis || "Veri bekleniyor; bağlantı geldiğinde yorum oluşur."}</p></div>
+      <div className="rounded-[14px] bg-white p-4"><p className="text-xs font-black uppercase text-slate-500">Olası neden</p><p className="mt-2 text-sm leading-6 text-slate-700">{doctor?.likelyCause || "Tracking veya kampanya metrikleri bekleniyor."}</p></div>
+      <div className="rounded-[14px] bg-white p-4"><p className="text-xs font-black uppercase text-slate-500">Bütçe yorumu</p><p className="mt-2 text-sm leading-6 text-slate-700">{doctor?.budgetSuggestion || "Bütçe önerisi için canlı veri bekleniyor."}</p></div>
     </div>
   </section>;
 }
