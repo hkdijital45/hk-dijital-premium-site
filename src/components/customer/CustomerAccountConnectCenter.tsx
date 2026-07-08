@@ -8,6 +8,7 @@ const platformCards = [
   { key: "meta", title: "Meta / Facebook", type: "meta_ads", oauthProvider: "meta", autoLabel: "Meta ile Giriş Yap", typeLabel: "Business Manager, reklam hesabı, sayfa, Instagram ve Pixel seçimi", icon: Megaphone, tone: "bg-blue-50 text-blue-700", fields: [
     ["meta_business_id", "Business Manager ID", "Meta işletme hesabınızın kimliği."],
     ["meta_ad_account_id", "Reklam Hesabı ID", "Meta reklam hesabınızın numarası."],
+    ["currency", "Para birimi opsiyonel", "Örn: TRY, USD veya EUR."],
     ["meta_page_id", "Facebook Sayfa ID", "Facebook sayfanızın ID bilgisi."],
     ["meta_pixel_id", "Pixel ID", "Web sitenizde dönüşüm takibi için kullanılan takip kimliğidir."]
   ] },
@@ -56,6 +57,7 @@ const statusLabel: Record<string, string> = {
   connected: "Bağlı",
   connected_oauth: "OAuth ile Bağlı",
   connected_manual: "Manuel Bağlı",
+  manual_pending_api_access: "Manuel kayıtlı / API izni bekliyor",
   manual_pending_review: "Manuel Kontrol Bekliyor",
   pending_review: "Kontrol Bekliyor",
   missing_info: "Eksik Bilgi Gerekli",
@@ -273,17 +275,21 @@ export function CustomerAccountConnectCenter() {
         }
         if (!diagnostics.businessApiEnabled) {
           setOauthInfo({ ok: true, provider: "meta", phase: "meta_oauth_phase_1", accounts: activeAsset ? [activeAsset] : [], diagnostics, message: diagnostics.userMessage || "Business API teşhisi kapalı. Temel bağlantı tamamlandı." });
-          setAssetPickerOpen(true);
-          setSelectedAssetIds(activeAsset ? [activeAsset.id || `meta-user-${activeAsset.provider_account_id}`] : []);
-          setMessage("Reklam hesaplarını listelemek için gelişmiş Meta izinleri gerekir. Temel giriş tamamlandı.");
+          setAssetPickerOpen(false);
+          setSelectedAssetIds([]);
+          setMode("manual");
+          setModeByPlatform((current) => ({ ...current, meta: "manual" }));
+          setMessage("Temel Facebook Login tamamlandı. Reklam hesabı otomatik listelenemediği için reklam hesabı ID'sini manuel ekleyerek devam edebilirsiniz.");
           return;
         }
         const blocked = (diagnostics.checks || []).some((item: any) => ["/me/adaccounts", "/me/businesses"].includes(item.endpoint) && !item.ok);
         if (blocked) {
           setOauthInfo({ ok: false, provider: "meta", phase: "meta_business_diagnostics", accounts: [], diagnostics, message: diagnostics.userMessage });
-          setAssetPickerOpen(true);
+          setAssetPickerOpen(false);
           setSelectedAssetIds([]);
-          setMessage(diagnostics.userMessage || "Meta temel bağlantısı tamamlandı. Reklam hesaplarını listelemek için Meta tarafında ads_read ve/veya business_management izinlerinin App Review ile onaylanması gerekir.");
+          setMode("manual");
+          setModeByPlatform((current) => ({ ...current, meta: "manual" }));
+          setMessage("Reklam hesabı Meta tarafında uygulamaya bağlı olsa bile ads_read onayı yoksa API üzerinden listelenemez. Reklam hesabı ID'sini manuel ekleyerek devam edebilirsiniz.");
           return;
         }
       }
@@ -445,7 +451,7 @@ export function CustomerAccountConnectCenter() {
                 {oauthInfo?.authUrl && <a href={oauthInfo.authUrl} target="_blank" rel="noreferrer" className="rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-black text-emerald-800">Platform Girişini Aç</a>}
               </div>
               {oauthInfo?.missingEnv?.length > 0 && <p className="mt-3 rounded-[12px] bg-white p-3 text-sm font-bold text-blue-900">Bu platform için otomatik bağlantı ayarları henüz tamamlanmamış. Manuel bilgi girebilir veya HK Dijital ekibinden kurulum isteyebilirsiniz.</p>}
-              {oauthInfo?.phase === "meta_oauth_phase_1" && <p className="mt-3 rounded-[12px] bg-white p-3 text-sm font-bold text-blue-900">{oauthInfo.message || "Reklam hesaplarını listelemek için gelişmiş Meta izinleri gerekir. Önce temel giriş tamamlandı."}</p>}
+              {oauthInfo?.phase === "meta_oauth_phase_1" && <p className="mt-3 rounded-[12px] bg-white p-3 text-sm font-bold text-blue-900">{oauthInfo.message || "Temel Facebook Login tamamlandı. Business doğrulaması yokken manuel reklam hesabı ID ile devam edebilirsiniz."}</p>}
               {oauthInfo?.phase === "meta_business_phase_2" && <p className="mt-3 rounded-[12px] bg-white p-3 text-sm font-bold text-blue-900">Business Manager, reklam hesapları, Facebook Sayfaları ve Instagram Business varlıkları listelendi. Kullanmak istediğiniz varlıkları seçip kaydedin.</p>}
               {Array.isArray(oauthInfo?.warnings) && oauthInfo.warnings.length > 0 && <p className="mt-3 rounded-[12px] bg-amber-50 p-3 text-sm font-bold text-amber-900">{oauthInfo.warnings.join(" · ")}</p>}
             </div>
@@ -465,9 +471,11 @@ export function CustomerAccountConnectCenter() {
                 <p><strong>Login scope:</strong> public_profile, email</p>
                 <p><strong>Meta kullanıcı:</strong> {metaDiagnostics.user?.name || "Yok"} · {metaDiagnostics.user?.id || "ID yok"}</p>
                 <p><strong>E-posta:</strong> {metaDiagnostics.user?.email ? `${String(metaDiagnostics.user.email).slice(0, 2)}***${String(metaDiagnostics.user.email).slice(String(metaDiagnostics.user.email).indexOf("@"))}` : "Yok / izin verilmedi"}</p>
-                <p><strong>Business API erişimi:</strong> {metaDiagnostics.businessApiReady ? "Hazır" : "Hazır değil"}</p>
+                <p><strong>Business API erişimi:</strong> {metaDiagnostics.businessApiReady ? "Hazır" : "Hazır değil / App Review gerekir"}</p>
+                <p><strong>Manuel reklam hesabı bağlantısı:</strong> Kullanılabilir</p>
                 <p><strong>Açıklama:</strong> {metaDiagnostics.userMessage || "Teşhis tamamlandı."}</p>
               </div>
+              <p className="mt-3 rounded-[12px] bg-cyan-50 p-3 text-xs font-bold leading-5 text-cyan-900">Business doğrulaması yokken önerilen yol: Reklam hesabı ID bilgisini manuel ekleyin. ads_read onayı geldiğinde aynı kayıt üzerinden insight verisi otomatik denenir; kayıt silinmez.</p>
               <div className="mt-4 grid gap-2 md:grid-cols-2">
                 {(metaDiagnostics.checks || []).map((item: any) => <div key={item.endpoint} className={`rounded-[12px] border p-3 ${item.ok ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"}`}>
                   <p className="font-black text-slate-950">{item.endpoint}</p>

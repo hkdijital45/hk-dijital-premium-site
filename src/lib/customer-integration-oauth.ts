@@ -215,9 +215,11 @@ export function getOAuthProviderStatus(provider: Provider) {
     businessAssetListingMessage: provider === "meta"
       ? advancedScopesEnabled(provider)
         ? "Business API teşhis/deneme modu aktif. Gelişmiş izinler OAuth URL'sine eklenmez; API erişimi App Review / Business Verification sonucuna göre test edilir."
-        : "Business API teşhisi kapalı. OAuth login yalnız public_profile,email ile çalışır."
+        : "Business API teşhisi kapalı. OAuth login yalnız public_profile,email ile çalışır; reklam hesabı manuel ID ile bağlanabilir."
       : undefined,
     businessPermissionNote: provider === "meta" ? "business_management, ads_read, pages_show_list ve instagram_basic OAuth URL'ye eklenmez; yalnız Business API teşhis sonucu ve App Review gereksinimi olarak gösterilir." : undefined,
+    manualAdAccountSupported: provider === "meta" ? true : undefined,
+    manualFallbackMessage: provider === "meta" ? "Business Verification yokken önerilen mod: Meta reklam hesabı ID'sini manuel bağlayın. ads_read onayı geldiğinde aynı kayıt üzerinden insight çekimi denenir." : undefined,
     redirectUri: credentials.redirectUri,
     expectedRedirectUri,
     redirectUriMatches,
@@ -636,7 +638,7 @@ function metaPhase1AccountFromSession(oauthSession: any) {
       meta_user_name: clean(metaUser.name || metaUser.meta_user_name),
       meta_user_email: clean(metaUser.email || metaUser.meta_user_email),
       advanced_permissions_enabled: false,
-      advanced_permissions_note: "Önce temel Facebook Login tamamlandı. Reklam hesabı listeleme için gelişmiş Meta izinleri ayrıca açılmalıdır."
+      advanced_permissions_note: "Önce temel Facebook Login tamamlandı. Reklam hesabı listeleme için gelişmiş Meta izinleri ayrıca açılmalıdır. Business Verification yoksa reklam hesabı ID'si manuel bağlanabilir."
     }
   };
 }

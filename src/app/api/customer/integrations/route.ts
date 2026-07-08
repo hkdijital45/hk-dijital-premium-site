@@ -40,25 +40,45 @@ function clean(value: unknown) {
   return String(value ?? "").trim();
 }
 
+function normalizeMetaAdAccountId(value: unknown) {
+  const raw = clean(value).replace(/\s+/g, "");
+  if (!raw) return "";
+  const numeric = raw.replace(/^act_/i, "").replace(/[^0-9]/g, "");
+  return numeric ? `act_${numeric}` : raw;
+}
+
+function assetKey(item: any = {}) {
+  return [
+    clean(item.provider || item.platform),
+    clean(item.account_type || item.asset_type),
+    clean(item.provider_account_id || item.account_id || item.asset_id || item.id)
+  ].join("-");
+}
+
 function normalizeAsset(body: Record<string, any>) {
   const platform = clean(body.platform);
-  const assetType = clean(body.asset_type || body.assetType || platform);
+  const metaAdAccountId = platform === "meta" ? normalizeMetaAdAccountId(body.meta_ad_account_id || body.account_id || body.asset_id) : "";
+  const assetType = metaAdAccountId ? "ad_account" : clean(body.asset_type || body.assetType || platform);
   if (!platform || !assetType) return null;
   const connectionMode = clean(body.connection_mode || body.connectionMode) || "manual";
   const connectionMethod = clean(body.connection_method || body.connectionMethod) || connectionMode;
   const oauthStatus = clean(body.oauth_status || body.oauthStatus) || (connectionMode === "oauth_ready" ? "not_configured" : "not_configured");
   const manualPayload = Object.fromEntries(Object.entries(body).filter(([key, value]) => !sensitiveFields.includes(key) && !["platform", "asset_type", "assetType", "asset_name", "assetName", "connection_mode", "connectionMode", "connection_method", "connectionMethod"].includes(key) && value !== undefined && value !== null && String(value).trim() !== ""));
+  const assetId = metaAdAccountId || clean(body.asset_id || body.assetId);
+  const accountId = metaAdAccountId || clean(body.account_id || body.accountId);
+  const providerAccountId = metaAdAccountId || clean(body.provider_account_id || body.account_id || body.asset_id);
+  const providerAccountName = clean(body.provider_account_name || body.asset_name) || (metaAdAccountId ? "Meta reklam hesabı" : "");
   return {
-    id: clean(body.id) || `${platform}-${Date.now()}`,
+    id: clean(body.id) || (metaAdAccountId ? `meta-ad_account-${metaAdAccountId}` : `${platform}-${Date.now()}`),
     platform,
     platform_label: platformLabels[platform] || platform,
     asset_type: assetType,
-    asset_name: clean(body.asset_name || body.assetName || platformLabels[platform] || platform),
-    asset_id: clean(body.asset_id || body.assetId),
-    account_id: clean(body.account_id || body.accountId),
+    asset_name: clean(body.asset_name || body.assetName || providerAccountName || platformLabels[platform] || platform),
+    asset_id: assetId,
+    account_id: accountId,
     website_url: clean(body.website_url || body.websiteUrl),
     profile_url: clean(body.profile_url || body.profileUrl),
-    status: clean(body.status) || (connectionMode === "manual" ? "manual_pending_review" : "pending_review"),
+    status: metaAdAccountId ? (clean(body.status) === "manual_connected" ? "manual_connected" : "manual_pending_api_access") : clean(body.status) || (connectionMode === "manual" ? "manual_pending_review" : "pending_review"),
     source: "customer",
     connection_mode: connectionMode,
     connection_method: connectionMethod,
@@ -76,10 +96,11 @@ function normalizeAsset(body: Record<string, any>) {
     last_sync_message: clean(body.last_sync_message || body.lastSyncMessage),
     auto_discovered: Boolean(body.auto_discovered || connectionMode === "oauth_ready"),
     oauth_assets: Array.isArray(body.oauth_assets) ? body.oauth_assets : [],
-    provider_account_id: clean(body.provider_account_id || body.account_id || body.asset_id),
-    provider_account_name: clean(body.provider_account_name || body.asset_name),
-    account_type: clean(body.account_type || assetType),
-    metadata: body.metadata && typeof body.metadata === "object" ? body.metadata : {},
+    provider_account_id: providerAccountId,
+    provider_account_name: providerAccountName || clean(body.asset_name || body.assetName || platformLabels[platform] || platform),
+    account_type: metaAdAccountId ? "meta_ad_account" : clean(body.account_type || assetType),
+    currency: clean(body.currency),
+    metadata: body.metadata && typeof body.metadata === "object" ? { ...body.metadata, currency: clean(body.currency), manual_meta_ad_account: Boolean(metaAdAccountId) } : { currency: clean(body.currency), manual_meta_ad_account: Boolean(metaAdAccountId) },
     manual_payload: body.manual_payload && typeof body.manual_payload === "object" ? body.manual_payload : manualPayload,
     notes: clean(body.notes),
     updated_at: new Date().toISOString()
@@ -114,7 +135,7 @@ function topLevelPatch(asset: any, body: Record<string, any>) {
   };
   if (asset.platform === "meta") {
     patch.meta_business_id = clean(body.meta_business_id);
-    patch.meta_ad_account_id = clean(body.meta_ad_account_id || asset.account_id);
+    patch.meta_ad_account_id = normalizeMetaAdAccountId(body.meta_ad_account_id || asset.account_id);
     patch.meta_page_id = clean(body.meta_page_id);
     patch.meta_pixel_id = clean(body.meta_pixel_id || body.pixel_id);
   }
@@ -166,7 +187,7 @@ export async function POST(request: Request) {
   try {
     const existing = await getRow(session.companyId);
     const assets = Array.isArray(existing?.integration_assets) ? existing.integration_assets : [];
-    const nextAssets = [asset, ...assets.filter((item: any) => item.platform !== asset.platform)];
+    const nextAssets = [asset, ...assets.filter((item: any) => assetKey(item) !== assetKey(asset))];
     const patch = {
       company_id: session.companyId,
       ...topLevelPatch(asset, body),

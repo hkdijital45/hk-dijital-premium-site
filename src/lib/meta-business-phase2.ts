@@ -37,7 +37,10 @@ function userMessageForEndpoint(endpoint: string, ok: boolean, payload: any, dat
   if (ok) return dataCount ? "Erişim başarılı." : "Erişim başarılı ancak kayıt bulunamadı.";
   const message = metaApiMessage(payload, "Meta API erişimi başarısız oldu.");
   const permission = requiredPermissionForEndpoint(endpoint);
-  if (permission) return `Bu alan için Meta tarafında ${permission} izni ve App Review onayı gerekebilir.`;
+  if (permission === "ads_read") return "Reklam hesabı otomatik listeleme ve insight verisi için ads_read izni ve App Review gerekir.";
+  if (permission === "business_management") return "Business Manager listeleme için business_management izni ve Business Verification gerekir.";
+  if (permission === "pages_show_list") return "Facebook Sayfaları listeleme için pages_show_list izni ve App Review gerekir.";
+  if (permission === "instagram_basic") return "Instagram Business listeleme için instagram_basic izni ve App Review gerekir.";
   return message;
 }
 
@@ -93,9 +96,11 @@ export async function diagnoseMetaBusinessAccess(accessToken: string, runBusines
       ok: me.ok,
       businessApiEnabled: false,
       businessApiReady: false,
+      manualAdAccountSupported: true,
+      manualFallbackMessage: "Business doğrulaması yokken manuel reklam hesabı ID ile devam edebilirsiniz.",
       user: me.ok ? { id: clean(me.data[0]?.id), name: clean(me.data[0]?.name), email: clean(me.data[0]?.email) } : null,
       checks,
-      userMessage: "Business API teşhisi kapalı. Temel Facebook Login public_profile,email ile çalışır."
+      userMessage: "Business API teşhisi kapalı. Temel Facebook Login public_profile,email ile çalışır; reklam hesabı manuel ID ile bağlanabilir."
     };
   }
   const [businesses, adAccounts, pages] = await Promise.all([
@@ -109,10 +114,12 @@ export async function diagnoseMetaBusinessAccess(accessToken: string, runBusines
     ok: me.ok,
     businessApiEnabled: true,
     businessApiReady: checks.slice(1).some((item) => item.ok && item.dataCount > 0),
+    manualAdAccountSupported: true,
+    manualFallbackMessage: "Business Verification veya App Review tamamlanana kadar reklam hesabı ID'sini manuel bağlayabilirsiniz.",
     user: me.ok ? { id: clean(me.data[0]?.id), name: clean(me.data[0]?.name), email: clean(me.data[0]?.email) } : null,
     checks,
     userMessage: permissionProblems.length
-      ? "Meta temel bağlantısı tamamlandı. Reklam hesaplarını listelemek için Meta tarafında ads_read ve/veya business_management izinlerinin App Review ile onaylanması gerekir."
+      ? "Meta temel bağlantısı tamamlandı. Otomatik reklam hesabı listeleme için ads_read, Business Manager için business_management izni gerekir; şimdilik manuel reklam hesabı ID ile devam edebilirsiniz."
       : "Meta Business API teşhisi tamamlandı."
   };
 }
@@ -276,8 +283,16 @@ export async function fetchMetaInsightsForAccount(accessToken: string, accountId
   if (!accessToken) throw new Error("Meta access token bulunamadı. Önce Meta ile giriş yapın.");
   if (!safeAccountId) throw new Error("Meta reklam hesabı seçilmedi.");
   const fields = ["campaign_id", "campaign_name", "impressions", "reach", "clicks", "inline_link_clicks", "spend", "ctr", "cpc", "cpm", "actions", "date_start", "date_stop"].join(",");
-  const payload = await graphGet(`act_${safeAccountId}/insights`, accessToken, { fields, level: "campaign", time_increment: "1", date_preset: datePreset, limit: "200" });
-  return buildMetaInsightAdapter({ accountId: safeAccountId, rows: Array.isArray(payload.data) ? payload.data : [], dateRange: datePreset });
+  try {
+    const payload = await graphGet(`act_${safeAccountId}/insights`, accessToken, { fields, level: "campaign", time_increment: "1", date_preset: datePreset, limit: "200" });
+    return buildMetaInsightAdapter({ accountId: safeAccountId, rows: Array.isArray(payload.data) ? payload.data : [], dateRange: datePreset });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Meta insight verisi alınamadı.";
+    if (message.toLocaleLowerCase("tr-TR").includes("izin") || message.toLocaleLowerCase("tr-TR").includes("permission")) {
+      throw new Error("Reklam hesabı kaydedildi ancak Meta API verisi için ads_read izni gerekir. Manuel kayıt korunur; izin açıldığında aynı hesaptan veri çekimi tekrar denenebilir.");
+    }
+    throw error;
+  }
 }
 
 export async function tokenForCustomerMetaIntegration(companyId: string) {

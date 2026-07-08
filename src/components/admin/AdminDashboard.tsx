@@ -1554,6 +1554,10 @@ function OAuthSetupStatusPanel() {
             {key === "meta" && <p><strong>Business API teşhis modu:</strong> {item.advancedScopesEnabled ? "Açık" : "Kapalı"} · Açmak için META_ADVANCED_SCOPES_ENABLED=true</p>}
             {key === "meta" && <p><strong>Business API denemesi:</strong> {item.businessAssetListingReady ? "Aktif" : "Kapalı"}</p>}
             {key === "meta" && <p><strong>Business için gereken izinler:</strong> {item.advancedRequiredScopes?.join(", ") || "Yok"}</p>}
+            {key === "meta" && <p><strong>Otomatik reklam hesabı listeleme:</strong> ads_read izni ve App Review gerekir.</p>}
+            {key === "meta" && <p><strong>Business Manager listeleme:</strong> business_management izni ve Business Verification gerekir.</p>}
+            {key === "meta" && <p><strong>Business Verification yoksa önerilen mod:</strong> Manuel reklam hesabı bağlantısı.</p>}
+            {key === "meta" && <p><strong>Manuel bağlantı destekleniyor mu?</strong> Evet.</p>}
             {key === "meta" && <p><strong>Not:</strong> {item.businessPermissionNote}</p>}
             {key === "meta" && <p><strong>Açıklama:</strong> {item.businessAssetListingMessage}</p>}
           </div>
