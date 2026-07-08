@@ -1548,12 +1548,13 @@ function OAuthSetupStatusPanel() {
             <p><strong>ENV redirect URI:</strong> {item.redirectUri || "Eksik"}</p>
             <p><strong>Redirect doğru mu?</strong> {item.redirectUriMatches ? "Evet" : "Hayır"}</p>
             <p><strong>Eksik ENV:</strong> {item.missing?.length ? item.missing.join(", ") : "Yok"}</p>
-            <p><strong>Aktif scope listesi:</strong> {item.scopes?.length ? item.scopes.join(", ") : item.scope || "Yok"}</p>
+            <p><strong>OAuth login scope:</strong> {item.loginScopes?.length ? item.loginScopes.join(", ") : item.scopes?.length ? item.scopes.join(", ") : item.scope || "Yok"}</p>
             {key === "meta" && <p><strong>Aktif Meta App ID:</strong> {item.activeClientIdMasked || item.activeClientId || "Eksik"}</p>}
             {key === "meta" && <p><strong>Temel login hazır mı?</strong> {item.basicLoginReady ? "Evet" : "Hayır"}</p>}
-            {key === "meta" && <p><strong>Gelişmiş Meta izinleri:</strong> {item.advancedScopesEnabled ? "Açık" : "Kapalı"} · Açmak için META_ADVANCED_SCOPES_ENABLED=true</p>}
-            {key === "meta" && <p><strong>Business varlık listeleme:</strong> {item.businessAssetListingReady ? "Hazır" : "Kapalı / App Review bekliyor"}</p>}
-            {key === "meta" && <p><strong>Gereken izinler:</strong> {item.advancedRequiredScopes?.join(", ") || "Yok"}</p>}
+            {key === "meta" && <p><strong>Business API teşhis modu:</strong> {item.advancedScopesEnabled ? "Açık" : "Kapalı"} · Açmak için META_ADVANCED_SCOPES_ENABLED=true</p>}
+            {key === "meta" && <p><strong>Business API denemesi:</strong> {item.businessAssetListingReady ? "Aktif" : "Kapalı"}</p>}
+            {key === "meta" && <p><strong>Business için gereken izinler:</strong> {item.advancedRequiredScopes?.join(", ") || "Yok"}</p>}
+            {key === "meta" && <p><strong>Not:</strong> {item.businessPermissionNote}</p>}
             {key === "meta" && <p><strong>Açıklama:</strong> {item.businessAssetListingMessage}</p>}
           </div>
           <details className="mt-3 rounded-[12px] border border-slate-200 bg-slate-50 p-3">

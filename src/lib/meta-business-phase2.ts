@@ -25,6 +25,22 @@ function metaApiMessage(payload: any, fallback: string) {
   return message || type || fallback;
 }
 
+function requiredPermissionForEndpoint(endpoint: string) {
+  if (endpoint.includes("/adaccounts")) return "ads_read";
+  if (endpoint.includes("/businesses")) return "business_management";
+  if (endpoint.includes("/accounts")) return "pages_show_list";
+  if (endpoint.includes("instagram_business_account")) return "instagram_basic";
+  return "";
+}
+
+function userMessageForEndpoint(endpoint: string, ok: boolean, payload: any, dataCount = 0) {
+  if (ok) return dataCount ? "Erişim başarılı." : "Erişim başarılı ancak kayıt bulunamadı.";
+  const message = metaApiMessage(payload, "Meta API erişimi başarısız oldu.");
+  const permission = requiredPermissionForEndpoint(endpoint);
+  if (permission) return `Bu alan için Meta tarafında ${permission} izni ve App Review onayı gerekebilir.`;
+  return message;
+}
+
 async function graphGet(path: string, accessToken: string, params: Record<string, string> = {}) {
   const url = new URL(`https://graph.facebook.com/${GRAPH_VERSION}/${path.replace(/^\//, "")}`);
   Object.entries(params).forEach(([key, value]) => {
@@ -35,6 +51,81 @@ async function graphGet(path: string, accessToken: string, params: Record<string
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(metaApiMessage(payload, "Meta API isteği başarısız oldu."));
   return payload;
+}
+
+async function graphDiagnostic(endpoint: string, accessToken: string, params: Record<string, string> = {}) {
+  const url = new URL(`https://graph.facebook.com/${GRAPH_VERSION}/${endpoint.replace(/^\//, "")}`);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) url.searchParams.set(key, value);
+  });
+  url.searchParams.set("access_token", accessToken);
+  const response = await fetch(url, { cache: "no-store" });
+  const payload = await response.json().catch(() => ({}));
+  const data = Array.isArray(payload?.data) ? payload.data : payload?.id ? [payload] : [];
+  return {
+    endpoint: `/${endpoint.replace(/^\//, "")}`,
+    ok: response.ok,
+    status: response.status,
+    dataCount: data.length,
+    errorCode: payload?.error?.code || null,
+    errorSubcode: payload?.error?.error_subcode || payload?.error?.subcode || null,
+    errorMessage: response.ok ? "" : metaApiMessage(payload, "Meta API erişimi başarısız oldu."),
+    requiredPermission: requiredPermissionForEndpoint(endpoint),
+    userMessage: userMessageForEndpoint(endpoint, response.ok, payload, data.length),
+    data
+  };
+}
+
+export async function diagnoseMetaBusinessAccess(accessToken: string, runBusinessChecks: boolean) {
+  if (!accessToken) {
+    return {
+      ok: false,
+      businessApiEnabled: runBusinessChecks,
+      businessApiReady: false,
+      userMessage: "Önce Meta ile giriş yapın.",
+      checks: []
+    };
+  }
+  const me = await graphDiagnostic("me", accessToken, { fields: "id,name,email" });
+  const checks = [me];
+  if (!runBusinessChecks) {
+    return {
+      ok: me.ok,
+      businessApiEnabled: false,
+      businessApiReady: false,
+      user: me.ok ? { id: clean(me.data[0]?.id), name: clean(me.data[0]?.name), email: clean(me.data[0]?.email) } : null,
+      checks,
+      userMessage: "Business API teşhisi kapalı. Temel Facebook Login public_profile,email ile çalışır."
+    };
+  }
+  const [businesses, adAccounts, pages] = await Promise.all([
+    graphDiagnostic("me/businesses", accessToken, { fields: "id,name,verification_status,created_time", limit: "100" }),
+    graphDiagnostic("me/adaccounts", accessToken, { fields: "id,name,account_id,account_status,currency,business{name,id}", limit: "100" }),
+    graphDiagnostic("me/accounts", accessToken, { fields: "id,name,category,instagram_business_account{id,username,name,profile_picture_url}", limit: "100" })
+  ]);
+  checks.push(businesses, adAccounts, pages);
+  const permissionProblems = checks.filter((item) => !item.ok && item.requiredPermission);
+  return {
+    ok: me.ok,
+    businessApiEnabled: true,
+    businessApiReady: checks.slice(1).some((item) => item.ok && item.dataCount > 0),
+    user: me.ok ? { id: clean(me.data[0]?.id), name: clean(me.data[0]?.name), email: clean(me.data[0]?.email) } : null,
+    checks,
+    userMessage: permissionProblems.length
+      ? "Meta temel bağlantısı tamamlandı. Reklam hesaplarını listelemek için Meta tarafında ads_read ve/veya business_management izinlerinin App Review ile onaylanması gerekir."
+      : "Meta Business API teşhisi tamamlandı."
+  };
+}
+
+export function publicMetaDiagnostics(diagnostics: any) {
+  return {
+    ...diagnostics,
+    checks: (diagnostics?.checks || []).map((item: any) => {
+      const safeItem = { ...item };
+      delete safeItem.data;
+      return safeItem;
+    })
+  };
 }
 
 function normalizeAsset(input: {
@@ -73,22 +164,11 @@ function normalizeAsset(input: {
 
 export async function listMetaBusinessAssets(accessToken: string) {
   if (!accessToken) throw new Error("Önce Meta ile giriş yapın.");
-  const warnings: string[] = [];
-  const [businessesResult, adAccountsResult, pagesResult] = await Promise.allSettled([
-    graphGet("me/businesses", accessToken, { fields: "id,name,verification_status,created_time", limit: "100" }),
-    graphGet("me/adaccounts", accessToken, { fields: "id,name,account_id,account_status,currency,business{name,id}", limit: "100" }),
-    graphGet("me/accounts", accessToken, { fields: "id,name,category,access_token,instagram_business_account{id,username,name,profile_picture_url}", limit: "100" })
-  ]);
-
-  function resultData(result: PromiseSettledResult<any>, label: string) {
-    if (result.status === "fulfilled") return Array.isArray(result.value?.data) ? result.value.data : [];
-    warnings.push(`${label}: ${result.reason instanceof Error ? result.reason.message : "Veri alınamadı."}`);
-    return [];
-  }
-
-  const businesses = resultData(businessesResult, "Business Manager");
-  const adAccounts = resultData(adAccountsResult, "Reklam hesapları");
-  const pages = resultData(pagesResult, "Facebook Sayfaları");
+  const diagnostics = await diagnoseMetaBusinessAccess(accessToken, true);
+  const warnings = diagnostics.checks.filter((item: any) => !item.ok).map((item: any) => `${item.endpoint}: ${item.userMessage}`);
+  const businesses = diagnostics.checks.find((item: any) => item.endpoint === "/me/businesses")?.data || [];
+  const adAccounts = diagnostics.checks.find((item: any) => item.endpoint === "/me/adaccounts")?.data || [];
+  const pages = diagnostics.checks.find((item: any) => item.endpoint === "/me/accounts")?.data || [];
   const instagramAccounts = pages.flatMap((page: any) => page.instagram_business_account ? [{ ...page.instagram_business_account, page_id: page.id, page_name: page.name }] : []);
   const accounts = [
     ...businesses.map((item: any) => normalizeAsset({ type: "meta_business", category: "Business Manager", platform: "meta", item })),
@@ -105,6 +185,7 @@ export async function listMetaBusinessAssets(accessToken: string) {
       "Instagram Business": instagramAccounts.length
     },
     warnings,
+    diagnostics: publicMetaDiagnostics(diagnostics),
     message: accounts.length ? "Meta Business varlıkları listelendi." : "Meta bağlantısı başarılı; listelenebilir business varlığı bulunamadı."
   };
 }

@@ -119,6 +119,7 @@ export function CustomerAccountConnectCenter() {
   const [oauthLoading, setOauthLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [oauthInfo, setOauthInfo] = useState<any>(null);
+  const [metaDiagnostics, setMetaDiagnostics] = useState<any>(null);
   const [assetPickerOpen, setAssetPickerOpen] = useState(false);
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
 
@@ -172,6 +173,7 @@ export function CustomerAccountConnectCenter() {
     setForm({ ...emptyForm(card.key, card.type), ...(current || {}) });
     setMode(nextMode);
     setOauthInfo(null);
+    setMetaDiagnostics(null);
     setAssetPickerOpen(false);
     setSelectedAssetIds([]);
     setMessage("");
@@ -258,9 +260,37 @@ export function CustomerAccountConnectCenter() {
     setOauthLoading(true);
     setMessage("");
     try {
+      if (provider === "meta") {
+        const diagnosticResponse = await fetch("/api/customer/integrations/meta/diagnostics", { cache: "no-store" });
+        const diagnostics = await diagnosticResponse.json().catch(() => ({}));
+        setMetaDiagnostics(diagnostics);
+        if (!diagnosticResponse.ok) {
+          setOauthInfo({ ok: false, provider: "meta", phase: "meta_diagnostics", accounts: [], diagnostics, message: diagnostics.userMessage || "Meta bağlantı teşhisi tamamlanamadı." });
+          setAssetPickerOpen(true);
+          setSelectedAssetIds([]);
+          setMessage(diagnostics.userMessage || "Meta bağlantı teşhisi tamamlanamadı.");
+          return;
+        }
+        if (!diagnostics.businessApiEnabled) {
+          setOauthInfo({ ok: true, provider: "meta", phase: "meta_oauth_phase_1", accounts: activeAsset ? [activeAsset] : [], diagnostics, message: diagnostics.userMessage || "Business API teşhisi kapalı. Temel bağlantı tamamlandı." });
+          setAssetPickerOpen(true);
+          setSelectedAssetIds(activeAsset ? [activeAsset.id || `meta-user-${activeAsset.provider_account_id}`] : []);
+          setMessage("Reklam hesaplarını listelemek için gelişmiş Meta izinleri gerekir. Temel giriş tamamlandı.");
+          return;
+        }
+        const blocked = (diagnostics.checks || []).some((item: any) => ["/me/adaccounts", "/me/businesses"].includes(item.endpoint) && !item.ok);
+        if (blocked) {
+          setOauthInfo({ ok: false, provider: "meta", phase: "meta_business_diagnostics", accounts: [], diagnostics, message: diagnostics.userMessage });
+          setAssetPickerOpen(true);
+          setSelectedAssetIds([]);
+          setMessage(diagnostics.userMessage || "Meta temel bağlantısı tamamlandı. Reklam hesaplarını listelemek için Meta tarafında ads_read ve/veya business_management izinlerinin App Review ile onaylanması gerekir.");
+          return;
+        }
+      }
       const response = await fetch(`/api/integrations/accounts?provider=${provider}`, { cache: "no-store" });
       const payload = await response.json().catch(() => ({}));
       setOauthInfo(payload);
+      if (payload.diagnostics) setMetaDiagnostics(payload.diagnostics);
       setAssetPickerOpen(true);
       setSelectedAssetIds((payload.accounts || []).slice(0, 1).map((item: any) => item.id));
       if (!response.ok) setMessage(payload.message || "Yetkili hesap listesi şu an alınamadı. Manuel giriş kullanabilirsiniz.");
@@ -418,6 +448,34 @@ export function CustomerAccountConnectCenter() {
               {oauthInfo?.phase === "meta_oauth_phase_1" && <p className="mt-3 rounded-[12px] bg-white p-3 text-sm font-bold text-blue-900">{oauthInfo.message || "Reklam hesaplarını listelemek için gelişmiş Meta izinleri gerekir. Önce temel giriş tamamlandı."}</p>}
               {oauthInfo?.phase === "meta_business_phase_2" && <p className="mt-3 rounded-[12px] bg-white p-3 text-sm font-bold text-blue-900">Business Manager, reklam hesapları, Facebook Sayfaları ve Instagram Business varlıkları listelendi. Kullanmak istediğiniz varlıkları seçip kaydedin.</p>}
               {Array.isArray(oauthInfo?.warnings) && oauthInfo.warnings.length > 0 && <p className="mt-3 rounded-[12px] bg-amber-50 p-3 text-sm font-bold text-amber-900">{oauthInfo.warnings.join(" · ")}</p>}
+            </div>
+          )}
+
+          {active.key === "meta" && metaDiagnostics && (
+            <div className="mt-4 rounded-[18px] border border-violet-200 bg-white p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h4 className="font-black text-slate-950">Meta bağlantı teşhisi</h4>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">Temel login, Business API erişimi ve varlık listeleme izinleri güvenli şekilde kontrol edilir. Token ve secret gösterilmez.</p>
+                </div>
+                <span className={`rounded-full px-3 py-1 text-xs font-black ${metaDiagnostics.businessApiReady ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}>{metaDiagnostics.businessApiReady ? "Business API hazır" : metaDiagnostics.businessApiEnabled ? "İzin kontrolü gerekli" : "Temel login modu"}</span>
+              </div>
+              <div className="mt-3 grid gap-2 text-sm text-slate-700 md:grid-cols-2">
+                <p><strong>Temel Facebook Login:</strong> {metaDiagnostics.ok ? "Başarılı" : "Kontrol gerekli"}</p>
+                <p><strong>Login scope:</strong> public_profile, email</p>
+                <p><strong>Meta kullanıcı:</strong> {metaDiagnostics.user?.name || "Yok"} · {metaDiagnostics.user?.id || "ID yok"}</p>
+                <p><strong>E-posta:</strong> {metaDiagnostics.user?.email ? `${String(metaDiagnostics.user.email).slice(0, 2)}***${String(metaDiagnostics.user.email).slice(String(metaDiagnostics.user.email).indexOf("@"))}` : "Yok / izin verilmedi"}</p>
+                <p><strong>Business API erişimi:</strong> {metaDiagnostics.businessApiReady ? "Hazır" : "Hazır değil"}</p>
+                <p><strong>Açıklama:</strong> {metaDiagnostics.userMessage || "Teşhis tamamlandı."}</p>
+              </div>
+              <div className="mt-4 grid gap-2 md:grid-cols-2">
+                {(metaDiagnostics.checks || []).map((item: any) => <div key={item.endpoint} className={`rounded-[12px] border p-3 ${item.ok ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"}`}>
+                  <p className="font-black text-slate-950">{item.endpoint}</p>
+                  <p className="mt-1 text-xs font-bold text-slate-600">Durum: {item.ok ? "Başarılı" : "Kontrol gerekli"} · Kayıt: {item.dataCount || 0}</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-600">{item.userMessage}</p>
+                  {item.requiredPermission && <p className="mt-1 text-xs font-black text-amber-800">Gereken izin: {item.requiredPermission}</p>}
+                </div>)}
+              </div>
             </div>
           )}
 

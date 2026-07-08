@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import crypto from "crypto";
 import { getSession, isCustomerRole, isStaffRole } from "@/lib/auth";
 import { encryptSecret } from "@/lib/business-flow";
-import { listMetaBusinessAssets, META_BUSINESS_REQUIRED_SCOPES, tokenForCustomerMetaIntegration } from "@/lib/meta-business-phase2";
+import { diagnoseMetaBusinessAccess, listMetaBusinessAssets, META_BUSINESS_REQUIRED_SCOPES, publicMetaDiagnostics, tokenForCustomerMetaIntegration } from "@/lib/meta-business-phase2";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
 export type Provider = "meta" | "google" | "tiktok" | "x";
@@ -24,7 +24,6 @@ const providerConfig: Record<Provider, {
   env: string[];
   authBase: string;
   scope: string;
-  advancedScope?: string;
   assetTypes: string[];
 }> = {
   meta: {
@@ -32,7 +31,6 @@ const providerConfig: Record<Provider, {
     env: ["META_CLIENT_ID", "META_CLIENT_SECRET", "META_REDIRECT_URI"],
     authBase: "https://www.facebook.com/v20.0/dialog/oauth",
     scope: "public_profile,email",
-    advancedScope: "business_management,ads_read,pages_show_list,instagram_basic",
     assetTypes: ["Business Manager", "Ad Account", "Page", "Instagram Business Account", "Pixel"]
   },
   google: {
@@ -140,9 +138,7 @@ function advancedScopesEnabled(provider: Provider) {
 }
 
 function effectiveProviderScope(provider: Provider) {
-  const config = providerConfig[provider];
-  if (!advancedScopesEnabled(provider) || !config.advancedScope) return config.scope;
-  return `${config.scope},${config.advancedScope}`;
+  return providerConfig[provider].scope;
 }
 
 function providerScopeList(provider: Provider) {
@@ -212,14 +208,16 @@ export function getOAuthProviderStatus(provider: Provider) {
     missing,
     scope: effectiveProviderScope(provider),
     scopes: providerScopeList(provider),
+    loginScopes: providerScopeList(provider),
     advancedScopesEnabled: advancedScopesEnabled(provider),
     advancedRequiredScopes: provider === "meta" ? META_BUSINESS_REQUIRED_SCOPES : undefined,
-    businessAssetListingReady: provider === "meta" ? advancedScopesEnabled(provider) && META_BUSINESS_REQUIRED_SCOPES.every((scope) => providerScopeList(provider).includes(scope)) : undefined,
+    businessAssetListingReady: provider === "meta" ? advancedScopesEnabled(provider) : undefined,
     businessAssetListingMessage: provider === "meta"
       ? advancedScopesEnabled(provider)
-        ? "Business Manager, reklam hesabı, Facebook Sayfası ve Instagram Business listeleme modu aktif."
-        : "Business Manager, reklam hesabı, Facebook Sayfası ve Instagram Business listeleme için META_ADVANCED_SCOPES_ENABLED=true ve Meta App Review izinleri gerekir."
+        ? "Business API teşhis/deneme modu aktif. Gelişmiş izinler OAuth URL'sine eklenmez; API erişimi App Review / Business Verification sonucuna göre test edilir."
+        : "Business API teşhisi kapalı. OAuth login yalnız public_profile,email ile çalışır."
       : undefined,
+    businessPermissionNote: provider === "meta" ? "business_management, ads_read, pages_show_list ve instagram_basic OAuth URL'ye eklenmez; yalnız Business API teşhis sonucu ve App Review gereksinimi olarak gösterilir." : undefined,
     redirectUri: credentials.redirectUri,
     expectedRedirectUri,
     redirectUriMatches,
@@ -735,18 +733,20 @@ export async function oauthAccounts(request: Request) {
   try {
     if (provider === "meta" && !advancedScopesEnabled("meta")) {
       const phase1Account = metaPhase1AccountFromSession(metaSessionForPhase1);
+      const diagnostics = publicMetaDiagnostics(await diagnoseMetaBusinessAccess(accessToken, false));
       return NextResponse.json({
         ok: true,
         provider,
         accounts: phase1Account ? [phase1Account] : [],
         phase: "meta_oauth_phase_1",
         advancedScopesEnabled: false,
+        diagnostics,
         message: "Reklam hesaplarını listelemek için gelişmiş Meta izinleri gerekir. Önce temel giriş tamamlandı."
       });
     }
     if (provider === "meta") {
       const result = await listMetaBusinessAssets(accessToken);
-      return NextResponse.json({ ok: true, provider, accounts: result.accounts, groups: result.groups, warnings: result.warnings, phase: "meta_business_phase_2", advancedScopesEnabled: true, message: result.message });
+      return NextResponse.json({ ok: true, provider, accounts: result.accounts, groups: result.groups, warnings: result.warnings, diagnostics: result.diagnostics, phase: "meta_business_phase_2", advancedScopesEnabled: true, message: result.message });
     }
     const accounts = provider === "google" ? await fetchGoogleAccounts(accessToken) : provider === "tiktok" ? await fetchTikTokAccounts(accessToken) : await fetchXAccounts(accessToken);
     return NextResponse.json({ ok: true, provider, accounts, message: accounts.length ? "Yetkili hesaplar listelendi." : "Hesap bulunamadı veya yetki kapsamı yetersiz." });
