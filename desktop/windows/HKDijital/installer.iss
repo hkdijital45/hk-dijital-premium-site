@@ -1,5 +1,5 @@
 #define MyAppName "HK Dijital"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "0.1.0"
 #define MyAppPublisher "HK Dijital"
 #define MyAppExeName "HKDijital.exe"
 

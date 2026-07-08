@@ -22,8 +22,8 @@ jobs:
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
         with:
-          name: HK-Dijital.dmg
-          path: desktop/dist/macos/HK-Dijital.dmg
+          name: HK-Dijital-0.1.0.dmg
+          path: desktop-builds/HK-Dijital-0.1.0.dmg
           if-no-files-found: error
 
   windows-exe:

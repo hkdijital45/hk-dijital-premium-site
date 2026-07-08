@@ -6,7 +6,7 @@ Ana mantık:
 
 - macOS: SwiftUI + WKWebView wrapper
 - Windows: .NET WPF + WebView2 wrapper
-- Uygulama canlı production URL'ini açar: `https://hkdijital.com.tr`
+- Uygulama canlı Digital Center giriş ekranını açar: `https://hkdijital.com.tr/digital-center`
 - Web tarafı Vercel'e deploy edildiğinde masaüstü uygulama yeni web sürümünü otomatik gösterir.
 - Native wrapper token, şifre veya refresh token saklamaz.
 
@@ -17,7 +17,7 @@ Ana mantık:
 Varsayılan production URL:
 
 ```text
-https://hkdijital.com.tr
+https://hkdijital.com.tr/digital-center
 ```
 
 Allowlist yalnız şu hostları içerir:
@@ -40,7 +40,7 @@ npm run desktop:mac
 Çıktı:
 
 ```text
-desktop/dist/macos/HK-Dijital.dmg
+desktop-builds/HK-Dijital-0.1.0.dmg
 ```
 
 Gereksinimler:
@@ -93,7 +93,7 @@ Manuel çalıştırma:
 
 Artifact isimleri:
 
-- `HK-Dijital.dmg`
+- `HK-Dijital-0.1.0.dmg`
 - `HK-Dijital-Setup.exe`
 
 ## Harici Link ve Domain Güvenliği
@@ -115,4 +115,4 @@ Sonra ilgili build komutunu veya GitHub Actions workflow'unu yeniden çalıştı
 
 ## Git'e Eklenmeyen Çıktılar
 
-`desktop/dist/`, `desktop/build/` ve `desktop/windows/publish/` build çıktıları Git'e eklenmez. Dağıtım dosyaları GitHub Actions artifact olarak üretilir.
+`desktop-builds/`, `desktop/dist/`, `desktop/build/` ve `desktop/windows/publish/` build çıktıları Git'e eklenmez. Dağıtım dosyaları GitHub Actions artifact olarak üretilir.

@@ -14,7 +14,7 @@ struct DesktopConfig: Decodable {
                 appName: "HK Dijital",
                 productionUrl: override,
                 supportUrl: override,
-                version: "1.0.0",
+                version: "0.1.0",
                 updateCheckUrl: nil,
                 allowedHosts: URL(string: override).flatMap { $0.host }.map { [$0] } ?? []
             )
@@ -28,11 +28,11 @@ struct DesktopConfig: Decodable {
 
         return DesktopConfig(
             appName: "HK Dijital",
-            productionUrl: "about:blank",
-            supportUrl: "about:blank",
-            version: "1.0.0",
+            productionUrl: "https://hkdijital.com.tr/digital-center",
+            supportUrl: "https://hkdijital.com.tr/iletisim",
+            version: "0.1.0",
             updateCheckUrl: nil,
-            allowedHosts: []
+            allowedHosts: ["hkdijital.com.tr", "www.hkdijital.com.tr"]
         )
     }
 }

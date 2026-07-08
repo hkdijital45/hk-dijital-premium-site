@@ -5,23 +5,88 @@ struct ContentView: View {
     @EnvironmentObject private var model: WebViewModel
 
     var body: some View {
-        ZStack {
-            WebViewContainer()
-                .environmentObject(model)
+        VStack(spacing: 0) {
+            NativeToolbar()
 
-            if model.isLoading {
-                SplashView(title: model.config.appName)
-            }
+            ZStack {
+                WebViewContainer()
+                    .environmentObject(model)
 
-            if let error = model.errorMessage {
-                OfflineView(message: error, supportUrl: model.config.supportUrl) {
-                    model.reload()
+                if model.isLoading {
+                    SplashView(title: model.config.appName)
+                }
+
+                if let error = model.errorMessage {
+                    OfflineView(message: error, supportUrl: model.config.supportUrl) {
+                        model.reload()
+                    }
                 }
             }
         }
+        .background(Color(nsColor: .windowBackgroundColor))
         .onAppear {
             model.loadInitialPage()
         }
+    }
+}
+
+struct NativeToolbar: View {
+    @EnvironmentObject private var model: WebViewModel
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text("HK Dijital")
+                .font(.system(size: 15, weight: .black))
+                .foregroundStyle(.primary)
+
+            Divider()
+                .frame(height: 22)
+
+            Button {
+                model.goBack()
+            } label: {
+                Image(systemName: "chevron.left")
+            }
+            .disabled(!model.canGoBack)
+            .help("Geri")
+
+            Button {
+                model.goForward()
+            } label: {
+                Image(systemName: "chevron.right")
+            }
+            .disabled(!model.canGoForward)
+            .help("İleri")
+
+            Button {
+                model.reload()
+            } label: {
+                Image(systemName: "arrow.clockwise")
+            }
+            .help("Yenile")
+
+            Button {
+                model.goHome()
+            } label: {
+                Label("Digital Center", systemImage: "house")
+            }
+            .help("Digital Center'a dön")
+
+            Spacer()
+
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(model.errorMessage == nil ? Color.green : Color.red)
+                    .frame(width: 8, height: 8)
+                Text(model.errorMessage == nil ? "Çevrimiçi" : "Bağlantı yok")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .buttonStyle(.bordered)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(.regularMaterial)
     }
 }
 
@@ -34,7 +99,7 @@ struct SplashView: View {
                 .scaleEffect(1.2)
             Text(title)
                 .font(.system(size: 26, weight: .black))
-            Text("Digital Center yükleniyor...")
+            Text("Digital Center hazırlanıyor...")
                 .foregroundStyle(.secondary)
         }
         .padding(34)
@@ -51,13 +116,13 @@ struct OfflineView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Text("Bağlantı kurulamadı")
+            Text("Bağlantı yok")
                 .font(.system(size: 28, weight: .black))
-            Text(message)
+            Text("İnternet bağlantınızı kontrol edin.\n\(message)")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
             HStack {
-                Button("Yeniden Dene", action: retry)
+                Button("Tekrar Dene", action: retry)
                     .buttonStyle(.borderedProminent)
                 if let url = URL(string: supportUrl) {
                     Link("Destek", destination: url)

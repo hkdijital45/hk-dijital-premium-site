@@ -15,7 +15,7 @@ Bu klasör macOS ve Windows wrapper uygulamalarının ortak yapılandırmasını
 
 Production URL değiştirmek için bu dosyadaki `productionUrl` değerini güncelleyin ve masaüstü paketini yeniden üretin.
 
-HK Dijital production dağıtımında varsayılan URL ve allowlist `https://hkdijital.com.tr` ve `www.hkdijital.com.tr` üzerine kuruludur.
+HK Dijital production dağıtımında varsayılan açılış adresi `https://hkdijital.com.tr/digital-center`; allowlist ise `hkdijital.com.tr` ve `www.hkdijital.com.tr` üzerine kuruludur.
 
 ## Güvenlik
 

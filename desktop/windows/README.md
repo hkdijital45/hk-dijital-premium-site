@@ -1,11 +1,11 @@
 # HK Dijital Windows Dağıtımı
 
-Bu yapı Electron veya PWA kullanmaz. .NET WPF + Microsoft WebView2 ile canlı HK Dijital web uygulamasını açan hafif native wrapper üretir.
+Bu yapı Electron veya PWA kullanmaz. .NET WPF + Microsoft WebView2 ile canlı HK Dijital Digital Center giriş ekranını açan hafif native wrapper üretir.
 
 Canlı URL:
 
 ```text
-https://hkdijital.com.tr
+https://hkdijital.com.tr/digital-center
 ```
 
 ## Gereksinimler
@@ -54,7 +54,7 @@ desktop/windows/publish/
 URL `desktop/shared/desktop-config.json` içindeki `productionUrl` alanından okunur. Test için environment override:
 
 ```powershell
-$env:HK_DESKTOP_APP_URL="https://hkdijital.com.tr"
+$env:HK_DESKTOP_APP_URL="https://hkdijital.com.tr/digital-center"
 powershell -ExecutionPolicy Bypass -File desktop/windows/build-exe.ps1
 ```
 

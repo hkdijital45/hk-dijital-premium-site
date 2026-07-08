@@ -27,20 +27,24 @@ struct WebViewContainer: NSViewRepresentable {
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
             model.errorMessage = nil
             model.isLoading = true
+            model.refreshNavigationState()
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             model.isLoading = false
+            model.refreshNavigationState()
         }
 
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
             model.isLoading = false
             model.errorMessage = "İnternet bağlantınızı veya HK Dijital adresini kontrol edin."
+            model.refreshNavigationState()
         }
 
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
             model.isLoading = false
             model.errorMessage = "İnternet bağlantınızı veya HK Dijital adresini kontrol edin."
+            model.refreshNavigationState()
         }
 
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {

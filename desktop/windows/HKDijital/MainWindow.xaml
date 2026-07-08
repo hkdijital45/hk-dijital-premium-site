@@ -24,7 +24,7 @@
         <Border x:Name="LoadingPanel" Grid.RowSpan="2" Background="#CCF8FAFC">
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                 <ProgressBar IsIndeterminate="True" Width="260" Height="8" />
-                <TextBlock Text="Digital Center yükleniyor..." FontWeight="Bold" FontSize="18" Margin="0,18,0,0" HorizontalAlignment="Center" />
+                <TextBlock Text="Digital Center hazırlanıyor..." FontWeight="Bold" FontSize="18" Margin="0,18,0,0" HorizontalAlignment="Center" />
             </StackPanel>
         </Border>
 

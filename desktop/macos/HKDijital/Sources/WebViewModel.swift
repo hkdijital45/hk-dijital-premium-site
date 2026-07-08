@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import AppKit
 import WebKit
 
 final class WebViewModel: ObservableObject {
@@ -7,6 +8,8 @@ final class WebViewModel: ObservableObject {
     let webView: WKWebView
     @Published var isLoading = true
     @Published var errorMessage: String?
+    @Published var canGoBack = false
+    @Published var canGoForward = false
 
     init(config: DesktopConfig) {
         self.config = config
@@ -26,6 +29,15 @@ final class WebViewModel: ObservableObject {
 
     var productionURL: URL? {
         URL(string: config.productionUrl)
+    }
+
+    var websiteURL: URL? {
+        guard let productionURL else { return nil }
+        var components = URLComponents(url: productionURL, resolvingAgainstBaseURL: false)
+        components?.path = ""
+        components?.query = nil
+        components?.fragment = nil
+        return components?.url
     }
 
     func loadInitialPage() {
@@ -50,6 +62,30 @@ final class WebViewModel: ObservableObject {
 
     func goForward() {
         if webView.canGoForward { webView.goForward() }
+    }
+
+    func goHome() {
+        errorMessage = nil
+        if let url = productionURL {
+            webView.load(URLRequest(url: url))
+        }
+    }
+
+    func openSupport() {
+        if let url = URL(string: config.supportUrl) {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    func openWebsiteInBrowser() {
+        if let url = websiteURL {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    func refreshNavigationState() {
+        canGoBack = webView.canGoBack
+        canGoForward = webView.canGoForward
     }
 
     func isAllowed(_ url: URL) -> Bool {

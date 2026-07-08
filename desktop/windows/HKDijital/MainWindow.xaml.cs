@@ -110,9 +110,9 @@ public partial class MainWindow : Window
 public sealed class DesktopConfig
 {
     public string AppName { get; set; } = "HK Dijital";
-    public string ProductionUrl { get; set; } = "about:blank";
-    public string SupportUrl { get; set; } = "about:blank";
-    public string Version { get; set; } = "1.0.0";
+    public string ProductionUrl { get; set; } = "https://hkdijital.com.tr/digital-center";
+    public string SupportUrl { get; set; } = "https://hkdijital.com.tr/iletisim";
+    public string Version { get; set; } = "0.1.0";
     public string? UpdateCheckUrl { get; set; }
     public string[] AllowedHosts { get; set; } = [];
 
@@ -130,7 +130,7 @@ public sealed class DesktopConfig
         }
 
         var path = Path.Combine(AppContext.BaseDirectory, "desktop-config.json");
-        if (!File.Exists(path)) return new DesktopConfig();
+        if (!File.Exists(path)) return new DesktopConfig { AllowedHosts = ["hkdijital.com.tr", "www.hkdijital.com.tr"] };
         var json = File.ReadAllText(path);
         return JsonSerializer.Deserialize<DesktopConfig>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new DesktopConfig();
     }

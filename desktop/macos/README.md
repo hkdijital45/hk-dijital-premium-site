@@ -1,11 +1,11 @@
 # HK Dijital macOS Dağıtımı
 
-Bu yapı Electron veya PWA kullanmaz. SwiftUI + WKWebView ile canlı HK Dijital web uygulamasını açan hafif native wrapper üretir.
+Bu yapı Electron veya PWA kullanmaz. SwiftUI + WKWebView ile canlı HK Dijital Digital Center giriş ekranını açan hafif native wrapper üretir. Uygulama public ana sayfayı açmaz; oturum varsa web sistemi rolüne göre admin veya müşteri paneline yönlendirir.
 
 Canlı URL:
 
 ```text
-https://hkdijital.com.tr
+https://hkdijital.com.tr/digital-center
 ```
 
 ## Gereksinimler
@@ -32,7 +32,7 @@ bash desktop/macos/build-dmg.sh
 Çıktı:
 
 ```text
-desktop/dist/macos/HK-Dijital.dmg
+desktop-builds/HK-Dijital-0.1.0.dmg
 ```
 
 ## GitHub Actions Build
@@ -40,14 +40,14 @@ desktop/dist/macos/HK-Dijital.dmg
 1. GitHub'da `Actions` sekmesine gidin.
 2. `Desktop Build` workflow'unu açın.
 3. `Run workflow` ile manuel çalıştırın.
-4. `macos-dmg` job tamamlanınca artifact bölümünden `HK-Dijital.dmg` dosyasını indirin.
+4. `macos-dmg` job tamamlanınca artifact bölümünden `HK-Dijital-0.1.0.dmg` dosyasını indirin.
 
 ## Production URL
 
 URL `desktop/shared/desktop-config.json` içindeki `productionUrl` alanından okunur. Geçici test için:
 
 ```bash
-HK_DESKTOP_APP_URL=https://hkdijital.com.tr bash desktop/macos/build-dmg.sh
+HK_DESKTOP_APP_URL=https://hkdijital.com.tr/digital-center bash desktop/macos/build-dmg.sh
 ```
 
 ## Güvenlik Notları

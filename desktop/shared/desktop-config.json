@@ -1,8 +1,8 @@
 {
   "appName": "HK Dijital",
-  "productionUrl": "https://hkdijital.com.tr",
+  "productionUrl": "https://hkdijital.com.tr/digital-center",
   "supportUrl": "https://hkdijital.com.tr/iletisim",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "updateCheckUrl": "",
   "allowedHosts": [
     "hkdijital.com.tr",
