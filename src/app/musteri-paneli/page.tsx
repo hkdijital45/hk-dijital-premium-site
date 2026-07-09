@@ -2,16 +2,14 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { BarChart3, Download, FileText, Lightbulb, MessageCircle, Sparkles, UserRound } from "lucide-react";
+import { BarChart3, Bell, Download, FileText, Lightbulb, MessageCircle, Sparkles, UserRound } from "lucide-react";
 import { getSession, isCustomerRole, isStaffRole } from "@/lib/auth";
 import { recordActivity } from "@/lib/activity-log";
 import { getCustomerCenterData, summarizeMetrics } from "@/lib/customer-center";
 import { normalizeModuleKeys, type CustomerModuleKey } from "@/lib/customer-portal-registry";
 import { hasSupabaseConfig } from "@/lib/supabase";
-import { CustomerReports } from "@/components/customer/CustomerReports";
 import { CustomerAccountConnectCenter } from "@/components/customer/CustomerAccountConnectCenter";
 import { AnimatedChart, CustomerMetricCard } from "@/components/premium/PremiumUI";
-import { HKAssistantWidget } from "@/components/shared/HKAssistantWidget";
 import { Logo } from "@/components/public/Logo";
 import { getSiteContent } from "@/lib/content";
 
@@ -25,6 +23,24 @@ export const metadata: Metadata = {
 function MetricCard({ title, value, help }: { title: string; value: string | number; help: string }) {
   return <CustomerMetricCard title={title} value={value} help={help} />;
 }
+
+const CUSTOMER_PORTAL_ALLOWED_MODULES: CustomerModuleKey[] = ["dashboard", "reports", "files", "documents", "account_connect", "support", "notifications"];
+const CUSTOMER_PORTAL_ADMIN_ONLY_MODULES = [
+  "ad_doctor",
+  "hk_intelligence",
+  "ai_assistant",
+  "ad_insights",
+  "analytics",
+  "seo",
+  "social_media",
+  "integrations",
+  "billing",
+  "tasks",
+  "proposals",
+  "contracts",
+  "messages",
+  "todos"
+];
 
 export default async function MusteriPaneliPage({ searchParams }: { searchParams: Promise<{ company?: string; module?: string }> }) {
   const session = await getSession();
@@ -46,7 +62,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
   const siteContent = await getSiteContent();
   const data = await getCustomerCenterData(selectedCompanyId);
   const enabledCustomerModules = normalizeModuleKeys(data.integration?.metadata?.enabled_customer_modules);
-  const hasModule = (key: CustomerModuleKey | string) => enabledCustomerModules.includes(key as CustomerModuleKey);
+  const hasModule = (key: CustomerModuleKey | string) => CUSTOMER_PORTAL_ALLOWED_MODULES.includes(key as CustomerModuleKey) && enabledCustomerModules.includes(key as CustomerModuleKey);
   if (params.module && !hasModule(params.module)) {
     return (
       <main className="grid min-h-screen place-items-center bg-[#f7f8fb] px-4 text-slate-950">
@@ -81,10 +97,25 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
   const portalName = branding.brand_name || data.company?.name || "HK Dijital";
   const portalTitle = branding.report_title || `${portalName} Digital Center`;
   const welcomeText = branding.welcome_text || "Performans raporlarınız, kampanya notlarınız ve dijital büyüme verileriniz burada.";
-  const brandAccentColor = branding.brand_accent_color || branding.primary_color || "#0891b2";
   const contactWhatsapp = String(branding.contact_whatsapp || "").replace(/\D/g, "");
   const contactHref = contactWhatsapp ? `https://wa.me/${contactWhatsapp}` : branding.contact_email ? `mailto:${branding.contact_email}` : branding.contact_phone ? `tel:${branding.contact_phone}` : "/iletisim";
   const paymentSummary = data.payments.reduce((total, item) => ({ paid: total.paid + (item.status === "Ödendi" ? Number(item.amount || 0) : 0), pending: total.pending + (item.status !== "Ödendi" && item.status !== "İptal" ? Number(item.amount || 0) : 0) }), { paid: 0, pending: 0 });
+  const integrationStatus = data.integration?.status || data.integration?.sync_status || data.integration?.admin_review_status || "";
+  const integrationMetadata = data.integration?.metadata || {};
+  const customerVisibleNotices = [
+    integrationMetadata.customer_visible_notice,
+    integrationMetadata.last_action_message,
+    integrationStatus === "missing_info_required" ? "HK Dijital ekibi bu bağlantı için ek bilgi istedi." : "",
+    integrationStatus === "reauth_required" ? "Bu bağlantı için yeniden yetkilendirme gerekiyor." : "",
+    ["invalid", "error"].includes(integrationStatus) ? "Bir bağlantı hatalı görünüyor. Lütfen Hesap Bağla alanını kontrol edin." : "",
+    ["inactive", "disabled"].includes(integrationStatus) ? "Bir bağlantı geçici olarak pasifleştirildi." : "",
+    ["approved", "connected", "verified"].includes(integrationStatus) ? "Bağlantınız HK Dijital ekibi tarafından onaylandı." : ""
+  ].filter(Boolean);
+  const customerNotifications = [
+    ...customerVisibleNotices.map((text, index) => ({ id: `integration-${index}`, title: "Bağlantı bildirimi", text, tone: "bg-blue-50 text-blue-800" })),
+    ...data.reports.slice(0, 2).map((report) => ({ id: `report-${report.id}`, title: "Rapor hazır", text: `${report.report_type || "Müşteri raporu"} görüntülemeye hazır.`, tone: "bg-purple-50 text-purple-800" })),
+    ...data.documents.slice(0, 2).map((document) => ({ id: `document-${document.id}`, title: "Yeni dosya eklendi", text: `${document.title || document.document_type || "Belge"} panelinize eklendi.`, tone: "bg-emerald-50 text-emerald-800" }))
+  ].slice(0, 6);
   const visibleTimeline = [
     ...data.campaigns.map((item) => ({ date: item.updated_at || item.created_at || item.start_date, title: "Kampanya güncellendi", text: `${item.name || "Kampanya"} · ${item.status || "Durum yok"}` })),
     ...data.reports.map((item) => ({ date: item.created_at || item.report_date || item.endDate, title: "Rapor yayınlandı", text: item.report_type || "Müşteri raporu" })),
@@ -117,13 +148,11 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
   const fileUpdatedLabel = (file: any) => file.updated_at || file.uploaded_at || file.created_at ? new Date(file.updated_at || file.uploaded_at || file.created_at).toLocaleDateString("tr-TR") : "Tarih yok";
   const portalSections = [
     { module: "dashboard", title: "Genel Durum", description: "Size açık son kampanya, rapor ve çalışma özetleri.", tone: "bg-cyan-50 text-cyan-700", icon: <Sparkles key="genel" size={22} />, updatedAt: latestUpdate?.created_at, action: "Özeti Gör", href: "#genel-bakis" },
-    { module: "analytics", title: "Reklam Performansı", description: "Tıklama, mesaj, form ve maliyetleri sade dille okuyun.", tone: "bg-blue-50 text-blue-700", icon: <BarChart3 key="reklam" size={22} />, updatedAt: data.metaAdMetrics[0]?.created_at || latestReportDate, action: "Performansa Git", href: "#performans" },
     { module: "reports", title: "Raporlar", description: "Yayınlanan rapor ve aylık özetleri görüntüleyin.", tone: "bg-purple-50 text-purple-700", icon: <FileText key="rapor" size={22} />, updatedAt: latestReportDate, action: "Raporları Aç", href: "#raporlar" },
-    { module: "tasks", title: "Yapılan Çalışmalar", description: "Ajans ekibinin sizin için yaptığı işleri takip edin.", tone: "bg-emerald-50 text-emerald-700", icon: <Lightbulb key="isler" size={22} />, updatedAt: latestUpdate?.created_at, action: "Çalışmaları Gör", href: "#notlar" },
-    { module: "files", title: "Dosyalar", description: "Müşteriye açık kreatif, belge ve dosyalara ulaşın.", tone: "bg-amber-50 text-amber-700", icon: <Download key="dosya" size={22} />, updatedAt: data.files[0]?.uploaded_at || data.documents[0]?.created_at, action: "Dosyaları Aç", href: "#belgeler" },
-    { module: "seo", title: "Rakip Görünürlük Özeti", description: "Onaylı rakip özetlerini teknik detay olmadan görün.", tone: "bg-teal-50 text-teal-700", icon: <Sparkles key="rakip" size={22} />, updatedAt: data.competitorSummaries[0]?.last_checked_at, action: "Rakip Özetine Git", href: "#rakip-ozeti" },
-    { module: "billing", title: "Ödemeler", description: "Müşteriye açık ödeme durumunu kontrol edin.", tone: "bg-green-50 text-green-700", icon: <FileText key="odeme" size={22} />, updatedAt: data.payments[0]?.due_date || data.payments[0]?.created_at, action: "Ödemeleri Gör", href: "#odemeler" },
-    { module: "support", title: "İletişim", description: "HK Dijital ekibiyle kayıtlı kanaldan iletişim kurun.", tone: "bg-sky-50 text-sky-700", icon: <MessageCircle key="iletisim" size={22} />, updatedAt: latestUpdate?.created_at, action: "İletişime Geç", href: contactHref }
+    { module: "files", title: "Belgeler / Dosyalar", description: "Teklif, sözleşme, fatura, brief ve kreatif dosyalarınıza ulaşın.", tone: "bg-amber-50 text-amber-700", icon: <Download key="dosya" size={22} />, updatedAt: data.files[0]?.uploaded_at || data.documents[0]?.created_at, action: "Dosyaları Aç", href: "#belgeler" },
+    { module: "account_connect", title: "Hesap Bağla", description: "Meta, Google, Website / Pixel ve WhatsApp bağlantılarınızı yönetin.", tone: "bg-blue-50 text-blue-700", icon: <Sparkles key="hesap" size={22} />, updatedAt: data.integration?.updated_at, action: "Hesap Bağla", href: "#hesap-bagla" },
+    { module: "support", title: "Destek", description: "WhatsApp, toplantı veya eksik bilgi gönderimi için HK Dijital ekibine ulaşın.", tone: "bg-sky-50 text-sky-700", icon: <MessageCircle key="iletisim" size={22} />, updatedAt: latestUpdate?.created_at, action: "Destek Al", href: "#destek" },
+    { module: "notifications", title: "Bildirimler", description: "Rapor, dosya, eksik bilgi ve bağlantı uyarılarınızı görün.", tone: "bg-rose-50 text-rose-700", icon: <Bell key="bildirim" size={22} />, updatedAt: latestUpdate?.created_at || data.integration?.updated_at, action: "Bildirimleri Gör", href: "#bildirimler" }
   ].filter((section) => hasModule(section.module));
 
   return (
@@ -165,15 +194,12 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
         )}
 
         <nav className="mb-6 flex flex-wrap gap-2 rounded-[18px] border border-slate-200 bg-white p-3 text-sm font-bold shadow-[0_8px_30px_rgba(15,23,42,.05)]">
-          {hasModule("analytics") && visibility.show_metrics && <a href="#performans" className="rounded-full border border-cyan-200 bg-cyan-50 px-4 py-2 text-cyan-800 hover:bg-cyan-100">Performans</a>}
-          {hasModule("reports") && (data.reports.length > 0 || data.monthlyReports.length > 0) ? <a href="#raporlar" className="rounded-full border border-slate-200 px-4 py-2 text-slate-700 hover:border-cyan-200 hover:bg-cyan-50">Raporlar</a> : null}
-          {hasModule("files") && visibility.show_files && <a href="#kreatif-merkezi" className="rounded-full border border-slate-200 px-4 py-2 text-slate-700 hover:border-cyan-200 hover:bg-cyan-50">Kreatif Merkezi</a>}
-          {hasModule("social_media") && data.campaigns.length > 0 ? <a href="#kampanyalar" className="rounded-full border border-slate-200 px-4 py-2 text-slate-700 hover:border-cyan-200 hover:bg-cyan-50">Kampanyalar</a> : null}
-          {hasModule("tasks") && visibility.show_work_updates && <a href="#notlar" className="rounded-full border border-slate-200 px-4 py-2 text-slate-700 hover:border-cyan-200 hover:bg-cyan-50">Notlar</a>}
-          {hasModule("documents") && (visibility.show_files || data.documents.length > 0) && <a href="#belgeler" className="rounded-full border border-slate-200 px-4 py-2 text-slate-700 hover:border-cyan-200 hover:bg-cyan-50">Belgeler</a>}
-          {hasModule("seo") && data.competitorSummaries.length > 0 && <a href="#rakip-ozeti" className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-emerald-800 hover:bg-emerald-100">Rakip Özeti</a>}
-          {hasModule("billing") && data.payments.length > 0 && <a href="#odemeler" className="rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-amber-800 hover:bg-amber-100">Ödemeler</a>}
+          {hasModule("dashboard") && <a href="#genel-bakis" className="rounded-full border border-cyan-200 bg-cyan-50 px-4 py-2 text-cyan-800 hover:bg-cyan-100">Dashboard</a>}
+          {hasModule("reports") && <a href="#raporlar" className="rounded-full border border-slate-200 px-4 py-2 text-slate-700 hover:border-cyan-200 hover:bg-cyan-50">Raporlar</a>}
+          {(hasModule("files") || hasModule("documents")) && <a href="#belgeler" className="rounded-full border border-slate-200 px-4 py-2 text-slate-700 hover:border-cyan-200 hover:bg-cyan-50">Belgeler / Dosyalar</a>}
           {hasModule("account_connect") && <a href="#hesap-bagla" className="rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-blue-800 hover:bg-blue-100">Hesap Bağla</a>}
+          {hasModule("support") && <a href="#destek" className="rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-sky-800 hover:bg-sky-100">Destek</a>}
+          {hasModule("notifications") && <a href="#bildirimler" className="rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-rose-800 hover:bg-rose-100">Bildirimler</a>}
         </nav>
 
         <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -374,18 +400,39 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
           </section>
         )}
 
-        {hasModule("reports") && visibility.show_metrics && <section id="raporlar" className="scroll-mt-28">
+        {hasModule("reports") && <section id="raporlar" className="scroll-mt-28">
           <div className="mb-4 rounded-[22px] border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.05)]">
             <h2 className="text-2xl font-black text-slate-950">Raporlar</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">Ajans tarafından hazırlanan dönemsel performans raporlarınız. PDF, Word ve Excel çıktıları buradan indirilebilir.</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">Ajans tarafından hazırlanan sade performans raporlarınız. Teknik admin metrikleri yerine dönem özeti, sonuç ve indirilebilir çıktı gösterilir.</p>
           </div>
-          <CustomerReports reports={data.reports} initialInterpretations={data.interpretations} reportUpdates={data.reportUpdates} visibilityRules={reportVisibility} />
+          <div className="grid gap-4">
+            {data.reports.map((report: any) => {
+              const reportUrl = report.pdf_url || report.file_url || report.report_url || report.export_url || "";
+              return (
+                <article key={report.id} className="rounded-[18px] border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.05)]">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <span className="rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-[11px] font-black text-purple-800">{report.report_type || "Müşteri raporu"}</span>
+                      <h3 className="mt-3 text-lg font-black text-slate-950">{report.title || report.report_title || "Dönemsel performans raporu"}</h3>
+                      <p className="mt-2 text-sm leading-6 text-slate-600">{report.summary || report.executive_summary || "Rapor özeti hazırlanıyor."}</p>
+                    </div>
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">{report.created_at ? new Date(report.created_at).toLocaleDateString("tr-TR") : report.report_date || "Tarih yok"}</span>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {reportUrl ? <a href={reportUrl} target="_blank" rel="noreferrer" className="rounded-full bg-cyan-600 px-4 py-2 text-sm font-black text-white">Raporu Aç</a> : <span className="rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-black text-amber-800">Dosya çıktısı henüz eklenmedi</span>}
+                    {reportUrl ? <a href={reportUrl} download className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700">İndir</a> : null}
+                  </div>
+                </article>
+              );
+            })}
+            {!data.reports.length && !data.monthlyReports.length && <p className="rounded-[18px] border border-dashed border-slate-200 bg-white p-6 text-sm text-slate-500">Henüz rapor oluşturulmadı.</p>}
+          </div>
         </section>}
 
         {hasModule("files") && visibility.show_files && (
-          <section id="kreatif-merkezi" className="glass-card mt-8 scroll-mt-28 p-5">
-            <h2 className="flex items-center gap-2 text-xl font-black"><Sparkles className="text-cyan-600" /> Kreatif Merkezi</h2>
-            <p className="mt-2 text-sm text-slate-600">Reklam görselleri, kreatif dosyalar ve paylaşılabilir tasarımlar burada yer alır.</p>
+          <section id="belgeler" className="glass-card mt-8 scroll-mt-28 p-5">
+            <h2 className="flex items-center gap-2 text-xl font-black"><Sparkles className="text-cyan-600" /> Belgeler / Dosyalar</h2>
+            <p className="mt-2 text-sm text-slate-600">Teklif, sözleşme, fatura, brief, kreatif ve paylaşılabilir dosyalar burada yer alır.</p>
             <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {creativeFiles.map((file: any) => (
                 <div key={file.id} className="overflow-hidden rounded-[14px] border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,.05)]">
@@ -530,20 +577,35 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
         )}
 
         <section className="mt-8 grid gap-4 md:grid-cols-2">
-          {hasModule("support") && visibility.show_contact_person && (
-          <section className="glass-card p-5">
-            <h2 className="flex items-center gap-2 text-xl font-black"><MessageCircle className="text-cyan-600" /> İletişim</h2>
-            <p className="mt-3 text-sm text-slate-600">Raporlar, kampanya notları veya sonraki adımlar için kayıtlı iletişim kanalını kullanabilirsiniz.</p>
-            <a href={contactHref} target={contactHref.startsWith("http") ? "_blank" : undefined} rel={contactHref.startsWith("http") ? "noreferrer" : undefined} className="mt-4 inline-flex rounded-full px-4 py-2 text-sm font-black text-white" style={{ backgroundColor: brandAccentColor }}>{contactWhatsapp ? "WhatsApp ile iletişime geçin" : branding.contact_email ? "E-posta gönderin" : "İletişime geçin"}</a>
+          {hasModule("support") && (
+          <section id="destek" className="glass-card scroll-mt-28 p-5">
+            <h2 className="flex items-center gap-2 text-xl font-black"><MessageCircle className="text-cyan-600" /> Destek</h2>
+            <p className="mt-3 text-sm leading-6 text-slate-600">Raporlar, kampanya notları, eksik bilgi veya toplantı talepleri için HK Dijital ekibine ulaşabilirsiniz.</p>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <a href={contactHref} target={contactHref.startsWith("http") ? "_blank" : undefined} rel={contactHref.startsWith("http") ? "noreferrer" : undefined} className="rounded-[14px] border border-cyan-200 bg-cyan-50 p-4 text-sm font-black text-cyan-800">WhatsApp / iletişim kanalını aç</a>
+              <a href={`mailto:${branding.contact_email || "hayrikamali@icloud.com"}?subject=${encodeURIComponent("HK Dijital Destek Talebi")}`} className="rounded-[14px] border border-slate-200 bg-white p-4 text-sm font-black text-slate-700">Destek talebi gönder</a>
+              <a href={`mailto:${branding.contact_email || "hayrikamali@icloud.com"}?subject=${encodeURIComponent("HK Dijital Toplantı Talebi")}`} className="rounded-[14px] border border-purple-200 bg-purple-50 p-4 text-sm font-black text-purple-800">Toplantı talebi oluştur</a>
+              <a href="#hesap-bagla" className="rounded-[14px] border border-amber-200 bg-amber-50 p-4 text-sm font-black text-amber-900">Eksik bilgileri gönder</a>
+            </div>
+          </section>
+          )}
+          {hasModule("notifications") && (
+          <section id="bildirimler" className="glass-card scroll-mt-28 p-5">
+            <h2 className="flex items-center gap-2 text-xl font-black"><Bell className="text-rose-600" /> Bildirimler</h2>
+            <p className="mt-3 text-sm leading-6 text-slate-600">Eksik bilgi, yetki yenileme, bağlantı durumu, yeni rapor ve dosya uyarıları burada görünür.</p>
+            <div className="mt-5 grid gap-3">
+              {customerNotifications.map((item) => <div key={item.id} className={`rounded-[14px] border border-white p-4 ${item.tone}`}><p className="font-black">{item.title}</p><p className="mt-1 text-sm leading-6">{item.text}</p></div>)}
+              {!customerNotifications.length && <p className="rounded-[14px] border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">Şu anda okunacak bildiriminiz yok.</p>}
+            </div>
           </section>
           )}
           <section className="glass-card p-5">
             <h2 className="flex items-center gap-2 text-xl font-black"><UserRound className="text-cyan-600" /> Hesabım</h2>
             <p className="mt-3 text-sm text-slate-600">{session.fullName} · {data.company?.name || "Şirket ataması bekleniyor"}</p>
+            {CUSTOMER_PORTAL_ADMIN_ONLY_MODULES.length > 0 && <p className="mt-3 rounded-[12px] bg-slate-50 p-3 text-xs font-bold leading-5 text-slate-500">Reklam Doktoru, HK Intelligence, CRM, QA, Funnel ve iç operasyon modülleri yalnız HK Dijital admin ekibi tarafından yönetilir.</p>}
           </section>
         </section>
       </div>
-      {hasModule("ai_assistant") && <HKAssistantWidget context="customer" />}
     </main>
   );
 }
