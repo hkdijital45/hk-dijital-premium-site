@@ -12,6 +12,35 @@ import { trackEvent } from "./TrackingPlaceholders";
 type Answers = Record<string, string>;
 type QuoteContent = Pick<SiteContent, "quoteWizard" | "packages" | "contact">;
 type QuoteFormField = SiteContent["quoteWizard"]["formFields"][number];
+type AiBudgetResearch = {
+  source: "groq" | "fallback";
+  marketSummary: string;
+  recommendedBudget: {
+    minimum: number;
+    ideal: number;
+    aggressive: number;
+    dailyIdeal: number;
+  };
+  platformSplit: Array<{ label: string; percent: number; note: string }>;
+  reasoningBullets: string[];
+  first30DaysPlan: string[];
+  risks: string[];
+  extraServiceSuggestions: string[];
+  disclaimer: string;
+};
+type AiBudgetResearchInput = {
+  sector: string;
+  marketLocation: string;
+  goal: string;
+  platformNeed: string;
+  monthlyAdBudget: string;
+  contentNeed: string;
+  startTiming: string;
+  socialStatus: string;
+  selectedPackageSlug: string;
+  selectedPackageName: string;
+  packageBasePrice: number;
+};
 type ContactStepProps = {
   wizard: SiteContent["quoteWizard"];
   form: Answers;
@@ -94,6 +123,22 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
       adBudget: smart.adBudget
     };
   }, [answers, content]);
+  const budgetResearchInput = useMemo<AiBudgetResearchInput>(() => {
+    const pricing = getPackagePricing(recommendation.recommended.id);
+    return {
+      sector: selectedLabel(businessCards, answers.businessType),
+      marketLocation: "Türkiye",
+      goal: selectedLabel(goalCards, answers.goal),
+      platformNeed: selectedLabel(platformCards, answers.platform),
+      monthlyAdBudget: selectedLabel(budgetCards, answers.budget),
+      contentNeed: packageChoiceLabel("content", answers.contentNeed),
+      startTiming: packageChoiceLabel("urgency", answers.urgency),
+      socialStatus: packageChoiceLabel("social", answers.socialStatus),
+      selectedPackageSlug: recommendation.recommended.id,
+      selectedPackageName: recommendation.recommended.name,
+      packageBasePrice: pricing?.basePrice || 0
+    };
+  }, [answers, recommendation.recommended]);
 
   function select(key: string, value: string) {
     if (step === 0) trackEvent("quote_wizard_started");
@@ -184,7 +229,7 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
               {step === 2 && <StepPanel key="platform"><Options title="Platform İhtiyacınız" text="Meta, Google, sosyal medya veya hepsini kapsayan yapıyı seçin." options={platformCards} onSelect={(value) => select("platform", value)} /></StepPanel>}
               {step === 3 && <StepPanel key="budget"><Options title="Aylık Reklam Bütçesi" text="Reklam bütçesi hizmet bedeline dahil değildir; bu seçim öneri seviyesini netleştirir." options={budgetCards} onSelect={(value) => select("budget", value)} /></StepPanel>}
               {step === 4 && <StepPanel key="needs"><NeedsStep answers={answers} setAnswers={setAnswers} onNext={() => setStep(5)} /></StepPanel>}
-              {step === 5 && <StepPanel key="recommendation"><Recommendation recommended={recommendation.recommended} alternative={recommendation.alternative} reason={recommendation.reason} startingStrategy={recommendation.startingStrategy} roadmap={recommendation.roadmap} adBudget={recommendation.adBudget} whatsappUrl={whatsappUrl} onNext={() => setStep(6)} /></StepPanel>}
+              {step === 5 && <StepPanel key="recommendation"><Recommendation recommended={recommendation.recommended} alternative={recommendation.alternative} reason={recommendation.reason} startingStrategy={recommendation.startingStrategy} roadmap={recommendation.roadmap} adBudget={recommendation.adBudget} budgetResearchInput={budgetResearchInput} whatsappUrl={whatsappUrl} onNext={() => setStep(6)} /></StepPanel>}
               {step === 6 && (
                 <StepPanel key="contact">
                   <ContactStep wizard={wizard} form={form} setForm={setForm} error={error} sent={sent} submit={submit} whatsappUrl={whatsappUrl} back={() => setStep(5)} />
@@ -281,8 +326,31 @@ function NeedsStep({ answers, setAnswers, onNext }: { answers: Answers; setAnswe
   );
 }
 
-function Recommendation({ recommended, alternative, reason, startingStrategy, roadmap, adBudget, whatsappUrl, onNext }: { recommended: PackageItem; alternative: PackageItem; reason?: string; startingStrategy?: string; roadmap?: string[]; adBudget: AdBudgetEstimate; whatsappUrl: string; onNext: () => void }) {
+function Recommendation({ recommended, alternative, reason, startingStrategy, roadmap, adBudget, budgetResearchInput, whatsappUrl, onNext }: { recommended: PackageItem; alternative: PackageItem; reason?: string; startingStrategy?: string; roadmap?: string[]; adBudget: AdBudgetEstimate; budgetResearchInput: AiBudgetResearchInput; whatsappUrl: string; onNext: () => void }) {
   const pricing = getPackagePricing(recommended.id);
+  const [aiBudget, setAiBudget] = useState<AiBudgetResearch | null>(null);
+  const [aiBudgetLoading, setAiBudgetLoading] = useState(false);
+  const [aiBudgetError, setAiBudgetError] = useState("");
+  async function createAiBudgetResearch() {
+    if (aiBudget) return;
+    setAiBudgetLoading(true);
+    setAiBudgetError("");
+    try {
+      const response = await fetch("/api/ai/ad-budget-research", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(budgetResearchInput)
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data) throw new Error("AI bütçe analizi oluşturulamadı.");
+      setAiBudget(data);
+      trackEvent("ai_budget_research_created", { source: data.source, package: recommended.id });
+    } catch {
+      setAiBudgetError("AI bütçe analizi şu anda oluşturulamadı. HK Dijital analiz modeliyle hesaplanan öneriyi kullanabilirsiniz.");
+    } finally {
+      setAiBudgetLoading(false);
+    }
+  }
   return (
     <div>
       <div className="grid gap-6 lg:grid-cols-[1.1fr_.9fr]">
@@ -331,6 +399,16 @@ function Recommendation({ recommended, alternative, reason, startingStrategy, ro
             <BudgetBox label="Agresif büyüme" value={formatBudgetRange(...adBudget.aggressiveRange)} />
           </div>
           <p className="mt-4 rounded-[16px] border border-white/10 bg-black/20 p-4 text-sm leading-7 text-cyan-50">{adBudget.reason} {adBudget.budgetFit}</p>
+          <div className="mt-5 flex flex-col gap-3 rounded-[18px] border border-white/10 bg-black/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-black text-white">AI Destekli Piyasa Yorumu</p>
+              <p className="mt-1 text-xs leading-5 text-slate-300">Groq API tanımlıysa sektör ve hedefe göre ek yorum üretir; yoksa HK Dijital analiz modeli güvenli fallback döndürür.</p>
+            </div>
+            <button type="button" onClick={createAiBudgetResearch} disabled={aiBudgetLoading || Boolean(aiBudget)} className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full bg-yellow-300 px-5 text-sm font-black text-slate-950 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60">
+              {aiBudgetLoading ? "Analiz oluşturuluyor..." : aiBudget ? "Analiz hazır" : "AI Bütçe Analizi Oluştur"}
+            </button>
+          </div>
+          {aiBudgetError && <p className="mt-3 rounded-[14px] border border-red-200/30 bg-red-500/10 p-3 text-sm text-red-100">{aiBudgetError}</p>}
         </div>
         <div className="rounded-[22px] border border-white/10 bg-white/[0.045] p-5">
           <p className="text-sm font-black text-white">Platform bütçe dağılımı</p>
@@ -344,6 +422,42 @@ function Recommendation({ recommended, alternative, reason, startingStrategy, ro
           </div>
         </div>
       </div>
+
+      {aiBudget && (
+        <div className="mt-6 rounded-[24px] border border-yellow-200/25 bg-yellow-200/10 p-5 shadow-[0_20px_80px_rgba(250,204,21,.12)]">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[.18em] text-yellow-100">{aiBudget.source === "groq" ? "AI Destekli Piyasa Yorumu" : "HK Dijital analiz modeli"}</p>
+              <h3 className="mt-2 text-2xl font-black text-white">Piyasa ve medya bütçesi değerlendirmesi</h3>
+            </div>
+            <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-black text-slate-950">{aiBudget.source === "groq" ? "Groq destekli" : "Fallback analiz"}</span>
+          </div>
+          <p className="mt-4 text-sm leading-7 text-yellow-50">{aiBudget.marketSummary}</p>
+          <div className="mt-5 grid gap-3 md:grid-cols-4">
+            <BudgetBox label="Minimum" value={formatTRY(aiBudget.recommendedBudget.minimum)} />
+            <BudgetBox label="İdeal" value={formatTRY(aiBudget.recommendedBudget.ideal)} highlight />
+            <BudgetBox label="Agresif" value={formatTRY(aiBudget.recommendedBudget.aggressive)} />
+            <BudgetBox label="Günlük ideal" value={formatTRY(aiBudget.recommendedBudget.dailyIdeal)} />
+          </div>
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+            <PlanList title="Neden bu bütçe?" items={aiBudget.reasoningBullets} />
+            <PlanList title="Riskler ve dikkat noktaları" items={aiBudget.risks} />
+          </div>
+          <div className="mt-5 rounded-[18px] border border-white/10 bg-black/20 p-4">
+            <p className="text-sm font-black text-white">AI platform dağılımı</p>
+            <div className="mt-4 grid gap-3">
+              {aiBudget.platformSplit.map((item) => (
+                <div key={`${item.label}-${item.percent}`} className="rounded-[14px] border border-white/10 bg-white/[0.045] p-3">
+                  <div className="mb-2 flex justify-between text-xs font-bold text-slate-200"><span>{item.label}</span><span>%{item.percent}</span></div>
+                  <div className="h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-gradient-to-r from-cyan-300 to-yellow-300" style={{ width: `${item.percent}%` }} /></div>
+                  <p className="mt-2 text-xs leading-5 text-slate-300">{item.note}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <p className="mt-4 text-xs leading-6 text-yellow-100">{aiBudget.disclaimer}</p>
+        </div>
+      )}
 
       <div className="mt-6 grid gap-5 lg:grid-cols-3">
         <PlanList title="İlk 30 Günlük Aksiyon Planı" items={adBudget.first30DaysPlan} />

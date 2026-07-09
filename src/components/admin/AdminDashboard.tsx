@@ -6111,8 +6111,10 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
       setEditingCompanyId("");
       setMessage("Firma başarıyla kaydedildi.");
       notify?.("Firma başarıyla kaydedildi.", "success");
+      return true;
     } else {
       showApiError(data, "Firma kaydedilemedi.");
+      return false;
     }
   }
 
@@ -6620,7 +6622,8 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
     setProfileSaving(true);
     setProfileSaveMessage("");
     try {
-      const result = save ? await Promise.resolve(save(content)) : await Promise.resolve(saveCompany(company));
+      const contentBackedTabs = new Set(["Panel Görünürlüğü", "Satış Durumu"]);
+      const result = contentBackedTabs.has(tab) && save ? await Promise.resolve(save(content)) : await Promise.resolve(saveCompany(company));
       if (result === false) throw new Error("Müşteri profili kaydedilemedi.");
       const savedAt = new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
       setProfileDirty(false);

@@ -49,7 +49,7 @@ export type AdBudgetEstimate = {
   idealRange: [number, number];
   aggressiveRange: [number, number];
   dailyAverageRange: [number, number];
-  platformSplit: Array<{ label: string; percent: number }>;
+  platformSplit: Array<{ label: string; percent: number; note?: string }>;
   reason: string;
   first30DaysPlan: string[];
   notes: string[];
@@ -557,8 +557,9 @@ function recommendationCategory(platform: string): PackageCategoryKey {
 
 export function getCompetitionMultiplier(sector?: string) {
   const normalized = String(sector || "").toLocaleLowerCase("tr");
-  if (/(sağlık|saglik|klinik|estetik|diş|dis|emlak|gayrimenkul|hukuk|avukat|e-ticaret|eticaret|otomotiv)/.test(normalized)) return 1.25;
-  if (/(restoran|cafe|kafe|eğitim|egitim|güzellik|guzellik|spor|turizm)/.test(normalized)) return 1.12;
+  if (/(diş|dis|implant|ortodonti|estetik|plastik cerrahi|saç ekim|sac ekim|klinik|sağlık|saglik|hukuk|avukat)/.test(normalized)) return 1.35;
+  if (/(emlak|gayrimenkul|otomotiv|araba|oto|turizm|otel|villa|kurs|eğitim|egitim)/.test(normalized)) return 1.22;
+  if (/(restoran|cafe|kafe|güzellik|guzellik|nail|kuaför|kuafor|spor|e-ticaret|eticaret|e ticaret)/.test(normalized)) return 1.12;
   return 1;
 }
 
@@ -567,28 +568,28 @@ export function getPlatformBudgetSplit(platformNeed?: string, goal?: string) {
   const normalizedGoal = String(goal || "").toLocaleLowerCase("tr");
   if (platform.includes("hepsi") || platform.includes("kombin") || platform.includes("meta + google")) {
     return [
-      { label: "Meta Ads", percent: 40 },
-      { label: "Google Ads", percent: 35 },
-      { label: "Kreatif test", percent: 15 },
-      { label: "Remarketing", percent: 10 }
+      { label: "Meta Ads", percent: 40, note: "Talep oluşturma, kreatif test ve yeniden pazarlama için." },
+      { label: "Google Ads", percent: 35, note: "Aktif arama niyeti ve dönüşüm odaklı kampanyalar için." },
+      { label: "Kreatif test", percent: 15, note: "Mesaj, görsel ve teklif varyasyonlarını ölçmek için." },
+      { label: "Remarketing", percent: 10, note: "Ziyaretçi ve etkileşim kitlelerini tekrar yakalamak için." }
     ];
   }
   if (platform.includes("google")) {
     return [
-      { label: "Google Ads", percent: normalizedGoal.includes("bilinir") ? 75 : 85 },
-      { label: "Remarketing", percent: normalizedGoal.includes("bilinir") ? 25 : 15 }
+      { label: "Google Ads", percent: normalizedGoal.includes("bilinir") ? 75 : 85, note: "Arama niyeti, lead veya randevu talebi için ana bütçe." },
+      { label: "Remarketing", percent: normalizedGoal.includes("bilinir") ? 25 : 15, note: "Site ziyaretçilerini tekrar kampanyaya dahil etmek için." }
     ];
   }
   if (platform.includes("sosyal") || platform.includes("içerik")) {
     return [
-      { label: "Sosyal içerik destek", percent: 55 },
-      { label: "Kreatif test", percent: 30 },
-      { label: "Remarketing", percent: 15 }
+      { label: "Sosyal içerik destek", percent: 55, note: "Düzenli görünürlük ve etkileşim ritmi için." },
+      { label: "Kreatif test", percent: 30, note: "Reels, görsel ve metin konseptlerini denemek için." },
+      { label: "Remarketing", percent: 15, note: "Profil ve web etkileşimi olan kitleleri tekrar yakalamak için." }
     ];
   }
   return [
-    { label: "Meta Ads", percent: 80 },
-    { label: "Kreatif test", percent: 20 }
+    { label: "Meta Ads", percent: 80, note: "Mesaj, lead, satış veya bilinirlik kampanyaları için ana bütçe." },
+    { label: "Kreatif test", percent: 20, note: "Farklı görsel, metin ve teklif açılarını ölçmek için." }
   ];
 }
 
@@ -603,10 +604,19 @@ export function estimateAdBudget(input: PackageRecommendationInput): AdBudgetEst
   const urgency = normalizeUrgency(input.urgency);
   const socialStatus = normalizeSocialStatus(input.socialStatus);
   const multiplierBase = getCompetitionMultiplier(input.sector);
-  const growthMultiplier = goal.includes("büyü") || goal.includes("satış") || socialStatus === "growth" ? 1.18 : 1;
+  const goalMultiplier = goal.includes("büyü") || goal.includes("ölçek") || goal.includes("olcek")
+    ? 1.28
+    : goal.includes("satış") || goal.includes("satis") || goal.includes("lead")
+      ? 1.2
+      : goal.includes("randevu") || goal.includes("mesaj")
+        ? 1.12
+        : goal.includes("bilinir")
+          ? 0.95
+          : 1;
+  const growthMultiplier = socialStatus === "growth" ? 1.14 : socialStatus === "stable_not_growing" ? 1.08 : 1;
   const timingMultiplier = urgency === "immediate" ? 1.08 : urgency === "planning" ? 0.92 : 1;
   const contentMultiplier = contentNeed === "high" ? 1.1 : 1;
-  const multiplier = multiplierBase * growthMultiplier * timingMultiplier * contentMultiplier;
+  const multiplier = multiplierBase * goalMultiplier * growthMultiplier * timingMultiplier * contentMultiplier;
   const baseRanges: Record<PackageCategoryKey, { minimum: [number, number]; ideal: [number, number]; aggressive: [number, number] }> = {
     meta: { minimum: [6000, 8000], ideal: [10000, 15000], aggressive: [20000, 30000] },
     google_ads: { minimum: [8000, 12000], ideal: [15000, 25000], aggressive: [35000, 50000] },
