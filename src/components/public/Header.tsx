@@ -42,8 +42,7 @@ const navGroups = [
 ];
 
 const flatNav = [
-  ["Paketler", "/paketler"],
-  ["Digital Center", "/digital-center"]
+  ["Paketler", "/paketler"]
 ];
 
 export function Header({ content }: { content: SiteContent }) {

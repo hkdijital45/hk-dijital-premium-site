@@ -31,6 +31,7 @@ import { adminNavigationGroups, adminNavigationItems, getAdminHref } from "@/lib
 import { canViewAccounting } from "@/lib/accounting-permissions";
 import { aiProviderKeyForApi, buildAiSelectionReason, labelForAiProvider, normalizeUnifiedAiProvider, unifiedAiProviderOptions, unifiedAiPriorityKeys } from "@/lib/ai-provider-options";
 import { CUSTOMER_MODULE_REGISTRY, CUSTOMER_PLATFORM_REGISTRY, DEFAULT_CUSTOMER_MODULES, DEFAULT_CUSTOMER_PLATFORMS, normalizeModuleKeys, normalizePlatformKeys } from "@/lib/customer-portal-registry";
+import { HK_SERVICE_PACKAGES, PACKAGE_CATEGORIES, findServicePackage, formatPackagePrice } from "@/lib/packages";
 import { AnimatedChart, AnimatedFunnel, BrandEcosystemStrip, GlassCard, MetricCard3D } from "@/components/premium/PremiumUI";
 
 const adminCategoryIcons: Record<string, any> = {
@@ -2286,6 +2287,12 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
   const generatedProposals = leads.reduce((sum, lead) => sum + (Array.isArray(lead.proposal_history) ? lead.proposal_history.length : 0), 0);
   const hotLeads = leads.filter((lead) => Number(lead.lead_heat_score || 0) >= 70);
   const activeCustomers = companies.filter((company) => company.status === "Aktif");
+  const packageDistribution = {
+    starter: activeCustomers.filter((company) => /starter/i.test(String(company.customer_package_name || company.customer_package_type || ""))).length,
+    pro: activeCustomers.filter((company) => /pro/i.test(String(company.customer_package_name || company.customer_package_type || ""))).length,
+    premium: activeCustomers.filter((company) => /premium/i.test(String(company.customer_package_name || company.customer_package_type || ""))).length,
+    none: activeCustomers.filter((company) => !company.customer_package_name && !company.customer_package_type).length
+  };
   const metricsThisMonth = metrics.filter((metric) => String(metric.date || "").startsWith(month));
   const activePayments = paymentRecords.filter((item) => !isArchivedRecord(item));
   const activeTasks = agencyTasks.filter((item) => !isArchivedRecord(item));
@@ -3065,6 +3072,30 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
               </div>
             </div>
           ))}
+        </section>
+
+        <section className="rounded-[22px] border border-amber-200 bg-amber-50 p-5 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[.16em] text-amber-700">Paket Dağılımı</p>
+              <h3 className="mt-2 text-xl font-black text-slate-950">Aktif müşteri paket özeti</h3>
+              <p className="mt-1 text-sm leading-6 text-amber-900">Müşteri profilindeki paket alanlarından hesaplanır; paketsiz müşteriler teklif veya onboarding kontrolü bekler.</p>
+            </div>
+            <button onClick={() => setActive("Müşteriler")} className="rounded-full bg-amber-300 px-4 py-2 text-xs font-black text-slate-950">Müşterilere Git</button>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              ["Starter müşteri", packageDistribution.starter],
+              ["Pro müşteri", packageDistribution.pro],
+              ["Premium müşteri", packageDistribution.premium],
+              ["Paketsiz müşteri", packageDistribution.none]
+            ].map(([label, value]) => (
+              <div key={label as string} className="rounded-[16px] border border-amber-100 bg-white p-4">
+                <p className="text-[11px] font-black uppercase tracking-[.12em] text-amber-700">{label}</p>
+                <p className="mt-2 text-3xl font-black text-slate-950">{value}</p>
+              </div>
+            ))}
+          </div>
         </section>
 
         <section className="grid min-w-0 gap-5 xl:grid-cols-2">
@@ -6478,6 +6509,8 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
   const relatedLeads = (content.leads || []).filter((lead) => lead.company_id === company.id || String(lead.company || "").toLocaleLowerCase("tr") === String(company.name || "").toLocaleLowerCase("tr") || String(lead.email || "").toLocaleLowerCase("tr") === String(company.email || "").toLocaleLowerCase("tr"));
   const relatedLead = relatedLeads[0];
   const proposals = documents.filter((item) => item.document_type === "Teklif" || String(item.title || "").toLocaleLowerCase("tr").includes("teklif"));
+  const selectedServicePackage = findServicePackage(company.customer_package_name, company.customer_package_type);
+  const servicePackageOptions = HK_SERVICE_PACKAGES.map((pkg) => ({ value: pkg.slug, label: `${pkg.categoryLabel} · ${pkg.name} · ${formatPackagePrice(pkg)}` }));
   const visibilityItems = content.customerVisibilitySettings || [];
   const visibility = visibilityItems.find((item) => item.company_id === company.id) || {
     id: `visibility-${company.id}`,
@@ -6557,6 +6590,28 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
     setProfileDirty(true);
     setProfileSaveMessage("Müşteri profilinde kaydedilmemiş değişiklik var.");
   }
+  function applyServicePackage(slug) {
+    const pkg = findServicePackage(slug);
+    if (!pkg) {
+      updateProfileField({
+        customer_package_type: "",
+        customer_package_name: "",
+        customer_package_price: null,
+        customer_package_currency: "TRY",
+        customer_package_tax_note: "",
+        customer_package_note: ""
+      });
+      return;
+    }
+    updateProfileField({
+      customer_package_type: pkg.category,
+      customer_package_name: pkg.slug,
+      customer_package_price: pkg.monthlyPrice,
+      customer_package_currency: pkg.currency,
+      customer_package_tax_note: pkg.taxNote,
+      customer_package_note: company.customer_package_note || `${pkg.title}: ${pkg.description}`
+    });
+  }
   async function saveProfileChanges() {
     setProfileSaving(true);
     setProfileSaveMessage("");
@@ -6631,6 +6686,28 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
         <Field label="E-posta" value={company.email} onChange={(v) => updateProfileField({ email: v })} />
         <SelectField label="Durum" value={company.status} onChange={(v) => updateProfileField({ status: v })} options={companyStatusOptions} />
         <div className="md:col-span-2"><TextArea label="Dahili notlar" value={company.notes} onChange={(v) => updateProfileField({ notes: v })} /></div>
+        <div className="md:col-span-2 rounded-[18px] border border-amber-200 bg-amber-50 p-5">
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[.14em] text-amber-700">Müşteri Paketi</p>
+              <h3 className="mt-2 text-xl font-black text-slate-950">{selectedServicePackage?.title || "Aktif paket tanımlı değil"}</h3>
+              <p className="mt-1 text-sm leading-6 text-amber-900">Müşteri panelinde sadece görüntülenir; değişiklik yetkisi admin tarafındadır.</p>
+            </div>
+            <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-amber-800 ring-1 ring-amber-200">{selectedServicePackage ? formatPackagePrice(selectedServicePackage) : "Paketsiz"}</span>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <SelectField label="Paket seçimi" value={company.customer_package_name || ""} onChange={applyServicePackage} options={servicePackageOptions} placeholder="Paket seçin" />
+            <SelectField label="Paket kategorisi" value={company.customer_package_type || ""} onChange={(value) => updateProfileField({ customer_package_type: value })} options={PACKAGE_CATEGORIES.map((category) => ({ value: category.key, label: category.label }))} />
+            <Field label="Aylık hizmet bedeli" type="number" value={company.customer_package_price || 0} onChange={(value) => updateProfileField({ customer_package_price: Number(value || 0) })} />
+            <Field label="Para birimi" value={company.customer_package_currency || "TRY"} onChange={(value) => updateProfileField({ customer_package_currency: value || "TRY" })} />
+            <Field label="KDV durumu" value={company.customer_package_tax_note || ""} onChange={(value) => updateProfileField({ customer_package_tax_note: value })} />
+            <Field label="Başlangıç tarihi" type="date" value={dateOnly(company.customer_package_started_at)} onChange={(value) => updateProfileField({ customer_package_started_at: value })} />
+            <div className="md:col-span-2"><TextArea label="Paket notu" value={company.customer_package_note || ""} onChange={(value) => updateProfileField({ customer_package_note: value })} /></div>
+          </div>
+          {selectedServicePackage && <div className="mt-4 grid gap-2 md:grid-cols-3">
+            {selectedServicePackage.features.slice(0, 6).map((feature) => <p key={feature.label} className="rounded-[12px] bg-white p-3 text-xs font-bold leading-5 text-slate-700"><b>{feature.label}:</b> {feature.value}</p>)}
+          </div>}
+        </div>
         <div className="md:col-span-2 rounded-[8px] border border-cyan-200/20 bg-cyan-200/[0.08] p-4">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>

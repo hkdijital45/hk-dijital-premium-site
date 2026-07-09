@@ -12,6 +12,7 @@ import { CustomerAccountConnectCenter } from "@/components/customer/CustomerAcco
 import { AnimatedChart, CustomerMetricCard } from "@/components/premium/PremiumUI";
 import { Logo } from "@/components/public/Logo";
 import { getSiteContent } from "@/lib/content";
+import { findServicePackage, formatPackagePrice } from "@/lib/packages";
 
 export const dynamic = "force-dynamic";
 
@@ -146,6 +147,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
   };
   const creativeFiles = data.files.filter((file: any) => file.visible_to_customer !== false && (file.show_in_creative_center || imageTypeLabels.includes(getCustomerFileType(file))));
   const fileUpdatedLabel = (file: any) => file.updated_at || file.uploaded_at || file.created_at ? new Date(file.updated_at || file.uploaded_at || file.created_at).toLocaleDateString("tr-TR") : "Tarih yok";
+  const activeServicePackage = findServicePackage(data.company?.customer_package_name, data.company?.customer_package_type);
   const portalSections = [
     { module: "dashboard", title: "Genel Durum", description: "Size açık son kampanya, rapor ve çalışma özetleri.", tone: "bg-cyan-50 text-cyan-700", icon: <Sparkles key="genel" size={22} />, updatedAt: latestUpdate?.created_at, action: "Özeti Gör", href: "#genel-bakis" },
     { module: "reports", title: "Raporlar", description: "Yayınlanan rapor ve aylık özetleri görüntüleyin.", tone: "bg-purple-50 text-purple-700", icon: <FileText key="rapor" size={22} />, updatedAt: latestReportDate, action: "Raporları Aç", href: "#raporlar" },
@@ -227,6 +229,54 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
               </div>
             </div>
             <AnimatedChart label="Son dönem performans eğilimi" values={[24, 29, 41, 38, 54, 61, 72, 79]} />
+          </div>
+        </section>
+
+        <section className="mb-8 rounded-[22px] border border-amber-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.05)]">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[.16em] text-amber-700">Aktif Paketiniz</p>
+              <h2 className="mt-2 text-2xl font-black text-slate-950">{activeServicePackage?.title || "Henüz aktif paket tanımlanmamış"}</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                {activeServicePackage
+                  ? `${activeServicePackage.categoryLabel} kapsamında tanımlı hizmet özetiniz aşağıdadır. Paket değişiklikleri HK Dijital ekibi tarafından yönetilir.`
+                  : "Henüz aktif paket tanımlanmamış. HK Dijital ekibi paket seçiminizi tamamladığında burada görünecek."}
+              </p>
+            </div>
+            <span className="rounded-full bg-amber-50 px-4 py-2 text-sm font-black text-amber-800 ring-1 ring-amber-200">
+              {activeServicePackage ? formatPackagePrice(activeServicePackage) : "Paketsiz"}
+            </span>
+          </div>
+          {activeServicePackage ? (
+            <>
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-[14px] border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-black uppercase tracking-[.12em] text-slate-500">Kategori</p>
+                  <p className="mt-2 font-black text-slate-950">{activeServicePackage.categoryLabel}</p>
+                </div>
+                <div className="rounded-[14px] border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-black uppercase tracking-[.12em] text-slate-500">Başlangıç</p>
+                  <p className="mt-2 font-black text-slate-950">{data.company?.customer_package_started_at ? new Date(data.company.customer_package_started_at).toLocaleDateString("tr-TR") : "Tarih bekleniyor"}</p>
+                </div>
+                <div className="rounded-[14px] border border-slate-200 bg-slate-50 p-4 sm:col-span-2">
+                  <p className="text-xs font-black uppercase tracking-[.12em] text-slate-500">Kısa kapsam</p>
+                  <p className="mt-2 text-sm font-bold leading-6 text-slate-700">{activeServicePackage.description}</p>
+                </div>
+              </div>
+              <details className="mt-5 rounded-[16px] border border-amber-200 bg-amber-50 p-4">
+                <summary className="cursor-pointer text-sm font-black text-amber-900">Bu paket kapsamında neler var?</summary>
+                <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                  {activeServicePackage.features.map((feature) => (
+                    <p key={feature.label} className="rounded-[12px] bg-white p-3 text-sm leading-6 text-slate-700"><b>{feature.label}:</b> {feature.value}</p>
+                  ))}
+                </div>
+              </details>
+              {data.company?.customer_package_note && <p className="mt-4 rounded-[14px] bg-slate-50 p-4 text-sm leading-6 text-slate-600">{data.company.customer_package_note}</p>}
+            </>
+          ) : null}
+          <div className="mt-5 flex flex-wrap gap-2">
+            <a href={`mailto:${branding.contact_email || "hayrikamali@icloud.com"}?subject=${encodeURIComponent("HK Dijital Paket Yükseltme Talebi")}`} className="rounded-full bg-cyan-600 px-5 py-3 text-sm font-black text-white">Paket yükseltme talebi gönder</a>
+            <a href="/teklif-al" className="rounded-full border border-cyan-200 bg-cyan-50 px-5 py-3 text-sm font-black text-cyan-800">Görüşme talep et</a>
           </div>
         </section>
 

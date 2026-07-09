@@ -2,6 +2,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import type { SiteContent } from "./types";
 import { hasSupabaseConfig, supabaseRest } from "./supabase";
+import { SITE_PACKAGE_ITEMS } from "./packages";
 
 const contentPath = path.join(process.cwd(), "src", "data", "site-content.json");
 const siteContentKey = "site_content";
@@ -76,15 +77,26 @@ export async function getSeedContent(): Promise<SiteContent> {
 
 export async function getSiteContent(): Promise<SiteContent> {
   const seed = await getSeedContent();
-  if (!hasSupabaseConfig()) return seed;
+  const withPackages = (content: SiteContent): SiteContent => ({
+    ...content,
+    packages: SITE_PACKAGE_ITEMS,
+    pages: {
+      ...content.pages,
+      packages: {
+        ...content.pages.packages,
+        intro: "Meta, Google Ads, kombin reklam yönetimi ve sosyal medya hizmetlerini net kapsam, fiyat ve raporlama disipliniyle karşılaştırın."
+      }
+    }
+  });
+  if (!hasSupabaseConfig()) return withPackages(seed);
 
   try {
     const rows = await supabaseRest<Array<{ value: SiteContent }>>(
       `site_settings?key=eq.${siteContentKey}&select=value&limit=1`
     );
-    return rows[0]?.value ? normalizeAiDefaults(polishPublicCopy({ ...seed, ...rows[0].value })) : seed;
+    return withPackages(rows[0]?.value ? normalizeAiDefaults(polishPublicCopy({ ...seed, ...rows[0].value })) : seed);
   } catch {
-    return seed;
+    return withPackages(seed);
   }
 }
 

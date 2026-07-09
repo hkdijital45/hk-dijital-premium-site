@@ -62,7 +62,7 @@ export function PackageCards({ packages }: { packages: PackageItem[] }) {
                   </li>
                 ))}
               </ul>
-              <Link href="/teklif-al" onClick={() => trackEvent("package_clicked", { package: item.id, href: "/teklif-al" })} className="impact-btn mt-7 inline-flex min-h-12 w-full items-center justify-center rounded-full bg-white px-5 text-sm font-black text-slate-950 transition hover:bg-cyan-100">
+              <Link href={`/teklif-al?paket=${encodeURIComponent(item.id)}`} onClick={() => trackEvent("package_clicked", { package: item.id, href: "/teklif-al" })} className="impact-btn mt-7 inline-flex min-h-12 w-full items-center justify-center rounded-full bg-cyan-300 px-5 text-sm font-black text-slate-950 transition hover:bg-cyan-200">
                 {item.cta}
               </Link>
             </PremiumCard>

@@ -39,11 +39,18 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     "last_contact_at",
     "next_action_at",
     "next_action",
-    "follow_up_note"
+    "follow_up_note",
+    "customer_package_type",
+    "customer_package_name",
+    "customer_package_price",
+    "customer_package_currency",
+    "customer_package_tax_note",
+    "customer_package_started_at",
+    "customer_package_note"
   ];
   const patch: Record<string, any> = { updated_at: new Date().toISOString() };
   for (const field of editableFields) {
-    if (field in payload) patch[field] = payload[field] === "" && ["last_contact_at", "next_action_at"].includes(field) ? null : payload[field];
+    if (field in payload) patch[field] = payload[field] === "" && ["last_contact_at", "next_action_at", "customer_package_started_at"].includes(field) ? null : payload[field];
   }
   if ("status" in patch || "is_active" in payload) patch.is_active = patch.status === "Pasif" || payload.is_active === false ? false : true;
 
