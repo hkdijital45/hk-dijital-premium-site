@@ -1,7 +1,7 @@
 export type CustomerPlatformKey =
   | "meta"
   | "google"
-  | "google_analytics"
+  | "ga4"
   | "search_console"
   | "google_ads"
   | "business_profile"
@@ -62,7 +62,7 @@ export type CustomerModuleDefinition = {
 export const CUSTOMER_PLATFORM_REGISTRY: CustomerPlatformDefinition[] = [
   { key: "meta", title: "Meta", description: "Meta Business, reklam hesabı, Pixel ve Facebook bağlantıları.", provider: "meta", assetType: "meta_ads", tone: "blue" },
   { key: "google", title: "Google", description: "Google hesabı üzerinden Ads, Analytics, Search Console ve işletme varlıkları.", provider: "google", assetType: "google_profile", tone: "amber" },
-  { key: "google_analytics", title: "Google Analytics", description: "GA4 mülkleri, ölçüm kimliği ve web analitiği.", provider: "google", assetType: "ga4", tone: "emerald" },
+  { key: "ga4", title: "Google Analytics", description: "GA4 mülkleri, ölçüm kimliği ve web analitiği.", provider: "google", assetType: "ga4", tone: "emerald" },
   { key: "search_console", title: "Search Console", description: "Organik arama performansı ve doğrulanmış site mülkleri.", provider: "google", assetType: "search_console", tone: "sky" },
   { key: "google_ads", title: "Google Ads", description: "Google Ads müşteri hesabı ve kampanya verileri.", provider: "google", assetType: "google_ads", tone: "amber" },
   { key: "business_profile", title: "Business Profile", description: "Google işletme profili ve lokasyon bilgileri.", provider: "google", assetType: "google_business_profile", tone: "lime" },
@@ -107,11 +107,26 @@ export const CUSTOMER_MODULE_REGISTRY: CustomerModuleDefinition[] = [
 ];
 
 export const DEFAULT_CUSTOMER_MODULES: CustomerModuleKey[] = ["dashboard", "reports", "files", "documents", "billing", "account_connect", "support"];
+export const DEFAULT_CUSTOMER_PLATFORMS: CustomerPlatformKey[] = ["meta", "google", "ga4", "search_console", "google_ads", "business_profile", "instagram", "facebook", "website", "pixel"];
+
+const platformAliases: Record<string, CustomerPlatformKey> = {
+  google_analytics: "ga4",
+  google_search_console: "search_console",
+  google_business_profile: "business_profile",
+  twitter: "x",
+  x_twitter: "x",
+  meta_facebook: "meta",
+  website_pixel: "website",
+  api: "api_webhook",
+  webhook: "api_webhook"
+};
 
 export function normalizePlatformKeys(value: unknown): CustomerPlatformKey[] {
-  if (!Array.isArray(value)) return [];
+  if (!Array.isArray(value)) return DEFAULT_CUSTOMER_PLATFORMS;
   const valid = new Set(CUSTOMER_PLATFORM_REGISTRY.map((item) => item.key));
-  return value.map((item) => String(item).trim()).filter((item): item is CustomerPlatformKey => valid.has(item as CustomerPlatformKey));
+  return Array.from(new Set(value
+    .map((item) => platformAliases[String(item).trim()] || String(item).trim())
+    .filter((item): item is CustomerPlatformKey => valid.has(item as CustomerPlatformKey))));
 }
 
 export function normalizeModuleKeys(value: unknown): CustomerModuleKey[] {

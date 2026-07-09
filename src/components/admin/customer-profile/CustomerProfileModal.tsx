@@ -697,7 +697,7 @@ export function CustomerProfileModal({
 
   return (
     <div className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/50 p-0 sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) requestClose(); }}>
-      <section className="flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-auto sm:max-h-[88vh] sm:w-[min(1200px,94vw)] sm:rounded-[26px]" onMouseDown={(event) => event.stopPropagation()}>
+      <section className="flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-auto sm:max-h-[88vh] sm:w-[92vw] sm:max-w-[1440px] sm:rounded-[26px]" onMouseDown={(event) => event.stopPropagation()}>
         <header className="flex items-start justify-between gap-3 border-b border-slate-200 p-5">
           <div>
             <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Müşteri Profili</p>
@@ -706,7 +706,7 @@ export function CustomerProfileModal({
           </div>
           <button onClick={requestClose} aria-label="Kapat" className="rounded-full border border-slate-200 p-2 text-slate-500"><X size={18} /></button>
         </header>
-        <div className="flex-1 overflow-y-auto p-5">
+        <div className="flex-1 overflow-x-hidden overflow-y-auto p-5">
           {actionResult && <div className="mb-5"><ActionResultPanel result={actionResult} onNavigate={(href) => window.location.assign(href)} /></div>}
           {!showOverview && children && <div className="mb-5">{children}</div>}
           {showOverview && (

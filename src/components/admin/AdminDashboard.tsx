@@ -30,7 +30,7 @@ import { Logo } from "@/components/public/Logo";
 import { adminNavigationGroups, adminNavigationItems, getAdminHref } from "@/lib/admin-navigation";
 import { canViewAccounting } from "@/lib/accounting-permissions";
 import { aiProviderKeyForApi, buildAiSelectionReason, labelForAiProvider, normalizeUnifiedAiProvider, unifiedAiProviderOptions, unifiedAiPriorityKeys } from "@/lib/ai-provider-options";
-import { CUSTOMER_MODULE_REGISTRY, CUSTOMER_PLATFORM_REGISTRY, DEFAULT_CUSTOMER_MODULES, normalizeModuleKeys, normalizePlatformKeys } from "@/lib/customer-portal-registry";
+import { CUSTOMER_MODULE_REGISTRY, CUSTOMER_PLATFORM_REGISTRY, DEFAULT_CUSTOMER_MODULES, DEFAULT_CUSTOMER_PLATFORMS, normalizeModuleKeys, normalizePlatformKeys } from "@/lib/customer-portal-registry";
 import { AnimatedChart, AnimatedFunnel, BrandEcosystemStrip, GlassCard, MetricCard3D } from "@/components/premium/PremiumUI";
 
 const adminCategoryIcons: Record<string, any> = {
@@ -6324,11 +6324,20 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
   const [enabledModules, setEnabledModules] = useState(() => normalizeModuleKeys(customerIntegration?.metadata?.enabled_customer_modules));
   const [portalSettingsSaving, setPortalSettingsSaving] = useState(false);
   const [portalSettingsMessage, setPortalSettingsMessage] = useState("");
+  const [portalDirty, setPortalDirty] = useState(false);
+  const [profileDirty, setProfileDirty] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileSaveMessage, setProfileSaveMessage] = useState("");
+  const [lastProfileSavedAt, setLastProfileSavedAt] = useState("");
   useEffect(() => {
     setEnabledPlatforms(normalizePlatformKeys(customerIntegration?.metadata?.enabled_platforms));
     setEnabledModules(normalizeModuleKeys(customerIntegration?.metadata?.enabled_customer_modules));
     setPortalSettingsMessage("");
-  }, [company?.id]);
+    setPortalDirty(false);
+    setProfileDirty(false);
+    setProfileSaveMessage("");
+    setLastProfileSavedAt("");
+  }, [company?.id, customerIntegration?.metadata?.enabled_customer_modules, customerIntegration?.metadata?.enabled_platforms]);
   if (!company) return null;
   const canManageCustomer = canManageRecord(currentSession, "musteriler");
   const users = (content.users || []).filter((user) => customerRole(user.role) && user.company_id === company.id);
@@ -6403,15 +6412,46 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
     const next = { ...content, leads: exists ? (content.leads || []).map((lead) => lead.id === nextLead.id ? nextLead : lead) : [nextLead, ...(content.leads || [])] };
     setContent(next);
     if (shouldSave) runProfileAction("Güncelleniyor", () => save?.(next));
-    else if (message) notify?.(`✓ ${message}`, "success");
+    else {
+      setProfileDirty(true);
+      setProfileSaveMessage("Satış durumu alanlarında kaydedilmemiş değişiklik var.");
+      if (message) notify?.(`✓ ${message}`, "success");
+    }
   }
   function updateVisibility(patch) {
     const next = { ...visibility, ...patch };
     const exists = visibilityItems.some((item) => item.company_id === company.id);
     setContent({ ...content, customerVisibilitySettings: exists ? visibilityItems.map((item) => item.company_id === company.id ? next : item) : [...visibilityItems, next] });
+    setProfileDirty(true);
+    setProfileSaveMessage("Panel görünürlüğü alanlarında kaydedilmemiş değişiklik var.");
   }
   function togglePortalValue(list, value) {
     return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
+  }
+  function updateProfileField(patch) {
+    updateCompany(company.id, patch);
+    setProfileDirty(true);
+    setProfileSaveMessage("Müşteri profilinde kaydedilmemiş değişiklik var.");
+  }
+  async function saveProfileChanges() {
+    setProfileSaving(true);
+    setProfileSaveMessage("");
+    try {
+      const result = save ? await Promise.resolve(save(content)) : await Promise.resolve(saveCompany(company));
+      if (result === false) throw new Error("Müşteri profili kaydedilemedi.");
+      const savedAt = new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
+      setProfileDirty(false);
+      setLastProfileSavedAt(savedAt);
+      setProfileSaveMessage(`Kaydedildi · ${savedAt}`);
+      notify?.("✓ Müşteri profili kaydedildi", "success");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Müşteri profili kaydedilemedi.";
+      setProfileDirty(true);
+      setProfileSaveMessage(message);
+      notify?.(message, "error");
+    } finally {
+      setProfileSaving(false);
+    }
   }
   async function savePortalSettings() {
     setPortalSettingsSaving(true);
@@ -6433,6 +6473,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
           : [savedIntegration, ...(content.customerIntegrations || [])]
       });
       setPortalSettingsMessage(payload.message || "Müşteri platform ve panel yetkileri kaydedildi.");
+      setPortalDirty(false);
       notify?.("✓ Müşteri panel ayarları kaydedildi", "success");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Müşteri panel ayarları kaydedilemedi.";
@@ -6456,16 +6497,16 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
         {tabs.map((item) => <button key={item} onClick={() => setTab(item)} className={`shrink-0 rounded-full px-3 py-2 text-xs font-bold ${tab === item ? "bg-cyan-300 text-slate-950" : "border border-slate-200 text-slate-600"}`}>{item}</button>)}
         <a href={`/musteri-paneli?company=${company.id}`} target="_blank" rel="noreferrer" className="ml-auto shrink-0 rounded-full border border-cyan-200/30 px-3 py-2 text-xs font-black text-cyan-700">Müşteri gibi görüntüle</a>
       </div>
-      {tab === "Genel Bilgi" && <div className="grid gap-3 md:grid-cols-2">
-        <Field label="Firma adı" value={company.name} onChange={(v) => updateCompany(company.id, { name: v })} />
-        <OtherSelectField label="Sektör" value={company.sector} onChange={(v) => updateCompany(company.id, { sector: v })} options={sectorOptions} manualLabel="Sektörü yazın" />
-        <OtherSelectField label="Şehir" value={company.city} onChange={(v) => updateCompany(company.id, { city: v })} options={cityOptions} manualLabel="Şehri yazın" />
-        <Field label="Web sitesi" value={company.website} onChange={(v) => updateCompany(company.id, { website: v })} />
-        <Field label="Instagram" value={company.instagram} onChange={(v) => updateCompany(company.id, { instagram: v })} />
-        <Field label="Telefon" value={company.phone} onChange={(v) => updateCompany(company.id, { phone: v })} />
-        <Field label="E-posta" value={company.email} onChange={(v) => updateCompany(company.id, { email: v })} />
-        <SelectField label="Durum" value={company.status} onChange={(v) => updateCompany(company.id, { status: v })} options={companyStatusOptions} />
-        <div className="md:col-span-2"><TextArea label="Dahili notlar" value={company.notes} onChange={(v) => updateCompany(company.id, { notes: v })} /></div>
+      {tab === "Genel Bilgi" && <div className="grid min-w-0 gap-3 md:grid-cols-2">
+        <Field label="Firma adı" value={company.name} onChange={(v) => updateProfileField({ name: v })} />
+        <OtherSelectField label="Sektör" value={company.sector} onChange={(v) => updateProfileField({ sector: v })} options={sectorOptions} manualLabel="Sektörü yazın" />
+        <OtherSelectField label="Şehir" value={company.city} onChange={(v) => updateProfileField({ city: v })} options={cityOptions} manualLabel="Şehri yazın" />
+        <Field label="Web sitesi" value={company.website} onChange={(v) => updateProfileField({ website: v })} />
+        <Field label="Instagram" value={company.instagram} onChange={(v) => updateProfileField({ instagram: v })} />
+        <Field label="Telefon" value={company.phone} onChange={(v) => updateProfileField({ phone: v })} />
+        <Field label="E-posta" value={company.email} onChange={(v) => updateProfileField({ email: v })} />
+        <SelectField label="Durum" value={company.status} onChange={(v) => updateProfileField({ status: v })} options={companyStatusOptions} />
+        <div className="md:col-span-2"><TextArea label="Dahili notlar" value={company.notes} onChange={(v) => updateProfileField({ notes: v })} /></div>
         <div className="md:col-span-2 rounded-[8px] border border-cyan-200/20 bg-cyan-200/[0.08] p-4">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -6504,80 +6545,82 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
             </div>
           )}
         </div>
-        <button onClick={() => saveCompany(company)} className="w-fit rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Firma bilgilerini kaydet</button>
+        <button onClick={saveProfileChanges} disabled={!profileDirty || profileSaving} className="w-fit rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-50">{profileSaving ? "Kaydediliyor..." : "Firma bilgilerini kaydet"}</button>
       </div>}
       {tab === "Müşteri Kurulumu" && <CustomerOnboardingEditor company={company} content={content} setContent={setContent} setTab={setTab} notify={notify} />}
       {tab === "Büyüme" && <CustomerGrowthPanel company={company} content={content} setActive={setActive} />}
       {tab === "Entegrasyonlar" && <CustomerIntegrationsPanel company={company} users={users} campaigns={campaigns} reports={reports} content={content} setContent={setContent} notify={notify} />}
-      {tab === "Platform Yönetimi" && <div className="rounded-[18px] border border-cyan-200 bg-cyan-50 p-5">
+      {tab === "Platform Yönetimi" && <div className="min-w-0 overflow-hidden rounded-[18px] border border-cyan-200 bg-cyan-50 p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs font-black uppercase tracking-[.14em] text-cyan-700">Platform Yönetimi</p>
             <h3 className="mt-2 text-xl font-black text-slate-950">Müşteri platformlarını yönet</h3>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Bu müşteri için müşteri panelinde görünecek platformları buradan yönetirsiniz.</p>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Bu müşteri için Hesap Bağla ekranında görünecek platformları seçin.</p>
+            <p className="mt-3 max-w-3xl rounded-[12px] border border-cyan-200 bg-white p-3 text-xs font-bold leading-5 text-cyan-900">Platform seçmek, yalnızca kartı görünür yapar. Gerçek veri için ilgili OAuth/API bağlantısı ayrıca yapılmalıdır.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button onClick={() => { setEnabledPlatforms([]); setPortalSettingsMessage("Platform seçimleri temizlendi. Kaydettiğinizde müşteri panelinde platform kartı görünmez."); }} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700">Reset</button>
-            <button onClick={savePortalSettings} disabled={portalSettingsSaving} className="rounded-full bg-cyan-500 px-4 py-2 text-xs font-black text-white disabled:opacity-60">{portalSettingsSaving ? "Kaydediliyor..." : "Kaydet"}</button>
+            <button onClick={() => { setEnabledPlatforms(DEFAULT_CUSTOMER_PLATFORMS); setPortalDirty(true); setPortalSettingsMessage("Platformlar varsayılan sete alındı. Kaydettiğinizde müşteri paneli buna göre güncellenir."); }} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700">Reset</button>
+            <button onClick={savePortalSettings} disabled={portalSettingsSaving || !portalDirty} className="rounded-full bg-cyan-500 px-4 py-2 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-50">{portalSettingsSaving ? "Kaydediliyor..." : "Kaydet"}</button>
           </div>
         </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <div className="mt-4 grid min-w-0 gap-3 md:grid-cols-3">
           <AgencyStatCard label="Aktif platform" value={enabledPlatforms.length} note="Müşteri panelinde görünür" />
           <AgencyStatCard label="Pasif platform" value={CUSTOMER_PLATFORM_REGISTRY.length - enabledPlatforms.length} note="Kart ve API akışı çalışmaz" tone="amber" />
           <AgencyStatCard label="Hesap Bağla" value={enabledPlatforms.length ? "Dinamik" : "Kapalı"} note="Registry üzerinden beslenir" tone="emerald" />
         </div>
-        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-5 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {CUSTOMER_PLATFORM_REGISTRY.map((platform) => {
             const checked = enabledPlatforms.includes(platform.key);
-            return <label key={platform.key} className={`rounded-[16px] border p-4 transition ${checked ? "border-cyan-200 bg-white shadow-sm" : "border-slate-200 bg-slate-50"}`}>
+            return <label key={platform.key} className={`min-w-0 rounded-[16px] border p-4 transition ${checked ? "border-cyan-200 bg-white shadow-sm" : "border-slate-200 bg-slate-50"}`}>
               <div className="flex items-start justify-between gap-3">
-                <div>
+                <div className="min-w-0">
                   <div className={`mb-3 grid size-11 place-items-center rounded-[14px] ${checked ? "bg-cyan-100 text-cyan-700" : "bg-white text-slate-500"}`}>{platform.title.slice(0, 1)}</div>
-                  <p className="font-black text-slate-950">{platform.title}</p>
+                  <p className="break-words font-black text-slate-950">{platform.title}</p>
                   <p className="mt-2 text-xs leading-5 text-slate-500">{platform.description}</p>
                 </div>
                 <span className={`rounded-full px-2 py-1 text-[10px] font-black ${checked ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{checked ? "Aktif" : "Pasif"}</span>
               </div>
               <div className="mt-4 flex items-center justify-between rounded-[12px] bg-slate-50 px-3 py-2 text-xs font-black text-slate-700">
-                <span>{checked ? "Müşteriye açık" : "Gizli"}</span>
-                <input type="checkbox" checked={checked} onChange={() => setEnabledPlatforms((current) => togglePortalValue(current, platform.key))} className="size-5 accent-cyan-500" />
+                <span>{checked ? "Müşteri görür" : "Gizli"}</span>
+                <input type="checkbox" checked={checked} onChange={() => { setEnabledPlatforms((current) => togglePortalValue(current, platform.key)); setPortalDirty(true); setPortalSettingsMessage("Platform ayarlarında kaydedilmemiş değişiklik var."); }} className="size-5 accent-cyan-500" />
               </div>
             </label>;
           })}
         </div>
         {portalSettingsMessage && <p className="mt-4 rounded-[12px] border border-cyan-200 bg-white p-3 text-sm font-bold text-cyan-900">{portalSettingsMessage}</p>}
       </div>}
-      {tab === "Müşteri Paneli Yetkileri" && <div className="rounded-[18px] border border-violet-200 bg-violet-50 p-5">
+      {tab === "Müşteri Paneli Yetkileri" && <div className="min-w-0 overflow-hidden rounded-[18px] border border-violet-200 bg-violet-50 p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs font-black uppercase tracking-[.14em] text-violet-700">Müşteri Paneli Yetkilendirme Merkezi</p>
             <h3 className="mt-2 text-xl font-black text-slate-950">Panel modüllerini yönet</h3>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Bu müşteri için müşteri panelinde görünecek modülleri buradan yönetirsiniz.</p>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Bu müşteri için müşteri panelinde görünecek menü ve modülleri seçin.</p>
+            <p className="mt-3 max-w-3xl rounded-[12px] border border-violet-200 bg-white p-3 text-xs font-bold leading-5 text-violet-900">Modül kapalıysa müşteri menüsünde ve doğrudan URL ile erişimde görünmez.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button onClick={() => { setEnabledModules(DEFAULT_CUSTOMER_MODULES); setPortalSettingsMessage("Modüller varsayılan sete alındı. Kaydettiğinizde müşteri paneli buna göre güncellenir."); }} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700">Reset</button>
-            <button onClick={savePortalSettings} disabled={portalSettingsSaving} className="rounded-full bg-violet-500 px-4 py-2 text-xs font-black text-white disabled:opacity-60">{portalSettingsSaving ? "Kaydediliyor..." : "Kaydet"}</button>
+            <button onClick={() => { setEnabledModules(DEFAULT_CUSTOMER_MODULES); setPortalDirty(true); setPortalSettingsMessage("Modüller varsayılan sete alındı. Kaydettiğinizde müşteri paneli buna göre güncellenir."); }} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700">Reset</button>
+            <button onClick={savePortalSettings} disabled={portalSettingsSaving || !portalDirty} className="rounded-full bg-violet-500 px-4 py-2 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-50">{portalSettingsSaving ? "Kaydediliyor..." : "Kaydet"}</button>
           </div>
         </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <div className="mt-4 grid min-w-0 gap-3 md:grid-cols-3">
           <AgencyStatCard label="Gösterilen modül" value={enabledModules.length} note="Navigation ve içerikte görünür" />
           <AgencyStatCard label="Gizlenen modül" value={CUSTOMER_MODULE_REGISTRY.length - enabledModules.length} note="Müşteri panelinde render edilmez" tone="amber" />
           <AgencyStatCard label="AI Asistan" value={enabledModules.includes("ai_assistant") ? "Açık" : "Kapalı"} note="Widget görünürlüğü" tone="emerald" />
         </div>
-        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-5 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {CUSTOMER_MODULE_REGISTRY.map((module) => {
             const checked = enabledModules.includes(module.key);
-            return <label key={module.key} className={`rounded-[16px] border p-4 transition ${checked ? "border-violet-200 bg-white shadow-sm" : "border-slate-200 bg-slate-50"}`}>
+            return <label key={module.key} className={`min-w-0 rounded-[16px] border p-4 transition ${checked ? "border-violet-200 bg-white shadow-sm" : "border-slate-200 bg-slate-50"}`}>
               <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-black text-slate-950">{module.title}</p>
+                <div className="min-w-0">
+                  <p className="break-words font-black text-slate-950">{module.title}</p>
                   <p className="mt-2 text-xs leading-5 text-slate-500">{module.description}</p>
                 </div>
                 <span className={`rounded-full px-2 py-1 text-[10px] font-black ${checked ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{checked ? "Göster" : "Gizle"}</span>
               </div>
               <div className="mt-4 flex items-center justify-between rounded-[12px] bg-slate-50 px-3 py-2 text-xs font-black text-slate-700">
                 <span>{checked ? "Müşteri görür" : "Müşteriden gizli"}</span>
-                <input type="checkbox" checked={checked} onChange={() => setEnabledModules((current) => togglePortalValue(current, module.key))} className="size-5 accent-violet-500" />
+                <input type="checkbox" checked={checked} onChange={() => { setEnabledModules((current) => togglePortalValue(current, module.key)); setPortalDirty(true); setPortalSettingsMessage("Panel yetkilerinde kaydedilmemiş değişiklik var."); }} className="size-5 accent-violet-500" />
               </div>
             </label>;
           })}
@@ -6652,7 +6695,14 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
         ["show_meta_status", "Meta Pixel / Conversion API durumu"]
       ].map(([key, label]) => <label key={key} className="flex items-center gap-3 rounded-[8px] border border-slate-200 p-3 text-sm"><input type="checkbox" checked={visibility[key] ?? true} onChange={(event) => updateVisibility({ [key]: event.target.checked })} /> {label}</label>)}</div></div>}
       {tab === "Aktivite Geçmişi" && <ActivityList items={activities} empty="Bu müşteri için henüz aktivite kaydı yok." />}
-      {tab === "Notlar" && <TextArea label="Dahili müşteri notları" value={company.notes} onChange={(v) => updateCompany(company.id, { notes: v })} rows={10} />}
+      {tab === "Notlar" && <TextArea label="Dahili müşteri notları" value={company.notes} onChange={(v) => updateProfileField({ notes: v })} rows={10} />}
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-slate-200 bg-white p-4">
+        <div>
+          <p className="text-sm font-black text-slate-950">Profil bilgileri kaydı</p>
+          <p className="mt-1 text-xs font-bold text-slate-500">{profileSaveMessage || (profileDirty ? "Kaydedilmemiş müşteri profil değişikliği var." : lastProfileSavedAt ? `Son kayıt: ${lastProfileSavedAt}` : "Müşteri temel bilgileri değiştiğinde bu buton aktif olur.")}</p>
+        </div>
+        <button onClick={saveProfileChanges} disabled={!profileDirty || profileSaving} className="rounded-full bg-cyan-300 px-5 py-2 text-sm font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-50">{profileSaving ? "Kaydediliyor..." : "Değişiklikleri Kaydet"}</button>
+      </div>
       <div className="mt-5">
         <Customer360Summary company={company} campaigns={campaigns} payments={payments} tasks={tasks} reports={reports} activities={activities} relatedLead={relatedLead} competitorSignals={competitorSignals} setTab={setTab} setActive={setActive} />
       </div>

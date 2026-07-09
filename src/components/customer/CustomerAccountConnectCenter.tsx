@@ -209,12 +209,14 @@ export function CustomerAccountConnectCenter() {
     return platformCards.filter((card: any) => {
       const registryKeys = [
         card.key === "google_business_profile" ? "business_profile" : card.key,
+        card.key === "google_analytics" ? "ga4" : card.key,
         ...(card.oauthProvider === "google" ? ["google"] : []),
         ...(card.oauthProvider === "meta" ? ["meta"] : []),
         ...(card.key === "website_pixel" ? ["website", "pixel"] : []),
-        ...(card.key === "x_twitter" ? ["x"] : [])
+        ...(card.key === "x_twitter" ? ["x"] : []),
+        ...(card.key === "api_webhook" ? ["api_webhook", "api", "webhook"] : [])
       ];
-      return registryKeys.some((key) => enabled.includes(key));
+      return registryKeys.some((key) => enabled.includes(key as any));
     });
   }, [configLoaded, integration?.metadata?.enabled_platforms]);
   const activeAsset = useMemo(() => assets.find((item) => item.platform === active.key || (active.key === "meta" && item.provider === "meta" && item.account_type === "meta_user") || (active.oauthProvider === "google" && item.provider === "google" && item.account_type === "google_profile")), [assets, active.key, active.oauthProvider]);
@@ -447,7 +449,7 @@ export function CustomerAccountConnectCenter() {
       <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(260px,.85fr)_minmax(0,1.15fr)]">
         <div className="grid gap-3">
           {!configLoaded && <p className="rounded-[16px] border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-500">Platform yetkileri yükleniyor...</p>}
-          {configLoaded && !visiblePlatformCards.length && <p className="rounded-[16px] border border-dashed border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-900">Bu müşteri için henüz platform açılmamış. HK Dijital ekibi platformları aktif ettiğinde hesap kartları burada görünür.</p>}
+          {configLoaded && !visiblePlatformCards.length && <p className="rounded-[16px] border border-dashed border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-900">Bu müşteri için platform seçilmemiş. Admin panelinden Platform Yönetimi sekmesinden en az bir platform açın.</p>}
           {visiblePlatformCards.map((card) => {
             const Icon = card.icon;
             const asset = assets.find((item) => item.platform === card.key);
