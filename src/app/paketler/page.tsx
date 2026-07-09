@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowRight, CheckCircle2, Sparkles } from "lucide-react";
 import { disclaimerText } from "@/lib/content";
 import { pageMetadata } from "@/lib/metadata";
-import { CONTENT_NEED_OPTIONS, PACKAGE_CATEGORIES, SOCIAL_STATUS_OPTIONS, URGENCY_OPTIONS, formatPackagePrice, normalizeContentNeed, normalizeSocialStatus, normalizeUrgency, recommendServicePackage, servicePackagesByCategory } from "@/lib/packages";
+import { CONTENT_NEED_OPTIONS, PACKAGE_CATEGORIES, SOCIAL_STATUS_OPTIONS, URGENCY_OPTIONS, formatTRY, getPackagePricing, normalizeContentNeed, normalizeSocialStatus, normalizeUrgency, recommendServicePackage, servicePackagesByCategory } from "@/lib/packages";
 import { PublicShell } from "@/components/public/Shell";
 import { AnimatedSection } from "@/components/public/AnimatedSection";
 import { PageHero, PremiumCard } from "@/components/public/ui";
@@ -54,7 +54,10 @@ export default async function PackagesPage({ searchParams }: { searchParams: Pro
                   <div className="mt-6 rounded-[18px] border border-cyan-200/25 bg-cyan-200/10 p-5">
                     <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-100">Önerilen Paket</p>
                     <h3 className="mt-2 text-2xl font-black text-white">{recommendation.recommended.title}</h3>
-                    <p className="mt-1 text-xl font-black text-cyan-100">{formatPackagePrice(recommendation.recommended)}</p>
+                    {(() => {
+                      const pricing = getPackagePricing(recommendation.recommended);
+                      return <p className="mt-1 text-xl font-black text-cyan-100">{pricing?.priceDisplay || recommendation.recommended.title}</p>;
+                    })()}
                     <p className="mt-3 text-sm leading-6 text-slate-200"><b>Neden bu paket?</b> {recommendation.reason}</p>
                     <p className="mt-3 text-sm leading-6 text-slate-300"><b>Alternatif seçenek:</b> {recommendation.alternative.title}</p>
                     <p className="mt-3 text-sm leading-6 text-slate-300"><b>HK Dijital yorumu:</b> {recommendation.startingStrategy}</p>
@@ -94,14 +97,25 @@ export default async function PackagesPage({ searchParams }: { searchParams: Pro
                   <Link href={`/teklif-al?paket=${category.key}`} className="rounded-full border border-cyan-200/25 bg-cyan-200/10 px-5 py-3 text-sm font-black text-cyan-100 transition hover:bg-cyan-200 hover:text-slate-950">Kategori için teklif al</Link>
                 </div>
                 <div className="grid gap-5 lg:grid-cols-3">
-                  {servicePackagesByCategory(category.key).map((pkg) => (
+                  {servicePackagesByCategory(category.key).map((pkg) => {
+                    const pricing = getPackagePricing(pkg);
+                    return (
                     <article key={pkg.slug} className={`group relative overflow-hidden rounded-[24px] border p-6 shadow-[0_24px_90px_rgba(0,0,0,.22)] transition hover:-translate-y-2 ${pkg.popular ? "border-cyan-200/60 bg-cyan-200/[0.09]" : "border-white/10 bg-white/[0.045]"}`}>
                       <div className="absolute -right-10 -top-10 size-32 rounded-full bg-cyan-300/10 blur-3xl transition group-hover:bg-yellow-300/20" />
                       {pkg.popular && <span className="absolute right-5 top-5 rounded-full bg-yellow-300 px-3 py-1 text-xs font-black text-slate-950">En Çok Tercih Edilen</span>}
                       <p className="text-sm font-black text-cyan-100">{pkg.categoryLabel}</p>
                       <h3 className="mt-3 text-3xl font-black text-white">{pkg.name}</h3>
                       <p className="mt-2 text-sm leading-7 text-slate-300">{pkg.description}</p>
-                      <p className="mt-6 text-4xl font-black text-cyan-100">{formatPackagePrice(pkg)}</p>
+                      <div className="mt-6 rounded-[18px] border border-cyan-200/20 bg-black/20 p-4">
+                        <div className="flex flex-wrap items-end gap-2">
+                          <p className="text-4xl font-black text-cyan-100">{formatTRY(pricing?.basePrice || pkg.monthlyPrice)}</p>
+                          <span className="mb-1 rounded-full bg-yellow-300 px-3 py-1 text-xs font-black text-slate-950">+ KDV</span>
+                        </div>
+                        {pricing && <div className="mt-3 grid gap-1 text-sm text-slate-300">
+                          <span>KDV: <b className="text-slate-100">{pricing.vatDisplay}</b></span>
+                          <span>KDV dahil: <b className="text-slate-100">{pricing.totalDisplay}</b></span>
+                        </div>}
+                      </div>
                       <p className="mt-3 rounded-[14px] bg-white/10 p-3 text-xs font-bold leading-5 text-slate-200">İdeal müşteri: {pkg.idealFor}</p>
                       <ul className="mt-5 grid gap-3">
                         {pkg.features.map((feature) => (
@@ -116,7 +130,8 @@ export default async function PackagesPage({ searchParams }: { searchParams: Pro
                         <Link href={`/iletisim?paket=${pkg.slug}`} className="inline-flex min-h-11 items-center justify-center rounded-full border border-yellow-200/30 bg-yellow-300/10 px-5 text-sm font-black text-yellow-100 transition hover:bg-yellow-300 hover:text-slate-950">Teklif Al</Link>
                       </div>
                     </article>
-                  ))}
+                    );
+                  })}
                 </div>
               </section>
             ))}

@@ -31,7 +31,7 @@ import { adminNavigationGroups, adminNavigationItems, getAdminHref } from "@/lib
 import { canViewAccounting } from "@/lib/accounting-permissions";
 import { aiProviderKeyForApi, buildAiSelectionReason, labelForAiProvider, normalizeUnifiedAiProvider, unifiedAiProviderOptions, unifiedAiPriorityKeys } from "@/lib/ai-provider-options";
 import { CUSTOMER_MODULE_REGISTRY, CUSTOMER_PLATFORM_REGISTRY, DEFAULT_CUSTOMER_MODULES, DEFAULT_CUSTOMER_PLATFORMS, normalizeModuleKeys, normalizePlatformKeys } from "@/lib/customer-portal-registry";
-import { HK_SERVICE_PACKAGES, PACKAGE_CATEGORIES, findServicePackage, formatPackagePrice } from "@/lib/packages";
+import { HK_SERVICE_PACKAGES, PACKAGE_CATEGORIES, calculateTotalWithVat, calculateVat, findServicePackage, formatPackagePrice, formatTRY, getPackagePricing } from "@/lib/packages";
 import { AnimatedChart, AnimatedFunnel, BrandEcosystemStrip, GlassCard, MetricCard3D } from "@/components/premium/PremiumUI";
 
 const adminCategoryIcons: Record<string, any> = {
@@ -6510,6 +6510,10 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
   const relatedLead = relatedLeads[0];
   const proposals = documents.filter((item) => item.document_type === "Teklif" || String(item.title || "").toLocaleLowerCase("tr").includes("teklif"));
   const selectedServicePackage = findServicePackage(company.customer_package_name, company.customer_package_type);
+  const selectedPackageBasePrice = Number(company.customer_package_price ?? selectedServicePackage?.monthlyPrice ?? 0);
+  const selectedPackageVat = calculateVat(selectedPackageBasePrice);
+  const selectedPackageTotal = calculateTotalWithVat(selectedPackageBasePrice);
+  const selectedPackagePricing = selectedServicePackage ? getPackagePricing(selectedServicePackage) : null;
   const servicePackageOptions = HK_SERVICE_PACKAGES.map((pkg) => ({ value: pkg.slug, label: `${pkg.categoryLabel} · ${pkg.name} · ${formatPackagePrice(pkg)}` }));
   const visibilityItems = content.customerVisibilitySettings || [];
   const visibility = visibilityItems.find((item) => item.company_id === company.id) || {
@@ -6606,9 +6610,9 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
     updateProfileField({
       customer_package_type: pkg.category,
       customer_package_name: pkg.slug,
-      customer_package_price: pkg.monthlyPrice,
+      customer_package_price: getPackagePricing(pkg)?.basePrice || pkg.monthlyPrice,
       customer_package_currency: pkg.currency,
-      customer_package_tax_note: pkg.taxNote,
+      customer_package_tax_note: "+ KDV",
       customer_package_note: company.customer_package_note || `${pkg.title}: ${pkg.description}`
     });
   }
@@ -6693,16 +6697,21 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
               <h3 className="mt-2 text-xl font-black text-slate-950">{selectedServicePackage?.title || "Aktif paket tanımlı değil"}</h3>
               <p className="mt-1 text-sm leading-6 text-amber-900">Müşteri panelinde sadece görüntülenir; değişiklik yetkisi admin tarafındadır.</p>
             </div>
-            <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-amber-800 ring-1 ring-amber-200">{selectedServicePackage ? formatPackagePrice(selectedServicePackage) : "Paketsiz"}</span>
+            <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-amber-800 ring-1 ring-amber-200">{selectedServicePackage ? selectedPackagePricing?.priceDisplay || formatPackagePrice(selectedServicePackage) : "Paketsiz"}</span>
           </div>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <SelectField label="Paket seçimi" value={company.customer_package_name || ""} onChange={applyServicePackage} options={servicePackageOptions} placeholder="Paket seçin" />
             <SelectField label="Paket kategorisi" value={company.customer_package_type || ""} onChange={(value) => updateProfileField({ customer_package_type: value })} options={PACKAGE_CATEGORIES.map((category) => ({ value: category.key, label: category.label }))} />
-            <Field label="Aylık hizmet bedeli" type="number" value={company.customer_package_price || 0} onChange={(value) => updateProfileField({ customer_package_price: Number(value || 0) })} />
+            <Field label="Aylık hizmet bedeli (KDV hariç)" type="number" value={company.customer_package_price || selectedServicePackage?.monthlyPrice || 0} onChange={(value) => updateProfileField({ customer_package_price: Number(value || 0) })} />
             <Field label="Para birimi" value={company.customer_package_currency || "TRY"} onChange={(value) => updateProfileField({ customer_package_currency: value || "TRY" })} />
             <Field label="KDV durumu" value={company.customer_package_tax_note || ""} onChange={(value) => updateProfileField({ customer_package_tax_note: value })} />
             <Field label="Başlangıç tarihi" type="date" value={dateOnly(company.customer_package_started_at)} onChange={(value) => updateProfileField({ customer_package_started_at: value })} />
             <div className="md:col-span-2"><TextArea label="Paket notu" value={company.customer_package_note || ""} onChange={(value) => updateProfileField({ customer_package_note: value })} /></div>
+          </div>
+          <div className="mt-4 grid gap-3 rounded-[16px] border border-amber-200 bg-white/70 p-4 text-sm md:grid-cols-3">
+            <p><b>Hizmet bedeli:</b><br />{formatTRY(selectedPackageBasePrice)}</p>
+            <p><b>KDV (%20):</b><br />{formatTRY(selectedPackageVat)}</p>
+            <p><b>KDV dahil toplam:</b><br />{formatTRY(selectedPackageTotal)}</p>
           </div>
           {selectedServicePackage && <div className="mt-4 grid gap-2 md:grid-cols-3">
             {selectedServicePackage.features.slice(0, 6).map((feature) => <p key={feature.label} className="rounded-[12px] bg-white p-3 text-xs font-bold leading-5 text-slate-700"><b>{feature.label}:</b> {feature.value}</p>)}

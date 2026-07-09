@@ -17,13 +17,47 @@ export type ServicePackage = {
   title: string;
   description: string;
   idealFor: string;
+  basePrice?: number;
   monthlyPrice: number;
+  vatRate?: number;
   currency: "TRY";
+  taxLabel?: "KDV";
+  billingPeriod?: "monthly";
+  vatMode?: "plus_vat" | "included_vat";
   taxNote: string;
   popular?: boolean;
   features: ServicePackageFeature[];
   setupRoadmap: string[];
 };
+
+export type PackagePricing = {
+  basePrice: number;
+  vatRate: number;
+  vatAmount: number;
+  totalWithVat: number;
+  currency: "TRY";
+  taxLabel: "KDV";
+  billingPeriod: "monthly";
+  vatMode: "plus_vat" | "included_vat";
+  priceDisplay: string;
+  totalDisplay: string;
+  vatDisplay: string;
+};
+
+export type AdBudgetEstimate = {
+  minimumRange: [number, number];
+  idealRange: [number, number];
+  aggressiveRange: [number, number];
+  dailyAverageRange: [number, number];
+  platformSplit: Array<{ label: string; percent: number }>;
+  reason: string;
+  first30DaysPlan: string[];
+  notes: string[];
+  extraServices: string[];
+  budgetFit: string;
+};
+
+const DEFAULT_VAT_RATE = 0.2;
 
 export const PACKAGE_CATEGORIES: Array<{ key: PackageCategoryKey; label: string; shortLabel: string; description: string }> = [
   { key: "meta", label: "Meta Reklam Yönetimi", shortLabel: "Meta Reklam", description: "Instagram ve Facebook reklamlarını ölçüm, kreatif ve optimizasyon disipliniyle yönetin." },
@@ -321,8 +355,53 @@ export const HK_SERVICE_PACKAGES: ServicePackage[] = [
   }
 ];
 
+export function formatTRY(amount: number) {
+  return `${Math.round(Number(amount || 0)).toLocaleString("tr-TR")} TL`;
+}
+
+export function calculateVat(basePrice: number, vatRate = DEFAULT_VAT_RATE) {
+  return Math.round(Number(basePrice || 0) * vatRate);
+}
+
+export function calculateTotalWithVat(basePrice: number, vatRate = DEFAULT_VAT_RATE) {
+  return Math.round(Number(basePrice || 0) + calculateVat(basePrice, vatRate));
+}
+
+export function normalizePackageSlug(value?: string) {
+  return String(value || "").trim().toLocaleLowerCase("tr").replace(/\s+/g, "-");
+}
+
+export function getPackageBySlug(slug?: string) {
+  const normalized = normalizePackageSlug(slug);
+  if (!normalized) return null;
+  return HK_SERVICE_PACKAGES.find((pkg) => normalizePackageSlug(pkg.slug) === normalized) || null;
+}
+
+export function getPackagePricing(pkgOrSlug?: ServicePackage | string | null): PackagePricing | null {
+  const pkg = typeof pkgOrSlug === "string" ? getPackageBySlug(pkgOrSlug) || findServicePackage(pkgOrSlug) : pkgOrSlug;
+  if (!pkg) return null;
+  const basePrice = Number(pkg.basePrice ?? pkg.monthlyPrice ?? 0);
+  const vatRate = Number(pkg.vatRate ?? DEFAULT_VAT_RATE);
+  const vatMode = pkg.vatMode || "plus_vat";
+  const vatAmount = vatMode === "included_vat" ? Math.round(basePrice - basePrice / (1 + vatRate)) : calculateVat(basePrice, vatRate);
+  const totalWithVat = vatMode === "included_vat" ? basePrice : calculateTotalWithVat(basePrice, vatRate);
+  return {
+    basePrice,
+    vatRate,
+    vatAmount,
+    totalWithVat,
+    currency: pkg.currency || "TRY",
+    taxLabel: pkg.taxLabel || "KDV",
+    billingPeriod: pkg.billingPeriod || "monthly",
+    vatMode,
+    priceDisplay: vatMode === "included_vat" ? `${formatTRY(basePrice)} KDV dahil` : `${formatTRY(basePrice)} + KDV`,
+    totalDisplay: `${formatTRY(totalWithVat)} KDV dahil`,
+    vatDisplay: `${formatTRY(vatAmount)} KDV`
+  };
+}
+
 export function formatPackagePrice(pkg: ServicePackage) {
-  return `${pkg.monthlyPrice.toLocaleString("tr-TR")} TL${pkg.taxNote ? ` ${pkg.taxNote}` : ""}`;
+  return getPackagePricing(pkg)?.priceDisplay || `${pkg.monthlyPrice.toLocaleString("tr-TR")} TL${pkg.taxNote ? ` ${pkg.taxNote}` : ""}`;
 }
 
 export function servicePackagesByCategory(category: PackageCategoryKey) {
@@ -340,10 +419,11 @@ export function findServicePackage(slugOrName?: string, category?: string) {
 }
 
 export function packageToSiteItem(pkg: ServicePackage, order: number): PackageItem {
+  const pricing = getPackagePricing(pkg);
   return {
     id: pkg.slug,
     name: pkg.title,
-    price: formatPackagePrice(pkg),
+    price: pricing?.priceDisplay || formatPackagePrice(pkg),
     description: pkg.description,
     features: [
       `İdeal müşteri: ${pkg.idealFor}`,
@@ -464,6 +544,119 @@ function budgetNumber(value?: string | number) {
   return Number(String(value || "").replace(/[^\d]/g, "")) || 0;
 }
 
+function recommendationCategory(platform: string): PackageCategoryKey {
+  const normalized = String(platform || "").toLocaleLowerCase("tr");
+  return normalized.includes("hepsi") || normalized.includes("kombin") || normalized.includes("meta + google")
+    ? "combined_ads"
+    : normalized.includes("google")
+      ? "google_ads"
+      : normalized.includes("sosyal") || normalized.includes("içerik")
+        ? "social_media"
+        : "meta";
+}
+
+export function getCompetitionMultiplier(sector?: string) {
+  const normalized = String(sector || "").toLocaleLowerCase("tr");
+  if (/(sağlık|saglik|klinik|estetik|diş|dis|emlak|gayrimenkul|hukuk|avukat|e-ticaret|eticaret|otomotiv)/.test(normalized)) return 1.25;
+  if (/(restoran|cafe|kafe|eğitim|egitim|güzellik|guzellik|spor|turizm)/.test(normalized)) return 1.12;
+  return 1;
+}
+
+export function getPlatformBudgetSplit(platformNeed?: string, goal?: string) {
+  const platform = String(platformNeed || "").toLocaleLowerCase("tr");
+  const normalizedGoal = String(goal || "").toLocaleLowerCase("tr");
+  if (platform.includes("hepsi") || platform.includes("kombin") || platform.includes("meta + google")) {
+    return [
+      { label: "Meta Ads", percent: 40 },
+      { label: "Google Ads", percent: 35 },
+      { label: "Kreatif test", percent: 15 },
+      { label: "Remarketing", percent: 10 }
+    ];
+  }
+  if (platform.includes("google")) {
+    return [
+      { label: "Google Ads", percent: normalizedGoal.includes("bilinir") ? 75 : 85 },
+      { label: "Remarketing", percent: normalizedGoal.includes("bilinir") ? 25 : 15 }
+    ];
+  }
+  if (platform.includes("sosyal") || platform.includes("içerik")) {
+    return [
+      { label: "Sosyal içerik destek", percent: 55 },
+      { label: "Kreatif test", percent: 30 },
+      { label: "Remarketing", percent: 15 }
+    ];
+  }
+  return [
+    { label: "Meta Ads", percent: 80 },
+    { label: "Kreatif test", percent: 20 }
+  ];
+}
+
+export function formatBudgetRange(min: number, max: number) {
+  return `${formatTRY(min)} - ${formatTRY(max)} / ay`;
+}
+
+export function estimateAdBudget(input: PackageRecommendationInput): AdBudgetEstimate {
+  const category = recommendationCategory(String(input.platform || ""));
+  const goal = String(input.goal || "").toLocaleLowerCase("tr");
+  const contentNeed = normalizeContentNeed(input.contentNeed);
+  const urgency = normalizeUrgency(input.urgency);
+  const socialStatus = normalizeSocialStatus(input.socialStatus);
+  const multiplierBase = getCompetitionMultiplier(input.sector);
+  const growthMultiplier = goal.includes("büyü") || goal.includes("satış") || socialStatus === "growth" ? 1.18 : 1;
+  const timingMultiplier = urgency === "immediate" ? 1.08 : urgency === "planning" ? 0.92 : 1;
+  const contentMultiplier = contentNeed === "high" ? 1.1 : 1;
+  const multiplier = multiplierBase * growthMultiplier * timingMultiplier * contentMultiplier;
+  const baseRanges: Record<PackageCategoryKey, { minimum: [number, number]; ideal: [number, number]; aggressive: [number, number] }> = {
+    meta: { minimum: [6000, 8000], ideal: [10000, 15000], aggressive: [20000, 30000] },
+    google_ads: { minimum: [8000, 12000], ideal: [15000, 25000], aggressive: [35000, 50000] },
+    combined_ads: { minimum: [15000, 20000], ideal: [25000, 40000], aggressive: [50000, 80000] },
+    social_media: { minimum: [4000, 6000], ideal: [8000, 12000], aggressive: [16000, 25000] }
+  };
+  const scaleRange = ([min, max]: [number, number]): [number, number] => [Math.round(min * multiplier / 500) * 500, Math.round(max * multiplier / 500) * 500];
+  const minimumRange = scaleRange(baseRanges[category].minimum);
+  const idealRange = scaleRange(baseRanges[category].ideal);
+  const aggressiveRange = scaleRange(baseRanges[category].aggressive);
+  const selectedBudget = budgetNumber(input.budget);
+  const budgetFit = selectedBudget && selectedBudget < minimumRange[0]
+    ? "Bu bütçeyle başlanabilir ancak test süresi uzayabilir."
+    : selectedBudget && selectedBudget >= aggressiveRange[0]
+      ? "Ölçekleme için uygun; kontrollü kampanya yapısı önerilir."
+      : selectedBudget && selectedBudget >= idealRange[0]
+        ? "Test ve optimizasyon için sağlıklı başlangıç seviyesi."
+        : "Bütçe seviyesi strateji görüşmesinde netleştirilmeli.";
+  const extraServices = [
+    ...(category === "google_ads" || category === "combined_ads" ? ["Anahtar kelime ve dönüşüm takibi kurulumu"] : []),
+    ...(category === "meta" || category === "combined_ads" ? ["Pixel / Conversion API kontrolü"] : []),
+    ...(category === "combined_ads" ? ["Aylık performans toplantısı ve çok kanallı raporlama"] : []),
+    ...(contentNeed === "high" || socialStatus === "irregular" || socialStatus === "new" ? ["İçerik takvimi ve profil optimizasyonu"] : []),
+    ...(goal.includes("lead") || goal.includes("randevu") || goal.includes("satış") ? ["Dönüşüm odaklı açılış sayfası"] : [])
+  ];
+  return {
+    minimumRange,
+    idealRange,
+    aggressiveRange,
+    dailyAverageRange: [Math.round(idealRange[0] / 30), Math.round(idealRange[1] / 30)],
+    platformSplit: getPlatformBudgetSplit(input.platform, input.goal),
+    reason: "Bu öneri sektör, hedef, platform, başlangıç zamanlaması ve içerik ihtiyacına göre oluşturulan HK Dijital analiz modeli / piyasa varsayımıdır.",
+    first30DaysPlan: [
+      "Hafta 1: Kurulum, hedef kitle, hesap ve ölçüm kontrolü",
+      "Hafta 2: İlk kampanya/test yayını",
+      "Hafta 3: Veri okuma, kreatif ve hedefleme optimizasyonu",
+      "Hafta 4: Raporlama ve ölçekleme kararı"
+    ],
+    notes: [
+      budgetFit,
+      "Reklam bütçesi hizmet bedelinden ayrıdır.",
+      "İlk ay test ve öğrenme dönemidir.",
+      "Kreatif kalitesi performansı doğrudan etkiler.",
+      "Kesin sonuç garantisi vermez; test ve optimizasyonla netleşir."
+    ],
+    extraServices: Array.from(new Set(extraServices)),
+    budgetFit
+  };
+}
+
 export function recommendServicePackage(input: PackageRecommendationInput) {
   const platform = String(input.platform || "").toLocaleLowerCase("tr");
   const goal = String(input.goal || "").toLocaleLowerCase("tr");
@@ -471,13 +664,7 @@ export function recommendServicePackage(input: PackageRecommendationInput) {
   const urgency = normalizeUrgency(input.urgency);
   const socialStatus = normalizeSocialStatus(input.socialStatus);
   const budget = budgetNumber(input.budget);
-  const category: PackageCategoryKey = platform.includes("hepsi") || platform.includes("kombin") || platform.includes("meta + google")
-    ? "combined_ads"
-    : platform.includes("google")
-      ? "google_ads"
-      : platform.includes("sosyal") || platform.includes("içerik")
-        ? "social_media"
-        : "meta";
+  const category = recommendationCategory(platform);
   const tier: PackageTier = budget >= 60000 || goal.includes("büyü") || socialStatus === "growth" || socialStatus === "stable_not_growing" && budget >= 20000 || goal.includes("satış") && urgency === "immediate" || contentNeed === "high"
     ? "Premium"
     : budget >= 20000 || goal.includes("lead") || goal.includes("mesaj") || contentNeed === "medium" || urgency === "this_month" || socialStatus === "irregular"
@@ -492,6 +679,7 @@ export function recommendServicePackage(input: PackageRecommendationInput) {
   return {
     recommended,
     alternative,
+    adBudget: estimateAdBudget(input),
     reason: `${recommended.categoryLabel} kategorisinde ${recommended.name} seviyesi; hedef, platform ihtiyacı, bütçe aralığı, ${contentText.toLocaleLowerCase("tr")} ve ${urgencyText.toLocaleLowerCase("tr")} tercihlerine göre en dengeli başlangıç noktasıdır.`,
     startingStrategy: category === "social_media"
       ? `İlk 30 günde içerik takvimi, sayfa optimizasyonu ve raporlama ritmi kurulur. Mevcut durum: ${socialText}.`

@@ -12,7 +12,7 @@ import { CustomerAccountConnectCenter } from "@/components/customer/CustomerAcco
 import { AnimatedChart, CustomerMetricCard } from "@/components/premium/PremiumUI";
 import { Logo } from "@/components/public/Logo";
 import { getSiteContent } from "@/lib/content";
-import { findServicePackage, formatPackagePrice } from "@/lib/packages";
+import { calculateTotalWithVat, calculateVat, findServicePackage, formatTRY, getPackagePricing } from "@/lib/packages";
 
 export const dynamic = "force-dynamic";
 
@@ -148,6 +148,10 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
   const creativeFiles = data.files.filter((file: any) => file.visible_to_customer !== false && (file.show_in_creative_center || imageTypeLabels.includes(getCustomerFileType(file))));
   const fileUpdatedLabel = (file: any) => file.updated_at || file.uploaded_at || file.created_at ? new Date(file.updated_at || file.uploaded_at || file.created_at).toLocaleDateString("tr-TR") : "Tarih yok";
   const activeServicePackage = findServicePackage(data.company?.customer_package_name, data.company?.customer_package_type);
+  const activePackageBasePrice = Number(data.company?.customer_package_price ?? activeServicePackage?.monthlyPrice ?? 0);
+  const activePackageVat = calculateVat(activePackageBasePrice);
+  const activePackageTotal = calculateTotalWithVat(activePackageBasePrice);
+  const activePackagePricing = activeServicePackage ? getPackagePricing(activeServicePackage) : null;
   const portalSections = [
     { module: "dashboard", title: "Genel Durum", description: "Size açık son kampanya, rapor ve çalışma özetleri.", tone: "bg-cyan-50 text-cyan-700", icon: <Sparkles key="genel" size={22} />, updatedAt: latestUpdate?.created_at, action: "Özeti Gör", href: "#genel-bakis" },
     { module: "reports", title: "Raporlar", description: "Yayınlanan rapor ve aylık özetleri görüntüleyin.", tone: "bg-purple-50 text-purple-700", icon: <FileText key="rapor" size={22} />, updatedAt: latestReportDate, action: "Raporları Aç", href: "#raporlar" },
@@ -244,25 +248,38 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
               </p>
             </div>
             <span className="rounded-full bg-amber-50 px-4 py-2 text-sm font-black text-amber-800 ring-1 ring-amber-200">
-              {activeServicePackage ? formatPackagePrice(activeServicePackage) : "Paketsiz"}
+              {activeServicePackage ? activePackagePricing?.priceDisplay || formatTRY(activePackageBasePrice) : "Paketsiz"}
             </span>
           </div>
           {activeServicePackage ? (
             <>
-              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                 <div className="rounded-[14px] border border-slate-200 bg-slate-50 p-4">
                   <p className="text-xs font-black uppercase tracking-[.12em] text-slate-500">Kategori</p>
                   <p className="mt-2 font-black text-slate-950">{activeServicePackage.categoryLabel}</p>
                 </div>
                 <div className="rounded-[14px] border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-black uppercase tracking-[.12em] text-slate-500">Hizmet bedeli</p>
+                  <p className="mt-2 font-black text-slate-950">{formatTRY(activePackageBasePrice)}</p>
+                </div>
+                <div className="rounded-[14px] border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-black uppercase tracking-[.12em] text-slate-500">KDV</p>
+                  <p className="mt-2 font-black text-slate-950">{formatTRY(activePackageVat)}</p>
+                </div>
+                <div className="rounded-[14px] border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-black uppercase tracking-[.12em] text-slate-500">KDV dahil toplam</p>
+                  <p className="mt-2 font-black text-slate-950">{formatTRY(activePackageTotal)}</p>
+                </div>
+                <div className="rounded-[14px] border border-slate-200 bg-slate-50 p-4">
                   <p className="text-xs font-black uppercase tracking-[.12em] text-slate-500">Başlangıç</p>
                   <p className="mt-2 font-black text-slate-950">{data.company?.customer_package_started_at ? new Date(data.company.customer_package_started_at).toLocaleDateString("tr-TR") : "Tarih bekleniyor"}</p>
                 </div>
-                <div className="rounded-[14px] border border-slate-200 bg-slate-50 p-4 sm:col-span-2">
+                <div className="rounded-[14px] border border-slate-200 bg-slate-50 p-4 sm:col-span-2 xl:col-span-5">
                   <p className="text-xs font-black uppercase tracking-[.12em] text-slate-500">Kısa kapsam</p>
                   <p className="mt-2 text-sm font-bold leading-6 text-slate-700">{activeServicePackage.description}</p>
                 </div>
               </div>
+              <p className="mt-4 rounded-[14px] border border-cyan-200 bg-cyan-50 p-4 text-sm leading-6 text-cyan-900">Hizmet bedeline reklam harcamaları dahil değildir. Reklam bütçesi Meta, Google veya ilgili platformlara ayrıca ödenir.</p>
               <details className="mt-5 rounded-[16px] border border-amber-200 bg-amber-50 p-4">
                 <summary className="cursor-pointer text-sm font-black text-amber-900">Bu paket kapsamında neler var?</summary>
                 <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">

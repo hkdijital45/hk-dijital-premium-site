@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, MessageCircle, Sparkles, Target, Trophy } from "lucide-react";
 import type { PackageItem, SiteContent } from "@/lib/types";
-import { CONTENT_NEED_OPTIONS, SOCIAL_STATUS_OPTIONS, URGENCY_OPTIONS, packageChoiceLabel, recommendServicePackage } from "@/lib/packages";
+import { CONTENT_NEED_OPTIONS, SOCIAL_STATUS_OPTIONS, URGENCY_OPTIONS, formatBudgetRange, formatTRY, getPackagePricing, packageChoiceLabel, recommendServicePackage, type AdBudgetEstimate } from "@/lib/packages";
 import { trackEvent } from "./TrackingPlaceholders";
 
 type Answers = Record<string, string>;
@@ -90,7 +90,8 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
       alternative: getPackageById(content, smart.alternative.slug),
       reason: smart.reason,
       startingStrategy: smart.startingStrategy,
-      roadmap: smart.roadmap
+      roadmap: smart.roadmap,
+      adBudget: smart.adBudget
     };
   }, [answers, content]);
 
@@ -183,7 +184,7 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
               {step === 2 && <StepPanel key="platform"><Options title="Platform İhtiyacınız" text="Meta, Google, sosyal medya veya hepsini kapsayan yapıyı seçin." options={platformCards} onSelect={(value) => select("platform", value)} /></StepPanel>}
               {step === 3 && <StepPanel key="budget"><Options title="Aylık Reklam Bütçesi" text="Reklam bütçesi hizmet bedeline dahil değildir; bu seçim öneri seviyesini netleştirir." options={budgetCards} onSelect={(value) => select("budget", value)} /></StepPanel>}
               {step === 4 && <StepPanel key="needs"><NeedsStep answers={answers} setAnswers={setAnswers} onNext={() => setStep(5)} /></StepPanel>}
-              {step === 5 && <StepPanel key="recommendation"><Recommendation recommended={recommendation.recommended} alternative={recommendation.alternative} reason={recommendation.reason} startingStrategy={recommendation.startingStrategy} roadmap={recommendation.roadmap} whatsappUrl={whatsappUrl} onNext={() => setStep(6)} /></StepPanel>}
+              {step === 5 && <StepPanel key="recommendation"><Recommendation recommended={recommendation.recommended} alternative={recommendation.alternative} reason={recommendation.reason} startingStrategy={recommendation.startingStrategy} roadmap={recommendation.roadmap} adBudget={recommendation.adBudget} whatsappUrl={whatsappUrl} onNext={() => setStep(6)} /></StepPanel>}
               {step === 6 && (
                 <StepPanel key="contact">
                   <ContactStep wizard={wizard} form={form} setForm={setForm} error={error} sent={sent} submit={submit} whatsappUrl={whatsappUrl} back={() => setStep(5)} />
@@ -280,7 +281,8 @@ function NeedsStep({ answers, setAnswers, onNext }: { answers: Answers; setAnswe
   );
 }
 
-function Recommendation({ recommended, alternative, reason, startingStrategy, roadmap, whatsappUrl, onNext }: { recommended: PackageItem; alternative: PackageItem; reason?: string; startingStrategy?: string; roadmap?: string[]; whatsappUrl: string; onNext: () => void }) {
+function Recommendation({ recommended, alternative, reason, startingStrategy, roadmap, adBudget, whatsappUrl, onNext }: { recommended: PackageItem; alternative: PackageItem; reason?: string; startingStrategy?: string; roadmap?: string[]; adBudget: AdBudgetEstimate; whatsappUrl: string; onNext: () => void }) {
+  const pricing = getPackagePricing(recommended.id);
   return (
     <div>
       <div className="grid gap-6 lg:grid-cols-[1.1fr_.9fr]">
@@ -290,7 +292,17 @@ function Recommendation({ recommended, alternative, reason, startingStrategy, ro
             <Sparkles className="text-yellow-200" />
           </div>
           <h2 className="mt-6 text-4xl font-black text-white">{recommended.name}</h2>
-          <p className="mt-3 text-3xl font-black text-cyan-100">{recommended.price}</p>
+          <div className="mt-4 rounded-[20px] border border-cyan-200/25 bg-black/20 p-4">
+            <p className="text-sm font-bold text-cyan-100">Aylık hizmet bedeli</p>
+            <div className="mt-2 flex flex-wrap items-end gap-3">
+              <p className="text-4xl font-black text-white">{pricing ? formatTRY(pricing.basePrice) : recommended.price}</p>
+              {pricing && <span className="mb-1 rounded-full bg-yellow-300 px-3 py-1 text-xs font-black text-slate-950">+ KDV</span>}
+            </div>
+            {pricing && <div className="mt-3 grid gap-2 text-sm text-slate-200 sm:grid-cols-2">
+              <span>KDV: <b>{pricing.vatDisplay}</b></span>
+              <span>KDV dahil: <b>{pricing.totalDisplay}</b></span>
+            </div>}
+          </div>
           <p className="mt-4 text-base leading-8 text-slate-200">{recommended.description}</p>
           {reason && <p className="mt-4 rounded-2xl border border-cyan-200/20 bg-black/20 p-4 text-sm leading-7 text-cyan-50">{reason}</p>}
           <ul className="mt-6 grid gap-3">
@@ -303,10 +315,44 @@ function Recommendation({ recommended, alternative, reason, startingStrategy, ro
         </div>
 
         <div className="grid gap-4">
-          <InsightCard icon={<Target />} title="Tavsiye Edilen Reklam Bütçesi" text="Başlangıç testleri için kontrollü bütçe, performans sinyali geldikçe kademeli optimizasyon önerilir." />
+          <InsightCard icon={<Target />} title="AI Destekli Reklam Bütçesi Önerisi" text={`Minimum ${formatBudgetRange(...adBudget.minimumRange)}, ideal ${formatBudgetRange(...adBudget.idealRange)}. Günlük ortalama ideal aralık ${formatTRY(adBudget.dailyAverageRange[0])} - ${formatTRY(adBudget.dailyAverageRange[1])}.`} />
           <InsightCard icon={<Sparkles />} title="Tavsiye Edilen Strateji" text={startingStrategy || "Önce ölçümleme ve teklif netliği, ardından kampanya kurulumu, test ve düzenli müşteri takibi."} />
           <InsightCard icon={<CalendarDays />} title="Kurulum Yol Haritası" text={(roadmap || ["Analiz", "Kurulum", "Optimizasyon ve raporlama"]).join(" · ")} />
         </div>
+      </div>
+
+      <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_.8fr]">
+        <div className="rounded-[22px] border border-cyan-200/20 bg-cyan-200/10 p-5">
+          <p className="text-xs font-black uppercase tracking-[.18em] text-cyan-100">AI Destekli Reklam Bütçesi Önerisi</p>
+          <p className="mt-3 text-sm leading-7 text-slate-200">Bu öneri sektör, hedef, platform ve başlangıç seviyesine göre oluşturulan tahmini medya bütçesidir. Kesin sonuç garantisi vermez; test ve optimizasyonla netleşir.</p>
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            <BudgetBox label="Minimum" value={formatBudgetRange(...adBudget.minimumRange)} />
+            <BudgetBox label="İdeal" value={formatBudgetRange(...adBudget.idealRange)} highlight />
+            <BudgetBox label="Agresif büyüme" value={formatBudgetRange(...adBudget.aggressiveRange)} />
+          </div>
+          <p className="mt-4 rounded-[16px] border border-white/10 bg-black/20 p-4 text-sm leading-7 text-cyan-50">{adBudget.reason} {adBudget.budgetFit}</p>
+        </div>
+        <div className="rounded-[22px] border border-white/10 bg-white/[0.045] p-5">
+          <p className="text-sm font-black text-white">Platform bütçe dağılımı</p>
+          <div className="mt-4 grid gap-3">
+            {adBudget.platformSplit.map((item) => (
+              <div key={item.label}>
+                <div className="mb-1 flex justify-between text-xs font-bold text-slate-300"><span>{item.label}</span><span>%{item.percent}</span></div>
+                <div className="h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-gradient-to-r from-cyan-300 to-yellow-300" style={{ width: `${item.percent}%` }} /></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-5 lg:grid-cols-3">
+        <PlanList title="İlk 30 Günlük Aksiyon Planı" items={adBudget.first30DaysPlan} />
+        <PlanList title="Dikkat Edilmesi Gerekenler" items={adBudget.notes.slice(1)} />
+        <PlanList title="Ek Hizmet Önerileri" items={adBudget.extraServices.length ? adBudget.extraServices : ["Performans raporlama düzeni", "Kreatif test planı", "Dönüşüm ölçüm kontrolü"]} />
+      </div>
+
+      <div className="mt-6 rounded-[22px] border border-yellow-200/20 bg-yellow-200/10 p-5 text-sm leading-7 text-yellow-50">
+        <b>HK Dijital yorumu:</b> Bu yapı hızlı satış vaadi yerine kontrollü test, veri toplama ve optimizasyon üzerine kurulmalıdır. Hizmet bedeline reklam harcamaları dahil değildir.
       </div>
 
       <div className="mt-6 rounded-[22px] border border-white/10 bg-white/[0.045] p-5">
@@ -331,6 +377,26 @@ function Recommendation({ recommended, alternative, reason, startingStrategy, ro
         <button onClick={onNext} className="inline-flex min-h-14 items-center justify-center gap-2 rounded-full bg-cyan-300 px-7 text-base font-black text-slate-950 shadow-[0_0_38px_rgba(18,217,255,.28)] transition hover:-translate-y-0.5">
           Bilgilerimi Bırakayım <ArrowRight size={18} />
         </button>
+      </div>
+    </div>
+  );
+}
+
+function BudgetBox({ label, value, highlight = false }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <div className={`rounded-[16px] border p-4 ${highlight ? "border-yellow-200/40 bg-yellow-300/15" : "border-white/10 bg-black/20"}`}>
+      <p className="text-xs font-black uppercase tracking-[.14em] text-slate-300">{label}</p>
+      <p className="mt-2 text-lg font-black text-white">{value}</p>
+    </div>
+  );
+}
+
+function PlanList({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div className="rounded-[22px] border border-white/10 bg-white/[0.045] p-5">
+      <p className="text-sm font-black text-white">{title}</p>
+      <div className="mt-4 grid gap-2">
+        {items.map((item) => <p key={item} className="rounded-[12px] bg-black/20 p-3 text-sm leading-6 text-slate-300">{item}</p>)}
       </div>
     </div>
   );
