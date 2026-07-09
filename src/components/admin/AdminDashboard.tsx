@@ -2699,7 +2699,50 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     ["Kampanya bitişleri", upcomingCampaigns.length, "Kampanyalar", "bg-orange-50 text-orange-700"]
   ];
   const competitorSignalsToday = (content.competitorSignals || []).filter((item) => !item.resolved_at).slice(0, 6);
-  const integrationIssues = (content.customerIntegrations || []).filter((item) => ["Eksik", "Kontrol gerekli", "Pasif", "Hata"].includes(item.status || item.sync_status || "")).slice(0, 6);
+  const customerIntegrations = content.customerIntegrations || [];
+  const integrationForCompany = (companyId: string) => customerIntegrations.find((item) => item.company_id === companyId || item.customer_id === companyId) || null;
+  const integrationStatusNeedsAction = (integration: any) => ["Eksik", "Kontrol gerekli", "Pasif", "Hata", "missing_info_required", "reauth_required", "invalid", "error", "inactive", "disabled"].includes(integration?.status || integration?.sync_status || integration?.admin_review_status || "");
+  const integrationAssetsFor = (integration: any) => Array.isArray(integration?.integration_assets) ? integration.integration_assets : [];
+  const companyHasGoogleSignal = (integration: any) => integrationAssetsFor(integration).some((asset: any) => /google|ga4|search_console|business_profile|youtube/.test(String(asset?.platform || asset?.provider || asset?.asset_type || asset?.account_type || asset?.metadata?.service || "").toLowerCase()));
+  const companyHasMetaSignal = (integration: any) => integrationAssetsFor(integration).some((asset: any) => /meta|facebook|instagram|ad_account/.test(String(asset?.platform || asset?.provider || asset?.asset_type || asset?.account_type || "").toLowerCase()));
+  const integrationIssues = customerIntegrations.filter((item) => integrationStatusNeedsAction(item)).slice(0, 6);
+  const connectionWaitingCustomers = activeCustomers.filter((company) => {
+    const integration = integrationForCompany(company.id);
+    return !integration || integrationStatusNeedsAction(integration) || !integrationAssetsFor(integration).length;
+  });
+  const reportWaitingCustomers = activeCustomers.filter((company) => !reports.some((report) => report.company_id === company.id && !isDateOlderThan(report.published_at || report.updated_at || report.created_at || report.report_date, 45)));
+  const paymentWaitingCustomers = activeCustomers.filter((company) => activePayments.some((item) => item.company_id === company.id && !["Ödendi", "İptal"].includes(item.status || "")));
+  const metaHealthyCount = activeCustomers.filter((company) => companyHasMetaSignal(integrationForCompany(company.id))).length;
+  const googleHealthyCount = activeCustomers.filter((company) => companyHasGoogleSignal(integrationForCompany(company.id))).length;
+  const automationSuggestions = [
+    reportWaitingCustomers.length ? { title: "Rapor hazır olduğunda müşteri bildirimi", detail: `${reportWaitingCustomers.length} müşteri için rapor hazırlama veya görünürlük bildirimi bekliyor.`, target: "Müşteri Raporları", tone: "bg-purple-50 text-purple-800" } : null,
+    integrationIssues.length ? { title: "Eksik bilgi / yetki yenileme uyarısı", detail: `${integrationIssues.length} bağlantı admin aksiyonu bekliyor. Müşteri panelindeki Hesap Bağla uyarıları metadata’dan beslenir.`, target: "Entegrasyonlar", tone: "bg-cyan-50 text-cyan-800" } : null,
+    paymentWaitingCustomers.length ? { title: "Ödeme gecikmesi admin uyarısı", detail: `${paymentWaitingCustomers.length} müşteride bekleyen veya geciken tahsilat var.`, target: "Tahsilat", tone: "bg-amber-50 text-amber-900" } : null,
+    connectionWaitingCustomers.length ? { title: "Bağlantı koptuğunda kontrol görevi", detail: `${connectionWaitingCustomers.length} müşteride bağlantı veya veri kaynağı bekleniyor.`, target: "Entegrasyonlar", tone: "bg-red-50 text-red-800" } : null,
+    activeCustomers.length ? { title: "Haftalık müşteri kontrol görevi", detail: "Her aktif müşteri için rapor, görev, tahsilat ve entegrasyon kontrolü haftalık plana alınabilir.", target: "Görevler", tone: "bg-emerald-50 text-emerald-800" } : null
+  ].filter(Boolean);
+  const v2CeoCards = [
+    ["Kritik müşteriler", riskyCustomers.length, "Sağlık skoru düşük müşteri", "Müşteriler", "bg-red-50 text-red-700"],
+    ["Bağlantı bekleyen", connectionWaitingCustomers.length, "Meta/Google/ölçümleme", "Entegrasyonlar", "bg-cyan-50 text-cyan-700"],
+    ["Rapor bekleyen", reportWaitingCustomers.length, "45 gün içinde güncel rapor yok", "Müşteri Raporları", "bg-purple-50 text-purple-700"],
+    ["Ödeme bekleyen", paymentWaitingCustomers.length, "Bekleyen veya geciken tahsilat", "Tahsilat", "bg-amber-50 text-amber-800"],
+    ["Meta sağlığı", `${metaHealthyCount}/${activeCustomers.length || 0}`, "OAuth veya manuel asset sinyali", "Meta İstihbarat", "bg-blue-50 text-blue-700"],
+    ["Google sağlığı", `${googleHealthyCount}/${activeCustomers.length || 0}`, "Google ana bağlantı ve alt servisler", "Google İstihbarat", "bg-emerald-50 text-emerald-700"]
+  ];
+  const integrationCenterRows = activeCustomers.slice(0, 6).map((company) => {
+    const integration = integrationForCompany(company.id);
+    const assets = integrationAssetsFor(integration);
+    const meta = companyHasMetaSignal(integration);
+    const google = companyHasGoogleSignal(integration);
+    const needsAction = integrationStatusNeedsAction(integration);
+    return {
+      company,
+      meta: meta ? "Bağlı / asset var" : "App Review veya manuel hesap bekliyor",
+      google: google ? "Google asset var" : "Google bağlantı veya varlık seçimi bekliyor",
+      assets: assets.length,
+      status: needsAction ? "Kontrol gerekli" : assets.length ? "İzleniyor" : "Bağlantı bekleniyor"
+    };
+  });
   const contentApprovals = (content.socialMediaPlans || []).filter((item) => ["Onay Bekliyor", "Müşteri onayı", "Revize"].includes(item.status || item.approval_status || "")).slice(0, 6);
   const qaCriticalWarnings = (content.systemTestChecklist || []).filter((item) => ["Kritik", "Hata", "Kontrol gerekli"].includes(item.status || item.priority || item.severity || "")).slice(0, 6);
   const ceoCockpitCards = [
@@ -2829,6 +2872,48 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
               <div className="mt-4 grid gap-3">
                 {(recentActivity.length ? recentActivity : visibleNotifications).slice(0, 5).map((item: any, index: number) => <div key={item.id || index} className="rounded-[16px] border border-white/10 bg-slate-950/35 p-3"><strong className="block text-sm text-white">{item.action || item.label || "Operasyon sinyali"}</strong><span className="mt-1 block text-xs leading-5 text-slate-300">{item.entity || item.text || "Sistem hareketlendikçe burada görünecek."}</span></div>)}
                 {!recentActivity.length && !visibleNotifications.length && <p className="rounded-[16px] border border-dashed border-white/15 p-4 text-sm text-slate-300">Henüz aktivite yok. Sistem hareketlendikçe burada görünecek.</p>}
+              </div>
+            </div>
+          </div>
+        </section>
+        <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_18px_44px_rgba(15,23,42,.07)]">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[.16em] text-blue-700">HK Dijital Agency OS v2</p>
+              <h2 className="mt-2 text-2xl font-black text-slate-950">CEO operasyon özeti</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Müşteri sağlığı, bağlantı, rapor, tahsilat ve entegrasyon durumunu admin tarafında tek karar katmanında toplar.</p>
+            </div>
+            <button onClick={() => setActive("HK Intelligence CEO")} className="rounded-full bg-blue-600 px-5 py-3 text-sm font-black text-white">HK Intelligence CEO</button>
+          </div>
+          <div className="mt-5 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+            {v2CeoCards.map(([label, value, note, target, tone]) => <button key={label as string} onClick={() => setActive(target as string)} className={`rounded-[18px] border border-slate-200 p-4 text-left ${tone}`}><span className="block text-[11px] font-black uppercase tracking-[.12em] opacity-80">{label}</span><strong className="mt-2 block text-2xl">{value}</strong><span className="mt-1 block text-xs font-semibold leading-5 opacity-80">{note}</span></button>)}
+          </div>
+          <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,.75fr)]">
+            <div className="rounded-[18px] border border-cyan-100 bg-cyan-50 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="font-black text-slate-950">Meta + Google entegrasyon merkezi</h3>
+                  <p className="mt-1 text-sm leading-6 text-cyan-900">Google tek platform mantığı korunur; GA4, Search Console, Ads, Business Profile ve YouTube alt servisleri admin tarafında ayrı izlenir. Meta tarafında App Review gerektiren veriler kullanıcıya hata gibi sunulmaz.</p>
+                </div>
+                <button onClick={() => setActive("Entegrasyonlar")} className="rounded-full bg-cyan-500 px-4 py-2 text-xs font-black text-white">Entegrasyonları Aç</button>
+              </div>
+              <div className="mt-4 grid gap-2">
+                {integrationCenterRows.map((row) => <div key={row.company.id} className="grid gap-3 rounded-[14px] border border-cyan-100 bg-white p-3 md:grid-cols-[1fr_1fr_1fr_auto] md:items-center">
+                  <strong className="text-sm text-slate-950">{row.company.name || row.company.company_name || "Müşteri"}</strong>
+                  <span className="text-xs font-bold text-slate-600">Meta: {row.meta}</span>
+                  <span className="text-xs font-bold text-slate-600">Google: {row.google}</span>
+                  <span className={`rounded-full px-3 py-1 text-[10px] font-black ${row.status === "İzleniyor" ? "bg-green-100 text-green-700" : row.status === "Kontrol gerekli" ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"}`}>{row.status} · {row.assets} varlık</span>
+                </div>)}
+                {!integrationCenterRows.length && <p className="rounded-[14px] border border-dashed border-cyan-200 bg-white p-4 text-sm text-cyan-900">Aktif müşteri ve bağlantı verisi bekleniyor.</p>}
+              </div>
+              <p className="mt-4 rounded-[14px] border border-amber-200 bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-900">Meta reklam hesapları için ads_read/business_management App Review gerekir. Business Verification olmadan manuel reklam hesabı bağlantısı ve Google Intelligence akışı kullanılmaya devam eder.</p>
+            </div>
+            <div className="rounded-[18px] border border-emerald-100 bg-emerald-50 p-4">
+              <h3 className="font-black text-slate-950">Bekleyen otomasyon aksiyonları</h3>
+              <p className="mt-1 text-sm leading-6 text-emerald-900">Cron kurmadan, mevcut görev/rapor/tahsilat/entegrasyon sinyallerinden öneri üretir.</p>
+              <div className="mt-4 grid gap-2">
+                {automationSuggestions.slice(0, 5).map((item: any) => <button key={item.title} onClick={() => setActive(item.target)} className={`rounded-[14px] border border-white bg-white p-3 text-left shadow-sm ${item.tone}`}><strong className="block text-sm">{item.title}</strong><span className="mt-1 block text-xs font-semibold leading-5">{item.detail}</span></button>)}
+                {!automationSuggestions.length && <p className="rounded-[14px] border border-dashed border-emerald-200 bg-white p-4 text-sm text-emerald-900">Bekleyen otomasyon aksiyonu görünmüyor.</p>}
               </div>
             </div>
           </div>

@@ -80,6 +80,9 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: "Meta İstihbarat", slug: "meta-istihbarat", module: "meta-analiz", description: "Meta kampanya, kreatif ve dönüşüm performansı." },
       { label: "Website Analytics", slug: "website-analytics", module: "website-analytics", description: "Pixel, GA4 ve public site dönüşüm takibi." },
       { label: "Reklam Doktoru Pro", slug: "ad-insights", module: "ad-insights", description: "Reklam performansını teşhis eder, sorunları bulur ve aksiyon reçetesi oluşturur." },
+      { label: "Büyüme Motoru", slug: "growth-engine", module: "growth-engine", description: "Müşteri satış yolculuğunu, funnel yapısını, kreatif ihtiyacını ve takip planını oluştur." },
+      { label: "Funnel Planlayıcı", slug: "funnel-builder", module: "funnel-builder", description: "Müşteriye özel funnel amacı, kanal ve eksik adımları kart tabanlı planla." },
+      { label: "Modül Pazarı", slug: "marketplace", module: "marketplace", description: "Paket ve modül kartlarından Büyüme Motoru planı başlat." },
       { label: "Meta Raporları", slug: "meta-raporlari", module: "meta-analiz", description: "Meta reklam verilerinden müşteri raporları." },
       { label: "Google Ads Raporları", slug: "google-ads-raporlari", module: "google-analiz", description: "Google Ads metrikleri ve manuel rapor girişi." },
       { label: "Rakip Analizi", slug: "rakip-analizi", module: "rakip-analizi", description: "Rakip görünürlüğü, reklam fırsatları, alarm ve sinyal takipleri." }
@@ -96,18 +99,6 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: "Yapay Zekâ Stüdyosu", slug: "ai-studio", module: "ai-studio", description: "İçerik, analiz ve rapor üretim araçları." },
       { label: "Prompt Merkezi", slug: "prompt-uretimi", module: "prompt-kutuphanesi", description: "Tekrar kullanılabilir yapay zekâ komutları." },
       { label: "Yapay Zekâ Satış Koçu", slug: "ai-satis-kocu", module: "ai-studio", description: "Potansiyel müşteri ve fırsatlar için arama, WhatsApp, e-posta ve itiraz cevapları." }
-    ]
-  },
-  {
-    label: "Büyüme Motoru",
-    description: "Funnel, kampanya planı, kreatif ihtiyaç ve paket stratejileri.",
-    icon: "Sparkles",
-    badge: "Büyüme",
-    accent: "from-purple-500 via-cyan-500 to-emerald-500",
-    items: [
-      { label: "Büyüme Motoru", slug: "growth-engine", module: "growth-engine", description: "Müşteri satış yolculuğunu, funnel yapısını, kreatif ihtiyacını ve takip planını oluştur." },
-      { label: "Funnel Planlayıcı", slug: "funnel-builder", module: "funnel-builder", description: "Müşteriye özel funnel amacı, kanal ve eksik adımları kart tabanlı planla." },
-      { label: "Modül Pazarı", slug: "marketplace", module: "marketplace", description: "Paket ve modül kartlarından Büyüme Motoru planı başlat." }
     ]
   },
   {

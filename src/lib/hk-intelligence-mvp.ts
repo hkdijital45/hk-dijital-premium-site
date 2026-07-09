@@ -303,6 +303,15 @@ export function buildHKIntelligenceReport(input: BuildReportInput = {}) {
       criticalIssues: [],
       opportunities: [],
       nextActions: ["Google Ads, GA4, Search Console veya Google Business Profile bağlantısını tamamla."],
+      sevenDayPlan: [
+        "1. gün: Müşteri profilindeki Google ve Meta bağlantı durumunu kontrol et.",
+        "2. gün: GA4 ve Search Console varlık seçimini tamamla.",
+        "3. gün: Google Ads Customer ID ve Developer Token gereksinimini doğrula.",
+        "4. gün: Meta için manuel reklam hesabı ID veya App Review durumunu not al.",
+        "5. gün: Rapor ve görev kayıtlarında müşteri görünürlüğünü kontrol et.",
+        "6. gün: Eksik bilgi veya yetki yenileme gerekiyorsa müşteri uyarısını gönder.",
+        "7. gün: Bağlantı tamamlanan kaynaklarla HK Intelligence analizini yenile."
+      ],
       sourceHealth: sources.map(({ label, status, message }) => ({ label, status, message })),
       missingConnections: waitingSources.map((item) => item.label),
       dataFreshness: sources.map(({ label, freshness }) => ({ label, freshness }))
@@ -326,6 +335,15 @@ export function buildHKIntelligenceReport(input: BuildReportInput = {}) {
     criticalIssues: warnings,
     opportunities,
     nextActions: nextActions.length ? nextActions.slice(0, 8) : [{ source: "HK Intelligence", text: "Haftalık performans kontrolünü sürdür." }],
+    sevenDayPlan: [
+      "1. gün: Kritik ölçüm ve izin sorunlarını kapat.",
+      "2. gün: Google Ads / GA4 / Search Console metriklerini müşteri hedefiyle karşılaştır.",
+      "3. gün: CTR, CPC ve dönüşüm sinyaline göre Reklam Doktoru reçetesini çıkar.",
+      "4. gün: Landing page, WhatsApp, form ve telefon funnel adımlarını kontrol et.",
+      "5. gün: Fırsat sorguları ve kreatif önerilerini görev planına aktar.",
+      "6. gün: Rapor özetini müşteri dostu dile sadeleştir.",
+      "7. gün: Sonuçları yeniden değerlendirip sonraki haftanın optimizasyon görevlerini aç."
+    ],
     sourceHealth: sources.map(({ label, status: sourceStatus, message }) => ({ label, status: sourceStatus, message })),
     missingConnections: waitingSources.map((item) => item.label),
     dataFreshness: sources.map(({ label, freshness }) => ({ label, freshness }))
