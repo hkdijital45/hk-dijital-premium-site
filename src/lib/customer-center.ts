@@ -23,6 +23,7 @@ export type CustomerCenterData = {
   pixelStatus: any;
   monthlyReports: any[];
   competitorSummaries: any[];
+  integration: any;
 };
 
 const defaultVisibility = {
@@ -63,12 +64,13 @@ export async function getCustomerCenterData(companyId?: string): Promise<Custome
       tasks: [],
       pixelStatus: null,
       monthlyReports: [],
-      competitorSummaries: []
+      competitorSummaries: [],
+      integration: null
     };
   }
 
   if (hasSupabaseConfig() && companyId) {
-    const [companies, visibilityRows, campaigns, metrics, reportVisibility, metaAdsets, metaAds, metaConversions, metaAnalyses, updates, files, reports, interpretations, reportUpdates, brandingRows, documents, payments, tasks, pixelRows, monthlyReports, competitorSummaries] = await Promise.all([
+    const [companies, visibilityRows, campaigns, metrics, reportVisibility, metaAdsets, metaAds, metaConversions, metaAnalyses, updates, files, reports, interpretations, reportUpdates, brandingRows, documents, payments, tasks, pixelRows, monthlyReports, competitorSummaries, integrationRows] = await Promise.all([
       supabaseRest<any[]>(`companies?id=eq.${companyId}&select=*&limit=1`),
       supabaseRest<any[]>(`customer_visibility_settings?company_id=eq.${companyId}&select=*&limit=1`),
       supabaseRest<any[]>(`campaigns?company_id=eq.${companyId}&select=*&order=created_at.desc`),
@@ -89,7 +91,8 @@ export async function getCustomerCenterData(companyId?: string): Promise<Custome
       supabaseRest<any[]>(`agency_tasks?company_id=eq.${companyId}&visible_to_customer=eq.true&select=*&order=due_date.asc`).catch(() => []),
       supabaseRest<any[]>(`ad_integrations?company_id=eq.${companyId}&provider=eq.meta&select=pixel_enabled,capi_enabled,pixel_status,capi_status,last_pixel_test_at,last_capi_test_at,last_event_at,sync_message&limit=1`).catch(() => []),
       supabaseRest<any[]>(`monthly_reports?company_id=eq.${companyId}&visible_to_customer=eq.true&select=*&order=report_month.desc`).catch(() => []),
-      supabaseRest<any[]>(`competitor_watchlist?company_id=eq.${companyId}&or=(show_to_customer.eq.true,show_customer_summary.eq.true)&select=id,competitor_name,customer_summary,customer_visible_summary,customer_recommendations,customer_action_plan,last_checked_at,show_to_customer,show_customer_summary&order=last_checked_at.desc`).catch(() => [])
+      supabaseRest<any[]>(`competitor_watchlist?company_id=eq.${companyId}&or=(show_to_customer.eq.true,show_customer_summary.eq.true)&select=id,competitor_name,customer_summary,customer_visible_summary,customer_recommendations,customer_action_plan,last_checked_at,show_to_customer,show_customer_summary&order=last_checked_at.desc`).catch(() => []),
+      supabaseRest<any[]>(`customer_integrations?company_id=eq.${companyId}&select=metadata,integration_assets,updated_at&limit=1`).catch(() => [])
     ]);
 
     const visibleReports = reports.map(({ internal_note: _internalNote, raw_extracted_data: _rawExtractedData, ...report }) => report);
@@ -117,7 +120,8 @@ export async function getCustomerCenterData(companyId?: string): Promise<Custome
       tasks,
       pixelStatus: pixelRows[0] || null,
       monthlyReports,
-      competitorSummaries: competitorSummaries.map(({ analysis_payload: _analysisPayload, internal_analysis: _internalAnalysis, notification_settings: _notificationSettings, ...item }) => item)
+      competitorSummaries: competitorSummaries.map(({ analysis_payload: _analysisPayload, internal_analysis: _internalAnalysis, notification_settings: _notificationSettings, ...item }) => item),
+      integration: integrationRows[0] || null
     };
   }
 
@@ -187,7 +191,8 @@ export async function getCustomerCenterData(companyId?: string): Promise<Custome
     tasks: [],
     pixelStatus: null,
     monthlyReports: [],
-    competitorSummaries: []
+    competitorSummaries: [],
+    integration: null
   };
 }
 

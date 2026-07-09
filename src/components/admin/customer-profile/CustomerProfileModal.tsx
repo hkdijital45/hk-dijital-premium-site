@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { ActionResultPanel } from "@/components/admin/ActionResultPanel";
 import type { ActionResult } from "@/lib/action-result";
+import { CUSTOMER_MODULE_REGISTRY, CUSTOMER_PLATFORM_REGISTRY, DEFAULT_CUSTOMER_MODULES, normalizeModuleKeys, normalizePlatformKeys } from "@/lib/customer-portal-registry";
 import { formatTurkishPhone, isEmptyLikeValue, normalizePhoneInput } from "@/lib/phone-format";
 
 const paidStatuses = ["Ödendi", "Tahsil Edildi"];
@@ -74,6 +75,8 @@ const profileTabs = [
   "Genel Bilgi",
   "Müşteri Kurulumu",
   "Entegrasyonlar",
+  "Platform Yönetimi",
+  "Müşteri Paneli Yetkileri",
   "Bağlantı Bilgileri",
   "Büyüme",
   "Marka Varlıkları",
@@ -263,6 +266,10 @@ export function CustomerProfileModal({
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState("");
   const [lastSavedAt, setLastSavedAt] = useState("");
+  const [enabledPlatforms, setEnabledPlatforms] = useState<string[]>(() => normalizePlatformKeys(integration?.metadata?.enabled_platforms));
+  const [enabledModules, setEnabledModules] = useState<string[]>(() => normalizeModuleKeys(integration?.metadata?.enabled_customer_modules));
+  const [portalSaving, setPortalSaving] = useState(false);
+  const [portalMessage, setPortalMessage] = useState("");
   const branches = localBranches;
   const latestApplication = applications[0] || {};
   const missingIntegrations = [
@@ -279,6 +286,9 @@ export function CustomerProfileModal({
     setProfileDirty(false);
     setProfileMessage("");
     setLastSavedAt("");
+    setEnabledPlatforms(normalizePlatformKeys(integration?.metadata?.enabled_platforms));
+    setEnabledModules(normalizeModuleKeys(integration?.metadata?.enabled_customer_modules));
+    setPortalMessage("");
   }
 
   const requestClose = useCallback(() => {
@@ -341,6 +351,47 @@ export function CustomerProfileModal({
     setProfileForm(toProfileForm(company));
     setProfileDirty(false);
     setProfileMessage("Değişiklikler geri alındı.");
+  }
+
+  function toggleListValue(list: string[], value: string) {
+    return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
+  }
+
+  async function savePortalSettings() {
+    if (!company?.id) return;
+    setPortalSaving(true);
+    setPortalMessage("");
+    try {
+      const response = await fetch(`/api/admin/customers/${encodeURIComponent(company.id)}/portal-settings`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabled_platforms: enabledPlatforms,
+          enabled_customer_modules: enabledModules
+        })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.supabaseError || payload.error || "Müşteri panel ayarları kaydedilemedi.");
+      setPortalMessage(payload.message || "Müşteri platform ve panel yetkileri kaydedildi.");
+      setActionResult({
+        title: "Müşteri panel yetkileri güncellendi",
+        status: "success",
+        summary: `${company.name} için ${enabledPlatforms.length} platform ve ${enabledModules.length} panel modülü aktif.`,
+        nextActions: ["Müşteri panelini önizleyerek görünür modülleri kontrol edin.", "Hesap Bağla ekranında yalnız aktif platformların göründüğünü doğrulayın."],
+        customerVisibility: { showToCustomer: true, label: "Müşteri paneli görünümü güncellendi" },
+        technicalDetails: { endpoint: `/api/admin/customers/${company.id}/portal-settings`, storage: "customer_integrations.metadata" }
+      } as ActionResult);
+    } catch (error) {
+      setPortalMessage(error instanceof Error ? error.message : "Müşteri panel ayarları kaydedilemedi.");
+    } finally {
+      setPortalSaving(false);
+    }
+  }
+
+  function resetPortalSettings(type: "platforms" | "modules") {
+    if (type === "platforms") setEnabledPlatforms([]);
+    if (type === "modules") setEnabledModules(DEFAULT_CUSTOMER_MODULES);
+    setPortalMessage(type === "platforms" ? "Platform seçimleri temizlendi. Kaydettiğinizde müşteri panelinde platform kartı görünmez." : "Müşteri panel modülleri varsayılan sete alındı. Kaydetmeyi unutmayın.");
   }
 
   function openBranchForm(branch?: any) {
@@ -429,6 +480,18 @@ export function CustomerProfileModal({
   }
 
   function activeTabCards() {
+    if (activeProfileTab === "Platform Yönetimi") {
+      return [
+        { title: "Aktif platformlar", lines: [`Açık platform: ${enabledPlatforms.length}`, `Kapalı platform: ${CUSTOMER_PLATFORM_REGISTRY.length - enabledPlatforms.length}`, `Hesap Bağla ekranı: ${enabledPlatforms.length ? "Dinamik kartlarla çalışır" : "Platform açılana kadar kapalı"}`] },
+        { title: "Performans notu", lines: ["Kapalı platformlar müşteri panelinde render edilmez.", "OAuth ve hesap listeleme butonları yalnız aktif platformlarda çalışır.", "Yeni platformlar registry dosyasından yönetilir."] }
+      ];
+    }
+    if (activeProfileTab === "Müşteri Paneli Yetkileri") {
+      return [
+        { title: "Panel modülleri", lines: [`Gösterilen modül: ${enabledModules.length}`, `Gizlenen modül: ${CUSTOMER_MODULE_REGISTRY.length - enabledModules.length}`, `AI Asistan: ${enabledModules.includes("ai_assistant") ? "Açık" : "Kapalı"}`] },
+        { title: "Erişim davranışı", lines: ["Kapalı modüller navigation içinde görünmez.", "Kapalı modül içeriği müşteri panelinde render edilmez.", "Elle açılan modül isteğinde yetki mesajı gösterilir."] }
+      ];
+    }
     if (activeProfileTab === "Entegrasyonlar") {
       return [
         { title: "Entegrasyonlar", lines: [`Pixel: ${integration.meta_pixel_id ? "Var" : "Eksik"}`, `Dataset: ${integration.meta_dataset_id ? "Var" : "Eksik"}`, `GA4: ${integration.ga4_measurement_id || integration.ga4_property_id ? "Var" : "Eksik"}`, `Google Ads: ${integration.google_ads_customer_id ? "Var" : "Eksik"}`, `Eksikler: ${missingIntegrations.length ? missingIntegrations.join(", ") : "Yok"}`] },
@@ -493,6 +556,85 @@ export function CustomerProfileModal({
   }
 
   function profileFormSection() {
+    if (activeProfileTab === "Platform Yönetimi") {
+      return (
+        <section className="mt-5 rounded-[20px] border border-cyan-200 bg-cyan-50 p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Platform Yönetimi</p>
+              <h3 className="mt-1 text-xl font-black text-slate-950">Müşteriye açık platformları seç</h3>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Kapalı platformlar müşteri panelindeki Hesap Bağla ekranında görünmez; OAuth, API ve hesap listeleme akışları çalışmaz.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => resetPortalSettings("platforms")} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700">Reset</button>
+              <button type="button" onClick={savePortalSettings} disabled={portalSaving} className="rounded-full bg-cyan-500 px-4 py-2 text-xs font-black text-white disabled:opacity-60">{portalSaving ? "Kaydediliyor..." : "Kaydet"}</button>
+            </div>
+          </div>
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {CUSTOMER_PLATFORM_REGISTRY.map((platform) => {
+              const active = enabledPlatforms.includes(platform.key);
+              return (
+                <div key={platform.key} className={`rounded-[16px] border p-4 transition ${active ? "border-cyan-200 bg-white shadow-sm" : "border-slate-200 bg-slate-50"}`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className={`mb-3 grid size-11 place-items-center rounded-[14px] ${active ? "bg-cyan-100 text-cyan-700" : "bg-white text-slate-500"}`}>{platform.title.slice(0, 1)}</div>
+                      <h4 className="font-black text-slate-950">{platform.title}</h4>
+                      <p className="mt-2 text-xs leading-5 text-slate-500">{platform.description}</p>
+                    </div>
+                    <span className={`rounded-full px-2 py-1 text-[10px] font-black ${active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{active ? "Aktif" : "Pasif"}</span>
+                  </div>
+                  <label className="mt-4 flex items-center justify-between gap-3 rounded-[12px] bg-slate-50 px-3 py-2 text-xs font-black text-slate-700">
+                    <span>{active ? "Müşteriye açık" : "Gizli"}</span>
+                    <input type="checkbox" checked={active} onChange={() => setEnabledPlatforms((current) => toggleListValue(current, platform.key))} className="size-5 accent-cyan-500" />
+                  </label>
+                </div>
+              );
+            })}
+          </div>
+          {portalMessage && <p className="mt-4 rounded-[12px] border border-cyan-200 bg-white p-3 text-sm font-bold text-cyan-900">{portalMessage}</p>}
+        </section>
+      );
+    }
+
+    if (activeProfileTab === "Müşteri Paneli Yetkileri") {
+      return (
+        <section className="mt-5 rounded-[20px] border border-violet-200 bg-violet-50 p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[.16em] text-violet-700">Müşteri Paneli Yetkilendirme Merkezi</p>
+              <h3 className="mt-1 text-xl font-black text-slate-950">Müşteri panelinde görünecek modüller</h3>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Kapalı modüller navigation ve içerik alanında render edilmez. Elle açılmaya çalışılırsa yetki mesajı gösterilir.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => resetPortalSettings("modules")} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700">Reset</button>
+              <button type="button" onClick={savePortalSettings} disabled={portalSaving} className="rounded-full bg-violet-500 px-4 py-2 text-xs font-black text-white disabled:opacity-60">{portalSaving ? "Kaydediliyor..." : "Kaydet"}</button>
+            </div>
+          </div>
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {CUSTOMER_MODULE_REGISTRY.map((module) => {
+              const active = enabledModules.includes(module.key);
+              return (
+                <div key={module.key} className={`rounded-[16px] border p-4 transition ${active ? "border-violet-200 bg-white shadow-sm" : "border-slate-200 bg-slate-50"}`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h4 className="font-black text-slate-950">{module.title}</h4>
+                      <p className="mt-2 text-xs leading-5 text-slate-500">{module.description}</p>
+                    </div>
+                    <span className={`rounded-full px-2 py-1 text-[10px] font-black ${active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{active ? "Göster" : "Gizle"}</span>
+                  </div>
+                  <label className="mt-4 flex items-center justify-between gap-3 rounded-[12px] bg-slate-50 px-3 py-2 text-xs font-black text-slate-700">
+                    <span>{active ? "Müşteri görür" : "Müşteriden gizli"}</span>
+                    <input type="checkbox" checked={active} onChange={() => setEnabledModules((current) => toggleListValue(current, module.key))} className="size-5 accent-violet-500" />
+                  </label>
+                </div>
+              );
+            })}
+          </div>
+          {portalMessage && <p className="mt-4 rounded-[12px] border border-violet-200 bg-white p-3 text-sm font-bold text-violet-900">{portalMessage}</p>}
+        </section>
+      );
+    }
+
     if (!editableProfileTabs.has(activeProfileTab)) {
       return (
         <section className="mt-5 rounded-[18px] border border-dashed border-slate-200 bg-slate-50 p-5">

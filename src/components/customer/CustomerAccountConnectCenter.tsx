@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AtSign, BarChart3, Globe2, ImagePlus, Megaphone, PlayCircle, Search, ShieldCheck, Smartphone } from "lucide-react";
+import { normalizePlatformKeys } from "@/lib/customer-portal-registry";
 
 const platformCards = [
   { key: "meta", title: "Meta / Facebook", type: "meta_ads", oauthProvider: "meta", autoLabel: "Meta ile Giriş Yap", typeLabel: "Business Manager, reklam hesabı, sayfa, Instagram ve Pixel seçimi", icon: Megaphone, tone: "bg-blue-50 text-blue-700", fields: [
@@ -50,11 +51,43 @@ const platformCards = [
     ["profile_url", "X profil linki", "X profil bağlantısı."],
     ["x_ads_account_id", "X Ads Account ID", "Varsa X reklam hesabı kimliği."]
   ] },
+  { key: "facebook", title: "Facebook", type: "facebook_page", oauthProvider: "meta", autoLabel: "Facebook Sayfasını Bağla", typeLabel: "Facebook sayfası ve sayfa ID bilgisi", icon: Megaphone, tone: "bg-blue-50 text-blue-700", fields: [
+    ["facebook_page_id", "Facebook Sayfa ID", "Facebook sayfanızın kimliği."],
+    ["profile_url", "Sayfa linki", "Facebook sayfa bağlantısı."]
+  ] },
+  { key: "linkedin", title: "LinkedIn", type: "linkedin_profile", oauthProvider: "manual", autoLabel: "LinkedIn Bilgilerini Gir", typeLabel: "LinkedIn şirket sayfası ve reklam hesabı bilgileri", icon: AtSign, tone: "bg-cyan-50 text-cyan-700", fields: [
+    ["profile_url", "LinkedIn sayfa linki", "Şirket sayfası bağlantısı."],
+    ["linkedin_ads_account_id", "LinkedIn Ads Account ID", "Varsa reklam hesabı kimliği."]
+  ] },
+  { key: "whatsapp", title: "WhatsApp", type: "whatsapp", oauthProvider: "manual", autoLabel: "WhatsApp Bilgilerini Gir", typeLabel: "WhatsApp işletme hattı ve iletişim linki", icon: Smartphone, tone: "bg-emerald-50 text-emerald-700", fields: [
+    ["phone", "WhatsApp numarası", "Müşteri iletişim hattı."],
+    ["profile_url", "WhatsApp linki", "wa.me veya işletme bağlantısı."]
+  ] },
   { key: "website_pixel", title: "Website / Pixel Bilgileri", type: "website_pixel", oauthProvider: "meta", autoLabel: "Pixel Bağlantısını Hazırla", typeLabel: "Website, Pixel, GTM ve Search Console kontrolü", icon: Globe2, tone: "bg-cyan-50 text-cyan-700", fields: [
     ["website_url", "Web site URL", "Ana web sitesi adresiniz."],
     ["meta_pixel_id", "Meta Pixel ID", "Meta web sitesi takip kimliği."],
     ["gtm_container_id", "Google Tag Manager ID", "GTM- ile başlayan etiket yöneticisi kimliği."],
     ["ga4_measurement_id", "Google Analytics Measurement ID", "G- ile başlayan ölçüm kimliği."]
+  ] },
+  { key: "clarity", title: "Clarity", type: "clarity", oauthProvider: "manual", autoLabel: "Clarity Bilgilerini Gir", typeLabel: "Microsoft Clarity proje bilgileri", icon: BarChart3, tone: "bg-sky-50 text-sky-700", fields: [
+    ["clarity_project_id", "Clarity Project ID", "Microsoft Clarity proje kimliği."],
+    ["website_url", "Web site URL", "İzlenen web sitesi."]
+  ] },
+  { key: "hotjar", title: "Hotjar", type: "hotjar", oauthProvider: "manual", autoLabel: "Hotjar Bilgilerini Gir", typeLabel: "Hotjar site ve davranış analitiği bilgileri", icon: BarChart3, tone: "bg-orange-50 text-orange-700", fields: [
+    ["hotjar_site_id", "Hotjar Site ID", "Hotjar site kimliği."],
+    ["website_url", "Web site URL", "İzlenen web sitesi."]
+  ] },
+  { key: "woocommerce", title: "WooCommerce", type: "woocommerce", oauthProvider: "manual", autoLabel: "WooCommerce Bilgilerini Gir", typeLabel: "WooCommerce mağaza bağlantısı", icon: Globe2, tone: "bg-purple-50 text-purple-700", fields: [
+    ["website_url", "Mağaza URL", "WooCommerce mağaza adresi."],
+    ["store_id", "Mağaza notu / ID", "Varsa mağaza kimliği veya kısa not."]
+  ] },
+  { key: "shopify", title: "Shopify", type: "shopify", oauthProvider: "manual", autoLabel: "Shopify Bilgilerini Gir", typeLabel: "Shopify mağaza bağlantısı", icon: Globe2, tone: "bg-green-50 text-green-700", fields: [
+    ["shop_url", "Shopify mağaza URL", "myshopify.com veya özel alan adı."],
+    ["store_id", "Mağaza notu / ID", "Varsa mağaza kimliği veya kısa not."]
+  ] },
+  { key: "api_webhook", title: "API / Webhook", type: "api_webhook", oauthProvider: "manual", autoLabel: "API Bilgilerini Gir", typeLabel: "Özel API ve webhook bağlantıları", icon: Globe2, tone: "bg-slate-50 text-slate-700", fields: [
+    ["endpoint_url", "Endpoint URL", "Webhook veya API bağlantı adresi."],
+    ["integration_note", "Entegrasyon notu", "Teknik not veya sistem adı."]
   ] }
 ];
 
@@ -118,6 +151,8 @@ function emptyForm(platform = "meta", assetType = "meta_ads") {
 
 export function CustomerAccountConnectCenter() {
   const [assets, setAssets] = useState<any[]>([]);
+  const [integration, setIntegration] = useState<any>(null);
+  const [configLoaded, setConfigLoaded] = useState(false);
   const [active, setActive] = useState(platformCards[0]);
   const [modeByPlatform, setModeByPlatform] = useState<Record<string, "manual" | "auto">>({});
   const [mode, setMode] = useState<"manual" | "auto">("auto");
@@ -134,8 +169,13 @@ export function CustomerAccountConnectCenter() {
     let mounted = true;
     fetch("/api/customer/integrations", { cache: "no-store" })
       .then((response) => response.json())
-      .then((payload) => { if (mounted) setAssets(Array.isArray(payload.assets) ? payload.assets : []); })
-      .catch(() => null);
+      .then((payload) => {
+        if (!mounted) return;
+        setAssets(Array.isArray(payload.assets) ? payload.assets : []);
+        setIntegration(payload.integration || null);
+        setConfigLoaded(true);
+      })
+      .catch(() => { if (mounted) setConfigLoaded(true); });
     return () => { mounted = false; };
   }, []);
 
@@ -163,6 +203,20 @@ export function CustomerAccountConnectCenter() {
     missing: assets.filter((item) => item.status === "missing_info" || item.status === "error").length,
     last: assets.map((item) => item.updated_at).filter(Boolean).sort().at(-1)
   }), [assets]);
+  const visiblePlatformCards = useMemo(() => {
+    if (!configLoaded) return [];
+    const enabled = normalizePlatformKeys(integration?.metadata?.enabled_platforms);
+    return platformCards.filter((card: any) => {
+      const registryKeys = [
+        card.key === "google_business_profile" ? "business_profile" : card.key,
+        ...(card.oauthProvider === "google" ? ["google"] : []),
+        ...(card.oauthProvider === "meta" ? ["meta"] : []),
+        ...(card.key === "website_pixel" ? ["website", "pixel"] : []),
+        ...(card.key === "x_twitter" ? ["x"] : [])
+      ];
+      return registryKeys.some((key) => enabled.includes(key));
+    });
+  }, [configLoaded, integration?.metadata?.enabled_platforms]);
   const activeAsset = useMemo(() => assets.find((item) => item.platform === active.key || (active.key === "meta" && item.provider === "meta" && item.account_type === "meta_user") || (active.oauthProvider === "google" && item.provider === "google" && item.account_type === "google_profile")), [assets, active.key, active.oauthProvider]);
   const groupedOAuthAccounts = useMemo(() => {
     const accounts = Array.isArray(oauthInfo?.accounts) ? oauthInfo.accounts : [];
@@ -184,7 +238,7 @@ export function CustomerAccountConnectCenter() {
 
   function selectPlatform(card: any) {
     const current = assets.find((item) => item.platform === card.key);
-    const nextMode = modeByPlatform[card.key] || (!current || ["oauth_ready", "oauth"].includes(current?.connection_mode || current?.connection_method) ? "auto" : "manual");
+    const nextMode = card.oauthProvider === "manual" ? "manual" : modeByPlatform[card.key] || (!current || ["oauth_ready", "oauth"].includes(current?.connection_mode || current?.connection_method) ? "auto" : "manual");
     setActive(card);
     setForm({ ...emptyForm(card.key, card.type), ...(current || {}) });
     setMode(nextMode);
@@ -194,6 +248,13 @@ export function CustomerAccountConnectCenter() {
     setSelectedAssetIds([]);
     setMessage("");
   }
+
+  useEffect(() => {
+    if (!configLoaded) return;
+    if (visiblePlatformCards.length && !visiblePlatformCards.some((card) => card.key === active.key)) {
+      selectPlatform(visiblePlatformCards[0]);
+    }
+  }, [configLoaded, visiblePlatformCards.length]);
 
   function changeMode(nextMode: "manual" | "auto") {
     setMode(nextMode);
@@ -244,6 +305,11 @@ export function CustomerAccountConnectCenter() {
   }
 
   async function startOAuth() {
+    if (active.oauthProvider === "manual") {
+      changeMode("manual");
+      setMessage("Bu platform manuel bilgiyle yönetilir. Manuel Bilgi Gir alanı açıldı.");
+      return;
+    }
     if (active.key === "website_pixel") {
       changeMode("manual");
       setMessage("Website / Pixel bilgileri manuel girilir. Manuel Bilgi Gir alanı açıldı.");
@@ -380,7 +446,9 @@ export function CustomerAccountConnectCenter() {
 
       <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(260px,.85fr)_minmax(0,1.15fr)]">
         <div className="grid gap-3">
-          {platformCards.map((card) => {
+          {!configLoaded && <p className="rounded-[16px] border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-500">Platform yetkileri yükleniyor...</p>}
+          {configLoaded && !visiblePlatformCards.length && <p className="rounded-[16px] border border-dashed border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-900">Bu müşteri için henüz platform açılmamış. HK Dijital ekibi platformları aktif ettiğinde hesap kartları burada görünür.</p>}
+          {visiblePlatformCards.map((card) => {
             const Icon = card.icon;
             const asset = assets.find((item) => item.platform === card.key);
             const connectionMethod = asset?.connection_method || asset?.connection_mode || "";
@@ -400,7 +468,7 @@ export function CustomerAccountConnectCenter() {
           })}
         </div>
 
-        <div className="rounded-[20px] border border-slate-200 bg-slate-50 p-5">
+        {visiblePlatformCards.length > 0 && <div className="rounded-[20px] border border-slate-200 bg-slate-50 p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 className="text-xl font-black text-slate-950">{active.title} bilgileri</h3>
@@ -432,7 +500,7 @@ export function CustomerAccountConnectCenter() {
           <div className="mt-4 rounded-[18px] border border-cyan-200 bg-white p-4">
             <p className="text-sm font-black text-slate-950">Bağlantı yöntemi:</p>
             <div className="mt-3 inline-flex w-full rounded-[16px] border border-slate-200 bg-slate-50 p-1 sm:w-auto">
-              <button type="button" onClick={() => changeMode("auto")} className={`flex-1 rounded-[12px] px-4 py-2 text-sm font-black transition sm:flex-none ${mode === "auto" ? "bg-cyan-500 text-white shadow-sm" : "text-slate-600 hover:bg-white"}`}>
+              <button type="button" onClick={() => active.oauthProvider === "manual" ? changeMode("manual") : changeMode("auto")} disabled={active.oauthProvider === "manual"} className={`flex-1 rounded-[12px] px-4 py-2 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none ${mode === "auto" ? "bg-cyan-500 text-white shadow-sm" : "text-slate-600 hover:bg-white"}`}>
                 Otomatik Bağlan
               </button>
               <button type="button" onClick={() => changeMode("manual")} className={`flex-1 rounded-[12px] px-4 py-2 text-sm font-black transition sm:flex-none ${mode === "manual" ? "bg-emerald-500 text-white shadow-sm" : "text-slate-600 hover:bg-white"}`}>
@@ -546,7 +614,7 @@ export function CustomerAccountConnectCenter() {
           )}
 
           {message && <p className="mt-4 rounded-[14px] border border-cyan-200 bg-white p-3 text-sm font-bold text-cyan-900">{message}</p>}
-        </div>
+        </div>}
       </div>
     </section>
   );
