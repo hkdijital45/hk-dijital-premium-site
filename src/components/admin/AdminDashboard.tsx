@@ -30,6 +30,7 @@ import { Logo } from "@/components/public/Logo";
 import { adminNavigationGroups, adminNavigationItems, getAdminHref } from "@/lib/admin-navigation";
 import { canViewAccounting } from "@/lib/accounting-permissions";
 import { aiProviderKeyForApi, buildAiSelectionReason, labelForAiProvider, normalizeUnifiedAiProvider, unifiedAiProviderOptions, unifiedAiPriorityKeys } from "@/lib/ai-provider-options";
+import { CUSTOMER_MODULE_REGISTRY, CUSTOMER_PLATFORM_REGISTRY, DEFAULT_CUSTOMER_MODULES, normalizeModuleKeys, normalizePlatformKeys } from "@/lib/customer-portal-registry";
 import { AnimatedChart, AnimatedFunnel, BrandEcosystemStrip, GlassCard, MetricCard3D } from "@/components/premium/PremiumUI";
 
 const adminCategoryIcons: Record<string, any> = {
@@ -6318,6 +6319,16 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
   const [profileAction, setProfileAction] = useState("");
   const [salesNote, setSalesNote] = useState("");
   const [salesMessageOpen, setSalesMessageOpen] = useState(false);
+  const customerIntegration = (content.customerIntegrations || []).find((item) => item.company_id === company?.id) || {};
+  const [enabledPlatforms, setEnabledPlatforms] = useState(() => normalizePlatformKeys(customerIntegration?.metadata?.enabled_platforms));
+  const [enabledModules, setEnabledModules] = useState(() => normalizeModuleKeys(customerIntegration?.metadata?.enabled_customer_modules));
+  const [portalSettingsSaving, setPortalSettingsSaving] = useState(false);
+  const [portalSettingsMessage, setPortalSettingsMessage] = useState("");
+  useEffect(() => {
+    setEnabledPlatforms(normalizePlatformKeys(customerIntegration?.metadata?.enabled_platforms));
+    setEnabledModules(normalizeModuleKeys(customerIntegration?.metadata?.enabled_customer_modules));
+    setPortalSettingsMessage("");
+  }, [company?.id]);
   if (!company) return null;
   const canManageCustomer = canManageRecord(currentSession, "musteriler");
   const users = (content.users || []).filter((user) => customerRole(user.role) && user.company_id === company.id);
@@ -6348,7 +6359,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
     show_files: true,
     show_contact_person: true
   };
-  const tabs = ["Genel Bilgi", "Büyüme", "Müşteri Kurulumu", "Entegrasyonlar", "Bağlantı Bilgileri", "Marka Varlıkları", "İletişim", "Satış Durumu", "Reklam Hesapları", "Kampanyalar", "Teklifler", "Ödemeler", "Yapılacaklar", "Raporlar", "Dosyalar", "Zaman Çizelgesi", "Panel Görünürlüğü", "Giriş Bilgileri", "Metrikler", "Yapılan Çalışmalar", "Aktivite Geçmişi", "Notlar"];
+  const tabs = ["Genel Bilgi", "Büyüme", "Müşteri Kurulumu", "Entegrasyonlar", "Platform Yönetimi", "Müşteri Paneli Yetkileri", "Bağlantı Bilgileri", "Marka Varlıkları", "İletişim", "Satış Durumu", "Reklam Hesapları", "Kampanyalar", "Teklifler", "Ödemeler", "Yapılacaklar", "Raporlar", "Dosyalar", "Zaman Çizelgesi", "Panel Görünürlüğü", "Giriş Bilgileri", "Metrikler", "Yapılan Çalışmalar", "Aktivite Geçmişi", "Notlar"];
   async function runProfileAction(label, action) {
     setProfileAction(`${label}...`);
     try {
@@ -6399,6 +6410,38 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
     const exists = visibilityItems.some((item) => item.company_id === company.id);
     setContent({ ...content, customerVisibilitySettings: exists ? visibilityItems.map((item) => item.company_id === company.id ? next : item) : [...visibilityItems, next] });
   }
+  function togglePortalValue(list, value) {
+    return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
+  }
+  async function savePortalSettings() {
+    setPortalSettingsSaving(true);
+    setPortalSettingsMessage("");
+    try {
+      const response = await fetch(`/api/admin/customers/${encodeURIComponent(company.id)}/portal-settings`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled_platforms: enabledPlatforms, enabled_customer_modules: enabledModules })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.supabaseError || payload.error || "Müşteri panel ayarları kaydedilemedi.");
+      const savedIntegration = payload.integration || { ...customerIntegration, metadata: { ...(customerIntegration.metadata || {}), enabled_platforms: enabledPlatforms, enabled_customer_modules: enabledModules } };
+      const existing = (content.customerIntegrations || []).some((item) => item.company_id === company.id);
+      setContent({
+        ...content,
+        customerIntegrations: existing
+          ? (content.customerIntegrations || []).map((item) => item.company_id === company.id ? savedIntegration : item)
+          : [savedIntegration, ...(content.customerIntegrations || [])]
+      });
+      setPortalSettingsMessage(payload.message || "Müşteri platform ve panel yetkileri kaydedildi.");
+      notify?.("✓ Müşteri panel ayarları kaydedildi", "success");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Müşteri panel ayarları kaydedilemedi.";
+      setPortalSettingsMessage(message);
+      notify?.(message, "error");
+    } finally {
+      setPortalSettingsSaving(false);
+    }
+  }
   function updateRelated(key, id, patch) {
     setContent({ ...content, [key]: (content[key] || []).map((item) => item.id === id ? { ...item, ...patch } : item) });
   }
@@ -6409,9 +6452,9 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
   }
   return (
     <CustomerProfileModal company={company} content={content} onClose={close} onGo={(target, message) => { setActive?.(target); if (message) notify?.(message, "success"); }} showOverview={false}>
-      <div className="mb-5 flex flex-wrap gap-2">
-        {tabs.map((item) => <button key={item} onClick={() => setTab(item)} className={`rounded-full px-3 py-2 text-xs font-bold ${tab === item ? "bg-cyan-300 text-slate-950" : "border border-slate-200 text-slate-600"}`}>{item}</button>)}
-        <a href={`/musteri-paneli?company=${company.id}`} target="_blank" rel="noreferrer" className="ml-auto rounded-full border border-cyan-200/30 px-3 py-2 text-xs font-black text-cyan-700">Müşteri gibi görüntüle</a>
+      <div className="premium-scrollbar mb-5 flex gap-2 overflow-x-auto pb-2">
+        {tabs.map((item) => <button key={item} onClick={() => setTab(item)} className={`shrink-0 rounded-full px-3 py-2 text-xs font-bold ${tab === item ? "bg-cyan-300 text-slate-950" : "border border-slate-200 text-slate-600"}`}>{item}</button>)}
+        <a href={`/musteri-paneli?company=${company.id}`} target="_blank" rel="noreferrer" className="ml-auto shrink-0 rounded-full border border-cyan-200/30 px-3 py-2 text-xs font-black text-cyan-700">Müşteri gibi görüntüle</a>
       </div>
       {tab === "Genel Bilgi" && <div className="grid gap-3 md:grid-cols-2">
         <Field label="Firma adı" value={company.name} onChange={(v) => updateCompany(company.id, { name: v })} />
@@ -6466,6 +6509,81 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
       {tab === "Müşteri Kurulumu" && <CustomerOnboardingEditor company={company} content={content} setContent={setContent} setTab={setTab} notify={notify} />}
       {tab === "Büyüme" && <CustomerGrowthPanel company={company} content={content} setActive={setActive} />}
       {tab === "Entegrasyonlar" && <CustomerIntegrationsPanel company={company} users={users} campaigns={campaigns} reports={reports} content={content} setContent={setContent} notify={notify} />}
+      {tab === "Platform Yönetimi" && <div className="rounded-[18px] border border-cyan-200 bg-cyan-50 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[.14em] text-cyan-700">Platform Yönetimi</p>
+            <h3 className="mt-2 text-xl font-black text-slate-950">Müşteri platformlarını yönet</h3>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Bu müşteri için müşteri panelinde görünecek platformları buradan yönetirsiniz.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => { setEnabledPlatforms([]); setPortalSettingsMessage("Platform seçimleri temizlendi. Kaydettiğinizde müşteri panelinde platform kartı görünmez."); }} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700">Reset</button>
+            <button onClick={savePortalSettings} disabled={portalSettingsSaving} className="rounded-full bg-cyan-500 px-4 py-2 text-xs font-black text-white disabled:opacity-60">{portalSettingsSaving ? "Kaydediliyor..." : "Kaydet"}</button>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <AgencyStatCard label="Aktif platform" value={enabledPlatforms.length} note="Müşteri panelinde görünür" />
+          <AgencyStatCard label="Pasif platform" value={CUSTOMER_PLATFORM_REGISTRY.length - enabledPlatforms.length} note="Kart ve API akışı çalışmaz" tone="amber" />
+          <AgencyStatCard label="Hesap Bağla" value={enabledPlatforms.length ? "Dinamik" : "Kapalı"} note="Registry üzerinden beslenir" tone="emerald" />
+        </div>
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {CUSTOMER_PLATFORM_REGISTRY.map((platform) => {
+            const checked = enabledPlatforms.includes(platform.key);
+            return <label key={platform.key} className={`rounded-[16px] border p-4 transition ${checked ? "border-cyan-200 bg-white shadow-sm" : "border-slate-200 bg-slate-50"}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className={`mb-3 grid size-11 place-items-center rounded-[14px] ${checked ? "bg-cyan-100 text-cyan-700" : "bg-white text-slate-500"}`}>{platform.title.slice(0, 1)}</div>
+                  <p className="font-black text-slate-950">{platform.title}</p>
+                  <p className="mt-2 text-xs leading-5 text-slate-500">{platform.description}</p>
+                </div>
+                <span className={`rounded-full px-2 py-1 text-[10px] font-black ${checked ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{checked ? "Aktif" : "Pasif"}</span>
+              </div>
+              <div className="mt-4 flex items-center justify-between rounded-[12px] bg-slate-50 px-3 py-2 text-xs font-black text-slate-700">
+                <span>{checked ? "Müşteriye açık" : "Gizli"}</span>
+                <input type="checkbox" checked={checked} onChange={() => setEnabledPlatforms((current) => togglePortalValue(current, platform.key))} className="size-5 accent-cyan-500" />
+              </div>
+            </label>;
+          })}
+        </div>
+        {portalSettingsMessage && <p className="mt-4 rounded-[12px] border border-cyan-200 bg-white p-3 text-sm font-bold text-cyan-900">{portalSettingsMessage}</p>}
+      </div>}
+      {tab === "Müşteri Paneli Yetkileri" && <div className="rounded-[18px] border border-violet-200 bg-violet-50 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[.14em] text-violet-700">Müşteri Paneli Yetkilendirme Merkezi</p>
+            <h3 className="mt-2 text-xl font-black text-slate-950">Panel modüllerini yönet</h3>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Bu müşteri için müşteri panelinde görünecek modülleri buradan yönetirsiniz.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => { setEnabledModules(DEFAULT_CUSTOMER_MODULES); setPortalSettingsMessage("Modüller varsayılan sete alındı. Kaydettiğinizde müşteri paneli buna göre güncellenir."); }} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700">Reset</button>
+            <button onClick={savePortalSettings} disabled={portalSettingsSaving} className="rounded-full bg-violet-500 px-4 py-2 text-xs font-black text-white disabled:opacity-60">{portalSettingsSaving ? "Kaydediliyor..." : "Kaydet"}</button>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <AgencyStatCard label="Gösterilen modül" value={enabledModules.length} note="Navigation ve içerikte görünür" />
+          <AgencyStatCard label="Gizlenen modül" value={CUSTOMER_MODULE_REGISTRY.length - enabledModules.length} note="Müşteri panelinde render edilmez" tone="amber" />
+          <AgencyStatCard label="AI Asistan" value={enabledModules.includes("ai_assistant") ? "Açık" : "Kapalı"} note="Widget görünürlüğü" tone="emerald" />
+        </div>
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {CUSTOMER_MODULE_REGISTRY.map((module) => {
+            const checked = enabledModules.includes(module.key);
+            return <label key={module.key} className={`rounded-[16px] border p-4 transition ${checked ? "border-violet-200 bg-white shadow-sm" : "border-slate-200 bg-slate-50"}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-black text-slate-950">{module.title}</p>
+                  <p className="mt-2 text-xs leading-5 text-slate-500">{module.description}</p>
+                </div>
+                <span className={`rounded-full px-2 py-1 text-[10px] font-black ${checked ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{checked ? "Göster" : "Gizle"}</span>
+              </div>
+              <div className="mt-4 flex items-center justify-between rounded-[12px] bg-slate-50 px-3 py-2 text-xs font-black text-slate-700">
+                <span>{checked ? "Müşteri görür" : "Müşteriden gizli"}</span>
+                <input type="checkbox" checked={checked} onChange={() => setEnabledModules((current) => togglePortalValue(current, module.key))} className="size-5 accent-violet-500" />
+              </div>
+            </label>;
+          })}
+        </div>
+        {portalSettingsMessage && <p className="mt-4 rounded-[12px] border border-violet-200 bg-white p-3 text-sm font-bold text-violet-900">{portalSettingsMessage}</p>}
+      </div>}
       {tab === "Bağlantı Bilgileri" && <CustomerConnectionCredentialsPanel company={company} notify={notify} />}
       {tab === "Marka Varlıkları" && <CustomerBrandAssets company={company} content={content} setContent={setContent} notify={notify} mode="full" />}
       {tab === "Giriş Bilgileri" && <div>
