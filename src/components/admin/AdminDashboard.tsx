@@ -1561,6 +1561,9 @@ function OAuthSetupStatusPanel() {
             {key === "meta" && <p><strong>Manuel bağlantı destekleniyor mu?</strong> Evet.</p>}
             {key === "meta" && <p><strong>Not:</strong> {item.businessPermissionNote}</p>}
             {key === "meta" && <p><strong>Açıklama:</strong> {item.businessAssetListingMessage}</p>}
+            {key === "google" && <p><strong>Google bağlantı hazır mı?</strong> {item.ready ? "Evet" : "Hayır"}</p>}
+            {key === "google" && <p><strong>OAuth (Yetkilendirme) scope / izin kapsamı:</strong> {item.scopes?.join(", ") || "Eksik"}</p>}
+            {key === "google" && <p><strong>Kurulum notları:</strong> {item.googleApiNotes?.join(" · ") || "Google API notu yok."}</p>}
           </div>
           <details className="mt-3 rounded-[12px] border border-slate-200 bg-slate-50 p-3">
             <summary className="cursor-pointer text-xs font-black text-slate-700">Authorize URL önizlemesi</summary>
@@ -1620,7 +1623,7 @@ function IntelligenceMvpPanel({ compact = false }: any) {
       <div className="rounded-[16px] border border-indigo-100 bg-white p-4">
         <h4 className="font-black text-slate-950">Bugün neye bakmalıyım?</h4>
         <div className="mt-3 grid gap-2">
-          {(data?.priorityList || []).slice(0, 5).map((item: string) => <p key={item} className="rounded-[12px] bg-indigo-50 px-3 py-2 text-sm font-bold text-indigo-800">{item}</p>)}
+          {(data?.topActions?.length ? data.topActions.map((item: any) => `${item.name}: ${item.text}`) : data?.priorityList || []).slice(0, 5).map((item: string) => <p key={item} className="rounded-[12px] bg-indigo-50 px-3 py-2 text-sm font-bold text-indigo-800">{item}</p>)}
           {!data?.priorityList?.length && <p className="text-sm text-slate-500">Henüz canlı sinyal yok. Bağlantılar tamamlandığında öncelik listesi oluşur.</p>}
         </div>
       </div>
@@ -1630,6 +1633,24 @@ function IntelligenceMvpPanel({ compact = false }: any) {
           {["Google Ads", "GA4", "Search Console", "Google Business Profile", "Meta"].map((label) => <span key={label} className="rounded-full border border-cyan-100 bg-cyan-50 px-3 py-1.5 text-xs font-black text-cyan-800">{label}: bağlantı/veri durumuna göre izlenir</span>)}
         </div>
         <p className="mt-3 text-xs leading-5 text-slate-500">Meta için ads_read ve App Review bekleniyorsa manuel reklam hesabı varlığı sistemde gerçek asset olarak görünür; canlı metrik bekleniyor durumu korunur.</p>
+      </div>
+    </div>
+    <div className="mt-4 grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
+      <div className="rounded-[16px] border border-amber-100 bg-white p-4">
+        <h4 className="font-black text-slate-950">Bağlantısı eksik müşteriler</h4>
+        <div className="mt-3 grid gap-2">{(data?.connectionMissingCustomers || []).slice(0, 5).map((item: any) => <p key={item.customerId || item.name} className="rounded-[10px] bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900">{item.name}: {(item.missingConnections || []).join(", ") || "Bağlantı bekleniyor"}</p>)}{!data?.connectionMissingCustomers?.length && <p className="text-xs text-slate-500">Eksik bağlantı görünmüyor.</p>}</div>
+      </div>
+      <div className="rounded-[16px] border border-emerald-100 bg-white p-4">
+        <h4 className="font-black text-slate-950">Veri gelen müşteriler</h4>
+        <div className="mt-3 grid gap-2">{(data?.dataReadyCustomers || []).slice(0, 5).map((item: any) => <p key={item.customerId || item.name} className="rounded-[10px] bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-900">{item.name}: {(item.readySources || []).join(", ")}</p>)}{!data?.dataReadyCustomers?.length && <p className="text-xs text-slate-500">Henüz canlı veri gelen müşteri yok.</p>}</div>
+      </div>
+      <div className="rounded-[16px] border border-rose-100 bg-white p-4">
+        <h4 className="font-black text-slate-950">Kritik uyarılar</h4>
+        <div className="mt-3 grid gap-2">{(data?.criticalAlerts || []).slice(0, 5).map((item: any) => <p key={`${item.name}-${item.text}`} className="rounded-[10px] bg-rose-50 px-3 py-2 text-xs font-bold text-rose-900">{item.name}: {item.text}</p>)}{!data?.criticalAlerts?.length && <p className="text-xs text-slate-500">Kritik uyarı yok.</p>}</div>
+      </div>
+      <div className="rounded-[16px] border border-cyan-100 bg-white p-4">
+        <h4 className="font-black text-slate-950">Fırsat skoru yüksek</h4>
+        <div className="mt-3 grid gap-2">{(data?.highOpportunityCustomers || []).slice(0, 5).map((item: any) => <p key={item.customerId || item.name} className="rounded-[10px] bg-cyan-50 px-3 py-2 text-xs font-bold text-cyan-900">{item.name}: {item.opportunityCount} fırsat</p>)}{!data?.highOpportunityCustomers?.length && <p className="text-xs text-slate-500">Fırsat sinyali bekleniyor.</p>}</div>
       </div>
     </div>
   </section>;

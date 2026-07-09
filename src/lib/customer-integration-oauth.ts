@@ -37,8 +37,8 @@ const providerConfig: Record<Provider, {
     label: "Google",
     env: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI"],
     authBase: "https://accounts.google.com/o/oauth2/v2/auth",
-    scope: "https://www.googleapis.com/auth/adwords https://www.googleapis.com/auth/analytics.readonly https://www.googleapis.com/auth/webmasters.readonly https://www.googleapis.com/auth/youtube.readonly openid email profile",
-    assetTypes: ["Google Ads Customer", "GA4 Property", "YouTube Channel", "Search Console Site"]
+    scope: "openid email profile https://www.googleapis.com/auth/analytics.readonly https://www.googleapis.com/auth/webmasters.readonly https://www.googleapis.com/auth/adwords https://www.googleapis.com/auth/business.manage",
+    assetTypes: ["Google Ads Customer", "GA4 Property", "Search Console Site", "Google Business Profile"]
   },
   tiktok: {
     label: "TikTok",
@@ -220,6 +220,12 @@ export function getOAuthProviderStatus(provider: Provider) {
     businessPermissionNote: provider === "meta" ? "business_management, ads_read, pages_show_list ve instagram_basic OAuth URL'ye eklenmez; yalnız Business API teşhis sonucu ve App Review gereksinimi olarak gösterilir." : undefined,
     manualAdAccountSupported: provider === "meta" ? true : undefined,
     manualFallbackMessage: provider === "meta" ? "Business Verification yokken önerilen mod: Meta reklam hesabı ID'sini manuel bağlayın. ads_read onayı geldiğinde aynı kayıt üzerinden insight çekimi denenir." : undefined,
+    googleApiNotes: provider === "google" ? [
+      "GA4 için Google Analytics Admin/Data API etkin olmalı.",
+      "Search Console için Webmasters API etkin olmalı.",
+      "Google Ads için GOOGLE_ADS_DEVELOPER_TOKEN ve erişilebilir müşteri hesabı gerekir.",
+      "Google Business Profile için Business Profile API erişimi gerekir."
+    ] : undefined,
     redirectUri: credentials.redirectUri,
     expectedRedirectUri,
     redirectUriMatches,
@@ -454,6 +460,18 @@ async function fetchMetaUserInfo(accessToken: string) {
   };
 }
 
+async function fetchGoogleUserInfo(accessToken: string) {
+  const response = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", { headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.sub) throw new Error(payload.error_description || payload.error || "Google kullanıcı bilgisi alınamadı.");
+  return {
+    id: clean(payload.sub),
+    name: clean(payload.name),
+    email: clean(payload.email),
+    picture: clean(payload.picture)
+  };
+}
+
 async function saveMetaPhase1Integration(session: any, token: any, metaUser: { id: string; name: string; email: string }, expiresAt: string) {
   if (!hasSupabaseConfig()) throw new Error("Supabase bağlantısı yapılandırılmadı.");
   const rows = await supabaseRest<any[]>(`customer_integrations?company_id=eq.${encodeURIComponent(session.companyId)}&select=*&limit=1`).catch(() => []);
@@ -527,6 +545,88 @@ async function saveMetaPhase1Integration(session: any, token: any, metaUser: { i
   return phase1Asset;
 }
 
+async function saveGoogleOAuthIntegration(session: any, token: any, googleUser: { id: string; name: string; email: string; picture?: string }, expiresAt: string) {
+  if (!hasSupabaseConfig()) throw new Error("Supabase bağlantısı yapılandırılmadı.");
+  const rows = await supabaseRest<any[]>(`customer_integrations?company_id=eq.${encodeURIComponent(session.companyId)}&select=*&limit=1`).catch(() => []);
+  const existing = rows[0] || null;
+  const currentAssets = Array.isArray(existing?.integration_assets) ? existing.integration_assets : [];
+  const now = new Date().toISOString();
+  const scopes = String(token.scope || effectiveProviderScope("google")).split(/[,\s]+/).map(clean).filter(Boolean);
+  const googleAsset = {
+    id: `google-profile-${googleUser.id}`,
+    provider: "google",
+    platform: "google",
+    platform_label: "Google",
+    asset_type: "google_profile",
+    asset_name: googleUser.email || googleUser.name || googleUser.id,
+    asset_id: googleUser.id,
+    account_id: googleUser.id,
+    provider_account_id: googleUser.id,
+    provider_account_name: googleUser.email || googleUser.name || googleUser.id,
+    account_type: "google_profile",
+    status: "connected_oauth",
+    source: "customer",
+    connection_mode: "oauth",
+    connection_method: "oauth",
+    admin_review_status: "approved",
+    oauth_status: "connected",
+    oauth_scopes: scopes,
+    scopes,
+    token_expires_at: expiresAt || null,
+    last_synced_at: now,
+    metadata: {
+      phase: "google_oauth_phase_2",
+      google_user_id: googleUser.id,
+      google_user_name: googleUser.name,
+      google_user_email: googleUser.email,
+      picture: googleUser.picture || "",
+      api_note: "GA4, Search Console, Google Ads ve Google Business Profile varlıkları server-side listelenir; token frontend'e dönmez."
+    }
+  };
+  const nextAssets = [
+    googleAsset,
+    ...currentAssets.filter((item: any) => `${item.provider || item.platform}-${item.account_type || item.asset_type}-${item.provider_account_id || item.account_id || item.asset_id}` !== `google-google_profile-${googleUser.id}`)
+  ];
+  const sensitiveMetadata = {
+    ...(existing?.sensitive_metadata && typeof existing.sensitive_metadata === "object" ? existing.sensitive_metadata : {}),
+    google_oauth: {
+      access_token_encrypted: encryptSecret(token.accessToken || ""),
+      refresh_token_encrypted: token.refreshToken ? encryptSecret(token.refreshToken) : existing?.sensitive_metadata?.google_oauth?.refresh_token_encrypted || "",
+      token_expires_at: expiresAt || null,
+      scopes,
+      updated_at: now
+    }
+  };
+  const patch = {
+    company_id: session.companyId,
+    customer_id: session.companyId,
+    provider: existing?.provider || "google",
+    platform: existing?.platform || "google",
+    account_type: existing?.account_type || "google_profile",
+    provider_account_id: existing?.provider_account_id || googleUser.id,
+    provider_account_name: existing?.provider_account_name || googleUser.email || googleUser.name || googleUser.id,
+    status: existing?.status || "connected_oauth",
+    source: "customer",
+    connection_mode: existing?.connection_mode || "oauth",
+    connection_method: existing?.connection_method || "oauth",
+    admin_review_status: existing?.admin_review_status || "approved",
+    oauth_status: "connected",
+    oauth_account_id: existing?.oauth_account_id || googleUser.id,
+    oauth_asset_id: existing?.oauth_asset_id || googleUser.id,
+    oauth_asset_type: existing?.oauth_asset_type || "google_profile",
+    scopes: Array.from(new Set([...(Array.isArray(existing?.scopes) ? existing.scopes : []), ...scopes])),
+    sensitive_metadata: sensitiveMetadata,
+    metadata: { ...(existing?.metadata || {}), google_user_email: googleUser.email, google_oauth_connected_at: now },
+    integration_assets: nextAssets,
+    last_synced_at: now,
+    sync_error: "",
+    updated_by: session.profileId || null,
+    created_by: existing?.created_by || session.profileId || null
+  };
+  await supabaseRest<any[]>("customer_integrations?on_conflict=company_id", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify(patch) });
+  return googleAsset;
+}
+
 function callbackErrorCode(providerError: string, description: string) {
   const text = `${providerError} ${description}`.toLocaleLowerCase("tr-TR");
   if (text.includes("invalid scope") || text.includes("invalid_scopes")) return "invalid_scope";
@@ -566,6 +666,15 @@ export async function oauthCallback(provider: Provider, request: Request) {
         await saveMetaPhase1Integration(session, token, metaUser, expiresAt);
       } catch (error) {
         console.error("Meta OAuth Phase 1 user info/save failed", error instanceof Error ? error.message : "unknown_error");
+        return redirectWithIntegrationError(request, returnTo, provider, "user_info_fetch_failed");
+      }
+    }
+    if (provider === "google") {
+      try {
+        const googleUser = await fetchGoogleUserInfo(token.accessToken);
+        await saveGoogleOAuthIntegration(session, token, googleUser, expiresAt);
+      } catch (error) {
+        console.error("Google OAuth user info/save failed", error instanceof Error ? error.message : "unknown_error");
         return redirectWithIntegrationError(request, returnTo, provider, "user_info_fetch_failed");
       }
     }
@@ -643,38 +752,92 @@ function metaPhase1AccountFromSession(oauthSession: any) {
   };
 }
 
+function googleApiErrorMessage(payload: any, fallback: string) {
+  const raw = clean(payload?.error?.message || payload?.error_description || payload?.message || payload?.error || fallback);
+  const lower = raw.toLocaleLowerCase("tr-TR");
+  if (lower.includes("api has not been used") || lower.includes("disabled") || lower.includes("not enabled")) return "Google Cloud’da ilgili API etkinleştirilmelidir.";
+  if (lower.includes("permission") || lower.includes("insufficient") || lower.includes("forbidden") || lower.includes("unauthorized")) return "Google hesabında bu varlığı okumak için yetki gerekiyor.";
+  if (lower.includes("developer token")) return "Google Ads hesaplarını listelemek için GOOGLE_ADS_DEVELOPER_TOKEN gerekiyor.";
+  return raw || fallback;
+}
+
+async function googleJson(url: string, accessToken: string, init: RequestInit = {}) {
+  const response = await fetch(url, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      ...(init.headers || {})
+    },
+    cache: "no-store"
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(googleApiErrorMessage(payload, "Google API isteği başarısız oldu."));
+  return payload;
+}
+
 async function fetchGoogleAccounts(accessToken: string) {
-  const userResponse = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", { headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" });
-  const user = await userResponse.json().catch(() => ({}));
+  const user = await googleJson("https://www.googleapis.com/oauth2/v3/userinfo", accessToken).catch((error) => ({ sub: "", email: "", name: error instanceof Error ? error.message : "" }));
+  const warnings: string[] = [];
   const accounts: any[] = [{
     id: `google-profile-${user.sub || "authorized"}`,
     provider: "google",
-    platform: "google_ads",
-    account_type: "google_ads_customer",
+    platform: "google",
+    account_type: "google_profile",
     provider_account_id: user.sub || "",
     provider_account_name: user.email || user.name || "Google hesabı doğrulandı",
-    status: process.env.GOOGLE_ADS_DEVELOPER_TOKEN ? "Seçilebilir" : "Google Ads hesaplarını listelemek için GOOGLE_ADS_DEVELOPER_TOKEN gerekiyor.",
-    metadata: { email: user.email || "", note: "Google Ads varlıkları için developer token gerekebilir." }
+    status: "Bağlı Google profili",
+    category: "Google Profil",
+    metadata: { email: user.email || "", note: "Bu profil token doğrulaması için kullanılır; rapor varlığı seçmek için aşağıdaki hesapları seçin." }
   }];
-  const [ga4, sites, youtube] = await Promise.allSettled([
-    fetch("https://analyticsadmin.googleapis.com/v1beta/accountSummaries", { headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" }).then((response) => response.json()),
-    fetch("https://www.googleapis.com/webmasters/v3/sites", { headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" }).then((response) => response.json()),
-    fetch("https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true", { headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" }).then((response) => response.json())
+  const [ga4, sites, ads, gbpAccounts] = await Promise.allSettled([
+    googleJson("https://analyticsadmin.googleapis.com/v1beta/accountSummaries", accessToken),
+    googleJson("https://www.googleapis.com/webmasters/v3/sites", accessToken),
+    process.env.GOOGLE_ADS_DEVELOPER_TOKEN
+      ? googleJson("https://googleads.googleapis.com/v18/customers:listAccessibleCustomers", accessToken, { headers: { "developer-token": process.env.GOOGLE_ADS_DEVELOPER_TOKEN } })
+      : Promise.reject(new Error("Google Ads hesaplarını listelemek için GOOGLE_ADS_DEVELOPER_TOKEN gerekiyor.")),
+    googleJson("https://mybusinessaccountmanagement.googleapis.com/v1/accounts", accessToken)
   ]);
   if (ga4.status === "fulfilled") {
     const summaries = Array.isArray(ga4.value.accountSummaries) ? ga4.value.accountSummaries : [];
     summaries.flatMap((summary: any) => Array.isArray(summary.propertySummaries) ? summary.propertySummaries : []).forEach((property: any) => {
-      accounts.push({ id: `google-ga4-${property.property}`, provider: "google", platform: "google_analytics", account_type: "ga4_property", provider_account_id: String(property.property || "").replace("properties/", ""), provider_account_name: property.displayName || property.property, status: "Seçilebilir", metadata: property });
+      accounts.push({ id: `google-ga4-${property.property}`, provider: "google", platform: "google_analytics", category: "GA4 Properties", account_type: "ga4_property", provider_account_id: String(property.property || "").replace("properties/", ""), provider_account_name: property.displayName || property.property, status: "Seçilebilir", metadata: property });
     });
+  } else {
+    warnings.push(`GA4: ${ga4.reason instanceof Error ? ga4.reason.message : "Google Analytics Admin API verisi alınamadı."}`);
   }
   if (sites.status === "fulfilled") {
     const entries = Array.isArray(sites.value.siteEntry) ? sites.value.siteEntry : [];
-    entries.forEach((site: any) => accounts.push({ id: `google-search-${site.siteUrl}`, provider: "google", platform: "search_console", account_type: "search_console_site", provider_account_id: site.siteUrl, provider_account_name: site.siteUrl, status: site.permissionLevel || "Seçilebilir", metadata: site }));
+    entries.forEach((site: any) => accounts.push({ id: `google-search-${site.siteUrl}`, provider: "google", platform: "search_console", category: "Search Console Siteleri", account_type: "search_console_site", provider_account_id: site.siteUrl, provider_account_name: site.siteUrl, status: site.permissionLevel || "Seçilebilir", metadata: site }));
+  } else {
+    warnings.push(`Search Console: ${sites.reason instanceof Error ? sites.reason.message : "Search Console siteleri alınamadı."}`);
   }
-  if (youtube.status === "fulfilled") {
-    const channels = Array.isArray(youtube.value.items) ? youtube.value.items : [];
-    channels.forEach((channel: any) => accounts.push({ id: `google-youtube-${channel.id}`, provider: "google", platform: "youtube", account_type: "youtube_channel", provider_account_id: channel.id, provider_account_name: channel.snippet?.title || channel.id, status: "Seçilebilir", metadata: { title: channel.snippet?.title || "" } }));
+  if (ads.status === "fulfilled") {
+    const resourceNames = Array.isArray(ads.value.resourceNames) ? ads.value.resourceNames : [];
+    resourceNames.forEach((resourceName: string) => {
+      const customerId = clean(resourceName).replace("customers/", "");
+      accounts.push({ id: `google-ads-${customerId}`, provider: "google", platform: "google_ads", category: "Google Ads Hesapları", account_type: "google_ads_customer", provider_account_id: customerId, provider_account_name: `Google Ads Customer ID ${customerId}`, status: "Seçilebilir", metadata: { resourceName } });
+    });
+  } else {
+    warnings.push(`Google Ads: ${ads.reason instanceof Error ? ads.reason.message : "Google Ads erişilebilir müşteri listesi alınamadı."}`);
   }
+  if (gbpAccounts.status === "fulfilled") {
+    const gbpList = Array.isArray(gbpAccounts.value.accounts) ? gbpAccounts.value.accounts : [];
+    for (const account of gbpList.slice(0, 10)) {
+      const accountName = clean(account.name);
+      accounts.push({ id: `google-business-${accountName}`, provider: "google", platform: "google_business_profile", category: "Business Profile Lokasyonları", account_type: "google_business_profile_account", provider_account_id: accountName, provider_account_name: account.accountName || accountName, status: "Seçilebilir", metadata: account });
+      try {
+        const locations = await googleJson(`https://mybusinessbusinessinformation.googleapis.com/v1/${accountName}/locations?readMask=name,title,storeCode`, accessToken);
+        (Array.isArray(locations.locations) ? locations.locations : []).forEach((location: any) => {
+          accounts.push({ id: `google-business-location-${location.name}`, provider: "google", platform: "google_business_profile", category: "Business Profile Lokasyonları", account_type: "google_business_location", provider_account_id: location.name, provider_account_name: location.title || location.name, status: "Seçilebilir", metadata: location });
+        });
+      } catch (error) {
+        warnings.push(`Business Profile lokasyonları: ${error instanceof Error ? error.message : "Lokasyonlar alınamadı."}`);
+      }
+    }
+  } else {
+    warnings.push(`Google Business Profile: ${gbpAccounts.reason instanceof Error ? gbpAccounts.reason.message : "Business Profile hesapları alınamadı."}`);
+  }
+  (accounts as any).warnings = warnings.filter(Boolean);
   return accounts;
 }
 
@@ -751,7 +914,7 @@ export async function oauthAccounts(request: Request) {
       return NextResponse.json({ ok: true, provider, accounts: result.accounts, groups: result.groups, warnings: result.warnings, diagnostics: result.diagnostics, phase: "meta_business_phase_2", advancedScopesEnabled: true, message: result.message });
     }
     const accounts = provider === "google" ? await fetchGoogleAccounts(accessToken) : provider === "tiktok" ? await fetchTikTokAccounts(accessToken) : await fetchXAccounts(accessToken);
-    return NextResponse.json({ ok: true, provider, accounts, message: accounts.length ? "Yetkili hesaplar listelendi." : "Hesap bulunamadı veya yetki kapsamı yetersiz." });
+    return NextResponse.json({ ok: true, provider, accounts, warnings: (accounts as any).warnings || [], message: accounts.length > 1 ? "Yetkili hesaplar listelendi." : "Temel profil doğrulandı; rapor varlığı bulunamadı veya ilgili Google API/izin bekleniyor." });
   } catch (error) {
     return NextResponse.json({ ok: false, provider, accounts: [], code: "provider_fetch_failed", message: error instanceof Error ? error.message : "Yetkili hesaplar alınamadı." }, { status: 502 });
   }

@@ -40,6 +40,11 @@ const platformCards = [
     ["search_console_site_url", "Site URL", "Google Search Console içindeki doğrulanmış site adresi."],
     ["domain_property", "Domain Property", "Varsa domain mülk adı."]
   ] },
+  { key: "google_business_profile", title: "Google Business Profile", type: "google_business_profile", oauthProvider: "google", autoLabel: "Google ile Giriş Yap", typeLabel: "Google işletme profili hesap ve lokasyon seçimi", icon: Globe2, tone: "bg-lime-50 text-lime-700", fields: [
+    ["google_business_profile_id", "Business Profile hesap/lokasyon ID", "Google işletme profili hesabı veya lokasyon kimliği."],
+    ["location_name", "Lokasyon adı", "İşletme profilindeki lokasyon adı."],
+    ["store_code", "Store code opsiyonel", "Varsa Google Business Profile mağaza kodu."]
+  ] },
   { key: "x_twitter", title: "X / Twitter", type: "x_profile", oauthProvider: "x", autoLabel: "X ile Giriş Yap", typeLabel: "X hesabı ve uygun izin varsa X Ads hesabı seçimi", icon: AtSign, tone: "bg-slate-50 text-slate-800", fields: [
     ["username", "X kullanıcı adı", "@ ile başlayan X kullanıcı adı."],
     ["profile_url", "X profil linki", "X profil bağlantısı."],
@@ -158,11 +163,20 @@ export function CustomerAccountConnectCenter() {
     missing: assets.filter((item) => item.status === "missing_info" || item.status === "error").length,
     last: assets.map((item) => item.updated_at).filter(Boolean).sort().at(-1)
   }), [assets]);
-  const activeAsset = useMemo(() => assets.find((item) => item.platform === active.key || (active.key === "meta" && item.provider === "meta" && item.account_type === "meta_user")), [assets, active.key]);
+  const activeAsset = useMemo(() => assets.find((item) => item.platform === active.key || (active.key === "meta" && item.provider === "meta" && item.account_type === "meta_user") || (active.oauthProvider === "google" && item.provider === "google" && item.account_type === "google_profile")), [assets, active.key, active.oauthProvider]);
   const groupedOAuthAccounts = useMemo(() => {
     const accounts = Array.isArray(oauthInfo?.accounts) ? oauthInfo.accounts : [];
     return accounts.reduce((groups: Record<string, any[]>, item: any) => {
-      const key = item.category || (item.account_type === "meta_business" ? "Business Manager" : item.account_type === "meta_ad_account" ? "Reklam Hesapları" : item.account_type === "facebook_page" ? "Facebook Sayfaları" : item.account_type === "instagram_business" ? "Instagram Business" : "Diğer Hesaplar");
+      const key = item.category
+        || (item.account_type === "meta_business" ? "Business Manager"
+          : item.account_type === "meta_ad_account" ? "Reklam Hesapları"
+            : item.account_type === "facebook_page" ? "Facebook Sayfaları"
+              : item.account_type === "instagram_business" ? "Instagram Business"
+                : item.account_type === "google_ads_customer" ? "Google Ads Hesapları"
+                  : item.account_type === "ga4_property" ? "GA4 Properties"
+                    : item.account_type === "search_console_site" ? "Search Console Siteleri"
+                      : item.account_type?.includes("google_business") ? "Business Profile Lokasyonları"
+                        : "Diğer Hesaplar");
       groups[key] = [...(groups[key] || []), item];
       return groups;
     }, {});
@@ -298,7 +312,8 @@ export function CustomerAccountConnectCenter() {
       setOauthInfo(payload);
       if (payload.diagnostics) setMetaDiagnostics(payload.diagnostics);
       setAssetPickerOpen(true);
-      setSelectedAssetIds((payload.accounts || []).slice(0, 1).map((item: any) => item.id));
+      const selectableAccounts = active.oauthProvider === "google" ? (payload.accounts || []).filter((item: any) => item.account_type !== "google_profile") : (payload.accounts || []);
+      setSelectedAssetIds(selectableAccounts.slice(0, 1).map((item: any) => item.id));
       if (!response.ok) setMessage(payload.message || "Yetkili hesap listesi şu an alınamadı. Manuel giriş kullanabilirsiniz.");
     } catch {
       setMessage("Hesap listesi alınamadı. Manuel giriş kullanabilirsiniz.");
@@ -404,12 +419,13 @@ export function CustomerAccountConnectCenter() {
                 <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-emerald-800">{methodLabel[activeAsset.connection_method || activeAsset.connection_mode] || activeAsset.connection_method || "OAuth"}</span>
               </div>
               <div className="mt-3 grid gap-2 text-sm leading-6 text-emerald-950 md:grid-cols-2">
-                <p><strong>Meta kullanıcı adı:</strong> {activeAsset.provider_account_name || activeAsset.metadata?.meta_user_name || "Yok"}</p>
-                <p><strong>Meta kullanıcı ID:</strong> {activeAsset.provider_account_id || activeAsset.account_id || activeAsset.metadata?.meta_user_id || "Yok"}</p>
+                <p><strong>{active.oauthProvider === "google" ? "Google kullanıcı/e-posta" : "Meta kullanıcı adı"}:</strong> {activeAsset.provider_account_name || activeAsset.metadata?.google_user_email || activeAsset.metadata?.meta_user_name || "Yok"}</p>
+                <p><strong>{active.oauthProvider === "google" ? "Google kullanıcı ID" : "Meta kullanıcı ID"}:</strong> {activeAsset.provider_account_id || activeAsset.account_id || activeAsset.metadata?.google_user_id || activeAsset.metadata?.meta_user_id || "Yok"}</p>
                 <p><strong>Bağlantı tarihi:</strong> {activeAsset.last_synced_at || activeAsset.updated_at ? new Date(activeAsset.last_synced_at || activeAsset.updated_at).toLocaleString("tr-TR") : "Yok"}</p>
                 <p><strong>İzin kapsamı:</strong> {(activeAsset.scopes || activeAsset.oauth_scopes || ["public_profile", "email"]).join(", ")}</p>
               </div>
               {active.key === "meta" && <p className="mt-3 rounded-[12px] bg-white p-3 text-xs font-bold leading-5 text-emerald-900">Temel Facebook Login tamamlandı. Reklam hesabı, sayfa ve Instagram Business varlıklarını listelemek için gelişmiş Meta izinleri ayrıca açılmalıdır.</p>}
+              {active.oauthProvider === "google" && <p className="mt-3 rounded-[12px] bg-white p-3 text-xs font-bold leading-5 text-emerald-900">Google bağlantısı; Google Ads, GA4, Search Console ve Google Business Profile varlıklarını listelemek için kullanılır. İlgili Google Cloud API etkin değilse sistem bunu açıkça bildirir.</p>}
             </div>
           )}
 
@@ -447,12 +463,13 @@ export function CustomerAccountConnectCenter() {
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 <button type="button" onClick={startOAuth} disabled={oauthLoading} className="rounded-full bg-cyan-500 px-4 py-2 text-sm font-black text-white disabled:opacity-60">{oauthLoading ? "Kontrol ediliyor..." : active.oauthProvider === "google" ? "Google ile Giriş Yap" : active.autoLabel}</button>
-                <button type="button" onClick={loadOAuthAssets} disabled={oauthLoading} className="rounded-full border border-blue-200 bg-white px-4 py-2 text-sm font-black text-blue-800 disabled:opacity-60">Yetkili Hesapları Listele</button>
+                <button type="button" onClick={loadOAuthAssets} disabled={oauthLoading} className="rounded-full border border-blue-200 bg-white px-4 py-2 text-sm font-black text-blue-800 disabled:opacity-60">{active.oauthProvider === "google" ? "Google Varlıklarını Listele" : "Yetkili Hesapları Listele"}</button>
                 {oauthInfo?.authUrl && <a href={oauthInfo.authUrl} target="_blank" rel="noreferrer" className="rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-black text-emerald-800">Platform Girişini Aç</a>}
               </div>
               {oauthInfo?.missingEnv?.length > 0 && <p className="mt-3 rounded-[12px] bg-white p-3 text-sm font-bold text-blue-900">Bu platform için otomatik bağlantı ayarları henüz tamamlanmamış. Manuel bilgi girebilir veya HK Dijital ekibinden kurulum isteyebilirsiniz.</p>}
               {oauthInfo?.phase === "meta_oauth_phase_1" && <p className="mt-3 rounded-[12px] bg-white p-3 text-sm font-bold text-blue-900">{oauthInfo.message || "Temel Facebook Login tamamlandı. Business doğrulaması yokken manuel reklam hesabı ID ile devam edebilirsiniz."}</p>}
               {oauthInfo?.phase === "meta_business_phase_2" && <p className="mt-3 rounded-[12px] bg-white p-3 text-sm font-bold text-blue-900">Business Manager, reklam hesapları, Facebook Sayfaları ve Instagram Business varlıkları listelendi. Kullanmak istediğiniz varlıkları seçip kaydedin.</p>}
+              {active.oauthProvider === "google" && <p className="mt-3 rounded-[12px] bg-white p-3 text-sm font-bold text-blue-900">Google Ads, GA4, Search Console ve Google Business Profile verileri için Google hesabınızı bağlayın. OAuth (Yetkilendirme) tamamlandıktan sonra varlıkları seçip kaydedebilirsiniz.</p>}
               {Array.isArray(oauthInfo?.warnings) && oauthInfo.warnings.length > 0 && <p className="mt-3 rounded-[12px] bg-amber-50 p-3 text-sm font-bold text-amber-900">{oauthInfo.warnings.join(" · ")}</p>}
             </div>
           )}

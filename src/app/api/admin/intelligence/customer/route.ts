@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from "next/server";
 import { buildHKIntelligenceReport } from "@/lib/hk-intelligence-mvp";
+import { buildCustomerGoogleIntelligence } from "@/lib/google-intelligence-phase2";
 import { requireModuleAccess } from "@/lib/permissions";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
@@ -36,10 +37,12 @@ export async function GET(request: NextRequest) {
     const company = Array.isArray(companyRows) ? companyRows[0] : null;
     const integration = Array.isArray(integrationRows) ? integrationRows[0] : null;
 
+    const googleIntelligence = await buildCustomerGoogleIntelligence(customerId, dateRange).catch(() => null);
     return NextResponse.json({
       ok: true,
       source: "supabase",
-      report: buildHKIntelligenceReport({ customerId, company: company || {}, integration: integration || {}, dateRange })
+      google: googleIntelligence?.google || null,
+      report: googleIntelligence?.report || buildHKIntelligenceReport({ customerId, company: company || {}, integration: integration || {}, dateRange })
     });
   } catch (error) {
     const safeError = getSafeSupabaseError(error);
