@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, MessageCircle, Sparkles, Target, Trophy } from "lucide-react";
 import type { PackageItem, SiteContent } from "@/lib/types";
-import { recommendServicePackage } from "@/lib/packages";
+import { CONTENT_NEED_OPTIONS, SOCIAL_STATUS_OPTIONS, URGENCY_OPTIONS, packageChoiceLabel, recommendServicePackage } from "@/lib/packages";
 import { trackEvent } from "./TrackingPlaceholders";
 
 type Answers = Record<string, string>;
@@ -122,9 +122,9 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
         goal: selectedLabel(goalCards, answers.goal),
         platformNeed: selectedLabel(platformCards, answers.platform),
         budget: selectedLabel(budgetCards, answers.budget),
-        contentNeed: answers.contentNeed,
-        urgency: answers.urgency,
-        socialStatus: answers.socialStatus,
+        contentNeed: packageChoiceLabel("content", answers.contentNeed),
+        urgency: packageChoiceLabel("urgency", answers.urgency),
+        socialStatus: packageChoiceLabel("social", answers.socialStatus),
         recommendedPackage: recommendation.recommended.name,
         alternativePackage: recommendation.alternative.name
       })
@@ -138,7 +138,7 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
   }
 
   const whatsappMessage = encodeURIComponent(
-    `HK Dijital akıllı paket analizi\nPaket: ${recommendation.recommended.name}\nAlternatif: ${recommendation.alternative.name}\nİşletme türü: ${selectedLabel(businessCards, answers.businessType)}\nHedef: ${selectedLabel(goalCards, answers.goal)}\nPlatform: ${selectedLabel(platformCards, answers.platform)}\nBütçe: ${selectedLabel(budgetCards, answers.budget)}\nİçerik ihtiyacı: ${answers.contentNeed || "-"}\nAciliyet: ${answers.urgency || "-"}\nSosyal medya durumu: ${answers.socialStatus || "-"}\nAd Soyad: ${form.name || "-"}\nFirma: ${form.company || "-"}\nE-posta: ${form.email || "-"}\nTelefon: ${form.phone || "-"}\nInstagram: ${form.instagram || "-"}\nWeb: ${form.website || "-"}\nNot: ${form.note || "-"}`
+    `HK Dijital akıllı paket analizi\nPaket: ${recommendation.recommended.name}\nAlternatif: ${recommendation.alternative.name}\nİşletme türü: ${selectedLabel(businessCards, answers.businessType)}\nHedef: ${selectedLabel(goalCards, answers.goal)}\nPlatform: ${selectedLabel(platformCards, answers.platform)}\nBütçe: ${selectedLabel(budgetCards, answers.budget)}\nİçerik ihtiyacı: ${packageChoiceLabel("content", answers.contentNeed)}\nAciliyet: ${packageChoiceLabel("urgency", answers.urgency)}\nSosyal medya durumu: ${packageChoiceLabel("social", answers.socialStatus)}\nAd Soyad: ${form.name || "-"}\nFirma: ${form.company || "-"}\nE-posta: ${form.email || "-"}\nTelefon: ${form.phone || "-"}\nInstagram: ${form.instagram || "-"}\nWeb: ${form.website || "-"}\nNot: ${form.note || "-"}`
   );
   const whatsappUrl = `https://wa.me/${content.contact.whatsappNumber.replace(/\D/g, "")}?text=${whatsappMessage}`;
   const progress = ((step + 1) / steps.length) * 100;
@@ -237,11 +237,11 @@ function Options({ title, text, options, onSelect }: { title: string; text: stri
   );
 }
 
-function NeedsStep({ answers, setAnswers, onNext }: { answers: Answers; setAnswers: (update: (current: Answers) => Answers) => void; onNext: () => void }) {
+function NeedsStep({ answers, setAnswers, onNext }: { answers: Answers; setAnswers: Dispatch<SetStateAction<Answers>>; onNext: () => void }) {
   const groups = [
-    ["contentNeed", "İçerik üretim ihtiyacı", ["Düşük", "Orta", "Yüksek"]],
-    ["urgency", "Aciliyet", ["Bu ay", "30 gün içinde", "Acil"]],
-    ["socialStatus", "Mevcut sosyal medya durumu", ["Yeni", "Düzensiz", "Düzenli ama büyümüyor", "Aktif ve büyüme istiyor"]]
+    { key: "contentNeed", title: "İçerik üretim ihtiyacı", options: CONTENT_NEED_OPTIONS },
+    { key: "urgency", title: "Başlangıç zamanlaması", options: URGENCY_OPTIONS },
+    { key: "socialStatus", title: "Mevcut sosyal medya durumu", options: SOCIAL_STATUS_OPTIONS }
   ];
   return (
     <div>
@@ -250,19 +250,25 @@ function NeedsStep({ answers, setAnswers, onNext }: { answers: Answers; setAnswe
         <p className="mt-3 text-base leading-7 text-slate-300">Paket önerisini içerik üretimi, aciliyet ve mevcut sosyal medya durumuna göre netleştirin.</p>
       </div>
       <div className="mt-8 grid gap-5">
-        {groups.map(([key, title, options]) => (
-          <div key={key as string} className="rounded-[22px] border border-white/10 bg-white/[0.045] p-5">
-            <p className="text-sm font-black text-cyan-100">{title as string}</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {(options as string[]).map((option) => (
+        {groups.map((group) => (
+          <div key={group.key} className="rounded-[22px] border border-white/10 bg-white/[0.045] p-5">
+            <p className="text-sm font-black text-cyan-100">{group.title}</p>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              {group.options.map((option) => {
+                const selected = answers[group.key] === option.value;
+                return (
                 <button
-                  key={option}
-                  onClick={() => setAnswers((current) => ({ ...current, [key as string]: option }))}
-                  className={`rounded-full px-4 py-2 text-sm font-black transition ${answers[key as string] === option ? "bg-cyan-300 text-slate-950" : "border border-white/10 bg-black/20 text-slate-200 hover:bg-cyan-200/10"}`}
+                  key={option.value}
+                  type="button"
+                  aria-label={`${group.title}: ${option.label}`}
+                  onClick={() => setAnswers((current) => ({ ...current, [group.key]: option.value }))}
+                  className={`rounded-[18px] border p-4 text-left transition hover:-translate-y-0.5 ${selected ? "border-cyan-200 bg-cyan-300 text-slate-950 shadow-[0_0_34px_rgba(18,217,255,.2)]" : "border-white/10 bg-black/20 text-slate-200 hover:border-cyan-200/40 hover:bg-cyan-200/10"}`}
                 >
-                  {option}
+                  <span className="block text-sm font-black">{option.label}</span>
+                  <span className={`mt-1 block text-xs leading-5 ${selected ? "text-slate-800" : "text-slate-400"}`}>{option.description}</span>
                 </button>
-              ))}
+                );
+              })}
             </div>
           </div>
         ))}

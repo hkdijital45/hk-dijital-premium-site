@@ -368,6 +368,97 @@ export type PackageRecommendationInput = {
   socialStatus?: string;
 };
 
+export const CONTENT_NEED_OPTIONS = [
+  { value: "low", label: "Az İçerik Yeterli", description: "Mevcut görseller ve temel metinlerle ilerleyebiliriz" },
+  { value: "medium", label: "Düzenli İçerik Gerekli", description: "Aylık planlı içerik ve tasarım desteği gerekir" },
+  { value: "high", label: "Yoğun İçerik ve Kreatif Gerekli", description: "Reklam kreatifleri, Reels planı ve güçlü görsel dil gerekir" }
+] as const;
+
+export const URGENCY_OPTIONS = [
+  { value: "immediate", label: "Hemen Başlamak İstiyorum", description: "0-7 gün içinde kurulum ve başlangıç" },
+  { value: "this_month", label: "Bu Ay İçinde Başlayalım", description: "Önümüzdeki 2-4 hafta içinde planlı başlangıç" },
+  { value: "planning", label: "Önce Planlama Yapmak İstiyorum", description: "Strateji, bütçe ve içerik hazırlığı netleşsin" }
+] as const;
+
+export const SOCIAL_STATUS_OPTIONS = [
+  { value: "new", label: "Yeni Başlıyoruz", description: "Hesap yeni veya düzenli içerik geçmişi yok" },
+  { value: "irregular", label: "Düzensiz İlerliyoruz", description: "Paylaşımlar var ama planlı değil" },
+  { value: "stable_not_growing", label: "Düzenli Ama Büyümüyor", description: "İçerik var fakat etkileşim ve dönüşüm düşük" },
+  { value: "growth", label: "Aktif Büyüme İstiyoruz", description: "Düzenli yapı var, artık ölçekleme hedefleniyor" }
+] as const;
+
+function normalizeChoice(value: string | undefined, aliases: Record<string, string>) {
+  const key = String(value || "").trim().toLocaleLowerCase("tr").replace(/\s+/g, "_");
+  return aliases[key] || aliases[key.replace(/-/g, "_")] || key;
+}
+
+export function normalizeContentNeed(value?: string) {
+  return normalizeChoice(value, {
+    düşük: "low",
+    dusuk: "low",
+    low: "low",
+    az_içerik_yeterli: "low",
+    az_icerik_yeterli: "low",
+    orta: "medium",
+    medium: "medium",
+    düzenli_içerik_gerekli: "medium",
+    duzenli_icerik_gerekli: "medium",
+    yüksek: "high",
+    yuksek: "high",
+    high: "high",
+    yoğun_içerik_ve_kreatif_gerekli: "high",
+    yogun_icerik_ve_kreatif_gerekli: "high"
+  });
+}
+
+export function normalizeUrgency(value?: string) {
+  return normalizeChoice(value, {
+    acil: "immediate",
+    urgent: "immediate",
+    immediate: "immediate",
+    hemen: "immediate",
+    hemen_başlamak_istiyorum: "immediate",
+    hemen_baslamak_istiyorum: "immediate",
+    bu_ay: "this_month",
+    this_month: "this_month",
+    "30_gün_içinde": "this_month",
+    "30_gun_icinde": "this_month",
+    within_30_days: "this_month",
+    planlama: "planning",
+    planning: "planning",
+    önce_planlama_yapmak_istiyorum: "planning",
+    once_planlama_yapmak_istiyorum: "planning"
+  });
+}
+
+export function normalizeSocialStatus(value?: string) {
+  return normalizeChoice(value, {
+    yeni: "new",
+    new: "new",
+    yeni_başlıyoruz: "new",
+    yeni_basliyoruz: "new",
+    düzensiz: "irregular",
+    duzensiz: "irregular",
+    irregular: "irregular",
+    düzensiz_ilerliyoruz: "irregular",
+    duzensiz_ilerliyoruz: "irregular",
+    düzenli_ama_büyümüyor: "stable_not_growing",
+    duzenli_ama_buyumuyor: "stable_not_growing",
+    stable_not_growing: "stable_not_growing",
+    aktif_ve_büyüme_istiyor: "growth",
+    aktif_ve_buyume_istiyor: "growth",
+    aktif_büyüme_istiyoruz: "growth",
+    aktif_buyume_istiyoruz: "growth",
+    growth: "growth"
+  });
+}
+
+export function packageChoiceLabel(type: "content" | "urgency" | "social", value?: string) {
+  const normalized = type === "content" ? normalizeContentNeed(value) : type === "urgency" ? normalizeUrgency(value) : normalizeSocialStatus(value);
+  const options = type === "content" ? CONTENT_NEED_OPTIONS : type === "urgency" ? URGENCY_OPTIONS : SOCIAL_STATUS_OPTIONS;
+  return options.find((option) => option.value === normalized)?.label || value || "-";
+}
+
 function budgetNumber(value?: string | number) {
   if (typeof value === "number") return value;
   return Number(String(value || "").replace(/[^\d]/g, "")) || 0;
@@ -376,8 +467,9 @@ function budgetNumber(value?: string | number) {
 export function recommendServicePackage(input: PackageRecommendationInput) {
   const platform = String(input.platform || "").toLocaleLowerCase("tr");
   const goal = String(input.goal || "").toLocaleLowerCase("tr");
-  const contentNeed = String(input.contentNeed || "").toLocaleLowerCase("tr");
-  const urgency = String(input.urgency || "").toLocaleLowerCase("tr");
+  const contentNeed = normalizeContentNeed(input.contentNeed);
+  const urgency = normalizeUrgency(input.urgency);
+  const socialStatus = normalizeSocialStatus(input.socialStatus);
   const budget = budgetNumber(input.budget);
   const category: PackageCategoryKey = platform.includes("hepsi") || platform.includes("kombin") || platform.includes("meta + google")
     ? "combined_ads"
@@ -386,21 +478,24 @@ export function recommendServicePackage(input: PackageRecommendationInput) {
       : platform.includes("sosyal") || platform.includes("içerik")
         ? "social_media"
         : "meta";
-  const tier: PackageTier = budget >= 60000 || goal.includes("büyü") || goal.includes("satış") && urgency.includes("acil") || contentNeed.includes("yüksek")
+  const tier: PackageTier = budget >= 60000 || goal.includes("büyü") || socialStatus === "growth" || socialStatus === "stable_not_growing" && budget >= 20000 || goal.includes("satış") && urgency === "immediate" || contentNeed === "high"
     ? "Premium"
-    : budget >= 20000 || goal.includes("lead") || goal.includes("mesaj") || contentNeed.includes("orta") || urgency.includes("30")
+    : budget >= 20000 || goal.includes("lead") || goal.includes("mesaj") || contentNeed === "medium" || urgency === "this_month" || socialStatus === "irregular"
       ? "Pro"
       : "Starter";
   const recommended = HK_SERVICE_PACKAGES.find((pkg) => pkg.category === category && pkg.tier === tier) || HK_SERVICE_PACKAGES.find((pkg) => pkg.category === category) || HK_SERVICE_PACKAGES[0];
   const alternativeTier: PackageTier = tier === "Starter" ? "Pro" : tier === "Pro" ? "Premium" : "Pro";
   const alternative = HK_SERVICE_PACKAGES.find((pkg) => pkg.category === category && pkg.tier === alternativeTier) || recommended;
+  const urgencyText = packageChoiceLabel("urgency", urgency);
+  const contentText = packageChoiceLabel("content", contentNeed);
+  const socialText = packageChoiceLabel("social", socialStatus);
   return {
     recommended,
     alternative,
-    reason: `${recommended.categoryLabel} kategorisinde ${recommended.name} seviyesi; hedef, platform ihtiyacı ve bütçe aralığına göre en dengeli başlangıç noktasıdır.`,
+    reason: `${recommended.categoryLabel} kategorisinde ${recommended.name} seviyesi; hedef, platform ihtiyacı, bütçe aralığı, ${contentText.toLocaleLowerCase("tr")} ve ${urgencyText.toLocaleLowerCase("tr")} tercihlerine göre en dengeli başlangıç noktasıdır.`,
     startingStrategy: category === "social_media"
-      ? "İlk ay içerik takvimi, sayfa optimizasyonu ve raporlama ritmi kurulur."
-      : "İlk ay ölçümleme, kampanya yapısı, kreatif/metin testleri ve raporlama ritmi kurulur.",
+      ? `İlk 30 günde içerik takvimi, sayfa optimizasyonu ve raporlama ritmi kurulur. Mevcut durum: ${socialText}.`
+      : `İlk 30 günde ölçümleme, kampanya yapısı, kreatif/metin testleri ve raporlama ritmi kurulur. Öncelik: performans odaklı test, optimizasyon ve raporlama.`,
     roadmap: recommended.setupRoadmap
   };
 }

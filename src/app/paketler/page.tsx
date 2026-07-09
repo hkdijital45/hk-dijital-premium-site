@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowRight, CheckCircle2, Sparkles } from "lucide-react";
 import { disclaimerText } from "@/lib/content";
 import { pageMetadata } from "@/lib/metadata";
-import { PACKAGE_CATEGORIES, formatPackagePrice, recommendServicePackage, servicePackagesByCategory } from "@/lib/packages";
+import { CONTENT_NEED_OPTIONS, PACKAGE_CATEGORIES, SOCIAL_STATUS_OPTIONS, URGENCY_OPTIONS, formatPackagePrice, normalizeContentNeed, normalizeSocialStatus, normalizeUrgency, recommendServicePackage, servicePackagesByCategory } from "@/lib/packages";
 import { PublicShell } from "@/components/public/Shell";
 import { AnimatedSection } from "@/components/public/AnimatedSection";
 import { PageHero, PremiumCard } from "@/components/public/ui";
@@ -55,9 +55,10 @@ export default async function PackagesPage({ searchParams }: { searchParams: Pro
                     <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-100">Önerilen Paket</p>
                     <h3 className="mt-2 text-2xl font-black text-white">{recommendation.recommended.title}</h3>
                     <p className="mt-1 text-xl font-black text-cyan-100">{formatPackagePrice(recommendation.recommended)}</p>
-                    <p className="mt-3 text-sm leading-6 text-slate-200">{recommendation.reason}</p>
-                    <p className="mt-3 text-sm leading-6 text-slate-300"><b>Alternatif:</b> {recommendation.alternative.title}</p>
-                    <p className="mt-3 text-sm leading-6 text-slate-300"><b>Başlangıç stratejisi:</b> {recommendation.startingStrategy}</p>
+                    <p className="mt-3 text-sm leading-6 text-slate-200"><b>Neden bu paket?</b> {recommendation.reason}</p>
+                    <p className="mt-3 text-sm leading-6 text-slate-300"><b>Alternatif seçenek:</b> {recommendation.alternative.title}</p>
+                    <p className="mt-3 text-sm leading-6 text-slate-300"><b>HK Dijital yorumu:</b> {recommendation.startingStrategy}</p>
+                    <p className="mt-4 text-xs font-black uppercase tracking-[.16em] text-cyan-100">İlk 30 günlük yol haritası</p>
                     <div className="mt-4 grid gap-2">
                       {recommendation.roadmap.map((step) => <span key={step} className="rounded-[12px] bg-white/10 px-3 py-2 text-sm text-slate-100">{step}</span>)}
                     </div>
@@ -70,9 +71,9 @@ export default async function PackagesPage({ searchParams }: { searchParams: Pro
                   <Select name="hedef" label="Hedef" defaultValue={params.hedef} options={["bilinirlik", "mesaj", "lead", "satış", "randevu", "büyüme"]} />
                   <Select name="platform" label="Platform ihtiyacı" defaultValue={params.platform} options={["Meta", "Google", "Sosyal Medya", "Hepsi"]} />
                   <Select name="butce" label="Aylık reklam bütçesi" defaultValue={params.butce} options={["5.000 TL altı", "5.000-20.000 TL", "20.000-60.000 TL", "60.000 TL üzeri"]} />
-                  <Select name="icerik" label="İçerik üretim ihtiyacı" defaultValue={params.icerik} options={["Düşük", "Orta", "Yüksek"]} />
-                  <Select name="aciliyet" label="Aciliyet" defaultValue={params.aciliyet} options={["Bu ay", "30 gün içinde", "Acil"]} />
-                  <Select name="sosyal" label="Mevcut sosyal medya durumu" defaultValue={params.sosyal} options={["Yeni", "Düzensiz", "Düzenli ama büyümüyor", "Aktif ve büyüme istiyor"]} />
+                  <Select name="icerik" label="İçerik üretim ihtiyacı" defaultValue={params.icerik ? normalizeContentNeed(params.icerik) : ""} options={CONTENT_NEED_OPTIONS} />
+                  <Select name="aciliyet" label="Başlangıç zamanlaması" defaultValue={params.aciliyet ? normalizeUrgency(params.aciliyet) : ""} options={URGENCY_OPTIONS} />
+                  <Select name="sosyal" label="Mevcut sosyal medya durumu" defaultValue={params.sosyal ? normalizeSocialStatus(params.sosyal) : ""} options={SOCIAL_STATUS_OPTIONS} />
                 </div>
                 <button className="mt-2 inline-flex min-h-12 items-center justify-center rounded-full bg-cyan-300 px-5 text-sm font-black text-slate-950 transition hover:-translate-y-0.5 hover:bg-cyan-200">
                   Benim İçin Uygun mu? <ArrowRight className="ml-2" size={16} />
@@ -137,13 +138,19 @@ export default async function PackagesPage({ searchParams }: { searchParams: Pro
   );
 }
 
-function Select({ name, label, options, defaultValue }: { name: string; label: string; options: string[]; defaultValue?: string }) {
+type SelectOption = string | { value: string; label: string };
+
+function Select({ name, label, options, defaultValue }: { name: string; label: string; options: readonly SelectOption[]; defaultValue?: string }) {
   return (
     <label className="grid gap-1 text-sm font-bold text-slate-200">
       {label}
       <select name={name} defaultValue={defaultValue || ""} className="min-h-12 rounded-[14px] border border-white/10 bg-black/30 px-4 text-white">
         <option value="">Seçin</option>
-        {options.map((option) => <option key={option} value={option}>{option}</option>)}
+        {options.map((option) => {
+          const value = typeof option === "string" ? option : option.value;
+          const optionLabel = typeof option === "string" ? option : option.label;
+          return <option key={value} value={value}>{optionLabel}</option>;
+        })}
       </select>
     </label>
   );
