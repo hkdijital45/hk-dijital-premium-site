@@ -841,6 +841,45 @@ async function fetchGoogleAccounts(accessToken: string) {
   return accounts;
 }
 
+function googleDiscoveryGroups(accounts: any[], warnings: string[] = []) {
+  const groups: Record<string, { status: string; assets: any[]; message: string }> = {
+    ga4: { status: "empty", assets: [], message: "GA4 mülkü bulunamadı." },
+    search_console: { status: "empty", assets: [], message: "Search Console sitesi bulunamadı." },
+    google_ads: { status: "empty", assets: [], message: "Google Ads hesabı bulunamadı." },
+    business_profile: { status: "empty", assets: [], message: "Business Profile lokasyonu bulunamadı." },
+    youtube: { status: "scope_required", assets: [], message: "YouTube varlıkları için ilgili izin kapsamı gerekir." }
+  };
+  for (const account of accounts) {
+    const type = clean(account.account_type || account.asset_type || account.platform);
+    const service = type === "ga4_property" ? "ga4"
+      : type === "search_console_site" ? "search_console"
+        : type === "google_ads_customer" ? "google_ads"
+          : type.includes("google_business") ? "business_profile"
+            : type.includes("youtube") ? "youtube"
+              : "";
+    if (!service || !groups[service]) continue;
+    groups[service].assets.push(account);
+    groups[service].status = "ok";
+    groups[service].message = "Varlıklar listelendi.";
+  }
+  for (const warning of warnings) {
+    const lower = warning.toLocaleLowerCase("tr-TR");
+    const service = lower.includes("ga4") ? "ga4"
+      : lower.includes("search console") ? "search_console"
+        : lower.includes("google ads") ? "google_ads"
+          : lower.includes("business profile") ? "business_profile"
+            : lower.includes("youtube") ? "youtube"
+              : "";
+    if (!service || !groups[service] || groups[service].assets.length) continue;
+    groups[service].status = lower.includes("developer token") ? "developer_token_required"
+      : lower.includes("api") || lower.includes("etkinleştirilmelidir") ? "api_not_enabled"
+        : lower.includes("yetki") || lower.includes("permission") ? "permission_required"
+          : "warning";
+    groups[service].message = warning.replace(/^[^:]+:\s*/, "");
+  }
+  return groups;
+}
+
 async function fetchTikTokAccounts(accessToken: string) {
   const response = await fetch("https://business-api.tiktok.com/open_api/v1.3/oauth2/advertiser/get/", { headers: { "Access-Token": accessToken }, cache: "no-store" });
   const payload = await response.json().catch(() => ({}));
@@ -914,7 +953,15 @@ export async function oauthAccounts(request: Request) {
       return NextResponse.json({ ok: true, provider, accounts: result.accounts, groups: result.groups, warnings: result.warnings, diagnostics: result.diagnostics, phase: "meta_business_phase_2", advancedScopesEnabled: true, message: result.message });
     }
     const accounts = provider === "google" ? await fetchGoogleAccounts(accessToken) : provider === "tiktok" ? await fetchTikTokAccounts(accessToken) : await fetchXAccounts(accessToken);
-    return NextResponse.json({ ok: true, provider, accounts, warnings: (accounts as any).warnings || [], message: accounts.length > 1 ? "Yetkili hesaplar listelendi." : "Temel profil doğrulandı; rapor varlığı bulunamadı veya ilgili Google API/izin bekleniyor." });
+    const warnings = (accounts as any).warnings || [];
+    return NextResponse.json({
+      ok: true,
+      provider,
+      accounts,
+      groups: provider === "google" ? googleDiscoveryGroups(accounts, warnings) : undefined,
+      warnings,
+      message: accounts.length > 1 ? "Yetkili hesaplar listelendi." : "Temel profil doğrulandı; rapor varlığı bulunamadı veya ilgili Google API/izin bekleniyor."
+    });
   } catch (error) {
     return NextResponse.json({ ok: false, provider, accounts: [], code: "provider_fetch_failed", message: error instanceof Error ? error.message : "Yetkili hesaplar alınamadı." }, { status: 502 });
   }

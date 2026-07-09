@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AtSign, BarChart3, Globe2, ImagePlus, Megaphone, PlayCircle, Search, ShieldCheck, Smartphone } from "lucide-react";
-import { normalizePlatformKeys } from "@/lib/customer-portal-registry";
+import { CUSTOMER_GOOGLE_PLATFORM_KEYS, normalizePlatformKeys, type CustomerPlatformKey } from "@/lib/customer-portal-registry";
 
 const platformCards = [
   { key: "meta", title: "Meta / Facebook", type: "meta_ads", oauthProvider: "meta", autoLabel: "Meta ile Giriş Yap", typeLabel: "Business Manager, reklam hesabı, sayfa, Instagram ve Pixel seçimi", icon: Megaphone, tone: "bg-blue-50 text-blue-700", fields: [
@@ -12,6 +12,10 @@ const platformCards = [
     ["currency", "Para birimi opsiyonel", "Örn: TRY, USD veya EUR."],
     ["meta_page_id", "Facebook Sayfa ID", "Facebook sayfanızın ID bilgisi."],
     ["meta_pixel_id", "Pixel ID", "Web sitenizde dönüşüm takibi için kullanılan takip kimliğidir."]
+  ] },
+  { key: "google", title: "Google", type: "google_profile", oauthProvider: "google", autoLabel: "Google ile Bağlan", typeLabel: "Google Ads, GA4, Search Console, Business Profile ve YouTube bağlantılarınızı tek Google hesabıyla yönetin", icon: Search, tone: "bg-amber-50 text-amber-700", fields: [
+    ["google_email", "Google e-posta", "Bağlanacak Google hesabının e-posta adresi."],
+    ["google_account_note", "Not", "Bu bağlantıya ilişkin kısa açıklama."]
   ] },
   { key: "instagram", title: "Instagram", type: "instagram_profile", oauthProvider: "meta", autoLabel: "Instagram Hesabını Bağla", typeLabel: "Instagram Business hesabı ve bağlı Meta sayfası", icon: ImagePlus, tone: "bg-pink-50 text-pink-700", fields: [
     ["username", "Instagram kullanıcı adı", "@ ile başlayan kullanıcı adı."],
@@ -95,9 +99,13 @@ const statusLabel: Record<string, string> = {
   connected: "Bağlı",
   connected_oauth: "OAuth ile Bağlı",
   connected_manual: "Manuel Bağlı",
+  approved: "Onaylandı",
   manual_pending_api_access: "Manuel kayıtlı / API izni bekliyor",
   manual_pending_review: "Manuel Kontrol Bekliyor",
+  missing_info_required: "Eksik Bilgi Gerekli",
   pending_review: "Kontrol Bekliyor",
+  reauth_required: "Yetki Yenileme Gerekli",
+  invalid: "Hatalı",
   missing_info: "Eksik Bilgi Gerekli",
   error: "Hatalı",
   inactive: "Pasif",
@@ -135,6 +143,25 @@ const integrationErrorMessages: Record<string, string> = {
   accounts_fetch_failed: "Yetkili hesaplar alınamadı. Platform izinlerini kontrol edin.",
   oauth_session_missing: "Yetkili hesapları listelemek için önce platform girişini tamamlayın."
 };
+
+const googleSubserviceLabels: Record<string, string> = {
+  google: "Google Hesabı",
+  ga4: "GA4",
+  google_ads: "Ads",
+  search_console: "Search Console",
+  business_profile: "Business Profile",
+  youtube: "YouTube"
+};
+
+function serviceKeyForAccount(item: any): CustomerPlatformKey | "google" {
+  const raw = String(item?.metadata?.service || item?.platform || item?.account_type || item?.asset_type || "").trim();
+  if (raw === "google_analytics" || raw === "ga4_property") return "ga4";
+  if (raw === "search_console" || raw === "search_console_site") return "search_console";
+  if (raw === "google_ads" || raw === "google_ads_customer") return "google_ads";
+  if (raw === "google_business_profile" || raw === "business_profile" || raw === "google_business_location") return "business_profile";
+  if (raw === "youtube" || raw === "youtube_channel") return "youtube";
+  return "google";
+}
 
 function emptyForm(platform = "meta", assetType = "meta_ads") {
   return {
@@ -206,7 +233,11 @@ export function CustomerAccountConnectCenter() {
   const visiblePlatformCards = useMemo(() => {
     if (!configLoaded) return [];
     const enabled = normalizePlatformKeys(integration?.metadata?.enabled_platforms);
+    const googleGroupEnabled = CUSTOMER_GOOGLE_PLATFORM_KEYS.some((key) => enabled.includes(key));
+    const googleSubCards = new Set(["google_ads", "google_analytics", "search_console", "google_business_profile", "youtube"]);
     return platformCards.filter((card: any) => {
+      if (googleSubCards.has(card.key)) return false;
+      if (card.key === "google") return googleGroupEnabled;
       const registryKeys = [
         card.key === "google_business_profile" ? "business_profile" : card.key,
         card.key === "google_analytics" ? "ga4" : card.key,
@@ -219,9 +250,16 @@ export function CustomerAccountConnectCenter() {
       return registryKeys.some((key) => enabled.includes(key as any));
     });
   }, [configLoaded, integration?.metadata?.enabled_platforms]);
+  const enabledPlatformKeys = useMemo(() => normalizePlatformKeys(integration?.metadata?.enabled_platforms), [integration?.metadata?.enabled_platforms]);
+  const enabledGoogleServices = useMemo(() => CUSTOMER_GOOGLE_PLATFORM_KEYS.filter((key) => enabledPlatformKeys.includes(key)), [enabledPlatformKeys]);
   const activeAsset = useMemo(() => assets.find((item) => item.platform === active.key || (active.key === "meta" && item.provider === "meta" && item.account_type === "meta_user") || (active.oauthProvider === "google" && item.provider === "google" && item.account_type === "google_profile")), [assets, active.key, active.oauthProvider]);
-  const groupedOAuthAccounts = useMemo(() => {
+  const filteredOAuthAccounts = useMemo(() => {
     const accounts = Array.isArray(oauthInfo?.accounts) ? oauthInfo.accounts : [];
+    if (active.oauthProvider !== "google") return accounts;
+    return accounts.filter((item: any) => enabledGoogleServices.includes(serviceKeyForAccount(item) as CustomerPlatformKey));
+  }, [active.oauthProvider, enabledGoogleServices, oauthInfo]);
+  const groupedOAuthAccounts = useMemo(() => {
+    const accounts = filteredOAuthAccounts;
     return accounts.reduce((groups: Record<string, any[]>, item: any) => {
       const key = item.category
         || (item.account_type === "meta_business" ? "Business Manager"
@@ -236,7 +274,7 @@ export function CustomerAccountConnectCenter() {
       groups[key] = [...(groups[key] || []), item];
       return groups;
     }, {});
-  }, [oauthInfo]);
+  }, [filteredOAuthAccounts]);
 
   function selectPlatform(card: any) {
     const current = assets.find((item) => item.platform === card.key);
@@ -380,7 +418,9 @@ export function CustomerAccountConnectCenter() {
       setOauthInfo(payload);
       if (payload.diagnostics) setMetaDiagnostics(payload.diagnostics);
       setAssetPickerOpen(true);
-      const selectableAccounts = active.oauthProvider === "google" ? (payload.accounts || []).filter((item: any) => item.account_type !== "google_profile") : (payload.accounts || []);
+      const selectableAccounts = active.oauthProvider === "google"
+        ? (payload.accounts || []).filter((item: any) => item.account_type !== "google_profile" && enabledGoogleServices.includes(serviceKeyForAccount(item) as CustomerPlatformKey))
+        : (payload.accounts || []);
       setSelectedAssetIds(selectableAccounts.slice(0, 1).map((item: any) => item.id));
       if (!response.ok) setMessage(payload.message || "Yetkili hesap listesi şu an alınamadı. Manuel giriş kullanabilirsiniz.");
     } catch {
@@ -391,7 +431,7 @@ export function CustomerAccountConnectCenter() {
   }
 
   async function saveSelectedOAuthAssets() {
-    const selected = (oauthInfo?.accounts || []).filter((item: any) => selectedAssetIds.includes(item.id));
+    const selected = filteredOAuthAccounts.filter((item: any) => selectedAssetIds.includes(item.id));
     if (!selected.length) {
       setMessage("Kaydetmek için en az bir hesap seçin.");
       return;
@@ -406,11 +446,11 @@ export function CustomerAccountConnectCenter() {
           provider: selected[0]?.provider || active.oauthProvider,
           accounts: selected.map((item: any) => ({
             provider: item.provider || active.oauthProvider,
-            platform: item.platform || active.key,
+            platform: (item.provider || active.oauthProvider) === "google" ? "google" : item.platform || active.key,
             provider_account_id: item.provider_account_id || item.account_id || item.asset_id || item.id,
             provider_account_name: item.provider_account_name || item.asset_name || item.name || active.title,
             account_type: item.account_type || item.asset_type || active.type,
-            metadata: item.metadata || item
+            metadata: { ...(item.metadata || item), service: (item.provider || active.oauthProvider) === "google" ? serviceKeyForAccount(item) : item.platform || active.key }
           }))
         })
       });
@@ -460,12 +500,13 @@ export function CustomerAccountConnectCenter() {
                   <span className={`rounded-[14px] p-3 ${card.tone}`}><Icon size={20} /></span>
                   <span>
                     <strong className="block text-slate-950">{card.title}</strong>
-                    <span className="mt-1 block text-xs font-bold text-slate-500">Durum: {statusLabel[asset?.status] || "Eksik"}</span>
-                    <span className="mt-1 block text-[11px] font-bold text-slate-400">Bağlantı yöntemi: {connectionMethod ? methodLabel[connectionMethod] || connectionMethod : "Yok"}</span>
-                    <span className="mt-1 block text-[11px] text-slate-400">Son güncelleme: {asset?.updated_at ? new Date(asset.updated_at).toLocaleDateString("tr-TR") : "Henüz yok"}</span>
-                  </span>
-                </div>
-              </button>
+	                    <span className="mt-1 block text-xs font-bold text-slate-500">Durum: {statusLabel[asset?.status] || "Eksik"}</span>
+	                    <span className="mt-1 block text-[11px] font-bold text-slate-400">Bağlantı yöntemi: {connectionMethod ? methodLabel[connectionMethod] || connectionMethod : "Yok"}</span>
+	                    <span className="mt-1 block text-[11px] text-slate-400">Son güncelleme: {asset?.updated_at ? new Date(asset.updated_at).toLocaleDateString("tr-TR") : "Henüz yok"}</span>
+	                    {card.key === "google" && <span className="mt-2 flex flex-wrap gap-1">{enabledGoogleServices.map((key) => <span key={key} className="rounded-full bg-white px-2 py-0.5 text-[10px] font-black text-amber-800 ring-1 ring-amber-100">{googleSubserviceLabels[key]}</span>)}</span>}
+	                  </span>
+	                </div>
+	              </button>
             );
           })}
         </div>
@@ -488,16 +529,29 @@ export function CustomerAccountConnectCenter() {
                 </div>
                 <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-emerald-800">{methodLabel[activeAsset.connection_method || activeAsset.connection_mode] || activeAsset.connection_method || "OAuth"}</span>
               </div>
-              <div className="mt-3 grid gap-2 text-sm leading-6 text-emerald-950 md:grid-cols-2">
-                <p><strong>{active.oauthProvider === "google" ? "Google kullanıcı/e-posta" : "Meta kullanıcı adı"}:</strong> {activeAsset.provider_account_name || activeAsset.metadata?.google_user_email || activeAsset.metadata?.meta_user_name || "Yok"}</p>
-                <p><strong>{active.oauthProvider === "google" ? "Google kullanıcı ID" : "Meta kullanıcı ID"}:</strong> {activeAsset.provider_account_id || activeAsset.account_id || activeAsset.metadata?.google_user_id || activeAsset.metadata?.meta_user_id || "Yok"}</p>
-                <p><strong>Bağlantı tarihi:</strong> {activeAsset.last_synced_at || activeAsset.updated_at ? new Date(activeAsset.last_synced_at || activeAsset.updated_at).toLocaleString("tr-TR") : "Yok"}</p>
-                <p><strong>İzin kapsamı:</strong> {(activeAsset.scopes || activeAsset.oauth_scopes || ["public_profile", "email"]).join(", ")}</p>
-              </div>
-              {active.key === "meta" && <p className="mt-3 rounded-[12px] bg-white p-3 text-xs font-bold leading-5 text-emerald-900">Temel Facebook Login tamamlandı. Reklam hesabı, sayfa ve Instagram Business varlıklarını listelemek için gelişmiş Meta izinleri ayrıca açılmalıdır.</p>}
-              {active.oauthProvider === "google" && <p className="mt-3 rounded-[12px] bg-white p-3 text-xs font-bold leading-5 text-emerald-900">Google bağlantısı; Google Ads, GA4, Search Console ve Google Business Profile varlıklarını listelemek için kullanılır. İlgili Google Cloud API etkin değilse sistem bunu açıkça bildirir.</p>}
-            </div>
-          )}
+	              <div className="mt-3 grid gap-2 text-sm leading-6 text-emerald-950 md:grid-cols-2">
+	                <p><strong>{active.oauthProvider === "google" ? "Google kullanıcı/e-posta" : "Meta kullanıcı adı"}:</strong> {activeAsset.provider_account_name || activeAsset.metadata?.google_user_email || activeAsset.metadata?.meta_user_name || "Yok"}</p>
+	                <p><strong>{active.oauthProvider === "google" ? "Google kullanıcı ID" : "Meta kullanıcı ID"}:</strong> {activeAsset.provider_account_id || activeAsset.account_id || activeAsset.metadata?.google_user_id || activeAsset.metadata?.meta_user_id || "Yok"}</p>
+	                <p><strong>Bağlantı tarihi:</strong> {activeAsset.last_synced_at || activeAsset.updated_at ? new Date(activeAsset.last_synced_at || activeAsset.updated_at).toLocaleString("tr-TR") : "Yok"}</p>
+	                <p><strong>İzin kapsamı:</strong> {(activeAsset.scopes || activeAsset.oauth_scopes || ["public_profile", "email"]).join(", ")}</p>
+	              </div>
+	              {activeAsset.metadata?.customer_visible_notice && <p className="mt-3 rounded-[12px] bg-white p-3 text-xs font-bold leading-5 text-emerald-900">{activeAsset.metadata.customer_visible_notice}</p>}
+	              {activeAsset.status === "missing_info_required" && <p className="mt-3 rounded-[12px] bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-900">HK Dijital ekibi bu bağlantı için ek bilgi istedi.</p>}
+	              {activeAsset.status === "invalid" && <p className="mt-3 rounded-[12px] bg-rose-50 p-3 text-xs font-bold leading-5 text-rose-900">Bu bağlantı hatalı görünüyor. Lütfen yeniden bağlayın veya bilgileri kontrol edin.</p>}
+	              {activeAsset.status === "reauth_required" && <p className="mt-3 rounded-[12px] bg-blue-50 p-3 text-xs font-bold leading-5 text-blue-900">Bu bağlantı için yeniden yetkilendirme gerekiyor.</p>}
+	              {activeAsset.status === "inactive" && <p className="mt-3 rounded-[12px] bg-slate-50 p-3 text-xs font-bold leading-5 text-slate-700">Bu bağlantı HK Dijital tarafından geçici olarak pasifleştirildi.</p>}
+	              {activeAsset.metadata?.sync_error && <p className="mt-3 rounded-[12px] bg-rose-50 p-3 text-xs font-bold leading-5 text-rose-900">{activeAsset.metadata.sync_error}</p>}
+	              {active.key === "meta" && <p className="mt-3 rounded-[12px] bg-white p-3 text-xs font-bold leading-5 text-emerald-900">Temel Facebook Login tamamlandı. Reklam hesabı, sayfa ve Instagram Business varlıklarını listelemek için gelişmiş Meta izinleri ayrıca açılmalıdır.</p>}
+	              {active.oauthProvider === "google" && <p className="mt-3 rounded-[12px] bg-white p-3 text-xs font-bold leading-5 text-emerald-900">Google bağlantısı; Google Ads, GA4, Search Console ve Google Business Profile varlıklarını listelemek için kullanılır. İlgili Google Cloud API etkin değilse sistem bunu açıkça bildirir.</p>}
+	            </div>
+	          )}
+	          {active.key === "google" && (
+	            <div className="mt-4 rounded-[18px] border border-amber-200 bg-white p-4">
+	              <h4 className="font-black text-slate-950">Google servis kapsamı</h4>
+	              <p className="mt-1 text-sm leading-6 text-slate-600">Admin tarafından açılan Google alt servisleri bu kart içinde yönetilir. Kapalı servisler için varlık seçimi ve API akışı çalışmaz.</p>
+	              <div className="mt-3 flex flex-wrap gap-2">{enabledGoogleServices.map((key) => <span key={key} className="rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-800">{googleSubserviceLabels[key]}</span>)}</div>
+	            </div>
+	          )}
 
           <div className="mt-4 rounded-[18px] border border-cyan-200 bg-white p-4">
             <p className="text-sm font-black text-slate-950">Bağlantı yöntemi:</p>
@@ -583,17 +637,17 @@ export function CustomerAccountConnectCenter() {
                 </div>
                 <button type="button" onClick={saveSelectedOAuthAssets} disabled={loading} className="rounded-full bg-emerald-500 px-4 py-2 text-sm font-black text-white disabled:opacity-60">Seçilenleri Kaydet</button>
               </div>
-              {Object.keys(groupedOAuthAccounts).length > 0 && <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">{Object.entries(groupedOAuthAccounts).map(([label, items]) => <div key={label} className="rounded-[12px] border border-slate-200 bg-slate-50 p-3"><p className="text-xs font-black uppercase tracking-[.12em] text-slate-500">{label}</p><p className="mt-1 text-xl font-black text-slate-950">{items.length}</p></div>)}</div>}
+	              {Object.keys(groupedOAuthAccounts).length > 0 && <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">{Object.entries(groupedOAuthAccounts).map(([label, items]) => <div key={label} className="rounded-[12px] border border-slate-200 bg-slate-50 p-3"><p className="text-xs font-black uppercase tracking-[.12em] text-slate-500">{label}</p><p className="mt-1 text-xl font-black text-slate-950">{items.length}</p></div>)}</div>}
               <div className="mt-4 max-h-72 overflow-auto rounded-[14px] border border-slate-200">
                 <table className="w-full min-w-[760px] text-left text-sm">
                   <thead className="bg-slate-50 text-xs uppercase tracking-[.12em] text-slate-500"><tr><th className="p-3">Seç</th><th>Hesap Adı</th><th>Platform</th><th>Varlık Türü</th><th>Durum</th><th>Hesap ID</th><th>Son Senkronizasyon</th></tr></thead>
-                  <tbody>{Object.entries(groupedOAuthAccounts).flatMap(([label, items]) => [
+	                  <tbody>{Object.entries(groupedOAuthAccounts).flatMap(([label, items]) => [
                     <tr key={`group-${label}`} className="border-t border-slate-200 bg-slate-50"><td colSpan={7} className="p-3 text-xs font-black uppercase tracking-[.14em] text-slate-500">{label}</td></tr>,
                     ...items.map((item: any) => <tr key={item.id} className="border-t border-slate-200"><td className="p-3"><input type="checkbox" checked={selectedAssetIds.includes(item.id)} onChange={(event) => setSelectedAssetIds((current) => event.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id))} /></td><td className="font-bold text-slate-900">{item.provider_account_name || item.asset_name || item.name}</td><td>{item.provider || item.platform || active.title}</td><td>{item.account_type || item.asset_type || active.type}</td><td>{item.status || "Seçilebilir"}</td><td>{item.provider_account_id || item.account_id || item.asset_id || item.id}</td><td>{item.last_synced_at ? new Date(item.last_synced_at).toLocaleString("tr-TR") : "Henüz yok"}</td></tr>)
                   ])}</tbody>
                 </table>
               </div>
-              {!(oauthInfo?.accounts || []).length && <p className="mt-3 rounded-[12px] border border-dashed border-slate-200 p-3 text-sm font-bold text-slate-600">{oauthInfo?.message || "Henüz listelenecek yetkili hesap yok."}</p>}
+	              {!filteredOAuthAccounts.length && <p className="mt-3 rounded-[12px] border border-dashed border-slate-200 p-3 text-sm font-bold text-slate-600">{active.oauthProvider === "google" && activeAsset ? "Google bağlantısı tamamlandı. Yetkili varlık bulunamadıysa ilgili API/izin veya servis kapsamı eksik olabilir." : oauthInfo?.message || "Henüz listelenecek yetkili hesap yok."}</p>}
             </div>
           )}
 

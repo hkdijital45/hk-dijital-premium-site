@@ -108,6 +108,7 @@ export const CUSTOMER_MODULE_REGISTRY: CustomerModuleDefinition[] = [
 
 export const DEFAULT_CUSTOMER_MODULES: CustomerModuleKey[] = ["dashboard", "reports", "files", "documents", "billing", "account_connect", "support"];
 export const DEFAULT_CUSTOMER_PLATFORMS: CustomerPlatformKey[] = ["meta", "google", "ga4", "search_console", "google_ads", "business_profile", "instagram", "facebook", "website", "pixel"];
+export const CUSTOMER_GOOGLE_PLATFORM_KEYS: CustomerPlatformKey[] = ["google", "ga4", "search_console", "google_ads", "business_profile", "youtube"];
 
 const platformAliases: Record<string, CustomerPlatformKey> = {
   google_analytics: "ga4",

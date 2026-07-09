@@ -170,7 +170,7 @@ export async function GET() {
   if (!hasSupabaseConfig()) return NextResponse.json({ integration: null, assets: [], warning: "Supabase bağlantısı yapılandırılmadı." });
   try {
     const row = await getRow(session.companyId);
-    return NextResponse.json({ integration: sanitize(row || {}), assets: Array.isArray(row?.integration_assets) ? row.integration_assets : [] });
+    return NextResponse.json({ integration: sanitize(row || {}), assets: Array.isArray(row?.integration_assets) ? sanitize({ integration_assets: row.integration_assets }).integration_assets : [] });
   } catch (error) {
     const safe = getSafeSupabaseError(error);
     return NextResponse.json({ error: safe.title, supabaseError: safe.detail }, { status: 500 });
