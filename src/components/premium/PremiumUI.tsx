@@ -3,7 +3,18 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { BarChart3, BrainCircuit, CheckCircle2, CircleDollarSign, Gauge, LineChart, Sparkles, Target } from "lucide-react";
+import {
+  BarChart3,
+  BrainCircuit,
+  CheckCircle2,
+  CircleDollarSign,
+  Gauge,
+  LineChart,
+  MessageCircle,
+  MousePointerClick,
+  Sparkles,
+  Target
+} from "lucide-react";
 
 const accentStyles = {
   cyan: "border-cyan-200/40 bg-gradient-to-br from-cyan-400 via-sky-500 to-blue-600 text-slate-900 shadow-[0_22px_55px_rgba(6,182,212,.28)]",
@@ -257,34 +268,83 @@ export function ScrollScene3D({ children, className = "" }: { children: ReactNod
 }
 
 export function LoginShell3D({ children, logo }: { children: ReactNode; logo?: ReactNode }) {
-  const cards = [
-    ["AI rapor kartı", "Raporlar sade özet ve sonraki aksiyonla okunur."],
-    ["Reklam paneli", "Meta, Google ve TikTok süreçleri tek merkezde takip edilir."],
-    ["Ajans operasyonu", "Görev, teklif, tahsilat ve müşteri notları birlikte akar."]
+  const reduceMotion = useReducedMotion();
+  const orbitItems = [
+    { label: "Meta", mark: "∞", className: "left-[7%] top-[18%]", color: "from-blue-400 to-cyan-300" },
+    { label: "Instagram", mark: "IG", className: "right-[9%] top-[16%]", color: "from-pink-400 to-amber-300" },
+    { label: "Google Ads", Icon: MousePointerClick, className: "left-[12%] bottom-[22%]", color: "from-cyan-300 to-yellow-300" },
+    { label: "YouTube", mark: "▶", className: "right-[14%] bottom-[24%]", color: "from-red-400 to-rose-300" },
+    { label: "LinkedIn", mark: "in", className: "left-[27%] top-[10%]", color: "from-sky-400 to-blue-300" },
+    { label: "X", mark: "X", className: "right-[27%] top-[11%]", color: "from-slate-200 to-cyan-200" },
+    { label: "Rapor", Icon: BarChart3, className: "left-[22%] bottom-[9%]", color: "from-emerald-300 to-cyan-300" },
+    { label: "Destek", Icon: MessageCircle, className: "right-[24%] bottom-[8%]", color: "from-yellow-300 to-orange-300" }
   ];
+  const signalCards = [
+    ["Admin OS", "Reklam, CRM ve rapor operasyonu"],
+    ["Müşteri Portalı", "Rapor, dosya ve hesap bağlantıları"],
+    ["HK Intelligence", "Yetkinize göre veri ve aksiyon özeti"]
+  ];
+
   return (
-    <section className="relative overflow-hidden bg-[#020617] px-4 py-16 text-white sm:px-6 lg:px-8 lg:py-24">
-      <div className="premium-grid absolute inset-0 opacity-60" />
-      <div className="absolute -left-24 top-16 size-72 rounded-full bg-cyan-400/20 blur-3xl" aria-hidden="true" />
-      <div className="absolute -right-24 bottom-10 size-80 rounded-full bg-violet-500/20 blur-3xl" aria-hidden="true" />
-      <div className="relative mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-[.95fr_1.05fr]">
-        <div>
-          {logo && <div className="mb-8">{logo}</div>}
-          <p className="text-xs font-black uppercase tracking-[.24em] text-cyan-200">HK Dijital Digital Center</p>
-          <h1 className="mt-5 text-4xl font-black leading-tight text-white sm:text-6xl">Ajans operasyonunuzu tek merkezden yönetin.</h1>
-          <p className="mt-3 text-sm font-black uppercase tracking-[.2em] text-amber-200">Reklam · Rapor · CRM · Hesap Bağlantıları</p>
-          <p className="mt-5 max-w-xl text-base leading-8 text-slate-300">Admin paneline veya müşteri paneline güvenli giriş yapın. Reklam performansı, raporlar, görevler ve bağlı hesaplar yetkinize göre tek ekranda görünür.</p>
-          <div className="mt-7 grid max-w-2xl gap-3 sm:grid-cols-3">
-            {cards.map(([title, text]) => (
-              <div key={title} className="rounded-[18px] border border-white/10 bg-white/[0.07] p-4 shadow-[0_24px_80px_rgba(0,0,0,.18)] backdrop-blur">
+    <section className="relative min-h-screen overflow-hidden bg-[#020617] px-4 py-8 text-white sm:px-6 lg:px-8">
+      <div className="premium-grid pointer-events-none absolute inset-0 opacity-55" aria-hidden="true" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_10%,rgba(34,211,238,.18),transparent_34%),radial-gradient(circle_at_20%_80%,rgba(250,204,21,.12),transparent_34%),linear-gradient(180deg,rgba(255,255,255,.04),transparent_28%)]" aria-hidden="true" />
+      <div className="pointer-events-none absolute -left-28 top-10 size-80 rounded-full bg-cyan-400/20 blur-3xl" aria-hidden="true" />
+      <div className="pointer-events-none absolute -right-28 bottom-10 size-96 rounded-full bg-yellow-300/12 blur-3xl" aria-hidden="true" />
+
+      <div className="pointer-events-none absolute inset-0 hidden md:block" aria-hidden="true">
+        {orbitItems.map(({ label, Icon, mark, className, color }, index) => (
+          <motion.div
+            key={label}
+            animate={reduceMotion ? undefined : { y: [0, -14, 0], rotate: [0, index % 2 ? -3 : 3, 0] }}
+            transition={{ duration: 7 + index * 0.35, delay: index * 0.18, repeat: Infinity, ease: "easeInOut" }}
+            className={`absolute ${className} rounded-[22px] border border-white/12 bg-white/[0.075] p-3 shadow-[0_24px_90px_rgba(0,0,0,.28)] backdrop-blur-xl`}
+          >
+            <div className={`grid size-12 place-items-center rounded-2xl bg-gradient-to-br ${color} text-slate-950 shadow-[0_0_34px_rgba(255,255,255,.14)]`}>
+              {Icon ? <Icon size={22} /> : <span className="text-sm font-black">{mark}</span>}
+            </div>
+            <p className="mt-2 text-center text-[10px] font-black uppercase tracking-[.14em] text-slate-200">{label}</p>
+          </motion.div>
+        ))}
+      </div>
+
+      <div className="relative z-10 mx-auto grid min-h-[calc(100vh-4rem)] w-full max-w-6xl place-items-center">
+        <div className="w-full">
+          <motion.div
+            initial={reduceMotion ? false : { opacity: 0, y: 18 }}
+            animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+            transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+            className="mx-auto mb-7 flex flex-col items-center text-center"
+          >
+            {logo && <div className="mb-6 rounded-full border border-white/10 bg-white/[0.06] px-5 py-3 shadow-[0_22px_70px_rgba(0,0,0,.24)] backdrop-blur-xl">{logo}</div>}
+            <p className="rounded-full border border-cyan-200/20 bg-cyan-200/10 px-4 py-2 text-[11px] font-black uppercase tracking-[.22em] text-cyan-100">HK Dijital Digital Center</p>
+            <h1 className="mt-5 max-w-4xl text-4xl font-black leading-tight text-white sm:text-5xl lg:text-6xl">Ajans operasyonuna güvenli giriş.</h1>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
+              Admin paneli ve müşteri portalı tek giriş ekranından açılır. Yetkinize göre ilgili alana otomatik yönlendirilirsiniz.
+            </p>
+          </motion.div>
+
+          {children}
+
+          <div className="mx-auto mt-7 grid max-w-2xl gap-3 text-left sm:grid-cols-3">
+            {signalCards.map(([title, text], index) => (
+              <motion.div
+                key={title}
+                initial={reduceMotion ? false : { opacity: 0, y: 16 }}
+                animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+                transition={{ duration: 0.45, delay: 0.12 + index * 0.06 }}
+                className="rounded-[18px] border border-white/10 bg-white/[0.055] p-4 shadow-[0_20px_70px_rgba(0,0,0,.18)] backdrop-blur-xl"
+              >
                 <p className="text-sm font-black text-cyan-100">{title}</p>
                 <p className="mt-2 text-xs leading-5 text-slate-300">{text}</p>
-              </div>
+              </motion.div>
             ))}
           </div>
-          <div className="mt-6"><PlatformSignalStrip /></div>
+
+          <div className="mx-auto mt-5 flex max-w-3xl justify-center">
+            <PlatformSignalStrip />
+          </div>
         </div>
-        <div>{children}</div>
       </div>
     </section>
   );
