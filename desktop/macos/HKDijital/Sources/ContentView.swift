@@ -1,62 +1,103 @@
 import SwiftUI
-import WebKit
 
 struct ContentView: View {
     @EnvironmentObject private var model: WebViewModel
+    @EnvironmentObject private var database: LocalDatabase
+    @EnvironmentObject private var network: NetworkMonitor
+    @EnvironmentObject private var syncEngine: SyncEngine
+    @EnvironmentObject private var settings: AppSettings
+    @State private var section: AppSection = .dashboard
 
     var body: some View {
-        VStack(spacing: 0) {
-            NativeToolbar()
+        HStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("HK Dijital Admin")
+                    .font(.system(size: 18, weight: .black))
+                    .padding(.horizontal, 14)
+                    .padding(.top, 16)
 
-            ZStack {
-                WebViewContainer()
-                    .environmentObject(model)
-
-                if model.isLoading {
-                    SplashView(title: model.config.appName)
+                ForEach(AppSection.allCases) { item in
+                    Button {
+                        section = item
+                    } label: {
+                        Label(item.rawValue, systemImage: item.symbol)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(section == item ? Color.cyan.opacity(0.16) : Color.clear)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .padding(.horizontal, 8)
                 }
 
-                if let error = model.errorMessage {
-                    OfflineView(message: error, supportUrl: model.config.supportUrl) {
-                        model.reload()
+                Spacer()
+            }
+            .frame(width: 240)
+            .background(.regularMaterial)
+
+            Divider()
+
+            VStack(spacing: 0) {
+                NativeToolbar(section: $section)
+                Divider()
+                Group {
+                    switch section {
+                    case .dashboard:
+                        OfflineDashboardView(section: $section)
+                    case .webAdmin:
+                        WebShellView()
+                    case .offlineDrafts:
+                        OfflineDraftsView()
+                    case .syncCenter:
+                        SyncCenterView()
+                    case .settings:
+                        SettingsView()
                     }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(Color(nsColor: .windowBackgroundColor))
         .onAppear {
             model.loadInitialPage()
+            database.reload()
         }
     }
 }
 
 struct NativeToolbar: View {
     @EnvironmentObject private var model: WebViewModel
+    @EnvironmentObject private var database: LocalDatabase
+    @EnvironmentObject private var network: NetworkMonitor
+    @EnvironmentObject private var syncEngine: SyncEngine
+    @Binding var section: AppSection
 
     var body: some View {
         HStack(spacing: 12) {
-            Text("HK Dijital")
+            Text("HK Dijital Admin")
                 .font(.system(size: 15, weight: .black))
-                .foregroundStyle(.primary)
 
-            Divider()
-                .frame(height: 22)
+            StatusPill(isOnline: network.isOnline)
+
+            if let lastSyncAt = database.lastSyncAt {
+                Text("Son sync: \(lastSyncAt.formatted(date: .omitted, time: .shortened))")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("Henüz sync yok")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
 
             Button {
-                model.goBack()
+                section = .webAdmin
+                model.goAdmin()
             } label: {
-                Image(systemName: "chevron.left")
+                Label("Web Admin'e Git", systemImage: "globe")
             }
-            .disabled(!model.canGoBack)
-            .help("Geri")
-
-            Button {
-                model.goForward()
-            } label: {
-                Image(systemName: "chevron.right")
-            }
-            .disabled(!model.canGoForward)
-            .help("İleri")
 
             Button {
                 model.reload()
@@ -66,27 +107,35 @@ struct NativeToolbar: View {
             .help("Yenile")
 
             Button {
-                model.goHome()
+                Task { await syncEngine.syncNow() }
             } label: {
-                Label("Digital Center", systemImage: "house")
+                Label(syncEngine.isSyncing ? "Senkronize ediliyor..." : "Senkronize Et", systemImage: "arrow.triangle.2.circlepath")
             }
-            .help("Digital Center'a dön")
-
-            Spacer()
-
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(model.errorMessage == nil ? Color.green : Color.red)
-                    .frame(width: 8, height: 8)
-                Text(model.errorMessage == nil ? "Çevrimiçi" : "Bağlantı yok")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.secondary)
-            }
+            .disabled(syncEngine.isSyncing)
+            .buttonStyle(.borderedProminent)
         }
         .buttonStyle(.bordered)
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .background(.regularMaterial)
+    }
+}
+
+struct StatusPill: View {
+    let isOnline: Bool
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(isOnline ? Color.green : Color.red)
+                .frame(width: 8, height: 8)
+            Text(isOnline ? "Online" : "Offline")
+                .font(.system(size: 12, weight: .bold))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(isOnline ? Color.green.opacity(0.12) : Color.red.opacity(0.12))
+        .clipShape(Capsule())
     }
 }
 
@@ -99,38 +148,10 @@ struct SplashView: View {
                 .scaleEffect(1.2)
             Text(title)
                 .font(.system(size: 26, weight: .black))
-            Text("Digital Center hazırlanıyor...")
+            Text("HK Dijital Admin hazırlanıyor...")
                 .foregroundStyle(.secondary)
         }
         .padding(34)
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 24))
-        .shadow(radius: 24)
-    }
-}
-
-struct OfflineView: View {
-    let message: String
-    let supportUrl: String
-    let retry: () -> Void
-
-    var body: some View {
-        VStack(spacing: 16) {
-            Text("Bağlantı yok")
-                .font(.system(size: 28, weight: .black))
-            Text("İnternet bağlantınızı kontrol edin.\n\(message)")
-                .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
-            HStack {
-                Button("Tekrar Dene", action: retry)
-                    .buttonStyle(.borderedProminent)
-                if let url = URL(string: supportUrl) {
-                    Link("Destek", destination: url)
-                }
-            }
-        }
-        .padding(34)
-        .frame(maxWidth: 520)
         .background(.regularMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 24))
         .shadow(radius: 24)

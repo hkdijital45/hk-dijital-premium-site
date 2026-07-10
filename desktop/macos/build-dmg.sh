@@ -2,16 +2,16 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-APP_NAME="HK Dijital"
+APP_NAME="HK Dijital Admin"
 APP_VERSION="0.1.0"
-BUNDLE_NAME="HK Dijital.app"
+BUNDLE_NAME="HK Dijital Admin.app"
 EXECUTABLE_NAME="HKDijital"
 MACOS_DIR="$ROOT_DIR/desktop/macos/HKDijital"
 BUILD_DIR="$ROOT_DIR/desktop/build/macos"
 DIST_DIR="$ROOT_DIR/desktop-builds"
 APP_DIR="$BUILD_DIR/$BUNDLE_NAME"
 DMG_STAGING_DIR="$BUILD_DIR/dmg-root"
-DMG_PATH="$DIST_DIR/HK-Dijital-$APP_VERSION.dmg"
+DMG_PATH="$DIST_DIR/HK-Dijital-Admin-$APP_VERSION.dmg"
 
 if ! command -v swiftc >/dev/null 2>&1; then
   echo "Hata: swiftc bulunamadı. Xcode veya Command Line Tools kurun: xcode-select --install" >&2
@@ -33,11 +33,13 @@ swiftc \
   -framework SwiftUI \
   -framework WebKit \
   -framework AppKit \
+  -lsqlite3 \
   "$MACOS_DIR/Sources/"*.swift \
   -o "$APP_DIR/Contents/MacOS/$EXECUTABLE_NAME"
 
 cp "$MACOS_DIR/Info.plist" "$APP_DIR/Contents/Info.plist"
 cp "$ROOT_DIR/desktop/shared/desktop-config.json" "$APP_DIR/Contents/Resources/desktop-config.json"
+cp "$ROOT_DIR/desktop/shared/sync-manifest.json" "$APP_DIR/Contents/Resources/sync-manifest.json"
 
 if [ -f "$ROOT_DIR/desktop/shared/icons/AppIcon.icns" ]; then
   cp "$ROOT_DIR/desktop/shared/icons/AppIcon.icns" "$APP_DIR/Contents/Resources/AppIcon.icns"

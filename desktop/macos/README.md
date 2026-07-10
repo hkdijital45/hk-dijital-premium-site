@@ -1,11 +1,19 @@
-# HK Dijital macOS Dağıtımı
+# HK Dijital Admin macOS Dağıtımı
 
-Bu yapı Electron veya PWA kullanmaz. SwiftUI + WKWebView ile canlı HK Dijital Digital Center giriş ekranını açan hafif native wrapper üretir. Uygulama public ana sayfayı açmaz; oturum varsa web sistemi rolüne göre admin veya müşteri paneline yönlendirir.
+Bu yapı Electron veya PWA kullanmaz. SwiftUI + WKWebView + yerel SQLite ile HK Dijital admin sistemi için native macOS uygulaması üretir.
+
+Uygulama adı: `HK Dijital Admin`
 
 Canlı URL:
 
 ```text
 https://hkdijital.com.tr/digital-center
+```
+
+Admin URL:
+
+```text
+https://hkdijital.com.tr/hk-admin
 ```
 
 ## Gereksinimler
@@ -32,7 +40,7 @@ bash desktop/macos/build-dmg.sh
 Çıktı:
 
 ```text
-desktop-builds/HK-Dijital-0.1.0.dmg
+desktop-builds/HK-Dijital-Admin-0.1.0.dmg
 ```
 
 ## GitHub Actions Build
@@ -40,7 +48,7 @@ desktop-builds/HK-Dijital-0.1.0.dmg
 1. GitHub'da `Actions` sekmesine gidin.
 2. `Desktop Build` workflow'unu açın.
 3. `Run workflow` ile manuel çalıştırın.
-4. `macos-dmg` job tamamlanınca artifact bölümünden `HK-Dijital-0.1.0.dmg` dosyasını indirin.
+4. `macos-dmg` job tamamlanınca artifact bölümünden `HK-Dijital-Admin-0.1.0.dmg` dosyasını indirin.
 
 ## Production URL
 
@@ -49,6 +57,32 @@ URL `desktop/shared/desktop-config.json` içindeki `productionUrl` alanından ok
 ```bash
 HK_DESKTOP_APP_URL=https://hkdijital.com.tr/digital-center bash desktop/macos/build-dmg.sh
 ```
+
+## Uygulama Modları
+
+### Online Mod
+
+İnternet varsa canlı web admin WKWebView içinde açılır. `/hk-admin` altındaki mevcut tüm modüller web tarafındaki gerçek admin navigation ile çalışmaya devam eder.
+
+### Offline Mod
+
+İnternet yoksa uygulama boş kalmaz. Yerel SQLite veritabanında şu güvenli taslak türleri saklanır:
+
+- müşteri notları
+- görevler
+- teklif taslakları
+- rapor taslakları
+- reklam yorum taslakları
+- paket/fiyat taslak notları
+- genel admin notları
+
+Müşteri silme, ödeme silme, kullanıcı yetkisi değiştirme, auth işlemleri ve entegrasyon token işlemleri offline yapılmaz.
+
+### Senkronizasyon Modu
+
+`Senkronize Et` butonu mevcut web oturum cookie'leriyle `/api/desktop/sync` endpointini çağırır. Oturum yoksa önce Web Admin üzerinden giriş yapılmalıdır.
+
+Çakışma olduğunda otomatik ezme yapılmaz; Sync Center içinde manuel çözüm bekleyen kayıt olarak gösterilir.
 
 ## Güvenlik Notları
 

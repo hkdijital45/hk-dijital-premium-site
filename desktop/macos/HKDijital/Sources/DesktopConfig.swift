@@ -3,6 +3,7 @@ import Foundation
 struct DesktopConfig: Decodable {
     let appName: String
     let productionUrl: String
+    let adminUrl: String
     let supportUrl: String
     let version: String
     let updateCheckUrl: String?
@@ -11,8 +12,9 @@ struct DesktopConfig: Decodable {
     static func load() -> DesktopConfig {
         if let override = ProcessInfo.processInfo.environment["HK_DESKTOP_APP_URL"], !override.isEmpty {
             return DesktopConfig(
-                appName: "HK Dijital",
+                appName: "HK Dijital Admin",
                 productionUrl: override,
+                adminUrl: override.replacingOccurrences(of: "/digital-center", with: "/hk-admin"),
                 supportUrl: override,
                 version: "0.1.0",
                 updateCheckUrl: nil,
@@ -27,8 +29,9 @@ struct DesktopConfig: Decodable {
         }
 
         return DesktopConfig(
-            appName: "HK Dijital",
+            appName: "HK Dijital Admin",
             productionUrl: "https://hkdijital.com.tr/digital-center",
+            adminUrl: "https://hkdijital.com.tr/hk-admin",
             supportUrl: "https://hkdijital.com.tr/iletisim",
             version: "0.1.0",
             updateCheckUrl: nil,

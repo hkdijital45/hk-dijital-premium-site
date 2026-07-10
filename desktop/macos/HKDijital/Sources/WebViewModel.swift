@@ -31,6 +31,10 @@ final class WebViewModel: ObservableObject {
         URL(string: config.productionUrl)
     }
 
+    var adminURL: URL? {
+        URL(string: config.adminUrl)
+    }
+
     var websiteURL: URL? {
         guard let productionURL else { return nil }
         var components = URLComponents(url: productionURL, resolvingAgainstBaseURL: false)
@@ -67,6 +71,13 @@ final class WebViewModel: ObservableObject {
     func goHome() {
         errorMessage = nil
         if let url = productionURL {
+            webView.load(URLRequest(url: url))
+        }
+    }
+
+    func goAdmin() {
+        errorMessage = nil
+        if let url = adminURL {
             webView.load(URLRequest(url: url))
         }
     }

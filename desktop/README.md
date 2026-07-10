@@ -4,11 +4,13 @@ Bu klasör HK Dijital web sistemini Electron veya PWA kullanmadan native masaüs
 
 Ana mantık:
 
-- macOS: SwiftUI + WKWebView wrapper
+- macOS: SwiftUI + WKWebView + yerel SQLite destekli HK Dijital Admin
 - Windows: .NET WPF + WebView2 wrapper
-- Uygulama canlı Digital Center giriş ekranını açar: `https://hkdijital.com.tr/digital-center`
-- Web tarafı Vercel'e deploy edildiğinde masaüstü uygulama yeni web sürümünü otomatik gösterir.
-- Native wrapper token, şifre veya refresh token saklamaz.
+- macOS uygulaması canlı Digital Center giriş ekranını açar: `https://hkdijital.com.tr/digital-center`
+- Admin hızlı erişimi: `https://hkdijital.com.tr/hk-admin`
+- Web tarafı Vercel'e deploy edildiğinde online web admin yeni sürümü otomatik gösterir.
+- Native uygulama token, şifre veya refresh token saklamaz.
+- Offline mod yalnız güvenli taslak/not verisi tutar; kritik admin işlemleri online web admin üzerinden yapılır.
 
 ## Ortak Config
 
@@ -40,7 +42,7 @@ npm run desktop:mac
 Çıktı:
 
 ```text
-desktop-builds/HK-Dijital-0.1.0.dmg
+desktop-builds/HK-Dijital-Admin-0.1.0.dmg
 ```
 
 Gereksinimler:
@@ -93,8 +95,16 @@ Manuel çalıştırma:
 
 Artifact isimleri:
 
-- `HK-Dijital-0.1.0.dmg`
+- `HK-Dijital-Admin-0.1.0.dmg`
 - `HK-Dijital-Setup.exe`
+
+## macOS Online / Offline / Sync Modları
+
+- Online Mod: İnternet varsa canlı web admini WKWebView içinde açılır.
+- Offline Mod: İnternet yoksa müşteri notu, görev, teklif taslağı, rapor taslağı, reklam yorum taslağı, paket/fiyat notu ve genel admin notu yerel SQLite veritabanına kaydedilir.
+- Senkronizasyon Modu: `Senkronize Et` butonu `/api/desktop/sync` endpointini mevcut web session ile çağırır. Admin oturumu yoksa 401/403 döner.
+
+Offline yapı canlı müşteri silme, ödeme silme, kullanıcı yetkisi değiştirme, auth işlemi ve entegrasyon token işlemi yapmaz.
 
 ## Harici Link ve Domain Güvenliği
 

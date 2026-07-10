@@ -1,0 +1,25 @@
+{
+  "version": "0.1.0",
+  "syncEndpoint": "https://hkdijital.com.tr/api/desktop/sync",
+  "supportedEntities": [
+    "customer_note",
+    "task",
+    "proposal_draft",
+    "report_draft",
+    "ad_comment_draft",
+    "package_price_note",
+    "admin_note"
+  ],
+  "criticalOnlineOnlyEntities": [
+    "customer_delete",
+    "payment_delete",
+    "user_permission_change",
+    "live_package_price_update",
+    "auth_operation",
+    "integration_token_operation"
+  ],
+  "conflictPolicy": {
+    "drafts": "newest_updated_at_suggested",
+    "critical": "manual_resolution_required"
+  }
+}
