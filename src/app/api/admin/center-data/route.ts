@@ -764,7 +764,7 @@ export async function GET() {
     return NextResponse.json({ error: "Supabase bağlantısı yapılandırılmadı." }, { status: 500 });
   }
 
-  const [companies, users, leads, campaigns, campaignMetrics, metaAdsetMetrics, metaAdMetrics, metaConversionEvents, metaAnalysisSnapshots, customerReportVisibility, customerUpdates, customerVisibilitySettings, customerFiles, media, customerBranding, customerIntegrations, monthlyReports, agencyTasks, customerDocuments, paymentRecords, reports, competitorAnalyses, socialMediaPlans, agencyExpenses, sectorConfigs, systemTestRuns, systemTestChecklist, activityLogs, adIntegrations, agencyOpportunities, agencyOpportunityEvents, agencyDailyTasks, agencyTargets, agencyLearningSignals, proposalFollowups, hkMarketplacePackages, hkMarketplacePackageApplications, customerBranches, competitorSignals, agencyNotifications] =
+  const [companies, users, leads, campaigns, campaignMetrics, metaAdsetMetrics, metaAdMetrics, metaConversionEvents, metaAnalysisSnapshots, customerReportVisibility, customerUpdates, customerVisibilitySettings, customerFiles, media, customerBranding, customerIntegrations, monthlyReports, agencyTasks, customerDocuments, paymentRecords, reports, competitorAnalyses, socialMediaPlans, agencyExpenses, sectorConfigs, systemTestRuns, systemTestChecklist, activityLogs, adIntegrations, agencyOpportunities, agencyOpportunityEvents, agencyDailyTasks, agencyTargets, agencyLearningSignals, proposalFollowups, hkMarketplacePackages, hkMarketplacePackageApplications, customerBranches, customerUserBranches, competitorSignals, agencyNotifications] =
     await Promise.all([
       supabaseRest("companies?select=*&order=created_at.desc"),
       supabaseRest("users?deleted_at=is.null&select=*&order=created_at.desc"),
@@ -804,6 +804,7 @@ export async function GET() {
       supabaseRest("hk_marketplace_packages?select=*&order=created_at.desc").catch(() => []),
       supabaseRest("hk_marketplace_package_applications?select=*&order=created_at.desc").catch(() => []),
       supabaseRest("customer_branches?select=*&order=branch_name.asc").catch(() => []),
+      supabaseRest("customer_user_branches?select=*&order=created_at.asc").catch(() => []),
       supabaseRest("competitor_signals?select=*&order=detected_at.desc&limit=500").catch(() => []),
       supabaseRest("agency_notifications?select=*&order=created_at.desc&limit=500").catch(() => [])
     ]);
@@ -847,6 +848,7 @@ export async function GET() {
     hkMarketplacePackages,
     hkMarketplacePackageApplications,
     customerBranches,
+    customerUserBranches,
     competitorSignals,
     agencyNotifications
   });

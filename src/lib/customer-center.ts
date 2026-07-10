@@ -41,7 +41,7 @@ const defaultVisibility = {
   show_meta_status: false
 };
 
-export async function getCustomerCenterData(companyId?: string): Promise<CustomerCenterData> {
+export async function getCustomerCenterData(companyId?: string, branchId?: string | null): Promise<CustomerCenterData> {
   if (hasSupabaseConfig() && !companyId) {
     return {
       company: null,
@@ -70,27 +70,28 @@ export async function getCustomerCenterData(companyId?: string): Promise<Custome
   }
 
   if (hasSupabaseConfig() && companyId) {
+    const branchScope = branchId ? `&or=(branch_id.eq.${encodeURIComponent(branchId)},branch_id.is.null)` : "";
     const [companies, visibilityRows, campaigns, metrics, reportVisibility, metaAdsets, metaAds, metaConversions, metaAnalyses, updates, files, reports, interpretations, reportUpdates, brandingRows, documents, payments, tasks, pixelRows, monthlyReports, competitorSummaries, integrationRows] = await Promise.all([
       supabaseRest<any[]>(`companies?id=eq.${companyId}&select=*&limit=1`),
       supabaseRest<any[]>(`customer_visibility_settings?company_id=eq.${companyId}&select=*&limit=1`),
-      supabaseRest<any[]>(`campaigns?company_id=eq.${companyId}&select=*&order=created_at.desc`),
-      supabaseRest<any[]>(`campaign_metrics?company_id=eq.${companyId}&select=*&order=date.desc`),
+      supabaseRest<any[]>(`campaigns?company_id=eq.${companyId}${branchScope}&select=*&order=created_at.desc`).catch(() => []),
+      supabaseRest<any[]>(`campaign_metrics?company_id=eq.${companyId}${branchScope}&select=*&order=date.desc`).catch(() => []),
       supabaseRest<any[]>(`customer_report_visibility?company_id=eq.${companyId}&select=*&order=display_order.asc`).catch(() => []),
-      supabaseRest<any[]>(`meta_adset_metrics?company_id=eq.${companyId}&select=*&order=date.desc`).catch(() => []),
-      supabaseRest<any[]>(`meta_ad_metrics?company_id=eq.${companyId}&select=*&order=date.desc`).catch(() => []),
-      supabaseRest<any[]>(`meta_conversion_events?company_id=eq.${companyId}&select=*&order=date.desc`).catch(() => []),
-      supabaseRest<any[]>(`meta_analysis_snapshots?company_id=eq.${companyId}&select=*&order=created_at.desc`).catch(() => []),
-      supabaseRest<any[]>(`customer_updates?company_id=eq.${companyId}&visible_to_customer=eq.true&select=*&order=created_at.desc`),
-      supabaseRest<any[]>(`customer_files?company_id=eq.${companyId}&visible_to_customer=eq.true&select=*&order=uploaded_at.desc`),
-      supabaseRest<any[]>(`reports?company_id=eq.${companyId}&visible_to_customer=eq.true&archived=eq.false&select=*&order=created_at.desc`).catch(() => []),
-      supabaseRest<any[]>(`report_interpretations?company_id=eq.${companyId}&select=*&order=created_at.desc`).catch(() => []),
-      supabaseRest<any[]>(`report_updates?company_id=eq.${companyId}&is_visible_to_customer=eq.true&select=*&order=is_pinned.desc,update_date.desc`).catch(() => []),
+      supabaseRest<any[]>(`meta_adset_metrics?company_id=eq.${companyId}${branchScope}&select=*&order=date.desc`).catch(() => []),
+      supabaseRest<any[]>(`meta_ad_metrics?company_id=eq.${companyId}${branchScope}&select=*&order=date.desc`).catch(() => []),
+      supabaseRest<any[]>(`meta_conversion_events?company_id=eq.${companyId}${branchScope}&select=*&order=date.desc`).catch(() => []),
+      supabaseRest<any[]>(`meta_analysis_snapshots?company_id=eq.${companyId}${branchScope}&select=*&order=created_at.desc`).catch(() => []),
+      supabaseRest<any[]>(`customer_updates?company_id=eq.${companyId}${branchScope}&visible_to_customer=eq.true&select=*&order=created_at.desc`).catch(() => []),
+      supabaseRest<any[]>(`customer_files?company_id=eq.${companyId}${branchScope}&visible_to_customer=eq.true&select=*&order=uploaded_at.desc`).catch(() => []),
+      supabaseRest<any[]>(`reports?company_id=eq.${companyId}${branchScope}&visible_to_customer=eq.true&archived=eq.false&select=*&order=created_at.desc`).catch(() => []),
+      supabaseRest<any[]>(`report_interpretations?company_id=eq.${companyId}${branchScope}&select=*&order=created_at.desc`).catch(() => []),
+      supabaseRest<any[]>(`report_updates?company_id=eq.${companyId}${branchScope}&is_visible_to_customer=eq.true&select=*&order=is_pinned.desc,update_date.desc`).catch(() => []),
       supabaseRest<any[]>(`customer_branding?company_id=eq.${companyId}&select=*&limit=1`).catch(() => []),
-      supabaseRest<any[]>(`customer_documents?company_id=eq.${companyId}&visible_to_customer=eq.true&select=*&order=document_date.desc`).catch(() => []),
-      supabaseRest<any[]>(`payment_records?company_id=eq.${companyId}&visible_to_customer=eq.true&select=*&order=due_date.desc`).catch(() => []),
-      supabaseRest<any[]>(`agency_tasks?company_id=eq.${companyId}&visible_to_customer=eq.true&select=*&order=due_date.asc`).catch(() => []),
+      supabaseRest<any[]>(`customer_documents?company_id=eq.${companyId}${branchScope}&visible_to_customer=eq.true&select=*&order=document_date.desc`).catch(() => []),
+      supabaseRest<any[]>(`payment_records?company_id=eq.${companyId}${branchScope}&visible_to_customer=eq.true&select=*&order=due_date.desc`).catch(() => []),
+      supabaseRest<any[]>(`agency_tasks?company_id=eq.${companyId}${branchScope}&visible_to_customer=eq.true&select=*&order=due_date.asc`).catch(() => []),
       supabaseRest<any[]>(`ad_integrations?company_id=eq.${companyId}&provider=eq.meta&select=pixel_enabled,capi_enabled,pixel_status,capi_status,last_pixel_test_at,last_capi_test_at,last_event_at,sync_message&limit=1`).catch(() => []),
-      supabaseRest<any[]>(`monthly_reports?company_id=eq.${companyId}&visible_to_customer=eq.true&select=*&order=report_month.desc`).catch(() => []),
+      supabaseRest<any[]>(`monthly_reports?company_id=eq.${companyId}${branchScope}&visible_to_customer=eq.true&select=*&order=report_month.desc`).catch(() => []),
       supabaseRest<any[]>(`competitor_watchlist?company_id=eq.${companyId}&or=(show_to_customer.eq.true,show_customer_summary.eq.true)&select=id,competitor_name,customer_summary,customer_visible_summary,customer_recommendations,customer_action_plan,last_checked_at,show_to_customer,show_customer_summary&order=last_checked_at.desc`).catch(() => []),
       supabaseRest<any[]>(`customer_integrations?company_id=eq.${companyId}&select=metadata,integration_assets,updated_at&limit=1`).catch(() => [])
     ]);

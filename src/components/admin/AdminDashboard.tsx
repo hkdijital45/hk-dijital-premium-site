@@ -672,12 +672,12 @@ export function AdminDashboard({
   const activeNavigationItem = adminNavigationItems.find((item) => item.label === active);
 
   return (
-    <main data-admin="true" data-mobile-operation-mode={mobileOperationMode ? "true" : "false"} className={`admin-shell hk-admin relative min-h-screen overflow-x-hidden ${mobileOperationMode ? "hk-mobile-operation-mode" : ""} ${shellClass}`}>
+    <main data-admin="true" data-mobile-operation-mode={mobileOperationMode ? "true" : "false"} className={`admin-shell hk-admin relative min-h-screen w-full min-w-0 max-w-full ${mobileOperationMode ? "hk-mobile-operation-mode" : ""} ${shellClass}`}>
       <div className="admin-ambient pointer-events-none absolute inset-0" />
       <div className="premium-grid pointer-events-none absolute inset-0 opacity-20" />
       <header className={`sticky top-0 z-40 border-b ${headerClass} shadow-[0_8px_30px_rgba(15,23,42,.06)] backdrop-blur-sm`}>
-        <div className="relative flex flex-wrap items-center gap-3 px-4 py-3 lg:px-6">
-          <div className="flex min-w-[220px] items-center gap-3">
+        <div className="relative flex min-w-0 flex-wrap items-center gap-3 px-3 py-3 sm:px-4 lg:px-6">
+          <div className="flex min-w-0 flex-1 items-center gap-3 sm:min-w-[220px] 2xl:flex-none">
             <Link href="/hk-admin" aria-label="Ana dashboard'a dön" className="group flex items-center gap-3 rounded-[8px] px-2 py-1 transition hover:bg-slate-50">
               <Logo content={content} compact />
               <div>
@@ -688,12 +688,12 @@ export function AdminDashboard({
             {isDesktopApp && <span className="rounded-[8px] border border-amber-200/20 bg-amber-300/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[.12em] text-amber-700">Desktop</span>}
           </div>
           <AdminBrowserControls />
-          <nav className="order-3 grid w-full gap-2 lg:order-none lg:flex lg:w-auto lg:flex-1 lg:items-center lg:justify-center">
-            <button type="button" onClick={() => setMobileNavOpen((current) => !current)} className="flex min-h-10 items-center justify-between rounded-[8px] border border-slate-200 bg-white/[0.045] px-3 text-sm font-black text-slate-700 lg:hidden">
+          <nav className="order-3 grid w-full min-w-0 gap-2 2xl:flex 2xl:items-center 2xl:justify-center">
+            <button type="button" onClick={() => setMobileNavOpen((current) => !current)} className="flex min-h-10 items-center justify-between rounded-[8px] border border-slate-200 bg-white/[0.045] px-3 text-sm font-black text-slate-700 2xl:hidden">
               Menü
               {mobileNavOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
             </button>
-            <div className={`${mobileNavOpen ? "grid" : "hidden"} gap-2 lg:flex lg:items-center lg:gap-1.5`}>
+            <div className={`${mobileNavOpen ? "grid" : "hidden"} min-w-0 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:flex 2xl:flex-wrap 2xl:items-center 2xl:justify-center 2xl:gap-1.5`}>
               {visibleNavigationGroups.map((group) => {
                 const expanded = openGroups[group.label] || hoveredNavGroup === group.label;
                 const activeInGroup = group.items.some((item) => item.label === active || item.slug === "" && active === "Dashboard");
@@ -720,7 +720,7 @@ export function AdminDashboard({
                       </span>
                     </button>
                     <div
-                      className={`admin-top-dropdown premium-scrollbar ${expanded ? "grid" : "hidden"} mt-2 max-h-[min(72vh,640px)] w-full max-w-full gap-2 overflow-y-auto rounded-[8px] border border-slate-200 bg-white/98 p-3 shadow-[0_18px_50px_rgba(0,0,0,.24)] lg:absolute lg:left-1/2 lg:top-full lg:z-50 lg:mt-3 lg:w-[min(560px,calc(100vw-32px))] lg:min-w-[420px] lg:-translate-x-1/2 xl:w-[min(680px,calc(100vw-32px))] xl:grid-cols-2`}
+                      className={`admin-top-dropdown premium-scrollbar ${expanded ? "grid" : "hidden"} mt-2 max-h-[min(72vh,640px)] w-full min-w-0 max-w-full gap-2 overflow-y-auto rounded-[8px] border border-slate-200 bg-white/98 p-3 shadow-[0_18px_50px_rgba(0,0,0,.24)] 2xl:absolute 2xl:left-1/2 2xl:top-full 2xl:z-50 2xl:mt-3 2xl:w-[min(680px,calc(100vw-32px))] 2xl:min-w-[420px] 2xl:-translate-x-1/2 2xl:grid-cols-2`}
                     >
                       {group.items.map((item) => (
                         <Link
@@ -743,7 +743,7 @@ export function AdminDashboard({
               })}
             </div>
           </nav>
-          <div className="ml-auto flex flex-wrap justify-end gap-2">
+          <div className="order-2 flex w-full min-w-0 flex-wrap items-center gap-2 2xl:order-none 2xl:ml-auto 2xl:w-auto 2xl:justify-end">
             <button onClick={() => setActive("API Ayarları")} className="min-h-10 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 px-3 text-left text-xs font-bold text-cyan-700">
               <span className="block">AI: {aiStatus.provider}</span>
               <span className="block text-[10px] text-cyan-700/70">Mod: {aiStatus.mode}</span>
@@ -793,7 +793,7 @@ export function AdminDashboard({
           </div>
         </div>
       </header>
-      <div className="relative grid w-full min-w-0 gap-4 px-3 py-4 sm:px-4 lg:grid-cols-1 lg:px-6">
+      <div className="relative grid w-full min-w-0 max-w-full gap-4 px-3 py-4 sm:px-4 lg:grid-cols-1 lg:px-6">
         <section className={`admin-dashboard-main min-w-0 w-full max-w-none rounded-[18px] border p-4 shadow-[0_8px_30px_rgba(15,23,42,.06)] sm:p-5 ${panelClass} ${saveFeedback === "success" ? "hk-action-success" : ""}`}>
           {!supabaseConfigured && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-700">Supabase bağlantısı yapılandırılmadı. Canlı ortamda kaydetme çalışmaz.</p>}
           {bootstrapWarning && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-700">Süper admin kurulum anahtarları hâlâ aktif. Güvenlik için Vercel ortam değişkenlerinden kaldırın.</p>}
@@ -1072,6 +1072,39 @@ function CompanySelect({ label = "Firma", value, onChange, companies }: any) {
       options={(companies || []).map((company) => ({ value: company.id, label: company.name }))}
       placeholder="Firma seçin"
     />
+  );
+}
+
+function BranchAccessEditor({ user, setUser, branches }: any) {
+  const companyBranches = (branches || []).filter((branch) => branch.company_id === user.company_id && branch.is_active !== false && !["passive", "pasif", "inactive"].includes(String(branch.status || "active").toLocaleLowerCase("tr")));
+  const mode = user.branch_access_mode === "all" ? "all" : "selected";
+  const selectedIds = Array.isArray(user.branch_ids) ? user.branch_ids : [];
+  function setMode(nextMode: string) {
+    setUser({ ...user, branch_access_mode: nextMode, branch_ids: nextMode === "all" ? [] : selectedIds, default_branch_id: companyBranches.some((branch) => branch.id === user.default_branch_id) ? user.default_branch_id : companyBranches[0]?.id || "" });
+  }
+  function toggleBranch(branchId: string) {
+    const nextIds = selectedIds.includes(branchId) ? selectedIds.filter((id) => id !== branchId) : [...selectedIds, branchId];
+    const defaultBranchId = nextIds.includes(user.default_branch_id) ? user.default_branch_id : nextIds[0] || "";
+    setUser({ ...user, branch_ids: nextIds, default_branch_id: defaultBranchId });
+  }
+  if (!user.company_id) {
+    return <div className="md:col-span-2 rounded-[14px] border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">Şube erişimini düzenlemek için önce firma seçin.</div>;
+  }
+  return (
+    <section className="min-w-0 rounded-[16px] border border-cyan-200 bg-cyan-50 p-4 md:col-span-2">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div><p className="text-xs font-black uppercase tracking-[.14em] text-cyan-700">Firma ve şube erişimi</p><p className="mt-1 text-sm text-cyan-950">Kullanıcının görebileceği şubeleri ve ilk açılacak şubeyi belirleyin.</p></div>
+        <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-cyan-800 ring-1 ring-cyan-200">{mode === "all" ? "Tüm şubeler" : `${selectedIds.length} şube seçili`}</span>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {[{ value: "selected", label: "Seçili şubeler", note: "Yalnızca işaretlenen şubeler" }, { value: "all", label: "Tüm şubeler", note: "Mevcut ve gelecekteki tüm aktif şubeler" }].map((option) => <button type="button" key={option.value} onClick={() => setMode(option.value)} className={`rounded-[12px] border p-3 text-left ${mode === option.value ? "border-cyan-400 bg-white ring-2 ring-cyan-200" : "border-cyan-100 bg-cyan-50"}`}><strong className="block text-sm text-slate-950">{option.label}</strong><span className="mt-1 block text-xs text-slate-600">{option.note}</span></button>)}
+      </div>
+      {!companyBranches.length ? <p className="mt-4 rounded-[12px] border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">Bu firmaya ait aktif şube bulunamadı. Önce firma profiline şube ekleyin.</p> : <>
+        {mode === "selected" && <div className="mt-4"><div className="mb-2 flex flex-wrap gap-2"><button type="button" onClick={() => setUser({ ...user, branch_ids: companyBranches.map((branch) => branch.id), default_branch_id: user.default_branch_id || companyBranches[0]?.id || "" })} className="rounded-full border border-cyan-200 bg-white px-3 py-2 text-xs font-black text-cyan-800">Tümünü seç</button><button type="button" onClick={() => setUser({ ...user, branch_ids: [], default_branch_id: "" })} className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700">Seçimi temizle</button></div><div className="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-3">{companyBranches.map((branch) => <label key={branch.id} className="flex min-w-0 items-start gap-3 rounded-[12px] border border-cyan-100 bg-white p-3 text-sm"><input type="checkbox" checked={selectedIds.includes(branch.id)} onChange={() => toggleBranch(branch.id)} className="mt-1 size-4 shrink-0" /><span className="min-w-0"><strong className="block break-words text-slate-950">{branch.branch_name}</strong><span className="mt-1 block break-words text-xs text-slate-500">{[branch.district, branch.city].filter(Boolean).join(" / ") || "Konum bilgisi yok"}</span></span></label>)}</div></div>}
+        <label className="mt-4 grid gap-2 text-sm font-bold text-slate-700">Varsayılan şube<select value={user.default_branch_id || ""} onChange={(event) => setUser({ ...user, default_branch_id: event.target.value })} className="min-h-11 w-full min-w-0 rounded-[10px] border border-cyan-200 bg-white px-3 text-slate-900"><option value="">Varsayılan şube seçin</option>{companyBranches.filter((branch) => mode === "all" || selectedIds.includes(branch.id)).map((branch) => <option key={branch.id} value={branch.id}>{branch.branch_name}</option>)}</select></label>
+        <p className="mt-3 text-xs leading-5 text-cyan-900">{mode === "all" ? "Bu kullanıcı mevcut ve gelecekte eklenecek tüm aktif şubelere erişebilir." : `${selectedIds.length} şubeye erişim verilecek.`}</p>
+      </>}
+    </section>
   );
 }
 
@@ -1625,8 +1658,8 @@ function IntelligenceMvpPanel({ compact = false }: any) {
       <div className="rounded-[16px] border border-indigo-100 bg-white p-4">
         <h4 className="font-black text-slate-950">Bugün neye bakmalıyım?</h4>
         <div className="mt-3 grid gap-2">
-          {(data?.topActions?.length ? data.topActions.map((item: any) => `${item.name}: ${item.text}`) : data?.priorityList || []).slice(0, 5).map((item: string) => <p key={item} className="rounded-[12px] bg-indigo-50 px-3 py-2 text-sm font-bold text-indigo-800">{item}</p>)}
-          {!data?.priorityList?.length && <p className="text-sm text-slate-500">Henüz canlı sinyal yok. Bağlantılar tamamlandığında öncelik listesi oluşur.</p>}
+          {(data?.topActions?.length ? data.topActions.map((item: any) => `${item.name || "Müşteri"}: ${item.text || item.action || item.nextAction || "Öneri henüz oluşturulmadı"}`) : data?.priorityList || []).slice(0, 5).map((item: string) => <p key={item} className="rounded-[12px] bg-indigo-50 px-3 py-2 text-sm font-bold text-indigo-800">{item}</p>)}
+          {!data?.topActions?.length && !data?.priorityList?.length && <p className="text-sm text-slate-500">Henüz canlı sinyal yok. Bağlantılar tamamlandığında öncelik listesi oluşur.</p>}
         </div>
       </div>
       <div className="rounded-[16px] border border-cyan-100 bg-white p-4">
@@ -5892,7 +5925,7 @@ function CustomerPanelAdmin({ content, setContent }: any) {
 function CustomerFormModal({ title, children, onClose }: any) {
   return (
     <div className="fixed inset-0 z-[130] grid place-items-center bg-white/75 p-4" onMouseDown={onClose}>
-      <div className="max-h-[90vh] w-full max-w-3xl overflow-auto rounded-[22px] border border-slate-200 bg-white p-5 shadow-[0_28px_90px_rgba(15,23,42,.2)]" onMouseDown={(event) => event.stopPropagation()}>
+      <div className="max-h-[92dvh] w-full max-w-5xl overflow-x-hidden overflow-y-auto rounded-[22px] border border-slate-200 bg-white p-4 shadow-[0_28px_90px_rgba(15,23,42,.2)] sm:p-6" onMouseDown={(event) => event.stopPropagation()}>
         <div className="mb-5 flex items-start justify-between gap-4">
           <div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Müşteri Yönetimi</p><h3 className="mt-1 text-2xl font-black text-slate-950">{title}</h3></div>
           <button onClick={onClose} className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700">Kapat</button>
@@ -5907,7 +5940,7 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState("");
-  const [form, setForm] = useState({ fullName: "", email: "", password: "", company_id: "", role: "customer", is_active: true });
+  const [form, setForm] = useState<any>({ fullName: "", email: "", password: "", company_id: "", role: "customer", is_active: true, branch_access_mode: "selected", branch_ids: [], default_branch_id: "" });
   const [companyForm, setCompanyForm] = useState({ name: "", sector: "", city: "Manisa", website: "", instagram: "", phone: "", email: "", status: "Aktif", notes: "" });
   const [companyQuery, setCompanyQuery] = useState("");
   const [editingCompanyId, setEditingCompanyId] = useState("");
@@ -6163,6 +6196,10 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
       setError("Müşteri hesabı için firma seçimi zorunludur.");
       return;
     }
+    if (customerRole(form.role) && form.branch_access_mode === "selected" && !form.branch_ids.length) {
+      setError("Müşteri hesabı için en az bir aktif şube seçilmelidir.");
+      return;
+    }
     setMessage("Kullanıcı oluşturuluyor...");
     setLoading("user");
     const response = await fetch("/api/admin/users/create", {
@@ -6174,14 +6211,17 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
         password: form.password,
         role: form.role,
         company_id: form.company_id,
-        is_active: form.is_active
+        is_active: form.is_active,
+        branchAccessMode: form.branch_access_mode,
+        branchIds: form.branch_ids,
+        defaultBranchId: form.default_branch_id || null
       })
     });
     const data = await response.json().catch(() => ({}));
     setLoading("");
     if (response.ok) {
       setContent({ ...content, users: [data.user, ...(content.users || [])] });
-      setForm({ fullName: "", email: "", password: "", company_id: "", role: "customer", is_active: true });
+      setForm({ fullName: "", email: "", password: "", company_id: "", role: "customer", is_active: true, branch_access_mode: "selected", branch_ids: [], default_branch_id: "" });
       setMessage("Müşteri giriş hesabı oluşturuldu.");
       setOpenForm("");
       notify?.("Müşteri giriş hesabı oluşturuldu.", "success");
@@ -6336,13 +6376,15 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
         </button>}
       </CustomerFormModal>}
       {openForm === "login" && <CustomerFormModal title="Müşteri Giriş Hesabı Oluştur" onClose={() => setOpenForm("")}>
-        <div className="grid gap-3 md:grid-cols-2">
+        <p className="mb-4 text-sm leading-6 text-slate-600">Kullanıcı bilgilerini, bağlı firmayı ve görebileceği şubeleri tek adımda tanımlayın.</p>
+        <div className="grid min-w-0 gap-3 md:grid-cols-2">
           <Field label="Ad Soyad" value={form.fullName} onChange={(v) => setForm({ ...form, fullName: v })} />
           <Field label="E-posta" value={form.email} onChange={(v) => setForm({ ...form, email: v })} />
           <Field label="Geçici Şifre" type="password" value={form.password} onChange={(v) => setForm({ ...form, password: v })} />
-          <CompanySelect value={form.company_id} onChange={(v) => setForm({ ...form, company_id: v })} companies={content.companies} />
+          <CompanySelect value={form.company_id} onChange={(v) => setForm({ ...form, company_id: v, branch_ids: [], default_branch_id: "" })} companies={content.companies} />
+          <BranchAccessEditor user={form} setUser={setForm} branches={content.customerBranches || []} />
           <SelectField label="Rol" value={form.role} onChange={(v) => setForm({ ...form, role: v })} options={roleOptions} />
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} /> Aktif</label>
+          <label className="flex items-center gap-2 self-end rounded-[10px] border border-slate-200 bg-slate-50 px-3 py-3 text-sm"><input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} /> Hesap aktif</label>
         </div>
         {canManageCustomers && <button disabled={loading === "user"} onClick={createLogin} className="mt-4 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-60">
           {loading === "user" ? "Hesap oluşturuluyor..." : "Giriş hesabı oluştur"}
@@ -7594,7 +7636,7 @@ function CustomerProposalsEditor({ company, content, setContent, save, items, no
   const visibleItems = items.filter((item) => !item.deleted_at);
   const { run, label } = useCustomerActionFeedback(notify);
   const update = (id, patch) => updateCollection(content, setContent, "customerDocuments", allItems.map((item) => item.id === id ? { ...item, ...patch, updated_at: new Date().toISOString() } : item));
-  const add = () => updateCollection(content, setContent, "customerDocuments", [{ id: createLocalId(), company_id: company.id, title: `Teklif · ${company.name || "Müşteri"}`, document_type: "Teklif", document_date: new Date().toISOString().slice(0, 10), package_type: "ORTA", service_fee: 0, ad_budget: 0, included_services: "Meta Ads yönetimi\nRaporlama\nWhatsApp teklif akışı", next_step: "Müşteri onayı sonrası kurulum planı hazırlanacak.", description: "Teklif içeriği hazırlanıyor.", document_url: "", visible_to_customer: false, status: "Taslak", created_at: new Date().toISOString(), updated_at: new Date().toISOString() }, ...allItems]);
+  const add = () => updateCollection(content, setContent, "customerDocuments", [{ id: createLocalId(), company_id: company.id, branch_id: null, title: `Teklif · ${company.name || "Müşteri"}`, document_type: "Teklif", document_date: new Date().toISOString().slice(0, 10), package_type: "ORTA", service_fee: 0, ad_budget: 0, included_services: "Meta Ads yönetimi\nRaporlama\nWhatsApp teklif akışı", next_step: "Müşteri onayı sonrası kurulum planı hazırlanacak.", description: "Teklif içeriği hazırlanıyor.", document_url: "", visible_to_customer: false, status: "Taslak", created_at: new Date().toISOString(), updated_at: new Date().toISOString() }, ...allItems]);
   const archive = (item) => confirm("Bu teklifi arşivlemek istediğinize emin misiniz?") && update(item.id, { archived_at: new Date().toISOString(), status: "Arşivlendi" });
   const remove = (item) => confirm("Bu teklifi silmek istediğinize emin misiniz?") && update(item.id, { deleted_at: new Date().toISOString(), status: "Silindi" });
   return <div><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-slate-900">Teklifler</h3><p className="mt-1 text-sm text-slate-400">Bu teklifler Belge Merkezi ile aynı kayıtları kullanır. Müşteri paneline sadece görünür olarak işaretlenenler yansır.</p></div>{canManage && <button onClick={add} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Teklif Oluştur</button>}</div><div className="grid gap-3">{visibleItems.map((item) => <div key={item.id} className={`rounded-[8px] border p-4 ${isArchivedRecord(item) ? "border-amber-300/25 bg-amber-300/[0.06]" : "border-slate-200 bg-slate-50"}`}><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"><Field label="Teklif başlığı" value={item.title || ""} onChange={(value) => update(item.id, { title: value })} /><SelectField label="Paket tipi" value={item.package_type || "ORTA"} onChange={(value) => update(item.id, { package_type: value })} options={["MIN", "ORTA", "MAX", "Özel"]} /><SelectField label="Durum" value={item.status || "Taslak"} onChange={(value) => update(item.id, { status: value })} options={["Taslak", "Hazır", "Gönderildi", "Arşivlendi"]} /><Field label="Hizmet bedeli" type="number" value={item.service_fee || 0} onChange={(value) => update(item.id, { service_fee: Number(value || 0) })} /><Field label="Reklam bütçesi" type="number" value={item.ad_budget || 0} onChange={(value) => update(item.id, { ad_budget: Number(value || 0) })} /><Field label="Tarih" type="date" value={item.document_date || ""} onChange={(value) => update(item.id, { document_date: value })} /><Field label="Belge URL" value={item.document_url || ""} onChange={(value) => update(item.id, { document_url: value })} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item.visible_to_customer)} onChange={(event) => update(item.id, { visible_to_customer: event.target.checked })} /> Müşteri Belgelerine Kaydet / Göster</label><InfoItem label="Güncellenme tarihi" value={formatDateTime(item.updated_at)} /><div className="md:col-span-2 xl:col-span-3"><TextArea label="Dahil hizmetler" value={item.included_services || ""} onChange={(value) => update(item.id, { included_services: value })} /></div><div className="md:col-span-2 xl:col-span-3"><TextArea label="Notlar" value={item.description || ""} onChange={(value) => update(item.id, { description: value })} /></div><div className="md:col-span-2 xl:col-span-3"><TextArea label="Sonraki adım" value={item.next_step || ""} onChange={(value) => update(item.id, { next_step: value })} /></div></div><div className="mt-4 flex flex-wrap justify-end gap-2"><button onClick={() => alert(`${item.title || "Teklif"}\n\nPaket: ${item.package_type || "-"}\nHizmet bedeli: ${Number(item.service_fee || 0).toLocaleString("tr-TR")} TL\nReklam bütçesi: ${Number(item.ad_budget || 0).toLocaleString("tr-TR")} TL\n\n${item.included_services || ""}\n\n${item.description || ""}\n\nSonraki adım: ${item.next_step || "-"}`)} className="rounded-full border border-slate-200 px-4 py-2 text-xs text-slate-700">Önizle</button><button onClick={() => window.print()} className="rounded-full border border-slate-200 px-4 py-2 text-xs text-slate-700">Yazdır / PDF</button>{canManage && (isArchivedRecord(item) ? <button onClick={() => update(item.id, { archived_at: null, deleted_at: null, status: "Taslak" })} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-700">Arşivden Çıkar</button> : <button onClick={() => archive(item)} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-700">Arşivle</button>)}{canManage && <button onClick={() => remove(item)} className="rounded-full border border-red-300/30 px-4 py-2 text-xs text-red-200">Sil</button>}{canManage && <button onClick={() => run(`proposal-${item.id}`, "Kaydediliyor...", "Kaydedildi", () => save?.())} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">{label(`proposal-${item.id}`, "Kaydet")}</button>}<button onClick={() => window.location.reload()} className="rounded-full border border-slate-200 px-4 py-2 text-xs text-slate-700">Vazgeç</button></div></div>)}{!visibleItems.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-5 text-sm text-slate-400">Bu müşteri için teklif dokümanı yok.</p>}</div></div>;
@@ -7605,7 +7647,7 @@ function CustomerReportsEditor({ company, content, setContent, save, items, noti
   const visibleItems = items.filter((item) => !item.deleted_at);
   const { run, label } = useCustomerActionFeedback(notify);
   const update = (id, patch) => updateCollection(content, setContent, "reports", allItems.map((item) => item.id === id ? { ...item, ...patch, updated_at: new Date().toISOString() } : item));
-  const add = () => updateCollection(content, setContent, "reports", [{ id: createLocalId(), company_id: company.id, report_type: "Genel Dijital Performans Raporu", period: new Date().toISOString().slice(0, 7), summary: "", customer_note: "", ai_interpretation: "", visible_to_customer: false, archived: false, status: "Taslak", metrics: {}, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }, ...allItems]);
+  const add = () => updateCollection(content, setContent, "reports", [{ id: createLocalId(), company_id: company.id, branch_id: null, report_type: "Genel Dijital Performans Raporu", period: new Date().toISOString().slice(0, 7), summary: "", customer_note: "", ai_interpretation: "", visible_to_customer: false, archived: false, status: "Taslak", metrics: {}, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }, ...allItems]);
   const aiInterpret = (item) => update(item.id, { ai_interpretation: `${company.name || "Müşteri"} için rapor yorumu: mevcut metrikler, görünür rapor notları ve kampanya verileri birlikte takip edilmeli. Önümüzdeki 7 gün içinde düşük performanslı alanlar kontrol edilip müşteriyle net aksiyon planı paylaşılmalıdır.`, customer_note: item.customer_note || "Performansı görünür hale getirmek için rapor düzenli takip edilmelidir." });
   return <div><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-slate-900">Raporlar</h3><p className="mt-1 text-sm text-slate-400">Raporlar, müşteri paneli görünürlüğü ve PDF/Yazdır akışıyla birlikte yönetilir.</p></div>{canManage && <button onClick={add} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Rapor Oluştur</button>}</div><div className="grid gap-3">{visibleItems.map((item) => <div key={item.id} className={`rounded-[8px] border p-4 ${isArchivedRecord(item) || item.archived ? "border-amber-300/25 bg-amber-300/[0.06]" : "border-slate-200 bg-slate-50"}`}><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"><SelectField label="Rapor türü" value={item.report_type || "Genel Dijital Performans Raporu"} onChange={(value) => update(item.id, { report_type: value })} options={["Meta Reklam Raporu", "Google Ads Raporu", "Sosyal Medya Yönetimi Raporu", "Genel Dijital Performans Raporu"]} /><Field label="Dönem" value={item.period || ""} onChange={(value) => update(item.id, { period: value })} /><SelectField label="Durum" value={item.status || "Taslak"} onChange={(value) => update(item.id, { status: value })} options={["Taslak", "Hazır", "Yayınlandı", "Arşivlendi"]} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item.visible_to_customer)} onChange={(event) => update(item.id, { visible_to_customer: event.target.checked })} /> {item.visible_to_customer ? "Müşteriye Göster" : "Müşteriden Gizle"}</label><InfoItem label="Oluşturulma tarihi" value={formatDateTime(item.created_at)} /><InfoItem label="Güncellenme tarihi" value={formatDateTime(item.updated_at)} /><div className="md:col-span-2 xl:col-span-3"><TextArea label="Rapor özeti" value={item.summary || item.customer_note || ""} onChange={(value) => update(item.id, { summary: value, customer_note: value })} /></div><div className="md:col-span-2 xl:col-span-3"><TextArea label="AI yorum / sonraki öneri" value={item.ai_interpretation || ""} onChange={(value) => update(item.id, { ai_interpretation: value })} /></div></div><div className="mt-4 flex flex-wrap justify-end gap-2"><button onClick={() => aiInterpret(item)} className="rounded-full border border-cyan-200/25 px-4 py-2 text-xs text-cyan-700">AI Yorumla</button><button onClick={() => window.print()} className="rounded-full border border-slate-200 px-4 py-2 text-xs text-slate-700">PDF / Yazdır</button>{isArchivedRecord(item) || item.archived ? <button onClick={() => update(item.id, { archived_at: null, deleted_at: null, archived: false, status: "Taslak" })} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-700">Arşivden Çıkar</button> : <button onClick={() => update(item.id, { archived_at: new Date().toISOString(), archived: true, status: "Arşivlendi" })} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-700">Arşivle</button>}<button onClick={() => confirm("Bu raporu silmek istediğinize emin misiniz?") && update(item.id, { deleted_at: new Date().toISOString(), status: "Silindi" })} className="rounded-full border border-red-300/30 px-4 py-2 text-xs text-red-200">Sil</button><button onClick={() => run(`report-${item.id}`, "Kaydediliyor...", "Kaydedildi", () => save?.())} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">{label(`report-${item.id}`, "Kaydet")}</button><button onClick={() => window.location.reload()} className="rounded-full border border-slate-200 px-4 py-2 text-xs text-slate-700">Vazgeç</button></div></div>)}{!visibleItems.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-5 text-sm text-slate-400">Bu müşteri için kanal bazlı rapor yok.</p>}</div></div>;
 }
@@ -7615,7 +7657,7 @@ function CustomerFilesEditor({ company, content, setContent, save, items, notify
   const visibleItems = items.filter((item) => !item.deleted_at);
   const { run, label } = useCustomerActionFeedback(notify);
   const update = (id, patch) => updateCollection(content, setContent, "customerFiles", allItems.map((item) => item.id === id ? { ...item, ...patch, updated_at: new Date().toISOString() } : item));
-  const add = () => updateCollection(content, setContent, "customerFiles", [{ id: createLocalId(), company_id: company.id, title: "Yeni Dosya", file_type: "Diğer", description: "", file_url: "", document_url: "", visible_to_customer: false, show_in_creative_center: false, status: "Aktif", created_at: new Date().toISOString(), updated_at: new Date().toISOString() }, ...allItems]);
+  const add = () => updateCollection(content, setContent, "customerFiles", [{ id: createLocalId(), company_id: company.id, branch_id: null, title: "Yeni Dosya", file_type: "Diğer", description: "", file_url: "", document_url: "", visible_to_customer: false, show_in_creative_center: false, status: "Aktif", created_at: new Date().toISOString(), updated_at: new Date().toISOString() }, ...allItems]);
   const syncFileUrl = (id, value) => update(id, { file_url: value, document_url: value });
   const isCreativeType = (type) => ["Görsel", "Reklam Görseli", "Kreatif"].includes(type || "");
   return <div><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-slate-900">Dosyalar</h3><p className="mt-1 text-sm text-slate-400">Müşteri panelinde sadece görünür olarak işaretlenen dosyalar gösterilir.</p><p className="mt-1 text-xs text-slate-500">Kreatif Merkezinde Göster seçilirse bu dosya müşteri panelindeki Kreatif Merkezi bölümünde görünür.</p></div>{canManage && <button onClick={add} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Dosya Ekle</button>}</div><div className="grid gap-3">{visibleItems.map((item) => <div key={item.id} className={`rounded-[8px] border p-4 ${isArchivedRecord(item) ? "border-amber-300/25 bg-amber-300/[0.06]" : "border-slate-200 bg-slate-50"}`}><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"><Field label="Dosya Başlığı" value={item.title || ""} onChange={(value) => update(item.id, { title: value })} /><SelectField label="Dosya Türü" value={item.file_type || "Diğer"} onChange={(value) => update(item.id, { file_type: value, show_in_creative_center: item.show_in_creative_center || isCreativeType(value) })} options={fileCategoryOptions} /><Field label="Dosya URL" value={item.file_url || item.document_url || ""} onChange={(value) => syncFileUrl(item.id, value)} /><Upload onUrl={(url) => syncFileUrl(item.id, url)} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item.visible_to_customer)} onChange={(event) => update(item.id, { visible_to_customer: event.target.checked })} /> {item.visible_to_customer ? "Müşteriye Göster" : "Sadece Yönetici"}</label><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item.show_in_creative_center || isCreativeType(item.file_type))} onChange={(event) => update(item.id, { show_in_creative_center: event.target.checked })} /> Kreatif Merkezinde Göster</label><InfoItem label="Güncellenme tarihi" value={formatDateTime(item.updated_at)} /><div className="md:col-span-2 xl:col-span-3"><TextArea label="Açıklama" value={item.description || ""} onChange={(value) => update(item.id, { description: value })} /></div></div><div className="mt-4 flex flex-wrap justify-end gap-2">{isArchivedRecord(item) ? <button onClick={() => update(item.id, { archived_at: null, deleted_at: null, status: "Aktif" })} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-700">Arşivden Çıkar</button> : <button onClick={() => update(item.id, { archived_at: new Date().toISOString(), status: "Arşivlendi" })} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-700">Arşivle</button>}<button onClick={() => confirm("Bu dosyayı silmek istediğinize emin misiniz?") && update(item.id, { deleted_at: new Date().toISOString(), status: "Silindi" })} className="rounded-full border border-red-300/30 px-4 py-2 text-xs text-red-200">Sil</button><button onClick={() => run(`file-${item.id}`, "Kaydediliyor...", "Kaydedildi", () => save?.())} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">{label(`file-${item.id}`, "Kaydet")}</button><button onClick={() => window.location.reload()} className="rounded-full border border-slate-200 px-4 py-2 text-xs text-slate-700">Vazgeç</button></div></div>)}{!visibleItems.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-5 text-sm text-slate-400">Bu müşteri için dosya yok.</p>}</div></div>;
@@ -7632,7 +7674,7 @@ function CustomerCampaignsEditor({ company, content, setContent, save, setActive
   const visibleItems = filterCampaigns(items, { status: statusFilter, platform: platformFilter, startDate, endDate });
   const update = (id, patch) => updateCollection(content, setContent, "campaigns", allItems.map((item) => item.id === id ? { ...item, ...patch, updated_at: new Date().toISOString() } : item));
   const add = () => {
-    updateCollection(content, setContent, "campaigns", [{ id: createLocalId(), company_id: company.id, name: "Yeni Kampanya", platform: "Meta Ads", objective: "Lead", status: "Planlandı", start_date: new Date().toISOString().slice(0, 10), end_date: "", daily_budget: 0, total_budget: 0, spent_budget: 0, budget: 0, spent: 0, notes: "", internal_notes: "", visible_to_customer: false }, ...allItems]);
+    updateCollection(content, setContent, "campaigns", [{ id: createLocalId(), company_id: company.id, branch_id: null, name: "Yeni Kampanya", platform: "Meta Ads", objective: "Lead", status: "Planlandı", start_date: new Date().toISOString().slice(0, 10), end_date: "", daily_budget: 0, total_budget: 0, spent_budget: 0, budget: 0, spent: 0, notes: "", internal_notes: "", visible_to_customer: false }, ...allItems]);
     notify?.("✓ Kampanya taslağı oluşturuldu", "success");
   };
   const copy = (campaign) => {
@@ -7645,7 +7687,7 @@ function CustomerCampaignsEditor({ company, content, setContent, save, setActive
     notify?.("✓ Kampanya arşivlendi", "success");
   };
   const createReport = (campaign) => {
-    updateCollection(content, setContent, "reports", [{ id: createLocalId(), company_id: company.id, campaign_id: campaign.id, report_type: `${campaign.platform || "Reklam"} Raporu`, period: campaign.start_date && campaign.end_date ? `${campaign.start_date} - ${campaign.end_date}` : "Kampanya dönemi", summary: `${campaign.name || "Kampanya"} için rapor taslağı.`, visible_to_customer: false, archived: false, metrics: {}, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }, ...(content.reports || [])]);
+    updateCollection(content, setContent, "reports", [{ id: createLocalId(), company_id: company.id, branch_id: campaign.branch_id || null, campaign_id: campaign.id, report_type: `${campaign.platform || "Reklam"} Raporu`, period: campaign.start_date && campaign.end_date ? `${campaign.start_date} - ${campaign.end_date}` : "Kampanya dönemi", summary: `${campaign.name || "Kampanya"} için rapor taslağı.`, visible_to_customer: false, archived: false, metrics: {}, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }, ...(content.reports || [])]);
     setActive?.("Müşteri Raporları");
   };
 
@@ -7726,7 +7768,7 @@ function CustomerPaymentsEditor({ company, content, setContent, save, items, not
   function add() {
     const duplicateDraft = allItems.some((item) => item.company_id === company.id && !Number(item.amount || 0) && item.status === "Bekliyor" && String(item.service_period || "").startsWith(thisMonth));
     if (duplicateDraft) return;
-    updateCollection(content, setContent, "paymentRecords", [{ id: createLocalId(), company_id: company.id, amount: 0, due_date: new Date().toISOString().slice(0, 10), payment_date: "", status: "Bekliyor", service_period: thisMonth, payment_note: "", visible_to_customer: false }, ...allItems]);
+    updateCollection(content, setContent, "paymentRecords", [{ id: createLocalId(), company_id: company.id, branch_id: null, amount: 0, due_date: new Date().toISOString().slice(0, 10), payment_date: "", status: "Bekliyor", service_period: thisMonth, payment_note: "", visible_to_customer: false }, ...allItems]);
     notify?.("✓ Ödeme taslağı oluşturuldu", "success");
   }
   return <div><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-slate-900">Ödemeler</h3><p className="mt-1 text-sm text-slate-400">Bu kayıtlar Tahsilat, Karlılık ve Dashboard özetleriyle aynı veri kaynağını kullanır.</p></div>{canManage && <button onClick={add} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Ödeme Ekle</button>}</div><div className="mb-4 grid gap-3 md:grid-cols-4"><SelectField label="Durum filtresi" value={statusFilter} onChange={setStatusFilter} options={paymentHistoryFilters} /><Field label="Başlangıç tarihi" type="date" value={startDate} onChange={setStartDate} /><Field label="Bitiş tarihi" type="date" value={endDate} onChange={setEndDate} /><button onClick={() => { setStatusFilter("Tümü"); setStartDate(""); setEndDate(""); }} className="self-end rounded-[8px] border border-slate-200 px-4 py-3 text-sm font-black text-slate-700">Filtreleri Temizle</button></div><div className="grid gap-3">{visibleItems.map((item) => <div key={item.id} className={`rounded-[8px] border p-4 ${isArchivedRecord(item) ? "border-amber-300/25 bg-amber-300/[0.06]" : "border-slate-200 bg-slate-50"}`}><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"><Field label="Tutar" type="number" value={item.amount || 0} onChange={(value) => update(item.id, { amount: Number(value || 0) })} /><Field label="Son ödeme tarihi" type="date" value={item.due_date || ""} onChange={(value) => update(item.id, { due_date: value })} /><Field label="Ödeme tarihi" type="date" value={item.payment_date || ""} onChange={(value) => update(item.id, { payment_date: value })} /><SelectField label="Durum" value={item.status || "Bekliyor"} onChange={(value) => canManage && setStatus(item.id, value)} options={paymentStatusOptions} /><Field label="Hizmet dönemi" type="month" value={item.service_period || ""} onChange={(value) => update(item.id, { service_period: value })} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item.visible_to_customer)} onChange={(event) => update(item.id, { visible_to_customer: event.target.checked })} /> Müşteri Panelinde Görünür</label><InfoItem label="Oluşturulma tarihi" value={formatDateTime(item.created_at)} /><InfoItem label="Güncellenme tarihi" value={formatDateTime(item.updated_at)} /><div className="md:col-span-2 xl:col-span-3"><TextArea label="Not" value={item.payment_note || ""} onChange={(value) => update(item.id, { payment_note: value })} /></div></div><div className="mt-4 flex flex-wrap justify-end gap-2">{canManage && (isArchivedRecord(item) ? <button onClick={() => restore(item.id)} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-700">Arşivden Çıkar</button> : <button onClick={() => archive(item.id)} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-700">Arşivle</button>)}{canManage && item.status !== "Ödendi" && <button onClick={() => setStatus(item.id, "Ödendi")} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs text-emerald-700">Ödendi Yap</button>}{canManage && item.status === "İptal" && <button onClick={() => setStatus(item.id, "Bekliyor")} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs text-emerald-700">Tekrar Bekliyor Yap</button>}{canManage && <button onClick={() => run(`payment-${item.id}`, "Kaydediliyor...", "Kaydedildi", () => save?.())} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">{label(`payment-${item.id}`, "Kaydet")}</button>}<button onClick={() => window.location.reload()} className="rounded-full border border-slate-200 px-4 py-2 text-xs text-slate-700">Vazgeç</button></div></div>)}{!visibleItems.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-5 text-sm text-slate-400">Bu müşteri için ödeme kaydı bulunamadı.</p>}</div></div>;
@@ -8526,7 +8568,7 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
   const [error, setError] = useState("");
   const [editingUser, setEditingUser] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null);
-  const [createForm, setCreateForm] = useState({ fullName: "", email: "", password: "", role: "editor", company_id: "", is_active: true, allowed_modules: uiRoleTemplates.editor });
+  const [createForm, setCreateForm] = useState<any>({ fullName: "", email: "", password: "", role: "editor", company_id: "", is_active: true, allowed_modules: uiRoleTemplates.editor, branch_access_mode: "selected", branch_ids: [], default_branch_id: "" });
   const activeAdminUsers = (content.users || []).filter((user) => legacyRole(user.role) === "admin" && user.is_active && !user.deleted_at);
   const users = (content.users || [])
     .filter((user) => !user.deleted_at)
@@ -8536,6 +8578,14 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
     .filter((user) => !statusFilter || (statusFilter === "Aktif" ? user.is_active : !user.is_active));
   const update = (id, patch) => setContent({ ...content, users: content.users.map((user) => user.id === id ? { ...user, ...patch } : user) });
   const removeUserFromState = (id) => setContent({ ...content, users: (content.users || []).filter((user) => user.id !== id) });
+  function branchIdsForUser(userId: string) {
+    return (content.customerUserBranches || []).filter((item) => item.user_id === userId).map((item) => item.branch_id);
+  }
+  function contentWithUserBranches(baseContent: any, user: any) {
+    const retained = (baseContent.customerUserBranches || []).filter((item) => item.user_id !== user.id);
+    const assignments = (user.branch_ids || []).map((branchId) => ({ user_id: user.id, company_id: user.company_id, branch_id: branchId, is_default: branchId === user.default_branch_id }));
+    return { ...baseContent, customerUserBranches: [...retained, ...assignments] };
+  }
   function blockedUserAction(user) {
     if (currentSession?.profileId === user.id) return "Kendi hesabınızı silemez veya pasifleştiremezsiniz.";
     if (legacyRole(user.role) === "admin" && user.is_active && activeAdminUsers.length <= 1) return "Son aktif yönetici hesabı silinemez veya pasifleştirilemez.";
@@ -8551,7 +8601,11 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
     });
     const data = await response.json().catch(() => ({}));
     if (response.ok) {
-      update(user.id, data.user || user);
+      const savedUser = data.user || user;
+      setContent((current) => {
+        const next = { ...current, users: (current.users || []).map((item) => item.id === user.id ? savedUser : item) };
+        return contentWithUserBranches(next, savedUser);
+      });
       setEditingUser(null);
       setMessage("Kullanıcı kaydedildi.");
     } else {
@@ -8607,6 +8661,10 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
   }
   async function createUser() {
     setError("");
+    if (customerRole(createForm.role) && createForm.branch_access_mode === "selected" && !createForm.branch_ids.length) {
+      setError("Müşteri hesabı için en az bir aktif şube seçilmelidir.");
+      return;
+    }
     setMessage("Kullanıcı oluşturuluyor...");
     const response = await fetch("/api/admin/users/create", {
       method: "POST",
@@ -8615,8 +8673,9 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
     });
     const data = await response.json().catch(() => ({}));
     if (response.ok) {
-      setContent({ ...content, users: [data.user, ...(content.users || [])] });
-      setCreateForm({ fullName: "", email: "", password: "", role: "editor", company_id: "", is_active: true, allowed_modules: uiRoleTemplates.editor });
+      const next = { ...content, users: [data.user, ...(content.users || [])] };
+      setContent(contentWithUserBranches(next, data.user));
+      setCreateForm({ fullName: "", email: "", password: "", role: "editor", company_id: "", is_active: true, allowed_modules: uiRoleTemplates.editor, branch_access_mode: "selected", branch_ids: [], default_branch_id: "" });
       setMessage("Kullanıcı oluşturuldu.");
     } else {
       setMessage("");
@@ -8633,7 +8692,8 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
           <Field label="E-posta" value={createForm.email} onChange={(v) => setCreateForm({ ...createForm, email: v })} />
           <Field label="Geçici Şifre" type="password" value={createForm.password} onChange={(v) => setCreateForm({ ...createForm, password: v })} />
           <SelectField label="Rol" value={legacyRole(createForm.role)} onChange={(v) => setCreateForm({ ...createForm, role: v, allowed_modules: uiRoleTemplates[v] || [] })} options={roleOptions} />
-          <CompanySelect value={createForm.company_id} onChange={(v) => setCreateForm({ ...createForm, company_id: v })} companies={content.companies} />
+          <CompanySelect value={createForm.company_id} onChange={(v) => setCreateForm({ ...createForm, company_id: v, branch_ids: [], default_branch_id: "" })} companies={content.companies} />
+          {customerRole(createForm.role) && <BranchAccessEditor user={createForm} setUser={setCreateForm} branches={content.customerBranches || []} />}
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={createForm.is_active} onChange={(e) => setCreateForm({ ...createForm, is_active: e.target.checked })} /> Aktif</label>
         </div>
         <button onClick={createUser} className="mt-4 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Kullanıcı oluştur</button>
@@ -8666,7 +8726,7 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
                 {currentSession?.profileId === user.id && <p className="mt-2 rounded-[8px] border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-xs text-amber-700">Kendi hesabımı düzenliyorum. Yönetici rolünüz ve aktif durumunuz korunur.</p>}
               </div>
               <div className="flex flex-wrap gap-2">
-                <button onClick={() => setEditingUser({ ...user })} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Düzenle</button>
+                <button onClick={() => setEditingUser({ ...user, branch_access_mode: user.branch_access_mode || "all", branch_ids: branchIdsForUser(user.id), default_branch_id: user.default_branch_id || "" })} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Düzenle</button>
                 <button onClick={() => resetPassword(user)} className="rounded-full border border-slate-200 px-4 py-2 text-sm">Şifre sıfırla</button>
                 <button disabled={Boolean(blockedUserAction(user)) || !user.is_active} onClick={() => setConfirmAction({ type: "disable", user })} className="rounded-full border border-amber-300/30 px-4 py-2 text-sm text-amber-700 disabled:cursor-not-allowed disabled:opacity-45">Pasifleştir</button>
                 <button disabled={Boolean(blockedUserAction(user))} onClick={() => setConfirmAction({ type: "delete", user })} className="rounded-full border border-red-300/30 px-4 py-2 text-sm text-red-100 disabled:cursor-not-allowed disabled:opacity-45">Sil</button>
@@ -8678,7 +8738,7 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
       </div>}
       {editingUser && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-white/70 p-4">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-[8px] border border-slate-200 bg-white p-5 shadow-2xl">
+          <div className="max-h-[92dvh] w-full max-w-5xl overflow-x-hidden overflow-y-auto rounded-[18px] border border-slate-200 bg-white p-4 shadow-2xl sm:p-6">
             <div className="mb-4 flex items-center justify-between gap-3">
               <h3 className="text-xl font-black">Kullanıcıyı düzenle</h3>
               <button onClick={() => setEditingUser(null)} className="rounded-full border border-slate-200 px-3 py-2 text-sm">Kapat</button>
@@ -8691,7 +8751,8 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
                 if (!confirm("Kullanıcı rolünü değiştirmek istediğinizden emin misiniz?")) return;
                 setEditingUser({ ...editingUser, role: v, allowed_modules: uiRoleTemplates[v] || [] });
               }} options={roleOptions} />
-              <CompanySelect value={editingUser.company_id || ""} onChange={(v) => setEditingUser({ ...editingUser, company_id: v })} companies={content.companies} />
+              <CompanySelect value={editingUser.company_id || ""} onChange={(v) => setEditingUser({ ...editingUser, company_id: v, branch_ids: [], default_branch_id: "" })} companies={content.companies} />
+              {customerRole(editingUser.role) && <BranchAccessEditor user={editingUser} setUser={setEditingUser} branches={content.customerBranches || []} />}
               <SelectField label="Durum" value={editingUser.is_active ? "Aktif" : "Pasif"} onChange={(v) => {
                 if (v === "Pasif" && !confirm("Kullanıcıyı pasifleştirmek istediğinizden emin misiniz?")) return;
                 setEditingUser({ ...editingUser, is_active: v === "Aktif" });

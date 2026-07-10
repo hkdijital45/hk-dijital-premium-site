@@ -1274,6 +1274,9 @@ html {
   --hk-admin-shadow: 0 8px 30px rgba(15, 23, 42, .06);
   background: var(--hk-admin-bg) !important;
   color: var(--hk-admin-text) !important;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .admin-shell .admin-ambient,
@@ -1308,6 +1311,26 @@ html {
   background: var(--hk-admin-section) !important;
   border-color: var(--hk-admin-border) !important;
   box-shadow: var(--hk-admin-shadow) !important;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.admin-shell .admin-dashboard-main > *,
+.hk-admin .admin-dashboard-main > *,
+[data-admin] .admin-dashboard-main > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.admin-shell input,
+.admin-shell select,
+.admin-shell textarea,
+.hk-admin input,
+.hk-admin select,
+.hk-admin textarea {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .admin-shell .admin-card,

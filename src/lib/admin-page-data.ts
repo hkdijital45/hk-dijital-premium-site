@@ -19,7 +19,7 @@ export async function getAdminPageData() {
   let relationalContent = {};
   if (hasSupabaseConfig()) {
     try {
-      const [companies, users, customers, leads, contactForms, campaigns, campaignMetrics, metaAdsetMetrics, metaAdMetrics, metaConversionEvents, metaAnalysisSnapshots, customerReportVisibility, customerUpdates, customerVisibilitySettings, customerFiles, mediaFiles, activityLogs, reports, reportInterpretations, reportUpdates, preparationNotes, customerBranding, monthlyReports, agencyTasks, customerDocuments, paymentRecords, competitorAnalyses, competitorWatchlist, competitorSignals, agencyNotifications, socialMediaPlans, agencyExpenses, sectorConfigs, systemTestRuns, systemTestChecklist, customerBranches] =
+      const [companies, users, customers, leads, contactForms, campaigns, campaignMetrics, metaAdsetMetrics, metaAdMetrics, metaConversionEvents, metaAnalysisSnapshots, customerReportVisibility, customerUpdates, customerVisibilitySettings, customerFiles, mediaFiles, activityLogs, reports, reportInterpretations, reportUpdates, preparationNotes, customerBranding, monthlyReports, agencyTasks, customerDocuments, paymentRecords, competitorAnalyses, competitorWatchlist, competitorSignals, agencyNotifications, socialMediaPlans, agencyExpenses, sectorConfigs, systemTestRuns, systemTestChecklist, customerBranches, customerUserBranches] =
         await Promise.all([
           supabaseRest("companies?select=*&order=created_at.desc"),
           supabaseRest("users?deleted_at=is.null&select=*&order=created_at.desc"),
@@ -57,7 +57,8 @@ export async function getAdminPageData() {
           supabaseRest("sector_configs?select=*&order=sector_name.asc").catch(() => []),
           supabaseRest("system_test_runs?deleted_at=is.null&select=*&order=created_at.desc").catch(() => []),
           supabaseRest("system_test_checklist?deleted_at=is.null&select=*&order=sort_order.asc").catch(() => []),
-          supabaseRest("customer_branches?select=*&order=branch_name.asc").catch(() => [])
+          supabaseRest("customer_branches?select=*&order=branch_name.asc").catch(() => []),
+          supabaseRest("customer_user_branches?select=*&order=created_at.asc").catch(() => [])
         ]);
       relationalContent = {
         companies,
@@ -95,6 +96,7 @@ export async function getAdminPageData() {
         systemTestRuns,
         systemTestChecklist,
         customerBranches,
+        customerUserBranches,
         media: Array.isArray(mediaFiles)
           ? mediaFiles.map((item: any) => ({
               id: item.id,

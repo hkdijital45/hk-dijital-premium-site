@@ -4,6 +4,18 @@ import { recordActivity } from "@/lib/activity-log";
 import { interpretReport } from "@/lib/report-interpretation";
 import { aggregateCustomerReports, getCustomerDateRange, platformFilterLabel, type CustomerPlatformFilter } from "@/lib/reports/customer-period";
 import { supabaseRest } from "@/lib/supabase";
+import { canSessionAccessResourceBranch } from "@/lib/server/branch-access";
+
+type CustomerReportRow = Record<string, unknown> & {
+  id: string;
+  company_id: string;
+  branch_id?: string | null;
+  visible_to_customer?: boolean | null;
+  start_date?: string | null;
+  end_date?: string | null;
+};
+
+type SavedInterpretationRow = Record<string, unknown> & { id?: string };
 
 export async function POST(request: Request) {
   try {
@@ -13,11 +25,15 @@ export async function POST(request: Request) {
     const reportIds = Array.from(new Set([...(Array.isArray(body.reportIds) ? body.reportIds : []), body.reportId].filter(Boolean))).slice(0, 25);
     if (!reportIds.length) return NextResponse.json({ error: "Yorumlanacak rapor bulunamadı." }, { status: 400 });
 
-    const rows = await supabaseRest<any[]>(`reports?id=in.(${reportIds.map((id) => encodeURIComponent(String(id))).join(",")})&select=*`);
+    const rows = await supabaseRest<CustomerReportRow[]>(`reports?id=in.(${reportIds.map((id) => encodeURIComponent(String(id))).join(",")})&select=*`);
     if (!rows.length) return NextResponse.json({ error: "Yorumlanacak rapor bulunamadı." }, { status: 404 });
     const forbidden = rows.some((report) => (isCustomerRole(session.role) && (report.company_id !== session.companyId || !report.visible_to_customer)) || (!isCustomerRole(session.role) && !isStaffRole(session.role)));
     if (forbidden) {
       return NextResponse.json({ error: "Bu raporu yorumlama yetkiniz yok." }, { status: 403 });
+    }
+    if (isCustomerRole(session.role)) {
+      const branchChecks = await Promise.all(rows.map((report) => canSessionAccessResourceBranch(session, report.company_id, report.branch_id)));
+      if (branchChecks.some((allowed) => !allowed)) return NextResponse.json({ error: "Yetkili olmadığınız bir şubeye ait rapor seçildi." }, { status: 403 });
     }
 
     const firstReport = rows[0];
@@ -29,11 +45,12 @@ export async function POST(request: Request) {
 
     await recordActivity({ session, action: "Görüntüleme", entity: "Rapor Yorumu", entityId: firstReport.id, companyId: firstReport.company_id, details: { message: "Seçili dönem rapor yorumu istendi", report_type: selectedReport.report_type, period: range.label, platform: platformFilterLabel(platform) } });
     const interpretation = await interpretReport(selectedReport);
-    const saved = await supabaseRest<any[]>("report_interpretations", {
+    const saved = await supabaseRest<SavedInterpretationRow[]>("report_interpretations", {
       method: "POST",
       body: JSON.stringify({
         report_id: firstReport.id,
         company_id: firstReport.company_id,
+        branch_id: firstReport.branch_id || null,
         generated_by_user_id: session.profileId || null,
         interpretation_text: interpretation.text,
         provider: interpretation.provider

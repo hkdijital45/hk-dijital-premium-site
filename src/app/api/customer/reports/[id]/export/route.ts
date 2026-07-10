@@ -6,6 +6,7 @@ import { filterUpdatesForRange, filteredReportsForPeriod, getCustomerDateRange, 
 import { generateReportExport, type ExportFormat } from "@/lib/reports/report-exports";
 import { getReportBundle } from "@/lib/reports/report-server";
 import { supabaseRest } from "@/lib/supabase";
+import { canSessionAccessResourceBranch } from "@/lib/server/branch-access";
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getSession();
@@ -16,6 +17,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   if (!["excel", "word", "pdf"].includes(format)) return NextResponse.json({ error: "Geçerli bir dosya biçimi seçin." }, { status: 400 });
   const bundle = await getReportBundle(id);
   if (bundle.report.company_id !== session.companyId || !bundle.report.visible_to_customer) return NextResponse.json({ error: "Bu raporu indirme yetkiniz yok." }, { status: 403 });
+  if (!(await canSessionAccessResourceBranch(session, bundle.report.company_id, bundle.report.branch_id))) return NextResponse.json({ error: "Bu şubeye ait raporu indirme yetkiniz yok." }, { status: 403 });
   const platform = (searchParams.get("platform") || "all") as CustomerPlatformFilter;
   const viewMode = ["basic", "premium", "executive"].includes(searchParams.get("viewMode") || "") ? searchParams.get("viewMode")! : "executive";
   const range = getCustomerDateRange("custom", searchParams.get("start") || bundle.report.start_date || bundle.report.end_date, searchParams.get("end") || bundle.report.end_date || bundle.report.start_date);

@@ -4,6 +4,7 @@ import { getSession, isAdminRole } from "@/lib/auth";
 import { recordActivity } from "@/lib/activity-log";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 import { adminModules, normalizeRole } from "@/lib/permissions";
+import { hasBranchAccessPayload, persistCustomerBranchAccess, validateCustomerBranchAccessPayload, type CustomerBranchAccessInput } from "@/lib/server/admin-user-branch-access";
 
 async function getActiveAdminCount() {
   const rows = await supabaseRest<Array<{ id: string }>>("users?role=eq.admin&is_active=eq.true&deleted_at=is.null&select=id");
@@ -30,6 +31,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   }
 
   const nextRole = payload.role ?? existing.role;
+  const nextCompanyId = (payload.companyId ?? payload.company_id ?? existing.company_id) || null;
   const nextActive = payload.isActive ?? payload.is_active ?? existing.is_active;
   const isSelf = session?.profileId === id;
   const activeAdminCount = await getActiveAdminCount();
@@ -44,6 +46,18 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
   if (normalizeRole(existing.role) === "admin" && existing.is_active && activeAdminCount <= 1 && (normalizeRole(nextRole) !== "admin" || nextActive === false)) {
     return NextResponse.json({ error: "Son aktif yönetici hesabı devre dışı bırakılamaz." }, { status: 400 });
+  }
+
+  let branchAccess: CustomerBranchAccessInput | null = null;
+  const customerAccount = ["customer", "musteri"].includes(nextRole);
+  const companyChanged = (payload.companyId !== undefined || payload.company_id !== undefined) && nextCompanyId !== existing.company_id;
+  if (customerAccount && (!nextCompanyId || hasBranchAccessPayload(payload) || companyChanged || !["customer", "musteri"].includes(existing.role))) {
+    if (!nextCompanyId) return NextResponse.json({ error: "Müşteri hesabı için firma seçimi zorunludur." }, { status: 400 });
+    try {
+      branchAccess = await validateCustomerBranchAccessPayload(payload, nextCompanyId);
+    } catch (error) {
+      return NextResponse.json({ error: error instanceof Error ? error.message : "Şube yetkileri doğrulanamadı." }, { status: 400 });
+    }
   }
 
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -61,6 +75,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       method: "PATCH",
       body: JSON.stringify(patch)
     });
+    if (branchAccess && nextCompanyId) {
+      await persistCustomerBranchAccess(id, nextCompanyId, branchAccess);
+      rows[0] = {
+        ...rows[0],
+        branch_access_mode: branchAccess.mode,
+        default_branch_id: branchAccess.defaultBranchId,
+        branch_ids: branchAccess.branchIds
+      };
+    }
     await recordActivity({ session, action: "Güncelleme", entity: "Kullanıcı", entityId: id, companyId: rows[0]?.company_id, details: { message: `${rows[0]?.full_name || rows[0]?.email} kullanıcısı güncellendi`, previous_role: existing.role, role: rows[0]?.role } });
     return NextResponse.json({ ok: true, user: rows[0] });
   } catch (error) {

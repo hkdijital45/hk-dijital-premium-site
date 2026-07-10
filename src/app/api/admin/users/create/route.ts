@@ -10,6 +10,7 @@ import {
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 import { recordActivity } from "@/lib/activity-log";
 import { adminModules, roleTemplates, normalizeRole } from "@/lib/permissions";
+import { persistCustomerBranchAccess, validateCustomerBranchAccessPayload, type CustomerBranchAccessInput } from "@/lib/server/admin-user-branch-access";
 
 export async function POST(request: Request) {
   const session = await getSession();
@@ -36,6 +37,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Müşteri hesabı için firma seçimi zorunludur." }, { status: 400 });
   }
 
+  let branchAccess: CustomerBranchAccessInput | null = null;
+  if (["customer", "musteri"].includes(role)) {
+    try {
+      branchAccess = await validateCustomerBranchAccessPayload(payload, companyId);
+    } catch (error) {
+      return NextResponse.json({ error: error instanceof Error ? error.message : "Şube yetkileri doğrulanamadı." }, { status: 400 });
+    }
+  }
+
+  let createdProfileId = "";
+  let createdNewProfile = false;
   try {
     let authUser = await findSupabaseAuthUserByEmail(email);
     if (authUser) {
@@ -61,6 +73,7 @@ export async function POST(request: Request) {
     const byEmail = await supabaseRest<any[]>(`users?email=eq.${encodeURIComponent(email)}&select=*&limit=1`);
     const byAuth = await supabaseRest<any[]>(`users?auth_user_id=eq.${encodeURIComponent(authUser.id)}&select=*&limit=1`);
     const target = byEmail[0] || byAuth[0];
+    createdNewProfile = !target;
 
     const rows = target
       ? await supabaseRest<any[]>(`users?id=eq.${target.id}`, {
@@ -72,9 +85,26 @@ export async function POST(request: Request) {
           body: JSON.stringify(profilePayload)
         });
 
+    createdProfileId = rows[0]?.id || "";
+    if (branchAccess && createdProfileId) {
+      await persistCustomerBranchAccess(createdProfileId, companyId, branchAccess);
+      rows[0] = {
+        ...rows[0],
+        branch_access_mode: branchAccess.mode,
+        default_branch_id: branchAccess.defaultBranchId,
+        branch_ids: branchAccess.branchIds
+      };
+    }
+
     await recordActivity({ session, action: "Oluşturma", entity: "Kullanıcı", entityId: rows[0]?.id, companyId, details: { message: `${fullName || email} kullanıcısı oluşturuldu`, role } });
     return NextResponse.json({ ok: true, user: rows[0] });
   } catch (error) {
+    if (createdNewProfile && createdProfileId) {
+      await supabaseRest(`users?id=eq.${encodeURIComponent(createdProfileId)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ is_active: false, updated_at: new Date().toISOString() })
+      }).catch(() => null);
+    }
     const safeError = getSafeSupabaseError(error);
     console.error("Kullanıcı oluşturma Supabase hatası:", safeError.detail);
     return NextResponse.json(

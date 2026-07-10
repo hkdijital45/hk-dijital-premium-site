@@ -6,9 +6,11 @@ import { BarChart3, Bell, Download, FileText, Lightbulb, MessageCircle, Sparkles
 import { getSession, isCustomerRole, isStaffRole } from "@/lib/auth";
 import { recordActivity } from "@/lib/activity-log";
 import { getCustomerCenterData, summarizeMetrics } from "@/lib/customer-center";
+import { canAccessBranch, getSessionBranchAccess, normalizeRequestedBranch } from "@/lib/server/branch-access";
 import { normalizeModuleKeys, type CustomerModuleKey } from "@/lib/customer-portal-registry";
 import { hasSupabaseConfig } from "@/lib/supabase";
 import { CustomerAccountConnectCenter } from "@/components/customer/CustomerAccountConnectCenter";
+import { CustomerBranchSelector } from "@/components/customer/CustomerBranchSelector";
 import { AnimatedChart, CustomerMetricCard } from "@/components/premium/PremiumUI";
 import { Logo } from "@/components/public/Logo";
 import { getSiteContent } from "@/lib/content";
@@ -43,7 +45,7 @@ const CUSTOMER_PORTAL_ADMIN_ONLY_MODULES = [
   "todos"
 ];
 
-export default async function MusteriPaneliPage({ searchParams }: { searchParams: Promise<{ company?: string; module?: string }> }) {
+export default async function MusteriPaneliPage({ searchParams }: { searchParams: Promise<{ company?: string; module?: string; branch?: string }> }) {
   const session = await getSession();
   if (!session) redirect("/digital-center");
   const params = await searchParams;
@@ -60,8 +62,24 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
   }
 
   const selectedCompanyId = isAdminPreview ? params.company : session.companyId;
+  const branchAccess = selectedCompanyId
+    ? await getSessionBranchAccess(session, selectedCompanyId)
+    : { mode: "selected" as const, companyId: "", defaultBranchId: null, branches: [] };
+  const requestedBranchDenied = Boolean(params.branch && !canAccessBranch(branchAccess, params.branch));
+  if (requestedBranchDenied) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-[#f7f8fb] px-4 text-slate-950">
+        <div className="max-w-md rounded-[18px] border border-red-200 bg-white p-6 text-center shadow-[0_10px_30px_rgba(15,23,42,.06)]">
+          <h1 className="text-2xl font-black">Bu şubeye erişim yetkiniz bulunmuyor.</h1>
+          <p className="mt-3 text-sm leading-6 text-slate-600">Yalnızca hesabınıza atanmış aktif şubeleri görüntüleyebilirsiniz.</p>
+          <a href="/musteri-paneli" className="mt-5 inline-flex rounded-full bg-cyan-500 px-5 py-3 text-sm font-black text-white">Yetkili şubeye dön</a>
+        </div>
+      </main>
+    );
+  }
+  const selectedBranchId = normalizeRequestedBranch(branchAccess, params.branch);
   const siteContent = await getSiteContent();
-  const data = await getCustomerCenterData(selectedCompanyId);
+  const data = await getCustomerCenterData(selectedCompanyId || undefined, selectedBranchId);
   const enabledCustomerModules = normalizeModuleKeys(data.integration?.metadata?.enabled_customer_modules);
   const hasModule = (key: CustomerModuleKey | string) => CUSTOMER_PORTAL_ALLOWED_MODULES.includes(key as CustomerModuleKey) && enabledCustomerModules.includes(key as CustomerModuleKey);
   if (params.module && !hasModule(params.module)) {
@@ -174,9 +192,12 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Size açık reklam performansı, raporlar, yapılan çalışmalar, dosyalar ve ödeme özetlerini sade dille takip edin.</p>
             </div>
           </div>
-          <form action="/api/auth/logout" method="post">
-            <button type="submit" className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 shadow-sm transition hover:border-cyan-200 hover:text-cyan-700">Çıkış Yap</button>
-          </form>
+          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
+            <CustomerBranchSelector branches={branchAccess.branches} selectedBranchId={selectedBranchId} allowAll={branchAccess.mode === "all"} />
+            <form action="/api/auth/logout" method="post" className="shrink-0">
+              <button type="submit" className="w-full rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 shadow-sm transition hover:border-cyan-200 hover:text-cyan-700 sm:w-auto">Çıkış Yap</button>
+            </form>
+          </div>
         </div>
       </header>
 
