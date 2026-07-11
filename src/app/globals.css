@@ -1847,3 +1847,180 @@ html {
     border-radius: 14px !important;
   }
 }
+
+/* Admin interaction language: generous targets, functional colors and clear focus. */
+.hk-admin button,
+.hk-admin a,
+.customer-portal button,
+.customer-portal a {
+  overflow-wrap: anywhere;
+}
+
+.hk-admin button:not(:disabled),
+.hk-admin summary,
+.hk-admin a[href] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hk-admin button:focus-visible,
+.hk-admin summary:focus-visible,
+.hk-admin a:focus-visible,
+.customer-portal button:focus-visible,
+.customer-portal a:focus-visible {
+  outline: 3px solid rgba(6, 182, 212, .32);
+  outline-offset: 2px;
+}
+
+.hk-admin button:disabled,
+.customer-portal button:disabled {
+  cursor: not-allowed;
+  opacity: .58;
+}
+
+.hk-button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: .55rem;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: .65rem 1rem;
+  font-size: .875rem;
+  font-weight: 800;
+  line-height: 1.2;
+  transition: transform .16s ease, border-color .16s ease, background-color .16s ease, box-shadow .16s ease;
+}
+
+.hk-button:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.hk-button-primary {
+  background: #0891b2;
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(8, 145, 178, .16);
+}
+
+.hk-button-success {
+  border-color: #a7f3d0;
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.hk-button-ai {
+  background: linear-gradient(135deg, #7c3aed, #c026d3);
+  color: #fff;
+  box-shadow: 0 8px 22px rgba(124, 58, 237, .18);
+}
+
+.hk-button-edit {
+  border-color: #c7d2fe;
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.hk-button-info {
+  border-color: #bae6fd;
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.hk-button-warning {
+  border-color: #fde68a;
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.hk-button-danger {
+  border-color: #fecaca;
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.hk-button-neutral {
+  border-color: #e2e8f0;
+  background: #fff;
+  color: #334155;
+}
+
+.hk-button-export {
+  border-color: #99f6e4;
+  background: #ccfbf1;
+  color: #0f766e;
+}
+
+.hk-button-compact {
+  min-height: 40px;
+  padding: .5rem .75rem;
+  font-size: .8125rem;
+}
+
+.hk-icon-button {
+  display: grid;
+  min-height: 40px;
+  min-width: 40px;
+  place-items: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  background: #fff;
+  color: #475569;
+}
+
+.hk-kpi-card {
+  min-width: 0;
+  border: 1px solid #e2e8f0;
+  border-top-width: 3px;
+  border-radius: 16px;
+  background: #fff;
+  padding: 1rem;
+  text-align: left;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .05);
+  transition: transform .16s ease, box-shadow .16s ease;
+}
+
+.hk-kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, .08);
+}
+
+.hk-kpi-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 12px;
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.hk-kpi-primary { border-top-color: #0891b2; }
+.hk-kpi-primary .hk-kpi-icon { background: #cffafe; color: #0e7490; }
+.hk-kpi-success { border-top-color: #10b981; }
+.hk-kpi-success .hk-kpi-icon { background: #d1fae5; color: #047857; }
+.hk-kpi-info { border-top-color: #0284c7; }
+.hk-kpi-info .hk-kpi-icon { background: #e0f2fe; color: #0369a1; }
+.hk-kpi-warning { border-top-color: #f59e0b; }
+.hk-kpi-warning .hk-kpi-icon { background: #fef3c7; color: #b45309; }
+.hk-kpi-danger { border-top-color: #ef4444; }
+.hk-kpi-danger .hk-kpi-icon { background: #fee2e2; color: #b91c1c; }
+
+@media (max-width: 640px) {
+  .hk-button:not(.hk-button-compact) {
+    min-height: 46px;
+  }
+
+  .hk-icon-button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hk-admin *,
+  .customer-portal * {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}

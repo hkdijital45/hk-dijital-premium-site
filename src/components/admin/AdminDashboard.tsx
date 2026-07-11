@@ -616,7 +616,7 @@ export function AdminDashboard({
   const props = { content, setContent, currentSession, allowedModules, setActive, save, notify };
   const accountingAliases = ["Muhasebe Merkezi", "Tahsilat", "Tahsilatlar", "Bekleyen Ödemeler", "Gelir / Gider", "Gelir Tahmini", "Karlılık", "Kârlılık", "Müşteri Finans Özeti", "Export", "Muhasebe Raporları"];
   const visibleNavigationGroups = adminNavigationGroups
-    .filter((group) => group.label !== "Muhasebe" || canViewAccounting(currentSession))
+    .filter((group) => group.label !== "Finans" || canViewAccounting(currentSession))
     .map((group) => ({ ...group, items: group.items.filter((item) => allowedModules.includes(item.module)) }))
     .filter((group) => group.items.length);
   const activeGroup = visibleNavigationGroups.find((group) => group.items.some((item) => item.label === active || item.slug === "" && active === "Dashboard"));
@@ -1356,8 +1356,12 @@ function GlobalSearchPage() {
   return <Panel title="Genel Arama"><p className="mb-4 text-sm leading-6 text-slate-400">Yetkiniz bulunan modüller, başvurular, müşteriler ve raporlar içinde arama yapın.</p><div className="flex gap-2"><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => event.key === "Enter" && runSearch()} placeholder="Aramak istediğiniz kelimeyi yazın..." className="min-h-12 flex-1 rounded-[8px] border border-slate-200 bg-slate-50 px-4 text-slate-900" /><button onClick={runSearch} className="rounded-[8px] bg-cyan-300 px-5 text-sm font-black text-slate-950">{loading ? "Aranıyor..." : "Ara"}</button></div><div className="mt-5 grid gap-3">{results.map((result) => <Link key={result.id} href={result.href} className="flex items-center justify-between gap-3 rounded-[8px] border border-slate-200 bg-slate-50 p-4 transition hover:border-cyan-200/40"><span><strong>{result.title}</strong><span className="mt-1 block text-sm text-slate-400">{result.detail}</span></span><span className="rounded-full border border-slate-200 px-3 py-1 text-xs text-cyan-700">{result.type}</span></Link>)}{query && !loading && !results.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-6 text-center text-sm text-slate-400">Aramanızla eşleşen kayıt bulunamadı.</p>}</div></Panel>;
 }
 
-const dashboardWidgetDefaults = ["assistant", "tasks", "profitability", "payments", "campaigns", "recentLeads", "notifications", "activity", "metrics", "aiStatus", "operations", "pipeline", "intelligence", "status", "charts", "insights", "quickActions", "crm", "demo"];
+const dashboardWidgetDefaults = ["dailySummary", "priorityActions", "customerRisks", "activity", "intelligence"];
 const dashboardWidgetLabels: Record<string, { label: string; description: string }> = {
+  dailySummary: { label: "Günlük Özet", description: "Ajansın bugün karar vermesi gereken altı temel KPI'yı gösterir." },
+  priorityActions: { label: "Öncelikli Aksiyonlar", description: "Görev, tahsilat, bağlantı ve lead sinyallerini tek listede toplar." },
+  customerRisks: { label: "Müşteri Riskleri", description: "Sağlık skoru düşük müşterileri öne çıkarır." },
+  intelligence: { label: "Detaylı Analiz", description: "Intelligence, entegrasyon ve gelişmiş operasyon araçlarını gösterir." },
   assistant: { label: "HK Copilot", description: "Ajans operasyonları için akıllı asistan panelini gösterir." },
   tasks: { label: "Görevler", description: "Yaklaşan, kritik ve tamamlanan görevleri gösterir." },
   profitability: { label: "Karlılık", description: "Gelir, gider ve tahmini karlılık özetini gösterir." },
@@ -1370,7 +1374,6 @@ const dashboardWidgetLabels: Record<string, { label: string; description: string
   aiStatus: { label: "AI Durumu", description: "Yapay zeka servislerinin durumunu gösterir." },
   operations: { label: "Operasyon Özeti", description: "Ajansın günlük operasyon önceliklerini gösterir." },
   pipeline: { label: "Satış Hunisi", description: "Lead ve teklif aşamalarını özetler." },
-  intelligence: { label: "İstihbarat", description: "Müşteri keşfi ve reklam sinyallerini gösterir." },
   status: { label: "Sistem Durumu", description: "Sistem sağlığı ve bağlantı durumlarını gösterir." },
   charts: { label: "Grafikler", description: "Trend ve dönemsel performans grafiklerini gösterir." },
   insights: { label: "Öngörüler", description: "Verilerden çıkarılan aksiyon önerilerini gösterir." },
@@ -2374,15 +2377,6 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     localStorage.setItem(preferenceKey, JSON.stringify(next));
   }
 
-  function moveWidget(id: string, direction: number) {
-    const index = preferences.order.indexOf(id);
-    const target = index + direction;
-    if (target < 0 || target >= preferences.order.length) return;
-    const order = [...preferences.order];
-    [order[index], order[target]] = [order[target], order[index]];
-    savePreferences({ ...preferences, order });
-  }
-
   function toggleWidget(id: string) {
     savePreferences({ ...preferences, hidden: preferences.hidden.includes(id) ? preferences.hidden.filter((item) => item !== id) : [...preferences.hidden, id] });
   }
@@ -2877,9 +2871,71 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     ? ["Landing page veya WhatsApp karşılama metnini hazırla.", "Pixel / GA4 dönüşüm kontrolünü yap.", "CRM takip aşamalarını ve teklif şablonunu bağla."]
     : ["Hedef platform ve aksiyonu netleştir.", "Bütçe, konum ve kreatif ihtiyacını plana yaz.", "7 günlük reklam sağlık kontrolü görevi oluştur."];
 
+  const dailyKpis = [
+    { label: "Bugünkü kritik görevler", value: criticalTasks.length + overdueTasks.length, note: "Bugün müdahale gerektiren işler", target: "Görevler", tone: "danger", icon: <AlertTriangle size={20} /> },
+    { label: "Geciken tahsilatlar", value: `${overduePaymentTotal.toLocaleString("tr-TR")} TL`, note: `${overduePayments.length} ödeme vadesini geçti`, target: "Tahsilat", tone: "warning", icon: <Gauge size={20} /> },
+    { label: "Aktif müşteriler", value: activeCustomers.length, note: "Hizmeti devam eden firmalar", target: "Müşteriler", tone: "primary", icon: <Building2 size={20} /> },
+    { label: "Riskli müşteriler", value: riskyCustomers.length, note: "Sağlık skoru 70'in altında", target: "Müşteriler", tone: "danger", icon: <UsersRound size={20} /> },
+    { label: "Bu aylık reklam harcaması", value: `${campaignSpendTotal.toLocaleString("tr-TR")} TL`, note: "Kayıtlı Meta ve Google harcaması", target: "Reklam Operasyon Merkezi", tone: "info", icon: <BarChart3 size={20} /> },
+    { label: "Yeni lead", value: newLeads.length, note: "Takip süreci başlatılabilecek kayıtlar", target: "Lead Merkezi", tone: "success", icon: <Plus size={20} /> }
+  ].filter((item) => canOpen(item.target));
+
+  const priorityActions = [
+    ...overdueTasks.slice(0, 2).map((item) => ({ id: `task-${item.id}`, customer: companyName(content, item.company_id) || "Ajans operasyonu", reason: item.title || "Geciken görev", severity: "Kritik", target: "Görevler", action: "Görevi Aç" })),
+    ...overduePayments.slice(0, 2).map((item) => ({ id: `payment-${item.id}`, customer: companyName(content, item.company_id) || "Müşteri", reason: `${Number(item.amount || 0).toLocaleString("tr-TR")} TL tahsilat gecikti`, severity: "Kritik", target: "Tahsilat", action: "Tahsilatı Aç" })),
+    ...integrationIssues.slice(0, 2).map((item) => ({ id: `integration-${item.id}`, customer: companyName(content, item.company_id || item.customer_id) || item.provider_account_name || "Müşteri", reason: item.sync_error || item.metadata?.customer_visible_notice || "Entegrasyon kontrol bekliyor", severity: "Uyarı", target: "Entegrasyonlar", action: "Bağlantıyı Kontrol Et" })),
+    ...followUpLeads.slice(0, 2).map((item) => ({ id: `lead-${item.id}`, customer: item.company || item.name || "Yeni lead", reason: "Yüksek fırsat skoru; takip aksiyonu bekliyor", severity: "Fırsat", target: "Takip Merkezi", action: "Takibi Aç" }))
+  ].filter((item) => canOpen(item.target)).slice(0, 8);
+
+  const visibleFavoriteActions = lightDashboardQuickActions.filter(([, target]) => preferences.favorites.includes(target as string));
+  const isWidgetVisible = (id: string) => !preferences.hidden.includes(id);
+
   return (
     <Panel title="Operasyon Merkezi">
       <div className="admin-light-dashboard grid w-full min-w-0 gap-5">
+        <section style={{ order: -20 }} className="rounded-[20px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-sm font-black text-cyan-700">{greeting[1]}, {userName}</p>
+              <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">Bugünün ajans özeti</h1>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Kritik işleri, müşteri risklerini ve gelir akışını tek bakışta yönetin.</p>
+            </div>
+            <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+              <details className="group relative flex-1 sm:flex-none">
+                <summary className="hk-button hk-button-primary min-w-[150px] cursor-pointer list-none justify-center"><Plus size={18} /> Hızlı İşlem</summary>
+                <div className="absolute right-0 z-30 mt-2 grid w-[min(92vw,360px)] gap-2 rounded-[16px] border border-slate-200 bg-white p-3 shadow-2xl">
+                  {lightDashboardQuickActions.map(([label, target, icon]) => <button type="button" key={label as string} onClick={() => setActive(target as string)} className="hk-button hk-button-neutral justify-start"><span className="text-cyan-700">{icon}</span>{label}<ChevronRight className="ml-auto" size={16} /></button>)}
+                </div>
+              </details>
+              <button type="button" onClick={() => setCustomizing((current) => !current)} className="hk-button hk-button-edit"><Settings2 size={18} /> Dashboard'u Düzenle</button>
+            </div>
+          </div>
+          <div className="mt-4 flex min-w-0 flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
+            <span className="text-xs font-black uppercase tracking-[.1em] text-slate-500">Favoriler</span>
+            {(visibleFavoriteActions.length ? visibleFavoriteActions : lightDashboardQuickActions.slice(0, 2)).map(([label, target]) => <button type="button" key={`favorite-${target}`} onClick={() => setActive(target as string)} className="hk-button hk-button-compact hk-button-neutral"><Star size={15} className={preferences.favorites.includes(target as string) ? "fill-amber-400 text-amber-500" : "text-slate-400"} />{label}</button>)}
+            <span className="hidden h-6 w-px bg-slate-200 sm:block" />
+            {lightDashboardQuickActions.slice(0, 6).map(([, target]) => <button type="button" key={`star-${target}`} onClick={() => toggleFavorite(target as string)} aria-label={`${target} modülünü favorilerde ${preferences.favorites.includes(target as string) ? "kaldır" : "ekle"}`} aria-pressed={preferences.favorites.includes(target as string)} className="grid min-h-11 min-w-11 place-items-center rounded-[10px] border border-slate-200 bg-white text-slate-500 transition hover:border-amber-300 hover:text-amber-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"><Star size={17} className={preferences.favorites.includes(target as string) ? "fill-amber-400 text-amber-500" : ""} /></button>)}
+          </div>
+        </section>
+
+        {customizing && <section className="rounded-[20px] border border-indigo-200 bg-indigo-50 p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div><h2 className="text-lg font-black text-slate-950">Dashboard görünümü</h2><p className="mt-1 text-sm leading-6 text-slate-600">Bölümleri gösterin veya gizleyin. Tercihler yalnızca bu cihazda saklanır.</p></div>
+            <button type="button" onClick={() => savePreferences({ order: dashboardWidgetDefaults, hidden: [], favorites: ["Müşteri Bulucu", "CRM"] })} className="hk-button hk-button-neutral"><RotateCcw size={17} /> Varsayılanı Yükle</button>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{preferences.order.map((id) => { const widget = dashboardWidgetLabels[id]; return <article key={id} className="flex min-w-0 items-center justify-between gap-3 rounded-[14px] border border-indigo-100 bg-white p-3"><span className="min-w-0"><strong className="block text-sm text-slate-900">{widget?.label || id}</strong><span className="mt-1 block text-xs leading-5 text-slate-500">{widget?.description || "Dashboard bölümü"}</span></span><button type="button" onClick={() => toggleWidget(id)} aria-pressed={!preferences.hidden.includes(id)} className={`hk-button hk-button-compact ${preferences.hidden.includes(id) ? "hk-button-neutral" : "hk-button-success"}`}>{preferences.hidden.includes(id) ? "Gizli" : "Görünür"}</button></article>; })}</div>
+        </section>}
+
+        {isWidgetVisible("dailySummary") && <section aria-labelledby="daily-summary-title"><div className="mb-3 flex items-end justify-between gap-3"><div><h2 id="daily-summary-title" className="text-xl font-black text-slate-950">Günlük Özet</h2><p className="mt-1 text-sm text-slate-600">Karar vermeniz gereken en önemli altı gösterge.</p></div></div><div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">{dailyKpis.map((item) => <button type="button" key={item.label} onClick={() => setActive(item.target)} className={`hk-kpi-card hk-kpi-${item.tone}`}><span className="hk-kpi-icon">{item.icon}</span><span className="mt-4 block text-sm font-black text-slate-700">{item.label}</span><strong className="mt-2 block break-words text-2xl text-slate-950">{item.value}</strong><span className="mt-1 block text-xs leading-5 text-slate-500">{item.note}</span></button>)}</div></section>}
+
+        {isWidgetVisible("priorityActions") && <section className="rounded-[20px] border border-slate-200 bg-white p-5 shadow-sm"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-black text-slate-950">Bugün ne yapmalıyım?</h2><p className="mt-1 text-sm text-slate-600">Görev, tahsilat, bağlantı ve lead sinyalleri önem sırasına göre birleştirildi.</p></div><button type="button" onClick={generateDailyPlan} className="hk-button hk-button-ai"><Sparkles size={18} /> Günlük Plan Oluştur</button></div><div className="mt-4 grid gap-2">{priorityActions.map((item) => <article key={item.id} className="grid min-w-0 gap-3 rounded-[14px] border border-slate-100 bg-slate-50 p-3 sm:grid-cols-[minmax(0,180px)_minmax(0,1fr)_auto_auto] sm:items-center"><strong className="truncate text-sm text-slate-950">{item.customer}</strong><span className="break-words text-sm text-slate-600">{String(item.reason || "Kontrol bekleyen işlem")}</span><span className={`w-fit rounded-full px-2.5 py-1 text-xs font-black ${item.severity === "Kritik" ? "bg-red-100 text-red-700" : item.severity === "Uyarı" ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-700"}`}>{item.severity}</span><button type="button" onClick={() => setActive(item.target)} className="hk-button hk-button-compact hk-button-info">{item.action}<ChevronRight size={15} /></button></article>)}{!priorityActions.length && <p className="rounded-[14px] border border-dashed border-emerald-200 bg-emerald-50 p-5 text-sm font-semibold text-emerald-800">Şu anda acil aksiyon gerektiren bir durum bulunmuyor.</p>}</div>{commandPlan && <pre className="mt-4 whitespace-pre-wrap rounded-[14px] border border-cyan-100 bg-cyan-50 p-4 text-sm leading-7 text-slate-700">{commandPlan}</pre>}</section>}
+
+        <section className="grid min-w-0 gap-5 xl:grid-cols-2">
+          {isWidgetVisible("customerRisks") && <div className="rounded-[20px] border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-center justify-between gap-3"><div><h2 className="text-lg font-black text-slate-950">Müşteri Riskleri</h2><p className="mt-1 text-sm text-slate-600">Sağlık skoru düşük müşteriler.</p></div><button type="button" onClick={() => setActive("Müşteriler")} className="hk-button hk-button-compact hk-button-info">Tümünü Gör</button></div><div className="mt-4 grid gap-2">{riskyCustomers.map((item) => <button type="button" key={item.company.id} onClick={() => setActive("Müşteriler")} className="flex min-h-11 items-center justify-between gap-3 rounded-[12px] border border-red-100 bg-red-50 px-3 text-left"><span className="min-w-0 truncate text-sm font-bold text-slate-800">{item.company.name || "İsimsiz müşteri"}</span><span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-black text-red-700">{item.health.score}/100</span></button>)}{!riskyCustomers.length && <p className="rounded-[12px] border border-dashed border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">Kritik müşteri riski görünmüyor.</p>}</div></div>}
+          {isWidgetVisible("activity") && <div className="rounded-[20px] border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-center justify-between gap-3"><div><h2 className="text-lg font-black text-slate-950">Son Aktiviteler</h2><p className="mt-1 text-sm text-slate-600">Son beş operasyon hareketi.</p></div><button type="button" onClick={() => setActive("Sistem Logları")} className="hk-button hk-button-compact hk-button-neutral">Tümünü Gör</button></div><div className="mt-4 grid gap-2">{recentActivity.slice(0, 5).map((item, index) => <div key={item.id || index} className="rounded-[12px] border border-slate-100 bg-slate-50 p-3"><strong className="block text-sm text-slate-900">{item.action || "Operasyon hareketi"}</strong><span className="mt-1 block break-words text-xs leading-5 text-slate-500">{item.entity || item.module || "Detay bekleniyor"} · {formatDateTime(item.created_at)}</span></div>)}{!recentActivity.length && <p className="rounded-[12px] border border-dashed border-slate-200 p-4 text-sm text-slate-500">Henüz aktivite kaydı bulunmuyor.</p>}</div></div>}
+        </section>
+
+        {isWidgetVisible("intelligence") && <details className="group rounded-[20px] border border-slate-200 bg-white shadow-sm"><summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"><span><strong className="block text-lg text-slate-950">Detaylı analiz ve operasyon araçları</strong><span className="mt-1 block text-sm text-slate-600">Intelligence, entegrasyon, büyüme, trend ve gelişmiş kontrol panelleri.</span></span><ChevronDown size={20} className="shrink-0 text-slate-500 transition group-open:rotate-180" /></summary><div className="grid gap-5 border-t border-slate-100 p-4 sm:p-5">
         <section className="overflow-hidden rounded-[30px] border border-cyan-300/20 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,.24),transparent_34%),linear-gradient(135deg,#020617,#0f172a_48%,#111827)] p-5 text-white shadow-[0_28px_80px_rgba(15,23,42,.35)] sm:p-7">
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(340px,.85fr)]">
             <div className="min-w-0">
@@ -2967,7 +3023,7 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
             <div className="mt-4 flex flex-wrap gap-2">{growthModes.map((mode) => <button key={mode} onClick={() => setGrowthMode(mode)} className={`rounded-full px-3 py-2 text-xs font-black ${growthMode === mode ? "bg-purple-600 text-white" : "border border-purple-100 bg-white text-purple-700"}`}>{mode}</button>)}</div>
             <div className="mt-5 rounded-[22px] border border-purple-100 bg-white p-4">
               <h4 className="font-black text-slate-950">{growthMode}</h4>
-              {growthMode === "Funnel Kur" ? <div className="mt-4 grid gap-2 md:grid-cols-3">{funnelSteps.map((step, index) => <div key={step} className="rounded-[16px] border border-cyan-100 bg-cyan-50 p-3"><span className="text-[10px] font-black uppercase tracking-[.12em] text-cyan-700">Adım {index + 1}</span><strong className="mt-1 block text-sm text-slate-950">{step}</strong></div>)}</div> : <div className="mt-4 grid gap-3 md:grid-cols-2"><SelectField label="Hedef platform" value="Meta + Google" onChange={() => null} options={["Meta + Google", "Sadece Meta", "Sadece Google", "Instagram"]} /><SelectField label="Hedef aksiyon" value={growthMode} onChange={() => null} options={growthModes} /><Field label="Bütçe" value={`${scenarioInput.budget} TL`} onChange={() => null} /><Field label="Raporlama ihtiyacı" value="7 günlük sağlık raporu" onChange={() => null} /></div>}
+              {growthMode === "Funnel Kur" ? <div className="mt-4 grid gap-2 md:grid-cols-3">{funnelSteps.map((step, index) => <div key={step} className="rounded-[16px] border border-cyan-100 bg-cyan-50 p-3"><span className="text-[10px] font-black uppercase tracking-[.12em] text-cyan-700">Adım {index + 1}</span><strong className="mt-1 block text-sm text-slate-950">{step}</strong></div>)}</div> : <div className="mt-4 grid gap-3 md:grid-cols-2">{[["Hedef platform", "Meta + Google"], ["Hedef aksiyon", growthMode], ["Bütçe", `${scenarioInput.budget.toLocaleString("tr-TR")} TL`], ["Raporlama ihtiyacı", "7 günlük sağlık raporu"]].map(([label, value]) => <div key={label} className="rounded-[14px] border border-slate-200 bg-slate-50 p-3"><span className="text-xs font-black text-slate-500">{label}</span><strong className="mt-1 block text-sm text-slate-900">{value}</strong></div>)}</div>}
               <div className="mt-4 grid gap-2 md:grid-cols-3">{growthTasks.map((task) => <p key={task} className="rounded-[14px] bg-slate-50 p-3 text-sm font-bold text-slate-700">{task}</p>)}</div>
             </div>
           </div>
@@ -3050,7 +3106,6 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
           </div>
         </section>
         {ceoMode && <div className="fixed inset-0 z-[82] overflow-y-auto bg-white/85 p-4" onMouseDown={() => setCeoMode(false)}><div className="mx-auto mt-10 max-w-6xl rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_28px_90px_rgba(15,23,42,.18)]" onMouseDown={(event) => event.stopPropagation()}><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[.18em] text-blue-600">CEO Modu</p><h2 className="mt-2 text-3xl font-black text-slate-950">Yönetici özeti</h2><p className="mt-2 text-sm text-slate-500">Sadece karar verilecek sayılar ve kritik aksiyonlar.</p></div><button onClick={() => setCeoMode(false)} className="grid size-11 place-items-center rounded-[14px] border border-slate-200"><X size={18} /></button></div><div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{[["Gelir", `${expectedRevenue.toLocaleString("tr-TR")} TL`], ["Kâr", `${estimatedProfit.toLocaleString("tr-TR")} TL`], ["Tahsilat", `${paidRevenue.toLocaleString("tr-TR")} TL`], ["Aktif müşteri", activeCustomers.length], ["Riskli müşteri", riskyCustomers.length], ["Kritik görev", criticalTasks.length], ["Bekleyen teklif", leads.filter((lead) => !lead.proposal_history?.length && Number(lead.lead_heat_score || 0) >= 60).length], ["Bu hafta yapılacak", activeTasks.filter((item) => isOpenTask(item)).length]].map(([label, value]) => <div key={label as string} className="rounded-[22px] border border-slate-200 bg-slate-50 p-5"><p className="text-xs font-black uppercase tracking-[.12em] text-slate-500">{label}</p><p className="mt-3 text-3xl font-black text-slate-950">{value}</p></div>)}</div><div className="mt-6 grid gap-4 lg:grid-cols-2"><div className="rounded-[22px] border border-slate-200 bg-white p-5"><h3 className="font-black text-slate-950">Riskli müşteriler</h3><div className="mt-3 grid gap-2">{riskyCustomers.map((item) => <p key={item.company.id} className="rounded-[12px] bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{item.company.name} · {item.health.score}/100</p>)}{!riskyCustomers.length && <p className="text-sm text-slate-500">Riskli müşteri görünmüyor.</p>}</div></div><div className="rounded-[22px] border border-slate-200 bg-white p-5"><h3 className="font-black text-slate-950">Bu hafta yapılacaklar</h3><div className="mt-3 grid gap-2">{importantDashboardTasks.map((item) => <p key={item.id || item.title} className="rounded-[12px] bg-blue-50 px-3 py-2 text-sm font-bold text-blue-700">{item.title}</p>)}{!importantDashboardTasks.length && <p className="text-sm text-slate-500">Kritik görev yok.</p>}</div></div></div></div></div>}
-        {customizing && <section className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-lg font-black text-slate-950">Widget Sistemi</h3><p className="mt-1 text-sm text-slate-500">Göster/gizle, yukarı/aşağı taşı ve varsayılan düzene dön. Tercihler bu cihazda saklanır.</p></div><button onClick={() => savePreferences({ order: dashboardWidgetDefaults, hidden: [], favorites: ["Müşteri Bulucu", "CRM"] })} className="rounded-full border border-slate-200 px-4 py-2 text-xs font-black text-slate-700">Düzeni Sıfırla</button></div><div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-4">{preferences.order.map((id) => { const widget = dashboardWidgetLabels[id] || { label: id, description: "Bu widget için açıklama hazırlanıyor." }; return <div key={id} className="flex items-center justify-between gap-3 rounded-[14px] border border-slate-200 bg-slate-50 p-3"><span className="min-w-0"><strong className="block text-sm font-black text-slate-800">{widget.label}</strong><span className="mt-1 block text-xs leading-5 text-slate-500">{widget.description}</span></span><span className="flex shrink-0 gap-1"><button onClick={() => moveWidget(id, -1)} className="rounded border border-slate-200 px-2 py-1 text-xs">↑</button><button onClick={() => moveWidget(id, 1)} className="rounded border border-slate-200 px-2 py-1 text-xs">↓</button><button onClick={() => toggleWidget(id)} className={`rounded px-2 py-1 text-xs font-black ${preferences.hidden.includes(id) ? "bg-slate-200 text-slate-600" : "bg-green-100 text-green-700"}`}>{preferences.hidden.includes(id) ? "Gizli" : "Açık"}</button></span></div>; })}</div></section>}
         <WebsiteAnalyticsSummaryCards onOpen={() => setActive("Web Site Analitiği")} />
         <section className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-[0_12px_34px_rgba(15,23,42,.06)]">
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -3236,6 +3291,7 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
             </div>
           </div>
         </section>
+        </div></details>}
       </div>
     </Panel>
   );

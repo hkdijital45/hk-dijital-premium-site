@@ -14,7 +14,7 @@ export type AdminNavigationGroup = {
   items: AdminNavigationItem[];
 };
 
-export const adminNavigationGroups: AdminNavigationGroup[] = [
+const adminNavigationSourceGroups: AdminNavigationGroup[] = [
   {
     label: "Kontrol Merkezi",
     description: "Genel durum, kalite, sağlık, log ve yedekleme kontrolleri.",
@@ -195,6 +195,79 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     ]
   }
 ];
+
+const navigationGroupPlan = [
+  {
+    label: "Operasyon",
+    description: "Günlük ajans operasyonu, görevler, kalite ve sistem sağlığı.",
+    icon: "LayoutDashboard",
+    badge: "OS",
+    accent: "from-cyan-400 via-sky-500 to-blue-600",
+    sources: ["Kontrol Merkezi", "Ajans Operasyonu"]
+  },
+  {
+    label: "Müşteriler",
+    description: "Müşteri, CRM, lead, teklif ve satış hunisi yönetimi.",
+    icon: "UsersRound",
+    badge: "CRM",
+    accent: "from-emerald-400 via-teal-500 to-cyan-600",
+    sources: ["Müşteri Merkezi", "CRM Merkezi"]
+  },
+  {
+    label: "Reklam",
+    description: "Kampanyalar, reklam hesapları, performans ve raporlama.",
+    icon: "FileBarChart",
+    badge: "Ads",
+    accent: "from-orange-400 via-pink-500 to-rose-600",
+    sources: ["Reklam & Performans", "Rapor Merkezi"]
+  },
+  {
+    label: "İçerik ve AI",
+    description: "İçerik üretimi, kreatif, SEO ve yapay zekâ araçları.",
+    icon: "Bot",
+    badge: "AI",
+    accent: "from-violet-500 via-purple-500 to-fuchsia-600",
+    sources: ["Yapay Zekâ Merkezi", "İçerik & Medya"]
+  },
+  {
+    label: "Finans",
+    description: "Tahsilat, ödeme, kârlılık ve finansal raporlar.",
+    icon: "Gauge",
+    badge: "Finans",
+    accent: "from-emerald-500 via-teal-600 to-cyan-700",
+    sources: ["Muhasebe"]
+  },
+  {
+    label: "Sistem",
+    description: "Entegrasyonlar, kullanıcılar, yetkiler ve sistem ayarları.",
+    icon: "Settings2",
+    badge: "Admin",
+    accent: "from-slate-500 via-slate-700 to-slate-900",
+    sources: ["Entegrasyonlar", "Ayarlar"]
+  }
+] as const;
+
+export const adminNavigationGroups: AdminNavigationGroup[] = navigationGroupPlan.map((plan) => {
+  const seen = new Set<string>();
+  const items = adminNavigationSourceGroups
+    .filter((group) => plan.sources.some((source) => source === group.label))
+    .flatMap((group) => group.items)
+    .filter((item) => {
+      const key = item.slug || item.label;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+  return {
+    label: plan.label,
+    description: plan.description,
+    icon: plan.icon,
+    badge: plan.badge,
+    accent: plan.accent,
+    items
+  };
+});
 
 export const adminNavigationItems = adminNavigationGroups.flatMap((group) => group.items);
 
