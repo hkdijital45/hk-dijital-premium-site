@@ -108,6 +108,11 @@ export type SiteContent = {
     logoUrl: string;
     footerLogoUrl: string;
     faviconUrl: string;
+    loginLogoUrl?: string;
+    customerLogoUrl?: string;
+    pdfLogoUrl?: string;
+    emailLogoUrl?: string;
+    openGraphLogoUrl?: string;
     colors: {
       primary: string;
       secondary: string;

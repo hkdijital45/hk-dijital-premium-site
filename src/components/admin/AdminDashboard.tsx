@@ -410,6 +410,9 @@ export function AdminDashboard({
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [favoritesOpen, setFavoritesOpen] = useState(false);
+  const [favoriteSlugs, setFavoriteSlugs] = useState<string[]>([]);
+  const [favoritesSaving, setFavoritesSaving] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [notificationState, setNotificationState] = useState({ read: [], archived: [] });
   const [hoveredNavGroup, setHoveredNavGroup] = useState("");
@@ -454,7 +457,42 @@ export function AdminDashboard({
     const validRememberedCompany = activeCompanies.some((company: any) => company.id === rememberedCompany) ? rememberedCompany : "";
     setSelectedCompanyId(validRememberedCompany);
     setPendingCompanyId(validRememberedCompany);
+    fetch("/api/admin/preferences", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((payload) => payload?.favorites && setFavoriteSlugs(payload.favorites))
+      .catch(() => null);
   }, []);
+
+  async function saveFavorites(next: string[]) {
+    if (favoritesSaving) return;
+    const previous = favoriteSlugs;
+    setFavoriteSlugs(next);
+    setFavoritesSaving(true);
+    try {
+      const response = await fetch("/api/admin/preferences", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ favorites: next })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "Favoriler kaydedilemedi.");
+      setFavoriteSlugs(payload.favorites || next);
+    } catch (error) {
+      setFavoriteSlugs(previous);
+      notify(error instanceof Error ? error.message : "Favoriler kaydedilemedi.", "error");
+    } finally {
+      setFavoritesSaving(false);
+    }
+  }
+
+  function moveFavorite(slug: string, direction: number) {
+    const index = favoriteSlugs.indexOf(slug);
+    const target = index + direction;
+    if (index < 0 || target < 0 || target >= favoriteSlugs.length) return;
+    const next = [...favoriteSlugs];
+    [next[index], next[target]] = [next[target], next[index]];
+    void saveFavorites(next);
+  }
 
   function applyCompanyFilter() {
     setSelectedCompanyId(pendingCompanyId);
@@ -670,6 +708,11 @@ export function AdminDashboard({
   ];
   const showCustomerFilter = customerFilterModules.includes(active);
   const activeNavigationItem = adminNavigationItems.find((item) => item.label === active);
+  const visibleNavigationItems = visibleNavigationGroups.flatMap((group) => group.items);
+  const favoriteNavigationItems = favoriteSlugs
+    .map((slug) => visibleNavigationItems.find((item) => (item.slug || "dashboard") === slug))
+    .filter(Boolean);
+  const activeFavoriteSlug = activeNavigationItem?.slug || (active === "Dashboard" ? "dashboard" : "");
 
   return (
     <main data-admin="true" data-mobile-operation-mode={mobileOperationMode ? "true" : "false"} className={`admin-shell hk-admin relative min-h-screen w-full min-w-0 max-w-full ${mobileOperationMode ? "hk-mobile-operation-mode" : ""} ${shellClass}`}>
@@ -749,6 +792,15 @@ export function AdminDashboard({
               <span className="block text-[10px] text-cyan-700/70">Mod: {aiStatus.mode}</span>
             </button>
             <GlobalAdminSearch />
+            <div className="relative">
+              <button type="button" onClick={() => setFavoritesOpen((current) => !current)} aria-expanded={favoritesOpen} className="inline-flex min-h-11 items-center gap-2 rounded-[10px] border border-amber-300 bg-amber-300 px-4 text-sm font-black text-amber-950 shadow-sm transition hover:bg-amber-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
+                <Star size={17} className="fill-amber-950" /> Favoriler <span className="rounded-full bg-white/70 px-2 py-0.5 text-xs">{favoriteNavigationItems.length}</span>
+              </button>
+              {favoritesOpen && <div className="absolute right-0 top-14 z-50 w-[min(92vw,380px)] rounded-[16px] border border-amber-200 bg-white p-3 shadow-2xl">
+                <div className="flex items-center justify-between gap-3 px-1 pb-3"><div><p className="font-black text-slate-950">Favori modüller</p><p className="text-xs text-slate-500">Sıralama hesabınıza kaydedilir.</p></div>{activeFavoriteSlug && <button type="button" disabled={favoritesSaving} onClick={() => saveFavorites(favoriteSlugs.includes(activeFavoriteSlug) ? favoriteSlugs.filter((slug) => slug !== activeFavoriteSlug) : [...favoriteSlugs, activeFavoriteSlug])} className="hk-button hk-button-compact hk-button-warning">{favoriteSlugs.includes(activeFavoriteSlug) ? "Favoriden Çıkar" : "Bu Modülü Ekle"}</button>}</div>
+                <div className="grid max-h-[55vh] gap-2 overflow-y-auto">{favoriteNavigationItems.map((item, index) => item && <div key={item.slug || "dashboard"} className="flex items-center gap-2 rounded-[12px] border border-slate-200 bg-slate-50 p-2"><Link href={getAdminHref(item.slug)} onClick={() => setFavoritesOpen(false)} className="min-w-0 flex-1 truncate px-2 text-sm font-black text-slate-800">{item.label}</Link><button type="button" disabled={favoritesSaving || index === 0} onClick={() => moveFavorite(item.slug || "dashboard", -1)} aria-label={`${item.label} favorisini yukarı taşı`} className="hk-icon-button"><ArrowUp size={15} /></button><button type="button" disabled={favoritesSaving || index === favoriteNavigationItems.length - 1} onClick={() => moveFavorite(item.slug || "dashboard", 1)} aria-label={`${item.label} favorisini aşağı taşı`} className="hk-icon-button"><ArrowDown size={15} /></button><button type="button" disabled={favoritesSaving} onClick={() => saveFavorites(favoriteSlugs.filter((slug) => slug !== (item.slug || "dashboard")))} aria-label={`${item.label} favorisini kaldır`} className="hk-icon-button text-red-600"><X size={15} /></button></div>)}{!favoriteNavigationItems.length && <p className="rounded-[12px] border border-dashed border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Bir modülü açıp “Bu Modülü Ekle” seçeneğini kullanın.</p>}</div>
+              </div>}
+            </div>
             {allowedModules.includes("musteriler") && <Link href="/hk-admin/musteriler" className="inline-flex min-h-10 items-center gap-2 rounded-[8px] bg-emerald-100 px-4 text-sm font-black text-emerald-700 ring-1 ring-emerald-200 transition hover:bg-emerald-200"><UsersRound size={17} /> Müşteriler</Link>}
             <button onClick={() => setCopilotOpen(true)} className="inline-flex min-h-10 items-center gap-2 rounded-[8px] bg-purple-100 px-4 text-sm font-black text-purple-700 ring-1 ring-purple-200 transition hover:bg-purple-200">
               <Bot size={17} /> HK Copilot
@@ -847,7 +899,7 @@ export function AdminDashboard({
           {active === "Genel Arama" && <GlobalSearchPage />}
           {["Haritalar", "Google Maps / İşletme Sinyalleri"].includes(active) && <MapsIntelligence {...props} setActive={setActive} mode={active} />}
           {active === "Hazırlık Merkezi" && <PreparationCenter {...props} setActive={setActive} />}
-          {["Tema Ayarları", "Tema / Logo"].includes(active) && <ThemeEditor onApply={() => null} />}
+          {["Tema Ayarları", "Tema / Logo"].includes(active) && <ThemeEditor />}
           {["Roller & Yetkiler", "Kullanıcı Yönetimi"].includes(active) && <UsersAdmin {...props} mode={active} />}
           {["Sistem Sağlığı", "Sistem Sağlık Merkezi"].includes(active) && <SystemHealthCenter content={content} setContent={setContent} startupApiData={startupApiData} runStartupApiStatus={runStartupApiStatus} startupApiLoading={startupApiLoading} />}
           {active === "Sistem Test Merkezi" && <SystemTestCenter content={content} setContent={setContent} save={save} currentSession={currentSession} notify={notify} systemStatus={systemStatus} supabaseConfigured={supabaseConfigured} />}
@@ -2310,8 +2362,8 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
   const [ceoMode, setCeoMode] = useState(false);
   const [activityFilter, setActivityFilter] = useState("Bugün");
   const [customizing, setCustomizing] = useState(false);
-  const preferenceKey = `hk-dashboard-preferences:${currentSession?.id || currentSession?.userId || "admin"}`;
-  const [preferences, setPreferences] = useState({ order: dashboardWidgetDefaults, hidden: [], favorites: ["Müşteri Bulucu", "CRM"] });
+  const [preferences, setPreferences] = useState({ order: dashboardWidgetDefaults, hidden: [] });
+  const [preferencesSaving, setPreferencesSaving] = useState(false);
   const [aiStatusCenter, setAiStatusCenter] = useState(content.settings?.api?.ai_status || {});
   const [aiStatusMessage, setAiStatusMessage] = useState("");
   const [aiStatusLoading, setAiStatusLoading] = useState(false);
@@ -2366,23 +2418,39 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
   const commandBrief = `${greeting[1]} ${userName}. Bugün sisteminde ${proposalWaitingCount} teklif bekliyor, ${overduePayments.length} ödeme gecikmiş, ${pendingReportsCount} müşterinin raporu hazırlanmalı. Öncelikli aksiyon: ${overduePayments.length ? "ödeme geciken müşteriler" : proposalWaitingCount ? "teklif bekleyen firmalar" : criticalTasks.length ? "kritik görevler" : "müşteri keşfi ve büyüme planı"}.`;
 
   useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(preferenceKey) || "null");
-      if (saved?.order) setPreferences({ order: dashboardWidgetDefaults.filter((id) => saved.order.includes(id)).concat(dashboardWidgetDefaults.filter((id) => !saved.order.includes(id))), hidden: saved.hidden || [], favorites: saved.favorites || [] });
-    } catch {}
-  }, [preferenceKey]);
+    let active = true;
+    fetch("/api/admin/preferences", { cache: "no-store" })
+      .then(async (response) => response.ok ? response.json() : Promise.reject(new Error("Tercihler yüklenemedi.")))
+      .then((payload) => {
+        if (active && payload.dashboard) setPreferences(payload.dashboard);
+      })
+      .catch(() => null);
+    return () => { active = false; };
+  }, []);
 
-  function savePreferences(next: any) {
+  async function savePreferences(next: any) {
+    const previous = preferences;
     setPreferences(next);
-    localStorage.setItem(preferenceKey, JSON.stringify(next));
+    setPreferencesSaving(true);
+    try {
+      const response = await fetch("/api/admin/preferences", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dashboard: next })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "Dashboard tercihleri kaydedilemedi.");
+      if (payload.dashboard) setPreferences(payload.dashboard);
+    } catch (error) {
+      setPreferences(previous);
+      notify?.(error instanceof Error ? error.message : "Dashboard tercihleri kaydedilemedi.", "error");
+    } finally {
+      setPreferencesSaving(false);
+    }
   }
 
   function toggleWidget(id: string) {
     savePreferences({ ...preferences, hidden: preferences.hidden.includes(id) ? preferences.hidden.filter((item) => item !== id) : [...preferences.hidden, id] });
-  }
-
-  function toggleFavorite(target: string) {
-    savePreferences({ ...preferences, favorites: preferences.favorites.includes(target) ? preferences.favorites.filter((item) => item !== target) : [...preferences.favorites, target] });
   }
 
   const warmLeads = leads.filter((lead) => Number(lead.lead_heat_score || 0) >= 50 && Number(lead.lead_heat_score || 0) < 70);
@@ -2436,7 +2504,7 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     ["Görev Ekle", "Görevler", <CircleCheck size={19} />],
     ["Tahsilat Takip", "Tahsilat", <Gauge size={19} />],
     ["HK Asistan", "HK Asistan", <Bot size={19} />]
-  ].filter(([, target]) => canOpen(target)).sort((a, b) => Number(preferences.favorites.includes(b[1])) - Number(preferences.favorites.includes(a[1])));
+  ].filter(([, target]) => canOpen(target));
   const reportCompanyIds = new Set(reports.map((report) => report.company_id));
   const insightItems = [
     [hotLeads.filter((lead) => !["Kazanıldı", "Kaybedildi", "Dönüştürüldü"].includes(lead.status)).length, "Sıcak başvurular takip bekliyor", "Yüksek fırsat skorlu kayıtları bugün değerlendirin.", "Lead Yönetimi"],
@@ -2887,7 +2955,6 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     ...followUpLeads.slice(0, 2).map((item) => ({ id: `lead-${item.id}`, customer: item.company || item.name || "Yeni lead", reason: "Yüksek fırsat skoru; takip aksiyonu bekliyor", severity: "Fırsat", target: "Takip Merkezi", action: "Takibi Aç" }))
   ].filter((item) => canOpen(item.target)).slice(0, 8);
 
-  const visibleFavoriteActions = lightDashboardQuickActions.filter(([, target]) => preferences.favorites.includes(target as string));
   const isWidgetVisible = (id: string) => !preferences.hidden.includes(id);
 
   return (
@@ -2910,18 +2977,13 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
               <button type="button" onClick={() => setCustomizing((current) => !current)} className="hk-button hk-button-edit"><Settings2 size={18} /> Dashboard'u Düzenle</button>
             </div>
           </div>
-          <div className="mt-4 flex min-w-0 flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
-            <span className="text-xs font-black uppercase tracking-[.1em] text-slate-500">Favoriler</span>
-            {(visibleFavoriteActions.length ? visibleFavoriteActions : lightDashboardQuickActions.slice(0, 2)).map(([label, target]) => <button type="button" key={`favorite-${target}`} onClick={() => setActive(target as string)} className="hk-button hk-button-compact hk-button-neutral"><Star size={15} className={preferences.favorites.includes(target as string) ? "fill-amber-400 text-amber-500" : "text-slate-400"} />{label}</button>)}
-            <span className="hidden h-6 w-px bg-slate-200 sm:block" />
-            {lightDashboardQuickActions.slice(0, 6).map(([, target]) => <button type="button" key={`star-${target}`} onClick={() => toggleFavorite(target as string)} aria-label={`${target} modülünü favorilerde ${preferences.favorites.includes(target as string) ? "kaldır" : "ekle"}`} aria-pressed={preferences.favorites.includes(target as string)} className="grid min-h-11 min-w-11 place-items-center rounded-[10px] border border-slate-200 bg-white text-slate-500 transition hover:border-amber-300 hover:text-amber-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"><Star size={17} className={preferences.favorites.includes(target as string) ? "fill-amber-400 text-amber-500" : ""} /></button>)}
-          </div>
+          <p className="mt-4 border-t border-slate-100 pt-4 text-sm text-slate-600">Modül favorilerini üst araç çubuğundaki sarı <strong>Favoriler</strong> menüsünden yönetin.</p>
         </section>
 
         {customizing && <section className="rounded-[20px] border border-indigo-200 bg-indigo-50 p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div><h2 className="text-lg font-black text-slate-950">Dashboard görünümü</h2><p className="mt-1 text-sm leading-6 text-slate-600">Bölümleri gösterin veya gizleyin. Tercihler yalnızca bu cihazda saklanır.</p></div>
-            <button type="button" onClick={() => savePreferences({ order: dashboardWidgetDefaults, hidden: [], favorites: ["Müşteri Bulucu", "CRM"] })} className="hk-button hk-button-neutral"><RotateCcw size={17} /> Varsayılanı Yükle</button>
+            <div><h2 className="text-lg font-black text-slate-950">Dashboard görünümü</h2><p className="mt-1 text-sm leading-6 text-slate-600">Bölümleri gösterin veya gizleyin. Tercihler kullanıcı hesabınıza kaydedilir.</p></div>
+            <button type="button" disabled={preferencesSaving} onClick={() => savePreferences({ order: dashboardWidgetDefaults, hidden: [] })} className="hk-button hk-button-neutral"><RotateCcw size={17} /> {preferencesSaving ? "Kaydediliyor..." : "Varsayılanı Yükle"}</button>
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{preferences.order.map((id) => { const widget = dashboardWidgetLabels[id]; return <article key={id} className="flex min-w-0 items-center justify-between gap-3 rounded-[14px] border border-indigo-100 bg-white p-3"><span className="min-w-0"><strong className="block text-sm text-slate-900">{widget?.label || id}</strong><span className="mt-1 block text-xs leading-5 text-slate-500">{widget?.description || "Dashboard bölümü"}</span></span><button type="button" onClick={() => toggleWidget(id)} aria-pressed={!preferences.hidden.includes(id)} className={`hk-button hk-button-compact ${preferences.hidden.includes(id) ? "hk-button-neutral" : "hk-button-success"}`}>{preferences.hidden.includes(id) ? "Gizli" : "Görünür"}</button></article>; })}</div>
         </section>}
@@ -3981,6 +4043,7 @@ function AccountingCenter({ content, setContent, save, currentSession, notify, s
   const validTabs = ["genel", "tahsilatlar", "bekleyen", "gelir-gider", "gelir-tahmini", "karlilik", "musteri-finans", "raporlar", "export"];
   const [tab, setTab] = useState(validTabs.includes(initialTab) ? initialTab : "genel");
   const [customerId, setCustomerId] = useState(selectedCompanyId || "");
+  const [financeSaving, setFinanceSaving] = useState(false);
   const payments = (content.paymentRecords || []).filter((item: any) => !isArchivedRecord(item) && item.status !== "İptal");
   const expenses = content.agencyExpenses || [];
   const today = new Date().toISOString().slice(0, 10);
@@ -4050,6 +4113,18 @@ function AccountingCenter({ content, setContent, save, currentSession, notify, s
   function updateExpense(index: number, patch: any) {
     updateCollection(content, setContent, "agencyExpenses", expenses.map((item: any, itemIndex: number) => itemIndex === index ? { ...item, ...patch, updated_at: new Date().toISOString() } : item));
   }
+  function deleteExpense(index: number) {
+    if (!window.confirm("Bu gider kaydını silmek istediğinize emin misiniz?")) return;
+    updateCollection(content, setContent, "agencyExpenses", expenses.filter((_: any, itemIndex: number) => itemIndex !== index));
+    notify?.("Gider kaydı silindi. Değişikliği kalıcılaştırmak için finans kayıtlarını kaydedin.", "warning");
+  }
+  async function persistFinance() {
+    if (financeSaving) return;
+    setFinanceSaving(true);
+    const ok = await save?.();
+    notify?.(ok === false ? "Finans kayıtları kaydedilemedi." : "Finans kayıtları kaydedildi.", ok === false ? "error" : "success");
+    setFinanceSaving(false);
+  }
   const selectedCompany = companyById(content, customerId);
   const selectedPayments = customerId ? payments.filter((item: any) => item.company_id === customerId) : [];
   const selectedPaid = selectedPayments.filter((item: any) => item.status === "Ödendi").reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
@@ -4083,7 +4158,25 @@ function AccountingCenter({ content, setContent, save, currentSession, notify, s
       </div>}
       {tab === "tahsilatlar" && <PaymentCenter content={content} setContent={setContent} save={save} currentSession={currentSession} notify={notify} selectedCompanyId={selectedCompanyId} onClearCompanyFilter={onClearCompanyFilter} />}
       {tab === "bekleyen" && <PaymentCenter content={content} setContent={setContent} save={save} currentSession={currentSession} notify={notify} selectedCompanyId={selectedCompanyId} onClearCompanyFilter={onClearCompanyFilter} initialStatus="Bekliyor" />}
-      {tab === "gelir-gider" && <div className="space-y-5"><div className="flex flex-wrap gap-2"><button onClick={addIncome} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Gelir Ekle</button><button onClick={addExpense} className="rounded-full bg-blue-100 px-4 py-2 text-sm font-black text-blue-700 ring-1 ring-blue-200">Gider Ekle</button><button onClick={() => exportAccounting("csv")} className="rounded-full border border-emerald-300 px-4 py-2 text-sm font-black text-emerald-700">Excel/CSV dışa aktar</button><button onClick={() => exportAccounting("html")} className="rounded-full border border-cyan-300 px-4 py-2 text-sm font-black text-cyan-700">PDF-ready HTML</button></div><div className="premium-scrollbar overflow-x-auto rounded-[16px] border border-slate-200"><table className="w-full min-w-[920px] text-left text-sm"><thead className="bg-slate-50 text-slate-600"><tr><th className="p-3">Tür</th><th>Müşteri</th><th>Kategori</th><th>Tutar</th><th>Tarih</th><th>Durum</th><th>Müşteriye gösterilsin</th></tr></thead><tbody>{payments.map((item: any) => <tr key={`income-${item.id}`} className="border-t border-slate-200"><td className="p-3 font-black text-emerald-700">Gelir</td><td>{companyName(content, item.company_id)}</td><td>{item.payment_type || "Hizmet Bedeli"}</td><td>{v4Money(item.amount)}</td><td>{item.payment_date || item.due_date || item.service_period || "-"}</td><td>{item.status || "Bekliyor"}</td><td>{item.visible_to_customer ? "Müşteriye açık" : "Sadece admin"}</td></tr>)}{expenses.map((item: any, index: number) => <tr key={`expense-${item.id || index}`} className="border-t border-slate-200"><td className="p-3 font-black text-red-700">Gider</td><td>-</td><td><input value={item.category || item.title || ""} onChange={(event) => updateExpense(index, { category: event.target.value })} className="w-full rounded border border-slate-200 px-2 py-1" /></td><td><input type="number" value={item.amount || 0} onChange={(event) => updateExpense(index, { amount: Number(event.target.value || 0) })} className="w-28 rounded border border-slate-200 px-2 py-1" /></td><td><input type="date" value={item.expense_date || ""} onChange={(event) => updateExpense(index, { expense_date: event.target.value })} className="rounded border border-slate-200 px-2 py-1" /></td><td>Gider</td><td>Sadece admin</td></tr>)}</tbody></table></div></div>}
+      {tab === "gelir-gider" && <div className="space-y-5">
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={addIncome} className="hk-button hk-button-primary">Gelir Ekle</button>
+          <button type="button" onClick={addExpense} className="hk-button hk-button-info">Gider Ekle</button>
+          <button type="button" onClick={() => exportAccounting("csv")} className="hk-button hk-button-export">Excel/CSV Dışa Aktar</button>
+          <button type="button" onClick={() => exportAccounting("html")} className="hk-button hk-button-export">Yazdırılabilir Rapor</button>
+          <button type="button" onClick={persistFinance} disabled={financeSaving} className="hk-button hk-button-success sm:ml-auto">{financeSaving ? "Kaydediliyor..." : "Finans Kayıtlarını Kaydet"}</button>
+        </div>
+        <div className="premium-scrollbar overflow-x-auto rounded-[16px] border border-slate-200">
+          <table className="w-full min-w-[980px] text-left text-sm">
+            <thead className="bg-slate-50 text-slate-600"><tr><th className="p-3">Tür</th><th>Müşteri</th><th>Kategori</th><th>Tutar</th><th>Tarih</th><th>Durum</th><th>Görünürlük</th><th className="pr-3 text-right">İşlem</th></tr></thead>
+            <tbody>
+              {payments.map((item: any) => <tr key={`income-${item.id}`} className="border-t border-slate-200"><td className="p-3 font-black text-emerald-700">Gelir</td><td>{companyName(content, item.company_id)}</td><td>{item.payment_type || "Hizmet Bedeli"}</td><td>{v4Money(item.amount)}</td><td>{item.payment_date || item.due_date || item.service_period || "-"}</td><td>{item.status || "Bekliyor"}</td><td>{item.visible_to_customer ? "Müşteriye açık" : "Sadece admin"}</td><td className="pr-3 text-right text-xs text-slate-500">Tahsilat ekranından yönetilir</td></tr>)}
+              {expenses.map((item: any, index: number) => <tr key={`expense-${item.id || index}`} className="border-t border-slate-200"><td className="p-3 font-black text-red-700">Gider</td><td>-</td><td><input aria-label="Gider kategorisi" value={item.category || item.title || ""} onChange={(event) => updateExpense(index, { category: event.target.value })} className="min-h-11 w-full rounded-[8px] border border-slate-300 px-3" /></td><td><input aria-label="Gider tutarı" type="number" min="0" value={item.amount || 0} onChange={(event) => updateExpense(index, { amount: Number(event.target.value || 0) })} className="min-h-11 w-32 rounded-[8px] border border-slate-300 px-3" /></td><td><input aria-label="Gider tarihi" type="date" value={item.expense_date || ""} onChange={(event) => updateExpense(index, { expense_date: event.target.value })} className="min-h-11 rounded-[8px] border border-slate-300 px-3" /></td><td>Gider</td><td>Sadece admin</td><td className="pr-3 text-right"><button type="button" onClick={() => deleteExpense(index)} className="hk-button hk-button-compact hk-button-danger">Sil</button></td></tr>)}
+              {!payments.length && !expenses.length && <tr><td colSpan={8} className="p-6 text-center text-slate-500">Henüz gelir veya gider kaydı bulunmuyor.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>}
       {tab === "gelir-tahmini" && <RevenueForecastCenter content={content} setActive={(target: string) => setTab(accountingTabForActive(target))} />}
       {tab === "karlilik" && <ProfitabilityCenter content={content} setContent={setContent} setActive={(target: string) => setTab(accountingTabForActive(target))} currentSession={currentSession} notify={notify} />}
       {tab === "musteri-finans" && <GlassCard className="p-5"><div className="grid gap-4 md:grid-cols-[360px_1fr]"><CompanySelect label="Müşteri seç" value={customerId} onChange={setCustomerId} companies={content.companies} /><div className="rounded-[14px] border border-slate-200 bg-slate-50 p-4">{selectedCompany ? <div><h3 className="text-xl font-black text-slate-950">{selectedCompany.name}</h3><div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4"><AgencyStatCard label="Toplam tahsilat" value={v4Money(selectedPaid)} note="Ödenmiş kayıtlar" tone="emerald" /><AgencyStatCard label="Bekleyen ödeme" value={v4Money(selectedPending)} note="Açık kayıtlar" tone="amber" /><AgencyStatCard label="Son ödeme tarihi" value={selectedPayments[0]?.due_date || "-"} note="En güncel ödeme kaydı" /><AgencyStatCard label="Risk durumu" value={selectedPending ? "Takip" : "Temiz"} note="Müşteri finans sağlığı" tone={selectedPending ? "amber" : "emerald"} /></div><button onClick={() => setActive?.("Müşteriler")} className="mt-4 rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Müşteri profilini aç</button></div> : <p className="text-sm text-slate-500">Müşteri seçince toplam tahsilat, bekleyen ödeme, geciken ödeme, hizmet bedeli, reklam bütçesi, ödeme geçmişi ve risk durumu burada görünür.</p>}</div></div></GlassCard>}
@@ -5660,7 +5753,17 @@ function GeneralWebsiteSettings({ content, setContent }: any) {
 function LogoManagement({ content, setContent }: any) {
   const brand = content.brand;
   const update = (patch) => setContent({ ...content, brand: { ...brand, ...patch } });
-  return <Panel title="Logo Yönetimi"><div className="grid gap-4 md:grid-cols-3">{[["Header logo", "logoUrl"], ["Footer logo", "footerLogoUrl"], ["Favicon", "faviconUrl"]].map(([label, key]) => <div key={key} className="grid gap-3 rounded-[8px] border border-slate-200 p-4"><Field label={label} value={brand[key] || ""} onChange={(v) => update({ [key]: v })} /><Upload onUrl={(url) => update({ [key]: url })} /></div>)}</div></Panel>;
+  const logoFields = [
+    ["Website Logo", "logoUrl"],
+    ["Login Logo", "loginLogoUrl"],
+    ["Customer Logo", "customerLogoUrl"],
+    ["PDF Logo", "pdfLogoUrl"],
+    ["Email Logo", "emailLogoUrl"],
+    ["Favicon", "faviconUrl"],
+    ["Footer Logo", "footerLogoUrl"],
+    ["OpenGraph Logo", "openGraphLogoUrl"]
+  ];
+  return <Panel title="Logo Yönetimi"><p className="mb-5 rounded-[14px] border border-cyan-200 bg-cyan-50 p-4 text-sm leading-6 text-cyan-900">PNG, SVG, WebP veya JPG yükleyin. Dosyalar Supabase Storage üzerinde saklanır; değişiklikleri üst araç çubuğundaki Kaydet ile yayınlayın.</p><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{logoFields.map(([label, key]) => <div key={key} className="grid min-w-0 gap-3 rounded-[16px] border border-slate-200 bg-white p-4 shadow-sm"><div className="flex h-24 items-center justify-center overflow-hidden rounded-[12px] bg-slate-50">{brand[key] ? <img src={brand[key]} alt={`${label} önizlemesi`} className="max-h-20 max-w-full object-contain" /> : <span className="text-sm font-bold text-slate-500">Logo yüklenmedi</span>}</div><Field label={label} value={brand[key] || ""} onChange={(v) => update({ [key]: v })} /><Upload onUrl={(url) => update({ [key]: url })} /></div>)}</div></Panel>;
 }
 
 function VisualManagement({ content, setContent }: any) {
@@ -6629,7 +6732,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
     show_files: true,
     show_contact_person: true
   };
-  const tabs = ["Genel Bilgi", "Büyüme", "Müşteri Kurulumu", "Entegrasyonlar", "Platform Yönetimi", "Müşteri Paneli Yetkileri", "Bağlantı Bilgileri", "Marka Varlıkları", "İletişim", "Satış Durumu", "Reklam Hesapları", "Kampanyalar", "Teklifler", "Ödemeler", "Yapılacaklar", "Raporlar", "Dosyalar", "Zaman Çizelgesi", "Panel Görünürlüğü", "Giriş Bilgileri", "Metrikler", "Yapılan Çalışmalar", "Aktivite Geçmişi", "Notlar"];
+  const tabs = ["Genel Bilgi", "Büyüme", "Müşteri Kurulumu", "Entegrasyonlar", "Platform Yönetimi", "Panel Builder", "Bağlantı Bilgileri", "Marka Varlıkları", "İletişim", "Satış Durumu", "Reklam Hesapları", "Kampanyalar", "Teklifler", "Ödemeler", "Yapılacaklar", "Raporlar", "Dosyalar", "Zaman Çizelgesi", "Panel Görünürlüğü", "Giriş Bilgileri", "Metrikler", "Yapılan Çalışmalar", "Aktivite Geçmişi", "Notlar"];
   async function runProfileAction(label, action) {
     setProfileAction(`${label}...`);
     try {
@@ -6900,10 +7003,10 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
         </div>
         {portalSettingsMessage && <p className="mt-4 rounded-[12px] border border-cyan-200 bg-white p-3 text-sm font-bold text-cyan-900">{portalSettingsMessage}</p>}
       </div>}
-      {tab === "Müşteri Paneli Yetkileri" && <div className="min-w-0 overflow-hidden rounded-[18px] border border-violet-200 bg-violet-50 p-5">
+      {tab === "Panel Builder" && <div className="min-w-0 overflow-hidden rounded-[18px] border border-violet-200 bg-violet-50 p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-black uppercase tracking-[.14em] text-violet-700">Müşteri Paneli Yetkilendirme Merkezi</p>
+            <p className="text-xs font-black uppercase tracking-[.14em] text-violet-700">Customer Panel Builder</p>
             <h3 className="mt-2 text-xl font-black text-slate-950">Panel modüllerini yönet</h3>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Bu müşteri için müşteri panelinde görünecek menü ve modülleri seçin.</p>
             <p className="mt-3 max-w-3xl rounded-[12px] border border-violet-200 bg-white p-3 text-xs font-bold leading-5 text-violet-900">Modül kapalıysa müşteri menüsünde ve doğrudan URL ile erişimde görünmez.</p>
@@ -10208,10 +10311,11 @@ function PreparationCenter({ content, setContent, setActive, mode = "Hazırlık 
 }
 
 const themePresets = {
-  "HK Premium Marka": { background: "#f8fafc", surface: "#ffffff", text: "#334155", mutedText: "#64748b", primaryButton: "#0ea5e9", secondaryButton: "#e0f2fe", accent: "#facc15", sidebar: "#ffffff", header: "#ffffff", border: "#e2e8f0", success: "#16a34a", warning: "#f59e0b", danger: "#dc2626" },
-  "HK Light Marka": { background: "#eef4fa", surface: "#ffffff", text: "#2563eb", mutedText: "#475569", primaryButton: "#0369a1", secondaryButton: "#dbeafe", accent: "#b45309", sidebar: "#ffffff", header: "#f8fafc", border: "#b8c7d9", success: "#047857", warning: "#b45309", danger: "#b91c1c" },
-  "HK Sarı Vurgu": { background: "#fffdf2", surface: "#ffffff", text: "#1f2937", mutedText: "#64748b", primaryButton: "#eab308", secondaryButton: "#fef3c7", accent: "#facc15", sidebar: "#ffffff", header: "#ffffff", border: "#fde68a", success: "#16a34a", warning: "#d97706", danger: "#dc2626" },
-  "Ajans Mavi Turuncu": { background: "#f8fafc", surface: "#ffffff", text: "#1e293b", mutedText: "#64748b", primaryButton: "#38bdf8", secondaryButton: "#e0f2fe", accent: "#fb923c", sidebar: "#ffffff", header: "#f8fafc", border: "#dbe4ef", success: "#16a34a", warning: "#fb923c", danger: "#dc2626" }
+  "HK Gold": { background: "#fffdf4", surface: "#ffffff", text: "#1f2937", mutedText: "#64748b", primaryButton: "#ca8a04", secondaryButton: "#fef3c7", accent: "#eab308", sidebar: "#ffffff", header: "#fffdf4", border: "#fde68a", success: "#15803d", warning: "#d97706", danger: "#dc2626" },
+  "HK Cyan": { background: "#f7f8fb", surface: "#ffffff", text: "#0f172a", mutedText: "#475569", primaryButton: "#0891b2", secondaryButton: "#cffafe", accent: "#06b6d4", sidebar: "#ffffff", header: "#ffffff", border: "#e2e8f0", success: "#059669", warning: "#d97706", danger: "#dc2626" },
+  "HK Purple": { background: "#faf8ff", surface: "#ffffff", text: "#1e1b4b", mutedText: "#64748b", primaryButton: "#7c3aed", secondaryButton: "#ede9fe", accent: "#a855f7", sidebar: "#ffffff", header: "#faf8ff", border: "#ddd6fe", success: "#059669", warning: "#d97706", danger: "#dc2626" },
+  "Dark": { background: "#0f172a", surface: "#172033", text: "#f8fafc", mutedText: "#cbd5e1", primaryButton: "#22d3ee", secondaryButton: "#1e293b", accent: "#facc15", sidebar: "#111827", header: "#111827", border: "#334155", success: "#34d399", warning: "#fbbf24", danger: "#f87171" },
+  "Light": { background: "#f8fafc", surface: "#ffffff", text: "#0f172a", mutedText: "#64748b", primaryButton: "#2563eb", secondaryButton: "#dbeafe", accent: "#0ea5e9", sidebar: "#ffffff", header: "#ffffff", border: "#e2e8f0", success: "#16a34a", warning: "#d97706", danger: "#dc2626" }
 };
 
 const themeFieldLabels: Record<string, string> = {
@@ -10231,25 +10335,41 @@ const themeFieldLabels: Record<string, string> = {
 };
 
 function ThemeEditor() {
-  const [theme, setTheme] = useState(themePresets["HK Light Marka"]);
+  const [selectedName, setSelectedName] = useState("HK Cyan");
+  const [theme, setTheme] = useState(themePresets["HK Cyan"]);
+  const [scope, setScope] = useState(["website", "login", "admin", "customer"]);
   const [message, setMessage] = useState("");
-  function apply(next) {
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    fetch("/api/admin/theme", { cache: "no-store" }).then((response) => response.json()).then((payload) => {
+      if (!payload?.theme) return;
+      const { name, scope: savedScope, ...colors } = payload.theme;
+      setSelectedName(name || "HK Cyan");
+      setTheme((current) => ({ ...current, ...colors }));
+      if (Array.isArray(savedScope)) setScope(savedScope);
+    }).catch(() => null);
+  }, []);
+  function apply(name, next) {
+    setSelectedName(name);
     setTheme(next);
   }
   async function save() {
-    const response = await fetch("/api/admin/theme", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(theme) });
+    if (saving) return;
+    setSaving(true);
+    const response = await fetch("/api/admin/theme", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: selectedName, scope, ...theme }) });
     const data = await response.json().catch(() => ({}));
     setMessage(response.ok ? data.message : data.supabaseError || data.error || "Tema kaydedilemedi.");
+    setSaving(false);
   }
   return (
     <Panel title="Tema Ayarları">
-      <p className="mb-3 text-sm leading-6 text-slate-600">Admin panel artık sabit okunur light tema kullanır. Renk ayarları web sitesi veya marka alanları için kullanılır.</p>
-      <p className="mb-5 rounded-[8px] border border-cyan-200 bg-cyan-50 p-3 text-sm font-semibold leading-6 text-cyan-800">Bu ekrandaki renk önizlemeleri admin arayüzü yüzeylerini değiştirmez; admin panel beyaz, okunur ve sabit light tema ile çalışır.</p>
+      <p className="mb-5 text-sm leading-6 text-slate-600">Hazır temayı seçin, vurgu rengini düzenleyin ve uygulanacağı yüzeyleri belirleyin. Kontrast renkleri birlikte kaydedilir.</p>
       <div className="mb-5 flex flex-wrap gap-2">
         {Object.entries(themePresets).map(([label, preset]) => (
-          <button key={label} onClick={() => apply(preset)} className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold">{label}</button>
+          <button key={label} onClick={() => apply(label, preset)} className={`rounded-full border px-4 py-2 text-sm font-bold ${selectedName === label ? "border-cyan-400 bg-cyan-50 text-cyan-800" : "border-slate-200"}`}>{label}</button>
         ))}
       </div>
+      <div className="mb-5 flex flex-wrap gap-2">{[["website", "Website"], ["login", "Login"], ["admin", "Admin"], ["customer", "Customer Panel"]].map(([key, label]) => <label key={key} className="flex min-h-11 items-center gap-2 rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700"><input type="checkbox" checked={scope.includes(key)} onChange={(event) => setScope((current) => event.target.checked ? [...new Set([...current, key])] : current.filter((item) => item !== key))} />{label}</label>)}</div>
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="grid gap-3 sm:grid-cols-2">
           {Object.entries(theme).map(([key, value]) => (
@@ -10264,8 +10384,8 @@ function ThemeEditor() {
         </div>
       </div>
       <div className="mt-5 flex flex-wrap gap-2">
-        <button onClick={save} className="rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Temayı kaydet</button>
-        <button onClick={() => apply(themePresets["HK Light Marka"])} className="rounded-full border border-slate-200 px-5 py-3 text-sm">Varsayılanlara dön</button>
+        <button disabled={saving} onClick={save} className="rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-50">{saving ? "Kaydediliyor..." : "Temayı kaydet"}</button>
+        <button onClick={() => apply("HK Cyan", themePresets["HK Cyan"])} className="rounded-full border border-slate-200 px-5 py-3 text-sm">Varsayılanlara dön</button>
       </div>
       {message && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-700">{message}</p>}
     </Panel>

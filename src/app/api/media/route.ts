@@ -6,6 +6,7 @@ import { isAdminAuthenticated } from "@/lib/auth";
 import { hasSupabaseConfig, supabaseRest, uploadToSupabaseStorage } from "@/lib/supabase";
 
 const allowedTypes = ["image/png", "image/svg+xml", "image/jpeg", "image/webp", "video/mp4", "video/webm", "application/pdf"];
+const maxFileSize = 10 * 1024 * 1024;
 
 export async function POST(request: Request) {
   if (!(await isAdminAuthenticated())) {
@@ -16,6 +17,15 @@ export async function POST(request: Request) {
   const file = form.get("file");
   if (!(file instanceof File) || !allowedTypes.includes(file.type)) {
     return NextResponse.json({ error: "PNG, SVG, JPG, WebP veya video dosyası yükleyin." }, { status: 400 });
+  }
+  if (file.size <= 0 || file.size > maxFileSize) {
+    return NextResponse.json({ error: "Dosya boyutu 10 MB sınırını aşamaz." }, { status: 400 });
+  }
+  if (file.type === "image/svg+xml") {
+    const svg = await file.text();
+    if (/<script|on\w+\s*=|javascript:|<foreignObject/i.test(svg)) {
+      return NextResponse.json({ error: "SVG dosyası güvenli olmayan içerik barındırıyor." }, { status: 400 });
+    }
   }
 
   const extension = file.name.split(".").pop() || "asset";

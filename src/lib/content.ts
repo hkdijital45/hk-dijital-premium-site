@@ -46,7 +46,7 @@ function normalizeAiDefaults<T extends SiteContent>(content: T): T {
 }
 
 function polishPublicCopy<T>(value: T, key = ""): T {
-  if (["id", "url", "logoUrl", "footerLogoUrl", "faviconUrl", "fileUrl", "verificationUrl", "activeProvider", "active_ai_provider", "active_ai_model", "ai_mode", "ai_provider_priority", "model"].includes(key)) return value;
+  if (["id", "url", "logoUrl", "footerLogoUrl", "faviconUrl", "loginLogoUrl", "customerLogoUrl", "pdfLogoUrl", "emailLogoUrl", "openGraphLogoUrl", "fileUrl", "verificationUrl", "activeProvider", "active_ai_provider", "active_ai_model", "ai_mode", "ai_provider_priority", "model"].includes(key)) return value;
   if (Array.isArray(value)) return value.map((item) => polishPublicCopy(item)) as T;
   if (value && typeof value === "object") {
     return Object.fromEntries(Object.entries(value).map(([childKey, childValue]) => [childKey, polishPublicCopy(childValue, childKey)])) as T;
@@ -98,6 +98,24 @@ export async function getSiteContent(): Promise<SiteContent> {
   } catch {
     return withPackages(seed);
   }
+}
+
+export async function getSiteTheme() {
+  const fallback = {
+    name: "HK Cyan",
+    background: "#f7f8fb",
+    surface: "#ffffff",
+    text: "#0f172a",
+    mutedText: "#475569",
+    primaryButton: "#0891b2",
+    accent: "#06b6d4",
+    border: "#e2e8f0"
+  };
+  if (!hasSupabaseConfig()) return fallback;
+  const rows = await supabaseRest<Array<{ value?: Record<string, string> }>>(
+    "site_settings?key=eq.admin_theme&select=value&limit=1"
+  ).catch(() => []);
+  return { ...fallback, ...(rows[0]?.value || {}) };
 }
 
 export async function saveSiteContent(content: SiteContent) {

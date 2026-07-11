@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { TrackingPlaceholders } from "@/components/public/TrackingPlaceholders";
 import { MetaPixel } from "@/components/public/MetaPixel";
-import { getSiteContent } from "@/lib/content";
+import { getSiteContent, getSiteTheme } from "@/lib/content";
 import { getGlobalMetaPixelId } from "@/lib/meta-pixel-settings";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -22,10 +22,11 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const content = await getSiteContent();
+  const theme = await getSiteTheme();
   const metaPixelId = await getGlobalMetaPixelId(content.settings.analyticsIds?.metaPixel || "");
 
   return (
-    <html lang="tr" className={`${geistSans.variable} ${geistMono.variable} h-full scroll-smooth antialiased`}>
+    <html lang="tr" data-hk-theme={theme.name} style={{ "--hk-theme-bg": theme.background, "--hk-theme-surface": theme.surface, "--hk-theme-text": theme.text, "--hk-theme-muted": theme.mutedText, "--hk-theme-primary": theme.primaryButton, "--hk-theme-accent": theme.accent, "--hk-theme-border": theme.border } as React.CSSProperties} className={`${geistSans.variable} ${geistMono.variable} h-full scroll-smooth antialiased`}>
       <body className="min-h-full bg-[#050711] font-sans text-white">
         <TrackingPlaceholders ids={content.settings.analyticsIds} />
         <MetaPixel pixelId={metaPixelId} />

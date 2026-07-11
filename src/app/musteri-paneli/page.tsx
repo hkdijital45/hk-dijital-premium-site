@@ -2,7 +2,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { BarChart3, Bell, Download, FileText, Lightbulb, MessageCircle, Sparkles, UserRound } from "lucide-react";
+import { BarChart3, Bell, CalendarCheck, CreditCard, Download, FileText, Lightbulb, MessageCircle, PackageCheck, Sparkles, UserRound } from "lucide-react";
 import { getSession, isCustomerRole, isStaffRole } from "@/lib/auth";
 import { recordActivity } from "@/lib/activity-log";
 import { getCustomerCenterData, summarizeMetrics } from "@/lib/customer-center";
@@ -15,6 +15,7 @@ import { AnimatedChart, CustomerMetricCard } from "@/components/premium/PremiumU
 import { Logo } from "@/components/public/Logo";
 import { getSiteContent } from "@/lib/content";
 import { calculateTotalWithVat, calculateVat, findServicePackage, formatTRY, getPackagePricing } from "@/lib/packages";
+import { HKAssistantWidget } from "@/components/shared/HKAssistantWidget";
 
 export const dynamic = "force-dynamic";
 
@@ -27,18 +28,11 @@ function MetricCard({ title, value, help }: { title: string; value: string | num
   return <CustomerMetricCard title={title} value={value} help={help} />;
 }
 
-const CUSTOMER_PORTAL_ALLOWED_MODULES: CustomerModuleKey[] = ["dashboard", "reports", "files", "documents", "account_connect", "support", "notifications"];
+const CUSTOMER_PORTAL_ALLOWED_MODULES: CustomerModuleKey[] = ["dashboard", "reports", "tasks", "files", "documents", "billing", "ai_assistant", "ad_insights", "analytics", "seo", "social_media", "account_connect", "support", "notifications"];
 const CUSTOMER_PORTAL_ADMIN_ONLY_MODULES = [
   "ad_doctor",
   "hk_intelligence",
-  "ai_assistant",
-  "ad_insights",
-  "analytics",
-  "seo",
-  "social_media",
   "integrations",
-  "billing",
-  "tasks",
   "proposals",
   "contracts",
   "messages",
@@ -170,13 +164,15 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
   const activePackageVat = calculateVat(activePackageBasePrice);
   const activePackageTotal = calculateTotalWithVat(activePackageBasePrice);
   const activePackagePricing = activeServicePackage ? getPackagePricing(activeServicePackage) : null;
+  const pendingTasks = data.tasks.filter((task) => !["Tamamlandı", "İptal"].includes(task.status || ""));
+  const latestReport = data.reports[0] || data.monthlyReports[0];
   const portalSections = [
-    { module: "dashboard", title: "Genel Durum", description: "Size açık son kampanya, rapor ve çalışma özetleri.", tone: "bg-cyan-50 text-cyan-700", icon: <Sparkles key="genel" size={22} />, updatedAt: latestUpdate?.created_at, action: "Özeti Gör", href: "#genel-bakis" },
-    { module: "reports", title: "Raporlar", description: "Yayınlanan rapor ve aylık özetleri görüntüleyin.", tone: "bg-purple-50 text-purple-700", icon: <FileText key="rapor" size={22} />, updatedAt: latestReportDate, action: "Raporları Aç", href: "#raporlar" },
-    { module: "files", title: "Belgeler / Dosyalar", description: "Teklif, sözleşme, fatura, brief ve kreatif dosyalarınıza ulaşın.", tone: "bg-amber-50 text-amber-700", icon: <Download key="dosya" size={22} />, updatedAt: data.files[0]?.uploaded_at || data.documents[0]?.created_at, action: "Dosyaları Aç", href: "#belgeler" },
-    { module: "account_connect", title: "Hesap Bağla", description: "Meta, Google, Website / Pixel ve WhatsApp bağlantılarınızı yönetin.", tone: "bg-blue-50 text-blue-700", icon: <Sparkles key="hesap" size={22} />, updatedAt: data.integration?.updated_at, action: "Hesap Bağla", href: "#hesap-bagla" },
-    { module: "support", title: "Destek", description: "WhatsApp, toplantı veya eksik bilgi gönderimi için HK Dijital ekibine ulaşın.", tone: "bg-sky-50 text-sky-700", icon: <MessageCircle key="iletisim" size={22} />, updatedAt: latestUpdate?.created_at, action: "Destek Al", href: "#destek" },
-    { module: "notifications", title: "Bildirimler", description: "Rapor, dosya, eksik bilgi ve bağlantı uyarılarınızı görün.", tone: "bg-rose-50 text-rose-700", icon: <Bell key="bildirim" size={22} />, updatedAt: latestUpdate?.created_at || data.integration?.updated_at, action: "Bildirimleri Gör", href: "#bildirimler" }
+    { module: "dashboard", title: "Bugünkü Durum", value: activeCampaigns.length ? `${activeCampaigns.length} aktif kampanya` : "Hazırlık sürüyor", description: latestUpdate?.next_step || latestUpdate?.description || "Ajans ekibiniz çalışmalarınızı takip ediyor.", tone: "border-cyan-200 bg-cyan-50 text-cyan-800", icon: <Sparkles key="genel" size={25} />, action: "Özeti Gör", href: "#operasyon-ozeti" },
+    { module: "dashboard", title: "Aktif Paket", value: activeServicePackage?.name || data.company?.customer_package_name || "Paket tanımı bekleniyor", description: activeServicePackage?.categoryLabel || "Paketiniz tanımlandığında kapsam burada görünür.", tone: "border-amber-200 bg-amber-50 text-amber-900", icon: <PackageCheck key="paket" size={25} />, action: "Paketi Gör", href: "#aktif-paket" },
+    { module: "reports", title: "Son Rapor", value: latestReport ? (latestReport.report_type || latestReport.report_month || "Rapor hazır") : "Henüz rapor yok", description: latestReportDate ? new Date(latestReportDate).toLocaleDateString("tr-TR") : "Yeni rapor yayınlandığında burada görünür.", tone: "border-blue-200 bg-blue-50 text-blue-800", icon: <FileText key="rapor" size={25} />, action: "Raporları Aç", href: "#raporlar" },
+    { module: "tasks", title: "Bekleyen Görev", value: pendingTasks.length, description: pendingTasks[0]?.title || "Bekleyen müşteri görevi bulunmuyor.", tone: "border-violet-200 bg-violet-50 text-violet-800", icon: <CalendarCheck key="gorev" size={25} />, action: "Görevleri Gör", href: "#notlar" },
+    { module: "billing", title: "Tahsilat Durumu", value: paymentSummary.pending ? `${paymentSummary.pending.toLocaleString("tr-TR")} TL bekliyor` : "Gecikmiş ödeme yok", description: paymentSummary.paid ? `${paymentSummary.paid.toLocaleString("tr-TR")} TL ödendi` : "Ödeme hareketleri burada özetlenir.", tone: "border-emerald-200 bg-emerald-50 text-emerald-800", icon: <CreditCard key="odeme" size={25} />, action: "Ödemeleri Gör", href: "#odemeler" },
+    { module: "notifications", title: "Son Bildirimler", value: customerNotifications.length, description: customerNotifications[0]?.text || "Şu anda okunacak yeni bildirim yok.", tone: "border-orange-200 bg-orange-50 text-orange-900", icon: <Bell key="bildirim" size={25} />, action: "Bildirimleri Gör", href: "#bildirimler" }
   ].filter((section) => hasModule(section.module));
 
   return (
@@ -185,7 +181,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
       <header className="relative border-b border-slate-200 bg-white px-4 py-5 shadow-[0_8px_30px_rgba(15,23,42,.06)]">
         <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            {branding.logo_url ? <Image src={branding.logo_url} alt={`${portalName} logosu`} width={170} height={48} unoptimized className="h-12 max-w-[170px] rounded-[8px] object-contain" /> : <Logo content={siteContent} compact />}
+            {branding.logo_url ? <Image src={branding.logo_url} alt={`${portalName} logosu`} width={170} height={48} unoptimized className="h-12 max-w-[170px] rounded-[8px] object-contain" /> : <Logo content={siteContent} compact variant="customer" />}
             <div>
             <p className="text-sm font-bold uppercase tracking-[.22em] text-cyan-700">Müşteri Paneli</p>
             <h1 className="mt-2 text-3xl font-black">Dijital Operasyon Özetiniz</h1>
@@ -221,28 +217,29 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
         )}
 
         <nav className="mb-6 flex flex-wrap gap-2 rounded-[18px] border border-slate-200 bg-white p-3 text-sm font-bold shadow-[0_8px_30px_rgba(15,23,42,.05)]">
-          {hasModule("dashboard") && <a href="#genel-bakis" className="rounded-full border border-cyan-200 bg-cyan-50 px-4 py-2 text-cyan-800 hover:bg-cyan-100">Dashboard</a>}
+          {hasModule("dashboard") && <a href="#operasyon-ozeti" className="rounded-full border border-cyan-200 bg-cyan-50 px-4 py-2 text-cyan-800 hover:bg-cyan-100">Dashboard</a>}
           {hasModule("reports") && <a href="#raporlar" className="rounded-full border border-slate-200 px-4 py-2 text-slate-700 hover:border-cyan-200 hover:bg-cyan-50">Raporlar</a>}
+          {hasModule("tasks") && <a href="#notlar" className="rounded-full border border-violet-200 bg-violet-50 px-4 py-2 text-violet-800 hover:bg-violet-100">Görevler</a>}
+          {hasModule("billing") && <a href="#odemeler" className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-emerald-800 hover:bg-emerald-100">Tahsilat</a>}
           {(hasModule("files") || hasModule("documents")) && <a href="#belgeler" className="rounded-full border border-slate-200 px-4 py-2 text-slate-700 hover:border-cyan-200 hover:bg-cyan-50">Belgeler / Dosyalar</a>}
           {hasModule("account_connect") && <a href="#hesap-bagla" className="rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-blue-800 hover:bg-blue-100">Hesap Bağla</a>}
           {hasModule("support") && <a href="#destek" className="rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-sky-800 hover:bg-sky-100">Destek</a>}
           {hasModule("notifications") && <a href="#bildirimler" className="rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-rose-800 hover:bg-rose-100">Bildirimler</a>}
         </nav>
 
-        <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {portalSections.map((section) => (
-            <div key={section.title} className="rounded-[20px] border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.05)] transition hover:-translate-y-0.5 hover:border-cyan-200">
-              <div className={`mb-4 inline-flex rounded-[16px] p-3 ${section.tone}`}>{section.icon}</div>
-              <h2 className="text-lg font-black text-slate-950">{section.title}</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">{section.description}</p>
-              <p className="mt-3 text-xs font-black text-slate-500">Son güncelleme: {section.updatedAt ? new Date(section.updatedAt).toLocaleDateString("tr-TR") : "Henüz yok"}</p>
-              <p className="mt-3 rounded-[12px] bg-slate-50 p-3 text-xs font-bold leading-5 text-slate-600">Bu ne anlama geliyor? Bu bölüm yalnız HK Dijital ekibinin sizinle paylaşmayı onayladığı kayıtları gösterir.</p>
-              <a href={section.href} className="mt-4 inline-flex rounded-full bg-cyan-500 px-4 py-2 text-xs font-black text-white">{section.action}</a>
+            <div key={section.title} className={`rounded-[20px] border p-5 shadow-[0_10px_28px_rgba(15,23,42,.06)] transition hover:-translate-y-0.5 ${section.tone}`}>
+              <div className="mb-4 inline-flex rounded-[14px] bg-white/80 p-3 shadow-sm">{section.icon}</div>
+              <h2 className="text-lg font-black">{section.title}</h2>
+              <p className="mt-2 break-words text-2xl font-black text-slate-950">{section.value}</p>
+              <p className="mt-2 min-h-12 text-sm font-semibold leading-6 text-slate-700">{section.description}</p>
+              <a href={section.href} className="mt-4 inline-flex min-h-11 items-center rounded-[10px] bg-white px-4 text-sm font-black text-slate-800 shadow-sm ring-1 ring-black/5">{section.action}</a>
             </div>
           ))}
         </section>
 
-        <section id="genel-bakis" className="glass-card mb-8 overflow-hidden border-t-4 p-6 sm:p-7" style={{ borderTopColor: branding.primary_color || "#22d3ee" }}>
+        <section id="aktif-paket" className="glass-card mb-8 overflow-hidden border-t-4 p-6 sm:p-7" style={{ borderTopColor: branding.primary_color || "#22d3ee" }}>
           <div className="grid gap-6 xl:grid-cols-[1fr_420px] xl:items-center">
             <div>
               <p className="text-xs font-black uppercase tracking-[.18em] text-cyan-700">Genel Bakış</p>
@@ -320,7 +317,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
 
         {hasModule("account_connect") && <CustomerAccountConnectCenter />}
 
-        <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+        <section id="operasyon-ozeti" className="mb-8 grid scroll-mt-28 gap-4 sm:grid-cols-2 xl:grid-cols-6">
           <div className="rounded-[18px] border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.05)]">
             <p className="text-xs font-black uppercase tracking-[.14em] text-slate-500">Müşteri</p>
             <p className="mt-3 text-lg font-black text-slate-950">{data.company?.name || "Şirket ataması bekleniyor"}</p>
@@ -693,6 +690,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
             {CUSTOMER_PORTAL_ADMIN_ONLY_MODULES.length > 0 && <p className="mt-3 rounded-[12px] bg-slate-50 p-3 text-xs font-bold leading-5 text-slate-500">Reklam Doktoru, HK Intelligence, CRM, QA, Funnel ve iç operasyon modülleri yalnız HK Dijital admin ekibi tarafından yönetilir.</p>}
           </section>
         </section>
+        {hasModule("ai_assistant") && <HKAssistantWidget context="customer" />}
       </div>
     </main>
   );

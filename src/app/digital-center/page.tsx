@@ -13,7 +13,7 @@ export default async function DigitalCenterPage() {
   const content = await getSiteContent();
 
   return (
-    <LoginShell3D logo={<Logo content={content} />}>
+    <LoginShell3D logo={<Logo content={content} variant="login" />}>
       <LoginForm />
     </LoginShell3D>
   );

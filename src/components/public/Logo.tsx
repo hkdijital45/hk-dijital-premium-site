@@ -4,8 +4,16 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import type { SiteContent } from "@/lib/types";
 
-export function Logo({ content, footer = false, compact = false }: { content: SiteContent; footer?: boolean; compact?: boolean }) {
-  const logo = footer ? content.brand.footerLogoUrl || content.brand.logoUrl : content.brand.logoUrl;
+type LogoVariant = "website" | "login" | "customer" | "footer";
+
+export function Logo({ content, footer = false, compact = false, variant = "website" }: { content: SiteContent; footer?: boolean; compact?: boolean; variant?: LogoVariant }) {
+  const logoByVariant: Record<LogoVariant, string | undefined> = {
+    website: content.brand.logoUrl,
+    login: content.brand.loginLogoUrl || content.brand.logoUrl,
+    customer: content.brand.customerLogoUrl || content.brand.logoUrl,
+    footer: content.brand.footerLogoUrl || content.brand.logoUrl
+  };
+  const logo = logoByVariant[footer ? "footer" : variant];
   const [failed, setFailed] = useState(false);
 
   useEffect(() => setFailed(false), [logo]);

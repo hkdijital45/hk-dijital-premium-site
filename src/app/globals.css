@@ -969,6 +969,37 @@ html {
   }
 }
 
+html[data-hk-theme] {
+  accent-color: var(--hk-theme-accent);
+}
+
+html[data-hk-theme] body {
+  background-color: var(--hk-theme-bg);
+}
+
+html[data-hk-theme] .hk-admin,
+html[data-hk-theme] .customer-portal {
+  --hk-ui-primary: var(--hk-theme-primary);
+  --hk-ui-accent: var(--hk-theme-accent);
+  --hk-ui-surface: var(--hk-theme-surface);
+  --hk-ui-text: var(--hk-theme-text);
+  --hk-ui-muted: var(--hk-theme-muted);
+  --hk-ui-border: var(--hk-theme-border);
+}
+
+html[data-hk-theme] .hk-button-primary {
+  background: var(--hk-ui-primary);
+}
+
+html[data-hk-theme] .hk-admin :is(input, select, textarea),
+html[data-hk-theme] .customer-portal :is(input, select, textarea) {
+  border-color: var(--hk-ui-border);
+}
+
+html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, select, textarea):focus-visible {
+  outline-color: color-mix(in srgb, var(--hk-ui-accent) 45%, transparent);
+}
+
 .admin-light .text-white,
 .admin-light .text-slate-100,
 .admin-light .text-slate-200,
