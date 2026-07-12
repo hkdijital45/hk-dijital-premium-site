@@ -14,7 +14,7 @@ function maskToken(value = "") {
   return `${value.slice(0, 4)}****${value.slice(-4)}`;
 }
 
-function dateRangeForPreset(preset = "last_30d", from = "", to = "") {
+function dateRangeForPreset(preset = "last_30d", from = "", to = ""): any {
   if (preset === "custom" && from && to) return { since: from, until: to, label: `${from} - ${to}` };
   const today = new Date();
   const end = today.toISOString().slice(0, 10);
@@ -33,7 +33,7 @@ function dateRangeForPreset(preset = "last_30d", from = "", to = "") {
   return { since: start.toISOString().slice(0, 10), until: end, label: preset === "last_7d" ? "Son 7 Gün" : preset === "this_month" ? "Bu Ay" : "Son 30 Gün" };
 }
 
-function metaRangeParams(range: any) {
+function metaRangeParams(range: any): Record<string, string> {
   if (range?.datePreset) return { date_preset: String(range.datePreset) };
   return { time_range: JSON.stringify({ since: range.since, until: range.until }) };
 }
@@ -72,7 +72,7 @@ async function graphGet(path: string, token: string, params: Record<string, stri
   url.searchParams.set("access_token", token);
   const started = Date.now();
   const response = await fetch(url, { cache: "no-store" });
-  const data = await response.json().catch(() => ({}));
+  const data: any = await response.json().catch(() => ({}));
   const responseTimeMs = Date.now() - started;
   if (!response.ok) {
     const error = classifyMetaError(data);
@@ -147,10 +147,8 @@ function normalizeInsight(row: any) {
     ctr: Number(row.ctr || 0),
     cpc: Number(row.cpc || 0) || (clicks ? spend / clicks : 0),
     cpm: Number(row.cpm || 0) || (impressions ? (spend / impressions) * 1000 : 0),
-    leads,
-    results: leads || messages,
-    messages,
     ...advanced
+    ,results: leads || messages
   };
 }
 
@@ -273,8 +271,8 @@ async function pullAdvancedMetaData(input: any, token: string, base: any) {
     safeGraph(`act_${adAccount}/insights`, token, { fields: insightFields, level: "adset", breakdowns: "publisher_platform,platform_position", ...rangeParams, limit: "200" }, warnings, "Placement kırılımı"),
     safeGraph(`act_${adAccount}/insights`, token, { fields: insightFields, level: "adset", breakdowns: "region", ...rangeParams, limit: "200" }, warnings, "Şehir/bölge kırılımı")
   ]);
-  const adsetMap = new Map(adsets.map((item: any) => [item.id, item]));
-  const adMap = new Map(ads.map((item: any) => [item.id, item]));
+  const adsetMap = new Map<string, any>(adsets.map((item: any) => [item.id, item]));
+  const adMap = new Map<string, any>(ads.map((item: any) => [item.id, item]));
   const byAdset = (rows: any[], id: string) => rows.filter((row) => row.adset_id === id || row.adsetId === id);
   const adsetRows = adsetInsights.map((row: any) => {
     const lifecycle = adsetMap.get(row.adset_id) || {};
@@ -311,7 +309,7 @@ async function pullAdvancedMetaData(input: any, token: string, base: any) {
       lifetime_budget: Number(lifecycle.lifetime_budget || 0) / 100,
       optimization_goal: lifecycle.optimization_goal || "",
       status: lifecycle.effective_status || lifecycle.status || row.status || "",
-      ...lifecycleStats(lifecycle.start_time, lifecycle.end_time || lifecycle.stop_time, Number(row.spend || 0), budget),
+      ...lifecycleStats(lifecycle.start_time || undefined, lifecycle.end_time || lifecycle.stop_time || undefined, Number(row.spend || 0), budget),
       raw_data: { insight: row, lifecycle }
     };
   });
@@ -358,7 +356,7 @@ async function pullAdvancedMetaData(input: any, token: string, base: any) {
       created_time: lifecycle.created_time || null,
       updated_time: lifecycle.updated_time || null,
       status: lifecycle.effective_status || lifecycle.status || "",
-      ...lifecycleStats(lifecycle.created_time, null, Number(row.spend || 0), 0),
+      ...lifecycleStats(lifecycle.created_time || undefined, undefined, Number(row.spend || 0), 0),
       raw_data: { insight: row, lifecycle }
     };
   });

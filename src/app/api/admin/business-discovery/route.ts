@@ -44,7 +44,7 @@ function phoneKey(value: unknown) {
   return clean(value).replace(/\D/g, "");
 }
 
-function opportunityPayload(business: Record<string, any>) {
+function opportunityPayload(business: DiscoveredBusiness) {
   const scored = scoreDiscoveredBusiness(business);
   const heat = Number(scored.leadHeatScore || business.leadHeatScore || business.lead_heat_score || 0);
   const maturity = Number(scored.digitalMaturityScore || business.digitalMaturityScore || business.digital_maturity_score || 0);
@@ -304,6 +304,7 @@ export async function PUT(request: Request) {
 function businessesFromBody(value: unknown[]): DiscoveredBusiness[] {
   return value.map((business: any) => ({
     ...business,
+    name: String(business.name || business.company || "İsimsiz işletme"),
     googleRating: business.googleRating ?? business.rating ?? null,
     reviewCount: Number(business.reviewCount || business.google_review_count || 0),
     category: business.category || business.business_type || business.sector || ""

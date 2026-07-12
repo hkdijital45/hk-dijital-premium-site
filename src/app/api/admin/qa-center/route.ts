@@ -297,9 +297,11 @@ function scanSourcesForFindings(migrations: string) {
   const customerModalPath = path.join(root, "src", "components", "admin", "customer-profile", "CustomerProfileModal.tsx");
   const adminDashboardPath = path.join(root, "src", "components", "admin", "AdminDashboard.tsx");
   const navigationPath = path.join(root, "src", "lib", "admin-navigation.ts");
+  const permissionsPath = path.join(root, "src", "lib", "permissions.ts");
   const customerModalText = readFileSync(customerModalPath, "utf8");
   const adminDashboardText = readFileSync(adminDashboardPath, "utf8");
   const navigasyonText = readFileSync(navigationPath, "utf8");
+  const permissionText = readFileSync(permissionsPath, "utf8");
   const modalChildrenIndex = customerModalText.indexOf("{!showOverview && children");
   const modalOperationIndex = customerModalText.indexOf("Operasyon Detayları");
   const modalBranchesIndex = customerModalText.indexOf(">Şubeler<");
@@ -354,9 +356,9 @@ function scanSourcesForFindings(migrations: string) {
     ["Boş admin modül var mı?", "activeNavigationItem", "Admin Dashboard", "Navigation’da görünen modüller boş placeholder yerine gerçek component veya güvenli içerik göstermelidir."]
   ];
   for (const [title, pattern, module, recommendation] of utilityModuleChecks) {
-    const inNavigation = navigationText.includes(pattern) || navigationText.includes(module);
+    const inNavigation = navigasyonText.includes(pattern) || navigasyonText.includes(module);
     const inDashboard = adminDashboardText.includes(pattern) || adminDashboardText.includes(module);
-    const inPermissions = permissionsText.includes(pattern) || permissionsText.includes("sistem-test-merkezi") && permissionsText.includes("sistem-loglari") && permissionsText.includes("veri-aktarma") && permissionsText.includes("sistem-rehberi");
+    const inPermissions = permissionText.includes(pattern) || permissionText.includes("sistem-test-merkezi") && permissionText.includes("sistem-loglari") && permissionText.includes("veri-aktarma") && permissionText.includes("sistem-rehberi");
     if (!inNavigation && !inDashboard && !inPermissions) {
       findings.push(makeFinding({ category: "Admin Yardımcı Modüller QA", severity: "kritik", module, file_path: "src/components/admin/AdminDashboard.tsx", title, description: `${module} için navigation, permission veya renderer sinyali bulunamadı.`, recommendation }));
     }

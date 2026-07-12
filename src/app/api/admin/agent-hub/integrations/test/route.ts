@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireModuleAccess } from "@/lib/permissions";
 import { runRealAgentProvider } from "@/lib/agent-providers";
 import { hasSupabaseConfig } from "@/lib/supabase";
+import type { AgentProviderKey } from "@/lib/agent-hub";
 
 export async function POST(request: Request) {
   const session = await requireModuleAccess("agent-hub");
@@ -20,7 +21,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: Boolean(process.env.RESEND_API_KEY), status: process.env.RESEND_API_KEY ? "Çalışıyor" : "Eksik", responseMs: Date.now() - started, message: process.env.RESEND_API_KEY ? "Resend API anahtarı yapılandırılmış." : "RESEND_API_KEY eksik." });
   }
   if (["openai", "gemini", "groq", "anthropic", "openrouter", "manus", "ollama"].includes(key)) {
-    const result = await runRealAgentProvider({ provider: key, taskType: "fast_answer", prompt: "Kısa bağlantı testi yap.", outputFormat: "kısa özet", timeoutMs: 12000 });
+    const result = await runRealAgentProvider({ provider: key as AgentProviderKey, taskType: "fast_answer", prompt: "Kısa bağlantı testi yap.", systemPrompt: "Yalnızca kısa bir Türkçe bağlantı testi yanıtı üret.", timeoutMs: 12000 });
     return NextResponse.json({ ok: !result.usedFallback, status: result.usedFallback ? "Eksik" : "Çalışıyor", responseMs: result.responseMs, message: result.usedFallback ? result.errorMessage || "Sağlayıcı yedek akışa düştü." : "Sağlayıcı test yanıtı verdi." });
   }
   return NextResponse.json({ ok: false, status: "Test edilmedi", message: "Bu entegrasyon için otomatik test tanımlı değil.", responseMs: Date.now() - started });

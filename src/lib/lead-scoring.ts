@@ -8,6 +8,15 @@ export type DiscoveredBusiness = {
   placeId?: string;
   category?: string;
   isDemo?: boolean;
+  city?: string;
+  district?: string;
+  googleMapsUrl?: string;
+  google_maps_url?: string;
+  opportunityScore?: number;
+  digitalGapScore?: number;
+  adPotentialScore?: number;
+  notes?: string;
+  [key: string]: unknown;
 };
 
 const highAdPotentialCategories = [

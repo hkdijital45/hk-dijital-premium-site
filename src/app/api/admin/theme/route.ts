@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     ...themeKeys.map((key) => [key, colorPattern.test(String(input[key] || "")) ? input[key] : undefined])
   ].filter(([, value]) => value !== undefined));
   try {
-    const rows = await supabaseRest<any[]>("site_settings?on_conflict=key", {
+    const rows = await supabaseRest<Array<{ value?: unknown }>>("site_settings?on_conflict=key", {
       method: "POST",
       headers: { Prefer: "resolution=merge-duplicates,return=representation" },
       body: JSON.stringify({ key: "admin_theme", value: theme, updated_at: new Date().toISOString() })

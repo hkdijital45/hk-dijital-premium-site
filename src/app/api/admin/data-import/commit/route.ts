@@ -77,11 +77,11 @@ export async function POST(request: Request) {
       inserted += 1;
     }
     const summary = { importType: body.importType || "customers", fileName, inserted, skipped, sourceRecords: companies.length };
-    await logImport(summary, session.id || session.userId);
+    await logImport(summary, session.profileId || session.authUserId);
     return NextResponse.json({ ok: true, message: "İçe aktarma tamamlandı. Desteklenmeyen veya hassas alanlar atlandı.", summary });
   } catch (error) {
     const summary = { importType: body.importType || "customers", fileName };
-    await logImport(summary, session.id || session.userId, error instanceof Error ? error.message : "Dosya işlenemedi.");
+    await logImport(summary, session.profileId || session.authUserId, error instanceof Error ? error.message : "Dosya işlenemedi.");
     return NextResponse.json({ error: "Dosya formatı desteklenmiyor veya içe aktarma sırasında hata oluştu." }, { status: 400 });
   }
 }

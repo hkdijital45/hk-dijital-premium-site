@@ -81,7 +81,7 @@ export async function extractReportFile(file: File) {
   const rows = rawRows.map((row) => Object.fromEntries(Object.entries(row).map(([header, value]) => [keyFor(header) || header, value])));
   if (process.env.NODE_ENV === "development") console.debug("[report-import] mapped metric object", rows[0] || {});
   const timeSeries = rows.map((row) => ({
-    date: row.date instanceof Date ? row.date.toISOString().slice(0, 10) : String(row.date || ""),
+    date: String(row.date || ""),
     impressions: number(row.impressions), reach: number(row.reach), clicks: number(row.clicks || row.link_clicks),
     spent: number(row.spent), conversions: number(row.conversions || row.leads), leads: number(row.leads), messages: number(row.messages),
     ctr: number(row.ctr), cpc: number(row.cpc), cpm: number(row.cpm), cost_per_lead: number(row.cost_per_lead),

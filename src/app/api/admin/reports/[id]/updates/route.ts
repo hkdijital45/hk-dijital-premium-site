@@ -6,7 +6,7 @@ import { supabaseRest } from "@/lib/supabase";
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getSession();
-  if (!isStaffRole(session?.role)) return NextResponse.json({ error: "Bu işlem için yönetici yetkisi gerekir." }, { status: 403 });
+  if (!session || !isStaffRole(session.role)) return NextResponse.json({ error: "Bu işlem için yönetici yetkisi gerekir." }, { status: 403 });
   const { id } = await context.params;
   const body = await request.json();
   const report = (await supabaseRest<any[]>(`reports?id=eq.${encodeURIComponent(id)}&select=id,company_id&limit=1`))[0];
@@ -27,7 +27,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getSession();
-  if (!isStaffRole(session?.role)) return NextResponse.json({ error: "Bu işlem için yönetici yetkisi gerekir." }, { status: 403 });
+  if (!session || !isStaffRole(session.role)) return NextResponse.json({ error: "Bu işlem için yönetici yetkisi gerekir." }, { status: 403 });
   const { id } = await context.params;
   const body = await request.json();
   if (!body.id) return NextResponse.json({ error: "Güncelleme kaydı seçilmedi." }, { status: 400 });
@@ -49,7 +49,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getSession();
-  if (!isStaffRole(session?.role)) return NextResponse.json({ error: "Bu işlem için yönetici yetkisi gerekir." }, { status: 403 });
+  if (!session || !isStaffRole(session.role)) return NextResponse.json({ error: "Bu işlem için yönetici yetkisi gerekir." }, { status: 403 });
   const { id } = await context.params;
   const body = await request.json();
   if (!body.id) return NextResponse.json({ error: "Silinecek kayıt seçilmedi." }, { status: 400 });

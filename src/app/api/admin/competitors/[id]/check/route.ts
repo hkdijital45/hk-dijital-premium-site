@@ -55,7 +55,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     };
     const updated = await supabaseRest<any[]>(`competitor_watchlist?id=eq.${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(patch) });
     const competitor = updated[0] || { ...current, ...patch };
-    await recordActivity({ session, action: "Rakip Kontrolü", entity: "Rakip", companyId: current.company_id, details: { message: `${competitorDisplayName(current)} kontrol edildi.`, competitorId: id } }).catch(() => null);
+    await recordActivity({ session, action: "API İşlemi", entity: "Rakip", companyId: current.company_id, details: { message: `${competitorDisplayName(current)} kontrol edildi.`, competitorId: id } }).catch(() => null);
     return NextResponse.json(buildActionResult({
       title: "Rakip kontrolü tamamlandı",
       summary: `${competitorDisplayName(current)} için reklam, paylaşım, Google yorum, web sitesi ve fiyat/kampanya sinyalleri kontrol edildi.`,

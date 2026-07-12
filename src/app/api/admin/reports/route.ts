@@ -35,7 +35,11 @@ export async function POST(request: Request) {
   const session = await staffSession();
   if (!session) return NextResponse.json({ error: "Bu işlem için yönetici yetkisi gerekir." }, { status: 403 });
   try {
-    const rows = await supabaseRest<any[]>("reports", { method: "POST", body: JSON.stringify(normalize(await request.json())) });
+    const payload = normalize(await request.json());
+    const periodFilter = payload.period ? `period=eq.${encodeURIComponent(payload.period)}` : `start_date=eq.${encodeURIComponent(payload.start_date || "")}&end_date=eq.${encodeURIComponent(payload.end_date || "")}`;
+    const existing = await supabaseRest<any[]>(`reports?company_id=eq.${encodeURIComponent(payload.company_id)}&report_type=eq.${encodeURIComponent(payload.report_type)}&${periodFilter}&or=(archived.eq.false,archived.is.null)&select=*&limit=1`).catch(() => []);
+    if (existing[0]) return NextResponse.json({ ok: true, report: existing[0], duplicatePrevented: true, message: "Aynı dönem ve türde rapor zaten kayıtlı." });
+    const rows = await supabaseRest<any[]>("reports", { method: "POST", body: JSON.stringify(payload) });
     await recordActivity({ session, action: "Oluşturma", entity: "Rapor", entityId: rows[0]?.id, companyId: rows[0]?.company_id, details: { message: "Yeni rapor oluşturuldu", report_type: rows[0]?.report_type } });
     return NextResponse.json({ ok: true, report: rows[0], message: "Rapor başarıyla kaydedildi." });
   } catch (error) {

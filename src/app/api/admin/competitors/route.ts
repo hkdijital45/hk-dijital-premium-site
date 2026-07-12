@@ -82,7 +82,7 @@ export async function POST(request: Request) {
     const row = sanitize(body);
     const created = await supabaseRest<any[]>("competitor_watchlist", { method: "POST", body: JSON.stringify(row) });
     const competitor = created[0] || row;
-    await recordActivity({ session, action: "Rakip Kaydı", entity: "Rakip", companyId: competitor.company_id, details: { message: `${competitorDisplayName(competitor)} rakip listesine eklendi.` } }).catch(() => null);
+    await recordActivity({ session, action: "Oluşturma", entity: "Rakip", companyId: competitor.company_id, details: { message: `${competitorDisplayName(competitor)} rakip listesine eklendi.` } }).catch(() => null);
     return NextResponse.json(buildActionResult({
       title: "Rakip kaydı oluşturuldu",
       summary: `${competitorDisplayName(competitor)} rakip listesine eklendi. Artık reklam, paylaşım, yorum ve fiyat/kampanya sinyalleri izlenebilir.`,

@@ -1,7 +1,9 @@
+import type { AdminModule } from "@/lib/permissions";
+
 export type AdminNavigationItem = {
   label: string;
   slug: string;
-  module: string;
+  module: AdminModule;
   description: string;
 };
 

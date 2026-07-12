@@ -19,18 +19,28 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const payload = await request.json();
+  const payload = await request.json().catch(() => ({}));
+  const name = String(payload.name || "").trim();
+  const company = String(payload.company || "").trim();
+  const email = String(payload.email || "").trim().toLowerCase();
+  const phone = String(payload.phone || "").replace(/\D/g, "");
+  if (!name && !company) return NextResponse.json({ error: "Ad soyad veya firma adı zorunludur." }, { status: 400 });
+  if (!email && phone.length < 10) return NextResponse.json({ error: "Geçerli bir e-posta veya telefon numarası girin." }, { status: 400 });
   if (hasSupabaseConfig()) {
     try {
       const source = payload.source === "contact" ? "İletişim Formu" : payload.source === "wizard" ? "Teklif Sihirbazı" : "Teklif Formu";
+      const recentThreshold = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+      const contactFilter = email ? `email=eq.${encodeURIComponent(email)}` : `phone=eq.${encodeURIComponent(phone)}`;
+      const existing = await supabaseRest<any[]>(`leads?${contactFilter}&source=eq.${encodeURIComponent(source)}&created_at=gte.${encodeURIComponent(recentThreshold)}&select=*&order=created_at.desc&limit=1`).catch(() => []);
+      if (existing[0]) return NextResponse.json({ ok: true, lead: existing[0], duplicatePrevented: true, message: "Talebiniz daha önce alındı; ikinci kayıt oluşturulmadı." });
       const rows = await supabaseRest("leads", {
         method: "POST",
         body: JSON.stringify({
           source,
-          name: payload.name || "",
-          company: payload.company || "",
-          phone: payload.phone || "",
-          email: payload.email || "",
+          name,
+          company,
+          phone,
+          email,
           instagram: payload.instagram || "",
           website: payload.website || "",
           business_type: payload.businessType || "",

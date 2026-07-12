@@ -13,6 +13,10 @@ type RunRow = {
   retry_count?: number | null;
 };
 
+function normalizePriority(value?: string | null): "düşük" | "normal" | "yüksek" | "kritik" {
+  return value === "düşük" || value === "yüksek" || value === "kritik" ? value : "normal";
+}
+
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireModuleAccess("agent-hub");
   if (!session) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 403 });
@@ -26,7 +30,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   const result = await runAgentTask({
     customerId: oldRun.customer_id || null,
     taskType: oldRun.task_type,
-    priority: oldRun.priority || "normal",
+    priority: normalizePriority(oldRun.priority),
     requestedProvider: oldRun.requested_provider || "auto",
     outputFormat: "detaylı rapor",
     prompt: oldRun.input_summary || "Önceki agent görevini aynı bağlamla yeniden çalıştır.",

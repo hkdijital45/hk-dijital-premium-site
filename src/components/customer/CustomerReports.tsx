@@ -345,19 +345,19 @@ export function CustomerReports({ reports, initialInterpretations, reportUpdates
             <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-4">
               <h3 className="font-black text-cyan-100">WhatsApp / Lead Takibi</h3>
               <p className="mt-1 text-sm leading-6 text-slate-400">Kişisel veriler gösterilmeden toplam lead durumları özetlenir.</p>
-              <div className="mt-4 grid gap-2">{[
+              <div className="mt-4 grid gap-2">{([
                 ["Toplam lead", overviewLeads.total],
                 ["Arandı", overviewLeads.called],
                 ["Teklif verildi", overviewLeads.proposed],
                 ["Satış oldu", overviewLeads.sold],
                 ["Takip bekliyor", overviewLeads.pending]
-              ].map(([label, value]) => <div key={label} className="flex items-center justify-between rounded-[8px] border border-white/10 bg-black/20 p-3 text-sm"><span>{label}</span><strong>{formatNumber(Number(value))}</strong></div>)}</div>
+              ] as Array<[string, number]>).map(([label, value]) => <div key={label} className="flex items-center justify-between rounded-[8px] border border-white/10 bg-black/20 p-3 text-sm"><span>{label}</span><strong>{formatNumber(Number(value))}</strong></div>)}</div>
             </div>
           </div>
 
           <div className="mt-6 rounded-[8px] border border-white/10 bg-white/[0.04] p-4">
             <h3 className="font-black text-cyan-100">Önümüzdeki 7 Gün Planı</h3>
-            <div className="mt-4 grid gap-3 md:grid-cols-2">{overviewPlan.map((item, index) => <div key={item} className="rounded-[8px] border border-white/10 bg-black/20 p-3 text-sm leading-6 text-slate-200"><strong className="text-cyan-100">{index + 1}.</strong> {item}</div>)}</div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">{overviewPlan.map((item: string, index: number) => <div key={item} className="rounded-[8px] border border-white/10 bg-black/20 p-3 text-sm leading-6 text-slate-200"><strong className="text-cyan-100">{index + 1}.</strong> {item}</div>)}</div>
           </div>
 
           <div className="mt-6 rounded-[8px] border border-white/10 bg-white/[0.04] p-4">
@@ -441,11 +441,11 @@ export function CustomerReports({ reports, initialInterpretations, reportUpdates
                       </details>
                       <details className="mt-3 rounded-[8px] border border-white/10 p-3" open>
                         <summary className="cursor-pointer text-sm font-black text-cyan-100">Önümüzdeki 7 Gün Planı</summary>
-                        <div className="mt-3 grid gap-2">{actionPlan.map((item, index) => <p key={item} className="rounded-[8px] bg-white/[0.04] p-3 text-sm leading-6 text-slate-200"><strong className="text-cyan-100">{index + 1}.</strong> {item}</p>)}</div>
+                        <div className="mt-3 grid gap-2">{actionPlan.map((item: string, index: number) => <p key={item} className="rounded-[8px] bg-white/[0.04] p-3 text-sm leading-6 text-slate-200"><strong className="text-cyan-100">{index + 1}.</strong> {item}</p>)}</div>
                       </details>
                       <details className="mt-3 rounded-[8px] border border-white/10 p-3">
                         <summary className="cursor-pointer text-sm font-black text-cyan-100">Ajans Çalışma Günlüğü</summary>
-                        <div className="mt-3 grid gap-3">{workLog.length ? workLog.map((item) => <div key={item.id || `${item.date}-${item.title}`} className="rounded-[8px] bg-white/[0.04] p-3 text-sm"><p className="font-black text-white">{item.date ? new Date(item.date).toLocaleDateString("tr-TR", { day: "2-digit", month: "long" }) : "Tarih yok"} - {item.title}</p><p className="mt-1 text-xs text-cyan-100">{item.category} · {item.status}</p><p className="mt-2 leading-6 text-slate-300">{item.description || "Açıklama eklenmedi."}</p></div>) : <p className="text-sm text-slate-400">Bu dönem için çalışma günlüğü henüz eklenmedi.</p>}</div>
+                        <div className="mt-3 grid gap-3">{workLog.length ? workLog.map((item: any) => <div key={item.id || `${item.date}-${item.title}`} className="rounded-[8px] bg-white/[0.04] p-3 text-sm"><p className="font-black text-white">{item.date ? new Date(item.date).toLocaleDateString("tr-TR", { day: "2-digit", month: "long" }) : "Tarih yok"} - {item.title}</p><p className="mt-1 text-xs text-cyan-100">{item.category} · {item.status}</p><p className="mt-2 leading-6 text-slate-300">{item.description || "Açıklama eklenmedi."}</p></div>) : <p className="text-sm text-slate-400">Bu dönem için çalışma günlüğü henüz eklenmedi.</p>}</div>
                       </details>
                       <details className="mt-3 rounded-[8px] border border-white/10 p-3">
                         <summary className="cursor-pointer text-sm font-black text-cyan-100">Rakip Analizi</summary>

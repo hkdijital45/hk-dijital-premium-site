@@ -5,7 +5,7 @@ import { analyzeLead } from "@/lib/lead-analysis";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 import { requireModuleAccess } from "@/lib/permissions";
 
-export async function POST(request: Request, context: RouteContext<"/api/admin/leads/[id]/analyze">) {
+export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const session = await requireModuleAccess("ai-studio");
   if (!session) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
   if (!hasSupabaseConfig()) return NextResponse.json({ error: "Supabase bağlantısı yapılandırılmadı. Canlı ortamda kaydetme çalışmaz." }, { status: 503 });

@@ -22,6 +22,11 @@ export async function POST(request: Request) {
   }
 
   try {
+    const duplicateQuery = emailOrNameQuery(name, payload.email, payload.phone);
+    const existing = await supabaseRest<any[]>(`companies?${duplicateQuery}&deleted_at=is.null&select=*&limit=1`).catch(() => []);
+    if (existing[0]) {
+      return NextResponse.json({ ok: true, company: existing[0], duplicatePrevented: true, message: "Bu firma zaten kayıtlı; mevcut kayıt açıldı." });
+    }
     const rows = await supabaseRest<any[]>("companies", {
       method: "POST",
       body: JSON.stringify({
@@ -52,4 +57,13 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
+}
+
+function emailOrNameQuery(name: string, email: unknown, phone: unknown) {
+  const filters = [`name.eq.${name}`];
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  const normalizedPhone = String(phone || "").replace(/\D/g, "");
+  if (normalizedEmail) filters.push(`email.eq.${normalizedEmail}`);
+  if (normalizedPhone) filters.push(`phone.eq.${normalizedPhone}`);
+  return `or=(${encodeURIComponent(filters.join(","))})`;
 }

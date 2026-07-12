@@ -106,9 +106,6 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     }).catch(() => null);
     const passive = branch.status === "passive";
     return NextResponse.json({
-      ok: true,
-      branch,
-      message: passive ? "Şube pasife alındı." : "Şube güncellendi.",
       ...buildActionResult({
         title: passive ? "Şube pasife alındı" : "Şube güncellendi",
         summary: passive ? `${branch.branch_name || "Şube"} aktif operasyon listesinden çıkarıldı; kayıt silinmedi.` : `${branch.branch_name || "Şube"} bilgileri güncellendi.`,
@@ -125,7 +122,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         ],
         customerVisibility: { showToCustomer: false, label: "Bu şube işlemi müşteri paneline otomatik açılmadı." },
         technicalDetails: { branch_id: branchId, company_id: id, status: branch.status }
-      })
+      }),
+      ok: true,
+      branch,
+      message: passive ? "Şube pasife alındı." : "Şube güncellendi."
     });
   } catch (error) {
     const safe = getSafeSupabaseError(error);

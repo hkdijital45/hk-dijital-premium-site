@@ -48,7 +48,7 @@ function lines(report: any, company: any, interpretation?: any, updates: any[] =
     interpretation?.interpretation_text || "Bu rapor için henüz yorum oluşturulmadı.",
     "",
     "Önümüzdeki 7 Gün Planı",
-    ...plan.map((item, index) => `${index + 1}. ${item}`),
+    ...plan.map((item: string, index: number) => `${index + 1}. ${item}`),
     "",
     "Ajans Notları ve Güncellemeler",
     ...workLog.map((update) => `${update.date} - ${update.title} (${update.category} / ${update.status}): ${update.description}${updates.find((item) => item.id === update.id)?.next_action ? ` Sonraki adım: ${updates.find((item) => item.id === update.id)?.next_action}` : ""}`),

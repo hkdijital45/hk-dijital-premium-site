@@ -258,7 +258,7 @@ export function CustomerAccountConnectCenter() {
     if (active.oauthProvider !== "google") return accounts;
     return accounts.filter((item: any) => enabledGoogleServices.includes(serviceKeyForAccount(item) as CustomerPlatformKey));
   }, [active.oauthProvider, enabledGoogleServices, oauthInfo]);
-  const groupedOAuthAccounts = useMemo(() => {
+  const groupedOAuthAccounts = useMemo<Record<string, any[]>>(() => {
     const accounts = filteredOAuthAccounts;
     return accounts.reduce((groups: Record<string, any[]>, item: any) => {
       const key = item.category
@@ -587,7 +587,7 @@ export function CustomerAccountConnectCenter() {
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 <button type="button" onClick={startOAuth} disabled={oauthLoading} className="rounded-full bg-cyan-500 px-4 py-2 text-sm font-black text-white disabled:opacity-60">{oauthLoading ? "Kontrol ediliyor..." : active.oauthProvider === "google" ? "Google ile Giriş Yap" : active.autoLabel}</button>
-                <button type="button" onClick={loadOAuthAssets} disabled={oauthLoading} className="rounded-full border border-blue-200 bg-white px-4 py-2 text-sm font-black text-blue-800 disabled:opacity-60">{active.oauthProvider === "google" ? "Google Varlıklarını Listele" : "Yetkili Hesapları Listele"}</button>
+                <button type="button" onClick={() => loadOAuthAssets()} disabled={oauthLoading} className="rounded-full border border-blue-200 bg-white px-4 py-2 text-sm font-black text-blue-800 disabled:opacity-60">{active.oauthProvider === "google" ? "Google Varlıklarını Listele" : "Yetkili Hesapları Listele"}</button>
                 {oauthInfo?.authUrl && <a href={oauthInfo.authUrl} target="_blank" rel="noreferrer" className="rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-black text-emerald-800">Platform Girişini Aç</a>}
               </div>
               {oauthInfo?.missingEnv?.length > 0 && <p className="mt-3 rounded-[12px] bg-white p-3 text-sm font-bold text-blue-900">Bu platform için otomatik bağlantı ayarları henüz tamamlanmamış. Manuel bilgi girebilir veya HK Dijital ekibinden kurulum isteyebilirsiniz.</p>}

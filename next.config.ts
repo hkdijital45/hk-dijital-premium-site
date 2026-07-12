@@ -1,13 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  typescript: {
-    ignoreBuildErrors: true
-  },
   async headers() {
-    const supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL
-      ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin
-      : "";
+    let supabaseOrigin = "";
+    try {
+      supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL
+        ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin
+        : "";
+    } catch {
+      // Invalid optional public URLs must not break a production build.
+    }
     const csp = [
       "default-src 'self'",
       "base-uri 'self'",

@@ -85,7 +85,7 @@ export async function GET(request: Request, context: { params: Promise<{ type: s
   const metadata = { app: "HK Dijital", exportType: type, exportedAt, version: "2026.06", tableCounts, warnings };
   const flatRows = Object.entries(sections).flatMap(([section, rows]) => rows.map((row) => ({ section, ...row })));
   const date = exportedAt.slice(0, 10);
-  await logExport(type, format, { tableCounts, warnings }, session.id || session.userId);
+  await logExport(type, format, { tableCounts, warnings }, session.profileId || session.authUserId);
 
   if (format === "csv") return responseForFile(buildCsvExport(flatRows), `hk-dijital-${type}-${date}.csv`, "text/csv; charset=utf-8");
   if (format === "excel") return responseForFile(buildExcelCompatibleCsv(flatRows), `hk-dijital-${type}-${date}.csv`, "text/csv; charset=utf-8");

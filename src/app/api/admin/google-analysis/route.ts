@@ -210,7 +210,7 @@ export async function POST(request: Request) {
     const params = new URLSearchParams({ query: `${sector} ${district} ${city}`, key, language: "tr", region: "tr" });
     const response = await fetch(`https://maps.googleapis.com/maps/api/place/textsearch/json?${params}`, { cache: "no-store" });
     const data = await response.json().catch(() => ({})) as { status?: string; results?: GooglePlace[] };
-    if (!response.ok || !["OK", "ZERO_RESULTS"].includes(data.status)) {
+    if (!response.ok || !["OK", "ZERO_RESULTS"].includes(data.status || "")) {
       console.error("[google-analysis] Google API hatası", data);
       return NextResponse.json({
         warning: "Google API bağlantısı bulunamadı. Demo sonuçlar gösteriliyor.",
@@ -220,7 +220,7 @@ export async function POST(request: Request) {
     }
     const places = (data.results || []).slice(0, 8);
     const results = await Promise.all(places.map(async (place: GooglePlace) => {
-      const details = await getPlaceDetails(place.place_id, key).catch(() => ({}));
+      const details: Partial<GooglePlace> = place.place_id ? await getPlaceDetails(place.place_id, key).catch(() => ({})) : {};
       const item = { ...place, ...details };
       const visibility = scorePlace(item);
       return {

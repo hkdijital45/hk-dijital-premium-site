@@ -428,7 +428,7 @@ export function buildCeoOverview(companies: Record<string, any>[] = [], integrat
     .slice(0, 8)
     .map((report) => ({ customerId: report.customerId, name: report.customerName, opportunityCount: report.opportunities.length, opportunities: report.opportunities.slice(0, 3) }));
   const topActions = reports
-    .flatMap((report) => report.nextActions.map((action) => ({ customerId: report.customerId, name: report.customerName, ...action })))
+    .flatMap((report) => report.nextActions.map((action) => ({ customerId: report.customerId, name: report.customerName, ...(typeof action === "object" && action ? action : { action: String(action) }) })))
     .slice(0, 5);
 
   return {

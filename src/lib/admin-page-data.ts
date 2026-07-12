@@ -4,6 +4,7 @@ import { getSiteContent } from "@/lib/content";
 import { getSession, isAdminAuthenticated } from "@/lib/auth";
 import { hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 import { getAllowedModules } from "@/lib/permissions";
+import type { SiteContent } from "@/lib/types";
 
 export async function getAdminPageData() {
   const authenticated = await isAdminAuthenticated();
@@ -112,7 +113,7 @@ export async function getAdminPageData() {
     }
   }
 
-  const safeApi = { ...(content.settings.api as Record<string, unknown>) };
+  const safeApi = { ...content.settings.api } as SiteContent["settings"]["api"];
   [
     "geminiApiKey",
     "groqApiKey",
@@ -127,7 +128,7 @@ export async function getAdminPageData() {
     if (key in safeApi) safeApi[key] = "";
   });
 
-  const safeContent = {
+  const safeContent: SiteContent = {
     ...content,
     settings: {
       ...content.settings,

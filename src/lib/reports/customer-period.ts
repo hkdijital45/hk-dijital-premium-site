@@ -268,7 +268,7 @@ function normalizeMetricRow(row: any = {}) {
 }
 
 export function rowsForReport(report: any, range: CustomerDateRange) {
-  const rows = Array.isArray(report?.time_series) ? report.time_series : [];
+  const rows: any[] = Array.isArray(report?.time_series) ? report.time_series : [];
   const filteredRows = rows
     .filter((row) => isInRange(rowDate(row, report?.end_date || report?.start_date), range))
     .map((row) => normalizeMetricRow({ ...row, date: rowDate(row, report?.end_date || report?.start_date) }));

@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { SiteContent } from "@/lib/types";
 
 type LogoVariant = "website" | "login" | "customer" | "footer";
@@ -14,12 +14,11 @@ export function Logo({ content, footer = false, compact = false, variant = "webs
     footer: content.brand.footerLogoUrl || content.brand.logoUrl
   };
   const logo = logoByVariant[footer ? "footer" : variant];
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => setFailed(false), [logo]);
+  const [failedLogo, setFailedLogo] = useState("");
+  const failed = Boolean(logo && failedLogo === logo);
 
   if (logo && !failed) {
-    return <Image src={logo} alt={`${content.brand.companyName} logosu`} width={180} height={52} unoptimized onError={() => setFailed(true)} className="h-10 max-w-[180px] object-contain object-left sm:h-11" />;
+    return <Image src={logo} alt={`${content.brand.companyName} logosu`} width={180} height={52} unoptimized onError={() => setFailedLogo(logo)} className="h-10 max-w-[180px] object-contain object-left sm:h-11" />;
   }
 
   return (

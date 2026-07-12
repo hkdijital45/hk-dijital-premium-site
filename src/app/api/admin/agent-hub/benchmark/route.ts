@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import { runRealAgentProvider } from "@/lib/agent-providers";
 import { requireModuleAccess } from "@/lib/permissions";
 import { hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
+import type { AgentProviderKey, AgentTaskType } from "@/lib/agent-hub";
 
-const allowedProviders = new Set(["openai", "gemini", "anthropic", "groq", "openrouter", "demo"]);
+const allowedProviders = new Set<AgentProviderKey>(["openai", "gemini", "anthropic", "groq", "openrouter", "demo"]);
+const allowedTasks = new Set<AgentTaskType>(["ad_analysis", "crm_summary", "content_generation", "seo_analysis", "competitor_research", "market_research", "pricing_research", "sector_discovery", "deep_report", "proposal_generation", "customer_report", "code_review", "fast_answer", "workflow_task", "long_web_research"]);
 
 export async function GET() {
   const session = await requireModuleAccess("agent-hub");
@@ -18,14 +20,16 @@ export async function POST(request: Request) {
   const session = await requireModuleAccess("agent-hub");
   if (!session) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 403 });
   const body = await request.json().catch(() => ({}));
-  const taskType = String(body.taskType || "fast_answer");
+  const requestedTask = String(body.taskType || "fast_answer") as AgentTaskType;
+  const taskType: AgentTaskType = allowedTasks.has(requestedTask) ? requestedTask : "fast_answer";
   const prompt = String(body.prompt || "").trim();
-  const providers = (Array.isArray(body.providers) ? body.providers : ["openai", "gemini", "anthropic", "groq"]).filter((item: string) => allowedProviders.has(String(item)));
+  const rawProviders: unknown[] = Array.isArray(body.providers) ? body.providers : ["openai", "gemini", "anthropic", "groq"];
+  const providers: AgentProviderKey[] = rawProviders.map(String).filter((item: string): item is AgentProviderKey => allowedProviders.has(item as AgentProviderKey));
   if (!prompt) return NextResponse.json({ error: "Benchmark promptu boş olamaz." }, { status: 400 });
 
-  const results = await Promise.all(providers.map(async (provider: string) => {
+  const results = await Promise.all(providers.map(async (provider) => {
     const started = Date.now();
-    const result = await runRealAgentProvider({ provider, taskType, prompt, outputFormat: "karşılaştırmalı test", locale: "tr" });
+    const result = await runRealAgentProvider({ provider, taskType, prompt, systemPrompt: "Türkçe, kısa ve karşılaştırılabilir bir benchmark yanıtı üret." });
     return {
       provider,
       responseMs: Date.now() - started,

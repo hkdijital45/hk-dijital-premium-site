@@ -374,7 +374,7 @@ export async function oauthConnect(provider: Provider, request: Request) {
   const scope = effectiveProviderScope(provider);
   const platform = clean(url.searchParams.get("platform")) || provider;
   const nonce = crypto.randomBytes(18).toString("base64url");
-  const state = encodeState({ provider, platform, customerId: session.companyId, returnTo, nonce, exp: Date.now() + 10 * 60 * 1000 });
+  const state = encodeState({ provider, platform, customerId: session.companyId || "", returnTo, nonce, exp: Date.now() + 10 * 60 * 1000 });
   const codeVerifier = provider === "x" ? crypto.randomBytes(48).toString("base64url") : "";
   const params = new URLSearchParams(provider === "tiktok" ? {
     app_id: credentials.clientId,

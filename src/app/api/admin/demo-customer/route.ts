@@ -281,22 +281,13 @@ async function ensureReports(companyId: string, campaignId: string) {
   ]
     .filter((sample) => !existing.some((report) => report.report_type === sample.report_type))
     .map((sample) => ({
+      ...sample,
       company_id: companyId,
-      campaign_id: null,
-      report_type: null,
-      platform: null,
-      period: null,
-      start_date: null,
-      end_date: null,
-      metrics: {},
-      time_series: [],
+      campaign_id: sample.campaign_id || null,
       raw_extracted_data: {},
       internal_note: null,
-      customer_note: null,
       sent_at: null,
-      visible_to_customer: true,
-      archived: false,
-      ...sample
+      archived: false
     }));
   if (!samples.length) return existing;
   diagnosticLog("Eksik demo raporları oluşturuluyor", {
@@ -334,18 +325,13 @@ async function ensureReportExtras(companyId: string, reports: any[], userId: str
       { report_id: primary.id, company_id: companyId, update_date: "2026-05-18", title: "Hedef kitle iyileştirmesi", customer_note: "Daha ilgili kullanıcılara ulaşmak için hedef kitle düzenlendi.", next_action: "Yeni hedef kitle üç gün izlenecek.", is_visible_to_customer: true, is_pinned: true, created_by: userId },
       { report_id: primary.id, company_id: companyId, update_date: "2026-05-28", title: "Dönem sonu değerlendirmesi", customer_note: "Talep akışı korunurken maliyetler kontrollü ilerledi.", next_action: "Bir sonraki ay en iyi çalışan içerik ölçeklenecek.", is_visible_to_customer: true, created_by: userId }
     ].map((sample) => ({
+      ...sample,
       report_id: primary.id,
       company_id: companyId,
-      update_date: null,
-      title: null,
-      customer_note: null,
       agency_comment: null,
-      next_action: null,
       ai_comment: null,
-      is_visible_to_customer: true,
-      is_pinned: false,
-      created_by: userId,
-      ...sample
+      is_pinned: sample.is_pinned || false,
+      created_by: userId
     }));
     diagnosticLog("Demo rapor güncelleme payload", { count: reportUpdateSamples.length, updates: reportUpdateSamples });
     await supabaseRest("report_updates", { method: "POST", body: JSON.stringify(reportUpdateSamples) });
@@ -359,7 +345,7 @@ async function ensureReportExtras(companyId: string, reports: any[], userId: str
 
 export async function POST() {
   const session = await getSession();
-  if (!isStaffRole(session?.role)) {
+  if (!session || !isStaffRole(session.role)) {
     return NextResponse.json({ success: false, error: "Bu işlem için yönetici yetkisi gerekir." }, { status: 403 });
   }
 

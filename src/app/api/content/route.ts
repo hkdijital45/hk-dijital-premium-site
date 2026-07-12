@@ -16,7 +16,7 @@ const sensitiveApiKeys = [
 ];
 
 function withoutApiKeys(content: SiteContent) {
-  const api = { ...(content.settings.api as Record<string, unknown>) };
+  const api = { ...content.settings.api } as SiteContent["settings"]["api"];
   sensitiveApiKeys.forEach((key) => {
     if (key in api) api[key] = "";
   });
@@ -42,13 +42,13 @@ export async function PUT(request: Request) {
   const content = (await request.json()) as SiteContent;
   try {
     const current = await getSiteContent();
-    const nextApi = { ...(content.settings.api as Record<string, unknown>) };
+    const nextApi = { ...content.settings.api } as SiteContent["settings"]["api"];
     sensitiveApiKeys.forEach((key) => {
       if (!nextApi[key] || nextApi[key] === "••••••••") {
-        nextApi[key] = (current.settings.api as Record<string, unknown>)[key] || "";
+        nextApi[key] = current.settings.api[key] || "";
       }
     });
-    const next = {
+    const next: SiteContent = {
       ...content,
       settings: {
         ...content.settings,

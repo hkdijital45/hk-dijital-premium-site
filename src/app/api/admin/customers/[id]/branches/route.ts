@@ -114,6 +114,15 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   try {
     const company = await companyExists(id);
     if (!company) return NextResponse.json({ error: "Müşteri kaydı bulunamadı." }, { status: 404 });
+    const branchName = String(body.branch_name || body.name || "").trim();
+    const branchCode = String(body.branch_code || body.code || "").trim();
+    const duplicateFilter = branchCode
+      ? `or=(${encodeURIComponent(`branch_name.eq.${branchName},branch_code.eq.${branchCode}`)})`
+      : `branch_name=eq.${encodeURIComponent(branchName)}`;
+    const existing = await supabaseRest<any[]>(`customer_branches?company_id=eq.${encodeURIComponent(id)}&${duplicateFilter}&select=*&limit=1`).catch(() => []);
+    if (existing[0]) {
+      return NextResponse.json({ ok: true, branch: existing[0], duplicatePrevented: true, message: "Bu şube zaten kayıtlı; mevcut kayıt korundu." });
+    }
     const payload = {
       ...branchPayload(id, body, session.profileId || null),
       created_by: session.profileId || null,
@@ -125,16 +134,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     });
     await recordActivity({
       session,
-      action: "Ekleme",
+      action: "Oluşturma",
       entity: "Müşteri Şubesi",
       entityId: rows[0]?.id,
       companyId: id,
       details: { message: "Müşteri şubesi eklendi.", branch_name: rows[0]?.branch_name, result: "Başarılı" }
     }).catch(() => null);
     return NextResponse.json({
-      ok: true,
-      branch: rows[0],
-      message: "Şube kaydedildi.",
       ...buildActionResult({
         title: "Şube başarıyla eklendi",
         summary: `${rows[0]?.branch_name || "Yeni şube"} kaydedildi. Artık bu şube için ayrı rapor, görev, reklam ve entegrasyon takibi yapabilirsin.`,
@@ -152,7 +158,10 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         ],
         customerVisibility: { showToCustomer: false, label: "Bu şube kaydı şu anda sadece admin tarafında görünüyor." },
         technicalDetails: { branch_id: rows[0]?.id, company_id: id }
-      })
+      }),
+      ok: true,
+      branch: rows[0],
+      message: "Şube kaydedildi."
     });
   } catch (error) {
     const safe = getSafeSupabaseError(error);

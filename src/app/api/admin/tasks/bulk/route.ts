@@ -76,7 +76,7 @@ export async function PATCH(request: Request) {
     });
     await recordActivity({
       session,
-      action: "Toplu Görev İşlemi",
+      action: "Güncelleme",
       entity: "Görev",
       details: { message: `${rows.length} görev için ${actionLabel(action)} işlemi uygulandı.`, taskIds, action }
     }).catch(() => null);
