@@ -39,6 +39,7 @@ export async function POST(request: Request) {
     const table = resource === "payment" ? "payment_records" : resource === "task" ? "agency_tasks" : "";
     if (!table) return NextResponse.json({ error: "Geçersiz kayıt türü." }, { status: 400 });
     const now = new Date().toISOString();
+    if (resource === "payment" && (!Number.isFinite(Number(item.amount)) || Number(item.amount) <= 0)) return NextResponse.json({ error: "Tahsilat tutarı sıfırdan büyük olmalıdır." }, { status: 400 });
     if (resource === "task" && !String(item.title || "").trim()) return NextResponse.json({ error: "Görev başlığı zorunludur." }, { status: 400 });
     const isExistingRecord = Boolean(item.id && uuidPattern.test(String(item.id)) && !item._draft && !item.isNew);
     const payload = resource === "payment" ? {
@@ -80,7 +81,7 @@ export async function POST(request: Request) {
       : await supabaseRest<any[]>(table, { method: "POST", body: JSON.stringify(payload) });
     if (!rows[0]) return NextResponse.json({ error: "Kayıt bulunamadı veya güncellenemedi." }, { status: 404 });
     await recordActivity({ session, action: item.id ? "Güncelleme" : "Oluşturma", entity: resource === "payment" ? "Tahsilat" : "Görev", entityId: rows[0]?.id, companyId: item.company_id, details: { message: resource === "payment" ? "Tahsilat kaydı güncellendi" : "Görev kaydı güncellendi" } });
-    return NextResponse.json({ ok: true, item: rows[0], message: resource === "payment" ? "Ödeme kaydedildi." : "Görev kaydedildi." });
+    return NextResponse.json({ ok: true, item: rows[0], message: resource === "payment" ? "Tahsilat kaydedildi." : "Görev kaydedildi." });
   } catch (error) {
     const safe = getSafeSupabaseError(error);
     await recordActionFailure({ session, entity: resource === "payment" ? "Tahsilat" : "Müşteri Görevleri", action: item.id ? "Kayıt güncelleme" : "Kayıt oluşturma", error, entityId: item.id, companyId: item.company_id }).catch(() => null);

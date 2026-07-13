@@ -78,9 +78,9 @@ const adminNavigationSourceGroups: AdminNavigationGroup[] = [
       { label: "Kampanyalar", slug: "kampanyalar", module: "kampanyalar", description: "Tüm müşterilere ait reklam kampanyaları ve bütçeler." },
       { label: "Reklam Operasyon Merkezi", slug: "reklam-operasyon-merkezi", module: "reklam-operasyon-merkezi", description: "Müşteri reklam harcaması, kanal sağlığı, funnel, doktor kontrolleri ve yayın öncesi planı tek merkezde." },
       { label: "Reklam Hesabı Eşleştirme", slug: "reklam-hesabi-eslestirme", module: "kampanyalar", description: "Meta ve Google hesaplarını müşteri kayıtlarıyla bağlama." },
-      { label: "Google İstihbarat", slug: "google-istihbarat", module: "google-analiz", description: "Google Ads arama ve dönüşüm performansı." },
-      { label: "Meta İstihbarat", slug: "meta-istihbarat", module: "meta-analiz", description: "Meta kampanya, kreatif ve dönüşüm performansı." },
-      { label: "Website Analytics", slug: "website-analytics", module: "website-analytics", description: "Pixel, GA4 ve public site dönüşüm takibi." },
+      { label: "Google Ads İstihbaratı", slug: "google-istihbarat", module: "google-analiz", description: "Google Ads arama ve dönüşüm performansı." },
+      { label: "Meta Reklam İstihbaratı", slug: "meta-istihbarat", module: "meta-analiz", description: "Meta kampanya, kreatif ve dönüşüm performansı." },
+      { label: "Web Analitiği", slug: "website-analytics", module: "website-analytics", description: "Pixel, GA4 ve web sitesi dönüşüm takibi." },
       { label: "Reklam Doktoru Pro", slug: "ad-insights", module: "ad-insights", description: "Reklam performansını teşhis eder, sorunları bulur ve aksiyon reçetesi oluşturur." },
       { label: "Büyüme Motoru", slug: "growth-engine", module: "growth-engine", description: "Müşteri satış yolculuğunu, funnel yapısını, kreatif ihtiyacını ve takip planını oluştur." },
       { label: "Funnel Planlayıcı", slug: "funnel-builder", module: "funnel-builder", description: "Müşteriye özel funnel amacı, kanal ve eksik adımları kart tabanlı planla." },
@@ -174,7 +174,7 @@ const adminNavigationSourceGroups: AdminNavigationGroup[] = [
       { label: "Meta", slug: "meta-integrations", module: "api-ayarlari", description: "Meta işletme, reklam hesabı, Pixel ve Dataset bağlantıları." },
       { label: "Google", slug: "google-integrations", module: "api-ayarlari", description: "Google, GA4, Search Console ve Google Ads bağlantıları." },
       { label: "OAuth Kurulum Durumu", slug: "oauth-kurulum-durumu", module: "api-ayarlari", description: "Meta, Google, TikTok ve X otomatik bağlantı ENV ve callback durumunu denetler." },
-      { label: "Website Analytics", slug: "web-analitik-entegrasyonlari", module: "website-analytics", description: "GTM, Clarity, Hotjar ve web analitiği kurulum durumu." },
+      { label: "Web Analitiği Bağlantıları", slug: "web-analitik-entegrasyonlari", module: "website-analytics", description: "GTM, Clarity, Hotjar ve web analitiği kurulum durumu." },
       { label: "Discord", slug: "discord-entegrasyonu", module: "agent-hub", description: "Discord webhook bildirim hazırlığı." },
       { label: "API Durumu", slug: "api-durumu", module: "api-ayarlari", description: "Secret göstermeden genel API ve entegrasyon durumu." }
     ]
