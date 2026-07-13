@@ -1,13 +1,15 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck
 "use client";
-/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, react/jsx-key, react/no-unescaped-entities, react-hooks/purity, react-hooks/immutability */
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, react/jsx-key, react/no-unescaped-entities, react-hooks/purity, react-hooks/immutability, react-hooks/exhaustive-deps, @next/next/no-img-element */
+// This legacy shell owns mutable editor collections and runtime-provided media URLs.
+// Its mount-only loaders must not refetch on every local draft mutation; media is rendered without a remote host allowlist.
 
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Activity, AlertTriangle, ArrowDown, ArrowUp, BarChart3, Bell, Bot, Building2, ChevronDown, ChevronRight, CircleCheck, CircleOff, Copy, Download, FileBarChart, Gauge, GripVertical, HelpCircle, ImagePlus, LayoutDashboard, LogOut, MapPinned, MessageSquareText, Plus, RotateCcw, Save, Search, Settings2, Sparkles, Star, Trash2, UsersRound, WandSparkles, X } from "lucide-react";
+import { Activity, AlertTriangle, ArrowDown, ArrowUp, BarChart3, Bell, Bot, Building2, ChevronDown, ChevronRight, CircleCheck, CircleOff, Copy, Download, FileBarChart, Gauge, HelpCircle, ImagePlus, LayoutDashboard, LogOut, MapPinned, MessageSquareText, Plus, RotateCcw, Save, Search, Settings2, Sparkles, Star, Trash2, UsersRound, WandSparkles, X } from "lucide-react";
 import type { SiteContent } from "@/lib/types";
 import { ReportTools } from "@/components/admin/reports/ReportTools";
 import { WebsiteAnalyticsCenter } from "@/components/admin/WebsiteAnalyticsCenter";
@@ -33,7 +35,7 @@ import { canViewAccounting } from "@/lib/accounting-permissions";
 import { aiProviderKeyForApi, buildAiSelectionReason, labelForAiProvider, normalizeUnifiedAiProvider, unifiedAiProviderOptions, unifiedAiPriorityKeys } from "@/lib/ai-provider-options";
 import { CUSTOMER_MODULE_REGISTRY, CUSTOMER_PLATFORM_REGISTRY, DEFAULT_CUSTOMER_MODULES, DEFAULT_CUSTOMER_PLATFORMS, normalizeModuleKeys, normalizePlatformKeys } from "@/lib/customer-portal-registry";
 import { HK_SERVICE_PACKAGES, PACKAGE_CATEGORIES, calculateTotalWithVat, calculateVat, findServicePackage, formatPackagePrice, formatTRY, getPackagePricing } from "@/lib/packages";
-import { AnimatedChart, AnimatedFunnel, BrandEcosystemStrip, GlassCard, MetricCard3D } from "@/components/premium/PremiumUI";
+import { GlassCard } from "@/components/premium/PremiumUI";
 
 const adminCategoryIcons: Record<string, any> = {
   LayoutDashboard,
@@ -135,7 +137,6 @@ function withAdminEmoji(label: string) {
 
 const salesPipelineStages = ["Yeni Lead", "İletişim Kuruldu", "Toplantı Yapıldı", "Teklif Gönderildi", "Takipte", "Kazanıldı", "Kaybedildi"];
 const customerLifecycleStages = ["Lead", "Görüşme", "Teklif", "Kazanıldı", "Onboarding", "Aktif Müşteri", "Raporlama", "Tahsilat", "Yenileme", "Referans"];
-const adminUuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const crmActiveStatuses = ["Yeni Başvuru", "İletişime Geçildi", "Takipte", "Teklif Gönderildi", "Müşteri Oldu"];
 const crmStatusTabs = ["Tüm Başvurular", "Yeni Başvurular", "İletişime Geçildi", "Takipte", "Teklif Gönderildi", "Müşteri Oldu", "Meta Analiz", "Google Ads Analiz", "Reddedilenler", "Silinenler"];
 const leadStatuses = [...new Set([...crmActiveStatuses, ...salesPipelineStages, "Yeni", "Görüşülecek", "Teklif Hazırlanıyor", "Kazanıldı", "Kaybedildi", "Dönüştürüldü", "Reddedildi"])];
@@ -247,7 +248,6 @@ const googleMetricFields = [
   ["cpc", "Ortalama TBM", "Bir tıklamanın ortalama maliyeti"],
   ["cost_per_lead", "Dönüşüm Maliyeti", "Bir dönüşüm için ortalama maliyet"]
 ];
-const reportTypes = ["Meta Reklam Raporu", "Google Ads Raporu", "Sosyal Medya Yönetimi Raporu", "Genel Dijital Performans Raporu"];
 const reportTabs = ["Meta Reklamları", "Google Ads", "Sosyal Medya Yönetimi", "Genel Raporlar"];
 const socialPlatforms = ["Instagram", "Facebook", "TikTok", "YouTube", "LinkedIn", "X (Twitter)"];
 
@@ -2962,7 +2962,7 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
   return (
     <Panel title="Operasyon Merkezi">
       <div className="admin-light-dashboard grid w-full min-w-0 gap-5">
-        <section style={{ order: -20 }} className="rounded-[20px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <section style={{ order: -20 }} className="hk-dashboard-hero rounded-[24px] border border-cyan-100 p-5 sm:p-7">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0">
               <p className="text-sm font-black text-cyan-700">{greeting[1]}, {userName}</p>
@@ -6912,11 +6912,11 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
   }
   return (
     <CustomerProfileModal company={company} content={content} onClose={close} onGo={(target, message) => { setActive?.(target); if (message) notify?.(message, "success"); }} showOverview={false}>
-      <div className="premium-scrollbar mb-5 flex gap-2 overflow-x-auto pb-2">
-        {tabs.map((item) => <button key={item} onClick={() => setTab(item)} className={`shrink-0 rounded-full px-3 py-2 text-xs font-bold ${tab === item ? "bg-cyan-300 text-slate-950" : "border border-slate-200 text-slate-600"}`}>{item}</button>)}
-        <a href={`/musteri-paneli?company=${company.id}`} target="_blank" rel="noreferrer" className="ml-auto shrink-0 rounded-full border border-cyan-200/30 px-3 py-2 text-xs font-black text-cyan-700">Müşteri gibi görüntüle</a>
+      <div className="hk-profile-tabs premium-scrollbar sticky top-0 z-20 mb-6 flex gap-2 overflow-x-auto border-b border-slate-200 bg-white/95 pb-3 pt-1 backdrop-blur">
+        {tabs.map((item) => <button type="button" key={item} onClick={() => setTab(item)} className={`hk-profile-tab shrink-0 ${tab === item ? "hk-profile-tab-active" : ""}`}>{item}</button>)}
+        <a href={`/musteri-paneli?company=${company.id}`} target="_blank" rel="noreferrer" className="hk-button hk-button-info ml-auto shrink-0">Müşteri gibi görüntüle</a>
       </div>
-      {tab === "Genel Bilgi" && <div className="grid min-w-0 gap-3 md:grid-cols-2">
+      {tab === "Genel Bilgi" && <div className="hk-profile-section grid min-w-0 gap-4 rounded-[22px] border border-slate-200 bg-slate-50/70 p-4 md:grid-cols-2 sm:p-5">
         <Field label="Firma adı" value={company.name} onChange={(v) => updateProfileField({ name: v })} />
         <OtherSelectField label="Sektör" value={company.sector} onChange={(v) => updateProfileField({ sector: v })} options={sectorOptions} manualLabel="Sektörü yazın" />
         <OtherSelectField label="Şehir" value={company.city} onChange={(v) => updateProfileField({ city: v })} options={cityOptions} manualLabel="Şehri yazın" />
@@ -8963,7 +8963,7 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
             <p className="mt-3 rounded-[8px] border border-slate-200 bg-slate-50 p-3 text-sm font-bold text-slate-900">{confirmAction.user.full_name || confirmAction.user.email}</p>
             <div className="mt-5 flex flex-wrap justify-end gap-2">
               <button onClick={() => setConfirmAction(null)} className="rounded-full border border-slate-200 px-4 py-2 text-sm">Vazgeç</button>
-              <button onClick={async () => { const action = confirmAction; setConfirmAction(null); action.type === "delete" ? await deleteUser(action.user) : await disableUser(action.user); }} className="rounded-full bg-red-300 px-4 py-2 text-sm font-black text-slate-950">Onayla</button>
+              <button onClick={async () => { const action = confirmAction; setConfirmAction(null); if (action.type === "delete") await deleteUser(action.user); else await disableUser(action.user); }} className="rounded-full bg-red-300 px-4 py-2 text-sm font-black text-slate-950">Onayla</button>
             </div>
           </div>
         </div>

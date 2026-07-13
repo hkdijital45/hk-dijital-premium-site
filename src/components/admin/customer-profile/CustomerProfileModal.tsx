@@ -696,19 +696,25 @@ export function CustomerProfileModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/50 p-0 sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) requestClose(); }}>
-      <section className="flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-auto sm:max-h-[88vh] sm:w-[92vw] sm:max-w-[1440px] sm:rounded-[26px]" onMouseDown={(event) => event.stopPropagation()}>
-        <header className="flex items-start justify-between gap-3 border-b border-slate-200 p-5">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Müşteri Profili</p>
-            <h2 className="mt-1 text-2xl font-black text-slate-950">{company.name}</h2>
-            <p className="mt-1 text-sm text-slate-500">{company.status || "Aktif"} · {company.city || "Şehir yok"} · {company.sector || "Sektör yok"}</p>
+    <div className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/65 p-0 backdrop-blur-sm sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) requestClose(); }}>
+      <section className="hk-customer-profile-shell flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-auto sm:max-h-[92vh] sm:w-[92vw] sm:max-w-[1440px] sm:rounded-[28px]" onMouseDown={(event) => event.stopPropagation()}>
+        <header className="hk-customer-profile-header flex items-start justify-between gap-4 border-b border-cyan-100 p-5 sm:p-6">
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-[.18em] text-cyan-700">Müşteri Profili</p>
+            <h2 className="mt-1 truncate text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">{company.name}</h2>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-600">
+              <span className="rounded-full bg-white/80 px-3 py-1 ring-1 ring-slate-200">{company.status || "Aktif"}</span>
+              <span>{company.city || "Şehir belirtilmedi"}</span>
+              <span aria-hidden="true">·</span>
+              <span>{company.sector || "Sektör belirtilmedi"}</span>
+              <span className={`rounded-full px-3 py-1 text-xs font-black ring-1 ${profileHealth.score >= 75 ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : profileHealth.score >= 50 ? "bg-amber-50 text-amber-800 ring-amber-200" : "bg-red-50 text-red-700 ring-red-200"}`}>Sağlık {profileHealth.score}/100</span>
+            </div>
           </div>
-          <button onClick={requestClose} aria-label="Kapat" className="rounded-full border border-slate-200 p-2 text-slate-500"><X size={18} /></button>
+          <button type="button" onClick={requestClose} aria-label="Müşteri profilini kapat" className="hk-icon-button shrink-0 bg-white/80"><X size={20} /></button>
         </header>
-        <div className="flex-1 overflow-x-hidden overflow-y-auto p-5">
+        <div className="hk-customer-profile-content flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6">
           {actionResult && <div className="mb-5"><ActionResultPanel result={actionResult} onNavigate={(href) => window.location.assign(href)} /></div>}
-          {!showOverview && children && <div className="mb-5">{children}</div>}
+          {!showOverview && children && <div className="hk-customer-profile-workspace mb-5">{children}</div>}
           {showOverview && (
             <>
               <div className="sticky top-0 z-10 -mx-5 -mt-5 border-b border-slate-200 bg-white/95 px-5 py-3 backdrop-blur">

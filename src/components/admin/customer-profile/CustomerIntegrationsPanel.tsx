@@ -114,6 +114,8 @@ export function CustomerIntegrationsPanel({ company, users = [], campaigns = [],
     return () => {
       mounted = false;
     };
+    // Refetch only when the active customer changes; mutable editor props must not restart the request.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [company.id]);
 
   const liveSetup = useMemo(() => buildCustomerSetupSummary(getCustomerSetupSteps(company, users, form, campaigns, reports)), [company, users, form, campaigns, reports]);

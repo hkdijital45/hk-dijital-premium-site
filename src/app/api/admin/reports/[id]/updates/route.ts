@@ -18,7 +18,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   } catch (error) {
     const safeError = getSafeSupabaseError(error);
     if (!safeError.detail.includes("category") && !safeError.detail.includes("status")) throw error;
-    const { category: _category, status: _status, ...fallbackPayload } = payload;
+    const fallbackPayload: Partial<typeof payload> = { ...payload };
+    delete fallbackPayload.category;
+    delete fallbackPayload.status;
     rows = await supabaseRest<any[]>("report_updates", { method: "POST", body: JSON.stringify(fallbackPayload) });
   }
   await recordActivity({ session, action: "Oluşturma", entity: "Rapor Notu", entityId: rows[0]?.id, companyId: report.company_id, details: { message: "Rapora ajans notu eklendi" } });
@@ -40,7 +42,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   } catch (error) {
     const safeError = getSafeSupabaseError(error);
     if (!safeError.detail.includes("category") && !safeError.detail.includes("status")) throw error;
-    const { category: _category, status: _status, ...fallbackPayload } = payload;
+    const fallbackPayload: Partial<typeof payload> = { ...payload };
+    delete fallbackPayload.category;
+    delete fallbackPayload.status;
     rows = await supabaseRest<any[]>(`report_updates?id=eq.${encodeURIComponent(body.id)}&report_id=eq.${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(fallbackPayload) });
   }
   await recordActivity({ session, action: "Güncelleme", entity: "Rapor Notu", entityId: body.id, companyId: report.company_id, details: { message: "Rapor ajans notu güncellendi" } });

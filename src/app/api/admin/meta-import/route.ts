@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
 import { recordActivity } from "@/lib/activity-log";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 import { requireModuleAccess } from "@/lib/permissions";
@@ -323,7 +322,12 @@ export async function POST(request: Request) {
     } catch (error) {
       const safeError = getSafeSupabaseError(error);
       if (!safeError.detail.includes("messages") && !safeError.detail.includes("visible_to_customer")) throw error;
-      const fallbackRecords = records.map(({ messages, visible_to_customer, ...record }) => record);
+      const fallbackRecords = records.map((record) => {
+        const fallback: Partial<typeof record> = { ...record };
+        delete fallback.messages;
+        delete fallback.visible_to_customer;
+        return fallback;
+      });
       inserted = await supabaseRest<any[]>("campaign_metrics", {
         method: "POST",
         body: JSON.stringify(fallbackRecords)

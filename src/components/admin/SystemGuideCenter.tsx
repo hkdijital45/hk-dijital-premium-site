@@ -73,6 +73,8 @@ export function SystemGuideCenter({ currentSession, notify }: any) {
       } catch {}
     }, 0);
     return () => window.clearTimeout(timer);
+    // This bootstrap intentionally runs once; later refreshes are explicit user actions.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

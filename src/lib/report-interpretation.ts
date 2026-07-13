@@ -18,7 +18,9 @@ function demoInterpretation(report: any) {
 }
 
 function systemPrompt(report: any) {
-  const { internal_note: _internalNote, raw_extracted_data: _rawExtractedData, ...customerSafeReport } = report;
+  const customerSafeReport = { ...report };
+  delete customerSafeReport.internal_note;
+  delete customerSafeReport.raw_extracted_data;
   return `HK Dijital müşterisi için aşağıdaki raporu sade Türkçe ile yorumla.
 Yanıtı tamamen Türkçe ver. Teknik terim kullanırsan parantez içinde kısa açıklamasını yaz.
 Teknik kavramları kısa ve anlaşılır biçimde açıkla. Satış garantisi verme.

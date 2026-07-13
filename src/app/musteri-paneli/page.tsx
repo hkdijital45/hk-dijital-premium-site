@@ -522,7 +522,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
               {creativeFiles.map((file: any) => (
                 <div key={file.id} className="overflow-hidden rounded-[14px] border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,.05)]">
                   {getCustomerFileUrl(file) ? (
-                    <img src={getCustomerFileUrl(file)} alt={file.title || "Kreatif görsel"} className="h-48 w-full bg-slate-100 object-cover" />
+                    <Image unoptimized src={getCustomerFileUrl(file)} alt={file.title || "Kreatif görsel"} width={960} height={540} className="h-48 w-full bg-slate-100 object-cover" />
                   ) : (
                     <div className="flex h-48 items-center justify-center bg-slate-50 text-sm font-bold text-slate-500">Önizleme yok</div>
                   )}
@@ -601,7 +601,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
               {data.files.map((file) => (
                 <div key={file.id} className="overflow-hidden rounded-[14px] border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,.05)]">
                   {isImageFile(file) && getCustomerFileUrl(file) ? (
-                    <img src={getCustomerFileUrl(file)} alt={file.title || "Müşteri dosyası"} className="h-40 w-full bg-slate-100 object-cover" />
+                    <Image unoptimized src={getCustomerFileUrl(file)} alt={file.title || "Müşteri dosyası"} width={960} height={540} className="h-40 w-full bg-slate-100 object-cover" />
                   ) : (
                     <div className="flex h-32 items-center justify-center bg-slate-50 text-sm font-black text-slate-500">
                       {getCustomerFileType(file)}

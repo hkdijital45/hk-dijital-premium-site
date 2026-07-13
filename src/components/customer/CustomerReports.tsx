@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { BarChart3, CalendarDays, Download, Filter, Sparkles } from "lucide-react";
 import {
   aggregateCustomerReports,
@@ -453,7 +454,7 @@ export function CustomerReports({ reports, initialInterpretations, reportUpdates
                       </details>
                       <details className="mt-3 rounded-[8px] border border-white/10 p-3">
                         <summary className="cursor-pointer text-sm font-black text-cyan-100">Kreatif Merkezi</summary>
-                        <div className="mt-3 grid gap-3 sm:grid-cols-2">{creatives.length ? creatives.map((item, index) => <div key={index} className="rounded-[8px] bg-white/[0.04] p-3 text-sm">{item.imageUrl || item.url ? <img src={item.imageUrl || item.url} alt={item.caption || "Rapor kreatifi"} className="mb-3 aspect-video w-full rounded-[8px] object-cover" /> : null}<p className="font-black text-white">{item.type || "Kreatif"}</p><p className="mt-1 text-xs text-cyan-100">{item.platform || report.platform || "-"} · {item.dateUsed || item.date || "Tarih yok"}</p><p className="mt-2 leading-6 text-slate-300">{item.caption || item.note || "Açıklama eklenmedi."}</p></div>) : <p className="text-sm text-slate-400">Bu rapor dönemine ait kreatif henüz eklenmedi.</p>}</div>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2">{creatives.length ? creatives.map((item, index) => <div key={index} className="rounded-[8px] bg-white/[0.04] p-3 text-sm">{item.imageUrl || item.url ? <Image unoptimized src={item.imageUrl || item.url} alt={item.caption || "Rapor kreatifi"} width={960} height={540} className="mb-3 aspect-video w-full rounded-[8px] object-cover" /> : null}<p className="font-black text-white">{item.type || "Kreatif"}</p><p className="mt-1 text-xs text-cyan-100">{item.platform || report.platform || "-"} · {item.dateUsed || item.date || "Tarih yok"}</p><p className="mt-2 leading-6 text-slate-300">{item.caption || item.note || "Açıklama eklenmedi."}</p></div>) : <p className="text-sm text-slate-400">Bu rapor dönemine ait kreatif henüz eklenmedi.</p>}</div>
                       </details>
                       <details className="mt-3 rounded-[8px] border border-white/10 p-3">
                         <summary className="cursor-pointer text-sm font-black text-cyan-100">WhatsApp / Lead Takibi</summary>
