@@ -14,12 +14,23 @@ const labels: Record<string, string> = {
   tiktok: "TikTok"
 };
 
+function isRealProfileUrl(key: string, href: string) {
+  try {
+    const url = new URL(href);
+    const path = url.pathname.replace(/\/+$/, "");
+    if (!path || path === "") return key === "whatsapp";
+    return path !== "/" && !["/hk", "/profile"].includes(path.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
 export function SocialLinks({ content }: { content: SiteContent }) {
   return (
     <div className="mt-5 flex flex-wrap gap-2">
       {Object.entries(content.socials).map(([key, href]) => {
         const Icon = socialIcons[key];
-        if (!Icon || !href) return null;
+        if (!Icon || !href || !isRealProfileUrl(key, href)) return null;
         return (
           <a
             key={key}

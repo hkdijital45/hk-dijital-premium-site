@@ -201,9 +201,9 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
           <div className="flex flex-wrap items-start justify-between gap-6">
             <div className="max-w-3xl">
               <p className="inline-flex rounded-full border border-cyan-200/20 bg-cyan-200/10 px-4 py-2 text-xs font-black uppercase tracking-[.24em] text-cyan-100">
-                HK Intelligence destekli akıllı analiz
+                Akıllı paket analizi
               </p>
-              <h1 className="mt-5 text-3xl font-black leading-tight text-white sm:text-5xl">{wizard.title}</h1>
+              <h2 className="mt-5 text-3xl font-black leading-tight text-white sm:text-5xl">{wizard.title}</h2>
               <p className="mt-4 max-w-2xl text-base leading-8 text-slate-300 sm:text-lg">{wizard.subtitle}</p>
             </div>
             <div className="rounded-[8px] border border-white/10 bg-black/25 p-4 text-right">
@@ -394,7 +394,7 @@ function Recommendation({ recommended, alternative, reason, startingStrategy, ro
 
       <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_.8fr]">
         <div className="rounded-[22px] border border-cyan-200/20 bg-cyan-200/10 p-5">
-          <p className="text-xs font-black uppercase tracking-[.18em] text-cyan-100">AI Destekli Reklam Bütçesi Önerisi</p>
+          <p className="text-xs font-black uppercase tracking-[.18em] text-cyan-100">Akıllı Reklam Bütçesi Önerisi</p>
           <p className="mt-3 text-sm leading-7 text-slate-200">Bu öneri sektör, hedef, platform ve başlangıç seviyesine göre oluşturulan tahmini medya bütçesidir. Kesin sonuç garantisi vermez; test ve optimizasyonla netleşir.</p>
           <div className="mt-5 grid gap-3 md:grid-cols-3">
             <BudgetBox label="Minimum" value={formatBudgetRange(...adBudget.minimumRange)} />
@@ -404,11 +404,11 @@ function Recommendation({ recommended, alternative, reason, startingStrategy, ro
           <p className="mt-4 rounded-[16px] border border-white/10 bg-black/20 p-4 text-sm leading-7 text-cyan-50">{adBudget.reason} {adBudget.budgetFit}</p>
           <div className="mt-5 flex flex-col gap-3 rounded-[18px] border border-white/10 bg-black/20 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-black text-white">AI Destekli Piyasa Yorumu</p>
-              <p className="mt-1 text-xs leading-5 text-slate-300">HK Intelligence Router görev türü ve hazır bağlantılara göre en uygun analiz motorunu seçer; canlı sağlayıcı yoksa güvenli yerel model kullanılır.</p>
+              <p className="text-sm font-black text-white">Piyasa Yorumu</p>
+              <p className="mt-1 text-xs leading-5 text-slate-300">İşletme bilgilerinize göre kısa bir reklam bütçesi ve kanal yorumu hazırlanır. Sonuç garantisi vermez; ön değerlendirme niteliğindedir.</p>
             </div>
             <button type="button" onClick={createAiBudgetResearch} disabled={aiBudgetLoading || Boolean(aiBudget)} className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full bg-yellow-300 px-5 text-sm font-black text-slate-950 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60">
-              {aiBudgetLoading ? "Analiz oluşturuluyor..." : aiBudget ? "Analiz hazır" : "AI Bütçe Analizi Oluştur"}
+              {aiBudgetLoading ? "Analiz oluşturuluyor..." : aiBudget ? "Analiz hazır" : "Bütçe Analizi Oluştur"}
             </button>
           </div>
           {aiBudgetError && <p className="mt-3 rounded-[14px] border border-red-200/30 bg-red-500/10 p-3 text-sm text-red-100">{aiBudgetError}</p>}

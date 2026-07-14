@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { getSiteContent } from "@/lib/content";
-import { pageMetadata } from "@/lib/metadata";
+import { pageMetadata, SITE_URL } from "@/lib/metadata";
 import { CinematicHomepage } from "@/components/public/CinematicHomepage";
+import { JsonLd } from "@/components/public/JsonLd";
 import { PublicShell } from "@/components/public/Shell";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,40 @@ export default async function Home() {
 
   return (
     <PublicShell>
+      <JsonLd data={[
+        {
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: content.brand.companyName,
+          url: SITE_URL,
+          email: content.contact.email,
+          telephone: content.contact.phone,
+          founder: content.brand.founder,
+          areaServed: ["Manisa", "Türkiye"],
+          sameAs: Object.values(content.socials).filter((url) => url && !/^https:\/\/(instagram|facebook|youtube|x|linkedin|tiktok)\.com\/?$/.test(url))
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "ProfessionalService",
+          name: content.brand.companyName,
+          url: SITE_URL,
+          description: "Manisa merkezli, Türkiye geneline hizmet veren dijital pazarlama ve reklam danışmanlığı ajansı.",
+          address: {
+            "@type": "PostalAddress",
+            addressLocality: "Manisa",
+            addressCountry: "TR"
+          },
+          areaServed: ["Manisa", "Türkiye"],
+          telephone: content.contact.phone,
+          email: content.contact.email
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: content.brand.companyName,
+          url: SITE_URL
+        }
+      ]} />
       <CinematicHomepage content={content} />
     </PublicShell>
   );

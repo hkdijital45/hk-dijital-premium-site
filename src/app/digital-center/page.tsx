@@ -6,7 +6,11 @@ import { getSiteContent } from "@/lib/content";
 
 export const metadata: Metadata = {
   title: "Digital Center | HK Dijital",
-  description: "HK Dijital rapor, proje ve dijital performans verilerine güvenli erişim alanı."
+  description: "HK Dijital rapor, proje ve dijital performans verilerine güvenli erişim alanı.",
+  robots: {
+    index: false,
+    follow: false
+  }
 };
 
 export default async function DigitalCenterPage() {

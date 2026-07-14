@@ -10,7 +10,7 @@ export function ContactForm() {
 
   return (
     <PremiumCard>
-      <h1 className="text-2xl font-black text-white">İletişim Formu</h1>
+      <h2 className="text-2xl font-black text-white">İletişim Formu</h2>
       <form
         className="mt-6 grid gap-4"
         onSubmit={async (event) => {

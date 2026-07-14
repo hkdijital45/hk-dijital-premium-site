@@ -9,32 +9,33 @@ import type { SiteContent } from "@/lib/types";
 import { ContactForm } from "./ContactForm";
 import { PackageCards, ServiceGrid } from "./ServicePackageSections";
 import { trackMetaCtaClick } from "@/lib/meta-pixel";
+import { blogPosts, serviceOverviewCards } from "@/lib/public-seo-content";
 
 const osModules: Array<[string, string, LucideIcon]> = [
-  ["Meta Ads", "Kreatif, hedef kitle, dönüşüm", BarChart3],
+  ["Meta Reklamları", "Kreatif, hedef kitle, dönüşüm", BarChart3],
   ["Google Ads", "Arama niyeti ve bütçe kontrolü", Search],
-  ["AI Analiz", "Net yorum ve sonraki adım", BrainCircuit],
-  ["Müşteri Akışı", "Lead, teklif ve takip düzeni", Target],
+  ["Performans Yorumu", "Net yorum ve sonraki adım", BrainCircuit],
+  ["Talep Takibi", "Başvuru, teklif ve takip düzeni", Target],
   ["Raporlama", "Anlaşılır performans merkezi", Layers3],
-  ["Lead Skoru", "Öncelik ve satış potansiyeli", Gauge]
+  ["Önceliklendirme", "Satış potansiyeli ve takip sırası", Gauge]
 ];
 
 const fixedServices = [
   "Meta Reklam Yönetimi",
   "Google Ads Yönetimi",
   "Sosyal Medya Yönetimi",
-  "AI Destekli Raporlama",
-  "CRM ve Lead Takibi",
-  "Web Site ve Landing Page (iniş sayfası)"
+  "Dijital Pazarlama Danışmanlığı",
+  "Ölçümleme ve Raporlama",
+  "Web Sitesi ve Dönüşüm Danışmanlığı"
 ];
 
 const intelligenceMetrics = [
-  ["Müşteri Sıcaklık Puanı", "82", "Satış ve takip önceliği"],
-  ["Dijital Olgunluk Skoru", "64", "Dijital altyapı seviyesi"],
-  ["Reklam Performansı", "İyi", "Bütçe, tıklama ve erişim dengesi"],
-  ["AI Yorum", "Hazır", "Müşteri dostu aksiyon özeti"],
-  ["Teklif Motoru", "Aktif", "Paket ve funnel önerisi"],
-  ["CRM Takibi", "Canlı", "Lead, görev ve tahsilat akışı"]
+  ["Kanal Önceliği", "Net", "Meta, Google veya sosyal medya sırası"],
+  ["Dijital Hazırlık", "Kontrol", "Web, ölçüm ve teklif netliği"],
+  ["Reklam Performansı", "Yorum", "Bütçe, tıklama ve erişim dengesi"],
+  ["Aksiyon Özeti", "Hazır", "Müşteri dostu sonraki adımlar"],
+  ["Teklif Uygunluğu", "Planlı", "Paket ve hizmet kapsamı önerisi"],
+  ["Talep Takibi", "Düzenli", "Form, WhatsApp ve görüşme akışı"]
 ];
 
 const processSteps = ["Keşif", "Analiz", "Strateji", "Kurulum", "Yayın", "Raporlama", "Optimizasyon"];
@@ -102,8 +103,8 @@ function MiniOsPanel() {
     <div className="cinematic-dashboard relative mx-auto mt-12 max-w-5xl rounded-[18px] border border-cyan-200/18 bg-[#04101d]/70 p-4 shadow-[0_34px_110px_rgba(0,0,0,.42)] backdrop-blur-2xl lg:mt-0">
       <div className="flex items-center justify-between gap-4 border-b border-white/10 pb-4">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[.22em] text-cyan-200">HK Intelligence OS</p>
-          <h3 className="mt-1 text-xl font-black text-white">Canlı büyüme ekranı</h3>
+          <p className="text-[10px] font-black uppercase tracking-[.22em] text-cyan-200">Çalışma sistemimiz</p>
+          <h3 className="mt-1 text-xl font-black text-white">Ölçüm ve raporlama görünümü</h3>
         </div>
         <span className="rounded-full bg-emerald-300 px-3 py-1 text-xs font-black text-slate-950">Aktif</span>
       </div>
@@ -201,8 +202,8 @@ function HeroOsVisual({ reduced }: { reduced: boolean | null }) {
 
       <div className="hero-os-core">
         <Sparkles className="text-amber-200" size={34} />
-        <p className="mt-4 text-sm font-black uppercase tracking-[.2em] text-cyan-100">Büyüme kontrol merkezi</p>
-        <p className="mt-3 text-5xl font-black text-white">HK OS</p>
+        <p className="mt-4 text-sm font-black uppercase tracking-[.2em] text-cyan-100">Ajans çalışma sistemi</p>
+        <p className="mt-3 text-5xl font-black text-white">HK Dijital</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -234,19 +235,19 @@ export function CinematicHomepage({ content }: { content: SiteContent }) {
         <div className="cinematic-floor-glow" aria-hidden="true" />
         <div className="relative mx-auto grid w-full max-w-7xl items-center gap-14 lg:grid-cols-[1fr_1fr]">
           <motion.div initial={reduced ? false : { opacity: 0, y: 32 }} animate={reduced ? undefined : { opacity: 1, y: 0 }} transition={{ duration: .75, ease: [0.16, 1, 0.3, 1] }} className="relative z-10">
-            <p className="cinematic-eyebrow text-xs font-black uppercase tracking-[.3em] text-amber-200">HK Dijital SaaS ajans platformu</p>
+            <p className="cinematic-eyebrow text-xs font-black uppercase tracking-[.3em] text-amber-200">Manisa merkezli dijital pazarlama ajansı</p>
             <h1 className="cinematic-title mt-5 text-4xl font-black leading-[.96] tracking-tight text-white sm:text-6xl lg:text-7xl">
-              Reklam, Sosyal Medya ve Raporlamayı Tek Merkezden Yönet.
+              Manisa Dijital Pazarlama Ajansı ile Reklamlarınızı Büyümeye Dönüştürün
             </h1>
             <p className="mt-7 max-w-2xl text-base leading-8 text-slate-300 sm:text-xl">
-              HK Dijital ile Meta, Google, TikTok ve içerik süreçlerini daha düzenli takip edin; müşterileriniz için anlaşılır raporlar, görevler ve AI destekli öneriler üretin.
+              HK Dijital; Manisa merkezli işletmelere ve Türkiye genelindeki markalara Meta reklamları, Google Ads, sosyal medya stratejisi, dönüşüm takibi ve anlaşılır performans raporlaması sunar.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <CinematicButton href="/teklif-al" trackingLabel="Hero Ön Görüşme Al">Ücretsiz Ön Görüşme Al <ArrowRight size={18} /></CinematicButton>
-              <CinematicButton href="/digital-center" variant="ghost" trackingLabel="Hero Digital Center Giriş">Digital Center’a Giriş Yap <MousePointerClick size={18} /></CinematicButton>
+              <CinematicButton href="/hizmetler" variant="ghost" trackingLabel="Hero Hizmetleri İncele">Hizmetleri İncele <MousePointerClick size={18} /></CinematicButton>
             </div>
             <div className="mt-6 flex flex-wrap gap-2 text-xs font-black text-slate-300">
-              {["Meta", "Instagram", "TikTok", "YouTube", "Google Ads", "Google Analytics"].map((item) => (
+              {["Manisa dijital pazarlama", "Meta reklamları", "Google Ads", "Sosyal medya", "Dönüşüm takibi"].map((item) => (
                 <span key={item} className="rounded-full border border-cyan-200/20 bg-white/[0.06] px-3 py-2 shadow-[0_0_24px_rgba(34,211,238,.08)]">{item}</span>
               ))}
             </div>
@@ -256,7 +257,7 @@ export function CinematicHomepage({ content }: { content: SiteContent }) {
         </div>
       </section>
 
-      <SectionShell id="services" eyebrow="02 Hizmetler" title="Reklam, içerik ve takip tek operasyon disiplininde birleşir." text="Her kanal kendi başına değil; hedef, bütçe, CRM ve rapor akışıyla birlikte yönetildiğinde gerçek sistem oluşur.">
+      <SectionShell id="services" eyebrow="02 Hizmetler" title="Meta, Google Ads ve sosyal medya çalışmalarını tek stratejiye bağlayın." text="Her kanal kendi başına değil; hedef, bütçe, teklif, dönüşüm takibi ve raporlamayla birlikte yönetildiğinde sağlıklı karar üretir.">
         <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {fixedServices.map((name, index) => {
             const matched = services.find((service) => service.name.toLocaleLowerCase("tr").includes(name.split(" ")[0].toLocaleLowerCase("tr")));
@@ -266,7 +267,7 @@ export function CinematicHomepage({ content }: { content: SiteContent }) {
                 <div className="grid size-13 place-items-center rounded-[14px] border border-cyan-200/20 bg-cyan-200/10 text-cyan-100 transition group-hover:scale-110 group-hover:bg-amber-200/15 group-hover:text-amber-100"><Icon size={24} /></div>
                 <h3 className="mt-6 text-2xl font-black text-white">{name}</h3>
                 <p className="mt-4 text-sm leading-7 text-slate-300">{matched?.description || "Strateji, kurulum, optimizasyon ve raporlama tek merkezde yönetilir."}</p>
-                <Link href="/teklif-al" className="mt-6 inline-flex items-center gap-2 text-sm font-black text-cyan-200">Bu hizmeti konuşalım <ArrowRight size={16} /></Link>
+                <Link href={serviceOverviewCards[index]?.href || "/hizmetler"} className="mt-6 inline-flex items-center gap-2 text-sm font-black text-cyan-200">Hizmeti incele <ArrowRight size={16} /></Link>
               </motion.div>
             );
           })}
@@ -275,10 +276,10 @@ export function CinematicHomepage({ content }: { content: SiteContent }) {
         <CampaignVisualGrid />
       </SectionShell>
 
-      <SectionShell id="intelligence" eyebrow="03 HK Intelligence" title="Ajans hizmeti değil, işletme işletim sistemi." text="HK Intelligence; reklam sinyallerini, lead kalitesini, müşteri takibini ve AI yorumlarını tek bir karar ekranına taşır.">
+      <SectionShell id="intelligence" eyebrow="03 Çalışma sistemimiz" title="Reklam verisini anlaşılır karar ve aksiyonlara çeviririz." text="HK Dijital’in iç analiz sistemi; reklam sinyallerini, talep kalitesini ve raporlama notlarını müşteriye sade anlatılabilir hale getirir. Ana hizmet reklam ve dijital pazarlama danışmanlığıdır.">
         <div className="mt-12 grid items-center gap-10 lg:grid-cols-[.9fr_1.1fr]">
           <div className="grid gap-4">
-            {["Müşteri Sıcaklık Puanı", "Dijital Olgunluk Skoru", "Reklam Performansı", "AI Yorum", "Teklif Motoru", "CRM Takibi"].map((item, index) => (
+            {["Kanal önceliği", "Dijital hazırlık", "Reklam performansı", "Aksiyon özeti", "Teklif uygunluğu", "Talep takibi"].map((item, index) => (
               <motion.div key={item} initial={reduced ? false : { opacity: 0, x: -30 }} whileInView={reduced ? undefined : { opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: index * .05 }} className="flex items-center gap-4 rounded-[16px] border border-white/10 bg-black/20 p-4">
                 <span className="grid size-10 place-items-center rounded-full bg-gradient-to-br from-cyan-300 to-amber-200 text-sm font-black text-slate-950">{index + 1}</span>
                 <span className="font-black text-white">{item}</span>
@@ -298,13 +299,13 @@ export function CinematicHomepage({ content }: { content: SiteContent }) {
         </div>
       </SectionShell>
 
-      <SectionShell id="packages" eyebrow="04 Paketler" title="Paketler net, sistem güçlü, karar süreci sade." text={content.pages.packages?.intro || "Başlangıç, büyüme ve premium operasyon ihtiyaçlarına göre paketleri karşılaştırın."}>
+      <SectionShell id="packages" eyebrow="04 Paketler" title="Hizmet kapsamını, bütçeyi ve beklentiyi baştan netleştirin." text={content.pages.packages?.intro || "Başlangıç, büyüme ve premium operasyon ihtiyaçlarına göre paketleri karşılaştırın."}>
         <div className="mt-12">
           <PackageCards packages={packages} />
         </div>
       </SectionShell>
 
-      <SectionShell id="process" eyebrow="05 Süreç" title="Her adım bir sonraki büyüme kararına bağlanır." text="Keşiften optimizasyona kadar her adım ölçülebilir, takip edilebilir ve müşteriye anlatılabilir şekilde ilerler.">
+      <SectionShell id="process" eyebrow="05 Süreç" title="Keşiften rapora kadar sade ve izlenebilir çalışma süreci." text="Keşiften optimizasyona kadar her adım ölçülebilir, takip edilebilir ve müşteriye anlatılabilir şekilde ilerler.">
         <div className="relative mt-14">
           <div className="absolute left-5 top-0 hidden h-full w-px bg-gradient-to-b from-cyan-300 via-amber-200 to-orange-400 md:block" />
           <div className="grid gap-4">
@@ -321,7 +322,48 @@ export function CinematicHomepage({ content }: { content: SiteContent }) {
         </div>
       </SectionShell>
 
-      <SectionShell id="contact" eyebrow="06 İletişim" title="İşletmenizi sadece reklama değil, sisteme bağlayalım." text="Kısa bir keşif görüşmesiyle reklam, CRM, raporlama ve AI analiz akışınızı nasıl kuracağımızı netleştirelim.">
+      <SectionShell id="local-seo" eyebrow="06 Manisa ve Türkiye geneli" title="Manisa merkezli işletmeler için yerel dijital pazarlama desteği." text="Şehzadeler, Yunusemre, Akhisar, Turgutlu, Salihli, Soma, Alaşehir ve Saruhanlı başta olmak üzere Manisa merkez ve ilçelerine; ayrıca Türkiye geneline uzaktan hizmet veriyoruz.">
+        <div className="mt-10 grid gap-4 lg:grid-cols-3">
+          {["Yerel işletmeler", "Hizmet markaları", "E-ticaret ve danışmanlık ekipleri"].map((title) => (
+            <div key={title} className="cinematic-card rounded-[18px] border border-white/10 bg-white/[0.045] p-6">
+              <h3 className="text-xl font-black text-white">{title}</h3>
+              <p className="mt-3 text-sm leading-7 text-slate-300">Reklam, sosyal medya, dönüşüm takibi ve raporlama ihtiyacı işletmenin hizmet alanına göre planlanır.</p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-8 flex flex-wrap gap-3">
+          <CinematicButton href="/manisa-dijital-pazarlama" trackingLabel="Manisa Landing İncele">Manisa dijital pazarlama hizmetleri</CinematicButton>
+          <CinematicButton href="/calismalarimiz" variant="ghost" trackingLabel="Çalışmalarımız İncele">Çalışmalarımızı İncele</CinematicButton>
+        </div>
+      </SectionShell>
+
+      <SectionShell id="faq-blog" eyebrow="07 Kaynaklar" title="Sık sorulan sorular ve başlangıç rehberleri." text="Karar vermeden önce kanal seçimi, bütçe ve ölçümleme mantığını sade biçimde inceleyebilirsiniz.">
+        <div className="mt-10 grid gap-5 lg:grid-cols-[.9fr_1.1fr]">
+          <div className="grid gap-4">
+            {[
+              ["Manisa dışındaki işletmelere hizmet veriliyor mu?", "Evet. HK Dijital Manisa merkezlidir; Türkiye genelindeki işletmelerle uzaktan çalışma modeli kurulabilir."],
+              ["Satış garantisi veriliyor mu?", "Hayır. Satış garantisi verilmez; strateji, kurulum, optimizasyon, dönüşüm takibi ve raporlama süreci yönetilir."],
+              ["Hangi reklam kanalıyla başlamalıyım?", "Bu karar sektör, hedef, bütçe ve mevcut dijital varlıklara göre ön görüşmede netleştirilir."]
+            ].map(([question, answer]) => (
+              <div key={question} className="cinematic-card rounded-[18px] border border-white/10 bg-white/[0.045] p-6">
+                <h3 className="text-lg font-black text-white">{question}</h3>
+                <p className="mt-3 text-sm leading-7 text-slate-300">{answer}</p>
+              </div>
+            ))}
+          </div>
+          <div className="grid gap-4">
+            {blogPosts.map((post) => (
+              <Link key={post.slug} href={`/blog/${post.slug}`} className="cinematic-card block rounded-[18px] border border-cyan-200/15 bg-cyan-200/[0.055] p-6 transition hover:-translate-y-1 hover:border-cyan-200/30">
+                <p className="text-xs font-black uppercase tracking-[.2em] text-cyan-200">{post.readingTime}</p>
+                <h3 className="mt-3 text-xl font-black text-white">{post.title}</h3>
+                <p className="mt-3 text-sm leading-7 text-slate-300">{post.description}</p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </SectionShell>
+
+      <SectionShell id="contact" eyebrow="08 İletişim" title="İşletmenizin dijital pazarlama yol haritasını netleştirelim." text="Kısa bir keşif görüşmesiyle reklam, dönüşüm takibi ve raporlama ihtiyacınızı değerlendirelim.">
         <div className="mt-10 grid items-start gap-8 lg:grid-cols-[.9fr_1.1fr]">
           <div className="cinematic-card rounded-[20px] border border-amber-200/18 bg-amber-200/[0.06] p-6">
             <MessageCircle className="text-amber-100" size={32} />

@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Award, FileText } from "lucide-react";
+import { Award, FileText, MapPin, ShieldCheck } from "lucide-react";
 import { getSiteContent } from "@/lib/content";
-import { pageMetadata } from "@/lib/metadata";
+import { absoluteUrl, pageMetadata } from "@/lib/metadata";
+import { JsonLd } from "@/components/public/JsonLd";
 import { PublicShell } from "@/components/public/Shell";
 import { AnimatedSection } from "@/components/public/AnimatedSection";
 import { PageHero, PremiumCard } from "@/components/public/ui";
@@ -18,14 +19,33 @@ export default async function AboutPage() {
 
   return (
     <PublicShell>
-      <PageHero eyebrow="Hakkımda" title={about.title} text="Dijital pazarlama uzmanı yaklaşımıyla, reklam danışmanlığı ve süreç yönetimini aynı disiplin içinde ele alan premium bir çalışma modeli." />
+      <JsonLd data={{
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Ana Sayfa", item: absoluteUrl("/") },
+          { "@type": "ListItem", position: 2, name: "Hakkımızda", item: absoluteUrl("/hakkimda") }
+        ]
+      }} />
+      <PageHero eyebrow="Hakkımızda" title="HK Dijital: Manisa Merkezli Dijital Pazarlama ve Reklam Danışmanlığı" text="Hayri Kamalı tarafından kurulan HK Dijital; reklam yönetimi, sosyal medya stratejisi, ölçümleme ve şeffaf raporlama yaklaşımıyla Manisa’dan Türkiye geneline hizmet verir." />
       <AnimatedSection className="px-4 pb-20 sm:px-6 lg:px-8">
         <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1fr_.85fr]">
           <PremiumCard>
-            <h1 className="text-3xl font-black text-white">Hayri Kamalı</h1>
+            <h2 className="text-3xl font-black text-white">Hayri Kamalı ve HK Dijital yaklaşımı</h2>
             <p className="mt-5 text-base leading-8 text-slate-300">{about.content}</p>
+            <p className="mt-5 text-base leading-8 text-slate-300">Çalışma modeli Manisa merkezli yerel pazar bilgisini, Türkiye geneline uzaktan hizmet verebilen dijital reklam ve ölçümleme disipliniyle birleştirir. Satış garantisi verilmez; hedef, veri, optimizasyon ve raporlama süreci şeffaf biçimde yönetilir.</p>
           </PremiumCard>
           <div className="grid gap-4">
+            <PremiumCard>
+              <MapPin className="text-cyan-200" />
+              <h2 className="mt-4 text-lg font-black text-cyan-100">Manisa merkezli çalışma</h2>
+              <p className="mt-3 text-sm leading-7 text-slate-300">Manisa’daki işletmelerin yerel rekabetini dikkate alır; Türkiye geneli hedeflemelerde uzaktan çalışma modeli kurar.</p>
+            </PremiumCard>
+            <PremiumCard>
+              <ShieldCheck className="text-cyan-200" />
+              <h2 className="mt-4 text-lg font-black text-cyan-100">Ölçüm ve şeffaflık</h2>
+              <p className="mt-3 text-sm leading-7 text-slate-300">Reklam performansı yalnız metrik değil, anlaşılır karar ve sonraki aksiyon olarak raporlanır.</p>
+            </PremiumCard>
             {about.highlights.map((item) => (
               <PremiumCard key={item}>
                 <h2 className="text-lg font-black text-cyan-100">{item}</h2>

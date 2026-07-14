@@ -4,6 +4,7 @@ import "./globals.css";
 import { TrackingPlaceholders } from "@/components/public/TrackingPlaceholders";
 import { MetaPixel } from "@/components/public/MetaPixel";
 import { getSiteContent, getSiteTheme } from "@/lib/content";
+import { SITE_URL } from "@/lib/metadata";
 import { getGlobalMetaPixelId } from "@/lib/meta-pixel-settings";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -12,11 +13,33 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 export async function generateMetadata(): Promise<Metadata> {
   const content = await getSiteContent();
   return {
+    metadataBase: new URL(SITE_URL),
     title: {
-      default: content.settings.siteTitle,
+      default: "Manisa Dijital Pazarlama Ajansı | HK Dijital",
       template: `%s | ${content.brand.companyName}`
     },
-    description: content.settings.siteDescription
+    description: "HK Dijital; Manisa merkezli Meta reklam yönetimi, Google Ads, sosyal medya stratejisi, dönüşüm takibi ve dijital pazarlama danışmanlığı sunar.",
+    applicationName: content.brand.companyName,
+    alternates: {
+      canonical: "/"
+    },
+    openGraph: {
+      type: "website",
+      locale: "tr_TR",
+      url: SITE_URL,
+      siteName: content.brand.companyName,
+      title: "Manisa Dijital Pazarlama Ajansı | HK Dijital",
+      description: "Manisa merkezli, Türkiye geneline hizmet veren dijital pazarlama ve reklam danışmanlığı ajansı."
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: "Manisa Dijital Pazarlama Ajansı | HK Dijital",
+      description: "Meta reklamları, Google Ads, sosyal medya stratejisi ve dönüşüm takibi için HK Dijital."
+    },
+    robots: {
+      index: true,
+      follow: true
+    }
   };
 }
 

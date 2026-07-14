@@ -4,10 +4,11 @@ import { Logo } from "./Logo";
 import { SocialLinks } from "./SocialLinks";
 
 export function Footer({ content }: { content: SiteContent }) {
+  const phoneHref = content.contact.phone ? `tel:${content.contact.phone.replace(/[^\d+]/g, "")}` : "";
   return (
     <footer className="relative overflow-hidden border-t border-white/10 bg-[#02040b]">
       <div className="premium-grid pointer-events-none absolute inset-0 opacity-35" />
-      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1.2fr_.8fr_.8fr] lg:px-8">
+      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1.1fr_.8fr_.8fr_.8fr_.9fr] lg:px-8">
         <div className="relative">
           <Logo content={content} footer />
           <p className="mt-5 max-w-xl text-sm leading-7 text-slate-400">{content.brand.footerDescription || content.brand.slogan}</p>
@@ -16,16 +17,31 @@ export function Footer({ content }: { content: SiteContent }) {
           </p>
         </div>
         <div className="relative">
-          <h2 className="text-sm font-bold uppercase tracking-[.22em] text-cyan-200">Sayfalar</h2>
+          <h2 className="text-sm font-bold uppercase tracking-[.22em] text-cyan-200">Hizmetler</h2>
           <div className="mt-4 grid gap-3 text-sm text-slate-300">
-            <Link href="/hizmetler">Hizmetler</Link>
-            <Link href="/hakkimda#sertifikalar">Sertifikalar</Link>
+            <Link href="/hizmetler/meta-reklam-yonetimi">Meta Reklam Yönetimi</Link>
+            <Link href="/hizmetler/google-ads-yonetimi">Google Ads Yönetimi</Link>
+            <Link href="/hizmetler/sosyal-medya-yonetimi">Sosyal Medya Yönetimi</Link>
+            <Link href="/hizmetler/dijital-pazarlama-danismanligi">Dijital Pazarlama Danışmanlığı</Link>
+          </div>
+        </div>
+        <div className="relative">
+          <h2 className="text-sm font-bold uppercase tracking-[.22em] text-cyan-200">HK Dijital</h2>
+          <div className="mt-4 grid gap-3 text-sm text-slate-300">
+            <Link href="/hakkimda">Hakkımızda</Link>
+            <Link href="/calismalarimiz">Çalışmalarımız</Link>
             <Link href="/paketler">Paketler</Link>
-            <Link href="/hk-intelligence">HK Intelligence</Link>
-            <Link href="/teklif-al">Teklif Al</Link>
+            <Link href="/blog">Blog</Link>
+            <Link href="/iletisim">İletişim</Link>
+            <Link href="/digital-center" className="text-slate-400">Müşteri Girişi</Link>
+          </div>
+        </div>
+        <div className="relative">
+          <h2 className="text-sm font-bold uppercase tracking-[.22em] text-cyan-200">Yasal</h2>
+          <div className="mt-4 grid gap-3 text-sm text-slate-300">
             <Link href="/gizlilik-politikasi">Gizlilik Politikası</Link>
-            <Link href="/kullanim-sartlari">Kullanım Şartları</Link>
-            <Link href="/veri-silme">Veri Silme</Link>
+            <Link href="/kullanim-sartlari">Kullanım Koşulları</Link>
+            <Link href="/veri-silme">Veri Silme Talimatları</Link>
           </div>
         </div>
         <div className="relative">
@@ -33,7 +49,7 @@ export function Footer({ content }: { content: SiteContent }) {
           <div className="mt-4 space-y-2 text-sm text-slate-300">
             <p>{content.contact.address}</p>
             <a href={`mailto:${content.contact.email}`}>{content.contact.email}</a>
-            <p>{content.contact.phone}</p>
+            {phoneHref ? <a className="block" href={phoneHref}>{content.contact.phone}</a> : <p>{content.contact.phone}</p>}
           </div>
           <SocialLinks content={content} />
         </div>

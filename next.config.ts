@@ -1,6 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  async redirects() {
+    return [
+      { source: "/cozumler", destination: "/hizmetler", permanent: true },
+      { source: "/entegrasyonlar", destination: "/hizmetler", permanent: true },
+      { source: "/kaynaklar", destination: "/blog", permanent: true },
+      { source: "/blog/:slug/", destination: "/blog/:slug", permanent: true },
+      { source: "/hizmetler/:slug/", destination: "/hizmetler/:slug", permanent: true }
+    ];
+  },
   async headers() {
     let supabaseOrigin = "";
     try {
