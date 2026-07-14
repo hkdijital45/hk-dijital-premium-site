@@ -23,6 +23,7 @@ import {
   UserCheck,
   X
 } from "lucide-react";
+import { TeamCommunicationCenter } from "@/components/admin/TeamCommunicationCenter";
 
 type Summary = {
   id: string;
@@ -131,13 +132,15 @@ function PriorityBadge({ value }: { value: string }) {
 
 export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canManageTemplates = false }: { initialCompanyId?: string; canManageTemplates?: boolean }) {
   const [queryParams] = useState(() => {
-    if (typeof window === "undefined") return { companyId: "", conversation: "" };
+    if (typeof window === "undefined") return { companyId: "", conversation: "", channel: "customers" };
     const params = new URLSearchParams(window.location.search);
     return {
       companyId: params.get("companyId") || "",
-      conversation: params.get("conversation") || ""
+      conversation: params.get("conversation") || "",
+      channel: params.get("channel") || "customers"
     };
   });
+  const [activeChannel, setActiveChannel] = useState(queryParams.channel === "team" ? "team" : "customers");
   const queryCompanyId = queryParams.companyId;
   const rawConversationId = queryParams.conversation;
   const requestedConversationId = uuidPattern.test(rawConversationId) ? rawConversationId : "";
@@ -170,6 +173,7 @@ export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canMan
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditCache, setAuditCache] = useState<Record<string, AuditPayload>>({});
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [teamConversationId, setTeamConversationId] = useState(activeChannel === "team" ? requestedConversationId : "");
   const submitting = useRef(false);
   const hasChanges = hasManagementChanges(detail, managementDraft);
   const visibleItems = useMemo(() => unreadOnly ? items.filter((item) => item.unread_count > 0) : items, [items, unreadOnly]);
@@ -411,11 +415,50 @@ export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canMan
     setAuditLoading(false);
   }
 
+  async function startTeamDiscussion() {
+    if (!detail || submitting.current) return;
+    const suggestedParticipants = detail.conversation.assigned_to ? [detail.conversation.assigned_to] : staff.slice(0, 3).map((user) => user.id);
+    if (!suggestedParticipants.length) {
+      setMessage("Ekip görüşmesi başlatmak için en az bir aktif ekip üyesi bulunmalıdır.");
+      return;
+    }
+    submitting.current = true;
+    setBusy("team-discussion");
+    const response = await fetch("/api/team-communication", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        conversationType: "customer_operation",
+        title: `${detail.conversation.company_name} - ${detail.conversation.subject}`,
+        message: `Müşteri konuşması için ekip değerlendirmesi başlatıldı.\n\nKonu: ${detail.conversation.subject}`,
+        priority: detail.conversation.priority,
+        participantIds: suggestedParticipants,
+        companyId: detail.conversation.company_id,
+        sourceCustomerConversationId: detail.conversation.id
+      })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (response.ok) {
+      setTeamConversationId(payload.conversationId);
+      setActiveChannel("team");
+    } else setMessage(payload.error || "Ekip görüşmesi başlatılamadı.");
+    setBusy("");
+    submitting.current = false;
+  }
+
   const openCount = items.filter((item) => !["resolved", "closed", "archived"].includes(item.status)).length;
   const unreadCount = items.reduce((total, item) => total + item.unread_count, 0);
   const selectedAttachments = detail?.attachments || [];
 
+  if (activeChannel === "team") {
+    return <div className="min-w-0 space-y-4">
+      <CommunicationTabs active={activeChannel} onChange={setActiveChannel} />
+      <TeamCommunicationCenter initialConversationId={teamConversationId || requestedConversationId} />
+    </div>;
+  }
+
   return <div className="min-w-0 space-y-4">
+    <CommunicationTabs active={activeChannel} onChange={setActiveChannel} />
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <Kpi icon={<Inbox size={20} />} label="Açık konuşma" value={openCount} tone="cyan" />
       <Kpi icon={<MessageSquareText size={20} />} label="Okunmamış mesaj" value={unreadCount} tone="rose" />
@@ -549,6 +592,7 @@ export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canMan
             <div className="mt-3 grid gap-2">
               <button type="button" onClick={createTask} disabled={busy === "task"} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-[12px] bg-violet-700 px-4 text-sm font-black text-white shadow-sm transition hover:bg-violet-800 disabled:cursor-not-allowed disabled:bg-violet-200 disabled:text-violet-600"><ClipboardList size={16} /> {busy === "task" ? "Oluşturuluyor..." : "Görev oluştur"}</button>
               <button type="button" onClick={openProposalFlow} disabled={busy === "proposal"} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-[12px] border border-cyan-300 bg-cyan-100 px-4 text-sm font-black text-cyan-900 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"><FileText size={16} /> Teklife bağla</button>
+              <button type="button" onClick={startTeamDiscussion} disabled={busy === "team-discussion"} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-[12px] border border-violet-300 bg-violet-100 px-4 text-sm font-black text-violet-900 transition hover:bg-violet-200 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"><MessageSquareText size={16} /> Ekipte Görüş</button>
               <Link href={`/hk-admin/musteriler?companyId=${detail.conversation.company_id}&tab=communication`} className="inline-flex min-h-12 items-center justify-center rounded-[12px] border border-slate-300 bg-white px-4 text-sm font-black text-slate-800 transition hover:bg-slate-50">Müşteri profilini aç</Link>
             </div>
           </section>
@@ -570,6 +614,13 @@ export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canMan
     {pendingSelection && <UnsavedChangesDialog onCancel={() => setPendingSelection("")} onDiscard={() => { setPendingSelection(""); setManagementDraft(managementFrom(detail?.conversation)); setSelectedId(pendingSelection); }} onSave={saveAndContinue} saving={busy === "management"} />}
     {auditMessage && <AuditModal message={auditMessage} audit={auditPayload} loading={auditLoading} onClose={() => setAuditMessage(null)} onRefresh={() => { setAuditCache((current) => { const next = { ...current }; delete next[auditMessage.id]; return next; }); void openAudit(auditMessage, true); }} />}
     {historyOpen && detail && <ConversationHistoryModal detail={detail} onClose={() => setHistoryOpen(false)} />}
+  </div>;
+}
+
+function CommunicationTabs({ active, onChange }: { active: string; onChange: (value: string) => void }) {
+  return <div className="flex flex-wrap gap-2 rounded-[18px] border border-slate-200 bg-white p-2 shadow-sm">
+    <button type="button" onClick={() => onChange("customers")} className={`min-h-11 rounded-[12px] px-4 text-sm font-black transition ${active === "customers" ? "bg-cyan-600 text-white" : "bg-slate-50 text-slate-700 hover:bg-slate-100"}`}>Müşteri Mesajları</button>
+    <button type="button" onClick={() => onChange("team")} className={`min-h-11 rounded-[12px] px-4 text-sm font-black transition ${active === "team" ? "bg-slate-900 text-white" : "bg-slate-50 text-slate-700 hover:bg-slate-100"}`}>Ekip İletişimi</button>
   </div>;
 }
 
