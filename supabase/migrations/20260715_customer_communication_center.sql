@@ -155,6 +155,49 @@ as $$
   )
 $$;
 
+create or replace function public.communication_has_branch_access(
+  p_actor_id uuid,
+  p_company_id uuid,
+  p_branch_id uuid
+)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  has_access boolean := false;
+begin
+  if p_branch_id is null then
+    return true;
+  end if;
+
+  -- Some live databases predate customer_user_branches. Deny branch-specific
+  -- access when the assignment source is unavailable instead of guessing.
+  if to_regclass('public.customer_user_branches') is null then
+    return false;
+  end if;
+
+  execute $query$
+    select exists (
+      select 1
+      from public.customer_user_branches access
+      where access.user_id = $1
+        and access.company_id = $2
+        and access.branch_id = $3
+    )
+  $query$
+  into has_access
+  using p_actor_id, p_company_id, p_branch_id;
+
+  return has_access;
+exception
+  when undefined_table or undefined_column then
+    return false;
+end;
+$$;
+
 create or replace function public.communication_can_access(p_conversation_id uuid)
 returns boolean
 language sql
@@ -170,24 +213,17 @@ as $$
       and actor.is_active and actor.deleted_at is null
       and actor.role in ('musteri', 'customer')
       and actor.company_id = c.company_id
-      and (
-        c.branch_id is null
-        or actor.branch_access_mode = 'all'
-        or exists (
-          select 1 from public.customer_user_branches access
-          where access.user_id = actor.id
-            and access.company_id = c.company_id
-            and access.branch_id = c.branch_id
-        )
-      )
+      and public.communication_has_branch_access(actor.id, c.company_id, c.branch_id)
   )
 $$;
 
 revoke all on function public.communication_actor_id() from public;
 revoke all on function public.communication_is_staff() from public;
+revoke all on function public.communication_has_branch_access(uuid, uuid, uuid) from public;
 revoke all on function public.communication_can_access(uuid) from public;
 grant execute on function public.communication_actor_id() to authenticated, service_role;
 grant execute on function public.communication_is_staff() to authenticated, service_role;
+grant execute on function public.communication_has_branch_access(uuid, uuid, uuid) to authenticated, service_role;
 grant execute on function public.communication_can_access(uuid) to authenticated, service_role;
 
 alter table public.customer_conversations enable row level security;
@@ -208,10 +244,7 @@ create policy customer_conversations_customer_create on public.customer_conversa
     select 1 from public.users actor
     where actor.id = created_by and actor.company_id = customer_conversations.company_id
       and actor.role in ('musteri', 'customer')
-      and (customer_conversations.branch_id is null or actor.branch_access_mode = 'all' or exists (
-        select 1 from public.customer_user_branches access
-        where access.user_id = actor.id and access.company_id = customer_conversations.company_id and access.branch_id = customer_conversations.branch_id
-      ))
+      and public.communication_has_branch_access(actor.id, customer_conversations.company_id, customer_conversations.branch_id)
   )
 );
 drop policy if exists customer_conversations_staff_manage on public.customer_conversations;
@@ -261,3 +294,5 @@ create policy communication_storage_read on storage.objects for select using (
       and public.communication_can_access(attachment.conversation_id)
   )
 );
+
+notify pgrst, 'reload schema';

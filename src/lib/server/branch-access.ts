@@ -35,9 +35,12 @@ export async function getUserBranchAccess(userId: string, companyId: string): Pr
   const fallback: UserBranchAccess = { mode: "selected", companyId, defaultBranchId: null, branches: [] };
   if (!hasSupabaseConfig() || !userId || !companyId) return fallback;
 
-  const [users, companyBranches, assignments] = await Promise.all([
-    supabaseRest<Array<{ branch_access_mode?: string | null; default_branch_id?: string | null }>>(
-      `users?id=eq.${encodeURIComponent(userId)}&company_id=eq.${encodeURIComponent(companyId)}&select=branch_access_mode,default_branch_id&limit=1`
+  const [userWithOptionalMode, userFallback, companyBranches, assignments] = await Promise.all([
+    supabaseRest<Array<{ id: string; branch_access_mode?: string | null; default_branch_id?: string | null }>>(
+      `users?id=eq.${encodeURIComponent(userId)}&company_id=eq.${encodeURIComponent(companyId)}&select=id,branch_access_mode,default_branch_id&limit=1`
+    ).catch(() => []),
+    supabaseRest<Array<{ id: string }>>(
+      `users?id=eq.${encodeURIComponent(userId)}&company_id=eq.${encodeURIComponent(companyId)}&select=id&limit=1`
     ).catch(() => []),
     getCompanyActiveBranches(companyId),
     supabaseRest<Array<{ branch_id: string; is_default?: boolean }>>(
@@ -45,13 +48,13 @@ export async function getUserBranchAccess(userId: string, companyId: string): Pr
     ).catch(() => [])
   ]);
 
-  const user = users[0];
-  if (!user) return fallback;
-  const mode = user.branch_access_mode === "all" ? "all" : "selected";
+  const user = userWithOptionalMode[0];
+  if (!user && !userFallback[0]) return fallback;
+  const mode = user?.branch_access_mode === "all" ? "all" : "selected";
   const assignmentIds = new Set(assignments.map((item) => item.branch_id));
   const branches = mode === "all" ? companyBranches : companyBranches.filter((branch) => assignmentIds.has(branch.id));
   const assignedDefault = assignments.find((item) => item.is_default)?.branch_id;
-  const requestedDefault = user.default_branch_id || assignedDefault || null;
+  const requestedDefault = user?.default_branch_id || assignedDefault || null;
   const defaultBranchId = branches.some((branch) => branch.id === requestedDefault) ? requestedDefault : branches[0]?.id || null;
 
   return { mode, companyId, defaultBranchId, branches };
