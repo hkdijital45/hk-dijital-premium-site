@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { getSession, isCustomerRole } from "@/lib/auth";
+import { getSession, isCustomerPasswordChangeRequired, isCustomerRole } from "@/lib/auth";
 import { diagnoseMetaBusinessAccess, publicMetaDiagnostics, tokenForCustomerMetaIntegration } from "@/lib/meta-business-phase2";
 
 export async function GET() {
   const session = await getSession();
+  if (isCustomerPasswordChangeRequired(session)) return NextResponse.json({ ok: false, error: "Önce geçici şifrenizi değiştirmeniz gerekiyor.", redirectTo: "/sifre-degistir" }, { status: 403 });
   if (!session || !isCustomerRole(session.role) || !session.companyId) {
     return NextResponse.json({ ok: false, error: "Müşteri oturumu gerekir." }, { status: 403 });
   }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticateUser, createSession, isCustomerRole } from "@/lib/auth";
+import { authenticateUser, createSession, isCustomerPasswordChangeRequired, isCustomerRole } from "@/lib/auth";
 import { recordCustomerLogin } from "@/lib/activity-log";
 import { resolveLoginEmail } from "@/lib/server/usernames";
 
@@ -30,7 +30,9 @@ export async function POST(request: Request) {
   await recordCustomerLogin(session.session);
   return NextResponse.json({
     ok: true,
-    redirectTo: isCustomerRole(session.session.role) ? "/musteri-paneli" : "/hk-admin",
+    redirectTo: isCustomerPasswordChangeRequired(session.session)
+      ? "/sifre-degistir"
+      : isCustomerRole(session.session.role) ? "/musteri-paneli" : "/hk-admin",
     role: session.session.role
   });
 }

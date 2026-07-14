@@ -27,6 +27,7 @@ import { CustomerBrandAssets } from "@/components/admin/customer-profile/Custome
 import { CustomerIntegrationsPanel } from "@/components/admin/customer-profile/CustomerIntegrationsPanel";
 import { CustomerProfileModal } from "@/components/admin/customer-profile/CustomerProfileModal";
 import { ActionResultPanel } from "@/components/admin/ActionResultPanel";
+import { ResetCustomerPasswordButton } from "@/components/admin/ResetCustomerPasswordButton";
 import { AiProviderSelector } from "@/components/admin/AiProviderSelector";
 import { HKAssistantWidget } from "@/components/shared/HKAssistantWidget";
 import { Logo } from "@/components/public/Logo";
@@ -7008,11 +7009,6 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
   function updateRelated(key, id, patch) {
     setContent({ ...content, [key]: (content[key] || []).map((item) => item.id === id ? { ...item, ...patch } : item) });
   }
-  async function resetPassword(user) {
-    const response = await fetch("/api/admin/users/reset-password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: user.email }) });
-    const data = await response.json().catch(() => ({}));
-    alert(response.ok ? data.message || "Şifre sıfırlama bağlantısı gönderildi." : data.error || "Şifre sıfırlama bağlantısı gönderilemedi.");
-  }
   return (
     <CustomerProfileModal company={company} content={content} onClose={close} onGo={(target, message) => { setActive?.(target); if (message) notify?.(message, "success"); }} showOverview={false}>
       <div className="hk-profile-tabs premium-scrollbar sticky top-0 z-20 mb-6 flex gap-2 overflow-x-auto border-b border-slate-200 bg-white/95 pb-3 pt-1 backdrop-blur">
@@ -7181,7 +7177,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
       {tab === "Marka Varlıkları" && <CustomerBrandAssets company={company} content={content} setContent={setContent} notify={notify} mode="full" />}
       {tab === "Giriş Bilgileri" && <div>
         <p className="mb-4 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-700">Müşteri şifresi güvenlik nedeniyle düz metin olarak saklanmaz. Yeni geçici şifre oluşturabilirsiniz.</p>
-        <div className="grid gap-3">{users.map((user) => <div key={user.id} className="rounded-[8px] border border-slate-200 p-4"><p className="font-black">{user.full_name || user.email}</p><p className="mt-1 text-sm text-slate-400">{user.email} · Bağlı kullanıcı: Var · Durum: {user.is_active ? "Aktif" : "Pasif"} · Rol: Müşteri</p><p className="mt-2 text-xs leading-5 text-slate-500">Son giriş: {formatDateTime(user.last_login_at)} · Toplam giriş: {user.login_count || 0}</p><button onClick={() => resetPassword(user)} className="mt-3 rounded-full border border-slate-200 px-4 py-2 text-sm">Şifre sıfırlama bağlantısı gönder</button></div>)}{!users.length && <p className="text-sm text-slate-400">Bağlı müşteri kullanıcısı yok. Müşteriler ekranındaki giriş hesabı oluşturma formunu kullanın.</p>}</div>
+        <div className="grid gap-3">{users.map((user) => <div key={user.id} className="rounded-[8px] border border-slate-200 p-4"><p className="font-black">{user.full_name || user.email}</p><p className="mt-1 text-sm text-slate-400">{user.email} · Bağlı kullanıcı: Var · Durum: {user.is_active ? "Aktif" : "Pasif"} · Rol: Müşteri</p><p className="mt-2 text-xs leading-5 text-slate-500">Son giriş: {formatDateTime(user.last_login_at)} · Toplam giriş: {user.login_count || 0}</p>{user.must_change_password && <p className="mt-2 text-xs font-bold text-amber-700">İlk girişte şifre değişikliği bekleniyor.</p>}<div className="mt-3"><ResetCustomerPasswordButton userId={user.id} email={user.email} customerName={user.full_name || company.name || user.email} source="customer_profile_login" disabled={!user.is_active || !user.auth_user_id} disabledReason={!user.auth_user_id ? "Bu müşteriye bağlı Supabase Auth hesabı bulunmuyor." : "Pasif müşteri hesabının şifresi sıfırlanamaz."} onSuccess={(updatedUser) => setContent({ ...content, users: (content.users || []).map((item) => item.id === user.id ? { ...item, ...updatedUser } : item) })} /></div></div>)}{!users.length && <p className="text-sm text-slate-400">Bağlı müşteri kullanıcısı yok. Müşteriler ekranındaki giriş hesabı oluşturma formunu kullanın.</p>}</div>
       </div>}
       {tab === "İletişim" && <ContactActionCenter record={company} type="customer" context="follow-up" />}
       {tab === "Satış Durumu" && <div className="grid gap-4">
@@ -8943,18 +8939,6 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
       setError(data.supabaseError ? `${data.error}: ${data.supabaseError}` : data.error || "Kullanıcı silinemedi.");
     }
   }
-  async function resetPassword(user) {
-    setError("");
-    setMessage("Şifre sıfırlama bağlantısı hazırlanıyor...");
-    if (!confirm(`${user.full_name || user.email} kullanıcısının şifresi geçici olarak ABC12345 yapılsın mı?`)) return;
-    const response = await fetch(`/api/admin/users/${user.id}/reset-password`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" }
-    });
-    const data = await response.json().catch(() => ({}));
-    setMessage(response.ok ? data.message || "Şifre sıfırlama bağlantısı gönderildi." : "");
-    if (!response.ok) setError(data.error || "Şifre sıfırlama bağlantısı gönderilemedi.");
-  }
   async function createUser() {
     setError("");
     if (customerRole(createForm.role) && createForm.branch_access_mode === "selected" && !createForm.branch_ids.length) {
@@ -9027,7 +9011,7 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
               </div>
               <div className="flex flex-wrap gap-2">
                 <button onClick={() => setEditingUser({ ...user, branch_access_mode: user.branch_access_mode || "all", branch_ids: branchIdsForUser(user.id), default_branch_id: user.default_branch_id || "" })} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Düzenle</button>
-                <button onClick={() => resetPassword(user)} className="rounded-full border border-slate-200 px-4 py-2 text-sm">Şifre sıfırla</button>
+                {customerRole(user.role) && <ResetCustomerPasswordButton userId={user.id} email={user.email} customerName={user.full_name || user.email} source="user_management" disabled={!user.is_active || !user.auth_user_id} disabledReason={!user.auth_user_id ? "Bu müşteriye bağlı Supabase Auth hesabı bulunmuyor." : "Pasif müşteri hesabının şifresi sıfırlanamaz."} onSuccess={(updatedUser) => { update(user.id, updatedUser); setMessage("Müşteri şifresi geçici olarak sıfırlandı."); }} />}
                 <button disabled={Boolean(blockedUserAction(user)) || !user.is_active} onClick={() => setConfirmAction({ type: "disable", user })} className="rounded-full border border-amber-300/30 px-4 py-2 text-sm text-amber-700 disabled:cursor-not-allowed disabled:opacity-45">Pasifleştir</button>
                 <button disabled={Boolean(blockedUserAction(user))} onClick={() => setConfirmAction({ type: "delete", user })} className="rounded-full border border-red-300/30 px-4 py-2 text-sm text-red-100 disabled:cursor-not-allowed disabled:opacity-45">Sil</button>
               </div>

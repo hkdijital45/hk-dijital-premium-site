@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSession, isCustomerRole, isStaffRole } from "@/lib/auth";
+import { getSession, isCustomerPasswordChangeRequired, isCustomerRole, isStaffRole } from "@/lib/auth";
 import { recordActivity } from "@/lib/activity-log";
 import { interpretReport } from "@/lib/report-interpretation";
 import { aggregateCustomerReports, getCustomerDateRange, platformFilterLabel, type CustomerPlatformFilter } from "@/lib/reports/customer-period";
@@ -20,6 +20,7 @@ type SavedInterpretationRow = Record<string, unknown> & { id?: string };
 export async function POST(request: Request) {
   try {
     const session = await getSession();
+    if (isCustomerPasswordChangeRequired(session)) return NextResponse.json({ error: "Önce geçici şifrenizi değiştirmeniz gerekiyor.", redirectTo: "/sifre-degistir" }, { status: 403 });
     if (!session) return NextResponse.json({ error: "Bu sayfaya erişim yetkiniz yok." }, { status: 403 });
     const body = await request.json();
     const reportIds = Array.from(new Set([...(Array.isArray(body.reportIds) ? body.reportIds : []), body.reportId].filter(Boolean))).slice(0, 25);

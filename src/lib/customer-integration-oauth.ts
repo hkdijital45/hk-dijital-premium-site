@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import crypto from "crypto";
-import { getSession, isCustomerRole, isStaffRole } from "@/lib/auth";
+import { getSession, isCustomerPasswordChangeRequired, isCustomerRole, isStaffRole } from "@/lib/auth";
 import { encryptSecret } from "@/lib/business-flow";
 import { diagnoseMetaBusinessAccess, listMetaBusinessAssets, META_BUSINESS_REQUIRED_SCOPES, publicMetaDiagnostics, tokenForCustomerMetaIntegration } from "@/lib/meta-business-phase2";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
@@ -298,12 +298,13 @@ function decryptSession(raw = "") {
 
 async function requireCustomerSession() {
   const session = await getSession();
-  return session && isCustomerRole(session.role) && session.companyId ? session : null;
+  return session && !isCustomerPasswordChangeRequired(session) && isCustomerRole(session.role) && session.companyId ? session : null;
 }
 
 async function requireIntegrationSession() {
   const session = await getSession();
   if (!session) return null;
+  if (isCustomerPasswordChangeRequired(session)) return null;
   if (isCustomerRole(session.role) && session.companyId) return session;
   if (isStaffRole(session.role)) return session;
   return null;

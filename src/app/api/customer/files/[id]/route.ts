@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSession, isCustomerRole } from "@/lib/auth";
+import { getSession, isCustomerPasswordChangeRequired, isCustomerRole } from "@/lib/auth";
 import { recordActivity } from "@/lib/activity-log";
 import { supabaseRest } from "@/lib/supabase";
 import { canSessionAccessResourceBranch } from "@/lib/server/branch-access";
@@ -8,6 +8,7 @@ type CustomerFileRow = { id: string; branch_id?: string | null; file_url?: strin
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getSession();
+  if (isCustomerPasswordChangeRequired(session)) return NextResponse.json({ error: "Önce geçici şifrenizi değiştirmeniz gerekiyor.", redirectTo: "/sifre-degistir" }, { status: 403 });
   if (!session || !isCustomerRole(session.role) || !session.companyId) {
     return NextResponse.json({ error: "Bu sayfaya erişim yetkiniz yok." }, { status: 403 });
   }

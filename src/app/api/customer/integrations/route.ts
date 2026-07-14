@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
-import { getSession, isCustomerRole } from "@/lib/auth";
+import { getSession, isCustomerPasswordChangeRequired, isCustomerRole } from "@/lib/auth";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
 const sensitiveFields = ["login_email", "login_username", "login_password", "recovery_email", "two_factor_note", "access_note", "sensitive_metadata", "access_token_encrypted", "refresh_token_encrypted"];
@@ -166,6 +166,7 @@ async function getRow(companyId: string) {
 
 export async function GET() {
   const session = await getSession();
+  if (isCustomerPasswordChangeRequired(session)) return NextResponse.json({ error: "Önce geçici şifrenizi değiştirmeniz gerekiyor.", redirectTo: "/sifre-degistir" }, { status: 403 });
   if (!session || !isCustomerRole(session.role) || !session.companyId) return NextResponse.json({ error: "Müşteri oturumu gerekir." }, { status: 403 });
   if (!hasSupabaseConfig()) return NextResponse.json({ integration: null, assets: [], warning: "Supabase bağlantısı yapılandırılmadı." });
   try {
@@ -179,6 +180,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const session = await getSession();
+  if (isCustomerPasswordChangeRequired(session)) return NextResponse.json({ error: "Önce geçici şifrenizi değiştirmeniz gerekiyor.", redirectTo: "/sifre-degistir" }, { status: 403 });
   if (!session || !isCustomerRole(session.role) || !session.companyId) return NextResponse.json({ error: "Müşteri oturumu gerekir." }, { status: 403 });
   if (!hasSupabaseConfig()) return NextResponse.json({ error: "Supabase bağlantısı yapılandırılmadı." }, { status: 500 });
   const body = await request.json().catch(() => ({}));

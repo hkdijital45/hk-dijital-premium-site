@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSession, isCustomerRole, isStaffRole } from "@/lib/auth";
+import { getSession, isCustomerPasswordChangeRequired, isCustomerRole, isStaffRole } from "@/lib/auth";
 import { recordActivity } from "@/lib/activity-log";
 import { supabaseRest } from "@/lib/supabase";
 import { canSessionAccessResourceBranch } from "@/lib/server/branch-access";
@@ -8,6 +8,7 @@ type CustomerReportAccessRow = { id: string; company_id: string; branch_id?: str
 
 export async function POST(request: Request) {
   const session = await getSession();
+  if (isCustomerPasswordChangeRequired(session)) return NextResponse.json({ error: "Önce geçici şifrenizi değiştirmeniz gerekiyor.", redirectTo: "/sifre-degistir" }, { status: 403 });
   if (!session) return NextResponse.json({ error: "Bu sayfaya erişim yetkiniz yok." }, { status: 403 });
   const { reportId } = await request.json();
   const rows = await supabaseRest<CustomerReportAccessRow[]>(`reports?id=eq.${encodeURIComponent(reportId)}&select=id,company_id,branch_id,report_type,visible_to_customer&limit=1`);

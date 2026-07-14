@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
-import { getSession, isCustomerRole } from "@/lib/auth";
+import { getSession, isCustomerPasswordChangeRequired, isCustomerRole } from "@/lib/auth";
 import { recordActivity } from "@/lib/activity-log";
 import { filterUpdatesForRange, filteredReportsForPeriod, getCustomerDateRange, platformFilterLabel, type CustomerPlatformFilter } from "@/lib/reports/customer-period";
 import { generateReportExport, type ExportFormat } from "@/lib/reports/report-exports";
@@ -10,6 +10,7 @@ import { canSessionAccessResourceBranch } from "@/lib/server/branch-access";
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getSession();
+  if (isCustomerPasswordChangeRequired(session)) return NextResponse.json({ error: "Önce geçici şifrenizi değiştirmeniz gerekiyor.", redirectTo: "/sifre-degistir" }, { status: 403 });
   if (!isCustomerRole(session?.role)) return NextResponse.json({ error: "Bu sayfaya erişim yetkiniz yok." }, { status: 403 });
   const { id } = await context.params;
   const searchParams = new URL(request.url).searchParams;

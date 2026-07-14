@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { redirect } from "next/navigation";
 import { BarChart3, Bell, CalendarCheck, CreditCard, Download, FileText, Lightbulb, MessageCircle, PackageCheck, Sparkles, UserRound } from "lucide-react";
-import { getSession, isCustomerRole, isStaffRole } from "@/lib/auth";
+import { getSession, isCustomerPasswordChangeRequired, isCustomerRole, isStaffRole } from "@/lib/auth";
 import { recordActivity } from "@/lib/activity-log";
 import { getCustomerCenterData, summarizeMetrics } from "@/lib/customer-center";
 import { canAccessBranch, getSessionBranchAccess, normalizeRequestedBranch } from "@/lib/server/branch-access";
@@ -42,6 +42,7 @@ const CUSTOMER_PORTAL_ADMIN_ONLY_MODULES = [
 export default async function MusteriPaneliPage({ searchParams }: { searchParams: Promise<{ company?: string; module?: string; branch?: string }> }) {
   const session = await getSession();
   if (!session) redirect("/digital-center");
+  if (isCustomerPasswordChangeRequired(session)) redirect("/sifre-degistir");
   const params = await searchParams;
   const isAdminPreview = isStaffRole(session.role) && Boolean(params.company);
   if (!isCustomerRole(session.role) && !isAdminPreview) {

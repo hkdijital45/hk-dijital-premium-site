@@ -17,6 +17,7 @@ export type AppSession = {
   accessToken?: string;
   refreshToken?: string;
   allowedModules?: string[];
+  mustChangePassword?: boolean;
 };
 
 type UserProfileRow = {
@@ -29,6 +30,7 @@ type UserProfileRow = {
   is_active: boolean;
   deleted_at?: string | null;
   allowed_modules?: string[] | null;
+  must_change_password?: boolean | null;
 };
 
 export type SupabaseAuthAdminUser = {
@@ -117,7 +119,8 @@ export async function getSession() {
       fullName: profile.full_name || session.fullName,
       companyId: profile.company_id
       ,
-      allowedModules: profile.allowed_modules || session.allowedModules
+      allowedModules: profile.allowed_modules || session.allowedModules,
+      mustChangePassword: Boolean(profile.must_change_password)
     };
   } catch {
     return session;
@@ -307,7 +310,8 @@ function profileToSession(profile: UserProfileRow, tokens?: { access_token?: str
     accessToken: tokens?.access_token,
     refreshToken: tokens?.refresh_token
     ,
-    allowedModules: profile.allowed_modules || undefined
+    allowedModules: profile.allowed_modules || undefined,
+    mustChangePassword: Boolean(profile.must_change_password)
   };
 }
 
@@ -361,4 +365,8 @@ export function isStaffRole(role?: string | null) {
 
 export function isCustomerRole(role?: string | null) {
   return role === "customer" || role === "musteri";
+}
+
+export function isCustomerPasswordChangeRequired(session?: AppSession | null) {
+  return Boolean(session && isCustomerRole(session.role) && session.mustChangePassword);
 }
