@@ -26,6 +26,7 @@ import { CustomerProfileTasks } from "@/components/admin/customer-profile/Custom
 import { CustomerBrandAssets } from "@/components/admin/customer-profile/CustomerBrandAssets";
 import { CustomerIntegrationsPanel } from "@/components/admin/customer-profile/CustomerIntegrationsPanel";
 import { CustomerProfileModal } from "@/components/admin/customer-profile/CustomerProfileModal";
+import { CustomerCommunicationAdminCenter } from "@/components/admin/CustomerCommunicationCenter";
 import { ActionResultPanel } from "@/components/admin/ActionResultPanel";
 import { DiscoveryReportViewer, type DiscoveryReportRecord } from "@/components/admin/DiscoveryReportViewer";
 import { ResetCustomerPasswordButton } from "@/components/admin/ResetCustomerPasswordButton";
@@ -876,6 +877,7 @@ export function AdminDashboard({
           {active === "Mobil Operasyon Modu" && <MobileOperationModeCenter />}
           {active === "Yapay Zekâ Denetim" && <AiAuditCenter {...props} setActive={setActive} />}
           {active === "Görevler" && <AgencyTasksCenter {...props} selectedCompanyId={selectedCompanyId} />}
+          {active === "Müşteri İletişim Merkezi" && <CustomerCommunicationAdminCenter initialCompanyId={selectedCompanyId} canManageTemplates={["admin", "yonetici"].includes(currentSession?.role || "")} />}
           {active === "Belgeler" && <DocumentCenter {...props} selectedCompanyId={selectedCompanyId} />}
           {active === "Takvim" && <AgencyCalendarCenter {...props} />}
           {active === "Sözleşme Oluştur" && <ContractGeneratorCenter {...props} />}
@@ -6776,7 +6778,8 @@ const customerProfileTabBySlug: Record<string, string> = {
   login: "Giriş Bilgileri",
   integrations: "Entegrasyonlar",
   tasks: "Yapılacaklar",
-  "panel-builder": "Panel Builder"
+  "panel-builder": "Panel Builder",
+  communication: "İletişim Geçmişi"
 };
 
 function CustomerDetailDrawer({ company, content, setContent, updateCompany, saveCompany, save, setActive, close, notify, currentSession }: any) {
@@ -6841,7 +6844,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
     show_files: true,
     show_contact_person: true
   };
-  const tabs = ["Genel Bilgi", "Büyüme", "Müşteri Kurulumu", "Entegrasyonlar", "Platform Yönetimi", "Panel Builder", "Bağlantı Bilgileri", "Marka Varlıkları", "İletişim", "Satış Durumu", "Reklam Hesapları", "Kampanyalar", "Teklifler", "Ödemeler", "Yapılacaklar", "Raporlar", "Dosyalar", "Zaman Çizelgesi", "Panel Görünürlüğü", "Giriş Bilgileri", "Metrikler", "Yapılan Çalışmalar", "Aktivite Geçmişi", "Notlar"];
+  const tabs = ["Genel Bilgi", "Büyüme", "Müşteri Kurulumu", "Entegrasyonlar", "Platform Yönetimi", "Panel Builder", "Bağlantı Bilgileri", "Marka Varlıkları", "İletişim", "İletişim Geçmişi", "Satış Durumu", "Reklam Hesapları", "Kampanyalar", "Teklifler", "Ödemeler", "Yapılacaklar", "Raporlar", "Dosyalar", "Zaman Çizelgesi", "Panel Görünürlüğü", "Giriş Bilgileri", "Metrikler", "Yapılan Çalışmalar", "Aktivite Geçmişi", "Notlar"];
   async function runProfileAction(label, action) {
     setProfileAction(`${label}...`);
     try {
@@ -7153,6 +7156,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
         <div className="grid gap-3">{users.map((user) => <div key={user.id} className="rounded-[8px] border border-slate-200 p-4"><p className="font-black">{user.full_name || user.email}</p><p className="mt-1 text-sm text-slate-400">{user.email} · Bağlı kullanıcı: Var · Durum: {user.is_active ? "Aktif" : "Pasif"} · Rol: Müşteri</p><p className="mt-2 text-xs leading-5 text-slate-500">Son giriş: {formatDateTime(user.last_login_at)} · Toplam giriş: {user.login_count || 0}</p>{user.must_change_password && <p className="mt-2 text-xs font-bold text-amber-700">İlk girişte şifre değişikliği bekleniyor.</p>}<div className="mt-3"><ResetCustomerPasswordButton userId={user.id} email={user.email} customerName={user.full_name || company.name || user.email} source="customer_profile_login" disabled={!user.is_active || !user.auth_user_id} disabledReason={!user.auth_user_id ? "Bu müşteriye bağlı Supabase Auth hesabı bulunmuyor." : "Pasif müşteri hesabının şifresi sıfırlanamaz."} onSuccess={(updatedUser) => setContent({ ...content, users: (content.users || []).map((item) => item.id === user.id ? { ...item, ...updatedUser } : item) })} /></div></div>)}{!users.length && <p className="text-sm text-slate-400">Bağlı müşteri kullanıcısı yok. Müşteriler ekranındaki giriş hesabı oluşturma formunu kullanın.</p>}</div>
       </div>}
       {tab === "İletişim" && <ContactActionCenter record={company} type="customer" context="follow-up" />}
+      {tab === "İletişim Geçmişi" && <div className="rounded-[18px] border border-cyan-200 bg-cyan-50 p-5"><p className="text-xs font-black uppercase tracking-[.14em] text-cyan-700">Uygulama içi iletişim</p><h3 className="mt-2 text-xl font-black text-slate-950">{company.name} konuşmaları</h3><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-700">Müşteri taleplerini, ekip yanıtlarını, atamaları ve iç notları birleşik gelen kutusunda yönetin.</p><Link href={`/hk-admin/iletisim-merkezi?companyId=${company.id}`} className="mt-4 inline-flex min-h-11 items-center rounded-[10px] bg-cyan-600 px-5 text-sm font-black text-white">İletişim geçmişini aç</Link></div>}
       {tab === "Satış Durumu" && <div className="grid gap-4">
         <div className="rounded-[8px] border border-cyan-200/20 bg-cyan-200/[0.08] p-4">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">

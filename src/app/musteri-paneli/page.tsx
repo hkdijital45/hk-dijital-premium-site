@@ -2,7 +2,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { BarChart3, Bell, CalendarCheck, CreditCard, Download, FileText, Lightbulb, MessageCircle, PackageCheck, Sparkles, UserRound } from "lucide-react";
+import { BarChart3, Bell, CalendarCheck, CreditCard, Download, FileText, Lightbulb, PackageCheck, Sparkles, UserRound } from "lucide-react";
 import { getSession, isCustomerPasswordChangeRequired, isCustomerRole, isStaffRole } from "@/lib/auth";
 import { recordActivity } from "@/lib/activity-log";
 import { getCustomerCenterData, summarizeMetrics } from "@/lib/customer-center";
@@ -16,6 +16,7 @@ import { Logo } from "@/components/public/Logo";
 import { getSiteContent } from "@/lib/content";
 import { calculateTotalWithVat, calculateVat, findServicePackage, formatTRY, getPackagePricing } from "@/lib/packages";
 import { HKAssistantWidget } from "@/components/shared/HKAssistantWidget";
+import { CustomerCommunicationCenter } from "@/components/customer/CustomerCommunicationCenter";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +40,7 @@ const CUSTOMER_PORTAL_ADMIN_ONLY_MODULES = [
   "todos"
 ];
 
-export default async function MusteriPaneliPage({ searchParams }: { searchParams: Promise<{ company?: string; module?: string; branch?: string }> }) {
+export default async function MusteriPaneliPage({ searchParams }: { searchParams: Promise<{ company?: string; module?: string; branch?: string; conversation?: string; category?: string; subject?: string; source?: string; relatedType?: string; relatedId?: string }> }) {
   const session = await getSession();
   if (!session) redirect("/digital-center");
   if (isCustomerPasswordChangeRequired(session)) redirect("/sifre-degistir");
@@ -111,8 +112,6 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
   const portalName = branding.brand_name || data.company?.name || "HK Dijital";
   const portalTitle = branding.report_title || `${portalName} Digital Center`;
   const welcomeText = branding.welcome_text || "Performans raporlarınız, kampanya notlarınız ve dijital büyüme verileriniz burada.";
-  const contactWhatsapp = String(branding.contact_whatsapp || "").replace(/\D/g, "");
-  const contactHref = contactWhatsapp ? `https://wa.me/${contactWhatsapp}` : branding.contact_email ? `mailto:${branding.contact_email}` : branding.contact_phone ? `tel:${branding.contact_phone}` : "/iletisim";
   const paymentSummary = data.payments.reduce((total, item) => ({ paid: total.paid + (item.status === "Ödendi" ? Number(item.amount || 0) : 0), pending: total.pending + (item.status !== "Ödendi" && item.status !== "İptal" ? Number(item.amount || 0) : 0) }), { paid: 0, pending: 0 });
   const integrationStatus = data.integration?.status || data.integration?.sync_status || data.integration?.admin_review_status || "";
   const integrationMetadata = data.integration?.metadata || {};
@@ -311,7 +310,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
             </>
           ) : null}
           <div className="mt-5 flex flex-wrap gap-2">
-            <a href={`mailto:${branding.contact_email || "hayrikamali@icloud.com"}?subject=${encodeURIComponent("HK Dijital Paket Yükseltme Talebi")}`} className="rounded-full bg-cyan-600 px-5 py-3 text-sm font-black text-white">Paket yükseltme talebi gönder</a>
+            <a href={`/musteri-paneli?module=support&category=package_upgrade&subject=${encodeURIComponent("Paket yükseltme talebi")}&source=package_card&relatedType=package&relatedId=${encodeURIComponent(data.company?.customer_package_name || "")}#destek`} className="rounded-full bg-cyan-600 px-5 py-3 text-sm font-black text-white">Paket yükseltme talebi gönder</a>
             <a href="/teklif-al" className="rounded-full border border-cyan-200 bg-cyan-50 px-5 py-3 text-sm font-black text-cyan-800">Görüşme talep et</a>
           </div>
         </section>
@@ -507,6 +506,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
                   <div className="mt-4 flex flex-wrap gap-2">
                     {reportUrl ? <a href={reportUrl} target="_blank" rel="noreferrer" className="rounded-full bg-cyan-600 px-4 py-2 text-sm font-black text-white">Raporu Aç</a> : <span className="rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-black text-amber-800">Dosya çıktısı henüz eklenmedi</span>}
                     {reportUrl ? <a href={reportUrl} download className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700">İndir</a> : null}
+                    {hasModule("support") && <a href={`/musteri-paneli?module=support&category=report_question&subject=${encodeURIComponent(`${report.title || report.report_title || "Rapor"} hakkında destek`)}&source=report&relatedType=report&relatedId=${encodeURIComponent(report.id)}#destek`} className="rounded-full border border-purple-200 bg-purple-50 px-4 py-2 text-sm font-black text-purple-800">Bu rapor hakkında destek iste</a>}
                   </div>
                 </article>
               );
@@ -664,16 +664,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
 
         <section className="mt-8 grid gap-4 md:grid-cols-2">
           {hasModule("support") && (
-          <section id="destek" className="glass-card scroll-mt-28 p-5">
-            <h2 className="flex items-center gap-2 text-xl font-black"><MessageCircle className="text-cyan-600" /> Destek</h2>
-            <p className="mt-3 text-sm leading-6 text-slate-600">Raporlar, kampanya notları, eksik bilgi veya toplantı talepleri için HK Dijital ekibine ulaşabilirsiniz.</p>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <a href={contactHref} target={contactHref.startsWith("http") ? "_blank" : undefined} rel={contactHref.startsWith("http") ? "noreferrer" : undefined} className="rounded-[14px] border border-cyan-200 bg-cyan-50 p-4 text-sm font-black text-cyan-800">WhatsApp / iletişim kanalını aç</a>
-              <a href={`mailto:${branding.contact_email || "hayrikamali@icloud.com"}?subject=${encodeURIComponent("HK Dijital Destek Talebi")}`} className="rounded-[14px] border border-slate-200 bg-white p-4 text-sm font-black text-slate-700">Destek talebi gönder</a>
-              <a href={`mailto:${branding.contact_email || "hayrikamali@icloud.com"}?subject=${encodeURIComponent("HK Dijital Toplantı Talebi")}`} className="rounded-[14px] border border-purple-200 bg-purple-50 p-4 text-sm font-black text-purple-800">Toplantı talebi oluştur</a>
-              <a href="#hesap-bagla" className="rounded-[14px] border border-amber-200 bg-amber-50 p-4 text-sm font-black text-amber-900">Eksik bilgileri gönder</a>
-            </div>
-          </section>
+          <div id="destek" className="scroll-mt-28 md:col-span-2"><CustomerCommunicationCenter branchId={selectedBranchId} initialConversationId={params.conversation} initialCategory={params.category} initialSubject={params.subject} source={params.source} relatedEntityType={params.relatedType} relatedEntityId={params.relatedId} /></div>
           )}
           {hasModule("notifications") && (
           <section id="bildirimler" className="glass-card scroll-mt-28 p-5">

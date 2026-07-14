@@ -109,6 +109,7 @@ const adminNavigationSourceGroups: AdminNavigationGroup[] = [
     badge: "Ajans",
     accent: "from-cyan-500 via-blue-600 to-indigo-700",
     items: [
+      { label: "Müşteri İletişim Merkezi", slug: "iletisim-merkezi", module: "iletisim-merkezi", description: "Müşteri talepleri, ekip yanıtları, atamalar ve iletişim geçmişi." },
       { label: "Görevler", slug: "gorevler", module: "gorevler", description: "Ajans içi yapılacak işler ve müşteri görünür görevler." },
       { label: "Takvim", slug: "takvim", module: "gorevler", description: "Görev, kampanya, rapor ve tahsilat tarihleri." },
       { label: "Ajans Hedefleri", slug: "ajans-hedefleri", module: "karlilik", description: "Aylık gelir, müşteri, teklif, görüşme ve tahsilat hedefleri." },
@@ -272,6 +273,8 @@ export const adminNavigationGroups: AdminNavigationGroup[] = navigationGroupPlan
 export const adminNavigationItems = adminNavigationGroups.flatMap((group) => group.items);
 
 const legacySlugRedirects: Record<string, string> = {
+  destek: "iletisim-merkezi",
+  "musteri-mesajlari": "iletisim-merkezi",
   kullanicilar: "kullanici-yonetimi",
   "roller-yetkiler": "kullanici-yonetimi",
   "kullanici-yonetimi": "kullanici-yonetimi",
