@@ -87,7 +87,6 @@ const adminNavigationSourceGroups: AdminNavigationGroup[] = [
       { label: "Modül Pazarı", slug: "marketplace", module: "marketplace", description: "Paket ve modül kartlarından Büyüme Motoru planı başlat." },
       { label: "Meta Raporları", slug: "meta-raporlari", module: "meta-analiz", description: "Meta reklam verilerinden müşteri raporları." },
       { label: "Google Ads Raporları", slug: "google-ads-raporlari", module: "google-analiz", description: "Google Ads metrikleri ve manuel rapor girişi." },
-      { label: "Rakip Analizi", slug: "rakip-analizi", module: "rakip-analizi", description: "Rakip görünürlüğü, reklam fırsatları, alarm ve sinyal takipleri." }
     ]
   },
   {
@@ -116,7 +115,6 @@ const adminNavigationSourceGroups: AdminNavigationGroup[] = [
       { label: "Belgeler", slug: "belgeler", module: "belgeler", description: "Müşteri belgeleri, sözleşmeler ve paylaşılabilir dosyalar." },
       { label: "Sözleşme Oluştur", slug: "sozlesme-olustur", module: "belgeler", description: "Müşteri ve hizmet paketinden sözleşme taslağı." },
       { label: "WhatsApp Hatırlatma Merkezi", slug: "whatsapp-hatirlatma", module: "teklifler", description: "Takip, ödeme ve rapor mesaj şablonları." },
-      { label: "Sosyal Medya Planı", slug: "sosyal-medya-plani", module: "sosyal-medya-plani", description: "İçerik takvimi, Reels/Story planı ve müşteri onayı." },
       { label: "Sektör Sistemleri", slug: "sektor-sistemleri", module: "sektor-sistemleri", description: "Sektöre özel operasyon ve takip şablonları." }
     ]
   },

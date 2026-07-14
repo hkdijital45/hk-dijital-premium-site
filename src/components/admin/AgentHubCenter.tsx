@@ -768,7 +768,7 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs font-black uppercase tracking-[.18em] text-cyan-200">AI & Otomasyon</p>
-          <h2 className="mt-3 text-3xl font-black">HK Agent Hub Phase 3</h2>
+          <h2 className="mt-3 text-3xl font-black">HK Agent Hub</h2>
           <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-200">Otomatik AI seçimi, seçim nedeni açıklaması, güvenli yedek akış, AI Hafızası, görev sırası, çıktı hazırlama, e-posta, WhatsApp ve karşılaştırmalı test merkezi.</p>
         </div>
         <button onClick={loadData} disabled={loading} className="rounded-[14px] border border-white/20 bg-white px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-60"><RefreshCw size={16} className="mr-2 inline" />Yenile</button>
@@ -978,7 +978,7 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
 
     {activeTab === "prompts" && <section className="rounded-[22px] border border-slate-200 bg-white p-5">
       <h3 className="text-xl font-black text-slate-950">Prompt Merkezi</h3>
-      <p className="mt-2 text-sm text-slate-600">Agent Hub promptları `agent_prompts` tablosuyla uyumludur. Mevcut Prompt Merkezi varsa aynı veri yapısına bağlanabilir.</p>
+      <p className="mt-2 text-sm text-slate-600">Kaydedilen komutlar aynı merkezden sürümlenir; önceki sürümlere güvenle dönebilirsiniz.</p>
       <div className="mt-4 overflow-x-auto">
         <table className="w-full min-w-[760px] text-left text-sm"><thead className="text-xs uppercase tracking-[.12em] text-slate-500"><tr><th className="border-b py-3">Görev tipi</th><th className="border-b py-3">Sağlayıcı</th><th className="border-b py-3">Başlık</th><th className="border-b py-3">Durum</th><th className="border-b py-3">İşlem</th></tr></thead>
           <tbody>{taskTypes.slice(0, 8).map((task) => <tr key={task.value} className="border-b border-slate-100"><td className="py-3 font-bold">{task.label}</td><td className="py-3">{providerLabel(chainMap[task.value]?.[0] || "demo")}</td><td className="py-3">{task.label} varsayılan promptu</td><td className="py-3"><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">Aktif</span></td><td className="py-3 text-xs text-slate-500">Görev çalıştırılırken otomatik uygulanır</td></tr>)}</tbody></table>
