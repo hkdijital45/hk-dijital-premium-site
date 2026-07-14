@@ -29,6 +29,8 @@ export async function GET(request: Request) {
   const companyId = query.get("companyId") || "";
   const status = query.get("status") || "";
   const category = query.get("category") || "";
+  const priority = query.get("priority") || "";
+  const view = query.get("view") || "";
   const search = sanitizeCommunicationText(query.get("search"), 80).toLocaleLowerCase("tr");
 
   if (context.isCustomer && !context.session.companyId) {
@@ -37,11 +39,15 @@ export async function GET(request: Request) {
   if (companyId && !isUuid(companyId)) return NextResponse.json({ error: "Geçersiz müşteri filtresi." }, { status: 400 });
 
   try {
-    const filters = ["archived_at=is.null"];
+    const includeArchived = status === "archived";
+    const filters = includeArchived ? [] : ["archived_at=is.null"];
     if (context.isCustomer) filters.push(`company_id=eq.${context.session.companyId}`, "customer_archived_at=is.null");
     else if (companyId) filters.push(`company_id=eq.${companyId}`);
     if (status) filters.push(`status=eq.${encodeURIComponent(status)}`);
+    if (priority && conversationPriorities.includes(priority as (typeof conversationPriorities)[number])) filters.push(`priority=eq.${encodeURIComponent(priority)}`);
     if (category) filters.push(`category=eq.${encodeURIComponent(category)}`);
+    if (context.isStaff && view === "assigned_to_me") filters.push(`assigned_to=eq.${context.profileId}`);
+    if (context.isStaff && view === "reply_required") filters.push("or=(status.eq.new,status.eq.admin_reply_required)");
     const conversations = await supabaseRest<ConversationRow[]>(
       `customer_conversations?${filters.join("&")}&select=*&order=last_message_at.desc&limit=200`
     );
@@ -65,6 +71,7 @@ export async function GET(request: Request) {
     const companyNames = new Map(companies.map((item) => [item.id, item.name]));
     const branchNames = new Map(branches.map((item) => [item.id, item.branch_name]));
     const userNames = new Map(users.map((item) => [item.id, item.full_name || "Kullanıcı"]));
+    const priorityRank: Record<string, number> = { urgent: 0, important: 1, normal: 2 };
     const result = accessible.map((conversation) => {
       const ownMessages = messages.filter((item) => item.conversation_id === conversation.id);
       const latestMessage = ownMessages.at(-1) || null;
@@ -78,6 +85,10 @@ export async function GET(request: Request) {
         message_count: ownMessages.length,
         unread_count: unreadCount
       };
+    }).sort((a, b) => {
+      const priorityDelta = (priorityRank[a.priority] ?? 3) - (priorityRank[b.priority] ?? 3);
+      if (priorityDelta) return priorityDelta;
+      return new Date(b.last_message_at || b.created_at).getTime() - new Date(a.last_message_at || a.created_at).getTime();
     });
     return NextResponse.json({
       conversations: result,

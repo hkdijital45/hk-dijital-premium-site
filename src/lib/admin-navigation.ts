@@ -259,6 +259,12 @@ export const adminNavigationGroups: AdminNavigationGroup[] = navigationGroupPlan
       seen.add(key);
       return true;
     });
+  const orderedItems = plan.label === "Operasyon"
+    ? items.slice().sort((a, b) => {
+      const rank = (item: AdminNavigationItem) => item.slug === "" ? 0 : item.slug === "iletisim-merkezi" ? 1 : 2;
+      return rank(a) - rank(b);
+    })
+    : items;
 
   return {
     label: plan.label,
@@ -266,7 +272,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = navigationGroupPlan
     icon: plan.icon,
     badge: plan.badge,
     accent: plan.accent,
-    items
+    items: orderedItems
   };
 });
 

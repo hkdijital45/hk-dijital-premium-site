@@ -3,7 +3,7 @@ import "server-only";
 import { getSession, isCustomerRole, isStaffRole, type AppSession } from "@/lib/auth";
 import { uuidPattern } from "@/lib/meta-pixel-admin";
 import { canSessionAccessResourceBranch } from "@/lib/server/branch-access";
-import { supabaseRest } from "@/lib/supabase";
+import { getSafeSupabaseError, supabaseRest } from "@/lib/supabase";
 
 export const conversationCategories = ["general", "package_upgrade", "advertising", "report_question", "content_revision", "technical_support", "finance", "billing", "new_service", "account_access", "other"] as const;
 export const conversationPriorities = ["normal", "important", "urgent"] as const;
@@ -116,7 +116,10 @@ export async function createConversationNotification({
       show_to_customer: showToCustomer,
       metadata: { conversation_id: conversation.id }
     })
-  }).catch(() => null);
+  }).catch((error) => {
+    const safe = getSafeSupabaseError(error);
+    console.error("[customer-communication] Bildirim oluşturulamadı:", safe.detail);
+  });
 }
 
 export async function recordConversationActivity(

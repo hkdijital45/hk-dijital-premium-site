@@ -23,16 +23,33 @@ type Canned = { id: string; title: string; category: string; body: string };
 const statusOptions = [["new", "Yeni"], ["admin_reply_required", "Admin yanıtı bekliyor"], ["customer_reply_required", "Müşteri yanıtı bekleniyor"], ["in_review", "İnceleniyor"], ["in_progress", "İşleme alındı"], ["resolved", "Çözüldü"], ["closed", "Kapatıldı"], ["archived", "Arşivlendi"]];
 const priorityOptions = [["normal", "Normal"], ["important", "Önemli"], ["urgent", "Acil"]];
 const categoryOptions = [["", "Tüm kategoriler"], ["general", "Genel"], ["package_upgrade", "Paket yükseltme"], ["advertising", "Reklam"], ["report_question", "Rapor sorusu"], ["content_revision", "İçerik revizyonu"], ["technical_support", "Teknik destek"], ["finance", "Finans"], ["billing", "Ödeme / fatura"], ["new_service", "Yeni hizmet"], ["account_access", "Hesap erişimi"], ["other", "Diğer"]];
+const inboxViewOptions = [["all", "Tümü"], ["reply_required", "Yeni / Yanıt Bekleyen"], ["assigned_to_me", "Bana Atananlar"]];
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function key() { return crypto.randomUUID(); }
 
 export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canManageTemplates = false }: { initialCompanyId?: string; canManageTemplates?: boolean }) {
+  const [queryParams] = useState(() => {
+    if (typeof window === "undefined") return { companyId: "", conversation: "" };
+    const params = new URLSearchParams(window.location.search);
+    return {
+      companyId: params.get("companyId") || "",
+      conversation: params.get("conversation") || ""
+    };
+  });
+  const queryCompanyId = queryParams.companyId;
+  const rawConversationId = queryParams.conversation;
+  const requestedConversationId = uuidPattern.test(rawConversationId) ? rawConversationId : "";
+  const effectiveCompanyId = requestedConversationId ? "" : initialCompanyId || (uuidPattern.test(queryCompanyId) ? queryCompanyId : "");
+  const initialMessage = rawConversationId && !requestedConversationId ? "Geçersiz konuşma bağlantısı. Gelen kutusu listesi gösteriliyor." : "";
   const [items, setItems] = useState<Summary[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [canned, setCanned] = useState<Canned[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [detail, setDetail] = useState<Detail | null>(null);
+  const [viewFilter, setViewFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [search, setSearch] = useState("");
   const [reply, setReply] = useState("");
@@ -42,28 +59,37 @@ export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canMan
   const [templateBody, setTemplateBody] = useState("");
   const [busy, setBusy] = useState("");
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(initialMessage);
   const submitting = useRef(false);
 
   const loadList = useCallback(async () => {
     setLoading(true);
     const query = new URLSearchParams();
-    if (initialCompanyId) query.set("companyId", initialCompanyId);
+    if (effectiveCompanyId) query.set("companyId", effectiveCompanyId);
+    if (viewFilter !== "all") query.set("view", viewFilter);
     if (statusFilter) query.set("status", statusFilter);
+    if (priorityFilter) query.set("priority", priorityFilter);
     if (categoryFilter) query.set("category", categoryFilter);
     if (search) query.set("search", search);
     const response = await fetch(`/api/communication?${query}`, { cache: "no-store" });
     const payload = await response.json().catch(() => ({}));
     if (response.ok) {
-      setItems(payload.conversations || []);
+      const conversations = payload.conversations || [];
+      setItems(conversations);
       setStaff(payload.staff || []);
-      if (!selectedId && payload.conversations?.[0]?.id) setSelectedId(payload.conversations[0].id);
+      if (requestedConversationId) setSelectedId(requestedConversationId);
+      else if (!selectedId || !conversations.some((item: Summary) => item.id === selectedId)) setSelectedId(conversations[0]?.id || "");
     } else setMessage(payload.error || "Gelen kutusu yüklenemedi.");
     setLoading(false);
-  }, [categoryFilter, initialCompanyId, search, selectedId, statusFilter]);
+  }, [categoryFilter, effectiveCompanyId, priorityFilter, requestedConversationId, search, selectedId, statusFilter, viewFilter]);
 
   const loadDetail = useCallback(async (id: string) => {
     if (!id) return setDetail(null);
+    if (!uuidPattern.test(id)) {
+      setDetail(null);
+      setMessage("Geçersiz konuşma bağlantısı. Gelen kutusu listesi gösteriliyor.");
+      return;
+    }
     setBusy("detail");
     const response = await fetch(`/api/communication/${id}`, { cache: "no-store" });
     const payload = await response.json().catch(() => ({}));
@@ -71,7 +97,10 @@ export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canMan
       setDetail(payload);
       await fetch(`/api/communication/${id}/read`, { method: "POST" });
       setItems((current) => current.map((item) => item.id === id ? { ...item, unread_count: 0 } : item));
-    } else setMessage(payload.error || "Konuşma yüklenemedi.");
+    } else {
+      setDetail(null);
+      setMessage(payload.error || "Konuşma yüklenemedi.");
+    }
     setBusy("");
   }, []);
 
@@ -162,9 +191,14 @@ export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canMan
       <Kpi icon={<ClipboardList />} label="Atanmamış" value={items.filter((item) => !item.assigned_to).length} tone="amber" />
     </div>
     <section className="rounded-[18px] border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_180px_auto]">
+      <div className="mb-3 flex flex-wrap gap-2">
+        {inboxViewOptions.map(([value, label]) => <button type="button" key={value} onClick={() => setViewFilter(value)} className={`min-h-10 rounded-[10px] px-3 text-xs font-black transition ${viewFilter === value ? "bg-cyan-600 text-white" : "border border-slate-200 bg-white text-slate-700 hover:border-cyan-200"}`}>{label}</button>)}
+        <button type="button" onClick={() => setPriorityFilter(priorityFilter === "urgent" ? "" : "urgent")} className={`min-h-10 rounded-[10px] px-3 text-xs font-black transition ${priorityFilter === "urgent" ? "bg-rose-600 text-white" : "border border-rose-200 bg-rose-50 text-rose-700"}`}>Acil</button>
+      </div>
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_160px_180px_180px_auto]">
         <label className="relative"><Search className="absolute left-3 top-3 text-slate-400" size={18} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Konu veya müşteri ara" className="min-h-11 w-full rounded-[10px] border border-slate-300 pl-10 pr-3 text-sm" /></label>
         <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="min-h-11 rounded-[10px] border border-slate-300 bg-white px-3 text-sm"><option value="">Tüm durumlar</option>{statusOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+        <select value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)} className="min-h-11 rounded-[10px] border border-slate-300 bg-white px-3 text-sm"><option value="">Tüm öncelikler</option>{priorityOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
         <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} className="min-h-11 rounded-[10px] border border-slate-300 bg-white px-3 text-sm">{categoryOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
         <button type="button" onClick={() => loadList()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] bg-cyan-600 px-4 text-sm font-black text-white"><RefreshCw size={17} /> Yenile</button>
       </div>
@@ -174,7 +208,7 @@ export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canMan
       <aside className="border-b border-slate-200 bg-slate-50 p-3 xl:border-b-0 xl:border-r">
         {loading && <p className="flex items-center gap-2 p-5 text-sm text-slate-500"><Loader2 className="animate-spin" /> Gelen kutusu yükleniyor...</p>}
         {!loading && !items.length && <div className="rounded-[14px] border border-dashed border-slate-300 bg-white p-5 text-center"><Inbox className="mx-auto text-cyan-500" /><p className="mt-3 font-black text-slate-950">Bu filtrelerde konuşma yok</p><p className="mt-2 text-sm text-slate-600">Yeni müşteri mesajları burada listelenecek.</p></div>}
-        <div className="max-h-[720px] space-y-2 overflow-y-auto">{items.map((item) => <button type="button" key={item.id} onClick={() => setSelectedId(item.id)} className={`w-full rounded-[12px] border p-3 text-left ${selectedId === item.id ? "border-cyan-300 bg-cyan-50" : "border-slate-200 bg-white hover:border-cyan-200"}`}><div className="flex items-start justify-between gap-2"><span className="font-black text-slate-950">{item.company_name}</span>{item.unread_count > 0 && <span className="rounded-full bg-rose-500 px-2 py-0.5 text-xs font-black text-white">{item.unread_count}</span>}</div><p className="mt-1 text-sm font-bold text-slate-800">{item.subject}</p><p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">{item.latest_message}</p><div className="mt-2 flex flex-wrap gap-2 text-[11px] font-bold text-slate-500"><span>{statusOptions.find(([value]) => value === item.status)?.[1] || item.status}</span><span>·</span><time>{new Date(item.last_message_at).toLocaleDateString("tr-TR")}</time></div></button>)}</div>
+        <div className="max-h-[720px] space-y-2 overflow-y-auto">{items.map((item) => <button type="button" key={item.id} onClick={() => setSelectedId(item.id)} className={`w-full rounded-[12px] border p-3 text-left ${selectedId === item.id ? "border-cyan-300 bg-cyan-50" : item.priority === "urgent" ? "border-rose-200 bg-rose-50 hover:border-rose-300" : "border-slate-200 bg-white hover:border-cyan-200"}`}><div className="flex items-start justify-between gap-2"><span className="font-black text-slate-950">{item.company_name}</span><span className="flex shrink-0 items-center gap-1">{item.priority === "urgent" && <span className="rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-black text-white">Acil</span>}{item.unread_count > 0 && <span className="rounded-full bg-rose-500 px-2 py-0.5 text-xs font-black text-white">{item.unread_count}</span>}</span></div><p className="mt-1 text-sm font-bold text-slate-800">{item.subject}</p><p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">{item.latest_message}</p><div className="mt-2 flex flex-wrap gap-2 text-[11px] font-bold text-slate-500"><span>{statusOptions.find(([value]) => value === item.status)?.[1] || item.status}</span><span>·</span><span>{priorityOptions.find(([value]) => value === item.priority)?.[1] || item.priority}</span><span>·</span><time>{new Date(item.last_message_at).toLocaleDateString("tr-TR")}</time></div></button>)}</div>
       </aside>
       <main className="min-w-0 p-4 sm:p-5">
         {busy === "detail" && <div className="grid min-h-72 place-items-center text-sm text-slate-500"><Loader2 className="animate-spin" /> Konuşma yükleniyor...</div>}
