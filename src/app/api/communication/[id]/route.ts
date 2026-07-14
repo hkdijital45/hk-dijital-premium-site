@@ -57,17 +57,56 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (action === "internal_note") {
       const note = sanitizeCommunicationText(body.note, 8000);
       if (!note) return NextResponse.json({ error: "İç not boş bırakılamaz." }, { status: 400 });
-      await supabaseRest("conversation_internal_notes", { method: "POST", body: JSON.stringify({ conversation_id: id, author_id: context.profileId, body: note }) });
-      await recordConversationActivity(id, context.profileId, "internal_note_added");
+      const rows = await supabaseRest<Array<{ id: string }>>("conversation_internal_notes", { method: "POST", body: JSON.stringify({ conversation_id: id, author_id: context.profileId, body: note }) });
+      await recordConversationActivity(id, context.profileId, "internal_note_added", { note_id: rows[0]?.id || null });
+      return NextResponse.json({ ok: true, noteId: rows[0]?.id || null });
+    }
+    if (action === "linked_action") {
+      const actionType = sanitizeCommunicationText(body.actionType, 80) || "linked_action";
+      await recordConversationActivity(id, context.profileId, actionType, {
+        target: sanitizeCommunicationText(body.target, 120) || null,
+        target_id: sanitizeCommunicationText(body.targetId, 160) || null
+      });
       return NextResponse.json({ ok: true });
     }
-    if (action === "assign") {
-      if (!["admin", "yonetici"].includes(context.session.role)) return NextResponse.json({ error: "Konuşma atama yetkiniz bulunmuyor." }, { status: 403 });
-      const assignedTo = isUuid(body.assignedTo) ? body.assignedTo : null;
-      await supabaseRest(`customer_conversations?id=eq.${id}`, { method: "PATCH", body: JSON.stringify({ assigned_to: assignedTo }) });
-      await supabaseRest("conversation_assignments", { method: "POST", body: JSON.stringify({ conversation_id: id, assigned_to: assignedTo, assigned_by: context.profileId }) });
-      await recordConversationActivity(id, context.profileId, "assignment_changed", { assigned_to: assignedTo });
-      return NextResponse.json({ ok: true });
+    if (action === "assign" || action === "manage_fields") {
+      const patch: Record<string, unknown> = {};
+      const changes: Array<{ field: string; old_value: unknown; new_value: unknown }> = [];
+      if (action === "assign") {
+        if (!["admin", "yonetici"].includes(context.session.role)) return NextResponse.json({ error: "Konuşma atama yetkiniz bulunmuyor." }, { status: 403 });
+        const assignedTo = isUuid(body.assignedTo) ? body.assignedTo : null;
+        if ((conversation.assigned_to || null) !== assignedTo) {
+          patch.assigned_to = assignedTo;
+          changes.push({ field: "assigned_to", old_value: conversation.assigned_to || null, new_value: assignedTo });
+        }
+      } else {
+        if (conversationStatuses.includes(body.status) && body.status !== conversation.status) {
+          patch.status = body.status;
+          patch.closed_at = body.status === "closed" ? new Date().toISOString() : null;
+          changes.push({ field: "status", old_value: conversation.status, new_value: body.status });
+        }
+        if (conversationPriorities.includes(body.priority) && body.priority !== conversation.priority) {
+          patch.priority = body.priority;
+          changes.push({ field: "priority", old_value: conversation.priority, new_value: body.priority });
+        }
+        const assignedTo = isUuid(body.assignedTo) ? body.assignedTo : null;
+        if ((conversation.assigned_to || null) !== assignedTo) {
+          if (!["admin", "yonetici"].includes(context.session.role)) return NextResponse.json({ error: "Konuşma atama yetkiniz bulunmuyor." }, { status: 403 });
+          patch.assigned_to = assignedTo;
+          changes.push({ field: "assigned_to", old_value: conversation.assigned_to || null, new_value: assignedTo });
+        }
+      }
+      if (!changes.length) return NextResponse.json({ ok: true, unchanged: true, conversation });
+      const rows = await supabaseRest<Array<Record<string, unknown>>>(`customer_conversations?id=eq.${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+      const assignmentChange = changes.find((change) => change.field === "assigned_to");
+      if (assignmentChange) {
+        await supabaseRest("conversation_assignments", {
+          method: "POST",
+          body: JSON.stringify({ conversation_id: id, assigned_to: assignmentChange.new_value, assigned_by: context.profileId })
+        });
+      }
+      await recordConversationActivity(id, context.profileId, action === "assign" ? "assignment_changed" : "conversation_fields_updated", { changes });
+      return NextResponse.json({ ok: true, conversation: rows[0] || null, changes });
     }
     const patch: Record<string, unknown> = {};
     if (conversationStatuses.includes(body.status)) {
