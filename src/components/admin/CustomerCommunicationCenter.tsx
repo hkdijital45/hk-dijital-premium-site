@@ -75,6 +75,7 @@ type Detail = {
   attachments: AttachmentItem[];
   internalNotes: Array<{ id: string; author_name: string; body: string; created_at: string }>;
   activity: ActivityItem[];
+  assignments?: Array<{ assigned_to_name: string; assigned_by_name: string; created_at: string }>;
 };
 
 type Staff = { id: string; full_name: string | null };
@@ -168,6 +169,7 @@ export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canMan
   const [auditPayload, setAuditPayload] = useState<AuditPayload | null>(null);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditCache, setAuditCache] = useState<Record<string, AuditPayload>>({});
+  const [historyOpen, setHistoryOpen] = useState(false);
   const submitting = useRef(false);
   const hasChanges = hasManagementChanges(detail, managementDraft);
   const visibleItems = useMemo(() => unreadOnly ? items.filter((item) => item.unread_count > 0) : items, [items, unreadOnly]);
@@ -438,7 +440,7 @@ export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canMan
 
     {message && <p className="rounded-[12px] border border-cyan-200 bg-cyan-50 p-3 text-sm font-bold text-cyan-900">{message}</p>}
 
-    <section className="grid min-h-[680px] overflow-hidden rounded-[18px] border border-slate-200 bg-white shadow-sm xl:grid-cols-[330px_minmax(0,1fr)_320px]">
+    <section className="grid min-h-[680px] overflow-hidden rounded-[18px] border border-slate-200 bg-white shadow-sm xl:grid-cols-[340px_minmax(0,1fr)_360px] 2xl:grid-cols-[360px_minmax(0,1fr)_390px]">
       <aside className="min-h-0 border-b border-slate-200 bg-slate-50/80 p-3 xl:border-b-0 xl:border-r">
         <div className="mb-3 flex items-center justify-between gap-3 px-1">
           <div><h3 className="font-black text-slate-950">Gelen kutusu</h3><p className="text-xs text-slate-500">{visibleItems.length} konuşma listeleniyor</p></div>
@@ -482,10 +484,19 @@ export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canMan
               const isStaff = item.sender_type === "staff";
               const attachments = selectedAttachments.filter((attachment) => attachment.message_id === item.id);
               return <article key={item.id} className={`flex ${isStaff ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[92%] rounded-[18px] border p-4 shadow-sm sm:max-w-[78%] ${isStaff ? "border-cyan-200 bg-cyan-50 text-slate-900" : "border-slate-200 bg-white text-slate-900"}`}>
+                <div className={`max-w-[94%] rounded-[18px] border p-4 shadow-sm sm:max-w-[82%] ${isStaff ? "border-cyan-200 bg-cyan-50 text-slate-900" : "border-slate-200 bg-white text-slate-900"}`}>
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0"><p className="font-black">{isStaff ? item.sender_name || "HK Dijital" : item.sender_name || "Müşteri"}</p><p className="mt-1 text-xs font-bold text-slate-500">{isStaff ? "Personel yanıtı" : "Müşteri mesajı"} · {formatDateTime(item.created_at)}</p></div>
-                    <button type="button" onClick={() => openAudit(item)} aria-label={`${item.sender_name || "Mesaj"} için mesaj bilgilerini aç`} title="Mesaj bilgileri" className="grid size-9 shrink-0 place-items-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-cyan-300 hover:text-cyan-700"><Info size={16} /></button>
+                    <div className="min-w-0">
+                      <p className="break-words font-black">{isStaff ? item.sender_name || "HK Dijital" : item.sender_name || "Müşteri"}</p>
+                      <p className="mt-1 flex flex-wrap items-center gap-2 text-xs font-bold text-slate-600">
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${isStaff ? "bg-cyan-100 text-cyan-800" : "bg-slate-100 text-slate-700"}`}>{isStaff ? "Ekip" : "Müşteri"}</span>
+                        <time>{formatDateTime(item.created_at)}</time>
+                      </p>
+                    </div>
+                    <button type="button" onClick={() => openAudit(item)} aria-label="Mesaj bilgilerini göster" title="Mesaj bilgilerini göster" className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border border-cyan-300 bg-cyan-50 px-3 text-xs font-black text-cyan-800 shadow-sm transition hover:border-cyan-500 hover:bg-cyan-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500">
+                      <Info size={15} />
+                      <span>Bilgi</span>
+                    </button>
                   </div>
                   <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6">{item.body}</p>
                   {!!attachments.length && <div className="mt-3 grid gap-2">{attachments.map((attachment) => <a key={attachment.id} href={`/api/communication/attachments/${attachment.id}`} target="_blank" rel="noreferrer" className="flex items-center justify-between gap-3 rounded-[10px] border border-slate-200 bg-white p-2 text-xs font-bold text-slate-700"><span className="inline-flex min-w-0 items-center gap-2"><FileText size={14} className="shrink-0" /><span className="truncate">{attachment.original_name}</span></span><span className="shrink-0 text-slate-500">{formatFileSize(attachment.file_size)}</span></a>)}</div>}
@@ -507,33 +518,48 @@ export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canMan
 
       <aside className="min-h-0 border-t border-slate-200 bg-slate-50/80 p-4 xl:border-l xl:border-t-0">
         {detail && <div className="sticky top-24 max-h-[calc(100vh-140px)] space-y-4 overflow-y-auto pr-1">
-          <section className="rounded-[16px] border border-slate-200 bg-white p-4">
-            <div className="mb-4 flex items-start justify-between gap-3"><div><h3 className="font-black text-slate-950">Konuşma Yönetimi</h3><p className="mt-1 text-xs text-slate-500">Durum, öncelik ve atama tek işlemle kaydedilir.</p></div>{hasChanges && <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-black text-amber-800">Kaydedilmemiş</span>}</div>
+          <section className="rounded-[18px] border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div><h3 className="text-base font-black text-slate-950">Konuşma Yönetimi</h3><p className="mt-1 text-xs font-semibold text-slate-600">Durum, öncelik ve atama tek işlemle kaydedilir.</p></div>
+              <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black ${hasChanges ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>{hasChanges ? "Kaydedilmemiş" : "Güncel"}</span>
+            </div>
             <div className="grid gap-3">
               <label className="grid gap-2 text-xs font-black uppercase text-slate-500">Durum<select value={managementDraft.status} onChange={(event) => setManagementDraft((current) => ({ ...current, status: event.target.value }))} className="min-h-11 rounded-[10px] border border-slate-300 bg-white px-3 text-sm font-semibold normal-case text-slate-900">{statusOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
               <label className="grid gap-2 text-xs font-black uppercase text-slate-500">Öncelik<select value={managementDraft.priority} onChange={(event) => setManagementDraft((current) => ({ ...current, priority: event.target.value }))} className="min-h-11 rounded-[10px] border border-slate-300 bg-white px-3 text-sm font-semibold normal-case text-slate-900">{priorityOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
               <label className="grid gap-2 text-xs font-black uppercase text-slate-500">Atanan ekip üyesi<select disabled={!canManageTemplates} title={canManageTemplates ? "Konuşmayı ekip üyesine ata" : "Atama yetkisi admin veya yönetici rolü gerektirir"} value={managementDraft.assigned_to} onChange={(event) => setManagementDraft((current) => ({ ...current, assigned_to: event.target.value }))} className="min-h-11 rounded-[10px] border border-slate-300 bg-white px-3 text-sm font-semibold normal-case text-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100"><option value="">Atanmamış</option>{staff.map((user) => <option key={user.id} value={user.id}>{user.full_name || "Ekip üyesi"}</option>)}</select></label>
             </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button type="button" onClick={saveManagement} disabled={!hasChanges || busy === "management"} className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[10px] bg-emerald-600 px-4 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50">{busy === "management" ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Değişiklikleri Kaydet</button>
-              <button type="button" onClick={() => detail && setManagementDraft(managementFrom(detail.conversation))} disabled={!hasChanges || busy === "management"} className="inline-flex min-h-11 items-center gap-2 rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 disabled:opacity-50"><RotateCcw size={16} /> Vazgeç</button>
+            <div className="sticky bottom-0 -mx-1 mt-4 rounded-[14px] border border-slate-200 bg-white/95 p-2 shadow-sm backdrop-blur">
+              <p className="mb-2 text-xs font-bold text-slate-600">{hasChanges ? "Kaydedilmemiş değişiklikler var." : "Alan değiştirildiğinde kaydetme butonu aktif olur."}</p>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={saveManagement} disabled={!hasChanges || busy === "management"} className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-[12px] bg-emerald-600 px-4 text-sm font-black text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 disabled:shadow-none">{busy === "management" ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Değişiklikleri Kaydet</button>
+                <button type="button" onClick={() => detail && setManagementDraft(managementFrom(detail.conversation))} disabled={!hasChanges || busy === "management"} className="inline-flex min-h-12 items-center gap-2 rounded-[12px] border border-slate-300 bg-white px-3 text-sm font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"><RotateCcw size={16} /> Vazgeç</button>
+              </div>
             </div>
           </section>
 
-          <section className="rounded-[16px] border border-amber-200 bg-amber-50 p-4">
+          <section className="rounded-[18px] border border-amber-200 bg-amber-50 p-4 shadow-sm">
             <div className="mb-3"><h3 className="flex items-center gap-2 font-black text-amber-950"><StickyNote size={17} /> İç Notlar</h3><p className="mt-1 text-xs font-bold text-amber-800">Yalnızca admin ekibi görür. Müşteriye gösterilmez.</p></div>
             <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={3} maxLength={8000} className="w-full rounded-[10px] border border-amber-200 bg-white p-3 text-sm" placeholder="Ekip notu" />
-            <button type="button" onClick={addInternalNote} disabled={!note.trim() || busy === "note"} className="mt-2 inline-flex min-h-10 items-center gap-2 rounded-[9px] bg-amber-500 px-3 text-xs font-black text-white disabled:opacity-50">{busy === "note" ? <Loader2 size={14} className="animate-spin" /> : <StickyNote size={14} />} Notu kaydet</button>
+            <button type="button" onClick={addInternalNote} disabled={!note.trim() || busy === "note"} className="mt-2 inline-flex min-h-11 items-center gap-2 rounded-[10px] bg-amber-600 px-4 text-sm font-black text-white shadow-sm transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-amber-100 disabled:text-amber-500">{busy === "note" ? <Loader2 size={14} className="animate-spin" /> : <StickyNote size={14} />} Notu kaydet</button>
             <div className="mt-3 space-y-2">{detail.internalNotes.slice(0, 5).map((item) => <div key={item.id} className="rounded-[10px] bg-white p-3 text-xs text-slate-700 shadow-sm"><div className="flex justify-between gap-2 font-black text-slate-900"><span>{item.author_name}</span><time className="font-semibold text-slate-500">{formatDateTime(item.created_at)}</time></div><p className="mt-2 whitespace-pre-wrap leading-5">{item.body}</p></div>)}{!detail.internalNotes.length && <p className="rounded-[10px] border border-dashed border-amber-200 bg-white p-3 text-xs text-amber-800">Henüz iç not yok.</p>}</div>
           </section>
 
-          <section className="rounded-[16px] border border-slate-200 bg-white p-4">
+          <section className="rounded-[18px] border border-slate-200 bg-white p-4 shadow-sm">
             <h3 className="font-black text-slate-950">Bağlantılı İşlemler</h3>
             <div className="mt-3 grid gap-2">
-              <button type="button" onClick={createTask} disabled={busy === "task"} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] bg-purple-600 px-3 text-sm font-black text-white disabled:opacity-50"><ClipboardList size={16} /> {busy === "task" ? "Görev oluşturuluyor..." : "Görev oluştur"}</button>
-              <button type="button" onClick={openProposalFlow} disabled={busy === "proposal"} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] border border-cyan-200 bg-cyan-50 px-3 text-sm font-black text-cyan-700 disabled:opacity-50"><FileText size={16} /> Teklif hazırla</button>
-              <Link href={`/hk-admin/musteriler?companyId=${detail.conversation.company_id}&tab=communication`} className="inline-flex min-h-11 items-center justify-center rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-black text-slate-700">Müşteri profilini aç</Link>
+              <button type="button" onClick={createTask} disabled={busy === "task"} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-[12px] bg-violet-700 px-4 text-sm font-black text-white shadow-sm transition hover:bg-violet-800 disabled:cursor-not-allowed disabled:bg-violet-200 disabled:text-violet-600"><ClipboardList size={16} /> {busy === "task" ? "Oluşturuluyor..." : "Görev oluştur"}</button>
+              <button type="button" onClick={openProposalFlow} disabled={busy === "proposal"} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-[12px] border border-cyan-300 bg-cyan-100 px-4 text-sm font-black text-cyan-900 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"><FileText size={16} /> Teklife bağla</button>
+              <Link href={`/hk-admin/musteriler?companyId=${detail.conversation.company_id}&tab=communication`} className="inline-flex min-h-12 items-center justify-center rounded-[12px] border border-slate-300 bg-white px-4 text-sm font-black text-slate-800 transition hover:bg-slate-50">Müşteri profilini aç</Link>
             </div>
+          </section>
+
+          <section className="rounded-[18px] border border-slate-200 bg-white p-4 shadow-sm">
+            <h3 className="font-black text-slate-950">Geçmiş</h3>
+            <p className="mt-1 text-xs font-semibold text-slate-600">Konuşma düzeyindeki işlem ve atama geçmişini inceleyin.</p>
+            <button type="button" onClick={() => setHistoryOpen(true)} className="mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[12px] border border-slate-300 bg-slate-900 px-4 text-sm font-black text-white transition hover:bg-slate-800">
+              <Clock3 size={16} />
+              Konuşma işlem geçmişini göster
+            </button>
           </section>
 
           {canManageTemplates && <details className="rounded-[16px] border border-violet-200 bg-violet-50 p-4"><summary className="cursor-pointer text-sm font-black text-violet-900">Hazır yanıtları yönet</summary><div className="mt-3 grid gap-2"><input value={templateTitle} onChange={(event) => setTemplateTitle(event.target.value)} placeholder="Şablon başlığı" className="min-h-10 rounded-[9px] border border-violet-200 bg-white px-3 text-sm" /><textarea value={templateBody} onChange={(event) => setTemplateBody(event.target.value)} rows={3} placeholder="Yanıt metni" className="rounded-[9px] border border-violet-200 bg-white p-2 text-sm" /><button type="button" onClick={createTemplate} disabled={busy === "template" || !templateTitle.trim() || !templateBody.trim()} className="min-h-10 rounded-[9px] bg-violet-600 px-3 text-xs font-black text-white disabled:opacity-50">Hazır yanıtı kaydet</button>{canned.map((item) => <div key={item.id} className="flex items-center justify-between gap-2 rounded-[9px] bg-white p-2 text-xs font-bold text-slate-700"><span>{item.title}</span><button type="button" onClick={() => removeTemplate(item.id)} aria-label={`${item.title} hazır yanıtını pasife al`} className="grid size-8 place-items-center rounded-full text-red-600 hover:bg-red-50"><Trash2 size={14} /></button></div>)}</div></details>}
@@ -543,6 +569,7 @@ export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canMan
 
     {pendingSelection && <UnsavedChangesDialog onCancel={() => setPendingSelection("")} onDiscard={() => { setPendingSelection(""); setManagementDraft(managementFrom(detail?.conversation)); setSelectedId(pendingSelection); }} onSave={saveAndContinue} saving={busy === "management"} />}
     {auditMessage && <AuditModal message={auditMessage} audit={auditPayload} loading={auditLoading} onClose={() => setAuditMessage(null)} onRefresh={() => { setAuditCache((current) => { const next = { ...current }; delete next[auditMessage.id]; return next; }); void openAudit(auditMessage, true); }} />}
+    {historyOpen && detail && <ConversationHistoryModal detail={detail} onClose={() => setHistoryOpen(false)} />}
   </div>;
 }
 
@@ -571,25 +598,70 @@ function AuditModal({ message, audit, loading, onClose, onRefresh }: { message: 
             <AuditLine label="Gönderim tarihi" value={formatDateTime(audit.message.sent_at)} />
             <AuditLine label="Dosya sayısı" value={String(audit.message.attachment_count || 0)} />
           </AuditSection>
-          <AuditSection title="Okunma bilgileri" icon={<UserCheck size={17} />}>
+          <AuditSection title="Kim gördü" icon={<UserCheck size={17} />}>
             <AuditLine label="İlk gören admin" value={audit.reads.first_reader?.user_name || "Henüz görüntülenmedi"} />
             <AuditLine label="İlk görülme zamanı" value={audit.reads.first_reader?.read_at ? formatDateTime(audit.reads.first_reader.read_at) : "Henüz görüntülenmedi"} />
             <AuditLine label="Toplam gören personel" value={String(audit.reads.total_staff_readers || 0)} />
-            <div className="mt-2 grid gap-2">{audit.reads.readers.map((reader) => <p key={`${reader.user_name}-${reader.read_at}`} className="rounded-[10px] bg-slate-50 p-2 text-xs text-slate-700"><strong>{reader.user_name}</strong> · {formatDateTime(reader.read_at)}</p>)}{!audit.reads.readers.length && <EmptyAudit text="Bu mesaj henüz bir admin tarafından görüntülenmedi." />}</div>
+            <div className="mt-2 grid gap-2">{audit.reads.readers.map((reader) => <p key={`${reader.user_name}-${reader.read_at}`} className="rounded-[10px] bg-slate-50 p-2 text-xs text-slate-700"><strong>{reader.user_name}</strong> · {formatDateTime(reader.read_at)}</p>)}{!audit.reads.readers.length && <EmptyAudit text="Henüz hiçbir ekip üyesi görmedi." />}</div>
           </AuditSection>
-          <AuditSection title="Yanıt bilgileri" icon={<Send size={17} />}>
+          <AuditSection title="Kim yanıtladı" icon={<Send size={17} />}>
             <AuditLine label="İlk yanıtlayan admin" value={audit.replies.first_reply?.user_name || "Bu mesaj için yanıt bulunmuyor"} />
             <AuditLine label="İlk yanıt zamanı" value={audit.replies.first_reply?.sent_at ? formatDateTime(audit.replies.first_reply.sent_at) : "Yanıt yok"} />
             <AuditLine label="Son yanıtlayan admin" value={audit.replies.last_reply?.user_name || "Bu mesaj için yanıt bulunmuyor"} />
             <AuditLine label="Yanıt süresi" value={audit.replies.first_reply?.response_minutes != null ? `${audit.replies.first_reply.response_minutes} dakika` : "Hesaplanamadı"} />
           </AuditSection>
-          <AuditSection title="İşlem geçmişi" icon={<Clock3 size={17} />}>
+          <AuditSection title="Kim işlem yaptı" icon={<Clock3 size={17} />}>
             <div className="grid gap-2">{audit.activity.map((item) => <p key={item.id} className="rounded-[10px] bg-slate-50 p-2 text-xs leading-5 text-slate-700"><strong>{item.actor_name || "Sistem"}</strong> · {activityLabel(item.activity_type)} · {formatDateTime(item.created_at)}{formatActivityDetail(item.detail)}</p>)}{!audit.activity.length && <EmptyAudit text="İşlem kaydı bulunmuyor." />}</div>
           </AuditSection>
           <AuditSection title="Atama geçmişi" icon={<ClipboardList size={17} />}>
             <div className="grid gap-2">{audit.assignments.map((item) => <p key={`${item.assigned_by_name}-${item.created_at}`} className="rounded-[10px] bg-slate-50 p-2 text-xs text-slate-700"><strong>{item.assigned_by_name}</strong> → {item.assigned_to_name} · {formatDateTime(item.created_at)}</p>)}{!audit.assignments.length && <EmptyAudit text="Atama geçmişi bulunmuyor." />}</div>
           </AuditSection>
         </div>}
+      </div>
+    </div>
+  </div>;
+}
+
+function ConversationHistoryModal({ detail, onClose }: { detail: Detail; onClose: () => void }) {
+  const activity = [...(detail.activity || [])].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const assignments = detail.assignments || [];
+  return <div className="fixed inset-0 z-[125] grid place-items-center bg-slate-950/45 p-3" role="dialog" aria-modal="true" aria-labelledby="conversation-history-title" onMouseDown={onClose}>
+    <div className="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-[18px] border border-slate-200 bg-white shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
+      <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white p-5">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[.14em] text-slate-500">Admin işlem geçmişi</p>
+          <h2 id="conversation-history-title" className="mt-1 text-xl font-black text-slate-950">Konuşma İşlem Geçmişi</h2>
+          <p className="mt-1 text-sm font-semibold text-slate-600">{detail.conversation.company_name} · {detail.conversation.subject}</p>
+        </div>
+        <button type="button" onClick={onClose} aria-label="İşlem geçmişini kapat" className="grid size-10 place-items-center rounded-[10px] border border-slate-200 text-slate-600"><X size={17} /></button>
+      </header>
+      <div className="max-h-[calc(90vh-96px)] overflow-y-auto p-5">
+        <div className="grid gap-4">
+          <section className="rounded-[16px] border border-slate-200 bg-white p-4 shadow-sm">
+            <h3 className="mb-3 flex items-center gap-2 font-black text-slate-950"><Clock3 size={17} /> İşlemler</h3>
+            <div className="grid gap-2">
+              {activity.map((item) => <div key={item.id} className="rounded-[12px] border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <strong className="text-slate-950">{item.actor_name || "Sistem"}</strong>
+                  <time className="text-xs font-bold text-slate-500">{formatDateTime(item.created_at)}</time>
+                </div>
+                <p className="mt-1 font-semibold">{activityLabel(item.activity_type)}{formatActivityDetail(item.detail)}</p>
+              </div>)}
+              {!activity.length && <EmptyAudit text="Bu konuşma için işlem kaydı bulunmuyor." />}
+            </div>
+          </section>
+          <section className="rounded-[16px] border border-slate-200 bg-white p-4 shadow-sm">
+            <h3 className="mb-3 flex items-center gap-2 font-black text-slate-950"><ClipboardList size={17} /> Atama geçmişi</h3>
+            <div className="grid gap-2">
+              {assignments.map((item) => <div key={`${item.assigned_by_name}-${item.created_at}`} className="rounded-[12px] border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                <strong className="text-slate-950">{item.assigned_by_name}</strong>
+                <span> → {item.assigned_to_name}</span>
+                <time className="mt-1 block text-xs font-bold text-slate-500">{formatDateTime(item.created_at)}</time>
+              </div>)}
+              {!assignments.length && <EmptyAudit text="Atama geçmişi bulunmuyor." />}
+            </div>
+          </section>
+        </div>
       </div>
     </div>
   </div>;

@@ -17,12 +17,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const conversation = await getAccessibleConversation(context, id);
   if (!conversation) return NextResponse.json({ error: "Konuşma bulunamadı veya erişim yetkiniz yok." }, { status: 404 });
   try {
-    const [messages, attachments, reads, notes, activity, users] = await Promise.all([
+    const [messages, attachments, reads, notes, activity, assignments, users] = await Promise.all([
       supabaseRest<Array<Record<string, unknown>>>(`customer_messages?conversation_id=eq.${id}&deleted_at=is.null&select=*&order=created_at.asc`),
       supabaseRest<Array<Record<string, unknown>>>(`conversation_attachments?conversation_id=eq.${id}&select=id,message_id,original_name,mime_type,file_size,created_at&order=created_at.asc`),
       supabaseRest<Array<{ message_id: string }>>(`conversation_reads?conversation_id=eq.${id}&user_id=eq.${context.profileId}&select=message_id`),
       context.isStaff ? supabaseRest<Array<Record<string, unknown>>>(`conversation_internal_notes?conversation_id=eq.${id}&select=*&order=created_at.desc`) : Promise.resolve([]),
       context.isStaff ? supabaseRest<Array<Record<string, unknown>>>(`conversation_activity?conversation_id=eq.${id}&select=*&order=created_at.desc&limit=100`) : Promise.resolve([]),
+      context.isStaff ? supabaseRest<Array<Record<string, unknown>>>(`conversation_assignments?conversation_id=eq.${id}&select=assigned_to,assigned_by,created_at&order=created_at.desc&limit=50`) : Promise.resolve([]),
       supabaseRest<Array<{ id: string; full_name: string | null }>>("users?select=id,full_name")
     ]);
     const names = new Map(users.map((user) => [user.id, user.full_name || "Kullanıcı"]));
@@ -32,7 +33,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       attachments,
       readMessageIds: reads.map((item) => item.message_id),
       internalNotes: notes.map((note) => ({ ...note, author_name: names.get(String(note.author_id || "")) || "Ekip üyesi" })),
-      activity
+      activity: activity.map((item) => ({ ...item, actor_name: names.get(String(item.actor_id || "")) || "Sistem" })),
+      assignments: assignments.map((item) => ({
+        assigned_to_name: names.get(String(item.assigned_to || "")) || "Atanmamış",
+        assigned_by_name: names.get(String(item.assigned_by || "")) || "Sistem",
+        created_at: item.created_at
+      }))
     });
   } catch (error) {
     const safe = getSafeSupabaseError(error);
