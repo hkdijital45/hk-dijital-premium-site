@@ -27,6 +27,7 @@ import { CustomerBrandAssets } from "@/components/admin/customer-profile/Custome
 import { CustomerIntegrationsPanel } from "@/components/admin/customer-profile/CustomerIntegrationsPanel";
 import { CustomerProfileModal } from "@/components/admin/customer-profile/CustomerProfileModal";
 import { ActionResultPanel } from "@/components/admin/ActionResultPanel";
+import { DiscoveryReportViewer, type DiscoveryReportRecord } from "@/components/admin/DiscoveryReportViewer";
 import { ResetCustomerPasswordButton } from "@/components/admin/ResetCustomerPasswordButton";
 import { AiProviderSelector } from "@/components/admin/AiProviderSelector";
 import { HKAssistantWidget } from "@/components/shared/HKAssistantWidget";
@@ -8701,13 +8702,88 @@ const reportMetricFields = {
   ]
 };
 
+function DiscoveryReportsList({ content }: any) {
+  const [preview, setPreview] = useState<DiscoveryReportRecord | null>(null);
+  const [query, setQuery] = useState("");
+  const [companyId, setCompanyId] = useState("");
+  const [reportType, setReportType] = useState("");
+  const [sourceModule, setSourceModule] = useState("");
+  const [createdBy, setCreatedBy] = useState("");
+  const [status, setStatus] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const reports = (content.reports || [])
+    .filter((report: any) => report.source_module === "google_maps_discovery" && !report.deleted_at)
+    .filter((report: any) => !query || `${report.title || ""} ${report.business_name || ""}`.toLocaleLowerCase("tr-TR").includes(query.toLocaleLowerCase("tr-TR")))
+    .filter((report: any) => !companyId || report.company_id === companyId)
+    .filter((report: any) => !reportType || report.report_type === reportType)
+    .filter((report: any) => !sourceModule || report.source_module === sourceModule)
+    .filter((report: any) => !createdBy || report.created_by === createdBy)
+    .filter((report: any) => !status || report.status === status)
+    .filter((report: any) => !dateFrom || String(report.created_at || "") >= `${dateFrom}T00:00:00`)
+    .filter((report: any) => !dateTo || String(report.created_at || "") <= `${dateTo}T23:59:59`)
+    .sort((a: any, b: any) => Number(new Date(b.updated_at || b.created_at || 0)) - Number(new Date(a.updated_at || a.created_at || 0)));
+  const reportTypes = [...new Set((content.reports || []).filter((report: any) => report.source_module === "google_maps_discovery").map((report: any) => report.report_type).filter(Boolean))];
+  const creators = (content.users || []).filter((user: any) => (content.reports || []).some((report: any) => report.created_by === user.id));
+
+  function clear() {
+    setQuery("");
+    setCompanyId("");
+    setReportType("");
+    setSourceModule("");
+    setCreatedBy("");
+    setStatus("");
+    setDateFrom("");
+    setDateTo("");
+  }
+
+  return <div>
+    <div className="mb-5 grid gap-3 rounded-[14px] border border-slate-200 bg-slate-50 p-4 md:grid-cols-2 xl:grid-cols-4">
+      <Field label="Lead / işletme ara" value={query} onChange={setQuery} placeholder="İşletme veya rapor başlığı" />
+      <SelectField label="Müşteri" value={companyId} onChange={setCompanyId} options={[{ value: "", label: "Tüm müşteriler ve leadler" }, ...(content.companies || []).map((company: any) => ({ value: company.id, label: company.name }))]} />
+      <SelectField label="Rapor türü" value={reportType} onChange={setReportType} options={[{ value: "", label: "Tüm rapor türleri" }, ...reportTypes.map((item: string) => ({ value: item, label: item }))]} />
+      <SelectField label="Kaynak modül" value={sourceModule} onChange={setSourceModule} options={[{ value: "", label: "Tüm kaynaklar" }, { value: "google_maps_discovery", label: "Google Maps Müşteri Keşfi" }]} />
+      <SelectField label="Oluşturan kullanıcı" value={createdBy} onChange={setCreatedBy} options={[{ value: "", label: "Tüm kullanıcılar" }, ...creators.map((user: any) => ({ value: user.id, label: user.full_name || user.email }))]} />
+      <SelectField label="Durum" value={status} onChange={setStatus} options={[{ value: "", label: "Tüm durumlar" }, "Hazır", "Taslak", "Arşivlendi"]} />
+      <Field label="Başlangıç tarihi" type="date" value={dateFrom} onChange={setDateFrom} />
+      <Field label="Bitiş tarihi" type="date" value={dateTo} onChange={setDateTo} />
+      <button type="button" onClick={clear} className="min-h-11 rounded-[10px] border border-slate-300 bg-white px-4 text-sm font-black text-slate-700 md:col-span-2 xl:col-span-4">Filtreleri Temizle</button>
+    </div>
+    <div className="grid gap-3">
+      {reports.map((report: any) => {
+        const company = (content.companies || []).find((item: any) => item.id === report.company_id);
+        const creator = (content.users || []).find((item: any) => item.id === report.created_by);
+        return <article key={report.id} className="rounded-[14px] border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <button type="button" onClick={() => setPreview(report)} className="break-words text-left text-base font-black text-slate-950 hover:text-cyan-700">{report.title || `${report.business_name || "İşletme"} – ${report.report_type}`}</button>
+              <p className="mt-2 text-xs leading-5 text-slate-500">{company?.name || `${report.business_name || "İşletme"} · Lead Raporu`} · {report.report_type || "Keşif Raporu"} · Google Maps Müşteri Keşfi</p>
+              <p className="mt-1 text-xs text-slate-500">{formatDateTime(report.updated_at || report.created_at)} · {creator?.full_name || creator?.email || "Sistem"}</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700 ring-1 ring-emerald-200">{report.status || "Hazır"}</span>
+              <button type="button" onClick={() => setPreview(report)} className="min-h-10 rounded-[10px] bg-cyan-600 px-4 text-xs font-black text-white">Görüntüle</button>
+            </div>
+          </div>
+        </article>;
+      })}
+      {!reports.length && <div className="rounded-[14px] border border-dashed border-slate-300 bg-slate-50 p-8 text-center"><FileBarChart className="mx-auto text-slate-400" size={28} /><h3 className="mt-3 font-black text-slate-900">Keşif raporu bulunamadı</h3><p className="mt-2 text-sm text-slate-500">Google Maps Müşteri Bulma ekranında bir işletme seçip SWOT, dijital analiz veya sunum raporu oluşturun.</p><Link href="/hk-admin/musteri-kesfi?tab=google-maps-musteri-bulma" className="mt-4 inline-flex min-h-11 items-center rounded-[10px] bg-cyan-600 px-4 text-sm font-black text-white">Müşteri Keşfine Git</Link></div>}
+    </div>
+    {preview && <DiscoveryReportViewer report={preview} onClose={() => setPreview(null)} />}
+  </div>;
+}
+
 function ReportingCenter({ content, setContent, selectedCompanyId }: any) {
   const [tab, setTab] = useState("Meta Reklamları");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState("");
   const reports = excludeTestCompanyRecords(content.reports || [], content.companies);
+  const centerReportTabs = [...reportTabs, "Keşif Raporları"];
   const typeForTab = { "Meta Reklamları": "Meta Reklam Raporu", "Google Ads": "Google Ads Raporu", "Sosyal Medya Yönetimi": "Sosyal Medya Yönetimi Raporu", "Genel Raporlar": "Genel Dijital Performans Raporu" }[tab];
   const visibleReports = reports.filter((report) => report.report_type === typeForTab && (!selectedCompanyId || report.company_id === selectedCompanyId));
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("reportTab") === "discovery") setTab("Keşif Raporları");
+  }, []);
   function update(id, patch) {
     setContent({ ...content, reports: reports.map((report) => report.id === id ? { ...report, ...patch } : report) });
   }
@@ -8776,10 +8852,15 @@ function ReportingCenter({ content, setContent, selectedCompanyId }: any) {
     } else setMessage(`Silinemedi: ${data.supabaseError || data.error || "Beklenmeyen hata"}`);
     setLoading("");
   }
+  if (tab === "Keşif Raporları") return <Panel title="Raporlama Merkezi">
+    <p className="mb-5 text-sm leading-6 text-slate-400">Müşteri raporları ile Google Maps müşteri keşfinden üretilen kalıcı lead raporlarını tek merkezden yönetin.</p>
+    <div className="mb-5 flex flex-wrap gap-2">{centerReportTabs.map((item) => <button key={item} onClick={() => setTab(item)} className={`rounded-full px-4 py-2 text-sm font-bold ${tab === item ? "bg-cyan-300 text-slate-950" : "border border-slate-200 text-slate-600"}`}>{item}</button>)}</div>
+    <DiscoveryReportsList content={content} />
+  </Panel>;
   return <Panel title="Raporlama Merkezi">
     <p className="mb-5 text-sm leading-6 text-slate-400">Meta, Google Ads, sosyal medya yönetimi ve genel performans raporlarını müşteri bazında hazırlayın.</p>
     {selectedCompanyId && <div className="mb-5"><CustomerWorkflowLinks companyId={selectedCompanyId} /></div>}
-    <div className="mb-5 flex flex-wrap gap-2">{reportTabs.map((item) => <button key={item} onClick={() => setTab(item)} className={`rounded-full px-4 py-2 text-sm font-bold ${tab === item ? "bg-cyan-300 text-slate-950" : "border border-slate-200 text-slate-600"}`}>{item}</button>)}</div>
+    <div className="mb-5 flex flex-wrap gap-2">{centerReportTabs.map((item) => <button key={item} onClick={() => setTab(item)} className={`rounded-full px-4 py-2 text-sm font-bold ${tab === item ? "bg-cyan-300 text-slate-950" : "border border-slate-200 text-slate-600"}`}>{item}</button>)}</div>
     <button onClick={add} className="mb-4 inline-flex items-center gap-2 rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950"><Plus size={16} /> Yeni rapor ekle</button>
     {message && <p className={`mb-4 rounded-[8px] border p-3 text-sm ${message.includes("Kaydedilemedi") || message.includes("Silinemedi") ? "border-red-300/30 bg-red-500/10 text-red-100" : "border-cyan-200/20 bg-cyan-200/10 text-cyan-700"}`}>{message}</p>}
     <div className="grid gap-4">{visibleReports.map((report) => <div key={report.id} className="grid gap-4 rounded-[8px] border border-slate-200 bg-slate-50 p-4">
@@ -9295,6 +9376,9 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
   const [notePlaceId, setNotePlaceId] = useState("");
   const [noteDrafts, setNoteDrafts] = useState({});
   const [whatsappDraft, setWhatsappDraft] = useState<any>(null);
+  const [reportLoading, setReportLoading] = useState<Record<string, boolean>>({});
+  const reportControllersRef = useRef<Map<string, AbortController>>(new Map());
+  const selectedPlaceRef = useRef("");
   const [leadCompetitors, setLeadCompetitors] = useState<Record<string, any[]>>({});
   const [leadStagesById, setLeadStagesById] = useState<Record<string, string>>({});
   const saved = (content.leads || []).filter((lead) => lead.google_place_id || lead.address);
@@ -9325,6 +9409,24 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
   useEffect(() => {
     const nextTab = mapTabFromSlug(new URLSearchParams(window.location.search).get("tab"));
     if (nextTab) setTab(nextTab);
+  }, []);
+
+  useEffect(() => {
+    selectedPlaceRef.current = selectedPlaceId;
+    reportControllersRef.current.forEach((controller) => controller.abort());
+    reportControllersRef.current.clear();
+    setReportLoading({});
+  }, [selectedPlaceId]);
+
+  useEffect(() => () => {
+    reportControllersRef.current.forEach((controller) => controller.abort());
+    reportControllersRef.current.clear();
+  }, []);
+
+  useEffect(() => {
+    const closeDetail = () => setSelectedPlaceId("");
+    window.addEventListener("hk-close-discovery-detail", closeDetail);
+    return () => window.removeEventListener("hk-close-discovery-detail", closeDetail);
   }, []);
 
   function setMapTab(nextTab: string) {
@@ -9406,10 +9508,20 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
     const data = await response.json().catch(() => ({}));
     setLoading("");
     if (!response.ok) return setMessage(data.supabaseError ? `${data.error}: ${data.supabaseError}` : data.error || "İşletme kaydedilemedi.");
+    const savedLead = data.leads?.[0];
+    let reportLinkWarning = "";
+    if (savedLead?.id && (business.placeId || business.google_place_id)) {
+      const linkResponse = await fetch("/api/admin/reports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "link_discovery_reports", sourceIdentifier: business.placeId || business.google_place_id, leadId: savedLead.id, companyId: savedLead.company_id || null })
+      });
+      if (!linkResponse.ok) reportLinkWarning = " CRM kaydı oluşturuldu ancak mevcut keşif raporları lead kaydına bağlanamadı.";
+    }
     const nextLeads = [...(data.leads || []), ...(content.leads || [])];
     setContent({ ...content, leads: nextLeads });
     setResults((current) => current.map((item: any) => (item.placeId || item.google_place_id) === (business.placeId || business.google_place_id) ? { ...item, crmStatus: "CRM’de kayıtlı" } : item));
-    setMessage(data.skipped ? "Bu işletme daha önce CRM listesine eklenmiş." : data.message);
+    setMessage(`${data.skipped ? "Bu işletme daha önce CRM listesine eklenmiş." : data.message || "İşletme CRM’e kaydedildi."}${reportLinkWarning}`);
     setActionResult({
       title: "İşletme CRM’e kaydedildi",
       summary: data.skipped ? "Seçilen işletme daha önce CRM listesine eklenmiş." : `${business.name || business.company || "İşletme"} CRM’e yeni lead olarak kaydedildi.`,
@@ -9419,7 +9531,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
       checkLinks: [{ label: "Leadleri Gör", href: "/hk-admin/leadler" }, { label: "Teklif Hazırla", href: "/hk-admin/teklif-olustur" }],
       customerVisibility: { showToCustomer: false, label: "Bu kayıt şu anda sadece admin tarafında görünüyor." }
     });
-    return data.leads?.[0] || existingLeadFor(business);
+    return savedLead || existingLeadFor(business);
   }
   function toggleSelected(placeId: string, checked: boolean) {
     setSelectedPlaces((current) => checked ? [...new Set([...current, placeId])] : current.filter((id) => id !== placeId));
@@ -9477,7 +9589,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
       digitalGapScore: item.digitalGapScore || Math.max(0, 100 - Number(item.digitalMaturityScore || item.digital_maturity_score || 0)),
       adPotentialScore: item.adPotentialScore || Math.min(100, Number(item.leadHeatScore || item.lead_heat_score || 0) + 10)
     })));
-    setMessage("AI zenginleştirme alanları hazırlandı. Gerçek yapay zekâ sağlayıcı yoksa yerel fırsat yorumu kullanılır.");
+    setMessage("İşletme verileri CRM durumu, fırsat skoru ve dijital eksik alanlarıyla zenginleştirildi.");
   }
   function recalculateScores() {
     setResults(results.map((item: any) => {
@@ -9502,7 +9614,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
     if (record.metaAdLibraryUrl || record.meta_ad_library_url) return record.metaAdLibraryUrl || record.meta_ad_library_url;
     return `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=TR&q=${encodeURIComponent(record.name || record.company || search.businessType || "")}`;
   }
-  const selectedBusiness = visible.find((item: any) => (item.placeId || item.google_place_id || item.id) === selectedPlaceId) || visible[0] || null;
+  const selectedBusiness = visible.find((item: any) => (item.placeId || item.google_place_id || item.id) === selectedPlaceId) || null;
   const selectedBusinessName = (record: any) => record?.name || record?.company || "Seçilen işletme";
   function prepareAction(title: string, record: any, nextActions: string[], links: any[] = []) {
     setActionResult({
@@ -9666,7 +9778,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
     if (messageType.includes("WhatsApp")) setWhatsappDraft({ id: leadKey(record), text: content, phone: record.phone });
     setLeadStagesById((current) => ({ ...current, [leadKey(record)]: "İlk mesaj hazırlandı" }));
     setActionResult({
-      title: "AI İlk Mesaj Hazırlandı",
+      title: "İlk Mesaj Taslağı Hazırlandı",
       summary: `${selectedBusinessName(record)} için ${messageType} taslağı üretildi. Otomatik gönderim yapılmadı; kullanıcı onayı gerekir.`,
       status: "prepared",
       createdRecords: [{ label: "İlk mesaj taslağı", count: 1, status: "Hazırlandı" }],
@@ -9675,55 +9787,88 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
       customerVisibility: { showToCustomer: false, label: "Bu mesaj taslağı sadece admin tarafında görünür." },
       technicalDetails: { messageType, tone, content, businessName: selectedBusinessName(record), placeId: leadKey(record) }
     });
+    return content;
   }
-  function buildDigitalReport(record: any) {
-    const name = selectedBusinessName(record);
-    const reviewCount = Number(record.reviewCount ?? record.google_review_count ?? 0);
-    const rating = Number(record.googleRating ?? record.google_rating ?? 0);
-    const opportunityScore = Number(record.opportunityScore || record.leadHeatScore || record.lead_heat_score || 0);
-    const digitalGapScore = Number(record.digitalGapScore || Math.max(0, 100 - Number(record.digitalMaturityScore || record.digital_maturity_score || 0)));
-    const strengths = [rating >= 4 ? "Google puanı güçlü" : "Yerel arama kaydı mevcut", reviewCount >= 50 ? "Yorum hacmi güven veriyor" : "Google yorum aksiyonu için net gelişim alanı var", record.phone ? "Telefon bilgisi erişilebilir" : "İletişim bilgileri tamamlanabilir"];
-    const weaknesses = [record.website ? "Website dönüşüm ve takip açısından kontrol edilmeli" : "Website veya açılış sayfası görünmüyor", reviewCount < 25 ? "Yorum sayısı düşük" : "Yorumlar reklamlarda daha iyi kullanılabilir", record.instagram ? "Instagram içerik ritmi analiz edilmeli" : "Instagram bağlantısı bulunamadı"];
-    const opportunities = ["Google yorum artırma kampanyası", "Meta reklam kreatif testi", "Yerel arama ve Google Maps görünürlüğü", "WhatsApp odaklı lead toplama"];
-    const threats = ["Bölgede yüksek yorumlu rakipler öne çıkabilir", "Reklam veren rakipler görünürlüğü artırabilir", "Dijital varlığı güçlü işletmeler teklif sürecinde avantaj sağlayabilir"];
-    const sevenDayPlan = ["Gün 1: İşletme bilgilerini ve karar vericiyi doğrula", "Gün 2: İlk WhatsApp/DM mesajını gönder", "Gün 3: Rakipleri ve Google yorum farkını paylaş", "Gün 4: Mini teklif taslağı hazırla", "Gün 7: Takip görüşmesi yap ve CRM aşamasını güncelle"];
-    const thirtyDayPlan = ["1. hafta: Google profil, yorum ve website kontrolü", "2. hafta: Meta/Google reklam fırsat testi", "3. hafta: İçerik ve teklif dili iyileştirme", "4. hafta: Rapor ve satış kapanış görüşmesi"];
-    const ninetyDayPlan = ["İlk ay kurulum ve hızlı kazanımlar", "İkinci ay reklam optimizasyonu ve içerik ritmi", "Üçüncü ay raporlama, yorum artışı ve büyüme paketi"];
-    return {
-      title: `${name} Dijital Analiz ve SWOT Raporu`,
-      healthScore: Math.max(20, Math.min(100, Math.round((opportunityScore + (100 - digitalGapScore) + rating * 20) / 3))),
-      summary: `${name} için Google görünürlüğü, yorum gücü, website varlığı ve reklam potansiyeli birlikte değerlendirildi.`,
-      swot: { strengths, weaknesses, opportunities, threats },
-      sections: {
-        google: `${rating || "-"} Google puanı ve ${reviewCount} yorum üzerinden yerel güven analizi yapıldı.`,
-        website: record.website ? "Website var; dönüşüm takibi, hız ve teklif dili kontrol edilmeli." : "Website bulunamadı; açılış sayfası önerisi satış fırsatı oluşturur.",
-        social: record.instagram ? "Instagram bağlantısı var; içerik ritmi ve Reels fırsatları incelenmeli." : "Instagram bulunamadı; sosyal medya varlığı satış konuşmasına dahil edilebilir.",
-        ads: `Reklam potansiyeli ${record.adPotentialScore || Math.min(100, opportunityScore + 10)}/100 olarak değerlendirildi.`,
-        competitor: "Rakip karşılaştırması için Rakiplerini Bul aksiyonu ile aynı bölgedeki işletmeler taranabilir."
-      },
-      priorities: ["Karar vericiye ilk mesaj", "Google yorum ve website fırsatını anlat", "Rakip farkını sade raporla göster", "Kısa teklif taslağı hazırla"],
-      sevenDayPlan,
-      thirtyDayPlan,
-      ninetyDayPlan,
-      sellableServices: ["Google Maps görünürlük paketi", "Meta reklam başlangıç paketi", "Website/landing page", "Aylık raporlama ve yorum yönetimi"],
-      estimatedServiceFee: opportunityScore >= 75 ? "15.000 - 35.000 TL" : "8.000 - 18.000 TL",
-      closeProbability: opportunityScore >= 75 ? "Yüksek" : opportunityScore >= 50 ? "Orta" : "Takip gerektirir",
-      customerSummary: `${name} için Google görünürlüğü, yorum yönetimi ve reklam dönüşümü tarafında hızlı kazanım fırsatları var. İlk 7 gün içinde kısa analiz, teklif ve takip görüşmesi önerilir.`
-    };
-  }
-  function prepareDigitalReport(record: any, assetType = "swot_report") {
-    const report = buildDigitalReport(record);
-    const isPresentation = assetType === "presentation";
-    setActionResult({
-      title: isPresentation ? "AI Sunum Hazırlandı" : assetType === "digital_audit" ? "AI Dijital Analiz Raporu Oluşturuldu" : "AI SWOT Raporu Hazırlandı",
-      summary: `${selectedBusinessName(record)} için ${isPresentation ? "print-ready HTML/PDF uyumlu sunum akışı" : "dijital analiz ve SWOT raporu"} hazırlandı.`,
-      status: "prepared",
-      createdRecords: [{ label: isPresentation ? "Sunum taslağı" : "AI satış raporu", count: 1, status: "Hazırlandı" }],
-      nextActions: ["Raporu müşteriye göndermeden önce kontrol et.", "Teklif taslağına veya görev planına dönüştür.", "Rakip karşılaştırması gerekiyorsa rakipleri bul."],
-      checkLinks: [{ label: "Teklif Hazırla", href: "/hk-admin/teklif-olustur" }, { label: "Rapor Merkezi", href: "/hk-admin/raporlar" }],
-      customerVisibility: { showToCustomer: false, label: "Rapor taslağı henüz sadece admin tarafında görünüyor." },
-      technicalDetails: { assetType, report }
-    });
+  async function prepareDigitalReport(record: any, reportKind: "swot_report" | "digital_audit" | "presentation" | "competitor_analysis" | "discovery_report" = "swot_report") {
+    const recordKey = leadKey(record);
+    if (!recordKey) return setMessage("Seçili işletme bilgisi bulunamadı.");
+    const requestKey = `${recordKey}:${reportKind}`;
+    if (reportLoading[requestKey]) return;
+
+    const controller = new AbortController();
+    reportControllersRef.current.get(requestKey)?.abort();
+    reportControllersRef.current.set(requestKey, controller);
+    setReportLoading((current) => ({ ...current, [requestKey]: true }));
+    setMessage(reportKind === "swot_report" ? "SWOT raporu hazırlanıyor..." : reportKind === "digital_audit" ? "Dijital analiz hazırlanıyor..." : "Sunum taslağı hazırlanıyor...");
+
+    const existingLead = existingLeadFor(record);
+    try {
+      const response = await fetch("/api/admin/reports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({
+          action: "generate_discovery_report",
+          reportKind,
+          companyId: existingLead?.company_id || record.company_id || null,
+          leadId: existingLead?.id || null,
+          business: {
+            ...record,
+            district: districtOf(record) || search.district,
+            searchKeyword: search.keyword || search.niche || search.businessType,
+            tags: record.tags || []
+          },
+          searchContext: { city: search.city, district: search.district, sector: search.businessType, keyword: search.keyword || search.niche },
+          analysisContext: reportKind === "competitor_analysis" ? { competitors: leadCompetitors[leadKey(record)] || [] } : {}
+        })
+      });
+      const contentType = response.headers.get("content-type") || "";
+      const data = contentType.includes("application/json") ? await response.json().catch(() => ({})) : {};
+      if (!response.ok) throw new Error(data.error || "Rapor üretilemedi. AI sağlayıcısı yanıt vermedi.");
+      if (!data.report?.id || !data.report?.content?.sections?.length) throw new Error("Rapor oluşturuldu ancak görünür içerik veya kayıt kimliği alınamadı.");
+      if (selectedPlaceRef.current !== recordKey) return;
+
+      const report = data.report as DiscoveryReportRecord;
+      setContent((current) => ({
+        ...current,
+        reports: [report, ...(current.reports || []).filter((item: any) => item.id !== report.id)]
+      }));
+      setActionResult({
+        title: data.message || "Keşif raporu kaydedildi",
+        summary: `${selectedBusinessName(record)} için gerçek AI çıktısı oluşturuldu, görünür önizleme açıldı ve Rapor Merkezi’ne kaydedildi.`,
+        status: "success",
+        createdRecords: [{ label: report.report_type || "Keşif raporu", count: 1, status: "Kaydedildi" }],
+        nextActions: ["Raporu önizlemede kontrol et.", "Gerekirse kopyala veya yeniden oluştur.", "Rapor Merkezi’nden daha sonra tekrar aç."],
+        checkLinks: [{ label: "Rapor Merkezi’ne Git", href: "/hk-admin/raporlar?reportTab=discovery" }],
+        customerVisibility: { showToCustomer: false, label: "Lead raporu yalnızca admin tarafında görünür." },
+        technicalDetails: { reportId: report.id, reportType: report.report_type, ai: data.ai }
+      });
+      setMessage(data.message || "Rapor oluşturuldu ve Rapor Merkezi’ne kaydedildi.");
+      window.dispatchEvent(new CustomEvent("hk-discovery-report-ready", { detail: report }));
+      notify?.(data.message || "Rapor oluşturuldu ve kaydedildi.", "success");
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      const detail = error instanceof Error ? error.message : "Rapor üretilemedi. Lütfen tekrar deneyin.";
+      if (selectedPlaceRef.current === recordKey) {
+        setMessage(detail);
+        setActionResult({
+          title: "Rapor üretilemedi",
+          summary: detail,
+          status: "error",
+          createdRecords: [{ label: "Kalıcı rapor kaydı", count: 0, status: "Oluşturulmadı" }],
+          nextActions: ["AI sağlayıcı ayarlarını kontrol et.", "İşletme verilerini doğrula.", "Tekrar dene."],
+          checkLinks: [{ label: "AI Ayarlarına Git", href: "/hk-admin/ai-ayarlari" }]
+        });
+        notify?.(detail, "error");
+      }
+    } finally {
+      reportControllersRef.current.delete(requestKey);
+      setReportLoading((current) => {
+        const next = { ...current };
+        delete next[requestKey];
+        return next;
+      });
+    }
   }
   async function findCompetitorsForLead(record: any) {
     setLoading(`competitors-${leadKey(record)}`);
@@ -9994,6 +10139,57 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
 }
 
 function BusinessLeadDetailPanel({ record, mapsHref, metaHref, saveBusiness, proposalFor, setWhatsappDraft, outreachText, sendToCompetitor, markCandidate, setNotePlaceId, notePlaceId, findCompetitorsForLead, competitors = [], prepareFirstMessage, prepareDigitalReport, openWhatsapp, prepareInstagramDm, openInstagram, callBusiness, emailBusiness, openWebsite, leadStage, leadStageOptions = [], updateLeadStage, createFollowupTask, existingLead, openCrmLead }: any) {
+  const [reportPreview, setReportPreview] = useState<DiscoveryReportRecord | null>(null);
+  const [availableReports, setAvailableReports] = useState<Record<string, DiscoveryReportRecord>>({});
+  const [reportBusy, setReportBusy] = useState<Record<string, boolean>>({});
+  const [messageDraft, setMessageDraft] = useState("");
+  const recordKey = record?.placeId || record?.google_place_id || record?.id || "";
+
+  useEffect(() => {
+    const showReport = (event: Event) => {
+      const report = (event as CustomEvent<DiscoveryReportRecord>).detail;
+      if (report?.id) {
+        const kind = report.metadata?.report_kind || report.report_type || report.id;
+        setAvailableReports((current) => ({ ...current, [kind]: report }));
+        setReportPreview(report);
+      }
+    };
+    window.addEventListener("hk-discovery-report-ready", showReport);
+    return () => window.removeEventListener("hk-discovery-report-ready", showReport);
+  }, []);
+
+  useEffect(() => {
+    setReportPreview(null);
+    setAvailableReports({});
+    setReportBusy({});
+    setMessageDraft("");
+  }, [recordKey]);
+
+  async function runReport(kind: "swot_report" | "digital_audit" | "presentation" | "competitor_analysis" | "discovery_report") {
+    if (!record || reportBusy[kind]) return;
+    setReportBusy((current) => ({ ...current, [kind]: true }));
+    try {
+      await prepareDigitalReport(record, kind);
+    } finally {
+      setReportBusy((current) => ({ ...current, [kind]: false }));
+    }
+  }
+
+  function closePanel() {
+    window.dispatchEvent(new Event("hk-close-discovery-detail"));
+  }
+
+  function showWhatsappDraft() {
+    const text = outreachText(record);
+    setMessageDraft(text);
+    setWhatsappDraft({ id: recordKey, text, phone: record?.phone });
+  }
+
+  function showFirstMessage() {
+    const text = prepareFirstMessage(record);
+    setMessageDraft(text);
+  }
+
   if (!record) {
     return <aside className="h-fit rounded-[12px] border border-dashed border-slate-200 bg-slate-50 p-5"><p className="text-xs font-black uppercase tracking-[.14em] text-cyan-700">Seçilen İşletme Detayı</p><h3 className="mt-2 text-lg font-black text-slate-950">Henüz işletme seçilmedi</h3><p className="mt-2 text-sm leading-6 text-slate-500">Orta alandaki kartlardan Detay butonuna basın. Seçilen işletmenin satış yaklaşımı, skorları ve aksiyonları burada açılır.</p></aside>;
   }
@@ -10003,14 +10199,19 @@ function BusinessLeadDetailPanel({ record, mapsHref, metaHref, saveBusiness, pro
   const digitalGapScore = Number(record.digitalGapScore || Math.max(0, 100 - maturity));
   const adPotentialScore = Number(record.adPotentialScore || Math.min(100, opportunityScore + 10));
   const plan = ["1. gün: İşletme bilgilerini ve karar vericiyi doğrula.", "2. gün: WhatsApp veya telefonla kısa fırsat özeti paylaş.", "3. gün: Website, Google yorum ve reklam potansiyeli teklifini hazırla.", "4-5. gün: İlk takip görüşmesini yap.", "7. gün: CRM durumunu güncelle ve teklif sonucunu işle."];
-  return <aside className="premium-scrollbar h-fit max-h-[900px] overflow-y-auto rounded-[12px] border border-cyan-200 bg-white p-4 shadow-sm">
-    <p className="text-xs font-black uppercase tracking-[.14em] text-cyan-700">Seçilen İşletme Detayı</p>
+  return <><button type="button" aria-label="İşletme detayını kapat" onClick={closePanel} className="fixed inset-0 z-[8990] bg-slate-950/55 xl:hidden" /><aside className="premium-scrollbar fixed inset-x-3 bottom-3 top-20 z-[9000] min-h-0 overflow-y-auto overflow-x-hidden rounded-[14px] border border-cyan-200 bg-white p-4 shadow-2xl xl:sticky xl:inset-auto xl:top-4 xl:z-auto xl:h-[calc(100dvh-8rem)] xl:max-h-none xl:shadow-sm">
+    <div className="sticky -top-4 z-20 -mx-4 -mt-4 border-b border-slate-200 bg-white px-4 py-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-black uppercase tracking-[.14em] text-cyan-700">Seçilen İşletme Detayı</p>
+        <button type="button" onClick={closePanel} aria-label="İşletme detayını kapat" className="grid size-10 shrink-0 place-items-center rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-100"><X size={18} /></button>
+      </div>
     <div className="mt-2 flex items-start justify-between gap-3">
       <div>
         <h3 className="text-xl font-black text-slate-950">{name}</h3>
         <p className="mt-1 text-xs text-slate-500">{record.city || "-"} / {districtOf(record)} · {record.category || record.business_type || "Sektör belirtilmedi"}</p>
       </div>
       <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-black text-cyan-700 ring-1 ring-cyan-200">{opportunityScore}/100</span>
+    </div>
     </div>
     <div className="mt-4 rounded-[12px] border border-cyan-200 bg-cyan-50 p-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -10097,13 +10298,20 @@ function BusinessLeadDetailPanel({ record, mapsHref, metaHref, saveBusiness, pro
       </div> : <p className="mt-3 rounded-[10px] border border-dashed border-purple-200 bg-white p-3 text-xs leading-5 text-purple-700">Henüz rakip bulunmadı. “Rakiplerini Bul” ile Google Maps/Meta admin entegrasyonları üzerinden tarama başlat.</p>}
     </div>
     <div className="mt-4 grid gap-2">
+      <p className="text-xs font-black uppercase tracking-[.12em] text-slate-500">Hızlı İşlemler</p>
       {existingLead ? <button onClick={() => openCrmLead(record)} className="rounded-[10px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-black text-emerald-700">CRM Kaydını Aç</button> : <button onClick={() => saveBusiness(record)} className="rounded-[10px] bg-cyan-300 px-4 py-3 text-xs font-black text-slate-950">CRM’e Kaydet</button>}
       <button onClick={() => proposalFor(record)} className="rounded-[10px] border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-black text-amber-800">Teklif Hazırla</button>
-      <button onClick={() => setWhatsappDraft({ id: record.placeId || record.google_place_id || record.id, text: outreachText(record), phone: record.phone })} className="rounded-[10px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-black text-emerald-700">WhatsApp Mesajı Hazırla</button>
-      <button onClick={() => prepareFirstMessage(record)} className="rounded-[10px] border border-emerald-200 bg-white px-4 py-3 text-xs font-black text-emerald-700">AI İlk Mesaj Hazırla</button>
-      <button onClick={() => prepareDigitalReport(record, "swot_report")} className="rounded-[10px] border border-blue-200 bg-blue-50 px-4 py-3 text-xs font-black text-blue-700">AI SWOT Raporu Hazırla</button>
-      <button onClick={() => prepareDigitalReport(record, "digital_audit")} className="rounded-[10px] border border-cyan-200 bg-cyan-50 px-4 py-3 text-xs font-black text-cyan-700">AI Dijital Analiz Raporu</button>
-      <button onClick={() => prepareDigitalReport(record, "presentation")} className="rounded-[10px] border border-amber-200 bg-white px-4 py-3 text-xs font-black text-amber-800">AI Sunum Hazırla</button>
+      <button onClick={showWhatsappDraft} className="rounded-[10px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-black text-emerald-700">WhatsApp Mesajı Hazırla</button>
+      <button onClick={showFirstMessage} className="rounded-[10px] border border-emerald-200 bg-white px-4 py-3 text-xs font-black text-emerald-700">İlk Mesaj Hazırla</button>
+      {messageDraft && <div className="rounded-[12px] border border-emerald-200 bg-emerald-50 p-3"><p className="text-xs font-black text-emerald-900">Hazır mesaj taslağı</p><textarea value={messageDraft} onChange={(event) => setMessageDraft(event.target.value)} className="mt-2 min-h-28 w-full resize-y rounded-[10px] border border-emerald-200 bg-white p-3 text-sm leading-6 text-slate-900" /><div className="mt-2 flex flex-wrap gap-2"><button type="button" onClick={() => navigator.clipboard.writeText(messageDraft)} className="rounded-full border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-800">Kopyala</button>{record.phone && <a target="_blank" rel="noreferrer" href={`https://wa.me/${String(record.phone).replace(/\D/g, "")}?text=${encodeURIComponent(messageDraft)}`} className="rounded-full bg-[#25D366] px-3 py-2 text-xs font-black text-slate-950">WhatsApp’ta Aç</a>}</div></div>}
+      <p className="mt-3 text-xs font-black uppercase tracking-[.12em] text-slate-500">Analiz ve Raporlar</p>
+      <button disabled={reportBusy.swot_report} aria-label="AI SWOT raporu hazırla" onClick={() => runReport("swot_report")} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] border border-blue-200 bg-blue-50 px-4 py-3 text-xs font-black text-blue-700 disabled:cursor-not-allowed disabled:opacity-60">{reportBusy.swot_report && <Loader2 className="animate-spin" size={16} />}{reportBusy.swot_report ? "SWOT hazırlanıyor..." : "AI SWOT Raporu Hazırla"}</button>
+      <button disabled={reportBusy.digital_audit} aria-label="AI dijital analiz raporu hazırla" onClick={() => runReport("digital_audit")} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] border border-cyan-200 bg-cyan-50 px-4 py-3 text-xs font-black text-cyan-700 disabled:cursor-not-allowed disabled:opacity-60">{reportBusy.digital_audit && <Loader2 className="animate-spin" size={16} />}{reportBusy.digital_audit ? "Dijital analiz hazırlanıyor..." : "AI Dijital Analiz Raporu"}</button>
+      <button disabled={reportBusy.presentation} aria-label="AI sunum taslağı hazırla" onClick={() => runReport("presentation")} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] border border-amber-200 bg-white px-4 py-3 text-xs font-black text-amber-800 disabled:cursor-not-allowed disabled:opacity-60">{reportBusy.presentation && <Loader2 className="animate-spin" size={16} />}{reportBusy.presentation ? "Sunum hazırlanıyor..." : "AI Sunum Hazırla"}</button>
+      <button disabled={reportBusy.competitor_analysis} aria-label="Rakip analizi raporu hazırla" onClick={() => runReport("competitor_analysis")} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] border border-purple-200 bg-purple-50 px-4 py-3 text-xs font-black text-purple-700 disabled:cursor-not-allowed disabled:opacity-60">{reportBusy.competitor_analysis && <Loader2 className="animate-spin" size={16} />}{reportBusy.competitor_analysis ? "Rakip analizi hazırlanıyor..." : "Rakip Analizi Raporu"}</button>
+      <button disabled={reportBusy.discovery_report} aria-label="Müşteri keşif raporu hazırla" onClick={() => runReport("discovery_report")} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] border border-slate-200 bg-white px-4 py-3 text-xs font-black text-slate-700 disabled:cursor-not-allowed disabled:opacity-60">{reportBusy.discovery_report && <Loader2 className="animate-spin" size={16} />}{reportBusy.discovery_report ? "Keşif raporu hazırlanıyor..." : "Müşteri Keşif Raporu"}</button>
+      {Object.keys(availableReports).length > 0 && <div className="rounded-[12px] border border-emerald-200 bg-emerald-50 p-3"><p className="text-xs font-black text-emerald-900">Bu oturumda oluşturulan raporlar</p><div className="mt-2 grid gap-2">{Object.values(availableReports).map((report) => <button key={report.id} type="button" onClick={() => setReportPreview(report)} className="min-h-10 rounded-[10px] border border-emerald-200 bg-white px-3 text-left text-xs font-black text-emerald-800">{report.report_type || report.title} · Görüntüle</button>)}</div></div>}
+      <p className="mt-3 text-xs font-black uppercase tracking-[.12em] text-slate-500">Rakip ve Araştırma</p>
       <button onClick={() => sendToCompetitor(record)} className="rounded-[10px] border border-purple-200 bg-purple-50 px-4 py-3 text-xs font-black text-purple-700">Rakip Analizine Gönder</button>
       <button onClick={() => sendToCompetitor(record)} className="rounded-[10px] border border-cyan-200 bg-cyan-50 px-4 py-3 text-xs font-black text-cyan-700">Rakip İstihbaratına Git</button>
       <a target="_blank" rel="noreferrer" href={mapsHref(record)} className="rounded-[10px] border border-slate-200 bg-white px-4 py-3 text-center text-xs font-black text-slate-700">Google Maps’te Aç</a>
@@ -10117,7 +10325,7 @@ function BusinessLeadDetailPanel({ record, mapsHref, metaHref, saveBusiness, pro
       <button onClick={() => markCandidate(record)} className="rounded-[10px] border border-amber-200 bg-white px-4 py-3 text-xs font-black text-amber-700">Müşteri Adayı Olarak İşaretle</button>
       <button onClick={() => setNotePlaceId(notePlaceId === (record.placeId || record.google_place_id || record.id) ? "" : (record.placeId || record.google_place_id || record.id))} className="rounded-[10px] border border-slate-200 bg-white px-4 py-3 text-xs font-black text-slate-700">Not Ekle</button>
     </div>
-  </aside>;
+  </aside>{reportPreview && <DiscoveryReportViewer report={reportPreview} onClose={() => setReportPreview(null)} onRegenerate={() => { const kind = reportPreview.metadata?.report_kind as "swot_report" | "digital_audit" | "presentation" | "competitor_analysis" | "discovery_report"; if (kind) runReport(kind); }} regenerating={Boolean(reportPreview.metadata?.report_kind && reportBusy[reportPreview.metadata.report_kind])} />}</>;
 }
 
 function OpportunityMap({ content, setContent, save, notify, search, setSearch, setTab, setActive, saved }: any) {

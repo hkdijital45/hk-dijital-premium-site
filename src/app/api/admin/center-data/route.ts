@@ -387,6 +387,14 @@ function normalizeRecord(key: string, item: any) {
       archived_at: item.archived_at || null,
       deleted_at: item.deleted_at || null,
       status: item.status || (item.visible_to_customer ? "Yayınlandı" : "Taslak"),
+      title: item.title || null,
+      content: item.content || {},
+      lead_id: item.lead_id || null,
+      source_identifier: item.source_identifier || null,
+      business_name: item.business_name || null,
+      source_module: item.source_module || null,
+      created_by: item.created_by || null,
+      metadata: item.metadata || {},
       updated_at: new Date().toISOString()
     };
   }
