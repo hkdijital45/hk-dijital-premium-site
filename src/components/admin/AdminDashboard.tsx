@@ -40,6 +40,7 @@ import { HK_SERVICE_PACKAGES, PACKAGE_CATEGORIES, calculateTotalWithVat, calcula
 import { GlassCard } from "@/components/premium/PremiumUI";
 import { suggestUsername } from "@/lib/usernames";
 import { excludeTestCompanyRecords, filterRecordsByVisibility, isTestRecord } from "@/lib/test-records";
+import { filterSelectableCustomers } from "@/lib/customer-visibility";
 
 const adminCategoryIcons: Record<string, any> = {
   LayoutDashboard,
@@ -456,7 +457,7 @@ export function AdminDashboard({
     } catch {
       setMobileOperationMode(false);
     }
-    const activeCompanies = (initialContent.companies || []).filter((company: any) => !company.status || company.status === "Aktif");
+    const activeCompanies = filterSelectableCustomers(initialContent.companies || []);
     const queryCompanyId = new URLSearchParams(window.location.search).get("companyId") || "";
     const rememberedCompany = queryCompanyId || localStorage.getItem("hk-admin-selected-company") || "";
     const validRememberedCompany = activeCompanies.some((company: any) => company.id === rememberedCompany) ? rememberedCompany : "";
@@ -916,7 +917,7 @@ export function AdminDashboard({
           {["Takip Görevleri", "Takipler", "Notlar"].includes(active) && <Crm {...props} view={active} setActive={setActive} />}
           {["Bölgesel Analiz", "Rakip Listesi", "Kaydedilen Adaylar"].includes(active) && <MapsIntelligence {...props} setActive={setActive} mode={active} />}
           {["Funnel Analizi", "Reklam Fırsatları", "Rakip Reklamları"].includes(active) && <ChannelAnalysis {...props} channel={active === "Rakip Reklamları" ? "Reklam Fırsatları" : active} />}
-          {active === "Rakip Analizi" && <CompetitorAnalysisCenter {...props} />}
+          {["Rakip Analizi", "Rakip İstihbarat Merkezi"].includes(active) && <CompetitorAnalysisCenter {...props} />}
           {active === "Sosyal Medya Planı" && <SocialPlanGenerator {...props} />}
           {active === "Aylık Raporlar" && <MonthlyReportCenter {...props} />}
           {accountingAliases.includes(active) && <AccountingCenter {...props} initialTab={initialAccountingTab || accountingTabForActive(active)} selectedCompanyId={selectedCompanyId} onClearCompanyFilter={clearCompanyFilter} />}
@@ -1122,12 +1123,13 @@ function OtherSelectField({ label, value, onChange, options, manualLabel }: any)
 }
 
 function CompanySelect({ label = "Firma", value, onChange, companies }: any) {
+  const selectableCompanies = useMemo(() => filterSelectableCustomers(companies), [companies]);
   return (
     <SelectField
       label={label}
       value={value}
       onChange={onChange}
-      options={(companies || []).map((company) => ({ value: company.id, label: company.name }))}
+      options={selectableCompanies.map((company) => ({ value: company.id, label: company.name }))}
       placeholder="Firma seçin"
     />
   );
@@ -3848,7 +3850,7 @@ function MonthlyReportCenter({ content, setContent }: any) {
   const [busy, setBusy] = useState("");
   const update = (index, patch) => updateCollection(content, setContent, "monthlyReports", items.map((item, i) => i === index ? { ...item, ...patch } : item));
   function createReport() {
-    const company = (content.companies || [])[0];
+    const company = filterSelectableCustomers(content.companies || [])[0];
     const month = new Date().toISOString().slice(0, 7);
     const monthMetrics = metrics.filter((metric) => String(metric.date || "").startsWith(month));
     const totals = monthMetrics.reduce((total, item) => ({ impressions: total.impressions + Number(item.impressions || 0), reach: total.reach + Number(item.reach || 0), clicks: total.clicks + Number(item.clicks || 0), spent: total.spent + Number(item.spent || 0), leads: total.leads + Number(item.leads || item.results || 0) }), { impressions: 0, reach: 0, clicks: 0, spent: 0, leads: 0 });
@@ -4111,7 +4113,7 @@ function AccountingCenter({ content, setContent, save, currentSession, notify, s
   function addIncome() {
     if (financeDraftAdding || financeSaving) return;
     setFinanceDraftAdding(true);
-    const nextRecord = { id: createLocalId(), company_id: customerId || (content.companies || [])[0]?.id || "", amount: 0, due_date: today, payment_date: "", status: "Bekliyor", payment_type: "Hizmet Bedeli", service_period: month, payment_note: "Muhasebe Merkezi gelir kaydı", visible_to_customer: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    const nextRecord = { id: createLocalId(), company_id: customerId || filterSelectableCustomers(content.companies || [])[0]?.id || "", amount: 0, due_date: today, payment_date: "", status: "Bekliyor", payment_type: "Hizmet Bedeli", service_period: month, payment_note: "Muhasebe Merkezi gelir kaydı", visible_to_customer: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     updateCollection(content, setContent, "paymentRecords", [nextRecord, ...(content.paymentRecords || [])]);
     notify?.("✓ Gelir taslağı eklendi", "success");
     window.setTimeout(() => setFinanceDraftAdding(false), 450);
@@ -4295,7 +4297,7 @@ function PaymentCenter({ content, setContent, save, currentSession, notify, sele
       return;
     }
     setFeedback("Tahsilat taslağı eklendi. Kaydet düğmesiyle kalıcılaştırın.");
-    updateCollection(content, setContent, "paymentRecords", [{ id: createLocalId(), company_id: appliedFilters.companyId || (content.companies || [])[0]?.id || "", amount: 0, due_date: new Date().toISOString().slice(0, 10), payment_date: "", status: "Bekliyor", payment_type: "Hizmet Bedeli", service_period: thisMonth, payment_note: "", visible_to_customer: false }, ...items]);
+    updateCollection(content, setContent, "paymentRecords", [{ id: createLocalId(), company_id: appliedFilters.companyId || filterSelectableCustomers(content.companies || [])[0]?.id || "", amount: 0, due_date: new Date().toISOString().slice(0, 10), payment_date: "", status: "Bekliyor", payment_type: "Hizmet Bedeli", service_period: thisMonth, payment_note: "", visible_to_customer: false }, ...items]);
   }
   const deletePayment = (id) => {
     if (!confirmRecordAction("Bu ödeme kaydını silmek istediğinize emin misiniz? Kayıt güvenli şekilde silinmiş olarak işaretlenecek.")) return;
@@ -4307,20 +4309,6 @@ function PaymentCenter({ content, setContent, save, currentSession, notify, sele
     const archived = isArchivedRecord(item);
     return <div key={item.id || index} className={`rounded-[8px] border p-4 ${archived ? "border-amber-300/25 bg-amber-300/[0.06]" : "border-slate-200 bg-slate-50"}`}><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4"><CompanySelect value={item.company_id || ""} onChange={(value) => update(index, { company_id: value })} companies={content.companies} /><Field label="Tutar" type="number" value={item.amount || 0} onChange={(value) => update(index, { amount: Number(value || 0) })} /><SelectField label="Durum" value={item.status || "Bekliyor"} onChange={(value) => canManage && setStatus(item.id, value)} options={paymentStatusOptions} /><Field label="Ödeme türü" value={item.payment_type || "Hizmet Bedeli"} onChange={(value) => update(index, { payment_type: value })} /><Field label="Hizmet dönemi" type="month" value={item.service_period || ""} onChange={(value) => update(index, { service_period: value })} /><Field label="Son ödeme tarihi" type="date" value={item.due_date || ""} onChange={(value) => update(index, { due_date: value })} /><Field label="Ödeme tarihi" type="date" value={item.payment_date || ""} onChange={(value) => update(index, { payment_date: value })} /><InfoItem label="Oluşturulma tarihi" value={formatDateTime(item.created_at)} /><InfoItem label="Güncellenme tarihi" value={formatDateTime(item.updated_at)} /><TextArea label="Not" value={item.payment_note || ""} onChange={(value) => update(index, { payment_note: value })} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item.visible_to_customer)} onChange={(event) => update(index, { visible_to_customer: event.target.checked })} /> Müşteri Panelinde Görünür</label></div><div className="mt-4 flex flex-wrap justify-end gap-2"><RecordActionButton tone="cyan" onClick={() => recordActionDetail("Ödeme Detayı", [["Müşteri", companyName(content, item.company_id)], ["Tutar", `${Number(item.amount || 0).toLocaleString("tr-TR")} TL`], ["Durum", item.status], ["Hizmet dönemi", item.service_period], ["Son ödeme", formatDate(item.due_date)]])}>Detay</RecordActionButton>{canManage && (archived ? <RecordActionButton tone="amber" onClick={() => updateById(item.id, { archived_at: null, deleted_at: null }, "Ödeme arşivden çıkarıldı")}>Arşivden Çıkar</RecordActionButton> : <RecordActionButton tone="amber" onClick={() => updateById(item.id, { archived_at: new Date().toISOString() }, "Ödeme arşivlendi")}>Arşivle</RecordActionButton>)}{canManage && item.status === "İptal" && <RecordActionButton tone="emerald" onClick={() => setStatus(item.id, "Bekliyor")}>Tekrar Bekliyor Yap</RecordActionButton>}{canManage && item.status !== "Ödendi" && <RecordActionButton tone="emerald" onClick={() => setStatus(item.id, "Ödendi")}>Ödendi Yap</RecordActionButton>}{canManage && <RecordActionButton tone="red" onClick={() => deletePayment(item.id)}>Sil</RecordActionButton>}{canManage && <button onClick={() => save?.()} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Kaydet</button>}<button onClick={() => window.location.reload()} className="rounded-full border border-slate-200 px-4 py-2 text-xs text-slate-700">Vazgeç</button></div></div>;
   })}{!filteredItems.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-6 text-sm text-slate-400">Bu filtrelerle ödeme kaydı bulunamadı.</p>}</div></Panel>;
-}
-
-function buildDemoCompetitors(sector = "Yerel işletme", city = "Manisa") {
-  return ["Bölge Lideri", "Yeni Rakip", "Premium Alternatif"].map((name, index) => ({
-    name: `${city} ${sector} ${name}`,
-    website: index !== 1,
-    instagram: index !== 2,
-    rating: Number((4.1 + index * 0.2).toFixed(1)),
-    reviewCount: [82, 24, 140][index],
-    adSignal: index === 0 ? "Aktif reklam sinyali" : "Sınırlı görünürlük",
-    strengths: index === 0 ? "Yüksek yorum ve güçlü görünürlük" : "Niş hedef kitleye yakın mesaj",
-    weaknesses: index === 1 ? "Web sitesi ve yorum sayısı zayıf" : "Kreatif çeşitliliği sınırlı",
-    opportunities: "Daha net teklif, remarketing ve sosyal kanıt içerikleriyle ayrışma fırsatı"
-  }));
 }
 
 function competitorDisplay(item: any) {
@@ -4358,24 +4346,6 @@ function localCompetitorInternal(item: any) {
   };
 }
 
-function localCompetitorSuggestions(company: any, branch: any) {
-  const sector = company?.sector || "yerel işletme";
-  const city = branch?.city || company?.city || "Bölge";
-  const district = branch?.district || company?.district || "Merkez";
-  return buildDemoCompetitors(sector, city).map((item, index) => ({
-    id: `suggestion-${Date.now()}-${index}`,
-    competitor_name: item.name,
-    sector,
-    city,
-    district,
-    reason: `${city}/${district} bölgesinde ${sector} görünürlüğü açısından takip edilebilir.`,
-    estimated_strength: item.strengths,
-    estimated_weakness: item.weaknesses,
-    monitoring_recommendation: item.opportunities,
-    show_to_customer: false
-  }));
-}
-
 function ensureTextList(value: any, fallback: string[] = []) {
   if (Array.isArray(value)) return value.map(String).filter(Boolean);
   if (typeof value === "string" && value.trim()) return value.split(/\n|;/).map((line) => line.trim()).filter(Boolean);
@@ -4384,6 +4354,7 @@ function ensureTextList(value: any, fallback: string[] = []) {
 
 function CompetitorAnalysisCenter({ content, setContent }: any) {
   const watchlist = content.competitorWatchlist || [];
+  const selectableCompanies = filterSelectableCustomers(content.companies || []);
   const [filters, setFilters] = useState({ companyId: "", branchId: "", sector: "", city: "", district: "", status: "all", frequency: "all", visible: "all" });
   const [searchMode, setSearchMode] = useState("profile");
   const [discovery, setDiscovery] = useState({ niche: "", address: "", radius: "5 km", limit: "10", competitorType: "all", minimumRating: "0", minimumReviewCount: "0", preferActiveAds: false, preferWebsite: false, preferInstagram: false });
@@ -4394,7 +4365,7 @@ function CompetitorAnalysisCenter({ content, setContent }: any) {
   const [nicheOptions, setNicheOptions] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [actionResult, setActionResult] = useState<any>(null);
-  const selectedCompany = (content.companies || []).find((company: any) => company.id === filters.companyId) || (content.companies || [])[0] || {};
+  const selectedCompany = selectableCompanies.find((company: any) => company.id === filters.companyId) || selectableCompanies[0] || {};
   const branches = (content.customerBranches || []).filter((branch: any) => !filters.companyId || branch.company_id === filters.companyId);
   const selectedBranch = branches.find((branch: any) => branch.id === filters.branchId);
   const branchLabel = (branchId?: string) => (content.customerBranches || []).find((branch: any) => branch.id === branchId)?.branch_name || "";
@@ -4500,11 +4471,11 @@ function CompetitorAnalysisCenter({ content, setContent }: any) {
     try {
       const response = await fetch("/api/admin/competitors/bulk", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "save", companyId: filters.companyId || selectedCompany?.id || null, branchId: filters.branchId || null, competitors: itemsToSave, payload: { showToCustomer: options.showToCustomer, notify: options.notify, track: options.track } }) });
       const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.message || data.error || "Rakipler kaydedilemedi.");
       if (data.actionResult) setActionResult(data.actionResult);
       itemsToSave.forEach((item) => upsertLocal({ ...item, id: item.id || createLocalId(), company_id: filters.companyId || selectedCompany?.id || null, branch_id: filters.branchId || null, show_to_customer: options.showToCustomer ?? item.show_to_customer, is_tracking: Boolean(options.track || item.is_tracking), notify_on_new_ads: options.notify ?? item.notify_on_new_ads, notify_on_review_change: options.notify ?? item.notify_on_review_change, status: "active" }));
-    } catch {
-      for (const item of itemsToSave) await addCompetitor({ ...item, show_to_customer: options.showToCustomer ?? item.show_to_customer, notify_on_new_ads: options.notify ?? item.notify_on_new_ads ?? true, notify_on_review_change: options.notify ?? item.notify_on_review_change ?? true, is_tracking: Boolean(options.track) });
-      setActionResult({ title: "Rakipler kaydedildi", summary: `${itemsToSave.length} rakip ${selectedCompany?.name || "seçili müşteri"} için rakip listesine eklendi.`, status: "success", createdRecords: [{ label: "Rakip kaydı", count: itemsToSave.length, status: "Oluşturuldu" }], nextActions: ["Rakip skorlarını kontrol et.", "Müşteriye gösterilecek özeti oluştur.", "Yüksek tehdit skorlarını görev veya rapora dönüştür."], checkLinks: [{ label: "Rakip Listesini Gör", href: "/hk-admin/rakip-analizi" }, { label: "Müşteri Profilini Aç", href: `/hk-admin/musteriler?companyId=${filters.companyId || selectedCompany?.id || ""}` }], customerVisibility: { showToCustomer: Boolean(options.showToCustomer), label: options.showToCustomer ? "Seçili rakipler müşteriye açık kaydedildi." : "Kayıtlar sadece admin tarafında görünüyor." } });
+    } catch (error) {
+      setActionResult({ title: "Rakipler kaydedilemedi", summary: error instanceof Error ? error.message : "Rakip kayıt servisi yanıt vermedi.", status: "error", nextActions: ["Müşteri seçimini kontrol et.", "Bağlantıyı doğrulayıp tekrar dene."] });
     }
   }
   function buildDiscoveryCustomerSummary() {
@@ -4521,12 +4492,11 @@ function CompetitorAnalysisCenter({ content, setContent }: any) {
     try {
       const response = await fetch("/api/admin/competitors", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(base) });
       const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.message || data.error || "Rakip kaydı oluşturulamadı.");
       if (data.actionResult) setActionResult(data.actionResult);
       upsertLocal({ ...base, id: data.actionResult?.entityId || createLocalId(), created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
-    } catch {
-      const local = { ...base, id: createLocalId(), ...localCustomerCompetitorSummary(base), internal_analysis: localCompetitorInternal(base), created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-      upsertLocal(local);
-      setActionResult({ title: "Rakip kaydı hazırlandı", summary: "Canlı kayıt yapılamadı; rakip kaydı yerel hazırlık olarak oluşturuldu.", status: "prepared", createdRecords: [{ label: "Rakip kaydı", count: 1, status: "Hazırlandı" }], nextActions: ["Supabase bağlantısını kontrol et.", "Kaydı tekrar kalıcılaştır."], checkLinks: [{ label: "Rakip Analizine Dön", href: "/hk-admin/rakip-analizi" }], customerVisibility: { showToCustomer: false, label: "Sadece admin tarafında görünüyor." } });
+    } catch (error) {
+      setActionResult({ title: "Rakip kaydı oluşturulamadı", summary: error instanceof Error ? error.message : "Rakip kayıt servisi yanıt vermedi.", status: "error", nextActions: ["Müşteri seçimini kontrol et.", "Bağlantıyı doğrulayıp tekrar dene."] });
     } finally {
       setBusy("");
     }
@@ -4544,10 +4514,12 @@ function CompetitorAnalysisCenter({ content, setContent }: any) {
     try {
       const response = await fetch("/api/admin/competitors/discover", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId: selectedCompany.id, branchId: filters.branchId, companyName: selectedCompany.name, sector, niche: discoveryInput.niche, city, district, address: discoveryInput.address || selectedBranch?.address || selectedCompany.address, website: selectedCompany.website, phone: selectedCompany.phone, branchName: selectedBranch?.branch_name, radius: discoveryInput.radius, limit: Number(discoveryInput.limit || 10), competitorType: discoveryInput.competitorType, minimumRating: Number(discoveryInput.minimumRating || 0), minimumReviewCount: Number(discoveryInput.minimumReviewCount || 0), preferActiveAds: discoveryInput.preferActiveAds, preferWebsite: discoveryInput.preferWebsite, preferInstagram: discoveryInput.preferInstagram }) });
       const data = await response.json().catch(() => ({}));
-      setSuggestions(data.results || data.suggestions || localCompetitorSuggestions(selectedCompany, selectedBranch));
+      if (!response.ok) throw new Error(data.message || data.error || "Rakip keşfi tamamlanamadı.");
+      setSuggestions(data.results || data.suggestions || []);
       if (data.actionResult) setActionResult(data.actionResult);
-    } catch {
-      setSuggestions(localCompetitorSuggestions(selectedCompany, selectedBranch));
+    } catch (error) {
+      setSuggestions([]);
+      setActionResult({ title: "Rakip keşfi tamamlanamadı", summary: error instanceof Error ? error.message : "Rakip keşif servisi yanıt vermedi.", status: "error", nextActions: ["Müşteri profilindeki konum ve sektör bilgisini kontrol et.", "Bağlantıyı doğrulayıp tekrar dene."] });
     } finally {
       setBusy("");
     }
@@ -4641,7 +4613,7 @@ function SocialPlanGenerator({ content, setContent }: any) {
   const items = content.socialMediaPlans || [];
   const update = (index, patch) => updateCollection(content, setContent, "socialMediaPlans", items.map((item, i) => i === index ? { ...item, ...patch } : item));
   function add() {
-    const company = (content.companies || [])[0];
+    const company = filterSelectableCustomers(content.companies || [])[0];
     const base = { id: `${Date.now()}`, company_id: company?.id || "", sector: company?.sector || "", goal: "Bilinirlik", platform: "Instagram", duration: "30 gün", plan_items: [] };
     updateCollection(content, setContent, "socialMediaPlans", [{ ...base, plan_items: createSocialPlan(base) }, ...items]);
   }
@@ -8318,7 +8290,7 @@ function AdAccountMappingCenter({ content, setContent, save, notify }: any) {
       ...(mappingDrafts[companyId] || {})
     };
   }
-  const rows = (content.companies || []).map((company: any) => {
+  const rows = filterSelectableCustomers(content.companies || []).map((company: any) => {
     const draft = draftFor(company.id);
     const link = {
       company_id: company.id,
@@ -8338,17 +8310,13 @@ function AdAccountMappingCenter({ content, setContent, save, notify }: any) {
     const lastMetric = metrics.sort((a: any, b: any) => Number(new Date(b.date || b.created_at || 0)) - Number(new Date(a.date || a.created_at || 0)))[0];
     return { company, link, lastMetric, draft };
   });
-  function demoCampaigns(companyId: string) {
+  function campaignsForCompany(companyId: string) {
     const existing = (content.campaignMetrics || []).filter((metric: any) => metric.company_id === companyId && (metric.campaignName || metric.campaign_name || metric.campaign_id));
-    if (existing.length) return metaCampaignSummaries(existing).map((item: any) => ({ ...item, lastUpdate: new Date().toISOString(), source: "Meta" }));
-    return [
-      { campaignId: `demo-meta-${companyId}-1`, campaignName: "Meta Lead Kampanyası", status: "Aktif", spend: 8500, impressions: 42200, reach: 31800, clicks: 540, ctr: 1.28, cpc: 15.74, cpm: 201.42, results: 42, lastUpdate: new Date().toISOString(), source: "Meta Demo" },
-      { campaignId: `demo-meta-${companyId}-2`, campaignName: "Yeniden Pazarlama Mesaj Kampanyası", status: "Aktif", spend: 3200, impressions: 15800, reach: 9100, clicks: 210, ctr: 1.33, cpc: 15.24, cpm: 202.53, results: 27, lastUpdate: new Date().toISOString(), source: "Meta Demo" }
-    ];
+    return metaCampaignSummaries(existing).map((item: any) => ({ ...item, lastUpdate: new Date().toISOString(), source: "Meta" }));
   }
   function openMapping(companyId: string) {
     setSelectedCompanyId(companyId);
-    setPulledCampaigns(demoCampaigns(companyId));
+    setPulledCampaigns(campaignsForCompany(companyId));
     setModalOpen(true);
   }
   function updateDraft(companyId: string, patch: any) {
@@ -8389,14 +8357,15 @@ function AdAccountMappingCenter({ content, setContent, save, notify }: any) {
     if (!requests.length) {
       setLoading("");
       notify?.("⚠ Kaydedilecek reklam hesabı alanı yok", "warning");
-      return;
+      return false;
     }
     const results = await Promise.all(requests);
     const failed = results.find((result) => !result.ok);
     if (failed) {
+      const failure = await failed.json().catch(() => ({}));
       setLoading("");
-      notify?.("✖ Reklam hesabı eşleştirmesi kaydedilemedi", "error");
-      return;
+      notify?.(`✖ ${failure.error || "Reklam hesabı eşleştirmesi kaydedilemedi"}`, "error");
+      return false;
     }
     updateLink(companyId, {
       metaStatus: action === "test" ? "Test edildi" : action === "sync" ? "Senkronize edildi" : "Kaydedildi",
@@ -8407,10 +8376,13 @@ function AdAccountMappingCenter({ content, setContent, save, notify }: any) {
     notify?.(action === "test" ? "✓ Test tamamlandı" : action === "sync" ? "✓ Senkronizasyon kaydı tamamlandı" : "✓ Reklam hesabı eşleştirmesi kaydedildi", "success");
     setLoading("");
     loadLogs().catch(() => null);
+    return true;
   }
   async function syncCompany(companyId: string, source = "Meta") {
     setLoading(`sync-${companyId}`);
-    await persistCustomerMapping(companyId);
+    const mappingSaved = await persistCustomerMapping(companyId);
+    if (!mappingSaved) return;
+    setLoading(`sync-${companyId}`);
     const draft = draftFor(companyId);
     if (source === "Meta" && draft.metaAdAccountId) {
       const response = await fetch("/api/admin/meta-ads", {
@@ -8439,31 +8411,33 @@ function AdAccountMappingCenter({ content, setContent, save, notify }: any) {
       setLoading("");
       return;
     }
-    const campaigns = demoCampaigns(companyId);
-    setPulledCampaigns(campaigns);
-    const metricRows = campaigns.map((campaign: any) => ({ id: createLocalId(), company_id: companyId, date: new Date().toISOString().slice(0, 10), source: source === "Google" ? "Google Ads Sync" : "Meta API", campaign_id: matching[campaign.campaignId] || "", campaignName: campaign.campaignName, impressions: campaign.impressions || 0, reach: campaign.reach || 0, clicks: campaign.clicks || 0, leads: campaign.results || 0, spent: campaign.spend || 0, ctr: campaign.ctr || 0, cpc: campaign.cpc || 0, cpm: campaign.cpm || 0, visible_to_customer: true, notes: "Reklam hesabı eşleştirme merkezinden içe aktarıldı." }));
-    const log = { id: createLocalId(), provider: source.toLocaleLowerCase("tr"), company_id: companyId, source: "Reklam Hesabı Eşleştirme", result: "Başarılı", message: `${source} kampanya verileri içe aktarıldı.`, created_at: new Date().toISOString() };
-    const next = { ...content, campaignMetrics: [...metricRows, ...(content.campaignMetrics || [])], activityLogs: [log, ...(content.activityLogs || [])] };
-    setContent(next);
-    save?.(next);
-    setMessage("Tamamlandı ✓");
-    notify?.("✓ Senkronizasyon tamamlandı", "success");
+    setPulledCampaigns(campaignsForCompany(companyId));
+    notify?.(`${source} için canlı kampanya verisi alınamadı. Entegrasyon ayarlarını ve hesap yetkilerini kontrol edin.`, "warning");
     setLoading("");
-    setTimeout(() => setMessage(""), 2000);
   }
-  function importCampaign(metaCampaign: any, existingId = "") {
+  async function importCampaign(metaCampaign: any, existingId = "") {
     setLoading(`import-${metaCampaign.campaignId}`);
     const companyId = selectedCompanyId;
     const campaignPatch = { company_id: companyId, meta_campaign_id: metaCampaign.campaignId, name: metaCampaign.campaignName, platform: "Meta Ads", status: metaCampaign.status || "Aktif", spent_budget: Number(metaCampaign.spend || 0), spent: Number(metaCampaign.spend || 0), total_budget: Number(metaCampaign.spend || 0), budget: Number(metaCampaign.spend || 0), start_date: new Date().toISOString().slice(0, 10), notes: "Meta verilerinden içe aktarıldı.", visible_to_customer: true, updated_at: new Date().toISOString() };
     const campaigns = content.campaigns || [];
-    const newCampaign = existingId ? campaigns.map((item: any) => item.id === existingId ? { ...item, ...campaignPatch } : item) : [{ id: createLocalId(), ...campaignPatch }, ...campaigns];
-    const targetId = existingId || newCampaign[0].id;
+    const matchedId = existingId || campaigns.find((item: any) => item.company_id === companyId && item.meta_campaign_id === metaCampaign.campaignId)?.id || "";
+    const newCampaign = matchedId ? campaigns.map((item: any) => item.id === matchedId ? { ...item, ...campaignPatch } : item) : [{ id: createLocalId(), ...campaignPatch }, ...campaigns];
+    const targetId = matchedId || newCampaign[0].id;
     const metric = { id: createLocalId(), company_id: companyId, campaign_id: targetId, date: new Date().toISOString().slice(0, 10), source: "Meta API", campaignName: metaCampaign.campaignName, impressions: metaCampaign.impressions || 0, reach: metaCampaign.reach || 0, clicks: metaCampaign.clicks || 0, leads: metaCampaign.results || 0, spent: metaCampaign.spend || 0, ctr: metaCampaign.ctr || 0, cpc: metaCampaign.cpc || 0, cpm: metaCampaign.cpm || 0, visible_to_customer: true, notes: "Meta Verilerini İçeri Aktar ile oluşturuldu." };
     const log = { id: createLocalId(), provider: "meta", company_id: companyId, source: "Kampanya Eşleştirme", result: "Başarılı", message: `${metaCampaign.campaignName} kampanyası içe aktarıldı.`, created_at: new Date().toISOString() };
-    const next = { ...content, campaigns: newCampaign, campaignMetrics: [metric, ...(content.campaignMetrics || [])], activityLogs: [log, ...(content.activityLogs || [])] };
+    const metrics = content.campaignMetrics || [];
+    const metricIndex = metrics.findIndex((item: any) => item.company_id === companyId && item.campaign_id === targetId && item.date === metric.date && item.source === metric.source);
+    const nextMetrics = metricIndex >= 0 ? metrics.map((item: any, index: number) => index === metricIndex ? { ...item, ...metric } : item) : [metric, ...metrics];
+    const next = { ...content, campaigns: newCampaign, campaignMetrics: nextMetrics, activityLogs: [log, ...(content.activityLogs || [])] };
     setContent(next);
-    save?.(next);
-    notify?.("✓ İçe Aktarıldı", "success");
+    const saved = await save?.(next);
+    if (saved === false) {
+      setContent(content);
+      notify?.("Kampanya verileri kaydedilemedi.", "error");
+      setLoading("");
+      return;
+    }
+    notify?.(matchedId ? "Kampanya ve metrikler güncellendi." : "Kampanya ve metrikler içe aktarıldı.", "success");
     setLoading("");
   }
   return (
@@ -8520,7 +8494,7 @@ function AdAccountMappingCenter({ content, setContent, save, notify }: any) {
         </div>
       </div>
       <div className="mt-5 rounded-[18px] border border-slate-200 bg-slate-50 p-4"><h3 className="font-black text-slate-900">Senkronizasyon Geçmişi</h3><div className="mt-3 grid gap-2">{[...(logs || []), ...(content.activityLogs || []).filter((log: any) => String(log.source || log.entity || "").includes("Reklam"))].slice(0, 10).map((log: any, index: number) => <div key={log.id || index} className="grid gap-2 rounded-[8px] border border-slate-200 p-3 text-sm md:grid-cols-[160px_160px_1fr_120px]"><span className="text-slate-600">{formatDateTime(log.created_at)}</span><span className="text-cyan-700">{companyName(content, log.company_id) || log.provider || "-"}</span><span className="text-slate-600">{log.message || log.action || log.source || "-"}</span><span className={`${log.result === "Başarılı" ? "text-emerald-700" : log.result === "Hata" ? "text-red-100" : "text-amber-700"}`}>{log.result || log.status || "Uyarı"}</span></div>)}{!logs.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-4 text-sm text-slate-400">Henüz senkronizasyon geçmişi yok.</p>}</div></div>
-      {modalOpen && <div className="fixed inset-0 z-[120] grid place-items-center bg-white/70 p-4" onClick={() => setModalOpen(false)}><div className="max-h-[88vh] w-full max-w-5xl overflow-auto rounded-[22px] border border-slate-200 bg-white p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="mb-5 flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Kampanya Eşleştirme</p><h3 className="mt-1 text-2xl font-black text-slate-900">{companyName(content, selectedCompanyId)}</h3><p className="mt-1 text-sm text-slate-600">Step 1: müşteri seçildi. Step 2: Meta kampanyalarını mevcut kampanyaya bağlayın veya yeni kampanya oluşturun.</p></div><button onClick={() => setModalOpen(false)} className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-700">Kapat</button></div><CompanySelect label="Müşteri" value={selectedCompanyId} onChange={(companyId) => { setSelectedCompanyId(companyId); setPulledCampaigns(demoCampaigns(companyId)); }} companies={content.companies} /><div className="mt-5 grid gap-3">{pulledCampaigns.map((campaign: any) => <div key={campaign.campaignId} className="rounded-[12px] border border-slate-200 bg-slate-50 p-4"><div className="grid gap-3 md:grid-cols-[1fr_120px_120px_160px] md:items-center"><div><p className="font-black text-slate-900">{campaign.campaignName}</p><p className="mt-1 text-xs text-slate-400">{campaign.status} · Son güncelleme: {formatDateTime(campaign.lastUpdate)}</p></div><span className="text-sm text-slate-700">{Number(campaign.spend || 0).toLocaleString("tr-TR")} TL</span><span className="text-sm text-slate-700">{Number(campaign.ctr || 0).toFixed(2)}% CTR</span><SelectField label="Mevcut kampanya" value={matching[campaign.campaignId] || ""} onChange={(value) => setMatching({ ...matching, [campaign.campaignId]: value })} options={(content.campaigns || []).filter((item: any) => item.company_id === selectedCompanyId).map((item: any) => ({ value: item.id, label: item.name }))} placeholder="Yeni oluştur" /></div><div className="mt-3 flex flex-wrap gap-2"><button disabled={loading === `import-${campaign.campaignId}`} onClick={() => importCampaign(campaign, matching[campaign.campaignId])} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">{loading === `import-${campaign.campaignId}` ? "İçe Aktarılıyor..." : matching[campaign.campaignId] ? "Mevcut Kampanyayı Güncelle" : "➕ Yeni Kampanya Oluştur"}</button><button disabled={loading === `import-${campaign.campaignId}`} onClick={() => importCampaign(campaign, matching[campaign.campaignId])} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs font-black text-emerald-700">{loading === `import-${campaign.campaignId}` ? "İçe Aktarılıyor..." : "Meta Verilerini İçeri Aktar"}</button></div></div>)}</div></div></div>}
+      {modalOpen && <div className="fixed inset-0 z-[120] grid place-items-center bg-white/70 p-4" onClick={() => setModalOpen(false)}><div className="max-h-[88vh] w-full max-w-5xl overflow-auto rounded-[22px] border border-slate-200 bg-white p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="mb-5 flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Kampanya Eşleştirme</p><h3 className="mt-1 text-2xl font-black text-slate-900">{companyName(content, selectedCompanyId)}</h3><p className="mt-1 text-sm text-slate-600">Müşterinin senkronize edilmiş Meta kampanyalarını mevcut kayıtlara bağlayın veya yeni kampanya oluşturun.</p></div><button onClick={() => setModalOpen(false)} className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-700">Kapat</button></div><CompanySelect label="Müşteri" value={selectedCompanyId} onChange={(companyId) => { setSelectedCompanyId(companyId); setPulledCampaigns(campaignsForCompany(companyId)); }} companies={content.companies} /><div className="mt-5 grid gap-3">{pulledCampaigns.map((campaign: any) => <div key={campaign.campaignId} className="rounded-[12px] border border-slate-200 bg-slate-50 p-4"><div className="grid gap-3 md:grid-cols-[1fr_120px_120px_160px] md:items-center"><div><p className="font-black text-slate-900">{campaign.campaignName}</p><p className="mt-1 text-xs text-slate-400">{campaign.status} · Son güncelleme: {formatDateTime(campaign.lastUpdate)}</p></div><span className="text-sm text-slate-700">{Number(campaign.spend || 0).toLocaleString("tr-TR")} TL</span><span className="text-sm text-slate-700">{Number(campaign.ctr || 0).toFixed(2)}% CTR</span><SelectField label="Mevcut kampanya" value={matching[campaign.campaignId] || ""} onChange={(value) => setMatching({ ...matching, [campaign.campaignId]: value })} options={(content.campaigns || []).filter((item: any) => item.company_id === selectedCompanyId).map((item: any) => ({ value: item.id, label: item.name }))} placeholder="Yeni oluştur" /></div><div className="mt-3 flex flex-wrap gap-2"><button disabled={loading === `import-${campaign.campaignId}`} onClick={() => importCampaign(campaign, matching[campaign.campaignId])} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">{loading === `import-${campaign.campaignId}` ? "İçe Aktarılıyor..." : matching[campaign.campaignId] ? "Mevcut Kampanyayı Güncelle" : "Yeni Kampanya Oluştur ve Verileri Aktar"}</button></div></div>)}{selectedCompanyId && !pulledCampaigns.length && <div className="rounded-[14px] border border-dashed border-amber-300 bg-amber-50 p-5 text-sm text-amber-900"><strong className="block">Senkronize edilmiş kampanya bulunamadı.</strong><span className="mt-1 block">Önce eşleştirme bilgilerini kaydedin ve “Senkronize Et” ile canlı Meta verilerini çekin.</span></div>}</div></div></div>}
     </Panel>
   );
 }
@@ -8544,7 +8518,7 @@ function CampaignAdmin({ content, setContent, currentSession, notify }: any) {
     setContent({ ...content, campaigns: campaigns.map((item) => item.id === id ? { ...item, ...patch, updated_at: new Date().toISOString() } : item) });
     if (message) notify?.(`✓ ${message}`, "success");
   };
-  const add = () => setContent({ ...content, campaigns: [{ id: createLocalId(), company_id: (content.companies || [])[0]?.id || "", name: "Yeni Kampanya", platform: "Meta Ads", objective: "Lead", status: "Planlandı", start_date: new Date().toISOString().slice(0, 10), end_date: "", daily_budget: 0, total_budget: 0, spent_budget: 0, budget: 0, spent: 0, notes: "", internal_notes: "", visible_to_customer: false }, ...campaigns] });
+  const add = () => setContent({ ...content, campaigns: [{ id: createLocalId(), company_id: filterSelectableCustomers(content.companies || [])[0]?.id || "", name: "Yeni Kampanya", platform: "Meta Ads", objective: "Lead", status: "Planlandı", start_date: new Date().toISOString().slice(0, 10), end_date: "", daily_budget: 0, total_budget: 0, spent_budget: 0, budget: 0, spent: 0, notes: "", internal_notes: "", visible_to_customer: false }, ...campaigns] });
   const copyCampaign = (campaign) => setContent({ ...content, campaigns: [{ ...campaign, id: createLocalId(), name: `${campaign.name || "Kampanya"} Kopya`, status: "Planlandı", archived_at: null, deleted_at: null, visible_to_customer: false }, ...campaigns] });
   const archiveCampaign = (campaign) => {
     if (!confirm("Bu kampanyayı silmek/arşivlemek istediğinize emin misiniz?")) return;

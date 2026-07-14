@@ -4,6 +4,7 @@ import { recordActionFailure, recordActivity } from "@/lib/activity-log";
 import { getSafeSupabaseError, supabaseRest } from "@/lib/supabase";
 import { requireModuleAccess } from "@/lib/permissions";
 import { uuidPattern } from "@/lib/meta-pixel-admin";
+import { checkOperationalCustomer } from "@/lib/server/customer-visibility";
 
 export async function POST(request: Request) {
   const session = await requireModuleAccess("musteriler");
@@ -11,6 +12,8 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const companyId = String(body.companyId || "");
   if (!uuidPattern.test(companyId)) return NextResponse.json({ error: "Geçerli bir müşteri seçin." }, { status: 400 });
+  const customerCheck = await checkOperationalCustomer(companyId);
+  if (!customerCheck.ok) return NextResponse.json({ error: customerCheck.error }, { status: customerCheck.status });
   if (!String(body.company?.name || "").trim()) return NextResponse.json({ error: "Müşteri adı zorunludur." }, { status: 400 });
 
   try {

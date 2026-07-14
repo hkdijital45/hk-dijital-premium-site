@@ -5,6 +5,7 @@ import { recordActivity } from "@/lib/activity-log";
 import { buildCompetitorCustomerSummary, buildCompetitorInternalAnalysis, competitorDisplayName } from "@/lib/competitor-intelligence";
 import { requireModuleAccess } from "@/lib/permissions";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
+import { checkOperationalCustomer } from "@/lib/server/customer-visibility";
 
 const allowedFields = [
   "company_id", "branch_id", "competitor_name", "website_url", "instagram_url", "google_maps_url",
@@ -80,6 +81,10 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   try {
     const row = sanitize(body);
+    if (row.company_id) {
+      const customerCheck = await checkOperationalCustomer(row.company_id);
+      if (!customerCheck.ok) return NextResponse.json({ success: false, message: customerCheck.error }, { status: customerCheck.status });
+    }
     const created = await supabaseRest<any[]>("competitor_watchlist", { method: "POST", body: JSON.stringify(row) });
     const competitor = created[0] || row;
     await recordActivity({ session, action: "Oluşturma", entity: "Rakip", companyId: competitor.company_id, details: { message: `${competitorDisplayName(competitor)} rakip listesine eklendi.` } }).catch(() => null);

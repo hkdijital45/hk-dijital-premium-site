@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession, isStaffRole } from "@/lib/auth";
 import { decryptSecret, encryptSecret } from "@/lib/business-flow";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
+import { checkOperationalCustomer } from "@/lib/server/customer-visibility";
 
 type Provider = "meta" | "google";
 type IntegrationRow = Record<string, unknown>;
@@ -125,9 +126,23 @@ export async function POST(request: Request) {
     if (body.scope === "mapping" || body.companyId) {
       const companyId = String(body.companyId || "");
       if (!companyId) return NextResponse.json({ error: "Müşteri seçimi zorunlu" }, { status: 400 });
+      const customerCheck = await checkOperationalCustomer(companyId);
+      if (!customerCheck.ok) return NextResponse.json({ error: customerCheck.error }, { status: customerCheck.status });
       const existingMapping = await findMapping(provider, companyId);
       const isMeta = provider === "meta";
       const accountId = isMeta ? body.adAccountId || body.accountId || null : body.googleCustomerId || body.accountId || null;
+      if (accountId) {
+        const accountMappings = await supabaseRest<IntegrationRow[]>(`ad_integrations?provider=eq.${provider}&ad_account_id=eq.${encodeURIComponent(String(accountId))}&company_id=neq.${encodeURIComponent(companyId)}&select=company_id`)
+          .catch(() => []);
+        for (const mapping of accountMappings) {
+          const mappedCompanyId = String(mapping.company_id || "");
+          if (!mappedCompanyId) continue;
+          const mappedCustomer = await checkOperationalCustomer(mappedCompanyId);
+          if (mappedCustomer.ok) {
+            return NextResponse.json({ error: "Bu reklam hesabı başka bir aktif müşteriyle eşleştirilmiş." }, { status: 409 });
+          }
+        }
+      }
       const record: IntegrationRow = {
         provider,
         company_id: companyId,

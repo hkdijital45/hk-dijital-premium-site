@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { useMemo, useState } from "react";
+import { filterSelectableCustomers } from "@/lib/customer-visibility";
 import { AlertTriangle, ArrowRight, Bot, Building2, CalendarDays, CircleDollarSign, CircleGauge, FileText, HeartPulse, RefreshCw, ShieldAlert, Sparkles, Target, UsersRound } from "lucide-react";
 
 const lifecycleStages = ["Lead", "Görüşme", "Teklif", "Kazanıldı", "Onboarding", "Aktif Müşteri", "Raporlama", "Tahsilat", "Yenileme", "Referans"];
@@ -86,9 +87,10 @@ function lifecycleFor(company: any, context: any) {
   return relatedLead ? leadStage(relatedLead) : "Onboarding";
 }
 
-function statusClass(status: string) {
-  if (["Sağlıklı", "Çalışıyor", "Düşük"].includes(status)) return "bg-emerald-50 text-emerald-700 ring-emerald-200";
-  if (["Riskli", "Uyarı", "Orta"].includes(status)) return "bg-amber-50 text-amber-700 ring-amber-200";
+function statusClass(status?: string) {
+  const value = status || "";
+  if (["Sağlıklı", "Çalışıyor", "Düşük"].includes(value)) return "bg-emerald-50 text-emerald-700 ring-emerald-200";
+  if (["Riskli", "Uyarı", "Orta"].includes(value)) return "bg-amber-50 text-amber-700 ring-amber-200";
   return "bg-red-50 text-red-700 ring-red-200";
 }
 
@@ -96,7 +98,7 @@ export function HKIntelligenceCommandCenter({ content, setActive, notify, initia
   const [view, setView] = useState(initialView);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiAnswer, setAiAnswer] = useState("");
-  const companies = useMemo(() => (content.companies || []).filter((item: any) => !isArchived(item)), [content.companies]);
+  const companies = useMemo(() => filterSelectableCustomers(content.companies || []), [content.companies]);
   const leads = useMemo(() => (content.leads || []).filter((item: any) => !isArchived(item)), [content.leads]);
   const campaigns = useMemo(() => (content.campaigns || []).filter((item: any) => !isArchived(item)), [content.campaigns]);
   const payments = useMemo(() => (content.paymentRecords || []).filter((item: any) => !isArchived(item)), [content.paymentRecords]);

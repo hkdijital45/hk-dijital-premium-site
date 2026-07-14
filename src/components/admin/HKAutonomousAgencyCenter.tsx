@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { CustomerProfileModal } from "@/components/admin/customer-profile/CustomerProfileModal";
 import { CustomerBranchFilter, getCompanyBranches } from "@/components/admin/customer-profile/CustomerBranchFilter";
+import { filterSelectableCustomers } from "@/lib/customer-visibility";
 
 const paidStatuses = ["Ödendi", "Tahsil Edildi"];
 const doneStatuses = ["Tamamlandı", "İptal"];
@@ -192,7 +193,7 @@ export function HKAutonomousAgencyCenter({ content, setActive, notify, compact =
   const data = useMemo(() => {
     const today = todayKey();
     const month = monthKey();
-    const companies = (content.companies || []).filter((item: any) => !isArchived(item));
+    const companies = filterSelectableCustomers(content.companies || []);
     const activeCustomers = companies.filter((item: any) => item.status === "Aktif");
     const passiveCustomers = companies.filter((item: any) => item.status === "Pasif");
     const leads = (content.leads || []).filter((item: any) => !isArchived(item));

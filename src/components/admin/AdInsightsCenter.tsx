@@ -4,6 +4,7 @@
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { AlertTriangle, BarChart3, Brain, CheckCircle, Copy, FileText, MessageSquareText, RefreshCw, Search, Send, ShieldAlert, Sparkles, Trophy } from "lucide-react";
+import { filterSelectableCustomers } from "@/lib/customer-visibility";
 
 const ranges = [
   ["today", "Bugün"],
@@ -108,7 +109,7 @@ function sectionTitle(title: string, description: string, icon?: ReactNode) {
 }
 
 export function AdInsightsCenter({ content, notify }: { content: any; notify?: (message: string, type?: string) => void }) {
-  const companies = useMemo(() => (content.companies || []).filter((company: any) => !company.status || company.status === "Aktif"), [content.companies]);
+  const companies = useMemo(() => filterSelectableCustomers(content.companies || []), [content.companies]);
   const [companyId, setCompanyId] = useState(companies[0]?.id || "");
   const [range, setRange] = useState("last_30d");
   const [platform, setPlatform] = useState("all");

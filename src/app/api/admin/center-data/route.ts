@@ -4,6 +4,7 @@ import { getSession, isStaffRole } from "@/lib/auth";
 import { recordActionFailure, recordActivity } from "@/lib/activity-log";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 import { normalizeRole } from "@/lib/permissions";
+import { checkOperationalCustomer } from "@/lib/server/customer-visibility";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -662,6 +663,19 @@ async function upsertItems(key: keyof typeof tables, items: any[] = []) {
     return true;
   });
   if (!records.length) return [];
+
+  const customerBoundOperations: Array<keyof typeof tables> = [
+    "campaigns", "campaignMetrics", "customerUpdates", "customerFiles", "customerBranding",
+    "customerIntegrations", "monthlyReports", "agencyTasks", "customerDocuments", "paymentRecords",
+    "reports", "competitorAnalyses", "socialMediaPlans", "agencyExpenses", "customerBranches"
+  ];
+  if (customerBoundOperations.includes(key)) {
+    const newCompanyIds = [...new Set(records.filter((item: any) => !item.id && item.company_id).map((item: any) => String(item.company_id)))];
+    for (const companyId of newCompanyIds) {
+      const customerCheck = await checkOperationalCustomer(companyId);
+      if (!customerCheck.ok) throw new Error(customerCheck.error);
+    }
+  }
 
   const conflictTarget = key === "customerVisibilitySettings" || key === "customerIntegrations" ? "company_id" : key === "customerReportVisibility" ? "company_id,section_key,metric_key" : key === "systemTestChecklist" ? "item_key" : "id";
   const stripOptionalColumns = (record: any) => {

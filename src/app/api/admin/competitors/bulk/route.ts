@@ -4,6 +4,7 @@ import { buildActionResult } from "@/lib/action-result";
 import { buildCompetitorCustomerSummary, buildCompetitorInternalAnalysis } from "@/lib/competitor-intelligence";
 import { requireModuleAccess } from "@/lib/permissions";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
+import { checkOperationalCustomer } from "@/lib/server/customer-visibility";
 
 const writableFields = [
   "company_id", "branch_id", "competitor_name", "website_url", "instagram_url", "google_maps_url",
@@ -81,6 +82,8 @@ export async function POST(request: Request) {
 
   try {
     if (action === "save") {
+      const customerCheck = await checkOperationalCustomer(body.companyId);
+      if (!customerCheck.ok) return NextResponse.json({ success: false, message: customerCheck.error }, { status: customerCheck.status });
       const defaults = {
         company_id: body.companyId || null,
         branch_id: body.branchId || null,

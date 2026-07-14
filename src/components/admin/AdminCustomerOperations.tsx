@@ -4,8 +4,9 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { AlertCircle, ArrowRight, CheckCircle2, CreditCard, DatabaseZap, FileBarChart, Info, ListChecks, LoaderCircle, PlugZap, RotateCcw, Save, TestTube2, UserRound } from "lucide-react";
+import { filterSelectableCustomers } from "@/lib/customer-visibility";
 
-type Company = { id: string; name: string; status?: string; website?: string };
+type Company = { id: string; name: string; status?: string; website?: string; archived_at?: string | null; deleted_at?: string | null };
 type Notice = { text: string; tone: "success" | "error" | "info" };
 
 const emptyPixel = {
@@ -17,7 +18,7 @@ const emptyPayment = { amount: 0, status: "Bekliyor", due_date: "", description:
 const emptyTask = { title: "", status: "Yapılacak", priority: "Normal", due_date: "", description: "", visible_to_customer: false };
 
 export function AdminCustomerSelector({ companies, value, appliedValue, onChange, onApply, onClear }: { companies: Company[]; value: string; appliedValue: string; onChange: (value: string) => void; onApply: () => void; onClear: () => void }) {
-  const active = companies.filter((company) => !company.status || company.status === "Aktif");
+  const active = filterSelectableCustomers(companies);
   const appliedCompany = active.find((company) => company.id === appliedValue);
   return (
     <div className="rounded-[14px] border border-cyan-200 bg-cyan-50 p-3">

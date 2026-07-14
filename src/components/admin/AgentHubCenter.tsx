@@ -23,6 +23,7 @@ import {
 import type { SiteContent } from "@/lib/types";
 import type { AgentProviderKey, AgentTaskType } from "@/lib/agent-hub";
 import { unifiedAiProviderOptions } from "@/lib/ai-provider-options";
+import { filterSelectableCustomers } from "@/lib/customer-visibility";
 
 type Notify = (message: string, type?: string) => void;
 type CompanyOption = { id?: string; name?: string; company_name?: string; title?: string };
@@ -292,7 +293,7 @@ function finalReportText(report?: AgentFinalReport) {
 
 export function AgentHubCenter({ content, notify }: { content: SiteContent; notify?: Notify }) {
   const contentWithCompanies = content as unknown as { companies?: CompanyOption[] };
-  const companies = Array.isArray(contentWithCompanies.companies) ? contentWithCompanies.companies : [];
+  const companies = filterSelectableCustomers(Array.isArray(contentWithCompanies.companies) ? contentWithCompanies.companies : []);
   const [activeTab, setActiveTab] = useState("overview");
   const [providers, setProviders] = useState<ProviderRow[]>([]);
   const [logs, setLogs] = useState<LogRow[]>([]);

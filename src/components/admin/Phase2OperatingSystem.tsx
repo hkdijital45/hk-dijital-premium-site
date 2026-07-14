@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { BarChart3, Bot, CheckCircle2, FileText, Link2, RefreshCw, Send, ShieldCheck, Sparkles, Users } from "lucide-react";
 import { formatCurrency, formatNumber } from "@/lib/reports/report-insights";
 import { filterRecordsByVisibility, isTestRecord, type RecordVisibility } from "@/lib/test-records";
+import { filterSelectableCustomers } from "@/lib/customer-visibility";
 
 function parseNumber(value: unknown) {
   const normalized = String(value || "").replace(/[^\d,.-]/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".");
@@ -50,7 +51,7 @@ function forecastKpis(input: any) {
 
 function executiveSummary(data: { leads?: any[]; companies?: any[]; reports?: any[]; campaigns?: any[] }) {
   const leads = data.leads || [];
-  const companies = data.companies || [];
+  const companies = filterSelectableCustomers(data.companies || []);
   const campaigns = data.campaigns || [];
   const won = leads.filter((lead) => ["Kazandı", "Kazanıldı", "Dönüştürüldü", "Müşteri Oldu"].includes(lead.status)).length;
   return {
@@ -80,7 +81,7 @@ function PageShell({ eyebrow, title, description, children }: any) {
 }
 
 export function IntegrationCenter({ provider, content, integrations = [] }: any) {
-  const companies = content.companies || [];
+  const companies = filterSelectableCustomers(content.companies || []);
   const [form, setForm] = useState({ companyId: companies[0]?.id || "", businessAccountId: "", adAccountId: "", pageId: "", instagramAccountId: "", customerAccountId: "", accessToken: "", refreshToken: "", autoSync: false });
   const [items, setItems] = useState(integrations);
   const [message, setMessage] = useState("");

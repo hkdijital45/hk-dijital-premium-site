@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getSession, isStaffRole } from "@/lib/auth";
 import { operationsAssistantQuestion } from "@/lib/business-flow";
 import { supabaseRest } from "@/lib/supabase";
+import { filterSelectableCustomers } from "@/lib/customer-visibility";
 
 export async function POST(request: Request) {
   const session = await getSession();
@@ -18,6 +19,18 @@ export async function POST(request: Request) {
     supabaseRest<any[]>("activity_logs?select=id,company_id,module,action,action_type,status,created_at&order=created_at.desc&limit=100").catch(() => []),
     supabaseRest<any[]>("ad_integrations?select=id,company_id,provider,pixel_enabled,pixel_status,capi_enabled,capi_status,status,sync_status,sync_message,last_sync_at&order=updated_at.desc&limit=200").catch(() => [])
   ]);
-  const result = await operationsAssistantQuestion(body.question || "Bugün hangi işlere öncelik vermeliyim?", { leads, companies, reports, campaigns, payments, tasks, activities, integrations });
+  const activeCompanies = filterSelectableCustomers(companies);
+  const activeCompanyIds = new Set(activeCompanies.map((company) => company.id));
+  const forActiveCustomers = <T extends { company_id?: string | null }>(items: T[]) => items.filter((item) => !item.company_id || activeCompanyIds.has(item.company_id));
+  const result = await operationsAssistantQuestion(body.question || "Bugün hangi işlere öncelik vermeliyim?", {
+    leads,
+    companies: activeCompanies,
+    reports: forActiveCustomers(reports),
+    campaigns: forActiveCustomers(campaigns),
+    payments: forActiveCustomers(payments),
+    tasks: forActiveCustomers(tasks),
+    activities: forActiveCustomers(activities),
+    integrations: forActiveCustomers(integrations)
+  });
   return NextResponse.json({ ok: true, answer: result.text, provider: result.provider, model: result.model, mode: result.mode });
 }

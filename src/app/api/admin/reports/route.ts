@@ -4,6 +4,7 @@ import { executeAiTask } from "@/lib/server/ai-router";
 import { getSafeSupabaseError, supabaseRest } from "@/lib/supabase";
 import { requireModuleAccess } from "@/lib/permissions";
 import { getSiteContent } from "@/lib/content";
+import { checkOperationalCustomer } from "@/lib/server/customer-visibility";
 
 const reportTypes = ["Meta Reklam Raporu", "Google Ads Raporu", "Sosyal Medya Yönetimi Raporu", "Genel Dijital Performans Raporu"];
 const discoveryReportTypes = {
@@ -129,6 +130,10 @@ async function generateDiscoveryReport(body: Record<string, unknown>) {
 
   const business = normalizeBusiness((body.business || {}) as Record<string, unknown>);
   if (!business.name) return NextResponse.json({ error: "Seçili işletme bilgisi bulunamadı." }, { status: 400 });
+  if (body.companyId) {
+    const customerCheck = await checkOperationalCustomer(body.companyId);
+    if (!customerCheck.ok) return NextResponse.json({ error: customerCheck.error }, { status: customerCheck.status });
+  }
   const sourceIdentifier = business.placeId || cleanText(`${business.name}-${business.city}-${business.district}`.toLocaleLowerCase("tr-TR"), 180);
   const fallback = localFallback(kind, business);
   const analysisContext = cleanText(JSON.stringify(body.analysisContext || {}), 4_000);
@@ -293,6 +298,8 @@ export async function POST(request: Request) {
   if (!session) return NextResponse.json({ error: "Bu işlem için yönetici yetkisi gerekir." }, { status: 403 });
   try {
     const payload = normalize(body);
+    const customerCheck = await checkOperationalCustomer(payload.company_id);
+    if (!customerCheck.ok) return NextResponse.json({ error: customerCheck.error }, { status: customerCheck.status });
     const periodFilter = payload.period ? `period=eq.${encodeURIComponent(payload.period)}` : `start_date=eq.${encodeURIComponent(payload.start_date || "")}&end_date=eq.${encodeURIComponent(payload.end_date || "")}`;
     const existing = await supabaseRest<any[]>(`reports?company_id=eq.${encodeURIComponent(payload.company_id)}&report_type=eq.${encodeURIComponent(payload.report_type)}&${periodFilter}&or=(archived.eq.false,archived.is.null)&select=*&limit=1`).catch(() => []);
     if (existing[0]) return NextResponse.json({ ok: true, report: existing[0], duplicatePrevented: true, message: "Aynı dönem ve türde rapor zaten kayıtlı." });

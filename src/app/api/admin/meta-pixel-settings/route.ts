@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireModuleAccess } from "@/lib/permissions";
 import { getCompanyPixelSettings, safePixelSettings, saveCompanyPixelSettings, uuidPattern } from "@/lib/meta-pixel-admin";
 import { supabaseRest } from "@/lib/supabase";
+import { checkOperationalCustomer } from "@/lib/server/customer-visibility";
 
 export async function GET(request: Request) {
   if (!(await requireModuleAccess("api-ayarlari"))) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 403 });
@@ -29,6 +30,8 @@ export async function POST(request: Request) {
   }
   if (!uuidPattern.test(String(body.company_id || ""))) return NextResponse.json({ error: "Geçerli bir müşteri seçin." }, { status: 400 });
   try {
+    const customerCheck = await checkOperationalCustomer(body.company_id);
+    if (!customerCheck.ok) return NextResponse.json({ error: customerCheck.error }, { status: customerCheck.status });
     const row = await saveCompanyPixelSettings(body);
     return NextResponse.json({ ok: true, settings: safePixelSettings(row), message: "Meta Pixel ve Conversion API ayarları kaydedildi." });
   } catch (error) {

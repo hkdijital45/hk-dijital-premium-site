@@ -12,6 +12,7 @@ import { recordActivity } from "@/lib/activity-log";
 import { adminModules, roleTemplates, normalizeRole } from "@/lib/permissions";
 import { persistCustomerBranchAccess, validateCustomerBranchAccessPayload, type CustomerBranchAccessInput } from "@/lib/server/admin-user-branch-access";
 import { createAvailableUsername } from "@/lib/server/usernames";
+import { checkOperationalCustomer } from "@/lib/server/customer-visibility";
 
 export async function POST(request: Request) {
   const session = await getSession();
@@ -36,6 +37,10 @@ export async function POST(request: Request) {
 
   if (["customer", "musteri"].includes(role) && !companyId) {
     return NextResponse.json({ error: "Müşteri hesabı için firma seçimi zorunludur." }, { status: 400 });
+  }
+  if (["customer", "musteri"].includes(role)) {
+    const customerCheck = await checkOperationalCustomer(companyId);
+    if (!customerCheck.ok) return NextResponse.json({ error: customerCheck.error }, { status: customerCheck.status });
   }
 
   let branchAccess: CustomerBranchAccessInput | null = null;

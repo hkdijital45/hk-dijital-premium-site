@@ -7,6 +7,7 @@ import { adminModules, normalizeRole } from "@/lib/permissions";
 import { hasBranchAccessPayload, persistCustomerBranchAccess, validateCustomerBranchAccessPayload, type CustomerBranchAccessInput } from "@/lib/server/admin-user-branch-access";
 import { createAvailableUsername } from "@/lib/server/usernames";
 import { normalizeUsername, validateUsername } from "@/lib/usernames";
+import { checkOperationalCustomer } from "@/lib/server/customer-visibility";
 
 async function getActiveAdminCount() {
   const rows = await supabaseRest<Array<{ id: string }>>("users?role=eq.admin&is_active=eq.true&deleted_at=is.null&select=id");
@@ -53,6 +54,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   let branchAccess: CustomerBranchAccessInput | null = null;
   const customerAccount = ["customer", "musteri"].includes(nextRole);
   const companyChanged = (payload.companyId !== undefined || payload.company_id !== undefined) && nextCompanyId !== existing.company_id;
+  if (customerAccount && nextCompanyId && (companyChanged || !["customer", "musteri"].includes(existing.role))) {
+    const customerCheck = await checkOperationalCustomer(nextCompanyId);
+    if (!customerCheck.ok) return NextResponse.json({ error: customerCheck.error }, { status: customerCheck.status });
+  }
   if (customerAccount && (!nextCompanyId || hasBranchAccessPayload(payload) || companyChanged || !["customer", "musteri"].includes(existing.role))) {
     if (!nextCompanyId) return NextResponse.json({ error: "Müşteri hesabı için firma seçimi zorunludur." }, { status: 400 });
     try {

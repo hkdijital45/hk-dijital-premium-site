@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, PackageCheck } from "lucide-react";
+import { filterSelectableCustomers } from "@/lib/customer-visibility";
 
 type GrowthProps = {
   content: any;
@@ -216,7 +217,7 @@ function normalizeIntegrationAccounts(rows: any[]) {
 
 export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
   const data = content || {};
-  const companies = Array.isArray(data.companies) ? data.companies : [];
+  const companies = filterSelectableCustomers(Array.isArray(data.companies) ? data.companies : []);
   const integrations = Array.isArray(data.customerIntegrations) ? data.customerIntegrations : [];
   const activeCompanies = companies.filter((company: any) => company?.status !== "Pasif");
   const [companyId, setCompanyId] = useState(activeCompanies[0]?.id || companies[0]?.id || "");
@@ -228,8 +229,8 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
   const [integrationsRefreshedAt, setIntegrationsRefreshedAt] = useState("");
   const [planTab, setPlanTab] = useState("Bugün");
   const [funnelMode, setFunnelMode] = useState("WhatsApp Funnel");
-  const customer = companies.find((company: any) => company?.id === companyId) || activeCompanies[0] || companies[0];
-  const customerId = customer?.id;
+  const customerId = companyId;
+  const customer = companies.find((company: any) => company?.id === customerId) || activeCompanies[0] || companies[0];
   const localIntegration = integrations.find((item: any) => item?.company_id === customerId || item?.customer_id === customerId) || {};
   const integrationRows = remoteIntegrations.length ? remoteIntegrations : localIntegration?.id ? [localIntegration] : [];
   const linkedAccounts = normalizeIntegrationAccounts(integrationRows);

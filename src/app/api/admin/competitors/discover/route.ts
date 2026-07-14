@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { buildActionResult } from "@/lib/action-result";
 import { discoverGoogleMapsCompetitors, enrichMetaAdSignals } from "@/lib/competitor-intelligence";
 import { requireModuleAccess } from "@/lib/permissions";
+import { checkOperationalCustomer } from "@/lib/server/customer-visibility";
 
 function numberValue(value: unknown, fallback = 0) {
   const parsed = Number(value);
@@ -13,6 +14,8 @@ export async function POST(request: Request) {
   const session = await requireModuleAccess("rakip-analizi");
   if (!session) return NextResponse.json({ success: false, message: "Rakip keşfi için yetki gerekir." }, { status: 403 });
   const body = await request.json().catch(() => ({}));
+  const customerCheck = await checkOperationalCustomer(body.companyId);
+  if (!customerCheck.ok) return NextResponse.json({ success: false, message: customerCheck.error }, { status: customerCheck.status });
   const input = {
     companyName: String(body.companyName || ""),
     sector: String(body.sector || ""),

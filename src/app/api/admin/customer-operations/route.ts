@@ -4,6 +4,7 @@ import { getSession, isStaffRole } from "@/lib/auth";
 import { recordActionFailure, recordActivity } from "@/lib/activity-log";
 import { getSafeSupabaseError, supabaseRest } from "@/lib/supabase";
 import { uuidPattern } from "@/lib/meta-pixel-admin";
+import { checkOperationalCustomer } from "@/lib/server/customer-visibility";
 
 async function staffSession() {
   const session = await getSession();
@@ -42,6 +43,10 @@ export async function POST(request: Request) {
     if (resource === "payment" && (!Number.isFinite(Number(item.amount)) || Number(item.amount) <= 0)) return NextResponse.json({ error: "Tahsilat tutarı sıfırdan büyük olmalıdır." }, { status: 400 });
     if (resource === "task" && !String(item.title || "").trim()) return NextResponse.json({ error: "Görev başlığı zorunludur." }, { status: 400 });
     const isExistingRecord = Boolean(item.id && uuidPattern.test(String(item.id)) && !item._draft && !item.isNew);
+    if (!isExistingRecord) {
+      const customerCheck = await checkOperationalCustomer(item.company_id);
+      if (!customerCheck.ok) return NextResponse.json({ error: customerCheck.error }, { status: customerCheck.status });
+    }
     const payload = resource === "payment" ? {
       company_id: item.company_id,
       amount: Number(item.amount || 0),

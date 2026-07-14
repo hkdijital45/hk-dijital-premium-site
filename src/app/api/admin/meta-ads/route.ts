@@ -4,6 +4,7 @@ import { executeAiTask } from "@/lib/server/ai-router";
 import { decryptSecret, getIntegrations, safeIntegrationForClient, upsertIntegration } from "@/lib/business-flow";
 import { classifyMetaError, metaToken, recordMetaError, recordMetaSuccess } from "@/lib/meta-api";
 import { requireModuleAccess } from "@/lib/permissions";
+import { checkOperationalCustomer } from "@/lib/server/customer-visibility";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
 const GRAPH_VERSION = "v20.0";
@@ -640,6 +641,10 @@ export async function POST(request: Request) {
   try {
     if (action === "connect") {
       if (!hasSupabaseConfig()) return NextResponse.json({ ok: false, message: "Supabase bağlantısı yapılandırılmadı; bağlantı sadece ekranda taslak olarak tutulabilir." }, { status: 200 });
+      if (body.companyId) {
+        const customerCheck = await checkOperationalCustomer(body.companyId);
+        if (!customerCheck.ok) return NextResponse.json({ ok: false, message: customerCheck.error }, { status: customerCheck.status });
+      }
       const rows = await upsertIntegration({
         provider: "meta",
         companyId: body.companyId,
@@ -654,6 +659,11 @@ export async function POST(request: Request) {
     }
 
     const { token, integration } = await tokenForIntegration(body.integrationId);
+    const requestedCompanyId = body.companyId || integration?.company_id;
+    if (requestedCompanyId) {
+      const customerCheck = await checkOperationalCustomer(requestedCompanyId);
+      if (!customerCheck.ok) return NextResponse.json({ ok: false, message: customerCheck.error }, { status: customerCheck.status });
+    }
     if (!token) {
       await writeSyncLog(body, "Hata", "Meta access token kayıtlı değil.", { errorCode: "META_TOKEN_MISSING" });
       return NextResponse.json({ ok: false, message: "Meta access token kayıtlı değil.", errorCode: "META_TOKEN_MISSING" }, { status: 200 });

@@ -2,11 +2,14 @@ import { NextResponse } from "next/server";
 import { recordActivity } from "@/lib/activity-log";
 import { requireModuleAccess } from "@/lib/permissions";
 import { getSafeSupabaseError, supabaseRest } from "@/lib/supabase";
+import { checkOperationalCustomer } from "@/lib/server/customer-visibility";
 
 export async function POST(request: Request) {
   const session = await requireModuleAccess("hazirlik");
   if (!session) return NextResponse.json({ error: "Bu işlem için yetkiniz yok." }, { status: 403 });
   const body = await request.json();
+  const customerCheck = await checkOperationalCustomer(body.company_id);
+  if (!customerCheck.ok) return NextResponse.json({ error: customerCheck.error }, { status: customerCheck.status });
   try {
     const rows = await supabaseRest<any[]>("preparation_notes?on_conflict=company_id", {
       method: "POST",

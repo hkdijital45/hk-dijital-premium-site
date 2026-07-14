@@ -5,6 +5,7 @@ import { requireModuleAccess } from "@/lib/permissions";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 import { uuidPattern } from "@/lib/meta-pixel-admin";
 import { buildActionResult } from "@/lib/action-result";
+import { checkOperationalCustomer } from "@/lib/server/customer-visibility";
 import { isEmptyLikeValue, normalizePhoneInput } from "@/lib/phone-format";
 
 const allowedFields = [
@@ -114,6 +115,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   try {
     const company = await companyExists(id);
     if (!company) return NextResponse.json({ error: "Müşteri kaydı bulunamadı." }, { status: 404 });
+    const customerCheck = await checkOperationalCustomer(id);
+    if (!customerCheck.ok) return NextResponse.json({ error: customerCheck.error }, { status: customerCheck.status });
     const branchName = String(body.branch_name || body.name || "").trim();
     const branchCode = String(body.branch_code || body.code || "").trim();
     const duplicateFilter = branchCode
