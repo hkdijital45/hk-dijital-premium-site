@@ -67,10 +67,10 @@ const jsonKeyByAsset: Partial<Record<CustomerAssetType, string>> = {
   brand_document: "brand_document_url"
 };
 
-const imageAccept = "image/png,image/jpeg,image/jpg,image/webp,image/svg+xml,.png,.jpg,.jpeg,.webp,.svg";
+const imageAccept = "image/png,image/jpeg,image/jpg,image/webp,.png,.jpg,.jpeg,.webp";
 const documentAssetTypes = new Set<CustomerAssetType>(["letterhead", "business_card", "brochure", "proposal_document", "brand_document"]);
-const allowedImageTypes = new Set(["image/png", "image/jpeg", "image/jpg", "image/webp", "image/svg+xml"]);
-const allowedImageExtensions = new Set(["png", "jpg", "jpeg", "webp", "svg"]);
+const allowedImageTypes = new Set(["image/png", "image/jpeg", "image/jpg", "image/webp"]);
+const allowedImageExtensions = new Set(["png", "jpg", "jpeg", "webp"]);
 
 function assetUrl(branding: any, assetType: CustomerAssetType) {
   if (assetType === "logo") return branding.logo_url || "";
@@ -115,6 +115,7 @@ function AssetUploadCard({ assetType, branding, companyId, onUploaded, notify, c
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [selectedFileName, setSelectedFileName] = useState("");
   const url = assetUrl(branding, assetType);
   const isImage = isImageUrl(url);
   const acceptsDocuments = documentAssetTypes.has(assetType);
@@ -128,8 +129,9 @@ function AssetUploadCard({ assetType, branding, companyId, onUploaded, notify, c
 
   async function upload(file: File | null) {
     if (!file) return;
+    setSelectedFileName(file.name);
     if (!isSupportedFile(file)) {
-      notify?.("Logo yüklenemedi. PNG, JPG, JPEG, WEBP veya güvenli SVG dosyası seçin.", "error");
+      notify?.("Logo yüklenemedi. PNG, JPG, JPEG veya WEBP dosyası seçin.", "error");
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
@@ -197,7 +199,7 @@ function AssetUploadCard({ assetType, branding, companyId, onUploaded, notify, c
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-black text-slate-950">{assetLabels[assetType]}</p>
-          <p className="mt-1 text-xs text-slate-500">PNG, JPG, JPEG, WEBP ve güvenli SVG desteklenir. En fazla 5 MB.</p>
+          <p className="mt-1 text-xs text-slate-500">PNG, JPG, JPEG ve WEBP desteklenir. En fazla 5 MB.</p>
         </div>
         <UploadCloud className="h-5 w-5 text-cyan-600" />
       </div>
@@ -219,10 +221,11 @@ function AssetUploadCard({ assetType, branding, companyId, onUploaded, notify, c
       <div className="mt-4 flex flex-wrap gap-2">
         <input ref={inputRef} type="file" accept={acceptValue} className="hidden" onChange={(event) => upload(event.target.files?.[0] || null)} />
         <button type="button" disabled={uploading} onClick={() => inputRef.current?.click()} className="rounded-[12px] bg-cyan-500 px-3 py-2 text-xs font-black text-white transition hover:-translate-y-0.5 disabled:opacity-50">
-          {uploading ? <span className="inline-flex items-center gap-2"><Loader2 className="h-3 w-3 animate-spin" /> Yükleniyor</span> : url ? "Dosyayı değiştir" : "Dosya seç"}
+          {uploading ? <span className="inline-flex items-center gap-2"><Loader2 className="h-3 w-3 animate-spin" /> Yükleniyor</span> : "Gözat"}
         </button>
         {url && <button type="button" disabled={uploading} onClick={remove} className="rounded-[12px] border border-red-200 bg-red-50 px-3 py-2 text-xs font-black text-red-700 disabled:opacity-50"><Trash2 className="mr-1 inline h-3 w-3" /> Kaldır</button>}
       </div>
+      {selectedFileName && <p className="mt-3 truncate text-xs font-semibold text-slate-600">Seçilen dosya: {selectedFileName}</p>}
       {url && (
         <details className="mt-3 text-xs text-slate-500">
           <summary className="cursor-pointer font-bold text-slate-600">Teknik bilgi</summary>

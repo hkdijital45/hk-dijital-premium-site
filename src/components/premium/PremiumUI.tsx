@@ -279,12 +279,6 @@ export function LoginShell3D({ children, logo }: { children: ReactNode; logo?: R
     { label: "Rapor", Icon: BarChart3, className: "left-[22%] bottom-[9%]", color: "from-emerald-300 to-cyan-300" },
     { label: "Destek", Icon: MessageCircle, className: "right-[24%] bottom-[8%]", color: "from-yellow-300 to-orange-300" }
   ];
-  const signalCards = [
-    ["Admin OS", "Reklam, CRM ve rapor operasyonu"],
-    ["Müşteri Portalı", "Rapor, dosya ve hesap bağlantıları"],
-    ["HK Intelligence", "Yetkinize göre veri ve aksiyon özeti"]
-  ];
-
   return (
     <section className="relative min-h-screen overflow-hidden bg-[#020617] px-4 py-8 text-white sm:px-6 lg:px-8">
       <div className="premium-grid pointer-events-none absolute inset-0 opacity-55" aria-hidden="true" />
@@ -317,33 +311,16 @@ export function LoginShell3D({ children, logo }: { children: ReactNode; logo?: R
             className="mx-auto mb-7 flex flex-col items-center text-center"
           >
             {logo && <div className="mb-6 rounded-full border border-white/10 bg-white/[0.06] px-5 py-3 shadow-[0_22px_70px_rgba(0,0,0,.24)] backdrop-blur-xl">{logo}</div>}
-            <p className="rounded-full border border-cyan-200/20 bg-cyan-200/10 px-4 py-2 text-[11px] font-black uppercase tracking-[.22em] text-cyan-100">HK Dijital Digital Center</p>
-            <h1 className="mt-5 max-w-4xl text-4xl font-black leading-tight text-white sm:text-5xl lg:text-6xl">Ajans operasyonuna güvenli giriş.</h1>
+            <p className="rounded-full border border-cyan-200/20 bg-cyan-200/10 px-4 py-2 text-[11px] font-black uppercase tracking-[.22em] text-cyan-100">HK Dijital</p>
+            <h1 className="mt-5 max-w-4xl text-4xl font-black leading-tight text-white sm:text-5xl lg:text-6xl">Müşteri Girişi</h1>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
-              Admin paneli ve müşteri portalı tek giriş ekranından açılır. Yetkinize göre ilgili alana otomatik yönlendirilirsiniz.
+              Hesabınıza güvenli şekilde giriş yapın.
             </p>
           </motion.div>
 
           {children}
 
-          <div className="mx-auto mt-7 grid max-w-2xl gap-3 text-left sm:grid-cols-3">
-            {signalCards.map(([title, text], index) => (
-              <motion.div
-                key={title}
-                initial={reduceMotion ? false : { opacity: 0, y: 16 }}
-                animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
-                transition={{ duration: 0.45, delay: 0.12 + index * 0.06 }}
-                className="rounded-[18px] border border-white/10 bg-white/[0.055] p-4 shadow-[0_20px_70px_rgba(0,0,0,.18)] backdrop-blur-xl"
-              >
-                <p className="text-sm font-black text-cyan-100">{title}</p>
-                <p className="mt-2 text-xs leading-5 text-slate-300">{text}</p>
-              </motion.div>
-            ))}
-          </div>
-
-          <div className="mx-auto mt-5 flex max-w-3xl justify-center">
-            <PlatformSignalStrip />
-          </div>
+          <p className="mx-auto mt-6 max-w-2xl text-center text-xs leading-5 text-slate-400">Verileriniz güvenli şekilde korunur.</p>
         </div>
       </div>
     </section>

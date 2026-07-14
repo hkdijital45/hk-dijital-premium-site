@@ -83,7 +83,7 @@ export async function uploadToSupabaseStorage(file: File, folder = "media") {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!baseUrl || !key) throw new Error(getSupabaseWarning());
 
-  const safeName = `${folder}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "-")}`;
+  const safeName = `${folder}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "-")}`;
   const response = await fetch(
     `${baseUrl}/storage/v1/object/hk-dijital-media/${safeName}`,
     {

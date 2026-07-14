@@ -10,9 +10,9 @@ export function LoginForm({ desktopMode = false }: { desktopMode?: boolean }) {
   const [error, setError] = useState("");
   const [notice] = useState(() =>
     typeof window !== "undefined" && new URLSearchParams(window.location.search).get("kurulum") === "basarili"
-      ? "İlk yönetici hesabı oluşturuldu. Giriş yapabilirsiniz."
+      ? "Hesabınız oluşturuldu. Giriş yapabilirsiniz."
       : typeof window !== "undefined" && new URLSearchParams(window.location.search).get("error") === "yetkisiz"
-      ? "Bu alan sadece yetkili kullanıcılar içindir."
+      ? "Bu alana erişilemiyor. Lütfen hesabınızla yeniden giriş yapın."
       : ""
   );
   const [loading, setLoading] = useState(false);
@@ -73,15 +73,15 @@ export function LoginForm({ desktopMode = false }: { desktopMode?: boolean }) {
         <div className="inline-flex items-center gap-2 rounded-full border border-cyan-200/20 bg-cyan-200/10 px-4 py-2 text-[11px] font-black uppercase tracking-[.22em] text-cyan-100">
           <LockKeyhole size={14} /> HK Dijital Güvenli Giriş
         </div>
-        <h2 className="mt-5 text-4xl font-black tracking-tight text-white sm:text-5xl">Digital Center’a Giriş Yap</h2>
-        <p className="mt-3 max-w-xl text-base leading-7 text-slate-300">Admin operasyon merkezi ve müşteri paneli için rapor, entegrasyon, reklam performansı ve proje verilerine güvenli erişim.</p>
+        <h2 className="mt-5 text-3xl font-black tracking-tight text-white sm:text-4xl">Hesabınıza Giriş Yapın</h2>
+        <p className="mt-3 max-w-xl text-base leading-7 text-slate-300">Size özel çalışma alanınıza güvenli şekilde erişin.</p>
       </div>
 
       <label className="relative mt-8 grid gap-2 text-sm font-bold text-slate-100">
-        Kullanıcı Adı veya E-posta
+        Kullanıcı Adı
         <span className="relative block">
           <UserRound className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-cyan-100/70" size={19} />
-          <input type="text" value={identity} onChange={(event) => setIdentity(event.target.value)} required autoComplete="username" placeholder="hayri veya ornek@firma.com" className="min-h-14 w-full rounded-[16px] border border-white/12 bg-black/35 py-3 pl-12 pr-4 text-base text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-200/70 focus:ring-2 focus:ring-cyan-300/35" />
+          <input type="text" value={identity} onChange={(event) => setIdentity(event.target.value)} required autoComplete="username" placeholder="Kullanıcı adınızı yazın" className="min-h-14 w-full rounded-[16px] border border-white/12 bg-black/35 py-3 pl-12 pr-4 text-base text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-200/70 focus:ring-2 focus:ring-cyan-300/35" />
         </span>
       </label>
 
@@ -112,9 +112,8 @@ export function LoginForm({ desktopMode = false }: { desktopMode?: boolean }) {
       {error && <p className="mt-4 rounded-[8px] bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
 
       <button type="submit" disabled={loading} className="mt-7 min-h-14 w-full rounded-full bg-gradient-to-r from-cyan-300 via-sky-300 to-yellow-300 px-6 text-base font-black text-slate-950 shadow-[0_0_44px_rgba(34,211,238,.28)] transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60">
-        {loading ? "Giriş yapılıyor..." : "Digital Center’a Giriş Yap"}
+        {loading ? "Giriş yapılıyor..." : "Giriş Yap"}
       </button>
-      <p className="mt-5 text-center text-xs leading-5 text-slate-400">Güvenli Digital Center erişimi. Rolünüze göre admin paneline veya müşteri paneline yönlendirilirsiniz.</p>
     </form>
   );
 }

@@ -19,7 +19,7 @@ export type CustomerAssetType =
   | "proposal_document"
   | "brand_document";
 
-const IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/jpg", "image/webp", "image/svg+xml"]);
+const IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/jpg", "image/webp"]);
 const DOCUMENT_TYPES = new Set(["application/pdf", "image/png", "image/jpeg", "image/jpg", "image/webp"]);
 
 const DIRECT_FIELD_BY_ASSET: Partial<Record<CustomerAssetType, string>> = {
@@ -77,10 +77,12 @@ export async function validateCustomerAssetFile(file: File, assetType: CustomerA
     : IMAGE_TYPES;
   if (!allowedTypes.has(file.type)) throw new Error("Dosya formatı desteklenmiyor.");
 
-  if (file.type === "image/svg+xml") {
-    const svg = await file.text();
-    const unsafeSvg = /<script|onload=|onerror=|javascript:/i.test(svg);
-    if (unsafeSvg) throw new Error("SVG dosyasında güvenli olmayan içerik algılandı.");
+  if (file.type.startsWith("image/")) {
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const isPng = file.type === "image/png" && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+    const isJpeg = (file.type === "image/jpeg" || file.type === "image/jpg") && buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+    const isWebp = file.type === "image/webp" && buffer.subarray(0, 4).toString("ascii") === "RIFF" && buffer.subarray(8, 12).toString("ascii") === "WEBP";
+    if (!isPng && !isJpeg && !isWebp) throw new Error("Dosya içeriği seçilen görsel formatıyla eşleşmiyor.");
   }
 }
 
@@ -133,7 +135,7 @@ export async function uploadCustomerAsset(companyId: string, assetType: Customer
   const ext = extensionFor(file);
   const folder = getCustomerAssetFolder(assetType);
   const safeAssetType = assetType.replace(/[^a-z0-9_-]/gi, "-");
-  const path = `customers/${companyId}/${folder}/${safeAssetType}-${Date.now()}.${ext}`;
+  const path = `customers/${companyId}/${folder}/${safeAssetType}-${crypto.randomUUID()}.${ext}`;
   const response = await fetch(`${storageBaseUrl()}/storage/v1/object/${CUSTOMER_ASSETS_BUCKET}/${path}`, {
     method: "POST",
     headers: supabaseStorageHeaders(file.type || "application/octet-stream"),

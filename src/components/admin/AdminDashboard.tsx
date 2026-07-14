@@ -9,7 +9,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Activity, AlertTriangle, ArrowDown, ArrowUp, BarChart3, Bell, Bot, Building2, ChevronDown, ChevronRight, CircleCheck, CircleOff, Copy, Download, FileBarChart, Gauge, HelpCircle, ImagePlus, LayoutDashboard, LogOut, MapPinned, MessageSquareText, Plus, RotateCcw, Save, Search, Settings2, Sparkles, Star, Trash2, UsersRound, WandSparkles, X } from "lucide-react";
+import { Activity, AlertTriangle, ArrowDown, ArrowUp, BarChart3, Bell, Bot, Building2, ChevronDown, ChevronRight, CircleCheck, CircleOff, Copy, Download, FileBarChart, Gauge, HelpCircle, ImagePlus, LayoutDashboard, Loader2, LogOut, MapPinned, MessageSquareText, Plus, RotateCcw, Save, Search, Settings2, Sparkles, Star, Trash2, UsersRound, WandSparkles, X } from "lucide-react";
 import type { SiteContent } from "@/lib/types";
 import { ReportTools } from "@/components/admin/reports/ReportTools";
 import { WebsiteAnalyticsCenter } from "@/components/admin/WebsiteAnalyticsCenter";
@@ -4770,16 +4770,66 @@ function SectorSystemsCenter({ content, setContent }: any) {
   return <Panel title="Sektör Sistemleri Altyapısı"><p className="mb-5 text-sm leading-6 text-slate-400">Bu alan gelecekte oto galeri, emlak ofisi, güzellik merkezi, klinik ve eğitim merkezi gibi sektörlere özel CRM, teklif, rapor ve içerik şablonlarının temelini hazırlar. Mevcut uygulama davranışını değiştirmez.</p><div className="grid gap-4">{items.map((item, index) => <div key={item.id || item.sector_name || index} className="rounded-[8px] border border-slate-200 bg-slate-50 p-4"><div className="grid gap-3 md:grid-cols-2"><Field label="Sektör adı" value={item.sector_name || ""} onChange={(value) => update(index, { sector_name: value })} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={item.is_active !== false} onChange={(event) => update(index, { is_active: event.target.checked })} /> Aktif yapılandırma</label><TextArea label="Önerilen CRM alanları" value={(item.suggested_crm_fields || []).join("\n")} onChange={(value) => update(index, { suggested_crm_fields: value.split("\n").filter(Boolean) })} /><TextArea label="Önerilen teklif paketleri" value={(item.suggested_package_labels || []).join("\n")} onChange={(value) => update(index, { suggested_package_labels: value.split("\n").filter(Boolean) })} /><TextArea label="Önerilen rapor metrikleri" value={(item.suggested_report_metrics || []).join("\n")} onChange={(value) => update(index, { suggested_report_metrics: value.split("\n").filter(Boolean) })} /><TextArea label="Önerilen içerik kategorileri" value={(item.suggested_content_categories || []).join("\n")} onChange={(value) => update(index, { suggested_content_categories: value.split("\n").filter(Boolean) })} /></div></div>)}</div></Panel>;
 }
 
-async function uploadFile(file: File) {
+async function uploadFile(file: File, purpose = "media") {
   const form = new FormData();
   form.append("file", file);
+  form.append("purpose", purpose);
   const response = await fetch("/api/media", { method: "POST", body: form });
-  const data = await response.json();
-  return response.ok ? data.media : null;
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.media?.url) throw new Error(data.error || "Dosya yüklenemedi.");
+  return data.media;
 }
 
-function Upload({ onUrl }: any) {
-  return <label className="grid cursor-pointer gap-2 rounded-[8px] border border-dashed border-cyan-200/30 bg-cyan-200/10 p-4 text-sm font-semibold text-cyan-700"><ImagePlus size={18} />Dosya yükle<input className="hidden" type="file" accept="image/png,image/svg+xml,image/jpeg,image/webp,video/mp4,application/pdf" onChange={async (e) => { const file = e.target.files?.[0]; if (file) onUrl((await uploadFile(file))?.url || ""); }} /><span className="text-xs text-slate-400">PNG, JPG, SVG, WebP, MP4, PDF</span></label>;
+function Upload({ onUrl, value = "", label = "Dosya", logoOnly = false }: any) {
+  const [uploading, setUploading] = useState(false);
+  const [selectedFileName, setSelectedFileName] = useState("");
+  const [uploadError, setUploadError] = useState("");
+  const accept = logoOnly
+    ? "image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
+    : "image/png,image/svg+xml,image/jpeg,image/webp,video/mp4,application/pdf";
+
+  async function chooseFile(file?: File) {
+    if (!file || uploading) return;
+    setSelectedFileName(file.name);
+    setUploadError("");
+    if (logoOnly && (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 5 * 1024 * 1024)) {
+      setUploadError("PNG, JPG, JPEG veya WEBP biçiminde, en fazla 5 MB dosya seçin.");
+      return;
+    }
+    setUploading(true);
+    try {
+      const media = await uploadFile(file, logoOnly ? "logo" : "media");
+      onUrl(media.url);
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : "Dosya yüklenemedi.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  if (!logoOnly) {
+    return <label className={`grid gap-2 rounded-[8px] border border-dashed border-cyan-200/30 bg-cyan-200/10 p-4 text-sm font-semibold text-cyan-700 ${uploading ? "cursor-wait opacity-70" : "cursor-pointer"}`}><ImagePlus size={18} />{uploading ? "Yükleniyor..." : "Dosya yükle"}<input className="hidden" type="file" accept={accept} disabled={uploading} onChange={(event) => chooseFile(event.target.files?.[0])} /><span className="text-xs text-slate-400">PNG, JPG, SVG, WebP, MP4, PDF</span>{uploadError && <span className="text-xs font-bold text-red-700">{uploadError}</span>}</label>;
+  }
+
+  return (
+    <div className="grid min-w-0 gap-3">
+      <div className="flex h-28 items-center justify-center overflow-hidden rounded-[12px] border border-slate-200 bg-slate-50 p-3">
+        {value ? <img src={value} alt={`${label} önizlemesi`} className="max-h-24 max-w-full object-contain" /> : <span className="text-sm font-bold text-slate-500">Logo yüklenmedi</span>}
+      </div>
+      <label className={`flex min-h-11 items-center justify-center gap-2 rounded-[12px] border border-cyan-200 bg-cyan-50 px-4 text-sm font-black text-cyan-800 transition hover:border-cyan-400 hover:bg-cyan-100 ${uploading ? "cursor-wait opacity-70" : "cursor-pointer"}`}>
+        {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+        {uploading ? "Yükleniyor..." : "Gözat"}
+        <input className="hidden" type="file" accept={accept} disabled={uploading} onChange={(event) => chooseFile(event.target.files?.[0])} />
+      </label>
+      <p className="text-xs leading-5 text-slate-500">PNG, JPG, JPEG veya WEBP. En fazla 5 MB.</p>
+      {selectedFileName && <p className="truncate text-xs font-semibold text-slate-700">Seçilen dosya: {selectedFileName}</p>}
+      {uploadError && <p className="rounded-[10px] bg-red-50 p-2 text-xs font-bold text-red-700">{uploadError}</p>}
+      <details className="rounded-[10px] border border-slate-200 bg-white p-3">
+        <summary className="cursor-pointer text-xs font-black text-slate-600">Gelişmiş: Görsel URL'si</summary>
+        <div className="mt-3"><Field label="Görsel URL'si" value={value || ""} onChange={onUrl} /></div>
+      </details>
+    </div>
+  );
 }
 
 function Brand({ content, setContent }: any) {
@@ -4790,7 +4840,7 @@ function Brand({ content, setContent }: any) {
       <div className="grid gap-4 md:grid-cols-2">
         <Field label="Firma adı" value={brand.companyName} onChange={(v) => update({ companyName: v })} />
         <Field label="Slogan" value={brand.slogan} onChange={(v) => update({ slogan: v })} />
-        {["logoUrl", "footerLogoUrl", "faviconUrl"].map((key) => <div key={key} className="grid gap-3"><Field label={key} value={brand[key]} onChange={(v) => update({ [key]: v })} /><Upload onUrl={(url) => update({ [key]: url })} /></div>)}
+        {[["Website logosu", "logoUrl"], ["Footer logosu", "footerLogoUrl"], ["Favicon", "faviconUrl"]].map(([label, key]) => <div key={key} className="grid gap-3 rounded-[16px] border border-slate-200 bg-white p-4"><p className="text-sm font-black text-slate-900">{label}</p><Upload logoOnly label={label} value={brand[key] || ""} onUrl={(url) => update({ [key]: url })} /></div>)}
         {Object.entries(brand.colors).map(([key, value]) => <Field key={key} type="color" label={`${key} color`} value={value} onChange={(v) => update({ colors: { ...brand.colors, [key]: v } })} />)}
         <Field label="Başlık yazı tipi" value={brand.typography.heading} onChange={(v) => update({ typography: { ...brand.typography, heading: v } })} />
         <Field label="Gövde yazı tipi" value={brand.typography.body} onChange={(v) => update({ typography: { ...brand.typography, body: v } })} />
@@ -5824,7 +5874,7 @@ function LogoManagement({ content, setContent }: any) {
     ["Footer Logo", "footerLogoUrl"],
     ["OpenGraph Logo", "openGraphLogoUrl"]
   ];
-  return <Panel title="Logo Yönetimi"><p className="mb-5 rounded-[14px] border border-cyan-200 bg-cyan-50 p-4 text-sm leading-6 text-cyan-900">PNG, SVG, WebP veya JPG yükleyin. Dosyalar Supabase Storage üzerinde saklanır; değişiklikleri üst araç çubuğundaki Kaydet ile yayınlayın.</p><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{logoFields.map(([label, key]) => <div key={key} className="grid min-w-0 gap-3 rounded-[16px] border border-slate-200 bg-white p-4 shadow-sm"><div className="flex h-24 items-center justify-center overflow-hidden rounded-[12px] bg-slate-50">{brand[key] ? <img src={brand[key]} alt={`${label} önizlemesi`} className="max-h-20 max-w-full object-contain" /> : <span className="text-sm font-bold text-slate-500">Logo yüklenmedi</span>}</div><Field label={label} value={brand[key] || ""} onChange={(v) => update({ [key]: v })} /><Upload onUrl={(url) => update({ [key]: url })} /></div>)}</div></Panel>;
+  return <Panel title="Logo Yönetimi"><p className="mb-5 rounded-[14px] border border-cyan-200 bg-cyan-50 p-4 text-sm leading-6 text-cyan-900">PNG, JPG, JPEG veya WEBP dosyası seçin. Dosyalar Supabase Storage üzerinde saklanır; değişiklikleri üst araç çubuğundaki Kaydet ile yayınlayın.</p><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{logoFields.map(([label, key]) => <div key={key} className="grid min-w-0 gap-3 rounded-[16px] border border-slate-200 bg-white p-4 shadow-sm"><p className="text-sm font-black text-slate-900">{label}</p><Upload logoOnly label={label} value={brand[key] || ""} onUrl={(url) => update({ [key]: url })} /></div>)}</div></Panel>;
 }
 
 function VisualManagement({ content, setContent }: any) {
@@ -11437,7 +11487,7 @@ function PdfReportDesignCenter({ content, setContent, save, notify }: any) {
       <div className="grid gap-5 xl:grid-cols-[420px_1fr]">
         <GlassCard className="p-5">
           <div className="grid gap-4">
-            <Field label="Logo URL" value={draft.logoUrl || ""} onChange={(logoUrl) => update({ logoUrl })} />
+            <div><p className="mb-3 text-sm font-black text-slate-900">Rapor logosu</p><Upload logoOnly label="Rapor logosu" value={draft.logoUrl || ""} onUrl={(logoUrl) => update({ logoUrl })} /></div>
             <Field label="Kapak başlığı" value={draft.coverTitle || ""} onChange={(coverTitle) => update({ coverTitle })} />
             <Field label="Marka rengi" type="color" value={draft.brandColor || "#22d3ee"} onChange={(brandColor) => update({ brandColor })} />
             <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={Boolean(draft.aiEnabled)} onChange={(event) => update({ aiEnabled: event.target.checked })} /> AI yorumu etkin</label>
