@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { recordActivity } from "@/lib/activity-log";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 import { requireModuleAccess } from "@/lib/permissions";
+import { isAdminRole } from "@/lib/auth";
 
 export async function POST(request: Request) {
   const session = await requireModuleAccess("musteriler");
@@ -15,6 +16,9 @@ export async function POST(request: Request) {
   }
 
   const payload = await request.json();
+  if (payload.is_test === true && !isAdminRole(session.role)) {
+    return NextResponse.json({ error: "Test firması yalnızca admin tarafından oluşturulabilir." }, { status: 403 });
+  }
   const name = String(payload.name || "").trim();
 
   if (!name) {
@@ -39,7 +43,8 @@ export async function POST(request: Request) {
         email: payload.email || "",
         status: payload.status || "Aktif",
         is_active: payload.status === "Pasif" ? false : true,
-        notes: payload.notes || ""
+        notes: payload.notes || "",
+        is_test: payload.is_test === true
       })
     });
 

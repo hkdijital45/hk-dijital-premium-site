@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { recordActivity } from "@/lib/activity-log";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 import { requireModuleAccess } from "@/lib/permissions";
+import { isAdminRole } from "@/lib/auth";
 
 async function requireStaff() {
   return requireModuleAccess("musteriler");
@@ -20,6 +21,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
   const { id } = await context.params;
   const payload = await request.json();
+  if (Object.prototype.hasOwnProperty.call(payload, "is_test") && !isAdminRole(session.role)) {
+    const current = await supabaseRest<Array<{ is_test?: boolean }>>(`companies?id=eq.${encodeURIComponent(id)}&select=is_test&limit=1`).catch(() => []);
+    if (!current[0] || Boolean(payload.is_test) !== Boolean(current[0].is_test)) {
+      return NextResponse.json({ error: "Test kaydı durumunu yalnızca admin değiştirebilir." }, { status: 403 });
+    }
+    delete payload.is_test;
+  }
   const editableFields = [
     "name",
     "sector",
@@ -46,7 +54,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     "customer_package_currency",
     "customer_package_tax_note",
     "customer_package_started_at",
-    "customer_package_note"
+    "customer_package_note",
+    "is_test"
   ];
   const patch: Record<string, any> = { updated_at: new Date().toISOString() };
   for (const field of editableFields) {

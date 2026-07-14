@@ -20,6 +20,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const payload = await request.json().catch(() => ({}));
+  if (payload.is_test === true) {
+    return NextResponse.json({ error: "Test kaydı yalnızca admin tarafından oluşturulabilir." }, { status: 403 });
+  }
   const name = String(payload.name || "").trim();
   const company = String(payload.company || "").trim();
   const email = String(payload.email || "").trim().toLowerCase();

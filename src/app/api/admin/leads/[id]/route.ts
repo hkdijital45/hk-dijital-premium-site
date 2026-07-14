@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { recordActionFailure, recordActivity } from "@/lib/activity-log";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 import { requireModuleAccess } from "@/lib/permissions";
+import { isAdminRole } from "@/lib/auth";
 
 async function requireCrmAccess() {
   return await requireModuleAccess("crm") || requireModuleAccess("leads");
@@ -43,7 +44,8 @@ const editableFields = [
   "calendar_follow_up_at",
   "deleted_at",
   "rejected_at",
-  "rejection_reason"
+  "rejection_reason",
+  "is_test"
 ];
 
 function sanitizeLeadPatch(body: Record<string, unknown>) {
@@ -150,6 +152,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
   const { id } = await context.params;
   const body = await request.json().catch(() => ({}));
+  if (Object.prototype.hasOwnProperty.call(body, "is_test") && !isAdminRole(session.role)) {
+    return NextResponse.json({ error: "Test kaydı durumunu yalnızca admin değiştirebilir." }, { status: 403 });
+  }
   const patch = sanitizeLeadPatch(body);
   let compatibilityWarning = "";
   const automationWarnings: string[] = [];
@@ -182,13 +187,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (!rows[0]) return NextResponse.json({ error: "Başvuru bulunamadı." }, { status: 404 });
     const requestedStage = String(patch.pipeline_stage || patch.status || "");
     const previousStage = String(existingRows[0].pipeline_stage || existingRows[0].status || "");
-    if (requestedStage && requestedStage !== previousStage) {
+    const resultingIsTest = patch.is_test === true || (patch.is_test !== false && existingRows[0].is_test === true);
+    if (!resultingIsTest && requestedStage && requestedStage !== previousStage) {
       await createStageTasks(rows[0], requestedStage).catch((taskError) => {
         const detail = taskError instanceof Error ? taskError.message : String(taskError);
         automationWarnings.push(`Otomatik görev oluşturulamadı: ${detail}`);
       });
     }
-    if (patch.meeting_at || patch.calendar_follow_up_at || patch.proposal_sent_at) {
+    if (!resultingIsTest && (patch.meeting_at || patch.calendar_follow_up_at || patch.proposal_sent_at)) {
       await createCalendarTasks(rows[0], patch).catch((taskError) => {
         const detail = taskError instanceof Error ? taskError.message : String(taskError);
         automationWarnings.push(`Takvim görevi oluşturulamadı: ${detail}`);

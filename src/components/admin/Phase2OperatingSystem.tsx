@@ -4,6 +4,7 @@
 import { useMemo, useState } from "react";
 import { BarChart3, Bot, CheckCircle2, FileText, Link2, RefreshCw, Send, ShieldCheck, Sparkles, Users } from "lucide-react";
 import { formatCurrency, formatNumber } from "@/lib/reports/report-insights";
+import { filterRecordsByVisibility, isTestRecord, type RecordVisibility } from "@/lib/test-records";
 
 function parseNumber(value: unknown) {
   const normalized = String(value || "").replace(/[^\d,.-]/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".");
@@ -98,7 +99,7 @@ export function IntegrationCenter({ provider, content, integrations = [] }: any)
     const data = await response.json().catch(() => ({}));
     setMessage(data.message || data.error || "Senkronizasyon tamamlandı.");
   }
-  return <PageShell eyebrow="HK Operating System" title={isMeta ? "Meta Integration Center" : "Google Ads Integration Center"} description="Reklam hesap bağlantılarını server-side saklayın, manuel veya zamanlanmış sync uçlarını kullanın. Token değerleri tarayıcıya geri döndürülmez.">
+  return <PageShell eyebrow="HK İşletim Sistemi" title={isMeta ? "Meta Entegrasyon Merkezi" : "Google Ads Entegrasyon Merkezi"} description="Reklam hesabı bağlantılarını sunucu tarafında saklayın, manuel veya zamanlanmış senkronizasyonları yönetin. Erişim anahtarları tarayıcıya geri döndürülmez.">
     <div className="grid gap-5 xl:grid-cols-[.95fr_1.05fr]">
       <Card title="Bağlantı Bilgileri" description="Canlı OAuth/app izinleri tamamlandığında bu kayıtlar otomatik raporlama sync akışına bağlanır." icon={ShieldCheck}>
         <div className="grid gap-3 md:grid-cols-2">
@@ -107,8 +108,8 @@ export function IntegrationCenter({ provider, content, integrations = [] }: any)
           <Field label={isMeta ? "Ad Account ID" : "Manager / Account ID"} value={form.adAccountId} onChange={(adAccountId: string) => setForm({ ...form, adAccountId })} />
           {isMeta && <Field label="Facebook Page ID" value={form.pageId} onChange={(pageId: string) => setForm({ ...form, pageId })} />}
           {isMeta && <Field label="Instagram Account ID" value={form.instagramAccountId} onChange={(instagramAccountId: string) => setForm({ ...form, instagramAccountId })} />}
-          <Field label="Access token (server-side encrypted)" value={form.accessToken} onChange={(accessToken: string) => setForm({ ...form, accessToken })} />
-          {!isMeta && <Field label="Refresh token (server-side encrypted)" value={form.refreshToken} onChange={(refreshToken: string) => setForm({ ...form, refreshToken })} />}
+          <Field label="Erişim anahtarı (sunucuda şifrelenir)" value={form.accessToken} onChange={(accessToken: string) => setForm({ ...form, accessToken })} />
+          {!isMeta && <Field label="Yenileme anahtarı (sunucuda şifrelenir)" value={form.refreshToken} onChange={(refreshToken: string) => setForm({ ...form, refreshToken })} />}
           <label className="flex items-center gap-2 text-sm font-bold text-slate-700"><input type="checkbox" checked={form.autoSync} onChange={(event) => setForm({ ...form, autoSync: event.target.checked })} /> Otomatik senkronizasyon açık</label>
         </div>
         <div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={save} className="rounded-full bg-cyan-300 px-5 py-3 text-xs font-black text-slate-950">Bağlantıyı Kaydet</button><button type="button" disabled={!canSyncForm} title={!canSyncForm ? "Senkronizasyon için API anahtarı veya kayıtlı token gerekli." : undefined} onClick={() => sync()} className="inline-flex items-center gap-2 rounded-full border border-cyan-200/30 px-5 py-3 text-xs font-black text-cyan-700 disabled:cursor-not-allowed disabled:opacity-50"><RefreshCw size={14} /> Manuel Sync</button></div>
@@ -167,13 +168,19 @@ export function OnboardingCenter({ content }: any) {
   </PageShell>;
 }
 
-export function LeadWorkspace({ content }: any) {
+export function LeadWorkspace({ content, canManageTestRecords = false }: any) {
   const [leads, setLeads] = useState(content.leads || []);
-  const summary = executiveSummary({ leads, companies: content.companies, reports: content.reports, campaigns: content.campaigns });
+  const [recordVisibility, setRecordVisibility] = useState<RecordVisibility>("live");
+  const visibleLeads = filterRecordsByVisibility(leads, recordVisibility);
+  const visibleCompanies = filterRecordsByVisibility(content.companies || [], recordVisibility);
+  const summary = executiveSummary({ leads: recordVisibility === "test" ? visibleLeads.map((lead: any) => ({ ...lead, is_test: false })) : visibleLeads, companies: recordVisibility === "test" ? visibleCompanies.map((company: any) => ({ ...company, is_test: false })) : visibleCompanies, reports: content.reports, campaigns: content.campaigns });
+  const hiddenTestCount = leads.filter(isTestRecord).length;
   const stages = ["Yeni Lead", "İletişim Kuruldu", "Teklif Gönderildi", "Takipte", "Kazandı", "Kaybedildi"];
   const [question, setQuestion] = useState("Hangi leadleri önce aramalıyım?");
   const [answer, setAnswer] = useState("");
   const [pipelineMessage, setPipelineMessage] = useState("");
+  const [pendingLeadId, setPendingLeadId] = useState("");
+  const [asking, setAsking] = useState(false);
   function leadStage(lead: any) {
     const status = String(lead.status || "Yeni Lead");
     if (stages.includes(status)) return status;
@@ -185,30 +192,48 @@ export function LeadWorkspace({ content }: any) {
     return "Yeni Lead";
   }
   async function moveLead(leadId: string, status: string) {
-    setPipelineMessage("Pipeline güncelleniyor...");
+    if (pendingLeadId) return;
+    setPendingLeadId(leadId);
+    setPipelineMessage("Satış süreci güncelleniyor...");
     const response = await fetch("/api/admin/leads/pipeline", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: leadId, status }) });
     const data = await response.json().catch(() => ({}));
     if (data.lead) setLeads(leads.map((lead: any) => lead.id === leadId ? { ...lead, ...data.lead } : lead));
-    setPipelineMessage(data.message || data.error || "Pipeline güncellendi.");
+    setPipelineMessage(data.message || data.error || "Satış süreci güncellendi.");
+    setPendingLeadId("");
+  }
+  async function toggleTestRecord(lead: any) {
+    if (!canManageTestRecords || pendingLeadId) return;
+    setPendingLeadId(lead.id);
+    const response = await fetch(`/api/admin/leads/${lead.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ is_test: !isTestRecord(lead) }) });
+    const data = await response.json().catch(() => ({}));
+    if (response.ok && data.lead) setLeads((current: any[]) => current.map((item) => item.id === lead.id ? { ...item, ...data.lead } : item));
+    setPipelineMessage(data.message || data.error || "Kayıt türü güncellendi.");
+    setPendingLeadId("");
   }
   async function ask() {
-    setAnswer("HK Intelligence düşünüyor...");
+    if (asking) return;
+    setAsking(true);
+    setAnswer("HK Intelligence yanıt hazırlıyor...");
     const response = await fetch("/api/admin/operations-assistant", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question }) });
     const data = await response.json().catch(() => ({}));
     setAnswer(data.answer || data.error || "Yanıt alınamadı.");
+    setAsking(false);
   }
-  return <PageShell eyebrow="Lead-to-Client OS" title="Lead Workspace" description="Keşif, AI analiz, dijital skor, teklif geçmişi, CRM durumu ve müşteri dönüşümünü tek pipeline içinde izleyin.">
-    <div className="mb-5 grid gap-3 md:grid-cols-4">{[["Toplam Lead", summary.totalLeads], ["Aktif Müşteri", summary.activeCustomers], ["Teklif Değeri", formatCurrency(summary.proposalValue)], ["Dönüşüm Oranı", `%${formatNumber(summary.conversionRate, 1)}`]].map(([label, value]) => <div key={label} className="rounded-[8px] border border-slate-200 bg-white p-4"><p className="text-xs text-slate-400">{label}</p><p className="mt-2 text-2xl font-black">{value}</p></div>)}</div>
+  return <PageShell eyebrow="Lead Yönetimi" title="Lead Çalışma Alanı" description="Keşif, yapay zekâ analizi, dijital skor, teklif geçmişi, müşteri ilişkileri durumu ve müşteri dönüşümünü tek satış sürecinde izleyin.">
+    <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-slate-200 bg-white p-4"><div><p className="font-black text-slate-900">Kayıt görünümü</p><p className="mt-1 text-xs text-slate-500">Test kayıtları canlı satış ve dönüşüm istatistiklerine dahil edilmez.</p></div><div className="flex flex-wrap gap-2">{([['live','Gerçek Kayıtlar'],['test','Test Kayıtları'],['all','Tümü']] as const).map(([value,label]) => <button type="button" key={value} onClick={() => setRecordVisibility(value)} className={`min-h-10 rounded-[8px] px-4 text-xs font-black ${recordVisibility === value ? 'bg-cyan-500 text-white' : 'border border-slate-200 bg-white text-slate-700'}`}>{label}</button>)}</div></div>
+    {recordVisibility === "live" && hiddenTestCount > 0 && <p className="mb-5 rounded-[8px] border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-800">{hiddenTestCount} test kaydı operasyon istatistiklerinden çıkarıldı. Test Kayıtları filtresinden inceleyebilirsiniz.</p>}
+    {recordVisibility === "test" && <p className="mb-5 rounded-[8px] border border-violet-200 bg-violet-50 p-3 text-sm font-bold text-violet-800">Test görünümü açık. Bu ekrandaki değerler canlı performans raporlarına yansımaz.</p>}
+    <div className="mb-5 grid gap-3 md:grid-cols-4">{[["Toplam lead", summary.totalLeads], ["Aktif müşteri", summary.activeCustomers], ["Teklif değeri", formatCurrency(summary.proposalValue)], ["Dönüşüm oranı", `%${formatNumber(summary.conversionRate, 1)}`]].map(([label, value]) => <div key={label} className="rounded-[8px] border border-slate-200 bg-white p-4"><p className="text-xs text-slate-500">{label}</p><p className="mt-2 text-2xl font-black">{value}</p></div>)}</div>
     {pipelineMessage && <p className="mb-5 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-700">{pipelineMessage}</p>}
     <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
-      <div className="grid gap-4 xl:grid-cols-3">{stages.map((stage) => <div key={stage} className="rounded-[8px] border border-slate-200 bg-white p-3"><div className="flex items-center justify-between gap-2"><h3 className="font-black text-cyan-700">{stage}</h3><span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-600">{leads.filter((lead: any) => leadStage(lead) === stage).length}</span></div><div className="mt-3 grid gap-3">{leads.filter((lead: any) => leadStage(lead) === stage).slice(0, 8).map((lead: any) => <div key={lead.id} className="rounded-[8px] bg-slate-50 p-3"><p className="font-black">{lead.company || lead.name || "Lead"}</p><p className="mt-1 text-xs text-slate-400">{lead.business_type || lead.sector || "-"} · {lead.city || "-"}</p><div className="mt-2 flex flex-wrap gap-2 text-[10px] font-black"><span className="rounded-full bg-cyan-300/15 px-2 py-1 text-cyan-700">Dijital {lead.digital_maturity_score || calculateDigitalMaturityScore(lead)}</span><span className="rounded-full bg-amber-300/15 px-2 py-1 text-amber-700">Isı {lead.lead_heat_score || calculateLeadHeatScore(lead)}</span></div><select value={leadStage(lead)} onChange={(event) => moveLead(lead.id, event.target.value)} className="mt-3 min-h-9 w-full rounded-[8px] border border-slate-200 bg-white px-2 text-xs font-bold text-slate-900 outline-none"><option value="Yeni Lead">Yeni Lead</option><option value="İletişim Kuruldu">İletişim Kuruldu</option><option value="Teklif Gönderildi">Teklif Gönderildi</option><option value="Takipte">Takipte</option><option value="Kazandı">Kazandı</option><option value="Kaybedildi">Kaybedildi</option></select></div>)}</div></div>)}</div>
-      <Card title="HK Intelligence Assistant" description="Operasyon sorularını mevcut lead, müşteri, kampanya ve rapor bağlamıyla yanıtlar." icon={Bot}><textarea value={question} onChange={(event) => setQuestion(event.target.value)} className="min-h-24 w-full rounded-[8px] border border-slate-200 bg-slate-50 p-3 text-sm text-slate-900" /><button onClick={ask} className="mt-3 inline-flex items-center gap-2 rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950"><Sparkles size={14} /> Sor</button>{answer && <p className="mt-4 whitespace-pre-line rounded-[8px] bg-slate-50 p-3 text-sm leading-6 text-slate-700">{answer}</p>}</Card>
+      <div className="grid gap-4 xl:grid-cols-3">{stages.map((stage) => <div key={stage} className="rounded-[8px] border border-slate-200 bg-white p-3"><div className="flex items-center justify-between gap-2"><h3 className="font-black text-cyan-700">{stage}</h3><span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-600">{visibleLeads.filter((lead: any) => leadStage(lead) === stage).length}</span></div><div className="mt-3 grid gap-3">{visibleLeads.filter((lead: any) => leadStage(lead) === stage).slice(0, 8).map((lead: any) => <div key={lead.id} className="rounded-[8px] bg-slate-50 p-3"><div className="flex items-start justify-between gap-2"><p className="font-black">{lead.company || lead.name || "Lead"}</p>{isTestRecord(lead) && <span className="rounded-full bg-violet-100 px-2 py-1 text-[10px] font-black text-violet-700">TEST</span>}</div><p className="mt-1 text-xs text-slate-500">{lead.business_type || lead.sector || "-"} · {lead.city || "-"}</p><div className="mt-2 flex flex-wrap gap-2 text-[10px] font-black"><span className="rounded-full bg-cyan-300/15 px-2 py-1 text-cyan-700">Dijital {lead.digital_maturity_score || calculateDigitalMaturityScore(lead)}</span><span className="rounded-full bg-amber-300/15 px-2 py-1 text-amber-700">Isı {lead.lead_heat_score || calculateLeadHeatScore(lead)}</span></div><select disabled={pendingLeadId === lead.id} value={leadStage(lead)} onChange={(event) => moveLead(lead.id, event.target.value)} className="mt-3 min-h-10 w-full rounded-[8px] border border-slate-200 bg-white px-2 text-xs font-bold text-slate-900 outline-none disabled:opacity-60"><option value="Yeni Lead">Yeni Lead</option><option value="İletişim Kuruldu">İletişim Kuruldu</option><option value="Teklif Gönderildi">Teklif Gönderildi</option><option value="Takipte">Takipte</option><option value="Kazandı">Kazandı</option><option value="Kaybedildi">Kaybedildi</option></select>{canManageTestRecords && <button type="button" disabled={pendingLeadId === lead.id} onClick={() => toggleTestRecord(lead)} className="mt-2 min-h-10 w-full rounded-[8px] border border-violet-200 px-3 text-xs font-black text-violet-700 disabled:opacity-60">{isTestRecord(lead) ? "Gerçek kayda dönüştür" : "Test kaydı yap"}</button>}</div>)}</div></div>)}</div>
+      <Card title="HK Intelligence Asistanı" description="Operasyon sorularını mevcut lead, müşteri, kampanya ve rapor bağlamıyla yanıtlar." icon={Bot}><textarea aria-label="Operasyon sorusu" value={question} onChange={(event) => setQuestion(event.target.value)} className="min-h-24 w-full rounded-[8px] border border-slate-200 bg-slate-50 p-3 text-sm text-slate-900" /><button type="button" disabled={asking || !question.trim()} onClick={ask} className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-full bg-cyan-300 px-4 text-sm font-black text-slate-950 disabled:opacity-60"><Sparkles size={14} /> {asking ? "Yanıt hazırlanıyor..." : "Sor"}</button>{answer && <p className="mt-4 whitespace-pre-line rounded-[8px] bg-slate-50 p-3 text-sm leading-6 text-slate-700">{answer}</p>}</Card>
     </div>
   </PageShell>;
 }
 
 export function ProposalBuilder() {
-  const [form, setForm] = useState({ businessName: "", sector: "", city: "", goal: "Lead generation", budget: "", platform: "Meta" });
+  const [form, setForm] = useState({ businessName: "", sector: "", city: "", goal: "Potansiyel müşteri kazanımı", budget: "", platform: "Meta" });
   const [proposal, setProposal] = useState<any>(null);
   const preview = useMemo(() => forecastKpis(form), [form]);
   async function generate() {
@@ -216,7 +241,7 @@ export function ProposalBuilder() {
     const data = await response.json().catch(() => ({}));
     setProposal(data.proposal || { error: data.error || "Teklif üretilemedi." });
   }
-  return <PageShell eyebrow="Sales OS" title="Smart Proposal Generator" description="İşletme bilgilerini girin; paket, funnel, KPI tahmini ve Türkçe satış açıklaması oluşturun.">
+  return <PageShell eyebrow="Satış Sistemi" title="Akıllı Teklif Oluşturucu" description="İşletme bilgilerini girin; paket, satış hunisi, performans tahmini ve Türkçe satış açıklaması oluşturun.">
     <div className="grid gap-5 xl:grid-cols-[.9fr_1.1fr]">
       <Card title="Teklif Girdileri" description="Admin göndermeden önce tüm metni düzenleyebilir." icon={FileText}>
         <div className="grid gap-3 md:grid-cols-2"><Field label="İşletme adı" value={form.businessName} onChange={(businessName: string) => setForm({ ...form, businessName })} /><Field label="Sektör" value={form.sector} onChange={(sector: string) => setForm({ ...form, sector })} /><Field label="İl" value={form.city} onChange={(city: string) => setForm({ ...form, city })} /><Select label="Hedef" value={form.goal} onChange={(goal: string) => setForm({ ...form, goal })} options={["WhatsApp messages", "Lead generation", "Website traffic", "Brand awareness", "Sales"]} /><Field label="Bütçe" value={form.budget} onChange={(budget: string) => setForm({ ...form, budget })} /><Select label="Platform" value={form.platform} onChange={(platform: string) => setForm({ ...form, platform })} options={["Meta", "Google Ads", "Meta + Google", "Sosyal Medya"]} /></div>

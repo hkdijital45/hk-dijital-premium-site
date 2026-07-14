@@ -37,6 +37,7 @@ import { CUSTOMER_MODULE_REGISTRY, CUSTOMER_PLATFORM_REGISTRY, DEFAULT_CUSTOMER_
 import { HK_SERVICE_PACKAGES, PACKAGE_CATEGORIES, calculateTotalWithVat, calculateVat, findServicePackage, formatPackagePrice, formatTRY, getPackagePricing } from "@/lib/packages";
 import { GlassCard } from "@/components/premium/PremiumUI";
 import { suggestUsername } from "@/lib/usernames";
+import { excludeTestCompanyRecords, filterRecordsByVisibility, isTestRecord } from "@/lib/test-records";
 
 const adminCategoryIcons: Record<string, any> = {
   LayoutDashboard,
@@ -655,7 +656,7 @@ export function AdminDashboard({
   }
 
   const props = { content, setContent, currentSession, allowedModules, setActive, save, notify };
-  const accountingAliases = ["Muhasebe Merkezi", "Tahsilat", "Tahsilatlar", "Bekleyen Ödemeler", "Gelir / Gider", "Gelir Tahmini", "Karlılık", "Kârlılık", "Müşteri Finans Özeti", "Export", "Muhasebe Raporları"];
+  const accountingAliases = ["Muhasebe Merkezi", "Tahsilat", "Tahsilatlar", "Bekleyen Ödemeler", "Gelir / Gider", "Gelir Gider", "Gelir Tahmini", "Karlılık", "Kârlılık", "Müşteri Finans Özeti", "Export", "Muhasebe Raporları"];
   const visibleNavigationGroups = adminNavigationGroups
     .filter((group) => group.label !== "Finans" || canViewAccounting(currentSession))
     .map((group) => ({ ...group, items: group.items.filter((item) => allowedModules.includes(item.module)) }))
@@ -883,20 +884,20 @@ export function AdminDashboard({
           {active === "Reklam Hesabı Eşleştirme" && <AdAccountMappingCenter {...props} />}
           {["Müşteri Bulucu", "İşletme Keşfi", "Müşteri Bul", "Müşteri Keşfi"].includes(active) && <CustomerFinder {...props} />}
           {["Lead Yönetimi", "Lead Analizi", ...crmLeadViews].includes(active) && <Crm {...props} view={["Lead Yönetimi", "Leadler", "Lead Analizi"].includes(active) ? "Lead Durumları" : active} setActive={setActive} />}
-          {["Meta Analiz", "Meta Raporları", "Meta İstihbarat"].includes(active) && <MetaAnalysisSection />}
-          {["Google Analiz", "Google Ads Analiz", "Google Ads Raporları", "Google İstihbarat"].includes(active) && <><IntelligenceMvpPanel compact /><GoogleAdsAnalysisSection /></>}
+          {["Meta Analiz", "Meta Raporları", "Meta İstihbarat", "Meta Reklam İstihbaratı"].includes(active) && <MetaAnalysisSection />}
+          {["Google Analiz", "Google Ads Analiz", "Google Ads Raporları", "Google İstihbarat", "Google Ads İstihbaratı"].includes(active) && <><IntelligenceMvpPanel compact /><GoogleAdsAnalysisSection /></>}
           {["Sosyal İstihbarat Merkezi", "Sosyal Medya Denetimi", "PDF Audit"].includes(active) && <SocialMediaAuditCenter />}
-          {["Yapay Zekâ Stüdyosu", "AI Studio", "Yapay Zekâ Analizleri"].includes(active) && <AiAssistant {...props} mode="Yapay Zekâ Stüdyosu" />}
+          {["Yapay Zekâ Stüdyosu", "AI Studio", "Yapay Zekâ Analizleri", "Prompt Merkezi", "Kreatif Stüdyo"].includes(active) && <AiAssistant {...props} mode={active} />}
           {["Teklif Motoru", "Teklif Hazırlama", "Teklif Oluştur", "WhatsApp Teklifi"].includes(active) && <ProposalEngine {...props} setActive={setActive} />}
           {active === "Raporlar" && <ReportsHub {...props} selectedCompanyId={selectedCompanyId} />}
-          {["Web Site Analitiği", "GTM Bağlantıları"].includes(active) && <WebsiteAnalyticsCenter />}
+          {["Web Site Analitiği", "Web Analitiği", "Web Analitiği Bağlantıları", "GTM Bağlantıları"].includes(active) && <WebsiteAnalyticsCenter />}
           {(active === "Reklam Yorum Merkezi" || active === "Reklam Doktoru Pro") && <><AdDoctorMvpPanel /><AdInsightsCenter content={content} notify={notify} /></>}
-          {active === "HK Agent Hub" && <AgentHubCenter content={content} notify={notify} />}
+          {["HK Agent Hub", "Agent Hub", "Discord"].includes(active) && <AgentHubCenter content={content} notify={notify} />}
           {active === "QA Merkezi" && <QaCenter notify={notify} />}
           {active === "PDF Rapor Tasarım Merkezi" && <PdfReportDesignCenter {...props} />}
-          {active === "Müşteriler" && <CustomersAdmin {...props} selectedCompanyId={selectedCompanyId} />}
+          {["Müşteriler", "Müşteri Paketleri"].includes(active) && <CustomersAdmin {...props} selectedCompanyId={selectedCompanyId} />}
           {["Site Ayarları", "Web Sitesi Yönetimi"].includes(active) && <WebsiteManagementCenter {...props} />}
-          {["API Durum Kontrolü", "Entegrasyonlar", "OAuth Kurulum Durumu", "HK Asistan Ayarları", "Meta / Pixel / Dataset", "Google / GA4 / Search Console"].includes(active) && <IntegrationsCenter {...props} selectedCompanyId={selectedCompanyId} />}
+          {["API Durum Kontrolü", "Entegrasyonlar", "Müşteri Entegrasyonları", "OAuth Kurulum Durumu", "HK Asistan Ayarları", "Meta / Pixel / Dataset", "Google / GA4 / Search Console"].includes(active) && <IntegrationsCenter {...props} selectedCompanyId={selectedCompanyId} />}
           {["Medya / Logo", "Medya"].includes(active) && <MediaLogoHub {...props} />}
           {active === "Kullanıcılar" && <UsersHub {...props} />}
           {active === "Genel Arama" && <GlobalSearchPage />}
@@ -904,7 +905,7 @@ export function AdminDashboard({
           {active === "Hazırlık Merkezi" && <PreparationCenter {...props} setActive={setActive} />}
           {["Tema Ayarları", "Tema / Logo"].includes(active) && <ThemeEditor />}
           {["Roller & Yetkiler", "Kullanıcı Yönetimi"].includes(active) && <UsersAdmin {...props} mode={active} />}
-          {["Sistem Sağlığı", "Sistem Sağlık Merkezi"].includes(active) && <SystemHealthCenter content={content} setContent={setContent} startupApiData={startupApiData} runStartupApiStatus={runStartupApiStatus} startupApiLoading={startupApiLoading} />}
+          {["Sistem Sağlığı", "Sistem Sağlık Merkezi", "API Durumu"].includes(active) && <SystemHealthCenter content={content} setContent={setContent} startupApiData={startupApiData} runStartupApiStatus={runStartupApiStatus} startupApiLoading={startupApiLoading} />}
           {active === "Sistem Test Merkezi" && <SystemTestCenter content={content} setContent={setContent} save={save} currentSession={currentSession} notify={notify} systemStatus={systemStatus} supabaseConfigured={supabaseConfigured} />}
           {dataBackupAliases.includes(active) && <ExportCenter content={content} currentSession={currentSession} notify={notify} />}
           {logCenterAliases.includes(active) && <ActivityLogs content={content} setContent={setContent} />}
@@ -921,7 +922,7 @@ export function AdminDashboard({
           {active === "Sektör Sistemleri" && <SectorSystemsCenter {...props} />}
           {active === "Müşteri Markalama" && <CustomerBrandingCenter {...props} />}
           {preparationAliases.includes(active) && <PreparationCenter {...props} setActive={setActive} mode={active} />}
-          {reportAliases.includes(active) && <ReportsHub {...props} selectedCompanyId={selectedCompanyId} />}
+          {[...reportAliases, "Rapor Çıktıları"].includes(active) && <ReportsHub {...props} selectedCompanyId={selectedCompanyId} />}
           {active === "Genel Bakış" && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} systemStatus={systemStatus} currentSession={currentSession} allowedModules={allowedModules} notify={notify} />}
           {active === "Sayfa İçerikleri" && <Pages {...props} />}
           {active === "Marka Ayarları" && <Brand {...props} />}
@@ -930,7 +931,7 @@ export function AdminDashboard({
           {active === "Paketler" && <Collection title="Paket Yönetimi" type="package" items={content.packages} setItems={(items) => setContent({ ...content, packages: items })} />}
           {active === "Sertifikalar" && <Collection title="Sertifika Yönetimi" type="certificate" items={content.certificates} setItems={(items) => setContent({ ...content, certificates: items })} />}
           {active === "Teklif Sihirbazı Ayarları" && <QuoteWizardAdmin {...props} />}
-          {["Form Başvuruları", "Teklif Sihirbazı Kayıtları", "Lead Durumları", "Takip Notları"].includes(active) && <Crm {...props} view={active} setActive={setActive} />}
+          {["Form Başvuruları", "Teklif Sihirbazı Kayıtları", "Lead Durumları", "Takip Notları", "Lead Workspace"].includes(active) && <Crm {...props} view={active} setActive={setActive} />}
           {active === "Eski Müşteriler" && <CustomersAdmin {...props} />}
           {active === "Müşteri Giriş Bilgileri" && <UsersAdmin {...props} customerOnly />}
           {active === "Panel Görünürlüğü" && <CustomerPanelAdmin {...props} />}
@@ -1509,10 +1510,20 @@ function StartupApiStatusModal({ open, loading, data = {}, message, onRetest, on
     ["Groq", statuses.groq],
     ["Gemini", statuses.gemini],
     ["OpenAI", statuses.openai],
+    ["OpenRouter", statuses.openrouter],
+    ["Manus", statuses.manus],
+    ["Ollama / Yerel", statuses.ollama],
     ["Meta", statuses.meta],
     ["Google Maps", statuses.googleMaps],
     ["Google Ads", statuses.googleAds],
-    ["Supabase", statuses.supabase]
+    ["Google Analytics 4", statuses.ga4],
+    ["Search Console", statuses.searchConsole],
+    ["Business Profile", statuses.businessProfile],
+    ["E-posta", statuses.smtp],
+    ["Webhook", statuses.webhook],
+    ["Supabase", statuses.supabase],
+    ["Kimlik Doğrulama", statuses.auth],
+    ["Dosya Depolama", statuses.storage]
   ];
   return (
     <div className="fixed inset-0 z-[75] grid place-items-center bg-white/70 p-4 ">
@@ -2345,16 +2356,16 @@ function toExcelTable(rows: any[], columns: string[]) {
 }
 
 function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, currentSession, allowedModules = [], notify }: any) {
-  const leads = useMemo(() => content.leads ?? [], [content.leads]);
-  const companies = useMemo(() => content.companies ?? [], [content.companies]);
-  const campaigns = useMemo(() => content.campaigns ?? [], [content.campaigns]);
-  const metrics = useMemo(() => content.campaignMetrics ?? [], [content.campaignMetrics]);
-  const updates = useMemo(() => content.customerUpdates ?? [], [content.customerUpdates]);
+  const leads = useMemo(() => filterRecordsByVisibility(content.leads ?? [], "live"), [content.leads]);
+  const companies = useMemo(() => filterRecordsByVisibility(content.companies ?? [], "live"), [content.companies]);
+  const campaigns = useMemo(() => excludeTestCompanyRecords(content.campaigns ?? [], content.companies), [content.campaigns, content.companies]);
+  const metrics = useMemo(() => excludeTestCompanyRecords(content.campaignMetrics ?? [], content.companies), [content.campaignMetrics, content.companies]);
+  const updates = useMemo(() => excludeTestCompanyRecords(content.customerUpdates ?? [], content.companies), [content.customerUpdates, content.companies]);
   const users = useMemo(() => content.users ?? [], [content.users]);
-  const reports = useMemo(() => content.reports ?? [], [content.reports]);
+  const reports = useMemo(() => excludeTestCompanyRecords(content.reports ?? [], content.companies), [content.reports, content.companies]);
   const activityLogs = useMemo(() => content.activityLogs ?? [], [content.activityLogs]);
-  const agencyTasks = useMemo(() => content.agencyTasks ?? [], [content.agencyTasks]);
-  const paymentRecords = useMemo(() => content.paymentRecords ?? [], [content.paymentRecords]);
+  const agencyTasks = useMemo(() => excludeTestCompanyRecords(content.agencyTasks ?? [], content.companies), [content.agencyTasks, content.companies]);
+  const paymentRecords = useMemo(() => excludeTestCompanyRecords(content.paymentRecords ?? [], content.companies), [content.paymentRecords, content.companies]);
   const agencyExpenses = useMemo(() => content.agencyExpenses ?? [], [content.agencyExpenses]);
   const [demoMessage, setDemoMessage] = useState("");
   const [demoLoading, setDemoLoading] = useState(false);
@@ -4868,7 +4879,9 @@ function Crm({ content, setContent, view, setActive, currentSession }: any) {
   const [dateTo, setDateTo] = useState("");
   const [selectedLead, setSelectedLead] = useState(null);
   const [message, setMessage] = useState("");
+  const [recordVisibility, setRecordVisibility] = useState("live");
   const allLeads = content.leads ?? [];
+  const recordPool = filterRecordsByVisibility(allLeads, recordVisibility);
   const isMetaLead = (lead) => lead.source === "Meta Analiz";
   const isGoogleLead = (lead) => lead.source === "Google Ads Analiz" || String(lead.source || "").includes("Google");
   const isSocialLead = (lead) => ["Sosyal İstihbarat Merkezi", "Sosyal Medya Denetimi"].includes(lead.source);
@@ -4889,7 +4902,7 @@ function Crm({ content, setContent, view, setActive, currentSession }: any) {
   ];
   const activeFolder = crmFolders.find((folder) => folder.label === folderFilter) || crmFolders[3];
   const folderCounts = crmFolders.reduce((acc, folder) => {
-    acc[folder.label] = allLeads.filter(folder.match).length;
+    acc[folder.label] = recordPool.filter(folder.match).length;
     return acc;
   }, {});
   const heatBadge = (lead) => {
@@ -4900,9 +4913,9 @@ function Crm({ content, setContent, view, setActive, currentSession }: any) {
   };
   const crmRecentActivity = [
     ...(content.activityLogs || []).slice(0, 4).map((item) => ({ id: `activity-${item.id}`, title: item.action || "CRM aktivitesi", text: item.entity || item.actor_name || "HK OS", date: item.created_at })),
-    ...allLeads.slice(0, 4).map((lead) => ({ id: `lead-${lead.id}`, title: lead.source || "Yeni lead", text: lead.company || lead.name || "İsimsiz başvuru", date: lead.created_at || lead.createdAt }))
+    ...recordPool.slice(0, 4).map((lead) => ({ id: `lead-${lead.id}`, title: lead.source || "Yeni lead", text: lead.company || lead.name || "İsimsiz başvuru", date: lead.created_at || lead.createdAt }))
   ].sort((a, b) => Number(new Date(b.date)) - Number(new Date(a.date))).slice(0, 6);
-  const leads = allLeads
+  const leads = recordPool
     .filter((lead) => activeFolder.match(lead))
     .filter((lead) => statusTab === "Tüm Başvurular" ? (["Arşivlenen Leadler", "Reddedilen Leadler"].includes(folderFilter) || (!isLeadDeleted(lead) && !isLeadRejected(lead))) : crmTabForLead(lead) === statusTab)
     .filter((lead) => JSON.stringify(lead).toLocaleLowerCase("tr").includes(query.toLocaleLowerCase("tr")))
@@ -4916,8 +4929,8 @@ function Crm({ content, setContent, view, setActive, currentSession }: any) {
   const previewLead = selectedLead || leads[0];
   const tabCounts = crmStatusTabs.reduce((acc, tab) => {
     acc[tab] = tab === "Tüm Başvurular"
-      ? (content.leads || []).filter((lead) => !isLeadDeleted(lead) && !isLeadRejected(lead)).length
-      : (content.leads || []).filter((lead) => crmTabForLead(lead) === tab).length;
+      ? recordPool.filter((lead) => !isLeadDeleted(lead) && !isLeadRejected(lead)).length
+      : recordPool.filter((lead) => crmTabForLead(lead) === tab).length;
     return acc;
   }, {});
   const update = (id, patch) => {
@@ -4978,7 +4991,7 @@ function Crm({ content, setContent, view, setActive, currentSession }: any) {
             </div>
           </section>
           <section className="rounded-[8px] border border-slate-200 bg-slate-50 p-3">
-            <p className="px-1 text-xs font-black uppercase tracking-[.14em] text-slate-400">Recent activity</p>
+            <p className="px-1 text-xs font-black uppercase tracking-[.14em] text-slate-400">Son aktiviteler</p>
             <div className="mt-3 grid gap-1.5">
               {crmRecentActivity.map((item) => <div key={item.id} className="rounded-[8px] border border-slate-200 bg-white/[0.025] p-2.5"><p className="truncate text-xs font-black text-slate-900">{item.title}</p><p className="mt-1 truncate text-xs text-slate-400">{item.text}</p><p className="mt-1.5 text-[10px] font-bold text-slate-500">{item.date ? formatDateTime(item.date) : "Bekliyor"}</p></div>)}
               {!crmRecentActivity.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-3 text-xs text-slate-400">Henüz aktivite yok.</p>}
@@ -4994,11 +5007,12 @@ function Crm({ content, setContent, view, setActive, currentSession }: any) {
           <div className="mb-4 flex flex-wrap gap-2">
             {crmStatusTabs.map((tab) => <button key={tab} onClick={() => setStatusTab(tab)} className={`rounded-[8px] border px-3 py-2 text-xs font-black transition ${statusTab === tab ? "border-cyan-200/45 bg-cyan-200/10 text-cyan-700" : "border-slate-200 bg-white/[0.025] text-slate-400 hover:border-cyan-200/30 hover:text-cyan-700"}`}>{tab} <span className="ml-1 text-[10px] opacity-70">{tabCounts[tab] || 0}</span></button>)}
           </div>
-          <div className="mb-4 grid gap-3 lg:grid-cols-[1.2fr_repeat(3,.7fr)]">
+          <div className="mb-4 grid gap-3 lg:grid-cols-[1.2fr_repeat(4,.7fr)]">
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Başvuru ara..." className="min-h-11 rounded-[8px] border border-slate-200 bg-slate-50 px-3 text-slate-900" />
             <SelectField label="Kaynak" value={sourceFilter} onChange={setSourceFilter} options={leadSourceOptions} placeholder="Tüm kaynaklar" />
             <SelectField label="Durum" value={statusFilter} onChange={setStatusFilter} options={leadStatuses} placeholder="Tüm durumlar" />
             <SelectField label="Sektör" value={sectorFilter} onChange={setSectorFilter} options={sectorOptions} placeholder="Tüm sektörler" />
+            <SelectField label="Kayıt türü" value={recordVisibility} onChange={setRecordVisibility} options={[{ value: "live", label: "Gerçek kayıtlar" }, { value: "test", label: "Test kayıtları" }, { value: "all", label: "Tümü" }]} />
           </div>
           <div className="mb-4 grid gap-3 md:grid-cols-3">
             <input value={budgetFilter} onChange={(e) => setBudgetFilter(e.target.value)} placeholder="Bütçe filtresi" className="min-h-11 rounded-[8px] border border-slate-200 bg-slate-50 px-3 text-slate-900" />
@@ -5013,7 +5027,7 @@ function Crm({ content, setContent, view, setActive, currentSession }: any) {
                 <button key={lead.id} onClick={() => setSelectedLead(lead)} className="rounded-[8px] border border-slate-200 bg-white/[0.025] p-4 text-left transition hover:border-cyan-200/35 hover:bg-cyan-200/[0.045]">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div><h3 className="font-black">{lead.name || "İsimsiz başvuru"}</h3><p className="mt-1 text-sm text-slate-400">{lead.source || "Form"} · {lead.company || "-"} · {lead.phone || lead.email || "-"}</p></div>
-                    <div className="flex flex-wrap justify-end gap-2"><span className={`rounded-full border px-3 py-1 text-xs font-black ${heat.className}`}>{heat.label}</span><span className="rounded-full bg-cyan-200/10 px-3 py-1 text-xs font-bold text-cyan-700">{lead.status || "Yeni"}</span></div>
+                    <div className="flex flex-wrap justify-end gap-2">{isTestRecord(lead) && <span className="rounded-full bg-violet-100 px-3 py-1 text-xs font-black text-violet-700">TEST</span>}<span className={`rounded-full border px-3 py-1 text-xs font-black ${heat.className}`}>{heat.label}</span><span className="rounded-full bg-cyan-200/10 px-3 py-1 text-xs font-bold text-cyan-700">{lead.status || "Yeni"}</span></div>
                   </div>
                   <p className="mt-3 text-sm text-slate-600">İşletme: {lead.business_type || lead.businessType || "-"} · Hedef: {lead.goal || "-"} · Bütçe: {lead.budget || "-"}</p>
                   <p className="mt-1 text-xs text-slate-500">Önerilen paket: {lead.recommended_package || lead.recommendedPackage || "-"} · Gönderim: {formatDate(lead.created_at || lead.createdAt)}</p>
@@ -5050,7 +5064,7 @@ function Crm({ content, setContent, view, setActive, currentSession }: any) {
           </aside>
         </div>
       </div>
-      {selectedLead && <LeadDrawer lead={selectedLead} update={update} persistLead={persistLead} permanentDelete={permanentDelete} canPermanentlyDelete={legacyRole(currentSession?.role) === "admin"} close={() => setSelectedLead(null)} onConverted={(data) => {
+      {selectedLead && <LeadDrawer lead={selectedLead} update={update} persistLead={persistLead} permanentDelete={permanentDelete} canPermanentlyDelete={legacyRole(currentSession?.role) === "admin"} canManageTestRecords={legacyRole(currentSession?.role) === "admin"} close={() => setSelectedLead(null)} onConverted={(data) => {
         setContent({
           ...content,
           leads: content.leads.map((lead) => lead.id === data.lead.id ? data.lead : lead),
@@ -5463,7 +5477,7 @@ function ContactActionCenter({ record, type = "lead", context = "new-lead" }: an
   </div>;
 }
 
-function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanentlyDelete, close, onConverted }: any) {
+function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanentlyDelete, canManageTestRecords, close, onConverted }: any) {
   const { askAiProvider, chooserModal } = useAiProviderChooser();
   const [conversionMessage, setConversionMessage] = useState("");
   const [conversionError, setConversionError] = useState("");
@@ -5612,7 +5626,7 @@ function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanently
       {chooserModal}
       {conversionMessage && <p className="mt-4 rounded-[8px] border border-emerald-300/20 bg-emerald-500/10 p-3 text-sm text-emerald-700">{conversionMessage}</p>}
       {conversionError && <p className="mt-4 rounded-[8px] border border-red-300/20 bg-red-500/10 p-3 text-sm text-red-100">{conversionError}</p>}
-      {editOpen && <LeadEditModal lead={lead} close={() => setEditOpen(false)} save={async (patch) => {
+      {editOpen && <LeadEditModal lead={lead} canManageTestRecords={canManageTestRecords} close={() => setEditOpen(false)} save={async (patch) => {
         const updated = await persistLead(lead.id, patch, "Başvuru düzenlendi.");
         if (updated) setEditOpen(false);
       }} />}
@@ -6147,7 +6161,7 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
   const [error, setError] = useState("");
   const [loading, setLoading] = useState("");
   const [form, setForm] = useState<any>({ fullName: "", email: "", username: "", password: "", company_id: "", role: "customer", is_active: true, branch_access_mode: "selected", branch_ids: [], default_branch_id: "" });
-  const [companyForm, setCompanyForm] = useState({ name: "", sector: "", city: "Manisa", website: "", instagram: "", phone: "", email: "", status: "Aktif", notes: "" });
+  const [companyForm, setCompanyForm] = useState({ name: "", sector: "", city: "Manisa", website: "", instagram: "", phone: "", email: "", status: "Aktif", notes: "", is_test: false });
   const [companyQuery, setCompanyQuery] = useState("");
   const [editingCompanyId, setEditingCompanyId] = useState("");
   const [detailCompanyId, setDetailCompanyId] = useState("");
@@ -6157,6 +6171,7 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [quickFilters, setQuickFilters] = useState<string[]>([]);
   const [healthFilter, setHealthFilter] = useState("Tümü");
+  const [recordVisibility, setRecordVisibility] = useState("live");
   const [favoriteCustomerIds, setFavoriteCustomerIds] = useState<string[]>([]);
   const [recentCustomerIds, setRecentCustomerIds] = useState<string[]>([]);
   const [selectedCustomerIds, setSelectedCustomerIds] = useState<string[]>([]);
@@ -6193,7 +6208,7 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
   const isArchivedCompany = (company: any) => Boolean(company.archived_at) || String(company.status || "").toLocaleLowerCase("tr").includes("arşiv");
   const isPassiveCompany = (company: any) => !isDeletedCompany(company) && !isArchivedCompany(company) && (company.is_active === false || ["pasif", "inactive"].includes(String(company.status || "").toLocaleLowerCase("tr")));
   const isActiveCompany = (company: any) => !isDeletedCompany(company) && !isArchivedCompany(company) && !isPassiveCompany(company);
-  const viewCompanies = allCompanies.filter((company) => {
+  const viewCompanies = filterRecordsByVisibility(allCompanies, recordVisibility).filter((company) => {
     if (view === "deleted") return isDeletedCompany(company);
     if (view === "archived") return !isDeletedCompany(company) && isArchivedCompany(company);
     if (view === "passive") return isPassiveCompany(company);
@@ -6256,7 +6271,7 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
   const quickFilterOptions = ["Aktif", "Pasif", "Giriş hesabı var", "Giriş hesabı yok", "Ödemesi geciken", "Rapor bekleyen", "Açık görevi olan", "Entegrasyonu eksik", "Rakip takibi açık", "Bu hafta aranacak", "Teklif bekleyen", "Riskli müşteri", "Sağlıklı müşteri"];
   const recentCustomers = recentCustomerIds.map((id) => allCompanies.find((company) => company.id === id)).filter(Boolean).slice(0, 5);
   const favoriteCustomers = favoriteCustomerIds.map((id) => allCompanies.find((company) => company.id === id)).filter(Boolean).slice(0, 5);
-  const priorityCustomers = allCompanies.map((company) => {
+  const priorityCustomers = filterRecordsByVisibility(allCompanies, "live").map((company) => {
     const health = companyHealth(company);
     const openTasks = companyTasks(company.id).filter((item: any) => isOpenTask(item)).length;
     const overduePayment = companyPayments(company.id).some((item: any) => item.status === "Gecikmiş" || item.status === "Gecikti" || (item.due_date && item.due_date < new Date().toISOString().slice(0, 10) && item.status !== "Ödendi"));
@@ -6330,7 +6345,7 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
     setLoading("");
     if (response.ok) {
       upsertCompanyInState(data.company);
-      setCompanyForm({ name: "", sector: "", city: "Manisa", website: "", instagram: "", phone: "", email: "", status: "Aktif", notes: "" });
+      setCompanyForm({ name: "", sector: "", city: "Manisa", website: "", instagram: "", phone: "", email: "", status: "Aktif", notes: "", is_test: false });
       setOpenForm("");
       setMessage("Firma oluşturuldu.");
       notify?.("Firma oluşturuldu.", "success");
@@ -6475,13 +6490,14 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
             <h2 className="mt-2 text-2xl font-black text-slate-950">Müşteri Arama ve Öncelik Merkezi</h2>
             <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">Firma, kişi, telefon, sektör, şehir, ödeme, görev ve entegrasyon durumuna göre müşterileri hızlıca bulun.</p>
           </div>
-          <div className="flex flex-wrap gap-2 text-xs"><span className="rounded-full bg-white px-3 py-2 font-black text-slate-700 ring-1 ring-slate-200">{companies.length} eşleşme</span><span className="rounded-full bg-white px-3 py-2 font-black text-red-700 ring-1 ring-red-200">{allCompanies.filter((company) => companyHealth(company).score < 60).length} riskli</span><span className="rounded-full bg-white px-3 py-2 font-black text-amber-700 ring-1 ring-amber-200">{selectedCustomerIds.length} seçili</span></div>
+          <div className="flex flex-wrap gap-2 text-xs"><span className="rounded-full bg-white px-3 py-2 font-black text-slate-700 ring-1 ring-slate-200">{companies.length} eşleşme</span><span className="rounded-full bg-white px-3 py-2 font-black text-red-700 ring-1 ring-red-200">{filterRecordsByVisibility(allCompanies, "live").filter((company) => companyHealth(company).score < 60).length} riskli</span><span className="rounded-full bg-white px-3 py-2 font-black text-amber-700 ring-1 ring-amber-200">{selectedCustomerIds.length} seçili</span></div>
         </div>
         <div className="mt-5">
           <input value={smartSearch} onChange={(event) => { setSmartSearch(event.target.value); setCompanyQuery(event.target.value); }} placeholder="Firma, kişi, telefon, WhatsApp, e-posta, sektör, şehir, Instagram, web sitesi veya not ara…" className="min-h-14 w-full rounded-[14px] border border-cyan-200 bg-white px-4 text-base font-bold text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-cyan-200" />
         </div>
         <div className="mt-4 flex flex-wrap gap-2">{quickFilterOptions.map((filter) => <button key={filter} onClick={() => toggleQuickFilter(filter)} className={`rounded-full px-3 py-2 text-xs font-black ${quickFilters.includes(filter) ? "bg-cyan-500 text-white" : "border border-slate-200 bg-white text-slate-700"}`}>{filter}</button>)}<button onClick={clearCustomerFilters} className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700">Filtreleri temizle</button></div>
         <div className="mt-4 flex flex-wrap items-center gap-2"><span className="text-xs font-black text-slate-600">Sağlık / öncelik:</span>{["Tümü", "Riskli", "Kontrol gerekli", "Sağlıklı", "Büyüme potansiyeli"].map((filter) => <button key={filter} onClick={() => setHealthFilter(filter)} className={`rounded-full px-3 py-2 text-xs font-black ${healthFilter === filter ? "bg-emerald-500 text-white" : "border border-emerald-200 bg-white text-emerald-700"}`}>{filter}</button>)}</div>
+        <div className="mt-3 flex flex-wrap items-center gap-2"><span className="text-xs font-black text-slate-600">Kayıt türü:</span>{[["live", "Gerçek müşteriler"], ["test", "Test müşterileri"], ["all", "Tümü"]].map(([value, label]) => <button type="button" key={value} onClick={() => setRecordVisibility(value)} className={`rounded-full px-3 py-2 text-xs font-black ${recordVisibility === value ? "bg-violet-500 text-white" : "border border-violet-200 bg-white text-violet-700"}`}>{label}</button>)}</div>
         <div className="mt-5 grid gap-4 xl:grid-cols-[1fr_1fr_1.4fr]">
           <div className="rounded-[16px] border border-slate-200 bg-white p-4"><h3 className="font-black text-slate-950">Son Açılan Müşteriler</h3><div className="mt-3 grid gap-2">{recentCustomers.map((company: any) => <button key={company.id} onClick={() => openCustomerProfile(company)} className="rounded-[10px] bg-slate-50 p-3 text-left text-xs font-bold text-slate-700 ring-1 ring-slate-200"><span className="block text-sm font-black text-slate-950">{company.name}</span>{company.city || "Şehir yok"} · {company.sector || "Sektör yok"}</button>)}{!recentCustomers.length && <p className="text-xs leading-5 text-slate-500">Henüz müşteri profili açılmadı.</p>}</div></div>
           <div className="rounded-[16px] border border-amber-200 bg-white p-4"><h3 className="font-black text-slate-950">Favoriler</h3><div className="mt-3 grid gap-2">{favoriteCustomers.map((company: any) => <button key={company.id} onClick={() => openCustomerProfile(company)} className="rounded-[10px] bg-amber-50 p-3 text-left text-xs font-bold text-amber-800 ring-1 ring-amber-200"><span className="block text-sm font-black text-slate-950">★ {company.name}</span>{company.city || "Şehir yok"} · {company.sector || "Sektör yok"}</button>)}{!favoriteCustomers.length && <p className="text-xs leading-5 text-slate-500">Müşteri kartındaki yıldız ile favorilere ekleyin.</p>}</div></div>
@@ -6581,6 +6597,7 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
           <Field label="Telefon" value={companyForm.phone} onChange={(v) => setCompanyForm({ ...companyForm, phone: v })} />
           <Field label="E-posta" value={companyForm.email} onChange={(v) => setCompanyForm({ ...companyForm, email: v })} />
           <SelectField label="Durum" value={companyForm.status} onChange={(v) => setCompanyForm({ ...companyForm, status: v })} options={companyStatusOptions} />
+          {legacyRole(currentSession?.role) === "admin" && <label className="md:col-span-2 flex min-h-12 items-center gap-3 rounded-[12px] border border-violet-200 bg-violet-50 px-4 text-sm font-bold text-violet-900"><input type="checkbox" checked={companyForm.is_test} onChange={(event) => setCompanyForm({ ...companyForm, is_test: event.target.checked })} /> Test müşterisi oluştur <span className="font-normal text-violet-700">Canlı KPI ve raporlara dahil edilmez.</span></label>}
           <TextArea label="Notlar" value={companyForm.notes} onChange={(v) => setCompanyForm({ ...companyForm, notes: v })} />
         </div>
         {canManageCustomers && <button disabled={loading === "company"} onClick={createCompany} className="mt-4 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-60">
@@ -6961,6 +6978,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
         <Field label="Telefon" value={company.phone} onChange={(v) => updateProfileField({ phone: v })} />
         <Field label="E-posta" value={company.email} onChange={(v) => updateProfileField({ email: v })} />
         <SelectField label="Durum" value={company.status} onChange={(v) => updateProfileField({ status: v })} options={companyStatusOptions} />
+        {legacyRole(currentSession?.role) === "admin" && <label className="md:col-span-2 flex min-h-12 items-center gap-3 rounded-[14px] border border-violet-200 bg-violet-50 px-4 text-sm font-bold text-violet-900"><input type="checkbox" checked={isTestRecord(company)} onChange={(event) => updateProfileField({ is_test: event.target.checked })} /> Test müşterisi olarak işaretle <span className="font-normal text-violet-700">Canlı KPI, dönüşüm ve rapor özetlerine dahil edilmez.</span></label>}
         <div className="md:col-span-2"><TextArea label="Dahili notlar" value={company.notes} onChange={(v) => updateProfileField({ notes: v })} /></div>
         <div className="md:col-span-2 rounded-[18px] border border-amber-200 bg-amber-50 p-5">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -8641,7 +8659,7 @@ function ReportingCenter({ content, setContent, selectedCompanyId }: any) {
   const [tab, setTab] = useState("Meta Reklamları");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState("");
-  const reports = content.reports || [];
+  const reports = excludeTestCompanyRecords(content.reports || [], content.companies);
   const typeForTab = { "Meta Reklamları": "Meta Reklam Raporu", "Google Ads": "Google Ads Raporu", "Sosyal Medya Yönetimi": "Sosyal Medya Yönetimi Raporu", "Genel Raporlar": "Genel Dijital Performans Raporu" }[tab];
   const visibleReports = reports.filter((report) => report.report_type === typeForTab && (!selectedCompanyId || report.company_id === selectedCompanyId));
   function update(id, patch) {

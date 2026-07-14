@@ -26,10 +26,20 @@ export async function POST() {
     groq: status("Groq", Boolean(process.env.GROQ_API_KEY), process.env.GROQ_MODEL || "llama-3.3-70b-versatile"),
     gemini: status("Gemini", Boolean(process.env.GEMINI_API_KEY), process.env.GEMINI_MODEL || "gemini-2.0-flash"),
     openai: status("OpenAI", Boolean(process.env.OPENAI_API_KEY), process.env.OPENAI_MODEL || "gpt-4.1-mini"),
+    openrouter: status("OpenRouter", Boolean(process.env.OPENROUTER_API_KEY), process.env.OPENROUTER_MODEL || "Alternatif model geçidi"),
+    manus: status("Manus", Boolean(process.env.MANUS_API_KEY && (process.env.MANUS_API_ENDPOINT || process.env.MANUS_API_BASE_URL)), process.env.MANUS_MODEL || "Derin araştırma ajanı"),
+    ollama: status("Ollama", Boolean(process.env.OLLAMA_BASE_URL), process.env.OLLAMA_MODEL || "Yerel model"),
     meta: status("Meta", Boolean(process.env.META_AD_LIBRARY_ACCESS_TOKEN || process.env.META_ACCESS_TOKEN), "Meta Ad Library Token"),
     googleMaps: status("Google Maps", Boolean(process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_API_KEY), "Places API"),
     googleAds: status("Google Ads", Boolean(process.env.GOOGLE_ADS_DEVELOPER_TOKEN || process.env.GOOGLE_ADS_CLIENT_ID), "Google Ads API", "Google Ads bağlı değilse Google Maps sinyalleri kullanılır."),
-    supabase: status("Supabase", hasSupabaseConfig(), "Supabase REST")
+    ga4: status("Google Analytics 4", Boolean(process.env.GOOGLE_CLIENT_ID || api.google_client_id) && Boolean(process.env.GOOGLE_CLIENT_SECRET || api.google_client_secret), "Analytics Admin API"),
+    searchConsole: status("Search Console", Boolean(process.env.GOOGLE_CLIENT_ID || api.google_client_id), "Search Console API"),
+    businessProfile: status("Business Profile", Boolean(process.env.GOOGLE_CLIENT_ID || api.google_client_id), "Business Profile API"),
+    smtp: status("E-posta", Boolean(process.env.RESEND_API_KEY || process.env.SMTP_HOST || api.smtp_host), process.env.RESEND_API_KEY ? "Resend" : "SMTP"),
+    webhook: status("Webhook", Boolean(process.env.WEBHOOK_SECRET || api.webhook_url), "Sunucu webhook'u"),
+    supabase: status("Supabase", hasSupabaseConfig(), "Veritabanı / Auth / Storage"),
+    auth: status("Kimlik Doğrulama", hasSupabaseConfig(), "Supabase Auth"),
+    storage: status("Dosya Depolama", hasSupabaseConfig(), "Supabase Storage")
   };
   const responseTimeMs = Date.now() - startedAt;
   Object.values(results).forEach((item) => {

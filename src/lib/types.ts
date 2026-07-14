@@ -59,6 +59,7 @@ export type LeadStatus =
 
 export type Lead = {
   id: string;
+  is_test?: boolean;
   source: "quote" | "contact" | string;
   name: string;
   company: string;

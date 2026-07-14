@@ -5,6 +5,7 @@ import { hasSupabaseConfig, supabaseRest } from "./supabase";
 import { calculateHealthScore, normalizeReportType, parseTurkishNumber } from "./reports/report-insights";
 import { executeAiTask } from "./server/ai-router";
 import { createAvailableUsername } from "./server/usernames";
+import { excludeTestCompanyRecords, filterRecordsByVisibility } from "./test-records";
 
 export type IntegrationProvider = "meta" | "google";
 
@@ -301,6 +302,7 @@ export async function createCustomerFromLead(lead: any, options: { approve?: boo
       instagram: lead.instagram || "",
       phone: lead.phone || "",
       email: lead.email || "",
+      is_test: lead.is_test === true,
       status: options.approve ? "Aktif" : "Onay Bekliyor",
       notes: `CRM lead kaynağı: ${lead.source || "-"}`
     })
@@ -335,8 +337,8 @@ export async function createCustomerFromLead(lead: any, options: { approve?: boo
 }
 
 export function executiveSummary(data: { leads?: any[]; companies?: any[]; reports?: any[]; campaigns?: any[] }) {
-  const leads = data.leads || [];
-  const companies = data.companies || [];
+  const leads = filterRecordsByVisibility(data.leads || [], "live");
+  const companies = filterRecordsByVisibility(data.companies || [], "live");
   const campaigns = data.campaigns || [];
   const won = leads.filter((lead) => lead.status === "Kazandı").length;
   const proposalValue = leads.reduce((sum, lead) => sum + parseTurkishNumber(lead.budget), 0);
@@ -352,12 +354,12 @@ export function executiveSummary(data: { leads?: any[]; companies?: any[]; repor
 }
 
 export async function operationsAssistantQuestion(question: string, context: any) {
-  const reports = context.reports || [];
-  const leads = context.leads || [];
-  const payments = context.payments || [];
-  const tasks = context.tasks || [];
+  const companies = filterRecordsByVisibility<any>(context.companies || [], "live");
+  const reports = excludeTestCompanyRecords(context.reports || [], context.companies);
+  const leads = filterRecordsByVisibility<any>(context.leads || [], "live");
+  const payments = excludeTestCompanyRecords(context.payments || [], context.companies);
+  const tasks = excludeTestCompanyRecords(context.tasks || [], context.companies);
   const integrations = context.integrations || [];
-  const companies = context.companies || [];
   const today = new Date().toISOString().slice(0, 10);
   const risky = reports.map((report: any) => ({ id: report.id, type: report.report_type, health: calculateHealthScore(report), company_id: report.company_id })).filter((item: any) => item.health.score < 50);
   const overduePayments = payments.filter((item: any) => !["Ödendi", "Tahsil Edildi", "İptal"].includes(item.status) && item.due_date && item.due_date < today);

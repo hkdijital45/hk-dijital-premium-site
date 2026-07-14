@@ -3,6 +3,7 @@ import { recordActivity } from "@/lib/activity-log";
 import { requireModuleAccess } from "@/lib/permissions";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 import { scoreDiscoveredBusiness } from "@/lib/lead-scoring";
+import { isAdminRole } from "@/lib/auth";
 
 const allowedSources = new Set(["Meta Analiz", "Google Ads Analiz", "Sosyal Medya Denetimi", "Sosyal İstihbarat Merkezi"]);
 
@@ -79,6 +80,9 @@ export async function POST(request: Request) {
   if (!hasSupabaseConfig()) return NextResponse.json({ error: "Supabase bağlantısı yapılandırılmadı." }, { status: 503 });
 
   const body = await request.json().catch(() => ({}));
+  if (body.is_test === true && !isAdminRole(session.role)) {
+    return NextResponse.json({ error: "Test kaydı yalnızca admin tarafından oluşturulabilir." }, { status: 403 });
+  }
   const source = clean(body.source);
   if (!allowedSources.has(source)) return NextResponse.json({ error: "Geçersiz analiz kaynağı." }, { status: 400 });
 
@@ -127,7 +131,8 @@ export async function POST(request: Request) {
     lead_heat_score: leadScore > 0 ? Math.max(0, Math.min(100, leadScore)) : scores.leadHeatScore,
     local_opportunity_notes: clean(body.aiNote) || clean(body.opportunityNote),
     ai_analysis: {},
-    proposal_history: []
+    proposal_history: [],
+    is_test: body.is_test === true
   };
 
   try {
