@@ -11,6 +11,7 @@ import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/sup
 import { recordActivity } from "@/lib/activity-log";
 import { adminModules, roleTemplates, normalizeRole } from "@/lib/permissions";
 import { persistCustomerBranchAccess, validateCustomerBranchAccessPayload, type CustomerBranchAccessInput } from "@/lib/server/admin-user-branch-access";
+import { createAvailableUsername } from "@/lib/server/usernames";
 
 export async function POST(request: Request) {
   const session = await getSession();
@@ -49,6 +50,17 @@ export async function POST(request: Request) {
   let createdProfileId = "";
   let createdNewProfile = false;
   try {
+    const existingProfiles = await supabaseRest<any[]>(`users?email=eq.${encodeURIComponent(email)}&select=*&limit=1`);
+    const companyRows = companyId
+      ? await supabaseRest<Array<{ name?: string }>>(`companies?id=eq.${encodeURIComponent(companyId)}&select=name&limit=1`).catch(() => [])
+      : [];
+    const usernameResult = await createAvailableUsername({
+      requested: payload.username,
+      companyName: companyRows[0]?.name,
+      fullName,
+      email,
+      excludeUserId: existingProfiles[0]?.id
+    });
     let authUser = await findSupabaseAuthUserByEmail(email);
     if (authUser) {
       authUser = await updateSupabaseAuthUser(authUser.id, { email, password, fullName });
@@ -59,6 +71,7 @@ export async function POST(request: Request) {
     const profilePayload = {
       auth_user_id: authUser.id,
       email,
+      username: usernameResult.username,
       full_name: fullName,
       role,
       company_id: companyId,
@@ -70,9 +83,8 @@ export async function POST(request: Request) {
       updated_at: new Date().toISOString()
     };
 
-    const byEmail = await supabaseRest<any[]>(`users?email=eq.${encodeURIComponent(email)}&select=*&limit=1`);
     const byAuth = await supabaseRest<any[]>(`users?auth_user_id=eq.${encodeURIComponent(authUser.id)}&select=*&limit=1`);
-    const target = byEmail[0] || byAuth[0];
+    const target = existingProfiles[0] || byAuth[0];
     createdNewProfile = !target;
 
     const rows = target
@@ -97,7 +109,15 @@ export async function POST(request: Request) {
     }
 
     await recordActivity({ session, action: "Oluşturma", entity: "Kullanıcı", entityId: rows[0]?.id, companyId, details: { message: `${fullName || email} kullanıcısı oluşturuldu`, role } });
-    return NextResponse.json({ ok: true, user: rows[0] });
+    return NextResponse.json({
+      ok: true,
+      user: rows[0],
+      username: usernameResult.username,
+      usernameAdjusted: usernameResult.adjusted,
+      message: usernameResult.adjusted
+        ? `Kullanıcı oluşturuldu. Seçilen ad kullanımda olduğu için ${usernameResult.username} atandı.`
+        : `Kullanıcı oluşturuldu. Kullanıcı adı: ${usernameResult.username}`
+    });
   } catch (error) {
     if (createdNewProfile && createdProfileId) {
       await supabaseRest(`users?id=eq.${encodeURIComponent(createdProfileId)}`, {

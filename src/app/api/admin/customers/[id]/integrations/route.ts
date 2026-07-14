@@ -53,14 +53,16 @@ function validatePayload(body: Record<string, any>) {
 }
 
 async function loadContext(companyId: string) {
-  const [companyRows, userRows, integrationRows, campaigns, reports] = await Promise.all([
+  const [companyRows, userRows, integrationRows, campaigns, reports, branches, tasks] = await Promise.all([
     supabaseRest<any[]>(`companies?id=eq.${encodeURIComponent(companyId)}&select=*&limit=1`),
     supabaseRest<any[]>(`users?company_id=eq.${encodeURIComponent(companyId)}&select=id,is_active,role`).catch(() => []),
     supabaseRest<any[]>(`customer_integrations?company_id=eq.${encodeURIComponent(companyId)}&select=*&limit=1`).catch(() => []),
     supabaseRest<any[]>(`campaigns?company_id=eq.${encodeURIComponent(companyId)}&select=id&limit=1`).catch(() => []),
-    supabaseRest<any[]>(`reports?company_id=eq.${encodeURIComponent(companyId)}&select=id&limit=1`).catch(() => [])
+    supabaseRest<any[]>(`reports?company_id=eq.${encodeURIComponent(companyId)}&select=id&limit=1`).catch(() => []),
+    supabaseRest<any[]>(`customer_branches?company_id=eq.${encodeURIComponent(companyId)}&select=id,company_id,is_active,status`).catch(() => []),
+    supabaseRest<any[]>(`agency_tasks?company_id=eq.${encodeURIComponent(companyId)}&select=id,company_id&limit=1`).catch(() => [])
   ]);
-  return { company: companyRows[0], users: userRows, integration: integrationRows[0] || {}, campaigns, reports };
+  return { company: companyRows[0], users: userRows, integration: integrationRows[0] || {}, campaigns, reports, branches, tasks };
 }
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
@@ -74,7 +76,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   try {
     const contextData = await loadContext(id);
     if (!contextData.company) return NextResponse.json({ error: "Müşteri kaydı bulunamadı." }, { status: 404 });
-    const steps = getCustomerSetupSteps(contextData.company, contextData.users, contextData.integration, contextData.campaigns, contextData.reports);
+    const steps = getCustomerSetupSteps(contextData.company, contextData.users, contextData.integration, contextData.campaigns, contextData.reports, contextData);
     return NextResponse.json({ integration: contextData.integration, setup: buildCustomerSetupSummary(steps) });
   } catch (error) {
     const safe = getSafeSupabaseError(error);
@@ -103,7 +105,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const contextData = await loadContext(id);
     if (!contextData.company) return NextResponse.json({ error: "Müşteri kaydı bulunamadı." }, { status: 404 });
 
-    const steps = getCustomerSetupSteps(contextData.company, contextData.users, patch, contextData.campaigns, contextData.reports);
+    const steps = getCustomerSetupSteps(contextData.company, contextData.users, patch, contextData.campaigns, contextData.reports, contextData);
     const setup = buildCustomerSetupSummary(steps);
     patch.setup_status = setup;
     patch.setup_progress = setup.progress;

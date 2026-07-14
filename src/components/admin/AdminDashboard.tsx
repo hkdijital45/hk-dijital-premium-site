@@ -36,6 +36,7 @@ import { aiProviderKeyForApi, buildAiSelectionReason, labelForAiProvider, normal
 import { CUSTOMER_MODULE_REGISTRY, CUSTOMER_PLATFORM_REGISTRY, DEFAULT_CUSTOMER_MODULES, DEFAULT_CUSTOMER_PLATFORMS, normalizeModuleKeys, normalizePlatformKeys } from "@/lib/customer-portal-registry";
 import { HK_SERVICE_PACKAGES, PACKAGE_CATEGORIES, calculateTotalWithVat, calculateVat, findServicePackage, formatPackagePrice, formatTRY, getPackagePricing } from "@/lib/packages";
 import { GlassCard } from "@/components/premium/PremiumUI";
+import { suggestUsername } from "@/lib/usernames";
 
 const adminCategoryIcons: Record<string, any> = {
   LayoutDashboard,
@@ -6132,7 +6133,7 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState("");
-  const [form, setForm] = useState<any>({ fullName: "", email: "", password: "", company_id: "", role: "customer", is_active: true, branch_access_mode: "selected", branch_ids: [], default_branch_id: "" });
+  const [form, setForm] = useState<any>({ fullName: "", email: "", username: "", password: "", company_id: "", role: "customer", is_active: true, branch_access_mode: "selected", branch_ids: [], default_branch_id: "" });
   const [companyForm, setCompanyForm] = useState({ name: "", sector: "", city: "Manisa", website: "", instagram: "", phone: "", email: "", status: "Aktif", notes: "" });
   const [companyQuery, setCompanyQuery] = useState("");
   const [editingCompanyId, setEditingCompanyId] = useState("");
@@ -6158,6 +6159,11 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
     const timer = window.setTimeout(() => setDebouncedSearch(smartSearch), 220);
     return () => window.clearTimeout(timer);
   }, [smartSearch]);
+  useEffect(() => {
+    if (selectedCompanyId && (content.companies || []).some((company) => company.id === selectedCompanyId)) {
+      setDetailCompanyId(selectedCompanyId);
+    }
+  }, [selectedCompanyId]);
   useEffect(() => {
     try {
       setFavoriteCustomerIds(JSON.parse(localStorage.getItem("hk-customer-favorites") || "[]"));
@@ -6400,6 +6406,7 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
       body: JSON.stringify({
         fullName: form.fullName,
         email: form.email,
+        username: form.username,
         password: form.password,
         role: form.role,
         company_id: form.company_id,
@@ -6413,8 +6420,8 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
     setLoading("");
     if (response.ok) {
       setContent({ ...content, users: [data.user, ...(content.users || [])] });
-      setForm({ fullName: "", email: "", password: "", company_id: "", role: "customer", is_active: true, branch_access_mode: "selected", branch_ids: [], default_branch_id: "" });
-      setMessage("Müşteri giriş hesabı oluşturuldu.");
+      setForm({ fullName: "", email: "", username: "", password: "", company_id: "", role: "customer", is_active: true, branch_access_mode: "selected", branch_ids: [], default_branch_id: "" });
+      setMessage(data.message || "Müşteri giriş hesabı oluşturuldu.");
       setOpenForm("");
       notify?.("Müşteri giriş hesabı oluşturuldu.", "success");
     } else {
@@ -6572,8 +6579,12 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
         <div className="grid min-w-0 gap-3 md:grid-cols-2">
           <Field label="Ad Soyad" value={form.fullName} onChange={(v) => setForm({ ...form, fullName: v })} />
           <Field label="E-posta" value={form.email} onChange={(v) => setForm({ ...form, email: v })} />
+          <Field label="Kullanıcı Adı" value={form.username} onChange={(v) => setForm({ ...form, username: v })} />
           <Field label="Geçici Şifre" type="password" value={form.password} onChange={(v) => setForm({ ...form, password: v })} />
-          <CompanySelect value={form.company_id} onChange={(v) => setForm({ ...form, company_id: v, branch_ids: [], default_branch_id: "" })} companies={content.companies} />
+          <CompanySelect value={form.company_id} onChange={(v) => {
+            const company = (content.companies || []).find((item) => item.id === v);
+            setForm({ ...form, company_id: v, username: form.username || suggestUsername({ companyName: company?.name, fullName: form.fullName, email: form.email }), branch_ids: [], default_branch_id: "" });
+          }} companies={content.companies} />
           <BranchAccessEditor user={form} setUser={setForm} branches={content.customerBranches || []} />
           <SelectField label="Rol" value={form.role} onChange={(v) => setForm({ ...form, role: v })} options={roleOptions} />
           <label className="flex items-center gap-2 self-end rounded-[10px] border border-slate-200 bg-slate-50 px-3 py-3 text-sm"><input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} /> Hesap aktif</label>
@@ -6705,6 +6716,15 @@ function Customer360Summary({ company, campaigns, payments, tasks, reports, acti
   );
 }
 
+const customerProfileTabBySlug: Record<string, string> = {
+  branches: "Müşteri Kurulumu",
+  package: "Genel Bilgi",
+  login: "Giriş Bilgileri",
+  integrations: "Entegrasyonlar",
+  tasks: "Yapılacaklar",
+  "panel-builder": "Panel Builder"
+};
+
 function CustomerDetailDrawer({ company, content, setContent, updateCompany, saveCompany, save, setActive, close, notify, currentSession }: any) {
   const [tab, setTab] = useState("Genel Bilgi");
   const [profileAction, setProfileAction] = useState("");
@@ -6728,6 +6748,8 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
     setProfileDirty(false);
     setProfileSaveMessage("");
     setLastProfileSavedAt("");
+    const requestedTab = customerProfileTabBySlug[new URLSearchParams(window.location.search).get("tab") || ""];
+    if (requestedTab) setTab(requestedTab);
   }, [company?.id, customerIntegration?.metadata?.enabled_customer_modules, customerIntegration?.metadata?.enabled_platforms]);
   if (!company) return null;
   const canManageCustomer = canManageRecord(currentSession, "musteriler");
@@ -8761,7 +8783,7 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
   const [error, setError] = useState("");
   const [editingUser, setEditingUser] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null);
-  const [createForm, setCreateForm] = useState<any>({ fullName: "", email: "", password: "", role: "editor", company_id: "", is_active: true, allowed_modules: uiRoleTemplates.editor, branch_access_mode: "selected", branch_ids: [], default_branch_id: "" });
+  const [createForm, setCreateForm] = useState<any>({ fullName: "", email: "", username: "", password: "", role: "editor", company_id: "", is_active: true, allowed_modules: uiRoleTemplates.editor, branch_access_mode: "selected", branch_ids: [], default_branch_id: "" });
   const activeAdminUsers = (content.users || []).filter((user) => legacyRole(user.role) === "admin" && user.is_active && !user.deleted_at);
   const users = (content.users || [])
     .filter((user) => !user.deleted_at)
@@ -8868,8 +8890,8 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
     if (response.ok) {
       const next = { ...content, users: [data.user, ...(content.users || [])] };
       setContent(contentWithUserBranches(next, data.user));
-      setCreateForm({ fullName: "", email: "", password: "", role: "editor", company_id: "", is_active: true, allowed_modules: uiRoleTemplates.editor, branch_access_mode: "selected", branch_ids: [], default_branch_id: "" });
-      setMessage("Kullanıcı oluşturuldu.");
+      setCreateForm({ fullName: "", email: "", username: "", password: "", role: "editor", company_id: "", is_active: true, allowed_modules: uiRoleTemplates.editor, branch_access_mode: "selected", branch_ids: [], default_branch_id: "" });
+      setMessage(data.message || "Kullanıcı oluşturuldu.");
     } else {
       setMessage("");
       setError(data.supabaseError ? `${data.error}: ${data.supabaseError}` : data.error || "Kullanıcı oluşturulamadı.");
@@ -8883,9 +8905,13 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <Field label="Ad Soyad" value={createForm.fullName} onChange={(v) => setCreateForm({ ...createForm, fullName: v })} />
           <Field label="E-posta" value={createForm.email} onChange={(v) => setCreateForm({ ...createForm, email: v })} />
+          <Field label="Kullanıcı Adı" value={createForm.username} onChange={(v) => setCreateForm({ ...createForm, username: v })} />
           <Field label="Geçici Şifre" type="password" value={createForm.password} onChange={(v) => setCreateForm({ ...createForm, password: v })} />
           <SelectField label="Rol" value={legacyRole(createForm.role)} onChange={(v) => setCreateForm({ ...createForm, role: v, allowed_modules: uiRoleTemplates[v] || [] })} options={roleOptions} />
-          <CompanySelect value={createForm.company_id} onChange={(v) => setCreateForm({ ...createForm, company_id: v, branch_ids: [], default_branch_id: "" })} companies={content.companies} />
+          <CompanySelect value={createForm.company_id} onChange={(v) => {
+            const company = (content.companies || []).find((item) => item.id === v);
+            setCreateForm({ ...createForm, company_id: v, username: createForm.username || suggestUsername({ companyName: company?.name, fullName: createForm.fullName, email: createForm.email }), branch_ids: [], default_branch_id: "" });
+          }} companies={content.companies} />
           {customerRole(createForm.role) && <BranchAccessEditor user={createForm} setUser={setCreateForm} branches={content.customerBranches || []} />}
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={createForm.is_active} onChange={(e) => setCreateForm({ ...createForm, is_active: e.target.checked })} /> Aktif</label>
         </div>
@@ -8914,7 +8940,7 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h3 className="font-black">{user.full_name || user.email}</h3>
-                <p className="text-sm text-slate-400">{user.email} · {roleOptions.find((role) => role.value === legacyRole(user.role))?.label || user.role} · {user.is_active ? "Aktif" : "Pasif"}</p>
+                <p className="text-sm text-slate-400">{user.email} · @{user.username || "kullanıcı adı yok"} · {roleOptions.find((role) => role.value === legacyRole(user.role))?.label || user.role} · {user.is_active ? "Aktif" : "Pasif"}</p>
                 <p className="mt-1 text-xs text-slate-500">Auth bağlantısı: {user.auth_user_id ? "Bağlı" : "Eksik"} · Oluşturulma: {user.created_at ? new Date(user.created_at).toLocaleDateString("tr-TR") : "-"} · Güncelleme: {user.updated_at ? new Date(user.updated_at).toLocaleDateString("tr-TR") : "-"}</p>
                 {currentSession?.profileId === user.id && <p className="mt-2 rounded-[8px] border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-xs text-amber-700">Kendi hesabımı düzenliyorum. Yönetici rolünüz ve aktif durumunuz korunur.</p>}
               </div>
@@ -8940,6 +8966,7 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
             <div className="grid gap-3 md:grid-cols-2">
               <Field label="Ad Soyad" value={editingUser.full_name || ""} onChange={(v) => setEditingUser({ ...editingUser, full_name: v })} />
               <Field label="E-posta" value={editingUser.email || ""} onChange={(v) => setEditingUser({ ...editingUser, email: v })} />
+              <Field label="Kullanıcı Adı" value={editingUser.username || ""} onChange={(v) => setEditingUser({ ...editingUser, username: v })} />
               <SelectField label="Rol" value={legacyRole(editingUser.role || "musteri")} onChange={(v) => {
                 if (!confirm("Kullanıcı rolünü değiştirmek istediğinizden emin misiniz?")) return;
                 setEditingUser({ ...editingUser, role: v, allowed_modules: uiRoleTemplates[v] || [] });

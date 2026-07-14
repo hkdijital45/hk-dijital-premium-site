@@ -4,6 +4,7 @@ import { createSupabaseAuthUser, findSupabaseAuthUserByEmail, updateSupabaseAuth
 import { generateAiText } from "./ai-provider";
 import { hasSupabaseConfig, supabaseRest } from "./supabase";
 import { calculateHealthScore, normalizeReportType, parseTurkishNumber } from "./reports/report-insights";
+import { createAvailableUsername } from "./server/usernames";
 
 export type IntegrationProvider = "meta" | "google";
 
@@ -305,12 +306,14 @@ export async function createCustomerFromLead(lead: any, options: { approve?: boo
   let authUser = await findSupabaseAuthUserByEmail(email).catch(() => null);
   if (authUser) await updateSupabaseAuthUser(authUser.id, { password, fullName: lead.name || company.name }).catch(() => null);
   if (!authUser) authUser = await createSupabaseAuthUser({ email, password, fullName: lead.name || company.name });
+  const username = await createAvailableUsername({ companyName: company.name, fullName: lead.name, email });
   const userRows = await supabaseRest<any[]>("users", {
     method: "POST",
     headers: { Prefer: "resolution=merge-duplicates,return=representation" },
     body: JSON.stringify({
       auth_user_id: authUser.id,
       email,
+      username: username.username,
       full_name: lead.name || company.name,
       role: "customer",
       company_id: company.id,

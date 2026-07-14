@@ -126,17 +126,39 @@ export function OnboardingCenter({ content }: any) {
   const leads = content.leads || [];
   const customers = content.users?.filter((user: any) => ["customer", "musteri"].includes(user.role)) || [];
   const [message, setMessage] = useState("");
+  const [loadingLeadId, setLoadingLeadId] = useState("");
+  const [createdCompany, setCreatedCompany] = useState<any>(null);
   async function convert(leadId: string) {
+    if (loadingLeadId) return;
+    setLoadingLeadId(leadId);
     setMessage("Müşteri hesabı oluşturuluyor...");
-    const response = await fetch("/api/admin/customers/onboarding", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ leadId }) });
-    const data = await response.json().catch(() => ({}));
-    setMessage(data.message ? `${data.message}${data.temporaryPassword ? ` Geçici şifre: ${data.temporaryPassword}` : ""}` : data.error || "İşlem tamamlandı.");
+    try {
+      const response = await fetch("/api/admin/customers/onboarding", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ leadId }) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Müşteri oluşturulamadı.");
+      setCreatedCompany(data.company || null);
+      setMessage(data.message ? `${data.message}${data.temporaryPassword ? ` Geçici şifre: ${data.temporaryPassword}` : ""}` : "Müşteri oluşturuldu.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Müşteri oluşturulamadı.");
+    } finally {
+      setLoadingLeadId("");
+    }
   }
   return <PageShell eyebrow="Customer Success" title="Customer Onboarding Center" description="Lead kazandı aşamasına geldiğinde müşteri kaydı, login hesabı ve geçici şifre tek akıştan oluşturulur.">
     {message && <p className="mb-5 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-700">{message}</p>}
+    {createdCompany?.id && <Card title="Sıradaki Kurulum Adımları" description={`${createdCompany.name} oluşturuldu. Tamamlanan adımlar müşteri profilindeki kurulum rehberinde otomatik işaretlenir.`} icon={CheckCircle2}>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          ["1", "Şube oluştur", "branches"],
+          ["2", "Paket seç", "package"],
+          ["3", "Meta / Google bağla", "integrations"],
+          ["4", "İlk görevi oluştur", "tasks"]
+        ].map(([order, label, tab]) => <a key={label} href={`/hk-admin/musteriler?companyId=${createdCompany.id}&tab=${tab}`} className="rounded-[14px] border border-cyan-200 bg-cyan-50 p-4 transition hover:border-cyan-400 hover:bg-white"><span className="grid size-8 place-items-center rounded-full bg-cyan-500 text-xs font-black text-white">{order}</span><strong className="mt-3 block text-sm text-slate-950">{label}</strong><span className="mt-1 block text-xs leading-5 text-slate-600">Müşteri profilinde bu adıma devam et.</span></a>)}
+      </div>
+    </Card>}
     <div className="grid gap-5 xl:grid-cols-2">
       <Card title="Onay Bekleyen Leadler" description="Kazandı aşamasına taşınacak leadleri müşteri hesabına dönüştürün." icon={Users}>
-        <div className="grid gap-3">{leads.slice(0, 20).map((lead: any) => <div key={lead.id} className="rounded-[8px] border border-slate-200 bg-slate-50 p-4"><div className="flex flex-wrap justify-between gap-3"><div><p className="font-black">{lead.company || lead.name || "İsimsiz lead"}</p><p className="mt-1 text-xs text-slate-400">{lead.email || "-"} · {lead.phone || "-"} · {lead.status || "Yeni"}</p></div><button onClick={() => convert(lead.id)} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Onayla ve Müşteri Oluştur</button></div></div>)}</div>
+        <div className="grid gap-3">{leads.slice(0, 20).map((lead: any) => <div key={lead.id} className="rounded-[8px] border border-slate-200 bg-slate-50 p-4"><div className="flex flex-wrap justify-between gap-3"><div><p className="font-black">{lead.company || lead.name || "İsimsiz lead"}</p><p className="mt-1 text-xs text-slate-400">{lead.email || "-"} · {lead.phone || "-"} · {lead.status || "Yeni"}</p></div><button disabled={Boolean(loadingLeadId)} onClick={() => convert(lead.id)} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-60">{loadingLeadId === lead.id ? "Oluşturuluyor..." : "Onayla ve Müşteri Oluştur"}</button></div></div>)}</div>
       </Card>
       <Card title="Aktif Müşteri Hesapları" description="Mevcut müşteri login kayıtları." icon={CheckCircle2}>
         <div className="grid gap-3">{customers.length ? customers.map((user: any) => <div key={user.id} className="rounded-[8px] border border-slate-200 bg-slate-50 p-4"><p className="font-black">{user.full_name || user.email}</p><p className="mt-1 text-xs text-slate-400">{user.email} · {user.is_active ? "Aktif" : "Pasif"}</p></div>) : <p className="text-sm text-slate-400">Müşteri hesabı bulunamadı.</p>}</div>

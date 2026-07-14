@@ -48,14 +48,27 @@ export function getCustomerSetupSteps(
   customerUsers: Array<Record<string, any>> = [],
   integrations: Record<string, any> = {},
   campaigns: Array<Record<string, any>> = [],
-  reports: Array<Record<string, any>> = []
+  reports: Array<Record<string, any>> = [],
+  context: { branches?: Array<Record<string, any>>; tasks?: Array<Record<string, any>> } = {}
 ): CustomerSetupStep[] {
   const companyHref = `/hk-admin/musteriler?companyId=${encodeURIComponent(company.id || "")}`;
   const integrationHref = `${companyHref}&tab=integrations`;
+  const activeBranches = (context.branches || []).filter((branch) => branch.company_id === company.id && branch.is_active !== false && !["passive", "pasif", "inactive"].includes(String(branch.status || "active").toLocaleLowerCase("tr-TR")));
+  const companyTasks = (context.tasks || []).filter((task) => task.company_id === company.id);
+  const hasCustomerAccount = customerUsers.some((user) => user.is_active !== false);
+  const hasMeta = hasValue(integrations.meta_business_id) || hasValue(integrations.meta_ad_account_id) || (integrations.integration_assets || []).some((asset: any) => asset.provider === "meta" && String(asset.status || "").startsWith("connected"));
+  const hasGoogle = hasValue(integrations.ga4_property_id) || hasValue(integrations.google_ads_customer_id) || hasValue(integrations.search_console_site_url) || (integrations.integration_assets || []).some((asset: any) => asset.provider === "google" && String(asset.status || "").startsWith("connected"));
 
   return [
     step("company", "Firma oluştur", "Firma kaydı sistemde açılmış olmalı.", hasValue(company.id), "Müşteriyi aç", companyHref),
-    step("customer_account", "Müşteri hesabı oluştur", "Müşteri paneli için aktif kullanıcı hesabı bulunmalı.", customerUsers.some((user) => user.is_active !== false), "Giriş bilgilerini aç", `${companyHref}&tab=login`),
+    step("branch", "Şube oluştur", "Müşterinin en az bir aktif şubesi tanımlanmalı.", activeBranches.length > 0, "Şubeleri yönet", `${companyHref}&tab=branches`),
+    step("package", "Paket seç", "Aktif hizmet paketi ve başlangıç bilgileri tanımlanmalı.", hasValue(company.customer_package_name) || hasValue(company.customer_package_type), "Paket seç", `${companyHref}&tab=package`),
+    step("customer_account", "Müşteri hesabı oluştur", "Müşteri paneli için aktif kullanıcı hesabı bulunmalı.", hasCustomerAccount, "Giriş bilgilerini aç", `${companyHref}&tab=login`),
+    step("meta_connection", "Meta bağlantısını tamamla", "Meta OAuth veya manuel reklam hesabı bağlantısı müşteriye ait olmalı.", hasMeta, "Meta bağlantısını aç", integrationHref),
+    step("google_connection", "Google bağlantısını tamamla", "Google OAuth ve gerekli servis varlıkları müşteriye ait olmalı.", hasGoogle, "Google bağlantısını aç", integrationHref),
+    step("first_task", "İlk görevi oluştur", "Onboarding sorumlusu ve ilk operasyon görevi tanımlanmalı.", companyTasks.length > 0, "Görev oluştur", `/hk-admin/gorevler?companyId=${encodeURIComponent(company.id || "")}`),
+    step("first_report", "İlk raporu hazırla", "Müşteriye bağlı en az bir rapor olmalı.", reports.length > 0, "Rapor oluştur", `/hk-admin/raporlar?companyId=${encodeURIComponent(company.id || "")}`),
+    step("customer_panel", "Müşteri panelini aktif et", "Aktif kullanıcı hesabı ve panel erişimi hazır olmalı.", hasCustomerAccount && company.customer_panel_enabled !== false, "Panel ayarlarını aç", `${companyHref}&tab=panel-builder`),
     step("domain", "Domain gir", "Website URL veya domain bilgisi kaydedilmeli.", hasValue(integrations.domain) || hasValue(integrations.website_url) || hasValue(company.website), "Domain ekle", integrationHref),
     step("meta_business", "Meta Business bağla", "Meta Business ID veya reklam hesabı kaydedilmeli.", hasValue(integrations.meta_business_id) || hasValue(integrations.meta_ad_account_id), "Meta bilgisi gir", integrationHref),
     step("pixel", "Pixel ekle", "Meta Pixel ID girilmeli.", hasValue(integrations.meta_pixel_id), "Pixel ekle", integrationHref),
@@ -66,8 +79,7 @@ export function getCustomerSetupSteps(
     step("gtm", "Tag Manager bağla", "GTM container ID girilmeli.", hasValue(integrations.gtm_container_id), "GTM ekle", integrationHref),
     step("clarity", "Clarity bağla", "Microsoft Clarity davranış analitiği opsiyoneldir.", hasValue(integrations.clarity_project_id), "Clarity ekle", integrationHref, true),
     step("hotjar", "Hotjar bağla", "Hotjar davranış ve geri bildirim analitiği opsiyoneldir.", hasValue(integrations.hotjar_site_id), "Hotjar ekle", integrationHref, true),
-    step("first_campaign", "İlk kampanyayı oluştur", "Müşteriye bağlı en az bir kampanya olmalı.", campaigns.length > 0, "Kampanya oluştur", `/hk-admin/kampanyalar?companyId=${encodeURIComponent(company.id || "")}`),
-    step("first_report", "İlk raporu oluştur", "Müşteriye bağlı en az bir rapor olmalı.", reports.length > 0, "Rapor oluştur", `/hk-admin/raporlar?companyId=${encodeURIComponent(company.id || "")}`)
+    step("first_campaign", "İlk kampanyayı oluştur", "Müşteriye bağlı en az bir kampanya olmalı.", campaigns.length > 0, "Kampanya oluştur", `/hk-admin/kampanyalar?companyId=${encodeURIComponent(company.id || "")}`)
   ];
 }
 

@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
+import { Eye, EyeOff, LockKeyhole, UserRound } from "lucide-react";
 
 export function LoginForm({ desktopMode = false }: { desktopMode?: boolean }) {
-  const [email, setEmail] = useState("");
+  const [identity, setIdentity] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
   const [error, setError] = useState("");
@@ -28,7 +28,7 @@ export function LoginForm({ desktopMode = false }: { desktopMode?: boolean }) {
     const response = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, remember })
+      body: JSON.stringify({ identity, password, remember })
     });
     const data = await response.json().catch(() => ({}));
     setLoading(false);
@@ -45,7 +45,7 @@ export function LoginForm({ desktopMode = false }: { desktopMode?: boolean }) {
   async function forgotPassword() {
     setError("");
     setResetMessage("");
-    if (!email.trim()) {
+    if (!identity.trim() || !identity.includes("@")) {
       setError("Şifre sıfırlama için e-posta adresinizi yazın.");
       return;
     }
@@ -53,7 +53,7 @@ export function LoginForm({ desktopMode = false }: { desktopMode?: boolean }) {
     const response = await fetch("/api/auth/forgot-password", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email })
+      body: JSON.stringify({ email: identity.trim() })
     });
     const data = await response.json().catch(() => ({}));
     setResetLoading(false);
@@ -78,10 +78,10 @@ export function LoginForm({ desktopMode = false }: { desktopMode?: boolean }) {
       </div>
 
       <label className="relative mt-8 grid gap-2 text-sm font-bold text-slate-100">
-        E-posta
+        Kullanıcı Adı veya E-posta
         <span className="relative block">
-          <Mail className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-cyan-100/70" size={19} />
-          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoComplete="email" placeholder="ornek@firma.com" className="min-h-14 w-full rounded-[16px] border border-white/12 bg-black/35 py-3 pl-12 pr-4 text-base text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-200/70 focus:ring-2 focus:ring-cyan-300/35" />
+          <UserRound className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-cyan-100/70" size={19} />
+          <input type="text" value={identity} onChange={(event) => setIdentity(event.target.value)} required autoComplete="username" placeholder="hayri veya ornek@firma.com" className="min-h-14 w-full rounded-[16px] border border-white/12 bg-black/35 py-3 pl-12 pr-4 text-base text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-200/70 focus:ring-2 focus:ring-cyan-300/35" />
         </span>
       </label>
 
@@ -102,7 +102,7 @@ export function LoginForm({ desktopMode = false }: { desktopMode?: boolean }) {
           Beni Hatırla
         </label>
 
-        <button type="button" onClick={forgotPassword} disabled={resetLoading} className="rounded-full px-3 py-2 text-sm font-bold text-cyan-100 transition hover:bg-white/10 disabled:opacity-60">
+        <button type="button" onClick={forgotPassword} disabled={resetLoading} title="Şifre sıfırlama için kullanıcı adı yerine e-posta adresinizi yazın." className="rounded-full px-3 py-2 text-sm font-bold text-cyan-100 transition hover:bg-white/10 disabled:opacity-60">
           {resetLoading ? "Gönderiliyor..." : "Şifremi unuttum"}
         </button>
       </div>

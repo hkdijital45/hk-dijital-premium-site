@@ -105,6 +105,9 @@ const statusLabel: Record<string, string> = {
   missing_info_required: "Eksik Bilgi Gerekli",
   pending_review: "Kontrol Bekliyor",
   reauth_required: "Yetki Yenileme Gerekli",
+  permission_required: "Yetki Eksik",
+  token_expired: "Token Süresi Doldu",
+  waiting_connection: "Bağlantı Bekleniyor",
   invalid: "Hatalı",
   missing_info: "Eksik Bilgi Gerekli",
   error: "Hatalı",
@@ -539,10 +542,12 @@ export function CustomerAccountConnectCenter() {
 	              {activeAsset.status === "missing_info_required" && <p className="mt-3 rounded-[12px] bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-900">HK Dijital ekibi bu bağlantı için ek bilgi istedi.</p>}
 	              {activeAsset.status === "invalid" && <p className="mt-3 rounded-[12px] bg-rose-50 p-3 text-xs font-bold leading-5 text-rose-900">Bu bağlantı hatalı görünüyor. Lütfen yeniden bağlayın veya bilgileri kontrol edin.</p>}
 	              {activeAsset.status === "reauth_required" && <p className="mt-3 rounded-[12px] bg-blue-50 p-3 text-xs font-bold leading-5 text-blue-900">Bu bağlantı için yeniden yetkilendirme gerekiyor.</p>}
+	              {activeAsset.status === "permission_required" && <p className="mt-3 rounded-[12px] bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-900">Bu bağlantı için ek platform izni gerekiyor. İzinleri tamamlayıp hesabı yeniden bağlayın.</p>}
+	              {(activeAsset.status === "token_expired" || (activeAsset.token_expires_at && new Date(activeAsset.token_expires_at).getTime() <= Date.now())) && <p className="mt-3 rounded-[12px] bg-rose-50 p-3 text-xs font-bold leading-5 text-rose-900">Bağlantı oturumunun süresi doldu. Veri akışını sürdürmek için hesabı yeniden bağlayın.</p>}
 	              {activeAsset.status === "inactive" && <p className="mt-3 rounded-[12px] bg-slate-50 p-3 text-xs font-bold leading-5 text-slate-700">Bu bağlantı HK Dijital tarafından geçici olarak pasifleştirildi.</p>}
 	              {activeAsset.metadata?.sync_error && <p className="mt-3 rounded-[12px] bg-rose-50 p-3 text-xs font-bold leading-5 text-rose-900">{activeAsset.metadata.sync_error}</p>}
 	              {active.key === "meta" && <p className="mt-3 rounded-[12px] bg-white p-3 text-xs font-bold leading-5 text-emerald-900">Temel Facebook Login tamamlandı. Reklam hesabı, sayfa ve Instagram Business varlıklarını listelemek için gelişmiş Meta izinleri ayrıca açılmalıdır.</p>}
-	              {active.oauthProvider === "google" && <p className="mt-3 rounded-[12px] bg-white p-3 text-xs font-bold leading-5 text-emerald-900">Google bağlantısı; Google Ads, GA4, Search Console ve Google Business Profile varlıklarını listelemek için kullanılır. İlgili Google Cloud API etkin değilse sistem bunu açıkça bildirir.</p>}
+	              {active.oauthProvider === "google" && <p className="mt-3 rounded-[12px] bg-white p-3 text-xs font-bold leading-5 text-emerald-900">Google bağlantısı; Google Ads, GA4, Search Console, Business Profile ve YouTube varlıklarını listelemek için kullanılır. İlgili Google Cloud API etkin değilse sistem bunu açıkça bildirir.</p>}
 	            </div>
 	          )}
 	          {active.key === "google" && (

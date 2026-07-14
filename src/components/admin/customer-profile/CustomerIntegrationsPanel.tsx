@@ -89,7 +89,8 @@ function Section({ title, icon, children }: { title: string; icon: ReactNode; ch
 export function CustomerIntegrationsPanel({ company, users = [], campaigns = [], reports = [], content, setContent, notify }: any) {
   const localIntegration = (content?.customerIntegrations || []).find((item: any) => item.company_id === company.id) || {};
   const [form, setForm] = useState<Record<string, string>>({ ...emptyIntegration, ...localIntegration });
-  const [setup, setSetup] = useState<CustomerSetupSummary>(() => buildCustomerSetupSummary(getCustomerSetupSteps(company, users, form, campaigns, reports)));
+  const onboardingContext = useMemo(() => ({ branches: content?.customerBranches || [], tasks: content?.agencyTasks || [] }), [content?.customerBranches, content?.agencyTasks]);
+  const [setup, setSetup] = useState<CustomerSetupSummary>(() => buildCustomerSetupSummary(getCustomerSetupSteps(company, users, form, campaigns, reports, onboardingContext)));
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -104,9 +105,9 @@ export function CustomerIntegrationsPanel({ company, users = [], campaigns = [],
         if (!mounted) return;
         const next: Record<string, string> = { ...emptyIntegration, ...(payload.integration || {}) };
         setForm(next);
-        setSetup(payload.setup || buildCustomerSetupSummary(getCustomerSetupSteps(company, users, next, campaigns, reports)));
+        setSetup(payload.setup || buildCustomerSetupSummary(getCustomerSetupSteps(company, users, next, campaigns, reports, onboardingContext)));
       } catch {
-        const steps = getCustomerSetupSteps(company, users, localIntegration, campaigns, reports);
+        const steps = getCustomerSetupSteps(company, users, localIntegration, campaigns, reports, onboardingContext);
         if (mounted) setSetup(buildCustomerSetupSummary(steps));
       }
     }
@@ -118,7 +119,7 @@ export function CustomerIntegrationsPanel({ company, users = [], campaigns = [],
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [company.id]);
 
-  const liveSetup = useMemo(() => buildCustomerSetupSummary(getCustomerSetupSteps(company, users, form, campaigns, reports)), [company, users, form, campaigns, reports]);
+  const liveSetup = useMemo(() => buildCustomerSetupSummary(getCustomerSetupSteps(company, users, form, campaigns, reports, onboardingContext)), [company, users, form, campaigns, reports, onboardingContext]);
   const displaySetup = setup?.progress === liveSetup.progress ? setup : liveSetup;
 
   function update(key: string, value: string) {

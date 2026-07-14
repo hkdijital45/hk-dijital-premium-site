@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { decryptSecret } from "@/lib/business-flow";
+import { decryptSecret, encryptSecret } from "@/lib/business-flow";
 import { buildHKIntelligenceReport, diagnoseAdPerformance } from "@/lib/hk-intelligence-mvp";
 import { hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
@@ -50,20 +50,68 @@ function assetsByType(integration: any, matcher: (asset: any) => boolean) {
   return (Array.isArray(integration?.integration_assets) ? integration.integration_assets : []).filter(matcher);
 }
 
+async function refreshGoogleAccessToken(refreshToken: string) {
+  const clientId = process.env.GOOGLE_CLIENT_ID || "";
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET || "";
+  if (!refreshToken || !clientId || !clientSecret) throw new Error("Google yetkisini yenilemek için refresh token ve OAuth ENV değerleri gerekir.");
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ client_id: clientId, client_secret: clientSecret, refresh_token: refreshToken, grant_type: "refresh_token" }),
+    cache: "no-store"
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.access_token) throw new Error("Google yetkisi yenilenemedi. Hesabı yeniden bağlayın.");
+  return {
+    accessToken: String(payload.access_token),
+    expiresAt: new Date(Date.now() + Number(payload.expires_in || 3600) * 1000).toISOString()
+  };
+}
+
 export async function getCustomerGoogleIntegration(companyId: string) {
   if (!hasSupabaseConfig()) return { integration: null, accessToken: "", refreshToken: "", tokenExpiresAt: "", scopes: [] as string[], message: "Supabase bağlantısı yapılandırılmadı." };
   const rows = await supabaseRest<any[]>(`customer_integrations?or=(company_id.eq.${encodeURIComponent(companyId)},customer_id.eq.${encodeURIComponent(companyId)})&select=*&limit=1`).catch(() => []);
   const integration = rows[0] || null;
   const googleOauth = integration?.sensitive_metadata?.google_oauth || {};
-  const accessToken = decryptSecret(googleOauth.access_token_encrypted) || (integration?.provider === "google" ? decryptSecret(integration?.access_token_encrypted) : "");
+  let accessToken = decryptSecret(googleOauth.access_token_encrypted) || (integration?.provider === "google" ? decryptSecret(integration?.access_token_encrypted) : "");
   const refreshToken = decryptSecret(googleOauth.refresh_token_encrypted) || (integration?.provider === "google" ? decryptSecret(integration?.refresh_token_encrypted) : "");
+  let tokenExpiresAt = googleOauth.token_expires_at || integration?.token_expires_at || "";
+  let message = accessToken ? "Google OAuth token hazır." : "Google bağlantısı bekleniyor.";
+  const tokenExpired = tokenExpiresAt && new Date(tokenExpiresAt).getTime() <= Date.now() + 60_000;
+  if (tokenExpired && refreshToken && integration?.id) {
+    try {
+      const refreshed = await refreshGoogleAccessToken(refreshToken);
+      accessToken = refreshed.accessToken;
+      tokenExpiresAt = refreshed.expiresAt;
+      const sensitiveMetadata = {
+        ...(integration.sensitive_metadata || {}),
+        google_oauth: {
+          ...googleOauth,
+          access_token_encrypted: encryptSecret(refreshed.accessToken),
+          token_expires_at: refreshed.expiresAt,
+          updated_at: new Date().toISOString()
+        }
+      };
+      await supabaseRest(`customer_integrations?id=eq.${encodeURIComponent(integration.id)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ sensitive_metadata: sensitiveMetadata, token_expires_at: refreshed.expiresAt, updated_at: new Date().toISOString() })
+      });
+      message = "Google OAuth yetkisi server-side yenilendi.";
+    } catch {
+      accessToken = "";
+      message = "Google yetkisi yenilenemedi. Hesabı yeniden bağlayın.";
+    }
+  } else if (tokenExpired) {
+    accessToken = "";
+    message = "Google token süresi doldu ve refresh token bulunamadı. Hesabı yeniden bağlayın.";
+  }
   return {
     integration,
     accessToken,
     refreshToken,
-    tokenExpiresAt: googleOauth.token_expires_at || integration?.token_expires_at || "",
+    tokenExpiresAt,
     scopes: Array.isArray(googleOauth.scopes) ? googleOauth.scopes : Array.isArray(integration?.scopes) ? integration.scopes : [],
-    message: accessToken ? "Google OAuth token hazır." : "Google bağlantısı bekleniyor."
+    message
   };
 }
 
@@ -138,7 +186,7 @@ export async function fetchGoogleAdsMetrics(accessToken: string, customerId: str
   if (!process.env.GOOGLE_ADS_DEVELOPER_TOKEN) return { status: "permission_required" as GoogleDataStatus, message: "Google Ads için GOOGLE_ADS_DEVELOPER_TOKEN gerekir." };
   try {
     const normalizedCustomerId = customerId.replace(/[^0-9]/g, "");
-    const payload = await googleJson(`https://googleads.googleapis.com/v18/customers/${normalizedCustomerId}/googleAds:searchStream`, accessToken, {
+    const payload = await googleJson(`https://googleads.googleapis.com/v24/customers/${normalizedCustomerId}/googleAds:searchStream`, accessToken, {
       method: "POST",
       headers: { "Content-Type": "application/json", "developer-token": process.env.GOOGLE_ADS_DEVELOPER_TOKEN },
       body: JSON.stringify({

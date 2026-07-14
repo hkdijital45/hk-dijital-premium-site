@@ -5,6 +5,8 @@ import { recordActivity } from "@/lib/activity-log";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 import { adminModules, normalizeRole } from "@/lib/permissions";
 import { hasBranchAccessPayload, persistCustomerBranchAccess, validateCustomerBranchAccessPayload, type CustomerBranchAccessInput } from "@/lib/server/admin-user-branch-access";
+import { createAvailableUsername } from "@/lib/server/usernames";
+import { normalizeUsername, validateUsername } from "@/lib/usernames";
 
 async function getActiveAdminCount() {
   const rows = await supabaseRest<Array<{ id: string }>>("users?role=eq.admin&is_active=eq.true&deleted_at=is.null&select=id");
@@ -64,6 +66,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
   if (payload.fullName !== undefined || payload.full_name !== undefined) patch.full_name = payload.fullName ?? payload.full_name;
   if (payload.email !== undefined) patch.email = String(payload.email || "").trim().toLowerCase();
+  if (payload.username !== undefined) {
+    const username = normalizeUsername(payload.username);
+    const validationError = validateUsername(username);
+    if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
+    const result = await createAvailableUsername({ requested: username, excludeUserId: id });
+    if (result.adjusted) return NextResponse.json({ error: `Bu kullanıcı adı kullanımda. Öneri: ${result.username}` }, { status: 409 });
+    patch.username = result.username;
+  }
   if (payload.role !== undefined) patch.role = payload.role;
   if (payload.companyId !== undefined || payload.company_id !== undefined) patch.company_id = (payload.companyId ?? payload.company_id) || null;
   if (payload.isActive !== undefined || payload.is_active !== undefined) patch.is_active = payload.isActive ?? payload.is_active;

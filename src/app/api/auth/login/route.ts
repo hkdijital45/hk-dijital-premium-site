@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
 import { authenticateUser, createSession, isCustomerRole } from "@/lib/auth";
 import { recordCustomerLogin } from "@/lib/activity-log";
+import { resolveLoginEmail } from "@/lib/server/usernames";
 
 export async function POST(request: Request) {
-  const { email, username, password, userType, remember } = await request.json();
-  const normalizedEmail = String(email || username || "").trim();
+  const { identity, email, username, password, userType, remember } = await request.json().catch(() => ({}));
+  const rawIdentity = String(identity || email || username || "").trim().slice(0, 254);
+  const normalizedEmail = await resolveLoginEmail(rawIdentity);
   const normalizedType = userType === "admin" || userType === "customer" ? userType : undefined;
+
+  if (!normalizedEmail || !String(password || "")) {
+    return NextResponse.json({ error: "Kullanıcı adı/e-posta veya şifre hatalı." }, { status: 401 });
+  }
 
   const session = await authenticateUser({
     email: normalizedEmail,
@@ -14,7 +20,10 @@ export async function POST(request: Request) {
   });
 
   if ("error" in session) {
-    return NextResponse.json({ error: session.error }, { status: 401 });
+    const message = session.error === "E-posta veya şifre hatalı."
+      ? "Kullanıcı adı/e-posta veya şifre hatalı."
+      : session.error;
+    return NextResponse.json({ error: message }, { status: 401 });
   }
 
   await createSession(session.session, { remember: Boolean(remember) });
