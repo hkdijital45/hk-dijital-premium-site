@@ -46,20 +46,9 @@ export async function POST(request: Request) {
     body: JSON.stringify(providerPayload)
   });
 
-  const apiKey = String(body.apiKey || "").trim();
-  if (apiKey) {
-    await supabaseRest("agent_provider_secrets?on_conflict=provider_key,secret_name", {
-      method: "POST",
-      headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
-      body: JSON.stringify({
-        provider_key: providerKey,
-        secret_name: `${providerKey.toUpperCase()}_API_KEY`,
-        secret_value: apiKey,
-        is_active: true,
-        updated_at: new Date().toISOString()
-      })
-    });
+  if (String(body.apiKey || "").trim()) {
+    return NextResponse.json({ error: "API anahtarları bu ekrandan kaydedilmez. Anahtarı Vercel Environment Variables alanında server-side tanımlayın." }, { status: 400 });
   }
 
-  return NextResponse.json({ ok: true, message: "Provider ayarları kaydedildi. API anahtarı frontend'e geri dönmedi." });
+  return NextResponse.json({ ok: true, message: "Sağlayıcı ayarları kaydedildi. API anahtarları yalnız sunucu ortam değişkenlerinden yönetilir." });
 }

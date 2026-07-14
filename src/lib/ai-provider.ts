@@ -40,7 +40,7 @@ const defaultModels: Record<AiProviderKey, string> = {
   ollama: process.env.OLLAMA_MODEL || "local-rules"
 };
 
-export const defaultAiProviderPriority: AiProviderKey[] = ["gemini", "openai", "anthropic", "groq", "openrouter", "demo", "local"];
+export const defaultAiProviderPriority: AiProviderKey[] = ["gemini", "groq", "openai", "openrouter", "local", "demo"];
 
 export const professionalAiInstruction =
   "Analyze and provide recommendations as a senior digital marketing consultant, social media strategist, media buyer, growth marketer, agency owner, and business development expert. Focus on practical actions, conversion optimization, lead generation, funnel strategy, advertising opportunities, customer psychology, positioning, branding, realistic growth recommendations, expectation management, and client communication.";

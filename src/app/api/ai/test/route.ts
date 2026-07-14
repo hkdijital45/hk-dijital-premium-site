@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { aiSettingsMetadata } from "@/lib/ai-provider";
+import { normalizeUnifiedAiProvider } from "@/lib/ai-provider-options";
 import { getSiteContent } from "@/lib/content";
 import { isAdminAuthenticated } from "@/lib/auth";
+import { executeAiTask, type IntelligenceProviderKey } from "@/lib/server/ai-router";
 
 export async function POST() {
   if (!(await isAdminAuthenticated())) {
@@ -10,25 +11,25 @@ export async function POST() {
 
   const content = await getSiteContent();
   const api = content.settings.api;
-  const meta = aiSettingsMetadata(api);
-  const providerKey = meta.providerKey;
-  const envKey =
-    providerKey === "gemini"
-      ? process.env.GEMINI_API_KEY
-      : providerKey === "groq"
-        ? process.env.GROQ_API_KEY
-        : providerKey === "openai"
-          ? process.env.OPENAI_API_KEY
-          : "";
-
-  if (meta.isDemo || meta.isLocal || providerKey === "automatic") {
-    return NextResponse.json({ ok: true, provider: meta.provider, model: meta.model, mode: meta.mode, message: `${meta.provider} aktif` });
-  }
-
-  if (!envKey) {
-    return NextResponse.json({ ok: false, provider: meta.provider, model: meta.model, mode: meta.mode, message: "Seçilen AI sağlayıcısı kullanılamadı. Lütfen API ayarlarını kontrol edin." }, { status: 400 });
-  }
-
-  // Add real Gemini/Groq/OpenAI health-check calls here. Keep keys server-side only.
-  return NextResponse.json({ ok: true, provider: meta.provider, model: meta.model, mode: meta.mode, message: "API bağlantısı başarılı" });
+  const selected = normalizeUnifiedAiProvider(api.active_ai_provider || api.activeProvider || "auto");
+  const result = await executeAiTask({
+    taskType: "quick_summary",
+    module: "AI Ayarları",
+    endpoint: "/api/ai/test",
+    prompt: "HK Intelligence Router sağlık kontrolü için tek cümlelik Türkçe yanıt üret.",
+    fallbackText: "HK Intelligence Router hazır; canlı sağlayıcı bağlantısı bekleniyor."
+  }, {
+    requestedProvider: selected as IntelligenceProviderKey | "auto",
+    timeoutMs: 12_000,
+    cacheTtlMs: 0,
+    recordExecution: false
+  });
+  return NextResponse.json({
+    ok: result.provider !== "demo",
+    provider: result.providerLabel,
+    model: result.model,
+    mode: result.mode,
+    fallbackUsed: result.fallbackUsed,
+    message: result.provider === "demo" ? result.notice : `${result.providerLabel} bağlantısı başarıyla doğrulandı.`
+  }, { status: result.provider === "demo" && selected !== "demo" ? 200 : 200 });
 }

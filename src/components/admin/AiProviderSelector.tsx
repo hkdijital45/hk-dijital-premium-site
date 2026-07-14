@@ -69,7 +69,7 @@ export function AiProviderSelector({
           {item.label}
           <span className="flex items-center gap-2">
             {isRecommended && <span className="rounded-full bg-amber-300 px-2 py-1 text-[10px] font-black text-slate-950">Önerilen</span>}
-            <span className={`rounded-full px-2 py-1 text-[10px] font-black ${status?.status === "Aktif" || item.key === "auto" || item.key === "demo" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{status?.status || (item.key === "auto" ? "Otomatik" : item.key === "demo" ? "Demo" : "Test edilmedi")}</span>
+            <span className={`rounded-full px-2 py-1 text-[10px] font-black ${["Aktif", "Bağlantı Hazır"].includes(status?.status || "") || item.key === "auto" || item.key === "demo" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{status?.status || (item.key === "auto" ? "Otomatik" : item.key === "demo" ? "Yerel yedek" : "Test edilmedi")}</span>
           </span>
         </span>
         <span className="mt-2 block text-xs leading-5 text-slate-600">{item.description}</span>

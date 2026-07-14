@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { generateAiText } from "./ai-provider";
+import { normalizeAiProvider } from "./ai-provider";
+import { executeAiTask, type IntelligenceProviderKey } from "./server/ai-router";
 
 function demoAnalysis(lead: any) {
   const score = Number(lead.digital_maturity_score || 0);
@@ -43,8 +44,20 @@ ${JSON.stringify({
 })}`;
 }
 
-export async function analyzeLead(lead: any, settings?: Parameters<typeof generateAiText>[2]) {
+export async function analyzeLead(lead: any, settings?: { active_ai_provider?: string; activeProvider?: string }) {
   const prompt = leadPrompt(lead);
-  const generated = await generateAiText(prompt, demoAnalysis(lead), settings);
+  const normalizedProvider = normalizeAiProvider(settings?.active_ai_provider || settings?.activeProvider || "automatic");
+  const requestedProvider = normalizedProvider === "automatic"
+    ? "auto"
+    : normalizedProvider === "local"
+      ? "ollama"
+      : normalizedProvider as IntelligenceProviderKey;
+  const generated = await executeAiTask({
+    taskType: "strategy",
+    module: "lead-analysis",
+    prompt,
+    fallbackText: demoAnalysis(lead),
+    customerId: lead.company_id || null
+  }, { requestedProvider });
   return { ...generated, generated_at: new Date().toISOString() };
 }

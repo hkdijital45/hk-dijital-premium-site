@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { estimateAdBudget, formatTRY, type PackageRecommendationInput } from "@/lib/packages";
+import { executeAiTask, type IntelligenceProviderKey } from "@/lib/server/ai-router";
 
 export const runtime = "nodejs";
+
+const requestWindows = new Map<string, { count: number; resetAt: number }>();
+const REQUEST_LIMIT = 6;
+const REQUEST_WINDOW_MS = 10 * 60_000;
 
 type BudgetResearchInput = PackageRecommendationInput & {
   city?: string;
@@ -15,7 +20,10 @@ type BudgetResearchInput = PackageRecommendationInput & {
 };
 
 type BudgetResearchResponse = {
-  source: "groq" | "fallback";
+  source: IntelligenceProviderKey | "fallback";
+  providerLabel?: string;
+  fallbackUsed?: boolean;
+  providerNotice?: string | null;
   marketSummary: string;
   recommendedBudget: {
     minimum: number;
@@ -90,10 +98,13 @@ function fallbackResponse(input: BudgetResearchInput): BudgetResearchResponse {
   };
 }
 
-function sanitizeGroqResponse(parsed: Partial<BudgetResearchResponse>, fallback: BudgetResearchResponse): BudgetResearchResponse {
+function sanitizeProviderResponse(parsed: Partial<BudgetResearchResponse>, fallback: BudgetResearchResponse, provider: IntelligenceProviderKey, providerLabel: string, fallbackUsed: boolean, providerNotice: string | null): BudgetResearchResponse {
   const budget = parsed.recommendedBudget || fallback.recommendedBudget;
   return {
-    source: "groq",
+    source: provider,
+    providerLabel,
+    fallbackUsed,
+    providerNotice,
     marketSummary: cleanText(parsed.marketSummary, 900) || fallback.marketSummary,
     recommendedBudget: {
       minimum: cleanNumber(budget.minimum) || fallback.recommendedBudget.minimum,
@@ -123,6 +134,16 @@ function extractJson(content: string) {
 }
 
 export async function POST(request: Request) {
+  const clientKey = String(request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "anonymous").split(",")[0].trim().slice(0, 80);
+  const now = Date.now();
+  const currentWindow = requestWindows.get(clientKey);
+  if (currentWindow && currentWindow.resetAt > now && currentWindow.count >= REQUEST_LIMIT) {
+    return NextResponse.json({ error: "Kısa sürede çok fazla analiz istendi. Lütfen birkaç dakika sonra yeniden deneyin." }, { status: 429, headers: { "Retry-After": String(Math.ceil((currentWindow.resetAt - now) / 1000)) } });
+  }
+  requestWindows.set(clientKey, currentWindow && currentWindow.resetAt > now
+    ? { ...currentWindow, count: currentWindow.count + 1 }
+    : { count: 1, resetAt: now + REQUEST_WINDOW_MS });
+
   let body: BudgetResearchInput = {};
   try {
     body = await request.json();
@@ -149,9 +170,6 @@ export async function POST(request: Request) {
   };
 
   const fallback = fallbackResponse(input);
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) return NextResponse.json(fallback);
-
   const prompt = [
     "HK Dijital için Türkçe reklam bütçesi ve piyasa yorumu üret.",
     "Kesin satış, lead, ciro veya sonuç garantisi verme. Canlı internet verisi kullanıyormuş gibi davranma; piyasa varsayımı ve ajans deneyimi dili kullan.",
@@ -163,27 +181,21 @@ export async function POST(request: Request) {
   ].join("\n");
 
   try {
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: process.env.GROQ_MODEL || "llama-3.1-8b-instant",
-        temperature: 0.35,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: "Sen HK Dijital için çalışan güvenli, gerçekçi ve profesyonel bir medya bütçesi danışmanısın." },
-          { role: "user", content: prompt }
-        ]
-      })
+    const result = await executeAiTask({
+      taskType: "market_research",
+      module: "Teklif Robotu",
+      endpoint: "/api/ai/ad-budget-research",
+      prompt,
+      expectedOutput: "Geçerli JSON reklam bütçesi ve piyasa değerlendirmesi",
+      systemPrompt: "Sen HK Dijital için çalışan güvenli, gerçekçi ve profesyonel bir medya bütçesi danışmanısın. Yalnız geçerli JSON döndür.",
+      fallbackText: JSON.stringify(fallback)
+    }, {
+      cacheTtlMs: 10 * 60_000,
+      recordExecution: false
     });
-    if (!response.ok) return NextResponse.json(fallback);
-    const data = await response.json();
-    const content = String(data?.choices?.[0]?.message?.content || "");
-    const parsed = JSON.parse(extractJson(content));
-    return NextResponse.json(sanitizeGroqResponse(parsed, fallback));
+    if (result.provider === "demo") return NextResponse.json({ ...fallback, providerLabel: result.providerLabel, fallbackUsed: true, providerNotice: result.notice });
+    const parsed = JSON.parse(extractJson(result.text));
+    return NextResponse.json(sanitizeProviderResponse(parsed, fallback, result.provider, result.providerLabel, result.fallbackUsed, result.notice));
   } catch {
     return NextResponse.json(fallback);
   }

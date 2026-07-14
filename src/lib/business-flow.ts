@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
 import { createSupabaseAuthUser, findSupabaseAuthUserByEmail, updateSupabaseAuthUser } from "./auth";
-import { generateAiText } from "./ai-provider";
 import { hasSupabaseConfig, supabaseRest } from "./supabase";
 import { calculateHealthScore, normalizeReportType, parseTurkishNumber } from "./reports/report-insights";
+import { executeAiTask } from "./server/ai-router";
 import { createAvailableUsername } from "./server/usernames";
 
 export type IntegrationProvider = "meta" | "google";
@@ -274,7 +274,12 @@ export async function generateProposal(input: any) {
     `Tahmini erişim ${forecast.reach.toLocaleString("tr-TR")}, tıklama ${forecast.clicks.toLocaleString("tr-TR")}, lead ${forecast.leads.toLocaleString("tr-TR")} seviyesindedir.`,
     "Bu tahminler garanti satış değil, bütçe ve sektör koşullarına göre planlama öngörüsüdür."
   ].join("\n");
-  const ai = await generateAiText(`Türkçe profesyonel teklif metni hazırla. Veri: ${JSON.stringify({ input, packageName, forecast })}`, fallback).catch(() => ({ text: fallback, provider: "Yerel Mod", model: "local-rules", mode: "Yerel" }));
+  const ai = await executeAiTask({
+    taskType: "proposal",
+    module: "proposal-builder",
+    prompt: `Türkçe profesyonel teklif metni hazırla. Veri: ${JSON.stringify({ input, packageName, forecast })}`,
+    fallbackText: fallback
+  }).catch(() => ({ text: fallback, provider: "demo" as const, providerLabel: "Demo / Yerel Yedek", model: "local-rules", mode: "Demo" as const }));
   return {
     packageName,
     funnel: ["Traffic", "Remarketing", "Conversion"],
@@ -370,5 +375,10 @@ export async function operationsAssistantQuestion(question: string, context: any
     risky.length ? `5. Raporlama: Sağlık skoru düşük ${risky.length} rapor var; müşteri iletişiminden önce yorum ve sonraki adımları güncelleyin.` : "5. Raporlama: Kritik rapor sinyali sınırlı görünüyor.",
     "Öneri sırası: gelir riski → teslim riski → sıcak lead → entegrasyon sürekliliği → raporlama."
   ].join("\n");
-  return generateAiText(`HK Dijital operasyon sorusunu Türkçe yanıtla: ${question}\n\nBağlam:${JSON.stringify({ ...context, risky })}`, fallback).catch(() => ({ text: fallback, provider: "Yerel Mod", model: "local-rules", mode: "Yerel" }));
+  return executeAiTask({
+    taskType: "strategy",
+    module: "operations-assistant",
+    prompt: `HK Dijital operasyon sorusunu Türkçe yanıtla: ${question}\n\nBağlam:${JSON.stringify({ ...context, risky })}`,
+    fallbackText: fallback
+  }).catch(() => ({ text: fallback, provider: "demo" as const, providerLabel: "Demo / Yerel Yedek", model: "local-rules", mode: "Demo" as const }));
 }

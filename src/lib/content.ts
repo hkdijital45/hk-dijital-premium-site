@@ -21,7 +21,7 @@ function normalizeAiDefaults<T extends SiteContent>(content: T): T {
         active_ai_provider: "automatic",
         active_ai_model: "automatic-fallback",
         ai_mode: "live",
-        ai_provider_priority: api.ai_provider_priority || ["gemini", "openai", "anthropic", "groq", "openrouter", "demo", "local"],
+        ai_provider_priority: api.ai_provider_priority || ["gemini", "groq", "openai", "openrouter", "local", "demo"],
         demoMode: false,
         model: "automatic-fallback"
       }
@@ -37,7 +37,7 @@ function normalizeAiDefaults<T extends SiteContent>(content: T): T {
         active_ai_provider: "automatic",
         active_ai_model: "automatic-fallback",
         ai_mode: "live",
-        ai_provider_priority: ["gemini", "openai", "anthropic", "groq", "openrouter", "demo", "local"],
+        ai_provider_priority: ["gemini", "groq", "openai", "openrouter", "local", "demo"],
         demoMode: false,
         model: "automatic-fallback"
       }

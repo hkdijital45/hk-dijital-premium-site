@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireModuleAccess } from "@/lib/permissions";
+import { executeAiTask } from "@/lib/server/ai-router";
 
 function asList(value: unknown) {
   return Array.isArray(value) ? value : [];
@@ -33,9 +34,20 @@ export async function POST(request: Request) {
     "Not: Bu cevap karar destek amaçlıdır; satış veya performans garantisi içermez."
   ].join("\n");
 
+  const result = await executeAiTask({
+    taskType: "strategy",
+    module: "HK Intelligence CEO Copilot",
+    endpoint: "/api/admin/hk-intelligence-ceo/copilot",
+    prompt: `Yönetici sorusu: ${question}\nSistem özeti: ${summary}\nRiskler: ${risks.join("; ") || "Kritik risk yok"}\nÖneriler: ${recommendations.join("; ") || "Henüz öneri yok"}`,
+    expectedOutput: "Yönetici özeti, öncelikli karar ve 7 günlük plan",
+    fallbackText: answer,
+    createdBy: session.profileId || session.authUserId || null
+  }, { cacheTtlMs: 2 * 60_000 });
+
   return NextResponse.json({
     question,
-    answer,
+    answer: result.text,
+    ai: result,
     finalLayer: "HK Intelligence",
     confidenceScore: recommendations.length || risks.length ? 78 : 54,
     generatedAt: new Date().toISOString()

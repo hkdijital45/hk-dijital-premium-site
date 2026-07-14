@@ -193,22 +193,22 @@ const agentTaskLabels: Record<AgentTaskType, string> = {
 
 const taskTypes = Object.entries(agentTaskLabels).map(([value, label]) => ({ value: value as AgentTaskType, label }));
 const manusTasks: AgentTaskType[] = ["competitor_research", "market_research", "pricing_research", "sector_discovery", "deep_report", "long_web_research"];
-const multiAgentRecommendedTasks: AgentTaskType[] = ["competitor_research", "market_research", "deep_report", "proposal_generation", "customer_report"];
+const multiAgentRecommendedTasks: AgentTaskType[] = ["deep_report", "long_web_research"];
 
 const chainMap: Partial<Record<AgentTaskType, AgentProviderKey[]>> = {
-  ad_analysis: ["openai", "gemini", "anthropic"],
-  crm_summary: ["openai", "gemini"],
-  content_generation: ["openai", "anthropic", "gemini"],
+  ad_analysis: ["gemini", "groq", "openai"],
+  crm_summary: ["groq", "gemini", "openai"],
+  content_generation: ["groq", "gemini", "openai"],
   seo_analysis: ["gemini", "openai"],
-  competitor_research: ["manus", "gemini", "openai"],
-  market_research: ["manus", "gemini", "openai"],
-  pricing_research: ["manus", "gemini", "openai"],
-  sector_discovery: ["manus", "gemini", "openai"],
+  competitor_research: ["gemini", "groq", "openai"],
+  market_research: ["gemini", "groq", "openai"],
+  pricing_research: ["gemini", "groq", "openai"],
+  sector_discovery: ["gemini", "groq", "openai"],
   deep_report: ["manus", "anthropic", "openai"],
-  proposal_generation: ["openai", "anthropic"],
-  customer_report: ["openai", "anthropic"],
-  code_review: ["anthropic", "openai"],
-  fast_answer: ["groq", "openai", "gemini"],
+  proposal_generation: ["openai", "gemini", "groq"],
+  customer_report: ["gemini", "openai", "groq"],
+  code_review: ["openai", "gemini"],
+  fast_answer: ["groq", "gemini", "openai"],
   workflow_task: ["openai", "gemini"],
   long_web_research: ["manus", "gemini", "openai"]
 };
@@ -309,7 +309,7 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
   const [testingProvider, setTestingProvider] = useState("");
   const [testingIntegration, setTestingIntegration] = useState("");
   const [editingProvider, setEditingProvider] = useState<ProviderRow | null>(null);
-  const [providerForm, setProviderForm] = useState({ status: "not_configured", defaultModel: "", dailyLimit: "", monthlyLimit: "", estimatedMonthlyCost: "", notes: "", apiKey: "" });
+  const [providerForm, setProviderForm] = useState({ status: "not_configured", defaultModel: "", dailyLimit: "", monthlyLimit: "", estimatedMonthlyCost: "", notes: "" });
   const [runResult, setRunResult] = useState<RunResult | null>(null);
   const [exportPayload, setExportPayload] = useState<Record<string, unknown> | null>(null);
   const [emailDraft, setEmailDraft] = useState<Record<string, unknown> | null>(null);
@@ -467,8 +467,7 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
       dailyLimit: provider.daily_limit ? String(provider.daily_limit) : "",
       monthlyLimit: provider.monthly_limit ? String(provider.monthly_limit) : "",
       estimatedMonthlyCost: provider.estimated_monthly_cost ? String(provider.estimated_monthly_cost) : "",
-      notes: provider.notes || "",
-      apiKey: ""
+      notes: provider.notes || ""
     });
   }
 
@@ -982,7 +981,7 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
       <p className="mt-2 text-sm text-slate-600">Agent Hub promptları `agent_prompts` tablosuyla uyumludur. Mevcut Prompt Merkezi varsa aynı veri yapısına bağlanabilir.</p>
       <div className="mt-4 overflow-x-auto">
         <table className="w-full min-w-[760px] text-left text-sm"><thead className="text-xs uppercase tracking-[.12em] text-slate-500"><tr><th className="border-b py-3">Görev tipi</th><th className="border-b py-3">Sağlayıcı</th><th className="border-b py-3">Başlık</th><th className="border-b py-3">Durum</th><th className="border-b py-3">İşlem</th></tr></thead>
-          <tbody>{taskTypes.slice(0, 8).map((task, index) => <tr key={task.value} className="border-b border-slate-100"><td className="py-3 font-bold">{task.label}</td><td className="py-3">{index < 2 ? "manus" : index % 2 ? "openai" : "gemini"}</td><td className="py-3">{task.label} varsayılan promptu</td><td className="py-3"><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">Aktif</span></td><td className="py-3"><button onClick={() => notify?.("Prompt düzenleme API güvenli şekilde sonraki sürümde detaylandırılabilir.", "info")} className={secondaryButtonClass}>Görüntüle</button></td></tr>)}</tbody></table>
+          <tbody>{taskTypes.slice(0, 8).map((task) => <tr key={task.value} className="border-b border-slate-100"><td className="py-3 font-bold">{task.label}</td><td className="py-3">{providerLabel(chainMap[task.value]?.[0] || "demo")}</td><td className="py-3">{task.label} varsayılan promptu</td><td className="py-3"><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">Aktif</span></td><td className="py-3 text-xs text-slate-500">Görev çalıştırılırken otomatik uygulanır</td></tr>)}</tbody></table>
       </div>
     </section>}
 
@@ -1187,7 +1186,7 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
           <div>
             <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Provider ayarları</p>
             <h3 className="mt-2 text-2xl font-black text-slate-950">{editingProvider.provider_name}</h3>
-            <p className="mt-2 text-sm text-slate-500">API anahtarı kaydedilirse server-side saklanır; bu ekrana geri dönmez.</p>
+            <p className="mt-2 text-sm text-slate-500">Model ve kullanım limitlerini buradan yönetin. API anahtarları yalnız Vercel Environment Variables alanında server-side saklanır.</p>
           </div>
           <button onClick={() => setEditingProvider(null)} className={secondaryButtonClass}>Kapat</button>
         </div>
@@ -1212,9 +1211,7 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
           <label className="grid gap-1 text-sm font-bold text-slate-700">Tahmini aylık maliyet
             <input value={providerForm.estimatedMonthlyCost} onChange={(event) => setProviderForm({ ...providerForm, estimatedMonthlyCost: event.target.value })} className="rounded-[12px] border border-slate-200 px-3 py-3" />
           </label>
-          <label className="grid gap-1 text-sm font-bold text-slate-700">API anahtarı
-            <input value={providerForm.apiKey} onChange={(event) => setProviderForm({ ...providerForm, apiKey: event.target.value })} type="password" placeholder="Boş bırakılırsa değişmez" className="rounded-[12px] border border-slate-200 px-3 py-3" />
-          </label>
+          <div className="rounded-[12px] border border-cyan-200 bg-cyan-50 p-3 text-sm leading-6 text-cyan-900">API anahtarı güvenlik nedeniyle bu formda alınmaz veya gösterilmez. Bağlantı durumu sağlayıcı sağlık testinden doğrulanır.</div>
           <label className="grid gap-1 text-sm font-bold text-slate-700 md:col-span-2">Notlar
             <textarea value={providerForm.notes} onChange={(event) => setProviderForm({ ...providerForm, notes: event.target.value })} rows={3} className="rounded-[12px] border border-slate-200 px-3 py-3" />
           </label>

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { generateAiText } from "@/lib/ai-provider";
+import { executeAiTask } from "@/lib/server/ai-router";
 import { hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
 export type AdInsightRange = "today" | "last_7d" | "last_14d" | "last_30d" | "this_month" | "last_month" | "custom";
@@ -504,7 +504,13 @@ export async function getAdInsightsData({
   let analysis = fallback;
   if (analyze) {
     const prompt = `Yanıtı tamamen Türkçe ver. ${company.name || "Müşteri"} reklam performansını ajans diliyle yorumla. Metrikler: ${JSON.stringify(metrics)}. Bölümler: Genel Durum, Güçlü Yönler, Zayıf Yönler, Riskler, Bütçe Yorumu, Kreatif Yorumu, Hedef Kitle Yorumu, Bugün Yapılacaklar, 7 Günlük Aksiyon Planı, Müşteriye Gönderilecek Sade Özet. Satış garantisi verme.`;
-    const result = await generateAiText(prompt, fallback.admin).catch(() => ({ text: fallback.admin }));
+    const result = await executeAiTask({
+      taskType: "campaign_analysis",
+      module: "ad-insights",
+      prompt,
+      fallbackText: fallback.admin,
+      customerId: companyId
+    }).catch(() => ({ text: fallback.admin }));
     analysis = { admin: result.text || fallback.admin, customer: fallback.customer };
   }
   const sourceType = rows.length ? "Son senkron veri" : snapshots.length ? "Kayıtlı analiz" : "Demo veri";

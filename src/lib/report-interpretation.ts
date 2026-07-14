@@ -1,4 +1,4 @@
-import { generateAiText } from "./ai-provider";
+import { executeAiTask } from "./server/ai-router";
 
 function demoInterpretation(report: any) {
   const metrics = report.metrics || {};
@@ -37,5 +37,12 @@ ${JSON.stringify(customerSafeReport)}`;
 }
 
 export async function interpretReport(report: any) {
-  return generateAiText(systemPrompt(report), demoInterpretation(report));
+  return executeAiTask({
+    taskType: "report_interpretation",
+    module: "Rapor Yorumlama",
+    prompt: systemPrompt(report),
+    expectedOutput: "Müşteri dostu dönem raporu yorumu",
+    fallbackText: demoInterpretation(report),
+    customerId: report.company_id || null
+  }, { cacheTtlMs: 5 * 60_000 });
 }

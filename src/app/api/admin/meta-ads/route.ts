@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
-import { generateAiText } from "@/lib/ai-provider";
+import { executeAiTask } from "@/lib/server/ai-router";
 import { decryptSecret, getIntegrations, safeIntegrationForClient, upsertIntegration } from "@/lib/business-flow";
 import { classifyMetaError, metaToken, recordMetaError, recordMetaSuccess } from "@/lib/meta-api";
 import { requireModuleAccess } from "@/lib/permissions";
@@ -411,10 +411,15 @@ async function saveReportFromMeta(input: any, pulled: any) {
     "Güçlü kampanyalar daha fazla bütçe testiyle, zayıf kampanyalar ise kreatif ve hedef kitle revizyonuyla takip edilmelidir.",
     "Remarketing, yeni kreatif testi ve bütçe dağılımı sonraki adım olarak önerilir."
   ].join("\n");
-  const ai = await generateAiText(
-    `Meta reklam raporu için Türkçe müşteri dostu yorum üret. Başlıklar: Güçlü yönler, Zayıf yönler, Bütçe önerisi, Yeni kampanya önerisi, Remarketing önerisi, Kreatif önerisi. Veri: ${JSON.stringify({ metrics: pulled.metrics, campaigns: pulled.campaigns, period })}`,
-    fallback
-  ).catch(() => ({ text: fallback, provider: "Yerel Mod", model: "local-rules", mode: "Yerel" }));
+  const ai = await executeAiTask({
+    taskType: "campaign_analysis",
+    module: "Meta Reklam Raporu",
+    endpoint: "/api/admin/meta-ads",
+    prompt: `Meta reklam raporu için Türkçe müşteri dostu yorum üret. Başlıklar: Güçlü yönler, Zayıf yönler, Bütçe önerisi, Yeni kampanya önerisi, yeniden pazarlama önerisi, kreatif önerisi. Veri: ${JSON.stringify({ metrics: pulled.metrics, campaigns: pulled.campaigns, period })}`,
+    expectedOutput: "Müşteri dostu kampanya performans yorumu",
+    fallbackText: fallback,
+    customerId: input.companyId
+  }, { cacheTtlMs: 5 * 60_000 }).catch(() => ({ text: fallback, providerLabel: "Yerel Yedek", model: "local-rules", mode: "Yerel" }));
   const rows = await supabaseRest<any[]>("reports", {
     method: "POST",
     body: JSON.stringify({

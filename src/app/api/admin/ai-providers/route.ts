@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { unifiedAiProviderOptions } from "@/lib/ai-provider-options";
 import { requireModuleAccess } from "@/lib/permissions";
+import { getProviderHealthSummary } from "@/lib/server/ai-router";
 
 function statusFor(option: (typeof unifiedAiProviderOptions)[number]) {
   if (option.key === "auto") return { status: "Aktif", missingEnv: [], maskedKey: "Otomatik" };
@@ -19,14 +20,23 @@ export async function GET() {
     || await requireModuleAccess("sosyal-medya-denetimi")
     || await requireModuleAccess("raporlar");
   if (!session) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 403 });
+  const health = await getProviderHealthSummary();
   return NextResponse.json({
-    providers: unifiedAiProviderOptions.map((option) => ({
-      key: option.key,
-      label: option.label,
-      description: option.description,
-      recommendedFor: option.recommendedFor,
-      isRecommended: option.key === "auto",
-      ...statusFor(option)
-    }))
+    providers: unifiedAiProviderOptions.map((option) => {
+      const providerHealth = health.find((item) => item.provider === option.key);
+      return {
+        key: option.key,
+        label: option.label,
+        description: option.description,
+        recommendedFor: option.recommendedFor,
+        isRecommended: option.key === "auto",
+        ...statusFor(option),
+        ...(providerHealth ? {
+          status: providerHealth.statusLabel,
+          lastSuccessAt: providerHealth.lastSuccessAt,
+          lastError: providerHealth.lastError
+        } : {})
+      };
+    })
   });
 }

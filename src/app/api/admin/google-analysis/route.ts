@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { aiExecutionMetadata, generateAiText, normalizeAiProvider, type AiProviderKey } from "@/lib/ai-provider";
+import { aiExecutionMetadata, normalizeAiProvider, type AiProviderKey } from "@/lib/ai-provider";
 import { requireModuleAccess } from "@/lib/permissions";
+import { executeAiTask, type IntelligenceProviderKey } from "@/lib/server/ai-router";
 
 type GooglePlace = Record<string, unknown> & {
   place_id?: string;
@@ -87,95 +88,36 @@ async function getPlaceDetails(placeId: string, key: string) {
   return data.result || {} as GooglePlace;
 }
 
-function cleanProviderError(error: unknown) {
-  return (error instanceof Error ? error.message : "AI sağlayıcısı çalıştırılamadı.")
-    .replace(/sk-[A-Za-z0-9_-]+/g, "[redacted]")
-    .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer [redacted]")
-    .slice(0, 260);
-}
-
-function providerEnvMissing(provider: AiProviderKey) {
-  if (provider === "groq") return !process.env.GROQ_API_KEY ? "GROQ_API_KEY eksik." : "";
-  if (provider === "gemini") return !(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY) ? "GEMINI_API_KEY eksik." : "";
-  if (provider === "openai") return !process.env.OPENAI_API_KEY ? "OPENAI_API_KEY eksik." : "";
-  if (provider === "anthropic") return !process.env.ANTHROPIC_API_KEY ? "ANTHROPIC_API_KEY eksik." : "";
-  if (provider === "openrouter") return !process.env.OPENROUTER_API_KEY ? "OPENROUTER_API_KEY eksik." : "";
-  if (provider === "manus") return !(process.env.MANUS_API_KEY && process.env.MANUS_API_BASE_URL && process.env.MANUS_API_ENDPOINT) ? "Manus API yapılandırması eksik." : "";
-  if (provider === "local" || provider === "ollama") return !process.env.OLLAMA_BASE_URL ? "OLLAMA_BASE_URL eksik." : "";
-  return "";
-}
-
 async function googleAiExecutionMeta(requestedProvider: AiProviderKey, city: string, district: string, sector: string) {
   const prompt = `Google İstihbarat sağlayıcı doğrulaması yap. Bağlam: ${city} / ${district} / ${sector}. Kısa Türkçe teknik kontrol yanıtı üret.`;
   const fallback = `${city} ${district} ${sector} için Google Maps sinyalleri üzerinden analiz hazırlanıyor.`;
-  if (requestedProvider !== "automatic" && requestedProvider !== "auto") {
-    const missing = providerEnvMissing(requestedProvider);
-    if (missing) {
-      return aiExecutionMetadata({
-        requestedProvider,
-        actualProvider: "demo",
-        model: "demo-local",
-        fallbackReason: `${requestedProvider.toUpperCase()} manuel seçildi ancak ${missing} Bu nedenle Demo / Yerel Yedek Akış kullanıldı.`,
-        providerError: missing,
-        routerReason: "Manuel seçim yapıldığı için Auto Router devreye girmedi.",
-        dataSources: ["Google Maps API", "Manuel sağlayıcı seçimi"]
-      });
-    }
-    try {
-      const result = await generateAiText(prompt, fallback, {
-        active_ai_provider: requestedProvider === "ollama" ? "local" : requestedProvider,
-        activeProvider: requestedProvider === "ollama" ? "local" : requestedProvider,
-        active_ai_model: undefined,
-        model: undefined,
-        demoMode: requestedProvider === "demo",
-        ai_mode: requestedProvider === "demo" ? "demo" : requestedProvider === "local" || requestedProvider === "ollama" ? "local" : "live"
-      });
-      return aiExecutionMetadata({
-        requestedProvider,
-        actualProvider: normalizeAiProvider(result.providerKey || result.provider),
-        model: result.model,
-        fallbackReason: result.providerKey && normalizeAiProvider(result.providerKey) !== normalizeAiProvider(requestedProvider) ? "Seçilen sağlayıcı hata verdiği için yedek akış kullanıldı." : null,
-        routerReason: "Manuel seçim yapıldığı için sistem önce seçilen sağlayıcıyı çalıştırdı.",
-        dataSources: ["Google Maps API", "Manuel sağlayıcı seçimi"]
-      });
-    } catch (error) {
-      const reason = cleanProviderError(error);
-      return aiExecutionMetadata({
-        requestedProvider,
-        actualProvider: "demo",
-        model: "demo-local",
-        fallbackReason: `${requestedProvider.toUpperCase()} manuel seçildi ancak çalıştırılamadı: ${reason}. Raporu bozmamak için Demo / Yerel Yedek Akış kullanıldı.`,
-        providerError: reason,
-        routerReason: "Manuel seçim yapıldığı için Auto Router devreye girmedi.",
-        dataSources: ["Google Maps API", "Demo / Yerel Yedek Akış"]
-      });
-    }
-  }
   try {
-    const result = await generateAiText(prompt, fallback, {
-      active_ai_provider: "automatic",
-      activeProvider: "automatic",
-      ai_provider_priority: ["gemini", "openai", "groq", "anthropic", "demo", "local"],
-      demoMode: false,
-      ai_mode: "live"
-    });
+    const requested = requestedProvider === "automatic" || requestedProvider === "auto"
+      ? "auto"
+      : requestedProvider === "local" ? "ollama" : requestedProvider as IntelligenceProviderKey;
+    const result = await executeAiTask({
+      taskType: "google_ads_analysis",
+      module: "Google İstihbarat",
+      endpoint: "/api/admin/google-analysis",
+      prompt,
+      expectedOutput: "Kısa Google ekosistemi analiz özeti",
+      fallbackText: fallback
+    }, { requestedProvider: requested, cacheTtlMs: 5 * 60_000 });
     return aiExecutionMetadata({
-      requestedProvider: "automatic",
-      actualProvider: normalizeAiProvider(result.providerKey || result.provider),
+      requestedProvider,
+      actualProvider: normalizeAiProvider(result.provider),
       model: result.model,
-      fallbackReason: ["demo", "local"].includes(String(result.providerKey || "")) ? "Canlı sağlayıcı kullanılamadığı için yedek akış kullanıldı." : null,
-      routerReason: "Otomatik Seçim kullanıldı. Google İstihbarat görevi için Gemini ilk sırada, OpenAI ve Groq yedek olarak değerlendirildi.",
-      dataSources: ["Google Maps API", "Auto Router"]
+      fallbackReason: result.fallbackUsed ? result.notice || "Yedek sağlayıcıyla tamamlandı." : null,
+      routerReason: requested === "auto" ? "HK Intelligence Router Google analizi için Gemini öncelikli görev zincirini kullandı." : "Sabit sağlayıcı seçimi önce denendi; gerektiğinde güvenli fallback uygulandı.",
+      dataSources: ["Google Maps API", "HK Intelligence Router"]
     });
-  } catch (error) {
-    const reason = cleanProviderError(error);
+  } catch {
     return aiExecutionMetadata({
-      requestedProvider: "automatic",
+      requestedProvider,
       actualProvider: "demo",
       model: "demo-local",
-      fallbackReason: `Auto Router canlı sağlayıcı bulamadı: ${reason}. Demo / Yerel Yedek Akış kullanıldı.`,
-      providerError: reason,
-      routerReason: "Otomatik Seçim kullanıldı ancak canlı sağlayıcılar başarısız oldu.",
+      fallbackReason: "Canlı sağlayıcılar kullanılamadı; güvenli yerel yedek kullanıldı.",
+      routerReason: "HK Intelligence Router canlı sağlayıcı bulamadı.",
       dataSources: ["Google Maps API", "Demo / Yerel Yedek Akış"]
     });
   }

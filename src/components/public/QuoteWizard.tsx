@@ -13,7 +13,10 @@ type Answers = Record<string, string>;
 type QuoteContent = Pick<SiteContent, "quoteWizard" | "packages" | "contact">;
 type QuoteFormField = SiteContent["quoteWizard"]["formFields"][number];
 type AiBudgetResearch = {
-  source: "groq" | "fallback";
+  source: "gemini" | "groq" | "openai" | "anthropic" | "manus" | "openrouter" | "ollama" | "demo" | "fallback";
+  providerLabel?: string;
+  fallbackUsed?: boolean;
+  providerNotice?: string | null;
   marketSummary: string;
   recommendedBudget: {
     minimum: number;
@@ -402,7 +405,7 @@ function Recommendation({ recommended, alternative, reason, startingStrategy, ro
           <div className="mt-5 flex flex-col gap-3 rounded-[18px] border border-white/10 bg-black/20 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-black text-white">AI Destekli Piyasa Yorumu</p>
-              <p className="mt-1 text-xs leading-5 text-slate-300">Groq API tanımlıysa sektör ve hedefe göre ek yorum üretir; yoksa HK Dijital analiz modeli güvenli fallback döndürür.</p>
+              <p className="mt-1 text-xs leading-5 text-slate-300">HK Intelligence Router görev türü ve hazır bağlantılara göre en uygun analiz motorunu seçer; canlı sağlayıcı yoksa güvenli yerel model kullanılır.</p>
             </div>
             <button type="button" onClick={createAiBudgetResearch} disabled={aiBudgetLoading || Boolean(aiBudget)} className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full bg-yellow-300 px-5 text-sm font-black text-slate-950 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60">
               {aiBudgetLoading ? "Analiz oluşturuluyor..." : aiBudget ? "Analiz hazır" : "AI Bütçe Analizi Oluştur"}
@@ -427,12 +430,13 @@ function Recommendation({ recommended, alternative, reason, startingStrategy, ro
         <div className="mt-6 rounded-[24px] border border-yellow-200/25 bg-yellow-200/10 p-5 shadow-[0_20px_80px_rgba(250,204,21,.12)]">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-black uppercase tracking-[.18em] text-yellow-100">{aiBudget.source === "groq" ? "AI Destekli Piyasa Yorumu" : "HK Dijital analiz modeli"}</p>
+              <p className="text-xs font-black uppercase tracking-[.18em] text-yellow-100">{aiBudget.source !== "fallback" && aiBudget.source !== "demo" ? "AI Destekli Piyasa Yorumu" : "HK Dijital analiz modeli"}</p>
               <h3 className="mt-2 text-2xl font-black text-white">Piyasa ve medya bütçesi değerlendirmesi</h3>
             </div>
-            <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-black text-slate-950">{aiBudget.source === "groq" ? "Groq destekli" : "Fallback analiz"}</span>
+            <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-black text-slate-950">{aiBudget.providerLabel || (aiBudget.source === "fallback" ? "Yerel yedek" : "Otomatik AI")}</span>
           </div>
           <p className="mt-4 text-sm leading-7 text-yellow-50">{aiBudget.marketSummary}</p>
+          {aiBudget.providerNotice && <p className="mt-3 rounded-[14px] border border-yellow-100/20 bg-black/20 p-3 text-xs leading-5 text-yellow-50">{aiBudget.providerNotice}</p>}
           <div className="mt-5 grid gap-3 md:grid-cols-4">
             <BudgetBox label="Minimum" value={formatTRY(aiBudget.recommendedBudget.minimum)} />
             <BudgetBox label="İdeal" value={formatTRY(aiBudget.recommendedBudget.ideal)} highlight />

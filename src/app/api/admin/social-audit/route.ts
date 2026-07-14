@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { aiSettingsForProviderChoice, generateAiText } from "@/lib/ai-provider";
+import { normalizeUnifiedAiProvider } from "@/lib/ai-provider-options";
 import { requireModuleAccess } from "@/lib/permissions";
+import { executeAiTask, type IntelligenceProviderKey, type IntelligenceTaskType } from "@/lib/server/ai-router";
 
 const actionLabels = [
   "Düzeltilmesi Gerekenler",
@@ -52,6 +53,16 @@ function fallback(action: string, profile: any, leadScore: { score: number; temp
   ].join("\n");
 }
 
+function taskTypeForAction(action: string): IntelligenceTaskType {
+  if (action === "Teklif Hazırlama") return "proposal";
+  if (action === "WhatsApp Teklifi Hazırla") return "customer_message";
+  if (action === "Google Reklam Stratejisi") return "google_ads_analysis";
+  if (action === "Meta Reklam Stratejisi") return "strategy";
+  if (["30 Günlük Sosyal Medya Planı", "İçerik Fikirleri"].includes(action)) return "social_content";
+  if (action === "PDF Audit Oluştur") return "document_analysis";
+  return "qa_analysis";
+}
+
 export async function POST(request: Request) {
   if (!(await requireModuleAccess("sosyal-medya-denetimi")) && !(await requireModuleAccess("ai-studio"))) {
     return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
@@ -92,7 +103,7 @@ export async function POST(request: Request) {
   if (!actions.length) return NextResponse.json({ error: "En az bir analiz aksiyonu seçin." }, { status: 400 });
 
   const providerChoice = clean(body.aiProvider);
-  const settings = aiSettingsForProviderChoice(providerChoice);
+  const requestedProvider = normalizeUnifiedAiProvider(providerChoice || "auto") as IntelligenceProviderKey | "auto";
   const leadScore = calculateLeadScore(profile, actions);
   const outputs = [];
 
@@ -127,12 +138,18 @@ Profil metadata kullanımı:
 - Profil fotoğrafı yoksa fotoğraf varmış gibi davranma; iletişim bilgisi, takipçi sayısı, telefon veya e-posta uydurma.
 
 Çıktıyı profesyonel ajans dilinde, uygulanabilir maddelerle, beklenti yönetimini koruyarak yaz.`;
-      const generated = await generateAiText(prompt, fallback(action, profile, leadScore), settings);
+      const generated = await executeAiTask({
+        taskType: taskTypeForAction(action),
+        module: "Sosyal Medya Denetimi",
+        endpoint: "/api/admin/social-audit",
+        prompt,
+        expectedOutput: action,
+        fallbackText: fallback(action, profile, leadScore)
+      }, { requestedProvider, cacheTtlMs: 5 * 60_000 });
       outputs.push({ action, text: generated.text, ai: generated });
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : "";
-    return NextResponse.json({ error: message.includes("Seçilen AI sağlayıcısı") ? message : "AI sağlayıcısı kullanılamadı. API ayarlarını kontrol edin." }, { status: 503 });
+    return NextResponse.json({ error: error instanceof Error ? error.message : "AI analizi güvenli şekilde tamamlanamadı." }, { status: 503 });
   }
 
   return NextResponse.json({ ok: true, profile, outputs, leadScore });

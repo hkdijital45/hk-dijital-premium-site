@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getSession, isCustomerRole, isStaffRole } from "@/lib/auth";
-import { getCustomerAiSettings, providerEnvStatus } from "@/lib/customer-ai-settings";
+import { getCustomerAiSettings } from "@/lib/customer-ai-settings";
+import { normalizeUnifiedAiProvider } from "@/lib/ai-provider-options";
+import { executeAiTask, type IntelligenceProviderKey, type IntelligenceTaskType } from "@/lib/server/ai-router";
 
 const actionContextMap: Record<string, string> = {
   "Raporumu yorumla": "reports",
@@ -16,6 +18,14 @@ function demoAnswer(role: "admin" | "customer", prompt: string, allowedContexts:
     : "Müşteri modunda yalnız size açık rapor, reklam, görev ve genel öneri kapsamındaki bilgileri kullanırım.";
   const contexts = allowedContexts.length ? allowedContexts.join(", ") : "general";
   return `${scope}\n\nİstek: ${prompt || "Genel özet"}\nKullanılan izinli kapsam: ${contexts}\n\nÖnerilen aksiyonlar:\n1. Eksik entegrasyon ve güncel rapor durumunu kontrol edin.\n2. Açık görevleri tamamlanma sırasına göre netleştirin.\n3. Reklam veya içerik aksiyonunu tek bir sonraki adıma bağlayın.\n\nGerçek yapay zekâ modu kapalıysa bu güvenli demo yanıtı gösterilir.`;
+}
+
+function taskForContext(context: string, prompt: string): IntelligenceTaskType | undefined {
+  if (context === "reports") return "report_interpretation";
+  if (context === "ads") return "campaign_analysis";
+  if (context === "tasks") return "quick_summary";
+  if (context === "general" && /içerik|instagram|sosyal medya/i.test(prompt)) return "social_content";
+  return undefined;
 }
 
 export async function POST(request: Request) {
@@ -37,21 +47,29 @@ export async function POST(request: Request) {
     if (!settings.real_ai_enabled || settings.provider === "demo") {
       return NextResponse.json({ mode: "demo", answer: demoAnswer("customer", prompt, settings.allowed_contexts), settings: { provider: settings.provider, real_ai_enabled: false } });
     }
-    const env = providerEnvStatus(settings.provider);
-    if (!env.ready) {
-      return NextResponse.json({
-        error: "Seçilen yapay zekâ sağlayıcısı için sunucu ayarları eksik.",
-        mode: "provider_env_missing",
-        missing: env.missing
-      }, { status: 503 });
-    }
-    return NextResponse.json({ mode: "provider_ready_demo", answer: demoAnswer("customer", prompt, settings.allowed_contexts), settings: { provider: settings.provider, real_ai_enabled: true } });
+    const requested = normalizeUnifiedAiProvider(settings.provider || "auto") as IntelligenceProviderKey | "auto";
+    const result = await executeAiTask({
+      taskType: taskForContext(requestedContext, prompt),
+      module: "HK Asistan",
+      endpoint: "/api/assistant/chat",
+      prompt,
+      expectedOutput: requestedContext,
+      fallbackText: demoAnswer("customer", prompt, settings.allowed_contexts),
+      customerId: session.companyId,
+      createdBy: session.profileId || session.authUserId || null
+    }, { requestedProvider: requested, cacheTtlMs: 60_000 });
+    return NextResponse.json({ mode: result.provider === "demo" ? "fallback" : "live", answer: result.text, ai: result, settings: { provider: settings.provider, real_ai_enabled: true } });
   }
 
-  const provider = String(body.provider || "demo");
-  const env = providerEnvStatus(provider);
-  if (provider !== "demo" && !env.ready) {
-    return NextResponse.json({ error: "Admin için seçilen yapay zekâ sağlayıcısı eksik yapılandırılmış.", mode: "provider_env_missing", missing: env.missing }, { status: 503 });
-  }
-  return NextResponse.json({ mode: provider === "demo" ? "demo" : "provider_ready_demo", answer: demoAnswer("admin", prompt, ["general", "reports", "ads", "tasks", "payments", "files"]) });
+  const provider = normalizeUnifiedAiProvider(body.provider || "auto") as IntelligenceProviderKey | "auto";
+  const result = await executeAiTask({
+    taskType: taskForContext(requestedContext, prompt),
+    module: "HK Asistan Admin",
+    endpoint: "/api/assistant/chat",
+    prompt,
+    expectedOutput: requestedContext,
+    fallbackText: demoAnswer("admin", prompt, ["general", "reports", "ads", "tasks", "payments", "files"]),
+    createdBy: session.profileId || session.authUserId || null
+  }, { requestedProvider: provider, cacheTtlMs: 60_000 });
+  return NextResponse.json({ mode: result.provider === "demo" ? "fallback" : "live", answer: result.text, ai: result });
 }

@@ -117,7 +117,7 @@ export const unifiedAiProviderOptions: UnifiedAiProviderOption[] = [
 
 export const unifiedAiProviderLabels = unifiedAiProviderOptions.map((item) => item.label);
 export const unifiedAiProviderShortLabels = unifiedAiProviderOptions.map((item) => item.shortLabel);
-export const unifiedAiPriorityKeys = unifiedAiProviderOptions.filter((item) => item.key !== "auto").map((item) => item.key);
+export const unifiedAiPriorityKeys: UnifiedAiProviderKey[] = ["gemini", "groq", "openai", "openrouter", "ollama", "demo"];
 
 export function normalizeUnifiedAiProvider(value?: string | null): UnifiedAiProviderKey {
   const normalized = String(value || "").toLocaleLowerCase("tr").trim();
