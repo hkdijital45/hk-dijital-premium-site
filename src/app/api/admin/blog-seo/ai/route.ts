@@ -41,6 +41,10 @@ function wordCount(markdown: string) {
   return markdown.replace(/```[\s\S]*?```/g, " ").replace(/[#>*_`[\]()!-]/g, " ").split(/\s+/).filter(Boolean).length;
 }
 
+function pushWarning(target: string[], message: string) {
+  if (message && !target.includes(message)) target.push(message);
+}
+
 function uniqueSlug(base: string, existingSlugs: string[]) {
   const root = slugifyBlogValue(base) || "blog-yazisi";
   const existing = new Set(existingSlugs.map((item) => slugifyBlogValue(item)));
@@ -52,14 +56,32 @@ function uniqueSlug(base: string, existingSlugs: string[]) {
   return `${root}-${Date.now().toString(36)}`;
 }
 
-function normalizeDraft(raw: Record<string, unknown>, existingSlugs: string[], minWords: number) {
-  const title = clean(raw.title, 140);
-  const content = String(raw.content || "").trim().slice(0, 40_000);
+function unwrapDraftPayload(raw: Record<string, unknown>) {
+  for (const key of ["draft", "post", "article", "blogPost", "blog_post", "data", "result", "output"]) {
+    const value = raw[key];
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      const record = value as Record<string, unknown>;
+      if (record.title || record.content || record.body || record.markdown || record.article) return record;
+    }
+  }
+  return raw;
+}
+
+function normalizeDraft(rawInput: Record<string, unknown>, existingSlugs: string[], minWords: number) {
+  const raw = unwrapDraftPayload(rawInput);
+  const warnings: string[] = [];
+  const title = clean(raw.title || raw.headline || raw.name, 140);
+  const rawContent = raw.content || raw.markdown || raw.body || raw.article || raw.articleContent || raw.article_content;
+  const content = typeof rawContent === "string" ? rawContent.trim().slice(0, 40_000) : "";
   if (title.length < 8 || content.length < 500) throw new Error("AI taslağı eksik döndü. Başlık veya içerik yeterli değil.");
   const words = wordCount(content);
   if (words < minWords) {
-    throw new Error(`AI taslağı seçilen uzunluk için kısa kaldı (${words} kelime). Minimum kabul eşiği ${minWords} kelime. Taslağı genişletmeyi deneyin.`);
+    pushWarning(warnings, `AI taslağı seçilen uzunluk hedefinin altında kaldı (${words} kelime). Hedef en az ${minWords} kelimeydi; Taslağı genişlet işlemiyle büyütülebilir.`);
   }
+  const qualityNotes = [
+    ...cleanList(raw.qualityNotes || raw.quality_notes || raw.warnings, 8, 180),
+    ...warnings
+  ].slice(0, 10);
   return {
     title,
     slug: uniqueSlug(clean(raw.slug, 120) || title, existingSlugs),
@@ -75,7 +97,7 @@ function normalizeDraft(raw: Record<string, unknown>, existingSlugs: string[], m
     readingTime: Number(raw.readingTime || raw.reading_time || 0) || null,
     suggestedInternalLinks: Array.isArray(raw.suggestedInternalLinks) ? raw.suggestedInternalLinks : [],
     suggestedFaq: Array.isArray(raw.suggestedFaq) ? raw.suggestedFaq : [],
-    qualityNotes: cleanList(raw.qualityNotes || raw.quality_notes, 8, 180),
+    qualityNotes,
     wordCount: words
   };
 }
@@ -365,7 +387,7 @@ function parserOptionsForAction(action: string) {
   if (action === "social_package") return { expectedFields: ["instagram", "linkedin", "facebook", "x"] };
   if (action === "update_plan") return { expectedFields: ["summary", "suggestions", "sections", "recommendedChanges", "recommended_changes"] };
   if (action === "improve_draft" || action === "expand_draft") return { expectedFields: ["improvedContent", "improved_content", "revisedContent", "revised_content", "summary", "suggestions", "sections"] };
-  return { expectedFields: ["title", "content", "metaTitle", "meta_title", "metaDescription", "meta_description"] };
+  return { expectedFields: ["title", "content", "body", "markdown", "article", "draft", "blogPost", "blog_post", "metaTitle", "meta_title", "metaDescription", "meta_description"] };
 }
 
 function normalizeStringList(value: unknown, maxItems = 12, maxLength = 220) {
@@ -439,8 +461,10 @@ export async function POST(request: Request) {
   const requestedProvider = clean(body.aiProvider, 40);
   const providerMode = clean(body.aiMode, 20) === "manual" && providerOptions.has(requestedProvider) ? requestedProvider as IntelligenceProviderKey : "auto";
 
+  let failureStage = "unknown";
   try {
     const prompt = buildPrompt(action, body);
+    failureStage = "execute_ai_task";
     const generated = await executeAiTask({
       taskType: "seo_analysis",
       module: "Blog & SEO Merkezi",
@@ -473,6 +497,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Canlı AI sağlayıcısı yapılandırılmamış veya yanıt vermedi." }, { status: 503 });
     }
 
+    failureStage = "parse_structured_response";
     const parsedResult = parseStructuredAiResponse(generated.text, parserOptionsForAction(action));
     const parsed = parsedResult.value;
     const parserWarnings = parsedResult.warnings;
@@ -482,12 +507,14 @@ export async function POST(request: Request) {
       parseWarnings: parserWarnings
     };
     if (action === "topic_suggestions") {
+      failureStage = "validate_topic_suggestions";
       const suggestions = Array.isArray(parsed.suggestions) ? parsed.suggestions.slice(0, 8) : [];
       const normalized = normalizeTopicSuggestions(suggestions, ctx.existingTitles);
       if (!normalized.length) throw new Error("AI konu önerisi döndürmedi.");
       return NextResponse.json({ ok: true, action, suggestions: normalized, ai });
     }
     if (action === "weekly_plan") {
+      failureStage = "validate_weekly_plan";
       const rawItems = Array.isArray(parsed.items) ? parsed.items : Array.isArray(parsed.plan) ? parsed.plan : [];
       const existingSlugs = ctx.existingSlugs;
       const items = rawItems.slice(0, 24).map((item, index) => normalizeContentPlanItem(item as Record<string, unknown>, existingSlugs, index));
@@ -495,21 +522,34 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, action, items, ai });
     }
     if (action === "improve_draft" || action === "expand_draft") {
+      failureStage = "validate_improvement";
       return NextResponse.json({ ok: true, action, improvement: normalizeImprovement(parsed), ai });
     }
     if (action === "social_package") {
+      failureStage = "validate_social_package";
       return NextResponse.json({ ok: true, action, socialPackage: normalizeSocialPackage(parsed), ai });
     }
     if (action === "update_plan") {
+      failureStage = "validate_update_plan";
       return NextResponse.json({ ok: true, action, updatePlan: normalizeUpdatePlan(parsed), ai });
     }
-    return NextResponse.json({ ok: true, action, draft: normalizeDraft(parsed, ctx.existingSlugs, minWordsForLength(ctx.length)), ai });
+    failureStage = "validate_generate_draft";
+    const draft = normalizeDraft(parsed, ctx.existingSlugs, minWordsForLength(ctx.length));
+    const draftWarnings = cleanList(draft.qualityNotes, 10, 220).filter((note) => note.includes("hedefinin altında"));
+    const draftAi = {
+      ...ai,
+      warning: [ai.warning, ...draftWarnings].filter(Boolean).join(" ") || null
+    };
+    return NextResponse.json({ ok: true, action, draft, ai: draftAi });
   } catch (error) {
-    console.warn("[blog-seo-ai] structured response handling failed", {
-      action,
-      providerMode,
-      message: error instanceof Error ? error.message.slice(0, 180) : "AI içerik işlemi tamamlanamadı."
-    });
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[blog-seo-ai] structured response handling failed", {
+        action,
+        providerMode,
+        stage: failureStage,
+        message: error instanceof Error ? error.message.slice(0, 180) : "AI içerik işlemi tamamlanamadı."
+      });
+    }
     return NextResponse.json({ error: error instanceof Error ? error.message : "AI içerik işlemi tamamlanamadı." }, { status: 502 });
   }
 }

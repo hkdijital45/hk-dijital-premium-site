@@ -19,7 +19,7 @@ function hasExpectedField(value: Record<string, unknown>, expectedFields: string
 
 function unwrapProviderEnvelope(value: unknown, expectedFields: string[], warnings: string[]): unknown {
   let current = value;
-  const envelopeKeys = ["data", "result", "output", "content", "response"];
+  const envelopeKeys = ["data", "result", "output", "content", "response", "draft", "post", "article", "blogPost", "blog_post"];
   for (let depth = 0; depth < 3; depth += 1) {
     if (!isRecord(current)) return current;
     const record = current;
