@@ -59,8 +59,6 @@ const adminNavigationSourceGroups: AdminNavigationGroup[] = [
       { label: "Müşteri Keşfi", slug: "musteri-kesfi", module: "musteri-bulucu", description: "Yeni işletme adayları ve dijital fırsat sinyalleri." },
       { label: "Haritalar", slug: "haritalar", module: "haritalar", description: "Bölgesel işletme keşfi ve Google Maps sinyalleri." },
       { label: "Rakip İstihbarat Merkezi", slug: "rakip-analizi", module: "rakip-analizi", description: "Lead veya müşteri için gerçek rakip keşfi, skor ve sinyal takibi." },
-      { label: "Lead Workspace", slug: "lead-workspace", module: "leads", description: "Lead detay çalışma alanı ve satış notları." },
-      { label: "Lead Analizi", slug: "lead-analizi", module: "leads", description: "Lead kalitesi, sıcaklık ve dönüşüm potansiyeli analizi." },
       { label: "Takip Merkezi", slug: "takip-merkezi", module: "leads", description: "Arama, WhatsApp, toplantı ve teklif takipleri." },
       { label: "Satış Hunisi", slug: "satis-hunisi", module: "leads", description: "Lead aşamaları, fırsatlar ve satış ilerleme görünümü." },
       { label: "Teklif Oluştur", slug: "teklif-hazirlama", module: "teklifler", description: "Lead veya müşteri verisinden teklif hazırlama." },
@@ -307,8 +305,11 @@ const legacySlugRedirects: Record<string, string> = {
   "musteri-yonetimi": "musteriler",
   reddedilenler: "leads",
   silinenler: "leads",
-  "lead-yonetimi": "lead-analizi",
-  "crm-lead-workspace": "lead-workspace",
+  "lead-yonetimi": "leads",
+  "lead-analizi": "leads",
+  "lead-analysis": "leads",
+  "lead-workspace": "leads",
+  "crm-lead-workspace": "leads",
   "teklif-takip": "teklif-takip-merkezi",
   "proposal-followups": "teklif-takip-merkezi",
   "won-lost-analysis": "kazanildi-kaybedildi-analizi",
@@ -427,7 +428,6 @@ export function getCanonicalAdminSlug(slug = "") {
 }
 
 export function getAdminHref(slug: string) {
-  if (slug === "lead-workspace") return "/lead-workspace";
   if (slug === "proposal-builder") return "/proposal-builder";
   return slug ? `/hk-admin/${slug}` : "/hk-admin";
 }
