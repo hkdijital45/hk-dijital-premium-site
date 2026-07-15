@@ -23,7 +23,8 @@ async function requireAiProviderAccess() {
     || await requireModuleAccess("google-analiz")
     || await requireModuleAccess("meta-analiz")
     || await requireModuleAccess("sosyal-medya-denetimi")
-    || await requireModuleAccess("raporlar");
+    || await requireModuleAccess("raporlar")
+    || await requireModuleAccess("blog-seo");
 }
 
 function envFor(key: string) {

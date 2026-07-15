@@ -18,7 +18,8 @@ export async function GET() {
     || await requireModuleAccess("google-analiz")
     || await requireModuleAccess("meta-analiz")
     || await requireModuleAccess("sosyal-medya-denetimi")
-    || await requireModuleAccess("raporlar");
+    || await requireModuleAccess("raporlar")
+    || await requireModuleAccess("blog-seo");
   if (!session) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 403 });
   const health = await getProviderHealthSummary();
   return NextResponse.json({
