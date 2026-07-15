@@ -34,6 +34,11 @@ export type BlogPost = {
   og_image_url?: string | null;
   featured: boolean;
   allow_indexing: boolean;
+  approved_for_publish?: boolean;
+  approved_at?: string | null;
+  approved_by?: string | null;
+  ai_image_metadata?: Record<string, unknown>;
+  last_performance_check_at?: string | null;
   published_at?: string | null;
   scheduled_at?: string | null;
   created_at?: string;

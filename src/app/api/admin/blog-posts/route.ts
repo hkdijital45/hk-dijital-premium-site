@@ -48,6 +48,9 @@ function normalizePayload(input: Record<string, unknown>, userId?: string) {
     featured: Boolean(input.featured),
     allow_indexing: input.allow_indexing !== false,
     scheduled_at: text(input.scheduled_at) || null,
+    approved_for_publish: Boolean(input.approved_for_publish),
+    approved_at: Boolean(input.approved_for_publish) ? text(input.approved_at, new Date().toISOString()) : null,
+    approved_by: Boolean(input.approved_for_publish) ? userId || null : null,
     published_at: status === "published" ? text(input.published_at, new Date().toISOString()) : text(input.published_at) || null,
     updated_by: userId || null
   };

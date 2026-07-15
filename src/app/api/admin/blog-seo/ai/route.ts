@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
+import { normalizeContentPlanItem } from "@/lib/blog-content-ops";
 import { blogCategories, slugifyBlogValue } from "@/lib/blog-seo-shared";
 import { requireModuleAccess } from "@/lib/permissions";
 import { servicePages } from "@/lib/public-seo-content";
 import { executeAiTask } from "@/lib/server/ai-router";
 
-const actions = new Set(["topic_suggestions", "generate_draft", "improve_draft"]);
+const actions = new Set(["topic_suggestions", "generate_draft", "improve_draft", "weekly_plan", "social_package", "update_plan"]);
 const intents = new Set(["Bilgilendirici", "Ticari araştırma", "Hizmet arama", "Yerel arama", "Karşılaştırma", "Sorun çözme"]);
 const contentTypes = new Set(["Rehber", "Hizmet açıklaması", "Kontrol listesi", "Karşılaştırma", "Sık sorulan sorular", "Yerel SEO yazısı", "Vaka odaklı içerik"]);
 const tones = new Set(["Profesyonel", "Açıklayıcı", "Güven veren", "Sade", "Satış odaklı fakat abartısız"]);
@@ -123,6 +124,108 @@ function buildPrompt(action: string, body: Record<string, unknown>) {
     }, null, 2);
   }
 
+  if (action === "weekly_plan") {
+    return JSON.stringify({
+      task: "Haftalık blog içerik planı üret",
+      rules: [
+        ...sharedRules,
+        "Tek AI çağrısıyla plan öğeleri üret.",
+        "Benzer başlık, slug veya anahtar kelime kümeleri üretme.",
+        "Otomatik yayın önerme; tüm öğeler planlandı veya taslak hazırlığı durumunda kalsın.",
+        "Google Trends, Search Console veya rakip verisi yoksa kaynak etiketi olarak kullanma.",
+        "Cevabı yalnız geçerli JSON object olarak döndür; markdown kullanma."
+      ],
+      context: {
+        ...ctx,
+        planName: clean(body.planName, 160),
+        objective: clean(body.objective, 200),
+        weeklyCount: Number(body.weeklyCount || 2),
+        startDate: clean(body.startDate, 40),
+        endDate: clean(body.endDate, 40),
+        preferredDays: cleanList(body.preferredDays, 7, 20),
+        preferredTime: clean(body.preferredTime, 20),
+        excludedKeywords: cleanList(body.excludedKeywords, 20, 80),
+        competitorNotes: clean(body.competitorNotes, 1000),
+        searchConsoleSignals: Array.isArray(body.searchConsoleSignals) ? body.searchConsoleSignals : [],
+        trendSignals: Array.isArray(body.trendSignals) ? body.trendSignals : []
+      },
+      existingTitles: ctx.existingTitles,
+      existingSlugs: ctx.existingSlugs,
+      outputShape: {
+        items: [{
+          title: "string",
+          slug: "string",
+          primaryKeyword: "string",
+          secondaryKeywords: ["string"],
+          searchIntent: "string",
+          targetAudience: "string",
+          contentType: "string",
+          scheduledAt: "ISO datetime or null",
+          priority: "Yüksek | Orta | Düşük",
+          rationale: "string",
+          sourceSignals: ["Manual brief", "Mevcut içerik boşluğu", "Rakip", "Mevsimsel"]
+        }]
+      }
+    }, null, 2);
+  }
+
+  if (action === "social_package") {
+    return JSON.stringify({
+      task: "Blog yazısını sosyal medya içerik paketine dönüştür",
+      rules: [
+        ...sharedRules,
+        "Tek çağrıda Instagram, LinkedIn, Facebook ve X taslaklarını üret.",
+        "Paylaşılmış gibi davranma; yalnız düzenlenebilir taslak üret.",
+        "Sahte sonuç, garanti, müşteri verisi veya abartılı başarı iddiası yazma.",
+        "Hashtag doldurma yapma; yalnız ilgili ve sınırlı öner.",
+        "Cevabı yalnız geçerli JSON object olarak döndür."
+      ],
+      blog: {
+        title: clean(body.title, 180),
+        excerpt: clean(body.excerpt, 600),
+        content: clean(body.content, 6000),
+        url: clean(body.url, 240)
+      },
+      outputShape: {
+        instagram: { shortCaption: "string", longCaption: "string", carouselSlides: ["string"], reelsCaption: "string", cta: "string", hashtags: ["string"] },
+        linkedin: { professionalPost: "string", shortPost: "string", expertOpinion: "string", cta: "string" },
+        facebook: { informativePost: "string", shortPromo: "string", cta: "string" },
+        x: { singlePost: "string", thread: ["string"], headlineOptions: ["string"] }
+      }
+    }, null, 2);
+  }
+
+  if (action === "update_plan") {
+    return JSON.stringify({
+      task: "Mevcut blog yazısı için güncelleme planı üret",
+      rules: [
+        ...sharedRules,
+        "Kayıtlı içeriği değiştirme; yalnız öneri ve uygulanabilir plan üret.",
+        "Trafik veya gelir garantisi verme.",
+        "Verilmeyen Search Console veya Analytics metriğini uydurma.",
+        "Cevabı yalnız geçerli JSON object olarak döndür."
+      ],
+      blog: {
+        title: clean(body.title, 180),
+        metaTitle: clean(body.metaTitle, 120),
+        metaDescription: clean(body.metaDescription, 240),
+        primaryKeyword: clean(body.primaryKeyword, 120),
+        content: clean(body.content, 7000)
+      },
+      deterministicFindings: Array.isArray(body.findings) ? body.findings : [],
+      outputShape: {
+        summary: "string",
+        priority: "Yüksek | Orta | Düşük",
+        recommendedChanges: ["string"],
+        newSections: ["string"],
+        titleOptions: ["string"],
+        metaDescriptionOptions: ["string"],
+        internalLinkIdeas: ["string"],
+        risks: ["string"]
+      }
+    }, null, 2);
+  }
+
   if (action === "improve_draft") {
     return JSON.stringify({
       task: "Mevcut blog taslağı için uygulanabilir geliştirme önerisi üret",
@@ -181,7 +284,7 @@ export async function POST(request: Request) {
   if (!actions.has(action)) return NextResponse.json({ error: "Geçersiz AI işlemi" }, { status: 400 });
 
   const ctx = contextFromBody(body);
-  if (action !== "improve_draft" && !ctx.keyword && !ctx.service) {
+    if (!["improve_draft", "social_package", "update_plan"].includes(action) && !ctx.keyword && !ctx.service) {
     return NextResponse.json({ error: "Hedef hizmet veya ana konu girin." }, { status: 400 });
   }
   if (action === "improve_draft" && !clean(ctx.currentDraft.content, 20_000)) {
@@ -212,8 +315,21 @@ export async function POST(request: Request) {
       if (!suggestions.length) throw new Error("AI konu önerisi döndürmedi.");
       return NextResponse.json({ ok: true, action, suggestions, ai: generated });
     }
+    if (action === "weekly_plan") {
+      const rawItems = Array.isArray(parsed.items) ? parsed.items : [];
+      const existingSlugs = ctx.existingSlugs;
+      const items = rawItems.slice(0, 24).map((item, index) => normalizeContentPlanItem(item as Record<string, unknown>, existingSlugs, index));
+      if (!items.length) throw new Error("AI içerik planı öğesi döndürmedi.");
+      return NextResponse.json({ ok: true, action, items, ai: generated });
+    }
     if (action === "improve_draft") {
       return NextResponse.json({ ok: true, action, improvement: parsed, ai: generated });
+    }
+    if (action === "social_package") {
+      return NextResponse.json({ ok: true, action, socialPackage: parsed, ai: generated });
+    }
+    if (action === "update_plan") {
+      return NextResponse.json({ ok: true, action, updatePlan: parsed, ai: generated });
     }
     return NextResponse.json({ ok: true, action, draft: normalizeDraft(parsed, ctx.existingSlugs), ai: generated });
   } catch (error) {
