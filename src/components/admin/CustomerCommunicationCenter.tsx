@@ -452,13 +452,13 @@ export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canMan
 
   if (activeChannel === "team") {
     return <div className="min-w-0 space-y-4">
-      <CommunicationTabs active={activeChannel} onChange={setActiveChannel} />
+      <CommunicationTabs active={activeChannel} onChange={setActiveChannel} customerUnread={unreadCount} />
       <TeamCommunicationCenter initialConversationId={teamConversationId || requestedConversationId} />
     </div>;
   }
 
   return <div className="min-w-0 space-y-4">
-    <CommunicationTabs active={activeChannel} onChange={setActiveChannel} />
+    <CommunicationTabs active={activeChannel} onChange={setActiveChannel} customerUnread={unreadCount} />
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <Kpi icon={<Inbox size={20} />} label="Açık konuşma" value={openCount} tone="cyan" />
       <Kpi icon={<MessageSquareText size={20} />} label="Okunmamış mesaj" value={unreadCount} tone="rose" />
@@ -617,11 +617,44 @@ export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canMan
   </div>;
 }
 
-function CommunicationTabs({ active, onChange }: { active: string; onChange: (value: string) => void }) {
-  return <div className="flex flex-wrap gap-2 rounded-[18px] border border-slate-200 bg-white p-2 shadow-sm">
-    <button type="button" onClick={() => onChange("customers")} className={`min-h-11 rounded-[12px] px-4 text-sm font-black transition ${active === "customers" ? "bg-cyan-600 text-white" : "bg-slate-50 text-slate-700 hover:bg-slate-100"}`}>Müşteri Mesajları</button>
-    <button type="button" onClick={() => onChange("team")} className={`min-h-11 rounded-[12px] px-4 text-sm font-black transition ${active === "team" ? "bg-slate-900 text-white" : "bg-slate-50 text-slate-700 hover:bg-slate-100"}`}>Ekip İletişimi</button>
-  </div>;
+function CommunicationTabs({ active, onChange, customerUnread = 0 }: { active: string; onChange: (value: string) => void; customerUnread?: number }) {
+  const cards = [
+    {
+      key: "customers",
+      title: "Müşteri İletişimi",
+      description: "Müşteri taleplerini, destek kayıtlarını ve operasyon konuşmalarını yönetin.",
+      icon: <Inbox size={28} />,
+      badge: customerUnread,
+      activeClass: "border-cyan-300 bg-gradient-to-br from-cyan-500 to-sky-700 text-white shadow-[0_20px_48px_rgba(8,145,178,.24)]",
+      idleClass: "border-slate-200 bg-white text-slate-900 hover:border-cyan-200 hover:bg-cyan-50"
+    },
+    {
+      key: "team",
+      title: "Ekip İletişimi",
+      description: "Ajans içi koordinasyonu sağlayın, ekip operasyonlarını tek merkezden yürütün.",
+      icon: <MessageSquareText size={28} />,
+      badge: 0,
+      activeClass: "border-violet-300 bg-gradient-to-br from-slate-900 via-violet-900 to-slate-800 text-white shadow-[0_20px_48px_rgba(76,29,149,.24)]",
+      idleClass: "border-slate-200 bg-white text-slate-900 hover:border-violet-200 hover:bg-violet-50"
+    }
+  ];
+  return <section aria-label="İletişim kanalı seçimi" className="grid gap-3 md:grid-cols-2">
+    {cards.map((card) => {
+      const selected = active === card.key;
+      return <button
+        key={card.key}
+        type="button"
+        onClick={() => onChange(card.key)}
+        aria-pressed={selected}
+        className={`group relative min-h-[128px] overflow-hidden rounded-[22px] border p-5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 ${selected ? card.activeClass : card.idleClass}`}
+      >
+        <span className={`grid size-14 place-items-center rounded-[16px] ${selected ? "bg-white/20 text-white" : "bg-slate-100 text-slate-700 group-hover:bg-white"}`}>{card.icon}</span>
+        <span className="mt-4 flex items-center gap-2 text-xl font-black">{card.title}{card.badge > 0 ? <span className="rounded-full bg-amber-300 px-2.5 py-1 text-xs font-black text-slate-950">{card.badge}</span> : null}</span>
+        <span className={`mt-2 block max-w-xl text-sm font-semibold leading-6 ${selected ? "text-white/80" : "text-slate-600"}`}>{card.description}</span>
+        <span className={`absolute right-4 top-4 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[.12em] ${selected ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"}`}>{selected ? "Aktif" : "Seç"}</span>
+      </button>;
+    })}
+  </section>;
 }
 
 function Kpi({ icon, label, value, tone }: { icon: ReactNode; label: string; value: number; tone: string }) {

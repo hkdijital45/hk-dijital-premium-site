@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Archive, CheckCircle2, Edit3, FileText, Loader2, Plus, Search, Send } from "lucide-react";
+import { HKButton, HKPageHeader } from "@/components/admin/HKDesignSystem";
 import { analyzeBlogPost, blogCategories, contentIntentMap, seedBlogPosts, slugifyBlogValue, type BlogCategory, type BlogPost, type BlogStatus } from "@/lib/blog-seo-shared";
 
 const statusLabels: Record<BlogStatus, string> = { draft: "Taslak", review: "İncelemede", scheduled: "Planlandı", published: "Yayında", archived: "Arşiv" };
@@ -165,14 +166,12 @@ export function BlogSeoCenter() {
   return (
     <main className="min-h-screen bg-[#050711] px-4 py-8 text-white sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-sm font-black uppercase tracking-[.2em] text-cyan-200">İçerik ve AI</p>
-            <h1 className="mt-2 text-4xl font-black tracking-tight">Blog & SEO Merkezi</h1>
-            <p className="mt-3 max-w-3xl text-slate-400">Blog yazıları, arama niyeti haritası, içerik takvimi ve açıklanabilir SEO kalite kontrolleri.</p>
-          </div>
-          <button type="button" onClick={() => setDraft({ ...emptyPost })} className="inline-flex items-center gap-2 rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950 hover:bg-cyan-200"><Plus size={16} /> Yeni yazı</button>
-        </div>
+        <HKPageHeader
+          eyebrow="İçerik ve AI"
+          title="Blog & SEO Merkezi"
+          description="Blog yazıları, arama niyeti haritası, içerik takvimi ve açıklanabilir SEO kalite kontrolleri."
+          action={<HKButton type="button" onClick={() => setDraft({ ...emptyPost })} icon={<Plus size={16} />}>Yeni yazı</HKButton>}
+        />
         {message ? <div className="mt-5 rounded-2xl border border-cyan-200/20 bg-cyan-300/10 px-4 py-3 text-sm font-bold text-cyan-100">{message}</div> : null}
         <section className="mt-7 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {[["Toplam yazı", metrics.total], ["Yayında", metrics.published], ["Taslak", metrics.draft], ["İncelemede", metrics.review], ["Planlanan", metrics.scheduled], ["Ortalama SEO", metrics.avgSeo], ["Okunabilirlik", metrics.avgReadability], ["Güncelleme önerisi", metrics.updateNeeded]].map(([label, value]) => <div key={label} className="rounded-[20px] border border-white/10 bg-white/[0.045] p-5"><p className="text-sm font-bold text-slate-400">{label}</p><p className="mt-2 text-3xl font-black text-white">{value}</p></div>)}

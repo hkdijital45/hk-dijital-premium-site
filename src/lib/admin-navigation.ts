@@ -109,7 +109,7 @@ const adminNavigationSourceGroups: AdminNavigationGroup[] = [
     badge: "Ajans",
     accent: "from-cyan-500 via-blue-600 to-indigo-700",
     items: [
-      { label: "Müşteri İletişim Merkezi", slug: "iletisim-merkezi", module: "iletisim-merkezi", description: "Müşteri talepleri, ekip yanıtları, atamalar ve iletişim geçmişi." },
+      { label: "İletişim Merkezi", slug: "iletisim-merkezi", module: "iletisim-merkezi", description: "Müşteri talepleri, ekip yanıtları, atamalar ve ekip içi iletişim geçmişi." },
       { label: "Görevler", slug: "gorevler", module: "gorevler", description: "Ajans içi yapılacak işler ve müşteri görünür görevler." },
       { label: "Takvim", slug: "takvim", module: "gorevler", description: "Görev, kampanya, rapor ve tahsilat tarihleri." },
       { label: "Ajans Hedefleri", slug: "ajans-hedefleri", module: "karlilik", description: "Aylık gelir, müşteri, teklif, görüşme ve tahsilat hedefleri." },
@@ -191,7 +191,6 @@ const adminNavigationSourceGroups: AdminNavigationGroup[] = [
       { label: "Roller", slug: "roller-yetkiler", module: "kullanicilar", description: "Rol ve modül yetkileri." },
       { label: "Tema / Logo", slug: "tema-logo", module: "tema-ayarlari", description: "Logo ve marka görselleri için merkezi ayarlar." },
       { label: "Sistem Ayarları", slug: "sistem-ayarlari", module: "site-ayarlari", description: "Genel uygulama davranışı ve sistem tercihleri." },
-      { label: "Mobil Operasyon Modu", slug: "mobil-operasyon-modu", module: "site-ayarlari", description: "Saha kullanımı için büyük butonlu admin görünüm tercihi." },
       { label: "Güvenlik", slug: "guvenlik", module: "kullanicilar", description: "Kullanıcı erişimi, rol güvenliği ve yönetim kontrolleri." },
       { label: "HK Asistan Ayarları", slug: "hk-asistan-ayarlari", module: "hk-asistan", description: "Müşteri bazlı HK Asistan izinleri, sağlayıcı modu ve günlük limitler." }
     ]

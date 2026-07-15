@@ -513,17 +513,6 @@ export function AdminDashboard({
     localStorage.removeItem("hk-admin-selected-company");
   }
 
-  function toggleMobileOperationMode() {
-    setMobileOperationMode((current) => {
-      const next = !current;
-      try {
-        localStorage.setItem("hk-mobile-operation-mode", next ? "true" : "false");
-      } catch {}
-      notify(next ? "Mobil Operasyon Modu açıldı." : "Masaüstü Modu açıldı.", "success");
-      return next;
-    });
-  }
-
   useEffect(() => {
     if (!bootVisible) return;
     const timer = window.setInterval(() => {
@@ -813,16 +802,6 @@ export function AdminDashboard({
             <button onClick={() => setCopilotOpen(true)} className="inline-flex min-h-10 items-center gap-2 rounded-[8px] bg-purple-100 px-4 text-sm font-black text-purple-700 ring-1 ring-purple-200 transition hover:bg-purple-200">
               <Bot size={17} /> HK Copilot
             </button>
-            <button
-              type="button"
-              aria-label="Mobil Operasyon Modu Toggle"
-              aria-pressed={mobileOperationMode}
-              onClick={toggleMobileOperationMode}
-              className={`inline-flex min-h-10 items-center gap-2 rounded-[8px] border px-4 text-sm font-black transition ${mobileOperationMode ? "border-cyan-300 bg-cyan-300 text-slate-950 shadow-[0_12px_30px_rgba(6,182,212,.22)]" : "border-slate-200 bg-white text-slate-700 hover:border-cyan-200 hover:bg-cyan-50"}`}
-              title="Mobil Operasyon Modu yalnızca admin arayüz görünüm tercihini değiştirir; CRM veya lead kaydı güncellemez."
-            >
-              {mobileOperationMode ? "🖥️ Masaüstü Mod" : "📱 Mobil Mod"}
-            </button>
             <div className="relative">
               <button onClick={() => setNotificationsOpen((current) => !current)} className="relative grid min-h-10 min-w-10 place-items-center rounded-[8px] border border-slate-200 bg-white text-slate-700 transition hover:border-cyan-200/30 hover:bg-cyan-200/10" aria-label="Bildirimler">
                 <Bell size={17} />
@@ -874,10 +853,9 @@ export function AdminDashboard({
           {active === "Kazanıldı / Kaybedildi Analizi" && <WonLostAnalysisCenter {...props} />}
           {active === "Ajans Hedefleri" && <AgencyTargetsCenter {...props} />}
           {active === "Yapay Zekâ Satış Koçu" && <AiSalesCoachCenter {...props} />}
-          {active === "Mobil Operasyon Modu" && <MobileOperationModeCenter />}
           {active === "Yapay Zekâ Denetim" && <AiAuditCenter {...props} setActive={setActive} />}
           {active === "Görevler" && <AgencyTasksCenter {...props} selectedCompanyId={selectedCompanyId} />}
-          {active === "Müşteri İletişim Merkezi" && <CustomerCommunicationAdminCenter initialCompanyId={selectedCompanyId} canManageTemplates={["admin", "yonetici"].includes(currentSession?.role || "")} />}
+          {["İletişim Merkezi", "Müşteri İletişim Merkezi"].includes(active) && <CustomerCommunicationAdminCenter initialCompanyId={selectedCompanyId} canManageTemplates={["admin", "yonetici"].includes(currentSession?.role || "")} />}
           {active === "Belgeler" && <DocumentCenter {...props} selectedCompanyId={selectedCompanyId} />}
           {active === "Takvim" && <AgencyCalendarCenter {...props} />}
           {active === "Sözleşme Oluştur" && <ContractGeneratorCenter {...props} />}
@@ -10581,23 +10559,6 @@ function AiSalesCoachCenter({ content, notify }: any) {
     notify?.("Kopyalandı.", "success");
   }
   return <Panel title="Yapay Zekâ Satış Koçu"><p className="mb-5 text-sm leading-6 text-slate-500">Fırsat veya lead için arama metni, WhatsApp mesajı, e-posta taslağı, itiraz cevapları ve kapanış cümlesi üretir.</p><SelectField label="Fırsat / lead seç" value={selectedId} onChange={setSelectedId} options={[...opportunities.map((item: any) => ({ value: item.id, label: `${item.sector || "Fırsat"} · ${item.city || "Şehir yok"}` })), ...leads.map((item: any) => ({ value: item.id, label: `${item.company || item.name || "Lead"} · ${item.business_type || item.sector || "Sektör yok"}` }))]} /><div className="mt-5 grid gap-4 md:grid-cols-2"><div className="rounded-[12px] border border-slate-200 bg-slate-50 p-4"><h3 className="font-black">İlk WhatsApp mesajı</h3><p className="mt-3 text-sm leading-6 text-slate-600">{message}</p><button onClick={() => copy(message)} className="mt-4 rounded-full bg-emerald-500 px-4 py-2 text-xs font-black text-white">WhatsApp mesajını kopyala</button></div><div className="rounded-[12px] border border-slate-200 bg-slate-50 p-4"><h3 className="font-black">E-posta taslağı</h3><pre className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">{email}</pre><button onClick={() => copy(email)} className="mt-4 rounded-full bg-blue-500 px-4 py-2 text-xs font-black text-white">E-posta metnini kopyala</button></div><div className="rounded-[12px] border border-amber-200 bg-amber-50 p-4"><h3 className="font-black">İtiraz cevapları</h3><ul className="mt-3 grid gap-2 text-sm leading-6 text-slate-700"><li><strong>Pahalı:</strong> Önce küçük bütçeli testle ölçülebilir sonuç görelim.</li><li><strong>Ajansımız var:</strong> Mevcut yapınızı bozmayıp ikinci görüş olarak performans açığı çıkarabiliriz.</li><li><strong>Daha önce denedik:</strong> Eski kampanyayı analiz edip neden sonuç alınmadığını netleştirelim.</li></ul><button onClick={() => copy("Önce küçük bütçeli testle ölçülebilir sonuç görelim. Mevcut yapınızı bozmayıp performans açığını netleştirebiliriz.")} className="mt-4 rounded-full border border-amber-300 px-4 py-2 text-xs font-black text-amber-700">İtiraz cevabını kopyala</button></div><div className="rounded-[12px] border border-purple-200 bg-purple-50 p-4"><h3 className="font-black">Kapanış cümlesi</h3><p className="mt-3 text-sm leading-6 text-slate-700">İsterseniz ilk adım olarak bu hafta kısa bir analiz ve uygulanabilir teklif planını yazılı paylaşayım.</p><button onClick={() => copy("İsterseniz ilk adım olarak bu hafta kısa bir analiz ve uygulanabilir teklif planını yazılı paylaşayım.")} className="mt-4 rounded-full border border-purple-300 px-4 py-2 text-xs font-black text-purple-700">Kapanış cümlesini kopyala</button></div></div></Panel>;
-}
-
-function MobileOperationModeCenter() {
-  const [enabled, setEnabled] = useState(false);
-  useEffect(() => {
-    try {
-      setEnabled(localStorage.getItem("hk-mobile-operation-mode") === "true");
-    } catch {}
-  }, []);
-  function toggle() {
-    const next = !enabled;
-    setEnabled(next);
-    try {
-      localStorage.setItem("hk-mobile-operation-mode", next ? "true" : "false");
-    } catch {}
-  }
-  return <Panel title="Mobil Operasyon Modu"><p className="mb-5 text-sm leading-6 text-slate-500">Saha kullanımında fırsat kartları, keşif, yapay zekâ analiz, teklif ve görev aksiyonlarını daha büyük ve tek sütunlu gösterir. Bu tercih yalnızca localStorage üzerinde saklanır; CRM veya lead verisi güncellemez.</p><button onClick={toggle} className={`rounded-[12px] px-6 py-4 text-sm font-black ${enabled ? "bg-cyan-300 text-slate-950" : "border border-slate-200 bg-white text-slate-700"}`}>{enabled ? "🖥️ Masaüstü Mod" : "📱 Mobil Mod"}</button><div className="mt-5 grid gap-3 md:grid-cols-3"><div className="rounded-[12px] border border-slate-200 bg-slate-50 p-4"><h3 className="font-black">Etkilediği alanlar</h3><p className="mt-2 text-sm leading-6 text-slate-500">Fırsat detayları, Ajans Satış Operasyon Merkezi, İşletme Keşfi, Yapay Zekâ Analizi ve Teklif aksiyonları.</p></div><div className="rounded-[12px] border border-slate-200 bg-slate-50 p-4"><h3 className="font-black">Veri güvenliği</h3><p className="mt-2 text-sm leading-6 text-slate-500">Bu ayar Supabase’e lead kaydı olarak yazılmaz. Yalnızca admin arayüz tercihidir.</p></div><div className="rounded-[12px] border border-slate-200 bg-slate-50 p-4"><h3 className="font-black">Mobil davranış</h3><p className="mt-2 text-sm leading-6 text-slate-500">Butonlar büyür, kartlar tek sütuna iner ve kritik aksiyonlar daha kolay basılabilir hale gelir.</p></div></div></Panel>;
 }
 
 function PreparationCenter({ content, setContent, setActive, mode = "Hazırlık Merkezi" }: any) {
