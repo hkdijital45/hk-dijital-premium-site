@@ -5,6 +5,7 @@ import { recordActionFailure, recordActivity } from "@/lib/activity-log";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 import { normalizeRole } from "@/lib/permissions";
 import { checkOperationalCustomer } from "@/lib/server/customer-visibility";
+import { isSelectableCustomer } from "@/lib/customer-visibility";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -646,6 +647,10 @@ function normalizeRecord(key: string, item: any) {
   return { ...item, ...base };
 }
 
+function asRows(value: unknown): any[] {
+  return Array.isArray(value) ? value : [];
+}
+
 async function upsertItems(key: keyof typeof tables, items: any[] = []) {
   if (!items.length || key === "users") return [];
   const table = tables[key];
@@ -831,36 +836,67 @@ export async function GET() {
       supabaseRest("agency_notifications?select=*&order=created_at.desc&limit=500").catch(() => [])
     ]);
 
+  const companyRows = asRows(companies);
+  const companyIds = new Set(companyRows.map((company: any) => String(company.id)).filter(Boolean));
+  const selectableCompanyIds = new Set(companyRows.filter((company: any) => isSelectableCustomer(company)).map((company: any) => String(company.id)));
+  const belongsToExistingCompany = (item: any, key = "company_id") => {
+    const id = item?.[key];
+    return !id || companyIds.has(String(id));
+  };
+  const belongsToSelectableCompany = (item: any, key = "company_id") => {
+    const id = item?.[key];
+    return !id || selectableCompanyIds.has(String(id));
+  };
+  const operationalAgencyTasks = asRows(agencyTasks).filter((item: any) => belongsToSelectableCompany(item));
+  const operationalCustomerUpdates = asRows(customerUpdates).filter((item: any) => belongsToSelectableCompany(item));
+  const operationalCampaigns = asRows(campaigns).filter((item: any) => belongsToSelectableCompany(item));
+  const operationalCustomerIntegrations = asRows(customerIntegrations).filter((item: any) => belongsToSelectableCompany(item));
+  const operationalAdIntegrations = asRows(adIntegrations).filter((item: any) => belongsToSelectableCompany(item));
+  const operationalCustomerVisibilitySettings = asRows(customerVisibilitySettings).filter((item: any) => belongsToSelectableCompany(item));
+  const operationalCustomerBranding = asRows(customerBranding).filter((item: any) => belongsToSelectableCompany(item));
+  const operationalCompetitorAnalyses = asRows(competitorAnalyses).filter((item: any) => belongsToSelectableCompany(item));
+  const operationalSocialMediaPlans = asRows(socialMediaPlans).filter((item: any) => belongsToSelectableCompany(item));
+  const operationalAgencyNotifications = asRows(agencyNotifications).filter((item: any) => belongsToSelectableCompany(item));
+  const operationalCompetitorSignals = asRows(competitorSignals).filter((item: any) => belongsToSelectableCompany(item));
+  const safePaymentRecords = asRows(paymentRecords).filter((item: any) => belongsToExistingCompany(item));
+  const safeReports = asRows(reports).filter((item: any) => belongsToExistingCompany(item));
+  const safeMonthlyReports = asRows(monthlyReports).filter((item: any) => belongsToExistingCompany(item));
+  const safeCustomerDocuments = asRows(customerDocuments).filter((item: any) => belongsToExistingCompany(item));
+  const safeCustomerFiles = asRows(customerFiles).filter((item: any) => belongsToExistingCompany(item));
+  const safeActivityLogs = asRows(activityLogs).filter((item: any) => belongsToExistingCompany(item));
+  const safeCustomerBranches = asRows(customerBranches).filter((item: any) => belongsToExistingCompany(item));
+  const safeCustomerUserBranches = asRows(customerUserBranches).filter((item: any) => belongsToExistingCompany(item));
+
   return NextResponse.json({
     companies,
     users,
     leads,
-    campaigns,
+    campaigns: operationalCampaigns,
     campaignMetrics,
     metaAdsetMetrics,
     metaAdMetrics,
     metaConversionEvents,
     metaAnalysisSnapshots,
     customerReportVisibility,
-    customerUpdates,
-    customerVisibilitySettings,
-    customerFiles,
+    customerUpdates: operationalCustomerUpdates,
+    customerVisibilitySettings: operationalCustomerVisibilitySettings,
+    customerFiles: safeCustomerFiles,
     media,
-    customerBranding,
-    customerIntegrations,
-    monthlyReports,
-    agencyTasks,
-    customerDocuments,
-    paymentRecords,
-    reports,
-    competitorAnalyses,
-    socialMediaPlans,
+    customerBranding: operationalCustomerBranding,
+    customerIntegrations: operationalCustomerIntegrations,
+    monthlyReports: safeMonthlyReports,
+    agencyTasks: operationalAgencyTasks,
+    customerDocuments: safeCustomerDocuments,
+    paymentRecords: safePaymentRecords,
+    reports: safeReports,
+    competitorAnalyses: operationalCompetitorAnalyses,
+    socialMediaPlans: operationalSocialMediaPlans,
     agencyExpenses,
     sectorConfigs,
     systemTestRuns,
     systemTestChecklist,
-    activityLogs,
-    adIntegrations,
+    activityLogs: safeActivityLogs,
+    adIntegrations: operationalAdIntegrations,
     agencyOpportunities,
     agencyOpportunityEvents,
     agencyDailyTasks,
@@ -869,10 +905,10 @@ export async function GET() {
     proposalFollowups,
     hkMarketplacePackages,
     hkMarketplacePackageApplications,
-    customerBranches,
-    customerUserBranches,
-    competitorSignals,
-    agencyNotifications
+    customerBranches: safeCustomerBranches,
+    customerUserBranches: safeCustomerUserBranches,
+    competitorSignals: operationalCompetitorSignals,
+    agencyNotifications: operationalAgencyNotifications
   });
 }
 

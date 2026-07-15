@@ -6180,6 +6180,8 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
   const [recentCustomerIds, setRecentCustomerIds] = useState<string[]>([]);
   const [selectedCustomerIds, setSelectedCustomerIds] = useState<string[]>([]);
   const [customerActionResult, setCustomerActionResult] = useState<any>(null);
+  const [permanentDeleteTarget, setPermanentDeleteTarget] = useState<any>(null);
+  const [permanentDeleteName, setPermanentDeleteName] = useState("");
   const updateCompany = (id, patch) => setContent({ ...content, companies: (content.companies || []).map((company) => company.id === id ? { ...company, ...patch } : company) });
   const allCompanies = content.companies || [];
   const users = content.users || [];
@@ -6419,6 +6421,35 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
     }
   }
 
+  async function runPermanentDeleteCleanup() {
+    if (!permanentDeleteTarget) return;
+    if (permanentDeleteName.trim() !== String(permanentDeleteTarget.name || "").trim()) {
+      setError("Kalıcı silme için müşteri adını birebir yazın.");
+      return;
+    }
+    setMessage("");
+    setError("");
+    setLoading(`permanent-delete-${permanentDeleteTarget.id}`);
+    const response = await fetch(`/api/admin/companies/${permanentDeleteTarget.id}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirmationName: permanentDeleteName })
+    });
+    const data = await response.json().catch(() => ({}));
+    setLoading("");
+    if (response.ok) {
+      upsertCompanyInState(data.company || permanentDeleteTarget);
+      setPermanentDeleteTarget(null);
+      setPermanentDeleteName("");
+      const cleaned = Array.isArray(data.cleanupResults) ? data.cleanupResults.filter((item: any) => item.ok).length : 0;
+      const messageText = `Kalıcı silme temizliği uygulandı. ${cleaned} operasyonel ilişki grubu işlendi; finansal ve geçmiş kayıtlar korundu.`;
+      setMessage(messageText);
+      notify?.(messageText, "success");
+    } else {
+      showApiError(data, "Kalıcı silme temizliği uygulanamadı.");
+    }
+  }
+
   async function createLogin() {
     setMessage("");
     setError("");
@@ -6567,6 +6598,7 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
                     {canManageCustomers && !isDeletedCompany(company) && <button disabled={loading === `delete-${company.id}`} onClick={() => runLifecycleAction(company, "delete")} className="rounded-full border border-red-300/30 px-3 py-2 text-xs text-red-700">Sil</button>}
                     {canManageCustomers && isDeletedCompany(company) && <button disabled={loading === `restore-${company.id}`} onClick={() => runLifecycleAction(company, "restore")} className="rounded-full border border-emerald-300/30 px-3 py-2 text-xs text-emerald-700">Geri yükle</button>}
                     {canManageCustomers && isDeletedCompany(company) && <button disabled={loading === `archive-${company.id}`} onClick={() => runLifecycleAction(company, "archive")} className="rounded-full border border-amber-300/30 px-3 py-2 text-xs text-amber-700">Arşivle</button>}
+                    {legacyRole(currentSession?.role) === "admin" && isDeletedCompany(company) && <button disabled={loading === `permanent-delete-${company.id}`} onClick={() => { setPermanentDeleteTarget(company); setPermanentDeleteName(""); }} className="rounded-full bg-red-600 px-3 py-2 text-xs font-black text-white disabled:opacity-60">Kalıcı Sil</button>}
                   </div>
                 </div>
                 {editing && (
@@ -6607,6 +6639,25 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
         {canManageCustomers && <button disabled={loading === "company"} onClick={createCompany} className="mt-4 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-60">
           {loading === "company" ? "Firma oluşturuluyor..." : "Firmayı oluştur"}
         </button>}
+      </CustomerFormModal>}
+      {permanentDeleteTarget && <CustomerFormModal title="Kalıcı Silme Temizliği" onClose={() => { setPermanentDeleteTarget(null); setPermanentDeleteName(""); }}>
+        <div className="grid gap-4">
+          <div className="rounded-[14px] border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-900">
+            <p className="font-black">Bu işlem fiziksel şirket satırını silmez.</p>
+            <p className="mt-2">Finansal kayıtlar, raporlar, belgeler ve audit geçmişi korunur. Görevler, geçici bildirimler, müşteri entegrasyonları, reklam bağlantıları, şube erişimleri ve giriş hesapları temizlenir veya pasifleştirilir.</p>
+          </div>
+          <div className="grid gap-2 rounded-[14px] border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+            <strong>Silinecek / pasifleştirilecek operasyonel veriler</strong>
+            <span>Görevler, bildirimler, entegrasyon kayıtları, sync logları, görünürlük ayarları, marka ayarları, şube erişimleri ve müşteri giriş hesapları.</span>
+            <strong className="mt-2">Korunacak geçmiş veriler</strong>
+            <span>Tahsilatlar, finansal geçmiş, raporlar, belgeler, müşteri dosyaları ve işlem/audit logları.</span>
+          </div>
+          <Field label={`Onay için müşteri adını yazın: ${permanentDeleteTarget.name}`} value={permanentDeleteName} onChange={setPermanentDeleteName} />
+          <div className="flex flex-wrap justify-end gap-2">
+            <button onClick={() => { setPermanentDeleteTarget(null); setPermanentDeleteName(""); }} className="rounded-full border border-slate-200 px-4 py-2 text-sm font-black text-slate-700">Vazgeç</button>
+            <button disabled={loading === `permanent-delete-${permanentDeleteTarget.id}` || permanentDeleteName.trim() !== String(permanentDeleteTarget.name || "").trim()} onClick={runPermanentDeleteCleanup} className="rounded-full bg-red-600 px-5 py-2 text-sm font-black text-white disabled:opacity-50">{loading === `permanent-delete-${permanentDeleteTarget.id}` ? "Temizleniyor..." : "Kalıcı Silme Temizliğini Uygula"}</button>
+          </div>
+        </div>
       </CustomerFormModal>}
       {openForm === "login" && <CustomerFormModal title="Müşteri Giriş Hesabı Oluştur" onClose={() => setOpenForm("")}>
         <p className="mb-4 text-sm leading-6 text-slate-600">Kullanıcı bilgilerini, bağlı firmayı ve görebileceği şubeleri tek adımda tanımlayın.</p>
