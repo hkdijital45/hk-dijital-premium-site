@@ -20,7 +20,6 @@ const serviceLinks = [
 const mainNav = [
   ["Ana Sayfa", "/"],
   ["Paketler", "/paketler"],
-  ["Çalışmalarımız", "/calismalarimiz"],
   ["Hakkımızda", "/hakkimda"],
   ["Blog", "/blog"],
   ["İletişim", "/iletisim"]

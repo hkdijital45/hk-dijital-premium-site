@@ -29,7 +29,6 @@ export function Footer({ content }: { content: SiteContent }) {
           <h2 className="text-sm font-bold uppercase tracking-[.22em] text-cyan-200">HK Dijital</h2>
           <div className="mt-4 grid gap-3 text-sm text-slate-300">
             <Link href="/hakkimda">Hakkımızda</Link>
-            <Link href="/calismalarimiz">Çalışmalarımız</Link>
             <Link href="/paketler">Paketler</Link>
             <Link href="/blog">Blog</Link>
             <Link href="/iletisim">İletişim</Link>

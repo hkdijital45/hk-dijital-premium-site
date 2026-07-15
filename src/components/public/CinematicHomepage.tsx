@@ -333,7 +333,7 @@ export function CinematicHomepage({ content }: { content: SiteContent }) {
         </div>
         <div className="mt-8 flex flex-wrap gap-3">
           <CinematicButton href="/manisa-dijital-pazarlama" trackingLabel="Manisa Landing İncele">Manisa dijital pazarlama hizmetleri</CinematicButton>
-          <CinematicButton href="/calismalarimiz" variant="ghost" trackingLabel="Çalışmalarımız İncele">Çalışmalarımızı İncele</CinematicButton>
+          <CinematicButton href="/hakkimda" variant="ghost" trackingLabel="HK Dijital Hakkında">HK Dijital&apos;i Tanıyın</CinematicButton>
         </div>
       </SectionShell>
 

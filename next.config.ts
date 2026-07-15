@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
       { source: "/cozumler", destination: "/hizmetler", permanent: true },
       { source: "/entegrasyonlar", destination: "/hizmetler", permanent: true },
       { source: "/kaynaklar", destination: "/blog", permanent: true },
+      { source: "/calismalarimiz", destination: "/hakkimda", permanent: true },
       { source: "/blog/:slug/", destination: "/blog/:slug", permanent: true },
       { source: "/hizmetler/:slug/", destination: "/hizmetler/:slug", permanent: true }
     ];

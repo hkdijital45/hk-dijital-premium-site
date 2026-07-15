@@ -1,12 +1,12 @@
 import type { MetadataRoute } from "next";
 import { absoluteUrl } from "@/lib/metadata";
-import { blogPosts, servicePages } from "@/lib/public-seo-content";
+import { getBlogSitemapEntries } from "@/lib/blog-seo";
+import { servicePages } from "@/lib/public-seo-content";
 
 const staticRoutes = [
   "/",
   "/hizmetler",
   "/paketler",
-  "/calismalarimiz",
   "/hakkimda",
   "/blog",
   "/iletisim",
@@ -17,8 +17,9 @@ const staticRoutes = [
   "/veri-silme"
 ];
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
+  const blogRoutes = await getBlogSitemapEntries();
   return [
     ...staticRoutes.map((route) => ({
       url: absoluteUrl(route),
@@ -32,9 +33,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly" as const,
       priority: 0.8
     })),
-    ...blogPosts.map((post) => ({
-      url: absoluteUrl(`/blog/${post.slug}`),
-      lastModified: new Date(post.updated),
+    ...blogRoutes.map((post) => ({
+      url: post.url,
+      lastModified: new Date(post.lastModified),
       changeFrequency: "monthly" as const,
       priority: 0.65
     }))

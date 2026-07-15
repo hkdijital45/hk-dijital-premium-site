@@ -13,7 +13,6 @@ export const publicPagePaths: Record<string, string> = {
   certificates: "/sertifikalar",
   intelligence: "/hk-intelligence",
   manisa: "/manisa-dijital-pazarlama",
-  works: "/calismalarimiz",
   blog: "/blog",
   metaAds: "/hizmetler/meta-reklam-yonetimi",
   googleAds: "/hizmetler/google-ads-yonetimi",
@@ -49,10 +48,6 @@ const fallbackSeo: Record<string, { title: string; description: string }> = {
   manisa: {
     title: "Manisa Dijital Pazarlama Ajansı | HK Dijital",
     description: "Manisa’daki işletmeler için Meta reklamları, Google Ads, sosyal medya yönetimi, dönüşüm takibi ve anlaşılır performans raporlaması."
-  },
-  works: {
-    title: "Çalışmalarımız | HK Dijital",
-    description: "HK Dijital’in sektör, ihtiyaç, yaklaşım ve teslim edilen çalışmalar üzerinden yapılandırılmış dijital pazarlama çalışma örnekleri."
   },
   blog: {
     title: "Dijital Pazarlama Blogu | HK Dijital",
@@ -94,7 +89,9 @@ export async function pageMetadata(key: string, overrides: Partial<Metadata> = {
   const description = String(overrides.description || seo.description);
   return {
     metadataBase: new URL(SITE_URL),
-    title,
+    title: {
+      absolute: title
+    },
     description,
     keywords: [
       "Manisa dijital pazarlama ajansı",
