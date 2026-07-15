@@ -5,6 +5,7 @@ import { getSafeSupabaseError, supabaseRest } from "@/lib/supabase";
 import { requireModuleAccess } from "@/lib/permissions";
 import { getSiteContent } from "@/lib/content";
 import { checkOperationalCustomer } from "@/lib/server/customer-visibility";
+import { normalizeDigitalVisibilityReport } from "@/lib/digital-visibility-report";
 
 const reportTypes = ["Meta Reklam Raporu", "Google Ads Raporu", "Sosyal Medya Yönetimi Raporu", "Genel Dijital Performans Raporu"];
 const discoveryReportTypes = {
@@ -58,10 +59,18 @@ function normalizeBusiness(raw: Record<string, unknown>) {
 
 function sectionTitles(kind: DiscoveryReportKind) {
   if (kind === "swot_report") return ["Güçlü Yönler", "Zayıf Yönler", "Fırsatlar", "Tehditler", "Önerilen İlk 3 Aksiyon"];
-  if (kind === "digital_audit") return ["Dijital Görünürlük Özeti", "Web Sitesi Durumu", "Google Maps Durumu", "Yorum ve İtibar", "Sosyal Medya Varlığı", "Reklam Potansiyeli", "Öncelikli Eksikler", "30 Günlük Öneri"];
+  if (kind === "digital_audit") return ["Güçlü Yönler", "Geliştirilmesi Gerekenler", "Fırsatlar", "Önerilen Aksiyonlar"];
   if (kind === "competitor_analysis") return ["Rekabet Özeti", "Görünürlük Karşılaştırması", "Rakip Avantajları", "Fırsat Alanları", "Önerilen Rekabet Aksiyonları"];
   if (kind === "discovery_report") return ["İşletme Profili", "Keşif Verileri", "Dijital Hazırlık", "Satış Fırsatı", "Önerilen İlk Temas", "Sonraki Adımlar"];
   return ["İşletme Özeti", "Mevcut Durum", "Fırsat Alanları", "Önerilen Hizmetler", "Beklenen Kazanımlar", "İlk 30 Gün Planı", "Sonraki Adım"];
+}
+
+function scoreLabel(score: number | null) {
+  if (score === null) return null;
+  if (score >= 80) return "Güçlü";
+  if (score >= 60) return "Gelişime Açık";
+  if (score >= 40) return "Temel İyileştirme Gerekli";
+  return "Öncelikli Müdahale Gerekli";
 }
 
 function localFallback(kind: DiscoveryReportKind, business: ReturnType<typeof normalizeBusiness>) {
@@ -69,9 +78,11 @@ function localFallback(kind: DiscoveryReportKind, business: ReturnType<typeof no
   const facts = {
     "Güçlü Yönler": [business.googleRating ? `Google puanı ${business.googleRating}.` : unavailable, business.reviewCount ? `${business.reviewCount} Google yorumu bulunuyor.` : unavailable],
     "Zayıf Yönler": [business.website ? "Web sitesi dönüşüm ve ölçümleme açısından ayrıca incelenmeli." : "Web sitesi bulunamadı.", business.instagram ? "Sosyal medya içerik düzeni ayrıca incelenmeli." : "Instagram bağlantısı bulunamadı."],
+    "Geliştirilmesi Gerekenler": [business.website ? "Web sitesinde dönüşüm takibi ve reklam iniş sayfası yapısı doğrulanmalı." : "Web sitesi mevcut veride görünmüyor.", business.instagram ? "Sosyal medya içerik düzeni ve reklam uyumu ayrıca incelenmeli." : "Instagram bağlantısı mevcut veride görünmüyor."],
     "Fırsatlar": ["Yerel görünürlük ve yorum yönetimi değerlendirilebilir.", "Ölçülebilir reklam ve iletişim akışı planlanabilir."],
     "Tehditler": ["Bölgedeki daha yüksek yorum hacmine sahip rakipler görünürlük avantajı sağlayabilir."],
     "Önerilen İlk 3 Aksiyon": ["İşletme bilgilerini doğrula.", "Dijital varlıkları ayrıntılı incele.", "Ölçülebilir bir ilk temas planı hazırla."],
+    "Önerilen Aksiyonlar": ["İşletme bilgilerini doğrula.", "Web sitesi, Google Maps ve sosyal medya varlığını ayrı ayrı kontrol et.", "Ölçülebilir ilk temas ve takip planı hazırla."],
     "Dijital Görünürlük Özeti": [`Fırsat skoru: ${business.opportunityScore ?? "veri yok"}/100.`],
     "Web Sitesi Durumu": [business.website ? `Web sitesi mevcut: ${business.website}` : "Web sitesi bulunamadı."],
     "Google Maps Durumu": [business.googleRating ? `Google puanı ${business.googleRating}; yorum sayısı ${business.reviewCount ?? "veri yok"}.` : unavailable],
@@ -100,11 +111,23 @@ function localFallback(kind: DiscoveryReportKind, business: ReturnType<typeof no
   } as Record<string, string[]>;
   return {
     summary: `${business.name} için yalnız mevcut Google Maps ve dijital varlık verileriyle hazırlanmış değerlendirme.`,
-    sections: sectionTitles(kind).map((title) => ({ title, items: facts[title] || [unavailable] }))
+    sections: sectionTitles(kind).map((title) => ({ title, items: facts[title] || [unavailable] })),
+    ...(kind === "digital_audit" && business.opportunityScore !== null ? { score: business.opportunityScore, scoreLabel: scoreLabel(business.opportunityScore) } : {})
   };
 }
 
 function parseAiReport(text: string, kind: DiscoveryReportKind, fallback: ReturnType<typeof localFallback>) {
+  if (kind === "digital_audit") {
+    const normalized = normalizeDigitalVisibilityReport(text);
+    const sections = normalized.sections.length ? normalized.sections : fallback.sections;
+    return {
+      summary: normalized.summary || fallback.summary,
+      sections,
+      score: normalized.score ?? fallback.score ?? null,
+      scoreLabel: normalized.scoreLabel || fallback.scoreLabel || null
+    };
+  }
+
   const candidate = text.replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim();
   try {
     const parsed = JSON.parse(candidate) as { summary?: unknown; sections?: Array<{ title?: unknown; items?: unknown }> };
@@ -141,10 +164,26 @@ async function generateDiscoveryReport(body: Record<string, unknown>) {
     `Rapor türü: ${config.label}`,
     `İşletme verisi: ${JSON.stringify(business)}`,
     analysisContext && `Doğrulanmış ek analiz bağlamı: ${analysisContext}`,
-    `Zorunlu bölüm başlıkları: ${sectionTitles(kind).join(" | ")}`,
+    kind === "digital_audit"
+      ? "Zorunlu bölüm başlıkları: Güçlü Yönler | Geliştirilmesi Gerekenler | Fırsatlar | Önerilen Aksiyonlar"
+      : `Zorunlu bölüm başlıkları: ${sectionTitles(kind).join(" | ")}`,
     "Yalnız verilen verileri kullan. Eksik bilgiyi uydurma; 'Bu alan için yeterli veri yok' de.",
     "Kesin satış veya performans garantisi verme.",
-    "Yalnız şu JSON biçiminde Türkçe yanıt ver: {\"summary\":\"...\",\"sections\":[{\"title\":\"...\",\"items\":[\"...\"]}]}"
+    kind === "digital_audit"
+      ? [
+        "Yalnızca geçerli JSON döndür. Markdown code fence kullanma. JSON'u string içine gömme. Ek açıklama yazma.",
+        "sections ve items alanlarını string olarak değil array/object olarak döndür.",
+        "Doğal ve profesyonel Türkçe kullan. İşletme adını her cümlede tekrar etme. Robotik ve gereksiz uzun cümle kurma.",
+        "Bir paragraf en fazla 3 cümle olsun. Her madde tek fikir içersin. Aynı bilgiyi farklı başlıklarda tekrar etme.",
+        "Veride olmayan sosyal medya hesabı, reklam hesabı veya teknik altyapı hakkında kesin iddia kurma.",
+        "Bilinmeyen konularda 'tespit edilemedi' veya 'mevcut veride görünmüyor' gibi temkinli ifade kullan.",
+        "Google Maps puanı, yorum sayısı, telefon, web sitesi ve sosyal medya bilgilerini yalnız gerçekten input verisinde varsa kullan.",
+        business.opportunityScore !== null
+          ? `Skor alanını mevcut fırsat skoruyla aynı döndür: ${business.opportunityScore}. scoreLabel kısa ve doğal Türkçe olsun.`
+          : "score alanını null döndür; rastgele skor üretme.",
+        "JSON kontratı: {\"summary\":\"İşletmenin dijital görünürlüğünü en fazla 3 kısa ve doğal Türkçe cümleyle değerlendir.\",\"score\":67,\"scoreLabel\":\"Gelişime Açık\",\"sections\":[{\"title\":\"Güçlü Yönler\",\"summary\":\"En fazla 2 kısa cümle.\",\"items\":[\"Tek fikir içeren kısa ve anlaşılır madde\"]},{\"title\":\"Geliştirilmesi Gerekenler\",\"summary\":\"En fazla 2 kısa cümle.\",\"items\":[\"Tek fikir içeren kısa ve anlaşılır madde\"]},{\"title\":\"Fırsatlar\",\"summary\":\"En fazla 2 kısa cümle.\",\"items\":[\"Tek fikir içeren kısa ve anlaşılır madde\"]},{\"title\":\"Önerilen Aksiyonlar\",\"summary\":\"En fazla 2 kısa cümle.\",\"items\":[\"Öncelik sırasına göre uygulanabilir kısa madde\"]}]}"
+      ].join("\n")
+      : "Yalnız şu JSON biçiminde Türkçe yanıt ver: {\"summary\":\"...\",\"sections\":[{\"title\":\"...\",\"items\":[\"...\"]}]}"
   ].filter(Boolean).join("\n");
   const ai = await executeAiTask({
     taskType: config.taskType,
