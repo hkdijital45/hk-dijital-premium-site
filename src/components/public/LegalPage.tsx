@@ -27,7 +27,7 @@ export function LegalPage({
           <p className="mt-5 max-w-3xl text-base leading-8 text-slate-300">{description}</p>
           <div className="mt-6 flex flex-wrap gap-2 text-xs font-bold text-slate-400">
             <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">Marka: HK Dijital</span>
-            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">Domain: https://hkdijital.com.tr</span>
+            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">Domain: https://www.hkdijital.com.tr</span>
             <a className="rounded-full border border-cyan-200/20 bg-cyan-200/10 px-3 py-2 text-cyan-100" href="mailto:hayrikamali@icloud.com">hayrikamali@icloud.com</a>
           </div>
         </div>

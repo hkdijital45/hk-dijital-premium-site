@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getSiteContent } from "./content";
 
-export const SITE_URL = "https://hkdijital.com.tr";
+export const SITE_URL = "https://www.hkdijital.com.tr";
 
 export const publicPagePaths: Record<string, string> = {
   home: "/",
@@ -86,7 +86,9 @@ export function safeJsonLd(data: Record<string, unknown> | Array<Record<string, 
 
 export async function pageMetadata(key: string, overrides: Partial<Metadata> = {}): Promise<Metadata> {
   const content = await getSiteContent();
-  const seo = content.seo[key] ?? fallbackSeo[key] ?? content.seo.home ?? fallbackSeo.home;
+  const seo = key === "home"
+    ? fallbackSeo.home
+    : content.seo[key] ?? fallbackSeo[key] ?? content.seo.home ?? fallbackSeo.home;
   const canonicalPath = publicPagePaths[key] ?? "/";
   const title = String(overrides.title || seo.title);
   const description = String(overrides.description || seo.description);

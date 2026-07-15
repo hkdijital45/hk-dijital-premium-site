@@ -11,7 +11,7 @@ export default function DataDeletionPage() {
     <LegalPage
       eyebrow="Veri Silme"
       title="HK Dijital Veri Silme Talimatları"
-      description="HK Dijital, https://hkdijital.com.tr üzerinden bağlanan hesaplar ve müşteri paneli verileri için kullanıcıların silme talebi oluşturabilmesini sağlar."
+      description="HK Dijital, https://www.hkdijital.com.tr üzerinden bağlanan hesaplar ve müşteri paneli verileri için kullanıcıların silme talebi oluşturabilmesini sağlar."
       sections={[
         {
           title: "Veri Silme Talebi Nasıl Gönderilir?",
@@ -41,7 +41,7 @@ export default function DataDeletionPage() {
           title: "İletişim ve Kapsam",
           items: [
             "Bu sayfa, Meta App Review ve kullanıcı veri silme gereksinimleri için public olarak erişilebilir şekilde hazırlanmıştır.",
-            "Talepler HK Dijital markası ve hkdijital.com.tr domaini kapsamındaki hesap bağlantıları için değerlendirilir.",
+            "Talepler HK Dijital markası ve www.hkdijital.com.tr domaini kapsamındaki hesap bağlantıları için değerlendirilir.",
             "Sorularınız için hayrikamali@icloud.com adresine yazabilirsiniz."
           ]
         }

@@ -11,7 +11,7 @@ export default function TermsPage() {
     <LegalPage
       eyebrow="Kullanım Şartları"
       title="HK Dijital Kullanım Şartları"
-      description="Bu kullanım şartları, HK Dijital tarafından https://hkdijital.com.tr üzerinden sunulan web sitesi, Digital Center, admin panel, müşteri paneli, entegrasyon ve raporlama hizmetlerinin genel kullanım koşullarını açıklar."
+      description="Bu kullanım şartları, HK Dijital tarafından https://www.hkdijital.com.tr üzerinden sunulan web sitesi, Digital Center, admin panel, müşteri paneli, entegrasyon ve raporlama hizmetlerinin genel kullanım koşullarını açıklar."
       sections={[
         {
           title: "Hizmet Kapsamı",

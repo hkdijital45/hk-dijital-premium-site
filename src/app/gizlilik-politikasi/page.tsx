@@ -11,7 +11,7 @@ export default function PrivacyPolicyPage() {
     <LegalPage
       eyebrow="Gizlilik Politikası"
       title="HK Dijital Gizlilik Politikası"
-      description="HK Dijital, https://hkdijital.com.tr üzerinde sunduğu dijital pazarlama, reklam yönetimi, raporlama ve müşteri paneli hizmetlerinde kişisel verilerin güvenli ve şeffaf şekilde işlenmesini önemser."
+      description="HK Dijital, https://www.hkdijital.com.tr üzerinde sunduğu dijital pazarlama, reklam yönetimi, raporlama ve müşteri paneli hizmetlerinde kişisel verilerin güvenli ve şeffaf şekilde işlenmesini önemser."
       sections={[
         {
           title: "İşlenebilecek Veriler",
