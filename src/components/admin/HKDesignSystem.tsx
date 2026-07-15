@@ -1,19 +1,20 @@
 import type { ButtonHTMLAttributes, HTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
 import { Loader2, Search } from "lucide-react";
 
-type Tone = "neutral" | "primary" | "success" | "warning" | "danger" | "info" | "ai";
+type Tone = "neutral" | "primary" | "success" | "warning" | "danger" | "info" | "ai" | "communication";
 type Size = "sm" | "md" | "lg";
 
 const buttonTone: Record<Tone | "secondary" | "outline" | "ghost", string> = {
   primary: "hk-button-primary",
   secondary: "hk-button-neutral",
-  outline: "hk-button-neutral",
+  outline: "hk-button-outline",
   ghost: "hk-button-ghost",
   success: "hk-button-success",
   warning: "hk-button-warning",
   danger: "hk-button-danger",
   info: "hk-button-info",
   ai: "hk-button-ai",
+  communication: "hk-button-communication",
   neutral: "hk-button-neutral"
 };
 

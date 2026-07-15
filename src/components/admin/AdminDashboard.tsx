@@ -422,8 +422,6 @@ export function AdminDashboard({
   const [favoritesSaving, setFavoritesSaving] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [notificationState, setNotificationState] = useState({ read: [], archived: [] });
-  const [hoveredNavGroup, setHoveredNavGroup] = useState("");
-  const navCloseTimer = useRef<number | null>(null);
   const [bootVisible, setBootVisible] = useState(false);
   const [bootStep, setBootStep] = useState(0);
   const [openGroups, setOpenGroups] = useState(() => Object.fromEntries(adminNavigationGroups.map((group) => [group.label, false])));
@@ -529,23 +527,10 @@ export function AdminDashboard({
   }, [bootVisible]);
 
   function toggleGroup(label: string) {
-    setHoveredNavGroup("");
     setOpenGroups((current) => {
       const nextOpen = !current[label];
       return Object.fromEntries(adminNavigationGroups.map((group) => [group.label, group.label === label ? nextOpen : false]));
     });
-  }
-
-  function openNavGroup(label: string) {
-    if (navCloseTimer.current) window.clearTimeout(navCloseTimer.current);
-    setHoveredNavGroup("");
-  }
-
-  function closeNavGroup(label: string) {
-    if (navCloseTimer.current) window.clearTimeout(navCloseTimer.current);
-    navCloseTimer.current = window.setTimeout(() => {
-      setHoveredNavGroup((current) => (current === label ? "" : current));
-    }, 120);
   }
 
   function notify(message: string, type = "success") {
@@ -729,13 +714,13 @@ export function AdminDashboard({
           </div>
           <AdminBrowserControls />
           <nav className="order-3 grid w-full min-w-0 gap-2 2xl:flex 2xl:items-center 2xl:justify-center">
-            <button type="button" onClick={() => setMobileNavOpen((current) => !current)} className="flex min-h-10 items-center justify-between rounded-[8px] border border-slate-200 bg-white/[0.045] px-3 text-sm font-black text-slate-700 2xl:hidden">
+            <button type="button" onClick={() => setMobileNavOpen((current) => !current)} className="admin-category-button flex w-full items-center justify-between px-3 text-sm font-black 2xl:hidden">
               Menü
               {mobileNavOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
             </button>
             <div className={`${mobileNavOpen ? "grid" : "hidden"} min-w-0 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:flex 2xl:flex-wrap 2xl:items-center 2xl:justify-center 2xl:gap-1.5`}>
               {visibleNavigationGroups.map((group) => {
-                const expanded = openGroups[group.label] || hoveredNavGroup === group.label;
+                const expanded = openGroups[group.label];
                 const activeInGroup = group.items.some((item) => item.label === active || item.slug === "" && active === "Dashboard");
                 const CategoryIcon = adminCategoryIcons[group.icon] || LayoutDashboard;
                 return (
@@ -748,29 +733,29 @@ export function AdminDashboard({
                       type="button"
                       onClick={() => toggleGroup(group.label)}
                       aria-expanded={expanded}
-                      className={`flex min-h-10 w-full items-center justify-between gap-2 rounded-[8px] border px-3 text-sm font-black transition lg:w-auto ${activeInGroup ? "border-cyan-300/40 bg-cyan-300/10 text-cyan-700" : "border-slate-200 bg-white text-slate-600 hover:border-cyan-200/25 hover:bg-white/[0.065] hover:text-slate-900"}`}
+                      className={`admin-category-button flex w-full items-center justify-between gap-2 px-3 text-sm font-black transition lg:w-auto ${activeInGroup ? "admin-category-button-active" : ""}`}
                     >
                       <span className="flex min-w-0 items-center gap-2">
                         <CategoryIcon size={15} />
                         <span className="truncate">{withAdminEmoji(group.label)}</span>
                       </span>
                       <span className="flex items-center gap-1">
-                        <span className="rounded-full bg-white/[0.08] px-1.5 py-0.5 text-[10px] text-slate-600">{group.items.length}</span>
-                        <ChevronDown size={14} className={`transition ${expanded ? "rotate-180" : "lg:group-hover:rotate-180"}`} />
+                        <span className="admin-nav-count rounded-full px-1.5 py-0.5 text-[10px]">{group.items.length}</span>
+                        <ChevronDown size={14} className={`transition ${expanded ? "rotate-180" : ""}`} />
                       </span>
                     </button>
                     <div
-                      className={`admin-top-dropdown premium-scrollbar ${expanded ? "grid" : "hidden"} mt-2 max-h-[min(72vh,640px)] w-full min-w-0 max-w-full gap-2 overflow-y-auto rounded-[8px] border border-slate-200 bg-white/98 p-3 shadow-[0_18px_50px_rgba(0,0,0,.24)] 2xl:absolute 2xl:left-1/2 2xl:top-full 2xl:z-50 2xl:mt-3 2xl:w-[min(680px,calc(100vw-32px))] 2xl:min-w-[420px] 2xl:-translate-x-1/2 2xl:grid-cols-2`}
+                      className={`admin-top-dropdown admin-mega-menu premium-scrollbar ${expanded ? "grid" : "hidden"} mt-2 max-h-[min(72vh,640px)] w-full min-w-0 max-w-full gap-2 overflow-y-auto 2xl:absolute 2xl:left-1/2 2xl:top-full 2xl:z-50 2xl:mt-3 2xl:w-[min(760px,calc(100vw-32px))] 2xl:min-w-[460px] 2xl:-translate-x-1/2 2xl:grid-cols-2`}
                     >
                       {group.items.map((item) => (
                         <Link
                           key={`${group.label}-${item.label}-${item.slug}`}
                           href={getAdminHref(item.slug)}
                           title={item.label}
-                          onClick={() => { setMobileNavOpen(false); setHoveredNavGroup(""); setOpenGroups(Object.fromEntries(adminNavigationGroups.map((navGroup) => [navGroup.label, false]))); }}
-                          className={`flex w-full min-w-0 items-start gap-3 rounded-[8px] border px-3.5 py-2.5 text-sm font-bold transition ${active === item.label ? "border-cyan-200/50 bg-cyan-300 text-slate-950" : "border-slate-200 text-slate-700 hover:border-cyan-200/25 hover:bg-white/[0.07] hover:text-cyan-700"}`}
+                          onClick={() => { setMobileNavOpen(false); setOpenGroups(Object.fromEntries(adminNavigationGroups.map((navGroup) => [navGroup.label, false]))); }}
+                          className={`admin-mega-item flex w-full min-w-0 items-start gap-3 px-3.5 py-3 text-sm font-bold transition ${active === item.label ? "admin-mega-item-active" : ""}`}
                         >
-                          <CategoryIcon size={15} className={`mt-0.5 shrink-0 ${active === item.label ? "text-slate-950" : "text-cyan-700"}`} />
+                          <CategoryIcon size={16} className={`mt-0.5 shrink-0 ${active === item.label ? "text-cyan-800" : "text-cyan-700"}`} />
                           <span className="min-w-0 flex-1">
                             <span className="block whitespace-normal break-normal leading-5">{withAdminEmoji(item.label)}</span>
                             <span className={`mt-1 line-clamp-2 block whitespace-normal break-normal text-[11px] font-medium leading-4 ${active === item.label ? "text-slate-700" : "text-slate-500"}`}>{item.description}</span>
@@ -783,14 +768,14 @@ export function AdminDashboard({
               })}
             </div>
           </nav>
-          <div className="order-2 flex w-full min-w-0 flex-wrap items-center gap-2 2xl:order-none 2xl:ml-auto 2xl:w-auto 2xl:justify-end">
-            <button onClick={() => setActive("API Ayarları")} className="min-h-10 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 px-3 text-left text-xs font-bold text-cyan-700">
+          <div className="admin-header-actions order-2 flex w-full min-w-0 flex-wrap gap-2 2xl:order-none 2xl:ml-auto 2xl:w-auto 2xl:justify-end">
+            <button onClick={() => setActive("API Ayarları")} className="admin-quick-action admin-quick-action-info text-left text-xs">
               <span className="block">AI: {aiStatus.provider}</span>
               <span className="block text-[10px] text-cyan-700/70">Mod: {aiStatus.mode}</span>
             </button>
             <GlobalAdminSearch />
             <div className="relative">
-              <button type="button" onClick={() => setFavoritesOpen((current) => !current)} aria-expanded={favoritesOpen} className="inline-flex min-h-11 items-center gap-2 rounded-[10px] border border-amber-300 bg-amber-300 px-4 text-sm font-black text-amber-950 shadow-sm transition hover:bg-amber-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
+              <button type="button" onClick={() => setFavoritesOpen((current) => !current)} aria-expanded={favoritesOpen} className="admin-quick-action admin-quick-action-favorite text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
                 <Star size={17} className="fill-amber-950" /> Favoriler <span className="rounded-full bg-white/70 px-2 py-0.5 text-xs">{favoriteNavigationItems.length}</span>
               </button>
               {favoritesOpen && <div className="absolute right-0 top-14 z-50 w-[min(92vw,380px)] rounded-[16px] border border-amber-200 bg-white p-3 shadow-2xl">
@@ -798,21 +783,21 @@ export function AdminDashboard({
                 <div className="grid max-h-[55vh] gap-2 overflow-y-auto">{favoriteNavigationItems.map((item, index) => item && <div key={item.slug || "dashboard"} className="flex items-center gap-2 rounded-[12px] border border-slate-200 bg-slate-50 p-2"><Link href={getAdminHref(item.slug)} onClick={() => setFavoritesOpen(false)} className="min-w-0 flex-1 truncate px-2 text-sm font-black text-slate-800">{item.label}</Link><button type="button" disabled={favoritesSaving || index === 0} onClick={() => moveFavorite(item.slug || "dashboard", -1)} aria-label={`${item.label} favorisini yukarı taşı`} className="hk-icon-button"><ArrowUp size={15} /></button><button type="button" disabled={favoritesSaving || index === favoriteNavigationItems.length - 1} onClick={() => moveFavorite(item.slug || "dashboard", 1)} aria-label={`${item.label} favorisini aşağı taşı`} className="hk-icon-button"><ArrowDown size={15} /></button><button type="button" disabled={favoritesSaving} onClick={() => saveFavorites(favoriteSlugs.filter((slug) => slug !== (item.slug || "dashboard")))} aria-label={`${item.label} favorisini kaldır`} className="hk-icon-button text-red-600"><X size={15} /></button></div>)}{!favoriteNavigationItems.length && <p className="rounded-[12px] border border-dashed border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Bir modülü açıp “Bu Modülü Ekle” seçeneğini kullanın.</p>}</div>
               </div>}
             </div>
-            {allowedModules.includes("musteriler") && <Link href="/hk-admin/musteriler" className="inline-flex min-h-10 items-center gap-2 rounded-[8px] bg-emerald-100 px-4 text-sm font-black text-emerald-700 ring-1 ring-emerald-200 transition hover:bg-emerald-200"><UsersRound size={17} /> Müşteriler</Link>}
-            <button onClick={() => setCopilotOpen(true)} className="inline-flex min-h-10 items-center gap-2 rounded-[8px] bg-purple-100 px-4 text-sm font-black text-purple-700 ring-1 ring-purple-200 transition hover:bg-purple-200">
+            {allowedModules.includes("musteriler") && <Link href="/hk-admin/musteriler" className="admin-quick-action admin-quick-action-success text-sm"><UsersRound size={17} /> Müşteriler</Link>}
+            <button onClick={() => setCopilotOpen(true)} className="admin-quick-action admin-quick-action-ai text-sm">
               <Bot size={17} /> HK Copilot
             </button>
             <div className="relative">
-              <button onClick={() => setNotificationsOpen((current) => !current)} className="relative grid min-h-10 min-w-10 place-items-center rounded-[8px] border border-slate-200 bg-white text-slate-700 transition hover:border-cyan-200/30 hover:bg-cyan-200/10" aria-label="Bildirimler">
+              <button onClick={() => setNotificationsOpen((current) => !current)} className="admin-icon-action relative" aria-label="Bildirimler">
                 <Bell size={17} />
                 {unreadNotifications.length > 0 && <span className="absolute -right-1 -top-1 grid min-h-5 min-w-5 place-items-center rounded-full bg-amber-300 px-1 text-[10px] font-black text-slate-950 shadow-[0_0_18px_rgba(250,204,21,.8)]">{unreadNotifications.length}</span>}
               </button>
             </div>
-            <div className="grid min-h-10 min-w-10 place-items-center rounded-[8px] border border-slate-200 bg-white/[0.055] text-sm font-black text-slate-900" title={currentSession?.email || "HK Admin"}>
+            <div className="admin-profile-chip text-sm" title={currentSession?.email || "HK Admin"}>
               {userInitials || "HK"}
             </div>
             <div className="relative">
-              <button onClick={() => setHelpOpen((current) => !current)} className="inline-flex min-h-10 items-center gap-2 rounded-[8px] border border-slate-200 px-4 text-sm font-bold">
+              <button onClick={() => setHelpOpen((current) => !current)} className="admin-quick-action text-sm">
                 <HelpCircle size={17} /> Yardım
               </button>
               {helpOpen && (
@@ -827,8 +812,8 @@ export function AdminDashboard({
                 </div>
               )}
             </div>
-            {(allowedModules.includes("site-ayarlari") || ["musteriler", "kampanyalar", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "sektor-sistemleri"].some((module) => allowedModules.includes(module))) && <button disabled={saving} onClick={() => save()} className={`inline-flex min-h-10 items-center gap-2 rounded-[8px] bg-cyan-300 px-4 text-sm font-black text-slate-950 disabled:opacity-60 ${saveFeedback === "success" ? "hk-action-success" : ""}`}><Save size={17} /> {saving ? "Kaydediliyor..." : saveFeedback === "success" ? "Kaydedildi ✓" : saveFeedback === "error" ? "Tekrar Dene" : "💾 Kaydet"}</button>}
-            <button onClick={logout} className="inline-flex min-h-10 items-center gap-2 rounded-[8px] border border-slate-200 px-4 text-sm font-bold"><LogOut size={17} /> Çıkış</button>
+            {(allowedModules.includes("site-ayarlari") || ["musteriler", "kampanyalar", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "sektor-sistemleri"].some((module) => allowedModules.includes(module))) && <button disabled={saving} onClick={() => save()} className={`admin-quick-action admin-quick-action-save text-sm disabled:opacity-70 ${saveFeedback === "success" ? "hk-action-success" : ""}`}><Save size={17} /> {saving ? "Kaydediliyor..." : saveFeedback === "success" ? "Kaydedildi ✓" : saveFeedback === "error" ? "Tekrar Dene" : "Kaydet"}</button>}
+            <button onClick={logout} className="admin-quick-action admin-quick-action-danger text-sm"><LogOut size={17} /> Çıkış</button>
           </div>
         </div>
       </header>
@@ -1365,9 +1350,9 @@ function GlobalCopilotPanel({ content, setActive, onClose, notify }: any) {
 }
 
 function AdminBrowserControls() {
-  const buttonClass = "inline-flex min-h-9 items-center gap-1.5 rounded-[8px] px-2.5 text-xs font-black text-slate-600 transition hover:bg-cyan-200/10 hover:text-cyan-700";
+  const buttonClass = "admin-browser-control text-xs";
   return (
-    <div className="flex items-center gap-1 rounded-[8px] border border-slate-200 bg-white p-1">
+    <div className="admin-browser-controls">
       <button type="button" title="Geri" aria-label="Geri" onClick={() => window.history.back()} className={buttonClass}>
         <span aria-hidden="true">←</span><span className="hidden sm:inline">Geri</span>
       </button>

@@ -2432,3 +2432,328 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
     transition-duration: .01ms !important;
   }
 }
+
+/* Admin premium polish: contrast, navigation and communication surfaces */
+.hk-admin .hk-button {
+  min-height: 44px;
+  white-space: normal;
+  text-align: center;
+}
+
+.hk-admin .hk-button-compact {
+  min-height: 40px;
+  padding: .58rem .85rem;
+}
+
+.hk-admin .hk-button-primary {
+  background: linear-gradient(135deg, #0891b2, #0e7490);
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(8, 145, 178, .18);
+}
+
+.hk-admin .hk-button-secondary,
+.hk-admin .hk-button-neutral,
+.hk-admin .hk-button-outline {
+  border-color: #cbd5e1;
+  background: #fff;
+  color: #334155;
+}
+
+.hk-admin .hk-button-outline {
+  background: transparent;
+}
+
+.hk-admin .hk-button-success {
+  background: linear-gradient(135deg, #059669, #047857);
+  color: #fff;
+}
+
+.hk-admin .hk-button-warning {
+  border-color: #f59e0b;
+  background: #fbbf24;
+  color: #1f2937;
+}
+
+.hk-admin .hk-button-danger {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  color: #fff;
+}
+
+.hk-admin .hk-button-info {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #fff;
+}
+
+.hk-admin .hk-button-ai {
+  background: linear-gradient(135deg, #6d28d9, #9333ea);
+  color: #fff;
+}
+
+.hk-admin .hk-button-communication {
+  background: linear-gradient(135deg, #0f766e, #0891b2);
+  color: #fff;
+}
+
+.hk-admin .hk-button:is(:hover, :focus-visible) {
+  text-decoration: none;
+}
+
+.hk-admin .hk-button:disabled,
+.hk-admin .hk-icon-button:disabled {
+  opacity: .76;
+  filter: saturate(.72);
+}
+
+.hk-admin .hk-button:focus-visible,
+.hk-admin .hk-icon-button:focus-visible {
+  outline: 3px solid rgba(34, 211, 238, .38);
+  outline-offset: 2px;
+}
+
+.hk-admin .hk-badge-active { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+.hk-admin .hk-badge-urgent { background: #ffe4e6; color: #be123c; border-color: #fecdd3; }
+.hk-admin .hk-badge-archived { background: #e2e8f0; color: #334155; border-color: #cbd5e1; }
+.hk-admin .hk-badge-unread { background: #cffafe; color: #155e75; border-color: #a5f3fc; }
+.hk-admin .hk-badge-owner { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+.hk-admin .hk-badge-member { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
+.hk-admin .hk-badge-communication { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+
+.hk-admin .admin-browser-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #fff;
+  padding: .25rem;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, .06);
+}
+
+.hk-admin .admin-browser-control,
+.hk-admin .admin-quick-action,
+.hk-admin .admin-icon-action {
+  min-height: 44px;
+  border-radius: 12px;
+  font-weight: 900;
+  transition: background .16s ease, border-color .16s ease, color .16s ease, transform .16s ease, box-shadow .16s ease;
+}
+
+.hk-admin .admin-browser-control {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: 0 .75rem;
+  color: #475569;
+}
+
+.hk-admin .admin-browser-control:hover {
+  background: #ecfeff;
+  color: #0e7490;
+}
+
+.hk-admin .admin-header-actions {
+  align-items: center;
+}
+
+.hk-admin .admin-quick-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  border: 1px solid #cbd5e1;
+  padding: 0 .95rem;
+  color: #334155;
+  background: #fff;
+}
+
+.hk-admin .admin-quick-action-info {
+  border-color: #a5f3fc;
+  background: #ecfeff;
+  color: #155e75;
+}
+
+.hk-admin .admin-quick-action-favorite {
+  border-color: #facc15;
+  background: #facc15;
+  color: #1f2937;
+}
+
+.hk-admin .admin-quick-action-success {
+  border-color: #bbf7d0;
+  background: #dcfce7;
+  color: #166534;
+}
+
+.hk-admin .admin-quick-action-ai {
+  border-color: #7c3aed;
+  background: linear-gradient(135deg, #6d28d9, #9333ea);
+  color: #fff;
+}
+
+.hk-admin .admin-quick-action-save {
+  border-color: #22d3ee;
+  background: linear-gradient(135deg, #67e8f9, #22d3ee);
+  color: #0f172a;
+}
+
+.hk-admin .admin-quick-action-danger {
+  border-color: #fecaca;
+  background: #fff;
+  color: #991b1b;
+}
+
+.hk-admin .admin-quick-action:hover,
+.hk-admin .admin-icon-action:hover,
+.hk-admin .admin-browser-control:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, .08);
+}
+
+.hk-admin .admin-icon-action,
+.hk-admin .admin-profile-chip {
+  display: grid;
+  min-width: 44px;
+  place-items: center;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #334155;
+}
+
+.hk-admin .admin-profile-chip {
+  border-radius: 12px;
+  color: #0f172a;
+  font-weight: 900;
+}
+
+.hk-admin .admin-category-button {
+  min-height: 44px;
+  border: 1px solid #dbe3ee;
+  border-radius: 12px;
+  background: #fff;
+  color: #475569;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, .04);
+}
+
+.hk-admin .admin-category-button:hover,
+.hk-admin .admin-category-button[aria-expanded="true"] {
+  border-color: #67e8f9;
+  background: #ecfeff;
+  color: #155e75;
+}
+
+.hk-admin .admin-category-button-active {
+  border-color: #22d3ee;
+  background: linear-gradient(135deg, #ecfeff, #e0f2fe);
+  color: #0e7490;
+  box-shadow: 0 10px 24px rgba(8, 145, 178, .14);
+}
+
+.hk-admin .admin-nav-count {
+  border: 1px solid rgba(14, 116, 144, .18);
+  background: rgba(255, 255, 255, .72);
+  color: #475569;
+}
+
+.hk-admin .admin-mega-menu {
+  border-radius: 18px;
+  border-color: rgba(203, 213, 225, .92);
+  background: rgba(255, 255, 255, .98);
+  padding: .9rem;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, .18);
+}
+
+.hk-admin .admin-mega-item {
+  min-height: 74px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: #fff;
+  color: #334155;
+}
+
+.hk-admin .admin-mega-item:hover,
+.hk-admin .admin-mega-item:focus-visible {
+  border-color: #a5f3fc;
+  background: #ecfeff;
+  color: #155e75;
+}
+
+.hk-admin .admin-mega-item-active {
+  border-color: #22d3ee;
+  background: linear-gradient(135deg, #cffafe, #eff6ff);
+  color: #0f172a;
+  box-shadow: inset 4px 0 0 #0891b2;
+}
+
+.hk-admin .communication-center {
+  color: #0f172a;
+}
+
+.hk-admin .communication-card-action,
+.hk-admin .communication-dark-action {
+  min-height: 44px;
+  border-radius: 12px;
+  font-weight: 900;
+}
+
+.hk-admin .communication-dark-action,
+.hk-admin .communication-center :is(button, a)[class*="bg-slate-900"],
+.hk-admin .communication-center :is(button, a)[class*="bg-slate-950"],
+.hk-admin .communication-center :is(button, a)[class*="bg-violet-700"],
+.hk-admin .communication-center :is(button, a)[class*="bg-purple-700"] {
+  color: #fff !important;
+}
+
+.hk-admin .communication-center :is(button, a)[class*="bg-violet-100"] {
+  color: #4c1d95 !important;
+}
+
+.hk-admin .communication-center :is(button, a)[class*="bg-cyan-100"] {
+  color: #164e63 !important;
+}
+
+.hk-admin .communication-card {
+  border-radius: 18px;
+  border-color: #dbe3ee;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, .06);
+}
+
+.hk-admin .communication-message {
+  box-shadow: 0 10px 24px rgba(15, 23, 42, .06);
+}
+
+.hk-admin .communication-composer {
+  background: linear-gradient(180deg, #fff, #f8fafc);
+}
+
+.hk-admin .communication-right-panel {
+  background: #f8fafc;
+}
+
+.hk-admin .communication-right-panel section {
+  box-shadow: 0 10px 24px rgba(15, 23, 42, .06);
+}
+
+.hk-admin .admin-dashboard-main {
+  scroll-margin-top: 140px;
+}
+
+@media (min-width: 1280px) {
+  .hk-admin .communication-layout {
+    grid-template-columns: 330px minmax(0, 1fr) minmax(340px, 380px);
+  }
+}
+
+@media (min-width: 1536px) {
+  .hk-admin .communication-layout {
+    grid-template-columns: 350px minmax(0, 1fr) minmax(360px, 410px);
+  }
+}
+
+@media (max-width: 640px) {
+  .hk-admin .hk-button-compact,
+  .hk-admin .admin-browser-control,
+  .hk-admin .admin-quick-action,
+  .hk-admin .admin-icon-action {
+    min-height: 44px;
+  }
+}
