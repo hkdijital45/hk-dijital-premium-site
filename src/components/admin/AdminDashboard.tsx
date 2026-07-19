@@ -38,9 +38,10 @@ import { DashboardOverview } from "@/components/admin/dashboard/DashboardOvervie
 import type { DashboardOverviewCard } from "@/components/admin/dashboard/types";
 import { AdminPageHeader, AdminSection } from "@/components/admin/ui/AdminPageHeader";
 import { AdminSearchInput, AdminFilterBar } from "@/components/admin/ui/AdminSearchInput";
-import { AdminStatusBadge, healthScoreTone } from "@/components/admin/ui/AdminStatusBadge";
+import { AdminStatusBadge, healthScoreTone, type AdminStatusTone } from "@/components/admin/ui/AdminStatusBadge";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminEmptyState } from "@/components/admin/ui/AdminEmptyState";
+import { AdminActionCard } from "@/components/admin/ui/AdminKpiCard";
 import { adminNavigationGroups, adminNavigationItems, getAdminHref } from "@/lib/admin-navigation";
 import { canViewAccounting } from "@/lib/accounting-permissions";
 import { aiProviderKeyForApi, buildAiSelectionReason, labelForAiProvider, normalizeUnifiedAiProvider, unifiedAiProviderOptions, unifiedAiPriorityKeys } from "@/lib/ai-provider-options";
@@ -861,7 +862,6 @@ export function AdminDashboard({
           {active === "Müşteri Markalama" && <CustomerBrandingCenter {...props} />}
           {preparationAliases.includes(active) && <PreparationCenter {...props} setActive={setActive} mode={active} />}
           {[...reportAliases, "Rapor Çıktıları"].includes(active) && <ReportsHub {...props} selectedCompanyId={selectedCompanyId} />}
-          {active === "Genel Bakış" && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} systemStatus={systemStatus} currentSession={currentSession} allowedModules={allowedModules} notify={notify} />}
           {active === "Sayfa İçerikleri" && <Pages {...props} />}
           {active === "Marka Ayarları" && <Brand {...props} />}
           {active === "Sosyal Medya" && <KeyValue title="Sosyal Medya Yönetimi" object={content.socials} onChange={(object) => setContent({ ...content, socials: object })} />}
@@ -2080,8 +2080,38 @@ function SystemHealthCenter({ content, startupApiData, runStartupApiStatus, star
     ["Yapay Zekâ Sağlayıcı", Object.values(aiStatuses).some((item: any) => item?.status === "Aktif") ? "Çalışıyor" : "Uyarı", "OpenAI, Groq veya Gemini bağlantı durumu.", startupApiData?.lastTestTime, api.ai_last_error_at],
     ["API Sağlığı", startupApiData?.lastTestTime ? "Çalışıyor" : "Uyarı", "Server route ve entegrasyon testlerinin genel sonucu.", startupApiData?.lastTestTime, api.last_api_error_at]
   ];
-  const statusClass = (status: string) => status === "Çalışıyor" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : status === "Hata" ? "border-red-200 bg-red-50 text-red-700" : "border-amber-200 bg-amber-50 text-amber-700";
-  return <Panel title="Sistem Sağlık Merkezi"><div className="mb-5 flex flex-wrap items-center justify-between gap-3"><p className="max-w-3xl text-sm leading-6 text-slate-600">Teknik servislerin son kontrol, başarı ve hata durumlarını merkezi olarak izleyin. Bu ekran yalnız menüden açılır; girişte otomatik çalışmaz ve gizli anahtar göstermez.</p><button disabled={startupApiLoading} onClick={runStartupApiStatus} className="rounded-[10px] bg-cyan-500 px-4 py-3 text-sm font-black text-white disabled:opacity-60">{startupApiLoading ? "Test ediliyor..." : "Tüm Servisleri Yenile"}</button></div><div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{healthItems.map(([label, status, description, lastCheck, lastError]) => <div key={String(label)} className={`rounded-[16px] border p-4 ${statusClass(String(status))}`}><div className="flex items-center justify-between gap-3"><h3 className="font-black text-slate-950">{label}</h3><span className="rounded-full border border-current/20 px-2 py-1 text-[10px] font-black">{status}</span></div><p className="mt-3 text-xs leading-5 text-slate-700">{description}</p><div className="mt-3 grid gap-1 text-[11px] text-slate-600"><span>Son kontrol: {lastCheck ? new Date(String(lastCheck)).toLocaleString("tr-TR") : "Henüz kontrol edilmedi"}</span><span>Son başarılı işlem: {lastCheck ? new Date(String(lastCheck)).toLocaleString("tr-TR") : "Kayıt yok"}</span><span>Son hata: {lastError ? String(lastError) : "Hata kaydı yok"}</span></div><button disabled={startupApiLoading} onClick={runStartupApiStatus} className="mt-4 rounded-[9px] bg-white px-3 py-2 text-xs font-black text-slate-700 shadow-sm ring-1 ring-slate-200">Test Et / Yenile</button></div>)}</div><div className="mb-5"><ReadinessPanel api={api} /></div><AiStatusCenterWidget statuses={aiStatuses} message={startupApiData?.lastTestTime ? `Son genel kontrol: ${new Date(startupApiData.lastTestTime).toLocaleString("tr-TR")}` : "Bağlantı testi bekleniyor."} loading={startupApiLoading} onRefresh={runStartupApiStatus} /></Panel>;
+  const healthTone = (status: string): AdminStatusTone => status === "Çalışıyor" ? "success" : status === "Hata" ? "danger" : "warning";
+  return (
+    <Panel title="Sistem Sağlık Merkezi">
+      <AdminPageHeader
+        eyebrow="Sistem · Sağlık"
+        title="Sistem Sağlık Merkezi"
+        description="Teknik servislerin son kontrol, başarı ve hata durumlarını merkezi olarak izleyin. Bu ekran yalnız menüden açılır; girişte otomatik çalışmaz ve gizli anahtar göstermez."
+        actions={<AdminButton variant="info" loading={startupApiLoading} onClick={runStartupApiStatus}>Tüm Servisleri Yenile</AdminButton>}
+      />
+      <div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {healthItems.map(([label, status, description, lastCheck, lastError]) => (
+          <div key={String(label)} className="admin-card rounded-[16px] p-4">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="font-black" style={{ color: "var(--admin-text-primary)" }}>{label}</h3>
+              <AdminStatusBadge tone={healthTone(String(status))}>{status}</AdminStatusBadge>
+            </div>
+            <p className="mt-3 text-xs leading-5" style={{ color: "var(--admin-text-secondary)" }}>{description}</p>
+            <div className="mt-3 grid gap-1 text-[11px]" style={{ color: "var(--admin-text-muted)" }}>
+              <span>Son kontrol: {lastCheck ? new Date(String(lastCheck)).toLocaleString("tr-TR") : "Henüz kontrol edilmedi"}</span>
+              <span>Son başarılı işlem: {lastCheck ? new Date(String(lastCheck)).toLocaleString("tr-TR") : "Kayıt yok"}</span>
+              <span>Son hata: {lastError ? String(lastError) : "Hata kaydı yok"}</span>
+            </div>
+            <div className="mt-4">
+              <AdminButton compact variant="secondary" loading={startupApiLoading} onClick={runStartupApiStatus}>Test Et / Yenile</AdminButton>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="mb-5"><ReadinessPanel api={api} /></div>
+      <AiStatusCenterWidget statuses={aiStatuses} message={startupApiData?.lastTestTime ? `Son genel kontrol: ${new Date(startupApiData.lastTestTime).toLocaleString("tr-TR")}` : "Bağlantı testi bekleniyor."} loading={startupApiLoading} onRefresh={runStartupApiStatus} />
+    </Panel>
+  );
 }
 
 function ExportCenter({ content, currentSession, notify }: any) {
@@ -5352,7 +5382,24 @@ function Settings({ content, setContent, setActive }: any) {
     ["Web Site Ayarları", "Logo, hizmet, paket ve public iletişim içerikleri.", "Web Sitesi Yönetimi"],
     ["Yedekleme ve Loglama Ayarları", "Dışa aktarma, aktivite kaydı ve sistem denetimi.", "Log ve Aktivite Merkezi"]
   ];
-  return <Panel title="Sistem Ayarları"><div className="rounded-[18px] border border-slate-200 bg-white p-5"><h3 className="text-lg font-black text-slate-950">Genel Sistem Ayarları</h3><p className="mt-1 text-sm text-slate-600">Uygulamanın genel çalışma, bakım ve public site performans tercihleri.</p><div className="mt-4 grid gap-4 md:grid-cols-2"><SelectField label="Performans modu" value={settings.performanceMode || "balanced"} onChange={(v) => update({ performanceMode: v })} options={[{ value: "ultra", label: "Ultra Animasyon" }, { value: "balanced", label: "Dengeli" }, { value: "performance", label: "Performans" }]} /><label className="flex items-center gap-2 text-sm font-bold text-slate-700"><input type="checkbox" checked={Boolean(settings.maintenanceMode)} onChange={(e) => update({ maintenanceMode: e.target.checked })} /> Bakım modu</label><div className="md:col-span-2"><TextArea label="Yasal bilgilendirmeler" value={(settings.legalDisclaimers || []).join("\n")} onChange={(v) => update({ legalDisclaimers: v.split("\n").filter(Boolean) })} /></div></div><p className="mt-3 text-xs text-slate-500">Admin panel sabit okunur arayüz kullanır. Performans modu yalnız public web sitesindeki animasyon yoğunluğunu yönetir.</p></div><div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">{sections.map(([title, description, target]) => <article key={title} className="rounded-[18px] border border-slate-200 bg-white p-5"><h3 className="font-black text-slate-950">{title}</h3><p className="mt-2 min-h-12 text-sm leading-6 text-slate-600">{description}</p><button onClick={() => setActive(target)} className="mt-4 rounded-[10px] border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-black text-cyan-700">Ayarları Aç</button></article>)}</div></Panel>;
+  return (
+    <Panel title="Sistem Ayarları">
+      <AdminPageHeader eyebrow="Sistem · Ayarlar" title="Sistem Ayarları" description="Uygulamanın genel çalışma, bakım ve public site performans tercihleri." />
+      <AdminSection title="Genel Sistem Ayarları">
+        <div className="grid gap-4 md:grid-cols-2">
+          <SelectField label="Performans modu" value={settings.performanceMode || "balanced"} onChange={(v) => update({ performanceMode: v })} options={[{ value: "ultra", label: "Ultra Animasyon" }, { value: "balanced", label: "Dengeli" }, { value: "performance", label: "Performans" }]} />
+          <label className="flex items-center gap-2 text-sm font-bold" style={{ color: "var(--admin-text-secondary)" }}><input type="checkbox" checked={Boolean(settings.maintenanceMode)} onChange={(e) => update({ maintenanceMode: e.target.checked })} /> Bakım modu</label>
+          <div className="md:col-span-2"><TextArea label="Yasal bilgilendirmeler" value={(settings.legalDisclaimers || []).join("\n")} onChange={(v) => update({ legalDisclaimers: v.split("\n").filter(Boolean) })} /></div>
+        </div>
+        <p className="mt-3 text-xs" style={{ color: "var(--admin-text-muted)" }}>Admin panel sabit okunur arayüz kullanır. Performans modu yalnız public web sitesindeki animasyon yoğunluğunu yönetir.</p>
+      </AdminSection>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {sections.map(([title, description, target]) => (
+          <AdminActionCard key={title} title={title} description={description} icon={<Settings2 size={20} />} gradient="from-slate-500 to-slate-700" onClick={() => setActive(target)} />
+        ))}
+      </div>
+    </Panel>
+  );
 }
 
 function GeneralWebsiteSettings({ content, setContent }: any) {
@@ -5408,7 +5455,7 @@ function IntegrationsCenter({ content, setContent, notify, selectedCompanyId }: 
     setStatus(data.message || data.error || "Test tamamlandı.");
   };
   return <Panel title="Entegrasyonlar">
-    <p className="mb-5 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm leading-6 text-cyan-700">API anahtarları tarayıcıya gönderilmez. Bu alan bağlantı kimliklerini ve durum notlarını merkezi olarak düzenlemek içindir; gerçek gizli anahtarlar sunucu ortam değişkenlerinde kalmalıdır.</p>
+    <AdminPageHeader eyebrow="Sistem · Entegrasyonlar" title="Entegrasyonlar" description="API anahtarları tarayıcıya gönderilmez. Bu alan bağlantı kimliklerini ve durum notlarını merkezi olarak düzenlemek içindir; gerçek gizli anahtarlar sunucu ortam değişkenlerinde kalmalıdır." />
     <OAuthSetupStatusPanel />
     <CustomerAiSettingsAdminPanel companyId={selectedCompanyId} companies={content.companies || []} notify={notify} />
     <CustomerIntegrationHealthPanel companyId={selectedCompanyId} companies={content.companies || []} notify={notify} />
@@ -5417,9 +5464,8 @@ function IntegrationsCenter({ content, setContent, notify, selectedCompanyId }: 
     <IntegrationPersistenceSettings notify={notify} />
     <MetaAdsConnectionCenter content={content} setContent={setContent} api={api} updateApi={update} />
     <div className="grid gap-5">
-      <div className="rounded-[8px] border border-slate-200 p-4">
-        <h3 className="font-black">Meta</h3>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
+      <AdminSection title="Meta">
+        <div className="grid gap-3 md:grid-cols-2">
           <Field label="App ID" value={api.meta_app_id || ""} onChange={(v) => update({ meta_app_id: v })} />
           <Field label="App Secret" value={api.meta_app_secret ? "••••••••" : ""} onChange={(v) => update({ meta_app_secret: v })} />
           <Field label="Access Token" value={api.meta_access_token ? "••••••••" : ""} onChange={(v) => update({ meta_access_token: v })} />
@@ -5427,10 +5473,9 @@ function IntegrationsCenter({ content, setContent, notify, selectedCompanyId }: 
           <Field label="Ad Account ID" value={api.meta_ad_account_id || ""} onChange={(v) => update({ meta_ad_account_id: v })} />
           <Field label="Meta Pixel ID" value={analyticsIds.metaPixel || ""} onChange={(v) => updateAnalytics({ metaPixel: v })} />
         </div>
-      </div>
-      <div className="rounded-[8px] border border-slate-200 p-4">
-        <h3 className="font-black">Google</h3>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
+      </AdminSection>
+      <AdminSection title="Google">
+        <div className="grid gap-3 md:grid-cols-2">
           <Field label="Maps API" value={api.google_maps_key ? "••••••••" : ""} onChange={(v) => update({ google_maps_key: v })} />
           <Field label="Ads API" value={api.google_ads_key ? "••••••••" : ""} onChange={(v) => update({ google_ads_key: v })} />
           <Field label="Analytics" value={api.google_analytics_id || ""} onChange={(v) => update({ google_analytics_id: v })} />
@@ -5438,20 +5483,19 @@ function IntegrationsCenter({ content, setContent, notify, selectedCompanyId }: 
           <Field label="Google Tag Manager" value={analyticsIds.googleTagManager || ""} onChange={(v) => updateAnalytics({ googleTagManager: v })} />
           <Field label="Search Console" value={api.google_search_console || ""} onChange={(v) => update({ google_search_console: v })} />
         </div>
-      </div>
+      </AdminSection>
       <ApiSettings content={content} setContent={setContent} />
-      <div className="rounded-[8px] border border-slate-200 p-4">
-        <h3 className="font-black">Diğer</h3>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
+      <AdminSection title="Diğer">
+        <div className="grid gap-3 md:grid-cols-2">
           <Field label="SMTP" value={api.smtp_host || ""} onChange={(v) => update({ smtp_host: v })} />
           <Field label="WhatsApp" value={api.whatsapp_provider || ""} onChange={(v) => update({ whatsapp_provider: v })} />
           <Field label="Webhook URL" value={api.webhook_url || ""} onChange={(v) => update({ webhook_url: v })} />
         </div>
-      </div>
+      </AdminSection>
     </div>
     <div className="mt-5 flex flex-wrap items-center gap-3">
-      <button onClick={test} className="rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Bağlantıyı test et</button>
-      <span className="rounded-full border border-slate-200 px-3 py-2 text-xs text-slate-600">Son test: {api.integrations_last_test_at ? new Date(api.integrations_last_test_at).toLocaleString("tr-TR") : "Yok"} · {api.integrations_last_test_status || "Bekliyor"}</span>
+      <AdminButton variant="info" onClick={test}>Bağlantıyı test et</AdminButton>
+      <AdminStatusBadge tone="neutral">Son test: {api.integrations_last_test_at ? new Date(api.integrations_last_test_at).toLocaleString("tr-TR") : "Yok"} · {api.integrations_last_test_status || "Bekliyor"}</AdminStatusBadge>
     </div>
     {status && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-700">{status}</p>}
   </Panel>;
