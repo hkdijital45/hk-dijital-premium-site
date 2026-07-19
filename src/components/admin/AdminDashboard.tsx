@@ -43,126 +43,11 @@ import { suggestUsername } from "@/lib/usernames";
 import { excludeTestCompanyRecords, filterRecordsByVisibility, isTestRecord } from "@/lib/test-records";
 import { filterSelectableCustomers } from "@/lib/customer-visibility";
 
-const adminCategoryIcons: Record<string, any> = {
-  LayoutDashboard,
-  UsersRound,
-  Sparkles,
-  FileBarChart,
-  Bot,
-  MapPinned,
-  Gauge,
-  Settings2,
-  Download
-};
-
-// Per-module-group nav accent — semantic, not decorative: navy=system,
-// turquoise=customer, blue=CRM/analysis, orange=ads/attention, purple=AI,
-// green=finance, pink=content/creative. Applied as CSS custom properties so
-// globals.css can style the nav with a single generic rule per state.
-const adminGroupAccents: Record<string, { solid: string; soft: string; text: string }> = {
-  "Kontrol Merkezi": { solid: "#0f766e", soft: "#f0fdfa", text: "#115e59" },
-  "Müşteri Merkezi": { solid: "#0891b2", soft: "#ecfeff", text: "#0e7490" },
-  "CRM Merkezi": { solid: "#2563eb", soft: "#eff6ff", text: "#1d4ed8" },
-  "Reklam & Performans": { solid: "#ea580c", soft: "#fff7ed", text: "#c2410c" },
-  "Yapay Zekâ Merkezi": { solid: "#7c3aed", soft: "#f5f3ff", text: "#6d28d9" },
-  "Ajans Operasyonu": { solid: "#4f46e5", soft: "#eef2ff", text: "#4338ca" },
-  "Muhasebe": { solid: "#059669", soft: "#f0fdf4", text: "#047857" },
-  "Rapor Merkezi": { solid: "#0284c7", soft: "#f0f9ff", text: "#0369a1" },
-  "İçerik & Medya": { solid: "#db2777", soft: "#fdf2f8", text: "#be185d" },
-  "Entegrasyonlar": { solid: "#334155", soft: "#f8fafc", text: "#1e293b" },
-  "Ayarlar": { solid: "#475569", soft: "#f8fafc", text: "#334155" }
-};
-
-function groupAccentStyle(label: string) {
-  const accent = adminGroupAccents[label] || adminGroupAccents.Ayarlar;
-  return { "--nav-accent": accent.solid, "--nav-accent-soft": accent.soft, "--nav-accent-text": accent.text } as any;
-}
-
-const adminLabelEmojis: Record<string, string> = {
-  "Kontrol Merkezi": "🖥️",
-  "CRM & Müşteriler": "👥",
-  "İstihbarat Merkezi": "🧭",
-  "Reklam & Raporlama": "📊",
-  "Ajans Operasyonları": "🗂️",
-  "Tahsilat & Operasyon": "💳",
-  "İçerik & Yapay Zekâ Stüdyosu": "✨",
-  "Büyüme Motoru": "🚀",
-  "Reklam Operasyon Merkezi": "📡",
-  "Araçlar": "🧰",
-  "Araçlar & Yardım": "🧰",
-  "Ayarlar": "⚙️",
-  Dashboard: "🏠",
-  "HK Asistan": "🤖",
-  Görevler: "✅",
-  Karlılık: "💰",
-  Müşteriler: "👥",
-  Leadler: "🎯",
-  CRM: "🎯",
-  "Satış Hunisi": "🧲",
-  Kampanyalar: "📣",
-  Tahsilat: "💳",
-  Teklifler: "📄",
-  "Teklif Oluştur": "📄",
-  Raporlar: "📈",
-  "Müşteri Raporları": "📈",
-  Belgeler: "🗃️",
-  "Zaman Çizelgesi": "🕒",
-  "Sistem Sağlığı": "🩺",
-  "Sistem Sağlık Merkezi": "🩺",
-  "HK Intelligence Kontrol Merkezi": "🧠",
-  "Büyüme Motoru": "🚀",
-  "Reklam Operasyon Merkezi": "📡",
-  "Funnel Planlayıcı": "🧭",
-  "Modül Pazarı": "🛍️",
-  "HK Intelligence Commander": "🧠",
-  "Risk Merkezi": "🚨",
-  "HK Dijital Sistem Rehberi": "📚",
-  "Log ve Aktivite Merkezi": "🧾",
-  "Sistem Test Merkezi": "🧪",
-  "Web Sitesi Yönetimi": "🌐",
-  Entegrasyonlar: "🔌",
-  "Kullanıcı Yönetimi": "👤",
-  "Tema / Logo": "🎨",
-  "Sistem Ayarları": "⚙️",
-  "Sistem Logları": "🧾",
-  "Aktivite Akışı": "🕒",
-  "Veri Aktarma": "🧰",
-  Takvim: "📅",
-  "Meta Raporları": "📊",
-  "Google Ads Raporları": "📈",
-  "Reklam Hesabı Eşleştirme": "🔗",
-  "Aylık Raporlar": "🗓️",
-  "PDF Audit": "🖨️",
-  "WhatsApp Teklifi": "💬",
-  "Müşteri Keşfi": "🧭",
-  Haritalar: "🗺️",
-  "Meta İstihbarat": "📣",
-  "Google İstihbarat": "🔎",
-  "Lead Analizi": "🎯"
-  ,
-  "Takip Merkezi": "📞",
-  "Yapay Zekâ Denetim": "🧠",
-  "PDF Rapor Tasarım Merkezi": "🖨️",
-  "Gelir Tahmini": "📈",
-  "Gelir / Gider": "💸",
-  "Kârlılık": "💰",
-  "Bekleyen Ödemeler": "⏳",
-  "Müşteri Finans Özeti": "🧾",
-  Export: "📤",
-  "Sözleşme Oluştur": "📝",
-  "WhatsApp Hatırlatma Merkezi": "💬"
-  ,
-  "Web Site Analitiği": "📊",
-  "Reklam Yorum Merkezi": "🧠",
-  "Reklam Doktoru Pro": "🧠",
-  "HK Agent Hub": "🤖",
-  "QA Merkezi": "🧪"
-};
-
-function withAdminEmoji(label: string) {
-  const emoji = adminLabelEmojis[label];
-  return emoji && !label.startsWith(emoji) ? `${emoji} ${label}` : label;
-}
+import { adminCategoryIcons, withAdminEmoji } from "@/lib/admin-nav-presentation";
+import { AdminAppShell } from "@/components/admin/shell/AdminAppShell";
+import { AdminSidebar } from "@/components/admin/shell/AdminSidebar";
+import { AdminMobileNavigation } from "@/components/admin/shell/AdminMobileNavigation";
+import { AdminTopHeader } from "@/components/admin/shell/AdminTopHeader";
 
 const salesPipelineStages = ["Yeni Lead", "İletişim Kuruldu", "Toplantı Yapıldı", "Teklif Gönderildi", "Takipte", "Kazanıldı", "Kaybedildi"];
 const customerLifecycleStages = ["Lead", "Görüşme", "Teklif", "Kazanıldı", "Onboarding", "Aktif Müşteri", "Raporlama", "Tahsilat", "Yenileme", "Referans"];
@@ -456,9 +341,26 @@ export function AdminDashboard({
   const [selectedCompanyId, setSelectedCompanyId] = useState("");
   const [pendingCompanyId, setPendingCompanyId] = useState("");
   const [mobileOperationMode, setMobileOperationMode] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     setIsDesktopApp(Boolean(window.hkDesktop?.isDesktop));
+    try {
+      const storedTheme = localStorage.getItem("hk-admin-theme");
+      if (storedTheme === "dark" || storedTheme === "light") {
+        setTheme(storedTheme);
+      } else if (window.matchMedia?.("(prefers-color-scheme: dark)").matches) {
+        setTheme("dark");
+      }
+    } catch {
+      setTheme("light");
+    }
+    try {
+      setSidebarCollapsed(localStorage.getItem("hk-admin-sidebar-collapsed") === "true");
+    } catch {
+      setSidebarCollapsed(false);
+    }
     let shouldShowBoot = true;
     try {
       shouldShowBoot = !sessionStorage.getItem("hk-os-boot-complete");
@@ -553,6 +455,22 @@ export function AdminDashboard({
     setOpenGroups((current) => {
       const nextOpen = !current[label];
       return Object.fromEntries(adminNavigationGroups.map((group) => [group.label, group.label === label ? nextOpen : false]));
+    });
+  }
+
+  function toggleTheme() {
+    setTheme((current) => {
+      const next = current === "dark" ? "light" : "dark";
+      try { localStorage.setItem("hk-admin-theme", next); } catch {}
+      return next;
+    });
+  }
+
+  function toggleSidebarCollapsed() {
+    setSidebarCollapsed((current) => {
+      const next = !current;
+      try { localStorage.setItem("hk-admin-sidebar-collapsed", String(next)); } catch {}
+      return next;
     });
   }
 
@@ -669,7 +587,6 @@ export function AdminDashboard({
   }, [activeGroup?.label, mobileNavOpen]);
   useEffect(() => {
     function closeMenus() {
-      setHoveredNavGroup("");
       setOpenGroups(Object.fromEntries(adminNavigationGroups.map((group) => [group.label, false])));
     }
     function handlePointerDown(event: MouseEvent) {
@@ -720,128 +637,149 @@ export function AdminDashboard({
   const activeFavoriteSlug = activeNavigationItem?.slug || (active === "Dashboard" ? "dashboard" : "");
 
   return (
-    <main data-admin="true" data-mobile-operation-mode={mobileOperationMode ? "true" : "false"} className={`admin-shell hk-admin relative min-h-screen w-full min-w-0 max-w-full ${mobileOperationMode ? "hk-mobile-operation-mode" : ""} ${shellClass}`}>
-      <div className="admin-ambient pointer-events-none absolute inset-0" />
-      <div className="premium-grid pointer-events-none absolute inset-0 opacity-20" />
-      <header className={`sticky top-0 z-40 border-b ${headerClass} shadow-[0_8px_30px_rgba(15,23,42,.06)] backdrop-blur-sm`}>
-        <div className="relative flex min-w-0 flex-wrap items-center gap-3 px-3 py-3 sm:px-4 lg:px-6">
-          <div className="flex min-w-0 flex-1 items-center gap-3 sm:min-w-[220px] 2xl:flex-none">
-            <Link href="/hk-admin" aria-label="Ana dashboard'a dön" className="group flex items-center gap-3 rounded-[8px] px-2 py-1 transition hover:bg-slate-50">
+    <AdminAppShell
+      theme={theme}
+      mobileOperationMode={mobileOperationMode}
+      header={
+        <AdminTopHeader
+          logo={
+            <Link href="/hk-admin" aria-label="Ana dashboard'a dön" className="group flex items-center gap-3 rounded-[8px] px-2 py-1 transition hover:bg-[var(--admin-surface-soft)]">
               <Logo content={content} compact />
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[.18em] text-cyan-700">HK Dijital</p>
                 <h1 className="text-lg font-black transition group-hover:text-cyan-700 sm:text-xl">HK Operating System</h1>
               </div>
+              {isDesktopApp && <span className="ml-2 rounded-[8px] border border-amber-200/20 bg-amber-300/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[.12em] text-amber-700">Desktop</span>}
             </Link>
-            {isDesktopApp && <span className="rounded-[8px] border border-amber-200/20 bg-amber-300/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[.12em] text-amber-700">Desktop</span>}
-          </div>
+          }
+          title={withAdminEmoji(active)}
+          breadcrumb={activeGroup?.label || "HK Operating System"}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          sidebarCollapsed={sidebarCollapsed}
+          onToggleSidebar={toggleSidebarCollapsed}
+          onOpenMobileNav={() => setMobileNavOpen(true)}
+        >
           <AdminBrowserControls />
-          <nav className="order-3 grid w-full min-w-0 gap-2 2xl:flex 2xl:items-center 2xl:justify-center">
-            <button type="button" onClick={() => setMobileNavOpen((current) => !current)} className="admin-category-button flex w-full items-center justify-between px-3 text-sm font-black 2xl:hidden">
-              Menü
-              {mobileNavOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          <button onClick={() => setActive("API Ayarları")} className="admin-quick-action admin-quick-action-info text-left text-xs">
+            <span className="block">AI: {aiStatus.provider}</span>
+            <span className="block text-[10px] text-cyan-700/70">Mod: {aiStatus.mode}</span>
+          </button>
+          <GlobalAdminSearch />
+          <div className="relative">
+            <button type="button" onClick={() => setFavoritesOpen((current) => !current)} aria-expanded={favoritesOpen} className="admin-quick-action admin-quick-action-favorite text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
+              <Star size={17} className="fill-amber-950" /> Favoriler <span className="rounded-full bg-white/70 px-2 py-0.5 text-xs">{favoriteNavigationItems.length}</span>
             </button>
-            <div className={`${mobileNavOpen ? "grid" : "hidden"} min-w-0 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:flex 2xl:flex-wrap 2xl:items-center 2xl:justify-center 2xl:gap-1.5`}>
-              {visibleNavigationGroups.map((group) => {
-                const expanded = openGroups[group.label];
-                const activeInGroup = group.items.some((item) => item.label === active || item.slug === "" && active === "Dashboard");
-                const CategoryIcon = adminCategoryIcons[group.icon] || LayoutDashboard;
-                return (
-                  <div
-                    key={group.label}
-                    data-admin-nav="true"
-                    className="relative"
-                    style={groupAccentStyle(group.label)}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => toggleGroup(group.label)}
-                      aria-expanded={expanded}
-                      className={`admin-category-button flex w-full items-center justify-between gap-2 px-3 text-sm font-black transition lg:w-auto ${activeInGroup ? "admin-category-button-active" : ""}`}
-                    >
-                      <span className="flex min-w-0 items-center gap-2">
-                        <span className="admin-category-icon grid size-7 shrink-0 place-items-center rounded-[9px]"><CategoryIcon size={14} /></span>
-                        <span className="truncate">{withAdminEmoji(group.label)}</span>
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <span className="admin-nav-count rounded-full px-1.5 py-0.5 text-[10px]">{group.items.length}</span>
-                        <ChevronDown size={14} className={`transition ${expanded ? "rotate-180" : ""}`} />
-                      </span>
-                    </button>
-                    <div
-                      className={`admin-top-dropdown admin-mega-menu premium-scrollbar ${expanded ? "grid" : "hidden"} mt-2 max-h-[min(72vh,640px)] w-full min-w-0 max-w-full gap-2 overflow-y-auto 2xl:absolute 2xl:left-1/2 2xl:top-full 2xl:z-50 2xl:mt-3 2xl:w-[min(760px,calc(100vw-32px))] 2xl:min-w-[460px] 2xl:-translate-x-1/2 2xl:grid-cols-2`}
-                    >
-                      {group.items.map((item) => (
-                        <Link
-                          key={`${group.label}-${item.label}-${item.slug}`}
-                          href={getAdminHref(item.slug)}
-                          title={item.label}
-                          onClick={() => { setMobileNavOpen(false); setOpenGroups(Object.fromEntries(adminNavigationGroups.map((navGroup) => [navGroup.label, false]))); }}
-                          className={`admin-mega-item flex w-full min-w-0 items-start gap-3 px-3.5 py-3 text-sm font-bold transition ${active === item.label ? "admin-mega-item-active" : ""}`}
-                        >
-                          <span className="admin-mega-item-icon mt-0.5 grid size-8 shrink-0 place-items-center rounded-[10px]"><CategoryIcon size={15} /></span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block whitespace-normal break-normal leading-5">{withAdminEmoji(item.label)}</span>
-                            <span className={`mt-1 line-clamp-2 block whitespace-normal break-normal text-[11px] font-medium leading-4 ${active === item.label ? "text-slate-700" : "text-slate-500"}`}>{item.description}</span>
-                          </span>
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </nav>
-          <div className="admin-header-actions order-2 flex w-full min-w-0 flex-wrap gap-2 2xl:order-none 2xl:ml-auto 2xl:w-auto 2xl:justify-end">
-            <button onClick={() => setActive("API Ayarları")} className="admin-quick-action admin-quick-action-info text-left text-xs">
-              <span className="block">AI: {aiStatus.provider}</span>
-              <span className="block text-[10px] text-cyan-700/70">Mod: {aiStatus.mode}</span>
-            </button>
-            <GlobalAdminSearch />
-            <div className="relative">
-              <button type="button" onClick={() => setFavoritesOpen((current) => !current)} aria-expanded={favoritesOpen} className="admin-quick-action admin-quick-action-favorite text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
-                <Star size={17} className="fill-amber-950" /> Favoriler <span className="rounded-full bg-white/70 px-2 py-0.5 text-xs">{favoriteNavigationItems.length}</span>
-              </button>
-              {favoritesOpen && <div className="absolute right-0 top-14 z-50 w-[min(92vw,380px)] rounded-[16px] border border-amber-200 bg-white p-3 shadow-2xl">
-                <div className="flex items-center justify-between gap-3 px-1 pb-3"><div><p className="font-black text-slate-950">Favori modüller</p><p className="text-xs text-slate-500">Sıralama hesabınıza kaydedilir.</p></div>{activeFavoriteSlug && <button type="button" disabled={favoritesSaving} onClick={() => saveFavorites(favoriteSlugs.includes(activeFavoriteSlug) ? favoriteSlugs.filter((slug) => slug !== activeFavoriteSlug) : [...favoriteSlugs, activeFavoriteSlug])} className="hk-button hk-button-compact hk-button-warning">{favoriteSlugs.includes(activeFavoriteSlug) ? "Favoriden Çıkar" : "Bu Modülü Ekle"}</button>}</div>
-                <div className="grid max-h-[55vh] gap-2 overflow-y-auto">{favoriteNavigationItems.map((item, index) => item && <div key={item.slug || "dashboard"} className="flex items-center gap-2 rounded-[12px] border border-slate-200 bg-slate-50 p-2"><Link href={getAdminHref(item.slug)} onClick={() => setFavoritesOpen(false)} className="min-w-0 flex-1 truncate px-2 text-sm font-black text-slate-800">{item.label}</Link><button type="button" disabled={favoritesSaving || index === 0} onClick={() => moveFavorite(item.slug || "dashboard", -1)} aria-label={`${item.label} favorisini yukarı taşı`} className="hk-icon-button"><ArrowUp size={15} /></button><button type="button" disabled={favoritesSaving || index === favoriteNavigationItems.length - 1} onClick={() => moveFavorite(item.slug || "dashboard", 1)} aria-label={`${item.label} favorisini aşağı taşı`} className="hk-icon-button"><ArrowDown size={15} /></button><button type="button" disabled={favoritesSaving} onClick={() => saveFavorites(favoriteSlugs.filter((slug) => slug !== (item.slug || "dashboard")))} aria-label={`${item.label} favorisini kaldır`} className="hk-icon-button text-red-600"><X size={15} /></button></div>)}{!favoriteNavigationItems.length && <p className="rounded-[12px] border border-dashed border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Bir modülü açıp “Bu Modülü Ekle” seçeneğini kullanın.</p>}</div>
-              </div>}
-            </div>
-            {allowedModules.includes("musteriler") && <Link href="/hk-admin/musteriler" className="admin-quick-action admin-quick-action-success text-sm"><UsersRound size={17} /> Müşteriler</Link>}
-            <button onClick={() => setCopilotOpen(true)} className="admin-quick-action admin-quick-action-ai text-sm">
-              <Bot size={17} /> HK Copilot
-            </button>
-            <div className="relative">
-              <button onClick={() => setNotificationsOpen((current) => !current)} className="admin-icon-action relative" aria-label="Bildirimler">
-                <Bell size={17} />
-                {unreadNotifications.length > 0 && <span className="absolute -right-1 -top-1 grid min-h-5 min-w-5 place-items-center rounded-full bg-amber-300 px-1 text-[10px] font-black text-slate-950 shadow-[0_0_18px_rgba(250,204,21,.8)]">{unreadNotifications.length}</span>}
-              </button>
-            </div>
-            <div className="admin-profile-chip text-sm" title={currentSession?.email || "HK Admin"}>
-              {userInitials || "HK"}
-            </div>
-            <div className="relative">
-              <button onClick={() => setHelpOpen((current) => !current)} className="admin-quick-action text-sm">
-                <HelpCircle size={17} /> Yardım
-              </button>
-              {helpOpen && (
-                <div className="absolute right-0 top-14 z-50 w-[min(90vw,340px)] rounded-[8px] border border-slate-200 bg-white p-4 text-slate-900 shadow-2xl backdrop-blur-sm">
-                  <p className="text-sm font-black text-cyan-700">Hızlı yardım</p>
-                  <p className="mt-2 text-xs leading-5 text-slate-600">İşletme aramak için Müşteri Bulucu, başvuruları takip etmek için CRM, müşteri raporları için Raporlar bölümünü kullanın.</p>
-                  <div className="mt-3 grid gap-2 text-xs">
-                    <Link onClick={() => setHelpOpen(false)} href="/hk-admin/kullanim-kilavuzu#isletme-kesfi-kullanimi" className="rounded-[8px] border border-slate-200 px-3 py-2 hover:bg-white/10">İşletme keşfi adımları</Link>
-                    <Link onClick={() => setHelpOpen(false)} href="/hk-admin/kullanim-kilavuzu#raporlama-kullanimi" className="rounded-[8px] border border-slate-200 px-3 py-2 hover:bg-white/10">Raporlama adımları</Link>
-                    <Link onClick={() => setHelpOpen(false)} href="/hk-admin/kullanim-kilavuzu" className="rounded-[8px] bg-cyan-300 px-3 py-2 font-black text-slate-950">Kullanım kılavuzunu aç</Link>
-                  </div>
-                </div>
-              )}
-            </div>
-            {(allowedModules.includes("site-ayarlari") || ["musteriler", "kampanyalar", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "sektor-sistemleri"].some((module) => allowedModules.includes(module))) && <button disabled={saving} onClick={() => save()} className={`admin-quick-action admin-quick-action-save text-sm disabled:opacity-70 ${saveFeedback === "success" ? "hk-action-success" : ""}`}><Save size={17} /> {saving ? "Kaydediliyor..." : saveFeedback === "success" ? "Kaydedildi ✓" : saveFeedback === "error" ? "Tekrar Dene" : "Kaydet"}</button>}
-            <button onClick={logout} className="admin-quick-action admin-quick-action-danger text-sm"><LogOut size={17} /> Çıkış</button>
+            {favoritesOpen && <div className="absolute right-0 top-14 z-50 w-[min(92vw,380px)] rounded-[16px] border border-amber-200 bg-white p-3 shadow-2xl">
+              <div className="flex items-center justify-between gap-3 px-1 pb-3"><div><p className="font-black text-slate-950">Favori modüller</p><p className="text-xs text-slate-500">Sıralama hesabınıza kaydedilir.</p></div>{activeFavoriteSlug && <button type="button" disabled={favoritesSaving} onClick={() => saveFavorites(favoriteSlugs.includes(activeFavoriteSlug) ? favoriteSlugs.filter((slug) => slug !== activeFavoriteSlug) : [...favoriteSlugs, activeFavoriteSlug])} className="hk-button hk-button-compact hk-button-warning">{favoriteSlugs.includes(activeFavoriteSlug) ? "Favoriden Çıkar" : "Bu Modülü Ekle"}</button>}</div>
+              <div className="grid max-h-[55vh] gap-2 overflow-y-auto">{favoriteNavigationItems.map((item, index) => item && <div key={item.slug || "dashboard"} className="flex items-center gap-2 rounded-[12px] border border-slate-200 bg-slate-50 p-2"><Link href={getAdminHref(item.slug)} onClick={() => setFavoritesOpen(false)} className="min-w-0 flex-1 truncate px-2 text-sm font-black text-slate-800">{item.label}</Link><button type="button" disabled={favoritesSaving || index === 0} onClick={() => moveFavorite(item.slug || "dashboard", -1)} aria-label={`${item.label} favorisini yukarı taşı`} className="hk-icon-button"><ArrowUp size={15} /></button><button type="button" disabled={favoritesSaving || index === favoriteNavigationItems.length - 1} onClick={() => moveFavorite(item.slug || "dashboard", 1)} aria-label={`${item.label} favorisini aşağı taşı`} className="hk-icon-button"><ArrowDown size={15} /></button><button type="button" disabled={favoritesSaving} onClick={() => saveFavorites(favoriteSlugs.filter((slug) => slug !== (item.slug || "dashboard")))} aria-label={`${item.label} favorisini kaldır`} className="hk-icon-button text-red-600"><X size={15} /></button></div>)}{!favoriteNavigationItems.length && <p className="rounded-[12px] border border-dashed border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Bir modülü açıp “Bu Modülü Ekle” seçeneğini kullanın.</p>}</div>
+            </div>}
           </div>
-        </div>
-      </header>
-      <div className="relative grid w-full min-w-0 max-w-full gap-4 px-3 py-4 sm:px-4 lg:grid-cols-1 lg:px-6">
+          {allowedModules.includes("musteriler") && <Link href="/hk-admin/musteriler" className="admin-quick-action admin-quick-action-success text-sm"><UsersRound size={17} /> Müşteriler</Link>}
+          <button onClick={() => setCopilotOpen(true)} className="admin-quick-action admin-quick-action-ai text-sm">
+            <Bot size={17} /> HK Copilot
+          </button>
+          <div className="relative">
+            <button onClick={() => setNotificationsOpen((current) => !current)} className="admin-icon-action relative" aria-label="Bildirimler">
+              <Bell size={17} />
+              {unreadNotifications.length > 0 && <span className="absolute -right-1 -top-1 grid min-h-5 min-w-5 place-items-center rounded-full bg-amber-300 px-1 text-[10px] font-black text-slate-950 shadow-[0_0_18px_rgba(250,204,21,.8)]">{unreadNotifications.length}</span>}
+            </button>
+          </div>
+          <div className="admin-profile-chip text-sm" title={currentSession?.email || "HK Admin"}>
+            {userInitials || "HK"}
+          </div>
+          <div className="relative">
+            <button onClick={() => setHelpOpen((current) => !current)} className="admin-quick-action text-sm">
+              <HelpCircle size={17} /> Yardım
+            </button>
+            {helpOpen && (
+              <div className="absolute right-0 top-14 z-50 w-[min(90vw,340px)] rounded-[8px] border border-slate-200 bg-white p-4 text-slate-900 shadow-2xl backdrop-blur-sm">
+                <p className="text-sm font-black text-cyan-700">Hızlı yardım</p>
+                <p className="mt-2 text-xs leading-5 text-slate-600">İşletme aramak için Müşteri Bulucu, başvuruları takip etmek için CRM, müşteri raporları için Raporlar bölümünü kullanın.</p>
+                <div className="mt-3 grid gap-2 text-xs">
+                  <Link onClick={() => setHelpOpen(false)} href="/hk-admin/kullanim-kilavuzu#isletme-kesfi-kullanimi" className="rounded-[8px] border border-slate-200 px-3 py-2 hover:bg-white/10">İşletme keşfi adımları</Link>
+                  <Link onClick={() => setHelpOpen(false)} href="/hk-admin/kullanim-kilavuzu#raporlama-kullanimi" className="rounded-[8px] border border-slate-200 px-3 py-2 hover:bg-white/10">Raporlama adımları</Link>
+                  <Link onClick={() => setHelpOpen(false)} href="/hk-admin/kullanim-kilavuzu" className="rounded-[8px] bg-cyan-300 px-3 py-2 font-black text-slate-950">Kullanım kılavuzunu aç</Link>
+                </div>
+              </div>
+            )}
+          </div>
+          {(allowedModules.includes("site-ayarlari") || ["musteriler", "kampanyalar", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "sektor-sistemleri"].some((module) => allowedModules.includes(module))) && <button disabled={saving} onClick={() => save()} className={`admin-quick-action admin-quick-action-save text-sm disabled:opacity-70 ${saveFeedback === "success" ? "hk-action-success" : ""}`}><Save size={17} /> {saving ? "Kaydediliyor..." : saveFeedback === "success" ? "Kaydedildi ✓" : saveFeedback === "error" ? "Tekrar Dene" : "Kaydet"}</button>}
+          <button onClick={logout} className="admin-quick-action admin-quick-action-danger text-sm"><LogOut size={17} /> Çıkış</button>
+        </AdminTopHeader>
+      }
+      sidebar={
+        <AdminSidebar
+          groups={visibleNavigationGroups}
+          active={active}
+          openGroups={openGroups}
+          onToggleGroup={toggleGroup}
+          collapsed={sidebarCollapsed}
+          onToggleCollapsed={toggleSidebarCollapsed}
+        />
+      }
+      mobileNav={
+        <AdminMobileNavigation
+          open={mobileNavOpen}
+          onClose={() => setMobileNavOpen(false)}
+          groups={visibleNavigationGroups}
+          active={active}
+          openGroups={openGroups}
+          onToggleGroup={toggleGroup}
+        />
+      }
+      overlays={
+        <>
+          {notificationsOpen && (
+            <div className="fixed inset-0 z-[80] flex justify-end bg-black/40" onMouseDown={() => setNotificationsOpen(false)}>
+              <aside className="admin-drawer-panel h-full w-full max-w-md overflow-y-auto border-l p-5 shadow-2xl" style={{ background: "var(--admin-surface)", borderColor: "var(--admin-border)", color: "var(--admin-text-primary)" }} onMouseDown={(event) => event.stopPropagation()}>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">HK Operating System</p>
+                    <h2 className="mt-1 text-2xl font-black">Bildirim Merkezi</h2>
+                    <p className="mt-2 text-sm leading-6" style={{ color: "var(--admin-text-muted)" }}>Tahsilat, görev, kampanya, rakip sinyali, API uyarısı ve müşteri taleplerini tek akışta izleyin.</p>
+                  </div>
+                  <button onClick={() => setNotificationsOpen(false)} className="admin-icon-action grid size-10 shrink-0 place-items-center rounded-[8px]" aria-label="Kapat"><X size={18} /></button>
+                </div>
+                <div className="mt-5 grid gap-3">
+                  {headerNotifications.map((item) => (
+                    <div key={item.id} className={`rounded-[8px] border p-3 ${item.tone === "cyan" ? "border-cyan-200/20 bg-cyan-300/[0.08]" : item.tone === "emerald" ? "border-emerald-200/20 bg-emerald-300/[0.08]" : item.tone === "purple" ? "border-purple-200/20 bg-purple-300/[0.08]" : "border-amber-200/20 bg-amber-300/[0.08]"}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="text-sm font-black text-slate-900">{item.label}</p>
+                        {!notificationState.read.includes(item.id) && <span className="rounded-full bg-amber-300 px-2 py-0.5 text-[9px] font-black text-slate-950">Yeni</span>}
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2 text-[10px] font-black">
+                        {item.priority && <span className="rounded-full bg-white px-2 py-1 text-slate-600 ring-1 ring-slate-200">Öncelik: {item.priority}</span>}
+                        {item.source && <span className="rounded-full bg-white px-2 py-1 text-slate-600 ring-1 ring-slate-200">Kaynak: {item.source}</span>}
+                        {item.companyId && <span className="rounded-full bg-white px-2 py-1 text-slate-600 ring-1 ring-slate-200">Müşteri: {companyName(content, item.companyId)}</span>}
+                        <span className={`rounded-full px-2 py-1 ring-1 ${item.showToCustomer ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : "bg-slate-50 text-slate-600 ring-slate-200"}`}>{item.showToCustomer ? "Müşteriye açık" : "Sadece admin"}</span>
+                      </div>
+                      <p className="mt-1 text-sm leading-6 text-slate-600">{item.text}</p>
+                      <div className="mt-3 flex flex-wrap justify-end gap-2">
+                        <button onClick={() => markNotificationRead(item.id)} className="rounded-full border border-emerald-300/30 px-3 py-1.5 text-[11px] font-bold text-emerald-700">Okundu yap</button>
+                        <button onClick={() => archiveNotification(item.id)} className="rounded-full border border-slate-200 px-3 py-1.5 text-[11px] font-bold text-slate-700">Arşivle</button>
+                        <button onClick={() => { setActive("Görevler"); markNotificationRead(item.id); setNotificationsOpen(false); notify?.("Bildirim görev taslağına dönüştürülecek bağlamla açıldı.", "success"); }} className="rounded-full border border-purple-200 bg-purple-50 px-3 py-1.5 text-[11px] font-black text-purple-700">Göreve dönüştür</button>
+                        <button onClick={() => { if (item.href) window.location.assign(item.href); else setActive(item.target || "Dashboard"); markNotificationRead(item.id); setNotificationsOpen(false); }} className="rounded-full bg-cyan-300 px-3 py-1.5 text-[11px] font-black text-slate-950">İlgili kaydı aç</button>
+                      </div>
+                    </div>
+                  ))}
+                  {!headerNotifications.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-5 text-sm text-slate-400">Aktif bildirim bulunmuyor.</p>}
+                </div>
+                <div className="mt-6 flex flex-wrap justify-end gap-2">
+                  <button onClick={() => setNotificationsOpen(false)} className="rounded-[8px] border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700">Kapat</button>
+                  <button onClick={() => markAllNotificationsRead(headerNotifications)} className="rounded-[8px] bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Tümünü Okundu Yap</button>
+                </div>
+              </aside>
+            </div>
+          )}
+          {copilotOpen && <GlobalCopilotPanel content={content} setActive={setActive} onClose={() => setCopilotOpen(false)} notify={notify} />}
+          <StartupApiStatusModal open={startupApiOpen} loading={startupApiLoading} data={startupApiData} message={startupApiMessage} onRetest={runStartupApiStatus} onClose={() => setStartupApiOpen(false)} onSettings={() => { setStartupApiOpen(false); setActive("API Ayarları"); }} />
+          {bootVisible && <SystemBoot step={bootStep} />}
+          <ToastStack items={toasts} dismiss={(id) => setToasts((current) => current.filter((toast) => toast.id !== id))} />
+          <HKAssistantWidget context="admin" />
+        </>
+      }
+    >
         <section className={`admin-dashboard-main min-w-0 w-full max-w-none rounded-[18px] border p-4 shadow-[0_8px_30px_rgba(15,23,42,.06)] sm:p-5 ${panelClass} ${saveFeedback === "success" ? "hk-action-success" : ""}`}>
           {!supabaseConfigured && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-700">Supabase bağlantısı yapılandırılmadı. Canlı ortamda kaydetme çalışmaz.</p>}
           {bootstrapWarning && <p className="mb-5 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-700">Süper admin kurulum anahtarları hâlâ aktif. Güvenlik için Vercel ortam değişkenlerinden kaldırın.</p>}
@@ -938,55 +876,7 @@ export function AdminDashboard({
           {active === "Ölçümleme Ayarları" && <TrackingSettings {...props} />}
           {["Kullanıcı Yönetimi", "Roller", "Güvenlik"].includes(active) && <UsersAdmin {...props} mode={active} />}
         </section>
-      </div>
-      {notificationsOpen && (
-        <div className="fixed inset-0 z-[80] flex justify-end bg-white/70 " onMouseDown={() => setNotificationsOpen(false)}>
-          <aside className="h-full w-full max-w-md overflow-y-auto border-l border-slate-200 bg-white p-5 text-slate-900 shadow-[0_24px_90px_rgba(0,0,0,.42)]" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">HK Operating System</p>
-                <h2 className="mt-1 text-2xl font-black">Bildirim Merkezi</h2>
-                <p className="mt-2 text-sm leading-6 text-slate-400">Tahsilat, görev, kampanya, rakip sinyali, API uyarısı ve müşteri taleplerini tek akışta izleyin.</p>
-              </div>
-              <button onClick={() => setNotificationsOpen(false)} className="grid size-10 shrink-0 place-items-center rounded-[8px] border border-slate-200 hover:bg-white/10" aria-label="Kapat"><X size={18} /></button>
-            </div>
-            <div className="mt-5 grid gap-3">
-              {headerNotifications.map((item) => (
-                <div key={item.id} className={`rounded-[8px] border p-3 ${item.tone === "cyan" ? "border-cyan-200/20 bg-cyan-300/[0.08]" : item.tone === "emerald" ? "border-emerald-200/20 bg-emerald-300/[0.08]" : item.tone === "purple" ? "border-purple-200/20 bg-purple-300/[0.08]" : "border-amber-200/20 bg-amber-300/[0.08]"}`}>
-                  <div className="flex items-start justify-between gap-3">
-                    <p className="text-sm font-black text-slate-900">{item.label}</p>
-                    {!notificationState.read.includes(item.id) && <span className="rounded-full bg-amber-300 px-2 py-0.5 text-[9px] font-black text-slate-950">Yeni</span>}
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-2 text-[10px] font-black">
-                    {item.priority && <span className="rounded-full bg-white px-2 py-1 text-slate-600 ring-1 ring-slate-200">Öncelik: {item.priority}</span>}
-                    {item.source && <span className="rounded-full bg-white px-2 py-1 text-slate-600 ring-1 ring-slate-200">Kaynak: {item.source}</span>}
-                    {item.companyId && <span className="rounded-full bg-white px-2 py-1 text-slate-600 ring-1 ring-slate-200">Müşteri: {companyName(content, item.companyId)}</span>}
-                    <span className={`rounded-full px-2 py-1 ring-1 ${item.showToCustomer ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : "bg-slate-50 text-slate-600 ring-slate-200"}`}>{item.showToCustomer ? "Müşteriye açık" : "Sadece admin"}</span>
-                  </div>
-                  <p className="mt-1 text-sm leading-6 text-slate-600">{item.text}</p>
-                  <div className="mt-3 flex flex-wrap justify-end gap-2">
-                    <button onClick={() => markNotificationRead(item.id)} className="rounded-full border border-emerald-300/30 px-3 py-1.5 text-[11px] font-bold text-emerald-700">Okundu yap</button>
-                    <button onClick={() => archiveNotification(item.id)} className="rounded-full border border-slate-200 px-3 py-1.5 text-[11px] font-bold text-slate-700">Arşivle</button>
-                    <button onClick={() => { setActive("Görevler"); markNotificationRead(item.id); setNotificationsOpen(false); notify?.("Bildirim görev taslağına dönüştürülecek bağlamla açıldı.", "success"); }} className="rounded-full border border-purple-200 bg-purple-50 px-3 py-1.5 text-[11px] font-black text-purple-700">Göreve dönüştür</button>
-                    <button onClick={() => { if (item.href) window.location.assign(item.href); else setActive(item.target || "Dashboard"); markNotificationRead(item.id); setNotificationsOpen(false); }} className="rounded-full bg-cyan-300 px-3 py-1.5 text-[11px] font-black text-slate-950">İlgili kaydı aç</button>
-                  </div>
-                </div>
-              ))}
-              {!headerNotifications.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-5 text-sm text-slate-400">Aktif bildirim bulunmuyor.</p>}
-            </div>
-            <div className="mt-6 flex flex-wrap justify-end gap-2">
-              <button onClick={() => setNotificationsOpen(false)} className="rounded-[8px] border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700">Kapat</button>
-              <button onClick={() => markAllNotificationsRead(headerNotifications)} className="rounded-[8px] bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Tümünü Okundu Yap</button>
-            </div>
-          </aside>
-        </div>
-      )}
-      {copilotOpen && <GlobalCopilotPanel content={content} setActive={setActive} onClose={() => setCopilotOpen(false)} notify={notify} />}
-      <StartupApiStatusModal open={startupApiOpen} loading={startupApiLoading} data={startupApiData} message={startupApiMessage} onRetest={runStartupApiStatus} onClose={() => setStartupApiOpen(false)} onSettings={() => { setStartupApiOpen(false); setActive("API Ayarları"); }} />
-      {bootVisible && <SystemBoot step={bootStep} />}
-      <ToastStack items={toasts} dismiss={(id) => setToasts((current) => current.filter((toast) => toast.id !== id))} />
-      <HKAssistantWidget context="admin" />
-    </main>
+    </AdminAppShell>
   );
 }
 

@@ -3306,3 +3306,315 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
   background: linear-gradient(135deg, #a855f7, #6d28d9) !important;
   color: #fff !important;
 }
+
+/* =========================================================================
+   ADMIN DARK MODE
+   Toggled by data-theme="dark" on .hk-admin (set from AdminTopHeader via
+   React state, persisted to localStorage, read once on mount to avoid
+   hydration mismatch — see AdminAppShell.tsx). Two layers:
+   1) Redefine the existing --hk-* tokens that most rules already reference
+      (background/text/border/shadow) — this alone re-themes the majority
+      of surfaces built before this pass.
+   2) Explicit overrides for rules that hardcode hex colors (badges, kpi
+      tints, buttons, nav, fields, modal/drawer, communication module) since
+      a token swap alone can't reach those.
+   ========================================================================= */
+
+.hk-admin {
+  --admin-bg: var(--hk-bg-page);
+  --admin-surface: var(--hk-bg-surface);
+  --admin-surface-raised: #ffffff;
+  --admin-surface-soft: var(--hk-bg-surface-elevated);
+  --admin-text-primary: var(--hk-text-primary);
+  --admin-text-secondary: var(--hk-text-secondary);
+  --admin-text-muted: var(--hk-text-muted);
+  --admin-border: var(--hk-border);
+  --admin-border-strong: var(--hk-border-strong);
+  --admin-shadow: var(--hk-shadow-md);
+  --admin-overlay: rgba(15, 23, 42, .55);
+  --admin-sidebar-bg: #ffffff;
+  --admin-header-bg: rgba(255, 255, 255, .92);
+}
+
+.hk-admin[data-theme="dark"] {
+  --hk-bg-page: #0b1120;
+  --hk-bg-surface: #111a2e;
+  --hk-bg-surface-elevated: #16213a;
+  --hk-border: #253251;
+  --hk-border-strong: #34456b;
+  --hk-text-primary: #f1f5f9;
+  --hk-text-secondary: #cbd5e1;
+  --hk-text-muted: #8b9bc1;
+  --hk-shadow-sm: 0 6px 18px rgba(0, 0, 0, .32);
+  --hk-shadow-md: 0 18px 40px rgba(0, 0, 0, .38);
+  --hk-shadow-lg: 0 28px 70px rgba(0, 0, 0, .46);
+
+  --admin-bg: var(--hk-bg-page);
+  --admin-surface: var(--hk-bg-surface);
+  --admin-surface-raised: #16213a;
+  --admin-surface-soft: #131d33;
+  --admin-text-primary: var(--hk-text-primary);
+  --admin-text-secondary: var(--hk-text-secondary);
+  --admin-text-muted: var(--hk-text-muted);
+  --admin-border: var(--hk-border);
+  --admin-border-strong: var(--hk-border-strong);
+  --admin-shadow: var(--hk-shadow-md);
+  --admin-overlay: rgba(2, 6, 18, .72);
+  --admin-sidebar-bg: #0e1526;
+  --admin-header-bg: rgba(11, 17, 32, .88);
+
+  color-scheme: dark;
+  background: var(--admin-bg);
+  color: var(--admin-text-primary);
+}
+
+.hk-admin[data-theme="dark"].hk-admin-os {
+  background:
+    radial-gradient(circle at 14% 0%, rgba(34, 211, 238, .09), transparent 32%),
+    radial-gradient(circle at 86% 18%, rgba(168, 85, 247, .08), transparent 30%),
+    #0b1120;
+}
+
+.hk-admin[data-theme="dark"] .hk-card,
+.hk-admin[data-theme="dark"] .hk-section-card,
+.hk-admin[data-theme="dark"] .hk-empty-state,
+.hk-admin[data-theme="dark"] .communication-card,
+.hk-admin[data-theme="dark"] .communication-message,
+.hk-admin[data-theme="dark"] .admin-mega-menu,
+.hk-admin[data-theme="dark"] .admin-modal-panel,
+.hk-admin[data-theme="dark"] .admin-drawer-panel {
+  background: var(--admin-surface);
+  border-color: var(--admin-border);
+  color: var(--admin-text-primary);
+}
+
+.hk-admin[data-theme="dark"] .hk-card-warning { background: linear-gradient(160deg, #2a2210, #16213a); border-color: #78350f; }
+.hk-admin[data-theme="dark"] .hk-card-danger { background: linear-gradient(160deg, #2a1414, #16213a); border-color: #7f1d1d; }
+.hk-admin[data-theme="dark"] .hk-card-success { background: linear-gradient(160deg, #10231b, #16213a); border-color: #14532d; }
+.hk-admin[data-theme="dark"] .hk-card-info { background: linear-gradient(160deg, #101d2f, #16213a); border-color: #1e3a8a; }
+.hk-admin[data-theme="dark"] .hk-card-ai { background: linear-gradient(160deg, #201032, #16213a); border-color: #4c1d95; }
+.hk-admin[data-theme="dark"] .hk-card-muted { background: var(--admin-surface-soft); }
+.hk-admin[data-theme="dark"] .hk-card-selected { background: linear-gradient(135deg, #0d2b33, #16213a); border-color: #22d3ee; }
+
+.hk-admin[data-theme="dark"] .hk-page-header,
+.hk-admin[data-theme="dark"] .hk-dashboard-hero,
+.hk-admin[data-theme="dark"] .hk-customer-profile-header {
+  background:
+    radial-gradient(circle at 92% 0%, rgba(34, 211, 238, .14), transparent 34%),
+    radial-gradient(circle at 6% 110%, rgba(168, 85, 247, .1), transparent 40%),
+    linear-gradient(135deg, #101a30 0%, #0e2530 46%, #14152e 100%);
+  border-color: var(--admin-border);
+}
+
+.hk-admin[data-theme="dark"] .hk-page-header h1 {
+  background: linear-gradient(135deg, #f1f5f9, #67e8f9);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.hk-admin[data-theme="dark"] .hk-page-description,
+.hk-admin[data-theme="dark"] .hk-section-card-header p,
+.hk-admin[data-theme="dark"] .hk-empty-state p {
+  color: var(--admin-text-secondary);
+}
+
+.hk-admin[data-theme="dark"] .hk-field,
+.hk-admin[data-theme="dark"] .hk-search-input {
+  background: var(--admin-surface-soft);
+  border-color: var(--admin-border-strong);
+  color: var(--admin-text-primary);
+}
+
+.hk-admin[data-theme="dark"] .hk-field::placeholder {
+  color: var(--admin-text-muted);
+}
+
+.hk-admin[data-theme="dark"] .hk-field:disabled {
+  background: var(--admin-surface);
+  color: var(--admin-text-muted);
+}
+
+.hk-admin[data-theme="dark"] .hk-icon-button,
+.hk-admin[data-theme="dark"] .hk-button-neutral,
+.hk-admin[data-theme="dark"] .hk-button-secondary,
+.hk-admin[data-theme="dark"] .admin-category-button,
+.hk-admin[data-theme="dark"] .admin-quick-action,
+.hk-admin[data-theme="dark"] .admin-browser-controls,
+.hk-admin[data-theme="dark"] .admin-icon-action,
+.hk-admin[data-theme="dark"] .admin-profile-chip,
+.hk-admin[data-theme="dark"] .admin-mega-item {
+  background: var(--admin-surface-soft);
+  border-color: var(--admin-border-strong);
+  color: var(--admin-text-secondary);
+}
+
+.hk-admin[data-theme="dark"] .hk-button-outline,
+.hk-admin[data-theme="dark"] .hk-button-ghost {
+  background: transparent;
+  color: var(--admin-text-secondary);
+}
+
+.hk-admin[data-theme="dark"] .hk-button-ghost:hover {
+  background: var(--admin-surface-soft);
+  color: var(--admin-text-primary);
+}
+
+.hk-admin[data-theme="dark"] .admin-category-icon,
+.hk-admin[data-theme="dark"] .admin-mega-item-icon {
+  background: color-mix(in srgb, var(--nav-accent, #22d3ee) 22%, #0b1120);
+  color: color-mix(in srgb, var(--nav-accent-text, #67e8f9) 70%, #f1f5f9);
+}
+
+.hk-admin[data-theme="dark"] .admin-nav-count {
+  background: color-mix(in srgb, var(--nav-accent, #22d3ee) 20%, #0b1120);
+  color: var(--admin-text-secondary);
+}
+
+.hk-admin[data-theme="dark"] .hk-kpi-card {
+  background: linear-gradient(155deg, var(--admin-surface) 0%, color-mix(in srgb, var(--hk-kpi-icon-b, #0e7490) 16%, var(--admin-surface)) 130%);
+  border-color: var(--admin-border);
+}
+
+.hk-admin[data-theme="dark"] .hk-badge-neutral { background: #1e293b; color: #cbd5e1; border-color: #334155; }
+.hk-admin[data-theme="dark"] .hk-badge-primary { background: #083344; color: #67e8f9; border-color: #0e7490; }
+.hk-admin[data-theme="dark"] .hk-badge-success { background: #052e1f; color: #6ee7b7; border-color: #14532d; }
+.hk-admin[data-theme="dark"] .hk-badge-warning { background: #2e1a03; color: #fdba74; border-color: #9a3412; }
+.hk-admin[data-theme="dark"] .hk-badge-danger { background: #2c0b0b; color: #fca5a5; border-color: #7f1d1d; }
+.hk-admin[data-theme="dark"] .hk-badge-info { background: #0b1a3a; color: #93c5fd; border-color: #1e3a8a; }
+.hk-admin[data-theme="dark"] .hk-badge-ai { background: #1c1033; color: #d8b4fe; border-color: #4c1d95; }
+.hk-admin[data-theme="dark"] .hk-badge-communication { background: #04211d; color: #5eead4; border-color: #0f766e; }
+.hk-admin[data-theme="dark"] .hk-badge-active { background: #052e1f; color: #6ee7b7; border-color: #14532d; }
+.hk-admin[data-theme="dark"] .hk-badge-urgent { background: #2c0b16; color: #fda4af; border-color: #881337; }
+.hk-admin[data-theme="dark"] .hk-badge-owner { background: #1c1033; color: #d8b4fe; border-color: #4c1d95; }
+.hk-admin[data-theme="dark"] .hk-badge-archived { background: #1e293b; color: #94a3b8; border-color: #334155; }
+
+.hk-admin[data-theme="dark"] .communication-composer {
+  background: linear-gradient(180deg, var(--admin-surface), var(--admin-surface-soft));
+}
+
+.hk-admin[data-theme="dark"] .communication-right-panel,
+.hk-admin[data-theme="dark"] .communication-right-panel section {
+  background: var(--admin-surface-soft);
+  border-color: var(--admin-border);
+}
+
+.hk-admin[data-theme="dark"] .communication-center :is(button, a)[class*="bg-violet-100"] {
+  color: #d8b4fe !important;
+}
+
+.hk-admin[data-theme="dark"] .communication-center :is(button, a)[class*="bg-cyan-100"] {
+  color: #67e8f9 !important;
+}
+
+.hk-admin[data-theme="dark"] .text-slate-950,
+.hk-admin[data-theme="dark"] .text-slate-900,
+.hk-admin[data-theme="dark"] .text-slate-800 {
+  color: var(--admin-text-primary);
+}
+
+.hk-admin[data-theme="dark"] .text-slate-700,
+.hk-admin[data-theme="dark"] .text-slate-600 {
+  color: var(--admin-text-secondary);
+}
+
+.hk-admin[data-theme="dark"] .text-slate-500,
+.hk-admin[data-theme="dark"] .text-slate-400 {
+  color: var(--admin-text-muted);
+}
+
+.hk-admin[data-theme="dark"] .border-slate-200,
+.hk-admin[data-theme="dark"] .border-slate-100 {
+  border-color: var(--admin-border);
+}
+
+.hk-admin[data-theme="dark"] .bg-white,
+.hk-admin[data-theme="dark"] .bg-slate-50 {
+  background-color: var(--admin-surface-soft);
+}
+
+.hk-admin[data-theme="dark"] ::selection {
+  background: rgba(34, 211, 238, .32);
+}
+
+/* ---- New shell (AdminAppShell / AdminSidebar / AdminTopHeader) --------- */
+
+.admin-app-shell {
+  background: var(--admin-bg);
+  color: var(--admin-text-primary);
+}
+
+.admin-sidebar {
+  background: var(--admin-sidebar-bg);
+  border-color: var(--admin-border);
+  box-shadow: var(--hk-shadow-sm);
+  transition: width .2s ease;
+}
+
+.admin-sidebar-group-label {
+  color: var(--admin-text-muted);
+}
+
+.admin-sidebar-item {
+  border-radius: var(--hk-radius-md);
+  color: var(--admin-text-secondary);
+  transition: background .15s ease, color .15s ease, transform .15s ease;
+}
+
+.admin-sidebar-item:hover {
+  background: var(--nav-accent-soft, var(--admin-surface-soft));
+  color: var(--nav-accent-text, var(--admin-text-primary));
+}
+
+.admin-sidebar-item-active {
+  background: linear-gradient(135deg, var(--nav-accent-soft, #ecfeff), var(--admin-surface));
+  color: var(--nav-accent-text, #0e7490);
+  box-shadow: inset 3px 0 0 var(--nav-accent, #0891b2);
+  font-weight: 800;
+}
+
+.admin-sidebar-icon {
+  background: color-mix(in srgb, var(--nav-accent, #0891b2) 14%, var(--admin-surface));
+  color: var(--nav-accent-text, #0e7490);
+}
+
+.admin-sidebar-item-active .admin-sidebar-icon {
+  background: linear-gradient(135deg, var(--nav-accent, #22d3ee), var(--nav-accent-text, #0e7490));
+  color: #fff;
+}
+
+.admin-top-header {
+  background: var(--admin-header-bg);
+  border-color: var(--admin-border);
+  backdrop-filter: blur(10px);
+}
+
+.admin-theme-toggle {
+  display: grid;
+  place-items: center;
+  border-radius: var(--hk-radius-sm);
+  border: 1px solid var(--admin-border-strong);
+  background: var(--admin-surface);
+  color: var(--admin-text-secondary);
+  transition: background .15s ease, color .15s ease, transform .15s ease;
+}
+
+.admin-theme-toggle:hover {
+  background: var(--admin-surface-soft);
+  transform: translateY(-2px);
+}
+
+.admin-mobile-nav-overlay {
+  background: var(--admin-overlay);
+}
+
+.admin-mobile-nav-panel {
+  background: var(--admin-sidebar-bg);
+  box-shadow: var(--hk-shadow-lg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-sidebar {
+    transition: none;
+  }
+}
