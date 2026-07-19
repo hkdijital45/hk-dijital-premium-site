@@ -55,6 +55,29 @@ const adminCategoryIcons: Record<string, any> = {
   Download
 };
 
+// Per-module-group nav accent — semantic, not decorative: navy=system,
+// turquoise=customer, blue=CRM/analysis, orange=ads/attention, purple=AI,
+// green=finance, pink=content/creative. Applied as CSS custom properties so
+// globals.css can style the nav with a single generic rule per state.
+const adminGroupAccents: Record<string, { solid: string; soft: string; text: string }> = {
+  "Kontrol Merkezi": { solid: "#0f766e", soft: "#f0fdfa", text: "#115e59" },
+  "Müşteri Merkezi": { solid: "#0891b2", soft: "#ecfeff", text: "#0e7490" },
+  "CRM Merkezi": { solid: "#2563eb", soft: "#eff6ff", text: "#1d4ed8" },
+  "Reklam & Performans": { solid: "#ea580c", soft: "#fff7ed", text: "#c2410c" },
+  "Yapay Zekâ Merkezi": { solid: "#7c3aed", soft: "#f5f3ff", text: "#6d28d9" },
+  "Ajans Operasyonu": { solid: "#4f46e5", soft: "#eef2ff", text: "#4338ca" },
+  "Muhasebe": { solid: "#059669", soft: "#f0fdf4", text: "#047857" },
+  "Rapor Merkezi": { solid: "#0284c7", soft: "#f0f9ff", text: "#0369a1" },
+  "İçerik & Medya": { solid: "#db2777", soft: "#fdf2f8", text: "#be185d" },
+  "Entegrasyonlar": { solid: "#334155", soft: "#f8fafc", text: "#1e293b" },
+  "Ayarlar": { solid: "#475569", soft: "#f8fafc", text: "#334155" }
+};
+
+function groupAccentStyle(label: string) {
+  const accent = adminGroupAccents[label] || adminGroupAccents.Ayarlar;
+  return { "--nav-accent": accent.solid, "--nav-accent-soft": accent.soft, "--nav-accent-text": accent.text } as any;
+}
+
 const adminLabelEmojis: Record<string, string> = {
   "Kontrol Merkezi": "🖥️",
   "CRM & Müşteriler": "👥",
@@ -728,6 +751,7 @@ export function AdminDashboard({
                     key={group.label}
                     data-admin-nav="true"
                     className="relative"
+                    style={groupAccentStyle(group.label)}
                   >
                     <button
                       type="button"
@@ -736,7 +760,7 @@ export function AdminDashboard({
                       className={`admin-category-button flex w-full items-center justify-between gap-2 px-3 text-sm font-black transition lg:w-auto ${activeInGroup ? "admin-category-button-active" : ""}`}
                     >
                       <span className="flex min-w-0 items-center gap-2">
-                        <CategoryIcon size={15} />
+                        <span className="admin-category-icon grid size-7 shrink-0 place-items-center rounded-[9px]"><CategoryIcon size={14} /></span>
                         <span className="truncate">{withAdminEmoji(group.label)}</span>
                       </span>
                       <span className="flex items-center gap-1">
@@ -755,7 +779,7 @@ export function AdminDashboard({
                           onClick={() => { setMobileNavOpen(false); setOpenGroups(Object.fromEntries(adminNavigationGroups.map((navGroup) => [navGroup.label, false]))); }}
                           className={`admin-mega-item flex w-full min-w-0 items-start gap-3 px-3.5 py-3 text-sm font-bold transition ${active === item.label ? "admin-mega-item-active" : ""}`}
                         >
-                          <CategoryIcon size={16} className={`mt-0.5 shrink-0 ${active === item.label ? "text-cyan-800" : "text-cyan-700"}`} />
+                          <span className="admin-mega-item-icon mt-0.5 grid size-8 shrink-0 place-items-center rounded-[10px]"><CategoryIcon size={15} /></span>
                           <span className="min-w-0 flex-1">
                             <span className="block whitespace-normal break-normal leading-5">{withAdminEmoji(item.label)}</span>
                             <span className={`mt-1 line-clamp-2 block whitespace-normal break-normal text-[11px] font-medium leading-4 ${active === item.label ? "text-slate-700" : "text-slate-500"}`}>{item.description}</span>

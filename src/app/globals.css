@@ -2757,3 +2757,552 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
     min-height: 44px;
   }
 }
+
+/* =========================================================================
+   PREMIUM ADMIN REDESIGN — this layer intentionally sits last in the file so
+   it wins the cascade over every earlier .hk-admin rule above (same or lower
+   specificity, later source order). No component APIs changed: HKButton,
+   HKCard, HKKpiCard etc. still render the exact same class names — only the
+   values behind those classes change. Scoped to .hk-admin (the admin shell)
+   so the public site and customer portal are untouched.
+   ========================================================================= */
+
+:root {
+  --hk-radius-sm: 10px;
+  --hk-radius-md: 14px;
+  --hk-radius-lg: 18px;
+  --hk-radius-xl: 24px;
+  --hk-shadow-sm: 0 6px 18px rgba(15, 23, 42, .07);
+  --hk-shadow-md: 0 18px 40px rgba(15, 23, 42, .11);
+  --hk-shadow-lg: 0 28px 70px rgba(15, 23, 42, .16);
+}
+
+.hk-admin {
+  --hk-admin-shadow: var(--hk-shadow-md);
+}
+
+.hk-admin.hk-admin-os {
+  background:
+    radial-gradient(circle at 14% 0%, rgba(8, 145, 178, .07), transparent 32%),
+    radial-gradient(circle at 86% 18%, rgba(124, 58, 237, .06), transparent 30%),
+    #f4f6fb;
+}
+
+/* ---- Cards -------------------------------------------------------------- */
+
+.hk-admin .hk-card,
+.hk-admin .hk-section-card,
+.hk-admin .hk-page-header,
+.hk-admin .hk-empty-state {
+  border-radius: var(--hk-radius-xl);
+  box-shadow: var(--hk-shadow-sm);
+}
+
+.hk-admin .hk-card-elevated,
+.hk-admin .hk-section-card {
+  box-shadow: var(--hk-shadow-md);
+}
+
+.hk-admin .hk-card-interactive:hover {
+  transform: translateY(-3px);
+  border-color: rgba(8, 145, 178, .38);
+  box-shadow: var(--hk-shadow-lg);
+}
+
+.hk-admin .hk-card-selected {
+  border-color: rgba(8, 145, 178, .55);
+  background: linear-gradient(135deg, #ecfeff 0%, #eff6ff 100%);
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, .16), var(--hk-shadow-sm);
+}
+
+.hk-admin .hk-card-warning { border-color: #fbbf24; background: linear-gradient(160deg, #fffbeb, #fff); }
+.hk-admin .hk-card-danger { border-color: #f87171; background: linear-gradient(160deg, #fef2f2, #fff); }
+.hk-admin .hk-card-success { border-color: #34d399; background: linear-gradient(160deg, #f0fdf4, #fff); }
+.hk-admin .hk-card-info { border-color: #60a5fa; background: linear-gradient(160deg, #eff6ff, #fff); }
+.hk-admin .hk-card-ai { border-color: #a78bfa; background: linear-gradient(160deg, #f5f3ff, #fff); }
+.hk-admin .hk-card-muted { background: #f8fafc; }
+
+.hk-admin .hk-section-card-header h2 {
+  font-size: 1.2rem;
+  letter-spacing: -.015em;
+}
+
+.hk-admin .hk-page-header {
+  border-radius: var(--hk-radius-xl);
+  padding: 1.5rem;
+  background:
+    radial-gradient(circle at 92% 0%, rgba(34, 211, 238, .22), transparent 34%),
+    radial-gradient(circle at 4% 100%, rgba(124, 58, 237, .1), transparent 38%),
+    linear-gradient(135deg, #ffffff 0%, #ecfeff 46%, #eef2ff 100%);
+  box-shadow: var(--hk-shadow-md);
+}
+
+.hk-admin .hk-page-eyebrow {
+  padding: .2rem .6rem;
+  border-radius: 999px;
+  background: rgba(8, 145, 178, .1);
+  color: #0e7490;
+  width: fit-content;
+}
+
+.hk-admin .hk-page-header h1 {
+  background: linear-gradient(135deg, #0f172a, #0e7490);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---- Buttons -------------------------------------------------------------
+   Semantic color system: blue=analysis/report, purple=AI, green=success,
+   orange=warning/follow-up, red=danger/delete, teal=communication,
+   gold=favorite/premium, slate=neutral/system. */
+
+.hk-admin .hk-button {
+  border-radius: var(--hk-radius-md);
+  font-weight: 800;
+  letter-spacing: -.005em;
+  transition: transform .15s ease, box-shadow .15s ease, filter .15s ease, background .15s ease;
+}
+
+.hk-admin .hk-button:not(:disabled):hover {
+  transform: translateY(-2px);
+  filter: brightness(1.04);
+}
+
+.hk-admin .hk-button:not(:disabled):active {
+  transform: translateY(0);
+  filter: brightness(.97);
+}
+
+.hk-admin .hk-button-primary {
+  background: linear-gradient(135deg, #06b6d4, #0e7490);
+  color: #fff;
+  box-shadow: 0 12px 26px rgba(8, 145, 178, .28);
+}
+
+.hk-admin .hk-button-secondary,
+.hk-admin .hk-button-neutral,
+.hk-admin .hk-button-outline {
+  border-color: #cbd5e1;
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+  color: #334155;
+  box-shadow: var(--hk-shadow-sm);
+}
+
+.hk-admin .hk-button-outline {
+  background: transparent;
+  box-shadow: none;
+}
+
+.hk-admin .hk-button-success {
+  background: linear-gradient(135deg, #22c55e, #059669);
+  color: #fff;
+  box-shadow: 0 12px 26px rgba(5, 150, 105, .28);
+}
+
+.hk-admin .hk-button-warning {
+  border-color: transparent;
+  background: linear-gradient(135deg, #fb923c, #ea580c);
+  color: #fff;
+  box-shadow: 0 12px 26px rgba(234, 88, 12, .26);
+}
+
+.hk-admin .hk-button-danger {
+  background: linear-gradient(135deg, #f87171, #dc2626);
+  color: #fff;
+  box-shadow: 0 12px 26px rgba(220, 38, 38, .26);
+}
+
+.hk-admin .hk-button-info {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  color: #fff;
+  box-shadow: 0 12px 26px rgba(29, 78, 216, .26);
+}
+
+.hk-admin .hk-button-ai {
+  background: linear-gradient(135deg, #a855f7, #6d28d9);
+  color: #fff;
+  box-shadow: 0 12px 26px rgba(109, 40, 217, .3);
+}
+
+.hk-admin .hk-button-communication {
+  background: linear-gradient(135deg, #14b8a6, #0891b2);
+  color: #fff;
+  box-shadow: 0 12px 26px rgba(8, 145, 178, .26);
+}
+
+.hk-admin .hk-button-edit {
+  border-color: #c7d2fe;
+  background: linear-gradient(180deg, #eef2ff, #fff);
+  color: #4338ca;
+}
+
+.hk-admin .hk-button-export {
+  border-color: #99f6e4;
+  background: linear-gradient(180deg, #f0fdfa, #fff);
+  color: #0f766e;
+}
+
+.hk-admin .hk-button:focus-visible,
+.hk-admin .hk-icon-button:focus-visible {
+  outline: 3px solid rgba(34, 211, 238, .45);
+  outline-offset: 2px;
+}
+
+.hk-admin .hk-icon-button {
+  border-radius: var(--hk-radius-sm);
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+  box-shadow: var(--hk-shadow-sm);
+  transition: transform .15s ease, box-shadow .15s ease, color .15s ease, border-color .15s ease;
+}
+
+.hk-admin .hk-icon-button:not(:disabled):hover {
+  transform: translateY(-2px);
+  border-color: #a5f3fc;
+  color: #0e7490;
+  box-shadow: var(--hk-shadow-md);
+}
+
+/* ---- Fields --------------------------------------------------------------- */
+
+.hk-admin .hk-field,
+.hk-admin .hk-search-input {
+  border-radius: var(--hk-radius-md);
+  border-color: #d7deea;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, .04);
+}
+
+.hk-admin .hk-field:focus {
+  border-color: #22d3ee;
+  box-shadow: 0 0 0 4px rgba(34, 211, 238, .18);
+}
+
+.hk-admin .hk-search-input:focus-within {
+  border-color: #22d3ee;
+  box-shadow: 0 0 0 4px rgba(34, 211, 238, .18);
+}
+
+/* ---- Badges ----------------------------------------------------------------- */
+
+.hk-admin .hk-badge {
+  border-radius: 999px;
+  font-weight: 800;
+  letter-spacing: .01em;
+}
+
+.hk-admin .hk-badge-neutral { background: #eef2f7; color: #334155; border-color: #e2e8f0; }
+.hk-admin .hk-badge-primary { background: #cffafe; color: #0e7490; border-color: #67e8f9; }
+.hk-admin .hk-badge-success { background: #d1fae5; color: #047857; border-color: #6ee7b7; }
+.hk-admin .hk-badge-warning { background: #ffedd5; color: #c2410c; border-color: #fdba74; }
+.hk-admin .hk-badge-danger { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
+.hk-admin .hk-badge-info { background: #dbeafe; color: #1d4ed8; border-color: #93c5fd; }
+.hk-admin .hk-badge-ai { background: #ede9fe; color: #6d28d9; border-color: #c4b5fd; }
+.hk-admin .hk-badge-communication { background: #ccfbf1; color: #0f766e; border-color: #5eead4; }
+.hk-admin .hk-badge-active { background: #d1fae5; color: #047857; border-color: #6ee7b7; }
+.hk-admin .hk-badge-urgent { background: #ffe4e6; color: #be123c; border-color: #fda4af; }
+.hk-admin .hk-badge-owner { background: #ede9fe; color: #6d28d9; border-color: #c4b5fd; }
+
+/* ---- KPI cards: full gradient card, not just a glow dot ------------------- */
+
+.hk-admin .hk-kpi-card {
+  border-radius: var(--hk-radius-xl);
+  border-color: transparent;
+  background: linear-gradient(155deg, #ffffff 0%, var(--hk-kpi-tint, #f8fafc) 120%);
+  box-shadow: var(--hk-shadow-md);
+}
+
+.hk-admin .hk-kpi-card::after {
+  inset: auto -30% -60% 20%;
+  height: 140px;
+  background: var(--hk-kpi-glow, rgba(6, 182, 212, .22));
+  filter: blur(36px);
+}
+
+.hk-admin .hk-kpi-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--hk-shadow-lg);
+}
+
+.hk-admin .hk-kpi-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: var(--hk-radius-sm);
+  background: linear-gradient(135deg, var(--hk-kpi-icon-a, #22d3ee), var(--hk-kpi-icon-b, #0e7490));
+  color: #fff;
+  box-shadow: 0 10px 22px var(--hk-kpi-glow, rgba(6, 182, 212, .3));
+}
+
+.hk-admin .hk-kpi-primary { --hk-kpi-tint: #ecfeff; --hk-kpi-glow: rgba(6, 182, 212, .22); --hk-kpi-icon-a: #22d3ee; --hk-kpi-icon-b: #0e7490; }
+.hk-admin .hk-kpi-success { --hk-kpi-tint: #f0fdf4; --hk-kpi-glow: rgba(16, 185, 129, .22); --hk-kpi-icon-a: #4ade80; --hk-kpi-icon-b: #059669; }
+.hk-admin .hk-kpi-info { --hk-kpi-tint: #eff6ff; --hk-kpi-glow: rgba(37, 99, 235, .2); --hk-kpi-icon-a: #60a5fa; --hk-kpi-icon-b: #1d4ed8; }
+.hk-admin .hk-kpi-warning { --hk-kpi-tint: #fff7ed; --hk-kpi-glow: rgba(234, 88, 12, .22); --hk-kpi-icon-a: #fb923c; --hk-kpi-icon-b: #c2410c; }
+.hk-admin .hk-kpi-danger { --hk-kpi-tint: #fef2f2; --hk-kpi-glow: rgba(220, 38, 38, .2); --hk-kpi-icon-a: #f87171; --hk-kpi-icon-b: #b91c1c; }
+.hk-admin .hk-kpi-ai { --hk-kpi-tint: #f5f3ff; --hk-kpi-glow: rgba(124, 58, 237, .22); --hk-kpi-icon-a: #c084fc; --hk-kpi-icon-b: #6d28d9; }
+.hk-admin .hk-kpi-communication { --hk-kpi-tint: #f0fdfa; --hk-kpi-glow: rgba(13, 148, 136, .22); --hk-kpi-icon-a: #2dd4bf; --hk-kpi-icon-b: #0f766e; }
+
+.hk-admin .hk-dashboard-hero {
+  border-radius: var(--hk-radius-xl);
+  background:
+    radial-gradient(circle at 92% 0%, rgba(34, 211, 238, .26), transparent 34%),
+    radial-gradient(circle at 6% 110%, rgba(124, 58, 237, .14), transparent 40%),
+    linear-gradient(120deg, #ffffff 0%, #ecfeff 45%, #eef2ff 100%);
+  box-shadow: var(--hk-shadow-lg);
+}
+
+.hk-admin .hk-dashboard-panel {
+  border-radius: var(--hk-radius-xl);
+  box-shadow: var(--hk-shadow-md);
+}
+
+.hk-admin .hk-priority-row {
+  border-radius: var(--hk-radius-md);
+  background: linear-gradient(90deg, #f8fafc, #ffffff);
+}
+
+.hk-admin .hk-priority-row:hover {
+  border-color: #7dd3fc;
+  box-shadow: var(--hk-shadow-sm);
+}
+
+/* ---- Navigation: colored icon boxes + per-group accent -------------------- */
+
+.hk-admin .admin-category-button {
+  border-radius: var(--hk-radius-md);
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+  box-shadow: var(--hk-shadow-sm);
+  transition: transform .15s ease, border-color .15s ease, background .15s ease, box-shadow .15s ease, color .15s ease;
+}
+
+.hk-admin .admin-category-icon {
+  background: color-mix(in srgb, var(--nav-accent, #0891b2) 14%, #ffffff);
+  color: var(--nav-accent-text, #0e7490);
+  transition: background .15s ease, color .15s ease;
+}
+
+.hk-admin .admin-category-button:hover,
+.hk-admin .admin-category-button[aria-expanded="true"] {
+  transform: translateY(-1px);
+  border-color: var(--nav-accent, #22d3ee);
+  background: var(--nav-accent-soft, #ecfeff);
+  color: var(--nav-accent-text, #0e7490);
+  box-shadow: var(--hk-shadow-sm);
+}
+
+.hk-admin .admin-category-button:hover .admin-category-icon,
+.hk-admin .admin-category-button[aria-expanded="true"] .admin-category-icon {
+  background: var(--nav-accent, #0891b2);
+  color: #fff;
+}
+
+.hk-admin .admin-category-button-active {
+  border-color: var(--nav-accent, #22d3ee);
+  background: linear-gradient(135deg, var(--nav-accent-soft, #ecfeff), #ffffff);
+  color: var(--nav-accent-text, #0e7490);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--nav-accent, #0891b2) 24%, transparent);
+}
+
+.hk-admin .admin-category-button-active .admin-category-icon {
+  background: linear-gradient(135deg, var(--nav-accent, #22d3ee), var(--nav-accent-text, #0e7490));
+  color: #fff;
+}
+
+.hk-admin .admin-nav-count {
+  background: var(--nav-accent-soft, rgba(255, 255, 255, .72));
+  color: var(--nav-accent-text, #475569);
+  border-color: transparent;
+  font-weight: 800;
+}
+
+.hk-admin .admin-mega-menu {
+  border-radius: var(--hk-radius-lg);
+  box-shadow: var(--hk-shadow-lg);
+  border-top: 3px solid var(--nav-accent, #22d3ee);
+}
+
+.hk-admin .admin-mega-item {
+  border-radius: var(--hk-radius-md);
+  transition: transform .15s ease, border-color .15s ease, background .15s ease, box-shadow .15s ease;
+}
+
+.hk-admin .admin-mega-item-icon {
+  background: color-mix(in srgb, var(--nav-accent, #0891b2) 12%, #ffffff);
+  color: var(--nav-accent-text, #0e7490);
+  transition: background .15s ease, color .15s ease;
+}
+
+.hk-admin .admin-mega-item:hover,
+.hk-admin .admin-mega-item:focus-visible {
+  transform: translateX(2px);
+  border-color: var(--nav-accent, #a5f3fc);
+  background: var(--nav-accent-soft, #ecfeff);
+  color: var(--nav-accent-text, #155e75);
+  box-shadow: var(--hk-shadow-sm);
+}
+
+.hk-admin .admin-mega-item:hover .admin-mega-item-icon,
+.hk-admin .admin-mega-item:focus-visible .admin-mega-item-icon {
+  background: var(--nav-accent, #0891b2);
+  color: #fff;
+}
+
+.hk-admin .admin-mega-item-active {
+  border-color: var(--nav-accent, #22d3ee);
+  background: linear-gradient(135deg, var(--nav-accent-soft, #cffafe), #ffffff);
+  box-shadow: inset 4px 0 0 var(--nav-accent, #0891b2);
+}
+
+.hk-admin .admin-mega-item-active .admin-mega-item-icon {
+  background: linear-gradient(135deg, var(--nav-accent, #22d3ee), var(--nav-accent-text, #0e7490));
+  color: #fff;
+}
+
+/* ---- Header quick actions --------------------------------------------------- */
+
+.hk-admin .admin-quick-action,
+.hk-admin .admin-browser-controls,
+.hk-admin .admin-icon-action,
+.hk-admin .admin-profile-chip {
+  border-radius: var(--hk-radius-md);
+  box-shadow: var(--hk-shadow-sm);
+}
+
+.hk-admin .admin-quick-action-favorite {
+  background: linear-gradient(135deg, #fde68a, #f59e0b);
+  border-color: transparent;
+  color: #78350f;
+  box-shadow: 0 10px 22px rgba(245, 158, 11, .3);
+}
+
+.hk-admin .admin-quick-action-ai {
+  background: linear-gradient(135deg, #a855f7, #6d28d9);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(109, 40, 217, .3);
+}
+
+.hk-admin .admin-quick-action-save {
+  background: linear-gradient(135deg, #22d3ee, #0891b2);
+  border-color: transparent;
+  color: #04222a;
+  box-shadow: 0 10px 22px rgba(8, 145, 178, .28);
+}
+
+.hk-admin .admin-quick-action-success {
+  background: linear-gradient(135deg, #6ee7b7, #059669);
+  border-color: transparent;
+  color: #052e1a;
+  box-shadow: 0 10px 22px rgba(5, 150, 105, .26);
+}
+
+.hk-admin .admin-quick-action-info {
+  background: linear-gradient(135deg, #7dd3fc, #0284c7);
+  border-color: transparent;
+  color: #04202e;
+  box-shadow: 0 10px 22px rgba(2, 132, 199, .24);
+}
+
+.hk-admin .admin-quick-action-danger {
+  background: linear-gradient(135deg, #fca5a5, #dc2626);
+  border-color: transparent;
+  color: #fff;
+}
+
+.hk-admin .admin-quick-action:hover,
+.hk-admin .admin-icon-action:hover,
+.hk-admin .admin-browser-control:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--hk-shadow-md);
+}
+
+/* ---- Modal / drawer polish -------------------------------------------------- */
+
+.hk-admin .admin-modal-panel,
+.hk-admin .admin-drawer-panel {
+  border-radius: var(--hk-radius-lg);
+  box-shadow: var(--hk-shadow-lg);
+}
+
+/* ---- Toasts ------------------------------------------------------------------ */
+
+.hk-admin .hk-toast {
+  border-radius: var(--hk-radius-md);
+  box-shadow: var(--hk-shadow-lg);
+}
+
+/* ---- Responsive: nav icon boxes stay usable at every breakpoint -------------- */
+
+@media (max-width: 640px) {
+  .hk-admin .admin-category-icon {
+    width: 26px;
+    height: 26px;
+  }
+
+  .hk-admin .admin-mega-item-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .hk-admin .hk-kpi-card {
+    min-height: 152px;
+  }
+
+  .hk-admin .hk-dashboard-hero,
+  .hk-admin .hk-page-header {
+    padding: 1.1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hk-admin .hk-button:not(:disabled):hover,
+  .hk-admin .hk-card-interactive:hover,
+  .hk-admin .hk-kpi-card:hover,
+  .hk-admin .hk-icon-button:not(:disabled):hover,
+  .hk-admin .admin-category-button:hover,
+  .hk-admin .admin-mega-item:hover {
+    transform: none;
+  }
+}
+
+/* ---- İletişim Merkezi: turkuaz + mavi kimlik ------------------------------ */
+
+.hk-admin .communication-card {
+  border-radius: var(--hk-radius-lg);
+  box-shadow: var(--hk-shadow-sm);
+}
+
+.hk-admin .communication-message {
+  border-radius: var(--hk-radius-md);
+  box-shadow: var(--hk-shadow-sm);
+}
+
+.hk-admin .communication-composer {
+  border-radius: 0 0 var(--hk-radius-lg) var(--hk-radius-lg);
+  background: linear-gradient(180deg, #ffffff, #ecfeff);
+}
+
+.hk-admin .communication-right-panel {
+  background: linear-gradient(180deg, #f8fafc, #ecfeff);
+}
+
+.hk-admin .communication-right-panel section {
+  border-radius: var(--hk-radius-md);
+  box-shadow: var(--hk-shadow-sm);
+}
+
+.hk-admin .communication-card-action,
+.hk-admin .communication-dark-action {
+  border-radius: var(--hk-radius-sm);
+}
+
+.hk-admin .communication-dark-action,
+.hk-admin .communication-center :is(button, a)[class*="bg-slate-900"],
+.hk-admin .communication-center :is(button, a)[class*="bg-slate-950"] {
+  background: linear-gradient(135deg, #0891b2, #0e7490) !important;
+  color: #fff !important;
+}
+
+.hk-admin .communication-center :is(button, a)[class*="bg-violet-700"],
+.hk-admin .communication-center :is(button, a)[class*="bg-purple-700"] {
+  background: linear-gradient(135deg, #a855f7, #6d28d9) !important;
+  color: #fff !important;
+}
