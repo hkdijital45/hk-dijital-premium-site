@@ -18,20 +18,14 @@ export type AdminNavigationGroup = {
 
 const adminNavigationSourceGroups: AdminNavigationGroup[] = [
   {
-    label: "Kontrol Merkezi",
-    description: "Genel durum, kalite, sağlık, log ve yedekleme kontrolleri.",
+    label: "Ana Merkez",
+    description: "Günlük ajans özeti ve executive karar masası.",
     icon: "LayoutDashboard",
     badge: "OS",
     accent: "from-cyan-400 via-sky-500 to-blue-600",
     items: [
       { label: "Dashboard", slug: "", module: "dashboard", description: "Ajans KPI'ları, öncelikler ve günlük operasyon özeti." },
-      { label: "HK Intelligence CEO", slug: "hk-intelligence-ceo", module: "hk-intelligence-ceo", description: "AI ajanlarını, riskleri, KPI'ları ve ajans operasyon kararlarını tek executive masadan yönetin." },
-      { label: "QA Merkezi", slug: "qa-center", module: "qa-center", description: "Admin aksiyonları, API uçları ve Supabase migration uyumunu denetler." },
-      { label: "Sistem Sağlığı", slug: "sistem-sagligi", module: "sistem-sagligi", description: "API, veritabanı, ölçümleme ve servis bağlantı durumları." },
-      { label: "Sistem Test Merkezi", slug: "sistem-test-merkezi", module: "sistem-test-merkezi", description: "Otomatik ve manuel sistem kalite kontrolleri." },
-      { label: "Log Merkezi", slug: "log-aktivite-merkezi", module: "sistem-loglari", description: "Kullanıcı işlemleri, teknik olaylar ve denetim kayıtları." },
-      { label: "Veri Yedekleme", slug: "veri-aktarma", module: "veri-aktarma", description: "Tam yedek, export, import önizleme ve veri aktarma işlemleri." },
-      { label: "Sistem Rehberi", slug: "sistem-rehberi", module: "sistem-rehberi", description: "Tüm modüllerin kullanım kılavuzu, eğitim içerikleri ve sorun giderme rehberleri." }
+      { label: "HK Intelligence CEO", slug: "hk-intelligence-ceo", module: "hk-intelligence-ceo", description: "AI ajanlarını, riskleri, KPI'ları ve ajans operasyon kararlarını tek executive masadan yönetin." }
     ]
   },
   {
@@ -178,8 +172,8 @@ const adminNavigationSourceGroups: AdminNavigationGroup[] = [
     ]
   },
   {
-    label: "Ayarlar",
-    description: "Web sitesi, kullanıcı, görünüm ve sistem ayarları.",
+    label: "Sistem",
+    description: "Web sitesi, kullanıcı, görünüm, kalite ve sistem ayarları.",
     icon: "Settings2",
     badge: "Admin",
     accent: "from-slate-500 via-slate-700 to-slate-900",
@@ -190,30 +184,52 @@ const adminNavigationSourceGroups: AdminNavigationGroup[] = [
       { label: "Tema / Logo", slug: "tema-logo", module: "tema-ayarlari", description: "Logo ve marka görselleri için merkezi ayarlar." },
       { label: "Sistem Ayarları", slug: "sistem-ayarlari", module: "site-ayarlari", description: "Genel uygulama davranışı ve sistem tercihleri." },
       { label: "Güvenlik", slug: "guvenlik", module: "kullanicilar", description: "Kullanıcı erişimi, rol güvenliği ve yönetim kontrolleri." },
-      { label: "HK Asistan Ayarları", slug: "hk-asistan-ayarlari", module: "hk-asistan", description: "Müşteri bazlı HK Asistan izinleri, sağlayıcı modu ve günlük limitler." }
+      { label: "HK Asistan Ayarları", slug: "hk-asistan-ayarlari", module: "hk-asistan", description: "Müşteri bazlı HK Asistan izinleri, sağlayıcı modu ve günlük limitler." },
+      { label: "QA Merkezi", slug: "qa-center", module: "qa-center", description: "Admin aksiyonları, API uçları ve Supabase migration uyumunu denetler." },
+      { label: "Sistem Sağlığı", slug: "sistem-sagligi", module: "sistem-sagligi", description: "API, veritabanı, ölçümleme ve servis bağlantı durumları." },
+      { label: "Sistem Test Merkezi", slug: "sistem-test-merkezi", module: "sistem-test-merkezi", description: "Otomatik ve manuel sistem kalite kontrolleri." },
+      { label: "Log Merkezi", slug: "log-aktivite-merkezi", module: "sistem-loglari", description: "Kullanıcı işlemleri, teknik olaylar ve denetim kayıtları." },
+      { label: "Veri Yedekleme", slug: "veri-aktarma", module: "veri-aktarma", description: "Tam yedek, export, import önizleme ve veri aktarma işlemleri." },
+      { label: "Sistem Rehberi", slug: "sistem-rehberi", module: "sistem-rehberi", description: "Tüm modüllerin kullanım kılavuzu, eğitim içerikleri ve sorun giderme rehberleri." }
     ]
   }
 ];
 
 const navigationGroupPlan = [
   {
-    label: "Operasyon",
-    description: "Günlük ajans operasyonu, görevler, kalite ve sistem sağlığı.",
+    label: "Ana Merkez",
+    description: "Günlük ajans özeti ve executive karar masası.",
     icon: "LayoutDashboard",
     badge: "OS",
     accent: "from-cyan-400 via-sky-500 to-blue-600",
-    sources: ["Kontrol Merkezi", "Ajans Operasyonu"]
+    sources: ["Ana Merkez"]
   },
   {
-    label: "Müşteriler",
-    description: "Müşteri, CRM, lead, teklif ve satış hunisi yönetimi.",
+    label: "Müşteri Yönetimi",
+    description: "Müşteri, firma, şube, kurulum ve müşteri notları.",
+    icon: "UsersRound",
+    badge: "Müşteri",
+    accent: "from-emerald-400 via-teal-500 to-cyan-600",
+    sources: ["Müşteri Merkezi"]
+  },
+  {
+    label: "Satış ve Keşif",
+    description: "Lead, müşteri keşfi, satış hunisi ve teklif takibi.",
     icon: "UsersRound",
     badge: "CRM",
-    accent: "from-emerald-400 via-teal-500 to-cyan-600",
-    sources: ["Müşteri Merkezi", "CRM Merkezi"]
+    accent: "from-blue-400 via-cyan-500 to-emerald-600",
+    sources: ["CRM Merkezi"]
   },
   {
-    label: "Reklam",
+    label: "Operasyon",
+    description: "Görev, takvim, iletişim ve ajans iş akışları.",
+    icon: "Gauge",
+    badge: "Ajans",
+    accent: "from-cyan-500 via-blue-600 to-indigo-700",
+    sources: ["Ajans Operasyonu"]
+  },
+  {
+    label: "Reklam ve Performans",
     description: "Kampanyalar, reklam hesapları, performans ve raporlama.",
     icon: "FileBarChart",
     badge: "Ads",
@@ -237,12 +253,20 @@ const navigationGroupPlan = [
     sources: ["Muhasebe"]
   },
   {
+    label: "Entegrasyonlar",
+    description: "Reklam, ölçümleme ve dış servis bağlantıları.",
+    icon: "Settings2",
+    badge: "API",
+    accent: "from-emerald-400 via-cyan-500 to-blue-600",
+    sources: ["Entegrasyonlar"]
+  },
+  {
     label: "Sistem",
-    description: "Entegrasyonlar, kullanıcılar, yetkiler ve sistem ayarları.",
+    description: "Kullanıcılar, yetkiler, kalite ve sistem ayarları.",
     icon: "Settings2",
     badge: "Admin",
     accent: "from-slate-500 via-slate-700 to-slate-900",
-    sources: ["Entegrasyonlar", "Ayarlar"]
+    sources: ["Sistem"]
   }
 ] as const;
 

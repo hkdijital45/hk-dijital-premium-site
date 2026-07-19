@@ -17,21 +17,19 @@ export const adminCategoryIcons: Record<string, LucideIcon> = {
 // green=finance, pink=content/creative. Applied as CSS custom properties so
 // globals.css can style the nav with a single generic rule per state.
 export const adminGroupAccents: Record<string, { solid: string; soft: string; text: string }> = {
-  "Kontrol Merkezi": { solid: "#0f766e", soft: "#f0fdfa", text: "#115e59" },
-  "Müşteri Merkezi": { solid: "#0891b2", soft: "#ecfeff", text: "#0e7490" },
-  "CRM Merkezi": { solid: "#2563eb", soft: "#eff6ff", text: "#1d4ed8" },
-  "Reklam & Performans": { solid: "#ea580c", soft: "#fff7ed", text: "#c2410c" },
-  "Yapay Zekâ Merkezi": { solid: "#7c3aed", soft: "#f5f3ff", text: "#6d28d9" },
-  "Ajans Operasyonu": { solid: "#4f46e5", soft: "#eef2ff", text: "#4338ca" },
-  "Muhasebe": { solid: "#059669", soft: "#f0fdf4", text: "#047857" },
-  "Rapor Merkezi": { solid: "#0284c7", soft: "#f0f9ff", text: "#0369a1" },
-  "İçerik & Medya": { solid: "#db2777", soft: "#fdf2f8", text: "#be185d" },
+  "Ana Merkez": { solid: "#0891b2", soft: "#ecfeff", text: "#0e7490" },
+  "Müşteri Yönetimi": { solid: "#0f766e", soft: "#f0fdfa", text: "#115e59" },
+  "Satış ve Keşif": { solid: "#2563eb", soft: "#eff6ff", text: "#1d4ed8" },
+  "Operasyon": { solid: "#4f46e5", soft: "#eef2ff", text: "#4338ca" },
+  "Reklam ve Performans": { solid: "#ea580c", soft: "#fff7ed", text: "#c2410c" },
+  "İçerik ve AI": { solid: "#7c3aed", soft: "#f5f3ff", text: "#6d28d9" },
+  "Finans": { solid: "#059669", soft: "#f0fdf4", text: "#047857" },
   "Entegrasyonlar": { solid: "#334155", soft: "#f8fafc", text: "#1e293b" },
-  "Ayarlar": { solid: "#475569", soft: "#f8fafc", text: "#334155" }
+  "Sistem": { solid: "#475569", soft: "#f8fafc", text: "#334155" }
 };
 
 export function groupAccentStyle(label: string): React.CSSProperties {
-  const accent = adminGroupAccents[label] || adminGroupAccents.Ayarlar;
+  const accent = adminGroupAccents[label] || adminGroupAccents.Sistem;
   return { "--nav-accent": accent.solid, "--nav-accent-soft": accent.soft, "--nav-accent-text": accent.text } as React.CSSProperties;
 }
 
