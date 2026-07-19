@@ -8,3 +8,5 @@ dist/
 dist-desktop/
 desktop-builds/
 build/
+tsconfig.tsbuildinfo
+artifacts/

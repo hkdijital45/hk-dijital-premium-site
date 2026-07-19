@@ -3368,6 +3368,19 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
   color: var(--admin-text-primary);
 }
 
+.hk-admin .admin-card {
+  background: var(--admin-surface-raised);
+  border: 1px solid var(--admin-border);
+  color: var(--admin-text-primary);
+  box-shadow: var(--admin-shadow);
+}
+
+.hk-admin .admin-card-soft {
+  background: var(--admin-surface-soft);
+  border: 1px solid var(--admin-border);
+  color: var(--admin-text-primary);
+}
+
 .hk-admin[data-theme="dark"].hk-admin-os {
   background:
     radial-gradient(circle at 14% 0%, rgba(34, 211, 238, .09), transparent 32%),
