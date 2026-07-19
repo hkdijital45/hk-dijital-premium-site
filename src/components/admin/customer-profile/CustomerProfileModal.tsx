@@ -7,6 +7,7 @@ import { ActionResultPanel } from "@/components/admin/ActionResultPanel";
 import type { ActionResult } from "@/lib/action-result";
 import { CUSTOMER_MODULE_REGISTRY, CUSTOMER_PLATFORM_REGISTRY, DEFAULT_CUSTOMER_MODULES, normalizeModuleKeys, normalizePlatformKeys } from "@/lib/customer-portal-registry";
 import { formatTurkishPhone, isEmptyLikeValue, normalizePhoneInput } from "@/lib/phone-format";
+import { CUSTOMER_360_TABS, Customer360Header, Customer360TabBar } from "./customer360-shared";
 
 const paidStatuses = ["Ödendi", "Tahsil Edildi"];
 
@@ -70,33 +71,6 @@ function SummaryBox({ title, lines }: { title: string; lines: string[] }) {
     </div>
   );
 }
-
-const profileTabs = [
-  "Genel Bilgi",
-  "Müşteri Kurulumu",
-  "Entegrasyonlar",
-  "Platform Yönetimi",
-  "Müşteri Paneli Yetkileri",
-  "Bağlantı Bilgileri",
-  "Büyüme",
-  "Marka Varlıkları",
-  "İletişim",
-  "Satış Durumu",
-  "Reklam Hesapları",
-  "Kampanyalar",
-  "Teklifler",
-  "Ödemeler",
-  "Yapılacaklar",
-  "Raporlar",
-  "Dosyalar",
-  "Zaman Çizelgesi",
-  "Panel Görünürlüğü",
-  "Giriş Bilgileri",
-  "Metrikler",
-  "Yapılan Çalışmalar",
-  "Aktivite Geçmişi",
-  "Notlar"
-];
 
 const emptyBranchForm = {
   branch_name: "",
@@ -635,6 +609,17 @@ export function CustomerProfileModal({
       );
     }
 
+    if (activeProfileTab === "İletişim Geçmişi") {
+      return (
+        <section className="mt-5 rounded-[20px] border border-cyan-200 bg-cyan-50 p-5">
+          <p className="text-xs font-black uppercase tracking-[.14em] text-cyan-700">Uygulama içi iletişim</p>
+          <h3 className="mt-1 text-xl font-black text-slate-950">{company.name} konuşmaları</h3>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-700">Müşteri taleplerini, ekip yanıtlarını, atamaları ve iç notları birleşik gelen kutusunda yönetin.</p>
+          <button type="button" onClick={() => onGo?.("İletişim Merkezi", "İletişim geçmişi açıldı.")} className="mt-4 inline-flex min-h-11 items-center rounded-[10px] bg-cyan-600 px-5 text-sm font-black text-white">İletişim geçmişini aç</button>
+        </section>
+      );
+    }
+
     if (!editableProfileTabs.has(activeProfileTab)) {
       return (
         <section className="mt-5 rounded-[18px] border border-dashed border-slate-200 bg-slate-50 p-5">
@@ -698,34 +683,17 @@ export function CustomerProfileModal({
   return (
     <div className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/65 p-0 backdrop-blur-sm sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) requestClose(); }}>
       <section className="hk-customer-profile-shell flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-auto sm:max-h-[92vh] sm:w-[92vw] sm:max-w-[1440px] sm:rounded-[28px]" onMouseDown={(event) => event.stopPropagation()}>
-        <header className="hk-customer-profile-header flex items-start justify-between gap-4 border-b border-cyan-100 p-5 sm:p-6">
-          <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-[.18em] text-cyan-700">Müşteri Profili</p>
-            <h2 className="mt-1 truncate text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">{company.name}</h2>
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-600">
-              <span className="rounded-full bg-white/80 px-3 py-1 ring-1 ring-slate-200">{company.status || "Aktif"}</span>
-              <span>{company.city || "Şehir belirtilmedi"}</span>
-              <span aria-hidden="true">·</span>
-              <span>{company.sector || "Sektör belirtilmedi"}</span>
-              <span className={`rounded-full px-3 py-1 text-xs font-black ring-1 ${profileHealth.score >= 75 ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : profileHealth.score >= 50 ? "bg-amber-50 text-amber-800 ring-amber-200" : "bg-red-50 text-red-700 ring-red-200"}`}>Sağlık {profileHealth.score}/100</span>
-            </div>
-          </div>
-          <button type="button" onClick={requestClose} aria-label="Müşteri profilini kapat" className="hk-icon-button shrink-0 bg-white/80"><X size={20} /></button>
+        <header className="hk-customer-profile-header admin-card flex items-center justify-between gap-4 rounded-none border-b p-3">
+          <p className="text-xs font-black uppercase tracking-[.18em]" style={{ color: "var(--nav-accent-text, #0e7490)" }}>Müşteri Profili · {company.name}</p>
+          <button type="button" onClick={requestClose} aria-label="Müşteri profilini kapat" className="hk-icon-button shrink-0"><X size={20} /></button>
         </header>
         <div className="hk-customer-profile-content flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6">
           {actionResult && <div className="mb-5"><ActionResultPanel result={actionResult} onNavigate={(href) => window.location.assign(href)} /></div>}
           {!showOverview && children && <div className="hk-customer-profile-workspace mb-5">{children}</div>}
           {showOverview && (
             <>
-              <div className="sticky top-0 z-10 -mx-5 -mt-5 border-b border-slate-200 bg-white/95 px-5 py-3 backdrop-blur">
-                <div className="premium-scrollbar flex gap-2 overflow-x-auto pb-1">
-                  {profileTabs.map((tab) => (
-                    <button key={tab} type="button" onClick={() => setActiveProfileTab(tab)} className={`shrink-0 rounded-full px-3 py-2 text-xs font-black ring-1 transition ${activeProfileTab === tab ? "bg-cyan-500 text-white ring-cyan-500" : "bg-slate-50 text-slate-600 ring-slate-200 hover:bg-cyan-50 hover:text-cyan-700"}`}>
-                      {tab}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <Customer360Header company={company} content={content} onNavigate={(target, message) => onGo?.(target, message)} />
+              <Customer360TabBar tabs={CUSTOMER_360_TABS} active={activeProfileTab} onChange={setActiveProfileTab} />
               <div className="mt-5 grid gap-4 md:grid-cols-2">
                 {activeTabCards().map((card) => <SummaryBox key={card.title} title={card.title} lines={card.lines} />)}
               </div>

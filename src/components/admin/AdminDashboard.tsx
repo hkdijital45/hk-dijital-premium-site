@@ -42,6 +42,7 @@ import { AdminStatusBadge, healthScoreTone, type AdminStatusTone } from "@/compo
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminEmptyState } from "@/components/admin/ui/AdminEmptyState";
 import { AdminActionCard } from "@/components/admin/ui/AdminKpiCard";
+import { CUSTOMER_360_TABS, Customer360Header, Customer360TabBar } from "@/components/admin/customer-profile/customer360-shared";
 import { adminNavigationGroups, adminNavigationItems, getAdminHref } from "@/lib/admin-navigation";
 import { canViewAccounting } from "@/lib/accounting-permissions";
 import { aiProviderKeyForApi, buildAiSelectionReason, labelForAiProvider, normalizeUnifiedAiProvider, unifiedAiProviderOptions, unifiedAiPriorityKeys } from "@/lib/ai-provider-options";
@@ -6429,7 +6430,7 @@ const customerProfileTabBySlug: Record<string, string> = {
   login: "Giriş Bilgileri",
   integrations: "Entegrasyonlar",
   tasks: "Yapılacaklar",
-  "panel-builder": "Panel Builder",
+  "panel-builder": "Müşteri Paneli Yetkileri",
   communication: "İletişim Geçmişi"
 };
 
@@ -6495,7 +6496,6 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
     show_files: true,
     show_contact_person: true
   };
-  const tabs = ["Genel Bilgi", "Büyüme", "Müşteri Kurulumu", "Entegrasyonlar", "Platform Yönetimi", "Panel Builder", "Bağlantı Bilgileri", "Marka Varlıkları", "İletişim", "İletişim Geçmişi", "Satış Durumu", "Reklam Hesapları", "Kampanyalar", "Teklifler", "Ödemeler", "Yapılacaklar", "Raporlar", "Dosyalar", "Zaman Çizelgesi", "Panel Görünürlüğü", "Giriş Bilgileri", "Metrikler", "Yapılan Çalışmalar", "Aktivite Geçmişi", "Notlar"];
   async function runProfileAction(label, action) {
     setProfileAction(`${label}...`);
     try {
@@ -6638,10 +6638,17 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
   }
   return (
     <CustomerProfileModal company={company} content={content} onClose={close} onGo={(target, message) => { setActive?.(target); if (message) notify?.(message, "success"); }} showOverview={false}>
-      <div className="hk-profile-tabs premium-scrollbar sticky top-0 z-20 mb-6 flex gap-2 overflow-x-auto border-b border-slate-200 bg-white/95 pb-3 pt-1 backdrop-blur">
-        {tabs.map((item) => <button type="button" key={item} onClick={() => setTab(item)} className={`hk-profile-tab shrink-0 ${tab === item ? "hk-profile-tab-active" : ""}`}>{item}</button>)}
-        <a href={`/musteri-paneli?company=${company.id}`} target="_blank" rel="noreferrer" className="hk-button hk-button-info ml-auto shrink-0">Müşteri gibi görüntüle</a>
+      <Customer360Header
+        company={company}
+        content={content}
+        onNavigate={setActive}
+        onWhatsApp={() => setSalesMessageOpen(true)}
+        onResetPassword={() => setTab("Giriş Bilgileri")}
+      />
+      <div className="mb-3 flex justify-end">
+        <a href={`/musteri-paneli?company=${company.id}`} target="_blank" rel="noreferrer" className="hk-button hk-button-info hk-button-compact">Müşteri gibi görüntüle</a>
       </div>
+      <Customer360TabBar tabs={CUSTOMER_360_TABS} active={tab} onChange={setTab} />
       {tab === "Genel Bilgi" && <div className="hk-profile-section grid min-w-0 gap-4 rounded-[22px] border border-slate-200 bg-slate-50/70 p-4 md:grid-cols-2 sm:p-5">
         <Field label="Firma adı" value={company.name} onChange={(v) => updateProfileField({ name: v })} />
         <OtherSelectField label="Sektör" value={company.sector} onChange={(v) => updateProfileField({ sector: v })} options={sectorOptions} manualLabel="Sektörü yazın" />
@@ -6762,7 +6769,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
         </div>
         {portalSettingsMessage && <p className="mt-4 rounded-[12px] border border-cyan-200 bg-white p-3 text-sm font-bold text-cyan-900">{portalSettingsMessage}</p>}
       </div>}
-      {tab === "Panel Builder" && <div className="min-w-0 overflow-hidden rounded-[18px] border border-violet-200 bg-violet-50 p-5">
+      {tab === "Müşteri Paneli Yetkileri" && <div className="min-w-0 overflow-hidden rounded-[18px] border border-violet-200 bg-violet-50 p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs font-black uppercase tracking-[.14em] text-violet-700">Customer Panel Builder</p>

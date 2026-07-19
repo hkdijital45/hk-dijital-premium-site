@@ -24,6 +24,8 @@ import {
   X
 } from "lucide-react";
 import { TeamCommunicationCenter } from "@/components/admin/TeamCommunicationCenter";
+import { AdminEmptyState, AdminLoadingState } from "@/components/admin/ui/AdminEmptyState";
+import { AdminKpiCard } from "@/components/admin/ui/AdminKpiCard";
 
 type Summary = {
   id: string;
@@ -460,10 +462,10 @@ export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canMan
   return <div className="communication-center min-w-0 space-y-4">
     <CommunicationTabs active={activeChannel} onChange={setActiveChannel} customerUnread={unreadCount} />
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      <Kpi icon={<Inbox size={20} />} label="Açık konuşma" value={openCount} tone="cyan" />
-      <Kpi icon={<MessageSquareText size={20} />} label="Okunmamış mesaj" value={unreadCount} tone="rose" />
-      <Kpi icon={<AlertCircle size={20} />} label="Acil" value={items.filter((item) => item.priority === "urgent").length} tone="rose" />
-      <Kpi icon={<ClipboardList size={20} />} label="Atanmamış" value={items.filter((item) => !item.assigned_to).length} tone="amber" />
+      <AdminKpiCard icon={<Inbox size={20} />} label="Açık konuşma" value={openCount} tone="communication" />
+      <AdminKpiCard icon={<MessageSquareText size={20} />} label="Okunmamış mesaj" value={unreadCount} tone="danger" />
+      <AdminKpiCard icon={<AlertCircle size={20} />} label="Acil" value={items.filter((item) => item.priority === "urgent").length} tone="danger" />
+      <AdminKpiCard icon={<ClipboardList size={20} />} label="Atanmamış" value={items.filter((item) => !item.assigned_to).length} tone="warning" />
     </div>
 
     <section className="communication-card rounded-[18px] border border-slate-200 bg-white p-4 shadow-sm">
@@ -500,8 +502,8 @@ export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canMan
       </aside>
 
       <main className="flex min-h-0 min-w-0 flex-col">
-        {busy === "detail" && <div className="grid min-h-72 place-items-center text-sm text-slate-500"><span className="inline-flex items-center gap-2"><Loader2 className="animate-spin" /> Konuşma yükleniyor...</span></div>}
-        {busy !== "detail" && !detail && <div className="grid min-h-72 place-items-center text-slate-500">Bir konuşma seçin.</div>}
+        {busy === "detail" && <div className="grid min-h-72 place-items-center p-6"><AdminLoadingState label="Konuşma yükleniyor..." /></div>}
+        {busy !== "detail" && !detail && <div className="grid min-h-72 place-items-center p-6"><AdminEmptyState title="Bir konuşma seçin" description="Soldaki listeden bir konuşma seçtiğinizde mesajlar burada görünür." /></div>}
         {busy !== "detail" && detail && <>
           <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 p-4 backdrop-blur">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -523,16 +525,19 @@ export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canMan
           </header>
 
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+            {!detail.messages.length && <AdminEmptyState title="Henüz mesaj yok" description="Bu konuşmada henüz mesaj gönderilmemiş." />}
             {detail.messages.map((item) => {
               const isStaff = item.sender_type === "staff";
               const attachments = selectedAttachments.filter((attachment) => attachment.message_id === item.id);
-              return <article key={item.id} className={`flex ${isStaff ? "justify-end" : "justify-start"}`}>
-                <div className={`communication-message max-w-[94%] rounded-[18px] border p-4 shadow-sm sm:max-w-[82%] ${isStaff ? "border-cyan-200 bg-cyan-50 text-slate-900" : "border-slate-200 bg-white text-slate-900"}`}>
+              const senderInitial = String((isStaff ? item.sender_name || "HK" : item.sender_name || "M")).trim().slice(0, 1).toLocaleUpperCase("tr");
+              return <article key={item.id} className={`flex items-start gap-2.5 ${isStaff ? "flex-row-reverse" : ""}`}>
+                <span className={`grid size-9 shrink-0 place-items-center rounded-full text-xs font-black text-white ${isStaff ? "bg-gradient-to-br from-blue-500 to-indigo-600" : "bg-gradient-to-br from-cyan-400 to-teal-600"}`}>{senderInitial}</span>
+                <div className={`communication-message max-w-[88%] rounded-[18px] border p-4 shadow-sm sm:max-w-[78%] ${isStaff ? "border-blue-200 bg-blue-50 text-slate-900" : "border-cyan-200 bg-cyan-50/60 text-slate-900"}`}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="break-words font-black">{isStaff ? item.sender_name || "HK Dijital" : item.sender_name || "Müşteri"}</p>
                       <p className="mt-1 flex flex-wrap items-center gap-2 text-xs font-bold text-slate-600">
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${isStaff ? "bg-cyan-100 text-cyan-800" : "bg-slate-100 text-slate-700"}`}>{isStaff ? "Ekip" : "Müşteri"}</span>
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${isStaff ? "bg-blue-100 text-blue-800" : "bg-cyan-100 text-cyan-800"}`}>{isStaff ? "Ekip" : "Müşteri"}</span>
                         <time>{formatDateTime(item.created_at)}</time>
                       </p>
                     </div>
@@ -655,11 +660,6 @@ function CommunicationTabs({ active, onChange, customerUnread = 0 }: { active: s
       </button>;
     })}
   </section>;
-}
-
-function Kpi({ icon, label, value, tone }: { icon: ReactNode; label: string; value: number; tone: string }) {
-  const classes = tone === "rose" ? "border-rose-200 bg-rose-50 text-rose-800" : tone === "emerald" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : tone === "amber" ? "border-amber-200 bg-amber-50 text-amber-800" : "border-cyan-200 bg-cyan-50 text-cyan-800";
-  return <div className={`rounded-[16px] border p-4 ${classes}`}><div className="flex items-center justify-between gap-3"><span className="text-sm font-black">{label}</span>{icon}</div><p className="mt-3 text-3xl font-black">{value}</p></div>;
 }
 
 function UnsavedChangesDialog({ onCancel, onDiscard, onSave, saving }: { onCancel: () => void; onDiscard: () => void; onSave: () => void; saving: boolean }) {
