@@ -770,73 +770,6 @@ html {
   transform: translateY(1px) scale(.985);
 }
 
-.hero-os-map {
-  position: relative;
-  transform-style: preserve-3d;
-}
-
-.hero-os-map::before {
-  content: "";
-  position: absolute;
-  inset: 8%;
-  pointer-events: none;
-  border-radius: 40px;
-  background:
-    radial-gradient(circle at 50% 50%, rgba(34, 211, 238, .18), transparent 36%),
-    linear-gradient(90deg, transparent 0 16%, rgba(34, 211, 238, .18) 16% 17%, transparent 17% 83%, rgba(250, 204, 21, .12) 83% 84%, transparent 84%),
-    linear-gradient(0deg, transparent 0 31%, rgba(34, 211, 238, .12) 31% 32%, transparent 32% 68%, rgba(250, 204, 21, .1) 68% 69%, transparent 69%);
-  opacity: .72;
-}
-
-.hero-os-core {
-  position: relative;
-  z-index: 2;
-  display: grid;
-  width: min(72vw, 300px);
-  aspect-ratio: 1;
-  margin: 22px auto;
-  place-items: center;
-  border: 1px solid rgba(103, 232, 249, .22);
-  border-radius: 32px;
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, .12), rgba(255, 255, 255, .035)),
-    radial-gradient(circle at 50% 0%, rgba(34, 211, 238, .18), transparent 60%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, .14),
-    0 32px 120px rgba(0, 0, 0, .42),
-    0 0 80px rgba(34, 211, 238, .16);
-  text-align: center;
-  backdrop-filter: blur(22px);
-  animation: cinematic-core-float 7s ease-in-out infinite;
-}
-
-.hero-os-module {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  min-height: 100px;
-  gap: 12px;
-  align-items: flex-start;
-  border: 1px solid rgba(255, 255, 255, .11);
-  border-radius: 16px;
-  background: rgba(3, 7, 18, .72);
-  padding: 14px;
-  box-shadow: 0 22px 70px rgba(0, 0, 0, .32);
-  backdrop-filter: blur(20px);
-  animation: cinematic-chip-float 7s ease-in-out infinite;
-  transition: transform .25s ease, border-color .25s ease, background .25s ease;
-}
-
-.hero-os-module:hover {
-  transform: translateY(-6px);
-  border-color: rgba(103, 232, 249, .34);
-  background: rgba(8, 18, 34, .82);
-}
-
-.hero-os-module:nth-child(1) { animation-delay: -.2s; }
-.hero-os-module:nth-child(2) { animation-delay: -1.4s; }
-.hero-os-module:nth-child(3) { animation-delay: -2.5s; }
-
 .cinematic-dashboard {
   transform-style: preserve-3d;
 }
@@ -931,13 +864,6 @@ html {
   }
 }
 
-@media (max-width: 1023px) {
-  .hero-os-map::before {
-    inset: 4%;
-    opacity: .38;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -962,9 +888,7 @@ html {
 
   .cinematic-home::before,
   .cinematic-aurora,
-  .cinematic-floor::before,
-  .hero-os-core,
-  .hero-os-module {
+  .cinematic-floor::before {
     animation: none !important;
   }
 }
@@ -3691,5 +3615,140 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 @media (prefers-reduced-motion: reduce) {
   .admin-sidebar {
     transition: none;
+  }
+}
+
+/* =========================================================================
+   MacBook mockup — lightweight CSS-3D laptop used as the public site's
+   signature visual and global login entry point (src/components/public/
+   MacBookMockup.tsx). No WebGL/Three.js — pure transforms, cheap to render.
+   ========================================================================= */
+
+.macbook-mockup-link {
+  perspective: 1400px;
+  cursor: pointer;
+}
+
+.macbook-mockup-body {
+  transform: rotateX(10deg) rotateY(-4deg);
+}
+
+.macbook-mockup-glow {
+  position: absolute;
+  inset: -18%;
+  z-index: -1;
+  background: radial-gradient(circle at 50% 38%, rgba(34, 211, 238, .28), transparent 62%);
+  filter: blur(28px);
+  opacity: .8;
+}
+
+.macbook-mockup-lid {
+  position: relative;
+  aspect-ratio: 16 / 10.4;
+  border-radius: 7% / 6%;
+  padding: 3.2% 3.2% 0;
+  background: linear-gradient(155deg, #2a2f3a 0%, #14171e 55%, #0a0c11 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .18),
+    inset 0 0 0 1px rgba(255, 255, 255, .06),
+    0 30px 70px rgba(0, 0, 0, .5);
+}
+
+.macbook-mockup-camera {
+  position: absolute;
+  top: 1.1%;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(103, 232, 249, .55), rgba(0, 0, 0, .8));
+}
+
+.macbook-mockup-screen {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 3% / 3.5%;
+  background: linear-gradient(160deg, #061018 0%, #030509 100%);
+  box-shadow: inset 0 0 0 1px rgba(103, 232, 249, .12);
+}
+
+.macbook-mockup-reflection {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(115deg, rgba(255, 255, 255, .10) 0%, transparent 22%, transparent 78%, rgba(255, 255, 255, .05) 100%);
+}
+
+.macbook-mockup-base {
+  position: relative;
+  transform: rotateX(78deg) scaleY(.4);
+  transform-origin: top center;
+  margin-top: -1px;
+}
+
+.macbook-mockup-hinge {
+  height: 6%;
+  border-radius: 0 0 6px 6px;
+  background: linear-gradient(180deg, #1b1e26, #0a0c11);
+}
+
+.macbook-mockup-trackpad {
+  width: 26%;
+  height: 60%;
+  margin: 6% auto 0;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #23262f, #14161c);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08);
+}
+
+.macbook-mockup-shadow {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: -14%;
+  height: 18%;
+  border-radius: 999px;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, .45), transparent 70%);
+  filter: blur(6px);
+}
+
+.macbook-screen-chip {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, .08);
+  background: rgba(255, 255, 255, .04);
+  padding: 6px 9px;
+}
+
+.macbook-screen-dot {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #67e8f9, #22d3ee);
+  box-shadow: 0 0 8px rgba(34, 211, 238, .7);
+}
+
+.macbook-mockup-floating {
+  position: fixed;
+  right: clamp(14px, 3vw, 32px);
+  bottom: clamp(14px, 3vh, 28px);
+  z-index: 40;
+}
+
+@media (max-width: 640px) {
+  .macbook-mockup-floating {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .macbook-mockup-body {
+    transform: rotateX(6deg);
   }
 }

@@ -15,6 +15,7 @@ import {
   Sparkles,
   Target
 } from "lucide-react";
+import { MacBookMockup } from "@/components/public/MacBookMockup";
 
 const accentStyles = {
   cyan: "border-cyan-200/40 bg-gradient-to-br from-cyan-400 via-sky-500 to-blue-600 text-slate-900 shadow-[0_22px_55px_rgba(6,182,212,.28)]",
@@ -316,6 +317,17 @@ export function LoginShell3D({ children, logo }: { children: ReactNode; logo?: R
             <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
               Hesabınıza güvenli şekilde giriş yapın.
             </p>
+            <div className="mt-8 w-full max-w-[200px]">
+              <MacBookMockup
+                size="small"
+                screen={
+                  <div className="flex h-full flex-col items-center justify-center gap-1 p-[8%] text-center">
+                    <span className="text-[9px] font-black uppercase tracking-[.16em] text-cyan-200">HK Dijital</span>
+                    <span className="text-[8px] text-cyan-100/70">Güvenli Giriş</span>
+                  </div>
+                }
+              />
+            </div>
           </motion.div>
 
           {children}

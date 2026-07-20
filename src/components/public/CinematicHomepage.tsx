@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import { ArrowRight, BarChart3, BrainCircuit, CalendarDays, Gauge, Layers3, MessageCircle, MousePointerClick, PieChart, Rocket, Search, ShieldCheck, Sparkles, Target, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
@@ -10,6 +10,7 @@ import { ContactForm } from "./ContactForm";
 import { PackageCards, ServiceGrid } from "./ServicePackageSections";
 import { trackMetaCtaClick } from "@/lib/meta-pixel";
 import { blogPosts, serviceOverviewCards } from "@/lib/public-seo-content";
+import { MacBookMockup, MacBookScreenChip } from "./MacBookMockup";
 
 const osModules: Array<[string, string, LucideIcon]> = [
   ["Meta Reklamları", "Kreatif, hedef kitle, dönüşüm", BarChart3],
@@ -179,44 +180,51 @@ function CampaignVisualGrid() {
   );
 }
 
+function HeroMacBookScreen() {
+  return (
+    <div className="flex h-full flex-col p-[6%]">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[10px] font-black uppercase tracking-[.2em] text-cyan-200">Ajans çalışma sistemi</span>
+        <Sparkles className="text-amber-200" size={14} aria-hidden="true" />
+      </div>
+      <p className="mt-1 text-lg font-black text-white">HK Dijital</p>
+      <div className="mt-3 grid flex-1 grid-cols-2 gap-1.5 content-start">
+        {osModules.map(([title, text, Icon]) => (
+          <MacBookScreenChip key={title} label={title} note={text.split(" ").slice(0, 3).join(" ")} icon={<Icon size={11} className="text-cyan-200" aria-hidden="true" />} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function HeroOsVisual({ reduced }: { reduced: boolean | null }) {
   return (
     <motion.div
       initial={reduced ? false : { opacity: 0, scale: .97, y: 22 }}
       animate={reduced ? undefined : { opacity: 1, scale: 1, y: 0 }}
       transition={{ duration: .72, delay: .2, ease: [0.16, 1, 0.3, 1] }}
-      className="hero-os-map relative mx-auto w-full max-w-2xl"
+      className="relative mx-auto flex w-full max-w-xl flex-col items-center"
     >
-      <div className="hero-os-connectors" aria-hidden="true" />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {osModules.slice(0, 3).map(([title, text, Icon], index) => (
-          <motion.div key={title} initial={reduced ? false : { opacity: 0, y: 18 }} animate={reduced ? undefined : { opacity: 1, y: 0 }} transition={{ delay: .32 + index * .06 }} className="hero-os-module">
-            <Icon size={20} className="text-cyan-200" />
-            <div>
-              <p className="font-black text-white">{title}</p>
-              <p className="mt-1 text-xs leading-5 text-slate-400">{text}</p>
-            </div>
-          </motion.div>
-        ))}
-      </div>
+      <MacBookMockup size="large" showHint screen={<HeroMacBookScreen />} />
+    </motion.div>
+  );
+}
 
-      <div className="hero-os-core">
-        <Sparkles className="text-amber-200" size={34} />
-        <p className="mt-4 text-sm font-black uppercase tracking-[.2em] text-cyan-100">Ajans çalışma sistemi</p>
-        <p className="mt-3 text-5xl font-black text-white">HK Dijital</p>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {osModules.slice(3).map(([title, text, Icon], index) => (
-          <motion.div key={title} initial={reduced ? false : { opacity: 0, y: 18 }} animate={reduced ? undefined : { opacity: 1, y: 0 }} transition={{ delay: .5 + index * .06 }} className="hero-os-module">
-            <Icon size={20} className="text-cyan-200" />
-            <div>
-              <p className="font-black text-white">{title}</p>
-              <p className="mt-1 text-xs leading-5 text-slate-400">{text}</p>
-            </div>
-          </motion.div>
-        ))}
-      </div>
+function FloatingMacBook() {
+  const { scrollYProgress } = useScroll();
+  const opacity = useTransform(scrollYProgress, [0, 0.05, 0.1], [0, 0, 1]);
+  const scale = useTransform(scrollYProgress, [0, 0.05, 0.1], [0.85, 0.85, 1]);
+  return (
+    <motion.div style={{ opacity, scale }} className="macbook-mockup-floating">
+      <MacBookMockup
+        size="small"
+        screen={
+          <div className="flex h-full flex-col items-center justify-center gap-1 p-[8%] text-center">
+            <span className="text-[9px] font-black uppercase tracking-[.16em] text-cyan-200">HK Dijital</span>
+            <span className="text-[8px] text-cyan-100/70">Giriş</span>
+          </div>
+        }
+      />
     </motion.div>
   );
 }
@@ -230,6 +238,7 @@ export function CinematicHomepage({ content }: { content: SiteContent }) {
   return (
     <div className="cinematic-home relative">
       <div className="cinematic-aurora pointer-events-none absolute inset-0" aria-hidden="true" />
+      <FloatingMacBook />
 
       <section id="hero" className="cinematic-floor relative flex min-h-[calc(100svh-76px)] scroll-mt-20 items-center overflow-hidden px-4 py-20 sm:px-6 lg:px-8">
         <div className="cinematic-floor-glow" aria-hidden="true" />
