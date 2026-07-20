@@ -1,22 +1,28 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 export function AdminHero({
   eyebrow,
   title,
   description,
   actions,
-  children
+  children,
+  className = "",
+  style
 }: {
   eyebrow?: string;
   title: string;
   description?: string;
   actions?: ReactNode;
   children?: ReactNode;
+  /** Extra class names appended to the root card (e.g. a themed gradient hook like "hk-dashboard-hero"). */
+  className?: string;
+  /** Extra inline styles merged onto the root card (e.g. `{ order: -20 }` to pin position in a reorderable grid). */
+  style?: CSSProperties;
 }) {
   return (
     <div
-      className="admin-card mb-6 overflow-hidden rounded-[var(--admin-radius-card,22px)] p-6 sm:p-8"
-      style={{ boxShadow: "var(--admin-shadow-card, var(--admin-shadow))" }}
+      className={`admin-card overflow-hidden rounded-[var(--admin-radius-card,22px)] p-6 sm:p-8 ${className}`.trim()}
+      style={{ boxShadow: "var(--admin-shadow-card, var(--admin-shadow))", ...style }}
     >
       <div className="flex flex-wrap items-start justify-between gap-5">
         <div className="min-w-0">

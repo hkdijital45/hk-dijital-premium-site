@@ -1,8 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { ChevronDown } from "lucide-react";
-import { DashboardCustomizePanel, DashboardHero } from "./DashboardHero";
+import { ChevronDown, ChevronRight, Plus, Settings2 } from "lucide-react";
+import { AdminHero } from "@/components/admin/ui/AdminHero";
+import { DashboardCustomizePanel } from "./DashboardHero";
 import { DashboardKpiGrid } from "./DashboardKpiGrid";
 import { DashboardQuickActions } from "./DashboardQuickActions";
 import { DashboardPriorityActions } from "./DashboardPriorityActions";
@@ -114,14 +115,32 @@ export function DashboardOverview(props: DashboardOverviewProps) {
 
   return (
     <div className="admin-dashboard-overview grid w-full min-w-0 gap-5">
-      <DashboardHero
-        greeting={greeting}
-        userName={userName}
-        quickActions={quickActions}
-        onNavigate={onNavigate}
-        customizing={customizing}
-        onToggleCustomizing={onToggleCustomizing}
-      />
+      <AdminHero
+        className="hk-dashboard-hero"
+        style={{ order: -20 }}
+        eyebrow={`${greeting}, ${userName}`}
+        title="Ajansınızın tüm süreçleri tek platformda."
+        description="Müşterilerinizi, reklam operasyonlarınızı, içerik üretiminizi ve finans süreçlerinizi tek merkezden yönetin."
+        actions={
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+            <details className="group relative flex-1 sm:flex-none">
+              <summary className="hk-button hk-button-primary min-w-[150px] cursor-pointer list-none justify-center"><Plus size={18} /> Hızlı İşlem</summary>
+              <div className="admin-card absolute right-0 z-30 mt-2 grid w-[min(92vw,360px)] gap-2 rounded-[16px] p-3 shadow-2xl">
+                {quickActions.map((item) => (
+                  <button type="button" key={item.label} onClick={() => onNavigate(item.target)} className="hk-button hk-button-neutral justify-start">
+                    <span style={{ color: "var(--nav-accent-text, #0e7490)" }}>{item.icon}</span>
+                    {item.label}
+                    <ChevronRight className="ml-auto" size={16} />
+                  </button>
+                ))}
+              </div>
+            </details>
+            <button type="button" onClick={onToggleCustomizing} aria-pressed={customizing} className="hk-button hk-button-edit"><Settings2 size={18} /> Dashboard&apos;u Düzenle</button>
+          </div>
+        }
+      >
+        <p className="mt-4 border-t pt-4 text-sm" style={{ borderColor: "var(--admin-border)", color: "var(--admin-text-secondary)" }}>Modül favorilerini üst araç çubuğundaki sarı <strong>Favoriler</strong> menüsünden yönetin.</p>
+      </AdminHero>
 
       <DashboardQuickAccessStrip />
 
