@@ -43,7 +43,7 @@ import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminEmptyState } from "@/components/admin/ui/AdminEmptyState";
 import { AdminActionCard, AdminKpiCard } from "@/components/admin/ui/AdminKpiCard";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
-import { CUSTOMER_360_TABS, Customer360Header, Customer360TabBar } from "@/components/admin/customer-profile/customer360-shared";
+import { CUSTOMER_360_TABS, Customer360Header } from "@/components/admin/customer-profile/customer360-shared";
 import { adminNavigationGroups, adminNavigationItems, getAdminHref } from "@/lib/admin-navigation";
 import { canViewAccounting } from "@/lib/accounting-permissions";
 import { aiProviderKeyForApi, buildAiSelectionReason, labelForAiProvider, normalizeUnifiedAiProvider, unifiedAiProviderOptions, unifiedAiPriorityKeys } from "@/lib/ai-provider-options";
@@ -6743,7 +6743,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
       <div className="mb-3 flex justify-end">
         <a href={`/musteri-paneli?company=${company.id}`} target="_blank" rel="noreferrer" className="hk-button hk-button-info hk-button-compact">Müşteri gibi görüntüle</a>
       </div>
-      <Customer360TabBar tabs={CUSTOMER_360_TABS} active={tab} onChange={setTab} />
+      <AdminTabs items={CUSTOMER_360_TABS} active={tab} onChange={setTab} ariaLabel="Müşteri 360 sekmeleri" sticky />
       {tab === "Genel Bilgi" && <div className="hk-profile-section grid min-w-0 gap-4 rounded-[22px] border border-slate-200 bg-slate-50/70 p-4 md:grid-cols-2 sm:p-5">
         <Field label="Firma adı" value={company.name} onChange={(v) => updateProfileField({ name: v })} />
         <OtherSelectField label="Sektör" value={company.sector} onChange={(v) => updateProfileField({ sector: v })} options={sectorOptions} manualLabel="Sektörü yazın" />

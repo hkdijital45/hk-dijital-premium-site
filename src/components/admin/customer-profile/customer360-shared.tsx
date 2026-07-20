@@ -156,30 +156,3 @@ export function Customer360Header({
   );
 }
 
-export function Customer360TabBar({
-  tabs = CUSTOMER_360_TABS,
-  active,
-  onChange
-}: {
-  tabs?: readonly string[];
-  active: string;
-  onChange: (tab: string) => void;
-}) {
-  return (
-    <div className="hk-customer-tabbar premium-scrollbar sticky top-0 z-20 mb-6 flex gap-2 overflow-x-auto border-b p-2" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-raised, var(--admin-surface))" }}>
-      {tabs.map((tab) => (
-        <button
-          type="button"
-          key={tab}
-          onClick={() => onChange(tab)}
-          className={`shrink-0 rounded-full px-3.5 py-2 text-xs font-black transition ${active === tab ? "text-white" : ""}`}
-          style={active === tab
-            ? { background: "var(--nav-accent, #0891b2)" }
-            : { background: "var(--admin-surface-soft)", color: "var(--admin-text-secondary)" }}
-        >
-          {tab}
-        </button>
-      ))}
-    </div>
-  );
-}

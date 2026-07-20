@@ -7,7 +7,8 @@ import { ActionResultPanel } from "@/components/admin/ActionResultPanel";
 import type { ActionResult } from "@/lib/action-result";
 import { CUSTOMER_MODULE_REGISTRY, CUSTOMER_PLATFORM_REGISTRY, DEFAULT_CUSTOMER_MODULES, normalizeModuleKeys, normalizePlatformKeys } from "@/lib/customer-portal-registry";
 import { formatTurkishPhone, isEmptyLikeValue, normalizePhoneInput } from "@/lib/phone-format";
-import { CUSTOMER_360_TABS, Customer360Header, Customer360TabBar } from "./customer360-shared";
+import { CUSTOMER_360_TABS, Customer360Header } from "./customer360-shared";
+import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 
 const paidStatuses = ["Ödendi", "Tahsil Edildi"];
 
@@ -693,7 +694,7 @@ export function CustomerProfileModal({
           {showOverview && (
             <>
               <Customer360Header company={company} content={content} onNavigate={(target, message) => onGo?.(target, message)} />
-              <Customer360TabBar tabs={CUSTOMER_360_TABS} active={activeProfileTab} onChange={setActiveProfileTab} />
+              <AdminTabs items={CUSTOMER_360_TABS} active={activeProfileTab} onChange={setActiveProfileTab} ariaLabel="Müşteri 360 sekmeleri" sticky />
               <div className="mt-5 grid gap-4 md:grid-cols-2">
                 {activeTabCards().map((card) => <SummaryBox key={card.title} title={card.title} lines={card.lines} />)}
               </div>
