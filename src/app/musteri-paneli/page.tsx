@@ -17,6 +17,7 @@ import { getSiteContent } from "@/lib/content";
 import { calculateTotalWithVat, calculateVat, findServicePackage, formatTRY, getPackagePricing } from "@/lib/packages";
 import { HKAssistantWidget } from "@/components/shared/HKAssistantWidget";
 import { CustomerCommunicationCenter } from "@/components/customer/CustomerCommunicationCenter";
+import { CustomerGuideCenter } from "@/components/customer/CustomerGuideCenter";
 
 export const dynamic = "force-dynamic";
 
@@ -681,6 +682,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
             <p className="mt-3 text-sm text-slate-600">{session.fullName} · {data.company?.name || "Şirket ataması bekleniyor"}</p>
             {CUSTOMER_PORTAL_ADMIN_ONLY_MODULES.length > 0 && <p className="mt-3 rounded-[12px] bg-slate-50 p-3 text-xs font-bold leading-5 text-slate-500">Reklam Doktoru, HK Intelligence, CRM, QA, Funnel ve iç operasyon modülleri yalnız HK Dijital admin ekibi tarafından yönetilir.</p>}
           </section>
+          <CustomerGuideCenter />
         </section>
         {hasModule("ai_assistant") && <HKAssistantWidget context="customer" />}
       </div>

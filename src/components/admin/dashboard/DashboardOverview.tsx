@@ -14,6 +14,8 @@ import { DashboardSalesPipeline } from "./DashboardSalesPipeline";
 import { DashboardAdPerformance } from "./DashboardAdPerformance";
 import { DashboardAiRecommendations } from "./DashboardAiRecommendations";
 import { DashboardFavoriteModules } from "./DashboardFavoriteModules";
+import { DashboardCenterGrid, type DashboardCenterCard } from "./DashboardCenterGrid";
+import { DashboardQuickAccessStrip } from "./DashboardQuickAccessStrip";
 import type {
   DashboardActivityItem,
   DashboardAiHealthDimension,
@@ -67,6 +69,7 @@ export interface DashboardOverviewProps {
   automationSuggestions: DashboardAutomationSuggestion[];
 
   favoriteModules: DashboardCategoryCard[];
+  centerCards: DashboardCenterCard[];
 
   websiteAnalytics: ReactNode;
   advanced: ReactNode;
@@ -104,6 +107,7 @@ export function DashboardOverview(props: DashboardOverviewProps) {
     aiHealthDimensions,
     automationSuggestions,
     favoriteModules,
+    centerCards,
     websiteAnalytics,
     advanced
   } = props;
@@ -118,6 +122,10 @@ export function DashboardOverview(props: DashboardOverviewProps) {
         customizing={customizing}
         onToggleCustomizing={onToggleCustomizing}
       />
+
+      <DashboardQuickAccessStrip />
+
+      <DashboardCenterGrid cards={centerCards} />
 
       {customizing && (
         <DashboardCustomizePanel

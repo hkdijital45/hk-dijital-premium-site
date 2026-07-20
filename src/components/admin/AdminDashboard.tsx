@@ -42,6 +42,7 @@ import { AdminStatusBadge, healthScoreTone, type AdminStatusTone } from "@/compo
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminEmptyState } from "@/components/admin/ui/AdminEmptyState";
 import { AdminActionCard, AdminKpiCard } from "@/components/admin/ui/AdminKpiCard";
+import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { CUSTOMER_360_TABS, Customer360Header, Customer360TabBar } from "@/components/admin/customer-profile/customer360-shared";
 import { adminNavigationGroups, adminNavigationItems, getAdminHref } from "@/lib/admin-navigation";
 import { canViewAccounting } from "@/lib/accounting-permissions";
@@ -833,7 +834,7 @@ export function AdminDashboard({
           {["Web Site Analitiği", "Web Analitiği", "Web Analitiği Bağlantıları", "GTM Bağlantıları"].includes(active) && <WebsiteAnalyticsCenter />}
           {(active === "Reklam Yorum Merkezi" || active === "Reklam Doktoru Pro") && <><AdDoctorMvpPanel /><AdInsightsCenter content={content} notify={notify} /></>}
           {["HK Agent Hub", "Agent Hub", "Discord"].includes(active) && <AgentHubCenter content={content} notify={notify} />}
-          {active === "QA Merkezi" && <QaCenter notify={notify} />}
+          {["Sistem Kalitesi", "QA Merkezi", "Sistem Test Merkezi"].includes(active) && <SystemQualityCenter content={content} setContent={setContent} save={save} currentSession={currentSession} notify={notify} systemStatus={systemStatus} supabaseConfigured={supabaseConfigured} initialTab={active === "Sistem Test Merkezi" ? "Otomatik Testler" : "Manuel Kontroller"} />}
           {active === "PDF Rapor Tasarım Merkezi" && <PdfReportDesignCenter {...props} />}
           {["Müşteriler", "Müşteri Paketleri"].includes(active) && <CustomersAdmin {...props} selectedCompanyId={selectedCompanyId} />}
           {["Site Ayarları", "Web Sitesi Yönetimi"].includes(active) && <WebsiteManagementCenter {...props} />}
@@ -846,7 +847,6 @@ export function AdminDashboard({
           {["Tema Ayarları", "Tema / Logo"].includes(active) && <ThemeEditor />}
           {["Roller & Yetkiler", "Kullanıcı Yönetimi"].includes(active) && <UsersAdmin {...props} mode={active} />}
           {["Sistem Sağlığı", "Sistem Sağlık Merkezi", "API Durumu"].includes(active) && <SystemHealthCenter content={content} setContent={setContent} startupApiData={startupApiData} runStartupApiStatus={runStartupApiStatus} startupApiLoading={startupApiLoading} />}
-          {active === "Sistem Test Merkezi" && <SystemTestCenter content={content} setContent={setContent} save={save} currentSession={currentSession} notify={notify} systemStatus={systemStatus} supabaseConfigured={supabaseConfigured} />}
           {dataBackupAliases.includes(active) && <ExportCenter content={content} currentSession={currentSession} notify={notify} />}
           {logCenterAliases.includes(active) && <ActivityLogs content={content} setContent={setContent} />}
           {systemGuideAliases.includes(active) && <SystemGuideCenter currentSession={currentSession} notify={notify} />}
@@ -1473,16 +1473,16 @@ function OAuthSetupStatusPanel() {
       <button onClick={load} disabled={loading} className="rounded-full bg-violet-500 px-4 py-2 text-xs font-black text-white disabled:opacity-60">{loading ? "Kontrol ediliyor..." : "Yenile"}</button>
     </div>
     {message && <p className="mt-3 rounded-[12px] bg-white p-3 text-sm font-bold text-violet-900">{message}</p>}
-    <div className="mt-4 grid gap-3 xl:grid-cols-2">
+    <div className="mt-4 grid min-w-0 gap-3 xl:grid-cols-2">
       {rows.map(([key, item]: any) => {
         const ready = item.ready;
         const configured = item.configured;
-        return <article key={key} className="rounded-[16px] border border-white bg-white p-4 shadow-sm">
+        return <article key={key} className="min-w-0 rounded-[16px] border border-white bg-white p-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h4 className="font-black text-slate-950">{item.label || key}</h4>
             <span className={`rounded-full px-3 py-1 text-xs font-black ${ready ? "bg-emerald-50 text-emerald-700" : configured ? "bg-amber-50 text-amber-800" : "bg-rose-50 text-rose-700"}`}>{ready ? "Hazır" : configured ? "Redirect hatalı" : "Eksik"}</span>
           </div>
-          <div className="mt-3 grid gap-2 text-xs leading-5 text-slate-600">
+          <div className="mt-3 grid min-w-0 gap-2 break-words text-xs leading-5 text-slate-600 [&>p]:min-w-0">
             <p><strong>Canlı callback URL:</strong> {item.expectedRedirectUri}</p>
             <p><strong>ENV redirect URI:</strong> {item.redirectUri || "Eksik"}</p>
             <p><strong>Redirect doğru mu?</strong> {item.redirectUriMatches ? "Evet" : "Hayır"}</p>
@@ -1888,6 +1888,22 @@ function downloadSystemTestFile(format: "pdf" | "excel" | "word", run: any) {
   link.download = `HK-Sistem-Test-Raporu-${new Date().toISOString().slice(0, 10)}.${extension}`;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+const systemQualityTabs = ["Otomatik Testler", "Manuel Kontroller"] as const;
+
+function SystemQualityCenter({ content, setContent, save, currentSession, notify, systemStatus, supabaseConfigured, initialTab }: any) {
+  const [tab, setTab] = useState<string>(initialTab || "Otomatik Testler");
+  return (
+    <div className="w-full min-w-0 max-w-none">
+      <p className="text-[10px] font-black uppercase tracking-[.2em] text-cyan-700">HK Operating System</p>
+      <h2 className="mb-1 mt-2 text-2xl font-black">Sistem Kalitesi</h2>
+      <p className="mb-6 text-sm text-slate-500">Otomatik sistem testleri ve manuel QA kontrolleri tek merkezde.</p>
+      <AdminTabs items={systemQualityTabs} active={tab} onChange={setTab} ariaLabel="Sistem Kalitesi sekmeleri" />
+      {tab === "Otomatik Testler" && <SystemTestCenter content={content} setContent={setContent} save={save} currentSession={currentSession} notify={notify} systemStatus={systemStatus} supabaseConfigured={supabaseConfigured} />}
+      {tab === "Manuel Kontroller" && <QaCenter notify={notify} />}
+    </div>
+  );
 }
 
 function SystemTestCenter({ content, setContent, save, currentSession, notify, systemStatus, supabaseConfigured }: any) {
@@ -2403,6 +2419,20 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     }
   ].map((card) => ({ ...card, actions: card.actions.filter(([, target]) => canOpen(target) || ["Yapay Zekâ Sağlayıcı Ayarları", "PDF Audit", "Teklif Hazırlama", "30 Günlük Sosyal Medya Planı", "İçerik Fikirleri", "Yeni Başvurular"].includes(target)) })).filter((card) => card.actions.length);
   const conversionRate = leads.length ? Math.round(activeCustomers.length / leads.length * 100) : 0;
+  function popoverItemsFor(groupLabel: string) {
+    const group = adminNavigationGroups.find((item) => item.label === groupLabel);
+    return (group?.items || []).map((item) => ({ label: item.label, description: item.description, href: getAdminHref(item.slug) }));
+  }
+  const centerCards = [
+    { key: "musteri-yonetimi", title: "Müşteri Yönetimi", description: "Müşteri kayıtları, Müşteri 360 profili ve paket yönetimi.", icon: <Building2 size={20} />, accent: "from-teal-400 via-emerald-500 to-cyan-600", kpiLabel: "aktif müşteri", kpiValue: activeCustomers.length, target: "Müşteriler", items: popoverItemsFor("Müşteri Yönetimi"), quickActions: [{ label: "+ Yeni Müşteri", href: getAdminHref("musteriler") }, { label: "+ Yeni Görev", href: getAdminHref("gorevler") }, { label: "Tahsilat Ekle", href: getAdminHref("tahsilat") }] },
+    { key: "satis-ve-kesif", title: "Satış ve Keşif", description: "CRM, lead merkezi, müşteri keşfi ve satış hunisi.", icon: <MapPinned size={20} />, accent: "from-blue-400 via-cyan-500 to-teal-500", kpiLabel: "başvuru", kpiValue: leads.length, target: "Lead Merkezi", items: popoverItemsFor("Satış ve Keşif"), quickActions: [{ label: "Lead Merkezi", href: getAdminHref("leads") }, { label: "Müşteri Keşfi", href: getAdminHref("musteri-kesfi") }, { label: "Teklif Oluştur", href: getAdminHref("teklif-hazirlama") }] },
+    { key: "operasyon", title: "Operasyon", description: "Görevler, takip ve günlük ajans iş akışları.", icon: <Gauge size={20} />, accent: "from-indigo-400 via-blue-500 to-cyan-600", kpiLabel: "öncelikli görev", kpiValue: importantDashboardTasks.length, target: "Görevler", items: popoverItemsFor("Operasyon"), quickActions: [{ label: "+ Yeni Görev", href: getAdminHref("gorevler") }, { label: "Takvim", href: getAdminHref("takvim") }, { label: "İletişim Merkezi", href: getAdminHref("iletisim-merkezi") }] },
+    { key: "reklam-ve-performans", title: "Reklam ve Performans", description: "Kampanyalar, reklam hesapları ve raporlama.", icon: <FileBarChart size={20} />, accent: "from-orange-400 via-amber-500 to-rose-500", kpiLabel: "aktif kampanya", kpiValue: campaigns.length, target: "Kampanyalar", items: popoverItemsFor("Reklam ve Performans"), quickActions: [{ label: "Kampanyalar", href: getAdminHref("kampanyalar") }, { label: "Reklam Doktoru", href: getAdminHref("ad-insights") }] },
+    { key: "icerik-ve-ai", title: "İçerik ve AI", description: "HK Asistan, içerik üretimi ve yapay zekâ analizleri.", icon: <Bot size={20} />, accent: "from-violet-500 via-purple-500 to-fuchsia-600", kpiLabel: "yapay zekâ analizi", kpiValue: aiAnalyzedLeads.length, target: "Yapay Zekâ Stüdyosu", items: popoverItemsFor("İçerik ve AI"), quickActions: [{ label: "Blog Yaz", href: getAdminHref("blog-seo") }, { label: "AI Studio", href: getAdminHref("ai-studio") }, { label: "Agent Hub", href: getAdminHref("agent-hub") }] },
+    { key: "finans", title: "Finans", description: "Tahsilat, ödeme takibi ve kârlılık raporları.", icon: <BarChart3 size={20} />, accent: "from-emerald-500 via-teal-600 to-cyan-700", kpiLabel: "geciken tahsilat", kpiValue: overduePayments.length, target: "Tahsilatlar", items: popoverItemsFor("Finans"), quickActions: [{ label: "Tahsilat", href: getAdminHref("tahsilat") }, { label: "Kârlılık", href: getAdminHref("karlilik") }] },
+    { key: "entegrasyonlar", title: "Entegrasyonlar", description: "Meta, Google ve diğer dış servis bağlantıları.", icon: <CircleCheck size={20} />, accent: "from-slate-400 via-slate-500 to-slate-700", kpiLabel: "servis takibi", kpiValue: serviceItems.filter((service) => service.state === "Aktif").length, target: "Entegrasyonlar", items: popoverItemsFor("Entegrasyonlar"), quickActions: [{ label: "Entegrasyonlar", href: getAdminHref("entegrasyonlar") }] },
+    { key: "sistem", title: "Sistem", description: "Kullanıcı yönetimi, yetkiler ve sistem ayarları.", icon: <Settings2 size={20} />, accent: "from-slate-500 via-slate-700 to-slate-900", kpiLabel: "kullanıcı", kpiValue: users.length, target: "Kullanıcı Yönetimi", items: popoverItemsFor("Sistem"), quickActions: [{ label: "Kullanıcı Yönetimi", href: getAdminHref("kullanici-yonetimi") }, { label: "Sistem Rehberi", href: getAdminHref("sistem-rehberi") }] }
+  ].filter((card) => canOpen(card.target));
 
   async function createDemoCustomer() {
     setDemoLoading(true);
@@ -2928,6 +2958,7 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
         aiHealthDimensions={aiHealthDimensions}
         automationSuggestions={automationSuggestions}
         favoriteModules={categoryCards}
+        centerCards={centerCards}
         websiteAnalytics={<WebsiteAnalyticsSummaryCards onOpen={() => setActive("Web Site Analitiği")} />}
         advanced={advancedSection}
       />

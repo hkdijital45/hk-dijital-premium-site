@@ -1785,6 +1785,28 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
   }
 }
 
+@keyframes hk-popover-fade-scale {
+  from {
+    opacity: 0;
+    transform: scale(.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes hk-popover-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (max-width: 640px) {
   .hk-toast-stack {
     left: 16px;
@@ -3334,6 +3356,20 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
   --admin-overlay: rgba(15, 23, 42, .55);
   --admin-sidebar-bg: #ffffff;
   --admin-header-bg: rgba(255, 255, 255, .92);
+
+  /* Aliases for the premium admin OS token naming scheme — additive only,
+     map onto the existing admin and hk tokens above so nothing that
+     already reads the older names breaks. */
+  --admin-text: var(--admin-text-primary);
+  --admin-surface-muted: var(--admin-surface-soft);
+  --admin-primary: var(--hk-primary);
+  --admin-primary-soft: color-mix(in srgb, var(--hk-primary) 12%, var(--admin-surface));
+  --admin-success: var(--hk-success);
+  --admin-warning: var(--hk-warning);
+  --admin-danger: var(--hk-danger);
+  --admin-info: var(--hk-info);
+  --admin-radius-card: 22px;
+  --admin-shadow-card: var(--admin-shadow);
 }
 
 .hk-admin[data-theme="dark"] {

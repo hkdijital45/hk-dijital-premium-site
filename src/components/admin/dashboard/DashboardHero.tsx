@@ -23,8 +23,8 @@ export function DashboardHero({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-sm font-black" style={{ color: "var(--nav-accent-text, #0e7490)" }}>{greeting}, {userName}</p>
-          <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl" style={{ color: "var(--admin-text-primary)" }}>Bugünün ajans özeti</h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6" style={{ color: "var(--admin-text-secondary)" }}>Kritik işleri, müşteri risklerini ve gelir akışını tek bakışta yönetin.</p>
+          <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl" style={{ color: "var(--admin-text-primary)" }}>Ajansınızın tüm süreçleri tek platformda.</h1>
+          <p className="mt-2 max-w-3xl text-sm leading-6" style={{ color: "var(--admin-text-secondary)" }}>Müşterilerinizi, reklam operasyonlarınızı, içerik üretiminizi ve finans süreçlerinizi tek merkezden yönetin.</p>
         </div>
         <div className="flex w-full flex-wrap gap-2 sm:w-auto">
           <details className="group relative flex-1 sm:flex-none">

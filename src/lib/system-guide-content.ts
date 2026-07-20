@@ -17,6 +17,11 @@ export type SystemGuideSeed = {
 };
 
 export const systemGuideCategories = [
+  // Güncel 9 ana merkez yapısı — yeni içerikler bu kategoriler altında yazılır.
+  "Başlangıç", "Ana Merkez", "Müşteri Yönetimi", "Satış ve Keşif", "Operasyon", "Reklam ve Performans",
+  "İçerik ve AI", "Finans", "Entegrasyonlar", "Sistem", "Müşteri Paneli Rehberi", "Sorun Giderme (Genel)", "SSS",
+  // Önceki sprintlerden kalan kategoriler — mevcut rehber kayıtları bunlara bağlı olduğundan
+  // veri kaybı yaşanmaması için korunuyor. Yeni içerik bu kategorilere eklenmiyor.
   "Müşteri Serüveni", "Admin Mimarisi", "Menü ve Kategori Düzeni", "Dashboard & Kontrol Merkezi", "CRM & Müşteriler", "CRM Merkezi", "Müşteri & Satış", "Ajans Operasyonu", "Satış Hunisi", "Muhasebe", "Tahsilat & Karlılık",
   "Görev Yönetimi", "Raporlama Merkezi", "Reklam Operasyon Merkezi", "Meta Entegrasyonları", "Google Entegrasyonları",
   "HK Intelligence", "HK Digital OS v2.0", "Yapay Zekâ Stüdyosu", "Dosya & Belge Merkezi", "Kullanıcı Yönetimi", "Ayarlar",
@@ -484,11 +489,276 @@ const customerJourneyGuide: SystemGuideSeed = {
   }
 };
 
+// Yeni 9 ana merkez yapısı için kapsamlı rehber içerikleri. Her giriş amaç,
+// kimlerin kullanabileceği, ilk kullanım, önemli sekmeler/butonlar, sık
+// işlemler, dikkat noktaları ve ilgili modülleri mevcut yedi alanlı
+// (purpose/whenToUse/steps/example/commonErrors/tips/warnings) şema içinde
+// birleştirir.
+const nineCenterGuides: SystemGuideSeed[] = [
+  {
+    slug: "baslangic-ilk-adimlar",
+    title: "Başlangıç: Admin Paneline İlk Adımlar",
+    category: "Başlangıç",
+    description: "Yeni bir admin/editor/staff kullanıcısının panele ilk girişte izlemesi gereken adımlar.",
+    route: "/hk-admin",
+    content: {
+      purpose: "HK Dijital admin paneli 9 ana merkez altında toplanır: Ana Merkez, Müşteri Yönetimi, Satış ve Keşif, Operasyon, Reklam ve Performans, İçerik ve AI, Finans, Entegrasyonlar, Sistem. Bu rehber ilk girişte nereye bakılacağını özetler.",
+      whenToUse: "İlk giriş yapan yeni bir ekip üyesi veya rolü değişen bir kullanıcı için.",
+      steps: [
+        "Giriş yaptıktan sonra otomatik olarak Ana Merkez (Dashboard) açılır; günün özeti, kritik görevler ve öncelikli aksiyonlar burada listelenir.",
+        "Sol menüdeki 9 merkezden yalnızca rolünüze açık olanlar görünür; görmediğiniz bir merkez varsa bu bir hata değil, yetki kısıtlamasıdır.",
+        "Ana Merkez'in üstündeki 'Merkezler' kart bölümünden istediğiniz merkeze tek tıkla geçebilir, kartı yıldızlayarak favorilere ekleyebilirsiniz.",
+        "Üst çubuktaki arama (Komut Paleti) ile modül adı yazarak doğrudan o ekrana atlayabilirsiniz.",
+        "Sağ üstteki ay/güneş ikonuyla açık/koyu temayı değiştirebilirsiniz; tercihiniz tarayıcınızda saklanır."
+      ],
+      example: "Yeni bir satış temsilcisi ilk girişte Ana Merkez'i görür, 'Satış ve Keşif' kartına tıklayıp Lead Merkezi'ni açar ve kendisine atanmış leadleri görür.",
+      commonErrors: ["Bir merkezi sidebar'da bulamamak: arama kutusunu veya yetkinizi kontrol edin.", "Eski bir bağlantıdan gelindiğinde 404 sanmak: eski adresler otomatik olarak doğru merkeze yönlenir."],
+      tips: ["Sık kullandığınız merkezleri Merkezler bölümünde yıldızlayın.", "Kullanım Rehberi'nde arama yaparak modül adını yazmanız yeterlidir."],
+      warnings: []
+    }
+  },
+  {
+    slug: "ana-merkez-rehberi",
+    title: "Ana Merkez Nasıl Kullanılır?",
+    category: "Ana Merkez",
+    description: "Günlük ajans özeti, KPI'lar ve HK Intelligence CEO karar masasının kullanımı.",
+    route: "/hk-admin",
+    content: {
+      purpose: "Ana Merkez, girişte açılan ekrandır; ajansın günlük durumunu (kritik görevler, geciken tahsilat, riskli müşteri, satış hunisi, reklam performansı) tek bakışta özetler.",
+      whenToUse: "Her gün işe başlarken, önceliklendirme yaparken ve hızlı bir modüle geçiş yapmak istediğinizde.",
+      steps: [
+        "Üstteki 'Merkezler' kart grid'inden 8 ana merkeze (Ana Merkez hariç) tek tıkla geçin; her kartta canlı KPI ve durum rozeti görünür.",
+        "'Bugünün ajans özeti' bölümünde Hızlı İşlem butonuyla sık kullanılan aksiyonlara ulaşın.",
+        "Günlük Özet KPI kartlarına tıklayarak ilgili modüle doğrudan geçebilirsiniz.",
+        "'Bugün ne yapmalıyım?' bölümü görev, tahsilat, lead ve entegrasyon sinyallerini önem sırasına göre listeler; 'Günlük Plan Oluştur' butonuyla AI destekli öneri alın.",
+        "Alt kısımdaki 'Detaylı analiz ve operasyon araçları' açılır bölümünü kullanarak HK Intelligence CEO, büyüme motoru ve senaryo simülasyonu gibi ileri araçlara ulaşın."
+      ],
+      example: "Geciken bir tahsilatı görmek için Günlük Özet'teki 'Geciken tahsilatlar' kartına tıklayın; sizi doğrudan Finans merkezine götürür.",
+      commonErrors: ["Ana Merkez'i tek başına eksiksiz bir modül sanmak: her merkezin tam işlevine kendi ekranından ulaşılır, Ana Merkez yalnızca özet ve giriş noktasıdır."],
+      tips: ["Merkezler bölümündeki kartlar 'Henüz veri yok' gösteriyorsa ilgili modülde kayıt bulunmuyor demektir; uydurma veri gösterilmez."],
+      warnings: []
+    }
+  },
+  {
+    slug: "musteri-yonetimi-merkezi-rehberi",
+    title: "Müşteri Yönetimi Merkezi Nasıl Kullanılır?",
+    category: "Müşteri Yönetimi",
+    description: "Müşteri kayıtları, Müşteri 360 profili, kurulum durumu ve panel yetkileri.",
+    route: "/hk-admin/musteriler",
+    content: {
+      purpose: "Aktif, pasif, arşivli ve aday müşterileri tek ekrandan aramak, filtrelemek, yeni firma eklemek ve müşteri 360 profiline ulaşmak için kullanılır.",
+      whenToUse: "Yeni müşteri eklerken, mevcut bir müşterinin bilgilerini güncellerken veya müşteri sağlık durumunu kontrol ederken.",
+      steps: [
+        "Üstteki arama kutusuna firma adı, telefon, e-posta veya sektör yazarak müşteriyi bulun.",
+        "Hızlı filtre etiketleriyle (Aktif, Pasif, Ödemesi geciken, Riskli müşteri) listeyi daraltın.",
+        "Bir müşteri kartına tıklayarak Müşteri 360 profilini açın: üstte firma adı, sağlık skoru, paket ve kurulum ilerlemesi; sekmelerde iletişim, satış durumu, ödemeler, dosyalar, aktivite geçmişi ve notlar yer alır.",
+        "Profildeki hızlı işlem butonlarıyla (WhatsApp, Ara, E-posta, Şifre Sıfırla, Görev Oluştur, Rapor Oluştur) doğrudan aksiyon alın.",
+        "'+ Yeni Firma Oluştur' butonuyla yeni müşteri kaydı açın; ardından müşteri giriş hesabı oluşturup panel erişimini tanımlayın."
+      ],
+      example: "Ödemesi geciken müşterileri görmek için 'Ödemesi geciken' hızlı filtresine tıklayın, listeden birini açıp profildeki Ödemeler sekmesinden detayı görüntüleyin.",
+      commonErrors: ["Müşteriyi silmek yerine arşivleme akışını tercih etmemek — kayıt geçmişi kaybolabilir.", "Panel görünürlüğünü kontrol etmeden hassas not/rapor eklemek."],
+      tips: ["Sağlık skoru düşük müşteriler önce aksiyon gerektirir.", "Sonuç bulunamazsa 'Filtreleri Temizle' butonunu kullanın."],
+      warnings: ["Müşteri paneline görünür yapılan rapor/belge/notlar paylaşılmadan önce kontrol edilmelidir."]
+    }
+  },
+  {
+    slug: "satis-ve-kesif-merkezi-rehberi",
+    title: "Satış ve Keşif Merkezi Nasıl Kullanılır?",
+    category: "Satış ve Keşif",
+    description: "CRM, Lead Merkezi, Müşteri Keşfi, Haritalar, satış hunisi ve teklif takibi.",
+    route: "/hk-admin/leads",
+    content: {
+      purpose: "Yeni müşteri adaylarını bulmak (Müşteri Keşfi/Haritalar), lead'leri yönetmek (Lead Merkezi) ve satış sürecini teklife kadar takip etmek (Satış Hunisi, Teklif Takip Merkezi) için kullanılır.",
+      whenToUse: "Yeni iş fırsatı ararken, gelen başvuruları değerlendirirken veya bir teklifin takibini yaparken.",
+      steps: [
+        "Lead Merkezi'nde Liste veya Kanban görünümü arasında geçiş yapın; Kanban'da leadleri aşamadan aşamaya sürükleyin.",
+        "Lead kartında potansiyel değer, kapanış olasılığı, öncelik, sorumlu ve son aktiviteyi görün; karta tıklayıp detay panelinden WhatsApp/arama/e-posta ile temas kurun.",
+        "Müşteri Keşfi sekmesinde il/ilçe/sektör filtreleriyle Google Maps'ten yeni işletme adayı arayın; sonuç kartından 'CRM'e Kaydet' ile lead oluşturun.",
+        "Kayıtlı bir aramayı tekrar çalıştırmadan önce mevcut sonuçları, son arama tarihini ve kullanılan filtreleri gözden geçirin; kotayı gereksiz tüketmeyin.",
+        "Teklif gönderilen leadler Teklif Takip Merkezi'nde 3/7/14/21 günlük takip akışına göre listelenir; 'Durumu Güncelle' ile takip notunu ilerletin."
+      ],
+      example: "Yeni bir bölgede müşteri aramak için Müşteri Keşfi sekmesinde ilçe ve sektör seçip 'Google Maps'ten Bul' butonunu çalıştırın, uygun sonuçları CRM'e kaydedin.",
+      commonErrors: ["Aynı aramayı art arda çalıştırıp kotayı tüketmek — önce kayıtlı sonuçları kontrol edin.", "Lead'i doğrudan silmek yerine 'Reddedildi' veya arşiv durumunu kullanmamak."],
+      tips: ["Kanban görünümü hızlı aşama takibi için, Liste görünümü toplu filtreleme için uygundur.", "Sıcak leadler için önce WhatsApp veya telefon teması önerilir."],
+      warnings: []
+    }
+  },
+  {
+    slug: "operasyon-merkezi-rehberi",
+    title: "Operasyon Merkezi Nasıl Kullanılır?",
+    category: "Operasyon",
+    description: "Görevler, takip ve günlük ajans iş akışları; İletişim Merkezi de bu merkez altındadır.",
+    route: "/hk-admin/gorevler",
+    content: {
+      purpose: "Ekip görevlerini, müşteri takiplerini ve iç/dış iletişimi (İletişim Merkezi) tek yerden yönetmek için kullanılır.",
+      whenToUse: "Günlük iş listesini kontrol ederken, yeni görev atarken veya bir müşteri/ekip konuşmasını takip ederken.",
+      steps: [
+        "Görevler ekranında Liste, Kanban, Takvim veya Müşteri bazlı görünüm arasında geçin.",
+        "Görev kartında durum, öncelik, sorumlu ve son tarihi kontrol edin; kritik/geciken görevler renkli rozetle işaretlenir.",
+        "İletişim Merkezi'nde müşteri ve ekip konuşmalarını, destek taleplerini ve okunmamış mesajları görün; masaüstünde 3 panel (liste, aktif konuşma, bilgi paneli) yan yana çalışır.",
+        "Yeni görev oluştururken kaynağını (müşteri, satış, operasyon, içerik, reklam, sistem) seçin; bu sayede görev hangi süreçten geldiği görünür kalır."
+      ],
+      example: "Geciken bir müşteri görevini kapatmak için Görevler > Kritik/Geciken filtresini açın, görevi seçip durumunu 'Tamamlandı' yapın.",
+      commonErrors: ["Görev kaynağını belirtmeden oluşturmak — raporlamada karışıklığa yol açar.", "İletişim Merkezi'nde okunmamış filtreyi kontrol etmeden mesaj kaçırmak."],
+      tips: ["Mobilde İletişim Merkezi panelleri sırayla tam ekran açılır: önce liste, sonra konuşma."],
+      warnings: []
+    }
+  },
+  {
+    slug: "reklam-ve-performans-merkezi-rehberi",
+    title: "Reklam ve Performans Merkezi Nasıl Kullanılır?",
+    category: "Reklam ve Performans",
+    description: "Kampanyalar, reklam hesapları, Reklam Doktoru ve raporlama.",
+    route: "/hk-admin/kampanyalar",
+    content: {
+      purpose: "Müşteri reklam kampanyalarını, Meta/Google performans verilerini, Reklam Doktoru önerilerini ve raporları tek merkezde yönetmek için kullanılır.",
+      whenToUse: "Kampanya oluştururken, performans gözden geçirirken veya müşteriye rapor hazırlarken.",
+      steps: [
+        "Kampanyalar sekmesinde müşteri seçip yeni kampanya oluşturun; bütçe, hedef ve platform bilgilerini girin.",
+        "Reklam Doktoru Pro sekmesinde CTR, CPA, ROAS gibi sinyallerden üretilen sağlık skorunu ve önerileri inceleyin.",
+        "Aylık/müşteri raporlarını oluştururken gerçek entegrasyon verisi yoksa sistem 'veri yok' uyarısı gösterir, veri uydurmaz.",
+        "Rakip İstihbarat Merkezi'nden rakip reklam ve sinyal değişikliklerini izleyin."
+      ],
+      example: "Bir müşterinin reklam sağlığını kontrol etmek için Reklam Doktoru Pro'yu açın, kritik müşteri listesinden ilgili firmayı seçin ve önerilen aksiyonu uygulayın.",
+      commonErrors: ["Entegrasyon eksikken (Pixel/GA4 bağlı değilken) performans verisini gerçekmiş gibi yorumlamak."],
+      tips: ["Düşük Reklam Sağlığı skoru önce ölçümleme (Pixel/GA4) kontrolü gerektirir."],
+      warnings: ["Bu merkez gerçek Meta/Google kampanyası yayına almaz; yalnızca plan ve öneri üretir."]
+    }
+  },
+  {
+    slug: "icerik-ve-ai-merkezi-rehberi",
+    title: "İçerik ve AI Merkezi Nasıl Kullanılır?",
+    category: "İçerik ve AI",
+    description: "HK Asistan, Agent Hub, içerik üretimi ve Blog/SEO Merkezi.",
+    route: "/hk-admin/ai-studio",
+    content: {
+      purpose: "İçerik/kreatif üretimini, blog-SEO yönetimini ve yapay zekâ destekli analiz araçlarını (Agent Hub, HK Asistan) tek merkezde toplar.",
+      whenToUse: "İçerik fikri üretirken, blog yazısı yayınlarken veya AI destekli analiz/rapor isterken.",
+      steps: [
+        "Yapay Zekâ Stüdyosu'nda içerik fikirleri, 30 günlük sosyal medya planı ve kampanya hazırlığı araçlarını kullanın.",
+        "Agent Hub'da yeni bir agent görevi başlatın; Otomatik Yönlendirme (Auto Router) açıksa sistem görev türüne göre en uygun sağlayıcıyı seçer, kapalıysa Sistem > HK Asistan Ayarları'ndan sabit sağlayıcı seçebilirsiniz.",
+        "Blog ve SEO Merkezi'nde yazı oluşturun, SEO alanlarını doldurun ve yayınlayın.",
+        "Her AI ekranında aktif sağlayıcı, bağlantı durumu, son işlem ve hata durumu görünür; hata alırsan 'Tekrar Dene' butonunu kullanın."
+      ],
+      example: "Bir kampanya için içerik fikri üretmek üzere Yapay Zekâ Stüdyosu > İçerik Fikirleri sekmesini açın, konu girin ve öneri listesini alın.",
+      commonErrors: ["AI çıktısını doğrulamadan doğrudan müşteriye göndermek.", "Demo/test modundaki çıktıyı gerçek veri gibi sunmak — ekranda demo/gerçek ayrımı açıkça belirtilir."],
+      tips: ["API anahtarı hataları için Sistem > Entegrasyonlar > Yapay Zekâ Ayarları ekranını kontrol edin."],
+      warnings: ["API anahtarları bu ekranlarda görüntülenmez veya tarayıcıya gönderilmez; yalnızca sunucu ortam değişkenlerinde tutulur."]
+    }
+  },
+  {
+    slug: "finans-merkezi-rehberi",
+    title: "Finans Merkezi Nasıl Kullanılır?",
+    category: "Finans",
+    description: "Tahsilat, ödeme takibi, gelir/gider ve kârlılık raporları.",
+    route: "/hk-admin/tahsilat",
+    content: {
+      purpose: "Müşteri ödemelerini, bekleyen/geciken tahsilatları, gelir-gider kayıtlarını ve ajans kârlılığını tek merkezde takip etmek için kullanılır.",
+      whenToUse: "Ödeme kaydı eklerken, geciken tahsilatları kontrol ederken veya aylık kârlılığı değerlendirirken.",
+      steps: [
+        "Tahsilatlar sekmesinde durum (Bekliyor/Ödendi/Gecikmiş/İptal), müşteri ve tarih filtreleriyle kayıtları listeleyin.",
+        "'Ödendi Yap', 'Arşivle' veya 'Sil' aksiyonlarıyla kaydı güncelleyin; her işlemde onay diyaloğu çıkar.",
+        "Gelir/Gider sekmesinde ajans giderlerini ayrı kaydedin; reklam bütçesi ile ajans hizmet bedeli karıştırılmamalıdır.",
+        "Kârlılık sekmesinde müşteri bazlı gelir, gider ve net kâr marjını görün; düşük marjlı müşteriler için fiyat gözden geçirmesi önerilir."
+      ],
+      example: "Geciken bir ödemeyi işaretlemek için Tahsilatlar sekmesinde 'Gecikmiş' filtresini açın, ilgili kaydı bulup 'Ödendi Yap' butonuna basın.",
+      commonErrors: ["Aynı ödemeyi iki kez kaydetmek (sistem çift kayıt engeli uygular, yine de filtreyle kontrol edin).", "Reklam bütçesini ajans geliriyle aynı kalemde takip etmek."],
+      tips: ["Mobilde tablo yerine okunabilir kart listesi kullanılır; her kartta aynı aksiyon butonları bulunur."],
+      warnings: []
+    }
+  },
+  {
+    slug: "entegrasyonlar-merkezi-rehberi",
+    title: "Entegrasyonlar Merkezi Nasıl Kullanılır?",
+    category: "Entegrasyonlar",
+    description: "Meta, Google ve diğer dış servis bağlantı ayarları ve OAuth kurulum durumu.",
+    route: "/hk-admin/entegrasyonlar",
+    content: {
+      purpose: "Ajans ve müşteri bazlı Meta/Google/TikTok bağlantı kimliklerini, OAuth hazırlık durumunu ve API sağlığını yönetmek için kullanılır. Gizli anahtarlar bu ekranda görüntülenmez.",
+      whenToUse: "Yeni bir müşterinin reklam hesabını bağlarken veya bir entegrasyonun neden veri göstermediğini kontrol ederken.",
+      steps: [
+        "OAuth Kurulum Durumu panelinde Meta/Google/TikTok/X için App ID, secret ve callback URL durumunu (Hazır/Redirect hatalı/Eksik) görün.",
+        "Müşteri filtresi seçtiğinizde 'Müşteri Bazlı Bağlantılar' paneli açılır; müşterinin manuel veya otomatik eklediği hesapları ve admin onay durumunu gösterir.",
+        "Meta/Google alanlarına App ID, Pixel ID, Ad Account ID gibi kimlikleri girin; secret alanları maskeli görünür.",
+        "'Bağlantıyı test et' butonuyla aktif bağlantıyı kontrol edin; sonuç ve son test zamanı ekranın altında görünür."
+      ],
+      example: "Bir müşterinin Meta Pixel'inin neden veri göstermediğini anlamak için OAuth Kurulum Durumu'nda Meta kartını açın; App Review veya izin eksikliği burada görünür.",
+      commonErrors: ["OAuth bağlantısı tamam görünse bile App Review/Developer Token eksikse veri gelmez — sistem bunu açıkça belirtir, veri uydurmaz."],
+      tips: ["Business Verification yoksa manuel reklam hesabı bağlantısı önerilir."],
+      warnings: ["Gerçek gizli anahtarlar yalnızca sunucu ortam değişkenlerinde tutulmalı, bu ekrana veya loglara yazılmamalıdır."]
+    }
+  },
+  {
+    slug: "sistem-merkezi-rehberi",
+    title: "Sistem Merkezi Nasıl Kullanılır?",
+    category: "Sistem",
+    description: "Kullanıcı ve rol yönetimi, tema/görünüm, kalite (QA/Sistem Test) ve sistem ayarları.",
+    route: "/hk-admin/kullanici-yonetimi",
+    content: {
+      purpose: "Kullanıcı/rol yönetimini, tema ve site ayarlarını, sistem sağlığı/QA/test/log araçlarını ve veri yedeklemeyi tek merkezde toplar. Yalnızca admin ve yetkili roller erişebilir.",
+      whenToUse: "Yeni ekip üyesi eklerken, rol/izin değiştirirken veya sistem durumunu denetlerken.",
+      steps: [
+        "Kullanıcı Yönetimi sekmesinde yeni kullanıcı oluşturun, rol (admin/yönetici/editör/müşteri) ve modül izinlerini atayın.",
+        "Tema / Logo sekmesinde marka renklerini ve görsellerini güncelleyin; değişiklikler üst araç çubuğundaki Kaydet ile yayınlanır.",
+        "QA Merkezi ve Sistem Test Merkezi'nde otomatik/manuel kontrolleri çalıştırın; sonuçlar Hata Kayıtları ve Test Geçmişi'nde saklanır.",
+        "Log ve Aktivite Merkezi'nde kullanıcı işlemlerini denetleyin; Veri Yedekleme'de tam yedek indirin."
+      ],
+      example: "Yeni bir editöre yalnızca içerik ve rapor modüllerine erişim vermek için Kullanıcı Yönetimi'nde rolünü 'Editör' seçip izin listesini daraltın.",
+      commonErrors: ["Bir kullanıcıya gereğinden fazla modül izni vermek — en az yetki ilkesini uygulayın."],
+      tips: ["Sistem Sağlığı panelinde AI sağlayıcı/Supabase/Google Maps API gibi servislerin durumu tek bakışta görünür."],
+      warnings: ["Kullanıcı rolü ve modül izinleri hem arayüzde hem sunucu tarafında (API route'larda) kontrol edilir; yalnızca arayüzden gizlemek yetki vermemek anlamına gelmez."]
+    }
+  },
+  {
+    slug: "sorun-giderme-genel-rehberi",
+    title: "Genel Sorun Giderme",
+    category: "Sorun Giderme (Genel)",
+    description: "Admin panelinde sık karşılaşılan sorunlar ve çözüm adımları.",
+    route: "/hk-admin",
+    content: {
+      purpose: "Admin panelinde karşılaşılan yaygın sorunları (veri görünmüyor, kaydetme başarısız, yetki hatası) hızlıca teşhis etmek için kullanılır.",
+      whenToUse: "Beklenmeyen bir hata, boş ekran veya başarısız kaydetme işlemiyle karşılaştığınızda.",
+      steps: [
+        "'Supabase bağlantısı yapılandırılmadı' uyarısı görüyorsanız: bu ortamda veri kalıcı kaydedilmez, yalnızca canlı ortamda geçerlidir; test/demo amaçlı kullanılabilir.",
+        "Bir ekran '403 Yetkisiz erişim' gösteriyorsa: Sistem > Kullanıcı Yönetimi üzerinden ilgili modül izninin hesabınıza tanımlı olduğunu doğrulayın.",
+        "Kaydetme işlemi sonuç vermiyorsa üst araç çubuğundaki Kaydet butonunun durumunu (Kaydediliyor/Kaydedildi/Tekrar Dene) kontrol edin.",
+        "Bir modülü eski adresinden (bookmark) açtığınızda farklı bir ekrana yönlendiyseniz bu normaldir; modül yeni 9 merkez yapısında doğru sekmeye taşınmıştır."
+      ],
+      example: "Entegrasyon verisi gelmiyor sanıyorsanız önce Entegrasyonlar merkezindeki OAuth Kurulum Durumu'nu kontrol edin; çoğu zaman App Review veya Developer Token eksikliğidir.",
+      commonErrors: ["Hatayı görmeden sayfayı yenileyip tekrar denemek — önce ekrandaki uyarı/hata mesajını okuyun."],
+      tips: ["Bir modülü bulamıyorsanız üst çubuktaki arama/komut paletini kullanın."],
+      warnings: []
+    }
+  },
+  {
+    slug: "sik-sorulan-sorular",
+    title: "Sık Sorulan Sorular (SSS)",
+    category: "SSS",
+    description: "Admin paneli hakkında en sık sorulan sorular ve kısa cevapları.",
+    route: "/hk-admin",
+    content: {
+      purpose: "Yeni kullanıcıların sık sorduğu soruları tek bir yerde toplayan hızlı referans.",
+      whenToUse: "Bir işlemi nasıl yapacağınızdan emin olmadığınızda, önce burayı kontrol edin.",
+      steps: [
+        "Soru: Bir modülü sol menüde bulamıyorum. Cevap: Modüller artık 9 ana merkez altında sekme/kart olarak yer alır; üst çubuktaki arama ile modül adını yazın.",
+        "Soru: Eski bir bağlantı (bookmark) çalışmıyor mu? Cevap: Eski adresler otomatik olarak doğru merkezdeki sayfaya yönlendirilir; 404 vermez.",
+        "Soru: Bir merkez sidebar'da hiç görünmüyor. Cevap: Rolünüze o merkez için izin tanımlanmamış olabilir; Sistem > Kullanıcı Yönetimi'nden kontrol edilmesini isteyin.",
+        "Soru: Ana Merkez'deki KPI'lar neden 0 görünüyor? Cevap: İlgili modülde henüz kayıt yoktur; sistem sahte veri göstermez.",
+        "Soru: Karanlık tema neden bazı eski ekranlarda düşük kontrastlı? Cevap: Bazı eski/henüz yenilenmemiş ekranlar aşamalı olarak koyu temaya uyarlanıyor; bilinen bir sınırlamadır."
+      ],
+      example: "Yeni bir çalışan 'Tahsilat nerede?' diye sorduğunda: Finans merkezi > Tahsilatlar sekmesi cevabı verilir.",
+      commonErrors: [],
+      tips: ["Bu sayfada aradığınızı bulamazsanız Kullanım Rehberi'ndeki arama kutusunu kullanın veya ilgili merkezin kendi rehberini açın."],
+      warnings: []
+    }
+  }
+];
+
 function slugify(value: string) {
   return value.toLocaleLowerCase("tr").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ı/g, "i").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
-export const systemGuideSeeds: SystemGuideSeed[] = [customerJourneyGuide, ...definitions.map(([title, category, description, route]) => ({
+export const systemGuideSeeds: SystemGuideSeed[] = [customerJourneyGuide, ...nineCenterGuides, ...definitions.map(([title, category, description, route]) => ({
   slug: slugify(title),
   title,
   category,
@@ -508,3 +778,33 @@ export const systemGuideSeeds: SystemGuideSeed[] = [customerJourneyGuide, ...def
     warnings: ["Token, API anahtarı, dahili not veya müşteri için gizli bilgileri paylaşılabilir alanlara yazmayın.", "Silme yerine mevcutsa arşivleme akışını tercih edin."]
   }
 }))];
+
+// Rol bazlı rehber görünürlüğü — null dönerse tüm kategoriler görünür
+// (admin ve yönetici). Diğer roller yalnızca kendi alanlarıyla ilgili
+// kategorileri görür. Bu liste API route'unda (sunucu tarafında) uygulanır,
+// yalnızca arayüzde gizlemekle yetinilmez.
+const roleGuideCategoryAllowlist: Record<string, string[] | null> = {
+  admin: null,
+  yonetici: [
+    "Başlangıç", "Ana Merkez", "Operasyon", "Müşteri Yönetimi", "Satış ve Keşif", "Finans", "Sorun Giderme (Genel)", "SSS",
+    "Ajans Operasyonu", "Görev Yönetimi", "Müşteri & Satış", "Muhasebe", "Tahsilat & Karlılık", "Dashboard & Kontrol Merkezi"
+  ],
+  editor: [
+    "Başlangıç", "İçerik ve AI", "Reklam ve Performans", "Müşteri Yönetimi", "Sorun Giderme (Genel)", "SSS",
+    "Yapay Zekâ Stüdyosu", "Dosya & Belge Merkezi", "Raporlama Merkezi"
+  ],
+  sales: [
+    "Başlangıç", "Satış ve Keşif", "Müşteri Yönetimi", "Operasyon", "Sorun Giderme (Genel)", "SSS",
+    "Müşteri & Satış", "CRM Merkezi", "Satış Hunisi"
+  ]
+};
+
+export function guideCategoriesForRole(role?: string | null): string[] | null {
+  if (!role) return null;
+  return Object.prototype.hasOwnProperty.call(roleGuideCategoryAllowlist, role) ? roleGuideCategoryAllowlist[role] : null;
+}
+
+export function filterGuidesForRole<T extends { category: string }>(guides: T[], role?: string | null): T[] {
+  const allowlist = guideCategoriesForRole(role);
+  return allowlist ? guides.filter((guide) => allowlist.includes(guide.category)) : guides;
+}

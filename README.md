@@ -35,6 +35,16 @@ http://127.0.0.1:3000
 - Teklif Al: `/teklif-al`
 - İletişim: `/iletisim`
 
+## Admin Paneli — 9 Ana Merkez Yapısı
+
+`/hk-admin` navigasyonu 9 ana merkeze göre gruplanır: Ana Merkez, Müşteri Yönetimi, Satış ve Keşif, Operasyon, Reklam ve Performans, İçerik ve AI, Finans, Entegrasyonlar, Sistem (bkz. `src/lib/admin-navigation.ts` içindeki `navigationGroupPlan`). Bu yalnızca görüntüleme katmanıdır; alt modüllerin `slug`/`module` değerleri ve eski URL'ler değişmedi, dolayısıyla önceki bağlantılar (bookmark'lar) çalışmaya devam eder.
+
+`/hk-admin` ana ekranındaki (Ana Merkez) büyük merkez kartlarına tıklamak ayrı bir sayfaya gitmez; kartın yanında/mobilde alttan açılan premium bir **popover** (bkz. `src/components/admin/ui/AdminCenterPopover.tsx`) o merkezin tüm alt modüllerini, son kullanılanları ve hızlı işlemleri listeler. Bir alt modüle tıklandığında gerçek route açılır. Favori alt modüller `localStorage` üzerinde tutulur (`src/lib/admin-quick-access.ts`) ve Ana Merkez'deki "Hızlı Erişim" şeridinde görünür.
+
+Ortak admin UI bileşenleri `src/components/admin/ui/` altındadır (AdminButton, AdminKpiCard, AdminPageHeader, AdminStatusBadge, AdminEmptyState/LoadingState/ErrorState, AdminHero, AdminModuleCard, AdminTabs, AdminDataTable, AdminMobileList, AdminDrawer, AdminDetailPanel, AdminConfirmDialog, AdminCenterPopover). Yeni admin ekranları bu bileşenleri ve `--admin-*` CSS token'larını (`src/app/globals.css`, `.hk-admin` bloğu) kullanmalıdır.
+
+Kullanım Rehberi (`/hk-admin/sistem-rehberi`, `src/lib/system-guide-content.ts`) 9 merkezin her biri için gerçek adım adım içerik barındırır ve role göre filtrelenir (admin tümünü görür; editor/yönetici/sales rolleri kendi alanlarıyla ilgili kategorileri görür — filtre `src/app/api/admin/system-guide/route.ts` içinde sunucu tarafında uygulanır). Müşteri paneli için ayrı, teknik terim içermeyen bir yardım bölümü `src/components/customer/CustomerGuideCenter.tsx` içindedir.
+
 ## Gerekli Ortam Değişkenleri
 
 ```env
@@ -326,6 +336,8 @@ Supabase ortam değişkenleri yoksa:
 - API anahtarları admin arayüzünde alan olarak tutulabilir; üretimde encrypted secret storage önerilir.
 - Şifre sıfırlama e-postaları Supabase Auth üzerinden `https://www.hkdijital.com.tr/sifre-sifirla` adresine yönlendirilir.
 - Admin panelindeki public site içerikleri `site_settings`, müşteri/kampanya/rapor verileri ilişkili Supabase tablolarında saklanır.
+- Bazı eski/henüz yenilenmemiş admin ekranları (ör. Müşteri 360 içindeki bazı sekmeler) koyu temada tam kontrast standardına aşamalı olarak uyarlanıyor.
+- Derin modül birleştirmeleri (ör. Teklif Takip/Satış Hunisi/Görev sistemlerinin tek veri katmanında tam birleşimi) henüz tamamlanmadı; Sistem Test Merkezi + QA Merkezi "Sistem Kalitesi" adı altında iki sekmeli tek ekranda birleştirildi.
 
 ## Vercel Yayınlama
 

@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin, requireModuleAccess } from "@/lib/permissions";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
-import { systemGuideCategories, systemGuideSeeds } from "@/lib/system-guide-content";
+import { filterGuidesForRole, guideCategoriesForRole, systemGuideCategories, systemGuideSeeds } from "@/lib/system-guide-content";
 
 async function ensureSeedData() {
   await supabaseRest("system_guide_categories?on_conflict=name", {
@@ -20,7 +20,16 @@ async function ensureSeedData() {
 export async function GET() {
   const session = await requireModuleAccess("sistem-rehberi");
   if (!session) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 403 });
-  if (!hasSupabaseConfig()) return NextResponse.json({ status: "demo", categories: systemGuideCategories.map((name, index) => ({ id: `category-${index}`, name })), guides: systemGuideSeeds, analytics: { popular: [], recent: [], searches: [] } });
+  const roleCategories = guideCategoriesForRole(session.role);
+  const visibleCategories = (list: { name: string }[]) => (roleCategories ? list.filter((item) => roleCategories.includes(item.name)) : list);
+  if (!hasSupabaseConfig()) {
+    return NextResponse.json({
+      status: "demo",
+      categories: visibleCategories(systemGuideCategories.map((name, index) => ({ id: `category-${index}`, name }))),
+      guides: filterGuidesForRole(systemGuideSeeds, session.role),
+      analytics: { popular: [], recent: [], searches: [] }
+    });
+  }
   try {
     await ensureSeedData();
     const [categories, guides, events] = await Promise.all([
@@ -28,11 +37,18 @@ export async function GET() {
       supabaseRest<any[]>("system_guides?select=*&order=category.asc,title.asc"),
       supabaseRest<any[]>("system_guide_events?select=*&order=created_at.desc&limit=500")
     ]);
+    const scopedGuides = filterGuidesForRole(guides, session.role);
     const searches = Object.entries(events.filter((item) => item.event_type === "search" && item.search_query).reduce((acc: Record<string, number>, item) => { acc[item.search_query] = (acc[item.search_query] || 0) + 1; return acc; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 10);
-    return NextResponse.json({ status: "live", categories, guides, analytics: { popular: [...guides].sort((a, b) => Number(b.view_count || 0) - Number(a.view_count || 0)).slice(0, 6), recent: events.filter((item) => item.event_type === "view").slice(0, 8), searches } });
+    return NextResponse.json({ status: "live", categories: visibleCategories(categories), guides: scopedGuides, analytics: { popular: [...scopedGuides].sort((a, b) => Number(b.view_count || 0) - Number(a.view_count || 0)).slice(0, 6), recent: events.filter((item) => item.event_type === "view").slice(0, 8), searches } });
   } catch (error) {
     const safe = getSafeSupabaseError(error);
-    return NextResponse.json({ status: "fallback", warning: safe.title, categories: systemGuideCategories.map((name, index) => ({ id: `category-${index}`, name })), guides: systemGuideSeeds, analytics: { popular: [], recent: [], searches: [] } });
+    return NextResponse.json({
+      status: "fallback",
+      warning: safe.title,
+      categories: visibleCategories(systemGuideCategories.map((name, index) => ({ id: `category-${index}`, name }))),
+      guides: filterGuidesForRole(systemGuideSeeds, session.role),
+      analytics: { popular: [], recent: [], searches: [] }
+    });
   }
 }
 
