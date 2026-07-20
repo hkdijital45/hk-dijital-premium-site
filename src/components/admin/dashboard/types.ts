@@ -70,15 +70,6 @@ export interface DashboardAutomationSuggestion {
   tone: string;
 }
 
-export interface DashboardCategoryCard {
-  title: string;
-  description: string;
-  count: string;
-  icon: ReactNode;
-  gradient: string;
-  actions: [string, string][];
-}
-
 export interface DashboardQuickAction {
   label: string;
   target: string;

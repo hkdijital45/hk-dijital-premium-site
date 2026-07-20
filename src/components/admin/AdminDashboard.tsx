@@ -44,7 +44,7 @@ import { AdminEmptyState } from "@/components/admin/ui/AdminEmptyState";
 import { AdminActionCard, AdminKpiCard } from "@/components/admin/ui/AdminKpiCard";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { CUSTOMER_360_TABS, Customer360Header } from "@/components/admin/customer-profile/customer360-shared";
-import { adminNavigationGroups, adminNavigationItems, getAdminHref } from "@/lib/admin-navigation";
+import { adminNavigationGroups, adminNavigationItems, getAdminHref, getAdminSourceGroupItems } from "@/lib/admin-navigation";
 import { canViewAccounting } from "@/lib/accounting-permissions";
 import { aiProviderKeyForApi, buildAiSelectionReason, labelForAiProvider, normalizeUnifiedAiProvider, unifiedAiProviderOptions, unifiedAiPriorityKeys } from "@/lib/ai-provider-options";
 import { CUSTOMER_MODULE_REGISTRY, CUSTOMER_PLATFORM_REGISTRY, DEFAULT_CUSTOMER_MODULES, DEFAULT_CUSTOMER_PLATFORMS, normalizeModuleKeys, normalizePlatformKeys } from "@/lib/customer-portal-registry";
@@ -2346,9 +2346,6 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
   }
 
   const newLeads = leads.filter((lead) => (lead.status || "Yeni") === "Yeni");
-  const socialAuditLeads = leads.filter((lead) => ["Sosyal İstihbarat Merkezi", "Sosyal Medya Denetimi"].includes(lead.source));
-  const metaLeadCount = leads.filter((lead) => lead.source === "Meta Analiz").length;
-  const googleLeadCount = leads.filter((lead) => lead.source === "Google Ads Analiz").length;
   const moduleAliases: Record<string, string> = { "Müşteri Bulucu": "musteri-bulucu" };
   const canOpen = (label: string) => allowedModules.includes(moduleAliases[label] || adminNavigationItems.find((item) => item.label === label)?.module);
   const serviceItems = [
@@ -2359,7 +2356,6 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     ["Supabase", systemStatus.supabase ?? supabaseConfigured, "Veri ve oturum altyapısı"],
     ["E-posta servisi", systemStatus.email, "Bildirim altyapısı"]
   ].map(([label, active, description]) => ({ label, description, state: active ? "Aktif" : label === "Supabase" ? "Çevrimdışı" : "Uyarı" }));
-  const healthScore = Math.round(serviceItems.reduce((sum, service) => sum + (service.state === "Aktif" ? 100 : service.state === "Uyarı" ? 50 : 0), 0) / serviceItems.length);
   const recentActivity = activityLogs.length ? activityLogs.slice(0, 8) : [
     ...leads.map((lead) => ({ id: `lead-${lead.id}`, action: "Başvuru eklendi", entity: lead.company || lead.name || "Yeni başvuru", created_at: lead.created_at || lead.createdAt })),
     ...updates.map((update) => ({ id: `update-${update.id}`, action: "Müşteri güncellemesi", entity: update.title, created_at: update.created_at })),
@@ -2374,58 +2370,24 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     ["Müşteri", leads.filter((lead) => ["Kazanıldı", "Dönüştürüldü", "Müşteri Oldu"].includes(lead.status)).length, "from-emerald-400 to-teal-500"],
     ["Reddedildi", leads.filter((lead) => isLeadRejected(lead)).length, "from-rose-500 to-red-500"]
   ];
-  const categoryCards = [
-    {
-      title: "CRM & Müşteriler",
-      description: "Başvuruları, müşteri kayıtlarını ve takipleri tek operasyon hattında yönetin.",
-      count: `${leads.length} başvuru`,
-      icon: <UsersRound size={24} />,
-      gradient: "from-emerald-400 via-teal-500 to-cyan-600",
-      actions: [["CRM", "CRM"], ["Yeni Başvurular", "Yeni Başvurular"], ["Müşteriler", "Müşteriler"]]
-    },
-    {
-      title: "İstihbarat Merkezi",
-      description: "Meta, Google ve sosyal medya analizlerini tek yerden yönetin.",
-      count: `${metaLeadCount + googleLeadCount + socialAuditLeads.length} sinyal`,
-      icon: <Sparkles size={24} />,
-      gradient: "from-amber-300 via-orange-500 to-rose-600",
-      actions: [["Meta Analiz", "Meta Analiz"], ["Google Analiz", "Google Ads Analiz"], ["Sosyal İstihbarat", "Sosyal İstihbarat Merkezi"]]
-    },
-    {
-      title: "Teklif & Raporlama",
-      description: "PDF audit, WhatsApp teklifi ve müşteri raporlarını hızlıca hazırlayın.",
-      count: `${reports.length} rapor`,
-      icon: <FileBarChart size={24} />,
-      gradient: "from-violet-500 via-purple-500 to-fuchsia-600",
-      actions: [["PDF Audit", "PDF Audit"], ["Teklif Hazırla", "Teklif Hazırlama"], ["Raporlar", "Raporlar"]]
-    },
-    {
-      title: "İçerik & Yapay Zekâ Stüdyosu",
-      description: "İçerik fikirleri, 30 günlük planlar, promptlar ve kampanya önerileri üretin.",
-      count: `${aiAnalyzedLeads.length} yapay zekâ analiz`,
-      icon: <Bot size={24} />,
-      gradient: "from-blue-500 via-indigo-500 to-violet-600",
-      actions: [["İçerik Fikirleri", "İçerik Fikirleri"], ["30 Günlük Plan", "30 Günlük Sosyal Medya Planı"], ["Yapay Zekâ Stüdyosu", "Yapay Zekâ Stüdyosu"]]
-    },
-    {
-      title: "Ayarlar",
-      description: "API bağlantıları, yapay zekâ sağlayıcıları, kullanıcılar, tema ve sistem ayarları.",
-      count: `%${healthScore} sağlık`,
-      icon: <Settings2 size={24} />,
-      gradient: "from-slate-100 via-slate-200 to-slate-300",
-      actions: [["API Ayarları", "API Ayarları"], ["Yapay Zekâ Ayarları", "Yapay Zekâ Sağlayıcı Ayarları"], ["Kullanıcı Yönetimi", "Kullanıcı Yönetimi"]]
-    }
-  ].map((card) => ({ ...card, actions: card.actions.filter(([, target]) => canOpen(target) || ["Yapay Zekâ Sağlayıcı Ayarları", "PDF Audit", "Teklif Hazırlama", "30 Günlük Sosyal Medya Planı", "İçerik Fikirleri", "Yeni Başvurular"].includes(target)) })).filter((card) => card.actions.length);
   const conversionRate = leads.length ? Math.round(activeCustomers.length / leads.length * 100) : 0;
   function popoverItemsFor(groupLabel: string) {
     const group = adminNavigationGroups.find((item) => item.label === groupLabel);
     return (group?.items || []).map((item) => ({ label: item.label, description: item.description, href: getAdminHref(item.slug) }));
   }
+  function popoverItemsForSource(sourceLabel: string) {
+    return getAdminSourceGroupItems(sourceLabel).map((item) => ({ label: item.label, description: item.description, href: getAdminHref(item.slug) }));
+  }
+  // 9 gerçek merkez kartı: sidebar'daki 9 merkezin 8'i (Ana Merkez hariç) birebir,
+  // "Reklam ve Performans" merkezi ise kendi içindeki iki gerçek kaynak grubuna
+  // ("Reklam & Performans", "Rapor Merkezi") göre iki ayrı karta bölünüyor —
+  // sidebar yapısı/route'lar değişmiyor, yalnızca dashboard'daki sunum ayrışıyor.
   const centerCards = [
     { key: "musteri-yonetimi", title: "Müşteri Yönetimi", description: "Müşteri kayıtları, Müşteri 360 profili ve paket yönetimi.", icon: <Building2 size={20} />, accent: "from-teal-400 via-emerald-500 to-cyan-600", kpiLabel: "aktif müşteri", kpiValue: activeCustomers.length, target: "Müşteriler", items: popoverItemsFor("Müşteri Yönetimi"), quickActions: [{ label: "+ Yeni Müşteri", href: getAdminHref("musteriler") }, { label: "+ Yeni Görev", href: getAdminHref("gorevler") }, { label: "Tahsilat Ekle", href: getAdminHref("tahsilat") }] },
     { key: "satis-ve-kesif", title: "Satış ve Keşif", description: "CRM, lead merkezi, müşteri keşfi ve satış hunisi.", icon: <MapPinned size={20} />, accent: "from-blue-400 via-cyan-500 to-teal-500", kpiLabel: "başvuru", kpiValue: leads.length, target: "Lead Merkezi", items: popoverItemsFor("Satış ve Keşif"), quickActions: [{ label: "Lead Merkezi", href: getAdminHref("leads") }, { label: "Müşteri Keşfi", href: getAdminHref("musteri-kesfi") }, { label: "Teklif Oluştur", href: getAdminHref("teklif-hazirlama") }] },
     { key: "operasyon", title: "Operasyon", description: "Görevler, takip ve günlük ajans iş akışları.", icon: <Gauge size={20} />, accent: "from-indigo-400 via-blue-500 to-cyan-600", kpiLabel: "öncelikli görev", kpiValue: importantDashboardTasks.length, target: "Görevler", items: popoverItemsFor("Operasyon"), quickActions: [{ label: "+ Yeni Görev", href: getAdminHref("gorevler") }, { label: "Takvim", href: getAdminHref("takvim") }, { label: "İletişim Merkezi", href: getAdminHref("iletisim-merkezi") }] },
-    { key: "reklam-ve-performans", title: "Reklam ve Performans", description: "Kampanyalar, reklam hesapları ve raporlama.", icon: <FileBarChart size={20} />, accent: "from-orange-400 via-amber-500 to-rose-500", kpiLabel: "aktif kampanya", kpiValue: campaigns.length, target: "Kampanyalar", items: popoverItemsFor("Reklam ve Performans"), quickActions: [{ label: "Kampanyalar", href: getAdminHref("kampanyalar") }, { label: "Reklam Doktoru", href: getAdminHref("ad-insights") }] },
+    { key: "reklam-merkezi", title: "Reklam Merkezi", description: "Kampanyalar, reklam operasyonu ve Reklam Doktoru.", icon: <FileBarChart size={20} />, accent: "from-orange-400 via-amber-500 to-rose-500", kpiLabel: "aktif kampanya", kpiValue: campaigns.length, target: "Kampanyalar", items: popoverItemsForSource("Reklam & Performans"), quickActions: [{ label: "Kampanyalar", href: getAdminHref("kampanyalar") }, { label: "Reklam Doktoru", href: getAdminHref("ad-insights") }] },
+    { key: "rapor-ve-analiz", title: "Rapor ve Analiz", description: "Aylık raporlar, müşteri raporları ve dışa aktarım.", icon: <FileBarChart size={20} />, accent: "from-violet-400 via-indigo-500 to-blue-600", kpiLabel: "rapor kaydı", kpiValue: reports.length, target: "Aylık Raporlar", items: popoverItemsForSource("Rapor Merkezi"), quickActions: [{ label: "Aylık Raporlar", href: getAdminHref("aylik-raporlar") }, { label: "Müşteri Raporları", href: getAdminHref("musteri-raporlari") }] },
     { key: "icerik-ve-ai", title: "İçerik ve AI", description: "HK Asistan, içerik üretimi ve yapay zekâ analizleri.", icon: <Bot size={20} />, accent: "from-violet-500 via-purple-500 to-fuchsia-600", kpiLabel: "yapay zekâ analizi", kpiValue: aiAnalyzedLeads.length, target: "Yapay Zekâ Stüdyosu", items: popoverItemsFor("İçerik ve AI"), quickActions: [{ label: "Blog Yaz", href: getAdminHref("blog-seo") }, { label: "AI Studio", href: getAdminHref("ai-studio") }, { label: "Agent Hub", href: getAdminHref("agent-hub") }] },
     { key: "finans", title: "Finans", description: "Tahsilat, ödeme takibi ve kârlılık raporları.", icon: <BarChart3 size={20} />, accent: "from-emerald-500 via-teal-600 to-cyan-700", kpiLabel: "geciken tahsilat", kpiValue: overduePayments.length, target: "Tahsilatlar", items: popoverItemsFor("Finans"), quickActions: [{ label: "Tahsilat", href: getAdminHref("tahsilat") }, { label: "Kârlılık", href: getAdminHref("karlilik") }] },
     { key: "entegrasyonlar", title: "Entegrasyonlar", description: "Meta, Google ve diğer dış servis bağlantıları.", icon: <CircleCheck size={20} />, accent: "from-slate-400 via-slate-500 to-slate-700", kpiLabel: "servis takibi", kpiValue: serviceItems.filter((service) => service.state === "Aktif").length, target: "Entegrasyonlar", items: popoverItemsFor("Entegrasyonlar"), quickActions: [{ label: "Entegrasyonlar", href: getAdminHref("entegrasyonlar") }] },
@@ -2927,7 +2889,6 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
         userName={userName}
         isWidgetVisible={isWidgetVisible}
         quickActions={lightDashboardQuickActions.map(([label, target, icon]) => ({ label, target, icon, gradient: "" }))}
-        lightQuickActions={lightDashboardQuickActions.map(([label, target, icon, gradient]) => ({ label, target, icon, gradient }))}
         customizing={customizing}
         onToggleCustomizing={() => setCustomizing((current) => !current)}
         widgetOrder={preferences.order}
@@ -2955,7 +2916,6 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
         }}
         aiHealthDimensions={aiHealthDimensions}
         automationSuggestions={automationSuggestions}
-        favoriteModules={categoryCards}
         centerCards={centerCards}
         websiteAnalytics={<WebsiteAnalyticsSummaryCards onOpen={() => setActive("Web Site Analitiği")} />}
         advanced={advancedSection}

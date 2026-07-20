@@ -3411,6 +3411,32 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
   box-shadow: var(--admin-shadow);
 }
 
+/* Dashboard module cards: lift + shadow growth + accent border on hover/focus,
+   respecting prefers-reduced-motion. */
+.admin-module-card {
+  border: 1px solid var(--admin-border);
+  transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
+}
+.admin-module-card:hover,
+.admin-module-card:focus-visible {
+  transform: translateY(-3px);
+  box-shadow: 0 22px 48px rgba(15, 23, 42, .14);
+  border-color: color-mix(in srgb, var(--admin-primary, var(--hk-primary)) 45%, var(--admin-border));
+}
+.hk-admin[data-theme="dark"] .admin-module-card:hover,
+.hk-admin[data-theme="dark"] .admin-module-card:focus-visible {
+  box-shadow: 0 22px 48px rgba(0, 0, 0, .45);
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-module-card {
+    transition: box-shadow 120ms ease, border-color 120ms ease;
+  }
+  .admin-module-card:hover,
+  .admin-module-card:focus-visible {
+    transform: none;
+  }
+}
+
 .hk-admin .admin-card-soft {
   background: var(--admin-surface-soft);
   border: 1px solid var(--admin-border);

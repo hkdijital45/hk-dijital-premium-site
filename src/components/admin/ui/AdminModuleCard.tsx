@@ -51,8 +51,7 @@ export function AdminModuleCard({
           onOpen(event as unknown as React.MouseEvent<HTMLElement>);
         }
       }}
-      className="admin-card group relative flex min-w-0 cursor-pointer flex-col gap-4 rounded-[var(--admin-radius-card,22px)] p-5 text-left transition hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-      style={{ boxShadow: "var(--admin-shadow-card, var(--admin-shadow))" }}
+      className="admin-card admin-module-card group relative flex min-w-0 cursor-pointer flex-col gap-4 rounded-[var(--admin-radius-card,22px)] p-5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
     >
       {onToggleFavorite && (
         <button

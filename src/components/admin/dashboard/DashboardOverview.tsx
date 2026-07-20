@@ -5,7 +5,6 @@ import { ChevronDown, ChevronRight, Plus, Settings2 } from "lucide-react";
 import { AdminHero } from "@/components/admin/ui/AdminHero";
 import { DashboardCustomizePanel } from "./DashboardHero";
 import { DashboardKpiGrid } from "./DashboardKpiGrid";
-import { DashboardQuickActions } from "./DashboardQuickActions";
 import { DashboardPriorityActions } from "./DashboardPriorityActions";
 import { DashboardCustomerRisks } from "./DashboardCustomerRisks";
 import { DashboardRecentActivity } from "./DashboardRecentActivity";
@@ -14,14 +13,12 @@ import { DashboardFinanceSummary } from "./DashboardFinanceSummary";
 import { DashboardSalesPipeline } from "./DashboardSalesPipeline";
 import { DashboardAdPerformance } from "./DashboardAdPerformance";
 import { DashboardAiRecommendations } from "./DashboardAiRecommendations";
-import { DashboardFavoriteModules } from "./DashboardFavoriteModules";
 import { DashboardCenterGrid, type DashboardCenterCard } from "./DashboardCenterGrid";
 import { DashboardQuickAccessStrip } from "./DashboardQuickAccessStrip";
 import type {
   DashboardActivityItem,
   DashboardAiHealthDimension,
   DashboardAutomationSuggestion,
-  DashboardCategoryCard,
   DashboardKpiItem,
   DashboardOverviewCard,
   DashboardPipelineStage,
@@ -39,7 +36,6 @@ export interface DashboardOverviewProps {
   isWidgetVisible: (id: string) => boolean;
 
   quickActions: DashboardQuickAction[];
-  lightQuickActions: DashboardQuickAction[];
 
   customizing: boolean;
   onToggleCustomizing: () => void;
@@ -69,7 +65,6 @@ export interface DashboardOverviewProps {
   aiHealthDimensions: DashboardAiHealthDimension[];
   automationSuggestions: DashboardAutomationSuggestion[];
 
-  favoriteModules: DashboardCategoryCard[];
   centerCards: DashboardCenterCard[];
 
   websiteAnalytics: ReactNode;
@@ -83,7 +78,6 @@ export function DashboardOverview(props: DashboardOverviewProps) {
     userName,
     isWidgetVisible,
     quickActions,
-    lightQuickActions,
     customizing,
     onToggleCustomizing,
     widgetOrder,
@@ -107,7 +101,6 @@ export function DashboardOverview(props: DashboardOverviewProps) {
     adPerformance,
     aiHealthDimensions,
     automationSuggestions,
-    favoriteModules,
     centerCards,
     websiteAnalytics,
     advanced
@@ -138,9 +131,7 @@ export function DashboardOverview(props: DashboardOverviewProps) {
             <button type="button" onClick={onToggleCustomizing} aria-pressed={customizing} className="hk-button hk-button-edit"><Settings2 size={18} /> Dashboard&apos;u Düzenle</button>
           </div>
         }
-      >
-        <p className="mt-4 border-t pt-4 text-sm" style={{ borderColor: "var(--admin-border)", color: "var(--admin-text-secondary)" }}>Modül favorilerini üst araç çubuğundaki sarı <strong>Favoriler</strong> menüsünden yönetin.</p>
-      </AdminHero>
+      />
 
       <DashboardQuickAccessStrip />
 
@@ -157,51 +148,37 @@ export function DashboardOverview(props: DashboardOverviewProps) {
         />
       )}
 
-      <DashboardQuickActions actions={lightQuickActions} onNavigate={onNavigate} />
-
-      {isWidgetVisible("dailySummary") && <DashboardKpiGrid items={dailyKpis} onNavigate={onNavigate} />}
-
       {isWidgetVisible("priorityActions") && (
         <DashboardPriorityActions items={priorityActions} commandPlan={commandPlan} onGeneratePlan={onGenerateDailyPlan} onNavigate={onNavigate} />
       )}
 
-      <section className="grid min-w-0 gap-5 xl:grid-cols-2">
-        {isWidgetVisible("customerRisks") && <DashboardCustomerRisks items={riskyCustomers} onNavigate={onNavigate} />}
-        <DashboardUpcomingTasks items={upcomingTasks} onNavigate={onNavigate} />
-      </section>
-
-      <DashboardFinanceSummary overviewCards={overviewCards} packageDistribution={packageDistribution} onNavigate={onNavigate} />
-
-      <section className="grid min-w-0 gap-5 xl:grid-cols-2">
-        <DashboardSalesPipeline stages={pipelineStages} onNavigate={onNavigate} />
-        <DashboardAdPerformance {...adPerformance} onNavigate={onNavigate} />
-      </section>
-
-      {websiteAnalytics}
-
-      <DashboardAiRecommendations dimensions={aiHealthDimensions} suggestions={automationSuggestions} onNavigate={onNavigate} />
+      {isWidgetVisible("customerRisks") && <DashboardCustomerRisks items={riskyCustomers} onNavigate={onNavigate} />}
 
       {isWidgetVisible("activity") && (
-        <section className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-          <DashboardRecentActivity items={recentActivity} filter={activityFilter} onFilterChange={onActivityFilterChange} onNavigate={onNavigate} />
-          <DashboardFavoriteModules cards={favoriteModules} onNavigate={onNavigate} />
-        </section>
+        <DashboardRecentActivity items={recentActivity} filter={activityFilter} onFilterChange={onActivityFilterChange} onNavigate={onNavigate} />
       )}
 
-      {isWidgetVisible("intelligence") && (
-        <details className="group admin-card rounded-[20px]">
-          <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500">
-            <span>
-              <strong className="block text-lg" style={{ color: "var(--admin-text-primary)" }}>Detaylı analiz ve operasyon araçları</strong>
-              <span className="mt-1 block text-sm" style={{ color: "var(--admin-text-secondary)" }}>Intelligence, entegrasyon, büyüme, trend ve gelişmiş kontrol panelleri.</span>
-            </span>
-            <ChevronDown size={20} className="shrink-0 text-slate-500 transition group-open:rotate-180" />
-          </summary>
-          <div className="grid gap-5 border-t p-4 sm:p-5" style={{ borderColor: "var(--admin-border)" }}>
-            {advanced}
-          </div>
-        </details>
-      )}
+      <details className="group admin-card rounded-[20px]">
+        <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500">
+          <span>
+            <strong className="block text-lg" style={{ color: "var(--admin-text-primary)" }}>Detaylı analiz ve operasyon araçları</strong>
+            <span className="mt-1 block text-sm" style={{ color: "var(--admin-text-secondary)" }}>Günlük özet, bekleyen görevler, finans, satış hunisi, reklam performansı, AI önerileri ve gelişmiş kontrol panelleri.</span>
+          </span>
+          <ChevronDown size={20} className="shrink-0 text-slate-500 transition group-open:rotate-180" />
+        </summary>
+        <div className="grid gap-5 border-t p-4 sm:p-5" style={{ borderColor: "var(--admin-border)" }}>
+          {isWidgetVisible("dailySummary") && <DashboardKpiGrid items={dailyKpis} onNavigate={onNavigate} />}
+          <DashboardUpcomingTasks items={upcomingTasks} onNavigate={onNavigate} />
+          <DashboardFinanceSummary overviewCards={overviewCards} packageDistribution={packageDistribution} onNavigate={onNavigate} />
+          <section className="grid min-w-0 gap-5 xl:grid-cols-2">
+            <DashboardSalesPipeline stages={pipelineStages} onNavigate={onNavigate} />
+            <DashboardAdPerformance {...adPerformance} onNavigate={onNavigate} />
+          </section>
+          {websiteAnalytics}
+          <DashboardAiRecommendations dimensions={aiHealthDimensions} suggestions={automationSuggestions} onNavigate={onNavigate} />
+          {advanced}
+        </div>
+      </details>
     </div>
   );
 }

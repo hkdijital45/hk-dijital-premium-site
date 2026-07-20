@@ -455,3 +455,10 @@ export function getAdminHref(slug: string) {
   if (slug === "proposal-builder") return "/proposal-builder";
   return slug ? `/hk-admin/${slug}` : "/hk-admin";
 }
+
+// Looks up a fine-grained source group (e.g. "Rapor Merkezi") rather than one
+// of the coarse 9-center display groups — used where the dashboard needs to
+// present two source groups that share one sidebar group as separate cards.
+export function getAdminSourceGroupItems(label: string): AdminNavigationItem[] {
+  return adminNavigationSourceGroups.find((group) => group.label === label)?.items || [];
+}
