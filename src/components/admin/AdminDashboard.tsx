@@ -7198,27 +7198,31 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
         <a href={`/musteri-paneli?company=${company.id}`} target="_blank" rel="noreferrer" className="hk-button hk-button-info hk-button-compact">Müşteri gibi görüntüle</a>
       </div>
       <AdminTabs items={CUSTOMER_360_TABS} active={tab} onChange={setTab} ariaLabel="Müşteri 360 sekmeleri" sticky />
-      {tab === "Genel Bilgi" && <div className="hk-profile-section grid min-w-0 gap-4 rounded-[22px] border border-slate-200 bg-slate-50/70 p-4 md:grid-cols-2 sm:p-5">
-        <Field label="Firma adı" value={company.name} onChange={(v) => updateProfileField({ name: v })} />
-        <OtherSelectField label="Sektör" value={company.sector} onChange={(v) => updateProfileField({ sector: v })} options={sectorOptions} manualLabel="Sektörü yazın" />
-        <OtherSelectField label="Şehir" value={company.city} onChange={(v) => updateProfileField({ city: v })} options={cityOptions} manualLabel="Şehri yazın" />
-        <Field label="Web sitesi" value={company.website} onChange={(v) => updateProfileField({ website: v })} />
-        <Field label="Instagram" value={company.instagram} onChange={(v) => updateProfileField({ instagram: v })} />
-        <Field label="Telefon" value={company.phone} onChange={(v) => updateProfileField({ phone: v })} />
-        <Field label="E-posta" value={company.email} onChange={(v) => updateProfileField({ email: v })} />
-        <SelectField label="Durum" value={company.status} onChange={(v) => updateProfileField({ status: v })} options={companyStatusOptions} />
-        {legacyRole(currentSession?.role) === "admin" && <label className="md:col-span-2 flex min-h-12 items-center gap-3 rounded-[14px] border border-violet-200 bg-violet-50 px-4 text-sm font-bold text-violet-900"><input type="checkbox" checked={isTestRecord(company)} onChange={(event) => updateProfileField({ is_test: event.target.checked })} /> Test müşterisi olarak işaretle <span className="font-normal text-violet-700">Canlı KPI, dönüşüm ve rapor özetlerine dahil edilmez.</span></label>}
-        <div className="md:col-span-2"><TextArea label="Dahili notlar" value={company.notes} onChange={(v) => updateProfileField({ notes: v })} /></div>
-        <div className="md:col-span-2 rounded-[18px] border border-amber-200 bg-amber-50 p-5">
-          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[.14em] text-amber-700">Müşteri Paketi</p>
-              <h3 className="mt-2 text-xl font-black text-slate-950">{selectedServicePackage?.title || "Aktif paket tanımlı değil"}</h3>
-              <p className="mt-1 text-sm leading-6 text-amber-900">Müşteri panelinde sadece görüntülenir; değişiklik yetkisi admin tarafındadır.</p>
-            </div>
-            <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-amber-800 ring-1 ring-amber-200">{selectedServicePackage ? selectedPackagePricing?.priceDisplay || formatPackagePrice(selectedServicePackage) : "Paketsiz"}</span>
+      {tab === "Genel Bilgi" && <div className="grid min-w-0 gap-3">
+        <section className="rounded-[10px] border border-slate-200 bg-white p-3">
+          <h4 className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">Kimlik Bilgileri</h4>
+          <div className="grid min-w-0 gap-2 md:grid-cols-2">
+            <Field label="Firma adı" value={company.name} onChange={(v) => updateProfileField({ name: v })} />
+            <OtherSelectField label="Sektör" value={company.sector} onChange={(v) => updateProfileField({ sector: v })} options={sectorOptions} manualLabel="Sektörü yazın" />
+            <OtherSelectField label="Şehir" value={company.city} onChange={(v) => updateProfileField({ city: v })} options={cityOptions} manualLabel="Şehri yazın" />
+            <Field label="Web sitesi" value={company.website} onChange={(v) => updateProfileField({ website: v })} />
+            <Field label="Instagram" value={company.instagram} onChange={(v) => updateProfileField({ instagram: v })} />
+            <Field label="Telefon" value={company.phone} onChange={(v) => updateProfileField({ phone: v })} />
+            <Field label="E-posta" value={company.email} onChange={(v) => updateProfileField({ email: v })} />
+            <SelectField label="Durum" value={company.status} onChange={(v) => updateProfileField({ status: v })} options={companyStatusOptions} />
+            {legacyRole(currentSession?.role) === "admin" && <label className="md:col-span-2 flex min-h-10 items-center gap-2 rounded-[8px] border border-violet-200 bg-violet-50 px-3 text-xs font-bold text-violet-900"><input type="checkbox" checked={isTestRecord(company)} onChange={(event) => updateProfileField({ is_test: event.target.checked })} /> Test müşterisi olarak işaretle <span className="font-normal text-violet-700">Canlı KPI ve raporlara dahil edilmez.</span></label>}
+            <div className="md:col-span-2"><TextArea label="Dahili notlar" value={company.notes} onChange={(v) => updateProfileField({ notes: v })} /></div>
           </div>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        </section>
+        <section className="rounded-[10px] border border-amber-200 bg-amber-50 p-3">
+          <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <h4 className="text-xs font-black uppercase tracking-wide text-amber-700">Müşteri Paketi</h4>
+              <p className="mt-1 text-sm font-black text-slate-950">{selectedServicePackage?.title || "Aktif paket tanımlı değil"}</p>
+            </div>
+            <AdminStatusBadge tone="warning">{selectedServicePackage ? selectedPackagePricing?.priceDisplay || formatPackagePrice(selectedServicePackage) : "Paketsiz"}</AdminStatusBadge>
+          </div>
+          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
             <SelectField label="Paket seçimi" value={company.customer_package_name || ""} onChange={applyServicePackage} options={servicePackageOptions} placeholder="Paket seçin" />
             <SelectField label="Paket kategorisi" value={company.customer_package_type || ""} onChange={(value) => updateProfileField({ customer_package_type: value })} options={PACKAGE_CATEGORIES.map((category) => ({ value: category.key, label: category.label }))} />
             <Field label="Aylık hizmet bedeli (KDV hariç)" type="number" value={company.customer_package_price || selectedServicePackage?.monthlyPrice || 0} onChange={(value) => updateProfileField({ customer_package_price: Number(value || 0) })} />
@@ -7227,26 +7231,25 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
             <Field label="Başlangıç tarihi" type="date" value={dateOnly(company.customer_package_started_at)} onChange={(value) => updateProfileField({ customer_package_started_at: value })} />
             <div className="md:col-span-2"><TextArea label="Paket notu" value={company.customer_package_note || ""} onChange={(value) => updateProfileField({ customer_package_note: value })} /></div>
           </div>
-          <div className="mt-4 grid gap-3 rounded-[16px] border border-amber-200 bg-white/70 p-4 text-sm md:grid-cols-3">
-            <p><b>Hizmet bedeli:</b><br />{formatTRY(selectedPackageBasePrice)}</p>
-            <p><b>KDV (%20):</b><br />{formatTRY(selectedPackageVat)}</p>
-            <p><b>KDV dahil toplam:</b><br />{formatTRY(selectedPackageTotal)}</p>
+          <div className="mt-2 grid gap-2 rounded-[8px] border border-amber-200 bg-white/70 p-2.5 text-xs md:grid-cols-3">
+            <p><b>Hizmet bedeli:</b> {formatTRY(selectedPackageBasePrice)}</p>
+            <p><b>KDV (%20):</b> {formatTRY(selectedPackageVat)}</p>
+            <p><b>KDV dahil toplam:</b> {formatTRY(selectedPackageTotal)}</p>
           </div>
-          {selectedServicePackage && <div className="mt-4 grid gap-2 md:grid-cols-3">
-            {selectedServicePackage.features.slice(0, 6).map((feature) => <p key={feature.label} className="rounded-[12px] bg-white p-3 text-xs font-bold leading-5 text-slate-700"><b>{feature.label}:</b> {feature.value}</p>)}
+          {selectedServicePackage && <div className="mt-2 grid gap-1.5 md:grid-cols-3">
+            {selectedServicePackage.features.slice(0, 6).map((feature) => <p key={feature.label} className="rounded-[8px] bg-white p-2 text-[11px] font-bold leading-5 text-slate-700"><b>{feature.label}:</b> {feature.value}</p>)}
           </div>}
-        </div>
-        <div className="md:col-span-2 rounded-[8px] border border-cyan-200/20 bg-cyan-200/[0.08] p-4">
-          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        </section>
+        <section className="rounded-[10px] border border-cyan-200 bg-cyan-50 p-3">
+          <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
             <div>
-              <p className="text-xs font-black uppercase tracking-[.14em] text-cyan-700">Satış Durumu</p>
-              <h3 className="mt-2 text-xl font-black text-slate-900">{relatedLead ? pipelineStageForLead(relatedLead) : "Satış hunisine bağlı değil"}</h3>
-              <p className="mt-1 text-sm leading-6 text-cyan-700/80">Kampanya, teklif, görev, ödeme ve rapor akışı bu müşteri profili üzerinden takip edilir.</p>
+              <h4 className="text-xs font-black uppercase tracking-wide text-cyan-700">Satış Durumu</h4>
+              <p className="mt-1 text-sm font-black text-slate-900">{relatedLead ? pipelineStageForLead(relatedLead) : "Satış hunisine bağlı değil"}</p>
             </div>
-            {profileAction && <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-3 py-1 text-xs font-black text-emerald-700">{profileAction}</span>}
+            {profileAction && <AdminStatusBadge tone="success">{profileAction}</AdminStatusBadge>}
           </div>
           {relatedLead ? (
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
               <SelectField label="Pipeline aşaması" value={pipelineStageForLead(relatedLead)} onChange={(value) => setPipelineLead({ status: value, pipeline_stage: value }, false, "")} options={salesPipelineStages} />
               <Field label="Son temas tarihi" type="date" value={dateOnly(relatedLead.last_contact_at)} onChange={(value) => setPipelineLead({ last_contact_at: value }, false, "")} />
               <Field label="Sıradaki aksiyon tarihi" type="date" value={dateOnly(relatedLead.next_action_at || relatedLead.follow_up_date)} onChange={(value) => setPipelineLead({ next_action_at: value, follow_up_date: value }, false, "")} />
@@ -7254,107 +7257,100 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
               <div className="md:col-span-2 xl:col-span-4">
                 <TextArea label="Takip notu" value={salesNote} onChange={setSalesNote} placeholder="Müşteriyle yapılan görüşme, itiraz, fiyat beklentisi veya sonraki adımı yazın." />
               </div>
-              <div className="md:col-span-2 xl:col-span-4 flex flex-wrap gap-2">
-                <button onClick={() => setPipelineLead({}, true, "Satış durumu güncellendi")} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Durumu Güncelle</button>
-                <button onClick={() => setSalesMessageOpen((current) => !current)} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs text-emerald-700">WhatsApp Mesajı Hazırla</button>
-                <button onClick={() => {
+              <div className="md:col-span-2 xl:col-span-4 flex flex-wrap gap-1.5">
+                <AdminButton compact variant="primary" onClick={() => setPipelineLead({}, true, "Satış durumu güncellendi")}>Durumu Güncelle</AdminButton>
+                <AdminButton compact variant="success" onClick={() => setSalesMessageOpen((current) => !current)}>WhatsApp Mesajı Hazırla</AdminButton>
+                <AdminButton compact variant="secondary" onClick={() => {
                   if (!salesNote.trim()) return notify?.("⚠ Takip notu boş olamaz", "warning");
                   const currentNotes = relatedLead.notes ? `${relatedLead.notes}\n\n` : "";
                   setPipelineLead({ notes: `${currentNotes}${new Date().toLocaleDateString("tr-TR")} · ${salesNote.trim()}` }, true, "Takip notu eklendi");
                   setSalesNote("");
-                }} className="rounded-full border border-slate-200 px-4 py-2 text-xs text-slate-700">Takip Notu Ekle</button>
-                <button onClick={() => setActive("Satış Hunisi")} className="rounded-full border border-cyan-200/25 px-4 py-2 text-xs font-black text-cyan-700">Satış Hunisini Aç</button>
+                }}>Takip Notu Ekle</AdminButton>
+                <AdminButton compact variant="info" onClick={() => setActive("Satış Hunisi")}>Satış Hunisini Aç</AdminButton>
               </div>
               {salesMessageOpen && <div className="md:col-span-2 xl:col-span-4"><ContactActionCenter record={company} type="customer" context={pipelineStageForLead(relatedLead) === "Teklif Gönderildi" ? "proposal" : "follow-up"} /></div>}
             </div>
           ) : (
-            <div className="rounded-[8px] border border-dashed border-slate-200 p-4">
-              <p className="text-sm leading-6 text-slate-600">Bu müşteri henüz satış hunisine bağlanmamış.</p>
-              <button onClick={() => setPipelineLead({}, true, "Müşteri satış hunisine eklendi")} className="mt-3 rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Satış Hunisine Ekle</button>
+            <div className="rounded-[8px] border border-dashed border-slate-200 bg-white p-3">
+              <p className="text-xs leading-5 text-slate-600">Bu müşteri henüz satış hunisine bağlanmamış.</p>
+              <AdminButton compact variant="primary" onClick={() => setPipelineLead({}, true, "Müşteri satış hunisine eklendi")}>Satış Hunisine Ekle</AdminButton>
             </div>
           )}
+        </section>
+        <div className="sticky bottom-0 flex justify-end border-t bg-white/95 py-2" style={{ borderColor: "var(--admin-border)" }}>
+          <AdminButton compact variant="primary" disabled={!profileDirty || profileSaving} onClick={saveProfileChanges}>{profileSaving ? "Kaydediliyor..." : "Firma Bilgilerini Kaydet"}</AdminButton>
         </div>
-        <button onClick={saveProfileChanges} disabled={!profileDirty || profileSaving} className="w-fit rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-50">{profileSaving ? "Kaydediliyor..." : "Firma bilgilerini kaydet"}</button>
       </div>}
       {tab === "Müşteri Kurulumu" && <CustomerOnboardingEditor company={company} content={content} setContent={setContent} setTab={setTab} notify={notify} />}
       {tab === "Büyüme" && <CustomerGrowthPanel company={company} content={content} setActive={setActive} />}
       {tab === "Entegrasyonlar" && <CustomerIntegrationsPanel company={company} users={users} campaigns={campaigns} reports={reports} content={content} setContent={setContent} notify={notify} />}
-      {tab === "Platform Yönetimi" && <div className="min-w-0 overflow-hidden rounded-[18px] border border-cyan-200 bg-cyan-50 p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+      {tab === "Platform Yönetimi" && <div className="min-w-0">
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-black uppercase tracking-[.14em] text-cyan-700">Platform Yönetimi</p>
-            <h3 className="mt-2 text-xl font-black text-slate-950">Müşteri platformlarını yönet</h3>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Bu müşteri için Hesap Bağla ekranında görünecek platformları seçin.</p>
-            <p className="mt-3 max-w-3xl rounded-[12px] border border-cyan-200 bg-white p-3 text-xs font-bold leading-5 text-cyan-900">Platform seçmek, yalnızca kartı görünür yapar. Gerçek veri için ilgili OAuth/API bağlantısı ayrıca yapılmalıdır.</p>
+            <h3 className="text-sm font-black text-slate-950">Portal Ayarları · Platformlar</h3>
+            <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-600">Bu müşteri için Hesap Bağla ekranında görünecek platformlar. Kart görünürlüğünü açar; gerçek OAuth/API bağlantısı ayrıca yapılmalıdır.</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button onClick={() => { setEnabledPlatforms(DEFAULT_CUSTOMER_PLATFORMS); setPortalDirty(true); setPortalSettingsMessage("Platformlar varsayılan sete alındı. Kaydettiğinizde müşteri paneli buna göre güncellenir."); }} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700">Reset</button>
-            <button onClick={savePortalSettings} disabled={portalSettingsSaving || !portalDirty} className="rounded-full bg-cyan-500 px-4 py-2 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-50">{portalSettingsSaving ? "Kaydediliyor..." : "Kaydet"}</button>
+          <div className="flex flex-wrap gap-1.5">
+            <AdminButton compact variant="secondary" onClick={() => { setEnabledPlatforms(DEFAULT_CUSTOMER_PLATFORMS); setPortalDirty(true); setPortalSettingsMessage("Platformlar varsayılan sete alındı. Kaydettiğinizde müşteri paneli buna göre güncellenir."); }}>Reset</AdminButton>
+            <AdminButton compact variant="primary" disabled={portalSettingsSaving || !portalDirty} onClick={savePortalSettings}>{portalSettingsSaving ? "Kaydediliyor..." : "Kaydet"}</AdminButton>
           </div>
         </div>
-        <div className="mt-4 grid min-w-0 gap-3 md:grid-cols-3">
-          <AgencyStatCard label="Aktif platform" value={enabledPlatforms.length} note="Müşteri panelinde görünür" />
-          <AgencyStatCard label="Pasif platform" value={CUSTOMER_PLATFORM_REGISTRY.length - enabledPlatforms.length} note="Kart ve API akışı çalışmaz" tone="amber" />
-          <AgencyStatCard label="Hesap Bağla" value={enabledPlatforms.length ? "Dinamik" : "Kapalı"} note="Registry üzerinden beslenir" tone="emerald" />
+        <AdminCompactKpiStrip items={[
+          { key: "active", label: "Aktif platform", value: enabledPlatforms.length, icon: <Gauge size={14} />, tone: "success" },
+          { key: "passive", label: "Pasif platform", value: CUSTOMER_PLATFORM_REGISTRY.length - enabledPlatforms.length, icon: <Gauge size={14} />, tone: "warning" },
+          { key: "connect", label: "Hesap Bağla", value: enabledPlatforms.length ? "Dinamik" : "Kapalı", icon: <Gauge size={14} />, tone: "info" }
+        ]} />
+        <div className="admin-data-grid-scroll premium-scrollbar">
+          <table className="admin-data-grid">
+            <thead><tr><th>Platform</th><th>Açıklama</th><th style={{ textAlign: "center" }}>Durum</th><th style={{ textAlign: "center" }}>Göster</th></tr></thead>
+            <tbody>
+              {CUSTOMER_PLATFORM_REGISTRY.map((platform) => {
+                const checked = enabledPlatforms.includes(platform.key);
+                return <tr key={platform.key}>
+                  <td><strong>{platform.title}</strong></td>
+                  <td className="text-xs" style={{ color: "var(--admin-text-muted)" }}>{platform.description}</td>
+                  <td style={{ textAlign: "center" }}><AdminStatusBadge tone={checked ? "success" : "neutral"}>{checked ? "Aktif" : "Pasif"}</AdminStatusBadge></td>
+                  <td style={{ textAlign: "center" }}><input type="checkbox" checked={checked} onChange={() => { setEnabledPlatforms((current) => togglePortalValue(current, platform.key)); setPortalDirty(true); setPortalSettingsMessage("Platform ayarlarında kaydedilmemiş değişiklik var."); }} /></td>
+                </tr>;
+              })}
+            </tbody>
+          </table>
         </div>
-        <div className="mt-5 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {CUSTOMER_PLATFORM_REGISTRY.map((platform) => {
-            const checked = enabledPlatforms.includes(platform.key);
-            return <label key={platform.key} className={`min-w-0 rounded-[16px] border p-4 transition ${checked ? "border-cyan-200 bg-white shadow-sm" : "border-slate-200 bg-slate-50"}`}>
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className={`mb-3 grid size-11 place-items-center rounded-[14px] ${checked ? "bg-cyan-100 text-cyan-700" : "bg-white text-slate-500"}`}>{platform.title.slice(0, 1)}</div>
-                  <p className="break-words font-black text-slate-950">{platform.title}</p>
-                  <p className="mt-2 text-xs leading-5 text-slate-500">{platform.description}</p>
-                </div>
-                <span className={`rounded-full px-2 py-1 text-[10px] font-black ${checked ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{checked ? "Aktif" : "Pasif"}</span>
-              </div>
-              <div className="mt-4 flex items-center justify-between rounded-[12px] bg-slate-50 px-3 py-2 text-xs font-black text-slate-700">
-                <span>{checked ? "Müşteri görür" : "Gizli"}</span>
-                <input type="checkbox" checked={checked} onChange={() => { setEnabledPlatforms((current) => togglePortalValue(current, platform.key)); setPortalDirty(true); setPortalSettingsMessage("Platform ayarlarında kaydedilmemiş değişiklik var."); }} className="size-5 accent-cyan-500" />
-              </div>
-            </label>;
-          })}
-        </div>
-        {portalSettingsMessage && <p className="mt-4 rounded-[12px] border border-cyan-200 bg-white p-3 text-sm font-bold text-cyan-900">{portalSettingsMessage}</p>}
+        {portalSettingsMessage && <p className="mt-3 rounded-[8px] border border-cyan-200 bg-cyan-50 p-2.5 text-xs font-bold text-cyan-900">{portalSettingsMessage}</p>}
       </div>}
-      {tab === "Müşteri Paneli Yetkileri" && <div className="min-w-0 overflow-hidden rounded-[18px] border border-violet-200 bg-violet-50 p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+      {tab === "Müşteri Paneli Yetkileri" && <div className="min-w-0">
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-black uppercase tracking-[.14em] text-violet-700">Customer Panel Builder</p>
-            <h3 className="mt-2 text-xl font-black text-slate-950">Panel modüllerini yönet</h3>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Bu müşteri için müşteri panelinde görünecek menü ve modülleri seçin.</p>
-            <p className="mt-3 max-w-3xl rounded-[12px] border border-violet-200 bg-white p-3 text-xs font-bold leading-5 text-violet-900">Modül kapalıysa müşteri menüsünde ve doğrudan URL ile erişimde görünmez.</p>
+            <h3 className="text-sm font-black text-slate-950">Yetki Matrisi · Panel Modülleri</h3>
+            <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-600">Kapalı modüller müşteri menüsünde ve doğrudan URL ile erişimde görünmez.</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button onClick={() => { setEnabledModules(DEFAULT_CUSTOMER_MODULES); setPortalDirty(true); setPortalSettingsMessage("Modüller varsayılan sete alındı. Kaydettiğinizde müşteri paneli buna göre güncellenir."); }} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700">Reset</button>
-            <button onClick={savePortalSettings} disabled={portalSettingsSaving || !portalDirty} className="rounded-full bg-violet-500 px-4 py-2 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-50">{portalSettingsSaving ? "Kaydediliyor..." : "Kaydet"}</button>
+          <div className="flex flex-wrap gap-1.5">
+            <AdminButton compact variant="secondary" onClick={() => { setEnabledModules(DEFAULT_CUSTOMER_MODULES); setPortalDirty(true); setPortalSettingsMessage("Modüller varsayılan sete alındı. Kaydettiğinizde müşteri paneli buna göre güncellenir."); }}>Reset</AdminButton>
+            <AdminButton compact variant="primary" disabled={portalSettingsSaving || !portalDirty} onClick={savePortalSettings}>{portalSettingsSaving ? "Kaydediliyor..." : "Kaydet"}</AdminButton>
           </div>
         </div>
-        <div className="mt-4 grid min-w-0 gap-3 md:grid-cols-3">
-          <AgencyStatCard label="Gösterilen modül" value={enabledModules.length} note="Navigation ve içerikte görünür" />
-          <AgencyStatCard label="Gizlenen modül" value={CUSTOMER_MODULE_REGISTRY.length - enabledModules.length} note="Müşteri panelinde render edilmez" tone="amber" />
-          <AgencyStatCard label="AI Asistan" value={enabledModules.includes("ai_assistant") ? "Açık" : "Kapalı"} note="Widget görünürlüğü" tone="emerald" />
+        <AdminCompactKpiStrip items={[
+          { key: "shown", label: "Gösterilen modül", value: enabledModules.length, icon: <Gauge size={14} />, tone: "success" },
+          { key: "hidden", label: "Gizlenen modül", value: CUSTOMER_MODULE_REGISTRY.length - enabledModules.length, icon: <Gauge size={14} />, tone: "warning" },
+          { key: "ai", label: "AI Asistan", value: enabledModules.includes("ai_assistant") ? "Açık" : "Kapalı", icon: <Gauge size={14} />, tone: "info" }
+        ]} />
+        <div className="admin-data-grid-scroll premium-scrollbar">
+          <table className="admin-data-grid">
+            <thead><tr><th>Modül</th><th>Açıklama</th><th style={{ textAlign: "center" }}>Durum</th><th style={{ textAlign: "center" }}>Göster</th></tr></thead>
+            <tbody>
+              {CUSTOMER_MODULE_REGISTRY.map((module) => {
+                const checked = enabledModules.includes(module.key);
+                return <tr key={module.key}>
+                  <td><strong>{module.title}</strong></td>
+                  <td className="text-xs" style={{ color: "var(--admin-text-muted)" }}>{module.description}</td>
+                  <td style={{ textAlign: "center" }}><AdminStatusBadge tone={checked ? "success" : "neutral"}>{checked ? "Göster" : "Gizle"}</AdminStatusBadge></td>
+                  <td style={{ textAlign: "center" }}><input type="checkbox" checked={checked} onChange={() => { setEnabledModules((current) => togglePortalValue(current, module.key)); setPortalDirty(true); setPortalSettingsMessage("Panel yetkilerinde kaydedilmemiş değişiklik var."); }} /></td>
+                </tr>;
+              })}
+            </tbody>
+          </table>
         </div>
-        <div className="mt-5 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {CUSTOMER_MODULE_REGISTRY.map((module) => {
-            const checked = enabledModules.includes(module.key);
-            return <label key={module.key} className={`min-w-0 rounded-[16px] border p-4 transition ${checked ? "border-violet-200 bg-white shadow-sm" : "border-slate-200 bg-slate-50"}`}>
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="break-words font-black text-slate-950">{module.title}</p>
-                  <p className="mt-2 text-xs leading-5 text-slate-500">{module.description}</p>
-                </div>
-                <span className={`rounded-full px-2 py-1 text-[10px] font-black ${checked ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{checked ? "Göster" : "Gizle"}</span>
-              </div>
-              <div className="mt-4 flex items-center justify-between rounded-[12px] bg-slate-50 px-3 py-2 text-xs font-black text-slate-700">
-                <span>{checked ? "Müşteri görür" : "Müşteriden gizli"}</span>
-                <input type="checkbox" checked={checked} onChange={() => { setEnabledModules((current) => togglePortalValue(current, module.key)); setPortalDirty(true); setPortalSettingsMessage("Panel yetkilerinde kaydedilmemiş değişiklik var."); }} className="size-5 accent-violet-500" />
-              </div>
-            </label>;
-          })}
-        </div>
-        {portalSettingsMessage && <p className="mt-4 rounded-[12px] border border-violet-200 bg-white p-3 text-sm font-bold text-violet-900">{portalSettingsMessage}</p>}
+        {portalSettingsMessage && <p className="mt-3 rounded-[8px] border border-violet-200 bg-violet-50 p-2.5 text-xs font-bold text-violet-900">{portalSettingsMessage}</p>}
       </div>}
       {tab === "Bağlantı Bilgileri" && <CustomerConnectionCredentialsPanel company={company} notify={notify} />}
       {tab === "Marka Varlıkları" && <CustomerBrandAssets company={company} content={content} setContent={setContent} notify={notify} mode="full" />}
@@ -7410,22 +7406,52 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
       {tab === "Yapılacaklar" && <CustomerTasksEditor company={company} content={content} setContent={setContent} save={save} items={tasks} notify={notify} canManage={canManageCustomer} />}
       {tab === "Yapılan Çalışmalar" && <CustomerRelatedList items={updates} empty="Bu müşteri için çalışma notu yok." render={(item) => `${item.title} · ${item.update_type}`} onVisibilityChange={(item, value) => updateRelated("customerUpdates", item.id, { visible_to_customer: value })} />}
       {tab === "Dosyalar" && <CustomerFilesEditor company={company} content={content} setContent={setContent} save={save} items={files} notify={notify} canManage={canManageCustomer} />}
-      {tab === "Panel Görünürlüğü" && <div><p className="mb-4 text-sm leading-6 text-slate-400">Müşteri panelinde görünmesini istediğiniz alanları seçin. Değişiklikleri üst menüdeki Kaydet düğmesi ile kalıcı hale getirin.</p><p className="mb-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-700">Müşteri panelindeki metrikler, teknik terimler yerine sade Türkçe açıklamalarla gösterilir.</p><div className="grid gap-3 md:grid-cols-2">{[
-        ["show_campaigns", "Kampanyalar"],
-        ["show_metrics", "Reklam metrikleri"],
-        ["show_budget", "Kampanya bütçesi"],
-        ["show_spent", "Harcanan bütçe"],
-        ["show_leads", "Potansiyel müşteri sayısı"],
-        ["show_work_updates", "Yapılan çalışmalar"],
-        ["show_strategy_notes", "Strateji notları"],
-        ["show_files", "Dosyalar"],
-        ["show_contact_person", "İletişim bilgileri"],
-        ["show_payments", "Ödemeler"],
-        ["show_tasks", "Müşteriye açık görevler"],
-        ["show_meta_status", "Meta Pixel / Conversion API durumu"]
-      ].map(([key, label]) => <label key={key} className="flex items-center gap-3 rounded-[8px] border border-slate-200 p-3 text-sm"><input type="checkbox" checked={visibility[key] ?? true} onChange={(event) => updateVisibility({ [key]: event.target.checked })} /> {label}</label>)}</div></div>}
+      {tab === "Panel Görünürlüğü" && <div className="min-w-0">
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-black text-slate-950">Müşteri Paneli Görünürlüğü</h3>
+            <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-600">Müşteri panelinde görünmesini istediğiniz alanları seçin. Kaydet düğmesiyle kalıcı hale gelir.</p>
+          </div>
+          <a href={`/musteri-paneli?company=${company.id}`} target="_blank" rel="noreferrer" className="hk-button hk-button-info hk-button-compact">Müşteri Panelini Önizle</a>
+        </div>
+        <div className="admin-data-grid-scroll premium-scrollbar">
+          <table className="admin-data-grid">
+            <thead><tr><th>Alan</th><th style={{ textAlign: "center" }}>Görünürlük</th></tr></thead>
+            <tbody>
+              {[
+                ["show_campaigns", "Kampanyalar"],
+                ["show_metrics", "Reklam metrikleri"],
+                ["show_budget", "Kampanya bütçesi"],
+                ["show_spent", "Harcanan bütçe"],
+                ["show_leads", "Potansiyel müşteri sayısı"],
+                ["show_work_updates", "Yapılan çalışmalar"],
+                ["show_strategy_notes", "Strateji notları"],
+                ["show_files", "Dosyalar"],
+                ["show_contact_person", "İletişim bilgileri"],
+                ["show_payments", "Ödemeler"],
+                ["show_tasks", "Müşteriye açık görevler"],
+                ["show_meta_status", "Meta Pixel / Conversion API durumu"]
+              ].map(([key, fieldLabel]) => (
+                <tr key={key}>
+                  <td>{fieldLabel}</td>
+                  <td style={{ textAlign: "center" }}><input type="checkbox" checked={visibility[key] ?? true} onChange={(event) => updateVisibility({ [key]: event.target.checked })} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>}
       {tab === "Aktivite Geçmişi" && <ActivityList items={activities} empty="Bu müşteri için henüz aktivite kaydı yok." />}
-      {tab === "Notlar" && <TextArea label="Dahili müşteri notları" value={company.notes} onChange={(v) => updateProfileField({ notes: v })} rows={10} />}
+      {tab === "Notlar" && <div className="min-w-0">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="text-sm font-black text-slate-950">Dahili Notlar</h3>
+            <p className="mt-0.5 text-xs text-slate-500">Sadece admin ekibi görür; müşteri panelinde gösterilmez.</p>
+          </div>
+          <AdminButton compact variant="primary" disabled={!profileDirty || profileSaving} onClick={saveProfileChanges}>{profileSaving ? "Kaydediliyor..." : "Notu Kaydet"}</AdminButton>
+        </div>
+        <TextArea label="Dahili müşteri notları" value={company.notes} onChange={(v) => updateProfileField({ notes: v })} rows={12} />
+      </div>}
       </div>
       <div className="xl:sticky xl:top-4">
         <AdminDetailInspector
@@ -8162,7 +8188,45 @@ function CustomerFilesEditor({ company, content, setContent, save, items, notify
   const add = () => updateCollection(content, setContent, "customerFiles", [{ id: createLocalId(), company_id: company.id, branch_id: null, title: "Yeni Dosya", file_type: "Diğer", description: "", file_url: "", document_url: "", visible_to_customer: false, show_in_creative_center: false, status: "Aktif", created_at: new Date().toISOString(), updated_at: new Date().toISOString() }, ...allItems]);
   const syncFileUrl = (id, value) => update(id, { file_url: value, document_url: value });
   const isCreativeType = (type) => ["Görsel", "Reklam Görseli", "Kreatif"].includes(type || "");
-  return <div><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-slate-900">Dosyalar</h3><p className="mt-1 text-sm text-slate-400">Müşteri panelinde sadece görünür olarak işaretlenen dosyalar gösterilir.</p><p className="mt-1 text-xs text-slate-500">Kreatif Merkezinde Göster seçilirse bu dosya müşteri panelindeki Kreatif Merkezi bölümünde görünür.</p></div>{canManage && <button onClick={add} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Dosya Ekle</button>}</div><div className="grid gap-3">{visibleItems.map((item) => <div key={item.id} className={`rounded-[8px] border p-4 ${isArchivedRecord(item) ? "border-amber-300/25 bg-amber-300/[0.06]" : "border-slate-200 bg-slate-50"}`}><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"><Field label="Dosya Başlığı" value={item.title || ""} onChange={(value) => update(item.id, { title: value })} /><SelectField label="Dosya Türü" value={item.file_type || "Diğer"} onChange={(value) => update(item.id, { file_type: value, show_in_creative_center: item.show_in_creative_center || isCreativeType(value) })} options={fileCategoryOptions} /><Field label="Dosya URL" value={item.file_url || item.document_url || ""} onChange={(value) => syncFileUrl(item.id, value)} /><Upload onUrl={(url) => syncFileUrl(item.id, url)} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item.visible_to_customer)} onChange={(event) => update(item.id, { visible_to_customer: event.target.checked })} /> {item.visible_to_customer ? "Müşteriye Göster" : "Sadece Yönetici"}</label><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item.show_in_creative_center || isCreativeType(item.file_type))} onChange={(event) => update(item.id, { show_in_creative_center: event.target.checked })} /> Kreatif Merkezinde Göster</label><InfoItem label="Güncellenme tarihi" value={formatDateTime(item.updated_at)} /><div className="md:col-span-2 xl:col-span-3"><TextArea label="Açıklama" value={item.description || ""} onChange={(value) => update(item.id, { description: value })} /></div></div><div className="mt-4 flex flex-wrap justify-end gap-2">{isArchivedRecord(item) ? <button onClick={() => update(item.id, { archived_at: null, deleted_at: null, status: "Aktif" })} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-700">Arşivden Çıkar</button> : <button onClick={() => update(item.id, { archived_at: new Date().toISOString(), status: "Arşivlendi" })} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-700">Arşivle</button>}<button onClick={() => confirm("Bu dosyayı silmek istediğinize emin misiniz?") && update(item.id, { deleted_at: new Date().toISOString(), status: "Silindi" })} className="rounded-full border border-red-300/30 px-4 py-2 text-xs text-red-200">Sil</button><button onClick={() => run(`file-${item.id}`, "Kaydediliyor...", "Kaydedildi", () => save?.())} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">{label(`file-${item.id}`, "Kaydet")}</button><button onClick={() => window.location.reload()} className="rounded-full border border-slate-200 px-4 py-2 text-xs text-slate-700">Vazgeç</button></div></div>)}{!visibleItems.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-5 text-sm text-slate-400">Bu müşteri için dosya yok.</p>}</div></div>;
+  const [selectedFileId, setSelectedFileId] = useState("");
+  const selectedFile = selectedFileId ? visibleItems.find((item: any) => item.id === selectedFileId) : null;
+  const fileColumns: AdminDataGridColumn<any>[] = [
+    { key: "title", header: "Dosya Başlığı", render: (item: any) => item.title || "Adsız dosya" },
+    { key: "type", header: "Tür", render: (item: any) => <AdminStatusBadge tone="info">{item.file_type || "Diğer"}</AdminStatusBadge> },
+    { key: "visibility", header: "Görünürlük", render: (item: any) => <AdminStatusBadge tone={item.visible_to_customer ? "success" : "neutral"}>{item.visible_to_customer ? "Müşteriye Açık" : "Sadece Yönetici"}</AdminStatusBadge> },
+    { key: "creative", header: "Kreatif Merkezi", render: (item: any) => (item.show_in_creative_center || isCreativeType(item.file_type)) ? "Evet" : "Hayır" },
+    { key: "updated", header: "Güncellenme", render: (item: any) => formatDateTime(item.updated_at) }
+  ];
+  return <div className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_280px]">
+    <div className="min-w-0">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><div><h3 className="text-sm font-black text-slate-900">Dosyalar</h3><p className="mt-0.5 text-xs text-slate-500">Sadece görünür işaretli dosyalar müşteri panelinde gösterilir.</p></div>{canManage && <AdminButton compact variant="primary" onClick={add}>+ Dosya Ekle</AdminButton>}</div>
+      <AdminDataGrid columns={fileColumns} rows={visibleItems} rowKey={(item: any) => item.id} activeId={selectedFileId} onRowClick={(item: any) => setSelectedFileId(item.id)} emptyTitle="Bu müşteri için dosya yok." />
+    </div>
+    <AdminDetailInspector
+      title={selectedFile?.title || undefined}
+      subtitle={selectedFile ? (selectedFile.file_type || "Diğer") : undefined}
+      emptyTitle="Bir dosya seçin"
+      emptyDescription="Listeden bir satıra tıklayarak detaylarını buradan düzenleyin."
+      actions={selectedFile ? <>
+        {selectedFile.file_url || selectedFile.document_url ? <a href={selectedFile.file_url || selectedFile.document_url} target="_blank" rel="noreferrer" className="hk-button hk-button-info hk-button-compact">İndir / Aç</a> : null}
+        {isArchivedRecord(selectedFile) ? <AdminButton compact variant="info" onClick={() => update(selectedFile.id, { archived_at: null, deleted_at: null, status: "Aktif" })}>Arşivden Çıkar</AdminButton> : <AdminButton compact variant="warning" onClick={() => update(selectedFile.id, { archived_at: new Date().toISOString(), status: "Arşivlendi" })}>Arşivle</AdminButton>}
+        <AdminButton compact variant="danger" onClick={() => { if (confirm("Bu dosyayı silmek istediğinize emin misiniz?")) { update(selectedFile.id, { deleted_at: new Date().toISOString(), status: "Silindi" }); setSelectedFileId(""); } }}>Sil</AdminButton>
+        <AdminButton compact variant="primary" onClick={() => run(`file-${selectedFile.id}`, "Kaydediliyor...", "Kaydedildi", () => save?.())}>{label(`file-${selectedFile.id}`, "Kaydet")}</AdminButton>
+      </> : undefined}
+    >
+      {selectedFile && (
+        <div className="grid gap-2">
+          <Field label="Dosya Başlığı" value={selectedFile.title || ""} onChange={(value) => update(selectedFile.id, { title: value })} />
+          <SelectField label="Dosya Türü" value={selectedFile.file_type || "Diğer"} onChange={(value) => update(selectedFile.id, { file_type: value, show_in_creative_center: selectedFile.show_in_creative_center || isCreativeType(value) })} options={fileCategoryOptions} />
+          <Field label="Dosya URL" value={selectedFile.file_url || selectedFile.document_url || ""} onChange={(value) => syncFileUrl(selectedFile.id, value)} />
+          <Upload onUrl={(url) => syncFileUrl(selectedFile.id, url)} />
+          <label className="flex items-center gap-2 rounded-[8px] border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700"><input type="checkbox" checked={Boolean(selectedFile.visible_to_customer)} onChange={(event) => update(selectedFile.id, { visible_to_customer: event.target.checked })} /> Müşteriye Göster</label>
+          <label className="flex items-center gap-2 rounded-[8px] border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700"><input type="checkbox" checked={Boolean(selectedFile.show_in_creative_center || isCreativeType(selectedFile.file_type))} onChange={(event) => update(selectedFile.id, { show_in_creative_center: event.target.checked })} /> Kreatif Merkezinde Göster</label>
+          <TextArea label="Açıklama" value={selectedFile.description || ""} onChange={(value) => update(selectedFile.id, { description: value })} />
+        </div>
+      )}
+    </AdminDetailInspector>
+  </div>;
 }
 
 function CustomerCampaignsEditor({ company, content, setContent, save, setActive, items, notify, canManage = true }: any) {
@@ -8273,7 +8337,51 @@ function CustomerPaymentsEditor({ company, content, setContent, save, items, not
     updateCollection(content, setContent, "paymentRecords", [{ id: createLocalId(), company_id: company.id, branch_id: null, amount: 0, due_date: new Date().toISOString().slice(0, 10), payment_date: "", status: "Bekliyor", service_period: thisMonth, payment_note: "", visible_to_customer: false }, ...allItems]);
     notify?.("✓ Ödeme taslağı oluşturuldu", "success");
   }
-  return <div><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-slate-900">Ödemeler</h3><p className="mt-1 text-sm text-slate-400">Bu kayıtlar Tahsilat, Karlılık ve Dashboard özetleriyle aynı veri kaynağını kullanır.</p></div>{canManage && <button onClick={add} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Ödeme Ekle</button>}</div><div className="mb-4 grid gap-3 md:grid-cols-4"><SelectField label="Durum filtresi" value={statusFilter} onChange={setStatusFilter} options={paymentHistoryFilters} /><Field label="Başlangıç tarihi" type="date" value={startDate} onChange={setStartDate} /><Field label="Bitiş tarihi" type="date" value={endDate} onChange={setEndDate} /><button onClick={() => { setStatusFilter("Tümü"); setStartDate(""); setEndDate(""); }} className="self-end rounded-[8px] border border-slate-200 px-4 py-3 text-sm font-black text-slate-700">Filtreleri Temizle</button></div><div className="grid gap-3">{visibleItems.map((item) => <div key={item.id} className={`rounded-[8px] border p-4 ${isArchivedRecord(item) ? "border-amber-300/25 bg-amber-300/[0.06]" : "border-slate-200 bg-slate-50"}`}><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"><Field label="Tutar" type="number" value={item.amount || 0} onChange={(value) => update(item.id, { amount: Number(value || 0) })} /><Field label="Son ödeme tarihi" type="date" value={item.due_date || ""} onChange={(value) => update(item.id, { due_date: value })} /><Field label="Ödeme tarihi" type="date" value={item.payment_date || ""} onChange={(value) => update(item.id, { payment_date: value })} /><SelectField label="Durum" value={item.status || "Bekliyor"} onChange={(value) => canManage && setStatus(item.id, value)} options={paymentStatusOptions} /><Field label="Hizmet dönemi" type="month" value={item.service_period || ""} onChange={(value) => update(item.id, { service_period: value })} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item.visible_to_customer)} onChange={(event) => update(item.id, { visible_to_customer: event.target.checked })} /> Müşteri Panelinde Görünür</label><InfoItem label="Oluşturulma tarihi" value={formatDateTime(item.created_at)} /><InfoItem label="Güncellenme tarihi" value={formatDateTime(item.updated_at)} /><div className="md:col-span-2 xl:col-span-3"><TextArea label="Not" value={item.payment_note || ""} onChange={(value) => update(item.id, { payment_note: value })} /></div></div><div className="mt-4 flex flex-wrap justify-end gap-2">{canManage && (isArchivedRecord(item) ? <button onClick={() => restore(item.id)} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-700">Arşivden Çıkar</button> : <button onClick={() => archive(item.id)} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-700">Arşivle</button>)}{canManage && item.status !== "Ödendi" && <button onClick={() => setStatus(item.id, "Ödendi")} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs text-emerald-700">Ödendi Yap</button>}{canManage && item.status === "İptal" && <button onClick={() => setStatus(item.id, "Bekliyor")} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs text-emerald-700">Tekrar Bekliyor Yap</button>}{canManage && <button onClick={() => run(`payment-${item.id}`, "Kaydediliyor...", "Kaydedildi", () => save?.())} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">{label(`payment-${item.id}`, "Kaydet")}</button>}<button onClick={() => window.location.reload()} className="rounded-full border border-slate-200 px-4 py-2 text-xs text-slate-700">Vazgeç</button></div></div>)}{!visibleItems.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-5 text-sm text-slate-400">Bu müşteri için ödeme kaydı bulunamadı.</p>}</div></div>;
+  const [selectedPaymentId, setSelectedPaymentId] = useState("");
+  const selectedPayment = selectedPaymentId ? visibleItems.find((item: any) => item.id === selectedPaymentId) : null;
+  const paymentColumns: AdminDataGridColumn<any>[] = [
+    { key: "status", header: "Durum", render: (item: any) => <AdminStatusBadge tone={item.status === "Ödendi" ? "success" : item.status === "İptal" ? "neutral" : (item.due_date && item.due_date < new Date().toISOString().slice(0, 10)) ? "danger" : "warning"}>{item.status || "Bekliyor"}</AdminStatusBadge> },
+    { key: "period", header: "Dönem", render: (item: any) => item.service_period || "-" },
+    { key: "due", header: "Son Tarih", render: (item: any) => formatDate(item.due_date) },
+    { key: "paid", header: "Ödeme Tarihi", render: (item: any) => item.payment_date ? formatDate(item.payment_date) : "-" },
+    { key: "visibility", header: "Görünürlük", render: (item: any) => item.visible_to_customer ? "Müşteriye Açık" : "Sadece Yönetici" },
+    { key: "amount", header: "Tutar", align: "right", render: (item: any) => <strong>{Number(item.amount || 0).toLocaleString("tr-TR")} TL</strong> }
+  ];
+  return <div className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_280px]">
+    <div className="min-w-0">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><div><h3 className="text-sm font-black text-slate-900">Ödemeler</h3><p className="mt-0.5 text-xs text-slate-500">Tahsilat, Karlılık ve Dashboard özetleriyle aynı veri kaynağı.</p></div>{canManage && <AdminButton compact variant="primary" onClick={add}>+ Ödeme Ekle</AdminButton>}</div>
+      <div className="mb-3 grid gap-2 md:grid-cols-4">
+        <SelectField label="Durum filtresi" value={statusFilter} onChange={setStatusFilter} options={paymentHistoryFilters} />
+        <Field label="Başlangıç tarihi" type="date" value={startDate} onChange={setStartDate} />
+        <Field label="Bitiş tarihi" type="date" value={endDate} onChange={setEndDate} />
+        <AdminButton compact variant="secondary" onClick={() => { setStatusFilter("Tümü"); setStartDate(""); setEndDate(""); }}>Filtreleri Temizle</AdminButton>
+      </div>
+      <AdminDataGrid columns={paymentColumns} rows={visibleItems} rowKey={(item: any) => item.id} activeId={selectedPaymentId} onRowClick={(item: any) => setSelectedPaymentId(item.id)} emptyTitle="Bu müşteri için ödeme kaydı bulunamadı." />
+    </div>
+    <AdminDetailInspector
+      title={selectedPayment ? `${Number(selectedPayment.amount || 0).toLocaleString("tr-TR")} TL` : undefined}
+      subtitle={selectedPayment ? `${selectedPayment.service_period || "-"} · ${selectedPayment.status || "Bekliyor"}` : undefined}
+      emptyTitle="Bir ödeme seçin"
+      emptyDescription="Listeden bir satıra tıklayarak detaylarını buradan düzenleyin."
+      actions={selectedPayment ? <>
+        {canManage && (isArchivedRecord(selectedPayment) ? <AdminButton compact variant="info" onClick={() => restore(selectedPayment.id)}>Arşivden Çıkar</AdminButton> : <AdminButton compact variant="warning" onClick={() => archive(selectedPayment.id)}>Arşivle</AdminButton>)}
+        {canManage && selectedPayment.status !== "Ödendi" && <AdminButton compact variant="success" onClick={() => setStatus(selectedPayment.id, "Ödendi")}>Ödendi Yap</AdminButton>}
+        {canManage && selectedPayment.status === "İptal" && <AdminButton compact variant="success" onClick={() => setStatus(selectedPayment.id, "Bekliyor")}>Tekrar Bekliyor Yap</AdminButton>}
+        {canManage && <AdminButton compact variant="primary" onClick={() => run(`payment-${selectedPayment.id}`, "Kaydediliyor...", "Kaydedildi", () => save?.())}>{label(`payment-${selectedPayment.id}`, "Kaydet")}</AdminButton>}
+      </> : undefined}
+    >
+      {selectedPayment && (
+        <div className="grid gap-2">
+          <Field label="Tutar" type="number" value={selectedPayment.amount || 0} onChange={(value) => update(selectedPayment.id, { amount: Number(value || 0) })} />
+          <Field label="Son ödeme tarihi" type="date" value={selectedPayment.due_date || ""} onChange={(value) => update(selectedPayment.id, { due_date: value })} />
+          <Field label="Ödeme tarihi" type="date" value={selectedPayment.payment_date || ""} onChange={(value) => update(selectedPayment.id, { payment_date: value })} />
+          <Field label="Hizmet dönemi" type="month" value={selectedPayment.service_period || ""} onChange={(value) => update(selectedPayment.id, { service_period: value })} />
+          <label className="flex items-center gap-2 rounded-[8px] border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700"><input type="checkbox" checked={Boolean(selectedPayment.visible_to_customer)} onChange={(event) => update(selectedPayment.id, { visible_to_customer: event.target.checked })} /> Müşteri Panelinde Görünür</label>
+          <TextArea label="Not" value={selectedPayment.payment_note || ""} onChange={(value) => update(selectedPayment.id, { payment_note: value })} />
+        </div>
+      )}
+    </AdminDetailInspector>
+  </div>;
 }
 
 function CustomerOnboardingEditor({ company, content, setContent, setTab, notify }: any) {
@@ -8466,12 +8574,12 @@ function ActivityLogs({ content, setContent }: any) {
 }
 
 function ActivityList({ items, empty, selectedIds = [], toggleSelected, updateLog, openDetail, undoLog }: any) {
-  return <div className="grid gap-3">{items.map((item) => {
+  return <div className="grid gap-2">{items.map((item) => {
     const status = item.status || (item.is_seen ? "Görüldü" : "Görülmedi");
     const canUndo = String(item.entity || "").includes("Görev") || String(item.entity || "").includes("Belge") || String(item.entity || "").includes("Müşteri") || String(item.entity || "").includes("Kullanıcı");
     const result = item.details?.error ? "Hata" : item.details?.result || item.result || "Başarılı";
-    return <div key={item.id} className={`rounded-[12px] border p-4 ${item.archived_at ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white"}`}><div className="flex flex-wrap items-start justify-between gap-3"><div className="flex min-w-0 gap-3">{toggleSelected && <input type="checkbox" checked={selectedIds.includes(item.id)} onChange={() => toggleSelected(item.id)} className="mt-1" />}<div><p className="font-black text-slate-950">{item.details?.message || `${item.entity} · ${item.action}`}</p><div className="mt-2 grid gap-1 text-xs text-slate-600 sm:grid-cols-2"><span><strong>Firma:</strong> {item.company_name || "Genel sistem"}</span><span><strong>Kullanıcı:</strong> {item.actor_name || "Sistem"}</span><span><strong>Rol:</strong> {roleOptions.find((role) => role.value === item.role)?.label || item.role || "Sistem"}</span><span><strong>Modül:</strong> {item.module || item.entity}</span><span><strong>İşlem:</strong> {item.action_type || item.action}</span><span><strong>Tarih:</strong> {formatDateTime(item.created_at)}</span></div></div></div><div className="flex flex-wrap justify-end gap-2"><span className={`rounded-full px-3 py-1 text-xs font-bold ${result === "Hata" ? "bg-red-100 text-red-700" : result === "Uyarı" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>{result}</span><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">{status}</span>{item.is_critical && <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-700">Kritik</span>}</div></div>{updateLog && <div className="mt-4 flex flex-wrap gap-2"><button onClick={() => updateLog(item.id, { is_seen: true, status: "Görüldü" })} className="rounded-full border border-emerald-300 px-3 py-2 text-xs text-emerald-700">Görüldü Yap</button><button onClick={() => updateLog(item.id, { is_seen: false, status: "Görülmedi" })} className="rounded-full border border-slate-300 px-3 py-2 text-xs text-slate-700">Görülmedi Yap</button><button onClick={() => updateLog(item.id, { archived_at: new Date().toISOString(), status: "Arşivlendi" })} className="rounded-full border border-amber-300 px-3 py-2 text-xs text-amber-700">Arşivle</button><button onClick={() => confirm("Bu log kaydını silmek istediğinize emin misiniz?") && updateLog(item.id, { deleted_at: new Date().toISOString(), status: "Silindi" })} className="rounded-full border border-red-300 px-3 py-2 text-xs text-red-700">Sil</button>{canUndo && <button onClick={() => undoLog?.(item)} className="rounded-full border border-cyan-300 px-3 py-2 text-xs text-cyan-700">Geri Al</button>}<button onClick={() => openDetail?.(item)} className="ml-auto rounded-full bg-cyan-500 px-3 py-2 text-xs font-black text-white">Görüntüle</button></div>}</div>;
-  })}{!items.length && <p className="text-sm text-slate-400">{empty}</p>}</div>;
+    return <div key={item.id} className={`rounded-[8px] border p-2.5 text-xs ${item.archived_at ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white"}`}><div className="flex flex-wrap items-start justify-between gap-2"><div className="flex min-w-0 gap-2">{toggleSelected && <input type="checkbox" checked={selectedIds.includes(item.id)} onChange={() => toggleSelected(item.id)} className="mt-1" />}<div><p className="font-black text-slate-950">{item.details?.message || `${item.entity} · ${item.action}`}</p><div className="mt-1 grid gap-0.5 text-[11px] text-slate-600 sm:grid-cols-2"><span><strong>Firma:</strong> {item.company_name || "Genel sistem"}</span><span><strong>Kullanıcı:</strong> {item.actor_name || "Sistem"}</span><span><strong>Rol:</strong> {roleOptions.find((role) => role.value === item.role)?.label || item.role || "Sistem"}</span><span><strong>Modül:</strong> {item.module || item.entity}</span><span><strong>İşlem:</strong> {item.action_type || item.action}</span><span><strong>Tarih:</strong> {formatDateTime(item.created_at)}</span></div></div></div><div className="flex flex-wrap justify-end gap-1.5"><span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${result === "Hata" ? "bg-red-100 text-red-700" : result === "Uyarı" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>{result}</span><span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">{status}</span>{item.is_critical && <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700">Kritik</span>}</div></div>{updateLog && <div className="mt-2 flex flex-wrap gap-1.5"><button onClick={() => updateLog(item.id, { is_seen: true, status: "Görüldü" })} className="rounded-full border border-emerald-300 px-2.5 py-1.5 text-[11px] text-emerald-700">Görüldü Yap</button><button onClick={() => updateLog(item.id, { is_seen: false, status: "Görülmedi" })} className="rounded-full border border-slate-300 px-2.5 py-1.5 text-[11px] text-slate-700">Görülmedi Yap</button><button onClick={() => updateLog(item.id, { archived_at: new Date().toISOString(), status: "Arşivlendi" })} className="rounded-full border border-amber-300 px-2.5 py-1.5 text-[11px] text-amber-700">Arşivle</button><button onClick={() => confirm("Bu log kaydını silmek istediğinize emin misiniz?") && updateLog(item.id, { deleted_at: new Date().toISOString(), status: "Silindi" })} className="rounded-full border border-red-300 px-2.5 py-1.5 text-[11px] text-red-700">Sil</button>{canUndo && <button onClick={() => undoLog?.(item)} className="rounded-full border border-cyan-300 px-2.5 py-1.5 text-[11px] text-cyan-700">Geri Al</button>}<button onClick={() => openDetail?.(item)} className="ml-auto rounded-full bg-cyan-500 px-2.5 py-1.5 text-[11px] font-black text-white">Görüntüle</button></div>}</div>;
+  })}{!items.length && <p className="text-xs text-slate-400">{empty}</p>}</div>;
 }
 
 function ReportsAdmin({ content, setContent }: any) {
@@ -10340,18 +10448,86 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
   };
 
   if (tab === "Fırsat Haritası") {
-    return <Panel title="Fırsat Haritası"><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><p className="max-w-3xl text-sm leading-6 text-slate-400">Bölgesel potansiyeli ilçe ve sektör seviyesinde okuyun; seçiminizi Google Maps müşteri bulma akışına aktararak gerçek işletmeleri keşfedin.</p><span className="rounded-full border border-orange-300/30 bg-orange-300/10 px-3 py-2 text-xs font-black text-orange-700">Fırsat Haritası ilk sekmede</span></div><HubTabs items={mapTabs} active={tab} onChange={setMapTab} /><OpportunityMap content={content} setContent={setContent} save={save} notify={notify} search={{ ...search, sector: search.businessType }} setSearch={(next) => setSearch({ ...search, ...next, businessType: next.businessType || next.sector || search.businessType })} setTab={setMapTab} setActive={setActive} saved={saved} /></Panel>;
+    return (
+      <AdminWorkspace
+        eyebrow="Satış · Müşteri Keşfi"
+        title="Fırsat Haritası"
+        description="Bölgesel potansiyeli ilçe ve sektör seviyesinde okuyun; seçiminizi Google Maps müşteri bulma akışına aktararak gerçek işletmeleri keşfedin."
+        bottomBar={<AdminActionBar statusText={`${saved.length} kayıtlı işletme`}><AdminButton compact variant="secondary" onClick={() => setMapTab("Google Maps Müşteri Bulma")}>Google Maps Müşteri Bulma'ya Git</AdminButton></AdminActionBar>}
+      >
+        <HubTabs items={mapTabs} active={tab} onChange={setMapTab} />
+        <OpportunityMap content={content} setContent={setContent} save={save} notify={notify} search={{ ...search, sector: search.businessType }} setSearch={(next) => setSearch({ ...search, ...next, businessType: next.businessType || next.sector || search.businessType })} setTab={setMapTab} setActive={setActive} saved={saved} />
+      </AdminWorkspace>
+    );
   }
 
   if (tab === "Kaydedilenler") {
-    return <Panel title="Kaydedilen CRM Leadleri">{actionResult && <div className="mb-5"><ActionResultPanel result={actionResult} onNavigate={(href) => window.location.assign(href)} /></div>}<div className="mb-5 flex flex-wrap items-center justify-between gap-3"><div><p className="max-w-3xl text-sm leading-6 text-slate-500">Google Maps / Müşteri Keşfi üzerinden CRM’e aktarılan işletmeler burada takip edilir. Teklif, WhatsApp, görev ve rakip analizi akışına buradan devam edebilirsiniz.</p></div><button onClick={() => setMapTab("Google Maps Müşteri Bulma")} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Google Maps Müşteri Bulma’ya Git</button></div><HubTabs items={mapTabs} active={tab} onChange={setMapTab} /><div className="grid gap-3">{saved.map((lead: any) => <article key={lead.id || lead.google_place_id || lead.company} className="rounded-[12px] border border-slate-200 bg-slate-50 p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-black text-slate-950">{lead.company || lead.name || "İsimsiz lead"}</h3><p className="mt-1 text-xs text-slate-500">{lead.source || "Google Maps / Müşteri Keşfi"} · {lead.city || "-"} / {districtOf(lead)} · {lead.business_type || lead.sector || "Sektör belirtilmedi"}</p></div><div className="flex flex-wrap gap-2"><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700 ring-1 ring-emerald-200">CRM’de Kayıtlı</span><span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-700 ring-1 ring-slate-200">{lead.status || lead.lead_stage || "Yeni Lead"}</span></div></div><div className="mt-3 grid gap-2 text-xs leading-5 text-slate-600 md:grid-cols-2 xl:grid-cols-4"><span>Telefon: <strong>{lead.phone || "Mevcut değil"}</strong></span><span>Website: <strong className="break-all">{lead.website || "Mevcut değil"}</strong></span><span>Kayıt tarihi: <strong>{formatDateTime(lead.created_at)}</strong></span><span>Teklif durumu: <strong>{lead.proposal_status || "Henüz teklif yok"}</strong></span><span>Son takip: <strong>{formatDateTime(lead.next_action_at || lead.next_followup_at)}</strong></span><span>Google puanı: <strong>{lead.google_rating || "-"} · {lead.google_review_count || 0} yorum</strong></span><span>Fırsat skoru: <strong>{lead.opportunity_score || lead.lead_heat_score || 0}/100</strong></span><span>Kaynak: <strong>{lead.source || "Google Maps / Müşteri Keşfi"}</strong></span></div><div className="mt-4 flex flex-wrap gap-2"><button onClick={() => openCrmLead(lead)} className="rounded-full border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-700">CRM kaydını aç</button><button onClick={() => proposalFor(lead)} className="rounded-full border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-black text-amber-800">Teklif hazırla</button><button onClick={() => setWhatsappDraft({ id: lead.id || lead.google_place_id, text: outreachText(lead), phone: lead.phone })} className="rounded-full border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-700">WhatsApp mesajı hazırla</button><button onClick={() => createFollowupTask(lead)} className="rounded-full border border-cyan-200 bg-white px-3 py-2 text-xs font-black text-cyan-700">Takip görevi oluştur</button><button onClick={() => sendToCompetitor(lead)} className="rounded-full border border-purple-200 bg-purple-50 px-3 py-2 text-xs font-black text-purple-700">Rakip analizine gönder</button>{lead.google_maps_url && <a target="_blank" rel="noreferrer" href={lead.google_maps_url} className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700">Maps’te Aç</a>}</div>{whatsappDraft?.id === (lead.id || lead.google_place_id) && <div className="mt-3 rounded-[10px] border border-emerald-200 bg-emerald-50 p-3"><p className="text-xs font-black text-emerald-800">Hazır WhatsApp mesajı</p><textarea value={whatsappDraft.text} onChange={(event) => setWhatsappDraft({ ...whatsappDraft, text: event.target.value })} className="mt-2 min-h-24 w-full rounded-[8px] border border-emerald-200 bg-white p-3 text-xs leading-5 text-slate-900" /></div>}</article>)}{!saved.length && <p className="rounded-[12px] border border-dashed border-slate-200 p-6 text-center text-sm leading-6 text-slate-500">Henüz kaydedilmiş işletme yok. Google Maps Müşteri Bulma sekmesinden işletme seçip CRM’e kaydedebilirsiniz.</p>}</div></Panel>;
+    const transferredColumns: AdminDataGridColumn<any>[] = [
+      { key: "company", header: "İşletme", render: (lead: any) => <div className="min-w-0"><strong className="block truncate">{lead.company || lead.name || "İsimsiz lead"}</strong><span className="block truncate text-[11px]" style={{ color: "var(--admin-text-muted)" }}>{lead.city || "-"} / {districtOf(lead)}</span></div> },
+      { key: "status", header: "CRM Durumu", render: (lead: any) => <AdminStatusBadge tone="success">{lead.status || lead.lead_stage || "Yeni Lead"}</AdminStatusBadge> },
+      { key: "responsible", header: "Sorumlu", render: (lead: any) => lead.assigned_to_name || lead.responsible_user || "Atanmadı" },
+      { key: "transferDate", header: "Aktarım Tarihi", render: (lead: any) => formatDateTime(lead.created_at) },
+      { key: "proposal", header: "Teklif Durumu", render: (lead: any) => lead.proposal_status || "Henüz teklif yok" },
+      { key: "score", header: "Fırsat Skoru", align: "right", render: (lead: any) => `${lead.opportunity_score || lead.lead_heat_score || 0}/100` }
+    ];
+    const selectedTransferred = selectedPlaceId ? saved.find((lead: any) => (lead.id || lead.google_place_id) === selectedPlaceId) : null;
+    return (
+      <AdminWorkspace
+        eyebrow="Satış · Müşteri Keşfi"
+        title="CRM'e Aktarılanlar"
+        description="Google Maps / Müşteri Keşfi üzerinden CRM'e aktarılan işletmeler; teklif, WhatsApp, görev ve rakip analizi akışına buradan devam edilir."
+        rightPanel={
+          <AdminDetailInspector
+            title={selectedTransferred ? (selectedTransferred.company || selectedTransferred.name) : undefined}
+            subtitle={selectedTransferred ? `${selectedTransferred.source || "Google Maps / Müşteri Keşfi"} · ${selectedTransferred.status || "Yeni Lead"}` : undefined}
+            emptyTitle="Bir işletme seçin"
+            emptyDescription="Listeden bir satıra tıklayarak detaylarını buradan görüntüleyin."
+            fields={selectedTransferred ? [
+              { label: "Telefon", value: selectedTransferred.phone || "Mevcut değil" },
+              { label: "Website", value: selectedTransferred.website || "Mevcut değil" },
+              { label: "Kayıt Tarihi", value: formatDateTime(selectedTransferred.created_at) },
+              { label: "Son Takip", value: formatDateTime(selectedTransferred.next_action_at || selectedTransferred.next_followup_at) },
+              { label: "Google Puanı", value: `${selectedTransferred.google_rating || "-"} · ${selectedTransferred.google_review_count || 0} yorum` }
+            ] : undefined}
+            actions={selectedTransferred ? <>
+              <AdminButton compact variant="success" onClick={() => openCrmLead(selectedTransferred)}>CRM Kaydını Aç</AdminButton>
+              <AdminButton compact variant="warning" onClick={() => proposalFor(selectedTransferred)}>Teklif Hazırla</AdminButton>
+              <AdminButton compact variant="success" onClick={() => setWhatsappDraft({ id: selectedTransferred.id || selectedTransferred.google_place_id, text: outreachText(selectedTransferred), phone: selectedTransferred.phone })}>WhatsApp Mesajı Hazırla</AdminButton>
+              <AdminButton compact variant="info" onClick={() => createFollowupTask(selectedTransferred)}>Takip Görevi Oluştur</AdminButton>
+              <AdminButton compact variant="ai" onClick={() => sendToCompetitor(selectedTransferred)}>Rakip Analizine Gönder</AdminButton>
+              {selectedTransferred.google_maps_url && <a target="_blank" rel="noreferrer" href={selectedTransferred.google_maps_url} className="hk-button hk-button-neutral hk-button-compact">Maps'te Aç</a>}
+            </> : undefined}
+          >
+            {selectedTransferred && whatsappDraft?.id === (selectedTransferred.id || selectedTransferred.google_place_id) && (
+              <div className="rounded-[8px] border border-emerald-200 bg-emerald-50 p-2">
+                <p className="text-[11px] font-black text-emerald-800">Hazır WhatsApp mesajı</p>
+                <textarea value={whatsappDraft.text} onChange={(event) => setWhatsappDraft({ ...whatsappDraft, text: event.target.value })} className="mt-1.5 min-h-20 w-full rounded-[8px] border border-emerald-200 bg-white p-2 text-xs leading-5 text-slate-900" />
+              </div>
+            )}
+          </AdminDetailInspector>
+        }
+        bottomBar={<AdminActionBar statusText={`${saved.length} kayıtlı işletme`}><AdminButton compact variant="secondary" onClick={() => setMapTab("Google Maps Müşteri Bulma")}>Yeni İşletme Bul</AdminButton></AdminActionBar>}
+      >
+        <HubTabs items={mapTabs} active={tab} onChange={setMapTab} />
+        {actionResult && <div className="mb-3"><ActionResultPanel result={actionResult} onNavigate={(href) => window.location.assign(href)} /></div>}
+        <AdminDataGrid
+          columns={transferredColumns}
+          rows={saved}
+          rowKey={(lead: any) => lead.id || lead.google_place_id || lead.company}
+          activeId={selectedPlaceId}
+          onRowClick={(lead: any) => setSelectedPlaceId(lead.id || lead.google_place_id)}
+          emptyTitle="Henüz kaydedilmiş işletme yok."
+          emptyDescription="Google Maps Müşteri Bulma sekmesinden işletme seçip CRM'e kaydedebilirsiniz."
+        />
+      </AdminWorkspace>
+    );
   }
 
   return (
     <AdminWorkspace
       eyebrow="Satış · Müşteri Keşfi"
-      title={mode === "Haritalar" ? "Haritalar ve Google Maps Lead Finder" : "Google Maps Müşteri Bulma"}
-      description="İl, ilçe, mahalle, sektör, niş, Google puanı ve dijital eksik filtreleriyle işletmeleri tarayın; sıcaklık skoruna göre CRM’e taşıyıp teklif ve WhatsApp mesajı oluşturun."
+      title={mode === "Haritalar" ? "Haritalar ve Google Maps Lead Finder" : tab}
+      description={tab === "Sıcak Leadler" ? "Sıcaklık skoru 70 ve üzeri, CRM'e kayıtlı işletmeler." : tab === "Bölgesel Fırsatlar" ? "İlçe ve sektör bazlı fırsat sinyalleri; CRM kayıtlı işletmeler üzerinden filtrelendi." : tab === "Rakip Analizi" ? "Rakip analizine gönderilen veya işaretlenen işletmeler." : tab === "Yapay Zekâ Analiz" ? "Yapay zekâ destekli fırsat/işletme analizi bekleyen veya tamamlanan kayıtlar." : "İl, ilçe, mahalle, sektör, niş, Google puanı ve dijital eksik filtreleriyle işletmeleri tarayın; sıcaklık skoruna göre CRM’e taşıyıp teklif ve WhatsApp mesajı oluşturun."}
       headerActions={<>
         <AdminStatusBadge tone="info">{results.length} sonuç</AdminStatusBadge>
         <AdminStatusBadge tone="communication">{saved.length} kayıtlı</AdminStatusBadge>

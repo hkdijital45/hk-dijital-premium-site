@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Bot, CheckCircle2, ExternalLink, Globe2, Search, ShieldCheck, XCircle } from "lucide-react";
 import { buildCustomerSetupSummary, getCustomerSetupSteps, type CustomerSetupSummary } from "@/lib/customer-onboarding";
+import { AdminButton } from "@/components/admin/ui/AdminButton";
 
 const cmsOptions = ["WordPress", "Next.js", "Shopify", "İkas", "Ticimax", "Ideasoft", "Diğer"];
 const aiOptions = [
@@ -76,12 +77,12 @@ function Textarea({ label, value, onChange }: { label: string; value: string; on
 
 function Section({ title, icon, children }: { title: string; icon: ReactNode; children: ReactNode }) {
   return (
-    <section className="rounded-[18px] border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="mb-4 flex items-center gap-3">
-        <span className="grid size-10 place-items-center rounded-[14px] bg-cyan-50 text-cyan-700">{icon}</span>
-        <h3 className="text-base font-black text-slate-950">{title}</h3>
+    <section className="rounded-[10px] border border-slate-200 bg-white p-3">
+      <div className="mb-3 flex items-center gap-2">
+        <span className="grid size-7 place-items-center rounded-[8px] bg-cyan-50 text-cyan-700">{icon}</span>
+        <h3 className="text-xs font-black uppercase tracking-wide text-slate-950">{title}</h3>
       </div>
-      <div className="grid gap-3 md:grid-cols-2">{children}</div>
+      <div className="grid gap-2 md:grid-cols-2">{children}</div>
     </section>
   );
 }
@@ -174,40 +175,41 @@ export function CustomerIntegrationsPanel({ company, users = [], campaigns = [],
   }
 
   return (
-    <div className="grid gap-5">
-      <section className="rounded-[20px] border border-cyan-200 bg-cyan-50 p-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="grid gap-3">
+      <section className="rounded-[10px] border border-cyan-200 bg-cyan-50 p-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Müşteri Kurulum Durumu</p>
-            <h3 className="mt-2 text-2xl font-black text-slate-950">%{displaySetup.progress} tamamlandı</h3>
-            <p className="mt-1 text-sm font-semibold text-cyan-900">{displaySetup.completedSteps} / {displaySetup.totalSteps} adım tamamlandı. Opsiyonel davranış analitiği adımları ilerlemeyi düşürmez.</p>
+            <p className="text-[10px] font-black uppercase tracking-[.14em] text-cyan-700">Müşteri Kurulum Durumu</p>
+            <h3 className="mt-1 text-lg font-black text-slate-950">%{displaySetup.progress} tamamlandı</h3>
+            <p className="mt-0.5 text-xs font-semibold text-cyan-900">{displaySetup.completedSteps} / {displaySetup.totalSteps} adım tamamlandı.</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => setEditing((current) => !current)} className="rounded-full bg-cyan-500 px-4 py-2 text-xs font-black text-white">{editing ? "Düzenlemeyi Kapat" : "Düzenle"}</button>
-            <button type="button" onClick={testIntegrations} disabled={loading} className="rounded-full border border-cyan-300 bg-white px-4 py-2 text-xs font-black text-cyan-800 disabled:opacity-60">Test Et</button>
-            <a href={`/hk-admin/website-analytics?companyId=${company.id}`} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700">Website Analytics’te Gör</a>
-            <a href={`/hk-admin/agent-hub?companyId=${company.id}`} className="rounded-full border border-violet-200 bg-white px-4 py-2 text-xs font-black text-violet-700">Agent Hub’da Analiz Et</a>
+          <div className="flex flex-wrap gap-1.5">
+            <AdminButton compact variant="info" onClick={() => setEditing((current) => !current)}>{editing ? "Düzenlemeyi Kapat" : "Düzenle"}</AdminButton>
+            <AdminButton compact variant="secondary" disabled={loading} onClick={testIntegrations}>Test Et</AdminButton>
+            <a href={`/hk-admin/website-analytics?companyId=${company.id}`} className="hk-button hk-button-neutral hk-button-compact">Website Analytics</a>
+            <a href={`/hk-admin/agent-hub?companyId=${company.id}`} className="hk-button hk-button-ai hk-button-compact">Agent Hub</a>
           </div>
         </div>
-        <div className="mt-4 h-3 overflow-hidden rounded-full bg-white">
+        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white">
           <div className="h-full rounded-full bg-cyan-500" style={{ width: `${displaySetup.progress}%` }} />
         </div>
-        {message && <p className="mt-4 rounded-[12px] border border-cyan-200 bg-white p-3 text-sm font-semibold text-cyan-900">{message}</p>}
+        {message && <p className="mt-3 rounded-[8px] border border-cyan-200 bg-white p-2 text-xs font-semibold text-cyan-900">{message}</p>}
       </section>
 
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {displaySetup.steps.map((item) => (
-          <article key={item.key} className="rounded-[16px] border border-slate-200 bg-white p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="font-black text-slate-950">{item.title}</p>
-                <p className="mt-1 text-xs leading-5 text-slate-500">{item.description}</p>
-              </div>
-              <span className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-black ${statusClass(item.status)}`}>{statusLabel(item.status)}</span>
-            </div>
-            <a href={item.actionHref} className="mt-3 inline-flex items-center gap-2 text-xs font-black text-cyan-700">{item.actionLabel} <ExternalLink size={13} /></a>
-          </article>
-        ))}
+      <section className="admin-data-grid-scroll premium-scrollbar">
+        <table className="admin-data-grid">
+          <thead><tr><th>Entegrasyon</th><th>Açıklama</th><th style={{ textAlign: "center" }}>Durum</th><th style={{ textAlign: "right" }}>Hızlı Aksiyon</th></tr></thead>
+          <tbody>
+            {displaySetup.steps.map((item) => (
+              <tr key={item.key}>
+                <td><strong>{item.title}</strong></td>
+                <td className="text-xs" style={{ color: "var(--admin-text-muted)" }}>{item.description}</td>
+                <td style={{ textAlign: "center" }}><span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${statusClass(item.status)}`}>{statusLabel(item.status)}</span></td>
+                <td style={{ textAlign: "right" }}><a href={item.actionHref} className="inline-flex items-center gap-1 text-xs font-black text-cyan-700">{item.actionLabel} <ExternalLink size={12} /></a></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </section>
 
       <div className="grid gap-5 xl:grid-cols-2">
@@ -258,16 +260,16 @@ export function CustomerIntegrationsPanel({ company, users = [], campaigns = [],
       </div>
 
       {editing && (
-        <div className="flex flex-wrap justify-end gap-2">
-          <button type="button" onClick={() => setEditing(false)} className="rounded-full border border-slate-200 px-5 py-3 text-sm font-black text-slate-700">Vazgeç</button>
-          <button type="button" onClick={save} disabled={loading} className="rounded-full bg-cyan-500 px-5 py-3 text-sm font-black text-white shadow-sm disabled:opacity-60">{loading ? "Kaydediliyor..." : "Kaydet"}</button>
+        <div className="sticky bottom-0 flex flex-wrap justify-end gap-2 border-t bg-white/95 py-2" style={{ borderColor: "var(--admin-border)" }}>
+          <AdminButton compact variant="secondary" onClick={() => setEditing(false)}>Vazgeç</AdminButton>
+          <AdminButton compact variant="primary" disabled={loading} onClick={save}>{loading ? "Kaydediliyor..." : "Kaydet"}</AdminButton>
         </div>
       )}
 
-      <div className="rounded-[16px] border border-amber-200 bg-amber-50 p-4">
-        <div className="flex items-start gap-3">
-          {displaySetup.missing.length ? <XCircle className="mt-0.5 text-amber-700" size={18} /> : <CheckCircle2 className="mt-0.5 text-emerald-700" size={18} />}
-          <p className="text-sm leading-6 text-amber-900">Token, API anahtarı, refresh token ve private key gibi secret değerleri bu ekranda açık saklanmaz. Sadece durum veya maskeli bilgi tutulur.</p>
+      <div className="rounded-[8px] border border-amber-200 bg-amber-50 p-2.5">
+        <div className="flex items-start gap-2">
+          {displaySetup.missing.length ? <XCircle className="mt-0.5 shrink-0 text-amber-700" size={14} /> : <CheckCircle2 className="mt-0.5 shrink-0 text-emerald-700" size={14} />}
+          <p className="text-xs leading-5 text-amber-900">Token, API anahtarı, refresh token ve private key gibi secret değerleri bu ekranda açık saklanmaz. Sadece durum veya maskeli bilgi tutulur.</p>
         </div>
       </div>
     </div>

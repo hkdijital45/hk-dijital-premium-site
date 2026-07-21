@@ -3629,8 +3629,10 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
   backdrop-filter: blur(10px);
 }
 
-.admin-desktop-frame .admin-top-header {
-  position: static;
+@media (min-width: 1024px) {
+  .admin-desktop-frame .admin-top-header {
+    position: static;
+  }
 }
 
 /* ---- Primary module toolbar (DesktopModuleToolbar) --------------------- */
