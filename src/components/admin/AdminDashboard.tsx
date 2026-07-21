@@ -43,6 +43,11 @@ import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminEmptyState } from "@/components/admin/ui/AdminEmptyState";
 import { AdminActionCard, AdminKpiCard } from "@/components/admin/ui/AdminKpiCard";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { AdminWorkspace } from "@/components/admin/workspace/AdminWorkspace";
+import { AdminControlPanel, AdminFilterSection } from "@/components/admin/workspace/AdminControlPanel";
+import { AdminDataGrid, type AdminDataGridColumn } from "@/components/admin/workspace/AdminDataGrid";
+import { AdminDetailInspector } from "@/components/admin/workspace/AdminDetailInspector";
+import { AdminActionBar } from "@/components/admin/workspace/AdminActionBar";
 import { CUSTOMER_360_TABS, Customer360Header } from "@/components/admin/customer-profile/customer360-shared";
 import { adminNavigationGroups, adminNavigationItems, getAdminHref, getAdminSourceGroupItems } from "@/lib/admin-navigation";
 import { canViewAccounting } from "@/lib/accounting-permissions";
@@ -5837,6 +5842,7 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
   const [customerActionResult, setCustomerActionResult] = useState<any>(null);
   const [permanentDeleteTarget, setPermanentDeleteTarget] = useState<any>(null);
   const [permanentDeleteName, setPermanentDeleteName] = useState("");
+  const [selectedGridCompanyId, setSelectedGridCompanyId] = useState("");
   const updateCompany = (id, patch) => setContent({ ...content, companies: (content.companies || []).map((company) => company.id === id ? { ...company, ...patch } : company) });
   const allCompanies = content.companies || [];
   const users = content.users || [];
@@ -6156,159 +6162,176 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
 	  const customerExportStatus = view === "active" ? "active" : view === "archived" ? "archived" : view === "deleted" ? "deleted" : "passive";
 	  const customerExportUrl = (format: string) => `/api/admin/customers/export?format=${format}&status=${customerExportStatus}&q=${encodeURIComponent(companyQuery)}`;
 
+	  const selectedGridCompany = selectedGridCompanyId ? allCompanies.find((company) => company.id === selectedGridCompanyId) : null;
+	  const selectedGridEditing = Boolean(selectedGridCompany) && editingCompanyId === selectedGridCompanyId;
+	  const gridColumns: AdminDataGridColumn<any>[] = [
+	    {
+	      key: "name",
+	      header: "Firma",
+	      render: (company: any) => (
+	        <div className="flex min-w-0 items-center gap-2">
+	          <button type="button" onClick={(event) => { event.stopPropagation(); toggleFavoriteCustomer(company.id); }} className={`shrink-0 rounded-full px-1.5 py-0.5 text-xs font-black ${favoriteCustomerIds.includes(company.id) ? "bg-amber-100 text-amber-700" : "text-slate-400"}`}>★</button>
+	          <span className="min-w-0">
+	            <strong className="block truncate" style={{ color: "var(--admin-text, var(--admin-text-primary))" }}>{company.name}</strong>
+	            <span className="block truncate text-[11px]" style={{ color: "var(--admin-text-muted)" }}>{company.sector || company.business_type || "Sektör yok"} · {company.city || "Şehir yok"}</span>
+	          </span>
+	        </div>
+	      )
+	    },
+	    { key: "status", header: "Durum", render: (company: any) => statusBadge(company) },
+	    { key: "login", header: "Giriş", render: (company: any) => <AdminStatusBadge tone={users.some((user) => customerRole(user.role) && user.company_id === company.id) ? "info" : "neutral"}>{users.some((user) => customerRole(user.role) && user.company_id === company.id) ? "Var" : "Yok"}</AdminStatusBadge> },
+	    { key: "health", header: "Sağlık", render: (company: any) => { const health = companyHealth(company); return <AdminStatusBadge tone={healthScoreTone(health.score)}>{health.score}/100</AdminStatusBadge>; } },
+	    { key: "tasks", header: "Açık Görev", align: "center", render: (company: any) => companyTasks(company.id).filter((item: any) => isOpenTask(item)).length },
+	    { key: "payment", header: "Bekleyen Ödeme", align: "right", render: (company: any) => `${companyPayments(company.id).filter((item: any) => ["Bekliyor", "Gecikmiş", "Gecikti"].includes(item.status || "Bekliyor")).reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0).toLocaleString("tr-TR")} TL` },
+	    { key: "contact", header: "Son Temas", render: (company: any) => formatDate(company.last_contact_at || company.updated_at) }
+	  ];
+
 	  return (
-    <Panel title="Müşteriler">
-      <AdminPageHeader
+    <div className="w-full min-w-0 max-w-none">
+      {message && <p className="mb-3 rounded-[8px] border border-emerald-300/30 bg-emerald-500/10 p-3 text-sm text-emerald-700">{message}</p>}
+      {error && <p className="mb-3 rounded-[8px] border border-red-300/30 bg-red-500/10 p-3 text-sm text-red-700">{error}</p>}
+      {customerActionResult && <div className="mb-3"><ActionResultPanel result={customerActionResult} onNavigate={(href) => window.location.assign(href)} /></div>}
+      <AdminWorkspace
         eyebrow="CRM · Portföy"
         title="Müşteriler"
-        description={'Firmaları, yetkileri ve müşteri panel ayarlarını yönetin. Arşivlenen müşteriler "Arşivlenenler" butonundan, silinen müşteriler "Silinenler" görünümünden bulunur.'}
-        actions={<>
-          {canManageCustomers && <AdminButton variant="primary" onClick={() => setOpenForm("company")}>+ Yeni Firma Oluştur</AdminButton>}
-          {canManageCustomers && <AdminButton variant="info" onClick={() => setOpenForm("login")}>+ Müşteri Giriş Hesabı Oluştur</AdminButton>}
-          <AdminButton variant="warning" onClick={() => setView("archived")}>Arşivlenenler</AdminButton>
-          <AdminButton variant="secondary" onClick={() => setActive?.("HK Dijital Sistem Rehberi")}>Yardım</AdminButton>
+        description='Firmaları, yetkileri ve müşteri panel ayarlarını yönetin.'
+        headerActions={<>
+          {canManageCustomers && <AdminButton compact variant="primary" onClick={() => setOpenForm("company")}>+ Yeni Firma</AdminButton>}
+          {canManageCustomers && <AdminButton compact variant="info" onClick={() => setOpenForm("login")}>+ Giriş Hesabı</AdminButton>}
+          <AdminButton compact variant="secondary" onClick={() => setActive?.("HK Dijital Sistem Rehberi")}>Yardım</AdminButton>
         </>}
-      />
-      {message && <p className="mb-4 rounded-[8px] border border-emerald-300/30 bg-emerald-500/10 p-3 text-sm text-emerald-700">{message}</p>}
-      {error && <p className="mb-4 rounded-[8px] border border-red-300/30 bg-red-500/10 p-3 text-sm text-red-700">{error}</p>}
-      {customerActionResult && <div className="mb-5"><ActionResultPanel result={customerActionResult} onNavigate={(href) => window.location.assign(href)} /></div>}
-      <AdminSection
-        title="Müşteri Arama ve Öncelik Merkezi"
-        description="Firma, kişi, telefon, sektör, şehir, ödeme, görev ve entegrasyon durumuna göre müşterileri hızlıca bulun."
-        tone="accent"
-        actions={<>
-          <AdminStatusBadge tone="neutral">{companies.length} eşleşme</AdminStatusBadge>
-          <AdminStatusBadge tone="danger">{filterRecordsByVisibility(allCompanies, "live").filter((company) => companyHealth(company).score < 60).length} riskli</AdminStatusBadge>
-          <AdminStatusBadge tone="warning">{selectedCustomerIds.length} seçili</AdminStatusBadge>
-        </>}
-      >
-        <AdminSearchInput
-          large
-          value={smartSearch}
-          onChange={(value) => { setSmartSearch(value); setCompanyQuery(value); }}
-          placeholder="Firma, kişi, telefon, WhatsApp, e-posta, sektör, şehir, Instagram, web sitesi veya not ara…"
-        />
-        <div className="mt-4">
-          <AdminFilterBar options={quickFilterOptions} active={quickFilters} onToggle={toggleQuickFilter} onClear={clearCustomerFilters} />
-        </div>
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <span className="text-xs font-black" style={{ color: "var(--admin-text-secondary)" }}>Sağlık / öncelik:</span>
-          <AdminFilterBar options={["Tümü", "Riskli", "Kontrol gerekli", "Sağlıklı", "Büyüme potansiyeli"]} active={[healthFilter]} onToggle={setHealthFilter} multi={false} />
-        </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="text-xs font-black" style={{ color: "var(--admin-text-secondary)" }}>Kayıt türü:</span>
-          <AdminFilterBar options={["Gerçek müşteriler", "Test müşterileri", "Tümü"]} active={[{ live: "Gerçek müşteriler", test: "Test müşterileri", all: "Tümü" }[recordVisibility]]} onToggle={(label) => setRecordVisibility({ "Gerçek müşteriler": "live", "Test müşterileri": "test", "Tümü": "all" }[label])} multi={false} />
-        </div>
-        <div className="mt-5 grid gap-4 xl:grid-cols-[1fr_1fr_1.4fr]">
-          <div className="admin-card-soft rounded-[16px] p-4"><h3 className="font-black" style={{ color: "var(--admin-text-primary)" }}>Son Açılan Müşteriler</h3><div className="mt-3 grid gap-2">{recentCustomers.map((company: any) => <button key={company.id} onClick={() => openCustomerProfile(company)} className="admin-card rounded-[10px] p-3 text-left text-xs font-bold"><span className="block text-sm font-black" style={{ color: "var(--admin-text-primary)" }}>{company.name}</span><span style={{ color: "var(--admin-text-secondary)" }}>{company.city || "Şehir yok"} · {company.sector || "Sektör yok"}</span></button>)}{!recentCustomers.length && <p className="text-xs leading-5" style={{ color: "var(--admin-text-muted)" }}>Henüz müşteri profili açılmadı.</p>}</div></div>
-          <div className="admin-card-soft rounded-[16px] border border-amber-200 p-4"><h3 className="font-black" style={{ color: "var(--admin-text-primary)" }}>Favoriler</h3><div className="mt-3 grid gap-2">{favoriteCustomers.map((company: any) => <button key={company.id} onClick={() => openCustomerProfile(company)} className="rounded-[10px] bg-amber-50 p-3 text-left text-xs font-bold text-amber-800 ring-1 ring-amber-200">★ <span className="block text-sm font-black text-slate-950">{company.name}</span>{company.city || "Şehir yok"} · {company.sector || "Sektör yok"}</button>)}{!favoriteCustomers.length && <p className="text-xs leading-5" style={{ color: "var(--admin-text-muted)" }}>Müşteri kartındaki yıldız ile favorilere ekleyin.</p>}</div></div>
-          <div className="admin-card-soft rounded-[16px] border border-purple-200 p-4"><h3 className="font-black" style={{ color: "var(--admin-text-primary)" }}>Bugün Öncelikli Bakılacaklar</h3><div className="mt-3 grid gap-2">{priorityCustomers.map(({ company, health, reason, action }: any) => <div key={company.id} className="rounded-[12px] bg-white p-3 text-xs ring-1 ring-purple-100"><div className="flex flex-wrap items-start justify-between gap-2"><div><strong className="block text-sm text-slate-950">{company.name}</strong><span className="text-slate-600">{reason}</span></div><AdminStatusBadge tone={healthScoreTone(health.score)}>{health.score}/100</AdminStatusBadge></div><p className="mt-2 font-bold text-purple-800">Önerilen aksiyon: {action}</p><div className="mt-2 flex flex-wrap gap-1"><AdminButton compact variant="info" onClick={() => openCustomerProfile(company)}>Müşteri profilini aç</AdminButton><AdminButton compact variant="secondary" onClick={() => runCustomerBulkAction(`${company.name} için görev taslağı`, ["Görevler ekranında sorumlu ve son tarih belirle."])}>Görev oluştur</AdminButton><AdminButton compact variant="success" onClick={() => setCustomerActionResult({ title: "WhatsApp mesajı hazırlandı", summary: `${company.name} için kısa müşteri temas mesajı hazırlandı.`, status: "prepared", createdRecords: [{ label: "WhatsApp taslağı", count: 1, status: "Hazırlandı" }], nextActions: ["Mesajı kontrol et.", "Gönderim sonrası son temas tarihini güncelle."] })}>WhatsApp mesajı hazırla</AdminButton></div></div>)}{!priorityCustomers.length && <p className="text-xs leading-5 text-purple-900">Bugün için kritik müşteri kaydı bulunmadı.</p>}</div></div>
-        </div>
-        {selectedCustomerIds.length > 0 && <div className="mt-5 admin-card-soft rounded-[16px] border border-cyan-200 p-4"><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><strong className="text-sm" style={{ color: "var(--admin-text-primary)" }}>{selectedCustomerIds.length} müşteri seçildi</strong><AdminButton compact variant="secondary" onClick={() => setSelectedCustomerIds([])}>Seçimi temizle</AdminButton></div><div className="flex flex-wrap gap-2"><AdminButton compact variant="success" onClick={() => runCustomerBulkAction("Toplu WhatsApp mesajı hazırlandı", ["Mesajları kontrol et.", "Gönderim sonrası son temas tarihlerini güncelle."])}>Toplu WhatsApp mesajı hazırla</AdminButton><AdminButton compact variant="info" onClick={() => runCustomerBulkAction("Toplu görev taslağı hazırlandı", ["Görevler ekranında görevleri oluştur.", "Sorumlu kişi ve son tarih ata."])}>Toplu görev oluştur</AdminButton><AdminButton compact variant="secondary" onClick={() => runCustomerBulkAction("Toplu rapor taslağı hazırlandı", ["Rapor Merkezi’nde müşteri raporlarını kontrol et."])}>Toplu rapor oluştur</AdminButton><AdminButton compact variant="warning" onClick={() => runCustomerBulkAction("Toplu etiket hazırlığı oluşturuldu", ["Etiket bilgisini müşteri kartında kaydet."])}>Toplu etiket ekle</AdminButton><AdminButton compact variant="secondary" onClick={() => runCustomerBulkAction("Toplu export hazırlandı", ["Veri Aktarma ekranından müşterileri dışa aktar."])}>Toplu export</AdminButton></div></div>}
-      </AdminSection>
-      <AdminSection
-        title="Müşteri / firma listesi"
-        description="Varsayılan görünüm aktif ve pasif müşterileri gösterir; arşivli ve silinen kayıtlar ayrı görünümde tutulur."
-        actions={<>
-          <AdminSearchInput value={companyQuery} onChange={setCompanyQuery} placeholder="Firma, şehir, sektör ara..." />
-          <div className="flex flex-wrap gap-1 rounded-[12px] border p-1" style={{ borderColor: "var(--admin-border)" }}>
-            <span className="px-2 py-2 text-xs font-black" style={{ color: "var(--admin-text-muted)" }}>Müşteri Bilgilerini İndir</span>
-            <a href={customerExportUrl("excel")} className="rounded-[8px] bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700">Excel</a>
-            <a href={customerExportUrl("word")} className="rounded-[8px] bg-blue-50 px-3 py-2 text-xs font-black text-blue-700">Word</a>
-            <a href={customerExportUrl("pdf")} className="rounded-[8px] bg-amber-50 px-3 py-2 text-xs font-black text-amber-700">PDF</a>
-            <a href={customerExportUrl("csv")} className="rounded-[8px] bg-slate-50 px-3 py-2 text-xs font-black text-slate-700">CSV</a>
-          </div>
-        </>}
-      >
-        <div className="mb-4 flex flex-wrap gap-2">
-          {viewButtons.map((button) => <AdminButton key={button.key} compact variant={view === button.key ? "info" : "secondary"} onClick={() => setView(button.key as any)}>{button.label} · {button.count}</AdminButton>)}
-        </div>
-        <div className="grid gap-3">
-          {companies.map((company) => {
-            const hasLogin = users.some((user) => customerRole(user.role) && user.company_id === company.id);
-            const editing = editingCompanyId === company.id;
-            const health = companyHealth(company);
-            const openTaskCount = companyTasks(company.id).filter((item: any) => isOpenTask(item)).length;
-            const pendingPaymentTotal = companyPayments(company.id).filter((item: any) => ["Bekliyor", "Gecikmiş", "Gecikti"].includes(item.status || "Bekliyor")).reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
-            const lastReport = companyReports(company.id).slice().sort((a: any, b: any) => Number(new Date(b.created_at || b.updated_at || b.report_month || 0)) - Number(new Date(a.created_at || a.updated_at || a.report_month || 0)))[0];
-            const integrationOk = Boolean(company.meta_account_id || company.google_ads_customer_id || company.ga4_property_id || company.search_console_site_url || company.gtm_container_id);
-            const competitorTracking = companyCompetitors(company.id).some((item: any) => item.is_tracking);
-            const panelActive = hasLogin && company.customer_panel_enabled !== false;
-            const customerVisibleContent = [...companyReports(company.id), ...companyTasks(company.id)].some((item: any) => item.visible_to_customer || item.show_to_customer);
-            return (
-              <div key={company.id} className="admin-card rounded-[14px] p-4">
-                <div className="flex flex-wrap justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <input type="checkbox" checked={selectedCustomerIds.includes(company.id)} onChange={() => toggleSelectedCustomer(company.id)} className="size-4" />
-                      <button onClick={() => toggleFavoriteCustomer(company.id)} className={`rounded-full px-2 py-1 text-sm font-black ${favoriteCustomerIds.includes(company.id) ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"}`}>★</button>
-                      <h4 className="font-black" style={{ color: "var(--admin-text-primary)" }}>{company.name}</h4>
-                      {statusBadge(company)}
-                      <AdminStatusBadge tone={hasLogin ? "info" : "neutral"}>Giriş: {hasLogin ? "Var" : "Yok"}</AdminStatusBadge>
-                      <AdminStatusBadge tone={healthScoreTone(health.score)}>Sağlık: {health.score}/100</AdminStatusBadge>
-                    </div>
-                    <p className="mt-2 text-sm" style={{ color: "var(--admin-text-secondary)" }}>{company.sector || company.business_type || "Sektör yok"} · {company.city || "Şehir yok"}{company.district ? ` / ${company.district}` : ""} · Yetkili: {company.contact_name || company.owner_name || company.responsible_person || "Belirtilmedi"}</p>
-                    <div className="mt-3 grid gap-2 text-xs md:grid-cols-2 xl:grid-cols-4" style={{ color: "var(--admin-text-secondary)" }}>
-                      <span>Telefon: <strong>{company.phone || company.whatsapp || "Yok"}</strong></span>
-                      <span>Açık görev: <strong>{openTaskCount}</strong></span>
-                      <span>Bekleyen ödeme: <strong>{pendingPaymentTotal.toLocaleString("tr-TR")} TL</strong></span>
-                      <span>Son temas: <strong>{formatDate(company.last_contact_at || company.updated_at)}</strong></span>
-                      <span>Son rapor: <strong>{formatDate(lastReport?.created_at || lastReport?.updated_at || lastReport?.report_month)}</strong></span>
-                      <span>Entegrasyon: <strong>{integrationOk ? "Tamam" : "Eksik"}</strong></span>
-                      <span>Rakip takip: <strong>{competitorTracking ? "Açık" : "Kapalı"}</strong></span>
-                      <span>Panel: <strong>{panelActive ? "Aktif" : "Pasif"} · {customerVisibleContent ? "Açık içerik var" : "Açık içerik yok"}</strong></span>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <AdminButton compact variant="info" onClick={() => openCustomerProfile(company)}>Müşteri detayını aç</AdminButton>
-                    {canManageCustomers && <AdminButton compact variant="secondary" onClick={() => setEditingCompanyId(editing ? "" : company.id)}>Düzenle</AdminButton>}
-                    <AdminButton compact variant="success" onClick={() => company.phone ? window.open(`https://wa.me/${String(company.phone).replace(/\D/g, "").startsWith("90") ? String(company.phone).replace(/\D/g, "") : `90${String(company.phone).replace(/\D/g, "").replace(/^0/, "")}`}`, "_blank") : setCustomerActionResult({ title: "WhatsApp için telefon yok", summary: `${company.name} için telefon/WhatsApp bilgisi girilmemiş.`, status: "warning", nextActions: ["Müşteri kartında telefon bilgisini tamamla."] })}>WhatsApp</AdminButton>
-                    <AdminButton compact variant="secondary" onClick={() => setCustomerActionResult({ title: `${company.name} için görev taslağı hazırlandı`, summary: "Müşteriyle ilgili takip görevi oluşturmak için Görevler ekranına geçebilirsiniz.", status: "prepared", createdRecords: [{ label: "Görev taslağı", count: 1, status: "Hazırlandı" }], nextActions: ["Görevler ekranında sorumlu kişi ve son tarih belirle.", "Müşteri profilindeki açık görevleri kontrol et."], checkLinks: [{ label: "Görevleri Gör", href: "/hk-admin/gorevler" }] })}>Görev oluştur</AdminButton>
-                    <AdminButton compact variant="info" onClick={() => setActive?.("Raporlar")}>Rapor oluştur</AdminButton>
-                    <AdminButton compact variant="warning" onClick={() => setActive?.("Tahsilat")}>Tahsilat ekle</AdminButton>
-                    {canManageCustomers && !isDeletedCompany(company) && !isArchivedCompany(company) && (isPassiveCompany(company) ? <AdminButton compact variant="success" disabled={loading === `activate-${company.id}`} onClick={() => runLifecycleAction(company, "activate")}>Aktifleştir</AdminButton> : <AdminButton compact variant="warning" disabled={loading === `deactivate-${company.id}`} onClick={() => runLifecycleAction(company, "deactivate")}>Pasifleştir</AdminButton>)}
-                    {canManageCustomers && !isDeletedCompany(company) && (isArchivedCompany(company) ? <AdminButton compact variant="info" disabled={loading === `unarchive-${company.id}`} onClick={() => runLifecycleAction(company, "unarchive")}>Arşivden çıkar</AdminButton> : <AdminButton compact variant="secondary" disabled={loading === `archive-${company.id}`} onClick={() => runLifecycleAction(company, "archive")}>Arşivle</AdminButton>)}
-                    {canManageCustomers && !isDeletedCompany(company) && <AdminButton compact variant="danger" disabled={loading === `delete-${company.id}`} onClick={() => runLifecycleAction(company, "delete")}>Sil</AdminButton>}
-                    {canManageCustomers && isDeletedCompany(company) && <AdminButton compact variant="success" disabled={loading === `restore-${company.id}`} onClick={() => runLifecycleAction(company, "restore")}>Geri yükle</AdminButton>}
-                    {canManageCustomers && isDeletedCompany(company) && <AdminButton compact variant="warning" disabled={loading === `archive-${company.id}`} onClick={() => runLifecycleAction(company, "archive")}>Arşivle</AdminButton>}
-                    {legacyRole(currentSession?.role) === "admin" && isDeletedCompany(company) && <AdminButton compact variant="danger" disabled={loading === `permanent-delete-${company.id}`} onClick={() => { setPermanentDeleteTarget(company); setPermanentDeleteName(""); }}>Kalıcı Sil</AdminButton>}
-                  </div>
-                </div>
-                {editing && (
-                  <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    <Field label="Firma Adı" value={company.name} onChange={(v) => updateCompany(company.id, { name: v })} />
-                    <OtherSelectField label="Sektör" value={company.sector} onChange={(v) => updateCompany(company.id, { sector: v })} options={sectorOptions} manualLabel="Sektörü yazın" />
-                    <OtherSelectField label="Şehir" value={company.city} onChange={(v) => updateCompany(company.id, { city: v })} options={cityOptions} manualLabel="Şehri yazın" />
-                    <SelectField label="Durum" value={company.status} onChange={(v) => updateCompany(company.id, { status: v })} options={companyStatusOptions} />
-                    <Field label="Web Sitesi" value={company.website} onChange={(v) => updateCompany(company.id, { website: v })} />
-                    <Field label="Instagram" value={company.instagram} onChange={(v) => updateCompany(company.id, { instagram: v })} />
-                    <Field label="Telefon" value={company.phone} onChange={(v) => updateCompany(company.id, { phone: v })} />
-                    <Field label="E-posta" value={company.email} onChange={(v) => updateCompany(company.id, { email: v })} />
-                    <TextArea label="Notlar" value={company.notes} onChange={(v) => updateCompany(company.id, { notes: v })} />
-                    <div className="self-end">
-                      <AdminButton variant="primary" disabled={loading === `company-${company.id}`} onClick={() => saveCompany(company)}>
-                        {loading === `company-${company.id}` ? "Kaydediliyor..." : "Firmayı kaydet"}
-                      </AdminButton>
-                    </div>
-                  </div>
-                )}
+        leftPanel={
+          <AdminControlPanel>
+            <AdminFilterSection title="Ara">
+              <AdminSearchInput
+                value={smartSearch}
+                onChange={(value) => { setSmartSearch(value); setCompanyQuery(value); }}
+                placeholder="Firma, kişi, telefon, sektör, şehir…"
+              />
+            </AdminFilterSection>
+            <AdminFilterSection title="Görünüm">
+              <div className="flex flex-wrap gap-1.5">
+                {viewButtons.map((button) => <AdminButton key={button.key} compact variant={view === button.key ? "info" : "secondary"} onClick={() => setView(button.key as any)}>{button.label} · {button.count}</AdminButton>)}
               </div>
-            );
-          })}
-          {!companies.length && (
-            <AdminEmptyState
-              title="Bu aramayla eşleşen müşteri bulunamadı."
-              description="Arama terimini veya hızlı filtreleri genişletebilir, yeni müşteri ya da lead keşfi başlatabilirsiniz."
-              actions={<>
-                {canManageCustomers && <AdminButton compact variant="info" onClick={() => setOpenForm("company")}>Yeni Firma Oluştur</AdminButton>}
-                <AdminButton compact variant="info" onClick={() => setActive?.("Haritalar")}>Google Maps&apos;te Müşteri Ara</AdminButton>
-                <AdminButton compact variant="secondary" onClick={() => setActive?.("Lead Merkezi")}>Lead Olarak Kaydet</AdminButton>
-                <AdminButton compact variant="secondary" onClick={clearCustomerFilters}>Filtreleri Temizle</AdminButton>
-              </>}
-            />
-          )}
-        </div>
-      </AdminSection>
+            </AdminFilterSection>
+            <AdminFilterSection title="Hızlı Filtreler">
+              <AdminFilterBar options={quickFilterOptions} active={quickFilters} onToggle={toggleQuickFilter} onClear={clearCustomerFilters} />
+            </AdminFilterSection>
+            <AdminFilterSection title="Sağlık / Öncelik">
+              <AdminFilterBar options={["Tümü", "Riskli", "Kontrol gerekli", "Sağlıklı", "Büyüme potansiyeli"]} active={[healthFilter]} onToggle={setHealthFilter} multi={false} />
+            </AdminFilterSection>
+            <AdminFilterSection title="Kayıt Türü">
+              <AdminFilterBar options={["Gerçek müşteriler", "Test müşterileri", "Tümü"]} active={[{ live: "Gerçek müşteriler", test: "Test müşterileri", all: "Tümü" }[recordVisibility]]} onToggle={(label) => setRecordVisibility({ "Gerçek müşteriler": "live", "Test müşterileri": "test", "Tümü": "all" }[label])} multi={false} />
+            </AdminFilterSection>
+            <AdminFilterSection title="Son Açılanlar">
+              <div className="grid gap-1.5">
+                {recentCustomers.map((company: any) => <button key={company.id} onClick={() => setSelectedGridCompanyId(company.id)} className="admin-card rounded-[8px] p-2 text-left text-xs font-bold" style={{ color: "var(--admin-text-primary)" }}>{company.name}</button>)}
+                {!recentCustomers.length && <p className="text-[11px]" style={{ color: "var(--admin-text-muted)" }}>Henüz müşteri profili açılmadı.</p>}
+              </div>
+            </AdminFilterSection>
+            <AdminFilterSection title="Favoriler">
+              <div className="grid gap-1.5">
+                {favoriteCustomers.map((company: any) => <button key={company.id} onClick={() => setSelectedGridCompanyId(company.id)} className="rounded-[8px] bg-amber-50 p-2 text-left text-xs font-bold text-amber-800 ring-1 ring-amber-200">★ {company.name}</button>)}
+                {!favoriteCustomers.length && <p className="text-[11px]" style={{ color: "var(--admin-text-muted)" }}>Yıldız ile favorilere ekleyin.</p>}
+              </div>
+            </AdminFilterSection>
+          </AdminControlPanel>
+        }
+        rightPanel={
+          <AdminDetailInspector
+            title={selectedGridCompany?.name}
+            subtitle={selectedGridCompany ? `${selectedGridCompany.sector || selectedGridCompany.business_type || "Sektör yok"} · ${selectedGridCompany.city || "Şehir yok"}` : undefined}
+            emptyTitle="Bir müşteri seçin"
+            emptyDescription="Listeden bir satıra tıklayarak detaylarını buradan görüntüleyin."
+            fields={selectedGridCompany ? [
+              { label: "Telefon", value: selectedGridCompany.phone || selectedGridCompany.whatsapp || "Yok" },
+              { label: "Yetkili", value: selectedGridCompany.contact_name || selectedGridCompany.owner_name || selectedGridCompany.responsible_person || "Belirtilmedi" },
+              { label: "Açık Görev", value: companyTasks(selectedGridCompany.id).filter((item: any) => isOpenTask(item)).length },
+              { label: "Bekleyen Ödeme", value: `${companyPayments(selectedGridCompany.id).filter((item: any) => ["Bekliyor", "Gecikmiş", "Gecikti"].includes(item.status || "Bekliyor")).reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0).toLocaleString("tr-TR")} TL` },
+              { label: "Entegrasyon", value: Boolean(selectedGridCompany.meta_account_id || selectedGridCompany.google_ads_customer_id || selectedGridCompany.ga4_property_id || selectedGridCompany.search_console_site_url || selectedGridCompany.gtm_container_id) ? "Tamam" : "Eksik" },
+              { label: "Son Temas", value: formatDate(selectedGridCompany.last_contact_at || selectedGridCompany.updated_at) }
+            ] : undefined}
+            actions={selectedGridCompany ? <>
+              <AdminButton compact variant="info" onClick={() => openCustomerProfile(selectedGridCompany)}>Tam Profili Aç</AdminButton>
+              {canManageCustomers && <AdminButton compact variant="secondary" onClick={() => setEditingCompanyId(selectedGridEditing ? "" : selectedGridCompany.id)}>{selectedGridEditing ? "Düzenlemeyi Kapat" : "Düzenle"}</AdminButton>}
+              <AdminButton compact variant="success" onClick={() => selectedGridCompany.phone ? window.open(`https://wa.me/${String(selectedGridCompany.phone).replace(/\D/g, "").startsWith("90") ? String(selectedGridCompany.phone).replace(/\D/g, "") : `90${String(selectedGridCompany.phone).replace(/\D/g, "").replace(/^0/, "")}`}`, "_blank") : setCustomerActionResult({ title: "WhatsApp için telefon yok", summary: `${selectedGridCompany.name} için telefon/WhatsApp bilgisi girilmemiş.`, status: "warning", nextActions: ["Müşteri kartında telefon bilgisini tamamla."] })}>WhatsApp</AdminButton>
+              <AdminButton compact variant="warning" onClick={() => setActive?.("Tahsilat")}>Tahsilat Ekle</AdminButton>
+              <AdminButton compact variant="info" onClick={() => setActive?.("Raporlar")}>Rapor Oluştur</AdminButton>
+              {canManageCustomers && !isDeletedCompany(selectedGridCompany) && !isArchivedCompany(selectedGridCompany) && (isPassiveCompany(selectedGridCompany) ? <AdminButton compact variant="success" disabled={loading === `activate-${selectedGridCompany.id}`} onClick={() => runLifecycleAction(selectedGridCompany, "activate")}>Aktifleştir</AdminButton> : <AdminButton compact variant="warning" disabled={loading === `deactivate-${selectedGridCompany.id}`} onClick={() => runLifecycleAction(selectedGridCompany, "deactivate")}>Pasifleştir</AdminButton>)}
+              {canManageCustomers && !isDeletedCompany(selectedGridCompany) && (isArchivedCompany(selectedGridCompany) ? <AdminButton compact variant="info" disabled={loading === `unarchive-${selectedGridCompany.id}`} onClick={() => runLifecycleAction(selectedGridCompany, "unarchive")}>Arşivden Çıkar</AdminButton> : <AdminButton compact variant="secondary" disabled={loading === `archive-${selectedGridCompany.id}`} onClick={() => runLifecycleAction(selectedGridCompany, "archive")}>Arşivle</AdminButton>)}
+              {canManageCustomers && !isDeletedCompany(selectedGridCompany) && <AdminButton compact variant="danger" disabled={loading === `delete-${selectedGridCompany.id}`} onClick={() => runLifecycleAction(selectedGridCompany, "delete")}>Sil</AdminButton>}
+              {canManageCustomers && isDeletedCompany(selectedGridCompany) && <AdminButton compact variant="success" disabled={loading === `restore-${selectedGridCompany.id}`} onClick={() => runLifecycleAction(selectedGridCompany, "restore")}>Geri Yükle</AdminButton>}
+              {legacyRole(currentSession?.role) === "admin" && isDeletedCompany(selectedGridCompany) && <AdminButton compact variant="danger" disabled={loading === `permanent-delete-${selectedGridCompany.id}`} onClick={() => { setPermanentDeleteTarget(selectedGridCompany); setPermanentDeleteName(""); }}>Kalıcı Sil</AdminButton>}
+            </> : undefined}
+          >
+            {selectedGridEditing && selectedGridCompany && (
+              <div className="grid gap-2">
+                <Field label="Firma Adı" value={selectedGridCompany.name} onChange={(v) => updateCompany(selectedGridCompany.id, { name: v })} />
+                <OtherSelectField label="Sektör" value={selectedGridCompany.sector} onChange={(v) => updateCompany(selectedGridCompany.id, { sector: v })} options={sectorOptions} manualLabel="Sektörü yazın" />
+                <OtherSelectField label="Şehir" value={selectedGridCompany.city} onChange={(v) => updateCompany(selectedGridCompany.id, { city: v })} options={cityOptions} manualLabel="Şehri yazın" />
+                <SelectField label="Durum" value={selectedGridCompany.status} onChange={(v) => updateCompany(selectedGridCompany.id, { status: v })} options={companyStatusOptions} />
+                <Field label="Telefon" value={selectedGridCompany.phone} onChange={(v) => updateCompany(selectedGridCompany.id, { phone: v })} />
+                <Field label="E-posta" value={selectedGridCompany.email} onChange={(v) => updateCompany(selectedGridCompany.id, { email: v })} />
+                <TextArea label="Notlar" value={selectedGridCompany.notes} onChange={(v) => updateCompany(selectedGridCompany.id, { notes: v })} />
+                <AdminButton compact variant="primary" disabled={loading === `company-${selectedGridCompany.id}`} onClick={() => saveCompany(selectedGridCompany)}>
+                  {loading === `company-${selectedGridCompany.id}` ? "Kaydediliyor..." : "Firmayı Kaydet"}
+                </AdminButton>
+              </div>
+            )}
+          </AdminDetailInspector>
+        }
+        bottomBar={
+          <AdminActionBar statusText={`${companies.length} eşleşme · ${filterRecordsByVisibility(allCompanies, "live").filter((company) => companyHealth(company).score < 60).length} riskli${selectedCustomerIds.length ? ` · ${selectedCustomerIds.length} seçili` : ""}`}>
+            {selectedCustomerIds.length > 0 ? <>
+              <AdminButton compact variant="success" onClick={() => runCustomerBulkAction("Toplu WhatsApp mesajı hazırlandı", ["Mesajları kontrol et.", "Gönderim sonrası son temas tarihlerini güncelle."])}>Toplu WhatsApp</AdminButton>
+              <AdminButton compact variant="info" onClick={() => runCustomerBulkAction("Toplu görev taslağı hazırlandı", ["Görevler ekranında görevleri oluştur.", "Sorumlu kişi ve son tarih ata."])}>Toplu Görev</AdminButton>
+              <AdminButton compact variant="secondary" onClick={() => runCustomerBulkAction("Toplu rapor taslağı hazırlandı", ["Rapor Merkezi’nde müşteri raporlarını kontrol et."])}>Toplu Rapor</AdminButton>
+              <AdminButton compact variant="warning" onClick={() => runCustomerBulkAction("Toplu etiket hazırlığı oluşturuldu", ["Etiket bilgisini müşteri kartında kaydet."])}>Toplu Etiket</AdminButton>
+              <AdminButton compact variant="secondary" onClick={() => setSelectedCustomerIds([])}>Seçimi Temizle</AdminButton>
+            </> : <>
+              <a href={customerExportUrl("excel")} className="hk-button hk-button-neutral hk-button-compact">Excel</a>
+              <a href={customerExportUrl("word")} className="hk-button hk-button-neutral hk-button-compact">Word</a>
+              <a href={customerExportUrl("pdf")} className="hk-button hk-button-neutral hk-button-compact">PDF</a>
+              <a href={customerExportUrl("csv")} className="hk-button hk-button-neutral hk-button-compact">CSV</a>
+            </>}
+          </AdminActionBar>
+        }
+      >
+        {priorityCustomers.length > 0 && (
+          <div className="admin-card-soft mb-4 rounded-[12px] border border-purple-200 p-3">
+            <h4 className="text-xs font-black uppercase tracking-wide text-purple-700">Bugün Öncelikli Bakılacaklar</h4>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              {priorityCustomers.map(({ company, health, reason, action }: any) => (
+                <div key={company.id} className="rounded-[10px] bg-white p-2.5 text-xs ring-1 ring-purple-100">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <strong className="text-slate-950">{company.name}</strong>
+                    <AdminStatusBadge tone={healthScoreTone(health.score)}>{health.score}/100</AdminStatusBadge>
+                  </div>
+                  <p className="mt-1 text-slate-600">{reason}</p>
+                  <button type="button" className="mt-1.5 font-bold text-purple-700 underline" onClick={() => setSelectedGridCompanyId(company.id)}>{action} →</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        <AdminDataGrid
+          columns={gridColumns}
+          rows={companies}
+          rowKey={(company) => company.id}
+          selectedIds={selectedCustomerIds}
+          onToggleSelect={toggleSelectedCustomer}
+          activeId={selectedGridCompanyId}
+          onRowClick={(company) => setSelectedGridCompanyId(company.id)}
+          emptyTitle="Bu aramayla eşleşen müşteri bulunamadı."
+          emptyDescription="Arama terimini veya hızlı filtreleri genişletebilir, yeni müşteri ya da lead keşfi başlatabilirsiniz."
+          emptyActions={<>
+            {canManageCustomers && <AdminButton compact variant="info" onClick={() => setOpenForm("company")}>Yeni Firma Oluştur</AdminButton>}
+            <AdminButton compact variant="info" onClick={() => setActive?.("Haritalar")}>Google Maps&apos;te Müşteri Ara</AdminButton>
+            <AdminButton compact variant="secondary" onClick={() => setActive?.("Lead Merkezi")}>Lead Olarak Kaydet</AdminButton>
+            <AdminButton compact variant="secondary" onClick={clearCustomerFilters}>Filtreleri Temizle</AdminButton>
+          </>}
+        />
+      </AdminWorkspace>
       {openForm === "company" && <CustomerFormModal title="Yeni Firma Oluştur" onClose={() => setOpenForm("")}>
         <div className="grid gap-3 md:grid-cols-2">
           <Field label="Firma Adı" value={companyForm.name} onChange={(v) => setCompanyForm({ ...companyForm, name: v })} />
@@ -6378,7 +6401,7 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
           close={() => setDetailCompanyId("")}
         />
       )}
-    </Panel>
+    </div>
   );
 }
 

@@ -3856,3 +3856,360 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
     transform: rotateX(6deg);
   }
 }
+
+/* =====================================================================
+   Desktop workspace kit (AdminWorkspace / AdminDataGrid / AdminControlPanel
+   / AdminDetailInspector / AdminActionBar / AdminCompactKpiStrip) — used by
+   deeply-migrated /hk-admin modules (Dashboard, Müşteriler, ...). Compact,
+   dense, ERP/CRM-style internal module layout. Below 1024px this collapses
+   to a single stacked column (existing mobile behavior is preserved).
+   ===================================================================== */
+
+.admin-workspace-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.admin-workspace-eyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--nav-accent-text, var(--admin-text-muted));
+  margin: 0 0 2px;
+}
+
+.admin-workspace-title {
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--admin-text, var(--admin-text-primary));
+  margin: 0;
+}
+
+.admin-workspace-description {
+  font-size: 12.5px;
+  color: var(--admin-text-secondary);
+  margin: 4px 0 0;
+  max-width: 62ch;
+}
+
+.admin-workspace-drawer-toggle {
+  display: none;
+}
+
+/* ---- KPI strip ---------------------------------------------------- */
+.admin-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.admin-kpi-strip-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-surface, var(--admin-card));
+  text-align: left;
+}
+
+.admin-kpi-strip-icon {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  flex-shrink: 0;
+  color: #fff;
+}
+
+.admin-kpi-strip-primary .admin-kpi-strip-icon { background: #0891b2; }
+.admin-kpi-strip-success .admin-kpi-strip-icon { background: #059669; }
+.admin-kpi-strip-info .admin-kpi-strip-icon { background: #2563eb; }
+.admin-kpi-strip-warning .admin-kpi-strip-icon { background: #d97706; }
+.admin-kpi-strip-danger .admin-kpi-strip-icon { background: #dc2626; }
+.admin-kpi-strip-ai .admin-kpi-strip-icon { background: #7c3aed; }
+
+.admin-kpi-strip-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.admin-kpi-strip-text strong {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--admin-text, var(--admin-text-primary));
+  line-height: 1.2;
+}
+
+.admin-kpi-strip-text span {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--admin-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- Control panel (left) ------------------------------------------ */
+.admin-control-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.admin-filter-section-title {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--admin-text-muted);
+  margin: 0 0 6px;
+}
+
+/* ---- Data grid ------------------------------------------------------- */
+.admin-data-grid-scroll {
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  overflow: auto;
+}
+
+table.admin-data-grid {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.admin-data-grid thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--admin-surface-muted, var(--admin-surface-soft));
+  color: var(--admin-text-muted);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--admin-border);
+  white-space: nowrap;
+}
+
+.admin-data-grid tbody td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--admin-border);
+  color: var(--admin-text, var(--admin-text-primary));
+  vertical-align: middle;
+}
+
+.admin-data-grid tbody tr:hover {
+  background: var(--admin-surface-muted, var(--admin-surface-soft));
+}
+
+.admin-data-grid tbody tr.is-clickable {
+  cursor: pointer;
+}
+
+.admin-data-grid tbody tr.is-active td {
+  background: var(--nav-accent-soft, var(--admin-surface-soft));
+}
+
+.admin-data-grid-select-col {
+  width: 32px;
+  text-align: center !important;
+}
+
+/* ---- Detail inspector (right) ---------------------------------------- */
+.admin-detail-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-detail-inspector-head strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--admin-text, var(--admin-text-primary));
+}
+
+.admin-detail-inspector-head span {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--admin-text-secondary);
+}
+
+.admin-detail-inspector-fields {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-detail-inspector-field {
+  border-radius: 7px;
+  padding: 6px 8px;
+  background: var(--admin-surface-muted, var(--admin-surface-soft));
+}
+
+.admin-detail-inspector-field p:first-child {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--admin-text-muted);
+  margin: 0;
+}
+
+.admin-detail-inspector-field p:last-child {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--admin-text, var(--admin-text-primary));
+  margin: 2px 0 0;
+  word-break: break-word;
+}
+
+.admin-detail-inspector-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+/* ---- Action bar (bottom) ---------------------------------------------- */
+.admin-action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--admin-border);
+}
+
+.admin-action-bar-status {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: var(--admin-text-muted);
+  white-space: nowrap;
+}
+
+.admin-action-bar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* ---- Desktop 3-column layout (≥1024px) -------------------------------- */
+@media (min-width: 1024px) {
+  .admin-workspace {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .admin-workspace-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .admin-workspace-body:has(.admin-workspace-left):has(.admin-workspace-right) {
+    grid-template-columns: 250px minmax(0, 1fr) 320px;
+  }
+
+  .admin-workspace-body:has(.admin-workspace-left):not(:has(.admin-workspace-right)) {
+    grid-template-columns: 250px minmax(0, 1fr);
+  }
+
+  .admin-workspace-body:not(:has(.admin-workspace-left)):has(.admin-workspace-right) {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+
+  .admin-workspace-left,
+  .admin-workspace-center,
+  .admin-workspace-right {
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .admin-workspace-left,
+  .admin-workspace-right {
+    border: 1px solid var(--admin-border);
+    border-radius: 10px;
+    padding: 12px;
+    background: var(--admin-surface, var(--admin-card));
+  }
+
+  .admin-workspace-bottom {
+    position: sticky;
+    bottom: 0;
+    background: var(--admin-bg);
+  }
+}
+
+/* <1024px: stack, drawers replace inline left/right panels ------------- */
+@media (max-width: 1023.98px) {
+  .admin-workspace-drawer-toggle {
+    display: inline-flex;
+  }
+
+  .admin-workspace-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .admin-workspace-drawer-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    background: rgba(15, 23, 42, .45);
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .admin-workspace-drawer {
+    width: min(86vw, 340px);
+    height: 100%;
+    overflow-y: auto;
+    background: var(--admin-bg);
+    padding: 14px;
+    box-shadow: -12px 0 40px rgba(15, 23, 42, .25);
+  }
+
+  .admin-workspace-drawer-right {
+    margin-left: auto;
+  }
+
+  .admin-workspace-drawer-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .admin-workspace-drawer-head button {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid var(--admin-border);
+    background: transparent;
+  }
+}

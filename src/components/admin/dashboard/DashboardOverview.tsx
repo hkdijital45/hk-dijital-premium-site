@@ -1,10 +1,12 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { ChevronDown, ChevronRight, Plus, Settings2 } from "lucide-react";
-import { AdminHero } from "@/components/admin/ui/AdminHero";
+import { ChevronRight, Gauge, Plus, Settings2, Sparkles, TrendingUp } from "lucide-react";
+import { AdminWorkspace } from "@/components/admin/workspace/AdminWorkspace";
+import { AdminCompactKpiStrip, type AdminCompactKpiItem } from "@/components/admin/workspace/AdminCompactKpiStrip";
+import { AdminActionBar } from "@/components/admin/workspace/AdminActionBar";
+import { AdminDetailInspector } from "@/components/admin/workspace/AdminDetailInspector";
 import { DashboardCustomizePanel } from "./DashboardHero";
-import { DashboardKpiGrid } from "./DashboardKpiGrid";
 import { DashboardPriorityActions } from "./DashboardPriorityActions";
 import { DashboardCustomerRisks } from "./DashboardCustomerRisks";
 import { DashboardRecentActivity } from "./DashboardRecentActivity";
@@ -12,9 +14,6 @@ import { DashboardUpcomingTasks } from "./DashboardUpcomingTasks";
 import { DashboardFinanceSummary } from "./DashboardFinanceSummary";
 import { DashboardSalesPipeline } from "./DashboardSalesPipeline";
 import { DashboardAdPerformance } from "./DashboardAdPerformance";
-import { DashboardAiRecommendations } from "./DashboardAiRecommendations";
-import { DashboardCenterGrid, type DashboardCenterCard } from "./DashboardCenterGrid";
-import { DashboardQuickAccessStrip } from "./DashboardQuickAccessStrip";
 import type {
   DashboardActivityItem,
   DashboardAiHealthDimension,
@@ -65,11 +64,13 @@ export interface DashboardOverviewProps {
   aiHealthDimensions: DashboardAiHealthDimension[];
   automationSuggestions: DashboardAutomationSuggestion[];
 
-  centerCards: DashboardCenterCard[];
+  centerCards: unknown;
 
   websiteAnalytics: ReactNode;
   advanced: ReactNode;
 }
+
+const KPI_ICONS: ReactNode[] = [<Gauge key="0" size={14} />, <TrendingUp key="1" size={14} />, <Sparkles key="2" size={14} />];
 
 export function DashboardOverview(props: DashboardOverviewProps) {
   const {
@@ -101,41 +102,72 @@ export function DashboardOverview(props: DashboardOverviewProps) {
     adPerformance,
     aiHealthDimensions,
     automationSuggestions,
-    centerCards,
     websiteAnalytics,
     advanced
   } = props;
 
+  const kpiItems: AdminCompactKpiItem[] = dailyKpis.map((item, index) => ({
+    key: item.label,
+    label: item.label,
+    value: item.value,
+    icon: item.icon || KPI_ICONS[index % KPI_ICONS.length],
+    tone: item.tone,
+    onClick: () => onNavigate(item.target)
+  }));
+
+  const criticalCount = priorityActions.filter((item) => item.severity === "Kritik").length;
+
   return (
-    <div className="admin-dashboard-overview grid w-full min-w-0 gap-5">
-      <AdminHero
-        className="hk-dashboard-hero"
-        style={{ order: -20 }}
-        eyebrow={`${greeting}, ${userName}`}
-        title="Ajansınızın tüm süreçleri tek platformda."
-        description="Müşterilerinizi, reklam operasyonlarınızı, içerik üretiminizi ve finans süreçlerinizi tek merkezden yönetin."
-        actions={
-          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
-            <details className="group relative flex-1 sm:flex-none">
-              <summary className="hk-button hk-button-primary min-w-[150px] cursor-pointer list-none justify-center"><Plus size={18} /> Hızlı İşlem</summary>
-              <div className="admin-card absolute right-0 z-30 mt-2 grid w-[min(92vw,360px)] gap-2 rounded-[16px] p-3 shadow-2xl">
-                {quickActions.map((item) => (
-                  <button type="button" key={item.label} onClick={() => onNavigate(item.target)} className="hk-button hk-button-neutral justify-start">
-                    <span style={{ color: "var(--nav-accent-text, #0e7490)" }}>{item.icon}</span>
-                    {item.label}
-                    <ChevronRight className="ml-auto" size={16} />
-                  </button>
-                ))}
+    <AdminWorkspace
+      eyebrow={`${greeting}, ${userName}`}
+      title="Operasyon Merkezi"
+      description="Bugünkü öncelikler, müşteri riskleri ve operasyon durumu tek ekranda."
+      headerActions={
+        <>
+          <details className="group relative">
+            <summary className="hk-button hk-button-primary hk-button-compact cursor-pointer list-none"><Plus size={14} /> Hızlı İşlem</summary>
+            <div className="admin-card absolute right-0 z-30 mt-2 grid w-[min(92vw,320px)] gap-1.5 rounded-[12px] p-2 shadow-2xl">
+              {quickActions.map((item) => (
+                <button type="button" key={item.label} onClick={() => onNavigate(item.target)} className="hk-button hk-button-neutral hk-button-compact justify-start">
+                  {item.icon}
+                  {item.label}
+                  <ChevronRight className="ml-auto" size={14} />
+                </button>
+              ))}
+            </div>
+          </details>
+          <button type="button" onClick={onToggleCustomizing} aria-pressed={customizing} className="hk-button hk-button-edit hk-button-compact"><Settings2 size={14} /> Düzenle</button>
+        </>
+      }
+      rightPanel={
+        <AdminDetailInspector title="AI Sağlık Skoru" subtitle="Reklam, içerik, lead, satış ve tahsilat sağlığı">
+          <div className="admin-detail-inspector-fields">
+            {aiHealthDimensions.map((item) => (
+              <div key={item.label} className="admin-detail-inspector-field">
+                <p>{item.label} · {item.score}/100 · {item.status}</p>
+                <p style={{ fontWeight: 500 }}>{item.reason}</p>
               </div>
-            </details>
-            <button type="button" onClick={onToggleCustomizing} aria-pressed={customizing} className="hk-button hk-button-edit"><Settings2 size={18} /> Dashboard&apos;u Düzenle</button>
+            ))}
           </div>
-        }
-      />
-
-      <DashboardQuickAccessStrip />
-
-      <DashboardCenterGrid cards={centerCards} />
+          <div className="admin-detail-inspector-actions" style={{ flexDirection: "column", alignItems: "stretch" }}>
+            {automationSuggestions.map((item) => (
+              <button key={item.title} type="button" onClick={() => onNavigate(item.target)} className="hk-button hk-button-neutral hk-button-compact justify-start">
+                {item.title}
+              </button>
+            ))}
+            {!automationSuggestions.length && <p style={{ fontSize: 12, color: "var(--admin-text-muted)" }}>Bekleyen otomasyon aksiyonu yok.</p>}
+          </div>
+        </AdminDetailInspector>
+      }
+      bottomBar={
+        <AdminActionBar statusText={`${criticalCount} kritik uyarı · ${riskyCustomers.length} riskli müşteri`}>
+          <button type="button" onClick={() => onNavigate("Müşteriler")} className="hk-button hk-button-info hk-button-compact">Yeni Müşteri</button>
+          <button type="button" onClick={() => onNavigate("Görevler")} className="hk-button hk-button-neutral hk-button-compact">Yeni Görev</button>
+          <button type="button" onClick={() => onNavigate("Raporlar")} className="hk-button hk-button-success hk-button-compact">Rapor Oluştur</button>
+        </AdminActionBar>
+      }
+    >
+      {isWidgetVisible("dailySummary") && <AdminCompactKpiStrip items={kpiItems} />}
 
       {customizing && (
         <DashboardCustomizePanel
@@ -148,37 +180,40 @@ export function DashboardOverview(props: DashboardOverviewProps) {
         />
       )}
 
-      {isWidgetVisible("priorityActions") && (
-        <DashboardPriorityActions items={priorityActions} commandPlan={commandPlan} onGeneratePlan={onGenerateDailyPlan} onNavigate={onNavigate} />
-      )}
+      <div className="grid min-w-0 gap-4">
+        {isWidgetVisible("priorityActions") && (
+          <DashboardPriorityActions items={priorityActions} commandPlan={commandPlan} onGeneratePlan={onGenerateDailyPlan} onNavigate={onNavigate} />
+        )}
 
-      {isWidgetVisible("customerRisks") && <DashboardCustomerRisks items={riskyCustomers} onNavigate={onNavigate} />}
-
-      {isWidgetVisible("activity") && (
-        <DashboardRecentActivity items={recentActivity} filter={activityFilter} onFilterChange={onActivityFilterChange} onNavigate={onNavigate} />
-      )}
-
-      <details className="group admin-card rounded-[20px]">
-        <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500">
-          <span>
-            <strong className="block text-lg" style={{ color: "var(--admin-text-primary)" }}>Detaylı analiz ve operasyon araçları</strong>
-            <span className="mt-1 block text-sm" style={{ color: "var(--admin-text-secondary)" }}>Günlük özet, bekleyen görevler, finans, satış hunisi, reklam performansı, AI önerileri ve gelişmiş kontrol panelleri.</span>
-          </span>
-          <ChevronDown size={20} className="shrink-0 text-slate-500 transition group-open:rotate-180" />
-        </summary>
-        <div className="grid gap-5 border-t p-4 sm:p-5" style={{ borderColor: "var(--admin-border)" }}>
-          {isWidgetVisible("dailySummary") && <DashboardKpiGrid items={dailyKpis} onNavigate={onNavigate} />}
-          <DashboardUpcomingTasks items={upcomingTasks} onNavigate={onNavigate} />
-          <DashboardFinanceSummary overviewCards={overviewCards} packageDistribution={packageDistribution} onNavigate={onNavigate} />
-          <section className="grid min-w-0 gap-5 xl:grid-cols-2">
-            <DashboardSalesPipeline stages={pipelineStages} onNavigate={onNavigate} />
-            <DashboardAdPerformance {...adPerformance} onNavigate={onNavigate} />
+        {(isWidgetVisible("customerRisks") || isWidgetVisible("upcomingTasks")) && (
+          <section className="grid min-w-0 gap-4 xl:grid-cols-2">
+            {isWidgetVisible("customerRisks") && <DashboardCustomerRisks items={riskyCustomers} onNavigate={onNavigate} />}
+            {isWidgetVisible("upcomingTasks") && <DashboardUpcomingTasks items={upcomingTasks} onNavigate={onNavigate} />}
           </section>
-          {websiteAnalytics}
-          <DashboardAiRecommendations dimensions={aiHealthDimensions} suggestions={automationSuggestions} onNavigate={onNavigate} />
-          {advanced}
-        </div>
-      </details>
-    </div>
+        )}
+
+        {isWidgetVisible("activity") && (
+          <DashboardRecentActivity items={recentActivity} filter={activityFilter} onFilterChange={onActivityFilterChange} onNavigate={onNavigate} />
+        )}
+
+        <DashboardFinanceSummary overviewCards={overviewCards} packageDistribution={packageDistribution} onNavigate={onNavigate} />
+
+        <section className="grid min-w-0 gap-4 xl:grid-cols-2">
+          <DashboardSalesPipeline stages={pipelineStages} onNavigate={onNavigate} />
+          <DashboardAdPerformance {...adPerformance} onNavigate={onNavigate} />
+        </section>
+
+        {websiteAnalytics}
+
+        <details className="group admin-card rounded-[14px]">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-black" style={{ color: "var(--admin-text-primary)" }}>
+            Gelişmiş operasyon panelleri (bildirimler, sistem sağlığı, başarılar, ajans haritası)
+          </summary>
+          <div className="border-t p-4" style={{ borderColor: "var(--admin-border)" }}>
+            {advanced}
+          </div>
+        </details>
+      </div>
+    </AdminWorkspace>
   );
 }
