@@ -67,7 +67,6 @@ import { AdminMobileNavigation } from "@/components/admin/shell/AdminMobileNavig
 import { AdminTopHeader } from "@/components/admin/shell/AdminTopHeader";
 
 const salesPipelineStages = ["Yeni Lead", "İletişim Kuruldu", "Toplantı Yapıldı", "Teklif Gönderildi", "Takipte", "Kazanıldı", "Kaybedildi"];
-const customerLifecycleStages = ["Lead", "Görüşme", "Teklif", "Kazanıldı", "Onboarding", "Aktif Müşteri", "Raporlama", "Tahsilat", "Yenileme", "Referans"];
 const crmActiveStatuses = ["Yeni Başvuru", "İletişime Geçildi", "Takipte", "Teklif Gönderildi", "Müşteri Oldu"];
 const crmStatusTabs = ["Tüm Başvurular", "Yeni Başvurular", "İletişime Geçildi", "Takipte", "Teklif Gönderildi", "Müşteri Oldu", "Meta Analiz", "Google Ads Analiz", "Reddedilenler", "Silinenler"];
 const leadStatuses = [...new Set([...crmActiveStatuses, ...salesPipelineStages, "Yeni", "Görüşülecek", "Teklif Hazırlanıyor", "Kazanıldı", "Kaybedildi", "Dönüştürüldü", "Reddedildi"])];
@@ -3591,12 +3590,130 @@ function AgencyTasksCenter({ content, setContent, save, currentSession, notify, 
     if (["archive", "delete", "complete"].includes(action)) setSelectedTasks([]);
   };
   const branchName = (branchId?: string) => (content.customerBranches || []).find((branch) => branch.id === branchId)?.branch_name || "";
-  return <Panel title="Görev Takip Sistemi">{bulkResult && <div className="mb-5"><ActionResultPanel result={bulkResult} onNavigate={(href) => window.location.assign(href)} /></div>}{companyFilter && <div className="mb-5"><CustomerWorkflowLinks companyId={companyFilter} /></div>}<div className="mb-5 grid gap-3 md:grid-cols-4"><AgencyStatCard label="Bugünkü görev" value={activeItems.filter((item) => item.due_date === today && !["Tamamlandı", "İptal"].includes(item.status)).length} note="Bugün tamamlanması gereken işler" /><AgencyStatCard label="Geciken" value={activeItems.filter((item) => item.due_date && item.due_date < today && !["Tamamlandı", "İptal"].includes(item.status)).length} note="Takip bekleyen gecikmiş işler" tone="red" /><AgencyStatCard label="Kritik" value={activeItems.filter((item) => item.priority === "Kritik" && !["Tamamlandı", "İptal"].includes(item.status)).length} note="Öncelikli operasyon işleri" tone="amber" /><AgencyStatCard label="Bu hafta tamamlandı" value={completedWeek} note="Son 7 günde kapanan görevler" tone="emerald" /></div><div className="mb-4 flex flex-wrap items-center gap-3">{canManage && <button onClick={add} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Görev ekle</button>}<span className="rounded-full border border-slate-200 px-3 py-2 text-xs text-slate-600">Görev Geçmişi: {filteredItems.length} kayıt</span>{selectedTasks.length > 0 && <span className="rounded-full bg-cyan-50 px-3 py-2 text-xs font-black text-cyan-800 ring-1 ring-cyan-200">{selectedTasks.length} görev seçildi</span>}</div><div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-6"><SelectField label="Durum filtresi" value={statusFilter} onChange={setStatusFilter} options={taskHistoryFilters} /><CompanySelect value={companyFilter} onChange={(value) => { setCompanyFilter(value); setBranchFilter(""); }} companies={content.companies} /><SelectField label="Şube filtresi" value={branchFilter} onChange={setBranchFilter} options={companyBranches.map((branch) => ({ value: branch.id, label: branch.branch_name }))} placeholder={companyFilter ? "Tüm şubeler" : "Önce müşteri seçin"} /><Field label="Başlangıç tarihi" type="date" value={startDate} onChange={setStartDate} /><Field label="Bitiş tarihi" type="date" value={endDate} onChange={setEndDate} /><button onClick={() => { setStatusFilter("Tümü"); setCompanyFilter(""); setBranchFilter(""); setStartDate(""); setEndDate(""); setSelectedTasks([]); }} className="self-end rounded-[8px] border border-slate-200 px-4 py-3 text-sm font-black text-slate-700">Filtreleri Temizle</button></div><div className="mb-5 flex flex-wrap gap-2">{["Liste", "Kanban", "Takvim", "Müşteri bazlı"].map((view) => <button key={view} onClick={() => setTaskView(view)} className={`rounded-full px-4 py-2 text-xs font-black transition ${taskView === view ? "bg-cyan-300 text-slate-950" : "border border-slate-200 bg-white text-slate-700 hover:bg-cyan-50"}`}>{view}</button>)}</div>{selectedTasks.length > 0 && <div className="mb-5 rounded-[16px] border border-cyan-200 bg-cyan-50 p-4"><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><strong className="text-sm text-cyan-950">Toplu aksiyon barı · {selectedTasks.length} görev</strong><div className="flex flex-wrap gap-2"><button onClick={() => setSelectedTasks(filteredItems.map((item) => item.id).filter(Boolean))} className="rounded-full border border-cyan-200 bg-white px-3 py-2 text-xs font-black text-cyan-700">Tümünü seç</button><button onClick={() => setSelectedTasks([])} className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700">Seçilenleri temizle</button></div></div><div className="flex flex-wrap gap-2"><RecordActionButton tone="emerald" onClick={() => runBulk("complete")}>Tamamlandı yap</RecordActionButton><RecordActionButton tone="amber" onClick={() => runBulk("archive")}>Arşivle</RecordActionButton><RecordActionButton tone="red" onClick={() => runBulk("delete")}>Sil</RecordActionButton><RecordActionButton tone="cyan" onClick={() => runBulk("today")}>Bugüne al</RecordActionButton><RecordActionButton tone="cyan" onClick={() => runBulk("this_week")}>Bu haftaya planla</RecordActionButton><RecordActionButton tone="cyan" onClick={() => runBulk("show_to_customer")}>Müşteriye göster</RecordActionButton><RecordActionButton onClick={() => runBulk("hide_from_customer")}>Müşteriden gizle</RecordActionButton></div><div className="mt-3 grid gap-3 md:grid-cols-3"><Field label="Erteleme tarihi" type="date" value={bulkDueDate} onChange={setBulkDueDate} /><SelectField label="Yeni öncelik" value={bulkPriority} onChange={setBulkPriority} options={["Düşük", "Orta", "Yüksek", "Kritik"]} /><SelectField label="Kullanıcı ata" value={bulkAssignee} onChange={setBulkAssignee} options={(content.users || []).map((user) => ({ value: user.id, label: user.full_name || user.email }))} placeholder="Atanmadı" /></div><div className="mt-3 flex flex-wrap gap-2"><RecordActionButton tone="cyan" onClick={() => runBulk("postpone", { due_date: bulkDueDate })}>Ertele</RecordActionButton><RecordActionButton tone="amber" onClick={() => runBulk("change_priority", { priority: bulkPriority })}>Öncelik değiştir</RecordActionButton><RecordActionButton tone="cyan" onClick={() => runBulk("assign", { assigned_user_id: bulkAssignee })}>Kullanıcı ata</RecordActionButton><RecordActionButton tone="cyan" onClick={() => window.location.assign(`/hk-admin/agent-hub?taskType=workflow_task&prompt=${encodeURIComponent(`${selectedTasks.length} görev için operasyon analizi yap.`)}`)}>Agent ile analiz et</RecordActionButton><RecordActionButton tone="cyan" onClick={() => recordActionDetail("Rapor Notu Taslağı", selectedTasks.map((id) => ["Görev", items.find((item) => item.id === id)?.title || id]))}>Rapor notuna dönüştür</RecordActionButton></div></div>}{taskView === "Kanban" && <div className="mb-5 grid gap-3 xl:grid-cols-4">{["Yapılacak", "Devam Ediyor", "Beklemede", "Tamamlandı"].map((status) => <div key={status} className="rounded-[16px] border border-slate-200 bg-slate-50 p-3"><h3 className="font-black text-slate-950">{status}</h3><div className="mt-3 grid gap-2">{filteredItems.filter((item) => (item.status || "Yapılacak") === status).map((item) => <button key={item.id || item.title} onClick={() => setExpandedTask(item.id || item.title)} className="rounded-[12px] bg-white p-3 text-left text-sm ring-1 ring-slate-200"><strong className="block text-slate-950">{item.title || "Görev"}</strong><span className="mt-1 block text-xs text-slate-500">{companyName(content, item.company_id)} · {formatDate(item.due_date)}</span></button>)}{!filteredItems.filter((item) => (item.status || "Yapılacak") === status).length && <p className="text-xs text-slate-400">Bu sütunda görev yok.</p>}</div></div>)}</div>}{taskView === "Takvim" && <div className="mb-5 grid gap-2">{filteredItems.slice().sort((a, b) => String(a.due_date || "").localeCompare(String(b.due_date || ""))).map((item) => <div key={item.id || item.title} className="grid gap-3 rounded-[14px] border border-slate-200 bg-slate-50 p-3 md:grid-cols-[130px_1fr_auto] md:items-center"><span className="rounded-full bg-white px-3 py-2 text-center text-xs font-black text-cyan-700 ring-1 ring-cyan-200">{formatDate(item.due_date)}</span><span><strong className="block text-slate-950">{item.title || "Görev"}</strong><span className="text-xs text-slate-500">{companyName(content, item.company_id)} · {item.status || "Yapılacak"}</span></span><RecordActionButton tone="cyan" onClick={() => setExpandedTask(item.id || item.title)}>Görüntüle</RecordActionButton></div>)}</div>}{taskView === "Müşteri bazlı" && <div className="mb-5 grid gap-3 md:grid-cols-2">{(content.companies || []).filter((company) => filteredItems.some((item) => item.company_id === company.id)).map((company) => <div key={company.id} className="rounded-[16px] border border-slate-200 bg-slate-50 p-3"><h3 className="font-black text-slate-950">{company.name}</h3><div className="mt-2 grid gap-2">{filteredItems.filter((item) => item.company_id === company.id).map((item) => <button key={item.id || item.title} onClick={() => setExpandedTask(item.id || item.title)} className="rounded-[10px] bg-white p-2 text-left text-xs text-slate-600 ring-1 ring-slate-200"><strong className="block text-slate-950">{item.title || "Görev"}</strong>{item.status || "Yapılacak"} · {formatDate(item.due_date)}</button>)}</div></div>)}</div>}<div className="grid gap-3">{filteredItems.map((item) => {
-    const index = items.findIndex((candidate) => candidate.id === item.id);
-    const archived = isArchivedRecord(item);
-    const open = expandedTask === (item.id || `${index}`);
-    return <div key={item.id || index} className={`rounded-[12px] border p-4 ${archived ? "border-amber-300/25 bg-amber-50" : "border-slate-200 bg-slate-50"}`}><div className="flex flex-wrap items-center gap-3"><input type="checkbox" checked={selectedTasks.includes(item.id)} onChange={() => toggleTask(item.id)} className="size-4" /><div className="min-w-0 flex-1"><h3 className="truncate font-black text-slate-950">{item.title || "Adsız görev"}</h3><p className="mt-1 text-xs text-slate-500">{companyName(content, item.company_id)}{item.branch_id ? ` · ${branchName(item.branch_id)}` : ""} · Son tarih: {formatDate(item.due_date)}</p></div><span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-700 ring-1 ring-slate-200">{item.status || "Yapılacak"}</span><span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-black text-cyan-700 ring-1 ring-cyan-200">{item.priority || "Orta"}</span><span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-600">{(content.users || []).find((user) => user.id === item.assigned_user_id)?.full_name || "Atanmadı"}</span><RecordActionButton tone="cyan" onClick={() => setExpandedTask(open ? "" : (item.id || `${index}`))}>{open ? "Detayı Kapat" : "Görüntüle"}</RecordActionButton>{canManage && <RecordActionButton tone="emerald" onClick={() => setStatus(item.id, item.status === "Tamamlandı" ? "Yapılacak" : "Tamamlandı")}>{item.status === "Tamamlandı" ? "Tekrar Aç" : "Tamamlandı Yap"}</RecordActionButton>}</div>{open && <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4"><Field label="Başlık" value={item.title || ""} onChange={(value) => update(index, { title: value })} /><CompanySelect value={item.company_id || ""} onChange={(value) => update(index, { company_id: value, branch_id: "" })} companies={content.companies} /><SelectField label="Şube" value={item.branch_id || ""} onChange={(value) => update(index, { branch_id: value })} options={(content.customerBranches || []).filter((branch) => branch.company_id === item.company_id).map((branch) => ({ value: branch.id, label: branch.branch_name }))} placeholder="Tüm şubeler" /><SelectField label="Durum" value={item.status || "Yapılacak"} onChange={(value) => canManage && setStatus(item.id, value)} options={taskStatusOptions} /><SelectField label="Öncelik" value={item.priority || "Orta"} onChange={(value) => update(index, { priority: value })} options={["Düşük", "Orta", "Yüksek", "Kritik"]} /><Field label="Son tarih" type="date" value={item.due_date || ""} onChange={(value) => update(index, { due_date: value })} /><SelectField label="Atanan kullanıcı" value={item.assigned_user_id || ""} onChange={(value) => update(index, { assigned_user_id: value })} options={(content.users || []).map((user) => ({ value: user.id, label: user.full_name || user.email }))} placeholder="Atanmadı" /><label className="flex items-center gap-2 self-end rounded-[10px] border border-cyan-200 bg-white px-3 py-3 text-sm font-bold text-cyan-800"><input type="checkbox" checked={Boolean(item.visible_to_customer || item.show_to_customer)} onChange={(event) => update(index, { visible_to_customer: event.target.checked, show_to_customer: event.target.checked })} /> Müşteriye gösterilsin</label><div className="md:col-span-2 xl:col-span-4"><TextArea label="Açıklama / not" value={item.description || item.notes || ""} onChange={(value) => update(index, { description: value, notes: value })} /></div><div className="md:col-span-2 xl:col-span-4 flex flex-wrap justify-end gap-2">{canManage && (archived ? <RecordActionButton tone="amber" onClick={() => updateById(item.id, { archived_at: null, deleted_at: null }, "Görev arşivden çıkarıldı")}>Arşivden Çıkar</RecordActionButton> : <RecordActionButton tone="amber" onClick={() => updateById(item.id, { archived_at: new Date().toISOString() }, "Görev arşivlendi")}>Arşivle</RecordActionButton>)}{canManage && <RecordActionButton tone="red" onClick={() => deleteTask(item.id)}>Sil</RecordActionButton>}{canManage && <button onClick={() => save?.()} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Kaydet</button>}</div></div>}</div>;
-  })}{!filteredItems.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-6 text-sm text-slate-400">Bu filtrelerle görev kaydı bulunamadı.</p>}</div></Panel>;
+  const selectedTask = expandedTask ? items.find((item) => (item.id || `${items.indexOf(item)}`) === expandedTask) : null;
+  const selectedTaskIndex = selectedTask ? items.findIndex((candidate) => candidate.id === selectedTask.id) : -1;
+  const taskGridColumns: AdminDataGridColumn<any>[] = [
+    { key: "title", header: "Başlık", render: (item: any) => <div className="min-w-0"><strong className="block truncate" style={{ color: "var(--admin-text, var(--admin-text-primary))" }}>{item.title || "Adsız görev"}</strong><span className="block truncate text-[11px]" style={{ color: "var(--admin-text-muted)" }}>{companyName(content, item.company_id)}{item.branch_id ? ` · ${branchName(item.branch_id)}` : ""}</span></div> },
+    { key: "due", header: "Son Tarih", render: (item: any) => formatDate(item.due_date) },
+    { key: "status", header: "Durum", render: (item: any) => <AdminStatusBadge tone={item.status === "Tamamlandı" ? "success" : item.status === "İptal" ? "neutral" : "info"}>{item.status || "Yapılacak"}</AdminStatusBadge> },
+    { key: "priority", header: "Öncelik", render: (item: any) => <AdminStatusBadge tone={item.priority === "Kritik" ? "danger" : item.priority === "Yüksek" ? "warning" : "neutral"}>{item.priority || "Orta"}</AdminStatusBadge> },
+    { key: "assignee", header: "Atanan", render: (item: any) => (content.users || []).find((user) => user.id === item.assigned_user_id)?.full_name || "Atanmadı" }
+  ];
+  return (
+    <div className="w-full min-w-0 max-w-none">
+      {bulkResult && <div className="mb-3"><ActionResultPanel result={bulkResult} onNavigate={(href) => window.location.assign(href)} /></div>}
+      {companyFilter && <div className="mb-3"><CustomerWorkflowLinks companyId={companyFilter} /></div>}
+      <AdminWorkspace
+        eyebrow="Operasyon · Görev Takibi"
+        title="Görevler"
+        description="Ajans içi yapılacak işler ve müşteri görünür görevler."
+        headerActions={<>
+          {canManage && <AdminButton compact variant="primary" onClick={add}>+ Yeni Görev</AdminButton>}
+          <div className="flex flex-wrap gap-1">
+            {["Liste", "Kanban", "Takvim", "Müşteri bazlı"].map((view) => <AdminButton key={view} compact variant={taskView === view ? "info" : "secondary"} onClick={() => setTaskView(view)}>{view}</AdminButton>)}
+          </div>
+        </>}
+        leftPanel={
+          <AdminControlPanel>
+            <AdminFilterSection title="Özet">
+              <div className="grid gap-1.5">
+                <AdminStatusBadge tone="info">Bugün: {activeItems.filter((item) => item.due_date === today && !["Tamamlandı", "İptal"].includes(item.status)).length}</AdminStatusBadge>
+                <AdminStatusBadge tone="danger">Geciken: {activeItems.filter((item) => item.due_date && item.due_date < today && !["Tamamlandı", "İptal"].includes(item.status)).length}</AdminStatusBadge>
+                <AdminStatusBadge tone="warning">Kritik: {activeItems.filter((item) => item.priority === "Kritik" && !["Tamamlandı", "İptal"].includes(item.status)).length}</AdminStatusBadge>
+                <AdminStatusBadge tone="success">Bu hafta tamam: {completedWeek}</AdminStatusBadge>
+              </div>
+            </AdminFilterSection>
+            <AdminFilterSection title="Filtreler">
+              <div className="grid gap-2">
+                <SelectField label="Durum" value={statusFilter} onChange={setStatusFilter} options={taskHistoryFilters} />
+                <CompanySelect value={companyFilter} onChange={(value) => { setCompanyFilter(value); setBranchFilter(""); }} companies={content.companies} />
+                <SelectField label="Şube" value={branchFilter} onChange={setBranchFilter} options={companyBranches.map((branch) => ({ value: branch.id, label: branch.branch_name }))} placeholder={companyFilter ? "Tüm şubeler" : "Önce müşteri seçin"} />
+                <Field label="Başlangıç tarihi" type="date" value={startDate} onChange={setStartDate} />
+                <Field label="Bitiş tarihi" type="date" value={endDate} onChange={setEndDate} />
+                <AdminButton compact variant="secondary" onClick={() => { setStatusFilter("Tümü"); setCompanyFilter(""); setBranchFilter(""); setStartDate(""); setEndDate(""); setSelectedTasks([]); }}>Filtreleri Temizle</AdminButton>
+              </div>
+            </AdminFilterSection>
+            {selectedTasks.length > 0 && (
+              <AdminFilterSection title={`Toplu İşlem · ${selectedTasks.length} görev`}>
+                <div className="grid gap-2">
+                  <Field label="Erteleme tarihi" type="date" value={bulkDueDate} onChange={setBulkDueDate} />
+                  <SelectField label="Yeni öncelik" value={bulkPriority} onChange={setBulkPriority} options={["Düşük", "Orta", "Yüksek", "Kritik"]} />
+                  <SelectField label="Kullanıcı ata" value={bulkAssignee} onChange={setBulkAssignee} options={(content.users || []).map((user) => ({ value: user.id, label: user.full_name || user.email }))} placeholder="Atanmadı" />
+                  <AdminButton compact variant="secondary" onClick={() => runBulk("postpone", { due_date: bulkDueDate })}>Ertele</AdminButton>
+                  <AdminButton compact variant="secondary" onClick={() => runBulk("change_priority", { priority: bulkPriority })}>Öncelik değiştir</AdminButton>
+                  <AdminButton compact variant="secondary" onClick={() => runBulk("assign", { assigned_user_id: bulkAssignee })}>Kullanıcı ata</AdminButton>
+                  <AdminButton compact variant="ai" onClick={() => window.location.assign(`/hk-admin/agent-hub?taskType=workflow_task&prompt=${encodeURIComponent(`${selectedTasks.length} görev için operasyon analizi yap.`)}`)}>Agent ile analiz et</AdminButton>
+                  <AdminButton compact variant="secondary" onClick={() => recordActionDetail("Rapor Notu Taslağı", selectedTasks.map((id) => ["Görev", items.find((item) => item.id === id)?.title || id]))}>Rapor notuna dönüştür</AdminButton>
+                </div>
+              </AdminFilterSection>
+            )}
+          </AdminControlPanel>
+        }
+        rightPanel={
+          <AdminDetailInspector
+            title={selectedTask?.title || undefined}
+            subtitle={selectedTask ? `${companyName(content, selectedTask.company_id)}${selectedTask.branch_id ? ` · ${branchName(selectedTask.branch_id)}` : ""}` : undefined}
+            emptyTitle="Bir görev seçin"
+            emptyDescription="Listeden bir satıra tıklayarak detaylarını buradan düzenleyin."
+            actions={selectedTask ? <>
+              {canManage && <AdminButton compact variant="success" onClick={() => setStatus(selectedTask.id, selectedTask.status === "Tamamlandı" ? "Yapılacak" : "Tamamlandı")}>{selectedTask.status === "Tamamlandı" ? "Tekrar Aç" : "Tamamlandı Yap"}</AdminButton>}
+              {canManage && (isArchivedRecord(selectedTask) ? <AdminButton compact variant="info" onClick={() => updateById(selectedTask.id, { archived_at: null, deleted_at: null }, "Görev arşivden çıkarıldı")}>Arşivden Çıkar</AdminButton> : <AdminButton compact variant="warning" onClick={() => updateById(selectedTask.id, { archived_at: new Date().toISOString() }, "Görev arşivlendi")}>Arşivle</AdminButton>)}
+              {canManage && <AdminButton compact variant="danger" onClick={() => deleteTask(selectedTask.id)}>Sil</AdminButton>}
+              {canManage && <AdminButton compact variant="primary" onClick={() => save?.()}>Kaydet</AdminButton>}
+            </> : undefined}
+          >
+            {selectedTask && (
+              <div className="grid gap-2">
+                <Field label="Başlık" value={selectedTask.title || ""} onChange={(value) => update(selectedTaskIndex, { title: value })} />
+                <CompanySelect value={selectedTask.company_id || ""} onChange={(value) => update(selectedTaskIndex, { company_id: value, branch_id: "" })} companies={content.companies} />
+                <SelectField label="Şube" value={selectedTask.branch_id || ""} onChange={(value) => update(selectedTaskIndex, { branch_id: value })} options={(content.customerBranches || []).filter((branch) => branch.company_id === selectedTask.company_id).map((branch) => ({ value: branch.id, label: branch.branch_name }))} placeholder="Tüm şubeler" />
+                <SelectField label="Durum" value={selectedTask.status || "Yapılacak"} onChange={(value) => canManage && setStatus(selectedTask.id, value)} options={taskStatusOptions} />
+                <SelectField label="Öncelik" value={selectedTask.priority || "Orta"} onChange={(value) => update(selectedTaskIndex, { priority: value })} options={["Düşük", "Orta", "Yüksek", "Kritik"]} />
+                <Field label="Son tarih" type="date" value={selectedTask.due_date || ""} onChange={(value) => update(selectedTaskIndex, { due_date: value })} />
+                <SelectField label="Atanan kullanıcı" value={selectedTask.assigned_user_id || ""} onChange={(value) => update(selectedTaskIndex, { assigned_user_id: value })} options={(content.users || []).map((user) => ({ value: user.id, label: user.full_name || user.email }))} placeholder="Atanmadı" />
+                <label className="flex items-center gap-2 rounded-[8px] border border-cyan-200 bg-white px-3 py-2 text-xs font-bold text-cyan-800">
+                  <input type="checkbox" checked={Boolean(selectedTask.visible_to_customer || selectedTask.show_to_customer)} onChange={(event) => update(selectedTaskIndex, { visible_to_customer: event.target.checked, show_to_customer: event.target.checked })} /> Müşteriye gösterilsin
+                </label>
+                <TextArea label="Açıklama / not" value={selectedTask.description || selectedTask.notes || ""} onChange={(value) => update(selectedTaskIndex, { description: value, notes: value })} />
+              </div>
+            )}
+          </AdminDetailInspector>
+        }
+        bottomBar={
+          <AdminActionBar statusText={`${filteredItems.length} kayıt${selectedTasks.length ? ` · ${selectedTasks.length} seçili` : ""}`}>
+            {selectedTasks.length > 0 ? <>
+              <AdminButton compact variant="success" onClick={() => runBulk("complete")}>Tamamlandı Yap</AdminButton>
+              <AdminButton compact variant="warning" onClick={() => runBulk("archive")}>Arşivle</AdminButton>
+              <AdminButton compact variant="danger" onClick={() => runBulk("delete")}>Sil</AdminButton>
+              <AdminButton compact variant="info" onClick={() => runBulk("today")}>Bugüne Al</AdminButton>
+              <AdminButton compact variant="info" onClick={() => runBulk("this_week")}>Bu Haftaya Planla</AdminButton>
+              <AdminButton compact variant="secondary" onClick={() => runBulk("show_to_customer")}>Müşteriye Göster</AdminButton>
+              <AdminButton compact variant="secondary" onClick={() => runBulk("hide_from_customer")}>Müşteriden Gizle</AdminButton>
+              <AdminButton compact variant="secondary" onClick={() => setSelectedTasks([])}>Seçimi Temizle</AdminButton>
+            </> : <>
+              <AdminButton compact variant="secondary" onClick={() => setSelectedTasks(filteredItems.map((item) => item.id).filter(Boolean))}>Tümünü Seç</AdminButton>
+            </>}
+          </AdminActionBar>
+        }
+      >
+        {taskView === "Liste" && (
+          <AdminDataGrid
+            columns={taskGridColumns}
+            rows={filteredItems}
+            rowKey={(item, index) => item.id || `${index}`}
+            selectedIds={selectedTasks}
+            onToggleSelect={toggleTask}
+            activeId={expandedTask}
+            onRowClick={(item) => setExpandedTask(item.id || `${filteredItems.indexOf(item)}`)}
+            emptyTitle="Bu filtrelerle görev kaydı bulunamadı."
+          />
+        )}
+        {taskView === "Kanban" && <div className="grid gap-3 xl:grid-cols-4">{["Yapılacak", "Devam Ediyor", "Beklemede", "Tamamlandı"].map((status) => <div key={status} className="rounded-[10px] border p-3" style={{ borderColor: "var(--admin-border)" }}><h3 className="text-xs font-black" style={{ color: "var(--admin-text-primary)" }}>{status}</h3><div className="mt-2 grid gap-2">{filteredItems.filter((item) => (item.status || "Yapılacak") === status).map((item) => <button key={item.id || item.title} onClick={() => setExpandedTask(item.id || item.title)} className="admin-card rounded-[8px] p-2.5 text-left text-xs"><strong className="block" style={{ color: "var(--admin-text-primary)" }}>{item.title || "Görev"}</strong><span className="mt-1 block" style={{ color: "var(--admin-text-muted)" }}>{companyName(content, item.company_id)} · {formatDate(item.due_date)}</span></button>)}{!filteredItems.filter((item) => (item.status || "Yapılacak") === status).length && <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>Bu sütunda görev yok.</p>}</div></div>)}</div>}
+        {taskView === "Takvim" && <div className="grid gap-2">{filteredItems.slice().sort((a, b) => String(a.due_date || "").localeCompare(String(b.due_date || ""))).map((item) => <div key={item.id || item.title} className="grid gap-3 rounded-[8px] border p-3 md:grid-cols-[130px_1fr_auto] md:items-center" style={{ borderColor: "var(--admin-border)" }}><span className="rounded-full bg-white px-3 py-2 text-center text-xs font-black text-cyan-700 ring-1 ring-cyan-200">{formatDate(item.due_date)}</span><span><strong className="block" style={{ color: "var(--admin-text-primary)" }}>{item.title || "Görev"}</strong><span className="text-xs" style={{ color: "var(--admin-text-muted)" }}>{companyName(content, item.company_id)} · {item.status || "Yapılacak"}</span></span><AdminButton compact variant="info" onClick={() => setExpandedTask(item.id || item.title)}>Görüntüle</AdminButton></div>)}</div>}
+        {taskView === "Müşteri bazlı" && <div className="grid gap-3 md:grid-cols-2">{(content.companies || []).filter((company) => filteredItems.some((item) => item.company_id === company.id)).map((company) => <div key={company.id} className="rounded-[10px] border p-3" style={{ borderColor: "var(--admin-border)" }}><h3 className="text-xs font-black" style={{ color: "var(--admin-text-primary)" }}>{company.name}</h3><div className="mt-2 grid gap-2">{filteredItems.filter((item) => item.company_id === company.id).map((item) => <button key={item.id || item.title} onClick={() => setExpandedTask(item.id || item.title)} className="admin-card rounded-[8px] p-2 text-left text-xs" style={{ color: "var(--admin-text-secondary)" }}><strong className="block" style={{ color: "var(--admin-text-primary)" }}>{item.title || "Görev"}</strong>{item.status || "Yapılacak"} · {formatDate(item.due_date)}</button>)}</div></div>)}</div>}
+      </AdminWorkspace>
+    </div>
+  );
 }
 
 function DocumentCenter({ content, setContent, selectedCompanyId = "" }: any) {
@@ -4595,125 +4712,120 @@ function Crm({ content, setContent, view, setActive, currentSession }: any) {
     a.download = "hk-dijital-leads.csv";
     a.click();
   }
+  const crmGridColumns: AdminDataGridColumn<any>[] = [
+    { key: "company", header: "Firma / Ad", render: (lead: any) => <div className="min-w-0"><strong className="block truncate" style={{ color: "var(--admin-text, var(--admin-text-primary))" }}>{lead.company || lead.name || "İsimsiz başvuru"}</strong><span className="block truncate text-[11px]" style={{ color: "var(--admin-text-muted)" }}>{lead.source || "Form"} · {lead.phone || lead.email || "-"}</span></div> },
+    { key: "stage", header: "Aşama", render: (lead: any) => <AdminStatusBadge tone="info">{pipelineStageForLead(lead) || lead.status || "Yeni"}</AdminStatusBadge> },
+    { key: "heat", header: "Sıcaklık", render: (lead: any) => { const heat = heatBadge(lead); return <span className={`rounded-full border px-2 py-0.5 text-[11px] font-black ${heat.className}`}>{heat.label}</span>; } },
+    { key: "sector", header: "Sektör", render: (lead: any) => lead.business_type || lead.businessType || "-" },
+    { key: "budget", header: "Bütçe", render: (lead: any) => lead.budget || "-" },
+    { key: "contact", header: "Son Temas", render: (lead: any) => formatDate(lead.last_contact_at || lead.created_at || lead.createdAt) },
+    { key: "next", header: "Sıradaki Aksiyon", render: (lead: any) => lead.next_action || "-" }
+  ];
   return (
-    <Panel title={view === "Teklif Sihirbazı Kayıtları" ? "Teklif Sihirbazı Kayıtları" : view === "Lead Durumları" ? "Lead Merkezi" : "Form Başvuruları"}>
-      <div className="grid min-w-0 gap-5 xl:grid-cols-[240px_minmax(0,1fr)]">
-        <aside className="grid min-w-0 gap-4 self-start xl:w-[240px]">
-          <section className="rounded-[8px] border border-slate-200 bg-white p-3 shadow-[0_10px_28px_rgba(0,0,0,.12)]">
-            <p className="px-1 text-xs font-black uppercase tracking-[.14em] text-cyan-700">CRM klasörleri</p>
-            <div className="mt-3 grid gap-1.5">
+    <AdminWorkspace
+      eyebrow="Satış · CRM"
+      title={view === "Teklif Sihirbazı Kayıtları" ? "Teklif Sihirbazı Kayıtları" : view === "Lead Durumları" ? "Lead Merkezi" : "Form Başvuruları"}
+      description="Başvurular, lead durumları ve satış hunisi tek merkezden yönetilir."
+      headerActions={<>
+        <div className="flex flex-wrap gap-1">
+          <AdminButton compact variant={viewMode === "liste" ? "info" : "secondary"} onClick={() => setViewMode("liste")}>Liste</AdminButton>
+          <AdminButton compact variant={viewMode === "kanban" ? "info" : "secondary"} onClick={() => setViewMode("kanban")}>Kanban</AdminButton>
+        </div>
+        <AdminButton compact variant="secondary" onClick={exportCsv}>CSV Dışa Aktar</AdminButton>
+      </>}
+      leftPanel={
+        <AdminControlPanel>
+          <AdminFilterSection title="CRM Klasörleri">
+            <div className="grid gap-1.5">
               {crmFolders.map((folder) => (
-                <button key={folder.label} type="button" onClick={() => setFolderFilter(folder.label)} className={`group flex w-full min-w-0 items-center gap-2.5 rounded-[8px] border px-2.5 py-2 text-left transition ${folderFilter === folder.label ? "border-cyan-300/35 bg-cyan-300/10 text-cyan-700" : "border-transparent bg-transparent text-slate-600 hover:border-slate-200 hover:bg-white/[0.055] hover:text-slate-700"}`}>
-                  <span className={`grid size-8 shrink-0 place-items-center rounded-[8px] border ${folderFilter === folder.label ? "border-cyan-300/25 bg-cyan-300/10 text-cyan-700" : "border-slate-200 bg-white/[0.045] text-slate-400"}`}>{folder.icon}</span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-xs font-black">{folder.label}</span>
-                    <span className={`mt-0.5 hidden truncate text-[10px] leading-4 sm:block ${folderFilter === folder.label ? "text-cyan-700/70" : "text-slate-500"}`}>{folder.description}</span>
-                  </span>
-                  <span className={`grid min-w-7 shrink-0 place-items-center rounded-full px-2 py-1 text-[10px] font-black ${folderFilter === folder.label ? "bg-cyan-300 text-slate-950" : "bg-slate-50 text-slate-600"}`}>{folderCounts[folder.label] || 0}</span>
+                <button key={folder.label} type="button" onClick={() => setFolderFilter(folder.label)} className={`flex w-full min-w-0 items-center gap-2 rounded-[8px] border px-2 py-1.5 text-left transition ${folderFilter === folder.label ? "border-cyan-300 bg-cyan-50 text-cyan-700" : "border-transparent text-slate-600 hover:bg-slate-50"}`}>
+                  <span className="min-w-0 flex-1 truncate text-xs font-black">{folder.label}</span>
+                  <span className={`grid min-w-6 shrink-0 place-items-center rounded-full px-1.5 py-0.5 text-[10px] font-black ${folderFilter === folder.label ? "bg-cyan-500 text-white" : "bg-slate-100 text-slate-600"}`}>{folderCounts[folder.label] || 0}</span>
                 </button>
               ))}
             </div>
-          </section>
-          <section className="rounded-[8px] border border-slate-200 bg-slate-50 p-3">
-            <p className="px-1 text-xs font-black uppercase tracking-[.14em] text-slate-400">Son aktiviteler</p>
-            <div className="mt-3 grid gap-1.5">
-              {crmRecentActivity.map((item) => <div key={item.id} className="rounded-[8px] border border-slate-200 bg-white/[0.025] p-2.5"><p className="truncate text-xs font-black text-slate-900">{item.title}</p><p className="mt-1 truncate text-xs text-slate-400">{item.text}</p><p className="mt-1.5 text-[10px] font-bold text-slate-500">{item.date ? formatDateTime(item.date) : "Bekliyor"}</p></div>)}
-              {!crmRecentActivity.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-3 text-xs text-slate-400">Henüz aktivite yok.</p>}
+          </AdminFilterSection>
+          <AdminFilterSection title="Filtreler">
+            <div className="grid gap-2">
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Başvuru ara..." className="min-h-9 rounded-[8px] border border-slate-300 bg-white px-2 text-xs" />
+              <SelectField label="Kaynak" value={sourceFilter} onChange={setSourceFilter} options={leadSourceOptions} placeholder="Tüm kaynaklar" />
+              <SelectField label="Durum" value={statusFilter} onChange={setStatusFilter} options={leadStatuses} placeholder="Tüm durumlar" />
+              <SelectField label="Sektör" value={sectorFilter} onChange={setSectorFilter} options={sectorOptions} placeholder="Tüm sektörler" />
+              <SelectField label="Kayıt türü" value={recordVisibility} onChange={setRecordVisibility} options={[{ value: "live", label: "Gerçek kayıtlar" }, { value: "test", label: "Test kayıtları" }, { value: "all", label: "Tümü" }]} />
+              <input value={budgetFilter} onChange={(e) => setBudgetFilter(e.target.value)} placeholder="Bütçe filtresi" className="min-h-9 rounded-[8px] border border-slate-300 bg-white px-2 text-xs" />
+              <Field label="Başlangıç tarihi" type="date" value={dateFrom} onChange={setDateFrom} />
+              <Field label="Bitiş tarihi" type="date" value={dateTo} onChange={setDateTo} />
             </div>
-          </section>
-        </aside>
-        <div className="grid min-w-0 gap-4 2xl:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="min-w-0">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-slate-200 bg-white p-3">
-            <div><p className="text-xs font-black uppercase tracking-[.14em] text-cyan-700">{activeFolder.label}</p><h3 className="mt-1 text-base font-black text-slate-900">{folderCounts[activeFolder.label] || 0} kayıt</h3></div>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex gap-1 rounded-[10px] border border-slate-200 bg-slate-50 p-1">
-                <button type="button" onClick={() => setViewMode("liste")} className={`rounded-[7px] px-3 py-1.5 text-xs font-black transition ${viewMode === "liste" ? "bg-cyan-500 text-white shadow-sm" : "text-slate-600"}`}>Liste</button>
-                <button type="button" onClick={() => setViewMode("kanban")} className={`rounded-[7px] px-3 py-1.5 text-xs font-black transition ${viewMode === "kanban" ? "bg-cyan-500 text-white shadow-sm" : "text-slate-600"}`}>Kanban</button>
-              </div>
-              <button onClick={exportCsv} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[8px] bg-cyan-300 px-3 text-sm font-black text-slate-950"><Download size={16} /> CSV Dışa Aktar</button>
+          </AdminFilterSection>
+          <AdminFilterSection title="Son Aktiviteler">
+            <div className="grid gap-1.5">
+              {crmRecentActivity.map((item) => <div key={item.id} className="admin-detail-inspector-field"><p>{item.title}</p><p style={{ fontWeight: 500 }}>{item.text} · {item.date ? formatDateTime(item.date) : "Bekliyor"}</p></div>)}
+              {!crmRecentActivity.length && <p className="text-[11px]" style={{ color: "var(--admin-text-muted)" }}>Henüz aktivite yok.</p>}
             </div>
-          </div>
-          <div className="mb-4 flex flex-wrap gap-2">
-            {crmStatusTabs.map((tab) => <button key={tab} onClick={() => setStatusTab(tab)} className={`rounded-[8px] border px-3 py-2 text-xs font-black transition ${statusTab === tab ? "border-cyan-200/45 bg-cyan-200/10 text-cyan-700" : "border-slate-200 bg-white/[0.025] text-slate-400 hover:border-cyan-200/30 hover:text-cyan-700"}`}>{tab} <span className="ml-1 text-[10px] opacity-70">{tabCounts[tab] || 0}</span></button>)}
-          </div>
-          <div className="mb-4 grid gap-3 lg:grid-cols-[1.2fr_repeat(4,.7fr)]">
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Başvuru ara..." className="min-h-11 rounded-[8px] border border-slate-200 bg-slate-50 px-3 text-slate-900" />
-            <SelectField label="Kaynak" value={sourceFilter} onChange={setSourceFilter} options={leadSourceOptions} placeholder="Tüm kaynaklar" />
-            <SelectField label="Durum" value={statusFilter} onChange={setStatusFilter} options={leadStatuses} placeholder="Tüm durumlar" />
-            <SelectField label="Sektör" value={sectorFilter} onChange={setSectorFilter} options={sectorOptions} placeholder="Tüm sektörler" />
-            <SelectField label="Kayıt türü" value={recordVisibility} onChange={setRecordVisibility} options={[{ value: "live", label: "Gerçek kayıtlar" }, { value: "test", label: "Test kayıtları" }, { value: "all", label: "Tümü" }]} />
-          </div>
-          <div className="mb-4 grid gap-3 md:grid-cols-3">
-            <input value={budgetFilter} onChange={(e) => setBudgetFilter(e.target.value)} placeholder="Bütçe filtresi" className="min-h-11 rounded-[8px] border border-slate-200 bg-slate-50 px-3 text-slate-900" />
-            <Field label="Başlangıç tarihi" type="date" value={dateFrom} onChange={setDateFrom} />
-            <Field label="Bitiş tarihi" type="date" value={dateTo} onChange={setDateTo} />
-          </div>
-          {message && <p className="mb-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-700">{message}</p>}
-          {viewMode === "liste" && <div className="grid gap-3">
-            {leads.map((lead) => {
-              const heat = heatBadge(lead);
-              return (
-                <button key={lead.id} onClick={() => setSelectedLead(lead)} className="rounded-[8px] border border-slate-200 bg-white/[0.025] p-4 text-left transition hover:border-cyan-200/35 hover:bg-cyan-200/[0.045]">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div><h3 className="font-black">{lead.name || "İsimsiz başvuru"}</h3><p className="mt-1 text-sm text-slate-400">{lead.source || "Form"} · {lead.company || "-"} · {lead.phone || lead.email || "-"}</p></div>
-                    <div className="flex flex-wrap justify-end gap-2">{isTestRecord(lead) && <span className="rounded-full bg-violet-100 px-3 py-1 text-xs font-black text-violet-700">TEST</span>}<span className={`rounded-full border px-3 py-1 text-xs font-black ${heat.className}`}>{heat.label}</span><span className="rounded-full bg-cyan-200/10 px-3 py-1 text-xs font-bold text-cyan-700">{lead.status || "Yeni"}</span></div>
-                  </div>
-                  <p className="mt-3 text-sm text-slate-600">İşletme: {lead.business_type || lead.businessType || "-"} · Hedef: {lead.goal || "-"} · Bütçe: {lead.budget || "-"}</p>
-                  <p className="mt-1 text-xs text-slate-500">Önerilen paket: {lead.recommended_package || lead.recommendedPackage || "-"} · Gönderim: {formatDate(lead.created_at || lead.createdAt)}</p>
-                  {lead.rejection_reason && <p className="mt-2 rounded-[8px] border border-red-300/20 bg-red-500/10 p-2 text-xs text-red-100">Red nedeni: {lead.rejection_reason}</p>}
-                </button>
-              );
-            })}
-            {!leads.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-6 text-center text-sm text-slate-400">Bu klasörde seçili filtrelerle başvuru bulunamadı.</p>}
-          </div>}
-          {viewMode === "kanban" && <div className="grid min-w-0 grid-flow-col auto-cols-[260px] gap-3 overflow-x-auto pb-2">
-            {salesPipelineStages.map((stage) => {
-              const stageLeads = leads.filter((lead) => pipelineStageForLead(lead) === stage);
-              const accent = leadStageAccent[stage];
-              return (
-                <div key={stage} className="flex min-w-[260px] flex-col rounded-[14px] border" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-soft)" }}>
-                  <div className="flex items-center justify-between gap-2 rounded-t-[14px] p-3" style={{ background: `color-mix(in srgb, ${accent.solid} 18%, var(--admin-surface-soft))` }}>
-                    <span className="text-xs font-black" style={{ color: accent.solid }}>{stage}</span>
-                    <span className="rounded-full px-2 py-0.5 text-[10px] font-black text-white" style={{ background: accent.solid }}>{stageLeads.length}</span>
-                  </div>
-                  <div className="flex-1 space-y-2 p-2">
-                    {stageLeads.map((lead) => (
-                      <LeadKanbanCard key={lead.id} lead={lead} onOpen={() => setSelectedLead(lead)} onMove={(nextStage) => persistLead(lead.id, { status: nextStage, pipeline_stage: nextStage }, `${lead.company || lead.name || "Lead"} ${nextStage} aşamasına taşındı.`)} />
-                    ))}
-                    {!stageLeads.length && <p className="rounded-[10px] border border-dashed p-3 text-center text-[11px]" style={{ borderColor: "var(--admin-border)", color: "var(--admin-text-muted)" }}>Kayıt yok</p>}
-                  </div>
-                </div>
-              );
-            })}
-          </div>}
-          </div>
-          <aside className="h-fit rounded-[8px] border border-slate-200 bg-white p-4 shadow-[0_12px_34px_rgba(0,0,0,.14)]">
-            <p className="text-xs font-black uppercase tracking-[.14em] text-cyan-700">Lead önizleme</p>
-            {previewLead ? (
-              <div className="mt-4">
-                <h3 className="text-lg font-black text-slate-900">{previewLead.company || previewLead.name || "İsimsiz başvuru"}</h3>
-                <p className="mt-1 text-sm leading-6 text-slate-400">{previewLead.source || "Form"} · {previewLead.status || "Yeni"}</p>
-                <div className="mt-4 grid gap-2 text-sm">
-                  <InfoItem label="İletişim" value={previewLead.phone || previewLead.email || "-"} />
-                  <InfoItem label="Sektör" value={previewLead.business_type || previewLead.businessType || "-"} />
-                  <InfoItem label="Hedef" value={previewLead.goal || "-"} />
-                  <InfoItem label="Bütçe" value={previewLead.budget || "-"} />
-                </div>
-                <div className="mt-4 grid gap-2">
-                  <button onClick={() => setSelectedLead(previewLead)} className="rounded-[8px] bg-cyan-300 px-4 py-3 text-sm font-black text-slate-950">Düzenle / Detayı Aç</button>
-                  <button onClick={() => setSelectedLead(previewLead)} className="rounded-[8px] border border-purple-200/25 px-4 py-2 text-sm font-black text-purple-700">Yapay Zekâ Analiz</button>
-                  <button onClick={() => setActive("Teklif Hazırlama")} className="rounded-[8px] border border-amber-200/25 px-4 py-2 text-sm font-black text-amber-700">Teklif Hazırla</button>
-                  <a href={previewLead.phone ? `https://wa.me/${String(previewLead.phone).replace(/\D/g, "")}` : "#"} target="_blank" rel="noreferrer" className="rounded-[8px] border border-emerald-200/25 px-4 py-2 text-center text-sm font-black text-emerald-700">WhatsApp</a>
-                  <button onClick={() => setSelectedLead(previewLead)} className="rounded-[8px] border border-cyan-200/25 px-4 py-2 text-sm font-black text-cyan-700">PDF Audit</button>
-                </div>
-              </div>
-            ) : (
-              <p className="mt-4 rounded-[8px] border border-dashed border-slate-200 p-4 text-sm leading-6 text-slate-400">Bu klasörde önizlenecek lead bulunamadı.</p>
-            )}
-          </aside>
-        </div>
+          </AdminFilterSection>
+        </AdminControlPanel>
+      }
+      rightPanel={
+        <AdminDetailInspector
+          title={previewLead?.company || previewLead?.name || undefined}
+          subtitle={previewLead ? `${previewLead.source || "Form"} · ${previewLead.status || "Yeni"}` : undefined}
+          emptyTitle="Önizlenecek lead yok"
+          emptyDescription="Bu klasörde/filtrede gösterilecek bir kayıt bulunamadı."
+          fields={previewLead ? [
+            { label: "İletişim", value: previewLead.phone || previewLead.email || "-" },
+            { label: "Sektör", value: previewLead.business_type || previewLead.businessType || "-" },
+            { label: "Hedef", value: previewLead.goal || "-" },
+            { label: "Bütçe", value: previewLead.budget || "-" },
+            { label: "Önerilen Paket", value: previewLead.recommended_package || previewLead.recommendedPackage || "-" }
+          ] : undefined}
+          actions={previewLead ? <>
+            <AdminButton compact variant="info" onClick={() => setSelectedLead(previewLead)}>Detayı Aç</AdminButton>
+            <AdminButton compact variant="ai" onClick={() => setSelectedLead(previewLead)}>Yapay Zekâ Analiz</AdminButton>
+            <AdminButton compact variant="warning" onClick={() => setActive("Teklif Hazırlama")}>Teklif Hazırla</AdminButton>
+            <a href={previewLead.phone ? `https://wa.me/${String(previewLead.phone).replace(/\D/g, "")}` : "#"} target="_blank" rel="noreferrer" className="hk-button hk-button-success hk-button-compact">WhatsApp</a>
+          </> : undefined}
+        />
+      }
+      bottomBar={
+        <AdminActionBar statusText={`${leads.length} kayıt · ${activeFolder.label}`}>
+          <AdminButton compact variant="secondary" onClick={exportCsv}>CSV Dışa Aktar</AdminButton>
+        </AdminActionBar>
+      }
+    >
+      <div className="mb-3 flex flex-wrap gap-1.5">
+        {crmStatusTabs.map((tab) => <AdminButton key={tab} compact variant={statusTab === tab ? "info" : "secondary"} onClick={() => setStatusTab(tab)}>{tab} · {tabCounts[tab] || 0}</AdminButton>)}
       </div>
+      {message && <p className="mb-3 rounded-[8px] border border-cyan-200 bg-cyan-50 p-2.5 text-xs font-bold text-cyan-900">{message}</p>}
+      {viewMode === "liste" && (
+        <AdminDataGrid
+          columns={crmGridColumns}
+          rows={leads}
+          rowKey={(lead) => lead.id}
+          activeId={previewLead?.id}
+          onRowClick={(lead) => setSelectedLead(lead)}
+          emptyTitle="Bu klasörde seçili filtrelerle başvuru bulunamadı."
+        />
+      )}
+      {viewMode === "kanban" && <div className="grid min-w-0 grid-flow-col auto-cols-[260px] gap-3 overflow-x-auto pb-2">
+        {salesPipelineStages.map((stage) => {
+          const stageLeads = leads.filter((lead) => pipelineStageForLead(lead) === stage);
+          const accent = leadStageAccent[stage];
+          return (
+            <div key={stage} className="flex min-w-[260px] flex-col rounded-[10px] border" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-soft)" }}>
+              <div className="flex items-center justify-between gap-2 rounded-t-[10px] p-2.5" style={{ background: `color-mix(in srgb, ${accent.solid} 18%, var(--admin-surface-soft))` }}>
+                <span className="text-xs font-black" style={{ color: accent.solid }}>{stage}</span>
+                <span className="rounded-full px-2 py-0.5 text-[10px] font-black text-white" style={{ background: accent.solid }}>{stageLeads.length}</span>
+              </div>
+              <div className="flex-1 space-y-2 p-2">
+                {stageLeads.map((lead) => (
+                  <LeadKanbanCard key={lead.id} lead={lead} onOpen={() => setSelectedLead(lead)} onMove={(nextStage) => persistLead(lead.id, { status: nextStage, pipeline_stage: nextStage }, `${lead.company || lead.name || "Lead"} ${nextStage} aşamasına taşındı.`)} />
+                ))}
+                {!stageLeads.length && <p className="rounded-[8px] border border-dashed p-3 text-center text-[11px]" style={{ borderColor: "var(--admin-border)", color: "var(--admin-text-muted)" }}>Kayıt yok</p>}
+              </div>
+            </div>
+          );
+        })}
+      </div>}
       {selectedLead && <LeadDrawer lead={selectedLead} update={update} persistLead={persistLead} permanentDelete={permanentDelete} canPermanentlyDelete={legacyRole(currentSession?.role) === "admin"} canManageTestRecords={legacyRole(currentSession?.role) === "admin"} close={() => setSelectedLead(null)} onConverted={(data) => {
         setContent({
           ...content,
@@ -4723,7 +4835,7 @@ function Crm({ content, setContent, view, setActive, currentSession }: any) {
           customers: data.customer ? [data.customer, ...(content.customers || []).filter((item) => item.id !== data.customer.id)] : content.customers
         });
       }} />}
-    </Panel>
+    </AdminWorkspace>
   );
 }
 
@@ -6405,111 +6517,6 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
   );
 }
 
-function Customer360Summary({ company, campaigns, payments, tasks, reports, activities, relatedLead, competitorSignals = [], setTab, setActive }: any) {
-  const health = calculateCustomerHealth(company, { campaigns, payments, tasks, reports, activities, relatedLead });
-  const today = dateOnly(new Date().toISOString());
-  const activeCampaigns = campaigns.filter(isActiveCampaignRecord);
-  const pendingPayments = payments.filter((item) => !isArchivedRecord(item) && !["Ödendi", "İptal"].includes(item.status || "Bekliyor"));
-  const paidTotal = payments.filter((item) => !isArchivedRecord(item) && item.status === "Ödendi").reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const pendingTotal = pendingPayments.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const openTasks = tasks.filter(isOpenTask);
-  const lastReport = latestDateValue(reports, ["report_date", "published_at", "updated_at", "created_at", "endDate", "end_date"]);
-  const lastContact = latestDateValue([relatedLead, company, ...activities], ["last_contact_at", "next_action_at", "updated_at", "created_at"]);
-  const lastCompetitorSignal = latestDateValue(competitorSignals, ["detected_at", "created_at", "updated_at"]);
-  const overdueTasks = openTasks.filter((item) => item.due_date && item.due_date < today).length;
-  const leadPipelineStage = relatedLead ? pipelineStageForLead(relatedLead) : "";
-  const lifecycleStage = /referans/i.test(company.lifecycle_stage || company.status || "") ? "Referans"
-    : /yenile/i.test(company.lifecycle_stage || "") ? "Yenileme"
-    : pendingPayments.length ? "Tahsilat"
-    : reports.length ? "Raporlama"
-    : company.status === "Aktif" && activeCampaigns.length ? "Aktif Müşteri"
-    : /kazan|müşteri|dönüştür/i.test(leadPipelineStage) ? "Kazanıldı"
-    : /teklif/i.test(leadPipelineStage) ? "Teklif"
-    : /iletişim|görüş|toplantı|takip/i.test(leadPipelineStage) ? "Görüşme"
-    : relatedLead ? "Lead" : "Onboarding";
-  const summaryCards = [
-    { label: "Aktif kampanyalar", value: activeCampaigns.length, note: "Yayında / operasyonel", tab: "Kampanyalar" },
-    { label: "Bekleyen tahsilatlar", value: `${pendingTotal.toLocaleString("tr-TR")} TL`, note: `${pendingPayments.length} kayıt`, tab: "Ödemeler" },
-    { label: "Toplam tahsil edilen", value: `${paidTotal.toLocaleString("tr-TR")} TL`, note: "Ödenmiş kayıtlar", tab: "Ödemeler" },
-    { label: "Açık görevler", value: openTasks.length, note: overdueTasks ? `${overdueTasks} geciken görev` : "Geciken yok", tab: "Yapılacaklar" },
-    { label: "Son rapor tarihi", value: formatDate(lastReport), note: "Rapor güncelliği", tab: "Raporlar" },
-    { label: "Son temas tarihi", value: formatDate(lastContact), note: "İlişki takibi", tab: "Satış Durumu" },
-    { label: "Satış aşaması", value: relatedLead ? pipelineStageForLead(relatedLead) : company.status || "Aktif", note: "Pipeline durumu", tab: "Satış Durumu" },
-    { label: "Müşteri sağlık puanı", value: `${health.emoji} ${health.score}/100`, note: health.status, tab: "Zaman Çizelgesi" }
-  ];
-  const nextBestActions = [
-    pendingPayments.length && { label: "Tahsilat hatırlat", detail: `${pendingPayments.length} açık ödeme kaydı var.`, target: "Tahsilat", tab: "Ödemeler", tone: "amber" },
-    overdueTasks && { label: "Geciken görevleri kapat", detail: `${overdueTasks} görev gecikmiş görünüyor.`, target: "Görevler", tab: "Yapılacaklar", tone: "red" },
-    competitorSignals.length && { label: "Rakip sinyalini değerlendir", detail: `${competitorSignals.length} rakip sinyali müşteri için takip bekliyor.`, target: "Rakip Analizi", tab: "Zaman Çizelgesi", tone: "purple" },
-    !reports.length && { label: "İlk raporu hazırla", detail: "Bu müşteri için rapor kaydı görünmüyor.", target: "Müşteri Raporları", tab: "Raporlar", tone: "cyan" },
-    !activeCampaigns.length && { label: "Kampanya kontrol et", detail: "Aktif kampanya görünmüyor.", target: "Kampanyalar", tab: "Kampanyalar", tone: "cyan" },
-    { label: "Müşteriyi ara", detail: "Operasyon durumunu kısa görüşmeyle netleştir.", target: "Takip Merkezi", tab: "Satış Durumu", tone: "emerald" }
-  ].filter(Boolean).slice(0, 4);
-  return (
-    <div className="mb-5 rounded-[18px] border border-cyan-200/20 bg-white p-4 shadow-[0_18px_60px_rgba(2,6,23,.25)]">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Müşteri 360° Operasyon Merkezi</p>
-          <h3 className="mt-2 text-2xl font-black text-slate-900">Müşteri Özeti</h3>
-          <p className="mt-1 text-sm leading-6 text-slate-600">Kampanya, tahsilat, görev, rapor ve satış akışı tek müşteri profili içinde okunur.</p>
-        </div>
-        <button onClick={() => setActive?.("Satış Hunisi")} className="rounded-full border border-cyan-200/30 px-4 py-2 text-xs font-black text-cyan-700 transition hover:bg-cyan-300/10">Pipeline Aç</button>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          ["Firma", company.name || "-"],
-          ["Durum", company.status || "Aktif"],
-          ["Sektör / şehir", `${company.sector || "-"} · ${company.city || company.district || "-"}`],
-          ["Son rakip sinyali", formatDate(lastCompetitorSignal)]
-        ].map(([label, value]) => (
-          <div key={label} className="rounded-[14px] border border-cyan-100 bg-cyan-50 p-3">
-            <span className="block text-[10px] font-black uppercase tracking-[.12em] text-cyan-700">{label}</span>
-            <span className="mt-1 block truncate text-sm font-black text-slate-950">{value}</span>
-          </div>
-        ))}
-        {summaryCards.map((card) => (
-          <button key={card.label} onClick={() => setTab(card.tab)} className="min-w-0 rounded-[14px] border border-slate-200 bg-white/[0.055] p-3 text-left transition hover:-translate-y-0.5 hover:border-cyan-200/30 hover:bg-cyan-300/10">
-            <span className="block text-[11px] font-black uppercase tracking-[.12em] text-slate-400">{card.label}</span>
-            <span className="mt-2 block truncate text-lg font-black text-slate-900">{card.value || "-"}</span>
-            <span className="mt-1 block text-xs leading-5 text-slate-600">{card.note}</span>
-          </button>
-        ))}
-      </div>
-      <div className="mt-4 overflow-x-auto rounded-[14px] border border-slate-200 bg-slate-50 p-3">
-        <div className="flex min-w-[980px] items-center gap-2">
-          {customerLifecycleStages.map((stage, index) => {
-            const activeIndex = customerLifecycleStages.indexOf(lifecycleStage);
-            const complete = index < activeIndex;
-            const activeStage = stage === lifecycleStage;
-            return <div key={stage} className="flex min-w-0 flex-1 items-center gap-2"><span className={`grid size-7 shrink-0 place-items-center rounded-full text-[10px] font-black ${activeStage ? "bg-cyan-600 text-white" : complete ? "bg-emerald-100 text-emerald-700" : "bg-white text-slate-400 ring-1 ring-slate-200"}`}>{complete ? "✓" : index + 1}</span><span className={`truncate text-[11px] font-black ${activeStage ? "text-cyan-700" : complete ? "text-emerald-700" : "text-slate-400"}`}>{stage}</span>{index < customerLifecycleStages.length - 1 && <span className="h-px flex-1 bg-slate-200" />}</div>;
-          })}
-        </div>
-      </div>
-      <div className="mt-4 rounded-[14px] border border-slate-200 bg-slate-50 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm font-black text-slate-900">Neden bu puanı aldı?</p>
-          <span className={`rounded-full border px-3 py-1 text-xs font-black ${health.tone === "emerald" ? "border-emerald-300/30 text-emerald-700" : health.tone === "amber" ? "border-amber-300/30 text-amber-700" : "border-red-300/30 text-red-100"}`}>{health.emoji} {health.status}</span>
-        </div>
-        <div className="mt-3 grid gap-2 md:grid-cols-2">
-          {health.reasons.map((reason) => <p key={reason} className="rounded-[10px] border border-slate-200 bg-white px-3 py-2 text-xs leading-5 text-slate-600">{reason}</p>)}
-        </div>
-      </div>
-      <div className="mt-4 rounded-[14px] border border-emerald-200 bg-emerald-50 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-black text-slate-950">Sonraki En İyi Aksiyon</p>
-            <p className="mt-1 text-xs leading-5 text-emerald-900">Bu müşteri için tahsilat, görev, rapor, kampanya ve rakip sinyallerinden önerilen sıradaki işler.</p>
-          </div>
-          <button onClick={() => setActive?.("HK Intelligence CEO")} className="rounded-full border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-700">CEO Kokpitinde Aç</button>
-        </div>
-        <div className="mt-3 grid gap-2 md:grid-cols-2">
-          {nextBestActions.map((action: any) => <button key={action.label} onClick={() => { setTab(action.tab); setActive?.(action.target); }} className="rounded-[12px] border border-white bg-white p-3 text-left transition hover:border-emerald-200 hover:bg-emerald-50"><strong className="block text-sm text-slate-950">{action.label}</strong><span className="mt-1 block text-xs leading-5 text-slate-600">{action.detail}</span></button>)}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 const customerProfileTabBySlug: Record<string, string> = {
   branches: "Müşteri Kurulumu",
   package: "Genel Bilgi",
@@ -6558,7 +6565,6 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
   const activities = (content.activityLogs || []).filter((item) => item.company_id === company.id);
   const payments = (content.paymentRecords || []).filter((item) => item.company_id === company.id);
   const tasks = (content.agencyTasks || []).filter((item) => item.company_id === company.id);
-  const competitorSignals = (content.competitorSignals || []).filter((item) => item.company_id === company.id);
   const relatedLeads = (content.leads || []).filter((lead) => lead.company_id === company.id || String(lead.company || "").toLocaleLowerCase("tr") === String(company.name || "").toLocaleLowerCase("tr") || String(lead.email || "").toLocaleLowerCase("tr") === String(company.email || "").toLocaleLowerCase("tr"));
   const relatedLead = relatedLeads[0];
   const proposals = documents.filter((item) => item.document_type === "Teklif" || String(item.title || "").toLocaleLowerCase("tr").includes("teklif"));
@@ -6722,8 +6728,17 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
   function updateRelated(key, id, patch) {
     setContent({ ...content, [key]: (content[key] || []).map((item) => item.id === id ? { ...item, ...patch } : item) });
   }
+  const inspectorHealth = calculateCustomerHealth(company, { campaigns, payments, tasks, reports, activities, relatedLead });
+  const inspectorPendingPayments = payments.filter((item: any) => !isArchivedRecord(item) && !["Ödendi", "İptal"].includes(item.status || "Bekliyor"));
+  const inspectorPendingTotal = inspectorPendingPayments.reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
+  const inspectorOpenTasks = tasks.filter(isOpenTask);
+  const inspectorOverdueTasks = inspectorOpenTasks.filter((item: any) => item.due_date && item.due_date < dateOnly(new Date().toISOString())).length;
+  const inspectorLastReport = latestDateValue(reports, ["report_date", "published_at", "updated_at", "created_at", "endDate", "end_date"]);
+  const inspectorLastContact = latestDateValue([relatedLead, company, ...activities], ["last_contact_at", "next_action_at", "updated_at", "created_at"]);
   return (
     <CustomerProfileModal company={company} content={content} onClose={close} onGo={(target, message) => { setActive?.(target); if (message) notify?.(message, "success"); }} showOverview={false}>
+      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_300px] xl:items-start">
+      <div className="min-w-0">
       <Customer360Header
         company={company}
         content={content}
@@ -6963,15 +6978,42 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
       ].map(([key, label]) => <label key={key} className="flex items-center gap-3 rounded-[8px] border border-slate-200 p-3 text-sm"><input type="checkbox" checked={visibility[key] ?? true} onChange={(event) => updateVisibility({ [key]: event.target.checked })} /> {label}</label>)}</div></div>}
       {tab === "Aktivite Geçmişi" && <ActivityList items={activities} empty="Bu müşteri için henüz aktivite kaydı yok." />}
       {tab === "Notlar" && <TextArea label="Dahili müşteri notları" value={company.notes} onChange={(v) => updateProfileField({ notes: v })} rows={10} />}
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-slate-200 bg-white p-4">
+      </div>
+      <div className="xl:sticky xl:top-4">
+        <AdminDetailInspector
+          title={company.name}
+          subtitle={`${company.sector || "Sektör yok"} · ${company.city || "Şehir yok"}`}
+          fields={[
+            { label: "Müşteri Sağlığı", value: `${inspectorHealth.emoji} ${inspectorHealth.score}/100 · ${inspectorHealth.status}` },
+            { label: "Güncel Paket", value: selectedServicePackage?.title || "Paketsiz" },
+            { label: "Bekleyen Ödeme", value: `${inspectorPendingTotal.toLocaleString("tr-TR")} TL · ${inspectorPendingPayments.length} kayıt` },
+            { label: "Açık Görev", value: `${inspectorOpenTasks.length}${inspectorOverdueTasks ? ` · ${inspectorOverdueTasks} geciken` : ""}` },
+            { label: "Son Temas", value: formatDate(inspectorLastContact) },
+            { label: "Son Rapor", value: formatDate(inspectorLastReport) }
+          ]}
+          actions={<>
+            <AdminButton compact variant="warning" onClick={() => setTab("Ödemeler")}>Tahsilata Git</AdminButton>
+            <AdminButton compact variant="info" onClick={() => setTab("Yapılacaklar")}>Görevlere Git</AdminButton>
+            <AdminButton compact variant="secondary" onClick={() => setTab("Satış Durumu")}>Satış Durumu</AdminButton>
+            <AdminButton compact variant="ai" onClick={() => setActive?.("HK Intelligence CEO")}>CEO Kokpitinde Aç</AdminButton>
+          </>}
+        >
+          {inspectorHealth.reasons?.length > 0 && (
+            <div className="admin-detail-inspector-fields">
+              {inspectorHealth.reasons.map((reason: string) => (
+                <div key={reason} className="admin-detail-inspector-field"><p>Sağlık nedeni</p><p style={{ fontWeight: 500 }}>{reason}</p></div>
+              ))}
+            </div>
+          )}
+        </AdminDetailInspector>
+      </div>
+      </div>
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-slate-200 bg-white p-4 sticky bottom-0 z-10 shadow-lg">
         <div>
           <p className="text-sm font-black text-slate-950">Profil bilgileri kaydı</p>
           <p className="mt-1 text-xs font-bold text-slate-500">{profileSaveMessage || (profileDirty ? "Kaydedilmemiş müşteri profil değişikliği var." : lastProfileSavedAt ? `Son kayıt: ${lastProfileSavedAt}` : "Müşteri temel bilgileri değiştiğinde bu buton aktif olur.")}</p>
         </div>
         <button onClick={saveProfileChanges} disabled={!profileDirty || profileSaving} className="rounded-full bg-cyan-300 px-5 py-2 text-sm font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-50">{profileSaving ? "Kaydediliyor..." : "Değişiklikleri Kaydet"}</button>
-      </div>
-      <div className="mt-5">
-        <Customer360Summary company={company} campaigns={campaigns} payments={payments} tasks={tasks} reports={reports} activities={activities} relatedLead={relatedLead} competitorSignals={competitorSignals} setTab={setTab} setActive={setActive} />
       </div>
     </CustomerProfileModal>
   );
@@ -9857,7 +9899,35 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
     return <Panel title="Kaydedilen CRM Leadleri">{actionResult && <div className="mb-5"><ActionResultPanel result={actionResult} onNavigate={(href) => window.location.assign(href)} /></div>}<div className="mb-5 flex flex-wrap items-center justify-between gap-3"><div><p className="max-w-3xl text-sm leading-6 text-slate-500">Google Maps / Müşteri Keşfi üzerinden CRM’e aktarılan işletmeler burada takip edilir. Teklif, WhatsApp, görev ve rakip analizi akışına buradan devam edebilirsiniz.</p></div><button onClick={() => setMapTab("Google Maps Müşteri Bulma")} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Google Maps Müşteri Bulma’ya Git</button></div><HubTabs items={mapTabs} active={tab} onChange={setMapTab} /><div className="grid gap-3">{saved.map((lead: any) => <article key={lead.id || lead.google_place_id || lead.company} className="rounded-[12px] border border-slate-200 bg-slate-50 p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-black text-slate-950">{lead.company || lead.name || "İsimsiz lead"}</h3><p className="mt-1 text-xs text-slate-500">{lead.source || "Google Maps / Müşteri Keşfi"} · {lead.city || "-"} / {districtOf(lead)} · {lead.business_type || lead.sector || "Sektör belirtilmedi"}</p></div><div className="flex flex-wrap gap-2"><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700 ring-1 ring-emerald-200">CRM’de Kayıtlı</span><span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-700 ring-1 ring-slate-200">{lead.status || lead.lead_stage || "Yeni Lead"}</span></div></div><div className="mt-3 grid gap-2 text-xs leading-5 text-slate-600 md:grid-cols-2 xl:grid-cols-4"><span>Telefon: <strong>{lead.phone || "Mevcut değil"}</strong></span><span>Website: <strong className="break-all">{lead.website || "Mevcut değil"}</strong></span><span>Kayıt tarihi: <strong>{formatDateTime(lead.created_at)}</strong></span><span>Teklif durumu: <strong>{lead.proposal_status || "Henüz teklif yok"}</strong></span><span>Son takip: <strong>{formatDateTime(lead.next_action_at || lead.next_followup_at)}</strong></span><span>Google puanı: <strong>{lead.google_rating || "-"} · {lead.google_review_count || 0} yorum</strong></span><span>Fırsat skoru: <strong>{lead.opportunity_score || lead.lead_heat_score || 0}/100</strong></span><span>Kaynak: <strong>{lead.source || "Google Maps / Müşteri Keşfi"}</strong></span></div><div className="mt-4 flex flex-wrap gap-2"><button onClick={() => openCrmLead(lead)} className="rounded-full border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-700">CRM kaydını aç</button><button onClick={() => proposalFor(lead)} className="rounded-full border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-black text-amber-800">Teklif hazırla</button><button onClick={() => setWhatsappDraft({ id: lead.id || lead.google_place_id, text: outreachText(lead), phone: lead.phone })} className="rounded-full border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-700">WhatsApp mesajı hazırla</button><button onClick={() => createFollowupTask(lead)} className="rounded-full border border-cyan-200 bg-white px-3 py-2 text-xs font-black text-cyan-700">Takip görevi oluştur</button><button onClick={() => sendToCompetitor(lead)} className="rounded-full border border-purple-200 bg-purple-50 px-3 py-2 text-xs font-black text-purple-700">Rakip analizine gönder</button>{lead.google_maps_url && <a target="_blank" rel="noreferrer" href={lead.google_maps_url} className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700">Maps’te Aç</a>}</div>{whatsappDraft?.id === (lead.id || lead.google_place_id) && <div className="mt-3 rounded-[10px] border border-emerald-200 bg-emerald-50 p-3"><p className="text-xs font-black text-emerald-800">Hazır WhatsApp mesajı</p><textarea value={whatsappDraft.text} onChange={(event) => setWhatsappDraft({ ...whatsappDraft, text: event.target.value })} className="mt-2 min-h-24 w-full rounded-[8px] border border-emerald-200 bg-white p-3 text-xs leading-5 text-slate-900" /></div>}</article>)}{!saved.length && <p className="rounded-[12px] border border-dashed border-slate-200 p-6 text-center text-sm leading-6 text-slate-500">Henüz kaydedilmiş işletme yok. Google Maps Müşteri Bulma sekmesinden işletme seçip CRM’e kaydedebilirsiniz.</p>}</div></Panel>;
   }
 
-  return <Panel title={mode === "Haritalar" ? "Haritalar ve Google Maps Lead Finder" : "Google Maps Müşteri Bulma"}>{actionResult && <div className="mb-5"><ActionResultPanel result={actionResult} onNavigate={(href) => window.location.assign(href)} /></div>}<div className="mb-5 flex flex-wrap items-center justify-between gap-3"><p className="max-w-3xl text-sm leading-6 text-slate-400">İl, ilçe, mahalle, sektör, niş, Google puanı ve dijital eksik filtreleriyle işletmeleri tarayın; sıcaklık skoruna göre CRM’e taşıyıp teklif ve WhatsApp mesajı oluşturun.</p><div className="flex flex-wrap gap-2 text-xs"><AdminStatusBadge tone="info">{results.length} sonuç · Google Maps kotası</AdminStatusBadge><AdminStatusBadge tone="communication">{saved.length} kayıtlı</AdminStatusBadge><AdminStatusBadge tone="success">{selectedPlaces.length} seçili</AdminStatusBadge><AdminStatusBadge tone="danger">{saved.filter((lead) => Number(lead.lead_heat_score || 0) >= 70).length} sıcak lead</AdminStatusBadge></div></div><HubTabs items={mapTabs} active={tab} onChange={setMapTab} /><div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)_460px]"><aside className="h-fit admin-card rounded-[14px] p-4"><h3 className="font-black" style={{ color: "var(--admin-text-primary)" }}>Profesyonel lead keşif filtreleri</h3><p className="mt-1 text-xs text-slate-500">Google Maps API çağrısı server-side ENV ile yapılır; API anahtarı frontend’e dönmez.</p><div className="mt-4 grid gap-3"><OtherSelectField label="İl" value={search.city} onChange={(city) => setSearch({ ...search, city })} options={cityOptions} manualLabel="İli yazın" /><Field label="İlçe" value={search.district} onChange={(district) => setSearch({ ...search, district })} /><Field label="Mahalle / bölge" value={search.neighborhood} onChange={(neighborhood) => setSearch({ ...search, neighborhood })} /><Field label="Sektör" value={search.businessType} onChange={(businessType) => setSearch({ ...search, businessType })} placeholder="oto galeri, emlak ofisi, diş kliniği..." /><Field label="Anahtar kelime" value={search.keyword} onChange={(keyword) => setSearch({ ...search, keyword })} placeholder="protez tırnak, güzellik salonu..." />{nicheOptions.length > 0 && <div><p className="mb-2 text-xs font-black text-purple-700">Alt niş önerileri</p><div className="flex flex-wrap gap-1.5">{nicheOptions.map((niche) => <button key={niche} onClick={() => setSearch({ ...search, niche, keyword: niche })} className={`rounded-full px-2.5 py-1.5 text-[10px] font-black ${search.niche === niche ? "bg-purple-500 text-white" : "border border-purple-200 bg-white text-purple-700"}`}>{niche}</button>)}</div></div>}<SelectField label="Yarıçap" value={search.radius} onChange={(radius) => setSearch({ ...search, radius })} options={["1 km", "3 km", "5 km", "10 km", "Şehir geneli"]} /><SelectField label="Kaç işletme bulunsun" value={search.limit} onChange={(limit) => setSearch({ ...search, limit })} options={["5", "10", "20", "50"]} /><SelectField label="Minimum Google puanı" value={search.minimumRating} onChange={(minimumRating) => setSearch({ ...search, minimumRating })} options={[{ value: "", label: "Farketmez" }, { value: "3", label: "3.0+" }, { value: "3.5", label: "3.5+" }, { value: "4", label: "4.0+" }, { value: "4.5", label: "4.5+" }]} /><SelectField label="Minimum yorum sayısı" value={search.minimumReviewCount} onChange={(minimumReviewCount) => setSearch({ ...search, minimumReviewCount })} options={[{ value: "", label: "Farketmez" }, { value: "5", label: "5+" }, { value: "10", label: "10+" }, { value: "25", label: "25+" }, { value: "50", label: "50+" }, { value: "100", label: "100+" }]} /><SelectField label="Website var / yok" value={search.website} onChange={(website) => setSearch({ ...search, website })} options={[{ value: "", label: "Farketmez" }, { value: "yok", label: "Websitesi olmayanlar" }, { value: "var", label: "Websitesi olanlar" }]} /><SelectField label="Telefon var / yok" value={search.phone} onChange={(phone) => setSearch({ ...search, phone })} options={[{ value: "", label: "Farketmez" }, { value: "var", label: "Telefonu olanlar" }, { value: "yok", label: "Telefonu olmayanlar" }]} /><SelectField label="Instagram var / yok" value={search.instagram} onChange={(instagram) => setSearch({ ...search, instagram })} options={[{ value: "", label: "Farketmez" }, { value: "var", label: "Instagram bağlantısı olanlar" }, { value: "yok", label: "Instagram bağlantısı olmayanlar" }]} /><label className="flex gap-2 text-xs text-slate-600"><input type="checkbox" checked={search.hideSaved} onChange={(event) => setSearch({ ...search, hideSaved: event.target.checked })} />CRM’de kayıtlı olanları gizle</label><label className="flex gap-2 text-xs text-slate-600"><input type="checkbox" checked={search.highOpportunity} onChange={(event) => setSearch({ ...search, highOpportunity: event.target.checked })} />Sadece fırsat puanı yüksek olanlar</label><label className="flex gap-2 text-xs text-slate-600"><input type="checkbox" checked={search.highAdPotential} onChange={(event) => setSearch({ ...search, highAdPotential: event.target.checked })} />Sadece reklam potansiyeli yüksek olanlar</label></div><div className="mt-4 grid gap-2"><button onClick={suggestMapNiches} className="rounded-[8px] border border-purple-200 bg-purple-50 px-4 py-2 text-xs font-black text-purple-700">Alt Niş Öner</button><button disabled={loading === "search" || !canDiscover} onClick={runSearch} className="rounded-[8px] bg-cyan-300 px-4 py-3 text-sm font-black text-slate-950 disabled:opacity-50">{loading === "search" ? "Taranıyor..." : "Google Maps’ten Bul"}</button><button disabled={loading === "bulk-save"} onClick={saveSelectedBusinesses} className="rounded-[8px] bg-emerald-500 px-4 py-3 text-sm font-black text-white disabled:opacity-60">Seçilenleri CRM’e Kaydet</button><button disabled={loading === "bulk-proposal"} onClick={prepareSelectedProposals} className="rounded-[8px] border border-cyan-200 bg-white px-4 py-2 text-xs font-black text-cyan-700 disabled:opacity-60">Seçilenler İçin Teklif Hazırla</button><button onClick={clearFilters} className="rounded-[8px] border border-slate-200 px-4 py-2 text-xs font-bold">Filtreleri Temizle</button></div><div className="mt-3 flex flex-wrap gap-1">{activeFilters.map(([key, value]) => <span key={key} className="rounded-full border border-cyan-200/20 px-2 py-1 text-[9px] text-cyan-700">{String(value)}</span>)}</div><div className="mt-4"><ScoringGuidePanel /></div></aside><section className="min-w-0"><LeadOpportunityInsight results={visible} search={search} setActive={setActive} /><div className="mt-4 flex flex-wrap gap-2 rounded-[12px] border border-blue-200 bg-blue-50 p-3"><span className="px-2 py-2 text-xs font-black text-blue-900">Sonuç sonrası AI aksiyonları</span><button onClick={enrichResults} className="rounded-full border border-blue-200 bg-white px-3 py-2 text-xs font-black text-blue-700">AI ile Zenginleştir</button><button onClick={recalculateScores} className="rounded-full border border-amber-200 bg-white px-3 py-2 text-xs font-black text-amber-800">Fırsat Skoru Hesapla</button><button onClick={selectHotLeads} className="rounded-full border border-red-200 bg-white px-3 py-2 text-xs font-black text-red-700">En Sıcak Leadleri Seç</button><button onClick={selectNoWebsiteLeads} className="rounded-full border border-amber-200 bg-white px-3 py-2 text-xs font-black text-amber-800">Website Olmayanları Seç</button></div><div className="mt-4 admin-card rounded-[14px] p-4"><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black" style={{ color: "var(--admin-text-primary)" }}>Lead sonuç merkezi</h3><p className="mt-1 text-xs text-slate-500">İşletmeler orta alanda kart, liste veya harita görünümüyle incelenir; Detay butonu sağ paneli doldurur.</p></div><div className="flex flex-wrap gap-2">{["Kart Görünümü", "Harita Görünümü", "Fırsat Haritası", "Liste Görünümü"].map((view) => <button key={view} onClick={() => setLeadView(view)} className={`rounded-full px-3 py-2 text-xs font-black ${leadView === view ? "bg-cyan-300 text-slate-950" : "border border-slate-200 bg-white text-slate-700"}`}>{view}</button>)}</div></div>{selectedPlaces.length > 0 && <div className="mb-4 rounded-[12px] border border-cyan-200 bg-cyan-50 p-3"><div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-sm text-cyan-950">{selectedPlaces.length} işletme seçildi</strong><button onClick={() => setSelectedPlaces([])} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-700">Seçimi Temizle</button></div><div className="mt-3 flex flex-wrap gap-2"><button disabled={loading === "bulk-save"} onClick={saveSelectedBusinesses} className="rounded-full bg-emerald-500 px-3 py-2 text-xs font-black text-white disabled:opacity-60">Seçilenleri CRM’e Kaydet</button><button disabled={loading === "bulk-proposal"} onClick={prepareSelectedProposals} className="rounded-full border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-black text-amber-800 disabled:opacity-60">Seçilenler İçin Teklif Hazırla</button><button onClick={() => prepareBulkAction("Seçilenler rakip analizine hazırlandı", ["Rakip Analizi ekranında işletmeleri kontrol et.", "Rakip skorlarını ve müşteri özetini üret."], "/hk-admin/rakip-analizi")} className="rounded-full border border-purple-200 bg-purple-50 px-3 py-2 text-xs font-black text-purple-700">Seçilenleri Rakip Analizine Gönder</button><button onClick={() => prepareBulkAction("Seçilenler için görev taslağı", ["Görevler ekranında arama/takip görevlerini oluştur.", "Sorumlu kişiyi ata ve son tarihi belirle."], "/hk-admin/gorevler")} className="rounded-full border border-cyan-200 bg-white px-3 py-2 text-xs font-black text-cyan-700">Seçilenler İçin Takip Görevi Oluştur</button><button onClick={selectHotLeads} className="rounded-full border border-red-200 bg-white px-3 py-2 text-xs font-black text-red-700">En Sıcak Leadleri Seç</button><button onClick={selectNoWebsiteLeads} className="rounded-full border border-amber-200 bg-white px-3 py-2 text-xs font-black text-amber-800">Website Olmayanları Seç</button><button onClick={prepareSelectedWhatsappMessages} className="rounded-full border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-700">WhatsApp Mesajlarını Hazırla</button></div></div>}{message && <p className="mb-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-xs leading-5 text-cyan-700">{message}</p>}{leadView === "Kart Görünümü" && <div className="grid gap-3 md:grid-cols-2">{loading === "search" ? [1, 2, 3, 4].map((item) => <div key={item} className="h-52 animate-pulse rounded-[8px] bg-slate-50" />) : visible.map(renderBusiness)}</div>}{leadView === "Liste Görünümü" && <div className="grid gap-2">{visible.map((item: any) => <button key={item.placeId || item.google_place_id || item.id} onClick={() => setSelectedPlaceId(item.placeId || item.google_place_id || item.id)} className="grid gap-2 rounded-[10px] border border-slate-200 bg-slate-50 p-3 text-left text-sm md:grid-cols-[1fr_100px_100px_120px]"><strong className="text-slate-950">{item.name || item.company}</strong><span>{item.googleRating || item.google_rating || "-"} puan</span><span>{item.reviewCount || item.google_review_count || 0} yorum</span><span className="text-cyan-700">{item.opportunityScore || item.leadHeatScore || item.lead_heat_score || 0}/100</span></button>)}</div>}{leadView === "Harita Görünümü" && <div><p className="mb-3 rounded-[10px] border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800">Harita görünümü, koordinatı bulunan gerçek sonuçları aşağıdaki işaretleyici listesinde gösterir. Konumu olmayan kayıtlar kart görünümünde incelenebilir.</p><MapIntelligenceCanvas businesses={visible} districts={districts} sectors={sectors} selectedPlaceId={selectedPlaceId} setSelectedPlaceId={setSelectedPlaceId} setSearch={(next) => setSearch({ ...search, ...next, businessType: next.businessType || next.sector || search.businessType })} search={{ ...search, sector: search.businessType }} /></div>}{leadView === "Fırsat Haritası" && <OpportunityMap content={content} setContent={setContent} save={save} notify={notify} search={{ ...search, sector: search.businessType }} setSearch={(next) => setSearch({ ...search, ...next, businessType: next.businessType || next.sector || search.businessType })} setTab={setMapTab} setActive={setActive} saved={saved} />}{!loading && !visible.length && <AdminEmptyState title={results.length ? "Bu filtrelerle işletme bulunamadı" : "Henüz arama yapılmadı"} description={results.length ? "Yıldız puanı veya yorum sayısı filtresini genişletmeyi deneyin." : "Sol panelden il, ilçe, mahalle ve sektör seçerek \"Google Maps'ten Bul\" düğmesine basın."} />}</div></section><BusinessLeadDetailPanel record={selectedBusiness} mapsHref={mapsHref} metaHref={metaHref} saveBusiness={saveBusiness} proposalFor={proposalFor} setWhatsappDraft={setWhatsappDraft} outreachText={outreachText} sendToCompetitor={sendToCompetitor} markCandidate={markCandidate} setNotePlaceId={setNotePlaceId} notePlaceId={notePlaceId} findCompetitorsForLead={findCompetitorsForLead} competitors={selectedBusiness ? leadCompetitors[leadKey(selectedBusiness)] || [] : []} prepareFirstMessage={prepareFirstMessage} prepareDigitalReport={prepareDigitalReport} openWhatsapp={openWhatsapp} prepareInstagramDm={prepareInstagramDm} openInstagram={openInstagram} callBusiness={callBusiness} emailBusiness={emailBusiness} openWebsite={openWebsite} leadStage={selectedBusiness ? leadStagesById[leadKey(selectedBusiness)] || "Yeni bulundu" : "Yeni bulundu"} leadStageOptions={leadStageOptions} updateLeadStage={updateLeadStage} createFollowupTask={createFollowupTask} existingLead={selectedBusiness ? existingLeadFor(selectedBusiness) : null} openCrmLead={openCrmLead} /></div></Panel>;
+  return (
+    <AdminWorkspace
+      eyebrow="Satış · Müşteri Keşfi"
+      title={mode === "Haritalar" ? "Haritalar ve Google Maps Lead Finder" : "Google Maps Müşteri Bulma"}
+      description="İl, ilçe, mahalle, sektör, niş, Google puanı ve dijital eksik filtreleriyle işletmeleri tarayın; sıcaklık skoruna göre CRM’e taşıyıp teklif ve WhatsApp mesajı oluşturun."
+      headerActions={<>
+        <AdminStatusBadge tone="info">{results.length} sonuç</AdminStatusBadge>
+        <AdminStatusBadge tone="communication">{saved.length} kayıtlı</AdminStatusBadge>
+        <AdminStatusBadge tone="success">{selectedPlaces.length} seçili</AdminStatusBadge>
+        <AdminStatusBadge tone="danger">{saved.filter((lead) => Number(lead.lead_heat_score || 0) >= 70).length} sıcak lead</AdminStatusBadge>
+      </>}
+      leftPanel={
+        <AdminControlPanel>
+          <aside className="h-fit p-0"><h3 className="font-black" style={{ color: "var(--admin-text-primary)" }}>Profesyonel lead keşif filtreleri</h3><p className="mt-1 text-xs text-slate-500">Google Maps API çağrısı server-side ENV ile yapılır; API anahtarı frontend’e dönmez.</p><div className="mt-4 grid gap-3"><OtherSelectField label="İl" value={search.city} onChange={(city) => setSearch({ ...search, city })} options={cityOptions} manualLabel="İli yazın" /><Field label="İlçe" value={search.district} onChange={(district) => setSearch({ ...search, district })} /><Field label="Mahalle / bölge" value={search.neighborhood} onChange={(neighborhood) => setSearch({ ...search, neighborhood })} /><Field label="Sektör" value={search.businessType} onChange={(businessType) => setSearch({ ...search, businessType })} placeholder="oto galeri, emlak ofisi, diş kliniği..." /><Field label="Anahtar kelime" value={search.keyword} onChange={(keyword) => setSearch({ ...search, keyword })} placeholder="protez tırnak, güzellik salonu..." />{nicheOptions.length > 0 && <div><p className="mb-2 text-xs font-black text-purple-700">Alt niş önerileri</p><div className="flex flex-wrap gap-1.5">{nicheOptions.map((niche) => <button key={niche} onClick={() => setSearch({ ...search, niche, keyword: niche })} className={`rounded-full px-2.5 py-1.5 text-[10px] font-black ${search.niche === niche ? "bg-purple-500 text-white" : "border border-purple-200 bg-white text-purple-700"}`}>{niche}</button>)}</div></div>}<SelectField label="Yarıçap" value={search.radius} onChange={(radius) => setSearch({ ...search, radius })} options={["1 km", "3 km", "5 km", "10 km", "Şehir geneli"]} /><SelectField label="Kaç işletme bulunsun" value={search.limit} onChange={(limit) => setSearch({ ...search, limit })} options={["5", "10", "20", "50"]} /><SelectField label="Minimum Google puanı" value={search.minimumRating} onChange={(minimumRating) => setSearch({ ...search, minimumRating })} options={[{ value: "", label: "Farketmez" }, { value: "3", label: "3.0+" }, { value: "3.5", label: "3.5+" }, { value: "4", label: "4.0+" }, { value: "4.5", label: "4.5+" }]} /><SelectField label="Minimum yorum sayısı" value={search.minimumReviewCount} onChange={(minimumReviewCount) => setSearch({ ...search, minimumReviewCount })} options={[{ value: "", label: "Farketmez" }, { value: "5", label: "5+" }, { value: "10", label: "10+" }, { value: "25", label: "25+" }, { value: "50", label: "50+" }, { value: "100", label: "100+" }]} /><SelectField label="Website var / yok" value={search.website} onChange={(website) => setSearch({ ...search, website })} options={[{ value: "", label: "Farketmez" }, { value: "yok", label: "Websitesi olmayanlar" }, { value: "var", label: "Websitesi olanlar" }]} /><SelectField label="Telefon var / yok" value={search.phone} onChange={(phone) => setSearch({ ...search, phone })} options={[{ value: "", label: "Farketmez" }, { value: "var", label: "Telefonu olanlar" }, { value: "yok", label: "Telefonu olmayanlar" }]} /><SelectField label="Instagram var / yok" value={search.instagram} onChange={(instagram) => setSearch({ ...search, instagram })} options={[{ value: "", label: "Farketmez" }, { value: "var", label: "Instagram bağlantısı olanlar" }, { value: "yok", label: "Instagram bağlantısı olmayanlar" }]} /><label className="flex gap-2 text-xs text-slate-600"><input type="checkbox" checked={search.hideSaved} onChange={(event) => setSearch({ ...search, hideSaved: event.target.checked })} />CRM’de kayıtlı olanları gizle</label><label className="flex gap-2 text-xs text-slate-600"><input type="checkbox" checked={search.highOpportunity} onChange={(event) => setSearch({ ...search, highOpportunity: event.target.checked })} />Sadece fırsat puanı yüksek olanlar</label><label className="flex gap-2 text-xs text-slate-600"><input type="checkbox" checked={search.highAdPotential} onChange={(event) => setSearch({ ...search, highAdPotential: event.target.checked })} />Sadece reklam potansiyeli yüksek olanlar</label></div><div className="mt-4 grid gap-2"><button onClick={suggestMapNiches} className="rounded-[8px] border border-purple-200 bg-purple-50 px-4 py-2 text-xs font-black text-purple-700">Alt Niş Öner</button><button disabled={loading === "search" || !canDiscover} onClick={runSearch} className="rounded-[8px] bg-cyan-300 px-4 py-3 text-sm font-black text-slate-950 disabled:opacity-50">{loading === "search" ? "Taranıyor..." : "Google Maps’ten Bul"}</button><button disabled={loading === "bulk-save"} onClick={saveSelectedBusinesses} className="rounded-[8px] bg-emerald-500 px-4 py-3 text-sm font-black text-white disabled:opacity-60">Seçilenleri CRM’e Kaydet</button><button disabled={loading === "bulk-proposal"} onClick={prepareSelectedProposals} className="rounded-[8px] border border-cyan-200 bg-white px-4 py-2 text-xs font-black text-cyan-700 disabled:opacity-60">Seçilenler İçin Teklif Hazırla</button><button onClick={clearFilters} className="rounded-[8px] border border-slate-200 px-4 py-2 text-xs font-bold">Filtreleri Temizle</button></div><div className="mt-3 flex flex-wrap gap-1">{activeFilters.map(([key, value]) => <span key={key} className="rounded-full border border-cyan-200/20 px-2 py-1 text-[9px] text-cyan-700">{String(value)}</span>)}</div><div className="mt-4"><ScoringGuidePanel /></div></aside>
+        </AdminControlPanel>
+      }
+      rightPanel={<BusinessLeadDetailPanel record={selectedBusiness} mapsHref={mapsHref} metaHref={metaHref} saveBusiness={saveBusiness} proposalFor={proposalFor} setWhatsappDraft={setWhatsappDraft} outreachText={outreachText} sendToCompetitor={sendToCompetitor} markCandidate={markCandidate} setNotePlaceId={setNotePlaceId} notePlaceId={notePlaceId} findCompetitorsForLead={findCompetitorsForLead} competitors={selectedBusiness ? leadCompetitors[leadKey(selectedBusiness)] || [] : []} prepareFirstMessage={prepareFirstMessage} prepareDigitalReport={prepareDigitalReport} openWhatsapp={openWhatsapp} prepareInstagramDm={prepareInstagramDm} openInstagram={openInstagram} callBusiness={callBusiness} emailBusiness={emailBusiness} openWebsite={openWebsite} leadStage={selectedBusiness ? leadStagesById[leadKey(selectedBusiness)] || "Yeni bulundu" : "Yeni bulundu"} leadStageOptions={leadStageOptions} updateLeadStage={updateLeadStage} createFollowupTask={createFollowupTask} existingLead={selectedBusiness ? existingLeadFor(selectedBusiness) : null} openCrmLead={openCrmLead} />}
+      bottomBar={
+        <AdminActionBar statusText={`${visible.length} sonuç gösteriliyor${selectedPlaces.length ? ` · ${selectedPlaces.length} seçili` : ""}`}>
+          <AdminButton compact variant="primary" disabled={loading === "search" || !canDiscover} onClick={runSearch}>{loading === "search" ? "Taranıyor..." : "Google Maps’ten Bul"}</AdminButton>
+          <AdminButton compact variant="success" disabled={loading === "bulk-save" || !selectedPlaces.length} onClick={saveSelectedBusinesses}>Seçilenleri CRM’e Kaydet</AdminButton>
+        </AdminActionBar>
+      }
+    >
+      {actionResult && <div className="mb-5"><ActionResultPanel result={actionResult} onNavigate={(href) => window.location.assign(href)} /></div>}<div className="mb-5 flex flex-wrap items-center justify-between gap-3"><p className="max-w-3xl text-sm leading-6 text-slate-400">İl, ilçe, mahalle, sektör, niş, Google puanı ve dijital eksik filtreleriyle işletmeleri tarayın; sıcaklık skoruna göre CRM’e taşıyıp teklif ve WhatsApp mesajı oluşturun.</p><div className="flex flex-wrap gap-2 text-xs"><AdminStatusBadge tone="info">{results.length} sonuç · Google Maps kotası</AdminStatusBadge><AdminStatusBadge tone="communication">{saved.length} kayıtlı</AdminStatusBadge><AdminStatusBadge tone="success">{selectedPlaces.length} seçili</AdminStatusBadge><AdminStatusBadge tone="danger">{saved.filter((lead) => Number(lead.lead_heat_score || 0) >= 70).length} sıcak lead</AdminStatusBadge></div></div>
+      <HubTabs items={mapTabs} active={tab} onChange={setMapTab} />
+      <section className="min-w-0"><LeadOpportunityInsight results={visible} search={search} setActive={setActive} /><div className="mt-4 flex flex-wrap gap-2 rounded-[12px] border border-blue-200 bg-blue-50 p-3"><span className="px-2 py-2 text-xs font-black text-blue-900">Sonuç sonrası AI aksiyonları</span><button onClick={enrichResults} className="rounded-full border border-blue-200 bg-white px-3 py-2 text-xs font-black text-blue-700">AI ile Zenginleştir</button><button onClick={recalculateScores} className="rounded-full border border-amber-200 bg-white px-3 py-2 text-xs font-black text-amber-800">Fırsat Skoru Hesapla</button><button onClick={selectHotLeads} className="rounded-full border border-red-200 bg-white px-3 py-2 text-xs font-black text-red-700">En Sıcak Leadleri Seç</button><button onClick={selectNoWebsiteLeads} className="rounded-full border border-amber-200 bg-white px-3 py-2 text-xs font-black text-amber-800">Website Olmayanları Seç</button></div><div className="mt-4 admin-card rounded-[14px] p-4"><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black" style={{ color: "var(--admin-text-primary)" }}>Lead sonuç merkezi</h3><p className="mt-1 text-xs text-slate-500">İşletmeler orta alanda kart, liste veya harita görünümüyle incelenir; Detay butonu sağ paneli doldurur.</p></div><div className="flex flex-wrap gap-2">{["Kart Görünümü", "Harita Görünümü", "Fırsat Haritası", "Liste Görünümü"].map((view) => <button key={view} onClick={() => setLeadView(view)} className={`rounded-full px-3 py-2 text-xs font-black ${leadView === view ? "bg-cyan-300 text-slate-950" : "border border-slate-200 bg-white text-slate-700"}`}>{view}</button>)}</div></div>{selectedPlaces.length > 0 && <div className="mb-4 rounded-[12px] border border-cyan-200 bg-cyan-50 p-3"><div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-sm text-cyan-950">{selectedPlaces.length} işletme seçildi</strong><button onClick={() => setSelectedPlaces([])} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-700">Seçimi Temizle</button></div><div className="mt-3 flex flex-wrap gap-2"><button disabled={loading === "bulk-save"} onClick={saveSelectedBusinesses} className="rounded-full bg-emerald-500 px-3 py-2 text-xs font-black text-white disabled:opacity-60">Seçilenleri CRM’e Kaydet</button><button disabled={loading === "bulk-proposal"} onClick={prepareSelectedProposals} className="rounded-full border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-black text-amber-800 disabled:opacity-60">Seçilenler İçin Teklif Hazırla</button><button onClick={() => prepareBulkAction("Seçilenler rakip analizine hazırlandı", ["Rakip Analizi ekranında işletmeleri kontrol et.", "Rakip skorlarını ve müşteri özetini üret."], "/hk-admin/rakip-analizi")} className="rounded-full border border-purple-200 bg-purple-50 px-3 py-2 text-xs font-black text-purple-700">Seçilenleri Rakip Analizine Gönder</button><button onClick={() => prepareBulkAction("Seçilenler için görev taslağı", ["Görevler ekranında arama/takip görevlerini oluştur.", "Sorumlu kişiyi ata ve son tarihi belirle."], "/hk-admin/gorevler")} className="rounded-full border border-cyan-200 bg-white px-3 py-2 text-xs font-black text-cyan-700">Seçilenler İçin Takip Görevi Oluştur</button><button onClick={selectHotLeads} className="rounded-full border border-red-200 bg-white px-3 py-2 text-xs font-black text-red-700">En Sıcak Leadleri Seç</button><button onClick={selectNoWebsiteLeads} className="rounded-full border border-amber-200 bg-white px-3 py-2 text-xs font-black text-amber-800">Website Olmayanları Seç</button><button onClick={prepareSelectedWhatsappMessages} className="rounded-full border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-700">WhatsApp Mesajlarını Hazırla</button></div></div>}{message && <p className="mb-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-xs leading-5 text-cyan-700">{message}</p>}{leadView === "Kart Görünümü" && <div className="grid gap-3 md:grid-cols-2">{loading === "search" ? [1, 2, 3, 4].map((item) => <div key={item} className="h-52 animate-pulse rounded-[8px] bg-slate-50" />) : visible.map(renderBusiness)}</div>}{leadView === "Liste Görünümü" && <div className="grid gap-2">{visible.map((item: any) => <button key={item.placeId || item.google_place_id || item.id} onClick={() => setSelectedPlaceId(item.placeId || item.google_place_id || item.id)} className="grid gap-2 rounded-[10px] border border-slate-200 bg-slate-50 p-3 text-left text-sm md:grid-cols-[1fr_100px_100px_120px]"><strong className="text-slate-950">{item.name || item.company}</strong><span>{item.googleRating || item.google_rating || "-"} puan</span><span>{item.reviewCount || item.google_review_count || 0} yorum</span><span className="text-cyan-700">{item.opportunityScore || item.leadHeatScore || item.lead_heat_score || 0}/100</span></button>)}</div>}{leadView === "Harita Görünümü" && <div><p className="mb-3 rounded-[10px] border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800">Harita görünümü, koordinatı bulunan gerçek sonuçları aşağıdaki işaretleyici listesinde gösterir. Konumu olmayan kayıtlar kart görünümünde incelenebilir.</p><MapIntelligenceCanvas businesses={visible} districts={districts} sectors={sectors} selectedPlaceId={selectedPlaceId} setSelectedPlaceId={setSelectedPlaceId} setSearch={(next) => setSearch({ ...search, ...next, businessType: next.businessType || next.sector || search.businessType })} search={{ ...search, sector: search.businessType }} /></div>}{leadView === "Fırsat Haritası" && <OpportunityMap content={content} setContent={setContent} save={save} notify={notify} search={{ ...search, sector: search.businessType }} setSearch={(next) => setSearch({ ...search, ...next, businessType: next.businessType || next.sector || search.businessType })} setTab={setMapTab} setActive={setActive} saved={saved} />}{!loading && !visible.length && <AdminEmptyState title={results.length ? "Bu filtrelerle işletme bulunamadı" : "Henüz arama yapılmadı"} description={results.length ? "Yıldız puanı veya yorum sayısı filtresini genişletmeyi deneyin." : "Sol panelden il, ilçe, mahalle ve sektör seçerek \"Google Maps'ten Bul\" düğmesine basın."} />}</div></section>
+    </AdminWorkspace>
+  );
 }
 
 function BusinessLeadDetailPanel({ record, mapsHref, metaHref, saveBusiness, proposalFor, setWhatsappDraft, outreachText, sendToCompetitor, markCandidate, setNotePlaceId, notePlaceId, findCompetitorsForLead, competitors = [], prepareFirstMessage, prepareDigitalReport, openWhatsapp, prepareInstagramDm, openInstagram, callBusiness, emailBusiness, openWebsite, leadStage, leadStageOptions = [], updateLeadStage, createFollowupTask, existingLead, openCrmLead }: any) {
