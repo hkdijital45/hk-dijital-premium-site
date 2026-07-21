@@ -2,12 +2,13 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { adminNavigationGroups } from "@/lib/admin-navigation";
+import { adminNavigationGroups, getAdminHref } from "@/lib/admin-navigation";
 import { canViewAccounting, type AccountingSessionLike } from "@/lib/accounting-permissions";
 import { AdminAppShell } from "./AdminAppShell";
 import { AdminSidebar } from "./AdminSidebar";
 import { AdminMobileNavigation } from "./AdminMobileNavigation";
 import { AdminTopHeader } from "./AdminTopHeader";
+import { DesktopModuleToolbar } from "./DesktopModuleToolbar";
 
 export function AdminStandaloneShell({
   currentSession,
@@ -31,6 +32,7 @@ export function AdminStandaloneShell({
     .filter((group) => group.label !== "Finans" || canViewAccounting(currentSession))
     .map((group) => ({ ...group, items: group.items.filter((item) => allowedModules.includes(item.module)) }))
     .filter((group) => group.items.length);
+  const activeToolbarGroup = visibleNavigationGroups.find((group) => group.items.some((item) => item.label === activeLabel));
 
   useEffect(() => {
     try {
@@ -89,6 +91,13 @@ export function AdminStandaloneShell({
         >
           <Link href="/hk-admin" className="hk-button hk-button-neutral hk-button-compact">Panele Dön</Link>
         </AdminTopHeader>
+      }
+      moduleToolbar={
+        <DesktopModuleToolbar
+          groups={visibleNavigationGroups}
+          activeGroupLabel={activeToolbarGroup?.label}
+          getHref={getAdminHref}
+        />
       }
       sidebar={
         <AdminSidebar

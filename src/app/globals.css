@@ -3543,6 +3543,47 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
   color: var(--admin-text-primary);
 }
 
+/* ---- Desktop application frame (lg+ only) ------------------------------
+   Below lg, the admin shell keeps its original free-flowing page-scroll
+   layout (mobile/tablet functionality is intentionally untouched). From lg
+   up, the whole app renders inside a centered, bordered "desktop app
+   window" with its own internal scrolling, so the browser body itself never
+   becomes the scroll container. */
+@media (min-width: 1024px) {
+  .admin-app-shell {
+    background: var(--admin-desktop-wallpaper, var(--admin-bg));
+  }
+
+  .admin-desktop-frame {
+    display: flex;
+    flex-direction: column;
+    width: calc(100vw - 32px);
+    max-width: 1680px;
+    min-height: calc(100dvh - 32px);
+    max-height: calc(100dvh - 32px);
+    margin: 16px auto;
+    overflow: hidden;
+    border-radius: 16px;
+    border: 1px solid var(--admin-border);
+    background: var(--admin-bg);
+    box-shadow: 0 24px 70px rgba(15, 23, 42, .22);
+  }
+
+  .admin-desktop-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+}
+
+:root {
+  --admin-desktop-wallpaper: #dde2ea;
+}
+
+.hk-admin[data-theme="dark"] {
+  --admin-desktop-wallpaper: #05070d;
+}
+
 .admin-sidebar {
   background: var(--admin-sidebar-bg);
   border-color: var(--admin-border);
@@ -3586,6 +3627,69 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
   background: var(--admin-header-bg);
   border-color: var(--admin-border);
   backdrop-filter: blur(10px);
+}
+
+.admin-desktop-frame .admin-top-header {
+  position: static;
+}
+
+/* ---- Primary module toolbar (DesktopModuleToolbar) --------------------- */
+.admin-module-toolbar {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--admin-border);
+  background: var(--admin-surface);
+  padding: 6px 12px;
+  scrollbar-width: thin;
+}
+
+.admin-module-toolbar-btn {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-size: 12.5px;
+  font-weight: 800;
+  white-space: nowrap;
+  color: var(--admin-text-secondary);
+  background: transparent;
+  transition: background .15s ease, border-color .15s ease, color .15s ease, transform .15s ease;
+}
+
+.admin-module-toolbar-btn:hover {
+  background: var(--nav-accent-soft, var(--admin-surface-soft));
+  transform: translateY(-1px);
+}
+
+.admin-module-toolbar-btn[aria-current="true"] {
+  border-color: var(--nav-accent, var(--admin-primary));
+  background: var(--nav-accent-soft, var(--admin-surface-soft));
+  color: var(--nav-accent-text, var(--admin-text-primary));
+}
+
+.admin-module-toolbar-icon {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  color: #fff;
+  background: var(--nav-accent, var(--admin-primary));
+  flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-module-toolbar-btn {
+    transition: none;
+  }
+  .admin-module-toolbar-btn:hover {
+    transform: none;
+  }
 }
 
 .admin-theme-toggle {
