@@ -48,6 +48,7 @@ import { AdminControlPanel, AdminFilterSection } from "@/components/admin/worksp
 import { AdminDataGrid, type AdminDataGridColumn } from "@/components/admin/workspace/AdminDataGrid";
 import { AdminDetailInspector } from "@/components/admin/workspace/AdminDetailInspector";
 import { AdminActionBar } from "@/components/admin/workspace/AdminActionBar";
+import { AdminCompactKpiStrip } from "@/components/admin/workspace/AdminCompactKpiStrip";
 import { CUSTOMER_360_TABS, Customer360Header } from "@/components/admin/customer-profile/customer360-shared";
 import { adminNavigationGroups, adminNavigationItems, getAdminHref, getAdminSourceGroupItems } from "@/lib/admin-navigation";
 import { canViewAccounting } from "@/lib/accounting-permissions";
@@ -3407,6 +3408,10 @@ function MonthlyReportCenter({ content, setContent }: any) {
   const items = content.monthlyReports || [];
   const metrics = content.campaignMetrics || [];
   const [busy, setBusy] = useState("");
+  const [reportCompanyFilter, setReportCompanyFilter] = useState("");
+  const [reportMonthFilter, setReportMonthFilter] = useState("");
+  const [reportStatusFilter, setReportStatusFilter] = useState("Tümü");
+  const [selectedReportId, setSelectedReportId] = useState("");
   const update = (index, patch) => updateCollection(content, setContent, "monthlyReports", items.map((item, i) => i === index ? { ...item, ...patch } : item));
   function createReport() {
     const company = filterSelectableCustomers(content.companies || [])[0];
@@ -3424,7 +3429,102 @@ function MonthlyReportCenter({ content, setContent }: any) {
     update(index, { ai_interpretation: data.output || "Bu ay görünürlük, trafik ve dönüşüm odaklı çalışmalar takip edildi. Önümüzdeki ay test ve optimizasyon adımları önerilir." });
     setBusy("");
   }
-  return <Panel title="Aylık Rapor Merkezi"><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-slate-400">Müşteri, ay ve platform metrikleriyle yayınlanabilir aylık rapor hazırlayın.</p><button onClick={createReport} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Aylık rapor oluştur</button></div><div className="grid gap-4">{items.map((item, index) => <div key={item.id || index} className="rounded-[8px] border border-slate-200 bg-slate-50 p-4"><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><CompanySelect value={item.company_id || ""} onChange={(value) => update(index, { company_id: value })} companies={content.companies} /><Field label="Ay" type="month" value={item.report_month || ""} onChange={(value) => update(index, { report_month: value })} /><SelectField label="Durum" value={item.status || "Taslak"} onChange={(value) => update(index, { status: value })} options={["Taslak", "Hazır", "Yayınlandı"]} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item.visible_to_customer)} onChange={(event) => update(index, { visible_to_customer: event.target.checked })} /> Müşteriye yayınla</label></div><TextArea label="Özet" value={item.summary || ""} onChange={(value) => update(index, { summary: value })} /><div className="grid gap-3 md:grid-cols-3"><TextArea label="Meta Ads metrikleri JSON" value={JSON.stringify(item.meta_metrics || {}, null, 2)} onChange={(value) => { try { update(index, { meta_metrics: JSON.parse(value || "{}") }); } catch {} }} /><TextArea label="Google Ads metrikleri JSON" value={JSON.stringify(item.google_metrics || {}, null, 2)} onChange={(value) => { try { update(index, { google_metrics: JSON.parse(value || "{}") }); } catch {} }} /><TextArea label="Sosyal medya metrikleri JSON" value={JSON.stringify(item.social_metrics || {}, null, 2)} onChange={(value) => { try { update(index, { social_metrics: JSON.parse(value || "{}") }); } catch {} }} /></div><TextArea label="AI yorumu" value={item.ai_interpretation || ""} onChange={(value) => update(index, { ai_interpretation: value })} /><TextArea label="Gelecek ay önerileri" value={item.next_month_recommendations || ""} onChange={(value) => update(index, { next_month_recommendations: value })} /><div className="mt-3 flex flex-wrap gap-2"><button disabled={busy === (item.id || `${index}`)} onClick={() => generateAi(index)} className="rounded-full border border-purple-200/30 px-4 py-2 text-xs font-black text-purple-700 disabled:opacity-60">AI yorum oluştur</button><button onClick={() => updateCollection(content, setContent, "monthlyReports", items.filter((_, i) => i !== index))} className="rounded-full border border-red-300/30 px-4 py-2 text-xs text-red-200">Sil</button></div></div>)}{!items.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-6 text-sm text-slate-400">Henüz aylık rapor yok.</p>}</div></Panel>;
+  const deleteReport = (index: number) => {
+    if (!confirmRecordAction("Bu aylık raporu silmek istediğinize emin misiniz?")) return;
+    updateCollection(content, setContent, "monthlyReports", items.filter((_: any, i: number) => i !== index));
+    setSelectedReportId("");
+  };
+  const filteredReports = items.filter((item: any) => {
+    if (reportCompanyFilter && item.company_id !== reportCompanyFilter) return false;
+    if (reportMonthFilter && item.report_month !== reportMonthFilter) return false;
+    if (reportStatusFilter !== "Tümü" && (item.status || "Taslak") !== reportStatusFilter) return false;
+    return true;
+  });
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const activeCustomerCount = filterSelectableCustomers(content.companies || []).length;
+  const currentMonthReportedCustomers = new Set(items.filter((item: any) => item.report_month === currentMonth).map((item: any) => item.company_id)).size;
+  const completionRate = activeCustomerCount ? Math.round((currentMonthReportedCustomers / activeCustomerCount) * 100) : 0;
+  const selectedReport = selectedReportId ? items.find((item: any) => item.id === selectedReportId) : null;
+  const selectedReportIndex = selectedReport ? items.findIndex((candidate: any) => candidate.id === selectedReport.id) : -1;
+  const reportGridColumns: AdminDataGridColumn<any>[] = [
+    { key: "company", header: "Müşteri", render: (item: any) => companyName(content, item.company_id) || "-" },
+    { key: "period", header: "Dönem", render: (item: any) => item.report_month || "-" },
+    { key: "status", header: "Durum", render: (item: any) => <AdminStatusBadge tone={item.status === "Yayınlandı" ? "success" : item.status === "Hazır" ? "info" : "neutral"}>{item.status || "Taslak"}</AdminStatusBadge> },
+    { key: "visibility", header: "Müşteriye Açık", render: (item: any) => <AdminStatusBadge tone={item.visible_to_customer ? "success" : "neutral"}>{item.visible_to_customer ? "Evet" : "Hayır"}</AdminStatusBadge> },
+    { key: "summary", header: "Özet", render: (item: any) => <span className="line-clamp-1">{item.summary || "-"}</span> }
+  ];
+  return (
+    <div className="w-full min-w-0 max-w-none">
+      <AdminWorkspace
+        eyebrow="Finans · Aylık Raporlar"
+        title="Aylık Rapor Merkezi"
+        description="Müşteri, ay ve platform metrikleriyle yayınlanabilir aylık rapor hazırlayın."
+        headerActions={<AdminButton compact variant="primary" onClick={createReport}>+ Aylık Rapor Oluştur</AdminButton>}
+        leftPanel={
+          <AdminControlPanel>
+            <AdminFilterSection title="Filtreler">
+              <div className="grid gap-2">
+                <CompanySelect value={reportCompanyFilter} onChange={setReportCompanyFilter} companies={content.companies} />
+                <Field label="Ay" type="month" value={reportMonthFilter} onChange={setReportMonthFilter} />
+                <SelectField label="Durum" value={reportStatusFilter} onChange={setReportStatusFilter} options={["Tümü", "Taslak", "Hazır", "Yayınlandı"]} />
+                <AdminButton compact variant="secondary" onClick={() => { setReportCompanyFilter(""); setReportMonthFilter(""); setReportStatusFilter("Tümü"); }}>Filtreleri Temizle</AdminButton>
+              </div>
+            </AdminFilterSection>
+          </AdminControlPanel>
+        }
+        rightPanel={
+          <AdminDetailInspector
+            title={selectedReport ? companyName(content, selectedReport.company_id) || "Rapor" : undefined}
+            subtitle={selectedReport ? `${selectedReport.report_month || "-"} · ${selectedReport.status || "Taslak"}` : undefined}
+            emptyTitle="Bir rapor seçin"
+            emptyDescription="Listeden bir satıra tıklayarak detaylarını buradan düzenleyin."
+            actions={selectedReport ? <>
+              <AdminButton compact variant="ai" disabled={busy === (selectedReport.id || `${selectedReportIndex}`)} onClick={() => generateAi(selectedReportIndex)}>{busy === (selectedReport.id || `${selectedReportIndex}`) ? "Oluşturuluyor..." : "AI Yorum Oluştur"}</AdminButton>
+              <AdminButton compact variant="danger" onClick={() => deleteReport(selectedReportIndex)}>Sil</AdminButton>
+            </> : undefined}
+          >
+            {selectedReport && (
+              <div className="grid gap-2">
+                <CompanySelect value={selectedReport.company_id || ""} onChange={(value) => update(selectedReportIndex, { company_id: value })} companies={content.companies} />
+                <Field label="Ay" type="month" value={selectedReport.report_month || ""} onChange={(value) => update(selectedReportIndex, { report_month: value })} />
+                <SelectField label="Durum" value={selectedReport.status || "Taslak"} onChange={(value) => update(selectedReportIndex, { status: value })} options={["Taslak", "Hazır", "Yayınlandı"]} />
+                <label className="flex items-center gap-2 rounded-[8px] border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700">
+                  <input type="checkbox" checked={Boolean(selectedReport.visible_to_customer)} onChange={(event) => update(selectedReportIndex, { visible_to_customer: event.target.checked })} /> Müşteriye yayınla
+                </label>
+                <TextArea label="Özet" value={selectedReport.summary || ""} onChange={(value) => update(selectedReportIndex, { summary: value })} />
+                <TextArea label="Meta Ads metrikleri JSON" value={JSON.stringify(selectedReport.meta_metrics || {}, null, 2)} onChange={(value) => { try { update(selectedReportIndex, { meta_metrics: JSON.parse(value || "{}") }); } catch {} }} />
+                <TextArea label="Google Ads metrikleri JSON" value={JSON.stringify(selectedReport.google_metrics || {}, null, 2)} onChange={(value) => { try { update(selectedReportIndex, { google_metrics: JSON.parse(value || "{}") }); } catch {} }} />
+                <TextArea label="Sosyal medya metrikleri JSON" value={JSON.stringify(selectedReport.social_metrics || {}, null, 2)} onChange={(value) => { try { update(selectedReportIndex, { social_metrics: JSON.parse(value || "{}") }); } catch {} }} />
+                <TextArea label="AI yorumu" value={selectedReport.ai_interpretation || ""} onChange={(value) => update(selectedReportIndex, { ai_interpretation: value })} />
+                <TextArea label="Gelecek ay önerileri" value={selectedReport.next_month_recommendations || ""} onChange={(value) => update(selectedReportIndex, { next_month_recommendations: value })} />
+              </div>
+            )}
+          </AdminDetailInspector>
+        }
+        bottomBar={
+          <AdminActionBar statusText={`${filteredReports.length} rapor · bu ay tamamlanma: %${completionRate}`}>
+            <AdminButton compact variant="primary" onClick={createReport}>Aylık Rapor Oluştur</AdminButton>
+          </AdminActionBar>
+        }
+      >
+        <AdminCompactKpiStrip items={[
+          { key: "total", label: "Toplam rapor", value: items.length, icon: <Gauge size={14} />, tone: "primary" },
+          { key: "draft", label: "Taslak", value: items.filter((item: any) => (item.status || "Taslak") === "Taslak").length, icon: <Gauge size={14} />, tone: "warning" },
+          { key: "ready", label: "Hazır", value: items.filter((item: any) => item.status === "Hazır").length, icon: <Gauge size={14} />, tone: "info" },
+          { key: "sent", label: "Yayınlandı", value: items.filter((item: any) => item.status === "Yayınlandı").length, icon: <Gauge size={14} />, tone: "success" },
+          { key: "completion", label: "Bu ay tamamlanma", value: `%${completionRate}`, icon: <Gauge size={14} />, tone: completionRate >= 80 ? "success" : "warning" }
+        ]} />
+        <AdminDataGrid
+          columns={reportGridColumns}
+          rows={filteredReports}
+          rowKey={(item: any, index: number) => item.id || `${index}`}
+          activeId={selectedReportId}
+          onRowClick={(item: any) => setSelectedReportId(item.id)}
+          emptyTitle="Henüz aylık rapor yok."
+        />
+      </AdminWorkspace>
+    </div>
+  );
 }
 
 function AgencyCalendarCenter({ content, setActive }: any) {
@@ -3720,7 +3820,99 @@ function DocumentCenter({ content, setContent, selectedCompanyId = "" }: any) {
   const items = content.customerDocuments || [];
   const visibleItems = selectedCompanyId ? items.filter((item) => item.company_id === selectedCompanyId) : items;
   const update = (index, patch) => updateCollection(content, setContent, "customerDocuments", items.map((item, i) => i === index ? { ...item, ...patch } : item));
-  return <Panel title="Belge Merkezi"><button onClick={() => updateCollection(content, setContent, "customerDocuments", [{ id: `${Date.now()}`, company_id: selectedCompanyId || "", title: "Yeni belge", document_type: "Diğer", document_date: new Date().toISOString().slice(0, 10), visible_to_customer: false }, ...items])} className="mb-4 rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Belge ekle</button><div className="grid gap-3">{visibleItems.map((item) => { const index = items.findIndex((candidate) => candidate.id === item.id); return <div key={item.id || index} className="rounded-[8px] border border-slate-200 bg-slate-50 p-4"><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4"><CompanySelect value={item.company_id || ""} onChange={(value) => update(index, { company_id: value })} companies={content.companies} /><Field label="Belge başlığı" value={item.title || ""} onChange={(value) => update(index, { title: value })} /><SelectField label="Belge türü" value={item.document_type || "Diğer"} onChange={(value) => update(index, { document_type: value })} options={["Teklif", "Sözleşme", "Fatura", "Rapor", "Diğer"]} /><Field label="Tarih" type="date" value={item.document_date || ""} onChange={(value) => update(index, { document_date: value })} /><Field label="Belge URL" value={item.document_url || ""} onChange={(value) => update(index, { document_url: value })} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item.visible_to_customer)} onChange={(event) => update(index, { visible_to_customer: event.target.checked })} /> {item.visible_to_customer ? "Müşteri Panelinde Görünür" : "Sadece Yönetici"}</label></div><button onClick={() => updateCollection(content, setContent, "customerDocuments", items.filter((_, i) => i !== index))} className="mt-3 rounded-full border border-red-300/30 px-3 py-2 text-xs text-red-200">Sil</button></div>; })}{!visibleItems.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-6 text-sm text-slate-400">Bu müşteri filtresinde belge bulunamadı.</p>}</div></Panel>;
+  const [docSearch, setDocSearch] = useState("");
+  const [docType, setDocType] = useState("Tümü");
+  const [docCompanyId, setDocCompanyId] = useState(selectedCompanyId || "");
+  const [docStartDate, setDocStartDate] = useState("");
+  const [docEndDate, setDocEndDate] = useState("");
+  const [selectedDocId, setSelectedDocId] = useState("");
+  const documentTypeOptions = ["Teklif", "Sözleşme", "Fatura", "Rapor", "Diğer"];
+  const normalizedDocSearch = docSearch.trim().toLocaleLowerCase("tr");
+  const filteredDocs = visibleItems.filter((item: any) => {
+    if (docCompanyId && item.company_id !== docCompanyId) return false;
+    if (docType !== "Tümü" && (item.document_type || "Diğer") !== docType) return false;
+    if (docStartDate && (item.document_date || "") < docStartDate) return false;
+    if (docEndDate && (item.document_date || "") > docEndDate) return false;
+    if (normalizedDocSearch && !`${item.title || ""} ${item.document_type || ""}`.toLocaleLowerCase("tr").includes(normalizedDocSearch)) return false;
+    return true;
+  });
+  const addDocument = () => updateCollection(content, setContent, "customerDocuments", [{ id: createLocalId(), company_id: selectedCompanyId || "", title: "Yeni belge", document_type: "Diğer", document_date: new Date().toISOString().slice(0, 10), visible_to_customer: false }, ...items]);
+  const deleteDocument = (id: string) => {
+    if (!confirmRecordAction("Bu belgeyi silmek istediğinize emin misiniz?")) return;
+    updateCollection(content, setContent, "customerDocuments", items.filter((candidate: any) => candidate.id !== id));
+  };
+  const selectedDoc = selectedDocId ? items.find((item: any) => item.id === selectedDocId) : null;
+  const selectedDocIndex = selectedDoc ? items.findIndex((candidate: any) => candidate.id === selectedDoc.id) : -1;
+  const docGridColumns: AdminDataGridColumn<any>[] = [
+    { key: "title", header: "Başlık", render: (item: any) => item.title || "Adsız belge" },
+    { key: "company", header: "Müşteri", render: (item: any) => companyName(content, item.company_id) || "-" },
+    { key: "type", header: "Tür", render: (item: any) => <AdminStatusBadge tone="info">{item.document_type || "Diğer"}</AdminStatusBadge> },
+    { key: "date", header: "Tarih", render: (item: any) => formatDate(item.document_date) },
+    { key: "visibility", header: "Görünürlük", render: (item: any) => <AdminStatusBadge tone={item.visible_to_customer ? "success" : "neutral"}>{item.visible_to_customer ? "Müşteri Panelinde" : "Sadece Yönetici"}</AdminStatusBadge> }
+  ];
+  return (
+    <div className="w-full min-w-0 max-w-none">
+      <AdminWorkspace
+        eyebrow="Finans · Belgeler"
+        title="Belge Merkezi"
+        description="Müşteri belgeleri, sözleşmeler ve paylaşılabilir dosya kayıtları."
+        headerActions={<AdminButton compact variant="primary" onClick={addDocument}>+ Yeni Belge</AdminButton>}
+        leftPanel={
+          <AdminControlPanel>
+            <AdminFilterSection title="Filtreler">
+              <div className="grid gap-2">
+                <label className="grid gap-1 text-[10px] font-black uppercase text-slate-500">Ara<input value={docSearch} onChange={(event) => setDocSearch(event.target.value)} placeholder="Belge başlığı" className="min-h-9 rounded-[8px] border border-slate-300 bg-white px-2 text-xs font-semibold normal-case text-slate-900" /></label>
+                <CompanySelect value={docCompanyId} onChange={setDocCompanyId} companies={content.companies} />
+                <SelectField label="Belge türü" value={docType} onChange={setDocType} options={["Tümü", ...documentTypeOptions]} />
+                <Field label="Başlangıç tarihi" type="date" value={docStartDate} onChange={setDocStartDate} />
+                <Field label="Bitiş tarihi" type="date" value={docEndDate} onChange={setDocEndDate} />
+                <AdminButton compact variant="secondary" onClick={() => { setDocSearch(""); setDocType("Tümü"); setDocCompanyId(""); setDocStartDate(""); setDocEndDate(""); }}>Filtreleri Temizle</AdminButton>
+              </div>
+            </AdminFilterSection>
+          </AdminControlPanel>
+        }
+        rightPanel={
+          <AdminDetailInspector
+            title={selectedDoc?.title || undefined}
+            subtitle={selectedDoc ? `${companyName(content, selectedDoc.company_id) || "Müşteri yok"} · ${selectedDoc.document_type || "Diğer"}` : undefined}
+            emptyTitle="Bir belge seçin"
+            emptyDescription="Listeden bir satıra tıklayarak detaylarını buradan düzenleyin."
+            actions={selectedDoc ? <>
+              {selectedDoc.document_url && <a href={selectedDoc.document_url} target="_blank" rel="noreferrer" className="hk-button hk-button-info hk-button-compact">Belgeyi Aç</a>}
+              <AdminButton compact variant="danger" onClick={() => deleteDocument(selectedDoc.id)}>Sil</AdminButton>
+            </> : undefined}
+          >
+            {selectedDoc && (
+              <div className="grid gap-2">
+                <CompanySelect value={selectedDoc.company_id || ""} onChange={(value) => update(selectedDocIndex, { company_id: value })} companies={content.companies} />
+                <Field label="Belge başlığı" value={selectedDoc.title || ""} onChange={(value) => update(selectedDocIndex, { title: value })} />
+                <SelectField label="Belge türü" value={selectedDoc.document_type || "Diğer"} onChange={(value) => update(selectedDocIndex, { document_type: value })} options={documentTypeOptions} />
+                <Field label="Tarih" type="date" value={selectedDoc.document_date || ""} onChange={(value) => update(selectedDocIndex, { document_date: value })} />
+                <Field label="Belge URL" value={selectedDoc.document_url || ""} onChange={(value) => update(selectedDocIndex, { document_url: value })} />
+                <label className="flex items-center gap-2 rounded-[8px] border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700">
+                  <input type="checkbox" checked={Boolean(selectedDoc.visible_to_customer)} onChange={(event) => update(selectedDocIndex, { visible_to_customer: event.target.checked })} /> Müşteri Panelinde Görünür
+                </label>
+              </div>
+            )}
+          </AdminDetailInspector>
+        }
+        bottomBar={
+          <AdminActionBar statusText={`${filteredDocs.length} belge`}>
+            <AdminButton compact variant="primary" onClick={addDocument}>Yeni Belge</AdminButton>
+          </AdminActionBar>
+        }
+      >
+        <AdminDataGrid
+          columns={docGridColumns}
+          rows={filteredDocs}
+          rowKey={(item: any) => item.id}
+          activeId={selectedDocId}
+          onRowClick={(item: any) => setSelectedDocId(item.id)}
+          emptyTitle="Bu filtrelerle belge bulunamadı."
+        />
+      </AdminWorkspace>
+    </div>
+  );
 }
 
 function accountingTabForActive(active = "") {
@@ -3743,6 +3935,7 @@ function AccountingCenter({ content, setContent, save, currentSession, notify, s
   const [financeSearch, setFinanceSearch] = useState("");
   const [financeCategory, setFinanceCategory] = useState("Tümü");
   const [financeMonth, setFinanceMonth] = useState("");
+  const [selectedLedgerId, setSelectedLedgerId] = useState("");
   const payments = (content.paymentRecords || []).filter((item: any) => !isArchivedRecord(item) && item.status !== "İptal");
   const expenses = content.agencyExpenses || [];
   const today = new Date().toISOString().slice(0, 10);
@@ -3844,70 +4037,138 @@ function AccountingCenter({ content, setContent, save, currentSession, notify, s
   const selectedPaid = selectedPayments.filter((item: any) => item.status === "Ödendi").reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
   const selectedPending = selectedPayments.filter((item: any) => item.status !== "Ödendi").reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
 
+  if (tab === "tahsilatlar") return <PaymentCenter content={content} setContent={setContent} save={save} currentSession={currentSession} notify={notify} selectedCompanyId={selectedCompanyId} onClearCompanyFilter={onClearCompanyFilter} />;
+  if (tab === "bekleyen") return <PaymentCenter content={content} setContent={setContent} save={save} currentSession={currentSession} notify={notify} selectedCompanyId={selectedCompanyId} onClearCompanyFilter={onClearCompanyFilter} initialStatus="Bekliyor" />;
+  if (tab === "karlilik") return <ProfitabilityCenter content={content} setContent={setContent} setActive={(target: string) => setTab(accountingTabForActive(target))} currentSession={currentSession} notify={notify} />;
+
+  const ledgerRows = tab === "gelir-gider" ? [
+    ...payments.map((item: any) => ({ ...item, __kind: "income", __key: `income-${item.id}` })),
+    ...filteredExpenses.map((item: any) => ({ ...item, __kind: "expense", __key: `expense-${item.id}` }))
+  ] : [];
+  const selectedLedgerRow = selectedLedgerId ? ledgerRows.find((item: any) => item.__key === selectedLedgerId) : null;
+  const ledgerColumns: AdminDataGridColumn<any>[] = [
+    { key: "kind", header: "Tür", render: (item: any) => <AdminStatusBadge tone={item.__kind === "income" ? "success" : "danger"}>{item.__kind === "income" ? "Gelir" : "Gider"}</AdminStatusBadge> },
+    { key: "company", header: "Müşteri", render: (item: any) => item.__kind === "income" ? (companyName(content, item.company_id) || "-") : "-" },
+    { key: "category", header: "Kategori", render: (item: any) => item.__kind === "income" ? (item.payment_type || "Hizmet Bedeli") : (item.category || item.title || "Diğer") },
+    { key: "date", header: "Tarih", render: (item: any) => item.__kind === "income" ? (item.payment_date || item.due_date || item.service_period || "-") : (item.expense_date || "-") },
+    { key: "status", header: "Durum", render: (item: any) => item.__kind === "income" ? (item.status || "Bekliyor") : "Gider" },
+    { key: "visibility", header: "Görünürlük", render: (item: any) => item.__kind === "income" ? (item.visible_to_customer ? "Müşteriye açık" : "Sadece admin") : "Sadece admin" },
+    { key: "amount", header: "Tutar", align: "right", render: (item: any) => <strong className={item.__kind === "income" ? "text-emerald-700" : "text-red-700"}>{v4Money(item.amount)}</strong> }
+  ];
+
   return (
-    <Panel title="Muhasebe Merkezi">
-      <div className="mb-5 rounded-[18px] border border-emerald-200 bg-emerald-50 p-5">
-        <p className="text-xs font-black uppercase tracking-[.16em] text-emerald-700">Yalnızca yetkili finans kullanıcıları</p>
-        <h2 className="mt-2 text-2xl font-black text-slate-950">Ajans gelir, gider, tahsilat ve kârlılık kontrol merkezi</h2>
-        <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-700">Tahsilatlar, bekleyen ödemeler, gelir tahmini, kârlılık, müşteri finans özeti ve dışa aktarım tek ekranda toplanır. Eski finans route’ları bu merkezde ilgili sekmeyi açar.</p>
-      </div>
-      {(selectedCompanyId || customerId) && <div className="mb-5"><CustomerWorkflowLinks companyId={selectedCompanyId || customerId} /></div>}
-      <div className="mb-5 flex flex-wrap gap-2">{tabs.map(([key, label]) => <button key={key} onClick={() => setTab(key)} className={`rounded-full px-4 py-2 text-sm font-black transition ${tab === key ? "bg-cyan-300 text-slate-950" : "border border-slate-200 bg-white text-slate-700 hover:bg-cyan-50"}`}>{label}</button>)}</div>
-      {tab === "genel" && <div className="space-y-5">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-          <AgencyStatCard label="Bu ay tahsil edilen" value={v4Money(paid)} note="Ödenen kayıtlar" tone="emerald" />
-          <AgencyStatCard label="Bu ay bekleyen tahsilat" value={v4Money(pending)} note="Vadesi gelmemiş açık kayıtlar" tone="amber" />
-          <AgencyStatCard label="Geciken ödeme" value={v4Money(overdue)} note="Acil takip gerekir" tone="red" />
-          <AgencyStatCard label="Bu ay gider" value={v4Money(expenseTotal)} note="Ajans gider kayıtları" />
-          <AgencyStatCard label="Tahmini kâr" value={v4Money(netProfit)} note={`Net marj: %${profitMargin}`} tone={netProfit >= 0 ? "emerald" : "red"} />
-          <AgencyStatCard label="Müşteri başı ortalama gelir" value={v4Money(averageRevenue)} note={`${activeCustomers.length} aktif müşteri`} />
-          <AgencyStatCard label="Riskli müşteriler" value={riskyCustomers.length} note="Geciken tahsilat sinyali" tone={riskyCustomers.length ? "red" : "emerald"} />
-          <AgencyStatCard label="Yaklaşan ödemeler" value={upcomingPayments.length} note="Sıradaki tahsilat kayıtları" tone="amber" />
-          <AgencyStatCard label="Reklam / hizmet ayrımı" value="Ayrı takip" note="Payment type alanından izlenir" />
-          <AgencyStatCard label="Karar durumu" value={overdue > pending ? "Dikkat" : "Kontrol altında"} note="Ajans karar paneli sinyali" tone={overdue > pending ? "red" : "emerald"} />
-        </div>
-        <div className="grid gap-4 xl:grid-cols-2">
-          <GlassCard className="p-5"><h3 className="text-lg font-black text-slate-950">Ajans Karar Paneli</h3><div className="mt-4 grid gap-3 text-sm text-slate-700"><InfoItem label="Bu ay nakit akışı" value={netProfit >= 0 ? "Pozitif görünüyor" : "Gider veya geciken tahsilat baskısı var"} /><InfoItem label="Ödeme beklenen müşteriler" value={upcomingPayments.slice(0, 3).map((item: any) => companyName(content, item.company_id)).join(", ") || "Yaklaşan ödeme yok"} /><InfoItem label="Fiyat güncelleme önerisi" value={profitMargin < 25 ? "Düşük marjlı müşterileri inceleyin" : "Marj seviyesi kabul edilebilir"} /><InfoItem label="7 günlük finans aksiyonu" value="Geciken tahsilatları kapat, bekleyen ödemeler için hatırlatma hazırla, gider artışlarını kontrol et." /></div><div className="mt-4 flex flex-wrap gap-2"><button onClick={() => setActive?.("Görevler")} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Görev oluştur</button><button onClick={() => setActive?.("WhatsApp Hatırlatma Merkezi")} className="rounded-full border border-emerald-300 px-4 py-2 text-xs font-black text-emerald-700">WhatsApp mesajı hazırla</button><button onClick={() => setTab("gelir-tahmini")} className="rounded-full border border-slate-200 px-4 py-2 text-xs font-black text-slate-700">Gelir tahminini güncelle</button></div></GlassCard>
-          <GlassCard className="p-5"><h3 className="text-lg font-black text-slate-950">Riskli ve yaklaşan kayıtlar</h3><div className="mt-4 grid gap-2">{[...riskyCustomers.map((item: any) => `${item.company.name}: ${v4Money(item.overdue)} gecikmiş`), ...upcomingPayments.slice(0, 3).map((item: any) => `${companyName(content, item.company_id)}: ${v4Money(item.amount)} · ${formatDate(item.due_date)}`)].slice(0, 6).map((line) => <p key={line} className="rounded-[10px] border border-slate-200 bg-white p-3 text-sm text-slate-700">{line}</p>)}{!riskyCustomers.length && !upcomingPayments.length && <p className="rounded-[10px] border border-dashed border-slate-200 p-4 text-sm text-slate-500">Bugün için kritik finans kaydı bulunamadı.</p>}</div></GlassCard>
-        </div>
-      </div>}
-      {tab === "tahsilatlar" && <PaymentCenter content={content} setContent={setContent} save={save} currentSession={currentSession} notify={notify} selectedCompanyId={selectedCompanyId} onClearCompanyFilter={onClearCompanyFilter} />}
-      {tab === "bekleyen" && <PaymentCenter content={content} setContent={setContent} save={save} currentSession={currentSession} notify={notify} selectedCompanyId={selectedCompanyId} onClearCompanyFilter={onClearCompanyFilter} initialStatus="Bekliyor" />}
-      {tab === "gelir-gider" && <div className="space-y-5">
-        <div className="flex flex-wrap gap-2">
-          <button type="button" disabled={financeDraftAdding || financeSaving} onClick={addIncome} className="hk-button hk-button-primary">{financeDraftAdding ? "Hazırlanıyor..." : "Gelir Ekle"}</button>
-          <button type="button" disabled={financeDraftAdding || financeSaving} onClick={addExpense} className="hk-button hk-button-info">{financeDraftAdding ? "Hazırlanıyor..." : "Gider Ekle"}</button>
-          <button type="button" onClick={() => exportAccounting("csv")} className="hk-button hk-button-export">Excel/CSV Dışa Aktar</button>
-          <button type="button" onClick={() => exportAccounting("html")} className="hk-button hk-button-export">Yazdırılabilir Rapor</button>
-          <button type="button" onClick={persistFinance} disabled={financeSaving} className="hk-button hk-button-success sm:ml-auto">{financeSaving ? "Kaydediliyor..." : "Finans Kayıtlarını Kaydet"}</button>
-        </div>
-        <div className="grid gap-3 rounded-[16px] border border-slate-200 bg-slate-50 p-4 md:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_220px_180px_auto] xl:items-end">
-          <label className="grid gap-2 text-sm font-bold text-slate-700">Gider ara<input value={financeSearch} onChange={(event) => setFinanceSearch(event.target.value)} placeholder="Başlık, kategori veya not" className="min-h-11 rounded-[8px] border border-slate-300 bg-white px-3 text-slate-900" /></label>
-          <SelectField label="Kategori" value={financeCategory} onChange={setFinanceCategory} options={expenseCategories} />
-          <Field label="Ay" type="month" value={financeMonth} onChange={setFinanceMonth} />
-          <button type="button" onClick={() => { setFinanceSearch(""); setFinanceCategory("Tümü"); setFinanceMonth(""); }} className="hk-button hk-button-neutral">Filtreleri Temizle</button>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          <AgencyStatCard label="Filtrelenen gider" value={v4Money(filteredExpenseTotal)} note={`${filteredExpenses.length} gider kaydı`} tone="red" />
-          <AgencyStatCard label="Toplam gelir kaydı" value={payments.length} note="Tahsilat ekranından yönetilir" tone="emerald" />
-          <AgencyStatCard label="Net görünüm" value={v4Money(payments.reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0) - filteredExpenseTotal)} note="Gelir kayıtları eksi filtrelenen gider" tone="cyan" />
-        </div>
-        <div className="premium-scrollbar overflow-x-auto rounded-[16px] border border-slate-200">
-          <table className="w-full min-w-[980px] text-left text-sm">
-            <thead className="bg-slate-50 text-slate-600"><tr><th className="p-3">Tür</th><th>Müşteri</th><th>Kategori</th><th>Tutar</th><th>Tarih</th><th>Durum</th><th>Görünürlük</th><th className="pr-3 text-right">İşlem</th></tr></thead>
-            <tbody>
-              {payments.map((item: any) => <tr key={`income-${item.id}`} className="border-t border-slate-200"><td className="p-3 font-black text-emerald-700">Gelir</td><td>{companyName(content, item.company_id)}</td><td>{item.payment_type || "Hizmet Bedeli"}</td><td>{v4Money(item.amount)}</td><td>{item.payment_date || item.due_date || item.service_period || "-"}</td><td>{item.status || "Bekliyor"}</td><td>{item.visible_to_customer ? "Müşteriye açık" : "Sadece admin"}</td><td className="pr-3 text-right text-xs text-slate-500">Tahsilat ekranından yönetilir</td></tr>)}
-              {filteredExpenses.map((item: any) => { const index = expenses.findIndex((candidate: any) => candidate.id === item.id); return <tr key={`expense-${item.id || index}`} className="border-t border-slate-200"><td className="p-3 font-black text-red-700">Gider</td><td>-</td><td><input aria-label="Gider kategorisi" value={item.category || item.title || ""} onChange={(event) => updateExpense(index, { category: event.target.value })} className="min-h-11 w-full rounded-[8px] border border-slate-300 px-3" /></td><td><input aria-label="Gider tutarı" type="number" min="0" value={item.amount || 0} onChange={(event) => updateExpense(index, { amount: Number(event.target.value || 0) })} className="min-h-11 w-32 rounded-[8px] border border-slate-300 px-3" /></td><td><input aria-label="Gider tarihi" type="date" value={item.expense_date || ""} onChange={(event) => updateExpense(index, { expense_date: event.target.value })} className="min-h-11 rounded-[8px] border border-slate-300 px-3" /></td><td>Gider</td><td>Sadece admin</td><td className="pr-3 text-right"><button type="button" onClick={() => deleteExpense(index)} className="hk-button hk-button-compact hk-button-danger">Sil</button></td></tr>; })}
-              {!payments.length && !filteredExpenses.length && <tr><td colSpan={8} className="p-6 text-center text-slate-500">Bu filtrelerle gelir veya gider kaydı bulunmuyor.</td></tr>}
-            </tbody>
-          </table>
-        </div>
-      </div>}
-      {tab === "gelir-tahmini" && <RevenueForecastCenter content={content} setActive={(target: string) => setTab(accountingTabForActive(target))} />}
-      {tab === "karlilik" && <ProfitabilityCenter content={content} setContent={setContent} setActive={(target: string) => setTab(accountingTabForActive(target))} currentSession={currentSession} notify={notify} />}
-      {tab === "musteri-finans" && <GlassCard className="p-5"><div className="grid gap-4 md:grid-cols-[360px_1fr]"><CompanySelect label="Müşteri seç" value={customerId} onChange={setCustomerId} companies={content.companies} /><div className="rounded-[14px] border border-slate-200 bg-slate-50 p-4">{selectedCompany ? <div><h3 className="text-xl font-black text-slate-950">{selectedCompany.name}</h3><div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4"><AgencyStatCard label="Toplam tahsilat" value={v4Money(selectedPaid)} note="Ödenmiş kayıtlar" tone="emerald" /><AgencyStatCard label="Bekleyen ödeme" value={v4Money(selectedPending)} note="Açık kayıtlar" tone="amber" /><AgencyStatCard label="Son ödeme tarihi" value={selectedPayments[0]?.due_date || "-"} note="En güncel ödeme kaydı" /><AgencyStatCard label="Risk durumu" value={selectedPending ? "Takip" : "Temiz"} note="Müşteri finans sağlığı" tone={selectedPending ? "amber" : "emerald"} /></div><button onClick={() => setActive?.("Müşteriler")} className="mt-4 rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Müşteri profilini aç</button></div> : <p className="text-sm text-slate-500">Müşteri seçince toplam tahsilat, bekleyen ödeme, geciken ödeme, hizmet bedeli, reklam bütçesi, ödeme geçmişi ve risk durumu burada görünür.</p>}</div></div></GlassCard>}
-      {["raporlar", "export"].includes(tab) && <div className="grid gap-4 xl:grid-cols-2"><GlassCard className="p-5"><h3 className="text-lg font-black text-slate-950">Muhasebe raporları</h3><p className="mt-2 text-sm leading-6 text-slate-600">Raporlar ekran görüntüsü değil; gerçek finans özeti, tablo ve metin çıktısı olarak hazırlanır.</p><div className="mt-4 grid gap-2">{["Aylık muhasebe özeti", "Müşteri finans özeti", "Tahsilat raporu", "Gelir/gider raporu", "Kârlılık raporu", "Geciken ödeme raporu"].map((item) => <button key={item} onClick={() => exportAccounting("html")} className="rounded-[10px] border border-slate-200 bg-white px-4 py-3 text-left text-sm font-black text-slate-700 hover:border-cyan-300 hover:bg-cyan-50">{item}</button>)}</div></GlassCard><GlassCard className="p-5"><h3 className="text-lg font-black text-slate-950">Dışa aktar</h3><div className="mt-4 flex flex-wrap gap-2"><button onClick={() => exportAccounting("csv")} className="rounded-full bg-emerald-100 px-4 py-2 text-sm font-black text-emerald-700 ring-1 ring-emerald-200">Excel/CSV</button><button onClick={() => exportAccounting("html")} className="rounded-full bg-cyan-100 px-4 py-2 text-sm font-black text-cyan-700 ring-1 ring-cyan-200">PDF-ready HTML</button><button onClick={() => exportAccounting("word")} className="rounded-full bg-blue-100 px-4 py-2 text-sm font-black text-blue-700 ring-1 ring-blue-200">Word uyumlu metin</button></div><p className="mt-4 text-xs leading-5 text-slate-500">Finansal export yalnız muhasebe yetkisi olan kullanıcıların menüsünde görünür.</p></GlassCard></div>}
-    </Panel>
+    <div className="w-full min-w-0 max-w-none">
+      {(selectedCompanyId || customerId) && <div className="mb-3"><CustomerWorkflowLinks companyId={selectedCompanyId || customerId} /></div>}
+      <AdminWorkspace
+        eyebrow="Finans · Muhasebe Merkezi"
+        title="Finans"
+        description="Ajans gelir, gider, tahsilat ve kârlılık kontrol merkezi."
+        headerActions={<div className="flex flex-wrap gap-1">{tabs.map(([key, label]) => <AdminButton key={key} compact variant={tab === key ? "info" : "secondary"} onClick={() => setTab(key)}>{label}</AdminButton>)}</div>}
+        leftPanel={
+          <AdminControlPanel>
+            {tab === "gelir-gider" && (
+              <AdminFilterSection title="Gelir / Gider Filtreleri">
+                <div className="grid gap-2">
+                  <label className="grid gap-1 text-[10px] font-black uppercase text-slate-500">Gider ara<input value={financeSearch} onChange={(event) => setFinanceSearch(event.target.value)} placeholder="Başlık, kategori veya not" className="min-h-9 rounded-[8px] border border-slate-300 bg-white px-2 text-xs font-semibold normal-case text-slate-900" /></label>
+                  <SelectField label="Kategori" value={financeCategory} onChange={setFinanceCategory} options={expenseCategories} />
+                  <Field label="Ay" type="month" value={financeMonth} onChange={setFinanceMonth} />
+                  <AdminButton compact variant="secondary" onClick={() => { setFinanceSearch(""); setFinanceCategory("Tümü"); setFinanceMonth(""); }}>Filtreleri Temizle</AdminButton>
+                </div>
+              </AdminFilterSection>
+            )}
+            {tab === "musteri-finans" && (
+              <AdminFilterSection title="Müşteri Seç">
+                <CompanySelect label="Müşteri" value={customerId} onChange={setCustomerId} companies={content.companies} />
+              </AdminFilterSection>
+            )}
+            <AdminFilterSection title="Hızlı Erişim">
+              <div className="grid gap-1.5">
+                <AdminButton compact variant="secondary" onClick={() => setTab("gelir-tahmini")}>Gelir Tahmini</AdminButton>
+                <AdminButton compact variant="secondary" onClick={() => setTab("musteri-finans")}>Müşteri Finans Özeti</AdminButton>
+                <AdminButton compact variant="secondary" onClick={() => setTab("raporlar")}>Raporlar</AdminButton>
+              </div>
+            </AdminFilterSection>
+          </AdminControlPanel>
+        }
+        rightPanel={
+          tab === "gelir-gider" ? (
+            <AdminDetailInspector
+              title={selectedLedgerRow ? (selectedLedgerRow.__kind === "income" ? companyName(content, selectedLedgerRow.company_id) || "Gelir kaydı" : (selectedLedgerRow.category || selectedLedgerRow.title || "Gider kaydı")) : undefined}
+              subtitle={selectedLedgerRow ? (selectedLedgerRow.__kind === "income" ? "Gelir kaydı" : "Gider kaydı") : undefined}
+              emptyTitle="Bir kayıt seçin"
+              emptyDescription="Listeden bir gelir veya gider satırına tıklayın."
+              fields={selectedLedgerRow ? [
+                { label: "Tutar", value: v4Money(selectedLedgerRow.amount) },
+                { label: "Tarih", value: selectedLedgerRow.__kind === "income" ? (selectedLedgerRow.payment_date || selectedLedgerRow.due_date || selectedLedgerRow.service_period || "-") : (selectedLedgerRow.expense_date || "-") },
+                { label: "Durum", value: selectedLedgerRow.__kind === "income" ? (selectedLedgerRow.status || "Bekliyor") : "Gider" }
+              ] : undefined}
+              actions={selectedLedgerRow ? <>
+                {selectedLedgerRow.__kind === "income" && <AdminButton compact variant="secondary" onClick={() => setActive?.("Tahsilat")}>Tahsilatta Düzenle</AdminButton>}
+                {selectedLedgerRow.__kind === "expense" && <AdminButton compact variant="danger" onClick={() => { deleteExpense(expenses.findIndex((candidate: any) => candidate.id === selectedLedgerRow.id)); setSelectedLedgerId(""); }}>Sil</AdminButton>}
+              </> : undefined}
+            >
+              {selectedLedgerRow?.__kind === "expense" && (
+                <div className="grid gap-2">
+                  <Field label="Kategori" value={selectedLedgerRow.category || selectedLedgerRow.title || ""} onChange={(value) => updateExpense(expenses.findIndex((candidate: any) => candidate.id === selectedLedgerRow.id), { category: value })} />
+                  <Field label="Tutar" type="number" value={selectedLedgerRow.amount || 0} onChange={(value) => updateExpense(expenses.findIndex((candidate: any) => candidate.id === selectedLedgerRow.id), { amount: Number(value || 0) })} />
+                  <Field label="Tarih" type="date" value={selectedLedgerRow.expense_date || ""} onChange={(value) => updateExpense(expenses.findIndex((candidate: any) => candidate.id === selectedLedgerRow.id), { expense_date: value })} />
+                </div>
+              )}
+            </AdminDetailInspector>
+          ) : undefined
+        }
+        bottomBar={
+          tab === "gelir-gider" ? (
+            <AdminActionBar statusText={`${ledgerRows.length} kayıt`}>
+              <AdminButton compact variant="primary" disabled={financeDraftAdding || financeSaving} onClick={addIncome}>{financeDraftAdding ? "Hazırlanıyor..." : "Gelir Ekle"}</AdminButton>
+              <AdminButton compact variant="info" disabled={financeDraftAdding || financeSaving} onClick={addExpense}>{financeDraftAdding ? "Hazırlanıyor..." : "Gider Ekle"}</AdminButton>
+              <AdminButton compact variant="secondary" onClick={() => exportAccounting("csv")}>Excel/CSV</AdminButton>
+              <AdminButton compact variant="secondary" onClick={() => exportAccounting("html")}>Yazdırılabilir Rapor</AdminButton>
+              <AdminButton compact variant="success" disabled={financeSaving} onClick={persistFinance}>{financeSaving ? "Kaydediliyor..." : "Kaydet"}</AdminButton>
+            </AdminActionBar>
+          ) : (
+            <AdminActionBar statusText="Finans Merkezi">
+              <AdminButton compact variant="secondary" onClick={() => exportAccounting("html")}>Yazdırılabilir Rapor</AdminButton>
+            </AdminActionBar>
+          )
+        }
+      >
+        {tab === "genel" && <div className="space-y-4">
+          <AdminCompactKpiStrip items={[
+            { key: "paid", label: "Bu ay tahsil edilen", value: v4Money(paid), icon: <Gauge size={14} />, tone: "success" },
+            { key: "pending", label: "Bekleyen tahsilat", value: v4Money(pending), icon: <Gauge size={14} />, tone: "warning" },
+            { key: "overdue", label: "Geciken ödeme", value: v4Money(overdue), icon: <Gauge size={14} />, tone: "danger" },
+            { key: "expense", label: "Bu ay gider", value: v4Money(expenseTotal), icon: <Gauge size={14} />, tone: "info" },
+            { key: "profit", label: "Tahmini kâr", value: v4Money(netProfit), icon: <Gauge size={14} />, tone: netProfit >= 0 ? "success" : "danger" },
+            { key: "avg", label: "Müşteri başı ortalama", value: v4Money(averageRevenue), icon: <Gauge size={14} />, tone: "primary" },
+            { key: "risky", label: "Riskli müşteriler", value: riskyCustomers.length, icon: <Gauge size={14} />, tone: riskyCustomers.length ? "danger" : "success" },
+            { key: "upcoming", label: "Yaklaşan ödemeler", value: upcomingPayments.length, icon: <Gauge size={14} />, tone: "warning" }
+          ]} />
+          <div className="grid gap-4 xl:grid-cols-2">
+            <GlassCard className="p-4"><h3 className="text-sm font-black text-slate-950">Ajans Karar Paneli</h3><div className="mt-3 grid gap-2 text-xs text-slate-700"><InfoItem label="Bu ay nakit akışı" value={netProfit >= 0 ? "Pozitif görünüyor" : "Gider veya geciken tahsilat baskısı var"} /><InfoItem label="Ödeme beklenen müşteriler" value={upcomingPayments.slice(0, 3).map((item: any) => companyName(content, item.company_id)).join(", ") || "Yaklaşan ödeme yok"} /><InfoItem label="Fiyat güncelleme önerisi" value={profitMargin < 25 ? "Düşük marjlı müşterileri inceleyin" : "Marj seviyesi kabul edilebilir"} /></div><div className="mt-3 flex flex-wrap gap-1.5"><AdminButton compact variant="secondary" onClick={() => setActive?.("Görevler")}>Görev oluştur</AdminButton><AdminButton compact variant="secondary" onClick={() => setTab("gelir-tahmini")}>Gelir tahminini güncelle</AdminButton></div></GlassCard>
+            <GlassCard className="p-4"><h3 className="text-sm font-black text-slate-950">Riskli ve yaklaşan kayıtlar</h3><div className="mt-3 grid gap-1.5">{[...riskyCustomers.map((item: any) => `${item.company.name}: ${v4Money(item.overdue)} gecikmiş`), ...upcomingPayments.slice(0, 3).map((item: any) => `${companyName(content, item.company_id)}: ${v4Money(item.amount)} · ${formatDate(item.due_date)}`)].slice(0, 6).map((line) => <p key={line} className="rounded-[8px] border border-slate-200 bg-white p-2 text-xs text-slate-700">{line}</p>)}{!riskyCustomers.length && !upcomingPayments.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-3 text-xs text-slate-500">Bugün için kritik finans kaydı bulunamadı.</p>}</div></GlassCard>
+          </div>
+        </div>}
+        {tab === "gelir-gider" && <div className="space-y-4">
+          <AdminCompactKpiStrip items={[
+            { key: "expense", label: "Filtrelenen gider", value: v4Money(filteredExpenseTotal), icon: <Gauge size={14} />, tone: "danger" },
+            { key: "income", label: "Toplam gelir kaydı", value: payments.length, icon: <Gauge size={14} />, tone: "success" },
+            { key: "net", label: "Net görünüm", value: v4Money(payments.reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0) - filteredExpenseTotal), icon: <Gauge size={14} />, tone: "primary" }
+          ]} />
+          <AdminDataGrid
+            columns={ledgerColumns}
+            rows={ledgerRows}
+            rowKey={(item: any) => item.__key}
+            activeId={selectedLedgerId}
+            onRowClick={(item: any) => setSelectedLedgerId(item.__key)}
+            emptyTitle="Bu filtrelerle gelir veya gider kaydı bulunmuyor."
+          />
+        </div>}
+        {tab === "gelir-tahmini" && <RevenueForecastCenter content={content} setActive={(target: string) => setTab(accountingTabForActive(target))} />}
+        {tab === "musteri-finans" && <GlassCard className="p-4"><div className="rounded-[10px] border border-slate-200 bg-slate-50 p-4">{selectedCompany ? <div><h3 className="text-lg font-black text-slate-950">{selectedCompany.name}</h3><div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4"><AgencyStatCard label="Toplam tahsilat" value={v4Money(selectedPaid)} note="Ödenmiş kayıtlar" tone="emerald" /><AgencyStatCard label="Bekleyen ödeme" value={v4Money(selectedPending)} note="Açık kayıtlar" tone="amber" /><AgencyStatCard label="Son ödeme tarihi" value={selectedPayments[0]?.due_date || "-"} note="En güncel ödeme kaydı" /><AgencyStatCard label="Risk durumu" value={selectedPending ? "Takip" : "Temiz"} note="Müşteri finans sağlığı" tone={selectedPending ? "amber" : "emerald"} /></div><AdminButton compact variant="primary" onClick={() => setActive?.("Müşteriler")}>Müşteri profilini aç</AdminButton></div> : <p className="text-sm text-slate-500">Sol panelden müşteri seçince toplam tahsilat, bekleyen ödeme, geciken ödeme ve risk durumu burada görünür.</p>}</div></GlassCard>}
+        {["raporlar", "export"].includes(tab) && <div className="grid gap-4 xl:grid-cols-2"><GlassCard className="p-4"><h3 className="text-sm font-black text-slate-950">Muhasebe raporları</h3><p className="mt-2 text-xs leading-5 text-slate-600">Raporlar ekran görüntüsü değil; gerçek finans özeti, tablo ve metin çıktısı olarak hazırlanır.</p><div className="mt-3 grid gap-1.5">{["Aylık muhasebe özeti", "Müşteri finans özeti", "Tahsilat raporu", "Gelir/gider raporu", "Kârlılık raporu", "Geciken ödeme raporu"].map((item) => <AdminButton key={item} compact variant="secondary" onClick={() => exportAccounting("html")}>{item}</AdminButton>)}</div></GlassCard><GlassCard className="p-4"><h3 className="text-sm font-black text-slate-950">Dışa aktar</h3><div className="mt-3 flex flex-wrap gap-1.5"><AdminButton compact variant="success" onClick={() => exportAccounting("csv")}>Excel/CSV</AdminButton><AdminButton compact variant="info" onClick={() => exportAccounting("html")}>PDF-ready HTML</AdminButton><AdminButton compact variant="secondary" onClick={() => exportAccounting("word")}>Word uyumlu metin</AdminButton></div><p className="mt-3 text-[11px] leading-5 text-slate-500">Finansal export yalnız muhasebe yetkisi olan kullanıcıların menüsünde görünür.</p></GlassCard></div>}
+      </AdminWorkspace>
+    </div>
   );
 }
 
@@ -3981,11 +4242,109 @@ function PaymentCenter({ content, setContent, save, currentSession, notify, sele
     updateCollection(content, setContent, "paymentRecords", items.map((item) => item.id === id ? softDeleteRecord(item) : item));
     notify?.("✓ Ödeme kaydı silinmiş olarak işaretlendi", "success");
   };
-  return <Panel title="Tahsilat Takibi"><div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4"><AgencyStatCard label="Bu ay tahsil edilen" value={`${paidTotal.toLocaleString("tr-TR")} TL`} note="Uygulanan tarih ve müşteri filtresi" tone="emerald" /><AgencyStatCard label="Bekleyen tahsilat" value={`${pendingTotal.toLocaleString("tr-TR")} TL`} note="Vadesi henüz geçmemiş" tone="amber" /><AgencyStatCard label="Vadesi geçen" value={`${overdueTotal.toLocaleString("tr-TR")} TL`} note="Aksiyon gerektiren kayıtlar" tone="red" /><AgencyStatCard label="Tahsil edilecek toplam" value={`${receivableTotal.toLocaleString("tr-TR")} TL`} note="Bekleyen ve geciken toplam" /></div><div className="mb-4 flex flex-wrap items-center gap-3">{canManage && <button onClick={addPayment} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Tahsilat kaydı ekle</button>}<span className="rounded-full border border-slate-200 px-3 py-2 text-xs text-slate-600">Ödeme Geçmişi: {filteredItems.length} kayıt</span>{feedback && <span className="rounded-full border border-cyan-200/20 px-3 py-2 text-xs text-cyan-700">{feedback}</span>}</div><div className="mb-5 rounded-[16px] border border-slate-200 bg-slate-50 p-4"><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4"><SelectField label="Ödeme durumu" value={draftFilters.status} onChange={(status) => setDraftFilters({ ...draftFilters, status })} options={paymentHistoryFilters} /><CompanySelect value={draftFilters.companyId} onChange={(companyId) => setDraftFilters({ ...draftFilters, companyId })} companies={content.companies} /><SelectField label="Ödeme türü" value={draftFilters.paymentType} onChange={(paymentType) => setDraftFilters({ ...draftFilters, paymentType })} options={paymentTypes} /><label className="grid gap-2 text-sm font-bold text-slate-700">Ay<input list="payment-month-options" value={draftFilters.month} onChange={(event) => setDraftFilters({ ...draftFilters, month: event.target.value.replace(/\D/g, "").slice(0, 2) })} placeholder="Tümü veya 01-12" className="min-h-11 rounded-[8px] border border-slate-300 bg-white px-3 text-slate-900" /><datalist id="payment-month-options">{monthOptions.map(([value, label]) => <option key={label} value={value}>{label}</option>)}</datalist></label><label className="grid gap-2 text-sm font-bold text-slate-700">Yıl<input list="payment-year-options" value={draftFilters.year} onChange={(event) => setDraftFilters({ ...draftFilters, year: event.target.value.replace(/\D/g, "").slice(0, 4) })} placeholder="Tümü veya yıl yazın" className="min-h-11 rounded-[8px] border border-slate-300 bg-white px-3 text-slate-900" /><datalist id="payment-year-options">{yearOptions.map((year) => <option key={year} value={year} />)}</datalist></label><Field label="Başlangıç tarihi" type="date" value={draftFilters.startDate} onChange={(startDate) => setDraftFilters({ ...draftFilters, startDate })} /><Field label="Bitiş tarihi" type="date" value={draftFilters.endDate} onChange={(endDate) => setDraftFilters({ ...draftFilters, endDate })} /></div><div className="mt-4 flex flex-wrap gap-2"><button onClick={() => setAppliedFilters({ ...draftFilters })} className="rounded-[10px] bg-cyan-500 px-5 py-3 text-sm font-black text-white">Filtrele</button><button onClick={() => { const cleared = { status: "Tümü", companyId: "", paymentType: "Tümü", month: "", year: "", startDate: "", endDate: "" }; setDraftFilters(cleared); setAppliedFilters(cleared); onClearCompanyFilter?.(); }} className="rounded-[10px] border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700">Filtreleri Temizle</button>{(appliedFilters.companyId || appliedFilters.status !== "Tümü" || appliedFilters.paymentType !== "Tümü" || appliedFilters.month || appliedFilters.year || appliedFilters.startDate || appliedFilters.endDate) && <span className="self-center rounded-full border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-black text-cyan-800">Filtre uygulandı</span>}</div></div><div className="grid gap-3">{filteredItems.map((item) => {
-    const index = items.findIndex((candidate) => candidate.id === item.id);
-    const archived = isArchivedRecord(item);
-    return <div key={item.id || index} className={`rounded-[8px] border p-4 ${archived ? "border-amber-300/25 bg-amber-300/[0.06]" : "border-slate-200 bg-slate-50"}`}><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4"><CompanySelect value={item.company_id || ""} onChange={(value) => update(index, { company_id: value })} companies={content.companies} /><Field label="Tutar" type="number" value={item.amount || 0} onChange={(value) => update(index, { amount: Number(value || 0) })} /><SelectField label="Durum" value={item.status || "Bekliyor"} onChange={(value) => canManage && setStatus(item.id, value)} options={paymentStatusOptions} /><Field label="Ödeme türü" value={item.payment_type || "Hizmet Bedeli"} onChange={(value) => update(index, { payment_type: value })} /><Field label="Hizmet dönemi" type="month" value={item.service_period || ""} onChange={(value) => update(index, { service_period: value })} /><Field label="Son ödeme tarihi" type="date" value={item.due_date || ""} onChange={(value) => update(index, { due_date: value })} /><Field label="Ödeme tarihi" type="date" value={item.payment_date || ""} onChange={(value) => update(index, { payment_date: value })} /><InfoItem label="Oluşturulma tarihi" value={formatDateTime(item.created_at)} /><InfoItem label="Güncellenme tarihi" value={formatDateTime(item.updated_at)} /><TextArea label="Not" value={item.payment_note || ""} onChange={(value) => update(index, { payment_note: value })} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(item.visible_to_customer)} onChange={(event) => update(index, { visible_to_customer: event.target.checked })} /> Müşteri Panelinde Görünür</label></div><div className="mt-4 flex flex-wrap justify-end gap-2"><RecordActionButton tone="cyan" onClick={() => recordActionDetail("Ödeme Detayı", [["Müşteri", companyName(content, item.company_id)], ["Tutar", `${Number(item.amount || 0).toLocaleString("tr-TR")} TL`], ["Durum", item.status], ["Hizmet dönemi", item.service_period], ["Son ödeme", formatDate(item.due_date)]])}>Detay</RecordActionButton>{canManage && (archived ? <RecordActionButton tone="amber" onClick={() => updateById(item.id, { archived_at: null, deleted_at: null }, "Ödeme arşivden çıkarıldı")}>Arşivden Çıkar</RecordActionButton> : <RecordActionButton tone="amber" onClick={() => updateById(item.id, { archived_at: new Date().toISOString() }, "Ödeme arşivlendi")}>Arşivle</RecordActionButton>)}{canManage && item.status === "İptal" && <RecordActionButton tone="emerald" onClick={() => setStatus(item.id, "Bekliyor")}>Tekrar Bekliyor Yap</RecordActionButton>}{canManage && item.status !== "Ödendi" && <RecordActionButton tone="emerald" onClick={() => setStatus(item.id, "Ödendi")}>Ödendi Yap</RecordActionButton>}{canManage && <RecordActionButton tone="red" onClick={() => deletePayment(item.id)}>Sil</RecordActionButton>}{canManage && <button onClick={() => save?.()} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Kaydet</button>}<button onClick={() => window.location.reload()} className="rounded-full border border-slate-200 px-4 py-2 text-xs text-slate-700">Vazgeç</button></div></div>;
-  })}{!filteredItems.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-6 text-sm text-slate-400">Bu filtrelerle ödeme kaydı bulunamadı.</p>}</div></Panel>;
+  const [selectedPaymentId, setSelectedPaymentId] = useState("");
+  const selectedPayment = selectedPaymentId ? items.find((item) => item.id === selectedPaymentId) : null;
+  const selectedPaymentIndex = selectedPayment ? items.findIndex((candidate) => candidate.id === selectedPayment.id) : -1;
+  const filtersApplied = Boolean(appliedFilters.companyId || appliedFilters.status !== "Tümü" || appliedFilters.paymentType !== "Tümü" || appliedFilters.month || appliedFilters.year || appliedFilters.startDate || appliedFilters.endDate);
+  const paymentGridColumns: AdminDataGridColumn<any>[] = [
+    { key: "company", header: "Müşteri", render: (item: any) => companyName(content, item.company_id) || "-" },
+    { key: "type", header: "Tür", render: (item: any) => item.payment_type || "Hizmet Bedeli" },
+    { key: "period", header: "Dönem", render: (item: any) => item.service_period || "-" },
+    { key: "due", header: "Son Tarih", render: (item: any) => formatDate(item.due_date) },
+    { key: "paidDate", header: "Ödeme Tarihi", render: (item: any) => item.payment_date ? formatDate(item.payment_date) : "-" },
+    { key: "status", header: "Durum", render: (item: any) => <AdminStatusBadge tone={item.status === "Ödendi" ? "success" : item.status === "İptal" ? "neutral" : (item.due_date && item.due_date < today && item.status !== "Ödendi") ? "danger" : "warning"}>{item.status || "Bekliyor"}{item.due_date && item.due_date < today && item.status !== "Ödendi" && item.status !== "İptal" ? " · Gecikmiş" : ""}</AdminStatusBadge> },
+    { key: "amount", header: "Tutar", align: "right", render: (item: any) => <strong>{Number(item.amount || 0).toLocaleString("tr-TR")} TL</strong> }
+  ];
+  return (
+    <div className="w-full min-w-0 max-w-none">
+      <AdminWorkspace
+        eyebrow="Finans · Tahsilat"
+        title="Tahsilat Takibi"
+        description="Ödeme kayıtlarını durum, müşteri ve tarihe göre izleyin; gecikmiş tahsilatları takip edin."
+        headerActions={<>
+          {canManage && <AdminButton compact variant="primary" onClick={addPayment}>+ Tahsilat Kaydı</AdminButton>}
+          <AdminButton compact variant="secondary" onClick={() => window.location.reload()}>Yenile</AdminButton>
+        </>}
+        leftPanel={
+          <AdminControlPanel>
+            <AdminFilterSection title="Filtreler">
+              <div className="grid gap-2">
+                <SelectField label="Ödeme durumu" value={draftFilters.status} onChange={(status) => setDraftFilters({ ...draftFilters, status })} options={paymentHistoryFilters} />
+                <CompanySelect value={draftFilters.companyId} onChange={(companyId) => setDraftFilters({ ...draftFilters, companyId })} companies={content.companies} />
+                <SelectField label="Ödeme türü" value={draftFilters.paymentType} onChange={(paymentType) => setDraftFilters({ ...draftFilters, paymentType })} options={paymentTypes} />
+                <label className="grid gap-1 text-[10px] font-black uppercase text-slate-500">Ay<input list="payment-month-options" value={draftFilters.month} onChange={(event) => setDraftFilters({ ...draftFilters, month: event.target.value.replace(/\D/g, "").slice(0, 2) })} placeholder="Tümü veya 01-12" className="min-h-9 rounded-[8px] border border-slate-300 bg-white px-2 text-xs font-semibold normal-case text-slate-900" /><datalist id="payment-month-options">{monthOptions.map(([value, label]) => <option key={label} value={value}>{label}</option>)}</datalist></label>
+                <label className="grid gap-1 text-[10px] font-black uppercase text-slate-500">Yıl<input list="payment-year-options" value={draftFilters.year} onChange={(event) => setDraftFilters({ ...draftFilters, year: event.target.value.replace(/\D/g, "").slice(0, 4) })} placeholder="Tümü veya yıl yazın" className="min-h-9 rounded-[8px] border border-slate-300 bg-white px-2 text-xs font-semibold normal-case text-slate-900" /><datalist id="payment-year-options">{yearOptions.map((year) => <option key={year} value={year} />)}</datalist></label>
+                <Field label="Başlangıç tarihi" type="date" value={draftFilters.startDate} onChange={(startDate) => setDraftFilters({ ...draftFilters, startDate })} />
+                <Field label="Bitiş tarihi" type="date" value={draftFilters.endDate} onChange={(endDate) => setDraftFilters({ ...draftFilters, endDate })} />
+                <AdminButton compact variant="info" onClick={() => setAppliedFilters({ ...draftFilters })}>Filtrele</AdminButton>
+                <AdminButton compact variant="secondary" onClick={() => { const cleared = { status: "Tümü", companyId: "", paymentType: "Tümü", month: "", year: "", startDate: "", endDate: "" }; setDraftFilters(cleared); setAppliedFilters(cleared); onClearCompanyFilter?.(); }}>Filtreleri Temizle</AdminButton>
+                {filtersApplied && <AdminStatusBadge tone="info">Filtre uygulandı</AdminStatusBadge>}
+              </div>
+            </AdminFilterSection>
+          </AdminControlPanel>
+        }
+        rightPanel={
+          <AdminDetailInspector
+            title={selectedPayment ? companyName(content, selectedPayment.company_id) || "Tahsilat" : undefined}
+            subtitle={selectedPayment ? `${selectedPayment.payment_type || "Hizmet Bedeli"} · ${selectedPayment.status || "Bekliyor"}` : undefined}
+            emptyTitle="Bir tahsilat seçin"
+            emptyDescription="Listeden bir satıra tıklayarak detaylarını buradan düzenleyin."
+            fields={selectedPayment ? [
+              { label: "Tutar", value: `${Number(selectedPayment.amount || 0).toLocaleString("tr-TR")} TL` },
+              { label: "Hizmet Dönemi", value: selectedPayment.service_period || "-" },
+              { label: "Son Ödeme Tarihi", value: formatDate(selectedPayment.due_date) },
+              { label: "Ödeme Tarihi", value: selectedPayment.payment_date ? formatDate(selectedPayment.payment_date) : "-" },
+              { label: "Oluşturulma", value: formatDateTime(selectedPayment.created_at) },
+              { label: "Güncellenme", value: formatDateTime(selectedPayment.updated_at) }
+            ] : undefined}
+            actions={selectedPayment ? <>
+              {canManage && selectedPayment.status === "İptal" && <AdminButton compact variant="success" onClick={() => setStatus(selectedPayment.id, "Bekliyor")}>Tekrar Bekliyor Yap</AdminButton>}
+              {canManage && selectedPayment.status !== "Ödendi" && <AdminButton compact variant="success" onClick={() => setStatus(selectedPayment.id, "Ödendi")}>Ödendi Yap</AdminButton>}
+              {canManage && (isArchivedRecord(selectedPayment) ? <AdminButton compact variant="info" onClick={() => updateById(selectedPayment.id, { archived_at: null, deleted_at: null }, "Ödeme arşivden çıkarıldı")}>Arşivden Çıkar</AdminButton> : <AdminButton compact variant="warning" onClick={() => updateById(selectedPayment.id, { archived_at: new Date().toISOString() }, "Ödeme arşivlendi")}>Arşivle</AdminButton>)}
+              {canManage && <AdminButton compact variant="danger" onClick={() => deletePayment(selectedPayment.id)}>Sil</AdminButton>}
+              {canManage && <AdminButton compact variant="primary" onClick={() => save?.()}>Kaydet</AdminButton>}
+            </> : undefined}
+          >
+            {selectedPayment && (
+              <div className="grid gap-2">
+                <CompanySelect value={selectedPayment.company_id || ""} onChange={(value) => update(selectedPaymentIndex, { company_id: value })} companies={content.companies} />
+                <Field label="Tutar" type="number" value={selectedPayment.amount || 0} onChange={(value) => update(selectedPaymentIndex, { amount: Number(value || 0) })} />
+                <SelectField label="Durum" value={selectedPayment.status || "Bekliyor"} onChange={(value) => canManage && setStatus(selectedPayment.id, value)} options={paymentStatusOptions} />
+                <Field label="Ödeme türü" value={selectedPayment.payment_type || "Hizmet Bedeli"} onChange={(value) => update(selectedPaymentIndex, { payment_type: value })} />
+                <Field label="Hizmet dönemi" type="month" value={selectedPayment.service_period || ""} onChange={(value) => update(selectedPaymentIndex, { service_period: value })} />
+                <Field label="Son ödeme tarihi" type="date" value={selectedPayment.due_date || ""} onChange={(value) => update(selectedPaymentIndex, { due_date: value })} />
+                <Field label="Ödeme tarihi" type="date" value={selectedPayment.payment_date || ""} onChange={(value) => update(selectedPaymentIndex, { payment_date: value })} />
+                <TextArea label="Not" value={selectedPayment.payment_note || ""} onChange={(value) => update(selectedPaymentIndex, { payment_note: value })} />
+                <label className="flex items-center gap-2 rounded-[8px] border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700">
+                  <input type="checkbox" checked={Boolean(selectedPayment.visible_to_customer)} onChange={(event) => update(selectedPaymentIndex, { visible_to_customer: event.target.checked })} /> Müşteri Panelinde Görünür
+                </label>
+              </div>
+            )}
+          </AdminDetailInspector>
+        }
+        bottomBar={
+          <AdminActionBar statusText={`${filteredItems.length} kayıt${feedback ? ` · ${feedback}` : ""}`}>
+            {canManage && <AdminButton compact variant="primary" onClick={addPayment}>Tahsilat Kaydı Ekle</AdminButton>}
+          </AdminActionBar>
+        }
+      >
+        <AdminCompactKpiStrip items={[
+          { key: "paid", label: "Bu ay tahsil edilen", value: `${paidTotal.toLocaleString("tr-TR")} TL`, icon: <Gauge size={14} />, tone: "success" },
+          { key: "pending", label: "Bekleyen tahsilat", value: `${pendingTotal.toLocaleString("tr-TR")} TL`, icon: <Gauge size={14} />, tone: "warning" },
+          { key: "overdue", label: "Vadesi geçen", value: `${overdueTotal.toLocaleString("tr-TR")} TL`, icon: <Gauge size={14} />, tone: "danger" },
+          { key: "receivable", label: "Tahsil edilecek toplam", value: `${receivableTotal.toLocaleString("tr-TR")} TL`, icon: <Gauge size={14} />, tone: "info" }
+        ]} />
+        <AdminDataGrid
+          columns={paymentGridColumns}
+          rows={filteredItems}
+          rowKey={(item) => item.id}
+          activeId={selectedPaymentId}
+          onRowClick={(item) => setSelectedPaymentId(item.id)}
+          emptyTitle="Bu filtrelerle ödeme kaydı bulunamadı."
+        />
+      </AdminWorkspace>
+    </div>
+  );
 }
 
 function competitorDisplay(item: any) {
@@ -4329,7 +4688,96 @@ function ProfitabilityCenter({ content, setContent, setActive, currentSession, n
     updateCollection(content, setContent, "paymentRecords", payments.map((item) => item.id === id ? softDeleteRecord(item) : item));
     notify?.("✓ Ödeme kaydı silinmiş olarak işaretlendi", "success");
   };
-  return <Panel title="Karlılık Dashboard"><div className="mb-5 grid gap-3 md:grid-cols-4"><AgencyStatCard label="Aylık gelir" value={`${revenue.toLocaleString("tr-TR")} TL`} note="Bu ay beklenen toplam" /><AgencyStatCard label="Ödenen / bekleyen" value={`${paid.toLocaleString("tr-TR")} / ${pending.toLocaleString("tr-TR")} TL`} note="Tahsilat dengesi" tone="emerald" /><AgencyStatCard label="Aktif müşteri" value={activeCustomers} note={`Müşteri başı ortalama: ${activeCustomers ? Math.round(revenue / activeCustomers).toLocaleString("tr-TR") : 0} TL`} /><AgencyStatCard label="Tahmini kâr" value={`${(revenue - expenseTotal).toLocaleString("tr-TR")} TL`} note={`Gider: ${expenseTotal.toLocaleString("tr-TR")} TL`} tone={revenue - expenseTotal >= 0 ? "emerald" : "red"} /></div><div className="mb-6 rounded-[8px] border border-slate-200 bg-slate-50 p-4"><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-slate-900">Ödeme Geçmişi</h3><p className="mt-1 text-sm text-slate-400">Karlılık hesabında kullanılan tahsilat kayıtlarını durum, müşteri ve tarihe göre inceleyin.</p></div><span className="rounded-full border border-slate-200 px-3 py-2 text-xs text-slate-600">{filteredPayments.length} kayıt</span></div><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5"><SelectField label="Durum filtresi" value={paymentStatusFilter} onChange={setPaymentStatusFilter} options={paymentHistoryFilters} /><CompanySelect value={paymentCompanyFilter} onChange={setPaymentCompanyFilter} companies={content.companies} /><Field label="Başlangıç tarihi" type="date" value={paymentStartDate} onChange={setPaymentStartDate} /><Field label="Bitiş tarihi" type="date" value={paymentEndDate} onChange={setPaymentEndDate} /><button onClick={() => { setPaymentStatusFilter("Tümü"); setPaymentCompanyFilter(""); setPaymentStartDate(""); setPaymentEndDate(""); }} className="self-end rounded-[8px] border border-slate-200 px-4 py-3 text-sm font-black text-slate-700">Filtreleri Temizle</button></div><div className="mt-4 grid gap-2">{filteredPayments.slice(0, 12).map((item) => <div key={item.id || `${item.company_id}-${item.due_date}`} className={`grid gap-2 rounded-[8px] border p-3 text-sm xl:grid-cols-[1fr_.55fr_.55fr_.7fr_1.3fr] ${isArchivedRecord(item) ? "border-amber-300/25 bg-amber-300/[0.06]" : "border-slate-200 bg-slate-50"}`}><span className="font-black text-slate-900">{companyName(content, item.company_id)}</span><span>{Number(item.amount || 0).toLocaleString("tr-TR")} TL</span><span>{item.status || "Bekliyor"}</span><span>{item.service_period || item.due_date || "-"}</span><span className="flex flex-wrap gap-2 xl:justify-end"><RecordActionButton tone="cyan" onClick={() => recordActionDetail("Ödeme Detayı", [["Müşteri", companyName(content, item.company_id)], ["Tutar", `${Number(item.amount || 0).toLocaleString("tr-TR")} TL`], ["Durum", item.status], ["Hizmet dönemi", item.service_period], ["Son ödeme", formatDate(item.due_date)]])}>Detay</RecordActionButton>{canManagePayments && <RecordActionButton onClick={() => setActive?.("Tahsilat")}>Düzenle</RecordActionButton>}{canManagePayments && (isArchivedRecord(item) ? <RecordActionButton tone="amber" onClick={() => updatePayment(item.id, { archived_at: null, deleted_at: null }, "Ödeme arşivden çıkarıldı")}>Arşivden Çıkar</RecordActionButton> : <RecordActionButton tone="amber" onClick={() => updatePayment(item.id, { archived_at: new Date().toISOString() }, "Ödeme arşivlendi")}>Arşivle</RecordActionButton>)}{canManagePayments && item.status !== "Ödendi" && <RecordActionButton tone="emerald" onClick={() => setPaymentStatus(item.id, "Ödendi")}>Ödendi Yap</RecordActionButton>}{canManagePayments && item.status === "İptal" && <RecordActionButton tone="emerald" onClick={() => setPaymentStatus(item.id, "Bekliyor")}>Tekrar Bekliyor Yap</RecordActionButton>}{canManagePayments && <RecordActionButton tone="red" onClick={() => deletePayment(item.id)}>Sil</RecordActionButton>}</span></div>)}{!filteredPayments.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-4 text-sm text-slate-400">Bu filtrelerle ödeme kaydı bulunamadı.</p>}</div></div><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h3 className="font-black">Gider takibi</h3><button onClick={() => updateCollection(content, setContent, "agencyExpenses", [{ id: `${Date.now()}`, title: "Yeni gider", amount: 0, expense_date: new Date().toISOString().slice(0, 10), category: "Diğer", note: "" }, ...expenses])} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Gider ekle</button></div><div className="grid gap-3">{expenses.map((item, index) => <div key={item.id || index} className="grid gap-3 rounded-[8px] border border-slate-200 bg-slate-50 p-4 md:grid-cols-2 xl:grid-cols-5"><Field label="Gider başlığı" value={item.title || ""} onChange={(value) => update(index, { title: value })} /><Field label="Tutar" type="number" value={item.amount || 0} onChange={(value) => update(index, { amount: Number(value || 0) })} /><Field label="Tarih" type="date" value={item.expense_date || ""} onChange={(value) => update(index, { expense_date: value })} /><SelectField label="Kategori" value={item.category || "Diğer"} onChange={(value) => update(index, { category: value })} options={["Reklam Araçları", "Yazılım", "Tasarım", "Personel", "Operasyon", "Diğer"]} /><Field label="Not" value={item.note || ""} onChange={(value) => update(index, { note: value })} /><button onClick={() => updateCollection(content, setContent, "agencyExpenses", expenses.filter((_, i) => i !== index))} className="w-fit rounded-full border border-red-300/30 px-3 py-2 text-xs text-red-200">Sil</button></div>)}</div></Panel>;
+  const [selectedProfitPaymentId, setSelectedProfitPaymentId] = useState("");
+  const selectedProfitPayment = selectedProfitPaymentId ? payments.find((item) => item.id === selectedProfitPaymentId) : null;
+  const profitGridColumns: AdminDataGridColumn<any>[] = [
+    { key: "company", header: "Müşteri", render: (item: any) => companyName(content, item.company_id) || "-" },
+    { key: "period", header: "Dönem", render: (item: any) => item.service_period || item.due_date || "-" },
+    { key: "status", header: "Durum", render: (item: any) => <AdminStatusBadge tone={item.status === "Ödendi" ? "success" : item.status === "İptal" ? "neutral" : "warning"}>{item.status || "Bekliyor"}</AdminStatusBadge> },
+    { key: "amount", header: "Tutar", align: "right", render: (item: any) => <strong>{Number(item.amount || 0).toLocaleString("tr-TR")} TL</strong> }
+  ];
+  return (
+    <div className="w-full min-w-0 max-w-none">
+      <AdminWorkspace
+        eyebrow="Finans · Kârlılık"
+        title="Kârlılık Analizi"
+        description="Aylık gelir, gider ve tahmini kâr; tahsilat kayıtları üzerinden gerçek verilerle hesaplanır."
+        headerActions={<AdminButton compact variant="secondary" onClick={() => setActive?.("Tahsilat")}>Tahsilat Ekranını Aç</AdminButton>}
+        leftPanel={
+          <AdminControlPanel>
+            <AdminFilterSection title="Filtreler">
+              <div className="grid gap-2">
+                <SelectField label="Durum filtresi" value={paymentStatusFilter} onChange={setPaymentStatusFilter} options={paymentHistoryFilters} />
+                <CompanySelect value={paymentCompanyFilter} onChange={setPaymentCompanyFilter} companies={content.companies} />
+                <Field label="Başlangıç tarihi" type="date" value={paymentStartDate} onChange={setPaymentStartDate} />
+                <Field label="Bitiş tarihi" type="date" value={paymentEndDate} onChange={setPaymentEndDate} />
+                <AdminButton compact variant="secondary" onClick={() => { setPaymentStatusFilter("Tümü"); setPaymentCompanyFilter(""); setPaymentStartDate(""); setPaymentEndDate(""); }}>Filtreleri Temizle</AdminButton>
+              </div>
+            </AdminFilterSection>
+            <AdminFilterSection title="Gider Takibi">
+              <div className="grid gap-2">
+                <AdminButton compact variant="primary" onClick={() => updateCollection(content, setContent, "agencyExpenses", [{ id: `${Date.now()}`, title: "Yeni gider", amount: 0, expense_date: new Date().toISOString().slice(0, 10), category: "Diğer", note: "" }, ...expenses])}>+ Gider Ekle</AdminButton>
+                <div className="grid gap-2">
+                  {expenses.map((item, index) => (
+                    <div key={item.id || index} className="rounded-[8px] border border-slate-200 bg-white p-2">
+                      <Field label="Başlık" value={item.title || ""} onChange={(value) => update(index, { title: value })} />
+                      <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                        <Field label="Tutar" type="number" value={item.amount || 0} onChange={(value) => update(index, { amount: Number(value || 0) })} />
+                        <Field label="Tarih" type="date" value={item.expense_date || ""} onChange={(value) => update(index, { expense_date: value })} />
+                      </div>
+                      <SelectField label="Kategori" value={item.category || "Diğer"} onChange={(value) => update(index, { category: value })} options={["Reklam Araçları", "Yazılım", "Tasarım", "Personel", "Operasyon", "Diğer"]} />
+                      <AdminButton compact variant="danger" onClick={() => updateCollection(content, setContent, "agencyExpenses", expenses.filter((_, i) => i !== index))}>Sil</AdminButton>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </AdminFilterSection>
+          </AdminControlPanel>
+        }
+        rightPanel={
+          <AdminDetailInspector
+            title={selectedProfitPayment ? companyName(content, selectedProfitPayment.company_id) || "Tahsilat" : undefined}
+            subtitle={selectedProfitPayment ? `${selectedProfitPayment.service_period || "-"} · ${selectedProfitPayment.status || "Bekliyor"}` : undefined}
+            emptyTitle="Bir kayıt seçin"
+            emptyDescription="Listeden bir tahsilat satırına tıklayarak detaylarını buradan görüntüleyin."
+            fields={selectedProfitPayment ? [
+              { label: "Tutar", value: `${Number(selectedProfitPayment.amount || 0).toLocaleString("tr-TR")} TL` },
+              { label: "Hizmet Dönemi", value: selectedProfitPayment.service_period || "-" },
+              { label: "Son Ödeme Tarihi", value: formatDate(selectedProfitPayment.due_date) }
+            ] : undefined}
+            actions={selectedProfitPayment ? <>
+              {canManagePayments && <AdminButton compact variant="secondary" onClick={() => setActive?.("Tahsilat")}>Tahsilatta Düzenle</AdminButton>}
+              {canManagePayments && (isArchivedRecord(selectedProfitPayment) ? <AdminButton compact variant="info" onClick={() => updatePayment(selectedProfitPayment.id, { archived_at: null, deleted_at: null }, "Ödeme arşivden çıkarıldı")}>Arşivden Çıkar</AdminButton> : <AdminButton compact variant="warning" onClick={() => updatePayment(selectedProfitPayment.id, { archived_at: new Date().toISOString() }, "Ödeme arşivlendi")}>Arşivle</AdminButton>)}
+              {canManagePayments && selectedProfitPayment.status !== "Ödendi" && <AdminButton compact variant="success" onClick={() => setPaymentStatus(selectedProfitPayment.id, "Ödendi")}>Ödendi Yap</AdminButton>}
+              {canManagePayments && selectedProfitPayment.status === "İptal" && <AdminButton compact variant="success" onClick={() => setPaymentStatus(selectedProfitPayment.id, "Bekliyor")}>Tekrar Bekliyor Yap</AdminButton>}
+              {canManagePayments && <AdminButton compact variant="danger" onClick={() => deletePayment(selectedProfitPayment.id)}>Sil</AdminButton>}
+            </> : undefined}
+          />
+        }
+        bottomBar={
+          <AdminActionBar statusText={`${filteredPayments.length} tahsilat kaydı`}>
+            <AdminButton compact variant="secondary" onClick={() => setActive?.("Tahsilat")}>Tahsilat Ekranını Aç</AdminButton>
+          </AdminActionBar>
+        }
+      >
+        <AdminCompactKpiStrip items={[
+          { key: "revenue", label: "Aylık gelir", value: `${revenue.toLocaleString("tr-TR")} TL`, icon: <Gauge size={14} />, tone: "primary" },
+          { key: "paid", label: "Ödenen", value: `${paid.toLocaleString("tr-TR")} TL`, icon: <Gauge size={14} />, tone: "success" },
+          { key: "pending", label: "Bekleyen", value: `${pending.toLocaleString("tr-TR")} TL`, icon: <Gauge size={14} />, tone: "warning" },
+          { key: "customers", label: "Aktif müşteri", value: activeCustomers, icon: <Gauge size={14} />, tone: "info" },
+          { key: "profit", label: "Tahmini kâr", value: `${(revenue - expenseTotal).toLocaleString("tr-TR")} TL`, icon: <Gauge size={14} />, tone: revenue - expenseTotal >= 0 ? "success" : "danger" }
+        ]} />
+        <AdminDataGrid
+          columns={profitGridColumns}
+          rows={filteredPayments}
+          rowKey={(item, index) => item.id || `${index}`}
+          activeId={selectedProfitPaymentId}
+          onRowClick={(item) => setSelectedProfitPaymentId(item.id)}
+          emptyTitle="Bu filtrelerle ödeme kaydı bulunamadı."
+        />
+      </AdminWorkspace>
+    </div>
+  );
 }
 
 function HKAssistantCenter({ content }: any) {
