@@ -10,3 +10,9 @@ desktop-builds/
 build/
 tsconfig.tsbuildinfo
 artifacts/
+
+# Playwright generated output — never commit traces/videos/reports.
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

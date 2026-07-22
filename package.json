@@ -9,7 +9,16 @@
     "start": "next start",
     "desktop:mac": "bash desktop/macos/build-dmg.sh",
     "desktop:win": "powershell -ExecutionPolicy Bypass -File desktop/windows/build-exe.ps1",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node --experimental-strip-types --test tests/unit/*.test.ts",
+    "test:unit": "node --experimental-strip-types --test tests/unit/*.test.ts",
+    "test:security": "node --experimental-strip-types --test tests/unit/*.test.ts",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:report": "playwright show-report",
+    "validate:env": "node --experimental-strip-types scripts/validate-env.ts",
+    "validate:supabase": "node --experimental-strip-types scripts/validate-supabase.ts",
+    "validate:deployment": "node --experimental-strip-types scripts/validate-deployment.ts"
   },
   "dependencies": {
     "clsx": "^2.1.1",

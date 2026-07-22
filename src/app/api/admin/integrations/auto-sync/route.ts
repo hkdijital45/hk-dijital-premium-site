@@ -1,20 +1,13 @@
-import { timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import { getSession, isStaffRole } from "@/lib/auth";
 import { getIntegrations, syncIntegration, type IntegrationProvider } from "@/lib/business-flow";
-
-function safeTokenMatch(token: string | undefined, secret: string) {
-  if (!token) return false;
-  const a = Buffer.from(token);
-  const b = Buffer.from(secret);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
+import { safeCompare } from "@/lib/secure-compare";
 
 async function canRun(request: Request) {
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret) {
     const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-    return safeTokenMatch(token, cronSecret);
+    return safeCompare(token, cronSecret);
   }
   const session = await getSession();
   return isStaffRole(session?.role);

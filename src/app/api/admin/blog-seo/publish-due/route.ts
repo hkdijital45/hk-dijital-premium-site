@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireModuleAccess } from "@/lib/permissions";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
+import { safeCompare } from "@/lib/secure-compare";
 
 type BlogPostRow = {
   id: string;
@@ -18,19 +19,8 @@ type PublishResult = {
   failed: number;
 };
 
-function timingSafeEqualString(a: string, b: string) {
-  const aBytes = new TextEncoder().encode(a);
-  const bBytes = new TextEncoder().encode(b);
-  if (aBytes.length !== bBytes.length) return false;
-  let diff = 0;
-  for (let index = 0; index < aBytes.length; index += 1) {
-    diff |= aBytes[index] ^ bBytes[index];
-  }
-  return diff === 0;
-}
-
 function matchesSecret(value: string | null, secret: string | undefined) {
-  return Boolean(value && secret && timingSafeEqualString(value, secret));
+  return safeCompare(value, secret);
 }
 
 function bearerToken(request: Request) {

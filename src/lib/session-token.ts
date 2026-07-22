@@ -1,4 +1,5 @@
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHmac } from "crypto";
+import { safeCompare } from "./secure-compare.ts";
 
 export const adminCookieName = "hk_admin_session";
 export const authCookieName = "hk_auth_session";
@@ -55,9 +56,7 @@ export function decodeSession(value?: string): AppSession | null {
     // of crashing every request through the middleware.
     return null;
   }
-  const a = Buffer.from(signature);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  if (!safeCompare(signature, expected)) return null;
 
   try {
     return JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as AppSession;

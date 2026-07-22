@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    name: TypeScript, lint, unit tests, build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit / security tests
+        run: npm run test:unit
+
+      - name: Environment validation (development mode — informational only)
+        run: npm run validate:env
+
+      - name: Production build
+        run: npm run build
+        env:
+          # Placeholder values only so the build step never talks to a real
+          # Supabase project in CI — the app already degrades gracefully
+          # without real credentials (see src/lib/supabase.ts hasSupabaseConfig()).
+          NEXT_PUBLIC_SITE_URL: https://www.hkdijital.com.tr
+
+  e2e:
+    name: Playwright (public + credential-gated coverage)
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Production build
+        run: npm run build
+
+      - name: Run Playwright
+        run: npm run test:e2e
+        env:
+          CI: true
+          # Authenticated/Supabase-dependent tests skip automatically and
+          # clearly (see tests/e2e/fixtures/qa-auth.ts) when these secrets are
+          # not configured in this repository's GitHub Actions secrets — they
+          # are never required for this job to pass.
+          QA_ADMIN_EMAIL: ${{ secrets.QA_ADMIN_EMAIL }}
+          QA_ADMIN_PASSWORD: ${{ secrets.QA_ADMIN_PASSWORD }}
+          QA_CUSTOMER_A_EMAIL: ${{ secrets.QA_CUSTOMER_A_EMAIL }}
+          QA_CUSTOMER_A_PASSWORD: ${{ secrets.QA_CUSTOMER_A_PASSWORD }}
+          QA_CUSTOMER_B_DOCUMENT_ID: ${{ secrets.QA_CUSTOMER_B_DOCUMENT_ID }}
+          QA_CUSTOMER_B_REPORT_ID: ${{ secrets.QA_CUSTOMER_B_REPORT_ID }}
+
+      - name: Upload Playwright report (on failure only)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

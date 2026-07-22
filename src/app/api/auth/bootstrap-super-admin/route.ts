@@ -5,6 +5,7 @@ import {
   updateSupabaseAuthUser
 } from "@/lib/auth";
 import { hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
+import { safeCompare } from "@/lib/secure-compare";
 
 type UserProfile = {
   id: string;
@@ -60,7 +61,7 @@ export async function POST(request: Request) {
   const expectedSecret = process.env.BOOTSTRAP_ADMIN_SECRET || "";
   const normalizedSecret = String(bootstrapSecret || "");
 
-  if (!expectedSecret || normalizedSecret !== expectedSecret) {
+  if (!expectedSecret || !safeCompare(normalizedSecret, expectedSecret)) {
     return NextResponse.json({ error: "Bootstrap anahtarı hatalı." }, { status: 403 });
   }
 

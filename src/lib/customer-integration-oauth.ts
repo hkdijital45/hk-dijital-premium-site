@@ -6,6 +6,8 @@ import { getSession, isCustomerPasswordChangeRequired, isCustomerRole, isStaffRo
 import { encryptSecret } from "@/lib/business-flow";
 import { diagnoseMetaBusinessAccess, listMetaBusinessAssets, META_BUSINESS_REQUIRED_SCOPES, publicMetaDiagnostics, tokenForCustomerMetaIntegration } from "@/lib/meta-business-phase2";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
+import { safeCompare } from "@/lib/secure-compare";
+import { safeReturnTo } from "@/lib/safe-return-to";
 
 export type Provider = "meta" | "google" | "tiktok" | "x";
 type OAuthState = {
@@ -84,15 +86,6 @@ function wantsJson(request: Request) {
   return request.headers.get("accept")?.includes("application/json") || new URL(request.url).searchParams.get("format") === "json";
 }
 
-function safeReturnTo(value: string, fallback = "/musteri-paneli#hesap-bagla") {
-  const raw = clean(value) || fallback;
-  try {
-    const parsed = new URL(raw, "https://hkdijital.local");
-    return `${parsed.pathname}${parsed.search}${parsed.hash || "#hesap-bagla"}`;
-  } catch {
-    return fallback;
-  }
-}
 
 function redirectWithIntegrationError(request: Request, returnTo: string, provider: Provider, code: string, params: Record<string, string> = {}) {
   const target = new URL(safeReturnTo(returnTo), baseUrl(request));
@@ -280,7 +273,7 @@ function decodeState(raw: string): OAuthState | null {
     // — treat that as an invalid state (fail closed) instead of a raw 500.
     return null;
   }
-  if (expectedSignature !== signature) return null;
+  if (!safeCompare(expectedSignature, signature)) return null;
   try {
     const state = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as OAuthState;
     if (!state.exp || state.exp < Date.now()) return null;

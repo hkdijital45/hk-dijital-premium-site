@@ -13,6 +13,9 @@ const eslintConfig = defineConfig([
       // API payloads and Supabase JSON columns are intentionally dynamic at system boundaries.
       // Runtime validation remains mandatory; forcing broad casts here adds noise without safety.
       "@typescript-eslint/no-explicit-any": "off",
+      // Standard convention: a leading underscore marks a binding as
+      // intentionally unused (e.g. a required-but-unused function parameter).
+      "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
     },
   },
   {

@@ -10,7 +10,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Activity, AlertTriangle, ArrowDown, ArrowUp, BarChart3, Bell, Bot, Building2, ChevronDown, ChevronRight, CircleCheck, CircleOff, Copy, Download, FileBarChart, Gauge, HelpCircle, ImagePlus, LayoutDashboard, Loader2, LogOut, MapPinned, MessageSquareText, Plus, RotateCcw, Save, Search, Settings2, Sparkles, Star, Trash2, UsersRound, WandSparkles, X } from "lucide-react";
+import { Activity, AlertTriangle, ArrowDown, ArrowUp, BarChart3, Bell, Bot, Building2, CircleCheck, CircleOff, Copy, Download, FileBarChart, Gauge, HelpCircle, ImagePlus, Loader2, LogOut, MapPinned, MessageSquareText, Plus, Save, Search, Settings2, Sparkles, Star, Trash2, UsersRound, X } from "lucide-react";
 import type { SiteContent } from "@/lib/types";
 import { ReportTools } from "@/components/admin/reports/ReportTools";
 import { WebsiteAnalyticsCenter } from "@/components/admin/WebsiteAnalyticsCenter";
@@ -65,7 +65,7 @@ import { suggestUsername } from "@/lib/usernames";
 import { excludeTestCompanyRecords, filterRecordsByVisibility, isTestRecord } from "@/lib/test-records";
 import { filterSelectableCustomers } from "@/lib/customer-visibility";
 
-import { adminCategoryIcons, withAdminEmoji } from "@/lib/admin-nav-presentation";
+import { withAdminEmoji } from "@/lib/admin-nav-presentation";
 import { AdminAppShell } from "@/components/admin/shell/AdminAppShell";
 import { DesktopModuleToolbar } from "@/components/admin/shell/DesktopModuleToolbar";
 import { AdminSidebar } from "@/components/admin/shell/AdminSidebar";
@@ -625,9 +625,7 @@ export function AdminDashboard({
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
-  const shellClass = "hk-admin-os admin-light bg-[#f7f8fb] text-slate-900";
   const panelClass = "border-slate-200 bg-white";
-  const headerClass = "border-slate-200 bg-white/95";
   const aiStatus = aiMetaFromApi(content.settings?.api || {});
   const headerNotifications = buildAdminNotifications(content, startupApiData).filter((item) => !notificationState.archived.includes(item.id));
   const unreadNotifications = headerNotifications.filter((item) => !notificationState.read.includes(item.id));
@@ -942,53 +940,6 @@ function SystemBoot({ step }: { step: number }) {
       <p className="text-xs text-slate-500">Dijital Pazarlama Kontrol Merkezi</p>
     </div>
   </div>;
-}
-
-function AdminLightSidebar({ groups, active, content }: any) {
-  const featured = ["Dashboard", "Müşteriler", "Kampanyalar", "Görevler", "Tahsilat", "Raporlar"];
-  return (
-    <aside className="admin-light-sidebar hidden h-[calc(100vh-104px)] overflow-y-auto rounded-[18px] border border-slate-200 bg-white p-4 shadow-[0_18px_45px_rgba(15,23,42,.08)] lg:sticky lg:top-24 lg:block">
-      <Link href="/hk-admin" className="mb-5 flex items-center gap-3 rounded-[14px] px-2 py-2 transition hover:bg-slate-50">
-        <Logo content={content} compact />
-        <span>
-          <span className="block text-[11px] font-black uppercase tracking-[.16em] text-sky-600">HK Intelligence</span>
-          <span className="block text-lg font-black text-slate-950">HK Dijital</span>
-        </span>
-      </Link>
-      <div className="mb-5 rounded-[16px] bg-gradient-to-br from-blue-600 to-cyan-500 p-4 text-slate-900 shadow-[0_12px_28px_rgba(37,99,235,.24)]">
-        <p className="text-xs font-black uppercase tracking-[.14em] text-slate-900/70">Ajans Paneli</p>
-        <p className="mt-2 text-sm font-bold leading-5">Operasyon, müşteri ve rapor merkeziniz hazır.</p>
-      </div>
-      <div className="grid gap-4">
-        {groups.map((group) => {
-          const Icon = adminCategoryIcons[group.icon] || LayoutDashboard;
-          return (
-            <div key={group.label}>
-              <div className="mb-2 flex items-center justify-between gap-3 px-2">
-                <span className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[.12em] text-slate-500"><Icon size={14} /> {group.label}</span>
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black text-slate-500">{group.items.length}</span>
-              </div>
-              <div className="grid gap-1">
-                {group.items.map((item) => {
-                  const isActive = item.label === active || (item.slug === "" && active === "Dashboard");
-                  return (
-                    <Link
-                      key={item.slug}
-                      href={getAdminHref(item.slug)}
-                      className={`flex min-h-10 items-center justify-between gap-3 rounded-[12px] px-3 text-sm font-bold transition ${isActive ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-slate-900 shadow-[0_10px_24px_rgba(37,99,235,.22)]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"}`}
-                    >
-                      <span className="truncate">{item.label}</span>
-                      {featured.includes(item.label) && <span className={`h-2 w-2 rounded-full ${isActive ? "bg-white" : "bg-cyan-400"}`} />}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </aside>
-  );
 }
 
 function Panel({ title, children }: any) {
@@ -2301,7 +2252,6 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
   const leads = useMemo(() => filterRecordsByVisibility(content.leads ?? [], "live"), [content.leads]);
   const companies = useMemo(() => filterRecordsByVisibility(content.companies ?? [], "live"), [content.companies]);
   const campaigns = useMemo(() => excludeTestCompanyRecords(content.campaigns ?? [], content.companies), [content.campaigns, content.companies]);
-  const metrics = useMemo(() => excludeTestCompanyRecords(content.campaignMetrics ?? [], content.companies), [content.campaignMetrics, content.companies]);
   const updates = useMemo(() => excludeTestCompanyRecords(content.customerUpdates ?? [], content.companies), [content.customerUpdates, content.companies]);
   const users = useMemo(() => content.users ?? [], [content.users]);
   const reports = useMemo(() => excludeTestCompanyRecords(content.reports ?? [], content.companies), [content.reports, content.companies]);
@@ -2309,20 +2259,12 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
   const agencyTasks = useMemo(() => excludeTestCompanyRecords(content.agencyTasks ?? [], content.companies), [content.agencyTasks, content.companies]);
   const paymentRecords = useMemo(() => excludeTestCompanyRecords(content.paymentRecords ?? [], content.companies), [content.paymentRecords, content.companies]);
   const agencyExpenses = useMemo(() => content.agencyExpenses ?? [], [content.agencyExpenses]);
-  const [demoMessage, setDemoMessage] = useState("");
-  const [demoLoading, setDemoLoading] = useState(false);
-  const [dashboardAssistantPrompt, setDashboardAssistantPrompt] = useState("");
-  const [dashboardAssistantAnswer, setDashboardAssistantAnswer] = useState("");
-  const [dashboardAssistantLoading, setDashboardAssistantLoading] = useState(false);
   const [commandPlan, setCommandPlan] = useState("");
   const [ceoMode, setCeoMode] = useState(false);
   const [activityFilter, setActivityFilter] = useState("Bugün");
   const [customizing, setCustomizing] = useState(false);
   const [preferences, setPreferences] = useState({ order: dashboardWidgetDefaults, hidden: [] });
   const [preferencesSaving, setPreferencesSaving] = useState(false);
-  const [aiStatusCenter, setAiStatusCenter] = useState(content.settings?.api?.ai_status || {});
-  const [aiStatusMessage, setAiStatusMessage] = useState("");
-  const [aiStatusLoading, setAiStatusLoading] = useState(false);
   const [growthMode, setGrowthMode] = useState("Funnel Kur");
   const [scenarioInput, setScenarioInput] = useState({ budget: 30000, price: 12000, conversionRate: 8, cpl: 220, closeRate: 18 });
   const today = new Date().toISOString().slice(0, 10);
@@ -2337,7 +2279,6 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     premium: activeCustomers.filter((company) => /premium/i.test(String(company.customer_package_name || company.customer_package_type || ""))).length,
     none: activeCustomers.filter((company) => !company.customer_package_name && !company.customer_package_type).length
   };
-  const metricsThisMonth = metrics.filter((metric) => String(metric.date || "").startsWith(month));
   const activePayments = paymentRecords.filter((item) => !isArchivedRecord(item));
   const activeTasks = agencyTasks.filter((item) => !isArchivedRecord(item));
   const thisMonthPayments = activePayments.filter((item) => String(item.service_period || item.due_date || "").startsWith(month));
@@ -2350,21 +2291,15 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
   const todaysTasks = activeTasks.filter((item) => item.due_date === today && !["Tamamlandı", "İptal"].includes(item.status));
   const overdueTasks = activeTasks.filter((item) => item.due_date && item.due_date < today && !["Tamamlandı", "İptal"].includes(item.status));
   const criticalTasks = activeTasks.filter((item) => item.priority === "Kritik" && !["Tamamlandı", "İptal"].includes(item.status));
-  const completedTasks = activeTasks.filter((item) => item.status === "Tamamlandı");
   const overduePaymentTotal = overduePayments.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const activeCampaigns = campaigns.filter((item) => !isCampaignArchived(item) && item.status === "Aktif");
-  const plannedCampaigns = campaigns.filter((item) => !isCampaignArchived(item) && item.status === "Planlandı");
-  const campaignsEndingThisMonth = campaigns.filter((item) => !isCampaignArchived(item) && String(item.end_date || "").startsWith(month));
-  const visibleCampaigns = campaigns.filter((item) => !isCampaignArchived(item) && item.visible_to_customer);
   const campaignSpendTotal = campaigns.filter((item) => !isCampaignArchived(item)).reduce((sum, item) => sum + Number(item.spent_budget ?? item.spent ?? 0), 0);
   const metaMetricRows = (content.campaignMetrics || []).filter((item) => item.source === "Meta API" || item.source === "Meta Raporu" || String(item.platform || "").includes("Meta"));
   const metaTotals = summarizeMetaRows(metaMetricRows);
-  const activeMetaCampaigns = campaigns.filter((item) => !isCampaignArchived(item) && item.platform === "Meta Ads" && item.status === "Aktif").length;
   const latestCustomer = [...companies].sort((a, b) => Number(new Date(b.created_at || b.updated_at || 0)) - Number(new Date(a.created_at || a.updated_at || 0)))[0];
   const importantDashboardTasks = [...criticalTasks, ...overdueTasks, ...todaysTasks]
     .filter((item, index, list) => list.findIndex((candidate) => (candidate.id || candidate.title) === (item.id || item.title)) === index)
     .slice(0, 5);
-  const dashboardAssistantPrompts = ["Bugün neye odaklanmalıyım?", "Geciken tahsilatlar var mı?", "Kritik görevler neler?", "Bu ay kârlılık durumu nasıl?"];
   const hour = new Date().getHours();
   const greeting = hour < 12 ? ["Good Morning", "Günaydın"] : hour < 18 ? ["Good Afternoon", "İyi Günler"] : ["Good Evening", "İyi Akşamlar"];
   const userName = currentSession?.fullName || currentSession?.email?.split("@")?.[0] || "Hayri";
@@ -2458,77 +2393,6 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     { key: "sistem", title: "Sistem", description: "Kullanıcı yönetimi, yetkiler ve sistem ayarları.", icon: <Settings2 size={20} />, accent: "from-slate-500 via-slate-700 to-slate-900", kpiLabel: "kullanıcı", kpiValue: users.length, target: "Kullanıcı Yönetimi", items: popoverItemsFor("Sistem"), quickActions: [{ label: "Kullanıcı Yönetimi", href: getAdminHref("kullanici-yonetimi") }, { label: "Sistem Rehberi", href: getAdminHref("sistem-rehberi") }] }
   ].filter((card) => canOpen(card.target));
 
-  async function createDemoCustomer() {
-    setDemoLoading(true);
-    setDemoMessage("Demo müşteri hazırlanıyor...");
-    const response = await fetch("/api/admin/demo-customer", { method: "POST" });
-    const data = await response.json().catch(() => ({}));
-    setDemoMessage(response.ok ? `${data.message}\nE-posta: ${data.credentials.email}\nGeçici şifre: ${data.credentials.password}\nPanel: /musteri-paneli` : data.error || "Demo müşteri oluşturulamadı.");
-    setDemoLoading(false);
-  }
-
-  async function refreshAiStatus() {
-    setAiStatusLoading(true);
-    setAiStatusMessage("AI bağlantıları test ediliyor...");
-    const response = await fetch("/api/admin/ai-status", { method: "POST" });
-    const data = await response.json().catch(() => ({}));
-    if (response.ok) {
-      setAiStatusCenter(data.results || {});
-      setAiStatusMessage(`Son test: ${new Date(data.lastTestTime || Date.now()).toLocaleString("tr-TR")}`);
-    } else {
-      setAiStatusMessage(data.error || "AI durum testi başarısız oldu.");
-    }
-    setAiStatusLoading(false);
-  }
-
-  function buildDashboardAssistantAnswer(question = dashboardAssistantPrompt) {
-    const focusTasks = importantDashboardTasks.length
-      ? `Öncelikli görevler: ${importantDashboardTasks.map((item) => item.title || "İsimsiz görev").join(", ")}.`
-      : "Bugün için kritik veya geciken görev görünmüyor.";
-    const collectionLine = overduePayments.length
-      ? `Geciken tahsilat: ${overduePayments.slice(0, 4).map((item) => `${companyName(content, item.company_id)} ${Number(item.amount || 0).toLocaleString("tr-TR")} TL`).join(", ")}.`
-      : "Geciken tahsilat görünmüyor.";
-    const profitLine = `Bu ay beklenen gelir ${expectedRevenue.toLocaleString("tr-TR")} TL, bekleyen tahsilat ${pendingRevenue.toLocaleString("tr-TR")} TL, tahmini kâr ${estimatedProfit.toLocaleString("tr-TR")} TL.`;
-    const leadLine = hotLeads.length
-      ? `Sıcak leadler: ${hotLeads.slice(0, 4).map((lead) => lead.company || lead.name || "İsimsiz lead").join(", ")}.`
-      : "Sıcak lead listesi şu an sakin.";
-    return [
-      `Soru: ${question || "Bugün neye odaklanmalıyım?"}`,
-      "HK Asistan yerel değerlendirme:",
-      focusTasks,
-      collectionLine,
-      profitLine,
-      leadLine,
-      "Öneri: Önce geciken tahsilat ve kritik görevleri kapatın; ardından sıcak leadler için teklif veya WhatsApp takibi başlatın."
-    ].join("\n\n");
-  }
-
-  async function askDashboardAssistant(promptText = dashboardAssistantPrompt) {
-    const question = (promptText || "Bugün neye odaklanmalıyım?").trim();
-    setDashboardAssistantPrompt(question);
-    setDashboardAssistantLoading(true);
-    const localAnswer = buildDashboardAssistantAnswer(question);
-    try {
-      const context = {
-        tasks: importantDashboardTasks,
-        overduePayments: overduePayments.slice(0, 10),
-        profitability: { expectedRevenue, pendingRevenue, overduePaymentTotal, estimatedProfit },
-        reports: reports.slice(0, 8),
-        leads: hotLeads.slice(0, 10)
-      };
-      const response = await fetch("/api/admin/ai-generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: `${question}\n\nYerel ajans verisi: ${JSON.stringify(context)}\n\nKısa, uygulanabilir ve Türkçe yanıt ver.` })
-      });
-      const data = await response.json().catch(() => ({}));
-      setDashboardAssistantAnswer(response.ok && data.output ? data.output : localAnswer);
-    } catch {
-      setDashboardAssistantAnswer(localAnswer);
-    } finally {
-      setDashboardAssistantLoading(false);
-    }
-  }
 
   const lightDashboardQuickActions = [
     ["Müşteri Ekle", "Müşteriler", <Building2 size={20} />, "from-blue-500 to-cyan-400"],
@@ -3310,10 +3174,6 @@ function confirmRecordAction(message = "Bu işlemi yapmak istediğinize emin mis
 
 function softDeleteRecord(item: any) {
   return { ...item, deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-}
-
-function archiveRecord(item: any) {
-  return { ...item, archived_at: new Date().toISOString(), updated_at: new Date().toISOString() };
 }
 
 function RecordActionButton({ children, tone = "slate", ...props }: any) {
@@ -4508,7 +4368,7 @@ function localCustomerCompetitorSummary(item: any) {
   };
 }
 
-function localCompetitorInternal(item: any) {
+function localCompetitorInternal(_item: any) {
   return {
     strengths: ["Yerel görünürlük", "Sosyal medya sürekliliği", "Google yorum potansiyeli"],
     weaknesses: ["Teklif farklılaşması sınırlı", "Kampanya mesajı ölçülebilir olmayabilir"],
@@ -8890,7 +8750,6 @@ function ActivityList({ items, empty, selectedIds = [], toggleSelected, updateLo
 }
 
 function ReportsAdmin({ content, setContent }: any) {
-  const update = (key, items) => setContent({ ...content, [key]: items });
   return (
     <Panel title="Reklam Raporları">
       <CampaignAdmin content={content} setContent={setContent} />

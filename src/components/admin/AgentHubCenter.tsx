@@ -391,9 +391,11 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
         fetch("/api/admin/agent-hub/training"),
         fetch("/api/admin/agent-hub/benchmark")
       ]);
-      const integrationResponse = await fetch("/api/admin/agent-hub/integrations");
-      const providerHealthResponse = await fetch("/api/admin/ai-providers/health");
-      const promptResponse = await fetch("/api/admin/agent-hub/prompts");
+      const [integrationResponse, providerHealthResponse, promptResponse] = await Promise.all([
+        fetch("/api/admin/agent-hub/integrations"),
+        fetch("/api/admin/ai-providers/health"),
+        fetch("/api/admin/agent-hub/prompts")
+      ]);
       const providerData = await providerResponse.json().catch(() => ({}));
       const logData = await logResponse.json().catch(() => ({}));
       const statsData = await statsResponse.json().catch(() => ({}));
