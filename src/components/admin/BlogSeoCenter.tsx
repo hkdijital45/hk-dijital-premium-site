@@ -4,10 +4,16 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Archive, BarChart3, Bot, CalendarDays, CheckCircle2, Edit3, FileText, Link2, Loader2, Plus, RefreshCw, Search, Send, Share2, ShieldAlert, Sparkles, Wand2 } from "lucide-react";
-import { HKButton, HKPageHeader } from "@/components/admin/HKDesignSystem";
+import { HKButton } from "@/components/admin/HKDesignSystem";
 import { applyInternalLinkPreview, buildInternalLinkSuggestions, buildPerformanceOpportunities, formatSocialPackageText, type ContentPlanItem, type InternalLinkSuggestion } from "@/lib/blog-content-ops";
 import { analyzeBlogPost, blogCategories, contentIntentMap, seedBlogPosts, slugifyBlogValue, type BlogCategory, type BlogPost, type BlogStatus } from "@/lib/blog-seo-shared";
 import { servicePages } from "@/lib/public-seo-content";
+import { AdminButton } from "@/components/admin/ui/AdminButton";
+import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
+import { AdminWorkspace } from "@/components/admin/workspace/AdminWorkspace";
+import { AdminDataGrid, type AdminDataGridColumn } from "@/components/admin/workspace/AdminDataGrid";
+import { AdminActionBar } from "@/components/admin/workspace/AdminActionBar";
+import { AdminCompactKpiStrip } from "@/components/admin/workspace/AdminCompactKpiStrip";
 
 const statusLabels: Record<BlogStatus, string> = { draft: "Taslak", review: "İncelemede", scheduled: "Planlandı", published: "Yayında", archived: "Arşiv" };
 const intentOptions = ["Bilgilendirici", "Ticari araştırma", "Hizmet arama", "Yerel arama", "Karşılaştırma", "Sorun çözme"];
@@ -337,6 +343,9 @@ export function BlogSeoCenter() {
   const [selectedPerformanceSlug, setSelectedPerformanceSlug] = useState("");
   const [updatePlan, setUpdatePlan] = useState<Record<string, unknown> | null>(null);
   const [linkPreview, setLinkPreview] = useState<{ suggestion: InternalLinkSuggestion; content: string } | null>(null);
+  const [selectedCalendarSlug, setSelectedCalendarSlug] = useState("");
+  const [selectedLinkId, setSelectedLinkId] = useState("");
+  const [selectedOpportunityKey, setSelectedOpportunityKey] = useState("");
   const selectedProviderInfo = providers.find((provider) => provider.key === selectedProvider);
 
   async function loadData() {
@@ -794,28 +803,48 @@ export function BlogSeoCenter() {
     }
   }
 
+  const calendarPosts = posts.filter((post) => ["draft", "review", "scheduled", "published"].includes(post.status));
+  const selectedCalendarPost = selectedCalendarSlug ? calendarPosts.find((post) => post.slug === selectedCalendarSlug) || null : null;
+  const calendarColumns: AdminDataGridColumn<any>[] = [
+    { key: "title", header: "Başlık", render: (post: any) => <div className="min-w-0"><strong className="block truncate">{post.title}</strong><span className="block truncate text-[11px] text-slate-500">/{post.slug}</span></div> },
+    { key: "status", header: "Durum", render: (post: any) => <AdminStatusBadge tone={post.status === "published" ? "success" : post.status === "scheduled" ? "info" : post.status === "review" ? "warning" : "neutral"}>{statusLabels[post.status as BlogStatus]}</AdminStatusBadge> },
+    { key: "date", header: "Tarih", render: (post: any) => post.scheduled_at || post.published_at ? new Date(post.scheduled_at || post.published_at).toLocaleString("tr-TR") : "Tarih yok" }
+  ];
+  const linkColumns: AdminDataGridColumn<any>[] = [
+    { key: "source", header: "Kaynak Yazı", render: (item: any) => item.sourceTitle },
+    { key: "target", header: "Hedef Yazı", render: (item: any) => item.targetTitle },
+    { key: "priority", header: "Durum", render: (item: any) => <AdminStatusBadge tone={item.alreadyLinked ? "success" : "warning"}>{item.alreadyLinked ? "Mevcut link var" : item.priority}</AdminStatusBadge> }
+  ];
+  const selectedLink = selectedLinkId ? internalLinkSuggestions.find((item) => item.id === selectedLinkId) || null : null;
+  const opportunityColumns: AdminDataGridColumn<any>[] = [
+    { key: "title", header: "Yazı", render: (item: any) => item.title },
+    { key: "issue", header: "Sorun", render: (item: any) => item.issue },
+    { key: "priority", header: "Öncelik", render: (item: any) => <AdminStatusBadge tone={item.priority === "Yüksek" ? "danger" : item.priority === "Orta" ? "warning" : "info"}>{item.priority}</AdminStatusBadge> }
+  ];
+  const selectedOpportunity = selectedOpportunityKey ? performanceOpportunities.find((item) => `${item.slug}-${item.issue}` === selectedOpportunityKey) || null : null;
+
   return (
-    <main className="min-h-screen bg-[#050711] px-4 py-8 text-white sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
-        <HKPageHeader
-          eyebrow="İçerik ve AI"
-          title="Blog & SEO Merkezi"
-          description="Blog yazıları, arama niyeti haritası, içerik takvimi ve açıklanabilir SEO kalite kontrolleri."
-          action={<HKButton type="button" onClick={() => { setDraft({ ...emptyPost }); setSlugTouched(false); }} icon={<Plus size={16} />}>Yeni yazı</HKButton>}
-        />
-        {message ? <div className="mt-5 rounded-2xl border border-cyan-200/20 bg-cyan-300/10 px-4 py-3 text-sm font-bold text-cyan-100">{message}</div> : null}
-        <section className="mt-7 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {[["Toplam yazı", metrics.total], ["Yayında", metrics.published], ["Taslak", metrics.draft], ["İncelemede", metrics.review], ["Planlanan", metrics.scheduled], ["Ortalama SEO", metrics.avgSeo], ["Okunabilirlik", metrics.avgReadability], ["Güncelleme önerisi", metrics.updateNeeded]].map(([label, value]) => <div key={label} className="rounded-[20px] border border-white/10 bg-white/[0.045] p-5"><p className="text-sm font-bold text-slate-400">{label}</p><p className="mt-2 text-3xl font-black text-white">{value}</p></div>)}
-        </section>
-        <nav className="mt-7 flex gap-2 overflow-x-auto rounded-[22px] border border-white/10 bg-white/[0.045] p-2" aria-label="Blog SEO sekmeleri">
-          {tabs.map(([key, label]) => (
-            <button key={key} type="button" onClick={() => selectTab(key)} className={`min-h-11 whitespace-nowrap rounded-2xl px-4 text-sm font-black transition ${activeTab === key ? "bg-cyan-300 text-slate-950" : "text-slate-300 hover:bg-white/10 hover:text-white"}`} aria-current={activeTab === key ? "page" : undefined}>
-              {label}
-            </button>
-          ))}
-        </nav>
+    <AdminWorkspace
+      eyebrow="İçerik ve AI"
+      title="Blog & SEO Merkezi"
+      description="Blog yazıları, arama niyeti haritası, içerik takvimi ve açıklanabilir SEO kalite kontrolleri. Yayınlama mevcut onay ve zamanlanmış yayın akışıyla sınırlıdır."
+      headerActions={<>
+        <div className="flex flex-wrap gap-1">{tabs.map(([key, label]) => <AdminButton key={key} compact variant={activeTab === key ? "info" : "secondary"} onClick={() => selectTab(key)}>{label}</AdminButton>)}</div>
+        <AdminButton compact variant="primary" onClick={() => { setDraft({ ...emptyPost }); setSlugTouched(false); }}><Plus size={14} className="mr-1 inline" />Yeni yazı</AdminButton>
+      </>}
+      bottomBar={<AdminActionBar statusText={message || `${metrics.total} yazı · ${metrics.published} yayında`}>{null}</AdminActionBar>}
+    >
+      <AdminCompactKpiStrip items={[
+        { key: "total", label: "Toplam yazı", value: metrics.total, icon: <FileText size={14} />, tone: "primary" },
+        { key: "published", label: "Yayında", value: metrics.published, icon: <CheckCircle2 size={14} />, tone: "success" },
+        { key: "draft", label: "Taslak", value: metrics.draft, icon: <Edit3 size={14} />, tone: "neutral" as any },
+        { key: "review", label: "İncelemede", value: metrics.review, icon: <ShieldAlert size={14} />, tone: "warning" },
+        { key: "seo", label: "Ortalama SEO", value: metrics.avgSeo, icon: <BarChart3 size={14} />, tone: "info" },
+        { key: "updateNeeded", label: "Güncelleme önerisi", value: metrics.updateNeeded, icon: <RefreshCw size={14} />, tone: metrics.updateNeeded ? "warning" : "success" }
+      ]} />
+      <div className="mt-4 rounded-[24px] bg-[#050711] p-4 text-white">
         {activeTab === "editor" ? <>
-        <section className="mt-8 rounded-[28px] border border-cyan-200/15 bg-gradient-to-br from-cyan-300/10 via-white/[0.045] to-violet-400/10 p-5 shadow-[0_28px_90px_rgba(8,145,178,.08)]">
+        <section className="mt-2 rounded-[28px] border border-cyan-200/15 bg-gradient-to-br from-cyan-300/10 via-white/[0.045] to-violet-400/10 p-5 shadow-[0_28px_90px_rgba(8,145,178,.08)]">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[.16em] text-cyan-200"><Bot size={16} /> AI İçerik Agentı</p>
@@ -999,27 +1028,56 @@ export function BlogSeoCenter() {
             </article>)}</div> : <EmptyNotice icon={<CalendarDays />} title="Henüz içerik planı yok" text="Plan oluşturmak için sol taraftaki brief alanlarını doldurun. Search Console veya Trends bağlı değilse sahte kaynak etiketi kullanılmaz." />}
           </div>
         </section> : null}
-        {activeTab === "calendar" ? <section className="mt-8 rounded-[24px] border border-white/10 bg-white/[0.045] p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">Takvim</p><h2 className="mt-2 text-xl font-black">Planlanan ve yayınlanan içerikler</h2></div><HKButton type="button" variant="neutral" onClick={loadData} icon={<RefreshCw size={16} />}>Yenile</HKButton></div>
-          <div className="mt-5 grid gap-3">{posts.filter((post) => ["draft", "review", "scheduled", "published"].includes(post.status)).map((post) => <div key={post.id || post.slug} className="grid gap-3 rounded-2xl border border-white/10 bg-slate-950/35 p-4 md:grid-cols-[1fr_170px_150px] md:items-center"><div><p className="font-black text-white">{post.title}</p><p className="mt-1 text-xs text-slate-400">/{post.slug}</p></div><span className="rounded-full bg-white/10 px-3 py-1 text-center text-xs font-black text-slate-200">{statusLabels[post.status]}</span><p className="text-sm text-slate-300">{post.scheduled_at || post.published_at ? new Date(post.scheduled_at || post.published_at || "").toLocaleString("tr-TR") : "Tarih yok"}</p></div>)}</div>
-          {!posts.length ? <EmptyNotice icon={<CalendarDays />} title="Takvimde içerik yok" text="Taslak veya planlanan yazılar burada listelenir." /> : null}
+        {activeTab === "calendar" ? <section className="mt-8 grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="rounded-[24px] border border-white/10 bg-white/[0.045] p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">Takvim</p><h2 className="mt-2 text-xl font-black">Planlanan ve yayınlanan içerikler</h2></div><HKButton type="button" variant="neutral" onClick={loadData} icon={<RefreshCw size={16} />}>Yenile</HKButton></div>
+            <div className="mt-4 rounded-[12px] bg-white p-2">
+              <AdminDataGrid columns={calendarColumns} rows={calendarPosts} rowKey={(post: any) => post.id || post.slug} activeId={selectedCalendarSlug} onRowClick={(post: any) => setSelectedCalendarSlug(post.slug)} emptyTitle="Takvimde içerik yok." emptyDescription="Taslak veya planlanan yazılar burada listelenir." />
+            </div>
+          </div>
+          <aside className="rounded-[24px] border border-white/10 bg-white/[0.055] p-5">
+            <h2 className="text-lg font-black text-white">Seçili İçerik</h2>
+            {selectedCalendarPost ? <div className="mt-4 grid gap-2 text-sm text-slate-300">
+              <p className="font-black text-white">{selectedCalendarPost.title}</p>
+              <p>Durum: {statusLabels[selectedCalendarPost.status]}</p>
+              <p>Tarih: {selectedCalendarPost.scheduled_at || selectedCalendarPost.published_at ? new Date(selectedCalendarPost.scheduled_at || selectedCalendarPost.published_at || "").toLocaleString("tr-TR") : "Tarih yok"}</p>
+              <button type="button" onClick={() => { setDraft(toDraft(selectedCalendarPost)); setSlugTouched(false); selectTab("editor"); }} className="mt-2 min-h-10 rounded-xl border border-cyan-200/25 px-3 text-xs font-black text-cyan-100">Editörde Aç</button>
+            </div> : <p className="mt-4 text-sm text-slate-400">Listeden bir içerik seçin. Bir öğeyi açmak yeniden AI üretimi tetiklemez.</p>}
+          </aside>
         </section> : null}
-        {activeTab === "links" ? <section className="mt-8 rounded-[24px] border border-white/10 bg-white/[0.045] p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[.16em] text-cyan-200"><Link2 size={16} /> İç bağlantılar</p><h2 className="mt-2 text-xl font-black">Akıllı iç bağlantı önerileri</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">Öneriler yayınlanmış yazı başlıkları, anahtar kelimeleri ve mevcut içerikteki ifadelerle deterministik çıkarılır. Onaylamadan kayıtlı içerik değişmez.</p></div></div>
-          {linkPreview ? <div className="mt-4 rounded-2xl border border-cyan-200/20 bg-cyan-300/10 p-4 text-sm text-cyan-100">Önizleme forma aktarıldı: {linkPreview.suggestion.sourceTitle} → {linkPreview.suggestion.targetTitle}</div> : null}
-          <div className="mt-5 grid gap-3">{internalLinkSuggestions.length ? internalLinkSuggestions.map((item) => <article key={item.id} className="rounded-2xl border border-white/10 bg-slate-950/35 p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-black text-white">{item.sourceTitle}</p><p className="mt-1 text-sm text-slate-300">Hedef: {item.targetTitle}</p></div><span className={`rounded-full px-3 py-1 text-xs font-black ${item.alreadyLinked ? "bg-emerald-300/10 text-emerald-100" : "bg-amber-300/10 text-amber-100"}`}>{item.alreadyLinked ? "Mevcut link var" : item.priority}</span></div>
-            <p className="mt-3 text-sm leading-6 text-slate-300">Anchor: <strong className="text-cyan-100">{item.anchorText}</strong> · {item.reason}</p>
-            <button type="button" disabled={item.alreadyLinked} onClick={() => applyLinkSuggestion(item)} className="mt-3 min-h-10 rounded-xl border border-cyan-200/25 px-3 text-xs font-black text-cyan-100 disabled:cursor-not-allowed disabled:opacity-50">Önizle ve forma uygula</button>
-          </article>) : <EmptyNotice icon={<Link2 />} title="İç bağlantı önerisi bulunamadı" text="Yayınlanmış yazı sayısı veya anahtar kelime eşleşmesi yetersiz olabilir." />}</div>
+        {activeTab === "links" ? <section className="mt-8 grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+          <div className="rounded-[24px] border border-white/10 bg-white/[0.045] p-5">
+            <div><p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[.16em] text-cyan-200"><Link2 size={16} /> İç bağlantılar</p><h2 className="mt-2 text-xl font-black">Akıllı iç bağlantı önerileri</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">Öneriler yayınlanmış yazı başlıkları, anahtar kelimeleri ve mevcut içerikteki ifadelerle deterministik çıkarılır. Onaylamadan kayıtlı içerik değişmez.</p></div>
+            {linkPreview ? <div className="mt-4 rounded-2xl border border-cyan-200/20 bg-cyan-300/10 p-4 text-sm text-cyan-100">Önizleme forma aktarıldı: {linkPreview.suggestion.sourceTitle} → {linkPreview.suggestion.targetTitle}</div> : null}
+            <div className="mt-4 rounded-[12px] bg-white p-2">
+              <AdminDataGrid columns={linkColumns} rows={internalLinkSuggestions} rowKey={(item: any) => item.id} activeId={selectedLinkId} onRowClick={(item: any) => setSelectedLinkId(item.id)} emptyTitle="İç bağlantı önerisi bulunamadı." emptyDescription="Yayınlanmış yazı sayısı veya anahtar kelime eşleşmesi yetersiz olabilir." />
+            </div>
+          </div>
+          <aside className="rounded-[24px] border border-white/10 bg-white/[0.055] p-5">
+            <h2 className="text-lg font-black text-white">Seçili Öneri</h2>
+            {selectedLink ? <div className="mt-4 grid gap-2 text-sm text-slate-300">
+              <p><strong className="text-white">Kaynak:</strong> {selectedLink.sourceTitle}</p>
+              <p><strong className="text-white">Hedef:</strong> {selectedLink.targetTitle}</p>
+              <p>Anchor: <strong className="text-cyan-100">{selectedLink.anchorText}</strong></p>
+              <p>{selectedLink.reason}</p>
+              <button type="button" disabled={selectedLink.alreadyLinked} onClick={() => applyLinkSuggestion(selectedLink)} className="mt-2 min-h-10 rounded-xl border border-cyan-200/25 px-3 text-xs font-black text-cyan-100 disabled:cursor-not-allowed disabled:opacity-50">Önizle ve forma uygula</button>
+            </div> : <p className="mt-4 text-sm text-slate-400">Listeden bir öneri seçin.</p>}
+          </aside>
         </section> : null}
         {activeTab === "social" ? <section className="mt-8 grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
           <div className="rounded-[24px] border border-white/10 bg-white/[0.055] p-5"><p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[.16em] text-cyan-200"><Share2 size={16} /> Sosyal medya</p><h2 className="mt-2 text-xl font-black">Blogdan sosyal paket üret</h2><label className="mt-5 grid gap-2 text-sm font-bold text-slate-300">Blog yazısı<select value={selectedSocialPost?.slug || ""} onChange={(event) => setSelectedSocialSlug(event.target.value)} className="min-h-11 rounded-2xl border border-white/10 bg-slate-950/70 px-3 text-white outline-none focus:border-cyan-300">{posts.map((post) => <option key={post.slug} value={post.slug}>{post.title}</option>)}</select></label><HKButton type="button" className="mt-4" variant="ai" loading={agentBusy === "social_package"} disabled={Boolean(agentBusy) || !selectedSocialPost} onClick={generateSocialPackage} icon={<Sparkles size={16} />}>Sosyal medya taslağı üret</HKButton><p className="mt-4 rounded-2xl border border-amber-200/20 bg-amber-300/10 p-3 text-sm text-amber-100">Gerçek paylaşım yapılmaz. Çıktılar kopyalanabilir taslaktır.</p></div>
           <div className="rounded-[24px] border border-white/10 bg-white/[0.045] p-5">{socialPackage ? <div className="space-y-4">{Object.entries(socialPackage).map(([platform, value]) => <article key={platform} className="rounded-2xl border border-white/10 bg-slate-950/35 p-4"><h3 className="font-black capitalize text-white">{platform}</h3><pre className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-slate-300">{typeof value === "string" ? value : JSON.stringify(value, null, 2)}</pre></article>)}<button type="button" onClick={() => navigator.clipboard.writeText(formatSocialPackageText(socialPackage))} className="min-h-11 rounded-2xl bg-cyan-300 px-4 text-sm font-black text-slate-950">Tüm paketi kopyala</button></div> : <EmptyNotice icon={<Share2 />} title="Sosyal medya taslağı yok" text="Bir blog yazısı seçip AI ile taslak paketi üretin. Platform paylaşımı otomatik yapılmaz." />}</div>
         </section> : null}
         {activeTab === "performance" ? <section className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-          <div className="rounded-[24px] border border-white/10 bg-white/[0.045] p-5"><p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[.16em] text-cyan-200"><BarChart3 size={16} /> Performans</p><h2 className="mt-2 text-xl font-black">Güncellenmesi gereken içerikler</h2><p className="mt-2 text-sm leading-6 text-slate-300">Search Console/GA4 bağlı olmadığında sahte trafik metriği gösterilmez. Bu liste mevcut blog kalite sinyalleriyle deterministik hazırlanır.</p><div className="mt-5 grid gap-3">{performanceOpportunities.length ? performanceOpportunities.map((item) => <article key={`${item.slug}-${item.issue}`} className="rounded-2xl border border-white/10 bg-slate-950/35 p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-black text-white">{item.title}</p><p className="mt-1 text-sm font-bold text-amber-100">{item.issue}</p></div><span className="rounded-full bg-amber-300/10 px-3 py-1 text-xs font-black text-amber-100">{item.priority}</span></div><p className="mt-3 text-sm text-slate-300">{item.evidence}</p><p className="mt-2 text-sm text-cyan-100">{item.action}</p></article>) : <EmptyNotice icon={<BarChart3 />} title="Kritik güncelleme sinyali yok" text="Mevcut yazılar deterministik kalite kontrollerinden geçti." />}</div></div>
-          <aside className="rounded-[24px] border border-white/10 bg-white/[0.055] p-5"><h2 className="text-xl font-black">AI güncelleme planı</h2><label className="mt-4 grid gap-2 text-sm font-bold text-slate-300">Yazı<select value={selectedPerformancePost?.slug || ""} onChange={(event) => setSelectedPerformanceSlug(event.target.value)} className="min-h-11 rounded-2xl border border-white/10 bg-slate-950/70 px-3 text-white outline-none focus:border-cyan-300">{posts.map((post) => <option key={post.slug} value={post.slug}>{post.title}</option>)}</select></label><HKButton type="button" className="mt-4" variant="ai" loading={agentBusy === "update_plan"} disabled={Boolean(agentBusy) || !selectedPerformancePost} onClick={generateUpdatePlan} icon={<Wand2 size={16} />}>Güncelleme planı oluştur</HKButton>{updatePlan ? <pre className="mt-4 max-h-[420px] overflow-auto whitespace-pre-wrap rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-sm leading-6 text-slate-300">{JSON.stringify(updatePlan, null, 2)}</pre> : <p className="mt-4 text-sm leading-6 text-slate-400">Öneri oluşturulduğunda burada görünür. Kayıtlı içerik otomatik değişmez.</p>}</aside>
+          <div className="rounded-[24px] border border-white/10 bg-white/[0.045] p-5"><p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[.16em] text-cyan-200"><BarChart3 size={16} /> Performans</p><h2 className="mt-2 text-xl font-black">Güncellenmesi gereken içerikler</h2><p className="mt-2 text-sm leading-6 text-slate-300">Search Console/GA4 bağlı olmadığında sahte trafik metriği gösterilmez. Bu liste mevcut blog kalite sinyalleriyle deterministik hazırlanır.</p>
+            <div className="mt-4 rounded-[12px] bg-white p-2">
+              <AdminDataGrid columns={opportunityColumns} rows={performanceOpportunities} rowKey={(item: any) => `${item.slug}-${item.issue}`} activeId={selectedOpportunityKey} onRowClick={(item: any) => setSelectedOpportunityKey(`${item.slug}-${item.issue}`)} emptyTitle="Kritik güncelleme sinyali yok." emptyDescription="Mevcut yazılar deterministik kalite kontrollerinden geçti." />
+            </div>
+          </div>
+          <aside className="rounded-[24px] border border-white/10 bg-white/[0.055] p-5">
+            <h2 className="text-xl font-black">AI güncelleme planı</h2>
+            {selectedOpportunity && <div className="mt-3 rounded-xl border border-amber-200/20 bg-amber-300/10 p-3 text-xs text-amber-100"><p className="font-black">{selectedOpportunity.title}</p><p className="mt-1">{selectedOpportunity.evidence}</p><p className="mt-1 text-cyan-100">{selectedOpportunity.action}</p></div>}
+            <label className="mt-4 grid gap-2 text-sm font-bold text-slate-300">Yazı<select value={selectedPerformancePost?.slug || ""} onChange={(event) => setSelectedPerformanceSlug(event.target.value)} className="min-h-11 rounded-2xl border border-white/10 bg-slate-950/70 px-3 text-white outline-none focus:border-cyan-300">{posts.map((post) => <option key={post.slug} value={post.slug}>{post.title}</option>)}</select></label><HKButton type="button" className="mt-4" variant="ai" loading={agentBusy === "update_plan"} disabled={Boolean(agentBusy) || !selectedPerformancePost} onClick={generateUpdatePlan} icon={<Wand2 size={16} />}>Güncelleme planı oluştur</HKButton>{updatePlan ? <pre className="mt-4 max-h-[420px] overflow-auto whitespace-pre-wrap rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-sm leading-6 text-slate-300">{JSON.stringify(updatePlan, null, 2)}</pre> : <p className="mt-4 text-sm leading-6 text-slate-400">Öneri oluşturulduğunda burada görünür. Kayıtlı içerik otomatik değişmez.</p>}</aside>
         </section> : null}
         {activeTab === "integrations" ? <section className="mt-8 grid gap-4 lg:grid-cols-2">
           <IntegrationCard title="Search Console" status="Bağlı veri kaynağı doğrulanmadı" text="Kod tabanında müşteri Google OAuth ve Search Console alanları var; Blog & SEO için gerçek Search Console sorgu endpoint’i bulunmadığı için sahte metrik gösterilmiyor." href="/hk-admin/google-integrations" />
@@ -1030,7 +1088,7 @@ export function BlogSeoCenter() {
           <IntegrationCard title="Zamanlanmış Yayın" status="Cron endpoint hazır" text="Gizli token ile çalışan publish-due endpoint’i eklendi. Onaylanmamış veya zamanı gelmemiş yazılar yayınlanmaz." />
         </section> : null}
       </div>
-    </main>
+    </AdminWorkspace>
   );
 }
 

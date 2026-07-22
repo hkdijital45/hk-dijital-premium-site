@@ -4,6 +4,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, PackageCheck } from "lucide-react";
 import { filterSelectableCustomers } from "@/lib/customer-visibility";
+import { AdminButton } from "@/components/admin/ui/AdminButton";
+import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
+import { AdminWorkspace } from "@/components/admin/workspace/AdminWorkspace";
+import { AdminControlPanel, AdminFilterSection } from "@/components/admin/workspace/AdminControlPanel";
+import { AdminDataGrid, type AdminDataGridColumn } from "@/components/admin/workspace/AdminDataGrid";
+import { AdminDetailInspector } from "@/components/admin/workspace/AdminDetailInspector";
+import { AdminActionBar } from "@/components/admin/workspace/AdminActionBar";
+import { AdminCompactKpiStrip } from "@/components/admin/workspace/AdminCompactKpiStrip";
 
 type GrowthProps = {
   content: any;
@@ -229,6 +237,9 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
   const [integrationsRefreshedAt, setIntegrationsRefreshedAt] = useState("");
   const [planTab, setPlanTab] = useState("Bugün");
   const [funnelMode, setFunnelMode] = useState("WhatsApp Funnel");
+  const [selectedCampaignId, setSelectedCampaignId] = useState("");
+  const [campaignStatusFilter, setCampaignStatusFilter] = useState("");
+  const [campaignSearch, setCampaignSearch] = useState("");
   const customerId = companyId;
   const customer = companies.find((company: any) => company?.id === customerId) || activeCompanies[0] || companies[0];
   const localIntegration = integrations.find((item: any) => item?.company_id === customerId || item?.customer_id === customerId) || {};
@@ -422,40 +433,127 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
     ["Son API hatası", integrationError || "Yok"],
     ["Son yenileme", integrationsRefreshedAt ? new Date(integrationsRefreshedAt).toLocaleString("tr-TR") : "Henüz yok"]
   ];
+  const dataSourceLabel = !customerId ? "Müşteri seçilmedi" : !accountOptions.length ? "Entegrasyon bağlı değil" : !metrics.length ? "Veri alınamadı" : "Son senkronize veri";
+  const filteredCampaigns = campaigns
+    .filter((item: any) => !campaignStatusFilter || (item.status || "Planlandı") === campaignStatusFilter)
+    .filter((item: any) => !campaignSearch.trim() || `${item.name || ""}`.toLocaleLowerCase("tr").includes(campaignSearch.trim().toLocaleLowerCase("tr")));
+  const selectedCampaign = selectedCampaignId ? campaigns.find((item: any) => item.id === selectedCampaignId) || null : null;
+  const campaignStatusOptions: string[] = Array.from(new Set(campaigns.map((item: any) => String(item.status || "Planlandı"))));
+  const campaignColumns: AdminDataGridColumn<any>[] = [
+    { key: "name", header: "Kampanya", render: (item: any) => <div className="min-w-0"><strong className="block truncate">{item.name || "Adsız kampanya"}</strong><span className="block truncate text-[11px]" style={{ color: "var(--admin-text-muted)" }}>{item.platform || "-"} · {item.objective || "-"}</span></div> },
+    { key: "status", header: "Durum", render: (item: any) => <AdminStatusBadge tone={item.status === "Aktif" ? "success" : item.status === "Durduruldu" ? "warning" : item.status === "Tamamlandı" ? "neutral" : "info"}>{item.status || "Planlandı"}</AdminStatusBadge> },
+    { key: "budget", header: "Bütçe", align: "right", render: (item: any) => formatMoney(Number(item.total_budget || item.budget || 0)) },
+    { key: "spent", header: "Harcama", align: "right", render: (item: any) => formatMoney(Number(item.spent_budget || item.spent || 0)) },
+    { key: "dates", header: "Tarih Aralığı", render: (item: any) => `${item.start_date || "-"} → ${item.end_date || "-"}` },
+    { key: "source", header: "Veri Kaynağı", render: () => <AdminStatusBadge tone={dataSourceLabel === "Son senkronize veri" ? "success" : "warning"}>{dataSourceLabel}</AdminStatusBadge> }
+  ];
+
   return (
-    <div className="grid gap-5">
-      <PremiumPageHeader eyebrow="Reklam Operasyon Merkezi" title="Müşteri bazlı reklam operasyonu" description="Her müşteri yalnız kendi profilindeki Meta Ad Account ID, Google Ads Customer ID, Pixel, Dataset, GA4 ve website bilgileriyle eşleştirilir. Tüm HK Dijital reklam hesapları varsayılan olarak karıştırılmaz." actionLabel="Entegrasyonları Kontrol Et" onAction={() => window.location.assign(integrationHref)} />
-      <GlassPanel tone="purple">
-        <div className="grid gap-4 xl:grid-cols-[minmax(240px,.8fr)_minmax(260px,.75fr)_minmax(0,1fr)]">
-          <CustomerPicker companies={companies} value={customerId || ""} onChange={(value: string) => { setCompanyId(value); setAdAccount(""); }} />
-          <label className="grid gap-2 text-sm font-black text-slate-700">
-            Reklam hesabı seç
-            <select value={adAccount} disabled={!accountOptions.length || integrationsLoading} onChange={(event) => setAdAccount(event.target.value)} className="min-h-11 rounded-[12px] border border-slate-200 bg-white px-3 text-sm text-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400">
-              <option value="">{integrationsLoading ? "Bağlı hesaplar yükleniyor..." : accountOptions.length ? "Müşteriye bağlı hesap seçin" : "Bağlı reklam hesabı yok"}</option>
-              {accountOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-            </select>
-            {!accountOptions.length && !integrationsLoading && <span className="rounded-[10px] bg-white p-2 text-xs leading-5 text-purple-900">Bu müşteriye bağlı reklam hesabı bulunamadı. Müşteri profilinden veya Hesap Bağla ekranından hesap ekleyin.</span>}
-          </label>
-          <div className="grid gap-2 md:grid-cols-4">{["Son 30 Gün", "Son 7 Gün", "Bugün", "Canlı durum"].map((item) => <button key={item} onClick={() => setPeriod(item)} className={`rounded-[14px] px-4 py-3 text-sm font-black ${period === item ? "bg-purple-600 text-white" : "border border-purple-100 bg-white text-purple-700"}`}>{item}</button>)}</div>
+    <AdminWorkspace
+      eyebrow="Reklam ve Performans"
+      title="Reklam Operasyon Merkezi"
+      description="Her müşteri yalnız kendi profilindeki Meta Ad Account ID, Google Ads Customer ID, Pixel, Dataset, GA4 ve website bilgileriyle eşleştirilir. Tüm HK Dijital reklam hesapları varsayılan olarak karıştırılmaz."
+      headerActions={<>
+        {["Son 30 Gün", "Son 7 Gün", "Bugün", "Canlı durum"].map((item) => <AdminButton key={item} compact variant={period === item ? "info" : "secondary"} onClick={() => setPeriod(item)}>{item}</AdminButton>)}
+      </>}
+      leftPanel={
+        <AdminControlPanel>
+          <AdminFilterSection title="Müşteri ve Hesap">
+            <div className="grid gap-2">
+              <CustomerPicker companies={companies} value={customerId || ""} onChange={(value: string) => { setCompanyId(value); setAdAccount(""); }} />
+              <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+                Reklam hesabı
+                <select value={adAccount} disabled={!accountOptions.length || integrationsLoading} onChange={(event) => setAdAccount(event.target.value)} className="min-h-9 rounded-[8px] border border-slate-200 bg-white px-3 text-sm text-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400">
+                  <option value="">{integrationsLoading ? "Bağlı hesaplar yükleniyor..." : accountOptions.length ? "Müşteriye bağlı hesap seçin" : "Bağlı reklam hesabı yok"}</option>
+                  {accountOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                </select>
+              </label>
+              {!accountOptions.length && !integrationsLoading && <p className="rounded-[8px] bg-amber-50 p-2 text-[11px] leading-5 text-amber-900">Bu müşteriye bağlı reklam hesabı bulunamadı.</p>}
+              <label className="grid gap-1.5 text-xs font-bold text-slate-700">Kampanya ara<input value={campaignSearch} onChange={(event) => setCampaignSearch(event.target.value)} className="min-h-9 rounded-[8px] border border-slate-200 bg-white px-3 text-sm text-slate-900" /></label>
+              <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+                Kampanya durumu
+                <select value={campaignStatusFilter} onChange={(event) => setCampaignStatusFilter(event.target.value)} className="min-h-9 rounded-[8px] border border-slate-200 bg-white px-3 text-sm text-slate-900">
+                  <option value="">Tümü</option>
+                  {campaignStatusOptions.map((status: string) => <option key={status} value={status}>{status}</option>)}
+                </select>
+              </label>
+              <AdminButton compact variant="secondary" onClick={() => { setCampaignSearch(""); setCampaignStatusFilter(""); }}>Filtreleri Temizle</AdminButton>
+            </div>
+          </AdminFilterSection>
+          <AdminFilterSection title="Bağlantı Durumu">
+            <div className="grid gap-1.5">
+              <p className="rounded-[8px] bg-slate-50 p-2 text-[11px] font-bold text-slate-700">Seçili hesap: {selectedLinkedAccount ? `${selectedLinkedAccount.accountName} · ${selectedLinkedAccount.accountId}` : "Hesap seçilmedi"}</p>
+              {integrationStatusRows.map((item) => (
+                <p key={item.label} className={`rounded-[8px] p-2 text-[11px] font-bold ${item.ok ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900"}`}>
+                  <span className="block uppercase tracking-wide">{item.label}</span>{item.detail}
+                </p>
+              ))}
+              {integrationError && <p className="rounded-[8px] border border-amber-200 bg-white p-2 text-[11px] font-bold text-amber-900">{integrationError}</p>}
+            </div>
+          </AdminFilterSection>
+        </AdminControlPanel>
+      }
+      rightPanel={
+        <AdminDetailInspector
+          title={selectedCampaign ? selectedCampaign.name : undefined}
+          subtitle={selectedCampaign ? `${selectedCampaign.platform || "-"} · ${selectedCampaign.status || "Planlandı"}` : undefined}
+          emptyTitle="Bir kampanya seçin"
+          emptyDescription="Listeden bir kampanyaya tıklayarak detaylarını buradan görüntüleyin."
+          fields={selectedCampaign ? [
+            { label: "Müşteri", value: customer?.name || "-" },
+            { label: "Hedef", value: selectedCampaign.objective || "-" },
+            { label: "Bütçe", value: formatMoney(Number(selectedCampaign.total_budget || selectedCampaign.budget || 0)) },
+            { label: "Harcama", value: formatMoney(Number(selectedCampaign.spent_budget || selectedCampaign.spent || 0)) },
+            { label: "Tarih Aralığı", value: `${selectedCampaign.start_date || "-"} → ${selectedCampaign.end_date || "-"}` },
+            { label: "Son güncelleme", value: selectedCampaign.updated_at ? new Date(selectedCampaign.updated_at).toLocaleString("tr-TR") : "-" },
+            { label: "Veri kaynağı", value: dataSourceLabel },
+            { label: "Son senkronizasyon", value: lastDataDate ? new Date(lastDataDate).toLocaleString("tr-TR") : "Veri yok" }
+          ] : undefined}
+          actions={selectedCampaign ? <>
+            <AdminButton compact variant="secondary" onClick={() => window.location.assign(`/hk-admin/musteriler?companyId=${selectedCampaign.company_id || customerId || ""}`)}>Müşteriyi Aç</AdminButton>
+            <AdminButton compact variant="warning" onClick={() => setActive?.("Reklam Doktoru Pro")}>Reklam Doktoru&apos;nu Aç</AdminButton>
+            <AdminButton compact variant="info" onClick={() => window.location.assign(`/hk-admin/gorevler?companyId=${selectedCampaign.company_id || customerId || ""}`)}>Görev Oluştur</AdminButton>
+          </> : undefined}
+        />
+      }
+      bottomBar={
+        <AdminActionBar statusText={`${filteredCampaigns.length} kampanya · ${dataSourceLabel}`}>
+          <AdminButton compact variant="secondary" disabled={integrationsLoading} onClick={loadCustomerIntegrations}>{integrationsLoading ? "Yenileniyor..." : "Senkronize Et"}</AdminButton>
+          <AdminButton compact variant="info" onClick={() => window.location.assign(integrationHref)}>Entegrasyonu Aç</AdminButton>
+        </AdminActionBar>
+      }
+    >
+      <AdminCompactKpiStrip items={[
+        { key: "spend", label: "Toplam Harcama", value: formatMoney(spend), icon: <span>💰</span>, tone: "primary" },
+        { key: "leads", label: "Lead", value: formatNumber(conversions), icon: <span>🎯</span>, tone: "success" },
+        { key: "messages", label: "Mesaj", value: formatNumber(messages), icon: <span>💬</span>, tone: "info" },
+        { key: "formLeads", label: "Form", value: formatNumber(formLeads), icon: <span>📝</span>, tone: "info" },
+        { key: "phoneLeads", label: "Telefon", value: formatNumber(phoneLeads), icon: <span>📞</span>, tone: "info" },
+        { key: "ctr", label: "CTR", value: `${ctr.toFixed(2)}%`, icon: <span>📈</span>, tone: "info" },
+        { key: "cpc", label: "CPC", value: cpc ? formatMoney(cpc) : "Veri yok", icon: <span>🖱️</span>, tone: cpc ? "info" : "primary" },
+        { key: "cpa", label: "CPA", value: cpa ? formatMoney(cpa) : "Veri yok", icon: <span>💳</span>, tone: cpa ? "warning" : "primary" },
+        { key: "roas", label: "ROAS", value: roas ? roas.toFixed(2) : "Veri yok", icon: <span>📊</span>, tone: roas ? "success" : "primary" },
+        { key: "health", label: "Reklam Sağlığı", value: `${healthScore}/100`, icon: <span>🩺</span>, tone: healthScore >= 80 ? "success" : healthScore >= 60 ? "warning" : "danger" }
+      ]} />
+      <AdminDataGrid columns={campaignColumns} rows={filteredCampaigns} rowKey={(item: any) => item.id} activeId={selectedCampaignId} onRowClick={(item: any) => setSelectedCampaignId(item.id)} emptyTitle={campaigns.length ? "Filtrelere uygun kampanya yok." : "Bu müşteri için kampanya kaydı yok."} emptyDescription={accountOptions.length ? undefined : "Entegrasyon bağlı değil — müşteri profilinden reklam hesabı ekleyin."} />
+
+      <div className="mt-4 grid gap-3">
+        <GlassPanel><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Kanal Durumu</p><h3 className="mt-1 text-base font-black text-slate-950">Müşteri profiline bağlı kanallar</h3></div></div><div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-5">{channelCards.map((card: any) => <div key={card.name} className="rounded-[10px] border border-slate-200 bg-white p-3"><strong className="block text-sm text-slate-950">{card.name}</strong><span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-black ${card.connected ? "bg-emerald-100 text-emerald-700" : card.tracking ? "bg-blue-100 text-blue-700" : card.account?.syncError ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-800"}`}>{card.connected ? "Bağlı" : card.account?.syncError ? "Hata" : card.tracking ? "Kontrol Bekliyor" : "Eksik"}</span><p className="mt-2 text-[11px] leading-4 text-slate-600">Son veri: {card.lastSync ? new Date(card.lastSync).toLocaleDateString("tr-TR") : "Yok"}</p></div>)}</div></GlassPanel>
+
+        <div className="grid gap-3 xl:grid-cols-2">
+          <GlassPanel tone="amber"><p className="text-xs font-black uppercase tracking-[.16em] text-amber-700">Reklam Doktoru — Ön Kontrol</p><div className="mt-3 grid gap-1.5">{doctorChecks.map(([name, status, solution, priority]) => <div key={name} className="rounded-[8px] bg-white p-2"><div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-xs text-slate-950">{name}</strong><span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-800">{status} · {priority}</span></div><p className="mt-1 text-[11px] font-bold leading-4 text-slate-600">{solution}</p></div>)}</div><AdminButton compact variant="warning" onClick={() => setActive?.("Reklam Doktoru Pro")}>Tam Teşhis İçin Reklam Doktoru&apos;nu Aç</AdminButton></GlassPanel>
+          <GlassPanel tone="purple"><p className="text-xs font-black uppercase tracking-[.16em] text-purple-700">Yapay Zekâ Önerileri</p><div className="mt-3 grid gap-1.5">{(dataDrivenRecommendations.length ? dataDrivenRecommendations : [{ problem: "Kritik eksik görünmüyor", evidence: "Seçili veri setinde yüksek öncelikli eksik sinyal bulunmadı.", action: "Haftalık rapor ve teklif takiplerini kontrol et.", priority: "Bilgi", target: "/hk-admin/rapor-merkezi" }]).map((item) => <div key={item.problem} className="rounded-[8px] border border-purple-100 bg-white p-2"><p className="text-xs font-black text-slate-950">{item.problem}</p><p className="mt-1 text-[11px] text-slate-600">{item.evidence}</p><button onClick={() => window.location.assign(item.target)} className="mt-1.5 rounded-full bg-purple-600 px-2 py-0.5 text-[10px] font-black text-white">İlgili modüle git</button></div>)}</div></GlassPanel>
         </div>
-        <div className="mt-4 grid gap-3 lg:grid-cols-4">
-          <p className="rounded-[14px] bg-white p-3 text-sm font-bold text-purple-900">Son veri çekme: {lastDataDate ? new Date(lastDataDate).toLocaleDateString("tr-TR") : "Veri yok"}</p>
-          <p className="rounded-[14px] bg-white p-3 text-sm font-bold text-purple-900">Seçili hesap: {selectedLinkedAccount ? `${selectedLinkedAccount.accountName} · ${selectedLinkedAccount.accountId}` : "Hesap seçilmedi"}</p>
-          <button onClick={loadCustomerIntegrations} disabled={integrationsLoading} className="rounded-[14px] bg-cyan-500 px-4 py-3 text-sm font-black text-white disabled:opacity-60">{integrationsLoading ? "Yenileniyor..." : "Verileri Yenile"}</button>
-          <button onClick={() => window.location.assign(`/hk-admin/musteriler?companyId=${customerId || ""}&tab=entegrasyonlar`)} className="rounded-[14px] border border-purple-200 bg-white px-4 py-3 text-sm font-black text-purple-700">Müşteri Profilini Aç</button>
-        </div>
-        {integrationError && <p className="mt-3 rounded-[12px] border border-amber-200 bg-white p-3 text-sm font-bold text-amber-900">{integrationError}</p>}
-      </GlassPanel>
-      <GlassPanel tone="amber"><p className="text-xs font-black uppercase tracking-[.16em] text-amber-700">Gerçek veri uyarıları</p><div className="mt-3 grid gap-2 md:grid-cols-2">{integrationStatusRows.map((item) => <p key={item.label} className={`rounded-[12px] p-3 text-sm font-bold ${item.ok ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200" : "bg-white text-amber-900"}`}><span className="block text-xs uppercase tracking-[.12em]">{item.label}</span>{item.detail}<br /><span className="text-xs">Yöntem: {item.method}</span></p>)}{healthReasons.slice(0, 4).map((item: string) => <p key={item} className="rounded-[12px] bg-white p-3 text-sm font-bold text-amber-900">{item}</p>)}</div><div className="mt-4 flex flex-wrap gap-2"><button onClick={() => window.location.assign(integrationHref)} className="rounded-full bg-amber-400 px-4 py-2 text-xs font-black text-slate-950">Müşteri Entegrasyonlarını Aç</button><button onClick={() => setActive?.("API Durum Kontrolü")} className="rounded-full border border-amber-200 bg-white px-4 py-2 text-xs font-black text-amber-800">API Durumunu Kontrol Et</button></div></GlassPanel>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">{[["Toplam Harcama", formatMoney(spend)], ["Lead", formatNumber(conversions)], ["Mesaj", formatNumber(messages)], ["Form", formatNumber(formLeads)], ["Telefon", formatNumber(phoneLeads)], ["CTR / Tıklama Oranı", `${ctr.toFixed(2)}%`], ["CPC / Tıklama Maliyeti", cpc ? formatMoney(cpc) : "Veri yok"], ["CPA / Dönüşüm Maliyeti", cpa ? formatMoney(cpa) : "Veri yok"], ["ROAS / Reklam Getiri Oranı", roas ? roas.toFixed(2) : "Veri yok"], ["Reklam Sağlığı", `${healthScore}/100`]].map(([label, value]) => <div key={label} className="rounded-[18px] border border-cyan-100 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-300"><span className="text-[10px] font-black uppercase tracking-[.12em] text-cyan-700">{label}</span><strong className="mt-2 block text-2xl text-slate-950">{value}</strong><span className="mt-1 block text-xs font-bold text-slate-500">{period}</span></div>)}</div>
-      <GlassPanel><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Kanal Durumu</p><h3 className="mt-2 text-xl font-black text-slate-950">Müşteri profiline bağlı kanallar</h3></div><button onClick={() => window.location.assign(integrationHref)} className="rounded-full bg-cyan-500 px-4 py-2 text-xs font-black text-white">İlgili müşteri profili alanına git</button></div><div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">{channelCards.map((card: any) => <div key={card.name} className="rounded-[16px] border border-slate-200 bg-white p-4"><strong className="block text-slate-950">{card.name}</strong><span className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-black ${card.connected ? "bg-emerald-100 text-emerald-700" : card.tracking ? "bg-blue-100 text-blue-700" : card.account?.syncError ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-800"}`}>{card.connected ? "Bağlı" : card.account?.syncError ? "Hata" : card.tracking ? "Kontrol Bekliyor" : "Eksik"}</span><p className="mt-3 text-xs leading-5 text-slate-600">Son veri: {card.lastSync ? new Date(card.lastSync).toLocaleDateString("tr-TR") : "Yok"}<br />Yöntem: {methodDisplay(card.account?.method || "")}<br />Hesap: {card.account?.accountName || card.account?.accountId || "Yok"}</p>{card.account?.syncError && <p className="mt-2 text-xs font-bold text-rose-700">{card.account.syncError}</p>}<button onClick={() => window.location.assign(integrationHref)} className="mt-3 rounded-full border border-cyan-200 bg-cyan-50 px-3 py-2 text-[11px] font-black text-cyan-800">{card.account?.syncError ? "Yeniden Bağla" : card.action}</button></div>)}</div></GlassPanel>
-      <div className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]"><GlassPanel tone={healthScore >= 80 ? "emerald" : healthScore >= 60 ? "amber" : "purple"}><p className="text-xs font-black uppercase tracking-[.16em] text-slate-700">Reklam Sağlığı</p><h3 className="mt-2 text-5xl font-black text-slate-950">{healthScore}/100</h3><div className="mt-4 h-3 overflow-hidden rounded-full bg-white"><span className="block h-full rounded-full bg-gradient-to-r from-cyan-400 via-purple-500 to-emerald-400" style={{ width: `${healthScore}%` }} /></div><p className="mt-4 text-sm font-bold leading-6 text-slate-700">Skor; müşteri profili entegrasyonları, ölçümleme, veri varlığı, görev yoğunluğu ve performans sinyallerinden hesaplanır.</p></GlassPanel><GlassPanel tone="amber"><p className="text-xs font-black uppercase tracking-[.16em] text-amber-700">Reklam Doktoru</p><div className="mt-4 grid gap-2 md:grid-cols-2">{doctorChecks.map(([name, status, solution, priority]) => <div key={name} className="rounded-[12px] bg-white p-3"><div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-slate-950">{name}</strong><span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-black text-amber-800">{status} · {priority}</span></div><p className="mt-2 text-xs font-bold leading-5 text-slate-600">{solution}</p></div>)}</div></GlassPanel></div>
-      <GlassPanel tone="purple"><p className="text-xs font-black uppercase tracking-[.16em] text-purple-700">Yapay Zekâ Önerileri</p><h3 className="mt-2 text-xl font-black text-slate-950">Veri sinyaline göre önceliklendirilmiş aksiyonlar</h3><div className="mt-4 grid gap-3 lg:grid-cols-3">{(dataDrivenRecommendations.length ? dataDrivenRecommendations : [{ problem: "Kritik eksik görünmüyor", evidence: "Seçili veri setinde yüksek öncelikli eksik sinyal bulunmadı.", action: "Haftalık rapor ve teklif takiplerini kontrol et.", priority: "Bilgi", impact: "Operasyon ritmi korunur.", target: "/hk-admin/rapor-merkezi" }]).map((item) => <div key={item.problem} className="rounded-[16px] border border-purple-100 bg-white p-4"><span className="rounded-full bg-purple-100 px-3 py-1 text-[10px] font-black text-purple-800">Öncelik: {item.priority}</span><h4 className="mt-3 font-black text-slate-950">Sorun: {item.problem}</h4><p className="mt-2 text-xs font-bold leading-5 text-slate-600">Kanıt / veri sinyali: {item.evidence}</p><p className="mt-2 text-xs font-bold leading-5 text-slate-700">Önerilen aksiyon: {item.action}</p><p className="mt-2 text-xs font-bold leading-5 text-emerald-700">Beklenen etki: {item.impact}</p><button onClick={() => window.location.assign(item.target)} className="mt-3 rounded-full bg-purple-600 px-4 py-2 text-xs font-black text-white">İlgili modüle git</button></div>)}</div></GlassPanel>
-      <GlassPanel tone="cyan"><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Sonraki Aksiyon</p><div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">{nextActionCards.map(([title, text]) => <div key={title} className="rounded-[14px] bg-white p-4"><strong className="block text-sm text-slate-950">{title}</strong><p className="mt-2 text-xs font-bold leading-5 text-slate-600">{text}</p></div>)}</div><div className="mt-4 flex flex-wrap gap-2"><button onClick={() => setActive?.("Lead Merkezi")} className="rounded-full bg-cyan-500 px-4 py-2 text-xs font-black text-white">Lead Merkezi’ne Git</button><button onClick={() => setActive?.("Teklif Takip Merkezi")} className="rounded-full border border-cyan-200 bg-white px-4 py-2 text-xs font-black text-cyan-800">Teklif Takip Merkezi</button><button onClick={() => setActive?.("Müşteri Raporları")} className="rounded-full border border-cyan-200 bg-white px-4 py-2 text-xs font-black text-cyan-800">Rapor Merkezi’ne Git</button><button onClick={() => setActive?.("Tahsilatlar")} className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-black text-emerald-800">Tahsilat Kontrol Et</button></div></GlassPanel>
-      <GlassPanel tone="purple"><details><summary className="cursor-pointer text-xs font-black uppercase tracking-[.16em] text-purple-700">Geliştirici kontrol alanı</summary><div className="mt-4 grid gap-2 md:grid-cols-3">{debugRows.map(([label, value]) => <p key={label} className="rounded-[12px] bg-white p-3 text-xs font-bold text-slate-700"><span className="block text-slate-500">{label}</span>{String(value)}</p>)}</div></details></GlassPanel>
-      <GlassPanel tone="emerald"><p className="text-xs font-black uppercase tracking-[.16em] text-emerald-700">Operasyon Planı</p><div className="mt-3 flex flex-wrap gap-2">{Object.keys(planItems).map((item) => <button key={item} onClick={() => setPlanTab(item)} className={`rounded-full px-3 py-2 text-xs font-black ${planTab === item ? "bg-emerald-600 text-white" : "border border-emerald-200 bg-white text-emerald-700"}`}>{item}</button>)}</div><div className="mt-4 grid gap-3 md:grid-cols-3">{planItems[planTab].map((item) => <p key={item} className="rounded-[12px] bg-white p-4 text-sm font-bold leading-6 text-slate-700">{item}</p>)}</div></GlassPanel>
-      <GlassPanel><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Funnel Merkezi</p><h3 className="mt-2 text-xl font-black text-slate-950">Timeline akışı</h3></div><div className="flex flex-wrap gap-2">{["Funnelsız Reklam", "WhatsApp Funnel", "Web Sitesi Funnel", "Telefon Funnel", "Teklif Funnel", "Rezervasyon Funnel", "Marka Bilinirliği Funnel"].map((item) => <button key={item} onClick={() => setFunnelMode(item)} className={`rounded-full px-3 py-2 text-xs font-black ${funnelMode === item ? "bg-purple-600 text-white" : "border border-slate-200 bg-white text-slate-700"}`}>{item}</button>)}</div></div><div className="mt-4 grid gap-3 md:grid-cols-3 xl:grid-cols-9">{funnelSteps.map((step, index) => <FunnelStepCard key={step} step={step} index={index} status={index < 2 ? "hazır" : index < 6 ? "öneriliyor" : "eksik"} action={index < 2 ? "Git" : "Planla"} />)}</div></GlassPanel>
-    </div>
+
+        <GlassPanel tone="cyan"><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Sonraki Aksiyon</p><div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">{nextActionCards.map(([title, text]) => <div key={title} className="rounded-[8px] bg-white p-2"><strong className="block text-xs text-slate-950">{title}</strong><p className="mt-1 text-[11px] leading-4 text-slate-600">{text}</p></div>)}</div><div className="mt-3 flex flex-wrap gap-2"><AdminButton compact variant="primary" onClick={() => setActive?.("Lead Merkezi")}>Lead Merkezi</AdminButton><AdminButton compact variant="secondary" onClick={() => setActive?.("Teklif Takip Merkezi")}>Teklif Takip</AdminButton><AdminButton compact variant="secondary" onClick={() => setActive?.("Müşteri Raporları")}>Rapor Merkezi</AdminButton><AdminButton compact variant="success" onClick={() => setActive?.("Tahsilatlar")}>Tahsilat</AdminButton></div></GlassPanel>
+
+        <GlassPanel tone="emerald"><p className="text-xs font-black uppercase tracking-[.16em] text-emerald-700">Operasyon Planı</p><div className="mt-2 flex flex-wrap gap-1.5">{Object.keys(planItems).map((item) => <button key={item} onClick={() => setPlanTab(item)} className={`rounded-full px-2.5 py-1 text-[11px] font-black ${planTab === item ? "bg-emerald-600 text-white" : "border border-emerald-200 bg-white text-emerald-700"}`}>{item}</button>)}</div><div className="mt-3 grid gap-2 md:grid-cols-3">{planItems[planTab].map((item) => <p key={item} className="rounded-[8px] bg-white p-2 text-xs font-bold leading-5 text-slate-700">{item}</p>)}</div></GlassPanel>
+
+        <GlassPanel><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Funnel Merkezi</p></div><div className="flex flex-wrap gap-1.5">{["Funnelsız Reklam", "WhatsApp Funnel", "Web Sitesi Funnel", "Telefon Funnel", "Teklif Funnel", "Rezervasyon Funnel", "Marka Bilinirliği Funnel"].map((item) => <button key={item} onClick={() => setFunnelMode(item)} className={`rounded-full px-2.5 py-1 text-[11px] font-black ${funnelMode === item ? "bg-purple-600 text-white" : "border border-slate-200 bg-white text-slate-700"}`}>{item}</button>)}</div></div><div className="mt-3 grid gap-2 md:grid-cols-3 xl:grid-cols-9">{funnelSteps.map((step, index) => <FunnelStepCard key={step} step={step} index={index} status={index < 2 ? "hazır" : index < 6 ? "öneriliyor" : "eksik"} action={index < 2 ? "Git" : "Planla"} />)}</div></GlassPanel>
+
+        <GlassPanel tone="purple"><details><summary className="cursor-pointer text-xs font-black uppercase tracking-[.16em] text-purple-700">Geliştirici kontrol alanı</summary><div className="mt-3 grid gap-2 md:grid-cols-3">{debugRows.map(([label, value]) => <p key={label} className="rounded-[8px] bg-white p-2 text-[11px] font-bold text-slate-700"><span className="block text-slate-500">{label}</span>{String(value)}</p>)}</div></details></GlassPanel>
+      </div>
+    </AdminWorkspace>
   );
 }
 
