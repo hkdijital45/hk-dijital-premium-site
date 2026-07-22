@@ -10,7 +10,14 @@ import { excludeTestCompanyRecords, filterRecordsByVisibility } from "./test-rec
 export type IntegrationProvider = "meta" | "google";
 
 function encryptionKey() {
-  return createHash("sha256").update(process.env.INTEGRATION_TOKEN_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || "local-integration-secret").digest();
+  const configured = process.env.INTEGRATION_TOKEN_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!configured) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("INTEGRATION_TOKEN_SECRET veya SUPABASE_SERVICE_ROLE_KEY yapılandırılmadan üretimde reklam entegrasyon anahtarları şifrelenemez.");
+    }
+    return createHash("sha256").update("local-integration-secret").digest();
+  }
+  return createHash("sha256").update(configured).digest();
 }
 
 export function encryptSecret(value: string) {

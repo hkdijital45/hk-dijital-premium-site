@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
-import { getSession, isStaffRole } from "@/lib/auth";
 import { decryptSecret, encryptSecret } from "@/lib/business-flow";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 import { checkOperationalCustomer } from "@/lib/server/customer-visibility";
+import { requireModuleAccess } from "@/lib/permissions";
 
 type Provider = "meta" | "google";
 type IntegrationRow = Record<string, unknown>;
 
 async function requireStaff() {
-  const session = await getSession();
-  return isStaffRole(session?.role) ? session : null;
+  return requireModuleAccess("api-ayarlari");
 }
 
 function maskSecret(value = "") {

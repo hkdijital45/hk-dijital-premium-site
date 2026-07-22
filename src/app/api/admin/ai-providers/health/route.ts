@@ -24,7 +24,9 @@ async function requireAiProviderAccess() {
     || await requireModuleAccess("meta-analiz")
     || await requireModuleAccess("sosyal-medya-denetimi")
     || await requireModuleAccess("raporlar")
-    || await requireModuleAccess("blog-seo");
+    || await requireModuleAccess("blog-seo")
+    || await requireModuleAccess("sistem-sagligi")
+    || await requireModuleAccess("api-ayarlari");
 }
 
 function envFor(key: string) {

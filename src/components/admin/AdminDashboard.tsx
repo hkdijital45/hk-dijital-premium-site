@@ -2100,17 +2100,42 @@ function SystemTestCenter({ content, setContent, save, currentSession, notify, s
 function SystemHealthCenter({ content, startupApiData, runStartupApiStatus, startupApiLoading }: any) {
   const api = content.settings?.api || {};
   const aiStatuses = startupApiData?.results || api.ai_status || {};
+  const supabaseStatus = aiStatuses?.supabase;
+  const [providerHealth, setProviderHealth] = useState<any[]>([]);
+  const [providerHealthLoading, setProviderHealthLoading] = useState(false);
+
+  async function loadProviderHealth() {
+    setProviderHealthLoading(true);
+    try {
+      const response = await fetch("/api/admin/ai-providers/health");
+      const data = await response.json().catch(() => ({}));
+      if (response.ok) setProviderHealth(Array.isArray(data.providers) ? data.providers : []);
+    } finally {
+      setProviderHealthLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadProviderHealth();
+  }, []);
+
+  const workingProviders = providerHealth.filter((item) => item.key !== "auto" && item.key !== "demo" && item.status === "Çalışıyor");
+  const aiProviderRealStatus = workingProviders.length ? "Çalışıyor" : "Uyarı";
+  const aiProviderDescription = workingProviders.length
+    ? `${workingProviders.length} sağlayıcı yapılandırılmış (son 24 saatte gerçek çalıştırma verisi: ${providerHealth.filter((item) => item.key !== "auto" && item.key !== "demo" && item.successRate24h !== null).map((item) => item.name).join(", ") || "henüz yok"}).`
+    : "Hiçbir AI sağlayıcısı için gerekli environment değişkenleri tanımlı değil.";
+
   const healthItems = [
-    ["Veritabanı / Supabase", "Çalışıyor", "Veri, auth ve storage altyapısı.", startupApiData?.lastTestTime, null],
+    ["Veritabanı / Supabase", supabaseStatus?.status === "Aktif" ? "Çalışıyor" : (supabaseStatus ? "Hata" : "Uyarı"), supabaseStatus?.warning || "Veri, auth ve storage altyapısı — gerçek bağlantı testi ile doğrulanır.", startupApiData?.lastTestTime, supabaseStatus?.warning || null],
     ["Meta API", api.meta_access_token ? "Çalışıyor" : "Uyarı", api.meta_access_token ? "Meta bağlantı bilgisi kayıtlı." : "Meta token yapılandırması eksik.", api.meta_last_success_at, api.meta_last_error_at],
     ["Meta Pixel", api.meta_pixel_id || api.meta_dataset_id ? "Çalışıyor" : "Uyarı", "Public site olay ve dönüşüm ölçümleme durumu.", api.last_pixel_test_at, api.meta_last_error_at],
     ["Conversion API", api.capi_enabled || api.conversion_api_token ? "Çalışıyor" : "Uyarı", "Sunucu tarafı dönüşüm olayı hazırlığı.", api.last_capi_test_at, api.capi_last_error_at],
     ["Google Ads", api.google_ads_customer_id || api.google_developer_token ? "Çalışıyor" : "Uyarı", "Google Ads müşteri ve yönetici hesap bağlantısı.", api.google_last_success_at, api.google_last_error_at],
-    ["Google Analytics", api.google_analytics_id || api.ga_measurement_id ? "Çalışıyor" : "Uyarı", "GA4 ölçüm kimliği ve veri hazırlığı.", api.google_last_success_at, api.google_last_error_at],
-    ["Search Console", api.search_console_site ? "Çalışıyor" : "Uyarı", "Organik arama ve site sahipliği bağlantısı.", api.search_console_last_success_at, api.search_console_last_error_at],
+    ["Google Analytics", api.google_analytics_id || api.ga_measurement_id ? "Çalışıyor" : "Uyarı", "GA4 ölçüm kimliği ve veri hazırlığı. Search Console ve Business Profile ile aynı Google OAuth kimlik bilgisini paylaşır.", api.google_last_success_at, api.google_last_error_at],
+    ["Search Console", api.search_console_site ? "Çalışıyor" : "Uyarı", "Organik arama ve site sahipliği bağlantısı. GA4 ile aynı Google OAuth kimlik bilgisini paylaşır.", api.search_console_last_success_at, api.search_console_last_error_at],
     ["Website Analytics", content.settings?.analyticsIds?.metaPixelId || content.settings?.analyticsIds?.gaMeasurementId ? "Çalışıyor" : "Uyarı", "Public site PageView, Contact ve Lead ölçümü.", api.website_analytics_last_sync_at, api.website_analytics_last_error_at],
     ["SMTP", api.smtp_host ? "Çalışıyor" : "Uyarı", "Sistem e-postalarının gönderim sunucusu.", api.smtp_last_success_at, api.smtp_last_error_at],
-    ["Yapay Zekâ Sağlayıcı", Object.values(aiStatuses).some((item: any) => item?.status === "Aktif") ? "Çalışıyor" : "Uyarı", "OpenAI, Groq veya Gemini bağlantı durumu.", startupApiData?.lastTestTime, api.ai_last_error_at],
+    ["Yapay Zekâ Sağlayıcı", aiProviderRealStatus, aiProviderDescription, startupApiData?.lastTestTime, api.ai_last_error_at],
     ["API Sağlığı", startupApiData?.lastTestTime ? "Çalışıyor" : "Uyarı", "Server route ve entegrasyon testlerinin genel sonucu.", startupApiData?.lastTestTime, api.last_api_error_at]
   ];
   const healthTone = (status: string): AdminStatusTone => status === "Çalışıyor" ? "success" : status === "Hata" ? "danger" : "warning";
@@ -2120,7 +2145,7 @@ function SystemHealthCenter({ content, startupApiData, runStartupApiStatus, star
         eyebrow="Sistem · Sağlık"
         title="Sistem Sağlık Merkezi"
         description="Teknik servislerin son kontrol, başarı ve hata durumlarını merkezi olarak izleyin. Bu ekran yalnız menüden açılır; girişte otomatik çalışmaz ve gizli anahtar göstermez."
-        actions={<AdminButton variant="info" loading={startupApiLoading} onClick={runStartupApiStatus}>Tüm Servisleri Yenile</AdminButton>}
+        actions={<AdminButton variant="info" loading={startupApiLoading || providerHealthLoading} onClick={() => { runStartupApiStatus(); loadProviderHealth(); }}>Tüm Servisleri Yenile</AdminButton>}
       />
       <div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {healthItems.map(([label, status, description, lastCheck, lastError]) => (
@@ -2141,6 +2166,27 @@ function SystemHealthCenter({ content, startupApiData, runStartupApiStatus, star
           </div>
         ))}
       </div>
+      {providerHealth.length > 0 && <div className="admin-card mb-5 rounded-[16px] p-4">
+        <h3 className="font-black" style={{ color: "var(--admin-text-primary)" }}>AI Sağlayıcı Sağlık Detayı (son 24 saat, gerçek çalıştırma verisi)</h3>
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full min-w-[640px] text-left text-sm">
+            <thead className="text-xs uppercase tracking-[.1em]" style={{ color: "var(--admin-text-muted)" }}>
+              <tr><th className="border-b py-2">Sağlayıcı</th><th className="border-b py-2">Durum</th><th className="border-b py-2">Başarı oranı</th><th className="border-b py-2">Ort. yanıt</th><th className="border-b py-2">Hata sayısı</th></tr>
+            </thead>
+            <tbody>
+              {providerHealth.filter((item) => item.key !== "auto").map((item) => (
+                <tr key={item.key} className="border-b border-slate-100">
+                  <td className="py-2 font-bold" style={{ color: "var(--admin-text-primary)" }}>{item.name}</td>
+                  <td className="py-2"><AdminStatusBadge tone={healthTone(item.status)}>{item.status}</AdminStatusBadge></td>
+                  <td className="py-2" style={{ color: "var(--admin-text-secondary)" }}>{item.successRate24h !== null ? `%${item.successRate24h}` : "Veri yok"}</td>
+                  <td className="py-2" style={{ color: "var(--admin-text-secondary)" }}>{item.averageResponseMs ? `${item.averageResponseMs} ms` : "-"}</td>
+                  <td className="py-2" style={{ color: "var(--admin-text-secondary)" }}>{item.errorCount24h || 0}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>}
       <div className="mb-5"><ReadinessPanel api={api} /></div>
       <AiStatusCenterWidget statuses={aiStatuses} message={startupApiData?.lastTestTime ? `Son genel kontrol: ${new Date(startupApiData.lastTestTime).toLocaleString("tr-TR")}` : "Bağlantı testi bekleniyor."} loading={startupApiLoading} onRefresh={runStartupApiStatus} />
     </Panel>

@@ -43,6 +43,20 @@ type ProviderRow = {
   secret_mask?: string | null;
   configured?: boolean;
 };
+type PromptRow = {
+  id: string;
+  title: string;
+  task_type: AgentTaskType | string;
+  provider_key?: string | null;
+  prompt_text: string;
+  description?: string | null;
+  is_default?: boolean;
+  is_active?: boolean;
+  is_favorite?: boolean;
+  created_by?: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
 type LogRow = {
   id?: string;
   created_at?: string;
@@ -317,6 +331,15 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
   const [whatsappSummary, setWhatsappSummary] = useState("");
   const [notificationStatus, setNotificationStatus] = useState("");
   const [advancedProviderOpen, setAdvancedProviderOpen] = useState(false);
+  const [prompts, setPrompts] = useState<PromptRow[]>([]);
+  const [promptSearch, setPromptSearch] = useState("");
+  const [promptCategory, setPromptCategory] = useState("");
+  const [promptFavoriteOnly, setPromptFavoriteOnly] = useState(false);
+  const [selectedPromptId, setSelectedPromptId] = useState("");
+  const [promptForm, setPromptForm] = useState<{ title: string; taskType: string; providerKey: string; description: string; promptText: string }>({ title: "", taskType: "ad_analysis", providerKey: "", description: "", promptText: "" });
+  const [promptFormMode, setPromptFormMode] = useState<"create" | "edit" | null>(null);
+  const [promptBusy, setPromptBusy] = useState(false);
+  const [promptVariableValues, setPromptVariableValues] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     customerId: "",
     taskType: "ad_analysis" as AgentTaskType,
@@ -370,6 +393,7 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
       ]);
       const integrationResponse = await fetch("/api/admin/agent-hub/integrations");
       const providerHealthResponse = await fetch("/api/admin/ai-providers/health");
+      const promptResponse = await fetch("/api/admin/agent-hub/prompts");
       const providerData = await providerResponse.json().catch(() => ({}));
       const logData = await logResponse.json().catch(() => ({}));
       const statsData = await statsResponse.json().catch(() => ({}));
@@ -380,8 +404,10 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
       const benchmarkData = await benchmarkResponse.json().catch(() => ({}));
       const integrationData = await integrationResponse.json().catch(() => ({}));
       const providerHealthData = await providerHealthResponse.json().catch(() => ({}));
+      const promptData = await promptResponse.json().catch(() => ({}));
       if (!providerResponse.ok) throw new Error(providerData.error || "Sağlayıcı listesi alınamadı.");
       setProviders(providerData.providers || []);
+      setPrompts(Array.isArray(promptData.prompts) ? promptData.prompts : []);
       setLogs(logData.logs || []);
       setSummary(logData.summary || {});
       setStats(statsData || {});
@@ -673,6 +699,144 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
     setActiveTab("run");
     notify?.("Agent görevi tekrar çalıştırıldı.", "success");
     await loadData();
+  }
+
+  const filteredPrompts = useMemo(() => {
+    const search = promptSearch.trim().toLowerCase();
+    return prompts.filter((prompt) => {
+      if (promptFavoriteOnly && !prompt.is_favorite) return false;
+      if (promptCategory && prompt.task_type !== promptCategory) return false;
+      if (search && !`${prompt.title} ${prompt.description || ""} ${prompt.prompt_text}`.toLowerCase().includes(search)) return false;
+      return true;
+    });
+  }, [prompts, promptSearch, promptCategory, promptFavoriteOnly]);
+
+  const selectedPrompt = useMemo(() => prompts.find((prompt) => prompt.id === selectedPromptId) || null, [prompts, selectedPromptId]);
+
+  function promptVariableNames(text: string) {
+    const matches = text.match(/\{\{\s*[\w.]+\s*\}\}/g) || [];
+    return Array.from(new Set(matches.map((match) => match.replace(/[{}]/g, "").trim())));
+  }
+
+  function renderPromptText(text: string, values: Record<string, string>) {
+    return text.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_match, name) => (values[name]?.trim() ? values[name] : `{{${name}}}`));
+  }
+
+  function resetPromptForm() {
+    setPromptForm({ title: "", taskType: "ad_analysis", providerKey: "", description: "", promptText: "" });
+    setPromptFormMode(null);
+    setPromptVariableValues({});
+  }
+
+  function startCreatePrompt() {
+    setSelectedPromptId("");
+    setPromptForm({ title: "", taskType: promptCategory || "ad_analysis", providerKey: "", description: "", promptText: "" });
+    setPromptFormMode("create");
+  }
+
+  function startEditPrompt(prompt: PromptRow) {
+    setSelectedPromptId(prompt.id);
+    setPromptForm({
+      title: prompt.title,
+      taskType: String(prompt.task_type),
+      providerKey: prompt.provider_key || "",
+      description: prompt.description || "",
+      promptText: prompt.prompt_text
+    });
+    setPromptFormMode("edit");
+    setPromptVariableValues({});
+  }
+
+  async function savePrompt() {
+    if (!promptForm.title.trim()) return notify?.("Prompt başlığı zorunludur.", "warning");
+    if (!promptForm.promptText.trim()) return notify?.("Prompt metni boş olamaz.", "warning");
+    setPromptBusy(true);
+    try {
+      const isEdit = promptFormMode === "edit" && selectedPromptId;
+      const response = await fetch(isEdit ? `/api/admin/agent-hub/prompts/${selectedPromptId}` : "/api/admin/agent-hub/prompts", {
+        method: isEdit ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: promptForm.title,
+          taskType: promptForm.taskType,
+          providerKey: promptForm.providerKey || null,
+          description: promptForm.description,
+          promptText: promptForm.promptText
+        })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Prompt kaydedilemedi.");
+      notify?.(data.message || "Prompt kaydedildi.", "success");
+      resetPromptForm();
+      await loadData();
+      if (data.prompt?.id) setSelectedPromptId(data.prompt.id);
+    } catch (error) {
+      notify?.(error instanceof Error ? error.message : "Prompt kaydedilemedi.", "error");
+    } finally {
+      setPromptBusy(false);
+    }
+  }
+
+  async function toggleFavoritePrompt(prompt: PromptRow) {
+    const response = await fetch(`/api/admin/agent-hub/prompts/${prompt.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isFavorite: !prompt.is_favorite })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      notify?.(data.error || "Favori durumu güncellenemedi.", "error");
+      return;
+    }
+    await loadData();
+  }
+
+  async function duplicatePrompt(prompt: PromptRow) {
+    setPromptBusy(true);
+    try {
+      const response = await fetch("/api/admin/agent-hub/prompts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: `${prompt.title} (Kopya)`,
+          taskType: prompt.task_type,
+          providerKey: prompt.provider_key || null,
+          description: prompt.description || "",
+          promptText: prompt.prompt_text
+        })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Prompt kopyalanamadı.");
+      notify?.("Prompt kopyalandı.", "success");
+      await loadData();
+    } catch (error) {
+      notify?.(error instanceof Error ? error.message : "Prompt kopyalanamadı.", "error");
+    } finally {
+      setPromptBusy(false);
+    }
+  }
+
+  async function archivePrompt(prompt: PromptRow) {
+    if (!confirm(`"${prompt.title}" promptunu arşivlemek istediğinize emin misiniz?`)) return;
+    const response = await fetch(`/api/admin/agent-hub/prompts/${prompt.id}`, { method: "DELETE" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      notify?.(data.error || "Prompt arşivlenemedi.", "error");
+      return;
+    }
+    notify?.(data.message || "Prompt arşivlendi.", "success");
+    if (selectedPromptId === prompt.id) {
+      setSelectedPromptId("");
+      resetPromptForm();
+    }
+    await loadData();
+  }
+
+  function sendPromptToRun(prompt: PromptRow) {
+    const rendered = renderPromptText(prompt.prompt_text, promptVariableValues);
+    setForm((current) => ({ ...current, prompt: rendered, taskType: (prompt.task_type as AgentTaskType) || current.taskType }));
+    setActiveTab("run");
+    notify?.("Prompt, Görev Çalıştır sekmesine aktarıldı.", "success");
   }
 
   async function createMemory() {
@@ -977,12 +1141,107 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
       </div>
     </section>}
 
-    {activeTab === "prompts" && <section className="rounded-[22px] border border-slate-200 bg-white p-5">
-      <h3 className="text-xl font-black text-slate-950">Prompt Merkezi</h3>
-      <p className="mt-2 text-sm text-slate-600">Kaydedilen komutlar aynı merkezden sürümlenir; önceki sürümlere güvenle dönebilirsiniz.</p>
-      <div className="mt-4 overflow-x-auto">
-        <table className="w-full min-w-[760px] text-left text-sm"><thead className="text-xs uppercase tracking-[.12em] text-slate-500"><tr><th className="border-b py-3">Görev tipi</th><th className="border-b py-3">Sağlayıcı</th><th className="border-b py-3">Başlık</th><th className="border-b py-3">Durum</th><th className="border-b py-3">İşlem</th></tr></thead>
-          <tbody>{taskTypes.slice(0, 8).map((task) => <tr key={task.value} className="border-b border-slate-100"><td className="py-3 font-bold">{task.label}</td><td className="py-3">{providerLabel(chainMap[task.value]?.[0] || "demo")}</td><td className="py-3">{task.label} varsayılan promptu</td><td className="py-3"><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">Aktif</span></td><td className="py-3 text-xs text-slate-500">Görev çalıştırılırken otomatik uygulanır</td></tr>)}</tbody></table>
+    {activeTab === "prompts" && <section className="grid gap-4 lg:grid-cols-[.44fr_1fr]">
+      <div className="rounded-[22px] border border-slate-200 bg-white p-5">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <h3 className="text-xl font-black text-slate-950">Prompt Kütüphanesi</h3>
+            <p className="mt-1 text-sm text-slate-600">Kayıtlı promptları arayın, filtreleyin ve doğrudan Görev Çalıştır sekmesine gönderin.</p>
+          </div>
+          <button onClick={startCreatePrompt} className={primaryButtonClass}>+ Yeni Prompt</button>
+        </div>
+        <div className="mt-4 grid gap-2">
+          <input value={promptSearch} onChange={(event) => setPromptSearch(event.target.value)} placeholder="Başlık, açıklama veya metinde ara..." className="rounded-[12px] border border-slate-200 px-3 py-2.5 text-sm" />
+          <div className="flex flex-wrap items-center gap-2">
+            <select value={promptCategory} onChange={(event) => setPromptCategory(event.target.value)} className="rounded-[12px] border border-slate-200 px-3 py-2.5 text-sm">
+              <option value="">Tüm kategoriler</option>
+              {taskTypes.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+            </select>
+            <label className="flex items-center gap-2 text-xs font-bold text-slate-600">
+              <input type="checkbox" checked={promptFavoriteOnly} onChange={(event) => setPromptFavoriteOnly(event.target.checked)} /> Sadece favoriler
+            </label>
+          </div>
+        </div>
+        <div className="mt-4 grid max-h-[520px] gap-2 overflow-y-auto pr-1">
+          {filteredPrompts.length === 0 && <p className="rounded-[12px] bg-slate-50 p-4 text-sm text-slate-500">Kayıtlı prompt bulunamadı. Yeni bir tane oluşturabilirsiniz.</p>}
+          {filteredPrompts.map((prompt) => <button
+            key={prompt.id}
+            onClick={() => { setSelectedPromptId(prompt.id); setPromptFormMode(null); setPromptVariableValues({}); }}
+            className={`rounded-[14px] border p-3 text-left transition ${selectedPromptId === prompt.id ? "border-cyan-300 bg-cyan-50" : "border-slate-200 bg-white hover:border-cyan-200"}`}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <strong className="text-sm font-black text-slate-950">{prompt.title}</strong>
+              {prompt.is_favorite && <span className="text-amber-500">★</span>}
+            </div>
+            <p className="mt-1 text-xs text-slate-500">{agentTaskLabels[prompt.task_type as AgentTaskType] || String(prompt.task_type)} · {providerLabel(prompt.provider_key || "auto")}</p>
+            {prompt.description && <p className="mt-1 line-clamp-2 text-xs text-slate-600">{prompt.description}</p>}
+          </button>)}
+        </div>
+      </div>
+
+      <div className="rounded-[22px] border border-slate-200 bg-white p-5">
+        {promptFormMode && <div>
+          <h3 className="text-lg font-black text-slate-950">{promptFormMode === "create" ? "Yeni Prompt Oluştur" : "Promptu Düzenle"}</h3>
+          <div className="mt-4 grid gap-3">
+            <label className="grid gap-1 text-sm font-bold text-slate-700">Başlık
+              <input value={promptForm.title} onChange={(event) => setPromptForm({ ...promptForm, title: event.target.value })} className="rounded-[12px] border border-slate-200 px-3 py-2.5 text-sm font-normal" />
+            </label>
+            <label className="grid gap-1 text-sm font-bold text-slate-700">Kategori (görev tipi)
+              <select value={promptForm.taskType} onChange={(event) => setPromptForm({ ...promptForm, taskType: event.target.value })} className="rounded-[12px] border border-slate-200 px-3 py-2.5 text-sm font-normal">
+                {taskTypes.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm font-bold text-slate-700">Önerilen sağlayıcı (opsiyonel)
+              <select value={promptForm.providerKey} onChange={(event) => setPromptForm({ ...promptForm, providerKey: event.target.value })} className="rounded-[12px] border border-slate-200 px-3 py-2.5 text-sm font-normal">
+                <option value="">Otomatik</option>
+                {providers.map((provider) => <option key={provider.provider_key} value={provider.provider_key}>{providerLabel(provider.provider_key)}</option>)}
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm font-bold text-slate-700">Kısa açıklama (opsiyonel)
+              <input value={promptForm.description} onChange={(event) => setPromptForm({ ...promptForm, description: event.target.value })} maxLength={500} className="rounded-[12px] border border-slate-200 px-3 py-2.5 text-sm font-normal" />
+            </label>
+            <label className="grid gap-1 text-sm font-bold text-slate-700">Prompt metni <span className="font-normal text-slate-400">({"{{değişken}}"} biçiminde alanlar kullanabilirsiniz)</span>
+              <textarea value={promptForm.promptText} onChange={(event) => setPromptForm({ ...promptForm, promptText: event.target.value })} rows={8} className="rounded-[12px] border border-slate-200 px-3 py-2.5 text-sm font-normal" />
+            </label>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button onClick={savePrompt} disabled={promptBusy} className={primaryButtonClass}>{promptBusy ? "Kaydediliyor..." : "Kaydet"}</button>
+            <button onClick={resetPromptForm} className={secondaryButtonClass}>Vazgeç</button>
+          </div>
+        </div>}
+
+        {!promptFormMode && selectedPrompt && <div>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-black text-slate-950">{selectedPrompt.title}</h3>
+              <p className="mt-1 text-xs uppercase tracking-[.1em] text-slate-500">{agentTaskLabels[selectedPrompt.task_type as AgentTaskType] || String(selectedPrompt.task_type)} · {providerLabel(selectedPrompt.provider_key || "auto")}</p>
+            </div>
+            <span className={`rounded-full px-3 py-1 text-xs font-black ${selectedPrompt.is_active === false ? "bg-slate-100 text-slate-500" : "bg-emerald-50 text-emerald-700"}`}>{selectedPrompt.is_active === false ? "Arşivde" : "Aktif"}</span>
+          </div>
+          {selectedPrompt.description && <p className="mt-3 text-sm text-slate-600">{selectedPrompt.description}</p>}
+          <pre className="mt-4 whitespace-pre-wrap rounded-[12px] bg-slate-50 p-4 text-sm text-slate-700">{selectedPrompt.prompt_text}</pre>
+
+          {promptVariableNames(selectedPrompt.prompt_text).length > 0 && <div className="mt-4 grid gap-2 rounded-[12px] border border-slate-200 p-3">
+            <p className="text-xs font-black uppercase tracking-[.1em] text-slate-500">Değişkenleri doldur</p>
+            {promptVariableNames(selectedPrompt.prompt_text).map((name) => <label key={name} className="grid gap-1 text-xs font-bold text-slate-600">{name}
+              <input value={promptVariableValues[name] || ""} onChange={(event) => setPromptVariableValues({ ...promptVariableValues, [name]: event.target.value })} className="rounded-[10px] border border-slate-200 px-3 py-2 text-sm font-normal" />
+            </label>)}
+          </div>}
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button onClick={() => sendPromptToRun(selectedPrompt)} className={primaryButtonClass}>Bu Promptu Çalıştır</button>
+            <button onClick={() => copyText(renderPromptText(selectedPrompt.prompt_text, promptVariableValues), notify)} className={secondaryButtonClass}>Kopyala</button>
+            <button onClick={() => startEditPrompt(selectedPrompt)} className={secondaryButtonClass}>Düzenle</button>
+            <button onClick={() => duplicatePrompt(selectedPrompt)} className={secondaryButtonClass}>Çoğalt</button>
+            <button onClick={() => toggleFavoritePrompt(selectedPrompt)} className={softButtonClass}>{selectedPrompt.is_favorite ? "Favoriden Çıkar" : "Favorilere Ekle"}</button>
+            <button onClick={() => archivePrompt(selectedPrompt)} className="rounded-[12px] border border-rose-200 bg-white px-4 py-2.5 text-sm font-black text-rose-700 transition hover:bg-rose-50">Arşivle</button>
+          </div>
+        </div>}
+
+        {!promptFormMode && !selectedPrompt && <div className="flex h-full min-h-[280px] flex-col items-center justify-center gap-2 text-center text-sm text-slate-500">
+          <FileText size={28} className="text-slate-300" />
+          <p>Detaylarını görmek için soldan bir prompt seçin ya da yeni bir tane oluşturun.</p>
+        </div>}
       </div>
     </section>}
 
