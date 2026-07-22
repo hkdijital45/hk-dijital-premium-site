@@ -23,7 +23,11 @@ import { AgentHubCenter } from "@/components/admin/AgentHubCenter";
 import { QaCenter } from "@/components/admin/QaCenter";
 import { AdsOperatingCenter, CustomerGrowthPanel, FunnelBuilderCenter, GrowthEngineCenter, GrowthMarketplaceCenter } from "@/components/admin/GrowthOperatingSystem";
 import { AdminCustomerSelector, CustomerWorkflowLinks, GlobalMetaPixelSettings, MetaPixelSettingsPanel } from "@/components/admin/AdminCustomerOperations";
+import { AdminPeriodFilter } from "@/components/admin/ui/AdminPeriodFilter";
+import { isDateWithinAdminPeriod, resolveAdminPeriodRange, type AdminPeriodKey } from "@/lib/admin-period-filter";
 import { CustomerProfileTasks } from "@/components/admin/customer-profile/CustomerProfileTasks";
+import { CustomerActivityTimeline } from "@/components/admin/customer-profile/CustomerActivityTimeline";
+import { CustomerProfileNotes } from "@/components/admin/customer-profile/CustomerProfileNotes";
 import { CustomerBrandAssets } from "@/components/admin/customer-profile/CustomerBrandAssets";
 import { CustomerIntegrationsPanel } from "@/components/admin/customer-profile/CustomerIntegrationsPanel";
 import { CustomerProfileModal } from "@/components/admin/customer-profile/CustomerProfileModal";
@@ -3404,7 +3408,7 @@ function CustomerBrandingCenter({ content, setContent }: any) {
   );
 }
 
-function MonthlyReportCenter({ content, setContent }: any) {
+function MonthlyReportCenter({ content, setContent, notify }: any) {
   const items = content.monthlyReports || [];
   const metrics = content.campaignMetrics || [];
   const [busy, setBusy] = useState("");
@@ -3412,6 +3416,8 @@ function MonthlyReportCenter({ content, setContent }: any) {
   const [reportMonthFilter, setReportMonthFilter] = useState("");
   const [reportStatusFilter, setReportStatusFilter] = useState("Tümü");
   const [selectedReportId, setSelectedReportId] = useState("");
+  const [showPreview, setShowPreview] = useState(false);
+  const [sending, setSending] = useState(false);
   const update = (index, patch) => updateCollection(content, setContent, "monthlyReports", items.map((item, i) => i === index ? { ...item, ...patch } : item));
   function createReport() {
     const company = filterSelectableCustomers(content.companies || [])[0];
@@ -3434,6 +3440,57 @@ function MonthlyReportCenter({ content, setContent }: any) {
     updateCollection(content, setContent, "monthlyReports", items.filter((_: any, i: number) => i !== index));
     setSelectedReportId("");
   };
+  const reportUuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  function downloadReport(report: any) {
+    const text = [
+      "HK Dijital - Aylık Rapor",
+      `Müşteri: ${companyName(content, report.company_id) || "-"}`,
+      `Dönem: ${report.report_month || "-"}`,
+      `Durum: ${report.status || "Taslak"}`,
+      "",
+      "Özet",
+      report.summary || "-",
+      "",
+      "Meta Ads Metrikleri",
+      JSON.stringify(report.meta_metrics || {}, null, 2),
+      "",
+      "Google Ads Metrikleri",
+      JSON.stringify(report.google_metrics || {}, null, 2),
+      "",
+      "Sosyal Medya Metrikleri",
+      JSON.stringify(report.social_metrics || {}, null, 2),
+      "",
+      "Yapay Zekâ Yorumu",
+      report.ai_interpretation || "-",
+      "",
+      "Gelecek Ay Önerileri",
+      report.next_month_recommendations || "-"
+    ].join("\n");
+    const url = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `hk-dijital-aylik-rapor-${report.report_month || "rapor"}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+  async function sendReport(report: any) {
+    if (!reportUuidPattern.test(String(report.id || ""))) {
+      notify?.("Bu rapor henüz kaydedilmemiş. Önce üst çubuktaki Kaydet ile kalıcı hale getirin.", "warning");
+      return;
+    }
+    if (!confirm("Bu rapor müşteriye e-posta ile gönderilsin mi?")) return;
+    setSending(true);
+    try {
+      const response = await fetch(`/api/admin/monthly-reports/${report.id}/send-email`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.detail || data.error || "Rapor gönderilemedi.");
+      notify?.("✓ Rapor müşteriye e-posta ile gönderildi.", "success");
+    } catch (error) {
+      notify?.(error instanceof Error ? error.message : "Rapor gönderilemedi.", "error");
+    } finally {
+      setSending(false);
+    }
+  }
   const filteredReports = items.filter((item: any) => {
     if (reportCompanyFilter && item.company_id !== reportCompanyFilter) return false;
     if (reportMonthFilter && item.report_month !== reportMonthFilter) return false;
@@ -3479,11 +3536,23 @@ function MonthlyReportCenter({ content, setContent }: any) {
             emptyTitle="Bir rapor seçin"
             emptyDescription="Listeden bir satıra tıklayarak detaylarını buradan düzenleyin."
             actions={selectedReport ? <>
+              <AdminButton compact variant="secondary" onClick={() => setShowPreview((current) => !current)}>{showPreview ? "Düzenlemeye Dön" : "Önizleme"}</AdminButton>
               <AdminButton compact variant="ai" disabled={busy === (selectedReport.id || `${selectedReportIndex}`)} onClick={() => generateAi(selectedReportIndex)}>{busy === (selectedReport.id || `${selectedReportIndex}`) ? "Oluşturuluyor..." : "AI Yorum Oluştur"}</AdminButton>
+              <AdminButton compact variant="info" onClick={() => downloadReport(selectedReport)}>İndir (.txt)</AdminButton>
+              <AdminButton compact variant="success" disabled={sending} onClick={() => sendReport(selectedReport)}>{sending ? "Gönderiliyor..." : "Müşteriye Gönder"}</AdminButton>
               <AdminButton compact variant="danger" onClick={() => deleteReport(selectedReportIndex)}>Sil</AdminButton>
             </> : undefined}
           >
-            {selectedReport && (
+            {selectedReport && showPreview && (
+              <div className="grid gap-2 rounded-[8px] border border-slate-200 bg-white p-3 text-sm">
+                <p className="text-xs font-black uppercase tracking-wide text-slate-500">{companyName(content, selectedReport.company_id) || "Müşteri"} · {selectedReport.report_month}</p>
+                <p className="whitespace-pre-wrap text-slate-800">{selectedReport.summary || "Özet girilmemiş."}</p>
+                {selectedReport.ai_interpretation && <div><p className="text-xs font-black text-slate-600">Yapay Zekâ Yorumu</p><p className="whitespace-pre-wrap text-slate-700">{selectedReport.ai_interpretation}</p></div>}
+                {selectedReport.next_month_recommendations && <div><p className="text-xs font-black text-slate-600">Gelecek Ay Önerileri</p><p className="whitespace-pre-wrap text-slate-700">{selectedReport.next_month_recommendations}</p></div>}
+                {!reportUuidPattern.test(String(selectedReport.id || "")) && <p className="rounded-[8px] border border-amber-200 bg-amber-50 p-2 text-xs font-bold text-amber-800">Bu rapor henüz kaydedilmedi — "Müşteriye Gönder" için önce üst çubuktaki Kaydet düğmesini kullanın.</p>}
+              </div>
+            )}
+            {selectedReport && !showPreview && (
               <div className="grid gap-2">
                 <CompanySelect value={selectedReport.company_id || ""} onChange={(value) => update(selectedReportIndex, { company_id: value })} companies={content.companies} />
                 <Field label="Ay" type="month" value={selectedReport.report_month || ""} onChange={(value) => update(selectedReportIndex, { report_month: value })} />
@@ -3934,14 +4003,17 @@ function AccountingCenter({ content, setContent, save, currentSession, notify, s
   const [financeDraftAdding, setFinanceDraftAdding] = useState(false);
   const [financeSearch, setFinanceSearch] = useState("");
   const [financeCategory, setFinanceCategory] = useState("Tümü");
-  const [financeMonth, setFinanceMonth] = useState("");
   const [selectedLedgerId, setSelectedLedgerId] = useState("");
+  const [periodKey, setPeriodKey] = useState<AdminPeriodKey>("this_month");
+  const [customPeriodStart, setCustomPeriodStart] = useState("");
+  const [customPeriodEnd, setCustomPeriodEnd] = useState("");
   const payments = (content.paymentRecords || []).filter((item: any) => !isArchivedRecord(item) && item.status !== "İptal");
   const expenses = content.agencyExpenses || [];
   const today = new Date().toISOString().slice(0, 10);
   const month = new Date().toISOString().slice(0, 7);
-  const monthPayments = payments.filter((item: any) => String(item.service_period || item.payment_date || item.due_date || "").startsWith(month));
-  const monthExpenses = expenses.filter((item: any) => String(item.expense_date || item.record_date || "").startsWith(month));
+  const { startDate: periodStart, endDate: periodEnd } = resolveAdminPeriodRange(periodKey, customPeriodStart, customPeriodEnd);
+  const monthPayments = payments.filter((item: any) => isDateWithinAdminPeriod(item.service_period || item.payment_date || item.due_date, periodStart, periodEnd));
+  const monthExpenses = expenses.filter((item: any) => isDateWithinAdminPeriod(item.expense_date || item.record_date, periodStart, periodEnd));
   const paid = monthPayments.filter((item: any) => item.status === "Ödendi").reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
   const pending = monthPayments.filter((item: any) => item.status === "Bekliyor").reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
   const overdue = monthPayments.filter((item: any) => ["Gecikmiş", "Gecikti"].includes(item.status) || (item.status !== "Ödendi" && item.due_date && item.due_date < today)).reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
@@ -3958,8 +4030,8 @@ function AccountingCenter({ content, setContent, save, currentSession, notify, s
   const expenseCategories = ["Tümü", ...new Set(expenses.map((item: any) => item.category || "Diğer").filter(Boolean))];
   const normalizedFinanceSearch = financeSearch.trim().toLocaleLowerCase("tr");
   const filteredExpenses = expenses.filter((item: any) => {
+    if (!isDateWithinAdminPeriod(item.expense_date || item.record_date, periodStart, periodEnd)) return false;
     if (financeCategory !== "Tümü" && (item.category || "Diğer") !== financeCategory) return false;
-    if (financeMonth && !String(item.expense_date || "").startsWith(financeMonth)) return false;
     if (normalizedFinanceSearch && !`${item.title || ""} ${item.category || ""} ${item.note || ""}`.toLocaleLowerCase("tr").includes(normalizedFinanceSearch)) return false;
     return true;
   });
@@ -4033,7 +4105,7 @@ function AccountingCenter({ content, setContent, save, currentSession, notify, s
     setFinanceSaving(false);
   }
   const selectedCompany = companyById(content, customerId);
-  const selectedPayments = customerId ? payments.filter((item: any) => item.company_id === customerId) : [];
+  const selectedPayments = customerId ? monthPayments.filter((item: any) => item.company_id === customerId) : [];
   const selectedPaid = selectedPayments.filter((item: any) => item.status === "Ödendi").reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
   const selectedPending = selectedPayments.filter((item: any) => item.status !== "Ödendi").reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
 
@@ -4042,7 +4114,7 @@ function AccountingCenter({ content, setContent, save, currentSession, notify, s
   if (tab === "karlilik") return <ProfitabilityCenter content={content} setContent={setContent} setActive={(target: string) => setTab(accountingTabForActive(target))} currentSession={currentSession} notify={notify} />;
 
   const ledgerRows = tab === "gelir-gider" ? [
-    ...payments.map((item: any) => ({ ...item, __kind: "income", __key: `income-${item.id}` })),
+    ...monthPayments.map((item: any) => ({ ...item, __kind: "income", __key: `income-${item.id}` })),
     ...filteredExpenses.map((item: any) => ({ ...item, __kind: "expense", __key: `expense-${item.id}` }))
   ] : [];
   const selectedLedgerRow = selectedLedgerId ? ledgerRows.find((item: any) => item.__key === selectedLedgerId) : null;
@@ -4066,13 +4138,16 @@ function AccountingCenter({ content, setContent, save, currentSession, notify, s
         headerActions={<div className="flex flex-wrap gap-1">{tabs.map(([key, label]) => <AdminButton key={key} compact variant={tab === key ? "info" : "secondary"} onClick={() => setTab(key)}>{label}</AdminButton>)}</div>}
         leftPanel={
           <AdminControlPanel>
+            <AdminFilterSection title="Hızlı Dönem">
+              <AdminPeriodFilter value={periodKey} onChange={setPeriodKey} customStart={customPeriodStart} customEnd={customPeriodEnd} onCustomStartChange={setCustomPeriodStart} onCustomEndChange={setCustomPeriodEnd} />
+              <p className="mt-2 text-[11px]" style={{ color: "var(--admin-text-muted)" }}>Genel Bakış KPI'ları ve Gelir/Gider tablosu bu döneme göre hesaplanır.</p>
+            </AdminFilterSection>
             {tab === "gelir-gider" && (
               <AdminFilterSection title="Gelir / Gider Filtreleri">
                 <div className="grid gap-2">
                   <label className="grid gap-1 text-[10px] font-black uppercase text-slate-500">Gider ara<input value={financeSearch} onChange={(event) => setFinanceSearch(event.target.value)} placeholder="Başlık, kategori veya not" className="min-h-9 rounded-[8px] border border-slate-300 bg-white px-2 text-xs font-semibold normal-case text-slate-900" /></label>
                   <SelectField label="Kategori" value={financeCategory} onChange={setFinanceCategory} options={expenseCategories} />
-                  <Field label="Ay" type="month" value={financeMonth} onChange={setFinanceMonth} />
-                  <AdminButton compact variant="secondary" onClick={() => { setFinanceSearch(""); setFinanceCategory("Tümü"); setFinanceMonth(""); }}>Filtreleri Temizle</AdminButton>
+                  <AdminButton compact variant="secondary" onClick={() => { setFinanceSearch(""); setFinanceCategory("Tümü"); }}>Filtreleri Temizle</AdminButton>
                 </div>
               </AdminFilterSection>
             )}
@@ -4179,6 +4254,7 @@ function PaymentCenter({ content, setContent, save, currentSession, notify, sele
   const emptyFilters = { status: initialStatus, companyId: selectedCompanyId, paymentType: "Tümü", month: "", year: "", startDate: "", endDate: "" };
   const [draftFilters, setDraftFilters] = useState(emptyFilters);
   const [appliedFilters, setAppliedFilters] = useState(emptyFilters);
+  const [periodKey, setPeriodKey] = useState<AdminPeriodKey>("custom");
   const canManage = canManageRecord(currentSession, "tahsilat");
   const thisMonth = new Date().toISOString().slice(0, 7);
   const today = new Date().toISOString().slice(0, 10);
@@ -4193,6 +4269,18 @@ function PaymentCenter({ content, setContent, save, currentSession, notify, sele
     setDraftFilters((current) => ({ ...current, companyId: selectedCompanyId }));
     setAppliedFilters((current) => ({ ...current, companyId: selectedCompanyId }));
   }, [selectedCompanyId]);
+
+  function applyPeriod(key: AdminPeriodKey) {
+    setPeriodKey(key);
+    if (key === "custom") return;
+    const { startDate, endDate } = resolveAdminPeriodRange(key);
+    setDraftFilters((current) => ({ ...current, month: "", year: "", startDate, endDate }));
+    setAppliedFilters((current) => ({ ...current, month: "", year: "", startDate, endDate }));
+  }
+  function applyCustomPeriodDate(field: "startDate" | "endDate", value: string) {
+    setDraftFilters((current) => ({ ...current, [field]: value }));
+    setAppliedFilters((current) => ({ ...current, [field]: value }));
+  }
 
   const paymentDate = (item) => String(item.payment_date || item.due_date || item.service_period || item.created_at || "").slice(0, 10);
   const filteredItems = items.filter((item) => {
@@ -4272,6 +4360,7 @@ function PaymentCenter({ content, setContent, save, currentSession, notify, sele
                 <SelectField label="Ödeme durumu" value={draftFilters.status} onChange={(status) => setDraftFilters({ ...draftFilters, status })} options={paymentHistoryFilters} />
                 <CompanySelect value={draftFilters.companyId} onChange={(companyId) => setDraftFilters({ ...draftFilters, companyId })} companies={content.companies} />
                 <SelectField label="Ödeme türü" value={draftFilters.paymentType} onChange={(paymentType) => setDraftFilters({ ...draftFilters, paymentType })} options={paymentTypes} />
+                <div className="grid gap-1"><span className="text-[10px] font-black uppercase text-slate-500">Hızlı Dönem</span><AdminPeriodFilter value={periodKey} onChange={applyPeriod} customStart={draftFilters.startDate} customEnd={draftFilters.endDate} onCustomStartChange={(value) => applyCustomPeriodDate("startDate", value)} onCustomEndChange={(value) => applyCustomPeriodDate("endDate", value)} /></div>
                 <label className="grid gap-1 text-[10px] font-black uppercase text-slate-500">Ay<input list="payment-month-options" value={draftFilters.month} onChange={(event) => setDraftFilters({ ...draftFilters, month: event.target.value.replace(/\D/g, "").slice(0, 2) })} placeholder="Tümü veya 01-12" className="min-h-9 rounded-[8px] border border-slate-300 bg-white px-2 text-xs font-semibold normal-case text-slate-900" /><datalist id="payment-month-options">{monthOptions.map(([value, label]) => <option key={label} value={value}>{label}</option>)}</datalist></label>
                 <label className="grid gap-1 text-[10px] font-black uppercase text-slate-500">Yıl<input list="payment-year-options" value={draftFilters.year} onChange={(event) => setDraftFilters({ ...draftFilters, year: event.target.value.replace(/\D/g, "").slice(0, 4) })} placeholder="Tümü veya yıl yazın" className="min-h-9 rounded-[8px] border border-slate-300 bg-white px-2 text-xs font-semibold normal-case text-slate-900" /><datalist id="payment-year-options">{yearOptions.map((year) => <option key={year} value={year} />)}</datalist></label>
                 <Field label="Başlangıç tarihi" type="date" value={draftFilters.startDate} onChange={(startDate) => setDraftFilters({ ...draftFilters, startDate })} />
@@ -4661,14 +4750,15 @@ function ProfitabilityCenter({ content, setContent, setActive, currentSession, n
   const expenses = content.agencyExpenses || [];
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("Tümü");
   const [paymentCompanyFilter, setPaymentCompanyFilter] = useState("");
-  const [paymentStartDate, setPaymentStartDate] = useState("");
-  const [paymentEndDate, setPaymentEndDate] = useState("");
+  const [periodKey, setPeriodKey] = useState<AdminPeriodKey>("this_month");
+  const [customPeriodStart, setCustomPeriodStart] = useState("");
+  const [customPeriodEnd, setCustomPeriodEnd] = useState("");
   const canManagePayments = canManageRecord(currentSession, "tahsilat");
-  const thisMonth = new Date().toISOString().slice(0, 7);
+  const { startDate: periodStart, endDate: periodEnd } = resolveAdminPeriodRange(periodKey, customPeriodStart, customPeriodEnd);
   const activePayments = payments.filter((item) => !isArchivedRecord(item));
-  const filteredPayments = filterPayments(payments, { status: paymentStatusFilter, companyId: paymentCompanyFilter, startDate: paymentStartDate, endDate: paymentEndDate });
-  const monthPayments = activePayments.filter((item) => String(item.service_period || item.due_date || "").startsWith(thisMonth));
-  const monthExpenses = expenses.filter((item) => String(item.expense_date || "").startsWith(thisMonth));
+  const filteredPayments = filterPayments(payments, { status: paymentStatusFilter, companyId: paymentCompanyFilter, startDate: periodStart, endDate: periodEnd });
+  const monthPayments = activePayments.filter((item) => isDateWithinAdminPeriod(item.service_period || item.due_date, periodStart, periodEnd));
+  const monthExpenses = expenses.filter((item) => isDateWithinAdminPeriod(item.expense_date, periodStart, periodEnd));
   const revenue = monthPayments.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const paid = monthPayments.filter((item) => item.status === "Ödendi").reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const pending = monthPayments.filter((item) => item.status !== "Ödendi" && item.status !== "İptal").reduce((sum, item) => sum + Number(item.amount || 0), 0);
@@ -4701,17 +4791,19 @@ function ProfitabilityCenter({ content, setContent, setActive, currentSession, n
       <AdminWorkspace
         eyebrow="Finans · Kârlılık"
         title="Kârlılık Analizi"
-        description="Aylık gelir, gider ve tahmini kâr; tahsilat kayıtları üzerinden gerçek verilerle hesaplanır."
+        description="Seçili döneme göre gelir, gider ve tahmini kâr; tahsilat kayıtları üzerinden gerçek verilerle hesaplanır."
         headerActions={<AdminButton compact variant="secondary" onClick={() => setActive?.("Tahsilat")}>Tahsilat Ekranını Aç</AdminButton>}
         leftPanel={
           <AdminControlPanel>
+            <AdminFilterSection title="Hızlı Dönem">
+              <AdminPeriodFilter value={periodKey} onChange={setPeriodKey} customStart={customPeriodStart} customEnd={customPeriodEnd} onCustomStartChange={setCustomPeriodStart} onCustomEndChange={setCustomPeriodEnd} />
+              <p className="mt-2 text-[11px]" style={{ color: "var(--admin-text-muted)" }}>KPI'lar ve tahsilat tablosu bu döneme göre hesaplanır.</p>
+            </AdminFilterSection>
             <AdminFilterSection title="Filtreler">
               <div className="grid gap-2">
                 <SelectField label="Durum filtresi" value={paymentStatusFilter} onChange={setPaymentStatusFilter} options={paymentHistoryFilters} />
                 <CompanySelect value={paymentCompanyFilter} onChange={setPaymentCompanyFilter} companies={content.companies} />
-                <Field label="Başlangıç tarihi" type="date" value={paymentStartDate} onChange={setPaymentStartDate} />
-                <Field label="Bitiş tarihi" type="date" value={paymentEndDate} onChange={setPaymentEndDate} />
-                <AdminButton compact variant="secondary" onClick={() => { setPaymentStatusFilter("Tümü"); setPaymentCompanyFilter(""); setPaymentStartDate(""); setPaymentEndDate(""); }}>Filtreleri Temizle</AdminButton>
+                <AdminButton compact variant="secondary" onClick={() => { setPaymentStatusFilter("Tümü"); setPaymentCompanyFilter(""); setPeriodKey("this_month"); setCustomPeriodStart(""); setCustomPeriodEnd(""); }}>Filtreleri Temizle</AdminButton>
               </div>
             </AdminFilterSection>
             <AdminFilterSection title="Gider Takibi">
@@ -4761,12 +4853,15 @@ function ProfitabilityCenter({ content, setContent, setActive, currentSession, n
         }
       >
         <AdminCompactKpiStrip items={[
-          { key: "revenue", label: "Aylık gelir", value: `${revenue.toLocaleString("tr-TR")} TL`, icon: <Gauge size={14} />, tone: "primary" },
+          { key: "revenue", label: "Dönem geliri", value: `${revenue.toLocaleString("tr-TR")} TL`, icon: <Gauge size={14} />, tone: "primary" },
           { key: "paid", label: "Ödenen", value: `${paid.toLocaleString("tr-TR")} TL`, icon: <Gauge size={14} />, tone: "success" },
           { key: "pending", label: "Bekleyen", value: `${pending.toLocaleString("tr-TR")} TL`, icon: <Gauge size={14} />, tone: "warning" },
           { key: "customers", label: "Aktif müşteri", value: activeCustomers, icon: <Gauge size={14} />, tone: "info" },
           { key: "profit", label: "Tahmini kâr", value: `${(revenue - expenseTotal).toLocaleString("tr-TR")} TL`, icon: <Gauge size={14} />, tone: revenue - expenseTotal >= 0 ? "success" : "danger" }
         ]} />
+        <p className="mb-3 rounded-[8px] border border-amber-200 bg-amber-50 p-2 text-xs leading-5 text-amber-800">
+          Not: Gider tutarı ({expenseTotal.toLocaleString("tr-TR")} TL) ajans geneli toplam giderdir — <code>agency_expenses</code> tablosunda müşteriye özgü maliyet ataması (company_id) bulunmuyor. Bu nedenle &quot;Tahmini kâr&quot; her zaman ajans-geneli bir rakamdır; müşteri bazlı kârlılık burada hesaplanamaz ve gösterilmez.
+        </p>
         <AdminDataGrid
           columns={profitGridColumns}
           rows={filteredPayments}
@@ -7441,17 +7536,8 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
           </table>
         </div>
       </div>}
-      {tab === "Aktivite Geçmişi" && <ActivityList items={activities} empty="Bu müşteri için henüz aktivite kaydı yok." />}
-      {tab === "Notlar" && <div className="min-w-0">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h3 className="text-sm font-black text-slate-950">Dahili Notlar</h3>
-            <p className="mt-0.5 text-xs text-slate-500">Sadece admin ekibi görür; müşteri panelinde gösterilmez.</p>
-          </div>
-          <AdminButton compact variant="primary" disabled={!profileDirty || profileSaving} onClick={saveProfileChanges}>{profileSaving ? "Kaydediliyor..." : "Notu Kaydet"}</AdminButton>
-        </div>
-        <TextArea label="Dahili müşteri notları" value={company.notes} onChange={(v) => updateProfileField({ notes: v })} rows={12} />
-      </div>}
+      {tab === "Aktivite Geçmişi" && <CustomerActivityTimeline items={activities} onOpenTab={setTab} />}
+      {tab === "Notlar" && <CustomerProfileNotes company={company} notify={notify} canManage={canManageCustomer} />}
       </div>
       <div className="xl:sticky xl:top-4">
         <AdminDetailInspector
@@ -8189,7 +8275,31 @@ function CustomerFilesEditor({ company, content, setContent, save, items, notify
   const syncFileUrl = (id, value) => update(id, { file_url: value, document_url: value });
   const isCreativeType = (type) => ["Görsel", "Reklam Görseli", "Kreatif"].includes(type || "");
   const [selectedFileId, setSelectedFileId] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const selectedFile = selectedFileId ? visibleItems.find((item: any) => item.id === selectedFileId) : null;
+
+  async function uploadRealFile(file: globalThis.File) {
+    if (!selectedFile) return;
+    setUploading(true);
+    setUploadError("");
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("fileId", selectedFile.id);
+      form.append("documentType", selectedFile.file_type || "Diğer");
+      const response = await fetch(`/api/admin/customers/${company.id}/files/upload`, { method: "POST", body: form });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.detail || data.error || "Dosya yüklenemedi.");
+      update(selectedFile.id, data.file);
+      notify?.("✓ Dosya yüklendi", "success");
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : "Dosya yüklenemedi.");
+      notify?.(error instanceof Error ? error.message : "Dosya yüklenemedi.", "error");
+    } finally {
+      setUploading(false);
+    }
+  }
   const fileColumns: AdminDataGridColumn<any>[] = [
     { key: "title", header: "Dosya Başlığı", render: (item: any) => item.title || "Adsız dosya" },
     { key: "type", header: "Tür", render: (item: any) => <AdminStatusBadge tone="info">{item.file_type || "Diğer"}</AdminStatusBadge> },
@@ -8218,8 +8328,20 @@ function CustomerFilesEditor({ company, content, setContent, save, items, notify
         <div className="grid gap-2">
           <Field label="Dosya Başlığı" value={selectedFile.title || ""} onChange={(value) => update(selectedFile.id, { title: value })} />
           <SelectField label="Dosya Türü" value={selectedFile.file_type || "Diğer"} onChange={(value) => update(selectedFile.id, { file_type: value, show_in_creative_center: selectedFile.show_in_creative_center || isCreativeType(value) })} options={fileCategoryOptions} />
-          <Field label="Dosya URL" value={selectedFile.file_url || selectedFile.document_url || ""} onChange={(value) => syncFileUrl(selectedFile.id, value)} />
-          <Upload onUrl={(url) => syncFileUrl(selectedFile.id, url)} />
+          <Field label="Dosya URL (manuel, eski kayıtlar için)" value={selectedFile.file_url || selectedFile.document_url || ""} onChange={(value) => syncFileUrl(selectedFile.id, value)} />
+          <div className="grid gap-1.5 rounded-[8px] border border-slate-200 bg-slate-50 p-2">
+            <label className="text-xs font-bold text-slate-700">Gerçek dosya yükle (PDF/PNG/JPEG/WEBP, maks. 15 MB)</label>
+            <input
+              type="file"
+              accept="application/pdf,image/png,image/jpeg,image/webp"
+              disabled={uploading}
+              onChange={(event) => { const file = event.target.files?.[0]; if (file) uploadRealFile(file); event.target.value = ""; }}
+              className="text-xs"
+            />
+            {uploading && <p className="text-[11px] font-bold text-cyan-700">Yükleniyor...</p>}
+            {uploadError && <p className="text-[11px] font-bold text-red-700">{uploadError}</p>}
+            {selectedFile.storage_path && <p className="text-[11px]" style={{ color: "var(--admin-text-muted)" }}>Depolama: {selectedFile.storage_path} · {selectedFile.mime_type || "-"} · {selectedFile.file_size ? `${Math.round(selectedFile.file_size / 1024)} KB` : "-"}</p>}
+          </div>
           <label className="flex items-center gap-2 rounded-[8px] border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700"><input type="checkbox" checked={Boolean(selectedFile.visible_to_customer)} onChange={(event) => update(selectedFile.id, { visible_to_customer: event.target.checked })} /> Müşteriye Göster</label>
           <label className="flex items-center gap-2 rounded-[8px] border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700"><input type="checkbox" checked={Boolean(selectedFile.show_in_creative_center || isCreativeType(selectedFile.file_type))} onChange={(event) => update(selectedFile.id, { show_in_creative_center: event.target.checked })} /> Kreatif Merkezinde Göster</label>
           <TextArea label="Açıklama" value={selectedFile.description || ""} onChange={(value) => update(selectedFile.id, { description: value })} />
@@ -9532,7 +9654,7 @@ function CustomerFinder(props: any) {
 }
 
 const mapSectorOptions = ["Yerel Hizmetler", "Perakende & E-Ticaret", "Yeme İçme", "Eğitim & Yaşam", "Profesyonel Hizmet", "Emlak & Otomotiv", "Güzellik & Sağlık", "Klinik", "Kuaför", "Kafe", "Restoran", "Pasta / Tatlı", "Spor Salonu", "Su Arıtma", "Kombi / Klima", "Diğer"];
-const mapTabs = ["Fırsat Haritası", "Google Maps Müşteri Bulma", "Kaydedilenler", "Sıcak Leadler", "Bölgesel Fırsatlar", "Rakip Analizi", "Yapay Zekâ Analiz", "CRM’e Aktarılanlar"];
+const mapTabs = ["Fırsat Haritası", "Google Maps Müşteri Bulma", "Kaydedilenler", "Sıcak Leadler", "Bölgesel Fırsatlar", "Rakip Analizi", "Yapay Zekâ Analiz", "CRM’e Aktarılanlar", "Kayıtlı Aramalar"];
 const districtOpportunitySeed = [
   ["Yunusemre", 92, "Yüksek", "Çok Güçlü", "Güzellik & Sağlık", "Güzellik, klinik ve yerel hizmet işletmelerini önceliklendirin."],
   ["Şehzadeler", 86, "Orta", "Çok Güçlü", "Yeme İçme", "Kafe, restoran ve perakende adaylarında keşif başlatın."],
@@ -9689,6 +9811,12 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
   const [loading, setLoading] = useState("");
   const [message, setMessage] = useState("");
   const [selectedPlaceId, setSelectedPlaceId] = useState("");
+  const [hotMinScore, setHotMinScore] = useState(70);
+  const [selectedRegionName, setSelectedRegionName] = useState("");
+  const [savedSearches, setSavedSearches] = useState<any[]>([]);
+  const [savedSearchesLoaded, setSavedSearchesLoaded] = useState(false);
+  const [savedSearchName, setSavedSearchName] = useState("");
+  const [savedSearchBusy, setSavedSearchBusy] = useState("");
   const [selectedPlaces, setSelectedPlaces] = useState<string[]>([]);
   const [nicheOptions, setNicheOptions] = useState<string[]>([]);
   const [actionResult, setActionResult] = useState<any>(null);
@@ -9748,6 +9876,87 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
     window.addEventListener("hk-close-discovery-detail", closeDetail);
     return () => window.removeEventListener("hk-close-discovery-detail", closeDetail);
   }, []);
+
+  useEffect(() => {
+    if (savedSearchesLoaded) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetch("/api/admin/discovery-saved-searches")
+      .then((response) => response.json())
+      .then((data) => setSavedSearches(Array.isArray(data.searches) ? data.searches : []))
+      .catch(() => null)
+      .finally(() => setSavedSearchesLoaded(true));
+  }, [savedSearchesLoaded]);
+
+  async function saveCurrentSearch() {
+    const name = savedSearchName.trim();
+    if (!name) return notify?.("Kaydetmek için bir arama adı girin.", "warning");
+    setSavedSearchBusy("save");
+    try {
+      const response = await fetch("/api/admin/discovery-saved-searches", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, filters: search, result_count: results.length }) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Arama kaydedilemedi.");
+      setSavedSearches((current) => [data.search, ...current]);
+      setSavedSearchName("");
+      notify?.("Arama kaydedildi.", "success");
+    } catch (error) {
+      notify?.(error instanceof Error ? error.message : "Arama kaydedilemedi.", "error");
+    } finally {
+      setSavedSearchBusy("");
+    }
+  }
+
+  function loadSavedSearchFilters(item: any) {
+    setSearch({ ...emptySearch, ...(item.filters_json || {}) });
+    notify?.(`"${item.name}" filtreleri yüklendi. Yeni sonuç için "Google Maps Müşteri Bulma" sekmesinde "Google Maps'ten Bul" düğmesine basın (API kotası kullanır).`, "info");
+  }
+
+  async function renameSavedSearch(item: any) {
+    const nextName = prompt("Yeni arama adı:", item.name);
+    if (!nextName || !nextName.trim() || nextName.trim() === item.name) return;
+    setSavedSearchBusy(item.id);
+    try {
+      const response = await fetch("/api/admin/discovery-saved-searches", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: item.id, name: nextName.trim() }) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Arama güncellenemedi.");
+      setSavedSearches((current) => current.map((entry) => entry.id === item.id ? data.search : entry));
+      notify?.("Arama adı güncellendi.", "success");
+    } catch (error) {
+      notify?.(error instanceof Error ? error.message : "Arama güncellenemedi.", "error");
+    } finally {
+      setSavedSearchBusy("");
+    }
+  }
+
+  async function duplicateSavedSearch(item: any) {
+    setSavedSearchBusy(item.id);
+    try {
+      const response = await fetch("/api/admin/discovery-saved-searches", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: `${item.name} (kopya)`, description: item.description, filters: item.filters_json, result_count: item.result_count }) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Arama kopyalanamadı.");
+      setSavedSearches((current) => [data.search, ...current]);
+      notify?.("Arama kopyalandı.", "success");
+    } catch (error) {
+      notify?.(error instanceof Error ? error.message : "Arama kopyalanamadı.", "error");
+    } finally {
+      setSavedSearchBusy("");
+    }
+  }
+
+  async function archiveSavedSearch(item: any) {
+    if (!confirm(`"${item.name}" aramasını silmek istediğinize emin misiniz?`)) return;
+    setSavedSearchBusy(item.id);
+    try {
+      const response = await fetch("/api/admin/discovery-saved-searches", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: item.id }) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Arama silinemedi.");
+      setSavedSearches((current) => current.filter((entry) => entry.id !== item.id));
+      notify?.("Arama silindi.", "success");
+    } catch (error) {
+      notify?.(error instanceof Error ? error.message : "Arama silinemedi.", "error");
+    } finally {
+      setSavedSearchBusy("");
+    }
+  }
 
   function setMapTab(nextTab: string) {
     setTab(nextTab);
@@ -10453,7 +10662,24 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
         eyebrow="Satış · Müşteri Keşfi"
         title="Fırsat Haritası"
         description="Bölgesel potansiyeli ilçe ve sektör seviyesinde okuyun; seçiminizi Google Maps müşteri bulma akışına aktararak gerçek işletmeleri keşfedin."
-        bottomBar={<AdminActionBar statusText={`${saved.length} kayıtlı işletme`}><AdminButton compact variant="secondary" onClick={() => setMapTab("Google Maps Müşteri Bulma")}>Google Maps Müşteri Bulma'ya Git</AdminButton></AdminActionBar>}
+        leftPanel={
+          <AdminControlPanel>
+            <AdminFilterSection title="Bölge ve Sektör Filtreleri">
+              <div className="grid gap-2">
+                <Field label="İlçe" value={search.district} onChange={(district) => setSearch({ ...search, district })} />
+                <Field label="Sektör" value={search.businessType} onChange={(businessType) => setSearch({ ...search, businessType })} placeholder="oto galeri, emlak ofisi, diş kliniği..." />
+                <SelectField label="Minimum Google puanı" value={search.minimumRating} onChange={(minimumRating) => setSearch({ ...search, minimumRating })} options={[{ value: "", label: "Farketmez" }, { value: "3", label: "3.0+" }, { value: "3.5", label: "3.5+" }, { value: "4", label: "4.0+" }, { value: "4.5", label: "4.5+" }]} />
+                <SelectField label="Minimum yorum sayısı" value={search.minimumReviewCount} onChange={(minimumReviewCount) => setSearch({ ...search, minimumReviewCount })} options={[{ value: "", label: "Farketmez" }, { value: "5", label: "5+" }, { value: "10", label: "10+" }, { value: "25", label: "25+" }, { value: "50", label: "50+" }]} />
+                <SelectField label="Website var / yok" value={search.website} onChange={(website) => setSearch({ ...search, website })} options={[{ value: "", label: "Farketmez" }, { value: "yok", label: "Websitesi olmayanlar" }, { value: "var", label: "Websitesi olanlar" }]} />
+                <AdminButton compact variant="secondary" onClick={() => setSearch({ ...emptySearch })}>Filtreleri Temizle</AdminButton>
+              </div>
+            </AdminFilterSection>
+            <AdminFilterSection title="Bölge Özeti">
+              <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>{districts.length} bölge · {saved.length} CRM kayıtlı işletme · {saved.filter((lead) => Number(lead.lead_heat_score || 0) >= 70).length} sıcak lead. Aşağıdaki haritada bir bölge veya sektöre tıklayarak Ajans Satış Operasyon Merkezi&apos;ni (sağ panel) açabilirsiniz.</p>
+            </AdminFilterSection>
+          </AdminControlPanel>
+        }
+        bottomBar={<AdminActionBar statusText={`${saved.length} kayıtlı işletme`}><AdminButton compact variant="secondary" onClick={() => setSearch({ ...emptySearch })}>Filtreleri Temizle</AdminButton><AdminButton compact variant="primary" onClick={() => setMapTab("Google Maps Müşteri Bulma")}>Google Maps Müşteri Bulma'ya Git</AdminButton></AdminActionBar>}
       >
         <HubTabs items={mapTabs} active={tab} onChange={setMapTab} />
         <OpportunityMap content={content} setContent={setContent} save={save} notify={notify} search={{ ...search, sector: search.businessType }} setSearch={(next) => setSearch({ ...search, ...next, businessType: next.businessType || next.sector || search.businessType })} setTab={setMapTab} setActive={setActive} saved={saved} />
@@ -10461,7 +10687,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
     );
   }
 
-  if (tab === "Kaydedilenler") {
+  if (tab === "Kaydedilenler" || tab === "CRM’e Aktarılanlar") {
     const transferredColumns: AdminDataGridColumn<any>[] = [
       { key: "company", header: "İşletme", render: (lead: any) => <div className="min-w-0"><strong className="block truncate">{lead.company || lead.name || "İsimsiz lead"}</strong><span className="block truncate text-[11px]" style={{ color: "var(--admin-text-muted)" }}>{lead.city || "-"} / {districtOf(lead)}</span></div> },
       { key: "status", header: "CRM Durumu", render: (lead: any) => <AdminStatusBadge tone="success">{lead.status || lead.lead_stage || "Yeni Lead"}</AdminStatusBadge> },
@@ -10474,8 +10700,8 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
     return (
       <AdminWorkspace
         eyebrow="Satış · Müşteri Keşfi"
-        title="CRM'e Aktarılanlar"
-        description="Google Maps / Müşteri Keşfi üzerinden CRM'e aktarılan işletmeler; teklif, WhatsApp, görev ve rakip analizi akışına buradan devam edilir."
+        title={tab}
+        description="Google Maps / Müşteri Keşfi üzerinden CRM'e kaydedilen ve aktarılan işletmeler; teklif, WhatsApp, görev ve rakip analizi akışına buradan devam edilir."
         rightPanel={
           <AdminDetailInspector
             title={selectedTransferred ? (selectedTransferred.company || selectedTransferred.name) : undefined}
@@ -10519,6 +10745,256 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
           emptyTitle="Henüz kaydedilmiş işletme yok."
           emptyDescription="Google Maps Müşteri Bulma sekmesinden işletme seçip CRM'e kaydedebilirsiniz."
         />
+      </AdminWorkspace>
+    );
+  }
+
+  if (tab === "Sıcak Leadler") {
+    const hotLeads = saved
+      .filter((lead: any) => Number(lead.lead_heat_score || 0) >= hotMinScore)
+      .filter((lead: any) => !search.district || districtOf(lead).toLocaleLowerCase("tr").includes(search.district.toLocaleLowerCase("tr")))
+      .filter((lead: any) => !search.businessType || String(lead.business_type || lead.category || "").toLocaleLowerCase("tr").includes(search.businessType.toLocaleLowerCase("tr")))
+      .sort((a: any, b: any) => Number(b.lead_heat_score || 0) - Number(a.lead_heat_score || 0));
+    const selectedHotLead = selectedPlaceId ? hotLeads.find((lead: any) => (lead.id || lead.google_place_id) === selectedPlaceId) || null : null;
+    const hotColumns: AdminDataGridColumn<any>[] = [
+      { key: "company", header: "İşletme", render: (lead: any) => <div className="min-w-0"><strong className="block truncate">{lead.company || lead.name}</strong><span className="block truncate text-[11px]" style={{ color: "var(--admin-text-muted)" }}>{lead.city || "-"} / {districtOf(lead)}</span></div> },
+      { key: "score", header: "Fırsat Skoru", align: "right", render: (lead: any) => <AdminStatusBadge tone={Number(lead.lead_heat_score || 0) >= 85 ? "danger" : "warning"}>{lead.lead_heat_score || 0}/100</AdminStatusBadge> },
+      { key: "priority", header: "Öncelik", render: (lead: any) => Number(lead.lead_heat_score || 0) >= 85 ? "Kritik" : "Yüksek" },
+      { key: "sector", header: "Sektör", render: (lead: any) => lead.business_type || lead.category || "-" },
+      { key: "region", header: "Bölge", render: (lead: any) => districtOf(lead) },
+      { key: "crm", header: "CRM Durumu", render: (lead: any) => <AdminStatusBadge tone="success">{lead.status || lead.lead_stage || "Yeni Lead"}</AdminStatusBadge> },
+      { key: "contact", header: "İletişim", render: (lead: any) => <div className="flex gap-1">{lead.phone && <AdminStatusBadge tone="info">Tel</AdminStatusBadge>}{lead.website && <AdminStatusBadge tone="neutral">Web</AdminStatusBadge>}{!lead.phone && !lead.website && "-"}</div> }
+    ];
+    return (
+      <AdminWorkspace
+        eyebrow="Satış · Müşteri Keşfi"
+        title="Sıcak Leadler"
+        description={`Sıcaklık skoru ${hotMinScore}+ olan, CRM'e kayıtlı işletmeler. Skor Google puanı, yorum sayısı ve dijital eksik sinyallerinden hesaplanır.`}
+        leftPanel={
+          <AdminControlPanel>
+            <AdminFilterSection title="Skor ve Filtre">
+              <div className="grid gap-2">
+                <SelectField label="Minimum sıcaklık skoru" value={String(hotMinScore)} onChange={(value) => setHotMinScore(Number(value))} options={[{ value: "70", label: "70+" }, { value: "80", label: "80+" }, { value: "85", label: "85+ (Kritik)" }, { value: "90", label: "90+" }]} />
+                <Field label="Bölge" value={search.district} onChange={(district) => setSearch({ ...search, district })} />
+                <Field label="Sektör" value={search.businessType} onChange={(businessType) => setSearch({ ...search, businessType })} />
+                <AdminButton compact variant="secondary" onClick={() => { setSearch({ ...search, district: "", businessType: "" }); setHotMinScore(70); }}>Filtreleri Temizle</AdminButton>
+              </div>
+            </AdminFilterSection>
+          </AdminControlPanel>
+        }
+        rightPanel={<BusinessLeadDetailPanel record={selectedHotLead} mapsHref={mapsHref} metaHref={metaHref} saveBusiness={saveBusiness} proposalFor={proposalFor} setWhatsappDraft={setWhatsappDraft} outreachText={outreachText} sendToCompetitor={sendToCompetitor} markCandidate={markCandidate} setNotePlaceId={setNotePlaceId} notePlaceId={notePlaceId} findCompetitorsForLead={findCompetitorsForLead} competitors={selectedHotLead ? leadCompetitors[leadKey(selectedHotLead)] || [] : []} prepareFirstMessage={prepareFirstMessage} prepareDigitalReport={prepareDigitalReport} openWhatsapp={openWhatsapp} prepareInstagramDm={prepareInstagramDm} openInstagram={openInstagram} callBusiness={callBusiness} emailBusiness={emailBusiness} openWebsite={openWebsite} leadStage={selectedHotLead ? leadStagesById[leadKey(selectedHotLead)] || "Yeni bulundu" : "Yeni bulundu"} leadStageOptions={leadStageOptions} updateLeadStage={updateLeadStage} createFollowupTask={createFollowupTask} existingLead={selectedHotLead ? existingLeadFor(selectedHotLead) : null} openCrmLead={openCrmLead} />}
+        bottomBar={<AdminActionBar statusText={`${hotLeads.length} sıcak lead`}><AdminButton compact variant="secondary" onClick={() => setMapTab("Google Maps Müşteri Bulma")}>Yeni İşletme Bul</AdminButton></AdminActionBar>}
+      >
+        <HubTabs items={mapTabs} active={tab} onChange={setMapTab} />
+        <AdminDataGrid columns={hotColumns} rows={hotLeads} rowKey={(lead: any) => lead.id || lead.google_place_id} activeId={selectedPlaceId} onRowClick={(lead: any) => setSelectedPlaceId(lead.id || lead.google_place_id)} emptyTitle="Bu eşikte sıcak lead yok." emptyDescription="Minimum skoru düşürün veya Google Maps Müşteri Bulma'dan yeni arama yapın." />
+      </AdminWorkspace>
+    );
+  }
+
+  if (tab === "Bölgesel Fırsatlar") {
+    const regionRows = districts.filter((region: any) => !search.district || region.name.toLocaleLowerCase("tr").includes(search.district.toLocaleLowerCase("tr")));
+    const selectedRegion = selectedRegionName ? districts.find((region: any) => region.name === selectedRegionName) || null : null;
+    const regionColumns: AdminDataGridColumn<any>[] = [
+      { key: "name", header: "Bölge", render: (region: any) => <strong>{region.name}</strong> },
+      { key: "opportunity", header: "Fırsat Seviyesi", render: (region: any) => <AdminStatusBadge tone={region.opportunity === "Yüksek" ? "danger" : region.opportunity === "Orta" ? "warning" : "neutral"}>{region.opportunity}</AdminStatusBadge> },
+      { key: "hot", header: "Sıcak Lead", align: "right", render: (region: any) => region.hot },
+      { key: "count", header: "İşletme Sayısı", align: "right", render: (region: any) => region.items.length },
+      { key: "rating", header: "Ort. Google Puanı", align: "right", render: (region: any) => region.rating || "-" },
+      { key: "maturity", header: "Dijital Olgunluk", align: "right", render: (region: any) => region.maturity ? `${region.maturity}/100` : "-" },
+      { key: "sectors", header: "Öne Çıkan Sektörler", render: (region: any) => region.sectors.join(", ") || "-" }
+    ];
+    return (
+      <AdminWorkspace
+        eyebrow="Satış · Müşteri Keşfi"
+        title="Bölgesel Fırsatlar"
+        description="İlçe bazlı fırsat sinyalleri; CRM'e kayıtlı işletmeler üzerinden hesaplanır. Geçmiş dönem verisi bulunmadığından büyüme oranı gibi metrikler gösterilmez — yalnızca güncel anlık istatistikler."
+        leftPanel={
+          <AdminControlPanel>
+            <AdminFilterSection title="Bölge Ara">
+              <div className="grid gap-2">
+                <Field label="İlçe adı" value={search.district} onChange={(district) => setSearch({ ...search, district })} />
+                <AdminButton compact variant="secondary" onClick={() => setSearch({ ...search, district: "" })}>Filtreyi Temizle</AdminButton>
+              </div>
+            </AdminFilterSection>
+          </AdminControlPanel>
+        }
+        rightPanel={
+          <AdminDetailInspector
+            title={selectedRegion ? selectedRegion.name : undefined}
+            subtitle={selectedRegion ? `${selectedRegion.items.length} işletme · ${selectedRegion.opportunity} fırsat` : undefined}
+            emptyTitle="Bir bölge seçin"
+            emptyDescription="Listeden bir bölgeye tıklayarak o bölgedeki işletmeleri görüntüleyin."
+            fields={selectedRegion ? [
+              { label: "Sıcak lead", value: String(selectedRegion.hot) },
+              { label: "Ortalama Google puanı", value: String(selectedRegion.rating || "-") },
+              { label: "Dijital olgunluk", value: selectedRegion.maturity ? `${selectedRegion.maturity}/100` : "-" },
+              { label: "Öne çıkan sektörler", value: selectedRegion.sectors.join(", ") || "-" }
+            ] : undefined}
+            actions={selectedRegion ? <AdminButton compact variant="primary" onClick={() => { setSearch({ ...search, district: selectedRegion.name }); setMapTab("Google Maps Müşteri Bulma"); }}>Bu Bölgede Google Maps'te Ara</AdminButton> : undefined}
+          >
+            {selectedRegion && (
+              <div className="grid gap-1.5">
+                {selectedRegion.items.slice(0, 8).map((item: any) => (
+                  <button key={item.id || item.google_place_id || item.name} type="button" onClick={() => setSelectedPlaceId(item.id || item.google_place_id)} className="rounded-[8px] border border-slate-200 bg-white p-2 text-left text-xs">
+                    <strong className="block truncate">{item.company || item.name}</strong>
+                    <span style={{ color: "var(--admin-text-muted)" }}>{item.business_type || item.category || "-"}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </AdminDetailInspector>
+        }
+        bottomBar={<AdminActionBar statusText={`${regionRows.length} bölge`}><AdminButton compact variant="secondary" onClick={() => setMapTab("Fırsat Haritası")}>Fırsat Haritasında Gör</AdminButton></AdminActionBar>}
+      >
+        <HubTabs items={mapTabs} active={tab} onChange={setMapTab} />
+        <AdminDataGrid columns={regionColumns} rows={regionRows} rowKey={(region: any) => region.name} activeId={selectedRegionName} onRowClick={(region: any) => setSelectedRegionName(region.name)} emptyTitle="Bölge verisi bulunamadı." emptyDescription="Google Maps Müşteri Bulma'dan arama yaparak veya CRM'e işletme kaydederek bölge istatistiklerini oluşturun." />
+      </AdminWorkspace>
+    );
+  }
+
+  if (tab === "Rakip Analizi") {
+    const competitorRows = saved.filter((lead: any) => !search.district || districtOf(lead).toLocaleLowerCase("tr").includes(search.district.toLocaleLowerCase("tr")));
+    const selectedCompetitorLead = selectedPlaceId ? saved.find((lead: any) => (lead.id || lead.google_place_id) === selectedPlaceId) || null : null;
+    const competitorList = selectedCompetitorLead ? leadCompetitors[leadKey(selectedCompetitorLead)] || [] : [];
+    const competitorColumns: AdminDataGridColumn<any>[] = [
+      { key: "company", header: "İşletme", render: (lead: any) => <strong>{lead.company || lead.name}</strong> },
+      { key: "sector", header: "Sektör", render: (lead: any) => lead.business_type || lead.category || "-" },
+      { key: "region", header: "Bölge", render: (lead: any) => districtOf(lead) },
+      { key: "rating", header: "Google Puanı", align: "right", render: (lead: any) => lead.google_rating || "-" },
+      { key: "website", header: "Website", render: (lead: any) => lead.website ? "Var" : "Yok" },
+      { key: "competitors", header: "Bulunan Rakip", align: "right", render: (lead: any) => (leadCompetitors[leadKey(lead)] || []).length || "-" }
+    ];
+    return (
+      <AdminWorkspace
+        eyebrow="Satış · Müşteri Keşfi"
+        title="Rakip Analizi"
+        description="CRM'e kayıtlı işletmeler için gerçek rakip keşfi; seçili işletme için 'Rakip Bul' aksiyonu /api/admin/competitors/discover uç noktasını çağırır. Kalıcı, müşteriye bağlı rakip takibi Rakip İstihbarat Merkezi'nde yapılır."
+        leftPanel={
+          <AdminControlPanel>
+            <AdminFilterSection title="Filtre">
+              <div className="grid gap-2">
+                <Field label="Bölge" value={search.district} onChange={(district) => setSearch({ ...search, district })} />
+                <AdminButton compact variant="secondary" onClick={() => setSearch({ ...search, district: "" })}>Filtreyi Temizle</AdminButton>
+              </div>
+            </AdminFilterSection>
+            <AdminFilterSection title="Rakip İstihbarat Merkezi">
+              <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>Müşteriye bağlı, kalıcı rakip takibi için ayrı modül: <Link className="font-black text-cyan-700 underline" href="/hk-admin/rakip-analizi">Rakip İstihbarat Merkezi&apos;ni aç</Link>.</p>
+            </AdminFilterSection>
+          </AdminControlPanel>
+        }
+        rightPanel={
+          <AdminDetailInspector
+            title={selectedCompetitorLead ? (selectedCompetitorLead.company || selectedCompetitorLead.name) : undefined}
+            subtitle={selectedCompetitorLead ? `${competitorList.length} rakip bulundu` : undefined}
+            emptyTitle="Bir işletme seçin"
+            emptyDescription="Listeden bir işletmeye tıklayarak rakip karşılaştırmasını buradan çalıştırın."
+            actions={selectedCompetitorLead ? <AdminButton compact variant="ai" onClick={() => findCompetitorsForLead(selectedCompetitorLead)}>Rakip Bul</AdminButton> : undefined}
+          >
+            {selectedCompetitorLead && (
+              competitorList.length ? (
+                <div className="grid gap-1.5">
+                  {competitorList.map((competitor: any, index: number) => (
+                    <div key={competitor.name || competitor.website || index} className="rounded-[8px] border border-slate-200 bg-white p-2 text-xs">
+                      <strong className="block truncate">{competitor.name || competitor.company || "İsimsiz rakip"}</strong>
+                      <div className="mt-1 flex flex-wrap gap-2" style={{ color: "var(--admin-text-muted)" }}>
+                        <span>{competitor.website ? "Website var" : "Website yok"}</span>
+                        <span>{competitor.instagram || competitor.instagram_url ? "Instagram var" : "Instagram yok"}</span>
+                        <span>{competitor.rating || competitor.google_rating || "-"} puan</span>
+                        <span>{competitor.reviewCount || competitor.google_review_count || 0} yorum</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="text-xs text-slate-500">Bu işletme için henüz rakip aranmadı. &quot;Rakip Bul&quot; düğmesine basın.</p>
+            )}
+          </AdminDetailInspector>
+        }
+        bottomBar={<AdminActionBar statusText={`${competitorRows.length} işletme`}><AdminButton compact variant="secondary" onClick={() => setMapTab("Google Maps Müşteri Bulma")}>Yeni İşletme Bul</AdminButton></AdminActionBar>}
+      >
+        <HubTabs items={mapTabs} active={tab} onChange={setMapTab} />
+        <AdminDataGrid columns={competitorColumns} rows={competitorRows} rowKey={(lead: any) => lead.id || lead.google_place_id} activeId={selectedPlaceId} onRowClick={(lead: any) => setSelectedPlaceId(lead.id || lead.google_place_id)} emptyTitle="Rakip analizine gönderilecek işletme yok." emptyDescription="Google Maps Müşteri Bulma'dan işletme kaydedin." />
+      </AdminWorkspace>
+    );
+  }
+
+  if (tab === "Yapay Zekâ Analiz") {
+    const aiRows = [...saved].sort((a: any, b: any) => Number(b.lead_heat_score || 0) - Number(a.lead_heat_score || 0));
+    const selectedAiLead = selectedPlaceId ? saved.find((lead: any) => (lead.id || lead.google_place_id) === selectedPlaceId) || null : null;
+    const aiColumns: AdminDataGridColumn<any>[] = [
+      { key: "company", header: "İşletme", render: (lead: any) => <strong>{lead.company || lead.name}</strong> },
+      { key: "sector", header: "Sektör", render: (lead: any) => lead.business_type || lead.category || "-" },
+      { key: "region", header: "Bölge", render: (lead: any) => districtOf(lead) },
+      { key: "score", header: "Fırsat Skoru", align: "right", render: (lead: any) => `${lead.lead_heat_score || 0}/100` },
+      { key: "rating", header: "Google Puanı", align: "right", render: (lead: any) => lead.google_rating || "-" }
+    ];
+    return (
+      <AdminWorkspace
+        eyebrow="Satış · Müşteri Keşfi"
+        title="Yapay Zekâ Analiz"
+        description="Seçili işletme için SWOT, dijital analiz, sunum ve rakip analizi raporları HK Intelligence router'ı (executeAiTask) üzerinden üretilir; sağ paneldeki gerçek AI aksiyonlarını kullanın."
+        leftPanel={
+          <AdminControlPanel>
+            <AdminFilterSection title="Sıralama">
+              <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>Liste fırsat skoruna göre azalan sırada listelenir; yüksek skorlu işletmeler AI analizi için önceliklidir.</p>
+            </AdminFilterSection>
+          </AdminControlPanel>
+        }
+        rightPanel={<BusinessLeadDetailPanel record={selectedAiLead} mapsHref={mapsHref} metaHref={metaHref} saveBusiness={saveBusiness} proposalFor={proposalFor} setWhatsappDraft={setWhatsappDraft} outreachText={outreachText} sendToCompetitor={sendToCompetitor} markCandidate={markCandidate} setNotePlaceId={setNotePlaceId} notePlaceId={notePlaceId} findCompetitorsForLead={findCompetitorsForLead} competitors={selectedAiLead ? leadCompetitors[leadKey(selectedAiLead)] || [] : []} prepareFirstMessage={prepareFirstMessage} prepareDigitalReport={prepareDigitalReport} openWhatsapp={openWhatsapp} prepareInstagramDm={prepareInstagramDm} openInstagram={openInstagram} callBusiness={callBusiness} emailBusiness={emailBusiness} openWebsite={openWebsite} leadStage={selectedAiLead ? leadStagesById[leadKey(selectedAiLead)] || "Yeni bulundu" : "Yeni bulundu"} leadStageOptions={leadStageOptions} updateLeadStage={updateLeadStage} createFollowupTask={createFollowupTask} existingLead={selectedAiLead ? existingLeadFor(selectedAiLead) : null} openCrmLead={openCrmLead} />}
+        bottomBar={<AdminActionBar statusText={`${aiRows.length} işletme`}><AdminButton compact variant="secondary" onClick={() => setMapTab("Google Maps Müşteri Bulma")}>Yeni İşletme Bul</AdminButton></AdminActionBar>}
+      >
+        <HubTabs items={mapTabs} active={tab} onChange={setMapTab} />
+        <AdminDataGrid columns={aiColumns} rows={aiRows} rowKey={(lead: any) => lead.id || lead.google_place_id} activeId={selectedPlaceId} onRowClick={(lead: any) => setSelectedPlaceId(lead.id || lead.google_place_id)} emptyTitle="AI analizi için işletme yok." emptyDescription="Google Maps Müşteri Bulma'dan işletme kaydedin." />
+      </AdminWorkspace>
+    );
+  }
+
+  if (tab === "Kayıtlı Aramalar") {
+    const selectedSavedSearch = selectedPlaceId ? savedSearches.find((item: any) => item.id === selectedPlaceId) || null : null;
+    const savedColumns: AdminDataGridColumn<any>[] = [
+      { key: "name", header: "Ad", render: (item: any) => <strong>{item.name}</strong> },
+      { key: "description", header: "Açıklama", render: (item: any) => item.description || "-" },
+      { key: "lastRun", header: "Son Çalıştırma", render: (item: any) => item.last_run_at ? formatDateTime(item.last_run_at) : "Hiç çalıştırılmadı" },
+      { key: "resultCount", header: "Son Sonuç Sayısı", align: "right", render: (item: any) => item.result_count ?? 0 }
+    ];
+    return (
+      <AdminWorkspace
+        eyebrow="Satış · Müşteri Keşfi"
+        title="Kayıtlı Aramalar"
+        description="Sık kullanılan Google Maps / Müşteri Keşfi filtre kombinasyonlarını kaydedin. Bir aramayı açmak filtreleri yükler ama Google Maps API'sini otomatik çağırmaz — kota kullanan yeni arama, siz 'Google Maps'ten Bul' düğmesine bastığınızda çalışır."
+        leftPanel={
+          <AdminControlPanel>
+            <AdminFilterSection title="Mevcut Filtreleri Kaydet">
+              <div className="grid gap-2">
+                <Field label="Arama adı" value={savedSearchName} onChange={setSavedSearchName} placeholder="Örn: Manisa oto galeri, 4.0+ puan" />
+                <p className="text-[11px]" style={{ color: "var(--admin-text-muted)" }}>Şu anki filtreler (il, ilçe, sektör, puan eşiği vb.) ve son arama sonucu sayısı ({results.length}) kaydedilir.</p>
+                <AdminButton compact variant="primary" disabled={savedSearchBusy === "save" || !savedSearchName.trim()} onClick={saveCurrentSearch}>{savedSearchBusy === "save" ? "Kaydediliyor..." : "+ Aramayı Kaydet"}</AdminButton>
+              </div>
+            </AdminFilterSection>
+          </AdminControlPanel>
+        }
+        rightPanel={
+          <AdminDetailInspector
+            title={selectedSavedSearch ? selectedSavedSearch.name : undefined}
+            subtitle={selectedSavedSearch ? (selectedSavedSearch.last_run_at ? `Son çalıştırma: ${formatDateTime(selectedSavedSearch.last_run_at)}` : "Hiç çalıştırılmadı") : undefined}
+            emptyTitle="Bir arama seçin"
+            emptyDescription="Listeden bir kayıtlı aramaya tıklayarak filtrelerini yükleyin veya yönetin."
+            fields={selectedSavedSearch ? [
+              { label: "Son sonuç sayısı (önbellek)", value: `${selectedSavedSearch.result_count ?? 0} (yalnızca sayı saklanır, sonuç listesi tekrar aranmalıdır)` },
+              { label: "İl / İlçe", value: `${selectedSavedSearch.filters_json?.city || "-"} / ${selectedSavedSearch.filters_json?.district || "-"}` },
+              { label: "Sektör", value: selectedSavedSearch.filters_json?.businessType || "-" }
+            ] : undefined}
+            actions={selectedSavedSearch ? <>
+              <AdminButton compact variant="primary" onClick={() => loadSavedSearchFilters(selectedSavedSearch)}>Filtreleri Yükle (API çağırmaz)</AdminButton>
+              <AdminButton compact variant="secondary" disabled={savedSearchBusy === selectedSavedSearch.id} onClick={() => renameSavedSearch(selectedSavedSearch)}>Yeniden Adlandır</AdminButton>
+              <AdminButton compact variant="info" disabled={savedSearchBusy === selectedSavedSearch.id} onClick={() => duplicateSavedSearch(selectedSavedSearch)}>Kopyala</AdminButton>
+              <AdminButton compact variant="warning" disabled={savedSearchBusy === selectedSavedSearch.id} onClick={() => archiveSavedSearch(selectedSavedSearch)}>Sil</AdminButton>
+            </> : undefined}
+          />
+        }
+        bottomBar={<AdminActionBar statusText={`${savedSearches.length} kayıtlı arama`}><AdminButton compact variant="secondary" onClick={() => setMapTab("Google Maps Müşteri Bulma")}>Google Maps Müşteri Bulma'ya Git</AdminButton></AdminActionBar>}
+      >
+        <HubTabs items={mapTabs} active={tab} onChange={setMapTab} />
+        <AdminDataGrid columns={savedColumns} rows={savedSearches} rowKey={(item: any) => item.id} activeId={selectedPlaceId} onRowClick={(item: any) => setSelectedPlaceId(item.id)} emptyTitle="Henüz kayıtlı arama yok." emptyDescription="Sol panelden mevcut filtrelerinizi adlandırıp kaydedin." />
       </AdminWorkspace>
     );
   }

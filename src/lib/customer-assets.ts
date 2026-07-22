@@ -2,6 +2,8 @@ import { getSafeSupabaseError, supabaseRest } from "@/lib/supabase";
 
 export const CUSTOMER_ASSETS_BUCKET = "customer-assets";
 export const CUSTOMER_ASSET_MAX_SIZE = 5 * 1024 * 1024;
+export const CUSTOMER_DOCUMENT_MAX_SIZE = 15 * 1024 * 1024;
+const CUSTOMER_DOCUMENT_MIME_TYPES = new Set(["application/pdf", "image/png", "image/jpeg", "image/jpg", "image/webp"]);
 
 export type CustomerAssetType =
   | "logo"
@@ -197,4 +199,41 @@ export async function removeCustomerAsset(companyId: string, assetType: Customer
   if (field) patch[field] = null;
   if (jsonKey) delete brandAssets[jsonKey];
   return updateCustomerBrandAssets(companyId, patch);
+}
+
+// Generic per-customer document upload — used by the Customer Profile
+// "Dosyalar" tab. Reuses the same private Supabase Storage bucket, path
+// convention, and service-role upload mechanism as the brand-asset uploader
+// above, but is not tied to a fixed CustomerAssetType/customer_branding
+// column — the resulting url/path is written onto a customer_files row
+// instead (see src/app/api/admin/customers/[id]/files/upload/route.ts).
+export async function validateCustomerDocumentFile(file: File) {
+  if (!file || file.size <= 0) throw new Error("Dosya okunamadı.");
+  if (file.size > CUSTOMER_DOCUMENT_MAX_SIZE) throw new Error("Dosya boyutu 15 MB sınırını aşıyor.");
+  if (!CUSTOMER_DOCUMENT_MIME_TYPES.has(file.type)) throw new Error("Dosya formatı desteklenmiyor. PDF, PNG, JPEG veya WEBP yükleyin.");
+
+  if (file.type.startsWith("image/")) {
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const isPng = file.type === "image/png" && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+    const isJpeg = (file.type === "image/jpeg" || file.type === "image/jpg") && buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+    const isWebp = file.type === "image/webp" && buffer.subarray(0, 4).toString("ascii") === "RIFF" && buffer.subarray(8, 12).toString("ascii") === "WEBP";
+    if (!isPng && !isJpeg && !isWebp) throw new Error("Dosya içeriği seçilen görsel formatıyla eşleşmiyor.");
+  }
+}
+
+export async function uploadCustomerDocument(companyId: string, file: File) {
+  await validateCustomerDocumentFile(file);
+  const fromName = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const ext = fromName || (file.type === "application/pdf" ? "pdf" : file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg");
+  const path = `customers/${companyId}/documents/${crypto.randomUUID()}.${ext}`;
+  const response = await fetch(`${storageBaseUrl()}/storage/v1/object/${CUSTOMER_ASSETS_BUCKET}/${path}`, {
+    method: "POST",
+    headers: supabaseStorageHeaders(file.type || "application/octet-stream"),
+    body: Buffer.from(await file.arrayBuffer())
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || "Supabase Storage yükleme başarısız oldu.");
+  }
+  return { url: publicUrlFor(path), path, mimeType: file.type, size: file.size, fileName: file.name };
 }

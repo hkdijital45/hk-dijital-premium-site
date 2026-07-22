@@ -2,10 +2,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/purity */
 
 import { useMemo, useState } from "react";
+import { AdminButton } from "@/components/admin/ui/AdminButton";
+import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
+import { AdminWorkspace } from "@/components/admin/workspace/AdminWorkspace";
+import { AdminControlPanel, AdminFilterSection } from "@/components/admin/workspace/AdminControlPanel";
+import { AdminDataGrid, type AdminDataGridColumn } from "@/components/admin/workspace/AdminDataGrid";
+import { AdminDetailInspector } from "@/components/admin/workspace/AdminDetailInspector";
+import { AdminActionBar } from "@/components/admin/workspace/AdminActionBar";
 
 const adminUuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const taskHistoryFilters = ["Tümü", "Yapılacak", "Devam Ediyor", "Beklemede", "Tamamlandı", "İptal", "Arşivlenenler"];
 const taskStatusOptions = ["Yapılacak", "Devam Ediyor", "Beklemede", "Tamamlandı", "İptal"];
+const taskPriorityOptions = ["Düşük", "Orta", "Yüksek", "Kritik"];
 
 type CustomerProfileTasksProps = {
   company: any;
@@ -68,18 +76,18 @@ function stampTaskStatus(item: any, status: string) {
 }
 
 function TaskField({ label, value, onChange, type = "text", placeholder = "" }: any) {
-  return <label className="grid gap-2 text-sm font-semibold text-slate-700">{label}<input type={type} value={value ?? ""} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="min-h-11 rounded-[8px] border border-slate-200 bg-slate-50 px-3 text-slate-900 placeholder:text-slate-500" /></label>;
+  return <label className="grid gap-1.5 text-xs font-bold text-slate-700">{label}<input type={type} value={value ?? ""} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="min-h-9 rounded-[8px] border border-slate-200 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-500" /></label>;
 }
 
 function TaskTextArea({ label, value, onChange, rows = 4 }: any) {
-  return <label className="grid gap-2 text-sm font-semibold text-slate-700">{label}<textarea rows={rows} value={value ?? ""} onChange={(event) => onChange(event.target.value)} className="rounded-[8px] border border-slate-200 bg-slate-50 px-3 py-3 text-slate-900" /></label>;
+  return <label className="grid gap-1.5 text-xs font-bold text-slate-700">{label}<textarea rows={rows} value={value ?? ""} onChange={(event) => onChange(event.target.value)} className="rounded-[8px] border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900" /></label>;
 }
 
 function TaskSelectField({ label, value, onChange, options, placeholder = "Seçin" }: any) {
   return (
-    <label className="grid gap-2 text-sm font-semibold text-slate-700">
+    <label className="grid gap-1.5 text-xs font-bold text-slate-700">
       {label}
-      <select value={value ?? ""} onChange={(event) => onChange(event.target.value)} className="min-h-11 rounded-[8px] border border-slate-200 bg-slate-50 px-3 text-slate-900">
+      <select value={value ?? ""} onChange={(event) => onChange(event.target.value)} className="min-h-9 rounded-[8px] border border-slate-200 bg-white px-3 text-sm text-slate-900">
         <option value="">{placeholder}</option>
         {options.map((option: any) => typeof option === "string" ? <option key={option} value={option}>{option}</option> : <option key={option.value} value={option.value}>{option.label}</option>)}
       </select>
@@ -89,10 +97,14 @@ function TaskSelectField({ label, value, onChange, options, placeholder = "Seçi
 
 export function CustomerProfileTasks({ company, content, setContent, items, notify, canManage = true }: CustomerProfileTasksProps) {
   const [statusFilter, setStatusFilter] = useState("Tümü");
+  const [priorityFilter, setPriorityFilter] = useState("Tümü");
+  const [responsibleFilter, setResponsibleFilter] = useState("Tümü");
+  const [searchQuery, setSearchQuery] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [busyId, setBusyId] = useState("");
   const [aiPrompt, setAiPrompt] = useState("");
+  const [selectedTaskId, setSelectedTaskId] = useState("");
 
   const taskTemplates = useMemo(() => [
     { key: "onboarding", title: "Yeni müşteri onboarding", description: "Sözleşme, panel erişimi, hesap bağlantıları ve ilk rapor planı kontrol edilecek.", priority: "Yüksek" },
@@ -105,10 +117,17 @@ export function CustomerProfileTasks({ company, content, setContent, items, noti
     { key: "satisfaction_call", title: "Müşteri memnuniyet araması", description: "Müşteriyle son durum, beklenti ve memnuniyet görüşmesi yapılacak.", priority: "Orta" }
   ], []);
 
+  const responsibleOptions = useMemo(() => (content.users || []).map((user: any) => ({ value: user.id, label: user.full_name || user.email })), [content.users]);
+
   const updateLocal = (id: string, patch: any) => setContent((current: any) => ({ ...current, agencyTasks: (current.agencyTasks || []).map((item: any) => item.id === id ? { ...item, ...patch } : item) }));
+
   const sortedItems = filterTasks(items, { status: statusFilter, startDate, endDate })
     .filter((item: any) => !item.parent_task_id)
+    .filter((item: any) => priorityFilter === "Tümü" || (item.priority || "Orta") === priorityFilter)
+    .filter((item: any) => responsibleFilter === "Tümü" || (item.assigned_user_id || "") === responsibleFilter)
+    .filter((item: any) => !searchQuery.trim() || `${item.title || ""} ${item.description || ""}`.toLocaleLowerCase("tr").includes(searchQuery.trim().toLocaleLowerCase("tr")))
     .sort((a: any, b: any) => Number(a.sort_order || 0) - Number(b.sort_order || 0) || String(a.due_date || "").localeCompare(String(b.due_date || "")));
+
   const subtasksFor = (parentId: string) => (items || [])
     .filter((item: any) => item.parent_task_id === parentId && !isArchivedRecord(item))
     .sort((a: any, b: any) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
@@ -116,6 +135,7 @@ export function CustomerProfileTasks({ company, content, setContent, items, noti
   function add() {
     const draft = { id: createLocalId(), _draft: true, isNew: true, company_id: company.id, title: "", description: "", notes: "", status: "Yapılacak", priority: "Orta", due_date: new Date().toISOString().slice(0, 10), assigned_user_id: "", visible_to_customer: false, sort_order: (items || []).length + 1, recurring_rule: "", reminder_at: "", metadata: {}, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     setContent((current: any) => ({ ...current, agencyTasks: [draft, ...(current.agencyTasks || [])] }));
+    setSelectedTaskId(draft.id);
     notify?.("Görev taslağı açıldı. Başlık girip Kaydet düğmesine basın.", "info");
   }
 
@@ -130,6 +150,7 @@ export function CustomerProfileTasks({ company, content, setContent, items, noti
     dueDate.setDate(dueDate.getDate() + (template.key === "payment_reminder" ? 2 : 3));
     const draft = { id: createLocalId(), _draft: true, isNew: true, company_id: company.id, title: template.title, description: template.description, notes: template.description, status: "Yapılacak", priority: template.priority, due_date: dueDate.toISOString().slice(0, 10), visible_to_customer: false, template_key: template.key, sort_order: (items || []).length + 1, metadata: { source: "template" }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     setContent((current: any) => ({ ...current, agencyTasks: [draft, ...(current.agencyTasks || [])] }));
+    setSelectedTaskId(draft.id);
     notify?.("Şablondan görev taslağı oluşturuldu.", "success");
   }
 
@@ -143,6 +164,7 @@ export function CustomerProfileTasks({ company, content, setContent, items, noti
     const draft = { id: createLocalId(), _draft: true, isNew: true, company_id: company.id, title, description: text, notes: text, status: "Yapılacak", priority, due_date: tomorrow.toISOString().slice(0, 10), visible_to_customer: false, ai_generated: true, sort_order: (items || []).length + 1, metadata: { ai_prompt: text, parser: "local-fallback" }, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     setContent((current: any) => ({ ...current, agencyTasks: [draft, ...(current.agencyTasks || [])] }));
     setAiPrompt("");
+    setSelectedTaskId(draft.id);
     notify?.("AI görev taslağı oluşturuldu. Kontrol edip Kaydet düğmesine basın.", "success");
   }
 
@@ -164,6 +186,7 @@ export function CustomerProfileTasks({ company, content, setContent, items, noti
           ? [...refreshed.tasks, ...(current.agencyTasks || []).filter((currentItem: any) => currentItem.company_id !== company.id)]
           : (current.agencyTasks || []).map((currentItem: any) => currentItem.id === item.id ? data.item : currentItem)
       }));
+      if (selectedTaskId === item.id) setSelectedTaskId(data.item.id);
       notify?.(successMessage, "success");
       return data.item;
     } catch (error) {
@@ -178,6 +201,7 @@ export function CustomerProfileTasks({ company, content, setContent, items, noti
     if (!confirm("Bu görevi arşivlemek istediğinize emin misiniz?")) return;
     if (!adminUuidPattern.test(String(item.id || ""))) {
       setContent((current: any) => ({ ...current, agencyTasks: (current.agencyTasks || []).filter((currentItem: any) => currentItem.id !== item.id) }));
+      if (selectedTaskId === item.id) setSelectedTaskId("");
       notify?.("Kaydedilmemiş görev taslağı kaldırıldı.", "info");
       return;
     }
@@ -201,21 +225,142 @@ export function CustomerProfileTasks({ company, content, setContent, items, noti
     if (adminUuidPattern.test(String(item.id || ""))) await persist({ ...item, sort_order: nextOrder }, {}, "Görev sırası güncellendi.");
   }
 
-  return <div>
-    <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><div><h3 className="text-sm font-black text-slate-900">Yapılacaklar</h3><p className="mt-0.5 text-xs text-slate-500">Görevler modülüyle aynı kayıtları kullanır.</p></div>{canManage && <button onClick={add} className="rounded-full bg-cyan-500 px-3 py-1.5 text-xs font-black text-white">+ Görev Ekle</button>}</div>
-    <div className="mb-3 grid gap-2 rounded-[10px] border border-slate-200 bg-white p-3">
-      <div className="grid gap-2 lg:grid-cols-[1fr_auto]">
-        <TaskField label="AI ile görev oluştur" value={aiPrompt} onChange={setAiPrompt} placeholder="Örn: ACN için pixel kontrolü yap, yarına kritik görev oluştur" />
-        <button onClick={createAiDraft} className="self-end rounded-[8px] bg-purple-600 px-3 py-2 text-xs font-black text-white">AI Taslak Oluştur</button>
-      </div>
-      <div className="flex flex-wrap gap-1.5">{taskTemplates.map((template) => <button key={template.key} onClick={() => addFromTemplate(template)} className="rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-[11px] font-black text-cyan-800">{template.title}</button>)}</div>
-    </div>
-    <div className="mb-3 grid gap-2 md:grid-cols-4"><TaskSelectField label="Durum filtresi" value={statusFilter} onChange={setStatusFilter} options={taskHistoryFilters} /><TaskField label="Başlangıç tarihi" type="date" value={startDate} onChange={setStartDate} /><TaskField label="Bitiş tarihi" type="date" value={endDate} onChange={setEndDate} /><button onClick={() => { setStatusFilter("Tümü"); setStartDate(""); setEndDate(""); }} className="self-end rounded-[8px] border border-slate-200 px-3 py-2 text-xs font-black text-slate-700">Filtreleri Temizle</button></div>
-    <div className="grid gap-2">{sortedItems.map((item: any) => {
-      const overdue = item.due_date && item.due_date < new Date().toISOString().slice(0, 10) && !["Tamamlandı", "İptal"].includes(item.status);
-      const reminderSoon = item.reminder_at && new Date(item.reminder_at).getTime() - Date.now() < 86400000 && !item.reminder_sent_at;
+  const selectedTask = selectedTaskId ? (items || []).find((item: any) => item.id === selectedTaskId) || null : null;
+  const selectedSubtasks = selectedTask ? subtasksFor(selectedTask.id) : [];
+  const responsibleName = (id: string) => responsibleOptions.find((option: any) => option.value === id)?.label || "Atanmadı";
+
+  const taskColumns: AdminDataGridColumn<any>[] = [
+    {
+      key: "title",
+      header: "Başlık",
+      render: (item: any) => {
+        const overdue = item.due_date && item.due_date < new Date().toISOString().slice(0, 10) && !["Tamamlandı", "İptal"].includes(item.status);
+        return <div className="min-w-0">
+          <strong className="block truncate">{item.title || "(Başlıksız görev)"}</strong>
+          <div className="mt-0.5 flex flex-wrap gap-1">
+            {overdue && <AdminStatusBadge tone="danger">Geciken</AdminStatusBadge>}
+            {item.ai_generated && <AdminStatusBadge tone="ai">AI taslak</AdminStatusBadge>}
+            {item.recurring_rule && <AdminStatusBadge tone="info">Tekrarlayan</AdminStatusBadge>}
+          </div>
+        </div>;
+      }
+    },
+    { key: "status", header: "Durum", render: (item: any) => <AdminStatusBadge tone={item.status === "Tamamlandı" ? "success" : item.status === "İptal" ? "neutral" : item.status === "Devam Ediyor" ? "info" : "warning"}>{item.status || "Yapılacak"}</AdminStatusBadge> },
+    { key: "priority", header: "Öncelik", render: (item: any) => <AdminStatusBadge tone={item.priority === "Kritik" ? "danger" : item.priority === "Yüksek" ? "warning" : "neutral"}>{item.priority || "Orta"}</AdminStatusBadge> },
+    { key: "assigned", header: "Sorumlu", render: (item: any) => responsibleName(item.assigned_user_id) },
+    { key: "due", header: "Son Tarih", render: (item: any) => dateOnly(item.due_date) || "-" },
+    { key: "subtasks", header: "Alt Görev", align: "center", render: (item: any) => {
       const subtasks = subtasksFor(item.id);
-      return <div key={item.id} className={`rounded-[10px] border p-2.5 ${overdue ? "border-red-200 bg-red-50" : "border-slate-200 bg-slate-50"}`}><div className="mb-2 flex flex-wrap gap-1.5">{overdue && <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-black text-red-700">Geciken görev</span>}{reminderSoon && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-700">Hatırlatma yaklaşıyor</span>}{item.ai_generated && <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-black text-purple-700">AI taslak</span>}{item.recurring_rule && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-black text-blue-700">Tekrarlayan</span>}</div><div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4"><TaskField label="Başlık" value={item.title || ""} onChange={(value: string) => updateLocal(item.id, { title: value })} /><TaskSelectField label="Durum" value={item.status || "Yapılacak"} onChange={(value: string) => updateLocal(item.id, stampTaskStatus(item, value))} options={taskStatusOptions} /><TaskSelectField label="Öncelik" value={item.priority || "Orta"} onChange={(value: string) => updateLocal(item.id, { priority: value })} options={["Düşük", "Orta", "Yüksek", "Kritik"]} /><TaskField label="Sıra" type="number" value={item.sort_order || 0} onChange={(value: string) => updateLocal(item.id, { sort_order: Number(value || 0) })} /><TaskField label="Son tarih" type="date" value={item.due_date || ""} onChange={(value: string) => updateLocal(item.id, { due_date: value })} /><TaskField label="Hatırlatma" type="datetime-local" value={String(item.reminder_at || "").slice(0, 16)} onChange={(value: string) => updateLocal(item.id, { reminder_at: value })} /><TaskSelectField label="Tekrar" value={item.recurring_rule || ""} onChange={(value: string) => updateLocal(item.id, { recurring_rule: value })} options={["", "Günlük", "Haftalık", "Aylık", "Özel"]} placeholder="Tekrar yok" /><TaskField label="Tekrar bitişi" type="date" value={item.recurring_until || ""} onChange={(value: string) => updateLocal(item.id, { recurring_until: value })} /><TaskSelectField label="Atanan kullanıcı" value={item.assigned_user_id || ""} onChange={(value: string) => updateLocal(item.id, { assigned_user_id: value })} options={(content.users || []).map((user: any) => ({ value: user.id, label: user.full_name || user.email }))} placeholder="Atanmadı" /><label className="flex items-center gap-2 rounded-[8px] border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-700"><input type="checkbox" checked={Boolean(item.visible_to_customer)} onChange={(event) => updateLocal(item.id, { visible_to_customer: event.target.checked })} /> Müşteriye görünür</label><div className="md:col-span-2 xl:col-span-4"><TaskTextArea label="Açıklama / not" value={item.description || item.notes || ""} onChange={(value: string) => updateLocal(item.id, { description: value, notes: value })} /></div></div>{subtasks.length > 0 && <div className="mt-2 rounded-[8px] border border-slate-200 bg-white p-2"><p className="mb-1.5 text-[10px] font-black uppercase tracking-[.1em] text-slate-500">Alt görevler</p><div className="grid gap-1.5">{subtasks.map((subtask: any) => <div key={subtask.id} className="grid gap-1.5 rounded-[8px] bg-slate-50 p-2 md:grid-cols-[1fr_150px_auto]"><TaskField label="Alt görev" value={subtask.title || ""} onChange={(value: string) => updateLocal(subtask.id, { title: value })} /><TaskSelectField label="Durum" value={subtask.status || "Yapılacak"} onChange={(value: string) => updateLocal(subtask.id, stampTaskStatus(subtask, value))} options={taskStatusOptions} /><button disabled={busyId === subtask.id} onClick={() => persist(subtask)} className="self-end rounded-[8px] bg-cyan-500 px-2.5 py-1.5 text-[11px] font-black text-white">Kaydet</button></div>)}</div></div>}<div className="mt-2 flex flex-wrap justify-end gap-1.5">{canManage && <button disabled={busyId === item.id} onClick={() => moveTask(item, -1)} className="rounded-full border border-slate-300 px-2.5 py-1.5 text-[11px] font-black text-slate-700">Yukarı</button>}{canManage && <button disabled={busyId === item.id} onClick={() => moveTask(item, 1)} className="rounded-full border border-slate-300 px-2.5 py-1.5 text-[11px] font-black text-slate-700">Aşağı</button>}{canManage && <button disabled={busyId === item.id} onClick={() => addSubtask(item)} className="rounded-full border border-blue-300 px-2.5 py-1.5 text-[11px] font-black text-blue-700">Alt Görev Ekle</button>}{canManage && <button disabled={busyId === item.id} onClick={() => archive(item)} className="rounded-full border border-amber-300 px-2.5 py-1.5 text-[11px] font-black text-amber-700 disabled:opacity-50">Arşivle</button>}{canManage && <button disabled={busyId === item.id} onClick={() => persist(item, stampTaskStatus(item, item.status === "Tamamlandı" ? "Yapılacak" : "Tamamlandı"), item.status === "Tamamlandı" ? "Görev yeniden açıldı." : "Görev tamamlandı.")} className="rounded-full border border-emerald-300 px-2.5 py-1.5 text-[11px] font-black text-emerald-700 disabled:opacity-50">{item.status === "Tamamlandı" ? "Tekrar Aç" : "Tamamlandı Yap"}</button>}{canManage && <button disabled={busyId === item.id} onClick={() => persist(item)} className="rounded-full bg-cyan-500 px-2.5 py-1.5 text-[11px] font-black text-white disabled:opacity-50">{busyId === item.id ? "Kaydediliyor..." : "Kaydet"}</button>}</div></div>;
-    })}{!sortedItems.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-4 text-xs text-slate-500">Bu müşteri için görev kaydı bulunamadı.</p>}</div>
-  </div>;
+      if (!subtasks.length) return "-";
+      const done = subtasks.filter((subtask: any) => subtask.status === "Tamamlandı").length;
+      return `${done}/${subtasks.length}`;
+    } },
+    { key: "updated", header: "Son Güncelleme", render: (item: any) => dateOnly(item.updated_at) || "-" }
+  ];
+
+  return (
+    <AdminWorkspace
+      eyebrow="Müşteri Profili"
+      title="Yapılacaklar"
+      description="Görevler modülüyle aynı kayıtları kullanır. Alt görevler, AI taslak ve şablonlar seçili görevin detayında düzenlenir."
+      leftPanel={
+        <AdminControlPanel>
+          <AdminFilterSection title="Ara ve Filtrele">
+            <div className="grid gap-2">
+              <TaskField label="Ara" value={searchQuery} onChange={setSearchQuery} placeholder="Başlık veya açıklamada ara..." />
+              <TaskSelectField label="Durum" value={statusFilter} onChange={setStatusFilter} options={taskHistoryFilters} />
+              <TaskSelectField label="Öncelik" value={priorityFilter} onChange={setPriorityFilter} options={["Tümü", ...taskPriorityOptions]} />
+              <TaskSelectField label="Sorumlu kullanıcı" value={responsibleFilter} onChange={setResponsibleFilter} options={[{ value: "Tümü", label: "Tümü" }, ...responsibleOptions]} />
+              <TaskField label="Başlangıç tarihi" type="date" value={startDate} onChange={setStartDate} />
+              <TaskField label="Bitiş tarihi" type="date" value={endDate} onChange={setEndDate} />
+              <AdminButton compact variant="secondary" onClick={() => { setStatusFilter("Tümü"); setPriorityFilter("Tümü"); setResponsibleFilter("Tümü"); setSearchQuery(""); setStartDate(""); setEndDate(""); }}>Filtreleri Temizle</AdminButton>
+            </div>
+          </AdminFilterSection>
+          {canManage && (
+            <AdminFilterSection title="AI ile Görev Oluştur">
+              <div className="grid gap-2">
+                <TaskTextArea label="" value={aiPrompt} onChange={setAiPrompt} rows={3} />
+                <AdminButton compact variant="ai" onClick={createAiDraft}>AI Taslak Oluştur</AdminButton>
+              </div>
+            </AdminFilterSection>
+          )}
+          {canManage && (
+            <AdminFilterSection title="Şablondan Ekle">
+              <div className="flex flex-wrap gap-1.5">
+                {taskTemplates.map((template) => <button key={template.key} onClick={() => addFromTemplate(template)} className="rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-[11px] font-black text-cyan-800">{template.title}</button>)}
+              </div>
+            </AdminFilterSection>
+          )}
+        </AdminControlPanel>
+      }
+      rightPanel={
+        <AdminDetailInspector
+          title={selectedTask ? (selectedTask.title || "(Başlıksız görev)") : undefined}
+          subtitle={selectedTask ? `${selectedTask.status || "Yapılacak"} · ${selectedTask.priority || "Orta"}` : undefined}
+          emptyTitle="Bir görev seçin"
+          emptyDescription="Listeden bir satıra tıklayarak detaylarını buradan düzenleyin."
+          actions={selectedTask ? <>
+            {canManage && <AdminButton compact variant="secondary" disabled={busyId === selectedTask.id} onClick={() => moveTask(selectedTask, -1)}>Yukarı</AdminButton>}
+            {canManage && <AdminButton compact variant="secondary" disabled={busyId === selectedTask.id} onClick={() => moveTask(selectedTask, 1)}>Aşağı</AdminButton>}
+            {canManage && <AdminButton compact variant="info" disabled={busyId === selectedTask.id} onClick={() => addSubtask(selectedTask)}>Alt Görev Ekle</AdminButton>}
+            {canManage && <AdminButton compact variant="warning" disabled={busyId === selectedTask.id} onClick={() => archive(selectedTask)}>Arşivle</AdminButton>}
+            {canManage && <AdminButton compact variant="success" disabled={busyId === selectedTask.id} onClick={() => persist(selectedTask, stampTaskStatus(selectedTask, selectedTask.status === "Tamamlandı" ? "Yapılacak" : "Tamamlandı"), selectedTask.status === "Tamamlandı" ? "Görev yeniden açıldı." : "Görev tamamlandı.")}>{selectedTask.status === "Tamamlandı" ? "Tekrar Aç" : "Tamamlandı Yap"}</AdminButton>}
+            {canManage && <AdminButton compact variant="primary" disabled={busyId === selectedTask.id} onClick={() => persist(selectedTask)}>{busyId === selectedTask.id ? "Kaydediliyor..." : "Kaydet"}</AdminButton>}
+          </> : undefined}
+        >
+          {selectedTask && (
+            <div className="grid gap-3">
+              <div className="grid gap-2">
+                <TaskField label="Başlık" value={selectedTask.title || ""} onChange={(value: string) => updateLocal(selectedTask.id, { title: value })} />
+                <div className="grid grid-cols-2 gap-2">
+                  <TaskSelectField label="Durum" value={selectedTask.status || "Yapılacak"} onChange={(value: string) => updateLocal(selectedTask.id, stampTaskStatus(selectedTask, value))} options={taskStatusOptions} />
+                  <TaskSelectField label="Öncelik" value={selectedTask.priority || "Orta"} onChange={(value: string) => updateLocal(selectedTask.id, { priority: value })} options={taskPriorityOptions} />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <TaskField label="Son tarih" type="date" value={selectedTask.due_date || ""} onChange={(value: string) => updateLocal(selectedTask.id, { due_date: value })} />
+                  <TaskField label="Hatırlatma" type="datetime-local" value={String(selectedTask.reminder_at || "").slice(0, 16)} onChange={(value: string) => updateLocal(selectedTask.id, { reminder_at: value })} />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <TaskSelectField label="Tekrar" value={selectedTask.recurring_rule || ""} onChange={(value: string) => updateLocal(selectedTask.id, { recurring_rule: value })} options={["", "Günlük", "Haftalık", "Aylık", "Özel"]} placeholder="Tekrar yok" />
+                  <TaskField label="Tekrar bitişi" type="date" value={selectedTask.recurring_until || ""} onChange={(value: string) => updateLocal(selectedTask.id, { recurring_until: value })} />
+                </div>
+                <TaskSelectField label="Atanan kullanıcı" value={selectedTask.assigned_user_id || ""} onChange={(value: string) => updateLocal(selectedTask.id, { assigned_user_id: value })} options={responsibleOptions} placeholder="Atanmadı" />
+                <label className="flex items-center gap-2 rounded-[8px] border border-slate-200 bg-white px-2.5 py-2 text-xs font-bold text-slate-700"><input type="checkbox" checked={Boolean(selectedTask.visible_to_customer)} onChange={(event) => updateLocal(selectedTask.id, { visible_to_customer: event.target.checked })} /> Müşteriye görünür</label>
+                <TaskTextArea label="Açıklama / not" value={selectedTask.description || selectedTask.notes || ""} onChange={(value: string) => updateLocal(selectedTask.id, { description: value, notes: value })} />
+              </div>
+              <div className="rounded-[8px] border border-slate-200 bg-slate-50 p-2">
+                <p className="mb-1.5 text-[10px] font-black uppercase tracking-[.1em] text-slate-500">Alt görevler{selectedSubtasks.length ? ` (${selectedSubtasks.length})` : ""}</p>
+                {selectedSubtasks.length > 0 ? (
+                  <div className="grid gap-1.5">
+                    {selectedSubtasks.map((subtask: any) => (
+                      <div key={subtask.id} className="grid gap-1.5 rounded-[8px] bg-white p-2 md:grid-cols-[1fr_140px_auto]">
+                        <TaskField label="Alt görev" value={subtask.title || ""} onChange={(value: string) => updateLocal(subtask.id, { title: value })} />
+                        <TaskSelectField label="Durum" value={subtask.status || "Yapılacak"} onChange={(value: string) => updateLocal(subtask.id, stampTaskStatus(subtask, value))} options={taskStatusOptions} />
+                        {canManage && <AdminButton compact variant="primary" disabled={busyId === subtask.id} onClick={() => persist(subtask)}>{busyId === subtask.id ? "Kaydediliyor..." : "Kaydet"}</AdminButton>}
+                      </div>
+                    ))}
+                  </div>
+                ) : <p className="text-xs text-slate-500">Bu göreve bağlı alt görev yok.</p>}
+              </div>
+            </div>
+          )}
+        </AdminDetailInspector>
+      }
+      bottomBar={
+        <AdminActionBar statusText={`${sortedItems.length} görev listeleniyor`}>
+          {canManage && <AdminButton compact variant="primary" onClick={add}>+ Görev Ekle</AdminButton>}
+        </AdminActionBar>
+      }
+    >
+      <AdminDataGrid
+        columns={taskColumns}
+        rows={sortedItems}
+        rowKey={(item: any) => item.id}
+        activeId={selectedTaskId}
+        onRowClick={(item: any) => setSelectedTaskId(item.id)}
+        emptyTitle="Bu müşteri için görev kaydı bulunamadı."
+        emptyDescription="Filtreleri temizleyin ya da yeni bir görev ekleyin."
+      />
+    </AdminWorkspace>
+  );
 }
