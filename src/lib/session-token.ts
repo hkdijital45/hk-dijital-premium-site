@@ -22,11 +22,15 @@ export const adminRoles: UserRole[] = ["admin", "yonetici", "editor", "sales"];
 export const customerRoles: UserRole[] = ["customer", "musteri"];
 
 function sessionSecret() {
-  return (
-    process.env.ADMIN_SESSION_SECRET ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    "local-development-session-secret"
-  );
+  const configured = process.env.ADMIN_SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (configured) return configured;
+  if (process.env.NODE_ENV === "production") {
+    // Refuse to sign or verify session cookies with a guessable, hardcoded
+    // secret in production — that would let anyone forge an admin session.
+    // Local/dev environments keep the fallback below for QA convenience.
+    throw new Error("ADMIN_SESSION_SECRET veya SUPABASE_SERVICE_ROLE_KEY tanımlanmadan üretimde oturum imzalanamaz.");
+  }
+  return "local-development-session-secret";
 }
 
 function signPayload(payload: string) {
@@ -41,7 +45,16 @@ export function encodeSession(session: AppSession) {
 export function decodeSession(value?: string): AppSession | null {
   if (!value || !value.includes(".")) return null;
   const [payload, signature] = value.split(".");
-  const expected = signPayload(payload);
+  if (!payload || !signature) return null;
+  let expected: string;
+  try {
+    expected = signPayload(payload);
+  } catch {
+    // sessionSecret() only throws when production has no real secret
+    // configured — treat that as "no valid session" (fail closed) instead
+    // of crashing every request through the middleware.
+    return null;
+  }
   const a = Buffer.from(signature);
   const b = Buffer.from(expected);
   if (a.length !== b.length || !timingSafeEqual(a, b)) return null;

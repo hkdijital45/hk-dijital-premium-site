@@ -250,7 +250,14 @@ export function getOAuthProviderStatus(provider: Provider) {
 }
 
 function stateSecret() {
-  return firstEnv(["OAUTH_STATE_SECRET", "NEXTAUTH_SECRET", "SUPABASE_SERVICE_ROLE_KEY", "META_APP_SECRET", "META_CLIENT_SECRET"]) || "hk-dijital-local-oauth-state";
+  const configured = firstEnv(["OAUTH_STATE_SECRET", "NEXTAUTH_SECRET", "SUPABASE_SERVICE_ROLE_KEY", "META_APP_SECRET", "META_CLIENT_SECRET"]);
+  if (configured) return configured;
+  if (process.env.NODE_ENV === "production") {
+    // No real secret configured — refuse to sign/encrypt OAuth state and
+    // session cookies with a guessable, hardcoded string in production.
+    throw new Error("OAuth state/oturum imzalamak için gerekli secret env değişkenlerinden hiçbiri üretimde tanımlı değil.");
+  }
+  return "hk-dijital-local-oauth-state";
 }
 
 function sign(value: string) {
@@ -264,7 +271,16 @@ function encodeState(state: OAuthState) {
 
 function decodeState(raw: string): OAuthState | null {
   const [payload, signature] = raw.split(".");
-  if (!payload || !signature || sign(payload) !== signature) return null;
+  if (!payload || !signature) return null;
+  let expectedSignature: string;
+  try {
+    expectedSignature = sign(payload);
+  } catch {
+    // stateSecret() only throws when production has no real secret configured
+    // — treat that as an invalid state (fail closed) instead of a raw 500.
+    return null;
+  }
+  if (expectedSignature !== signature) return null;
   try {
     const state = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as OAuthState;
     if (!state.exp || state.exp < Date.now()) return null;

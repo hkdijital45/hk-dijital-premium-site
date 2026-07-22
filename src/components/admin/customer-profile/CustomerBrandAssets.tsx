@@ -16,6 +16,18 @@ type CustomerBrandAssetsProps = {
   setTab?: (tab: string) => void;
 };
 
+// E-posta imzası önizlemesi kullanıcı girdisini doğrudan dangerouslySetInnerHTML
+// ile render ediyordu (script/iframe/on* olay tetikleyicileri dahil). İmza
+// biçimlendirmesini (kalın, link, görsel) korumak için tam HTML'i silmek yerine
+// yalnız script çalıştırma yüzeyini kaldırıyoruz.
+function sanitizeSignaturePreviewHtml(html: string) {
+  return html
+    .replace(/<(script|style|iframe|object|embed|link|meta)[^>]*>[\s\S]*?<\/\1>/gi, "")
+    .replace(/<(script|style|iframe|object|embed|link|meta)[^>]*\/?>(?!<\/\1>)/gi, "")
+    .replace(/\son\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(/(href|src)\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*')/gi, "$1=\"#\"");
+}
+
 const defaultBranding = (company: any, saved: any = {}) => ({
   brand_name: saved.brand_name || company?.name || "",
   logo_url: saved.logo_url || "",
@@ -368,7 +380,7 @@ export function CustomerBrandAssets({ company, content, setContent, notify, mode
               <p className="text-sm font-black text-slate-950">İmza önizleme</p>
               <button type="button" onClick={() => navigator.clipboard?.writeText(draft.email_signature_html || "")} className="rounded-[10px] border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-700"><Copy className="mr-1 inline h-3 w-3" /> Kopyala</button>
             </div>
-            <div className="min-h-16 rounded-[12px] bg-white p-3 text-sm text-slate-700" dangerouslySetInnerHTML={{ __html: draft.email_signature_html || "Henüz e-posta imzası girilmedi." }} />
+            <div className="min-h-16 rounded-[12px] bg-white p-3 text-sm text-slate-700" dangerouslySetInnerHTML={{ __html: draft.email_signature_html ? sanitizeSignaturePreviewHtml(draft.email_signature_html) : "Henüz e-posta imzası girilmedi." }} />
           </div>
           <div className="grid gap-3 md:grid-cols-2">
             <Field label="Ses tonu" value={draft.brand_assets?.voice_tone || ""} onChange={(voice_tone) => updateBrandAssets({ voice_tone })} placeholder="Örn. güven veren, sade, profesyonel" />

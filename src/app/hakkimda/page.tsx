@@ -72,8 +72,8 @@ export default async function AboutPage() {
                   <p className="mt-2 text-sm font-bold text-cyan-100">{certificate.institution} · {certificate.date}</p>
                   <p className="mt-4 text-sm leading-7 text-slate-300">{certificate.description}</p>
                   <div className="mt-5 flex flex-wrap gap-2">
-                    {certificate.fileUrl && <Link href={certificate.fileUrl} target="_blank" className="rounded-full border border-white/10 px-4 py-2 text-sm font-bold text-white">Dosyayı Gör</Link>}
-                    {certificate.verificationUrl && <Link href={certificate.verificationUrl} target="_blank" className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Doğrula</Link>}
+                    {certificate.fileUrl && <Link href={certificate.fileUrl} target="_blank" rel="noopener noreferrer" className="rounded-full border border-white/10 px-4 py-2 text-sm font-bold text-white">Dosyayı Gör</Link>}
+                    {certificate.verificationUrl && <Link href={certificate.verificationUrl} target="_blank" rel="noopener noreferrer" className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Doğrula</Link>}
                   </div>
                 </PremiumCard>
               ))}
