@@ -5,6 +5,7 @@ import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/sup
 import { requireModuleAccess } from "@/lib/permissions";
 import { isAdminRole } from "@/lib/auth";
 import { uuidPattern } from "@/lib/meta-pixel-admin";
+import { permanentlyDeleteCompany } from "@/lib/server/customer-permanent-delete";
 
 async function requireStaff() {
   return requireModuleAccess("musteriler");
@@ -82,32 +83,6 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   }
 }
 
-async function deleteCustomerScopedRows(table: string, companyId: string) {
-  try {
-    await supabaseRest(`${table}?company_id=eq.${encodeURIComponent(companyId)}`, {
-      method: "DELETE",
-      headers: { Prefer: "return=representation" }
-    });
-    return { table, ok: true };
-  } catch (error) {
-    const safe = getSafeSupabaseError(error);
-    return { table, ok: false, error: safe.detail };
-  }
-}
-
-async function patchCustomerScopedRows(table: string, companyId: string, patch: Record<string, unknown>) {
-  try {
-    await supabaseRest(`${table}?company_id=eq.${encodeURIComponent(companyId)}`, {
-      method: "PATCH",
-      body: JSON.stringify(patch)
-    });
-    return { table, ok: true };
-  } catch (error) {
-    const safe = getSafeSupabaseError(error);
-    return { table, ok: false, error: safe.detail };
-  }
-}
-
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
   const session = await requireStaff();
   if (!session) {
@@ -128,61 +103,19 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
   const confirmationName = String(payload.confirmationName || payload.confirmName || "").trim();
 
   try {
-    const existingRows = await supabaseRest<any[]>(`companies?id=eq.${encodeURIComponent(id)}&select=*&limit=1`);
+    const existingRows = await supabaseRest<any[]>(`companies?id=eq.${encodeURIComponent(id)}&select=name&limit=1`);
     const company = existingRows[0];
     if (!company) return NextResponse.json({ error: "Müşteri kaydı bulunamadı." }, { status: 404 });
     if (confirmationName !== String(company.name || "").trim()) {
       return NextResponse.json({ error: "Kalıcı silme için müşteri adını birebir yazın." }, { status: 400 });
     }
-    if (!company.deleted_at && String(company.status || "").toLocaleLowerCase("tr-TR") !== "silindi") {
-      return NextResponse.json({ error: "Kalıcı silmeden önce müşteriyi silinenlere taşıyın." }, { status: 409 });
-    }
 
-    const now = new Date().toISOString();
-    const cleanupResults = await Promise.all([
-      deleteCustomerScopedRows("agency_tasks", id),
-      deleteCustomerScopedRows("agency_notifications", id),
-      deleteCustomerScopedRows("customer_integrations", id),
-      deleteCustomerScopedRows("ad_integrations", id),
-      deleteCustomerScopedRows("integration_sync_logs", id),
-      deleteCustomerScopedRows("customer_visibility_settings", id),
-      deleteCustomerScopedRows("customer_branding", id),
-      deleteCustomerScopedRows("customer_user_branches", id),
-      deleteCustomerScopedRows("customer_branches", id),
-      patchCustomerScopedRows("users", id, { is_active: false, deleted_at: now, updated_at: now })
-    ]);
-
-    const companyPatch = {
-      status: "Silindi",
-      is_active: false,
-      deleted_at: company.deleted_at || now,
-      deleted_by: session.profileId || null,
-      archived_at: company.archived_at || now,
-      archived_by: company.archived_by || session.profileId || null,
-      updated_at: now
-    };
-    const rows = await supabaseRest<any[]>(`companies?id=eq.${encodeURIComponent(id)}`, {
-      method: "PATCH",
-      body: JSON.stringify(companyPatch)
-    });
-
-    await recordActivity({
-      session,
-      action: "Silme",
-      entity: "Firma",
-      entityId: id,
-      companyId: id,
-      details: {
-        message: `${company.name} için kalıcı silme temizliği uygulandı. Finansal ve geçmiş rapor kayıtları korunur.`,
-        permanent_cleanup: true,
-        cleanup_results: cleanupResults,
-        preserved_records: ["payment_records", "reports", "monthly_reports", "customer_documents", "customer_files", "activity_logs"]
-      }
-    });
-    return NextResponse.json({ ok: true, company: rows[0] || { ...company, ...companyPatch }, cleanupResults });
+    const result = await permanentlyDeleteCompany(id, session);
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: 409 });
+    return NextResponse.json({ ok: true, deleted: true, companyId: id, cleanupResults: result.cleanupResults });
   } catch (error) {
     const safeError = getSafeSupabaseError(error);
-    console.error("Firma kalıcı silme temizliği Supabase hatası:", safeError.detail);
+    console.error("Firma kalıcı silme hatası:", safeError.detail);
     return NextResponse.json({ error: safeError.title, supabaseError: safeError.detail }, { status: 500 });
   }
 }

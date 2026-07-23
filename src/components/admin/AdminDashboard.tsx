@@ -6146,7 +6146,7 @@ function ApiSettings({ content, setContent }: any) {
   return <Panel title="Yapay Zekâ Ayarları"><p className="mb-5 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm leading-6 text-cyan-700">API anahtarları güvenlik nedeniyle bu ekranda gösterilmez veya tarayıcıya gönderilmez. Sağlayıcı anahtarlarını yalnızca sunucu ortam değişkenleri üzerinden yönetin.</p><div className="mb-5 rounded-[8px] border border-amber-200/20 bg-amber-200/10 p-4"><div className="flex flex-wrap items-center gap-2"><p className="text-sm font-black text-amber-700">HK Intelligence Router</p><span className="rounded-full bg-amber-300 px-2 py-1 text-[10px] font-black text-slate-950">Otomatik Yönlendirme Önerilen</span></div><p className="mt-1 text-xs text-amber-700/75">Görev türü, hazır bağlantılar, hız ihtiyacı ve yedek akış birlikte değerlendirilir. Derin Araştırma Ajanı yalnız açık araştırma görevlerinde kullanılır.</p><AiUsageBadge meta={aiMeta} /></div><div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[["Günlük hızlı AI", "Groq", "Hızlı içerik ve operasyon"], ["Araştırma AI", "Gemini", "Google, SEO ve pazar analizi"], ["Strateji AI", "OpenAI", "Teklif ve karar desteği"], ["Derin Araştırma Ajanı", "Manus", "Yalnız açık, çok adımlı görevler"]].map(([label, value, description]) => <div key={label} className="rounded-[12px] border border-slate-200 bg-white p-4"><p className="text-xs font-black uppercase text-slate-500">{label}</p><p className="mt-2 text-base font-black text-slate-950">{value}</p><p className="mt-1 text-xs leading-5 text-slate-500">{description}</p></div>)}</div><div className="grid gap-4 md:grid-cols-2"><SelectField label="Yönlendirme tercihi" value={aiProviderLabel(api.active_ai_provider || api.activeProvider || "auto")} onChange={updateProvider} options={apiProviderOptions} /><Field label="Sabit sağlayıcı modeli" value={api.active_ai_model || api.model || "automatic-fallback"} onChange={(v) => update({ active_ai_model: v, model: v })} /></div><p className="mt-3 rounded-[8px] bg-slate-50 p-3 text-xs leading-5 text-slate-600">Otomatik Yönlendirme seçildiğinde kullanıcı model seçmez. Demo veya Ollama tercihi de aynı yönlendirme alanından yönetilir.</p><div className="mt-5 rounded-[8px] border border-slate-200 bg-white p-4"><p className="text-sm font-black text-slate-900">Sabit Sağlayıcı Yedek Sırası</p><p className="mt-1 text-xs text-slate-400">Otomatik modda görev bazlı HK Intelligence kuralları önce gelir. Sabit sağlayıcı hata verirse bu sıra güvenli yedek olarak kullanılır; Manus ayrı derin araştırma ajanıdır.</p><div className="mt-4 grid gap-3 md:grid-cols-3 xl:grid-cols-6">{aiPriorityKeys.map((key, index) => <SelectField key={`${key}-${index}`} label={`${index + 1}. Öncelik`} value={aiKeyLabels[priority[index] || key] || aiProviderLabel("gemini")} onChange={(value) => updatePriority(index, value)} options={aiPriorityOptions} />)}</div></div><div className="mt-5 flex flex-wrap gap-2"><button onClick={saveAiSettings} disabled={Boolean(busy)} className="rounded-full bg-amber-300 px-5 py-3 text-sm font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-60">{busy === "save" ? "Kaydediliyor..." : "Yapay zekâ ayarlarını kaydet"}</button><button onClick={testApi} disabled={Boolean(busy)} className="rounded-full border border-cyan-200/20 px-5 py-3 text-sm font-black text-cyan-700 disabled:cursor-not-allowed disabled:opacity-60">{busy === "test" ? "Bağlantı test ediliyor..." : "Aktif bağlantıyı test et"}</button></div>{result && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-700">{result}</p>}<p className="mt-4 text-sm text-slate-400">Bağlantı ve sağlık ayrıntılarını Entegrasyonlar içindeki sağlayıcı durum kartlarından izleyebilirsiniz.</p></Panel>;
 }
 
-function Settings({ content, setContent, setActive }: any) {
+function Settings({ content, setContent, setActive, notify }: any) {
   const settings = content.settings;
   const update = (patch) => setContent({ ...content, settings: { ...settings, ...patch } });
   const sections = [
@@ -6176,7 +6176,102 @@ function Settings({ content, setContent, setActive }: any) {
           <AdminActionCard key={title} title={title} description={description} icon={<Settings2 size={20} />} gradient="from-slate-500 to-slate-700" onClick={() => setActive(target)} />
         ))}
       </div>
+      <DataManagementSection content={content} setContent={setContent} notify={notify} />
     </Panel>
+  );
+}
+
+const DATA_MANAGEMENT_CONFIRM_PHRASE = "TÜMÜNÜ SİL";
+
+function DataManagementSection({ content, setContent, notify }: any) {
+  const archivedCompanies = (content.companies || []).filter((item: any) => String(item.status || "").toLocaleLowerCase("tr-TR") === "silindi" || item.deleted_at);
+  const leads = content.leads || [];
+  const [selectedCustomerIds, setSelectedCustomerIds] = useState<string[]>([]);
+  const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
+  const [confirmPhrase, setConfirmPhrase] = useState("");
+  const [busy, setBusy] = useState("");
+  const [lastResult, setLastResult] = useState<{ deletedCount: number; failedCount: number; results?: Array<{ id: string; ok: boolean; error?: string | null }> } | null>(null);
+
+  function toggleId(list: string[], setList: (value: string[]) => void, id: string) {
+    setList(list.includes(id) ? list.filter((item) => item !== id) : [...list, id]);
+  }
+
+  async function execute(resource: "customer" | "lead", scope: "selected" | "archived_all" | "all", ids: string[]) {
+    if (!ids.length) return;
+    const requiresPhrase = scope !== "selected" || ids.length > 1;
+    if (requiresPhrase && confirmPhrase.trim() !== DATA_MANAGEMENT_CONFIRM_PHRASE) {
+      notify?.(`Onay için "${DATA_MANAGEMENT_CONFIRM_PHRASE}" yazın.`, "error");
+      return;
+    }
+    if (!requiresPhrase && !window.confirm("Bu kayıt kalıcı olarak silinecek. Onaylıyor musunuz?")) return;
+    setBusy(`${resource}-${scope}`);
+    setLastResult(null);
+    const response = await fetch("/api/admin/data-management", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ resource, scope, ids, confirmationPhrase: confirmPhrase.trim() })
+    });
+    const data = await response.json().catch(() => ({}));
+    setBusy("");
+    if (!response.ok) {
+      notify?.(data.error || "İşlem tamamlanamadı.", "error");
+      return;
+    }
+    const deletedIds = new Set((data.results || []).filter((item: any) => item.ok).map((item: any) => item.id));
+    if (resource === "customer") {
+      setContent((current: any) => ({ ...current, companies: (current.companies || []).filter((item: any) => !deletedIds.has(item.id)) }));
+      setSelectedCustomerIds([]);
+    } else {
+      setContent((current: any) => ({ ...current, leads: (current.leads || []).filter((item: any) => !deletedIds.has(item.id)) }));
+      setSelectedLeadIds([]);
+    }
+    setConfirmPhrase("");
+    setLastResult({ deletedCount: data.deletedCount, failedCount: data.failedCount, results: data.results });
+    notify?.(`${data.deletedCount} kayıt kalıcı olarak silindi${data.failedCount ? `, ${data.failedCount} kayıt silinemedi` : ""}.`, data.failedCount ? "warning" : "success");
+  }
+
+  return (
+    <AdminSection title="Veri Yönetimi">
+      <p className="mb-4 text-xs leading-5" style={{ color: "var(--admin-text-muted)" }}>Müşteri ve başvuru kayıtlarının kalıcı silinmesi. Bu işlemler geri alınamaz; toplu işlemler için &quot;{DATA_MANAGEMENT_CONFIRM_PHRASE}&quot; yazarak onaylayın.</p>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-[12px] border border-slate-200 bg-white p-4">
+          <p className="mb-2 text-sm font-black text-slate-950">Arşivlenmiş Müşteriler ({archivedCompanies.length})</p>
+          <div className="mb-3 max-h-40 grid gap-1 overflow-y-auto text-xs">
+            {archivedCompanies.map((item: any) => (
+              <label key={item.id} className="flex items-center gap-2 rounded-[6px] px-2 py-1 hover:bg-slate-50">
+                <input type="checkbox" checked={selectedCustomerIds.includes(item.id)} onChange={() => toggleId(selectedCustomerIds, setSelectedCustomerIds, item.id)} />
+                {item.name}
+              </label>
+            ))}
+            {!archivedCompanies.length && <p className="text-slate-400">Arşivlenmiş müşteri yok.</p>}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" disabled={!selectedCustomerIds.length || Boolean(busy)} onClick={() => execute("customer", "selected", selectedCustomerIds)} className="rounded-full bg-red-600 px-4 py-2 text-xs font-black text-white disabled:opacity-40">{busy === "customer-selected" ? "Siliniyor..." : `Seçilenleri Kalıcı Sil (${selectedCustomerIds.length})`}</button>
+            <button type="button" disabled={!archivedCompanies.length || Boolean(busy)} onClick={() => execute("customer", "archived_all", archivedCompanies.map((item: any) => item.id))} className="rounded-full border border-red-300 px-4 py-2 text-xs font-black text-red-700 disabled:opacity-40">{busy === "customer-archived_all" ? "Siliniyor..." : "Tüm Arşivlenmiş Müşterileri Sil"}</button>
+          </div>
+        </div>
+        <div className="rounded-[12px] border border-slate-200 bg-white p-4">
+          <p className="mb-2 text-sm font-black text-slate-950">Başvurular / Leadler ({leads.length})</p>
+          <div className="mb-3 max-h-40 grid gap-1 overflow-y-auto text-xs">
+            {leads.slice(0, 200).map((item: any) => (
+              <label key={item.id} className="flex items-center gap-2 rounded-[6px] px-2 py-1 hover:bg-slate-50">
+                <input type="checkbox" checked={selectedLeadIds.includes(item.id)} onChange={() => toggleId(selectedLeadIds, setSelectedLeadIds, item.id)} />
+                {item.name || item.company || item.id}
+              </label>
+            ))}
+            {!leads.length && <p className="text-slate-400">Başvuru yok.</p>}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" disabled={!selectedLeadIds.length || Boolean(busy)} onClick={() => execute("lead", "selected", selectedLeadIds)} className="rounded-full bg-red-600 px-4 py-2 text-xs font-black text-white disabled:opacity-40">{busy === "lead-selected" ? "Siliniyor..." : `Seçilenleri Kalıcı Sil (${selectedLeadIds.length})`}</button>
+            <button type="button" disabled={!leads.length || Boolean(busy)} onClick={() => execute("lead", "all", leads.map((item: any) => item.id))} className="rounded-full border border-red-300 px-4 py-2 text-xs font-black text-red-700 disabled:opacity-40">{busy === "lead-all" ? "Siliniyor..." : "Tüm Başvuruları Sil"}</button>
+          </div>
+        </div>
+      </div>
+      <div className="mt-3 max-w-sm">
+        <Field label={`Toplu işlem onayı: "${DATA_MANAGEMENT_CONFIRM_PHRASE}" yazın`} value={confirmPhrase} onChange={setConfirmPhrase} />
+      </div>
+      {lastResult && <p className="mt-3 rounded-[8px] border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">Son işlem: {lastResult.deletedCount} silindi, {lastResult.failedCount} başarısız.</p>}
+    </AdminSection>
   );
 }
 
@@ -6807,16 +6902,18 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
     });
     const data = await response.json().catch(() => ({}));
     setLoading("");
-    if (response.ok) {
-      upsertCompanyInState(data.company || permanentDeleteTarget);
+    if (response.ok && data.deleted) {
+      const deletedId = permanentDeleteTarget.id;
+      setContent((current) => ({ ...current, companies: (current.companies || []).filter((item: any) => item.id !== deletedId) }));
+      setSelectedGridCompanyId((current) => current === deletedId ? "" : current);
       setPermanentDeleteTarget(null);
       setPermanentDeleteName("");
       const cleaned = Array.isArray(data.cleanupResults) ? data.cleanupResults.filter((item: any) => item.ok).length : 0;
-      const messageText = `Kalıcı silme temizliği uygulandı. ${cleaned} operasyonel ilişki grubu işlendi; finansal ve geçmiş kayıtlar korundu.`;
+      const messageText = `Müşteri kalıcı olarak silindi. ${cleaned} ilişkili kayıt grubu temizlendi; finansal ve geçmiş kayıtlar firma bağlantısı kaldırılarak korundu.`;
       setMessage(messageText);
       notify?.(messageText, "success");
     } else {
-      showApiError(data, "Kalıcı silme temizliği uygulanamadı.");
+      showApiError(data, "Müşteri kalıcı olarak silinemedi.");
     }
   }
 
@@ -7058,22 +7155,22 @@ function CustomersAdmin({ content, setContent, save, setActive, notify, currentS
           {loading === "company" ? "Firma oluşturuluyor..." : "Firmayı oluştur"}
         </button>}
       </CustomerFormModal>}
-      {permanentDeleteTarget && <CustomerFormModal title="Kalıcı Silme Temizliği" onClose={() => { setPermanentDeleteTarget(null); setPermanentDeleteName(""); }}>
+      {permanentDeleteTarget && <CustomerFormModal title="Müşteriyi Kalıcı Sil" onClose={() => { setPermanentDeleteTarget(null); setPermanentDeleteName(""); }}>
         <div className="grid gap-4">
           <div className="rounded-[14px] border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-900">
-            <p className="font-black">Bu işlem fiziksel şirket satırını silmez.</p>
-            <p className="mt-2">Finansal kayıtlar, raporlar, belgeler ve audit geçmişi korunur. Görevler, geçici bildirimler, müşteri entegrasyonları, reklam bağlantıları, şube erişimleri ve giriş hesapları temizlenir veya pasifleştirilir.</p>
+            <p className="font-black">Bu işlem geri alınamaz. Firma kaydı veritabanından tamamen silinir.</p>
+            <p className="mt-2">Görevler, bildirimler, entegrasyonlar, şube erişimleri ve giriş hesapları kalıcı olarak silinir/pasifleştirilir. Finansal kayıtlar, raporlar, belgeler ve audit geçmişi yasal/operasyonel nedenlerle firma bağlantısı kaldırılarak (ilişkisiz olarak) saklanmaya devam eder.</p>
           </div>
           <div className="grid gap-2 rounded-[14px] border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-            <strong>Silinecek / pasifleştirilecek operasyonel veriler</strong>
-            <span>Görevler, bildirimler, entegrasyon kayıtları, sync logları, görünürlük ayarları, marka ayarları, şube erişimleri ve müşteri giriş hesapları.</span>
-            <strong className="mt-2">Korunacak geçmiş veriler</strong>
+            <strong>Kalıcı olarak silinecek veriler</strong>
+            <span>Firma kaydının kendisi, görevler, bildirimler, entegrasyon kayıtları, sync logları, görünürlük ayarları, marka ayarları ve şube erişimleri.</span>
+            <strong className="mt-2">Korunacak geçmiş veriler (firma bağlantısı kaldırılır)</strong>
             <span>Tahsilatlar, finansal geçmiş, raporlar, belgeler, müşteri dosyaları ve işlem/audit logları.</span>
           </div>
           <Field label={`Onay için müşteri adını yazın: ${permanentDeleteTarget.name}`} value={permanentDeleteName} onChange={setPermanentDeleteName} />
           <div className="flex flex-wrap justify-end gap-2">
             <button onClick={() => { setPermanentDeleteTarget(null); setPermanentDeleteName(""); }} className="rounded-full border border-slate-200 px-4 py-2 text-sm font-black text-slate-700">Vazgeç</button>
-            <button disabled={loading === `permanent-delete-${permanentDeleteTarget.id}` || permanentDeleteName.trim() !== String(permanentDeleteTarget.name || "").trim()} onClick={runPermanentDeleteCleanup} className="rounded-full bg-red-600 px-5 py-2 text-sm font-black text-white disabled:opacity-50">{loading === `permanent-delete-${permanentDeleteTarget.id}` ? "Temizleniyor..." : "Kalıcı Silme Temizliğini Uygula"}</button>
+            <button disabled={loading === `permanent-delete-${permanentDeleteTarget.id}` || permanentDeleteName.trim() !== String(permanentDeleteTarget.name || "").trim()} onClick={runPermanentDeleteCleanup} className="rounded-full bg-red-600 px-5 py-2 text-sm font-black text-white disabled:opacity-50">{loading === `permanent-delete-${permanentDeleteTarget.id}` ? "Siliniyor..." : "Kalıcı Olarak Sil"}</button>
           </div>
         </div>
       </CustomerFormModal>}

@@ -4,6 +4,7 @@ import { recordActionFailure, recordActivity } from "@/lib/activity-log";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 import { requireModuleAccess } from "@/lib/permissions";
 import { isAdminRole } from "@/lib/auth";
+import { permanentlyDeleteLead } from "@/lib/server/customer-permanent-delete";
 
 async function requireCrmAccess() {
   return await requireModuleAccess("crm") || requireModuleAccess("leads");
@@ -224,27 +225,18 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
   const session = await requireCrmAccess();
   if (!session) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 403 });
+  if (!isAdminRole(session.role)) return NextResponse.json({ error: "Başvuruyu kalıcı silme işlemini yalnızca admin rolü yapabilir." }, { status: 403 });
   if (!hasSupabaseConfig()) return NextResponse.json({ error: "Supabase bağlantısı yapılandırılmadı." }, { status: 503 });
 
   const { id } = await context.params;
   try {
-    const rows = await supabaseRest<any[]>(`leads?id=eq.${encodeURIComponent(id)}`, {
-      method: "PATCH",
-      body: JSON.stringify({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-    });
-    await recordActivity({
-      session,
-      action: "Arşivleme",
-      entity: "Başvuru",
-      entityId: id,
-      companyId: rows?.[0]?.company_id,
-      details: { message: "CRM başvurusu güvenli şekilde arşivlendi" }
-    });
-    return NextResponse.json({ ok: true, lead: rows?.[0] || null, message: "Başvuru arşivlendi." });
+    const result = await permanentlyDeleteLead(id, session);
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: 404 });
+    return NextResponse.json({ ok: true, deleted: true, message: "Başvuru kalıcı olarak silindi." });
   } catch (error) {
     const safe = getSafeSupabaseError(error);
-    await recordActionFailure({ session, entity: "Satış Hunisi", action: "Lead arşivleme", error, entityId: id }).catch(() => null);
-    console.error("[crm-lead] Başvuru arşivleme hatası", safe.detail);
+    await recordActionFailure({ session, entity: "Satış Hunisi", action: "Lead kalıcı silme", error, entityId: id }).catch(() => null);
+    console.error("[crm-lead] Başvuru kalıcı silme hatası", safe.detail);
     return NextResponse.json({ error: safe.title, supabaseError: safe.detail }, { status: 500 });
   }
 }
