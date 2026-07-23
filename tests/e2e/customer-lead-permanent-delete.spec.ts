@@ -83,4 +83,71 @@ test.describe("authenticated admin validation", () => {
     const again = await request.delete(`/api/admin/leads/${QA_TEST_LEAD_ID}`);
     expect(again.status()).toBe(404);
   });
+
+  // Regression test for a real production defect: customer_conversations.company_id
+  // was ON DELETE RESTRICT, so any customer with real Communication Center
+  // history blocked the final `DELETE FROM companies` with a genuine Postgres
+  // foreign key violation (23503), surfaced to the admin as the toast
+  // "Veritabanı şema hatası". Self-provisions its own disposable QA-prefixed
+  // company + conversation (via the service-role key already loaded from
+  // .env.local) rather than depending on external env vars, so it always
+  // runs whenever QA admin credentials are present.
+  //
+  // Uses a real browser login (page.goto + fill + click) and runs every
+  // subsequent API call through page.evaluate(fetch(...)) — i.e. inside the
+  // real page's own JS context, exactly like the app's own client code
+  // does — rather than Playwright's Node-side request/page.request
+  // contexts. This sandbox's plain-HTTP local server still marks the
+  // session cookie Secure (matches NODE_ENV=production); the browser's
+  // in-page fetch correctly treats 127.0.0.1 as a potentially trustworthy
+  // loopback origin and sends it, while Playwright's APIRequestContext
+  // does not and silently drops the cookie on later calls.
+  test("a customer with real conversation history can still be permanently deleted", async ({ page }, testInfo) => {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    test.skip(!supabaseUrl || !serviceKey, "NEXT_PUBLIC_SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY not supplied in this environment.");
+
+    await page.goto("/digital-center", { waitUntil: "domcontentloaded" });
+    await page.fill('input[autocomplete="username"]', process.env.QA_ADMIN_EMAIL!);
+    await page.fill('input[autocomplete="current-password"]', process.env.QA_ADMIN_PASSWORD!);
+    await page.getByRole("button", { name: "Sisteme Giriş" }).click();
+    await page.waitForURL("**/hk-admin**", { timeout: 15_000 });
+
+    const inPageFetch = (path: string, init: { method: string; body?: unknown }) =>
+      page.evaluate(
+        async ({ path, init }) => {
+          const response = await fetch(path, {
+            method: init.method,
+            headers: { "Content-Type": "application/json" },
+            body: init.body !== undefined ? JSON.stringify(init.body) : undefined
+          });
+          const body = await response.json().catch(() => ({}));
+          return { status: response.status, ok: response.ok, body };
+        },
+        { path, init }
+      );
+
+    const unique = `${Date.now()}-${testInfo.project.name}`;
+    const companyName = `QA-Perm-Delete-Convo-${unique}`;
+    const createRes = await inPageFetch("/api/admin/companies/create", { method: "POST", body: { name: companyName, email: `qa-perm-delete-convo-${unique}@example.test`, is_test: true } });
+    expect(createRes.ok, `company create failed: ${JSON.stringify(createRes.body)}`).toBeTruthy();
+    const companyId = createRes.body.company.id;
+
+    const convoRes = await fetch(`${supabaseUrl}/rest/v1/customer_conversations`, {
+      method: "POST",
+      headers: { apikey: serviceKey!, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=representation" },
+      body: JSON.stringify({ company_id: companyId, subject: "Playwright regression: permanent delete with conversation history", category: "general" })
+    });
+    expect(convoRes.ok, "seeding a real conversation row must succeed").toBeTruthy();
+
+    const archiveRes = await inPageFetch(`/api/admin/companies/${companyId}`, { method: "PATCH", body: { status: "Silindi" } });
+    expect(archiveRes.ok, `archive failed: ${JSON.stringify(archiveRes.body)}`).toBeTruthy();
+
+    const deleteRes = await inPageFetch(`/api/admin/companies/${companyId}`, { method: "DELETE", body: { confirmationName: companyName } });
+    expect(deleteRes.ok, `permanent delete must succeed even with conversation history: ${JSON.stringify(deleteRes.body)}`).toBeTruthy();
+    expect(deleteRes.body.deleted).toBeTruthy();
+
+    const again = await inPageFetch(`/api/admin/companies/${companyId}`, { method: "DELETE", body: { confirmationName: companyName } });
+    expect(again.status).toBe(404);
+  });
 });

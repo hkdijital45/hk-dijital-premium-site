@@ -42,8 +42,17 @@ export async function permanentlyDeleteCompany(id: string, session: AppSession) 
     deleteCustomerScopedRows("integration_sync_logs", id),
     deleteCustomerScopedRows("customer_visibility_settings", id),
     deleteCustomerScopedRows("customer_branding", id),
-    deleteCustomerScopedRows("customer_user_branches", id),
     deleteCustomerScopedRows("customer_branches", id),
+    // customer_conversations.company_id is ON DELETE RESTRICT (Communication
+    // Center migration) — any customer with real conversation history
+    // blocks the final companies DELETE below with a real Postgres foreign
+    // key violation (23503), which the app surfaces as "Veritabanı şema
+    // hatası". Deleting the conversations explicitly first (its own child
+    // tables — messages, reads, assignments, notes, activity, attachments —
+    // already cascade from customer_conversations.id) removes the blocker
+    // immediately, without waiting on the schema migration that changes the
+    // constraint to ON DELETE CASCADE for defense in depth.
+    deleteCustomerScopedRows("customer_conversations", id),
     patchCustomerScopedRows("users", id, { is_active: false, deleted_at: now, updated_at: now })
   ]);
 
