@@ -668,6 +668,11 @@ html {
 
 .cinematic-home {
   isolation: isolate;
+  --hk-ref-bg: #030304;
+  --hk-ref-accent: #2f5bff;
+  --hk-ref-accent-2: #4fa8f0;
+  font-family: var(--font-jakarta), var(--font-geist-sans), sans-serif;
+  background: var(--hk-ref-bg);
 }
 
 .cinematic-home::before {
@@ -677,22 +682,22 @@ html {
   inset: 0;
   z-index: -1;
   background:
-    radial-gradient(circle at 16% 12%, rgba(34, 211, 238, .16), transparent 24rem),
-    radial-gradient(circle at 82% 16%, rgba(251, 146, 60, .13), transparent 22rem),
-    radial-gradient(circle at 62% 72%, rgba(59, 130, 246, .13), transparent 30rem);
+    radial-gradient(circle at 25% 20%, rgba(47, 91, 255, .34), transparent 55%),
+    radial-gradient(circle at 78% 65%, rgba(79, 168, 240, .24), transparent 50%),
+    radial-gradient(circle at 50% 95%, rgba(120, 60, 255, .18), transparent 55%);
   animation: cinematic-aurora-drift 24s ease-in-out infinite;
 }
 
 .cinematic-aurora {
   background:
-    linear-gradient(115deg, transparent 8%, rgba(34, 211, 238, .08), transparent 38%),
-    linear-gradient(65deg, transparent 16%, rgba(250, 204, 21, .07), transparent 46%);
+    linear-gradient(115deg, transparent 8%, rgba(79, 168, 240, .08), transparent 38%),
+    linear-gradient(65deg, transparent 16%, rgba(47, 91, 255, .07), transparent 46%);
   filter: blur(.5px);
   animation: cinematic-light-band 18s ease-in-out infinite;
 }
 
 .cinematic-floor {
-  border-bottom: 1px solid rgba(255, 255, 255, .055);
+  border-bottom: 1px solid rgba(255, 255, 255, .09);
 }
 
 .cinematic-floor::before {
@@ -701,8 +706,8 @@ html {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(125, 211, 252, .055) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(125, 211, 252, .055) 1px, transparent 1px);
+    linear-gradient(rgba(79, 168, 240, .055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(79, 168, 240, .055) 1px, transparent 1px);
   background-size: 72px 72px;
   mask-image: radial-gradient(circle at 50% 42%, black, transparent 72%);
   opacity: .58;
@@ -713,21 +718,36 @@ html {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 80% 24%, rgba(34, 211, 238, .12), transparent 24rem),
-    radial-gradient(circle at 18% 68%, rgba(251, 146, 60, .10), transparent 22rem);
+    radial-gradient(circle at 80% 24%, rgba(47, 91, 255, .14), transparent 24rem),
+    radial-gradient(circle at 18% 68%, rgba(79, 168, 240, .12), transparent 22rem);
 }
 
 .cinematic-eyebrow {
-  text-shadow: 0 0 24px rgba(34, 211, 238, .42);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--hk-ref-accent-2);
+}
+
+.cinematic-eyebrow::before {
+  content: "";
+  width: 24px;
+  height: 1px;
+  background: var(--hk-ref-accent-2);
 }
 
 .cinematic-title {
-  background: linear-gradient(92deg, #fff 0%, #dffbff 35%, #facc15 70%, #fff 100%);
-  background-size: 220% auto;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: text-energy-scan 6s ease-in-out infinite;
+  color: #f5f5f7;
+  font-style: italic;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  line-height: .96;
+  text-transform: uppercase;
+}
+
+.cinematic-title-highlight {
+  font-style: italic;
+  color: var(--hk-ref-accent-2);
 }
 
 .cinematic-card {
@@ -749,8 +769,8 @@ html {
 }
 
 .cinematic-card:hover {
-  border-color: rgba(103, 232, 249, .35);
-  box-shadow: 0 28px 90px rgba(0, 0, 0, .34), 0 0 42px rgba(34, 211, 238, .12);
+  border-color: rgba(79, 168, 240, .4);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, .34), 0 0 42px rgba(47, 91, 255, .16);
 }
 
 .cinematic-card:hover::after {
@@ -897,12 +917,16 @@ html[data-hk-theme] {
   accent-color: var(--hk-theme-accent);
 }
 
-html[data-hk-theme] body {
-  background-color: var(--hk-theme-bg);
-}
-
+/* Admin-configurable theme background was previously applied to the raw
+   <body> element (html[data-hk-theme] body), which is always present since
+   layout.tsx sets data-hk-theme on every page including the public site —
+   so a light admin theme leaked a cream background behind the public
+   homepage's dark design. Scoped to .hk-admin/.customer-portal like every
+   other theme variable below; those shells already paint their own opaque
+   background (.admin-app-shell { background: var(--admin-bg) }). */
 html[data-hk-theme] .hk-admin,
 html[data-hk-theme] .customer-portal {
+  background-color: var(--hk-theme-bg);
   --hk-ui-primary: var(--hk-theme-primary);
   --hk-ui-accent: var(--hk-theme-accent);
   --hk-ui-surface: var(--hk-theme-surface);

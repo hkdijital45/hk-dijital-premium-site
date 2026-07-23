@@ -17,7 +17,7 @@ export function Footer({ content }: { content: SiteContent }) {
           </p>
         </div>
         <div className="relative">
-          <h2 className="text-sm font-bold uppercase tracking-[.22em] text-cyan-200">Hizmetler</h2>
+          <h2 className="text-sm font-bold uppercase tracking-[.22em] text-[#4fa8f0]">Hizmetler</h2>
           <div className="mt-4 grid gap-3 text-sm text-slate-300">
             <Link href="/hizmetler/meta-reklam-yonetimi">Meta Reklam Yönetimi</Link>
             <Link href="/hizmetler/google-ads-yonetimi">Google Ads Yönetimi</Link>
@@ -26,7 +26,7 @@ export function Footer({ content }: { content: SiteContent }) {
           </div>
         </div>
         <div className="relative">
-          <h2 className="text-sm font-bold uppercase tracking-[.22em] text-cyan-200">HK Dijital</h2>
+          <h2 className="text-sm font-bold uppercase tracking-[.22em] text-[#4fa8f0]">HK Dijital</h2>
           <div className="mt-4 grid gap-3 text-sm text-slate-300">
             <Link href="/hakkimda">Hakkımızda</Link>
             <Link href="/paketler">Paketler</Link>
@@ -35,7 +35,7 @@ export function Footer({ content }: { content: SiteContent }) {
           </div>
         </div>
         <div className="relative">
-          <h2 className="text-sm font-bold uppercase tracking-[.22em] text-cyan-200">Yasal</h2>
+          <h2 className="text-sm font-bold uppercase tracking-[.22em] text-[#4fa8f0]">Yasal</h2>
           <div className="mt-4 grid gap-3 text-sm text-slate-300">
             <Link href="/gizlilik-politikasi">Gizlilik Politikası</Link>
             <Link href="/kullanim-sartlari">Kullanım Koşulları</Link>
@@ -43,7 +43,7 @@ export function Footer({ content }: { content: SiteContent }) {
           </div>
         </div>
         <div className="relative">
-          <h2 className="text-sm font-bold uppercase tracking-[.22em] text-cyan-200">İletişim</h2>
+          <h2 className="text-sm font-bold uppercase tracking-[.22em] text-[#4fa8f0]">İletişim</h2>
           <div className="mt-4 space-y-2 text-sm text-slate-300">
             <p>{content.contact.address}</p>
             <a href={`mailto:${content.contact.email}`}>{content.contact.email}</a>

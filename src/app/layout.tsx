@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { TrackingPlaceholders } from "@/components/public/TrackingPlaceholders";
 import { MetaPixel } from "@/components/public/MetaPixel";
@@ -9,6 +9,10 @@ import { getGlobalMetaPixelId } from "@/lib/meta-pixel-settings";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+// Public homepage typography reference. Scoped via CSS variable so it only
+// applies where explicitly opted into (.cinematic-home) — the admin panel
+// keeps its existing Geist typography untouched.
+const plusJakarta = Plus_Jakarta_Sans({ variable: "--font-jakarta", subsets: ["latin"], weight: ["400", "500", "600", "700", "800"] });
 
 export async function generateMetadata(): Promise<Metadata> {
   const content = await getSiteContent();
@@ -49,7 +53,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const metaPixelId = await getGlobalMetaPixelId(content.settings.analyticsIds?.metaPixel || "");
 
   return (
-    <html lang="tr" data-hk-theme={theme.name} style={{ "--hk-theme-bg": theme.background, "--hk-theme-surface": theme.surface, "--hk-theme-text": theme.text, "--hk-theme-muted": theme.mutedText, "--hk-theme-primary": theme.primaryButton, "--hk-theme-accent": theme.accent, "--hk-theme-border": theme.border } as React.CSSProperties} className={`${geistSans.variable} ${geistMono.variable} h-full scroll-smooth antialiased`}>
+    <html lang="tr" data-hk-theme={theme.name} style={{ "--hk-theme-bg": theme.background, "--hk-theme-surface": theme.surface, "--hk-theme-text": theme.text, "--hk-theme-muted": theme.mutedText, "--hk-theme-primary": theme.primaryButton, "--hk-theme-accent": theme.accent, "--hk-theme-border": theme.border } as React.CSSProperties} className={`${geistSans.variable} ${geistMono.variable} ${plusJakarta.variable} h-full scroll-smooth antialiased`}>
       <body className="min-h-full bg-[#050711] font-sans text-white">
         <TrackingPlaceholders ids={content.settings.analyticsIds} />
         <MetaPixel pixelId={metaPixelId} />

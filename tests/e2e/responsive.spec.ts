@@ -36,7 +36,10 @@ test("mobile: contact page long content and forms remain usable", async ({ page 
 
 test("desktop: login form dialog stays within the viewport", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/giris", { waitUntil: "domcontentloaded" });
+  // /giris and /login now intentionally redirect unauthenticated visitors to
+  // the homepage (private admin login consolidation) — /digital-center is
+  // the real, still-reachable login page implementation.
+  await page.goto("/digital-center", { waitUntil: "domcontentloaded" });
   await page.waitForLoadState("domcontentloaded");
   const identityInput = page.locator('input[type="text"]').first();
   await expect(identityInput).toBeVisible();
