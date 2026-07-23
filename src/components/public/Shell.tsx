@@ -3,6 +3,7 @@ import { MessageCircle } from "lucide-react";
 import { getSiteContent } from "@/lib/content";
 import { Header } from "./Header";
 import { Footer } from "./Footer";
+import { ScrollProgressBar } from "./ScrollProgressBar";
 
 export async function PublicShell({ children }: { children: ReactNode }) {
   const rawContent = await getSiteContent();
@@ -22,6 +23,7 @@ export async function PublicShell({ children }: { children: ReactNode }) {
 
   return (
     <>
+      <ScrollProgressBar />
       <Header content={content} />
       <main className={`public-site public-performance-${performanceMode} relative min-h-screen overflow-hidden bg-background text-foreground`}>
         <div className="public-impact-bg pointer-events-none fixed inset-0 z-0" aria-hidden="true" />

@@ -32,7 +32,6 @@ export function Footer({ content }: { content: SiteContent }) {
             <Link href="/paketler">Paketler</Link>
             <Link href="/blog">Blog</Link>
             <Link href="/iletisim">İletişim</Link>
-            <Link href="/digital-center" className="text-slate-400">Müşteri Girişi</Link>
           </div>
         </div>
         <div className="relative">

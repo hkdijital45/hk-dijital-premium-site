@@ -5,11 +5,12 @@ import { LoginShell3D } from "@/components/premium/PremiumUI";
 import { getSiteContent } from "@/lib/content";
 
 export const metadata: Metadata = {
-  title: "Digital Center | HK Dijital",
-  description: "HK Dijital rapor, proje ve dijital performans verilerine güvenli erişim alanı.",
+  title: "HK Operating System — Giriş",
+  description: "HK Dijital ajans operasyon merkezine güvenli, yalnızca yetkili erişim alanı.",
   robots: {
     index: false,
-    follow: false
+    follow: false,
+    nocache: true
   }
 };
 

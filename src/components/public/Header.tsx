@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarCheck, ChevronDown, LogIn, Menu, X } from "lucide-react";
+import { CalendarCheck, ChevronDown, Menu, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { SiteContent } from "@/lib/types";
 import { trackMetaCtaClick } from "@/lib/meta-pixel";
@@ -83,9 +83,6 @@ export function Header({ content }: { content: SiteContent }) {
           <Link href="/teklif-al" onClick={() => trackMetaCtaClick("Header Ücretsiz Ön Görüşme", "/teklif-al")} className="impact-btn inline-flex min-h-11 items-center gap-2 rounded-full border border-cyan-200/40 bg-cyan-300 px-5 text-sm font-black text-slate-950 shadow-[0_0_42px_rgba(18,217,255,.38)] transition hover:-translate-y-0.5 hover:bg-cyan-200">
             <CalendarCheck size={17} /> Ücretsiz Ön Görüşme
           </Link>
-          <Link href="/digital-center" onClick={() => trackMetaCtaClick("Header Müşteri Girişi", "/digital-center")} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/15 bg-white/[0.055] px-4 text-sm font-bold text-slate-100 transition hover:-translate-y-0.5 hover:border-yellow-200/40 hover:bg-yellow-200/10 focus:outline-none focus:ring-2 focus:ring-yellow-200">
-            <LogIn size={17} /> Müşteri Girişi
-          </Link>
         </div>
 
         <button className="impact-btn grid size-11 place-items-center rounded-full border border-white/10 text-white lg:hidden" onClick={() => setOpen((value) => !value)} aria-label={open ? "Menüyü kapat" : "Menüyü aç"} aria-expanded={open} aria-controls="mobile-public-menu">
@@ -114,9 +111,6 @@ export function Header({ content }: { content: SiteContent }) {
             ))}
             <Link href="/teklif-al" onClick={() => { trackMetaCtaClick("Mobil Ücretsiz Ön Görüşme", "/teklif-al"); setOpen(false); }} className="impact-btn rounded-2xl bg-cyan-300 px-4 py-3 text-base font-black text-slate-950 shadow-[0_0_32px_rgba(18,217,255,.28)]">
               <span className="inline-flex items-center gap-2"><CalendarCheck size={17} /> Ücretsiz Ön Görüşme</span>
-            </Link>
-            <Link href="/digital-center" onClick={() => { trackMetaCtaClick("Mobil Müşteri Girişi", "/digital-center"); setOpen(false); }} className="rounded-2xl border border-yellow-200/30 bg-yellow-300/10 px-4 py-3 text-base font-black text-yellow-100">
-              <span className="inline-flex items-center gap-2"><LogIn size={17} /> Müşteri Girişi</span>
             </Link>
           </nav>
         </div>

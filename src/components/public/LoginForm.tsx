@@ -38,7 +38,7 @@ export function LoginForm({ desktopMode = false }: { desktopMode?: boolean }) {
       return;
     }
 
-    const target = data.redirectTo || "/musteri-paneli";
+    const target = data.redirectTo || "/hk-admin";
     window.location.href = desktopMode && target.startsWith("/hk-admin") ? `${target}?desktop=1` : target;
   }
 
@@ -71,10 +71,10 @@ export function LoginForm({ desktopMode = false }: { desktopMode?: boolean }) {
 
       <div className="relative">
         <div className="inline-flex items-center gap-2 rounded-full border border-cyan-200/20 bg-cyan-200/10 px-4 py-2 text-[11px] font-black uppercase tracking-[.22em] text-cyan-100">
-          <LockKeyhole size={14} /> HK Dijital Güvenli Giriş
+          <LockKeyhole size={14} /> HK Operating System
         </div>
-        <h2 className="mt-5 text-3xl font-black tracking-tight text-white sm:text-4xl">Hesabınıza Giriş Yapın</h2>
-        <p className="mt-3 max-w-xl text-base leading-7 text-slate-300">Size özel çalışma alanınıza güvenli şekilde erişin.</p>
+        <h2 className="mt-5 text-3xl font-black tracking-tight text-white sm:text-4xl">HK OPERATING SYSTEM</h2>
+        <p className="mt-3 max-w-xl text-base leading-7 text-slate-300">HK Dijital Ajans Operasyon Merkezi — yalnızca yetkili erişim.</p>
       </div>
 
       <label className="relative mt-8 grid gap-2 text-sm font-bold text-slate-100">
@@ -112,7 +112,7 @@ export function LoginForm({ desktopMode = false }: { desktopMode?: boolean }) {
       {error && <p className="mt-4 rounded-[8px] bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
 
       <button type="submit" disabled={loading} className="mt-7 min-h-14 w-full rounded-full bg-gradient-to-r from-cyan-300 via-sky-300 to-yellow-300 px-6 text-base font-black text-slate-950 shadow-[0_0_44px_rgba(34,211,238,.28)] transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60">
-        {loading ? "Giriş yapılıyor..." : "Giriş Yap"}
+        {loading ? "Giriş yapılıyor..." : "Sisteme Giriş"}
       </button>
     </form>
   );

@@ -1,8 +1,9 @@
 "use client";
 
+import { useId, useState } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
-import { ArrowRight, BarChart3, BrainCircuit, CalendarDays, Gauge, Layers3, MessageCircle, MousePointerClick, PieChart, Rocket, Search, ShieldCheck, Sparkles, Target, Zap } from "lucide-react";
+import { ArrowRight, BarChart3, BrainCircuit, CalendarDays, ChevronDown, Gauge, Layers3, MessageCircle, MousePointerClick, PieChart, Rocket, Search, ShieldCheck, Sparkles, Target, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import type { SiteContent } from "@/lib/types";
@@ -40,6 +41,47 @@ const intelligenceMetrics = [
 ];
 
 const processSteps = ["Keşif", "Analiz", "Strateji", "Kurulum", "Yayın", "Raporlama", "Optimizasyon"];
+
+const faqEntries: Array<[string, string]> = [
+  ["Manisa dışındaki işletmelere hizmet veriliyor mu?", "Evet. HK Dijital Manisa merkezlidir; Türkiye genelindeki işletmelerle uzaktan çalışma modeli kurulabilir."],
+  ["Satış garantisi veriliyor mu?", "Hayır. Satış garantisi verilmez; strateji, kurulum, optimizasyon, dönüşüm takibi ve raporlama süreci yönetilir."],
+  ["Hangi reklam kanalıyla başlamalıyım?", "Bu karar sektör, hedef, bütçe ve mevcut dijital varlıklara göre ön görüşmede netleştirilir."]
+];
+
+function FaqAccordion() {
+  const baseId = useId();
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+
+  return (
+    <div className="grid gap-4">
+      {faqEntries.map(([question, answer], index) => {
+        const open = openIndex === index;
+        const panelId = `${baseId}-panel-${index}`;
+        const buttonId = `${baseId}-button-${index}`;
+        return (
+          <div key={question} className="cinematic-card overflow-hidden rounded-[18px] border border-white/10 bg-white/[0.045]">
+            <h3>
+              <button
+                type="button"
+                id={buttonId}
+                aria-expanded={open}
+                aria-controls={panelId}
+                onClick={() => setOpenIndex(open ? null : index)}
+                className="flex w-full items-center justify-between gap-4 p-6 text-left text-lg font-black text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+              >
+                {question}
+                <ChevronDown size={20} className={`shrink-0 text-cyan-200 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
+              </button>
+            </h3>
+            <div id={panelId} role="region" aria-labelledby={buttonId} hidden={!open} className="px-6 pb-6">
+              <p className="text-sm leading-7 text-slate-300">{answer}</p>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 const proofMetrics = [
   ["CTR", "Tıklama oranı", "Reklamı görenlerin tıklama davranışını görünür hale getirir."],
@@ -146,6 +188,7 @@ function CampaignVisualGrid() {
           </div>
           <span className="rounded-full bg-amber-300 px-3 py-1 text-xs font-black text-slate-950">Kontrollü büyüme</span>
         </div>
+        <p className="mt-3 text-xs font-bold uppercase tracking-[.14em] text-slate-500">Örnek gösterge panelidir — gerçek müşteri sonucu değil, ölçülebilir bir çalışma sistemidir.</p>
         <div className="mt-6 grid gap-3 md:grid-cols-4">
           {proofMetrics.map(([value, label, text]) => <MetricCounter key={value} value={value} label={label} text={text} />)}
         </div>
@@ -221,7 +264,7 @@ function FloatingMacBook() {
         screen={
           <div className="flex h-full flex-col items-center justify-center gap-1 p-[8%] text-center">
             <span className="text-[9px] font-black uppercase tracking-[.16em] text-cyan-200">HK Dijital</span>
-            <span className="text-[8px] text-cyan-100/70">Giriş</span>
+            <span className="text-[8px] text-cyan-100/70">Operasyon Sistemi</span>
           </div>
         }
       />
@@ -348,18 +391,7 @@ export function CinematicHomepage({ content }: { content: SiteContent }) {
 
       <SectionShell id="faq-blog" eyebrow="07 Kaynaklar" title="Sık sorulan sorular ve başlangıç rehberleri." text="Karar vermeden önce kanal seçimi, bütçe ve ölçümleme mantığını sade biçimde inceleyebilirsiniz.">
         <div className="mt-10 grid gap-5 lg:grid-cols-[.9fr_1.1fr]">
-          <div className="grid gap-4">
-            {[
-              ["Manisa dışındaki işletmelere hizmet veriliyor mu?", "Evet. HK Dijital Manisa merkezlidir; Türkiye genelindeki işletmelerle uzaktan çalışma modeli kurulabilir."],
-              ["Satış garantisi veriliyor mu?", "Hayır. Satış garantisi verilmez; strateji, kurulum, optimizasyon, dönüşüm takibi ve raporlama süreci yönetilir."],
-              ["Hangi reklam kanalıyla başlamalıyım?", "Bu karar sektör, hedef, bütçe ve mevcut dijital varlıklara göre ön görüşmede netleştirilir."]
-            ].map(([question, answer]) => (
-              <div key={question} className="cinematic-card rounded-[18px] border border-white/10 bg-white/[0.045] p-6">
-                <h3 className="text-lg font-black text-white">{question}</h3>
-                <p className="mt-3 text-sm leading-7 text-slate-300">{answer}</p>
-              </div>
-            ))}
-          </div>
+          <FaqAccordion />
           <div className="grid gap-4">
             {blogPosts.map((post) => (
               <Link key={post.slug} href={`/blog/${post.slug}`} className="cinematic-card block rounded-[18px] border border-cyan-200/15 bg-cyan-200/[0.055] p-6 transition hover:-translate-y-1 hover:border-cyan-200/30">
