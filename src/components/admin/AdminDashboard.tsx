@@ -7,23 +7,32 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Activity, AlertTriangle, ArrowDown, ArrowUp, BarChart3, Bell, Bot, Building2, CircleCheck, CircleOff, Copy, Download, FileBarChart, Gauge, HelpCircle, ImagePlus, Loader2, LogOut, MapPinned, MessageSquareText, Plus, Save, Search, Settings2, Sparkles, Star, Trash2, UsersRound, X } from "lucide-react";
 import type { SiteContent } from "@/lib/types";
 import { ReportTools } from "@/components/admin/reports/ReportTools";
-import { WebsiteAnalyticsCenter } from "@/components/admin/WebsiteAnalyticsCenter";
 import { WebsiteAnalyticsSummaryCards } from "@/components/admin/WebsiteAnalyticsSummaryCards";
-import { SystemGuideCenter } from "@/components/admin/SystemGuideCenter";
-import { HKIntelligenceCommandCenter } from "@/components/admin/HKIntelligenceCommandCenter";
-import { HKAutonomousAgencyCenter } from "@/components/admin/HKAutonomousAgencyCenter";
-import { AdInsightsCenter } from "@/components/admin/AdInsightsCenter";
-import { AgentHubCenter } from "@/components/admin/AgentHubCenter";
-import { QaCenter } from "@/components/admin/QaCenter";
-import { AdsOperatingCenter, CustomerGrowthPanel, FunnelBuilderCenter, GrowthEngineCenter, GrowthMarketplaceCenter } from "@/components/admin/GrowthOperatingSystem";
 import { AdminCustomerSelector, CustomerWorkflowLinks, GlobalMetaPixelSettings, MetaPixelSettingsPanel } from "@/components/admin/AdminCustomerOperations";
-import { SocialMediaPlanCenter } from "@/components/admin/social-media/SocialMediaPlanCenter";
+
+// Route-specific, tab-gated module screens — loaded on demand instead of
+// bundled into the shared AdminDashboard client chunk (each is only rendered
+// behind a specific `active`/`tab` check, never on initial mount).
+const WebsiteAnalyticsCenter = dynamic(() => import("@/components/admin/WebsiteAnalyticsCenter").then((m) => m.WebsiteAnalyticsCenter), { ssr: false });
+const SystemGuideCenter = dynamic(() => import("@/components/admin/SystemGuideCenter").then((m) => m.SystemGuideCenter), { ssr: false });
+const HKIntelligenceCommandCenter = dynamic(() => import("@/components/admin/HKIntelligenceCommandCenter").then((m) => m.HKIntelligenceCommandCenter), { ssr: false });
+const HKAutonomousAgencyCenter = dynamic(() => import("@/components/admin/HKAutonomousAgencyCenter").then((m) => m.HKAutonomousAgencyCenter), { ssr: false });
+const AdInsightsCenter = dynamic(() => import("@/components/admin/AdInsightsCenter").then((m) => m.AdInsightsCenter), { ssr: false });
+const AgentHubCenter = dynamic(() => import("@/components/admin/AgentHubCenter").then((m) => m.AgentHubCenter), { ssr: false });
+const QaCenter = dynamic(() => import("@/components/admin/QaCenter").then((m) => m.QaCenter), { ssr: false });
+const AdsOperatingCenter = dynamic(() => import("@/components/admin/GrowthOperatingSystem").then((m) => m.AdsOperatingCenter), { ssr: false });
+const CustomerGrowthPanel = dynamic(() => import("@/components/admin/GrowthOperatingSystem").then((m) => m.CustomerGrowthPanel), { ssr: false });
+const FunnelBuilderCenter = dynamic(() => import("@/components/admin/GrowthOperatingSystem").then((m) => m.FunnelBuilderCenter), { ssr: false });
+const GrowthEngineCenter = dynamic(() => import("@/components/admin/GrowthOperatingSystem").then((m) => m.GrowthEngineCenter), { ssr: false });
+const GrowthMarketplaceCenter = dynamic(() => import("@/components/admin/GrowthOperatingSystem").then((m) => m.GrowthMarketplaceCenter), { ssr: false });
+const SocialMediaPlanCenter = dynamic(() => import("@/components/admin/social-media/SocialMediaPlanCenter").then((m) => m.SocialMediaPlanCenter), { ssr: false });
 import { AdminPeriodFilter } from "@/components/admin/ui/AdminPeriodFilter";
 import { isDateWithinAdminPeriod, resolveAdminPeriodRange, type AdminPeriodKey } from "@/lib/admin-period-filter";
 import { CustomerProfileTasks } from "@/components/admin/customer-profile/CustomerProfileTasks";
@@ -8605,24 +8614,6 @@ function CustomerOnboardingEditor({ company, content, setContent, setTab, notify
   </div>;
 }
 
-function LegacyCustomerTasksEditor({ company, content, setContent, save, items, notify, canManage = true }: any) {
-  const allItems = content.agencyTasks || [];
-  const { run, label } = useCustomerActionFeedback(notify);
-  const [statusFilter, setStatusFilter] = useState("Tümü");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const update = (id, patch) => updateCollection(content, setContent, "agencyTasks", allItems.map((item) => item.id === id ? { ...item, ...patch } : item));
-  const setStatus = (id, status) => updateCollection(content, setContent, "agencyTasks", allItems.map((item) => item.id === id ? stampTaskStatus(item, status) : item));
-  const archive = (id) => update(id, { archived_at: new Date().toISOString() });
-  const restore = (id) => update(id, { archived_at: null, deleted_at: null });
-  const visibleItems = filterTasks(items, { status: statusFilter, startDate, endDate });
-  function add() {
-    updateCollection(content, setContent, "agencyTasks", [{ id: createLocalId(), company_id: company.id, title: "Yeni görev", description: "", status: "Yapılacak", priority: "Orta", due_date: new Date().toISOString().slice(0, 10), notes: "" }, ...allItems]);
-    notify?.("✓ Görev taslağı oluşturuldu", "success");
-  }
-  return <div><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-slate-900">Yapılacaklar</h3><p className="mt-1 text-sm text-slate-400">Bu görevler Görevler modülü ve Dashboard operasyon özetleriyle eş zamanlıdır.</p></div>{canManage && <button onClick={add} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">Görev Ekle</button>}</div><div className="mb-4 grid gap-3 md:grid-cols-4"><SelectField label="Durum filtresi" value={statusFilter} onChange={setStatusFilter} options={taskHistoryFilters} /><Field label="Başlangıç tarihi" type="date" value={startDate} onChange={setStartDate} /><Field label="Bitiş tarihi" type="date" value={endDate} onChange={setEndDate} /><button onClick={() => { setStatusFilter("Tümü"); setStartDate(""); setEndDate(""); }} className="self-end rounded-[8px] border border-slate-200 px-4 py-3 text-sm font-black text-slate-700">Filtreleri Temizle</button></div><div className="grid gap-3">{visibleItems.map((item) => <div key={item.id} className={`rounded-[8px] border p-4 ${isArchivedRecord(item) ? "border-amber-300/25 bg-amber-300/[0.06]" : "border-slate-200 bg-slate-50"}`}><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"><Field label="Başlık" value={item.title || ""} onChange={(value) => update(item.id, { title: value })} /><SelectField label="Durum" value={item.status || "Yapılacak"} onChange={(value) => canManage && setStatus(item.id, value)} options={taskStatusOptions} /><SelectField label="Öncelik" value={item.priority || "Orta"} onChange={(value) => update(item.id, { priority: value })} options={["Düşük", "Orta", "Yüksek", "Kritik"]} /><Field label="Son tarih" type="date" value={item.due_date || ""} onChange={(value) => update(item.id, { due_date: value })} /><SelectField label="Atanan kullanıcı" value={item.assigned_user_id || ""} onChange={(value) => update(item.id, { assigned_user_id: value })} options={(content.users || []).map((user) => ({ value: user.id, label: user.full_name || user.email }))} placeholder="Atanmadı" /><InfoItem label="Tamamlanma tarihi" value={formatDateTime(item.completed_at)} /><InfoItem label="Oluşturulma tarihi" value={formatDateTime(item.created_at)} /><InfoItem label="Güncellenme tarihi" value={formatDateTime(item.updated_at)} /><div className="md:col-span-2 xl:col-span-3"><TextArea label="Açıklama / not" value={item.description || item.notes || ""} onChange={(value) => update(item.id, { description: value, notes: value })} /></div></div><div className="mt-4 flex flex-wrap justify-end gap-2">{canManage && (isArchivedRecord(item) ? <button onClick={() => restore(item.id)} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-700">Arşivden Çıkar</button> : <button onClick={() => archive(item.id)} className="rounded-full border border-amber-300/30 px-4 py-2 text-xs text-amber-700">Arşivle</button>)}{canManage && <button onClick={() => setStatus(item.id, item.status === "Tamamlandı" ? "Yapılacak" : "Tamamlandı")} className="rounded-full border border-emerald-300/30 px-4 py-2 text-xs text-emerald-700">{item.status === "Tamamlandı" ? "Tekrar Aç" : "Tamamlandı Yap"}</button>}{canManage && <button onClick={() => run(`task-${item.id}`, "Kaydediliyor...", "Kaydedildi", () => save?.())} className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-slate-950">{label(`task-${item.id}`, "Kaydet")}</button>}<button onClick={() => window.location.reload()} className="rounded-full border border-slate-200 px-4 py-2 text-xs text-slate-700">Vazgeç</button></div></div>)}{!visibleItems.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-5 text-sm text-slate-400">Bu müşteri için görev kaydı bulunamadı.</p>}</div></div>;
-}
-
 function CustomerTasksEditor(props: any) {
   return <CustomerProfileTasks {...props} />;
 }
@@ -8747,16 +8738,6 @@ function ActivityList({ items, empty, selectedIds = [], toggleSelected, updateLo
     const result = item.details?.error ? "Hata" : item.details?.result || item.result || "Başarılı";
     return <div key={item.id} className={`rounded-[8px] border p-2.5 text-xs ${item.archived_at ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white"}`}><div className="flex flex-wrap items-start justify-between gap-2"><div className="flex min-w-0 gap-2">{toggleSelected && <input type="checkbox" checked={selectedIds.includes(item.id)} onChange={() => toggleSelected(item.id)} className="mt-1" />}<div><p className="font-black text-slate-950">{item.details?.message || `${item.entity} · ${item.action}`}</p><div className="mt-1 grid gap-0.5 text-[11px] text-slate-600 sm:grid-cols-2"><span><strong>Firma:</strong> {item.company_name || "Genel sistem"}</span><span><strong>Kullanıcı:</strong> {item.actor_name || "Sistem"}</span><span><strong>Rol:</strong> {roleOptions.find((role) => role.value === item.role)?.label || item.role || "Sistem"}</span><span><strong>Modül:</strong> {item.module || item.entity}</span><span><strong>İşlem:</strong> {item.action_type || item.action}</span><span><strong>Tarih:</strong> {formatDateTime(item.created_at)}</span></div></div></div><div className="flex flex-wrap justify-end gap-1.5"><span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${result === "Hata" ? "bg-red-100 text-red-700" : result === "Uyarı" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>{result}</span><span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">{status}</span>{item.is_critical && <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700">Kritik</span>}</div></div>{updateLog && <div className="mt-2 flex flex-wrap gap-1.5"><button onClick={() => updateLog(item.id, { is_seen: true, status: "Görüldü" })} className="rounded-full border border-emerald-300 px-2.5 py-1.5 text-[11px] text-emerald-700">Görüldü Yap</button><button onClick={() => updateLog(item.id, { is_seen: false, status: "Görülmedi" })} className="rounded-full border border-slate-300 px-2.5 py-1.5 text-[11px] text-slate-700">Görülmedi Yap</button><button onClick={() => updateLog(item.id, { archived_at: new Date().toISOString(), status: "Arşivlendi" })} className="rounded-full border border-amber-300 px-2.5 py-1.5 text-[11px] text-amber-700">Arşivle</button><button onClick={() => confirm("Bu log kaydını silmek istediğinize emin misiniz?") && updateLog(item.id, { deleted_at: new Date().toISOString(), status: "Silindi" })} className="rounded-full border border-red-300 px-2.5 py-1.5 text-[11px] text-red-700">Sil</button>{canUndo && <button onClick={() => undoLog?.(item)} className="rounded-full border border-cyan-300 px-2.5 py-1.5 text-[11px] text-cyan-700">Geri Al</button>}<button onClick={() => openDetail?.(item)} className="ml-auto rounded-full bg-cyan-500 px-2.5 py-1.5 text-[11px] font-black text-white">Görüntüle</button></div>}</div>;
   })}{!items.length && <p className="text-xs text-slate-400">{empty}</p>}</div>;
-}
-
-function ReportsAdmin({ content, setContent }: any) {
-  return (
-    <Panel title="Reklam Raporları">
-      <CampaignAdmin content={content} setContent={setContent} />
-      <MetricAdmin content={content} setContent={setContent} />
-      <UpdatesAdmin content={content} setContent={setContent} />
-    </Panel>
-  );
 }
 
 function AdAccountMappingCenter({ content, setContent, save, notify }: any) {
@@ -9651,22 +9632,6 @@ function CrmHub(props: any) {
   return <div><HubTabs items={["Form Başvuruları", "Teklif Sihirbazı Kayıtları", "Takip Notları"]} active={tab} onChange={setTab} /><Crm {...props} view={tab} setActive={() => {}} /></div>;
 }
 
-function SiteSettingsHub(props: any) {
-  const [tab, setTab] = useState("Sayfa İçerikleri");
-  const items = ["Sayfa İçerikleri", "Marka Ayarları", "Sosyal Medya", "Hizmetler", "Paketler", "Sertifikalar", "Teklif Sihirbazı", "Tema ve Ölçümleme"];
-  return <div>
-    <HubTabs items={items} active={tab} onChange={setTab} />
-    {tab === "Sayfa İçerikleri" && <Pages {...props} />}
-    {tab === "Marka Ayarları" && <Brand {...props} />}
-    {tab === "Sosyal Medya" && <KeyValue title="Sosyal Medya Yönetimi" object={props.content.socials} onChange={(object) => props.setContent({ ...props.content, socials: object })} />}
-    {tab === "Hizmetler" && <Collection title="Hizmet Yönetimi" type="service" items={props.content.services} setItems={(items) => props.setContent({ ...props.content, services: items })} />}
-    {tab === "Paketler" && <Collection title="Paket Yönetimi" type="package" items={props.content.packages} setItems={(items) => props.setContent({ ...props.content, packages: items })} />}
-    {tab === "Sertifikalar" && <Collection title="Sertifika Yönetimi" type="certificate" items={props.content.certificates} setItems={(items) => props.setContent({ ...props.content, certificates: items })} />}
-    {tab === "Teklif Sihirbazı" && <QuoteWizardAdmin {...props} />}
-    {tab === "Tema ve Ölçümleme" && <Settings {...props} />}
-  </div>;
-}
-
 function ReportsHub(props: any) {
   const [tab, setTab] = useState("Raporlama Merkezi");
   return <div>
@@ -10536,18 +10501,6 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
   }
   function createFollowupTask(record: any) {
     prepareAction("Takip görevi taslağı hazırlandı", record, ["Görevler ekranında sorumlu kişiyi ata.", "Sonraki temas tarihini belirle.", "Sonuç notunu CRM’e işle."], [{ label: "Görevleri Gör", href: "/hk-admin/gorevler" }]);
-  }
-  async function analyze(item) {
-    const lead = item.id ? item : existingLeadFor(item) || await saveBusiness(item);
-    if (!lead?.id) return;
-    setLoading(`analyze-${lead.id}`);
-    setMessage("Yapay zekâ analizi hazırlanıyor...");
-    const response = await fetch(`/api/admin/leads/${lead.id}/analyze`, { method: "POST" });
-    const data = await response.json().catch(() => ({}));
-    setLoading("");
-    if (!response.ok) return setMessage(data.error || "Yapay zekâ analizi oluşturulamadı.");
-    patchLead(lead.id, { ai_analysis: data.analysis });
-    setMessage("Yapay zekâ analizi oluşturuldu.");
   }
   async function proposalFor(record) {
     const existing = existingLeadFor(record);
