@@ -75,7 +75,12 @@ export async function supabaseRest<T>(
   }
 
   if (response.status === 204) return null as T;
-  return (await response.json()) as T;
+  // PostgREST returns 200/201 with an EMPTY body (not 204) whenever a caller
+  // sets `Prefer: return=minimal` — calling .json() directly on that throws
+  // "Unexpected end of JSON input" (this was crashing the lead-to-customer
+  // conversion flow's onboarding-task inserts, which use return=minimal).
+  const raw = await response.text();
+  return (raw ? JSON.parse(raw) : null) as T;
 }
 
 export async function uploadToSupabaseStorage(file: File, folder = "media") {

@@ -132,7 +132,12 @@ async function supabaseAuthRequest<T>(
     throw new Error(detail || "Supabase Auth isteği başarısız oldu.");
   }
 
-  return (await response.json()) as T;
+  // Some GoTrue admin endpoints (e.g. PUT admin/users/:id in certain
+  // Supabase versions) return a 2xx with an empty body — calling .json()
+  // directly on that throws "Unexpected end of JSON input" and was crashing
+  // the lead-to-customer conversion flow.
+  const raw = await response.text();
+  return (raw ? JSON.parse(raw) : {}) as T;
 }
 
 export async function signInWithPassword(email: string, password: string) {

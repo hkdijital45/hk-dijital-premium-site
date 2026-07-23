@@ -1,4 +1,12 @@
 import { defineConfig, devices } from "@playwright/test";
+import { loadEnvConfig } from "@next/env";
+
+// The Playwright test runner is a plain Node process — unlike `next dev`/
+// `next start`, it never loads .env.local on its own. Use Next's own loader
+// (already a dependency via `next`, no new package needed) so QA_ADMIN_EMAIL/
+// QA_ADMIN_PASSWORD etc. in .env.local reach process.env here exactly the
+// way the app itself would read them.
+loadEnvConfig(process.cwd());
 
 // Real Playwright infrastructure for HK Dijital (Final Development Sprint D).
 // Runs against a locally-built production server (npm run start) unless
