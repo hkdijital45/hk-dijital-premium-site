@@ -3546,9 +3546,9 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 /* ---- Desktop application frame (lg+ only) ------------------------------
    Below lg, the admin shell keeps its original free-flowing page-scroll
    layout (mobile/tablet functionality is intentionally untouched). From lg
-   up, the whole app renders inside a centered, bordered "desktop app
-   window" with its own internal scrolling, so the browser body itself never
-   becomes the scroll container. */
+   up, the whole app fills the real browser viewport (small gutter only) as
+   a full desktop SaaS operating workspace, with its own internal scrolling
+   so the browser body itself never becomes the scroll container. */
 @media (min-width: 1024px) {
   .admin-app-shell {
     background: var(--admin-desktop-wallpaper, var(--admin-bg));
@@ -3558,7 +3558,6 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
     display: flex;
     flex-direction: column;
     width: calc(100vw - 32px);
-    max-width: 1680px;
     min-height: calc(100dvh - 32px);
     max-height: calc(100dvh - 32px);
     margin: 16px auto;

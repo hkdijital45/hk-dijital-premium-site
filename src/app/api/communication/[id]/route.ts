@@ -17,18 +17,33 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const conversation = await getAccessibleConversation(context, id);
   if (!conversation) return NextResponse.json({ error: "Konuşma bulunamadı veya erişim yetkiniz yok." }, { status: 404 });
   try {
-    const [messages, attachments, reads, notes, activity, assignments, users] = await Promise.all([
+    const [messages, attachments, reads, notes, activity, assignments, users, companies, branches] = await Promise.all([
       supabaseRest<Array<Record<string, unknown>>>(`customer_messages?conversation_id=eq.${id}&deleted_at=is.null&select=*&order=created_at.asc`),
       supabaseRest<Array<Record<string, unknown>>>(`conversation_attachments?conversation_id=eq.${id}&select=id,message_id,original_name,mime_type,file_size,created_at&order=created_at.asc`),
       supabaseRest<Array<{ message_id: string }>>(`conversation_reads?conversation_id=eq.${id}&user_id=eq.${context.profileId}&select=message_id`),
       context.isStaff ? supabaseRest<Array<Record<string, unknown>>>(`conversation_internal_notes?conversation_id=eq.${id}&select=*&order=created_at.desc`) : Promise.resolve([]),
       context.isStaff ? supabaseRest<Array<Record<string, unknown>>>(`conversation_activity?conversation_id=eq.${id}&select=*&order=created_at.desc&limit=100`) : Promise.resolve([]),
       context.isStaff ? supabaseRest<Array<Record<string, unknown>>>(`conversation_assignments?conversation_id=eq.${id}&select=assigned_to,assigned_by,created_at&order=created_at.desc&limit=50`) : Promise.resolve([]),
-      supabaseRest<Array<{ id: string; full_name: string | null }>>("users?select=id,full_name")
+      supabaseRest<Array<{ id: string; full_name: string | null }>>("users?select=id,full_name"),
+      supabaseRest<Array<{ id: string; name: string }>>(`companies?id=eq.${conversation.company_id}&select=id,name&limit=1`),
+      conversation.branch_id
+        ? supabaseRest<Array<{ id: string; branch_name: string }>>(`customer_branches?id=eq.${conversation.branch_id}&select=id,branch_name&limit=1`)
+        : Promise.resolve([])
     ]);
     const names = new Map(users.map((user) => [user.id, user.full_name || "Kullanıcı"]));
+    // The list endpoint (/api/communication) enriches each row with
+    // company_name/branch_name/assigned_name via the same joins; this detail
+    // endpoint must match that shape exactly, since the right-side management
+    // panel derives its "is a conversation selected" signal from these fields
+    // (see AdminDetailInspector's `title` prop) rather than from `detail` itself.
+    const enrichedConversation = {
+      ...conversation,
+      company_name: companies[0]?.name || "Müşteri",
+      branch_name: conversation.branch_id ? branches[0]?.branch_name || "Şube" : null,
+      assigned_name: conversation.assigned_to ? names.get(conversation.assigned_to) || "Ekip üyesi" : null
+    };
     return NextResponse.json({
-      conversation,
+      conversation: enrichedConversation,
       messages: messages.map((message) => ({ ...message, sender_name: names.get(String(message.sender_id || "")) || (message.sender_type === "staff" ? "HK Dijital" : "Müşteri") })),
       attachments,
       readMessageIds: reads.map((item) => item.message_id),
