@@ -46,16 +46,16 @@ export function ContactForm() {
         ].map(([label, name]) => (
           <label key={label} className="grid gap-2 text-sm font-semibold text-slate-200">
             {label}
-            <input name={name} required className="min-h-12 rounded-[8px] border border-white/10 bg-black/30 px-4 text-white focus:ring-2 focus:ring-cyan-300" />
+            <input name={name} required className="min-h-12 rounded-[8px] border border-white/10 bg-black/30 px-4 text-white focus:ring-2 focus:ring-[#4fa8f0]" />
           </label>
         ))}
         <label className="grid gap-2 text-sm font-semibold text-slate-200">
           Mesajınız
-          <textarea name="note" required rows={5} className="rounded-[8px] border border-white/10 bg-black/30 px-4 py-3 text-white focus:ring-2 focus:ring-cyan-300" />
+          <textarea name="note" required rows={5} className="rounded-[8px] border border-white/10 bg-black/30 px-4 py-3 text-white focus:ring-2 focus:ring-[#4fa8f0]" />
         </label>
-        <button type="submit" className="min-h-12 rounded-full bg-cyan-300 px-6 text-sm font-black text-slate-950">Gönder</button>
+        <button type="submit" className="min-h-12 rounded-full bg-gradient-to-r from-[#2f5bff] to-[#4fa8f0] px-6 text-sm font-black text-white">Gönder</button>
         {error && <p className="rounded-[8px] bg-red-500/10 p-4 text-sm text-red-100">{error}</p>}
-        {sent && <p className="rounded-[8px] bg-cyan-300/10 p-4 text-sm text-cyan-100">Mesajınız alındı. HK Dijital ekibi bilgilerinizi inceleyip uygun zamanda dönüş yapacaktır.</p>}
+        {sent && <p className="rounded-[8px] bg-[#2f5bff]/10 p-4 text-sm text-[#a9c9ff]">Mesajınız alındı. HK Dijital ekibi bilgilerinizi inceleyip uygun zamanda dönüş yapacaktır.</p>}
       </form>
     </PremiumCard>
   );

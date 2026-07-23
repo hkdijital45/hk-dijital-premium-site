@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarCheck, ChevronDown, Menu, X } from "lucide-react";
+import { CalendarCheck, ChevronDown, Menu, MessageCircle, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { SiteContent } from "@/lib/types";
 import { trackMetaCtaClick } from "@/lib/meta-pixel";
@@ -20,6 +20,7 @@ const serviceLinks = [
 const mainNav = [
   ["Ana Sayfa", "/"],
   ["Paketler", "/paketler"],
+  ["Nasıl Çalışıyoruz", "/#process"],
   ["Hakkımızda", "/hakkimda"],
   ["Blog", "/blog"],
   ["İletişim", "/iletisim"]
@@ -30,6 +31,7 @@ export function Header({ content }: { content: SiteContent }) {
   const menuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const isActive = (href: string) => href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
+  const whatsappUrl = content.socials?.whatsapp || (content.contact?.whatsappNumber ? `https://wa.me/${content.contact.whatsappNumber.replace(/\D/g, "")}` : "/iletisim");
 
   useEffect(() => {
     if (!open) return;
@@ -80,8 +82,11 @@ export function Header({ content }: { content: SiteContent }) {
         </nav>
 
         <div className="hidden items-center gap-2 lg:flex">
-          <Link href="/teklif-al" onClick={() => trackMetaCtaClick("Header Ücretsiz Ön Görüşme", "/teklif-al")} className="impact-btn inline-flex min-h-11 items-center gap-2 rounded-full border border-[#4fa8f0]/40 bg-gradient-to-r from-[#2f5bff] to-[#4fa8f0] px-5 text-sm font-bold text-white shadow-[0_0_42px_rgba(47,91,255,.38)] transition hover:-translate-y-0.5 hover:brightness-110">
-            <CalendarCheck size={17} /> Ücretsiz Ön Görüşme
+          <a href={whatsappUrl} target="_blank" rel="noreferrer" onClick={() => trackMetaCtaClick("Header WhatsApp", whatsappUrl)} className="impact-btn inline-flex min-h-11 items-center gap-2 rounded-full border border-[#25D366]/40 bg-white/[0.04] px-4 text-sm font-bold text-white transition hover:border-[#25D366]/70 hover:bg-[#25D366]/10">
+            <MessageCircle size={17} className="text-[#25D366]" /> WhatsApp
+          </a>
+          <Link href="/teklif-al" onClick={() => trackMetaCtaClick("Header Paketini Bul", "/teklif-al")} className="impact-btn inline-flex min-h-11 items-center gap-2 rounded-full border border-[#4fa8f0]/40 bg-gradient-to-r from-[#2f5bff] to-[#4fa8f0] px-5 text-sm font-bold text-white shadow-[0_0_42px_rgba(47,91,255,.38)] transition hover:-translate-y-0.5 hover:brightness-110">
+            <CalendarCheck size={17} /> Paketini Bul
           </Link>
         </div>
 
@@ -109,9 +114,12 @@ export function Header({ content }: { content: SiteContent }) {
                 {label}
               </Link>
             ))}
-            <Link href="/teklif-al" onClick={() => { trackMetaCtaClick("Mobil Ücretsiz Ön Görüşme", "/teklif-al"); setOpen(false); }} className="impact-btn rounded-2xl bg-gradient-to-r from-[#2f5bff] to-[#4fa8f0] px-4 py-3 text-base font-bold text-white shadow-[0_0_32px_rgba(47,91,255,.32)]">
-              <span className="inline-flex items-center gap-2"><CalendarCheck size={17} /> Ücretsiz Ön Görüşme</span>
+            <Link href="/teklif-al" onClick={() => { trackMetaCtaClick("Mobil Paketini Bul", "/teklif-al"); setOpen(false); }} className="impact-btn rounded-2xl bg-gradient-to-r from-[#2f5bff] to-[#4fa8f0] px-4 py-3 text-base font-bold text-white shadow-[0_0_32px_rgba(47,91,255,.32)]">
+              <span className="inline-flex items-center gap-2"><CalendarCheck size={17} /> Paketini Bul</span>
             </Link>
+            <a href={whatsappUrl} target="_blank" rel="noreferrer" onClick={() => { trackMetaCtaClick("Mobil WhatsApp", whatsappUrl); setOpen(false); }} className="impact-btn rounded-2xl border border-[#25D366]/40 bg-white/[0.04] px-4 py-3 text-base font-bold text-white">
+              <span className="inline-flex items-center gap-2"><MessageCircle size={17} className="text-[#25D366]" /> WhatsApp&apos;tan Görüş</span>
+            </a>
           </nav>
         </div>
       )}
