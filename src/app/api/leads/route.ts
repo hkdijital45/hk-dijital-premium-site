@@ -3,6 +3,7 @@ import { getSiteContent, saveSiteContent } from "@/lib/content";
 import { isAdminAuthenticated } from "@/lib/auth";
 import type { Lead, LeadStatus } from "@/lib/types";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
+import { isGenericBusinessCategory, sanitizeBusinessCategory } from "@/lib/business-category";
 
 const statuses: LeadStatus[] = ["Yeni", "Görüşülecek", "Teklif Hazırlanıyor", "Teklif Gönderildi", "Takipte", "Kazanıldı", "Kaybedildi", "Dönüştürüldü"];
 
@@ -29,9 +30,12 @@ export async function POST(request: Request) {
   const phone = String(payload.phone || "").replace(/\D/g, "");
   if (!name && !company) return NextResponse.json({ error: "Ad soyad veya firma adı zorunludur." }, { status: 400 });
   if (!email && phone.length < 10) return NextResponse.json({ error: "Geçerli bir e-posta veya telefon numarası girin." }, { status: 400 });
+  const source = payload.source === "contact" ? "İletişim Formu" : payload.source === "wizard" ? "Teklif Sihirbazı" : "Teklif Formu";
+  if (source !== "İletişim Formu" && Object.prototype.hasOwnProperty.call(payload, "businessType") && isGenericBusinessCategory(payload.businessType)) {
+    return NextResponse.json({ error: "Geçerli bir işletme sektörü belirtilmelidir." }, { status: 400 });
+  }
   if (hasSupabaseConfig()) {
     try {
-      const source = payload.source === "contact" ? "İletişim Formu" : payload.source === "wizard" ? "Teklif Sihirbazı" : "Teklif Formu";
       const recentThreshold = new Date(Date.now() - 10 * 60 * 1000).toISOString();
       const contactFilter = email ? `email=eq.${encodeURIComponent(email)}` : `phone=eq.${encodeURIComponent(phone)}`;
       const existing = await supabaseRest<any[]>(`leads?${contactFilter}&source=eq.${encodeURIComponent(source)}&created_at=gte.${encodeURIComponent(recentThreshold)}&select=*&order=created_at.desc&limit=1`).catch(() => []);
@@ -46,7 +50,7 @@ export async function POST(request: Request) {
           email,
           instagram: payload.instagram || "",
           website: payload.website || "",
-          business_type: payload.businessType || "",
+          business_type: sanitizeBusinessCategory(payload.businessType),
           goal: payload.goal || "",
           budget: payload.budget || "",
           recommended_package: payload.recommendedPackage || "",
@@ -90,7 +94,7 @@ export async function POST(request: Request) {
     email: payload.email || "",
     instagram: payload.instagram || "",
     website: payload.website || "",
-    businessType: payload.businessType || "",
+    businessType: sanitizeBusinessCategory(payload.businessType),
     goal: payload.goal || "",
     budget: payload.budget || "",
     recommendedPackage: payload.recommendedPackage || "",

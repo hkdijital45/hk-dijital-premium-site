@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { useMemo, useState, type Dispatch, type KeyboardEvent, type SetStateAction } from "react";
 import type { ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, MessageCircle, Sparkles, Target, Trophy } from "lucide-react";
 import type { PackageItem, SiteContent } from "@/lib/types";
 import { CONTENT_NEED_OPTIONS, SOCIAL_STATUS_OPTIONS, URGENCY_OPTIONS, formatBudgetRange, formatTRY, getPackagePricing, packageChoiceLabel, recommendServicePackage, type AdBudgetEstimate } from "@/lib/packages";
+import { businessCards, isValidCustomCategory, normalizeCustomCategory, OTHER_BUSINESS_TYPE_ID, MAX_BUSINESS_CATEGORY_LENGTH, resolveBusinessCategory } from "@/lib/business-category";
 import { trackEvent } from "./TrackingPlaceholders";
 
 type Answers = Record<string, string>;
@@ -57,17 +58,6 @@ type ContactStepProps = {
 
 const steps = ["İşletme", "Hedef", "Platform", "Bütçe", "İhtiyaç", "Öneri", "İletişim"];
 
-const businessCards = [
-  { id: "bakery", label: "Butik Pasta", emoji: "🎂", hint: "Sipariş, özel gün ve yerel talep" },
-  { id: "cafe", label: "Kafe", emoji: "☕", hint: "Konum, ziyaret ve sosyal görünürlük" },
-  { id: "restaurant", label: "Restoran", emoji: "🍽️", hint: "Rezervasyon, paket servis ve bilinirlik" },
-  { id: "health", label: "Sağlık", emoji: "🏥", hint: "Güven, randevu ve bilgilendirme" },
-  { id: "real-estate", label: "Emlak", emoji: "🏠", hint: "Portföy, talep ve düzenli takip sistemi" },
-  { id: "education", label: "Eğitim", emoji: "🎓", hint: "Başvuru, kayıt ve marka algısı" },
-  { id: "ecommerce", label: "E-Ticaret", emoji: "🛒", hint: "Satış hunisi ve yeniden pazarlama" },
-  { id: "other", label: "Diğer", emoji: "➕", hint: "İhtiyaca göre özel analiz" }
-];
-
 const goalCards = [
   { id: "sales", label: "Daha Fazla Satış", emoji: "📈", hint: "Satın alma niyetini artıran kampanya kurgusu" },
   { id: "lead", label: "Daha Fazla Mesaj", emoji: "💬", hint: "Form, WhatsApp, doğrudan mesaj ve arama odaklı talep akışı" },
@@ -102,14 +92,17 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
   const searchParams = useSearchParams();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Answers>({ selectedPackage: searchParams.get("paket") || "" });
+  const [customBusinessType, setCustomBusinessType] = useState("");
   const [form, setForm] = useState<Answers>({});
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
 
+  const resolvedBusinessCategory = resolveBusinessCategory(answers.businessType, customBusinessType);
+
   const recommendation = useMemo(() => {
     const selected = answers.selectedPackage ? getPackageById(content, answers.selectedPackage) : null;
     const smart = recommendServicePackage({
-      sector: selectedLabel(businessCards, answers.businessType),
+      sector: resolvedBusinessCategory,
       goal: selectedLabel(goalCards, answers.goal),
       platform: selectedLabel(platformCards, answers.platform),
       budget: answers.budget,
@@ -125,11 +118,11 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
       roadmap: smart.roadmap,
       adBudget: smart.adBudget
     };
-  }, [answers, content]);
+  }, [answers, content, resolvedBusinessCategory]);
   const budgetResearchInput = useMemo<AiBudgetResearchInput>(() => {
     const pricing = getPackagePricing(recommendation.recommended.id);
     return {
-      sector: selectedLabel(businessCards, answers.businessType),
+      sector: resolvedBusinessCategory,
       marketLocation: "Türkiye",
       goal: selectedLabel(goalCards, answers.goal),
       platformNeed: selectedLabel(platformCards, answers.platform),
@@ -141,12 +134,22 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
       selectedPackageName: recommendation.recommended.name,
       packageBasePrice: pricing?.basePrice || 0
     };
-  }, [answers, recommendation.recommended]);
+  }, [answers, recommendation.recommended, resolvedBusinessCategory]);
 
   function select(key: string, value: string) {
     if (step === 0) trackEvent("quote_wizard_started");
     setAnswers((current) => ({ ...current, [key]: value }));
     trackEvent("quote_step_completed", { step: key, value });
+    if (key === "businessType") {
+      if (value === OTHER_BUSINESS_TYPE_ID) return; // stay on this step until a valid custom sector is entered
+      setCustomBusinessType("");
+    }
+    setStep((current) => Math.min(current + 1, 5));
+  }
+
+  function confirmCustomBusinessType() {
+    if (!isValidCustomCategory(customBusinessType)) return;
+    trackEvent("quote_step_completed", { step: "businessType", value: normalizeCustomCategory(customBusinessType) });
     setStep((current) => Math.min(current + 1, 5));
   }
 
@@ -167,7 +170,7 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
       body: JSON.stringify({
         source: "quote",
         ...form,
-        businessType: selectedLabel(businessCards, answers.businessType),
+        businessType: resolvedBusinessCategory,
         goal: selectedLabel(goalCards, answers.goal),
         platformNeed: selectedLabel(platformCards, answers.platform),
         budget: selectedLabel(budgetCards, answers.budget),
@@ -187,7 +190,7 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
   }
 
   const whatsappMessage = encodeURIComponent(
-    `HK Dijital akıllı paket analizi\nPaket: ${recommendation.recommended.name}\nAlternatif: ${recommendation.alternative.name}\nİşletme türü: ${selectedLabel(businessCards, answers.businessType)}\nHedef: ${selectedLabel(goalCards, answers.goal)}\nPlatform: ${selectedLabel(platformCards, answers.platform)}\nBütçe: ${selectedLabel(budgetCards, answers.budget)}\nİçerik ihtiyacı: ${packageChoiceLabel("content", answers.contentNeed)}\nAciliyet: ${packageChoiceLabel("urgency", answers.urgency)}\nSosyal medya durumu: ${packageChoiceLabel("social", answers.socialStatus)}\nAd Soyad: ${form.name || "-"}\nFirma: ${form.company || "-"}\nE-posta: ${form.email || "-"}\nTelefon: ${form.phone || "-"}\nInstagram: ${form.instagram || "-"}\nWeb: ${form.website || "-"}\nNot: ${form.note || "-"}`
+    `HK Dijital akıllı paket analizi\nPaket: ${recommendation.recommended.name}\nAlternatif: ${recommendation.alternative.name}\nİşletme türü: ${resolvedBusinessCategory}\nHedef: ${selectedLabel(goalCards, answers.goal)}\nPlatform: ${selectedLabel(platformCards, answers.platform)}\nBütçe: ${selectedLabel(budgetCards, answers.budget)}\nİçerik ihtiyacı: ${packageChoiceLabel("content", answers.contentNeed)}\nAciliyet: ${packageChoiceLabel("urgency", answers.urgency)}\nSosyal medya durumu: ${packageChoiceLabel("social", answers.socialStatus)}\nAd Soyad: ${form.name || "-"}\nFirma: ${form.company || "-"}\nE-posta: ${form.email || "-"}\nTelefon: ${form.phone || "-"}\nInstagram: ${form.instagram || "-"}\nWeb: ${form.website || "-"}\nNot: ${form.note || "-"}`
   );
   const whatsappUrl = `https://wa.me/${content.contact.whatsappNumber.replace(/\D/g, "")}?text=${whatsappMessage}`;
   const progress = ((step + 1) / steps.length) * 100;
@@ -227,7 +230,14 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
 
           <div className="mt-10 min-h-[430px]">
             <AnimatePresence mode="wait">
-              {step === 0 && <StepPanel key="business"><Options title="İşletme Türünüz" text="Sektörünüzü seçin; öneri sistemi strateji seviyesini buna göre yorumlar." options={businessCards} onSelect={(value) => select("businessType", value)} /></StepPanel>}
+              {step === 0 && (
+                <StepPanel key="business">
+                  <Options title="İşletme Türünüz" text="Sektörünüzü seçin; öneri sistemi strateji seviyesini buna göre yorumlar." options={businessCards} selectedId={answers.businessType} onSelect={(value) => select("businessType", value)} />
+                  {answers.businessType === OTHER_BUSINESS_TYPE_ID && (
+                    <CustomBusinessTypeField value={customBusinessType} onChange={setCustomBusinessType} onContinue={confirmCustomBusinessType} />
+                  )}
+                </StepPanel>
+              )}
               {step === 1 && <StepPanel key="goal"><Options title="Ana Hedefiniz" text="Reklam çalışmasının ana odağını seçin. Her hedef farklı bir kampanya kurgusu gerektirir." options={goalCards} onSelect={(value) => select("goal", value)} /></StepPanel>}
               {step === 2 && <StepPanel key="platform"><Options title="Platform İhtiyacınız" text="Meta, Google, sosyal medya veya hepsini kapsayan yapıyı seçin." options={platformCards} onSelect={(value) => select("platform", value)} /></StepPanel>}
               {step === 3 && <StepPanel key="budget"><Options title="Aylık Reklam Bütçesi" text="Reklam bütçesi hizmet bedeline dahil değildir; bu seçim öneri seviyesini netleştirir." options={budgetCards} onSelect={(value) => select("budget", value)} /></StepPanel>}
@@ -260,7 +270,7 @@ function StepPanel({ children }: { children: ReactNode }) {
   );
 }
 
-function Options({ title, text, options, onSelect }: { title: string; text: string; options: { id: string; label: string; emoji?: string; hint?: string }[]; onSelect: (value: string) => void }) {
+function Options({ title, text, options, onSelect, selectedId }: { title: string; text: string; options: { id: string; label: string; emoji?: string; hint?: string }[]; onSelect: (value: string) => void; selectedId?: string }) {
   return (
     <div>
       <div className="max-w-3xl">
@@ -268,21 +278,69 @@ function Options({ title, text, options, onSelect }: { title: string; text: stri
         <p className="mt-3 text-base leading-7 text-slate-300">{text}</p>
       </div>
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {options.map((option) => (
-          <motion.button
-            key={`${option.id}-${option.label}`}
-            whileHover={{ y: -6, scale: 1.015 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => onSelect(option.id)}
-            className="group min-h-40 rounded-[8px] border border-white/10 bg-white/[0.055] p-5 text-left shadow-[0_18px_50px_rgba(0,0,0,.24)] transition hover:border-cyan-200/50 hover:bg-cyan-200/10"
-          >
-            <span className="grid size-14 place-items-center rounded-[8px] border border-white/10 bg-black/25 text-3xl shadow-inner">{option.emoji || "✨"}</span>
-            <span className="mt-5 block text-xl font-black text-white">{option.label}</span>
-            <span className="mt-2 block text-sm leading-6 text-slate-400 group-hover:text-slate-200">{option.hint}</span>
-          </motion.button>
-        ))}
+        {options.map((option) => {
+          const isSelected = selectedId === option.id;
+          return (
+            <motion.button
+              key={`${option.id}-${option.label}`}
+              whileHover={{ y: -6, scale: 1.015 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => onSelect(option.id)}
+              aria-pressed={isSelected}
+              className={`group min-h-40 rounded-[8px] border p-5 text-left shadow-[0_18px_50px_rgba(0,0,0,.24)] transition hover:border-cyan-200/50 hover:bg-cyan-200/10 ${isSelected ? "border-cyan-200/70 bg-cyan-200/10 ring-2 ring-cyan-200/40" : "border-white/10 bg-white/[0.055]"}`}
+            >
+              <span className="grid size-14 place-items-center rounded-[8px] border border-white/10 bg-black/25 text-3xl shadow-inner">{option.emoji || "✨"}</span>
+              <span className="mt-5 block text-xl font-black text-white">{option.label}</span>
+              <span className="mt-2 block text-sm leading-6 text-slate-400 group-hover:text-slate-200">{option.hint}</span>
+            </motion.button>
+          );
+        })}
       </div>
     </div>
+  );
+}
+
+function CustomBusinessTypeField({ value, onChange, onContinue }: { value: string; onChange: (value: string) => void; onContinue: () => void }) {
+  const [touched, setTouched] = useState(false);
+  const valid = isValidCustomCategory(value);
+  const showError = touched && value.length > 0 && !valid;
+
+  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    if (valid) onContinue();
+  }
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22 }} className="mt-6 rounded-[8px] border border-cyan-200/25 bg-cyan-200/[0.06] p-5">
+      <label htmlFor="custom-business-type" className="block text-sm font-bold text-white">
+        İşletme sektörünüzü yazın
+      </label>
+      <input
+        id="custom-business-type"
+        type="text"
+        value={value}
+        maxLength={MAX_BUSINESS_CATEGORY_LENGTH}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={() => setTouched(true)}
+        onKeyDown={handleKeyDown}
+        placeholder="Örn. Mobilya mağazası, güzellik merkezi, oto servis, hukuk bürosu"
+        aria-invalid={showError}
+        aria-describedby="custom-business-type-helper"
+        className={`mt-3 min-h-14 w-full rounded-2xl border bg-black/30 px-4 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 ${showError ? "border-red-400/60 focus:ring-red-300" : "border-white/10 focus:ring-cyan-300"}`}
+      />
+      <p id="custom-business-type-helper" className="mt-2 text-xs leading-5 text-slate-400">
+        {showError ? "En az 2 anlamlı karakter girin." : "Analiz ve bütçe önerisi bu sektöre göre hazırlanacaktır."}
+      </p>
+      <button
+        type="button"
+        onClick={onContinue}
+        disabled={!valid}
+        className="mt-5 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-cyan-300 px-6 text-sm font-black text-slate-950 transition disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        Devam <ArrowRight size={16} />
+      </button>
+    </motion.div>
   );
 }
 

@@ -1,37 +1,46 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { normalizeAiProvider } from "./ai-provider";
 import { executeAiTask, type IntelligenceProviderKey } from "./server/ai-router";
+import { resolvedBusinessCategoryOrFallback } from "./business-category";
+
+function resolvedSector(lead: any) {
+  return resolvedBusinessCategoryOrFallback(lead?.business_type || lead?.sector);
+}
 
 function demoAnalysis(lead: any) {
   const score = Number(lead.digital_maturity_score || 0);
   const heat = Number(lead.lead_heat_score || 0);
+  const sector = resolvedSector(lead);
   const strengths = [
     lead.website ? "Web sitesi mevcut; reklam trafiği için açılış sayfası kalitesi ayrıca incelenebilir." : "Web sitesi görünmüyor; reklam öncesi temel bir açılış sayfası ihtiyacı değerlendirilebilir.",
     lead.phone ? "Telefon bilgisi mevcut; hızlı ön görüşme yapılabilir." : "Doğrudan iletişim bilgisi eksik; ilk temas kanalı netleştirilmelidir.",
     Number(lead.google_review_count || 0) > 0 ? `${lead.google_review_count} Google yorumu bulunuyor; sosyal kanıt mesajlarda kullanılabilir.` : "Google yorum görünürlüğü sınırlı; yerel güven sinyalleri güçlendirilebilir."
   ];
   return [
-    `Satın alma ihtimali: ${heat >= 80 ? "Yüksek" : heat >= 50 ? "Orta" : "Geliştirilmeli"}.`,
+    `${sector} sektöründe satın alma ihtimali: ${heat >= 80 ? "Yüksek" : heat >= 50 ? "Orta" : "Geliştirilmeli"}.`,
     `Aciliyet: ${lead.next_action_at ? "Planlı takip tarihi mevcut" : "Takip tarihi planlanmalı"}.`,
     `Tahmini reklam bütçesi: ${lead.budget || "İhtiyaç görüşmesinde netleştirilmeli"}.`,
-    `Önerilen ilk mesaj: ${lead.company || lead.name || "İşletme"} için kısa fırsat analizini paylaşarak 10 dakikalık ön görüşme talep edin.`,
+    `Önerilen ilk mesaj: ${lead.company || lead.name || "İşletme"} (${sector}) için kısa fırsat analizini paylaşarak 10 dakikalık ön görüşme talep edin.`,
     `Riskler: ${strengths.join(" ")}`,
     "Sonraki en iyi aksiyon: hedef kitle, teklif yapısı ve aylık reklam bütçesini kısa bir görüşmede netleştirin.",
-    `Dijital olgunluk ${score}/100, lead skoru ${heat}/100. Satış garantisi verilmez; sonuçlar sektör, bütçe, teklif ve rekabete göre değişir.`
+    `Dijital olgunluk ${score}/100, lead skoru ${heat}/100. Bu değerlendirme tahmini bir ön analizdir. Satış garantisi verilmez; sonuçlar sektör, bütçe, teklif ve rekabete göre değişir.`
   ].join("\n\n");
 }
 
 function leadPrompt(lead: any) {
+  const sector = resolvedSector(lead);
   return `HK Dijital ajansı için aşağıdaki potansiyel müşteriyi analiz et.
+İşletme sektörü: ${sector}
 Türkçe, profesyonel ve kısa yaz. Teknik kavramları gerektiğinde açıkla.
+Değerlendirmeni özellikle "${sector}" sektörüne göre uyarla: bu sektördeki hedef kitle davranışı, rekabet durumu, müşteri kazanma modeli ve sektöre özgü riskleri dikkate al. Genel geçer, sektörden bağımsız yorumlar üretme.
 Şunları ayrı başlıklarla belirt: Satın alma ihtimali, Aciliyet, Tahmini reklam bütçesi, Önerilen ilk mesaj, Riskler, Sonraki en iyi aksiyon.
-Satış garantisi verme. En fazla 280 kelime kullan.
+Tahmini yorumlarla doğrulanmış bilgileri birbirinden ayır; canlı pazar verisine eriştiğini iddia etme. Satış garantisi verme. En fazla 280 kelime kullan.
 
 Potansiyel müşteri:
 ${JSON.stringify({
   firma: lead.company,
   yetkili: lead.name,
-  sektör: lead.business_type,
+  sektör: sector,
   şehir_ve_adres: lead.address,
   telefon_var: Boolean(lead.phone),
   web_sitesi_var: Boolean(lead.website),

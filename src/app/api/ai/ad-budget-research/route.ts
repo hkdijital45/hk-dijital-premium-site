@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { estimateAdBudget, formatTRY, type PackageRecommendationInput } from "@/lib/packages";
 import { executeAiTask, type IntelligenceProviderKey } from "@/lib/server/ai-router";
+import { resolvedBusinessCategoryOrFallback } from "@/lib/business-category";
 
 export const runtime = "nodejs";
 
@@ -152,7 +153,7 @@ export async function POST(request: Request) {
   }
 
   const input: BudgetResearchInput = {
-    sector: cleanText(body.sector, 120),
+    sector: resolvedBusinessCategoryOrFallback(cleanText(body.sector, 120)),
     city: cleanText(body.city, 80),
     marketLocation: cleanText(body.marketLocation || body.city || "Türkiye", 80),
     goal: cleanText(body.goal, 120),
@@ -172,7 +173,10 @@ export async function POST(request: Request) {
   const fallback = fallbackResponse(input);
   const prompt = [
     "HK Dijital için Türkçe reklam bütçesi ve piyasa yorumu üret.",
-    "Kesin satış, lead, ciro veya sonuç garantisi verme. Canlı internet verisi kullanıyormuş gibi davranma; piyasa varsayımı ve ajans deneyimi dili kullan.",
+    `İşletme sektörü: ${input.sector}`,
+    `Değerlendirmeni özellikle "${input.sector}" sektörüne göre uyarla: bu sektördeki tipik hedef kitle davranışı, rekabet yoğunluğu, müşteri kazanma modeli, olası dönüşüm yolculuğu, en uygun reklam platformları, içerik ihtiyaçları, reklam ekonomisi ve sektöre özgü riskleri dikkate al.`,
+    "Genel geçer, sektörden bağımsız yorumlar üretme (ör. \"Türkiye'de Meta platformunda reklam vermek isteyen bir işletme...\" gibi kalıp cümleler kullanma); her kategori için aynı paragrafı tekrarlama.",
+    "Kesin satış, lead, ciro veya sonuç garantisi verme. Canlı internet verisi kullanıyormuş gibi davranma; piyasa varsayımı ve ajans deneyimi dili kullan, tahmini olduğunu belirt.",
     "Reklam bütçesinin hizmet bedelinden ayrı olduğunu açıkça belirt.",
     "Sadece geçerli JSON döndür. Markdown kullanma.",
     `Girdi: ${JSON.stringify(input)}`,
