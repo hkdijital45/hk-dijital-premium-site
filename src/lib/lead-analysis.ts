@@ -2,9 +2,14 @@
 import { normalizeAiProvider } from "./ai-provider";
 import { executeAiTask, type IntelligenceProviderKey } from "./server/ai-router";
 import { resolvedBusinessCategoryOrFallback } from "./business-category";
+import { normalizePlatformSelection, platformSelectionLabel } from "./platform-selection";
 
 function resolvedSector(lead: any) {
   return resolvedBusinessCategoryOrFallback(lead?.business_type || lead?.sector);
+}
+
+function resolvedPlatforms(lead: any) {
+  return platformSelectionLabel(normalizePlatformSelection(lead?.requested_platforms || lead?.requestedPlatforms));
 }
 
 function demoAnalysis(lead: any) {
@@ -19,6 +24,7 @@ function demoAnalysis(lead: any) {
   return [
     `${sector} sektöründe satın alma ihtimali: ${heat >= 80 ? "Yüksek" : heat >= 50 ? "Orta" : "Geliştirilmeli"}.`,
     `Aciliyet: ${lead.next_action_at ? "Planlı takip tarihi mevcut" : "Takip tarihi planlanmalı"}.`,
+    `Talep edilen platformlar: ${resolvedPlatforms(lead)}.`,
     `Tahmini reklam bütçesi: ${lead.budget || "İhtiyaç görüşmesinde netleştirilmeli"}.`,
     `Önerilen ilk mesaj: ${lead.company || lead.name || "İşletme"} (${sector}) için kısa fırsat analizini paylaşarak 10 dakikalık ön görüşme talep edin.`,
     `Riskler: ${strengths.join(" ")}`,
@@ -41,6 +47,7 @@ ${JSON.stringify({
   firma: lead.company,
   yetkili: lead.name,
   sektör: sector,
+  talep_edilen_platformlar: resolvedPlatforms(lead),
   şehir_ve_adres: lead.address,
   telefon_var: Boolean(lead.phone),
   web_sitesi_var: Boolean(lead.website),

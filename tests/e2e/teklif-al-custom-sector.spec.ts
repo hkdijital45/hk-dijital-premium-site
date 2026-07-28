@@ -21,7 +21,8 @@ async function interceptLeadSubmission(page: Page) {
 
 async function completeStepsThroughRecommendation(page: Page) {
   await page.getByRole("button", { name: "Daha Fazla Mesaj" }).click();
-  await page.getByRole("button", { name: "Meta" }).click();
+  await page.getByTestId("platform-card-meta").click();
+  await page.getByTestId("platform-continue").click();
   await page.getByRole("button", { name: "5.000-20.000 TL" }).click();
   await page.getByRole("button", { name: "Paketi Öner" }).click();
   await page.getByRole("button", { name: "Bilgilerimi Bırakayım" }).click();

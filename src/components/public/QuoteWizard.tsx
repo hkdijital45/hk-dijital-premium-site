@@ -8,6 +8,7 @@ import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, MessageCircle, Spark
 import type { PackageItem, SiteContent } from "@/lib/types";
 import { CONTENT_NEED_OPTIONS, SOCIAL_STATUS_OPTIONS, URGENCY_OPTIONS, formatBudgetRange, formatTRY, getPackagePricing, packageChoiceLabel, recommendServicePackage, type AdBudgetEstimate } from "@/lib/packages";
 import { businessCards, isValidCustomCategory, normalizeCustomCategory, OTHER_BUSINESS_TYPE_ID, MAX_BUSINESS_CATEGORY_LENGTH, resolveBusinessCategory } from "@/lib/business-category";
+import { PLATFORM_OPTIONS, isAllPlatformsSelected, platformSelectionLabel, toggleAllPlatforms, togglePlatform, type PlatformKey } from "@/lib/platform-selection";
 import { trackEvent } from "./TrackingPlaceholders";
 
 type Answers = Record<string, string>;
@@ -36,6 +37,7 @@ type AiBudgetResearchInput = {
   sector: string;
   marketLocation: string;
   goal: string;
+  platforms: PlatformKey[];
   platformNeed: string;
   monthlyAdBudget: string;
   contentNeed: string;
@@ -72,13 +74,6 @@ const budgetCards = [
   { id: "90000", label: "60.000 TL üzeri", hint: "Çoklu kampanya ve büyüme alanı" }
 ];
 
-const platformCards = [
-  { id: "Meta", label: "Meta", emoji: "📣", hint: "Instagram ve Facebook reklamları" },
-  { id: "Google", label: "Google", emoji: "🔎", hint: "Google Ads ve arama niyeti" },
-  { id: "Sosyal Medya", label: "Sosyal Medya", emoji: "✨", hint: "İçerik takvimi ve marka görünürlüğü" },
-  { id: "Hepsi", label: "Hepsi", emoji: "⚡", hint: "Meta + Google + içerik yaklaşımı" }
-];
-
 function getPackageById(content: QuoteContent, id: string) {
   return content.packages.find((item) => item.id === id) ?? content.packages[0];
 }
@@ -93,18 +88,21 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Answers>({ selectedPackage: searchParams.get("paket") || "" });
   const [customBusinessType, setCustomBusinessType] = useState("");
+  const [selectedPlatforms, setSelectedPlatforms] = useState<PlatformKey[]>([]);
+  const [platformError, setPlatformError] = useState("");
   const [form, setForm] = useState<Answers>({});
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
 
   const resolvedBusinessCategory = resolveBusinessCategory(answers.businessType, customBusinessType);
+  const resolvedPlatformLabel = platformSelectionLabel(selectedPlatforms);
 
   const recommendation = useMemo(() => {
     const selected = answers.selectedPackage ? getPackageById(content, answers.selectedPackage) : null;
     const smart = recommendServicePackage({
       sector: resolvedBusinessCategory,
       goal: selectedLabel(goalCards, answers.goal),
-      platform: selectedLabel(platformCards, answers.platform),
+      platform: selectedPlatforms,
       budget: answers.budget,
       contentNeed: answers.contentNeed,
       urgency: answers.urgency,
@@ -118,14 +116,15 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
       roadmap: smart.roadmap,
       adBudget: smart.adBudget
     };
-  }, [answers, content, resolvedBusinessCategory]);
+  }, [answers, content, resolvedBusinessCategory, selectedPlatforms]);
   const budgetResearchInput = useMemo<AiBudgetResearchInput>(() => {
     const pricing = getPackagePricing(recommendation.recommended.id);
     return {
       sector: resolvedBusinessCategory,
       marketLocation: "Türkiye",
       goal: selectedLabel(goalCards, answers.goal),
-      platformNeed: selectedLabel(platformCards, answers.platform),
+      platforms: selectedPlatforms,
+      platformNeed: resolvedPlatformLabel,
       monthlyAdBudget: selectedLabel(budgetCards, answers.budget),
       contentNeed: packageChoiceLabel("content", answers.contentNeed),
       startTiming: packageChoiceLabel("urgency", answers.urgency),
@@ -134,7 +133,7 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
       selectedPackageName: recommendation.recommended.name,
       packageBasePrice: pricing?.basePrice || 0
     };
-  }, [answers, recommendation.recommended, resolvedBusinessCategory]);
+  }, [answers, recommendation.recommended, resolvedBusinessCategory, resolvedPlatformLabel, selectedPlatforms]);
 
   function select(key: string, value: string) {
     if (step === 0) trackEvent("quote_wizard_started");
@@ -150,6 +149,26 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
   function confirmCustomBusinessType() {
     if (!isValidCustomCategory(customBusinessType)) return;
     trackEvent("quote_step_completed", { step: "businessType", value: normalizeCustomCategory(customBusinessType) });
+    setStep((current) => Math.min(current + 1, 5));
+  }
+
+  function togglePlatformSelection(key: PlatformKey) {
+    setPlatformError("");
+    setSelectedPlatforms((current) => togglePlatform(current, key));
+  }
+
+  function toggleAllPlatformsSelection() {
+    setPlatformError("");
+    setSelectedPlatforms((current) => toggleAllPlatforms(current));
+  }
+
+  function confirmPlatforms() {
+    if (!selectedPlatforms.length) {
+      setPlatformError("Devam etmek için en az bir platform seçin.");
+      return;
+    }
+    setPlatformError("");
+    trackEvent("quote_step_completed", { step: "platform", value: selectedPlatforms.join(",") });
     setStep((current) => Math.min(current + 1, 5));
   }
 
@@ -172,7 +191,8 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
         ...form,
         businessType: resolvedBusinessCategory,
         goal: selectedLabel(goalCards, answers.goal),
-        platformNeed: selectedLabel(platformCards, answers.platform),
+        platforms: selectedPlatforms,
+        platformNeed: resolvedPlatformLabel,
         budget: selectedLabel(budgetCards, answers.budget),
         contentNeed: packageChoiceLabel("content", answers.contentNeed),
         urgency: packageChoiceLabel("urgency", answers.urgency),
@@ -190,7 +210,7 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
   }
 
   const whatsappMessage = encodeURIComponent(
-    `HK Dijital akıllı paket analizi\nPaket: ${recommendation.recommended.name}\nAlternatif: ${recommendation.alternative.name}\nİşletme türü: ${resolvedBusinessCategory}\nHedef: ${selectedLabel(goalCards, answers.goal)}\nPlatform: ${selectedLabel(platformCards, answers.platform)}\nBütçe: ${selectedLabel(budgetCards, answers.budget)}\nİçerik ihtiyacı: ${packageChoiceLabel("content", answers.contentNeed)}\nAciliyet: ${packageChoiceLabel("urgency", answers.urgency)}\nSosyal medya durumu: ${packageChoiceLabel("social", answers.socialStatus)}\nAd Soyad: ${form.name || "-"}\nFirma: ${form.company || "-"}\nE-posta: ${form.email || "-"}\nTelefon: ${form.phone || "-"}\nInstagram: ${form.instagram || "-"}\nWeb: ${form.website || "-"}\nNot: ${form.note || "-"}`
+    `HK Dijital akıllı paket analizi\nPaket: ${recommendation.recommended.name}\nAlternatif: ${recommendation.alternative.name}\nİşletme türü: ${resolvedBusinessCategory}\nHedef: ${selectedLabel(goalCards, answers.goal)}\nPlatform: ${resolvedPlatformLabel}\nBütçe: ${selectedLabel(budgetCards, answers.budget)}\nİçerik ihtiyacı: ${packageChoiceLabel("content", answers.contentNeed)}\nAciliyet: ${packageChoiceLabel("urgency", answers.urgency)}\nSosyal medya durumu: ${packageChoiceLabel("social", answers.socialStatus)}\nAd Soyad: ${form.name || "-"}\nFirma: ${form.company || "-"}\nE-posta: ${form.email || "-"}\nTelefon: ${form.phone || "-"}\nInstagram: ${form.instagram || "-"}\nWeb: ${form.website || "-"}\nNot: ${form.note || "-"}`
   );
   const whatsappUrl = `https://wa.me/${content.contact.whatsappNumber.replace(/\D/g, "")}?text=${whatsappMessage}`;
   const progress = ((step + 1) / steps.length) * 100;
@@ -239,7 +259,17 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
                 </StepPanel>
               )}
               {step === 1 && <StepPanel key="goal"><Options title="Ana Hedefiniz" text="Reklam çalışmasının ana odağını seçin. Her hedef farklı bir kampanya kurgusu gerektirir." options={goalCards} onSelect={(value) => select("goal", value)} /></StepPanel>}
-              {step === 2 && <StepPanel key="platform"><Options title="Platform İhtiyacınız" text="Meta, Google, sosyal medya veya hepsini kapsayan yapıyı seçin." options={platformCards} onSelect={(value) => select("platform", value)} /></StepPanel>}
+              {step === 2 && (
+                <StepPanel key="platform">
+                  <PlatformMultiSelect
+                    selected={selectedPlatforms}
+                    onTogglePlatform={togglePlatformSelection}
+                    onToggleAll={toggleAllPlatformsSelection}
+                    onContinue={confirmPlatforms}
+                    error={platformError}
+                  />
+                </StepPanel>
+              )}
               {step === 3 && <StepPanel key="budget"><Options title="Aylık Reklam Bütçesi" text="Reklam bütçesi hizmet bedeline dahil değildir; bu seçim öneri seviyesini netleştirir." options={budgetCards} onSelect={(value) => select("budget", value)} /></StepPanel>}
               {step === 4 && <StepPanel key="needs"><NeedsStep answers={answers} setAnswers={setAnswers} onNext={() => setStep(5)} /></StepPanel>}
               {step === 5 && <StepPanel key="recommendation"><Recommendation recommended={recommendation.recommended} alternative={recommendation.alternative} reason={recommendation.reason} startingStrategy={recommendation.startingStrategy} roadmap={recommendation.roadmap} adBudget={recommendation.adBudget} budgetResearchInput={budgetResearchInput} whatsappUrl={whatsappUrl} onNext={() => setStep(6)} /></StepPanel>}
@@ -296,6 +326,73 @@ function Options({ title, text, options, onSelect, selectedId }: { title: string
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function PlatformMultiSelect({ selected, onTogglePlatform, onToggleAll, onContinue, error }: { selected: PlatformKey[]; onTogglePlatform: (key: PlatformKey) => void; onToggleAll: () => void; onContinue: () => void; error: string }) {
+  const allSelected = isAllPlatformsSelected(selected);
+  const canContinue = selected.length > 0;
+  return (
+    <div>
+      <div className="max-w-3xl">
+        <h2 className="text-3xl font-black text-white sm:text-4xl">Platform İhtiyacınız</h2>
+        <p className="mt-3 text-base leading-7 text-slate-300">Meta, Google ve sosyal medyadan birini, birkaçını veya hepsini birlikte seçebilirsiniz. En az bir platform seçmelisiniz.</p>
+      </div>
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {PLATFORM_OPTIONS.map((option) => {
+          const isSelected = selected.includes(option.id);
+          return (
+            <motion.button
+              key={option.id}
+              type="button"
+              data-testid={`platform-card-${option.id}`}
+              whileHover={{ y: -6, scale: 1.015 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => onTogglePlatform(option.id)}
+              aria-pressed={isSelected}
+              className={`group relative min-h-40 rounded-[8px] border p-5 text-left shadow-[0_18px_50px_rgba(0,0,0,.24)] transition hover:border-cyan-200/50 hover:bg-cyan-200/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 ${isSelected ? "border-cyan-200/70 bg-cyan-200/10 ring-2 ring-cyan-200/40" : "border-white/10 bg-white/[0.055]"}`}
+            >
+              {isSelected && (
+                <span className="absolute right-3 top-3 grid size-6 place-items-center rounded-full bg-cyan-300 text-slate-950">
+                  <CheckCircle2 size={16} />
+                </span>
+              )}
+              <span className="grid size-14 place-items-center rounded-[8px] border border-white/10 bg-black/25 text-3xl shadow-inner">{option.emoji}</span>
+              <span className="mt-5 block text-xl font-black text-white">{option.label}</span>
+              <span className="mt-2 block text-sm leading-6 text-slate-400 group-hover:text-slate-200">{option.hint}</span>
+            </motion.button>
+          );
+        })}
+        <motion.button
+          type="button"
+          data-testid="platform-card-all"
+          whileHover={{ y: -6, scale: 1.015 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={onToggleAll}
+          aria-pressed={allSelected}
+          className={`group relative min-h-40 rounded-[8px] border p-5 text-left shadow-[0_18px_50px_rgba(0,0,0,.24)] transition hover:border-cyan-200/50 hover:bg-cyan-200/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 ${allSelected ? "border-cyan-200/70 bg-cyan-200/10 ring-2 ring-cyan-200/40" : "border-white/10 bg-white/[0.055]"}`}
+        >
+          {allSelected && (
+            <span className="absolute right-3 top-3 grid size-6 place-items-center rounded-full bg-cyan-300 text-slate-950">
+              <CheckCircle2 size={16} />
+            </span>
+          )}
+          <span className="grid size-14 place-items-center rounded-[8px] border border-white/10 bg-black/25 text-3xl shadow-inner">⚡</span>
+          <span className="mt-5 block text-xl font-black text-white">Hepsi</span>
+          <span className="mt-2 block text-sm leading-6 text-slate-400 group-hover:text-slate-200">{allSelected ? "Tüm platformları temizle" : "Meta + Google + Sosyal Medya'yı birlikte seç"}</span>
+        </motion.button>
+      </div>
+      {error && <p data-testid="platform-error" className="mt-4 rounded-2xl border border-red-300/30 bg-red-500/10 p-3 text-sm text-red-100">{error}</p>}
+      <button
+        type="button"
+        data-testid="platform-continue"
+        onClick={onContinue}
+        disabled={!canContinue}
+        className="mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-cyan-300 px-6 text-sm font-black text-slate-950 transition disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        Devam <ArrowRight size={16} />
+      </button>
     </div>
   );
 }

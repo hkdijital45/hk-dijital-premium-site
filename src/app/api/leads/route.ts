@@ -4,6 +4,7 @@ import { isAdminAuthenticated } from "@/lib/auth";
 import type { Lead, LeadStatus } from "@/lib/types";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 import { isGenericBusinessCategory, sanitizeBusinessCategory } from "@/lib/business-category";
+import { normalizePlatformSelection } from "@/lib/platform-selection";
 
 const statuses: LeadStatus[] = ["Yeni", "Görüşülecek", "Teklif Hazırlanıyor", "Teklif Gönderildi", "Takipte", "Kazanıldı", "Kaybedildi", "Dönüştürüldü"];
 
@@ -54,6 +55,7 @@ export async function POST(request: Request) {
           goal: payload.goal || "",
           budget: payload.budget || "",
           recommended_package: payload.recommendedPackage || "",
+          requested_platforms: normalizePlatformSelection(payload.platforms ?? payload.platformNeed),
           message: payload.note || "",
           status: "Yeni"
         })
@@ -97,6 +99,7 @@ export async function POST(request: Request) {
     businessType: sanitizeBusinessCategory(payload.businessType),
     goal: payload.goal || "",
     budget: payload.budget || "",
+    requestedPlatforms: normalizePlatformSelection(payload.platforms ?? payload.platformNeed),
     recommendedPackage: payload.recommendedPackage || "",
     alternativePackage: payload.alternativePackage || "",
     note: payload.note || "",

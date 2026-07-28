@@ -523,3 +523,9 @@ alter table public.leads
 create index if not exists leads_deleted_at_idx on public.leads(deleted_at);
 create index if not exists leads_rejected_at_idx on public.leads(rejected_at);
 create index if not exists leads_status_workflow_idx on public.leads(status);
+
+-- Paket Öneri Robotu (/teklif-al) multi-select "Platform İhtiyacınız" step.
+-- Canonical values only ("meta", "google", "social-media"); "Hepsi" is a
+-- select-all UI shortcut and is never stored literally.
+alter table public.leads
+  add column if not exists requested_platforms text[] not null default '{}'::text[];

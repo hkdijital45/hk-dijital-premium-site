@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { estimateAdBudget, formatTRY, type PackageRecommendationInput } from "@/lib/packages";
 import { executeAiTask, type IntelligenceProviderKey } from "@/lib/server/ai-router";
 import { resolvedBusinessCategoryOrFallback } from "@/lib/business-category";
+import { normalizePlatformSelection, platformSelectionLabel, platformSelectionReadableList, type PlatformKey } from "@/lib/platform-selection";
 
 export const runtime = "nodejs";
 
@@ -9,9 +10,11 @@ const requestWindows = new Map<string, { count: number; resetAt: number }>();
 const REQUEST_LIMIT = 6;
 const REQUEST_WINDOW_MS = 10 * 60_000;
 
-type BudgetResearchInput = PackageRecommendationInput & {
+type BudgetResearchInput = Omit<PackageRecommendationInput, "platform"> & {
+  platform: PlatformKey[];
   city?: string;
   marketLocation?: string;
+  platforms?: unknown;
   platformNeed?: string;
   monthlyAdBudget?: string | number;
   startTiming?: string;
@@ -19,6 +22,13 @@ type BudgetResearchInput = PackageRecommendationInput & {
   selectedPackageName?: string;
   packageBasePrice?: number;
 };
+
+// The raw, untrusted request body — every field optional/unknown since it
+// comes straight from request.json(). `platform` is deliberately loosely
+// typed here (unlike the normalized BudgetResearchInput above) because a
+// legacy or current client may send it as a string, an array, or omit it
+// entirely; normalizePlatformSelection() accepts all of those.
+type RawBudgetRequestBody = Partial<Omit<BudgetResearchInput, "platform">> & { platform?: unknown };
 
 type BudgetResearchResponse = {
   source: IntelligenceProviderKey | "fallback";
@@ -56,7 +66,7 @@ function fallbackResponse(input: BudgetResearchInput): BudgetResearchResponse {
   const estimate = estimateAdBudget({
     sector: input.sector,
     goal: input.goal,
-    platform: input.platform || input.platformNeed,
+    platform: input.platform,
     budget: input.budget || input.monthlyAdBudget,
     contentNeed: input.contentNeed,
     urgency: input.urgency || input.startTiming,
@@ -67,10 +77,11 @@ function fallbackResponse(input: BudgetResearchInput): BudgetResearchResponse {
   const aggressive = midpoint(estimate.aggressiveRange);
   const location = cleanText(input.marketLocation || input.city || "Türkiye", 80) || "Türkiye";
   const sector = cleanText(input.sector || "belirtilen sektör", 120) || "belirtilen sektör";
+  const platformsLabel = platformSelectionLabel(input.platform);
 
   return {
     source: "fallback",
-    marketSummary: `${location} pazarı için ${sector} odağında medya bütçesi; hedef, platform, içerik ihtiyacı ve başlangıç seviyesine göre HK Dijital analiz modeliyle tahmini olarak hesaplandı.`,
+    marketSummary: `${location} pazarı için ${sector} odağında, seçilen ${platformsLabel} hizmetlerine yönelik medya bütçesi; hedef, içerik ihtiyacı ve başlangıç seviyesine göre HK Dijital analiz modeliyle tahmini olarak hesaplandı.`,
     recommendedBudget: {
       minimum,
       ideal,
@@ -145,20 +156,21 @@ export async function POST(request: Request) {
     ? { ...currentWindow, count: currentWindow.count + 1 }
     : { count: 1, resetAt: now + REQUEST_WINDOW_MS });
 
-  let body: BudgetResearchInput = {};
+  let body: RawBudgetRequestBody = {};
   try {
     body = await request.json();
   } catch {
     body = {};
   }
 
+  const platforms = normalizePlatformSelection(body.platforms ?? body.platform ?? body.platformNeed);
   const input: BudgetResearchInput = {
     sector: resolvedBusinessCategoryOrFallback(cleanText(body.sector, 120)),
     city: cleanText(body.city, 80),
     marketLocation: cleanText(body.marketLocation || body.city || "Türkiye", 80),
     goal: cleanText(body.goal, 120),
-    platform: cleanText(body.platform || body.platformNeed, 120),
-    platformNeed: cleanText(body.platformNeed || body.platform, 120),
+    platform: platforms,
+    platformNeed: platformSelectionLabel(platforms),
     monthlyAdBudget: cleanText(body.monthlyAdBudget || body.budget, 80),
     budget: cleanText(body.budget || body.monthlyAdBudget, 80),
     contentNeed: cleanText(body.contentNeed, 120),
@@ -174,12 +186,15 @@ export async function POST(request: Request) {
   const prompt = [
     "HK Dijital için Türkçe reklam bütçesi ve piyasa yorumu üret.",
     `İşletme sektörü: ${input.sector}`,
+    "Seçilen hizmetler:",
+    platformSelectionReadableList(platforms),
+    "Bütçe önerisini ve piyasa yorumunu YALNIZCA yukarıda listelenen hizmetlere göre oluştur; listede olmayan bir platformu (ör. sosyal medya seçilmediyse sosyal medya yönetimini) dahil etme veya önerme.",
     `Değerlendirmeni özellikle "${input.sector}" sektörüne göre uyarla: bu sektördeki tipik hedef kitle davranışı, rekabet yoğunluğu, müşteri kazanma modeli, olası dönüşüm yolculuğu, en uygun reklam platformları, içerik ihtiyaçları, reklam ekonomisi ve sektöre özgü riskleri dikkate al.`,
     "Genel geçer, sektörden bağımsız yorumlar üretme (ör. \"Türkiye'de Meta platformunda reklam vermek isteyen bir işletme...\" gibi kalıp cümleler kullanma); her kategori için aynı paragrafı tekrarlama.",
     "Kesin satış, lead, ciro veya sonuç garantisi verme. Canlı internet verisi kullanıyormuş gibi davranma; piyasa varsayımı ve ajans deneyimi dili kullan, tahmini olduğunu belirt.",
     "Reklam bütçesinin hizmet bedelinden ayrı olduğunu açıkça belirt.",
     "Sadece geçerli JSON döndür. Markdown kullanma.",
-    `Girdi: ${JSON.stringify(input)}`,
+    `Girdi: ${JSON.stringify({ ...input, platform: platforms })}`,
     `Fallback bütçe tabanı: ${JSON.stringify(fallback.recommendedBudget)}`,
     "JSON şeması: {\"marketSummary\":\"string\",\"recommendedBudget\":{\"minimum\":number,\"ideal\":number,\"aggressive\":number,\"dailyIdeal\":number},\"platformSplit\":[{\"label\":\"string\",\"percent\":number,\"note\":\"string\"}],\"reasoningBullets\":[\"string\"],\"first30DaysPlan\":[\"string\"],\"risks\":[\"string\"],\"extraServiceSuggestions\":[\"string\"],\"disclaimer\":\"string\"}"
   ].join("\n");

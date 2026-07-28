@@ -78,6 +78,7 @@ export type Lead = {
   businessType?: string;
   goal?: string;
   budget?: string;
+  requestedPlatforms?: string[];
   recommendedPackage?: string;
   alternativePackage?: string;
   note?: string;

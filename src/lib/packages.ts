@@ -1,4 +1,5 @@
 import type { PackageItem } from "./types";
+import { normalizePlatformSelection, platformSelectionLabel, type PlatformKey } from "./platform-selection.ts";
 
 export type PackageCategoryKey = "meta" | "google_ads" | "combined_ads" | "social_media";
 export type PackageTier = "Starter" | "Pro" | "Premium";
@@ -441,7 +442,9 @@ export const SITE_PACKAGE_ITEMS: PackageItem[] = HK_SERVICE_PACKAGES.map(package
 export type PackageRecommendationInput = {
   sector?: string;
   goal?: string;
-  platform?: string;
+  /** Accepts the canonical platform-key array, or (for backward compatibility)
+   * a legacy single/combined platform string such as "Meta" or "Hepsi". */
+  platform?: string | string[];
   budget?: string | number;
   contentNeed?: string;
   urgency?: string;
@@ -544,15 +547,25 @@ function budgetNumber(value?: string | number) {
   return Number(String(value || "").replace(/[^\d]/g, "")) || 0;
 }
 
-function recommendationCategory(platform: string): PackageCategoryKey {
-  const normalized = String(platform || "").toLocaleLowerCase("tr");
-  return normalized.includes("hepsi") || normalized.includes("kombin") || normalized.includes("meta + google")
-    ? "combined_ads"
-    : normalized.includes("google")
-      ? "google_ads"
-      : normalized.includes("sosyal") || normalized.includes("içerik")
-        ? "social_media"
-        : "meta";
+/**
+ * Maps the set of selected platforms to one of the four fixed package
+ * categories HK Dijital actually sells. Meta+Google (no social) and the
+ * full Meta+Google+Sosyal Medya combination map to the existing "combined_ads"
+ * catalog entry (it already means "both ad channels, one growth plan"). A
+ * lone ad channel paired with Sosyal Medya has no dedicated catalog entry —
+ * rather than inventing a new package, it keeps the relevant ad-channel
+ * category, and recommendServicePackage()'s reason/strategy text below
+ * explicitly calls out the social media content/management need too, so the
+ * user still sees an accurate, non-generic recommendation.
+ */
+function recommendationCategory(platforms: PlatformKey[]): PackageCategoryKey {
+  const hasMeta = platforms.includes("meta");
+  const hasGoogle = platforms.includes("google");
+  const hasSocial = platforms.includes("social-media");
+  if (hasMeta && hasGoogle) return "combined_ads";
+  if (hasGoogle) return "google_ads";
+  if (hasSocial && !hasMeta) return "social_media";
+  return "meta";
 }
 
 export function getCompetitionMultiplier(sector?: string) {
@@ -563,10 +576,22 @@ export function getCompetitionMultiplier(sector?: string) {
   return 1;
 }
 
-export function getPlatformBudgetSplit(platformNeed?: string, goal?: string) {
-  const platform = String(platformNeed || "").toLocaleLowerCase("tr");
+export function getPlatformBudgetSplit(platformNeed?: string | string[], goal?: string) {
+  const platforms = normalizePlatformSelection(platformNeed);
+  const hasMeta = platforms.includes("meta");
+  const hasGoogle = platforms.includes("google");
+  const hasSocial = platforms.includes("social-media");
   const normalizedGoal = String(goal || "").toLocaleLowerCase("tr");
-  if (platform.includes("hepsi") || platform.includes("kombin") || platform.includes("meta + google")) {
+
+  if (hasMeta && hasGoogle && hasSocial) {
+    return [
+      { label: "Meta Ads", percent: 35, note: "Talep oluşturma, kreatif test ve yeniden pazarlama için." },
+      { label: "Google Ads", percent: 30, note: "Aktif arama niyeti ve dönüşüm odaklı kampanyalar için." },
+      { label: "Sosyal içerik destek", percent: 20, note: "Düzenli görünürlük ve marka güveni için." },
+      { label: "Kreatif test", percent: 15, note: "Mesaj, görsel ve teklif varyasyonlarını ölçmek için." }
+    ];
+  }
+  if (hasMeta && hasGoogle) {
     return [
       { label: "Meta Ads", percent: 40, note: "Talep oluşturma, kreatif test ve yeniden pazarlama için." },
       { label: "Google Ads", percent: 35, note: "Aktif arama niyeti ve dönüşüm odaklı kampanyalar için." },
@@ -574,13 +599,27 @@ export function getPlatformBudgetSplit(platformNeed?: string, goal?: string) {
       { label: "Remarketing", percent: 10, note: "Ziyaretçi ve etkileşim kitlelerini tekrar yakalamak için." }
     ];
   }
-  if (platform.includes("google")) {
+  if (hasMeta && hasSocial) {
+    return [
+      { label: "Meta Ads", percent: 60, note: "Talep oluşturma ve yeniden pazarlama için ana bütçe." },
+      { label: "Sosyal içerik destek", percent: 25, note: "Düzenli görünürlük ve marka güveni için." },
+      { label: "Kreatif test", percent: 15, note: "Mesaj, görsel ve teklif varyasyonlarını ölçmek için." }
+    ];
+  }
+  if (hasGoogle && hasSocial) {
+    return [
+      { label: "Google Ads", percent: 60, note: "Arama niyeti, lead veya randevu talebi için ana bütçe." },
+      { label: "Sosyal içerik destek", percent: 25, note: "Düzenli görünürlük ve marka güveni için." },
+      { label: "Remarketing", percent: 15, note: "Site ziyaretçilerini tekrar kampanyaya dahil etmek için." }
+    ];
+  }
+  if (hasGoogle) {
     return [
       { label: "Google Ads", percent: normalizedGoal.includes("bilinir") ? 75 : 85, note: "Arama niyeti, lead veya randevu talebi için ana bütçe." },
       { label: "Remarketing", percent: normalizedGoal.includes("bilinir") ? 25 : 15, note: "Site ziyaretçilerini tekrar kampanyaya dahil etmek için." }
     ];
   }
-  if (platform.includes("sosyal") || platform.includes("içerik")) {
+  if (hasSocial) {
     return [
       { label: "Sosyal içerik destek", percent: 55, note: "Düzenli görünürlük ve etkileşim ritmi için." },
       { label: "Kreatif test", percent: 30, note: "Reels, görsel ve metin konseptlerini denemek için." },
@@ -598,7 +637,8 @@ export function formatBudgetRange(min: number, max: number) {
 }
 
 export function estimateAdBudget(input: PackageRecommendationInput): AdBudgetEstimate {
-  const category = recommendationCategory(String(input.platform || ""));
+  const platforms = normalizePlatformSelection(input.platform);
+  const category = recommendationCategory(platforms);
   const goal = String(input.goal || "").toLocaleLowerCase("tr");
   const contentNeed = normalizeContentNeed(input.contentNeed);
   const urgency = normalizeUrgency(input.urgency);
@@ -639,7 +679,7 @@ export function estimateAdBudget(input: PackageRecommendationInput): AdBudgetEst
     ...(category === "google_ads" || category === "combined_ads" ? ["Anahtar kelime ve dönüşüm takibi kurulumu"] : []),
     ...(category === "meta" || category === "combined_ads" ? ["Pixel / Conversion API kontrolü"] : []),
     ...(category === "combined_ads" ? ["Aylık performans toplantısı ve çok kanallı raporlama"] : []),
-    ...(contentNeed === "high" || socialStatus === "irregular" || socialStatus === "new" ? ["İçerik takvimi ve profil optimizasyonu"] : []),
+    ...(platforms.includes("social-media") || contentNeed === "high" || socialStatus === "irregular" || socialStatus === "new" ? ["İçerik takvimi ve profil optimizasyonu"] : []),
     ...(goal.includes("lead") || goal.includes("randevu") || goal.includes("satış") ? ["Dönüşüm odaklı açılış sayfası"] : [])
   ];
   return {
@@ -668,13 +708,13 @@ export function estimateAdBudget(input: PackageRecommendationInput): AdBudgetEst
 }
 
 export function recommendServicePackage(input: PackageRecommendationInput) {
-  const platform = String(input.platform || "").toLocaleLowerCase("tr");
+  const platforms = normalizePlatformSelection(input.platform);
   const goal = String(input.goal || "").toLocaleLowerCase("tr");
   const contentNeed = normalizeContentNeed(input.contentNeed);
   const urgency = normalizeUrgency(input.urgency);
   const socialStatus = normalizeSocialStatus(input.socialStatus);
   const budget = budgetNumber(input.budget);
-  const category = recommendationCategory(platform);
+  const category = recommendationCategory(platforms);
   const tier: PackageTier = budget >= 60000 || goal.includes("büyü") || socialStatus === "growth" || socialStatus === "stable_not_growing" && budget >= 20000 || goal.includes("satış") && urgency === "immediate" || contentNeed === "high"
     ? "Premium"
     : budget >= 20000 || goal.includes("lead") || goal.includes("mesaj") || contentNeed === "medium" || urgency === "this_month" || socialStatus === "irregular"
@@ -686,14 +726,22 @@ export function recommendServicePackage(input: PackageRecommendationInput) {
   const urgencyText = packageChoiceLabel("urgency", urgency);
   const contentText = packageChoiceLabel("content", contentNeed);
   const socialText = packageChoiceLabel("social", socialStatus);
+  const platformsLabel = platformSelectionLabel(platforms);
+  // The fixed 4-category catalog has no dedicated "ad channel + social media"
+  // package, so when the user picked an ad channel alongside Sosyal Medya the
+  // reason/strategy copy calls the social media need out explicitly instead
+  // of silently dropping it.
+  const includesUncatalogedSocial = platforms.includes("social-media") && category !== "social_media" && category !== "combined_ads";
   return {
     recommended,
     alternative,
     adBudget: estimateAdBudget(input),
-    reason: `${recommended.categoryLabel} kategorisinde ${recommended.name} seviyesi; hedef, platform ihtiyacı, bütçe aralığı, ${contentText.toLocaleLowerCase("tr")} ve ${urgencyText.toLocaleLowerCase("tr")} tercihlerine göre en dengeli başlangıç noktasıdır.`,
+    reason: `Seçilen platformlar (${platformsLabel}) için ${recommended.categoryLabel} kategorisinde ${recommended.name} seviyesi; hedef, bütçe aralığı, ${contentText.toLocaleLowerCase("tr")} ve ${urgencyText.toLocaleLowerCase("tr")} tercihlerine göre en dengeli başlangıç noktasıdır.${includesUncatalogedSocial ? " Sosyal medya yönetimi ihtiyacınız ayrıca içerik takvimi ve profil optimizasyonu kapsamında değerlendirilir." : ""}`,
     startingStrategy: category === "social_media"
       ? `İlk 30 günde içerik takvimi, sayfa optimizasyonu ve raporlama ritmi kurulur. Mevcut durum: ${socialText}.`
-      : `İlk 30 günde ölçümleme, kampanya yapısı, kreatif/metin testleri ve raporlama ritmi kurulur. Öncelik: performans odaklı test, optimizasyon ve raporlama.`,
+      : includesUncatalogedSocial
+        ? `İlk 30 günde ${platformsLabel} reklam kurulumu ile birlikte sosyal medya içerik takvimi ve profil optimizasyonu paralel yürütülür. Öncelik: performans odaklı test, düzenli içerik ritmi ve raporlama.`
+        : `İlk 30 günde ölçümleme, kampanya yapısı, kreatif/metin testleri ve raporlama ritmi kurulur. Öncelik: performans odaklı test, optimizasyon ve raporlama.`,
     roadmap: recommended.setupRoadmap
   };
 }
