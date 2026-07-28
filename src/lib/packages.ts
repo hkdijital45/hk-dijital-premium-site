@@ -1,5 +1,6 @@
 import type { PackageItem } from "./types";
 import { normalizePlatformSelection, platformSelectionLabel, type PlatformKey } from "./platform-selection.ts";
+import { getSectorProfile, type SectorProfile } from "./sector-signal.ts";
 
 export type PackageCategoryKey = "meta" | "google_ads" | "combined_ads" | "social_media";
 export type PackageTier = "Starter" | "Pro" | "Premium";
@@ -569,35 +570,57 @@ function recommendationCategory(platforms: PlatformKey[]): PackageCategoryKey {
 }
 
 export function getCompetitionMultiplier(sector?: string) {
-  const normalized = String(sector || "").toLocaleLowerCase("tr");
-  if (/(diş|dis|implant|ortodonti|estetik|plastik cerrahi|saç ekim|sac ekim|klinik|sağlık|saglik|hukuk|avukat)/.test(normalized)) return 1.35;
-  if (/(emlak|gayrimenkul|otomotiv|araba|oto|turizm|otel|villa|kurs|eğitim|egitim)/.test(normalized)) return 1.22;
-  if (/(restoran|cafe|kafe|güzellik|guzellik|nail|kuaför|kuafor|spor|e-ticaret|eticaret|e ticaret)/.test(normalized)) return 1.12;
-  return 1;
+  return getSectorProfile(sector).competitionMultiplier;
 }
 
-export function getPlatformBudgetSplit(platformNeed?: string | string[], goal?: string) {
+// Nudges the Meta/Google split by a small, fixed amount when the sector
+// profile has a clear channel lean (e.g. a local high-intent service like
+// "Oto Servis" leans Google/search intent; an appointment-based visual
+// service like "Güzellik Merkezi" leans Meta/visual discovery). Only
+// rebalances between the two ad channels the user actually selected — it
+// never adds or removes a platform the user didn't pick — and appends a
+// short, sector-grounded clause to the affected line's note instead of
+// silently changing a number with no explanation.
+const SECTOR_PLATFORM_SHIFT = 5;
+
+function applySectorLeanToSplit(split: { label: string; percent: number; note: string }[], profile: SectorProfile, sector?: string) {
+  if (profile.platformLean === "balanced") return split;
+  const metaIdx = split.findIndex((item) => item.label.startsWith("Meta"));
+  const googleIdx = split.findIndex((item) => item.label.startsWith("Google"));
+  if (metaIdx === -1 || googleIdx === -1) return split;
+  const sectorLabel = String(sector || "").trim() || "bu sektör";
+  const result = split.map((item) => ({ ...item }));
+  const gainIdx = profile.platformLean === "google" ? googleIdx : metaIdx;
+  const loseIdx = profile.platformLean === "google" ? metaIdx : googleIdx;
+  result[gainIdx].percent += SECTOR_PLATFORM_SHIFT;
+  result[loseIdx].percent = Math.max(5, result[loseIdx].percent - SECTOR_PLATFORM_SHIFT);
+  result[gainIdx].note = `${result[gainIdx].note} ${sectorLabel} sektöründe ${profile.customerIntent} olduğundan bu kanala ağırlık verildi.`;
+  return result;
+}
+
+export function getPlatformBudgetSplit(platformNeed?: string | string[], goal?: string, sector?: string) {
   const platforms = normalizePlatformSelection(platformNeed);
   const hasMeta = platforms.includes("meta");
   const hasGoogle = platforms.includes("google");
   const hasSocial = platforms.includes("social-media");
   const normalizedGoal = String(goal || "").toLocaleLowerCase("tr");
+  const profile = getSectorProfile(sector);
 
   if (hasMeta && hasGoogle && hasSocial) {
-    return [
+    return applySectorLeanToSplit([
       { label: "Meta Ads", percent: 35, note: "Talep oluşturma, kreatif test ve yeniden pazarlama için." },
       { label: "Google Ads", percent: 30, note: "Aktif arama niyeti ve dönüşüm odaklı kampanyalar için." },
       { label: "Sosyal içerik destek", percent: 20, note: "Düzenli görünürlük ve marka güveni için." },
       { label: "Kreatif test", percent: 15, note: "Mesaj, görsel ve teklif varyasyonlarını ölçmek için." }
-    ];
+    ], profile, sector);
   }
   if (hasMeta && hasGoogle) {
-    return [
+    return applySectorLeanToSplit([
       { label: "Meta Ads", percent: 40, note: "Talep oluşturma, kreatif test ve yeniden pazarlama için." },
       { label: "Google Ads", percent: 35, note: "Aktif arama niyeti ve dönüşüm odaklı kampanyalar için." },
       { label: "Kreatif test", percent: 15, note: "Mesaj, görsel ve teklif varyasyonlarını ölçmek için." },
       { label: "Remarketing", percent: 10, note: "Ziyaretçi ve etkileşim kitlelerini tekrar yakalamak için." }
-    ];
+    ], profile, sector);
   }
   if (hasMeta && hasSocial) {
     return [
@@ -643,7 +666,9 @@ export function estimateAdBudget(input: PackageRecommendationInput): AdBudgetEst
   const contentNeed = normalizeContentNeed(input.contentNeed);
   const urgency = normalizeUrgency(input.urgency);
   const socialStatus = normalizeSocialStatus(input.socialStatus);
-  const multiplierBase = getCompetitionMultiplier(input.sector);
+  const sectorProfile = getSectorProfile(input.sector);
+  const sectorLabel = String(input.sector || "").trim();
+  const multiplierBase = sectorProfile.competitionMultiplier;
   const goalMultiplier = goal.includes("büyü") || goal.includes("ölçek") || goal.includes("olcek")
     ? 1.28
     : goal.includes("satış") || goal.includes("satis") || goal.includes("lead")
@@ -680,27 +705,33 @@ export function estimateAdBudget(input: PackageRecommendationInput): AdBudgetEst
     ...(category === "meta" || category === "combined_ads" ? ["Pixel / Conversion API kontrolü"] : []),
     ...(category === "combined_ads" ? ["Aylık performans toplantısı ve çok kanallı raporlama"] : []),
     ...(platforms.includes("social-media") || contentNeed === "high" || socialStatus === "irregular" || socialStatus === "new" ? ["İçerik takvimi ve profil optimizasyonu"] : []),
-    ...(goal.includes("lead") || goal.includes("randevu") || goal.includes("satış") ? ["Dönüşüm odaklı açılış sayfası"] : [])
+    ...(goal.includes("lead") || goal.includes("randevu") || goal.includes("satış") ? ["Dönüşüm odaklı açılış sayfası"] : []),
+    ...sectorProfile.extraServices
   ];
+  const sectorClause = sectorLabel
+    ? `${sectorLabel} sektöründe ${sectorProfile.customerIntent}; öne çıkan dönüşüm eylemi ${sectorProfile.conversionFocus}. `
+    : "";
   return {
     minimumRange,
     idealRange,
     aggressiveRange,
     dailyAverageRange: [Math.round(idealRange[0] / 30), Math.round(idealRange[1] / 30)],
-    platformSplit: getPlatformBudgetSplit(input.platform, input.goal),
-    reason: "Bu öneri sektör, hedef, platform, başlangıç zamanlaması ve içerik ihtiyacına göre oluşturulan HK Dijital analiz modeli / piyasa varsayımıdır.",
+    platformSplit: getPlatformBudgetSplit(input.platform, input.goal, input.sector),
+    reason: `${sectorClause}Bu öneri sektör, hedef, platform, başlangıç zamanlaması ve içerik ihtiyacına göre oluşturulan HK Dijital analiz modeli / piyasa varsayımıdır.`,
     first30DaysPlan: [
       "Hafta 1: Kurulum, hedef kitle, hesap ve ölçüm kontrolü",
       "Hafta 2: İlk kampanya/test yayını",
       "Hafta 3: Veri okuma, kreatif ve hedefleme optimizasyonu",
-      "Hafta 4: Raporlama ve ölçekleme kararı"
+      "Hafta 4: Raporlama ve ölçekleme kararı",
+      `Sektöre özel odak: ${sectorProfile.actionFocus}.`
     ],
     notes: [
       budgetFit,
       "Reklam bütçesi hizmet bedelinden ayrıdır.",
       "İlk ay test ve öğrenme dönemidir.",
       "Kreatif kalitesi performansı doğrudan etkiler.",
-      "Kesin sonuç garantisi vermez; test ve optimizasyonla netleşir."
+      "Kesin sonuç garantisi vermez; test ve optimizasyonla netleşir.",
+      sectorProfile.riskNote
     ],
     extraServices: Array.from(new Set(extraServices)),
     budgetFit
@@ -732,11 +763,16 @@ export function recommendServicePackage(input: PackageRecommendationInput) {
   // reason/strategy copy calls the social media need out explicitly instead
   // of silently dropping it.
   const includesUncatalogedSocial = platforms.includes("social-media") && category !== "social_media" && category !== "combined_ads";
+  const sectorProfile = getSectorProfile(input.sector);
+  const sectorLabel = String(input.sector || "").trim();
+  const sectorReasonClause = sectorLabel
+    ? `${sectorLabel} sektöründe ${sectorProfile.customerIntent} göz önünde bulundurulduğunda, `
+    : "";
   return {
     recommended,
     alternative,
     adBudget: estimateAdBudget(input),
-    reason: `Seçilen platformlar (${platformsLabel}) için ${recommended.categoryLabel} kategorisinde ${recommended.name} seviyesi; hedef, bütçe aralığı, ${contentText.toLocaleLowerCase("tr")} ve ${urgencyText.toLocaleLowerCase("tr")} tercihlerine göre en dengeli başlangıç noktasıdır.${includesUncatalogedSocial ? " Sosyal medya yönetimi ihtiyacınız ayrıca içerik takvimi ve profil optimizasyonu kapsamında değerlendirilir." : ""}`,
+    reason: `${sectorReasonClause}Seçilen platformlar (${platformsLabel}) için ${recommended.categoryLabel} kategorisinde ${recommended.name} seviyesi; hedef, bütçe aralığı, ${contentText.toLocaleLowerCase("tr")} ve ${urgencyText.toLocaleLowerCase("tr")} tercihlerine göre en dengeli başlangıç noktasıdır.${includesUncatalogedSocial ? " Sosyal medya yönetimi ihtiyacınız ayrıca içerik takvimi ve profil optimizasyonu kapsamında değerlendirilir." : ""}`,
     startingStrategy: category === "social_media"
       ? `İlk 30 günde içerik takvimi, sayfa optimizasyonu ve raporlama ritmi kurulur. Mevcut durum: ${socialText}.`
       : includesUncatalogedSocial

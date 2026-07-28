@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { estimateAdBudget, formatTRY, type PackageRecommendationInput } from "@/lib/packages";
 import { executeAiTask, type IntelligenceProviderKey } from "@/lib/server/ai-router";
-import { resolvedBusinessCategoryOrFallback } from "@/lib/business-category";
+import { isGenericBusinessCategory, resolvedBusinessCategoryOrFallback } from "@/lib/business-category";
 import { normalizePlatformSelection, platformSelectionLabel, platformSelectionReadableList, type PlatformKey } from "@/lib/platform-selection";
+import { getSectorProfile } from "@/lib/sector-signal";
 
 export const runtime = "nodejs";
 
@@ -78,10 +79,11 @@ function fallbackResponse(input: BudgetResearchInput): BudgetResearchResponse {
   const location = cleanText(input.marketLocation || input.city || "Türkiye", 80) || "Türkiye";
   const sector = cleanText(input.sector || "belirtilen sektör", 120) || "belirtilen sektör";
   const platformsLabel = platformSelectionLabel(input.platform);
+  const sectorProfile = getSectorProfile(input.sector);
 
   return {
     source: "fallback",
-    marketSummary: `${location} pazarı için ${sector} odağında, seçilen ${platformsLabel} hizmetlerine yönelik medya bütçesi; hedef, içerik ihtiyacı ve başlangıç seviyesine göre HK Dijital analiz modeliyle tahmini olarak hesaplandı.`,
+    marketSummary: `${location} pazarı için ${sector} odağında ${sectorProfile.customerIntent}; seçilen ${platformsLabel} hizmetlerine yönelik medya bütçesi bu davranışa ve hedef/içerik/başlangıç seviyesine göre HK Dijital analiz modeliyle tahmini olarak hesaplandı. Öne çıkan dönüşüm eylemi: ${sectorProfile.conversionFocus}.`,
     recommendedBudget: {
       minimum,
       ideal,
@@ -163,9 +165,14 @@ export async function POST(request: Request) {
     body = {};
   }
 
+  const rawSector = cleanText(body.sector, 120);
+  if (!rawSector || isGenericBusinessCategory(rawSector)) {
+    return NextResponse.json({ error: "Geçerli bir işletme sektörü belirtilmelidir." }, { status: 400 });
+  }
+
   const platforms = normalizePlatformSelection(body.platforms ?? body.platform ?? body.platformNeed);
   const input: BudgetResearchInput = {
-    sector: resolvedBusinessCategoryOrFallback(cleanText(body.sector, 120)),
+    sector: resolvedBusinessCategoryOrFallback(rawSector),
     city: cleanText(body.city, 80),
     marketLocation: cleanText(body.marketLocation || body.city || "Türkiye", 80),
     goal: cleanText(body.goal, 120),
@@ -183,14 +190,18 @@ export async function POST(request: Request) {
   };
 
   const fallback = fallbackResponse(input);
+  const sectorProfile = getSectorProfile(input.sector);
   const prompt = [
     "HK Dijital için Türkçe reklam bütçesi ve piyasa yorumu üret.",
     `İşletme sektörü: ${input.sector}`,
     "Seçilen hizmetler:",
     platformSelectionReadableList(platforms),
     "Bütçe önerisini ve piyasa yorumunu YALNIZCA yukarıda listelenen hizmetlere göre oluştur; listede olmayan bir platformu (ör. sosyal medya seçilmediyse sosyal medya yönetimini) dahil etme veya önerme.",
+    "Yanıtı yazmadan ÖNCE, yalnızca bu sektör için şu noktaları kendi içinde çıkarsa (yanıtta ayrı bir bölüm olarak yazma, sonuçlara yansıt): tipik müşteri niyeti, yerel mi ulusal mı bir kazanım modeli olduğu, olası karar/satın alma döngüsü, en olası dönüşüm eylemi, arama talebiyle ilgisi, görsel içerik ile ilgisi, tekrar satın alma/tekrar ziyaret özelliği, güven ve itibar ihtiyacı, varsa mevzuat/etik kısıtlar, platform uygunluğu.",
+    `Yönlendirici sinyal (kopyalama, yalnızca çıkarsamanı doğrulamak için kullan): olası müşteri niyeti "${sectorProfile.customerIntent}", olası dönüşüm eylemi "${sectorProfile.conversionFocus}". Kendi analizin bu sinyalle çelişirse kendi analizini esas al.`,
     `Değerlendirmeni özellikle "${input.sector}" sektörüne göre uyarla: bu sektördeki tipik hedef kitle davranışı, rekabet yoğunluğu, müşteri kazanma modeli, olası dönüşüm yolculuğu, en uygun reklam platformları, içerik ihtiyaçları, reklam ekonomisi ve sektöre özgü riskleri dikkate al.`,
     "Genel geçer, sektörden bağımsız yorumlar üretme (ör. \"Türkiye'de Meta platformunda reklam vermek isteyen bir işletme...\" gibi kalıp cümleler kullanma); her kategori için aynı paragrafı tekrarlama.",
+    "reasoningBullets ve risks alanları bu sektöre özgü çıkarsamayı somut biçimde yansıtmalı; yalnızca sektör adını başka bir cümleye eklemek yeterli değildir.",
     "Kesin satış, lead, ciro veya sonuç garantisi verme. Canlı internet verisi kullanıyormuş gibi davranma; piyasa varsayımı ve ajans deneyimi dili kullan, tahmini olduğunu belirt.",
     "Reklam bütçesinin hizmet bedelinden ayrı olduğunu açıkça belirt.",
     "Sadece geçerli JSON döndür. Markdown kullanma.",
