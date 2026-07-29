@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { randomUUID } from "crypto";
 
 /**
  * /teklif-al (Paket Öneri Robotu) — "Platform İhtiyacınız" multi-select step.
@@ -165,8 +166,17 @@ test.describe("/teklif-al - Platform İhtiyacınız adımı: çoklu seçim", () 
 });
 
 test.describe("/api/ai/ad-budget-research - platform normalizasyonu ve kombinasyon davranışı", () => {
+  // Each test gets its own synthetic client IP: the route rate-limits per
+  // x-forwarded-for (falling back to a shared "anonymous" bucket when the
+  // header is absent, which is what local Playwright requests do by
+  // default). Without this, every API test across every spec file in a full
+  // suite run collapses into the same bucket and trips the production
+  // abuse-prevention limit (6 requests / 10 minutes) well before the suite
+  // finishes, failing unrelated tests. A unique per-test IP keeps the real
+  // rate limiter intact while giving each test its own quota.
   test("eski tekil 'Hepsi' değeri üç kanonik platforma normalize edilir", async ({ request }) => {
     const response = await request.post("/api/ai/ad-budget-research", {
+      headers: { "x-forwarded-for": `qa-test-${randomUUID()}` },
       data: { sector: "Restoran", goal: "Daha Fazla Satış", platform: "Hepsi", budget: "20000" }
     });
     expect(response.ok()).toBe(true);
@@ -176,6 +186,7 @@ test.describe("/api/ai/ad-budget-research - platform normalizasyonu ve kombinasy
 
   test("eski tekil 'meta' string değeri de doğru normalize edilir", async ({ request }) => {
     const response = await request.post("/api/ai/ad-budget-research", {
+      headers: { "x-forwarded-for": `qa-test-${randomUUID()}` },
       data: { sector: "Restoran", goal: "Daha Fazla Satış", platform: "meta", budget: "20000" }
     });
     expect(response.ok()).toBe(true);
@@ -186,6 +197,7 @@ test.describe("/api/ai/ad-budget-research - platform normalizasyonu ve kombinasy
 
   test("AI istek yükü yalnızca seçilen hizmetleri yansıtır: Google + Sosyal Medya, Meta hariç", async ({ request }) => {
     const response = await request.post("/api/ai/ad-budget-research", {
+      headers: { "x-forwarded-for": `qa-test-${randomUUID()}` },
       data: { sector: "Restoran", goal: "Daha Fazla Satış", platforms: ["google", "social-media"], budget: "20000" }
     });
     expect(response.ok()).toBe(true);

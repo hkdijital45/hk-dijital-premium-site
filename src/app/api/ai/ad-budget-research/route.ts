@@ -105,7 +105,8 @@ function fallbackResponse(input: BudgetResearchInput): BudgetResearchResponse {
     risks: [
       "Minimum bütçenin altında başlanırsa öğrenme ve optimizasyon süresi uzayabilir.",
       "Kreatif kalitesi ve ölçüm kurulumu performansı doğrudan etkiler.",
-      "Bu analiz kesin satış, lead veya ciro garantisi vermez."
+      "Bu analiz kesin satış, lead veya ciro garantisi vermez.",
+      sectorProfile.riskNote
     ],
     extraServiceSuggestions: estimate.extraServices.length ? estimate.extraServices : ["Dönüşüm ölçüm kontrolü", "Kreatif test planı", "Aylık performans raporlama düzeni"],
     disclaimer: "Bu çıktı HK Dijital analiz modeli / piyasa varsayımıdır. Canlı piyasa verisi veya kesin sonuç garantisi olarak yorumlanmamalıdır."

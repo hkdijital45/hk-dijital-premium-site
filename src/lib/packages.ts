@@ -763,16 +763,16 @@ export function recommendServicePackage(input: PackageRecommendationInput) {
   // reason/strategy copy calls the social media need out explicitly instead
   // of silently dropping it.
   const includesUncatalogedSocial = platforms.includes("social-media") && category !== "social_media" && category !== "combined_ads";
-  const sectorProfile = getSectorProfile(input.sector);
+  // Sector customer-intent narration lives in adBudget.reason (rendered in
+  // the "Akıllı Reklam Bütçesi Önerisi" block right below this one) — it must
+  // not be repeated here too, or the two blocks show the same sentence twice.
   const sectorLabel = String(input.sector || "").trim();
-  const sectorReasonClause = sectorLabel
-    ? `${sectorLabel} sektöründe ${sectorProfile.customerIntent} göz önünde bulundurulduğunda, `
-    : "";
+  const sectorReasonPrefix = sectorLabel ? `${sectorLabel} sektörü için: ` : "";
   return {
     recommended,
     alternative,
     adBudget: estimateAdBudget(input),
-    reason: `${sectorReasonClause}Seçilen platformlar (${platformsLabel}) için ${recommended.categoryLabel} kategorisinde ${recommended.name} seviyesi; hedef, bütçe aralığı, ${contentText.toLocaleLowerCase("tr")} ve ${urgencyText.toLocaleLowerCase("tr")} tercihlerine göre en dengeli başlangıç noktasıdır.${includesUncatalogedSocial ? " Sosyal medya yönetimi ihtiyacınız ayrıca içerik takvimi ve profil optimizasyonu kapsamında değerlendirilir." : ""}`,
+    reason: `${sectorReasonPrefix}Seçilen platformlar (${platformsLabel}) için ${recommended.categoryLabel} kategorisinde ${recommended.name} seviyesi; hedef, bütçe aralığı, ${contentText.toLocaleLowerCase("tr")} ve ${urgencyText.toLocaleLowerCase("tr")} tercihlerine göre en dengeli başlangıç noktasıdır.${includesUncatalogedSocial ? " Sosyal medya yönetimi ihtiyacınız ayrıca içerik takvimi ve profil optimizasyonu kapsamında değerlendirilir." : ""}`,
     startingStrategy: category === "social_media"
       ? `İlk 30 günde içerik takvimi, sayfa optimizasyonu ve raporlama ritmi kurulur. Mevcut durum: ${socialText}.`
       : includesUncatalogedSocial

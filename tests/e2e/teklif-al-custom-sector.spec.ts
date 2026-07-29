@@ -138,23 +138,30 @@ test.describe("/teklif-al - İşletme Türü adımı: özel sektör", () => {
 });
 
 test.describe("/api/leads - sunucu tarafı sektör doğrulaması", () => {
+  // /api/leads independently requires a valid email or phone (unrelated to
+  // sector validation, checked first). Every payload below must supply one
+  // so these tests actually exercise the sector check they claim to verify,
+  // rather than incidentally getting a 400 (or missing a real failure) from
+  // the earlier contact-info requirement.
+  const contact = { email: "qa-sector-test@hkdijital.invalid" };
+
   test("businessType 'Diğer' olarak gönderilirse 400 döner", async ({ request }) => {
     const response = await request.post("/api/leads", {
-      data: { source: "quote", name: "Test", businessType: "Diğer", goal: "Daha Fazla Satış", budget: "5.000-20.000 TL" }
+      data: { source: "quote", name: "Test", ...contact, businessType: "Diğer", goal: "Daha Fazla Satış", budget: "5.000-20.000 TL" }
     });
     expect(response.status()).toBe(400);
   });
 
   test("businessType boş string olarak gönderilirse 400 döner", async ({ request }) => {
     const response = await request.post("/api/leads", {
-      data: { source: "quote", name: "Test", businessType: "   ", goal: "Daha Fazla Satış", budget: "5.000-20.000 TL" }
+      data: { source: "quote", name: "Test", ...contact, businessType: "   ", goal: "Daha Fazla Satış", budget: "5.000-20.000 TL" }
     });
     expect(response.status()).toBe(400);
   });
 
   test("geçerli özel businessType ile istek 400 vermez", async ({ request }) => {
     const response = await request.post("/api/leads", {
-      data: { source: "quote", name: "Test", businessType: "Oto Servis", goal: "Daha Fazla Satış", budget: "5.000-20.000 TL" }
+      data: { source: "quote", name: "Test", ...contact, businessType: "Oto Servis", goal: "Daha Fazla Satış", budget: "5.000-20.000 TL" }
     });
     expect(response.status()).not.toBe(400);
   });

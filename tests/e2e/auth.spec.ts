@@ -2,19 +2,22 @@ import { test, expect } from "@playwright/test";
 import { createHmac } from "crypto";
 import { hasQaAdminCredentials, loginAsQaAdmin, qaSkipReason } from "./fixtures/qa-auth";
 
-test("login page (/giris -> /digital-center) loads with real username/password controls", async ({ page }) => {
-  const response = await page.goto("/giris", { waitUntil: "domcontentloaded" });
-  expect(response?.status()).toBeLessThan(400);
-  await expect(page).toHaveURL(/digital-center/);
-  await expect(page.locator('input[type="text"]').first()).toBeVisible();
-  await expect(page.locator('input[type="password"]').first()).toBeVisible();
-});
+// NOTE: /giris is no longer the public login entry point (see the
+// "public-site redesign + private admin login consolidation" tests in
+// public-site-private-login.spec.ts, which cover /giris and /login as
+// orphaned legacy shortcuts redirecting home for unauthenticated visitors,
+// and the real private, env-controlled login path). This file keeps only
+// the still-current auth checks below.
 
 test("unauthenticated request to a protected admin route is rejected", async ({ page }) => {
   const response = await page.goto("/hk-admin", { waitUntil: "domcontentloaded" });
-  // proxy.ts redirects unauthenticated /hk-admin traffic to /giris.
+  // proxy.ts redirects unauthenticated /hk-admin traffic to /giris, which is
+  // itself a legacy path proxy.ts then redirects home for sessionless
+  // visitors, so the final landing page is "/", never a login form.
   expect(response?.status()).toBeLessThan(400);
-  await expect(page).toHaveURL(/giris|digital-center/);
+  await expect(page).toHaveURL(/\/$/);
+  const hasLoginForm = await page.locator('input[autocomplete="current-password"]').count();
+  expect(hasLoginForm, "an unauthenticated /hk-admin visit must never expose a login form").toBe(0);
 });
 
 test("invalid credentials do not grant access", async ({ request }) => {
