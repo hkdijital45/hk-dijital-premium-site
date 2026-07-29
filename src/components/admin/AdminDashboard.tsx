@@ -76,7 +76,6 @@ import { filterSelectableCustomers } from "@/lib/customer-visibility";
 
 import { withAdminEmoji } from "@/lib/admin-nav-presentation";
 import { AdminAppShell } from "@/components/admin/shell/AdminAppShell";
-import { DesktopModuleToolbar } from "@/components/admin/shell/DesktopModuleToolbar";
 import { AdminSidebar } from "@/components/admin/shell/AdminSidebar";
 import { AdminMobileNavigation } from "@/components/admin/shell/AdminMobileNavigation";
 import { AdminTopHeader } from "@/components/admin/shell/AdminTopHeader";
@@ -736,13 +735,6 @@ export function AdminDashboard({
           {(allowedModules.includes("site-ayarlari") || ["musteriler", "kampanyalar", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "sektor-sistemleri"].some((module) => allowedModules.includes(module))) && <button disabled={saving} onClick={() => save()} className={`admin-quick-action admin-quick-action-save text-sm disabled:opacity-70 ${saveFeedback === "success" ? "hk-action-success" : ""}`}><Save size={17} /> {saving ? "Kaydediliyor..." : saveFeedback === "success" ? "Kaydedildi ✓" : saveFeedback === "error" ? "Tekrar Dene" : "Kaydet"}</button>}
           <button onClick={logout} className="admin-quick-action admin-quick-action-danger text-sm"><LogOut size={17} /> Çıkış</button>
         </AdminTopHeader>
-      }
-      moduleToolbar={
-        <DesktopModuleToolbar
-          groups={visibleNavigationGroups}
-          activeGroupLabel={activeGroup?.label}
-          getHref={getAdminHref}
-        />
       }
       sidebar={
         <AdminSidebar

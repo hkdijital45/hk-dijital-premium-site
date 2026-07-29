@@ -3658,65 +3658,6 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
   }
 }
 
-/* ---- Primary module toolbar (DesktopModuleToolbar) --------------------- */
-.admin-module-toolbar {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  border-bottom: 1px solid var(--admin-border);
-  background: var(--admin-surface);
-  padding: 6px 12px;
-  scrollbar-width: thin;
-}
-
-.admin-module-toolbar-btn {
-  display: inline-flex;
-  flex-shrink: 0;
-  align-items: center;
-  gap: 6px;
-  height: 40px;
-  padding: 0 12px;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  font-size: 12.5px;
-  font-weight: 800;
-  white-space: nowrap;
-  color: var(--admin-text-secondary);
-  background: transparent;
-  transition: background .15s ease, border-color .15s ease, color .15s ease, transform .15s ease;
-}
-
-.admin-module-toolbar-btn:hover {
-  background: var(--nav-accent-soft, var(--admin-surface-soft));
-  transform: translateY(-1px);
-}
-
-.admin-module-toolbar-btn[aria-current="true"] {
-  border-color: var(--nav-accent, var(--admin-primary));
-  background: var(--nav-accent-soft, var(--admin-surface-soft));
-  color: var(--nav-accent-text, var(--admin-text-primary));
-}
-
-.admin-module-toolbar-icon {
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  color: #fff;
-  background: var(--nav-accent, var(--admin-primary));
-  flex-shrink: 0;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .admin-module-toolbar-btn {
-    transition: none;
-  }
-  .admin-module-toolbar-btn:hover {
-    transform: none;
-  }
-}
-
 .admin-theme-toggle {
   display: grid;
   place-items: center;

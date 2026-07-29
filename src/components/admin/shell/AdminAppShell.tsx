@@ -4,7 +4,6 @@ export function AdminAppShell({
   theme,
   mobileOperationMode,
   header,
-  moduleToolbar,
   sidebar,
   mobileNav,
   overlays,
@@ -13,7 +12,6 @@ export function AdminAppShell({
   theme: "light" | "dark";
   mobileOperationMode: boolean;
   header: ReactNode;
-  moduleToolbar?: ReactNode;
   sidebar: ReactNode;
   mobileNav: ReactNode;
   overlays?: ReactNode;
@@ -30,7 +28,6 @@ export function AdminAppShell({
       <div className="premium-grid pointer-events-none absolute inset-0 opacity-20" />
       <div className="admin-desktop-frame relative lg:h-full">
         {header}
-        {moduleToolbar}
         {mobileNav}
         <div className="admin-desktop-body relative mx-auto grid w-full min-w-0 max-w-full gap-4 px-3 py-4 sm:px-4 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-stretch lg:px-6">
           {sidebar}

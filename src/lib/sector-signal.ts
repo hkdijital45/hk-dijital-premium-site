@@ -47,7 +47,7 @@ const PROFILE_KEYWORDS: Record<Exclude<SectorProfileKey, "generic_local">, strin
 
 // Priority order matters when a sector name could plausibly match more than
 // one keyword set (e.g. a name containing both a health and a beauty word).
-const PROFILE_PRIORITY: SectorProfileKey[] = [
+const PROFILE_PRIORITY: Exclude<SectorProfileKey, "generic_local">[] = [
   "regulated_professional",
   "property_high_consideration",
   "education_application",
