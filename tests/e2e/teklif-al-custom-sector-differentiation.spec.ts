@@ -59,8 +59,15 @@ async function completeToRecommendation(page: Page) {
 }
 
 async function goBack(page: Page, times: number) {
+  // Each step transition is a 0.28s exit + 0.28s enter Framer Motion
+  // animation (StepPanel in QuoteWizard.tsx). Firing clicks back-to-back
+  // with no settling time occasionally lands mid-transition and drops a
+  // click, landing one step short. The wizard's own goBack() handler is an
+  // unguarded state decrement (no debounce), so this is test timing, not an
+  // app bug — wait for each transition to finish before the next click.
   for (let i = 0; i < times; i += 1) {
     await page.getByRole("button", { name: "Geri" }).click();
+    await page.waitForTimeout(400);
   }
 }
 
