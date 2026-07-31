@@ -99,7 +99,12 @@ test.describe("/teklif-al - özel sektör farklılaştırma doğrulaması", () =
   });
 
   test("Bütçe Analizi Oluştur: sektör değiştirilip geri/ileri gidildiğinde ikinci analiz doğru (güncel) sektörü yansıtır, önceki sektörü değil", async ({ page }) => {
-    test.setTimeout(45_000);
+    // This test triggers two real AI-backed budget analyses in sequence
+    // (once per sector). /lib/server/ai-router.ts's default provider timeout
+    // is 24s, so two real calls back-to-back can approach 48s alone before
+    // accounting for wizard navigation — 45s was only ever enough when no
+    // real AI provider was configured (instant local fallback).
+    test.setTimeout(90_000);
     await isolateAdBudgetRateLimit(page);
     await page.goto("/teklif-al", { waitUntil: "domcontentloaded" });
     await enterCustomSector(page, OTO_SERVIS);

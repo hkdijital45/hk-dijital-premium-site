@@ -46,7 +46,11 @@ test("conversation selection activates the right management panel", async ({ pag
   await gotoAsQaAdmin(page, "/hk-admin/iletisim-merkezi");
   await page.waitForLoadState("domcontentloaded");
 
-  const inboxButtons = page.locator(".admin-workspace-left button[type='button']");
+  // Must target actual conversation rows specifically — the broader sidebar
+  // container also holds view/filter toggle buttons, which previously made
+  // this locator report a false non-zero count (and click a filter button
+  // instead of a conversation) even when the real inbox was empty.
+  const inboxButtons = page.getByTestId("conversation-row");
   const conversationCount = await inboxButtons.count();
   test.skip(conversationCount === 0, "No conversations exist in the inbox for this QA admin account — seed at least one customer_conversations row to exercise selection.");
 

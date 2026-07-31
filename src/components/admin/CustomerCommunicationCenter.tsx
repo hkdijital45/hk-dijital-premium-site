@@ -497,7 +497,7 @@ export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canMan
             {!loading && !visibleItems.length && <AdminEmptyState title="Bu filtrelerde konuşma yok" description="Yeni müşteri mesajları burada listelenecek." />}
             <div className="grid gap-1.5">
               {visibleItems.map((item) => (
-                <button type="button" key={item.id} onClick={() => selectConversation(item.id)} className={`w-full rounded-[8px] border p-2 text-left transition ${selectedId === item.id ? "border-cyan-400 bg-cyan-50 ring-1 ring-cyan-200" : item.priority === "urgent" ? "border-rose-200 bg-rose-50" : "border-slate-200 bg-white"}`}>
+                <button type="button" key={item.id} data-testid="conversation-row" onClick={() => selectConversation(item.id)} className={`w-full rounded-[8px] border p-2 text-left transition ${selectedId === item.id ? "border-cyan-400 bg-cyan-50 ring-1 ring-cyan-200" : item.priority === "urgent" ? "border-rose-200 bg-rose-50" : "border-slate-200 bg-white"}`}>
                   <div className="flex items-start justify-between gap-2">
                     <span className="min-w-0 truncate text-xs font-black text-slate-950">{item.company_name}</span>
                     {item.unread_count > 0 && <span className="shrink-0 rounded-full bg-cyan-600 px-1.5 py-0.5 text-[10px] font-black text-white">{item.unread_count}</span>}

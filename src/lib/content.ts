@@ -120,16 +120,21 @@ export async function getSiteTheme() {
 
 export async function saveSiteContent(content: SiteContent) {
   if (hasSupabaseConfig()) {
-    await supabaseRest("site_settings?key=eq.site_content", {
+    // PostgREST returns 200 with an empty array when a PATCH filter matches
+    // no rows (not an error), so a missing site_content row — e.g. a freshly
+    // connected/never-initialized database — must be detected from the
+    // result, not from a thrown error, or this silently no-ops forever.
+    const patched = await supabaseRest<unknown[]>("site_settings?key=eq.site_content", {
       method: "PATCH",
       headers: { Prefer: "return=representation" },
       body: JSON.stringify({ value: content, updated_at: new Date().toISOString() })
-    }).catch(async () => {
+    }).catch(() => [] as unknown[]);
+    if (!Array.isArray(patched) || patched.length === 0) {
       await supabaseRest("site_settings", {
         method: "POST",
         body: JSON.stringify({ key: siteContentKey, value: content })
       });
-    });
+    }
     return content;
   }
 
