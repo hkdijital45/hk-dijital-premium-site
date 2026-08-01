@@ -37,8 +37,8 @@ function tokenize(value: string): string[] {
 
 const PROFILE_KEYWORDS: Record<Exclude<SectorProfileKey, "generic_local">, string[]> = {
   regulated_professional: ["diş", "dis", "implant", "ortodonti", "estetik", "klinik", "sağlık", "saglik", "hukuk", "avukat", "muhasebe", "müşavir", "musavir", "noter", "veteriner"],
-  local_high_intent: ["oto", "otomotiv", "araç", "arac", "araba", "lastik", "çilingir", "cilingir", "tesisat", "tesisatçı", "tesisatci", "elektrikçi", "elektrikci", "nakliyat", "çekici", "cekici", "servis", "tamir", "tamirci", "tamirhane"],
-  appointment_visual: ["güzellik", "guzellik", "kuaför", "kuafor", "nail", "berber", "spa", "masaj", "dövme", "dovme", "estetisyen", "makyaj", "salon", "salonu"],
+  local_high_intent: ["oto", "otomotiv", "araç", "arac", "araba", "lastik", "çilingir", "cilingir", "tesisat", "tesisatçı", "tesisatci", "elektrikçi", "elektrikci", "nakliyat", "çekici", "cekici", "servis", "servisi", "tamir", "tamirci", "tamirhane", "klima", "kombi"],
+  appointment_visual: ["güzellik", "guzellik", "kuaför", "kuafor", "nail", "tırnak", "tirnak", "protez", "epilasyon", "berber", "spa", "masaj", "dövme", "dovme", "estetisyen", "makyaj", "salon", "salonu"],
   ecommerce_catalogue: ["eticaret", "ticaret", "mağaza", "magaza", "butik", "katalog", "online"],
   education_application: ["kurs", "eğitim", "egitim", "okul", "akademi", "dershane", "üniversite", "universite"],
   food_venue: ["restoran", "cafe", "kafe", "pastane", "fırın", "firin", "catering", "mekan", "bar"],
@@ -151,4 +151,46 @@ const SECTOR_PROFILES: Record<SectorProfileKey, SectorProfile> = {
 
 export function getSectorProfile(sector?: string): SectorProfile {
   return SECTOR_PROFILES[classifySectorProfile(sector)];
+}
+
+// Predefined sector presets for the Müşteri Keşfi / Google Maps Müşteri
+// Bulma discovery search — a starting set of common local-service sectors,
+// not an exhaustive industry list. Free-text entry is always accepted
+// alongside these; this list only powers autocomplete suggestions. Kept
+// intentionally sector-agnostic in scope (local services generally, not
+// beauty-only) so the discovery module stays reusable for any vertical.
+export const DISCOVERY_SECTOR_PRESETS = [
+  "Güzellik Merkezi",
+  "Nail Studio",
+  "Protez Tırnak",
+  "Lazer Epilasyon",
+  "Kuaför",
+  "Estetik Merkezi",
+  "Diş Kliniği",
+  "İlk Yardım Eğitim Merkezi",
+  "Özel Eğitim Kurumu",
+  "Klima Servisi",
+  "Oto Servis",
+  "Restoran",
+  "Kafe",
+  "Emlak Ofisi",
+  "Hukuk Bürosu",
+  "Mali Müşavir",
+  "Veteriner Kliniği",
+  "Spor Salonu",
+  "Çilingir",
+  "Su Arıtma"
+];
+
+const MAX_SECTOR_INPUT_LENGTH = 100;
+
+/** Trims/cleans a free-typed sector value for storage and comparison. Does
+ * not change its meaning or force it to match a preset — free text is a
+ * first-class input, not a fallback. */
+export function normalizeSectorInput(value: unknown): string {
+  return String(value ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/<[^>]*>/g, "")
+    .slice(0, MAX_SECTOR_INPUT_LENGTH);
 }

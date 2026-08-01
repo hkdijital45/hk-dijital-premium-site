@@ -1,7 +1,19 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
 import { recordActivity } from "@/lib/activity-log";
-import { scoreDiscoveredBusiness, type DiscoveredBusiness } from "@/lib/lead-scoring";
+import {
+  buildOutreachMessages,
+  buildSalesRecommendation,
+  calculateHkOpportunityScore,
+  calculateMetaSuitability,
+  evaluateAdvertisingSignals,
+  getHkOpportunityTier,
+  scoreDiscoveredBusiness,
+  type AdvertisingEvidence,
+  type DiscoveredBusiness
+} from "@/lib/lead-scoring";
+import { normalizeSectorInput } from "@/lib/sector-signal";
+import { scanWebsiteForAdSignals } from "@/lib/website-signal-scan";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 import { requireModuleAccess } from "@/lib/permissions";
 
@@ -44,43 +56,78 @@ function phoneKey(value: unknown) {
   return clean(value).replace(/\D/g, "");
 }
 
-function opportunityPayload(business: DiscoveredBusiness) {
+/**
+ * Attaches every derived intelligence field a result card / detail panel /
+ * CRM transfer needs: the legacy heat/maturity scores (scoreDiscoveredBusiness),
+ * the canonical HK Opportunity Score and tier, advertising evidence (real
+ * website scan, never fabricated), Meta suitability, a sales recommendation,
+ * and outreach message drafts. All computed once, here, and reused
+ * everywhere downstream — no duplicated scoring logic.
+ */
+async function enrichBusiness(business: DiscoveredBusiness): Promise<Record<string, any>> {
   const scored = scoreDiscoveredBusiness(business);
-  const heat = Number(scored.leadHeatScore || business.leadHeatScore || business.lead_heat_score || 0);
-  const maturity = Number(scored.digitalMaturityScore || business.digitalMaturityScore || business.digital_maturity_score || 0);
-  const reviews = Number(business.reviewCount || business.google_review_count || 0);
-  const rating = Number(business.googleRating || business.google_rating || business.rating || 0);
+  const scan = business.isDemo
+    ? { metaPixelDetected: null, googleTagDetected: null, whatsappLinkDetected: null, scanFailed: false, checkedAt: new Date().toISOString() }
+    : await scanWebsiteForAdSignals(business.website).catch(() => ({ metaPixelDetected: null, googleTagDetected: null, whatsappLinkDetected: null, scanFailed: true, checkedAt: new Date().toISOString() }));
+  const advertising: AdvertisingEvidence = evaluateAdvertisingSignals({
+    website: business.website,
+    metaPixelDetected: scan.metaPixelDetected,
+    googleTagDetected: scan.googleTagDetected,
+    scanFailed: scan.scanFailed,
+    checkedAt: scan.checkedAt
+  });
+  const businessWithWhatsapp: DiscoveredBusiness = {
+    ...business,
+    whatsapp: business.whatsapp || (scan.whatsappLinkDetected ? business.phone : undefined)
+  };
+  const opportunityScore = calculateHkOpportunityScore(businessWithWhatsapp, advertising);
+  const tier = getHkOpportunityTier(opportunityScore);
+  const metaSuitability = calculateMetaSuitability(businessWithWhatsapp);
+  const salesRecommendation = buildSalesRecommendation(businessWithWhatsapp, opportunityScore);
+  const outreach = buildOutreachMessages(businessWithWhatsapp, opportunityScore);
+
   const websiteMissing = !business.website;
-  const phoneMissing = !business.phone;
-  const digitalGapScore = Math.min(100, Math.max(0, 100 - maturity + (websiteMissing ? 12 : 0) + (phoneMissing ? 6 : 0)));
-  const adPotentialScore = Math.min(100, Math.round(heat * 0.7 + (rating >= 4 ? 8 : 0) + (reviews < 30 ? 10 : 0) + (websiteMissing ? 10 : 0)));
-  const opportunityScore = Math.min(100, Math.round((heat + digitalGapScore + adPotentialScore) / 3));
-  const aiSuggestion = websiteMissing
-    ? "Web sitesi veya açılış sayfası teklifiyle başlanmalı; Google profil ve reklam potansiyeli birlikte anlatılmalı."
-    : reviews < 25
-      ? "Google yorum artırma ve yerel reklam paketiyle temas kurulmalı."
-      : "Reklam performansı, teklif dili ve dönüşüm takibi üzerinden teklif hazırlanmalı.";
+  const digitalGapScore = Math.min(100, Math.max(0, 100 - scored.digitalMaturityScore + (websiteMissing ? 12 : 0) + (!business.phone ? 6 : 0)));
+
   return {
+    ...businessWithWhatsapp,
     ...scored,
     opportunityScore,
+    hkOpportunityTier: tier.key,
+    hkOpportunityLabel: tier.label,
+    hkOpportunityAction: tier.recommendedAction,
     digitalGapScore,
-    adPotentialScore,
-    crmStatus: business.crmStatus || "CRM’de yok",
-    aiSuggestion
+    adPotentialScore: scored.leadHeatScore,
+    metaSuitabilityScore: metaSuitability.score,
+    metaSuitabilityReasons: metaSuitability.reasons,
+    metaSuitabilityNote: metaSuitability.primaryChannelNote,
+    metaAdsStatus: advertising.metaAdsStatus,
+    metaAdsEvidence: advertising.metaAdsEvidence,
+    googleAdsStatus: advertising.googleAdsStatus,
+    googleAdsEvidence: advertising.googleAdsEvidence,
+    metaPixelDetected: advertising.metaPixelDetected,
+    googleTagDetected: advertising.googleTagDetected,
+    advertisingConfidence: advertising.advertisingConfidence,
+    advertisingSource: advertising.advertisingSource,
+    advertisingLastCheckedAt: advertising.advertisingLastCheckedAt,
+    salesRecommendation,
+    outreach,
+    crmStatus: business.crmStatus || "CRM'de yok"
   };
 }
 
 function demoBusinesses(input: { city: string; district: string; businessType: string }) {
   const city = input.city || "Manisa";
-  const district = input.district || "Yunusemre";
+  const district = input.district || "";
+  const districtLabel = district || "Yunusemre";
   const category = input.businessType || "güzellik merkezi";
   return [
     {
-      placeId: `demo-${city}-${district}-1`,
-      name: `${district} ${category} Plus`,
+      placeId: `demo-${city}-${districtLabel}-1`,
+      name: `${districtLabel} ${category} Plus`,
       city,
       district,
-      address: `${district}, ${city}`,
+      address: `${districtLabel}, ${city}`,
       phone: "0236 000 00 01",
       website: "",
       rating: 4.6,
@@ -91,11 +138,11 @@ function demoBusinesses(input: { city: string; district: string; businessType: s
       isDemo: true
     },
     {
-      placeId: `demo-${city}-${district}-2`,
+      placeId: `demo-${city}-${districtLabel}-2`,
       name: `${city} ${category} Atölyesi`,
       city,
       district,
-      address: `${district} merkez, ${city}`,
+      address: `${districtLabel} merkez, ${city}`,
       phone: "0236 000 00 02",
       website: `https://example.com/${encodeURIComponent(category.replace(/\s+/g, "-"))}`,
       rating: 4.2,
@@ -106,11 +153,11 @@ function demoBusinesses(input: { city: string; district: string; businessType: s
       isDemo: true
     },
     {
-      placeId: `demo-${city}-${district}-3`,
-      name: `${district} Yeni ${category}`,
+      placeId: `demo-${city}-${districtLabel}-3`,
+      name: `${districtLabel} Yeni ${category}`,
       city,
       district,
-      address: `${district} cadde, ${city}`,
+      address: `${districtLabel} cadde, ${city}`,
       phone: "",
       website: "",
       rating: 3.8,
@@ -120,7 +167,7 @@ function demoBusinesses(input: { city: string; district: string; businessType: s
       source: "Demo Veri",
       isDemo: true
     }
-  ].map((business) => ({ ...business, ...opportunityPayload(business) }));
+  ];
 }
 
 function applyDiscoveryFilters(
@@ -153,6 +200,11 @@ function applyDiscoveryFilters(
   });
 }
 
+/** Default list order: highest HK Opportunity Score first. */
+function sortByOpportunity(businesses: Array<Record<string, any>>) {
+  return [...businesses].sort((a, b) => Number(b.opportunityScore || 0) - Number(a.opportunityScore || 0));
+}
+
 async function knownPlaceIds(hideSaved: boolean) {
   if (!hideSaved || !hasSupabaseConfig()) return new Set<string>();
   const rows = await supabaseRest<Array<{ google_place_id?: string }>>("leads?select=google_place_id&google_place_id=not.is.null").catch(() => []);
@@ -163,11 +215,14 @@ export async function POST(request: Request) {
   if (!(await requireStaff())) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
 
   const body = await request.json();
-  const keyword = clean(body.keyword || body.businessType);
+  const keyword = clean(body.keyword);
   const city = clean(body.city);
   const district = clean(body.district);
   const neighborhood = clean(body.neighborhood);
-  const sector = clean(body.sector || body.businessType);
+  // Sektör is required independently of anahtar kelime — a keyword alone
+  // (e.g. only "protez tırnak" typed into the keyword box with no sector)
+  // must not satisfy the requirement, matching the non-negotiable form spec.
+  const sector = normalizeSectorInput(body.sector || body.businessType);
   const minimumRating = numberFilter(body.minimumRating || body.minRating);
   const minimumReviewCount = numberFilter(body.minimumReviewCount || body.minReviewCount);
   const website = clean(body.website || body.websiteStatus);
@@ -178,15 +233,19 @@ export async function POST(request: Request) {
   const highAdPotential = Boolean(body.highAdPotential);
   const limit = Math.max(1, Math.min(50, Number(body.limit || body.requestedCount || body.count || 20) || 20));
 
-  if (!keyword && !sector) return NextResponse.json({ error: "İşletme / sektör alanı zorunludur." }, { status: 400 });
+  if (!sector) return NextResponse.json({ error: "Sektör alanı zorunludur." }, { status: 400 });
   if (!city) return NextResponse.json({ error: "İl seçin veya yazın." }, { status: 400 });
 
   const filters = { minimumRating, minimumReviewCount, website, phone, instagram, hideSaved, highOpportunity, highAdPotential, knownPlaceIds: await knownPlaceIds(hideSaved) };
-  const demoFallback = (apiError?: string) => {
-    const businesses = applyDiscoveryFilters(demoBusinesses({ city, district, businessType: sector || keyword }), filters);
+  const districtLabel = district || "Tüm ilçeler";
+
+  const demoFallback = async (apiError?: string) => {
+    const enriched = await Promise.all(demoBusinesses({ city, district, businessType: sector }).map(enrichBusiness));
+    const businesses = sortByOpportunity(applyDiscoveryFilters(enriched, filters));
     return NextResponse.json({
       businesses,
       count: businesses.length,
+      districtLabel,
       isDemoFallback: true,
       warning: "Google Maps verisi alınamadı. Demo veri ile devam ediliyor.",
       apiError
@@ -205,9 +264,9 @@ export async function POST(request: Request) {
     }
 
     const baseResults = (data.results || []).slice(0, limit);
-    const businesses = (await Promise.all(baseResults.map(async (place: any) => {
+    const businesses = await Promise.all(baseResults.map(async (place: any) => {
       const details = await getPlaceDetails(place.place_id).catch(() => ({}));
-      const business = {
+      const business: DiscoveredBusiness = {
         placeId: place.place_id,
         name: place.name,
         city,
@@ -227,10 +286,14 @@ export async function POST(request: Request) {
         source: "Google Maps",
         isDemo: false
       };
-      return { ...business, ...opportunityPayload(business) };
-    }))).filter(Boolean);
-    const filtered = applyDiscoveryFilters(businesses, filters);
-    return NextResponse.json({ businesses: filtered, count: filtered.length });
+      return enrichBusiness(business);
+    }));
+    // A real, legitimate zero-results response (Google returned ZERO_RESULTS
+    // or every result was filtered out) is intentionally returned with no
+    // "warning"/"isDemoFallback" flag — the frontend must be able to tell
+    // this apart from an API failure, which always sets those fields.
+    const filtered = sortByOpportunity(applyDiscoveryFilters(businesses, filters));
+    return NextResponse.json({ businesses: filtered, count: filtered.length, districtLabel });
   } catch (error) {
     console.error("[business-discovery] İşletme araması çöktü", error);
     return demoFallback(error instanceof Error ? error.message : "İşletme araması başarısız oldu.");
@@ -247,43 +310,83 @@ export async function PUT(request: Request) {
   if (!businesses.length) return NextResponse.json({ error: "Kaydedilecek işletme seçin." }, { status: 400 });
 
   try {
-    const existing = await supabaseRest<Array<{ google_place_id?: string; company?: string; phone?: string; website?: string; district?: string }>>("leads?select=google_place_id,company,phone,website,district");
-    const knownPlaceIds = new Set(existing.map((lead) => lead.google_place_id).filter(Boolean));
-    const knownNamePhones = new Set(existing.map((lead) => `${clean(lead.company).toLocaleLowerCase("tr-TR")}::${phoneKey(lead.phone)}`).filter((key) => key !== "::"));
-    const knownWebsites = new Set(existing.map((lead) => clean(lead.website).toLocaleLowerCase("tr-TR").replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/$/, "")).filter(Boolean));
-    const knownNameDistricts = new Set(existing.map((lead) => `${clean(lead.company).toLocaleLowerCase("tr-TR")}::${clean(lead.district).toLocaleLowerCase("tr-TR")}`).filter((key) => key !== "::"));
-    const rows = businesses.filter((business) => {
+    const existing = await supabaseRest<Array<{ id: string; google_place_id?: string; company?: string; phone?: string; website?: string; district?: string }>>("leads?select=id,google_place_id,company,phone,website,district");
+    const knownPlaceIds = new Map(existing.filter((lead) => lead.google_place_id).map((lead) => [lead.google_place_id as string, lead]));
+    const knownNamePhones = new Map(existing.filter((lead) => lead.company && lead.phone).map((lead) => [`${clean(lead.company).toLocaleLowerCase("tr-TR")}::${phoneKey(lead.phone)}`, lead]));
+    const knownWebsites = new Map(existing.filter((lead) => lead.website).map((lead) => [clean(lead.website).toLocaleLowerCase("tr-TR").replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/$/, ""), lead]));
+    const knownNameDistricts = new Map(existing.filter((lead) => lead.company && lead.district).map((lead) => [`${clean(lead.company).toLocaleLowerCase("tr-TR")}::${clean(lead.district).toLocaleLowerCase("tr-TR")}`, lead]));
+
+    function findDuplicate(business: DiscoveredBusiness) {
+      if (business.placeId && knownPlaceIds.has(business.placeId)) return knownPlaceIds.get(business.placeId);
       const namePhone = `${clean(business.name).toLocaleLowerCase("tr-TR")}::${phoneKey(business.phone)}`;
+      if (business.name && business.phone && knownNamePhones.has(namePhone)) return knownNamePhones.get(namePhone);
       const website = clean(business.website).toLocaleLowerCase("tr-TR").replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/$/, "");
+      if (website && knownWebsites.has(website)) return knownWebsites.get(website);
       const nameDistrict = `${clean(business.name).toLocaleLowerCase("tr-TR")}::${clean(business.district || body.district).toLocaleLowerCase("tr-TR")}`;
-      return !((business.placeId && knownPlaceIds.has(business.placeId)) || (business.name && business.phone && knownNamePhones.has(namePhone)) || (website && knownWebsites.has(website)) || (business.name && (business.district || body.district) && knownNameDistricts.has(nameDistrict)));
-    }).map((business) => {
+      if (business.name && (business.district || body.district) && knownNameDistricts.has(nameDistrict)) return knownNameDistricts.get(nameDistrict);
+      return null;
+    }
+
+    const duplicates = businesses.map((business) => ({ business, existingLead: findDuplicate(business) })).filter((entry) => entry.existingLead);
+    const rows = businesses.filter((business) => !findDuplicate(business)).map((business) => {
       const scores = scoreDiscoveredBusiness(business);
+      const opportunityScore = business.opportunityScore ?? calculateHkOpportunityScore(business);
       return {
         source: "Google Maps / Müşteri Keşfi",
         company: business.name || "",
         phone: business.phone || "",
+        whatsapp: business.whatsapp || "",
         website: business.website || "",
+        instagram: business.instagram || "",
         business_type: business.category || body.sector || "",
         city: business.city || body.city || "",
         district: business.district || body.district || "",
+        neighborhood: business.neighborhood || body.neighborhood || "",
         sector: business.category || body.sector || "",
         address: business.address || "",
         google_rating: business.googleRating ?? null,
         google_review_count: Number(business.reviewCount || 0),
         google_place_id: business.placeId || "",
         google_maps_url: business.googleMapsUrl || business.google_maps_url || (business.placeId ? `https://www.google.com/maps/place/?q=place_id:${business.placeId}` : ""),
-        opportunity_score: business.opportunityScore || scores.leadHeatScore,
-        digital_gap_score: business.digitalGapScore || Math.max(0, 100 - Number(scores.digitalMaturityScore || 0)),
-        ad_potential_score: business.adPotentialScore || scores.leadHeatScore,
+        opportunity_score: opportunityScore,
+        digital_gap_score: business.digitalGapScore ?? Math.max(0, 100 - Number(scores.digitalMaturityScore || 0)),
+        ad_potential_score: business.adPotentialScore ?? scores.leadHeatScore,
+        meta_suitability_score: business.metaSuitabilityScore ?? null,
         digital_maturity_score: scores.digitalMaturityScore,
         lead_heat_score: scores.leadHeatScore,
+        meta_ads_status: business.metaAdsStatus || null,
+        meta_ads_evidence: business.metaAdsEvidence || null,
+        google_ads_status: business.googleAdsStatus || null,
+        google_ads_evidence: business.googleAdsEvidence || null,
+        meta_pixel_detected: business.metaPixelDetected ?? null,
+        google_tag_detected: business.googleTagDetected ?? null,
+        advertising_confidence: business.advertisingConfidence || null,
+        advertising_source: business.advertisingSource || null,
+        advertising_last_checked_at: business.advertisingLastCheckedAt || null,
+        discovery_evidence: {
+          salesRecommendation: business.salesRecommendation || null,
+          outreach: business.outreach || null,
+          metaSuitabilityReasons: business.metaSuitabilityReasons || [],
+          metaSuitabilityNote: business.metaSuitabilityNote || "",
+          scoreReasons: scores.scoreReasons || {},
+          scoreBreakdown: scores.scoreBreakdown || {}
+        },
+        discovery_last_checked_at: new Date().toISOString(),
         notes: [business.notes, body.notes, "Google Maps işletme keşfi ile kaydedildi.", ...(scores.scoreReasons?.heat || [])].filter(Boolean).join("\n"),
         status: "Yeni Lead",
         lead_stage: "Yeni Lead"
       };
     });
-    if (!rows.length) return NextResponse.json({ leads: [], count: 0, skipped: businesses.length, message: "Seçilen işletmeler daha önce CRM listesine eklenmiş." });
+
+    if (!rows.length) {
+      return NextResponse.json({
+        leads: [],
+        count: 0,
+        skipped: businesses.length,
+        duplicates: duplicates.map((entry) => ({ name: entry.business.name, existingLeadId: entry.existingLead?.id })),
+        message: "Seçilen işletmeler daha önce CRM listesine eklenmiş."
+      });
+    }
     let leads;
     try {
       leads = await supabaseRest<any[]>("leads", { method: "POST", body: JSON.stringify(rows) });
@@ -293,7 +396,13 @@ export async function PUT(request: Request) {
       leads = await supabaseRest<any[]>("leads", { method: "POST", body: JSON.stringify(rows.map(stripOptionalDiscoveryColumns)) });
     }
     await recordActivity({ session, action: "Oluşturma", entity: "Müşteri Bulucu", details: { message: `${leads.length} işletme CRM listesine eklendi`, count: leads.length } });
-    return NextResponse.json({ leads, count: leads.length, skipped: businesses.length - leads.length, message: `${leads.length} işletme CRM listesine eklendi.` });
+    return NextResponse.json({
+      leads,
+      count: leads.length,
+      skipped: businesses.length - leads.length,
+      duplicates: duplicates.map((entry) => ({ name: entry.business.name, existingLeadId: entry.existingLead?.id })),
+      message: `${leads.length} işletme CRM listesine eklendi.${duplicates.length ? ` ${duplicates.length} işletme zaten CRM'de kayıtlı olduğu için atlandı.` : ""}`
+    });
   } catch (error) {
     const safe = getSafeSupabaseError(error);
     console.error("[business-discovery] Lead kayıt hatası", safe.detail);
@@ -315,12 +424,26 @@ function stripOptionalDiscoveryColumns(record: Record<string, any>) {
   const fallback = { ...record };
   delete fallback.city;
   delete fallback.district;
+  delete fallback.neighborhood;
+  delete fallback.whatsapp;
   delete fallback.sector;
   delete fallback.local_opportunity_notes;
   delete fallback.google_maps_url;
   delete fallback.opportunity_score;
   delete fallback.digital_gap_score;
   delete fallback.ad_potential_score;
+  delete fallback.meta_suitability_score;
   delete fallback.lead_stage;
+  delete fallback.meta_ads_status;
+  delete fallback.meta_ads_evidence;
+  delete fallback.google_ads_status;
+  delete fallback.google_ads_evidence;
+  delete fallback.meta_pixel_detected;
+  delete fallback.google_tag_detected;
+  delete fallback.advertising_confidence;
+  delete fallback.advertising_source;
+  delete fallback.advertising_last_checked_at;
+  delete fallback.discovery_evidence;
+  delete fallback.discovery_last_checked_at;
   return fallback;
 }

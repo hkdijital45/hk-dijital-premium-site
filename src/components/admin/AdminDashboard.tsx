@@ -69,6 +69,8 @@ import { canViewAccounting } from "@/lib/accounting-permissions";
 import { aiProviderKeyForApi, buildAiSelectionReason, labelForAiProvider, normalizeUnifiedAiProvider, unifiedAiProviderOptions, unifiedAiPriorityKeys } from "@/lib/ai-provider-options";
 import { CUSTOMER_MODULE_REGISTRY, CUSTOMER_PLATFORM_REGISTRY, DEFAULT_CUSTOMER_MODULES, DEFAULT_CUSTOMER_PLATFORMS, normalizeModuleKeys, normalizePlatformKeys } from "@/lib/customer-portal-registry";
 import { HK_SERVICE_PACKAGES, PACKAGE_CATEGORIES, calculateTotalWithVat, calculateVat, findServicePackage, formatPackagePrice, formatTRY, getPackagePricing } from "@/lib/packages";
+import { AD_STATUS_LABELS, getHkOpportunityTier, type AdStatusValue } from "@/lib/lead-scoring";
+import { DISCOVERY_SECTOR_PRESETS } from "@/lib/sector-signal";
 import { GlassCard } from "@/components/premium/PremiumUI";
 import { suggestUsername } from "@/lib/usernames";
 import { excludeTestCompanyRecords, filterRecordsByVisibility, isTestRecord } from "@/lib/test-records";
@@ -9902,7 +9904,7 @@ function mapTabFromSlug(slug: string | null) {
 }
 
 function MapsIntelligence({ content, setContent, setActive, save, notify, mode = "Haritalar", allowedModules = [] }: any) {
-  const emptySearch = { city: "Manisa", district: "", neighborhood: "", businessType: "", keyword: "", niche: "", radius: "5 km", limit: "20", minimumRating: "", minimumReviewCount: "", website: "", phone: "", instagram: "", hideSaved: true, highOpportunity: false, highAdPotential: false };
+  const emptySearch = { city: "Manisa", district: "", neighborhood: "", businessType: "", keyword: "", niche: "", radius: "5 km", limit: "20", minimumRating: "", minimumReviewCount: "", website: "", phone: "", instagram: "", whatsapp: "", adStatus: "", crmStatus: "", hideSaved: true, highOpportunity: false, highAdPotential: false };
   const [search, setSearch] = useState(emptySearch);
   const [results, setResults] = useState([]);
   const [tab, setTab] = useState(mode === "İşletme Keşfi" ? "Google Maps Müşteri Bulma" : "Fırsat Haritası");
@@ -9928,12 +9930,22 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
   const [leadCompetitors, setLeadCompetitors] = useState<Record<string, any[]>>({});
   const [leadStagesById, setLeadStagesById] = useState<Record<string, string>>({});
   const saved = (content.leads || []).filter((lead) => lead.google_place_id || lead.address);
+  const recentSectors = [...new Set((content.leads || []).map((lead: any) => String(lead.sector || lead.business_type || "").trim()).filter(Boolean))]
+    .filter((sector) => !DISCOVERY_SECTOR_PRESETS.includes(sector))
+    .slice(0, 6);
   const canDiscover = allowedModules.includes("musteri-bulucu") || allowedModules.includes("haritalar") || allowedModules.includes("business_discovery") || allowedModules.includes("maps");
   const source = tab === "Google Maps Müşteri Bulma" ? results : saved;
   const visible = source
     .filter((item) => tab !== "Sıcak Leadler" || Number(item.lead_heat_score || item.leadHeatScore || 0) >= 70)
     .filter((item) => !search.district || districtOf(item).toLocaleLowerCase("tr").includes(search.district.toLocaleLowerCase("tr")))
-    .filter((item) => !search.businessType || String(item.business_type || item.category || "").toLocaleLowerCase("tr").includes(search.businessType.toLocaleLowerCase("tr")));
+    .filter((item) => !search.businessType || String(item.business_type || item.category || "").toLocaleLowerCase("tr").includes(search.businessType.toLocaleLowerCase("tr")))
+    .filter((item) => !search.whatsapp || (search.whatsapp === "var" ? Boolean(item.whatsapp) : !item.whatsapp))
+    .filter((item) => !search.adStatus || item.metaAdsStatus === search.adStatus || item.meta_ads_status === search.adStatus || item.googleAdsStatus === search.adStatus || item.google_ads_status === search.adStatus)
+    .filter((item) => !search.crmStatus || (search.crmStatus === "kayitli" ? Boolean(existingLeadFor(item)) : !existingLeadFor(item)))
+    // Default order: highest HK Opportunity Score first, so the sales question
+    // ("who should I contact today?") is answered by scanning top-to-bottom.
+    .slice()
+    .sort((a, b) => Number(b.opportunityScore ?? b.opportunity_score ?? b.leadHeatScore ?? b.lead_heat_score ?? 0) - Number(a.opportunityScore ?? a.opportunity_score ?? a.leadHeatScore ?? a.lead_heat_score ?? 0));
   const combined = [...saved, ...results.filter((result) => !saved.some((lead) => lead.google_place_id === result.placeId))];
   const districts = Object.values(combined.reduce((groups: any, item: any) => {
     const district = districtOf(item);
@@ -10089,11 +10101,34 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
     setContent({ ...content, leads: (content.leads || []).map((lead) => lead.id === id ? { ...lead, ...patch } : lead) });
     setMessage("Kayıt güncellendi. Kalıcı kayıt için üst çubuktaki Kaydet düğmesini kullanın.");
   }
+  async function verifyAdStatus(record: any, channel: "meta" | "google", status: "active" | "inactive") {
+    const lead = existingLeadFor(record);
+    if (!lead?.id) return notify?.("Manuel doğrulama kaydedebilmek için önce bu işletmeyi CRM'e kaydedin.", "warning");
+    setLoading(`verify-${channel}-${lead.id}`);
+    try {
+      const response = await fetch(`/api/admin/leads/${lead.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ manualAdVerification: { channel, status, source: channel === "meta" ? "Meta Ad Library (manuel kontrol)" : "Google Ads Transparency Center (manuel kontrol)" } })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Doğrulama kaydedilemedi.");
+      setContent({ ...content, leads: (content.leads || []).map((item) => item.id === lead.id ? data.lead : item) });
+      if (data.warning) notify?.(data.warning, "warning");
+      else notify?.(`${channel === "meta" ? "Meta" : "Google"} reklam durumu manuel olarak doğrulandı.`, "success");
+    } catch (error) {
+      notify?.(error instanceof Error ? error.message : "Doğrulama kaydedilemedi.", "error");
+    } finally {
+      setLoading("");
+    }
+  }
   async function runSearch() {
     if (!canDiscover) return setMessage("İşletme keşfi araması için yetkiniz bulunmuyor.");
+    if (!search.city.trim()) return setMessage("İl alanı zorunludur.");
+    if (!search.businessType.trim()) return setMessage("Sektör alanı zorunludur. İlçe ve mahalle boş bırakılabilir.");
     setLoading("search");
     setMessage("Google Maps üzerinde işletmeler aranıyor...");
-    const response = await fetch("/api/admin/business-discovery", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...search, sector: search.businessType, keyword: search.keyword || search.niche || search.businessType, requestedCount: search.limit }) });
+    const response = await fetch("/api/admin/business-discovery", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...search, sector: search.businessType, keyword: search.keyword || search.niche || "", requestedCount: search.limit }) });
     const data = await response.json().catch(() => ({}));
     setLoading("");
     if (!response.ok) return setMessage(data.error || "İşletme araması başarısız oldu.");
@@ -10647,17 +10682,22 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
     const record = existingLead || item;
     const heat = scoreValue(record, "leadHeatScore", "lead_heat_score");
     const maturity = scoreValue(record, "digitalMaturityScore", "digital_maturity_score");
-    const opportunityScore = Number(record.opportunityScore || heat || 0);
-    const digitalGapScore = Number(record.digitalGapScore || Math.max(0, 100 - Number(maturity || 0)));
-    const adPotentialScore = Number(record.adPotentialScore || Math.min(100, Number(heat || 0) + 10));
-    const level = customerDiscoveryLevel(heat);
+    const opportunityScore = Number(record.opportunityScore ?? record.opportunity_score ?? heat ?? 0);
+    const digitalGapScore = Number(record.digitalGapScore ?? record.digital_gap_score ?? Math.max(0, 100 - Number(maturity || 0)));
+    const adPotentialScore = Number(record.adPotentialScore ?? record.ad_potential_score ?? Math.min(100, Number(heat || 0) + 10));
+    const hkTier = getHkOpportunityTier(opportunityScore);
+    const level = { label: hkTier.label, className: hkTier.className, pin: hkTier.className.match(/bg-\S+/)?.[0] || "bg-slate-400" };
     const maturityLevel = digitalMaturityLevel(maturity);
+    const metaAdsStatus: AdStatusValue | undefined = record.metaAdsStatus || record.meta_ads_status;
+    const googleAdsStatus: AdStatusValue | undefined = record.googleAdsStatus || record.google_ads_status;
+    const whatsapp = record.whatsapp;
     const breakdown = record.scoreBreakdown || discoveryScoreBreakdown(record);
     const heatTotal = heat ?? Math.min(100, breakdown.heat.reduce((sum, row) => sum + Number(row.points || 0), 0));
     const maturityTotal = maturity ?? Math.min(100, breakdown.maturity.reduce((sum, row) => sum + Number(row.points || 0), 0));
     const badges = [
       !record.website && "Website Yok",
       record.phone && "Telefon Var",
+      whatsapp && "WhatsApp Var",
       Number(record.googleRating ?? record.google_rating ?? 0) >= 4.5 && "Yüksek Puan",
       Number(record.reviewCount ?? record.google_review_count ?? 0) < 25 && "Yorum Az",
       record.isDemo && "Demo Veri",
@@ -10701,7 +10741,11 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
             <span>Yorum sayısı: <strong>{record.reviewCount ?? record.google_review_count ?? 0}</strong></span>
             <span>CRM durumu: <strong>{existingLead ? "CRM’de kayıtlı" : record.crmStatus || "CRM’de yok"}</strong></span>
             <span>Reklam potansiyeli: <strong>{adPotentialScore}/100</strong></span>
+            <span>WhatsApp: <strong>{whatsapp || "Yok"}</strong></span>
+            <span>Meta reklam durumu: <strong>{AD_STATUS_LABELS[metaAdsStatus as AdStatusValue] || "Kontrol edilmedi"}</strong></span>
+            <span>Google reklam durumu: <strong>{AD_STATUS_LABELS[googleAdsStatus as AdStatusValue] || "Kontrol edilmedi"}</strong></span>
           </div>
+          <p className="mt-2 rounded-[8px] border border-slate-200 bg-white p-2 text-[11px] font-bold text-slate-600">Önerilen aksiyon: {record.hkOpportunityAction || hkTier.recommendedAction}</p>
           <div className="mt-3 flex flex-wrap gap-1.5">{badges.map((badge) => <span key={badge} className={`rounded-full px-2 py-1 text-[10px] font-black ${badge === "Demo Veri" ? "bg-amber-300 text-slate-950" : badge === "CRM'de Kayıtlı" ? "bg-emerald-300/15 text-emerald-700" : "bg-white/10 text-slate-700"}`}>{badge}</span>)}</div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <div className={`rounded-[8px] border p-3 ${level.className}`}>
@@ -10868,7 +10912,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
             </AdminFilterSection>
           </AdminControlPanel>
         }
-        rightPanel={<BusinessLeadDetailPanel record={selectedHotLead} mapsHref={mapsHref} metaHref={metaHref} saveBusiness={saveBusiness} proposalFor={proposalFor} setWhatsappDraft={setWhatsappDraft} outreachText={outreachText} sendToCompetitor={sendToCompetitor} markCandidate={markCandidate} setNotePlaceId={setNotePlaceId} notePlaceId={notePlaceId} findCompetitorsForLead={findCompetitorsForLead} competitors={selectedHotLead ? leadCompetitors[leadKey(selectedHotLead)] || [] : []} prepareFirstMessage={prepareFirstMessage} prepareDigitalReport={prepareDigitalReport} openWhatsapp={openWhatsapp} prepareInstagramDm={prepareInstagramDm} openInstagram={openInstagram} callBusiness={callBusiness} emailBusiness={emailBusiness} openWebsite={openWebsite} leadStage={selectedHotLead ? leadStagesById[leadKey(selectedHotLead)] || "Yeni bulundu" : "Yeni bulundu"} leadStageOptions={leadStageOptions} updateLeadStage={updateLeadStage} createFollowupTask={createFollowupTask} existingLead={selectedHotLead ? existingLeadFor(selectedHotLead) : null} openCrmLead={openCrmLead} />}
+        rightPanel={<BusinessLeadDetailPanel record={selectedHotLead} mapsHref={mapsHref} metaHref={metaHref} saveBusiness={saveBusiness} proposalFor={proposalFor} setWhatsappDraft={setWhatsappDraft} outreachText={outreachText} sendToCompetitor={sendToCompetitor} markCandidate={markCandidate} setNotePlaceId={setNotePlaceId} notePlaceId={notePlaceId} findCompetitorsForLead={findCompetitorsForLead} competitors={selectedHotLead ? leadCompetitors[leadKey(selectedHotLead)] || [] : []} prepareFirstMessage={prepareFirstMessage} prepareDigitalReport={prepareDigitalReport} openWhatsapp={openWhatsapp} prepareInstagramDm={prepareInstagramDm} openInstagram={openInstagram} callBusiness={callBusiness} emailBusiness={emailBusiness} openWebsite={openWebsite} leadStage={selectedHotLead ? leadStagesById[leadKey(selectedHotLead)] || "Yeni bulundu" : "Yeni bulundu"} leadStageOptions={leadStageOptions} updateLeadStage={updateLeadStage} createFollowupTask={createFollowupTask} existingLead={selectedHotLead ? existingLeadFor(selectedHotLead) : null} openCrmLead={openCrmLead} verifyAdStatus={verifyAdStatus} />}
         bottomBar={<AdminActionBar statusText={`${hotLeads.length} sıcak lead`}><AdminButton compact variant="secondary" onClick={() => setMapTab("Google Maps Müşteri Bulma")}>Yeni İşletme Bul</AdminButton></AdminActionBar>}
       >
         <HubTabs items={mapTabs} active={tab} onChange={setMapTab} />
@@ -11025,7 +11069,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
             </AdminFilterSection>
           </AdminControlPanel>
         }
-        rightPanel={<BusinessLeadDetailPanel record={selectedAiLead} mapsHref={mapsHref} metaHref={metaHref} saveBusiness={saveBusiness} proposalFor={proposalFor} setWhatsappDraft={setWhatsappDraft} outreachText={outreachText} sendToCompetitor={sendToCompetitor} markCandidate={markCandidate} setNotePlaceId={setNotePlaceId} notePlaceId={notePlaceId} findCompetitorsForLead={findCompetitorsForLead} competitors={selectedAiLead ? leadCompetitors[leadKey(selectedAiLead)] || [] : []} prepareFirstMessage={prepareFirstMessage} prepareDigitalReport={prepareDigitalReport} openWhatsapp={openWhatsapp} prepareInstagramDm={prepareInstagramDm} openInstagram={openInstagram} callBusiness={callBusiness} emailBusiness={emailBusiness} openWebsite={openWebsite} leadStage={selectedAiLead ? leadStagesById[leadKey(selectedAiLead)] || "Yeni bulundu" : "Yeni bulundu"} leadStageOptions={leadStageOptions} updateLeadStage={updateLeadStage} createFollowupTask={createFollowupTask} existingLead={selectedAiLead ? existingLeadFor(selectedAiLead) : null} openCrmLead={openCrmLead} />}
+        rightPanel={<BusinessLeadDetailPanel record={selectedAiLead} mapsHref={mapsHref} metaHref={metaHref} saveBusiness={saveBusiness} proposalFor={proposalFor} setWhatsappDraft={setWhatsappDraft} outreachText={outreachText} sendToCompetitor={sendToCompetitor} markCandidate={markCandidate} setNotePlaceId={setNotePlaceId} notePlaceId={notePlaceId} findCompetitorsForLead={findCompetitorsForLead} competitors={selectedAiLead ? leadCompetitors[leadKey(selectedAiLead)] || [] : []} prepareFirstMessage={prepareFirstMessage} prepareDigitalReport={prepareDigitalReport} openWhatsapp={openWhatsapp} prepareInstagramDm={prepareInstagramDm} openInstagram={openInstagram} callBusiness={callBusiness} emailBusiness={emailBusiness} openWebsite={openWebsite} leadStage={selectedAiLead ? leadStagesById[leadKey(selectedAiLead)] || "Yeni bulundu" : "Yeni bulundu"} leadStageOptions={leadStageOptions} updateLeadStage={updateLeadStage} createFollowupTask={createFollowupTask} existingLead={selectedAiLead ? existingLeadFor(selectedAiLead) : null} openCrmLead={openCrmLead} verifyAdStatus={verifyAdStatus} />}
         bottomBar={<AdminActionBar statusText={`${aiRows.length} işletme`}><AdminButton compact variant="secondary" onClick={() => setMapTab("Google Maps Müşteri Bulma")}>Yeni İşletme Bul</AdminButton></AdminActionBar>}
       >
         <HubTabs items={mapTabs} active={tab} onChange={setMapTab} />
@@ -11098,10 +11142,10 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
       </>}
       leftPanel={
         <AdminControlPanel>
-          <aside className="h-fit p-0"><h3 className="font-black" style={{ color: "var(--admin-text-primary)" }}>Profesyonel lead keşif filtreleri</h3><p className="mt-1 text-xs text-slate-500">Google Maps API çağrısı server-side ENV ile yapılır; API anahtarı frontend’e dönmez.</p><div className="mt-4 grid gap-3"><OtherSelectField label="İl" value={search.city} onChange={(city) => setSearch({ ...search, city })} options={cityOptions} manualLabel="İli yazın" /><Field label="İlçe" value={search.district} onChange={(district) => setSearch({ ...search, district })} /><Field label="Mahalle / bölge" value={search.neighborhood} onChange={(neighborhood) => setSearch({ ...search, neighborhood })} /><Field label="Sektör" value={search.businessType} onChange={(businessType) => setSearch({ ...search, businessType })} placeholder="oto galeri, emlak ofisi, diş kliniği..." /><Field label="Anahtar kelime" value={search.keyword} onChange={(keyword) => setSearch({ ...search, keyword })} placeholder="protez tırnak, güzellik salonu..." />{nicheOptions.length > 0 && <div><p className="mb-2 text-xs font-black text-purple-700">Alt niş önerileri</p><div className="flex flex-wrap gap-1.5">{nicheOptions.map((niche) => <button key={niche} onClick={() => setSearch({ ...search, niche, keyword: niche })} className={`rounded-full px-2.5 py-1.5 text-[10px] font-black ${search.niche === niche ? "bg-purple-500 text-white" : "border border-purple-200 bg-white text-purple-700"}`}>{niche}</button>)}</div></div>}<SelectField label="Yarıçap" value={search.radius} onChange={(radius) => setSearch({ ...search, radius })} options={["1 km", "3 km", "5 km", "10 km", "Şehir geneli"]} /><SelectField label="Kaç işletme bulunsun" value={search.limit} onChange={(limit) => setSearch({ ...search, limit })} options={["5", "10", "20", "50"]} /><SelectField label="Minimum Google puanı" value={search.minimumRating} onChange={(minimumRating) => setSearch({ ...search, minimumRating })} options={[{ value: "", label: "Farketmez" }, { value: "3", label: "3.0+" }, { value: "3.5", label: "3.5+" }, { value: "4", label: "4.0+" }, { value: "4.5", label: "4.5+" }]} /><SelectField label="Minimum yorum sayısı" value={search.minimumReviewCount} onChange={(minimumReviewCount) => setSearch({ ...search, minimumReviewCount })} options={[{ value: "", label: "Farketmez" }, { value: "5", label: "5+" }, { value: "10", label: "10+" }, { value: "25", label: "25+" }, { value: "50", label: "50+" }, { value: "100", label: "100+" }]} /><SelectField label="Website var / yok" value={search.website} onChange={(website) => setSearch({ ...search, website })} options={[{ value: "", label: "Farketmez" }, { value: "yok", label: "Websitesi olmayanlar" }, { value: "var", label: "Websitesi olanlar" }]} /><SelectField label="Telefon var / yok" value={search.phone} onChange={(phone) => setSearch({ ...search, phone })} options={[{ value: "", label: "Farketmez" }, { value: "var", label: "Telefonu olanlar" }, { value: "yok", label: "Telefonu olmayanlar" }]} /><SelectField label="Instagram var / yok" value={search.instagram} onChange={(instagram) => setSearch({ ...search, instagram })} options={[{ value: "", label: "Farketmez" }, { value: "var", label: "Instagram bağlantısı olanlar" }, { value: "yok", label: "Instagram bağlantısı olmayanlar" }]} /><label className="flex gap-2 text-xs text-slate-600"><input type="checkbox" checked={search.hideSaved} onChange={(event) => setSearch({ ...search, hideSaved: event.target.checked })} />CRM’de kayıtlı olanları gizle</label><label className="flex gap-2 text-xs text-slate-600"><input type="checkbox" checked={search.highOpportunity} onChange={(event) => setSearch({ ...search, highOpportunity: event.target.checked })} />Sadece fırsat puanı yüksek olanlar</label><label className="flex gap-2 text-xs text-slate-600"><input type="checkbox" checked={search.highAdPotential} onChange={(event) => setSearch({ ...search, highAdPotential: event.target.checked })} />Sadece reklam potansiyeli yüksek olanlar</label></div><div className="mt-4 grid gap-2"><button onClick={suggestMapNiches} className="rounded-[8px] border border-purple-200 bg-purple-50 px-4 py-2 text-xs font-black text-purple-700">Alt Niş Öner</button><button disabled={loading === "search" || !canDiscover} onClick={runSearch} className="rounded-[8px] bg-cyan-300 px-4 py-3 text-sm font-black text-slate-950 disabled:opacity-50">{loading === "search" ? "Taranıyor..." : "Google Maps’ten Bul"}</button><button disabled={loading === "bulk-save"} onClick={saveSelectedBusinesses} className="rounded-[8px] bg-emerald-500 px-4 py-3 text-sm font-black text-white disabled:opacity-60">Seçilenleri CRM’e Kaydet</button><button disabled={loading === "bulk-proposal"} onClick={prepareSelectedProposals} className="rounded-[8px] border border-cyan-200 bg-white px-4 py-2 text-xs font-black text-cyan-700 disabled:opacity-60">Seçilenler İçin Teklif Hazırla</button><button onClick={clearFilters} className="rounded-[8px] border border-slate-200 px-4 py-2 text-xs font-bold">Filtreleri Temizle</button></div><div className="mt-3 flex flex-wrap gap-1">{activeFilters.map(([key, value]) => <span key={key} className="rounded-full border border-cyan-200/20 px-2 py-1 text-[9px] text-cyan-700">{String(value)}</span>)}</div><div className="mt-4"><ScoringGuidePanel /></div></aside>
+          <aside className="h-fit p-0"><h3 className="font-black" style={{ color: "var(--admin-text-primary)" }}>Profesyonel lead keşif filtreleri</h3><p className="mt-1 text-xs text-slate-500">Google Maps API çağrısı server-side ENV ile yapılır; API anahtarı frontend’e dönmez.</p><div className="mt-4 grid gap-3"><OtherSelectField label="İl" value={search.city} onChange={(city) => setSearch({ ...search, city })} options={cityOptions} manualLabel="İli yazın" /><Field label="İlçe (opsiyonel — boşsa tüm ilçeler taranır)" value={search.district} onChange={(district) => setSearch({ ...search, district })} placeholder="Boş bırakılırsa: Tüm ilçeler" /><Field label="Mahalle / bölge (opsiyonel)" value={search.neighborhood} onChange={(neighborhood) => setSearch({ ...search, neighborhood })} /><div><OtherSelectField label="Sektör *" value={search.businessType} onChange={(businessType) => setSearch({ ...search, businessType })} options={DISCOVERY_SECTOR_PRESETS} manualLabel="Sektörü yazın (ör. Klima Servisi, Oto Servis...)" /><p className="mt-1 text-[11px] text-slate-400">Zorunlu alan. Listede yoksa serbest metin olarak yazabilirsiniz.</p>{recentSectors.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{recentSectors.map((sector) => <button key={sector} type="button" onClick={() => setSearch({ ...search, businessType: sector })} className="rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold text-slate-600">{sector}</button>)}</div>}</div><Field label="Anahtar kelime (opsiyonel)" value={search.keyword} onChange={(keyword) => setSearch({ ...search, keyword })} placeholder="protez tırnak, güzellik salonu..." />{nicheOptions.length > 0 && <div><p className="mb-2 text-xs font-black text-purple-700">Alt niş önerileri</p><div className="flex flex-wrap gap-1.5">{nicheOptions.map((niche) => <button key={niche} onClick={() => setSearch({ ...search, niche, keyword: niche })} className={`rounded-full px-2.5 py-1.5 text-[10px] font-black ${search.niche === niche ? "bg-purple-500 text-white" : "border border-purple-200 bg-white text-purple-700"}`}>{niche}</button>)}</div></div>}<SelectField label="Yarıçap" value={search.radius} onChange={(radius) => setSearch({ ...search, radius })} options={["1 km", "3 km", "5 km", "10 km", "Şehir geneli"]} /><SelectField label="Kaç işletme bulunsun" value={search.limit} onChange={(limit) => setSearch({ ...search, limit })} options={["5", "10", "20", "50"]} /><SelectField label="Minimum Google puanı" value={search.minimumRating} onChange={(minimumRating) => setSearch({ ...search, minimumRating })} options={[{ value: "", label: "Farketmez" }, { value: "3", label: "3.0+" }, { value: "3.5", label: "3.5+" }, { value: "4", label: "4.0+" }, { value: "4.5", label: "4.5+" }]} /><SelectField label="Minimum yorum sayısı" value={search.minimumReviewCount} onChange={(minimumReviewCount) => setSearch({ ...search, minimumReviewCount })} options={[{ value: "", label: "Farketmez" }, { value: "5", label: "5+" }, { value: "10", label: "10+" }, { value: "25", label: "25+" }, { value: "50", label: "50+" }, { value: "100", label: "100+" }]} /><SelectField label="Website var / yok" value={search.website} onChange={(website) => setSearch({ ...search, website })} options={[{ value: "", label: "Farketmez" }, { value: "yok", label: "Websitesi olmayanlar" }, { value: "var", label: "Websitesi olanlar" }]} /><SelectField label="Telefon var / yok" value={search.phone} onChange={(phone) => setSearch({ ...search, phone })} options={[{ value: "", label: "Farketmez" }, { value: "var", label: "Telefonu olanlar" }, { value: "yok", label: "Telefonu olmayanlar" }]} /><SelectField label="Instagram var / yok" value={search.instagram} onChange={(instagram) => setSearch({ ...search, instagram })} options={[{ value: "", label: "Farketmez" }, { value: "var", label: "Instagram bağlantısı olanlar" }, { value: "yok", label: "Instagram bağlantısı olmayanlar" }]} /><SelectField label="WhatsApp durumu" value={search.whatsapp} onChange={(whatsapp) => setSearch({ ...search, whatsapp })} options={[{ value: "", label: "Farketmez" }, { value: "var", label: "WhatsApp'ı olanlar" }, { value: "yok", label: "WhatsApp'ı olmayanlar" }]} /><SelectField label="Reklam durumu" value={search.adStatus} onChange={(adStatus) => setSearch({ ...search, adStatus })} options={Object.entries(AD_STATUS_LABELS).map(([value, label]) => ({ value, label }))} /><SelectField label="CRM durumu" value={search.crmStatus} onChange={(crmStatus) => setSearch({ ...search, crmStatus })} options={[{ value: "", label: "Farketmez" }, { value: "kayitli", label: "CRM'de olanlar" }, { value: "kayitsiz", label: "CRM'de olmayanlar" }]} /><label className="flex gap-2 text-xs text-slate-600"><input type="checkbox" checked={search.hideSaved} onChange={(event) => setSearch({ ...search, hideSaved: event.target.checked })} />CRM’de kayıtlı olanları gizle</label><label className="flex gap-2 text-xs text-slate-600"><input type="checkbox" checked={search.highOpportunity} onChange={(event) => setSearch({ ...search, highOpportunity: event.target.checked })} />Sadece fırsat puanı yüksek olanlar</label><label className="flex gap-2 text-xs text-slate-600"><input type="checkbox" checked={search.highAdPotential} onChange={(event) => setSearch({ ...search, highAdPotential: event.target.checked })} />Sadece reklam potansiyeli yüksek olanlar</label></div><div className="mt-4 grid gap-2"><button onClick={suggestMapNiches} className="rounded-[8px] border border-purple-200 bg-purple-50 px-4 py-2 text-xs font-black text-purple-700">Alt Niş Öner</button><button disabled={loading === "search" || !canDiscover || !search.city.trim() || !search.businessType.trim()} onClick={runSearch} className="rounded-[8px] bg-cyan-300 px-4 py-3 text-sm font-black text-slate-950 disabled:opacity-50">{loading === "search" ? "Taranıyor..." : "Google Maps’ten Bul"}</button>{(!search.city.trim() || !search.businessType.trim()) && <p className="text-[11px] font-bold text-amber-700">İl ve Sektör alanları zorunludur.</p>}<button disabled={loading === "bulk-save"} onClick={saveSelectedBusinesses} className="rounded-[8px] bg-emerald-500 px-4 py-3 text-sm font-black text-white disabled:opacity-60">Seçilenleri CRM’e Kaydet</button><button disabled={loading === "bulk-proposal"} onClick={prepareSelectedProposals} className="rounded-[8px] border border-cyan-200 bg-white px-4 py-2 text-xs font-black text-cyan-700 disabled:opacity-60">Seçilenler İçin Teklif Hazırla</button><button onClick={clearFilters} className="rounded-[8px] border border-slate-200 px-4 py-2 text-xs font-bold">Filtreleri Temizle</button></div><div className="mt-3 flex flex-wrap gap-1">{activeFilters.map(([key, value]) => <span key={key} className="rounded-full border border-cyan-200/20 px-2 py-1 text-[9px] text-cyan-700">{String(value)}</span>)}</div><div className="mt-4"><ScoringGuidePanel /></div></aside>
         </AdminControlPanel>
       }
-      rightPanel={<BusinessLeadDetailPanel record={selectedBusiness} mapsHref={mapsHref} metaHref={metaHref} saveBusiness={saveBusiness} proposalFor={proposalFor} setWhatsappDraft={setWhatsappDraft} outreachText={outreachText} sendToCompetitor={sendToCompetitor} markCandidate={markCandidate} setNotePlaceId={setNotePlaceId} notePlaceId={notePlaceId} findCompetitorsForLead={findCompetitorsForLead} competitors={selectedBusiness ? leadCompetitors[leadKey(selectedBusiness)] || [] : []} prepareFirstMessage={prepareFirstMessage} prepareDigitalReport={prepareDigitalReport} openWhatsapp={openWhatsapp} prepareInstagramDm={prepareInstagramDm} openInstagram={openInstagram} callBusiness={callBusiness} emailBusiness={emailBusiness} openWebsite={openWebsite} leadStage={selectedBusiness ? leadStagesById[leadKey(selectedBusiness)] || "Yeni bulundu" : "Yeni bulundu"} leadStageOptions={leadStageOptions} updateLeadStage={updateLeadStage} createFollowupTask={createFollowupTask} existingLead={selectedBusiness ? existingLeadFor(selectedBusiness) : null} openCrmLead={openCrmLead} />}
+      rightPanel={<BusinessLeadDetailPanel record={selectedBusiness} mapsHref={mapsHref} metaHref={metaHref} saveBusiness={saveBusiness} proposalFor={proposalFor} setWhatsappDraft={setWhatsappDraft} outreachText={outreachText} sendToCompetitor={sendToCompetitor} markCandidate={markCandidate} setNotePlaceId={setNotePlaceId} notePlaceId={notePlaceId} findCompetitorsForLead={findCompetitorsForLead} competitors={selectedBusiness ? leadCompetitors[leadKey(selectedBusiness)] || [] : []} prepareFirstMessage={prepareFirstMessage} prepareDigitalReport={prepareDigitalReport} openWhatsapp={openWhatsapp} prepareInstagramDm={prepareInstagramDm} openInstagram={openInstagram} callBusiness={callBusiness} emailBusiness={emailBusiness} openWebsite={openWebsite} leadStage={selectedBusiness ? leadStagesById[leadKey(selectedBusiness)] || "Yeni bulundu" : "Yeni bulundu"} leadStageOptions={leadStageOptions} updateLeadStage={updateLeadStage} createFollowupTask={createFollowupTask} existingLead={selectedBusiness ? existingLeadFor(selectedBusiness) : null} openCrmLead={openCrmLead} verifyAdStatus={verifyAdStatus} />}
       bottomBar={
         <AdminActionBar statusText={`${visible.length} sonuç gösteriliyor${selectedPlaces.length ? ` · ${selectedPlaces.length} seçili` : ""}`}>
           <AdminButton compact variant="primary" disabled={loading === "search" || !canDiscover} onClick={runSearch}>{loading === "search" ? "Taranıyor..." : "Google Maps’ten Bul"}</AdminButton>
@@ -11116,7 +11160,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
   );
 }
 
-function BusinessLeadDetailPanel({ record, mapsHref, metaHref, saveBusiness, proposalFor, setWhatsappDraft, outreachText, sendToCompetitor, markCandidate, setNotePlaceId, notePlaceId, findCompetitorsForLead, competitors = [], prepareFirstMessage, prepareDigitalReport, openWhatsapp, prepareInstagramDm, openInstagram, callBusiness, emailBusiness, openWebsite, leadStage, leadStageOptions = [], updateLeadStage, createFollowupTask, existingLead, openCrmLead }: any) {
+function BusinessLeadDetailPanel({ record, mapsHref, metaHref, saveBusiness, proposalFor, setWhatsappDraft, outreachText, sendToCompetitor, markCandidate, setNotePlaceId, notePlaceId, findCompetitorsForLead, competitors = [], prepareFirstMessage, prepareDigitalReport, openWhatsapp, prepareInstagramDm, openInstagram, callBusiness, emailBusiness, openWebsite, leadStage, leadStageOptions = [], updateLeadStage, createFollowupTask, existingLead, openCrmLead, verifyAdStatus }: any) {
   const [reportPreview, setReportPreview] = useState<DiscoveryReportRecord | null>(null);
   const [availableReports, setAvailableReports] = useState<Record<string, DiscoveryReportRecord>>({});
   const [reportBusy, setReportBusy] = useState<Record<string, boolean>>({});
@@ -11224,11 +11268,13 @@ function BusinessLeadDetailPanel({ record, mapsHref, metaHref, saveBusiness, pro
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-[10px] bg-white p-2"><span className="font-bold text-slate-600">Instagram: {record.instagram || record.instagram_url || "Mevcut değil"}</span><div className="flex flex-wrap gap-1">{record.instagram || record.instagram_url ? <><button onClick={() => openInstagram(record)} className="rounded-full border border-pink-200 bg-pink-50 px-3 py-1.5 font-black text-pink-700">Instagram Aç</button><button onClick={() => prepareInstagramDm(record)} className="rounded-full border border-pink-200 bg-white px-3 py-1.5 font-black text-pink-700">DM Metni Hazırla</button></> : <span className="rounded-full bg-slate-100 px-3 py-1.5 font-black text-slate-500">Mevcut değil</span>}</div></div>
       </div>
     </div>
+    <WhySelectThisBusinessPanel record={record} opportunityScore={opportunityScore} />
+    <AdvertisingEvidencePanel record={record} existingLead={existingLead} verifyAdStatus={verifyAdStatus} metaHref={metaHref} />
+    <MetaSuitabilityPanel record={record} />
+    <SalesRecommendationPanel record={record} />
+    <OutreachAssistantPanel record={record} openWhatsapp={openWhatsapp} prepareInstagramDm={prepareInstagramDm} />
     <div className="mt-4 rounded-[12px] border border-cyan-200 bg-cyan-50 p-3 text-sm leading-6 text-cyan-950">
       <strong>AI yorumu:</strong> {record.aiSuggestion || "Bu işletme için Google görünürlüğü, yorum yönetimi, website/landing page ve reklam dönüşümü üzerinden ilk teklif hazırlanabilir."}
-    </div>
-    <div className="mt-3 rounded-[12px] border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-950">
-      <strong>Önerilen satış yaklaşımı:</strong> Kısa bir ücretsiz fırsat özetiyle başlayın; eksik dijital varlıkları ve ölçülebilir reklam potansiyelini sade dille anlatın.
     </div>
     <div className="mt-4 rounded-[12px] border border-slate-200 bg-slate-50 p-3">
       <p className="text-sm font-black text-slate-950">7 günlük takip planı</p>
@@ -11304,6 +11350,138 @@ function BusinessLeadDetailPanel({ record, mapsHref, metaHref, saveBusiness, pro
       <button onClick={() => setNotePlaceId(notePlaceId === (record.placeId || record.google_place_id || record.id) ? "" : (record.placeId || record.google_place_id || record.id))} className="rounded-[10px] border border-slate-200 bg-white px-4 py-3 text-xs font-black text-slate-700">Not Ekle</button>
     </div>
   </aside>{reportPreview && <DiscoveryReportViewer report={reportPreview} onClose={() => setReportPreview(null)} onRegenerate={() => { const kind = reportPreview.metadata?.report_kind as "swot_report" | "digital_audit" | "presentation" | "competitor_analysis" | "discovery_report"; if (kind) runReport(kind); }} regenerating={Boolean(reportPreview.metadata?.report_kind && reportBusy[reportPreview.metadata.report_kind])} />}</>;
+}
+
+function EvidenceRow({ label, value }: any) {
+  return <div className="rounded-[8px] bg-white px-3 py-2 text-xs leading-5"><strong className="text-slate-700">{label}:</strong> <span className="text-slate-600">{value}</span></div>;
+}
+
+/**
+ * Evidence-based "why contact this business" summary — every line is derived
+ * from real, already-computed signals (scoreReasons / advertising evidence /
+ * contact-channel presence), never generic AI copy. Anything not actually
+ * observed is explicitly labeled "Veri bulunamadı" rather than omitted or
+ * guessed, per the module's no-fabrication requirement.
+ */
+function WhySelectThisBusinessPanel({ record, opportunityScore }: any) {
+  const heatReasons: string[] = record.scoreReasons?.heat || [];
+  const maturityReasons: string[] = record.scoreReasons?.maturity || [];
+  const tier = getHkOpportunityTier(opportunityScore);
+  const hasRating = Number(record.googleRating ?? record.google_rating ?? 0) > 0;
+  const uncertainty: string[] = [];
+  if (!hasRating) uncertainty.push("Google puanı/yorum verisi bulunamadı — itibar değerlendirmesi eksik.");
+  if (record.advertisingConfidence === "low") uncertainty.push("Reklam sinyali güven seviyesi düşük; website taraması yapılamadı veya website yok.");
+  if (record.isDemo) uncertainty.push("Bu kayıt demo veridir; Google Maps API o an yanıt vermediği için gerçek sonuç yerine örnek gösterilmiştir.");
+
+  return <div className="mt-4 rounded-[12px] border border-cyan-200 bg-white p-3">
+    <p className="text-sm font-black text-slate-950">Neden Bu İşletmeyi Seçmeliyim?</p>
+    <p className="mt-1 text-xs text-slate-500">HK Opportunity Score: <strong className="text-cyan-700">{opportunityScore}/100</strong> · {tier.label} · {record.hkOpportunityAction || tier.recommendedAction}</p>
+    <div className="mt-3 grid gap-1.5">
+      {heatReasons.length ? heatReasons.map((reason, index) => <EvidenceRow key={`heat-${index}`} label="Fırsat sinyali" value={reason} />) : <EvidenceRow label="Fırsat sinyali" value="Veri bulunamadı" />}
+      {maturityReasons.length ? maturityReasons.map((reason, index) => <EvidenceRow key={`maturity-${index}`} label="Dijital durum" value={reason} />) : <EvidenceRow label="Dijital durum" value="Veri bulunamadı" />}
+      <EvidenceRow label="WhatsApp" value={record.whatsapp ? `Mevcut (${record.whatsapp})` : "Mevcut değil"} />
+      <EvidenceRow label="Instagram" value={record.instagram || record.instagram_url || "Mevcut değil"} />
+      <EvidenceRow label="CRM durumu" value={record.crmStatus || "CRM'de yok"} />
+    </div>
+    {uncertainty.length > 0 && <div className="mt-3 rounded-[8px] border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800">
+      <strong>Riskler / belirsizlik:</strong>
+      <ul className="mt-1 grid gap-1">{uncertainty.map((item, index) => <li key={index}>• {item}</li>)}</ul>
+    </div>}
+  </div>;
+}
+
+/** Honest advertising-status evidence — never a bare true/false claim. */
+function AdvertisingEvidencePanel({ record, existingLead, verifyAdStatus, metaHref }: any) {
+  const metaStatus: AdStatusValue | undefined = record.metaAdsStatus || record.meta_ads_status;
+  const googleStatus: AdStatusValue | undefined = record.googleAdsStatus || record.google_ads_status;
+  return <div className="mt-4 rounded-[12px] border border-blue-200 bg-blue-50 p-3">
+    <p className="text-sm font-black text-blue-950">Reklam Durumu (Meta / Google)</p>
+    <div className="mt-3 grid gap-2">
+      <div className="rounded-[8px] bg-white p-3 text-xs leading-5">
+        <p className="font-black text-slate-800">Meta: {AD_STATUS_LABELS[metaStatus as AdStatusValue] || "Kontrol edilmedi"}</p>
+        <p className="mt-1 text-slate-500">{record.metaAdsEvidence || record.meta_ads_evidence || "Veri bulunamadı."}</p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <a target="_blank" rel="noreferrer" href={metaHref(record)} className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-[10px] font-black text-blue-700">Meta Reklamlarını Kontrol Et</a>
+          {existingLead?.id ? <>
+            <button onClick={() => verifyAdStatus(record, "meta", "active")} className="rounded-full border border-emerald-200 bg-white px-2.5 py-1.5 text-[10px] font-black text-emerald-700">Manuel Doğrulandı: Aktif</button>
+            <button onClick={() => verifyAdStatus(record, "meta", "inactive")} className="rounded-full border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-black text-slate-700">Manuel Doğrulandı: Aktif Değil</button>
+          </> : <span className="rounded-full bg-slate-100 px-2.5 py-1.5 text-[10px] font-bold text-slate-500">Manuel doğrulama için önce CRM'e kaydedin</span>}
+        </div>
+      </div>
+      <div className="rounded-[8px] bg-white p-3 text-xs leading-5">
+        <p className="font-black text-slate-800">Google: {AD_STATUS_LABELS[googleStatus as AdStatusValue] || "Kontrol edilmedi"}</p>
+        <p className="mt-1 text-slate-500">{record.googleAdsEvidence || record.google_ads_evidence || "Veri bulunamadı."}</p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <a target="_blank" rel="noreferrer" href={`https://adstransparency.google.com/?region=TR&domain=${encodeURIComponent(String(record.website || "").replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, ""))}`} className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-[10px] font-black text-blue-700">Google Reklamlarını Kontrol Et</a>
+          {existingLead?.id ? <>
+            <button onClick={() => verifyAdStatus(record, "google", "active")} className="rounded-full border border-emerald-200 bg-white px-2.5 py-1.5 text-[10px] font-black text-emerald-700">Manuel Doğrulandı: Aktif</button>
+            <button onClick={() => verifyAdStatus(record, "google", "inactive")} className="rounded-full border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-black text-slate-700">Manuel Doğrulandı: Aktif Değil</button>
+          </> : <span className="rounded-full bg-slate-100 px-2.5 py-1.5 text-[10px] font-bold text-slate-500">Manuel doğrulama için önce CRM'e kaydedin</span>}
+        </div>
+      </div>
+      <p className="text-[10px] font-bold text-blue-700">Meta Pixel tespiti ≠ aktif reklam; Pixel yokluğu ≠ reklam vermiyor. Kesin sonuç yalnızca manuel doğrulama ile işaretlenir.</p>
+    </div>
+  </div>;
+}
+
+function MetaSuitabilityPanel({ record }: any) {
+  const score = Number(record.metaSuitabilityScore ?? 0);
+  const reasons: string[] = record.metaSuitabilityReasons || [];
+  return <div className="mt-4 rounded-[12px] border border-purple-200 bg-purple-50 p-3">
+    <div className="flex items-center justify-between gap-3">
+      <p className="text-sm font-black text-purple-950">Meta Ads Uygunluk Skoru</p>
+      <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-purple-700">{score}/100</span>
+    </div>
+    <p className="mt-2 text-xs leading-5 text-purple-800">{record.metaSuitabilityNote || "Veri bulunamadı."}</p>
+    {reasons.length > 0 && <ul className="mt-2 grid gap-1 text-xs leading-5 text-purple-700">{reasons.map((reason, index) => <li key={index}>• {reason}</li>)}</ul>}
+  </div>;
+}
+
+function SalesRecommendationPanel({ record }: any) {
+  const recommendation = record.salesRecommendation;
+  if (!recommendation) return <div className="mt-4 rounded-[12px] border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800">Satış önerisi henüz oluşturulmadı. Veri bulunamadı.</div>;
+  return <div className="mt-4 rounded-[12px] border border-amber-200 bg-amber-50 p-3">
+    <p className="text-sm font-black text-amber-950">Satış Önerisi (tahmini)</p>
+    <div className="mt-2 grid gap-1.5 text-xs leading-5 text-amber-900">
+      <EvidenceRow label="Tahmini satış olasılığı" value={recommendation.estimatedSalesProbabilityLabel} />
+      <EvidenceRow label="Önerilen kanal" value={recommendation.recommendedChannel === "meta" ? "Meta" : recommendation.recommendedChannel === "google" ? "Google" : "Meta + Google (dengeli)"} />
+      <EvidenceRow label="Önerilen teklif" value={recommendation.recommendedOffer} />
+      <EvidenceRow label="Önerilen paket" value={`${recommendation.recommendedPackageName} (${recommendation.recommendedPackageCategory})`} />
+      <EvidenceRow label="Minimum bütçe" value={recommendation.suggestedMinimumBudget} />
+      <EvidenceRow label="İdeal bütçe" value={recommendation.suggestedIdealBudget} />
+      <EvidenceRow label="Agresif bütçe" value={recommendation.suggestedAggressiveBudget} />
+      <EvidenceRow label="Tahmini satış süreci" value={recommendation.expectedSalesCycle} />
+      <EvidenceRow label="Öncelik seviyesi" value={recommendation.priorityLevel} />
+      <EvidenceRow label="Önerilen takip tarihi" value={recommendation.followUpDate} />
+    </div>
+    <p className="mt-2 text-[10px] font-bold text-amber-700">Tüm rakamlar tahminidir, kesin ticari sonuç garantisi vermez.</p>
+  </div>;
+}
+
+function OutreachAssistantPanel({ record, openWhatsapp, prepareInstagramDm }: any) {
+  const outreach = record.outreach;
+  const [copied, setCopied] = useState("");
+  function copy(key: string, text: string) {
+    navigator.clipboard.writeText(text);
+    setCopied(key);
+    setTimeout(() => setCopied(""), 1500);
+  }
+  if (!outreach) return null;
+  const rows: Array<[string, string]> = [["WhatsApp mesajı", outreach.whatsapp], ["Instagram DM", outreach.instagramDm], ["Telefon konuşma metni", outreach.phoneScript], ["Takip mesajı", outreach.followUp], ["Ziyaret özeti", outreach.auditSummary]];
+  return <div className="mt-4 rounded-[12px] border border-emerald-200 bg-emerald-50 p-3">
+    <p className="text-sm font-black text-emerald-950">Outreach Asistanı</p>
+    <div className="mt-2 grid gap-2">
+      {rows.map(([label, text]) => <div key={label} className="rounded-[8px] border border-emerald-200 bg-white p-2.5 text-xs leading-5">
+        <p className="font-black text-emerald-800">{label}</p>
+        <p className="mt-1 text-slate-600">{text}</p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <button onClick={() => copy(label, text)} className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[10px] font-black text-emerald-700">{copied === label ? "Kopyalandı" : "Kopyala"}</button>
+          {label === "WhatsApp mesajı" && <button onClick={() => openWhatsapp(record)} className="rounded-full bg-[#25D366] px-2.5 py-1.5 text-[10px] font-black text-slate-950">WhatsApp'ta Aç</button>}
+          {label === "Instagram DM" && <button onClick={() => prepareInstagramDm(record)} className="rounded-full border border-pink-200 bg-pink-50 px-2.5 py-1.5 text-[10px] font-black text-pink-700">Instagram DM Hazırla</button>}
+        </div>
+      </div>)}
+    </div>
+  </div>;
 }
 
 function OpportunityMap({ content, setContent, save, notify, search, setSearch, setTab, setActive, saved }: any) {

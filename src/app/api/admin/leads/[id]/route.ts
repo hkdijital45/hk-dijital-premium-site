@@ -5,6 +5,7 @@ import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/sup
 import { requireModuleAccess } from "@/lib/permissions";
 import { isAdminRole } from "@/lib/auth";
 import { permanentlyDeleteLead } from "@/lib/server/customer-permanent-delete";
+import { evaluateAdvertisingSignals, type ManualAdVerification } from "@/lib/lead-scoring";
 
 async function requireCrmAccess() {
   return await requireModuleAccess("crm") || requireModuleAccess("leads");
@@ -46,8 +47,85 @@ const editableFields = [
   "deleted_at",
   "rejected_at",
   "rejection_reason",
-  "is_test"
+  "is_test",
+  "neighborhood",
+  "whatsapp",
+  "google_maps_url",
+  "lead_stage",
+  "opportunity_score",
+  "digital_gap_score",
+  "ad_potential_score",
+  "meta_suitability_score",
+  "meta_ads_status",
+  "meta_ads_evidence",
+  "google_ads_status",
+  "google_ads_evidence",
+  "meta_pixel_detected",
+  "google_tag_detected",
+  "advertising_confidence",
+  "advertising_source",
+  "advertising_last_checked_at",
+  "discovery_evidence",
+  "discovery_last_checked_at"
 ];
+
+/**
+ * Manual ad-status verification (e.g. "Manuel Doğrulandı: Aktif") is never
+ * accepted as a raw meta_ads_status/google_ads_status write from the client —
+ * that would let the display status and its evidence text drift apart, and
+ * would let a client claim an arbitrary "verifiedBy". Instead the client
+ * sends { manualAdVerification: { channel, status, source } }, and the
+ * verifier/timestamp are always taken from the authenticated session here,
+ * then run back through the same evaluateAdvertisingSignals() used by the
+ * discovery search so the stored status + evidence stay consistent with the
+ * single canonical advertising-evidence model.
+ */
+function buildManualAdVerificationPatch(
+  body: Record<string, unknown>,
+  session: { email: string; fullName?: string; profileId?: string },
+  existing: Record<string, unknown>
+) {
+  const input = body.manualAdVerification as { channel?: string; status?: string; source?: string } | undefined;
+  if (!input || (input.channel !== "meta" && input.channel !== "google")) return {};
+  if (input.status !== "active" && input.status !== "inactive") return {};
+
+  const verification: ManualAdVerification = {
+    status: input.status,
+    verifiedBy: session.fullName || session.email,
+    verifiedAt: new Date().toISOString(),
+    source: String(input.source || "").trim() || "Manuel kontrol",
+    channel: input.channel
+  };
+
+  const evidence = evaluateAdvertisingSignals({
+    website: existing.website as string | undefined,
+    metaPixelDetected: existing.meta_pixel_detected as boolean | null | undefined,
+    googleTagDetected: existing.google_tag_detected as boolean | null | undefined,
+    scanFailed: false,
+    manualMeta: input.channel === "meta" ? verification : null,
+    manualGoogle: input.channel === "google" ? verification : null,
+    checkedAt: existing.advertising_last_checked_at as string | undefined
+  });
+
+  if (input.channel === "meta") {
+    return {
+      meta_ads_status: evidence.metaAdsStatus,
+      meta_ads_evidence: evidence.metaAdsEvidence,
+      meta_ads_verified_status: verification.status,
+      meta_ads_verified_by: session.profileId || null,
+      meta_ads_verified_at: verification.verifiedAt,
+      meta_ads_verified_source: verification.source
+    };
+  }
+  return {
+    google_ads_status: evidence.googleAdsStatus,
+    google_ads_evidence: evidence.googleAdsEvidence,
+    google_ads_verified_status: verification.status,
+    google_ads_verified_by: session.profileId || null,
+    google_ads_verified_at: verification.verifiedAt,
+    google_ads_verified_source: verification.source
+  };
+}
 
 function sanitizeLeadPatch(body: Record<string, unknown>) {
   const patch: Record<string, unknown> = {};
@@ -66,6 +144,33 @@ function stripOptionalLeadPatchColumns(patch: Record<string, unknown>) {
   delete compatiblePatch.sector;
   delete compatiblePatch.address;
   delete compatiblePatch.source_url;
+  delete compatiblePatch.neighborhood;
+  delete compatiblePatch.whatsapp;
+  delete compatiblePatch.google_maps_url;
+  delete compatiblePatch.lead_stage;
+  delete compatiblePatch.opportunity_score;
+  delete compatiblePatch.digital_gap_score;
+  delete compatiblePatch.ad_potential_score;
+  delete compatiblePatch.meta_suitability_score;
+  delete compatiblePatch.meta_ads_status;
+  delete compatiblePatch.meta_ads_evidence;
+  delete compatiblePatch.google_ads_status;
+  delete compatiblePatch.google_ads_evidence;
+  delete compatiblePatch.meta_pixel_detected;
+  delete compatiblePatch.google_tag_detected;
+  delete compatiblePatch.advertising_confidence;
+  delete compatiblePatch.advertising_source;
+  delete compatiblePatch.advertising_last_checked_at;
+  delete compatiblePatch.discovery_evidence;
+  delete compatiblePatch.discovery_last_checked_at;
+  delete compatiblePatch.meta_ads_verified_status;
+  delete compatiblePatch.meta_ads_verified_by;
+  delete compatiblePatch.meta_ads_verified_at;
+  delete compatiblePatch.meta_ads_verified_source;
+  delete compatiblePatch.google_ads_verified_status;
+  delete compatiblePatch.google_ads_verified_by;
+  delete compatiblePatch.google_ads_verified_at;
+  delete compatiblePatch.google_ads_verified_source;
   return compatiblePatch;
 }
 
@@ -163,6 +268,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   try {
     const existingRows = await supabaseRest<any[]>(`leads?id=eq.${encodeURIComponent(id)}&select=*&limit=1`);
     if (!existingRows[0]) return NextResponse.json({ error: "Başvuru bulunamadı." }, { status: 404 });
+    Object.assign(patch, buildManualAdVerificationPatch(body, session, existingRows[0]));
     let rows: any[];
     try {
       rows = await supabaseRest<any[]>(`leads?id=eq.${encodeURIComponent(id)}`, {
@@ -172,11 +278,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     } catch (writeError) {
       const message = writeError instanceof Error ? writeError.message : String(writeError);
       const compatiblePatch = stripOptionalLeadPatchColumns(patch);
+      const hadManualAdVerification = Boolean(patch.meta_ads_verified_status || patch.google_ads_verified_status);
       if (message.includes("PGRST204") && message.includes("calendar_follow_up_at")) {
         compatibilityWarning = "calendar_follow_up_at canlı şemada bulunamadı. Takip tarihi next_action_at alanına kaydedildi; schema repair migration uygulanmalıdır.";
         delete compatiblePatch.calendar_follow_up_at;
       } else if (message.includes("schema cache") || message.includes("Could not find") || message.includes("column")) {
-        compatibilityWarning = "Canlı leads şemasında bazı opsiyonel lokasyon kolonları bulunamadı. Migration uygulanana kadar kayıt uyumlu alanlarla güncellendi.";
+        compatibilityWarning = hadManualAdVerification
+          ? "Manuel reklam doğrulaması KAYDEDİLEMEDİ: canlı leads şemasında ilgili kolonlar bulunamadı. supabase/migrations/20260801_discovery_sales_intelligence.sql migrationının uygulanması gerekiyor."
+          : "Canlı leads şemasında bazı opsiyonel keşif/lokasyon kolonları bulunamadı. Migration uygulanana kadar kayıt uyumlu alanlarla güncellendi.";
       } else {
         throw writeError;
       }
