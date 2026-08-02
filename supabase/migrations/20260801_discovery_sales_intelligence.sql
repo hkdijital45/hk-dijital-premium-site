@@ -54,7 +54,6 @@ alter table public.leads
   add column if not exists discovery_evidence jsonb not null default '{}'::jsonb,
   add column if not exists discovery_last_checked_at timestamptz;
 
-drop constraint if exists leads_meta_ads_status_check;
 alter table public.leads
   drop constraint if exists leads_meta_ads_status_check,
   add constraint leads_meta_ads_status_check
