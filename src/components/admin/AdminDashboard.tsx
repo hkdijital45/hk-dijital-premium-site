@@ -4549,7 +4549,7 @@ function CompetitorAnalysisCenter({ content, setContent }: any) {
     try {
       const response = await fetch("/api/admin/competitors/discover", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId: selectedCompany.id, branchId: filters.branchId, companyName: selectedCompany.name, sector, niche: discoveryInput.niche, city, district, address: discoveryInput.address || selectedBranch?.address || selectedCompany.address, website: selectedCompany.website, phone: selectedCompany.phone, branchName: selectedBranch?.branch_name, radius: discoveryInput.radius, limit: Number(discoveryInput.limit || 10), competitorType: discoveryInput.competitorType, minimumRating: Number(discoveryInput.minimumRating || 0), minimumReviewCount: Number(discoveryInput.minimumReviewCount || 0), preferActiveAds: discoveryInput.preferActiveAds, preferWebsite: discoveryInput.preferWebsite, preferInstagram: discoveryInput.preferInstagram }) });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.message || data.error || "Rakip keşfi tamamlanamadı.");
+      if (!response.ok) throw new Error(data.actionResult?.summary || data.message || data.error || "Rakip keşfi tamamlanamadı.");
       setSuggestions(data.results || data.suggestions || []);
       if (data.actionResult) setActionResult(data.actionResult);
     } catch (error) {
@@ -9852,7 +9852,6 @@ function discoveryScoreBreakdown(record: any) {
     maturity.push({ points: 24, label: "Güçlü sosyal kanıt" });
   }
   if (highPotential) heat.push({ points: 12, label: "Sektör reklam potansiyeli yüksek" });
-  if (record.isDemo) heat.push({ points: 0, label: "Demo veri: gerçek arama yerine örnek sonuç" });
   return { heat, maturity };
 }
 
@@ -10131,7 +10130,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
     const response = await fetch("/api/admin/business-discovery", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...search, sector: search.businessType, keyword: search.keyword || search.niche || "", requestedCount: search.limit }) });
     const data = await response.json().catch(() => ({}));
     setLoading("");
-    if (!response.ok) return setMessage(data.error || "İşletme araması başarısız oldu.");
+    if (!response.ok) return setMessage([data.error, data.apiError].filter(Boolean).join(" — ") || "İşletme araması başarısız oldu.");
     setResults(data.businesses || []);
     setSelectedPlaces([]);
     setMapTab("Google Maps Müşteri Bulma");
@@ -10700,7 +10699,6 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
       whatsapp && "WhatsApp Var",
       Number(record.googleRating ?? record.google_rating ?? 0) >= 4.5 && "Yüksek Puan",
       Number(record.reviewCount ?? record.google_review_count ?? 0) < 25 && "Yorum Az",
-      record.isDemo && "Demo Veri",
       existingLead && "CRM'de Kayıtlı"
     ].filter(Boolean);
     const renderBreakdown = (title, rows, total, tone) => (
@@ -10746,7 +10744,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
             <span>Google reklam durumu: <strong>{AD_STATUS_LABELS[googleAdsStatus as AdStatusValue] || "Kontrol edilmedi"}</strong></span>
           </div>
           <p className="mt-2 rounded-[8px] border border-slate-200 bg-white p-2 text-[11px] font-bold text-slate-600">Önerilen aksiyon: {record.hkOpportunityAction || hkTier.recommendedAction}</p>
-          <div className="mt-3 flex flex-wrap gap-1.5">{badges.map((badge) => <span key={badge} className={`rounded-full px-2 py-1 text-[10px] font-black ${badge === "Demo Veri" ? "bg-amber-300 text-slate-950" : badge === "CRM'de Kayıtlı" ? "bg-emerald-300/15 text-emerald-700" : "bg-white/10 text-slate-700"}`}>{badge}</span>)}</div>
+          <div className="mt-3 flex flex-wrap gap-1.5">{badges.map((badge) => <span key={badge} className={`rounded-full px-2 py-1 text-[10px] font-black ${badge === "CRM'de Kayıtlı" ? "bg-emerald-300/15 text-emerald-700" : "bg-white/10 text-slate-700"}`}>{badge}</span>)}</div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <div className={`rounded-[8px] border p-3 ${level.className}`}>
               <p className="flex items-center gap-1.5 text-[10px] font-black uppercase">Müşteri Sıcaklık Puanı <ScoreInfo text="Hizmet satma ve iletişim kurma potansiyelini gösterir." /></p>
@@ -11371,7 +11369,6 @@ function WhySelectThisBusinessPanel({ record, opportunityScore }: any) {
   const uncertainty: string[] = [];
   if (!hasRating) uncertainty.push("Google puanı/yorum verisi bulunamadı — itibar değerlendirmesi eksik.");
   if (record.advertisingConfidence === "low") uncertainty.push("Reklam sinyali güven seviyesi düşük; website taraması yapılamadı veya website yok.");
-  if (record.isDemo) uncertainty.push("Bu kayıt demo veridir; Google Maps API o an yanıt vermediği için gerçek sonuç yerine örnek gösterilmiştir.");
 
   return <div className="mt-4 rounded-[12px] border border-cyan-200 bg-white p-3">
     <p className="text-sm font-black text-slate-950">Neden Bu İşletmeyi Seçmeliyim?</p>
@@ -12260,12 +12257,12 @@ function GoogleAdsAnalysisSection() {
     try {
       const response = await fetch("/api/admin/google-analysis", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, aiProvider: aiProviderKeyForApi(aiProvider) }) });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Analiz sırasında bir hata oluştu.");
+      if (!response.ok) throw new Error([data.error, data.apiError].filter(Boolean).join(" — ") || "Analiz sırasında bir hata oluştu.");
       setWarning(data.warning || "");
       setResults(data.results || []);
       setAiMeta(data.ai || aiMetaFromApi({ activeProvider: "Demo Modu", model: "google-analysis-demo", demoMode: true }));
-    } catch {
-      setError("Analiz sırasında bir hata oluştu.");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Analiz sırasında bir hata oluştu.");
     } finally {
       setLoading(false);
     }

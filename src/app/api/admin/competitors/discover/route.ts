@@ -45,6 +45,15 @@ export async function POST(request: Request) {
     }), { status: 400 });
   }
   const maps = await discoverGoogleMapsCompetitors(input);
+  if (maps.source === "error") {
+    return NextResponse.json(buildActionResult({
+      title: "Rakip keşfi başarısız oldu",
+      summary: `Google Maps'e ulaşılamadı: ${maps.warning || "Bilinmeyen hata."}`,
+      status: "error",
+      nextActions: ["Birkaç dakika sonra tekrar deneyin.", "Sorun devam ederse sistem yöneticisiyle iletişime geçin."],
+      checkLinks: [{ label: "Rakip Analizine Dön", href: "/hk-admin/rakip-analizi" }]
+    }), { status: 502 });
+  }
   const filtered = maps.results.filter((item: any) => {
     if (Number(item.google_rating || 0) < input.minimumRating) return false;
     if (Number(item.google_review_count || 0) < input.minimumReviewCount) return false;
@@ -63,7 +72,7 @@ export async function POST(request: Request) {
   return NextResponse.json({
     success: true,
     message: "Rakip keşfi tamamlandı.",
-    mode: maps.source === "google_maps" ? "real" : "fallback",
+    mode: "real",
     dataSources: { googleMaps: maps.source, meta: meta.source },
     warnings,
     results,
@@ -72,7 +81,7 @@ export async function POST(request: Request) {
       summary: `${input.city}/${input.district} bölgesinde ${input.sector} için ${results.length} rakip bulundu ve skorlandı.`,
       entityType: "Rakip Keşfi",
       status: "prepared",
-      createdRecords: [{ label: "Bulunan rakip", count: results.length, status: maps.source === "google_maps" ? "Gerçek Google Maps verisi" : "Yedek akış" }],
+      createdRecords: [{ label: "Bulunan rakip", count: results.length, status: "Gerçek Google Maps verisi" }],
       nextActions: ["En güçlü rakipleri incele.", "Seçilenleri rakip listesine kaydet.", "Müşteriye gönderilecek özeti kontrol et."],
       checkLinks: [{ label: "Rakip Analizine Dön", href: "/hk-admin/rakip-analizi" }],
       customerVisibility: { showToCustomer: false, label: "Keşif sonuçları kaydedilmeden müşteri paneline açılmaz." },

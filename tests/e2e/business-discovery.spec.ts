@@ -5,8 +5,23 @@ import { hasQaAdminCredentials, loginAsQaAdmin, qaSkipReason } from "./fixtures/
 // intelligence upgrade. Every test that creates a real lead deletes it
 // again in the same test (immediate cleanup, not a separate afterAll),
 // so no QA byproduct data survives a run regardless of pass/fail ordering.
+//
+// There is no demo/mock fallback in this route anymore: a real Google Maps
+// failure (invalid/missing key, quota, etc.) is now an honest HTTP error
+// (502/503) with no fabricated businesses, never a 200 with fake data. Since
+// whether the configured GOOGLE_MAPS_API_KEY is genuinely valid varies by
+// environment, every test that depends on a successful search branches on
+// response.ok() and asserts the correct invariant for whichever real
+// outcome the live key actually produces — it never assumes success.
 
 const KNOWN_AD_STATUSES = ["active_signal", "no_signal_detected", "unverified", "manual_check_required", "source_unavailable"];
+
+function expectHonestFailureShape(status: number, body: any) {
+  expect([502, 503]).toContain(status);
+  expect(typeof body.error).toBe("string");
+  expect(body.error.length).toBeGreaterThan(0);
+  expect(body.businesses).toEqual([]);
+}
 
 test("unauthenticated search request is rejected", async ({ request }) => {
   const response = await request.post("/api/admin/business-discovery", { data: { city: "Manisa", sector: "Güzellik Merkezi" } });
@@ -32,53 +47,75 @@ test.describe("authenticated discovery search", () => {
     expect(response.status()).toBe(400);
   });
 
-  test("city-wide search (no ilçe, no mahalle) is accepted and never silently substitutes a district", async ({ request }) => {
+  test("a real Google Maps failure (invalid/missing key, quota, etc.) is an honest HTTP error — never a fake result set", async ({ request }) => {
+    await loginAsQaAdmin(request);
+    const response = await request.post("/api/admin/business-discovery", { data: { city: "Manisa", district: "", sector: "Güzellik Merkezi", limit: "5" } });
+    const body = await response.json();
+    if (!response.ok()) {
+      expectHonestFailureShape(response.status(), body);
+      expect(body.isDemoFallback).toBeUndefined();
+    } else {
+      // The configured key is genuinely valid in this run: assert on real data instead.
+      expect(Array.isArray(body.businesses)).toBeTruthy();
+      expect(body.error).toBeUndefined();
+    }
+  });
+
+  test("city-wide search (no ilçe, no mahalle) never silently substitutes a district", async ({ request }) => {
     await loginAsQaAdmin(request);
     const response = await request.post("/api/admin/business-discovery", { data: { city: "Manisa", district: "", neighborhood: "", sector: "Güzellik Merkezi", limit: "5" } });
-    expect(response.ok()).toBeTruthy();
     const body = await response.json();
     expect(body.districtLabel).toBe("Tüm ilçeler");
+    if (!response.ok()) expectHonestFailureShape(response.status(), body);
   });
 
   test("a specified ilçe is reflected as-is, not replaced", async ({ request }) => {
     await loginAsQaAdmin(request);
     const response = await request.post("/api/admin/business-discovery", { data: { city: "Manisa", district: "Yunusemre", neighborhood: "", sector: "Nail Studio", limit: "5" } });
-    expect(response.ok()).toBeTruthy();
     const body = await response.json();
     expect(body.districtLabel).toBe("Yunusemre");
+    if (!response.ok()) expectHonestFailureShape(response.status(), body);
   });
 
-  test("results are ordered by HK Opportunity Score descending by default", async ({ request }) => {
+  test("when the search succeeds, results are ordered by HK Opportunity Score descending", async ({ request }) => {
     await loginAsQaAdmin(request);
     const response = await request.post("/api/admin/business-discovery", { data: { city: "Manisa", district: "Şehzadeler", neighborhood: "", sector: "Protez Tırnak", limit: "10" } });
-    expect(response.ok()).toBeTruthy();
     const body = await response.json();
+    if (!response.ok()) {
+      expectHonestFailureShape(response.status(), body);
+      return;
+    }
     const scores = (body.businesses || []).map((b: any) => Number(b.opportunityScore ?? 0));
     const sorted = [...scores].sort((a, b) => b - a);
     expect(scores).toEqual(sorted);
   });
 
-  test("advertising status is always one of the honest known values — never a fabricated status", async ({ request }) => {
+  test("when the search succeeds, advertising status is always one of the honest known values — never a fabricated status", async ({ request }) => {
     await loginAsQaAdmin(request);
     const response = await request.post("/api/admin/business-discovery", { data: { city: "Manisa", district: "", sector: "Kuaför", limit: "10" } });
-    expect(response.ok()).toBeTruthy();
     const body = await response.json();
+    if (!response.ok()) {
+      expectHonestFailureShape(response.status(), body);
+      return;
+    }
     for (const business of body.businesses || []) {
       expect(KNOWN_AD_STATUSES).toContain(business.metaAdsStatus);
       expect(KNOWN_AD_STATUSES).toContain(business.googleAdsStatus);
     }
   });
 
-  test("API failure is distinguished from a legitimate zero-result search: a failure always carries an explicit warning", async ({ request }) => {
+  test("a legitimate zero-result search (ZERO_RESULTS from Google) is never confused with an API failure", async ({ request }) => {
     await loginAsQaAdmin(request);
-    const response = await request.post("/api/admin/business-discovery", { data: { city: "Manisa", district: "", sector: "Su Arıtma", limit: "5" } });
-    expect(response.ok()).toBeTruthy();
+    // A deliberately implausible sector name to maximize the odds of a real
+    // ZERO_RESULTS from Google when the key is valid; if the key is invalid,
+    // this still correctly exercises the honest-failure path instead.
+    const response = await request.post("/api/admin/business-discovery", { data: { city: "Manisa", district: "", sector: "Xzqvwplorpqz Nonexistent Sector 12345", limit: "5" } });
     const body = await response.json();
-    if (body.isDemoFallback) {
-      expect(typeof body.warning).toBe("string");
-      expect(body.warning.length).toBeGreaterThan(0);
+    if (response.ok()) {
+      expect(body.error).toBeUndefined();
+      expect(Array.isArray(body.businesses)).toBeTruthy();
     } else {
-      expect(body.warning).toBeFalsy();
+      expectHonestFailureShape(response.status(), body);
     }
   });
 
@@ -87,7 +124,7 @@ test.describe("authenticated discovery search", () => {
     const searchResponse = await request.post("/api/admin/business-discovery", { data: { city: "Manisa", district: "", sector: "QA E2E Discovery Sector", limit: "3" } });
     const searchBody = await searchResponse.json();
     const candidate = searchBody.businesses?.[0];
-    test.skip(!candidate, "Discovery search returned no candidate business to save.");
+    test.skip(!candidate, "Discovery search returned no candidate business to save (likely no valid GOOGLE_MAPS_API_KEY in this environment).");
     candidate.name = `QA E2E Discovery Lead ${Date.now()}`;
     candidate.phone = "0500000000";
 
@@ -116,7 +153,7 @@ test.describe("authenticated discovery search", () => {
     const searchResponse = await request.post("/api/admin/business-discovery", { data: { city: "Manisa", district: "", sector: "QA E2E Verification Sector", limit: "3" } });
     const searchBody = await searchResponse.json();
     const candidate = searchBody.businesses?.[0];
-    test.skip(!candidate, "Discovery search returned no candidate business to save.");
+    test.skip(!candidate, "Discovery search returned no candidate business to save (likely no valid GOOGLE_MAPS_API_KEY in this environment).");
     candidate.name = `QA E2E Verification Lead ${Date.now()}`;
     candidate.phone = "0500000001";
 

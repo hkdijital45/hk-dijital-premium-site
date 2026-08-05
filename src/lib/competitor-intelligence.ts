@@ -186,7 +186,7 @@ export async function discoverGoogleMapsCompetitors(input: CompetitorSuggestionI
   const searchTerms = Array.from(new Set((niches.length ? niches : [input.sector || "yerel işletme"]).map((term) => [term, input.district, input.city].filter(Boolean).join(" "))));
   const query = searchTerms[0] || [input.sector, input.district, input.city].filter(Boolean).join(" ");
   if (!key) {
-    return { source: "local-fallback", warning: "Google Maps API anahtarı eksik. Rakipler güvenli yerel yedek akışla tahmini üretildi.", results: buildCompetitorSuggestions(input).slice(0, limit) };
+    return { source: "error", warning: "Google Maps API anahtarı yapılandırılmamış. Sistem yöneticisiyle iletişime geçin.", results: [] };
   }
   const allPlaces: any[] = [];
   let lastError = "";
@@ -195,14 +195,17 @@ export async function discoverGoogleMapsCompetitors(input: CompetitorSuggestionI
     const response = await fetch(`https://maps.googleapis.com/maps/api/place/textsearch/json?${params}`, { cache: "no-store" });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || !["OK", "ZERO_RESULTS"].includes(data.status)) {
-      lastError = data.error_message || "Google Maps yanıtı alınamadı.";
+      lastError = data.error_message || data.status || "Google Maps yanıtı alınamadı.";
       continue;
     }
     allPlaces.push(...(data.results || []).map((place: any) => ({ ...place, discovery_query: searchQuery })));
     if (allPlaces.length >= limit * 3) break;
   }
   if (!allPlaces.length) {
-    return { source: "local-fallback", warning: lastError || "Google Maps gerçek işletme listesi alınamadı. Yerel yedek akış kullanıldı.", results: buildCompetitorSuggestions(input).slice(0, limit) };
+    // Distinguishes a real API failure (lastError set) from a legitimate
+    // zero-result search (every query returned ZERO_RESULTS, lastError
+    // stays empty) — never fabricates competitors in either case.
+    return { source: lastError ? "error" : "zero_results", warning: lastError, results: [] };
   }
   const unique = new Map<string, any>();
   for (const place of allPlaces) {

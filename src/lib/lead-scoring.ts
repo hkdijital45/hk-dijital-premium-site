@@ -10,7 +10,6 @@ export type DiscoveredBusiness = {
   reviewCount?: number;
   placeId?: string;
   category?: string;
-  isDemo?: boolean;
   city?: string;
   district?: string;
   googleMapsUrl?: string;
@@ -157,10 +156,6 @@ export function scoreDiscoveredBusiness(business: DiscoveredBusiness) {
     heat += 6;
     heatReasons.push("CRM'de henüz kayıtlı değil: rakip ajans temasından önce ulaşma fırsatı");
     heatBreakdown.push({ points: 6, label: "CRM'de kayıtlı değil" });
-  }
-
-  if (business.isDemo) {
-    heatReasons.push("Demo veri: gerçek arama yerine örnek sonuç gösteriliyor");
   }
 
   const leadHeatScore = Math.max(0, Math.min(100, Math.round(heat)));

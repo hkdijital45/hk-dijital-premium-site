@@ -66,9 +66,7 @@ function phoneKey(value: unknown) {
  */
 async function enrichBusiness(business: DiscoveredBusiness): Promise<Record<string, any>> {
   const scored = scoreDiscoveredBusiness(business);
-  const scan = business.isDemo
-    ? { metaPixelDetected: null, googleTagDetected: null, whatsappLinkDetected: null, scanFailed: false, checkedAt: new Date().toISOString() }
-    : await scanWebsiteForAdSignals(business.website).catch(() => ({ metaPixelDetected: null, googleTagDetected: null, whatsappLinkDetected: null, scanFailed: true, checkedAt: new Date().toISOString() }));
+  const scan = await scanWebsiteForAdSignals(business.website).catch(() => ({ metaPixelDetected: null, googleTagDetected: null, whatsappLinkDetected: null, scanFailed: true, checkedAt: new Date().toISOString() }));
   const advertising: AdvertisingEvidence = evaluateAdvertisingSignals({
     website: business.website,
     metaPixelDetected: scan.metaPixelDetected,
@@ -114,60 +112,6 @@ async function enrichBusiness(business: DiscoveredBusiness): Promise<Record<stri
     outreach,
     crmStatus: business.crmStatus || "CRM'de yok"
   };
-}
-
-function demoBusinesses(input: { city: string; district: string; businessType: string }) {
-  const city = input.city || "Manisa";
-  const district = input.district || "";
-  const districtLabel = district || "Yunusemre";
-  const category = input.businessType || "güzellik merkezi";
-  return [
-    {
-      placeId: `demo-${city}-${districtLabel}-1`,
-      name: `${districtLabel} ${category} Plus`,
-      city,
-      district,
-      address: `${districtLabel}, ${city}`,
-      phone: "0236 000 00 01",
-      website: "",
-      rating: 4.6,
-      googleRating: 4.6,
-      reviewCount: 18,
-      category,
-      source: "Demo Veri",
-      isDemo: true
-    },
-    {
-      placeId: `demo-${city}-${districtLabel}-2`,
-      name: `${city} ${category} Atölyesi`,
-      city,
-      district,
-      address: `${districtLabel} merkez, ${city}`,
-      phone: "0236 000 00 02",
-      website: `https://example.com/${encodeURIComponent(category.replace(/\s+/g, "-"))}`,
-      rating: 4.2,
-      googleRating: 4.2,
-      reviewCount: 74,
-      category,
-      source: "Demo Veri",
-      isDemo: true
-    },
-    {
-      placeId: `demo-${city}-${districtLabel}-3`,
-      name: `${districtLabel} Yeni ${category}`,
-      city,
-      district,
-      address: `${districtLabel} cadde, ${city}`,
-      phone: "",
-      website: "",
-      rating: 3.8,
-      googleRating: 3.8,
-      reviewCount: 7,
-      category,
-      source: "Demo Veri",
-      isDemo: true
-    }
-  ];
 }
 
 function applyDiscoveryFilters(
@@ -239,20 +183,16 @@ export async function POST(request: Request) {
   const filters = { minimumRating, minimumReviewCount, website, phone, instagram, hideSaved, highOpportunity, highAdPotential, knownPlaceIds: await knownPlaceIds(hideSaved) };
   const districtLabel = district || "Tüm ilçeler";
 
-  const demoFallback = async (apiError?: string) => {
-    const enriched = await Promise.all(demoBusinesses({ city, district, businessType: sector }).map(enrichBusiness));
-    const businesses = sortByOpportunity(applyDiscoveryFilters(enriched, filters));
-    return NextResponse.json({
-      businesses,
-      count: businesses.length,
-      districtLabel,
-      isDemoFallback: true,
-      warning: "Google Maps verisi alınamadı. Demo veri ile devam ediliyor.",
-      apiError
-    });
-  };
+  // No demo/mock fallback: a Google Maps failure is reported honestly as a
+  // failure (empty result set, explicit error + apiError), never masked with
+  // fabricated businesses. This is distinct from a legitimate ZERO_RESULTS
+  // response below, which returns an empty list with no error at all.
+  const mapsFailure = (message: string, apiError?: string, status = 502) =>
+    NextResponse.json({ businesses: [], count: 0, districtLabel, error: message, apiError: apiError || message }, { status });
 
-  if (!(process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_API_KEY)) return demoFallback("Google Maps API anahtarı eksik.");
+  if (!(process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_API_KEY)) {
+    return mapsFailure("Google Maps API anahtarı yapılandırılmamış. Sistem yöneticisiyle iletişime geçin.", undefined, 503);
+  }
 
   try {
     const query = [keyword, sector, neighborhood, district, city].filter(Boolean).join(" ");
@@ -260,7 +200,7 @@ export async function POST(request: Request) {
     const data = await response.json();
     if (!response.ok || !["OK", "ZERO_RESULTS"].includes(data.status)) {
       console.error("[business-discovery] Google Maps arama hatası", { status: data.status, error: data.error_message });
-      return demoFallback(data.error_message || "Google Maps işletme araması başarısız oldu.");
+      return mapsFailure("Google Maps işletme araması başarısız oldu.", data.error_message || data.status || "Bilinmeyen Google Maps hatası.");
     }
 
     const baseResults = (data.results || []).slice(0, limit);
@@ -283,20 +223,19 @@ export async function POST(request: Request) {
         latitude: details.geometry?.location?.lat ?? place.geometry?.location?.lat ?? null,
         longitude: details.geometry?.location?.lng ?? place.geometry?.location?.lng ?? null,
         sourceQuery: query,
-        source: "Google Maps",
-        isDemo: false
+        source: "Google Maps"
       };
       return enrichBusiness(business);
     }));
     // A real, legitimate zero-results response (Google returned ZERO_RESULTS
     // or every result was filtered out) is intentionally returned with no
-    // "warning"/"isDemoFallback" flag — the frontend must be able to tell
-    // this apart from an API failure, which always sets those fields.
+    // "error"/"warning" flag — the frontend must be able to tell this apart
+    // from an API failure, which always sets those fields (see mapsFailure).
     const filtered = sortByOpportunity(applyDiscoveryFilters(businesses, filters));
     return NextResponse.json({ businesses: filtered, count: filtered.length, districtLabel });
   } catch (error) {
     console.error("[business-discovery] İşletme araması çöktü", error);
-    return demoFallback(error instanceof Error ? error.message : "İşletme araması başarısız oldu.");
+    return mapsFailure("İşletme araması sırasında beklenmeyen bir hata oluştu.", error instanceof Error ? error.message : String(error));
   }
 }
 
