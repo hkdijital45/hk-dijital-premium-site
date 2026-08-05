@@ -26,8 +26,8 @@ const VARIANT_CLASS: Record<AdminButtonVariant, string> = {
   ai: "hk-button-ai",
   communication: "hk-button-communication",
   premium: "hk-button-edit",
-  ghost: "hk-button-neutral",
-  outline: "hk-button-neutral"
+  ghost: "hk-button-ghost",
+  outline: "hk-button-outline"
 };
 
 export interface AdminButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className"> {

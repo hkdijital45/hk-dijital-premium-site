@@ -1231,26 +1231,33 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
   }
 }
 
-/* Premium basic light admin interface: clean SaaS surfaces with colorful actions. */
+/* Premium basic light admin interface: clean SaaS surfaces with colorful actions.
+   This block carries !important and matches .hk-admin directly, so it is the
+   actual live background renderer for the whole admin shell — the later
+   "HK DESIGN SYSTEM" section further down layers component-level color on
+   top of this, but this rule is what paints the page itself. Token names
+   here (admin-bg, hk-admin-bg, etc.) are local to this legacy block, distinct
+   from the hk- system below; kept as-is to avoid touching unrelated
+   consumers, only the color values are updated to the HK Design System. */
 .admin-shell,
 .hk-admin,
 [data-admin] {
-  --admin-bg: #f8fafc;
-  --admin-section: #f1f5f9;
+  --admin-bg: #F8F7F3;
+  --admin-section: #F3F2EE;
   --admin-card: #ffffff;
-  --admin-card-soft: #f8fafc;
-  --admin-border: #e2e8f0;
-  --admin-text: #0f172a;
-  --admin-text-secondary: #334155;
-  --admin-text-muted: #64748b;
-  --hk-admin-bg: #f8fafc;
-  --hk-admin-section: #f1f5f9;
+  --admin-card-soft: #F3F2EE;
+  --admin-border: #E6E3DC;
+  --admin-text: #15181E;
+  --admin-text-secondary: #5F6672;
+  --admin-text-muted: #7B8492;
+  --hk-admin-bg: #F8F7F3;
+  --hk-admin-section: #F3F2EE;
   --hk-admin-card: #ffffff;
-  --hk-admin-border: #e2e8f0;
-  --hk-admin-text: #0f172a;
-  --hk-admin-secondary: #334155;
-  --hk-admin-muted: #64748b;
-  --hk-admin-shadow: 0 8px 30px rgba(15, 23, 42, .06);
+  --hk-admin-border: #E6E3DC;
+  --hk-admin-text: #15181E;
+  --hk-admin-secondary: #5F6672;
+  --hk-admin-muted: #7B8492;
+  --hk-admin-shadow: 0 8px 30px rgba(21, 24, 30, .05);
   background: var(--hk-admin-bg) !important;
   color: var(--hk-admin-text) !important;
   width: 100%;
@@ -1261,10 +1268,9 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 .admin-shell .admin-ambient,
 .hk-admin .admin-ambient,
 [data-admin] .admin-ambient {
-  background:
-    radial-gradient(circle at 8% 0%, rgba(34, 211, 238, .12), transparent 34%),
-    radial-gradient(circle at 92% 6%, rgba(250, 204, 21, .10), transparent 28%),
-    linear-gradient(180deg, var(--admin-bg) 0%, var(--admin-section) 100%) !important;
+  /* Flat app background, no radial glow — "wow" comes from spacing/
+     typography/alignment per the HK Design System, not gradients. */
+  background: var(--admin-bg) !important;
 }
 
 .admin-shell .premium-grid,
@@ -1432,7 +1438,12 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 .hk-admin .text-\[10px\],
 [data-admin] .text-xs,
 [data-admin] .text-\[10px\] {
-  color: var(--hk-admin-muted) !important;
+  /* Was --hk-admin-muted (#7B8492): only ~3.5:1 on these surfaces, failing
+     WCAG AA for normal-size text — and text-xs is exactly that (small)
+     text used everywhere (captions, badges, meta). Secondary Text
+     (#5F6672, ~5.4:1) is the accessible "quiet but legible" choice; true
+     Muted is reserved for large text/icons only. */
+  color: var(--hk-admin-secondary) !important;
 }
 
 .admin-shell input,
@@ -1446,8 +1457,8 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 [data-admin] textarea {
   background: #ffffff !important;
   color: var(--hk-admin-text) !important;
-  border-color: #dbe4ef !important;
-  box-shadow: inset 0 1px 2px rgba(15, 23, 42, .04) !important;
+  border-color: #D8D5CF !important;
+  box-shadow: none !important;
 }
 
 .admin-shell input:focus,
@@ -1459,8 +1470,8 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 [data-admin] input:focus,
 [data-admin] select:focus,
 [data-admin] textarea:focus {
-  border-color: #22d3ee !important;
-  box-shadow: 0 0 0 4px rgba(34, 211, 238, .16) !important;
+  border-color: #18AFC4 !important;
+  box-shadow: 0 0 0 4px #DDF6F8 !important;
   outline: none !important;
 }
 
@@ -1470,7 +1481,7 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 .hk-admin textarea::placeholder,
 [data-admin] input::placeholder,
 [data-admin] textarea::placeholder {
-  color: var(--hk-admin-muted) !important;
+  color: var(--hk-admin-secondary) !important;
 }
 
 .admin-shell table thead,
@@ -1529,6 +1540,11 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
   opacity: .62 !important;
 }
 
+/* This block catches raw Tailwind utility-colored buttons that predate the
+   AdminButton/hk-button-* component system and repaints them with the HK
+   Design System palette via !important — the same mechanism the app has
+   used for years, only the color values change. Flat fills, no gradients. */
+
 .admin-shell button.bg-cyan-300,
 .admin-shell button.bg-cyan-400,
 .admin-shell button.bg-cyan-500,
@@ -1547,9 +1563,9 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 [data-admin] .bg-cyan-300,
 [data-admin] .bg-cyan-400,
 [data-admin] .bg-cyan-500 {
-  background: linear-gradient(135deg, #22d3ee, #0ea5e9) !important;
-  color: #062333 !important;
-  box-shadow: 0 10px 24px rgba(14, 165, 233, .24) !important;
+  background: #18AFC4 !important;
+  color: #15181E !important;
+  box-shadow: 0 4px 14px rgba(21, 24, 30, .08) !important;
 }
 
 .admin-shell .bg-cyan-300 *,
@@ -1561,7 +1577,7 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 [data-admin] .bg-cyan-300 *,
 [data-admin] .bg-cyan-400 *,
 [data-admin] .bg-cyan-500 * {
-  color: #062333 !important;
+  color: #15181E !important;
 }
 
 .admin-shell button.bg-blue-500,
@@ -1576,9 +1592,9 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 [data-admin] button.bg-blue-600,
 [data-admin] .bg-blue-500,
 [data-admin] .bg-blue-600 {
-  background: linear-gradient(135deg, #38bdf8, #2563eb) !important;
+  background: #1565C0 !important;
   color: #ffffff !important;
-  box-shadow: 0 10px 24px rgba(37, 99, 235, .24) !important;
+  box-shadow: 0 4px 14px rgba(21, 24, 30, .08) !important;
 }
 
 .admin-shell .bg-blue-500 *,
@@ -1596,15 +1612,15 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 .hk-admin .bg-orange-500,
 [data-admin] button.bg-orange-500,
 [data-admin] .bg-orange-500 {
-  background: linear-gradient(135deg, #fb923c, #f59e0b) !important;
-  color: #431407 !important;
-  box-shadow: 0 10px 24px rgba(245, 158, 11, .24) !important;
+  background: #B45309 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(21, 24, 30, .08) !important;
 }
 
 .admin-shell .bg-orange-500 *,
 .hk-admin .bg-orange-500 *,
 [data-admin] .bg-orange-500 * {
-  color: #431407 !important;
+  color: #ffffff !important;
 }
 
 .admin-shell button.bg-amber-300,
@@ -1619,9 +1635,9 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 [data-admin] button.bg-yellow-300,
 [data-admin] .bg-amber-300,
 [data-admin] .bg-yellow-300 {
-  background: linear-gradient(135deg, #fde047, #facc15) !important;
-  color: #422006 !important;
-  box-shadow: 0 10px 24px rgba(250, 204, 21, .24) !important;
+  background: #E4B83F !important;
+  color: #17140C !important;
+  box-shadow: 0 4px 14px rgba(21, 24, 30, .08) !important;
 }
 
 .admin-shell .bg-amber-300 *,
@@ -1630,7 +1646,7 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 .hk-admin .bg-yellow-300 *,
 [data-admin] .bg-amber-300 *,
 [data-admin] .bg-yellow-300 * {
-  color: #422006 !important;
+  color: #17140C !important;
 }
 
 .admin-shell button[class*="bg-emerald"],
@@ -1645,9 +1661,9 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 [data-admin] button[class*="bg-green"],
 [data-admin] [class*="bg-emerald-"][class*="/"],
 [data-admin] [class*="bg-green-"][class*="/"] {
-  background: #dcfce7 !important;
-  color: #166534 !important;
-  border-color: #86efac !important;
+  background: #E8F8EC !important;
+  color: #167A3C !important;
+  border-color: #8FD5A8 !important;
 }
 
 .admin-shell button[class*="bg-red"],
@@ -1656,9 +1672,9 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 .hk-admin [class*="bg-red-"][class*="/"],
 [data-admin] button[class*="bg-red"],
 [data-admin] [class*="bg-red-"][class*="/"] {
-  background: #fee2e2 !important;
-  color: #991b1b !important;
-  border-color: #fecaca !important;
+  background: #FDECEC !important;
+  color: #B42318 !important;
+  border-color: #F5A5A5 !important;
 }
 
 .hk-toast-stack {
@@ -1683,39 +1699,39 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 }
 
 .hk-toast-success {
-  border-left: 6px solid #22c55e !important;
+  border-left: 6px solid #167A3C !important;
 }
 
 .hk-toast-info {
-  border-left: 6px solid #0ea5e9 !important;
+  border-left: 6px solid #1565C0 !important;
 }
 
 .hk-toast-warning {
-  border-left: 6px solid #f59e0b !important;
+  border-left: 6px solid #8D5B00 !important;
 }
 
 .hk-toast-error {
-  border-left: 6px solid #ef4444 !important;
+  border-left: 6px solid #B42318 !important;
 }
 
 .hk-toast-success .hk-toast-icon {
-  background: #dcfce7;
-  color: #166534;
+  background: #E8F8EC;
+  color: #167A3C;
 }
 
 .hk-toast-info .hk-toast-icon {
-  background: #e0f2fe;
-  color: #075985;
+  background: #EAF6FD;
+  color: #1565C0;
 }
 
 .hk-toast-warning .hk-toast-icon {
-  background: #fef3c7;
-  color: #92400e;
+  background: #FFF7E2;
+  color: #8D5B00;
 }
 
 .hk-toast-error .hk-toast-icon {
-  background: #fee2e2;
-  color: #991b1b;
+  background: #FDECEC;
+  color: #B42318;
 }
 
 @keyframes hk-toast-slide-down {
@@ -2729,22 +2745,111 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 }
 
 /* =========================================================================
-   PREMIUM ADMIN REDESIGN — this layer intentionally sits last in the file so
-   it wins the cascade over every earlier .hk-admin rule above (same or lower
-   specificity, later source order). No component APIs changed: HKButton,
-   HKCard, HKKpiCard etc. still render the exact same class names — only the
-   values behind those classes change. Scoped to .hk-admin (the admin shell)
-   so the public site and customer portal are untouched.
+   HK DESIGN SYSTEM — the official, single palette for the entire admin
+   product (see PRD "ZORUNLU TASARIM SİSTEMİ"). This layer intentionally
+   sits last in the file so it wins the cascade over every earlier
+   .hk-admin rule above (same or lower specificity, later source order).
+   No component APIs changed: AdminButton, AdminKpiCard, AdminStatusBadge
+   etc. still render the exact same class names — only the values behind
+   those classes change. Scoped to .hk-admin (the admin shell) so the
+   public site and customer portal are untouched.
+
+   A few hex values are deliberately *derived* from the PRD palette rather
+   than reusing it verbatim, always documented inline with the reason:
+   the PRD's Cyan/Purple "text" values and border values are tuned for use
+   as accents/fills, not as small text on a tinted background or as a
+   focus indicator — used verbatim there they fail WCAG AA/the 3:1
+   non-text contrast guideline. The derived tone stays in the exact same
+   hue family; nothing outside the specified palette is introduced.
    ========================================================================= */
 
 :root {
+  /* ---- Surfaces (PRD verbatim) ---- */
+  --hk-bg-page: #F8F7F3;
+  --hk-bg-page-secondary: #F3F2EE;
+  --hk-bg-surface: #ffffff;
+  --hk-bg-surface-elevated: #ffffff;
+  --hk-bg-hover: #F5F5F2;
+  --hk-divider: #ECE8E1;
+
+  /* ---- Borders ----
+     --hk-border is the PRD's decorative/divider tone (1.2:1 on white by
+     design — a whisper-light line, not a load-bearing boundary).
+     --hk-border-strong reuses the PRD's own Input/Secondary-button border
+     value for anything that needs to actually read as an edge. */
+  --hk-border: #E6E3DC;
+  --hk-border-strong: #D8D5CF;
+
+  /* ---- Text (PRD verbatim) ---- */
+  --hk-text-primary: #15181E;
+  --hk-text-secondary: #5F6672;
+  --hk-text-muted: #7B8492;
+  --hk-text-disabled: #A8AFBA;
+  --hk-text-inverse: #ffffff;
+
+  /* ---- HK Gold — restricted to Primary Button / Badge / Highlight / KPI /
+     CTA / chart accent, never a page or card background (PRD verbatim). ---- */
+  --hk-gold: #E4B83F;
+  --hk-gold-hover: #D9A91D;
+  --hk-gold-soft: #F8E8AF;
+  --hk-gold-border: #E7C96D;
+  --hk-gold-text: #17140C;
+
+  /* ---- HK Cyan ----
+     --hk-cyan is the PRD accent (#18AFC4) for icons, borders, soft fills.
+     --hk-cyan-solid is a deepened tone of the same hue used only where a
+     SOLID cyan fill needs white text (#18AFC4 + white = 2.64:1, fails AA;
+     #0B7A88 + white = 5.06:1). --hk-cyan-text is likewise deepened for
+     small text sitting on --hk-cyan-soft (#18AFC4 there = 2.34:1, fails;
+     #0B6B78 = 5.49:1). */
+  --hk-cyan: #18AFC4;
+  --hk-cyan-hover: #0C9FB3;
+  --hk-cyan-soft: #DDF6F8;
+  --hk-cyan-solid: #0B7A88;
+  --hk-cyan-solid-hover: #0A6F7C;
+  --hk-cyan-text: #0B6B78;
+
+  /* ---- HK Purple ----
+     --hk-purple-text is a deepened tone for small text on --hk-purple-soft
+     (#7557D9 there = 4.28:1, just under the 4.5:1 body-text threshold;
+     #4F35A8 = 7.32:1). Purple solid fills already pass with white text
+     (5.10:1) so no separate "solid" tone is needed. */
+  --hk-purple: #7557D9;
+  --hk-purple-hover: #6345CC;
+  --hk-purple-soft: #EEE8FF;
+  --hk-purple-text: #4F35A8;
+
+  /* ---- Status (PRD verbatim backgrounds/text; "-solid" is the same text
+     tone reused as a solid button fill with white text — all ≥5.4:1). ---- */
+  --hk-success-bg: #E8F8EC; --hk-success-text: #167A3C; --hk-success-border: #8FD5A8; --hk-success-solid: #167A3C;
+  --hk-warning-bg: #FFF7E2; --hk-warning-text: #8D5B00; --hk-warning-border: #E8C15A; --hk-warning-solid: #B45309;
+  --hk-danger-bg: #FDECEC; --hk-danger-text: #B42318; --hk-danger-border: #F5A5A5; --hk-danger-solid: #B42318;
+  --hk-info-bg: #EAF6FD; --hk-info-text: #1565C0; --hk-info-border: #9CCCF6; --hk-info-solid: #1565C0;
+
+  /* ---- General "selected/active" accent (tabs, focus rings, active nav) —
+     kept in the cyan family per the PRD's "Cyan = soft helper accent" rule
+     (gold is reserved for buttons/badges/KPI/CTA only, never a generic
+     active-state color) and calibrated for reliable white-text contrast. */
+  --hk-primary: var(--hk-cyan-solid);
+  --hk-primary-hover: var(--hk-cyan-solid-hover);
+  --hk-primary-foreground: #ffffff;
+  --hk-focus-ring: var(--hk-cyan-hover);
+
+  /* ---- Table ---- */
+  --hk-table-header: #F4F3EF;
+  --hk-table-row-hover: #F8F8F6;
+  --hk-table-selected: #FFF7DD;
+
+  /* ---- Radius / shadow — same scale, softened shadow tone/opacity for a
+     quieter, more premium lift (was slate-900-based, now text-primary-based
+     at lower opacity). ---- */
   --hk-radius-sm: 10px;
   --hk-radius-md: 14px;
   --hk-radius-lg: 18px;
   --hk-radius-xl: 24px;
-  --hk-shadow-sm: 0 6px 18px rgba(15, 23, 42, .07);
-  --hk-shadow-md: 0 18px 40px rgba(15, 23, 42, .11);
-  --hk-shadow-lg: 0 28px 70px rgba(15, 23, 42, .16);
+  --hk-shadow-sm: 0 4px 14px rgba(21, 24, 30, .05);
+  --hk-shadow-md: 0 10px 28px rgba(21, 24, 30, .07);
+  --hk-shadow-lg: 0 20px 48px rgba(21, 24, 30, .10);
 }
 
 .hk-admin {
@@ -2752,10 +2857,9 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 }
 
 .hk-admin.hk-admin-os {
-  background:
-    radial-gradient(circle at 14% 0%, rgba(8, 145, 178, .07), transparent 32%),
-    radial-gradient(circle at 86% 18%, rgba(124, 58, 237, .06), transparent 30%),
-    #f4f6fb;
+  /* Flat, calm app background — no radial glow. The PRD is explicit that
+     "wow" comes from spacing/typography/alignment, not gradients. */
+  background: var(--hk-bg-page);
 }
 
 /* ---- Cards -------------------------------------------------------------- */
@@ -2775,22 +2879,22 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 
 .hk-admin .hk-card-interactive:hover {
   transform: translateY(-3px);
-  border-color: rgba(8, 145, 178, .38);
+  border-color: var(--hk-border-strong);
   box-shadow: var(--hk-shadow-lg);
 }
 
 .hk-admin .hk-card-selected {
-  border-color: rgba(8, 145, 178, .55);
-  background: linear-gradient(135deg, #ecfeff 0%, #eff6ff 100%);
-  box-shadow: 0 0 0 3px rgba(34, 211, 238, .16), var(--hk-shadow-sm);
+  border-color: var(--hk-gold-border);
+  background: var(--hk-gold-soft);
+  box-shadow: 0 0 0 2px var(--hk-gold-border), var(--hk-shadow-sm);
 }
 
-.hk-admin .hk-card-warning { border-color: #fbbf24; background: linear-gradient(160deg, #fffbeb, #fff); }
-.hk-admin .hk-card-danger { border-color: #f87171; background: linear-gradient(160deg, #fef2f2, #fff); }
-.hk-admin .hk-card-success { border-color: #34d399; background: linear-gradient(160deg, #f0fdf4, #fff); }
-.hk-admin .hk-card-info { border-color: #60a5fa; background: linear-gradient(160deg, #eff6ff, #fff); }
-.hk-admin .hk-card-ai { border-color: #a78bfa; background: linear-gradient(160deg, #f5f3ff, #fff); }
-.hk-admin .hk-card-muted { background: #f8fafc; }
+.hk-admin .hk-card-warning { border-color: var(--hk-warning-border); background: var(--hk-warning-bg); }
+.hk-admin .hk-card-danger { border-color: var(--hk-danger-border); background: var(--hk-danger-bg); }
+.hk-admin .hk-card-success { border-color: var(--hk-success-border); background: var(--hk-success-bg); }
+.hk-admin .hk-card-info { border-color: var(--hk-info-border); background: var(--hk-info-bg); }
+.hk-admin .hk-card-ai { border-color: var(--hk-purple); background: var(--hk-purple-soft); }
+.hk-admin .hk-card-muted { background: var(--hk-bg-page-secondary); }
 
 .hk-admin .hk-section-card-header h2 {
   font-size: 1.2rem;
@@ -2800,136 +2904,181 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 .hk-admin .hk-page-header {
   border-radius: var(--hk-radius-xl);
   padding: 1.5rem;
-  background:
-    radial-gradient(circle at 92% 0%, rgba(34, 211, 238, .22), transparent 34%),
-    radial-gradient(circle at 4% 100%, rgba(124, 58, 237, .1), transparent 38%),
-    linear-gradient(135deg, #ffffff 0%, #ecfeff 46%, #eef2ff 100%);
-  box-shadow: var(--hk-shadow-md);
+  background: var(--hk-bg-surface);
+  box-shadow: var(--hk-shadow-sm);
 }
 
 .hk-admin .hk-page-eyebrow {
   padding: .2rem .6rem;
   border-radius: 999px;
-  background: rgba(8, 145, 178, .1);
-  color: #0e7490;
+  background: var(--hk-cyan-soft);
+  color: var(--hk-cyan-text);
   width: fit-content;
 }
 
 .hk-admin .hk-page-header h1 {
-  background: linear-gradient(135deg, #0f172a, #0e7490);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  /* Solid ink color, not a gradient text-clip — reads as a real product
+     heading, not a marketing splash. */
+  color: var(--hk-text-primary);
 }
 
 /* ---- Buttons -------------------------------------------------------------
-   Semantic color system: blue=analysis/report, purple=AI, green=success,
-   orange=warning/follow-up, red=danger/delete, teal=communication,
-   gold=favorite/premium, slate=neutral/system. */
+   Primary = HK Gold with near-black text (never white/light text on gold).
+   Every other variant is a flat fill or a real outline/ghost — no two
+   variants share the same visual weight, so active vs. secondary vs.
+   disabled are always distinguishable at a glance. */
 
 .hk-admin .hk-button {
   border-radius: var(--hk-radius-md);
   font-weight: 800;
   letter-spacing: -.005em;
-  transition: transform .15s ease, box-shadow .15s ease, filter .15s ease, background .15s ease;
+  transition: transform .15s ease, box-shadow .15s ease, background-color .15s ease, border-color .15s ease, color .15s ease;
 }
 
 .hk-admin .hk-button:not(:disabled):hover {
   transform: translateY(-2px);
-  filter: brightness(1.04);
 }
 
 .hk-admin .hk-button:not(:disabled):active {
   transform: translateY(0);
-  filter: brightness(.97);
 }
 
 .hk-admin .hk-button-primary {
-  background: linear-gradient(135deg, #06b6d4, #0e7490);
-  color: #fff;
-  box-shadow: 0 12px 26px rgba(8, 145, 178, .28);
-}
-
-.hk-admin .hk-button-secondary,
-.hk-admin .hk-button-neutral,
-.hk-admin .hk-button-outline {
-  border-color: #cbd5e1;
-  background: linear-gradient(180deg, #ffffff, #f8fafc);
-  color: #334155;
+  border-color: transparent;
+  background: var(--hk-gold);
+  color: var(--hk-gold-text);
   box-shadow: var(--hk-shadow-sm);
 }
 
-.hk-admin .hk-button-outline {
+.hk-admin .hk-button-primary:not(:disabled):hover {
+  background: var(--hk-gold-hover);
+  box-shadow: var(--hk-shadow-md);
+}
+
+.hk-admin .hk-button-secondary,
+.hk-admin .hk-button-neutral {
+  border-color: var(--hk-border-strong);
+  background: var(--hk-bg-surface);
+  color: var(--hk-text-primary);
+  box-shadow: var(--hk-shadow-sm);
+}
+
+.hk-admin .hk-button-secondary:not(:disabled):hover,
+.hk-admin .hk-button-neutral:not(:disabled):hover {
+  background: var(--hk-bg-hover);
+}
+
+.hk-admin .hk-button-ghost {
+  border-color: transparent;
   background: transparent;
+  color: var(--hk-text-secondary);
   box-shadow: none;
 }
 
+.hk-admin .hk-button-ghost:not(:disabled):hover {
+  background: var(--hk-bg-hover);
+  color: var(--hk-text-primary);
+}
+
+.hk-admin .hk-button-outline {
+  border-color: var(--hk-cyan);
+  background: transparent;
+  color: var(--hk-cyan-text);
+  box-shadow: none;
+}
+
+.hk-admin .hk-button-outline:not(:disabled):hover {
+  background: var(--hk-cyan-soft);
+}
+
 .hk-admin .hk-button-success {
-  background: linear-gradient(135deg, #22c55e, #059669);
+  border-color: transparent;
+  background: var(--hk-success-solid);
   color: #fff;
-  box-shadow: 0 12px 26px rgba(5, 150, 105, .28);
+  box-shadow: var(--hk-shadow-sm);
 }
 
 .hk-admin .hk-button-warning {
   border-color: transparent;
-  background: linear-gradient(135deg, #fb923c, #ea580c);
+  background: var(--hk-warning-solid);
   color: #fff;
-  box-shadow: 0 12px 26px rgba(234, 88, 12, .26);
+  box-shadow: var(--hk-shadow-sm);
 }
 
 .hk-admin .hk-button-danger {
-  background: linear-gradient(135deg, #f87171, #dc2626);
+  border-color: transparent;
+  background: var(--hk-danger-solid);
   color: #fff;
-  box-shadow: 0 12px 26px rgba(220, 38, 38, .26);
+  box-shadow: var(--hk-shadow-sm);
 }
 
 .hk-admin .hk-button-info {
-  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  border-color: transparent;
+  background: var(--hk-info-solid);
   color: #fff;
-  box-shadow: 0 12px 26px rgba(29, 78, 216, .26);
+  box-shadow: var(--hk-shadow-sm);
 }
 
 .hk-admin .hk-button-ai {
-  background: linear-gradient(135deg, #a855f7, #6d28d9);
+  border-color: transparent;
+  background: var(--hk-purple);
   color: #fff;
-  box-shadow: 0 12px 26px rgba(109, 40, 217, .3);
+  box-shadow: var(--hk-shadow-sm);
+}
+
+.hk-admin .hk-button-ai:not(:disabled):hover {
+  background: var(--hk-purple-hover);
 }
 
 .hk-admin .hk-button-communication {
-  background: linear-gradient(135deg, #14b8a6, #0891b2);
+  border-color: transparent;
+  background: var(--hk-cyan-solid);
   color: #fff;
-  box-shadow: 0 12px 26px rgba(8, 145, 178, .26);
+  box-shadow: var(--hk-shadow-sm);
+}
+
+.hk-admin .hk-button-communication:not(:disabled):hover {
+  background: var(--hk-cyan-solid-hover);
 }
 
 .hk-admin .hk-button-edit {
-  border-color: #c7d2fe;
-  background: linear-gradient(180deg, #eef2ff, #fff);
-  color: #4338ca;
+  border-color: var(--hk-purple);
+  background: var(--hk-purple-soft);
+  color: var(--hk-purple-text);
 }
 
 .hk-admin .hk-button-export {
-  border-color: #99f6e4;
-  background: linear-gradient(180deg, #f0fdfa, #fff);
-  color: #0f766e;
+  border-color: var(--hk-cyan);
+  background: var(--hk-cyan-soft);
+  color: var(--hk-cyan-text);
+}
+
+.hk-admin .hk-button:disabled {
+  cursor: not-allowed;
+  border-color: var(--hk-border);
+  background: #ECEAE5;
+  color: #999999;
+  box-shadow: none;
+  transform: none;
 }
 
 .hk-admin .hk-button:focus-visible,
 .hk-admin .hk-icon-button:focus-visible {
-  outline: 3px solid rgba(34, 211, 238, .45);
+  outline: 3px solid var(--hk-focus-ring);
   outline-offset: 2px;
 }
 
 .hk-admin .hk-icon-button {
   border-radius: var(--hk-radius-sm);
-  background: linear-gradient(180deg, #ffffff, #f8fafc);
+  background: var(--hk-bg-surface);
   box-shadow: var(--hk-shadow-sm);
   transition: transform .15s ease, box-shadow .15s ease, color .15s ease, border-color .15s ease;
 }
 
 .hk-admin .hk-icon-button:not(:disabled):hover {
   transform: translateY(-2px);
-  border-color: #a5f3fc;
-  color: #0e7490;
+  border-color: var(--hk-cyan);
+  color: var(--hk-cyan-text);
   box-shadow: var(--hk-shadow-md);
 }
 
@@ -2938,18 +3087,18 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 .hk-admin .hk-field,
 .hk-admin .hk-search-input {
   border-radius: var(--hk-radius-md);
-  border-color: #d7deea;
-  box-shadow: inset 0 1px 2px rgba(15, 23, 42, .04);
+  border-color: var(--hk-border-strong);
+  box-shadow: none;
 }
 
 .hk-admin .hk-field:focus {
-  border-color: #22d3ee;
-  box-shadow: 0 0 0 4px rgba(34, 211, 238, .18);
+  border-color: var(--hk-cyan);
+  box-shadow: 0 0 0 4px var(--hk-cyan-soft);
 }
 
 .hk-admin .hk-search-input:focus-within {
-  border-color: #22d3ee;
-  box-shadow: 0 0 0 4px rgba(34, 211, 238, .18);
+  border-color: var(--hk-cyan);
+  box-shadow: 0 0 0 4px var(--hk-cyan-soft);
 }
 
 /* ---- Badges ----------------------------------------------------------------- */
@@ -2960,63 +3109,57 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
   letter-spacing: .01em;
 }
 
-.hk-admin .hk-badge-neutral { background: #eef2f7; color: #334155; border-color: #e2e8f0; }
-.hk-admin .hk-badge-primary { background: #cffafe; color: #0e7490; border-color: #67e8f9; }
-.hk-admin .hk-badge-success { background: #d1fae5; color: #047857; border-color: #6ee7b7; }
-.hk-admin .hk-badge-warning { background: #ffedd5; color: #c2410c; border-color: #fdba74; }
-.hk-admin .hk-badge-danger { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
-.hk-admin .hk-badge-info { background: #dbeafe; color: #1d4ed8; border-color: #93c5fd; }
-.hk-admin .hk-badge-ai { background: #ede9fe; color: #6d28d9; border-color: #c4b5fd; }
-.hk-admin .hk-badge-communication { background: #ccfbf1; color: #0f766e; border-color: #5eead4; }
-.hk-admin .hk-badge-active { background: #d1fae5; color: #047857; border-color: #6ee7b7; }
-.hk-admin .hk-badge-urgent { background: #ffe4e6; color: #be123c; border-color: #fda4af; }
-.hk-admin .hk-badge-owner { background: #ede9fe; color: #6d28d9; border-color: #c4b5fd; }
+.hk-admin .hk-badge-neutral { background: var(--hk-bg-page-secondary); color: var(--hk-text-secondary); border-color: var(--hk-border); }
+.hk-admin .hk-badge-primary { background: var(--hk-gold-soft); color: var(--hk-gold-text); border-color: var(--hk-gold-border); }
+.hk-admin .hk-badge-success { background: var(--hk-success-bg); color: var(--hk-success-text); border-color: var(--hk-success-border); }
+.hk-admin .hk-badge-warning { background: var(--hk-warning-bg); color: var(--hk-warning-text); border-color: var(--hk-warning-border); }
+.hk-admin .hk-badge-danger { background: var(--hk-danger-bg); color: var(--hk-danger-text); border-color: var(--hk-danger-border); }
+.hk-admin .hk-badge-info { background: var(--hk-info-bg); color: var(--hk-info-text); border-color: var(--hk-info-border); }
+.hk-admin .hk-badge-ai { background: var(--hk-purple-soft); color: var(--hk-purple-text); border-color: var(--hk-purple); }
+.hk-admin .hk-badge-communication { background: var(--hk-cyan-soft); color: var(--hk-cyan-text); border-color: var(--hk-cyan); }
+.hk-admin .hk-badge-active { background: var(--hk-success-bg); color: var(--hk-success-text); border-color: var(--hk-success-border); }
+.hk-admin .hk-badge-urgent { background: var(--hk-danger-bg); color: var(--hk-danger-text); border-color: var(--hk-danger-border); }
+.hk-admin .hk-badge-owner { background: var(--hk-purple-soft); color: var(--hk-purple-text); border-color: var(--hk-purple); }
 
-/* ---- KPI cards: full gradient card, not just a glow dot ------------------- */
+/* ---- KPI cards: flat tint + solid icon chip, no blurred color glow ------- */
 
 .hk-admin .hk-kpi-card {
   border-radius: var(--hk-radius-xl);
-  border-color: transparent;
-  background: linear-gradient(155deg, #ffffff 0%, var(--hk-kpi-tint, #f8fafc) 120%);
-  box-shadow: var(--hk-shadow-md);
+  border-color: var(--hk-border);
+  background: var(--hk-bg-surface);
+  box-shadow: var(--hk-shadow-sm);
 }
 
 .hk-admin .hk-kpi-card::after {
-  inset: auto -30% -60% 20%;
-  height: 140px;
-  background: var(--hk-kpi-glow, rgba(6, 182, 212, .22));
-  filter: blur(36px);
+  content: none;
 }
 
 .hk-admin .hk-kpi-card:hover {
-  transform: translateY(-5px);
-  box-shadow: var(--hk-shadow-lg);
+  transform: translateY(-4px);
+  box-shadow: var(--hk-shadow-md);
 }
 
 .hk-admin .hk-kpi-icon {
   width: 50px;
   height: 50px;
   border-radius: var(--hk-radius-sm);
-  background: linear-gradient(135deg, var(--hk-kpi-icon-a, #22d3ee), var(--hk-kpi-icon-b, #0e7490));
-  color: #fff;
-  box-shadow: 0 10px 22px var(--hk-kpi-glow, rgba(6, 182, 212, .3));
+  background: var(--hk-kpi-tint, var(--hk-bg-page-secondary));
+  color: var(--hk-kpi-icon-a, var(--hk-text-primary));
+  box-shadow: none;
 }
 
-.hk-admin .hk-kpi-primary { --hk-kpi-tint: #ecfeff; --hk-kpi-glow: rgba(6, 182, 212, .22); --hk-kpi-icon-a: #22d3ee; --hk-kpi-icon-b: #0e7490; }
-.hk-admin .hk-kpi-success { --hk-kpi-tint: #f0fdf4; --hk-kpi-glow: rgba(16, 185, 129, .22); --hk-kpi-icon-a: #4ade80; --hk-kpi-icon-b: #059669; }
-.hk-admin .hk-kpi-info { --hk-kpi-tint: #eff6ff; --hk-kpi-glow: rgba(37, 99, 235, .2); --hk-kpi-icon-a: #60a5fa; --hk-kpi-icon-b: #1d4ed8; }
-.hk-admin .hk-kpi-warning { --hk-kpi-tint: #fff7ed; --hk-kpi-glow: rgba(234, 88, 12, .22); --hk-kpi-icon-a: #fb923c; --hk-kpi-icon-b: #c2410c; }
-.hk-admin .hk-kpi-danger { --hk-kpi-tint: #fef2f2; --hk-kpi-glow: rgba(220, 38, 38, .2); --hk-kpi-icon-a: #f87171; --hk-kpi-icon-b: #b91c1c; }
-.hk-admin .hk-kpi-ai { --hk-kpi-tint: #f5f3ff; --hk-kpi-glow: rgba(124, 58, 237, .22); --hk-kpi-icon-a: #c084fc; --hk-kpi-icon-b: #6d28d9; }
-.hk-admin .hk-kpi-communication { --hk-kpi-tint: #f0fdfa; --hk-kpi-glow: rgba(13, 148, 136, .22); --hk-kpi-icon-a: #2dd4bf; --hk-kpi-icon-b: #0f766e; }
+.hk-admin .hk-kpi-primary { --hk-kpi-tint: var(--hk-gold-soft); --hk-kpi-icon-a: var(--hk-gold-text); }
+.hk-admin .hk-kpi-success { --hk-kpi-tint: var(--hk-success-bg); --hk-kpi-icon-a: var(--hk-success-text); }
+.hk-admin .hk-kpi-info { --hk-kpi-tint: var(--hk-info-bg); --hk-kpi-icon-a: var(--hk-info-text); }
+.hk-admin .hk-kpi-warning { --hk-kpi-tint: var(--hk-warning-bg); --hk-kpi-icon-a: var(--hk-warning-text); }
+.hk-admin .hk-kpi-danger { --hk-kpi-tint: var(--hk-danger-bg); --hk-kpi-icon-a: var(--hk-danger-text); }
+.hk-admin .hk-kpi-ai { --hk-kpi-tint: var(--hk-purple-soft); --hk-kpi-icon-a: var(--hk-purple-text); }
+.hk-admin .hk-kpi-communication { --hk-kpi-tint: var(--hk-cyan-soft); --hk-kpi-icon-a: var(--hk-cyan-text); }
 
 .hk-admin .hk-dashboard-hero {
   border-radius: var(--hk-radius-xl);
-  background:
-    radial-gradient(circle at 92% 0%, rgba(34, 211, 238, .26), transparent 34%),
-    radial-gradient(circle at 6% 110%, rgba(124, 58, 237, .14), transparent 40%),
-    linear-gradient(120deg, #ffffff 0%, #ecfeff 45%, #eef2ff 100%);
-  box-shadow: var(--hk-shadow-lg);
+  background: var(--hk-bg-surface);
+  box-shadow: var(--hk-shadow-md);
 }
 
 .hk-admin .hk-dashboard-panel {
@@ -3026,59 +3169,59 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 
 .hk-admin .hk-priority-row {
   border-radius: var(--hk-radius-md);
-  background: linear-gradient(90deg, #f8fafc, #ffffff);
+  background: var(--hk-bg-page-secondary);
 }
 
 .hk-admin .hk-priority-row:hover {
-  border-color: #7dd3fc;
+  border-color: var(--hk-cyan);
   box-shadow: var(--hk-shadow-sm);
 }
 
-/* ---- Navigation: colored icon boxes + per-group accent -------------------- */
+/* ---- Navigation: flat tinted icon chip + per-group accent, no gradients --- */
 
 .hk-admin .admin-category-button {
   border-radius: var(--hk-radius-md);
-  background: linear-gradient(180deg, #ffffff, #f8fafc);
+  background: var(--hk-bg-surface);
   box-shadow: var(--hk-shadow-sm);
   transition: transform .15s ease, border-color .15s ease, background .15s ease, box-shadow .15s ease, color .15s ease;
 }
 
 .hk-admin .admin-category-icon {
-  background: color-mix(in srgb, var(--nav-accent, #0891b2) 14%, #ffffff);
-  color: var(--nav-accent-text, #0e7490);
+  background: color-mix(in srgb, var(--nav-accent, var(--hk-cyan-solid)) 14%, #ffffff);
+  color: var(--nav-accent-text, var(--hk-cyan-text));
   transition: background .15s ease, color .15s ease;
 }
 
 .hk-admin .admin-category-button:hover,
 .hk-admin .admin-category-button[aria-expanded="true"] {
   transform: translateY(-1px);
-  border-color: var(--nav-accent, #22d3ee);
-  background: var(--nav-accent-soft, #ecfeff);
-  color: var(--nav-accent-text, #0e7490);
+  border-color: var(--nav-accent, var(--hk-cyan));
+  background: var(--nav-accent-soft, var(--hk-cyan-soft));
+  color: var(--nav-accent-text, var(--hk-cyan-text));
   box-shadow: var(--hk-shadow-sm);
 }
 
 .hk-admin .admin-category-button:hover .admin-category-icon,
 .hk-admin .admin-category-button[aria-expanded="true"] .admin-category-icon {
-  background: var(--nav-accent, #0891b2);
+  background: var(--nav-accent, var(--hk-cyan-solid));
   color: #fff;
 }
 
 .hk-admin .admin-category-button-active {
-  border-color: var(--nav-accent, #22d3ee);
-  background: linear-gradient(135deg, var(--nav-accent-soft, #ecfeff), #ffffff);
-  color: var(--nav-accent-text, #0e7490);
-  box-shadow: 0 10px 24px color-mix(in srgb, var(--nav-accent, #0891b2) 24%, transparent);
+  border-color: var(--nav-accent, var(--hk-cyan));
+  background: var(--nav-accent-soft, var(--hk-cyan-soft));
+  color: var(--nav-accent-text, var(--hk-cyan-text));
+  box-shadow: var(--hk-shadow-sm);
 }
 
 .hk-admin .admin-category-button-active .admin-category-icon {
-  background: linear-gradient(135deg, var(--nav-accent, #22d3ee), var(--nav-accent-text, #0e7490));
+  background: var(--nav-accent, var(--hk-cyan-solid));
   color: #fff;
 }
 
 .hk-admin .admin-nav-count {
-  background: var(--nav-accent-soft, rgba(255, 255, 255, .72));
-  color: var(--nav-accent-text, #475569);
+  background: var(--nav-accent-soft, var(--hk-bg-page-secondary));
+  color: var(--nav-accent-text, var(--hk-text-secondary));
   border-color: transparent;
   font-weight: 800;
 }
@@ -3086,7 +3229,7 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 .hk-admin .admin-mega-menu {
   border-radius: var(--hk-radius-lg);
   box-shadow: var(--hk-shadow-lg);
-  border-top: 3px solid var(--nav-accent, #22d3ee);
+  border-top: 3px solid var(--nav-accent, var(--hk-cyan));
 }
 
 .hk-admin .admin-mega-item {
@@ -3095,38 +3238,38 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 }
 
 .hk-admin .admin-mega-item-icon {
-  background: color-mix(in srgb, var(--nav-accent, #0891b2) 12%, #ffffff);
-  color: var(--nav-accent-text, #0e7490);
+  background: color-mix(in srgb, var(--nav-accent, var(--hk-cyan-solid)) 12%, #ffffff);
+  color: var(--nav-accent-text, var(--hk-cyan-text));
   transition: background .15s ease, color .15s ease;
 }
 
 .hk-admin .admin-mega-item:hover,
 .hk-admin .admin-mega-item:focus-visible {
   transform: translateX(2px);
-  border-color: var(--nav-accent, #a5f3fc);
-  background: var(--nav-accent-soft, #ecfeff);
-  color: var(--nav-accent-text, #155e75);
+  border-color: var(--nav-accent, var(--hk-cyan));
+  background: var(--nav-accent-soft, var(--hk-cyan-soft));
+  color: var(--nav-accent-text, var(--hk-cyan-text));
   box-shadow: var(--hk-shadow-sm);
 }
 
 .hk-admin .admin-mega-item:hover .admin-mega-item-icon,
 .hk-admin .admin-mega-item:focus-visible .admin-mega-item-icon {
-  background: var(--nav-accent, #0891b2);
+  background: var(--nav-accent, var(--hk-cyan-solid));
   color: #fff;
 }
 
 .hk-admin .admin-mega-item-active {
-  border-color: var(--nav-accent, #22d3ee);
-  background: linear-gradient(135deg, var(--nav-accent-soft, #cffafe), #ffffff);
-  box-shadow: inset 4px 0 0 var(--nav-accent, #0891b2);
+  border-color: var(--nav-accent, var(--hk-cyan));
+  background: var(--nav-accent-soft, var(--hk-cyan-soft));
+  box-shadow: inset 4px 0 0 var(--nav-accent, var(--hk-cyan-solid));
 }
 
 .hk-admin .admin-mega-item-active .admin-mega-item-icon {
-  background: linear-gradient(135deg, var(--nav-accent, #22d3ee), var(--nav-accent-text, #0e7490));
+  background: var(--nav-accent, var(--hk-cyan-solid));
   color: #fff;
 }
 
-/* ---- Header quick actions --------------------------------------------------- */
+/* ---- Header quick actions: flat fills, restrained gold use ---------------- */
 
 .hk-admin .admin-quick-action,
 .hk-admin .admin-browser-controls,
@@ -3137,42 +3280,42 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 }
 
 .hk-admin .admin-quick-action-favorite {
-  background: linear-gradient(135deg, #fde68a, #f59e0b);
+  background: var(--hk-gold);
   border-color: transparent;
-  color: #78350f;
-  box-shadow: 0 10px 22px rgba(245, 158, 11, .3);
+  color: var(--hk-gold-text);
+  box-shadow: var(--hk-shadow-sm);
 }
 
 .hk-admin .admin-quick-action-ai {
-  background: linear-gradient(135deg, #a855f7, #6d28d9);
+  background: var(--hk-purple);
   border-color: transparent;
   color: #fff;
-  box-shadow: 0 10px 22px rgba(109, 40, 217, .3);
+  box-shadow: var(--hk-shadow-sm);
 }
 
 .hk-admin .admin-quick-action-save {
-  background: linear-gradient(135deg, #22d3ee, #0891b2);
+  background: var(--hk-cyan);
   border-color: transparent;
-  color: #04222a;
-  box-shadow: 0 10px 22px rgba(8, 145, 178, .28);
+  color: var(--hk-gold-text);
+  box-shadow: var(--hk-shadow-sm);
 }
 
 .hk-admin .admin-quick-action-success {
-  background: linear-gradient(135deg, #6ee7b7, #059669);
+  background: var(--hk-success-solid);
   border-color: transparent;
-  color: #052e1a;
-  box-shadow: 0 10px 22px rgba(5, 150, 105, .26);
+  color: #fff;
+  box-shadow: var(--hk-shadow-sm);
 }
 
 .hk-admin .admin-quick-action-info {
-  background: linear-gradient(135deg, #7dd3fc, #0284c7);
+  background: var(--hk-info-solid);
   border-color: transparent;
-  color: #04202e;
-  box-shadow: 0 10px 22px rgba(2, 132, 199, .24);
+  color: #fff;
+  box-shadow: var(--hk-shadow-sm);
 }
 
 .hk-admin .admin-quick-action-danger {
-  background: linear-gradient(135deg, #fca5a5, #dc2626);
+  background: var(--hk-danger-solid);
   border-color: transparent;
   color: #fff;
 }
@@ -3233,7 +3376,7 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
   }
 }
 
-/* ---- İletişim Merkezi: turkuaz + mavi kimlik ------------------------------ */
+/* ---- İletişim Merkezi: cyan identity, flat fills --------------------------- */
 
 .hk-admin .communication-card {
   border-radius: var(--hk-radius-lg);
@@ -3247,11 +3390,11 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 
 .hk-admin .communication-composer {
   border-radius: 0 0 var(--hk-radius-lg) var(--hk-radius-lg);
-  background: linear-gradient(180deg, #ffffff, #ecfeff);
+  background: var(--hk-bg-surface);
 }
 
 .hk-admin .communication-right-panel {
-  background: linear-gradient(180deg, #f8fafc, #ecfeff);
+  background: var(--hk-bg-page-secondary);
 }
 
 .hk-admin .communication-right-panel section {
@@ -3267,13 +3410,13 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 .hk-admin .communication-dark-action,
 .hk-admin .communication-center :is(button, a)[class*="bg-slate-900"],
 .hk-admin .communication-center :is(button, a)[class*="bg-slate-950"] {
-  background: linear-gradient(135deg, #0891b2, #0e7490) !important;
+  background: var(--hk-cyan-solid) !important;
   color: #fff !important;
 }
 
 .hk-admin .communication-center :is(button, a)[class*="bg-violet-700"],
 .hk-admin .communication-center :is(button, a)[class*="bg-purple-700"] {
-  background: linear-gradient(135deg, #a855f7, #6d28d9) !important;
+  background: var(--hk-purple) !important;
   color: #fff !important;
 }
 
@@ -3630,19 +3773,21 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 }
 
 .admin-sidebar-item-active {
-  background: linear-gradient(135deg, var(--nav-accent-soft, #ecfeff), var(--admin-surface));
-  color: var(--nav-accent-text, #0e7490);
-  box-shadow: inset 3px 0 0 var(--nav-accent, #0891b2);
+  /* Flat tint, not a gradient — the left accent bar plus a solid soft fill
+     is enough to read as "selected" without extra visual noise. */
+  background: var(--nav-accent-soft, #DDF6F8);
+  color: var(--nav-accent-text, #0B6B78);
+  box-shadow: inset 3px 0 0 var(--nav-accent, #0B7A88);
   font-weight: 800;
 }
 
 .admin-sidebar-icon {
-  background: color-mix(in srgb, var(--nav-accent, #0891b2) 14%, var(--admin-surface));
-  color: var(--nav-accent-text, #0e7490);
+  background: color-mix(in srgb, var(--nav-accent, #0B7A88) 14%, var(--admin-surface));
+  color: var(--nav-accent-text, #0B6B78);
 }
 
 .admin-sidebar-item-active .admin-sidebar-icon {
-  background: linear-gradient(135deg, var(--nav-accent, #22d3ee), var(--nav-accent-text, #0e7490));
+  background: var(--nav-accent, #0B7A88);
   color: #fff;
 }
 

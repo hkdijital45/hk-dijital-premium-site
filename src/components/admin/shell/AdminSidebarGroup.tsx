@@ -39,7 +39,7 @@ export function AdminSidebarGroup({
         )}
       </button>
       {(expanded || collapsed) && (
-        <div className="grid gap-1 pb-2">
+        <div className="grid gap-1.5 pb-3">
           {group.items.map((item) => (
             <AdminSidebarItem
               key={`${group.label}-${item.label}`}

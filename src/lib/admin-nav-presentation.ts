@@ -12,24 +12,18 @@ export const adminCategoryIcons: Record<string, LucideIcon> = {
   Download
 };
 
-// Per-module-group nav accent — semantic, not decorative: navy=system,
-// turquoise=customer, blue=CRM/analysis, orange=ads/attention, purple=AI,
-// green=finance, pink=content/creative. Applied as CSS custom properties so
-// globals.css can style the nav with a single generic rule per state.
-export const adminGroupAccents: Record<string, { solid: string; soft: string; text: string }> = {
-  "Ana Merkez": { solid: "#0891b2", soft: "#ecfeff", text: "#0e7490" },
-  "Müşteri Yönetimi": { solid: "#0f766e", soft: "#f0fdfa", text: "#115e59" },
-  "Satış ve Keşif": { solid: "#2563eb", soft: "#eff6ff", text: "#1d4ed8" },
-  "Operasyon": { solid: "#4f46e5", soft: "#eef2ff", text: "#4338ca" },
-  "Reklam ve Performans": { solid: "#ea580c", soft: "#fff7ed", text: "#c2410c" },
-  "İçerik ve AI": { solid: "#7c3aed", soft: "#f5f3ff", text: "#6d28d9" },
-  "Finans": { solid: "#059669", soft: "#f0fdf4", text: "#047857" },
-  "Entegrasyonlar": { solid: "#334155", soft: "#f8fafc", text: "#1e293b" },
-  "Sistem": { solid: "#475569", soft: "#f8fafc", text: "#334155" }
-};
+// A single, consistent nav accent (HK Cyan) for every module group. Each of
+// the 9 groups previously had its own hue (navy/teal/blue/indigo/orange/
+// purple/green/slate) — a "rainbow sidebar" that reads as noisy rather than
+// premium. The HK Design System reserves color for meaning (status, brand
+// actions), not as a per-group decoration: every group now shares the same
+// calm accent, and active/hover state (not color) communicates selection.
+// Kept as CSS custom properties (not hardcoded classes) so globals.css can
+// still style the nav with a single generic rule per state.
+const HK_NAV_ACCENT = { solid: "#0B7A88", soft: "#DDF6F8", text: "#0B6B78" };
 
-export function groupAccentStyle(label: string): React.CSSProperties {
-  const accent = adminGroupAccents[label] || adminGroupAccents.Sistem;
+export function groupAccentStyle(_label: string): React.CSSProperties {
+  const accent = HK_NAV_ACCENT;
   return { "--nav-accent": accent.solid, "--nav-accent-soft": accent.soft, "--nav-accent-text": accent.text } as React.CSSProperties;
 }
 

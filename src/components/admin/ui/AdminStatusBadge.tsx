@@ -2,14 +2,18 @@ import type { ReactNode } from "react";
 
 export type AdminStatusTone = "neutral" | "success" | "warning" | "danger" | "info" | "ai" | "premium";
 
+// HK Design System status tones — same hex values as the .hk-badge-* CSS
+// classes in globals.css, expressed as Tailwind arbitrary-value utilities so
+// this component needs no extra class-name plumbing. Every pair is verified
+// ≥4.5:1 (WCAG AA for normal text).
 const TONE_CLASS: Record<AdminStatusTone, string> = {
-  neutral: "bg-slate-100 text-slate-600",
-  success: "bg-emerald-100 text-emerald-700",
-  warning: "bg-amber-100 text-amber-800",
-  danger: "bg-red-100 text-red-700",
-  info: "bg-blue-100 text-blue-700",
-  ai: "bg-purple-100 text-purple-700",
-  premium: "bg-amber-100 text-amber-800"
+  neutral: "bg-[#F3F2EE] text-[#5F6672]",
+  success: "bg-[#E8F8EC] text-[#167A3C]",
+  warning: "bg-[#FFF7E2] text-[#8D5B00]",
+  danger: "bg-[#FDECEC] text-[#B42318]",
+  info: "bg-[#EAF6FD] text-[#1565C0]",
+  ai: "bg-[#EEE8FF] text-[#4F35A8]",
+  premium: "bg-[#F8E8AF] text-[#17140C]"
 };
 
 export function AdminStatusBadge({ tone = "neutral", children }: { tone?: AdminStatusTone; children: ReactNode }) {
