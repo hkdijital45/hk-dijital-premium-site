@@ -3435,6 +3435,31 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
   box-shadow: var(--hk-shadow-lg);
 }
 
+@keyframes hk-drawer-slide-in {
+  from { transform: translateX(24px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes hk-overlay-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.hk-admin .admin-drawer-panel {
+  animation: hk-drawer-slide-in 240ms var(--ease-out, ease-out);
+}
+
+.hk-admin .admin-drawer-overlay {
+  animation: hk-overlay-fade-in 160ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hk-admin .admin-drawer-panel,
+  .hk-admin .admin-drawer-overlay {
+    animation: none;
+  }
+}
+
 /* ---- Toasts ------------------------------------------------------------------ */
 
 .hk-admin .hk-toast {
@@ -4222,9 +4247,10 @@ table.admin-data-grid {
   border-bottom: 1px solid var(--admin-border);
   color: var(--admin-text, var(--admin-text-primary));
   vertical-align: middle;
+  transition: background var(--duration-base, .2s) var(--ease-out, ease-out);
 }
 
-.admin-data-grid tbody tr:hover {
+.admin-data-grid tbody tr:hover td {
   background: var(--admin-surface-muted, var(--admin-surface-soft));
 }
 
@@ -4233,7 +4259,11 @@ table.admin-data-grid {
 }
 
 .admin-data-grid tbody tr.is-active td {
-  background: var(--nav-accent-soft, var(--admin-surface-soft));
+  background: var(--hk-cyan-soft, var(--admin-surface-soft));
+}
+
+.admin-data-grid tbody tr.is-active td:first-child {
+  box-shadow: inset 3px 0 0 var(--hk-cyan-solid, var(--nav-accent));
 }
 
 .admin-data-grid-select-col {
@@ -4392,6 +4422,7 @@ table.admin-data-grid {
     background: rgba(15, 23, 42, .45);
     display: flex;
     justify-content: flex-end;
+    animation: hk-overlay-fade-in 160ms ease-out;
   }
 
   .admin-workspace-drawer {
@@ -4401,6 +4432,14 @@ table.admin-data-grid {
     background: var(--admin-bg);
     padding: 14px;
     box-shadow: -12px 0 40px rgba(15, 23, 42, .25);
+    animation: hk-drawer-slide-in 240ms var(--ease-out, ease-out);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .admin-workspace-drawer-overlay,
+    .admin-workspace-drawer {
+      animation: none;
+    }
   }
 
   .admin-workspace-drawer-right {

@@ -5145,12 +5145,41 @@ function Crm({ content, setContent, view, setActive, currentSession }: any) {
         <AdminControlPanel>
           <AdminFilterSection title="CRM Klasörleri">
             <div className="grid gap-1.5">
-              {crmFolders.map((folder) => (
-                <button key={folder.label} type="button" onClick={() => setFolderFilter(folder.label)} className={`flex w-full min-w-0 items-center gap-2 rounded-[8px] border px-2 py-1.5 text-left transition ${folderFilter === folder.label ? "border-cyan-300 bg-cyan-50 text-cyan-700" : "border-transparent text-slate-600 hover:bg-slate-50"}`}>
-                  <span className="min-w-0 flex-1 truncate text-xs font-black">{folder.label}</span>
-                  <span className={`grid min-w-6 shrink-0 place-items-center rounded-full px-1.5 py-0.5 text-[10px] font-black ${folderFilter === folder.label ? "bg-cyan-500 text-white" : "bg-slate-100 text-slate-600"}`}>{folderCounts[folder.label] || 0}</span>
-                </button>
-              ))}
+              {crmFolders.map((folder) => {
+                const isActiveFolder = folderFilter === folder.label;
+                return (
+                  <button
+                    key={folder.label}
+                    type="button"
+                    onClick={() => setFolderFilter(folder.label)}
+                    className="flex w-full min-w-0 items-center gap-2 text-left"
+                    style={{
+                      borderRadius: "var(--hk-radius-sm)",
+                      border: `1px solid ${isActiveFolder ? "var(--hk-cyan)" : "transparent"}`,
+                      background: isActiveFolder ? "var(--hk-cyan-soft)" : "transparent",
+                      color: isActiveFolder ? "var(--hk-cyan-text)" : "var(--admin-text-secondary)",
+                      padding: "var(--space-2) var(--space-2)",
+                      transition: `background var(--duration-base) var(--ease-out), transform var(--duration-fast) var(--ease-out)`
+                    }}
+                    onMouseEnter={(event) => { if (!isActiveFolder) event.currentTarget.style.background = "var(--admin-surface-soft)"; }}
+                    onMouseLeave={(event) => { if (!isActiveFolder) event.currentTarget.style.background = "transparent"; }}
+                  >
+                    <span className="min-w-0 flex-1 truncate" style={{ fontSize: "var(--text-xs)", fontWeight: 800 }}>{folder.label}</span>
+                    <span
+                      className="grid min-w-6 shrink-0 place-items-center rounded-full"
+                      style={{
+                        padding: "2px 6px",
+                        fontSize: "var(--text-2xs)",
+                        fontWeight: 800,
+                        background: isActiveFolder ? "var(--hk-cyan-solid)" : "var(--admin-surface-soft)",
+                        color: isActiveFolder ? "#ffffff" : "var(--admin-text-muted)"
+                      }}
+                    >
+                      {folderCounts[folder.label] || 0}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </AdminFilterSection>
           <AdminFilterSection title="Filtreler">
@@ -5779,16 +5808,16 @@ function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanently
       </div>
       <ContactActionCenter record={lead} type="lead" context={pipelineStageForLead(lead) === "Teklif Gönderildi" ? "proposal" : "follow-up"} />
       <div className="mt-5 flex flex-wrap gap-2">
-        <button onClick={() => setEditOpen(true)} className="rounded-full bg-white px-4 py-2 text-sm font-black text-slate-950">Düzenle</button>
-        <button onClick={convert} disabled={converting || ["Dönüştürüldü", "Müşteri Oldu"].includes(lead.status)} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-60">{converting ? "Dönüştürülüyor..." : ["Dönüştürüldü", "Müşteri Oldu"].includes(lead.status) ? "Müşteri oldu" : "Başvuruyu müşteriye dönüştür"}</button>
-        <button onClick={() => persistLead(lead.id, { status: "Takipte", follow_up_date: lead.follow_up_date || new Date().toISOString().slice(0, 10) }, "Takip görevi oluşturuldu.")} className="rounded-full border border-slate-200 px-4 py-2 text-sm">Takip görevi oluştur</button>
-        <button onClick={() => askAiProvider(analyze)} disabled={analyzing || String(lead.id).startsWith("lead-")} className="inline-flex items-center gap-2 rounded-full border border-cyan-200/30 px-4 py-2 text-sm font-bold text-cyan-700 disabled:opacity-50"><Sparkles size={15} /> {analyzing ? "Analiz hazırlanıyor..." : "Yapay zekâ analizi oluştur"}</button>
-        <button onClick={downloadLeadPdfAudit} className="inline-flex items-center gap-2 rounded-full border border-amber-200/30 px-4 py-2 text-sm font-bold text-amber-700"><Download size={15} /> PDF Audit Oluştur</button>
-        {whatsappUrl && <a href={whatsappUrl} target="_blank" rel="noreferrer" className="rounded-full bg-[#25D366] px-4 py-2 text-sm font-black text-slate-900">Hızlı WhatsApp</a>}
-        {!deleted && !rejected && <button onClick={() => setConfirmAction("reject")} className="rounded-full border border-amber-300/30 px-4 py-2 text-sm font-bold text-amber-700">Reddet</button>}
-        {!deleted && <button onClick={() => setConfirmAction("delete")} className="rounded-full border border-red-300/30 px-4 py-2 text-sm font-bold text-red-100">Sil</button>}
-        {(deleted || rejected) && <button onClick={restore} className="rounded-full border border-emerald-300/30 px-4 py-2 text-sm font-bold text-emerald-700">Geri Yükle</button>}
-        {(deleted || rejected) && canPermanentlyDelete && <button onClick={() => setConfirmAction("permanent")} className="rounded-full bg-red-500 px-4 py-2 text-sm font-black text-white">Kalıcı Sil</button>}
+        <button onClick={() => setEditOpen(true)} className="hk-button hk-button-neutral">Düzenle</button>
+        <button onClick={convert} disabled={converting || ["Dönüştürüldü", "Müşteri Oldu"].includes(lead.status)} className="hk-button hk-button-success">{converting ? "Dönüştürülüyor..." : ["Dönüştürüldü", "Müşteri Oldu"].includes(lead.status) ? "Müşteri oldu" : "Başvuruyu müşteriye dönüştür"}</button>
+        <button onClick={() => persistLead(lead.id, { status: "Takipte", follow_up_date: lead.follow_up_date || new Date().toISOString().slice(0, 10) }, "Takip görevi oluşturuldu.")} className="hk-button hk-button-neutral">Takip görevi oluştur</button>
+        <button onClick={() => askAiProvider(analyze)} disabled={analyzing || String(lead.id).startsWith("lead-")} className="hk-button hk-button-ai"><Sparkles size={15} /> {analyzing ? "Analiz hazırlanıyor..." : "Yapay zekâ analizi oluştur"}</button>
+        <button onClick={downloadLeadPdfAudit} className="hk-button hk-button-warning"><Download size={15} /> PDF Audit Oluştur</button>
+        {whatsappUrl && <a href={whatsappUrl} target="_blank" rel="noreferrer" className="hk-button" style={{ background: "#25D366", color: "#062611" }}>Hızlı WhatsApp</a>}
+        {!deleted && !rejected && <button onClick={() => setConfirmAction("reject")} className="hk-button hk-button-warning">Reddet</button>}
+        {!deleted && <button onClick={() => setConfirmAction("delete")} className="hk-button hk-button-danger">Sil</button>}
+        {(deleted || rejected) && <button onClick={restore} className="hk-button hk-button-success">Geri Yükle</button>}
+        {(deleted || rejected) && canPermanentlyDelete && <button onClick={() => setConfirmAction("permanent")} className="hk-button hk-button-danger">Kalıcı Sil</button>}
       </div>
       {actionMessage && <p className="mt-4 rounded-[8px] border border-emerald-300/20 bg-emerald-500/10 p-3 text-sm text-emerald-700">{actionMessage}</p>}
       {analysisMessage && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-700">{analysisMessage}</p>}
@@ -5858,11 +5887,11 @@ function Drawer({ title, close, children }: any) {
     return () => window.removeEventListener("keydown", handleEscape);
   }, [close]);
   return (
-    <div onMouseDown={close} className="fixed inset-0 z-50 flex justify-end bg-white/70 ">
+    <div onMouseDown={close} className="admin-drawer-overlay fixed inset-0 z-50 flex justify-end bg-white/70">
       <div onMouseDown={(event) => event.stopPropagation()} className="admin-drawer-panel h-full w-full max-w-4xl overflow-auto border-l border-slate-200 bg-white p-5 shadow-2xl sm:p-7">
         <div className="mb-6 flex items-center justify-between gap-3">
           <h2 className="text-2xl font-black text-slate-900">{title}</h2>
-          <button onClick={close} aria-label="Kapat" className="grid size-10 place-items-center rounded-full border border-slate-200 text-slate-900"><X size={18} /></button>
+          <button onClick={close} aria-label="Kapat" className="admin-icon-action grid size-10 shrink-0 place-items-center rounded-full"><X size={18} /></button>
         </div>
         {children}
       </div>
@@ -5871,7 +5900,12 @@ function Drawer({ title, close, children }: any) {
 }
 
 function InfoItem({ label, value }: any) {
-  return <div className="rounded-[8px] border border-slate-200 bg-slate-50 p-3"><p className="text-xs font-bold uppercase text-slate-500">{label}</p><p className="mt-1 break-words text-sm text-slate-700">{value}</p></div>;
+  return (
+    <div className="admin-card-soft" style={{ borderRadius: "var(--hk-radius-md)", padding: "var(--space-3)" }}>
+      <p style={{ fontSize: "var(--text-2xs)", fontWeight: 800, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--admin-text-muted)" }}>{label}</p>
+      <p className="mt-1 break-words" style={{ fontSize: "var(--text-sm)", color: "var(--admin-text-secondary)" }}>{value}</p>
+    </div>
+  );
 }
 
 function Media({ content, setContent }: any) {
