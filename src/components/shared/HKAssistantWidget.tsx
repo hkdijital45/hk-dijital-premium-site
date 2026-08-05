@@ -76,14 +76,14 @@ export function HKAssistantWidget({ context = "customer" }: { context?: Assistan
   return (
     <div className="fixed bottom-3 right-3 z-[95] sm:bottom-5 sm:right-5">
       {open && (
-        <section className="mb-3 flex max-h-[min(680px,calc(100dvh-6rem))] w-[min(380px,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-[22px] border border-cyan-200/40 bg-white shadow-[0_28px_90px_rgba(15,23,42,.24)]">
-          <div className="flex items-start justify-between gap-3 bg-gradient-to-r from-cyan-600 via-blue-600 to-violet-600 p-4 text-white">
+        <section className="hk-floating-assistant-panel mb-3 flex max-h-[min(680px,calc(100dvh-6rem))] w-[min(380px,calc(100vw-1.5rem))] flex-col overflow-hidden">
+          <div className="hk-floating-assistant-head">
             <div>
-              <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[.14em] text-cyan-100"><Sparkles size={14} /> {title}</p>
-              <h2 className="mt-1 text-lg font-black">Rapor, reklam, görev ve içerik desteği</h2>
-              <p className="mt-1 text-xs leading-5 text-cyan-50">{settings?.welcome_message || "Yetki kapsamına göre güvenli yanıt üretir."}</p>
+              <p className="hk-floating-assistant-eyebrow"><Sparkles size={14} /> {title}</p>
+              <h2 className="hk-floating-assistant-title">Rapor, reklam, görev ve içerik desteği</h2>
+              <p className="hk-floating-assistant-sub">{settings?.welcome_message || "Yetki kapsamına göre güvenli yanıt üretir."}</p>
             </div>
-            <button type="button" onClick={() => setOpen(false)} className="grid size-9 place-items-center rounded-full border border-white/20 bg-white/10" aria-label="HK Asistan kapat">
+            <button type="button" onClick={() => setOpen(false)} className="hk-floating-assistant-close" aria-label="HK Asistan kapat">
               <X size={16} />
             </button>
           </div>
@@ -91,33 +91,33 @@ export function HKAssistantWidget({ context = "customer" }: { context?: Assistan
           <div className="min-h-0 flex-1 overflow-y-auto p-4">
             <div className="grid gap-2">
               {quickActions[context].map((item) => (
-                <button key={item} type="button" onClick={() => submit(item)} className="rounded-[14px] border border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm font-bold text-slate-700 transition hover:border-cyan-200 hover:bg-cyan-50">
+                <button key={item} type="button" onClick={() => submit(item)} className="hk-floating-assistant-quick-action">
                   {item}
                 </button>
               ))}
             </div>
             <div className="mt-4 grid gap-3">
               {messages.length === 0 && (
-                <p className="rounded-[14px] border border-dashed border-slate-200 p-4 text-sm leading-6 text-slate-500">Bir hızlı aksiyon seçin veya sorunuzu yazın. Gerçek yapay zekâ bağlantısı yoksa güvenli örnek cevap gösterilir.</p>
+                <p className="hk-floating-assistant-empty">Bir hızlı aksiyon seçin veya sorunuzu yazın. Gerçek yapay zekâ bağlantısı yoksa güvenli örnek cevap gösterilir.</p>
               )}
               {messages.map((message, index) => (
-                <div key={`${message.role}-${index}`} className={`rounded-[14px] p-3 text-sm leading-6 ${message.role === "user" ? "ml-8 bg-cyan-50 font-bold text-cyan-950" : "mr-8 bg-slate-100 text-slate-700"}`}>
+                <div key={`${message.role}-${index}`} className={`hk-floating-assistant-bubble ${message.role === "user" ? "is-user" : "is-assistant"}`}>
                   {message.text}
                 </div>
               ))}
-              {loading && <div className="mr-8 rounded-[14px] bg-slate-100 p-3 text-sm leading-6 text-slate-600">Yanıt hazırlanıyor...</div>}
+              {loading && <div className="hk-floating-assistant-typing"><span /><span /><span /></div>}
             </div>
           </div>
 
-          <div className="flex gap-2 border-t border-slate-200 bg-slate-50 p-3 pb-[max(.75rem,env(safe-area-inset-bottom))]">
-            <input value={prompt} onChange={(event) => setPrompt(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") submit(); }} className="min-h-11 flex-1 rounded-full border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-cyan-300" placeholder="Sorunuzu yazın..." />
-            <button type="button" onClick={() => submit()} disabled={loading} className="grid size-11 place-items-center rounded-full bg-cyan-500 text-white disabled:opacity-60" aria-label="Gönder">
+          <div className="hk-floating-assistant-footer">
+            <input value={prompt} onChange={(event) => setPrompt(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") submit(); }} className="hk-floating-assistant-input" placeholder="Sorunuzu yazın..." />
+            <button type="button" onClick={() => submit()} disabled={loading} className="hk-floating-assistant-send" aria-label="Gönder">
               <Send size={17} />
             </button>
           </div>
         </section>
       )}
-      <button type="button" onClick={() => setOpen((value) => !value)} className="flex size-14 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-violet-500 text-white shadow-[0_18px_55px_rgba(34,211,238,.35)] ring-1 ring-white/40" aria-label="HK Asistan aç">
+      <button type="button" onClick={() => setOpen((value) => !value)} className="hk-floating-assistant-trigger" aria-label="HK Asistan aç">
         {open ? <MessageCircle size={24} /> : <Bot size={25} />}
       </button>
     </div>

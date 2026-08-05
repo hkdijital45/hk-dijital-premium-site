@@ -11,7 +11,7 @@ import dynamic from "next/dynamic";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Activity, AlertTriangle, ArrowDown, ArrowUp, BarChart3, Bell, Bot, Building2, CircleCheck, CircleOff, Copy, Download, FileBarChart, Gauge, HelpCircle, ImagePlus, Loader2, LogOut, MapPinned, MessageSquareText, Plus, Save, Search, Settings2, Sparkles, Star, Trash2, UsersRound, X } from "lucide-react";
+import { Activity, AlertTriangle, ArrowDown, ArrowUp, BarChart3, Bell, Bot, Building2, CircleCheck, CircleOff, Copy, Download, FileBarChart, Gauge, HelpCircle, ImagePlus, Loader2, LogOut, MapPinned, MessageSquareText, Plus, Save, Search, Send, Settings2, Sparkles, Star, Trash2, UsersRound, X } from "lucide-react";
 import type { SiteContent } from "@/lib/types";
 import { ReportTools } from "@/components/admin/reports/ReportTools";
 import { WebsiteAnalyticsSummaryCards } from "@/components/admin/WebsiteAnalyticsSummaryCards";
@@ -62,6 +62,7 @@ import { AdminControlPanel, AdminFilterSection } from "@/components/admin/worksp
 import { AdminDataGrid, type AdminDataGridColumn } from "@/components/admin/workspace/AdminDataGrid";
 import { AdminDetailInspector } from "@/components/admin/workspace/AdminDetailInspector";
 import { AdminActionBar } from "@/components/admin/workspace/AdminActionBar";
+import { AdminSplitView } from "@/components/admin/workspace/AdminSplitView";
 import { AdminCompactKpiStrip } from "@/components/admin/workspace/AdminCompactKpiStrip";
 import { CUSTOMER_360_TABS, Customer360Header } from "@/components/admin/customer-profile/customer360-shared";
 import { adminNavigationGroups, adminNavigationItems, getAdminHref, getAdminSourceGroupItems } from "@/lib/admin-navigation";
@@ -5921,40 +5922,50 @@ function Media({ content, setContent }: any) {
 
 function AiAssistant({ content, setContent, notify }: any) {
   const { askAiProvider, chooserModal } = useAiProviderChooser();
-  const [prompt, setPrompt] = useState("HK Intelligence için CRM odaklı premium açıklama yaz.");
-  const [output, setOutput] = useState("");
-  const [meta, setMeta] = useState(aiMetaFromApi(content.settings.api));
+  const [prompt, setPrompt] = useState("");
   const [message, setMessage] = useState("");
   const [running, setRunning] = useState(false);
   const [companyId, setCompanyId] = useState("");
   const [taskType, setTaskType] = useState("Genel");
-  const [history, setHistory] = useState<any[]>(() => {
-    try { return JSON.parse(sessionStorage.getItem("hk-ai-studio-history") || "[]"); } catch { return []; }
+  const [thread, setThread] = useState<any[]>(() => {
+    try { return JSON.parse(sessionStorage.getItem("hk-ai-studio-thread") || "[]"); } catch { return []; }
   });
   const abortRef = useRef<AbortController | null>(null);
+  const threadEndRef = useRef<HTMLDivElement | null>(null);
   const selectedCompany = (content.companies || []).find((company: any) => company.id === companyId);
+  const activeMeta = aiMetaFromApi(content.settings.api);
 
-  function persistHistory(next: any[]) {
-    setHistory(next);
-    try { sessionStorage.setItem("hk-ai-studio-history", JSON.stringify(next.slice(0, 20))); } catch {}
+  useEffect(() => {
+    threadEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [thread.length, running]);
+
+  function persistThread(next: any[]) {
+    setThread(next);
+    try { sessionStorage.setItem("hk-ai-studio-thread", JSON.stringify(next.slice(-40))); } catch {}
   }
 
   async function generate(aiProvider = "auto") {
-    setMessage("Yapay zekâ çıktısı hazırlanıyor...");
-    setOutput("");
+    const cleaned = prompt.trim();
+    if (!cleaned || running) return;
+    const userMessage = { id: createLocalId(), role: "user", text: cleaned, taskType, companyName: selectedCompany?.name || "", createdAt: new Date().toISOString() };
+    const nextThread = [...thread, userMessage];
+    persistThread(nextThread);
+    setPrompt("");
+    setMessage("");
     setRunning(true);
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
-    const fullPrompt = selectedCompany ? `Müşteri bağlamı: ${selectedCompany.name} (${selectedCompany.sector || "sektör belirtilmedi"}, ${selectedCompany.city || "şehir belirtilmedi"}).\nGörev türü: ${taskType}.\n\n${prompt}` : `Görev türü: ${taskType}.\n\n${prompt}`;
+    const fullPrompt = selectedCompany ? `Müşteri bağlamı: ${selectedCompany.name} (${selectedCompany.sector || "sektör belirtilmedi"}, ${selectedCompany.city || "şehir belirtilmedi"}).\nGörev türü: ${taskType}.\n\n${cleaned}` : `Görev türü: ${taskType}.\n\n${cleaned}`;
     try {
       const response = await fetch("/api/admin/ai-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: fullPrompt, aiProvider: aiProviderKeyForApi(aiProvider) }), signal: controller.signal });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) { setMessage(data.error || "Analiz sırasında bir hata oluştu."); return; }
-      setOutput(data.output || "");
-      setMeta(data.ai || aiMetaFromApi(content.settings.api));
-      setMessage("");
-      persistHistory([{ id: createLocalId(), prompt, taskType, companyName: selectedCompany?.name || "", output: data.output || "", meta: data.ai || null, createdAt: new Date().toISOString() }, ...history]);
+      if (!response.ok) {
+        setMessage(data.error || "Analiz sırasında bir hata oluştu.");
+        return;
+      }
+      const nextMeta = data.ai || aiMetaFromApi(content.settings.api);
+      persistThread([...nextThread, { id: createLocalId(), role: "assistant", text: data.output || "", taskType, companyName: selectedCompany?.name || "", meta: nextMeta, createdAt: new Date().toISOString() }]);
     } catch (error) {
       if ((error as any)?.name !== "AbortError") setMessage("Analiz sırasında bir hata oluştu.");
     } finally {
@@ -5965,20 +5976,16 @@ function AiAssistant({ content, setContent, notify }: any) {
   function cancelRun() {
     abortRef.current?.abort();
     setRunning(false);
-    setMessage("İstek iptal edildi. Önceki çıktı korunuyor.");
+    setMessage("İstek iptal edildi.");
   }
 
-  function reopenSession(item: any) {
-    setPrompt(item.prompt);
-    setTaskType(item.taskType || "Genel");
-    setOutput(item.output);
-    setMeta(item.meta || aiMetaFromApi(content.settings.api));
-    setMessage("Kayıtlı oturum açıldı; yeniden AI isteği gönderilmedi.");
+  function newThread() {
+    persistThread([]);
+    setMessage("");
   }
 
-  function downloadOutput() {
-    if (!output) return;
-    const blob = new Blob([output], { type: "text/plain;charset=utf-8" });
+  function downloadOutput(text: string) {
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -5987,16 +5994,14 @@ function AiAssistant({ content, setContent, notify }: any) {
     URL.revokeObjectURL(url);
   }
 
-  function draftEmail() {
-    if (!output) return notify?.("Önce bir çıktı üretin.", "warning");
+  function draftEmail(text: string) {
     const subject = encodeURIComponent(`HK Dijital - ${taskType}`);
-    const body = encodeURIComponent(output);
+    const body = encodeURIComponent(text);
     window.location.href = `mailto:${selectedCompany?.email || ""}?subject=${subject}&body=${body}`;
     notify?.("E-posta taslağı varsayılan posta istemcinizde açıldı.", "info");
   }
 
-  async function createTaskFromOutput() {
-    if (!output) return notify?.("Önce bir çıktı üretin.", "warning");
+  async function createTaskFromOutput(text: string) {
     if (!companyId) return notify?.("Görev oluşturmak için önce müşteri seçin.", "warning");
     try {
       const due = new Date();
@@ -6004,7 +6009,7 @@ function AiAssistant({ content, setContent, notify }: any) {
       const response = await fetch("/api/admin/customer-operations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resource: "task", item: { company_id: companyId, title: `AI Studio: ${taskType}`, description: output.slice(0, 2000), status: "Yapılacak", priority: "Orta", due_date: due.toISOString().slice(0, 10), visible_to_customer: false, template_key: "ai_studio_output", metadata: { source: "ai-studio", prompt } } })
+        body: JSON.stringify({ resource: "task", item: { company_id: companyId, title: `AI Studio: ${taskType}`, description: text.slice(0, 2000), status: "Yapılacak", priority: "Orta", due_date: due.toISOString().slice(0, 10), visible_to_customer: false, template_key: "ai_studio_output", metadata: { source: "ai-studio" } } })
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.detail || data.error || "Görev oluşturulamadı.");
@@ -6016,88 +6021,114 @@ function AiAssistant({ content, setContent, notify }: any) {
 
   const shortcuts = ["CRM lead analizi üret.", "Meta reklam stratejisi yaz.", "Google Ads anahtar kelime planı hazırla.", "30 günlük sosyal medya planı oluştur."];
   const taskTypes = ["Genel", "CRM Analizi", "Reklam Stratejisi", "İçerik Taslağı", "E-posta Taslağı", "Rapor Özeti"];
-  const activeMeta = aiMetaFromApi(content.settings.api);
+  const recentPrompts = thread.filter((item) => item.role === "user").slice(-8).reverse();
+
   return (
-    <AdminWorkspace
-      eyebrow="İçerik ve AI"
-      title="Yapay Zekâ Stüdyosu"
-      description="HK Intelligence Router üzerinden çalışır: görev türüne göre uygun sağlayıcı otomatik seçilir, gerçek sağlayıcı yoksa Demo/Yerel Yedek Akış açıkça etiketlenir."
-      leftPanel={
-        <AdminControlPanel>
-          <AdminFilterSection title="Bağlam ve Görev Türü">
-            <div className="grid gap-2">
-              <label className="grid gap-1.5 text-xs font-bold text-slate-700">Müşteri bağlamı (opsiyonel)
-                <select value={companyId} onChange={(event) => setCompanyId(event.target.value)} className="min-h-9 rounded-[8px] border border-slate-200 bg-white px-3 text-sm text-slate-900">
+    <div className="w-full min-w-0 max-w-none">
+      <p className="text-[10px] font-black uppercase tracking-[.2em] text-cyan-700">HK Operating System</p>
+      <h2 className="mb-4 mt-2 text-2xl font-black" style={{ color: "var(--admin-text-primary)" }}>Yapay Zekâ Stüdyosu</h2>
+
+      <AdminSplitView
+        storageKey="hk-ai-studio-sidebar-width"
+        defaultLeftWidth={300}
+        leftLabel="AI Studio bağlam ve geçmiş"
+        left={
+          <>
+            <div className="ai-sidebar-section">
+              <p className="ai-sidebar-title"><Sparkles size={12} /> Bağlam</p>
+              <label className="grid gap-1.5" style={{ fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--admin-text-secondary)" }}>
+                Müşteri bağlamı (opsiyonel)
+                <select value={companyId} onChange={(event) => setCompanyId(event.target.value)} className="min-h-9 rounded-[8px] border px-3" style={{ borderColor: "var(--admin-border-strong)", background: "var(--admin-surface)", color: "var(--admin-text-primary)", fontSize: "var(--text-sm)" }}>
                   <option value="">Genel (müşteri bağlamı yok)</option>
                   {(content.companies || []).map((company: any) => <option key={company.id} value={company.id}>{company.name}</option>)}
                 </select>
               </label>
-              <label className="grid gap-1.5 text-xs font-bold text-slate-700">Görev türü
-                <select value={taskType} onChange={(event) => setTaskType(event.target.value)} className="min-h-9 rounded-[8px] border border-slate-200 bg-white px-3 text-sm text-slate-900">
-                  {taskTypes.map((item) => <option key={item} value={item}>{item}</option>)}
-                </select>
-              </label>
             </div>
-          </AdminFilterSection>
-          <AdminFilterSection title="Komut Kütüphanesi">
-            <div className="grid gap-2">{shortcuts.map((item) => <button key={item} onClick={() => setPrompt(item)} className="rounded-[8px] border border-slate-200 bg-slate-50 p-2 text-left text-xs font-bold leading-5 text-slate-600 hover:border-purple-200 hover:text-purple-700">{item}</button>)}</div>
-          </AdminFilterSection>
-          <AdminFilterSection title="Oturum Geçmişi (bu tarayıcı oturumu)">
-            <div className="grid gap-1.5">
-              {history.slice(0, 8).map((item) => (
-                <button key={item.id} type="button" onClick={() => reopenSession(item)} className="rounded-[8px] border border-slate-200 bg-white p-2 text-left text-xs">
-                  <span className="block truncate font-black text-slate-800">{item.taskType}{item.companyName ? ` · ${item.companyName}` : ""}</span>
-                  <span className="block truncate text-[11px] text-slate-500">{item.prompt}</span>
-                </button>
-              ))}
-              {!history.length && <p className="text-[11px] text-slate-500">Bu tarayıcı oturumunda henüz kayıtlı çalıştırma yok. Sunucu tarafında kalıcı geçmiş desteklenmiyor.</p>}
+            <div className="ai-sidebar-section">
+              <p className="ai-sidebar-title">Görev Türü</p>
+              <div className="flex flex-wrap gap-1.5">
+                {taskTypes.map((item) => (
+                  <button key={item} type="button" onClick={() => setTaskType(item)} className={`ai-dock-item ${taskType === item ? "is-active" : ""}`}>{item}</button>
+                ))}
+              </div>
             </div>
-          </AdminFilterSection>
-        </AdminControlPanel>
-      }
-      rightPanel={
-        <AdminDetailInspector
-          title="Çalıştırma Bilgisi"
-          fields={[
-            { label: "Sağlayıcı", value: meta.provider || activeMeta.provider || "-" },
-            { label: "Model", value: meta.model || activeMeta.model || "-" },
-            { label: "Mod", value: meta.mode || activeMeta.mode || "-" },
-            { label: "Durum", value: running ? "Çalışıyor..." : output ? "Yanıt üretildi" : message || "Bekliyor" }
-          ]}
-        >
-          {output && <AiSelectionReasonCard moduleLabel="Yapay Zekâ Stüdyosu" meta={meta} provider={meta.provider || activeMeta.provider} fallbackReason={meta.mode === "Demo" ? "Gerçek sağlayıcı kullanılamadığı için Demo / Yerel Yedek Akış kullanıldı." : ""} />}
-        </AdminDetailInspector>
-      }
-      bottomBar={
-        <AdminActionBar statusText={message || (running ? "Çalıştırılıyor..." : "Hazır")}>
-          {running && <AdminButton compact variant="warning" onClick={cancelRun}>İptal Et</AdminButton>}
-          <AdminButton compact variant="info" disabled={!output} onClick={createTaskFromOutput}>Görev Oluştur</AdminButton>
-          <AdminButton compact variant="secondary" disabled={!output} onClick={draftEmail}>E-posta Taslağı</AdminButton>
-          <AdminButton compact variant="secondary" disabled={!output} onClick={downloadOutput}>İndir (.txt)</AdminButton>
-          <AdminButton compact variant="primary" disabled={running} onClick={() => askAiProvider(generate)}><Sparkles size={14} className="mr-1 inline" />{running ? "Üretiliyor..." : "Çalıştır"}</AdminButton>
-        </AdminActionBar>
-      }
-    >
-      <div className="rounded-[8px] border border-slate-200 bg-white p-4">
-        <div className="mb-3 rounded-[8px] border border-cyan-200 bg-cyan-50 p-3">
-          <p className="text-sm font-black text-cyan-800">HK Intelligence çalışma alanı</p>
-          <p className="mt-1 text-xs leading-5 text-cyan-900">İsteğinizi yazın; uygun yapay zekâ motoru görev türüne göre otomatik seçilir. Müşteri bağlamı ve görev türü seçiliyse istek metnine otomatik eklenir.</p>
-          <AiUsageBadge meta={activeMeta} />
+            <div className="ai-sidebar-section">
+              <p className="ai-sidebar-title">Komut Kütüphanesi</p>
+              <div className="grid gap-1">
+                {shortcuts.map((item) => (
+                  <button key={item} type="button" onClick={() => setPrompt(item)} className="ai-sidebar-item">
+                    <span style={{ fontSize: "var(--text-xs)", color: "var(--admin-text-secondary)" }}>{item}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="ai-sidebar-section">
+              <p className="ai-sidebar-title">Son Komutlar (bu oturum)</p>
+              <div className="grid gap-1">
+                {recentPrompts.map((item) => (
+                  <button key={item.id} type="button" onClick={() => setPrompt(item.text)} className="ai-sidebar-item">
+                    <strong>{item.taskType}{item.companyName ? ` · ${item.companyName}` : ""}</strong>
+                    <span>{item.text}</span>
+                  </button>
+                ))}
+                {!recentPrompts.length && <p style={{ fontSize: "var(--text-2xs)", color: "var(--admin-text-muted)" }}>Bu oturumda henüz komut yok.</p>}
+              </div>
+            </div>
+          </>
+        }
+      >
+        <div className="ai-dock">
+          <span className="ai-dock-item is-active"><Bot size={13} /> {activeMeta.provider || "AI"} · {activeMeta.mode || "Canlı"}</span>
+          <button type="button" onClick={newThread} className="ai-dock-item"><Plus size={13} /> Yeni Sohbet</button>
+          {running && <button type="button" onClick={cancelRun} className="ai-dock-item">İptal Et</button>}
         </div>
-        <TextArea label="Komut" value={prompt} onChange={setPrompt} />
-        {message && <p className="mt-3 rounded-[8px] border border-cyan-200 bg-cyan-50 p-3 text-sm text-cyan-800">{message}</p>}
-        {output && (
-          <div className="mt-3 rounded-[8px] border border-slate-200 bg-slate-50 p-4">
-            <pre className="whitespace-pre-wrap text-sm leading-7 text-slate-700">{output}</pre>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <AdminButton compact variant="secondary" onClick={() => navigator.clipboard.writeText(output)}><Copy size={14} className="mr-1 inline" />Kopyala</AdminButton>
-              <AdminButton compact variant="secondary" onClick={() => setContent({ ...content, pages: { ...content.pages, home: { ...content.pages.home, subheadline: output } } })}>Ana sayfa alt metnine ekle</AdminButton>
+
+        <div className="ai-chat-thread">
+          {!thread.length && (
+            <p className="ai-chat-empty">HK Intelligence Router görev türüne göre uygun sağlayıcıyı otomatik seçer. Aşağıdan bir komut yazın veya soldaki kütüphaneden seçin.</p>
+          )}
+          {thread.map((item) => (
+            <div key={item.id} className={`ai-chat-bubble ${item.role === "user" ? "ai-chat-bubble-user" : "ai-chat-bubble-assistant"}`}>
+              {item.role === "assistant" && item.meta?.provider && (
+                <p style={{ margin: "0 0 6px", fontSize: "var(--text-2xs)", fontWeight: 800, color: "var(--admin-text-muted)" }}>{item.meta.provider}{item.meta.mode ? ` · ${item.meta.mode}` : ""}</p>
+              )}
+              {item.text}
+              {item.role === "assistant" && (
+                <div className="ai-chat-bubble-meta">
+                  <button type="button" className="ai-chat-context-action" onClick={() => navigator.clipboard.writeText(item.text)}><Copy size={11} className="mr-1 inline" />Kopyala</button>
+                  <button type="button" className="ai-chat-context-action" onClick={() => downloadOutput(item.text)}><Download size={11} className="mr-1 inline" />İndir</button>
+                  <button type="button" className="ai-chat-context-action" onClick={() => draftEmail(item.text)}>E-posta Taslağı</button>
+                  <button type="button" className="ai-chat-context-action" onClick={() => createTaskFromOutput(item.text)}>Görev Oluştur</button>
+                  <button type="button" className="ai-chat-context-action" onClick={() => setContent({ ...content, pages: { ...content.pages, home: { ...content.pages.home, subheadline: item.text } } })}>Ana Sayfaya Ekle</button>
+                </div>
+              )}
             </div>
-          </div>
-        )}
-        {chooserModal}
-      </div>
-    </AdminWorkspace>
+          ))}
+          {running && <div className="ai-chat-typing"><span /><span /><span /></div>}
+          {message && <p style={{ color: "var(--hk-danger-text)", fontSize: "var(--text-sm)" }}>{message}</p>}
+          <div ref={threadEndRef} />
+        </div>
+
+        <form
+          className="ai-command-bar"
+          onSubmit={(event) => { event.preventDefault(); askAiProvider(generate); }}
+        >
+          <textarea
+            value={prompt}
+            onChange={(event) => setPrompt(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                askAiProvider(generate);
+              }
+            }}
+            placeholder="Komutunuzu yazın... (Enter ile gönder, Shift+Enter yeni satır)"
+          />
+          <AdminButton compact variant="primary" disabled={running || !prompt.trim()} type="submit"><Send size={14} className="mr-1 inline" />{running ? "Üretiliyor..." : "Gönder"}</AdminButton>
+        </form>
+      </AdminSplitView>
+      {chooserModal}
+    </div>
   );
 }
 
