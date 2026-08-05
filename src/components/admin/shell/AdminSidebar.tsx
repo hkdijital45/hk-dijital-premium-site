@@ -18,9 +18,9 @@ export function AdminSidebar({
 }) {
   return (
     <aside
-      className={`admin-sidebar premium-scrollbar hidden shrink-0 overflow-y-auto rounded-[16px] border lg:flex lg:h-full lg:flex-col ${collapsed ? "lg:w-[76px]" : "lg:w-[268px]"}`}
+      className={`admin-sidebar premium-scrollbar hidden shrink-0 overflow-y-auto rounded-[16px] border lg:flex lg:h-full lg:flex-col ${collapsed ? "lg:w-[78px]" : "lg:w-[280px]"}`}
     >
-      <div className="flex-1 px-2 py-3">
+      <div className="flex-1 grid gap-1 px-3 py-4">
         {groups.map((group) => (
           <AdminSidebarGroup
             key={group.label}

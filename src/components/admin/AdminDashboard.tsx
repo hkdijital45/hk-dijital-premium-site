@@ -81,6 +81,7 @@ import { AdminAppShell } from "@/components/admin/shell/AdminAppShell";
 import { AdminSidebar } from "@/components/admin/shell/AdminSidebar";
 import { AdminMobileNavigation } from "@/components/admin/shell/AdminMobileNavigation";
 import { AdminTopHeader } from "@/components/admin/shell/AdminTopHeader";
+import { HKCommandCenter } from "@/components/admin/command/HKCommandCenter";
 
 const salesPipelineStages = ["Yeni Lead", "İletişim Kuruldu", "Toplantı Yapıldı", "Teklif Gönderildi", "Takipte", "Kazanıldı", "Kaybedildi"];
 const crmActiveStatuses = ["Yeni Başvuru", "İletişime Geçildi", "Takipte", "Teklif Gönderildi", "Müşteri Oldu"];
@@ -665,6 +666,25 @@ export function AdminDashboard({
     .map((slug) => visibleNavigationItems.find((item) => (item.slug || "dashboard") === slug))
     .filter(Boolean);
   const activeFavoriteSlug = activeNavigationItem?.slug || (active === "Dashboard" ? "dashboard" : "");
+  const commandCenterQuickActions = [
+    { label: "Müşteri Ekle", href: "/hk-admin/musteriler", detail: "Yeni müşteri kaydı aç" },
+    { label: "Lead Ekle", href: "/hk-admin/leads", detail: "CRM lead listesine git" },
+    { label: "Tahsilat Gir", href: "/hk-admin/tahsilat", detail: "Yeni tahsilat kaydı oluştur" },
+    { label: "Görev Ekle", href: "/hk-admin/gorevler", detail: "Operasyon görevi ekle" },
+    { label: "Teklif Hazırla", href: "/hk-admin/teklif-hazirlama", detail: "Teklif motorunu aç" },
+    { label: "Rapor Oluştur", href: "/hk-admin/musteri-raporlari", detail: "Müşteri raporu hazırla" }
+  ];
+  const commandCenterFavorites = favoriteNavigationItems
+    .filter(Boolean)
+    .map((item) => ({ label: item.label, href: getAdminHref(item.slug) }));
+  const commandCenterRecentCustomers = [...(content.companies || [])]
+    .filter((company) => company.status !== "Silindi")
+    .sort((a, b) => Number(new Date(b.created_at || b.updated_at || 0)) - Number(new Date(a.created_at || a.updated_at || 0)))
+    .slice(0, 5)
+    .map((company) => ({ label: company.name || company.company_name || "Müşteri", href: `/hk-admin/musteriler?companyId=${company.id}` }));
+  const commandCenterGroups = visibleNavigationGroups
+    .filter((group) => group.items.length)
+    .map((group) => ({ label: group.label, href: getAdminHref(group.items[0].slug) }));
 
   return (
     <AdminAppShell
@@ -675,12 +695,20 @@ export function AdminDashboard({
           logo={
             <Link href="/hk-admin" aria-label="Ana dashboard'a dön" className="group flex items-center gap-3 rounded-[8px] px-2 py-1 transition hover:bg-[var(--admin-surface-soft)]">
               <Logo content={content} compact />
-              <div>
+              <div className="hidden sm:block">
                 <p className="text-[10px] font-bold uppercase tracking-[.18em] text-cyan-700">HK Dijital</p>
                 <h1 className="text-lg font-black transition group-hover:text-cyan-700 sm:text-xl">HK Operating System</h1>
               </div>
-              {isDesktopApp && <span className="ml-2 rounded-[8px] border border-amber-200/20 bg-amber-300/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[.12em] text-amber-700">Desktop</span>}
+              {isDesktopApp && <span className="ml-2 hidden rounded-[8px] border border-amber-200/20 bg-amber-300/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[.12em] text-amber-700 sm:inline-flex">Desktop</span>}
             </Link>
+          }
+          commandCenter={
+            <HKCommandCenter
+              quickActions={commandCenterQuickActions}
+              favorites={commandCenterFavorites}
+              recentCustomers={commandCenterRecentCustomers}
+              groups={commandCenterGroups}
+            />
           }
           title={withAdminEmoji(active)}
           breadcrumb={activeGroup?.label || "HK Operating System"}
@@ -695,7 +723,6 @@ export function AdminDashboard({
             <span className="block">AI: {aiStatus.provider}</span>
             <span className="block text-[10px]" style={{ color: "var(--admin-text-muted)" }}>Mod: {aiStatus.mode}</span>
           </button>
-          <GlobalAdminSearch />
           <div className="relative">
             <button type="button" onClick={() => setFavoritesOpen((current) => !current)} aria-expanded={favoritesOpen} className="admin-quick-action text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0C9FB3]">
               <Star size={17} className="fill-[#E4B83F] text-[#E4B83F]" /> Favoriler <span className="rounded-full px-2 py-0.5 text-xs" style={{ background: "var(--admin-surface-soft)" }}>{favoriteNavigationItems.length}</span>
@@ -710,7 +737,7 @@ export function AdminDashboard({
             <Bot size={17} className="text-[#7557D9]" /> HK Copilot
           </button>
           <div className="relative">
-            <button onClick={() => setNotificationsOpen((current) => !current)} className="admin-icon-action relative" aria-label="Bildirimler">
+            <button onClick={() => setNotificationsOpen((current) => !current)} className="admin-icon-action relative grid size-10 shrink-0 place-items-center rounded-[10px]" aria-label="Bildirimler">
               <Bell size={17} />
               {unreadNotifications.length > 0 && <span className="absolute -right-1 -top-1 grid min-h-5 min-w-5 place-items-center rounded-full bg-amber-300 px-1 text-[10px] font-black text-slate-950 shadow-[0_0_18px_rgba(250,204,21,.8)]">{unreadNotifications.length}</span>}
             </button>
@@ -1128,53 +1155,6 @@ function buildAdminNotifications(content: any, startupApiData: any = {}) {
     }
   ].filter(Boolean);
   return notifications;
-}
-
-function GlobalAdminSearch() {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState([]);
-  const [open, setOpen] = useState(false);
-  const quickActions = [
-    ["Müşteri Ekle", "/hk-admin/musteriler", "Yeni müşteri kaydı aç"],
-    ["Lead Ekle", "/hk-admin/leads", "CRM lead listesine git"],
-    ["Tahsilat Gir", "/hk-admin/tahsilat", "Yeni tahsilat kaydı oluştur"],
-    ["Görev Ekle", "/hk-admin/gorevler", "Operasyon görevi ekle"],
-    ["Meta Senkronize Et", "/hk-admin/reklam-hesabi-eslestirme", "Meta hesap eşleştirme ve veri çekme"],
-    ["Google Senkronize Et", "/hk-admin/reklam-hesabi-eslestirme", "Google hesap eşleştirme ve veri çekme"],
-    ["Teklif Hazırla", "/hk-admin/teklif-hazirlama", "Teklif motorunu aç"],
-    ["Rapor Oluştur", "/hk-admin/musteri-raporlari", "Müşteri raporu hazırla"],
-    ["WhatsApp Mesajı Hazırla", "/hk-admin/whatsapp-hatirlatma", "Hazır mesaj merkezi"],
-    ["Kampanya Ekle", "/hk-admin/kampanyalar", "Kampanya yönetimini aç"]
-  ];
-  useEffect(() => {
-    function handleShortcut(event: KeyboardEvent) {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        setOpen(true);
-        window.setTimeout(() => document.getElementById("hk-command-search")?.focus(), 0);
-      }
-      if (event.key === "Escape") setOpen(false);
-    }
-    const removeDesktopListener = window.hkDesktop?.onFocusSearch?.(() => {
-      setOpen(true);
-      window.setTimeout(() => document.getElementById("hk-command-search")?.focus(), 0);
-    });
-    window.addEventListener("keydown", handleShortcut);
-    return () => {
-      window.removeEventListener("keydown", handleShortcut);
-      removeDesktopListener?.();
-    };
-  }, []);
-  useEffect(() => {
-    if (query.trim().length < 2) return setResults([]);
-    const timer = setTimeout(async () => {
-      const response = await fetch(`/api/admin/search?q=${encodeURIComponent(query)}`);
-      const data = await response.json().catch(() => ({}));
-      setResults(response.ok ? data.results || [] : []);
-    }, 220);
-    return () => clearTimeout(timer);
-  }, [query]);
-  return <div className="relative"><button onClick={() => { setOpen(true); window.setTimeout(() => document.getElementById("hk-command-search")?.focus(), 0); }} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 text-sm text-slate-600"><Search size={16} className="text-cyan-700" /><span className="hidden xl:inline">Komut paleti...</span><kbd className="rounded border border-slate-200 px-1.5 py-0.5 text-[10px] font-black text-slate-500">⌘K / Ctrl+K</kbd></button>{open && <div className="fixed inset-0 z-[90] flex justify-center bg-white/70 px-4 pt-[12vh] " onMouseDown={() => setOpen(false)}><div className="h-fit w-full max-w-3xl overflow-hidden rounded-[18px] border border-cyan-200/20 bg-white shadow-[0_28px_110px_rgba(15,23,42,.18)]" onMouseDown={(event) => event.stopPropagation()}><label className="flex min-h-16 items-center gap-3 border-b border-slate-200 px-5"><Search size={19} className="text-cyan-700" /><input id="hk-command-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Her yerde ara veya hızlı aksiyon seç..." className="w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-500" /><button onClick={() => setOpen(false)} title="Kapat" className="rounded border border-slate-200 px-2 py-1 text-[10px] font-black text-slate-400">ESC</button></label><div className="premium-scrollbar max-h-[62vh] overflow-y-auto p-3">{query.trim().length < 2 && <div><p className="px-1 pb-3 text-xs font-black uppercase tracking-[.14em] text-slate-500">Hızlı Aksiyon Paleti</p><div className="grid gap-2 sm:grid-cols-2">{quickActions.map(([label, href, detail]) => <Link key={label} href={href} onClick={() => { setQuery(""); setOpen(false); }} className="rounded-[14px] border border-slate-200 bg-slate-50 p-3 transition hover:border-cyan-200 hover:bg-cyan-50"><strong className="block text-sm text-slate-950">{label}</strong><span className="mt-1 block text-xs leading-5 text-slate-500">{detail}</span></Link>)}</div><p className="mt-4 px-1 text-xs leading-5 text-slate-500">Arama için en az iki karakter yazın. Müşteri, lead, kampanya, görev, tahsilat, belge, rapor ve log kayıtları taranır.</p></div>}{results.map((result) => <Link key={result.id} href={result.href} onClick={() => { setQuery(""); setOpen(false); }} className="grid gap-3 rounded-[12px] px-3 py-3 text-sm hover:bg-cyan-50 sm:grid-cols-[120px_1fr_auto] sm:items-center"><span className="rounded-full border border-cyan-200/40 bg-cyan-50 px-2 py-1 text-center text-[10px] font-black text-cyan-700">{result.type}</span><span><strong className="block text-slate-900">{result.title}</strong><span className="mt-1 block text-xs text-slate-500">{result.detail}</span></span><span className="rounded-full bg-cyan-300 px-3 py-1.5 text-xs font-black text-slate-950">Aç</span></Link>)}{query.trim().length >= 2 && !results.length && <p className="px-3 py-5 text-sm text-slate-400">Eşleşen sonuç bulunamadı.</p>}</div></div></div>}</div>;
 }
 
 function GlobalCopilotPanel({ content, setActive, onClose, notify }: any) {

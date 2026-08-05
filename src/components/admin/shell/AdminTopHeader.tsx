@@ -3,6 +3,7 @@ import { Menu, Moon, PanelLeftClose, PanelLeftOpen, Sun } from "lucide-react";
 
 export function AdminTopHeader({
   logo,
+  commandCenter,
   title,
   breadcrumb,
   theme,
@@ -13,6 +14,7 @@ export function AdminTopHeader({
   children
 }: {
   logo: ReactNode;
+  commandCenter?: ReactNode;
   title?: string;
   breadcrumb?: string;
   theme: "light" | "dark";
@@ -49,6 +51,7 @@ export function AdminTopHeader({
               {title && <p className="truncate text-sm font-black" style={{ color: "var(--admin-text-primary)" }}>{title}</p>}
             </div>
           )}
+          {commandCenter && <div className="ml-1 shrink-0">{commandCenter}</div>}
         </div>
         <div className="admin-header-actions order-2 flex w-full min-w-0 flex-wrap items-center gap-2 2xl:order-none 2xl:ml-auto 2xl:w-auto 2xl:justify-end">
           {children}

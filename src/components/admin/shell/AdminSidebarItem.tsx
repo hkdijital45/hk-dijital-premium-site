@@ -24,10 +24,10 @@ export function AdminSidebarItem({
       href={href}
       title={collapsed ? label : undefined}
       onClick={onNavigate}
-      className={`admin-sidebar-item flex items-start gap-3 px-3 py-2.5 text-sm font-bold ${active ? "admin-sidebar-item-active" : ""} ${collapsed ? "justify-center" : ""}`}
+      className={`admin-sidebar-item flex items-start gap-3 px-3.5 py-3 text-sm font-bold ${active ? "admin-sidebar-item-active" : ""} ${collapsed ? "justify-center" : ""}`}
     >
-      <span className="admin-sidebar-icon grid size-8 shrink-0 place-items-center rounded-[9px]">
-        <Icon size={15} />
+      <span className="admin-sidebar-icon grid size-9 shrink-0 place-items-center rounded-[10px]">
+        <Icon size={16} />
       </span>
       {!collapsed && (
         <span className="min-w-0 flex-1">

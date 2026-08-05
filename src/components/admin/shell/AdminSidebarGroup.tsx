@@ -27,7 +27,7 @@ export function AdminSidebarGroup({
         type="button"
         onClick={onToggle}
         aria-expanded={expanded}
-        className={`admin-sidebar-group-header flex w-full items-center gap-2 px-2 py-2 text-left text-[11px] font-black uppercase tracking-wide admin-sidebar-group-label ${collapsed ? "justify-center" : "justify-between"}`}
+        className={`admin-sidebar-group-header flex w-full items-center gap-2 px-2.5 py-2.5 text-left text-[11px] font-black uppercase tracking-wide admin-sidebar-group-label ${collapsed ? "justify-center" : "justify-between"}`}
       >
         {!collapsed && <span className="truncate">{withAdminEmoji(group.label)}</span>}
         {collapsed ? (
@@ -39,7 +39,7 @@ export function AdminSidebarGroup({
         )}
       </button>
       {(expanded || collapsed) && (
-        <div className="grid gap-1.5 pb-3">
+        <div className="grid gap-2 pb-4">
           {group.items.map((item) => (
             <AdminSidebarItem
               key={`${group.label}-${item.label}`}

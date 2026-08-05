@@ -2686,17 +2686,26 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
   box-shadow: 0 10px 20px rgba(15, 23, 42, .08);
 }
 
-.hk-admin .admin-icon-action,
-.hk-admin .admin-profile-chip {
-  display: grid;
+/* No unconditional `display` here — every .admin-icon-action usage already
+   carries its own Tailwind display utility (grid / hidden / lg:grid /
+   lg:hidden) inline. A same-specificity descendant selector forcing
+   display:grid here used to always beat Tailwind's responsive `hidden`
+   variants (equal specificity, later in cascade order), which meant the
+   mobile hamburger and the desktop sidebar-collapse toggle both rendered
+   at every breakpoint at once. */
+.hk-admin .admin-icon-action {
   min-width: 44px;
-  place-items: center;
   border: 1px solid #cbd5e1;
   background: #fff;
   color: #334155;
 }
 
 .hk-admin .admin-profile-chip {
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
   border-radius: 12px;
   color: #0f172a;
   font-weight: 900;
@@ -4414,4 +4423,269 @@ table.admin-data-grid {
     border: 1px solid var(--admin-border);
     background: transparent;
   }
+}
+
+/* =====================================================================
+   HK COMMAND CENTER — the single signature global entry point, mounted
+   top-left of every admin screen (src/components/admin/command/
+   HKCommandCenter.tsx). Flat, calm, no glow/gradient — the ⌘K shortcut
+   and the compact trigger button are the "wow", not visual noise.
+   ===================================================================== */
+
+.hk-command-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 12px 0 10px;
+  border-radius: var(--hk-radius-sm);
+  border: 1px solid var(--admin-border-strong);
+  background: var(--admin-surface);
+  color: var(--admin-text-primary);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: border-color .15s ease, background .15s ease, transform .15s ease;
+}
+
+.hk-command-trigger:hover {
+  border-color: var(--hk-cyan);
+  background: var(--admin-surface-soft);
+  transform: translateY(-1px);
+}
+
+.hk-command-trigger:focus-visible {
+  outline: 2px solid var(--hk-focus-ring);
+  outline-offset: 2px;
+}
+
+.hk-command-trigger-icon {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: var(--hk-cyan-soft);
+  color: var(--hk-cyan-text);
+  flex-shrink: 0;
+}
+
+.hk-command-trigger-label {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .hk-command-trigger-label {
+    display: inline;
+  }
+}
+
+.hk-command-trigger-kbd {
+  display: none;
+  border-radius: 6px;
+  border: 1px solid var(--admin-border-strong);
+  background: var(--admin-bg);
+  color: var(--admin-text-muted);
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+@media (min-width: 1024px) {
+  .hk-command-trigger-kbd {
+    display: inline;
+  }
+}
+
+.hk-command-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  justify-content: center;
+  padding: 12vh 16px 16px;
+  background: var(--admin-overlay);
+}
+
+.hk-command-panel {
+  width: 100%;
+  max-width: 640px;
+  height: fit-content;
+  max-height: 72vh;
+  overflow: hidden;
+  border-radius: var(--hk-radius-lg);
+  border: 1px solid var(--admin-border);
+  background: var(--admin-surface);
+  box-shadow: var(--hk-shadow-lg);
+}
+
+.hk-command-search-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--admin-border);
+  color: var(--hk-cyan-text);
+}
+
+.hk-command-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  color: var(--admin-text-primary);
+}
+
+.hk-command-input::placeholder {
+  color: var(--admin-text-muted);
+}
+
+.hk-command-esc {
+  border-radius: 6px;
+  border: 1px solid var(--admin-border-strong);
+  color: var(--admin-text-muted);
+  padding: 3px 7px;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.hk-command-body {
+  max-height: calc(72vh - 56px);
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.hk-command-section + .hk-command-section {
+  margin-top: 16px;
+}
+
+.hk-command-section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px 4px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--admin-text-muted);
+}
+
+.hk-command-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.hk-command-chip {
+  border-radius: 999px;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-bg);
+  color: var(--admin-text-secondary);
+  padding: 6px 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+  transition: border-color .15s ease, color .15s ease, background .15s ease;
+}
+
+.hk-command-chip:hover {
+  border-color: var(--hk-cyan);
+  color: var(--hk-cyan-text);
+  background: var(--hk-cyan-soft);
+}
+
+.hk-command-actions-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.hk-command-action {
+  display: grid;
+  gap: 2px;
+  border-radius: var(--hk-radius-sm);
+  border: 1px solid var(--admin-border);
+  background: var(--admin-bg);
+  padding: 10px 12px;
+  transition: border-color .15s ease, background .15s ease;
+}
+
+.hk-command-action:hover {
+  border-color: var(--hk-cyan);
+  background: var(--hk-cyan-soft);
+}
+
+.hk-command-action strong {
+  font-size: 13px;
+  color: var(--admin-text-primary);
+}
+
+.hk-command-action span {
+  font-size: 11.5px;
+  color: var(--admin-text-muted);
+}
+
+.hk-command-result {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  border-radius: var(--hk-radius-sm);
+  padding: 10px 12px;
+  color: var(--admin-text-secondary);
+  transition: background .15s ease;
+}
+
+.hk-command-result:hover {
+  background: var(--hk-cyan-soft);
+}
+
+.hk-command-result-type {
+  border-radius: 999px;
+  border: 1px solid var(--hk-cyan-soft);
+  background: var(--hk-cyan-soft);
+  color: var(--hk-cyan-text);
+  padding: 3px 9px;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.hk-command-result-text {
+  min-width: 0;
+  display: grid;
+}
+
+.hk-command-result-text strong {
+  font-size: 13.5px;
+  color: var(--admin-text-primary);
+}
+
+.hk-command-result-text span {
+  font-size: 11.5px;
+  color: var(--admin-text-muted);
+}
+
+.hk-command-empty {
+  padding: 24px 12px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--admin-text-muted);
+}
+
+.hk-command-hint {
+  margin-top: 16px;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--admin-text-muted);
+}
+
+.hk-command-group-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--admin-text-secondary);
+  margin: 0 0 6px 4px;
 }

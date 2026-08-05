@@ -2,12 +2,13 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { adminNavigationGroups } from "@/lib/admin-navigation";
+import { adminNavigationGroups, getAdminHref } from "@/lib/admin-navigation";
 import { canViewAccounting, type AccountingSessionLike } from "@/lib/accounting-permissions";
 import { AdminAppShell } from "./AdminAppShell";
 import { AdminSidebar } from "./AdminSidebar";
 import { AdminMobileNavigation } from "./AdminMobileNavigation";
 import { AdminTopHeader } from "./AdminTopHeader";
+import { HKCommandCenter } from "@/components/admin/command/HKCommandCenter";
 
 export function AdminStandaloneShell({
   currentSession,
@@ -67,6 +68,16 @@ export function AdminStandaloneShell({
     setOpenGroups((current) => ({ ...current, [label]: !current[label] }));
   }
 
+  const commandCenterQuickActions = [
+    { label: "Müşteri Ekle", href: "/hk-admin/musteriler", detail: "Yeni müşteri kaydı aç" },
+    { label: "Lead Ekle", href: "/hk-admin/leads", detail: "CRM lead listesine git" },
+    { label: "Görev Ekle", href: "/hk-admin/gorevler", detail: "Operasyon görevi ekle" },
+    { label: "Rapor Oluştur", href: "/hk-admin/musteri-raporlari", detail: "Müşteri raporu hazırla" }
+  ];
+  const commandCenterGroups = visibleNavigationGroups
+    .filter((group) => group.items.length)
+    .map((group) => ({ label: group.label, href: getAdminHref(group.items[0].slug) }));
+
   return (
     <AdminAppShell
       theme={theme}
@@ -79,6 +90,7 @@ export function AdminStandaloneShell({
               HK Dijital
             </span>
           }
+          commandCenter={<HKCommandCenter quickActions={commandCenterQuickActions} groups={commandCenterGroups} />}
           title={title}
           breadcrumb="HK Operating System"
           theme={theme}
