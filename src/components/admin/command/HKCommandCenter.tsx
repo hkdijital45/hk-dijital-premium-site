@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Clock, Command, LayoutGrid, Search, Star } from "lucide-react";
+import { ArrowRight, Clock, Home, LayoutGrid, Search, Star } from "lucide-react";
 
 export interface HKCommandCenterAction {
   label: string;
@@ -24,11 +24,11 @@ interface HKSearchResult {
 }
 
 /**
- * The signature global entry point for HK Operating System — one button,
- * top-left of every admin screen, opening a single ⌘K palette that reaches
- * search, quick actions, favorites, recent customers and every module group.
- * Absorbs the previous inline GlobalAdminSearch (same search API/shortcut),
- * so there is exactly one command surface app-wide instead of two.
+ * HK Mission Control — the signature global entry point for HK Operating
+ * System, top-left of every admin screen. One button, one ⌘K palette that
+ * reaches search, quick actions, favorites, recent customers and every
+ * module group. Absorbs the previous inline GlobalAdminSearch (same search
+ * API/shortcut), so there is exactly one command surface app-wide.
  */
 export function HKCommandCenter({
   quickActions,
@@ -93,9 +93,9 @@ export function HKCommandCenter({
 
   return (
     <>
-      <button type="button" onClick={openPalette} className="hk-command-trigger" aria-label="HK Command Center'ı aç (⌘K)">
-        <span className="hk-command-trigger-icon"><Command size={15} /></span>
-        <span className="hk-command-trigger-label">HK Command Center</span>
+      <button type="button" onClick={openPalette} className="hk-command-trigger" aria-label="HK Mission Control'ı aç (⌘K)">
+        <span className="hk-command-trigger-icon"><Home size={17} /></span>
+        <span className="hk-command-trigger-label">HK Mission Control</span>
         <kbd className="hk-command-trigger-kbd">⌘K</kbd>
       </button>
       {open && (
@@ -104,7 +104,7 @@ export function HKCommandCenter({
             className="hk-command-panel"
             role="dialog"
             aria-modal="true"
-            aria-label="HK Command Center"
+            aria-label="HK Mission Control"
             onMouseDown={(event) => event.stopPropagation()}
           >
             <label className="hk-command-search-row">

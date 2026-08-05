@@ -48,7 +48,7 @@ import { ResetCustomerPasswordButton } from "@/components/admin/ResetCustomerPas
 import { AiProviderSelector } from "@/components/admin/AiProviderSelector";
 import { HKAssistantWidget } from "@/components/shared/HKAssistantWidget";
 import { Logo } from "@/components/public/Logo";
-import { DashboardOverview } from "@/components/admin/dashboard/DashboardOverview";
+import { MissionControl } from "@/components/admin/dashboard/MissionControl";
 import type { DashboardOverviewCard } from "@/components/admin/dashboard/types";
 import { AdminPageHeader, AdminSection } from "@/components/admin/ui/AdminPageHeader";
 import { AdminSearchInput, AdminFilterBar } from "@/components/admin/ui/AdminSearchInput";
@@ -2793,8 +2793,7 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
   );
 
   return (
-    <Panel title="Operasyon Merkezi">
-      <DashboardOverview
+      <MissionControl
         onNavigate={setActive}
         greeting={greeting[1]}
         userName={userName}
@@ -2831,7 +2830,6 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
         websiteAnalytics={<WebsiteAnalyticsSummaryCards onOpen={() => setActive("Web Site Analitiği")} />}
         advanced={advancedSection}
       />
-    </Panel>
   );
 }
 
