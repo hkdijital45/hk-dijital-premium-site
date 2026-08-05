@@ -1677,6 +1677,97 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
   border-color: #F5A5A5 !important;
 }
 
+/* Older pages (Google/Meta İstihbarat and similar analysis screens) use
+   ad-hoc translucent Tailwind tints per info card — bg-orange-300/[0.08],
+   bg-cyan-300/[0.08], bg-pink-300/[0.08], etc., each with its own
+   text-*-700/border-*-200 pairing — rather than a shared card component.
+   A page-by-page JSX rewrite of every one of these is out of scope for a
+   single pass; this mirrors the catch-all pattern already used above for
+   raw Tailwind buttons, remapped to the nearest HK Design System tone by
+   hue family so these cards stop reading as a different, uncoordinated
+   product. text-pink-100 in particular was a real contrast bug — near-
+   white text on a light pink tint. */
+.admin-shell [class*="bg-orange-"][class*="/"],
+.hk-admin [class*="bg-orange-"][class*="/"],
+[data-admin] [class*="bg-orange-"][class*="/"],
+.admin-shell [class*="bg-amber-"][class*="/"],
+.hk-admin [class*="bg-amber-"][class*="/"],
+[data-admin] [class*="bg-amber-"][class*="/"] {
+  background: #FFF7E2 !important;
+  border-color: #E8C15A !important;
+}
+
+.admin-shell [class*="text-orange-"],
+.hk-admin [class*="text-orange-"],
+[data-admin] [class*="text-orange-"],
+.admin-shell [class*="text-amber-"],
+.hk-admin [class*="text-amber-"],
+[data-admin] [class*="text-amber-"] {
+  color: #8D5B00 !important;
+}
+
+.admin-shell [class*="bg-cyan-"][class*="/"],
+.hk-admin [class*="bg-cyan-"][class*="/"],
+[data-admin] [class*="bg-cyan-"][class*="/"],
+.admin-shell [class*="bg-sky-"][class*="/"],
+.hk-admin [class*="bg-sky-"][class*="/"],
+[data-admin] [class*="bg-sky-"][class*="/"],
+.admin-shell [class*="bg-teal-"][class*="/"],
+.hk-admin [class*="bg-teal-"][class*="/"],
+[data-admin] [class*="bg-teal-"][class*="/"] {
+  background: #DDF6F8 !important;
+  border-color: #18AFC4 !important;
+}
+
+.admin-shell [class*="text-cyan-"],
+.hk-admin [class*="text-cyan-"],
+[data-admin] [class*="text-cyan-"],
+.admin-shell [class*="text-sky-"],
+.hk-admin [class*="text-sky-"],
+[data-admin] [class*="text-sky-"],
+.admin-shell [class*="text-teal-"],
+.hk-admin [class*="text-teal-"],
+[data-admin] [class*="text-teal-"] {
+  color: #0B6B78 !important;
+}
+
+.admin-shell [class*="bg-purple-"][class*="/"],
+.hk-admin [class*="bg-purple-"][class*="/"],
+[data-admin] [class*="bg-purple-"][class*="/"],
+.admin-shell [class*="bg-violet-"][class*="/"],
+.hk-admin [class*="bg-violet-"][class*="/"],
+[data-admin] [class*="bg-violet-"][class*="/"],
+.admin-shell [class*="bg-indigo-"][class*="/"],
+.hk-admin [class*="bg-indigo-"][class*="/"],
+[data-admin] [class*="bg-indigo-"][class*="/"],
+.admin-shell [class*="bg-pink-"][class*="/"],
+.hk-admin [class*="bg-pink-"][class*="/"],
+[data-admin] [class*="bg-pink-"][class*="/"],
+.admin-shell [class*="bg-fuchsia-"][class*="/"],
+.hk-admin [class*="bg-fuchsia-"][class*="/"],
+[data-admin] [class*="bg-fuchsia-"][class*="/"] {
+  background: #EEE8FF !important;
+  border-color: #7557D9 !important;
+}
+
+.admin-shell [class*="text-purple-"],
+.hk-admin [class*="text-purple-"],
+[data-admin] [class*="text-purple-"],
+.admin-shell [class*="text-violet-"],
+.hk-admin [class*="text-violet-"],
+[data-admin] [class*="text-violet-"],
+.admin-shell [class*="text-indigo-"],
+.hk-admin [class*="text-indigo-"],
+[data-admin] [class*="text-indigo-"],
+.admin-shell [class*="text-pink-"],
+.hk-admin [class*="text-pink-"],
+[data-admin] [class*="text-pink-"],
+.admin-shell [class*="text-fuchsia-"],
+.hk-admin [class*="text-fuchsia-"],
+[data-admin] [class*="text-fuchsia-"] {
+  color: #4F35A8 !important;
+}
+
 .hk-toast-stack {
   position: fixed;
   top: 18px;

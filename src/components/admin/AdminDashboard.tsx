@@ -691,23 +691,23 @@ export function AdminDashboard({
           onOpenMobileNav={() => setMobileNavOpen(true)}
         >
           <AdminBrowserControls />
-          <button onClick={() => setActive("API Ayarları")} className="admin-quick-action admin-quick-action-info text-left text-xs">
+          <button onClick={() => setActive("API Ayarları")} className="admin-quick-action text-left text-xs">
             <span className="block">AI: {aiStatus.provider}</span>
-            <span className="block text-[10px] text-cyan-700/70">Mod: {aiStatus.mode}</span>
+            <span className="block text-[10px]" style={{ color: "var(--admin-text-muted)" }}>Mod: {aiStatus.mode}</span>
           </button>
           <GlobalAdminSearch />
           <div className="relative">
-            <button type="button" onClick={() => setFavoritesOpen((current) => !current)} aria-expanded={favoritesOpen} className="admin-quick-action admin-quick-action-favorite text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">
-              <Star size={17} className="fill-amber-950" /> Favoriler <span className="rounded-full bg-white/70 px-2 py-0.5 text-xs">{favoriteNavigationItems.length}</span>
+            <button type="button" onClick={() => setFavoritesOpen((current) => !current)} aria-expanded={favoritesOpen} className="admin-quick-action text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0C9FB3]">
+              <Star size={17} className="fill-[#E4B83F] text-[#E4B83F]" /> Favoriler <span className="rounded-full px-2 py-0.5 text-xs" style={{ background: "var(--admin-surface-soft)" }}>{favoriteNavigationItems.length}</span>
             </button>
             {favoritesOpen && <div className="absolute right-0 top-14 z-50 w-[min(92vw,380px)] rounded-[16px] border border-amber-200 bg-white p-3 shadow-2xl">
               <div className="flex items-center justify-between gap-3 px-1 pb-3"><div><p className="font-black text-slate-950">Favori modüller</p><p className="text-xs text-slate-500">Sıralama hesabınıza kaydedilir.</p></div>{activeFavoriteSlug && <button type="button" disabled={favoritesSaving} onClick={() => saveFavorites(favoriteSlugs.includes(activeFavoriteSlug) ? favoriteSlugs.filter((slug) => slug !== activeFavoriteSlug) : [...favoriteSlugs, activeFavoriteSlug])} className="hk-button hk-button-compact hk-button-warning">{favoriteSlugs.includes(activeFavoriteSlug) ? "Favoriden Çıkar" : "Bu Modülü Ekle"}</button>}</div>
               <div className="grid max-h-[55vh] gap-2 overflow-y-auto">{favoriteNavigationItems.map((item, index) => item && <div key={item.slug || "dashboard"} className="flex items-center gap-2 rounded-[12px] border border-slate-200 bg-slate-50 p-2"><Link href={getAdminHref(item.slug)} onClick={() => setFavoritesOpen(false)} className="min-w-0 flex-1 truncate px-2 text-sm font-black text-slate-800">{item.label}</Link><button type="button" disabled={favoritesSaving || index === 0} onClick={() => moveFavorite(item.slug || "dashboard", -1)} aria-label={`${item.label} favorisini yukarı taşı`} className="hk-icon-button"><ArrowUp size={15} /></button><button type="button" disabled={favoritesSaving || index === favoriteNavigationItems.length - 1} onClick={() => moveFavorite(item.slug || "dashboard", 1)} aria-label={`${item.label} favorisini aşağı taşı`} className="hk-icon-button"><ArrowDown size={15} /></button><button type="button" disabled={favoritesSaving} onClick={() => saveFavorites(favoriteSlugs.filter((slug) => slug !== (item.slug || "dashboard")))} aria-label={`${item.label} favorisini kaldır`} className="hk-icon-button text-red-600"><X size={15} /></button></div>)}{!favoriteNavigationItems.length && <p className="rounded-[12px] border border-dashed border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Bir modülü açıp “Bu Modülü Ekle” seçeneğini kullanın.</p>}</div>
             </div>}
           </div>
-          {allowedModules.includes("musteriler") && <Link href="/hk-admin/musteriler" className="admin-quick-action admin-quick-action-success text-sm"><UsersRound size={17} /> Müşteriler</Link>}
-          <button onClick={() => setCopilotOpen(true)} className="admin-quick-action admin-quick-action-ai text-sm">
-            <Bot size={17} /> HK Copilot
+          {allowedModules.includes("musteriler") && <Link href="/hk-admin/musteriler" className="admin-quick-action text-sm"><UsersRound size={17} /> Müşteriler</Link>}
+          <button onClick={() => setCopilotOpen(true)} className="admin-quick-action text-sm">
+            <Bot size={17} className="text-[#7557D9]" /> HK Copilot
           </button>
           <div className="relative">
             <button onClick={() => setNotificationsOpen((current) => !current)} className="admin-icon-action relative" aria-label="Bildirimler">
@@ -735,7 +735,7 @@ export function AdminDashboard({
             )}
           </div>
           {(allowedModules.includes("site-ayarlari") || ["musteriler", "kampanyalar", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "sektor-sistemleri"].some((module) => allowedModules.includes(module))) && <button disabled={saving} onClick={() => save()} className={`admin-quick-action admin-quick-action-save text-sm disabled:opacity-70 ${saveFeedback === "success" ? "hk-action-success" : ""}`}><Save size={17} /> {saving ? "Kaydediliyor..." : saveFeedback === "success" ? "Kaydedildi ✓" : saveFeedback === "error" ? "Tekrar Dene" : "Kaydet"}</button>}
-          <button onClick={logout} className="admin-quick-action admin-quick-action-danger text-sm"><LogOut size={17} /> Çıkış</button>
+          <button onClick={logout} className="admin-quick-action text-sm"><LogOut size={17} className="text-[#B42318]" /> Çıkış</button>
         </AdminTopHeader>
       }
       sidebar={
