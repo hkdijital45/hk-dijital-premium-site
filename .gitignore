@@ -16,5 +16,7 @@ artifacts/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+# Real QA-admin session cookie saved by tests/e2e/global-setup.ts — never commit.
+/tests/e2e/.auth/
 .vercel
 .env*

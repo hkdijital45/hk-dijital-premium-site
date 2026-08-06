@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { hasQaAdminCredentials, loginAsQaAdmin, qaSkipReason } from "./fixtures/qa-auth";
+import { hasQaAdminCredentials, loginAsQaAdmin, qaAdminStorageState, qaSkipReason } from "./fixtures/qa-auth";
 
 // Coverage for the Müşteri Keşfi / Google Maps Müşteri Bulma sales-
 // intelligence upgrade. Every test that creates a real lead deletes it
@@ -29,6 +29,12 @@ test("unauthenticated search request is rejected", async ({ request }) => {
 });
 
 test.describe("authenticated discovery search", () => {
+  // Starts every test's `request` fixture pre-loaded with the single real
+  // session global-setup.ts already saved — loginAsQaAdmin()'s probe then
+  // sees an already-valid session and skips its own real login. Scoped to
+  // this describe only (not project-wide), so the top-level "unauthenticated
+  // search request is rejected" test above stays genuinely logged-out.
+  test.use({ storageState: qaAdminStorageState });
   test.beforeEach(() => {
     test.skip(!hasQaAdminCredentials(), qaSkipReason);
   });

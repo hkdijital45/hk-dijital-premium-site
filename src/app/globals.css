@@ -2515,65 +2515,6 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
   font-weight: 900;
 }
 
-.hk-admin .admin-category-button {
-  min-height: 44px;
-  border: 1px solid #dbe3ee;
-  border-radius: 12px;
-  background: #fff;
-  color: #475569;
-  box-shadow: 0 6px 16px rgba(15, 23, 42, .04);
-}
-
-.hk-admin .admin-category-button:hover,
-.hk-admin .admin-category-button[aria-expanded="true"] {
-  border-color: #67e8f9;
-  background: #ecfeff;
-  color: #155e75;
-}
-
-.hk-admin .admin-category-button-active {
-  border-color: #22d3ee;
-  background: linear-gradient(135deg, #ecfeff, #e0f2fe);
-  color: #0e7490;
-  box-shadow: 0 10px 24px rgba(8, 145, 178, .14);
-}
-
-.hk-admin .admin-nav-count {
-  border: 1px solid rgba(14, 116, 144, .18);
-  background: rgba(255, 255, 255, .72);
-  color: #475569;
-}
-
-.hk-admin .admin-mega-menu {
-  border-radius: 18px;
-  border-color: rgba(203, 213, 225, .92);
-  background: rgba(255, 255, 255, .98);
-  padding: .9rem;
-  box-shadow: 0 24px 70px rgba(15, 23, 42, .18);
-}
-
-.hk-admin .admin-mega-item {
-  min-height: 74px;
-  border: 1px solid transparent;
-  border-radius: 14px;
-  background: #fff;
-  color: #334155;
-}
-
-.hk-admin .admin-mega-item:hover,
-.hk-admin .admin-mega-item:focus-visible {
-  border-color: #a5f3fc;
-  background: #ecfeff;
-  color: #155e75;
-}
-
-.hk-admin .admin-mega-item-active {
-  border-color: #22d3ee;
-  background: linear-gradient(135deg, #cffafe, #eff6ff);
-  color: #0f172a;
-  box-shadow: inset 4px 0 0 #0891b2;
-}
-
 .hk-admin .communication-center {
   color: #0f172a;
 }

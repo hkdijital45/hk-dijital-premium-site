@@ -1,5 +1,18 @@
 import { test, expect } from "@playwright/test";
-import { gotoAsQaAdmin, hasQaAdminCredentials, qaSkipReason } from "./fixtures/qa-auth";
+import { gotoAsQaAdmin, hasQaAdminCredentials, qaAdminStorageState, qaSkipReason } from "./fixtures/qa-auth";
+
+// Every test in this file that uses the `page`/`request` fixtures is
+// authenticated, so it's safe to scope the saved real session to the whole
+// file — see business-discovery.spec.ts's "authenticated discovery search"
+// for the full rationale. The one exception, "protected admin content is
+// not visible before authentication (fresh context)" below, takes the raw
+// `browser` fixture and calls `browser.newContext()` itself — that call
+// DOES still inherit this file-level `use` option (confirmed empirically:
+// an uninstrumented `browser.newContext()` there starts with the saved
+// session cookie already present), so that test explicitly overrides it
+// with `storageState: { cookies: [], origins: [] }` to get a genuinely
+// logged-out context.
+test.use({ storageState: qaAdminStorageState });
 
 test.beforeEach(() => {
   test.skip(!hasQaAdminCredentials(), qaSkipReason);
@@ -36,13 +49,32 @@ for (const path of REPRESENTATIVE_ROUTES) {
 }
 
 test("admin navigation renders after authentication", async ({ page }) => {
+  // Pinned to a desktop viewport: this is a general "did navigation chrome
+  // render at all" smoke test, not a responsive-behavior test (that's
+  // covered separately, and correctly per-viewport, by the "top mega-nav
+  // (desktop) and drawer (mobile)" describe block below). Without an
+  // explicit viewport this test inherits whatever the Playwright project
+  // defaults to — on the mobile-chromium project (~412px, below the lg
+  // breakpoint) the desktop mega-nav `<nav>` is legitimately present in the
+  // DOM but CSS-hidden in favor of the slide-in drawer (which itself starts
+  // closed), so an unqualified `nav, aside, [role='navigation']` locator has
+  // nothing meaningful, viewport-independent to assert against.
+  await page.setViewportSize({ width: 1440, height: 900 });
   await gotoAsQaAdmin(page, "/hk-admin");
   await page.waitForLoadState("domcontentloaded");
   await expect(page.locator("nav, aside, [role='navigation']").first()).toBeVisible();
 });
 
 test("protected admin content is not visible before authentication (fresh context)", async ({ browser }) => {
-  const context = await browser.newContext();
+  // `browser.newContext()` with no options still inherits this FILE's
+  // top-level `test.use({ storageState: qaAdminStorageState })` — Playwright
+  // applies `use` config to any context the test creates, not only to the
+  // `context`/`page` fixtures. An earlier version of this test assumed
+  // otherwise and was silently running with the QA admin session already
+  // loaded, which made its pass/fail depend on incidental cookie validity
+  // rather than actually exercising the unauthenticated path. Pass an
+  // explicit empty state to guarantee a genuinely logged-out context.
+  const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
   const page = await context.newPage();
   await page.goto("/hk-admin", { waitUntil: "domcontentloaded" });
   await expect(page).not.toHaveURL(/\/hk-admin$/);

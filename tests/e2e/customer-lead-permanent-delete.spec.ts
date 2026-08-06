@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { hasQaAdminCredentials, loginAsQaAdmin, qaSkipReason } from "./fixtures/qa-auth";
+import { hasQaAdminCredentials, loginAsQaAdmin, qaAdminStorageState, qaSkipReason } from "./fixtures/qa-auth";
 
 // This sandbox's plain-HTTP local server still marks the session cookie
 // Secure (matches NODE_ENV=production). A real browser's own network stack
@@ -62,6 +62,11 @@ test("unauthenticated request to the bulk data-management endpoint is rejected",
 });
 
 test.describe("authenticated admin validation", () => {
+  // Scoped to this describe only, so the three top-level "unauthenticated
+  // request ... is rejected" tests above keep starting genuinely logged out.
+  // See business-discovery.spec.ts's "authenticated discovery search" for
+  // the full rationale.
+  test.use({ storageState: qaAdminStorageState });
   test.beforeEach(() => {
     test.skip(!hasQaAdminCredentials(), qaSkipReason);
   });

@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { hasQaAdminCredentials, loginAsQaAdmin, qaSkipReason } from "./fixtures/qa-auth";
+import { hasQaAdminCredentials, loginAsQaAdmin, qaAdminStorageState, qaSkipReason } from "./fixtures/qa-auth";
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
 const MALICIOUS_SVG = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>');
@@ -31,6 +31,9 @@ function inPageUpload(page: Page) {
 }
 
 test.describe("authenticated upload validation (POST /api/media)", () => {
+  // See business-discovery.spec.ts's "authenticated discovery search" for
+  // the full rationale (reuses the single real login global-setup.ts saved).
+  test.use({ storageState: qaAdminStorageState });
   test.beforeEach(async ({ page }) => {
     test.skip(!hasQaAdminCredentials(), qaSkipReason);
     // A page navigation is required before in-page fetch() calls with

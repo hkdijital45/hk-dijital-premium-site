@@ -19,6 +19,10 @@ const isCI = Boolean(process.env.CI);
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  // Performs the suite's single real QA-admin login once, up front, and
+  // saves it to tests/e2e/.auth/qa-admin.json — see tests/e2e/global-setup.ts
+  // and tests/e2e/fixtures/qa-auth.ts for why (GoTrue sign-in rate limit).
+  globalSetup: require.resolve("./tests/e2e/global-setup.ts"),
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 2 : 0,

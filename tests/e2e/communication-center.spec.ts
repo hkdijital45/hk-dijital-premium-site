@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { gotoAsQaAdmin, hasQaAdminCredentials, qaSkipReason } from "./fixtures/qa-auth";
+import { gotoAsQaAdmin, hasQaAdminCredentials, qaAdminStorageState, qaSkipReason } from "./fixtures/qa-auth";
 
 // Regression coverage for two verified production defects:
 //   1. The desktop admin shell was capped at max-width: 1680px and centered,
@@ -8,6 +8,12 @@ import { gotoAsQaAdmin, hasQaAdminCredentials, qaSkipReason } from "./fixtures/q
 //      /api/communication/[id] omitted company_name (used as the panel's
 //      "is something selected" signal) even though a conversation was
 //      genuinely selected and its messages were loading correctly.
+// Every test in this file is authenticated (no unauthenticated-behavior
+// coverage lives here), so it's safe to scope the saved real session to the
+// whole file. See business-discovery.spec.ts's "authenticated discovery
+// search" for the full rationale.
+test.use({ storageState: qaAdminStorageState });
+
 test.beforeEach(() => {
   test.skip(!hasQaAdminCredentials(), qaSkipReason);
 });

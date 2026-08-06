@@ -54,7 +54,7 @@ import { AdminPageHeader, AdminSection } from "@/components/admin/ui/AdminPageHe
 import { AdminSearchInput, AdminFilterBar } from "@/components/admin/ui/AdminSearchInput";
 import { AdminStatusBadge, healthScoreTone, type AdminStatusTone } from "@/components/admin/ui/AdminStatusBadge";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
-import { AdminEmptyState } from "@/components/admin/ui/AdminEmptyState";
+import { AdminEmptyState, AdminLoadingState } from "@/components/admin/ui/AdminEmptyState";
 import { AdminActionCard, AdminKpiCard } from "@/components/admin/ui/AdminKpiCard";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { AdminWorkspace } from "@/components/admin/workspace/AdminWorkspace";
@@ -9927,22 +9927,45 @@ const opportunityLegend = [
   [0, "Analiz Bekliyor", "Henüz yeterli veri bulunmuyor.", "İlk keşif aramasını başlatın."]
 ];
 
+// Shared 5-tier severity scale for Discovery's secondary views (Fırsat
+// Haritası, Bölgesel Fırsatlar, Harita Görünümü, Puan Rehberi legend rows).
+// Tones map onto the HK design tokens / AdminStatusBadge tone system:
+// very-high -> danger, high -> warning, medium -> premium (gold),
+// low -> info, very-low -> neutral. Only the color representation is
+// centralized here — thresholds and labels stay exactly as before.
+const SEVERITY_TOKENS: Record<string, { bg: string; border: string; text: string; solid: string }> = {
+  danger: { bg: "var(--hk-danger-bg)", border: "var(--hk-danger-border)", text: "var(--hk-danger-text)", solid: "var(--hk-danger-solid)" },
+  warning: { bg: "var(--hk-warning-bg)", border: "var(--hk-warning-border)", text: "var(--hk-warning-text)", solid: "var(--hk-warning-solid)" },
+  premium: { bg: "var(--hk-gold-soft)", border: "var(--hk-gold-border)", text: "var(--hk-gold-text)", solid: "var(--hk-gold)" },
+  info: { bg: "var(--hk-info-bg)", border: "var(--hk-info-border)", text: "var(--hk-info-text)", solid: "var(--hk-info-solid)" },
+  neutral: { bg: "var(--admin-surface-soft)", border: "var(--admin-border)", text: "var(--admin-text-muted)", solid: "var(--admin-text-muted)" }
+};
+
+function severityCardStyle(tone: string) {
+  const token = SEVERITY_TOKENS[tone] || SEVERITY_TOKENS.neutral;
+  return { borderColor: token.border, backgroundColor: token.bg, color: token.text };
+}
+
+function severityDotStyle(tone: string) {
+  return { backgroundColor: (SEVERITY_TOKENS[tone] || SEVERITY_TOKENS.neutral).solid };
+}
+
 function opportunityLevel(score: any) {
   const value = Number(score || 0);
-  if (value >= 85) return { label: "Çok Yüksek Fırsat", className: "border-orange-300/50 bg-orange-400/15 text-orange-700", pin: "bg-orange-400" };
-  if (value >= 70) return { label: "Yüksek Fırsat", className: "border-emerald-300/40 bg-emerald-300/12 text-emerald-700", pin: "bg-emerald-400" };
-  if (value >= 55) return { label: "Orta Fırsat", className: "border-amber-300/40 bg-amber-300/12 text-amber-700", pin: "bg-amber-300" };
-  if (value > 0) return { label: "Gelişen Fırsat", className: "border-slate-400/40 bg-slate-400/10 text-slate-700", pin: "bg-slate-400" };
-  return { label: "Analiz Bekliyor", className: "border-slate-500/30 bg-slate-500/10 text-slate-600", pin: "bg-slate-400" };
+  if (value >= 85) return { label: "Çok Yüksek Fırsat", tone: "danger" };
+  if (value >= 70) return { label: "Yüksek Fırsat", tone: "warning" };
+  if (value >= 55) return { label: "Orta Fırsat", tone: "premium" };
+  if (value > 0) return { label: "Gelişen Fırsat", tone: "info" };
+  return { label: "Analiz Bekliyor", tone: "neutral" };
 }
 
 function customerDiscoveryLevel(score: any) {
   const value = Number(score || 0);
-  if (value >= 90) return { label: "Çok Sıcak Fırsat", className: "border-red-300/45 bg-red-500/20 text-red-100", pin: "bg-red-500" };
-  if (value >= 80) return { label: "Sıcak Fırsat", className: "border-orange-300/45 bg-orange-400/15 text-orange-700", pin: "bg-orange-400" };
-  if (value >= 60) return { label: "Potansiyel Fırsat", className: "border-amber-300/40 bg-amber-300/12 text-amber-700", pin: "bg-amber-300" };
-  if (value >= 40) return { label: "Orta Potansiyel", className: "border-sky-300/35 bg-sky-300/10 text-sky-100", pin: "bg-sky-300" };
-  return { label: "Düşük Öncelik", className: "border-slate-400/40 bg-slate-400/10 text-slate-700", pin: "bg-slate-400" };
+  if (value >= 90) return { label: "Çok Sıcak Fırsat", tone: "danger" };
+  if (value >= 80) return { label: "Sıcak Fırsat", tone: "warning" };
+  if (value >= 60) return { label: "Potansiyel Fırsat", tone: "premium" };
+  if (value >= 40) return { label: "Orta Potansiyel", tone: "info" };
+  return { label: "Düşük Öncelik", tone: "neutral" };
 }
 
 const highAdPotentialHints = ["oto", "otomotiv", "emlak", "diş", "dis", "klinik", "güzellik", "guzellik", "estetik", "sağlık", "saglik", "restoran", "kafe", "kuaför", "spor", "hukuk"];
@@ -9995,25 +10018,81 @@ function discoveryScoreBreakdown(record: any) {
 }
 
 function ScoringGuidePanel() {
-  const heatRows = [["90-100", "Çok Sıcak Fırsat 🔥", "Hemen iletişime geçin.", "bg-red-500"], ["80-89", "Sıcak Fırsat", "Öncelikli takip önerilir.", "bg-orange-400"], ["60-79", "Potansiyel Fırsat", "Teklif ve analiz gönderilebilir.", "bg-amber-300"], ["40-59", "Orta Potansiyel", "Takip listesinde tutulabilir.", "bg-sky-300"], ["0-39", "Düşük Öncelik", "Şimdilik bekletilebilir.", "bg-slate-400"]];
-  const maturityRows = [["80-100", "Dijital altyapı güçlü", "bg-emerald-400"], ["60-79", "İyi seviyede", "bg-lime-300"], ["40-59", "Geliştirilebilir", "bg-amber-300"], ["20-39", "Zayıf", "bg-orange-300"], ["0-19", "Çok zayıf", "bg-red-400"]];
-  return <div className="grid gap-3">
-    <section className="rounded-[8px] border border-cyan-200/15 bg-cyan-200/[0.06] p-4">
-      <p className="text-sm font-black text-slate-900">Puan Rehberi</p>
-      <p className="mt-3 text-xs font-black uppercase tracking-[.12em] text-cyan-700">Müşteri Sıcaklık Puanı</p>
-      <div className="mt-3 grid gap-2">{heatRows.map(([range, label, note, color]) => <div key={range} className="grid grid-cols-[68px_1fr] gap-2 rounded-[8px] border border-slate-200 bg-slate-50 p-2 text-[11px] leading-4"><span className="font-black text-slate-900"><span className={`mr-2 inline-block size-2 rounded-full ${color}`} />{range}</span><span><strong className="text-slate-700">{label}</strong><br /><span className="text-slate-400">{note}</span></span></div>)}</div>
-      <p className="mt-4 text-xs font-black uppercase tracking-[.12em] text-emerald-700">Dijital Olgunluk Skoru</p>
-      <div className="mt-3 grid gap-2">{maturityRows.map(([range, label, color]) => <div key={range} className="flex items-center justify-between gap-3 rounded-[8px] border border-slate-200 bg-slate-50 p-2 text-[11px]"><span className="font-black text-slate-900"><span className={`mr-2 inline-block size-2 rounded-full ${color}`} />{range}</span><span className="text-right text-slate-600">{label}</span></div>)}</div>
-    </section>
-    <section className="rounded-[8px] border border-slate-200 bg-slate-50 p-4">
-      <p className="text-sm font-black text-slate-900">Puan Nasıl Hesaplanıyor?</p>
-      <p className="mt-3 text-xs font-black text-cyan-700">Müşteri Sıcaklık Puanı artar:</p>
-      <ul className="mt-2 grid gap-1 text-xs leading-5 text-slate-600"><li>• Telefon bilgisi varsa</li><li>• İşletme aktif görünüyorsa</li><li>• Dijital eksikler varsa</li><li>• Reklam potansiyeli yüksekse</li><li>• İletişim kurulabilecek veriler mevcutsa</li></ul>
-      <p className="mt-3 text-xs font-black text-emerald-700">Dijital Olgunluk Skoru artar:</p>
-      <ul className="mt-2 grid gap-1 text-xs leading-5 text-slate-600"><li>• Website varsa</li><li>• Google profili güçlü ise</li><li>• Yorum sayısı yüksekse</li><li>• İletişim bilgileri tam ise</li><li>• Dijital görünürlüğü yüksek ise</li></ul>
-      <p className="mt-3 rounded-[8px] border border-amber-200/20 bg-amber-200/10 p-3 text-[11px] leading-5 text-amber-700">Bu puanlar karar desteği amacıyla üretilir ve kesin ticari sonuç garantisi vermez.</p>
-    </section>
-  </div>;
+  // Row order is preserved from the original hardcoded palette (top row =
+  // strongest signal); only the color representation now flows through the
+  // shared 5-tier severity tone system used across the Discovery secondary
+  // views (see SEVERITY_TOKENS above opportunityLevel).
+  const heatRows: Array<[string, string, string, string]> = [
+    ["90-100", "Çok Sıcak Fırsat 🔥", "Hemen iletişime geçin.", "danger"],
+    ["80-89", "Sıcak Fırsat", "Öncelikli takip önerilir.", "warning"],
+    ["60-79", "Potansiyel Fırsat", "Teklif ve analiz gönderilebilir.", "premium"],
+    ["40-59", "Orta Potansiyel", "Takip listesinde tutulabilir.", "info"],
+    ["0-39", "Düşük Öncelik", "Şimdilik bekletilebilir.", "neutral"]
+  ];
+  const maturityRows: Array<[string, string, string]> = [
+    ["80-100", "Dijital altyapı güçlü", "danger"],
+    ["60-79", "İyi seviyede", "warning"],
+    ["40-59", "Geliştirilebilir", "premium"],
+    ["20-39", "Zayıf", "info"],
+    ["0-19", "Çok zayıf", "neutral"]
+  ];
+  return (
+    <div className="grid gap-3">
+      <section className="hk-card-info rounded-[8px] border p-4">
+        <p className="text-sm font-black" style={{ color: "var(--admin-text-primary)" }}>Puan Rehberi</p>
+        <p className="mt-3 text-xs font-black uppercase tracking-[.12em]" style={{ color: "var(--hk-cyan-text)" }}>Müşteri Sıcaklık Puanı</p>
+        <div className="mt-3 grid gap-2">
+          {heatRows.map(([range, label, note, tone]) => (
+            <div key={range} className="grid grid-cols-[68px_1fr] gap-2 rounded-[8px] border p-2 text-[11px] leading-4" style={{ borderColor: "var(--admin-border)", background: "var(--admin-card)" }}>
+              <span className="font-black" style={{ color: "var(--admin-text-primary)" }}>
+                <span className="mr-2 inline-block size-2 rounded-full" style={severityDotStyle(tone)} />
+                {range}
+              </span>
+              <span>
+                <strong style={{ color: "var(--admin-text-secondary)" }}>{label}</strong>
+                <br />
+                <span style={{ color: "var(--admin-text-muted)" }}>{note}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+        <p className="mt-4 text-xs font-black uppercase tracking-[.12em]" style={{ color: "var(--hk-success-text)" }}>Dijital Olgunluk Skoru</p>
+        <div className="mt-3 grid gap-2">
+          {maturityRows.map(([range, label, tone]) => (
+            <div key={range} className="flex items-center justify-between gap-3 rounded-[8px] border p-2 text-[11px]" style={{ borderColor: "var(--admin-border)", background: "var(--admin-card)" }}>
+              <span className="font-black" style={{ color: "var(--admin-text-primary)" }}>
+                <span className="mr-2 inline-block size-2 rounded-full" style={severityDotStyle(tone)} />
+                {range}
+              </span>
+              <span className="text-right" style={{ color: "var(--admin-text-secondary)" }}>{label}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+      <section className="rounded-[8px] border p-4" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-soft)" }}>
+        <p className="text-sm font-black" style={{ color: "var(--admin-text-primary)" }}>Puan Nasıl Hesaplanıyor?</p>
+        <p className="mt-3 text-xs font-black" style={{ color: "var(--hk-cyan-text)" }}>Müşteri Sıcaklık Puanı artar:</p>
+        <ul className="mt-2 grid gap-1 text-xs leading-5" style={{ color: "var(--admin-text-secondary)" }}>
+          <li>• Telefon bilgisi varsa</li>
+          <li>• İşletme aktif görünüyorsa</li>
+          <li>• Dijital eksikler varsa</li>
+          <li>• Reklam potansiyeli yüksekse</li>
+          <li>• İletişim kurulabilecek veriler mevcutsa</li>
+        </ul>
+        <p className="mt-3 text-xs font-black" style={{ color: "var(--hk-success-text)" }}>Dijital Olgunluk Skoru artar:</p>
+        <ul className="mt-2 grid gap-1 text-xs leading-5" style={{ color: "var(--admin-text-secondary)" }}>
+          <li>• Website varsa</li>
+          <li>• Google profili güçlü ise</li>
+          <li>• Yorum sayısı yüksekse</li>
+          <li>• İletişim bilgileri tam ise</li>
+          <li>• Dijital görünürlüğü yüksek ise</li>
+        </ul>
+        <p className="mt-3 rounded-[8px] border p-3 text-[11px] leading-5" style={{ borderColor: "var(--hk-warning-border)", background: "var(--hk-warning-bg)", color: "var(--hk-warning-text)" }}>
+          Bu puanlar karar desteği amacıyla üretilir ve kesin ticari sonuç garantisi vermez.
+        </p>
+      </section>
+    </div>
+  );
 }
 
 function districtOf(item: any) {
@@ -11056,7 +11135,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
     const selectedRegion = selectedRegionName ? districts.find((region: any) => region.name === selectedRegionName) || null : null;
     const regionColumns: AdminDataGridColumn<any>[] = [
       { key: "name", header: "Bölge", render: (region: any) => <strong>{region.name}</strong> },
-      { key: "opportunity", header: "Fırsat Seviyesi", render: (region: any) => <AdminStatusBadge tone={region.opportunity === "Yüksek" ? "danger" : region.opportunity === "Orta" ? "warning" : "neutral"}>{region.opportunity}</AdminStatusBadge> },
+      { key: "opportunity", header: "Fırsat Seviyesi", render: (region: any) => <AdminStatusBadge tone={region.opportunity?.tone || "neutral"}>{region.opportunity?.label || "-"}</AdminStatusBadge> },
       { key: "hot", header: "Sıcak Lead", align: "right", render: (region: any) => region.hot },
       { key: "count", header: "İşletme Sayısı", align: "right", render: (region: any) => region.items.length },
       { key: "rating", header: "Ort. Google Puanı", align: "right", render: (region: any) => region.rating || "-" },
@@ -11081,7 +11160,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
         rightPanel={
           <AdminDetailInspector
             title={selectedRegion ? selectedRegion.name : undefined}
-            subtitle={selectedRegion ? `${selectedRegion.items.length} işletme · ${selectedRegion.opportunity} fırsat` : undefined}
+            subtitle={selectedRegion ? `${selectedRegion.items.length} işletme · ${selectedRegion.opportunity?.label || "-"} fırsat` : undefined}
             emptyTitle="Bir bölge seçin"
             emptyDescription="Listeden bir bölgeye tıklayarak o bölgedeki işletmeleri görüntüleyin."
             fields={selectedRegion ? [
@@ -11095,7 +11174,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
             {selectedRegion && (
               <div className="grid gap-1.5">
                 {selectedRegion.items.slice(0, 8).map((item: any) => (
-                  <button key={item.id || item.google_place_id || item.name} type="button" onClick={() => setSelectedPlaceId(item.id || item.google_place_id)} className="rounded-[8px] border border-slate-200 bg-white p-2 text-left text-xs">
+                  <button key={item.id || item.google_place_id || item.name} type="button" onClick={() => setSelectedPlaceId(item.id || item.google_place_id)} className="rounded-[8px] border p-2 text-left text-xs" style={{ borderColor: "var(--admin-border)", background: "var(--admin-card)" }}>
                     <strong className="block truncate">{item.company || item.name}</strong>
                     <span style={{ color: "var(--admin-text-muted)" }}>{item.business_type || item.category || "-"}</span>
                   </button>
@@ -11421,7 +11500,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
         {message && <p className="mb-4 rounded-[8px] p-3 text-xs leading-5" style={{ border: "1px solid var(--hk-cyan-solid, var(--admin-border-strong))", background: "var(--hk-cyan-soft, var(--admin-surface-soft))", color: "var(--admin-text-primary)" }}>{message}</p>}
         {leadView === "Kart Görünümü" && <div className="grid gap-3 md:grid-cols-2">{loading === "search" ? [1, 2, 3, 4].map((item) => <div key={item} className="h-64 animate-pulse rounded-[10px]" style={{ background: "var(--admin-surface-muted, var(--admin-surface-soft))" }} />) : visible.map(renderBusiness)}</div>}
         {leadView === "Liste Görünümü" && <div className="grid gap-2">{visible.map((item: any) => <button key={item.placeId || item.google_place_id || item.id} onClick={() => setSelectedPlaceId(item.placeId || item.google_place_id || item.id)} className="grid gap-2 rounded-[10px] p-3 text-left text-sm md:grid-cols-[1fr_100px_100px_120px]" style={{ border: "1px solid var(--admin-border)", background: "var(--admin-surface-muted, var(--admin-surface-soft))", color: "var(--admin-text-primary)" }}><strong>{item.name || item.company}</strong><span>{item.googleRating || item.google_rating || "-"} puan</span><span>{item.reviewCount || item.google_review_count || 0} yorum</span><span style={{ color: "var(--hk-cyan-solid, var(--admin-text-primary))" }}>{item.opportunityScore || item.leadHeatScore || item.lead_heat_score || 0}/100</span></button>)}</div>}
-        {leadView === "Harita Görünümü" && <div><p className="mb-3 rounded-[10px] p-3 text-xs leading-5" style={{ border: "1px solid var(--admin-border-strong)", background: "var(--admin-surface-muted, var(--admin-surface-soft))", color: "var(--admin-text-secondary)" }}>Harita görünümü, koordinatı bulunan gerçek sonuçları aşağıdaki işaretleyici listesinde gösterir. Konumu olmayan kayıtlar kart görünümünde incelenebilir.</p><MapIntelligenceCanvas businesses={visible} districts={districts} sectors={sectors} selectedPlaceId={selectedPlaceId} setSelectedPlaceId={setSelectedPlaceId} setSearch={(next) => setSearch({ ...search, ...next, businessType: next.businessType || next.sector || search.businessType })} search={{ ...search, sector: search.businessType }} /></div>}
+        {leadView === "Harita Görünümü" && <div><p className="mb-3 rounded-[10px] p-3 text-xs leading-5" style={{ border: "1px solid var(--admin-border-strong)", background: "var(--admin-surface-muted, var(--admin-surface-soft))", color: "var(--admin-text-secondary)" }}>Harita görünümü, koordinatı bulunan gerçek sonuçları aşağıdaki işaretleyici listesinde gösterir. Konumu olmayan kayıtlar kart görünümünde incelenebilir.</p><MapIntelligenceCanvas businesses={visible} districts={districts} sectors={sectors} selectedPlaceId={selectedPlaceId} setSelectedPlaceId={setSelectedPlaceId} setSearch={(next) => setSearch({ ...search, ...next, businessType: next.businessType || next.sector || search.businessType })} search={{ ...search, sector: search.businessType }} loading={loading === "search"} /></div>}
         {leadView === "Fırsat Haritası" && <OpportunityMap content={content} setContent={setContent} save={save} notify={notify} search={{ ...search, sector: search.businessType }} setSearch={(next) => setSearch({ ...search, ...next, businessType: next.businessType || next.sector || search.businessType })} setTab={setMapTab} setActive={setActive} saved={saved} />}
         {!loading && !visible.length && <AdminEmptyState title={results.length ? "Bu filtrelerle işletme bulunamadı" : "Henüz arama yapılmadı"} description={results.length ? "Yıldız puanı veya yorum sayısı filtresini genişletmeyi deneyin." : "Sol panelden il, ilçe, mahalle ve sektör seçerek \"Google Maps'ten Bul\" düğmesine basın."} />}
       </div>
@@ -11771,6 +11850,155 @@ function OutreachAssistantPanel({ record, openWhatsapp, prepareInstagramDm }: an
   </div>;
 }
 
+// Single district/sector opportunity tile used by the Fırsat Haritası grid.
+// `topLevel` is true while browsing districts (no district drilled into yet);
+// it switches the sub-label and toggles the registered-business count, same
+// as the original inline logic.
+function OpportunityCard({ item, active, topLevel, onSelect }: any) {
+  const level = opportunityLevel(item.score);
+  const baseShadow = "0 18px 54px rgba(0,0,0,.16)";
+  return (
+    <button
+      onClick={onSelect}
+      className="min-h-56 rounded-[8px] border p-5 text-left transition hover:-translate-y-1"
+      style={{ ...severityCardStyle(level.tone), boxShadow: active ? `0 0 0 2px var(--hk-cyan-solid), ${baseShadow}` : baseShadow }}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <h4 className="text-lg font-black" style={{ color: "var(--admin-text-primary)" }}>{item.name}</h4>
+        <span className="text-3xl font-black" style={{ color: "var(--admin-text-primary)" }}>
+          {item.score}<small className="text-sm">/100</small>
+        </span>
+      </div>
+      <p className="mt-3 text-xs font-black uppercase">{level.label}</p>
+      <div className="mt-4 h-2 overflow-hidden rounded-full" style={{ background: "var(--admin-surface-soft)" }}>
+        <div className="h-full rounded-full" style={{ width: `${item.score}%`, background: "currentColor" }} />
+      </div>
+      <div className="mt-5 grid gap-1 text-xs leading-5">
+        <span>Meta rekabet yoğunluğu: <strong>{item.meta}</strong></span>
+        <span>Google potansiyeli: <strong>{item.google}</strong></span>
+        <span>{topLevel ? "Öne çıkan kategori" : "Başlangıç alt sektörü"}: <strong>{item.subSector || item.category}</strong></span>
+        {topLevel && <span>Kayıtlı işletme: <strong>{item.count}</strong></span>}
+      </div>
+    </button>
+  );
+}
+
+// One tile in the bottom "how to read the score" legend strip on Fırsat
+// Haritası — purely presentational, driven by the same opportunityLevel tones.
+function OpportunityLegendTile({ score, label, text, action }: any) {
+  const level = opportunityLevel(score);
+  return (
+    <div className="rounded-[8px] border p-3" style={severityCardStyle(level.tone)}>
+      <p className="text-xs font-black">{label}</p>
+      <p className="mt-2 text-[11px] leading-5">{text}</p>
+      <p className="mt-2 text-[10px] leading-4 opacity-80">{action}</p>
+    </div>
+  );
+}
+
+// The "Ajans Satış Operasyon Merkezi" side panel on Fırsat Haritası — reads
+// the selected district/sector's derived opportunity data and exposes the
+// same sales actions (transfer, AI analysis, proposal draft, task, pipeline
+// update) as plain callback props so OpportunityMap keeps owning all state
+// and business logic.
+function OpportunitySalesPanel({
+  selected,
+  dataSource,
+  pipelineStatus,
+  priorityLevel,
+  closeProbability,
+  estimatedMonthlyRevenue,
+  estimatedAdBudget,
+  nextAction,
+  existingOpportunity,
+  selectedCity,
+  selectedSector,
+  selectedSubSector,
+  transfer,
+  openAiAnalysis,
+  openProposalDraft,
+  createTask,
+  updatePipeline,
+  planOpen,
+  setPlanOpen,
+  events
+}: any) {
+  return (
+    <aside className="h-fit rounded-[8px] border p-5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-card)", boxShadow: "0 22px 70px rgba(0,0,0,.18)" }}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[.16em]" style={{ color: "var(--hk-cyan-text)" }}>Ajans Satış Operasyon Merkezi</p>
+          <h3 className="mt-3 text-2xl font-black" style={{ color: "var(--admin-text-primary)" }}>{selected?.name}</h3>
+        </div>
+        <AdminStatusBadge tone={dataSource === "Gerçek veri" ? "success" : "warning"}>{dataSource}</AdminStatusBadge>
+      </div>
+      <div className="mt-4 grid gap-3 rounded-[12px] border p-4" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-soft)" }}>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-xs font-black" style={{ color: "var(--admin-text-muted)" }}>Öncelik skoru</span>
+          <strong className="text-3xl" style={{ color: "var(--hk-gold-text)" }}>
+            {selected?.score}<small className="text-sm" style={{ color: "var(--admin-text-muted)" }}>/100</small>
+          </strong>
+        </div>
+        <div className="grid gap-2 text-xs leading-5" style={{ color: "var(--admin-text-secondary)" }}>
+          <span>Pipeline: <strong>{pipelineStatus}</strong></span>
+          <span>Öncelik: <strong>{priorityLevel}</strong></span>
+          <span>Kapanış olasılığı: <strong>%{closeProbability}</strong></span>
+          <span>Tahmini aylık hizmet geliri: <strong>{estimatedMonthlyRevenue.toLocaleString("tr-TR")} TL</strong></span>
+          <span>Ortalama reklam bütçesi: <strong>{estimatedAdBudget.toLocaleString("tr-TR")} TL</strong></span>
+          <span>Sonraki önerilen aksiyon: <strong>{nextAction}</strong></span>
+        </div>
+        <p className="rounded-[8px] p-3 text-xs leading-5" style={{ border: "1px solid var(--hk-cyan-solid)", background: "var(--admin-card)", color: "var(--admin-text-secondary)" }}>
+          {existingOpportunity?.ai_reason || `Bu fırsat ${priorityLevel.toLocaleLowerCase("tr")} öncelikli çünkü ${selectedCity} bölgesinde ${selectedSector || selectedSubSector} talebi, reklam bütçesi potansiyeli ve ajans hizmet geliri birlikte güçlü sinyal veriyor.`}
+        </p>
+      </div>
+      <div className="mt-4 grid gap-2">
+        <AdminButton variant="primary" onClick={() => transfer("Araştırılıyor", "Fırsat işlemeye başlandı")}>🚀 Fırsatı İşlemeye Başla</AdminButton>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <AdminButton variant="info" compact onClick={() => transfer("Araştırılıyor", "İşletme keşfi başlatıldı")}>🔍 İşletme Keşfi</AdminButton>
+          <AdminButton variant="ai" compact onClick={openAiAnalysis}>🤖 Yapay Zekâ Analizi</AdminButton>
+          <AdminButton variant="warning" compact onClick={openProposalDraft}>📄 Teklif Hazırla</AdminButton>
+          <AdminButton variant="success" compact onClick={createTask}>✅ Görev Oluştur</AdminButton>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-2">
+        <SelectField
+          label="Pipeline durumu"
+          value={pipelineStatus}
+          onChange={updatePipeline}
+          options={["Keşfedildi", "Araştırılıyor", "Yapay Zekâ Analizi Hazır", "Teklif Hazırlandı", "İlk Görüşme", "Takipte", "Kazanıldı", "Kaybedildi"]}
+        />
+        <AdminButton variant="outline" onClick={() => setPlanOpen((current: boolean) => !current)}>Yapay Zekâ Satış Koçu Planı</AdminButton>
+      </div>
+      {planOpen && (
+        <div className="hk-card-ai mt-4 rounded-[12px] border p-4 text-xs leading-6" style={{ color: "var(--admin-text-secondary)" }}>
+          <p className="font-black" style={{ color: "var(--hk-purple-text)" }}>İlk görüşme planı</p>
+          <p>İlk temas: “Merhaba, {selectedCity} bölgesinde {selectedSector || selectedSubSector} alanında dijital görünürlüğünüzü inceledim. Size 5 dakikalık ücretsiz bir fırsat özeti paylaşabilir miyim?”</p>
+          <p>İlk sorular: Reklam bütçeniz var mı? Yeni müşteri hedefiniz nedir? Şu an en çok hangi kanaldan talep alıyorsunuz?</p>
+          <p>İtiraz cevabı: “Bütçeyi büyütmeden önce küçük bir test kampanyasıyla ölçülebilir sonuç görmeyi öneriyoruz.”</p>
+          <p>Kapanış: “İsterseniz ilk adım olarak iki kampanya ve bir landing page (açılış sayfası) önerisini yazılı paylaşayım.”</p>
+        </div>
+      )}
+      <div className="mt-4 rounded-[12px] border p-4" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-soft)" }}>
+        <p className="text-xs font-black" style={{ color: "var(--admin-text-secondary)" }}>Operasyon geçmişi</p>
+        <div className="mt-3 grid gap-2">
+          {events.slice(0, 4).map((event: any) => (
+            <div key={event.id} className="rounded-[8px] p-3 text-xs leading-5" style={{ background: "var(--admin-card)" }}>
+              <strong>{event.title}</strong>
+              <span className="ml-2" style={{ color: "var(--admin-text-muted)" }}>{formatDateTime(event.created_at)}</span>
+              <p style={{ color: "var(--admin-text-muted)" }}>{event.description}</p>
+            </div>
+          ))}
+          {!events.length && (
+            <p className="rounded-[8px] border border-dashed p-3 text-xs" style={{ borderColor: "var(--admin-border)", color: "var(--admin-text-muted)" }}>
+              Henüz operasyon kaydı yok. Ana CTA ile fırsatı işlemeye başlayın.
+            </p>
+          )}
+        </div>
+      </div>
+    </aside>
+  );
+}
+
 function OpportunityMap({ content, setContent, save, notify, search, setSearch, setTab, setActive, saved }: any) {
   const [district, setDistrict] = useState(search.district || "");
   const [sector, setSector] = useState(search.sector || "");
@@ -11919,11 +12147,176 @@ function OpportunityMap({ content, setContent, save, notify, search, setSearch, 
       save?.(withSignal);
     }
   }
-  return <div><div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-slate-200 bg-slate-50 p-4"><div><p className="text-xs font-black uppercase tracking-[.16em] text-orange-700">{district ? `${district} · sektör görünümü` : `${search.city || "Manisa"} · ilçe görünümü`}</p><h3 className="mt-2 text-xl font-black text-slate-900">{district ? "Sektör fırsatlarını karşılaştırın" : "Öncelikli bölgeleri keşfedin"}</h3></div>{district && <button onClick={() => { setDistrict(""); setSector(""); setSearch({ ...search, district: "", sector: "" }); }} className="rounded-full border border-slate-200 px-4 py-2 text-xs font-black">İlçe görünümüne dön</button>}</div><div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px]"><section className="grid gap-3 sm:grid-cols-2">{cards.map((item) => { const level = opportunityLevel(item.score); const active = item.name === (district ? sector : district); return <button key={item.name} onClick={() => select(item)} className={`min-h-56 rounded-[8px] border p-5 text-left shadow-[0_18px_54px_rgba(0,0,0,.16)] transition hover:-translate-y-1 ${level.className} ${active ? "ring-2 ring-cyan-200/70" : ""}`}><div className="flex items-start justify-between gap-3"><h4 className="text-lg font-black text-slate-900">{item.name}</h4><span className="text-3xl font-black text-slate-900">{item.score}<small className="text-sm">/100</small></span></div><p className="mt-3 text-xs font-black uppercase">{level.label}</p><div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-50"><div className="h-full rounded-full bg-current" style={{ width: `${item.score}%` }} /></div><div className="mt-5 grid gap-1 text-xs leading-5"><span>Meta rekabet yoğunluğu: <strong>{item.meta}</strong></span><span>Google potansiyeli: <strong>{item.google}</strong></span><span>{district ? "Başlangıç alt sektörü" : "Öne çıkan kategori"}: <strong>{item.subSector || item.category}</strong></span>{!district && <span>Kayıtlı işletme: <strong>{item.count}</strong></span>}</div></button>; })}</section><aside className="h-fit rounded-[8px] border border-cyan-200/20 bg-white p-5 shadow-[0_22px_70px_rgba(0,0,0,.18)]"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Ajans Satış Operasyon Merkezi</p><h3 className="mt-3 text-2xl font-black text-slate-900">{selected?.name}</h3></div><span className={`rounded-full px-3 py-1 text-[10px] font-black ${dataSource === "Gerçek veri" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>{dataSource}</span></div><div className="mt-4 grid gap-3 rounded-[12px] border border-slate-200 bg-slate-50 p-4"><div className="flex items-center justify-between gap-3"><span className="text-xs font-black text-slate-500">Öncelik skoru</span><strong className="text-3xl text-orange-700">{selected?.score}<small className="text-sm text-slate-400">/100</small></strong></div><div className="grid gap-2 text-xs leading-5 text-slate-600"><span>Pipeline: <strong>{pipelineStatus}</strong></span><span>Öncelik: <strong>{priorityLevel}</strong></span><span>Kapanış olasılığı: <strong>%{closeProbability}</strong></span><span>Tahmini aylık hizmet geliri: <strong>{estimatedMonthlyRevenue.toLocaleString("tr-TR")} TL</strong></span><span>Ortalama reklam bütçesi: <strong>{estimatedAdBudget.toLocaleString("tr-TR")} TL</strong></span><span>Sonraki önerilen aksiyon: <strong>{nextAction}</strong></span></div><p className="rounded-[8px] border border-cyan-200 bg-white p-3 text-xs leading-5 text-slate-600">{existingOpportunity?.ai_reason || `Bu fırsat ${priorityLevel.toLocaleLowerCase("tr")} öncelikli çünkü ${selectedCity} bölgesinde ${selectedSector || selectedSubSector} talebi, reklam bütçesi potansiyeli ve ajans hizmet geliri birlikte güçlü sinyal veriyor.`}</p></div><div className="mt-4 grid gap-2"><button onClick={() => transfer("Araştırılıyor", "Fırsat işlemeye başlandı")} className="rounded-[10px] bg-cyan-300 px-4 py-4 text-sm font-black text-slate-950">🚀 Fırsatı İşlemeye Başla</button><div className="grid gap-2 sm:grid-cols-2"><button onClick={() => transfer("Araştırılıyor", "İşletme keşfi başlatıldı")} className="rounded-[10px] border border-cyan-200 px-3 py-3 text-xs font-black text-cyan-700">🔍 İşletme Keşfi</button><button onClick={openAiAnalysis} className="rounded-[10px] border border-purple-200 px-3 py-3 text-xs font-black text-purple-700">🤖 Yapay Zekâ Analizi</button><button onClick={openProposalDraft} className="rounded-[10px] border border-amber-200 px-3 py-3 text-xs font-black text-amber-700">📄 Teklif Hazırla</button><button onClick={createTask} className="rounded-[10px] border border-emerald-200 px-3 py-3 text-xs font-black text-emerald-700">✅ Görev Oluştur</button></div></div><div className="mt-4 grid gap-2"><SelectField label="Pipeline durumu" value={pipelineStatus} onChange={updatePipeline} options={["Keşfedildi", "Araştırılıyor", "Yapay Zekâ Analizi Hazır", "Teklif Hazırlandı", "İlk Görüşme", "Takipte", "Kazanıldı", "Kaybedildi"]} /><button onClick={() => setPlanOpen((current) => !current)} className="rounded-[10px] border border-slate-200 px-4 py-3 text-xs font-black">Yapay Zekâ Satış Koçu Planı</button></div>{planOpen && <div className="mt-4 rounded-[12px] border border-purple-200 bg-purple-50 p-4 text-xs leading-6 text-slate-700"><p className="font-black text-purple-700">İlk görüşme planı</p><p>İlk temas: “Merhaba, {selectedCity} bölgesinde {selectedSector || selectedSubSector} alanında dijital görünürlüğünüzü inceledim. Size 5 dakikalık ücretsiz bir fırsat özeti paylaşabilir miyim?”</p><p>İlk sorular: Reklam bütçeniz var mı? Yeni müşteri hedefiniz nedir? Şu an en çok hangi kanaldan talep alıyorsunuz?</p><p>İtiraz cevabı: “Bütçeyi büyütmeden önce küçük bir test kampanyasıyla ölçülebilir sonuç görmeyi öneriyoruz.”</p><p>Kapanış: “İsterseniz ilk adım olarak iki kampanya ve bir landing page (açılış sayfası) önerisini yazılı paylaşayım.”</p></div>}<div className="mt-4 rounded-[12px] border border-slate-200 bg-slate-50 p-4"><p className="text-xs font-black text-slate-700">Operasyon geçmişi</p><div className="mt-3 grid gap-2">{events.slice(0, 4).map((event: any) => <div key={event.id} className="rounded-[8px] bg-white p-3 text-xs leading-5"><strong>{event.title}</strong><span className="ml-2 text-slate-400">{formatDateTime(event.created_at)}</span><p className="text-slate-500">{event.description}</p></div>)}{!events.length && <p className="rounded-[8px] border border-dashed border-slate-200 p-3 text-xs text-slate-400">Henüz operasyon kaydı yok. Ana CTA ile fırsatı işlemeye başlayın.</p>}</div></div></aside></div><div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">{opportunityLegend.map(([score, label, text, action]) => { const level = opportunityLevel(score); return <div key={label} className={`rounded-[8px] border p-3 ${level.className}`}><p className="text-xs font-black">{label}</p><p className="mt-2 text-[11px] leading-5">{text}</p><p className="mt-2 text-[10px] leading-4 opacity-80">{action}</p></div>; })}</div></div>;
+  return (
+    <div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[8px] border p-4" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-soft)" }}>
+        <div>
+          <p className="text-xs font-black uppercase tracking-[.16em]" style={{ color: "var(--hk-gold-text)" }}>
+            {district ? `${district} · sektör görünümü` : `${search.city || "Manisa"} · ilçe görünümü`}
+          </p>
+          <h3 className="mt-2 text-xl font-black" style={{ color: "var(--admin-text-primary)" }}>
+            {district ? "Sektör fırsatlarını karşılaştırın" : "Öncelikli bölgeleri keşfedin"}
+          </h3>
+        </div>
+        {district && (
+          <AdminButton variant="outline" compact onClick={() => { setDistrict(""); setSector(""); setSearch({ ...search, district: "", sector: "" }); }}>
+            İlçe görünümüne dön
+          </AdminButton>
+        )}
+      </div>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
+        <section className="grid gap-3 sm:grid-cols-2">
+          {cards.map((item) => (
+            <OpportunityCard
+              key={item.name}
+              item={item}
+              active={item.name === (district ? sector : district)}
+              topLevel={!district}
+              onSelect={() => select(item)}
+            />
+          ))}
+        </section>
+        <OpportunitySalesPanel
+          selected={selected}
+          dataSource={dataSource}
+          pipelineStatus={pipelineStatus}
+          priorityLevel={priorityLevel}
+          closeProbability={closeProbability}
+          estimatedMonthlyRevenue={estimatedMonthlyRevenue}
+          estimatedAdBudget={estimatedAdBudget}
+          nextAction={nextAction}
+          existingOpportunity={existingOpportunity}
+          selectedCity={selectedCity}
+          selectedSector={selectedSector}
+          selectedSubSector={selectedSubSector}
+          transfer={transfer}
+          openAiAnalysis={openAiAnalysis}
+          openProposalDraft={openProposalDraft}
+          createTask={createTask}
+          updatePipeline={updatePipeline}
+          planOpen={planOpen}
+          setPlanOpen={setPlanOpen}
+          events={events}
+        />
+      </div>
+      <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+        {opportunityLegend.map(([score, label, text, action]) => (
+          <OpportunityLegendTile key={label} score={score} label={label} text={text} action={action} />
+        ))}
+      </div>
+    </div>
+  );
 }
 
-function MapIntelligenceCanvas({ businesses, districts, sectors, selectedPlaceId, setSelectedPlaceId, setSearch, search }: any) {
-  return <div className="overflow-hidden rounded-[8px] border border-slate-200 bg-white"><div className="border-b border-slate-200 p-4"><div className="flex flex-wrap justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Map Intelligence Canvas</p><h3 className="mt-1 text-lg font-black">Bölgesel fırsat haritası</h3></div><div className="flex flex-wrap gap-1.5">{opportunityLegend.map(([score, label]) => <span key={label} className={`rounded-full border px-2 py-1 text-[9px] font-black ${opportunityLevel(score).className}`}>{label}</span>)}</div></div><div className="mt-3 flex flex-wrap gap-1.5">{sectors.map((item) => <button key={item.sector} onClick={() => setSearch({ ...search, sector: item.sector })} className={`rounded-full border px-2.5 py-1.5 text-[10px] font-bold ${search.sector === item.sector ? "border-cyan-200/60 bg-cyan-200/15 text-cyan-700" : "border-slate-200 text-slate-400"}`}>{item.sector} · {item.count} · {item.hot} sıcak · {item.opportunity.label}</button>)}</div></div><div className="relative min-h-[420px] overflow-hidden p-4"><div className="premium-grid absolute inset-0 opacity-70" /><div className="relative grid gap-3 sm:grid-cols-2">{districts.map((district) => <button key={district.name} onClick={() => setSearch({ ...search, district: district.name })} className={`relative min-h-36 overflow-hidden rounded-[8px] border p-4 text-left transition hover:-translate-y-1 ${district.opportunity.className}`}><span className="text-sm font-black text-slate-900">{district.name}</span><span className="mt-2 block text-xs">{district.items.length} işletme · {district.hot} sıcak lead</span><span className="mt-1 block text-xs">Ort. puan {district.rating} · Olgunluk {district.maturity}</span><span className="mt-3 block text-[10px] font-black uppercase">{district.opportunity.label}</span>{district.sectors.length > 0 && <span className="mt-2 block text-[10px] opacity-80">{district.sectors.join(" · ")}</span>}</button>)}{!districts.length && <div className="col-span-full grid min-h-72 place-items-center rounded-[8px] border border-dashed border-slate-200 bg-slate-50 p-8 text-center"><div><MapPinned className="mx-auto text-cyan-700" size={34} /><p className="mt-4 font-black">Harita katmanı veri bekliyor</p><p className="mt-2 max-w-md text-xs leading-5 text-slate-400">İşletme araması yaptığınızda ilçeler, sektörler ve fırsat yoğunlukları gerçek sonuçlardan otomatik oluşur.</p></div></div>}</div><div className="pointer-events-none absolute inset-0">{businesses.slice(0, 16).map((item, index) => { const placeId = item.placeId || item.google_place_id; const level = opportunityLevel(item.leadHeatScore ?? item.lead_heat_score); return <button key={placeId || index} onClick={() => setSelectedPlaceId(placeId)} className={`pointer-events-auto absolute grid size-5 place-items-center rounded-full border-2 border-white/70 shadow-lg transition hover:scale-150 ${level.pin} ${selectedPlaceId === placeId ? "scale-150 ring-4 ring-cyan-200/30" : ""}`} style={{ left: `${12 + index * 23 % 78}%`, top: `${18 + index * 31 % 68}%` }} title={item.name || item.company}><span className="size-1.5 rounded-full bg-white" /></button>; })}</div></div></div>;
+// District summary tile inside the Harita Görünümü canvas grid — tone comes
+// from customerDiscoveryLevel (computed once per district in MapsIntelligence).
+function MapDistrictTile({ district, onSelect }: any) {
+  return (
+    <button
+      onClick={onSelect}
+      className="relative min-h-36 overflow-hidden rounded-[8px] border p-4 text-left transition hover:-translate-y-1"
+      style={severityCardStyle(district.opportunity.tone)}
+    >
+      <span className="text-sm font-black" style={{ color: "var(--admin-text-primary)" }}>{district.name}</span>
+      <span className="mt-2 block text-xs">{district.items.length} işletme · {district.hot} sıcak lead</span>
+      <span className="mt-1 block text-xs">Ort. puan {district.rating} · Olgunluk {district.maturity}</span>
+      <span className="mt-3 block text-[10px] font-black uppercase">{district.opportunity.label}</span>
+      {district.sectors.length > 0 && <span className="mt-2 block text-[10px] opacity-80">{district.sectors.join(" · ")}</span>}
+    </button>
+  );
+}
+
+// A single business marker on the Harita Görünümü canvas. Position is a
+// deterministic pseudo-scatter from the business index (unchanged from the
+// original inline formula) since real lat/lng placement isn't wired up here.
+function MapBusinessPin({ item, index, active, onSelect }: any) {
+  const level = opportunityLevel(item.leadHeatScore ?? item.lead_heat_score);
+  return (
+    <button
+      onClick={onSelect}
+      className="pointer-events-auto absolute grid size-5 place-items-center rounded-full border-2 shadow-lg transition hover:scale-150"
+      style={{
+        left: `${12 + ((index * 23) % 78)}%`,
+        top: `${18 + ((index * 31) % 68)}%`,
+        borderColor: "var(--admin-card)",
+        outline: active ? "4px solid var(--hk-cyan-soft)" : "none",
+        transform: active ? "scale(1.5)" : undefined,
+        ...severityDotStyle(level.tone)
+      }}
+      title={item.name || item.company}
+    >
+      <span className="size-1.5 rounded-full" style={{ background: "var(--admin-card)" }} />
+    </button>
+  );
+}
+
+function MapIntelligenceCanvas({ businesses, districts, sectors, selectedPlaceId, setSelectedPlaceId, setSearch, search, loading }: any) {
+  return (
+    <div className="overflow-hidden rounded-[8px] border" style={{ borderColor: "var(--admin-border)", background: "var(--admin-card)" }}>
+      <div className="border-b p-4" style={{ borderColor: "var(--admin-border)" }}>
+        <div className="flex flex-wrap justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[.16em]" style={{ color: "var(--hk-cyan-text)" }}>Map Intelligence Canvas</p>
+            <h3 className="mt-1 text-lg font-black" style={{ color: "var(--admin-text-primary)" }}>Bölgesel fırsat haritası</h3>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {opportunityLegend.map(([score, label]) => (
+              <AdminStatusBadge key={label} tone={opportunityLevel(score).tone}>{label}</AdminStatusBadge>
+            ))}
+          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {sectors.map((item) => (
+            <button
+              key={item.sector}
+              onClick={() => setSearch({ ...search, sector: item.sector })}
+              className="rounded-full border px-2.5 py-1.5 text-[10px] font-bold"
+              style={search.sector === item.sector
+                ? { borderColor: "var(--hk-cyan-solid)", background: "var(--hk-cyan-soft)", color: "var(--hk-cyan-text)" }
+                : { borderColor: "var(--admin-border)", color: "var(--admin-text-muted)" }}
+            >
+              {item.sector} · {item.count} · {item.hot} sıcak · {item.opportunity.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="relative min-h-[420px] overflow-hidden p-4">
+        <div className="premium-grid absolute inset-0 opacity-70" />
+        <div className="relative grid gap-3 sm:grid-cols-2">
+          {loading && (
+            <div className="col-span-full">
+              <AdminLoadingState label="Harita verileri taranıyor..." />
+            </div>
+          )}
+          {!loading && districts.map((district) => (
+            <MapDistrictTile key={district.name} district={district} onSelect={() => setSearch({ ...search, district: district.name })} />
+          ))}
+          {!loading && !districts.length && (
+            <div className="col-span-full">
+              <AdminEmptyState
+                title="Harita katmanı veri bekliyor"
+                description="İşletme araması yaptığınızda ilçeler, sektörler ve fırsat yoğunlukları gerçek sonuçlardan otomatik oluşur."
+              />
+            </div>
+          )}
+        </div>
+        <div className="pointer-events-none absolute inset-0">
+          {!loading && businesses.slice(0, 16).map((item, index) => {
+            const placeId = item.placeId || item.google_place_id;
+            return (
+              <MapBusinessPin
+                key={placeId || index}
+                item={item}
+                index={index}
+                active={selectedPlaceId === placeId}
+                onSelect={() => setSelectedPlaceId(placeId)}
+              />
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function LeadOpportunityInsight({ results, search, setActive }: any) {
