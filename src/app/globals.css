@@ -3067,6 +3067,7 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 
 .hk-admin .admin-mega-menu {
   border-radius: var(--hk-radius-lg);
+  background: var(--hk-bg-surface);
   box-shadow: var(--hk-shadow-lg);
   border-top: 3px solid var(--nav-accent, var(--hk-cyan));
   animation: hk-mega-menu-reveal 160ms var(--ease-out, ease-out);
@@ -3077,8 +3078,16 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+/* Backdrop behind the centered mega-menu panel: click-to-close target, dims
+   the page beneath the panel without a modal-dialog level of opacity. */
+.hk-admin .admin-mega-menu-backdrop {
+  background: var(--admin-overlay);
+  animation: hk-overlay-fade-in 160ms ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .hk-admin .admin-mega-menu {
+  .hk-admin .admin-mega-menu,
+  .hk-admin .admin-mega-menu-backdrop {
     animation: none;
   }
 }
@@ -3086,6 +3095,10 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 .hk-admin .admin-mega-item {
   border-radius: var(--hk-radius-md);
   transition: transform .15s ease, border-color .15s ease, background .15s ease, box-shadow .15s ease;
+}
+
+.hk-admin .admin-mega-menu .admin-mega-item {
+  height: 100%;
 }
 
 .hk-admin .admin-mega-item-icon {

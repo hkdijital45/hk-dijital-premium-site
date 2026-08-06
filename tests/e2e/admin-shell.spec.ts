@@ -182,6 +182,57 @@ test.describe("admin shell: top mega-nav (desktop) and drawer (mobile)", () => {
     await expect(page.locator(".admin-mega-menu")).toHaveCount(0);
   });
 
+  test("Escape closes the mega-menu and returns focus to the trigger button", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await gotoAsQaAdmin(page, "/hk-admin");
+    await page.waitForLoadState("domcontentloaded");
+
+    const group = page.locator(".admin-mega-nav button[aria-haspopup='true']").first();
+    await group.click();
+    await expect(page.locator(".admin-mega-menu")).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".admin-mega-menu")).toHaveCount(0);
+    await expect(group).toBeFocused();
+  });
+
+  test("clicking the backdrop closes the centered mega-menu panel", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await gotoAsQaAdmin(page, "/hk-admin");
+    await page.waitForLoadState("domcontentloaded");
+
+    const group = page.locator(".admin-mega-nav button[aria-haspopup='true']").first();
+    await group.click();
+    await expect(page.locator(".admin-mega-menu")).toBeVisible();
+
+    // Click a far corner of the full-viewport backdrop, well outside the
+    // centered panel itself.
+    await page.locator(".admin-mega-menu-backdrop").click({ position: { x: 5, y: 5 } });
+    await expect(page.locator(".admin-mega-menu")).toHaveCount(0);
+  });
+
+  test("Tab cycles focus only within the open mega-menu panel", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await gotoAsQaAdmin(page, "/hk-admin");
+    await page.waitForLoadState("domcontentloaded");
+
+    const group = page.locator(".admin-mega-nav button[aria-haspopup='true']").nth(1);
+    await group.click();
+    const menu = page.locator(".admin-mega-menu").first();
+    await expect(menu).toBeVisible();
+
+    const focusableCount = await menu.locator("a[href], button:not([disabled])").count();
+    expect(focusableCount).toBeGreaterThan(0);
+
+    // Tab all the way around (and then some) — focus must never land
+    // outside the panel while it's open.
+    for (let i = 0; i < focusableCount + 3; i++) {
+      await page.keyboard.press("Tab");
+      const focusInsidePanel = await menu.evaluate((panel) => panel.contains(document.activeElement));
+      expect(focusInsidePanel).toBe(true);
+    }
+  });
+
   test("⌘K command palette still opens from the top header", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await gotoAsQaAdmin(page, "/hk-admin");

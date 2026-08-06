@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import Link from "next/link";
-import { LayoutDashboard, Menu, Moon, Sun } from "lucide-react";
+import { Menu, Moon, Sun } from "lucide-react";
+import { AdminHomeButton } from "./AdminHomeButton";
 
 export function AdminTopHeader({
   logo,
@@ -37,18 +37,7 @@ export function AdminTopHeader({
         >
           <Menu size={18} />
         </button>
-        {/* Non-negotiable: Dashboard must be reachable in exactly 1 click from
-            anywhere. Always visible at every breakpoint, independent of the
-            logo slot's own link behavior (which differs per shell). */}
-        <Link
-          href="/hk-admin"
-          aria-label="Panele git"
-          title="Panele git"
-          className="admin-icon-action flex size-10 shrink-0 items-center justify-center gap-2 rounded-[10px] lg:size-auto lg:px-3.5"
-        >
-          <LayoutDashboard size={17} />
-          <span className="hidden text-xs font-black lg:inline">Panel</span>
-        </Link>
+        <AdminHomeButton />
         <div className="flex min-w-0 flex-1 items-center gap-3 sm:min-w-[180px] 2xl:flex-none">
           {logo}
           {(title || breadcrumb) && (
