@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { Menu, Moon, PanelLeftClose, PanelLeftOpen, Sun } from "lucide-react";
+import Link from "next/link";
+import { LayoutDashboard, Menu, Moon, Sun } from "lucide-react";
 
 export function AdminTopHeader({
   logo,
@@ -8,9 +9,8 @@ export function AdminTopHeader({
   breadcrumb,
   theme,
   onToggleTheme,
-  sidebarCollapsed,
-  onToggleSidebar,
   onOpenMobileNav,
+  megaNav,
   children
 }: {
   logo: ReactNode;
@@ -19,10 +19,12 @@ export function AdminTopHeader({
   breadcrumb?: string;
   theme: "light" | "dark";
   onToggleTheme: () => void;
-  sidebarCollapsed: boolean;
-  onToggleSidebar: () => void;
   onOpenMobileNav: () => void;
-  children: ReactNode;
+  /** Desktop-only mega-nav row (AdminMegaNav) rendered as a second header
+   *  row. Below lg, AdminMobileNavigation's drawer (triggered by the
+   *  hamburger button above) is used instead. */
+  megaNav?: ReactNode;
+  children?: ReactNode;
 }) {
   return (
     <header className="admin-top-header sticky top-0 z-40 border-b">
@@ -35,14 +37,18 @@ export function AdminTopHeader({
         >
           <Menu size={18} />
         </button>
-        <button
-          type="button"
-          onClick={onToggleSidebar}
-          aria-label={sidebarCollapsed ? "Kenar menüsünü genişlet" : "Kenar menüsünü daralt"}
-          className="admin-icon-action hidden size-10 shrink-0 place-items-center rounded-[10px] lg:grid"
+        {/* Non-negotiable: Dashboard must be reachable in exactly 1 click from
+            anywhere. Always visible at every breakpoint, independent of the
+            logo slot's own link behavior (which differs per shell). */}
+        <Link
+          href="/hk-admin"
+          aria-label="Panele git"
+          title="Panele git"
+          className="admin-icon-action flex size-10 shrink-0 items-center justify-center gap-2 rounded-[10px] lg:size-auto lg:px-3.5"
         >
-          {sidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
-        </button>
+          <LayoutDashboard size={17} />
+          <span className="hidden text-xs font-black lg:inline">Panel</span>
+        </Link>
         <div className="flex min-w-0 flex-1 items-center gap-3 sm:min-w-[180px] 2xl:flex-none">
           {logo}
           {(title || breadcrumb) && (
@@ -65,6 +71,11 @@ export function AdminTopHeader({
           </button>
         </div>
       </div>
+      {megaNav && (
+        <div className="admin-top-header-nav-row hidden border-t px-3 py-2 sm:px-4 lg:block lg:px-6" style={{ borderColor: "var(--admin-border)" }}>
+          {megaNav}
+        </div>
+      )}
     </header>
   );
 }

@@ -4,7 +4,6 @@ export function AdminAppShell({
   theme,
   mobileOperationMode,
   header,
-  sidebar,
   mobileNav,
   overlays,
   children
@@ -12,7 +11,6 @@ export function AdminAppShell({
   theme: "light" | "dark";
   mobileOperationMode: boolean;
   header: ReactNode;
-  sidebar: ReactNode;
   mobileNav: ReactNode;
   overlays?: ReactNode;
   children: ReactNode;
@@ -29,8 +27,11 @@ export function AdminAppShell({
       <div className="admin-desktop-frame relative lg:h-full">
         {header}
         {mobileNav}
-        <div className="admin-desktop-body relative mx-auto grid w-full min-w-0 max-w-full gap-4 px-3 py-4 sm:px-4 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-stretch lg:px-6">
-          {sidebar}
+        {/* No persistent sidebar column by default — the top mega-nav (inside
+            `header`) is the primary desktop navigation surface, so content
+            is full-width here. Below lg, AdminMobileNavigation's drawer
+            (rendered via `mobileNav`, a fixed overlay) covers navigation. */}
+        <div className="admin-desktop-body relative mx-auto w-full min-w-0 max-w-full px-3 py-4 sm:px-4 lg:px-6">
           <div className="min-w-0 lg:h-full lg:overflow-y-auto">{children}</div>
         </div>
       </div>

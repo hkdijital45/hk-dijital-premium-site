@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import Link from "next/link";
 import { adminNavigationGroups, getAdminHref } from "@/lib/admin-navigation";
 import { canViewAccounting, type AccountingSessionLike } from "@/lib/accounting-permissions";
 import { AdminAppShell } from "./AdminAppShell";
-import { AdminSidebar } from "./AdminSidebar";
+import { AdminMegaNav } from "./AdminMegaNav";
 import { AdminMobileNavigation } from "./AdminMobileNavigation";
 import { AdminTopHeader } from "./AdminTopHeader";
 import { HKCommandCenter } from "@/components/admin/command/HKCommandCenter";
@@ -24,7 +23,6 @@ export function AdminStandaloneShell({
   children: ReactNode;
 }) {
   const [theme, setTheme] = useState<"light" | "dark">("light");
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
@@ -40,11 +38,32 @@ export function AdminStandaloneShell({
       if (storedTheme === "dark" || storedTheme === "light") setTheme(storedTheme);
       else if (window.matchMedia?.("(prefers-color-scheme: dark)").matches) setTheme("dark");
     } catch {}
-    try {
-      setSidebarCollapsed(localStorage.getItem("hk-admin-sidebar-collapsed") === "true");
-    } catch {}
     const activeGroup = visibleNavigationGroups.find((group) => group.items.some((item) => item.label === activeLabel));
     if (activeGroup) setOpenGroups({ [activeGroup.label]: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Mirrors AdminDashboard's outside-click/Escape-to-close behavior for the
+  // desktop mega-nav dropdown (mobile drawer closes itself via its own X /
+  // overlay). Every AdminMegaNav group panel is wrapped in
+  // `[data-admin-nav]`, so clicks inside an open panel don't self-close it.
+  useEffect(() => {
+    function closeMenus() {
+      setOpenGroups(Object.fromEntries(visibleNavigationGroups.map((group) => [group.label, false])));
+    }
+    function handlePointerDown(event: MouseEvent) {
+      if ((event.target as HTMLElement | null)?.closest("[data-admin-nav]")) return;
+      closeMenus();
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") closeMenus();
+    }
+    window.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -56,16 +75,12 @@ export function AdminStandaloneShell({
     });
   }
 
-  function toggleSidebarCollapsed() {
-    setSidebarCollapsed((current) => {
-      const next = !current;
-      try { localStorage.setItem("hk-admin-sidebar-collapsed", String(next)); } catch {}
-      return next;
-    });
-  }
-
+  // Only one group's mega-menu open at a time (matches AdminDashboard).
   function toggleGroup(label: string) {
-    setOpenGroups((current) => ({ ...current, [label]: !current[label] }));
+    setOpenGroups((current) => {
+      const nextOpen = !current[label];
+      return Object.fromEntries(visibleNavigationGroups.map((group) => [group.label, group.label === label ? nextOpen : false]));
+    });
   }
 
   const commandCenterQuickActions = [
@@ -95,21 +110,15 @@ export function AdminStandaloneShell({
           breadcrumb="HK Operating System"
           theme={theme}
           onToggleTheme={toggleTheme}
-          sidebarCollapsed={sidebarCollapsed}
-          onToggleSidebar={toggleSidebarCollapsed}
           onOpenMobileNav={() => setMobileNavOpen(true)}
-        >
-          <Link href="/hk-admin" className="hk-button hk-button-neutral hk-button-compact">Panele Dön</Link>
-        </AdminTopHeader>
-      }
-      sidebar={
-        <AdminSidebar
-          groups={visibleNavigationGroups}
-          active={activeLabel}
-          openGroups={openGroups}
-          onToggleGroup={toggleGroup}
-          collapsed={sidebarCollapsed}
-          onToggleCollapsed={toggleSidebarCollapsed}
+          megaNav={
+            <AdminMegaNav
+              groups={visibleNavigationGroups}
+              active={activeLabel}
+              openGroups={openGroups}
+              onToggleGroup={toggleGroup}
+            />
+          }
         />
       }
       mobileNav={

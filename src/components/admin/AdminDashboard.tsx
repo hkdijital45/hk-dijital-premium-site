@@ -79,7 +79,7 @@ import { filterSelectableCustomers } from "@/lib/customer-visibility";
 
 import { withAdminEmoji } from "@/lib/admin-nav-presentation";
 import { AdminAppShell } from "@/components/admin/shell/AdminAppShell";
-import { AdminSidebar } from "@/components/admin/shell/AdminSidebar";
+import { AdminMegaNav } from "@/components/admin/shell/AdminMegaNav";
 import { AdminMobileNavigation } from "@/components/admin/shell/AdminMobileNavigation";
 import { AdminTopHeader } from "@/components/admin/shell/AdminTopHeader";
 import { HKCommandCenter } from "@/components/admin/command/HKCommandCenter";
@@ -376,7 +376,6 @@ export function AdminDashboard({
   const [pendingCompanyId, setPendingCompanyId] = useState("");
   const [mobileOperationMode, setMobileOperationMode] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">("light");
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     setIsDesktopApp(Boolean(window.hkDesktop?.isDesktop));
@@ -389,11 +388,6 @@ export function AdminDashboard({
       }
     } catch {
       setTheme("light");
-    }
-    try {
-      setSidebarCollapsed(localStorage.getItem("hk-admin-sidebar-collapsed") === "true");
-    } catch {
-      setSidebarCollapsed(false);
     }
     let shouldShowBoot = true;
     try {
@@ -496,14 +490,6 @@ export function AdminDashboard({
     setTheme((current) => {
       const next = current === "dark" ? "light" : "dark";
       try { localStorage.setItem("hk-admin-theme", next); } catch {}
-      return next;
-    });
-  }
-
-  function toggleSidebarCollapsed() {
-    setSidebarCollapsed((current) => {
-      const next = !current;
-      try { localStorage.setItem("hk-admin-sidebar-collapsed", String(next)); } catch {}
       return next;
     });
   }
@@ -698,7 +684,7 @@ export function AdminDashboard({
               <Logo content={content} compact />
               <div className="hidden sm:block">
                 <p className="text-[10px] font-bold uppercase tracking-[.18em] text-cyan-700">HK Dijital</p>
-                <h1 className="text-lg font-black transition group-hover:text-cyan-700 sm:text-xl">HK Operating System</h1>
+                <p className="text-lg font-black transition group-hover:text-cyan-700 sm:text-xl">HK Operating System</p>
               </div>
               {isDesktopApp && <span className="ml-2 hidden rounded-[8px] border border-amber-200/20 bg-amber-300/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[.12em] text-amber-700 sm:inline-flex">Desktop</span>}
             </Link>
@@ -715,9 +701,15 @@ export function AdminDashboard({
           breadcrumb={activeGroup?.label || "HK Operating System"}
           theme={theme}
           onToggleTheme={toggleTheme}
-          sidebarCollapsed={sidebarCollapsed}
-          onToggleSidebar={toggleSidebarCollapsed}
           onOpenMobileNav={() => setMobileNavOpen(true)}
+          megaNav={
+            <AdminMegaNav
+              groups={visibleNavigationGroups}
+              active={active}
+              openGroups={openGroups}
+              onToggleGroup={toggleGroup}
+            />
+          }
         >
           <AdminBrowserControls />
           <button onClick={() => setActive("API Ayarları")} className="admin-quick-action text-left text-xs">
@@ -765,16 +757,6 @@ export function AdminDashboard({
           {(allowedModules.includes("site-ayarlari") || ["musteriler", "kampanyalar", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "sektor-sistemleri"].some((module) => allowedModules.includes(module))) && <button disabled={saving} onClick={() => save()} className={`admin-quick-action admin-quick-action-save text-sm disabled:opacity-70 ${saveFeedback === "success" ? "hk-action-success" : ""}`}><Save size={17} /> {saving ? "Kaydediliyor..." : saveFeedback === "success" ? "Kaydedildi ✓" : saveFeedback === "error" ? "Tekrar Dene" : "Kaydet"}</button>}
           <button onClick={logout} className="admin-quick-action text-sm"><LogOut size={17} className="text-[#B42318]" /> Çıkış</button>
         </AdminTopHeader>
-      }
-      sidebar={
-        <AdminSidebar
-          groups={visibleNavigationGroups}
-          active={active}
-          openGroups={openGroups}
-          onToggleGroup={toggleGroup}
-          collapsed={sidebarCollapsed}
-          onToggleCollapsed={toggleSidebarCollapsed}
-        />
       }
       mobileNav={
         <AdminMobileNavigation
@@ -6383,6 +6365,7 @@ function WebsiteManagementCenter(props: any) {
 
 function IntegrationsCenter({ content, setContent, notify, selectedCompanyId }: any) {
   const [status, setStatus] = useState("");
+  const [tab, setTab] = useState("Bağlantı Durumu");
   const api = content.settings.api || {};
   const analyticsIds = content.settings.analyticsIds || {};
   const update = (patch) => setContent({ ...content, settings: { ...content.settings, api: { ...api, ...patch } } });
@@ -6394,51 +6377,82 @@ function IntegrationsCenter({ content, setContent, notify, selectedCompanyId }: 
     update({ integrations_last_test_at: new Date().toISOString(), integrations_last_test_status: response.ok ? "Başarılı" : "Uyarı" });
     setStatus(data.message || data.error || "Test tamamlandı.");
   };
-  return <Panel title="Entegrasyonlar">
-    <AdminPageHeader eyebrow="Sistem · Entegrasyonlar" title="Entegrasyonlar" description="API anahtarları tarayıcıya gönderilmez. Bu alan bağlantı kimliklerini ve durum notlarını merkezi olarak düzenlemek içindir; gerçek gizli anahtarlar sunucu ortam değişkenlerinde kalmalıdır." />
-    <OAuthSetupStatusPanel />
-    <CustomerAiSettingsAdminPanel companyId={selectedCompanyId} companies={content.companies || []} notify={notify} />
-    <CustomerIntegrationHealthPanel companyId={selectedCompanyId} companies={content.companies || []} notify={notify} />
-    <div className="mb-5"><ReadinessPanel api={api} /></div>
-    <div className="mb-5 grid gap-5"><GlobalMetaPixelSettings /><div className="rounded-[18px] border border-slate-200 bg-white p-5"><h3 className="mb-4 text-lg font-black text-slate-900">Müşteri Meta Pixel & Conversion API</h3><MetaPixelSettingsPanel companyId={selectedCompanyId} companyName={(content.companies || []).find((company: any) => company.id === selectedCompanyId)?.name} /></div></div>
-    <IntegrationPersistenceSettings notify={notify} />
-    <MetaAdsConnectionCenter content={content} setContent={setContent} api={api} updateApi={update} />
-    <div className="grid gap-5">
-      <AdminSection title="Meta">
-        <div className="grid gap-3 md:grid-cols-2">
-          <Field label="App ID" value={api.meta_app_id || ""} onChange={(v) => update({ meta_app_id: v })} />
-          <Field label="App Secret" value={api.meta_app_secret ? "••••••••" : ""} onChange={(v) => update({ meta_app_secret: v })} />
-          <Field label="Access Token" value={api.meta_access_token ? "••••••••" : ""} onChange={(v) => update({ meta_access_token: v })} />
-          <Field label="Business ID" value={api.meta_business_id || ""} onChange={(v) => update({ meta_business_id: v })} />
-          <Field label="Ad Account ID" value={api.meta_ad_account_id || ""} onChange={(v) => update({ meta_ad_account_id: v })} />
-          <Field label="Meta Pixel ID" value={analyticsIds.metaPixel || ""} onChange={(v) => updateAnalytics({ metaPixel: v })} />
+  const integrationTabs = ["Bağlantı Durumu", "Meta Ayarları", "Google Ayarları", "Müşteri Entegrasyonları"];
+  return (
+    <AdminWorkspace
+      eyebrow="Sistem · Entegrasyonlar"
+      title="Entegrasyonlar"
+      description="API anahtarları tarayıcıya gönderilmez. Bu alan bağlantı kimliklerini ve durum notlarını merkezi olarak düzenlemek içindir; gerçek gizli anahtarlar sunucu ortam değişkenlerinde kalmalıdır."
+      leftPanel={
+        <AdminControlPanel>
+          <AdminFilterSection title="Görünüm">
+            <AdminTabs items={integrationTabs} active={tab} onChange={setTab} ariaLabel="Entegrasyonlar görünümü" />
+          </AdminFilterSection>
+        </AdminControlPanel>
+      }
+    >
+      {tab === "Bağlantı Durumu" && (
+        <div className="grid gap-5">
+          <OAuthSetupStatusPanel />
+          <ReadinessPanel api={api} />
+          <ApiSettings content={content} setContent={setContent} />
+          <AdminSection title="Diğer">
+            <div className="grid gap-3 md:grid-cols-2">
+              <Field label="SMTP" value={api.smtp_host || ""} onChange={(v) => update({ smtp_host: v })} />
+              <Field label="WhatsApp" value={api.whatsapp_provider || ""} onChange={(v) => update({ whatsapp_provider: v })} />
+              <Field label="Webhook URL" value={api.webhook_url || ""} onChange={(v) => update({ webhook_url: v })} />
+            </div>
+          </AdminSection>
+          <div className="flex flex-wrap items-center gap-3">
+            <AdminButton variant="info" onClick={test}>Bağlantıyı test et</AdminButton>
+            <AdminStatusBadge tone="neutral">Son test: {api.integrations_last_test_at ? new Date(api.integrations_last_test_at).toLocaleString("tr-TR") : "Yok"} · {api.integrations_last_test_status || "Bekliyor"}</AdminStatusBadge>
+          </div>
+          {status && <p className="rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-700">{status}</p>}
         </div>
-      </AdminSection>
-      <AdminSection title="Google">
-        <div className="grid gap-3 md:grid-cols-2">
-          <Field label="Maps API" value={api.google_maps_key ? "••••••••" : ""} onChange={(v) => update({ google_maps_key: v })} />
-          <Field label="Ads API" value={api.google_ads_key ? "••••••••" : ""} onChange={(v) => update({ google_ads_key: v })} />
-          <Field label="Analytics" value={api.google_analytics_id || ""} onChange={(v) => update({ google_analytics_id: v })} />
-          <Field label="GA4 Measurement ID" value={analyticsIds.gaMeasurement || ""} onChange={(v) => updateAnalytics({ gaMeasurement: v })} />
-          <Field label="Google Tag Manager" value={analyticsIds.googleTagManager || ""} onChange={(v) => updateAnalytics({ googleTagManager: v })} />
-          <Field label="Search Console" value={api.google_search_console || ""} onChange={(v) => update({ google_search_console: v })} />
+      )}
+      {tab === "Meta Ayarları" && (
+        <div className="grid gap-5">
+          <AdminSection title="Meta">
+            <div className="grid gap-3 md:grid-cols-2">
+              <Field label="App ID" value={api.meta_app_id || ""} onChange={(v) => update({ meta_app_id: v })} />
+              <Field label="App Secret" value={api.meta_app_secret ? "••••••••" : ""} onChange={(v) => update({ meta_app_secret: v })} />
+              <Field label="Access Token" value={api.meta_access_token ? "••••••••" : ""} onChange={(v) => update({ meta_access_token: v })} />
+              <Field label="Business ID" value={api.meta_business_id || ""} onChange={(v) => update({ meta_business_id: v })} />
+              <Field label="Ad Account ID" value={api.meta_ad_account_id || ""} onChange={(v) => update({ meta_ad_account_id: v })} />
+              <Field label="Meta Pixel ID" value={analyticsIds.metaPixel || ""} onChange={(v) => updateAnalytics({ metaPixel: v })} />
+            </div>
+          </AdminSection>
+          <GlobalMetaPixelSettings />
+          <div className="rounded-[18px] border border-slate-200 bg-white p-5">
+            <h3 className="mb-4 text-lg font-black text-slate-900">Müşteri Meta Pixel & Conversion API</h3>
+            <MetaPixelSettingsPanel companyId={selectedCompanyId} companyName={(content.companies || []).find((company: any) => company.id === selectedCompanyId)?.name} />
+          </div>
+          <MetaAdsConnectionCenter content={content} setContent={setContent} api={api} updateApi={update} />
         </div>
-      </AdminSection>
-      <ApiSettings content={content} setContent={setContent} />
-      <AdminSection title="Diğer">
-        <div className="grid gap-3 md:grid-cols-2">
-          <Field label="SMTP" value={api.smtp_host || ""} onChange={(v) => update({ smtp_host: v })} />
-          <Field label="WhatsApp" value={api.whatsapp_provider || ""} onChange={(v) => update({ whatsapp_provider: v })} />
-          <Field label="Webhook URL" value={api.webhook_url || ""} onChange={(v) => update({ webhook_url: v })} />
+      )}
+      {tab === "Google Ayarları" && (
+        <div className="grid gap-5">
+          <AdminSection title="Google">
+            <div className="grid gap-3 md:grid-cols-2">
+              <Field label="Maps API" value={api.google_maps_key ? "••••••••" : ""} onChange={(v) => update({ google_maps_key: v })} />
+              <Field label="Ads API" value={api.google_ads_key ? "••••••••" : ""} onChange={(v) => update({ google_ads_key: v })} />
+              <Field label="Analytics" value={api.google_analytics_id || ""} onChange={(v) => update({ google_analytics_id: v })} />
+              <Field label="GA4 Measurement ID" value={analyticsIds.gaMeasurement || ""} onChange={(v) => updateAnalytics({ gaMeasurement: v })} />
+              <Field label="Google Tag Manager" value={analyticsIds.googleTagManager || ""} onChange={(v) => updateAnalytics({ googleTagManager: v })} />
+              <Field label="Search Console" value={api.google_search_console || ""} onChange={(v) => update({ google_search_console: v })} />
+            </div>
+          </AdminSection>
         </div>
-      </AdminSection>
-    </div>
-    <div className="mt-5 flex flex-wrap items-center gap-3">
-      <AdminButton variant="info" onClick={test}>Bağlantıyı test et</AdminButton>
-      <AdminStatusBadge tone="neutral">Son test: {api.integrations_last_test_at ? new Date(api.integrations_last_test_at).toLocaleString("tr-TR") : "Yok"} · {api.integrations_last_test_status || "Bekliyor"}</AdminStatusBadge>
-    </div>
-    {status && <p className="mt-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-700">{status}</p>}
-  </Panel>;
+      )}
+      {tab === "Müşteri Entegrasyonları" && (
+        <div className="grid gap-5">
+          <CustomerAiSettingsAdminPanel companyId={selectedCompanyId} companies={content.companies || []} notify={notify} />
+          <CustomerIntegrationHealthPanel companyId={selectedCompanyId} companies={content.companies || []} notify={notify} />
+          <IntegrationPersistenceSettings notify={notify} />
+        </div>
+      )}
+    </AdminWorkspace>
+  );
 }
 
 function CustomerIntegrationHealthPanel({ companyId, companies, notify }: any) {
@@ -9931,15 +9945,6 @@ function customerDiscoveryLevel(score: any) {
   return { label: "Düşük Öncelik", className: "border-slate-400/40 bg-slate-400/10 text-slate-700", pin: "bg-slate-400" };
 }
 
-function digitalMaturityLevel(score: any) {
-  const value = Number(score || 0);
-  if (value >= 80) return { label: "Dijital altyapı güçlü", className: "border-emerald-300/45 bg-emerald-400/15 text-emerald-700", bar: "from-emerald-300 to-green-400" };
-  if (value >= 60) return { label: "İyi seviyede", className: "border-lime-300/40 bg-lime-300/12 text-lime-100", bar: "from-lime-300 to-emerald-300" };
-  if (value >= 40) return { label: "Geliştirilebilir", className: "border-amber-300/40 bg-amber-300/12 text-amber-700", bar: "from-amber-300 to-yellow-300" };
-  if (value >= 20) return { label: "Zayıf", className: "border-orange-300/40 bg-orange-300/12 text-orange-700", bar: "from-orange-300 to-red-300" };
-  return { label: "Çok zayıf", className: "border-red-300/40 bg-red-400/12 text-red-100", bar: "from-red-400 to-rose-500" };
-}
-
 const highAdPotentialHints = ["oto", "otomotiv", "emlak", "diş", "dis", "klinik", "güzellik", "guzellik", "estetik", "sağlık", "saglik", "restoran", "kafe", "kuaför", "spor", "hukuk"];
 
 function scoreValue(record: any, primary: string, fallback: string) {
@@ -9987,10 +9992,6 @@ function discoveryScoreBreakdown(record: any) {
   }
   if (highPotential) heat.push({ points: 12, label: "Sektör reklam potansiyeli yüksek" });
   return { heat, maturity };
-}
-
-function ScoreInfo({ text }: any) {
-  return <span tabIndex={0} className="group relative inline-flex align-middle" title={text}><HelpCircle size={14} className="text-cyan-700/80" /><span className="pointer-events-none absolute left-1/2 top-5 z-20 hidden w-56 -translate-x-1/2 rounded-[8px] border border-cyan-200/20 bg-white p-3 text-[11px] font-semibold normal-case leading-5 text-cyan-700 shadow-2xl group-hover:block group-focus:block">{text}</span></span>;
 }
 
 function ScoringGuidePanel() {
@@ -10808,6 +10809,14 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
   }
   const clearFilters = () => setSearch(emptySearch);
   const activeFilters = Object.entries(search).filter(([key, value]) => !["hideSaved"].includes(key) && Boolean(value));
+  const scoreTone = (value: any) => {
+    if (value === null || value === undefined || Number.isNaN(Number(value))) return "neutral";
+    const num = Number(value);
+    if (num >= 85) return "danger";
+    if (num >= 65) return "warning";
+    if (num >= 40) return "info";
+    return "neutral";
+  };
   const renderBusiness = (item) => {
     const placeId = item.placeId || item.google_place_id;
     const placeKey = placeId || item.id;
@@ -10819,100 +10828,89 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
     const digitalGapScore = Number(record.digitalGapScore ?? record.digital_gap_score ?? Math.max(0, 100 - Number(maturity || 0)));
     const adPotentialScore = Number(record.adPotentialScore ?? record.ad_potential_score ?? Math.min(100, Number(heat || 0) + 10));
     const hkTier = getHkOpportunityTier(opportunityScore);
-    const level = { label: hkTier.label, className: hkTier.className, pin: hkTier.className.match(/bg-\S+/)?.[0] || "bg-slate-400" };
-    const maturityLevel = digitalMaturityLevel(maturity);
     const metaAdsStatus: AdStatusValue | undefined = record.metaAdsStatus || record.meta_ads_status;
     const googleAdsStatus: AdStatusValue | undefined = record.googleAdsStatus || record.google_ads_status;
     const whatsapp = record.whatsapp;
+    const instagram = record.instagram || record.instagram_url;
     const breakdown = record.scoreBreakdown || discoveryScoreBreakdown(record);
     const heatTotal = heat ?? Math.min(100, breakdown.heat.reduce((sum, row) => sum + Number(row.points || 0), 0));
     const maturityTotal = maturity ?? Math.min(100, breakdown.maturity.reduce((sum, row) => sum + Number(row.points || 0), 0));
-    const badges = [
-      !record.website && "Website Yok",
-      record.phone && "Telefon Var",
-      whatsapp && "WhatsApp Var",
-      Number(record.googleRating ?? record.google_rating ?? 0) >= 4.5 && "Yüksek Puan",
-      Number(record.reviewCount ?? record.google_review_count ?? 0) < 25 && "Yorum Az",
-      existingLead && "CRM'de Kayıtlı"
-    ].filter(Boolean);
+    const missingChannels = [!record.website && "Website Yok", !record.phone && "Telefon Yok", !instagram && "Instagram Yok", !whatsapp && "WhatsApp Yok"].filter(Boolean);
+    const presentSignals = [record.phone && "Telefon Var", whatsapp && "WhatsApp Var", Number(record.googleRating ?? record.google_rating ?? 0) >= 4.5 && "Yüksek Puan", Number(record.reviewCount ?? record.google_review_count ?? 0) < 25 && "Yorum Az"].filter(Boolean);
     const renderBreakdown = (title, rows, total, tone) => (
-      <div className="rounded-[8px] border border-slate-200 bg-slate-50 p-3">
+      <div className="rounded-[8px] p-3" style={{ border: "1px solid var(--admin-border)", background: "var(--admin-surface-muted, var(--admin-surface-soft))" }}>
         <div className="flex items-center justify-between gap-3">
-          <p className={`text-xs font-black ${tone}`}>{title}</p>
-          <span className="text-sm font-black text-slate-900">Toplam: {total}/100</span>
+          <p className="text-xs font-black" style={{ color: tone }}>{title}</p>
+          <span className="text-sm font-black" style={{ color: "var(--admin-text-primary)" }}>Toplam: {total}/100</span>
         </div>
         <div className="mt-3 grid gap-2">
           {rows.length ? rows.map((row, index) => (
-            <div key={`${title}-${row.label}-${index}`} className="flex items-start justify-between gap-3 rounded-[8px] bg-white px-3 py-2 text-xs leading-5">
-              <span className="text-slate-600">{row.label}</span>
-              <strong className={Number(row.points) > 0 ? "text-emerald-700" : "text-slate-400"}>{Number(row.points) > 0 ? `+${row.points}` : row.points}</strong>
+            <div key={`${title}-${row.label}-${index}`} className="flex items-start justify-between gap-3 rounded-[8px] px-3 py-2 text-xs leading-5" style={{ background: "var(--admin-card)" }}>
+              <span style={{ color: "var(--admin-text-secondary)" }}>{row.label}</span>
+              <strong style={{ color: Number(row.points) > 0 ? "var(--hk-success-solid, #167A3C)" : "var(--admin-text-muted)" }}>{Number(row.points) > 0 ? `+${row.points}` : row.points}</strong>
             </div>
-          )) : <p className="rounded-[8px] border border-dashed border-slate-200 p-3 text-xs text-slate-400">Puan bilgisi henüz oluşturulmadı.</p>}
+          )) : <p className="rounded-[8px] border border-dashed p-3 text-xs" style={{ borderColor: "var(--admin-border-strong)", color: "var(--admin-text-muted)" }}>Puan bilgisi henüz oluşturulmadı.</p>}
         </div>
       </div>
     );
+    const isActive = selectedPlaceId === placeKey;
     return (
-      <article key={placeKey || record.id} className={`rounded-[8px] border p-4 transition ${selectedPlaceId === placeKey ? "border-cyan-200/60 bg-cyan-200/10" : "border-slate-200 bg-slate-50"}`}>
-        <label className="mb-3 flex items-center gap-2 text-xs font-black text-slate-700">
-          <input type="checkbox" checked={selectedPlaces.includes(placeKey)} onChange={(event) => toggleSelected(placeKey, event.target.checked)} />
-          Bu işletmeyi seç
-        </label>
-        <button onClick={() => setSelectedPlaceId(placeKey)} className="w-full text-left">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <strong className="text-base text-slate-900">{record.name || record.company || "İsimsiz işletme"}</strong>
-              <p className="mt-1 text-xs text-slate-400">{record.city || search.city || "-"} / {districtOf(record)} · {record.category || record.business_type || search.businessType || "Sektör belirtilmedi"}</p>
-            </div>
-            <span className={`rounded-full border px-3 py-1 text-[10px] font-black ${level.className}`}>{level.label}</span>
+      <article key={placeKey || record.id} className="admin-card rounded-[12px] p-4 transition" style={{ border: isActive ? "1px solid var(--hk-cyan-solid, var(--admin-border-strong))" : "1px solid var(--admin-border)", background: isActive ? "var(--hk-cyan-soft, var(--admin-surface-soft))" : "var(--admin-card)" }}>
+        <div className="flex items-center justify-between gap-2">
+          <label className="flex items-center gap-2 text-xs font-bold" style={{ color: "var(--admin-text-secondary)" }}>
+            <input type="checkbox" checked={selectedPlaces.includes(placeKey)} onChange={(event) => toggleSelected(placeKey, event.target.checked)} />
+            Bu işletmeyi seç
+          </label>
+          <AdminStatusBadge tone={scoreTone(opportunityScore)}>{hkTier.label}</AdminStatusBadge>
+        </div>
+        <button type="button" onClick={() => setSelectedPlaceId(placeKey)} className="mt-3 w-full text-left">
+          <strong className="block text-base" style={{ color: "var(--admin-text-primary)" }}>{record.name || record.company || "İsimsiz işletme"}</strong>
+          <p className="mt-1 text-xs" style={{ color: "var(--admin-text-muted)" }}>{record.city || search.city || "-"} / {districtOf(record)} · {record.category || record.business_type || search.businessType || "Sektör belirtilmedi"}</p>
+
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            <AdminStatusBadge tone={scoreTone(opportunityScore)}>Fırsat {opportunityScore}/100</AdminStatusBadge>
+            <AdminStatusBadge tone={scoreTone(digitalGapScore)}>Dijital Eksik {digitalGapScore}/100</AdminStatusBadge>
+            <AdminStatusBadge tone={scoreTone(heat)}>Sıcaklık {heat ?? "-"}</AdminStatusBadge>
+            {existingLead && <AdminStatusBadge tone="success">CRM'de Kayıtlı</AdminStatusBadge>}
           </div>
-          <p className="mt-3 text-xs leading-5 text-slate-400">{record.address || "Adres bilgisi yok"}</p>
-          <div className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-2">
-            <span>Telefon: <strong>{record.phone || "Yok"}</strong></span>
-            <span>Website: <strong className="break-all">{record.website || "Yok"}</strong></span>
-            <span>Google puanı: <strong>{record.googleRating ?? record.google_rating ?? "-"}</strong></span>
-            <span>Yorum sayısı: <strong>{record.reviewCount ?? record.google_review_count ?? 0}</strong></span>
-            <span>CRM durumu: <strong>{existingLead ? "CRM’de kayıtlı" : record.crmStatus || "CRM’de yok"}</strong></span>
-            <span>Reklam potansiyeli: <strong>{adPotentialScore}/100</strong></span>
-            <span>WhatsApp: <strong>{whatsapp || "Yok"}</strong></span>
-            <span>Meta reklam durumu: <strong>{AD_STATUS_LABELS[metaAdsStatus as AdStatusValue] || "Kontrol edilmedi"}</strong></span>
-            <span>Google reklam durumu: <strong>{AD_STATUS_LABELS[googleAdsStatus as AdStatusValue] || "Kontrol edilmedi"}</strong></span>
+
+          {missingChannels.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{missingChannels.map((label: string) => <AdminStatusBadge key={label} tone="warning">{label}</AdminStatusBadge>)}</div>}
+          {presentSignals.length > 0 && <div className="mt-1.5 flex flex-wrap gap-1.5">{presentSignals.map((label: string) => <AdminStatusBadge key={label} tone="neutral">{label}</AdminStatusBadge>)}</div>}
+
+          <p className="mt-3 text-xs leading-5" style={{ color: "var(--admin-text-muted)" }}>{record.address || "Adres bilgisi yok"}</p>
+          <div className="mt-2 grid gap-1.5 text-xs sm:grid-cols-2" style={{ color: "var(--admin-text-secondary)" }}>
+            <span>Google puanı: <strong style={{ color: "var(--admin-text-primary)" }}>{record.googleRating ?? record.google_rating ?? "-"}</strong></span>
+            <span>Yorum sayısı: <strong style={{ color: "var(--admin-text-primary)" }}>{record.reviewCount ?? record.google_review_count ?? 0}</strong></span>
+            <span>Reklam potansiyeli: <strong style={{ color: "var(--admin-text-primary)" }}>{adPotentialScore}/100</strong></span>
+            <span>Meta reklam: <strong style={{ color: "var(--admin-text-primary)" }}>{AD_STATUS_LABELS[metaAdsStatus as AdStatusValue] || "Kontrol edilmedi"}</strong></span>
+            <span>Google reklam: <strong style={{ color: "var(--admin-text-primary)" }}>{AD_STATUS_LABELS[googleAdsStatus as AdStatusValue] || "Kontrol edilmedi"}</strong></span>
+            <span>CRM durumu: <strong style={{ color: "var(--admin-text-primary)" }}>{existingLead ? "CRM'de kayıtlı" : record.crmStatus || "CRM'de yok"}</strong></span>
           </div>
-          <p className="mt-2 rounded-[8px] border border-slate-200 bg-white p-2 text-[11px] font-bold text-slate-600">Önerilen aksiyon: {record.hkOpportunityAction || hkTier.recommendedAction}</p>
-          <div className="mt-3 flex flex-wrap gap-1.5">{badges.map((badge) => <span key={badge} className={`rounded-full px-2 py-1 text-[10px] font-black ${badge === "CRM'de Kayıtlı" ? "bg-emerald-300/15 text-emerald-700" : "bg-white/10 text-slate-700"}`}>{badge}</span>)}</div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div className={`rounded-[8px] border p-3 ${level.className}`}>
-              <p className="flex items-center gap-1.5 text-[10px] font-black uppercase">Müşteri Sıcaklık Puanı <ScoreInfo text="Hizmet satma ve iletişim kurma potansiyelini gösterir." /></p>
-              {heat === null ? <p className="mt-2 text-xs text-slate-600">Puan bilgisi henüz oluşturulmadı.</p> : <><p className="mt-1 text-2xl font-black text-slate-900">{heat}<small className="text-xs text-slate-600">/100</small></p><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-50"><div className={`h-full rounded-full ${level.pin}`} style={{ width: `${Math.min(100, Math.max(0, heat))}%` }} /></div></>}
-            </div>
-            <div className={`rounded-[8px] border p-3 ${maturityLevel.className}`}>
-              <p className="flex items-center gap-1.5 text-[10px] font-black uppercase">Dijital Olgunluk Skoru <ScoreInfo text="İşletmenin dijital varlıklarının gelişmişlik seviyesini gösterir." /></p>
-              {maturity === null ? <p className="mt-2 text-xs text-slate-600">Puan bilgisi henüz oluşturulmadı.</p> : <><p className="mt-1 text-2xl font-black text-slate-900">{maturity}<small className="text-xs text-slate-600">/100</small></p><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-50"><div className={`h-full rounded-full bg-gradient-to-r ${maturityLevel.bar}`} style={{ width: `${Math.min(100, Math.max(0, maturity))}%` }} /></div></>}
-            </div>
-          </div>
-          <div className="mt-3 grid gap-2 rounded-[8px] border border-slate-200 bg-white p-3 text-xs leading-5 text-slate-600">
-            <span>Fırsat skoru: <strong className="text-cyan-700">{opportunityScore}/100</strong></span>
-            <span>Dijital eksik skoru: <strong className="text-amber-700">{digitalGapScore}/100</strong></span>
-            <span>AI önerisi: <strong>{record.aiSuggestion || "İlk temas için dijital görünürlük ve Google yorum fırsatı anlatılmalı."}</strong></span>
-          </div>
+          <p className="mt-2 rounded-[8px] p-2 text-[11px] font-bold" style={{ background: "var(--admin-surface-muted, var(--admin-surface-soft))", color: "var(--admin-text-secondary)" }}>Önerilen aksiyon: {record.hkOpportunityAction || hkTier.recommendedAction}</p>
+          <p className="mt-2 rounded-[8px] p-2 text-[11px] leading-5" style={{ border: "1px solid var(--hk-cyan-solid, var(--admin-border-strong))", background: "var(--hk-cyan-soft, var(--admin-surface-soft))", color: "var(--admin-text-primary)" }}>AI önerisi: {record.aiSuggestion || "İlk temas için dijital görünürlük ve Google yorum fırsatı anlatılmalı."}</p>
         </button>
-        <details className="mt-3 rounded-[8px] border border-slate-200 bg-slate-50 p-3">
-          <summary className="cursor-pointer text-xs font-black text-cyan-700">Puan Detayı</summary>
-          <div className="mt-3 grid gap-3">
-            {renderBreakdown("Müşteri Sıcaklık Puanı", breakdown.heat || [], heatTotal, "text-cyan-700")}
-            {renderBreakdown("Dijital Olgunluk Skoru", breakdown.maturity || [], maturityTotal, "text-emerald-700")}
+        <details className="mt-3 rounded-[8px]" style={{ border: "1px solid var(--admin-border)" }}>
+          <summary className="cursor-pointer p-2 text-xs font-black" style={{ color: "var(--hk-cyan-solid, var(--admin-text-primary))" }}>Puan Detayı</summary>
+          <div className="grid gap-3 p-2">
+            {renderBreakdown("Müşteri Sıcaklık Puanı", breakdown.heat || [], heatTotal, "var(--hk-cyan-solid, var(--admin-text-primary))")}
+            {renderBreakdown("Dijital Olgunluk Skoru", breakdown.maturity || [], maturityTotal, "var(--hk-success-solid, #167A3C)")}
           </div>
         </details>
-        <div className="mt-3 flex flex-wrap gap-2 rounded-[10px] border border-slate-200 bg-white p-2">
-          <button onClick={() => setSelectedPlaceId(placeKey)} className="rounded-full border border-cyan-200 bg-white px-3 py-2 text-xs font-bold text-cyan-700">Detay</button>
+        <div className="mt-3 flex flex-wrap gap-2 rounded-[10px] p-2" style={{ border: "1px solid var(--admin-border)" }}>
+          <AdminButton compact variant="secondary" onClick={() => setSelectedPlaceId(placeKey)}>Detay</AdminButton>
           {existingLead ? <>
-            <span className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700 ring-1 ring-emerald-200">CRM’de Kayıtlı</span>
-            <button onClick={() => openCrmLead(record)} className="rounded-full border border-emerald-200 bg-white px-3 py-2 text-xs font-bold text-emerald-700">CRM Kaydını Aç</button>
-          </> : <button disabled={loading === `save-${placeId}`} onClick={() => saveBusiness(item)} className="rounded-full bg-cyan-300 px-3 py-2 text-xs font-black text-slate-950 disabled:opacity-60">{loading === `save-${placeId}` ? "Kaydediliyor..." : "CRM’e Kaydet"}</button>}
-          <button onClick={() => proposalFor(record)} className="rounded-full border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">Teklif Hazırla</button>
-          <button onClick={() => setWhatsappDraft({ id: placeId || record.id, text: outreachText(record), phone: record.phone })} className="rounded-full border border-emerald-200 bg-white px-3 py-2 text-xs font-bold text-emerald-700">WhatsApp</button>
-          <a target="_blank" rel="noreferrer" href={mapsHref(record)} className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700">Maps’te Aç</a>
+            <AdminStatusBadge tone="success">CRM'de Kayıtlı</AdminStatusBadge>
+            <AdminButton compact variant="success" onClick={() => openCrmLead(record)}>CRM Kaydını Aç</AdminButton>
+          </> : <AdminButton compact variant="primary" disabled={loading === `save-${placeId}`} onClick={() => saveBusiness(item)}>{loading === `save-${placeId}` ? "Kaydediliyor..." : "CRM'e Kaydet"}</AdminButton>}
+          <AdminButton compact variant="warning" onClick={() => proposalFor(record)}>Teklif Hazırla</AdminButton>
+          <AdminButton compact variant="success" onClick={() => setWhatsappDraft({ id: placeId || record.id, text: outreachText(record), phone: record.phone })}>WhatsApp</AdminButton>
+          <a target="_blank" rel="noreferrer" href={mapsHref(record)} className="hk-button hk-button-neutral hk-button-compact">Maps'te Aç</a>
         </div>
-        {whatsappDraft?.id === placeKey && <div className="mt-3 rounded-[8px] border border-emerald-200/20 bg-emerald-200/10 p-3"><p className="text-xs font-black text-emerald-700">Hazır WhatsApp mesajı</p><textarea value={whatsappDraft.text} onChange={(event) => setWhatsappDraft({ ...whatsappDraft, text: event.target.value })} className="mt-2 min-h-24 w-full rounded-[8px] border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-900" /><a target="_blank" rel="noreferrer" href={`https://wa.me/${String(whatsappDraft.phone || "").replace(/\D/g, "")}?text=${encodeURIComponent(whatsappDraft.text)}`} className="mt-2 inline-flex rounded-full bg-[#25D366] px-3 py-2 text-xs font-black text-slate-900">WhatsApp’ta Aç</a></div>}
+        {whatsappDraft?.id === placeKey && <div className="mt-3 rounded-[8px] p-3" style={{ border: "1px solid var(--hk-success-solid, #167A3C)", background: "var(--admin-surface-muted, var(--admin-surface-soft))" }}>
+          <p className="text-xs font-black" style={{ color: "var(--hk-success-solid, #167A3C)" }}>Hazır WhatsApp mesajı</p>
+          <textarea value={whatsappDraft.text} onChange={(event) => setWhatsappDraft({ ...whatsappDraft, text: event.target.value })} className="mt-2 min-h-24 w-full rounded-[8px] p-3 text-xs leading-5" style={{ border: "1px solid var(--admin-border)", background: "var(--admin-card)", color: "var(--admin-text-primary)" }} />
+          <a target="_blank" rel="noreferrer" href={`https://wa.me/${String(whatsappDraft.phone || "").replace(/\D/g, "")}?text=${encodeURIComponent(whatsappDraft.text)}`} className="hk-button hk-button-success hk-button-compact mt-2 inline-flex">WhatsApp'ta Aç</a>
+        </div>}
         {notePlaceId === placeKey && <div className="mt-3"><TextArea rows={2} label="Fırsat notu" value={existingLead?.local_opportunity_notes || noteDrafts[placeKey] || ""} onChange={(local_opportunity_notes) => existingLead ? patchLead(existingLead.id, { local_opportunity_notes }) : setNoteDrafts({ ...noteDrafts, [placeKey]: local_opportunity_notes })} /></div>}
       </article>
     );
@@ -11261,33 +11259,172 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
     );
   }
 
+  const quickFilterChips = [
+    { key: "no-website", label: "Web sitesi yok", active: search.website === "yok", onToggle: () => setSearch({ ...search, website: search.website === "yok" ? "" : "yok" }) },
+    { key: "high-opportunity", label: "Yüksek fırsat", active: Boolean(search.highOpportunity), onToggle: () => setSearch({ ...search, highOpportunity: !search.highOpportunity }) },
+    { key: "high-ad-potential", label: "Reklam potansiyeli yüksek", active: Boolean(search.highAdPotential), onToggle: () => setSearch({ ...search, highAdPotential: !search.highAdPotential }) },
+    { key: "no-crm", label: "CRM'de olmayanlar", active: search.crmStatus === "kayitsiz", onToggle: () => setSearch({ ...search, crmStatus: search.crmStatus === "kayitsiz" ? "" : "kayitsiz" }) },
+    { key: "has-phone", label: "Telefonu olanlar", active: search.phone === "var", onToggle: () => setSearch({ ...search, phone: search.phone === "var" ? "" : "var" }) }
+  ];
+  const requiredFieldsMissing = !search.city.trim() || !search.businessType.trim();
+
   return (
     <AdminWorkspace
       eyebrow="Satış · Müşteri Keşfi"
       title={mode === "Haritalar" ? "Haritalar ve Google Maps Lead Finder" : tab}
-      description={tab === "Sıcak Leadler" ? "Sıcaklık skoru 70 ve üzeri, CRM'e kayıtlı işletmeler." : tab === "Bölgesel Fırsatlar" ? "İlçe ve sektör bazlı fırsat sinyalleri; CRM kayıtlı işletmeler üzerinden filtrelendi." : tab === "Rakip Analizi" ? "Rakip analizine gönderilen veya işaretlenen işletmeler." : tab === "Yapay Zekâ Analiz" ? "Yapay zekâ destekli fırsat/işletme analizi bekleyen veya tamamlanan kayıtlar." : "İl, ilçe, mahalle, sektör, niş, Google puanı ve dijital eksik filtreleriyle işletmeleri tarayın; sıcaklık skoruna göre CRM’e taşıyıp teklif ve WhatsApp mesajı oluşturun."}
+      description="İl, ilçe, mahalle, sektör, niş, Google puanı ve dijital eksik filtreleriyle işletmeleri tarayın; fırsat skoruna göre CRM'e taşıyıp teklif ve WhatsApp mesajı oluşturun."
       headerActions={<>
         <AdminStatusBadge tone="info">{results.length} sonuç</AdminStatusBadge>
-        <AdminStatusBadge tone="communication">{saved.length} kayıtlı</AdminStatusBadge>
+        <AdminStatusBadge tone="neutral">{saved.length} kayıtlı</AdminStatusBadge>
         <AdminStatusBadge tone="success">{selectedPlaces.length} seçili</AdminStatusBadge>
         <AdminStatusBadge tone="danger">{saved.filter((lead) => Number(lead.lead_heat_score || 0) >= 70).length} sıcak lead</AdminStatusBadge>
       </>}
       leftPanel={
         <AdminControlPanel>
-          <aside className="h-fit p-0"><h3 className="font-black" style={{ color: "var(--admin-text-primary)" }}>Profesyonel lead keşif filtreleri</h3><p className="mt-1 text-xs text-slate-500">Google Maps API çağrısı server-side ENV ile yapılır; API anahtarı frontend’e dönmez.</p><div className="mt-4 grid gap-3"><OtherSelectField label="İl" value={search.city} onChange={(city) => setSearch({ ...search, city })} options={cityOptions} manualLabel="İli yazın" /><Field label="İlçe (opsiyonel — boşsa tüm ilçeler taranır)" value={search.district} onChange={(district) => setSearch({ ...search, district })} placeholder="Boş bırakılırsa: Tüm ilçeler" /><Field label="Mahalle / bölge (opsiyonel)" value={search.neighborhood} onChange={(neighborhood) => setSearch({ ...search, neighborhood })} /><div><OtherSelectField label="Sektör *" value={search.businessType} onChange={(businessType) => setSearch({ ...search, businessType })} options={DISCOVERY_SECTOR_PRESETS} manualLabel="Sektörü yazın (ör. Klima Servisi, Oto Servis...)" /><p className="mt-1 text-[11px] text-slate-400">Zorunlu alan. Listede yoksa serbest metin olarak yazabilirsiniz.</p>{recentSectors.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{recentSectors.map((sector) => <button key={sector} type="button" onClick={() => setSearch({ ...search, businessType: sector })} className="rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold text-slate-600">{sector}</button>)}</div>}</div><Field label="Anahtar kelime (opsiyonel)" value={search.keyword} onChange={(keyword) => setSearch({ ...search, keyword })} placeholder="protez tırnak, güzellik salonu..." />{nicheOptions.length > 0 && <div><p className="mb-2 text-xs font-black text-purple-700">Alt niş önerileri</p><div className="flex flex-wrap gap-1.5">{nicheOptions.map((niche) => <button key={niche} onClick={() => setSearch({ ...search, niche, keyword: niche })} className={`rounded-full px-2.5 py-1.5 text-[10px] font-black ${search.niche === niche ? "bg-purple-500 text-white" : "border border-purple-200 bg-white text-purple-700"}`}>{niche}</button>)}</div></div>}<SelectField label="Yarıçap" value={search.radius} onChange={(radius) => setSearch({ ...search, radius })} options={["1 km", "3 km", "5 km", "10 km", "Şehir geneli"]} /><SelectField label="Kaç işletme bulunsun" value={search.limit} onChange={(limit) => setSearch({ ...search, limit })} options={["5", "10", "20", "50"]} /><SelectField label="Minimum Google puanı" value={search.minimumRating} onChange={(minimumRating) => setSearch({ ...search, minimumRating })} options={[{ value: "", label: "Farketmez" }, { value: "3", label: "3.0+" }, { value: "3.5", label: "3.5+" }, { value: "4", label: "4.0+" }, { value: "4.5", label: "4.5+" }]} /><SelectField label="Minimum yorum sayısı" value={search.minimumReviewCount} onChange={(minimumReviewCount) => setSearch({ ...search, minimumReviewCount })} options={[{ value: "", label: "Farketmez" }, { value: "5", label: "5+" }, { value: "10", label: "10+" }, { value: "25", label: "25+" }, { value: "50", label: "50+" }, { value: "100", label: "100+" }]} /><SelectField label="Website var / yok" value={search.website} onChange={(website) => setSearch({ ...search, website })} options={[{ value: "", label: "Farketmez" }, { value: "yok", label: "Websitesi olmayanlar" }, { value: "var", label: "Websitesi olanlar" }]} /><SelectField label="Telefon var / yok" value={search.phone} onChange={(phone) => setSearch({ ...search, phone })} options={[{ value: "", label: "Farketmez" }, { value: "var", label: "Telefonu olanlar" }, { value: "yok", label: "Telefonu olmayanlar" }]} /><SelectField label="Instagram var / yok" value={search.instagram} onChange={(instagram) => setSearch({ ...search, instagram })} options={[{ value: "", label: "Farketmez" }, { value: "var", label: "Instagram bağlantısı olanlar" }, { value: "yok", label: "Instagram bağlantısı olmayanlar" }]} /><SelectField label="WhatsApp durumu" value={search.whatsapp} onChange={(whatsapp) => setSearch({ ...search, whatsapp })} options={[{ value: "", label: "Farketmez" }, { value: "var", label: "WhatsApp'ı olanlar" }, { value: "yok", label: "WhatsApp'ı olmayanlar" }]} /><SelectField label="Reklam durumu" value={search.adStatus} onChange={(adStatus) => setSearch({ ...search, adStatus })} options={Object.entries(AD_STATUS_LABELS).map(([value, label]) => ({ value, label }))} /><SelectField label="CRM durumu" value={search.crmStatus} onChange={(crmStatus) => setSearch({ ...search, crmStatus })} options={[{ value: "", label: "Farketmez" }, { value: "kayitli", label: "CRM'de olanlar" }, { value: "kayitsiz", label: "CRM'de olmayanlar" }]} /><label className="flex gap-2 text-xs text-slate-600"><input type="checkbox" checked={search.hideSaved} onChange={(event) => setSearch({ ...search, hideSaved: event.target.checked })} />CRM’de kayıtlı olanları gizle</label><label className="flex gap-2 text-xs text-slate-600"><input type="checkbox" checked={search.highOpportunity} onChange={(event) => setSearch({ ...search, highOpportunity: event.target.checked })} />Sadece fırsat puanı yüksek olanlar</label><label className="flex gap-2 text-xs text-slate-600"><input type="checkbox" checked={search.highAdPotential} onChange={(event) => setSearch({ ...search, highAdPotential: event.target.checked })} />Sadece reklam potansiyeli yüksek olanlar</label></div><div className="mt-4 grid gap-2"><button onClick={suggestMapNiches} className="rounded-[8px] border border-purple-200 bg-purple-50 px-4 py-2 text-xs font-black text-purple-700">Alt Niş Öner</button><button disabled={loading === "search" || !canDiscover || !search.city.trim() || !search.businessType.trim()} onClick={runSearch} className="rounded-[8px] bg-cyan-300 px-4 py-3 text-sm font-black text-slate-950 disabled:opacity-50">{loading === "search" ? "Taranıyor..." : "Google Maps’ten Bul"}</button>{(!search.city.trim() || !search.businessType.trim()) && <p className="text-[11px] font-bold text-amber-700">İl ve Sektör alanları zorunludur.</p>}<button disabled={loading === "bulk-save"} onClick={saveSelectedBusinesses} className="rounded-[8px] bg-emerald-500 px-4 py-3 text-sm font-black text-white disabled:opacity-60">Seçilenleri CRM’e Kaydet</button><button disabled={loading === "bulk-proposal"} onClick={prepareSelectedProposals} className="rounded-[8px] border border-cyan-200 bg-white px-4 py-2 text-xs font-black text-cyan-700 disabled:opacity-60">Seçilenler İçin Teklif Hazırla</button><button onClick={clearFilters} className="rounded-[8px] border border-slate-200 px-4 py-2 text-xs font-bold">Filtreleri Temizle</button></div><div className="mt-3 flex flex-wrap gap-1">{activeFilters.map(([key, value]) => <span key={key} className="rounded-full border border-cyan-200/20 px-2 py-1 text-[9px] text-cyan-700">{String(value)}</span>)}</div><div className="mt-4"><ScoringGuidePanel /></div></aside>
+          <AdminFilterSection title="Kayıtlı Aramalar">
+            {savedSearches.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {savedSearches.slice(0, 8).map((item: any) => <button key={item.id} type="button" onClick={() => loadSavedSearchFilters(item)} title={item.description || item.name} className="hk-button hk-button-neutral hk-button-compact">{item.name}</button>)}
+              </div>
+            ) : <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>Henüz kayıtlı arama yok. Mevcut filtreleri adlandırıp kaydedin, tek tıkla tekrar yükleyin.</p>}
+            <div className="mt-3 grid gap-2">
+              <Field label="Bu aramayı adlandır" value={savedSearchName} onChange={setSavedSearchName} placeholder="Örn: Manisa oto galeri, 4.0+ puan" />
+              <div className="flex flex-wrap gap-2">
+                <AdminButton compact variant="primary" disabled={savedSearchBusy === "save" || !savedSearchName.trim()} onClick={saveCurrentSearch}>{savedSearchBusy === "save" ? "Kaydediliyor..." : "+ Aramayı Kaydet"}</AdminButton>
+                {savedSearches.length > 0 && <AdminButton compact variant="secondary" onClick={() => setMapTab("Kayıtlı Aramalar")}>Tümünü Yönet</AdminButton>}
+              </div>
+            </div>
+          </AdminFilterSection>
+
+          <AdminFilterSection title="Hızlı Filtreler">
+            <div className="flex flex-wrap gap-1.5">
+              {quickFilterChips.map((chip) => <AdminButton key={chip.key} compact variant={chip.active ? "info" : "secondary"} onClick={chip.onToggle}>{chip.label}</AdminButton>)}
+            </div>
+          </AdminFilterSection>
+
+          <AdminFilterSection title="Konum">
+            <div className="grid gap-2">
+              <OtherSelectField label="İl" value={search.city} onChange={(city) => setSearch({ ...search, city })} options={cityOptions} manualLabel="İli yazın" />
+              <Field label="İlçe (opsiyonel — boşsa tüm ilçeler taranır)" value={search.district} onChange={(district) => setSearch({ ...search, district })} placeholder="Boş bırakılırsa: Tüm ilçeler" />
+              <Field label="Mahalle / bölge (opsiyonel)" value={search.neighborhood} onChange={(neighborhood) => setSearch({ ...search, neighborhood })} />
+            </div>
+          </AdminFilterSection>
+
+          <AdminFilterSection title="Sektör / Anahtar Kelime">
+            <div className="grid gap-2">
+              <div>
+                <OtherSelectField label="Sektör *" value={search.businessType} onChange={(businessType) => setSearch({ ...search, businessType })} options={DISCOVERY_SECTOR_PRESETS} manualLabel="Sektörü yazın (ör. Klima Servisi, Oto Servis...)" />
+                <p className="mt-1 text-[11px]" style={{ color: "var(--admin-text-muted)" }}>Zorunlu alan. Listede yoksa serbest metin olarak yazabilirsiniz.</p>
+                {recentSectors.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{recentSectors.map((sector) => <button key={sector} type="button" onClick={() => setSearch({ ...search, businessType: sector })} className="hk-button hk-button-neutral hk-button-compact">{sector}</button>)}</div>}
+              </div>
+              <Field label="Anahtar kelime (opsiyonel)" value={search.keyword} onChange={(keyword) => setSearch({ ...search, keyword })} placeholder="protez tırnak, güzellik salonu..." />
+              <AdminButton compact variant="ai" onClick={suggestMapNiches}>Alt Niş Öner</AdminButton>
+              {nicheOptions.length > 0 && (
+                <div>
+                  <p className="mb-1.5 text-xs font-black" style={{ color: "var(--admin-text-muted)" }}>Alt niş önerileri</p>
+                  <div className="flex flex-wrap gap-1.5">{nicheOptions.map((niche) => <AdminButton key={niche} compact variant={search.niche === niche ? "ai" : "secondary"} onClick={() => setSearch({ ...search, niche, keyword: niche })}>{niche}</AdminButton>)}</div>
+                </div>
+              )}
+            </div>
+          </AdminFilterSection>
+
+          <AdminFilterSection title="Puan & Hacim">
+            <div className="grid gap-2">
+              <SelectField label="Yarıçap" value={search.radius} onChange={(radius) => setSearch({ ...search, radius })} options={["1 km", "3 km", "5 km", "10 km", "Şehir geneli"]} />
+              <SelectField label="Kaç işletme bulunsun" value={search.limit} onChange={(limit) => setSearch({ ...search, limit })} options={["5", "10", "20", "50"]} />
+              <SelectField label="Minimum Google puanı" value={search.minimumRating} onChange={(minimumRating) => setSearch({ ...search, minimumRating })} options={[{ value: "", label: "Farketmez" }, { value: "3", label: "3.0+" }, { value: "3.5", label: "3.5+" }, { value: "4", label: "4.0+" }, { value: "4.5", label: "4.5+" }]} />
+              <SelectField label="Minimum yorum sayısı" value={search.minimumReviewCount} onChange={(minimumReviewCount) => setSearch({ ...search, minimumReviewCount })} options={[{ value: "", label: "Farketmez" }, { value: "5", label: "5+" }, { value: "10", label: "10+" }, { value: "25", label: "25+" }, { value: "50", label: "50+" }, { value: "100", label: "100+" }]} />
+            </div>
+          </AdminFilterSection>
+
+          <AdminFilterSection title="Dijital Varlık">
+            <div className="grid gap-2">
+              <SelectField label="Website var / yok" value={search.website} onChange={(website) => setSearch({ ...search, website })} options={[{ value: "", label: "Farketmez" }, { value: "yok", label: "Websitesi olmayanlar" }, { value: "var", label: "Websitesi olanlar" }]} />
+              <SelectField label="Telefon var / yok" value={search.phone} onChange={(phone) => setSearch({ ...search, phone })} options={[{ value: "", label: "Farketmez" }, { value: "var", label: "Telefonu olanlar" }, { value: "yok", label: "Telefonu olmayanlar" }]} />
+              <SelectField label="Instagram var / yok" value={search.instagram} onChange={(instagram) => setSearch({ ...search, instagram })} options={[{ value: "", label: "Farketmez" }, { value: "var", label: "Instagram bağlantısı olanlar" }, { value: "yok", label: "Instagram bağlantısı olmayanlar" }]} />
+              <SelectField label="WhatsApp durumu" value={search.whatsapp} onChange={(whatsapp) => setSearch({ ...search, whatsapp })} options={[{ value: "", label: "Farketmez" }, { value: "var", label: "WhatsApp'ı olanlar" }, { value: "yok", label: "WhatsApp'ı olmayanlar" }]} />
+            </div>
+          </AdminFilterSection>
+
+          <AdminFilterSection title="Fırsat Skorları">
+            <div className="grid gap-2">
+              <SelectField label="Reklam durumu" value={search.adStatus} onChange={(adStatus) => setSearch({ ...search, adStatus })} options={Object.entries(AD_STATUS_LABELS).map(([value, label]) => ({ value, label }))} />
+              <label className="flex items-center gap-2 text-xs font-semibold" style={{ color: "var(--admin-text-secondary)" }}><input type="checkbox" checked={search.highOpportunity} onChange={(event) => setSearch({ ...search, highOpportunity: event.target.checked })} />Sadece fırsat puanı yüksek olanlar</label>
+              <label className="flex items-center gap-2 text-xs font-semibold" style={{ color: "var(--admin-text-secondary)" }}><input type="checkbox" checked={search.highAdPotential} onChange={(event) => setSearch({ ...search, highAdPotential: event.target.checked })} />Sadece reklam potansiyeli yüksek olanlar</label>
+              <details className="rounded-[8px]" style={{ border: "1px solid var(--admin-border)" }}>
+                <summary className="cursor-pointer p-2 text-xs font-black" style={{ color: "var(--admin-text-secondary)" }}>Puan Rehberini Göster</summary>
+                <div className="p-2"><ScoringGuidePanel /></div>
+              </details>
+            </div>
+          </AdminFilterSection>
+
+          <AdminFilterSection title="CRM Durumu">
+            <div className="grid gap-2">
+              <SelectField label="CRM durumu" value={search.crmStatus} onChange={(crmStatus) => setSearch({ ...search, crmStatus })} options={[{ value: "", label: "Farketmez" }, { value: "kayitli", label: "CRM'de olanlar" }, { value: "kayitsiz", label: "CRM'de olmayanlar" }]} />
+              <label className="flex items-center gap-2 text-xs font-semibold" style={{ color: "var(--admin-text-secondary)" }}><input type="checkbox" checked={search.hideSaved} onChange={(event) => setSearch({ ...search, hideSaved: event.target.checked })} />CRM'de kayıtlı olanları gizle</label>
+            </div>
+          </AdminFilterSection>
+
+          {activeFilters.length > 0 && (
+            <AdminFilterSection title="Aktif Filtreler">
+              <div className="flex flex-wrap gap-1.5">{activeFilters.map(([key, value]) => <AdminStatusBadge key={key} tone="info">{String(value)}</AdminStatusBadge>)}</div>
+            </AdminFilterSection>
+          )}
         </AdminControlPanel>
       }
       rightPanel={<BusinessLeadDetailPanel record={selectedBusiness} mapsHref={mapsHref} metaHref={metaHref} saveBusiness={saveBusiness} proposalFor={proposalFor} setWhatsappDraft={setWhatsappDraft} outreachText={outreachText} sendToCompetitor={sendToCompetitor} markCandidate={markCandidate} setNotePlaceId={setNotePlaceId} notePlaceId={notePlaceId} findCompetitorsForLead={findCompetitorsForLead} competitors={selectedBusiness ? leadCompetitors[leadKey(selectedBusiness)] || [] : []} prepareFirstMessage={prepareFirstMessage} prepareDigitalReport={prepareDigitalReport} openWhatsapp={openWhatsapp} prepareInstagramDm={prepareInstagramDm} openInstagram={openInstagram} callBusiness={callBusiness} emailBusiness={emailBusiness} openWebsite={openWebsite} leadStage={selectedBusiness ? leadStagesById[leadKey(selectedBusiness)] || "Yeni bulundu" : "Yeni bulundu"} leadStageOptions={leadStageOptions} updateLeadStage={updateLeadStage} createFollowupTask={createFollowupTask} existingLead={selectedBusiness ? existingLeadFor(selectedBusiness) : null} openCrmLead={openCrmLead} verifyAdStatus={verifyAdStatus} />}
       bottomBar={
         <AdminActionBar statusText={`${visible.length} sonuç gösteriliyor${selectedPlaces.length ? ` · ${selectedPlaces.length} seçili` : ""}`}>
-          <AdminButton compact variant="primary" disabled={loading === "search" || !canDiscover} onClick={runSearch}>{loading === "search" ? "Taranıyor..." : "Google Maps’ten Bul"}</AdminButton>
-          <AdminButton compact variant="success" disabled={loading === "bulk-save" || !selectedPlaces.length} onClick={saveSelectedBusinesses}>Seçilenleri CRM’e Kaydet</AdminButton>
+          <AdminButton compact variant="secondary" onClick={clearFilters}>Filtreleri Temizle</AdminButton>
+          <AdminButton compact variant="primary" disabled={loading === "search" || !canDiscover || requiredFieldsMissing} onClick={runSearch}>{loading === "search" ? "Taranıyor..." : "Google Maps'ten Bul"}</AdminButton>
+          <AdminButton compact variant="success" disabled={loading === "bulk-save" || !selectedPlaces.length} onClick={saveSelectedBusinesses}>Seçilenleri CRM'e Kaydet</AdminButton>
+          <AdminButton compact variant="warning" disabled={loading === "bulk-proposal" || !selectedPlaces.length} onClick={prepareSelectedProposals}>Seçilenler İçin Teklif Hazırla</AdminButton>
         </AdminActionBar>
       }
     >
-      {actionResult && <div className="mb-5"><ActionResultPanel result={actionResult} onNavigate={(href) => window.location.assign(href)} /></div>}<div className="mb-5 flex flex-wrap items-center justify-between gap-3"><p className="max-w-3xl text-sm leading-6 text-slate-400">İl, ilçe, mahalle, sektör, niş, Google puanı ve dijital eksik filtreleriyle işletmeleri tarayın; sıcaklık skoruna göre CRM’e taşıyıp teklif ve WhatsApp mesajı oluşturun.</p><div className="flex flex-wrap gap-2 text-xs"><AdminStatusBadge tone="info">{results.length} sonuç · Google Maps kotası</AdminStatusBadge><AdminStatusBadge tone="communication">{saved.length} kayıtlı</AdminStatusBadge><AdminStatusBadge tone="success">{selectedPlaces.length} seçili</AdminStatusBadge><AdminStatusBadge tone="danger">{saved.filter((lead) => Number(lead.lead_heat_score || 0) >= 70).length} sıcak lead</AdminStatusBadge></div></div>
       <HubTabs items={mapTabs} active={tab} onChange={setMapTab} />
-      <section className="min-w-0"><LeadOpportunityInsight results={visible} search={search} setActive={setActive} /><div className="mt-4 flex flex-wrap gap-2 rounded-[12px] border border-blue-200 bg-blue-50 p-3"><span className="px-2 py-2 text-xs font-black text-blue-900">Sonuç sonrası AI aksiyonları</span><button onClick={enrichResults} className="rounded-full border border-blue-200 bg-white px-3 py-2 text-xs font-black text-blue-700">AI ile Zenginleştir</button><button onClick={recalculateScores} className="rounded-full border border-amber-200 bg-white px-3 py-2 text-xs font-black text-amber-800">Fırsat Skoru Hesapla</button><button onClick={selectHotLeads} className="rounded-full border border-red-200 bg-white px-3 py-2 text-xs font-black text-red-700">En Sıcak Leadleri Seç</button><button onClick={selectNoWebsiteLeads} className="rounded-full border border-amber-200 bg-white px-3 py-2 text-xs font-black text-amber-800">Website Olmayanları Seç</button></div><div className="mt-4 admin-card rounded-[14px] p-4"><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black" style={{ color: "var(--admin-text-primary)" }}>Lead sonuç merkezi</h3><p className="mt-1 text-xs text-slate-500">İşletmeler orta alanda kart, liste veya harita görünümüyle incelenir; Detay butonu sağ paneli doldurur.</p></div><div className="flex flex-wrap gap-2">{["Kart Görünümü", "Harita Görünümü", "Fırsat Haritası", "Liste Görünümü"].map((view) => <button key={view} onClick={() => setLeadView(view)} className={`rounded-full px-3 py-2 text-xs font-black ${leadView === view ? "bg-cyan-300 text-slate-950" : "border border-slate-200 bg-white text-slate-700"}`}>{view}</button>)}</div></div>{selectedPlaces.length > 0 && <div className="mb-4 rounded-[12px] border border-cyan-200 bg-cyan-50 p-3"><div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-sm text-cyan-950">{selectedPlaces.length} işletme seçildi</strong><button onClick={() => setSelectedPlaces([])} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-700">Seçimi Temizle</button></div><div className="mt-3 flex flex-wrap gap-2"><button disabled={loading === "bulk-save"} onClick={saveSelectedBusinesses} className="rounded-full bg-emerald-500 px-3 py-2 text-xs font-black text-white disabled:opacity-60">Seçilenleri CRM’e Kaydet</button><button disabled={loading === "bulk-proposal"} onClick={prepareSelectedProposals} className="rounded-full border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-black text-amber-800 disabled:opacity-60">Seçilenler İçin Teklif Hazırla</button><button onClick={() => prepareBulkAction("Seçilenler rakip analizine hazırlandı", ["Rakip Analizi ekranında işletmeleri kontrol et.", "Rakip skorlarını ve müşteri özetini üret."], "/hk-admin/rakip-analizi")} className="rounded-full border border-purple-200 bg-purple-50 px-3 py-2 text-xs font-black text-purple-700">Seçilenleri Rakip Analizine Gönder</button><button onClick={() => prepareBulkAction("Seçilenler için görev taslağı", ["Görevler ekranında arama/takip görevlerini oluştur.", "Sorumlu kişiyi ata ve son tarihi belirle."], "/hk-admin/gorevler")} className="rounded-full border border-cyan-200 bg-white px-3 py-2 text-xs font-black text-cyan-700">Seçilenler İçin Takip Görevi Oluştur</button><button onClick={selectHotLeads} className="rounded-full border border-red-200 bg-white px-3 py-2 text-xs font-black text-red-700">En Sıcak Leadleri Seç</button><button onClick={selectNoWebsiteLeads} className="rounded-full border border-amber-200 bg-white px-3 py-2 text-xs font-black text-amber-800">Website Olmayanları Seç</button><button onClick={prepareSelectedWhatsappMessages} className="rounded-full border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-700">WhatsApp Mesajlarını Hazırla</button></div></div>}{message && <p className="mb-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-xs leading-5 text-cyan-700">{message}</p>}{leadView === "Kart Görünümü" && <div className="grid gap-3 md:grid-cols-2">{loading === "search" ? [1, 2, 3, 4].map((item) => <div key={item} className="h-52 animate-pulse rounded-[8px] bg-slate-50" />) : visible.map(renderBusiness)}</div>}{leadView === "Liste Görünümü" && <div className="grid gap-2">{visible.map((item: any) => <button key={item.placeId || item.google_place_id || item.id} onClick={() => setSelectedPlaceId(item.placeId || item.google_place_id || item.id)} className="grid gap-2 rounded-[10px] border border-slate-200 bg-slate-50 p-3 text-left text-sm md:grid-cols-[1fr_100px_100px_120px]"><strong className="text-slate-950">{item.name || item.company}</strong><span>{item.googleRating || item.google_rating || "-"} puan</span><span>{item.reviewCount || item.google_review_count || 0} yorum</span><span className="text-cyan-700">{item.opportunityScore || item.leadHeatScore || item.lead_heat_score || 0}/100</span></button>)}</div>}{leadView === "Harita Görünümü" && <div><p className="mb-3 rounded-[10px] border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800">Harita görünümü, koordinatı bulunan gerçek sonuçları aşağıdaki işaretleyici listesinde gösterir. Konumu olmayan kayıtlar kart görünümünde incelenebilir.</p><MapIntelligenceCanvas businesses={visible} districts={districts} sectors={sectors} selectedPlaceId={selectedPlaceId} setSelectedPlaceId={setSelectedPlaceId} setSearch={(next) => setSearch({ ...search, ...next, businessType: next.businessType || next.sector || search.businessType })} search={{ ...search, sector: search.businessType }} /></div>}{leadView === "Fırsat Haritası" && <OpportunityMap content={content} setContent={setContent} save={save} notify={notify} search={{ ...search, sector: search.businessType }} setSearch={(next) => setSearch({ ...search, ...next, businessType: next.businessType || next.sector || search.businessType })} setTab={setMapTab} setActive={setActive} saved={saved} />}{!loading && !visible.length && <AdminEmptyState title={results.length ? "Bu filtrelerle işletme bulunamadı" : "Henüz arama yapılmadı"} description={results.length ? "Yıldız puanı veya yorum sayısı filtresini genişletmeyi deneyin." : "Sol panelden il, ilçe, mahalle ve sektör seçerek \"Google Maps'ten Bul\" düğmesine basın."} />}</div></section>
+      {requiredFieldsMissing && <p className="mb-4 rounded-[8px] p-3 text-xs font-bold" style={{ border: "1px solid var(--hk-warning-border, var(--admin-border-strong))", background: "var(--hk-warning-bg, var(--admin-surface-muted))", color: "var(--admin-text-secondary)" }}>İl ve Sektör alanları zorunludur; sol panelden doldurup "Google Maps'ten Bul" düğmesine basın.</p>}
+      {actionResult && <div className="mb-5"><ActionResultPanel result={actionResult} onNavigate={(href) => window.location.assign(href)} /></div>}
+      <LeadOpportunityInsight results={visible} search={search} setActive={setActive} />
+      <div className="mt-4 flex flex-wrap items-center gap-2 rounded-[12px] p-3" style={{ border: "1px solid var(--admin-border)", background: "var(--admin-surface-muted, var(--admin-surface-soft))" }}>
+        <span className="px-1 text-xs font-black" style={{ color: "var(--admin-text-primary)" }}>Sonuç sonrası AI aksiyonları</span>
+        <AdminButton compact variant="info" onClick={enrichResults}>AI ile Zenginleştir</AdminButton>
+        <AdminButton compact variant="warning" onClick={recalculateScores}>Fırsat Skoru Hesapla</AdminButton>
+        <AdminButton compact variant="danger" onClick={selectHotLeads}>En Sıcak Leadleri Seç</AdminButton>
+        <AdminButton compact variant="secondary" onClick={selectNoWebsiteLeads}>Website Olmayanları Seç</AdminButton>
+      </div>
+      <div className="admin-card mt-4 rounded-[14px] p-4">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="font-black" style={{ color: "var(--admin-text-primary)" }}>Lead sonuç merkezi</h3>
+            <p className="mt-1 text-xs" style={{ color: "var(--admin-text-muted)" }}>İşletmeler kart, liste veya harita görünümüyle incelenir; bir karta tıklamak sağ paneli doldurur.</p>
+          </div>
+          <div className="flex flex-wrap gap-1.5">{["Kart Görünümü", "Harita Görünümü", "Fırsat Haritası", "Liste Görünümü"].map((view) => <AdminButton key={view} compact variant={leadView === view ? "info" : "secondary"} onClick={() => setLeadView(view)}>{view}</AdminButton>)}</div>
+        </div>
+        {selectedPlaces.length > 0 && (
+          <div className="mb-4 rounded-[12px] p-3" style={{ border: "1px solid var(--hk-cyan-solid, var(--admin-border-strong))", background: "var(--hk-cyan-soft, var(--admin-surface-soft))" }}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <strong className="text-sm" style={{ color: "var(--admin-text-primary)" }}>{selectedPlaces.length} işletme seçildi</strong>
+              <AdminButton compact variant="secondary" onClick={() => setSelectedPlaces([])}>Seçimi Temizle</AdminButton>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <AdminButton compact variant="success" disabled={loading === "bulk-save"} onClick={saveSelectedBusinesses}>Seçilenleri CRM'e Kaydet</AdminButton>
+              <AdminButton compact variant="warning" disabled={loading === "bulk-proposal"} onClick={prepareSelectedProposals}>Seçilenler İçin Teklif Hazırla</AdminButton>
+              <AdminButton compact variant="ai" onClick={() => prepareBulkAction("Seçilenler rakip analizine hazırlandı", ["Rakip Analizi ekranında işletmeleri kontrol et.", "Rakip skorlarını ve müşteri özetini üret."], "/hk-admin/rakip-analizi")}>Seçilenleri Rakip Analizine Gönder</AdminButton>
+              <AdminButton compact variant="info" onClick={() => prepareBulkAction("Seçilenler için görev taslağı", ["Görevler ekranında arama/takip görevlerini oluştur.", "Sorumlu kişiyi ata ve son tarihi belirle."], "/hk-admin/gorevler")}>Seçilenler İçin Takip Görevi Oluştur</AdminButton>
+              <AdminButton compact variant="danger" onClick={selectHotLeads}>En Sıcak Leadleri Seç</AdminButton>
+              <AdminButton compact variant="secondary" onClick={selectNoWebsiteLeads}>Website Olmayanları Seç</AdminButton>
+              <AdminButton compact variant="success" onClick={prepareSelectedWhatsappMessages}>WhatsApp Mesajlarını Hazırla</AdminButton>
+            </div>
+          </div>
+        )}
+        {message && <p className="mb-4 rounded-[8px] p-3 text-xs leading-5" style={{ border: "1px solid var(--hk-cyan-solid, var(--admin-border-strong))", background: "var(--hk-cyan-soft, var(--admin-surface-soft))", color: "var(--admin-text-primary)" }}>{message}</p>}
+        {leadView === "Kart Görünümü" && <div className="grid gap-3 md:grid-cols-2">{loading === "search" ? [1, 2, 3, 4].map((item) => <div key={item} className="h-64 animate-pulse rounded-[10px]" style={{ background: "var(--admin-surface-muted, var(--admin-surface-soft))" }} />) : visible.map(renderBusiness)}</div>}
+        {leadView === "Liste Görünümü" && <div className="grid gap-2">{visible.map((item: any) => <button key={item.placeId || item.google_place_id || item.id} onClick={() => setSelectedPlaceId(item.placeId || item.google_place_id || item.id)} className="grid gap-2 rounded-[10px] p-3 text-left text-sm md:grid-cols-[1fr_100px_100px_120px]" style={{ border: "1px solid var(--admin-border)", background: "var(--admin-surface-muted, var(--admin-surface-soft))", color: "var(--admin-text-primary)" }}><strong>{item.name || item.company}</strong><span>{item.googleRating || item.google_rating || "-"} puan</span><span>{item.reviewCount || item.google_review_count || 0} yorum</span><span style={{ color: "var(--hk-cyan-solid, var(--admin-text-primary))" }}>{item.opportunityScore || item.leadHeatScore || item.lead_heat_score || 0}/100</span></button>)}</div>}
+        {leadView === "Harita Görünümü" && <div><p className="mb-3 rounded-[10px] p-3 text-xs leading-5" style={{ border: "1px solid var(--admin-border-strong)", background: "var(--admin-surface-muted, var(--admin-surface-soft))", color: "var(--admin-text-secondary)" }}>Harita görünümü, koordinatı bulunan gerçek sonuçları aşağıdaki işaretleyici listesinde gösterir. Konumu olmayan kayıtlar kart görünümünde incelenebilir.</p><MapIntelligenceCanvas businesses={visible} districts={districts} sectors={sectors} selectedPlaceId={selectedPlaceId} setSelectedPlaceId={setSelectedPlaceId} setSearch={(next) => setSearch({ ...search, ...next, businessType: next.businessType || next.sector || search.businessType })} search={{ ...search, sector: search.businessType }} /></div>}
+        {leadView === "Fırsat Haritası" && <OpportunityMap content={content} setContent={setContent} save={save} notify={notify} search={{ ...search, sector: search.businessType }} setSearch={(next) => setSearch({ ...search, ...next, businessType: next.businessType || next.sector || search.businessType })} setTab={setMapTab} setActive={setActive} saved={saved} />}
+        {!loading && !visible.length && <AdminEmptyState title={results.length ? "Bu filtrelerle işletme bulunamadı" : "Henüz arama yapılmadı"} description={results.length ? "Yıldız puanı veya yorum sayısı filtresini genişletmeyi deneyin." : "Sol panelden il, ilçe, mahalle ve sektör seçerek \"Google Maps'ten Bul\" düğmesine basın."} />}
+      </div>
     </AdminWorkspace>
   );
 }
@@ -11329,10 +11466,6 @@ function BusinessLeadDetailPanel({ record, mapsHref, metaHref, saveBusiness, pro
     }
   }
 
-  function closePanel() {
-    window.dispatchEvent(new Event("hk-close-discovery-detail"));
-  }
-
   function showWhatsappDraft() {
     const text = outreachText(record);
     setMessageDraft(text);
@@ -11344,144 +11477,167 @@ function BusinessLeadDetailPanel({ record, mapsHref, metaHref, saveBusiness, pro
     setMessageDraft(text);
   }
 
-  if (!record) {
-    return <aside className="h-fit rounded-[12px] border border-dashed border-slate-200 bg-slate-50 p-5"><p className="text-xs font-black uppercase tracking-[.14em] text-cyan-700">Seçilen İşletme Detayı</p><h3 className="mt-2 text-lg font-black text-slate-950">Henüz işletme seçilmedi</h3><p className="mt-2 text-sm leading-6 text-slate-500">Orta alandaki kartlardan Detay butonuna basın. Seçilen işletmenin satış yaklaşımı, skorları ve aksiyonları burada açılır.</p></aside>;
+  function scoreTone(value: any) {
+    if (value === null || value === undefined || Number.isNaN(Number(value))) return "neutral";
+    const num = Number(value);
+    if (num >= 85) return "danger";
+    if (num >= 65) return "warning";
+    if (num >= 40) return "info";
+    return "neutral";
   }
+
+  async function convertToCustomer() {
+    if (!record) return;
+    const lead = existingLead?.id ? existingLead : await saveBusiness(record);
+    if (lead) openCrmLead(lead);
+  }
+
+  if (!record) {
+    return <AdminDetailInspector emptyTitle="Henüz işletme seçilmedi" emptyDescription="Orta alandaki bir karta tıklayın; seçilen işletmenin skorları, satış yaklaşımı ve aksiyonları burada açılır." />;
+  }
+
   const name = record.name || record.company || "İşletme";
   const opportunityScore = Number(record.opportunityScore || record.leadHeatScore || record.lead_heat_score || 0);
   const maturity = Number(record.digitalMaturityScore || record.digital_maturity_score || 0);
   const digitalGapScore = Number(record.digitalGapScore || Math.max(0, 100 - maturity));
   const adPotentialScore = Number(record.adPotentialScore || Math.min(100, opportunityScore + 10));
+  const heat = record.leadHeatScore ?? record.lead_heat_score ?? null;
+  const tier = getHkOpportunityTier(opportunityScore);
+  const recommendation = record.salesRecommendation;
+  const placeKey = record.placeId || record.google_place_id || record.id;
   const plan = ["1. gün: İşletme bilgilerini ve karar vericiyi doğrula.", "2. gün: WhatsApp veya telefonla kısa fırsat özeti paylaş.", "3. gün: Website, Google yorum ve reklam potansiyeli teklifini hazırla.", "4-5. gün: İlk takip görüşmesini yap.", "7. gün: CRM durumunu güncelle ve teklif sonucunu işle."];
-  return <><button type="button" aria-label="İşletme detayını kapat" onClick={closePanel} className="fixed inset-0 z-[8990] bg-slate-950/55 xl:hidden" /><aside className="premium-scrollbar fixed inset-x-3 bottom-3 top-20 z-[9000] min-h-0 overflow-y-auto overflow-x-hidden rounded-[14px] border border-cyan-200 bg-white p-4 shadow-2xl xl:sticky xl:inset-auto xl:top-4 xl:z-auto xl:h-[calc(100dvh-8rem)] xl:max-h-none xl:shadow-sm">
-    <div className="sticky -top-4 z-20 -mx-4 -mt-4 border-b border-slate-200 bg-white px-4 py-4">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-black uppercase tracking-[.14em] text-cyan-700">Seçilen İşletme Detayı</p>
-        <button type="button" onClick={closePanel} aria-label="İşletme detayını kapat" className="grid size-10 shrink-0 place-items-center rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-100"><X size={18} /></button>
-      </div>
-    <div className="mt-2 flex items-start justify-between gap-3">
-      <div>
-        <h3 className="text-xl font-black text-slate-950">{name}</h3>
-        <p className="mt-1 text-xs text-slate-500">{record.city || "-"} / {districtOf(record)} · {record.category || record.business_type || "Sektör belirtilmedi"}</p>
-      </div>
-      <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-black text-cyan-700 ring-1 ring-cyan-200">{opportunityScore}/100</span>
-    </div>
-    </div>
-    <div className="mt-4 rounded-[12px] border border-cyan-200 bg-cyan-50 p-3">
-      <div className="flex flex-wrap items-center gap-2">
-        {existingLead ? <>
-          <span className="rounded-full bg-emerald-100 px-3 py-2 text-xs font-black text-emerald-700">CRM’de kayıtlı</span>
-          <button onClick={() => openCrmLead(record)} className="rounded-full border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-700">CRM Kaydını Aç</button>
-        </> : <button onClick={() => saveBusiness(record)} className="rounded-full bg-cyan-300 px-3 py-2 text-xs font-black text-slate-950">CRM’e Kaydet</button>}
-        <button onClick={() => proposalFor(record)} className="rounded-full border border-amber-200 bg-white px-3 py-2 text-xs font-black text-amber-800">Teklif Hazırla</button>
-        <button onClick={() => openWhatsapp(record)} className="rounded-full border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-700">WhatsApp</button>
-        <a target="_blank" rel="noreferrer" href={mapsHref(record)} className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700">Maps’te Aç</a>
-        {record.website ? <button onClick={() => openWebsite(record)} className="rounded-full border border-blue-200 bg-white px-3 py-2 text-xs font-black text-blue-700">Web Sitesini Aç</button> : <span className="rounded-full bg-white px-3 py-2 text-xs font-black text-slate-500">Website mevcut değil</span>}
-        <button onClick={() => findCompetitorsForLead(record)} className="rounded-full border border-purple-200 bg-white px-3 py-2 text-xs font-black text-purple-700">Rakiplerini Bul</button>
-      </div>
-    </div>
 
-    <div className="mt-4 grid gap-2 text-sm text-slate-700">
-      <InfoItem label="Adres" value={record.address || "Adres bilgisi yok"} />
-      <InfoItem label="Telefon" value={record.phone || "Telefon bilgisi yok"} />
-      <InfoItem label="Website" value={record.website || "Website yok"} />
-      <InfoItem label="Google puanı" value={`${record.googleRating ?? record.google_rating ?? "-"} · ${record.reviewCount ?? record.google_review_count ?? 0} yorum`} />
-      <InfoItem label="Google Maps" value={mapsHref(record)} />
-      <InfoItem label="Reklam potansiyeli" value={`${adPotentialScore}/100`} />
-      <InfoItem label="Fırsat skoru" value={`${opportunityScore}/100`} />
-      <InfoItem label="Dijital eksik skoru" value={`${digitalGapScore}/100`} />
-    </div>
-    <div className="mt-4 rounded-[12px] border border-slate-200 bg-slate-50 p-3">
-      <p className="text-sm font-black text-slate-950">İletişim</p>
-      <div className="mt-3 grid gap-2 text-xs">
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-[10px] bg-white p-2"><span className="font-bold text-slate-600">Adres: {record.address || "Mevcut değil"}</span><a target="_blank" rel="noreferrer" href={mapsHref(record)} className="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1.5 font-black text-cyan-700">Maps’te Aç</a></div>
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-[10px] bg-white p-2"><span className="font-bold text-slate-600">Website: {record.website || "Mevcut değil"}</span>{record.website ? <button onClick={() => openWebsite(record)} className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 font-black text-blue-700">Web Sitesini Aç</button> : <span className="rounded-full bg-slate-100 px-3 py-1.5 font-black text-slate-500">Mevcut değil</span>}</div>
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-[10px] bg-white p-2"><span className="font-bold text-slate-600">Telefon: {record.phone || "Mevcut değil"}</span><div className="flex flex-wrap gap-1">{record.phone ? <><button onClick={() => callBusiness(record)} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-black text-slate-700">Ara</button><button onClick={() => openWhatsapp(record)} className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 font-black text-emerald-700">WhatsApp</button></> : <span className="rounded-full bg-slate-100 px-3 py-1.5 font-black text-slate-500">Mevcut değil</span>}</div></div>
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-[10px] bg-white p-2"><span className="font-bold text-slate-600">Instagram: {record.instagram || record.instagram_url || "Mevcut değil"}</span><div className="flex flex-wrap gap-1">{record.instagram || record.instagram_url ? <><button onClick={() => openInstagram(record)} className="rounded-full border border-pink-200 bg-pink-50 px-3 py-1.5 font-black text-pink-700">Instagram Aç</button><button onClick={() => prepareInstagramDm(record)} className="rounded-full border border-pink-200 bg-white px-3 py-1.5 font-black text-pink-700">DM Metni Hazırla</button></> : <span className="rounded-full bg-slate-100 px-3 py-1.5 font-black text-slate-500">Mevcut değil</span>}</div></div>
+  return <>
+    <AdminDetailInspector
+      title={name}
+      subtitle={`${record.city || "-"} / ${districtOf(record)} · ${record.category || record.business_type || "Sektör belirtilmedi"}`}
+      fields={[
+        { label: "Google Puanı", value: `${record.googleRating ?? record.google_rating ?? "-"} · ${record.reviewCount ?? record.google_review_count ?? 0} yorum` },
+        { label: "Kategori", value: record.category || record.business_type || "Belirtilmedi" },
+        { label: "Telefon", value: record.phone || "Yok" },
+        { label: "Website", value: record.website || "Yok" },
+        { label: "Instagram", value: record.instagram || record.instagram_url || "Yok" },
+        { label: "WhatsApp", value: record.whatsapp || "Yok" },
+        { label: "AI Fırsat Skoru", value: `${opportunityScore}/100 · ${tier.label}` },
+        { label: "Dijital Eksik Skoru", value: `${digitalGapScore}/100` },
+        { label: "Lead Sıcaklığı", value: heat === null ? "Henüz hesaplanmadı" : `${heat}/100` },
+        { label: "Önerilen Paket", value: recommendation?.recommendedPackageName ? `${recommendation.recommendedPackageName} (${recommendation.recommendedPackageCategory || "-"})` : "Henüz oluşturulmadı" }
+      ]}
+      actions={<>
+        <AdminButton compact variant="warning" onClick={() => proposalFor(record)}>Teklif Oluştur</AdminButton>
+        {existingLead ? <AdminButton compact variant="success" onClick={() => openCrmLead(record)}>CRM Kaydını Aç</AdminButton> : <AdminButton compact variant="primary" onClick={() => saveBusiness(record)}>CRM'e Aktar</AdminButton>}
+        <AdminButton compact variant="info" onClick={convertToCustomer}>Müşteriye Dönüştür</AdminButton>
+      </>}
+    >
+      <div className="flex flex-wrap gap-1.5">
+        <AdminStatusBadge tone={scoreTone(opportunityScore)}>Fırsat {opportunityScore}/100</AdminStatusBadge>
+        <AdminStatusBadge tone={scoreTone(digitalGapScore)}>Dijital Eksik {digitalGapScore}/100</AdminStatusBadge>
+        <AdminStatusBadge tone={scoreTone(heat)}>Sıcaklık {heat ?? "-"}</AdminStatusBadge>
+        <AdminStatusBadge tone={scoreTone(adPotentialScore)}>Reklam Potansiyeli {adPotentialScore}/100</AdminStatusBadge>
+        {existingLead && <AdminStatusBadge tone="success">CRM'de Kayıtlı</AdminStatusBadge>}
       </div>
-    </div>
-    <WhySelectThisBusinessPanel record={record} opportunityScore={opportunityScore} />
-    <AdvertisingEvidencePanel record={record} existingLead={existingLead} verifyAdStatus={verifyAdStatus} metaHref={metaHref} />
-    <MetaSuitabilityPanel record={record} />
-    <SalesRecommendationPanel record={record} />
-    <OutreachAssistantPanel record={record} openWhatsapp={openWhatsapp} prepareInstagramDm={prepareInstagramDm} />
-    <div className="mt-4 rounded-[12px] border border-cyan-200 bg-cyan-50 p-3 text-sm leading-6 text-cyan-950">
-      <strong>AI yorumu:</strong> {record.aiSuggestion || "Bu işletme için Google görünürlüğü, yorum yönetimi, website/landing page ve reklam dönüşümü üzerinden ilk teklif hazırlanabilir."}
-    </div>
-    <div className="mt-4 rounded-[12px] border border-slate-200 bg-slate-50 p-3">
-      <p className="text-sm font-black text-slate-950">7 günlük takip planı</p>
-      <ol className="mt-2 grid gap-1 text-xs leading-5 text-slate-600">{plan.map((item) => <li key={item}>{item}</li>)}</ol>
-    </div>
-    <div className="mt-4 rounded-[12px] border border-emerald-200 bg-emerald-50 p-3">
-      <p className="text-sm font-black text-emerald-950">Satış takip aşaması</p>
-      <SelectField label="Lead aşaması" value={leadStage || "Yeni bulundu"} onChange={(stage) => updateLeadStage(record, stage)} options={leadStageOptions} />
-      <div className="mt-2 flex flex-wrap gap-2">
-        <button onClick={() => createFollowupTask(record)} className="rounded-full border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-700">Takip görevi oluştur</button>
-        <button onClick={() => setNotePlaceId(notePlaceId === (record.placeId || record.google_place_id || record.id) ? "" : (record.placeId || record.google_place_id || record.id))} className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700">Not ekle</button>
-        <button onClick={() => updateLeadStage(record, "Sonra ara")} className="rounded-full border border-amber-200 bg-white px-3 py-2 text-xs font-black text-amber-800">Sonraki temas tarihi belirle</button>
+
+      <div className="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+        <AdminButton compact variant={record.phone ? "secondary" : "ghost"} disabled={!record.phone} onClick={() => callBusiness(record)}>Ara</AdminButton>
+        <AdminButton compact variant={record.phone ? "success" : "ghost"} onClick={() => openWhatsapp(record)}>WhatsApp</AdminButton>
+        <AdminButton compact variant={record.website ? "info" : "ghost"} onClick={() => openWebsite(record)}>Website</AdminButton>
+        <AdminButton compact variant={record.instagram || record.instagram_url ? "communication" : "ghost"} onClick={() => openInstagram(record)}>Instagram</AdminButton>
+        <AdminButton compact variant={record.email ? "secondary" : "ghost"} onClick={() => emailBusiness(record)}>E-posta</AdminButton>
+        <a target="_blank" rel="noreferrer" href={mapsHref(record)} className="hk-button hk-button-neutral hk-button-compact">Maps</a>
       </div>
-    </div>
-    <div className="mt-4 rounded-[12px] border border-purple-200 bg-purple-50 p-3">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <p className="text-sm font-black text-purple-950">Rakipler</p>
-          <p className="mt-1 text-xs leading-5 text-purple-800">Bu işletmeye benzer rakipleri aynı bölge ve sektörde bulabilir, seçilenleri Rakip Analizi ekranında takip listesine kaydedebilirsin.</p>
+
+      <WhySelectThisBusinessPanel record={record} opportunityScore={opportunityScore} />
+      <AdvertisingEvidencePanel record={record} existingLead={existingLead} verifyAdStatus={verifyAdStatus} metaHref={metaHref} />
+      <MetaSuitabilityPanel record={record} />
+      <SalesRecommendationPanel record={record} />
+      <OutreachAssistantPanel record={record} openWhatsapp={openWhatsapp} prepareInstagramDm={prepareInstagramDm} />
+
+      <div className="mt-4 rounded-[12px] p-3" style={{ border: "1px solid var(--admin-border)", background: "var(--admin-surface-muted, var(--admin-surface-soft))" }}>
+        <p className="text-sm font-black" style={{ color: "var(--admin-text-primary)" }}>Satış takip aşaması</p>
+        <div className="mt-2"><SelectField label="Lead aşaması" value={leadStage || "Yeni bulundu"} onChange={(stage) => updateLeadStage(record, stage)} options={leadStageOptions} /></div>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <AdminButton compact variant="secondary" onClick={() => createFollowupTask(record)}>Takip görevi oluştur</AdminButton>
+          <AdminButton compact variant="secondary" onClick={() => setNotePlaceId(notePlaceId === placeKey ? "" : placeKey)}>Not ekle</AdminButton>
+          <AdminButton compact variant="warning" onClick={() => updateLeadStage(record, "Sonra ara")}>Sonraki temas tarihi belirle</AdminButton>
         </div>
-        <button onClick={() => findCompetitorsForLead(record)} className="rounded-full bg-purple-500 px-3 py-2 text-xs font-black text-white">Rakiplerini Bul</button>
       </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button onClick={() => findCompetitorsForLead(record)} className="rounded-full border border-purple-200 bg-white px-3 py-2 text-xs font-black text-purple-700">Aynı bölgede rakipleri tara</button>
-        <button onClick={() => sendToCompetitor(record)} className="rounded-full border border-cyan-200 bg-white px-3 py-2 text-xs font-black text-cyan-700">Rakip İstihbaratına Git</button>
-      </div>
-      {competitors.length > 0 ? <div className="mt-3 grid gap-2">
-        {competitors.slice(0, 5).map((competitor: any) => <div key={competitor.id || competitor.google_place_id || competitor.competitor_name} className="rounded-[10px] border border-purple-200 bg-white p-3 text-xs">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <strong className="text-slate-950">{competitor.competitor_name || competitor.name}</strong>
-              <p className="mt-1 text-slate-500">{competitor.address || competitor.category || "Adres/kategori bilgisi yok"}</p>
+
+      <div className="mt-4 rounded-[12px] p-3" style={{ border: "1px solid var(--admin-border)" }}>
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <p className="text-sm font-black" style={{ color: "var(--admin-text-primary)" }}>Rakipler</p>
+            <p className="mt-1 text-xs leading-5" style={{ color: "var(--admin-text-muted)" }}>Bu işletmeye benzer rakipleri aynı bölge ve sektörde bulabilir, seçilenleri Rakip Analizi ekranında takip listesine kaydedebilirsin.</p>
+          </div>
+          <AdminButton compact variant="ai" onClick={() => findCompetitorsForLead(record)}>Rakiplerini Bul</AdminButton>
+        </div>
+        {competitors.length > 0 ? <div className="mt-3 grid gap-2">
+          {competitors.slice(0, 5).map((competitor: any) => <div key={competitor.id || competitor.google_place_id || competitor.competitor_name} className="rounded-[10px] p-3 text-xs" style={{ border: "1px solid var(--admin-border)", background: "var(--admin-card)" }}>
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <strong style={{ color: "var(--admin-text-primary)" }}>{competitor.competitor_name || competitor.name}</strong>
+                <p className="mt-1" style={{ color: "var(--admin-text-muted)" }}>{competitor.address || competitor.category || "Adres/kategori bilgisi yok"}</p>
+              </div>
+              <AdminStatusBadge tone={scoreTone(competitor.competitor_score || competitor.score || 0)}>{competitor.competitor_score || competitor.score || 0}/100</AdminStatusBadge>
             </div>
-            <span className="rounded-full bg-purple-50 px-2 py-1 font-black text-purple-700">{competitor.competitor_score || competitor.score || 0}/100</span>
+            <p className="mt-2" style={{ color: "var(--admin-text-secondary)" }}>Tehdit: {competitor.threat_score || 0} · Fırsat: {competitor.opportunity_score || 0} · Yorum: {competitor.google_review_count || competitor.reviewCount || 0}</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <a target="_blank" rel="noreferrer" href={competitor.google_maps_url || competitor.googleMapsUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([competitor.competitor_name || competitor.name, competitor.address].filter(Boolean).join(" "))}`} className="hk-button hk-button-info hk-button-compact">Google Maps aç</a>
+              <a target="_blank" rel="noreferrer" href={competitor.meta_ad_library_url || `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=TR&q=${encodeURIComponent(competitor.competitor_name || competitor.name || "")}`} className="hk-button hk-button-info hk-button-compact">Meta reklamlarını aç</a>
+              <AdminButton compact variant="secondary" onClick={() => sendToCompetitor(record)}>Takip listesine ekle</AdminButton>
+            </div>
+          </div>)}
+          <AdminButton compact variant="secondary" onClick={() => sendToCompetitor(record)}>Seçilen rakipleri takip listesine kaydet</AdminButton>
+        </div> : <p className="mt-3 rounded-[8px] p-3 text-xs leading-5" style={{ border: "1px dashed var(--admin-border-strong)", color: "var(--admin-text-muted)" }}>Henüz rakip bulunmadı. "Rakiplerini Bul" ile Google Maps/Meta admin entegrasyonları üzerinden tarama başlat.</p>}
+      </div>
+
+      <div className="mt-4 rounded-[12px] p-3" style={{ border: "1px solid var(--admin-border)" }}>
+        <p className="text-sm font-black" style={{ color: "var(--admin-text-primary)" }}>7 günlük takip planı</p>
+        <ol className="mt-2 grid gap-1 text-xs leading-5" style={{ color: "var(--admin-text-muted)" }}>{plan.map((item) => <li key={item}>{item}</li>)}</ol>
+      </div>
+
+      <div className="mt-4 grid gap-2">
+        <p className="text-xs font-black uppercase tracking-[.12em]" style={{ color: "var(--admin-text-muted)" }}>Mesaj Taslakları</p>
+        <div className="flex flex-wrap gap-2">
+          <AdminButton compact variant="success" onClick={showWhatsappDraft}>WhatsApp Mesajı Hazırla</AdminButton>
+          <AdminButton compact variant="secondary" onClick={showFirstMessage}>İlk Mesaj Hazırla</AdminButton>
+          <AdminButton compact variant="communication" onClick={() => prepareInstagramDm(record)}>Instagram DM Hazırla</AdminButton>
+        </div>
+        {messageDraft && <div className="rounded-[12px] p-3" style={{ border: "1px solid var(--admin-border)", background: "var(--admin-surface-muted, var(--admin-surface-soft))" }}>
+          <p className="text-xs font-black" style={{ color: "var(--admin-text-primary)" }}>Hazır mesaj taslağı</p>
+          <textarea value={messageDraft} onChange={(event) => setMessageDraft(event.target.value)} className="mt-2 min-h-28 w-full resize-y rounded-[10px] p-3 text-sm leading-6" style={{ border: "1px solid var(--admin-border)", background: "var(--admin-card)", color: "var(--admin-text-primary)" }} />
+          <div className="mt-2 flex flex-wrap gap-2">
+            <AdminButton compact variant="secondary" onClick={() => navigator.clipboard.writeText(messageDraft)}>Kopyala</AdminButton>
+            {record.phone && <a target="_blank" rel="noreferrer" href={`https://wa.me/${String(record.phone).replace(/\D/g, "")}?text=${encodeURIComponent(messageDraft)}`} className="hk-button hk-button-success hk-button-compact">WhatsApp'ta Aç</a>}
           </div>
-          <p className="mt-2 text-slate-600">Tehdit: {competitor.threat_score || 0} · Fırsat: {competitor.opportunity_score || 0} · Yorum: {competitor.google_review_count || competitor.reviewCount || 0}</p>
-          <div className="mt-2 flex flex-wrap gap-1">
-            <a target="_blank" rel="noreferrer" href={competitor.google_maps_url || competitor.googleMapsUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([competitor.competitor_name || competitor.name, competitor.address].filter(Boolean).join(" "))}`} className="rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-1.5 font-black text-cyan-700">Google Maps aç</a>
-            <a target="_blank" rel="noreferrer" href={competitor.meta_ad_library_url || `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=TR&q=${encodeURIComponent(competitor.competitor_name || competitor.name || "")}`} className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1.5 font-black text-blue-700">Meta reklamlarını aç</a>
-            <button onClick={() => sendToCompetitor(record)} className="rounded-full border border-purple-200 bg-white px-2.5 py-1.5 font-black text-purple-700">Takip listesine ekle</button>
-            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 font-black text-emerald-700">Müşteriye gösterilsin</span>
-          </div>
-        </div>)}
-        <button onClick={() => sendToCompetitor(record)} className="rounded-full border border-purple-200 bg-white px-3 py-2 text-xs font-black text-purple-700">Seçilen rakipleri takip listesine kaydet</button>
-      </div> : <p className="mt-3 rounded-[10px] border border-dashed border-purple-200 bg-white p-3 text-xs leading-5 text-purple-700">Henüz rakip bulunmadı. “Rakiplerini Bul” ile Google Maps/Meta admin entegrasyonları üzerinden tarama başlat.</p>}
-    </div>
-    <div className="mt-4 grid gap-2">
-      <p className="text-xs font-black uppercase tracking-[.12em] text-slate-500">Hızlı İşlemler</p>
-      {existingLead ? <button onClick={() => openCrmLead(record)} className="rounded-[10px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-black text-emerald-700">CRM Kaydını Aç</button> : <button onClick={() => saveBusiness(record)} className="rounded-[10px] bg-cyan-300 px-4 py-3 text-xs font-black text-slate-950">CRM’e Kaydet</button>}
-      <button onClick={() => proposalFor(record)} className="rounded-[10px] border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-black text-amber-800">Teklif Hazırla</button>
-      <button onClick={showWhatsappDraft} className="rounded-[10px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-black text-emerald-700">WhatsApp Mesajı Hazırla</button>
-      <button onClick={showFirstMessage} className="rounded-[10px] border border-emerald-200 bg-white px-4 py-3 text-xs font-black text-emerald-700">İlk Mesaj Hazırla</button>
-      {messageDraft && <div className="rounded-[12px] border border-emerald-200 bg-emerald-50 p-3"><p className="text-xs font-black text-emerald-900">Hazır mesaj taslağı</p><textarea value={messageDraft} onChange={(event) => setMessageDraft(event.target.value)} className="mt-2 min-h-28 w-full resize-y rounded-[10px] border border-emerald-200 bg-white p-3 text-sm leading-6 text-slate-900" /><div className="mt-2 flex flex-wrap gap-2"><button type="button" onClick={() => navigator.clipboard.writeText(messageDraft)} className="rounded-full border border-emerald-200 bg-white px-3 py-2 text-xs font-black text-emerald-800">Kopyala</button>{record.phone && <a target="_blank" rel="noreferrer" href={`https://wa.me/${String(record.phone).replace(/\D/g, "")}?text=${encodeURIComponent(messageDraft)}`} className="rounded-full bg-[#25D366] px-3 py-2 text-xs font-black text-slate-950">WhatsApp’ta Aç</a>}</div></div>}
-      <p className="mt-3 text-xs font-black uppercase tracking-[.12em] text-slate-500">Analiz ve Raporlar</p>
-      <button disabled={reportBusy.swot_report} aria-label="AI SWOT raporu hazırla" onClick={() => runReport("swot_report")} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] border border-blue-200 bg-blue-50 px-4 py-3 text-xs font-black text-blue-700 disabled:cursor-not-allowed disabled:opacity-60">{reportBusy.swot_report && <Loader2 className="animate-spin" size={16} />}{reportBusy.swot_report ? "SWOT hazırlanıyor..." : "AI SWOT Raporu Hazırla"}</button>
-      <button disabled={reportBusy.digital_audit} aria-label="AI dijital analiz raporu hazırla" onClick={() => runReport("digital_audit")} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] border border-cyan-200 bg-cyan-50 px-4 py-3 text-xs font-black text-cyan-700 disabled:cursor-not-allowed disabled:opacity-60">{reportBusy.digital_audit && <Loader2 className="animate-spin" size={16} />}{reportBusy.digital_audit ? "Dijital analiz hazırlanıyor..." : "AI Dijital Analiz Raporu"}</button>
-      <button disabled={reportBusy.presentation} aria-label="AI sunum taslağı hazırla" onClick={() => runReport("presentation")} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] border border-amber-200 bg-white px-4 py-3 text-xs font-black text-amber-800 disabled:cursor-not-allowed disabled:opacity-60">{reportBusy.presentation && <Loader2 className="animate-spin" size={16} />}{reportBusy.presentation ? "Sunum hazırlanıyor..." : "AI Sunum Hazırla"}</button>
-      <button disabled={reportBusy.competitor_analysis} aria-label="Rakip analizi raporu hazırla" onClick={() => runReport("competitor_analysis")} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] border border-purple-200 bg-purple-50 px-4 py-3 text-xs font-black text-purple-700 disabled:cursor-not-allowed disabled:opacity-60">{reportBusy.competitor_analysis && <Loader2 className="animate-spin" size={16} />}{reportBusy.competitor_analysis ? "Rakip analizi hazırlanıyor..." : "Rakip Analizi Raporu"}</button>
-      <button disabled={reportBusy.discovery_report} aria-label="Müşteri keşif raporu hazırla" onClick={() => runReport("discovery_report")} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] border border-slate-200 bg-white px-4 py-3 text-xs font-black text-slate-700 disabled:cursor-not-allowed disabled:opacity-60">{reportBusy.discovery_report && <Loader2 className="animate-spin" size={16} />}{reportBusy.discovery_report ? "Keşif raporu hazırlanıyor..." : "Müşteri Keşif Raporu"}</button>
-      {Object.keys(availableReports).length > 0 && <div className="rounded-[12px] border border-emerald-200 bg-emerald-50 p-3"><p className="text-xs font-black text-emerald-900">Bu oturumda oluşturulan raporlar</p><div className="mt-2 grid gap-2">{Object.values(availableReports).map((report) => <button key={report.id} type="button" onClick={() => setReportPreview(report)} className="min-h-10 rounded-[10px] border border-emerald-200 bg-white px-3 text-left text-xs font-black text-emerald-800">{report.report_type || report.title} · Görüntüle</button>)}</div></div>}
-      <p className="mt-3 text-xs font-black uppercase tracking-[.12em] text-slate-500">Rakip ve Araştırma</p>
-      <button onClick={() => sendToCompetitor(record)} className="rounded-[10px] border border-purple-200 bg-purple-50 px-4 py-3 text-xs font-black text-purple-700">Rakip Analizine Gönder</button>
-      <button onClick={() => sendToCompetitor(record)} className="rounded-[10px] border border-cyan-200 bg-cyan-50 px-4 py-3 text-xs font-black text-cyan-700">Rakip İstihbaratına Git</button>
-      <a target="_blank" rel="noreferrer" href={mapsHref(record)} className="rounded-[10px] border border-slate-200 bg-white px-4 py-3 text-center text-xs font-black text-slate-700">Google Maps’te Aç</a>
-      <a target="_blank" rel="noreferrer" href={metaHref(record)} className="rounded-[10px] border border-blue-200 bg-blue-50 px-4 py-3 text-center text-xs font-black text-blue-700">Meta Reklamlarını Aç</a>
-      <button onClick={() => openWhatsapp(record)} className="rounded-[10px] border border-emerald-200 bg-white px-4 py-3 text-xs font-black text-emerald-700">WhatsApp’tan İletişim Kur</button>
-      <button onClick={() => prepareInstagramDm(record)} className="rounded-[10px] border border-pink-200 bg-pink-50 px-4 py-3 text-xs font-black text-pink-700">Instagram DM Hazırla</button>
-      <button onClick={() => openInstagram(record)} className="rounded-[10px] border border-pink-200 bg-white px-4 py-3 text-xs font-black text-pink-700">Instagram Aç</button>
-      <button onClick={() => callBusiness(record)} className="rounded-[10px] border border-slate-200 bg-white px-4 py-3 text-xs font-black text-slate-700">Ara</button>
-      <button onClick={() => emailBusiness(record)} className="rounded-[10px] border border-slate-200 bg-white px-4 py-3 text-xs font-black text-slate-700">E-posta Gönder</button>
-      <button onClick={() => openWebsite(record)} className="rounded-[10px] border border-slate-200 bg-white px-4 py-3 text-xs font-black text-slate-700">Website Aç</button>
-      <button onClick={() => markCandidate(record)} className="rounded-[10px] border border-amber-200 bg-white px-4 py-3 text-xs font-black text-amber-700">Müşteri Adayı Olarak İşaretle</button>
-      <button onClick={() => setNotePlaceId(notePlaceId === (record.placeId || record.google_place_id || record.id) ? "" : (record.placeId || record.google_place_id || record.id))} className="rounded-[10px] border border-slate-200 bg-white px-4 py-3 text-xs font-black text-slate-700">Not Ekle</button>
-    </div>
-  </aside>{reportPreview && <DiscoveryReportViewer report={reportPreview} onClose={() => setReportPreview(null)} onRegenerate={() => { const kind = reportPreview.metadata?.report_kind as "swot_report" | "digital_audit" | "presentation" | "competitor_analysis" | "discovery_report"; if (kind) runReport(kind); }} regenerating={Boolean(reportPreview.metadata?.report_kind && reportBusy[reportPreview.metadata.report_kind])} />}</>;
+        </div>}
+      </div>
+
+      <div className="mt-4 grid gap-2">
+        <p className="text-xs font-black uppercase tracking-[.12em]" style={{ color: "var(--admin-text-muted)" }}>Analiz ve Raporlar</p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <AdminButton compact variant="info" loading={reportBusy.swot_report} onClick={() => runReport("swot_report")}>{reportBusy.swot_report ? "Hazırlanıyor..." : "AI SWOT Raporu"}</AdminButton>
+          <AdminButton compact variant="info" loading={reportBusy.digital_audit} onClick={() => runReport("digital_audit")}>{reportBusy.digital_audit ? "Hazırlanıyor..." : "AI Dijital Analiz"}</AdminButton>
+          <AdminButton compact variant="warning" loading={reportBusy.presentation} onClick={() => runReport("presentation")}>{reportBusy.presentation ? "Hazırlanıyor..." : "AI Sunum Hazırla"}</AdminButton>
+          <AdminButton compact variant="ai" loading={reportBusy.competitor_analysis} onClick={() => runReport("competitor_analysis")}>{reportBusy.competitor_analysis ? "Hazırlanıyor..." : "Rakip Analizi Raporu"}</AdminButton>
+          <AdminButton compact variant="secondary" loading={reportBusy.discovery_report} onClick={() => runReport("discovery_report")}>{reportBusy.discovery_report ? "Hazırlanıyor..." : "Müşteri Keşif Raporu"}</AdminButton>
+        </div>
+        {Object.keys(availableReports).length > 0 && <div className="rounded-[12px] p-3" style={{ border: "1px solid var(--admin-border)", background: "var(--admin-surface-muted, var(--admin-surface-soft))" }}>
+          <p className="text-xs font-black" style={{ color: "var(--admin-text-primary)" }}>Bu oturumda oluşturulan raporlar</p>
+          <div className="mt-2 grid gap-2">{Object.values(availableReports).map((report: any) => <AdminButton key={report.id} compact variant="secondary" onClick={() => setReportPreview(report)}>{report.report_type || report.title} · Görüntüle</AdminButton>)}</div>
+        </div>}
+      </div>
+
+      <div className="mt-4 grid gap-2">
+        <p className="text-xs font-black uppercase tracking-[.12em]" style={{ color: "var(--admin-text-muted)" }}>Diğer Aksiyonlar</p>
+        <div className="flex flex-wrap gap-2">
+          <AdminButton compact variant="secondary" onClick={() => sendToCompetitor(record)}>Rakip Analizine Gönder</AdminButton>
+          <a target="_blank" rel="noreferrer" href={metaHref(record)} className="hk-button hk-button-info hk-button-compact">Meta Reklamlarını Aç</a>
+          <AdminButton compact variant="warning" onClick={() => markCandidate(record)}>Müşteri Adayı Olarak İşaretle</AdminButton>
+        </div>
+      </div>
+    </AdminDetailInspector>
+    {reportPreview && <DiscoveryReportViewer report={reportPreview} onClose={() => setReportPreview(null)} onRegenerate={() => { const kind = reportPreview.metadata?.report_kind as "swot_report" | "digital_audit" | "presentation" | "competitor_analysis" | "discovery_report"; if (kind) runReport(kind); }} regenerating={Boolean(reportPreview.metadata?.report_kind && reportBusy[reportPreview.metadata.report_kind])} />}
+  </>;
 }
 
 function EvidenceRow({ label, value }: any) {
@@ -11886,7 +12042,7 @@ function AgencyTargetsCenter({ content, setContent, setActive, save, notify }: a
     notify?.("Ajans hedefleri kaydedildi.", "success");
   }
   return (
-    <Panel title="Ajans Satış Operasyon Merkezi">
+    <div>
       <AdminPageHeader eyebrow="Satış · Operasyon" title="Ajans Satış Operasyon Merkezi" description="Aylık hedefler, tahmini gelir, öncelikli fırsatlar, teklif takibi ve satış hunisini tek merkezde yönetin." />
       <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
         <AdminKpiCard tone="success" icon={<CircleCheck size={18} />} label="Gerçekleşen gelir" value={`${wonRevenue.toLocaleString("tr-TR")} TL`} note="Kazanılan tekliflerden" />
@@ -11974,7 +12130,7 @@ function AgencyTargetsCenter({ content, setContent, setActive, save, notify }: a
         </div>
         <div className="mt-5"><AdminButton variant="primary" onClick={persist}>Ajans Hedeflerini Kaydet</AdminButton></div>
       </AdminSection>
-    </Panel>
+    </div>
   );
 }
 

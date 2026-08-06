@@ -77,8 +77,11 @@ test.describe("admin shell: secondary module toolbar removal", () => {
 
       const header = page.locator(".admin-top-header").first();
       await expect(header).toBeVisible();
-      const sidebar = page.locator(".admin-sidebar").first();
-      await expect(sidebar).toBeVisible();
+      // The persistent left sidebar rail was replaced by a top mega-nav
+      // (desktop) + slide-in drawer (mobile) — no `.admin-sidebar` column
+      // should render at desktop widths any more.
+      await expect(page.locator(".admin-sidebar")).toHaveCount(0);
+      await expect(page.locator(".admin-mega-nav").first()).toBeVisible();
 
       // Content must begin directly below the header — no empty horizontal
       // strip left behind where the toolbar used to sit.
@@ -111,5 +114,65 @@ test.describe("admin shell: secondary module toolbar removal", () => {
     if (headerBox && scrollBox) {
       expect(scrollBox.y).toBeGreaterThanOrEqual(headerBox.y + headerBox.height - 1);
     }
+  });
+});
+
+// Coverage for the rebuilt navigation model: top nav + mega-menu on desktop,
+// slide-in drawer on mobile (<1024px). Replaces the old persistent left
+// accordion sidebar as the default desktop chrome.
+test.describe("admin shell: top mega-nav (desktop) and drawer (mobile)", () => {
+  test("Dashboard button is always visible in the top chrome and reaches the dashboard in one click", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await gotoAsQaAdmin(page, "/hk-admin/musteriler");
+    await page.waitForLoadState("domcontentloaded");
+
+    const dashboardButton = page.getByRole("link", { name: "Panele git" });
+    await expect(dashboardButton).toBeVisible();
+    await dashboardButton.click();
+    await expect(page).toHaveURL(/\/hk-admin$/);
+  });
+
+  test("clicking a group opens its mega-menu and an item navigates + highlights active", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await gotoAsQaAdmin(page, "/hk-admin");
+    await page.waitForLoadState("domcontentloaded");
+
+    const group = page.locator(".admin-mega-nav button[aria-haspopup='true']").first();
+    await group.click();
+    const menu = page.locator(".admin-mega-menu").first();
+    await expect(menu).toBeVisible();
+
+    const firstItem = menu.locator("a").first();
+    const href = await firstItem.getAttribute("href");
+    await firstItem.click();
+    if (href) await expect(page).toHaveURL(new RegExp(href.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$"));
+    // The menu closes itself after navigation.
+    await expect(page.locator(".admin-mega-menu")).toHaveCount(0);
+  });
+
+  test("⌘K command palette still opens from the top header", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await gotoAsQaAdmin(page, "/hk-admin");
+    await page.waitForLoadState("domcontentloaded");
+    await page.getByLabel("HK Mission Control'ı aç (⌘K)").click();
+    await expect(page.locator(".hk-command-panel")).toBeVisible();
+  });
+
+  test("favorites star popover still opens from the top header", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await gotoAsQaAdmin(page, "/hk-admin");
+    await page.waitForLoadState("domcontentloaded");
+    await page.getByRole("button", { name: /Favoriler/ }).click();
+    await expect(page.getByText("Favori modüller")).toBeVisible();
+  });
+
+  test("mobile viewport (390px) hides the mega-nav and opens the slide-in drawer instead", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoAsQaAdmin(page, "/hk-admin");
+    await page.waitForLoadState("domcontentloaded");
+
+    await expect(page.locator(".admin-mega-nav")).toBeHidden();
+    await page.getByRole("button", { name: "Menüyü aç" }).click();
+    await expect(page.locator(".admin-mobile-nav-panel")).toBeVisible();
   });
 });

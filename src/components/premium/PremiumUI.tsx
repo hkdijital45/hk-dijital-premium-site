@@ -6,12 +6,12 @@ import { motion, useReducedMotion } from "framer-motion";
 import {
   BarChart3,
   BrainCircuit,
+  Camera,
   CheckCircle2,
   CircleDollarSign,
   Gauge,
   LineChart,
-  MessageCircle,
-  MousePointerClick,
+  Music2,
   Sparkles,
   Target
 } from "lucide-react";
@@ -271,14 +271,13 @@ export function ScrollScene3D({ children, className = "" }: { children: ReactNod
 export function LoginShell3D({ children, logo }: { children: ReactNode; logo?: ReactNode }) {
   const reduceMotion = useReducedMotion();
   const orbitItems = [
-    { label: "Meta", mark: "∞", className: "left-[7%] top-[18%]", color: "from-blue-400 to-cyan-300" },
-    { label: "Instagram", mark: "IG", className: "right-[9%] top-[16%]", color: "from-pink-400 to-amber-300" },
-    { label: "Google Ads", Icon: MousePointerClick, className: "left-[12%] bottom-[22%]", color: "from-cyan-300 to-yellow-300" },
-    { label: "YouTube", mark: "▶", className: "right-[14%] bottom-[24%]", color: "from-red-400 to-rose-300" },
-    { label: "LinkedIn", mark: "in", className: "left-[27%] top-[10%]", color: "from-sky-400 to-blue-300" },
-    { label: "X", mark: "X", className: "right-[27%] top-[11%]", color: "from-slate-200 to-cyan-200" },
-    { label: "Rapor", Icon: BarChart3, className: "left-[22%] bottom-[9%]", color: "from-emerald-300 to-cyan-300" },
-    { label: "Destek", Icon: MessageCircle, className: "right-[24%] bottom-[8%]", color: "from-yellow-300 to-orange-300" }
+    { label: "Meta", mark: "∞", className: "left-[6%] top-[18%]", color: "from-blue-500 to-indigo-400" },
+    { label: "Instagram", Icon: Camera, className: "right-[7%] top-[16%]", color: "from-pink-400 to-amber-300" },
+    { label: "Facebook", mark: "f", className: "left-[9%] bottom-[24%]", color: "from-blue-600 to-sky-400" },
+    { label: "Google", mark: "G", className: "right-[10%] bottom-[26%]", color: "from-blue-400 to-emerald-400" },
+    { label: "YouTube", mark: "▶", className: "left-[24%] top-[9%]", color: "from-red-500 to-rose-400" },
+    { label: "LinkedIn", mark: "in", className: "right-[23%] top-[10%]", color: "from-sky-500 to-blue-400" },
+    { label: "TikTok", Icon: Music2, className: "left-[20%] bottom-[9%]", color: "from-slate-900 to-pink-400" }
   ];
   return (
     <section className="relative min-h-screen overflow-hidden bg-[#020617] px-4 py-8 text-white sm:px-6 lg:px-8">
@@ -312,10 +311,10 @@ export function LoginShell3D({ children, logo }: { children: ReactNode; logo?: R
             className="mx-auto mb-7 flex flex-col items-center text-center"
           >
             {logo && <div className="mb-6 rounded-full border border-white/10 bg-white/[0.06] px-5 py-3 shadow-[0_22px_70px_rgba(0,0,0,.24)] backdrop-blur-xl">{logo}</div>}
-            <p className="rounded-full border border-cyan-200/20 bg-cyan-200/10 px-4 py-2 text-[11px] font-black uppercase tracking-[.22em] text-cyan-100">HK Dijital</p>
-            <h1 className="mt-5 max-w-4xl text-4xl font-black leading-tight text-white sm:text-5xl lg:text-6xl">Müşteri Girişi</h1>
+            <p className="rounded-full border border-cyan-200/20 bg-cyan-200/10 px-4 py-2 text-[11px] font-black uppercase tracking-[.22em] text-cyan-100">Yetkili Erişim</p>
+            <h1 className="mt-5 max-w-4xl text-4xl font-black leading-tight text-white sm:text-5xl lg:text-6xl">HK Digital Center</h1>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
-              Hesabınıza güvenli şekilde giriş yapın.
+              Dijital pazarlama operasyon merkezinize güvenli ve yetkili giriş yapın.
             </p>
             <div className="mt-8 w-full max-w-[200px]">
               <MacBookMockup

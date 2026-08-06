@@ -3128,6 +3128,18 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
   border-radius: var(--hk-radius-lg);
   box-shadow: var(--hk-shadow-lg);
   border-top: 3px solid var(--nav-accent, var(--hk-cyan));
+  animation: hk-mega-menu-reveal 160ms var(--ease-out, ease-out);
+}
+
+@keyframes hk-mega-menu-reveal {
+  from { opacity: 0; transform: translateY(-6px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hk-admin .admin-mega-menu {
+    animation: none;
+  }
 }
 
 .hk-admin .admin-mega-item {
@@ -3619,7 +3631,7 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
   background: rgba(34, 211, 238, .32);
 }
 
-/* ---- New shell (AdminAppShell / AdminSidebar / AdminTopHeader) --------- */
+/* ---- Shell (AdminAppShell / AdminMegaNav / AdminTopHeader) ------------- */
 
 .admin-app-shell {
   background: var(--admin-bg);
@@ -3664,13 +3676,6 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 
 .hk-admin[data-theme="dark"] {
   --admin-desktop-wallpaper: #05070d;
-}
-
-.admin-sidebar {
-  background: var(--admin-sidebar-bg);
-  border-color: var(--admin-border);
-  box-shadow: var(--hk-shadow-sm);
-  transition: width .2s ease;
 }
 
 .admin-sidebar-group-label {
@@ -3743,11 +3748,6 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
   box-shadow: var(--hk-shadow-lg);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .admin-sidebar {
-    transition: none;
-  }
-}
 
 /* =========================================================================
    MacBook mockup — lightweight CSS-3D laptop used as the public site's
