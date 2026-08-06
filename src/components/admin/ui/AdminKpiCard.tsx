@@ -32,18 +32,18 @@ export function AdminActionCard({
   title,
   description,
   icon,
-  gradient,
   onClick
 }: {
   title: string;
   description: string;
   icon: ReactNode;
-  gradient: string;
+  /** @deprecated ignored — icon chips are flat HK-token tinted, never gradient. Kept optional so existing call sites don't need to change. */
+  gradient?: string;
   onClick?: () => void;
 }) {
   return (
     <button type="button" onClick={onClick} className="admin-card rounded-[20px] p-4 text-left transition hover:-translate-y-0.5">
-      <span className={`grid size-10 shrink-0 place-items-center rounded-[14px] bg-gradient-to-br ${gradient} text-white`}>{icon}</span>
+      <span className="grid size-10 shrink-0 place-items-center rounded-[14px]" style={{ background: "var(--hk-gold-soft)", color: "var(--hk-gold-text)" }}>{icon}</span>
       <p className="mt-3 text-sm font-black" style={{ color: "var(--admin-text-primary)" }}>{title}</p>
       <p className="mt-1 text-xs leading-5" style={{ color: "var(--admin-text-secondary)" }}>{description}</p>
     </button>

@@ -107,9 +107,9 @@ export function LoginForm({ desktopMode = false }: { desktopMode?: boolean }) {
         </button>
       </div>
 
-      {notice && <p className="mt-4 rounded-[8px] bg-emerald-500/10 p-3 text-sm text-emerald-200">{notice}</p>}
-      {resetMessage && <p className="mt-4 rounded-[8px] bg-emerald-500/10 p-3 text-sm text-emerald-200">{resetMessage}</p>}
-      {error && <p className="mt-4 rounded-[8px] bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
+      {notice && <p role="status" aria-live="polite" className="mt-4 rounded-[8px] bg-emerald-500/10 p-3 text-sm text-emerald-200">{notice}</p>}
+      {resetMessage && <p role="status" aria-live="polite" className="mt-4 rounded-[8px] bg-emerald-500/10 p-3 text-sm text-emerald-200">{resetMessage}</p>}
+      {error && <p role="alert" aria-live="assertive" className="mt-4 rounded-[8px] bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
 
       <button type="submit" disabled={loading} className="mt-7 min-h-14 w-full rounded-full bg-gradient-to-r from-cyan-300 via-sky-300 to-yellow-300 px-6 text-base font-black text-slate-950 shadow-[0_0_44px_rgba(34,211,238,.28)] transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60">
         {loading ? "Giriş yapılıyor..." : "Sisteme Giriş"}

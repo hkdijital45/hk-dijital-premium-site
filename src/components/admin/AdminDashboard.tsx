@@ -890,7 +890,7 @@ export function AdminDashboard({
           {["Haritalar", "Google Maps / İşletme Sinyalleri"].includes(active) && <MapsIntelligence {...props} setActive={setActive} mode={active} />}
           {active === "Hazırlık Merkezi" && <PreparationCenter {...props} setActive={setActive} />}
           {["Tema Ayarları", "Tema / Logo"].includes(active) && <ThemeEditor />}
-          {["Roller & Yetkiler", "Kullanıcı Yönetimi"].includes(active) && <UsersAdmin {...props} mode={active} />}
+          {active === "Roller & Yetkiler" && <UsersAdmin {...props} mode={active} />}
           {["Sistem Sağlığı", "Sistem Sağlık Merkezi", "API Durumu"].includes(active) && <SystemHealthCenter content={content} setContent={setContent} startupApiData={startupApiData} runStartupApiStatus={runStartupApiStatus} startupApiLoading={startupApiLoading} />}
           {dataBackupAliases.includes(active) && <ExportCenter content={content} currentSession={currentSession} notify={notify} />}
           {logCenterAliases.includes(active) && <ActivityLogs content={content} setContent={setContent} />}
@@ -911,9 +911,6 @@ export function AdminDashboard({
           {active === "Sayfa İçerikleri" && <Pages {...props} />}
           {active === "Marka Ayarları" && <Brand {...props} />}
           {active === "Sosyal Medya" && <KeyValue title="Sosyal Medya Yönetimi" object={content.socials} onChange={(object) => setContent({ ...content, socials: object })} />}
-          {active === "Hizmetler" && <Collection title="Hizmet Yönetimi" type="service" items={content.services} setItems={(items) => setContent({ ...content, services: items })} />}
-          {active === "Paketler" && <Collection title="Paket Yönetimi" type="package" items={content.packages} setItems={(items) => setContent({ ...content, packages: items })} />}
-          {active === "Sertifikalar" && <Collection title="Sertifika Yönetimi" type="certificate" items={content.certificates} setItems={(items) => setContent({ ...content, certificates: items })} />}
           {active === "Teklif Sihirbazı Ayarları" && <QuoteWizardAdmin {...props} />}
           {["Form Başvuruları", "Teklif Sihirbazı Kayıtları", "Lead Durumları", "Takip Notları", "Lead Workspace"].includes(active) && <Crm {...props} view={active} setActive={setActive} />}
           {active === "Eski Müşteriler" && <CustomersAdmin {...props} />}
@@ -2075,7 +2072,7 @@ function SystemHealthCenter({ content, startupApiData, runStartupApiStatus, star
   ];
   const healthTone = (status: string): AdminStatusTone => status === "Çalışıyor" ? "success" : status === "Hata" ? "danger" : "warning";
   return (
-    <Panel title="Sistem Sağlık Merkezi">
+    <div>
       <AdminPageHeader
         eyebrow="Sistem · Sağlık"
         title="Sistem Sağlık Merkezi"
@@ -2124,7 +2121,7 @@ function SystemHealthCenter({ content, startupApiData, runStartupApiStatus, star
       </div>}
       <div className="mb-5"><ReadinessPanel api={api} /></div>
       <AiStatusCenterWidget statuses={aiStatuses} message={startupApiData?.lastTestTime ? `Son genel kontrol: ${new Date(startupApiData.lastTestTime).toLocaleString("tr-TR")}` : "Bağlantı testi bekleniyor."} loading={startupApiLoading} onRefresh={runStartupApiStatus} />
-    </Panel>
+    </div>
   );
 }
 
@@ -3876,7 +3873,7 @@ function DocumentCenter({ content, setContent, selectedCompanyId = "" }: any) {
 function accountingTabForActive(active = "") {
   if (["Tahsilat", "Tahsilatlar"].includes(active)) return "tahsilatlar";
   if (active === "Bekleyen Ödemeler") return "bekleyen";
-  if (active === "Gelir / Gider") return "gelir-gider";
+  if (["Gelir / Gider", "Gelir Gider"].includes(active)) return "gelir-gider";
   if (active === "Gelir Tahmini") return "gelir-tahmini";
   if (["Karlılık", "Kârlılık"].includes(active)) return "karlilik";
   if (active === "Müşteri Finans Özeti") return "musteri-finans";
@@ -4034,7 +4031,7 @@ function AccountingCenter({ content, setContent, save, currentSession, notify, s
             {tab === "gelir-gider" && (
               <AdminFilterSection title="Gelir / Gider Filtreleri">
                 <div className="grid gap-2">
-                  <label className="grid gap-1 text-[10px] font-black uppercase text-slate-500">Gider ara<input value={financeSearch} onChange={(event) => setFinanceSearch(event.target.value)} placeholder="Başlık, kategori veya not" className="min-h-9 rounded-[8px] border border-slate-300 bg-white px-2 text-xs font-semibold normal-case text-slate-900" /></label>
+                  <label className="grid gap-1 text-[10px] font-black uppercase" style={{ color: "var(--admin-text-muted)" }}>Gider ara<input value={financeSearch} onChange={(event) => setFinanceSearch(event.target.value)} placeholder="Başlık, kategori veya not" className="min-h-9 rounded-[8px] border px-2 text-xs font-semibold normal-case" style={{ borderColor: "var(--admin-border-strong)", background: "var(--admin-surface)", color: "var(--admin-text-primary)" }} /></label>
                   <SelectField label="Kategori" value={financeCategory} onChange={setFinanceCategory} options={expenseCategories} />
                   <AdminButton compact variant="secondary" onClick={() => { setFinanceSearch(""); setFinanceCategory("Tümü"); }}>Filtreleri Temizle</AdminButton>
                 </div>
@@ -4949,17 +4946,38 @@ function Collection({ title, type, items, setItems }: any) {
   const update = (index, patch) => setItems(items.map((item, i) => (i === index ? { ...item, ...patch } : item)));
   const listFields = type === "certificate" ? ["title", "institution", "date", "fileUrl", "verificationUrl", "order"] : type === "service" ? ["name", "icon", "imageUrl", "cta", "order"] : ["name", "price", "imageUrl", "cta", "order"];
   return (
-    <Panel title={title}>
-      <button onClick={() => setItems([...items, { id: `${type}-${Date.now()}`, ...defaults[type] }])} className="mb-4 inline-flex items-center gap-2 rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950"><Plus size={16} /> Ekle</button>
-      <div className="grid gap-4">
-        {items.map((item, index) => <div key={item.id} className="grid gap-3 rounded-[8px] border border-slate-200 p-4">
-          {listFields.map((field) => <Field key={field} label={field} value={item[field]} onChange={(v) => update(index, { [field]: field === "order" ? Number(v) || 0 : v })} />)}
-          {type === "service" && <OtherSelectField label="Hizmet kategorisi" value={item.category} onChange={(v) => update(index, { category: v })} options={serviceCategoryOptions} manualLabel="Hizmet kategorisini yazın" />}
-          {type === "package" && <OtherSelectField label="Paket türü" value={item.packageType} onChange={(v) => update(index, { packageType: v })} options={packageTypeOptions} manualLabel="Paket türünü yazın" />}
-          {type === "certificate" && <SelectField label="Sertifika durumu" value={item.status || (item.visible ? "Aktif" : "Pasif")} onChange={(v) => update(index, { status: v, visible: v !== "Pasif" })} options={["Aktif", "Pasif", "Öne Çıkan"]} />}
-          <Upload onUrl={(url) => update(index, type === "certificate" ? { fileUrl: url } : { imageUrl: url })} /><TextArea label="Açıklama" value={item.description} onChange={(v) => update(index, { description: v })} />{(type === "service" || type === "package") && <TextArea label="Özellikler / dahil olanlar (satır satır)" value={(item.features || item.included || []).join("\n")} onChange={(v) => update(index, type === "package" ? { features: v.split("\n").filter(Boolean) } : { included: v.split("\n").filter(Boolean) })} />}<div className="flex flex-wrap gap-3"><label className="flex gap-2 text-sm"><input type="checkbox" checked={item.visible} onChange={(e) => update(index, { visible: e.target.checked })} /> Görünür</label>{type === "package" && <label className="flex gap-2 text-sm"><input type="checkbox" checked={item.recommended} onChange={(e) => update(index, { recommended: e.target.checked })} /> Önerilen</label>}<button onClick={() => setItems(items.filter((x) => x.id !== item.id))} className="inline-flex items-center gap-2 rounded-full border border-red-300/30 px-3 py-2 text-xs text-red-200"><Trash2 size={14} /> Sil</button></div></div>)}
+    <div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-lg font-black" style={{ color: "var(--admin-text-primary)" }}>{title}</h3>
+          <p className="mt-1 text-xs" style={{ color: "var(--admin-text-muted)" }}>{items.length} kayıt</p>
+        </div>
+        <button onClick={() => setItems([...items, { id: `${type}-${Date.now()}`, ...defaults[type] }])} className="hk-button hk-button-primary hk-button-compact"><Plus size={15} /> Ekle</button>
       </div>
-    </Panel>
+      {!items.length && (
+        <AdminEmptyState title="Henüz kayıt yok" description="Yukarıdaki Ekle butonuyla ilk kaydı oluşturun." />
+      )}
+      <div className="grid gap-4">
+        {items.map((item, index) => (
+          <div key={item.id} className="admin-card grid gap-3" style={{ borderRadius: "var(--hk-radius-lg)", padding: "18px" }}>
+            <div className="grid gap-3 md:grid-cols-2">
+              {listFields.map((field) => <Field key={field} label={field} value={item[field]} onChange={(v) => update(index, { [field]: field === "order" ? Number(v) || 0 : v })} />)}
+            </div>
+            {type === "service" && <OtherSelectField label="Hizmet kategorisi" value={item.category} onChange={(v) => update(index, { category: v })} options={serviceCategoryOptions} manualLabel="Hizmet kategorisini yazın" />}
+            {type === "package" && <OtherSelectField label="Paket türü" value={item.packageType} onChange={(v) => update(index, { packageType: v })} options={packageTypeOptions} manualLabel="Paket türünü yazın" />}
+            {type === "certificate" && <SelectField label="Sertifika durumu" value={item.status || (item.visible ? "Aktif" : "Pasif")} onChange={(v) => update(index, { status: v, visible: v !== "Pasif" })} options={["Aktif", "Pasif", "Öne Çıkan"]} />}
+            <Upload onUrl={(url) => update(index, type === "certificate" ? { fileUrl: url } : { imageUrl: url })} />
+            <TextArea label="Açıklama" value={item.description} onChange={(v) => update(index, { description: v })} />
+            {(type === "service" || type === "package") && <TextArea label="Özellikler / dahil olanlar (satır satır)" value={(item.features || item.included || []).join("\n")} onChange={(v) => update(index, type === "package" ? { features: v.split("\n").filter(Boolean) } : { included: v.split("\n").filter(Boolean) })} />}
+            <div className="flex flex-wrap items-center gap-3 border-t pt-3" style={{ borderColor: "var(--admin-border)" }}>
+              <label className="flex items-center gap-2 text-sm" style={{ color: "var(--admin-text-secondary)" }}><input type="checkbox" checked={item.visible} onChange={(e) => update(index, { visible: e.target.checked })} /> Görünür</label>
+              {type === "package" && <label className="flex items-center gap-2 text-sm" style={{ color: "var(--admin-text-secondary)" }}><input type="checkbox" checked={item.recommended} onChange={(e) => update(index, { recommended: e.target.checked })} /> Önerilen</label>}
+              <button onClick={() => setItems(items.filter((x) => x.id !== item.id))} className="hk-button hk-button-danger hk-button-compact ml-auto"><Trash2 size={14} /> Sil</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -5876,7 +5894,19 @@ function ConfirmDialog({ title, description, confirmLabel, tone = "danger", chil
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
   }, [onCancel]);
-  return <div onMouseDown={onCancel} className="fixed inset-0 z-[80] grid place-items-center bg-white/70 p-4 "><div onMouseDown={(event) => event.stopPropagation()} className="admin-modal-panel w-full max-w-lg rounded-[8px] border border-slate-200 bg-white p-5 shadow-2xl"><h2 className="text-xl font-black text-slate-900">{title}</h2><p className="mt-2 text-sm leading-6 text-slate-400">{description}</p>{children && <div className="mt-4">{children}</div>}<div className="mt-6 flex flex-wrap justify-end gap-2"><button onClick={onCancel} className="rounded-full border border-slate-200 px-4 py-2 text-sm">Vazgeç</button><button onClick={onConfirm} className={`rounded-full px-5 py-2 text-sm font-black ${danger ? "bg-red-500 text-slate-900" : "bg-amber-300 text-slate-950"}`}>{confirmLabel}</button></div></div></div>;
+  return (
+    <div onMouseDown={onCancel} className="admin-drawer-overlay fixed inset-0 z-[80] grid place-items-center bg-white/70 p-4">
+      <div onMouseDown={(event) => event.stopPropagation()} className="admin-modal-panel w-full max-w-lg rounded-[18px] border p-5 shadow-2xl" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+        <h2 className="text-xl font-black" style={{ color: "var(--admin-text-primary)" }}>{title}</h2>
+        <p className="mt-2 text-sm leading-6" style={{ color: "var(--admin-text-secondary)" }}>{description}</p>
+        {children && <div className="mt-4">{children}</div>}
+        <div className="mt-6 flex flex-wrap justify-end gap-2">
+          <button onClick={onCancel} className="hk-button hk-button-neutral">Vazgeç</button>
+          <button onClick={onConfirm} className={`hk-button ${danger ? "hk-button-danger" : "hk-button-warning"}`}>{confirmLabel}</button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function Drawer({ title, close, children }: any) {
@@ -6198,7 +6228,7 @@ function Settings({ content, setContent, setActive, notify }: any) {
     ["Yedekleme ve Loglama Ayarları", "Dışa aktarma, aktivite kaydı ve sistem denetimi.", "Log ve Aktivite Merkezi"]
   ];
   return (
-    <Panel title="Sistem Ayarları">
+    <div>
       <AdminPageHeader eyebrow="Sistem · Ayarlar" title="Sistem Ayarları" description="Uygulamanın genel çalışma, bakım ve public site performans tercihleri." />
       <AdminSection title="Genel Sistem Ayarları">
         <div className="grid gap-4 md:grid-cols-2">
@@ -6210,11 +6240,11 @@ function Settings({ content, setContent, setActive, notify }: any) {
       </AdminSection>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {sections.map(([title, description, target]) => (
-          <AdminActionCard key={title} title={title} description={description} icon={<Settings2 size={20} />} gradient="from-slate-500 to-slate-700" onClick={() => setActive(target)} />
+          <AdminActionCard key={title} title={title} description={description} icon={<Settings2 size={20} />} onClick={() => setActive(target)} />
         ))}
       </div>
       <DataManagementSection content={content} setContent={setContent} notify={notify} />
-    </Panel>
+    </div>
   );
 }
 
@@ -9541,6 +9571,7 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [editingUser, setEditingUser] = useState(null);
+  const [createOpen, setCreateOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
   const [createForm, setCreateForm] = useState<any>({ fullName: "", email: "", username: "", password: "", role: "editor", company_id: "", is_active: true, allowed_modules: uiRoleTemplates.editor, branch_access_mode: "selected", branch_ids: [], default_branch_id: "" });
   const activeAdminUsers = (content.users || []).filter((user) => legacyRole(user.role) === "admin" && user.is_active && !user.deleted_at);
@@ -9644,108 +9675,168 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
       setError(data.supabaseError ? `${data.error}: ${data.supabaseError}` : data.error || "Kullanıcı oluşturulamadı.");
     }
   }
+  const userColumns: AdminDataGridColumn<any>[] = [
+    {
+      key: "user", header: "Kullanıcı", render: (user: any) => (
+        <div className="min-w-0">
+          <strong className="block truncate" style={{ color: "var(--admin-text, var(--admin-text-primary))" }}>{user.full_name || user.email}</strong>
+          <span className="block truncate text-[11px]" style={{ color: "var(--admin-text-muted)" }}>{user.email} · @{user.username || "kullanıcı adı yok"}</span>
+        </div>
+      )
+    },
+    { key: "role", header: "Rol", render: (user: any) => <AdminStatusBadge tone={legacyRole(user.role) === "admin" ? "premium" : legacyRole(user.role) === "musteri" ? "info" : "neutral"}>{roleOptions.find((role) => role.value === legacyRole(user.role))?.label || user.role}</AdminStatusBadge> },
+    { key: "status", header: "Durum", render: (user: any) => <AdminStatusBadge tone={user.is_active ? "success" : "neutral"}>{user.is_active ? "Aktif" : "Pasif"}</AdminStatusBadge> },
+    { key: "auth", header: "Auth", render: (user: any) => <AdminStatusBadge tone={user.auth_user_id ? "success" : "warning"}>{user.auth_user_id ? "Bağlı" : "Eksik"}</AdminStatusBadge> },
+    { key: "updated", header: "Güncelleme", render: (user: any) => user.updated_at ? new Date(user.updated_at).toLocaleDateString("tr-TR") : "-" }
+  ];
+
+  function openEdit(user: any) {
+    setEditingUser({ ...user, branch_access_mode: user.branch_access_mode || "all", branch_ids: branchIdsForUser(user.id), default_branch_id: user.default_branch_id || "" });
+  }
+
+  const roleTabs = ["Kullanıcılar", "Roller ve Yetkiler", "İzinler"];
+
   return (
-    <Panel title={customerOnly ? "Müşteri Giriş Bilgileri" : mode}>
-      {!customerOnly && <HubTabs items={["Kullanıcılar", "Roller ve Yetkiler", "İzinler", "Yeni Kullanıcı Oluştur"]} active={tab} onChange={setTab} />}
-      {tab === "Yeni Kullanıcı Oluştur" && <div className="mb-6 rounded-[8px] border border-slate-200 p-4">
-        <h3 className="font-black">Yeni kullanıcı oluştur</h3>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <Field label="Ad Soyad" value={createForm.fullName} onChange={(v) => setCreateForm({ ...createForm, fullName: v })} />
-          <Field label="E-posta" value={createForm.email} onChange={(v) => setCreateForm({ ...createForm, email: v })} />
-          <Field label="Kullanıcı Adı" value={createForm.username} onChange={(v) => setCreateForm({ ...createForm, username: v })} />
-          <Field label="Geçici Şifre" type="password" value={createForm.password} onChange={(v) => setCreateForm({ ...createForm, password: v })} />
-          <SelectField label="Rol" value={legacyRole(createForm.role)} onChange={(v) => setCreateForm({ ...createForm, role: v, allowed_modules: uiRoleTemplates[v] || [] })} options={roleOptions} />
-          <CompanySelect value={createForm.company_id} onChange={(v) => {
-            const company = (content.companies || []).find((item) => item.id === v);
-            setCreateForm({ ...createForm, company_id: v, username: createForm.username || suggestUsername({ companyName: company?.name, fullName: createForm.fullName, email: createForm.email }), branch_ids: [], default_branch_id: "" });
-          }} companies={content.companies} />
-          {customerRole(createForm.role) && <BranchAccessEditor user={createForm} setUser={setCreateForm} branches={content.customerBranches || []} />}
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={createForm.is_active} onChange={(e) => setCreateForm({ ...createForm, is_active: e.target.checked })} /> Aktif</label>
-        </div>
-        <button onClick={createUser} className="mt-4 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Kullanıcı oluştur</button>
-      </div>}
-      {tab === "Roller ve Yetkiler" && <div className="mb-6 rounded-[8px] border border-slate-200 bg-slate-50 p-4">
-        <h3 className="font-black">Roller ve Yetkiler</h3>
-        <p className="mt-3 text-sm leading-6 text-slate-400">Yönetici tüm modülleri görür. Operasyon yöneticisi CRM, rapor ve ajans operasyonlarını yönetir. Editör içerik, AI ve raporlama araçlarında çalışır. Müşteri yalnızca kendi paneline erişir.</p>
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">{roleOptions.map((role) => <div key={role.value} className="rounded-[8px] border border-slate-200 bg-white p-4"><p className="font-black text-slate-900">{role.label}</p><p className="mt-2 text-xs leading-5 text-slate-400">{(uiRoleTemplates[role.value] || []).length} modül yetkisi</p></div>)}</div>
-      </div>}
-      {tab === "İzinler" && <div className="mb-6 rounded-[8px] border border-slate-200 bg-slate-50 p-4">
-        <h3 className="font-black">İzinler</h3>
-        <p className="mt-2 text-sm text-slate-400">Kullanıcıyı düzenle butonuyla her hesap için modül izinlerini özelleştirebilirsiniz.</p>
-        <div className="mt-4 grid gap-4 md:grid-cols-2">{uiPermissionGroups.map(([group, modules]) => <div key={group} className="rounded-[8px] border border-slate-200 bg-slate-50 p-3"><p className="text-xs font-black uppercase tracking-[.12em] text-cyan-700">{group}</p><div className="mt-3 flex flex-wrap gap-2">{modules.map((module) => <span key={module} className="rounded-full border border-slate-200 px-2 py-1 text-[10px] font-bold text-slate-600">{module}</span>)}</div></div>)}</div>
-      </div>}
-      {["Kullanıcılar", "Roller ve Yetkiler", "İzinler"].includes(tab) && <div className="mb-4 grid gap-3 md:grid-cols-3">
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Kullanıcı ara..." className="min-h-11 rounded-[8px] border border-slate-200 bg-slate-50 px-3 text-slate-900" />
-        <SelectField label="Rol filtresi" value={roleFilter} onChange={setRoleFilter} options={roleOptions} placeholder="Tüm roller" />
-        <SelectField label="Durum filtresi" value={statusFilter} onChange={setStatusFilter} options={statusOptions} placeholder="Tüm durumlar" />
-      </div>}
-      {message && <p className="mb-4 rounded-[8px] border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-700">{message}</p>}
-      {error && <p className="mb-4 rounded-[8px] border border-red-300/30 bg-red-500/10 p-3 text-sm text-red-100">{error}</p>}
-      {["Kullanıcılar", "Roller ve Yetkiler", "İzinler"].includes(tab) && <div className="grid gap-3">
-        {users.map((user) => (
-          <div key={user.id} className="rounded-[8px] border border-slate-200 p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h3 className="font-black">{user.full_name || user.email}</h3>
-                <p className="text-sm text-slate-400">{user.email} · @{user.username || "kullanıcı adı yok"} · {roleOptions.find((role) => role.value === legacyRole(user.role))?.label || user.role} · {user.is_active ? "Aktif" : "Pasif"}</p>
-                <p className="mt-1 text-xs text-slate-500">Auth bağlantısı: {user.auth_user_id ? "Bağlı" : "Eksik"} · Oluşturulma: {user.created_at ? new Date(user.created_at).toLocaleDateString("tr-TR") : "-"} · Güncelleme: {user.updated_at ? new Date(user.updated_at).toLocaleDateString("tr-TR") : "-"}</p>
-                {currentSession?.profileId === user.id && <p className="mt-2 rounded-[8px] border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-xs text-amber-700">Kendi hesabımı düzenliyorum. Yönetici rolünüz ve aktif durumunuz korunur.</p>}
+    <AdminWorkspace
+      eyebrow="Sistem"
+      title={customerOnly ? "Müşteri Giriş Bilgileri" : mode}
+      description="Yönetici, ekip ve müşteri kullanıcı yetkilerini tek merkezden yönetin."
+      headerActions={!customerOnly && <AdminButton compact variant="primary" onClick={() => setCreateOpen(true)}>+ Yeni Kullanıcı</AdminButton>}
+      leftPanel={
+        <AdminControlPanel>
+          {!customerOnly && (
+            <AdminFilterSection title="Görünüm">
+              <AdminTabs items={roleTabs} active={tab} onChange={setTab} ariaLabel="Kullanıcı yönetimi görünümü" />
+            </AdminFilterSection>
+          )}
+          <AdminFilterSection title="Filtreler">
+            <div className="grid gap-2">
+              <AdminSearchInput value={query} onChange={setQuery} placeholder="Kullanıcı ara..." />
+              <SelectField label="Rol filtresi" value={roleFilter} onChange={setRoleFilter} options={roleOptions} placeholder="Tüm roller" />
+              <SelectField label="Durum filtresi" value={statusFilter} onChange={setStatusFilter} options={statusOptions} placeholder="Tüm durumlar" />
+            </div>
+          </AdminFilterSection>
+        </AdminControlPanel>
+      }
+      rightPanel={
+        <AdminDetailInspector
+          title="Rol özeti"
+          fields={roleOptions.map((role) => ({ label: role.label, value: `${(uiRoleTemplates[role.value] || []).length} modül yetkisi` }))}
+        />
+      }
+      bottomBar={<AdminActionBar statusText={`${users.length} kullanıcı`} />}
+    >
+      {message && <p className="mb-4" style={{ borderRadius: "var(--hk-radius-sm)", padding: "10px 14px", fontSize: "13px", background: "var(--hk-info-bg)", color: "var(--hk-info-text)", border: "1px solid var(--hk-info-border)" }}>{message}</p>}
+      {error && <p className="mb-4" style={{ borderRadius: "var(--hk-radius-sm)", padding: "10px 14px", fontSize: "13px", background: "var(--hk-danger-bg)", color: "var(--hk-danger-text)", border: "1px solid var(--hk-danger-border)" }}>{error}</p>}
+
+      {tab === "Kullanıcılar" && (
+        <AdminDataGrid
+          columns={userColumns}
+          rows={users}
+          rowKey={(user: any) => user.id}
+          onRowClick={openEdit}
+          emptyTitle="Kullanıcı bulunamadı"
+          emptyDescription="Filtreleri temizleyin veya yeni bir kullanıcı oluşturun."
+        />
+      )}
+
+      {tab === "Roller ve Yetkiler" && (
+        <div className="admin-card" style={{ borderRadius: "var(--hk-radius-lg)", padding: "20px" }}>
+          <h3 className="font-black" style={{ color: "var(--admin-text-primary)" }}>Roller ve Yetkiler</h3>
+          <p className="mt-2 text-sm leading-6" style={{ color: "var(--admin-text-secondary)" }}>Yönetici tüm modülleri görür. Operasyon yöneticisi CRM, rapor ve ajans operasyonlarını yönetir. Editör içerik, AI ve raporlama araçlarında çalışır. Müşteri yalnızca kendi paneline erişir.</p>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {roleOptions.map((role) => (
+              <div key={role.value} className="admin-card-soft" style={{ borderRadius: "var(--hk-radius-md)", padding: "16px" }}>
+                <p className="font-black" style={{ color: "var(--admin-text-primary)" }}>{role.label}</p>
+                <p className="mt-2 text-xs leading-5" style={{ color: "var(--admin-text-muted)" }}>{(uiRoleTemplates[role.value] || []).length} modül yetkisi</p>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <button onClick={() => setEditingUser({ ...user, branch_access_mode: user.branch_access_mode || "all", branch_ids: branchIdsForUser(user.id), default_branch_id: user.default_branch_id || "" })} className="rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">Düzenle</button>
-                {customerRole(user.role) && <ResetCustomerPasswordButton userId={user.id} email={user.email} customerName={user.full_name || user.email} source="user_management" disabled={!user.is_active || !user.auth_user_id} disabledReason={!user.auth_user_id ? "Bu müşteriye bağlı Supabase Auth hesabı bulunmuyor." : "Pasif müşteri hesabının şifresi sıfırlanamaz."} onSuccess={(updatedUser) => { update(user.id, updatedUser); setMessage("Müşteri şifresi geçici olarak sıfırlandı."); }} />}
-                <button disabled={Boolean(blockedUserAction(user)) || !user.is_active} onClick={() => setConfirmAction({ type: "disable", user })} className="rounded-full border border-amber-300/30 px-4 py-2 text-sm text-amber-700 disabled:cursor-not-allowed disabled:opacity-45">Pasifleştir</button>
-                <button disabled={Boolean(blockedUserAction(user))} onClick={() => setConfirmAction({ type: "delete", user })} className="rounded-full border border-red-300/30 px-4 py-2 text-sm text-red-100 disabled:cursor-not-allowed disabled:opacity-45">Sil</button>
-              </div>
-            </div>
-          </div>
-        ))}
-        {!users.length && <p className="text-sm text-slate-400">Kullanıcı bulunamadı.</p>}
-      </div>}
-      {editingUser && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-white/70 p-4">
-          <div className="max-h-[92dvh] w-full max-w-5xl overflow-x-hidden overflow-y-auto rounded-[18px] border border-slate-200 bg-white p-4 shadow-2xl sm:p-6">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <h3 className="text-xl font-black">Kullanıcıyı düzenle</h3>
-              <button onClick={() => setEditingUser(null)} className="rounded-full border border-slate-200 px-3 py-2 text-sm">Kapat</button>
-            </div>
-            {currentSession?.profileId === editingUser.id && <p className="mb-4 rounded-[8px] border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-700">Kendi hesabımı düzenliyorum. Kendi yönetici rolünüzü kaldıramaz veya hesabınızı pasifleştiremezsiniz.</p>}
-            <div className="grid gap-3 md:grid-cols-2">
-              <Field label="Ad Soyad" value={editingUser.full_name || ""} onChange={(v) => setEditingUser({ ...editingUser, full_name: v })} />
-              <Field label="E-posta" value={editingUser.email || ""} onChange={(v) => setEditingUser({ ...editingUser, email: v })} />
-              <Field label="Kullanıcı Adı" value={editingUser.username || ""} onChange={(v) => setEditingUser({ ...editingUser, username: v })} />
-              <SelectField label="Rol" value={legacyRole(editingUser.role || "musteri")} onChange={(v) => {
-                if (!confirm("Kullanıcı rolünü değiştirmek istediğinizden emin misiniz?")) return;
-                setEditingUser({ ...editingUser, role: v, allowed_modules: uiRoleTemplates[v] || [] });
-              }} options={roleOptions} />
-              <CompanySelect value={editingUser.company_id || ""} onChange={(v) => setEditingUser({ ...editingUser, company_id: v, branch_ids: [], default_branch_id: "" })} companies={content.companies} />
-              {customerRole(editingUser.role) && <BranchAccessEditor user={editingUser} setUser={setEditingUser} branches={content.customerBranches || []} />}
-              <SelectField label="Durum" value={editingUser.is_active ? "Aktif" : "Pasif"} onChange={(v) => {
-                if (v === "Pasif" && !confirm("Kullanıcıyı pasifleştirmek istediğinizden emin misiniz?")) return;
-                setEditingUser({ ...editingUser, is_active: v === "Aktif" });
-              }} options={statusOptions} />
-              <p className="self-end text-sm text-slate-400">Auth durumu: {editingUser.auth_user_id ? "Bağlı" : "Eksik"}</p>
-            </div>
-            <PermissionEditor user={editingUser} setUser={setEditingUser} />
-            <button onClick={() => saveUser(editingUser)} className="mt-5 rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Değişiklikleri kaydet</button>
+            ))}
           </div>
         </div>
       )}
+
+      {tab === "İzinler" && (
+        <div className="admin-card" style={{ borderRadius: "var(--hk-radius-lg)", padding: "20px" }}>
+          <h3 className="font-black" style={{ color: "var(--admin-text-primary)" }}>İzinler</h3>
+          <p className="mt-2 text-sm" style={{ color: "var(--admin-text-secondary)" }}>Kullanıcıyı düzenle butonuyla her hesap için modül izinlerini özelleştirebilirsiniz.</p>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            {uiPermissionGroups.map(([group, modules]) => (
+              <div key={group} className="admin-card-soft" style={{ borderRadius: "var(--hk-radius-md)", padding: "14px" }}>
+                <p className="text-xs font-black uppercase tracking-[.12em]" style={{ color: "var(--hk-cyan-text)" }}>{group}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {modules.map((module) => <span key={module} style={{ borderRadius: "999px", padding: "4px 10px", fontSize: "10.5px", fontWeight: 700, background: "var(--admin-surface-soft)", color: "var(--admin-text-secondary)", border: "1px solid var(--admin-border)" }}>{module}</span>)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {(editingUser || createOpen) && (
+        <Drawer title={editingUser ? "Kullanıcıyı Düzenle" : "Yeni Kullanıcı Oluştur"} close={() => { setEditingUser(null); setCreateOpen(false); }}>
+          {editingUser ? (
+            <>
+              {currentSession?.profileId === editingUser.id && <p className="mb-4" style={{ borderRadius: "var(--hk-radius-sm)", padding: "10px 14px", fontSize: "13px", background: "var(--hk-warning-bg)", color: "var(--hk-warning-text)", border: "1px solid var(--hk-warning-border)" }}>Kendi hesabımı düzenliyorum. Kendi yönetici rolünüzü kaldıramaz veya hesabınızı pasifleştiremezsiniz.</p>}
+              <div className="grid gap-3 md:grid-cols-2">
+                <Field label="Ad Soyad" value={editingUser.full_name || ""} onChange={(v) => setEditingUser({ ...editingUser, full_name: v })} />
+                <Field label="E-posta" value={editingUser.email || ""} onChange={(v) => setEditingUser({ ...editingUser, email: v })} />
+                <Field label="Kullanıcı Adı" value={editingUser.username || ""} onChange={(v) => setEditingUser({ ...editingUser, username: v })} />
+                <SelectField label="Rol" value={legacyRole(editingUser.role || "musteri")} onChange={(v) => {
+                  if (!confirm("Kullanıcı rolünü değiştirmek istediğinizden emin misiniz?")) return;
+                  setEditingUser({ ...editingUser, role: v, allowed_modules: uiRoleTemplates[v] || [] });
+                }} options={roleOptions} />
+                <CompanySelect value={editingUser.company_id || ""} onChange={(v) => setEditingUser({ ...editingUser, company_id: v, branch_ids: [], default_branch_id: "" })} companies={content.companies} />
+                {customerRole(editingUser.role) && <BranchAccessEditor user={editingUser} setUser={setEditingUser} branches={content.customerBranches || []} />}
+                <SelectField label="Durum" value={editingUser.is_active ? "Aktif" : "Pasif"} onChange={(v) => {
+                  if (v === "Pasif" && !confirm("Kullanıcıyı pasifleştirmek istediğinizden emin misiniz?")) return;
+                  setEditingUser({ ...editingUser, is_active: v === "Aktif" });
+                }} options={statusOptions} />
+                <p className="self-end text-sm" style={{ color: "var(--admin-text-muted)" }}>Auth durumu: {editingUser.auth_user_id ? "Bağlı" : "Eksik"}</p>
+              </div>
+              <PermissionEditor user={editingUser} setUser={setEditingUser} />
+              <div className="mt-5 flex flex-wrap items-center gap-2">
+                <button onClick={() => saveUser(editingUser)} className="hk-button hk-button-primary">Değişiklikleri Kaydet</button>
+                {customerRole(editingUser.role) && <ResetCustomerPasswordButton userId={editingUser.id} email={editingUser.email} customerName={editingUser.full_name || editingUser.email} source="user_management" disabled={!editingUser.is_active || !editingUser.auth_user_id} disabledReason={!editingUser.auth_user_id ? "Bu müşteriye bağlı Supabase Auth hesabı bulunmuyor." : "Pasif müşteri hesabının şifresi sıfırlanamaz."} onSuccess={(updatedUser) => { update(editingUser.id, updatedUser); setEditingUser({ ...editingUser, ...updatedUser }); setMessage("Müşteri şifresi geçici olarak sıfırlandı."); }} />}
+                <button disabled={Boolean(blockedUserAction(editingUser)) || !editingUser.is_active} onClick={() => setConfirmAction({ type: "disable", user: editingUser })} className="hk-button hk-button-warning">Pasifleştir</button>
+                <button disabled={Boolean(blockedUserAction(editingUser))} onClick={() => setConfirmAction({ type: "delete", user: editingUser })} className="hk-button hk-button-danger">Sil</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="grid gap-3 md:grid-cols-2">
+                <Field label="Ad Soyad" value={createForm.fullName} onChange={(v) => setCreateForm({ ...createForm, fullName: v })} />
+                <Field label="E-posta" value={createForm.email} onChange={(v) => setCreateForm({ ...createForm, email: v })} />
+                <Field label="Kullanıcı Adı" value={createForm.username} onChange={(v) => setCreateForm({ ...createForm, username: v })} />
+                <Field label="Geçici Şifre" type="password" value={createForm.password} onChange={(v) => setCreateForm({ ...createForm, password: v })} />
+                <SelectField label="Rol" value={legacyRole(createForm.role)} onChange={(v) => setCreateForm({ ...createForm, role: v, allowed_modules: uiRoleTemplates[v] || [] })} options={roleOptions} />
+                <CompanySelect value={createForm.company_id} onChange={(v) => {
+                  const company = (content.companies || []).find((item) => item.id === v);
+                  setCreateForm({ ...createForm, company_id: v, username: createForm.username || suggestUsername({ companyName: company?.name, fullName: createForm.fullName, email: createForm.email }), branch_ids: [], default_branch_id: "" });
+                }} companies={content.companies} />
+                {customerRole(createForm.role) && <BranchAccessEditor user={createForm} setUser={setCreateForm} branches={content.customerBranches || []} />}
+                <label className="flex items-center gap-2 text-sm" style={{ color: "var(--admin-text-secondary)" }}><input type="checkbox" checked={createForm.is_active} onChange={(e) => setCreateForm({ ...createForm, is_active: e.target.checked })} /> Aktif</label>
+              </div>
+              <button onClick={async () => { await createUser(); setCreateOpen(false); }} className="hk-button hk-button-primary mt-5">Kullanıcı Oluştur</button>
+            </>
+          )}
+        </Drawer>
+      )}
+
       {confirmAction && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-white/70 p-4">
-          <div className="w-full max-w-md rounded-[8px] border border-slate-200 bg-white p-5 shadow-2xl">
-            <h3 className="text-xl font-black">{confirmAction.type === "delete" ? "Kullanıcıyı sil" : "Kullanıcıyı pasifleştir"}</h3>
-            <p className="mt-3 text-sm leading-6 text-slate-600">Bu kullanıcıyı {confirmAction.type === "delete" ? "silmek" : "pasifleştirmek"} istediğinize emin misiniz?</p>
-            <p className="mt-3 rounded-[8px] border border-slate-200 bg-slate-50 p-3 text-sm font-bold text-slate-900">{confirmAction.user.full_name || confirmAction.user.email}</p>
-            <div className="mt-5 flex flex-wrap justify-end gap-2">
-              <button onClick={() => setConfirmAction(null)} className="rounded-full border border-slate-200 px-4 py-2 text-sm">Vazgeç</button>
-              <button onClick={async () => { const action = confirmAction; setConfirmAction(null); if (action.type === "delete") await deleteUser(action.user); else await disableUser(action.user); }} className="rounded-full bg-red-300 px-4 py-2 text-sm font-black text-slate-950">Onayla</button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title={confirmAction.type === "delete" ? "Kullanıcıyı sil" : "Kullanıcıyı pasifleştir"}
+          description={`Bu kullanıcıyı ${confirmAction.type === "delete" ? "silmek" : "pasifleştirmek"} istediğinize emin misiniz?`}
+          confirmLabel="Onayla"
+          tone={confirmAction.type === "delete" ? "danger" : "warning"}
+          onCancel={() => setConfirmAction(null)}
+          onConfirm={async () => { const action = confirmAction; setConfirmAction(null); if (action.type === "delete") await deleteUser(action.user); else await disableUser(action.user); }}
+        >
+          <p className="text-sm font-bold" style={{ color: "var(--admin-text-primary)" }}>{confirmAction.user.full_name || confirmAction.user.email}</p>
+        </ConfirmDialog>
       )}
-      <p className="mt-4 text-sm text-slate-400">Roller: Yönetici tam yetkilidir. Operasyon yöneticisi müşteri ve CRM sürecini yönetir. Editör üretim araçlarını kullanır. Müşteri yalnızca kendi panelini görür.</p>
-    </Panel>
+
+      <p className="mt-4 text-xs" style={{ color: "var(--admin-text-muted)" }}>Roller: Yönetici tam yetkilidir. Operasyon yöneticisi müşteri ve CRM sürecini yönetir. Editör üretim araçlarını kullanır. Müşteri yalnızca kendi panelini görür.</p>
+    </AdminWorkspace>
   );
 }
 
@@ -9758,7 +9849,7 @@ function PermissionEditor({ user, setUser }: any) {
 }
 
 function HubTabs({ items, active, onChange }: any) {
-  return <div className="mb-5 flex flex-wrap gap-2">{items.map((item) => <button key={item} type="button" onClick={() => onChange(item)} className={`rounded-full px-4 py-2 text-sm font-bold ${active === item ? "bg-cyan-300 text-slate-950" : "border border-slate-200 text-slate-600 hover:bg-white/10"}`}>{item}</button>)}</div>;
+  return <AdminTabs items={items} active={active} onChange={onChange} />;
 }
 
 function CrmHub(props: any) {

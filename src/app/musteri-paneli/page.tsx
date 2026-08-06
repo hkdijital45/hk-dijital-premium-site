@@ -212,8 +212,9 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
         )}
 
         {isAdminPreview && (
-          <div className="mb-6 rounded-[14px] border border-cyan-200 bg-cyan-50 p-4 text-sm text-cyan-800">
-            Yönetici önizlemesi: Bu ekran seçilen müşterinin göreceği bilgilerle hazırlanmıştır.
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-cyan-200 bg-cyan-50 p-4 text-sm text-cyan-800">
+            <span>Yönetici önizlemesi: Bu ekran seçilen müşterinin göreceği bilgilerle hazırlanmıştır.</span>
+            <a href={`/hk-admin/musteriler?companyId=${params.company}`} className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-cyan-300 bg-white px-4 py-2 text-xs font-black text-cyan-800 shadow-sm transition hover:bg-cyan-100">← Yönetici Paneline Dön</a>
           </div>
         )}
 
