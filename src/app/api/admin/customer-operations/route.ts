@@ -54,8 +54,12 @@ export async function POST(request: Request) {
       due_date: item.due_date || null,
       payment_date: item.status === "Ödendi" ? item.payment_date || now.slice(0, 10) : item.payment_date || null,
       service_period: item.service_period || null,
-      description: item.description || null,
-      pdf_url: item.pdf_url || null,
+      // The live payment_records table's note column is `payment_note`
+      // (confirmed against the production schema) — there is no
+      // `description` column on this table. Accept either input key for
+      // backward compatibility with existing callers that send
+      // `description`, but always write to the real column.
+      payment_note: item.description ?? item.payment_note ?? null,
       visible_to_customer: item.visible_to_customer !== false,
       updated_at: now
     } : {

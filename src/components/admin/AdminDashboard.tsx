@@ -4115,9 +4115,8 @@ function AccountingCenter({ content, setContent, save, currentSession, notify, s
   );
 }
 
-function PaymentCenter({ content, setContent, save, currentSession, notify, selectedCompanyId = "", onClearCompanyFilter, initialStatus = "Tümü" }: any) {
+function PaymentCenter({ content, setContent, currentSession, notify, selectedCompanyId = "", onClearCompanyFilter, initialStatus = "Tümü" }: any) {
   const items = content.paymentRecords || [];
-  const [feedback, setFeedback] = useState("");
   const currentYear = String(new Date().getFullYear());
   const emptyFilters = { status: initialStatus, companyId: selectedCompanyId, paymentType: "Tümü", month: "", year: "", startDate: "", endDate: "" };
   const [draftFilters, setDraftFilters] = useState(emptyFilters);
@@ -4174,34 +4173,148 @@ function PaymentCenter({ content, setContent, save, currentSession, notify, sele
   const overdueTotal = sum(summaryItems, (item) => ["Gecikmiş", "Gecikti"].includes(item.status) || (item.status === "Bekliyor" && item.due_date && item.due_date < today));
   const pendingTotal = sum(summaryItems, (item) => item.status === "Bekliyor" && !(item.due_date && item.due_date < today));
   const receivableTotal = sum(summaryItems, (item) => item.status !== "Ödendi");
-  const update = (index, patch) => updateCollection(content, setContent, "paymentRecords", items.map((item, i) => i === index ? { ...item, ...patch } : item));
-  const updateById = (id, patch, message = "") => {
-    updateCollection(content, setContent, "paymentRecords", items.map((item) => item.id === id ? { ...item, ...patch, updated_at: new Date().toISOString() } : item));
-    if (message) notify?.(`✓ ${message}`, "success");
-  };
-  const setStatus = (id, status) => {
-    updateCollection(content, setContent, "paymentRecords", items.map((item) => item.id === id ? stampPaymentStatus(item, status) : item));
-    notify?.(`✓ Ödeme durumu ${status} olarak güncellendi`, "success");
-  };
-  function addPayment() {
-    if (!canManage) return;
-    const hasEmptyDraft = items.some((item) => !item.company_id && !Number(item.amount || 0) && item.status === "Bekliyor");
-    if (hasEmptyDraft) {
-      setFeedback("Zaten boş bir tahsilat taslağı var. Önce onu doldurun.");
-      return;
-    }
-    setFeedback("Tahsilat taslağı eklendi. Kaydet düğmesiyle kalıcılaştırın.");
-    updateCollection(content, setContent, "paymentRecords", [{ id: createLocalId(), company_id: appliedFilters.companyId || filterSelectableCustomers(content.companies || [])[0]?.id || "", amount: 0, due_date: new Date().toISOString().slice(0, 10), payment_date: "", status: "Bekliyor", payment_type: "Hizmet Bedeli", service_period: thisMonth, payment_note: "", visible_to_customer: false }, ...items]);
-  }
-  const deletePayment = (id) => {
-    if (!confirmRecordAction("Bu ödeme kaydını silmek istediğinize emin misiniz? Kayıt güvenli şekilde silinmiş olarak işaretlenecek.")) return;
-    updateCollection(content, setContent, "paymentRecords", items.map((item) => item.id === id ? softDeleteRecord(item) : item));
-    notify?.("✓ Ödeme kaydı silinmiş olarak işaretlendi", "success");
-  };
   const [selectedPaymentId, setSelectedPaymentId] = useState("");
   const selectedPayment = selectedPaymentId ? items.find((item) => item.id === selectedPaymentId) : null;
-  const selectedPaymentIndex = selectedPayment ? items.findIndex((candidate) => candidate.id === selectedPayment.id) : -1;
   const filtersApplied = Boolean(appliedFilters.companyId || appliedFilters.status !== "Tümü" || appliedFilters.paymentType !== "Tümü" || appliedFilters.month || appliedFilters.year || appliedFilters.startDate || appliedFilters.endDate);
+
+  // --- Real, backend-backed create/edit/delete flow --------------------------
+  // Every mutation below calls the real /api/admin/customer-operations route
+  // (POST for create/update, DELETE for soft-delete via archived_at) and only
+  // updates local state from the CONFIRMED server response. No local-only
+  // "draft" row is ever created — the previous pattern (add an empty row to
+  // client state, ask the user to find it and click a separate Kaydet button
+  // to persist) is what produced an invisible, unfillable, unremovable draft
+  // that silently blocked further creation and made deletes/edits vanish on
+  // refresh, since they were never actually sent to Supabase.
+  function blankForm() {
+    return { id: "", company_id: appliedFilters.companyId || "", amount: "", status: "Bekliyor", payment_type: "Hizmet Bedeli", due_date: today, payment_date: "", service_period: thisMonth, description: "", visible_to_customer: true };
+  }
+  const [formOpen, setFormOpen] = useState(false);
+  const [formState, setFormState] = useState<any>(blankForm);
+  const [formError, setFormError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [statusBusyId, setStatusBusyId] = useState("");
+
+  function openCreate() {
+    if (!canManage) return;
+    setFormState(blankForm());
+    setFormError("");
+    setFormOpen(true);
+  }
+  function openEdit(payment: any) {
+    if (!canManage || !payment) return;
+    setFormState({
+      id: payment.id,
+      company_id: payment.company_id || "",
+      amount: payment.amount ? String(payment.amount) : "",
+      status: payment.status || "Bekliyor",
+      payment_type: payment.payment_type || "Hizmet Bedeli",
+      due_date: payment.due_date || "",
+      payment_date: payment.payment_date || "",
+      service_period: payment.service_period || "",
+      description: payment.payment_note || payment.description || "",
+      visible_to_customer: payment.visible_to_customer !== false
+    });
+    setFormError("");
+    setFormOpen(true);
+  }
+  function closeForm() {
+    if (saving) return;
+    setFormOpen(false);
+    setFormError("");
+    setFormState(blankForm());
+  }
+
+  async function persistPayment(item: any, successMessage: string) {
+    const response = await fetch("/api/admin/customer-operations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ resource: "payment", item })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.ok || !data.item) throw new Error(data.error || "Tahsilat kaydedilemedi.");
+    const saved = data.item;
+    updateCollection(content, setContent, "paymentRecords", items.some((row) => row.id === saved.id) ? items.map((row) => row.id === saved.id ? saved : row) : [saved, ...items]);
+    notify?.(`✓ ${successMessage}`, "success");
+    return saved;
+  }
+
+  async function submitForm() {
+    if (saving) return;
+    if (!formState.company_id) { setFormError("Müşteri seçimi zorunludur."); return; }
+    const amountNumber = Number(formState.amount);
+    if (!Number.isFinite(amountNumber) || amountNumber <= 0) { setFormError("Tutar sıfırdan büyük olmalıdır."); return; }
+    setSaving(true);
+    setFormError("");
+    try {
+      const saved = await persistPayment({
+        id: formState.id || undefined,
+        company_id: formState.company_id,
+        amount: amountNumber,
+        status: formState.status,
+        due_date: formState.due_date || null,
+        payment_date: formState.payment_date || null,
+        service_period: formState.service_period || null,
+        description: formState.description || null,
+        visible_to_customer: formState.visible_to_customer
+      }, formState.id ? "Tahsilat kaydı güncellendi." : "Tahsilat kaydı oluşturuldu.");
+      setFormOpen(false);
+      setFormState(blankForm());
+      setSelectedPaymentId(saved.id);
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : "Tahsilat kaydedilemedi.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function quickStatusUpdate(payment: any, patch: any, successMessage: string) {
+    if (statusBusyId) return;
+    setStatusBusyId(payment.id);
+    try {
+      await persistPayment({
+        id: payment.id,
+        company_id: payment.company_id,
+        amount: payment.amount,
+        status: payment.status,
+        due_date: payment.due_date,
+        payment_date: payment.payment_date,
+        service_period: payment.service_period,
+        description: payment.payment_note || payment.description || "",
+        visible_to_customer: payment.visible_to_customer,
+        ...patch
+      }, successMessage);
+    } catch (error) {
+      notify?.(error instanceof Error ? error.message : "Güncellenemedi.", "error");
+    } finally {
+      setStatusBusyId("");
+    }
+  }
+
+  async function confirmDeletePayment() {
+    if (!deleteTarget || deleting) return;
+    setDeleting(true);
+    try {
+      const response = await fetch("/api/admin/customer-operations", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resource: "payment", id: deleteTarget.id, company_id: deleteTarget.company_id })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok || !data.item) throw new Error(data.error || "Tahsilat kaydı silinemedi.");
+      updateCollection(content, setContent, "paymentRecords", items.map((row) => row.id === deleteTarget.id ? data.item : row));
+      notify?.("✓ Tahsilat kaydı arşivlendi.", "success");
+      if (selectedPaymentId === deleteTarget.id) setSelectedPaymentId("");
+      setDeleteTarget(null);
+    } catch (error) {
+      notify?.(error instanceof Error ? error.message : "Tahsilat kaydı silinemedi.", "error");
+    } finally {
+      setDeleting(false);
+    }
+  }
+  // -----------------------------------------------------------------------
   const paymentGridColumns: AdminDataGridColumn<any>[] = [
     { key: "company", header: "Müşteri", render: (item: any) => companyName(content, item.company_id) || "-" },
     { key: "type", header: "Tür", render: (item: any) => item.payment_type || "Hizmet Bedeli" },
@@ -4218,7 +4331,7 @@ function PaymentCenter({ content, setContent, save, currentSession, notify, sele
         title="Tahsilat Takibi"
         description="Ödeme kayıtlarını durum, müşteri ve tarihe göre izleyin; gecikmiş tahsilatları takip edin."
         headerActions={<>
-          {canManage && <AdminButton compact variant="primary" onClick={addPayment}>+ Tahsilat Kaydı</AdminButton>}
+          {canManage && <AdminButton compact variant="primary" onClick={openCreate}>+ Tahsilat Kaydı</AdminButton>}
           <AdminButton compact variant="secondary" onClick={() => window.location.reload()}>Yenile</AdminButton>
         </>}
         leftPanel={
@@ -4245,43 +4358,30 @@ function PaymentCenter({ content, setContent, save, currentSession, notify, sele
             title={selectedPayment ? companyName(content, selectedPayment.company_id) || "Tahsilat" : undefined}
             subtitle={selectedPayment ? `${selectedPayment.payment_type || "Hizmet Bedeli"} · ${selectedPayment.status || "Bekliyor"}` : undefined}
             emptyTitle="Bir tahsilat seçin"
-            emptyDescription="Listeden bir satıra tıklayarak detaylarını buradan düzenleyin."
+            emptyDescription="Listeden bir satıra tıklayarak detaylarını görüntüleyin."
             fields={selectedPayment ? [
               { label: "Tutar", value: `${Number(selectedPayment.amount || 0).toLocaleString("tr-TR")} TL` },
               { label: "Hizmet Dönemi", value: selectedPayment.service_period || "-" },
               { label: "Son Ödeme Tarihi", value: formatDate(selectedPayment.due_date) },
               { label: "Ödeme Tarihi", value: selectedPayment.payment_date ? formatDate(selectedPayment.payment_date) : "-" },
+              { label: "Not", value: selectedPayment.payment_note || "-" },
               { label: "Oluşturulma", value: formatDateTime(selectedPayment.created_at) },
               { label: "Güncellenme", value: formatDateTime(selectedPayment.updated_at) }
             ] : undefined}
             actions={selectedPayment ? <>
-              {canManage && selectedPayment.status === "İptal" && <AdminButton compact variant="success" onClick={() => setStatus(selectedPayment.id, "Bekliyor")}>Tekrar Bekliyor Yap</AdminButton>}
-              {canManage && selectedPayment.status !== "Ödendi" && <AdminButton compact variant="success" onClick={() => setStatus(selectedPayment.id, "Ödendi")}>Ödendi Yap</AdminButton>}
-              {canManage && (isArchivedRecord(selectedPayment) ? <AdminButton compact variant="info" onClick={() => updateById(selectedPayment.id, { archived_at: null, deleted_at: null }, "Ödeme arşivden çıkarıldı")}>Arşivden Çıkar</AdminButton> : <AdminButton compact variant="warning" onClick={() => updateById(selectedPayment.id, { archived_at: new Date().toISOString() }, "Ödeme arşivlendi")}>Arşivle</AdminButton>)}
-              {canManage && <AdminButton compact variant="danger" onClick={() => deletePayment(selectedPayment.id)}>Sil</AdminButton>}
-              {canManage && <AdminButton compact variant="primary" onClick={() => save?.()}>Kaydet</AdminButton>}
+              {canManage && <AdminButton compact variant="secondary" onClick={() => openEdit(selectedPayment)}>Düzenle</AdminButton>}
+              {canManage && selectedPayment.status === "İptal" && <AdminButton compact variant="success" disabled={statusBusyId === selectedPayment.id} onClick={() => quickStatusUpdate(selectedPayment, { status: "Bekliyor" }, "Ödeme durumu Bekliyor olarak güncellendi.")}>Tekrar Bekliyor Yap</AdminButton>}
+              {canManage && selectedPayment.status !== "Ödendi" && <AdminButton compact variant="success" disabled={statusBusyId === selectedPayment.id} onClick={() => quickStatusUpdate(selectedPayment, { status: "Ödendi", payment_date: selectedPayment.payment_date || today }, "Ödeme durumu Ödendi olarak güncellendi.")}>Ödendi Yap</AdminButton>}
+              {canManage && (isArchivedRecord(selectedPayment)
+                ? <AdminButton compact variant="info" disabled={statusBusyId === selectedPayment.id} onClick={() => quickStatusUpdate(selectedPayment, { archived_at: null }, "Ödeme arşivden çıkarıldı.")}>Arşivden Çıkar</AdminButton>
+                : <AdminButton compact variant="warning" disabled={statusBusyId === selectedPayment.id} onClick={() => quickStatusUpdate(selectedPayment, { archived_at: new Date().toISOString() }, "Ödeme arşivlendi.")}>Arşivle</AdminButton>)}
+              {canManage && <AdminButton compact variant="danger" onClick={() => setDeleteTarget(selectedPayment)}>Sil</AdminButton>}
             </> : undefined}
-          >
-            {selectedPayment && (
-              <div className="grid gap-2">
-                <CompanySelect value={selectedPayment.company_id || ""} onChange={(value) => update(selectedPaymentIndex, { company_id: value })} companies={content.companies} />
-                <Field label="Tutar" type="number" value={selectedPayment.amount || 0} onChange={(value) => update(selectedPaymentIndex, { amount: Number(value || 0) })} />
-                <SelectField label="Durum" value={selectedPayment.status || "Bekliyor"} onChange={(value) => canManage && setStatus(selectedPayment.id, value)} options={paymentStatusOptions} />
-                <Field label="Ödeme türü" value={selectedPayment.payment_type || "Hizmet Bedeli"} onChange={(value) => update(selectedPaymentIndex, { payment_type: value })} />
-                <Field label="Hizmet dönemi" type="month" value={selectedPayment.service_period || ""} onChange={(value) => update(selectedPaymentIndex, { service_period: value })} />
-                <Field label="Son ödeme tarihi" type="date" value={selectedPayment.due_date || ""} onChange={(value) => update(selectedPaymentIndex, { due_date: value })} />
-                <Field label="Ödeme tarihi" type="date" value={selectedPayment.payment_date || ""} onChange={(value) => update(selectedPaymentIndex, { payment_date: value })} />
-                <TextArea label="Not" value={selectedPayment.payment_note || ""} onChange={(value) => update(selectedPaymentIndex, { payment_note: value })} />
-                <label className="flex items-center gap-2 rounded-[8px] border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700">
-                  <input type="checkbox" checked={Boolean(selectedPayment.visible_to_customer)} onChange={(event) => update(selectedPaymentIndex, { visible_to_customer: event.target.checked })} /> Müşteri Panelinde Görünür
-                </label>
-              </div>
-            )}
-          </AdminDetailInspector>
+          />
         }
         bottomBar={
-          <AdminActionBar statusText={`${filteredItems.length} kayıt${feedback ? ` · ${feedback}` : ""}`}>
-            {canManage && <AdminButton compact variant="primary" onClick={addPayment}>Tahsilat Kaydı Ekle</AdminButton>}
+          <AdminActionBar statusText={`${filteredItems.length} kayıt`}>
+            {canManage && <AdminButton compact variant="primary" onClick={openCreate}>Tahsilat Kaydı Ekle</AdminButton>}
           </AdminActionBar>
         }
       >
@@ -4300,6 +4400,40 @@ function PaymentCenter({ content, setContent, save, currentSession, notify, sele
           emptyTitle="Bu filtrelerle ödeme kaydı bulunamadı."
         />
       </AdminWorkspace>
+
+      {formOpen && (
+        <Drawer title={formState.id ? "Tahsilat Kaydını Düzenle" : "Yeni Tahsilat Kaydı"} close={closeForm}>
+          <div className="grid gap-3">
+            <CompanySelect label="Müşteri" value={formState.company_id} onChange={(value: string) => setFormState({ ...formState, company_id: value })} companies={content.companies} />
+            <Field label="Tutar (TL)" type="number" value={formState.amount} onChange={(value: string) => setFormState({ ...formState, amount: value })} />
+            <SelectField label="Durum" value={formState.status} onChange={(value: string) => setFormState({ ...formState, status: value })} options={paymentStatusOptions} />
+            <Field label="Ödeme türü" value={formState.payment_type} onChange={(value: string) => setFormState({ ...formState, payment_type: value })} />
+            <Field label="Hizmet dönemi" type="month" value={formState.service_period} onChange={(value: string) => setFormState({ ...formState, service_period: value })} />
+            <Field label="Son ödeme tarihi" type="date" value={formState.due_date} onChange={(value: string) => setFormState({ ...formState, due_date: value })} />
+            <Field label="Ödeme tarihi" type="date" value={formState.payment_date} onChange={(value: string) => setFormState({ ...formState, payment_date: value })} />
+            <TextArea label="Not" value={formState.description} onChange={(value: string) => setFormState({ ...formState, description: value })} />
+            <label className="flex items-center gap-2 rounded-[8px] border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700">
+              <input type="checkbox" checked={Boolean(formState.visible_to_customer)} onChange={(event) => setFormState({ ...formState, visible_to_customer: event.target.checked })} /> Müşteri Panelinde Görünür
+            </label>
+            {formError && <p className="rounded-[8px] border p-3 text-sm font-bold" style={{ borderColor: "var(--hk-danger-border)", background: "var(--hk-danger-bg)", color: "var(--hk-danger-text)" }}>{formError}</p>}
+            <div className="flex flex-wrap justify-end gap-2">
+              <AdminButton compact variant="secondary" disabled={saving} onClick={closeForm}>İptal</AdminButton>
+              <AdminButton compact variant="primary" disabled={saving} onClick={submitForm}>{saving ? "Kaydediliyor..." : "Kaydet"}</AdminButton>
+            </div>
+          </div>
+        </Drawer>
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          title="Tahsilat kaydını sil"
+          description={`${companyName(content, deleteTarget.company_id) || "Bu müşteri"} için ${Number(deleteTarget.amount || 0).toLocaleString("tr-TR")} TL tutarındaki tahsilat kaydı arşivlenecek. Kayıt tahsilat listesinden kaldırılır, veritabanından kalıcı olarak silinmez.`}
+          confirmLabel={deleting ? "Siliniyor..." : "Sil"}
+          tone="danger"
+          onCancel={() => !deleting && setDeleteTarget(null)}
+          onConfirm={confirmDeletePayment}
+        />
+      )}
     </div>
   );
 }
