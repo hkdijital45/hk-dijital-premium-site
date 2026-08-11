@@ -6,13 +6,22 @@ import { LockKeyhole } from "lucide-react";
 
 // Site-wide hidden gate for the Secret Access Control Center. Mounted once
 // in the root layout so both triggers work from anywhere:
-//  - Desktop: Ctrl/Cmd+Shift+H then K (tracked via a short-lived combo
-//    buffer, not a literal simultaneous-keydown check, since browsers
-//    report one key at a time).
+//  - Desktop: Ctrl/Cmd+Shift held down, then the key sequence 1 → 1 → 2
+//    pressed in order within 2 seconds total. Tracked as a sequence, not a
+//    single chord — any wrong key, releasing the modifiers mid-sequence, or
+//    the 2s timeout resets progress back to the start.
 //  - Mobile: Header.tsx's logo dispatches a "hk-secret-access-open"
 //    CustomEvent after 5 rapid taps (see Header.tsx) — this component just
 //    listens for it, no prop drilling needed between layout and header.
 // Nothing here renders any visible UI unless actively triggered.
+
+// Physical key codes (not event.key): with Shift held, event.key for the
+// number row reflects the shifted character (e.g. Shift+1 -> "!" on a US
+// layout, and differs again on non-US layouts) — event.code stays
+// "Digit1"/"Digit2" regardless of modifiers or layout, which is what "the
+// 1 and 2 keys" actually means here.
+const DESKTOP_KEY_SEQUENCE = ["Digit1", "Digit1", "Digit2"];
+const DESKTOP_SEQUENCE_TIMEOUT_MS = 2000;
 
 const DEVICE_ID_KEY = "hk_device_id";
 
@@ -35,36 +44,47 @@ export function SecretAccessGate() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
-  const comboRef = useRef<{ ctrl: boolean; shift: boolean; sawH: boolean; sawK: boolean; timer: ReturnType<typeof setTimeout> | null }>({ ctrl: false, shift: false, sawH: false, sawK: false, timer: null });
+  const sequenceRef = useRef<{ index: number; timer: ReturnType<typeof setTimeout> | null }>({ index: 0, timer: null });
 
   useEffect(() => {
-    function resetCombo() {
-      comboRef.current.sawH = false;
-      comboRef.current.sawK = false;
-      if (comboRef.current.timer) clearTimeout(comboRef.current.timer);
-      comboRef.current.timer = null;
+    function resetSequence() {
+      sequenceRef.current.index = 0;
+      if (sequenceRef.current.timer) clearTimeout(sequenceRef.current.timer);
+      sequenceRef.current.timer = null;
     }
     function onKeyDown(event: KeyboardEvent) {
       const target = event.target as HTMLElement | null;
-      const typing = target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+      const typing = target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT" || target.isContentEditable);
       if (typing) return;
+      if (event.repeat) return; // ignore OS key-repeat while a key is held down
 
       const modifiersHeld = (event.ctrlKey || event.metaKey) && event.shiftKey;
       if (!modifiersHeld) {
-        resetCombo();
+        resetSequence();
         return;
       }
-      const key = event.key.toLowerCase();
-      if (key === "h") comboRef.current.sawH = true;
-      else if (key === "k") comboRef.current.sawK = true;
-      else return;
+      // The modifier keys themselves also fire keydown — they hold the
+      // sequence in place (don't advance or reset it) rather than counting
+      // as a wrong key.
+      if (["Control", "Shift", "Meta"].includes(event.key)) return;
 
-      if (comboRef.current.timer) clearTimeout(comboRef.current.timer);
-      comboRef.current.timer = setTimeout(resetCombo, 1500);
+      const expectedKey = DESKTOP_KEY_SEQUENCE[sequenceRef.current.index];
+      if (event.code !== expectedKey) {
+        resetSequence();
+        return;
+      }
 
-      if (comboRef.current.sawH && comboRef.current.sawK) {
-        event.preventDefault();
-        resetCombo();
+      event.preventDefault();
+      const isFirstKey = sequenceRef.current.index === 0;
+      sequenceRef.current.index += 1;
+
+      // A single, fixed budget for the whole sequence starting at the first
+      // correct key — not refreshed per key — so 1‑1‑2 must land inside one
+      // 2s window in total, matching "sequence must complete within 2s".
+      if (isFirstKey) sequenceRef.current.timer = setTimeout(resetSequence, DESKTOP_SEQUENCE_TIMEOUT_MS);
+
+      if (sequenceRef.current.index >= DESKTOP_KEY_SEQUENCE.length) {
+        resetSequence();
         setTriggerMethod("desktop_keyboard");
         setOpen(true);
       }
