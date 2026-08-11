@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { TrackingPlaceholders } from "@/components/public/TrackingPlaceholders";
 import { MetaPixel } from "@/components/public/MetaPixel";
+import { SecretAccessGate } from "@/components/public/SecretAccessGate";
 import { getSiteContent, getSiteTheme } from "@/lib/content";
 import { SITE_URL } from "@/lib/metadata";
 import { getGlobalMetaPixelId } from "@/lib/meta-pixel-settings";
@@ -58,6 +59,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <TrackingPlaceholders ids={content.settings.analyticsIds} />
         <MetaPixel pixelId={metaPixelId} />
         {children}
+        <SecretAccessGate />
       </body>
     </html>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { CalendarCheck, ChevronDown, Menu, MessageCircle, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { SiteContent } from "@/lib/types";
@@ -30,8 +30,33 @@ export function Header({ content }: { content: SiteContent }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+  const router = useRouter();
   const isActive = (href: string) => href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
   const whatsappUrl = content.socials?.whatsapp || (content.contact?.whatsappNumber ? `https://wa.me/${content.contact.whatsappNumber.replace(/\D/g, "")}` : "/iletisim");
+
+  // Hidden mobile trigger for the Secret Access Control Center: 5 rapid taps
+  // on the real logo within ~2.5s opens the modal (SecretAccessGate, mounted
+  // once in the root layout — communicated via a CustomEvent so this
+  // component doesn't need to know it exists). Touch-only by design
+  // (navigator.maxTouchPoints > 0) so desktop mouse clicks never engage this
+  // logic and the logo behaves as a completely normal link there.
+  const logoTapRef = useRef<{ count: number; timer: ReturnType<typeof setTimeout> | null }>({ count: 0, timer: null });
+  function handleLogoClick(event: React.MouseEvent) {
+    if (typeof navigator === "undefined" || !navigator.maxTouchPoints) return; // desktop: normal Link navigation
+    event.preventDefault();
+    logoTapRef.current.count += 1;
+    if (logoTapRef.current.timer) clearTimeout(logoTapRef.current.timer);
+    if (logoTapRef.current.count >= 5) {
+      logoTapRef.current.count = 0;
+      window.dispatchEvent(new CustomEvent("hk-secret-access-open"));
+      return;
+    }
+    logoTapRef.current.timer = setTimeout(() => {
+      const finalCount = logoTapRef.current.count;
+      logoTapRef.current.count = 0;
+      if (finalCount > 0) router.push("/");
+    }, 2500);
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -54,7 +79,7 @@ export function Header({ content }: { content: SiteContent }) {
   return (
     <header className="relative z-50 bg-[#02040b] px-4 py-4 sm:px-6 lg:px-8">
       <div ref={menuRef} className="mx-auto flex max-w-7xl items-center justify-between gap-4 rounded-[22px] border border-[#4fa8f0]/20 bg-[#030712]/88 px-4 py-3 shadow-[0_18px_70px_rgba(0,0,0,.28)] backdrop-blur-2xl transition duration-300 hover:border-[#4fa8f0]/35 sm:px-5">
-        <Link href="/" aria-label="HK Dijital ana sayfa" className="impact-logo rounded-[8px] transition hover:scale-[1.02]">
+        <Link href="/" aria-label="HK Dijital ana sayfa" onClick={handleLogoClick} className="impact-logo rounded-[8px] transition hover:scale-[1.02]">
           <Logo content={content} />
         </Link>
 

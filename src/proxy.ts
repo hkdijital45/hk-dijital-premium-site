@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { adminRoles, authCookieName, customerRoles, decodeSession } from "@/lib/session-token";
+import { HIDDEN_ACCESS_COOKIE, findValidHiddenAccessSession } from "@/lib/hidden-access";
 
 // The real login screen still lives at /digital-center (unchanged internal
 // route — password-reset/admin-setup flows already hardcode redirects there,
@@ -10,6 +11,22 @@ import { adminRoles, authCookieName, customerRoles, decodeSession } from "@/lib/
 const REAL_LOGIN_PATH = "/digital-center";
 const LEGACY_LOGIN_PATHS = new Set(["/login", "/giris"]);
 
+// Secret Access Control Center: an additional gate in front of the real
+// login system, not a replacement for it. A valid, unexpired, unrevoked
+// hidden_access_sessions row (see src/lib/hidden-access.ts) must exist
+// before any of these route trees render at all — otherwise the visitor is
+// bounced to the public homepage with no hint that anything else exists
+// there. This intentionally applies even to an already-logged-in admin/
+// customer: the 1-hour secret-access session is independent of, and in
+// front of, the normal (longer-lived) hk_auth_session cookie.
+const SECRET_GATED_PREFIXES = ["/hk-admin", "/musteri-paneli"];
+
+function requiresSecretGate(pathname: string, privatePath?: string) {
+  if (pathname === REAL_LOGIN_PATH) return true;
+  if (privatePath && pathname === `/${privatePath.replace(/^\/+/, "")}`) return true;
+  return SECRET_GATED_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
+
 // Optimistic, fast gate for the two panel trees plus the private login
 // entry. This does NOT replace the per-page checks in
 // getSession()/requireModuleAccess() (auth.ts, permissions.ts) — those still
@@ -17,16 +34,29 @@ const LEGACY_LOGIN_PATHS = new Set(["/login", "/giris"]);
 // request. Proxy only stops obviously unauthenticated/wrong-role traffic
 // before it renders, and never touches any other route (agent-hub, blog-seo,
 // integrations, communication, accounting, etc. are unaffected by this file).
-export function proxy(request: NextRequest) {
+// Never runs against /api/* (excluded by the matcher below) — authenticated
+// API routes rely on their own real getSession()/requireModuleAccess()
+// checks, never on this URL-level gate, by design.
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const session = decodeSession(request.cookies.get(authCookieName)?.value);
   const role = session?.role;
+  const privatePath = process.env.PRIVATE_ADMIN_LOGIN_PATH;
+
+  if (requiresSecretGate(pathname, privatePath)) {
+    const secretToken = request.cookies.get(HIDDEN_ACCESS_COOKIE)?.value;
+    const secretSession = secretToken ? await findValidHiddenAccessSession(secretToken) : null;
+    if (!secretSession) {
+      const url = new URL("/", request.url);
+      url.searchParams.set("hk_return", pathname);
+      return NextResponse.redirect(url);
+    }
+  }
 
   // PRIVATE_ADMIN_LOGIN_PATH is intentionally read at request time (not
   // baked into the static `matcher` below, which Next.js requires to be a
   // build-time constant) so the real private path can be rotated by changing
   // one environment variable and redeploying, with no code/route changes.
-  const privatePath = process.env.PRIVATE_ADMIN_LOGIN_PATH;
   if (privatePath && pathname === `/${privatePath.replace(/^\/+/, "")}`) {
     return NextResponse.rewrite(new URL(REAL_LOGIN_PATH, request.url));
   }

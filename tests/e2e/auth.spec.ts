@@ -11,11 +11,14 @@ import { hasQaAdminCredentials, loginAsQaAdmin, qaSkipReason } from "./fixtures/
 
 test("unauthenticated request to a protected admin route is rejected", async ({ page }) => {
   const response = await page.goto("/hk-admin", { waitUntil: "domcontentloaded" });
-  // proxy.ts redirects unauthenticated /hk-admin traffic to /giris, which is
-  // itself a legacy path proxy.ts then redirects home for sessionless
-  // visitors, so the final landing page is "/", never a login form.
+  // proxy.ts's Secret Access Control Center gate (src/lib/hidden-access.ts)
+  // intercepts /hk-admin ahead of the real login system for any visitor
+  // without a valid, unexpired, unrevoked hidden-access session, and
+  // redirects home with the originally requested path preserved as
+  // ?hk_return= so a successful unlock can send them on — the final landing
+  // page is always "/", never a login form, regardless of that query string.
   expect(response?.status()).toBeLessThan(400);
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/(\?hk_return=.*)?$/);
   const hasLoginForm = await page.locator('input[autocomplete="current-password"]').count();
   expect(hasLoginForm, "an unauthenticated /hk-admin visit must never expose a login form").toBe(0);
 });

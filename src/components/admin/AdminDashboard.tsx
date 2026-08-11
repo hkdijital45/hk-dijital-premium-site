@@ -9711,8 +9711,326 @@ function FilesAdmin({ content, setContent }: any) {
   );
 }
 
+function HiddenAccessCenter({ notify }: any) {
+  const [subTab, setSubTab] = useState("Anahtarlar");
+  const [keys, setKeys] = useState<any[]>([]);
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [logs, setLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createForm, setCreateForm] = useState<any>({ name: "", secret: "", generateSecret: true, expiresAt: "" });
+  const [revealSecret, setRevealSecret] = useState<any>(null);
+  const [editingKey, setEditingKey] = useState<any>(null);
+  const [changingSecretKey, setChangingSecretKey] = useState<any>(null);
+  const [changeSecretForm, setChangeSecretForm] = useState<any>({ secret: "", generateSecret: true });
+  const [confirmArchive, setConfirmArchive] = useState<any>(null);
+  const [confirmRevokeKeySessions, setConfirmRevokeKeySessions] = useState<any>(null);
+  const [confirmRevokeSession, setConfirmRevokeSession] = useState<any>(null);
+  const [logFilter, setLogFilter] = useState("all");
+  const [busy, setBusy] = useState(false);
+
+  async function loadAll() {
+    setLoading(true);
+    try {
+      const [keysRes, sessionsRes, logsRes] = await Promise.all([
+        fetch("/api/admin/hidden-access/keys").then((response) => response.json()),
+        fetch("/api/admin/hidden-access/sessions?activeOnly=1&limit=100").then((response) => response.json()),
+        fetch("/api/admin/hidden-access/logs?limit=50").then((response) => response.json())
+      ]);
+      setKeys(keysRes.keys || []);
+      setSessions(sessionsRes.sessions || []);
+      setLogs(logsRes.logs || []);
+    } catch {
+      setError("Gizli erişim verileri yüklenemedi.");
+    } finally {
+      setLoading(false);
+    }
+  }
+  useEffect(() => { loadAll(); }, []);
+
+  async function loadLogs(eventType = logFilter) {
+    const query = eventType && eventType !== "all" ? `?eventType=${eventType}&limit=50` : "?limit=50";
+    const data = await fetch(`/api/admin/hidden-access/logs${query}`).then((response) => response.json());
+    setLogs(data.logs || []);
+  }
+
+  async function createKey() {
+    if (busy) return;
+    if (!createForm.name.trim()) { setError("Anahtar adı zorunludur."); return; }
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/admin/hidden-access/keys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: createForm.name, generateSecret: createForm.generateSecret, secret: createForm.secret, expiresAt: createForm.expiresAt || null })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Anahtar oluşturulamadı.");
+      setKeys((current) => [data.key, ...current]);
+      setRevealSecret({ name: createForm.name, secret: data.secret });
+      setCreateOpen(false);
+      setCreateForm({ name: "", secret: "", generateSecret: true, expiresAt: "" });
+      notify?.("✓ Erişim anahtarı oluşturuldu.", "success");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Anahtar oluşturulamadı.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function patchKey(id: string, payload: any, successMessage: string) {
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/admin/hidden-access/keys/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Güncellenemedi.");
+      setKeys((current) => current.map((key) => key.id === id ? data.key : key));
+      notify?.(`✓ ${successMessage}`, "success");
+      return data;
+    } catch (err) {
+      notify?.(err instanceof Error ? err.message : "Güncellenemedi.", "error");
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitChangeSecret() {
+    if (!changingSecretKey || busy) return;
+    const data = await patchKey(changingSecretKey.id, { action: "change_secret", generateSecret: changeSecretForm.generateSecret, secret: changeSecretForm.secret }, "Parola değiştirildi.");
+    if (data) {
+      setRevealSecret({ name: changingSecretKey.name, secret: data.secret });
+      setChangingSecretKey(null);
+      setChangeSecretForm({ secret: "", generateSecret: true });
+    }
+  }
+
+  async function archiveKey() {
+    if (!confirmArchive) return;
+    await patchKey(confirmArchive.id, { action: "archive" }, "Anahtar arşivlendi.");
+    setConfirmArchive(null);
+  }
+
+  async function revokeKeySessions() {
+    if (!confirmRevokeKeySessions) return;
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/admin/hidden-access/keys/${confirmRevokeKeySessions.id}/revoke-sessions`, { method: "POST" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Oturumlar kapatılamadı.");
+      notify?.(`✓ ${data.revokedCount} oturum kapatıldı.`, "success");
+      loadAll();
+    } catch (err) {
+      notify?.(err instanceof Error ? err.message : "Oturumlar kapatılamadı.", "error");
+    } finally {
+      setBusy(false);
+      setConfirmRevokeKeySessions(null);
+    }
+  }
+
+  async function revokeSession() {
+    if (!confirmRevokeSession) return;
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/admin/hidden-access/sessions/${confirmRevokeSession.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "revoke" }) });
+      if (!response.ok) throw new Error("Oturum kapatılamadı.");
+      setSessions((current) => current.filter((item) => item.id !== confirmRevokeSession.id));
+      notify?.("✓ Oturum kapatıldı.", "success");
+    } catch (err) {
+      notify?.(err instanceof Error ? err.message : "Oturum kapatılamadı.", "error");
+    } finally {
+      setBusy(false);
+      setConfirmRevokeSession(null);
+    }
+  }
+
+  const activeKeys = keys.filter((key) => !key.archivedAt);
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const successToday = logs.filter((log) => log.eventType === "SUCCESS" && log.createdAt?.slice(0, 10) === todayIso).length;
+  const failedToday = logs.filter((log) => ["FAILED", "BLOCKED"].includes(log.eventType) && log.createdAt?.slice(0, 10) === todayIso).length;
+
+  const keyColumns: AdminDataGridColumn<any>[] = [
+    { key: "name", header: "Ad", render: (key: any) => key.name },
+    { key: "status", header: "Durum", render: (key: any) => <AdminStatusBadge tone={key.isActive ? "success" : "warning"}>{key.isActive ? "Aktif" : "Pasif"}</AdminStatusBadge> },
+    { key: "expires", header: "Son Kullanma", render: (key: any) => key.expiresAt ? formatDate(key.expiresAt) : "Süresiz" },
+    { key: "used", header: "Kullanım", render: (key: any) => key.usageCount || 0 },
+    { key: "lastUsed", header: "Son Kullanım", render: (key: any) => key.lastUsedAt ? formatDateTime(key.lastUsedAt) : "-" }
+  ];
+  const sessionColumns: AdminDataGridColumn<any>[] = [
+    { key: "key", header: "Anahtar", render: (item: any) => item.keyName || "Bootstrap" },
+    { key: "device", header: "Cihaz", render: (item: any) => item.deviceName || "-" },
+    { key: "ip", header: "IP", render: (item: any) => item.ipAddress || "-" },
+    { key: "created", header: "Başlangıç", render: (item: any) => formatDateTime(item.createdAt) },
+    { key: "expires", header: "Bitiş", render: (item: any) => formatDateTime(item.expiresAt) },
+    { key: "user", header: "Giriş Yapan", render: (item: any) => item.authenticatedUserName || "-" }
+  ];
+
+  return (
+    <div className="grid gap-4">
+      <AdminCompactKpiStrip items={[
+        { key: "keys", label: "Aktif Anahtarlar", value: activeKeys.filter((key) => key.isActive).length, icon: <Gauge size={14} />, tone: "success" },
+        { key: "sessions", label: "Aktif Oturumlar", value: sessions.length, icon: <Gauge size={14} />, tone: "info" },
+        { key: "success", label: "Bugünkü Başarılı Girişler", value: successToday, icon: <Gauge size={14} />, tone: "success" },
+        { key: "failed", label: "Bugünkü Başarısız Denemeler", value: failedToday, icon: <Gauge size={14} />, tone: failedToday ? "danger" : "primary" }
+      ]} />
+
+      {error && <p className="rounded-[8px] border p-3 text-sm font-bold" style={{ borderColor: "var(--hk-danger-border)", background: "var(--hk-danger-bg)", color: "var(--hk-danger-text)" }}>{error}</p>}
+
+      <AdminTabs items={["Anahtarlar", "Aktif Oturumlar", "Erişim Logları"]} active={subTab} onChange={setSubTab} ariaLabel="Gizli erişim görünümü" />
+
+      {subTab === "Anahtarlar" && (
+        <div className="admin-card" style={{ borderRadius: "var(--hk-radius-lg)", padding: "16px" }}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm" style={{ color: "var(--admin-text-secondary)" }}>Secret Access modalını açan erişim anahtarlarını yönetin.</p>
+            <AdminButton compact variant="primary" onClick={() => setCreateOpen(true)}>+ Yeni Anahtar</AdminButton>
+          </div>
+          <div className="mt-4">
+            <AdminDataGrid columns={keyColumns} rows={activeKeys} rowKey={(key: any) => key.id} emptyTitle={loading ? "Yükleniyor..." : "Henüz erişim anahtarı yok."} />
+          </div>
+          {Boolean(activeKeys.length) && (
+            <div className="mt-4 grid gap-2">
+              {activeKeys.map((key) => (
+                <div key={key.id} className="flex flex-wrap items-center justify-between gap-2 rounded-[8px] border p-2" style={{ borderColor: "var(--admin-border)" }}>
+                  <strong className="text-sm" style={{ color: "var(--admin-text-primary)" }}>{key.name}</strong>
+                  <div className="flex flex-wrap gap-1.5">
+                    <AdminButton compact variant="secondary" onClick={() => setEditingKey({ ...key })}>Düzenle</AdminButton>
+                    <AdminButton compact variant="secondary" onClick={() => setChangingSecretKey(key)}>Parola Değiştir</AdminButton>
+                    <AdminButton compact variant={key.isActive ? "warning" : "success"} onClick={() => patchKey(key.id, { action: "set_active", isActive: !key.isActive }, key.isActive ? "Anahtar pasifleştirildi." : "Anahtar aktifleştirildi.")}>{key.isActive ? "Pasifleştir" : "Aktifleştir"}</AdminButton>
+                    <AdminButton compact variant="danger" onClick={() => setConfirmRevokeKeySessions(key)}>Oturumları Kapat</AdminButton>
+                    <AdminButton compact variant="danger" onClick={() => setConfirmArchive(key)}>Arşivle</AdminButton>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {subTab === "Aktif Oturumlar" && (
+        <div className="admin-card" style={{ borderRadius: "var(--hk-radius-lg)", padding: "16px" }}>
+          <AdminDataGrid columns={sessionColumns} rows={sessions} rowKey={(item: any) => item.id} emptyTitle={loading ? "Yükleniyor..." : "Aktif oturum yok."} />
+          {Boolean(sessions.length) && (
+            <div className="mt-3 grid gap-2">
+              {sessions.map((item) => (
+                <div key={item.id} className="flex items-center justify-between gap-2 rounded-[8px] border p-2" style={{ borderColor: "var(--admin-border)" }}>
+                  <span className="text-xs" style={{ color: "var(--admin-text-secondary)" }}>{item.keyName || "Bootstrap"} · {item.ipAddress || "-"}</span>
+                  <AdminButton compact variant="danger" onClick={() => setConfirmRevokeSession(item)}>Kapat</AdminButton>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {subTab === "Erişim Logları" && (
+        <div className="admin-card" style={{ borderRadius: "var(--hk-radius-lg)", padding: "16px" }}>
+          <div className="flex flex-wrap items-center gap-2">
+            <SelectField label="Durum" value={logFilter} onChange={(value: string) => { setLogFilter(value); loadLogs(value); }} options={[{ value: "all", label: "Tümü" }, { value: "SUCCESS", label: "Başarılı" }, { value: "FAILED", label: "Başarısız" }, { value: "BLOCKED", label: "Engellendi" }]} />
+            <AdminButton compact variant="secondary" onClick={() => loadLogs()}>Yenile</AdminButton>
+          </div>
+          <div className="mt-3 grid gap-2">
+            {logs.map((log) => (
+              <div key={log.id} className="rounded-[8px] border p-3" style={{ borderColor: "var(--admin-border)" }}>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <AdminStatusBadge tone={log.eventType === "SUCCESS" ? "success" : log.eventType === "BLOCKED" ? "danger" : String(log.eventType).includes("FAILED") ? "warning" : "info"}>{log.eventType}</AdminStatusBadge>
+                  <span className="text-xs" style={{ color: "var(--admin-text-muted)" }}>{formatDateTime(log.createdAt)}</span>
+                </div>
+                <div className="mt-2 grid gap-1 text-xs sm:grid-cols-2" style={{ color: "var(--admin-text-secondary)" }}>
+                  <span>Anahtar: {log.keyName || "-"}</span>
+                  <span>IP: {log.ipAddress || "-"}</span>
+                  <span>Cihaz: {log.deviceType || "-"} · {log.operatingSystem || "-"} · {log.browser || "-"}</span>
+                  <span>Tetikleyici: {log.triggerMethod || "-"}</span>
+                  <span>Giriş Yapan: {log.authenticatedUserName || "-"}</span>
+                  {log.reasonCode && <span>Neden: {log.reasonCode}</span>}
+                </div>
+              </div>
+            ))}
+            {!logs.length && <p className="text-sm" style={{ color: "var(--admin-text-muted)" }}>{loading ? "Yükleniyor..." : "Log kaydı yok."}</p>}
+          </div>
+        </div>
+      )}
+
+      {createOpen && (
+        <Drawer title="Yeni Erişim Anahtarı" close={() => setCreateOpen(false)}>
+          <div className="grid gap-3">
+            <Field label="Anahtar Adı" value={createForm.name} onChange={(value: string) => setCreateForm({ ...createForm, name: value })} />
+            <label className="flex items-center gap-2 text-xs font-bold" style={{ color: "var(--admin-text-secondary)" }}>
+              <input type="checkbox" checked={createForm.generateSecret} onChange={(event) => setCreateForm({ ...createForm, generateSecret: event.target.checked })} /> Güçlü parola otomatik oluştur
+            </label>
+            {!createForm.generateSecret && <Field label="Parola" value={createForm.secret} onChange={(value: string) => setCreateForm({ ...createForm, secret: value })} />}
+            <Field label="Son Kullanma Tarihi (isteğe bağlı)" type="date" value={createForm.expiresAt} onChange={(value: string) => setCreateForm({ ...createForm, expiresAt: value })} />
+            <div className="flex justify-end gap-2">
+              <AdminButton compact variant="secondary" disabled={busy} onClick={() => setCreateOpen(false)}>İptal</AdminButton>
+              <AdminButton compact variant="primary" disabled={busy} onClick={createKey}>{busy ? "Oluşturuluyor..." : "Oluştur"}</AdminButton>
+            </div>
+          </div>
+        </Drawer>
+      )}
+
+      {editingKey && (
+        <Drawer title={`"${editingKey.name}" Düzenle`} close={() => setEditingKey(null)}>
+          <div className="grid gap-3">
+            <Field label="Ad" value={editingKey.name} onChange={(value: string) => setEditingKey({ ...editingKey, name: value })} />
+            <Field label="Son Kullanma Tarihi" type="date" value={editingKey.expiresAt ? String(editingKey.expiresAt).slice(0, 10) : ""} onChange={(value: string) => setEditingKey({ ...editingKey, expiresAt: value })} />
+            <div className="flex justify-end gap-2">
+              <AdminButton compact variant="secondary" onClick={() => setEditingKey(null)}>İptal</AdminButton>
+              <AdminButton compact variant="primary" onClick={async () => {
+                await patchKey(editingKey.id, { action: "rename", name: editingKey.name }, "Anahtar adı güncellendi.");
+                await patchKey(editingKey.id, { action: "set_expiry", expiresAt: editingKey.expiresAt || null }, "Son kullanma tarihi güncellendi.");
+                setEditingKey(null);
+              }}>Kaydet</AdminButton>
+            </div>
+          </div>
+        </Drawer>
+      )}
+
+      {changingSecretKey && (
+        <Drawer title={`"${changingSecretKey.name}" — Parola Değiştir`} close={() => setChangingSecretKey(null)}>
+          <div className="grid gap-3">
+            <label className="flex items-center gap-2 text-xs font-bold" style={{ color: "var(--admin-text-secondary)" }}>
+              <input type="checkbox" checked={changeSecretForm.generateSecret} onChange={(event) => setChangeSecretForm({ ...changeSecretForm, generateSecret: event.target.checked })} /> Güçlü parola otomatik oluştur
+            </label>
+            {!changeSecretForm.generateSecret && <Field label="Yeni Parola" value={changeSecretForm.secret} onChange={(value: string) => setChangeSecretForm({ ...changeSecretForm, secret: value })} />}
+            <div className="flex justify-end gap-2">
+              <AdminButton compact variant="secondary" disabled={busy} onClick={() => setChangingSecretKey(null)}>İptal</AdminButton>
+              <AdminButton compact variant="primary" disabled={busy} onClick={submitChangeSecret}>{busy ? "Kaydediliyor..." : "Parolayı Değiştir"}</AdminButton>
+            </div>
+          </div>
+        </Drawer>
+      )}
+
+      {revealSecret && (
+        <ConfirmDialog
+          title="Yeni Parola"
+          description={`"${revealSecret.name}" için parola aşağıdadır. Bu parola bir daha gösterilmeyecek — güvenli bir yere kaydedin.`}
+          confirmLabel="Kopyalandı, Kapat"
+          tone="warning"
+          onCancel={() => setRevealSecret(null)}
+          onConfirm={() => { navigator.clipboard?.writeText(revealSecret.secret).catch(() => {}); setRevealSecret(null); }}
+        >
+          <p className="rounded-[8px] border p-3 text-center font-mono text-sm font-black tracking-wide" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-soft)", color: "var(--admin-text-primary)" }}>{revealSecret.secret}</p>
+        </ConfirmDialog>
+      )}
+
+      {confirmArchive && (
+        <ConfirmDialog title="Anahtarı Arşivle" description={`"${confirmArchive.name}" anahtarı arşivlenecek ve artık kullanılamayacak. Denetim kaydı korunur.`} confirmLabel="Arşivle" tone="danger" onCancel={() => setConfirmArchive(null)} onConfirm={archiveKey} />
+      )}
+
+      {confirmRevokeKeySessions && (
+        <ConfirmDialog title="Aktif Oturumları Kapat" description={`"${confirmRevokeKeySessions.name}" anahtarına ait tüm aktif oturumlar anında kapatılacak.`} confirmLabel="Oturumları Kapat" tone="danger" onCancel={() => setConfirmRevokeKeySessions(null)} onConfirm={revokeKeySessions} />
+      )}
+
+      {confirmRevokeSession && (
+        <ConfirmDialog title="Oturumu Kapat" description="Bu gizli erişim oturumu anında kapatılacak." confirmLabel="Kapat" tone="danger" onCancel={() => setConfirmRevokeSession(null)} onConfirm={revokeSession} />
+      )}
+    </div>
+  );
+}
+
 function UsersAdmin({ content, setContent, currentSession, customerOnly = false, mode = "Kullanıcı Yönetimi" }: any) {
-  const [tab, setTab] = useState(customerOnly ? "Kullanıcılar" : "Kullanıcılar");
+  const [tab, setTab] = useState(!customerOnly && mode === "Güvenlik" ? "Gizli Erişim" : "Kullanıcılar");
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -9842,7 +10160,7 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
     setEditingUser({ ...user, branch_access_mode: user.branch_access_mode || "all", branch_ids: branchIdsForUser(user.id), default_branch_id: user.default_branch_id || "" });
   }
 
-  const roleTabs = ["Kullanıcılar", "Roller ve Yetkiler", "İzinler"];
+  const roleTabs = mode === "Güvenlik" ? ["Kullanıcılar", "Roller ve Yetkiler", "İzinler", "Gizli Erişim"] : ["Kullanıcılar", "Roller ve Yetkiler", "İzinler"];
 
   return (
     <AdminWorkspace
@@ -9919,6 +10237,8 @@ function UsersAdmin({ content, setContent, currentSession, customerOnly = false,
           </div>
         </div>
       )}
+
+      {tab === "Gizli Erişim" && <HiddenAccessCenter notify={(text: string, tone: string) => (tone === "error" ? setError(text) : setMessage(text))} />}
 
       {(editingUser || createOpen) && (
         <Drawer title={editingUser ? "Kullanıcıyı Düzenle" : "Yeni Kullanıcı Oluştur"} close={() => { setEditingUser(null); setCreateOpen(false); }}>
