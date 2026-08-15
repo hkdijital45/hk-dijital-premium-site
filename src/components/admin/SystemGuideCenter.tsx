@@ -159,6 +159,15 @@ export function SystemGuideCenter({ currentSession, notify }: any) {
 
 function GuideStat({ label, value }: any) { return <div className="rounded-[16px] border border-slate-200 bg-white p-4"><p className="text-xs font-bold text-slate-500">{label}</p><p className="mt-1 text-2xl font-black text-slate-950">{value}</p></div>; }
 function GuideStrip({ title, guides, open }: any) { return <div className="rounded-[18px] border border-slate-200 bg-white p-4"><h3 className="font-black text-slate-950">{title}</h3><div className="mt-3 flex flex-wrap gap-2">{guides.map((guide: any) => <button key={guide.slug} onClick={() => open(guide)} className="rounded-full bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700">{guide.title}</button>)}</div></div>; }
-function GuideSection({ id, title, text, items, ordered, tone }: any) { const Tag = ordered ? "ol" : "ul"; return <section id={id} className={`mt-5 scroll-mt-5 rounded-[16px] border p-5 ${tone === "amber" ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white"}`}><h3 className="text-lg font-black text-slate-950">{title}</h3>{text && <p className="mt-3 text-sm leading-7 text-slate-700">{text}</p>}{items?.length > 0 && <Tag className={`${ordered ? "list-decimal" : "list-disc"} mt-3 space-y-2 pl-5 text-sm leading-6 text-slate-700`}>{items.map((item: string) => <li key={item}>{item}</li>)}</Tag>}</section>; }
+function GuideSection({ id, title, text, items, ordered, tone }: any) {
+  // Some guide content (e.g. the customer-journey step list) already writes its own
+  // "1.", "9.a." style numbering into the text. Auto-numbering those with <ol> too
+  // renders a duplicate number ("3. 2. ..."), so pre-numbered lists fall back to an
+  // unmarked list and keep only the number that's already in the text.
+  const preNumbered = ordered && items?.length > 0 && items.filter((item: string) => /^\d{1,2}(\.[a-z0-9]+)?\.\s/i.test(item)).length > items.length / 2;
+  const Tag = ordered && !preNumbered ? "ol" : "ul";
+  const markerClass = ordered && !preNumbered ? "list-decimal" : preNumbered ? "list-none" : "list-disc";
+  return <section id={id} className={`mt-5 scroll-mt-5 rounded-[16px] border p-5 ${tone === "amber" ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white"}`}><h3 className="text-lg font-black text-slate-950">{title}</h3>{text && <p className="mt-3 text-sm leading-7 text-slate-700">{text}</p>}{items?.length > 0 && <Tag className={`${markerClass} mt-3 space-y-2 pl-5 text-sm leading-6 text-slate-700`}>{items.map((item: string) => <li key={item}>{item}</li>)}</Tag>}</section>;
+}
 function GuideInput({ label, value, set }: { label: string; value: string; set: (value: string) => void }) { return <label className="grid gap-2 text-sm font-bold text-slate-700">{label}<input value={value} onChange={(event) => set(event.target.value)} className="min-h-11 rounded-[10px] border border-slate-300 px-3 text-slate-950" /></label>; }
 function GuideTextarea({ label, value, set }: { label: string; value: string; set: (value: string) => void }) { return <label className="grid gap-2 text-sm font-bold text-slate-700">{label}<textarea rows={4} value={value} onChange={(event) => set(event.target.value)} className="rounded-[10px] border border-slate-300 p-3 text-slate-950" /></label>; }
