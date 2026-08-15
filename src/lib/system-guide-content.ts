@@ -427,7 +427,10 @@ const definitions: Array<[string, string, string, string]> = [
   ["Ajans Hedef Panosu", "Ajans Operasyonu", "Aylık gelir, müşteri, teklif, görüşme ve tahsilat hedeflerini takip edip hedefe kalan aksiyonu belirleyin.", "ajans-hedefleri"],
   ["Gerçek / Tahmini / Eksik veri etiketleri", "Dashboard & Kontrol Merkezi", "Karar panellerinde verinin gerçek kayıttan mı, tahminden mi yoksa eksik bilgiden mi geldiğini kontrol edin.", "qa-center"],
   ["Mobil Operasyon Modu gelişmiş kullanım", "Ayarlar", "Saha kullanımında büyük buton, tek sütun kart ve kolay basılabilir aksiyon düzenini açıp kapatın.", "mobil-operasyon-modu"],
-  ["Migration sonrası Supabase kontrolü", "Ayarlar", "Yeni migration çalıştırıldıktan sonra PostgREST schema cache yenileme ve QA Merkezi kontrollerini doğrulayın.", "qa-center"]
+  ["Migration sonrası Supabase kontrolü", "Ayarlar", "Yeni migration çalıştırıldıktan sonra PostgREST schema cache yenileme ve QA Merkezi kontrollerini doğrulayın.", "qa-center"],
+  ["Sektör Sistemleri ne işe yarar?", "Operasyon", "Sektöre özel CRM alanı, teklif paketi, rapor metriği ve içerik kategorisi önerilerini hazırlayan yapılandırma ekranıdır. Mevcut sürümde bu alan yalnızca hazırlık/yapılandırma amaçlıdır; uygulamanın canlı CRM, teklif veya rapor davranışını değiştirmez.", "sektor-sistemleri"],
+  ["Blog & SEO Merkezi ne işe yarar?", "İçerik ve AI", "Blog yazılarını Taslak, İncelemede, Planlandı, Yayında ve Arşiv durumlarıyla yönetin; arama niyeti haritasını (bilgilendirici, ticari araştırma, karşılaştırma, sorun çözme, yerel arama, hizmet arama) ve içerik takvimini planlayın. Search Console/Google Trends bağlantısı, AI kapak görseli üretimi ve zamanlanmış yayın seçenekleri de bu merkezdedir.", "blog-seo"],
+  ["Web Analitiği (Website Analytics) merkezi ne işe yarar?", "Reklam ve Performans", "Tüm müşterilerin Pixel, GA4, Search Console ve GTM gibi web ölçümleme entegrasyon yüzdesini ve genel env durumunu tek ekranda özetler. Müşteri bazlı düzenleme için ilgili müşteri profiline yönlendirir; ölçümleme eksikse veri uydurmaz, eksik/bekleniyor durumunu gösterir.", "website-analytics"]
 ];
 
 const customerJourneyGuide: SystemGuideSeed = {
@@ -707,6 +710,40 @@ const nineCenterGuides: SystemGuideSeed[] = [
       commonErrors: ["Bir kullanıcıya gereğinden fazla modül izni vermek — en az yetki ilkesini uygulayın."],
       tips: ["Sistem Sağlığı panelinde AI sağlayıcı/Supabase/Google Maps API gibi servislerin durumu tek bakışta görünür."],
       warnings: ["Kullanıcı rolü ve modül izinleri hem arayüzde hem sunucu tarafında (API route'larda) kontrol edilir; yalnızca arayüzden gizlemek yetki vermemek anlamına gelmez."]
+    }
+  },
+  {
+    slug: "musteri-paneli-nasil-kullanilir",
+    title: "Müşteri Paneli Nasıl Kullanılır?",
+    category: "Müşteri Paneli Rehberi",
+    description: "Müşterinin /musteri-paneli adresinde gördüğü sade panel: hangi bölümler var, hangi veriler görünür, admin tarafı nasıl önizler.",
+    route: "/musteri-paneli",
+    content: {
+      purpose: "Müşteri Paneli, müşterinin kendi giriş hesabıyla gördüğü sade, teknik jargonsuz ekrandır. Admin panelindeki iç notlar, token'lar, teklif/sözleşme taslakları ve Reklam Doktoru gibi ajans-içi araçlar bu panelde hiçbir zaman görünmez; yalnız adminin müşteri bazlı açtığı modüller ve müşteriye gösterilsin işaretli kayıtlar buraya yansır.",
+      whenToUse: "Yeni bir müşteri hesabı açarken müşterinin ne göreceğini kontrol etmek, bir kaydın müşteriye görünüp görünmediğini doğrulamak veya müşteriden gelen 'panelde göremiyorum' sorularını çözmek için kullanılır.",
+      steps: [
+        "Panel varsayılan olarak Dashboard (Genel Bakış) ile açılır: reklam harcaması, lead/mesaj/form sayısı ve genel durum özeti burada özetlenir.",
+        "Sol/üst menüden Raporlar, Görevler (müşteriye açık işler), Dosyalar (paylaşılan kreatifler), Belgeler (sözleşme/PDF), Tahsilat ve Ödemeler, Reklamlar, Analytics, SEO, Sosyal Medya, Hesap Bağla, AI Asistan, Destek ve Bildirimler sekmelerine geçilir; hangi sekmelerin göründüğü müşterinin paketine ve adminin açtığı modüllere göre değişir.",
+        "Hesap Bağla sekmesinde müşteri kendi Meta, Google, GA4, Search Console, TikTok gibi hesaplarını Otomatik Bağlan (OAuth) veya Manuel Bilgi Gir modlarından biriyle ekleyebilir; otomatik bağlantı env hazır değilse sistem hata üretmez, manuel girişi önerir.",
+        "AI Asistan sekmesinde HK Asistan widget'ı üzerinden müşteri kendi performansı, raporları ve önerileri hakkında soru sorabilir.",
+        "Admin/staff bir müşteri hesabı açmadan paneli önizlemek isterse Müşteriler ekranındaki müşteri kaydında 'Müşteri Panelini Önizle' / 'Müşteri gibi görüntüle' bağlantısını kullanır; bu, /musteri-paneli?company=... adresini staff yetkisiyle açar ve müşteri hesabına giriş yapmayı gerektirmez.",
+        "Bir kaydın (rapor, görev, belge, not, rakip özeti) müşteride görünmesi için admin tarafında ilgili kaydın 'Müşteriye gösterilsin' anahtarı açık olmalıdır; kapalıysa kayıt yalnızca admin panelinde kalır."
+      ],
+      example: "Yeni bir müşteri için Meta ve Google Ads kurulumu tamamlandıktan sonra, admin ilk ay raporunu 'müşteriye görünür' olarak işaretler; müşteri girişinde bu rapor doğrudan Raporlar sekmesinde görünür, teknik entegrasyon detayları (token, Developer Token, App Review durumu) ise admin panelinde kalır.",
+      commonErrors: [
+        "Bir raporu/görevi/belgeyi oluştururken 'Müşteriye gösterilsin' seçeneğini işaretlemeyi unutup müşterinin paneli boş görmesine yol açmak.",
+        "Reklam Doktoru, HK Intelligence, teklif/sözleşme taslağı ve iç mesajlaşma gibi yalnız admin modüllerini müşteriye açık sanmak — bu modüller tasarım gereği müşteri panelinde hiçbir zaman gösterilmez.",
+        "Müşteri panelini test ederken gerçek müşteri şifresini paylaşmak yerine admin önizleme (company= parametresi) akışını kullanmayı atlamak."
+      ],
+      tips: [
+        "CTR, CPC, CPA, ROAS gibi kısaltmalar müşteri panelinde otomatik olarak Tıklama Oranı, Tıklama Maliyeti, Dönüşüm Maliyeti, Reklam Getiri Oranı gibi sade Türkçe karşılıklarıyla gösterilir; admin panelindeki teknik dille birebir aynı değildir.",
+        "Şifre ve erişim notu gibi hassas alanlar müşteri endpointinden her zaman maskeli döner; tam değerler yalnız admin-only credentials endpointinden okunur.",
+        "Müşteri paneline yeni bir modül açmadan önce Kullanıcı Yönetimi / müşteri paket ayarında ilgili modülün o müşteri için açık olduğunu doğrulayın."
+      ],
+      warnings: [
+        "Müşteri paneli önizlemesi (admin preview) sırasında yapılan işlemler gerçek müşteri kaydını etkileyebilir; yalnız görüntüleme amaçlı kullanın, gerekmedikçe veri değiştirmeyin.",
+        "Hassas erişim bilgileri ve dahili notlar hiçbir koşulda müşteriye görünür alanlara kopyalanmamalıdır."
+      ]
     }
   },
   {
