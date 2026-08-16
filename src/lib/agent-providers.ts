@@ -1,4 +1,7 @@
 import type { AgentProviderKey, AgentTaskType } from "@/lib/agent-hub";
+import { agentTaskToIntelligenceTask } from "@/lib/ai-task-routing";
+import { resolveHkAiRoute, type HKRouteComplexity, type HKOutputSize } from "@/lib/hk-ai-router";
+import { callOpenAiResponses } from "@/lib/openai-client";
 
 export type AgentProviderPayload = {
   provider: AgentProviderKey;
@@ -7,6 +10,16 @@ export type AgentProviderPayload = {
   systemPrompt: string;
   model?: string | null;
   timeoutMs?: number;
+  // Optional HK AI Smart Router signals — only consulted for the "openai"
+  // provider. None are required; the router falls back to sensible
+  // defaults (see src/lib/hk-ai-router.ts) when omitted.
+  action?: string;
+  complexity?: HKRouteComplexity;
+  multiStep?: boolean;
+  needsWeb?: boolean;
+  hasFiles?: boolean;
+  toolCount?: number;
+  expectedOutputSize?: HKOutputSize;
 };
 
 export type AgentProviderResult = {
@@ -17,6 +30,11 @@ export type AgentProviderResult = {
   responseMs: number;
   usedFallback: boolean;
   errorMessage?: string;
+  // Populated for real OpenAI Responses API calls only.
+  reasoningEffort?: string;
+  inputTokens?: number;
+  cachedInputTokens?: number;
+  outputTokens?: number;
 };
 
 const defaultModels: Record<AgentProviderKey, string> = {
@@ -66,10 +84,12 @@ async function fetchJson(url: string, init: RequestInit, timeoutMs = 22000) {
   }
 }
 
-function buildDemoText(payload: AgentProviderPayload, reason = "API anahtarı yapılandırılmadı") {
+function buildDemoText(payload: AgentProviderPayload) {
+  // User-facing text never includes the technical/redacted provider error —
+  // that stays in errorMessage for server-side logging only (spec section 29).
   return [
     `${payload.taskType} görevi için güvenli demo/yedek akış kullanıldı.`,
-    `Neden: ${reason}.`,
+    "Neden: AI servisine şu anda ulaşılamıyor.",
     "HK Intelligence çıktısı; satış garantisi vermez, riskleri ölçülü açıklar ve uygulanabilir 7 günlük aksiyon planı üretir.",
     `Görev özeti: ${payload.prompt.slice(0, 700)}`
   ].join("\n");
@@ -105,6 +125,58 @@ async function runOpenAICompatible(payload: AgentProviderPayload, config: { apiK
     tokensUsed: Number(usage?.total_tokens || estimateTokens(`${payload.systemPrompt}\n${payload.prompt}\n${text}`)),
     responseMs: Date.now() - started,
     usedFallback: false
+  };
+}
+
+// SOL's deep-analysis jobs legitimately need more wall-clock time than
+// Luna's high-volume lightweight jobs — distinct default timeouts per tier
+// (spec section 18), only used when the caller didn't already pass one.
+const DEFAULT_TIMEOUT_MS_BY_MODEL: Record<string, number> = {
+  "gpt-5.6-luna": 15_000,
+  "gpt-5.6-terra": 25_000,
+  "gpt-5.6-sol": 45_000
+};
+
+async function runOpenAiSmartRouted(payload: AgentProviderPayload) {
+  if (!process.env.OPENAI_API_KEY) throw new Error("OpenAI API anahtarı yapılandırılmadı");
+  const route = resolveHkAiRoute({
+    module: payload.taskType,
+    action: payload.action,
+    taskType: agentTaskToIntelligenceTask(payload.taskType),
+    complexity: payload.complexity,
+    multiStep: payload.multiStep,
+    needsWeb: payload.needsWeb,
+    hasFiles: payload.hasFiles,
+    toolCount: payload.toolCount,
+    expectedOutputSize: payload.expectedOutputSize,
+    prompt: payload.prompt
+  });
+
+  // Structured, single-line routing observability (spec section 30) — no
+  // prompt/response content, safe for production logs.
+  console.log(`[HK-AI] module=${payload.taskType} action=${payload.action || "-"} model=${route.model} reasoning=${route.reasoning} reason=${route.reason}`);
+
+  const result = await callOpenAiResponses({
+    model: route.model,
+    instructions: payload.systemPrompt,
+    input: payload.prompt,
+    reasoning: route.reasoning,
+    maxOutputTokens: route.maxOutputTokens,
+    allowWeb: route.allowWeb,
+    timeoutMs: payload.timeoutMs || DEFAULT_TIMEOUT_MS_BY_MODEL[route.model] || 25_000
+  });
+
+  return {
+    provider: "openai" as const,
+    model: result.model,
+    text: result.text || "Sağlayıcı boş yanıt döndürdü.",
+    tokensUsed: result.totalTokens || estimateTokens(`${payload.systemPrompt}\n${payload.prompt}\n${result.text}`),
+    responseMs: result.responseMs,
+    usedFallback: false,
+    reasoningEffort: route.reasoning,
+    inputTokens: result.inputTokens,
+    cachedInputTokens: result.cachedInputTokens,
+    outputTokens: result.outputTokens
   };
 }
 
@@ -224,7 +296,7 @@ export async function runRealAgentProvider(payload: AgentProviderPayload): Promi
   const started = Date.now();
   try {
     if (payload.provider === "openai") {
-      return await runOpenAICompatible(payload, { provider: "openai", apiKey: process.env.OPENAI_API_KEY, baseUrl: "https://api.openai.com/v1", model: payload.model || defaultModels.openai });
+      return await runOpenAiSmartRouted(payload);
     }
     if (payload.provider === "groq") {
       return await runOpenAICompatible(payload, { provider: "groq", apiKey: process.env.GROQ_API_KEY, baseUrl: "https://api.groq.com/openai/v1", model: payload.model || defaultModels.groq });
@@ -248,7 +320,7 @@ export async function runRealAgentProvider(payload: AgentProviderPayload): Promi
     return {
       provider: "demo",
       model: defaultModels.demo,
-      text: buildDemoText(payload, reason),
+      text: buildDemoText(payload),
       tokensUsed: estimateTokens(`${payload.systemPrompt}\n${payload.prompt}`),
       responseMs: Date.now() - started,
       usedFallback: true,

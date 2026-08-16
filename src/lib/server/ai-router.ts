@@ -10,6 +10,7 @@ import {
   type IntelligenceProviderKey,
   type IntelligenceTaskType
 } from "@/lib/ai-task-routing";
+import type { HKOutputSize, HKRouteComplexity } from "@/lib/hk-ai-router";
 import { getSiteContent } from "@/lib/content";
 
 export { classifyAiTask } from "@/lib/ai-task-routing";
@@ -28,6 +29,16 @@ export type AiRouterInput = {
   fallbackText: string;
   customerId?: string | null;
   createdBy?: string | null;
+  // Optional HK AI Smart Router signals — consulted only for the OpenAI
+  // provider path (src/lib/hk-ai-router.ts). Callers that don't know these
+  // yet can omit them entirely; the router falls back to safe defaults.
+  action?: string;
+  complexity?: HKRouteComplexity;
+  multiStep?: boolean;
+  needsWeb?: boolean;
+  hasFiles?: boolean;
+  toolCount?: number;
+  expectedOutputSize?: HKOutputSize;
 };
 
 export type AiRouterOptions = {
@@ -49,11 +60,37 @@ export type AiRouterResult = {
   notice: string | null;
   responseTimeMs: number;
   tokensUsed: number;
+  // Populated for real OpenAI Responses API calls only (spec section 25).
+  reasoningEffort?: string;
+  inputTokens?: number;
+  cachedInputTokens?: number;
+  outputTokens?: number;
 };
 
 const health = new Map<IntelligenceProviderKey, HealthState>();
 const responseCache = new Map<string, { expiresAt: number; result: AiRouterResult }>();
 const pendingRequests = new Map<string, Promise<AiRouterResult>>();
+
+// Minimal in-memory sliding-window rate limit per caller (spec section 28) —
+// protects against unauthenticated abuse and a single user firing dozens of
+// concurrent AI requests, without a new dependency. Deliberately generous so
+// legitimate customer usage isn't throttled; double-submit is separately
+// handled by the pendingRequests dedup above.
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX_REQUESTS = 20;
+const rateLimitHits = new Map<string, number[]>();
+
+function checkRateLimit(key: string) {
+  const now = Date.now();
+  const hits = (rateLimitHits.get(key) || []).filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS);
+  if (hits.length >= RATE_LIMIT_MAX_REQUESTS) {
+    rateLimitHits.set(key, hits);
+    return false;
+  }
+  hits.push(now);
+  rateLimitHits.set(key, hits);
+  return true;
+}
 
 const providerLabels: Record<IntelligenceProviderKey, string> = {
   gemini: "Araştırma ve Google Analiz Motoru",
@@ -206,7 +243,20 @@ export async function executeWithFallback(input: AiRouterInput, options: AiRoute
       prompt: input.prompt,
       systemPrompt: input.systemPrompt || "Türkçe, güvenli, ölçülü ve uygulanabilir bir HK Dijital çıktısı üret. Kesin sonuç garantisi verme.",
       model: providerRow?.default_model,
-      timeoutMs: provider === "manus" ? Math.max(options.timeoutMs || manusTimeout, 45_000) : options.timeoutMs || 24_000
+      // For OpenAI, an explicit caller timeout wins, otherwise leave it
+      // unset so the HK AI Router's own per-tier default applies (Luna gets
+      // a shorter timeout than Sol — spec section 18). Other providers keep
+      // the previous flat default.
+      timeoutMs: provider === "manus"
+        ? Math.max(options.timeoutMs || manusTimeout, 45_000)
+        : provider === "openai" ? options.timeoutMs : options.timeoutMs || 24_000,
+      action: input.action,
+      complexity: input.complexity,
+      multiStep: input.multiStep,
+      needsWeb: input.needsWeb,
+      hasFiles: input.hasFiles,
+      toolCount: input.toolCount,
+      expectedOutputSize: input.expectedOutputSize
     });
     if (result.usedFallback) {
       markFailure(provider, result.errorMessage);
@@ -226,7 +276,11 @@ export async function executeWithFallback(input: AiRouterInput, options: AiRoute
       providerChain: attempted,
       notice: attempted.length > 1 ? `${providerLabels[attempted[0]]} yanıt vermedi, ${providerLabels[provider]} ile devam edildi.` : null,
       responseTimeMs: Date.now() - startedAt,
-      tokensUsed: result.tokensUsed
+      tokensUsed: result.tokensUsed,
+      reasoningEffort: result.reasoningEffort,
+      inputTokens: result.inputTokens,
+      cachedInputTokens: result.cachedInputTokens,
+      outputTokens: result.outputTokens
     };
   }
 
@@ -272,13 +326,21 @@ export async function recordAiExecution(input: AiRouterInput, result: AiRouterRe
     tokens_used: result.tokensUsed,
     created_by: input.createdBy || null,
     provider_chain: result.providerChain,
-    completed_at: new Date().toISOString()
+    completed_at: new Date().toISOString(),
+    model: result.model || null,
+    reasoning_effort: result.reasoningEffort || null,
+    input_tokens: result.inputTokens ?? null,
+    cached_input_tokens: result.cachedInputTokens ?? null,
+    output_tokens: result.outputTokens ?? null,
+    error_code: result.fallbackUsed ? "fallback" : null
   }).catch(() => null);
 }
 
 export async function executeAiTask(rawInput: AiRouterInput, options: AiRouterOptions = {}) {
   const input = sanitizeAiInput(rawInput);
   if (!input.prompt) throw new Error("Yapay zekâ görevi için açıklama gereklidir.");
+  const rateLimitKey = input.createdBy || input.customerId || "anonymous";
+  if (!checkRateLimit(rateLimitKey)) throw new Error("Çok fazla istek gönderildi. Lütfen birkaç saniye sonra tekrar deneyin.");
   const key = cacheKey(input, options);
   const cached = responseCache.get(key);
   if (cached && cached.expiresAt > Date.now()) return normalizeAiResponse(cached.result);

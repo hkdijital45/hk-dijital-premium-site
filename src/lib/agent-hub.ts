@@ -620,13 +620,31 @@ export async function createAgentRunLog(payload: {
   cancel_reason?: string | null;
   retry_count?: number;
   parent_run_id?: string | null;
+  // HK AI Smart Router telemetry (spec section 25) — additive, nullable
+  // columns on agent_runs. Only populated for real OpenAI calls.
+  model?: string | null;
+  reasoning_effort?: string | null;
+  input_tokens?: number | null;
+  cached_input_tokens?: number | null;
+  output_tokens?: number | null;
+  error_code?: string | null;
 }) {
   if (!hasSupabaseConfig()) return null;
-  const rows = await supabaseRest<unknown[]>("agent_runs", {
-    method: "POST",
-    body: JSON.stringify(payload)
-  }).catch(() => null);
-  return rows;
+  const insert = (body: typeof payload) =>
+    supabaseRest<unknown[]>("agent_runs", { method: "POST", body: JSON.stringify(body) });
+  try {
+    return await insert(payload);
+  } catch (error) {
+    // Telemetry columns (model, reasoning_effort, *_tokens, error_code) are
+    // an additive migration that may not have landed yet in every
+    // environment — degrade gracefully by retrying without them rather than
+    // silently dropping the entire run log (spec section 26/27).
+    const message = error instanceof Error ? error.message : "";
+    const missingTelemetryColumn = /column .* does not exist/i.test(message);
+    if (!missingTelemetryColumn) return null;
+    const { model: _model, reasoning_effort: _reasoningEffort, input_tokens: _inputTokens, cached_input_tokens: _cachedInputTokens, output_tokens: _outputTokens, error_code: _errorCode, ...rest } = payload;
+    return await insert(rest).catch(() => null);
+  }
 }
 
 export async function runAgentTask(input: AgentRunInput) {
