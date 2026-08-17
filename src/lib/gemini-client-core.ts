@@ -126,8 +126,14 @@ async function once(payload: GeminiGenerateRequest, model: HKAIModel, reasoning:
   };
 }
 
-function isModelUnavailableStatus(status: number | undefined) {
-  return status === 404;
+// Triggers the one-time model-level fallback: 404 (model deprecated/removed
+// for this account) or a 429 that has *already* survived attemptModel's own
+// transient retry — a 429 that persists through a retry is a real quota
+// limit on that specific model/tier (confirmed in production: a preview
+// model's own quota exhausted while the stable models still had headroom),
+// not a momentary rate spike, so trying a different model is the right move.
+function shouldTryFallbackModel(status: number | undefined) {
+  return status === 404 || status === 429;
 }
 
 // One model attempt, with its own single controlled retry for transient
@@ -147,10 +153,9 @@ async function attemptModel(payload: GeminiGenerateRequest, model: HKAIModel, re
 
 /**
  * Calls the Gemini API for the primary model, with a hard timeout so a
- * stuck request can't hang the UI. On a model-not-found error (404 — e.g. a
- * model deprecated/removed for this account), falls back to
- * `payload.fallbackModel` exactly once, never chained further. Transient
- * failures (429/5xx) get one retry per model attempted, never unbounded.
+ * stuck request can't hang the UI. If the primary model is not found (404)
+ * or still rate/quota-limited after its own transient retry (429), falls
+ * back to `payload.fallbackModel` exactly once, never chained further.
  */
 export async function callGeminiGenerate(payload: GeminiGenerateRequest): Promise<GeminiGenerateResult> {
   const controller = new AbortController();
@@ -161,7 +166,7 @@ export async function callGeminiGenerate(payload: GeminiGenerateRequest): Promis
     } catch (error) {
       const status = error instanceof ApiError ? error.status : undefined;
       const isAbort = error instanceof Error && error.name === "AbortError";
-      if (isAbort || !isModelUnavailableStatus(status) || !payload.fallbackModel) throw error;
+      if (isAbort || !shouldTryFallbackModel(status) || !payload.fallbackModel) throw error;
       return await attemptModel(payload, payload.fallbackModel, payload.fallbackReasoning || payload.reasoning, controller.signal);
     }
   } catch (error) {

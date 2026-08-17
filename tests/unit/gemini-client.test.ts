@@ -119,6 +119,41 @@ test("401 (auth error) is never retried", async () => {
   assert.equal(calls, 1);
 });
 
+test("a 429 that persists through the primary model's own retry falls back to fallbackModel (real production case: preview-model quota exhausted)", async () => {
+  let calls = 0;
+  globalThis.fetch = (async () => {
+    calls++;
+    if (calls <= 2) return jsonResponse({ error: { message: "quota exceeded", code: 429, status: "RESOURCE_EXHAUSTED" } }, 429);
+    return jsonResponse(successBody({ modelVersion: "gemini-3.6-flash" }));
+  }) as typeof fetch;
+  const result = await callGeminiGenerate({
+    model: "gemini-3.1-pro-preview",
+    fallbackModel: "gemini-3.6-flash",
+    fallbackReasoning: "high",
+    instructions: "sys",
+    input: "hi",
+    reasoning: "high",
+    maxOutputTokens: 2000,
+    allowWeb: false,
+    timeoutMs: 5000
+  });
+  // 2 calls for the primary model (1 + its own transient retry), then 1 for the fallback model.
+  assert.equal(calls, 3);
+  assert.equal(result.model, "gemini-3.6-flash");
+});
+
+test("a 429 with no fallback model configured still fails after its own single retry (no unbounded retry)", async () => {
+  let calls = 0;
+  globalThis.fetch = (async () => {
+    calls++;
+    return jsonResponse({ error: { message: "quota exceeded", code: 429, status: "RESOURCE_EXHAUSTED" } }, 429);
+  }) as typeof fetch;
+  await assert.rejects(() =>
+    callGeminiGenerate({ model: "gemini-3.6-flash", instructions: "sys", input: "hi", reasoning: "low", maxOutputTokens: 500, allowWeb: false, timeoutMs: 5000 })
+  );
+  assert.equal(calls, 2);
+});
+
 test("404 (model unavailable) with no fallback configured is never retried and is not treated as transient", async () => {
   let calls = 0;
   globalThis.fetch = (async () => {
