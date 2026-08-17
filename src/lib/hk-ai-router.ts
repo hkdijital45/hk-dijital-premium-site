@@ -9,13 +9,30 @@ import type { IntelligenceTaskType } from "@/lib/ai-task-routing";
 // vocabulary below (FAST/DEFAULT/POWERFUL) is intentionally provider-neutral
 // so a future model-provider change only touches HK_AI_MODELS.
 
+// gemini-2.5-* is no longer accessible on the production API key (confirmed
+// live: 404 "This model ... is no longer available to new users"). Stable-
+// first policy: FAST/DEFAULT use current-generation stable models; only
+// POWERFUL uses a preview model (gemini-3.1-pro-preview, genuinely the
+// strongest available tier) — and even POWERFUL has a stable fallback below
+// so a preview-model outage/removal can't take production down.
 export const HK_AI_MODELS = {
-  FAST: "gemini-2.5-flash-lite",
-  DEFAULT: "gemini-2.5-flash",
-  POWERFUL: "gemini-2.5-pro"
+  FAST: "gemini-3.5-flash-lite",
+  DEFAULT: "gemini-3.6-flash",
+  POWERFUL: "gemini-3.1-pro-preview"
 } as const;
 
-export type HKAIModel = (typeof HK_AI_MODELS)[keyof typeof HK_AI_MODELS];
+// One controlled fallback model per tier — used only when the primary model
+// for that tier is unavailable at call time (404 model-not-found), never
+// chained further (src/lib/gemini-client-core.ts enforces "at most one
+// fallback attempt"). POWERFUL's fallback compensates for the reduced model
+// strength with a higher thinking budget, per fallbackReasoning.
+export const HK_AI_FALLBACK_MODELS: Record<Tier, { model: HKAIModel; reasoning?: HKReasoningEffort }> = {
+  FAST: { model: "gemini-3.5-flash" },
+  DEFAULT: { model: "gemini-3.5-flash" },
+  POWERFUL: { model: "gemini-3.6-flash", reasoning: "high" }
+};
+
+export type HKAIModel = "gemini-3.5-flash-lite" | "gemini-3.6-flash" | "gemini-3.1-pro-preview" | "gemini-3.5-flash";
 
 // Abstract thinking/reasoning budget vocabulary — mapped to each provider's
 // actual parameter (Gemini's ThinkingLevel, OpenAI's reasoning.effort) by
@@ -28,6 +45,10 @@ export interface HKModelRoute {
   reason: string;
   maxOutputTokens: number;
   allowWeb: boolean;
+  // Always populated — the provider client uses these only if the primary
+  // model call fails with a model-not-found/unavailable error, at most once.
+  fallbackModel: HKAIModel;
+  fallbackReasoning: HKReasoningEffort;
 }
 
 export type HKRouteComplexity = "simple" | "normal" | "high" | "critical";
@@ -63,7 +84,7 @@ type Tier = "FAST" | "DEFAULT" | "POWERFUL";
 // already have a clear action name should pass it — it's the fastest,
 // least ambiguous path and skips task-type inference entirely.
 const ACTION_TIER: Record<string, Tier> = {
-  // FAST — high-volume, lightweight (gemini-2.5-flash-lite)
+  // FAST — high-volume, lightweight (gemini-3.5-flash-lite)
   "classify": "FAST",
   "categorize": "FAST",
   "tagging": "FAST",
@@ -85,7 +106,7 @@ const ACTION_TIER: Record<string, Tier> = {
   "customer-note-summary": "FAST",
   "background-batch": "FAST",
 
-  // DEFAULT — default professional work (gemini-2.5-flash)
+  // DEFAULT — default professional work (gemini-3.6-flash)
   "normal-ai-chat": "DEFAULT",
   "social-media-strategy": "DEFAULT",
   "content-plan": "DEFAULT",
@@ -104,7 +125,7 @@ const ACTION_TIER: Record<string, Tier> = {
   "conversion-recommendation": "DEFAULT",
   "sales-opportunity-assessment": "DEFAULT",
 
-  // POWERFUL — genuinely hard work only (gemini-2.5-pro)
+  // POWERFUL — genuinely hard work only (gemini-3.1-pro-preview)
   "ai-strategist": "POWERFUL",
   "ads-doctor-pro": "POWERFUL",
   "deep-analysis": "POWERFUL",
@@ -212,5 +233,6 @@ export function resolveHkAiRoute(signals: HKRouteSignals = {}): HKModelRoute {
   const inherentlyNeedsWeb = signals.taskType ? (["deep_research", "competitor_research", "market_research"] as IntelligenceTaskType[]).includes(signals.taskType) : false;
   const allowWeb = Boolean(signals.needsWeb ?? inherentlyNeedsWeb);
 
-  return { model, reasoning, reason, maxOutputTokens, allowWeb };
+  const fallback = HK_AI_FALLBACK_MODELS[tier];
+  return { model, reasoning, reason, maxOutputTokens, allowWeb, fallbackModel: fallback.model, fallbackReasoning: fallback.reasoning || reasoning };
 }

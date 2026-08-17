@@ -137,9 +137,10 @@ async function runOpenAICompatible(payload: AgentProviderPayload, config: { apiK
 // than FAST-tier high-volume lightweight jobs — distinct default timeouts
 // per tier, only used when the caller didn't already pass one.
 const DEFAULT_TIMEOUT_MS_BY_MODEL: Record<string, number> = {
-  "gemini-2.5-flash-lite": 15_000,
-  "gemini-2.5-flash": 25_000,
-  "gemini-2.5-pro": 55_000,
+  "gemini-3.5-flash-lite": 15_000,
+  "gemini-3.6-flash": 25_000,
+  "gemini-3.1-pro-preview": 55_000,
+  "gemini-3.5-flash": 25_000, // shared fallback model for FAST/DEFAULT
   // Kept for the OpenAI admin-only rollback path (runOpenAiSmartRouted below).
   "gpt-5.6-luna": 15_000,
   "gpt-5.6-terra": 25_000,
@@ -176,8 +177,14 @@ async function runGeminiSmartRouted(payload: AgentProviderPayload) {
     reasoning: route.reasoning,
     maxOutputTokens: route.maxOutputTokens,
     allowWeb: route.allowWeb,
-    timeoutMs: payload.timeoutMs || DEFAULT_TIMEOUT_MS_BY_MODEL[route.model] || 25_000
+    timeoutMs: payload.timeoutMs || DEFAULT_TIMEOUT_MS_BY_MODEL[route.model] || 25_000,
+    fallbackModel: route.fallbackModel,
+    fallbackReasoning: route.fallbackReasoning
   });
+  // If the primary model was unavailable, callGeminiGenerate already fell
+  // back to route.fallbackModel once — reflect the reasoning it actually
+  // used in telemetry (result.model already reflects the real model used).
+  const usedFallbackModel = result.model !== route.model;
 
   return {
     provider: "gemini" as const,
@@ -186,7 +193,7 @@ async function runGeminiSmartRouted(payload: AgentProviderPayload) {
     tokensUsed: result.totalTokens || estimateTokens(`${payload.systemPrompt}\n${payload.prompt}\n${result.text}`),
     responseMs: result.responseMs,
     usedFallback: false,
-    reasoningEffort: route.reasoning,
+    reasoningEffort: usedFallbackModel ? route.fallbackReasoning : route.reasoning,
     inputTokens: result.inputTokens,
     cachedInputTokens: result.cachedInputTokens,
     outputTokens: result.outputTokens,

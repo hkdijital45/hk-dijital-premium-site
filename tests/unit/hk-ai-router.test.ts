@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolveHkAiRoute, HK_AI_MODELS } from "../../src/lib/hk-ai-router.ts";
+import { resolveHkAiRoute, HK_AI_MODELS, HK_AI_FALLBACK_MODELS } from "../../src/lib/hk-ai-router.ts";
 
 // Pure, deterministic router — no network calls, safe to run unlimited
 // times.
@@ -97,8 +97,24 @@ test("output budgets stay within the rough guides", () => {
   assert.ok(pro.maxOutputTokens >= 2000 && pro.maxOutputTokens <= 6000);
 });
 
-test("only stable Gemini model IDs are used — no preview/experimental/exp/latest aliases", () => {
-  for (const model of Object.values(HK_AI_MODELS)) {
-    assert.doesNotMatch(model, /preview|experimental|-exp\b|latest/i);
+test("stable-first policy: FAST/DEFAULT are stable, only POWERFUL is a preview model", () => {
+  assert.doesNotMatch(HK_AI_MODELS.FAST, /preview|experimental|-exp\b|latest/i);
+  assert.doesNotMatch(HK_AI_MODELS.DEFAULT, /preview|experimental|-exp\b|latest/i);
+  assert.match(HK_AI_MODELS.POWERFUL, /preview/i);
+});
+
+test("every tier has a stable fallback model, and POWERFUL's fallback is not a preview model", () => {
+  for (const tier of ["FAST", "DEFAULT", "POWERFUL"] as const) {
+    assert.ok(HK_AI_FALLBACK_MODELS[tier].model);
+  }
+  assert.doesNotMatch(HK_AI_FALLBACK_MODELS.POWERFUL.model, /preview|experimental|-exp\b|latest/i);
+  assert.equal(HK_AI_FALLBACK_MODELS.POWERFUL.reasoning, "high", "the weaker fallback model compensates with higher controlled thinking");
+});
+
+test("resolveHkAiRoute always returns a usable fallbackModel distinct from the primary model", () => {
+  for (const action of ["lead-score", "normal-ai-chat", "ai-strategist"]) {
+    const route = resolveHkAiRoute({ action });
+    assert.ok(route.fallbackModel);
+    assert.notEqual(route.fallbackModel, route.model);
   }
 });

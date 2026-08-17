@@ -50,15 +50,21 @@ export type GeminiGenerateRequest = {
    * classification, router output, ...). When set, the response is
    * constrained to application/json shaped by this schema. */
   responseSchema?: Record<string, unknown>;
+  /** Used only if the primary `model` above returns a model-not-found
+   * error (404) — at most one fallback attempt, never chained further. */
+  fallbackModel?: HKAIModel;
+  fallbackReasoning?: HKReasoningEffort;
 };
 
-// gemini-2.5-pro cannot fully disable thinking (thinkingBudget 0 is
-// rejected) — "none"/"low" never route here in practice since POWERFUL-tier
-// actions always carry medium/high complexity, but MINIMAL is the safe
-// floor if it ever does.
+// Preview/pro-tier models can reject a fully-disabled thinking budget
+// (thinkingBudget 0) — "none"/"low" essentially never route to POWERFUL in
+// practice since that tier's actions always carry medium/high complexity,
+// but MINIMAL is the safe floor if it ever does.
+const CANNOT_DISABLE_THINKING = new Set<HKAIModel>(["gemini-3.1-pro-preview"]);
+
 function thinkingConfigFor(model: HKAIModel, reasoning: HKReasoningEffort) {
   if (reasoning === "none") {
-    if (model === "gemini-2.5-pro") return { thinkingLevel: ThinkingLevel.MINIMAL };
+    if (CANNOT_DISABLE_THINKING.has(model)) return { thinkingLevel: ThinkingLevel.MINIMAL };
     return { thinkingBudget: 0 };
   }
   const level: Partial<Record<HKReasoningEffort, ThinkingLevel>> = {
@@ -83,17 +89,17 @@ function redactError(error: unknown): string {
     .slice(0, 400);
 }
 
-async function once(payload: GeminiGenerateRequest, signal: AbortSignal): Promise<GeminiGenerateResult> {
+async function once(payload: GeminiGenerateRequest, model: HKAIModel, reasoning: HKReasoningEffort, signal: AbortSignal): Promise<GeminiGenerateResult> {
   const started = Date.now();
   const ai = getClient();
   const response = await ai.models.generateContent({
-    model: payload.model,
+    model,
     contents: payload.input,
     config: {
       abortSignal: signal,
       systemInstruction: payload.instructions,
       maxOutputTokens: payload.maxOutputTokens,
-      thinkingConfig: thinkingConfigFor(payload.model, payload.reasoning),
+      thinkingConfig: thinkingConfigFor(model, reasoning),
       ...(payload.allowWeb ? { tools: [{ googleSearch: {} }] } : {}),
       ...(payload.responseSchema
         ? { responseMimeType: "application/json", responseJsonSchema: payload.responseSchema }
@@ -109,7 +115,7 @@ async function once(payload: GeminiGenerateRequest, signal: AbortSignal): Promis
 
   return {
     text,
-    model: response.modelVersion || payload.model,
+    model: response.modelVersion || model,
     inputTokens: usage?.promptTokenCount || 0,
     cachedInputTokens: usage?.cachedContentTokenCount || 0,
     outputTokens: usage?.candidatesTokenCount || 0,
@@ -120,24 +126,43 @@ async function once(payload: GeminiGenerateRequest, signal: AbortSignal): Promis
   };
 }
 
+function isModelUnavailableStatus(status: number | undefined) {
+  return status === 404;
+}
+
+// One model attempt, with its own single controlled retry for transient
+// failures (429 / 5xx / network) — never for auth/validation errors. Retry
+// uses a short fixed backoff, not an open loop.
+async function attemptModel(payload: GeminiGenerateRequest, model: HKAIModel, reasoning: HKReasoningEffort, signal: AbortSignal): Promise<GeminiGenerateResult> {
+  try {
+    return await once(payload, model, reasoning, signal);
+  } catch (error) {
+    const status = error instanceof ApiError ? error.status : undefined;
+    const isAbort = error instanceof Error && error.name === "AbortError";
+    if (isAbort || !isRetryableStatus(status)) throw error;
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    return await once(payload, model, reasoning, signal);
+  }
+}
+
 /**
- * Calls the Gemini API with a single, controlled retry for transient
- * failures (429 / 5xx / network) — never for auth or validation errors —
- * and a hard timeout so a stuck request can't hang the UI. Retry uses a
- * short fixed backoff, not an open loop.
+ * Calls the Gemini API for the primary model, with a hard timeout so a
+ * stuck request can't hang the UI. On a model-not-found error (404 — e.g. a
+ * model deprecated/removed for this account), falls back to
+ * `payload.fallbackModel` exactly once, never chained further. Transient
+ * failures (429/5xx) get one retry per model attempted, never unbounded.
  */
 export async function callGeminiGenerate(payload: GeminiGenerateRequest): Promise<GeminiGenerateResult> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), payload.timeoutMs);
   try {
     try {
-      return await once(payload, controller.signal);
+      return await attemptModel(payload, payload.model, payload.reasoning, controller.signal);
     } catch (error) {
       const status = error instanceof ApiError ? error.status : undefined;
       const isAbort = error instanceof Error && error.name === "AbortError";
-      if (isAbort || !isRetryableStatus(status)) throw error;
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      return await once(payload, controller.signal);
+      if (isAbort || !isModelUnavailableStatus(status) || !payload.fallbackModel) throw error;
+      return await attemptModel(payload, payload.fallbackModel, payload.fallbackReasoning || payload.reasoning, controller.signal);
     }
   } catch (error) {
     throw new Error(redactError(error));
