@@ -47,9 +47,9 @@ const taskTypes = new Set<IntelligenceTaskType>([
   "general_assistant"
 ]);
 
-// Pre-OpenAI-router multi-provider fallback chains. Kept (not deleted) for
+// Pre-Smart-Router multi-provider fallback chains. Kept (not deleted) for
 // reference and for the admin-only explicit-provider override path — but no
-// longer used as the automatic default for any task type, since OpenAI is
+// longer used as the automatic default for any task type, since Gemini is
 // now the sole active production provider (HK AI Smart Router).
 const geminiFirst: IntelligenceProviderKey[] = ["gemini", "groq", "openai", "openrouter", "ollama", "demo"];
 const groqFirst: IntelligenceProviderKey[] = ["groq", "gemini", "openai", "openrouter", "ollama", "demo"];
@@ -57,10 +57,13 @@ const openAiFirst: IntelligenceProviderKey[] = ["openai", "gemini", "groq", "ope
 const manusFirst: IntelligenceProviderKey[] = ["manus", "gemini", "openai", "groq", "openrouter", "demo"];
 export const legacyProviderPriorities = { geminiFirst, groqFirst, openAiFirst, manusFirst };
 
-// OpenAI-only automatic default. "demo" stays as the final, non-AI, rule-based
+// Gemini-only automatic default. "demo" stays as the final, non-AI, rule-based
 // safety net that already exists for total-outage cases — it is not another
-// AI provider, so keeping it last does not violate the "OpenAI-only" rule.
-export const defaultIntelligenceProviderPriority: IntelligenceProviderKey[] = ["openai", "demo"];
+// AI provider, so keeping it last does not violate the "Gemini-only" rule.
+// OpenAI is deliberately NOT an automatic fallback here (two separate billing
+// systems, different behavior) — it remains reachable only via an explicit
+// admin-only requestedProvider override (see buildProviderOrder below).
+export const defaultIntelligenceProviderPriority: IntelligenceProviderKey[] = ["gemini", "demo"];
 
 export function isIntelligenceTaskType(value: unknown): value is IntelligenceTaskType {
   return taskTypes.has(String(value || "") as IntelligenceTaskType);
@@ -101,7 +104,7 @@ export function classifyAiTask(input: {
 }
 
 export function providerOrderForTask(_task: IntelligenceTaskType): IntelligenceProviderKey[] {
-  // OpenAI is the sole active production provider for every task type — see
+  // Gemini is the sole active production provider for every task type — see
   // defaultIntelligenceProviderPriority above.
   return defaultIntelligenceProviderPriority;
 }

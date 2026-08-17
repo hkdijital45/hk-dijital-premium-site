@@ -1,0 +1,147 @@
+import { ApiError, GoogleGenAI, ThinkingLevel } from "@google/genai";
+import type { HKAIModel, HKReasoningEffort } from "@/lib/hk-ai-router";
+
+// Single, centralized Gemini API integration point — every HK AI production
+// call goes through callGeminiGenerate(). GEMINI_API_KEY is read here only,
+// never logged, never echoed in a response body. Import this module only
+// through src/lib/gemini-client.ts, which adds the server-only guard — this
+// core module has no bundle guard of its own so it stays importable from
+// tests/unit/gemini-client.test.ts (the real "server-only" npm package
+// throws unconditionally outside Next's bundler, including in plain Node
+// test runs, so the guard has to live one layer up).
+
+let client: GoogleGenAI | null = null;
+function getClient(): GoogleGenAI {
+  // GOOGLE_API_KEY is accepted as a fallback for consistency with
+  // configuredByEnvironment() in ai-router.ts and the legacy env var some
+  // deployments already had configured — GEMINI_API_KEY is the documented,
+  // primary name (.env.example).
+  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (!apiKey) throw new Error("Gemini API anahtarı yapılandırılmadı.");
+  if (!client) client = new GoogleGenAI({ apiKey });
+  return client;
+}
+
+export type GeminiGenerateResult = {
+  text: string;
+  model: string;
+  inputTokens: number;
+  cachedInputTokens: number;
+  outputTokens: number;
+  thinkingTokens: number;
+  totalTokens: number;
+  responseMs: number;
+  citations: string[];
+};
+
+export type GeminiGenerateRequest = {
+  model: HKAIModel;
+  /** Stable developer/system instructions — kept first in the request so
+   * Gemini's implicit context caching can key off it across repeated calls.
+   * Never randomize this per request. */
+  instructions: string;
+  /** Dynamic, per-request user/customer content — kept last. */
+  input: string;
+  reasoning: HKReasoningEffort;
+  maxOutputTokens: number;
+  allowWeb: boolean;
+  timeoutMs: number;
+  /** Optional JSON Schema for machine-readable results (lead score,
+   * classification, router output, ...). When set, the response is
+   * constrained to application/json shaped by this schema. */
+  responseSchema?: Record<string, unknown>;
+};
+
+// gemini-2.5-pro cannot fully disable thinking (thinkingBudget 0 is
+// rejected) — "none"/"low" never route here in practice since POWERFUL-tier
+// actions always carry medium/high complexity, but MINIMAL is the safe
+// floor if it ever does.
+function thinkingConfigFor(model: HKAIModel, reasoning: HKReasoningEffort) {
+  if (reasoning === "none") {
+    if (model === "gemini-2.5-pro") return { thinkingLevel: ThinkingLevel.MINIMAL };
+    return { thinkingBudget: 0 };
+  }
+  const level: Partial<Record<HKReasoningEffort, ThinkingLevel>> = {
+    low: ThinkingLevel.LOW,
+    medium: ThinkingLevel.MEDIUM,
+    high: ThinkingLevel.HIGH,
+    xhigh: ThinkingLevel.HIGH,
+    max: ThinkingLevel.HIGH
+  };
+  return { thinkingLevel: level[reasoning] || ThinkingLevel.LOW };
+}
+
+function isRetryableStatus(status: number | undefined) {
+  return status === 429 || (typeof status === "number" && status >= 500 && status < 600);
+}
+
+function redactError(error: unknown): string {
+  const message = error instanceof Error ? error.message : "Gemini sağlayıcı hatası";
+  return message
+    .replace(/AIza[A-Za-z0-9_-]{10,}/g, "[redacted]")
+    .replace(/key=[A-Za-z0-9_-]+/gi, "key=[redacted]")
+    .slice(0, 400);
+}
+
+async function once(payload: GeminiGenerateRequest, signal: AbortSignal): Promise<GeminiGenerateResult> {
+  const started = Date.now();
+  const ai = getClient();
+  const response = await ai.models.generateContent({
+    model: payload.model,
+    contents: payload.input,
+    config: {
+      abortSignal: signal,
+      systemInstruction: payload.instructions,
+      maxOutputTokens: payload.maxOutputTokens,
+      thinkingConfig: thinkingConfigFor(payload.model, payload.reasoning),
+      ...(payload.allowWeb ? { tools: [{ googleSearch: {} }] } : {}),
+      ...(payload.responseSchema
+        ? { responseMimeType: "application/json", responseJsonSchema: payload.responseSchema }
+        : {})
+    }
+  });
+
+  const text = response.text || "";
+  const usage = response.usageMetadata;
+  const citations = (response.candidates?.[0]?.groundingMetadata?.groundingChunks || [])
+    .map((chunk) => chunk.web?.uri)
+    .filter((uri): uri is string => Boolean(uri));
+
+  return {
+    text,
+    model: response.modelVersion || payload.model,
+    inputTokens: usage?.promptTokenCount || 0,
+    cachedInputTokens: usage?.cachedContentTokenCount || 0,
+    outputTokens: usage?.candidatesTokenCount || 0,
+    thinkingTokens: usage?.thoughtsTokenCount || 0,
+    totalTokens: usage?.totalTokenCount || 0,
+    responseMs: Date.now() - started,
+    citations
+  };
+}
+
+/**
+ * Calls the Gemini API with a single, controlled retry for transient
+ * failures (429 / 5xx / network) — never for auth or validation errors —
+ * and a hard timeout so a stuck request can't hang the UI. Retry uses a
+ * short fixed backoff, not an open loop.
+ */
+export async function callGeminiGenerate(payload: GeminiGenerateRequest): Promise<GeminiGenerateResult> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), payload.timeoutMs);
+  try {
+    try {
+      return await once(payload, controller.signal);
+    } catch (error) {
+      const status = error instanceof ApiError ? error.status : undefined;
+      const isAbort = error instanceof Error && error.name === "AbortError";
+      if (isAbort || !isRetryableStatus(status)) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      return await once(payload, controller.signal);
+    }
+  } catch (error) {
+    throw new Error(redactError(error));
+  } finally {
+    clearTimeout(timer);
+  }
+}

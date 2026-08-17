@@ -1,23 +1,25 @@
 import type { IntelligenceTaskType } from "@/lib/ai-task-routing";
 
 // HK AI Smart Router — deterministic, local, zero-latency model selection
-// across the three active OpenAI production models. This NEVER calls an AI
-// model to decide which AI model to use (see the module docblock further
-// down for why that matters). It only decides WHICH of the three OpenAI
-// models + how much reasoning/output budget a request gets; the actual
-// OpenAI call happens in src/lib/openai-client.ts, and the provider-level
-// decision (OpenAI vs the legacy Gemini/Groq/Anthropic/etc providers, which
-// remain dormant but uncalled by default) is made in
-// src/lib/ai-task-routing.ts's providerOrderForTask.
+// across three cost/capability tiers. This NEVER calls an AI model to decide
+// which AI model to use. It only decides WHICH tier + how much thinking
+// budget/output budget/web-search a request gets; the actual provider call
+// happens in src/lib/gemini-client.ts (production) or src/lib/openai-client.ts
+// (kept for admin-only rollback — see src/lib/ai-task-routing.ts). The tier
+// vocabulary below (FAST/DEFAULT/POWERFUL) is intentionally provider-neutral
+// so a future model-provider change only touches HK_AI_MODELS.
 
 export const HK_AI_MODELS = {
-  FAST: "gpt-5.6-luna",
-  DEFAULT: "gpt-5.6-terra",
-  POWERFUL: "gpt-5.6-sol"
+  FAST: "gemini-2.5-flash-lite",
+  DEFAULT: "gemini-2.5-flash",
+  POWERFUL: "gemini-2.5-pro"
 } as const;
 
 export type HKAIModel = (typeof HK_AI_MODELS)[keyof typeof HK_AI_MODELS];
 
+// Abstract thinking/reasoning budget vocabulary — mapped to each provider's
+// actual parameter (Gemini's ThinkingLevel, OpenAI's reasoning.effort) by
+// that provider's own client, never passed through verbatim.
 export type HKReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh" | "max";
 
 export interface HKModelRoute {
@@ -28,7 +30,7 @@ export interface HKModelRoute {
   allowWeb: boolean;
 }
 
-export type HKRouteComplexity = "simple" | "normal" | "critical";
+export type HKRouteComplexity = "simple" | "normal" | "high" | "critical";
 export type HKOutputSize = "short" | "medium" | "long";
 
 export interface HKRouteSignals {
@@ -49,112 +51,116 @@ export interface HKRouteSignals {
   expectedOutputSize?: HKOutputSize;
   userIntent?: string;
   /** Raw user prompt — only consulted for the narrow "normal-ai-chat" free-
-   * text escalation heuristic in section 10 of the spec, via keyword
-   * matching. Never sent to a model just to classify itself. */
+   * text escalation heuristic, via keyword matching. Never sent to a model
+   * just to classify itself. */
   prompt?: string;
 }
 
-type Tier = "LUNA" | "TERRA" | "SOL";
+type Tier = "FAST" | "DEFAULT" | "POWERFUL";
 
 // Known action ids -> tier. Kebab-case, matches the routing test matrix
 // exactly (lead-score, ai-strategist, ads-doctor-pro, ...). Callers that
 // already have a clear action name should pass it — it's the fastest,
 // least ambiguous path and skips task-type inference entirely.
 const ACTION_TIER: Record<string, Tier> = {
-  // Luna — high-volume, lightweight
-  "classify": "LUNA",
-  "categorize": "LUNA",
-  "tagging": "LUNA",
-  "entity-extraction": "LUNA",
-  "short-summary": "LUNA",
-  "crm-note": "LUNA",
-  "crm-note-cleanup": "LUNA",
-  "text-normalization": "LUNA",
-  "title-generation": "LUNA",
-  "short-description": "LUNA",
-  "lead-score": "LUNA",
-  "lead-temperature": "LUNA",
-  "lead-classification": "LUNA",
-  "structured-data-extraction": "LUNA",
-  "input-validation": "LUNA",
-  "content-variation": "LUNA",
-  "short-caption": "LUNA",
-  "short-task-description": "LUNA",
-  "customer-note-summary": "LUNA",
-  "background-batch": "LUNA",
+  // FAST — high-volume, lightweight (gemini-2.5-flash-lite)
+  "classify": "FAST",
+  "categorize": "FAST",
+  "tagging": "FAST",
+  "entity-extraction": "FAST",
+  "short-summary": "FAST",
+  "crm-note": "FAST",
+  "crm-note-cleanup": "FAST",
+  "text-normalization": "FAST",
+  "title-generation": "FAST",
+  "short-description": "FAST",
+  "lead-score": "FAST",
+  "lead-temperature": "FAST",
+  "lead-classification": "FAST",
+  "structured-data-extraction": "FAST",
+  "input-validation": "FAST",
+  "content-variation": "FAST",
+  "short-caption": "FAST",
+  "short-task-description": "FAST",
+  "customer-note-summary": "FAST",
+  "background-batch": "FAST",
 
-  // Terra — default professional work
-  "normal-ai-chat": "TERRA",
-  "social-media-strategy": "TERRA",
-  "content-plan": "TERRA",
-  "content-calendar": "TERRA",
-  "meta-ads-analysis": "TERRA",
-  "google-ads-analysis": "TERRA",
-  "seo-analysis": "TERRA",
-  "customer-report": "TERRA",
-  "monthly-report": "TERRA",
-  "package-recommendation": "TERRA",
-  "ad-budget-recommendation": "TERRA",
-  "proposal-support": "TERRA",
-  "competitor-analysis": "TERRA",
-  "digital-status-assessment": "TERRA",
-  "campaign-recommendation": "TERRA",
-  "conversion-recommendation": "TERRA",
-  "sales-opportunity-assessment": "TERRA",
+  // DEFAULT — default professional work (gemini-2.5-flash)
+  "normal-ai-chat": "DEFAULT",
+  "social-media-strategy": "DEFAULT",
+  "content-plan": "DEFAULT",
+  "content-calendar": "DEFAULT",
+  "meta-ads-analysis": "DEFAULT",
+  "google-ads-analysis": "DEFAULT",
+  "seo-analysis": "DEFAULT",
+  "customer-report": "DEFAULT",
+  "monthly-report": "DEFAULT",
+  "package-recommendation": "DEFAULT",
+  "ad-budget-recommendation": "DEFAULT",
+  "proposal-support": "DEFAULT",
+  "competitor-analysis": "DEFAULT",
+  "digital-status-assessment": "DEFAULT",
+  "campaign-recommendation": "DEFAULT",
+  "conversion-recommendation": "DEFAULT",
+  "sales-opportunity-assessment": "DEFAULT",
 
-  // Sol — genuinely hard work only
-  "ai-strategist": "SOL",
-  "ads-doctor-pro": "SOL",
-  "deep-analysis": "SOL",
-  "90-day-strategy": "SOL",
-  "multi-step-agent": "SOL",
-  "cross-channel-synthesis": "SOL",
-  "deep-cross-channel-analysis": "SOL",
-  "critical-customer-strategy": "SOL",
-  "complex-troubleshooting": "SOL",
-  "complex-sales-strategy": "SOL",
-  "comprehensive-operations-strategy": "SOL",
-  "conflicting-data-decision": "SOL",
-  "high-risk-final-assessment": "SOL",
-  "multi-step-professional-planning": "SOL"
+  // POWERFUL — genuinely hard work only (gemini-2.5-pro)
+  "ai-strategist": "POWERFUL",
+  "ads-doctor-pro": "POWERFUL",
+  "deep-analysis": "POWERFUL",
+  "90-day-strategy": "POWERFUL",
+  "multi-step-agent": "POWERFUL",
+  "cross-channel-synthesis": "POWERFUL",
+  "deep-cross-channel-analysis": "POWERFUL",
+  "critical-customer-strategy": "POWERFUL",
+  "complex-troubleshooting": "POWERFUL",
+  "complex-sales-strategy": "POWERFUL",
+  "comprehensive-operations-strategy": "POWERFUL",
+  "conflicting-data-decision": "POWERFUL",
+  "high-risk-final-assessment": "POWERFUL",
+  "multi-step-professional-planning": "POWERFUL"
 };
 
 // Fallback when only an existing IntelligenceTaskType is known (no explicit
-// action) — every task type not listed here already means TERRA by the
-// "emin değilsen -> Terra" rule below.
+// action) — every task type not listed here already means DEFAULT by the
+// "emin değilsen -> Flash" rule below.
 const TASK_TYPE_TIER: Partial<Record<IntelligenceTaskType, Tier>> = {
-  quick_summary: "LUNA",
-  data_extraction: "LUNA",
-  deep_research: "SOL",
-  strategy: "SOL"
+  quick_summary: "FAST",
+  data_extraction: "FAST",
+  deep_research: "POWERFUL",
+  strategy: "POWERFUL"
 };
 
-// Free-text escalation signals for "normal-ai-chat"-style open input (spec
-// section 10) — local keyword heuristic only, never an extra AI call.
+// Free-text escalation signals for "normal-ai-chat"-style open input — local
+// keyword heuristic only, never an extra AI call.
 const ESCALATION_KEYWORDS = [
   "karşılaştır", "detaylı analiz et", "bütün verileri birleştir", "90 günlük strateji",
   "derin analiz", "birden fazla kaynak", "kapsamlı teşhis", "nedenlerini bul", "stratejik plan"
 ];
 
 const OUTPUT_BUDGET: Record<Tier, Record<HKOutputSize, number>> = {
-  LUNA: { short: 350, medium: 700, long: 1000 },
-  TERRA: { short: 1200, medium: 1800, long: 2800 },
-  SOL: { short: 2500, medium: 4000, long: 6000 }
+  FAST: { short: 350, medium: 700, long: 1000 },
+  DEFAULT: { short: 1200, medium: 1800, long: 2800 },
+  POWERFUL: { short: 2500, medium: 4000, long: 6000 }
 };
 
 function baseReasoning(tier: Tier, complexity: HKRouteComplexity): HKReasoningEffort {
-  if (tier === "LUNA") return complexity === "simple" ? "none" : "low";
-  if (tier === "TERRA") return complexity === "simple" ? "low" : "medium";
-  // SOL: high is the production ceiling — xhigh/max/pro are intentionally
-  // never selected by this router (spec section 8).
+  if (tier === "FAST") return complexity === "simple" ? "none" : "low";
+  if (tier === "DEFAULT") return complexity === "simple" ? "low" : "medium";
+  // POWERFUL: high is the production ceiling — xhigh/max are intentionally
+  // never selected by this router.
   return complexity === "critical" ? "high" : "medium";
 }
 
-function shouldEscalateToSol(signals: HKRouteSignals): string | null {
+function shouldEscalateToPowerful(signals: HKRouteSignals): string | null {
   if (signals.complexity === "critical") return "complexity=critical";
-  if (signals.multiStep) return "multi-step agent task";
-  // toolCount alone is deliberately NOT a reason (spec section 11) — a few
-  // tool calls are well within Terra's capability.
+  // multiStep alone is deliberately NOT sufficient — that was the previous
+  // router's cost anti-pattern. It only escalates when paired with a
+  // genuinely high complexity signal; a normal multi-step task stays on
+  // DEFAULT (Flash).
+  if (signals.multiStep && signals.complexity === "high") return "multiStep + complexity=high";
+  // toolCount alone is deliberately NOT a reason — a few tool calls are well
+  // within DEFAULT's capability.
   const text = (signals.prompt || "").toLocaleLowerCase("tr");
   if (text && ESCALATION_KEYWORDS.some((keyword) => text.includes(keyword))) {
     return "free-text escalation keyword matched";
@@ -171,7 +177,7 @@ export function resolveHkAiRoute(signals: HKRouteSignals = {}): HKModelRoute {
   const complexity: HKRouteComplexity = signals.complexity || "normal";
   const outputSize: HKOutputSize = signals.expectedOutputSize || "medium";
 
-  let tier: Tier = "TERRA"; // "emin değilsen -> Terra" — the safe default (spec section 9)
+  let tier: Tier = "DEFAULT"; // "emin değilsen -> Flash" — the safe default
   let reason = "default-unknown-action-or-task";
 
   if (normalizedAction && ACTION_TIER[normalizedAction]) {
@@ -181,28 +187,28 @@ export function resolveHkAiRoute(signals: HKRouteSignals = {}): HKModelRoute {
     tier = TASK_TYPE_TIER[signals.taskType]!;
     reason = `taskType:${signals.taskType}`;
   } else if (signals.taskType) {
-    // Known task type, just not explicitly LUNA/SOL-mapped — Terra by design.
-    reason = `taskType:${signals.taskType}:default-terra`;
+    // Known task type, just not explicitly FAST/POWERFUL-mapped — DEFAULT by design.
+    reason = `taskType:${signals.taskType}:default-flash`;
   }
 
   // Escalation can raise (never lower) the tier, and only for genuinely
-  // open-ended/professional work — not for Luna's high-volume lightweight
+  // open-ended/professional work — not for FAST's high-volume lightweight
   // jobs, which are lightweight by definition regardless of prompt wording.
-  if (tier !== "LUNA") {
-    const escalation = shouldEscalateToSol(signals);
-    if (escalation && tier !== "SOL") {
-      tier = "SOL";
+  if (tier !== "FAST") {
+    const escalation = shouldEscalateToPowerful(signals);
+    if (escalation && tier !== "POWERFUL") {
+      tier = "POWERFUL";
       reason = `escalated:${escalation}`;
     }
   }
 
-  const model = tier === "LUNA" ? HK_AI_MODELS.FAST : tier === "SOL" ? HK_AI_MODELS.POWERFUL : HK_AI_MODELS.DEFAULT;
+  const model = HK_AI_MODELS[tier];
   const reasoning = baseReasoning(tier, complexity);
   const maxOutputTokens = OUTPUT_BUDGET[tier][outputSize];
 
   // Web search stays off by default everywhere — only genuinely fresh-data
   // task types opt in automatically, everything else requires the caller to
-  // explicitly say needsWeb (spec section 12).
+  // explicitly say needsWeb.
   const inherentlyNeedsWeb = signals.taskType ? (["deep_research", "competitor_research", "market_research"] as IntelligenceTaskType[]).includes(signals.taskType) : false;
   const allowWeb = Boolean(signals.needsWeb ?? inherentlyNeedsWeb);
 

@@ -620,13 +620,18 @@ export async function createAgentRunLog(payload: {
   cancel_reason?: string | null;
   retry_count?: number;
   parent_run_id?: string | null;
-  // HK AI Smart Router telemetry (spec section 25) — additive, nullable
-  // columns on agent_runs. Only populated for real OpenAI calls.
+  // HK AI Smart Router telemetry — additive, nullable columns on agent_runs.
+  // Only populated for real Gemini/OpenAI smart-routed calls.
   model?: string | null;
+  // Legacy-named field (predates the Gemini migration) — holds the mapped
+  // Gemini thinking level (or OpenAI reasoning.effort on the rollback path),
+  // not literally "reasoning effort" in the OpenAI-specific sense anymore.
   reasoning_effort?: string | null;
   input_tokens?: number | null;
   cached_input_tokens?: number | null;
   output_tokens?: number | null;
+  // Gemini-only: tokens spent on the model's internal "thoughts".
+  thinking_tokens?: number | null;
   error_code?: string | null;
 }) {
   if (!hasSupabaseConfig()) return null;
@@ -642,7 +647,7 @@ export async function createAgentRunLog(payload: {
     const message = error instanceof Error ? error.message : "";
     const missingTelemetryColumn = /column .* does not exist/i.test(message);
     if (!missingTelemetryColumn) return null;
-    const { model: _model, reasoning_effort: _reasoningEffort, input_tokens: _inputTokens, cached_input_tokens: _cachedInputTokens, output_tokens: _outputTokens, error_code: _errorCode, ...rest } = payload;
+    const { model: _model, reasoning_effort: _reasoningEffort, input_tokens: _inputTokens, cached_input_tokens: _cachedInputTokens, output_tokens: _outputTokens, thinking_tokens: _thinkingTokens, error_code: _errorCode, ...rest } = payload;
     return await insert(rest).catch(() => null);
   }
 }

@@ -2,6 +2,7 @@ import type { AgentProviderKey, AgentTaskType } from "@/lib/agent-hub";
 import { agentTaskToIntelligenceTask } from "@/lib/ai-task-routing";
 import { resolveHkAiRoute, type HKRouteComplexity, type HKOutputSize } from "@/lib/hk-ai-router";
 import { callOpenAiResponses } from "@/lib/openai-client";
+import { callGeminiGenerate } from "@/lib/gemini-client";
 
 export type AgentProviderPayload = {
   provider: AgentProviderKey;
@@ -30,11 +31,15 @@ export type AgentProviderResult = {
   responseMs: number;
   usedFallback: boolean;
   errorMessage?: string;
-  // Populated for real OpenAI Responses API calls only.
+  // Populated for real Gemini/OpenAI calls only.
   reasoningEffort?: string;
   inputTokens?: number;
   cachedInputTokens?: number;
   outputTokens?: number;
+  // Gemini-only: "thoughts" tokens from thinking-enabled models, and any
+  // Google Search grounding citation URIs.
+  thinkingTokens?: number;
+  citations?: string[];
 };
 
 const defaultModels: Record<AgentProviderKey, string> = {
@@ -128,17 +133,20 @@ async function runOpenAICompatible(payload: AgentProviderPayload, config: { apiK
   };
 }
 
-// SOL's deep-analysis jobs legitimately need more wall-clock time than
-// Luna's high-volume lightweight jobs — distinct default timeouts per tier
-// (spec section 18), only used when the caller didn't already pass one.
+// POWERFUL-tier deep-analysis jobs legitimately need more wall-clock time
+// than FAST-tier high-volume lightweight jobs — distinct default timeouts
+// per tier, only used when the caller didn't already pass one.
 const DEFAULT_TIMEOUT_MS_BY_MODEL: Record<string, number> = {
+  "gemini-2.5-flash-lite": 15_000,
+  "gemini-2.5-flash": 25_000,
+  "gemini-2.5-pro": 55_000,
+  // Kept for the OpenAI admin-only rollback path (runOpenAiSmartRouted below).
   "gpt-5.6-luna": 15_000,
   "gpt-5.6-terra": 25_000,
   "gpt-5.6-sol": 45_000
 };
 
-async function runOpenAiSmartRouted(payload: AgentProviderPayload) {
-  if (!process.env.OPENAI_API_KEY) throw new Error("OpenAI API anahtarı yapılandırılmadı");
+function buildHkRoute(payload: AgentProviderPayload) {
   const route = resolveHkAiRoute({
     module: payload.taskType,
     action: payload.action,
@@ -151,10 +159,45 @@ async function runOpenAiSmartRouted(payload: AgentProviderPayload) {
     expectedOutputSize: payload.expectedOutputSize,
     prompt: payload.prompt
   });
-
-  // Structured, single-line routing observability (spec section 30) — no
-  // prompt/response content, safe for production logs.
+  // Structured, single-line routing observability — no prompt/response
+  // content, safe for production logs.
   console.log(`[HK-AI] module=${payload.taskType} action=${payload.action || "-"} model=${route.model} reasoning=${route.reasoning} reason=${route.reason}`);
+  return route;
+}
+
+async function runGeminiSmartRouted(payload: AgentProviderPayload) {
+  if (!process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY) throw new Error("Gemini API anahtarı yapılandırılmadı");
+  const route = buildHkRoute(payload);
+
+  const result = await callGeminiGenerate({
+    model: route.model,
+    instructions: payload.systemPrompt,
+    input: payload.prompt,
+    reasoning: route.reasoning,
+    maxOutputTokens: route.maxOutputTokens,
+    allowWeb: route.allowWeb,
+    timeoutMs: payload.timeoutMs || DEFAULT_TIMEOUT_MS_BY_MODEL[route.model] || 25_000
+  });
+
+  return {
+    provider: "gemini" as const,
+    model: result.model,
+    text: result.text || "Sağlayıcı boş yanıt döndürdü.",
+    tokensUsed: result.totalTokens || estimateTokens(`${payload.systemPrompt}\n${payload.prompt}\n${result.text}`),
+    responseMs: result.responseMs,
+    usedFallback: false,
+    reasoningEffort: route.reasoning,
+    inputTokens: result.inputTokens,
+    cachedInputTokens: result.cachedInputTokens,
+    outputTokens: result.outputTokens,
+    thinkingTokens: result.thinkingTokens,
+    citations: result.citations
+  };
+}
+
+async function runOpenAiSmartRouted(payload: AgentProviderPayload) {
+  if (!process.env.OPENAI_API_KEY) throw new Error("OpenAI API anahtarı yapılandırılmadı");
+  const route = buildHkRoute(payload);
 
   const result = await callOpenAiResponses({
     model: route.model,
@@ -177,33 +220,6 @@ async function runOpenAiSmartRouted(payload: AgentProviderPayload) {
     inputTokens: result.inputTokens,
     cachedInputTokens: result.cachedInputTokens,
     outputTokens: result.outputTokens
-  };
-}
-
-async function runGemini(payload: AgentProviderPayload) {
-  if (!process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY) throw new Error("Gemini API anahtarı yapılandırılmadı");
-  const started = Date.now();
-  const model = payload.model || defaultModels.gemini;
-  const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  const json = await fetchJson(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key || "")}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: payload.systemPrompt }] },
-      contents: [{ role: "user", parts: [{ text: payload.prompt }] }],
-      generationConfig: { temperature: 0.3 }
-    })
-  }, payload.timeoutMs);
-  const candidates = Array.isArray(json.candidates) ? json.candidates : [];
-  const content = candidates[0] as { content?: { parts?: Array<{ text?: string }> } } | undefined;
-  const text = content?.content?.parts?.map((part) => part.text || "").join("\n").trim() || "Gemini boş yanıt döndürdü.";
-  return {
-    provider: "gemini" as const,
-    model,
-    text,
-    tokensUsed: estimateTokens(`${payload.systemPrompt}\n${payload.prompt}\n${text}`),
-    responseMs: Date.now() - started,
-    usedFallback: false
   };
 }
 
@@ -310,7 +326,7 @@ export async function runRealAgentProvider(payload: AgentProviderPayload): Promi
         extraHeaders: { "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || "https://www.hkdijital.com.tr", "X-Title": "HK Agent Hub" }
       });
     }
-    if (payload.provider === "gemini") return await runGemini(payload);
+    if (payload.provider === "gemini") return await runGeminiSmartRouted(payload);
     if (payload.provider === "anthropic") return await runClaude(payload);
     if (payload.provider === "manus") return await runManus(payload);
     if (payload.provider === "ollama") return await runOllama(payload);

@@ -29,9 +29,10 @@ export type AiRouterInput = {
   fallbackText: string;
   customerId?: string | null;
   createdBy?: string | null;
-  // Optional HK AI Smart Router signals — consulted only for the OpenAI
-  // provider path (src/lib/hk-ai-router.ts). Callers that don't know these
-  // yet can omit them entirely; the router falls back to safe defaults.
+  // Optional HK AI Smart Router signals — consulted only for the Gemini/
+  // OpenAI smart-routed provider paths (src/lib/hk-ai-router.ts). Callers
+  // that don't know these yet can omit them entirely; the router falls back
+  // to safe defaults.
   action?: string;
   complexity?: HKRouteComplexity;
   multiStep?: boolean;
@@ -60,11 +61,12 @@ export type AiRouterResult = {
   notice: string | null;
   responseTimeMs: number;
   tokensUsed: number;
-  // Populated for real OpenAI Responses API calls only (spec section 25).
+  // Populated for real Gemini/OpenAI smart-routed calls only.
   reasoningEffort?: string;
   inputTokens?: number;
   cachedInputTokens?: number;
   outputTokens?: number;
+  thinkingTokens?: number;
 };
 
 const health = new Map<IntelligenceProviderKey, HealthState>();
@@ -243,13 +245,13 @@ export async function executeWithFallback(input: AiRouterInput, options: AiRoute
       prompt: input.prompt,
       systemPrompt: input.systemPrompt || "Türkçe, güvenli, ölçülü ve uygulanabilir bir HK Dijital çıktısı üret. Kesin sonuç garantisi verme.",
       model: providerRow?.default_model,
-      // For OpenAI, an explicit caller timeout wins, otherwise leave it
-      // unset so the HK AI Router's own per-tier default applies (Luna gets
-      // a shorter timeout than Sol — spec section 18). Other providers keep
-      // the previous flat default.
+      // For the smart-routed providers (Gemini production, OpenAI rollback),
+      // an explicit caller timeout wins, otherwise leave it unset so the HK
+      // AI Router's own per-tier default applies (FAST gets a shorter
+      // timeout than POWERFUL). Other providers keep the previous flat default.
       timeoutMs: provider === "manus"
         ? Math.max(options.timeoutMs || manusTimeout, 45_000)
-        : provider === "openai" ? options.timeoutMs : options.timeoutMs || 24_000,
+        : provider === "gemini" || provider === "openai" ? options.timeoutMs : options.timeoutMs || 24_000,
       action: input.action,
       complexity: input.complexity,
       multiStep: input.multiStep,
@@ -280,7 +282,8 @@ export async function executeWithFallback(input: AiRouterInput, options: AiRoute
       reasoningEffort: result.reasoningEffort,
       inputTokens: result.inputTokens,
       cachedInputTokens: result.cachedInputTokens,
-      outputTokens: result.outputTokens
+      outputTokens: result.outputTokens,
+      thinkingTokens: result.thinkingTokens
     };
   }
 
@@ -332,6 +335,7 @@ export async function recordAiExecution(input: AiRouterInput, result: AiRouterRe
     input_tokens: result.inputTokens ?? null,
     cached_input_tokens: result.cachedInputTokens ?? null,
     output_tokens: result.outputTokens ?? null,
+    thinking_tokens: result.thinkingTokens ?? null,
     error_code: result.fallbackUsed ? "fallback" : null
   }).catch(() => null);
 }
