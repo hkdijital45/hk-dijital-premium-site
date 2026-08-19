@@ -2508,11 +2508,43 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
   display: grid;
   place-items: center;
   min-width: 44px;
-  border: 1px solid #cbd5e1;
-  background: #fff;
+  min-height: 44px;
+  border: 1.5px solid var(--hk-gold-border);
+  background: var(--hk-gold-soft);
   border-radius: 12px;
-  color: #0f172a;
+  color: var(--hk-gold-text);
   font-weight: 900;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--hk-gold) 16%, transparent);
+}
+
+.hk-admin .admin-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 14px;
+  padding: 4px 10px 4px 4px;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow);
+}
+
+.hk-admin .admin-profile-name {
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--admin-text-primary);
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hk-admin .admin-profile-role {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--admin-text-muted);
 }
 
 .hk-admin .communication-center {

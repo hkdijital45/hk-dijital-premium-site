@@ -22,7 +22,7 @@ export function AdminStandaloneShell({
   title: string;
   children: ReactNode;
 }) {
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
@@ -36,7 +36,7 @@ export function AdminStandaloneShell({
       const storedTheme = localStorage.getItem("hk-admin-theme");
       // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-only read of persisted theme, matches AdminDashboard's pattern
       if (storedTheme === "dark" || storedTheme === "light") setTheme(storedTheme);
-      else if (window.matchMedia?.("(prefers-color-scheme: dark)").matches) setTheme("dark");
+      else if (window.matchMedia?.("(prefers-color-scheme: light)").matches) setTheme("light");
     } catch {}
     const activeGroup = visibleNavigationGroups.find((group) => group.items.some((item) => item.label === activeLabel));
     if (activeGroup) setOpenGroups({ [activeGroup.label]: true });
