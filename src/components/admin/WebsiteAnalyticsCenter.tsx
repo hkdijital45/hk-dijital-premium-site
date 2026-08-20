@@ -35,17 +35,17 @@ function integrationStatusClass(status: AnalyticsCheckStatus) {
   if (status === "ready") return "bg-emerald-100 text-emerald-700";
   if (status === "error") return "bg-red-100 text-red-700";
   if (status === "optional") return "bg-sky-100 text-sky-700";
-  if (status === "not_configured") return "bg-slate-100 text-slate-700";
+  if (status === "not_configured") return "bg-slate-100 text-[var(--admin-text-secondary)]";
   return "bg-amber-100 text-amber-700";
 }
 
 function IntegrationCard({ item }: { item: AnalyticsStatusItem }) {
   return (
-    <article className="rounded-[16px] border border-slate-200 bg-slate-50 p-4">
+    <article className="rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="font-black text-slate-950">{item.label}</p>
-          <p className="mt-1 text-xs leading-5 text-slate-500">{item.help}</p>
+          <p className="font-black text-[var(--admin-text-primary)]">{item.label}</p>
+          <p className="mt-1 text-xs leading-5 text-[var(--admin-text-muted)]">{item.help}</p>
         </div>
         <span className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-black ${integrationStatusClass(item.status)}`}>{integrationStatusLabel(item.status)}</span>
       </div>
@@ -54,7 +54,7 @@ function IntegrationCard({ item }: { item: AnalyticsStatusItem }) {
           Eksik env: {item.missingEnv.join(", ")}
         </p>
       )}
-      {item.isSecret && <p className="mt-2 text-[11px] font-bold text-slate-500">Secret değer gösterilmez; yalnızca var/yok durumu kontrol edilir.</p>}
+      {item.isSecret && <p className="mt-2 text-[11px] font-bold text-[var(--admin-text-muted)]">Secret değer gösterilmez; yalnızca var/yok durumu kontrol edilir.</p>}
     </article>
   );
 }
@@ -108,17 +108,17 @@ export function WebsiteAnalyticsCenter() {
 
   return (
     <div className="grid gap-6">
-      <section className="overflow-hidden rounded-[22px] border border-slate-200 bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
+      <section className="overflow-hidden rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs font-black uppercase tracking-[.18em] text-cyan-700">Web Site Analitik Merkezi</p>
-            <h2 className="mt-2 text-2xl font-black text-slate-950">Web Site Analitiği</h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+            <h2 className="mt-2 text-2xl font-black text-[var(--admin-text-primary)]">Web Site Analitiği</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--admin-text-secondary)]">
               Public HK Dijital web sitesindeki PageView (sayfa görüntüleme), Event (olay), Contact (iletişim) ve Lead (potansiyel müşteri) sinyallerini izlemek için güvenli yönetim merkezi.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className={`rounded-full px-3 py-1 text-xs font-black ${data?.status === "live" ? "bg-emerald-100 text-emerald-700" : data?.status === "partial" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-700"}`}>
+            <span className={`rounded-full px-3 py-1 text-xs font-black ${data?.status === "live" ? "bg-emerald-100 text-emerald-700" : data?.status === "partial" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-[var(--admin-text-secondary)]"}`}>
               {statusLabel(data?.status)}
             </span>
             <button
@@ -140,14 +140,14 @@ export function WebsiteAnalyticsCenter() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs font-black uppercase tracking-[.16em] text-amber-700">Eksik Entegrasyonlar</p>
-            <h3 className="mt-2 text-xl font-black text-slate-950">
+            <h3 className="mt-2 text-xl font-black text-[var(--admin-text-primary)]">
               {criticalMissing.length ? `${criticalMissing.length} gelişmiş ölçüm eksiği var` : "Temel ölçüm hazır görünüyor"}
             </h3>
             <p className="mt-1 text-sm leading-6 text-amber-900">
               Pixel ve GA4 public ölçüm varsa temel ölçüm çalışır. Meta Dataset ve Google servis hesabı gelişmiş server-side raporlama için gerekir.
             </p>
           </div>
-          <a href="https://vercel.com/docs/projects/environment-variables" target="_blank" rel="noreferrer" className="rounded-full border border-amber-300 bg-white px-4 py-2 text-xs font-black text-amber-800">
+          <a href="https://vercel.com/docs/projects/environment-variables" target="_blank" rel="noreferrer" className="rounded-full border border-amber-300 bg-[var(--admin-surface)] px-4 py-2 text-xs font-black text-amber-800">
             Vercel env rehberi
           </a>
         </div>
@@ -156,30 +156,30 @@ export function WebsiteAnalyticsCenter() {
 
       <section className="grid gap-4 lg:grid-cols-3">
         {overviewCards.map((card) => (
-          <article key={card.label} className="rounded-[18px] border border-slate-200 bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
-            <p className="text-sm font-black text-slate-700">{card.label}</p>
-            <p className="mt-3 text-3xl font-black text-slate-950">{typeof card.value === "number" ? numberFormat.format(card.value) : card.value}</p>
-            <p className="mt-2 text-sm leading-6 text-slate-500">{card.description}</p>
+          <article key={card.label} className="rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
+            <p className="text-sm font-black text-[var(--admin-text-secondary)]">{card.label}</p>
+            <p className="mt-3 text-3xl font-black text-[var(--admin-text-primary)]">{typeof card.value === "number" ? numberFormat.format(card.value) : card.value}</p>
+            <p className="mt-2 text-sm leading-6 text-[var(--admin-text-muted)]">{card.description}</p>
           </article>
         ))}
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[1.2fr_.8fr]">
-        <div className="rounded-[22px] border border-slate-200 bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
+        <div className="rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
           <div className="flex items-center gap-3">
             <span className="grid size-11 place-items-center rounded-[16px] bg-sky-100 text-sky-700"><BarChart3 size={20} /></span>
             <div>
-              <h3 className="text-lg font-black text-slate-950">Sayfa Performansı</h3>
-              <p className="text-sm text-slate-500">Sayfa bazında görüntüleme ve dönüşüm katkısı.</p>
+              <h3 className="text-lg font-black text-[var(--admin-text-primary)]">Sayfa Performansı</h3>
+              <p className="text-sm text-[var(--admin-text-muted)]">Sayfa bazında görüntüleme ve dönüşüm katkısı.</p>
             </div>
           </div>
           <div className="mt-5 grid gap-3">
             {(data?.pages || []).map((page) => (
-              <div key={page.path} className="rounded-[16px] border border-slate-200 bg-slate-50 p-4">
+              <div key={page.path} className="rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <p className="font-black text-slate-950">{page.label}</p>
-                    <p className="text-xs font-semibold text-slate-500">{page.path}</p>
+                    <p className="font-black text-[var(--admin-text-primary)]">{page.label}</p>
+                    <p className="text-xs font-semibold text-[var(--admin-text-muted)]">{page.path}</p>
                   </div>
                   <span className="rounded-full bg-cyan-100 px-3 py-1 text-xs font-black text-cyan-700">{asPercent(page.conversionRate)}</span>
                 </div>
@@ -193,20 +193,20 @@ export function WebsiteAnalyticsCenter() {
           </div>
         </div>
 
-        <div className="rounded-[22px] border border-slate-200 bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
+        <div className="rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
           <div className="flex items-center gap-3">
             <span className="grid size-11 place-items-center rounded-[16px] bg-emerald-100 text-emerald-700"><MousePointerClick size={20} /></span>
             <div>
-              <h3 className="text-lg font-black text-slate-950">Dönüşümler</h3>
-              <p className="text-sm text-slate-500">Event (olay) bazında mini trend hazırlığı.</p>
+              <h3 className="text-lg font-black text-[var(--admin-text-primary)]">Dönüşümler</h3>
+              <p className="text-sm text-[var(--admin-text-muted)]">Event (olay) bazında mini trend hazırlığı.</p>
             </div>
           </div>
           <div className="mt-5 grid gap-3">
             {(data?.events || []).map((event) => (
-              <div key={event.id} className="rounded-[16px] border border-slate-200 bg-slate-50 p-4">
+              <div key={event.id} className="rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-black text-slate-900">{event.label}</p>
-                  <span className="text-lg font-black text-slate-950">{numberFormat.format(event.count)}</span>
+                  <p className="text-sm font-black text-[var(--admin-text-primary)]">{event.label}</p>
+                  <span className="text-lg font-black text-[var(--admin-text-primary)]">{numberFormat.format(event.count)}</span>
                 </div>
                 <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200">
                   <div className="h-full rounded-full bg-cyan-500" style={{ width: `${Math.min(100, event.count * 8)}%` }} />
@@ -218,22 +218,22 @@ export function WebsiteAnalyticsCenter() {
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[.85fr_1.15fr]">
-        <div className="rounded-[22px] border border-slate-200 bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
+        <div className="rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
           <div className="flex items-center gap-3">
             <span className="grid size-11 place-items-center rounded-[16px] bg-amber-100 text-amber-700"><Activity size={20} /></span>
             <div>
-              <h3 className="text-lg font-black text-slate-950">Trafik Kaynakları</h3>
-              <p className="text-sm text-slate-500">GA4 (Google Analytics 4) API bağlantısı sonrası gerçek veriyle dolacak.</p>
+              <h3 className="text-lg font-black text-[var(--admin-text-primary)]">Trafik Kaynakları</h3>
+              <p className="text-sm text-[var(--admin-text-muted)]">GA4 (Google Analytics 4) API bağlantısı sonrası gerçek veriyle dolacak.</p>
             </div>
           </div>
           <div className="mt-5 grid gap-3">
             {(data?.sources || []).map((source) => (
-              <div key={source.source} className="flex items-center justify-between gap-3 rounded-[16px] border border-slate-200 bg-slate-50 p-4">
+              <div key={source.source} className="flex items-center justify-between gap-3 rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4">
                 <div>
-                  <p className="font-black text-slate-950">{source.source}</p>
-                  <p className="text-xs font-semibold text-slate-500">{source.status === "hazir" ? "Veri hazır" : "GA4 bağlantısı bekleniyor"}</p>
+                  <p className="font-black text-[var(--admin-text-primary)]">{source.source}</p>
+                  <p className="text-xs font-semibold text-[var(--admin-text-muted)]">{source.status === "hazir" ? "Veri hazır" : "GA4 bağlantısı bekleniyor"}</p>
                 </div>
-                <div className="text-right text-xs font-bold text-slate-500">
+                <div className="text-right text-xs font-bold text-[var(--admin-text-muted)]">
                   <p>{numberFormat.format(source.pageViews)} görüntüleme</p>
                   <p>{numberFormat.format(source.leads)} lead</p>
                 </div>
@@ -242,22 +242,22 @@ export function WebsiteAnalyticsCenter() {
           </div>
         </div>
 
-        <div className="rounded-[22px] border border-slate-200 bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
+        <div className="rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
           <div className="flex items-center gap-3">
             <span className="grid size-11 place-items-center rounded-[16px] bg-violet-100 text-violet-700"><Settings2 size={20} /></span>
             <div>
-              <h3 className="text-lg font-black text-slate-950">Kurulum Durumu</h3>
-              <p className="text-sm text-slate-500">Gizli anahtarlar tarayıcıya gönderilmeden yalnızca durum olarak gösterilir.</p>
+              <h3 className="text-lg font-black text-[var(--admin-text-primary)]">Kurulum Durumu</h3>
+              <p className="text-sm text-[var(--admin-text-muted)]">Gizli anahtarlar tarayıcıya gönderilmeden yalnızca durum olarak gösterilir.</p>
             </div>
           </div>
           <div className="mt-5 grid gap-3 md:grid-cols-2">
             {setupItems.map((item) => (
-              <div key={item.label} className="rounded-[16px] border border-slate-200 bg-slate-50 p-4">
+              <div key={item.label} className="rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4">
                 <div className="flex items-start gap-3">
                   {item.ready ? <CheckCircle2 className="mt-0.5 text-emerald-600" size={18} /> : <XCircle className="mt-0.5 text-amber-600" size={18} />}
                   <div>
-                    <p className="font-black text-slate-950">{item.label}</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-500">{item.description}</p>
+                    <p className="font-black text-[var(--admin-text-primary)]">{item.label}</p>
+                    <p className="mt-1 text-xs leading-5 text-[var(--admin-text-muted)]">{item.description}</p>
                     <span className={`mt-3 inline-flex rounded-full px-3 py-1 text-[11px] font-black ${item.ready ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>{item.ready ? "Hazır" : "Eksik"}</span>
                   </div>
                 </div>
@@ -275,18 +275,18 @@ export function WebsiteAnalyticsCenter() {
           </div>
           <div className="mt-4 grid gap-2">
             {(data?.recommendations || []).map((item) => (
-              <p key={item} className="rounded-[14px] border border-slate-200 bg-slate-50 p-3 text-sm font-semibold leading-6 text-slate-600">{item}</p>
+              <p key={item} className="rounded-[14px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-3 text-sm font-semibold leading-6 text-[var(--admin-text-secondary)]">{item}</p>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="rounded-[22px] border border-slate-200 bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
+      <section className="rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
         <div className="mb-5 flex items-center gap-3">
           <span className="grid size-11 place-items-center rounded-[16px] bg-cyan-100 text-cyan-700"><Settings2 size={20} /></span>
           <div>
-            <h3 className="text-lg font-black text-slate-950">Veri Kaynakları ve Güvenli Env Kontrolü</h3>
-            <p className="text-sm text-slate-500">Token, private key ve secret değerleri tarayıcıya gönderilmeden yalnızca durum olarak gösterilir.</p>
+            <h3 className="text-lg font-black text-[var(--admin-text-primary)]">Veri Kaynakları ve Güvenli Env Kontrolü</h3>
+            <p className="text-sm text-[var(--admin-text-muted)]">Token, private key ve secret değerleri tarayıcıya gönderilmeden yalnızca durum olarak gösterilir.</p>
           </div>
         </div>
         <div className="grid gap-5 xl:grid-cols-2">
@@ -299,29 +299,29 @@ export function WebsiteAnalyticsCenter() {
             ["Microsoft Clarity", data?.integrationStatus?.clarity || []],
             ["Hotjar", data?.integrationStatus?.hotjar || []]
           ].map(([title, items]: any) => (
-            <div key={title} className="rounded-[18px] border border-slate-200 p-4">
-              <h4 className="mb-3 font-black text-slate-950">{title}</h4>
+            <div key={title} className="rounded-[18px] border border-[var(--admin-border)] p-4">
+              <h4 className="mb-3 font-black text-[var(--admin-text-primary)]">{title}</h4>
               <div className="grid gap-3">{items.map((item: AnalyticsStatusItem) => <IntegrationCard key={item.key} item={item} />)}</div>
             </div>
           ))}
         </div>
       </section>
 
-      <section className="rounded-[22px] border border-slate-200 bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
+      <section className="rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
         <div className="mb-5 flex items-center gap-3">
           <span className="grid size-11 place-items-center rounded-[16px] bg-emerald-100 text-emerald-700"><BarChart3 size={20} /></span>
           <div>
-            <h3 className="text-lg font-black text-slate-950">Müşteri Entegrasyon Durumu</h3>
-            <p className="text-sm text-slate-500">Her müşterinin domain, Meta, Google, GA4, Google Ads ve davranış analitiği hazırlığını özetler.</p>
+            <h3 className="text-lg font-black text-[var(--admin-text-primary)]">Müşteri Entegrasyon Durumu</h3>
+            <p className="text-sm text-[var(--admin-text-muted)]">Her müşterinin domain, Meta, Google, GA4, Google Ads ve davranış analitiği hazırlığını özetler.</p>
           </div>
         </div>
         <div className="grid gap-3">
           {(data?.customerIntegrations || []).map((item) => (
-            <article key={item.companyId} className="rounded-[16px] border border-slate-200 bg-slate-50 p-4">
+            <article key={item.companyId} className="rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p className="font-black text-slate-950">{item.companyName}</p>
-                  <p className="text-xs font-semibold text-slate-500">{item.domain || "Domain girilmedi"} · Son kontrol: {item.lastCheckedAt ? new Date(item.lastCheckedAt).toLocaleString("tr-TR") : "Henüz yok"}</p>
+                  <p className="font-black text-[var(--admin-text-primary)]">{item.companyName}</p>
+                  <p className="text-xs font-semibold text-[var(--admin-text-muted)]">{item.domain || "Domain girilmedi"} · Son kontrol: {item.lastCheckedAt ? new Date(item.lastCheckedAt).toLocaleString("tr-TR") : "Henüz yok"}</p>
                 </div>
                 <a href={`/hk-admin/musteriler?companyId=${item.companyId}&tab=integrations`} className="inline-flex items-center gap-2 rounded-full bg-cyan-500 px-4 py-2 text-xs font-black text-white">
                   Müşteri Profilinde Düzenle <ExternalLink size={13} />
@@ -336,12 +336,12 @@ export function WebsiteAnalyticsCenter() {
               </div>
             </article>
           ))}
-          {!data?.customerIntegrations?.length && <p className="rounded-[16px] border border-dashed border-slate-200 p-5 text-sm font-semibold text-slate-500">Henüz müşteri entegrasyon kaydı yok. Müşteri profilindeki Entegrasyonlar sekmesinden başlayın.</p>}
+          {!data?.customerIntegrations?.length && <p className="rounded-[16px] border border-dashed border-[var(--admin-border)] p-5 text-sm font-semibold text-[var(--admin-text-muted)]">Henüz müşteri entegrasyon kaydı yok. Müşteri profilindeki Entegrasyonlar sekmesinden başlayın.</p>}
         </div>
       </section>
 
-      <section className="rounded-[22px] border border-slate-200 bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
-        <h3 className="text-lg font-black text-slate-950">Kurulum Rehberi</h3>
+      <section className="rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
+        <h3 className="text-lg font-black text-[var(--admin-text-primary)]">Kurulum Rehberi</h3>
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
           {[
             ["Meta Dataset ID nasıl alınır?", "Meta Business > Events Manager > Pixel/Dataset > Settings alanından Dataset ID değerini kopyalayıp Vercel Environment Variables içine META_DATASET_ID olarak ekleyin."],
@@ -351,9 +351,9 @@ export function WebsiteAnalyticsCenter() {
             ["Vercel redeploy uyarısı", "Environment Variable ekledikten sonra Vercel’de Redeploy yapmalısın. Aksi halde yeni değerler production runtime’a geçmez."],
             ["Private key formatı", "GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY çok satırlı olabilir; Vercel’de newline karakterleri \\n olarak saklanabilir."]
           ].map(([title, text]) => (
-            <div key={title} className="rounded-[16px] border border-slate-200 bg-slate-50 p-4">
-              <p className="font-black text-slate-950">{title}</p>
-              <p className="mt-2 text-sm leading-6 text-slate-600">{text}</p>
+            <div key={title} className="rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4">
+              <p className="font-black text-[var(--admin-text-primary)]">{title}</p>
+              <p className="mt-2 text-sm leading-6 text-[var(--admin-text-secondary)]">{text}</p>
             </div>
           ))}
         </div>
@@ -364,8 +364,8 @@ export function WebsiteAnalyticsCenter() {
 
 function MiniStatus({ label, value, status }: { label: string; value: string; status: AnalyticsCheckStatus }) {
   return (
-    <div className="rounded-[12px] bg-white p-3">
-      <p className="text-xs font-bold text-slate-500">{label}</p>
+    <div className="rounded-[12px] bg-[var(--admin-surface)] p-3">
+      <p className="text-xs font-bold text-[var(--admin-text-muted)]">{label}</p>
       <p className={`mt-2 inline-flex rounded-full px-3 py-1 text-[11px] font-black ${integrationStatusClass(status)}`}>{value}</p>
     </div>
   );
@@ -373,9 +373,9 @@ function MiniStatus({ label, value, status }: { label: string; value: string; st
 
 function MiniMetric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-[14px] bg-white p-3">
-      <p className="text-xs font-bold text-slate-500">{label}</p>
-      <p className="mt-1 text-lg font-black text-slate-950">{numberFormat.format(value)}</p>
+    <div className="rounded-[14px] bg-[var(--admin-surface)] p-3">
+      <p className="text-xs font-bold text-[var(--admin-text-muted)]">{label}</p>
+      <p className="mt-1 text-lg font-black text-[var(--admin-text-primary)]">{numberFormat.format(value)}</p>
     </div>
   );
 }

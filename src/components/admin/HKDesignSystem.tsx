@@ -85,11 +85,11 @@ export function HKKpiCard({ label, value, note, icon, tone = "primary" }: { labe
   return (
     <HKCard variant="interactive" className={`hk-kpi-card hk-kpi-${tone}`}>
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-black uppercase tracking-[.12em] text-slate-500">{label}</p>
+        <p className="text-sm font-black uppercase tracking-[.12em] text-[var(--admin-text-muted)]">{label}</p>
         {icon ? <span className="hk-kpi-icon">{icon}</span> : null}
       </div>
-      <p className="mt-4 text-3xl font-black text-slate-950">{value}</p>
-      {note ? <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{note}</p> : null}
+      <p className="mt-4 text-3xl font-black text-[var(--admin-text-primary)]">{value}</p>
+      {note ? <p className="mt-2 text-sm font-semibold leading-6 text-[var(--admin-text-secondary)]">{note}</p> : null}
     </HKCard>
   );
 }

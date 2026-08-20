@@ -3951,6 +3951,7 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 .admin-kpi-strip-warning .admin-kpi-strip-icon { background: #d97706; }
 .admin-kpi-strip-danger .admin-kpi-strip-icon { background: #dc2626; }
 .admin-kpi-strip-ai .admin-kpi-strip-icon { background: #7c3aed; }
+.admin-kpi-strip-gold .admin-kpi-strip-icon { background: var(--hk-gold); color: var(--hk-gold-text); }
 
 .admin-kpi-strip-text {
   display: flex;

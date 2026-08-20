@@ -68,13 +68,13 @@ function statusTone(status: string): "success" | "warning" | "info" | "neutral" 
 }
 
 function TinyField({ label, value, onChange, type = "text", placeholder = "" }: any) {
-  return <label className="grid gap-1.5 text-xs font-bold text-slate-700">{label}<input type={type} value={value ?? ""} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="min-h-9 rounded-[8px] border border-slate-200 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-500" /></label>;
+  return <label className="grid gap-1.5 text-xs font-bold text-[var(--admin-text-secondary)]">{label}<input type={type} value={value ?? ""} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="min-h-9 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm text-[var(--admin-text-primary)] placeholder:text-[var(--admin-text-muted)]" /></label>;
 }
 function TinySelect({ label, value, onChange, options, placeholder = "Tümü" }: any) {
   return (
-    <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+    <label className="grid gap-1.5 text-xs font-bold text-[var(--admin-text-secondary)]">
       {label}
-      <select value={value ?? ""} onChange={(event) => onChange(event.target.value)} className="min-h-9 rounded-[8px] border border-slate-200 bg-white px-3 text-sm text-slate-900">
+      <select value={value ?? ""} onChange={(event) => onChange(event.target.value)} className="min-h-9 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm text-[var(--admin-text-primary)]">
         <option value="">{placeholder}</option>
         {options.map((option: any) => typeof option === "string" ? <option key={option} value={option}>{option}</option> : <option key={option.value} value={option.value}>{option.label}</option>)}
       </select>
@@ -82,7 +82,7 @@ function TinySelect({ label, value, onChange, options, placeholder = "Tümü" }:
   );
 }
 function TinyTextArea({ label, value, onChange, rows = 4 }: any) {
-  return <label className="grid gap-1.5 text-xs font-bold text-slate-700">{label}<textarea rows={rows} value={value ?? ""} onChange={(event) => onChange(event.target.value)} className="rounded-[8px] border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900" /></label>;
+  return <label className="grid gap-1.5 text-xs font-bold text-[var(--admin-text-secondary)]">{label}<textarea rows={rows} value={value ?? ""} onChange={(event) => onChange(event.target.value)} className="rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-2 text-sm text-[var(--admin-text-primary)]" /></label>;
 }
 
 export function SocialMediaPlanCenter({ content, setContent, save, notify }: any) {
@@ -294,7 +294,7 @@ export function SocialMediaPlanCenter({ content, setContent, save, notify }: any
           <AdminFilterSection title="Planlar">
             <div className="grid gap-1.5">
               {plans.map((plan: any) => (
-                <div key={plan.id} className="rounded-[8px] border border-slate-200 bg-white p-2 text-xs">
+                <div key={plan.id} className="rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-2 text-xs">
                   <strong className="block truncate">{companyName(plan.company_id)}</strong>
                   <span style={{ color: "var(--admin-text-muted)" }}>{plan.platform} · {plan.duration} · {(plan.plan_items || []).length} içerik</span>
                   <div className="mt-1.5 flex flex-wrap gap-1">
@@ -303,7 +303,7 @@ export function SocialMediaPlanCenter({ content, setContent, save, notify }: any
                   </div>
                 </div>
               ))}
-              {!plans.length && <p className="text-xs text-slate-500">Henüz plan yok.</p>}
+              {!plans.length && <p className="text-xs text-[var(--admin-text-muted)]">Henüz plan yok.</p>}
             </div>
           </AdminFilterSection>
         </AdminControlPanel>
@@ -335,16 +335,16 @@ export function SocialMediaPlanCenter({ content, setContent, save, notify }: any
               <TinyField label="Zamanlanan tarih" type="date" value={selected.scheduled_date || selected.date} onChange={(value: string) => updateItem(selected.planId, selected.day, { scheduled_date: value })} />
               <TinySelect label="Sorumlu kullanıcı" value={selected.responsible_user_id || ""} onChange={(value: string) => updateItem(selected.planId, selected.day, { responsible_user_id: value })} options={responsibleOptions} placeholder="Atanmadı" />
               <TinyTextArea label="Not" value={selected.notes || ""} onChange={(value: string) => updateItem(selected.planId, selected.day, { notes: value })} rows={2} />
-              <div className="rounded-[8px] border border-slate-200 bg-slate-50 p-2">
-                <p className="mb-1.5 text-[10px] font-black uppercase tracking-[.1em] text-slate-500">Platform Varyantları</p>
+              <div className="rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-2">
+                <p className="mb-1.5 text-[10px] font-black uppercase tracking-[.1em] text-[var(--admin-text-muted)]">Platform Varyantları</p>
                 <div className="grid gap-1.5">
                   {["Instagram", "LinkedIn", "Facebook"].map((platform) => (
-                    <div key={platform} className="rounded-[8px] bg-white p-2">
+                    <div key={platform} className="rounded-[8px] bg-[var(--admin-surface)] p-2">
                       <div className="mb-1 flex items-center justify-between">
-                        <span className="text-xs font-black text-slate-700">{platform}</span>
+                        <span className="text-xs font-black text-[var(--admin-text-secondary)]">{platform}</span>
                         <button type="button" disabled={busyKey === `${selected.key}-${platform}`} onClick={() => generateVariantAi(selected, platform)} className="rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-black text-purple-700 disabled:opacity-50">{busyKey === `${selected.key}-${platform}` ? "Üretiliyor..." : "AI Üret"}</button>
                       </div>
-                      <p className="text-xs text-slate-600">{selected.platform_variants?.[platform] || "Henüz üretilmedi."}</p>
+                      <p className="text-xs text-[var(--admin-text-secondary)]">{selected.platform_variants?.[platform] || "Henüz üretilmedi."}</p>
                     </div>
                   ))}
                 </div>
@@ -366,20 +366,20 @@ export function SocialMediaPlanCenter({ content, setContent, save, notify }: any
       {view === "Takvim" && (
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <button type="button" onClick={() => { const [y, m] = calendarMonth.split("-").map(Number); const prev = new Date(y, m - 2, 1); setCalendarMonth(prev.toISOString().slice(0, 7)); }} className="rounded-full border border-slate-200 px-3 py-1 text-xs font-black">‹ Önceki Ay</button>
+            <button type="button" onClick={() => { const [y, m] = calendarMonth.split("-").map(Number); const prev = new Date(y, m - 2, 1); setCalendarMonth(prev.toISOString().slice(0, 7)); }} className="rounded-full border border-[var(--admin-border)] px-3 py-1 text-xs font-black">‹ Önceki Ay</button>
             <strong className="text-sm">{new Date(`${calendarMonth}-01`).toLocaleDateString("tr-TR", { month: "long", year: "numeric" })}</strong>
-            <button type="button" onClick={() => { const [y, m] = calendarMonth.split("-").map(Number); const next = new Date(y, m, 1); setCalendarMonth(next.toISOString().slice(0, 7)); }} className="rounded-full border border-slate-200 px-3 py-1 text-xs font-black">Sonraki Ay ›</button>
+            <button type="button" onClick={() => { const [y, m] = calendarMonth.split("-").map(Number); const next = new Date(y, m, 1); setCalendarMonth(next.toISOString().slice(0, 7)); }} className="rounded-full border border-[var(--admin-border)] px-3 py-1 text-xs font-black">Sonraki Ay ›</button>
           </div>
-          <div className="grid grid-cols-7 gap-1 text-[10px] font-black uppercase text-slate-500">
+          <div className="grid grid-cols-7 gap-1 text-[10px] font-black uppercase text-[var(--admin-text-muted)]">
             {["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"].map((day) => <div key={day} className="p-1 text-center">{day}</div>)}
           </div>
           <div className="grid grid-cols-7 gap-1">
             {calendarDays.map((cell, index) => (
-              <div key={index} className="min-h-24 rounded-[8px] border border-slate-200 bg-white p-1">
+              <div key={index} className="min-h-24 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-1">
                 {cell.date && <p className="text-[10px] font-black text-slate-400">{cell.date.slice(8, 10)}</p>}
                 <div className="grid gap-1">
                   {cell.items.slice(0, 3).map((item: any) => (
-                    <button key={item.key} type="button" onClick={() => setSelectedKey(item.key)} className={`truncate rounded-[6px] px-1.5 py-1 text-left text-[10px] font-bold ${selectedKey === item.key ? "bg-cyan-100 text-cyan-900" : "bg-slate-50 text-slate-700"}`}>
+                    <button key={item.key} type="button" onClick={() => setSelectedKey(item.key)} className={`truncate rounded-[6px] px-1.5 py-1 text-left text-[10px] font-bold ${selectedKey === item.key ? "bg-cyan-100 text-cyan-900" : "bg-[var(--admin-surface-soft)] text-[var(--admin-text-secondary)]"}`}>
                       {item.platform}: {item.contentType}
                     </button>
                   ))}

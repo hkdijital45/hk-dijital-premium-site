@@ -35,7 +35,7 @@ export function DashboardRecentActivity({
               type="button"
               key={option}
               onClick={() => onFilterChange(option)}
-              className={`rounded-full px-3 py-1.5 text-xs font-black ${filter === option ? "bg-white text-blue-700 shadow-sm" : "text-slate-500"}`}
+              className={`rounded-full px-3 py-1.5 text-xs font-black ${filter === option ? "bg-[var(--admin-surface)] text-[var(--hk-cyan-text)] shadow-sm" : "text-[var(--admin-text-muted)]"}`}
             >
               {option}
             </button>
@@ -45,7 +45,7 @@ export function DashboardRecentActivity({
       <div className="mt-4 grid gap-3">
         {items.slice(0, limit).map((item, index) => (
           <div key={item.id || index} className="admin-card-soft grid gap-3 rounded-[14px] p-3 sm:grid-cols-[120px_1fr_auto] sm:items-center">
-            <span className="rounded-full bg-white px-3 py-1 text-center text-[10px] font-black text-slate-500 ring-1 ring-slate-200">{item.user || "Hayri"}</span>
+            <span className="rounded-full bg-[var(--admin-surface)] px-3 py-1 text-center text-[10px] font-black text-[var(--admin-text-muted)] ring-1 ring-[var(--admin-border)]">{item.user || "Hayri"}</span>
             <span>
               <strong className="block text-sm" style={{ color: "var(--admin-text-primary)" }}>{item.action || "Operasyon hareketi"}</strong>
               <span className="mt-1 block text-xs" style={{ color: "var(--admin-text-muted)" }}>{item.entity || item.module || "HK Operating System"}</span>
@@ -54,7 +54,7 @@ export function DashboardRecentActivity({
           </div>
         ))}
         {!items.length && (
-          <button type="button" onClick={() => onNavigate("Sistem Logları")} className="rounded-[14px] border border-dashed border-slate-200 p-4 text-left text-sm text-slate-500">
+          <button type="button" onClick={() => onNavigate("Sistem Logları")} className="rounded-[14px] border border-dashed border-[var(--admin-border)] p-4 text-left text-sm text-[var(--admin-text-muted)]">
             Henüz aktivite kaydı yok. Tüm sistem loglarını görmek için tıklayın.
           </button>
         )}

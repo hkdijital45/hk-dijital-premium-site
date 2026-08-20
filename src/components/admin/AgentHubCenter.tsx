@@ -246,8 +246,8 @@ const workflows = [
   }
 ];
 
-const primaryButtonClass = "rounded-[14px] bg-gradient-to-r from-cyan-400 to-blue-500 px-5 py-3 text-sm font-black text-slate-950 shadow-[0_12px_24px_rgba(14,165,233,.22)] transition hover:from-cyan-300 hover:to-blue-400 disabled:cursor-not-allowed disabled:opacity-60";
-const secondaryButtonClass = "rounded-[12px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-700 transition hover:border-cyan-200 hover:bg-cyan-50";
+const primaryButtonClass = "rounded-[14px] bg-gradient-to-r from-cyan-400 to-blue-500 px-5 py-3 text-sm font-black text-[var(--admin-text-primary)] shadow-[0_12px_24px_rgba(14,165,233,.22)] transition hover:from-cyan-300 hover:to-blue-400 disabled:cursor-not-allowed disabled:opacity-60";
+const secondaryButtonClass = "rounded-[12px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-4 py-2.5 text-sm font-black text-[var(--admin-text-secondary)] transition hover:border-cyan-200 hover:bg-cyan-50";
 const softButtonClass = "rounded-[12px] border border-cyan-200 bg-cyan-50 px-4 py-2.5 text-sm font-black text-cyan-800 transition hover:bg-cyan-100";
 
 function humanStatus(status?: string | null) {
@@ -270,7 +270,7 @@ function humanStatus(status?: string | null) {
 function statusClass(status?: string | null) {
   if (status === "active") return "border-emerald-200 bg-emerald-50 text-emerald-800";
   if (status === "error") return "border-red-200 bg-red-50 text-red-800";
-  if (status === "passive") return "border-slate-200 bg-slate-100 text-slate-700";
+  if (status === "passive") return "border-[var(--admin-border)] bg-slate-100 text-[var(--admin-text-secondary)]";
   return "border-amber-200 bg-amber-50 text-amber-800";
 }
 
@@ -931,14 +931,14 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
   const discordConfigured = integrations.some((item) => item.key === "discord" && item.status === "Çalışıyor");
 
   return <div className="grid gap-6">
-    <section className="rounded-[28px] border border-slate-200 bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 p-6 text-white shadow-[0_22px_70px_rgba(15,23,42,.18)]">
+    <section className="rounded-[28px] border border-[var(--admin-border)] bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 p-6 text-white shadow-[0_22px_70px_rgba(15,23,42,.18)]">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs font-black uppercase tracking-[.18em] text-cyan-200">AI & Otomasyon</p>
           <h2 className="mt-3 text-3xl font-black">HK Agent Hub</h2>
           <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-200">Otomatik AI seçimi, seçim nedeni açıklaması, güvenli yedek akış, AI Hafızası, görev sırası, çıktı hazırlama, e-posta, WhatsApp ve karşılaştırmalı test merkezi.</p>
         </div>
-        <button onClick={loadData} disabled={loading} className="rounded-[14px] border border-white/20 bg-white px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-60"><RefreshCw size={16} className="mr-2 inline" />Yenile</button>
+        <button onClick={loadData} disabled={loading} className="rounded-[14px] border border-white/20 bg-[var(--admin-surface)] px-5 py-3 text-sm font-black text-[var(--admin-text-primary)] disabled:opacity-60"><RefreshCw size={16} className="mr-2 inline" />Yenile</button>
       </div>
       <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-8">
         {[
@@ -950,14 +950,14 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
           ["En çok kullanılan", topProvider],
           ["Manus araştırma", monthlyManusRuns],
           ["Yedek akış", statsSummary.fallbackRuns || 0]
-        ].map(([label, value]) => <div key={String(label)} className="rounded-[18px] border border-white/10 bg-white/10 p-4">
+        ].map(([label, value]) => <div key={String(label)} className="rounded-[18px] border border-white/10 bg-[var(--admin-surface)]/10 p-4">
           <strong className="block text-2xl font-black">{value}</strong>
           <span className="mt-1 block text-xs font-bold text-slate-300">{label}</span>
         </div>)}
       </div>
     </section>
 
-    <nav className="flex gap-2 overflow-x-auto rounded-[18px] border border-slate-200 bg-white p-2">
+    <nav className="flex gap-2 overflow-x-auto rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-2">
       {[
         ["overview", "Genel Bakış", Bot],
         ["providers", "AI Sağlayıcıları", ShieldCheck],
@@ -973,24 +973,24 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
         ["scheduled", "Planlanmış Görevler", CalendarClock]
       ].map(([key, label, Icon]) => {
         const TabIcon = Icon as typeof Bot;
-        return <button key={String(key)} onClick={() => setActiveTab(String(key))} className={`whitespace-nowrap rounded-[12px] px-4 py-3 text-sm font-black ${activeTab === key ? "bg-cyan-500 text-white" : "text-slate-600 hover:bg-slate-50"}`}><TabIcon size={16} className="mr-2 inline" />{String(label)}</button>;
+        return <button key={String(key)} onClick={() => setActiveTab(String(key))} className={`whitespace-nowrap rounded-[12px] px-4 py-3 text-sm font-black ${activeTab === key ? "bg-cyan-500 text-white" : "text-[var(--admin-text-secondary)] hover:bg-[var(--admin-surface-soft)]"}`}><TabIcon size={16} className="mr-2 inline" />{String(label)}</button>;
       })}
     </nav>
 
     {activeTab === "overview" && <section className="grid gap-4 lg:grid-cols-[1fr_.42fr]">
-      <div className="rounded-[22px] border border-slate-200 bg-white p-6">
+      <div className="rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6">
         <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Auto AI Router</p>
-        <h3 className="mt-2 text-2xl font-black text-slate-950">Görev tipine göre doğru sağlayıcı ve yedek akış</h3>
+        <h3 className="mt-2 text-2xl font-black text-[var(--admin-text-primary)]">Görev tipine göre doğru sağlayıcı ve yedek akış</h3>
         <div className="mt-5 grid gap-3 md:grid-cols-2">
           {[
             ["Reklam ve CRM yorumları", "OpenAI / Gemini / Claude", "Kısa analiz, müşteri raporu ve aksiyon planı."],
             ["Hızlı cevaplar", "Groq / OpenAI", "Düşük gecikmeli kısa üretimler."],
             ["Teklif ve rapor dili", "Claude / OpenAI", "Uzun metin, paketleme ve garanti vermeyen rapor dili."],
             ["Derin araştırma", "Manus AI", "Rakip, pazar, fiyat, sektör keşfi ve uzun web araştırması."]
-          ].map(([title, provider, detail]) => <div key={title} className="rounded-[18px] border border-slate-200 bg-slate-50 p-4">
-            <strong className="block text-slate-950">{title}</strong>
+          ].map(([title, provider, detail]) => <div key={title} className="rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4">
+            <strong className="block text-[var(--admin-text-primary)]">{title}</strong>
             <span className="mt-2 block text-sm font-black text-cyan-700">{provider}</span>
-            <p className="mt-2 text-sm leading-6 text-slate-600">{detail}</p>
+            <p className="mt-2 text-sm leading-6 text-[var(--admin-text-secondary)]">{detail}</p>
           </div>)}
         </div>
         <div className="mt-5 rounded-[18px] border border-blue-100 bg-blue-50 p-4">
@@ -1000,26 +1000,26 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
       </div>
       <aside className="rounded-[22px] border border-amber-200 bg-amber-50 p-6">
         <p className="text-xs font-black uppercase tracking-[.16em] text-amber-700">Manus konumu</p>
-        <h3 className="mt-2 text-xl font-black text-slate-950">Derin Araştırma Uzmanı</h3>
-        <p className="mt-3 text-sm leading-6 text-slate-700">Manus günlük kısa cevaplar için değil; derin araştırma, rakip/pazar analizi ve kapsamlı rapor görevleri için kullanılır.</p>
+        <h3 className="mt-2 text-xl font-black text-[var(--admin-text-primary)]">Derin Araştırma Uzmanı</h3>
+        <p className="mt-3 text-sm leading-6 text-[var(--admin-text-secondary)]">Manus günlük kısa cevaplar için değil; derin araştırma, rakip/pazar analizi ve kapsamlı rapor görevleri için kullanılır.</p>
         <div className="mt-4 grid gap-2 text-sm font-bold text-amber-900">
-          {manusTasks.map((item) => <span key={item} className="rounded-full border border-amber-200 bg-white px-3 py-2">{agentTaskLabels[item]}</span>)}
+          {manusTasks.map((item) => <span key={item} className="rounded-full border border-amber-200 bg-[var(--admin-surface)] px-3 py-2">{agentTaskLabels[item]}</span>)}
         </div>
       </aside>
     </section>}
 
     {activeTab === "providers" && <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-      {providers.map((provider) => <div key={provider.provider_key} className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-[0_10px_26px_rgba(15,23,42,.05)]">
+      {providers.map((provider) => <div key={provider.provider_key} className="rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5 shadow-[0_10px_26px_rgba(15,23,42,.05)]">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[.14em] text-slate-500">{provider.provider_key}</p>
-            <h3 className="mt-1 text-lg font-black text-slate-950">{provider.provider_name}</h3>
+            <p className="text-[10px] font-black uppercase tracking-[.14em] text-[var(--admin-text-muted)]">{provider.provider_key}</p>
+            <h3 className="mt-1 text-lg font-black text-[var(--admin-text-primary)]">{provider.provider_name}</h3>
           </div>
           <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black ${statusClass(provider.status)}`}>{statusLabel(provider.status)}</span>
         </div>
         <p className="mt-3 text-sm font-bold text-cyan-700">{provider.role_label || "AI sağlayıcısı"}</p>
-        <p className="mt-2 min-h-16 text-sm leading-6 text-slate-600">{provider.purpose || "Kullanım amacı tanımlı değil."}</p>
-        <div className="mt-4 grid gap-2 rounded-[14px] bg-slate-50 p-3 text-xs text-slate-600">
+        <p className="mt-2 min-h-16 text-sm leading-6 text-[var(--admin-text-secondary)]">{provider.purpose || "Kullanım amacı tanımlı değil."}</p>
+        <div className="mt-4 grid gap-2 rounded-[14px] bg-[var(--admin-surface-soft)] p-3 text-xs text-[var(--admin-text-secondary)]">
           <span>Model: <strong>{provider.default_model || "-"}</strong></span>
           <span>API: <strong>{provider.secret_mask || (provider.configured ? "Sunucuda kayıtlı / maskeli" : "API anahtarı eklenmedi")}</strong></span>
           <span>Başarı oranı: <strong>%{provider.success_rate || 100}</strong></span>
@@ -1035,65 +1035,65 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
     </section>}
 
     {activeTab === "run" && <section className="grid gap-5 lg:grid-cols-[.42fr_1fr]">
-      <div className="rounded-[22px] border border-slate-200 bg-white p-5">
-        <h3 className="text-xl font-black text-slate-950">Yeni Agent Görevi</h3>
-        <p className="mt-2 text-sm leading-6 text-slate-600">Varsayılan mod Otomatik Seçim’dir. HK Intelligence görev tipini, veri ihtiyacını, hız/maliyet dengesini ve aktif API anahtarlarını kontrol ederek en uygun AI sağlayıcısını seçer.</p>
+      <div className="rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5">
+        <h3 className="text-xl font-black text-[var(--admin-text-primary)]">Yeni Agent Görevi</h3>
+        <p className="mt-2 text-sm leading-6 text-[var(--admin-text-secondary)]">Varsayılan mod Otomatik Seçim’dir. HK Intelligence görev tipini, veri ihtiyacını, hız/maliyet dengesini ve aktif API anahtarlarını kontrol ederek en uygun AI sağlayıcısını seçer.</p>
         <div className="mt-4 grid gap-3">
-          <label className="grid gap-1 text-sm font-bold text-slate-700">Müşteri
-            <select value={form.customerId} onChange={(event) => setForm({ ...form, customerId: event.target.value })} className="rounded-[12px] border border-slate-200 px-3 py-3">
+          <label className="grid gap-1 text-sm font-bold text-[var(--admin-text-secondary)]">Müşteri
+            <select value={form.customerId} onChange={(event) => setForm({ ...form, customerId: event.target.value })} className="rounded-[12px] border border-[var(--admin-border)] px-3 py-3">
               <option value="">Müşteri seçilmedi</option>
               {companies.map((company) => <option key={company.id} value={company.id}>{company.name || company.company_name || company.title || "İsimsiz müşteri"}</option>)}
             </select>
           </label>
-          <label className="grid gap-1 text-sm font-bold text-slate-700">Görev tipi
-            <select value={form.taskType} onChange={(event) => updateTaskType(event.target.value as AgentTaskType)} className="rounded-[12px] border border-slate-200 px-3 py-3">{taskTypes.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
+          <label className="grid gap-1 text-sm font-bold text-[var(--admin-text-secondary)]">Görev tipi
+            <select value={form.taskType} onChange={(event) => updateTaskType(event.target.value as AgentTaskType)} className="rounded-[12px] border border-[var(--admin-border)] px-3 py-3">{taskTypes.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
           </label>
-          <label className="grid gap-1 text-sm font-bold text-slate-700">Öncelik
-            <select value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value })} className="rounded-[12px] border border-slate-200 px-3 py-3"><option>düşük</option><option>normal</option><option>yüksek</option><option>kritik</option></select>
+          <label className="grid gap-1 text-sm font-bold text-[var(--admin-text-secondary)]">Öncelik
+            <select value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value })} className="rounded-[12px] border border-[var(--admin-border)] px-3 py-3"><option>düşük</option><option>normal</option><option>yüksek</option><option>kritik</option></select>
           </label>
           <div className="rounded-[14px] border border-cyan-200 bg-cyan-50 p-4 text-sm text-cyan-950">
             <strong>Otomatik Seçim aktif</strong>
             <p className="mt-1 leading-6">Normal kullanımda sağlayıcı seçmen gerekmez. Sistem görev tipine göre OpenAI, Gemini, Claude, Groq, Manus veya yerel yedek akışı seçer.</p>
-            <button type="button" onClick={() => setAdvancedProviderOpen((value) => !value)} className="mt-3 rounded-[10px] border border-cyan-200 bg-white px-3 py-2 text-xs font-black text-cyan-800">{advancedProviderOpen ? "Gelişmiş sağlayıcı seçimini kapat" : "Gelişmiş: Sağlayıcıyı Elle Seç"}</button>
+            <button type="button" onClick={() => setAdvancedProviderOpen((value) => !value)} className="mt-3 rounded-[10px] border border-cyan-200 bg-[var(--admin-surface)] px-3 py-2 text-xs font-black text-cyan-800">{advancedProviderOpen ? "Gelişmiş sağlayıcı seçimini kapat" : "Gelişmiş: Sağlayıcıyı Elle Seç"}</button>
           </div>
-          {advancedProviderOpen && <label className="grid gap-1 text-sm font-bold text-slate-700">Manuel sağlayıcı seçimi
-            <select value={form.requestedProvider} onChange={(event) => setForm({ ...form, requestedProvider: event.target.value as AgentProviderKey | "auto" })} className="rounded-[12px] border border-slate-200 px-3 py-3">{providerOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
+          {advancedProviderOpen && <label className="grid gap-1 text-sm font-bold text-[var(--admin-text-secondary)]">Manuel sağlayıcı seçimi
+            <select value={form.requestedProvider} onChange={(event) => setForm({ ...form, requestedProvider: event.target.value as AgentProviderKey | "auto" })} className="rounded-[12px] border border-[var(--admin-border)] px-3 py-3">{providerOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
           </label>}
           {manualManusWarning && <div className="rounded-[14px] border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-900">Manus bu görev için ideal değildir. Auto Router OpenAI/Gemini/Claude önerir.</div>}
-          <label className="flex items-start gap-3 rounded-[14px] border border-slate-200 bg-slate-50 p-3 text-sm font-bold text-slate-700">
+          <label className="flex items-start gap-3 rounded-[14px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-3 text-sm font-bold text-[var(--admin-text-secondary)]">
             <input type="checkbox" checked={form.multiAgent} onChange={(event) => setForm({ ...form, multiAgent: event.target.checked })} className="mt-1 size-4 accent-cyan-600" />
-            <span>Çoklu AI işbirliği kullan <small className="mt-1 block font-medium text-slate-500">Birden fazla sağlayıcı görev aşamalarına göre çalışır; son kararı HK Intelligence tek rapor halinde birleştirir.</small></span>
+            <span>Çoklu AI işbirliği kullan <small className="mt-1 block font-medium text-[var(--admin-text-muted)]">Birden fazla sağlayıcı görev aşamalarına göre çalışır; son kararı HK Intelligence tek rapor halinde birleştirir.</small></span>
           </label>
           <div className="rounded-[14px] border border-blue-100 bg-blue-50 p-3 text-sm text-blue-900">
             <strong>Önerilen zincir:</strong> {selectedChain.map(providerLabel).join(" → ")}
           </div>
-          <label className="grid gap-1 text-sm font-bold text-slate-700">Çıktı formatı
-            <select value={form.outputFormat} onChange={(event) => setForm({ ...form, outputFormat: event.target.value })} className="rounded-[12px] border border-slate-200 px-3 py-3"><option>kısa özet</option><option>detaylı rapor</option><option>aksiyon planı</option><option>tablo</option><option>PDF hazırlığı</option></select>
+          <label className="grid gap-1 text-sm font-bold text-[var(--admin-text-secondary)]">Çıktı formatı
+            <select value={form.outputFormat} onChange={(event) => setForm({ ...form, outputFormat: event.target.value })} className="rounded-[12px] border border-[var(--admin-border)] px-3 py-3"><option>kısa özet</option><option>detaylı rapor</option><option>aksiyon planı</option><option>tablo</option><option>PDF hazırlığı</option></select>
           </label>
-          <label className="grid gap-1 text-sm font-bold text-slate-700">Görev açıklaması
-            <textarea value={form.prompt} onChange={(event) => setForm({ ...form, prompt: event.target.value })} rows={7} className="rounded-[12px] border border-slate-200 px-3 py-3" />
+          <label className="grid gap-1 text-sm font-bold text-[var(--admin-text-secondary)]">Görev açıklaması
+            <textarea value={form.prompt} onChange={(event) => setForm({ ...form, prompt: event.target.value })} rows={7} className="rounded-[12px] border border-[var(--admin-border)] px-3 py-3" />
           </label>
           <button onClick={runTask} disabled={loading || !form.prompt.trim()} className={primaryButtonClass}><Play size={16} className="mr-2 inline" />{loading ? "Çalışıyor..." : "Görevi Başlat"}</button>
         </div>
       </div>
-      <div className="rounded-[22px] border border-slate-200 bg-white p-5">
-        <h3 className="text-xl font-black text-slate-950">HK Intelligence Final Raporu</h3>
-        {!runResult && <p className="mt-4 rounded-[16px] border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">Görev çalıştırılınca canlı ilerleme, sağlayıcı zinciri, final rapor, export ve e-posta taslağı burada görünür.</p>}
+      <div className="rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5">
+        <h3 className="text-xl font-black text-[var(--admin-text-primary)]">HK Intelligence Final Raporu</h3>
+        {!runResult && <p className="mt-4 rounded-[16px] border border-dashed border-slate-300 bg-[var(--admin-surface-soft)] p-6 text-center text-sm text-[var(--admin-text-muted)]">Görev çalıştırılınca canlı ilerleme, sağlayıcı zinciri, final rapor, export ve e-posta taslağı burada görünür.</p>}
         {runResult && <div className="mt-4 grid gap-4">
           <div className="rounded-[16px] border border-cyan-200 bg-cyan-50 p-4 text-sm text-cyan-900"><Route size={16} className="mr-2 inline" />Durum: <strong>{humanStatus(runResult.status)}</strong> · Süre: <strong>{runResult.responseMs || 0} ms</strong> · Maliyet: <strong>{Number(runResult.estimatedCost || 0).toLocaleString("tr-TR")} $</strong> · İşlem metni: <strong>{Number(runResult.tokensUsed || 0).toLocaleString("tr-TR")}</strong></div>
           {runResult.errorMessage && <div className="rounded-[16px] border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-900">{runResult.errorMessage}</div>}
-          <div className="rounded-[16px] border border-slate-200 p-4">
-            <h4 className="font-black text-slate-950">Canlı Görev İlerlemesi</h4>
+          <div className="rounded-[16px] border border-[var(--admin-border)] p-4">
+            <h4 className="font-black text-[var(--admin-text-primary)]">Canlı Görev İlerlemesi</h4>
             <div className="mt-3 grid gap-2">{(runResult.progressEvents || []).map((event) => <div key={`${event.step}-${event.progress}`} className="flex items-center gap-3 text-sm">
               <span className="h-2 rounded-full bg-cyan-500" style={{ width: `${Math.max(event.progress, 10)}px` }} />
               <strong className="min-w-12 text-cyan-800">%{event.progress}</strong>
-              <span className="text-slate-700">{event.step}</span>
+              <span className="text-[var(--admin-text-secondary)]">{event.step}</span>
             </div>)}</div>
           </div>
-          <div className="rounded-[16px] border border-slate-200 p-4">
-            <h4 className="font-black text-slate-950">Kullanılan AI Zinciri</h4>
+          <div className="rounded-[16px] border border-[var(--admin-border)] p-4">
+            <h4 className="font-black text-[var(--admin-text-primary)]">Kullanılan AI Zinciri</h4>
             <div className="mt-3 flex flex-wrap gap-2">{(finalReport?.providerChain || selectedChain).map((provider) => <span key={provider} className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-black text-blue-800">{providerLabel(provider)}</span>)}</div>
-            <p className="mt-3 text-sm leading-6 text-slate-600">Gerçek AI çalışmadıysa sonuç Demo / Yerel Yedek Akış ile üretilir. Gerçek analiz için ilgili API anahtarını Vercel’e ekleyip redeploy yapmalısın.</p>
+            <p className="mt-3 text-sm leading-6 text-[var(--admin-text-secondary)]">Gerçek AI çalışmadıysa sonuç Demo / Yerel Yedek Akış ile üretilir. Gerçek analiz için ilgili API anahtarını Vercel’e ekleyip redeploy yapmalısın.</p>
           </div>
           <div className="rounded-[16px] border border-amber-200 bg-amber-50 p-4">
             <h4 className="font-black text-amber-950">AI Seçim Nedeni</h4>
@@ -1117,9 +1117,9 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
               ["Öncelikli Aksiyonlar", finalReport?.recommendedActions],
               ["7 Günlük Plan", finalReport?.sevenDayPlan],
               ["İç Notlar", finalReport?.internalNotes ? [finalReport.internalNotes] : []]
-            ].map(([title, items]) => <div key={String(title)} className="rounded-[16px] border border-slate-200 p-4">
-              <h4 className="font-black text-slate-950">{String(title)}</h4>
-              <ul className="mt-3 grid gap-2 text-sm text-slate-600">{((items as string[] | undefined) || []).map((item) => <li key={item}>- {item}</li>)}</ul>
+            ].map(([title, items]) => <div key={String(title)} className="rounded-[16px] border border-[var(--admin-border)] p-4">
+              <h4 className="font-black text-[var(--admin-text-primary)]">{String(title)}</h4>
+              <ul className="mt-3 grid gap-2 text-sm text-[var(--admin-text-secondary)]">{((items as string[] | undefined) || []).map((item) => <li key={item}>- {item}</li>)}</ul>
             </div>)}
           </div>
           <div className="rounded-[16px] border border-emerald-200 bg-emerald-50 p-4">
@@ -1127,16 +1127,16 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
             <p className="mt-2 text-sm leading-7 text-emerald-900">{finalReport?.customerMessageDraft}</p>
           </div>
           <div className="grid gap-3">
-            <div className="rounded-[16px] border border-slate-200 p-4"><strong className="text-slate-950">Çıktı</strong><div className="mt-3 flex flex-wrap gap-2"><button onClick={() => exportRun("docx")} className={secondaryButtonClass}><Download size={16} className="mr-2 inline" />Word Hazırla</button><button onClick={() => exportRun("pdf")} className={secondaryButtonClass}><Download size={16} className="mr-2 inline" />PDF Hazırla</button><button onClick={() => exportRun("pptx")} className={secondaryButtonClass}><Download size={16} className="mr-2 inline" />PowerPoint Hazırla</button><button onClick={() => exportRun("copy_text")} className={softButtonClass}><Clipboard size={16} className="mr-2 inline" />Kopyala</button></div></div>
-            <div className="rounded-[16px] border border-slate-200 p-4"><strong className="text-slate-950">Müşteri</strong><div className="mt-3 flex flex-wrap gap-2"><button onClick={createEmailDraft} className={softButtonClass}><Mail size={16} className="mr-2 inline" />E-posta Hazırla</button><button onClick={createWhatsappSummary} className={softButtonClass}><Clipboard size={16} className="mr-2 inline" />WhatsApp Özeti</button><button onClick={saveCustomerNote} className={secondaryButtonClass}>Müşteri Notu Olarak Kaydet</button></div></div>
-            <div className="rounded-[16px] border border-slate-200 p-4"><strong className="text-slate-950">Sistem</strong><div className="mt-3 flex flex-wrap gap-2"><button onClick={saveRun} className={softButtonClass}>Sonucu Kaydet</button><button onClick={saveRunMemory} className={softButtonClass}>AI Hafızasına Kaydet</button><button onClick={convertToTask} className={secondaryButtonClass}>Göreve Dönüştür</button>{discordConfigured && <button onClick={() => notifyChannel("discord")} className={secondaryButtonClass}>Discord’a Bildir</button>}</div>{!discordConfigured && <p className="mt-2 text-xs text-slate-500">Discord bildirimi için DISCORD_WEBHOOK_URL yapılandırılmadı; buton gizlendi.</p>}</div>
+            <div className="rounded-[16px] border border-[var(--admin-border)] p-4"><strong className="text-[var(--admin-text-primary)]">Çıktı</strong><div className="mt-3 flex flex-wrap gap-2"><button onClick={() => exportRun("docx")} className={secondaryButtonClass}><Download size={16} className="mr-2 inline" />Word Hazırla</button><button onClick={() => exportRun("pdf")} className={secondaryButtonClass}><Download size={16} className="mr-2 inline" />PDF Hazırla</button><button onClick={() => exportRun("pptx")} className={secondaryButtonClass}><Download size={16} className="mr-2 inline" />PowerPoint Hazırla</button><button onClick={() => exportRun("copy_text")} className={softButtonClass}><Clipboard size={16} className="mr-2 inline" />Kopyala</button></div></div>
+            <div className="rounded-[16px] border border-[var(--admin-border)] p-4"><strong className="text-[var(--admin-text-primary)]">Müşteri</strong><div className="mt-3 flex flex-wrap gap-2"><button onClick={createEmailDraft} className={softButtonClass}><Mail size={16} className="mr-2 inline" />E-posta Hazırla</button><button onClick={createWhatsappSummary} className={softButtonClass}><Clipboard size={16} className="mr-2 inline" />WhatsApp Özeti</button><button onClick={saveCustomerNote} className={secondaryButtonClass}>Müşteri Notu Olarak Kaydet</button></div></div>
+            <div className="rounded-[16px] border border-[var(--admin-border)] p-4"><strong className="text-[var(--admin-text-primary)]">Sistem</strong><div className="mt-3 flex flex-wrap gap-2"><button onClick={saveRun} className={softButtonClass}>Sonucu Kaydet</button><button onClick={saveRunMemory} className={softButtonClass}>AI Hafızasına Kaydet</button><button onClick={convertToTask} className={secondaryButtonClass}>Göreve Dönüştür</button>{discordConfigured && <button onClick={() => notifyChannel("discord")} className={secondaryButtonClass}>Discord’a Bildir</button>}</div>{!discordConfigured && <p className="mt-2 text-xs text-[var(--admin-text-muted)]">Discord bildirimi için DISCORD_WEBHOOK_URL yapılandırılmadı; buton gizlendi.</p>}</div>
           </div>
-          {exportPayload && <div className="rounded-[14px] border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">Çıktı hazırlama durumu: <strong>{String(exportPayload.status || "hazır")}</strong></div>}
+          {exportPayload && <div className="rounded-[14px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-3 text-sm text-[var(--admin-text-secondary)]">Çıktı hazırlama durumu: <strong>{String(exportPayload.status || "hazır")}</strong></div>}
           {whatsappSummary && <pre className="whitespace-pre-wrap rounded-[14px] border border-emerald-200 bg-emerald-50 p-4 text-sm leading-7 text-emerald-900">{whatsappSummary}</pre>}
           {notificationStatus && <div className="rounded-[14px] border border-blue-100 bg-blue-50 p-3 text-sm font-bold text-blue-900">{notificationStatus}</div>}
-          {emailDraft && <div className="grid gap-3 rounded-[14px] border border-slate-200 bg-slate-50 p-4">
-            <div className="text-sm font-bold text-slate-700">Durum: {String(emailDraft.status || "draft_ready")} · E-posta: {String(emailDraft.customerEmail || "kayıtlı değil")}</div>
-            <pre className="whitespace-pre-wrap text-sm leading-7 text-slate-700">{String(emailDraft.body || "")}</pre>
+          {emailDraft && <div className="grid gap-3 rounded-[14px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4">
+            <div className="text-sm font-bold text-[var(--admin-text-secondary)]">Durum: {String(emailDraft.status || "draft_ready")} · E-posta: {String(emailDraft.customerEmail || "kayıtlı değil")}</div>
+            <pre className="whitespace-pre-wrap text-sm leading-7 text-[var(--admin-text-secondary)]">{String(emailDraft.body || "")}</pre>
             <button onClick={sendEmailDraft} disabled={emailDraft.status === "missing_email"} className={emailDraft.status === "missing_email" ? secondaryButtonClass : softButtonClass}>E-postayı Gönder</button>
           </div>}
         </div>}
@@ -1144,66 +1144,66 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
     </section>}
 
     {activeTab === "prompts" && <section className="grid gap-4 lg:grid-cols-[.44fr_1fr]">
-      <div className="rounded-[22px] border border-slate-200 bg-white p-5">
+      <div className="rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h3 className="text-xl font-black text-slate-950">Prompt Kütüphanesi</h3>
-            <p className="mt-1 text-sm text-slate-600">Kayıtlı promptları arayın, filtreleyin ve doğrudan Görev Çalıştır sekmesine gönderin.</p>
+            <h3 className="text-xl font-black text-[var(--admin-text-primary)]">Prompt Kütüphanesi</h3>
+            <p className="mt-1 text-sm text-[var(--admin-text-secondary)]">Kayıtlı promptları arayın, filtreleyin ve doğrudan Görev Çalıştır sekmesine gönderin.</p>
           </div>
           <button onClick={startCreatePrompt} className={primaryButtonClass}>+ Yeni Prompt</button>
         </div>
         <div className="mt-4 grid gap-2">
-          <input value={promptSearch} onChange={(event) => setPromptSearch(event.target.value)} placeholder="Başlık, açıklama veya metinde ara..." className="rounded-[12px] border border-slate-200 px-3 py-2.5 text-sm" />
+          <input value={promptSearch} onChange={(event) => setPromptSearch(event.target.value)} placeholder="Başlık, açıklama veya metinde ara..." className="rounded-[12px] border border-[var(--admin-border)] px-3 py-2.5 text-sm" />
           <div className="flex flex-wrap items-center gap-2">
-            <select value={promptCategory} onChange={(event) => setPromptCategory(event.target.value)} className="rounded-[12px] border border-slate-200 px-3 py-2.5 text-sm">
+            <select value={promptCategory} onChange={(event) => setPromptCategory(event.target.value)} className="rounded-[12px] border border-[var(--admin-border)] px-3 py-2.5 text-sm">
               <option value="">Tüm kategoriler</option>
               {taskTypes.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
             </select>
-            <label className="flex items-center gap-2 text-xs font-bold text-slate-600">
+            <label className="flex items-center gap-2 text-xs font-bold text-[var(--admin-text-secondary)]">
               <input type="checkbox" checked={promptFavoriteOnly} onChange={(event) => setPromptFavoriteOnly(event.target.checked)} /> Sadece favoriler
             </label>
           </div>
         </div>
         <div className="mt-4 grid max-h-[520px] gap-2 overflow-y-auto pr-1">
-          {filteredPrompts.length === 0 && <p className="rounded-[12px] bg-slate-50 p-4 text-sm text-slate-500">Kayıtlı prompt bulunamadı. Yeni bir tane oluşturabilirsiniz.</p>}
+          {filteredPrompts.length === 0 && <p className="rounded-[12px] bg-[var(--admin-surface-soft)] p-4 text-sm text-[var(--admin-text-muted)]">Kayıtlı prompt bulunamadı. Yeni bir tane oluşturabilirsiniz.</p>}
           {filteredPrompts.map((prompt) => <button
             key={prompt.id}
             onClick={() => { setSelectedPromptId(prompt.id); setPromptFormMode(null); setPromptVariableValues({}); }}
-            className={`rounded-[14px] border p-3 text-left transition ${selectedPromptId === prompt.id ? "border-cyan-300 bg-cyan-50" : "border-slate-200 bg-white hover:border-cyan-200"}`}
+            className={`rounded-[14px] border p-3 text-left transition ${selectedPromptId === prompt.id ? "border-cyan-300 bg-cyan-50" : "border-[var(--admin-border)] bg-[var(--admin-surface)] hover:border-cyan-200"}`}
           >
             <div className="flex items-start justify-between gap-2">
-              <strong className="text-sm font-black text-slate-950">{prompt.title}</strong>
+              <strong className="text-sm font-black text-[var(--admin-text-primary)]">{prompt.title}</strong>
               {prompt.is_favorite && <span className="text-amber-500">★</span>}
             </div>
-            <p className="mt-1 text-xs text-slate-500">{agentTaskLabels[prompt.task_type as AgentTaskType] || String(prompt.task_type)} · {providerLabel(prompt.provider_key || "auto")}</p>
-            {prompt.description && <p className="mt-1 line-clamp-2 text-xs text-slate-600">{prompt.description}</p>}
+            <p className="mt-1 text-xs text-[var(--admin-text-muted)]">{agentTaskLabels[prompt.task_type as AgentTaskType] || String(prompt.task_type)} · {providerLabel(prompt.provider_key || "auto")}</p>
+            {prompt.description && <p className="mt-1 line-clamp-2 text-xs text-[var(--admin-text-secondary)]">{prompt.description}</p>}
           </button>)}
         </div>
       </div>
 
-      <div className="rounded-[22px] border border-slate-200 bg-white p-5">
+      <div className="rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5">
         {promptFormMode && <div>
-          <h3 className="text-lg font-black text-slate-950">{promptFormMode === "create" ? "Yeni Prompt Oluştur" : "Promptu Düzenle"}</h3>
+          <h3 className="text-lg font-black text-[var(--admin-text-primary)]">{promptFormMode === "create" ? "Yeni Prompt Oluştur" : "Promptu Düzenle"}</h3>
           <div className="mt-4 grid gap-3">
-            <label className="grid gap-1 text-sm font-bold text-slate-700">Başlık
-              <input value={promptForm.title} onChange={(event) => setPromptForm({ ...promptForm, title: event.target.value })} className="rounded-[12px] border border-slate-200 px-3 py-2.5 text-sm font-normal" />
+            <label className="grid gap-1 text-sm font-bold text-[var(--admin-text-secondary)]">Başlık
+              <input value={promptForm.title} onChange={(event) => setPromptForm({ ...promptForm, title: event.target.value })} className="rounded-[12px] border border-[var(--admin-border)] px-3 py-2.5 text-sm font-normal" />
             </label>
-            <label className="grid gap-1 text-sm font-bold text-slate-700">Kategori (görev tipi)
-              <select value={promptForm.taskType} onChange={(event) => setPromptForm({ ...promptForm, taskType: event.target.value })} className="rounded-[12px] border border-slate-200 px-3 py-2.5 text-sm font-normal">
+            <label className="grid gap-1 text-sm font-bold text-[var(--admin-text-secondary)]">Kategori (görev tipi)
+              <select value={promptForm.taskType} onChange={(event) => setPromptForm({ ...promptForm, taskType: event.target.value })} className="rounded-[12px] border border-[var(--admin-border)] px-3 py-2.5 text-sm font-normal">
                 {taskTypes.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
               </select>
             </label>
-            <label className="grid gap-1 text-sm font-bold text-slate-700">Önerilen sağlayıcı (opsiyonel)
-              <select value={promptForm.providerKey} onChange={(event) => setPromptForm({ ...promptForm, providerKey: event.target.value })} className="rounded-[12px] border border-slate-200 px-3 py-2.5 text-sm font-normal">
+            <label className="grid gap-1 text-sm font-bold text-[var(--admin-text-secondary)]">Önerilen sağlayıcı (opsiyonel)
+              <select value={promptForm.providerKey} onChange={(event) => setPromptForm({ ...promptForm, providerKey: event.target.value })} className="rounded-[12px] border border-[var(--admin-border)] px-3 py-2.5 text-sm font-normal">
                 <option value="">Otomatik</option>
                 {providers.map((provider) => <option key={provider.provider_key} value={provider.provider_key}>{providerLabel(provider.provider_key)}</option>)}
               </select>
             </label>
-            <label className="grid gap-1 text-sm font-bold text-slate-700">Kısa açıklama (opsiyonel)
-              <input value={promptForm.description} onChange={(event) => setPromptForm({ ...promptForm, description: event.target.value })} maxLength={500} className="rounded-[12px] border border-slate-200 px-3 py-2.5 text-sm font-normal" />
+            <label className="grid gap-1 text-sm font-bold text-[var(--admin-text-secondary)]">Kısa açıklama (opsiyonel)
+              <input value={promptForm.description} onChange={(event) => setPromptForm({ ...promptForm, description: event.target.value })} maxLength={500} className="rounded-[12px] border border-[var(--admin-border)] px-3 py-2.5 text-sm font-normal" />
             </label>
-            <label className="grid gap-1 text-sm font-bold text-slate-700">Prompt metni <span className="font-normal text-slate-400">({"{{değişken}}"} biçiminde alanlar kullanabilirsiniz)</span>
-              <textarea value={promptForm.promptText} onChange={(event) => setPromptForm({ ...promptForm, promptText: event.target.value })} rows={8} className="rounded-[12px] border border-slate-200 px-3 py-2.5 text-sm font-normal" />
+            <label className="grid gap-1 text-sm font-bold text-[var(--admin-text-secondary)]">Prompt metni <span className="font-normal text-slate-400">({"{{değişken}}"} biçiminde alanlar kullanabilirsiniz)</span>
+              <textarea value={promptForm.promptText} onChange={(event) => setPromptForm({ ...promptForm, promptText: event.target.value })} rows={8} className="rounded-[12px] border border-[var(--admin-border)] px-3 py-2.5 text-sm font-normal" />
             </label>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
@@ -1215,18 +1215,18 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
         {!promptFormMode && selectedPrompt && <div>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h3 className="text-lg font-black text-slate-950">{selectedPrompt.title}</h3>
-              <p className="mt-1 text-xs uppercase tracking-[.1em] text-slate-500">{agentTaskLabels[selectedPrompt.task_type as AgentTaskType] || String(selectedPrompt.task_type)} · {providerLabel(selectedPrompt.provider_key || "auto")}</p>
+              <h3 className="text-lg font-black text-[var(--admin-text-primary)]">{selectedPrompt.title}</h3>
+              <p className="mt-1 text-xs uppercase tracking-[.1em] text-[var(--admin-text-muted)]">{agentTaskLabels[selectedPrompt.task_type as AgentTaskType] || String(selectedPrompt.task_type)} · {providerLabel(selectedPrompt.provider_key || "auto")}</p>
             </div>
-            <span className={`rounded-full px-3 py-1 text-xs font-black ${selectedPrompt.is_active === false ? "bg-slate-100 text-slate-500" : "bg-emerald-50 text-emerald-700"}`}>{selectedPrompt.is_active === false ? "Arşivde" : "Aktif"}</span>
+            <span className={`rounded-full px-3 py-1 text-xs font-black ${selectedPrompt.is_active === false ? "bg-slate-100 text-[var(--admin-text-muted)]" : "bg-emerald-50 text-emerald-700"}`}>{selectedPrompt.is_active === false ? "Arşivde" : "Aktif"}</span>
           </div>
-          {selectedPrompt.description && <p className="mt-3 text-sm text-slate-600">{selectedPrompt.description}</p>}
-          <pre className="mt-4 whitespace-pre-wrap rounded-[12px] bg-slate-50 p-4 text-sm text-slate-700">{selectedPrompt.prompt_text}</pre>
+          {selectedPrompt.description && <p className="mt-3 text-sm text-[var(--admin-text-secondary)]">{selectedPrompt.description}</p>}
+          <pre className="mt-4 whitespace-pre-wrap rounded-[12px] bg-[var(--admin-surface-soft)] p-4 text-sm text-[var(--admin-text-secondary)]">{selectedPrompt.prompt_text}</pre>
 
-          {promptVariableNames(selectedPrompt.prompt_text).length > 0 && <div className="mt-4 grid gap-2 rounded-[12px] border border-slate-200 p-3">
-            <p className="text-xs font-black uppercase tracking-[.1em] text-slate-500">Değişkenleri doldur</p>
-            {promptVariableNames(selectedPrompt.prompt_text).map((name) => <label key={name} className="grid gap-1 text-xs font-bold text-slate-600">{name}
-              <input value={promptVariableValues[name] || ""} onChange={(event) => setPromptVariableValues({ ...promptVariableValues, [name]: event.target.value })} className="rounded-[10px] border border-slate-200 px-3 py-2 text-sm font-normal" />
+          {promptVariableNames(selectedPrompt.prompt_text).length > 0 && <div className="mt-4 grid gap-2 rounded-[12px] border border-[var(--admin-border)] p-3">
+            <p className="text-xs font-black uppercase tracking-[.1em] text-[var(--admin-text-muted)]">Değişkenleri doldur</p>
+            {promptVariableNames(selectedPrompt.prompt_text).map((name) => <label key={name} className="grid gap-1 text-xs font-bold text-[var(--admin-text-secondary)]">{name}
+              <input value={promptVariableValues[name] || ""} onChange={(event) => setPromptVariableValues({ ...promptVariableValues, [name]: event.target.value })} className="rounded-[10px] border border-[var(--admin-border)] px-3 py-2 text-sm font-normal" />
             </label>)}
           </div>}
 
@@ -1236,11 +1236,11 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
             <button onClick={() => startEditPrompt(selectedPrompt)} className={secondaryButtonClass}>Düzenle</button>
             <button onClick={() => duplicatePrompt(selectedPrompt)} className={secondaryButtonClass}>Çoğalt</button>
             <button onClick={() => toggleFavoritePrompt(selectedPrompt)} className={softButtonClass}>{selectedPrompt.is_favorite ? "Favoriden Çıkar" : "Favorilere Ekle"}</button>
-            <button onClick={() => archivePrompt(selectedPrompt)} className="rounded-[12px] border border-rose-200 bg-white px-4 py-2.5 text-sm font-black text-rose-700 transition hover:bg-rose-50">Arşivle</button>
+            <button onClick={() => archivePrompt(selectedPrompt)} className="rounded-[12px] border border-rose-200 bg-[var(--admin-surface)] px-4 py-2.5 text-sm font-black text-rose-700 transition hover:bg-rose-50">Arşivle</button>
           </div>
         </div>}
 
-        {!promptFormMode && !selectedPrompt && <div className="flex h-full min-h-[280px] flex-col items-center justify-center gap-2 text-center text-sm text-slate-500">
+        {!promptFormMode && !selectedPrompt && <div className="flex h-full min-h-[280px] flex-col items-center justify-center gap-2 text-center text-sm text-[var(--admin-text-muted)]">
           <FileText size={28} className="text-slate-300" />
           <p>Detaylarını görmek için soldan bir prompt seçin ya da yeni bir tane oluşturun.</p>
         </div>}
@@ -1248,23 +1248,23 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
     </section>}
 
     {activeTab === "workflows" && <section className="grid gap-4 lg:grid-cols-3">
-      {workflows.map((workflow) => <div key={workflow.name} className="rounded-[22px] border border-slate-200 bg-white p-5">
-        <div className="flex items-start justify-between gap-3"><h3 className="text-lg font-black text-slate-950">{workflow.name}</h3><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">Aktif</span></div>
-        <p className="mt-3 text-sm leading-6 text-slate-600">{workflow.description}</p>
-        <ol className="mt-4 grid gap-2 text-sm text-slate-700">{workflow.steps.map((step, index) => <li key={step} className="rounded-[12px] bg-slate-50 p-3"><strong>{index + 1}.</strong> {step}</li>)}</ol>
+      {workflows.map((workflow) => <div key={workflow.name} className="rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5">
+        <div className="flex items-start justify-between gap-3"><h3 className="text-lg font-black text-[var(--admin-text-primary)]">{workflow.name}</h3><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">Aktif</span></div>
+        <p className="mt-3 text-sm leading-6 text-[var(--admin-text-secondary)]">{workflow.description}</p>
+        <ol className="mt-4 grid gap-2 text-sm text-[var(--admin-text-secondary)]">{workflow.steps.map((step, index) => <li key={step} className="rounded-[12px] bg-[var(--admin-surface-soft)] p-3"><strong>{index + 1}.</strong> {step}</li>)}</ol>
         <div className="mt-4 grid grid-cols-3 gap-2"><button onClick={() => setActiveTab("run")} className={softButtonClass}>Çalıştır</button><button onClick={() => notify?.("İş akışı detayları kart üzerinde listelendi.", "info")} className={secondaryButtonClass}>Detay</button><button onClick={() => copyText(JSON.stringify(workflow, null, 2), notify)} className={secondaryButtonClass}>Kopyala</button></div>
       </div>)}
     </section>}
 
-    {activeTab === "queue" && <section className="rounded-[22px] border border-slate-200 bg-white p-5">
-      <h3 className="text-xl font-black text-slate-950">Görev Sırası</h3>
-      <p className="mt-2 text-sm text-slate-600">Uzun süren görevler sırada, çalışan, tamamlanan veya iptal edilen durumlarıyla izlenir.</p>
+    {activeTab === "queue" && <section className="rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5">
+      <h3 className="text-xl font-black text-[var(--admin-text-primary)]">Görev Sırası</h3>
+      <p className="mt-2 text-sm text-[var(--admin-text-secondary)]">Uzun süren görevler sırada, çalışan, tamamlanan veya iptal edilen durumlarıyla izlenir.</p>
       <div className="mt-4 grid gap-3">
-        {queueRuns.map((run) => <div key={run.id || `${run.created_at}-${run.task_type}`} className="rounded-[16px] border border-slate-200 p-4">
+        {queueRuns.map((run) => <div key={run.id || `${run.created_at}-${run.task_type}`} className="rounded-[16px] border border-[var(--admin-border)] p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <strong className="text-slate-950">{run.task_type ? agentTaskLabels[run.task_type] : "Agent görevi"}</strong>
-              <p className="mt-1 text-sm text-slate-600">{run.current_step || humanStatus(run.status)} · %{run.progress || 0} · Tekrar: {run.retry_count || 0}</p>
+              <strong className="text-[var(--admin-text-primary)]">{run.task_type ? agentTaskLabels[run.task_type] : "Agent görevi"}</strong>
+              <p className="mt-1 text-sm text-[var(--admin-text-secondary)]">{run.current_step || humanStatus(run.status)} · %{run.progress || 0} · Tekrar: {run.retry_count || 0}</p>
             </div>
             <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-black text-blue-800">{humanStatus(run.status)}</span>
           </div>
@@ -1276,95 +1276,95 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
             <button onClick={() => copyText(JSON.stringify(run, null, 2), notify)} className={secondaryButtonClass}>Detay Gör</button>
           </div>
         </div>)}
-        {!queueRuns.length && <p className="rounded-[16px] border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">Sırada bekleyen agent görevi yok.</p>}
+        {!queueRuns.length && <p className="rounded-[16px] border border-dashed border-slate-300 bg-[var(--admin-surface-soft)] p-6 text-center text-sm text-[var(--admin-text-muted)]">Sırada bekleyen agent görevi yok.</p>}
       </div>
     </section>}
 
     {activeTab === "memory" && <section className="grid gap-5 lg:grid-cols-[.38fr_1fr]">
-      <div className="rounded-[22px] border border-slate-200 bg-white p-5">
-        <h3 className="text-xl font-black text-slate-950">AI Hafızası</h3>
-        <p className="mt-2 text-sm leading-6 text-slate-600">Müşteri geçmişi, öneriler ve uygulanan aksiyonlar sonraki analizlerde bağlam olarak kullanılır.</p>
+      <div className="rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5">
+        <h3 className="text-xl font-black text-[var(--admin-text-primary)]">AI Hafızası</h3>
+        <p className="mt-2 text-sm leading-6 text-[var(--admin-text-secondary)]">Müşteri geçmişi, öneriler ve uygulanan aksiyonlar sonraki analizlerde bağlam olarak kullanılır.</p>
         <div className="mt-4 grid gap-3">
-          <select value={memoryForm.companyId} onChange={(event) => setMemoryForm({ ...memoryForm, companyId: event.target.value })} className="rounded-[12px] border border-slate-200 px-3 py-3 text-sm">
+          <select value={memoryForm.companyId} onChange={(event) => setMemoryForm({ ...memoryForm, companyId: event.target.value })} className="rounded-[12px] border border-[var(--admin-border)] px-3 py-3 text-sm">
             <option value="">Müşteri seç</option>
             {companies.map((company) => <option key={company.id} value={company.id}>{company.name || company.company_name || company.title || "İsimsiz müşteri"}</option>)}
           </select>
-          <input value={memoryForm.title} onChange={(event) => setMemoryForm({ ...memoryForm, title: event.target.value })} className="rounded-[12px] border border-slate-200 px-3 py-3 text-sm" placeholder="Hafıza başlığı" />
-          <textarea value={memoryForm.content} onChange={(event) => setMemoryForm({ ...memoryForm, content: event.target.value })} rows={5} className="rounded-[12px] border border-slate-200 px-3 py-3 text-sm" placeholder="Müşteri bağlamı veya öğrenilen bilgi" />
+          <input value={memoryForm.title} onChange={(event) => setMemoryForm({ ...memoryForm, title: event.target.value })} className="rounded-[12px] border border-[var(--admin-border)] px-3 py-3 text-sm" placeholder="Hafıza başlığı" />
+          <textarea value={memoryForm.content} onChange={(event) => setMemoryForm({ ...memoryForm, content: event.target.value })} rows={5} className="rounded-[12px] border border-[var(--admin-border)] px-3 py-3 text-sm" placeholder="Müşteri bağlamı veya öğrenilen bilgi" />
           <button onClick={createMemory} className={primaryButtonClass}>Hafızaya Ekle</button>
         </div>
       </div>
-      <div className="rounded-[22px] border border-slate-200 bg-white p-5">
-        <h3 className="text-xl font-black text-slate-950">Kayıtlı Hafızalar</h3>
-        <div className="mt-4 grid gap-3">{memories.map((memory) => <div key={memory.id || memory.title || ""} className="rounded-[16px] border border-slate-200 p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3"><strong className="text-slate-950">{memory.title}</strong><span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-black text-cyan-800">{memory.memory_type || "memory"}</span></div>
-          <p className="mt-2 text-sm leading-6 text-slate-600">{memory.content}</p>
-          <p className="mt-2 text-xs text-slate-500">Etki skoru: {String(memory.impact_score || 0)} · {memory.created_at ? new Date(memory.created_at).toLocaleString("tr-TR") : "-"}</p>
+      <div className="rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5">
+        <h3 className="text-xl font-black text-[var(--admin-text-primary)]">Kayıtlı Hafızalar</h3>
+        <div className="mt-4 grid gap-3">{memories.map((memory) => <div key={memory.id || memory.title || ""} className="rounded-[16px] border border-[var(--admin-border)] p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3"><strong className="text-[var(--admin-text-primary)]">{memory.title}</strong><span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-black text-cyan-800">{memory.memory_type || "memory"}</span></div>
+          <p className="mt-2 text-sm leading-6 text-[var(--admin-text-secondary)]">{memory.content}</p>
+          <p className="mt-2 text-xs text-[var(--admin-text-muted)]">Etki skoru: {String(memory.impact_score || 0)} · {memory.created_at ? new Date(memory.created_at).toLocaleString("tr-TR") : "-"}</p>
         </div>)}
-        {!memories.length && <p className="rounded-[16px] border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">Henüz agent hafızası yok.</p>}</div>
+        {!memories.length && <p className="rounded-[16px] border border-dashed border-slate-300 bg-[var(--admin-surface-soft)] p-6 text-center text-sm text-[var(--admin-text-muted)]">Henüz agent hafızası yok.</p>}</div>
       </div>
     </section>}
 
     {activeTab === "training" && <section className="grid gap-5 lg:grid-cols-[.38fr_1fr]">
-      <div className="rounded-[22px] border border-slate-200 bg-white p-5">
-        <h3 className="text-xl font-black text-slate-950">AI Eğitim Merkezi</h3>
-        <p className="mt-2 text-sm leading-6 text-slate-600">HK Intelligence’ın dil, risk, teklif ve rapor kuralları buradan yönetilir.</p>
+      <div className="rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5">
+        <h3 className="text-xl font-black text-[var(--admin-text-primary)]">AI Eğitim Merkezi</h3>
+        <p className="mt-2 text-sm leading-6 text-[var(--admin-text-secondary)]">HK Intelligence’ın dil, risk, teklif ve rapor kuralları buradan yönetilir.</p>
         <div className="mt-4 grid gap-3">
-          <input value={trainingForm.title} onChange={(event) => setTrainingForm({ ...trainingForm, title: event.target.value })} className="rounded-[12px] border border-slate-200 px-3 py-3 text-sm" placeholder="Kural başlığı" />
-          <textarea value={trainingForm.content} onChange={(event) => setTrainingForm({ ...trainingForm, content: event.target.value })} rows={5} className="rounded-[12px] border border-slate-200 px-3 py-3 text-sm" placeholder="Kural içeriği" />
+          <input value={trainingForm.title} onChange={(event) => setTrainingForm({ ...trainingForm, title: event.target.value })} className="rounded-[12px] border border-[var(--admin-border)] px-3 py-3 text-sm" placeholder="Kural başlığı" />
+          <textarea value={trainingForm.content} onChange={(event) => setTrainingForm({ ...trainingForm, content: event.target.value })} rows={5} className="rounded-[12px] border border-[var(--admin-border)] px-3 py-3 text-sm" placeholder="Kural içeriği" />
           <button onClick={createTrainingRule} className={primaryButtonClass}>Eğitim Kuralı Ekle</button>
         </div>
       </div>
-      <div className="rounded-[22px] border border-slate-200 bg-white p-5">
-        <h3 className="text-xl font-black text-slate-950">Aktif Kurallar</h3>
-        <div className="mt-4 grid gap-3">{trainingRules.map((rule) => <div key={rule.id || rule.title || ""} className="rounded-[16px] border border-slate-200 p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3"><strong className="text-slate-950">{rule.title}</strong><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">{rule.is_active === false ? "Pasif" : "Aktif"}</span></div>
-          <p className="mt-2 text-sm leading-6 text-slate-600">{rule.content}</p>
-          <p className="mt-2 text-xs text-slate-500">Öncelik: {rule.priority || 100} · Tip: {rule.rule_type || "custom"}</p>
+      <div className="rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5">
+        <h3 className="text-xl font-black text-[var(--admin-text-primary)]">Aktif Kurallar</h3>
+        <div className="mt-4 grid gap-3">{trainingRules.map((rule) => <div key={rule.id || rule.title || ""} className="rounded-[16px] border border-[var(--admin-border)] p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3"><strong className="text-[var(--admin-text-primary)]">{rule.title}</strong><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">{rule.is_active === false ? "Pasif" : "Aktif"}</span></div>
+          <p className="mt-2 text-sm leading-6 text-[var(--admin-text-secondary)]">{rule.content}</p>
+          <p className="mt-2 text-xs text-[var(--admin-text-muted)]">Öncelik: {rule.priority || 100} · Tip: {rule.rule_type || "custom"}</p>
         </div>)}
-        {!trainingRules.length && <p className="rounded-[16px] border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">Henüz eğitim kuralı yok.</p>}</div>
+        {!trainingRules.length && <p className="rounded-[16px] border border-dashed border-slate-300 bg-[var(--admin-surface-soft)] p-6 text-center text-sm text-[var(--admin-text-muted)]">Henüz eğitim kuralı yok.</p>}</div>
       </div>
     </section>}
 
     {activeTab === "benchmark" && <section className="grid gap-5 lg:grid-cols-[.38fr_1fr]">
-      <div className="rounded-[22px] border border-slate-200 bg-white p-5">
-        <h3 className="text-xl font-black text-slate-950">AI Karşılaştırma Testi</h3>
-        <p className="mt-2 text-sm leading-6 text-slate-600">Aynı görevi birden fazla sağlayıcıya verip süre, maliyet, güven ve kalite açısından kıyaslar.</p>
+      <div className="rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5">
+        <h3 className="text-xl font-black text-[var(--admin-text-primary)]">AI Karşılaştırma Testi</h3>
+        <p className="mt-2 text-sm leading-6 text-[var(--admin-text-secondary)]">Aynı görevi birden fazla sağlayıcıya verip süre, maliyet, güven ve kalite açısından kıyaslar.</p>
         <div className="mt-4 grid gap-3">
-          <select value={benchmarkForm.taskType} onChange={(event) => setBenchmarkForm({ ...benchmarkForm, taskType: event.target.value as AgentTaskType })} className="rounded-[12px] border border-slate-200 px-3 py-3 text-sm">{taskTypes.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
-          <textarea value={benchmarkForm.prompt} onChange={(event) => setBenchmarkForm({ ...benchmarkForm, prompt: event.target.value })} rows={6} className="rounded-[12px] border border-slate-200 px-3 py-3 text-sm" />
+          <select value={benchmarkForm.taskType} onChange={(event) => setBenchmarkForm({ ...benchmarkForm, taskType: event.target.value as AgentTaskType })} className="rounded-[12px] border border-[var(--admin-border)] px-3 py-3 text-sm">{taskTypes.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
+          <textarea value={benchmarkForm.prompt} onChange={(event) => setBenchmarkForm({ ...benchmarkForm, prompt: event.target.value })} rows={6} className="rounded-[12px] border border-[var(--admin-border)] px-3 py-3 text-sm" />
           <button onClick={runBenchmark} disabled={loading} className={primaryButtonClass}>Karşılaştırmalı Test Başlat</button>
         </div>
       </div>
-      <div className="rounded-[22px] border border-slate-200 bg-white p-5">
-        <h3 className="text-xl font-black text-slate-950">Karşılaştırmalı Test Sonuçları</h3>
-        <div className="mt-4 grid gap-3">{benchmarks.map((benchmark) => <div key={benchmark.id || benchmark.created_at || ""} className="rounded-[16px] border border-slate-200 p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3"><strong className="text-slate-950">{benchmark.task_type ? agentTaskLabels[benchmark.task_type] : "Benchmark"}</strong><span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">Kazanan: {benchmark.winner_provider || "-"}</span></div>
-          <p className="mt-2 text-sm leading-6 text-slate-600">{benchmark.hk_decision || "HK Intelligence kararı bekleniyor."}</p>
-          <div className="mt-3 grid gap-2 md:grid-cols-2">{(benchmark.results || []).map((result) => <div key={result.provider} className="rounded-[12px] bg-slate-50 p-3 text-xs text-slate-600"><strong>{result.provider}</strong> · {result.responseMs || 0} ms · Güven %{Math.round(Number(result.confidence || 0) * 100)}<br />{result.strongSide}</div>)}</div>
+      <div className="rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5">
+        <h3 className="text-xl font-black text-[var(--admin-text-primary)]">Karşılaştırmalı Test Sonuçları</h3>
+        <div className="mt-4 grid gap-3">{benchmarks.map((benchmark) => <div key={benchmark.id || benchmark.created_at || ""} className="rounded-[16px] border border-[var(--admin-border)] p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3"><strong className="text-[var(--admin-text-primary)]">{benchmark.task_type ? agentTaskLabels[benchmark.task_type] : "Benchmark"}</strong><span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">Kazanan: {benchmark.winner_provider || "-"}</span></div>
+          <p className="mt-2 text-sm leading-6 text-[var(--admin-text-secondary)]">{benchmark.hk_decision || "HK Intelligence kararı bekleniyor."}</p>
+          <div className="mt-3 grid gap-2 md:grid-cols-2">{(benchmark.results || []).map((result) => <div key={result.provider} className="rounded-[12px] bg-[var(--admin-surface-soft)] p-3 text-xs text-[var(--admin-text-secondary)]"><strong>{result.provider}</strong> · {result.responseMs || 0} ms · Güven %{Math.round(Number(result.confidence || 0) * 100)}<br />{result.strongSide}</div>)}</div>
         </div>)}
-        {!benchmarks.length && <p className="rounded-[16px] border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">Henüz karşılaştırmalı test yok.</p>}</div>
+        {!benchmarks.length && <p className="rounded-[16px] border border-dashed border-slate-300 bg-[var(--admin-surface-soft)] p-6 text-center text-sm text-[var(--admin-text-muted)]">Henüz karşılaştırmalı test yok.</p>}</div>
       </div>
     </section>}
 
-    {activeTab === "integrations" && <section className="rounded-[22px] border border-slate-200 bg-white p-5">
-      <h3 className="text-xl font-black text-slate-950">Entegrasyon Kontrolü</h3>
-      <p className="mt-2 text-sm leading-6 text-slate-600">AI sağlayıcıları, e-posta, Discord, Supabase, Meta, Google Ads ve planlı görev anahtarları burada secret göstermeden kontrol edilir.</p>
+    {activeTab === "integrations" && <section className="rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5">
+      <h3 className="text-xl font-black text-[var(--admin-text-primary)]">Entegrasyon Kontrolü</h3>
+      <p className="mt-2 text-sm leading-6 text-[var(--admin-text-secondary)]">AI sağlayıcıları, e-posta, Discord, Supabase, Meta, Google Ads ve planlı görev anahtarları burada secret göstermeden kontrol edilir.</p>
       <div className="mt-5 rounded-[18px] border border-cyan-100 bg-cyan-50 p-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h4 className="font-black text-cyan-950">Sağlayıcı Sağlığı</h4>
             <p className="mt-1 text-sm text-cyan-900">Son 24 saat başarı oranı, yanıt süresi, hata sayısı, tahmini maliyet ve Auto Router skoru.</p>
           </div>
-          <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-cyan-800 ring-1 ring-cyan-200">{providerHealth.length} sağlayıcı</span>
+          <span className="rounded-full bg-[var(--admin-surface)] px-3 py-1 text-xs font-black text-cyan-800 ring-1 ring-cyan-200">{providerHealth.length} sağlayıcı</span>
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {providerHealth.map((item) => <div key={item.key} className="rounded-[14px] border border-cyan-100 bg-white p-4">
+          {providerHealth.map((item) => <div key={item.key} className="rounded-[14px] border border-cyan-100 bg-[var(--admin-surface)] p-4">
             <div className="flex items-start justify-between gap-3">
-              <div><strong className="text-slate-950">{item.name}</strong><p className="mt-1 text-xs text-slate-500">Son başarılı test: {item.lastSuccessAt ? new Date(item.lastSuccessAt).toLocaleString("tr-TR") : "Yok"}</p></div>
+              <div><strong className="text-[var(--admin-text-primary)]">{item.name}</strong><p className="mt-1 text-xs text-[var(--admin-text-muted)]">Son başarılı test: {item.lastSuccessAt ? new Date(item.lastSuccessAt).toLocaleString("tr-TR") : "Yok"}</p></div>
               <span className={`rounded-full px-2 py-1 text-[10px] font-black ${item.status === "Çalışıyor" || item.status === "Demo" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}>{item.status}</span>
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-600">
+            <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-[var(--admin-text-secondary)]">
               <span>Başarı: {item.successRate24h == null ? "Veri yok" : `%${item.successRate24h}`}</span>
               <span>Hata: {item.errorCount24h || 0}</span>
               <span>Süre: {item.averageResponseMs ? `${item.averageResponseMs} ms` : "Veri yok"}</span>
@@ -1380,102 +1380,102 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
         </div>
       </div>
       <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {integrations.map((item) => <div key={item.key} className="rounded-[18px] border border-slate-200 bg-slate-50 p-4">
+        {integrations.map((item) => <div key={item.key} className="rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4">
           <div className="flex items-start justify-between gap-3">
-            <div><strong className="text-slate-950">{item.name}</strong><p className="mt-1 text-xs text-slate-500">Son test: {item.lastTestAt ? new Date(item.lastTestAt).toLocaleString("tr-TR") : "Test edilmedi"}</p></div>
+            <div><strong className="text-[var(--admin-text-primary)]">{item.name}</strong><p className="mt-1 text-xs text-[var(--admin-text-muted)]">Son test: {item.lastTestAt ? new Date(item.lastTestAt).toLocaleString("tr-TR") : "Test edilmedi"}</p></div>
             <span className={`rounded-full px-3 py-1 text-xs font-black ${item.status === "Çalışıyor" ? "bg-emerald-50 text-emerald-700" : item.status === "Hatalı" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700"}`}>{item.status}</span>
           </div>
           {!!item.missingEnv?.length && <p className="mt-3 text-xs font-bold text-amber-800">Eksik env: {item.missingEnv.join(", ")}</p>}
           {item.lastError && <p className="mt-2 text-xs text-red-700">{item.lastError}</p>}
-          <p className="mt-3 text-sm leading-6 text-slate-600">{item.fix || "Bu entegrasyon için ek açıklama yok."}</p>
+          <p className="mt-3 text-sm leading-6 text-[var(--admin-text-secondary)]">{item.fix || "Bu entegrasyon için ek açıklama yok."}</p>
           <button onClick={() => testIntegration(item.key)} disabled={testingIntegration === item.key} className={`${secondaryButtonClass} mt-4 disabled:opacity-60`}>{testingIntegration === item.key ? "Test ediliyor..." : "Test Et"}</button>
         </div>)}
       </div>
     </section>}
 
-    {activeTab === "logs" && <section className="rounded-[22px] border border-slate-200 bg-white p-5">
-      <h3 className="text-xl font-black text-slate-950">İşlem Kayıtları</h3>
+    {activeTab === "logs" && <section className="rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5">
+      <h3 className="text-xl font-black text-[var(--admin-text-primary)]">İşlem Kayıtları</h3>
       <div className="mt-4 overflow-x-auto">
-        <table className="w-full min-w-[920px] text-left text-sm"><thead className="text-xs uppercase tracking-[.12em] text-slate-500"><tr><th className="border-b py-3">Tarih</th><th className="border-b py-3">Görev tipi</th><th className="border-b py-3">Sağlayıcı</th><th className="border-b py-3">Durum</th><th className="border-b py-3">Süre</th><th className="border-b py-3">Maliyet</th><th className="border-b py-3">İşlem</th></tr></thead>
-          <tbody>{logs.map((log) => <tr key={log.id || `${log.created_at}-${log.task_type}`} className="border-b border-slate-100"><td className="py-3 text-slate-600">{log.created_at ? new Date(log.created_at).toLocaleString("tr-TR") : "-"}</td><td className="py-3 font-bold">{log.task_type ? agentTaskLabels[log.task_type] : "-"}</td><td className="py-3">{log.selected_provider || "-"}</td><td className="py-3">{humanStatus(log.status)}</td><td className="py-3">{log.response_ms || 0} ms</td><td className="py-3">{Number(log.estimated_cost || 0).toLocaleString("tr-TR")} $</td><td className="py-3"><button onClick={() => copyText(log.output_summary || JSON.stringify(log.output_payload || {}), notify)} className={secondaryButtonClass}>Çıktıyı Kopyala</button></td></tr>)}
-          {!logs.length && <tr><td colSpan={7} className="py-8 text-center text-slate-500"><XCircle size={20} className="mx-auto mb-2" />Henüz agent log kaydı yok.</td></tr>}</tbody></table>
+        <table className="w-full min-w-[920px] text-left text-sm"><thead className="text-xs uppercase tracking-[.12em] text-[var(--admin-text-muted)]"><tr><th className="border-b py-3">Tarih</th><th className="border-b py-3">Görev tipi</th><th className="border-b py-3">Sağlayıcı</th><th className="border-b py-3">Durum</th><th className="border-b py-3">Süre</th><th className="border-b py-3">Maliyet</th><th className="border-b py-3">İşlem</th></tr></thead>
+          <tbody>{logs.map((log) => <tr key={log.id || `${log.created_at}-${log.task_type}`} className="border-b border-slate-100"><td className="py-3 text-[var(--admin-text-secondary)]">{log.created_at ? new Date(log.created_at).toLocaleString("tr-TR") : "-"}</td><td className="py-3 font-bold">{log.task_type ? agentTaskLabels[log.task_type] : "-"}</td><td className="py-3">{log.selected_provider || "-"}</td><td className="py-3">{humanStatus(log.status)}</td><td className="py-3">{log.response_ms || 0} ms</td><td className="py-3">{Number(log.estimated_cost || 0).toLocaleString("tr-TR")} $</td><td className="py-3"><button onClick={() => copyText(log.output_summary || JSON.stringify(log.output_payload || {}), notify)} className={secondaryButtonClass}>Çıktıyı Kopyala</button></td></tr>)}
+          {!logs.length && <tr><td colSpan={7} className="py-8 text-center text-[var(--admin-text-muted)]"><XCircle size={20} className="mx-auto mb-2" />Henüz agent log kaydı yok.</td></tr>}</tbody></table>
       </div>
     </section>}
 
     {activeTab === "scheduled" && <section className="grid gap-5 lg:grid-cols-[.42fr_1fr]">
-      <div className="rounded-[22px] border border-slate-200 bg-white p-5">
-        <h3 className="text-xl font-black text-slate-950">Planlanmış Agent Görevi</h3>
-        <p className="mt-2 text-sm leading-6 text-slate-600">V1 cron-ready yapıdadır. Gerçek zamanlayıcı için `AGENT_HUB_CRON_SECRET` ile güvenli endpoint çalıştırılır.</p>
+      <div className="rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5">
+        <h3 className="text-xl font-black text-[var(--admin-text-primary)]">Planlanmış Agent Görevi</h3>
+        <p className="mt-2 text-sm leading-6 text-[var(--admin-text-secondary)]">V1 cron-ready yapıdadır. Gerçek zamanlayıcı için `AGENT_HUB_CRON_SECRET` ile güvenli endpoint çalıştırılır.</p>
         <div className="mt-4 grid gap-3">
-          <input value={scheduleForm.name} onChange={(event) => setScheduleForm({ ...scheduleForm, name: event.target.value })} className="rounded-[12px] border border-slate-200 px-3 py-3 text-sm" placeholder="Görev adı" />
-          <select value={scheduleForm.customerId} onChange={(event) => setScheduleForm({ ...scheduleForm, customerId: event.target.value })} className="rounded-[12px] border border-slate-200 px-3 py-3 text-sm">
+          <input value={scheduleForm.name} onChange={(event) => setScheduleForm({ ...scheduleForm, name: event.target.value })} className="rounded-[12px] border border-[var(--admin-border)] px-3 py-3 text-sm" placeholder="Görev adı" />
+          <select value={scheduleForm.customerId} onChange={(event) => setScheduleForm({ ...scheduleForm, customerId: event.target.value })} className="rounded-[12px] border border-[var(--admin-border)] px-3 py-3 text-sm">
             <option value="">Müşteri seçilmedi</option>
             {companies.map((company) => <option key={company.id} value={company.id}>{company.name || company.company_name || company.title || "İsimsiz müşteri"}</option>)}
           </select>
-          <select value={scheduleForm.taskType} onChange={(event) => setScheduleForm({ ...scheduleForm, taskType: event.target.value as AgentTaskType })} className="rounded-[12px] border border-slate-200 px-3 py-3 text-sm">{taskTypes.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
+          <select value={scheduleForm.taskType} onChange={(event) => setScheduleForm({ ...scheduleForm, taskType: event.target.value as AgentTaskType })} className="rounded-[12px] border border-[var(--admin-border)] px-3 py-3 text-sm">{taskTypes.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
           <div className="grid gap-3 md:grid-cols-3">
-            <select value={scheduleForm.scheduleFrequency} onChange={(event) => setScheduleForm({ ...scheduleForm, scheduleFrequency: event.target.value })} className="rounded-[12px] border border-slate-200 px-3 py-3 text-sm"><option value="daily">Günlük</option><option value="weekly">Haftalık</option><option value="monthly">Aylık</option></select>
-            <input value={scheduleForm.scheduleDay} onChange={(event) => setScheduleForm({ ...scheduleForm, scheduleDay: event.target.value })} className="rounded-[12px] border border-slate-200 px-3 py-3 text-sm" placeholder="Gün" />
-            <input value={scheduleForm.scheduleTime} onChange={(event) => setScheduleForm({ ...scheduleForm, scheduleTime: event.target.value })} className="rounded-[12px] border border-slate-200 px-3 py-3 text-sm" placeholder="09:00" />
+            <select value={scheduleForm.scheduleFrequency} onChange={(event) => setScheduleForm({ ...scheduleForm, scheduleFrequency: event.target.value })} className="rounded-[12px] border border-[var(--admin-border)] px-3 py-3 text-sm"><option value="daily">Günlük</option><option value="weekly">Haftalık</option><option value="monthly">Aylık</option></select>
+            <input value={scheduleForm.scheduleDay} onChange={(event) => setScheduleForm({ ...scheduleForm, scheduleDay: event.target.value })} className="rounded-[12px] border border-[var(--admin-border)] px-3 py-3 text-sm" placeholder="Gün" />
+            <input value={scheduleForm.scheduleTime} onChange={(event) => setScheduleForm({ ...scheduleForm, scheduleTime: event.target.value })} className="rounded-[12px] border border-[var(--admin-border)] px-3 py-3 text-sm" placeholder="09:00" />
           </div>
-          <label className="flex items-center gap-3 text-sm font-bold text-slate-700"><input type="checkbox" checked={scheduleForm.multiAgent} onChange={(event) => setScheduleForm({ ...scheduleForm, multiAgent: event.target.checked })} className="size-4 accent-cyan-600" />Çoklu AI açık</label>
-          <textarea value={scheduleForm.prompt} onChange={(event) => setScheduleForm({ ...scheduleForm, prompt: event.target.value })} rows={4} className="rounded-[12px] border border-slate-200 px-3 py-3 text-sm" />
+          <label className="flex items-center gap-3 text-sm font-bold text-[var(--admin-text-secondary)]"><input type="checkbox" checked={scheduleForm.multiAgent} onChange={(event) => setScheduleForm({ ...scheduleForm, multiAgent: event.target.checked })} className="size-4 accent-cyan-600" />Çoklu AI açık</label>
+          <textarea value={scheduleForm.prompt} onChange={(event) => setScheduleForm({ ...scheduleForm, prompt: event.target.value })} rows={4} className="rounded-[12px] border border-[var(--admin-border)] px-3 py-3 text-sm" />
           <button onClick={createScheduledTask} className={primaryButtonClass}>Planlanmış Görev Oluştur</button>
         </div>
       </div>
-      <div className="rounded-[22px] border border-slate-200 bg-white p-5">
-        <h3 className="text-xl font-black text-slate-950">Planlanmış Görevler</h3>
+      <div className="rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5">
+        <h3 className="text-xl font-black text-[var(--admin-text-primary)]">Planlanmış Görevler</h3>
         <div className="mt-4 grid gap-3">
-          {scheduledTasks.map((task) => <div key={task.id || task.name} className="rounded-[16px] border border-slate-200 p-4">
+          {scheduledTasks.map((task) => <div key={task.id || task.name} className="rounded-[16px] border border-[var(--admin-border)] p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <div><strong className="text-slate-950">{task.name}</strong><p className="mt-1 text-sm text-slate-600">{task.task_type ? agentTaskLabels[task.task_type] : "-"} · {task.schedule_frequency} · {task.schedule_day || "-"} {task.schedule_time || ""}</p></div>
-              <span className={`rounded-full px-3 py-1 text-xs font-black ${task.is_active === false ? "bg-slate-100 text-slate-600" : "bg-emerald-50 text-emerald-700"}`}>{task.is_active === false ? "Pasif" : "Aktif"}</span>
+              <div><strong className="text-[var(--admin-text-primary)]">{task.name}</strong><p className="mt-1 text-sm text-[var(--admin-text-secondary)]">{task.task_type ? agentTaskLabels[task.task_type] : "-"} · {task.schedule_frequency} · {task.schedule_day || "-"} {task.schedule_time || ""}</p></div>
+              <span className={`rounded-full px-3 py-1 text-xs font-black ${task.is_active === false ? "bg-slate-100 text-[var(--admin-text-secondary)]" : "bg-emerald-50 text-emerald-700"}`}>{task.is_active === false ? "Pasif" : "Aktif"}</span>
             </div>
-            <p className="mt-3 text-xs text-slate-500">Son çalışma: {task.last_run_at ? new Date(task.last_run_at).toLocaleString("tr-TR") : "-"} · Sonraki çalışma: {task.next_run_at ? new Date(task.next_run_at).toLocaleString("tr-TR") : "Cron tarafından belirlenecek"}</p>
+            <p className="mt-3 text-xs text-[var(--admin-text-muted)]">Son çalışma: {task.last_run_at ? new Date(task.last_run_at).toLocaleString("tr-TR") : "-"} · Sonraki çalışma: {task.next_run_at ? new Date(task.next_run_at).toLocaleString("tr-TR") : "Cron tarafından belirlenecek"}</p>
           </div>)}
-          {!scheduledTasks.length && <p className="rounded-[16px] border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">Henüz planlanmış agent görevi yok.</p>}
+          {!scheduledTasks.length && <p className="rounded-[16px] border border-dashed border-slate-300 bg-[var(--admin-surface-soft)] p-6 text-center text-sm text-[var(--admin-text-muted)]">Henüz planlanmış agent görevi yok.</p>}
         </div>
       </div>
     </section>}
 
-    <section className="rounded-[18px] border border-slate-200 bg-slate-50 p-5 text-sm leading-6 text-slate-600">
+    <section className="rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-5 text-sm leading-6 text-[var(--admin-text-secondary)]">
       <CheckCircle2 size={17} className="mr-2 inline text-emerald-700" />Güvenlik notu: API key ve secret değerleri client component’e gönderilmez. Provider ayarları server-side route üzerinden okunur ve sadece maskeli durum bilgisi gösterilir.
     </section>
 
     {editingProvider && <div className="fixed inset-0 z-[95] flex items-center justify-center bg-slate-950/55 p-4" onMouseDown={() => setEditingProvider(null)}>
-      <div className="w-full max-w-2xl rounded-[24px] border border-slate-200 bg-white p-6 shadow-[0_30px_100px_rgba(15,23,42,.24)]" onMouseDown={(event) => event.stopPropagation()}>
+      <div className="w-full max-w-2xl rounded-[24px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[0_30px_100px_rgba(15,23,42,.24)]" onMouseDown={(event) => event.stopPropagation()}>
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Provider ayarları</p>
-            <h3 className="mt-2 text-2xl font-black text-slate-950">{editingProvider.provider_name}</h3>
-            <p className="mt-2 text-sm text-slate-500">Model ve kullanım limitlerini buradan yönetin. API anahtarları yalnız Vercel Environment Variables alanında server-side saklanır.</p>
+            <h3 className="mt-2 text-2xl font-black text-[var(--admin-text-primary)]">{editingProvider.provider_name}</h3>
+            <p className="mt-2 text-sm text-[var(--admin-text-muted)]">Model ve kullanım limitlerini buradan yönetin. API anahtarları yalnız Vercel Environment Variables alanında server-side saklanır.</p>
           </div>
           <button onClick={() => setEditingProvider(null)} className={secondaryButtonClass}>Kapat</button>
         </div>
         <div className="mt-5 grid gap-3 md:grid-cols-2">
-          <label className="grid gap-1 text-sm font-bold text-slate-700">Durum
-            <select value={providerForm.status} onChange={(event) => setProviderForm({ ...providerForm, status: event.target.value })} className="rounded-[12px] border border-slate-200 px-3 py-3">
+          <label className="grid gap-1 text-sm font-bold text-[var(--admin-text-secondary)]">Durum
+            <select value={providerForm.status} onChange={(event) => setProviderForm({ ...providerForm, status: event.target.value })} className="rounded-[12px] border border-[var(--admin-border)] px-3 py-3">
               <option value="active">active</option>
               <option value="passive">passive</option>
               <option value="error">error</option>
               <option value="not_configured">not_configured</option>
             </select>
           </label>
-          <label className="grid gap-1 text-sm font-bold text-slate-700">Varsayılan model
-            <input value={providerForm.defaultModel} onChange={(event) => setProviderForm({ ...providerForm, defaultModel: event.target.value })} className="rounded-[12px] border border-slate-200 px-3 py-3" />
+          <label className="grid gap-1 text-sm font-bold text-[var(--admin-text-secondary)]">Varsayılan model
+            <input value={providerForm.defaultModel} onChange={(event) => setProviderForm({ ...providerForm, defaultModel: event.target.value })} className="rounded-[12px] border border-[var(--admin-border)] px-3 py-3" />
           </label>
-          <label className="grid gap-1 text-sm font-bold text-slate-700">Günlük limit
-            <input value={providerForm.dailyLimit} onChange={(event) => setProviderForm({ ...providerForm, dailyLimit: event.target.value })} className="rounded-[12px] border border-slate-200 px-3 py-3" />
+          <label className="grid gap-1 text-sm font-bold text-[var(--admin-text-secondary)]">Günlük limit
+            <input value={providerForm.dailyLimit} onChange={(event) => setProviderForm({ ...providerForm, dailyLimit: event.target.value })} className="rounded-[12px] border border-[var(--admin-border)] px-3 py-3" />
           </label>
-          <label className="grid gap-1 text-sm font-bold text-slate-700">Aylık limit
-            <input value={providerForm.monthlyLimit} onChange={(event) => setProviderForm({ ...providerForm, monthlyLimit: event.target.value })} className="rounded-[12px] border border-slate-200 px-3 py-3" />
+          <label className="grid gap-1 text-sm font-bold text-[var(--admin-text-secondary)]">Aylık limit
+            <input value={providerForm.monthlyLimit} onChange={(event) => setProviderForm({ ...providerForm, monthlyLimit: event.target.value })} className="rounded-[12px] border border-[var(--admin-border)] px-3 py-3" />
           </label>
-          <label className="grid gap-1 text-sm font-bold text-slate-700">Tahmini aylık maliyet
-            <input value={providerForm.estimatedMonthlyCost} onChange={(event) => setProviderForm({ ...providerForm, estimatedMonthlyCost: event.target.value })} className="rounded-[12px] border border-slate-200 px-3 py-3" />
+          <label className="grid gap-1 text-sm font-bold text-[var(--admin-text-secondary)]">Tahmini aylık maliyet
+            <input value={providerForm.estimatedMonthlyCost} onChange={(event) => setProviderForm({ ...providerForm, estimatedMonthlyCost: event.target.value })} className="rounded-[12px] border border-[var(--admin-border)] px-3 py-3" />
           </label>
           <div className="rounded-[12px] border border-cyan-200 bg-cyan-50 p-3 text-sm leading-6 text-cyan-900">API anahtarı güvenlik nedeniyle bu formda alınmaz veya gösterilmez. Bağlantı durumu sağlayıcı sağlık testinden doğrulanır.</div>
-          <label className="grid gap-1 text-sm font-bold text-slate-700 md:col-span-2">Notlar
-            <textarea value={providerForm.notes} onChange={(event) => setProviderForm({ ...providerForm, notes: event.target.value })} rows={3} className="rounded-[12px] border border-slate-200 px-3 py-3" />
+          <label className="grid gap-1 text-sm font-bold text-[var(--admin-text-secondary)] md:col-span-2">Notlar
+            <textarea value={providerForm.notes} onChange={(event) => setProviderForm({ ...providerForm, notes: event.target.value })} rows={3} className="rounded-[12px] border border-[var(--admin-border)] px-3 py-3" />
           </label>
         </div>
         <div className="mt-5 flex flex-wrap justify-end gap-2">

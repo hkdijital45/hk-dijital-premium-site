@@ -155,13 +155,13 @@ export function CustomerProfileNotes({ company, notify, canManage = true }: { co
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Not içinde ara..."
-                className="min-h-9 rounded-[8px] border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 placeholder:text-slate-500"
+                className="min-h-9 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 text-sm text-[var(--admin-text-primary)] placeholder:text-[var(--admin-text-muted)]"
               />
-              <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} className="min-h-9 rounded-[8px] border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900">
+              <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} className="min-h-9 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 text-sm text-[var(--admin-text-primary)]">
                 <option value="Tümü">Tüm kategoriler</option>
                 {noteCategories.map((category) => <option key={category} value={category}>{category}</option>)}
               </select>
-              <label className="flex items-center gap-2 text-xs font-bold text-slate-700">
+              <label className="flex items-center gap-2 text-xs font-bold text-[var(--admin-text-secondary)]">
                 <input type="checkbox" checked={pinnedOnly} onChange={(event) => setPinnedOnly(event.target.checked)} /> Sadece sabitlenenler
               </label>
             </div>
@@ -174,12 +174,12 @@ export function CustomerProfileNotes({ company, notify, canManage = true }: { co
                   onChange={(event) => setDraft(event.target.value)}
                   rows={4}
                   placeholder="Yeni dahili not..."
-                  className="rounded-[8px] border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900"
+                  className="rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 py-2 text-sm text-[var(--admin-text-primary)]"
                 />
-                <select value={draftCategory} onChange={(event) => setDraftCategory(event.target.value)} className="min-h-9 rounded-[8px] border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900">
+                <select value={draftCategory} onChange={(event) => setDraftCategory(event.target.value)} className="min-h-9 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 text-sm text-[var(--admin-text-primary)]">
                   {noteCategories.map((category) => <option key={category} value={category}>{category}</option>)}
                 </select>
-                <label className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                <label className="flex items-center gap-2 text-xs font-bold text-[var(--admin-text-secondary)]">
                   <input type="checkbox" checked={draftPinned} onChange={(event) => setDraftPinned(event.target.checked)} /> Sabitlenmiş olarak ekle
                 </label>
                 <AdminButton compact variant="primary" disabled={busy || !draft.trim()} onClick={addNote}>{busy ? "Ekleniyor..." : "+ Not Ekle"}</AdminButton>
@@ -203,18 +203,18 @@ export function CustomerProfileNotes({ company, notify, canManage = true }: { co
         >
           {selectedNote && (
             <div className="grid gap-2">
-              <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+              <label className="grid gap-1.5 text-xs font-bold text-[var(--admin-text-secondary)]">
                 Kategori
                 <select
                   value={selectedNote.category}
                   disabled={!canManage}
                   onChange={(event) => updateNote(selectedNote.id, { category: event.target.value }, "Kategori güncellendi.")}
-                  className="min-h-9 rounded-[8px] border border-slate-200 bg-white px-3 text-sm text-slate-900"
+                  className="min-h-9 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm text-[var(--admin-text-primary)]"
                 >
                   {noteCategories.map((category) => <option key={category} value={category}>{category}</option>)}
                 </select>
               </label>
-              <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+              <label className="grid gap-1.5 text-xs font-bold text-[var(--admin-text-secondary)]">
                 İçerik
                 <NoteContentEditor key={selectedNote.id} note={selectedNote} canManage={canManage} busy={busy} onSave={(value) => updateNote(selectedNote.id, { content: value }, "Not güncellendi.")} />
               </label>
@@ -229,7 +229,7 @@ export function CustomerProfileNotes({ company, notify, canManage = true }: { co
         </AdminActionBar>
       }
     >
-      {loading && <p className="rounded-[8px] border border-dashed border-slate-200 p-4 text-xs text-slate-500">Notlar yükleniyor...</p>}
+      {loading && <p className="rounded-[8px] border border-dashed border-[var(--admin-border)] p-4 text-xs text-[var(--admin-text-muted)]">Notlar yükleniyor...</p>}
       {!loading && loadError && <p className="rounded-[8px] border border-red-200 bg-red-50 p-4 text-xs font-bold text-red-700">{loadError}</p>}
       {!loading && !loadError && (
         <div className="grid gap-2">
@@ -238,7 +238,7 @@ export function CustomerProfileNotes({ company, notify, canManage = true }: { co
               key={note.id}
               type="button"
               onClick={() => setSelectedNoteId(note.id)}
-              className={`rounded-[10px] border p-2.5 text-left ${selectedNoteId === note.id ? "border-cyan-300 bg-cyan-50" : "border-slate-200 bg-white"}`}
+              className={`rounded-[10px] border p-2.5 text-left ${selectedNoteId === note.id ? "border-cyan-300 bg-cyan-50" : "border-[var(--admin-border)] bg-[var(--admin-surface)]"}`}
             >
               <div className="mb-1 flex flex-wrap items-center gap-1.5">
                 {note.is_pinned && <AdminStatusBadge tone="warning">Sabitlenmiş</AdminStatusBadge>}
@@ -250,9 +250,9 @@ export function CustomerProfileNotes({ company, notify, canManage = true }: { co
           ))}
           {!filteredNotes.length && <AdminEmptyState title="Not bulunamadı" description="Filtrelere uygun dahili not yok, ya da henüz hiç not eklenmemiş." />}
           {company.notes && (
-            <div className="mt-2 rounded-[10px] border border-dashed border-slate-300 bg-slate-50 p-3">
-              <p className="mb-1 text-[10px] font-black uppercase tracking-[.1em] text-slate-500">Eski not (taşınmış, salt okunur)</p>
-              <p className="whitespace-pre-wrap text-sm text-slate-600">{company.notes}</p>
+            <div className="mt-2 rounded-[10px] border border-dashed border-slate-300 bg-[var(--admin-surface-soft)] p-3">
+              <p className="mb-1 text-[10px] font-black uppercase tracking-[.1em] text-[var(--admin-text-muted)]">Eski not (taşınmış, salt okunur)</p>
+              <p className="whitespace-pre-wrap text-sm text-[var(--admin-text-secondary)]">{company.notes}</p>
             </div>
           )}
         </div>
@@ -271,7 +271,7 @@ function NoteContentEditor({ note, canManage, busy, onSave }: { note: CustomerNo
         disabled={!canManage}
         onChange={(event) => setValue(event.target.value)}
         rows={8}
-        className="rounded-[8px] border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
+        className="rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-2 text-sm text-[var(--admin-text-primary)]"
       />
       {canManage && (
         <AdminButton compact variant="primary" disabled={busy || !dirty || !value.trim()} onClick={() => onSave(value.trim())}>

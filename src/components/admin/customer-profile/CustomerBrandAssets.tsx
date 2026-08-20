@@ -109,14 +109,14 @@ function updateBrandingInContent(setContent: CustomerBrandAssetsProps["setConten
 
 function Field({ label, value, onChange, type = "text", placeholder }: { label: string; value: string; onChange: (value: string) => void; type?: string; placeholder?: string }) {
   return (
-    <label className="grid gap-1 text-sm font-bold text-slate-700">
+    <label className="grid gap-1 text-sm font-bold text-[var(--admin-text-secondary)]">
       {label}
       <input
         type={type}
         value={value || ""}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
-        className="rounded-[12px] border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-950 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100"
+        className="rounded-[12px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-2 text-sm font-semibold text-[var(--admin-text-primary)] outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100"
       />
     </label>
   );
@@ -206,20 +206,20 @@ function AssetUploadCard({ assetType, branding, companyId, onUploaded, notify, c
         setDragging(false);
         upload(event.dataTransfer.files?.[0] || null);
       }}
-      className={`rounded-[18px] border bg-white p-4 transition ${dragging ? "border-cyan-400 ring-4 ring-cyan-100" : "border-slate-200"} ${compact ? "" : "shadow-[0_8px_30px_rgba(15,23,42,.05)]"}`}
+      className={`rounded-[18px] border bg-[var(--admin-surface)] p-4 transition ${dragging ? "border-cyan-400 ring-4 ring-cyan-100" : "border-[var(--admin-border)]"} ${compact ? "" : "shadow-[0_8px_30px_rgba(15,23,42,.05)]"}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-black text-slate-950">{assetLabels[assetType]}</p>
-          <p className="mt-1 text-xs text-slate-500">PNG, JPG, JPEG ve WEBP desteklenir. En fazla 5 MB.</p>
+          <p className="text-sm font-black text-[var(--admin-text-primary)]">{assetLabels[assetType]}</p>
+          <p className="mt-1 text-xs text-[var(--admin-text-muted)]">PNG, JPG, JPEG ve WEBP desteklenir. En fazla 5 MB.</p>
         </div>
         <UploadCloud className="h-5 w-5 text-cyan-600" />
       </div>
-      <div className="mt-4 flex min-h-28 items-center justify-center overflow-hidden rounded-[14px] border border-dashed border-slate-200 bg-slate-50 p-3">
+      <div className="mt-4 flex min-h-28 items-center justify-center overflow-hidden rounded-[14px] border border-dashed border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-3">
         {url ? (
-          isImage ? <img src={url} alt={assetLabels[assetType]} className="max-h-24 max-w-full object-contain" /> : <div className="flex items-center gap-2 text-sm font-bold text-slate-600"><FileText className="h-5 w-5" /> Dosya yüklendi</div>
+          isImage ? <img src={url} alt={assetLabels[assetType]} className="max-h-24 max-w-full object-contain" /> : <div className="flex items-center gap-2 text-sm font-bold text-[var(--admin-text-secondary)]"><FileText className="h-5 w-5" /> Dosya yüklendi</div>
         ) : (
-          <div className="text-center text-sm font-semibold text-slate-500">
+          <div className="text-center text-sm font-semibold text-[var(--admin-text-muted)]">
             <ImagePlus className="mx-auto mb-2 h-7 w-7 text-slate-400" />
             {assetType === "logo" ? "Henüz logo yüklenmedi" : "Henüz dosya yüklenmedi"}
           </div>
@@ -237,11 +237,11 @@ function AssetUploadCard({ assetType, branding, companyId, onUploaded, notify, c
         </button>
         {url && <button type="button" disabled={uploading} onClick={remove} className="rounded-[12px] border border-red-200 bg-red-50 px-3 py-2 text-xs font-black text-red-700 disabled:opacity-50"><Trash2 className="mr-1 inline h-3 w-3" /> Kaldır</button>}
       </div>
-      {selectedFileName && <p className="mt-3 truncate text-xs font-semibold text-slate-600">Seçilen dosya: {selectedFileName}</p>}
+      {selectedFileName && <p className="mt-3 truncate text-xs font-semibold text-[var(--admin-text-secondary)]">Seçilen dosya: {selectedFileName}</p>}
       {url && (
-        <details className="mt-3 text-xs text-slate-500">
-          <summary className="cursor-pointer font-bold text-slate-600">Teknik bilgi</summary>
-          <p className="mt-2 break-all rounded-[10px] bg-slate-50 p-2">{url}</p>
+        <details className="mt-3 text-xs text-[var(--admin-text-muted)]">
+          <summary className="cursor-pointer font-bold text-[var(--admin-text-secondary)]">Teknik bilgi</summary>
+          <p className="mt-2 break-all rounded-[10px] bg-[var(--admin-surface-soft)] p-2">{url}</p>
         </details>
       )}
     </div>
@@ -305,12 +305,12 @@ export function CustomerBrandAssets({ company, content, setContent, notify, mode
 
   if (mode === "compact") {
     return (
-      <div className="grid gap-4 rounded-[18px] border border-slate-200 bg-white p-4 shadow-[0_8px_30px_rgba(15,23,42,.04)] lg:grid-cols-[1fr_1.1fr]">
+      <div className="grid gap-4 rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 shadow-[0_8px_30px_rgba(15,23,42,.04)] lg:grid-cols-[1fr_1.1fr]">
         <AssetUploadCard assetType="logo" branding={draft} companyId={company.id} onUploaded={handleBrandingUpdate} notify={notify} compact />
         <div className="grid gap-4">
           <div className="rounded-[16px] border border-cyan-100 bg-cyan-50 p-4">
-            <p className="text-sm font-black text-slate-950">Müşteri Logosu ve Marka Renkleri</p>
-            <p className="mt-1 text-xs leading-5 text-slate-600">Logo burada yüklendiğinde Marka Varlıkları sekmesi, müşteri paneli ve rapor görünümü aynı kaydı kullanır.</p>
+            <p className="text-sm font-black text-[var(--admin-text-primary)]">Müşteri Logosu ve Marka Renkleri</p>
+            <p className="mt-1 text-xs leading-5 text-[var(--admin-text-secondary)]">Logo burada yüklendiğinde Marka Varlıkları sekmesi, müşteri paneli ve rapor görünümü aynı kaydı kullanır.</p>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
             <Field label="Ana renk" type="color" value={draft.primary_color} onChange={(primary_color) => updateDraft({ primary_color })} />
@@ -319,7 +319,7 @@ export function CustomerBrandAssets({ company, content, setContent, notify, mode
           </div>
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={saveBranding} disabled={saving} className="rounded-[12px] bg-blue-600 px-4 py-2 text-xs font-black text-white disabled:opacity-50">{saving ? "Kaydediliyor..." : "Marka ayarlarını kaydet"}</button>
-            <button type="button" onClick={() => setTab?.("Marka Varlıkları")} className="rounded-[12px] border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700">Marka Varlıkları sekmesine git</button>
+            <button type="button" onClick={() => setTab?.("Marka Varlıkları")} className="rounded-[12px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-4 py-2 text-xs font-black text-[var(--admin-text-secondary)]">Marka Varlıkları sekmesine git</button>
           </div>
         </div>
       </div>
@@ -330,19 +330,19 @@ export function CustomerBrandAssets({ company, content, setContent, notify, mode
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
       <div className="grid gap-5">
         <section className="rounded-[18px] border border-cyan-200 bg-cyan-50 p-5">
-          <h3 className="text-lg font-black text-slate-950">Marka Varlıkları</h3>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Logo seti, marka renkleri, font bilgileri, sosyal medya görselleri ve raporlarda kullanılacak kurumsal dokümanları bu müşteriye özel yönetin.</p>
+          <h3 className="text-lg font-black text-[var(--admin-text-primary)]">Marka Varlıkları</h3>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--admin-text-secondary)]">Logo seti, marka renkleri, font bilgileri, sosyal medya görselleri ve raporlarda kullanılacak kurumsal dokümanları bu müşteriye özel yönetin.</p>
         </section>
 
         <section className="grid gap-4">
-          <h4 className="text-base font-black text-slate-950">Logo Seti</h4>
+          <h4 className="text-base font-black text-[var(--admin-text-primary)]">Logo Seti</h4>
           <div className="grid gap-4 lg:grid-cols-2">
             {(["logo", "logo_light", "logo_dark", "favicon"] as CustomerAssetType[]).map((type) => <AssetUploadCard key={type} assetType={type} branding={draft} companyId={company.id} onUploaded={handleBrandingUpdate} notify={notify} />)}
           </div>
         </section>
 
-        <section className="rounded-[18px] border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.05)]">
-          <div className="mb-4 flex items-center gap-2"><Palette className="h-5 w-5 text-cyan-600" /><h4 className="text-base font-black text-slate-950">Marka Renkleri ve Fontlar</h4></div>
+        <section className="rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5 shadow-[0_8px_30px_rgba(15,23,42,.05)]">
+          <div className="mb-4 flex items-center gap-2"><Palette className="h-5 w-5 text-cyan-600" /><h4 className="text-base font-black text-[var(--admin-text-primary)]">Marka Renkleri ve Fontlar</h4></div>
           <div className="grid gap-4 md:grid-cols-3">
             <Field label="Ana renk" type="color" value={draft.primary_color} onChange={(primary_color) => updateDraft({ primary_color })} />
             <Field label="İkincil renk" type="color" value={draft.secondary_color} onChange={(secondary_color) => updateDraft({ secondary_color })} />
@@ -352,35 +352,35 @@ export function CustomerBrandAssets({ company, content, setContent, notify, mode
             <Field label="Rapor başlığı" value={draft.report_title} onChange={(report_title) => updateDraft({ report_title })} />
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            {[draft.primary_color, draft.secondary_color, draft.brand_accent_color].map((color, index) => <div key={`${color}-${index}`} className="rounded-[14px] border border-slate-200 bg-slate-50 p-3"><div className="h-12 rounded-[10px]" style={{ backgroundColor: color }} /><p className="mt-2 text-xs font-black text-slate-700">{color}</p></div>)}
+            {[draft.primary_color, draft.secondary_color, draft.brand_accent_color].map((color, index) => <div key={`${color}-${index}`} className="rounded-[14px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-3"><div className="h-12 rounded-[10px]" style={{ backgroundColor: color }} /><p className="mt-2 text-xs font-black text-[var(--admin-text-secondary)]">{color}</p></div>)}
           </div>
         </section>
 
         <section className="grid gap-4">
-          <h4 className="text-base font-black text-slate-950">Sosyal Medya Varlıkları</h4>
+          <h4 className="text-base font-black text-[var(--admin-text-primary)]">Sosyal Medya Varlıkları</h4>
           <div className="grid gap-4 lg:grid-cols-2">
             {(["social_profile", "social_cover", "instagram_profile", "facebook_cover", "linkedin_cover"] as CustomerAssetType[]).map((type) => <AssetUploadCard key={type} assetType={type} branding={draft} companyId={company.id} onUploaded={handleBrandingUpdate} notify={notify} />)}
           </div>
         </section>
 
         <section className="grid gap-4">
-          <h4 className="text-base font-black text-slate-950">Kurumsal Dokümanlar</h4>
+          <h4 className="text-base font-black text-[var(--admin-text-primary)]">Kurumsal Dokümanlar</h4>
           <div className="grid gap-4 lg:grid-cols-2">
             {(["letterhead", "business_card", "brochure", "proposal_document", "brand_document"] as CustomerAssetType[]).map((type) => <AssetUploadCard key={type} assetType={type} branding={draft} companyId={company.id} onUploaded={handleBrandingUpdate} notify={notify} />)}
           </div>
         </section>
 
-        <section className="grid gap-4 rounded-[18px] border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.05)]">
-          <h4 className="text-base font-black text-slate-950">E-posta İmzası ve Marka Notları</h4>
-          <label className="grid gap-1 text-sm font-bold text-slate-700">E-posta imzası HTML / metin
-            <textarea value={draft.email_signature_html} onChange={(event) => updateDraft({ email_signature_html: event.target.value })} rows={5} className="rounded-[12px] border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-950 outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100" />
+        <section className="grid gap-4 rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5 shadow-[0_8px_30px_rgba(15,23,42,.05)]">
+          <h4 className="text-base font-black text-[var(--admin-text-primary)]">E-posta İmzası ve Marka Notları</h4>
+          <label className="grid gap-1 text-sm font-bold text-[var(--admin-text-secondary)]">E-posta imzası HTML / metin
+            <textarea value={draft.email_signature_html} onChange={(event) => updateDraft({ email_signature_html: event.target.value })} rows={5} className="rounded-[12px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-2 text-sm font-semibold text-[var(--admin-text-primary)] outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100" />
           </label>
-          <div className="rounded-[14px] border border-slate-200 bg-slate-50 p-4">
+          <div className="rounded-[14px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4">
             <div className="mb-2 flex items-center justify-between gap-2">
-              <p className="text-sm font-black text-slate-950">İmza önizleme</p>
-              <button type="button" onClick={() => navigator.clipboard?.writeText(draft.email_signature_html || "")} className="rounded-[10px] border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-700"><Copy className="mr-1 inline h-3 w-3" /> Kopyala</button>
+              <p className="text-sm font-black text-[var(--admin-text-primary)]">İmza önizleme</p>
+              <button type="button" onClick={() => navigator.clipboard?.writeText(draft.email_signature_html || "")} className="rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-black text-[var(--admin-text-secondary)]"><Copy className="mr-1 inline h-3 w-3" /> Kopyala</button>
             </div>
-            <div className="min-h-16 rounded-[12px] bg-white p-3 text-sm text-slate-700" dangerouslySetInnerHTML={{ __html: draft.email_signature_html ? sanitizeSignaturePreviewHtml(draft.email_signature_html) : "Henüz e-posta imzası girilmedi." }} />
+            <div className="min-h-16 rounded-[12px] bg-[var(--admin-surface)] p-3 text-sm text-[var(--admin-text-secondary)]" dangerouslySetInnerHTML={{ __html: draft.email_signature_html ? sanitizeSignaturePreviewHtml(draft.email_signature_html) : "Henüz e-posta imzası girilmedi." }} />
           </div>
           <div className="grid gap-3 md:grid-cols-2">
             <Field label="Ses tonu" value={draft.brand_assets?.voice_tone || ""} onChange={(voice_tone) => updateBrandAssets({ voice_tone })} placeholder="Örn. güven veren, sade, profesyonel" />
@@ -388,8 +388,8 @@ export function CustomerBrandAssets({ company, content, setContent, notify, mode
             <Field label="Yasaklı kelimeler" value={draft.brand_assets?.forbidden_words || ""} onChange={(forbidden_words) => updateBrandAssets({ forbidden_words })} />
             <Field label="Kampanya dili" value={draft.brand_assets?.campaign_language || ""} onChange={(campaign_language) => updateBrandAssets({ campaign_language })} />
           </div>
-          <label className="grid gap-1 text-sm font-bold text-slate-700">Özel müşteri notları
-            <textarea value={draft.brand_notes} onChange={(event) => updateDraft({ brand_notes: event.target.value })} rows={4} className="rounded-[12px] border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-950 outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100" />
+          <label className="grid gap-1 text-sm font-bold text-[var(--admin-text-secondary)]">Özel müşteri notları
+            <textarea value={draft.brand_notes} onChange={(event) => updateDraft({ brand_notes: event.target.value })} rows={4} className="rounded-[12px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-2 text-sm font-semibold text-[var(--admin-text-primary)] outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100" />
           </label>
         </section>
 
@@ -398,24 +398,24 @@ export function CustomerBrandAssets({ company, content, setContent, notify, mode
         </div>
       </div>
 
-      <aside className="h-fit rounded-[22px] border border-slate-200 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,.06)] xl:sticky xl:top-4">
-        <p className="text-sm font-black text-slate-950">Canlı Marka Önizleme</p>
-        <p className="mt-1 text-xs leading-5 text-slate-500">Müşteri paneli, rapor ve tekliflerde kullanılacak temel görünüm.</p>
-        <div className="mt-4 rounded-[18px] border border-slate-200 p-4" style={{ borderTop: `5px solid ${draft.primary_color}` }}>
+      <aside className="h-fit rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5 shadow-[0_10px_30px_rgba(15,23,42,.06)] xl:sticky xl:top-4">
+        <p className="text-sm font-black text-[var(--admin-text-primary)]">Canlı Marka Önizleme</p>
+        <p className="mt-1 text-xs leading-5 text-[var(--admin-text-muted)]">Müşteri paneli, rapor ve tekliflerde kullanılacak temel görünüm.</p>
+        <div className="mt-4 rounded-[18px] border border-[var(--admin-border)] p-4" style={{ borderTop: `5px solid ${draft.primary_color}` }}>
           <div className="flex items-center gap-3">
             {previewLogo ? <img src={previewLogo} alt={`${draft.brand_name} logosu`} className="h-12 max-w-[150px] rounded-[8px] object-contain" /> : <div className="grid h-12 w-12 place-items-center rounded-[14px] text-sm font-black text-white" style={{ backgroundColor: draft.primary_color }}>{initials}</div>}
             <div>
-              <h4 className="font-black text-slate-950" style={{ fontFamily: draft.brand_font_heading }}>{draft.brand_name || company.name}</h4>
-              <p className="text-xs text-slate-500">{draft.report_title}</p>
+              <h4 className="font-black text-[var(--admin-text-primary)]" style={{ fontFamily: draft.brand_font_heading }}>{draft.brand_name || company.name}</h4>
+              <p className="text-xs text-[var(--admin-text-muted)]">{draft.report_title}</p>
             </div>
           </div>
-          <p className="mt-4 text-sm leading-6 text-slate-600" style={{ fontFamily: draft.brand_font_body }}>{draft.welcome_text}</p>
+          <p className="mt-4 text-sm leading-6 text-[var(--admin-text-secondary)]" style={{ fontFamily: draft.brand_font_body }}>{draft.welcome_text}</p>
           <button type="button" className="mt-4 rounded-[12px] px-4 py-2 text-xs font-black text-white" style={{ backgroundColor: draft.brand_accent_color }}>Örnek aksiyon</button>
         </div>
-        <div className="mt-4 rounded-[18px] bg-slate-50 p-4">
-          <p className="text-xs font-black uppercase tracking-[.18em] text-slate-500">Örnek sosyal kart</p>
-          <h5 className="mt-2 font-black text-slate-950">Kampanya duyurusu</h5>
-          <p className="mt-2 text-sm text-slate-600">Marka renkleri ve notları kreatif üretim, rapor ve müşteri özeti alanlarında referans alınır.</p>
+        <div className="mt-4 rounded-[18px] bg-[var(--admin-surface-soft)] p-4">
+          <p className="text-xs font-black uppercase tracking-[.18em] text-[var(--admin-text-muted)]">Örnek sosyal kart</p>
+          <h5 className="mt-2 font-black text-[var(--admin-text-primary)]">Kampanya duyurusu</h5>
+          <p className="mt-2 text-sm text-[var(--admin-text-secondary)]">Marka renkleri ve notları kreatif üretim, rapor ve müşteri özeti alanlarında referans alınır.</p>
           <div className="mt-3 h-2 rounded-full" style={{ background: `linear-gradient(90deg, ${draft.primary_color}, ${draft.secondary_color}, ${draft.brand_accent_color})` }} />
         </div>
       </aside>

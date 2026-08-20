@@ -409,8 +409,8 @@ export function HKAutonomousAgencyCenter({ content, setActive, notify, compact =
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs font-black uppercase tracking-[.18em] text-cyan-700">HK Intelligence CEO</p>
-            <h1 className="mt-2 text-3xl font-black text-slate-950">HK CEO Masası</h1>
-            <p className="mt-3 max-w-4xl text-sm leading-7 text-slate-700">{ceoSummary}</p>
+            <h1 className="mt-2 text-3xl font-black text-[var(--admin-text-primary)]">HK CEO Masası</h1>
+            <p className="mt-3 max-w-4xl text-sm leading-7 text-[var(--admin-text-secondary)]">{ceoSummary}</p>
           </div>
           <button onClick={() => setActive("HK Agent Hub")} className="inline-flex items-center gap-2 rounded-[14px] bg-cyan-500 px-5 py-3 text-sm font-black text-white shadow-sm transition hover:-translate-y-0.5">
             <Sparkles size={17} /> Agent Hub’a Git
@@ -427,9 +427,9 @@ export function HKAutonomousAgencyCenter({ content, setActive, notify, compact =
             ["Çalışan AI ajanları", agents.filter((item) => item.status === "Çalışıyor").length, "HK Agent Hub"],
             ["Hata veren AI ajanları", agents.filter((item) => item.status === "Hatalı").length, "HK Agent Hub"]
           ].map(([label, value, target]) => (
-            <button key={label} onClick={() => setActive(target)} className="rounded-[18px] border border-white bg-white/80 p-4 text-left shadow-sm ring-1 ring-cyan-100 transition hover:-translate-y-0.5">
-              <p className="text-xs font-bold text-slate-500">{label}</p>
-              <p className="mt-2 text-2xl font-black text-slate-950">{value}</p>
+            <button key={label} onClick={() => setActive(target)} className="rounded-[18px] border border-white bg-[var(--admin-surface)]/80 p-4 text-left shadow-sm ring-1 ring-cyan-100 transition hover:-translate-y-0.5">
+              <p className="text-xs font-bold text-[var(--admin-text-muted)]">{label}</p>
+              <p className="mt-2 text-2xl font-black text-[var(--admin-text-primary)]">{value}</p>
             </button>
           ))}
         </div>
@@ -441,52 +441,52 @@ export function HKAutonomousAgencyCenter({ content, setActive, notify, compact =
             {todayAdvice.length ? (
               <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                 {todayAdvice.map((item: any, index) => (
-                  <button key={`${item.title}-${index}`} onClick={() => item.company ? openCustomerProfile(item.company) : go(item.target || "Görevler")} className="rounded-[14px] border border-slate-200 bg-slate-50 p-3 text-left transition hover:border-cyan-200 hover:bg-cyan-50">
+                  <button key={`${item.title}-${index}`} onClick={() => item.company ? openCustomerProfile(item.company) : go(item.target || "Görevler")} className="rounded-[14px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-3 text-left transition hover:border-cyan-200 hover:bg-cyan-50">
                     <p className="text-[11px] font-black uppercase tracking-[.12em] text-cyan-700">Öncelik {index + 1}</p>
-                    <p className="mt-1 font-black text-slate-950">{item.title}</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-500">{item.note}</p>
+                    <p className="mt-1 font-black text-[var(--admin-text-primary)]">{item.title}</p>
+                    <p className="mt-1 text-xs leading-5 text-[var(--admin-text-muted)]">{item.note}</p>
                   </button>
                 ))}
               </div>
             ) : (
-              <div className="rounded-[16px] border border-dashed border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
+              <div className="rounded-[16px] border border-dashed border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4 text-sm leading-6 text-[var(--admin-text-secondary)]">
                 Bugün için kritik kayıt bulunamadı. Yeni müşteri ekleyebilir, paket uygulayabilir veya entegrasyon kontrolü yapabilirsin.
               </div>
             )}
           </PanelCard>
 
-          <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{kpis.map(([label, value, note, Icon]: any) => <div key={label} className="rounded-[18px] border border-slate-200 bg-white p-4 shadow-sm"><span className="grid size-10 place-items-center rounded-[13px] bg-cyan-50 text-cyan-700"><Icon size={18} /></span><p className="mt-3 text-xs font-bold text-slate-500">{label}</p><p className="mt-1 text-2xl font-black text-slate-950">{value}</p><p className="mt-1 text-xs text-slate-500">{note}</p></div>)}</section>
+          <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{kpis.map(([label, value, note, Icon]: any) => <div key={label} className="rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 shadow-sm"><span className="grid size-10 place-items-center rounded-[13px] bg-cyan-50 text-cyan-700"><Icon size={18} /></span><p className="mt-3 text-xs font-bold text-[var(--admin-text-muted)]">{label}</p><p className="mt-1 text-2xl font-black text-[var(--admin-text-primary)]">{value}</p><p className="mt-1 text-xs text-[var(--admin-text-muted)]">{note}</p></div>)}</section>
 
           <section className="grid gap-5 xl:grid-cols-[1.1fr_.9fr]">
             <PanelCard title="HK Dijital Ekibi" subtitle="Sanal ajans ekibi ve görev dağılımı" icon={<Bot size={20} />}>
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{agents.map(({ Icon, ...agent }: any) => <button key={agent.name} onClick={() => openDetail(agent.name, `${agent.task} Ajan durumu, kullandığı AI, başarı oranı, maliyet ve performans geçmişi buradan yönetilir.`, [{ label: "Agent Çalıştır", target: "HK Agent Hub" }, { label: "Görev Oluştur", target: "Görevler" }, { label: "Performans Geçmişi", target: "HK Agent Hub" }], agent)} className="rounded-[16px] border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-cyan-200 hover:bg-cyan-50"><div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-[13px] bg-white text-cyan-700"><Icon size={18} /></span><div className="min-w-0"><p className="font-black text-slate-950">{agent.name}</p><p className="mt-1 text-xs leading-5 text-slate-500">{agent.task}</p></div></div><div className="mt-3 grid gap-2 text-xs text-slate-600"><span>Durum: <strong>{agent.status}</strong></span><span>Başarı: <strong>%{agent.success}</strong></span><span>AI: <strong>{agent.ai}</strong></span><span>Maliyet: <strong>{agent.cost}</strong></span></div><span className="mt-3 inline-flex text-xs font-black text-cyan-700">Detay aç</span></button>)}</div>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{agents.map(({ Icon, ...agent }: any) => <button key={agent.name} onClick={() => openDetail(agent.name, `${agent.task} Ajan durumu, kullandığı AI, başarı oranı, maliyet ve performans geçmişi buradan yönetilir.`, [{ label: "Agent Çalıştır", target: "HK Agent Hub" }, { label: "Görev Oluştur", target: "Görevler" }, { label: "Performans Geçmişi", target: "HK Agent Hub" }], agent)} className="rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4 text-left transition hover:border-cyan-200 hover:bg-cyan-50"><div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-[13px] bg-[var(--admin-surface)] text-cyan-700"><Icon size={18} /></span><div className="min-w-0"><p className="font-black text-[var(--admin-text-primary)]">{agent.name}</p><p className="mt-1 text-xs leading-5 text-[var(--admin-text-muted)]">{agent.task}</p></div></div><div className="mt-3 grid gap-2 text-xs text-[var(--admin-text-secondary)]"><span>Durum: <strong>{agent.status}</strong></span><span>Başarı: <strong>%{agent.success}</strong></span><span>AI: <strong>{agent.ai}</strong></span><span>Maliyet: <strong>{agent.cost}</strong></span></div><span className="mt-3 inline-flex text-xs font-black text-cyan-700">Detay aç</span></button>)}</div>
             </PanelCard>
             <PanelCard title="AI Operasyon Takvimi" subtitle="Haftalık ajans ritmi" icon={<CalendarDays size={20} />}>
-              <div className="grid gap-3">{calendar.map(([day, plan]) => <button key={day} onClick={() => openDetail(`${day} operasyonu`, plan, [{ label: "Bugün Çalıştır", target: "HK Agent Hub" }, { label: "Göreve Dönüştür", target: "Görevler" }, { label: "Agent Hub’da Planla", target: "HK Agent Hub" }])} className="rounded-[14px] border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-cyan-200 hover:bg-cyan-50"><p className="font-black text-slate-950">{day}</p><p className="mt-1 text-sm leading-6 text-slate-600">{plan}</p><span className="mt-2 inline-flex text-xs font-black text-cyan-700">Düzenle / çalıştır</span></button>)}</div>
+              <div className="grid gap-3">{calendar.map(([day, plan]) => <button key={day} onClick={() => openDetail(`${day} operasyonu`, plan, [{ label: "Bugün Çalıştır", target: "HK Agent Hub" }, { label: "Göreve Dönüştür", target: "Görevler" }, { label: "Agent Hub’da Planla", target: "HK Agent Hub" }])} className="rounded-[14px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4 text-left transition hover:border-cyan-200 hover:bg-cyan-50"><p className="font-black text-[var(--admin-text-primary)]">{day}</p><p className="mt-1 text-sm leading-6 text-[var(--admin-text-secondary)]">{plan}</p><span className="mt-2 inline-flex text-xs font-black text-cyan-700">Düzenle / çalıştır</span></button>)}</div>
             </PanelCard>
           </section>
 
           <section className="grid gap-5 xl:grid-cols-3">
             <PanelCard title="Risk Merkezi" subtitle="Teknik, reklam, ödeme ve analytics riskleri" icon={<ShieldAlert size={20} />}>
-              <div className="grid gap-2">{data.risks.slice(0, 10).map((risk: any) => <button key={`${risk.module}-${risk.title}`} onClick={() => openDetail(risk.title, `${risk.module}: ${risk.detail}`, [{ label: "Görev oluştur", target: "Görevler" }, { label: "Müşteri profilini aç", target: "Müşteriler" }, { label: "Rapor oluştur", target: "Müşteri Raporları" }, { label: "Agent ile analiz et", target: "HK Agent Hub" }], risk)} className="rounded-[14px] border border-slate-200 bg-slate-50 p-3 text-left transition hover:border-cyan-200 hover:bg-cyan-50"><div className="flex items-start justify-between gap-2"><p className="text-sm font-black text-slate-900">{risk.title}</p><span className={`rounded-full px-2 py-1 text-[10px] font-black ring-1 ${toneForSeverity(risk.severity)}`}>{risk.severity}</span></div><p className="mt-1 text-xs leading-5 text-slate-500">{risk.module} · {risk.detail}</p><span className="mt-2 inline-flex text-xs font-black text-cyan-700">Aksiyona dönüştür</span></button>)}{!data.risks.length && <Empty text="Kritik risk sinyali yok." />}</div>
+              <div className="grid gap-2">{data.risks.slice(0, 10).map((risk: any) => <button key={`${risk.module}-${risk.title}`} onClick={() => openDetail(risk.title, `${risk.module}: ${risk.detail}`, [{ label: "Görev oluştur", target: "Görevler" }, { label: "Müşteri profilini aç", target: "Müşteriler" }, { label: "Rapor oluştur", target: "Müşteri Raporları" }, { label: "Agent ile analiz et", target: "HK Agent Hub" }], risk)} className="rounded-[14px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-3 text-left transition hover:border-cyan-200 hover:bg-cyan-50"><div className="flex items-start justify-between gap-2"><p className="text-sm font-black text-[var(--admin-text-primary)]">{risk.title}</p><span className={`rounded-full px-2 py-1 text-[10px] font-black ring-1 ${toneForSeverity(risk.severity)}`}>{risk.severity}</span></div><p className="mt-1 text-xs leading-5 text-[var(--admin-text-muted)]">{risk.module} · {risk.detail}</p><span className="mt-2 inline-flex text-xs font-black text-cyan-700">Aksiyona dönüştür</span></button>)}{!data.risks.length && <Empty text="Kritik risk sinyali yok." />}</div>
             </PanelCard>
             <PanelCard title="Rakip Alarm Merkezi" subtitle="Rakip reklam, fiyat ve web değişim sinyalleri" icon={<Megaphone size={20} />}>
               {["Rakip yeni kampanya açtı mı kontrol et", "Rakip fiyat değişimi için haftalık tarama", "Google yorum artışı ve sosyal büyüme sinyali", "Rakip web sitesi ve landing page değişimi"].map((item) => <ActionRow key={item} title={item} note="Derin araştırma için Manus / Gemini zinciri önerilir." onClick={() => openDetail(item, "Rakip alarmı için watchlist kaydı, agent araştırması ve takip görevi hazırlanır.", [{ label: "Agent çalıştır", target: "HK Agent Hub" }, { label: "Görev oluştur", target: "Görevler" }, { label: "Rakip Analizi aç", target: "Rakip Analizi" }])} />)}
             </PanelCard>
             <PanelCard title="AI Öneri Motoru" subtitle="Beklenen etki, süre, maliyet ve başarı olasılığı" icon={<BrainCircuit size={20} />}>
-              {recs.map((item) => <button key={item.title} onClick={() => openDetail(item.title, `Etki: ${item.impact}. Zorluk: ${item.difficulty}. Süre: ${item.duration}. Maliyet: ${item.cost}. Başarı olasılığı: %${item.probability}.`, [{ label: "Görev oluştur", target: "Görevler" }, { label: "Müşteriye not olarak kaydet", target: "Müşteriler" }, { label: "AI Hafızasına kaydet", target: "HK Agent Hub" }, { label: "Uygula / planla", target: "Takvim" }, ...(data.riskyCustomers[0]?.company ? [{ label: "Müşteriyi Görüntüle", payload: { companyId: data.riskyCustomers[0].company.id } }] : [])], item)} className="rounded-[14px] border border-slate-200 bg-slate-50 p-3 text-left transition hover:border-cyan-200 hover:bg-cyan-50"><p className="font-black text-slate-950">{item.title}</p><p className="mt-1 text-xs text-slate-500">Etki: {item.impact} · Zorluk: {item.difficulty} · Süre: {item.duration} · Maliyet: {item.cost} · Başarı: %{item.probability}</p><p className="mt-2 text-xs font-black text-cyan-700">{item.action}</p></button>)}
+              {recs.map((item) => <button key={item.title} onClick={() => openDetail(item.title, `Etki: ${item.impact}. Zorluk: ${item.difficulty}. Süre: ${item.duration}. Maliyet: ${item.cost}. Başarı olasılığı: %${item.probability}.`, [{ label: "Görev oluştur", target: "Görevler" }, { label: "Müşteriye not olarak kaydet", target: "Müşteriler" }, { label: "AI Hafızasına kaydet", target: "HK Agent Hub" }, { label: "Uygula / planla", target: "Takvim" }, ...(data.riskyCustomers[0]?.company ? [{ label: "Müşteriyi Görüntüle", payload: { companyId: data.riskyCustomers[0].company.id } }] : [])], item)} className="rounded-[14px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-3 text-left transition hover:border-cyan-200 hover:bg-cyan-50"><p className="font-black text-[var(--admin-text-primary)]">{item.title}</p><p className="mt-1 text-xs text-[var(--admin-text-muted)]">Etki: {item.impact} · Zorluk: {item.difficulty} · Süre: {item.duration} · Maliyet: {item.cost} · Başarı: %{item.probability}</p><p className="mt-2 text-xs font-black text-cyan-700">{item.action}</p></button>)}
             </PanelCard>
           </section>
 
           <section className="grid gap-5 xl:grid-cols-3">
             <PanelCard title="AI Yardımcı Sohbet" subtitle="Tüm sistem için doğal dil komut ekranı" icon={<MessageSquareText size={20} />}>
-              <textarea value={copilotQuestion} onChange={(event) => setCopilotQuestion(event.target.value)} className="min-h-24 w-full rounded-[14px] border border-slate-200 bg-slate-50 p-3 text-sm text-slate-900" />
+              <textarea value={copilotQuestion} onChange={(event) => setCopilotQuestion(event.target.value)} className="min-h-24 w-full rounded-[14px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-3 text-sm text-[var(--admin-text-primary)]" />
               <button onClick={askCopilot} className="mt-3 rounded-[12px] bg-cyan-500 px-4 py-3 text-sm font-black text-white">HK Intelligence ile Yanıtla</button>
               {copilotAnswer && <div className="mt-3 rounded-[14px] bg-cyan-50 p-3"><p className="whitespace-pre-line text-sm leading-6 text-cyan-950">{copilotAnswer}</p><div className="mt-3 flex flex-wrap gap-2"><SmallButton onClick={() => go("Müşteriler")}>Müşterilere git</SmallButton><SmallButton onClick={() => go("Görevler")}>Görev oluştur</SmallButton><SmallButton onClick={() => go("HK Agent Hub")}>Agent Hub’da analiz et</SmallButton><SmallButton onClick={() => go("Müşteri Raporları")}>Rapor oluştur</SmallButton></div></div>}
             </PanelCard>
             <PanelCard title="Akıllı Komut Merkezi" subtitle="Cmd/Ctrl+K komut mantığı" icon={<Command size={20} />}>
-              <input value={commandQuery} onChange={(event) => setCommandQuery(event.target.value)} placeholder="Komut ara: müşteri aç, rapor oluştur..." className="w-full rounded-[14px] border border-slate-200 bg-slate-50 px-3 py-3 text-sm" />
-              <div className="mt-3 grid gap-2">{filteredCommands.map((item) => <button key={item} onClick={() => go(commandToTarget(item), `${item} komutu açıldı.`)} className="flex items-center justify-between rounded-[12px] bg-slate-50 px-3 py-2 text-left text-sm font-bold text-slate-700 transition hover:bg-cyan-50 hover:text-cyan-700"><span>{item}</span><ArrowRight size={14} /></button>)}</div>
+              <input value={commandQuery} onChange={(event) => setCommandQuery(event.target.value)} placeholder="Komut ara: müşteri aç, rapor oluştur..." className="w-full rounded-[14px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 py-3 text-sm" />
+              <div className="mt-3 grid gap-2">{filteredCommands.map((item) => <button key={item} onClick={() => go(commandToTarget(item), `${item} komutu açıldı.`)} className="flex items-center justify-between rounded-[12px] bg-[var(--admin-surface-soft)] px-3 py-2 text-left text-sm font-bold text-[var(--admin-text-secondary)] transition hover:bg-cyan-50 hover:text-cyan-700"><span>{item}</span><ArrowRight size={14} /></button>)}</div>
             </PanelCard>
             <PanelCard title="Genel Arama" subtitle="Müşteri, görev, belge, rapor ve hafıza araması" icon={<Search size={20} />}>
               {[["Müşteriler", data.companies.length], ["Görevler", data.tasks.length], ["Raporlar", data.reports.length], ["Tahsilatlar", data.payments.length], ["Kampanyalar", data.campaigns.length], ["AI Hafızası", (content.agentMemories || []).length]].map(([label, count]) => <ActionRow key={label} title={`${label}: ${count}`} note="Kategori bazlı arama indeksine dahil." onClick={() => String(label).includes("Müşteri") && data.companies[0] ? openCustomerProfile(data.companies[0]) : go(searchTarget(String(label)))} />)}
@@ -505,14 +505,14 @@ export function HKAutonomousAgencyCenter({ content, setActive, notify, compact =
               <button onClick={() => setMarketplaceOpen(true)} className="mb-4 inline-flex items-center gap-2 rounded-[12px] bg-cyan-500 px-4 py-2.5 text-sm font-black text-white"><Plus size={16} /> AI Destekli Yeni Paket Üret</button>
               <div className="grid gap-4">
                 <section>
-                  <h3 className="mb-2 text-sm font-black text-slate-950">Hazır Paketler</h3>
-                  <div className="grid gap-2 sm:grid-cols-2">{marketplaceSectors.map((item) => <div key={item} className="rounded-[12px] border border-slate-200 bg-slate-50 p-3"><div className="flex items-start justify-between gap-2"><p className="font-black text-slate-900">{item}</p><span className="rounded-full bg-amber-50 px-2 py-1 text-[10px] font-black text-amber-700 ring-1 ring-amber-200">Hazırlık</span></div><p className="mt-1 text-xs text-slate-500">Komut metni, iş akışı, AI ekibi, KPI ve rapor şablonu.</p><div className="mt-3 flex flex-wrap gap-1.5"><TinyButton onClick={() => generateMarketplacePackage(item)}>Paketi Aç</TinyButton><TinyButton onClick={() => openApplyWizard(item)}>Müşteriye Uygula</TinyButton></div></div>)}</div>
+                  <h3 className="mb-2 text-sm font-black text-[var(--admin-text-primary)]">Hazır Paketler</h3>
+                  <div className="grid gap-2 sm:grid-cols-2">{marketplaceSectors.map((item) => <div key={item} className="rounded-[12px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-3"><div className="flex items-start justify-between gap-2"><p className="font-black text-[var(--admin-text-primary)]">{item}</p><span className="rounded-full bg-amber-50 px-2 py-1 text-[10px] font-black text-amber-700 ring-1 ring-amber-200">Hazırlık</span></div><p className="mt-1 text-xs text-[var(--admin-text-muted)]">Komut metni, iş akışı, AI ekibi, KPI ve rapor şablonu.</p><div className="mt-3 flex flex-wrap gap-1.5"><TinyButton onClick={() => generateMarketplacePackage(item)}>Paketi Aç</TinyButton><TinyButton onClick={() => openApplyWizard(item)}>Müşteriye Uygula</TinyButton></div></div>)}</div>
                 </section>
                 <section>
-                  <h3 className="mb-2 text-sm font-black text-slate-950">Benim Paketlerim</h3>
+                  <h3 className="mb-2 text-sm font-black text-[var(--admin-text-primary)]">Benim Paketlerim</h3>
                   <div className="grid gap-2 sm:grid-cols-2">
-                    {myPackages.slice(0, 6).map((pkg: any) => <div key={pkg.id} className="rounded-[12px] border border-cyan-200 bg-cyan-50 p-3"><div className="flex items-start justify-between gap-2"><p className="font-black text-slate-900">{pkg.package_name}</p><span className="rounded-full bg-white px-2 py-1 text-[10px] font-black text-cyan-700 ring-1 ring-cyan-200">{pkg.status || "taslak"}</span></div><p className="mt-1 text-xs text-slate-600">{pkg.sector} · {pkg.main_goal || "hedef yok"} · v{pkg.version_number || 1}</p><div className="mt-3 flex flex-wrap gap-1.5"><TinyButton onClick={() => { setMarketplaceDraft(pkg); setMarketplaceOpen(true); }}>Paketi Aç</TinyButton><TinyButton onClick={() => openApplyWizard(pkg.sector, pkg)}>Müşteriye Uygula</TinyButton><TinyButton onClick={() => copyText(JSON.stringify(pkg, null, 2))}>Kopyala</TinyButton></div></div>)}
-                    {!myPackages.length && <p className="rounded-[12px] border border-dashed border-cyan-200 bg-white p-3 text-sm text-cyan-800">Henüz kaydedilmiş kullanıcı paketi yok. AI Destekli Yeni Paket Üret ile ilk paketi oluşturabilirsin.</p>}
+                    {myPackages.slice(0, 6).map((pkg: any) => <div key={pkg.id} className="rounded-[12px] border border-cyan-200 bg-cyan-50 p-3"><div className="flex items-start justify-between gap-2"><p className="font-black text-[var(--admin-text-primary)]">{pkg.package_name}</p><span className="rounded-full bg-[var(--admin-surface)] px-2 py-1 text-[10px] font-black text-cyan-700 ring-1 ring-cyan-200">{pkg.status || "taslak"}</span></div><p className="mt-1 text-xs text-[var(--admin-text-secondary)]">{pkg.sector} · {pkg.main_goal || "hedef yok"} · v{pkg.version_number || 1}</p><div className="mt-3 flex flex-wrap gap-1.5"><TinyButton onClick={() => { setMarketplaceDraft(pkg); setMarketplaceOpen(true); }}>Paketi Aç</TinyButton><TinyButton onClick={() => openApplyWizard(pkg.sector, pkg)}>Müşteriye Uygula</TinyButton><TinyButton onClick={() => copyText(JSON.stringify(pkg, null, 2))}>Kopyala</TinyButton></div></div>)}
+                    {!myPackages.length && <p className="rounded-[12px] border border-dashed border-cyan-200 bg-[var(--admin-surface)] p-3 text-sm text-cyan-800">Henüz kaydedilmiş kullanıcı paketi yok. AI Destekli Yeni Paket Üret ile ilk paketi oluşturabilirsin.</p>}
                   </div>
                 </section>
               </div>
@@ -527,7 +527,7 @@ export function HKAutonomousAgencyCenter({ content, setActive, notify, compact =
           </section>
 
           <PanelCard title="Müşteri Zaman Çizelgesi" subtitle="Müşteri tarihçesi ve operasyon olayları" icon={<ClipboardList size={20} />}>
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">{data.healthRows.slice(0, 8).map(({ company, health }: any) => <button key={company.id} onClick={() => openCustomerProfile(company)} className="rounded-[16px] border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-cyan-200 hover:bg-cyan-50"><p className="font-black text-slate-950">{company.name}</p><p className="mt-1 text-xs text-slate-500">Oluşturuldu → İlk görüşme → Teklif → Sözleşme → Pixel/GA4 → Kampanya → Rapor → Tahsilat</p><span className={`mt-3 inline-flex rounded-full px-3 py-1 text-[11px] font-black ring-1 ${toneForSeverity(health.status === "Kritik" ? "Kritik" : health.status === "Riskli" ? "Orta" : "Bilgi")}`}>{health.score}/100</span></button>)}</div>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">{data.healthRows.slice(0, 8).map(({ company, health }: any) => <button key={company.id} onClick={() => openCustomerProfile(company)} className="rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4 text-left transition hover:border-cyan-200 hover:bg-cyan-50"><p className="font-black text-[var(--admin-text-primary)]">{company.name}</p><p className="mt-1 text-xs text-[var(--admin-text-muted)]">Oluşturuldu → İlk görüşme → Teklif → Sözleşme → Pixel/GA4 → Kampanya → Rapor → Tahsilat</p><span className={`mt-3 inline-flex rounded-full px-3 py-1 text-[11px] font-black ring-1 ${toneForSeverity(health.status === "Kritik" ? "Kritik" : health.status === "Riskli" ? "Orta" : "Bilgi")}`}>{health.score}/100</span></button>)}</div>
           </PanelCard>
         </>
       )}
@@ -661,10 +661,10 @@ function buildMarketplaceFallback(input: any) {
 
 function PanelCard({ title, subtitle, icon, children }: { title: string; subtitle: string; icon: ReactNode; children: ReactNode }) {
   return (
-    <section className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm">
+    <section className="rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5 shadow-sm">
       <div className="mb-4 flex items-center gap-3">
         <span className="grid size-11 place-items-center rounded-[16px] bg-cyan-50 text-cyan-700">{icon}</span>
-        <div><h2 className="text-lg font-black text-slate-950">{title}</h2><p className="text-sm text-slate-500">{subtitle}</p></div>
+        <div><h2 className="text-lg font-black text-[var(--admin-text-primary)]">{title}</h2><p className="text-sm text-[var(--admin-text-muted)]">{subtitle}</p></div>
       </div>
       {children}
     </section>
@@ -672,15 +672,15 @@ function PanelCard({ title, subtitle, icon, children }: { title: string; subtitl
 }
 
 function ActionRow({ title, note, onClick }: { title: string; note: string; onClick: () => void }) {
-  return <button onClick={onClick} className="rounded-[14px] border border-slate-200 bg-slate-50 p-3 text-left transition hover:border-cyan-200 hover:bg-cyan-50"><p className="text-sm font-black text-slate-900">{title}</p><p className="mt-1 text-xs leading-5 text-slate-500">{note}</p><span className="mt-2 inline-flex text-xs font-black text-cyan-700">Detay / aksiyon</span></button>;
+  return <button onClick={onClick} className="rounded-[14px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-3 text-left transition hover:border-cyan-200 hover:bg-cyan-50"><p className="text-sm font-black text-[var(--admin-text-primary)]">{title}</p><p className="mt-1 text-xs leading-5 text-[var(--admin-text-muted)]">{note}</p><span className="mt-2 inline-flex text-xs font-black text-cyan-700">Detay / aksiyon</span></button>;
 }
 
 function Empty({ text }: { text: string }) {
-  return <p className="rounded-[14px] border border-dashed border-slate-200 p-4 text-sm text-slate-500">{text}</p>;
+  return <p className="rounded-[14px] border border-dashed border-[var(--admin-border)] p-4 text-sm text-[var(--admin-text-muted)]">{text}</p>;
 }
 
 function MiniModule({ title, icon, items, onClick }: { title: string; icon: ReactNode; items: string[]; onClick: () => void }) {
-  return <button onClick={onClick} className="rounded-[22px] border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:border-cyan-200 hover:bg-cyan-50"><div className="mb-3 flex items-center gap-3"><span className="grid size-10 place-items-center rounded-[14px] bg-cyan-50 text-cyan-700">{icon}</span><h2 className="font-black text-slate-950">{title}</h2></div><div className="flex flex-wrap gap-2">{items.map((item) => <span key={item} className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">{item}</span>)}</div><span className="mt-3 inline-flex text-xs font-black text-cyan-700">Çıktı üret / aç</span></button>;
+  return <button onClick={onClick} className="rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5 text-left shadow-sm transition hover:border-cyan-200 hover:bg-cyan-50"><div className="mb-3 flex items-center gap-3"><span className="grid size-10 place-items-center rounded-[14px] bg-cyan-50 text-cyan-700">{icon}</span><h2 className="font-black text-[var(--admin-text-primary)]">{title}</h2></div><div className="flex flex-wrap gap-2">{items.map((item) => <span key={item} className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-[var(--admin-text-secondary)]">{item}</span>)}</div><span className="mt-3 inline-flex text-xs font-black text-cyan-700">Çıktı üret / aç</span></button>;
 }
 
 function BuildingIcon() {
@@ -688,26 +688,26 @@ function BuildingIcon() {
 }
 
 function SmallButton({ children, onClick }: { children: ReactNode; onClick: () => void }) {
-  return <button onClick={onClick} className="rounded-[10px] border border-cyan-200 bg-white px-3 py-2 text-xs font-black text-cyan-700 transition hover:bg-cyan-100">{children}</button>;
+  return <button onClick={onClick} className="rounded-[10px] border border-cyan-200 bg-[var(--admin-surface)] px-3 py-2 text-xs font-black text-cyan-700 transition hover:bg-cyan-100">{children}</button>;
 }
 
 function TinyButton({ children, onClick }: { children: ReactNode; onClick: () => void }) {
-  return <button onClick={onClick} className="rounded-full border border-cyan-200 bg-white px-2.5 py-1 text-[10px] font-black text-cyan-700 transition hover:bg-cyan-100">{children}</button>;
+  return <button onClick={onClick} className="rounded-full border border-cyan-200 bg-[var(--admin-surface)] px-2.5 py-1 text-[10px] font-black text-cyan-700 transition hover:bg-cyan-100">{children}</button>;
 }
 
 function ActionModal({ detail, onClose, onGo, onCopy, onOpenCustomerById }: { detail: any; onClose: () => void; onGo: (target: string, message?: string) => void; onCopy: (text: string) => void; onOpenCustomerById?: (companyId: string) => void }) {
   const payload = JSON.stringify(detail.payload || { title: detail.title, description: detail.description }, null, 2);
   return (
     <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/45 p-4">
-      <section className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-[24px] bg-white p-5 shadow-2xl">
+      <section className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-[24px] bg-[var(--admin-surface)] p-5 shadow-2xl">
         <div className="flex items-start justify-between gap-3">
-          <div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">HK CEO Aksiyon</p><h2 className="mt-1 text-2xl font-black text-slate-950">{detail.title}</h2></div>
-          <button onClick={onClose} className="rounded-full border border-slate-200 p-2 text-slate-500"><X size={18} /></button>
+          <div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">HK CEO Aksiyon</p><h2 className="mt-1 text-2xl font-black text-[var(--admin-text-primary)]">{detail.title}</h2></div>
+          <button onClick={onClose} className="rounded-full border border-[var(--admin-border)] p-2 text-[var(--admin-text-muted)]"><X size={18} /></button>
         </div>
-        <p className="mt-4 whitespace-pre-line text-sm leading-7 text-slate-700">{detail.description}</p>
-        <div className="mt-4 rounded-[16px] bg-slate-50 p-3">
-          <p className="text-xs font-black text-slate-500">Hazırlık verisi</p>
-          <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap text-xs leading-5 text-slate-700">{payload}</pre>
+        <p className="mt-4 whitespace-pre-line text-sm leading-7 text-[var(--admin-text-secondary)]">{detail.description}</p>
+        <div className="mt-4 rounded-[16px] bg-[var(--admin-surface-soft)] p-3">
+          <p className="text-xs font-black text-[var(--admin-text-muted)]">Hazırlık verisi</p>
+          <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap text-xs leading-5 text-[var(--admin-text-secondary)]">{payload}</pre>
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           {(detail.actions || []).map((action: any) => <button key={action.label} onClick={() => {
@@ -718,8 +718,8 @@ function ActionModal({ detail, onClose, onGo, onCopy, onOpenCustomerById }: { de
             if (action.target) onGo(action.target, `${action.label} açıldı.`);
             else onCopy(JSON.stringify(action.payload || detail.payload || detail, null, 2));
           }} className="rounded-[12px] bg-cyan-500 px-4 py-2.5 text-sm font-black text-white">{action.label}</button>)}
-          <button onClick={() => onCopy(payload)} className="inline-flex items-center gap-2 rounded-[12px] border border-slate-200 px-4 py-2.5 text-sm font-black text-slate-700"><Copy size={15} /> Kopyala</button>
-          <button onClick={onClose} className="rounded-[12px] border border-slate-200 px-4 py-2.5 text-sm font-black text-slate-500">Kapat</button>
+          <button onClick={() => onCopy(payload)} className="inline-flex items-center gap-2 rounded-[12px] border border-[var(--admin-border)] px-4 py-2.5 text-sm font-black text-[var(--admin-text-secondary)]"><Copy size={15} /> Kopyala</button>
+          <button onClick={onClose} className="rounded-[12px] border border-[var(--admin-border)] px-4 py-2.5 text-sm font-black text-[var(--admin-text-muted)]">Kapat</button>
         </div>
       </section>
     </div>
@@ -755,14 +755,14 @@ function MarketplaceModal({ form, setForm, draft, loading, mode, setMode, onClos
   const activeLines = (draftSections.find(([title]) => title === activeSection)?.[1] || []) as string[];
   return (
     <div className="fixed inset-0 z-[90] grid place-items-center bg-slate-950/45 p-4">
-      <section className="max-h-[92vh] w-full max-w-4xl overflow-auto rounded-[24px] bg-white p-5 shadow-2xl">
+      <section className="max-h-[92vh] w-full max-w-4xl overflow-auto rounded-[24px] bg-[var(--admin-surface)] p-5 shadow-2xl">
         <div className="flex items-start justify-between gap-3">
-          <div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Paket Pazarı</p><h2 className="mt-1 text-2xl font-black text-slate-950">AI Destekli Yeni Paket Üret</h2><p className="mt-1 text-sm text-slate-500">Sektör bilgisinden uygulanabilir komut metni, iş akışı, KPI, rapor ve teklif paketi üret.</p></div>
-          <button onClick={onClose} className="rounded-full border border-slate-200 p-2 text-slate-500"><X size={18} /></button>
+          <div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Paket Pazarı</p><h2 className="mt-1 text-2xl font-black text-[var(--admin-text-primary)]">AI Destekli Yeni Paket Üret</h2><p className="mt-1 text-sm text-[var(--admin-text-muted)]">Sektör bilgisinden uygulanabilir komut metni, iş akışı, KPI, rapor ve teklif paketi üret.</p></div>
+          <button onClick={onClose} className="rounded-full border border-[var(--admin-border)] p-2 text-[var(--admin-text-muted)]"><X size={18} /></button>
         </div>
         <div className="mt-5 grid gap-2 rounded-[18px] border border-cyan-200 bg-cyan-50 p-3 sm:grid-cols-2">
-          <button onClick={() => setMode("ai")} className={`rounded-[14px] px-4 py-3 text-left text-sm font-black transition ${mode === "ai" ? "bg-cyan-500 text-white" : "bg-white text-cyan-800"}`}>AI ile Otomatik Doldur<p className="mt-1 text-xs font-medium opacity-80">Sadece temel bilgileri gir, sistem strateji, plan, KPI ve içerikleri üretir.</p></button>
-          <button onClick={() => setMode("manual")} className={`rounded-[14px] px-4 py-3 text-left text-sm font-black transition ${mode === "manual" ? "bg-cyan-500 text-white" : "bg-white text-cyan-800"}`}>Manuel Doldur<p className="mt-1 text-xs font-medium opacity-80">Tüm alanları kendin doldurup önizleme ve kayıt al.</p></button>
+          <button onClick={() => setMode("ai")} className={`rounded-[14px] px-4 py-3 text-left text-sm font-black transition ${mode === "ai" ? "bg-cyan-500 text-white" : "bg-[var(--admin-surface)] text-cyan-800"}`}>AI ile Otomatik Doldur<p className="mt-1 text-xs font-medium opacity-80">Sadece temel bilgileri gir, sistem strateji, plan, KPI ve içerikleri üretir.</p></button>
+          <button onClick={() => setMode("manual")} className={`rounded-[14px] px-4 py-3 text-left text-sm font-black transition ${mode === "manual" ? "bg-cyan-500 text-white" : "bg-[var(--admin-surface)] text-cyan-800"}`}>Manuel Doldur<p className="mt-1 text-xs font-medium opacity-80">Tüm alanları kendin doldurup önizleme ve kayıt al.</p></button>
         </div>
         <div className="mt-5 grid gap-3 md:grid-cols-3">
           {[
@@ -783,34 +783,34 @@ function MarketplaceModal({ form, setForm, draft, loading, mode, setMode, onClos
             ["packageDuration", "Süre"],
             ["notes", "Ek notlar"],
             ["outputType", "Çıktı tipi"]
-          ].map(([key, label]) => <label key={key} className="grid gap-1 text-sm font-bold text-slate-700">{label}<input value={form[key]} onChange={(event) => setForm({ ...form, [key]: event.target.value })} className="rounded-[12px] border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-900" /></label>)}
+          ].map(([key, label]) => <label key={key} className="grid gap-1 text-sm font-bold text-[var(--admin-text-secondary)]">{label}<input value={form[key]} onChange={(event) => setForm({ ...form, [key]: event.target.value })} className="rounded-[12px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 py-2.5 text-sm font-medium text-[var(--admin-text-primary)]" /></label>)}
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           <button disabled={loading} onClick={onGenerate} className="inline-flex items-center gap-2 rounded-[12px] bg-cyan-500 px-4 py-2.5 text-sm font-black text-white disabled:opacity-60"><Sparkles size={16} /> {loading ? "Üretiliyor..." : mode === "ai" ? "AI ile Doldur" : "AI ile Paketi Üret"}</button>
-          <button onClick={onPreview} className="inline-flex items-center gap-2 rounded-[12px] border border-cyan-200 bg-white px-4 py-2.5 text-sm font-black text-cyan-700">Paketi Önizle</button>
+          <button onClick={onPreview} className="inline-flex items-center gap-2 rounded-[12px] border border-cyan-200 bg-[var(--admin-surface)] px-4 py-2.5 text-sm font-black text-cyan-700">Paketi Önizle</button>
           {draft && <button onClick={onSave} className="inline-flex items-center gap-2 rounded-[12px] border border-cyan-200 bg-cyan-50 px-4 py-2.5 text-sm font-black text-cyan-700"><Save size={16} /> Paketi Kaydet</button>}
           {draft && <button onClick={() => onApply(draft)} className="inline-flex items-center gap-2 rounded-[12px] bg-emerald-500 px-4 py-2.5 text-sm font-black text-white">Müşteriye Uygula</button>}
-          {draft && <button onClick={() => onCopy(draftText)} className="inline-flex items-center gap-2 rounded-[12px] border border-slate-200 px-4 py-2.5 text-sm font-black text-slate-700"><Copy size={16} /> Çıktıyı Kopyala</button>}
-          {draft && <button onClick={onGenerate} className="inline-flex items-center gap-2 rounded-[12px] border border-slate-200 px-4 py-2.5 text-sm font-black text-slate-700">Yeni Versiyon Üret</button>}
+          {draft && <button onClick={() => onCopy(draftText)} className="inline-flex items-center gap-2 rounded-[12px] border border-[var(--admin-border)] px-4 py-2.5 text-sm font-black text-[var(--admin-text-secondary)]"><Copy size={16} /> Çıktıyı Kopyala</button>}
+          {draft && <button onClick={onGenerate} className="inline-flex items-center gap-2 rounded-[12px] border border-[var(--admin-border)] px-4 py-2.5 text-sm font-black text-[var(--admin-text-secondary)]">Yeni Versiyon Üret</button>}
         </div>
         {draft && (
           <div className="mt-5 grid gap-3">
             <div className="rounded-[16px] border border-cyan-200 bg-cyan-50 p-4">
-              <h3 className="font-black text-slate-950">{draft.package_name || draft.packageName}</h3>
+              <h3 className="font-black text-[var(--admin-text-primary)]">{draft.package_name || draft.packageName}</h3>
               <p className="mt-1 text-sm leading-6 text-cyan-950">{draft.customer_summary || draft.customerSummary || "Paket özeti hazırlandı."}</p>
             </div>
             <div className="flex gap-2 overflow-x-auto pb-2">
-              {draftSections.map(([title]) => <button key={title} onClick={() => setActiveSection(String(title))} className={`shrink-0 rounded-full px-3 py-2 text-xs font-black ${activeSection === title ? "bg-cyan-500 text-white" : "bg-slate-100 text-slate-600"}`}>{title}</button>)}
+              {draftSections.map(([title]) => <button key={title} onClick={() => setActiveSection(String(title))} className={`shrink-0 rounded-full px-3 py-2 text-xs font-black ${activeSection === title ? "bg-cyan-500 text-white" : "bg-slate-100 text-[var(--admin-text-secondary)]"}`}>{title}</button>)}
             </div>
-            <section className="rounded-[16px] border border-slate-200 bg-slate-50 p-4">
+            <section className="rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h4 className="font-black text-slate-950">{activeSection}</h4>
+                <h4 className="font-black text-[var(--admin-text-primary)]">{activeSection}</h4>
                 <div className="flex gap-2">
                   <TinyButton onClick={() => onCopy((activeLines.length ? activeLines : ["Bu alan için veri üretilmedi."]).join("\n"))}>Kopyala</TinyButton>
                   <TinyButton onClick={onSave}>Kaydet</TinyButton>
                 </div>
               </div>
-              <div className="mt-3 grid gap-2 text-sm leading-6 text-slate-600">
+              <div className="mt-3 grid gap-2 text-sm leading-6 text-[var(--admin-text-secondary)]">
                 {(Array.isArray(activeLines) && activeLines.length ? activeLines : ["Bu alan için veri üretilmedi."]).map((line: string, index: number) => <span key={`${activeSection}-${index}`}>{line}</span>)}
               </div>
             </section>
@@ -854,7 +854,7 @@ function ResultBadge({ status }: { status: string }) {
   const tone = status === "Oluşturuldu" || status === "Hazırlandı"
     ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
     : status === "Atlandı"
-      ? "bg-slate-50 text-slate-600 ring-slate-200"
+      ? "bg-[var(--admin-surface-soft)] text-[var(--admin-text-secondary)] ring-slate-200"
       : status === "Hazırlık modu"
         ? "bg-amber-50 text-amber-700 ring-amber-200"
         : "bg-red-50 text-red-700 ring-red-200";
@@ -882,14 +882,14 @@ function ApplySuccessPanel({ result, selectedCompany, selectedBranch, packageDat
         </div>
         <ResultBadge status={result?.mode === "prepared_payload" ? "Hazırlık modu" : "Oluşturuldu"} />
       </div>
-      <div className="mt-4 rounded-[16px] border border-emerald-200 bg-white p-4">
-        <h4 className="font-black text-slate-950">Ne Yapıldı?</h4>
-        <p className="mt-2 text-sm leading-6 text-slate-700">{whatHappened}</p>
+      <div className="mt-4 rounded-[16px] border border-emerald-200 bg-[var(--admin-surface)] p-4">
+        <h4 className="font-black text-[var(--admin-text-primary)]">Ne Yapıldı?</h4>
+        <p className="mt-2 text-sm leading-6 text-[var(--admin-text-secondary)]">{whatHappened}</p>
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
-        <section className="rounded-[16px] border border-emerald-200 bg-white p-4">
-          <h4 className="font-black text-slate-950">Plan Özeti</h4>
-          <div className="mt-3 grid gap-2 text-sm text-slate-600">
+        <section className="rounded-[16px] border border-emerald-200 bg-[var(--admin-surface)] p-4">
+          <h4 className="font-black text-[var(--admin-text-primary)]">Plan Özeti</h4>
+          <div className="mt-3 grid gap-2 text-sm text-[var(--admin-text-secondary)]">
             <span><b>Paket adı:</b> {packageName}</span>
             <span><b>Uygulanan müşteri:</b> {customerName}</span>
             <span><b>Şube:</b> {selectedBranch?.branch_name || postPlan.branchName || "Tüm şubeler"}</span>
@@ -902,61 +902,61 @@ function ApplySuccessPanel({ result, selectedCompany, selectedBranch, packageDat
             <span><b>AI sağlayıcı:</b> {postPlan.aiProvider || packageData.mode || "Demo / Yerel yedek akış"}</span>
           </div>
         </section>
-        <section className="rounded-[16px] border border-emerald-200 bg-white p-4">
-          <h4 className="font-black text-slate-950">Sonraki Adımlar</h4>
+        <section className="rounded-[16px] border border-emerald-200 bg-[var(--admin-surface)] p-4">
+          <h4 className="font-black text-[var(--admin-text-primary)]">Sonraki Adımlar</h4>
           <div className="mt-3 flex flex-wrap gap-2">
             <button onClick={() => selectedCompany && onOpenCustomer(selectedCompany)} className="rounded-[12px] bg-cyan-500 px-4 py-2.5 text-sm font-black text-white">Müşteri Profilini Aç</button>
-            <button onClick={() => onGo("Görevler", "Görevler açıldı.")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-2.5 text-sm font-black text-cyan-700">Görevleri Gör</button>
-            <button onClick={() => onGo("HK Agent Hub", "AI Hafızası açıldı.")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-2.5 text-sm font-black text-cyan-700">AI Hafızasında Aç</button>
-            <button onClick={() => onGo("HK Agent Hub", "İş akışları açıldı.")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-2.5 text-sm font-black text-cyan-700">İş Akışını Aç</button>
-            <button onClick={() => onGo("Müşteri Raporları", "İlk rapor alanı açıldı.")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-2.5 text-sm font-black text-cyan-700">İlk Raporu Oluştur</button>
-            <button onClick={() => onGo("Teklif Oluştur", "Teklif taslağı açıldı.")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-2.5 text-sm font-black text-cyan-700">Teklif Taslağını Aç</button>
-            <button onClick={() => onGo("HK Agent Hub", "Agent Hub analizi açıldı.")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-2.5 text-sm font-black text-cyan-700">Agent Hub’da Analiz Et</button>
-            <button onClick={() => onGo("Web Site Analitiği", "Website Analytics açıldı.")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-2.5 text-sm font-black text-cyan-700">Website Analytics’te Kontrol Et</button>
-            <button onClick={() => onGo("Google İstihbarat", "Google İstihbarat açıldı.")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-2.5 text-sm font-black text-cyan-700">Google İstihbarat Aç</button>
-            <button onClick={() => onGo("Meta İstihbarat", "Meta İstihbarat açıldı.")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-2.5 text-sm font-black text-cyan-700">Meta İstihbarat Aç</button>
+            <button onClick={() => onGo("Görevler", "Görevler açıldı.")} className="rounded-[12px] border border-cyan-200 bg-[var(--admin-surface)] px-4 py-2.5 text-sm font-black text-cyan-700">Görevleri Gör</button>
+            <button onClick={() => onGo("HK Agent Hub", "AI Hafızası açıldı.")} className="rounded-[12px] border border-cyan-200 bg-[var(--admin-surface)] px-4 py-2.5 text-sm font-black text-cyan-700">AI Hafızasında Aç</button>
+            <button onClick={() => onGo("HK Agent Hub", "İş akışları açıldı.")} className="rounded-[12px] border border-cyan-200 bg-[var(--admin-surface)] px-4 py-2.5 text-sm font-black text-cyan-700">İş Akışını Aç</button>
+            <button onClick={() => onGo("Müşteri Raporları", "İlk rapor alanı açıldı.")} className="rounded-[12px] border border-cyan-200 bg-[var(--admin-surface)] px-4 py-2.5 text-sm font-black text-cyan-700">İlk Raporu Oluştur</button>
+            <button onClick={() => onGo("Teklif Oluştur", "Teklif taslağı açıldı.")} className="rounded-[12px] border border-cyan-200 bg-[var(--admin-surface)] px-4 py-2.5 text-sm font-black text-cyan-700">Teklif Taslağını Aç</button>
+            <button onClick={() => onGo("HK Agent Hub", "Agent Hub analizi açıldı.")} className="rounded-[12px] border border-cyan-200 bg-[var(--admin-surface)] px-4 py-2.5 text-sm font-black text-cyan-700">Agent Hub’da Analiz Et</button>
+            <button onClick={() => onGo("Web Site Analitiği", "Website Analytics açıldı.")} className="rounded-[12px] border border-cyan-200 bg-[var(--admin-surface)] px-4 py-2.5 text-sm font-black text-cyan-700">Website Analytics’te Kontrol Et</button>
+            <button onClick={() => onGo("Google İstihbarat", "Google İstihbarat açıldı.")} className="rounded-[12px] border border-cyan-200 bg-[var(--admin-surface)] px-4 py-2.5 text-sm font-black text-cyan-700">Google İstihbarat Aç</button>
+            <button onClick={() => onGo("Meta İstihbarat", "Meta İstihbarat açıldı.")} className="rounded-[12px] border border-cyan-200 bg-[var(--admin-surface)] px-4 py-2.5 text-sm font-black text-cyan-700">Meta İstihbarat Aç</button>
             <button onClick={() => onApplicationDetail(result?.application || result, selectedCompany, packageData, options)} className="rounded-[12px] border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-black text-emerald-700">Uygulama Kaydını Aç</button>
           </div>
         </section>
       </div>
-      <section className="mt-4 rounded-[16px] border border-emerald-200 bg-white p-4">
-        <h4 className="font-black text-slate-950">Oluşturulan Kayıtlar</h4>
+      <section className="mt-4 rounded-[16px] border border-emerald-200 bg-[var(--admin-surface)] p-4">
+        <h4 className="font-black text-[var(--admin-text-primary)]">Oluşturulan Kayıtlar</h4>
         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((card) => (
-          <div key={card.key} className="rounded-[14px] border border-emerald-200 bg-white p-3">
+          <div key={card.key} className="rounded-[14px] border border-emerald-200 bg-[var(--admin-surface)] p-3">
             <div className="flex items-center justify-between gap-2">
-              <p className="font-black text-slate-950">{card.label}</p>
+              <p className="font-black text-[var(--admin-text-primary)]">{card.label}</p>
               <ResultBadge status={card.status} />
             </div>
-            <p className="mt-1 text-xs text-slate-600">{card.text}</p>
+            <p className="mt-1 text-xs text-[var(--admin-text-secondary)]">{card.text}</p>
             <div className="mt-3 flex gap-2">
               <button onClick={() => onGo(card.key === "tasks" ? "Görevler" : card.key === "memory" ? "HK Agent Hub" : card.key === "proposalDraft" ? "Teklif Oluştur" : "Müşteri Raporları")} className="rounded-[10px] bg-cyan-500 px-3 py-1.5 text-xs font-black text-white">Aç</button>
-              <button onClick={() => onApplicationDetail(result?.application || result, selectedCompany, packageData, options)} className="rounded-[10px] border border-slate-200 px-3 py-1.5 text-xs font-black text-slate-600">Detay</button>
+              <button onClick={() => onApplicationDetail(result?.application || result, selectedCompany, packageData, options)} className="rounded-[10px] border border-[var(--admin-border)] px-3 py-1.5 text-xs font-black text-[var(--admin-text-secondary)]">Detay</button>
             </div>
           </div>
         ))}
         </div>
       </section>
-      <section className="mt-4 rounded-[16px] border border-emerald-200 bg-white p-4">
-        <h4 className="font-black text-slate-950">Yapılacaklar</h4>
+      <section className="mt-4 rounded-[16px] border border-emerald-200 bg-[var(--admin-surface)] p-4">
+        <h4 className="font-black text-[var(--admin-text-primary)]">Yapılacaklar</h4>
         <div className="mt-3 grid gap-2">
-          {(nextActions.length ? nextActions : []).map((action: any, index: number) => <div key={`${action.title}-${index}`} className="rounded-[14px] border border-slate-200 bg-slate-50 p-3"><div className="flex flex-wrap items-center justify-between gap-2"><p className="font-black text-slate-950">{index + 1}. {action.title}</p><ResultBadge status={action.status || "Yapılacak"} /></div><p className="mt-1 text-xs text-slate-500">Öncelik: {action.priority} · Sorumlu AI ajanı: {action.owner} · Tahmini süre: {action.estimatedTime}</p><div className="mt-2 flex gap-2"><button onClick={() => onGo("Görevler")} className="rounded-[10px] bg-cyan-500 px-3 py-1.5 text-xs font-black text-white">Görevlerde Aç</button><button onClick={() => onApplicationDetail(result?.application || result, selectedCompany, packageData, options)} className="rounded-[10px] border border-slate-200 px-3 py-1.5 text-xs font-black text-slate-600">Tamamlandı İşaretle</button></div></div>)}
+          {(nextActions.length ? nextActions : []).map((action: any, index: number) => <div key={`${action.title}-${index}`} className="rounded-[14px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-3"><div className="flex flex-wrap items-center justify-between gap-2"><p className="font-black text-[var(--admin-text-primary)]">{index + 1}. {action.title}</p><ResultBadge status={action.status || "Yapılacak"} /></div><p className="mt-1 text-xs text-[var(--admin-text-muted)]">Öncelik: {action.priority} · Sorumlu AI ajanı: {action.owner} · Tahmini süre: {action.estimatedTime}</p><div className="mt-2 flex gap-2"><button onClick={() => onGo("Görevler")} className="rounded-[10px] bg-cyan-500 px-3 py-1.5 text-xs font-black text-white">Görevlerde Aç</button><button onClick={() => onApplicationDetail(result?.application || result, selectedCompany, packageData, options)} className="rounded-[10px] border border-[var(--admin-border)] px-3 py-1.5 text-xs font-black text-[var(--admin-text-secondary)]">Tamamlandı İşaretle</button></div></div>)}
         </div>
       </section>
-      <section className="mt-4 rounded-[16px] border border-emerald-200 bg-white p-4">
-        <h4 className="font-black text-slate-950">Takip Edilecek Metrikler</h4>
+      <section className="mt-4 rounded-[16px] border border-emerald-200 bg-[var(--admin-surface)] p-4">
+        <h4 className="font-black text-[var(--admin-text-primary)]">Takip Edilecek Metrikler</h4>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          {(trackingMetrics.length ? trackingMetrics : []).map((metric: any, index: number) => <div key={`${metric.name}-${index}`} className="rounded-[14px] border border-slate-200 bg-slate-50 p-3"><p className="font-black text-slate-950">{metric.name}</p><p className="mt-1 text-xs leading-5 text-slate-500">{metric.description}</p><p className="mt-1 text-xs text-slate-500">Hedef: {metric.target} · Kaynak: {metric.source} · Sıklık: {metric.frequency}</p><button onClick={() => onGo("Müşteri Raporları")} className="mt-2 rounded-[10px] bg-cyan-500 px-3 py-1.5 text-xs font-black text-white">Raporlara Bağla</button></div>)}
+          {(trackingMetrics.length ? trackingMetrics : []).map((metric: any, index: number) => <div key={`${metric.name}-${index}`} className="rounded-[14px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-3"><p className="font-black text-[var(--admin-text-primary)]">{metric.name}</p><p className="mt-1 text-xs leading-5 text-[var(--admin-text-muted)]">{metric.description}</p><p className="mt-1 text-xs text-[var(--admin-text-muted)]">Hedef: {metric.target} · Kaynak: {metric.source} · Sıklık: {metric.frequency}</p><button onClick={() => onGo("Müşteri Raporları")} className="mt-2 rounded-[10px] bg-cyan-500 px-3 py-1.5 text-xs font-black text-white">Raporlara Bağla</button></div>)}
         </div>
       </section>
       <div className="mt-4 grid gap-4 md:grid-cols-2">
-        <section className="rounded-[16px] border border-emerald-200 bg-white p-4">
-          <h4 className="font-black text-slate-950">İlk 7 Günlük Plan</h4>
-          <div className="mt-3 grid gap-2 text-sm text-slate-600">{sevenDayPlan.map((item: any, index: number) => <span key={`${item.title}-${index}`}>{item.day ? `Gün ${item.day}: ` : ""}{item.title} · {item.status || "Planlandı"}</span>)}</div>
+        <section className="rounded-[16px] border border-emerald-200 bg-[var(--admin-surface)] p-4">
+          <h4 className="font-black text-[var(--admin-text-primary)]">İlk 7 Günlük Plan</h4>
+          <div className="mt-3 grid gap-2 text-sm text-[var(--admin-text-secondary)]">{sevenDayPlan.map((item: any, index: number) => <span key={`${item.title}-${index}`}>{item.day ? `Gün ${item.day}: ` : ""}{item.title} · {item.status || "Planlandı"}</span>)}</div>
         </section>
-        <section className="rounded-[16px] border border-emerald-200 bg-white p-4">
-          <h4 className="font-black text-slate-950">İlk 30 Günlük Plan</h4>
-          <div className="mt-3 grid gap-2 text-sm text-slate-600">{thirtyDayPlan.map((item: any, index: number) => <span key={`${item.title}-${index}`}>{item.week ? `${item.week}. hafta: ` : ""}{item.focus || item.title} · {item.status || "Planlandı"}</span>)}</div>
+        <section className="rounded-[16px] border border-emerald-200 bg-[var(--admin-surface)] p-4">
+          <h4 className="font-black text-[var(--admin-text-primary)]">İlk 30 Günlük Plan</h4>
+          <div className="mt-3 grid gap-2 text-sm text-[var(--admin-text-secondary)]">{thirtyDayPlan.map((item: any, index: number) => <span key={`${item.title}-${index}`}>{item.week ? `${item.week}. hafta: ` : ""}{item.focus || item.title} · {item.status || "Planlandı"}</span>)}</div>
         </section>
       </div>
     </section>
@@ -973,16 +973,16 @@ function ApplyWizardModal({ packageData, companies, branches, search, setSearch,
   const selectedCount = Object.values(options).filter(Boolean).length;
   return (
     <div className="fixed inset-0 z-[95] grid place-items-center bg-slate-950/50 p-0 sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className="flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-auto sm:max-h-[85vh] sm:max-w-5xl sm:rounded-[26px]">
-        <header className="flex items-start justify-between gap-3 border-b border-slate-200 p-5">
-          <div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Paket Uygulama Sihirbazı</p><h2 className="mt-1 text-2xl font-black text-slate-950">Paketi Müşteriye Uygula</h2><p className="mt-1 text-sm text-slate-500">{packageData.package_name || packageData.packageName} · {packageData.sector}</p></div>
-          <button onClick={onClose} className="rounded-full border border-slate-200 p-2 text-slate-500"><X size={18} /></button>
+      <section className="flex h-[100dvh] w-full flex-col overflow-hidden bg-[var(--admin-surface)] shadow-2xl sm:h-auto sm:max-h-[85vh] sm:max-w-5xl sm:rounded-[26px]">
+        <header className="flex items-start justify-between gap-3 border-b border-[var(--admin-border)] p-5">
+          <div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Paket Uygulama Sihirbazı</p><h2 className="mt-1 text-2xl font-black text-[var(--admin-text-primary)]">Paketi Müşteriye Uygula</h2><p className="mt-1 text-sm text-[var(--admin-text-muted)]">{packageData.package_name || packageData.packageName} · {packageData.sector}</p></div>
+          <button onClick={onClose} className="rounded-full border border-[var(--admin-border)] p-2 text-[var(--admin-text-muted)]"><X size={18} /></button>
         </header>
         <div className="grid flex-1 gap-5 overflow-y-auto p-5 lg:grid-cols-[.95fr_1.05fr]">
           <div className="grid content-start gap-4">
-            <div className="rounded-[18px] border border-slate-200 bg-slate-50 p-4">
-              <h3 className="font-black text-slate-950">1. Paket özeti</h3>
-              <div className="mt-3 grid gap-2 text-sm text-slate-600">
+            <div className="rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4">
+              <h3 className="font-black text-[var(--admin-text-primary)]">1. Paket özeti</h3>
+              <div className="mt-3 grid gap-2 text-sm text-[var(--admin-text-secondary)]">
                 <span><b>Paket:</b> {packageData.package_name || packageData.packageName}</span>
                 <span><b>Sektör:</b> {packageData.sector}</span>
                 <span><b>Ana hedef:</b> {packageData.main_goal || packageData.mainGoal || "lead / randevu"}</span>
@@ -990,8 +990,8 @@ function ApplyWizardModal({ packageData, companies, branches, search, setSearch,
                 <span><b>Varlıklar:</b> AI hafızası, müşteri notu, görev planı, iş akışı, KPI, rapor ve teklif taslağı</span>
               </div>
             </div>
-            <div className="rounded-[18px] border border-slate-200 bg-white p-4">
-              <h3 className="font-black text-slate-950">2. Müşteri seçimi</h3>
+            <div className="rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4">
+              <h3 className="font-black text-[var(--admin-text-primary)]">2. Müşteri seçimi</h3>
               <div className="mt-3 rounded-[14px] border border-cyan-200 bg-cyan-50 p-3">
                 <CustomerBranchFilter
                   companies={companies}
@@ -1003,19 +1003,19 @@ function ApplyWizardModal({ packageData, companies, branches, search, setSearch,
                   compact
                 />
               </div>
-              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Müşteri/firma ara..." className="mt-3 w-full rounded-[12px] border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm" />
+              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Müşteri/firma ara..." className="mt-3 w-full rounded-[12px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 py-2.5 text-sm" />
               <div className="mt-3 grid max-h-72 gap-2 overflow-y-auto pr-1">
                 {companies.map((company: any) => (
-                  <button key={company.id} onClick={() => setSelectedCompanyId(company.id)} className={`rounded-[14px] border p-3 text-left transition ${selectedCompanyId === company.id ? "border-cyan-300 bg-cyan-50" : "border-slate-200 bg-slate-50 hover:border-cyan-200"}`}>
-                    <div className="flex items-start justify-between gap-2"><p className="font-black text-slate-950">{company.name}</p><span className="rounded-full bg-white px-2 py-1 text-[10px] font-black text-slate-500 ring-1 ring-slate-200">{company.status || "Aktif"}</span></div>
-                    <p className="mt-1 text-xs text-slate-500">{company.city || "Şehir yok"} · {company.sector || "Sektör yok"} · Kurulum: {company.setup_progress || company.onboarding_progress || 0}%</p>
+                  <button key={company.id} onClick={() => setSelectedCompanyId(company.id)} className={`rounded-[14px] border p-3 text-left transition ${selectedCompanyId === company.id ? "border-cyan-300 bg-cyan-50" : "border-[var(--admin-border)] bg-[var(--admin-surface-soft)] hover:border-cyan-200"}`}>
+                    <div className="flex items-start justify-between gap-2"><p className="font-black text-[var(--admin-text-primary)]">{company.name}</p><span className="rounded-full bg-[var(--admin-surface)] px-2 py-1 text-[10px] font-black text-[var(--admin-text-muted)] ring-1 ring-slate-200">{company.status || "Aktif"}</span></div>
+                    <p className="mt-1 text-xs text-[var(--admin-text-muted)]">{company.city || "Şehir yok"} · {company.sector || "Sektör yok"} · Kurulum: {company.setup_progress || company.onboarding_progress || 0}%</p>
                   </button>
                 ))}
-                {!companies.length && <p className="rounded-[12px] border border-dashed border-slate-200 p-3 text-sm text-slate-500">Eşleşen aktif müşteri bulunamadı.</p>}
+                {!companies.length && <p className="rounded-[12px] border border-dashed border-[var(--admin-border)] p-3 text-sm text-[var(--admin-text-muted)]">Eşleşen aktif müşteri bulunamadı.</p>}
               </div>
             </div>
-            <div className="rounded-[18px] border border-slate-200 bg-white p-4">
-              <h3 className="font-black text-slate-950">3. Uygulanacaklar</h3>
+            <div className="rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4">
+              <h3 className="font-black text-[var(--admin-text-primary)]">3. Uygulanacaklar</h3>
               <div className="mt-3 grid gap-2">
                 {[
                   ["saveMemory", "AI Hafızasına strateji kaydet"],
@@ -1025,15 +1025,15 @@ function ApplyWizardModal({ packageData, companies, branches, search, setSearch,
                   ["createKpiTemplate", "KPI şablonu hazırla"],
                   ["createReportTemplate", "Rapor şablonu hazırla"],
                   ["createProposalDraft", "Teklif taslağı hazırla"]
-                ].map(([key, label]) => <label key={key} className="flex items-center gap-2 rounded-[12px] bg-slate-50 px-3 py-2 text-sm font-bold text-slate-700"><input type="checkbox" checked={Boolean(options[key])} onChange={(event) => setOptions({ ...options, [key]: event.target.checked })} />{label}</label>)}
+                ].map(([key, label]) => <label key={key} className="flex items-center gap-2 rounded-[12px] bg-[var(--admin-surface-soft)] px-3 py-2 text-sm font-bold text-[var(--admin-text-secondary)]"><input type="checkbox" checked={Boolean(options[key])} onChange={(event) => setOptions({ ...options, [key]: event.target.checked })} />{label}</label>)}
               </div>
             </div>
           </div>
           <div className="grid content-start gap-4">
             <div className="rounded-[18px] border border-cyan-200 bg-cyan-50 p-4">
-              <h3 className="font-black text-slate-950">4. Önizleme</h3>
+              <h3 className="font-black text-[var(--admin-text-primary)]">4. Önizleme</h3>
               <p className="mt-2 text-sm leading-6 text-cyan-950">{selectedCompany ? `${packageData.sector} paketi ${selectedCompany.name} müşterisine ${selectedBranch ? `${selectedBranch.branch_name} şubesi için` : "tüm şubeler kapsamında"} uygulanacak.` : "Uygulamak için müşteri seçin."}</p>
-              <div className="mt-3 grid gap-2 text-sm text-slate-700">
+              <div className="mt-3 grid gap-2 text-sm text-[var(--admin-text-secondary)]">
                 <span>Oluşacak görev sayısı: <b>{options.createTasks ? Math.max(5, tasks.length || 5) : 0}</b></span>
                 <span>Hafıza özeti: <b>{options.saveMemory ? "Strateji + operasyon planı" : "Kapalı"}</b></span>
                 <span>Müşteri notu: <b>{options.createCustomerNote ? "Uygulama özeti" : "Kapalı"}</b></span>
@@ -1042,12 +1042,12 @@ function ApplyWizardModal({ packageData, companies, branches, search, setSearch,
                 <span>Rapor başlıkları: <b>{options.createReportTemplate ? reports.join(", ") || "Yönetici özeti, riskler" : "Kapalı"}</b></span>
               </div>
             </div>
-            <div className="rounded-[18px] border border-slate-200 bg-white p-4">
-              <h3 className="font-black text-slate-950">5. Uygula</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-600">Seçili {selectedCount} varlık için kayıt oluşturulur. Uygun tablo yoksa uygulama kaydına hazırlık verisi olarak eklenir.</p>
+            <div className="rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4">
+              <h3 className="font-black text-[var(--admin-text-primary)]">5. Uygula</h3>
+              <p className="mt-2 text-sm leading-6 text-[var(--admin-text-secondary)]">Seçili {selectedCount} varlık için kayıt oluşturulur. Uygun tablo yoksa uygulama kaydına hazırlık verisi olarak eklenir.</p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <button disabled={!selectedCompanyId} onClick={onApply} className="rounded-[12px] bg-cyan-500 px-4 py-3 text-sm font-black text-white disabled:opacity-50">Paketi Uygula</button>
-                {selectedCompany && <button onClick={() => onOpenCustomer(selectedCompany)} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-3 text-sm font-black text-cyan-700">Müşteriyi Görüntüle</button>}
+                {selectedCompany && <button onClick={() => onOpenCustomer(selectedCompany)} className="rounded-[12px] border border-cyan-200 bg-[var(--admin-surface)] px-4 py-3 text-sm font-black text-cyan-700">Müşteriyi Görüntüle</button>}
               </div>
             </div>
             {result && <ApplySuccessPanel result={result} selectedCompany={selectedCompany} selectedBranch={selectedBranch} packageData={packageData} options={options} onOpenCustomer={onOpenCustomer} onGo={onGo} onApplicationDetail={onApplicationDetail} />}
@@ -1083,14 +1083,14 @@ function ApplicationDetailModal({ detail, onClose, onGo, onOpenCustomer }: any) 
   const recordLines = resultCards({ summary }, options).map((item) => `${item.label}: ${item.text}`);
   return (
     <div className="fixed inset-0 z-[105] grid place-items-center bg-slate-950/50 p-0 sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className="flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-auto sm:max-h-[85vh] sm:max-w-3xl sm:rounded-[26px]">
-        <header className="flex items-start justify-between gap-3 border-b border-slate-200 p-5">
+      <section className="flex h-[100dvh] w-full flex-col overflow-hidden bg-[var(--admin-surface)] shadow-2xl sm:h-auto sm:max-h-[85vh] sm:max-w-3xl sm:rounded-[26px]">
+        <header className="flex items-start justify-between gap-3 border-b border-[var(--admin-border)] p-5">
           <div>
             <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Uygulama Kaydı</p>
-            <h2 className="mt-1 text-2xl font-black text-slate-950">Paket Uygulama Kaydı</h2>
-            <p className="mt-1 text-sm text-slate-500">{packageName} · {company?.name || "Müşteri seçimi"}</p>
+            <h2 className="mt-1 text-2xl font-black text-[var(--admin-text-primary)]">Paket Uygulama Kaydı</h2>
+            <p className="mt-1 text-sm text-[var(--admin-text-muted)]">{packageName} · {company?.name || "Müşteri seçimi"}</p>
           </div>
-          <button onClick={onClose} className="rounded-full border border-slate-200 p-2 text-slate-500"><X size={18} /></button>
+          <button onClick={onClose} className="rounded-full border border-[var(--admin-border)] p-2 text-[var(--admin-text-muted)]"><X size={18} /></button>
         </header>
         <div className="flex-1 overflow-y-auto p-5">
           <div className="grid gap-3 md:grid-cols-2">
@@ -1099,33 +1099,33 @@ function ApplicationDetailModal({ detail, onClose, onGo, onOpenCustomer }: any) 
             <InfoTile label="Uygulama tarihi" value={application.created_at ? new Date(application.created_at).toLocaleString("tr-TR") : "Yeni oluşturuldu"} />
             <InfoTile label="Durum" value={statusText} />
           </div>
-          <section className="mt-4 rounded-[16px] border border-slate-200 bg-slate-50 p-4">
-            <h3 className="font-black text-slate-950">Uygulanan seçenekler</h3>
+          <section className="mt-4 rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4">
+            <h3 className="font-black text-[var(--admin-text-primary)]">Uygulanan seçenekler</h3>
             <div className="mt-3 flex flex-wrap gap-2">
-              {Object.entries(optionLabels).map(([key, label]) => <span key={key} className={`rounded-full px-3 py-1 text-xs font-black ring-1 ${options[key] === false ? "bg-slate-50 text-slate-500 ring-slate-200" : "bg-cyan-50 text-cyan-700 ring-cyan-200"}`}>{options[key] === false ? "Atlandı" : "Uygulandı"} · {label}</span>)}
+              {Object.entries(optionLabels).map(([key, label]) => <span key={key} className={`rounded-full px-3 py-1 text-xs font-black ring-1 ${options[key] === false ? "bg-[var(--admin-surface-soft)] text-[var(--admin-text-muted)] ring-slate-200" : "bg-cyan-50 text-cyan-700 ring-cyan-200"}`}>{options[key] === false ? "Atlandı" : "Uygulandı"} · {label}</span>)}
             </div>
           </section>
-          <section className="mt-4 rounded-[16px] border border-slate-200 bg-white p-4">
-            <h3 className="font-black text-slate-950">Oluşturulan kayıtlar</h3>
-            <div className="mt-3 grid gap-2 text-sm text-slate-700">{recordLines.map((line) => <span key={line}>{line}</span>)}</div>
+          <section className="mt-4 rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4">
+            <h3 className="font-black text-[var(--admin-text-primary)]">Oluşturulan kayıtlar</h3>
+            <div className="mt-3 grid gap-2 text-sm text-[var(--admin-text-secondary)]">{recordLines.map((line) => <span key={line}>{line}</span>)}</div>
             {application.error_message && <p className="mt-3 rounded-[12px] border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">Hata: {application.error_message}</p>}
           </section>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <section className="rounded-[16px] border border-slate-200 bg-slate-50 p-4">
-              <h3 className="font-black text-slate-950">Yapılacaklar</h3>
-              <div className="mt-3 grid gap-1 text-sm text-slate-600">{nextActions.slice(0, 5).map((item: any, index: number) => <span key={`${item.title}-${index}`}>{item.title} · {item.priority || "Normal"} · {item.owner || "HK Intelligence"}</span>)}</div>
+            <section className="rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4">
+              <h3 className="font-black text-[var(--admin-text-primary)]">Yapılacaklar</h3>
+              <div className="mt-3 grid gap-1 text-sm text-[var(--admin-text-secondary)]">{nextActions.slice(0, 5).map((item: any, index: number) => <span key={`${item.title}-${index}`}>{item.title} · {item.priority || "Normal"} · {item.owner || "HK Intelligence"}</span>)}</div>
             </section>
-            <section className="rounded-[16px] border border-slate-200 bg-slate-50 p-4">
-              <h3 className="font-black text-slate-950">Takip metrikleri</h3>
-              <div className="mt-3 flex flex-wrap gap-2">{trackingMetrics.slice(0, 8).map((item: any, index: number) => <span key={`${item.name}-${index}`} className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-600 ring-1 ring-slate-200">{item.name}</span>)}</div>
+            <section className="rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4">
+              <h3 className="font-black text-[var(--admin-text-primary)]">Takip metrikleri</h3>
+              <div className="mt-3 flex flex-wrap gap-2">{trackingMetrics.slice(0, 8).map((item: any, index: number) => <span key={`${item.name}-${index}`} className="rounded-full bg-[var(--admin-surface)] px-3 py-1 text-xs font-black text-[var(--admin-text-secondary)] ring-1 ring-slate-200">{item.name}</span>)}</div>
             </section>
-            <section className="rounded-[16px] border border-slate-200 bg-slate-50 p-4">
-              <h3 className="font-black text-slate-950">7 günlük plan</h3>
-              <div className="mt-3 grid gap-1 text-sm text-slate-600">{sevenDayPlan.slice(0, 7).map((item: any, index: number) => <span key={`${item.title}-${index}`}>{item.day ? `Gün ${item.day}: ` : ""}{item.title}</span>)}</div>
+            <section className="rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4">
+              <h3 className="font-black text-[var(--admin-text-primary)]">7 günlük plan</h3>
+              <div className="mt-3 grid gap-1 text-sm text-[var(--admin-text-secondary)]">{sevenDayPlan.slice(0, 7).map((item: any, index: number) => <span key={`${item.title}-${index}`}>{item.day ? `Gün ${item.day}: ` : ""}{item.title}</span>)}</div>
             </section>
-            <section className="rounded-[16px] border border-slate-200 bg-slate-50 p-4">
-              <h3 className="font-black text-slate-950">30 günlük plan</h3>
-              <div className="mt-3 grid gap-1 text-sm text-slate-600">{thirtyDayPlan.slice(0, 4).map((item: any, index: number) => <span key={`${item.title}-${index}`}>{item.week ? `${item.week}. hafta: ` : ""}{item.focus || item.title}</span>)}</div>
+            <section className="rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4">
+              <h3 className="font-black text-[var(--admin-text-primary)]">30 günlük plan</h3>
+              <div className="mt-3 grid gap-1 text-sm text-[var(--admin-text-secondary)]">{thirtyDayPlan.slice(0, 4).map((item: any, index: number) => <span key={`${item.title}-${index}`}>{item.week ? `${item.week}. hafta: ` : ""}{item.focus || item.title}</span>)}</div>
             </section>
           </div>
           <section className="mt-4 rounded-[16px] border border-emerald-200 bg-emerald-50 p-4">
@@ -1133,13 +1133,13 @@ function ApplicationDetailModal({ detail, onClose, onGo, onOpenCustomer }: any) 
             <p className="mt-2 text-sm leading-6 text-emerald-900">Önce müşteri profilinde Uygulanan Paketler bölümünü kontrol edin, ardından görevler ve Agent Hub iş akışı taslaklarını açın.</p>
             <div className="mt-3 flex flex-wrap gap-2">
               <button onClick={() => onOpenCustomer(company)} className="rounded-[12px] bg-cyan-500 px-4 py-2.5 text-sm font-black text-white">Müşteri Profilini Aç</button>
-              <button onClick={() => onGo("Görevler")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-2.5 text-sm font-black text-cyan-700">Görevleri Gör</button>
-              <button onClick={() => onGo("HK Agent Hub")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-2.5 text-sm font-black text-cyan-700">Agent Hub’da Aç</button>
+              <button onClick={() => onGo("Görevler")} className="rounded-[12px] border border-cyan-200 bg-[var(--admin-surface)] px-4 py-2.5 text-sm font-black text-cyan-700">Görevleri Gör</button>
+              <button onClick={() => onGo("HK Agent Hub")} className="rounded-[12px] border border-cyan-200 bg-[var(--admin-surface)] px-4 py-2.5 text-sm font-black text-cyan-700">Agent Hub’da Aç</button>
             </div>
           </section>
-          <details className="mt-4 rounded-[16px] border border-slate-200 bg-slate-50 p-4">
-            <summary className="cursor-pointer text-sm font-black text-slate-700">Teknik detayı göster</summary>
-            <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap text-xs leading-5 text-slate-700">{JSON.stringify({ application, createdRecords }, null, 2)}</pre>
+          <details className="mt-4 rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4">
+            <summary className="cursor-pointer text-sm font-black text-[var(--admin-text-secondary)]">Teknik detayı göster</summary>
+            <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap text-xs leading-5 text-[var(--admin-text-secondary)]">{JSON.stringify({ application, createdRecords }, null, 2)}</pre>
           </details>
         </div>
       </section>
@@ -1148,5 +1148,5 @@ function ApplicationDetailModal({ detail, onClose, onGo, onOpenCustomer }: any) 
 }
 
 function InfoTile({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-[14px] border border-slate-200 bg-slate-50 p-3"><p className="text-[11px] font-black uppercase tracking-[.12em] text-slate-500">{label}</p><p className="mt-1 font-black text-slate-950">{value}</p></div>;
+  return <div className="rounded-[14px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-3"><p className="text-[11px] font-black uppercase tracking-[.12em] text-[var(--admin-text-muted)]">{label}</p><p className="mt-1 font-black text-[var(--admin-text-primary)]">{value}</p></div>;
 }

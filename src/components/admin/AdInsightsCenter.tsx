@@ -91,16 +91,16 @@ function priorityTone(priority = "Orta") {
   if (priority === "Kritik") return "border-red-200 bg-red-50 text-red-800";
   if (priority === "Yüksek") return "border-orange-200 bg-orange-50 text-orange-800";
   if (priority === "Orta") return "border-blue-200 bg-blue-50 text-blue-800";
-  return "border-slate-200 bg-slate-50 text-slate-700";
+  return "border-[var(--admin-border)] bg-[var(--admin-surface-soft)] text-[var(--admin-text-secondary)]";
 }
 
 function connectionLabel(value: any, missing: string) {
-  return value ? <span className="font-black text-slate-950">{value}</span> : <span className="font-bold text-amber-700">{missing}</span>;
+  return value ? <span className="font-black text-[var(--admin-text-primary)]">{value}</span> : <span className="font-bold text-amber-700">{missing}</span>;
 }
 
 function changeBadge(value: any) {
   const number = Number(value || 0);
-  const tone = number > 0 ? "border-emerald-200 bg-emerald-50 text-emerald-800" : number < 0 ? "border-red-200 bg-red-50 text-red-800" : "border-slate-200 bg-slate-50 text-slate-700";
+  const tone = number > 0 ? "border-emerald-200 bg-emerald-50 text-emerald-800" : number < 0 ? "border-red-200 bg-red-50 text-red-800" : "border-[var(--admin-border)] bg-[var(--admin-surface-soft)] text-[var(--admin-text-secondary)]";
   return <span className={`rounded-full border px-2.5 py-1 text-xs font-black ${tone}`}>{number > 0 ? "+" : ""}{number.toLocaleString("tr-TR", { maximumFractionDigits: 1 })}%</span>;
 }
 
@@ -114,7 +114,7 @@ function formatDate(value: any) {
 }
 
 function sectionTitle(title: string, description: string, icon?: ReactNode) {
-  return <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-lg font-black text-slate-950">{title}</h3><p className="mt-1 text-sm leading-6 text-slate-500">{description}</p></div>{icon}</div>;
+  return <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-lg font-black text-[var(--admin-text-primary)]">{title}</h3><p className="mt-1 text-sm leading-6 text-[var(--admin-text-muted)]">{description}</p></div>{icon}</div>;
 }
 
 export function AdInsightsCenter({ content, notify }: { content: any; notify?: (message: string, type?: string) => void }) {
@@ -291,30 +291,30 @@ export function AdInsightsCenter({ content, notify }: { content: any; notify?: (
         <AdminControlPanel>
           <AdminFilterSection title="Analiz Filtreleri">
             <div className="grid gap-2">
-              <label className="grid gap-1.5 text-xs font-bold text-slate-700">Müşteri
-                <select value={companyId} onChange={(event) => setCompanyId(event.target.value)} className="min-h-9 rounded-[8px] border border-slate-200 bg-white px-3 text-sm text-slate-900">
+              <label className="grid gap-1.5 text-xs font-bold text-[var(--admin-text-secondary)]">Müşteri
+                <select value={companyId} onChange={(event) => setCompanyId(event.target.value)} className="min-h-9 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm text-[var(--admin-text-primary)]">
                   <option value="">Müşteri seç</option>
                   {companies.map((company: any) => <option key={company.id} value={company.id}>{company.name || company.company_name}</option>)}
                 </select>
               </label>
-              <label className="grid gap-1.5 text-xs font-bold text-slate-700">Tarih aralığı
-                <select value={range} onChange={(event) => setRange(event.target.value)} className="min-h-9 rounded-[8px] border border-slate-200 bg-white px-3 text-sm text-slate-900">{ranges.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+              <label className="grid gap-1.5 text-xs font-bold text-[var(--admin-text-secondary)]">Tarih aralığı
+                <select value={range} onChange={(event) => setRange(event.target.value)} className="min-h-9 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm text-[var(--admin-text-primary)]">{ranges.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
               </label>
               {range === "custom" && <div className="grid grid-cols-2 gap-2">
-                <label className="grid gap-1 text-xs font-bold text-slate-700">Başlangıç<input type="date" value={from} onChange={(event) => setFrom(event.target.value)} className="min-h-9 rounded-[8px] border border-slate-200 px-2 text-sm" /></label>
-                <label className="grid gap-1 text-xs font-bold text-slate-700">Bitiş<input type="date" value={to} onChange={(event) => setTo(event.target.value)} className="min-h-9 rounded-[8px] border border-slate-200 px-2 text-sm" /></label>
+                <label className="grid gap-1 text-xs font-bold text-[var(--admin-text-secondary)]">Başlangıç<input type="date" value={from} onChange={(event) => setFrom(event.target.value)} className="min-h-9 rounded-[8px] border border-[var(--admin-border)] px-2 text-sm" /></label>
+                <label className="grid gap-1 text-xs font-bold text-[var(--admin-text-secondary)]">Bitiş<input type="date" value={to} onChange={(event) => setTo(event.target.value)} className="min-h-9 rounded-[8px] border border-[var(--admin-border)] px-2 text-sm" /></label>
               </div>}
-              <label className="grid gap-1.5 text-xs font-bold text-slate-700">Platform
-                <select value={platform} onChange={(event) => setPlatform(event.target.value)} className="min-h-9 rounded-[8px] border border-slate-200 bg-white px-3 text-sm text-slate-900">{platforms.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+              <label className="grid gap-1.5 text-xs font-bold text-[var(--admin-text-secondary)]">Platform
+                <select value={platform} onChange={(event) => setPlatform(event.target.value)} className="min-h-9 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm text-[var(--admin-text-primary)]">{platforms.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
               </label>
-              <label className="grid gap-1.5 text-xs font-bold text-slate-700">Kampanya türü
-                <select value={campaignType} onChange={(event) => setCampaignType(event.target.value)} className="min-h-9 rounded-[8px] border border-slate-200 bg-white px-3 text-sm text-slate-900">{campaignTypes.map((item) => <option key={item} value={item}>{item}</option>)}</select>
+              <label className="grid gap-1.5 text-xs font-bold text-[var(--admin-text-secondary)]">Kampanya türü
+                <select value={campaignType} onChange={(event) => setCampaignType(event.target.value)} className="min-h-9 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm text-[var(--admin-text-primary)]">{campaignTypes.map((item) => <option key={item} value={item}>{item}</option>)}</select>
               </label>
-              <label className="grid gap-1.5 text-xs font-bold text-slate-700">Durum
-                <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="min-h-9 rounded-[8px] border border-slate-200 bg-white px-3 text-sm text-slate-900">{statusFilters.map((item) => <option key={item} value={item}>{item}</option>)}</select>
+              <label className="grid gap-1.5 text-xs font-bold text-[var(--admin-text-secondary)]">Durum
+                <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="min-h-9 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm text-[var(--admin-text-primary)]">{statusFilters.map((item) => <option key={item} value={item}>{item}</option>)}</select>
               </label>
-              <label className="grid gap-1.5 text-xs font-bold text-slate-700">Analiz seviyesi
-                <select value={analysisLevel} onChange={(event) => setAnalysisLevel(event.target.value)} className="min-h-9 rounded-[8px] border border-slate-200 bg-white px-3 text-sm text-slate-900">{analysisLevels.map((item) => <option key={item} value={item}>{item}</option>)}</select>
+              <label className="grid gap-1.5 text-xs font-bold text-[var(--admin-text-secondary)]">Analiz seviyesi
+                <select value={analysisLevel} onChange={(event) => setAnalysisLevel(event.target.value)} className="min-h-9 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm text-[var(--admin-text-primary)]">{analysisLevels.map((item) => <option key={item} value={item}>{item}</option>)}</select>
               </label>
               <AdminButton compact variant="ai" disabled={Boolean(loading)} onClick={() => request("/api/admin/ad-insights")}><Search size={14} className="mr-1 inline" />{loading === "/api/admin/ad-insights" ? "Analiz ediliyor..." : "Analiz Et"}</AdminButton>
               <AdminButton compact variant="secondary" onClick={clearFilters}>Temizle</AdminButton>
@@ -323,17 +323,17 @@ export function AdInsightsCenter({ content, notify }: { content: any; notify?: (
           <AdminFilterSection title="Snapshot Geçmişi">
             <div className="grid gap-1.5">
               {(data?.snapshots || []).map((snapshot: any) => (
-                <div key={snapshot.id || snapshot.created_at} className="rounded-[8px] border border-slate-200 bg-white p-2 text-xs">
+                <div key={snapshot.id || snapshot.created_at} className="rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-2 text-xs">
                   <p className="font-black text-slate-800">{formatDate(snapshot.created_at)} — {snapshot.health_score ?? "-"}/100</p>
-                  <p className="text-[11px] text-slate-500">{snapshot.source_type || "Kayıtlı analiz"}</p>
+                  <p className="text-[11px] text-[var(--admin-text-muted)]">{snapshot.source_type || "Kayıtlı analiz"}</p>
                   <div className="mt-1 flex flex-wrap gap-1">
-                    <button type="button" onClick={() => openSnapshot(snapshot)} className="rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-black text-slate-700">Aç</button>
+                    <button type="button" onClick={() => openSnapshot(snapshot)} className="rounded-full border border-[var(--admin-border)] px-2 py-0.5 text-[10px] font-black text-[var(--admin-text-secondary)]">Aç</button>
                     <button type="button" onClick={() => window.print()} className="rounded-full border border-amber-200 px-2 py-0.5 text-[10px] font-black text-amber-700">PDF</button>
                     <button type="button" onClick={() => createTask({ title: "Reklam doktoru snapshot notu", description: `Snapshot skoru: ${snapshot.health_score}/100`, related: "Reklam Doktoru Pro", priority: "Orta", expectedImpact: "Geçmiş analiz takibi", dueInDays: 1 })} className="rounded-full border border-emerald-200 px-2 py-0.5 text-[10px] font-black text-emerald-700">Görev Ekle</button>
                   </div>
                 </div>
               ))}
-              {!data?.snapshots?.length && <p className="text-[11px] text-slate-500">Henüz snapshot kaydı yok.</p>}
+              {!data?.snapshots?.length && <p className="text-[11px] text-[var(--admin-text-muted)]">Henüz snapshot kaydı yok.</p>}
             </div>
           </AdminFilterSection>
         </AdminControlPanel>
@@ -369,17 +369,17 @@ export function AdInsightsCenter({ content, notify }: { content: any; notify?: (
     {!selectedCompany && <AdminEmptyState title="Reklam doktoru analizini başlatmak için aktif bir müşteri seçin." />}
 
     {selectedCompany && <section className="mb-4 grid gap-3 lg:grid-cols-3">
-      <div className="rounded-[10px] border border-slate-200 bg-white p-3 lg:col-span-2">
-        <h3 className="text-sm font-black text-slate-950">Müşteri Reklam Bağlantı Durumu</h3>
+      <div className="rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3 lg:col-span-2">
+        <h3 className="text-sm font-black text-[var(--admin-text-primary)]">Müşteri Reklam Bağlantı Durumu</h3>
         <div className="mt-2 grid gap-2 sm:grid-cols-2">
-          <p className="rounded-[8px] bg-slate-50 p-2 text-xs text-slate-600">Meta Business ID<br />{connectionLabel(data?.connection?.metaBusinessId, "Meta reklam hesabı/veri bağlantısı eksik.")}</p>
-          <p className="rounded-[8px] bg-slate-50 p-2 text-xs text-slate-600">Meta Ad Account ID<br />{connectionLabel(data?.connection?.metaAdAccountId, "Meta Ads Account ID eksik.")}</p>
-          <p className="rounded-[8px] bg-slate-50 p-2 text-xs text-slate-600">Google Ads Customer ID<br />{connectionLabel(data?.connection?.googleAdsCustomerId, "Google Ads Customer ID eksik.")}</p>
-          <p className="rounded-[8px] bg-slate-50 p-2 text-xs text-slate-600">Website / Pixel<br />{connectionLabel(data?.connection?.websiteUrl || data?.connection?.metaPixelId, "Website veya Pixel bilgisi eksik.")}</p>
+          <p className="rounded-[8px] bg-[var(--admin-surface-soft)] p-2 text-xs text-[var(--admin-text-secondary)]">Meta Business ID<br />{connectionLabel(data?.connection?.metaBusinessId, "Meta reklam hesabı/veri bağlantısı eksik.")}</p>
+          <p className="rounded-[8px] bg-[var(--admin-surface-soft)] p-2 text-xs text-[var(--admin-text-secondary)]">Meta Ad Account ID<br />{connectionLabel(data?.connection?.metaAdAccountId, "Meta Ads Account ID eksik.")}</p>
+          <p className="rounded-[8px] bg-[var(--admin-surface-soft)] p-2 text-xs text-[var(--admin-text-secondary)]">Google Ads Customer ID<br />{connectionLabel(data?.connection?.googleAdsCustomerId, "Google Ads Customer ID eksik.")}</p>
+          <p className="rounded-[8px] bg-[var(--admin-surface-soft)] p-2 text-xs text-[var(--admin-text-secondary)]">Website / Pixel<br />{connectionLabel(data?.connection?.websiteUrl || data?.connection?.metaPixelId, "Website veya Pixel bilgisi eksik.")}</p>
         </div>
       </div>
-      <div className="rounded-[10px] border border-slate-200 bg-white p-3">
-        <h3 className="text-sm font-black text-slate-950">Veri Kaynağı</h3>
+      <div className="rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3">
+        <h3 className="text-sm font-black text-[var(--admin-text-primary)]">Veri Kaynağı</h3>
         <p className="mt-2 rounded-[8px] border border-cyan-200 bg-cyan-50 p-2 text-xs font-bold text-cyan-800">{data?.sourceType || "Analiz bekleniyor"}</p>
       </div>
     </section>}
@@ -394,9 +394,9 @@ export function AdInsightsCenter({ content, notify }: { content: any; notify?: (
     )}
 
     {data && <section className="my-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      {Object.keys(metricExplanations).map((key) => <div key={key} title={descriptions[key]} className="rounded-[10px] border border-slate-200 bg-white p-3">
-        <p className="text-[10px] font-black uppercase tracking-[.1em] text-slate-500">{metricExplanations[key]}</p>
-        <strong className="mt-1 block text-lg font-black text-slate-950">{formatMetric(key, metrics[key])}</strong>
+      {Object.keys(metricExplanations).map((key) => <div key={key} title={descriptions[key]} className="rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3">
+        <p className="text-[10px] font-black uppercase tracking-[.1em] text-[var(--admin-text-muted)]">{metricExplanations[key]}</p>
+        <strong className="mt-1 block text-lg font-black text-[var(--admin-text-primary)]">{formatMetric(key, metrics[key])}</strong>
       </div>)}
     </section>}
 
@@ -408,38 +408,38 @@ export function AdInsightsCenter({ content, notify }: { content: any; notify?: (
       </article>)}
     </section>}
 
-    {data && <section className="mb-4 rounded-[10px] border border-slate-200 bg-white p-3">
+    {data && <section className="mb-4 rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3">
       {sectionTitle("Doktor Teşhisleri", "Her teşhis metriklerden hesaplanır; sağlanan veriden kural motoruyla türetilir. Seçmek için bir satıra tıklayın.", <ShieldAlert className="text-red-600" size={18} />)}
       <div className="mt-3">
         <AdminDataGrid columns={diagnosisColumns} rows={diagnoses} rowKey={(item: any, index: number) => `${item.name}-${index}`} activeId={selectedDiagnosisIndex !== null ? `${diagnoses[selectedDiagnosisIndex]?.name}-${selectedDiagnosisIndex}` : undefined} onRowClick={(row: any) => setSelectedDiagnosisIndex(diagnoses.indexOf(row))} emptyTitle="Teşhis bulunamadı." emptyDescription="Analiz Et düğmesiyle bir doktor analizi çalıştırın." />
       </div>
-      <div className="mt-3 rounded-[8px] bg-slate-50 p-3 text-xs leading-6 text-slate-700">
-        <p className="mb-1 text-[10px] font-black uppercase tracking-[.1em] text-slate-500">Skor Açıklaması</p>
+      <div className="mt-3 rounded-[8px] bg-[var(--admin-surface-soft)] p-3 text-xs leading-6 text-[var(--admin-text-secondary)]">
+        <p className="mb-1 text-[10px] font-black uppercase tracking-[.1em] text-[var(--admin-text-muted)]">Skor Açıklaması</p>
         {doctorSummary.general || "Analiz bekleniyor."}
-        <div className="mt-2 grid gap-1.5">{(doctorSummary.why || []).map((item: string) => <p key={item} className="rounded-[8px] border border-slate-200 bg-white p-2 text-xs text-slate-700">{item}</p>)}</div>
+        <div className="mt-2 grid gap-1.5">{(doctorSummary.why || []).map((item: string) => <p key={item} className="rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-2 text-xs text-[var(--admin-text-secondary)]">{item}</p>)}</div>
       </div>
     </section>}
 
-    {data && <section className="mb-4 rounded-[10px] border border-slate-200 bg-white p-3">
+    {data && <section className="mb-4 rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3">
       {sectionTitle("Reklam Doktoru Reçetesi", "Bugün, 3 gün ve 7 gün içinde yapılacak aksiyonlar göreve çevrilebilir.", <CheckCircle className="text-emerald-600" />)}
       <div className="mt-5 grid gap-4 xl:grid-cols-3">
         {[
           ["Bugün yapılacaklar", prescription.today || []],
           ["3 gün içinde", prescription.threeDays || []],
           ["7 gün içinde", prescription.sevenDays || []]
-        ].map(([title, actions]: any) => <div key={title} className="rounded-[16px] border border-slate-200 bg-slate-50 p-4">
-          <h4 className="font-black text-slate-950">{title}</h4>
+        ].map(([title, actions]: any) => <div key={title} className="rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4">
+          <h4 className="font-black text-[var(--admin-text-primary)]">{title}</h4>
           <div className="mt-3 grid gap-3">{actions.map((action: any, index: number) => {
             const key = `${title}-${index}-${action.title}`;
-            return <article key={key} className="rounded-[14px] bg-white p-4 ring-1 ring-slate-200">
-              <div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-sm text-slate-950">{action.title}</strong><span className={`rounded-full border px-2 py-1 text-[11px] font-black ${priorityTone(action.priority)}`}>{action.priority}</span></div>
-              <p className="mt-2 text-xs leading-5 text-slate-600">{action.description}</p>
-              <p className="mt-2 text-xs font-bold text-slate-500">İlgili: {action.related || "-"}</p>
-              <p className="mt-1 text-xs font-bold text-slate-500">Beklenen etki: {action.expectedImpact || "-"}</p>
+            return <article key={key} className="rounded-[14px] bg-[var(--admin-surface)] p-4 ring-1 ring-slate-200">
+              <div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-sm text-[var(--admin-text-primary)]">{action.title}</strong><span className={`rounded-full border px-2 py-1 text-[11px] font-black ${priorityTone(action.priority)}`}>{action.priority}</span></div>
+              <p className="mt-2 text-xs leading-5 text-[var(--admin-text-secondary)]">{action.description}</p>
+              <p className="mt-2 text-xs font-bold text-[var(--admin-text-muted)]">İlgili: {action.related || "-"}</p>
+              <p className="mt-1 text-xs font-bold text-[var(--admin-text-muted)]">Beklenen etki: {action.expectedImpact || "-"}</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button onClick={() => createTask(action)} disabled={loading === "task"} className="rounded-full bg-emerald-500 px-3 py-2 text-xs font-black text-white disabled:opacity-50">CRM Görevi Oluştur</button>
                 <button onClick={() => createTask(action)} disabled={loading === "task"} className="rounded-full border border-emerald-200 px-3 py-2 text-xs font-black text-emerald-700 disabled:opacity-50">Müşteri Yapılacaklarına Ekle</button>
-                <button onClick={() => setCompletedActions((current) => ({ ...current, [key]: true }))} className="rounded-full border border-slate-200 px-3 py-2 text-xs font-black text-slate-700">{completedActions[key] ? "Tamamlandı" : "Tamamlandı İşaretle"}</button>
+                <button onClick={() => setCompletedActions((current) => ({ ...current, [key]: true }))} className="rounded-full border border-[var(--admin-border)] px-3 py-2 text-xs font-black text-[var(--admin-text-secondary)]">{completedActions[key] ? "Tamamlandı" : "Tamamlandı İşaretle"}</button>
               </div>
             </article>;
           })}</div>
@@ -449,56 +449,56 @@ export function AdInsightsCenter({ content, notify }: { content: any; notify?: (
     </section>}
 
     {data && <section className="grid gap-4 xl:grid-cols-[.9fr_1.1fr]">
-      <div className="rounded-[20px] border border-slate-200 bg-white p-6">
+      <div className="rounded-[20px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6">
         {sectionTitle("Kreatif Doktoru", "Kreatif skoru, CTA, teklif netliği, mobil okunabilirlik ve yorgunluk riski.", <Sparkles className="text-purple-600" />)}
         <p className="mt-4 rounded-[14px] bg-purple-50 p-4 text-sm font-bold leading-6 text-purple-900">Kreatif skoru: {creativeAnalysis.score || 0}/100 — {creativeAnalysis.summary || "Kreatif analizi bekleniyor."}</p>
         <div className="mt-4 grid gap-3">
-          {(creativeAnalysis.items || []).map((item: any) => <article key={item.name} className="rounded-[14px] border border-slate-200 p-4">
+          {(creativeAnalysis.items || []).map((item: any) => <article key={item.name} className="rounded-[14px] border border-[var(--admin-border)] p-4">
             {item.thumbnail && <img src={item.thumbnail} alt={item.name} className="mb-3 aspect-video w-full rounded-[12px] object-cover" />}
-            <div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-slate-950">{item.name}</strong><span className={`rounded-full border px-3 py-1 text-xs font-black ${scoreTone(item.score)}`}>{item.score}/100</span></div>
-            <div className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-2">
+            <div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-[var(--admin-text-primary)]">{item.name}</strong><span className={`rounded-full border px-3 py-1 text-xs font-black ${scoreTone(item.score)}`}>{item.score}/100</span></div>
+            <div className="mt-3 grid gap-2 text-xs text-[var(--admin-text-secondary)] sm:grid-cols-2">
               <span>CTA: {item.hasCta ? "Var" : "Eksik"}</span>
               <span>Teklif netliği: {item.hasClearOffer ? "Net" : "Zayıf"}</span>
               <span>Marka görünürlüğü: {item.brandVisible ? "Var" : "Bilinmiyor"}</span>
               <span>Yorgunluk riski: {item.fatigueRisk ? "Var" : "Düşük"}</span>
             </div>
-            <p className="mt-3 text-xs font-bold text-slate-500">Öneri: {item.recommendedVariation}</p>
+            <p className="mt-3 text-xs font-bold text-[var(--admin-text-muted)]">Öneri: {item.recommendedVariation}</p>
           </article>)}
-          {!creativeAnalysis.items?.length && <p className="rounded-[14px] border border-dashed border-slate-300 p-4 text-sm text-slate-500">Görsel/video verisi yok. Reklam başlığı ve metni üzerinden öneriler üretilir.</p>}
+          {!creativeAnalysis.items?.length && <p className="rounded-[14px] border border-dashed border-slate-300 p-4 text-sm text-[var(--admin-text-muted)]">Görsel/video verisi yok. Reklam başlığı ve metni üzerinden öneriler üretilir.</p>}
         </div>
       </div>
-      <div className="rounded-[20px] border border-slate-200 bg-white p-6">
+      <div className="rounded-[20px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6">
         {sectionTitle("Kreatif Varyasyon Önerileri", "Yeni başlık, açıklama, CTA, video ve statik görsel fikirleri.", <Trophy className="text-amber-600" />)}
         <div className="mt-4 grid gap-4 md:grid-cols-3">
-          <div><h4 className="font-black text-slate-950">Başlık</h4>{(creativeAnalysis.suggestions?.headlines || []).map((item: string) => <p key={item} className="mt-2 rounded-[10px] bg-slate-50 p-3 text-sm text-slate-700">{item}</p>)}</div>
-          <div><h4 className="font-black text-slate-950">Açıklama</h4>{(creativeAnalysis.suggestions?.descriptions || []).map((item: string) => <p key={item} className="mt-2 rounded-[10px] bg-slate-50 p-3 text-sm text-slate-700">{item}</p>)}</div>
-          <div><h4 className="font-black text-slate-950">CTA</h4>{(creativeAnalysis.suggestions?.ctas || []).map((item: string) => <p key={item} className="mt-2 rounded-[10px] bg-slate-50 p-3 text-sm text-slate-700">{item}</p>)}</div>
+          <div><h4 className="font-black text-[var(--admin-text-primary)]">Başlık</h4>{(creativeAnalysis.suggestions?.headlines || []).map((item: string) => <p key={item} className="mt-2 rounded-[10px] bg-[var(--admin-surface-soft)] p-3 text-sm text-[var(--admin-text-secondary)]">{item}</p>)}</div>
+          <div><h4 className="font-black text-[var(--admin-text-primary)]">Açıklama</h4>{(creativeAnalysis.suggestions?.descriptions || []).map((item: string) => <p key={item} className="mt-2 rounded-[10px] bg-[var(--admin-surface-soft)] p-3 text-sm text-[var(--admin-text-secondary)]">{item}</p>)}</div>
+          <div><h4 className="font-black text-[var(--admin-text-primary)]">CTA</h4>{(creativeAnalysis.suggestions?.ctas || []).map((item: string) => <p key={item} className="mt-2 rounded-[10px] bg-[var(--admin-surface-soft)] p-3 text-sm text-[var(--admin-text-secondary)]">{item}</p>)}</div>
         </div>
-        <p className="mt-4 rounded-[14px] border border-slate-200 p-4 text-sm text-slate-700"><strong>Kısa video fikri:</strong> {creativeAnalysis.suggestions?.videoIdea}</p>
-        <p className="mt-3 rounded-[14px] border border-slate-200 p-4 text-sm text-slate-700"><strong>Statik görsel fikri:</strong> {creativeAnalysis.suggestions?.staticIdea}</p>
+        <p className="mt-4 rounded-[14px] border border-[var(--admin-border)] p-4 text-sm text-[var(--admin-text-secondary)]"><strong>Kısa video fikri:</strong> {creativeAnalysis.suggestions?.videoIdea}</p>
+        <p className="mt-3 rounded-[14px] border border-[var(--admin-border)] p-4 text-sm text-[var(--admin-text-secondary)]"><strong>Statik görsel fikri:</strong> {creativeAnalysis.suggestions?.staticIdea}</p>
       </div>
     </section>}
 
     {data && <section className="grid gap-4 xl:grid-cols-2">
-      <div className="rounded-[20px] border border-slate-200 bg-white p-6">
+      <div className="rounded-[20px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6">
         {sectionTitle("Yorgunluk ve Trend Analizi", "Frekans, CTR, CPC, CPM, harcama ve sonuç trendleri.", <BarChart3 className="text-cyan-600" />)}
         <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {["ctr", "cpc", "cpm", "spend", "impressions", "clicks", "leads", "messages"].map((key) => <div key={key} className="rounded-[16px] border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs font-black uppercase tracking-[.12em] text-slate-500">{metricExplanations[key] || key}</p>
+          {["ctr", "cpc", "cpm", "spend", "impressions", "clicks", "leads", "messages"].map((key) => <div key={key} className="rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4">
+            <p className="text-xs font-black uppercase tracking-[.12em] text-[var(--admin-text-muted)]">{metricExplanations[key] || key}</p>
             <div className="mt-2">{changeBadge(data.weeklyChange?.[key])}</div>
           </div>)}
         </div>
-        <div className="mt-4 grid gap-2">{(trendAnalysis.rules || []).map((item: string) => <p key={item} className="rounded-[12px] border border-slate-200 p-3 text-sm text-slate-700">{item}</p>)}</div>
+        <div className="mt-4 grid gap-2">{(trendAnalysis.rules || []).map((item: string) => <p key={item} className="rounded-[12px] border border-[var(--admin-border)] p-3 text-sm text-[var(--admin-text-secondary)]">{item}</p>)}</div>
       </div>
-      <div className="rounded-[20px] border border-slate-200 bg-white p-6">
+      <div className="rounded-[20px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6">
         {sectionTitle("Rakip Doktoru", "Rakip reklam verisi bağlıysa karşı hamle önerileri üretir.", <AlertTriangle className="text-orange-600" />)}
         <p className="mt-4 rounded-[14px] bg-orange-50 p-4 text-sm leading-6 text-orange-900">{competitorAnalysis.message}</p>
-        <div className="mt-4 grid gap-2">{(competitorAnalysis.counterMoves || []).map((item: string) => <p key={item} className="rounded-[12px] border border-orange-100 bg-white p-3 text-sm text-slate-700">{item}</p>)}</div>
+        <div className="mt-4 grid gap-2">{(competitorAnalysis.counterMoves || []).map((item: string) => <p key={item} className="rounded-[12px] border border-orange-100 bg-[var(--admin-surface)] p-3 text-sm text-[var(--admin-text-secondary)]">{item}</p>)}</div>
       </div>
     </section>}
 
     {data && <section className="grid gap-4 xl:grid-cols-2">
-      <div className="rounded-[20px] border border-slate-200 bg-white p-6">
+      <div className="rounded-[20px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6">
         {sectionTitle("AI ve Doktor Yorum Paneli", "Rule-based analiz önce hazırlanır; AI varsa metni ajans diliyle iyileştirir.", <Brain className="text-purple-600" />)}
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
           <button onClick={() => request("/api/admin/ad-insights/analyze", "POST")} disabled={Boolean(loading)} className="rounded-[12px] bg-purple-600 px-4 py-3 text-sm font-black text-white">Performansı Yorumla</button>
@@ -506,16 +506,16 @@ export function AdInsightsCenter({ content, notify }: { content: any; notify?: (
           <button onClick={() => request("/api/admin/ad-insights/analyze", "POST")} disabled={Boolean(loading)} className="rounded-[12px] bg-cyan-500 px-4 py-3 text-sm font-black text-white">7 Günlük Aksiyon Planı Oluştur</button>
           <button onClick={() => request("/api/admin/ad-insights/sync", "POST")} disabled={Boolean(loading)} className="rounded-[12px] bg-slate-800 px-4 py-3 text-sm font-black text-white"><RefreshCw size={15} className="mr-1 inline" /> Analiz Snapshot’ı Kaydet</button>
         </div>
-        <p className="mt-3 rounded-[12px] bg-slate-50 p-3 text-xs leading-5 text-slate-500">Analiz Snapshot’ı Kaydet: O anki reklam sağlık skoru, teşhisler, reçete aksiyonları ve müşteri özetini geçmiş analiz olarak kaydeder.</p>
-        <pre className="mt-5 whitespace-pre-wrap rounded-[16px] border border-slate-200 bg-slate-50 p-4 text-sm leading-7 text-slate-700">{data.analysis?.admin || "Analiz için Performansı Yorumla düğmesini kullanın."}</pre>
+        <p className="mt-3 rounded-[12px] bg-[var(--admin-surface-soft)] p-3 text-xs leading-5 text-[var(--admin-text-muted)]">Analiz Snapshot’ı Kaydet: O anki reklam sağlık skoru, teşhisler, reçete aksiyonları ve müşteri özetini geçmiş analiz olarak kaydeder.</p>
+        <pre className="mt-5 whitespace-pre-wrap rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4 text-sm leading-7 text-[var(--admin-text-secondary)]">{data.analysis?.admin || "Analiz için Performansı Yorumla düğmesini kullanın."}</pre>
       </div>
-      <div className="rounded-[20px] border border-slate-200 bg-white p-6">
+      <div className="rounded-[20px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6">
         {sectionTitle("Müşteriye Gönderilecek Sade Özet", "Panik oluşturmayan, metrikleri sadeleştiren müşteri mesajı.", <Send className="text-cyan-600" />)}
-        <p className="mt-4 whitespace-pre-wrap rounded-[16px] border border-cyan-100 bg-cyan-50 p-4 text-sm leading-7 text-slate-700">{customerMessage || "Müşteri özeti analiz sonrası burada görünür."}</p>
+        <p className="mt-4 whitespace-pre-wrap rounded-[16px] border border-cyan-100 bg-cyan-50 p-4 text-sm leading-7 text-[var(--admin-text-secondary)]">{customerMessage || "Müşteri özeti analiz sonrası burada görünür."}</p>
         <div className="mt-4 flex flex-wrap gap-2">
           <button onClick={() => copyText(customerMessage)} className="rounded-[12px] border border-cyan-200 px-4 py-3 text-sm font-black text-cyan-700"><Copy size={15} className="mr-1 inline" /> Metni Kopyala</button>
           <button onClick={openWhatsApp} className="rounded-[12px] bg-emerald-500 px-4 py-3 text-sm font-black text-white"><MessageSquareText size={15} className="mr-1 inline" /> WhatsApp Mesajı Hazırla</button>
-          <button onClick={() => window.print()} className="rounded-[12px] bg-amber-400 px-4 py-3 text-sm font-black text-slate-950"><FileText size={15} className="mr-1 inline" /> PDF Rapor Taslağı Oluştur</button>
+          <button onClick={() => window.print()} className="rounded-[12px] bg-amber-400 px-4 py-3 text-sm font-black text-[var(--admin-text-primary)]"><FileText size={15} className="mr-1 inline" /> PDF Rapor Taslağı Oluştur</button>
         </div>
       </div>
     </section>}

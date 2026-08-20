@@ -76,18 +76,18 @@ function stampTaskStatus(item: any, status: string) {
 }
 
 function TaskField({ label, value, onChange, type = "text", placeholder = "" }: any) {
-  return <label className="grid gap-1.5 text-xs font-bold text-slate-700">{label}<input type={type} value={value ?? ""} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="min-h-9 rounded-[8px] border border-slate-200 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-500" /></label>;
+  return <label className="grid gap-1.5 text-xs font-bold text-[var(--admin-text-secondary)]">{label}<input type={type} value={value ?? ""} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="min-h-9 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm text-[var(--admin-text-primary)] placeholder:text-[var(--admin-text-muted)]" /></label>;
 }
 
 function TaskTextArea({ label, value, onChange, rows = 4 }: any) {
-  return <label className="grid gap-1.5 text-xs font-bold text-slate-700">{label}<textarea rows={rows} value={value ?? ""} onChange={(event) => onChange(event.target.value)} className="rounded-[8px] border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900" /></label>;
+  return <label className="grid gap-1.5 text-xs font-bold text-[var(--admin-text-secondary)]">{label}<textarea rows={rows} value={value ?? ""} onChange={(event) => onChange(event.target.value)} className="rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-2 text-sm text-[var(--admin-text-primary)]" /></label>;
 }
 
 function TaskSelectField({ label, value, onChange, options, placeholder = "Seçin" }: any) {
   return (
-    <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+    <label className="grid gap-1.5 text-xs font-bold text-[var(--admin-text-secondary)]">
       {label}
-      <select value={value ?? ""} onChange={(event) => onChange(event.target.value)} className="min-h-9 rounded-[8px] border border-slate-200 bg-white px-3 text-sm text-slate-900">
+      <select value={value ?? ""} onChange={(event) => onChange(event.target.value)} className="min-h-9 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm text-[var(--admin-text-primary)]">
         <option value="">{placeholder}</option>
         {options.map((option: any) => typeof option === "string" ? <option key={option} value={option}>{option}</option> : <option key={option.value} value={option.value}>{option.label}</option>)}
       </select>
@@ -325,22 +325,22 @@ export function CustomerProfileTasks({ company, content, setContent, items, noti
                   <TaskField label="Tekrar bitişi" type="date" value={selectedTask.recurring_until || ""} onChange={(value: string) => updateLocal(selectedTask.id, { recurring_until: value })} />
                 </div>
                 <TaskSelectField label="Atanan kullanıcı" value={selectedTask.assigned_user_id || ""} onChange={(value: string) => updateLocal(selectedTask.id, { assigned_user_id: value })} options={responsibleOptions} placeholder="Atanmadı" />
-                <label className="flex items-center gap-2 rounded-[8px] border border-slate-200 bg-white px-2.5 py-2 text-xs font-bold text-slate-700"><input type="checkbox" checked={Boolean(selectedTask.visible_to_customer)} onChange={(event) => updateLocal(selectedTask.id, { visible_to_customer: event.target.checked })} /> Müşteriye görünür</label>
+                <label className="flex items-center gap-2 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2.5 py-2 text-xs font-bold text-[var(--admin-text-secondary)]"><input type="checkbox" checked={Boolean(selectedTask.visible_to_customer)} onChange={(event) => updateLocal(selectedTask.id, { visible_to_customer: event.target.checked })} /> Müşteriye görünür</label>
                 <TaskTextArea label="Açıklama / not" value={selectedTask.description || selectedTask.notes || ""} onChange={(value: string) => updateLocal(selectedTask.id, { description: value, notes: value })} />
               </div>
-              <div className="rounded-[8px] border border-slate-200 bg-slate-50 p-2">
-                <p className="mb-1.5 text-[10px] font-black uppercase tracking-[.1em] text-slate-500">Alt görevler{selectedSubtasks.length ? ` (${selectedSubtasks.length})` : ""}</p>
+              <div className="rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-2">
+                <p className="mb-1.5 text-[10px] font-black uppercase tracking-[.1em] text-[var(--admin-text-muted)]">Alt görevler{selectedSubtasks.length ? ` (${selectedSubtasks.length})` : ""}</p>
                 {selectedSubtasks.length > 0 ? (
                   <div className="grid gap-1.5">
                     {selectedSubtasks.map((subtask: any) => (
-                      <div key={subtask.id} className="grid gap-1.5 rounded-[8px] bg-white p-2 md:grid-cols-[1fr_140px_auto]">
+                      <div key={subtask.id} className="grid gap-1.5 rounded-[8px] bg-[var(--admin-surface)] p-2 md:grid-cols-[1fr_140px_auto]">
                         <TaskField label="Alt görev" value={subtask.title || ""} onChange={(value: string) => updateLocal(subtask.id, { title: value })} />
                         <TaskSelectField label="Durum" value={subtask.status || "Yapılacak"} onChange={(value: string) => updateLocal(subtask.id, stampTaskStatus(subtask, value))} options={taskStatusOptions} />
                         {canManage && <AdminButton compact variant="primary" disabled={busyId === subtask.id} onClick={() => persist(subtask)}>{busyId === subtask.id ? "Kaydediliyor..." : "Kaydet"}</AdminButton>}
                       </div>
                     ))}
                   </div>
-                ) : <p className="text-xs text-slate-500">Bu göreve bağlı alt görev yok.</p>}
+                ) : <p className="text-xs text-[var(--admin-text-muted)]">Bu göreve bağlı alt görev yok.</p>}
               </div>
             </div>
           )}

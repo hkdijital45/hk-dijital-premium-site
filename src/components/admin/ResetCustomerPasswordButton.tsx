@@ -112,35 +112,35 @@ export function ResetCustomerPasswordButton({
         <button type="button" onClick={showResetDialog} disabled={disabled || Boolean(busy)} title={disabled ? disabledReason : undefined} className="inline-flex min-h-11 items-center gap-2 rounded-[12px] bg-amber-500 px-4 text-sm font-black text-white transition hover:bg-amber-600 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-amber-200 disabled:cursor-not-allowed disabled:bg-slate-300">
           <KeyRound size={16} /> Şifreyi Sıfırla
         </button>
-        <button type="button" onClick={sendResetLink} disabled={disabled || Boolean(busy)} title={disabled ? disabledReason : undefined} className="inline-flex min-h-11 items-center gap-2 rounded-[12px] border border-slate-300 bg-white px-4 text-sm font-black text-slate-700 transition hover:border-cyan-300 hover:bg-cyan-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-100 disabled:cursor-not-allowed disabled:opacity-50">
+        <button type="button" onClick={sendResetLink} disabled={disabled || Boolean(busy)} title={disabled ? disabledReason : undefined} className="inline-flex min-h-11 items-center gap-2 rounded-[12px] border border-slate-300 bg-[var(--admin-surface)] px-4 text-sm font-black text-[var(--admin-text-secondary)] transition hover:border-cyan-300 hover:bg-cyan-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-100 disabled:cursor-not-allowed disabled:opacity-50">
           {busy === "link" ? <Loader2 className="animate-spin" size={16} /> : <Link2 size={16} />}
           {busy === "link" ? "Gönderiliyor..." : "Sıfırlama Bağlantısı Gönder"}
         </button>
       </div>
-      {disabled && <p className="text-xs font-semibold text-slate-500">{disabledReason}</p>}
+      {disabled && <p className="text-xs font-semibold text-[var(--admin-text-muted)]">{disabledReason}</p>}
       {!open && message && <p className="rounded-[10px] border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">{message}</p>}
       {!open && error && <p className="rounded-[10px] border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p>}
 
       {open && (
         <div className="fixed inset-0 z-[10000] grid place-items-center bg-slate-950/70 p-4" role="presentation" onMouseDown={() => { if (!busy) setOpen(false); }}>
-          <section role="dialog" aria-modal="true" aria-labelledby={`reset-password-title-${userId}`} className="w-full max-w-lg rounded-[22px] border border-slate-200 bg-white p-5 text-slate-950 shadow-2xl sm:p-6" onMouseDown={(event) => event.stopPropagation()}>
+          <section role="dialog" aria-modal="true" aria-labelledby={`reset-password-title-${userId}`} className="w-full max-w-lg rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5 text-[var(--admin-text-primary)] shadow-2xl sm:p-6" onMouseDown={(event) => event.stopPropagation()}>
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-black uppercase tracking-[.16em] text-amber-700">Güvenli Hesap İşlemi</p>
                 <h2 id={`reset-password-title-${userId}`} className="mt-2 text-2xl font-black">Müşteri Şifresini Sıfırla</h2>
               </div>
-              <button type="button" onClick={() => setOpen(false)} disabled={Boolean(busy)} aria-label="Pencereyi kapat" className="grid size-11 place-items-center rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50"><X size={18} /></button>
+              <button type="button" onClick={() => setOpen(false)} disabled={Boolean(busy)} aria-label="Pencereyi kapat" className="grid size-11 place-items-center rounded-full border border-[var(--admin-border)] text-[var(--admin-text-secondary)] hover:bg-[var(--admin-surface-soft)] disabled:opacity-50"><X size={18} /></button>
             </div>
-            <p className="mt-4 text-sm leading-6 text-slate-600">Bu işlem {customerName} hesabının mevcut şifresini geçersiz kılar. Geçici şifre oluşturulduktan sonra müşteri ilk girişinde yeni bir şifre belirlemek zorundadır.</p>
+            <p className="mt-4 text-sm leading-6 text-[var(--admin-text-secondary)]">Bu işlem {customerName} hesabının mevcut şifresini geçersiz kılar. Geçici şifre oluşturulduktan sonra müşteri ilk girişinde yeni bir şifre belirlemek zorundadır.</p>
             <div className="mt-5 rounded-[16px] border border-amber-200 bg-amber-50 p-4">
               <p className="text-xs font-black uppercase tracking-[.14em] text-amber-700">Geçici şifre</p>
-              <p className="mt-2 font-mono text-2xl font-black tracking-[.12em] text-slate-950">{TEMPORARY_CUSTOMER_PASSWORD}</p>
+              <p className="mt-2 font-mono text-2xl font-black tracking-[.12em] text-[var(--admin-text-primary)]">{TEMPORARY_CUSTOMER_PASSWORD}</p>
               <p className="mt-2 text-xs font-semibold leading-5 text-amber-900">Bu şifreyi yalnızca müşteriye güvenli bir kanaldan iletin.</p>
             </div>
             {message && <p className="mt-4 flex items-start gap-2 rounded-[12px] border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold leading-6 text-emerald-800"><CheckCircle2 className="mt-0.5 shrink-0" size={18} /> {message}</p>}
             {error && <p className="mt-4 rounded-[12px] border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p>}
             <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <button type="button" onClick={() => setOpen(false)} disabled={Boolean(busy)} className="min-h-11 rounded-[12px] border border-slate-300 px-5 text-sm font-black text-slate-700 disabled:opacity-50">{resetComplete ? "Kapat" : "Vazgeç"}</button>
+              <button type="button" onClick={() => setOpen(false)} disabled={Boolean(busy)} className="min-h-11 rounded-[12px] border border-slate-300 px-5 text-sm font-black text-[var(--admin-text-secondary)] disabled:opacity-50">{resetComplete ? "Kapat" : "Vazgeç"}</button>
               {resetComplete ? (
                 <button type="button" onClick={copyTemporaryPassword} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[12px] bg-cyan-600 px-5 text-sm font-black text-white"><Copy size={16} /> {copied ? "Kopyalandı" : "Geçici Şifreyi Kopyala"}</button>
               ) : (

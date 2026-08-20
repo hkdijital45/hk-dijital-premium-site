@@ -35,7 +35,7 @@ export function CustomerBranchFilter({
   const companyBranches = getCompanyBranches(branches, selectedCompanyId);
   return (
     <div className={`grid gap-3 ${compact ? "" : "md:grid-cols-2"}`}>
-      <label className="grid gap-1 text-sm font-bold text-slate-700">
+      <label className="grid gap-1 text-sm font-bold text-[var(--admin-text-secondary)]">
         Müşteri
         <select
           value={selectedCompanyId}
@@ -43,18 +43,18 @@ export function CustomerBranchFilter({
             onCompanyChange(event.target.value);
             onBranchChange("all");
           }}
-          className="rounded-[12px] border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-900"
+          className="rounded-[12px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 py-2.5 text-sm font-medium text-[var(--admin-text-primary)]"
         >
           {companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
         </select>
       </label>
-      <label className="grid gap-1 text-sm font-bold text-slate-700">
+      <label className="grid gap-1 text-sm font-bold text-[var(--admin-text-secondary)]">
         Şube
         <select
           value={selectedBranchId || "all"}
           disabled={!selectedCompanyId || !companyBranches.length}
           onChange={(event) => onBranchChange(event.target.value)}
-          className="rounded-[12px] border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-[12px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 py-2.5 text-sm font-medium text-[var(--admin-text-primary)] disabled:cursor-not-allowed disabled:opacity-60"
         >
           <option value="all">Tüm şubeler</option>
           {companyBranches.map((branch) => (
@@ -63,7 +63,7 @@ export function CustomerBranchFilter({
             </option>
           ))}
         </select>
-        {!companyBranches.length && selectedCompanyId && <span className="text-xs font-medium text-slate-500">Bu müşteri için kayıtlı şube yok; işlem tüm müşteri hesabına uygulanır.</span>}
+        {!companyBranches.length && selectedCompanyId && <span className="text-xs font-medium text-[var(--admin-text-muted)]">Bu müşteri için kayıtlı şube yok; işlem tüm müşteri hesabına uygulanır.</span>}
       </label>
     </div>
   );

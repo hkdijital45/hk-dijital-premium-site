@@ -806,7 +806,7 @@ export function BlogSeoCenter() {
   const calendarPosts = posts.filter((post) => ["draft", "review", "scheduled", "published"].includes(post.status));
   const selectedCalendarPost = selectedCalendarSlug ? calendarPosts.find((post) => post.slug === selectedCalendarSlug) || null : null;
   const calendarColumns: AdminDataGridColumn<any>[] = [
-    { key: "title", header: "Başlık", render: (post: any) => <div className="min-w-0"><strong className="block truncate">{post.title}</strong><span className="block truncate text-[11px] text-slate-500">/{post.slug}</span></div> },
+    { key: "title", header: "Başlık", render: (post: any) => <div className="min-w-0"><strong className="block truncate">{post.title}</strong><span className="block truncate text-[11px] text-[var(--admin-text-muted)]">/{post.slug}</span></div> },
     { key: "status", header: "Durum", render: (post: any) => <AdminStatusBadge tone={post.status === "published" ? "success" : post.status === "scheduled" ? "info" : post.status === "review" ? "warning" : "neutral"}>{statusLabels[post.status as BlogStatus]}</AdminStatusBadge> },
     { key: "date", header: "Tarih", render: (post: any) => post.scheduled_at || post.published_at ? new Date(post.scheduled_at || post.published_at).toLocaleString("tr-TR") : "Tarih yok" }
   ];
@@ -853,8 +853,8 @@ export function BlogSeoCenter() {
             </div>
             <div className="grid min-w-[260px] gap-2 rounded-2xl border border-white/10 bg-slate-950/45 p-3 text-xs text-slate-300">
               <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={() => setAiMode("auto")} className={`min-h-9 rounded-xl px-3 font-black ${aiMode === "auto" ? "bg-cyan-300 text-slate-950" : "bg-white/10 text-slate-200"}`}>Otomatik</button>
-                <button type="button" onClick={() => setAiMode("manual")} className={`min-h-9 rounded-xl px-3 font-black ${aiMode === "manual" ? "bg-cyan-300 text-slate-950" : "bg-white/10 text-slate-200"}`}>Manuel</button>
+                <button type="button" onClick={() => setAiMode("auto")} className={`min-h-9 rounded-xl px-3 font-black ${aiMode === "auto" ? "bg-cyan-300 text-[var(--admin-text-primary)]" : "bg-[var(--admin-surface)]/10 text-slate-200"}`}>Otomatik</button>
+                <button type="button" onClick={() => setAiMode("manual")} className={`min-h-9 rounded-xl px-3 font-black ${aiMode === "manual" ? "bg-cyan-300 text-[var(--admin-text-primary)]" : "bg-[var(--admin-surface)]/10 text-slate-200"}`}>Manuel</button>
               </div>
               <label className="grid gap-1 font-bold">AI sağlayıcı
                 <select value={selectedProvider} onChange={(event) => setSelectedProvider(event.target.value)} disabled={aiMode === "auto"} className="min-h-10 rounded-xl border border-white/10 bg-slate-950 px-3 text-white disabled:opacity-60">
@@ -903,7 +903,7 @@ export function BlogSeoCenter() {
                 <p className="text-base font-black text-white">{item.title}</p>
                 <p className="mt-2 text-xs font-bold text-cyan-100">{item.primaryKeyword}</p>
                 <p className="mt-2 text-sm leading-6 text-slate-300">{item.angle}</p>
-                <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-black"><span className="rounded-full bg-white/10 px-2 py-1 text-slate-200">{item.searchIntent || agent.intent}</span><span className="rounded-full bg-amber-300/15 px-2 py-1 text-amber-100">Mevcut içerikle benzerlik: {item.duplicateRisk || "Düşük"}</span>{(item.sourceLabels || ["AI analizi", "mevcut blog arşivi"]).slice(0, 4).map((source) => <span key={source} className="rounded-full bg-cyan-300/10 px-2 py-1 text-cyan-100">{source}</span>)}</div>
+                <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-black"><span className="rounded-full bg-[var(--admin-surface)]/10 px-2 py-1 text-slate-200">{item.searchIntent || agent.intent}</span><span className="rounded-full bg-amber-300/15 px-2 py-1 text-amber-100">Mevcut içerikle benzerlik: {item.duplicateRisk || "Düşük"}</span>{(item.sourceLabels || ["AI analizi", "mevcut blog arşivi"]).slice(0, 4).map((source) => <span key={source} className="rounded-full bg-cyan-300/10 px-2 py-1 text-cyan-100">{source}</span>)}</div>
                 {item.similarityReason ? <p className="mt-2 text-xs leading-5 text-slate-400">{item.similarityReason}</p> : null}
                 <div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={() => applySuggestion(item)} className="min-h-10 rounded-xl border border-cyan-200/25 px-3 text-xs font-black text-cyan-100 hover:bg-cyan-300/10">Bu konuyu kullan</button><button type="button" disabled={Boolean(agentBusy)} onClick={() => applySuggestion(item, true)} className="min-h-10 rounded-xl bg-violet-600 px-3 text-xs font-black text-white disabled:opacity-60">Taslak oluştur</button></div>
               </article>)}</div>
@@ -916,13 +916,13 @@ export function BlogSeoCenter() {
         </section>
         <section className="mt-8 grid gap-6 2xl:grid-cols-[minmax(0,1fr)_540px]">
           <div className="space-y-5">
-            <div className="rounded-[24px] border border-white/10 bg-white/[0.045] p-5">
+            <div className="rounded-[24px] border border-white/10 bg-[var(--admin-surface)]/[0.045] p-5">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <h2 className="text-xl font-black">Yazı listesi</h2>
                 <div className="flex flex-col gap-2 sm:flex-row">
-                  <label className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Başlık, slug, kelime ara" className="min-h-11 rounded-2xl border border-white/10 bg-slate-950/70 pl-9 pr-3 text-sm outline-none focus:border-cyan-300" /></label>
+                  <label className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--admin-text-muted)]" size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Başlık, slug, kelime ara" className="min-h-11 rounded-2xl border border-white/10 bg-slate-950/70 pl-9 pr-3 text-sm outline-none focus:border-cyan-300" /></label>
                   <select value={status} onChange={(event) => setStatus(event.target.value as BlogStatus | "all")} className="min-h-11 rounded-2xl border border-white/10 bg-slate-950/70 px-3 text-sm outline-none focus:border-cyan-300"><option value="all">Tüm durumlar</option>{Object.entries(statusLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select>
-                  <button type="button" onClick={loadData} className="min-h-11 rounded-2xl border border-white/10 px-4 text-sm font-bold text-slate-200 hover:bg-white/10">Yenile</button>
+                  <button type="button" onClick={loadData} className="min-h-11 rounded-2xl border border-white/10 px-4 text-sm font-bold text-slate-200 hover:bg-[var(--admin-surface)]/10">Yenile</button>
                 </div>
               </div>
               <div className="mt-5 grid gap-3">
@@ -930,27 +930,27 @@ export function BlogSeoCenter() {
                   <article key={post.id || post.slug} className={`grid gap-3 rounded-2xl border p-4 md:grid-cols-[minmax(0,1fr)_auto] ${draft.id === post.id ? "border-cyan-300 bg-cyan-300/10" : "border-white/10 bg-slate-950/35"}`}>
                     <div className="min-w-0">
                       <p className="break-words font-black text-white">{post.title}</p>
-                      <p className="mt-1 break-all text-xs text-slate-500">/{post.slug}</p>
+                      <p className="mt-1 break-all text-xs text-[var(--admin-text-muted)]">/{post.slug}</p>
                       <div className="mt-3 flex flex-wrap gap-2 text-xs font-black">
-                        <span className="rounded-full bg-white/10 px-3 py-1 text-slate-200">{statusLabels[post.status]}</span>
-                        <span className="rounded-full bg-white/10 px-3 py-1 text-slate-300">{post.category?.name || "Kategori yok"}</span>
+                        <span className="rounded-full bg-[var(--admin-surface)]/10 px-3 py-1 text-slate-200">{statusLabels[post.status]}</span>
+                        <span className="rounded-full bg-[var(--admin-surface)]/10 px-3 py-1 text-slate-300">{post.category?.name || "Kategori yok"}</span>
                         <span className="rounded-full bg-cyan-300/10 px-3 py-1 text-cyan-100">{post.primary_keyword || "Ana kelime yok"}</span>
                         <span className={`rounded-full border px-3 py-1 ${scoreTone(post.seo_score)}`}>SEO {post.seo_score}</span>
                         <span className={`rounded-full border px-3 py-1 ${scoreTone(post.readability_score)}`}>Okuma {post.readability_score}</span>
                       </div>
                     </div>
-                    <div className="flex items-start justify-end gap-2"><button type="button" onClick={() => { setDraft(toDraft(post)); setSlugTouched(false); }} className="rounded-xl border border-cyan-200/20 p-2 text-cyan-100 hover:bg-cyan-300/10" aria-label="Düzenle"><Edit3 size={16} /></button><Link href={`/blog/${post.slug}`} target="_blank" className="rounded-xl border border-white/10 p-2 text-slate-200 hover:bg-white/10" aria-label="Public sayfayı aç"><FileText size={16} /></Link><button type="button" onClick={() => archivePost(post)} className="rounded-xl border border-rose-200/20 p-2 text-rose-100 hover:bg-rose-400/10" aria-label="Arşivle"><Archive size={16} /></button></div>
+                    <div className="flex items-start justify-end gap-2"><button type="button" onClick={() => { setDraft(toDraft(post)); setSlugTouched(false); }} className="rounded-xl border border-cyan-200/20 p-2 text-cyan-100 hover:bg-cyan-300/10" aria-label="Düzenle"><Edit3 size={16} /></button><Link href={`/blog/${post.slug}`} target="_blank" className="rounded-xl border border-white/10 p-2 text-slate-200 hover:bg-[var(--admin-surface)]/10" aria-label="Public sayfayı aç"><FileText size={16} /></Link><button type="button" onClick={() => archivePost(post)} className="rounded-xl border border-rose-200/20 p-2 text-rose-100 hover:bg-rose-400/10" aria-label="Arşivle"><Archive size={16} /></button></div>
                   </article>
                 ))}
                 {!loading && !filtered.length ? <EmptyNotice title="Henüz blog yazısı bulunmuyor" text="Filtreyi değiştirin veya AI ile ilk taslağı oluşturun." icon={<FileText />} /> : null}
               </div>
             </div>
-            <div className="rounded-[24px] border border-white/10 bg-white/[0.045] p-5">
+            <div className="rounded-[24px] border border-white/10 bg-[var(--admin-surface)]/[0.045] p-5">
               <h2 className="text-xl font-black">Arama niyeti konu haritası</h2>
               <div className="mt-4 grid gap-3 md:grid-cols-2">{contentIntentMap.map((item) => <div key={item.phrase} className="rounded-2xl border border-white/10 bg-slate-950/40 p-4"><p className="text-xs font-black uppercase tracking-[.14em] text-cyan-200">{item.cluster}</p><p className="mt-2 font-black text-white">{item.phrase}</p><p className="mt-3 text-sm text-slate-400">{item.intent} · {item.contentType}</p><p className="mt-2 text-sm text-slate-300">İlişkili hizmet: {item.relatedService}</p></div>)}</div>
             </div>
           </div>
-          <aside className="rounded-[24px] border border-white/10 bg-white/[0.055] p-5 2xl:sticky 2xl:top-6 2xl:max-h-[calc(100vh-3rem)] 2xl:overflow-y-auto">
+          <aside className="rounded-[24px] border border-white/10 bg-[var(--admin-surface)]/[0.055] p-5 2xl:sticky 2xl:top-6 2xl:max-h-[calc(100vh-3rem)] 2xl:overflow-y-auto">
             <h2 className="text-xl font-black">{draft.id ? "Yazıyı düzenle" : "Yeni yazı"}</h2>
             <div className="mt-5 grid gap-3">
               <label className="grid gap-2 text-sm font-bold text-slate-300">Başlık<input value={draft.title} onChange={(event) => updateDraft("title", event.target.value)} className="min-h-11 rounded-2xl border border-white/10 bg-slate-950/70 px-3 text-white outline-none focus:border-cyan-300" /></label>
@@ -984,20 +984,20 @@ export function BlogSeoCenter() {
               <p>SEO {analysis.seo_score} · Tahmini Türkçe okunabilirlik {analysis.subScores.readabilityLocal} · Anahtar kelime {analysis.subScores.keywordScore}</p>
               <p>İç bağlantı: {analysis.internalLinks} · Dış bağlantı: {analysis.externalLinks} · Görsel: {analysis.imageCount} · Uzun paragraf: {analysis.longParagraphs} · Uzun cümle: {analysis.longSentences}</p>
               <div className="grid gap-2 sm:grid-cols-2">
-                {Object.entries({ "Teknik SEO": analysis.subScores.technicalScore, "İçerik kapsamı": analysis.subScores.coverageScore, "Anahtar kelime": analysis.subScores.keywordScore, "Okunabilirlik": analysis.subScores.readabilityLocal, "Bağlantılar": analysis.subScores.linkScore, "Görsel hazırlığı": analysis.subScores.visualScore }).map(([label, value]) => <p key={label} className="rounded-xl bg-white/5 p-2 text-xs font-bold text-slate-300"><span className="block text-slate-500">{label}</span>{value}/100</p>)}
+                {Object.entries({ "Teknik SEO": analysis.subScores.technicalScore, "İçerik kapsamı": analysis.subScores.coverageScore, "Anahtar kelime": analysis.subScores.keywordScore, "Okunabilirlik": analysis.subScores.readabilityLocal, "Bağlantılar": analysis.subScores.linkScore, "Görsel hazırlığı": analysis.subScores.visualScore }).map(([label, value]) => <p key={label} className="rounded-xl bg-[var(--admin-surface)]/5 p-2 text-xs font-bold text-slate-300"><span className="block text-[var(--admin-text-muted)]">{label}</span>{value}/100</p>)}
               </div>
               <p className="rounded-xl border border-cyan-200/15 bg-cyan-300/10 p-3 text-xs leading-5 text-cyan-100">Dış kaynak doğrulama entegrasyonu bulunmadığı için AI’den sahte URL istenmez. Dış kaynak gerekiyorsa manuel ve doğrulanmış URL ekleyin.</p>
               {analysis.critical.length ? <div className="rounded-xl border border-rose-300/20 bg-rose-400/10 p-3"><p className="font-black text-rose-100">Kritik eksikler</p>{analysis.critical.map((item) => <p key={item} className="mt-1 text-rose-100">• {item}</p>)}</div> : null}
               {analysis.improvements.length ? <div className="rounded-xl border border-yellow-300/20 bg-yellow-300/10 p-3"><p className="font-black text-yellow-100">İyileştirme önerileri</p>{analysis.improvements.slice(0, 8).map((item) => <p key={item} className="mt-1 text-yellow-100">• {item}</p>)}</div> : null}
               {analysis.passed.length ? <div className="rounded-xl border border-emerald-300/20 bg-emerald-400/10 p-3"><p className="font-black text-emerald-100">Başarılı kontroller</p>{analysis.passed.slice(0, 8).map((item) => <p key={item} className="mt-1 text-emerald-100">• {item}</p>)}</div> : null}
             </div>
-            <div className="mt-5 grid gap-2 sm:grid-cols-2"><button type="button" disabled={saving} onClick={() => savePost()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-cyan-300 px-4 text-sm font-black text-slate-950 disabled:opacity-60">{saving ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />} Taslak Kaydet</button><button type="button" disabled={saving} onClick={() => savePost("published")} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-4 text-sm font-black text-slate-950 disabled:opacity-60"><Send size={16} /> Yayınla</button></div>
+            <div className="mt-5 grid gap-2 sm:grid-cols-2"><button type="button" disabled={saving} onClick={() => savePost()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-cyan-300 px-4 text-sm font-black text-[var(--admin-text-primary)] disabled:opacity-60">{saving ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />} Taslak Kaydet</button><button type="button" disabled={saving} onClick={() => savePost("published")} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-4 text-sm font-black text-[var(--admin-text-primary)] disabled:opacity-60"><Send size={16} /> Yayınla</button></div>
             {draft.status === "published" && draft.slug ? <Link href={`/blog/${draft.slug}`} target="_blank" className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-emerald-200/25 bg-emerald-400/10 px-4 text-sm font-black text-emerald-100 hover:bg-emerald-400/15"><FileText size={16} /> Public blog yazısını aç</Link> : null}
           </aside>
         </section>
         </> : null}
         {activeTab === "plan" ? <section className="mt-8 grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
-          <div className="rounded-[24px] border border-white/10 bg-white/[0.055] p-5">
+          <div className="rounded-[24px] border border-white/10 bg-[var(--admin-surface)]/[0.055] p-5">
             <p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[.16em] text-cyan-200"><CalendarDays size={16} /> Otonom plan</p>
             <h2 className="mt-2 text-xl font-black">Haftalık içerik planı</h2>
             <div className="mt-5 grid gap-3">
@@ -1018,24 +1018,24 @@ export function BlogSeoCenter() {
               </div>
             </div>
           </div>
-          <div className="rounded-[24px] border border-white/10 bg-white/[0.045] p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-xl font-black">Plan öğeleri</h2><span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black text-slate-200">{savedPlans.length} kayıtlı plan</span></div>
+          <div className="rounded-[24px] border border-white/10 bg-[var(--admin-surface)]/[0.045] p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-xl font-black">Plan öğeleri</h2><span className="rounded-full bg-[var(--admin-surface)]/10 px-3 py-1 text-xs font-black text-slate-200">{savedPlans.length} kayıtlı plan</span></div>
             {planItems.length ? <div className="mt-4 grid gap-3">{planItems.map((item) => <article key={item.slug} className="rounded-2xl border border-white/10 bg-slate-950/35 p-4">
               <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-black text-white">{item.title}</p><p className="mt-1 text-xs font-bold text-cyan-100">{item.primary_keyword || "Ana kelime yok"} · {item.search_intent}</p></div><span className="rounded-full bg-violet-400/15 px-3 py-1 text-xs font-black text-violet-100">{item.priority}</span></div>
               <p className="mt-3 text-sm leading-6 text-slate-300">{item.rationale || "Gerekçe AI tarafından kısa tutuldu."}</p>
-              <div className="mt-3 flex flex-wrap gap-2">{item.source_signals.map((signal) => <span key={signal} className="rounded-full bg-white/10 px-2 py-1 text-[11px] font-black text-slate-200">{signal}</span>)}</div>
+              <div className="mt-3 flex flex-wrap gap-2">{item.source_signals.map((signal) => <span key={signal} className="rounded-full bg-[var(--admin-surface)]/10 px-2 py-1 text-[11px] font-black text-slate-200">{signal}</span>)}</div>
               <div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={() => generateDraftFromPlanItem(item)} disabled={Boolean(agentBusy)} className="min-h-10 rounded-xl bg-violet-600 px-3 text-xs font-black text-white disabled:opacity-60">Bu taslağı üret</button><button type="button" onClick={() => applySuggestion({ title: item.title, primaryKeyword: item.primary_keyword, secondaryKeywords: item.secondary_keywords, searchIntent: item.search_intent, targetAudience: item.target_audience, angle: item.rationale })} className="min-h-10 rounded-xl border border-cyan-200/25 px-3 text-xs font-black text-cyan-100">Forma aktar</button></div>
             </article>)}</div> : <EmptyNotice icon={<CalendarDays />} title="Henüz içerik planı yok" text="Plan oluşturmak için sol taraftaki brief alanlarını doldurun. Search Console veya Trends bağlı değilse sahte kaynak etiketi kullanılmaz." />}
           </div>
         </section> : null}
         {activeTab === "calendar" ? <section className="mt-8 grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="rounded-[24px] border border-white/10 bg-white/[0.045] p-5">
+          <div className="rounded-[24px] border border-white/10 bg-[var(--admin-surface)]/[0.045] p-5">
             <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-200">Takvim</p><h2 className="mt-2 text-xl font-black">Planlanan ve yayınlanan içerikler</h2></div><HKButton type="button" variant="neutral" onClick={loadData} icon={<RefreshCw size={16} />}>Yenile</HKButton></div>
-            <div className="mt-4 rounded-[12px] bg-white p-2">
+            <div className="mt-4 rounded-[12px] bg-[var(--admin-surface)] p-2">
               <AdminDataGrid columns={calendarColumns} rows={calendarPosts} rowKey={(post: any) => post.id || post.slug} activeId={selectedCalendarSlug} onRowClick={(post: any) => setSelectedCalendarSlug(post.slug)} emptyTitle="Takvimde içerik yok." emptyDescription="Taslak veya planlanan yazılar burada listelenir." />
             </div>
           </div>
-          <aside className="rounded-[24px] border border-white/10 bg-white/[0.055] p-5">
+          <aside className="rounded-[24px] border border-white/10 bg-[var(--admin-surface)]/[0.055] p-5">
             <h2 className="text-lg font-black text-white">Seçili İçerik</h2>
             {selectedCalendarPost ? <div className="mt-4 grid gap-2 text-sm text-slate-300">
               <p className="font-black text-white">{selectedCalendarPost.title}</p>
@@ -1046,14 +1046,14 @@ export function BlogSeoCenter() {
           </aside>
         </section> : null}
         {activeTab === "links" ? <section className="mt-8 grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
-          <div className="rounded-[24px] border border-white/10 bg-white/[0.045] p-5">
+          <div className="rounded-[24px] border border-white/10 bg-[var(--admin-surface)]/[0.045] p-5">
             <div><p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[.16em] text-cyan-200"><Link2 size={16} /> İç bağlantılar</p><h2 className="mt-2 text-xl font-black">Akıllı iç bağlantı önerileri</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">Öneriler yayınlanmış yazı başlıkları, anahtar kelimeleri ve mevcut içerikteki ifadelerle deterministik çıkarılır. Onaylamadan kayıtlı içerik değişmez.</p></div>
             {linkPreview ? <div className="mt-4 rounded-2xl border border-cyan-200/20 bg-cyan-300/10 p-4 text-sm text-cyan-100">Önizleme forma aktarıldı: {linkPreview.suggestion.sourceTitle} → {linkPreview.suggestion.targetTitle}</div> : null}
-            <div className="mt-4 rounded-[12px] bg-white p-2">
+            <div className="mt-4 rounded-[12px] bg-[var(--admin-surface)] p-2">
               <AdminDataGrid columns={linkColumns} rows={internalLinkSuggestions} rowKey={(item: any) => item.id} activeId={selectedLinkId} onRowClick={(item: any) => setSelectedLinkId(item.id)} emptyTitle="İç bağlantı önerisi bulunamadı." emptyDescription="Yayınlanmış yazı sayısı veya anahtar kelime eşleşmesi yetersiz olabilir." />
             </div>
           </div>
-          <aside className="rounded-[24px] border border-white/10 bg-white/[0.055] p-5">
+          <aside className="rounded-[24px] border border-white/10 bg-[var(--admin-surface)]/[0.055] p-5">
             <h2 className="text-lg font-black text-white">Seçili Öneri</h2>
             {selectedLink ? <div className="mt-4 grid gap-2 text-sm text-slate-300">
               <p><strong className="text-white">Kaynak:</strong> {selectedLink.sourceTitle}</p>
@@ -1065,16 +1065,16 @@ export function BlogSeoCenter() {
           </aside>
         </section> : null}
         {activeTab === "social" ? <section className="mt-8 grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
-          <div className="rounded-[24px] border border-white/10 bg-white/[0.055] p-5"><p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[.16em] text-cyan-200"><Share2 size={16} /> Sosyal medya</p><h2 className="mt-2 text-xl font-black">Blogdan sosyal paket üret</h2><label className="mt-5 grid gap-2 text-sm font-bold text-slate-300">Blog yazısı<select value={selectedSocialPost?.slug || ""} onChange={(event) => setSelectedSocialSlug(event.target.value)} className="min-h-11 rounded-2xl border border-white/10 bg-slate-950/70 px-3 text-white outline-none focus:border-cyan-300">{posts.map((post) => <option key={post.slug} value={post.slug}>{post.title}</option>)}</select></label><HKButton type="button" className="mt-4" variant="ai" loading={agentBusy === "social_package"} disabled={Boolean(agentBusy) || !selectedSocialPost} onClick={generateSocialPackage} icon={<Sparkles size={16} />}>Sosyal medya taslağı üret</HKButton><p className="mt-4 rounded-2xl border border-amber-200/20 bg-amber-300/10 p-3 text-sm text-amber-100">Gerçek paylaşım yapılmaz. Çıktılar kopyalanabilir taslaktır.</p></div>
-          <div className="rounded-[24px] border border-white/10 bg-white/[0.045] p-5">{socialPackage ? <div className="space-y-4">{Object.entries(socialPackage).map(([platform, value]) => <article key={platform} className="rounded-2xl border border-white/10 bg-slate-950/35 p-4"><h3 className="font-black capitalize text-white">{platform}</h3><pre className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-slate-300">{typeof value === "string" ? value : JSON.stringify(value, null, 2)}</pre></article>)}<button type="button" onClick={() => navigator.clipboard.writeText(formatSocialPackageText(socialPackage))} className="min-h-11 rounded-2xl bg-cyan-300 px-4 text-sm font-black text-slate-950">Tüm paketi kopyala</button></div> : <EmptyNotice icon={<Share2 />} title="Sosyal medya taslağı yok" text="Bir blog yazısı seçip AI ile taslak paketi üretin. Platform paylaşımı otomatik yapılmaz." />}</div>
+          <div className="rounded-[24px] border border-white/10 bg-[var(--admin-surface)]/[0.055] p-5"><p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[.16em] text-cyan-200"><Share2 size={16} /> Sosyal medya</p><h2 className="mt-2 text-xl font-black">Blogdan sosyal paket üret</h2><label className="mt-5 grid gap-2 text-sm font-bold text-slate-300">Blog yazısı<select value={selectedSocialPost?.slug || ""} onChange={(event) => setSelectedSocialSlug(event.target.value)} className="min-h-11 rounded-2xl border border-white/10 bg-slate-950/70 px-3 text-white outline-none focus:border-cyan-300">{posts.map((post) => <option key={post.slug} value={post.slug}>{post.title}</option>)}</select></label><HKButton type="button" className="mt-4" variant="ai" loading={agentBusy === "social_package"} disabled={Boolean(agentBusy) || !selectedSocialPost} onClick={generateSocialPackage} icon={<Sparkles size={16} />}>Sosyal medya taslağı üret</HKButton><p className="mt-4 rounded-2xl border border-amber-200/20 bg-amber-300/10 p-3 text-sm text-amber-100">Gerçek paylaşım yapılmaz. Çıktılar kopyalanabilir taslaktır.</p></div>
+          <div className="rounded-[24px] border border-white/10 bg-[var(--admin-surface)]/[0.045] p-5">{socialPackage ? <div className="space-y-4">{Object.entries(socialPackage).map(([platform, value]) => <article key={platform} className="rounded-2xl border border-white/10 bg-slate-950/35 p-4"><h3 className="font-black capitalize text-white">{platform}</h3><pre className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-slate-300">{typeof value === "string" ? value : JSON.stringify(value, null, 2)}</pre></article>)}<button type="button" onClick={() => navigator.clipboard.writeText(formatSocialPackageText(socialPackage))} className="min-h-11 rounded-2xl bg-cyan-300 px-4 text-sm font-black text-[var(--admin-text-primary)]">Tüm paketi kopyala</button></div> : <EmptyNotice icon={<Share2 />} title="Sosyal medya taslağı yok" text="Bir blog yazısı seçip AI ile taslak paketi üretin. Platform paylaşımı otomatik yapılmaz." />}</div>
         </section> : null}
         {activeTab === "performance" ? <section className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-          <div className="rounded-[24px] border border-white/10 bg-white/[0.045] p-5"><p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[.16em] text-cyan-200"><BarChart3 size={16} /> Performans</p><h2 className="mt-2 text-xl font-black">Güncellenmesi gereken içerikler</h2><p className="mt-2 text-sm leading-6 text-slate-300">Search Console/GA4 bağlı olmadığında sahte trafik metriği gösterilmez. Bu liste mevcut blog kalite sinyalleriyle deterministik hazırlanır.</p>
-            <div className="mt-4 rounded-[12px] bg-white p-2">
+          <div className="rounded-[24px] border border-white/10 bg-[var(--admin-surface)]/[0.045] p-5"><p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[.16em] text-cyan-200"><BarChart3 size={16} /> Performans</p><h2 className="mt-2 text-xl font-black">Güncellenmesi gereken içerikler</h2><p className="mt-2 text-sm leading-6 text-slate-300">Search Console/GA4 bağlı olmadığında sahte trafik metriği gösterilmez. Bu liste mevcut blog kalite sinyalleriyle deterministik hazırlanır.</p>
+            <div className="mt-4 rounded-[12px] bg-[var(--admin-surface)] p-2">
               <AdminDataGrid columns={opportunityColumns} rows={performanceOpportunities} rowKey={(item: any) => `${item.slug}-${item.issue}`} activeId={selectedOpportunityKey} onRowClick={(item: any) => setSelectedOpportunityKey(`${item.slug}-${item.issue}`)} emptyTitle="Kritik güncelleme sinyali yok." emptyDescription="Mevcut yazılar deterministik kalite kontrollerinden geçti." />
             </div>
           </div>
-          <aside className="rounded-[24px] border border-white/10 bg-white/[0.055] p-5">
+          <aside className="rounded-[24px] border border-white/10 bg-[var(--admin-surface)]/[0.055] p-5">
             <h2 className="text-xl font-black">AI güncelleme planı</h2>
             {selectedOpportunity && <div className="mt-3 rounded-xl border border-amber-200/20 bg-amber-300/10 p-3 text-xs text-amber-100"><p className="font-black">{selectedOpportunity.title}</p><p className="mt-1">{selectedOpportunity.evidence}</p><p className="mt-1 text-cyan-100">{selectedOpportunity.action}</p></div>}
             <label className="mt-4 grid gap-2 text-sm font-bold text-slate-300">Yazı<select value={selectedPerformancePost?.slug || ""} onChange={(event) => setSelectedPerformanceSlug(event.target.value)} className="min-h-11 rounded-2xl border border-white/10 bg-slate-950/70 px-3 text-white outline-none focus:border-cyan-300">{posts.map((post) => <option key={post.slug} value={post.slug}>{post.title}</option>)}</select></label><HKButton type="button" className="mt-4" variant="ai" loading={agentBusy === "update_plan"} disabled={Boolean(agentBusy) || !selectedPerformancePost} onClick={generateUpdatePlan} icon={<Wand2 size={16} />}>Güncelleme planı oluştur</HKButton>{updatePlan ? <pre className="mt-4 max-h-[420px] overflow-auto whitespace-pre-wrap rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-sm leading-6 text-slate-300">{JSON.stringify(updatePlan, null, 2)}</pre> : <p className="mt-4 text-sm leading-6 text-slate-400">Öneri oluşturulduğunda burada görünür. Kayıtlı içerik otomatik değişmez.</p>}</aside>
@@ -1093,9 +1093,9 @@ export function BlogSeoCenter() {
 }
 
 function EmptyNotice({ title, text, icon }: { title: string; text: string; icon?: ReactNode }) {
-  return <div className="mt-5 rounded-2xl border border-dashed border-white/15 bg-slate-950/35 p-6 text-center text-slate-300">{icon ? <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-cyan-100">{icon}</div> : null}<h3 className="font-black text-white">{title}</h3><p className="mt-2 text-sm leading-6">{text}</p></div>;
+  return <div className="mt-5 rounded-2xl border border-dashed border-white/15 bg-slate-950/35 p-6 text-center text-slate-300">{icon ? <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-[var(--admin-surface)]/10 text-cyan-100">{icon}</div> : null}<h3 className="font-black text-white">{title}</h3><p className="mt-2 text-sm leading-6">{text}</p></div>;
 }
 
 function IntegrationCard({ title, status, text, href }: { title: string; status: string; text: string; href?: string }) {
-  return <article className="rounded-[24px] border border-white/10 bg-white/[0.045] p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-black text-white">{title}</h2><p className="mt-2 text-sm leading-6 text-slate-300">{text}</p></div><span className="rounded-full bg-amber-300/10 px-3 py-1 text-xs font-black text-amber-100">{status}</span></div>{href ? <Link href={href} className="mt-4 inline-flex min-h-10 items-center justify-center rounded-xl border border-cyan-200/25 px-3 text-sm font-black text-cyan-100 hover:bg-cyan-300/10">İlgili ayara git</Link> : <div className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-xl border border-white/10 px-3 text-sm font-black text-slate-300"><ShieldAlert size={16} /> Manuel yapılandırma gerekli</div>}</article>;
+  return <article className="rounded-[24px] border border-white/10 bg-[var(--admin-surface)]/[0.045] p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-black text-white">{title}</h2><p className="mt-2 text-sm leading-6 text-slate-300">{text}</p></div><span className="rounded-full bg-amber-300/10 px-3 py-1 text-xs font-black text-amber-100">{status}</span></div>{href ? <Link href={href} className="mt-4 inline-flex min-h-10 items-center justify-center rounded-xl border border-cyan-200/25 px-3 text-sm font-black text-cyan-100 hover:bg-cyan-300/10">İlgili ayara git</Link> : <div className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-xl border border-white/10 px-3 text-sm font-black text-slate-300"><ShieldAlert size={16} /> Manuel yapılandırma gerekli</div>}</article>;
 }

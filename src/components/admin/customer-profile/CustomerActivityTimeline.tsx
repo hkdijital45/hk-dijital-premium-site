@@ -104,27 +104,27 @@ export function CustomerActivityTimeline({ items, onOpenTab }: { items: any[]; o
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Aktivitede ara..."
-                className="min-h-9 rounded-[8px] border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 placeholder:text-slate-500"
+                className="min-h-9 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 text-sm text-[var(--admin-text-primary)] placeholder:text-[var(--admin-text-muted)]"
               />
-              <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+              <label className="grid gap-1.5 text-xs font-bold text-[var(--admin-text-secondary)]">
                 Aktivite türü
-                <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} className="min-h-9 rounded-[8px] border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900">
+                <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} className="min-h-9 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 text-sm text-[var(--admin-text-primary)]">
                   <option value="Tümü">Tüm türler</option>
                   {entityTypes.map((type) => <option key={type} value={type}>{type}</option>)}
                 </select>
               </label>
               {responsibleNames.length > 0 && (
-                <label className="grid gap-1.5 text-xs font-bold text-slate-700">
+                <label className="grid gap-1.5 text-xs font-bold text-[var(--admin-text-secondary)]">
                   Sorumlu kullanıcı
-                  <select value={responsibleFilter} onChange={(event) => setResponsibleFilter(event.target.value)} className="min-h-9 rounded-[8px] border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900">
+                  <select value={responsibleFilter} onChange={(event) => setResponsibleFilter(event.target.value)} className="min-h-9 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 text-sm text-[var(--admin-text-primary)]">
                     <option value="Tümü">Tüm kullanıcılar</option>
                     {responsibleNames.map((name) => <option key={name} value={name}>{name}</option>)}
                   </select>
                 </label>
               )}
-              <label className="grid gap-1.5 text-xs font-bold text-slate-700">Başlangıç tarihi<input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="min-h-9 rounded-[8px] border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900" /></label>
-              <label className="grid gap-1.5 text-xs font-bold text-slate-700">Bitiş tarihi<input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className="min-h-9 rounded-[8px] border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900" /></label>
-              <button type="button" onClick={() => { setSearch(""); setTypeFilter("Tümü"); setResponsibleFilter("Tümü"); setStartDate(""); setEndDate(""); }} className="rounded-[8px] border border-slate-200 px-3 py-2 text-xs font-black text-slate-700">Filtreleri Temizle</button>
+              <label className="grid gap-1.5 text-xs font-bold text-[var(--admin-text-secondary)]">Başlangıç tarihi<input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="min-h-9 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 text-sm text-[var(--admin-text-primary)]" /></label>
+              <label className="grid gap-1.5 text-xs font-bold text-[var(--admin-text-secondary)]">Bitiş tarihi<input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className="min-h-9 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 text-sm text-[var(--admin-text-primary)]" /></label>
+              <button type="button" onClick={() => { setSearch(""); setTypeFilter("Tümü"); setResponsibleFilter("Tümü"); setStartDate(""); setEndDate(""); }} className="rounded-[8px] border border-[var(--admin-border)] px-3 py-2 text-xs font-black text-[var(--admin-text-secondary)]">Filtreleri Temizle</button>
             </div>
           </AdminFilterSection>
         </AdminControlPanel>
@@ -145,7 +145,7 @@ export function CustomerActivityTimeline({ items, onOpenTab }: { items: any[]; o
             <button type="button" onClick={() => onOpenTab(relatedTab)} className="hk-button hk-button-info hk-button-compact">{relatedTab} Sekmesini Aç</button>
           ) : undefined}
         >
-          {selected?.details?.message && <p className="rounded-[8px] border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700">{selected.details.message}</p>}
+          {selected?.details?.message && <p className="rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-2 text-xs text-[var(--admin-text-secondary)]">{selected.details.message}</p>}
           {selected?.details?.error && <p className="mt-2 rounded-[8px] border border-red-200 bg-red-50 p-2 text-xs font-bold text-red-700">{selected.details.error}</p>}
         </AdminDetailInspector>
       }
@@ -162,7 +162,7 @@ export function CustomerActivityTimeline({ items, onOpenTab }: { items: any[]; o
                 key={item.id}
                 type="button"
                 onClick={() => setSelectedId(item.id)}
-                className={`rounded-[8px] border p-2.5 text-left ${selectedId === item.id ? "border-cyan-300 bg-cyan-50" : "border-slate-200 bg-white"}`}
+                className={`rounded-[8px] border p-2.5 text-left ${selectedId === item.id ? "border-cyan-300 bg-cyan-50" : "border-[var(--admin-border)] bg-[var(--admin-surface)]"}`}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="min-w-0 truncate text-sm font-bold text-slate-800">{item.entity || "Aktivite"} · {item.action || "-"}</span>
@@ -175,7 +175,7 @@ export function CustomerActivityTimeline({ items, onOpenTab }: { items: any[]; o
                   <span>{item.actor_name || "Bilinmeyen"}{item.role ? ` · ${item.role}` : ""}</span>
                   <span>{formatDateTime(item.created_at)}</span>
                 </div>
-                {item.details?.message && <p className="mt-1 truncate text-xs text-slate-600">{item.details.message}</p>}
+                {item.details?.message && <p className="mt-1 truncate text-xs text-[var(--admin-text-secondary)]">{item.details.message}</p>}
               </button>
             ))}
           </div>

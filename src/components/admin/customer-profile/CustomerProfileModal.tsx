@@ -64,9 +64,9 @@ function applicationStatus(status: string) {
 
 function SummaryBox({ title, lines }: { title: string; lines: string[] }) {
   return (
-    <div className="rounded-[18px] border border-slate-200 bg-slate-50 p-4">
-      <h3 className="font-black text-slate-950">{title}</h3>
-      <div className="mt-3 grid gap-1 text-sm text-slate-600">
+    <div className="rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4">
+      <h3 className="font-black text-[var(--admin-text-primary)]">{title}</h3>
+      <div className="mt-3 grid gap-1 text-sm text-[var(--admin-text-secondary)]">
         {lines.map((line) => <span key={line}>{line}</span>)}
       </div>
     </div>
@@ -145,20 +145,20 @@ function profilePayload(form: Record<string, any>) {
 
 function FieldBox({ label, children, help }: { label: string; children: ReactNode; help?: string }) {
   return (
-    <label className="grid gap-1 text-sm font-bold text-slate-700">
+    <label className="grid gap-1 text-sm font-bold text-[var(--admin-text-secondary)]">
       {label}
       {children}
-      {help && <span className="text-xs font-medium text-slate-500">{help}</span>}
+      {help && <span className="text-xs font-medium text-[var(--admin-text-muted)]">{help}</span>}
     </label>
   );
 }
 
 function TextInput({ value, onChange, type = "text", placeholder = "" }: { value: string; onChange: (value: string) => void; type?: string; placeholder?: string }) {
-  return <input type={type} value={value || ""} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="min-h-11 rounded-[12px] border border-slate-200 bg-white px-3 text-slate-900 outline-none focus:ring-2 focus:ring-cyan-300" />;
+  return <input type={type} value={value || ""} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="min-h-11 rounded-[12px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-[var(--admin-text-primary)] outline-none focus:ring-2 focus:ring-cyan-300" />;
 }
 
 function TextBox({ value, onChange, placeholder = "" }: { value: string; onChange: (value: string) => void; placeholder?: string }) {
-  return <textarea value={value || ""} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="min-h-24 rounded-[12px] border border-slate-200 bg-white p-3 text-slate-900 outline-none focus:ring-2 focus:ring-cyan-300" />;
+  return <textarea value={value || ""} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="min-h-24 rounded-[12px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3 text-[var(--admin-text-primary)] outline-none focus:ring-2 focus:ring-cyan-300" />;
 }
 
 function statusLabel(status: string, isActive?: boolean) {
@@ -168,7 +168,7 @@ function statusLabel(status: string, isActive?: boolean) {
 }
 
 function statusTone(status: string, isActive?: boolean) {
-  if (status === "passive" || isActive === false) return "bg-slate-50 text-slate-600 ring-slate-200";
+  if (status === "passive" || isActive === false) return "bg-[var(--admin-surface-soft)] text-[var(--admin-text-secondary)] ring-slate-200";
   if (status === "needs_review") return "bg-amber-50 text-amber-700 ring-amber-200";
   return "bg-emerald-50 text-emerald-700 ring-emerald-200";
 }
@@ -537,11 +537,11 @@ export function CustomerProfileModal({
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Platform Yönetimi</p>
-              <h3 className="mt-1 text-xl font-black text-slate-950">Müşteriye açık platformları seç</h3>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Kapalı platformlar müşteri panelindeki Hesap Bağla ekranında görünmez; OAuth, API ve hesap listeleme akışları çalışmaz.</p>
+              <h3 className="mt-1 text-xl font-black text-[var(--admin-text-primary)]">Müşteriye açık platformları seç</h3>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--admin-text-secondary)]">Kapalı platformlar müşteri panelindeki Hesap Bağla ekranında görünmez; OAuth, API ve hesap listeleme akışları çalışmaz.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => resetPortalSettings("platforms")} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700">Reset</button>
+              <button type="button" onClick={() => resetPortalSettings("platforms")} className="rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface)] px-4 py-2 text-xs font-black text-[var(--admin-text-secondary)]">Reset</button>
               <button type="button" onClick={savePortalSettings} disabled={portalSaving} className="rounded-full bg-cyan-500 px-4 py-2 text-xs font-black text-white disabled:opacity-60">{portalSaving ? "Kaydediliyor..." : "Kaydet"}</button>
             </div>
           </div>
@@ -549,16 +549,16 @@ export function CustomerProfileModal({
             {CUSTOMER_PLATFORM_REGISTRY.map((platform) => {
               const active = enabledPlatforms.includes(platform.key);
               return (
-                <div key={platform.key} className={`rounded-[16px] border p-4 transition ${active ? "border-cyan-200 bg-white shadow-sm" : "border-slate-200 bg-slate-50"}`}>
+                <div key={platform.key} className={`rounded-[16px] border p-4 transition ${active ? "border-cyan-200 bg-[var(--admin-surface)] shadow-sm" : "border-[var(--admin-border)] bg-[var(--admin-surface-soft)]"}`}>
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className={`mb-3 grid size-11 place-items-center rounded-[14px] ${active ? "bg-cyan-100 text-cyan-700" : "bg-white text-slate-500"}`}>{platform.title.slice(0, 1)}</div>
-                      <h4 className="font-black text-slate-950">{platform.title}</h4>
-                      <p className="mt-2 text-xs leading-5 text-slate-500">{platform.description}</p>
+                      <div className={`mb-3 grid size-11 place-items-center rounded-[14px] ${active ? "bg-cyan-100 text-cyan-700" : "bg-[var(--admin-surface)] text-[var(--admin-text-muted)]"}`}>{platform.title.slice(0, 1)}</div>
+                      <h4 className="font-black text-[var(--admin-text-primary)]">{platform.title}</h4>
+                      <p className="mt-2 text-xs leading-5 text-[var(--admin-text-muted)]">{platform.description}</p>
                     </div>
-                    <span className={`rounded-full px-2 py-1 text-[10px] font-black ${active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{active ? "Aktif" : "Pasif"}</span>
+                    <span className={`rounded-full px-2 py-1 text-[10px] font-black ${active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-[var(--admin-text-secondary)]"}`}>{active ? "Aktif" : "Pasif"}</span>
                   </div>
-                  <label className="mt-4 flex items-center justify-between gap-3 rounded-[12px] bg-slate-50 px-3 py-2 text-xs font-black text-slate-700">
+                  <label className="mt-4 flex items-center justify-between gap-3 rounded-[12px] bg-[var(--admin-surface-soft)] px-3 py-2 text-xs font-black text-[var(--admin-text-secondary)]">
                     <span>{active ? "Müşteriye açık" : "Gizli"}</span>
                     <input type="checkbox" checked={active} onChange={() => setEnabledPlatforms((current) => toggleListValue(current, platform.key))} className="size-5 accent-cyan-500" />
                   </label>
@@ -566,7 +566,7 @@ export function CustomerProfileModal({
               );
             })}
           </div>
-          {portalMessage && <p className="mt-4 rounded-[12px] border border-cyan-200 bg-white p-3 text-sm font-bold text-cyan-900">{portalMessage}</p>}
+          {portalMessage && <p className="mt-4 rounded-[12px] border border-cyan-200 bg-[var(--admin-surface)] p-3 text-sm font-bold text-cyan-900">{portalMessage}</p>}
         </section>
       );
     }
@@ -577,11 +577,11 @@ export function CustomerProfileModal({
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-xs font-black uppercase tracking-[.16em] text-violet-700">Müşteri Paneli Yetkilendirme Merkezi</p>
-              <h3 className="mt-1 text-xl font-black text-slate-950">Müşteri panelinde görünecek modüller</h3>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Kapalı modüller navigation ve içerik alanında render edilmez. Elle açılmaya çalışılırsa yetki mesajı gösterilir.</p>
+              <h3 className="mt-1 text-xl font-black text-[var(--admin-text-primary)]">Müşteri panelinde görünecek modüller</h3>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--admin-text-secondary)]">Kapalı modüller navigation ve içerik alanında render edilmez. Elle açılmaya çalışılırsa yetki mesajı gösterilir.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => resetPortalSettings("modules")} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700">Reset</button>
+              <button type="button" onClick={() => resetPortalSettings("modules")} className="rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface)] px-4 py-2 text-xs font-black text-[var(--admin-text-secondary)]">Reset</button>
               <button type="button" onClick={savePortalSettings} disabled={portalSaving} className="rounded-full bg-violet-500 px-4 py-2 text-xs font-black text-white disabled:opacity-60">{portalSaving ? "Kaydediliyor..." : "Kaydet"}</button>
             </div>
           </div>
@@ -589,15 +589,15 @@ export function CustomerProfileModal({
             {CUSTOMER_MODULE_REGISTRY.map((module) => {
               const active = enabledModules.includes(module.key);
               return (
-                <div key={module.key} className={`rounded-[16px] border p-4 transition ${active ? "border-violet-200 bg-white shadow-sm" : "border-slate-200 bg-slate-50"}`}>
+                <div key={module.key} className={`rounded-[16px] border p-4 transition ${active ? "border-violet-200 bg-[var(--admin-surface)] shadow-sm" : "border-[var(--admin-border)] bg-[var(--admin-surface-soft)]"}`}>
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h4 className="font-black text-slate-950">{module.title}</h4>
-                      <p className="mt-2 text-xs leading-5 text-slate-500">{module.description}</p>
+                      <h4 className="font-black text-[var(--admin-text-primary)]">{module.title}</h4>
+                      <p className="mt-2 text-xs leading-5 text-[var(--admin-text-muted)]">{module.description}</p>
                     </div>
-                    <span className={`rounded-full px-2 py-1 text-[10px] font-black ${active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{active ? "Göster" : "Gizle"}</span>
+                    <span className={`rounded-full px-2 py-1 text-[10px] font-black ${active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-[var(--admin-text-secondary)]"}`}>{active ? "Göster" : "Gizle"}</span>
                   </div>
-                  <label className="mt-4 flex items-center justify-between gap-3 rounded-[12px] bg-slate-50 px-3 py-2 text-xs font-black text-slate-700">
+                  <label className="mt-4 flex items-center justify-between gap-3 rounded-[12px] bg-[var(--admin-surface-soft)] px-3 py-2 text-xs font-black text-[var(--admin-text-secondary)]">
                     <span>{active ? "Müşteri görür" : "Müşteriden gizli"}</span>
                     <input type="checkbox" checked={active} onChange={() => setEnabledModules((current) => toggleListValue(current, module.key))} className="size-5 accent-violet-500" />
                   </label>
@@ -605,7 +605,7 @@ export function CustomerProfileModal({
               );
             })}
           </div>
-          {portalMessage && <p className="mt-4 rounded-[12px] border border-violet-200 bg-white p-3 text-sm font-bold text-violet-900">{portalMessage}</p>}
+          {portalMessage && <p className="mt-4 rounded-[12px] border border-violet-200 bg-[var(--admin-surface)] p-3 text-sm font-bold text-violet-900">{portalMessage}</p>}
         </section>
       );
     }
@@ -614,8 +614,8 @@ export function CustomerProfileModal({
       return (
         <section className="mt-5 rounded-[20px] border border-cyan-200 bg-cyan-50 p-5">
           <p className="text-xs font-black uppercase tracking-[.14em] text-cyan-700">Uygulama içi iletişim</p>
-          <h3 className="mt-1 text-xl font-black text-slate-950">{company.name} konuşmaları</h3>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-700">Müşteri taleplerini, ekip yanıtlarını, atamaları ve iç notları birleşik gelen kutusunda yönetin.</p>
+          <h3 className="mt-1 text-xl font-black text-[var(--admin-text-primary)]">{company.name} konuşmaları</h3>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--admin-text-secondary)]">Müşteri taleplerini, ekip yanıtlarını, atamaları ve iç notları birleşik gelen kutusunda yönetin.</p>
           <button type="button" onClick={() => onGo?.("İletişim Merkezi", "İletişim geçmişi açıldı.")} className="mt-4 inline-flex min-h-11 items-center rounded-[10px] bg-cyan-600 px-5 text-sm font-black text-white">İletişim geçmişini aç</button>
         </section>
       );
@@ -623,12 +623,12 @@ export function CustomerProfileModal({
 
     if (!editableProfileTabs.has(activeProfileTab)) {
       return (
-        <section className="mt-5 rounded-[18px] border border-dashed border-slate-200 bg-slate-50 p-5">
-          <h3 className="font-black text-slate-950">Bu bölüm bilgilendirme amaçlıdır</h3>
-          <p className="mt-2 text-sm leading-6 text-slate-600">{activeProfileTab} sekmesinde düzenlenebilir alan yoksa kayıtlar ilgili modülde yönetilir. Alt sabit kaydet butonu yalnız profil formunda değişiklik olduğunda aktifleşir.</p>
+        <section className="mt-5 rounded-[18px] border border-dashed border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-5">
+          <h3 className="font-black text-[var(--admin-text-primary)]">Bu bölüm bilgilendirme amaçlıdır</h3>
+          <p className="mt-2 text-sm leading-6 text-[var(--admin-text-secondary)]">{activeProfileTab} sekmesinde düzenlenebilir alan yoksa kayıtlar ilgili modülde yönetilir. Alt sabit kaydet butonu yalnız profil formunda değişiklik olduğunda aktifleşir.</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <button type="button" onClick={() => onGo?.("Müşteriler", "İlgili müşteri modülü açıldı.")} className="rounded-full border border-cyan-200 bg-white px-4 py-2 text-xs font-black text-cyan-700">İlgili modüle git</button>
-            <button type="button" onClick={() => setProfileMessage(`${activeProfileTab} sekmesi bilgi amaçlıdır; kaydedilecek form alanı bulunmuyor.`)} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700">Açıklamayı göster</button>
+            <button type="button" onClick={() => onGo?.("Müşteriler", "İlgili müşteri modülü açıldı.")} className="rounded-full border border-cyan-200 bg-[var(--admin-surface)] px-4 py-2 text-xs font-black text-cyan-700">İlgili modüle git</button>
+            <button type="button" onClick={() => setProfileMessage(`${activeProfileTab} sekmesi bilgi amaçlıdır; kaydedilecek form alanı bulunmuyor.`)} className="rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface)] px-4 py-2 text-xs font-black text-[var(--admin-text-secondary)]">Açıklamayı göster</button>
           </div>
         </section>
       );
@@ -639,10 +639,10 @@ export function CustomerProfileModal({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs font-black uppercase tracking-[.14em] text-cyan-700">Düzenlenebilir Profil Alanları</p>
-            <h3 className="mt-1 text-lg font-black text-slate-950">{activeProfileTab} kaydı</h3>
+            <h3 className="mt-1 text-lg font-black text-[var(--admin-text-primary)]">{activeProfileTab} kaydı</h3>
             <p className="mt-1 text-sm text-cyan-900">Değişiklikler alt sabit bardaki “Değişiklikleri Kaydet” butonu ile kaydedilir.</p>
           </div>
-          <span className={`rounded-full px-3 py-1 text-xs font-black ${profileDirty ? "bg-amber-100 text-amber-800 ring-1 ring-amber-200" : "bg-white text-slate-600 ring-1 ring-slate-200"}`}>{profileDirty ? "Kaydedilmemiş değişiklik var" : "Değişiklik yok"}</span>
+          <span className={`rounded-full px-3 py-1 text-xs font-black ${profileDirty ? "bg-amber-100 text-amber-800 ring-1 ring-amber-200" : "bg-[var(--admin-surface)] text-[var(--admin-text-secondary)] ring-1 ring-slate-200"}`}>{profileDirty ? "Kaydedilmemiş değişiklik var" : "Değişiklik yok"}</span>
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           {["Genel Bilgi", "Müşteri Kurulumu", "Notlar"].includes(activeProfileTab) && (
@@ -653,7 +653,7 @@ export function CustomerProfileModal({
               <FieldBox label="Şehir"><TextInput value={profileForm.city} onChange={(value) => updateProfile("city", value)} /></FieldBox>
               <FieldBox label="Web sitesi"><TextInput value={profileForm.website} onChange={(value) => updateProfile("website", value)} placeholder="https://..." /></FieldBox>
               <FieldBox label="Instagram"><TextInput value={profileForm.instagram} onChange={(value) => updateProfile("instagram", value)} placeholder="@hesap veya profil linki" /></FieldBox>
-              <FieldBox label="Durum"><select value={profileForm.status} onChange={(event) => updateProfile("status", event.target.value)} className="min-h-11 rounded-[12px] border border-slate-200 bg-white px-3 text-slate-900 outline-none focus:ring-2 focus:ring-cyan-300">{["Aktif", "Pasif", "Kontrol gerekli", "Onboarding", "Teklif", "Beklemede"].map((item) => <option key={item}>{item}</option>)}</select></FieldBox>
+              <FieldBox label="Durum"><select value={profileForm.status} onChange={(event) => updateProfile("status", event.target.value)} className="min-h-11 rounded-[12px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-[var(--admin-text-primary)] outline-none focus:ring-2 focus:ring-cyan-300">{["Aktif", "Pasif", "Kontrol gerekli", "Onboarding", "Teklif", "Beklemede"].map((item) => <option key={item}>{item}</option>)}</select></FieldBox>
               <FieldBox label="Dahili notlar"><TextBox value={profileForm.notes} onChange={(value) => updateProfile("notes", value)} /></FieldBox>
             </>
           )}
@@ -683,7 +683,7 @@ export function CustomerProfileModal({
 
   return (
     <div className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/65 p-0 backdrop-blur-sm sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) requestClose(); }}>
-      <section className="hk-customer-profile-shell flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-auto sm:max-h-[92vh] sm:w-[92vw] sm:max-w-[1440px] sm:rounded-[28px]" onMouseDown={(event) => event.stopPropagation()}>
+      <section className="hk-customer-profile-shell flex h-[100dvh] w-full flex-col overflow-hidden bg-[var(--admin-surface)] shadow-2xl sm:h-auto sm:max-h-[92vh] sm:w-[92vw] sm:max-w-[1440px] sm:rounded-[28px]" onMouseDown={(event) => event.stopPropagation()}>
         <header className="hk-customer-profile-header admin-card flex items-center justify-between gap-4 rounded-none border-b p-3">
           <p className="text-xs font-black uppercase tracking-[.18em]" style={{ color: "var(--nav-accent-text, #0e7490)" }}>Müşteri Profili · {company.name}</p>
           <button type="button" onClick={requestClose} aria-label="Müşteri profilini kapat" className="hk-icon-button shrink-0"><X size={20} /></button>
@@ -707,42 +707,42 @@ export function CustomerProfileModal({
               </div>
               <div className="mt-5 flex flex-wrap gap-2">
                 <button onClick={() => onGo?.("Müşteriler", "Müşteri detayına gidildi.")} className="rounded-[12px] bg-cyan-500 px-4 py-3 text-sm font-black text-white">Müşteri detayına git</button>
-                <button onClick={() => onGo?.("Web Site Analitiği")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-3 text-sm font-black text-cyan-700">Entegrasyonları aç</button>
-                <button onClick={() => onGo?.("HK Agent Hub")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-3 text-sm font-black text-cyan-700">Agent Hub’da analiz et</button>
-                <button onClick={() => onGo?.("Müşteri Raporları")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-3 text-sm font-black text-cyan-700">Rapor oluştur</button>
-                <button onClick={() => onGo?.("Görevler")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-3 text-sm font-black text-cyan-700">Görev oluştur</button>
+                <button onClick={() => onGo?.("Web Site Analitiği")} className="rounded-[12px] border border-cyan-200 bg-[var(--admin-surface)] px-4 py-3 text-sm font-black text-cyan-700">Entegrasyonları aç</button>
+                <button onClick={() => onGo?.("HK Agent Hub")} className="rounded-[12px] border border-cyan-200 bg-[var(--admin-surface)] px-4 py-3 text-sm font-black text-cyan-700">Agent Hub’da analiz et</button>
+                <button onClick={() => onGo?.("Müşteri Raporları")} className="rounded-[12px] border border-cyan-200 bg-[var(--admin-surface)] px-4 py-3 text-sm font-black text-cyan-700">Rapor oluştur</button>
+                <button onClick={() => onGo?.("Görevler")} className="rounded-[12px] border border-cyan-200 bg-[var(--admin-surface)] px-4 py-3 text-sm font-black text-cyan-700">Görev oluştur</button>
               </div>
             </>
           )}
-          <section className="mt-6 rounded-[22px] border border-slate-200 bg-slate-50 p-4">
+          <section className="mt-6 rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4">
             <div>
               <p className="text-xs font-black uppercase tracking-[.14em] text-cyan-700">Operasyon Detayları</p>
-              <h3 className="mt-1 text-lg font-black text-slate-950">Şubeler, rakipler ve uygulanan planlar</h3>
-              <p className="mt-1 text-sm text-slate-500">Bu bloklar temel müşteri bilgileri ve sekme içeriklerinden sonra gösterilir.</p>
+              <h3 className="mt-1 text-lg font-black text-[var(--admin-text-primary)]">Şubeler, rakipler ve uygulanan planlar</h3>
+              <p className="mt-1 text-sm text-[var(--admin-text-muted)]">Bu bloklar temel müşteri bilgileri ve sekme içeriklerinden sonra gösterilir.</p>
             </div>
           </section>
-          <section className="mt-4 rounded-[18px] border border-slate-200 bg-white p-4">
+          <section className="mt-4 rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h3 className="font-black text-slate-950">Şubeler</h3>
-                <p className="mt-1 text-sm text-slate-500">Şube bazlı reklam, rapor, entegrasyon ve KPI yönetimi için kayıtlı lokasyonlar.</p>
+                <h3 className="font-black text-[var(--admin-text-primary)]">Şubeler</h3>
+                <p className="mt-1 text-sm text-[var(--admin-text-muted)]">Şube bazlı reklam, rapor, entegrasyon ve KPI yönetimi için kayıtlı lokasyonlar.</p>
               </div>
               <button onClick={() => openBranchForm()} className="rounded-[12px] bg-cyan-500 px-4 py-2.5 text-sm font-black text-white">Şube Ekle</button>
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               {branches.map((branch: any) => (
-                <div key={branch.id} className="rounded-[16px] border border-slate-200 bg-slate-50 p-4">
+                <div key={branch.id} className="rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
-                      <p className="font-black text-slate-950">{branch.branch_name || "Adsız şube"}</p>
-                      <p className="mt-1 text-xs text-slate-500">{branch.city || "Şehir yok"} · {branch.district || "İlçe yok"}</p>
+                      <p className="font-black text-[var(--admin-text-primary)]">{branch.branch_name || "Adsız şube"}</p>
+                      <p className="mt-1 text-xs text-[var(--admin-text-muted)]">{branch.city || "Şehir yok"} · {branch.district || "İlçe yok"}</p>
                     </div>
                     <div className="flex flex-wrap justify-end gap-2">
                       <span className={`rounded-full px-2 py-1 text-[10px] font-black ring-1 ${statusTone(branch.status, branch.is_active)}`}>{statusLabel(branch.status, branch.is_active)}</span>
-                      <span className="rounded-full bg-white px-2 py-1 text-[10px] font-black text-cyan-700 ring-1 ring-cyan-200">{branch.monthly_ad_budget ? `Bütçe ${branch.monthly_ad_budget} TL` : "Bütçe yok"}</span>
+                      <span className="rounded-full bg-[var(--admin-surface)] px-2 py-1 text-[10px] font-black text-cyan-700 ring-1 ring-cyan-200">{branch.monthly_ad_budget ? `Bütçe ${branch.monthly_ad_budget} TL` : "Bütçe yok"}</span>
                     </div>
                   </div>
-                  <div className="mt-3 grid gap-1 text-xs leading-5 text-slate-600">
+                  <div className="mt-3 grid gap-1 text-xs leading-5 text-[var(--admin-text-secondary)]">
                     <span>Adres: {branchDisplay(branch.address)}</span>
                     <span>Telefon/WhatsApp: {formatTurkishPhone(branch.phone || branch.whatsapp) || "Mevcut değil"}</span>
                     <span>E-posta: {branchDisplay(branch.email)}</span>
@@ -752,36 +752,36 @@ export function CustomerProfileModal({
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button onClick={() => openBranchForm(branch)} className="rounded-[10px] bg-cyan-500 px-3 py-1.5 text-xs font-black text-white">Şubeyi Düzenle</button>
-                    <button onClick={() => passiveBranch(branch)} disabled={branchSaving || branch.status === "passive" || branch.is_active === false} className="rounded-[10px] border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-600 disabled:opacity-50">Şubeyi Pasife Al</button>
-                    <button onClick={() => createBranchReport(branch)} className="rounded-[10px] border border-cyan-200 bg-white px-3 py-1.5 text-xs font-black text-cyan-700">Şube Raporu Oluştur</button>
-                    <button onClick={() => startBranchAnalysis(branch)} className="rounded-[10px] border border-cyan-200 bg-white px-3 py-1.5 text-xs font-black text-cyan-700">Şube İçin Agent Analizi</button>
-                    <button onClick={() => openMaps(branch)} className="rounded-[10px] border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-600">Google Maps’te Aç</button>
+                    <button onClick={() => passiveBranch(branch)} disabled={branchSaving || branch.status === "passive" || branch.is_active === false} className="rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-black text-[var(--admin-text-secondary)] disabled:opacity-50">Şubeyi Pasife Al</button>
+                    <button onClick={() => createBranchReport(branch)} className="rounded-[10px] border border-cyan-200 bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-black text-cyan-700">Şube Raporu Oluştur</button>
+                    <button onClick={() => startBranchAnalysis(branch)} className="rounded-[10px] border border-cyan-200 bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-black text-cyan-700">Şube İçin Agent Analizi</button>
+                    <button onClick={() => openMaps(branch)} className="rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-black text-[var(--admin-text-secondary)]">Google Maps’te Aç</button>
                   </div>
                 </div>
               ))}
-              {!branches.length && <p className="rounded-[14px] border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">Bu müşteri için henüz şube yok. İlk şubeyi ekleyerek şube bazlı rapor ve reklam takibine başlayabilirsin.</p>}
+              {!branches.length && <p className="rounded-[14px] border border-dashed border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4 text-sm text-[var(--admin-text-muted)]">Bu müşteri için henüz şube yok. İlk şubeyi ekleyerek şube bazlı rapor ve reklam takibine başlayabilirsin.</p>}
             </div>
             {branchMessage && <p className="mt-3 rounded-[12px] border border-cyan-200 bg-cyan-50 p-3 text-sm font-bold text-cyan-800">{branchMessage}</p>}
           </section>
-          <section className="mt-5 rounded-[18px] border border-slate-200 bg-white p-4">
+          <section className="mt-5 rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h3 className="font-black text-slate-950">Rakipler</h3>
-                <p className="mt-1 text-sm text-slate-500">Rakip firma izleme, reklam/paylaşım sinyali, Google yorum takibi ve müşteriye açık rekabet özeti.</p>
+                <h3 className="font-black text-[var(--admin-text-primary)]">Rakipler</h3>
+                <p className="mt-1 text-sm text-[var(--admin-text-muted)]">Rakip firma izleme, reklam/paylaşım sinyali, Google yorum takibi ve müşteriye açık rekabet özeti.</p>
               </div>
               <button onClick={() => onGo?.("Rakip Analizi", "Rakip ekleme ve AI ile rakip bulma alanı açıldı.")} className="rounded-[12px] bg-cyan-500 px-4 py-2.5 text-sm font-black text-white">Rakip Analizine Git</button>
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               {(content?.competitorWatchlist || content?.competitorAnalyses || []).filter((item: any) => item.company_id === company?.id).slice(0, 6).map((item: any) => (
-                <div key={item.id || item.competitor_name || item.name} className="rounded-[14px] border border-slate-200 bg-slate-50 p-3 text-sm">
+                <div key={item.id || item.competitor_name || item.name} className="rounded-[14px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-3 text-sm">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
-                      <p className="font-black text-slate-950">{item.competitor_name || item.name || item.sector || "Rakip kaydı"}</p>
-                      <p className="mt-1 text-xs text-slate-500">{item.website_url || item.website || "Web sitesi yok"} · {item.city || company.city || "Şehir yok"} / {item.district || "İlçe yok"}</p>
+                      <p className="font-black text-[var(--admin-text-primary)]">{item.competitor_name || item.name || item.sector || "Rakip kaydı"}</p>
+                      <p className="mt-1 text-xs text-[var(--admin-text-muted)]">{item.website_url || item.website || "Web sitesi yok"} · {item.city || company.city || "Şehir yok"} / {item.district || "İlçe yok"}</p>
                     </div>
-                    <span className={`rounded-full px-2 py-1 text-[10px] font-black ring-1 ${item.show_to_customer || item.show_customer_summary ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : "bg-white text-slate-600 ring-slate-200"}`}>{item.show_to_customer || item.show_customer_summary ? "Müşteriye açık" : "Sadece admin"}</span>
+                    <span className={`rounded-full px-2 py-1 text-[10px] font-black ring-1 ${item.show_to_customer || item.show_customer_summary ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : "bg-[var(--admin-surface)] text-[var(--admin-text-secondary)] ring-slate-200"}`}>{item.show_to_customer || item.show_customer_summary ? "Müşteriye açık" : "Sadece admin"}</span>
                   </div>
-                  <div className="mt-3 grid gap-1 text-xs text-slate-600">
+                  <div className="mt-3 grid gap-1 text-xs text-[var(--admin-text-secondary)]">
                     <span>Rakip skoru: {item.competitor_score || 0} · Tehdit: {item.threat_score || 0} · Fırsat: {item.opportunity_score || 0}</span>
                     <span>Son kontrol: {item.last_checked_at ? new Date(item.last_checked_at).toLocaleDateString("tr-TR") : "Henüz yok"}</span>
                     <span>Google Maps kontrolü: {item.last_maps_checked_at ? new Date(item.last_maps_checked_at).toLocaleDateString("tr-TR") : "Henüz yok"} · Meta kontrolü: {item.last_meta_checked_at ? new Date(item.last_meta_checked_at).toLocaleDateString("tr-TR") : "Henüz yok"}</span>
@@ -789,25 +789,25 @@ export function CustomerProfileModal({
                     <span>{item.customer_summary || item.customer_visible_summary || item.last_analysis_summary || "Müşteri özeti henüz üretilmedi."}</span>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <a href={item.google_place_id ? `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(item.google_place_id)}` : item.google_maps_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([item.competitor_name || item.name, item.address, item.city, item.district].filter(Boolean).join(" "))}`} target="_blank" rel="noreferrer" className="rounded-[10px] border border-cyan-200 bg-white px-3 py-1.5 text-xs font-black text-cyan-700">Google Maps’te aç</a>
-                    <a href={item.meta_ad_library_url || `https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=TR&q=${encodeURIComponent(item.competitor_name || item.name || "")}`} target="_blank" rel="noreferrer" className="rounded-[10px] border border-blue-200 bg-white px-3 py-1.5 text-xs font-black text-blue-700">Meta reklamlarını aç</a>
-                    <button onClick={() => onGo?.("HK Agent Hub", "Rakip için Agent analizi açıldı.")} className="rounded-[10px] border border-cyan-200 bg-white px-3 py-1.5 text-xs font-black text-cyan-700">Agent ile analiz et</button>
-                    <button onClick={() => onGo?.("Rakip Analizi", "Rakip reklam kontrolü açıldı.")} className="rounded-[10px] border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-700">Reklamları kontrol et</button>
-                    <button onClick={() => onGo?.("Rakip Analizi", "Rakip detay inceleme modalı açıldı.")} className="rounded-[10px] border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-700">Detaylı gör</button>
-                    <button onClick={() => onGo?.("Rakip Analizi", "AI ile rakip bulma ve müşteri özeti alanı açıldı.")} className="rounded-[10px] border border-emerald-200 bg-white px-3 py-1.5 text-xs font-black text-emerald-700">AI ile rakip bul</button>
+                    <a href={item.google_place_id ? `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(item.google_place_id)}` : item.google_maps_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([item.competitor_name || item.name, item.address, item.city, item.district].filter(Boolean).join(" "))}`} target="_blank" rel="noreferrer" className="rounded-[10px] border border-cyan-200 bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-black text-cyan-700">Google Maps’te aç</a>
+                    <a href={item.meta_ad_library_url || `https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=TR&q=${encodeURIComponent(item.competitor_name || item.name || "")}`} target="_blank" rel="noreferrer" className="rounded-[10px] border border-blue-200 bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-black text-blue-700">Meta reklamlarını aç</a>
+                    <button onClick={() => onGo?.("HK Agent Hub", "Rakip için Agent analizi açıldı.")} className="rounded-[10px] border border-cyan-200 bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-black text-cyan-700">Agent ile analiz et</button>
+                    <button onClick={() => onGo?.("Rakip Analizi", "Rakip reklam kontrolü açıldı.")} className="rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-black text-[var(--admin-text-secondary)]">Reklamları kontrol et</button>
+                    <button onClick={() => onGo?.("Rakip Analizi", "Rakip detay inceleme modalı açıldı.")} className="rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-black text-[var(--admin-text-secondary)]">Detaylı gör</button>
+                    <button onClick={() => onGo?.("Rakip Analizi", "AI ile rakip bulma ve müşteri özeti alanı açıldı.")} className="rounded-[10px] border border-emerald-200 bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-black text-emerald-700">AI ile rakip bul</button>
                   </div>
                 </div>
               ))}
               {!(content?.competitorWatchlist || content?.competitorAnalyses || []).filter((item: any) => item.company_id === company?.id).length && (
-                <p className="rounded-[14px] border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">Henüz rakip kaydı yok. Rakip Analizi ekranından rakip ekleyebilir veya AI ile öneri üretebilirsin.</p>
+                <p className="rounded-[14px] border border-dashed border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4 text-sm text-[var(--admin-text-muted)]">Henüz rakip kaydı yok. Rakip Analizi ekranından rakip ekleyebilir veya AI ile öneri üretebilirsin.</p>
               )}
             <div className="mt-5 grid gap-4 lg:grid-cols-2">
               <div className="rounded-[14px] border border-emerald-200 bg-emerald-50 p-3">
-                <h4 className="font-black text-slate-950">Takip Edilen Rakipler</h4>
+                <h4 className="font-black text-[var(--admin-text-primary)]">Takip Edilen Rakipler</h4>
                 <div className="mt-3 grid gap-2">
                   {(content?.competitorWatchlist || []).filter((item: any) => item.company_id === company?.id && (item.is_tracking || item.notify_on_new_ads || item.notify_on_review_change || item.notify_on_price_change)).slice(0, 4).map((item: any) => (
-                    <div key={item.id || item.competitor_name} className="rounded-[10px] bg-white p-2 text-xs text-slate-700 ring-1 ring-emerald-200">
-                      <p className="font-black text-slate-950">{item.competitor_name || item.name || "Rakip"}</p>
+                    <div key={item.id || item.competitor_name} className="rounded-[10px] bg-[var(--admin-surface)] p-2 text-xs text-[var(--admin-text-secondary)] ring-1 ring-emerald-200">
+                      <p className="font-black text-[var(--admin-text-primary)]">{item.competitor_name || item.name || "Rakip"}</p>
                       <p>Skor: {item.competitor_score || 0} · Tehdit: {item.threat_score || 0} · Son kontrol: {item.last_checked_at ? new Date(item.last_checked_at).toLocaleDateString("tr-TR") : "Henüz yok"}</p>
                       <p>{item.show_to_customer || item.show_customer_summary ? "Müşteriye açık" : "Sadece admin"} · Bildirim: {item.notification_channels?.length || item.notify_on_new_ads ? "Açık" : "Kapalı"}</p>
                     </div>
@@ -816,11 +816,11 @@ export function CustomerProfileModal({
                 </div>
               </div>
               <div className="rounded-[14px] border border-blue-200 bg-blue-50 p-3">
-                <h4 className="font-black text-slate-950">Yeni Sinyaller</h4>
+                <h4 className="font-black text-[var(--admin-text-primary)]">Yeni Sinyaller</h4>
                 <div className="mt-3 grid gap-2">
                   {(content?.competitorSignals || []).filter((signal: any) => signal.company_id === company?.id).slice(0, 4).map((signal: any) => (
-                    <div key={signal.id || signal.title} className="rounded-[10px] bg-white p-2 text-xs text-slate-700 ring-1 ring-blue-200">
-                      <p className="font-black text-slate-950">{signal.title || "Rakip sinyali"}</p>
+                    <div key={signal.id || signal.title} className="rounded-[10px] bg-[var(--admin-surface)] p-2 text-xs text-[var(--admin-text-secondary)] ring-1 ring-blue-200">
+                      <p className="font-black text-[var(--admin-text-primary)]">{signal.title || "Rakip sinyali"}</p>
                       <p>{signal.customer_visible_summary || signal.summary || "Sinyal özeti hazırlanıyor."}</p>
                       <p>{signal.show_to_customer ? "Müşteriye açık" : "Sadece admin"} · {signal.resolved_at ? "Çözüldü" : "Aksiyon bekliyor"}</p>
                     </div>
@@ -834,20 +834,20 @@ export function CustomerProfileModal({
           <section className="mt-5 rounded-[18px] border border-cyan-200 bg-cyan-50 p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h3 className="font-black text-slate-950">Uygulanan Paketler / Planlar</h3>
+                <h3 className="font-black text-[var(--admin-text-primary)]">Uygulanan Paketler / Planlar</h3>
                 <p className="mt-1 text-sm text-cyan-900">Hazır paket uygulamaları, takip metrikleri ve ilk 7/30 günlük plan özetleri.</p>
               </div>
-              <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-cyan-700 ring-1 ring-cyan-200">{applications.length} kayıt</span>
+              <span className="rounded-full bg-[var(--admin-surface)] px-3 py-1 text-xs font-black text-cyan-700 ring-1 ring-cyan-200">{applications.length} kayıt</span>
             </div>
             <div className="mt-4 grid gap-2">
               {applications.slice(0, 5).map((application: any) => (
-                <div key={application.id || application.created_at} className="rounded-[14px] border border-cyan-200 bg-white p-3">
+                <div key={application.id || application.created_at} className="rounded-[14px] border border-cyan-200 bg-[var(--admin-surface)] p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="font-black text-slate-950">{packageTitle(application)}</p>
+                    <p className="font-black text-[var(--admin-text-primary)]">{packageTitle(application)}</p>
                     <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700 ring-1 ring-emerald-200">{applicationStatus(application.status)}</span>
                   </div>
-                  <p className="mt-1 text-xs text-slate-500">Uygulama tarihi: {application.created_at ? new Date(application.created_at).toLocaleString("tr-TR") : "Tarih yok"}</p>
-                  <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-bold text-slate-600">
+                  <p className="mt-1 text-xs text-[var(--admin-text-muted)]">Uygulama tarihi: {application.created_at ? new Date(application.created_at).toLocaleString("tr-TR") : "Tarih yok"}</p>
+                  <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-bold text-[var(--admin-text-secondary)]">
                     <span>Görev: {countFromSummary(application, "tasks")}</span>
                     <span>Hafıza: {countFromSummary(application, "memory")}</span>
                     <span>Rapor: {countFromSummary(application, "reportTemplate")}</span>
@@ -858,40 +858,40 @@ export function CustomerProfileModal({
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button onClick={() => onGo?.("HK Intelligence CEO", "Uygulanan plan açıldı.")} className="rounded-[10px] bg-cyan-500 px-3 py-1.5 text-xs font-black text-white">Aç / Devam Et</button>
-                    <button onClick={() => onGo?.("Müşteri Raporları", "Rapor oluşturma alanı açıldı.")} className="rounded-[10px] border border-cyan-200 bg-white px-3 py-1.5 text-xs font-black text-cyan-700">Rapor Oluştur</button>
+                    <button onClick={() => onGo?.("Müşteri Raporları", "Rapor oluşturma alanı açıldı.")} className="rounded-[10px] border border-cyan-200 bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-black text-cyan-700">Rapor Oluştur</button>
                   </div>
                 </div>
               ))}
-              {!applications.length && <p className="rounded-[12px] border border-dashed border-cyan-200 bg-white p-4 text-sm text-cyan-800">Bu müşteri için uygulanmış hazır paket henüz yok.</p>}
+              {!applications.length && <p className="rounded-[12px] border border-dashed border-cyan-200 bg-[var(--admin-surface)] p-4 text-sm text-cyan-800">Bu müşteri için uygulanmış hazır paket henüz yok.</p>}
             </div>
           </section>
           <section className="mt-5 grid gap-4 lg:grid-cols-2">
             <div className="rounded-[18px] border border-purple-200 bg-purple-50 p-4">
-              <h3 className="font-black text-slate-950">Son AI Önerileri</h3>
+              <h3 className="font-black text-[var(--admin-text-primary)]">Son AI Önerileri</h3>
               <p className="mt-1 text-sm text-purple-900">Rakip, paket ve görev sinyallerinden gelen son ajans aksiyonları.</p>
               <div className="mt-3 grid gap-2">
                 {[
                   ...((content?.competitorSignals || []).filter((item: any) => item.company_id === company?.id).map((item: any) => item.agency_action || item.customer_visible_summary || item.summary).filter(Boolean)),
                   ...((latestApplication?.next_actions || []).map((item: any) => typeof item === "string" ? item : item.title || item.action).filter(Boolean))
-                ].slice(0, 5).map((line: string) => <p key={line} className="rounded-[10px] bg-white p-2 text-sm leading-5 text-slate-700 ring-1 ring-purple-100">{line}</p>)}
-                {!((content?.competitorSignals || []).filter((item: any) => item.company_id === company?.id).length || (latestApplication?.next_actions || []).length) && <p className="rounded-[10px] bg-white p-3 text-sm text-purple-800">Henüz AI önerisi yok. Rakip analizi, paket uygulaması veya Agent Hub çalıştırıldığında burada görünür.</p>}
+                ].slice(0, 5).map((line: string) => <p key={line} className="rounded-[10px] bg-[var(--admin-surface)] p-2 text-sm leading-5 text-[var(--admin-text-secondary)] ring-1 ring-purple-100">{line}</p>)}
+                {!((content?.competitorSignals || []).filter((item: any) => item.company_id === company?.id).length || (latestApplication?.next_actions || []).length) && <p className="rounded-[10px] bg-[var(--admin-surface)] p-3 text-sm text-purple-800">Henüz AI önerisi yok. Rakip analizi, paket uygulaması veya Agent Hub çalıştırıldığında burada görünür.</p>}
               </div>
             </div>
-            <div className="rounded-[18px] border border-slate-200 bg-white p-4">
-              <h3 className="font-black text-slate-950">Son Aktiviteler</h3>
-              <p className="mt-1 text-sm text-slate-500">Müşteri operasyon zincirinde son kayıtlar.</p>
+            <div className="rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4">
+              <h3 className="font-black text-[var(--admin-text-primary)]">Son Aktiviteler</h3>
+              <p className="mt-1 text-sm text-[var(--admin-text-muted)]">Müşteri operasyon zincirinde son kayıtlar.</p>
               <div className="mt-3 grid gap-2">
                 {[
                   ...((content?.activityLogs || []).filter((item: any) => item.company_id === company?.id).map((item: any) => ({ title: item.action_type || item.title || "Aktivite", date: item.created_at }))),
                   ...tasks.slice(0, 3).map((item: any) => ({ title: `Görev: ${item.title || "Görev"}`, date: item.updated_at || item.created_at })),
                   ...reports.slice(0, 3).map((item: any) => ({ title: `Rapor: ${item.title || item.report_month || "Rapor"}`, date: item.created_at || item.updated_at }))
-                ].slice(0, 6).map((item: any) => <p key={`${item.title}-${item.date || ""}`} className="rounded-[10px] bg-slate-50 p-2 text-sm text-slate-700 ring-1 ring-slate-200"><strong>{item.title}</strong><span className="ml-2 text-xs text-slate-500">{item.date ? new Date(item.date).toLocaleDateString("tr-TR") : "Tarih yok"}</span></p>)}
-                {!((content?.activityLogs || []).filter((item: any) => item.company_id === company?.id).length || tasks.length || reports.length) && <p className="rounded-[10px] bg-slate-50 p-3 text-sm text-slate-500">Henüz operasyon aktivitesi yok.</p>}
+                ].slice(0, 6).map((item: any) => <p key={`${item.title}-${item.date || ""}`} className="rounded-[10px] bg-[var(--admin-surface-soft)] p-2 text-sm text-[var(--admin-text-secondary)] ring-1 ring-slate-200"><strong>{item.title}</strong><span className="ml-2 text-xs text-[var(--admin-text-muted)]">{item.date ? new Date(item.date).toLocaleDateString("tr-TR") : "Tarih yok"}</span></p>)}
+                {!((content?.activityLogs || []).filter((item: any) => item.company_id === company?.id).length || tasks.length || reports.length) && <p className="rounded-[10px] bg-[var(--admin-surface-soft)] p-3 text-sm text-[var(--admin-text-muted)]">Henüz operasyon aktivitesi yok.</p>}
               </div>
             </div>
           </section>
           <section className="mt-5 rounded-[18px] border border-emerald-200 bg-emerald-50 p-4">
-            <h3 className="font-black text-slate-950">Müşteri Operasyon Zinciri</h3>
+            <h3 className="font-black text-[var(--admin-text-primary)]">Müşteri Operasyon Zinciri</h3>
             <p className="mt-1 text-sm text-emerald-900">Müşteri → Rakip Analizi → AI Strateji → Paket Önerisi → Görev → İçerik Takvimi → Reklam Kurulumu → Rapor → Tahsilat → Yenileme hattını tek yerden takip et.</p>
             <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-5">
               {[
@@ -904,14 +904,14 @@ export function CustomerProfileModal({
                 ["Rapor", "Müşteri Raporları"],
                 ["Tahsilat", "Tahsilat"],
                 ["Yenileme", "Takip Merkezi"]
-              ].map(([label, target]) => <button key={label} onClick={() => onGo?.(target, `${label} adımı açıldı.`)} className="rounded-[12px] border border-emerald-200 bg-white p-3 text-left text-xs font-black text-emerald-800 hover:bg-emerald-50"><span className="block">{label}</span><span className="mt-1 block font-medium text-slate-500">Git / görev oluştur</span></button>)}
+              ].map(([label, target]) => <button key={label} onClick={() => onGo?.(target, `${label} adımı açıldı.`)} className="rounded-[12px] border border-emerald-200 bg-[var(--admin-surface)] p-3 text-left text-xs font-black text-emerald-800 hover:bg-emerald-50"><span className="block">{label}</span><span className="mt-1 block font-medium text-[var(--admin-text-muted)]">Git / görev oluştur</span></button>)}
             </div>
           </section>
           {showOverview && children && <div className="mt-5">{children}</div>}
         </div>
-        <footer className="sticky bottom-0 z-20 border-t border-slate-200 bg-white/95 p-4 backdrop-blur">
+        <footer className="sticky bottom-0 z-20 border-t border-[var(--admin-border)] bg-[var(--admin-surface)]/95 p-4 backdrop-blur">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="grid gap-1 text-xs font-bold text-slate-600">
+            <div className="grid gap-1 text-xs font-bold text-[var(--admin-text-secondary)]">
               <span className={profileDirty ? "text-amber-700" : "text-emerald-700"}>
                 {profileDirty ? "Kaydedilmemiş değişiklik var. Kapatmadan önce kaydetmeniz önerilir." : "Kaydedilmemiş değişiklik yok."}
               </span>
@@ -924,7 +924,7 @@ export function CustomerProfileModal({
                 onClick={cancelProfileChanges}
                 disabled={!profileDirty || profileSaving}
                 title={!profileDirty ? "Geri alınacak değişiklik yok." : "Kaydedilmemiş değişiklikleri geri alır."}
-                className="rounded-[12px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-[12px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-4 py-2.5 text-sm font-black text-[var(--admin-text-secondary)] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Vazgeç
               </button>
@@ -989,51 +989,51 @@ function BranchEditorModal({ branch, form, setForm, saving, message, onSave, onC
   ];
   return (
     <div className="fixed inset-0 z-[120] grid place-items-center bg-slate-950/55 p-0 sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className="flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-auto sm:max-h-[88vh] sm:max-w-4xl sm:rounded-[24px]" onMouseDown={(event) => event.stopPropagation()}>
-        <header className="flex items-start justify-between gap-3 border-b border-slate-200 p-5">
+      <section className="flex h-[100dvh] w-full flex-col overflow-hidden bg-[var(--admin-surface)] shadow-2xl sm:h-auto sm:max-h-[88vh] sm:max-w-4xl sm:rounded-[24px]" onMouseDown={(event) => event.stopPropagation()}>
+        <header className="flex items-start justify-between gap-3 border-b border-[var(--admin-border)] p-5">
           <div>
             <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Şube Yönetimi</p>
-            <h2 className="mt-1 text-2xl font-black text-slate-950">{editing ? "Şubeyi Düzenle" : "Yeni Şube Ekle"}</h2>
-            <p className="mt-1 text-sm text-slate-500">Şube bazlı reklam, rapor ve entegrasyon takibi için gerekli alanları doldurun.</p>
+            <h2 className="mt-1 text-2xl font-black text-[var(--admin-text-primary)]">{editing ? "Şubeyi Düzenle" : "Yeni Şube Ekle"}</h2>
+            <p className="mt-1 text-sm text-[var(--admin-text-muted)]">Şube bazlı reklam, rapor ve entegrasyon takibi için gerekli alanları doldurun.</p>
           </div>
-          <button onClick={onClose} aria-label="Kapat" className="rounded-full border border-slate-200 p-2 text-slate-500"><X size={18} /></button>
+          <button onClick={onClose} aria-label="Kapat" className="rounded-full border border-[var(--admin-border)] p-2 text-[var(--admin-text-muted)]"><X size={18} /></button>
         </header>
         <div className="flex-1 overflow-y-auto p-5">
           <div className="grid gap-3 md:grid-cols-3">
             {fields.map(([key, label]) => (
-              <label key={key} className="grid gap-1 text-sm font-bold text-slate-700">
+              <label key={key} className="grid gap-1 text-sm font-bold text-[var(--admin-text-secondary)]">
                 {label}
                 <input
                   value={form[key] || ""}
                   onChange={(event) => setForm({ ...form, [key]: key === "phone" || key === "whatsapp" ? formatTurkishPhone(event.target.value) : event.target.value })}
                   onBlur={() => (key === "phone" || key === "whatsapp") && setForm({ ...form, [key]: formatTurkishPhone(normalizePhoneInput(form[key])) })}
-                  className="rounded-[12px] border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-900"
+                  className="rounded-[12px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 py-2.5 text-sm font-medium text-[var(--admin-text-primary)]"
                 />
               </label>
             ))}
-            <label className="grid gap-1 text-sm font-bold text-slate-700">
+            <label className="grid gap-1 text-sm font-bold text-[var(--admin-text-secondary)]">
               Durum
-              <select value={form.status || "active"} onChange={(event) => setForm({ ...form, status: event.target.value })} className="rounded-[12px] border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-900">
+              <select value={form.status || "active"} onChange={(event) => setForm({ ...form, status: event.target.value })} className="rounded-[12px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 py-2.5 text-sm font-medium text-[var(--admin-text-primary)]">
                 <option value="active">Aktif</option>
                 <option value="passive">Pasif</option>
                 <option value="needs_review">Kontrol gerekli</option>
               </select>
             </label>
-            <label className="grid gap-1 text-sm font-bold text-slate-700 md:col-span-3">
+            <label className="grid gap-1 text-sm font-bold text-[var(--admin-text-secondary)] md:col-span-3">
               Notlar
-              <textarea value={form.notes || ""} onChange={(event) => setForm({ ...form, notes: event.target.value })} className="min-h-24 rounded-[12px] border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-900" />
+              <textarea value={form.notes || ""} onChange={(event) => setForm({ ...form, notes: event.target.value })} className="min-h-24 rounded-[12px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 py-2.5 text-sm font-medium text-[var(--admin-text-primary)]" />
             </label>
           </div>
           {message && <p className="mt-4 rounded-[12px] border border-cyan-200 bg-cyan-50 p-3 text-sm font-bold text-cyan-800">{message}</p>}
         </div>
-        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 p-5">
+        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--admin-border)] p-5">
           <div className="flex flex-wrap gap-2">
-            <button onClick={() => window.open(form.google_maps_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([form.address, form.district, form.city, form.branch_name].filter(Boolean).join(" "))}`, "_blank", "noopener,noreferrer")} className="rounded-[12px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-700">Google Maps’te Aç</button>
-            <button onClick={() => onGo?.("HK Agent Hub", "Şube için Agent analizi açıldı.")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-2.5 text-sm font-black text-cyan-700">Şube İçin Agent Analizi</button>
-            <button onClick={() => onGo?.("Müşteri Raporları", "Şube raporu oluşturma alanı açıldı.")} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-2.5 text-sm font-black text-cyan-700">Şube Raporu Oluştur</button>
+            <button onClick={() => window.open(form.google_maps_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([form.address, form.district, form.city, form.branch_name].filter(Boolean).join(" "))}`, "_blank", "noopener,noreferrer")} className="rounded-[12px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-4 py-2.5 text-sm font-black text-[var(--admin-text-secondary)]">Google Maps’te Aç</button>
+            <button onClick={() => onGo?.("HK Agent Hub", "Şube için Agent analizi açıldı.")} className="rounded-[12px] border border-cyan-200 bg-[var(--admin-surface)] px-4 py-2.5 text-sm font-black text-cyan-700">Şube İçin Agent Analizi</button>
+            <button onClick={() => onGo?.("Müşteri Raporları", "Şube raporu oluşturma alanı açıldı.")} className="rounded-[12px] border border-cyan-200 bg-[var(--admin-surface)] px-4 py-2.5 text-sm font-black text-cyan-700">Şube Raporu Oluştur</button>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button onClick={onClose} className="rounded-[12px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-600">Vazgeç</button>
+            <button onClick={onClose} className="rounded-[12px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-4 py-2.5 text-sm font-black text-[var(--admin-text-secondary)]">Vazgeç</button>
             <button onClick={onSave} disabled={saving} className="rounded-[12px] bg-cyan-500 px-4 py-2.5 text-sm font-black text-white disabled:opacity-60">{saving ? "Kaydediliyor..." : editing ? "Şubeyi Güncelle" : "Kaydet"}</button>
           </div>
         </footer>
@@ -1057,30 +1057,30 @@ function BranchActionModal({ action, company, onClose, onGo }: any) {
 
   return (
     <div className="fixed inset-0 z-[130] grid place-items-center bg-slate-950/55 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className="w-full max-w-2xl rounded-[22px] bg-white p-5 shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
+      <section className="w-full max-w-2xl rounded-[22px] bg-[var(--admin-surface)] p-5 shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-black uppercase tracking-[.14em] text-cyan-700">Şube Aksiyonu</p>
-            <h3 className="mt-1 text-xl font-black text-slate-950">{action.title}</h3>
-            <p className="mt-1 text-sm text-slate-500">{branch.branch_name || "Şube"} · {company.name}</p>
+            <h3 className="mt-1 text-xl font-black text-[var(--admin-text-primary)]">{action.title}</h3>
+            <p className="mt-1 text-sm text-[var(--admin-text-muted)]">{branch.branch_name || "Şube"} · {company.name}</p>
           </div>
-          <button onClick={onClose} className="rounded-full border border-slate-200 p-2 text-slate-500"><X size={18} /></button>
+          <button onClick={onClose} className="rounded-full border border-[var(--admin-border)] p-2 text-[var(--admin-text-muted)]"><X size={18} /></button>
         </div>
         {action.type === "message" && <p className="mt-4 rounded-[14px] border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-800">{action.message}</p>}
         {action.type === "agent" && (
           <div className="mt-4 grid gap-3">
-            <p className="text-sm text-slate-600">Eksik entegrasyonlar: <b>{action.missing?.length ? action.missing.join(", ") : "Kritik eksik görünmüyor"}</b></p>
+            <p className="text-sm text-[var(--admin-text-secondary)]">Eksik entegrasyonlar: <b>{action.missing?.length ? action.missing.join(", ") : "Kritik eksik görünmüyor"}</b></p>
             <div className="grid gap-2 sm:grid-cols-5">{["reklam", "SEO", "Maps", "rakip", "genel"].map((item) => <span key={item} className="rounded-full bg-cyan-50 px-3 py-2 text-center text-xs font-black text-cyan-700 ring-1 ring-cyan-200">{item}</span>)}</div>
             <button onClick={() => window.location.assign(agentHref)} className="rounded-[12px] bg-cyan-500 px-4 py-3 text-sm font-black text-white">Agent Hub’da Şube Analizi Başlat</button>
           </div>
         )}
         {action.type === "report" && (
           <div className="mt-4 grid gap-3">
-            <label className="grid gap-2 text-sm font-bold text-slate-700">Rapor türü<select value={reportType} onChange={(event) => setReportType(event.target.value)} className="rounded-[12px] border border-slate-200 bg-slate-50 px-3 py-3 text-slate-900">{reportTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
+            <label className="grid gap-2 text-sm font-bold text-[var(--admin-text-secondary)]">Rapor türü<select value={reportType} onChange={(event) => setReportType(event.target.value)} className="rounded-[12px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 py-3 text-[var(--admin-text-primary)]">{reportTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
             <pre className="max-h-48 overflow-auto rounded-[12px] bg-slate-950 p-3 text-xs text-cyan-50">{JSON.stringify(reportPayload, null, 2)}</pre>
             <div className="flex flex-wrap gap-2">
               <button onClick={() => onGo?.("Müşteri Raporları", `${reportType} hazırlık verisi oluşturuldu.`)} className="rounded-[12px] bg-cyan-500 px-4 py-3 text-sm font-black text-white">Rapor Oluştur</button>
-              <button onClick={() => navigator.clipboard?.writeText(JSON.stringify(reportPayload, null, 2))} className="rounded-[12px] border border-cyan-200 bg-white px-4 py-3 text-sm font-black text-cyan-700">Hazırlık Verisini Kopyala</button>
+              <button onClick={() => navigator.clipboard?.writeText(JSON.stringify(reportPayload, null, 2))} className="rounded-[12px] border border-cyan-200 bg-[var(--admin-surface)] px-4 py-3 text-sm font-black text-cyan-700">Hazırlık Verisini Kopyala</button>
             </div>
           </div>
         )}

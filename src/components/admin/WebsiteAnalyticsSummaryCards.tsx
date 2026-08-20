@@ -58,12 +58,12 @@ export function WebsiteAnalyticsSummaryCards({ onOpen }: { onOpen?: () => void }
   }).some((value) => Number(value) > 0);
 
   return (
-    <section className="rounded-[18px] border border-slate-200 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
+    <section className="rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Web Site Analitiği</p>
-          <h3 className="mt-1 text-lg font-black text-slate-950">Public site ölçüm özeti</h3>
-          <p className="mt-1 text-sm text-slate-600">Meta Pixel ve GA4 (Google Analytics 4) verileri için yönetim özeti.</p>
+          <h3 className="mt-1 text-lg font-black text-[var(--admin-text-primary)]">Public site ölçüm özeti</h3>
+          <p className="mt-1 text-sm text-[var(--admin-text-secondary)]">Meta Pixel ve GA4 (Google Analytics 4) verileri için yönetim özeti.</p>
         </div>
         <button
           type="button"
@@ -73,17 +73,17 @@ export function WebsiteAnalyticsSummaryCards({ onOpen }: { onOpen?: () => void }
           Merkezi Aç
         </button>
       </div>
-      {loading && <p className="rounded-[14px] border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-600">Website Analytics verileri hazırlanıyor...</p>}
+      {loading && <p className="rounded-[14px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4 text-sm font-semibold text-[var(--admin-text-secondary)]">Website Analytics verileri hazırlanıyor...</p>}
       {error && <p className="rounded-[14px] border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</p>}
       {!loading && !error && (
         <>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
             {items.map((item) => (
-              <article key={item.label} className="min-w-0 rounded-[16px] border border-slate-200 bg-slate-50 p-4">
+              <article key={item.label} className="min-w-0 rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4">
                 <span className={`grid size-10 place-items-center rounded-[14px] ${item.tone}`}>{item.icon}</span>
-                <p className="mt-4 truncate text-2xl font-black text-slate-950">{typeof item.value === "number" ? formatter.format(item.value) : item.value}</p>
+                <p className="mt-4 truncate text-2xl font-black text-[var(--admin-text-primary)]">{typeof item.value === "number" ? formatter.format(item.value) : item.value}</p>
                 <h4 className="mt-1 text-sm font-black text-slate-800">{item.label}</h4>
-                <p className="mt-2 text-xs leading-5 text-slate-500">{item.note}</p>
+                <p className="mt-2 text-xs leading-5 text-[var(--admin-text-muted)]">{item.note}</p>
               </article>
             ))}
           </div>

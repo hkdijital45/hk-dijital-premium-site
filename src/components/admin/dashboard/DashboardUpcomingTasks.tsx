@@ -19,10 +19,10 @@ export function DashboardUpcomingTasks({ items, onNavigate }: { items: Dashboard
               <strong className="block truncate text-sm" style={{ color: "var(--admin-text-primary)" }}>{item.title || "Görev"}</strong>
               <span className="mt-1 block text-xs" style={{ color: "var(--admin-text-muted)" }}>{item.priority || "Orta"} · {item.due_date || "Tarih yok"}</span>
             </span>
-            <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[10px] font-black text-slate-500 ring-1 ring-slate-200">{item.status || "Yapılacak"}</span>
+            <span className="shrink-0 rounded-full bg-[var(--admin-surface)] px-2.5 py-1 text-[10px] font-black text-[var(--admin-text-muted)] ring-1 ring-[var(--admin-border)]">{item.status || "Yapılacak"}</span>
           </div>
         ))}
-        {!items.length && <p className="rounded-[14px] border border-dashed border-slate-200 p-4 text-sm text-slate-500">Yaklaşan kritik görev yok.</p>}
+        {!items.length && <p className="rounded-[14px] border border-dashed border-[var(--admin-border)] p-4 text-sm text-[var(--admin-text-muted)]">Yaklaşan kritik görev yok.</p>}
       </div>
     </div>
   );

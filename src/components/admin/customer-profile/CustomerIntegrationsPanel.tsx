@@ -59,28 +59,28 @@ function statusClass(status: string) {
 
 function Input({ label, value, onChange, placeholder = "" }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string }) {
   return (
-    <label className="grid gap-2 text-sm font-semibold text-slate-700">
+    <label className="grid gap-2 text-sm font-semibold text-[var(--admin-text-secondary)]">
       {label}
-      <input value={value || ""} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="min-h-11 rounded-[10px] border border-slate-200 bg-slate-50 px-3 text-slate-900 placeholder:text-slate-400" />
+      <input value={value || ""} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="min-h-11 rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 text-[var(--admin-text-primary)] placeholder:text-slate-400" />
     </label>
   );
 }
 
 function Textarea({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return (
-    <label className="grid gap-2 text-sm font-semibold text-slate-700">
+    <label className="grid gap-2 text-sm font-semibold text-[var(--admin-text-secondary)]">
       {label}
-      <textarea rows={4} value={value || ""} onChange={(event) => onChange(event.target.value)} className="rounded-[10px] border border-slate-200 bg-slate-50 px-3 py-3 text-slate-900" />
+      <textarea rows={4} value={value || ""} onChange={(event) => onChange(event.target.value)} className="rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 py-3 text-[var(--admin-text-primary)]" />
     </label>
   );
 }
 
 function Section({ title, icon, children }: { title: string; icon: ReactNode; children: ReactNode }) {
   return (
-    <section className="rounded-[10px] border border-slate-200 bg-white p-3">
+    <section className="rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3">
       <div className="mb-3 flex items-center gap-2">
         <span className="grid size-7 place-items-center rounded-[8px] bg-cyan-50 text-cyan-700">{icon}</span>
-        <h3 className="text-xs font-black uppercase tracking-wide text-slate-950">{title}</h3>
+        <h3 className="text-xs font-black uppercase tracking-wide text-[var(--admin-text-primary)]">{title}</h3>
       </div>
       <div className="grid gap-2 md:grid-cols-2">{children}</div>
     </section>
@@ -180,7 +180,7 @@ export function CustomerIntegrationsPanel({ company, users = [], campaigns = [],
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[.14em] text-cyan-700">Müşteri Kurulum Durumu</p>
-            <h3 className="mt-1 text-lg font-black text-slate-950">%{displaySetup.progress} tamamlandı</h3>
+            <h3 className="mt-1 text-lg font-black text-[var(--admin-text-primary)]">%{displaySetup.progress} tamamlandı</h3>
             <p className="mt-0.5 text-xs font-semibold text-cyan-900">{displaySetup.completedSteps} / {displaySetup.totalSteps} adım tamamlandı.</p>
           </div>
           <div className="flex flex-wrap gap-1.5">
@@ -190,10 +190,10 @@ export function CustomerIntegrationsPanel({ company, users = [], campaigns = [],
             <a href={`/hk-admin/agent-hub?companyId=${company.id}`} className="hk-button hk-button-ai hk-button-compact">Agent Hub</a>
           </div>
         </div>
-        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white">
+        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[var(--admin-surface)]">
           <div className="h-full rounded-full bg-cyan-500" style={{ width: `${displaySetup.progress}%` }} />
         </div>
-        {message && <p className="mt-3 rounded-[8px] border border-cyan-200 bg-white p-2 text-xs font-semibold text-cyan-900">{message}</p>}
+        {message && <p className="mt-3 rounded-[8px] border border-cyan-200 bg-[var(--admin-surface)] p-2 text-xs font-semibold text-cyan-900">{message}</p>}
       </section>
 
       <section className="admin-data-grid-scroll premium-scrollbar">
@@ -216,8 +216,8 @@ export function CustomerIntegrationsPanel({ company, users = [], campaigns = [],
         <Section title="Web Sitesi" icon={<Globe2 size={18} />}>
           <Input label="Domain" value={form.domain} onChange={(value) => update("domain", value)} placeholder="example.com" />
           <Input label="Website URL" value={form.website_url} onChange={(value) => update("website_url", value)} placeholder="https://example.com" />
-          <label className="grid gap-2 text-sm font-semibold text-slate-700">CMS / altyapı
-            <select disabled={!editing} value={form.cms_provider || ""} onChange={(event) => update("cms_provider", event.target.value)} className="min-h-11 rounded-[10px] border border-slate-200 bg-slate-50 px-3 text-slate-900">
+          <label className="grid gap-2 text-sm font-semibold text-[var(--admin-text-secondary)]">CMS / altyapı
+            <select disabled={!editing} value={form.cms_provider || ""} onChange={(event) => update("cms_provider", event.target.value)} className="min-h-11 rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 text-[var(--admin-text-primary)]">
               <option value="">Seçin</option>
               {cmsOptions.map((option) => <option key={option} value={option}>{option}</option>)}
             </select>
@@ -233,7 +233,7 @@ export function CustomerIntegrationsPanel({ company, users = [], campaigns = [],
           <Input label="Meta Page ID" value={form.meta_page_id} onChange={(value) => update("meta_page_id", value)} />
           <Input label="Instagram Business ID" value={form.instagram_business_id} onChange={(value) => update("instagram_business_id", value)} />
           <Input label="Meta Access Token durumu" value={form.meta_access_token_masked} onChange={(value) => update("meta_access_token_masked", value)} placeholder="Tanımlı / Eksik / Maskeli" />
-          <p className="rounded-[12px] bg-slate-50 p-3 text-xs leading-5 text-slate-600 md:col-span-2">Dataset ID, Events Manager &gt; Data Sources &gt; Pixel/Dataset &gt; Settings alanından alınır. Gerçek token bu ekranda saklanmaz.</p>
+          <p className="rounded-[12px] bg-[var(--admin-surface-soft)] p-3 text-xs leading-5 text-[var(--admin-text-secondary)] md:col-span-2">Dataset ID, Events Manager &gt; Data Sources &gt; Pixel/Dataset &gt; Settings alanından alınır. Gerçek token bu ekranda saklanmaz.</p>
         </Section>
 
         <Section title="Google" icon={<Search size={18} />}>
@@ -244,14 +244,14 @@ export function CustomerIntegrationsPanel({ company, users = [], campaigns = [],
           <Input label="GTM Container ID (etiket yöneticisi)" value={form.gtm_container_id} onChange={(value) => update("gtm_container_id", value)} placeholder="GTM-XXXXXXX" />
           <Input label="Google servis hesabı e-posta" value={form.google_service_account_email} onChange={(value) => update("google_service_account_email", value)} />
           <Input label="Google servis hesabı durumu" value={form.google_service_account_status} onChange={(value) => update("google_service_account_status", value)} />
-          <p className="rounded-[12px] bg-slate-50 p-3 text-xs leading-5 text-slate-600 md:col-span-2">Private key müşteri profilinde gösterilmez. GA4 ve Search Console yetkisi servis hesabı maili üzerinden verilir.</p>
+          <p className="rounded-[12px] bg-[var(--admin-surface-soft)] p-3 text-xs leading-5 text-[var(--admin-text-secondary)] md:col-span-2">Private key müşteri profilinde gösterilmez. GA4 ve Search Console yetkisi servis hesabı maili üzerinden verilir.</p>
         </Section>
 
         <Section title="Davranış Analitiği + AI" icon={<Bot size={18} />}>
           <Input label="Microsoft Clarity Project ID" value={form.clarity_project_id} onChange={(value) => update("clarity_project_id", value)} />
           <Input label="Hotjar Site ID" value={form.hotjar_site_id} onChange={(value) => update("hotjar_site_id", value)} />
-          <label className="grid gap-2 text-sm font-semibold text-slate-700">Müşteri bazlı AI modu
-            <select disabled={!editing} value={form.preferred_ai_provider || "auto"} onChange={(event) => update("preferred_ai_provider", event.target.value)} className="min-h-11 rounded-[10px] border border-slate-200 bg-slate-50 px-3 text-slate-900">
+          <label className="grid gap-2 text-sm font-semibold text-[var(--admin-text-secondary)]">Müşteri bazlı AI modu
+            <select disabled={!editing} value={form.preferred_ai_provider || "auto"} onChange={(event) => update("preferred_ai_provider", event.target.value)} className="min-h-11 rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 text-[var(--admin-text-primary)]">
               {aiOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </label>
@@ -260,7 +260,7 @@ export function CustomerIntegrationsPanel({ company, users = [], campaigns = [],
       </div>
 
       {editing && (
-        <div className="sticky bottom-0 flex flex-wrap justify-end gap-2 border-t bg-white/95 py-2" style={{ borderColor: "var(--admin-border)" }}>
+        <div className="sticky bottom-0 flex flex-wrap justify-end gap-2 border-t bg-[var(--admin-surface)]/95 py-2" style={{ borderColor: "var(--admin-border)" }}>
           <AdminButton compact variant="secondary" onClick={() => setEditing(false)}>Vazgeç</AdminButton>
           <AdminButton compact variant="primary" disabled={loading} onClick={save}>{loading ? "Kaydediliyor..." : "Kaydet"}</AdminButton>
         </div>

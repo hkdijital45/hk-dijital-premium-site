@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-export type AdminCompactKpiTone = "primary" | "success" | "info" | "warning" | "danger" | "ai";
+export type AdminCompactKpiTone = "primary" | "success" | "info" | "warning" | "danger" | "ai" | "gold";
 
 export type AdminCompactKpiItem = {
   key: string;
