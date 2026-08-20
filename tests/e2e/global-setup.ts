@@ -25,7 +25,8 @@ export default async function globalSetup(config: FullConfig) {
   }
 
   const baseURL = config.projects[0]?.use?.baseURL;
-  const context = await playwrightRequest.newContext({ baseURL });
+  const isInsecureOrigin = Boolean(baseURL?.startsWith("http://"));
+  let context = await playwrightRequest.newContext({ baseURL });
   try {
     const response = await context.post("/api/auth/login", {
       data: {
@@ -38,6 +39,31 @@ export default async function globalSetup(config: FullConfig) {
       throw new Error(
         `Global setup's real QA admin login failed with status ${response.status()} — check QA_ADMIN_EMAIL/QA_ADMIN_PASSWORD against a real, active admin account. The whole run depends on this one real login; every authenticated test reuses its saved session.`
       );
+    }
+
+    // The app correctly sets `secure: true` on its session cookie under
+    // `next start` (NODE_ENV=production) — required for real HTTPS
+    // production, and not something to weaken in application code. But this
+    // suite runs the production build over plain http://127.0.0.1 locally,
+    // and Playwright (correctly emulating real cookie-security semantics)
+    // never sends a Secure-flagged cookie back over an insecure origin —
+    // including on the *same* context that just logged in, not only when
+    // replaying a saved storageState later. Without this, every request
+    // right after the real login above (key list/create/rotate, gate
+    // verify) looks logged-out, which used to surface as a misleading 403
+    // "Yetkisiz erişim" that read like a QA_ADMIN permissions problem but
+    // wasn't one — the account's allowedModules already includes
+    // "kullanicilar" (confirmed by decoding the session JWT). Rebuild the
+    // context from a Secure-stripped copy of its own just-set cookies so
+    // the rest of this bootstrap (still over the same deliberate http://
+    // origin) actually stays logged in. Only this local test runner's own
+    // in-memory copy of the cookie is touched — the real /api/auth/login
+    // response and the app's own cookie-setting code are untouched.
+    if (isInsecureOrigin) {
+      const loggedInState = await context.storageState();
+      for (const cookie of loggedInState.cookies || []) cookie.secure = false;
+      await context.dispose();
+      context = await playwrightRequest.newContext({ baseURL, storageState: loggedInState });
     }
 
     // /hk-admin (and /digital-center, /musteri-paneli) sit behind the
@@ -77,20 +103,9 @@ export default async function globalSetup(config: FullConfig) {
     mkdirSync(dirname(QA_ADMIN_STORAGE_STATE_PATH), { recursive: true });
     await context.storageState({ path: QA_ADMIN_STORAGE_STATE_PATH });
 
-    // The app correctly sets `secure: true` on its session cookie under
-    // `next start` (NODE_ENV=production) — required for real HTTPS
-    // production, and not something to weaken in application code. But this
-    // suite runs the production build over plain http://127.0.0.1 locally,
-    // and Playwright (correctly emulating real cookie-security semantics)
-    // silently drops a Secure-flagged cookie when replaying a saved
-    // storageState over an insecure origin — every request built from the
-    // reloaded state would look logged-out even though the login itself
-    // just succeeded. Since we deliberately test over http:// here, strip
-    // the Secure flag on the cookie as saved to disk only — the real
-    // /api/auth/login response and the app's own cookie-setting code are
-    // untouched, this only affects how the test runner replays its own
-    // locally-captured copy.
-    if (baseURL?.startsWith("http://")) {
+    // Same Secure-stripping as above, applied to the file every authenticated
+    // describe block loads via `test.use({ storageState: qaAdminStorageState })`.
+    if (isInsecureOrigin) {
       const state = JSON.parse(readFileSync(QA_ADMIN_STORAGE_STATE_PATH, "utf8"));
       for (const cookie of state.cookies || []) cookie.secure = false;
       writeFileSync(QA_ADMIN_STORAGE_STATE_PATH, JSON.stringify(state, null, 2));
