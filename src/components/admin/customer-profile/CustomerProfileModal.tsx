@@ -167,12 +167,6 @@ function statusLabel(status: string, isActive?: boolean) {
   return "Aktif";
 }
 
-function statusTone(status: string, isActive?: boolean) {
-  if (status === "passive" || isActive === false) return "bg-[var(--admin-surface-soft)] text-[var(--admin-text-secondary)] ring-slate-200";
-  if (status === "needs_review") return "bg-amber-50 text-amber-700 ring-amber-200";
-  return "bg-emerald-50 text-emerald-700 ring-emerald-200";
-}
-
 function toBranchForm(branch?: any) {
   return {
     ...emptyBranchForm,
@@ -542,7 +536,7 @@ export function CustomerProfileModal({
             </div>
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={() => resetPortalSettings("platforms")} className="rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface)] px-4 py-2 text-xs font-black text-[var(--admin-text-secondary)]">Reset</button>
-              <button type="button" onClick={savePortalSettings} disabled={portalSaving} className="rounded-full bg-cyan-500 px-4 py-2 text-xs font-black text-white disabled:opacity-60">{portalSaving ? "Kaydediliyor..." : "Kaydet"}</button>
+              <button type="button" onClick={savePortalSettings} disabled={portalSaving} className="hk-button hk-button-communication px-4 py-2 text-xs disabled:opacity-60">{portalSaving ? "Kaydediliyor..." : "Kaydet"}</button>
             </div>
           </div>
           <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -706,28 +700,27 @@ export function CustomerProfileModal({
                 <SummaryBox title="Müşteri Finans Özeti" lines={[`Toplam tahsilat kaydı: ${payments.length}`, `Bekleyen ödeme: ${payments.filter((item: any) => !paidStatuses.includes(item.status)).length}`, `Tahsil edilen: ${payments.filter((item: any) => paidStatuses.includes(item.status)).length}`, `Geciken ödeme: ${overduePayments.length}`]} />
               </div>
               <div className="mt-5 flex flex-wrap gap-2">
-                <button onClick={() => onGo?.("Müşteriler", "Müşteri detayına gidildi.")} className="rounded-[12px] bg-cyan-500 px-4 py-3 text-sm font-black text-white">Müşteri detayına git</button>
-                <button onClick={() => onGo?.("Web Site Analitiği")} className="rounded-[12px] border border-cyan-200 bg-[var(--admin-surface)] px-4 py-3 text-sm font-black text-cyan-700">Entegrasyonları aç</button>
-                <button onClick={() => onGo?.("HK Agent Hub")} className="rounded-[12px] border border-cyan-200 bg-[var(--admin-surface)] px-4 py-3 text-sm font-black text-cyan-700">Agent Hub’da analiz et</button>
-                <button onClick={() => onGo?.("Müşteri Raporları")} className="rounded-[12px] border border-cyan-200 bg-[var(--admin-surface)] px-4 py-3 text-sm font-black text-cyan-700">Rapor oluştur</button>
-                <button onClick={() => onGo?.("Görevler")} className="rounded-[12px] border border-cyan-200 bg-[var(--admin-surface)] px-4 py-3 text-sm font-black text-cyan-700">Görev oluştur</button>
+                <button onClick={() => onGo?.("Müşteriler", "Müşteri detayına gidildi.")} className="hk-button hk-button-communication px-4 py-3 text-sm">Müşteri detayına git</button>
+                <button onClick={() => onGo?.("Web Site Analitiği")} className="hk-button hk-button-outline px-4 py-3 text-sm">Entegrasyonları aç</button>
+                <button onClick={() => onGo?.("HK Agent Hub")} className="hk-button hk-button-outline px-4 py-3 text-sm">Agent Hub’da analiz et</button>
+                <button onClick={() => onGo?.("Müşteri Raporları")} className="hk-button hk-button-outline px-4 py-3 text-sm">Rapor oluştur</button>
+                <button onClick={() => onGo?.("Görevler")} className="hk-button hk-button-outline px-4 py-3 text-sm">Görev oluştur</button>
               </div>
             </>
           )}
-          <section className="mt-6 rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4">
+          <div className="mt-8 flex items-baseline justify-between gap-3 border-t pt-5" style={{ borderColor: "var(--admin-border)" }}>
             <div>
-              <p className="text-xs font-black uppercase tracking-[.14em] text-cyan-700">Operasyon Detayları</p>
+              <span className="hk-page-eyebrow text-xs font-black uppercase tracking-[.14em]">Operasyon Detayları</span>
               <h3 className="mt-1 text-lg font-black text-[var(--admin-text-primary)]">Şubeler, rakipler ve uygulanan planlar</h3>
-              <p className="mt-1 text-sm text-[var(--admin-text-muted)]">Bu bloklar temel müşteri bilgileri ve sekme içeriklerinden sonra gösterilir.</p>
             </div>
-          </section>
+          </div>
           <section className="mt-4 rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h3 className="font-black text-[var(--admin-text-primary)]">Şubeler</h3>
                 <p className="mt-1 text-sm text-[var(--admin-text-muted)]">Şube bazlı reklam, rapor, entegrasyon ve KPI yönetimi için kayıtlı lokasyonlar.</p>
               </div>
-              <button onClick={() => openBranchForm()} className="rounded-[12px] bg-cyan-500 px-4 py-2.5 text-sm font-black text-white">Şube Ekle</button>
+              <button onClick={() => openBranchForm()} className="hk-button hk-button-communication px-4 py-2.5 text-sm">Şube Ekle</button>
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               {branches.map((branch: any) => (
@@ -738,7 +731,7 @@ export function CustomerProfileModal({
                       <p className="mt-1 text-xs text-[var(--admin-text-muted)]">{branch.city || "Şehir yok"} · {branch.district || "İlçe yok"}</p>
                     </div>
                     <div className="flex flex-wrap justify-end gap-2">
-                      <span className={`rounded-full px-2 py-1 text-[10px] font-black ring-1 ${statusTone(branch.status, branch.is_active)}`}>{statusLabel(branch.status, branch.is_active)}</span>
+                      <span className={`hk-badge px-2 py-1 text-[10px] ${branch.status === "passive" || branch.is_active === false ? "hk-badge-neutral" : branch.status === "needs_review" ? "hk-badge-warning" : "hk-badge-success"}`}>{statusLabel(branch.status, branch.is_active)}</span>
                       <span className="rounded-full bg-[var(--admin-surface)] px-2 py-1 text-[10px] font-black text-cyan-700 ring-1 ring-cyan-200">{branch.monthly_ad_budget ? `Bütçe ${branch.monthly_ad_budget} TL` : "Bütçe yok"}</span>
                     </div>
                   </div>
@@ -751,10 +744,10 @@ export function CustomerProfileModal({
                     <span>Sorumlu: {branch.responsible_person || "Belirtilmedi"}</span>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <button onClick={() => openBranchForm(branch)} className="rounded-[10px] bg-cyan-500 px-3 py-1.5 text-xs font-black text-white">Şubeyi Düzenle</button>
+                    <button onClick={() => openBranchForm(branch)} className="hk-button hk-button-communication px-3 py-1.5 text-xs">Şubeyi Düzenle</button>
                     <button onClick={() => passiveBranch(branch)} disabled={branchSaving || branch.status === "passive" || branch.is_active === false} className="rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-black text-[var(--admin-text-secondary)] disabled:opacity-50">Şubeyi Pasife Al</button>
-                    <button onClick={() => createBranchReport(branch)} className="rounded-[10px] border border-cyan-200 bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-black text-cyan-700">Şube Raporu Oluştur</button>
-                    <button onClick={() => startBranchAnalysis(branch)} className="rounded-[10px] border border-cyan-200 bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-black text-cyan-700">Şube İçin Agent Analizi</button>
+                    <button onClick={() => createBranchReport(branch)} className="hk-button hk-button-outline px-3 py-1.5 text-xs">Şube Raporu Oluştur</button>
+                    <button onClick={() => startBranchAnalysis(branch)} className="hk-button hk-button-outline px-3 py-1.5 text-xs">Şube İçin Agent Analizi</button>
                     <button onClick={() => openMaps(branch)} className="rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-black text-[var(--admin-text-secondary)]">Google Maps’te Aç</button>
                   </div>
                 </div>
@@ -769,7 +762,7 @@ export function CustomerProfileModal({
                 <h3 className="font-black text-[var(--admin-text-primary)]">Rakipler</h3>
                 <p className="mt-1 text-sm text-[var(--admin-text-muted)]">Rakip firma izleme, reklam/paylaşım sinyali, Google yorum takibi ve müşteriye açık rekabet özeti.</p>
               </div>
-              <button onClick={() => onGo?.("Rakip Analizi", "Rakip ekleme ve AI ile rakip bulma alanı açıldı.")} className="rounded-[12px] bg-cyan-500 px-4 py-2.5 text-sm font-black text-white">Rakip Analizine Git</button>
+              <button onClick={() => onGo?.("Rakip Analizi", "Rakip ekleme ve AI ile rakip bulma alanı açıldı.")} className="hk-button hk-button-communication px-4 py-2.5 text-sm">Rakip Analizine Git</button>
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               {(content?.competitorWatchlist || content?.competitorAnalyses || []).filter((item: any) => item.company_id === company?.id).slice(0, 6).map((item: any) => (
@@ -789,9 +782,9 @@ export function CustomerProfileModal({
                     <span>{item.customer_summary || item.customer_visible_summary || item.last_analysis_summary || "Müşteri özeti henüz üretilmedi."}</span>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <a href={item.google_place_id ? `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(item.google_place_id)}` : item.google_maps_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([item.competitor_name || item.name, item.address, item.city, item.district].filter(Boolean).join(" "))}`} target="_blank" rel="noreferrer" className="rounded-[10px] border border-cyan-200 bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-black text-cyan-700">Google Maps’te aç</a>
+                    <a href={item.google_place_id ? `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(item.google_place_id)}` : item.google_maps_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([item.competitor_name || item.name, item.address, item.city, item.district].filter(Boolean).join(" "))}`} target="_blank" rel="noreferrer" className="hk-button hk-button-outline px-3 py-1.5 text-xs">Google Maps’te aç</a>
                     <a href={item.meta_ad_library_url || `https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=TR&q=${encodeURIComponent(item.competitor_name || item.name || "")}`} target="_blank" rel="noreferrer" className="rounded-[10px] border border-blue-200 bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-black text-blue-700">Meta reklamlarını aç</a>
-                    <button onClick={() => onGo?.("HK Agent Hub", "Rakip için Agent analizi açıldı.")} className="rounded-[10px] border border-cyan-200 bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-black text-cyan-700">Agent ile analiz et</button>
+                    <button onClick={() => onGo?.("HK Agent Hub", "Rakip için Agent analizi açıldı.")} className="hk-button hk-button-outline px-3 py-1.5 text-xs">Agent ile analiz et</button>
                     <button onClick={() => onGo?.("Rakip Analizi", "Rakip reklam kontrolü açıldı.")} className="rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-black text-[var(--admin-text-secondary)]">Reklamları kontrol et</button>
                     <button onClick={() => onGo?.("Rakip Analizi", "Rakip detay inceleme modalı açıldı.")} className="rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-black text-[var(--admin-text-secondary)]">Detaylı gör</button>
                     <button onClick={() => onGo?.("Rakip Analizi", "AI ile rakip bulma ve müşteri özeti alanı açıldı.")} className="rounded-[10px] border border-emerald-200 bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-black text-emerald-700">AI ile rakip bul</button>
@@ -857,8 +850,8 @@ export function CustomerProfileModal({
                     <span>30 gün: {(application.thirty_day_plan || []).length} hafta</span>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <button onClick={() => onGo?.("HK Intelligence CEO", "Uygulanan plan açıldı.")} className="rounded-[10px] bg-cyan-500 px-3 py-1.5 text-xs font-black text-white">Aç / Devam Et</button>
-                    <button onClick={() => onGo?.("Müşteri Raporları", "Rapor oluşturma alanı açıldı.")} className="rounded-[10px] border border-cyan-200 bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-black text-cyan-700">Rapor Oluştur</button>
+                    <button onClick={() => onGo?.("HK Intelligence CEO", "Uygulanan plan açıldı.")} className="hk-button hk-button-communication px-3 py-1.5 text-xs">Aç / Devam Et</button>
+                    <button onClick={() => onGo?.("Müşteri Raporları", "Rapor oluşturma alanı açıldı.")} className="hk-button hk-button-outline px-3 py-1.5 text-xs">Rapor Oluştur</button>
                   </div>
                 </div>
               ))}
@@ -940,7 +933,7 @@ export function CustomerProfileModal({
                 onClick={saveProfile}
                 disabled={!profileDirty || profileSaving}
                 title={!profileDirty ? "Kaydedilecek değişiklik yok." : "Profil formundaki değişiklikleri kaydeder."}
-                className="rounded-[12px] bg-cyan-500 px-4 py-2.5 text-sm font-black text-white shadow-lg shadow-cyan-500/20 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+                className="hk-button hk-button-primary px-4 py-2.5 text-sm disabled:opacity-60"
               >
                 {profileSaving ? "Kaydediliyor..." : "Değişiklikleri Kaydet"}
               </button>
@@ -1029,12 +1022,12 @@ function BranchEditorModal({ branch, form, setForm, saving, message, onSave, onC
         <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--admin-border)] p-5">
           <div className="flex flex-wrap gap-2">
             <button onClick={() => window.open(form.google_maps_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([form.address, form.district, form.city, form.branch_name].filter(Boolean).join(" "))}`, "_blank", "noopener,noreferrer")} className="rounded-[12px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-4 py-2.5 text-sm font-black text-[var(--admin-text-secondary)]">Google Maps’te Aç</button>
-            <button onClick={() => onGo?.("HK Agent Hub", "Şube için Agent analizi açıldı.")} className="rounded-[12px] border border-cyan-200 bg-[var(--admin-surface)] px-4 py-2.5 text-sm font-black text-cyan-700">Şube İçin Agent Analizi</button>
-            <button onClick={() => onGo?.("Müşteri Raporları", "Şube raporu oluşturma alanı açıldı.")} className="rounded-[12px] border border-cyan-200 bg-[var(--admin-surface)] px-4 py-2.5 text-sm font-black text-cyan-700">Şube Raporu Oluştur</button>
+            <button onClick={() => onGo?.("HK Agent Hub", "Şube için Agent analizi açıldı.")} className="hk-button hk-button-outline px-4 py-2.5 text-sm">Şube İçin Agent Analizi</button>
+            <button onClick={() => onGo?.("Müşteri Raporları", "Şube raporu oluşturma alanı açıldı.")} className="hk-button hk-button-outline px-4 py-2.5 text-sm">Şube Raporu Oluştur</button>
           </div>
           <div className="flex flex-wrap gap-2">
             <button onClick={onClose} className="rounded-[12px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-4 py-2.5 text-sm font-black text-[var(--admin-text-secondary)]">Vazgeç</button>
-            <button onClick={onSave} disabled={saving} className="rounded-[12px] bg-cyan-500 px-4 py-2.5 text-sm font-black text-white disabled:opacity-60">{saving ? "Kaydediliyor..." : editing ? "Şubeyi Güncelle" : "Kaydet"}</button>
+            <button onClick={onSave} disabled={saving} className="hk-button hk-button-communication px-4 py-2.5 text-sm disabled:opacity-60">{saving ? "Kaydediliyor..." : editing ? "Şubeyi Güncelle" : "Kaydet"}</button>
           </div>
         </footer>
       </section>
@@ -1071,7 +1064,7 @@ function BranchActionModal({ action, company, onClose, onGo }: any) {
           <div className="mt-4 grid gap-3">
             <p className="text-sm text-[var(--admin-text-secondary)]">Eksik entegrasyonlar: <b>{action.missing?.length ? action.missing.join(", ") : "Kritik eksik görünmüyor"}</b></p>
             <div className="grid gap-2 sm:grid-cols-5">{["reklam", "SEO", "Maps", "rakip", "genel"].map((item) => <span key={item} className="rounded-full bg-cyan-50 px-3 py-2 text-center text-xs font-black text-cyan-700 ring-1 ring-cyan-200">{item}</span>)}</div>
-            <button onClick={() => window.location.assign(agentHref)} className="rounded-[12px] bg-cyan-500 px-4 py-3 text-sm font-black text-white">Agent Hub’da Şube Analizi Başlat</button>
+            <button onClick={() => window.location.assign(agentHref)} className="hk-button hk-button-communication px-4 py-3 text-sm">Agent Hub’da Şube Analizi Başlat</button>
           </div>
         )}
         {action.type === "report" && (
@@ -1079,8 +1072,8 @@ function BranchActionModal({ action, company, onClose, onGo }: any) {
             <label className="grid gap-2 text-sm font-bold text-[var(--admin-text-secondary)]">Rapor türü<select value={reportType} onChange={(event) => setReportType(event.target.value)} className="rounded-[12px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-3 py-3 text-[var(--admin-text-primary)]">{reportTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
             <pre className="max-h-48 overflow-auto rounded-[12px] bg-slate-950 p-3 text-xs text-cyan-50">{JSON.stringify(reportPayload, null, 2)}</pre>
             <div className="flex flex-wrap gap-2">
-              <button onClick={() => onGo?.("Müşteri Raporları", `${reportType} hazırlık verisi oluşturuldu.`)} className="rounded-[12px] bg-cyan-500 px-4 py-3 text-sm font-black text-white">Rapor Oluştur</button>
-              <button onClick={() => navigator.clipboard?.writeText(JSON.stringify(reportPayload, null, 2))} className="rounded-[12px] border border-cyan-200 bg-[var(--admin-surface)] px-4 py-3 text-sm font-black text-cyan-700">Hazırlık Verisini Kopyala</button>
+              <button onClick={() => onGo?.("Müşteri Raporları", `${reportType} hazırlık verisi oluşturuldu.`)} className="hk-button hk-button-communication px-4 py-3 text-sm">Rapor Oluştur</button>
+              <button onClick={() => navigator.clipboard?.writeText(JSON.stringify(reportPayload, null, 2))} className="hk-button hk-button-outline px-4 py-3 text-sm">Hazırlık Verisini Kopyala</button>
             </div>
           </div>
         )}
