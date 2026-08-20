@@ -74,7 +74,7 @@ export function HKAssistantWidget({ context = "customer" }: { context?: Assistan
   if (context === "customer" && settings?.assistant_enabled === false) return null;
 
   return (
-    <div className="fixed bottom-3 right-3 z-[95] sm:bottom-5 sm:right-5">
+    <div className="fixed bottom-3 right-3 z-40 sm:bottom-5 sm:right-5">
       {open && (
         <section className="hk-floating-assistant-panel mb-3 flex max-h-[min(680px,calc(100dvh-6rem))] w-[min(380px,calc(100vw-1.5rem))] flex-col overflow-hidden">
           <div className="hk-floating-assistant-head">

@@ -956,8 +956,18 @@ function SystemBoot({ step }: { step: number }) {
   </div>;
 }
 
-function Panel({ title, children }: any) {
-  return <div className="w-full min-w-0 max-w-none"><p className="text-[10px] font-black uppercase tracking-[.2em] text-cyan-700">HK Operating System</p><h2 className="mb-6 mt-2 text-2xl font-black">{title}</h2>{children}</div>;
+// `title` is intentionally not rendered as a second heading: every screen that
+// reaches Panel is a non-Dashboard admin screen, which already gets a real
+// .hk-page-header (eyebrow + title + description + Yardım) from the shared
+// breadcrumb block in AdminDashboard's own render — Panel used to duplicate
+// that with a second, plainer "HK Operating System / {title}" heading
+// directly underneath it (visually confirmed: Rakip Analizi showed three
+// stacked headers once its own custom .hk-page-header was added on top of
+// both). Kept as a prop (not removed from the signature) since call sites
+// pass real, meaningful titles that document intent and may be wired back in
+// for a screen that turns out not to get the shared breadcrumb.
+function Panel({ children }: any) {
+  return <div className="w-full min-w-0 max-w-none">{children}</div>;
 }
 
 function Field({ label, value, onChange, type = "text", placeholder = "" }: any) {
