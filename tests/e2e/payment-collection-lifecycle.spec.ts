@@ -29,9 +29,14 @@ test.describe("Tahsilat Takibi: real create / edit / delete lifecycle", () => {
   let companyId = "";
   let companyName = "";
 
-  test.beforeAll(async () => {
+  test.beforeAll(async ({}, testInfo) => {
     const ctx = await playwrightRequest.newContext();
-    companyName = `E2E Tahsilat Test ${Date.now()}`;
+    // desktop-chromium and mobile-chromium run this file concurrently as
+    // separate workers; Date.now() alone has collided between them (same
+    // millisecond), producing two companies with the identical display name
+    // and making every name-based row locator below match both. The project
+    // name plus a random suffix makes this always unique across workers.
+    companyName = `E2E Tahsilat Test ${testInfo.project.name} ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const res = await ctx.post(`${SUPABASE_URL}/rest/v1/companies`, {
       headers: { ...restHeaders(), Prefer: "return=representation" },
       data: { name: companyName, status: "Aktif", is_active: true, is_test: true, sector: "Test" }
@@ -65,6 +70,25 @@ test.describe("Tahsilat Takibi: real create / edit / delete lifecycle", () => {
     // panel specifically to avoid ambiguity with the filter panel's select.
     const drawer = page.locator(".admin-drawer-panel");
 
+    // AdminDataGrid (the component behind this list) intentionally renders
+    // BOTH a desktop `<table>` (`hidden md:block`) and a mobile card list
+    // (`md:hidden`) for the same rows at once, switching which one is
+    // `display:none` per viewport — the correct way to do CSS-only
+    // responsive layout, and invisible to real users since only one is ever
+    // actually visible at a time. A bare `page.getByText(...)` / `tbody tr`
+    // locator doesn't know about that: on mobile-chromium it resolves
+    // `.first()` to the desktop table's copy, which is permanently
+    // `display:none` there, so `toBeVisible()` fails forever; on any
+    // viewport `toHaveCount()` counts both DOM copies of a single logical
+    // row. `:visible` is a genuine Playwright CSS extension (not
+    // hidden/skipped), so this scopes every row/amount assertion to
+    // whichever one of the two copies is actually rendered for this
+    // viewport, and to this test's own company so it can't match a
+    // different company's row from the other project running in parallel
+    // against the same shared, unfiltered list.
+    const row = () => page.locator("tbody tr:visible, .admin-card:visible").filter({ hasText: companyName });
+    const amount = (text: string) => row().getByText(text, { exact: false });
+
     // --- Step 1: bottom "Tahsilat Kaydı Ekle" button opens a real form ---
     await page.getByRole("button", { name: "Tahsilat Kaydı Ekle" }).click();
     await expect(drawer.getByText("Yeni Tahsilat Kaydı")).toBeVisible();
@@ -79,14 +103,14 @@ test.describe("Tahsilat Takibi: real create / edit / delete lifecycle", () => {
     await expect(drawer).toHaveCount(0, { timeout: 10000 });
 
     // --- Step 2: record appears in the list ---
-    await expect(page.getByText("1.250 TL").first()).toBeVisible();
+    await expect(amount("1.250 TL")).toBeVisible();
 
     // --- Step 3: refresh, record must still be there ---
     await page.reload({ waitUntil: "domcontentloaded" });
-    await expect(page.getByText("1.250 TL").first()).toBeVisible();
+    await expect(amount("1.250 TL")).toBeVisible();
 
     // --- Step 4: edit the record, change amount to 1500 ---
-    await page.locator("tbody tr").filter({ hasText: companyName }).first().click();
+    await row().click();
     await page.getByRole("button", { name: "Düzenle" }).click();
     await expect(drawer.getByText("Tahsilat Kaydını Düzenle")).toBeVisible();
     await drawer.getByLabel("Tutar (TL)").fill("1500");
@@ -95,20 +119,21 @@ test.describe("Tahsilat Takibi: real create / edit / delete lifecycle", () => {
 
     // --- Step 5: refresh, updated amount must persist ---
     await page.reload({ waitUntil: "domcontentloaded" });
-    await expect(page.getByText("1.500 TL").first()).toBeVisible();
-    await expect(page.getByText("1.250 TL")).toHaveCount(0);
+    await expect(amount("1.500 TL")).toBeVisible();
+    await expect(amount("1.250 TL")).toHaveCount(0);
 
     // --- Step 6: delete the record via ConfirmDialog ---
-    await page.locator("tbody tr").filter({ hasText: companyName }).first().click();
+    await row().click();
     await page.getByRole("button", { name: "Sil", exact: true }).click();
     const confirmDialog = page.locator(".admin-modal-panel");
     await expect(confirmDialog.getByText("Tahsilat kaydını sil")).toBeVisible();
     await confirmDialog.getByRole("button", { name: /^Sil$/ }).click();
     await expect(confirmDialog).toHaveCount(0, { timeout: 10000 });
 
-    // --- Step 7: refresh, deleted record must NOT reappear ---
+    // --- Step 7: refresh, deleted (archived) record must NOT reappear in
+    // the default "Tümü" status filter's row for this company ---
     await page.reload({ waitUntil: "domcontentloaded" });
-    await expect(page.getByText("1.500 TL")).toHaveCount(0);
+    await expect(row()).toHaveCount(0);
 
     // --- Step 8: top "+ Tahsilat Kaydı" button must open cleanly a second
     // time — no "zaten boş bir tahsilat taslağı var" block from a phantom
@@ -121,6 +146,6 @@ test.describe("Tahsilat Takibi: real create / edit / delete lifecycle", () => {
     await drawer.getByLabel("Tutar (TL)").fill("750");
     await drawer.getByRole("button", { name: "Kaydet" }).click();
     await expect(drawer).toHaveCount(0, { timeout: 10000 });
-    await expect(page.getByText("750 TL").first()).toBeVisible();
+    await expect(amount("750 TL")).toBeVisible();
   });
 });
