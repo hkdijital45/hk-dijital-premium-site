@@ -57,8 +57,33 @@ function customerHealth(company: any, content: any) {
     tone: score >= 75 ? "success" : score >= 50 ? "warning" : "danger",
     pendingPayments: payments.filter((item: any) => !["Ödendi", "Tahsil Edildi"].includes(item.status)),
     paidTotal: payments.filter((item: any) => ["Ödendi", "Tahsil Edildi"].includes(item.status)).reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0),
-    openTasks: tasks.filter((item: any) => !["Tamamlandı", "İptal"].includes(item.status))
+    openTasks: tasks.filter((item: any) => !["Tamamlandı", "İptal"].includes(item.status)),
+    overdueTaskCount: overdueTasks.length
   };
+}
+
+// So a user can tell "son operasyon nedir?" within seconds of opening the
+// profile, without hunting through the 25-tab strip: picks the single most
+// recent real record across this company's activity log, payments, tasks
+// and reports (whichever actually has the latest timestamp), rather than
+// inventing an activity feed that doesn't exist yet.
+function lastOperation(company: any, content: any) {
+  const companyId = company?.id;
+  const candidates: { at: string; label: string }[] = [];
+  const latestLog = (content?.activityLogs || [])
+    .filter((item: any) => item.company_id === companyId && item.created_at)
+    .sort((a: any, b: any) => String(b.created_at).localeCompare(String(a.created_at)))[0];
+  if (latestLog) candidates.push({ at: latestLog.created_at, label: [latestLog.entity, latestLog.action].filter(Boolean).join(" · ") || "Aktivite kaydı" });
+  const latestPayment = (content?.paymentRecords || []).filter((item: any) => item.company_id === companyId).sort((a: any, b: any) => String(b.updated_at || b.created_at || "").localeCompare(String(a.updated_at || a.created_at || "")))[0];
+  if (latestPayment) candidates.push({ at: latestPayment.updated_at || latestPayment.created_at, label: "Tahsilat güncellendi" });
+  const latestTask = (content?.agencyTasks || []).filter((item: any) => item.company_id === companyId).sort((a: any, b: any) => String(b.updated_at || b.created_at || "").localeCompare(String(a.updated_at || a.created_at || "")))[0];
+  if (latestTask) candidates.push({ at: latestTask.updated_at || latestTask.created_at, label: "Görev güncellendi" });
+  const latestReport = (content?.reports || []).filter((item: any) => item.company_id === companyId).sort((a: any, b: any) => String(b.created_at || "").localeCompare(String(a.created_at || "")))[0];
+  if (latestReport) candidates.push({ at: latestReport.created_at, label: "Rapor eklendi" });
+  const best = candidates.filter((item) => item.at).sort((a, b) => String(b.at).localeCompare(String(a.at)))[0];
+  if (!best) return { label: "Kayıt yok", dateLabel: "-" };
+  const date = new Date(best.at);
+  return { label: best.label, dateLabel: Number.isNaN(date.getTime()) ? "-" : date.toLocaleDateString("tr-TR", { day: "2-digit", month: "2-digit", year: "numeric" }) };
 }
 
 function setupProgress(company: any, content: any) {
@@ -91,6 +116,7 @@ export function Customer360Header({
   if (!company) return null;
   const health = customerHealth(company, content);
   const setup = setupProgress(company, content);
+  const lastOp = lastOperation(company, content);
   const packageName = company.customer_package_name || company.customer_package_type || "Paketsiz";
   const monthlyFee = Number(company.customer_package_price || 0);
   const initials = String(company.name || "?").trim().slice(0, 2).toLocaleUpperCase("tr");
@@ -118,7 +144,7 @@ export function Customer360Header({
           {onResetPassword && <button type="button" onClick={onResetPassword} className="hk-button hk-button-warning hk-button-compact"><ShieldCheck size={15} /> Şifre Sıfırla</button>}
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-3 border-t p-4 sm:grid-cols-4 sm:p-5" style={{ borderColor: "var(--admin-border)" }}>
+      <div className="grid grid-cols-2 gap-3 border-t p-4 sm:grid-cols-3 xl:grid-cols-6 sm:p-5" style={{ borderColor: "var(--admin-border)" }}>
         <div className={`hk-kpi-card hk-kpi-${health.tone}`}>
           <span className="hk-kpi-icon">🩺</span>
           <span className="mt-3 block text-xs font-black" style={{ color: "var(--admin-text-secondary)" }}>Sağlık Skoru</span>
@@ -142,6 +168,18 @@ export function Customer360Header({
           <span className="mt-3 block text-xs font-black" style={{ color: "var(--admin-text-secondary)" }}>Kurulum İlerlemesi</span>
           <strong className="mt-1 block text-xl" style={{ color: "var(--admin-text-primary)" }}>%{setup.percent}</strong>
           <span className="mt-1 block text-xs" style={{ color: "var(--admin-text-muted)" }}>{setup.done}/{setup.total} adım tamam</span>
+        </div>
+        <div className={`hk-kpi-card ${health.openTasks.length ? "hk-kpi-info" : "hk-kpi-success"}`}>
+          <span className="hk-kpi-icon">📋</span>
+          <span className="mt-3 block text-xs font-black" style={{ color: "var(--admin-text-secondary)" }}>Açık Görev</span>
+          <strong className="mt-1 block text-xl" style={{ color: "var(--admin-text-primary)" }}>{health.openTasks.length}</strong>
+          <span className="mt-1 block text-xs" style={{ color: "var(--admin-text-muted)" }}>{health.overdueTaskCount ? `${health.overdueTaskCount} gecikmiş` : "Gecikme yok"}</span>
+        </div>
+        <div className="hk-kpi-card">
+          <span className="hk-kpi-icon">🕓</span>
+          <span className="mt-3 block text-xs font-black" style={{ color: "var(--admin-text-secondary)" }}>Son Operasyon</span>
+          <strong className="mt-1 block truncate text-xl" style={{ color: "var(--admin-text-primary)" }}>{lastOp.label}</strong>
+          <span className="mt-1 block text-xs" style={{ color: "var(--admin-text-muted)" }}>{lastOp.dateLabel}</span>
         </div>
       </div>
       {onNavigate && (

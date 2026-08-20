@@ -9,6 +9,7 @@ import { CUSTOMER_MODULE_REGISTRY, CUSTOMER_PLATFORM_REGISTRY, DEFAULT_CUSTOMER_
 import { formatTurkishPhone, isEmptyLikeValue, normalizePhoneInput } from "@/lib/phone-format";
 import { CUSTOMER_360_TABS, Customer360Header } from "./customer360-shared";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
 
 const paidStatuses = ["Ödendi", "Tahsil Edildi"];
 
@@ -68,6 +69,56 @@ function SummaryBox({ title, lines }: { title: string; lines: string[] }) {
       <h3 className="font-black text-[var(--admin-text-primary)]">{title}</h3>
       <div className="mt-3 grid gap-1 text-sm text-[var(--admin-text-secondary)]">
         {lines.map((line) => <span key={line}>{line}</span>)}
+      </div>
+    </div>
+  );
+}
+
+// Real per-integration connection status — replaces the previous plain
+// "Pixel: Var/Eksik" text-line summary with a status-driven card per
+// integration, matching the Connected/Missing state the data actually
+// supports (this integration record has no pending/error/disabled state to
+// read, so only the two states the DB can actually report are shown).
+type IntegrationStatusItem = { key: string; label: string; connected: boolean; value?: string };
+
+function integrationStatusItems(company: any, integration: any): IntegrationStatusItem[] {
+  return [
+    { key: "meta_pixel", label: "Meta Pixel", connected: Boolean(integration.meta_pixel_id), value: integration.meta_pixel_id },
+    { key: "meta_dataset", label: "Meta Dataset", connected: Boolean(integration.meta_dataset_id), value: integration.meta_dataset_id },
+    { key: "ga4", label: "GA4", connected: Boolean(integration.ga4_measurement_id || integration.ga4_property_id), value: integration.ga4_measurement_id || integration.ga4_property_id },
+    { key: "google_ads", label: "Google Ads", connected: Boolean(integration.google_ads_customer_id), value: integration.google_ads_customer_id },
+    { key: "search_console", label: "Search Console", connected: Boolean(integration.search_console_site_url), value: integration.search_console_site_url },
+    { key: "gtm", label: "Google Tag Manager", connected: Boolean(integration.gtm_container_id), value: integration.gtm_container_id },
+    { key: "website", label: "Website", connected: Boolean(company?.website), value: company?.website }
+  ];
+}
+
+function IntegrationStatusCard({ item }: { item: IntegrationStatusItem }) {
+  return (
+    <div
+      className="rounded-[16px] border p-4"
+      style={{
+        borderColor: item.connected ? "var(--hk-success-border, #B7E4C7)" : "var(--admin-border)",
+        background: item.connected ? "var(--hk-success-bg, #F0FBF4)" : "var(--admin-surface-soft)"
+      }}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <h4 className="font-black text-[var(--admin-text-primary)]">{item.label}</h4>
+        <AdminStatusBadge tone={item.connected ? "success" : "warning"}>{item.connected ? "Bağlı" : "Eksik"}</AdminStatusBadge>
+      </div>
+      <p className="mt-2 truncate text-xs font-semibold text-[var(--admin-text-muted)]">{item.connected ? item.value : "Henüz kurulum yapılmadı"}</p>
+    </div>
+  );
+}
+
+function IntegrationStatusGrid({ company, integration }: { company: any; integration: any }) {
+  const items = integrationStatusItems(company, integration);
+  const connectedCount = items.filter((item) => item.connected).length;
+  return (
+    <div className="mt-5">
+      <p className="text-xs font-black uppercase tracking-[.16em]" style={{ color: "var(--admin-text-muted)" }}>{connectedCount}/{items.length} entegrasyon bağlı</p>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {items.map((item) => <IntegrationStatusCard key={item.key} item={item} />)}
       </div>
     </div>
   );
@@ -461,12 +512,6 @@ export function CustomerProfileModal({
         { title: "Erişim davranışı", lines: ["Kapalı modüller navigation içinde görünmez.", "Kapalı modül içeriği müşteri panelinde render edilmez.", "Elle açılan modül isteğinde yetki mesajı gösterilir."] }
       ];
     }
-    if (activeProfileTab === "Entegrasyonlar") {
-      return [
-        { title: "Entegrasyonlar", lines: [`Pixel: ${integration.meta_pixel_id ? "Var" : "Eksik"}`, `Dataset: ${integration.meta_dataset_id ? "Var" : "Eksik"}`, `GA4: ${integration.ga4_measurement_id || integration.ga4_property_id ? "Var" : "Eksik"}`, `Google Ads: ${integration.google_ads_customer_id ? "Var" : "Eksik"}`, `Eksikler: ${missingIntegrations.length ? missingIntegrations.join(", ") : "Yok"}`] },
-        { title: "Web analitiği", lines: [`Website: ${company.website || "Yok"}`, `Search Console: ${integration.search_console_site_url ? "Var" : "Eksik"}`, `GTM: ${integration.gtm_container_id ? "Var" : "Eksik"}`, `Analytics durumu: ${integration.setup_progress || 0}%`] }
-      ];
-    }
     if (activeProfileTab === "Bağlantı Bilgileri") {
       const sensitiveCount = integrationAssets.filter((item: any) => item.login_email || item.login_username || item.login_password || item.access_note || item.sensitive_metadata).length;
       const lastSyncedAsset = integrationAssets.find((item: any) => item.last_synced_at);
@@ -689,9 +734,13 @@ export function CustomerProfileModal({
             <>
               <Customer360Header company={company} content={content} onNavigate={(target, message) => onGo?.(target, message)} />
               <AdminTabs items={CUSTOMER_360_TABS} active={activeProfileTab} onChange={setActiveProfileTab} ariaLabel="Müşteri 360 sekmeleri" sticky />
-              <div className="mt-5 grid gap-4 md:grid-cols-2">
-                {activeTabCards().map((card) => <SummaryBox key={card.title} title={card.title} lines={card.lines} />)}
-              </div>
+              {activeProfileTab === "Entegrasyonlar" ? (
+                <IntegrationStatusGrid company={company} integration={integration} />
+              ) : (
+                <div className="mt-5 grid gap-4 md:grid-cols-2">
+                  {activeTabCards().map((card) => <SummaryBox key={card.title} title={card.title} lines={card.lines} />)}
+                </div>
+              )}
               {profileFormSection()}
               <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 <SummaryBox title="Kurulum durumu" lines={[`Sağlık skoru: ${profileHealth.score}/100`, `Durum: ${profileHealth.status}`, ...(profileHealth.reasons || [])]} />
