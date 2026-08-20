@@ -6186,9 +6186,6 @@ function AiAssistant({ content, setContent, notify }: any) {
 
   return (
     <div className="w-full min-w-0 max-w-none">
-      <p className="text-[10px] font-black uppercase tracking-[.2em] text-cyan-700">HK Operating System</p>
-      <h2 className="mb-4 mt-2 text-2xl font-black" style={{ color: "var(--admin-text-primary)" }}>Yapay Zekâ Stüdyosu</h2>
-
       <AdminSplitView
         storageKey="hk-ai-studio-sidebar-width"
         defaultLeftWidth={300}
@@ -8829,15 +8826,23 @@ function CustomerPaymentsEditor({ company, content, setContent, save, items, not
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const thisMonth = new Date().toISOString().slice(0, 7);
-  const update = (id, patch) => updateCollection(content, setContent, "paymentRecords", allItems.map((item) => item.id === id ? { ...item, ...patch } : item));
-  const setStatus = (id, status) => updateCollection(content, setContent, "paymentRecords", allItems.map((item) => item.id === id ? stampPaymentStatus(item, status) : item));
+  // Every mutation here persists immediately via save() — this editor used to
+  // only update local `content` state (updateCollection), leaving actions
+  // (Arşivle, Ödendi Yap, + Ödeme Ekle) looking like they "didn't work"
+  // unless the user separately found and clicked the detail panel's own
+  // Kaydet button. PaymentCenter (the main Tahsilat screen) already
+  // auto-persists every action the same way; this brings the customer-profile
+  // Ödemeler tab in line with it instead of requiring a hidden manual step.
+  const update = (id, patch) => { updateCollection(content, setContent, "paymentRecords", allItems.map((item) => item.id === id ? { ...item, ...patch } : item)); save?.(); };
+  const setStatus = (id, status) => { updateCollection(content, setContent, "paymentRecords", allItems.map((item) => item.id === id ? stampPaymentStatus(item, status) : item)); save?.(); };
   const archive = (id) => update(id, { archived_at: new Date().toISOString() });
   const restore = (id) => update(id, { archived_at: null, deleted_at: null });
   const visibleItems = filterPayments(items, { status: statusFilter, startDate, endDate });
   function add() {
     const duplicateDraft = allItems.some((item) => item.company_id === company.id && !Number(item.amount || 0) && item.status === "Bekliyor" && String(item.service_period || "").startsWith(thisMonth));
-    if (duplicateDraft) return;
+    if (duplicateDraft) { notify?.("Bu ay için zaten tutarı girilmemiş bekleyen bir tahsilat taslağı var. Yeni taslak oluşturmak yerine mevcut kaydı listeden seçip tamamlayın.", "info"); return; }
     updateCollection(content, setContent, "paymentRecords", [{ id: createLocalId(), company_id: company.id, branch_id: null, amount: 0, due_date: new Date().toISOString().slice(0, 10), payment_date: "", status: "Bekliyor", service_period: thisMonth, payment_note: "", visible_to_customer: false }, ...allItems]);
+    save?.();
     notify?.("✓ Ödeme taslağı oluşturuldu", "success");
   }
   const [selectedPaymentId, setSelectedPaymentId] = useState("");
@@ -10342,7 +10347,25 @@ function CrmHub(props: any) {
 
 function ReportsHub(props: any) {
   const [tab, setTab] = useState("Raporlama Merkezi");
+  const reports = excludeTestCompanyRecords(props.content?.reports || [], props.content?.companies);
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  const monthReports = reports.filter((item: any) => String(item.created_at || item.updated_at || "").startsWith(thisMonth));
+  const draftReports = reports.filter((item: any) => String(item.id).startsWith("report-"));
+  const customerVisible = reports.filter((item: any) => item.visible_to_customer);
   return <div>
+    <div className="hk-page-header mb-4 flex flex-wrap items-center justify-between gap-3 border border-[var(--admin-border)]">
+      <div>
+        <span className="hk-page-eyebrow text-xs font-black uppercase tracking-[.14em]">Rapor Merkezi</span>
+        <h2 className="mt-2 text-xl font-black text-[var(--admin-text-primary)]">Müşteri Raporları</h2>
+        <p className="mt-1 text-sm text-[var(--admin-text-secondary)]">Meta, Google Ads, sosyal medya ve genel performans raporlarını hazırlayın, düzenleyin ve müşteriye açın.</p>
+      </div>
+    </div>
+    <div className="mb-4 grid gap-3 md:grid-cols-3 xl:grid-cols-4">
+      <AgencyStatCard label="Toplam rapor" value={reports.length} note="Tüm rapor kayıtları" tone="gold" />
+      <AgencyStatCard label="Bu ay oluşturulan" value={monthReports.length} note="Son 30 gün içinde" />
+      <AgencyStatCard label="Müşteriye açık" value={customerVisible.length} note="Panelde görünür" tone="emerald" />
+      <AgencyStatCard label="Taslak" value={draftReports.length} note="Henüz kaydedilmedi" tone="amber" />
+    </div>
     <HubTabs items={["Raporlama Merkezi", "Kampanyalar", "Reklam Metrikleri", "Meta Rapor İçe Aktar", "Rapor Notları"]} active={tab} onChange={setTab} />
     {tab === "Raporlama Merkezi" && <ReportingCenter {...props} />}
     {tab === "Kampanyalar" && <CampaignAdmin {...props} />}
