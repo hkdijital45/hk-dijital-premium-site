@@ -305,7 +305,38 @@ function finalReportText(report?: AgentFinalReport) {
   ].filter(Boolean).join("\n");
 }
 
-export function AgentHubCenter({ content, notify }: { content: SiteContent; notify?: Notify }) {
+const documentFormatLabel: Record<string, string> = { docx: "Word", pdf: "PDF", pptx: "PowerPoint" };
+
+type DocumentExportState = {
+  status: "preparing" | "success" | "error";
+  message?: string;
+  documentSaved?: boolean;
+  customerId?: string;
+  customerName?: string;
+  fileName?: string;
+  blob?: Blob;
+};
+
+function triggerBlobDownload(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+export function AgentHubCenter({
+  content,
+  notify,
+  onOpenCustomerDocuments
+}: {
+  content: SiteContent;
+  notify?: Notify;
+  onOpenCustomerDocuments?: (companyId: string) => void;
+}) {
   const contentWithCompanies = content as unknown as { companies?: CompanyOption[] };
   const companies = filterSelectableCustomers(Array.isArray(contentWithCompanies.companies) ? contentWithCompanies.companies : []);
   const [activeTab, setActiveTab] = useState("overview");
@@ -326,7 +357,7 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
   const [editingProvider, setEditingProvider] = useState<ProviderRow | null>(null);
   const [providerForm, setProviderForm] = useState({ status: "not_configured", defaultModel: "", dailyLimit: "", monthlyLimit: "", estimatedMonthlyCost: "", notes: "" });
   const [runResult, setRunResult] = useState<RunResult | null>(null);
-  const [exportPayload, setExportPayload] = useState<Record<string, unknown> | null>(null);
+  const [documentExports, setDocumentExports] = useState<Record<string, DocumentExportState>>({});
   const [emailDraft, setEmailDraft] = useState<Record<string, unknown> | null>(null);
   const [whatsappSummary, setWhatsappSummary] = useState("");
   const [notificationStatus, setNotificationStatus] = useState("");
@@ -447,7 +478,7 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
     }
     setLoading(true);
     setRunResult(null);
-    setExportPayload(null);
+    setDocumentExports({});
     setEmailDraft(null);
     setWhatsappSummary("");
     setNotificationStatus("");
@@ -528,25 +559,68 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
       return;
     }
     if (!runResult?.runId) {
-      const payload = { format, status: "hazırlık_verisi_hazır", executiveSummary: report.executiveSummary, providerChain: report.providerChain };
-      setExportPayload(payload);
-      if (format === "copy_text") copyText(finalReportText(report), notify);
-      notify?.("Hazırlık verisi oluşturuldu.", "success");
+      // Real document generation needs a persisted agent_runs row (the
+      // export route loads the run server-side) — a run that only exists
+      // in local state can still copy its text, but Word/PDF/PowerPoint
+      // need "Sonucu Kaydet" first rather than silently faking a file.
+      if (format === "copy_text") {
+        copyText(finalReportText(report), notify);
+        notify?.("Metin kopyalandı.", "success");
+        return;
+      }
+      notify?.(`${documentFormatLabel[format]} oluşturmak için önce "Sonucu Kaydet" ile görevi kaydedin.`, "warning");
       return;
     }
-    const response = await fetch(`/api/admin/agent-hub/runs/${runResult.runId}/export`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ format })
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      notify?.(data.error || "Export hazırlığı başarısız oldu.", "error");
+
+    if (format === "copy_text") {
+      const response = await fetch(`/api/admin/agent-hub/runs/${runResult.runId}/export`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ format })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        notify?.(data.error || "Metin hazırlanamadı.", "error");
+        return;
+      }
+      copyText(data.payload?.text || finalReportText(report), notify);
+      notify?.("Metin kopyalandı.", "success");
       return;
     }
-    setExportPayload(data.payload);
-    if (format === "copy_text") copyText(finalReportText(report), notify);
-    notify?.(data.payload?.message || "Hazırlık verisi oluşturuldu.", "success");
+
+    if (documentExports[format]?.status === "preparing") return; // one file per click, no double-submit
+    setDocumentExports((current) => ({ ...current, [format]: { status: "preparing" } }));
+    try {
+      const response = await fetch(`/api/admin/agent-hub/runs/${runResult.runId}/export`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ format })
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || `${documentFormatLabel[format]} oluşturulamadı.`);
+      }
+      const blob = await response.blob();
+      const disposition = response.headers.get("Content-Disposition") || "";
+      const fileName = disposition.match(/filename="([^"]+)"/)?.[1] || `hk-dijital-rapor.${format}`;
+      const documentSaved = response.headers.get("X-Document-Saved") === "true";
+      const customerId = response.headers.get("X-Customer-Id") || "";
+      const customerNameHeader = response.headers.get("X-Customer-Name") || "";
+      const customerName = customerNameHeader ? decodeURIComponent(customerNameHeader) : "";
+
+      triggerBlobDownload(blob, fileName);
+      setDocumentExports((current) => ({ ...current, [format]: { status: "success", documentSaved, customerId, customerName, fileName, blob } }));
+      notify?.(
+        documentSaved && customerName && customerName !== "-"
+          ? `${documentFormatLabel[format]} hazırlandı ve ${customerName} > Belgeler alanına kaydedildi.`
+          : `${documentFormatLabel[format]} hazırlandı ve indirildi.`,
+        "success"
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : `${documentFormatLabel[format]} oluşturulamadı.`;
+      setDocumentExports((current) => ({ ...current, [format]: { status: "error", message } }));
+      notify?.(message, "error");
+    }
   }
 
   async function createEmailDraft() {
@@ -1127,11 +1201,47 @@ export function AgentHubCenter({ content, notify }: { content: SiteContent; noti
             <p className="mt-2 text-sm leading-7 text-emerald-900">{finalReport?.customerMessageDraft}</p>
           </div>
           <div className="grid gap-3">
-            <div className="rounded-[16px] border border-[var(--admin-border)] p-4"><strong className="text-[var(--admin-text-primary)]">Çıktı</strong><div className="mt-3 flex flex-wrap gap-2"><button onClick={() => exportRun("docx")} className={secondaryButtonClass}><Download size={16} className="mr-2 inline" />Word Hazırla</button><button onClick={() => exportRun("pdf")} className={secondaryButtonClass}><Download size={16} className="mr-2 inline" />PDF Hazırla</button><button onClick={() => exportRun("pptx")} className={secondaryButtonClass}><Download size={16} className="mr-2 inline" />PowerPoint Hazırla</button><button onClick={() => exportRun("copy_text")} className={softButtonClass}><Clipboard size={16} className="mr-2 inline" />Kopyala</button></div></div>
+            <div className="rounded-[16px] border border-[var(--admin-border)] p-4">
+              <strong className="text-[var(--admin-text-primary)]">Çıktı</strong>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {(["docx", "pdf", "pptx"] as const).map((format) => {
+                  const state = documentExports[format];
+                  const preparing = state?.status === "preparing";
+                  return (
+                    <button key={format} onClick={() => exportRun(format)} disabled={preparing} className={`${secondaryButtonClass} disabled:cursor-not-allowed disabled:opacity-60`}>
+                      <Download size={16} className="mr-2 inline" />
+                      {preparing ? "Hazırlanıyor..." : `${documentFormatLabel[format]} Hazırla`}
+                    </button>
+                  );
+                })}
+                <button onClick={() => exportRun("copy_text")} className={softButtonClass}><Clipboard size={16} className="mr-2 inline" />Kopyala</button>
+              </div>
+              <div className="mt-3 grid gap-2">
+                {(["docx", "pdf", "pptx"] as const).map((format) => {
+                  const state = documentExports[format];
+                  if (!state || state.status === "preparing") return null;
+                  if (state.status === "error") {
+                    return <p key={format} className="rounded-[10px] border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-800">{documentFormatLabel[format]} oluşturulamadı.</p>;
+                  }
+                  return (
+                    <div key={format} className="flex flex-wrap items-center justify-between gap-2 rounded-[10px] border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-900">
+                      <span>
+                        {documentFormatLabel[format]} hazırlandı{state.documentSaved && state.customerName && state.customerName !== "-" ? ` · ${state.customerName} > Belgeler` : ""}
+                      </span>
+                      <span className="flex gap-2">
+                        <button onClick={() => state.blob && state.fileName && triggerBlobDownload(state.blob, state.fileName)} className="rounded-full bg-emerald-600 px-3 py-1 text-white">İndir</button>
+                        {state.documentSaved && state.customerId && (
+                          <button onClick={() => onOpenCustomerDocuments?.(state.customerId as string)} className="rounded-full border border-emerald-300 bg-[var(--admin-surface)] px-3 py-1 text-emerald-800">Belgelerde Aç</button>
+                        )}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
             <div className="rounded-[16px] border border-[var(--admin-border)] p-4"><strong className="text-[var(--admin-text-primary)]">Müşteri</strong><div className="mt-3 flex flex-wrap gap-2"><button onClick={createEmailDraft} className={softButtonClass}><Mail size={16} className="mr-2 inline" />E-posta Hazırla</button><button onClick={createWhatsappSummary} className={softButtonClass}><Clipboard size={16} className="mr-2 inline" />WhatsApp Özeti</button><button onClick={saveCustomerNote} className={secondaryButtonClass}>Müşteri Notu Olarak Kaydet</button></div></div>
             <div className="rounded-[16px] border border-[var(--admin-border)] p-4"><strong className="text-[var(--admin-text-primary)]">Sistem</strong><div className="mt-3 flex flex-wrap gap-2"><button onClick={saveRun} className={softButtonClass}>Sonucu Kaydet</button><button onClick={saveRunMemory} className={softButtonClass}>AI Hafızasına Kaydet</button><button onClick={convertToTask} className={secondaryButtonClass}>Göreve Dönüştür</button>{discordConfigured && <button onClick={() => notifyChannel("discord")} className={secondaryButtonClass}>Discord’a Bildir</button>}</div>{!discordConfigured && <p className="mt-2 text-xs text-[var(--admin-text-muted)]">Discord bildirimi için DISCORD_WEBHOOK_URL yapılandırılmadı; buton gizlendi.</p>}</div>
           </div>
-          {exportPayload && <div className="rounded-[14px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-3 text-sm text-[var(--admin-text-secondary)]">Çıktı hazırlama durumu: <strong>{String(exportPayload.status || "hazır")}</strong></div>}
           {whatsappSummary && <pre className="whitespace-pre-wrap rounded-[14px] border border-emerald-200 bg-emerald-50 p-4 text-sm leading-7 text-emerald-900">{whatsappSummary}</pre>}
           {notificationStatus && <div className="rounded-[14px] border border-blue-100 bg-blue-50 p-3 text-sm font-bold text-blue-900">{notificationStatus}</div>}
           {emailDraft && <div className="grid gap-3 rounded-[14px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4">

@@ -895,7 +895,7 @@ export function AdminDashboard({
           {active === "Raporlar" && <ReportsHub {...props} selectedCompanyId={selectedCompanyId} />}
           {["Web Site Analitiği", "Web Analitiği", "Web Analitiği Bağlantıları", "GTM Bağlantıları"].includes(active) && <WebsiteAnalyticsCenter />}
           {(active === "Reklam Yorum Merkezi" || active === "Reklam Doktoru Pro") && <><AdDoctorMvpPanel /><AdInsightsCenter content={content} notify={notify} /></>}
-          {["HK Agent Hub", "Agent Hub", "Discord"].includes(active) && <AgentHubCenter content={content} notify={notify} />}
+          {["HK Agent Hub", "Agent Hub", "Discord"].includes(active) && <AgentHubCenter content={content} notify={notify} onOpenCustomerDocuments={(companyId: string) => { setSelectedCompanyId(companyId); setActive("Belgeler"); }} />}
           {["Sistem Kalitesi", "QA Merkezi", "Sistem Test Merkezi"].includes(active) && <SystemQualityCenter content={content} setContent={setContent} save={save} currentSession={currentSession} notify={notify} systemStatus={systemStatus} supabaseConfigured={supabaseConfigured} initialTab={active === "Sistem Test Merkezi" ? "Otomatik Testler" : "Manuel Kontroller"} />}
           {active === "PDF Rapor Tasarım Merkezi" && <PdfReportDesignCenter {...props} />}
           {["Müşteriler", "Müşteri Paketleri"].includes(active) && <CustomersAdmin {...props} selectedCompanyId={selectedCompanyId} />}
@@ -3408,7 +3408,7 @@ function MonthlyReportCenter({ content, setContent, notify }: any) {
     try {
       const response = await fetch(`/api/admin/monthly-reports/${report.id}/send-email`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.detail || data.error || "Rapor gönderilemedi.");
+      if (!response.ok) throw new Error(data.error || data.detail || "Rapor gönderilemedi.");
       notify?.("✓ Rapor müşteriye e-posta ile gönderildi.", "success");
     } catch (error) {
       notify?.(error instanceof Error ? error.message : "Rapor gönderilemedi.", "error");
@@ -3810,7 +3810,7 @@ function AgencyTasksCenter({ content, setContent, save, currentSession, notify, 
   );
 }
 
-function DocumentCenter({ content, setContent, selectedCompanyId = "" }: any) {
+function DocumentCenter({ content, setContent, selectedCompanyId = "", notify }: any) {
   const items = content.customerDocuments || [];
   const visibleItems = selectedCompanyId ? items.filter((item) => item.company_id === selectedCompanyId) : items;
   const update = (index, patch) => updateCollection(content, setContent, "customerDocuments", items.map((item, i) => i === index ? { ...item, ...patch } : item));
@@ -3820,7 +3820,15 @@ function DocumentCenter({ content, setContent, selectedCompanyId = "" }: any) {
   const [docStartDate, setDocStartDate] = useState("");
   const [docEndDate, setDocEndDate] = useState("");
   const [selectedDocId, setSelectedDocId] = useState("");
+  const [newDocOpen, setNewDocOpen] = useState(false);
+  const [newDocMode, setNewDocMode] = useState<"upload" | "url">("upload");
+  const [newDocCompanyId, setNewDocCompanyId] = useState(selectedCompanyId || "");
+  const [newDocTitle, setNewDocTitle] = useState("");
+  const [newDocType, setNewDocType] = useState("Diğer");
+  const [uploadingNewDoc, setUploadingNewDoc] = useState(false);
+  const [newDocError, setNewDocError] = useState("");
   const documentTypeOptions = ["Teklif", "Sözleşme", "Fatura", "Rapor", "Diğer"];
+  const uploadAcceptList = ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.webp";
   const normalizedDocSearch = docSearch.trim().toLocaleLowerCase("tr");
   const filteredDocs = visibleItems.filter((item: any) => {
     if (docCompanyId && item.company_id !== docCompanyId) return false;
@@ -3830,7 +3838,47 @@ function DocumentCenter({ content, setContent, selectedCompanyId = "" }: any) {
     if (normalizedDocSearch && !`${item.title || ""} ${item.document_type || ""}`.toLocaleLowerCase("tr").includes(normalizedDocSearch)) return false;
     return true;
   });
-  const addDocument = () => updateCollection(content, setContent, "customerDocuments", [{ id: createLocalId(), company_id: selectedCompanyId || "", title: "Yeni belge", document_type: "Diğer", document_date: new Date().toISOString().slice(0, 10), visible_to_customer: false }, ...items]);
+  function openNewDocument() {
+    setNewDocCompanyId(selectedCompanyId || docCompanyId || "");
+    setNewDocTitle("");
+    setNewDocType("Diğer");
+    setNewDocError("");
+    setNewDocMode("upload");
+    setNewDocOpen(true);
+  }
+  const addUrlDocument = () => {
+    const draft = { id: createLocalId(), company_id: newDocCompanyId || selectedCompanyId || "", title: newDocTitle.trim() || "Yeni belge", document_type: newDocType, document_date: new Date().toISOString().slice(0, 10), visible_to_customer: false };
+    updateCollection(content, setContent, "customerDocuments", [draft, ...items]);
+    setSelectedDocId(draft.id);
+    setNewDocOpen(false);
+  };
+  async function uploadNewDocument(file: globalThis.File) {
+    if (!newDocCompanyId) {
+      setNewDocError("Önce müşteri seçin.");
+      return;
+    }
+    setUploadingNewDoc(true);
+    setNewDocError("");
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("title", newDocTitle.trim() || file.name);
+      form.append("documentType", newDocType);
+      const response = await fetch(`/api/admin/customers/${newDocCompanyId}/documents/upload`, { method: "POST", body: form });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Dosya yüklenemedi.");
+      updateCollection(content, setContent, "customerDocuments", [data.document, ...items]);
+      setSelectedDocId(data.document.id);
+      setNewDocOpen(false);
+      notify?.(data.message || "✓ Dosya başarıyla yüklendi ve müşteri belgelerine eklendi.", "success");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Dosya yüklenemedi.";
+      setNewDocError(message);
+      notify?.(message, "error");
+    } finally {
+      setUploadingNewDoc(false);
+    }
+  }
   const deleteDocument = (id: string) => {
     if (!confirmRecordAction("Bu belgeyi silmek istediğinize emin misiniz?")) return;
     updateCollection(content, setContent, "customerDocuments", items.filter((candidate: any) => candidate.id !== id));
@@ -3850,7 +3898,7 @@ function DocumentCenter({ content, setContent, selectedCompanyId = "" }: any) {
         eyebrow="Finans · Belgeler"
         title="Belge Merkezi"
         description="Müşteri belgeleri, sözleşmeler ve paylaşılabilir dosya kayıtları."
-        headerActions={<AdminButton compact variant="primary" onClick={addDocument}>+ Yeni Belge</AdminButton>}
+        headerActions={<AdminButton compact variant="primary" onClick={openNewDocument}>+ Yeni Belge</AdminButton>}
         leftPanel={
           <AdminControlPanel>
             <AdminFilterSection title="Filtreler">
@@ -3872,7 +3920,7 @@ function DocumentCenter({ content, setContent, selectedCompanyId = "" }: any) {
             emptyTitle="Bir belge seçin"
             emptyDescription="Listeden bir satıra tıklayarak detaylarını buradan düzenleyin."
             actions={selectedDoc ? <>
-              {selectedDoc.document_url && <a href={selectedDoc.document_url} target="_blank" rel="noreferrer" className="hk-button hk-button-info hk-button-compact">Belgeyi Aç</a>}
+              {selectedDoc.document_url && <a href={selectedDoc.document_url} download={selectedDoc.storage_path ? (selectedDoc.title || "belge") : undefined} target="_blank" rel="noreferrer" className="hk-button hk-button-info hk-button-compact">{selectedDoc.storage_path ? "İndir" : "Belgeyi Aç"}</a>}
               <AdminButton compact variant="danger" onClick={() => deleteDocument(selectedDoc.id)}>Sil</AdminButton>
             </> : undefined}
           >
@@ -3882,7 +3930,13 @@ function DocumentCenter({ content, setContent, selectedCompanyId = "" }: any) {
                 <Field label="Belge başlığı" value={selectedDoc.title || ""} onChange={(value) => update(selectedDocIndex, { title: value })} />
                 <SelectField label="Belge türü" value={selectedDoc.document_type || "Diğer"} onChange={(value) => update(selectedDocIndex, { document_type: value })} options={documentTypeOptions} />
                 <Field label="Tarih" type="date" value={selectedDoc.document_date || ""} onChange={(value) => update(selectedDocIndex, { document_date: value })} />
-                <Field label="Belge URL" value={selectedDoc.document_url || ""} onChange={(value) => update(selectedDocIndex, { document_url: value })} />
+                {selectedDoc.storage_path ? (
+                  <div className="rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-2 text-[11px]" style={{ color: "var(--admin-text-muted)" }}>
+                    Yüklenen dosya · {selectedDoc.mime_type || "-"} · {selectedDoc.file_size ? `${Math.round(selectedDoc.file_size / 1024)} KB` : "-"}{selectedDoc.source_module ? ` · ${selectedDoc.source_module}` : ""}
+                  </div>
+                ) : (
+                  <Field label="Belge URL" value={selectedDoc.document_url || ""} onChange={(value) => update(selectedDocIndex, { document_url: value })} />
+                )}
                 <label className="flex items-center gap-2 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-2 text-xs font-bold text-[var(--admin-text-secondary)]">
                   <input type="checkbox" checked={Boolean(selectedDoc.visible_to_customer)} onChange={(event) => update(selectedDocIndex, { visible_to_customer: event.target.checked })} /> Müşteri Panelinde Görünür
                 </label>
@@ -3892,17 +3946,54 @@ function DocumentCenter({ content, setContent, selectedCompanyId = "" }: any) {
         }
         bottomBar={
           <AdminActionBar statusText={`${filteredDocs.length} belge`}>
-            <AdminButton compact variant="primary" onClick={addDocument}>Yeni Belge</AdminButton>
+            <AdminButton compact variant="primary" onClick={openNewDocument}>Yeni Belge</AdminButton>
           </AdminActionBar>
         }
       >
+        {newDocOpen && (
+          <div className="mb-4 rounded-[16px] border border-cyan-200 bg-cyan-50 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="font-black text-[var(--admin-text-primary)]">Yeni Belge</h3>
+              <button onClick={() => setNewDocOpen(false)} className="text-xs font-black text-cyan-700">Kapat</button>
+            </div>
+            <div className="mt-3 flex gap-2">
+              <button onClick={() => setNewDocMode("upload")} className={`rounded-full px-3 py-1.5 text-xs font-black ${newDocMode === "upload" ? "bg-cyan-600 text-white" : "border border-cyan-200 bg-[var(--admin-surface)] text-cyan-800"}`}>Dosya Yükle</button>
+              <button onClick={() => setNewDocMode("url")} className={`rounded-full px-3 py-1.5 text-xs font-black ${newDocMode === "url" ? "bg-cyan-600 text-white" : "border border-cyan-200 bg-[var(--admin-surface)] text-cyan-800"}`}>URL Ekle</button>
+            </div>
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
+              <CompanySelect value={newDocCompanyId} onChange={setNewDocCompanyId} companies={content.companies} />
+              <SelectField label="Belge türü" value={newDocType} onChange={setNewDocType} options={documentTypeOptions} />
+              <div className="md:col-span-2"><Field label="Belge başlığı (opsiyonel)" value={newDocTitle} onChange={setNewDocTitle} placeholder="Boş bırakılırsa dosya adı kullanılır" /></div>
+            </div>
+            {newDocMode === "upload" ? (
+              <div className="mt-3 grid gap-1.5 rounded-[10px] border border-cyan-200 bg-[var(--admin-surface)] p-3">
+                <label className="text-xs font-bold text-[var(--admin-text-secondary)]">Dosya Seç / Göz At (PDF, Word, Excel, PowerPoint, TXT, CSV, görsel — maks. 15 MB)</label>
+                <input
+                  type="file"
+                  accept={uploadAcceptList}
+                  disabled={uploadingNewDoc || !newDocCompanyId}
+                  onChange={(event) => { const file = event.target.files?.[0]; if (file) uploadNewDocument(file); event.target.value = ""; }}
+                  className="text-xs"
+                />
+                {!newDocCompanyId && <p className="text-[11px] font-bold text-amber-700">Yükleme için önce müşteri seçin.</p>}
+                {uploadingNewDoc && <p className="text-[11px] font-bold text-cyan-700">Yükleniyor...</p>}
+                {newDocError && <p className="text-[11px] font-bold text-red-700">{newDocError}</p>}
+              </div>
+            ) : (
+              <div className="mt-3 flex justify-end">
+                <AdminButton compact variant="primary" onClick={addUrlDocument}>Belgeyi URL ile Ekle</AdminButton>
+              </div>
+            )}
+          </div>
+        )}
         <AdminDataGrid
           columns={docGridColumns}
           rows={filteredDocs}
+          emptyDescription="Bilgisayarından dosya yükleyebilir veya URL ekleyebilirsin."
           rowKey={(item: any) => item.id}
           activeId={selectedDocId}
           onRowClick={(item: any) => setSelectedDocId(item.id)}
-          emptyTitle="Bu filtrelerle belge bulunamadı."
+          emptyTitle={items.length ? "Bu filtrelerle belge bulunamadı." : "Henüz belge yok."}
         />
       </AdminWorkspace>
     </div>
@@ -6239,7 +6330,7 @@ function AiAssistant({ content, setContent, notify }: any) {
         body: JSON.stringify({ resource: "task", item: { company_id: companyId, title: `AI Studio: ${taskType}`, description: text.slice(0, 2000), status: "Yapılacak", priority: "Orta", due_date: due.toISOString().slice(0, 10), visible_to_customer: false, template_key: "ai_studio_output", metadata: { source: "ai-studio" } } })
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.detail || data.error || "Görev oluşturulamadı.");
+      if (!response.ok) throw new Error(data.error || data.detail || "Görev oluşturulamadı.");
       notify?.("CRM görevi oluşturuldu.", "success");
     } catch (error) {
       notify?.(error instanceof Error ? error.message : "Görev oluşturulamadı.", "error");
@@ -8734,7 +8825,7 @@ function CustomerFilesEditor({ company, content, setContent, save, items, notify
       form.append("documentType", selectedFile.file_type || "Diğer");
       const response = await fetch(`/api/admin/customers/${company.id}/files/upload`, { method: "POST", body: form });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.detail || data.error || "Dosya yüklenemedi.");
+      if (!response.ok) throw new Error(data.error || data.detail || "Dosya yüklenemedi.");
       update(selectedFile.id, data.file);
       notify?.("✓ Dosya yüklendi", "success");
     } catch (error) {
@@ -8992,7 +9083,7 @@ function CustomerOnboardingEditor({ company, content, setContent, setTab, notify
       const onboardingData = Object.fromEntries(steps.map(([label, done]) => [label, done]));
       const response = await fetch("/api/admin/customer-onboarding", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId: company.id, company: companyDraft, branding: brandingDraft, onboardingData, complete }) });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok || !data.company || !data.branding) throw new Error(data.detail || data.error || "Müşteri kurulumu kaydedilemedi.");
+      if (!response.ok || !data.company || !data.branding) throw new Error(data.error || data.detail || "Müşteri kurulumu kaydedilemedi.");
       setContent((current: any) => ({ ...current, companies: (current.companies || []).map((item: any) => item.id === company.id ? data.company : item), customerBranding: (current.customerBranding || []).some((item: any) => item.company_id === company.id) ? (current.customerBranding || []).map((item: any) => item.company_id === company.id ? data.branding : item) : [data.branding, ...(current.customerBranding || [])] }));
       notify?.(data.message || "Müşteri kurulumu kaydedildi.", "success");
     } catch (error) {

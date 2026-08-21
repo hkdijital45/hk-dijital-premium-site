@@ -53,6 +53,12 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   } catch (error) {
     const safe = getSafeSupabaseError(error);
     await recordActionFailure({ session, entity: "Müşteri Dosyası", action: "Dosya yükleme", error, companyId: id }).catch(() => null);
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Dosya yüklenemedi.", detail: safe.detail }, { status: 500 });
+    // Same distinction as the customer_documents upload route: keep
+    // validate*'s own clean Turkish messages as-is, replace only raw
+    // Supabase REST/Storage errors with getSafeSupabaseError's generic,
+    // user-safe title so no raw backend error text reaches the client.
+    const rawMessage = error instanceof Error ? error.message : "";
+    const isRawBackendError = rawMessage.startsWith("Supabase REST hatası") || rawMessage.includes("Supabase Storage");
+    return NextResponse.json({ error: isRawBackendError ? safe.title : (rawMessage || "Dosya yüklenemedi.") }, { status: 500 });
   }
 }

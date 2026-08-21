@@ -160,7 +160,7 @@ function AssetUploadCard({ assetType, branding, companyId, onUploaded, notify, c
       setProgress(55);
       const response = await fetch(`/api/admin/customers/${companyId}/assets`, { method: "POST", body: form });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok || !data.branding) throw new Error(data.detail || data.error || "Logo yüklenemedi.");
+      if (!response.ok || !data.branding) throw new Error(data.error || data.detail || "Logo yüklenemedi.");
       setProgress(100);
       onUploaded(data.branding);
       notify?.(assetType === "logo" ? "Logo başarıyla yüklendi." : "Marka dosyası başarıyla yüklendi.", "success");
@@ -184,7 +184,7 @@ function AssetUploadCard({ assetType, branding, companyId, onUploaded, notify, c
         body: JSON.stringify({ assetType, url })
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok || !data.branding) throw new Error(data.detail || data.error || "Dosya kaldırılamadı.");
+      if (!response.ok || !data.branding) throw new Error(data.error || data.detail || "Dosya kaldırılamadı.");
       onUploaded(data.branding);
       notify?.("Marka dosyası kaldırıldı.", "success");
     } catch (error) {
@@ -290,7 +290,7 @@ export function CustomerBrandAssets({ company, content, setContent, notify, mode
         })
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok || !data.branding) throw new Error(data.detail || data.error || "Marka varlıkları kaydedilemedi.");
+      if (!response.ok || !data.branding) throw new Error(data.error || data.detail || "Marka varlıkları kaydedilemedi.");
       handleBrandingUpdate(data.branding);
       notify?.("Marka varlıkları kaydedildi.", "success");
     } catch (error) {
