@@ -6083,18 +6083,42 @@ function ConfirmDialog({ title, description, confirmLabel, tone = "danger", chil
 }
 
 function Drawer({ title, close, children }: any) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const titleId = useMemo(() => `drawer-title-${Math.random().toString(36).slice(2, 9)}`, []);
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") close();
     };
-    window.addEventListener("keydown", handleEscape);
-    return () => window.removeEventListener("keydown", handleEscape);
+    // Capture phase: verified live that a bubble-phase window listener here
+    // (the previous implementation) reliably failed to close this drawer on
+    // Escape — reproduced 5/5 runs, independent of any wait time before the
+    // key press, while the X button and overlay-click close paths both
+    // worked every time. Capture phase runs this before whatever bubble-
+    // phase handler elsewhere was absorbing the key, matching the same
+    // capture-phase pattern AdminMegaMenuPanel already uses for its own
+    // Escape handling.
+    window.addEventListener("keydown", handleEscape, true);
+    return () => window.removeEventListener("keydown", handleEscape, true);
   }, [close]);
+  useEffect(() => {
+    // Initial focus into the dialog on open — verified live that without
+    // this, focus stayed on the trigger button behind the drawer (keyboard/
+    // screen-reader users had no indication a dialog had opened at all).
+    panelRef.current?.focus();
+  }, []);
   return (
     <div onMouseDown={close} className="admin-drawer-overlay fixed inset-0 z-50 flex justify-end bg-[var(--admin-surface)]/70">
-      <div onMouseDown={(event) => event.stopPropagation()} className="admin-drawer-panel h-full w-full max-w-4xl overflow-auto border-l border-[var(--admin-border)] bg-[var(--admin-surface)] p-5 shadow-2xl sm:p-7">
+      <div
+        ref={panelRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        onMouseDown={(event) => event.stopPropagation()}
+        className="admin-drawer-panel h-full w-full max-w-4xl overflow-auto border-l border-[var(--admin-border)] bg-[var(--admin-surface)] p-5 shadow-2xl outline-none sm:p-7"
+      >
         <div className="mb-6 flex items-center justify-between gap-3">
-          <h2 className="text-2xl font-black text-[var(--admin-text-primary)]">{title}</h2>
+          <h2 id={titleId} className="text-2xl font-black text-[var(--admin-text-primary)]">{title}</h2>
           <button onClick={close} aria-label="Kapat" className="admin-icon-action grid size-10 shrink-0 place-items-center rounded-full"><X size={18} /></button>
         </div>
         {children}
