@@ -30,7 +30,7 @@ const VARIANT_CLASS: Record<AdminButtonVariant, string> = {
   outline: "hk-button-outline"
 };
 
-export interface AdminButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className"> {
+export interface AdminButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: AdminButtonVariant;
   icon?: ReactNode;
   loading?: boolean;
@@ -46,6 +46,7 @@ export function AdminButton({
   compact = false,
   disabled,
   children,
+  className = "",
   ...rest
 }: AdminButtonProps) {
   return (
@@ -53,7 +54,7 @@ export function AdminButton({
       type="button"
       {...rest}
       disabled={disabled || loading}
-      className={`hk-button ${VARIANT_CLASS[variant]} ${compact ? "hk-button-compact" : ""} ${fullWidthOnMobile ? "w-full sm:w-auto" : ""}`}
+      className={`hk-button ${VARIANT_CLASS[variant]} ${compact ? "hk-button-compact" : ""} ${fullWidthOnMobile ? "w-full sm:w-auto" : ""} ${className}`}
     >
       {loading ? <Loader2 size={16} className="animate-spin" /> : icon}
       {children}
