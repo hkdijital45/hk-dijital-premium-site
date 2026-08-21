@@ -25,7 +25,8 @@ const adminNavigationSourceGroups: AdminNavigationGroup[] = [
     accent: "from-cyan-400 via-sky-500 to-blue-600",
     items: [
       { label: "Dashboard", slug: "", module: "dashboard", description: "Ajans KPI'ları, öncelikler ve günlük operasyon özeti." },
-      { label: "HK Intelligence CEO", slug: "hk-intelligence-ceo", module: "hk-intelligence-ceo", description: "AI ajanlarını, riskleri, KPI'ları ve ajans operasyon kararlarını tek executive masadan yönetin." }
+      { label: "HK Intelligence CEO", slug: "hk-intelligence-ceo", module: "hk-intelligence-ceo", description: "AI ajanlarını, riskleri, KPI'ları ve ajans operasyon kararlarını tek executive masadan yönetin." },
+      { label: "HK Intelligence Kontrol Merkezi", slug: "hk-intelligence-kontrol-merkezi", module: "hk-intelligence-ceo", description: "Müşteri yaşam döngüsü, kârlılık sıralaması, teklif tahmini, risk ve öneri motoru — tek kontrol ekranında." }
     ]
   },
   {
@@ -190,6 +191,7 @@ const adminNavigationSourceGroups: AdminNavigationGroup[] = [
       { label: "Sistem Test Merkezi", slug: "sistem-test-merkezi", module: "sistem-test-merkezi", description: "Otomatik ve manuel sistem kalite kontrolleri." },
       { label: "Log Merkezi", slug: "log-aktivite-merkezi", module: "sistem-loglari", description: "Kullanıcı işlemleri, teknik olaylar ve denetim kayıtları." },
       { label: "Veri Yedekleme", slug: "veri-aktarma", module: "veri-aktarma", description: "Tam yedek, export, import önizleme ve veri aktarma işlemleri." },
+      { label: "Veri Sıfırlama Merkezi", slug: "veri-sifirlama-merkezi", module: "veri-sifirlama", description: "Demo/test verilerini veya tüm müşteri operasyon verilerini önizleme, yedekleme ve çift onayla güvenli şekilde sıfırlayın." },
       { label: "Sistem Rehberi", slug: "sistem-rehberi", module: "sistem-rehberi", description: "Tüm modüllerin kullanım kılavuzu, eğitim içerikleri ve sorun giderme rehberleri." }
     ]
   }

@@ -33,6 +33,7 @@ const FunnelBuilderCenter = dynamic(() => import("@/components/admin/GrowthOpera
 const GrowthEngineCenter = dynamic(() => import("@/components/admin/GrowthOperatingSystem").then((m) => m.GrowthEngineCenter), { ssr: false });
 const GrowthMarketplaceCenter = dynamic(() => import("@/components/admin/GrowthOperatingSystem").then((m) => m.GrowthMarketplaceCenter), { ssr: false });
 const SocialMediaPlanCenter = dynamic(() => import("@/components/admin/social-media/SocialMediaPlanCenter").then((m) => m.SocialMediaPlanCenter), { ssr: false });
+const DataResetCenter = dynamic(() => import("@/components/admin/DataResetCenter").then((m) => m.DataResetCenter), { ssr: false });
 import { AdminPeriodFilter } from "@/components/admin/ui/AdminPeriodFilter";
 import { isDateWithinAdminPeriod, resolveAdminPeriodRange, type AdminPeriodKey } from "@/lib/admin-period-filter";
 import { CustomerProfileTasks } from "@/components/admin/customer-profile/CustomerProfileTasks";
@@ -619,7 +620,18 @@ export function AdminDashboard({
     .filter((group) => group.label !== "Finans" || canViewAccounting(currentSession))
     .map((group) => ({ ...group, items: group.items.filter((item) => allowedModules.includes(item.module)) }))
     .filter((group) => group.items.length);
-  const activeGroup = visibleNavigationGroups.find((group) => group.items.some((item) => item.label === active || item.slug === "" && active === "Dashboard"));
+  // Agent Hub's own render gate (line ~887) accepts three interchangeable
+  // active-label aliases ("HK Agent Hub", "Agent Hub", "Discord"), but the
+  // navigation registry's canonical entry is only ever labeled "Agent Hub"
+  // — and "HK Agent Hub" is the alias 55 of the app's own setActive(...)
+  // call sites actually use to get there (vs. 4 for "Agent Hub"), so most
+  // real navigation into Agent Hub found no matching group here and fell
+  // back to the generic "HK Operating System" breadcrumb eyebrow instead of
+  // "İçerik ve AI". Matching the same alias here (not renaming either the
+  // registry's canonical label or the 55 call sites, both far larger,
+  // riskier changes for what is really just a breadcrumb lookup) fixes it
+  // at the one place the mismatch actually surfaces.
+  const activeGroup = visibleNavigationGroups.find((group) => group.items.some((item) => item.label === active || (item.label === "Agent Hub" && active === "HK Agent Hub") || item.slug === "" && active === "Dashboard"));
   useEffect(() => {
     if (!mobileNavOpen || !activeGroup || openGroups[activeGroup.label]) return;
     setOpenGroups((current) => ({ ...current, [activeGroup.label]: true }));
@@ -898,6 +910,7 @@ export function AdminDashboard({
           {active === "Roller & Yetkiler" && <UsersAdmin {...props} mode={active} />}
           {["Sistem Sağlığı", "Sistem Sağlık Merkezi", "API Durumu"].includes(active) && <SystemHealthCenter content={content} setContent={setContent} startupApiData={startupApiData} runStartupApiStatus={runStartupApiStatus} startupApiLoading={startupApiLoading} />}
           {dataBackupAliases.includes(active) && <ExportCenter content={content} currentSession={currentSession} notify={notify} />}
+          {active === "Veri Sıfırlama Merkezi" && <DataResetCenter />}
           {logCenterAliases.includes(active) && <ActivityLogs content={content} setContent={setContent} />}
           {systemGuideAliases.includes(active) && <SystemGuideCenter currentSession={currentSession} notify={notify} />}
           {active === "Sistem Ayarları" && <Settings {...props} />}
