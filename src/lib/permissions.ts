@@ -15,7 +15,7 @@ export const adminModules = [
   "growth-engine", "funnel-builder", "marketplace",
   "gorevler", "belgeler", "tahsilat", "karlilik", "muhasebe", "muhasebe-export", "rakip-analizi",
   "sosyal-medya-plani", "aylik-raporlar", "hk-asistan", "agent-hub", "hk-intelligence-ceo", "sektor-sistemleri",
-  "sistem-sagligi", "sistem-test-merkezi", "sistem-rehberi", "veri-aktarma", "qa-center", "iletisim-merkezi", "blog-seo"
+  "sistem-sagligi", "sistem-test-merkezi", "sistem-rehberi", "veri-aktarma", "veri-sifirlama", "qa-center", "iletisim-merkezi", "blog-seo"
 ] as const;
 
 export type AdminModule = (typeof adminModules)[number];
