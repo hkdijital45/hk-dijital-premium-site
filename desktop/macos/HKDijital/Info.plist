@@ -13,19 +13,21 @@
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleName</key>
-  <string>HK Dijital Admin</string>
+  <string>HK Digital</string>
+  <key>CFBundleDisplayName</key>
+  <string>HK Digital</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.1.0</string>
+  <string>1.0.0</string>
   <key>CFBundleVersion</key>
   <string>1</string>
   <key>LSMinimumSystemVersion</key>
   <string>12.0</string>
-  <key>NSCameraUsageDescription</key>
-  <string>HK Dijital web uygulamasında kamera gerektiren müşteri işlemleri için izin istenebilir.</string>
-  <key>NSMicrophoneUsageDescription</key>
-  <string>HK Dijital web uygulamasında görüşme veya medya işlemleri için mikrofon izni istenebilir.</string>
+  <key>LSApplicationCategoryType</key>
+  <string>public.app-category.business</string>
+  <key>NSHighResolutionCapable</key>
+  <true/>
   <key>NSDocumentsFolderUsageDescription</key>
   <string>Dosya yükleme işlemlerinde seçtiğiniz dosyalara erişim gerekir.</string>
   <key>NSPhotoLibraryUsageDescription</key>

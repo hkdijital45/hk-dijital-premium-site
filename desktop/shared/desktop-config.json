@@ -1,16 +1,16 @@
 {
-  "appName": "HK Dijital Admin",
-  "productionUrl": "https://hkdijital.com.tr/digital-center",
-  "adminUrl": "https://hkdijital.com.tr/hk-admin",
-  "supportUrl": "https://hkdijital.com.tr/iletisim",
-  "version": "0.1.0",
+  "appName": "HK Digital",
+  "productionUrl": "https://www.hkdijital.com.tr/digital-center",
+  "adminUrl": "https://www.hkdijital.com.tr/hk-admin",
+  "supportUrl": "https://www.hkdijital.com.tr/iletisim",
+  "version": "1.0.0",
   "updateCheckUrl": "",
   "allowedHosts": [
     "hkdijital.com.tr",
     "www.hkdijital.com.tr"
   ],
   "platformNotes": {
-    "macos": "SwiftUI, WKWebView ve yerel SQLite ile online web admin, offline taslak ve senkronizasyon merkezi sunar. İmza ve notarization opsiyoneldir.",
+    "macos": "SwiftUI, WKWebView ve yerel SQLite ile online web admin, offline taslak ve senkronizasyon merkezi sunar. Kişisel kullanım için ad-hoc imzalıdır; Developer ID/notarization yoktur.",
     "windows": ".NET WPF ve WebView2 ile canlı web uygulamasını açar. Installer için Inno Setup önerilir."
   }
 }

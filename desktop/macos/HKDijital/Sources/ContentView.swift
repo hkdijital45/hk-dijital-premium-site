@@ -6,19 +6,21 @@ struct ContentView: View {
     @EnvironmentObject private var network: NetworkMonitor
     @EnvironmentObject private var syncEngine: SyncEngine
     @EnvironmentObject private var settings: AppSettings
-    @State private var section: AppSection = .dashboard
+    private var section: Binding<AppSection> {
+        Binding(get: { model.activeSection }, set: { model.activeSection = $0 })
+    }
 
     var body: some View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 10) {
-                Text("HK Dijital Admin")
+                Text("HK Digital")
                     .font(.system(size: 18, weight: .black))
                     .padding(.horizontal, 14)
                     .padding(.top, 16)
 
                 ForEach(AppSection.allCases) { item in
                     Button {
-                        section = item
+                        model.activeSection = item
                     } label: {
                         Label(item.rawValue, systemImage: item.symbol)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -26,7 +28,7 @@ struct ContentView: View {
                     .buttonStyle(.plain)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
-                    .background(section == item ? Color.cyan.opacity(0.16) : Color.clear)
+                    .background(model.activeSection == item ? Color.cyan.opacity(0.16) : Color.clear)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                     .padding(.horizontal, 8)
                 }
@@ -39,14 +41,16 @@ struct ContentView: View {
             Divider()
 
             VStack(spacing: 0) {
-                NativeToolbar(section: $section)
+                NativeToolbar(section: section)
                 Divider()
                 Group {
-                    switch section {
-                    case .dashboard:
-                        OfflineDashboardView(section: $section)
+                    switch model.activeSection {
                     case .webAdmin:
                         WebShellView()
+                    case .downloads:
+                        DownloadsView()
+                    case .dashboard:
+                        OfflineDashboardView(section: section)
                     case .offlineDrafts:
                         OfflineDraftsView()
                     case .syncCenter:
@@ -75,7 +79,7 @@ struct NativeToolbar: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Text("HK Dijital Admin")
+            Text("HK Digital")
                 .font(.system(size: 15, weight: .black))
 
             StatusPill(isOnline: network.isOnline)

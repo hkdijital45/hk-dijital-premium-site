@@ -10,6 +10,10 @@ final class WebViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var canGoBack = false
     @Published var canGoForward = false
+    // Driven both by sidebar taps (ContentView) and by native menu commands
+    // (HKDijitalApp's .commands, which have no direct access to ContentView's
+    // own view state) — one shared source of truth for "which section is active."
+    @Published var activeSection: AppSection = .webAdmin
 
     init(config: DesktopConfig) {
         self.config = config
@@ -45,15 +49,45 @@ final class WebViewModel: ObservableObject {
     }
 
     func loadInitialPage() {
-        guard webView.url == nil, let url = productionURL else {
+        // This is the admin desktop client (see DesktopConfig.appName / the
+        // whole point of this shell) — it opens straight to /hk-admin, not
+        // the customer-facing /digital-center that `productionUrl` (shared
+        // with the Windows client's own config semantics — not repurposed
+        // here) points at. "Digital Center'a Dön" in the Görünüm menu still
+        // reaches it via goHome().
+        guard webView.url == nil, let url = adminURL else {
             return
         }
         webView.load(URLRequest(url: url))
     }
 
+    // Real admin-navigation.ts slugs (not guessed) — used by the app's
+    // quick-navigation shortcuts (⌘⇧D/⌘⇧M/⌘⇧A) and the Dosya menu. Also
+    // switches the sidebar to the web view, since these are all invoked
+    // from native Commands that may fire while another section is active.
+    func navigate(toSlug slug: String) {
+        errorMessage = nil
+        activeSection = .webAdmin
+        guard let base = adminURL else { return }
+        let url = slug.isEmpty ? base : base.appendingPathComponent(slug)
+        webView.load(URLRequest(url: url))
+    }
+
+    func zoomIn() {
+        webView.pageZoom = min(webView.pageZoom + 0.1, 3.0)
+    }
+
+    func zoomOut() {
+        webView.pageZoom = max(webView.pageZoom - 0.1, 0.5)
+    }
+
+    func resetZoom() {
+        webView.pageZoom = 1.0
+    }
+
     func reload() {
         errorMessage = nil
-        if webView.url == nil, let url = productionURL {
+        if webView.url == nil, let url = adminURL {
             webView.load(URLRequest(url: url))
         } else {
             webView.reload()
@@ -70,6 +104,7 @@ final class WebViewModel: ObservableObject {
 
     func goHome() {
         errorMessage = nil
+        activeSection = .webAdmin
         if let url = productionURL {
             webView.load(URLRequest(url: url))
         }
@@ -77,6 +112,7 @@ final class WebViewModel: ObservableObject {
 
     func goAdmin() {
         errorMessage = nil
+        activeSection = .webAdmin
         if let url = adminURL {
             webView.load(URLRequest(url: url))
         }
