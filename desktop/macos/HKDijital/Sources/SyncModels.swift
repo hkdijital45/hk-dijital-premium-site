@@ -1,8 +1,9 @@
 import Foundation
 
 enum AppSection: String, CaseIterable, Identifiable {
-    case dashboard = "Dashboard"
-    case webAdmin = "Web Admin"
+    case webAdmin = "HK Dijital"
+    case downloads = "İndirilenler"
+    case dashboard = "Çevrimdışı Özet"
     case offlineDrafts = "Offline Taslaklar"
     case syncCenter = "Senkronizasyon Merkezi"
     case settings = "Ayarlar"
@@ -11,8 +12,9 @@ enum AppSection: String, CaseIterable, Identifiable {
 
     var symbol: String {
         switch self {
-        case .dashboard: return "gauge.with.dots.needle.67percent"
         case .webAdmin: return "globe"
+        case .downloads: return "arrow.down.circle"
+        case .dashboard: return "gauge.with.dots.needle.67percent"
         case .offlineDrafts: return "tray.and.arrow.down"
         case .syncCenter: return "arrow.triangle.2.circlepath"
         case .settings: return "gearshape"
