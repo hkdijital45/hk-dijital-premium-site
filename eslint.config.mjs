@@ -31,6 +31,13 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Desktop app build output — desktop/build/macos/dmg-root contains a
+    // real `ln -s /Applications` symlink for DMG staging; without this
+    // excluded, a symlink-following tool can end up traversing the actual
+    // system /Applications folder (confirmed: tripped up `tsc` this way).
+    "desktop/build/**",
+    "desktop-builds/**",
+    "desktop/windows/publish/**",
   ]),
 ]);
 
