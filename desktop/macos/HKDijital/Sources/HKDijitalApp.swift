@@ -67,6 +67,9 @@ struct HKDijitalApp: App {
             }
 
             CommandMenu("Görünüm") {
+                Button("Kenar Çubuğunu Aç/Kapat") { model.toggleSidebar() }
+                    .keyboardShortcut("\\", modifiers: [.command])
+                Divider()
                 Button("Geri") { model.goBack() }
                     .keyboardShortcut("[", modifiers: [.command])
                 Button("İleri") { model.goForward() }

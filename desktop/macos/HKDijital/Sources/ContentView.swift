@@ -12,33 +12,36 @@ struct ContentView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("HK Digital")
-                    .font(.system(size: 18, weight: .black))
-                    .padding(.horizontal, 14)
-                    .padding(.top, 16)
+            if !model.isSidebarCollapsed {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("HK Digital")
+                        .font(.system(size: 18, weight: .black))
+                        .padding(.horizontal, 14)
+                        .padding(.top, 16)
 
-                ForEach(AppSection.allCases) { item in
-                    Button {
-                        model.activeSection = item
-                    } label: {
-                        Label(item.rawValue, systemImage: item.symbol)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                    ForEach(AppSection.allCases) { item in
+                        Button {
+                            model.activeSection = item
+                        } label: {
+                            Label(item.rawValue, systemImage: item.symbol)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(model.activeSection == item ? Color.cyan.opacity(0.16) : Color.clear)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .padding(.horizontal, 8)
                     }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(model.activeSection == item ? Color.cyan.opacity(0.16) : Color.clear)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .padding(.horizontal, 8)
+
+                    Spacer()
                 }
+                .frame(width: 240)
+                .background(.regularMaterial)
+                .transition(.move(edge: .leading).combined(with: .opacity))
 
-                Spacer()
+                Divider()
             }
-            .frame(width: 240)
-            .background(.regularMaterial)
-
-            Divider()
 
             VStack(spacing: 0) {
                 NativeToolbar(section: section)
@@ -62,6 +65,7 @@ struct ContentView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .animation(.easeInOut(duration: 0.22), value: model.isSidebarCollapsed)
         .background(Color(nsColor: .windowBackgroundColor))
         .onAppear {
             model.loadInitialPage()
@@ -78,19 +82,26 @@ struct NativeToolbar: View {
     @Binding var section: AppSection
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
+            Button {
+                model.toggleSidebar()
+            } label: {
+                Image(systemName: "sidebar.left")
+            }
+            .help(model.isSidebarCollapsed ? "Kenar Çubuğunu Göster (⌘\\)" : "Kenar Çubuğunu Gizle (⌘\\)")
+
             Text("HK Digital")
-                .font(.system(size: 15, weight: .black))
+                .font(.system(size: 13, weight: .black))
 
             StatusPill(isOnline: network.isOnline)
 
             if let lastSyncAt = database.lastSyncAt {
                 Text("Son sync: \(lastSyncAt.formatted(date: .omitted, time: .shortened))")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(.secondary)
             } else {
                 Text("Henüz sync yok")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
 
@@ -119,8 +130,8 @@ struct NativeToolbar: View {
             .buttonStyle(.borderedProminent)
         }
         .buttonStyle(.bordered)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
         .background(.regularMaterial)
     }
 }

@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import AppKit
+import SwiftUI
 import WebKit
 
 final class WebViewModel: ObservableObject {
@@ -14,6 +15,10 @@ final class WebViewModel: ObservableObject {
     // (HKDijitalApp's .commands, which have no direct access to ContentView's
     // own view state) — one shared source of truth for "which section is active."
     @Published var activeSection: AppSection = .webAdmin
+    // Local app preference only (UserDefaults) — not a Supabase/server value,
+    // so it needs no migration and has no relation to any account/customer data.
+    private static let sidebarCollapsedDefaultsKey = "hk.desktop.sidebarCollapsed"
+    @Published var isSidebarCollapsed: Bool = UserDefaults.standard.bool(forKey: WebViewModel.sidebarCollapsedDefaultsKey)
 
     init(config: DesktopConfig) {
         self.config = config
@@ -133,6 +138,13 @@ final class WebViewModel: ObservableObject {
     func refreshNavigationState() {
         canGoBack = webView.canGoBack
         canGoForward = webView.canGoForward
+    }
+
+    func toggleSidebar() {
+        withAnimation(.easeInOut(duration: 0.22)) {
+            isSidebarCollapsed.toggle()
+        }
+        UserDefaults.standard.set(isSidebarCollapsed, forKey: Self.sidebarCollapsedDefaultsKey)
     }
 
     func isAllowed(_ url: URL) -> Bool {
