@@ -3,9 +3,9 @@
     "companyName": "HK Dijital",
     "founder": "Hayri Kamalı",
     "slogan": "Ölçülebilir dijital büyüme için strateji, reklam ve analiz sistemi.",
-    "logoUrl": "",
-    "footerLogoUrl": "",
-    "faviconUrl": "",
+    "logoUrl": "/branding/hk-dijital-logo.png",
+    "footerLogoUrl": "/branding/hk-dijital-logo.png",
+    "faviconUrl": "/branding/hk-dijital-logo.png",
     "colors": {
       "primary": "#12d9ff",
       "secondary": "#d8b45b",

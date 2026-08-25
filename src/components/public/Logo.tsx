@@ -18,7 +18,7 @@ export function Logo({ content, footer = false, compact = false, variant = "webs
   const failed = Boolean(logo && failedLogo === logo);
 
   if (logo && !failed) {
-    return <Image src={logo} alt={`${content.brand.companyName} logosu`} width={180} height={52} unoptimized onError={() => setFailedLogo(logo)} className="h-10 max-w-[180px] object-contain object-left sm:h-11" />;
+    return <Image src={logo} alt={`${content.brand.companyName} logosu`} width={64} height={64} unoptimized onError={() => setFailedLogo(logo)} className="h-11 w-11 shrink-0 rounded-[10px] object-contain object-left sm:h-12 sm:w-12" />;
   }
 
   return (
