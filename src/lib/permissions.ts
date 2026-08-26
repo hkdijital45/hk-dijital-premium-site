@@ -15,7 +15,8 @@ export const adminModules = [
   "growth-engine", "funnel-builder", "marketplace",
   "gorevler", "belgeler", "tahsilat", "karlilik", "muhasebe", "muhasebe-export", "rakip-analizi",
   "sosyal-medya-plani", "aylik-raporlar", "hk-asistan", "agent-hub", "hk-intelligence-ceo", "sektor-sistemleri",
-  "sistem-sagligi", "sistem-test-merkezi", "sistem-rehberi", "veri-aktarma", "veri-sifirlama", "qa-center", "iletisim-merkezi", "blog-seo"
+  "sistem-sagligi", "sistem-test-merkezi", "sistem-rehberi", "veri-aktarma", "veri-sifirlama", "qa-center", "iletisim-merkezi", "blog-seo",
+  "growth-intelligence"
 ] as const;
 
 export type AdminModule = (typeof adminModules)[number];
@@ -40,13 +41,13 @@ export const roleTemplates: Record<CanonicalRole, AdminModule[]> = {
   yonetici: [
     "dashboard", "genel-arama", "kullanim-kilavuzu", "crm", "leads", "musteriler",
     "takip-gorevleri", "notlar", "musteri-bulucu", "haritalar", "bolgesel-analiz",
-    "kaydedilen-adaylar", "meta-analiz", "google-analiz", "sosyal-medya-denetimi", "hazirlik", "ai-studio", "agent-hub", "hk-intelligence-ceo", "blog-seo", "kampanyalar", "reklam-operasyon-merkezi", "teklifler", "teklif-listesi",
+    "kaydedilen-adaylar", "meta-analiz", "google-analiz", "sosyal-medya-denetimi", "hazirlik", "ai-studio", "agent-hub", "hk-intelligence-ceo", "blog-seo", "growth-intelligence", "kampanyalar", "reklam-operasyon-merkezi", "teklifler", "teklif-listesi",
     "raporlar", "website-analytics", "ad-insights", "growth-engine", "funnel-builder", "marketplace", "rapor-yorumlari", "disa-aktarimlar", "gorevler", "belgeler",
     "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "hk-asistan", "sektor-sistemleri", "sistem-sagligi", "sistem-rehberi", "veri-aktarma", "iletisim-merkezi"
   ],
   editor: [
     "dashboard", "genel-arama", "kullanim-kilavuzu", "crm", "leads", "hazirlik",
-    "ai-studio", "agent-hub", "blog-seo", "icerik-onerileri", "prompt-kutuphanesi", "kampanya-hazirligi",
+    "ai-studio", "agent-hub", "blog-seo", "growth-intelligence", "icerik-onerileri", "prompt-kutuphanesi", "kampanya-hazirligi",
     "teklifler", "teklif-listesi", "raporlar", "website-analytics", "reklam-operasyon-merkezi", "growth-engine", "funnel-builder", "marketplace", "rapor-yorumlari", "disa-aktarimlar", "medya", "sistem-rehberi", "iletisim-merkezi"
   ],
   musteri: []

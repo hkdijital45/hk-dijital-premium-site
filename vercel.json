@@ -1,1 +1,12 @@
-{}
+{
+  "crons": [
+    {
+      "path": "/api/admin/growth-intelligence/run-daily",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/admin/blog-seo/publish-due",
+      "schedule": "0 * * * *"
+    }
+  ]
+}
