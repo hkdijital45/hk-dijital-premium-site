@@ -15,10 +15,12 @@ type SeoJobRow = { id: string; query: string; url: string; trigger_type: string;
 type HealthRow = { id: string; company_id: string; score: number; health_level: string; trend: string; calculated_at: string; companies?: { name: string } };
 type CapacityRow = { id: string; userId: string; name: string; weeklyHours: number; allocatedHours: number; remainingHours: number; utilizationPercent: number; taskCount: number; overloaded: boolean };
 type PricingRow = { id: string; selected_services: Array<{ title: string; price: number }>; recommended_price: number; recommended_range_min: number; recommended_range_max: number; close_probability: number; ai_rationale: string; actual_outcome: string; created_at: string };
+type ContractRow = { id: string; title: string; end_date: string; status: string; companies?: { name: string } };
+type OutreachRow = { id: string; lead_id: string; channel: string; message_draft: string; status: string; created_at: string; leads?: { company: string } };
 
-const tabs = ["risk", "ads", "seo", "health", "capacity", "pricing"] as const;
+const tabs = ["risk", "ads", "seo", "health", "capacity", "pricing", "contracts", "outreach"] as const;
 type Tab = typeof tabs[number];
-const tabLabels: Record<Tab, string> = { risk: "Müşteri Riski", ads: "Reklam Optimizasyonu", seo: "SEO Autopilot", health: "Müşteri Sağlığı", capacity: "Kapasite", pricing: "Fiyatlandırma" };
+const tabLabels: Record<Tab, string> = { risk: "Müşteri Riski", ads: "Reklam Optimizasyonu", seo: "SEO Autopilot", health: "Müşteri Sağlığı", capacity: "Kapasite", pricing: "Fiyatlandırma", contracts: "Sözleşmeler", outreach: "Lead İlk Temas" };
 
 function healthTone(level: string): AdminStatusTone {
   if (level === "critical") return "danger";
@@ -51,6 +53,8 @@ export function AutonomousOpsCenter() {
   const [pricingHistory, setPricingHistory] = useState<PricingRow[]>([]);
   const [pricingServices, setPricingServices] = useState("");
   const [pricingResult, setPricingResult] = useState<PricingRow | null>(null);
+  const [contracts, setContracts] = useState<ContractRow[]>([]);
+  const [outreachDrafts, setOutreachDrafts] = useState<OutreachRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [feedback, setFeedback] = useState("");
@@ -63,7 +67,9 @@ export function AutonomousOpsCenter() {
       fetchJson<{ jobs: SeoJobRow[] }>("/api/admin/seo-autopilot/jobs").then((data) => setSeoJobs(data.jobs || [])).catch(() => setSeoJobs([])),
       fetchJson<{ scores: HealthRow[] }>("/api/admin/customer-health").then((data) => setHealthScores(data.scores || [])).catch(() => setHealthScores([])),
       fetchJson<{ board: Array<Omit<CapacityRow, "id">> }>("/api/admin/capacity/board").then((data) => setCapacity((data.board || []).map((row) => ({ ...row, id: row.userId })))).catch(() => setCapacity([])),
-      fetchJson<{ recommendations: PricingRow[] }>("/api/admin/pricing/recommend").then((data) => setPricingHistory(data.recommendations || [])).catch(() => setPricingHistory([]))
+      fetchJson<{ recommendations: PricingRow[] }>("/api/admin/pricing/recommend").then((data) => setPricingHistory(data.recommendations || [])).catch(() => setPricingHistory([])),
+      fetchJson<{ contracts: ContractRow[] }>("/api/admin/contracts").then((data) => setContracts(data.contracts || [])).catch(() => setContracts([])),
+      fetchJson<{ drafts: OutreachRow[] }>("/api/admin/outreach/drafts").then((data) => setOutreachDrafts(data.drafts || [])).catch(() => setOutreachDrafts([]))
     ]).finally(() => setLoading(false));
   }
 
@@ -149,6 +155,29 @@ export function AutonomousOpsCenter() {
     { key: "outcome", header: "Sonuç", render: (row) => <AdminStatusBadge tone={row.actual_outcome === "won" ? "success" : row.actual_outcome === "lost" ? "danger" : "neutral"}>{row.actual_outcome}</AdminStatusBadge> }
   ];
 
+  const contractColumns: AdminDataGridColumn<ContractRow>[] = [
+    { key: "company", header: "Müşteri", render: (row) => row.companies?.name || "" },
+    { key: "title", header: "Sözleşme", render: (row) => row.title },
+    { key: "end", header: "Bitiş", render: (row) => new Date(row.end_date).toLocaleDateString("tr-TR") },
+    { key: "status", header: "Durum", render: (row) => <AdminStatusBadge tone={row.status === "expired" ? "danger" : row.status === "expiring" ? "warning" : "success"}>{row.status}</AdminStatusBadge> }
+  ];
+
+  const outreachColumns: AdminDataGridColumn<OutreachRow>[] = [
+    { key: "lead", header: "Aday", render: (row) => row.leads?.company || row.lead_id },
+    { key: "draft", header: "Taslak Mesaj", render: (row) => <span className="text-xs">{row.message_draft}</span> },
+    { key: "status", header: "Durum", render: (row) => <AdminStatusBadge tone={row.status === "approved" ? "success" : row.status === "rejected" || row.status === "opted_out" ? "danger" : "info"}>{row.status}</AdminStatusBadge> },
+    {
+      key: "actions", header: "", align: "right", render: (row) => row.status === "draft" ? (
+        <div className="flex justify-end gap-2">
+          <AdminButton compact variant="success" loading={busy === `outreach-approve-${row.id}`} onClick={() => run(`outreach-approve-${row.id}`, () => fetchJson("/api/admin/outreach/drafts", { method: "PATCH", body: JSON.stringify({ id: row.id, status: "approved" }) }), "Taslak onaylandı.")}>Onayla</AdminButton>
+          <AdminButton compact variant="ghost" loading={busy === `outreach-reject-${row.id}`} onClick={() => run(`outreach-reject-${row.id}`, () => fetchJson("/api/admin/outreach/drafts", { method: "PATCH", body: JSON.stringify({ id: row.id, status: "rejected" }) }), "Taslak reddedildi.")}>Reddet</AdminButton>
+        </div>
+      ) : row.status === "approved" ? (
+        <AdminButton compact variant="secondary" loading={busy === `outreach-send-${row.id}`} onClick={() => run(`outreach-send-${row.id}`, () => fetchJson(`/api/admin/outreach/drafts/${row.id}/send`, { method: "POST" }), "Gönderim denendi — bkz. mesaj.")}>Gönder</AdminButton>
+      ) : null
+    }
+  ];
+
   function generatePricing() {
     const slugs = pricingServices.split(",").map((item) => item.trim()).filter(Boolean);
     if (!slugs.length) {
@@ -174,6 +203,8 @@ export function AutonomousOpsCenter() {
           {tab === "ads" && <AdminButton variant="secondary" icon={<RefreshCw size={14} />} loading={busy === "run-ads"} onClick={() => run("run-ads", () => fetchJson("/api/admin/ad-optimization/run-daily", { method: "POST" }), "Öneriler güncellendi.")}>Öneri Üret</AdminButton>}
           {tab === "seo" && <AdminButton variant="secondary" icon={<RefreshCw size={14} />} loading={busy === "run-seo"} onClick={() => run("run-seo", () => fetchJson("/api/admin/seo-autopilot/run-daily", { method: "POST" }), "Gerileme taraması tamamlandı.")}>Taramayı Çalıştır</AdminButton>}
           {tab === "health" && <AdminButton variant="secondary" icon={<RefreshCw size={14} />} loading={busy === "run-health"} onClick={() => run("run-health", () => fetchJson("/api/admin/customer-health/run-daily", { method: "POST" }), "Sağlık skorları güncellendi.")}>Şimdi Hesapla</AdminButton>}
+          {tab === "contracts" && <AdminButton variant="secondary" icon={<RefreshCw size={14} />} loading={busy === "run-contracts"} onClick={() => run("run-contracts", () => fetchJson("/api/admin/contracts/run-daily", { method: "POST" }), "Sözleşme/SLA kontrolü tamamlandı.")}>Kontrolü Çalıştır</AdminButton>}
+          {tab === "outreach" && <AdminButton variant="secondary" icon={<RefreshCw size={14} />} loading={busy === "run-outreach"} onClick={() => run("run-outreach", () => fetchJson("/api/admin/outreach/run-daily", { method: "POST" }), "Yeni taslaklar üretildi.")}>Taslak Üret</AdminButton>}
         </>
       }
     >
@@ -207,6 +238,13 @@ export function AutonomousOpsCenter() {
                 </div>
               )}
               <AdminDataGrid columns={pricingColumns} rows={pricingHistory} rowKey={(row) => row.id} emptyTitle="Fiyat önerisi geçmişi yok" />
+            </div>
+          )}
+          {tab === "contracts" && <AdminDataGrid columns={contractColumns} rows={contracts} rowKey={(row) => row.id} emptyTitle="Sözleşme yok" emptyDescription="Kontrolü Çalıştır ile yaklaşan yenileme ve SLA ihlallerini tarayın." />}
+          {tab === "outreach" && (
+            <div className="grid gap-3">
+              <p className="text-xs opacity-60">AUTO_SEND_OUTREACH varsayılan olarak kapalıdır — taslaklar her zaman onay bekler.</p>
+              <AdminDataGrid columns={outreachColumns} rows={outreachDrafts} rowKey={(row) => row.id} emptyTitle="Taslak yok" emptyDescription="Taslak Üret ile yüksek skorlu adaylardan ilk temas mesajı oluşturun." />
             </div>
           )}
         </>
