@@ -1,9 +1,17 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { filterSelectableCustomers } from "@/lib/customer-visibility";
-import { AlertTriangle, ArrowRight, Bot, Building2, CalendarDays, CircleDollarSign, CircleGauge, FileText, HeartPulse, RefreshCw, ShieldAlert, Sparkles, Target, UsersRound } from "lucide-react";
+import { AlertTriangle, ArrowRight, Bot, Building2, CalendarDays, CircleDollarSign, CircleGauge, FileText, HeartPulse, Newspaper, RefreshCw, ShieldAlert, Sparkles, Target, UsersRound } from "lucide-react";
+
+type CeoBriefing = {
+  briefing_date: string;
+  executive_summary: string;
+  ai_insights: string[];
+  risk_alerts: Array<{ title: string; severity: string }>;
+  opportunities: Array<{ title: string; action: string; score: number }>;
+};
 
 const lifecycleStages = ["Lead", "Görüşme", "Teklif", "Kazanıldı", "Onboarding", "Aktif Müşteri", "Raporlama", "Tahsilat", "Yenileme", "Referans"];
 const closedLeadStatuses = ["Kazanıldı", "Kazandı", "Kaybedildi", "Dönüştürüldü", "Müşteri Oldu", "Reddedildi"];
@@ -98,6 +106,37 @@ export function HKIntelligenceCommandCenter({ content, setActive, notify, initia
   const [view, setView] = useState(initialView);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiAnswer, setAiAnswer] = useState("");
+  const [briefing, setBriefing] = useState<CeoBriefing | null>(null);
+  const [briefingLoading, setBriefingLoading] = useState(true);
+  const [briefingGenerating, setBriefingGenerating] = useState(false);
+
+  function loadBriefing() {
+    setBriefingLoading(true);
+    fetch("/api/admin/ceo-briefing", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((data) => setBriefing(data.briefing || null))
+      .catch(() => setBriefing(null))
+      .finally(() => setBriefingLoading(false));
+  }
+
+  useEffect(() => {
+    const timer = window.setTimeout(loadBriefing, 0);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function generateBriefingNow() {
+    setBriefingGenerating(true);
+    try {
+      await fetch("/api/admin/ceo-briefing/run-daily", { method: "POST" });
+      loadBriefing();
+      notify?.("Bugünün CEO Briefing'i oluşturuldu.", "success");
+    } catch {
+      notify?.("Briefing oluşturulamadı.", "warning");
+    } finally {
+      setBriefingGenerating(false);
+    }
+  }
   const companies = useMemo(() => filterSelectableCustomers(content.companies || []), [content.companies]);
   const leads = useMemo(() => (content.leads || []).filter((item: any) => !isArchived(item)), [content.leads]);
   const campaigns = useMemo(() => (content.campaigns || []).filter((item: any) => !isArchived(item)), [content.campaigns]);
@@ -208,6 +247,23 @@ export function HKIntelligenceCommandCenter({ content, setActive, notify, initia
     </section>
 
     {view === "command" && <>
+      <section className="rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-[13px] bg-indigo-50 text-indigo-700"><Newspaper size={19} /></span><div><p className="text-xs font-black uppercase tracking-[.14em] text-indigo-600">Bugünün CEO Briefing&apos;i</p><h2 className="text-lg font-black text-[var(--admin-text-primary)]">{briefing ? new Date(briefing.briefing_date).toLocaleDateString("tr-TR", { day: "2-digit", month: "long", year: "numeric" }) : "Henüz oluşturulmadı"}</h2></div></div>
+          <button onClick={generateBriefingNow} disabled={briefingGenerating} className="inline-flex min-h-10 items-center gap-2 rounded-[12px] bg-indigo-600 px-4 text-xs font-black text-white transition hover:-translate-y-0.5 disabled:opacity-60"><RefreshCw size={14} /> {briefingGenerating ? "Oluşturuluyor..." : "Şimdi Oluştur"}</button>
+        </div>
+        {briefingLoading ? <p className="mt-4 text-sm text-[var(--admin-text-muted)]">Yükleniyor...</p> : briefing ? (
+          <div className="mt-4 grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+            <p className="whitespace-pre-line rounded-[14px] bg-[var(--admin-surface-soft)] p-4 text-sm leading-7 text-[var(--admin-text-secondary)]">{briefing.executive_summary}</p>
+            <div className="grid gap-2">
+              {briefing.risk_alerts.slice(0, 3).map((risk, index) => <div key={`${risk.title}-${index}`} className="rounded-[12px] bg-red-50 p-3 text-xs font-bold text-red-700">{risk.title}</div>)}
+              {briefing.opportunities.slice(0, 2).map((item, index) => <div key={`${item.title}-${index}`} className="rounded-[12px] bg-emerald-50 p-3 text-xs font-bold text-emerald-700">{item.title} · Skor {item.score}/100</div>)}
+              {!briefing.risk_alerts.length && !briefing.opportunities.length && <div className="rounded-[12px] bg-slate-50 p-3 text-xs font-bold text-slate-600">Kritik risk veya fırsat tespit edilmedi.</div>}
+            </div>
+          </div>
+        ) : <p className="mt-4 text-sm text-[var(--admin-text-muted)]">Bugün için henüz briefing oluşturulmadı. &quot;Şimdi Oluştur&quot; ile üretebilirsiniz.</p>}
+      </section>
+
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-8">{kpis.map(([label, value, target, Icon, tone]: any) => <button key={label} onClick={() => setActive(target)} className="rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-200 hover:shadow-md"><span className={`grid size-10 place-items-center rounded-[13px] ${tone}`}><Icon size={19} /></span><strong className="mt-3 block text-xl font-black text-[var(--admin-text-primary)]">{value}</strong><span className="mt-1 block text-xs font-bold text-[var(--admin-text-muted)]">{label}</span></button>)}</section>
       <section className="grid gap-5 xl:grid-cols-[1.2fr_.8fr]">
         <div className="rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5 shadow-sm"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.14em] text-purple-600">Bugün ne yapmalıyım?</p><h2 className="mt-1 text-xl font-black text-[var(--admin-text-primary)]">AI Öncelik Merkezi</h2></div><Bot className="text-purple-600" /></div><div className="mt-4 grid gap-2">{priorities.map((item) => <button key={item.text} onClick={() => setActive(item.target)} className={`flex items-center justify-between gap-3 rounded-[14px] p-3 text-left ${item.tone}`}><span className="text-sm font-bold"><strong className="mr-2 text-lg">{item.count}</strong>{item.text}</span><ArrowRight size={16} /></button>)}</div>{aiAnswer && <p className="mt-4 whitespace-pre-line rounded-[14px] border border-purple-100 bg-purple-50 p-4 text-sm leading-7 text-[var(--admin-text-secondary)]">{aiAnswer}</p>}</div>

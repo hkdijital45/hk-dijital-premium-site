@@ -1,0 +1,41 @@
+import { NextResponse } from "next/server";
+import { requireModuleAccess } from "@/lib/permissions";
+import { getSafeSupabaseError, hasSupabaseConfig } from "@/lib/supabase";
+import { safeCompare } from "@/lib/secure-compare";
+import { generateCeoBriefing } from "@/lib/ceo-briefing";
+
+function bearerToken(request: Request) {
+  const authorization = request.headers.get("authorization") || "";
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() || null;
+}
+
+function cronAuthorized(request: Request) {
+  return safeCompare(bearerToken(request), process.env.CRON_SECRET);
+}
+
+async function authorizeManualOrCron(request: Request): Promise<"cron" | "manual" | null> {
+  if (cronAuthorized(request)) return "cron";
+  const session = await requireModuleAccess("hk-intelligence-ceo");
+  return session ? "manual" : null;
+}
+
+async function run(request: Request) {
+  const mode = await authorizeManualOrCron(request);
+  if (!mode) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
+  if (!hasSupabaseConfig()) return NextResponse.json({ error: "Supabase yapılandırılmadı." }, { status: 503 });
+  try {
+    const result = await generateCeoBriefing(mode);
+    return NextResponse.json(result);
+  } catch (error) {
+    return NextResponse.json({ error: getSafeSupabaseError(error).detail }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  return run(request);
+}
+
+export async function GET(request: Request) {
+  return run(request);
+}
