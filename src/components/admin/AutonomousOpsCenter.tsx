@@ -12,10 +12,20 @@ import { AdminDataGrid, type AdminDataGridColumn } from "@/components/admin/work
 type RiskRow = { id: string; company_id: string; score: number; risk_level: string; trend: string; calculated_at: string; companies?: { name: string } };
 type SuggestionRow = { id: string; company_id: string; platform: string; issue_type: string; suggested_action: string; ai_reasoning: string | null; confidence: number; risk_level: string; status: string; generated_at: string; companies?: { name: string } };
 type SeoJobRow = { id: string; query: string; url: string; trigger_type: string; position_before: number | null; position_after: number | null; ai_brief: string | null; status: string; triggered_at: string };
+type HealthRow = { id: string; company_id: string; score: number; health_level: string; trend: string; calculated_at: string; companies?: { name: string } };
+type CapacityRow = { id: string; userId: string; name: string; weeklyHours: number; allocatedHours: number; remainingHours: number; utilizationPercent: number; taskCount: number; overloaded: boolean };
+type PricingRow = { id: string; selected_services: Array<{ title: string; price: number }>; recommended_price: number; recommended_range_min: number; recommended_range_max: number; close_probability: number; ai_rationale: string; actual_outcome: string; created_at: string };
 
-const tabs = ["risk", "ads", "seo"] as const;
+const tabs = ["risk", "ads", "seo", "health", "capacity", "pricing"] as const;
 type Tab = typeof tabs[number];
-const tabLabels: Record<Tab, string> = { risk: "Müşteri Riski", ads: "Reklam Optimizasyonu", seo: "SEO Autopilot" };
+const tabLabels: Record<Tab, string> = { risk: "Müşteri Riski", ads: "Reklam Optimizasyonu", seo: "SEO Autopilot", health: "Müşteri Sağlığı", capacity: "Kapasite", pricing: "Fiyatlandırma" };
+
+function healthTone(level: string): AdminStatusTone {
+  if (level === "critical") return "danger";
+  if (level === "at_risk") return "warning";
+  if (level === "good") return "info";
+  return "success";
+}
 
 function riskTone(level: string): AdminStatusTone {
   if (level === "critical" || level === "high") return "danger";
@@ -36,6 +46,11 @@ export function AutonomousOpsCenter() {
   const [risks, setRisks] = useState<RiskRow[]>([]);
   const [suggestions, setSuggestions] = useState<SuggestionRow[]>([]);
   const [seoJobs, setSeoJobs] = useState<SeoJobRow[]>([]);
+  const [healthScores, setHealthScores] = useState<HealthRow[]>([]);
+  const [capacity, setCapacity] = useState<CapacityRow[]>([]);
+  const [pricingHistory, setPricingHistory] = useState<PricingRow[]>([]);
+  const [pricingServices, setPricingServices] = useState("");
+  const [pricingResult, setPricingResult] = useState<PricingRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [feedback, setFeedback] = useState("");
@@ -45,7 +60,10 @@ export function AutonomousOpsCenter() {
     Promise.all([
       fetchJson<{ scores: RiskRow[] }>("/api/admin/customer-risk").then((data) => setRisks(data.scores || [])).catch(() => setRisks([])),
       fetchJson<{ suggestions: SuggestionRow[] }>("/api/admin/ad-optimization/suggestions").then((data) => setSuggestions(data.suggestions || [])).catch(() => setSuggestions([])),
-      fetchJson<{ jobs: SeoJobRow[] }>("/api/admin/seo-autopilot/jobs").then((data) => setSeoJobs(data.jobs || [])).catch(() => setSeoJobs([]))
+      fetchJson<{ jobs: SeoJobRow[] }>("/api/admin/seo-autopilot/jobs").then((data) => setSeoJobs(data.jobs || [])).catch(() => setSeoJobs([])),
+      fetchJson<{ scores: HealthRow[] }>("/api/admin/customer-health").then((data) => setHealthScores(data.scores || [])).catch(() => setHealthScores([])),
+      fetchJson<{ board: Array<Omit<CapacityRow, "id">> }>("/api/admin/capacity/board").then((data) => setCapacity((data.board || []).map((row) => ({ ...row, id: row.userId })))).catch(() => setCapacity([])),
+      fetchJson<{ recommendations: PricingRow[] }>("/api/admin/pricing/recommend").then((data) => setPricingHistory(data.recommendations || [])).catch(() => setPricingHistory([]))
     ]).finally(() => setLoading(false));
   }
 
@@ -108,6 +126,41 @@ export function AutonomousOpsCenter() {
     }
   ];
 
+  const healthColumns: AdminDataGridColumn<HealthRow>[] = [
+    { key: "company", header: "Müşteri", render: (row) => row.companies?.name || row.company_id },
+    { key: "score", header: "Sağlık Skoru", render: (row) => <AdminStatusBadge tone={healthTone(row.health_level)}>{row.score}/100</AdminStatusBadge> },
+    { key: "trend", header: "Trend", render: (row) => row.trend },
+    { key: "calculated", header: "Hesaplandı", render: (row) => new Date(row.calculated_at).toLocaleDateString("tr-TR") }
+  ];
+
+  const capacityColumns: AdminDataGridColumn<CapacityRow>[] = [
+    { key: "name", header: "Ekip Üyesi", render: (row) => row.name },
+    { key: "allocated", header: "Ayrılan / Toplam Saat", render: (row) => `${row.allocatedHours}/${row.weeklyHours}` },
+    { key: "remaining", header: "Kalan Saat", render: (row) => row.remainingHours },
+    { key: "utilization", header: "Doluluk", render: (row) => <AdminStatusBadge tone={row.overloaded ? "danger" : row.utilizationPercent > 80 ? "warning" : "success"}>%{row.utilizationPercent}</AdminStatusBadge> },
+    { key: "tasks", header: "Bu Hafta Görev", render: (row) => row.taskCount }
+  ];
+
+  const pricingColumns: AdminDataGridColumn<PricingRow>[] = [
+    { key: "services", header: "Hizmetler", render: (row) => row.selected_services.map((service) => service.title).join(", ") },
+    { key: "price", header: "Önerilen Fiyat", render: (row) => `${row.recommended_price.toLocaleString("tr-TR")} TL` },
+    { key: "range", header: "Aralık", render: (row) => `${row.recommended_range_min.toLocaleString("tr-TR")} - ${row.recommended_range_max.toLocaleString("tr-TR")} TL` },
+    { key: "close", header: "Kapanış Olasılığı", render: (row) => `%${row.close_probability}` },
+    { key: "outcome", header: "Sonuç", render: (row) => <AdminStatusBadge tone={row.actual_outcome === "won" ? "success" : row.actual_outcome === "lost" ? "danger" : "neutral"}>{row.actual_outcome}</AdminStatusBadge> }
+  ];
+
+  function generatePricing() {
+    const slugs = pricingServices.split(",").map((item) => item.trim()).filter(Boolean);
+    if (!slugs.length) {
+      setFeedback("Paket slug'larını virgülle ayırarak girin (ör. meta-pro, google-ads-pro).");
+      return;
+    }
+    run("pricing", async () => {
+      const data = await fetchJson<{ recommendation: PricingRow }>("/api/admin/pricing/recommend", { method: "POST", body: JSON.stringify({ serviceSlugs: slugs }) });
+      setPricingResult(data.recommendation);
+    }, "Fiyat önerisi oluşturuldu.");
+  }
+
   const criticalRiskCount = useMemo(() => risks.filter((row) => row.risk_level === "critical" || row.risk_level === "risky").length, [risks]);
 
   return (
@@ -120,6 +173,7 @@ export function AutonomousOpsCenter() {
           {tab === "risk" && <AdminButton variant="secondary" icon={<RefreshCw size={14} />} loading={busy === "run-risk"} onClick={() => run("run-risk", () => fetchJson("/api/admin/customer-risk/run-daily", { method: "POST" }), "Risk skorları güncellendi.")}>Şimdi Hesapla</AdminButton>}
           {tab === "ads" && <AdminButton variant="secondary" icon={<RefreshCw size={14} />} loading={busy === "run-ads"} onClick={() => run("run-ads", () => fetchJson("/api/admin/ad-optimization/run-daily", { method: "POST" }), "Öneriler güncellendi.")}>Öneri Üret</AdminButton>}
           {tab === "seo" && <AdminButton variant="secondary" icon={<RefreshCw size={14} />} loading={busy === "run-seo"} onClick={() => run("run-seo", () => fetchJson("/api/admin/seo-autopilot/run-daily", { method: "POST" }), "Gerileme taraması tamamlandı.")}>Taramayı Çalıştır</AdminButton>}
+          {tab === "health" && <AdminButton variant="secondary" icon={<RefreshCw size={14} />} loading={busy === "run-health"} onClick={() => run("run-health", () => fetchJson("/api/admin/customer-health/run-daily", { method: "POST" }), "Sağlık skorları güncellendi.")}>Şimdi Hesapla</AdminButton>}
         </>
       }
     >
@@ -135,6 +189,26 @@ export function AutonomousOpsCenter() {
           {tab === "risk" && <AdminDataGrid columns={riskColumns} rows={risks} rowKey={(row) => row.id} emptyTitle="Risk skoru yok" emptyDescription="Şimdi Hesapla ile ilk skorlamayı çalıştırın." />}
           {tab === "ads" && <AdminDataGrid columns={adColumns} rows={suggestions} rowKey={(row) => row.id} emptyTitle="Öneri yok" emptyDescription="Öneri Üret ile Reklam Doktoru Pro'nun son teşhislerinden öneri oluşturun." />}
           {tab === "seo" && <AdminDataGrid columns={seoColumns} rows={seoJobs} rowKey={(row) => row.id} emptyTitle="Gerileme tespit edilmedi" emptyDescription="Taramayı Çalıştır ile Search Console verisini kontrol edin." />}
+          {tab === "health" && <AdminDataGrid columns={healthColumns} rows={healthScores} rowKey={(row) => row.id} emptyTitle="Sağlık skoru yok" emptyDescription="Şimdi Hesapla ile ilk skorlamayı çalıştırın." />}
+          {tab === "capacity" && <AdminDataGrid columns={capacityColumns} rows={capacity} rowKey={(row) => row.userId} emptyTitle="Kapasite profili yok" emptyDescription="Ekip üyeleri için haftalık kapasite tanımlanmadı." />}
+          {tab === "pricing" && (
+            <div className="grid gap-4">
+              <div className="admin-card flex flex-wrap items-end gap-3 rounded-[14px] p-4">
+                <div className="min-w-[280px] flex-1">
+                  <label className="text-xs font-black uppercase tracking-wide opacity-60">Paket Slug&apos;ları (virgülle ayırın)</label>
+                  <input value={pricingServices} onChange={(event) => setPricingServices(event.target.value)} placeholder="meta-pro, google-ads-pro" className="mt-1 w-full rounded-[10px] px-3 py-2 text-sm font-bold outline-none" style={{ border: "1px solid var(--admin-border)", background: "var(--admin-surface)", color: "var(--admin-text-primary)" }} />
+                </div>
+                <AdminButton variant="primary" loading={busy === "pricing"} onClick={generatePricing}>Fiyat Önerisi Oluştur</AdminButton>
+              </div>
+              {pricingResult && (
+                <div className="admin-card rounded-[14px] p-4">
+                  <p className="font-black">{pricingResult.recommended_price.toLocaleString("tr-TR")} TL <span className="text-xs opacity-60">(aralık: {pricingResult.recommended_range_min.toLocaleString("tr-TR")}-{pricingResult.recommended_range_max.toLocaleString("tr-TR")} TL, kapanış %{pricingResult.close_probability})</span></p>
+                  <p className="mt-2 text-sm opacity-80">{pricingResult.ai_rationale}</p>
+                </div>
+              )}
+              <AdminDataGrid columns={pricingColumns} rows={pricingHistory} rowKey={(row) => row.id} emptyTitle="Fiyat önerisi geçmişi yok" />
+            </div>
+          )}
         </>
       )}
     </AdminWorkspace>
