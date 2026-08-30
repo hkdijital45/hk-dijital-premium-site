@@ -171,6 +171,8 @@ export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canMan
   const [templateBody, setTemplateBody] = useState("");
   const [busy, setBusy] = useState("");
   const [loading, setLoading] = useState(true);
+  const [aiInsight, setAiInsight] = useState<{ summary: string; sentiment: string; action_items: string[]; suggested_reply: string } | null>(null);
+  const [aiInsightLoading, setAiInsightLoading] = useState(false);
   const [message, setMessage] = useState(initialMessage);
   const [auditMessage, setAuditMessage] = useState<MessageItem | null>(null);
   const [auditPayload, setAuditPayload] = useState<AuditPayload | null>(null);
@@ -235,6 +237,8 @@ export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canMan
   useEffect(() => { void loadList(); }, [loadList]);
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { if (selectedId) void loadDetail(selectedId); }, [selectedId, loadDetail]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setAiInsight(null); }, [selectedId]);
   useEffect(() => { fetch("/api/admin/communication/canned-responses", { cache: "no-store" }).then((response) => response.json()).then((payload) => setCanned(payload.responses || [])).catch(() => setCanned([])); }, []);
   useEffect(() => {
     if (!hasChanges) return;
@@ -346,6 +350,23 @@ export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canMan
     if (!note.trim()) return;
     const ok = await updateConversation({ action: "internal_note", note }, "note");
     if (ok) setNote("");
+  }
+
+  async function generateAiInsight() {
+    if (!detail) return;
+    setAiInsightLoading(true);
+    setAiInsight(null);
+    try {
+      const response = await fetch("/api/admin/communication/insights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversationId: detail.conversation.id })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok) setAiInsight(data.insight || null);
+    } finally {
+      setAiInsightLoading(false);
+    }
   }
 
   async function createTask() {
@@ -539,6 +560,17 @@ export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canMan
               <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={2} maxLength={8000} className="w-full rounded-[8px] border border-amber-200 bg-[var(--admin-surface)] p-2 text-xs" placeholder="Ekip notu" />
               <AdminButton compact variant="warning" disabled={!note.trim() || busy === "note"} onClick={addInternalNote}>Notu Kaydet</AdminButton>
               <div className="mt-2 grid gap-1.5">{detail.internalNotes.slice(0, 5).map((item) => <div key={item.id} className="admin-detail-inspector-field"><p>{item.author_name} · {formatDateTime(item.created_at)}</p><p style={{ fontWeight: 500 }}>{item.body}</p></div>)}{!detail.internalNotes.length && <p className="text-[11px]" style={{ color: "var(--admin-text-muted)" }}>Henüz iç not yok.</p>}</div>
+            </section>
+
+            <section>
+              <h4 className="mb-2 text-xs font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>AI Özeti</h4>
+              <AdminButton compact variant="ai" disabled={aiInsightLoading} onClick={generateAiInsight}>{aiInsightLoading ? "Oluşturuluyor..." : "Konuşmayı Özetle"}</AdminButton>
+              {aiInsight && <div className="mt-2 grid gap-1.5 rounded-[8px] bg-violet-50 p-2 text-[11px]">
+                <p><strong>Duygu:</strong> {aiInsight.sentiment}</p>
+                <p>{aiInsight.summary}</p>
+                {aiInsight.action_items.length > 0 && <ul className="ml-4 list-disc">{aiInsight.action_items.map((item, index) => <li key={index}>{item}</li>)}</ul>}
+                {aiInsight.suggested_reply && <p className="rounded-[6px] bg-white p-2"><strong>Önerilen yanıt:</strong> {aiInsight.suggested_reply}</p>}
+              </div>}
             </section>
 
             <section>
