@@ -92,7 +92,8 @@ const adminNavigationSourceGroups: AdminNavigationGroup[] = [
       { label: "Agent Hub", slug: "agent-hub", module: "agent-hub", description: "Agent, workflow, hafıza, öğrenme, benchmark ve sağlayıcı yönetimi." },
       { label: "Yapay Zekâ Stüdyosu", slug: "ai-studio", module: "ai-studio", description: "İçerik, analiz ve rapor üretim araçları." },
       { label: "Prompt Merkezi", slug: "prompt-uretimi", module: "prompt-kutuphanesi", description: "Tekrar kullanılabilir yapay zekâ komutları." },
-      { label: "Yapay Zekâ Satış Koçu", slug: "ai-satis-kocu", module: "ai-studio", description: "Potansiyel müşteri ve fırsatlar için arama, WhatsApp, e-posta ve itiraz cevapları." }
+      { label: "Yapay Zekâ Satış Koçu", slug: "ai-satis-kocu", module: "ai-studio", description: "Potansiyel müşteri ve fırsatlar için arama, WhatsApp, e-posta ve itiraz cevapları." },
+      { label: "Otonom Operasyonlar", slug: "otonom-operasyonlar", module: "customer-risk", description: "Müşteri risk skorlaması, reklam optimizasyon onayları ve SEO gerileme tespiti — insan onaylı otomasyon." }
     ]
   },
   {
@@ -187,6 +188,7 @@ const adminNavigationSourceGroups: AdminNavigationGroup[] = [
       { label: "Sistem Ayarları", slug: "sistem-ayarlari", module: "site-ayarlari", description: "Genel uygulama davranışı ve sistem tercihleri." },
       { label: "Güvenlik", slug: "guvenlik", module: "kullanicilar", description: "Kullanıcı erişimi, rol güvenliği ve yönetim kontrolleri." },
       { label: "HK Asistan Ayarları", slug: "hk-asistan-ayarlari", module: "hk-asistan", description: "Müşteri bazlı HK Asistan izinleri, sağlayıcı modu ve günlük limitler." },
+      { label: "Operasyonel Kalite Merkezi", slug: "operasyonel-kalite-merkezi", module: "operational-quality", description: "QA Merkezi ve Sistem Test Merkezi'nin birleşik görünümü: canlı testler, loglar, otomasyon durumu ve AI bug özeti." },
       { label: "QA Merkezi", slug: "qa-center", module: "qa-center", description: "Admin aksiyonları, API uçları ve Supabase migration uyumunu denetler." },
       { label: "Sistem Sağlığı", slug: "sistem-sagligi", module: "sistem-sagligi", description: "API, veritabanı, ölçümleme ve servis bağlantı durumları." },
       { label: "Sistem Test Merkezi", slug: "sistem-test-merkezi", module: "sistem-test-merkezi", description: "Otomatik ve manuel sistem kalite kontrolleri." },
