@@ -7,6 +7,22 @@
     {
       "path": "/api/admin/blog-seo/publish-due",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/admin/ceo-briefing/run-daily",
+      "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/admin/customer-risk/run-daily",
+      "schedule": "15 5 * * *"
+    },
+    {
+      "path": "/api/admin/ad-optimization/run-daily",
+      "schedule": "30 5 * * *"
+    },
+    {
+      "path": "/api/admin/seo-autopilot/run-daily",
+      "schedule": "45 5 * * *"
     }
   ]
 }
