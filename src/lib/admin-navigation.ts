@@ -125,7 +125,8 @@ const adminNavigationSourceGroups: AdminNavigationGroup[] = [
       { label: "Gelir Gider", slug: "gelir-gider", module: "karlilik", description: "Gelir ve giderleri tek tabloda takip edin." },
       { label: "Bekleyen Ödemeler", slug: "bekleyen-odemeler", module: "tahsilat", description: "Bekleyen ve geciken tahsilatları izleyin." },
       { label: "Gelir Tahmini", slug: "gelir-tahmini", module: "karlilik", description: "Beklenen gelir, riskli gelir ve tahmini kâr projeksiyonu." },
-      { label: "Kârlılık", slug: "karlilik", module: "karlilik", description: "Müşteri bazlı kâr ve marj görünümü." }
+      { label: "Kârlılık", slug: "karlilik", module: "karlilik", description: "Müşteri bazlı kâr ve marj görünümü." },
+      { label: "HK Ajans Zekası", slug: "ajans-zekasi", module: "karlilik", description: "GEO görünürlük gözlemleri, nakit akışı senaryo tahmini ve upsell fırsatları." }
     ]
   },
   {
