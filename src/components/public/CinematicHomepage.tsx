@@ -2,7 +2,7 @@
 
 import { useId, useState } from "react";
 import Link from "next/link";
-import { motion, MotionConfig } from "framer-motion";
+import { motion, MotionConfig, useReducedMotion } from "framer-motion";
 import {
   ArrowRight,
   BarChart3,
@@ -39,11 +39,16 @@ import { blogPosts } from "@/lib/public-seo-content";
 import { PACKAGE_CATEGORIES, formatTRY, getPackagePricing, servicePackagesByCategory } from "@/lib/packages";
 import { CheckCircle2 } from "@/lib/icons";
 import { DeviceShowcase } from "./DeviceShowcase";
+import { BentoServices, type BentoServiceItem } from "./BentoServices";
+import { ProcessStoryline, type ProcessStep } from "./ProcessStoryline";
+import { AiVisibilitySection } from "./AiVisibilitySection";
+import { SocialManagementSection } from "./SocialManagementSection";
+import { platformMarks } from "./PlatformIcons";
 
-const fixedServices: Array<{ name: string; Icon: LucideIcon; href: string; outcome: string }> = [
-  { name: "Meta Reklam Yönetimi", Icon: BarChart3, href: "/hizmetler/meta-reklam-yonetimi", outcome: "Ölçülebilir mesaj, form ve mağaza trafiği." },
-  { name: "Google Ads Yönetimi", Icon: Search, href: "/hizmetler/google-ads-yonetimi", outcome: "Arama niyeti yüksek talebi yakalama." },
-  { name: "Sosyal Medya Yönetimi", Icon: Users, href: "/hizmetler/sosyal-medya-yonetimi", outcome: "Düzenli içerik ve marka güveni." },
+const fixedServices: BentoServiceItem[] = [
+  { name: "Meta Reklam Yönetimi", Icon: BarChart3, href: "/hizmetler/meta-reklam-yonetimi", outcome: "Ölçülebilir mesaj, form ve mağaza trafiği.", platforms: ["meta", "instagram", "facebook"] },
+  { name: "Google Ads Yönetimi", Icon: Search, href: "/hizmetler/google-ads-yonetimi", outcome: "Arama niyeti yüksek talebi yakalama.", platforms: ["google"] },
+  { name: "Sosyal Medya Yönetimi", Icon: Users, href: "/hizmetler/sosyal-medya-yonetimi", outcome: "Düzenli içerik ve marka güveni.", platforms: ["instagram", "tiktok"] },
   { name: "Dijital Pazarlama Danışmanlığı", Icon: BrainCircuit, href: "/hizmetler/dijital-pazarlama-danismanligi", outcome: "Kanalları tek büyüme planına bağlama." },
   { name: "Ölçümleme ve Raporlama", Icon: Target, href: "/hizmetler#raporlama", outcome: "Harcamanın karşılığını net görme." },
   { name: "Web Sitesi ve Dönüşüm Danışmanlığı", Icon: ShieldCheck, href: "/hizmetler#web-donusum", outcome: "Ziyaretçiyi talebe çevirme." }
@@ -60,7 +65,7 @@ const expertiseStrip: Array<{ label: string; Icon: LucideIcon }> = [
   { label: "Lead Generation", Icon: Target }
 ];
 
-const processSteps: Array<{ label: string; text: string; Icon: LucideIcon }> = [
+const processSteps: ProcessStep[] = [
   { label: "Analiz", text: "İşletme, hedef kitle ve mevcut dijital varlıklar birlikte değerlendirilir.", Icon: FileSearch2 },
   { label: "Strateji", text: "Kanal, bütçe ve mesaj önceliği hedefe göre netleştirilir.", Icon: Compass },
   { label: "Kurulum", text: "Kampanya, ölçümleme ve içerik altyapısı devreye alınır.", Icon: ClipboardCheck },
@@ -119,10 +124,10 @@ function FaqAccordion() {
                 aria-expanded={open}
                 aria-controls={panelId}
                 onClick={() => setOpenIndex(open ? null : index)}
-                className="flex w-full items-center justify-between gap-4 py-4 text-left text-base font-bold text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4fa8f0]"
+                className="flex w-full items-center justify-between gap-4 py-4 text-left text-base font-bold text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#a78bfa]"
               >
                 {question}
-                <ChevronDown size={18} className={`shrink-0 text-[#4fa8f0] transition-transform duration-300 ${open ? "rotate-180" : ""}`} aria-hidden="true" />
+                <ChevronDown size={18} className={`shrink-0 text-[#c4b5fd] transition-transform duration-300 ${open ? "rotate-180" : ""}`} aria-hidden="true" />
               </button>
             </h3>
             <div id={panelId} role="region" aria-labelledby={buttonId} hidden={!open} className="pb-4">
@@ -187,18 +192,18 @@ function SectionShell({ id, eyebrow, title, text, children, className = "" }: Se
 function CinematicButton({ href, children, variant = "primary", trackingLabel = "Public CTA" }: { href: string; children: ReactNode; variant?: "primary" | "ghost" | "whatsapp"; trackingLabel?: string }) {
   const className =
     variant === "primary"
-      ? "border-[#4fa8f0]/50 bg-gradient-to-r from-[#2f5bff] to-[#4fa8f0] text-white shadow-[0_0_54px_rgba(47,91,255,.35)] hover:brightness-110"
+      ? "border-[#a78bfa]/50 bg-gradient-to-r from-[#7c3aed] via-[#4f46e5] to-[#4fa8f0] text-white shadow-[0_0_54px_rgba(124,58,237,.4)] hover:brightness-110"
       : variant === "whatsapp"
         ? "border-[#25D366]/50 bg-[#25D366] text-white shadow-[0_0_44px_rgba(37,211,102,.3)] hover:bg-[#20bd5b]"
-        : "border-white/15 bg-white/[0.05] text-white hover:border-[#4fa8f0]/50 hover:bg-[#2f5bff]/10";
-  return <Link href={href} onClick={() => trackMetaCtaClick(trackingLabel, href)} target={variant === "whatsapp" ? "_blank" : undefined} rel={variant === "whatsapp" ? "noreferrer" : undefined} className={`cinematic-press inline-flex min-h-13 items-center justify-center gap-2 rounded-full border px-6 text-sm font-bold transition focus:outline-none focus:ring-2 focus:ring-[#4fa8f0] ${className}`}>{children}</Link>;
+        : "border-white/15 bg-white/[0.05] text-white hover:border-[#a78bfa]/50 hover:bg-[#7c3aed]/10";
+  return <Link href={href} onClick={() => trackMetaCtaClick(trackingLabel, href)} target={variant === "whatsapp" ? "_blank" : undefined} rel={variant === "whatsapp" ? "noreferrer" : undefined} className={`cinematic-press inline-flex min-h-13 items-center justify-center gap-2 rounded-full border px-6 text-sm font-bold transition focus:outline-none focus:ring-2 focus:ring-[#a78bfa] ${className}`}>{children}</Link>;
 }
 
 function MetricCounter({ value, label, text }: { value: string; label: string; text: string }) {
   return (
-    <div className="border-r border-white/10 px-6 py-8 last:border-r-0 sm:px-8">
-      <p className="text-4xl font-black italic text-white">{value}</p>
-      <h4 className="mt-2 text-xs font-black uppercase tracking-[.1em] text-[#4fa8f0]">{label}</h4>
+    <div className="cinematic-bento flex flex-col p-6">
+      <p className="text-4xl font-black italic cinematic-gradient-text">{value}</p>
+      <h4 className="mt-2 text-xs font-black uppercase tracking-[.1em] text-[#c4b5fd]">{label}</h4>
       <p className="mt-2 text-xs leading-6 text-slate-500">{text}</p>
     </div>
   );
@@ -227,7 +232,7 @@ function PackageTabs() {
             aria-selected={active === category.key}
             aria-controls={`pkg-panel-${category.key}`}
             onClick={() => setActive(category.key)}
-            className={`rounded-full border px-5 py-2.5 text-sm font-bold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4fa8f0] ${active === category.key ? "border-[#4fa8f0] bg-[#2f5bff] text-white" : "border-white/15 bg-transparent text-slate-400 hover:text-white"}`}
+            className={`rounded-full border px-5 py-2.5 text-sm font-bold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#a78bfa] ${active === category.key ? "border-[#a78bfa] bg-gradient-to-r from-[#7c3aed] to-[#4fa8f0] text-white" : "border-white/15 bg-transparent text-slate-400 hover:text-white"}`}
           >
             {category.shortLabel}
           </button>
@@ -238,8 +243,8 @@ function PackageTabs() {
         {servicePackagesByCategory(activeCategory.key).map((pkg) => {
           const pricing = getPackagePricing(pkg);
           return (
-            <div key={pkg.slug} className={`relative rounded-[18px] border p-7 transition hover:-translate-y-1 ${pkg.popular ? "border-[#4fa8f0]/60 bg-[#2f5bff]/[0.09]" : "border-white/10 bg-white/[0.03]"}`}>
-              {pkg.popular && <span className="absolute right-6 top-6 rounded-full bg-gradient-to-r from-[#2f5bff] to-[#4fa8f0] px-3 py-1 text-[10px] font-black uppercase tracking-[.08em] text-white">Önerilen</span>}
+            <div key={pkg.slug} className={`cinematic-bento relative p-7 ${pkg.popular ? "border-[#a78bfa]/60 cinematic-bento-featured" : ""}`}>
+              {pkg.popular && <span className="absolute right-6 top-6 rounded-full bg-gradient-to-r from-[#7c3aed] to-[#4fa8f0] px-3 py-1 text-[10px] font-black uppercase tracking-[.08em] text-white">Önerilen</span>}
               <h3 className="text-xl font-black text-white">{pkg.name}</h3>
               <p className="mt-2 text-xs font-bold uppercase tracking-[.08em] text-slate-500">{pkg.idealFor}</p>
               <p className="mt-3 text-sm leading-6 text-slate-400">{pkg.description}</p>
@@ -255,13 +260,35 @@ function PackageTabs() {
                   </li>
                 ))}
               </ul>
-              <Link href={`/teklif-al?paket=${pkg.slug}`} onClick={() => trackEvent("package_clicked", { package: pkg.slug, href: "/teklif-al" })} className="mt-7 inline-flex min-h-11 w-full items-center justify-center rounded-full border border-[#4fa8f0]/40 bg-white/[0.04] px-5 text-sm font-bold text-white transition hover:bg-[#2f5bff]">
+              <Link href={`/teklif-al?paket=${pkg.slug}`} onClick={() => trackEvent("package_clicked", { package: pkg.slug, href: "/teklif-al" })} className="mt-7 inline-flex min-h-11 w-full items-center justify-center rounded-full border border-[#a78bfa]/40 bg-white/[0.04] px-5 text-sm font-bold text-white transition hover:bg-[#7c3aed]">
                 Bu Paketi Seç
               </Link>
             </div>
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function HeroFloatingIcons() {
+  const reduced = useReducedMotion();
+  if (reduced) return null;
+  const positions = [
+    { top: "6%", left: "2%" },
+    { top: "18%", right: "4%" },
+    { top: "62%", left: "0%" },
+    { top: "72%", right: "2%" },
+    { top: "40%", left: "10%" },
+    { top: "8%", right: "22%" }
+  ];
+  return (
+    <div className="pointer-events-none absolute inset-0 hidden lg:block" aria-hidden="true">
+      {platformMarks.map(({ key, Icon }, index) => (
+        <div key={key} className="cinematic-float-icon size-14 p-3" style={positions[index]}>
+          <Icon className="h-full w-full" />
+        </div>
+      ))}
     </div>
   );
 }
@@ -277,22 +304,24 @@ export function CinematicHomepage({ content }: { content: SiteContent }) {
 
       <section id="hero" className="cinematic-floor relative flex min-h-[calc(100svh-76px)] scroll-mt-20 items-center overflow-hidden px-4 py-20 sm:px-6 lg:px-8">
         <div className="cinematic-floor-glow" aria-hidden="true" />
+        <HeroFloatingIcons />
         <div className="relative mx-auto max-w-4xl">
-          <p className="cinematic-eyebrow text-xs font-black uppercase tracking-[.3em]">Manisa merkezli dijital pazarlama ajansı</p>
+          <p className="cinematic-eyebrow text-xs font-black uppercase tracking-[.3em]">Manisa merkezli dijital pazarlama, reklam &amp; yapay zekâ ajansı</p>
           <h1 className="cinematic-title mt-6 text-4xl sm:text-6xl lg:text-[5.2rem]">
-            Manisa Dijital Pazarlama Ajansı ile <span className="cinematic-title-highlight">Reklamlarınızı</span> Büyümeye Dönüştürün
+            Dijitalde Büyümeyi <span className="cinematic-title-highlight">Şansa</span> Bırakmayın
           </h1>
           <div className="mt-8 h-px w-full bg-white/10" />
           <p className="mt-8 max-w-2xl text-base leading-8 text-slate-400 sm:text-lg">
-            HK Dijital; Manisa merkezli işletmelere ve Türkiye genelindeki markalara Meta reklamları, Google Ads, sosyal medya stratejisi, dönüşüm takibi ve anlaşılır performans raporlaması sunar.
+            HK Dijital; Google Ads, Meta reklamları, sosyal medya yönetimi ve yapay zekâ destekli görünürlük analiziyle Manisa merkezli işletmelere ve Türkiye genelindeki markalara ölçülebilir dijital büyüme sistemi kurar.
           </p>
           <div className="mt-8 flex flex-wrap gap-2 text-[11px] font-bold uppercase tracking-[.05em] text-slate-400">
-            {["Manisa merkezli", "Türkiye geneli hizmet", "Şeffaf raporlama", "Strateji + reklam + içerik", "Satış garantisi değil, ölçülebilir sistem"].map((item) => (
-              <span key={item} className="rounded-full border border-white/10 px-3.5 py-2">{item}</span>
+            {["Manisa merkezli", "Türkiye geneli hizmet", "Şeffaf raporlama", "Strateji + reklam + içerik + AI", "Satış garantisi değil, ölçülebilir sistem"].map((item) => (
+              <span key={item} className="cinematic-badge">{item}</span>
             ))}
           </div>
           <div className="mt-9 flex flex-wrap gap-4">
             <CinematicButton href="/teklif-al" trackingLabel="Hero Paketini Bul">Paketini Bul <ArrowRight size={18} /></CinematicButton>
+            <CinematicButton href="/hizmetler" variant="ghost" trackingLabel="Hero Hizmetleri İncele">Hizmetleri İncele</CinematicButton>
             <CinematicButton href={whatsappUrl} variant="whatsapp" trackingLabel="Hero WhatsApp'tan Görüş">WhatsApp&apos;tan Görüş <MessageCircle size={18} /></CinematicButton>
           </div>
         </div>
@@ -300,33 +329,27 @@ export function CinematicHomepage({ content }: { content: SiteContent }) {
 
       <Divider />
 
-      <section aria-label="Uzmanlık alanları" className="border-b border-white/10 bg-white/[0.015] px-4 py-10 sm:px-6 lg:px-8">
+      <section aria-label="Yönettiğimiz reklam ve sosyal medya platformları" className="border-b border-white/10 bg-white/[0.015] px-4 py-10 sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-8 gap-y-5 sm:justify-between">
           {expertiseStrip.map((item) => (
             <div key={item.label} className="flex items-center gap-2.5 text-slate-300">
-              <item.Icon size={17} className="text-[#4fa8f0]" aria-hidden="true" />
+              <item.Icon size={17} className="text-[#c4b5fd]" aria-hidden="true" />
               <span className="whitespace-nowrap text-xs font-bold uppercase tracking-[.08em]">{item.label}</span>
+            </div>
+          ))}
+        </div>
+        <div className="mx-auto mt-8 flex max-w-7xl flex-wrap items-center justify-center gap-x-10 gap-y-4 border-t border-white/10 pt-6 opacity-75">
+          {platformMarks.map(({ key, label, Icon }) => (
+            <div key={key} className="flex items-center gap-2">
+              <Icon className="size-6" />
+              <span className="text-xs font-bold text-slate-500">{label}</span>
             </div>
           ))}
         </div>
       </section>
 
       <SectionShell id="services" eyebrow="01 — Hizmetler" title={<>MARKANIZI <span className="cinematic-title-highlight">BÜYÜMEYE</span> BAĞLAYAN SİSTEM</>} text="Her kanal kendi başına değil; hedef, bütçe, teklif, dönüşüm takibi ve raporlamayla birlikte yönetildiğinde sağlıklı karar üretir.">
-        <div className="mt-12 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {fixedServices.map(({ name, Icon, href, outcome }) => {
-            const matched = services.find((service) => service.name.toLocaleLowerCase("tr").includes(name.split(" ")[0].toLocaleLowerCase("tr")));
-            return (
-              <div key={name} className="cinematic-card group flex flex-col rounded-[18px] border border-white/10 bg-white/[0.03] p-7">
-                <div className="grid size-12 place-items-center rounded-[10px] border border-[#4fa8f0]/25 bg-[#2f5bff]/10 text-[#4fa8f0] transition group-hover:scale-110"><Icon size={22} /></div>
-                <h3 className="mt-6 text-xl font-black text-white">{name}</h3>
-                {matched?.problem && <p className="mt-3 text-xs font-bold uppercase tracking-[.05em] text-slate-500">Problem: {matched.problem}</p>}
-                <p className="mt-3 text-sm leading-7 text-slate-400">{matched?.description || "Strateji, kurulum, optimizasyon ve raporlama tek merkezde yönetilir."}</p>
-                <p className="mt-4 flex items-center gap-2 text-xs font-bold text-[#4fa8f0]"><Sparkles size={13} /> {outcome}</p>
-                <Link href={href} className="mt-5 inline-flex items-center gap-2 text-sm font-black text-white">Hizmeti incele <ArrowRight size={16} /></Link>
-              </div>
-            );
-          })}
-        </div>
+        <BentoServices items={fixedServices} services={services} />
         {/* Only CMS-managed services beyond the 6 fixed cards above (e.g. an
             admin-added extra service) render here — avoids showing the same
             service twice while still surfacing anything editors add. */}
@@ -343,30 +366,11 @@ export function CinematicHomepage({ content }: { content: SiteContent }) {
 
       <Divider />
 
-      <SectionShell id="process" eyebrow="02 — Süreç" title={<>KEŞİFTEN <span className="cinematic-title-highlight">RAPORA</span> KADAR</>} text="Her adım ölçülebilir, takip edilebilir ve müşteriye anlatılabilir şekilde ilerler.">
-        <div className="mt-12 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {processSteps.map((step, index) => (
-            <div key={step.label} className="cinematic-card rounded-[18px] border border-white/10 bg-white/[0.03] p-6">
-              <div className="flex items-center gap-3">
-                <span className="grid size-10 place-items-center rounded-full border border-white/10 bg-[#030304] text-sm font-black italic text-slate-400">0{index + 1}</span>
-                <step.Icon size={18} className="text-[#4fa8f0]" aria-hidden="true" />
-              </div>
-              <h3 className="mt-5 text-lg font-black text-white">{step.label}</h3>
-              <p className="mt-2 text-sm leading-7 text-slate-400">{step.text}</p>
-            </div>
-          ))}
+      <SectionShell id="performans" eyebrow="02 — Performans Pazarlama" title={<>ÖLÇÜLEBİLİR <span className="cinematic-title-highlight">BÜYÜME</span> SİSTEMİ</>} text="Sayısal örnekler yalnızca fikir vermek içindir; asıl fark günlük operasyonun nasıl yönetildiğidir.">
+        <p className="text-xs font-bold uppercase tracking-[.08em] text-slate-500">Aşağıdaki gösterge panosu örnek bir senaryodur — satış garantisi değil, ölçülebilir bir sistemdir.</p>
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {proofMetrics.map(([value, label, text]) => <MetricCounter key={label} value={value} label={label} text={text} />)}
         </div>
-      </SectionShell>
-
-      <SectionShell id="device" className="border-y border-white/10 bg-white/[0.015]" eyebrow="03 — HK Dijital Çalışma Sistemi" title={<>OPERASYON <span className="cinematic-title-highlight">TEK PANELDE</span></>} text="Müşteri yönetimi, reklam performansı, içerik takvimi, lead takibi, raporlama ve paket önerisi aynı çalışma sisteminin parçasıdır.">
-        <div className="mt-12">
-          <DeviceShowcase />
-        </div>
-      </SectionShell>
-
-      <Divider />
-
-      <SectionShell id="value" eyebrow="04 — Değer" title={<>DAHA <span className="cinematic-title-highlight">DÜZENLİ</span> BİR OPERASYON</>} text="Sayısal örnekler yalnızca fikir vermek içindir; asıl fark günlük operasyonun nasıl yönetildiğidir.">
         <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {valueBenefits.map((benefit) => (
             <div key={benefit} className="flex items-start gap-2.5 rounded-[14px] border border-white/10 bg-white/[0.03] p-4">
@@ -375,19 +379,31 @@ export function CinematicHomepage({ content }: { content: SiteContent }) {
             </div>
           ))}
         </div>
-        <p className="mt-6 text-xs font-bold uppercase tracking-[.08em] text-slate-500">Aşağıdaki gösterge panosu örnek bir senaryodur — satış garantisi değil, ölçülebilir bir sistemdir.</p>
-        <div className="mt-6 grid grid-cols-2 divide-y divide-white/10 border border-white/10 sm:grid-cols-4 sm:divide-y-0">
-          {proofMetrics.map(([value, label, text]) => <MetricCounter key={label} value={value} label={label} text={text} />)}
+      </SectionShell>
+
+      <SectionShell id="sosyal-medya-yonetimi" className="border-y border-white/10 bg-white/[0.015]" eyebrow="03 — Sosyal Medya Yönetimi" title={<>İÇERİKTEN <span className="cinematic-title-highlight">TOPLULUĞA</span> TEK AKIŞ</>} text="İçerik takvimi, kreatif üretim, topluluk yönetimi ve performans analizi aynı çalışma akışının parçasıdır.">
+        <SocialManagementSection />
+      </SectionShell>
+
+      <AiVisibilitySection />
+
+      <SectionShell id="process" eyebrow="05 — Süreç" title={<>KEŞİFTEN <span className="cinematic-title-highlight">RAPORA</span> KADAR</>} text="Her adım ölçülebilir, takip edilebilir ve müşteriye anlatılabilir şekilde ilerler.">
+        <ProcessStoryline steps={processSteps} />
+      </SectionShell>
+
+      <SectionShell id="device" className="border-y border-white/10 bg-white/[0.015]" eyebrow="06 — HK Dijital Çalışma Sistemi" title={<>OPERASYON <span className="cinematic-title-highlight">TEK PANELDE</span></>} text="Müşteri yönetimi, reklam performansı, içerik takvimi, lead takibi, raporlama ve paket önerisi aynı çalışma sisteminin parçasıdır.">
+        <div className="mt-12">
+          <DeviceShowcase />
         </div>
       </SectionShell>
 
       <Divider />
 
-      <SectionShell id="packages" eyebrow="05 — Paketler" title={<>KAPSAMI VE <span className="cinematic-title-highlight">BÜTÇEYİ</span> NETLEŞTİRİN</>} text={content.pages.packages?.intro || "Meta, Google Ads, kombin reklam yönetimi ve sosyal medya hizmetlerini net kapsam, fiyat ve raporlama disipliniyle karşılaştırın."}>
+      <SectionShell id="packages" eyebrow="07 — Paketler" title={<>KAPSAMI VE <span className="cinematic-title-highlight">BÜTÇEYİ</span> NETLEŞTİRİN</>} text={content.pages.packages?.intro || "Meta, Google Ads, kombin reklam yönetimi ve sosyal medya hizmetlerini net kapsam, fiyat ve raporlama disipliniyle karşılaştırın."}>
         <div className="mt-10">
           <PackageTabs />
         </div>
-        <div className="mt-10 flex flex-wrap items-center gap-4 rounded-[18px] border border-[#4fa8f0]/30 bg-[#2f5bff]/[0.08] p-6">
+        <div className="mt-10 flex flex-wrap items-center gap-4 rounded-[18px] border border-[#a78bfa]/30 bg-[#7c3aed]/[0.08] p-6">
           <div className="flex-1">
             <p className="text-lg font-black text-white">Hangi paket sana uygun?</p>
             <p className="mt-1 text-sm leading-6 text-slate-400">Paket Seçme Robotu; hedefine ve bütçene göre birkaç saniyede önerir.</p>
@@ -395,14 +411,14 @@ export function CinematicHomepage({ content }: { content: SiteContent }) {
           <CinematicButton href="/teklif-al" trackingLabel="Paket Bölümü Robotu Başlat">Paket Seçme Robotunu Başlat <ArrowRight size={18} /></CinematicButton>
         </div>
         <div className="mt-5">
-          <Link href="/paketler" className="text-sm font-black text-[#4fa8f0]">Tüm paket detaylarını görüntüle →</Link>
+          <Link href="/paketler" className="text-sm font-black text-[#c4b5fd]">Tüm paket detaylarını görüntüle →</Link>
         </div>
       </SectionShell>
 
-      <section id="paket-robotu" className="relative overflow-hidden bg-gradient-to-br from-[#1730b5] via-[#2f5bff] to-[#3f6bff] px-4 py-20 sm:px-6 lg:px-8">
+      <section id="paket-robotu" className="relative overflow-hidden bg-gradient-to-br from-[#3b1f9e] via-[#5b3bdb] to-[#4f6bff] px-4 py-20 sm:px-6 lg:px-8">
         <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[1.1fr_.9fr] lg:items-center">
           <div>
-            <p className="cinematic-eyebrow text-xs font-black uppercase tracking-[.22em] text-white/90 [&::before]:bg-white/90">06 — Paket Seçme Robotu</p>
+            <p className="cinematic-eyebrow text-xs font-black uppercase tracking-[.22em] text-white/90 [&::before]:bg-white/90">08 — Paket Seçme Robotu</p>
             <h2 className="mt-5 text-3xl font-black italic uppercase leading-[.98] tracking-tight text-white sm:text-5xl">{content.quoteWizard.title || "Size Uygun Paketi Birlikte Bulalım"}</h2>
             <p className="mt-6 max-w-xl text-base leading-7 text-white/85">{content.quoteWizard.subtitle || "Birkaç soruda işletme türünüzü, hedefinizi ve bütçe aralığınızı belirtin; sistem size uygun paketi önerir."}</p>
             <ol className="mt-7 grid gap-2.5 text-sm leading-6 text-white/90">
@@ -410,7 +426,7 @@ export function CinematicHomepage({ content }: { content: SiteContent }) {
               <li className="flex gap-3"><span className="font-black">02</span> Bütçe aralığınızı ve zamanlamayı belirtirsiniz.</li>
               <li className="flex gap-3"><span className="font-black">03</span> Sistem size uygun paketi önerir ve teklif akışına bağlar.</li>
             </ol>
-            <Link href="/teklif-al" onClick={() => trackMetaCtaClick("Robot Bölümü Başlat", "/teklif-al")} className="mt-8 inline-flex min-h-13 items-center gap-2 rounded-full bg-white px-6 text-sm font-black text-[#1730b5] transition hover:-translate-y-0.5">
+            <Link href="/teklif-al" onClick={() => trackMetaCtaClick("Robot Bölümü Başlat", "/teklif-al")} className="mt-8 inline-flex min-h-13 items-center gap-2 rounded-full bg-white px-6 text-sm font-black text-[#3b1f9e] transition hover:-translate-y-0.5">
               Paket Seçme Robotunu Başlat <ArrowRight size={18} />
             </Link>
           </div>
@@ -424,11 +440,11 @@ export function CinematicHomepage({ content }: { content: SiteContent }) {
         </div>
       </section>
 
-      <SectionShell id="neden-hk" eyebrow="07 — Neden HK Dijital" title={<>DENEYİM VE <span className="cinematic-title-highlight">ŞEFFAFLIK</span></>} text="Reklam yayınlamak kolaydır; doğru strateji, takip ve raporlamayla yönetmek fark yaratır.">
+      <SectionShell id="neden-hk" eyebrow="09 — Neden HK Dijital" title={<>DENEYİM VE <span className="cinematic-title-highlight">ŞEFFAFLIK</span></>} text="Reklam yayınlamak kolaydır; doğru strateji, takip ve raporlamayla yönetmek fark yaratır.">
         <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {whyHkPoints.map((point) => (
-            <div key={point.title} className="rounded-[18px] border border-white/10 bg-white/[0.03] p-6">
-              <point.Icon className="text-[#4fa8f0]" size={22} />
+            <div key={point.title} className="cinematic-bento p-6">
+              <point.Icon className="text-[#c4b5fd]" size={22} />
               <h3 className="mt-4 text-lg font-black text-white">{point.title}</h3>
               <p className="mt-2 text-sm leading-7 text-slate-400">{point.text}</p>
             </div>
@@ -438,10 +454,10 @@ export function CinematicHomepage({ content }: { content: SiteContent }) {
 
       <Divider />
 
-      <SectionShell id="local-seo" eyebrow="08 — Manisa ve Türkiye geneli" title={<>YEREL BİLGİ, <span className="cinematic-title-highlight">GENİŞ KAPSAM</span></>} text="Şehzadeler, Yunusemre, Akhisar, Turgutlu, Salihli, Soma, Alaşehir ve Saruhanlı başta olmak üzere Manisa merkez ve ilçelerine; ayrıca Türkiye geneline uzaktan hizmet veriyoruz.">
+      <SectionShell id="local-seo" eyebrow="10 — Manisa ve Türkiye geneli" title={<>YEREL BİLGİ, <span className="cinematic-title-highlight">GENİŞ KAPSAM</span></>} text="Şehzadeler, Yunusemre, Akhisar, Turgutlu, Salihli, Soma, Alaşehir ve Saruhanlı başta olmak üzere Manisa merkez ve ilçelerine; ayrıca Türkiye geneline uzaktan hizmet veriyoruz.">
         <div className="mt-8 flex flex-wrap gap-2">
           {["Şehzadeler", "Yunusemre", "Akhisar", "Turgutlu", "Salihli", "Soma", "Alaşehir", "Saruhanlı", "Türkiye Geneli (Uzaktan)"].map((item) => (
-            <span key={item} className="rounded-full border border-white/10 px-4 py-2 text-xs font-bold text-slate-400 transition hover:border-[#4fa8f0]/40 hover:text-white">{item}</span>
+            <span key={item} className="cinematic-badge">{item}</span>
           ))}
         </div>
         <div className="mt-10 flex flex-wrap gap-3">
@@ -452,13 +468,13 @@ export function CinematicHomepage({ content }: { content: SiteContent }) {
 
       <Divider />
 
-      <SectionShell id="faq-blog" eyebrow="09 — Kaynaklar" title={<>MERAK <span className="cinematic-title-highlight">ETTİKLERİNİZ</span></>} text="Karar vermeden önce kanal seçimi, bütçe ve ölçümleme mantığını sade biçimde inceleyebilirsiniz.">
+      <SectionShell id="faq-blog" eyebrow="11 — Kaynaklar" title={<>MERAK <span className="cinematic-title-highlight">ETTİKLERİNİZ</span></>} text="Karar vermeden önce kanal seçimi, bütçe ve ölçümleme mantığını sade biçimde inceleyebilirsiniz.">
         <div className="mt-10 grid gap-8 lg:grid-cols-[.95fr_1.05fr]">
           <FaqAccordion />
           <div className="grid gap-4">
             {blogPosts.map((post) => (
-              <Link key={post.slug} href={`/blog/${post.slug}`} className="cinematic-card block rounded-[18px] border border-white/10 bg-white/[0.03] p-6 transition hover:-translate-y-1 hover:border-[#4fa8f0]/30">
-                <p className="text-xs font-black uppercase tracking-[.2em] text-[#4fa8f0]">{post.readingTime}</p>
+              <Link key={post.slug} href={`/blog/${post.slug}`} className="cinematic-card block rounded-[18px] border border-white/10 bg-white/[0.03] p-6 transition hover:-translate-y-1 hover:border-[#a78bfa]/30">
+                <p className="text-xs font-black uppercase tracking-[.2em] text-[#c4b5fd]">{post.readingTime}</p>
                 <h3 className="mt-3 text-xl font-black text-white">{post.title}</h3>
                 <p className="mt-3 text-sm leading-7 text-slate-400">{post.description}</p>
               </Link>
@@ -467,13 +483,13 @@ export function CinematicHomepage({ content }: { content: SiteContent }) {
         </div>
       </SectionShell>
 
-      <section className="relative overflow-hidden bg-gradient-to-br from-[#1730b5] via-[#2f5bff] to-[#3f6bff] px-4 py-20 sm:px-6 lg:px-8">
+      <section className="relative overflow-hidden bg-gradient-to-br from-[#3b1f9e] via-[#5b3bdb] to-[#db3b96] px-4 py-20 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-4xl text-center">
-          <p className="cinematic-eyebrow justify-center text-xs font-black uppercase tracking-[.22em] text-white/90 [&::before]:bg-white/90">10 — Sonraki Adım</p>
+          <p className="cinematic-eyebrow justify-center text-xs font-black uppercase tracking-[.22em] text-white/90 [&::before]:bg-white/90">12 — Sonraki Adım</p>
           <h2 className="mt-5 text-4xl font-black italic uppercase leading-[.96] tracking-tight text-white sm:text-6xl">Reklamınızı<br />Büyümeye Çevirin</h2>
           <p className="mx-auto mt-6 max-w-2xl text-base leading-7 text-white/85">Satış garantisi vermeyiz — strateji, kurulum, optimizasyon, dönüşüm takibi ve raporlama sürecini uçtan uca yönetiriz.</p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
-            <Link href="/teklif-al" onClick={() => trackMetaCtaClick("Final CTA Paketini Bul", "/teklif-al")} className="inline-flex min-h-13 items-center gap-2 rounded-full bg-white px-6 text-sm font-black text-[#1730b5] transition hover:-translate-y-0.5">
+            <Link href="/teklif-al" onClick={() => trackMetaCtaClick("Final CTA Paketini Bul", "/teklif-al")} className="inline-flex min-h-13 items-center gap-2 rounded-full bg-white px-6 text-sm font-black text-[#3b1f9e] transition hover:-translate-y-0.5">
               Paketini Bul <ArrowRight size={18} />
             </Link>
             <a href={whatsappUrl} target="_blank" rel="noreferrer" onClick={() => trackMetaCtaClick("Final CTA WhatsApp", whatsappUrl)} className="inline-flex min-h-13 items-center gap-2 rounded-full border border-white/40 bg-white/10 px-6 text-sm font-black text-white backdrop-blur transition hover:bg-white/20">
@@ -483,10 +499,10 @@ export function CinematicHomepage({ content }: { content: SiteContent }) {
         </div>
       </section>
 
-      <SectionShell id="contact" eyebrow="11 — İletişim" title={<>YOL HARİTASINI <span className="cinematic-title-highlight">NETLEŞTİRELİM</span></>} text="Kısa bir keşif görüşmesiyle reklam, dönüşüm takibi ve raporlama ihtiyacınızı değerlendirelim.">
+      <SectionShell id="contact" eyebrow="13 — İletişim" title={<>YOL HARİTASINI <span className="cinematic-title-highlight">NETLEŞTİRELİM</span></>} text="Kısa bir keşif görüşmesiyle reklam, dönüşüm takibi ve raporlama ihtiyacınızı değerlendirelim.">
         <div className="mt-10 grid items-start gap-8 lg:grid-cols-[.9fr_1.1fr]">
-          <div className="rounded-[18px] border border-white/10 bg-white/[0.03] p-7">
-            <MessageCircle className="text-[#4fa8f0]" size={30} />
+          <div className="cinematic-bento p-7">
+            <MessageCircle className="text-[#c4b5fd]" size={30} />
             <h3 className="mt-5 text-xl font-black text-white">Hızlı başlangıç</h3>
             <p className="mt-4 text-sm leading-7 text-slate-400">İsterseniz WhatsApp üzerinden doğrudan yazın, isterseniz teklif formunu açıp işletmenizin hedeflerini gönderin.</p>
             <div className="mt-7 flex flex-wrap gap-3">

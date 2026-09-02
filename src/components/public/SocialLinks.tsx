@@ -38,7 +38,7 @@ export function SocialLinks({ content }: { content: SiteContent }) {
             target="_blank"
             rel="noreferrer"
             onClick={() => trackEvent("social_link_clicked", { platform: key })}
-            className="grid size-10 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-slate-300 hover:text-cyan-200"
+            className="grid size-10 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-slate-300 transition hover:border-[#a78bfa]/40 hover:text-[#c4b5fd]"
             aria-label={labels[key] ?? key}
             title={labels[key] ?? key}
           >
