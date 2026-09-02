@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/admin/blog-seo/publish-due",
-      "schedule": "0 * * * *"
+      "schedule": "50 5 * * *"
     },
     {
       "path": "/api/admin/ceo-briefing/run-daily",
