@@ -14,17 +14,19 @@ import { AdminWorkspace } from "@/components/admin/workspace/AdminWorkspace";
 import { AdminDataGrid, type AdminDataGridColumn } from "@/components/admin/workspace/AdminDataGrid";
 import { AdminCompactKpiStrip } from "@/components/admin/workspace/AdminCompactKpiStrip";
 import { analyzeGeoSignals } from "@/lib/growth-intelligence/geo-doctor";
+import { GeminiVisibilityPanel } from "@/components/admin/GeminiVisibilityPanel";
 import type {
   GrowthAutomationMode, GrowthAutomationRun, GrowthOpportunity, GrowthOpportunityStatus, GrowthSettings
 } from "@/lib/growth-intelligence/types";
 import type { BlogPost } from "@/lib/blog-seo-shared";
 
-const tabs = ["overview", "opportunities", "geo-doctor", "automation", "integrations", "logs"] as const;
+const tabs = ["overview", "opportunities", "geo-doctor", "gemini-visibility", "automation", "integrations", "logs"] as const;
 type Tab = typeof tabs[number];
 const tabLabels: Record<Tab, string> = {
   overview: "Genel Bakış",
   opportunities: "Fırsatlar",
   "geo-doctor": "GEO Doktoru",
+  "gemini-visibility": "Gemini Görünürlüğü",
   automation: "Otomasyon",
   integrations: "Entegrasyonlar",
   logs: "Loglar"
@@ -54,7 +56,7 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return payload as T;
 }
 
-export function GrowthIntelligenceCenter() {
+export function GrowthIntelligenceCenter({ geminiConfigured = false }: { geminiConfigured?: boolean }) {
   const [tab, setTab] = useState<Tab>("overview");
 
   const [opportunities, setOpportunities] = useState<GrowthOpportunity[]>([]);
@@ -276,6 +278,8 @@ export function GrowthIntelligenceCenter() {
           ))}
         </div>
       )}
+
+      {tab === "gemini-visibility" && <GeminiVisibilityPanel geminiConfigured={geminiConfigured} />}
 
       {tab === "automation" && (
         settingsLoading ? <AdminLoadingState /> :

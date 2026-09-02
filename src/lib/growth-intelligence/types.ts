@@ -43,7 +43,7 @@ export type GrowthOpportunity = {
   updated_at?: string;
 };
 
-export type GrowthRunType = "sync" | "scoring" | "generation" | "publish" | "indexing" | "full_cycle";
+export type GrowthRunType = "sync" | "scoring" | "generation" | "publish" | "indexing" | "full_cycle" | "gemini_visibility";
 export type GrowthRunStatus = "running" | "success" | "partial" | "failed";
 
 export type GrowthAutomationRun = {
