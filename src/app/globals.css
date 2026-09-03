@@ -5535,3 +5535,301 @@ table.admin-data-grid {
     animation: none;
   }
 }
+
+/* =======================================================================
+   MARKETING V2 — bright, restrained, editorial public-site redesign.
+   Entirely new namespace (.marketing-*), used ONLY by public marketing
+   pages (homepage + hizmetler/paketler/hakkimda/iletisim/blog/hk-
+   intelligence/teklif-al/manisa-dijital-pazarlama/legal pages). Verified
+   not referenced by any admin, customer-panel, or auth/login component —
+   the earlier cinematic, impact, glass-card and PremiumUI classes are left
+   completely untouched (they remain in use by the giris page's login
+   shell, the admin dashboard's card component, and the customer panel's
+   metric card, none of which this redesign may touch).
+   ======================================================================= */
+
+/* Defined on :root (not scoped to .marketing-shell) so Header/Footer — which
+   render as siblings of the page content in Shell.tsx, outside any
+   .marketing-shell wrapper — can also reference them (the mobile nav menu
+   and the Hizmetler dropdown do). The mk- prefix is unique in this
+   codebase (verified against the hk- and admin- prefixed admin tokens),
+   so defining it globally is harmless: pages that never reference these
+   custom properties are completely unaffected. */
+:root {
+  --mk-bg: #fbfaff;
+  --mk-bg-alt: #f3f1ff;
+  --mk-surface: #ffffff;
+  --mk-ink: #0f1024;
+  --mk-ink-soft: #4b4d6b;
+  --mk-ink-faint: #8688a8;
+  --mk-border: #e6e4f5;
+  --mk-border-strong: #d6d3ef;
+  --mk-violet: #7c3aed;
+  --mk-indigo: #4f46e5;
+  --mk-blue: #2563eb;
+  --mk-pink: #db2777;
+  --mk-cyan: #0891b2;
+  --mk-dark-bg: #0b0a1a;
+  --mk-dark-surface: #14132b;
+  --mk-dark-border: rgba(255, 255, 255, .1);
+  --mk-dark-ink: #f3f2ff;
+  --mk-dark-ink-soft: #a8a7c9;
+}
+
+.marketing-shell {
+  color: var(--mk-ink);
+  background: var(--mk-bg);
+  font-family: var(--font-jakarta), var(--font-geist-sans), sans-serif;
+}
+
+.marketing-section {
+  position: relative;
+  padding: 88px 0;
+}
+
+@media (max-width: 640px) {
+  .marketing-section {
+    padding: 56px 0;
+  }
+}
+
+.marketing-section-alt {
+  background: var(--mk-bg-alt);
+}
+
+.marketing-section-dark {
+  background: var(--mk-dark-bg);
+  color: var(--mk-dark-ink);
+}
+
+.marketing-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--mk-violet);
+}
+
+.marketing-section-dark .marketing-eyebrow {
+  color: #c4b5fd;
+}
+
+.marketing-eyebrow::before {
+  content: "";
+  width: 20px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.marketing-heading {
+  color: var(--mk-ink);
+  font-weight: 800;
+  letter-spacing: -.02em;
+  line-height: 1.08;
+}
+
+.marketing-section-dark .marketing-heading {
+  color: var(--mk-dark-ink);
+}
+
+.marketing-gradient-text {
+  background: linear-gradient(97deg, var(--mk-violet), var(--mk-blue) 60%, var(--mk-pink));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.marketing-card {
+  position: relative;
+  border-radius: 20px;
+  border: 1px solid var(--mk-border);
+  background: var(--mk-surface);
+  box-shadow: 0 1px 2px rgba(15, 16, 36, .03), 0 12px 32px rgba(15, 16, 36, .05);
+  transition: transform .25s cubic-bezier(.16, 1, .3, 1), box-shadow .25s ease, border-color .25s ease;
+}
+
+.marketing-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 1px 2px rgba(15, 16, 36, .04), 0 24px 48px rgba(15, 16, 36, .09);
+  border-color: var(--mk-border-strong);
+}
+
+.marketing-card-feature {
+  border-color: var(--mk-border-strong);
+  background:
+    radial-gradient(circle at 15% 0%, rgba(124, 58, 237, .07), transparent 55%),
+    radial-gradient(circle at 100% 100%, rgba(219, 39, 119, .05), transparent 50%),
+    var(--mk-surface);
+}
+
+.marketing-card-dark {
+  border-radius: 20px;
+  border: 1px solid var(--mk-dark-border);
+  background: var(--mk-dark-surface);
+  color: var(--mk-dark-ink);
+}
+
+.marketing-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  border: 1px solid var(--mk-border-strong);
+  background: var(--mk-surface);
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--mk-ink-soft);
+}
+
+.marketing-btn {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 999px;
+  padding: 0 24px;
+  font-size: 14px;
+  font-weight: 800;
+  transition: transform .2s ease, box-shadow .2s ease, background-color .2s ease, border-color .2s ease;
+}
+
+.marketing-btn:active {
+  transform: translateY(1px) scale(.985);
+}
+
+.marketing-btn-primary {
+  border: 1px solid transparent;
+  background: linear-gradient(97deg, var(--mk-violet), var(--mk-indigo));
+  color: #fff;
+  box-shadow: 0 12px 30px rgba(124, 58, 237, .28);
+}
+
+.marketing-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 40px rgba(124, 58, 237, .34);
+}
+
+.marketing-btn-secondary {
+  border: 1.5px solid var(--mk-border-strong);
+  background: var(--mk-surface);
+  color: var(--mk-ink);
+}
+
+.marketing-btn-secondary:hover {
+  border-color: var(--mk-violet);
+  color: var(--mk-violet);
+}
+
+.marketing-section-dark .marketing-btn-secondary {
+  border-color: var(--mk-dark-border);
+  background: transparent;
+  color: var(--mk-dark-ink);
+}
+
+.marketing-btn-ghost {
+  padding: 0 4px;
+  color: var(--mk-ink);
+  font-weight: 800;
+}
+
+.marketing-btn-ghost:hover {
+  color: var(--mk-violet);
+}
+
+.marketing-glow {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(64px);
+  pointer-events: none;
+}
+
+.marketing-nav {
+  border: 1px solid var(--mk-border);
+  background: rgba(255, 255, 255, .78);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 8px 30px rgba(15, 16, 36, .06);
+}
+
+.marketing-nav-scrolled {
+  background: rgba(255, 255, 255, .94);
+  box-shadow: 0 12px 36px rgba(15, 16, 36, .1);
+}
+
+.marketing-nav-link {
+  color: var(--mk-ink-soft);
+  transition: color .2s ease, background-color .2s ease;
+}
+
+.marketing-nav-link:hover {
+  color: var(--mk-ink);
+}
+
+.marketing-nav-link-active {
+  color: var(--mk-ink);
+  background: var(--mk-bg-alt);
+}
+
+.marketing-footer {
+  background: var(--mk-dark-bg);
+  color: var(--mk-dark-ink-soft);
+}
+
+.marketing-footer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(124, 58, 237, .16), transparent 45%),
+    radial-gradient(circle at 90% 30%, rgba(37, 99, 235, .12), transparent 42%);
+}
+
+.marketing-scanline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(167, 139, 250, .85), transparent);
+  animation: marketing-scan 3.8s linear infinite;
+}
+
+@keyframes marketing-scan {
+  0% { top: 8%; opacity: 0; }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { top: 92%; opacity: 0; }
+}
+
+.marketing-progress-track {
+  position: relative;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--mk-border);
+}
+
+.marketing-progress-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--mk-violet), var(--mk-blue), var(--mk-pink));
+  transform-origin: top;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marketing-scanline {
+    animation: none !important;
+  }
+
+  .marketing-card,
+  .marketing-btn {
+    transition: none !important;
+  }
+}

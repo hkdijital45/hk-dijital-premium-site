@@ -216,35 +216,31 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
   const progress = ((step + 1) / steps.length) * 100;
 
   return (
-    <section className="mx-auto max-w-6xl">
-      <div className="glass-card relative overflow-hidden p-5 sm:p-8 lg:p-10">
-        <div className="premium-grid pointer-events-none absolute inset-0 opacity-40" />
-
+    <section className="marketing-shell mx-auto max-w-6xl">
+      <div className="marketing-card relative overflow-hidden p-5 sm:p-8 lg:p-10">
         <div className="relative">
           <div className="flex flex-wrap items-start justify-between gap-6">
             <div className="max-w-3xl">
-              <p className="inline-flex rounded-full border border-cyan-200/20 bg-cyan-200/10 px-4 py-2 text-xs font-black uppercase tracking-[.24em] text-cyan-100">
-                Akıllı paket analizi
-              </p>
-              <h2 className="mt-5 text-3xl font-black leading-tight text-white sm:text-5xl">{wizard.title}</h2>
-              <p className="mt-4 max-w-2xl text-base leading-8 text-slate-300 sm:text-lg">{wizard.subtitle}</p>
+              <p className="marketing-eyebrow">Akıllı paket analizi</p>
+              <h2 className="mt-5 text-3xl font-black leading-tight sm:text-5xl" style={{ color: "var(--mk-ink)" }}>{wizard.title}</h2>
+              <p className="mt-4 max-w-2xl text-base leading-8 sm:text-lg" style={{ color: "var(--mk-ink-soft)" }}>{wizard.subtitle}</p>
             </div>
-            <div className="rounded-[8px] border border-white/10 bg-black/25 p-4 text-right">
-              <p className="text-sm text-slate-400">Aşama</p>
-              <p className="mt-1 text-2xl font-black text-cyan-100">{step + 1} / {steps.length}</p>
+            <div className="rounded-xl border p-4 text-right" style={{ borderColor: "var(--mk-border)", background: "var(--mk-bg-alt)" }}>
+              <p className="text-sm" style={{ color: "var(--mk-ink-faint)" }}>Aşama</p>
+              <p className="mt-1 text-2xl font-black" style={{ color: "var(--mk-violet)" }}>{step + 1} / {steps.length}</p>
             </div>
           </div>
 
           <div className="mt-8">
             <div className="flex flex-wrap gap-2">
               {steps.map((label, index) => (
-                <div key={label} className={`rounded-full px-3 py-2 text-xs font-bold ${index <= step ? "bg-cyan-300 text-slate-950" : "bg-white/10 text-slate-400"}`}>
+                <div key={label} className="rounded-full px-3 py-2 text-xs font-bold" style={{ background: index <= step ? "var(--mk-violet)" : "var(--mk-bg-alt)", color: index <= step ? "#fff" : "var(--mk-ink-faint)" }}>
                   {label}
                 </div>
               ))}
             </div>
-            <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10">
-              <motion.div className="h-full rounded-full bg-gradient-to-r from-cyan-300 via-blue-300 to-yellow-300" animate={{ width: `${progress}%` }} transition={{ duration: 0.35 }} />
+            <div className="mt-4 h-2 overflow-hidden rounded-full" style={{ background: "var(--mk-bg-alt)" }}>
+              <motion.div className="h-full rounded-full" style={{ background: "linear-gradient(90deg, var(--mk-violet), var(--mk-blue), var(--mk-pink))" }} animate={{ width: `${progress}%` }} transition={{ duration: 0.35 }} />
             </div>
           </div>
 
@@ -282,7 +278,7 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
           </div>
 
           {step > 0 && step < 6 && (
-            <button onClick={goBack} className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/15 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/10">
+            <button onClick={goBack} className="marketing-btn marketing-btn-secondary mt-4">
               <ArrowLeft size={16} /> Geri
             </button>
           )}
@@ -304,8 +300,8 @@ function Options({ title, text, options, onSelect, selectedId }: { title: string
   return (
     <div>
       <div className="max-w-3xl">
-        <h2 className="text-3xl font-black text-white sm:text-4xl">{title}</h2>
-        <p className="mt-3 text-base leading-7 text-slate-300">{text}</p>
+        <h2 className="text-3xl font-black sm:text-4xl" style={{ color: "var(--mk-ink)" }}>{title}</h2>
+        <p className="mt-3 text-base leading-7" style={{ color: "var(--mk-ink-soft)" }}>{text}</p>
       </div>
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {options.map((option) => {
@@ -317,11 +313,12 @@ function Options({ title, text, options, onSelect, selectedId }: { title: string
               whileTap={{ scale: 0.98 }}
               onClick={() => onSelect(option.id)}
               aria-pressed={isSelected}
-              className={`group min-h-40 rounded-[8px] border p-5 text-left shadow-[0_18px_50px_rgba(0,0,0,.24)] transition hover:border-cyan-200/50 hover:bg-cyan-200/10 ${isSelected ? "border-cyan-200/70 bg-cyan-200/10 ring-2 ring-cyan-200/40" : "border-white/10 bg-white/[0.055]"}`}
+              className="group min-h-40 rounded-2xl border p-5 text-left shadow-[0_10px_30px_rgba(15,16,36,.06)] transition"
+              style={{ borderColor: isSelected ? "var(--mk-violet)" : "var(--mk-border)", background: isSelected ? "rgba(124,58,237,.06)" : "var(--mk-surface)" }}
             >
-              <span className="grid size-14 place-items-center rounded-[8px] border border-white/10 bg-black/25 text-3xl shadow-inner">{option.emoji || "✨"}</span>
-              <span className="mt-5 block text-xl font-black text-white">{option.label}</span>
-              <span className="mt-2 block text-sm leading-6 text-slate-400 group-hover:text-slate-200">{option.hint}</span>
+              <span className="grid size-14 place-items-center rounded-xl text-3xl" style={{ background: "var(--mk-bg-alt)" }}>{option.emoji || "✨"}</span>
+              <span className="mt-5 block text-xl font-black" style={{ color: "var(--mk-ink)" }}>{option.label}</span>
+              <span className="mt-2 block text-sm leading-6" style={{ color: "var(--mk-ink-soft)" }}>{option.hint}</span>
             </motion.button>
           );
         })}
@@ -336,8 +333,8 @@ function PlatformMultiSelect({ selected, onTogglePlatform, onToggleAll, onContin
   return (
     <div>
       <div className="max-w-3xl">
-        <h2 className="text-3xl font-black text-white sm:text-4xl">Platform İhtiyacınız</h2>
-        <p className="mt-3 text-base leading-7 text-slate-300">Meta, Google ve sosyal medyadan birini, birkaçını veya hepsini birlikte seçebilirsiniz. En az bir platform seçmelisiniz.</p>
+        <h2 className="text-3xl font-black sm:text-4xl" style={{ color: "var(--mk-ink)" }}>Platform İhtiyacınız</h2>
+        <p className="mt-3 text-base leading-7" style={{ color: "var(--mk-ink-soft)" }}>Meta, Google ve sosyal medyadan birini, birkaçını veya hepsini birlikte seçebilirsiniz. En az bir platform seçmelisiniz.</p>
       </div>
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {PLATFORM_OPTIONS.map((option) => {
@@ -351,16 +348,17 @@ function PlatformMultiSelect({ selected, onTogglePlatform, onToggleAll, onContin
               whileTap={{ scale: 0.98 }}
               onClick={() => onTogglePlatform(option.id)}
               aria-pressed={isSelected}
-              className={`group relative min-h-40 rounded-[8px] border p-5 text-left shadow-[0_18px_50px_rgba(0,0,0,.24)] transition hover:border-cyan-200/50 hover:bg-cyan-200/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 ${isSelected ? "border-cyan-200/70 bg-cyan-200/10 ring-2 ring-cyan-200/40" : "border-white/10 bg-white/[0.055]"}`}
+              className="group relative min-h-40 rounded-2xl border p-5 text-left shadow-[0_10px_30px_rgba(15,16,36,.06)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed]"
+              style={{ borderColor: isSelected ? "var(--mk-violet)" : "var(--mk-border)", background: isSelected ? "rgba(124,58,237,.06)" : "var(--mk-surface)" }}
             >
               {isSelected && (
-                <span className="absolute right-3 top-3 grid size-6 place-items-center rounded-full bg-cyan-300 text-slate-950">
+                <span className="absolute right-3 top-3 grid size-6 place-items-center rounded-full text-white" style={{ background: "var(--mk-violet)" }}>
                   <CheckCircle2 size={16} />
                 </span>
               )}
-              <span className="grid size-14 place-items-center rounded-[8px] border border-white/10 bg-black/25 text-3xl shadow-inner">{option.emoji}</span>
-              <span className="mt-5 block text-xl font-black text-white">{option.label}</span>
-              <span className="mt-2 block text-sm leading-6 text-slate-400 group-hover:text-slate-200">{option.hint}</span>
+              <span className="grid size-14 place-items-center rounded-xl text-3xl" style={{ background: "var(--mk-bg-alt)" }}>{option.emoji}</span>
+              <span className="mt-5 block text-xl font-black" style={{ color: "var(--mk-ink)" }}>{option.label}</span>
+              <span className="mt-2 block text-sm leading-6" style={{ color: "var(--mk-ink-soft)" }}>{option.hint}</span>
             </motion.button>
           );
         })}
@@ -371,25 +369,26 @@ function PlatformMultiSelect({ selected, onTogglePlatform, onToggleAll, onContin
           whileTap={{ scale: 0.98 }}
           onClick={onToggleAll}
           aria-pressed={allSelected}
-          className={`group relative min-h-40 rounded-[8px] border p-5 text-left shadow-[0_18px_50px_rgba(0,0,0,.24)] transition hover:border-cyan-200/50 hover:bg-cyan-200/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 ${allSelected ? "border-cyan-200/70 bg-cyan-200/10 ring-2 ring-cyan-200/40" : "border-white/10 bg-white/[0.055]"}`}
+          className="group relative min-h-40 rounded-2xl border p-5 text-left shadow-[0_10px_30px_rgba(15,16,36,.06)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed]"
+          style={{ borderColor: allSelected ? "var(--mk-violet)" : "var(--mk-border)", background: allSelected ? "rgba(124,58,237,.06)" : "var(--mk-surface)" }}
         >
           {allSelected && (
-            <span className="absolute right-3 top-3 grid size-6 place-items-center rounded-full bg-cyan-300 text-slate-950">
+            <span className="absolute right-3 top-3 grid size-6 place-items-center rounded-full text-white" style={{ background: "var(--mk-violet)" }}>
               <CheckCircle2 size={16} />
             </span>
           )}
-          <span className="grid size-14 place-items-center rounded-[8px] border border-white/10 bg-black/25 text-3xl shadow-inner">⚡</span>
-          <span className="mt-5 block text-xl font-black text-white">Hepsi</span>
-          <span className="mt-2 block text-sm leading-6 text-slate-400 group-hover:text-slate-200">{allSelected ? "Tüm platformları temizle" : "Meta + Google + Sosyal Medya'yı birlikte seç"}</span>
+          <span className="grid size-14 place-items-center rounded-xl text-3xl" style={{ background: "var(--mk-bg-alt)" }}>⚡</span>
+          <span className="mt-5 block text-xl font-black" style={{ color: "var(--mk-ink)" }}>Hepsi</span>
+          <span className="mt-2 block text-sm leading-6" style={{ color: "var(--mk-ink-soft)" }}>{allSelected ? "Tüm platformları temizle" : "Meta + Google + Sosyal Medya'yı birlikte seç"}</span>
         </motion.button>
       </div>
-      {error && <p data-testid="platform-error" className="mt-4 rounded-2xl border border-red-300/30 bg-red-500/10 p-3 text-sm text-red-100">{error}</p>}
+      {error && <p data-testid="platform-error" className="mt-4 rounded-2xl border p-3 text-sm" style={{ borderColor: "rgba(220,38,38,.3)", background: "rgba(220,38,38,.06)", color: "#b91c1c" }}>{error}</p>}
       <button
         type="button"
         data-testid="platform-continue"
         onClick={onContinue}
         disabled={!canContinue}
-        className="mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-cyan-300 px-6 text-sm font-black text-slate-950 transition disabled:cursor-not-allowed disabled:opacity-40"
+        className="marketing-btn marketing-btn-primary mt-6 disabled:cursor-not-allowed disabled:opacity-40"
       >
         Devam <ArrowRight size={16} />
       </button>
@@ -409,8 +408,8 @@ function CustomBusinessTypeField({ value, onChange, onContinue }: { value: strin
   }
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22 }} className="mt-6 rounded-[8px] border border-cyan-200/25 bg-cyan-200/[0.06] p-5">
-      <label htmlFor="custom-business-type" className="block text-sm font-bold text-white">
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22 }} className="mt-6 rounded-2xl border p-5" style={{ borderColor: "var(--mk-border-strong)", background: "var(--mk-bg-alt)" }}>
+      <label htmlFor="custom-business-type" className="block text-sm font-bold" style={{ color: "var(--mk-ink)" }}>
         İşletme sektörünüzü yazın
       </label>
       <input
@@ -424,16 +423,17 @@ function CustomBusinessTypeField({ value, onChange, onContinue }: { value: strin
         placeholder="Örn. Mobilya mağazası, güzellik merkezi, oto servis, hukuk bürosu"
         aria-invalid={showError}
         aria-describedby="custom-business-type-helper"
-        className={`mt-3 min-h-14 w-full rounded-2xl border bg-black/30 px-4 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 ${showError ? "border-red-400/60 focus:ring-red-300" : "border-white/10 focus:ring-cyan-300"}`}
+        className="mt-3 min-h-14 w-full rounded-xl border px-4 outline-none focus:ring-2"
+        style={{ borderColor: showError ? "#f87171" : "var(--mk-border-strong)", background: "var(--mk-surface)", color: "var(--mk-ink)" }}
       />
-      <p id="custom-business-type-helper" className="mt-2 text-xs leading-5 text-slate-400">
+      <p id="custom-business-type-helper" className="mt-2 text-xs leading-5" style={{ color: "var(--mk-ink-faint)" }}>
         {showError ? "En az 2 anlamlı karakter girin." : "Analiz ve bütçe önerisi bu sektöre göre hazırlanacaktır."}
       </p>
       <button
         type="button"
         onClick={onContinue}
         disabled={!valid}
-        className="mt-5 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-cyan-300 px-6 text-sm font-black text-slate-950 transition disabled:cursor-not-allowed disabled:opacity-40"
+        className="marketing-btn marketing-btn-primary mt-5 disabled:cursor-not-allowed disabled:opacity-40"
       >
         Devam <ArrowRight size={16} />
       </button>
@@ -450,13 +450,13 @@ function NeedsStep({ answers, setAnswers, onNext }: { answers: Answers; setAnswe
   return (
     <div>
       <div className="max-w-3xl">
-        <h2 className="text-3xl font-black text-white sm:text-4xl">Operasyon İhtiyacınız</h2>
-        <p className="mt-3 text-base leading-7 text-slate-300">Paket önerisini içerik üretimi, aciliyet ve mevcut sosyal medya durumuna göre netleştirin.</p>
+        <h2 className="text-3xl font-black sm:text-4xl" style={{ color: "var(--mk-ink)" }}>Operasyon İhtiyacınız</h2>
+        <p className="mt-3 text-base leading-7" style={{ color: "var(--mk-ink-soft)" }}>Paket önerisini içerik üretimi, aciliyet ve mevcut sosyal medya durumuna göre netleştirin.</p>
       </div>
       <div className="mt-8 grid gap-5">
         {groups.map((group) => (
-          <div key={group.key} className="rounded-[22px] border border-white/10 bg-white/[0.045] p-5">
-            <p className="text-sm font-black text-cyan-100">{group.title}</p>
+          <div key={group.key} className="rounded-2xl border p-5" style={{ borderColor: "var(--mk-border)", background: "var(--mk-bg-alt)" }}>
+            <p className="text-sm font-black" style={{ color: "var(--mk-violet)" }}>{group.title}</p>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               {group.options.map((option) => {
                 const selected = answers[group.key] === option.value;
@@ -466,10 +466,11 @@ function NeedsStep({ answers, setAnswers, onNext }: { answers: Answers; setAnswe
                   type="button"
                   aria-label={`${group.title}: ${option.label}`}
                   onClick={() => setAnswers((current) => ({ ...current, [group.key]: option.value }))}
-                  className={`rounded-[18px] border p-4 text-left transition hover:-translate-y-0.5 ${selected ? "border-cyan-200 bg-cyan-300 text-slate-950 shadow-[0_0_34px_rgba(18,217,255,.2)]" : "border-white/10 bg-black/20 text-slate-200 hover:border-cyan-200/40 hover:bg-cyan-200/10"}`}
+                  className="rounded-2xl border p-4 text-left transition hover:-translate-y-0.5"
+                  style={selected ? { borderColor: "var(--mk-violet)", background: "var(--mk-violet)", color: "#fff" } : { borderColor: "var(--mk-border)", background: "var(--mk-surface)", color: "var(--mk-ink)" }}
                 >
                   <span className="block text-sm font-black">{option.label}</span>
-                  <span className={`mt-1 block text-xs leading-5 ${selected ? "text-slate-800" : "text-slate-400"}`}>{option.description}</span>
+                  <span className="mt-1 block text-xs leading-5" style={{ color: selected ? "rgba(255,255,255,.85)" : "var(--mk-ink-faint)" }}>{option.description}</span>
                 </button>
                 );
               })}
@@ -477,7 +478,7 @@ function NeedsStep({ answers, setAnswers, onNext }: { answers: Answers; setAnswe
           </div>
         ))}
       </div>
-      <button onClick={onNext} className="mt-8 inline-flex min-h-14 items-center justify-center gap-2 rounded-full bg-cyan-300 px-7 text-base font-black text-slate-950 shadow-[0_0_38px_rgba(18,217,255,.28)] transition hover:-translate-y-0.5">
+      <button onClick={onNext} className="marketing-btn marketing-btn-primary mt-8">
         Paketi Öner <ArrowRight size={18} />
       </button>
     </div>
@@ -512,29 +513,29 @@ function Recommendation({ recommended, alternative, reason, startingStrategy, ro
   return (
     <div>
       <div className="grid gap-6 lg:grid-cols-[1.1fr_.9fr]">
-        <div className="rounded-[26px] border border-cyan-200/30 bg-cyan-200/10 p-6 shadow-[0_24px_90px_rgba(18,217,255,.16)] sm:p-8">
+        <div className="rounded-[26px] border p-6 sm:p-8" style={{ borderColor: "var(--mk-border-strong)", background: "linear-gradient(135deg, rgba(124,58,237,.06), rgba(37,99,235,.04))" }}>
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <p className="inline-flex items-center gap-2 rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950"><Trophy size={18} /> Önerilen Paket</p>
-            <Sparkles className="text-yellow-200" />
+            <p className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-black text-white" style={{ background: "var(--mk-violet)" }}><Trophy size={18} /> Önerilen Paket</p>
+            <Sparkles style={{ color: "var(--mk-pink)" }} />
           </div>
-          <h2 className="mt-6 text-4xl font-black text-white">{recommended.name}</h2>
-          <div className="mt-4 rounded-[20px] border border-cyan-200/25 bg-black/20 p-4">
-            <p className="text-sm font-bold text-cyan-100">Aylık hizmet bedeli</p>
+          <h2 className="mt-6 text-4xl font-black" style={{ color: "var(--mk-ink)" }}>{recommended.name}</h2>
+          <div className="mt-4 rounded-2xl border p-4" style={{ borderColor: "var(--mk-border)", background: "var(--mk-surface)" }}>
+            <p className="text-sm font-bold" style={{ color: "var(--mk-violet)" }}>Aylık hizmet bedeli</p>
             <div className="mt-2 flex flex-wrap items-end gap-3">
-              <p className="text-4xl font-black text-white">{pricing ? formatTRY(pricing.basePrice) : recommended.price}</p>
-              {pricing && <span className="mb-1 rounded-full bg-yellow-300 px-3 py-1 text-xs font-black text-slate-950">+ KDV</span>}
+              <p className="text-4xl font-black" style={{ color: "var(--mk-ink)" }}>{pricing ? formatTRY(pricing.basePrice) : recommended.price}</p>
+              {pricing && <span className="mb-1 rounded-full px-3 py-1 text-xs font-black text-white" style={{ background: "var(--mk-pink)" }}>+ KDV</span>}
             </div>
-            {pricing && <div className="mt-3 grid gap-2 text-sm text-slate-200 sm:grid-cols-2">
-              <span>KDV: <b>{pricing.vatDisplay}</b></span>
-              <span>KDV dahil: <b>{pricing.totalDisplay}</b></span>
+            {pricing && <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2" style={{ color: "var(--mk-ink-soft)" }}>
+              <span>KDV: <b style={{ color: "var(--mk-ink)" }}>{pricing.vatDisplay}</b></span>
+              <span>KDV dahil: <b style={{ color: "var(--mk-ink)" }}>{pricing.totalDisplay}</b></span>
             </div>}
           </div>
-          <p className="mt-4 text-base leading-8 text-slate-200">{recommended.description}</p>
-          {reason && <p className="mt-4 rounded-2xl border border-cyan-200/20 bg-black/20 p-4 text-sm leading-7 text-cyan-50">{reason}</p>}
+          <p className="mt-4 text-base leading-8" style={{ color: "var(--mk-ink-soft)" }}>{recommended.description}</p>
+          {reason && <p className="mt-4 rounded-2xl border p-4 text-sm leading-7" style={{ borderColor: "var(--mk-border)", background: "var(--mk-surface)", color: "var(--mk-ink)" }}>{reason}</p>}
           <ul className="mt-6 grid gap-3">
             {recommended.features.slice(0, 6).map((feature) => (
-              <li key={feature} className="flex gap-3 rounded-2xl border border-white/10 bg-black/20 p-3 text-sm text-slate-200">
-                <CheckCircle2 className="mt-0.5 shrink-0 text-cyan-200" size={18} /> {feature}
+              <li key={feature} className="flex gap-3 rounded-2xl border p-3 text-sm" style={{ borderColor: "var(--mk-border)", background: "var(--mk-surface)", color: "var(--mk-ink)" }}>
+                <CheckCircle2 className="mt-0.5 shrink-0 text-[#7c3aed]" size={18} /> {feature}
               </li>
             ))}
           </ul>
@@ -548,33 +549,33 @@ function Recommendation({ recommended, alternative, reason, startingStrategy, ro
       </div>
 
       <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_.8fr]">
-        <div className="rounded-[22px] border border-cyan-200/20 bg-cyan-200/10 p-5">
-          <p className="text-xs font-black uppercase tracking-[.18em] text-cyan-100">Akıllı Reklam Bütçesi Önerisi</p>
-          <p className="mt-3 text-sm leading-7 text-slate-200">Bu öneri sektör, hedef, platform ve başlangıç seviyesine göre oluşturulan tahmini medya bütçesidir. Kesin sonuç garantisi vermez; test ve optimizasyonla netleşir.</p>
+        <div className="rounded-2xl border p-5" style={{ borderColor: "var(--mk-border)", background: "var(--mk-bg-alt)" }}>
+          <p className="marketing-eyebrow">Akıllı Reklam Bütçesi Önerisi</p>
+          <p className="mt-3 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>Bu öneri sektör, hedef, platform ve başlangıç seviyesine göre oluşturulan tahmini medya bütçesidir. Kesin sonuç garantisi vermez; test ve optimizasyonla netleşir.</p>
           <div className="mt-5 grid gap-3 md:grid-cols-3">
             <BudgetBox label="Minimum" value={formatBudgetRange(...adBudget.minimumRange)} />
             <BudgetBox label="İdeal" value={formatBudgetRange(...adBudget.idealRange)} highlight />
             <BudgetBox label="Agresif büyüme" value={formatBudgetRange(...adBudget.aggressiveRange)} />
           </div>
-          <p className="mt-4 rounded-[16px] border border-white/10 bg-black/20 p-4 text-sm leading-7 text-cyan-50">{adBudget.reason} {adBudget.budgetFit}</p>
-          <div className="mt-5 flex flex-col gap-3 rounded-[18px] border border-white/10 bg-black/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="mt-4 rounded-xl border p-4 text-sm leading-7" style={{ borderColor: "var(--mk-border)", background: "var(--mk-surface)", color: "var(--mk-ink)" }}>{adBudget.reason} {adBudget.budgetFit}</p>
+          <div className="mt-5 flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between" style={{ borderColor: "var(--mk-border)", background: "var(--mk-surface)" }}>
             <div>
-              <p className="text-sm font-black text-white">Piyasa Yorumu</p>
-              <p className="mt-1 text-xs leading-5 text-slate-300">İşletme bilgilerinize göre kısa bir reklam bütçesi ve kanal yorumu hazırlanır. Sonuç garantisi vermez; ön değerlendirme niteliğindedir.</p>
+              <p className="text-sm font-black" style={{ color: "var(--mk-ink)" }}>Piyasa Yorumu</p>
+              <p className="mt-1 text-xs leading-5" style={{ color: "var(--mk-ink-soft)" }}>İşletme bilgilerinize göre kısa bir reklam bütçesi ve kanal yorumu hazırlanır. Sonuç garantisi vermez; ön değerlendirme niteliğindedir.</p>
             </div>
-            <button type="button" onClick={createAiBudgetResearch} disabled={aiBudgetLoading || Boolean(aiBudget)} className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full bg-yellow-300 px-5 text-sm font-black text-slate-950 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60">
+            <button type="button" onClick={createAiBudgetResearch} disabled={aiBudgetLoading || Boolean(aiBudget)} className="marketing-btn marketing-btn-primary shrink-0 disabled:cursor-not-allowed disabled:opacity-60">
               {aiBudgetLoading ? "Analiz oluşturuluyor..." : aiBudget ? "Analiz hazır" : "Bütçe Analizi Oluştur"}
             </button>
           </div>
-          {aiBudgetError && <p className="mt-3 rounded-[14px] border border-red-200/30 bg-red-500/10 p-3 text-sm text-red-100">{aiBudgetError}</p>}
+          {aiBudgetError && <p className="mt-3 rounded-xl border p-3 text-sm" style={{ borderColor: "rgba(220,38,38,.3)", background: "rgba(220,38,38,.06)", color: "#b91c1c" }}>{aiBudgetError}</p>}
         </div>
-        <div className="rounded-[22px] border border-white/10 bg-white/[0.045] p-5">
-          <p className="text-sm font-black text-white">Platform bütçe dağılımı</p>
+        <div className="rounded-2xl border p-5" style={{ borderColor: "var(--mk-border)", background: "var(--mk-surface)" }}>
+          <p className="text-sm font-black" style={{ color: "var(--mk-ink)" }}>Platform bütçe dağılımı</p>
           <div className="mt-4 grid gap-3">
             {adBudget.platformSplit.map((item) => (
               <div key={item.label}>
-                <div className="mb-1 flex justify-between text-xs font-bold text-slate-300"><span>{item.label}</span><span>%{item.percent}</span></div>
-                <div className="h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-gradient-to-r from-cyan-300 to-yellow-300" style={{ width: `${item.percent}%` }} /></div>
+                <div className="mb-1 flex justify-between text-xs font-bold" style={{ color: "var(--mk-ink-soft)" }}><span>{item.label}</span><span>%{item.percent}</span></div>
+                <div className="h-2 overflow-hidden rounded-full" style={{ background: "var(--mk-bg-alt)" }}><div className="h-full rounded-full" style={{ width: `${item.percent}%`, background: "linear-gradient(90deg, var(--mk-violet), var(--mk-pink))" }} /></div>
               </div>
             ))}
           </div>
@@ -582,16 +583,16 @@ function Recommendation({ recommended, alternative, reason, startingStrategy, ro
       </div>
 
       {aiBudget && (
-        <div className="mt-6 rounded-[24px] border border-yellow-200/25 bg-yellow-200/10 p-5 shadow-[0_20px_80px_rgba(250,204,21,.12)]">
+        <div className="mt-6 rounded-[24px] border p-5" style={{ borderColor: "var(--mk-border-strong)", background: "rgba(124,58,237,.05)" }}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-black uppercase tracking-[.18em] text-yellow-100">{aiBudget.source !== "fallback" && aiBudget.source !== "demo" ? "AI Destekli Piyasa Yorumu" : "HK Dijital analiz modeli"}</p>
-              <h3 className="mt-2 text-2xl font-black text-white">Piyasa ve medya bütçesi değerlendirmesi</h3>
+              <p className="marketing-eyebrow">{aiBudget.source !== "fallback" && aiBudget.source !== "demo" ? "AI Destekli Piyasa Yorumu" : "HK Dijital analiz modeli"}</p>
+              <h3 className="mt-2 text-2xl font-black" style={{ color: "var(--mk-ink)" }}>Piyasa ve medya bütçesi değerlendirmesi</h3>
             </div>
-            <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-black text-slate-950">{aiBudget.providerLabel || (aiBudget.source === "fallback" ? "Yerel yedek" : "Otomatik AI")}</span>
+            <span className="rounded-full px-3 py-1 text-xs font-black text-white" style={{ background: "var(--mk-violet)" }}>{aiBudget.providerLabel || (aiBudget.source === "fallback" ? "Yerel yedek" : "Otomatik AI")}</span>
           </div>
-          <p className="mt-4 text-sm leading-7 text-yellow-50">{aiBudget.marketSummary}</p>
-          {aiBudget.providerNotice && <p className="mt-3 rounded-[14px] border border-yellow-100/20 bg-black/20 p-3 text-xs leading-5 text-yellow-50">{aiBudget.providerNotice}</p>}
+          <p className="mt-4 text-sm leading-7" style={{ color: "var(--mk-ink)" }}>{aiBudget.marketSummary}</p>
+          {aiBudget.providerNotice && <p className="mt-3 rounded-xl border p-3 text-xs leading-5" style={{ borderColor: "var(--mk-border)", background: "var(--mk-surface)", color: "var(--mk-ink-soft)" }}>{aiBudget.providerNotice}</p>}
           <div className="mt-5 grid gap-3 md:grid-cols-4">
             <BudgetBox label="Minimum" value={formatTRY(aiBudget.recommendedBudget.minimum)} />
             <BudgetBox label="İdeal" value={formatTRY(aiBudget.recommendedBudget.ideal)} highlight />
@@ -602,19 +603,19 @@ function Recommendation({ recommended, alternative, reason, startingStrategy, ro
             <PlanList title="Neden bu bütçe?" items={aiBudget.reasoningBullets} />
             <PlanList title="Riskler ve dikkat noktaları" items={aiBudget.risks} />
           </div>
-          <div className="mt-5 rounded-[18px] border border-white/10 bg-black/20 p-4">
-            <p className="text-sm font-black text-white">AI platform dağılımı</p>
+          <div className="mt-5 rounded-xl border p-4" style={{ borderColor: "var(--mk-border)", background: "var(--mk-surface)" }}>
+            <p className="text-sm font-black" style={{ color: "var(--mk-ink)" }}>AI platform dağılımı</p>
             <div className="mt-4 grid gap-3">
               {aiBudget.platformSplit.map((item) => (
-                <div key={`${item.label}-${item.percent}`} className="rounded-[14px] border border-white/10 bg-white/[0.045] p-3">
-                  <div className="mb-2 flex justify-between text-xs font-bold text-slate-200"><span>{item.label}</span><span>%{item.percent}</span></div>
-                  <div className="h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-gradient-to-r from-cyan-300 to-yellow-300" style={{ width: `${item.percent}%` }} /></div>
-                  <p className="mt-2 text-xs leading-5 text-slate-300">{item.note}</p>
+                <div key={`${item.label}-${item.percent}`} className="rounded-xl border p-3" style={{ borderColor: "var(--mk-border)", background: "var(--mk-bg-alt)" }}>
+                  <div className="mb-2 flex justify-between text-xs font-bold" style={{ color: "var(--mk-ink)" }}><span>{item.label}</span><span>%{item.percent}</span></div>
+                  <div className="h-2 overflow-hidden rounded-full" style={{ background: "var(--mk-border)" }}><div className="h-full rounded-full" style={{ width: `${item.percent}%`, background: "linear-gradient(90deg, var(--mk-violet), var(--mk-pink))" }} /></div>
+                  <p className="mt-2 text-xs leading-5" style={{ color: "var(--mk-ink-soft)" }}>{item.note}</p>
                 </div>
               ))}
             </div>
           </div>
-          <p className="mt-4 text-xs leading-6 text-yellow-100">{aiBudget.disclaimer}</p>
+          <p className="mt-4 text-xs leading-6" style={{ color: "var(--mk-ink-faint)" }}>{aiBudget.disclaimer}</p>
         </div>
       )}
 
@@ -624,30 +625,30 @@ function Recommendation({ recommended, alternative, reason, startingStrategy, ro
         <PlanList title="Ek Hizmet Önerileri" items={adBudget.extraServices.length ? adBudget.extraServices : ["Performans raporlama düzeni", "Kreatif test planı", "Dönüşüm ölçüm kontrolü"]} />
       </div>
 
-      <div className="mt-6 rounded-[22px] border border-yellow-200/20 bg-yellow-200/10 p-5 text-sm leading-7 text-yellow-50">
+      <div className="mt-6 rounded-2xl border p-5 text-sm leading-7" style={{ borderColor: "var(--mk-border)", background: "var(--mk-bg-alt)", color: "var(--mk-ink)" }}>
         <b>HK Dijital yorumu:</b> Bu yapı hızlı satış vaadi yerine kontrollü test, veri toplama ve optimizasyon üzerine kurulmalıdır. Hizmet bedeline reklam harcamaları dahil değildir.
       </div>
 
-      <div className="mt-6 rounded-[22px] border border-white/10 bg-white/[0.045] p-5">
-        <p className="text-sm font-bold text-slate-400">Alternatif Paket</p>
+      <div className="mt-6 rounded-2xl border p-5" style={{ borderColor: "var(--mk-border)", background: "var(--mk-surface)" }}>
+        <p className="text-sm font-bold" style={{ color: "var(--mk-ink-faint)" }}>Alternatif Paket</p>
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h3 className="text-2xl font-black text-white">{alternative.name}</h3>
-            <p className="mt-1 text-cyan-100">{alternative.price}</p>
+            <h3 className="text-2xl font-black" style={{ color: "var(--mk-ink)" }}>{alternative.name}</h3>
+            <p className="mt-1" style={{ color: "var(--mk-violet)" }}>{alternative.price}</p>
           </div>
-          <p className="max-w-xl text-sm leading-6 text-slate-300">Kapsam veya bütçe seviyesi değişirse alternatif paket birlikte değerlendirilebilir.</p>
+          <p className="max-w-xl text-sm leading-6" style={{ color: "var(--mk-ink-soft)" }}>Kapsam veya bütçe seviyesi değişirse alternatif paket birlikte değerlendirilebilir.</p>
         </div>
       </div>
 
-      <div className="mt-6 rounded-[22px] border border-yellow-200/20 bg-yellow-200/10 p-5 text-sm leading-7 text-yellow-50">
+      <div className="mt-6 rounded-2xl border p-5 text-sm leading-7" style={{ borderColor: "var(--mk-border)", background: "var(--mk-bg-alt)", color: "var(--mk-ink)" }}>
         Fiyatlara KDV dahil değildir. Reklam bütçesi hizmet bedeline dahil değildir. Satış garantisi verilmez; strateji, kurulum, optimizasyon ve raporlama süreci yönetilir.
       </div>
 
       <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-        <a href={whatsappUrl} onClick={() => trackEvent("whatsapp_clicked")} target="_blank" rel="noreferrer" className="inline-flex min-h-14 items-center justify-center gap-2 rounded-full bg-[#25D366] px-7 text-base font-black text-white shadow-[0_0_44px_rgba(37,211,102,.32)] transition hover:-translate-y-0.5">
+        <a href={whatsappUrl} onClick={() => trackEvent("whatsapp_clicked")} target="_blank" rel="noreferrer" className="marketing-btn" style={{ background: "#25D366", color: "#fff", boxShadow: "0 12px 30px rgba(37,211,102,.28)" }}>
           <MessageCircle size={20} /> WhatsApp&apos;tan Görüşelim
         </a>
-        <button onClick={onNext} className="inline-flex min-h-14 items-center justify-center gap-2 rounded-full bg-cyan-300 px-7 text-base font-black text-slate-950 shadow-[0_0_38px_rgba(18,217,255,.28)] transition hover:-translate-y-0.5">
+        <button onClick={onNext} className="marketing-btn marketing-btn-primary">
           Bilgilerimi Bırakayım <ArrowRight size={18} />
         </button>
       </div>
@@ -657,19 +658,19 @@ function Recommendation({ recommended, alternative, reason, startingStrategy, ro
 
 function BudgetBox({ label, value, highlight = false }: { label: string; value: string; highlight?: boolean }) {
   return (
-    <div className={`rounded-[16px] border p-4 ${highlight ? "border-yellow-200/40 bg-yellow-300/15" : "border-white/10 bg-black/20"}`}>
-      <p className="text-xs font-black uppercase tracking-[.14em] text-slate-300">{label}</p>
-      <p className="mt-2 text-lg font-black text-white">{value}</p>
+    <div className="rounded-2xl border p-4" style={{ borderColor: highlight ? "var(--mk-violet)" : "var(--mk-border)", background: highlight ? "rgba(124,58,237,.06)" : "var(--mk-surface)" }}>
+      <p className="text-xs font-black uppercase tracking-wide" style={{ color: "var(--mk-ink-faint)" }}>{label}</p>
+      <p className="mt-2 text-lg font-black" style={{ color: "var(--mk-ink)" }}>{value}</p>
     </div>
   );
 }
 
 function PlanList({ title, items }: { title: string; items: string[] }) {
   return (
-    <div className="rounded-[22px] border border-white/10 bg-white/[0.045] p-5">
-      <p className="text-sm font-black text-white">{title}</p>
+    <div className="rounded-2xl border p-5" style={{ borderColor: "var(--mk-border)", background: "var(--mk-bg-alt)" }}>
+      <p className="text-sm font-black" style={{ color: "var(--mk-ink)" }}>{title}</p>
       <div className="mt-4 grid gap-2">
-        {items.map((item) => <p key={item} className="rounded-[12px] bg-black/20 p-3 text-sm leading-6 text-slate-300">{item}</p>)}
+        {items.map((item) => <p key={item} className="rounded-xl p-3 text-sm leading-6" style={{ background: "var(--mk-surface)", color: "var(--mk-ink-soft)" }}>{item}</p>)}
       </div>
     </div>
   );
@@ -677,10 +678,10 @@ function PlanList({ title, items }: { title: string; items: string[] }) {
 
 function InsightCard({ icon, title, text }: { icon: ReactNode; title: string; text: string }) {
   return (
-    <div className="rounded-[22px] border border-white/10 bg-white/[0.055] p-5 shadow-[0_18px_50px_rgba(0,0,0,.22)]">
-      <div className="grid size-12 place-items-center rounded-2xl bg-cyan-200/10 text-cyan-100">{icon}</div>
-      <h3 className="mt-4 text-xl font-black text-white">{title}</h3>
-      <p className="mt-2 text-sm leading-7 text-slate-300">{text}</p>
+    <div className="rounded-2xl border p-5" style={{ borderColor: "var(--mk-border)", background: "var(--mk-surface)" }}>
+      <div className="grid size-12 place-items-center rounded-2xl" style={{ background: "var(--mk-bg-alt)", color: "var(--mk-violet)" }}>{icon}</div>
+      <h3 className="mt-4 text-xl font-black" style={{ color: "var(--mk-ink)" }}>{title}</h3>
+      <p className="mt-2 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>{text}</p>
     </div>
   );
 }
@@ -688,35 +689,35 @@ function InsightCard({ icon, title, text }: { icon: ReactNode; title: string; te
 function ContactStep({ wizard, form, setForm, error, sent, submit, whatsappUrl, back }: ContactStepProps) {
   return (
     <div>
-      <h2 className="text-3xl font-black text-white sm:text-4xl">İletişim Bilgileriniz</h2>
-      <p className="mt-3 max-w-2xl text-base leading-7 text-slate-300">Öneriyi netleştirmek ve işletmenize göre ilk değerlendirmeyi hazırlamak için birkaç bilgi yeterli.</p>
-      <div className="mt-6 rounded-[22px] border border-cyan-200/20 bg-cyan-200/10 p-5 text-sm text-cyan-100">
+      <h2 className="text-3xl font-black sm:text-4xl" style={{ color: "var(--mk-ink)" }}>İletişim Bilgileriniz</h2>
+      <p className="mt-3 max-w-2xl text-base leading-7" style={{ color: "var(--mk-ink-soft)" }}>Öneriyi netleştirmek ve işletmenize göre ilk değerlendirmeyi hazırlamak için birkaç bilgi yeterli.</p>
+      <div className="mt-6 rounded-2xl border p-5 text-sm" style={{ borderColor: "var(--mk-border)", background: "var(--mk-bg-alt)", color: "var(--mk-ink)" }}>
         Form gönderimi satış garantisi anlamına gelmez; süreç karşılıklı değerlendirme ile ilerler.
       </div>
       <div className="mt-8 grid gap-4 md:grid-cols-2">
         {wizard.formFields.map((field: QuoteFormField) => (
-          <label key={field.id} className={`grid gap-2 text-sm font-semibold text-slate-200 ${field.type === "textarea" ? "md:col-span-2" : ""}`}>
+          <label key={field.id} className={`grid gap-2 text-sm font-semibold ${field.type === "textarea" ? "md:col-span-2" : ""}`} style={{ color: "var(--mk-ink)" }}>
             {field.label}{field.required ? " *" : ""}
             {field.type === "textarea" ? (
-              <textarea rows={5} value={form[field.id] || ""} onChange={(event) => setForm((current: Answers) => ({ ...current, [field.id]: event.target.value }))} className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white focus:ring-2 focus:ring-cyan-300" />
+              <textarea rows={5} value={form[field.id] || ""} onChange={(event) => setForm((current: Answers) => ({ ...current, [field.id]: event.target.value }))} className="rounded-xl border px-4 py-3 outline-none focus:ring-2" style={{ borderColor: "var(--mk-border-strong)", background: "var(--mk-surface)", color: "var(--mk-ink)" }} />
             ) : (
-              <input type={field.type} value={form[field.id] || ""} onChange={(event) => setForm((current: Answers) => ({ ...current, [field.id]: event.target.value }))} className="min-h-14 rounded-2xl border border-white/10 bg-black/30 px-4 text-white focus:ring-2 focus:ring-cyan-300" />
+              <input type={field.type} value={form[field.id] || ""} onChange={(event) => setForm((current: Answers) => ({ ...current, [field.id]: event.target.value }))} className="min-h-14 rounded-xl border px-4 outline-none focus:ring-2" style={{ borderColor: "var(--mk-border-strong)", background: "var(--mk-surface)", color: "var(--mk-ink)" }} />
             )}
           </label>
         ))}
       </div>
-      {error && <p className="mt-5 rounded-2xl bg-red-500/10 p-4 text-sm text-red-200">{error}</p>}
+      {error && <p className="mt-5 rounded-2xl p-4 text-sm" style={{ background: "rgba(220,38,38,.06)", color: "#b91c1c" }}>{error}</p>}
       {sent && (
-        <div className="mt-5 rounded-2xl border border-emerald-300/20 bg-emerald-400/10 p-5 text-sm text-emerald-100">
+        <div className="mt-5 rounded-2xl border p-5 text-sm" style={{ borderColor: "rgba(16,185,129,.3)", background: "rgba(16,185,129,.06)", color: "#047857" }}>
           {wizard.successMessage}
-          <a href={whatsappUrl} onClick={() => trackEvent("whatsapp_clicked")} target="_blank" rel="noreferrer" className="mt-4 inline-flex rounded-full bg-[#25D366] px-5 py-3 font-black text-white">
+          <a href={whatsappUrl} onClick={() => trackEvent("whatsapp_clicked")} target="_blank" rel="noreferrer" className="mt-4 inline-flex rounded-full px-5 py-3 font-black text-white" style={{ background: "#25D366" }}>
             WhatsApp&apos;tan Görüşelim
           </a>
         </div>
       )}
       <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-        <button onClick={back} className="inline-flex min-h-14 items-center justify-center gap-2 rounded-full border border-white/15 px-6 text-sm font-bold text-white transition hover:bg-white/10"><ArrowLeft size={17} /> Geri</button>
-        <button onClick={submit} className="inline-flex min-h-14 items-center justify-center rounded-full bg-cyan-300 px-7 text-sm font-black text-slate-950 shadow-[0_0_38px_rgba(18,217,255,.28)]">{wizard.ctaTexts.submit}</button>
+        <button onClick={back} className="marketing-btn marketing-btn-secondary"><ArrowLeft size={17} /> Geri</button>
+        <button onClick={submit} className="marketing-btn marketing-btn-primary">{wizard.ctaTexts.submit}</button>
       </div>
     </div>
   );

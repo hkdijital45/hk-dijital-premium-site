@@ -48,6 +48,7 @@ export function Header({ content }: { content: SiteContent }) {
   // component doesn't need to know it exists). Touch-only by design
   // (navigator.maxTouchPoints > 0) so desktop mouse clicks never engage this
   // logic and the logo behaves as a completely normal link there.
+  // PRESERVED EXACTLY across the visual redesign — do not change this logic.
   const logoTapRef = useRef<{ count: number; timer: ReturnType<typeof setTimeout> | null }>({ count: 0, timer: null });
   function handleLogoClick(event: React.MouseEvent) {
     if (typeof navigator === "undefined" || !navigator.maxTouchPoints) return; // desktop: normal Link navigation
@@ -85,80 +86,76 @@ export function Header({ content }: { content: SiteContent }) {
   }, [open]);
 
   return (
-    <header className="relative z-50 bg-[#02040b] px-4 py-4 sm:px-6 lg:px-8">
+    <header className="relative z-50 px-4 py-4 sm:px-6 lg:px-8" style={{ background: "var(--mk-bg)" }}>
       <div
         ref={menuRef}
-        className={`mx-auto flex max-w-7xl items-center justify-between gap-4 rounded-[22px] border px-4 py-3 backdrop-blur-2xl transition-all duration-300 hover:border-[#a78bfa]/35 sm:px-5 ${
-          scrolled
-            ? "border-[#a78bfa]/25 bg-[#030712]/95 py-2.5 shadow-[0_18px_70px_rgba(0,0,0,.4)]"
-            : "border-[#4fa8f0]/20 bg-[#030712]/80 shadow-[0_18px_70px_rgba(0,0,0,.28)]"
-        }`}
+        className={`marketing-nav mx-auto flex max-w-7xl items-center justify-between gap-4 rounded-[22px] px-4 py-3 transition-all duration-300 sm:px-5 ${scrolled ? "marketing-nav-scrolled py-2.5" : ""}`}
       >
         <Link href="/" aria-label="HK Dijital ana sayfa" onClick={handleLogoClick} className="impact-logo rounded-[8px] transition hover:scale-[1.02]">
           <Logo content={content} />
         </Link>
 
         <nav className="hidden items-center gap-1 lg:flex">
-          <Link href="/" className={`nav-impact-link rounded-full px-4 py-2 text-sm font-bold transition focus:outline-none focus:ring-2 focus:ring-[#4fa8f0] ${isActive("/") ? "bg-gradient-to-r from-[#7c3aed] to-[#4fa8f0] text-white shadow-[0_0_28px_rgba(124,58,237,.35)]" : "text-slate-300"}`}>
+          <Link href="/" className={`marketing-nav-link rounded-full px-4 py-2 text-sm font-bold transition focus:outline-none focus:ring-2 focus:ring-[#7c3aed]/50 ${isActive("/") ? "marketing-nav-link-active" : ""}`}>
             Ana Sayfa
           </Link>
           <div className="group relative">
-            <Link href="/hizmetler" className={`nav-impact-link inline-flex items-center gap-1 rounded-full px-4 py-2 text-sm font-bold transition focus:outline-none focus:ring-2 focus:ring-[#4fa8f0] ${isActive("/hizmetler") ? "bg-gradient-to-r from-[#7c3aed] to-[#4fa8f0] text-white shadow-[0_0_28px_rgba(124,58,237,.35)]" : "text-slate-300"}`}>
+            <Link href="/hizmetler" className={`marketing-nav-link inline-flex items-center gap-1 rounded-full px-4 py-2 text-sm font-bold transition focus:outline-none focus:ring-2 focus:ring-[#7c3aed]/50 ${isActive("/hizmetler") ? "marketing-nav-link-active" : ""}`}>
               Hizmetler <ChevronDown size={15} aria-hidden="true" />
             </Link>
-            <div className="invisible absolute left-0 top-full z-50 mt-3 w-80 translate-y-2 rounded-[18px] border border-[#4fa8f0]/20 bg-[#07101f]/96 p-2 opacity-0 shadow-[0_24px_80px_rgba(0,0,0,.35)] backdrop-blur-2xl transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100">
+            <div className="invisible absolute left-0 top-full z-50 mt-3 w-80 translate-y-2 rounded-[18px] border p-2 opacity-0 shadow-[0_24px_80px_rgba(15,16,36,.14)] backdrop-blur-2xl transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100" style={{ borderColor: "var(--mk-border)", background: "rgba(255,255,255,.98)" }}>
               {serviceLinks.map(([label, href]) => (
-                <Link key={`${href}-${label}`} href={href} className="block rounded-[12px] px-4 py-3 text-sm font-bold text-slate-200 transition hover:bg-[#7c3aed]/10 hover:text-[#c4b5fd] focus:bg-[#7c3aed]/10 focus:text-[#c4b5fd] focus:outline-none">
+                <Link key={`${href}-${label}`} href={href} className="block rounded-[12px] px-4 py-3 text-sm font-bold transition hover:bg-[#7c3aed]/[0.06]" style={{ color: "var(--mk-ink)" }}>
                   {label}
                 </Link>
               ))}
             </div>
           </div>
           {mainNav.slice(1).map(([label, href]) => (
-            <Link key={href} href={href} className={`nav-impact-link rounded-full px-4 py-2 text-sm font-bold transition focus:outline-none focus:ring-2 focus:ring-[#4fa8f0] ${isActive(href) ? "bg-gradient-to-r from-[#7c3aed] to-[#4fa8f0] text-white shadow-[0_0_28px_rgba(124,58,237,.35)]" : "text-slate-300"}`}>
+            <Link key={href} href={href} className={`marketing-nav-link rounded-full px-4 py-2 text-sm font-bold transition focus:outline-none focus:ring-2 focus:ring-[#7c3aed]/50 ${isActive(href) ? "marketing-nav-link-active" : ""}`}>
               {label}
             </Link>
           ))}
         </nav>
 
         <div className="hidden items-center gap-2 lg:flex">
-          <a href={whatsappUrl} target="_blank" rel="noreferrer" onClick={() => trackMetaCtaClick("Header WhatsApp", whatsappUrl)} className="impact-btn inline-flex min-h-11 items-center gap-2 rounded-full border border-[#25D366]/40 bg-white/[0.04] px-4 text-sm font-bold text-white transition hover:border-[#25D366]/70 hover:bg-[#25D366]/10">
+          <a href={whatsappUrl} target="_blank" rel="noreferrer" onClick={() => trackMetaCtaClick("Header WhatsApp", whatsappUrl)} className="impact-btn inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-bold transition hover:border-[#25D366]/60" style={{ borderColor: "var(--mk-border-strong)", color: "var(--mk-ink)" }}>
             <MessageCircle size={17} className="text-[#25D366]" /> WhatsApp
           </a>
-          <Link href="/teklif-al" onClick={() => trackMetaCtaClick("Header Paketini Bul", "/teklif-al")} className="impact-btn inline-flex min-h-11 items-center gap-2 rounded-full border border-[#4fa8f0]/40 bg-gradient-to-r from-[#7c3aed] via-[#4f46e5] to-[#4fa8f0] px-5 text-sm font-bold text-white shadow-[0_0_42px_rgba(124,58,237,.38)] transition hover:-translate-y-0.5 hover:brightness-110">
+          <Link href="/teklif-al" onClick={() => trackMetaCtaClick("Header Paketini Bul", "/teklif-al")} className="marketing-btn marketing-btn-primary min-h-11">
             <CalendarCheck size={17} /> Paketini Bul
           </Link>
         </div>
 
-        <button className="impact-btn grid size-11 place-items-center rounded-full border border-white/10 text-white lg:hidden" onClick={() => setOpen((value) => !value)} aria-label={open ? "Menüyü kapat" : "Menüyü aç"} aria-expanded={open} aria-controls="mobile-public-menu">
+        <button className="grid size-11 place-items-center rounded-full border transition lg:hidden" style={{ borderColor: "var(--mk-border-strong)", color: "var(--mk-ink)" }} onClick={() => setOpen((value) => !value)} aria-label={open ? "Menüyü kapat" : "Menüyü aç"} aria-expanded={open} aria-controls="mobile-public-menu">
           {open ? <X /> : <Menu />}
         </button>
       </div>
 
       {open && (
-        <div id="mobile-public-menu" className="animate-hard-drop mx-auto mt-3 max-h-[calc(100svh-112px)] max-w-7xl overflow-y-auto rounded-[18px] border border-white/10 bg-[#070a14]/95 px-4 py-4 shadow-[0_20px_70px_rgba(0,0,0,.35)] backdrop-blur-2xl lg:hidden">
+        <div id="mobile-public-menu" className="animate-hard-drop mx-auto mt-3 max-h-[calc(100svh-112px)] max-w-7xl overflow-y-auto rounded-[18px] border px-4 py-4 shadow-[0_20px_70px_rgba(15,16,36,.14)] backdrop-blur-2xl lg:hidden" style={{ borderColor: "var(--mk-border)", background: "rgba(255,255,255,.98)" }}>
           <nav className="grid gap-2">
-            <Link href="/" onClick={() => setOpen(false)} className={`rounded-2xl px-4 py-3 text-base font-semibold transition hover:bg-white/10 hover:text-[#4fa8f0] ${isActive("/") ? "bg-gradient-to-r from-[#7c3aed] to-[#4fa8f0] text-white" : "text-slate-100"}`}>
+            <Link href="/" onClick={() => setOpen(false)} className={`rounded-2xl px-4 py-3 text-base font-semibold transition ${isActive("/") ? "marketing-nav-link-active" : ""}`} style={{ color: isActive("/") ? undefined : "var(--mk-ink)" }}>
               Ana Sayfa
             </Link>
-            <Link href="/hizmetler" onClick={() => setOpen(false)} className={`rounded-2xl px-4 py-3 text-base font-semibold transition hover:bg-white/10 hover:text-[#4fa8f0] ${isActive("/hizmetler") ? "bg-gradient-to-r from-[#7c3aed] to-[#4fa8f0] text-white" : "text-slate-100"}`}>
+            <Link href="/hizmetler" onClick={() => setOpen(false)} className={`rounded-2xl px-4 py-3 text-base font-semibold transition ${isActive("/hizmetler") ? "marketing-nav-link-active" : ""}`} style={{ color: isActive("/hizmetler") ? undefined : "var(--mk-ink)" }}>
               Hizmetler
             </Link>
             {serviceLinks.map(([label, href]) => (
-              <Link key={`${href}-${label}`} href={href} onClick={() => setOpen(false)} className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-[#4fa8f0]">
+              <Link key={`${href}-${label}`} href={href} onClick={() => setOpen(false)} className="rounded-2xl border px-4 py-3 text-sm font-semibold transition" style={{ borderColor: "var(--mk-border)", color: "var(--mk-ink-soft)" }}>
                 {label}
               </Link>
             ))}
             {mainNav.slice(1).map(([label, href]) => (
-              <Link key={`${href}-${label}`} href={href} onClick={() => setOpen(false)} className={`rounded-2xl px-4 py-3 text-base font-semibold transition hover:bg-white/10 hover:text-[#4fa8f0] ${isActive(href) ? "bg-gradient-to-r from-[#7c3aed] to-[#4fa8f0] text-white" : "text-slate-100"}`}>
+              <Link key={`${href}-${label}`} href={href} onClick={() => setOpen(false)} className={`rounded-2xl px-4 py-3 text-base font-semibold transition ${isActive(href) ? "marketing-nav-link-active" : ""}`} style={{ color: isActive(href) ? undefined : "var(--mk-ink)" }}>
                 {label}
               </Link>
             ))}
-            <Link href="/teklif-al" onClick={() => { trackMetaCtaClick("Mobil Paketini Bul", "/teklif-al"); setOpen(false); }} className="impact-btn rounded-2xl bg-gradient-to-r from-[#7c3aed] via-[#4f46e5] to-[#4fa8f0] px-4 py-3 text-base font-bold text-white shadow-[0_0_32px_rgba(124,58,237,.32)]">
-              <span className="inline-flex items-center gap-2"><CalendarCheck size={17} /> Paketini Bul</span>
+            <Link href="/teklif-al" onClick={() => { trackMetaCtaClick("Mobil Paketini Bul", "/teklif-al"); setOpen(false); }} className="marketing-btn marketing-btn-primary mt-1 w-full">
+              <CalendarCheck size={17} /> Paketini Bul
             </Link>
-            <a href={whatsappUrl} target="_blank" rel="noreferrer" onClick={() => { trackMetaCtaClick("Mobil WhatsApp", whatsappUrl); setOpen(false); }} className="impact-btn rounded-2xl border border-[#25D366]/40 bg-white/[0.04] px-4 py-3 text-base font-bold text-white">
-              <span className="inline-flex items-center gap-2"><MessageCircle size={17} className="text-[#25D366]" /> WhatsApp&apos;tan Görüş</span>
+            <a href={whatsappUrl} target="_blank" rel="noreferrer" onClick={() => { trackMetaCtaClick("Mobil WhatsApp", whatsappUrl); setOpen(false); }} className="marketing-btn marketing-btn-secondary w-full">
+              <MessageCircle size={17} className="text-[#25D366]" /> WhatsApp&apos;tan Görüş
             </a>
           </nav>
         </div>

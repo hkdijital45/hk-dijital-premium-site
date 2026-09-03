@@ -4,8 +4,7 @@ import { notFound } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import { JsonLd } from "@/components/public/JsonLd";
 import { PublicShell } from "@/components/public/Shell";
-import { AnimatedSection } from "@/components/public/AnimatedSection";
-import { PageHero, PremiumCard } from "@/components/public/ui";
+import { MarketingCard, MarketingPageHero, MarketingReveal, MarketingSection } from "@/components/public/marketing/MarketingUI";
 import { absoluteUrl, pageMetadata } from "@/lib/metadata";
 import { servicePages } from "@/lib/public-seo-content";
 
@@ -46,83 +45,85 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
           name: service.eyebrow,
           description: service.description,
           areaServed: ["Manisa", "Türkiye"],
-          provider: {
-            "@type": "Organization",
-            name: "HK Dijital",
-            url: absoluteUrl("/")
-          }
+          provider: { "@type": "Organization", name: "HK Dijital", url: absoluteUrl("/") }
         },
         {
           "@context": "https://schema.org",
           "@type": "FAQPage",
-          mainEntity: service.faq.map((item) => ({
-            "@type": "Question",
-            name: item.question,
-            acceptedAnswer: { "@type": "Answer", text: item.answer }
-          }))
+          mainEntity: service.faq.map((item) => ({ "@type": "Question", name: item.question, acceptedAnswer: { "@type": "Answer", text: item.answer } }))
         }
       ]} />
-      <PageHero eyebrow={service.eyebrow} title={service.title} text={service.description} />
-      <AnimatedSection className="px-4 pb-20 sm:px-6 lg:px-8">
-        <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[.75fr_1.25fr]">
-          <PremiumCard>
-            <div className="grid size-14 place-items-center rounded-[14px] border border-cyan-200/20 bg-cyan-200/10 text-cyan-100">
-              <Icon size={28} />
+      <div className="marketing-shell">
+        <MarketingPageHero eyebrow={service.eyebrow} title={service.title} text={service.description} />
+        <MarketingSection>
+          <div className="mx-auto grid max-w-7xl gap-6 px-4 sm:px-6 lg:grid-cols-[.75fr_1.25fr] lg:px-8">
+            <MarketingReveal>
+              <MarketingCard className="p-7">
+                <div className="grid size-14 place-items-center rounded-2xl" style={{ background: "var(--mk-bg-alt)", color: "var(--mk-violet)" }}>
+                  <Icon size={28} />
+                </div>
+                <h2 className="mt-6 text-2xl font-black" style={{ color: "var(--mk-ink)" }}>Kimler için uygun?</h2>
+                <ul className="mt-5 grid gap-3 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>
+                  {service.audience.map((item) => <li key={item} className="flex gap-3"><CheckCircle2 className="mt-1 shrink-0 text-[#7c3aed]" size={17} />{item}</li>)}
+                </ul>
+                <Link href="/teklif-al" className="marketing-btn marketing-btn-primary mt-7">Ücretsiz ön görüşme al</Link>
+              </MarketingCard>
+            </MarketingReveal>
+            <div className="grid gap-6">
+              <MarketingReveal>
+                <MarketingCard className="p-7">
+                  <h2 className="text-2xl font-black" style={{ color: "var(--mk-ink)" }}>Hangi problemleri çözer?</h2>
+                  <div className="mt-5 grid gap-3 md:grid-cols-3">
+                    {service.problems.map((item) => <div key={item} className="rounded-xl border p-4 text-sm leading-6" style={{ borderColor: "var(--mk-border)", color: "var(--mk-ink-soft)" }}>{item}</div>)}
+                  </div>
+                </MarketingCard>
+              </MarketingReveal>
+              <MarketingReveal delay={0.05}>
+                <MarketingCard className="p-7">
+                  <h2 className="text-2xl font-black" style={{ color: "var(--mk-ink)" }}>Hizmete neler dahil?</h2>
+                  <div className="mt-5 grid gap-3 md:grid-cols-2">
+                    {service.included.map((item) => <div key={item} className="rounded-xl px-4 py-3 text-sm font-bold" style={{ background: "var(--mk-bg-alt)", color: "var(--mk-ink)" }}>{item}</div>)}
+                  </div>
+                </MarketingCard>
+              </MarketingReveal>
+              <MarketingReveal delay={0.1}>
+                <MarketingCard className="p-7">
+                  <h2 className="text-2xl font-black" style={{ color: "var(--mk-ink)" }}>Çalışma süreci</h2>
+                  <div className="mt-5 grid gap-3">
+                    {service.process.map((item, index) => (
+                      <div key={item} className="grid gap-3 rounded-xl border p-4 sm:grid-cols-[42px_1fr]" style={{ borderColor: "var(--mk-border)", background: "var(--mk-bg-alt)" }}>
+                        <span className="grid size-10 place-items-center rounded-full text-sm font-black text-white" style={{ background: "var(--mk-violet)" }}>{index + 1}</span>
+                        <p className="text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>{item}</p>
+                      </div>
+                    ))}
+                  </div>
+                </MarketingCard>
+              </MarketingReveal>
+              <MarketingCard className="p-7">
+                <h2 className="text-2xl font-black" style={{ color: "var(--mk-ink)" }}>Manisa yerel bağlantısı</h2>
+                <p className="mt-4 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>HK Dijital Manisa merkezlidir. Şehzadeler, Yunusemre, Akhisar, Turgutlu, Salihli, Soma, Alaşehir ve Saruhanlı dahil Manisa merkez ve ilçelerindeki işletmelerin reklam, sosyal medya ve ölçümleme ihtiyaçları yerel hizmet alanına göre değerlendirilir.</p>
+              </MarketingCard>
+              <MarketingCard className="p-7">
+                <h2 className="text-2xl font-black" style={{ color: "var(--mk-ink)" }}>Sık sorulan sorular</h2>
+                <div className="mt-5 grid gap-4">
+                  {service.faq.map((item) => (
+                    <div key={item.question} className="rounded-xl border p-4" style={{ borderColor: "var(--mk-border)" }}>
+                      <h3 className="font-black" style={{ color: "var(--mk-violet)" }}>{item.question}</h3>
+                      <p className="mt-2 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>{item.answer}</p>
+                    </div>
+                  ))}
+                </div>
+              </MarketingCard>
+              <MarketingCard className="p-7">
+                <h2 className="text-xl font-black" style={{ color: "var(--mk-ink)" }}>İlgili hizmetler</h2>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  {service.related.map((item) => <Link key={item.href} href={item.href} className="rounded-full border px-4 py-2 text-sm font-black transition hover:bg-[#7c3aed] hover:text-white" style={{ borderColor: "var(--mk-border-strong)", color: "var(--mk-violet)" }}>{item.label}</Link>)}
+                </div>
+              </MarketingCard>
             </div>
-            <h2 className="mt-6 text-2xl font-black text-white">Kimler için uygun?</h2>
-            <ul className="mt-5 grid gap-3 text-sm leading-7 text-slate-300">
-              {service.audience.map((item) => <li key={item} className="flex gap-3"><CheckCircle2 className="mt-1 shrink-0 text-cyan-200" size={17} />{item}</li>)}
-            </ul>
-            <Link href="/teklif-al" className="mt-7 inline-flex min-h-12 items-center justify-center rounded-full bg-cyan-300 px-5 text-sm font-black text-slate-950 transition hover:bg-cyan-200">Ücretsiz ön görüşme al</Link>
-          </PremiumCard>
-          <div className="grid gap-6">
-            <PremiumCard>
-              <h2 className="text-2xl font-black text-white">Hangi problemleri çözer?</h2>
-              <div className="mt-5 grid gap-3 md:grid-cols-3">
-                {service.problems.map((item) => <div key={item} className="rounded-[14px] border border-white/10 bg-white/[0.045] p-4 text-sm leading-6 text-slate-300">{item}</div>)}
-              </div>
-            </PremiumCard>
-            <PremiumCard>
-              <h2 className="text-2xl font-black text-white">Hizmete neler dahil?</h2>
-              <div className="mt-5 grid gap-3 md:grid-cols-2">
-                {service.included.map((item) => <div key={item} className="rounded-[14px] bg-cyan-200/10 px-4 py-3 text-sm font-bold text-cyan-50">{item}</div>)}
-              </div>
-            </PremiumCard>
-            <PremiumCard>
-              <h2 className="text-2xl font-black text-white">Çalışma süreci</h2>
-              <div className="mt-5 grid gap-3">
-                {service.process.map((item, index) => (
-                  <div key={item} className="grid gap-3 rounded-[14px] border border-white/10 bg-black/20 p-4 sm:grid-cols-[42px_1fr]">
-                    <span className="grid size-10 place-items-center rounded-full bg-cyan-300 text-sm font-black text-slate-950">{index + 1}</span>
-                    <p className="text-sm leading-7 text-slate-300">{item}</p>
-                  </div>
-                ))}
-              </div>
-            </PremiumCard>
-            <PremiumCard>
-              <h2 className="text-2xl font-black text-white">Manisa yerel bağlantısı</h2>
-              <p className="mt-4 text-sm leading-7 text-slate-300">HK Dijital Manisa merkezlidir. Şehzadeler, Yunusemre, Akhisar, Turgutlu, Salihli, Soma, Alaşehir ve Saruhanlı dahil Manisa merkez ve ilçelerindeki işletmelerin reklam, sosyal medya ve ölçümleme ihtiyaçları yerel hizmet alanına göre değerlendirilir.</p>
-            </PremiumCard>
-            <PremiumCard>
-              <h2 className="text-2xl font-black text-white">Sık sorulan sorular</h2>
-              <div className="mt-5 grid gap-4">
-                {service.faq.map((item) => (
-                  <div key={item.question} className="rounded-[14px] border border-white/10 bg-white/[0.04] p-4">
-                    <h3 className="font-black text-cyan-100">{item.question}</h3>
-                    <p className="mt-2 text-sm leading-7 text-slate-300">{item.answer}</p>
-                  </div>
-                ))}
-              </div>
-            </PremiumCard>
-            <PremiumCard>
-              <h2 className="text-xl font-black text-white">İlgili hizmetler</h2>
-              <div className="mt-4 flex flex-wrap gap-3">
-                {service.related.map((item) => <Link key={item.href} href={item.href} className="rounded-full border border-cyan-200/25 bg-cyan-200/10 px-4 py-2 text-sm font-black text-cyan-100 transition hover:bg-cyan-200 hover:text-slate-950">{item.label}</Link>)}
-              </div>
-            </PremiumCard>
           </div>
-        </div>
-      </AnimatedSection>
+        </MarketingSection>
+      </div>
     </PublicShell>
   );
 }

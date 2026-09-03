@@ -2,15 +2,15 @@
 
 import { useState } from "react";
 import { trackEvent } from "./TrackingPlaceholders";
-import { PremiumCard } from "./ui";
+import { MarketingCard } from "./marketing/MarketingUI";
 
 export function ContactForm() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
 
   return (
-    <PremiumCard>
-      <h2 className="text-2xl font-black text-white">İletişim Formu</h2>
+    <MarketingCard className="p-7">
+      <h2 className="text-2xl font-black" style={{ color: "var(--mk-ink)" }}>İletişim Formu</h2>
       <form
         className="mt-6 grid gap-4"
         onSubmit={async (event) => {
@@ -44,19 +44,19 @@ export function ContactForm() {
           ["Telefon", "phone"],
           ["Firma Adı", "company"]
         ].map(([label, name]) => (
-          <label key={label} className="grid gap-2 text-sm font-semibold text-slate-200">
+          <label key={label} className="grid gap-2 text-sm font-semibold" style={{ color: "var(--mk-ink)" }}>
             {label}
-            <input name={name} required className="min-h-12 rounded-[8px] border border-white/10 bg-black/30 px-4 text-white focus:ring-2 focus:ring-[#4fa8f0]" />
+            <input name={name} required className="min-h-12 rounded-[10px] border px-4 outline-none transition focus:ring-2" style={{ borderColor: "var(--mk-border-strong)", background: "var(--mk-surface)", color: "var(--mk-ink)" }} />
           </label>
         ))}
-        <label className="grid gap-2 text-sm font-semibold text-slate-200">
+        <label className="grid gap-2 text-sm font-semibold" style={{ color: "var(--mk-ink)" }}>
           Mesajınız
-          <textarea name="note" required rows={5} className="rounded-[8px] border border-white/10 bg-black/30 px-4 py-3 text-white focus:ring-2 focus:ring-[#4fa8f0]" />
+          <textarea name="note" required rows={5} className="rounded-[10px] border px-4 py-3 outline-none transition focus:ring-2" style={{ borderColor: "var(--mk-border-strong)", background: "var(--mk-surface)", color: "var(--mk-ink)" }} />
         </label>
-        <button type="submit" className="min-h-12 rounded-full bg-gradient-to-r from-[#2f5bff] to-[#4fa8f0] px-6 text-sm font-black text-white">Gönder</button>
-        {error && <p className="rounded-[8px] bg-red-500/10 p-4 text-sm text-red-100">{error}</p>}
-        {sent && <p className="rounded-[8px] bg-[#2f5bff]/10 p-4 text-sm text-[#a9c9ff]">Mesajınız alındı. HK Dijital ekibi bilgilerinizi inceleyip uygun zamanda dönüş yapacaktır.</p>}
+        <button type="submit" className="marketing-btn marketing-btn-primary">Gönder</button>
+        {error && <p className="rounded-[10px] p-4 text-sm" style={{ background: "rgba(220,38,38,.08)", color: "#b91c1c" }}>{error}</p>}
+        {sent && <p className="rounded-[10px] p-4 text-sm" style={{ background: "rgba(124,58,237,.08)", color: "var(--mk-violet)" }}>Mesajınız alındı. HK Dijital ekibi bilgilerinizi inceleyip uygun zamanda dönüş yapacaktır.</p>}
       </form>
-    </PremiumCard>
+    </MarketingCard>
   );
 }

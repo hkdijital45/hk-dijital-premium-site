@@ -8,7 +8,7 @@ import { platformMarks } from "./PlatformIcons";
 export function Footer({ content }: { content: SiteContent }) {
   const phoneHref = content.contact.phone ? `tel:${content.contact.phone.replace(/[^\d+]/g, "")}` : "";
   return (
-    <footer className="cinematic-footer relative border-t border-white/10">
+    <footer className="marketing-footer relative border-t border-white/10">
       <div className="relative mx-auto max-w-7xl px-4 pt-16 sm:px-6 lg:px-8">
         <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 border-b border-white/10 pb-10 opacity-80">
           {platformMarks.map(({ key, label, Icon }) => (

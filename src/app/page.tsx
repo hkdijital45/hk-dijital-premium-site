@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getSiteContent } from "@/lib/content";
 import { pageMetadata, SITE_URL } from "@/lib/metadata";
-import { CinematicHomepage } from "@/components/public/CinematicHomepage";
+import { HomepageExperience } from "@/components/public/HomepageExperience";
 import { JsonLd } from "@/components/public/JsonLd";
 import { PublicShell } from "@/components/public/Shell";
 
@@ -50,7 +50,7 @@ export default async function Home() {
           url: SITE_URL
         }
       ]} />
-      <CinematicHomepage content={content} />
+      <HomepageExperience content={content} />
     </PublicShell>
   );
 }
