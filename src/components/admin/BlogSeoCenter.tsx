@@ -1,19 +1,24 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Archive, BarChart3, Bot, CalendarDays, CheckCircle2, Edit3, FileText, Link2, Loader2, Plus, RefreshCw, Search, Send, Share2, ShieldAlert, Sparkles, Wand2 } from "lucide-react";
 import { HKButton } from "@/components/admin/HKDesignSystem";
 import { applyInternalLinkPreview, buildInternalLinkSuggestions, buildPerformanceOpportunities, formatSocialPackageText, type ContentPlanItem, type InternalLinkSuggestion } from "@/lib/blog-content-ops";
-import { analyzeBlogPost, blogCategories, contentIntentMap, seedBlogPosts, slugifyBlogValue, type BlogCategory, type BlogPost, type BlogStatus } from "@/lib/blog-seo-shared";
+import { analyzeBlogPost, blogCategories, contentIntentMap, seedBlogPosts, slugifyBlogValue, type BlogCategory, type BlogPost, type BlogStatus, type ContentIntent } from "@/lib/blog-seo-shared";
 import { servicePages } from "@/lib/public-seo-content";
+import { SITE_URL } from "@/lib/site-config";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
+import { AdminConfirmDialog } from "@/components/admin/ui/AdminConfirmDialog";
 import { AdminWorkspace } from "@/components/admin/workspace/AdminWorkspace";
 import { AdminDataGrid, type AdminDataGridColumn } from "@/components/admin/workspace/AdminDataGrid";
 import { AdminActionBar } from "@/components/admin/workspace/AdminActionBar";
 import { AdminCompactKpiStrip } from "@/components/admin/workspace/AdminCompactKpiStrip";
+import { RichTextEditor } from "@/components/admin/blog/RichTextEditor";
+import { TagInput } from "@/components/admin/blog/TagInput";
+import { CoverImageField } from "@/components/admin/blog/CoverImageField";
 
 const statusLabels: Record<BlogStatus, string> = { draft: "Taslak", review: "İncelemede", scheduled: "Planlandı", published: "Yayında", archived: "Arşiv" };
 const intentOptions = ["Bilgilendirici", "Ticari araştırma", "Hizmet arama", "Yerel arama", "Karşılaştırma", "Sorun çözme"];
@@ -145,6 +150,24 @@ type PlanForm = {
   requireApproval: boolean;
 };
 
+type AuditItem = { message: string; field?: string };
+
+function isAbsoluteHttpUrl(value: string) {
+  try {
+    return ["http:", "https:"].includes(new URL(value).protocol);
+  } catch {
+    return false;
+  }
+}
+
+function focusField(id?: string) {
+  if (!id) return;
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.scrollIntoView({ behavior: "smooth", block: "center" });
+  if (el instanceof HTMLElement) el.focus({ preventScroll: true });
+}
+
 function countMarkdownHeadings(content: string) {
   const h2 = content.split("\n").filter((line) => /^##\s+/.test(line)).length;
   const h3 = content.split("\n").filter((line) => /^###\s+/.test(line)).length;
@@ -195,34 +218,34 @@ function deterministicAudit(draft: DraftPost) {
   const readabilityLocal = Math.max(35, 100 - longParagraphs * 8 - longSentences * 4 - repeatedSentences.length * 5);
   const linkScore = Math.min(100, internalLinks * 45 + externalLinks * 25);
   const visualScore = imageCount ? (draft.cover_image_alt ? 90 : 55) : 35;
-  const critical = [
-    !draft.title ? "Başlık eksik." : "",
-    !draft.slug || !/^[a-z0-9-]+$/.test(draft.slug) ? "Slug geçersiz." : "",
-    draft.content.length < 500 ? "İçerik yayın için kısa." : "",
-    !draft.category_id ? "Kategori seçilmedi." : "",
-    !draft.primary_keyword ? "Ana hedef kelime eksik." : "",
-    !draft.meta_title ? "Meta title eksik." : "",
-    !draft.meta_description ? "Meta description eksik." : ""
-  ].filter(Boolean);
-  const improvements = [
-    keyword && !title.includes(keyword) ? "Ana hedef kelime başlıkta doğal biçimde geçmiyor." : "",
-    keyword && !first.includes(keyword) ? "Ana hedef kelime ilk paragrafta doğal biçimde geçmiyor." : "",
-    headings.h2 < 3 ? "En az 3 adet H2 başlık ekleyin." : "",
-    headings.h3 < 1 ? "Gereken yerlerde H3 alt başlık ekleyin." : "",
-    keyword && !keywordInH2 ? "Ana hedef kelime en az bir H2 başlıkta doğal biçimde geçmiyor." : "",
-    h1Count > 0 ? "İçerik alanında H1 kullanılmış; H1 başlık alanından üretilir." : "",
-    stuffingRisk ? `Anahtar kelime yoğunluğu yüksek görünüyor (%${keywordDensity}).` : "",
-    internalLinks < 1 ? "En az bir doğrulanmış iç bağlantı ekleyin." : "",
-    externalLinks < 1 ? "Güvenilir dış kaynak veya platform dokümanı bağlantısı yok." : "",
-    !imageCount ? "Kapak veya içerik görseli yok." : "",
-    imageCount && !draft.cover_image_alt ? "Kapak görseli varsa alt metin ekleyin." : "",
-    longParagraphs ? `${longParagraphs} paragraf çok uzun; bölmeyi düşünün.` : "",
-    longSentences ? `${longSentences} cümle çok uzun; Türkçe okunabilirlik için kısaltın.` : "",
-    repeatedSentences.length ? "Tekrarlanan cümleler var." : "",
-    repeatedHeadings.length ? "Tekrarlanan başlıklar var." : "",
-    draft.meta_title.length > 65 ? "Meta title 65 karakteri aşıyor." : "",
-    draft.meta_description.length < 120 || draft.meta_description.length > 170 ? "Meta description 120–170 karakter aralığında değil." : ""
-  ].filter(Boolean);
+  const critical = ([
+    !draft.title ? { message: "Başlık eksik.", field: "blog-field-title" } : null,
+    !draft.slug || !/^[a-z0-9-]+$/.test(draft.slug) ? { message: "Slug geçersiz veya eksik.", field: "blog-field-slug" } : null,
+    draft.content.length < 500 ? { message: "İçerik yayın için kısa; en az birkaç paragraf yazın.", field: "blog-field-content" } : null,
+    !draft.category_id ? { message: "Kategori seçilmedi.", field: "blog-field-category" } : null,
+    !draft.primary_keyword ? { message: "Ana hedef kelime eksik.", field: "blog-field-keyword" } : null,
+    !draft.meta_title ? { message: "Meta title eksik.", field: "blog-field-meta-title" } : null,
+    !draft.meta_description ? { message: "Meta description eksik.", field: "blog-field-meta-description" } : null
+  ] as (AuditItem | null)[]).filter((item): item is AuditItem => item !== null);
+  const improvements = ([
+    keyword && !title.includes(keyword) ? { message: "Ana hedef kelime başlıkta doğal biçimde geçmiyor.", field: "blog-field-title" } : null,
+    keyword && !first.includes(keyword) ? { message: "Ana hedef kelime ilk paragrafta doğal biçimde geçmiyor.", field: "blog-field-content" } : null,
+    headings.h2 < 3 ? { message: "En az 3 adet H2 başlık ekleyin.", field: "blog-field-content" } : null,
+    headings.h3 < 1 ? { message: "Gereken yerlerde H3 alt başlık ekleyin.", field: "blog-field-content" } : null,
+    keyword && !keywordInH2 ? { message: "Ana hedef kelime en az bir H2 başlıkta doğal biçimde geçmiyor.", field: "blog-field-content" } : null,
+    h1Count > 0 ? { message: "İçerik alanında H1 kullanılmış; sayfanın H1'i başlık alanından üretilir.", field: "blog-field-content" } : null,
+    stuffingRisk ? { message: `Anahtar kelime yoğunluğu yüksek görünüyor (%${keywordDensity}). Doğal kullanıma dönün.`, field: "blog-field-content" } : null,
+    internalLinks < 1 ? { message: "En az bir doğrulanmış iç bağlantı ekleyin.", field: "blog-field-content" } : null,
+    externalLinks < 1 ? { message: "Güvenilir dış kaynak veya platform dokümanı bağlantısı yok." } : null,
+    !imageCount ? { message: "Kapak veya içerik görseli yok.", field: "blog-field-cover-url" } : null,
+    imageCount && !draft.cover_image_alt ? { message: "Kapak görseli var ama alt metin eksik.", field: "blog-field-cover-alt" } : null,
+    longParagraphs ? { message: `${longParagraphs} paragraf çok uzun; bölmeyi düşünün.`, field: "blog-field-content" } : null,
+    longSentences ? { message: `${longSentences} cümle çok uzun; Türkçe okunabilirlik için kısaltın.`, field: "blog-field-content" } : null,
+    repeatedSentences.length ? { message: "Tekrarlanan cümleler var.", field: "blog-field-content" } : null,
+    repeatedHeadings.length ? { message: "Tekrarlanan başlıklar var.", field: "blog-field-content" } : null,
+    draft.meta_title.length > 65 ? { message: "Meta title 65 karakteri aşıyor.", field: "blog-field-meta-title" } : null,
+    draft.meta_description.length < 120 || draft.meta_description.length > 170 ? { message: "Meta description 120–170 karakter aralığında değil.", field: "blog-field-meta-description" } : null
+  ] as (AuditItem | null)[]).filter((item): item is AuditItem => item !== null);
   const passed = [
     draft.title.length >= 24 ? "Başlık yeterli uzunlukta." : "",
     /^[a-z0-9-]+$/.test(draft.slug || "") ? "Slug formatı geçerli." : "",
@@ -295,7 +318,20 @@ export function BlogSeoCenter() {
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [categories, setCategories] = useState<BlogCategory[]>(blogCategories);
   const [draft, setDraft] = useState<DraftPost>({ ...emptyPost });
+  const [originalPost, setOriginalPost] = useState<BlogPost | null>(null);
   const [slugTouched, setSlugTouched] = useState(false);
+  const [metaTitleTouched, setMetaTitleTouched] = useState(false);
+  const [metaDescriptionTouched, setMetaDescriptionTouched] = useState(false);
+  const [publishConfirm, setPublishConfirm] = useState<{ status: BlogStatus; summary: string } | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const savingRef = useRef(false);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<BlogStatus | "all">("all");
   const [loading, setLoading] = useState(true);
@@ -430,14 +466,24 @@ export function BlogSeoCenter() {
   const selectedPerformancePost = posts.find((post) => post.slug === selectedPerformanceSlug) || posts.find((post) => post.status === "published") || posts[0] || null;
 
   const cannibalization = posts.filter((post) => post.id !== draft.id && draft.primary_keyword && post.primary_keyword.toLocaleLowerCase("tr") === draft.primary_keyword.toLocaleLowerCase("tr"));
+  const secondaryKeywordList = draft.secondary_keywords_text.split(",").map((item) => item.trim()).filter(Boolean);
+  const slugConflict = draft.slug ? posts.find((post) => post.id !== draft.id && post.slug === draft.slug) || null : null;
+  const defaultCanonical = `${SITE_URL}/blog/${draft.slug || slugifyBlogValue(draft.title) || "yeni-yazi"}`;
+  const canonicalValid = !draft.canonical_url || isAbsoluteHttpUrl(draft.canonical_url);
 
   function updateDraft(key: keyof DraftPost, value: string | boolean) {
+    setDirty(true);
     if (key === "slug") setSlugTouched(true);
+    if (key === "meta_title") setMetaTitleTouched(true);
+    if (key === "meta_description") setMetaDescriptionTouched(true);
     setDraft((current) => {
       const next = { ...current, [key]: value };
-      if (key === "title" && !current.id && !slugTouched) {
-        next.slug = slugifyBlogValue(String(value));
-        next.meta_title = String(value).slice(0, 65);
+      if (key === "title" && !current.id) {
+        if (!slugTouched) next.slug = slugifyBlogValue(String(value));
+        if (!metaTitleTouched) next.meta_title = String(value).slice(0, 65);
+      }
+      if (key === "excerpt" && !current.id && !metaDescriptionTouched) {
+        next.meta_description = String(value).slice(0, 160);
       }
       return next;
     });
@@ -516,9 +562,9 @@ export function BlogSeoCenter() {
     }, { requireConfirm: true });
   }
 
-  async function runAgent(action: "topic_suggestions" | "generate_draft" | "improve_draft" | "expand_draft", extra: Record<string, unknown> = {}) {
+  async function runAgent(action: "topic_suggestions" | "generate_draft" | "improve_draft" | "expand_draft", extra: Record<string, unknown> = {}, busyKey: string = action) {
     if (agentBusy) return null;
-    setAgentBusy(action);
+    setAgentBusy(busyKey);
     setAgentError("");
     try {
       const response = await fetch("/api/admin/blog-seo/ai", {
@@ -593,11 +639,42 @@ export function BlogSeoCenter() {
     setMessage("AI taslak oluşturdu. Yayınlamak için önce form alanlarına uygulayıp kaydedin.");
   }
 
+  async function generateDraftFromIntent(item: ContentIntent) {
+    setSelectedSuggestion({ title: item.phrase, primaryKeyword: item.phrase, searchIntent: item.intent });
+    applyDraft({
+      title: item.phrase,
+      slug: slugifyBlogValue(item.phrase),
+      primary_keyword: item.phrase,
+      search_intent: item.intent
+    }, { requireConfirm: hasDraftData() });
+    selectTab("editor");
+    const data = await runAgent("generate_draft", {
+      keyword: item.phrase,
+      intent: intentOptions.includes(item.intent) ? item.intent : agent.intent,
+      contentType: contentTypeOptions.includes(item.contentType) ? item.contentType : agent.contentType
+    });
+    if (!data?.draft || typeof data.draft !== "object") return;
+    setAiDraft(normalizeAiDraft(data.draft as Record<string, unknown>));
+    setMessage("AI taslak oluşturdu. Yayınlamak için önce form alanlarına uygulayıp kaydedin.");
+  }
+
   async function improveDraft() {
     const data = await runAgent("improve_draft");
     if (!data?.improvement || typeof data.improvement !== "object") return;
     setImprovement(data.improvement as Improvement);
     setMessage("Taslak geliştirme önerisi hazırlandı.");
+  }
+
+  async function suggestSeoFixes() {
+    const findings = [...analysis.critical, ...analysis.improvements].map((item) => item.message);
+    if (!findings.length) {
+      setMessage("Deterministik SEO kontrolünde eksik bulunamadı; AI önerisi gerekmiyor.");
+      return;
+    }
+    const data = await runAgent("improve_draft", { deterministicFindings: findings }, "seo_fix");
+    if (!data?.improvement || typeof data.improvement !== "object") return;
+    setImprovement(data.improvement as Improvement);
+    setMessage("SEO eksiklerine yönelik öneri hazırlandı.");
   }
 
   async function expandDraft() {
@@ -729,35 +806,35 @@ export function BlogSeoCenter() {
     const nextContent = applyInternalLinkPreview(sourcePost.content, suggestion);
     setLinkPreview({ suggestion, content: nextContent });
     setDraft(toDraft({ ...sourcePost, content: nextContent }));
+    setOriginalPost(sourcePost);
     setSlugTouched(false);
     selectTab("editor");
     setMessage("İç bağlantı önerisi forma önizleme olarak uygulandı. Kaydetmeden canlı yazı değişmez.");
   }
 
-  async function savePost(nextStatus?: BlogStatus) {
-    if (saving) return;
+  function missingRequiredFields(targetStatus: BlogStatus) {
+    const missing: string[] = [];
+    if (!draft.title.trim()) missing.push("Başlık");
+    if (!draft.slug || !/^[a-z0-9-]+$/.test(draft.slug)) missing.push("Slug");
+    if (draft.content.trim().length < 120) missing.push("İçerik (en az 120 karakter)");
+    if (targetStatus === "published" || targetStatus === "scheduled") {
+      if (!draft.category_id) missing.push("Kategori");
+      if (!draft.primary_keyword.trim()) missing.push("Ana hedef kelime");
+    }
+    if (targetStatus === "scheduled") {
+      if (!draft.scheduled_at || new Date(draft.scheduled_at).getTime() <= Date.now()) missing.push("Geçerli bir gelecek yayın zamanı");
+      if (!draft.approved_for_publish) missing.push("İnsan onayı");
+    }
+    return missing;
+  }
+
+  function requestSave(nextStatus?: BlogStatus) {
+    if (savingRef.current) return;
     const targetStatus = nextStatus || draft.status;
-    if (targetStatus === "published") {
-      const publishSummary = [
-        "Yayın öncesi kontrol özeti",
-        "",
-        `Başlık: ${draft.title || "Eksik"}`,
-        `Slug: ${draft.slug || "Eksik"}`,
-        `Kategori: ${categories.find((category) => category.id === draft.category_id)?.name || "Seçilmedi"}`,
-        `Kelime sayısı: ${analysis.word_count}`,
-        `SEO: ${analysis.seo_score}/100`,
-        `Tahmini Türkçe okunabilirlik: ${analysis.subScores.readabilityLocal}/100`,
-        `İç bağlantı: ${analysis.internalLinks}`,
-        `Dış bağlantı: ${analysis.externalLinks}`,
-        `Görsel: ${analysis.imageCount ? "Var" : "Yok"}`,
-        `Meta title: ${draft.meta_title || "Eksik"}`,
-        `Meta description: ${draft.meta_description || "Eksik"}`,
-        `Public URL: /blog/${draft.slug || slugifyBlogValue(draft.title)}`,
-        "",
-        analysis.critical.length ? `Kritik eksikler:\n- ${analysis.critical.join("\n- ")}` : "Kritik eksik yok.",
-        analysis.improvements.length ? `Öneri niteliğindeki uyarılar:\n- ${analysis.improvements.slice(0, 8).join("\n- ")}` : "Öneri niteliğinde uyarı yok."
-      ].join("\n");
-      if (!confirm(`${publishSummary}\n\nBu yazı public blogda yayınlanacak. Onaylıyor musunuz?`)) return;
+    const missing = missingRequiredFields(targetStatus);
+    if (missing.length) {
+      setMessage(`Kaydetmeden önce şunları tamamlayın: ${missing.join(", ")}.`);
+      return;
     }
     const candidateSlug = draft.slug || slugifyBlogValue(draft.title);
     const duplicateSlug = posts.find((post) => post.id !== draft.id && post.slug === candidateSlug);
@@ -765,6 +842,25 @@ export function BlogSeoCenter() {
       setMessage(`Slug çakışması var: ${duplicateSlug.title}`);
       return;
     }
+    if (targetStatus === "published") {
+      const summary = [
+        `Başlık: ${draft.title}`,
+        `Slug: /blog/${candidateSlug}`,
+        `Kategori: ${categories.find((category) => category.id === draft.category_id)?.name || "Seçilmedi"}`,
+        `Kelime sayısı: ${analysis.word_count} · SEO: ${analysis.seo_score}/100`,
+        analysis.critical.length ? `Kritik eksik: ${analysis.critical.length}` : "Kritik eksik yok.",
+        analysis.improvements.length ? `Öneri niteliğinde uyarı: ${analysis.improvements.length}` : "Uyarı yok."
+      ].join("\n");
+      setPublishConfirm({ status: targetStatus, summary });
+      return;
+    }
+    void savePost(targetStatus);
+  }
+
+  async function savePost(targetStatus: BlogStatus) {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    const candidateSlug = draft.slug || slugifyBlogValue(draft.title);
     setSaving(true);
     setMessage("");
     const payload = { ...draft, status: targetStatus, slug: candidateSlug, secondary_keywords: draft.secondary_keywords_text.split(",").map((item) => item.trim()).filter(Boolean) };
@@ -777,12 +873,16 @@ export function BlogSeoCenter() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Yazı kaydedilemedi.");
       setDraft(toDraft(data.post));
+      setOriginalPost(data.post);
       setSlugTouched(false);
+      setDirty(false);
+      setPublishConfirm(null);
       setMessage(targetStatus === "published" ? `Yazı yayınlandı: /blog/${data.post.slug}` : "Yazı taslak olarak kaydedildi.");
       await loadData();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Yazı kaydedilemedi.");
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }
@@ -830,7 +930,7 @@ export function BlogSeoCenter() {
       description="Blog yazıları, arama niyeti haritası, içerik takvimi ve açıklanabilir SEO kalite kontrolleri. Yayınlama mevcut onay ve zamanlanmış yayın akışıyla sınırlıdır."
       headerActions={<>
         <div className="flex flex-wrap gap-1">{tabs.map(([key, label]) => <AdminButton key={key} compact variant={activeTab === key ? "info" : "secondary"} onClick={() => selectTab(key)}>{label}</AdminButton>)}</div>
-        <AdminButton compact variant="primary" onClick={() => { setDraft({ ...emptyPost }); setSlugTouched(false); }}><Plus size={14} className="mr-1 inline" />Yeni yazı</AdminButton>
+        <AdminButton compact variant="primary" onClick={() => { setDraft({ ...emptyPost }); setOriginalPost(null); setSlugTouched(false); setMetaTitleTouched(false); setMetaDescriptionTouched(false); setDirty(false); }}><Plus size={14} className="mr-1 inline" />Yeni yazı</AdminButton>
       </>}
       bottomBar={<AdminActionBar statusText={message || `${metrics.total} yazı · ${metrics.published} yayında`}>{null}</AdminActionBar>}
     >
@@ -839,6 +939,7 @@ export function BlogSeoCenter() {
         { key: "published", label: "Yayında", value: metrics.published, icon: <CheckCircle2 size={14} />, tone: "success" },
         { key: "draft", label: "Taslak", value: metrics.draft, icon: <Edit3 size={14} />, tone: "neutral" as any },
         { key: "review", label: "İncelemede", value: metrics.review, icon: <ShieldAlert size={14} />, tone: "warning" },
+        { key: "scheduled", label: "Planlandı", value: metrics.scheduled, icon: <CalendarDays size={14} />, tone: "info" },
         { key: "seo", label: "Ortalama SEO", value: metrics.avgSeo, icon: <BarChart3 size={14} />, tone: "info" },
         { key: "updateNeeded", label: "Güncelleme önerisi", value: metrics.updateNeeded, icon: <RefreshCw size={14} />, tone: metrics.updateNeeded ? "warning" : "success" }
       ]} />
@@ -889,11 +990,10 @@ export function BlogSeoCenter() {
             <label className="grid gap-2 text-sm font-bold text-slate-300">Ek not<input value={agent.notes} onChange={(event) => updateAgent("notes", event.target.value)} className="min-h-11 rounded-2xl border border-white/10 bg-slate-950/70 px-3 text-white outline-none focus:border-cyan-300" /></label>
           </div>
           <div className="mt-5 flex flex-wrap gap-2">
-            <HKButton type="button" variant="communication" loading={agentBusy === "topic_suggestions"} disabled={Boolean(agentBusy)} onClick={findTopics} icon={<Search size={16} />}>Konu önerileri bul</HKButton>
-            <HKButton type="button" variant="ai" loading={agentBusy === "generate_draft"} disabled={Boolean(agentBusy)} onClick={() => generateDraft()} icon={<Sparkles size={16} />}>Seçilen konu için taslak oluştur</HKButton>
-            <HKButton type="button" variant="info" loading={agentBusy === "improve_draft"} disabled={Boolean(agentBusy) || !draft.content.trim()} onClick={improveDraft} icon={<Wand2 size={16} />}>Mevcut taslağı geliştir</HKButton>
-            <HKButton type="button" variant="warning" loading={agentBusy === "expand_draft"} disabled={Boolean(agentBusy) || !draft.content.trim()} onClick={expandDraft} icon={<Wand2 size={16} />}>Taslağı genişlet</HKButton>
-            <HKButton type="button" variant="neutral" onClick={() => setAgentError("")} icon={<RefreshCw size={16} />}>SEO analizini yenile</HKButton>
+            <HKButton type="button" variant="communication" loading={agentBusy === "topic_suggestions"} disabled={Boolean(agentBusy)} onClick={findTopics} icon={<Search size={16} />}>Konu öner</HKButton>
+            <HKButton type="button" variant="ai" loading={agentBusy === "generate_draft"} disabled={Boolean(agentBusy)} onClick={() => generateDraft()} icon={<Sparkles size={16} />}>Taslak oluştur</HKButton>
+            <HKButton type="button" variant="info" loading={agentBusy === "improve_draft"} disabled={Boolean(agentBusy) || !draft.content.trim()} onClick={improveDraft} icon={<Wand2 size={16} />}>Mevcut yazıyı geliştir</HKButton>
+            <HKButton type="button" variant="warning" loading={agentBusy === "seo_fix"} disabled={Boolean(agentBusy) || !draft.content.trim()} onClick={suggestSeoFixes} icon={<ShieldAlert size={16} />}>SEO eksiklerini öner</HKButton>
             <HKButton type="button" variant="success" disabled={!aiDraft} onClick={() => applyAiDraft()} icon={<CheckCircle2 size={16} />}>Form alanlarına uygula</HKButton>
           </div>
           {(suggestions.length || aiDraft || improvement) ? <div className="mt-5 grid gap-4 xl:grid-cols-3">
@@ -939,7 +1039,7 @@ export function BlogSeoCenter() {
                         <span className={`rounded-full border px-3 py-1 ${scoreTone(post.readability_score)}`}>Okuma {post.readability_score}</span>
                       </div>
                     </div>
-                    <div className="flex items-start justify-end gap-2"><button type="button" onClick={() => { setDraft(toDraft(post)); setSlugTouched(false); }} className="rounded-xl border border-cyan-200/20 p-2 text-cyan-100 hover:bg-cyan-300/10" aria-label="Düzenle"><Edit3 size={16} /></button><Link href={`/blog/${post.slug}`} target="_blank" className="rounded-xl border border-white/10 p-2 text-slate-200 hover:bg-[var(--admin-surface)]/10" aria-label="Public sayfayı aç"><FileText size={16} /></Link><button type="button" onClick={() => archivePost(post)} className="rounded-xl border border-rose-200/20 p-2 text-rose-100 hover:bg-rose-400/10" aria-label="Arşivle"><Archive size={16} /></button></div>
+                    <div className="flex items-start justify-end gap-2"><button type="button" onClick={() => { setDraft(toDraft(post)); setOriginalPost(post); setSlugTouched(false); setDirty(false); }} className="rounded-xl border border-cyan-200/20 p-2 text-cyan-100 hover:bg-cyan-300/10" aria-label="Düzenle"><Edit3 size={16} /></button><Link href={`/blog/${post.slug}`} target="_blank" className="rounded-xl border border-white/10 p-2 text-slate-200 hover:bg-[var(--admin-surface)]/10" aria-label="Public sayfayı aç"><FileText size={16} /></Link><button type="button" onClick={() => archivePost(post)} className="rounded-xl border border-rose-200/20 p-2 text-rose-100 hover:bg-rose-400/10" aria-label="Arşivle"><Archive size={16} /></button></div>
                   </article>
                 ))}
                 {!loading && !filtered.length ? <EmptyNotice title="Henüz blog yazısı bulunmuyor" text="Filtreyi değiştirin veya AI ile ilk taslağı oluşturun." icon={<FileText />} /> : null}
@@ -947,34 +1047,77 @@ export function BlogSeoCenter() {
             </div>
             <div className="rounded-[24px] border border-white/10 bg-[var(--admin-surface)]/[0.045] p-5">
               <h2 className="text-xl font-black">Arama niyeti konu haritası</h2>
-              <div className="mt-4 grid gap-3 md:grid-cols-2">{contentIntentMap.map((item) => <div key={item.phrase} className="rounded-2xl border border-white/10 bg-slate-950/40 p-4"><p className="text-xs font-black uppercase tracking-[.14em] text-cyan-200">{item.cluster}</p><p className="mt-2 font-black text-white">{item.phrase}</p><p className="mt-3 text-sm text-slate-400">{item.intent} · {item.contentType}</p><p className="mt-2 text-sm text-slate-300">İlişkili hizmet: {item.relatedService}</p></div>)}</div>
+              <div className="mt-4 grid gap-3 md:grid-cols-2">{contentIntentMap.map((item) => <div key={item.phrase} className="rounded-2xl border border-white/10 bg-slate-950/40 p-4"><p className="text-xs font-black uppercase tracking-[.14em] text-cyan-200">{item.cluster}</p><p className="mt-2 font-black text-white">{item.phrase}</p><p className="mt-3 text-sm text-slate-400">{item.intent} · {item.contentType}</p><p className="mt-2 text-sm text-slate-300">İlişkili hizmet: {item.relatedService}</p><button type="button" disabled={Boolean(agentBusy)} onClick={() => generateDraftFromIntent(item)} className="mt-3 min-h-9 rounded-xl border border-cyan-200/25 px-3 text-xs font-black text-cyan-100 disabled:opacity-60">Taslak oluştur</button></div>)}</div>
             </div>
           </div>
           <aside className="rounded-[24px] border border-white/10 bg-[var(--admin-surface)]/[0.055] p-5 2xl:sticky 2xl:top-6 2xl:max-h-[calc(100vh-3rem)] 2xl:overflow-y-auto">
-            <h2 className="text-xl font-black">{draft.id ? "Yazıyı düzenle" : "Yeni yazı"}</h2>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-xl font-black">{draft.id ? "Yazıyı düzenle" : "Yeni yazı"}</h2>
+              {dirty ? <span className="rounded-full bg-amber-300/15 px-3 py-1 text-xs font-black text-amber-100">Kaydedilmemiş değişiklikler var</span> : draft.id ? <span className="rounded-full bg-emerald-300/15 px-3 py-1 text-xs font-black text-emerald-100">Kaydedildi</span> : null}
+            </div>
+
+            {/* 1. İçerik */}
             <div className="mt-5 grid gap-3">
-              <label className="grid gap-2 text-sm font-bold text-slate-300">Başlık<input value={draft.title} onChange={(event) => updateDraft("title", event.target.value)} className="min-h-11 rounded-2xl border border-white/10 bg-slate-950/70 px-3 text-white outline-none focus:border-cyan-300" /></label>
-              <label className="grid gap-2 text-sm font-bold text-slate-300">Slug<input value={draft.slug} onChange={(event) => updateDraft("slug", slugifyBlogValue(event.target.value))} className="min-h-11 rounded-2xl border border-white/10 bg-slate-950/70 px-3 text-white outline-none focus:border-cyan-300" /></label>
+              <label className="grid gap-2 text-sm font-bold text-slate-300">Başlık<input id="blog-field-title" value={draft.title} onChange={(event) => updateDraft("title", event.target.value)} className="min-h-11 rounded-2xl border border-white/10 bg-slate-950/70 px-3 text-white outline-none focus:border-cyan-300" /></label>
+              {draft.title && (draft.title.length < 24 || draft.title.length > 65) ? <p className="text-xs font-bold text-amber-200">Önerilen başlık uzunluğu: 24–65 karakter (şu an {draft.title.length}).</p> : null}
+              <label className="grid gap-2 text-sm font-bold text-slate-300">Slug<input id="blog-field-slug" value={draft.slug} onChange={(event) => updateDraft("slug", slugifyBlogValue(event.target.value))} className="min-h-11 rounded-2xl border border-white/10 bg-slate-950/70 px-3 text-white outline-none focus:border-cyan-300" /></label>
+              {slugConflict ? <p className="text-xs font-bold text-rose-300">Bu slug zaten kullanılıyor: “{slugConflict.title}”.</p> : null}
+              {originalPost?.status === "published" && draft.slug !== originalPost.slug ? <p className="text-xs font-bold text-amber-200">Bu yazı yayında; slug değişirse mevcut public bağlantı çalışmaz olur.</p> : null}
               <label className="grid gap-2 text-sm font-bold text-slate-300">Özet<textarea value={draft.excerpt} onChange={(event) => updateDraft("excerpt", event.target.value)} rows={3} className="rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white outline-none focus:border-cyan-300" /></label>
-              <label className="grid gap-2 text-sm font-bold text-slate-300">İçerik<textarea value={draft.content} onChange={(event) => updateDraft("content", event.target.value)} rows={18} className="min-h-[520px] rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-3 font-mono text-sm leading-6 text-white outline-none focus:border-cyan-300" /></label>
-              <label className="grid gap-2 text-sm font-bold text-slate-300">Durum<select value={draft.status} onChange={(event) => updateDraft("status", event.target.value)} className="min-h-11 rounded-2xl border border-white/10 bg-slate-950/70 px-3 text-white outline-none focus:border-cyan-300">{Object.entries(statusLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-              <label className="grid gap-2 text-sm font-bold text-slate-300">Planlanan yayın zamanı<input type="datetime-local" value={draft.scheduled_at ? draft.scheduled_at.slice(0, 16) : ""} onChange={(event) => updateDraft("scheduled_at", event.target.value)} className="min-h-11 rounded-2xl border border-white/10 bg-slate-950/70 px-3 text-white outline-none focus:border-cyan-300" /></label>
-              <label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-slate-950/55 p-3 text-sm font-bold text-slate-300"><input type="checkbox" checked={Boolean(draft.approved_for_publish)} onChange={(event) => updateDraft("approved_for_publish", event.target.checked)} className="mt-1 h-4 w-4" /><span><span className="block text-white">Yayın için insan onayı verildi</span><span className="mt-1 block text-xs leading-5 text-slate-400">Zamanlanmış yayın endpoint’i yalnız bu onay açık ve zamanı gelmiş içerikleri yayınlar.</span></span></label>
-              <label className="grid gap-2 text-sm font-bold text-slate-300">Kategori<select value={draft.category_id || draft.category?.id || ""} onChange={(event) => updateDraft("category_id", event.target.value)} className="min-h-11 rounded-2xl border border-white/10 bg-slate-950/70 px-3 text-white outline-none focus:border-cyan-300"><option value="">Kategori seç</option>{categories.map((category) => <option key={category.id || category.slug} value={category.id || ""}>{category.name}</option>)}</select></label>
-              <label className="grid gap-2 text-sm font-bold text-slate-300">Ana hedef kelime<input value={draft.primary_keyword} onChange={(event) => updateDraft("primary_keyword", event.target.value)} className="min-h-11 rounded-2xl border border-white/10 bg-slate-950/70 px-3 text-white outline-none focus:border-cyan-300" /></label>
-              <label className="grid gap-2 text-sm font-bold text-slate-300">İkincil kelimeler<input value={draft.secondary_keywords_text} onChange={(event) => updateDraft("secondary_keywords_text", event.target.value)} placeholder="Virgülle ayırın" className="min-h-11 rounded-2xl border border-white/10 bg-slate-950/70 px-3 text-white outline-none focus:border-cyan-300" /></label>
-              <label className="grid gap-2 text-sm font-bold text-slate-300">Meta title<input value={draft.meta_title} onChange={(event) => updateDraft("meta_title", event.target.value)} className="min-h-11 rounded-2xl border border-white/10 bg-slate-950/70 px-3 text-white outline-none focus:border-cyan-300" /></label>
-              <label className="grid gap-2 text-sm font-bold text-slate-300">Meta description<textarea value={draft.meta_description} onChange={(event) => updateDraft("meta_description", event.target.value)} rows={3} className="rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white outline-none focus:border-cyan-300" /></label>
-              <label className="grid gap-2 text-sm font-bold text-slate-300">Canonical URL<input value={draft.canonical_url || ""} onChange={(event) => updateDraft("canonical_url", event.target.value)} className="min-h-11 rounded-2xl border border-white/10 bg-slate-950/70 px-3 text-white outline-none focus:border-cyan-300" /></label>
-              <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
-                <p className="font-black text-white">Görsel hazırlığı</p>
-                <p className="mt-1 text-xs leading-5 text-slate-400">AI görsel provider doğrulanmadığı için sahte görsel üretilmez; URL ve alt metin manuel veya mevcut medya yükleme akışıyla girilir.</p>
-                <label className="mt-3 grid gap-2 text-sm font-bold text-slate-300">Kapak görseli URL<input value={draft.cover_image_url || ""} onChange={(event) => updateDraft("cover_image_url", event.target.value)} className="min-h-11 rounded-2xl border border-white/10 bg-slate-950/70 px-3 text-white outline-none focus:border-cyan-300" /></label>
-                <label className="mt-3 grid gap-2 text-sm font-bold text-slate-300">Alt metin<input value={draft.cover_image_alt || ""} onChange={(event) => updateDraft("cover_image_alt", event.target.value)} className="min-h-11 rounded-2xl border border-white/10 bg-slate-950/70 px-3 text-white outline-none focus:border-cyan-300" /></label>
+              <p className="text-xs font-bold text-slate-500">{draft.excerpt.length} karakter · önerilen 80–160</p>
+              <div id="blog-field-content">
+                <span className="mb-2 block text-sm font-bold text-slate-300">İçerik</span>
+                <RichTextEditor value={draft.content} onChange={(markdown) => updateDraft("content", markdown)} placeholder="Başlıklar için araç çubuğunu, Markdown yapıştırmak için doğrudan Ctrl/Cmd+V kullanabilirsiniz." />
               </div>
             </div>
+
             {cannibalization.length ? <div className="mt-4 rounded-2xl border border-yellow-300/20 bg-yellow-300/10 p-4 text-sm text-yellow-100">Bu ana hedef başka yazıda da kullanılıyor: {cannibalization.map((post) => post.title).join(", ")}</div> : null}
-            {analysis.word_count > 0 && analysis.word_count < minWordsForLengthLabel(agent.length) ? <div className="mt-4 rounded-2xl border border-amber-300/25 bg-amber-300/10 p-4 text-sm text-amber-100">Seçili uzunluk hedefi için içerik kısa görünüyor: {analysis.word_count}/{minWordsForLengthLabel(agent.length)} kelime. “Taslağı genişlet” aksiyonunu kullanın.</div> : null}
+            {analysis.word_count > 0 && analysis.word_count < minWordsForLengthLabel(agent.length) ? <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-300/25 bg-amber-300/10 p-4 text-sm text-amber-100"><span>Seçili uzunluk hedefi için içerik kısa görünüyor: {analysis.word_count}/{minWordsForLengthLabel(agent.length)} kelime.</span><button type="button" disabled={Boolean(agentBusy)} onClick={expandDraft} className="min-h-9 rounded-xl border border-amber-200/40 px-3 text-xs font-black text-amber-100 disabled:opacity-60">Taslağı genişlet</button></div> : null}
+
+            {/* 2. SEO */}
+            <details open className="mt-5 rounded-2xl border border-white/10 bg-slate-950/50 p-4">
+              <summary className="cursor-pointer text-sm font-black text-white">SEO</summary>
+              <div className="mt-4 grid gap-3">
+                <label className="grid gap-2 text-sm font-bold text-slate-300">Ana hedef kelime <span className="text-rose-300">(zorunlu)</span><input id="blog-field-keyword" value={draft.primary_keyword} onChange={(event) => updateDraft("primary_keyword", event.target.value)} className="min-h-11 rounded-2xl border border-white/10 bg-slate-950/70 px-3 text-white outline-none focus:border-cyan-300" /></label>
+                <label className="grid gap-2 text-sm font-bold text-slate-300">İkincil kelimeler
+                  <TagInput value={secondaryKeywordList} onChange={(next) => updateDraft("secondary_keywords_text", next.join(", "))} placeholder="Enter veya virgülle ekleyin" />
+                </label>
+                <label className="grid gap-2 text-sm font-bold text-slate-300">Meta title<input id="blog-field-meta-title" value={draft.meta_title} onChange={(event) => updateDraft("meta_title", event.target.value)} className="min-h-11 rounded-2xl border border-white/10 bg-slate-950/70 px-3 text-white outline-none focus:border-cyan-300" /></label>
+                <p className="text-xs font-bold text-slate-500">{draft.meta_title.length} karakter · önerilen 30–65</p>
+                <label className="grid gap-2 text-sm font-bold text-slate-300">Meta description<textarea id="blog-field-meta-description" value={draft.meta_description} onChange={(event) => updateDraft("meta_description", event.target.value)} rows={3} className="rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-3 text-white outline-none focus:border-cyan-300" /></label>
+                <p className={`text-xs font-bold ${draft.meta_description.length >= 120 && draft.meta_description.length <= 170 ? "text-emerald-300" : "text-amber-200"}`}>{draft.meta_description.length} karakter · önerilen 120–170{!draft.meta_description ? " · eksik" : ""}</p>
+                <label className="grid gap-2 text-sm font-bold text-slate-300">Canonical URL<input value={draft.canonical_url || ""} onChange={(event) => updateDraft("canonical_url", event.target.value)} placeholder={defaultCanonical} className="min-h-11 rounded-2xl border border-white/10 bg-slate-950/70 px-3 text-white outline-none focus:border-cyan-300" /></label>
+                {!draft.canonical_url ? <p className="text-xs font-bold text-slate-500">Varsayılan adres kullanılacak: {defaultCanonical}</p> : canonicalValid ? null : <p className="text-xs font-bold text-rose-300">Geçerli bir mutlak URL girin (https://...).</p>}
+              </div>
+            </details>
+
+            {/* 3. Görsel */}
+            <details className="mt-4 rounded-2xl border border-white/10 bg-slate-950/50 p-4">
+              <summary className="cursor-pointer text-sm font-black text-white">Görsel</summary>
+              <div id="blog-field-cover-url" className="mt-4">
+                <p className="mb-3 text-xs leading-5 text-slate-400">AI görsel provider doğrulanmadığı için sahte görsel üretilmez; URL ve alt metin manuel veya mevcut medya yükleme akışıyla girilir.</p>
+                <div id="blog-field-cover-alt">
+                  <CoverImageField
+                    url={draft.cover_image_url || ""}
+                    alt={draft.cover_image_alt || ""}
+                    onUrlChange={(value) => updateDraft("cover_image_url", value)}
+                    onAltChange={(value) => updateDraft("cover_image_alt", value)}
+                  />
+                </div>
+              </div>
+            </details>
+
+            {/* 4. Yayın ayarları */}
+            <details className="mt-4 rounded-2xl border border-white/10 bg-slate-950/50 p-4">
+              <summary className="cursor-pointer text-sm font-black text-white">Yayın ayarları</summary>
+              <div className="mt-4 grid gap-3">
+                <label className="grid gap-2 text-sm font-bold text-slate-300">Kategori <span className="text-rose-300">(zorunlu)</span><select id="blog-field-category" value={draft.category_id || draft.category?.id || ""} onChange={(event) => updateDraft("category_id", event.target.value)} className="min-h-11 rounded-2xl border border-white/10 bg-slate-950/70 px-3 text-white outline-none focus:border-cyan-300"><option value="">Kategori seç</option>{categories.map((category) => <option key={category.id || category.slug} value={category.id || ""}>{category.name}</option>)}</select></label>
+                <label className="grid gap-2 text-sm font-bold text-slate-300">Durum<select value={draft.status} onChange={(event) => updateDraft("status", event.target.value)} className="min-h-11 rounded-2xl border border-white/10 bg-slate-950/70 px-3 text-white outline-none focus:border-cyan-300">{Object.entries(statusLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+                <label className="grid gap-2 text-sm font-bold text-slate-300">Planlanan yayın zamanı<input type="datetime-local" value={draft.scheduled_at ? draft.scheduled_at.slice(0, 16) : ""} onChange={(event) => updateDraft("scheduled_at", event.target.value)} className="min-h-11 rounded-2xl border border-white/10 bg-slate-950/70 px-3 text-white outline-none focus:border-cyan-300" /></label>
+                <label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-slate-950/55 p-3 text-sm font-bold text-slate-300"><input type="checkbox" checked={Boolean(draft.approved_for_publish)} onChange={(event) => updateDraft("approved_for_publish", event.target.checked)} className="mt-1 h-4 w-4" /><span><span className="block text-white">Yayın için insan onayı verildi</span><span className="mt-1 block text-xs leading-5 text-slate-400">Planlı yayın yalnız bu onay açık, durum “Planlandı” ve zamanı gelmişse çalışır.</span></span></label>
+              </div>
+            </details>
+
             <div className="mt-5 grid gap-3 rounded-2xl border border-white/10 bg-slate-950/50 p-4 text-sm text-slate-300">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="font-black text-white">Yayına hazırlık analizi</p>
@@ -987,14 +1130,26 @@ export function BlogSeoCenter() {
                 {Object.entries({ "Teknik SEO": analysis.subScores.technicalScore, "İçerik kapsamı": analysis.subScores.coverageScore, "Anahtar kelime": analysis.subScores.keywordScore, "Okunabilirlik": analysis.subScores.readabilityLocal, "Bağlantılar": analysis.subScores.linkScore, "Görsel hazırlığı": analysis.subScores.visualScore }).map(([label, value]) => <p key={label} className="rounded-xl bg-[var(--admin-surface)]/5 p-2 text-xs font-bold text-slate-300"><span className="block text-[var(--admin-text-muted)]">{label}</span>{value}/100</p>)}
               </div>
               <p className="rounded-xl border border-cyan-200/15 bg-cyan-300/10 p-3 text-xs leading-5 text-cyan-100">Dış kaynak doğrulama entegrasyonu bulunmadığı için AI’den sahte URL istenmez. Dış kaynak gerekiyorsa manuel ve doğrulanmış URL ekleyin.</p>
-              {analysis.critical.length ? <div className="rounded-xl border border-rose-300/20 bg-rose-400/10 p-3"><p className="font-black text-rose-100">Kritik eksikler</p>{analysis.critical.map((item) => <p key={item} className="mt-1 text-rose-100">• {item}</p>)}</div> : null}
-              {analysis.improvements.length ? <div className="rounded-xl border border-yellow-300/20 bg-yellow-300/10 p-3"><p className="font-black text-yellow-100">İyileştirme önerileri</p>{analysis.improvements.slice(0, 8).map((item) => <p key={item} className="mt-1 text-yellow-100">• {item}</p>)}</div> : null}
+              {analysis.critical.length ? <div className="rounded-xl border border-rose-300/20 bg-rose-400/10 p-3"><p className="font-black text-rose-100">Kritik eksikler</p>{analysis.critical.map((item, index) => <button key={index} type="button" onClick={() => focusField(item.field)} className="mt-1 block w-full text-left text-rose-100 hover:underline">• {item.message}</button>)}</div> : null}
+              {analysis.improvements.length ? <div className="rounded-xl border border-yellow-300/20 bg-yellow-300/10 p-3"><p className="font-black text-yellow-100">İyileştirme önerileri</p>{analysis.improvements.slice(0, 8).map((item, index) => <button key={index} type="button" onClick={() => focusField(item.field)} className="mt-1 block w-full text-left text-yellow-100 hover:underline">• {item.message}</button>)}</div> : null}
               {analysis.passed.length ? <div className="rounded-xl border border-emerald-300/20 bg-emerald-400/10 p-3"><p className="font-black text-emerald-100">Başarılı kontroller</p>{analysis.passed.slice(0, 8).map((item) => <p key={item} className="mt-1 text-emerald-100">• {item}</p>)}</div> : null}
             </div>
-            <div className="mt-5 grid gap-2 sm:grid-cols-2"><button type="button" disabled={saving} onClick={() => savePost()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-cyan-300 px-4 text-sm font-black text-[var(--admin-text-primary)] disabled:opacity-60">{saving ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />} Taslak Kaydet</button><button type="button" disabled={saving} onClick={() => savePost("published")} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-4 text-sm font-black text-[var(--admin-text-primary)] disabled:opacity-60"><Send size={16} /> Yayınla</button></div>
+            {message ? <p className="mt-4 rounded-xl border border-cyan-200/20 bg-cyan-300/10 p-3 text-sm font-bold text-cyan-100">{message}</p> : null}
+            <div className="mt-5 grid gap-2 sm:grid-cols-2"><button type="button" disabled={saving} onClick={() => requestSave()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-cyan-300 px-4 text-sm font-black text-[var(--admin-text-primary)] disabled:opacity-60">{saving ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />} Taslak Kaydet</button><button type="button" disabled={saving} onClick={() => requestSave("published")} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-4 text-sm font-black text-[var(--admin-text-primary)] disabled:opacity-60"><Send size={16} /> Yayınla</button></div>
             {draft.status === "published" && draft.slug ? <Link href={`/blog/${draft.slug}`} target="_blank" className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-emerald-200/25 bg-emerald-400/10 px-4 text-sm font-black text-emerald-100 hover:bg-emerald-400/15"><FileText size={16} /> Public blog yazısını aç</Link> : null}
           </aside>
         </section>
+        <AdminConfirmDialog
+          open={Boolean(publishConfirm)}
+          title="Yazıyı yayınla"
+          description={publishConfirm?.summary}
+          confirmLabel="Yayınla"
+          cancelLabel="Vazgeç"
+          tone="primary"
+          busy={saving}
+          onCancel={() => setPublishConfirm(null)}
+          onConfirm={() => publishConfirm && void savePost(publishConfirm.status)}
+        />
         </> : null}
         {activeTab === "plan" ? <section className="mt-8 grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
           <div className="rounded-[24px] border border-white/10 bg-[var(--admin-surface)]/[0.055] p-5">
@@ -1041,7 +1196,7 @@ export function BlogSeoCenter() {
               <p className="font-black text-white">{selectedCalendarPost.title}</p>
               <p>Durum: {statusLabels[selectedCalendarPost.status]}</p>
               <p>Tarih: {selectedCalendarPost.scheduled_at || selectedCalendarPost.published_at ? new Date(selectedCalendarPost.scheduled_at || selectedCalendarPost.published_at || "").toLocaleString("tr-TR") : "Tarih yok"}</p>
-              <button type="button" onClick={() => { setDraft(toDraft(selectedCalendarPost)); setSlugTouched(false); selectTab("editor"); }} className="mt-2 min-h-10 rounded-xl border border-cyan-200/25 px-3 text-xs font-black text-cyan-100">Editörde Aç</button>
+              <button type="button" onClick={() => { setDraft(toDraft(selectedCalendarPost)); setOriginalPost(selectedCalendarPost); setSlugTouched(false); setDirty(false); selectTab("editor"); }} className="mt-2 min-h-10 rounded-xl border border-cyan-200/25 px-3 text-xs font-black text-cyan-100">Editörde Aç</button>
             </div> : <p className="mt-4 text-sm text-slate-400">Listeden bir içerik seçin. Bir öğeyi açmak yeniden AI üretimi tetiklemez.</p>}
           </aside>
         </section> : null}

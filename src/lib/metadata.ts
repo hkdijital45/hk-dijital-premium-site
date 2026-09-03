@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { getSiteContent } from "./content";
+import { SITE_URL } from "./site-config";
 
-export const SITE_URL = "https://www.hkdijital.com.tr";
+export { SITE_URL };
 
 export const publicPagePaths: Record<string, string> = {
   home: "/",

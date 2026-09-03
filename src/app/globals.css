@@ -5833,3 +5833,120 @@ table.admin-data-grid {
     transition: none !important;
   }
 }
+
+/* Public blog article body — rendered from sanitized Markdown HTML. */
+.blog-article-content h2,
+.blog-article-content h3 {
+  scroll-margin-top: 7rem;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  color: var(--mk-ink);
+}
+.blog-article-content h2 {
+  margin: 1.8em 0 0.7em;
+  font-size: 1.5rem;
+}
+.blog-article-content h3 {
+  margin: 1.5em 0 0.6em;
+  font-size: 1.2rem;
+}
+.blog-article-content p {
+  margin: 1.1em 0;
+  font-size: 1.125rem;
+  line-height: 2.15rem;
+  color: var(--mk-ink-soft);
+}
+.blog-article-content ul,
+.blog-article-content ol {
+  margin: 1em 0;
+  padding-left: 1.5em;
+  color: var(--mk-ink-soft);
+}
+.blog-article-content ul {
+  list-style: disc;
+}
+.blog-article-content ol {
+  list-style: decimal;
+}
+.blog-article-content li {
+  margin: 0.35em 0;
+  line-height: 1.9rem;
+}
+.blog-article-content blockquote {
+  margin: 1.2em 0;
+  padding: 0.3em 1.2em;
+  border-left: 3px solid var(--mk-violet);
+  color: var(--mk-ink);
+  font-style: italic;
+}
+.blog-article-content a {
+  color: var(--mk-violet);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.blog-article-content strong {
+  font-weight: 800;
+  color: var(--mk-ink);
+}
+.blog-article-content img {
+  margin: 1.2em 0;
+  border-radius: 20px;
+  max-width: 100%;
+  height: auto;
+}
+
+/* Blog & SEO Merkezi rich text editor (Tiptap) — scoped, admin-only. */
+.blog-rich-editor .ProseMirror {
+  outline: none;
+}
+.blog-rich-editor p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: rgba(148, 163, 184, 0.55);
+  pointer-events: none;
+}
+.blog-rich-editor h2 {
+  margin: 1.4em 0 0.5em;
+  font-size: 1.35rem;
+  font-weight: 900;
+  color: #fff;
+}
+.blog-rich-editor h3 {
+  margin: 1.2em 0 0.4em;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #fff;
+}
+.blog-rich-editor p {
+  margin: 0.6em 0;
+}
+.blog-rich-editor ul,
+.blog-rich-editor ol {
+  margin: 0.6em 0;
+  padding-left: 1.4em;
+}
+.blog-rich-editor ul {
+  list-style: disc;
+}
+.blog-rich-editor ol {
+  list-style: decimal;
+}
+.blog-rich-editor li {
+  margin: 0.2em 0;
+}
+.blog-rich-editor blockquote {
+  margin: 0.8em 0;
+  padding: 0.2em 1em;
+  border-left: 3px solid rgba(103, 232, 249, 0.4);
+  color: rgba(226, 232, 240, 0.85);
+}
+.blog-rich-editor a {
+  color: #67e8f9;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.blog-rich-editor strong {
+  font-weight: 800;
+}

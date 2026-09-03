@@ -279,10 +279,14 @@ function buildPrompt(action: string, body: Record<string, unknown>) {
   }
 
   if (action === "improve_draft") {
+    const deterministicFindings = cleanList(body.deterministicFindings, 20, 220);
     return JSON.stringify({
       task: "Mevcut blog taslağı için uygulanabilir geliştirme önerisi üret",
-      rules: sharedRules,
+      rules: deterministicFindings.length
+        ? [...sharedRules, "Öncelikle deterministicFindings listesindeki eksiklikleri giderecek somut değişiklikler öner."]
+        : sharedRules,
       context: ctx,
+      deterministicFindings,
       availableServices: services,
       outputShape: {
         improvedTitle: "string",

@@ -24,6 +24,17 @@ function normalizePatch(input: Record<string, unknown>, userId?: string) {
   if (title.length < 8) throw new Error("Başlık en az 8 karakter olmalı.");
   if (!slug) throw new Error("Geçerli bir slug üretilemedi.");
   if (content.length < 120) throw new Error("İçerik en az 120 karakter olmalı.");
+  if (status === "published" || status === "scheduled") {
+    if (!text(input.category_id)) throw new Error("Yayınlamadan önce kategori seçilmeli.");
+    if (!text(input.primary_keyword)) throw new Error("Yayınlamadan önce ana hedef kelime girilmeli.");
+  }
+  if (status === "scheduled") {
+    const scheduledAt = text(input.scheduled_at);
+    if (!scheduledAt || Number.isNaN(Date.parse(scheduledAt)) || Date.parse(scheduledAt) <= Date.now()) {
+      throw new Error("Planlı yayın için geçerli bir gelecek tarih gerekli.");
+    }
+    if (!input.approved_for_publish) throw new Error("Planlı yayın için insan onayı gerekli.");
+  }
   const base = {
     title,
     slug,
