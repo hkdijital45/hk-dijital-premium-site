@@ -26,7 +26,7 @@ const tabLabels: Record<Tab, string> = {
   overview: "Genel Bakış",
   opportunities: "Fırsatlar",
   "geo-doctor": "GEO Doktoru",
-  "gemini-visibility": "Gemini Görünürlüğü",
+  "gemini-visibility": "AI Görünürlüğü",
   automation: "Otomasyon",
   integrations: "Entegrasyonlar",
   logs: "Loglar"

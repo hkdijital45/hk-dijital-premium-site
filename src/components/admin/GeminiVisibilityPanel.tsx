@@ -209,7 +209,7 @@ export function GeminiVisibilityPanel({ geminiConfigured }: { geminiConfigured: 
       body: JSON.stringify({
         scanId: scan.id,
         title: `Görünürlük skorunu iyileştir (${scan.score ?? "-"}/100)`,
-        rationale: `Gemini Görünürlük taraması ${scan.score_level ? levelLabels[scan.score_level] : "-"} seviyesinde sonuçlandı.`
+        rationale: `AI Görünürlük taraması ${scan.score_level ? levelLabels[scan.score_level] : "-"} seviyesinde sonuçlandı.`
       })
     })
       .then((data) => setFeedback(data.alreadyExisted ? "Bu öneri için görev zaten mevcut." : "Görev oluşturuldu."))
@@ -222,7 +222,7 @@ export function GeminiVisibilityPanel({ geminiConfigured }: { geminiConfigured: 
   const trend = useMemo(() => [...scans].reverse().filter((scan) => scan.score != null), [scans]);
 
   if (!geminiConfigured) {
-    return <AdminErrorState title="Gemini API yapılandırılmadı" description="GEMINI_API_KEY (veya GOOGLE_API_KEY) ortam değişkeni ayarlanmadan Gemini Görünürlük Merkezi çalışamaz. Google AI Pro veya öğrenci Gemini aboneliği bu API'ye erişim sağlamaz — gerçek bir Gemini API anahtarı gerekir." />;
+    return <AdminErrorState title="Gemini API yapılandırılmadı" description="GEMINI_API_KEY (veya GOOGLE_API_KEY) ortam değişkeni ayarlanmadan AI Görünürlük Merkezi çalışamaz. Google AI Pro veya öğrenci Gemini aboneliği bu API'ye erişim sağlamaz — gerçek bir Gemini API anahtarı gerekir." />;
   }
 
   return (
@@ -238,7 +238,7 @@ export function GeminiVisibilityPanel({ geminiConfigured }: { geminiConfigured: 
       {feedback && <div className="admin-card-soft rounded-[12px] p-3 text-sm font-bold">{feedback}</div>}
 
       {!companyId ? (
-        <AdminEmptyState title="Müşteri seçilmedi" description="Gemini görünürlük profilini görmek için yukarıdan bir müşteri seçin." />
+        <AdminEmptyState title="Müşteri seçilmedi" description="AI görünürlük profilini görmek için yukarıdan bir müşteri seçin." />
       ) : profileLoading ? <AdminLoadingState /> : (
         <>
           <div className="admin-card grid gap-4 rounded-[20px] p-5">
@@ -332,7 +332,7 @@ export function GeminiVisibilityPanel({ geminiConfigured }: { geminiConfigured: 
 
               <div className="admin-card grid gap-4 rounded-[20px] p-5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-xs font-black uppercase tracking-wide opacity-60">Gemini Görünürlük Skoru</p>
+                  <p className="text-xs font-black uppercase tracking-wide opacity-60">AI Görünürlük Skoru</p>
                   <div className="flex gap-2">
                     <AdminButton variant="primary" icon={<Zap size={14} />} loading={busy === "scan"} disabled={!activeQuestionCount} onClick={() => startScan(false)}>Taramayı Başlat</AdminButton>
                     <AdminButton variant="secondary" icon={<RefreshCw size={14} />} loading={busy === "scan-force"} disabled={!activeQuestionCount} onClick={() => startScan(true)}>Yeniden Zorla</AdminButton>

@@ -25,11 +25,11 @@ export function buildGeminiVisibilityReportPayload(
   const topCompetitors = [...competitorCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
 
   return {
-    title: "Gemini Görünürlük Raporu",
+    title: "AI Görünürlük Raporu",
     customerName: companyName,
     period: scanDate,
     executiveSummary:
-      `${profile.business_name} için Gemini Görünürlük Skoru: ${scan.score ?? "-"}/100 (${scan.score_level ? levelLabels[scan.score_level] : "-"}). ` +
+      `${profile.business_name} için AI Görünürlük Skoru: ${scan.score ?? "-"}/100 (${scan.score_level ? levelLabels[scan.score_level] : "-"}). ` +
       `Model: ${scan.model}. Soru sayısı: ${scan.questions_total} (tamamlanan: ${scan.questions_completed}, başarısız: ${scan.questions_failed}). ` +
       `Durum: ${scan.status === "completed" ? "Tamamlandı" : scan.status === "partial" ? "Kısmi" : "Başarısız"}.` +
       (scan.score_change != null ? ` Önceki taramaya göre değişim: ${scan.score_change > 0 ? "+" : ""}${scan.score_change} puan.` : ""),
@@ -73,6 +73,6 @@ export function buildGeminiVisibilityReportPayload(
           `ölçülemeyen bileşenler orantılı olarak yeniden ağırlıklandırılır, asla varsayılan/uydurma değer atanmaz.`
       }
     ],
-    footerNote: "HK Dijital — Gemini Görünürlük Merkezi"
+    footerNote: "HK Dijital — AI Görünürlük Merkezi"
   };
 }

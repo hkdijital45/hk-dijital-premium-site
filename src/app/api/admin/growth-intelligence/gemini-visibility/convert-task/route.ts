@@ -28,9 +28,9 @@ export async function POST(request: Request) {
       method: "POST",
       body: JSON.stringify({
         company_id: scan.company_id,
-        title: `Gemini Görünürlüğü: ${title}`,
+        title: `AI Görünürlüğü: ${title}`,
         description: [
-          rationale || "Gemini Görünürlük Merkezi taramasından türetilen öneri.",
+          rationale || "AI Görünürlük Merkezi taramasından türetilen öneri.",
           `Kaynak tarama: ${scanId} (Skor: ${scan.score ?? "-"}/100, Seviye: ${scan.score_level || "-"})`
         ].join("\n\n"),
         status: "Yapılacak",

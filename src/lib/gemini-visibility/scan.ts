@@ -33,7 +33,7 @@ async function runWithConcurrency<T, R>(items: T[], limit: number, worker: (item
 
 async function loadProfile(profileId: string): Promise<GeminiVisibilityProfile> {
   const rows = await supabaseRest<GeminiVisibilityProfile[]>(`gemini_visibility_profiles?id=eq.${encodeURIComponent(profileId)}&select=*&limit=1`);
-  if (!rows[0]) throw new Error("Gemini görünürlük profili bulunamadı.");
+  if (!rows[0]) throw new Error("AI görünürlük profili bulunamadı.");
   return rows[0];
 }
 
@@ -189,7 +189,7 @@ export async function runGeminiVisibilityScan(profileId: string, options: RunSca
   const skippedForQuota = missQuestions.slice(allowedMisses);
 
   if (!cacheHitIndices.size && !questionsToCall.length) {
-    throw new Error("Aylık Gemini görünürlük kotası doldu. Yeni tarama başlatılamıyor.");
+    throw new Error("Aylık AI görünürlük kotası doldu. Yeni tarama başlatılamıyor.");
   }
 
   let scan: GeminiVisibilityScan;

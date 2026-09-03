@@ -52,7 +52,7 @@ export async function POST(request: Request) {
 
     const quota = await getQuotaStatus(profiles[0].company_id);
     if (quota.exceeded) {
-      return NextResponse.json({ error: "Aylık Gemini görünürlük kotası doldu.", quota }, { status: 429 });
+      return NextResponse.json({ error: "Aylık AI görünürlük kotası doldu.", quota }, { status: 429 });
     }
 
     const scan = await runGeminiVisibilityScan(profileId, { triggeredBy: "manual", forceRefresh, createdBy: session.profileId || null });
