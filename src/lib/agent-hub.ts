@@ -350,7 +350,12 @@ export async function getAgentProviders(): Promise<AgentProvider[]> {
     return {
       ...provider,
       ...row,
-      status: configured && row?.status !== "passive" ? row?.status || provider.status : row?.status || provider.status,
+      // A real env-configured key is ground truth: it must win over a
+      // stale/incorrectly-seeded DB status row (previously this ternary's
+      // two branches computed the identical expression, so a DB row that
+      // said "not_configured" always overrode a genuinely-present API key).
+      // An explicit "passive" DB status still disables the provider.
+      status: configured && row?.status !== "passive" ? "active" : (row?.status || provider.status),
       configured,
       secret_mask: provider.secret_mask || (row?.status === "active" ? "Sunucuda kayıtlı / maskeli" : null)
     };

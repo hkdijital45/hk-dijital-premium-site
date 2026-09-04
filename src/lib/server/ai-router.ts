@@ -12,6 +12,7 @@ import {
 } from "@/lib/ai-task-routing";
 import type { HKOutputSize, HKRouteComplexity } from "@/lib/hk-ai-router";
 import { getSiteContent } from "@/lib/content";
+import type { ProviderFailure } from "@/lib/discovery-report-schema";
 
 export { classifyAiTask } from "@/lib/ai-task-routing";
 export type { IntelligenceProviderKey, IntelligenceTaskType } from "@/lib/ai-task-routing";
@@ -61,6 +62,10 @@ export type AiRouterResult = {
   notice: string | null;
   responseTimeMs: number;
   tokensUsed: number;
+  // Safe, non-leaking per-provider failure classification (see
+  // discovery-report-schema.ts) — lets callers build a differentiated,
+  // secret-safe user-facing message instead of one generic string.
+  failureDetails: ProviderFailure[];
   // Populated for real Gemini/OpenAI smart-routed calls only.
   reasoningEffort?: string;
   inputTokens?: number;
@@ -227,11 +232,17 @@ export async function executeWithFallback(input: AiRouterInput, options: AiRoute
   const providerRows = await getAgentProviders();
   const attempted: IntelligenceProviderKey[] = [];
   const failures: string[] = [];
+  const failureDetails: ProviderFailure[] = [];
 
   let liveAttempts = 0;
   for (const provider of selection.order) {
     const availability = selection.availability.find((item) => item.provider === provider);
-    if (provider !== "demo" && (!availability?.enabled || ["unavailable", "missing_configuration"].includes(availability.status))) continue;
+    if (provider !== "demo" && (!availability?.enabled || ["unavailable", "missing_configuration"].includes(availability.status))) {
+      if (!availability?.configured) {
+        failureDetails.push({ provider: providerLabels[provider], category: "missing_configuration" });
+      }
+      continue;
+    }
     if (provider !== "demo" && liveAttempts >= 5) continue;
     attempted.push(provider);
     if (provider === "demo") break;
@@ -263,6 +274,10 @@ export async function executeWithFallback(input: AiRouterInput, options: AiRoute
     if (result.usedFallback) {
       markFailure(provider, result.errorMessage);
       failures.push(`${providerLabels[provider]} yanıt vermedi`);
+      failureDetails.push({ provider: providerLabels[provider], category: result.errorCategory || "provider_error" });
+      // Structured, secret-safe: category + redacted message only, never
+      // the raw provider error/response body or any credential.
+      console.error(`[HK-AI] provider=${provider} category=${result.errorCategory || "provider_error"} module=${input.module || "-"} reason=${result.errorMessage}`);
       continue;
     }
 
@@ -279,6 +294,7 @@ export async function executeWithFallback(input: AiRouterInput, options: AiRoute
       notice: attempted.length > 1 ? `${providerLabels[attempted[0]]} yanıt vermedi, ${providerLabels[provider]} ile devam edildi.` : null,
       responseTimeMs: Date.now() - startedAt,
       tokensUsed: result.tokensUsed,
+      failureDetails,
       reasoningEffort: result.reasoningEffort,
       inputTokens: result.inputTokens,
       cachedInputTokens: result.cachedInputTokens,
@@ -296,6 +312,7 @@ export async function executeWithFallback(input: AiRouterInput, options: AiRoute
     mode: "Demo",
     fallbackUsed: true,
     providerChain: attempted.includes("demo") ? attempted : [...attempted, "demo"],
+    failureDetails,
     notice: failures.length ? "Canlı sağlayıcılar kullanılamadı; güvenli yerel yedek kullanıldı." : "Canlı sağlayıcı yapılandırılmadı; güvenli yerel yedek kullanıldı.",
     responseTimeMs: Date.now() - startedAt,
     tokensUsed: 0
@@ -355,7 +372,14 @@ export async function executeAiTask(rawInput: AiRouterInput, options: AiRouterOp
   pendingRequests.set(key, execution);
   try {
     const result = await execution;
-    responseCache.set(key, { expiresAt: Date.now() + (options.cacheTtlMs ?? 5 * 60_000), result });
+    // A "demo" result means every real provider failed for this request —
+    // caching that for the caller's full TTL (often minutes) would keep
+    // serving the same stale failure long after a transient outage/rate
+    // limit has cleared. Only successful, real-provider results get the
+    // requested TTL; fallback results get a short window just long enough
+    // to absorb an accidental rapid double-click.
+    const ttl = result.provider === "demo" ? 10_000 : (options.cacheTtlMs ?? 5 * 60_000);
+    responseCache.set(key, { expiresAt: Date.now() + ttl, result });
     if (options.recordExecution !== false) await recordAiExecution(input, result);
     return normalizeAiResponse(result);
   } finally {

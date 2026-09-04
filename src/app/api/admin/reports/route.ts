@@ -6,6 +6,7 @@ import { requireModuleAccess } from "@/lib/permissions";
 import { getSiteContent } from "@/lib/content";
 import { checkOperationalCustomer } from "@/lib/server/customer-visibility";
 import { normalizeDigitalVisibilityReport } from "@/lib/digital-visibility-report";
+import { buildProviderFailureMessage, validateAndBackfillSections } from "@/lib/discovery-report-schema";
 
 const reportTypes = ["Meta Reklam Raporu", "Google Ads Raporu", "Sosyal Medya Yönetimi Raporu", "Genel Dijital Performans Raporu"];
 const discoveryReportTypes = {
@@ -185,6 +186,15 @@ async function generateDiscoveryReport(body: Record<string, unknown>) {
       ].join("\n")
       : "Yalnız şu JSON biçiminde Türkçe yanıt ver: {\"summary\":\"...\",\"sections\":[{\"title\":\"...\",\"items\":[\"...\"]}]}"
   ].filter(Boolean).join("\n");
+  // Fetched before the AI call so a user-edited existing report can short
+  // -circuit into a confirmation response without needing a second round
+  // -trip once the fresh draft is ready.
+  const existing = await supabaseRest<Array<{ id: string; metadata?: { user_edited?: boolean } | null; content?: unknown; updated_at?: string }>>(
+    `reports?source_module=eq.google_maps_discovery&source_identifier=eq.${encodeURIComponent(sourceIdentifier)}&report_type=eq.${encodeURIComponent(config.label)}&deleted_at=is.null&select=id,metadata,content,updated_at&limit=1`
+  ).catch(() => []);
+  const forceOverwrite = body.forceOverwrite === true;
+  const existingIsUserEdited = Boolean(existing[0]?.metadata?.user_edited);
+
   const ai = await executeAiTask({
     taskType: config.taskType,
     module: "google_maps_discovery",
@@ -200,11 +210,33 @@ async function generateDiscoveryReport(body: Record<string, unknown>) {
     const content = await getSiteContent();
     const demoMode = String(content.settings.api?.ai_mode || "").toLocaleLowerCase("tr-TR") === "demo";
     if (!demoMode) {
-      return NextResponse.json({ error: "AI sağlayıcısı yapılandırılmamış veya yanıt vermedi. AI ayarlarını kontrol edip tekrar deneyin." }, { status: 503 });
+      const message = buildProviderFailureMessage(ai.failureDetails);
+      // Structured, secret-safe: category per provider only, never the raw
+      // provider error text or any credential — see ai-router.ts for the
+      // per-attempt console.error with the (already redacted) detail.
+      console.error(`[HK-AI] discovery report fallback to demo: kind=${kind} companies=${ai.failureDetails.map((item) => `${item.provider}:${item.category}`).join(",") || "none-attempted"}`);
+      return NextResponse.json({ error: message, failureDetails: ai.failureDetails }, { status: 503 });
     }
   }
 
-  const normalized = parseAiReport(ai.text, kind, fallback);
+  const rawNormalized = parseAiReport(ai.text, kind, fallback);
+  const requiredTitles = kind === "digital_audit" ? [] : sectionTitles(kind);
+  const { sections: validatedSections, backfilledTitles } = requiredTitles.length
+    ? validateAndBackfillSections(rawNormalized.sections, requiredTitles, fallback.sections)
+    : { sections: rawNormalized.sections, backfilledTitles: [] as string[] };
+  const normalized = { ...rawNormalized, sections: validatedSections };
+
+  if (existingIsUserEdited && !forceOverwrite) {
+    return NextResponse.json({
+      ok: true,
+      requiresConfirmation: true,
+      existingReport: existing[0],
+      content: normalized,
+      ai: { provider: ai.providerLabel, model: ai.model, fallbackUsed: ai.fallbackUsed, notice: ai.notice },
+      message: "Bu işletme için daha önce elle düzenlenmiş bir rapor kayıtlı. Yeni AI taslağı üretildi ancak üzerine yazılmadı; onaylarsanız kaydedilen düzenlemenin üzerine yazılır."
+    });
+  }
+
   const now = new Date().toISOString();
   const companyId = uuidPattern.test(String(body.companyId || "")) ? String(body.companyId) : null;
   const leadId = uuidPattern.test(String(body.leadId || "")) ? String(body.leadId) : null;
@@ -233,14 +265,13 @@ async function generateDiscoveryReport(body: Record<string, unknown>) {
       model: ai.model,
       fallback_used: ai.fallbackUsed,
       provider_notice: ai.notice,
-      search_context: body.searchContext || {}
+      search_context: body.searchContext || {},
+      sections_backfilled: backfilledTitles,
+      user_edited: false
     },
     updated_at: now
   };
 
-  const existing = await supabaseRest<Array<{ id: string }>>(
-    `reports?source_module=eq.google_maps_discovery&source_identifier=eq.${encodeURIComponent(sourceIdentifier)}&report_type=eq.${encodeURIComponent(config.label)}&deleted_at=is.null&select=id&limit=1`
-  ).catch(() => []);
   const rows = existing[0]?.id
     ? await supabaseRest<any[]>(`reports?id=eq.${encodeURIComponent(existing[0].id)}`, { method: "PATCH", body: JSON.stringify(payload) })
     : await supabaseRest<any[]>("reports", { method: "POST", body: JSON.stringify({ ...payload, created_at: now }) });
@@ -260,6 +291,7 @@ async function generateDiscoveryReport(body: Record<string, unknown>) {
     report,
     content: normalized,
     ai: { provider: ai.providerLabel, model: ai.model, fallbackUsed: ai.fallbackUsed, notice: ai.notice },
+    sectionsBackfilled: backfilledTitles,
     message: existing[0]?.id ? "Rapor yeniden oluşturuldu ve Rapor Merkezi’nde güncellendi." : "Rapor oluşturuldu ve Rapor Merkezi’ne kaydedildi."
   });
 }
@@ -358,7 +390,7 @@ export async function POST(request: Request) {
 // company_id (correct for real ad-performance reports), so a company-less
 // report needs its own narrow, whitelisted partial-update path instead —
 // otherwise archiving/editing one would always fail with "Firma seçin."
-const discoveryPatchFields = ["title", "content", "status", "archived", "archived_at", "visible_to_customer", "customer_note"] as const;
+const discoveryPatchFields = ["title", "content", "status", "archived", "archived_at", "visible_to_customer", "customer_note", "metadata"] as const;
 
 function normalizeDiscoveryPatch(body: any) {
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };

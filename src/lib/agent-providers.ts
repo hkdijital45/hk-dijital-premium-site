@@ -3,6 +3,7 @@ import { agentTaskToIntelligenceTask } from "@/lib/ai-task-routing";
 import { resolveHkAiRoute, type HKRouteComplexity, type HKOutputSize } from "@/lib/hk-ai-router";
 import { callOpenAiResponses } from "@/lib/openai-client";
 import { callGeminiGenerate } from "@/lib/gemini-client";
+import { classifyProviderError, type ProviderErrorCategory } from "@/lib/discovery-report-schema";
 
 export type AgentProviderPayload = {
   provider: AgentProviderKey;
@@ -31,6 +32,11 @@ export type AgentProviderResult = {
   responseMs: number;
   usedFallback: boolean;
   errorMessage?: string;
+  // Safe, non-leaking classification of why the call fell back — see
+  // discovery-report-schema.ts. Used to build differentiated, secret-safe
+  // user-facing messages instead of one generic "yapılandırılmamış" string.
+  errorCategory?: ProviderErrorCategory;
+  failedProvider?: AgentProviderKey;
   // Populated for real Gemini/OpenAI calls only.
   reasoningEffort?: string;
   inputTokens?: number;
@@ -57,6 +63,10 @@ function estimateTokens(text: string) {
   return Math.max(1, Math.ceil(text.length / 4));
 }
 
+function missingConfigError(message: string) {
+  return Object.assign(new Error(message), { category: "missing_configuration" as ProviderErrorCategory });
+}
+
 function redactError(error: unknown) {
   const message = error instanceof Error ? error.message : "AI sağlayıcı hatası";
   return message
@@ -81,7 +91,7 @@ async function fetchJson(url: string, init: RequestInit, timeoutMs = 22000) {
       const error = typeof json.error === "object" && json.error && "message" in json.error
         ? String((json.error as { message?: string }).message || "Sağlayıcı isteği başarısız oldu.")
         : String(json.message || text || "Sağlayıcı isteği başarısız oldu.");
-      throw new Error(error);
+      throw Object.assign(new Error(error), { status: response.status });
     }
     return json;
   } finally {
@@ -101,7 +111,7 @@ function buildDemoText(payload: AgentProviderPayload) {
 }
 
 async function runOpenAICompatible(payload: AgentProviderPayload, config: { apiKey?: string; baseUrl: string; model: string; provider: AgentProviderKey; extraHeaders?: Record<string, string> }) {
-  if (!config.apiKey) throw new Error("API anahtarı yapılandırılmadı");
+  if (!config.apiKey) throw missingConfigError("API anahtarı yapılandırılmadı");
   const started = Date.now();
   const json = await fetchJson(`${config.baseUrl.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",
@@ -167,7 +177,7 @@ function buildHkRoute(payload: AgentProviderPayload) {
 }
 
 async function runGeminiSmartRouted(payload: AgentProviderPayload) {
-  if (!process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY) throw new Error("Gemini API anahtarı yapılandırılmadı");
+  if (!process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY) throw missingConfigError("Gemini API anahtarı yapılandırılmadı");
   const route = buildHkRoute(payload);
 
   const result = await callGeminiGenerate({
@@ -203,7 +213,7 @@ async function runGeminiSmartRouted(payload: AgentProviderPayload) {
 }
 
 async function runOpenAiSmartRouted(payload: AgentProviderPayload) {
-  if (!process.env.OPENAI_API_KEY) throw new Error("OpenAI API anahtarı yapılandırılmadı");
+  if (!process.env.OPENAI_API_KEY) throw missingConfigError("OpenAI API anahtarı yapılandırılmadı");
   const route = buildHkRoute(payload);
 
   const result = await callOpenAiResponses({
@@ -231,7 +241,7 @@ async function runOpenAiSmartRouted(payload: AgentProviderPayload) {
 }
 
 async function runClaude(payload: AgentProviderPayload) {
-  if (!process.env.ANTHROPIC_API_KEY) throw new Error("Claude API anahtarı yapılandırılmadı");
+  if (!process.env.ANTHROPIC_API_KEY) throw missingConfigError("Claude API anahtarı yapılandırılmadı");
   const started = Date.now();
   const model = payload.model || defaultModels.anthropic;
   const json = await fetchJson("https://api.anthropic.com/v1/messages", {
@@ -263,7 +273,7 @@ async function runClaude(payload: AgentProviderPayload) {
 }
 
 async function runManus(payload: AgentProviderPayload) {
-  if (!process.env.MANUS_API_KEY) throw new Error("Manus API anahtarı yapılandırılmadı");
+  if (!process.env.MANUS_API_KEY) throw missingConfigError("Manus API anahtarı yapılandırılmadı");
   if (!process.env.MANUS_API_BASE_URL || !process.env.MANUS_API_ENDPOINT) throw new Error("Manus API endpoint yapılandırması bekleniyor");
   const started = Date.now();
   const url = `${process.env.MANUS_API_BASE_URL.replace(/\/$/, "")}/${process.env.MANUS_API_ENDPOINT.replace(/^\//, "")}`;
@@ -347,7 +357,9 @@ export async function runRealAgentProvider(payload: AgentProviderPayload): Promi
       tokensUsed: estimateTokens(`${payload.systemPrompt}\n${payload.prompt}`),
       responseMs: Date.now() - started,
       usedFallback: true,
-      errorMessage: reason
+      errorMessage: reason,
+      errorCategory: classifyProviderError(error),
+      failedProvider: payload.provider
     };
   }
 }

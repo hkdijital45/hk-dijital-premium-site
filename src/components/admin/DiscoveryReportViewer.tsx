@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, ExternalLink, Loader2, RefreshCw, X } from "lucide-react";
+import { Check, Copy, ExternalLink, Loader2, Pencil, RefreshCw, Save, X } from "lucide-react";
 import Link from "next/link";
 import { digitalVisibilityReportToPlainText, normalizeDigitalVisibilityReport, type DigitalVisibilityReport } from "@/lib/digital-visibility-report";
 
@@ -56,16 +56,46 @@ export function DiscoveryReportViewer({
   report,
   onClose,
   onRegenerate,
-  regenerating = false
+  regenerating = false,
+  onSaveEdit,
+  saving = false
 }: {
   report: DiscoveryReportRecord;
   onClose: () => void;
   onRegenerate?: () => void;
   regenerating?: boolean;
+  onSaveEdit?: (updated: { summary: string; sections: DiscoveryReportSection[] }) => void;
+  saving?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
+  const [editing, setEditing] = useState(false);
   const sections = report.content?.sections || [];
   const digitalReport = isDigitalVisibilityReport(report) ? normalizedDigitalReport(report) : null;
+  const [draftSummary, setDraftSummary] = useState(report.content?.summary || "");
+  const [draftSections, setDraftSections] = useState<DiscoveryReportSection[]>(sections);
+
+  function startEditing() {
+    setDraftSummary(report.content?.summary || "");
+    setDraftSections((report.content?.sections || []).map((section) => ({ ...section, items: [...section.items] })));
+    setEditing(true);
+  }
+
+  function updateItem(sectionIndex: number, itemIndex: number, value: string) {
+    setDraftSections((current) => current.map((section, sIndex) => sIndex !== sectionIndex ? section : { ...section, items: section.items.map((item, iIndex) => iIndex === itemIndex ? value : item) }));
+  }
+
+  function removeItem(sectionIndex: number, itemIndex: number) {
+    setDraftSections((current) => current.map((section, sIndex) => sIndex !== sectionIndex ? section : { ...section, items: section.items.filter((_, iIndex) => iIndex !== itemIndex) }));
+  }
+
+  function addItem(sectionIndex: number) {
+    setDraftSections((current) => current.map((section, sIndex) => sIndex !== sectionIndex ? section : { ...section, items: [...section.items, ""] }));
+  }
+
+  function saveEdit() {
+    onSaveEdit?.({ summary: draftSummary, sections: draftSections.map((section) => ({ ...section, items: section.items.map((item) => item.trim()).filter(Boolean) })) });
+    setEditing(false);
+  }
 
   async function copyReport() {
     try {
@@ -145,6 +175,29 @@ export function DiscoveryReportViewer({
                 <p className="rounded-[14px] border border-dashed border-amber-300 bg-amber-50 p-5 text-sm text-amber-900">Rapor içeriği okunabilir biçime dönüştürülemedi. Raporu yeniden oluşturmayı deneyin.</p>
               )}
             </div>
+          ) : editing ? (
+            <>
+              <label className="grid gap-2 text-sm font-black text-[var(--admin-text-secondary)]">
+                Özet
+                <textarea value={draftSummary} onChange={(event) => setDraftSummary(event.target.value)} rows={3} className="rounded-[12px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3 text-sm font-normal leading-6 text-[var(--admin-text-primary)]" />
+              </label>
+              <div className="mt-5 grid gap-4 md:grid-cols-2">
+                {draftSections.map((section, sectionIndex) => (
+                  <article key={section.title} className="min-w-0 rounded-[14px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4">
+                    <h3 className="text-base font-black text-[var(--admin-text-primary)]">{section.title}</h3>
+                    <div className="mt-3 grid gap-2">
+                      {section.items.map((item, itemIndex) => (
+                        <div key={itemIndex} className="flex items-start gap-2">
+                          <textarea value={item} onChange={(event) => updateItem(sectionIndex, itemIndex, event.target.value)} rows={2} className="min-w-0 flex-1 rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-2 text-sm leading-6 text-[var(--admin-text-primary)]" />
+                          <button type="button" onClick={() => removeItem(sectionIndex, itemIndex)} aria-label="Maddeyi kaldır" className="grid size-9 shrink-0 place-items-center rounded-[8px] border border-[var(--admin-border)] text-red-600 hover:bg-red-50"><X size={15} /></button>
+                        </div>
+                      ))}
+                      <button type="button" onClick={() => addItem(sectionIndex)} className="min-h-9 rounded-[8px] border border-dashed border-[var(--admin-border)] px-3 text-xs font-black text-[var(--admin-text-secondary)] hover:bg-[var(--admin-surface)]">+ Madde ekle</button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </>
           ) : (
             <>
               {report.content?.summary && <p className="rounded-[14px] border border-cyan-200 bg-cyan-50 p-4 text-sm font-semibold leading-7 text-cyan-950">{report.content.summary}</p>}
@@ -170,15 +223,33 @@ export function DiscoveryReportViewer({
         </div>
 
         <footer className="flex shrink-0 flex-col gap-2 border-t border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 sm:flex-row sm:items-center sm:justify-end sm:px-6">
-          <button type="button" onClick={copyReport} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[12px] border border-slate-300 px-4 text-sm font-black text-[var(--admin-text-secondary)] hover:bg-[var(--admin-surface-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-100">
-            {copied ? <Check size={17} /> : <Copy size={17} />} {copied ? "Kopyalandı" : "Kopyala"}
-          </button>
-          <Link href="/hk-admin/raporlar?reportTab=discovery" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[12px] border border-cyan-200 bg-cyan-50 px-4 text-sm font-black text-cyan-800">
-            <ExternalLink size={17} /> Rapor Merkezi’ne Git
-          </Link>
-          {onRegenerate && <button type="button" onClick={onRegenerate} disabled={regenerating} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[12px] bg-cyan-600 px-4 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-60">
-            {regenerating ? <Loader2 className="animate-spin" size={17} /> : <RefreshCw size={17} />} {regenerating ? "Yeniden oluşturuluyor..." : "Yeniden Oluştur"}
-          </button>}
+          {editing ? (
+            <>
+              <button type="button" onClick={() => setEditing(false)} disabled={saving} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[12px] border border-slate-300 px-4 text-sm font-black text-[var(--admin-text-secondary)] hover:bg-[var(--admin-surface-soft)] disabled:cursor-not-allowed disabled:opacity-60">
+                Vazgeç
+              </button>
+              <button type="button" onClick={saveEdit} disabled={saving} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[12px] bg-emerald-600 px-4 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-60">
+                {saving ? <Loader2 className="animate-spin" size={17} /> : <Save size={17} />} {saving ? "Kaydediliyor..." : "Kaydet"}
+              </button>
+            </>
+          ) : (
+            <>
+              <button type="button" onClick={copyReport} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[12px] border border-slate-300 px-4 text-sm font-black text-[var(--admin-text-secondary)] hover:bg-[var(--admin-surface-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-100">
+                {copied ? <Check size={17} /> : <Copy size={17} />} {copied ? "Kopyalandı" : "Kopyala"}
+              </button>
+              {onSaveEdit && !digitalReport && (
+                <button type="button" onClick={startEditing} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[12px] border border-cyan-200 bg-cyan-50 px-4 text-sm font-black text-cyan-800 hover:bg-cyan-100">
+                  <Pencil size={17} /> Düzenle
+                </button>
+              )}
+              <Link href="/hk-admin/raporlar?reportTab=discovery" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[12px] border border-cyan-200 bg-cyan-50 px-4 text-sm font-black text-cyan-800">
+                <ExternalLink size={17} /> Rapor Merkezi’ne Git
+              </Link>
+              {onRegenerate && <button type="button" onClick={onRegenerate} disabled={regenerating} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[12px] bg-cyan-600 px-4 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-60">
+                {regenerating ? <Loader2 className="animate-spin" size={17} /> : <RefreshCw size={17} />} {regenerating ? "Yeniden oluşturuluyor..." : "Yeniden Oluştur"}
+              </button>}
+            </>
+          )}
         </footer>
       </section>
     </div>

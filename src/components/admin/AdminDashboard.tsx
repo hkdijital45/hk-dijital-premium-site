@@ -656,6 +656,26 @@ export function AdminDashboard({
   }, []);
   const panelClass = "border-[var(--admin-border)] bg-[var(--admin-surface)]";
   const aiStatus = aiMetaFromApi(content.settings?.api || {});
+  // aiStatus.mode above is just the saved preference ("Canlı" whenever the
+  // chosen provider isn't literally demo/local) — it says nothing about
+  // whether that provider is actually reachable right now. Cross-check
+  // against the same real, live status the AI router itself uses before
+  // ever showing "Canlı" in the header.
+  const [realAiProviderStatus, setRealAiProviderStatus] = useState<Record<string, string> | null>(null);
+  useEffect(() => {
+    let active = true;
+    fetch("/api/admin/ai-providers", { cache: "no-store" }).then((response) => response.json()).then((data) => {
+      if (!active || !Array.isArray(data.providers)) return;
+      const map: Record<string, string> = {};
+      for (const item of data.providers) map[item.key] = item.status;
+      setRealAiProviderStatus(map);
+    }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+  const unreadyAiStatusLabels = new Set(["Yapılandırma Eksik", "Devre Dışı", "Geçici Sorun", "Yapılandırılmadı", "Eksik endpoint", "Yerel yapılandırılmadı"]);
+  const realAiStatusForSelected = realAiProviderStatus?.[normalizeUnifiedAiProvider(aiStatus.provider)];
+  const aiHeaderModeLabel = realAiStatusForSelected && unreadyAiStatusLabels.has(realAiStatusForSelected) ? realAiStatusForSelected : aiStatus.mode;
+  const aiHeaderModeIsWarning = realAiStatusForSelected ? unreadyAiStatusLabels.has(realAiStatusForSelected) : false;
   const headerNotifications = buildAdminNotifications(content, startupApiData).filter((item) => !notificationState.archived.includes(item.id));
   const unreadNotifications = headerNotifications.filter((item) => !notificationState.read.includes(item.id));
   const userInitials = String(currentSession?.fullName || currentSession?.email || "HK")
@@ -743,9 +763,9 @@ export function AdminDashboard({
           }
         >
           <AdminBrowserControls />
-          <button onClick={() => setActive("API Ayarları")} className="admin-quick-action text-left text-xs">
+          <button onClick={() => setActive("API Ayarları")} className="admin-quick-action text-left text-xs" title={aiHeaderModeIsWarning ? "Seçili sağlayıcı şu anda gerçekten kullanılamıyor. Ayarları kontrol edin." : undefined}>
             <span className="block">AI: {aiStatus.provider}</span>
-            <span className="block text-[10px]" style={{ color: "var(--admin-text-muted)" }}>Mod: {aiStatus.mode}</span>
+            <span className="block text-[10px]" style={{ color: aiHeaderModeIsWarning ? "var(--admin-danger, #b91c1c)" : "var(--admin-text-muted)" }}>Mod: {aiHeaderModeLabel}</span>
           </button>
           <div className="relative">
             <button type="button" onClick={() => setFavoritesOpen((current) => !current)} aria-expanded={favoritesOpen} className="admin-quick-action text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0C9FB3]">
@@ -9658,8 +9678,9 @@ const reportMetricFields = {
   ]
 };
 
-function DiscoveryReportsList({ content }: any) {
+function DiscoveryReportsList({ content, setContent }: any) {
   const [preview, setPreview] = useState<DiscoveryReportRecord | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
   const [query, setQuery] = useState("");
   const [companyId, setCompanyId] = useState("");
   const [reportType, setReportType] = useState("");
@@ -9725,7 +9746,32 @@ function DiscoveryReportsList({ content }: any) {
       })}
       {!reports.length && <div className="rounded-[14px] border border-dashed border-slate-300 bg-[var(--admin-surface-soft)] p-8 text-center"><FileBarChart className="mx-auto text-slate-400" size={28} /><h3 className="mt-3 font-black text-[var(--admin-text-primary)]">Keşif raporu bulunamadı</h3><p className="mt-2 text-sm text-[var(--admin-text-muted)]">Google Maps Müşteri Bulma ekranında bir işletme seçip SWOT, dijital analiz veya sunum raporu oluşturun.</p><Link href="/hk-admin/musteri-kesfi?tab=google-maps-musteri-bulma" className="mt-4 inline-flex min-h-11 items-center rounded-[10px] bg-cyan-600 px-4 text-sm font-black text-white">Müşteri Keşfine Git</Link></div>}
     </div>
-    {preview && <DiscoveryReportViewer report={preview} onClose={() => setPreview(null)} />}
+    {preview && <DiscoveryReportViewer
+      report={preview}
+      onClose={() => setPreview(null)}
+      saving={savingEdit}
+      onSaveEdit={async (updated) => {
+        setSavingEdit(true);
+        try {
+          const response = await fetch("/api/admin/reports", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id: preview.id,
+              content: { ...preview.content, summary: updated.summary, sections: updated.sections },
+              metadata: { ...(preview.metadata || {}), user_edited: true }
+            })
+          });
+          const data = await response.json().catch(() => ({}));
+          if (response.ok && data.report) {
+            setContent?.((current: any) => ({ ...current, reports: (current.reports || []).map((item: any) => (item.id === data.report.id ? data.report : item)) }));
+            setPreview(data.report);
+          }
+        } finally {
+          setSavingEdit(false);
+        }
+      }}
+    />}
   </div>;
 }
 
@@ -9811,7 +9857,7 @@ function ReportingCenter({ content, setContent, selectedCompanyId }: any) {
   if (tab === "Keşif Raporları") return <Panel title="Raporlama Merkezi">
     <p className="mb-5 text-sm leading-6 text-slate-400">Müşteri raporları ile Google Maps müşteri keşfinden üretilen kalıcı lead raporlarını tek merkezden yönetin.</p>
     <div className="mb-5 flex flex-wrap gap-2">{centerReportTabs.map((item) => <button key={item} onClick={() => setTab(item)} className={`rounded-full px-4 py-2 text-sm font-bold ${tab === item ? "bg-cyan-300 text-[var(--admin-text-primary)]" : "border border-[var(--admin-border)] text-[var(--admin-text-secondary)]"}`}>{item}</button>)}</div>
-    <DiscoveryReportsList content={content} />
+    <DiscoveryReportsList content={content} setContent={setContent} />
   </Panel>;
   return <Panel title="Raporlama Merkezi">
     <p className="mb-5 text-sm leading-6 text-slate-400">Meta, Google Ads, sosyal medya yönetimi ve genel performans raporlarını müşteri bazında hazırlayın.</p>
@@ -11425,7 +11471,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
     });
     return content;
   }
-  async function prepareDigitalReport(record: any, reportKind: "swot_report" | "digital_audit" | "presentation" | "competitor_analysis" | "discovery_report" = "swot_report") {
+  async function prepareDigitalReport(record: any, reportKind: "swot_report" | "digital_audit" | "presentation" | "competitor_analysis" | "discovery_report" = "swot_report", forceOverwrite = false) {
     const recordKey = leadKey(record);
     if (!recordKey) return setMessage("Seçili işletme bilgisi bulunamadı.");
     const requestKey = `${recordKey}:${reportKind}`;
@@ -11446,6 +11492,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
         body: JSON.stringify({
           action: "generate_discovery_report",
           reportKind,
+          forceOverwrite,
           companyId: existingLead?.company_id || record.company_id || null,
           leadId: existingLead?.id || null,
           business: {
@@ -11461,6 +11508,15 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
       const contentType = response.headers.get("content-type") || "";
       const data = contentType.includes("application/json") ? await response.json().catch(() => ({})) : {};
       if (!response.ok) throw new Error(data.error || "Rapor üretilemedi. AI sağlayıcısı yanıt vermedi.");
+      if (data.requiresConfirmation) {
+        setReportLoading((current) => { const next = { ...current }; delete next[requestKey]; return next; });
+        if (confirm(`${data.message}\n\nMevcut düzenlenmiş raporun üzerine yeni AI taslağıyla yazılsın mı?`)) {
+          await prepareDigitalReport(record, reportKind, true);
+        } else {
+          setMessage("Mevcut düzenlenmiş rapor korundu; üzerine yazılmadı.");
+        }
+        return;
+      }
       if (!data.report?.id || !data.report?.content?.sections?.length) throw new Error("Rapor oluşturuldu ancak görünür içerik veya kayıt kimliği alınamadı.");
       if (selectedPlaceRef.current !== recordKey) return;
 
@@ -12277,6 +12333,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
 
 function BusinessLeadDetailPanel({ record, mapsHref, metaHref, saveBusiness, proposalFor, setWhatsappDraft, outreachText, sendToCompetitor, markCandidate, setNotePlaceId, notePlaceId, findCompetitorsForLead, competitors = [], prepareFirstMessage, prepareDigitalReport, openWhatsapp, prepareInstagramDm, openInstagram, callBusiness, emailBusiness, openWebsite, leadStage, leadStageOptions = [], updateLeadStage, createFollowupTask, existingLead, openCrmLead, verifyAdStatus }: any) {
   const [reportPreview, setReportPreview] = useState<DiscoveryReportRecord | null>(null);
+  const [reportEditSaving, setReportEditSaving] = useState(false);
   const [availableReports, setAvailableReports] = useState<Record<string, DiscoveryReportRecord>>({});
   const [reportBusy, setReportBusy] = useState<Record<string, boolean>>({});
   const [messageDraft, setMessageDraft] = useState("");
@@ -12482,7 +12539,37 @@ function BusinessLeadDetailPanel({ record, mapsHref, metaHref, saveBusiness, pro
         </div>
       </div>
     </AdminDetailInspector>
-    {reportPreview && <DiscoveryReportViewer report={reportPreview} onClose={() => setReportPreview(null)} onRegenerate={() => { const kind = reportPreview.metadata?.report_kind as "swot_report" | "digital_audit" | "presentation" | "competitor_analysis" | "discovery_report"; if (kind) runReport(kind); }} regenerating={Boolean(reportPreview.metadata?.report_kind && reportBusy[reportPreview.metadata.report_kind])} />}
+    {reportPreview && <DiscoveryReportViewer
+      report={reportPreview}
+      onClose={() => setReportPreview(null)}
+      onRegenerate={() => { const kind = reportPreview.metadata?.report_kind as "swot_report" | "digital_audit" | "presentation" | "competitor_analysis" | "discovery_report"; if (kind) runReport(kind); }}
+      regenerating={Boolean(reportPreview.metadata?.report_kind && reportBusy[reportPreview.metadata.report_kind])}
+      saving={reportEditSaving}
+      onSaveEdit={async (updated) => {
+        setReportEditSaving(true);
+        try {
+          const response = await fetch("/api/admin/reports", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id: reportPreview.id,
+              content: { ...reportPreview.content, summary: updated.summary, sections: updated.sections },
+              metadata: { ...(reportPreview.metadata || {}), user_edited: true }
+            })
+          });
+          const data = await response.json().catch(() => ({}));
+          if (response.ok && data.report) {
+            setContent((current) => ({ ...current, reports: (current.reports || []).map((item: any) => (item.id === data.report.id ? data.report : item)) }));
+            setReportPreview(data.report);
+            setMessage("Rapor düzenlemesi kaydedildi.");
+          } else {
+            setMessage(data.error || "Rapor düzenlemesi kaydedilemedi.");
+          }
+        } finally {
+          setReportEditSaving(false);
+        }
+      }}
+    />}
   </>;
 }
 
