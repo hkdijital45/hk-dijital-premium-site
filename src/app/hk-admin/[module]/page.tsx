@@ -9,14 +9,23 @@ export default async function AdminModulePage({
   searchParams
 }: {
   params: Promise<{ module: string }>;
-  searchParams?: Promise<{ tab?: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { module } = await params;
   const query = await searchParams;
   const canonicalSlug = getCanonicalAdminSlug(module);
-  if (canonicalSlug !== module) redirect(getAdminHref(canonicalSlug));
+  if (canonicalSlug !== module) {
+    const forwardedParams = new URLSearchParams();
+    for (const [key, value] of Object.entries(query || {})) {
+      if (typeof value === "string") forwardedParams.set(key, value);
+      else if (Array.isArray(value)) value.forEach((item) => forwardedParams.append(key, item));
+    }
+    const queryString = forwardedParams.toString();
+    redirect(queryString ? `${getAdminHref(canonicalSlug)}?${queryString}` : getAdminHref(canonicalSlug));
+  }
   const section = getAdminSectionBySlug(module);
   if (!section) redirect("/hk-admin");
   if (!(await requireModuleAccess(section.module))) redirect("/hk-admin");
-  return <AdminDashboard {...await getAdminPageData()} initialActive={section.label} initialAccountingTab={query?.tab} />;
+  const tabParam = query?.tab;
+  return <AdminDashboard {...await getAdminPageData()} initialActive={section.label} initialAccountingTab={typeof tabParam === "string" ? tabParam : undefined} />;
 }

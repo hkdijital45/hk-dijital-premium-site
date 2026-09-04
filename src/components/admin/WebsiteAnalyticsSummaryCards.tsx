@@ -49,6 +49,7 @@ export function WebsiteAnalyticsSummaryCards({ onOpen }: { onOpen?: () => void }
     { label: "En Çok Ziyaret Edilen Sayfa", value: summary?.topPage || "/", note: "En yüksek PageView alan public sayfa.", icon: <ExternalLink size={18} />, tone: "bg-rose-100 text-rose-700" }
   ];
 
+  const dataUnavailable = !loading && !error && !summary;
   const hasData = summary && Object.values({
     todayPageViews: summary.todayPageViews,
     last7DaysPageViews: summary.last7DaysPageViews,
@@ -75,7 +76,8 @@ export function WebsiteAnalyticsSummaryCards({ onOpen }: { onOpen?: () => void }
       </div>
       {loading && <p className="rounded-[14px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4 text-sm font-semibold text-[var(--admin-text-secondary)]">Website Analytics verileri hazırlanıyor...</p>}
       {error && <p className="rounded-[14px] border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</p>}
-      {!loading && !error && (
+      {dataUnavailable && <p className="rounded-[14px] border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">Veri alınamadı: {data?.firstPartyError || "Veritabanı bağlantısı kurulamadı."}</p>}
+      {!loading && !error && summary && (
         <>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
             {items.map((item) => (
@@ -87,7 +89,7 @@ export function WebsiteAnalyticsSummaryCards({ onOpen }: { onOpen?: () => void }
               </article>
             ))}
           </div>
-          {!hasData && <p className="mt-4 rounded-[14px] border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">Henüz yeterli veri yok. Pixel ve GA4 verileri geldikçe burada görünecek.</p>}
+          {!hasData && <p className="mt-4 rounded-[14px] border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">Birinci taraf ölçüm çalışıyor; henüz kayıtlı ziyaret yok. Public siteye trafik geldikçe burada görünecek.</p>}
         </>
       )}
     </section>

@@ -13,6 +13,8 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const bundle = await getReportBundle(id);
   const file = await generateReportExport(format, bundle.report, bundle.company, bundle.interpretation, bundle.updates);
   await recordActivity({ session, action: "Dışa Aktarma", entity: "Rapor", entityId: id, companyId: bundle.report.company_id, details: { message: "Yönetici raporu dışa aktardı", format } });
-  const fileName = `hk-dijital-rapor.${file.extension}`;
-  return new NextResponse(file.buffer, { headers: { "Content-Type": file.contentType, "Content-Disposition": `attachment; filename="${fileName}"; filename*=UTF-8''${encodeURIComponent(fileName)}` } });
+  const safeName = String(bundle.company?.name || bundle.report.business_name || "Musteri").normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/[^a-zA-Z0-9-]+/g, "-").replace(/^-|-$/g, "") || "Musteri";
+  const datePart = String(bundle.report.period || bundle.report.start_date || new Date().toISOString()).slice(0, 10).replace(/[^0-9-]/g, "-");
+  const fileName = `HK-Dijital-Rapor-${safeName}-${datePart}.${file.extension}`;
+  return new NextResponse(new Uint8Array(file.buffer), { headers: { "Content-Type": file.contentType, "Content-Disposition": `attachment; filename="${fileName}"; filename*=UTF-8''${encodeURIComponent(fileName)}` } });
 }

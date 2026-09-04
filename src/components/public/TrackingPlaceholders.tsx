@@ -1,6 +1,7 @@
 "use client";
 
 import { trackMetaContact, trackMetaCtaClick, trackMetaCustomEvent, trackMetaEvent, trackMetaLead } from "@/lib/meta-pixel";
+import { postAnalyticsEvent } from "@/lib/analytics-client";
 
 type Props = {
   ids: {
@@ -13,6 +14,17 @@ type Props = {
 export function trackEvent(name: string, payload?: Record<string, unknown>) {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent("hk_tracking_event", { detail: { name, payload } }));
+
+  // First-party mirror of the classification below — kept in the same
+  // function so the two never drift apart. Only real, already
+  // success-gated call sites reach here (see ContactForm.tsx/QuoteWizard.tsx),
+  // so a Lead event here always means a lead was actually saved, never a
+  // button press alone.
+  if (name.includes("whatsapp")) postAnalyticsEvent("Contact");
+  else if (name.includes("form_submitted")) postAnalyticsEvent("Lead");
+  else if (name.includes("wizard_started")) postAnalyticsEvent("InitiateCheckout");
+  else if (name.includes("package") || name.includes("cta") || name.includes("social_link")) postAnalyticsEvent("HK_CTA_Click");
+
   if (name.includes("whatsapp")) {
     trackMetaContact({ source: name, ...(payload as Record<string, string | number | boolean | null | undefined> | undefined) });
     return;

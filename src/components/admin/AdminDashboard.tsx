@@ -5901,13 +5901,13 @@ function SalesPipeline({ content, setContent, setActive, notify }: any) {
         <p className="text-xs font-black uppercase tracking-[.14em] text-cyan-700">Lead Aksiyon Merkezi</p><p className="mt-1 text-xs leading-5 text-[var(--admin-text-muted)]">Seçili leadin iletişim, aşama ve takip işlemlerini tek yerden yönetin.</p>
         {selectedLead ? <div className="mt-4">
           <div className="rounded-[14px] border border-cyan-100 bg-cyan-50 p-4"><h3 className="truncate text-lg font-black text-[var(--admin-text-primary)]">{selectedLead.company || selectedLead.name}</h3><div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-1"><InfoItem label="Telefon" value={selectedLead.phone || "Kayıt yok"} /><InfoItem label="Sektör" value={selectedLead.sector || selectedLead.business_type || selectedLead.businessType || "Kayıt yok"} /><InfoItem label="Skor" value={`${effectiveLeadScore(selectedLead)}/100 · ${leadTemperature(effectiveLeadScore(selectedLead)).label}`} /><InfoItem label="Son temas" value={formatDate(selectedLead.last_contact_at)} /><InfoItem label="Sıradaki aksiyon" value={selectedLead.next_action || "Aksiyon girilmedi"} /></div></div>
-          <div className="mt-4 grid grid-cols-2 gap-2"><button disabled={!selectedLead.phone} title={selectedLead.phone ? "WhatsApp mesajı hazırla" : "Telefon bilgisi eksik"} onClick={() => openWhatsapp(selectedLead)} className="rounded-[10px] bg-emerald-500 px-3 py-2.5 text-xs font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300">{selectedLead.phone ? "WhatsApp Gönder" : "Telefon eksik"}</button><button disabled={!selectedLead.phone} title={selectedLead.phone ? "Lead telefonunu ara ve teması kaydet" : "Telefon bilgisi eksik"} onClick={() => callLead(selectedLead)} className="rounded-[10px] bg-blue-600 px-3 py-2.5 text-center text-xs font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300">Ara</button><a href={selectedLead.email ? `mailto:${selectedLead.email}?subject=${encodeURIComponent("HK Dijital takip")}` : undefined} onClick={(event) => { if (!selectedLead.email) { event.preventDefault(); notify?.("E-posta bilgisi bulunmuyor.", "warning"); } }} title={selectedLead.email ? "E-posta gönder" : "E-posta bilgisi eksik"} className={`rounded-[10px] px-3 py-2.5 text-center text-xs font-black ${selectedLead.email ? "bg-indigo-600 text-white" : "cursor-not-allowed bg-slate-300 text-white"}`}>E-posta Gönder</a><button onClick={() => setActive("Lead Merkezi")} className="rounded-[10px] border border-cyan-200 bg-cyan-50 px-3 py-2.5 text-xs font-black text-cyan-700">Lead Merkezi’nde Aç</button><a href={`/hk-admin/teklif-hazirlama?leadId=${encodeURIComponent(selectedLead.id)}&company=${encodeURIComponent(selectedLead.company || selectedLead.name || "")}&phone=${encodeURIComponent(selectedLead.phone || "")}`} className="rounded-[10px] border border-amber-200 bg-amber-50 px-3 py-2.5 text-center text-xs font-black text-amber-700">Teklif Oluştur</a><a href={`/hk-admin/ai-denetim?leadId=${encodeURIComponent(selectedLead.id)}`} className="rounded-[10px] border border-purple-200 bg-purple-50 px-3 py-2.5 text-center text-xs font-black text-purple-700">Rapor / Analiz Aç</a></div>
+          <div className="mt-4 grid grid-cols-2 gap-2"><button disabled={!selectedLead.phone} title={selectedLead.phone ? "WhatsApp mesajı hazırla" : "Telefon bilgisi eksik"} onClick={() => openWhatsapp(selectedLead)} className="rounded-[10px] bg-emerald-500 px-3 py-2.5 text-xs font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300">{selectedLead.phone ? "WhatsApp Gönder" : "Telefon eksik"}</button><button disabled={!selectedLead.phone} title={selectedLead.phone ? "Lead telefonunu ara ve teması kaydet" : "Telefon bilgisi eksik"} onClick={() => callLead(selectedLead)} className="rounded-[10px] bg-blue-600 px-3 py-2.5 text-center text-xs font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300">Ara</button><a href={selectedLead.email ? `mailto:${selectedLead.email}?subject=${encodeURIComponent("HK Dijital takip")}` : undefined} onClick={(event) => { if (!selectedLead.email) { event.preventDefault(); notify?.("E-posta bilgisi bulunmuyor.", "warning"); } }} title={selectedLead.email ? "E-posta gönder" : "E-posta bilgisi eksik"} className={`rounded-[10px] px-3 py-2.5 text-center text-xs font-black ${selectedLead.email ? "bg-indigo-600 text-white" : "cursor-not-allowed bg-slate-300 text-white"}`}>E-posta Gönder</a><button onClick={() => setActive("Lead Merkezi")} className="rounded-[10px] border border-cyan-200 bg-cyan-50 px-3 py-2.5 text-xs font-black text-cyan-700">Lead Merkezi’nde Aç</button><a href={`/hk-admin/teklif-hazirlama?leadId=${encodeURIComponent(selectedLead.id)}&company=${encodeURIComponent(selectedLead.company || selectedLead.name || "")}&phone=${encodeURIComponent(selectedLead.phone || "")}`} className="rounded-[10px] border border-amber-200 bg-amber-50 px-3 py-2.5 text-center text-xs font-black text-amber-700">Teklif Oluştur</a><a href="#ai-lead-analizi" className="rounded-[10px] border border-purple-200 bg-purple-50 px-3 py-2.5 text-center text-xs font-black text-purple-700">Rapor / Analiz Aç</a></div>
           <div className="mt-4 grid gap-3 rounded-[14px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4"><SelectField label="Durum Güncelle" value={sideDraft.stage} onChange={(stage) => setSideDraft({ ...sideDraft, stage, nextAction: pipelineActionSuggestions[stage] || sideDraft.nextAction })} options={salesPipelineStages} /><p className="rounded-[8px] border border-blue-200 bg-blue-50 p-2 text-xs text-blue-700">Önerilen aksiyon: {pipelineActionSuggestions[sideDraft.stage]}</p><Field label="Sıradaki aksiyon" value={sideDraft.nextAction} onChange={(nextAction) => setSideDraft({ ...sideDraft, nextAction })} /><Field label="Sıradaki aksiyon tarihi" type="date" value={sideDraft.nextActionAt} onChange={(nextActionAt) => setSideDraft({ ...sideDraft, nextActionAt })} /><Field label="Son temas tarihi" type="date" value={sideDraft.lastContact} onChange={(lastContact) => setSideDraft({ ...sideDraft, lastContact })} /><button onClick={saveSideDraft} className="rounded-[10px] bg-cyan-500 px-4 py-3 text-sm font-black text-white">Durumu Kaydet</button></div>
           <div className="mt-4 rounded-[14px] border border-amber-200 bg-amber-50 p-4"><h4 className="font-black text-[var(--admin-text-primary)]">Teklif Pipeline</h4><div className="mt-3 grid gap-3"><SelectField label="Teklif durumu" value={proposalDraft.status} onChange={(status) => setProposalDraft({ ...proposalDraft, status })} options={["Teklif Hazırlanıyor", "Teklif Gönderildi", "Teklif Görüntülendi", "Revize İstendi", "Kabul Edildi", "Reddedildi"]} /><Field label="Teklif tutarı" type="number" value={proposalDraft.amount} onChange={(amount) => setProposalDraft({ ...proposalDraft, amount })} /><Field label="Tahmini kapanış tarihi" type="date" value={proposalDraft.closeDate} onChange={(closeDate) => setProposalDraft({ ...proposalDraft, closeDate })} /><button onClick={saveProposal} className="rounded-[10px] bg-amber-400 px-4 py-3 text-sm font-black text-[var(--admin-text-primary)]">Teklif Bilgilerini Kaydet</button></div></div>
           <div className="mt-4 rounded-[14px] border border-emerald-200 bg-emerald-50 p-4"><h4 className="font-black text-[var(--admin-text-primary)]">WhatsApp CRM</h4><div className="mt-3 grid gap-3"><SelectField label="Mesaj şablonu" value={whatsappTemplate} onChange={setWhatsappTemplate} options={["İlk temas", "Toplantı sonrası", "Teklif gönderimi", "Takip mesajı", "Son karar mesajı"]} /><TextArea rows={4} label="Mesaj" value={whatsappMessage} onChange={setWhatsappMessage} /><div className="grid grid-cols-2 gap-2"><button onClick={() => { navigator.clipboard.writeText(whatsappMessage); notify?.("WhatsApp mesajı kopyalandı.", "success"); }} className="rounded-[10px] border border-emerald-300 bg-[var(--admin-surface)] px-3 py-2 text-xs font-black text-emerald-700">Mesajı Kopyala</button><button disabled={!selectedLead.phone} onClick={() => openWhatsapp(selectedLead)} className="rounded-[10px] bg-emerald-500 px-3 py-2 text-xs font-black text-white disabled:bg-slate-300">WhatsApp Gönder</button></div></div></div>
-          <div className="mt-4 rounded-[14px] border border-purple-200 bg-purple-50 p-4"><div className="flex items-center justify-between gap-2"><h4 className="font-black text-[var(--admin-text-primary)]">AI Lead Analizi</h4><button onClick={analyzeLead} disabled={aiLoading} className="rounded-[8px] bg-purple-600 px-3 py-2 text-xs font-black text-white">{aiLoading ? "Analiz ediliyor..." : "AI ile Analiz Et"}</button></div><pre className="mt-3 whitespace-pre-wrap text-xs leading-6 text-[var(--admin-text-secondary)]">{selectedLead.ai_analysis?.text || `Satın alma ihtimali: ${effectiveLeadScore(selectedLead) >= 80 ? "Yüksek" : effectiveLeadScore(selectedLead) >= 50 ? "Orta" : "Geliştirilmeli"}\nAciliyet: ${selectedLead.next_action_at ? formatDate(selectedLead.next_action_at) : "Planlanmadı"}\nTahmini reklam bütçesi: Görüşmede netleştirilmeli\nÖnerilen ilk mesaj: ${contactMessageFor(selectedLead, "İlk temas")}\nRiskler: ${selectedLead.phone ? "Net teklif ve karar süresi bilinmiyor" : "Telefon bilgisi eksik"}\nSonraki en iyi aksiyon: ${selectedLead.next_action || pipelineActionSuggestions[pipelineStageForLead(selectedLead)]}`}</pre>{selectedLead.ai_analysis?.text && <button onClick={saveAnalysisToNotes} className="mt-3 rounded-[8px] border border-purple-300 bg-[var(--admin-surface)] px-3 py-2 text-xs font-black text-purple-700">Analizi Notlara Kaydet</button>}</div>
+          <div id="ai-lead-analizi" className="mt-4 rounded-[14px] border border-purple-200 bg-purple-50 p-4"><div className="flex items-center justify-between gap-2"><h4 className="font-black text-[var(--admin-text-primary)]">AI Lead Analizi</h4><button onClick={analyzeLead} disabled={aiLoading} className="rounded-[8px] bg-purple-600 px-3 py-2 text-xs font-black text-white">{aiLoading ? "Analiz ediliyor..." : "AI ile Analiz Et"}</button></div><pre className="mt-3 whitespace-pre-wrap text-xs leading-6 text-[var(--admin-text-secondary)]">{selectedLead.ai_analysis?.text || `Satın alma ihtimali: ${effectiveLeadScore(selectedLead) >= 80 ? "Yüksek" : effectiveLeadScore(selectedLead) >= 50 ? "Orta" : "Geliştirilmeli"}\nAciliyet: ${selectedLead.next_action_at ? formatDate(selectedLead.next_action_at) : "Planlanmadı"}\nTahmini reklam bütçesi: Görüşmede netleştirilmeli\nÖnerilen ilk mesaj: ${contactMessageFor(selectedLead, "İlk temas")}\nRiskler: ${selectedLead.phone ? "Net teklif ve karar süresi bilinmiyor" : "Telefon bilgisi eksik"}\nSonraki en iyi aksiyon: ${selectedLead.next_action || pipelineActionSuggestions[pipelineStageForLead(selectedLead)]}`}</pre>{selectedLead.ai_analysis?.text && <button onClick={saveAnalysisToNotes} className="mt-3 rounded-[8px] border border-purple-300 bg-[var(--admin-surface)] px-3 py-2 text-xs font-black text-purple-700">Analizi Notlara Kaydet</button>}</div>
           <div className="mt-4 rounded-[14px] border border-blue-200 bg-blue-50 p-4"><h4 className="font-black text-[var(--admin-text-primary)]">Takvime Ekle</h4><p className="mt-1 text-xs text-[var(--admin-text-muted)]">Takvim entegrasyonu hazır; tarihler mevcut lead ve görev altyapısına kaydedilir.</p><div className="mt-3 grid gap-3"><Field label="Toplantı tarihi" type="date" value={sideDraft.meetingAt} onChange={(meetingAt) => setSideDraft({ ...sideDraft, meetingAt })} /><Field label="Takip tarihi" type="date" value={sideDraft.calendarFollowUpAt} onChange={(calendarFollowUpAt) => setSideDraft({ ...sideDraft, calendarFollowUpAt })} /><Field label="Teklif gönderim tarihi" type="date" value={sideDraft.proposalSentAt} onChange={(proposalSentAt) => setSideDraft({ ...sideDraft, proposalSentAt })} /><button onClick={() => updateLead(selectedLead, { meeting_at: sideDraft.meetingAt || null, calendar_follow_up_at: sideDraft.calendarFollowUpAt || null, proposal_sent_at: sideDraft.proposalSentAt || null, next_action_at: sideDraft.calendarFollowUpAt || selectedLead.next_action_at || null }, "Takvim tarihleri kaydedildi.")} className="rounded-[10px] bg-blue-600 px-4 py-3 text-sm font-black text-white">Tarihleri Kaydet</button></div></div>
-          <div className="mt-4 rounded-[14px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4"><h4 className="font-black text-[var(--admin-text-primary)]">Dijital Durum</h4>{selectedLead.website || selectedLead.instagram || selectedLead.google_review_count || selectedLead.digital_maturity_score ? <div className="mt-3 grid grid-cols-2 gap-2"><InfoItem label="Web sitesi" value={selectedLead.website ? "Var" : "Yok"} /><InfoItem label="Instagram" value={selectedLead.instagram ? "Var" : "Yok"} /><InfoItem label="Google yorum" value={selectedLead.google_review_count || 0} /><InfoItem label="Dijital skor" value={`${selectedLead.digital_maturity_score || 0}/100`} /><InfoItem label="Meta reklam" value={selectedLead.meta_ad_status || "Bilinmiyor"} /></div> : <p className="mt-2 text-xs leading-5 text-[var(--admin-text-muted)]">Henüz dijital analiz verisi yok. Lead keşif ekranından analiz başlatılabilir.</p>}<div className="mt-3 grid grid-cols-2 gap-2"><a href={`/hk-admin/ai-denetim?leadId=${encodeURIComponent(selectedLead.id)}`} className="rounded-[8px] border border-cyan-200 bg-cyan-50 px-3 py-2 text-center text-xs font-black text-cyan-700">Analiz Aç</a><a href={selectedLead.city || selectedLead.district || selectedLead.address ? `/hk-admin/haritalar?city=${encodeURIComponent(selectedLead.city || "")}&district=${encodeURIComponent(selectedLead.district || "")}&sector=${encodeURIComponent(selectedLead.sector || selectedLead.business_type || "")}&leadId=${encodeURIComponent(selectedLead.id)}` : undefined} onClick={(event) => { if (!selectedLead.city && !selectedLead.district && !selectedLead.address) event.preventDefault(); }} className={`rounded-[8px] px-3 py-2 text-center text-xs font-black ${selectedLead.city || selectedLead.district || selectedLead.address ? "bg-cyan-500 text-white" : "cursor-not-allowed bg-slate-200 text-[var(--admin-text-muted)]"}`}>Haritada Aç</a></div></div>
+          <div className="mt-4 rounded-[14px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4"><h4 className="font-black text-[var(--admin-text-primary)]">Dijital Durum</h4>{selectedLead.website || selectedLead.instagram || selectedLead.google_review_count || selectedLead.digital_maturity_score ? <div className="mt-3 grid grid-cols-2 gap-2"><InfoItem label="Web sitesi" value={selectedLead.website ? "Var" : "Yok"} /><InfoItem label="Instagram" value={selectedLead.instagram ? "Var" : "Yok"} /><InfoItem label="Google yorum" value={selectedLead.google_review_count || 0} /><InfoItem label="Dijital skor" value={`${selectedLead.digital_maturity_score || 0}/100`} /><InfoItem label="Meta reklam" value={selectedLead.meta_ad_status || "Bilinmiyor"} /></div> : <p className="mt-2 text-xs leading-5 text-[var(--admin-text-muted)]">Henüz dijital analiz verisi yok. Lead keşif ekranından analiz başlatılabilir.</p>}<div className="mt-3 grid grid-cols-2 gap-2"><a href="#ai-lead-analizi" className="rounded-[8px] border border-cyan-200 bg-cyan-50 px-3 py-2 text-center text-xs font-black text-cyan-700">Analiz Aç</a><a href={selectedLead.city || selectedLead.district || selectedLead.address ? `/hk-admin/haritalar?city=${encodeURIComponent(selectedLead.city || "")}&district=${encodeURIComponent(selectedLead.district || "")}&sector=${encodeURIComponent(selectedLead.sector || selectedLead.business_type || "")}&leadId=${encodeURIComponent(selectedLead.id)}` : undefined} onClick={(event) => { if (!selectedLead.city && !selectedLead.district && !selectedLead.address) event.preventDefault(); }} className={`rounded-[8px] px-3 py-2 text-center text-xs font-black ${selectedLead.city || selectedLead.district || selectedLead.address ? "bg-cyan-500 text-white" : "cursor-not-allowed bg-slate-200 text-[var(--admin-text-muted)]"}`}>Haritada Aç</a></div></div>
           <div className="mt-4 grid gap-2"><TextArea rows={3} label="Not Ekle" value={noteDraft} onChange={setNoteDraft} /><button onClick={addNote} disabled={!noteDraft.trim()} className="rounded-[10px] border border-slate-300 bg-[var(--admin-surface)] px-4 py-2.5 text-sm font-black text-[var(--admin-text-secondary)] disabled:cursor-not-allowed disabled:opacity-50">Not Ekle</button></div>
         </div> : <p className="mt-4 rounded-[10px] border border-dashed border-slate-300 bg-[var(--admin-surface-soft)] p-5 text-center text-sm leading-6 text-[var(--admin-text-muted)]">Aksiyon almak için bir lead kartı seçin.</p>}
       </aside>
@@ -10523,12 +10523,124 @@ function ReportsHub(props: any) {
       <AgencyStatCard label="Müşteriye açık" value={customerVisible.length} note="Panelde görünür" tone="emerald" />
       <AgencyStatCard label="Taslak" value={draftReports.length} note="Henüz kaydedilmedi" tone="amber" />
     </div>
-    <HubTabs items={["Raporlama Merkezi", "Kampanyalar", "Reklam Metrikleri", "Meta Rapor İçe Aktar", "Rapor Notları"]} active={tab} onChange={setTab} />
+    <HubTabs items={["Raporlama Merkezi", "Tüm Raporlar", "Kampanyalar", "Reklam Metrikleri", "Meta Rapor İçe Aktar", "Rapor Notları"]} active={tab} onChange={setTab} />
     {tab === "Raporlama Merkezi" && <ReportingCenter {...props} />}
+    {tab === "Tüm Raporlar" && <AllReportsList {...props} />}
     {tab === "Kampanyalar" && <CampaignAdmin {...props} />}
     {["Reklam Metrikleri", "Meta Rapor İçe Aktar"].includes(tab) && <MetricAdmin {...props} importOnly={tab === "Meta Rapor İçe Aktar"} />}
     {tab === "Rapor Notları" && <UpdatesAdmin {...props} />}
   </div>;
+}
+
+const reportTypeLabels: Record<string, string> = {
+  "AI SWOT Raporu": "SWOT Analizi",
+  "AI Dijital Analiz Raporu": "Dijital Analiz",
+  "AI Sunum Raporu": "Sunum",
+  "AI Rakip Analizi Raporu": "Rakip Analizi",
+  "AI Keşif Raporu": "Müşteri Keşif Raporu"
+};
+
+function AllReportsList(props: any) {
+  const { content, setContent } = props;
+  const [query, setQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "archived">("active");
+  const [expandedId, setExpandedId] = useState("");
+  const [busyId, setBusyId] = useState("");
+  const [notice, setNotice] = useState("");
+
+  const allReports = excludeTestCompanyRecords(content.reports || [], content.companies);
+  const reportTypes = [...new Set(allReports.map((item: any) => item.report_type).filter(Boolean))] as string[];
+
+  function companyName(report: any) {
+    if (report.company_id) return (content.companies || []).find((company: any) => company.id === report.company_id)?.name || "Müşteri";
+    return report.business_name || "Müşterisiz keşif kaydı";
+  }
+
+  const filtered = allReports
+    .filter((report: any) => {
+      if (statusFilter === "active" && report.archived) return false;
+      if (statusFilter === "archived" && !report.archived) return false;
+      if (typeFilter !== "all" && report.report_type !== typeFilter) return false;
+      if (!query) return true;
+      const haystack = `${report.title || ""} ${companyName(report)} ${report.report_type || ""}`.toLocaleLowerCase("tr");
+      return haystack.includes(query.toLocaleLowerCase("tr"));
+    })
+    .sort((a: any, b: any) => new Date(b.updated_at || b.created_at || 0).getTime() - new Date(a.updated_at || a.created_at || 0).getTime());
+
+  async function toggleArchive(report: any) {
+    setBusyId(report.id);
+    setNotice("");
+    try {
+      const response = await fetch("/api/admin/reports", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: report.id, archived: !report.archived, archived_at: !report.archived ? new Date().toISOString() : null })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Rapor güncellenemedi.");
+      setContent((current: any) => ({ ...current, reports: (current.reports || []).map((item: any) => (item.id === report.id ? data.report : item)) }));
+      setNotice(report.archived ? "Rapor arşivden çıkarıldı." : "Rapor arşivlendi.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Rapor güncellenemedi.");
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  return (
+    <div>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Başlık, müşteri veya tür ara" className="hk-field min-h-10 flex-1 min-w-[200px]" />
+        <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} className="hk-field min-h-10">
+          <option value="all">Tüm türler</option>
+          {reportTypes.map((type) => <option key={type} value={type}>{reportTypeLabels[type] || type}</option>)}
+        </select>
+        <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as any)} className="hk-field min-h-10">
+          <option value="active">Aktif</option>
+          <option value="archived">Arşiv</option>
+          <option value="all">Tümü</option>
+        </select>
+      </div>
+      {notice && <p className="mb-3 rounded-[10px] border border-cyan-200 bg-cyan-50 p-3 text-sm font-bold text-cyan-800">{notice}</p>}
+      <div className="grid gap-3">
+        {filtered.map((report: any) => (
+          <article key={report.id} className="rounded-[14px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate font-black text-[var(--admin-text-primary)]">{report.title || reportTypeLabels[report.report_type] || report.report_type}</p>
+                <p className="mt-1 text-xs font-semibold text-[var(--admin-text-muted)]">{companyName(report)} · {report.period || formatDateTime(report.created_at)} · {report.created_by ? "Oluşturan kayıtlı" : "Sistem"}</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <AdminStatusBadge tone={report.archived ? "neutral" : report.visible_to_customer ? "success" : "warning"}>{report.archived ? "Arşiv" : report.visible_to_customer ? "Hazır" : "Taslak"}</AdminStatusBadge>
+                <span className="rounded-full bg-[var(--admin-surface-soft)] px-3 py-1 text-[11px] font-black text-[var(--admin-text-secondary)]">{reportTypeLabels[report.report_type] || report.report_type}</span>
+              </div>
+            </div>
+            {expandedId === report.id && (
+              <div className="mt-3 rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-3 text-sm leading-6 text-[var(--admin-text-secondary)]">
+                {report.content?.summary && <p className="mb-2 font-semibold text-[var(--admin-text-primary)]">{report.content.summary}</p>}
+                {Array.isArray(report.content?.sections)
+                  ? report.content.sections.slice(0, 4).map((section: any, index: number) => (
+                    <div key={index} className="mt-2">
+                      <p className="font-black text-[var(--admin-text-primary)]">{section.title}</p>
+                      <ul className="mt-1 list-disc pl-5">{(section.items || []).slice(0, 5).map((item: string, itemIndex: number) => <li key={itemIndex}>{item}</li>)}</ul>
+                    </div>
+                  ))
+                  : <p>{report.customer_note || report.internal_note || "Önizleme için içerik bulunamadı."}</p>}
+              </div>
+            )}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <AdminButton compact variant="secondary" onClick={() => setExpandedId(expandedId === report.id ? "" : report.id)}>{expandedId === report.id ? "Kapat" : "Görüntüle"}</AdminButton>
+              <a href={`/api/admin/reports/${report.id}/export?format=pdf`} className="hk-button hk-button-neutral hk-button-compact">PDF İndir</a>
+              <a href={`/api/admin/reports/${report.id}/export?format=word`} className="hk-button hk-button-neutral hk-button-compact">Word İndir</a>
+              <AdminButton compact variant={report.archived ? "success" : "warning"} loading={busyId === report.id} onClick={() => toggleArchive(report)}>{report.archived ? "Arşivden Çıkar" : "Arşivle"}</AdminButton>
+            </div>
+          </article>
+        ))}
+        {!filtered.length && <p className="rounded-[14px] border border-dashed border-[var(--admin-border)] p-6 text-center text-sm font-semibold text-[var(--admin-text-muted)]">Bu filtreyle eşleşen rapor yok.</p>}
+      </div>
+    </div>
+  );
 }
 
 function MediaLogoHub(props: any) {
@@ -11006,7 +11118,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
         { label: "Sıcak lead", count: data.businesses?.filter((item: any) => Number(item.opportunityScore || item.leadHeatScore || 0) >= 70).length || 0, status: "Hazırlandı" }
       ],
       nextActions: ["En iyi 5 fırsatı kontrol et.", "Seçilecek işletmeleri işaretle.", "Seçilenleri CRM’e kaydet veya teklif taslağı hazırla."],
-      checkLinks: [{ label: "CRM Leadleri Gör", href: "/hk-admin/leadler" }, { label: "Teklif Oluştur", href: "/hk-admin/teklif-olustur" }],
+      checkLinks: [{ label: "CRM Leadleri Gör", href: "/hk-admin/leads" }, { label: "Teklif Oluştur", href: "/hk-admin/teklif-hazirlama" }],
       technicalDetails: { warning: data.warning || "", apiError: data.apiError || "" }
     });
     if (data.warning) setMessage(data.warning);
@@ -11022,7 +11134,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
         status: "warning",
         createdRecords: [{ label: "Yeni CRM lead kaydı", count: 0, status: "Atlandı" }, { label: "Mevcut CRM kaydı", count: 1, status: "Bulundu" }],
         nextActions: ["CRM kaydını aç.", "Teklif taslağı hazırla.", "Takip görevi oluştur."],
-        checkLinks: [{ label: "CRM Kaydını Aç", href: "/hk-admin/leadler" }, { label: "Teklif Merkezi’ne Git", href: "/hk-admin/teklif-takip-merkezi" }],
+        checkLinks: [{ label: "CRM Kaydını Aç", href: "/hk-admin/leads" }, { label: "Teklif Merkezi’ne Git", href: "/hk-admin/teklif-takip-merkezi" }],
         customerVisibility: { showToCustomer: false, label: "Lead kaydı şu anda sadece admin tarafında görünüyor." }
       });
       return existing;
@@ -11052,7 +11164,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
       status: data.skipped ? "warning" : "success",
       createdRecords: [{ label: "CRM lead kaydı", count: data.count || 0, status: data.skipped ? "Atlandı" : "Oluşturuldu" }],
       nextActions: ["Lead detayını kontrol et.", "Teklif taslağı veya WhatsApp mesajı hazırla.", "Gerekirse rakip analizine gönder."],
-      checkLinks: [{ label: "Leadleri Gör", href: "/hk-admin/leadler" }, { label: "Teklif Hazırla", href: "/hk-admin/teklif-olustur" }],
+      checkLinks: [{ label: "Leadleri Gör", href: "/hk-admin/leads" }, { label: "Teklif Hazırla", href: "/hk-admin/teklif-hazirlama" }],
       customerVisibility: { showToCustomer: false, label: "Bu kayıt şu anda sadece admin tarafında görünüyor." }
     });
     return savedLead || existingLeadFor(business);
@@ -11089,7 +11201,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
       status: "success",
       createdRecords: [{ label: "CRM lead kaydı", count: data.count || 0, status: "Oluşturuldu" }, { label: "Zaten kayıtlı", count: data.skipped || alreadySaved || 0, status: "Atlandı" }, { label: "Hata", count: 0, status: "Yok" }],
       nextActions: ["Sıcak leadleri satış hunisine taşı.", "İlk WhatsApp mesajını hazırla.", "Yüksek fırsat skoruna sahip işletmeler için teklif taslağı oluştur."],
-      checkLinks: [{ label: "Leadleri Gör", href: "/hk-admin/leadler" }, { label: "Satış Hunisine Git", href: "/hk-admin/satis-hunisi" }, { label: "Teklif Hazırla", href: "/hk-admin/teklif-olustur" }],
+      checkLinks: [{ label: "Leadleri Gör", href: "/hk-admin/leads" }, { label: "Satış Hunisine Git", href: "/hk-admin/satis-hunisi" }, { label: "Teklif Hazırla", href: "/hk-admin/teklif-hazirlama" }],
       customerVisibility: { showToCustomer: false, label: "Bu lead kayıtları admin tarafında görünür." }
     });
     setMessage(data.message || "Seçilen işletmeler CRM’e aktarıldı.");
@@ -11161,7 +11273,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
   }
   function markCandidate(record: any) {
     toggleSelected(record.placeId || record.google_place_id || record.id, true);
-    prepareAction("Müşteri adayı işaretlendi", record, ["Seçili adayları CRM’e kaydet.", "İlk WhatsApp mesajını hazırla.", "Yüksek fırsat skoruna göre teklif taslağı oluştur."], [{ label: "Leadleri Gör", href: "/hk-admin/leadler" }]);
+    prepareAction("Müşteri adayı işaretlendi", record, ["Seçili adayları CRM’e kaydet.", "İlk WhatsApp mesajını hazırla.", "Yüksek fırsat skoruna göre teklif taslağı oluştur."], [{ label: "Leadleri Gör", href: "/hk-admin/leads" }]);
   }
   function prepareBulkAction(title: string, nextActions: string[], href: string) {
     if (!selectedPlaces.length) return setMessage("Toplu işlem için en az bir işletme seçin.");
@@ -11252,7 +11364,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
       status: "success",
       createdRecords: [{ label: "Teklif taslağı", count: proposals.length, status: "Hazırlandı" }, { label: "CRM lead aşaması", count: proposals.length, status: "Teklif Hazırlandı" }],
       nextActions: ["Teklif metinlerini kontrol et.", "WhatsApp metinlerini kopyala.", "3 gün sonrası için takip görevi oluştur.", "Teklif Takip Merkezi’nde durumu izle."],
-      checkLinks: [{ label: "Teklif Merkezi’ne Git", href: "/hk-admin/teklif-takip-merkezi" }, { label: "CRM Leadleri Gör", href: "/hk-admin/leadler" }, { label: "Görev Oluştur", href: "/hk-admin/gorevler" }],
+      checkLinks: [{ label: "Teklif Merkezi’ne Git", href: "/hk-admin/teklif-takip-merkezi" }, { label: "CRM Leadleri Gör", href: "/hk-admin/leads" }, { label: "Görev Oluştur", href: "/hk-admin/gorevler" }],
       customerVisibility: { showToCustomer: false, label: "Teklif taslakları şu anda sadece admin tarafında görünüyor." },
       technicalDetails: { proposals }
     });
@@ -11277,7 +11389,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
       status: "prepared",
       createdRecords: [{ label: "WhatsApp mesaj taslağı", count: selected.length, status: "Hazırlandı" }],
       nextActions: ["Mesajları kontrol et.", "Telefonu olan leadlere WhatsApp üzerinden ilerle.", "Cevap durumunu CRM aşamasına işle."],
-      checkLinks: [{ label: "CRM Leadleri Gör", href: "/hk-admin/leadler" }],
+      checkLinks: [{ label: "CRM Leadleri Gör", href: "/hk-admin/leads" }],
       technicalDetails: { messages: selected.map((record: any) => ({ business: selectedBusinessName(record), text: buildFirstMessage(record) })) }
     });
   }
@@ -11307,7 +11419,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
       status: "prepared",
       createdRecords: [{ label: "İlk mesaj taslağı", count: 1, status: "Hazırlandı" }],
       nextActions: ["Mesajı kontrol et.", "WhatsApp, Instagram DM veya e-posta kanalına göre kopyala.", "CRM notuna kaydet veya takip görevi oluştur."],
-      checkLinks: [{ label: "Leadleri Gör", href: "/hk-admin/leadler" }, { label: "Görev Oluştur", href: "/hk-admin/gorevler" }],
+      checkLinks: [{ label: "Leadleri Gör", href: "/hk-admin/leads" }, { label: "Görev Oluştur", href: "/hk-admin/gorevler" }],
       customerVisibility: { showToCustomer: false, label: "Bu mesaj taslağı sadece admin tarafında görünür." },
       technicalDetails: { messageType, tone, content, businessName: selectedBusinessName(record), placeId: leadKey(record) }
     });
@@ -11381,7 +11493,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
           status: "error",
           createdRecords: [{ label: "Kalıcı rapor kaydı", count: 0, status: "Oluşturulmadı" }],
           nextActions: ["AI sağlayıcı ayarlarını kontrol et.", "İşletme verilerini doğrula.", "Tekrar dene."],
-          checkLinks: [{ label: "AI Ayarlarına Git", href: "/hk-admin/ai-ayarlari" }]
+          checkLinks: [{ label: "AI Ayarlarına Git", href: "/hk-admin/agent-hub" }]
         });
         notify?.(detail, "error");
       }
@@ -11482,7 +11594,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
       status: "success",
       createdRecords: [{ label: "Satış aşaması", count: 1, status: "Güncellendi" }],
       nextActions: ["Takip görevi oluştur.", "Sonraki temas tarihini belirle.", "CRM kaydını kontrol et."],
-      checkLinks: [{ label: "CRM Leadleri Gör", href: "/hk-admin/leadler" }]
+      checkLinks: [{ label: "CRM Leadleri Gör", href: "/hk-admin/leads" }]
     });
   }
   function createFollowupTask(record: any) {
@@ -11525,7 +11637,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
       status: "success",
       createdRecords: [{ label: "Teklif takip kaydı", count: 1, status: "Hazırlandı" }, { label: "CRM lead aşaması", count: 1, status: "Teklif Hazırlandı" }],
       nextActions: ["Teklif metnini kontrol et.", "WhatsApp metnini kopyala.", "Sonraki takip tarihini görev olarak planla."],
-      checkLinks: [{ label: "Teklif Merkezi’ne Git", href: "/hk-admin/teklif-takip-merkezi" }, { label: "CRM Kaydını Aç", href: "/hk-admin/leadler" }],
+      checkLinks: [{ label: "Teklif Merkezi’ne Git", href: "/hk-admin/teklif-takip-merkezi" }, { label: "CRM Kaydını Aç", href: "/hk-admin/leads" }],
       customerVisibility: { showToCustomer: false, label: "Teklif taslağı şu anda sadece admin tarafında görünüyor." },
       technicalDetails: { proposal }
     });
@@ -11685,6 +11797,8 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
       { key: "score", header: "Fırsat Skoru", align: "right", render: (lead: any) => `${lead.opportunity_score || lead.lead_heat_score || 0}/100` }
     ];
     const selectedTransferred = selectedPlaceId ? saved.find((lead: any) => (lead.id || lead.google_place_id) === selectedPlaceId) : null;
+    const selectedTransferredReports = selectedTransferred ? (content.reports || []).filter((item: any) => item.lead_id === selectedTransferred.id) : [];
+    const latestTransferredReport = selectedTransferredReports[0];
     return (
       <AdminWorkspace
         eyebrow="Satış · Müşteri Keşfi"
@@ -11701,7 +11815,8 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
               { label: "Website", value: selectedTransferred.website || "Mevcut değil" },
               { label: "Kayıt Tarihi", value: formatDateTime(selectedTransferred.created_at) },
               { label: "Son Takip", value: formatDateTime(selectedTransferred.next_action_at || selectedTransferred.next_followup_at) },
-              { label: "Google Puanı", value: `${selectedTransferred.google_rating || "-"} · ${selectedTransferred.google_review_count || 0} yorum` }
+              { label: "Google Puanı", value: `${selectedTransferred.google_rating || "-"} · ${selectedTransferred.google_review_count || 0} yorum` },
+              { label: "Kayıtlı Rapor", value: selectedTransferredReports.length ? `${selectedTransferredReports.length} rapor (Rapor Merkezi)` : "Henüz rapor yok" }
             ] : undefined}
             actions={selectedTransferred ? <>
               <AdminButton compact variant="success" onClick={() => openCrmLead(selectedTransferred)}>CRM Kaydını Aç</AdminButton>
@@ -11709,6 +11824,9 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
               <AdminButton compact variant="success" onClick={() => setWhatsappDraft({ id: selectedTransferred.id || selectedTransferred.google_place_id, text: outreachText(selectedTransferred), phone: selectedTransferred.phone })}>WhatsApp Mesajı Hazırla</AdminButton>
               <AdminButton compact variant="info" onClick={() => createFollowupTask(selectedTransferred)}>Takip Görevi Oluştur</AdminButton>
               <AdminButton compact variant="ai" onClick={() => sendToCompetitor(selectedTransferred)}>Rakip Analizine Gönder</AdminButton>
+              <AdminButton compact variant="ai" loading={reportLoading[`${leadKey(selectedTransferred)}:swot_report`]} onClick={() => prepareDigitalReport(selectedTransferred, "swot_report")}>SWOT Analizi Oluştur</AdminButton>
+              <AdminButton compact variant="info" loading={reportLoading[`${leadKey(selectedTransferred)}:discovery_report`]} onClick={() => prepareDigitalReport(selectedTransferred, "discovery_report")}>Keşif Raporu Oluştur</AdminButton>
+              {latestTransferredReport && <a href={`/api/admin/reports/${latestTransferredReport.id}/export?format=pdf`} className="hk-button hk-button-neutral hk-button-compact">Son Raporu PDF İndir</a>}
               {selectedTransferred.google_maps_url && <a target="_blank" rel="noreferrer" href={selectedTransferred.google_maps_url} className="hk-button hk-button-neutral hk-button-compact">Maps'te Aç</a>}
             </> : undefined}
           >
@@ -13919,7 +14037,9 @@ function SocialMediaAuditCenter() {
                   {previewProfile.website && <p className="mt-3 break-all text-sm font-bold text-emerald-700">{previewProfile.website}</p>}
                   {previewProfile.profileUrl && <p className="mt-2 break-all text-xs text-[var(--admin-text-muted)]">{previewProfile.profileUrl}</p>}
                   <div className="mt-5 flex gap-2">
-                    <a href={previewProfile.profileUrl || "#"} target="_blank" rel="noreferrer" className="flex-1 rounded-full bg-[var(--admin-surface)] px-3 py-3 text-center text-xs font-black text-[var(--admin-text-primary)]">Profili Aç</a>
+                    {previewProfile.profileUrl
+                      ? <a href={previewProfile.profileUrl} target="_blank" rel="noreferrer" className="flex-1 rounded-full bg-[var(--admin-surface)] px-3 py-3 text-center text-xs font-black text-[var(--admin-text-primary)]">Profili Aç</a>
+                      : <span className="flex-1 cursor-not-allowed rounded-full bg-[var(--admin-surface)]/60 px-3 py-3 text-center text-xs font-black text-[var(--admin-text-muted)]">Profil bağlantısı yok</span>}
                     <label className="flex-1 cursor-pointer rounded-full border border-[var(--admin-border)] px-3 py-3 text-center text-xs font-black text-[var(--admin-text-primary)] transition hover:bg-[var(--admin-surface)]/10"><input type="file" accept="image/png,image/jpeg,image/jpg,image/webp" className="hidden" onChange={(event) => addScreenshots(event.target.files)} />Ekran Görüntüsü Yükle</label>
                   </div>
                 </div>

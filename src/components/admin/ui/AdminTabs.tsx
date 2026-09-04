@@ -32,8 +32,8 @@ export function AdminTabs({
             onClick={() => onChange(item)}
             className="shrink-0 rounded-[12px] px-3.5 py-2 text-xs font-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
             style={isActive
-              ? { background: "var(--admin-primary, var(--hk-primary))", color: "#fff" }
-              : { color: "var(--admin-text-secondary)" }}
+              ? { background: "var(--admin-primary, var(--hk-primary))", color: "#fff", outlineColor: "var(--hk-focus-ring)" }
+              : { color: "var(--admin-text-secondary)", outlineColor: "var(--hk-focus-ring)" }}
           >
             {item}
           </button>

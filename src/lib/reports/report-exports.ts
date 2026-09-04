@@ -1,8 +1,61 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { reportHighlights } from "./report-metrics";
 import { buildActionPlan, calculateHKIntelligenceScore, calculateHealthScore, formatCurrency, formatNumber, getLeadTracking, getWorkLogItems } from "./report-insights";
+import { generateDocxBuffer, generatePdfBuffer, type DocumentPayload } from "@/lib/server/document-generator";
+
+const SECTION_HEADINGS = ["Öne Çıkan Metrikler", "Lead / WhatsApp Takibi", "Yapay Zekâ Destekli Yorum", "Önümüzdeki 7 Gün Planı", "Ajans Notları ve Güncellemeler"];
+
+/** Regroups the flat report-line array (also used for HTML export) into the
+ * structured shape document-generator.ts needs for a real PDF/DOCX binary. */
+function toDocumentPayload(content: string[], report: any, company: any): DocumentPayload {
+  const summaryLines: string[] = [];
+  const sections: DocumentPayload["sections"] = [];
+  let current: { title: string; items: string[] } | null = null;
+  for (let index = 2; index < content.length; index += 1) {
+    const line = content[index];
+    if (SECTION_HEADINGS.includes(line)) {
+      if (current) sections.push(current);
+      current = { title: line, items: [] };
+      continue;
+    }
+    if (!line) continue;
+    if (current) current.items.push(line);
+    else summaryLines.push(line);
+  }
+  if (current) sections.push(current);
+  return {
+    title: content[1] || `${company?.name || "Müşteri"} Raporu`,
+    customerName: company?.name || "-",
+    period: report.period || `${report.start_date || "-"} - ${report.end_date || "-"}`,
+    executiveSummary: summaryLines.join("\n"),
+    sections,
+    footerNote: "Sonuçlar sektör, bütçe, hedef kitle, teklif ve rekabet durumuna göre değişebilir."
+  };
+}
 
 export type ExportFormat = "excel" | "word" | "pdf";
+
+/** Discovery/SWOT/competitor-analysis reports (see generateDiscoveryReport
+ * in api/admin/reports/route.ts) store `{ summary, sections: [{title, items}] }`
+ * in `content`, not ad metrics — a structurally different shape from the
+ * performance reports `lines()`/toDocumentPayload() below handle. */
+export function isDiscoveryStyleReport(report: any) {
+  return Array.isArray(report?.content?.sections) && report.content.sections.length > 0;
+}
+
+export function discoveryReportToDocumentPayload(report: any, company: any): DocumentPayload {
+  return {
+    title: report.title || report.business_name || `${report.report_type || "Rapor"}`,
+    customerName: company?.name || report.business_name || "-",
+    period: report.period || formatTurkishDate(report.created_at),
+    executiveSummary: normalizeTurkishText(report.content?.summary || ""),
+    sections: (report.content.sections as Array<{ title?: unknown; items?: unknown }>).map((section) => ({
+      title: normalizeTurkishText(section.title || "Bölüm"),
+      items: Array.isArray(section.items) ? section.items.map((item) => normalizeTurkishText(item)) : undefined
+    })),
+    footerNote: "Bu rapor gerçek keşif/analiz verilerine dayanır; eksik bilgiler ilgili bölümde ayrıca belirtilir."
+  };
+}
 
 const exportMetricAliases: Record<string, string> = {
   spent: "spend",
@@ -79,8 +132,15 @@ export function formatTurkishPercent(value: unknown) {
   return new Intl.NumberFormat("tr-TR", { style: "percent", maximumFractionDigits: 2 }).format(Number(value || 0) / 100);
 }
 
+// Defense-in-depth against formula injection: customer notes, AI
+// interpretation text and discovery-report content all reach this sheet
+// from user/AI-influenced fields. A leading =/+/-/@ prefixed with a
+// literal apostrophe forces Excel/LibreOffice to render it as text even
+// if a viewer's re-save/import path ever treats this as CSV-like input.
 function escapeXml(value: unknown) {
-  return normalizeTurkishText(value)
+  const text = normalizeTurkishText(value);
+  const safe = /^[=+\-@]/.test(text) ? `'${text}` : text;
+  return safe
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
@@ -88,64 +148,36 @@ function escapeXml(value: unknown) {
     .replaceAll("'", "&apos;");
 }
 
-function escapeHtml(value: unknown) {
-  return normalizeTurkishText(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
-
-function reportHtml(content: string[], title = "HK Dijital Performans Raporu") {
-  const rows = content.map((line, index) => {
-    const text = escapeHtml(line);
-    if (!line) return `<div class="spacer"></div>`;
-    if (index === 0) return `<p class="brand">${text}</p>`;
-    if (index === 1) return `<h1>${text}</h1>`;
-    if (["Öne Çıkan Metrikler", "Lead / WhatsApp Takibi", "Yapay Zekâ Destekli Yorum", "Önümüzdeki 7 Gün Planı", "Ajans Notları ve Güncellemeler"].includes(line)) return `<h2>${text}</h2>`;
-    return `<p>${text}</p>`;
-  }).join("");
-  return `<!doctype html>
-<html lang="tr">
-<head>
-  <meta charset="utf-8" />
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-  <title>${escapeHtml(title)}</title>
-  <style>
-    @page { size: A4; margin: 18mm; }
-    * { box-sizing: border-box; }
-    body { margin: 0; background: #f8fafc; color: #0f172a; font-family: Inter, Arial, Helvetica, sans-serif; font-size: 13px; line-height: 1.55; }
-    main { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 18px; padding: 28px; }
-    .brand { color: #0891b2; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; }
-    h1 { margin: 8px 0 18px; font-size: 27px; line-height: 1.15; color: #0f172a; }
-    h2 { margin: 20px 0 8px; font-size: 16px; color: #0f172a; border-top: 1px solid #e2e8f0; padding-top: 14px; }
-    p { margin: 6px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
-    .spacer { height: 8px; }
-  </style>
-</head>
-<body><main>${rows}</main></body>
-</html>`;
-}
-
-async function createTurkishPdf(content: string[]) {
-  const html = reportHtml(content);
-  try {
-    const { chromium } = await import("playwright");
-    const browser = await chromium.launch({ headless: true });
-    const page = await browser.newPage({ locale: "tr-TR" });
-    await page.setContent(html, { waitUntil: "load" });
-    const pdf = await page.pdf({ format: "A4", printBackground: true, preferCSSPageSize: true });
-    await browser.close();
-    return { buffer: Buffer.from(pdf), contentType: "application/pdf", extension: "pdf" };
-  } catch {
-    return { buffer: Buffer.from(`\uFEFF${html}`, "utf8"), contentType: "text/html; charset=utf-8", extension: "html" };
-  }
+function discoverySheetXml(payload: DocumentPayload) {
+  const row = (label: string, value = "") => `<Row><Cell><Data ss:Type="String">${escapeXml(label)}</Data></Cell><Cell><Data ss:Type="String">${escapeXml(value)}</Data></Cell></Row>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+  <DocumentProperties xmlns="urn:schemas-microsoft-com:office:office"><Language>tr-TR</Language></DocumentProperties>
+  <Styles><Style ss:ID="header"><Font ss:Bold="1"/></Style></Styles>
+  <Worksheet ss:Name="Rapor">
+    <Table>
+      <Row ss:StyleID="header"><Cell><Data ss:Type="String">Bölüm</Data></Cell><Cell><Data ss:Type="String">İçerik</Data></Cell></Row>
+      ${row("Müşteri", payload.customerName)}
+      ${row("Dönem", payload.period)}
+      ${row("Özet", payload.executiveSummary)}
+      ${payload.sections.map((section) => row(section.title, (section.items || []).join(" | ") || section.text || "")).join("")}
+    </Table>
+  </Worksheet>
+</Workbook>`;
 }
 
 export async function generateReportExport(format: ExportFormat, report: any, company: any, interpretation?: any, updates: any[] = [], visibilityRules: any[] = []) {
-  const content = lines(report, company, interpretation, updates, visibilityRules).map(normalizeTurkishText);
+  const payload = isDiscoveryStyleReport(report)
+    ? discoveryReportToDocumentPayload(report, company)
+    : toDocumentPayload(lines(report, company, interpretation, updates, visibilityRules).map(normalizeTurkishText), report, company);
+
   if (format === "excel") {
+    if (isDiscoveryStyleReport(report)) {
+      return { buffer: Buffer.from(`\uFEFF${discoverySheetXml(payload)}`, "utf8"), contentType: "application/vnd.ms-excel; charset=utf-8", extension: "xls" };
+    }
     const row = (label: string, value = "") => `<Row><Cell><Data ss:Type="String">${escapeXml(label)}</Data></Cell><Cell><Data ss:Type="String">${escapeXml(value)}</Data></Cell></Row>`;
+    const content = lines(report, company, interpretation, updates, visibilityRules).map(normalizeTurkishText);
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <?mso-application progid="Excel.Sheet"?>
 <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
@@ -171,8 +203,7 @@ export async function generateReportExport(format: ExportFormat, report: any, co
     return { buffer: Buffer.from(`\uFEFF${xml}`, "utf8"), contentType: "application/vnd.ms-excel; charset=utf-8", extension: "xls" };
   }
   if (format === "word") {
-    const html = reportHtml(content);
-    return { buffer: Buffer.from(`\uFEFF${html}`, "utf8"), contentType: "application/msword; charset=utf-8", extension: "doc" };
+    return { buffer: await generateDocxBuffer(payload), contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", extension: "docx" };
   }
-  return createTurkishPdf(content);
+  return { buffer: await generatePdfBuffer(payload), contentType: "application/pdf", extension: "pdf" };
 }

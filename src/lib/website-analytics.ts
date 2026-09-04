@@ -1,7 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { getGlobalMetaPixelId } from "./meta-pixel-settings";
-import { hasSupabaseConfig, supabaseRest } from "./supabase";
+import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "./supabase";
+import { istanbulDateString, resolveRange, type AnalyticsRangeInput } from "./analytics-time";
+
+export type { AnalyticsRangeInput };
 
 export type WebsiteAnalyticsStatus = "demo" | "live" | "partial";
 
@@ -59,6 +62,8 @@ export type WebsiteAnalyticsSummary = {
   topPage: string;
 };
 
+export type DailyTrendPoint = { date: string; pageViews: number };
+
 export type WebsiteAnalyticsEvent = {
   id: string;
   eventName: string;
@@ -91,10 +96,15 @@ export type WebsiteAnalyticsResponse = {
   setup: WebsiteAnalyticsSetup;
   integrationStatus: WebsiteAnalyticsIntegrationStatus;
   customerIntegrations: CustomerIntegrationSummary[];
-  summary: WebsiteAnalyticsSummary;
+  // null means "could not be queried" (connection/query error) — never
+  // rendered as zero. A real absence of traffic is a populated object
+  // whose numbers happen to be 0.
+  summary: WebsiteAnalyticsSummary | null;
   events: WebsiteAnalyticsEvent[];
   pages: WebsiteAnalyticsPage[];
   sources: WebsiteAnalyticsSource[];
+  trend: DailyTrendPoint[];
+  firstPartyError: string | null;
   recommendations: string[];
   lastSyncedAt: string | null;
 };
@@ -207,18 +217,6 @@ function resolveStatus(setup: WebsiteAnalyticsSetup): WebsiteAnalyticsStatus {
   return "demo";
 }
 
-function emptySummary(): WebsiteAnalyticsSummary {
-  return {
-    todayPageViews: 0,
-    last7DaysPageViews: 0,
-    contacts: 0,
-    leads: 0,
-    ctaClicks: 0,
-    conversionRate: 0,
-    topPage: "/"
-  };
-}
-
 function emptyPages(): WebsiteAnalyticsPage[] {
   return pageLabels.map(([path, label]) => ({
     path,
@@ -267,6 +265,114 @@ async function fetchGa4AnalyticsIfConfigured(setup: WebsiteAnalyticsSetup) {
   return null;
 }
 
+type RawEventRow = { event_name: string; page_path: string | null; referrer_source: string; session_id: string; occurred_at: string };
+
+const knownPageLabels = new Map(pageLabels);
+
+function labelForPath(path: string) {
+  return knownPageLabels.get(path) || (path === "/" ? "Ana sayfa" : path);
+}
+
+async function fetchFirstPartyAnalytics(range: AnalyticsRangeInput): Promise<{ summary: WebsiteAnalyticsSummary | null; events: WebsiteAnalyticsEvent[]; pages: WebsiteAnalyticsPage[]; sources: WebsiteAnalyticsSource[]; trend: DailyTrendPoint[]; error: string | null }> {
+  if (!hasSupabaseConfig()) {
+    return { summary: null, events: emptyEvents(), pages: emptyPages(), sources: emptySources(), trend: [], error: "Supabase yapılandırılmadı." };
+  }
+  const { start, end, todayStart, tomorrowStart } = resolveRange(range);
+  try {
+    const rows = await supabaseRest<RawEventRow[]>(
+      `website_analytics_events?select=event_name,page_path,referrer_source,session_id,occurred_at&occurred_at=gte.${encodeURIComponent(start.toISOString())}&occurred_at=lt.${encodeURIComponent(end.toISOString())}&order=occurred_at.desc&limit=20000`
+    );
+
+    const pageViewRows = rows.filter((row) => row.event_name === "PageView");
+    const todayPageViews = pageViewRows.filter((row) => {
+      const at = new Date(row.occurred_at).getTime();
+      return at >= todayStart.getTime() && at < tomorrowStart.getTime();
+    }).length;
+    const contacts = rows.filter((row) => row.event_name === "Contact").length;
+    const leads = rows.filter((row) => row.event_name === "Lead").length;
+    const ctaClicks = rows.filter((row) => row.event_name === "HK_CTA_Click").length;
+    const conversionRate = pageViewRows.length > 0 ? Math.round((leads / pageViewRows.length) * 1000) / 10 : 0;
+
+    const pageCounts = new Map<string, { pageViews: number; contacts: number; leads: number }>();
+    for (const row of rows) {
+      if (!row.page_path || !["PageView", "Contact", "Lead"].includes(row.event_name)) continue;
+      const bucket = pageCounts.get(row.page_path) || { pageViews: 0, contacts: 0, leads: 0 };
+      if (row.event_name === "PageView") bucket.pageViews += 1;
+      if (row.event_name === "Contact") bucket.contacts += 1;
+      if (row.event_name === "Lead") bucket.leads += 1;
+      pageCounts.set(row.page_path, bucket);
+    }
+    const pages: WebsiteAnalyticsPage[] = [...pageCounts.entries()]
+      .sort((a, b) => b[1].pageViews - a[1].pageViews)
+      .slice(0, 8)
+      .map(([path, counts]) => ({
+        path,
+        label: labelForPath(path),
+        pageViews: counts.pageViews,
+        contacts: counts.contacts,
+        leads: counts.leads,
+        conversionRate: counts.pageViews > 0 ? Math.round((counts.leads / counts.pageViews) * 1000) / 10 : 0
+      }));
+    const topPage = pages[0]?.path || "/";
+
+    const eventTimestamps = new Map<string, string>();
+    for (const row of rows) {
+      if (!eventTimestamps.has(row.event_name)) eventTimestamps.set(row.event_name, row.occurred_at);
+    }
+    const events: WebsiteAnalyticsEvent[] = conversionEvents.map(([eventName, label]) => ({
+      id: eventName,
+      eventName,
+      label,
+      count: rows.filter((row) => row.event_name === eventName).length,
+      timestamp: eventTimestamps.get(eventName) || null
+    }));
+
+    const sourceBuckets = new Map<string, { pageViews: number; leads: number; sessions: Set<string> }>();
+    for (const row of pageViewRows) {
+      const bucket = sourceBuckets.get(row.referrer_source) || { pageViews: 0, leads: 0, sessions: new Set<string>() };
+      bucket.pageViews += 1;
+      bucket.sessions.add(row.session_id);
+      sourceBuckets.set(row.referrer_source, bucket);
+    }
+    for (const row of rows) {
+      if (row.event_name !== "Lead") continue;
+      const bucket = sourceBuckets.get(row.referrer_source);
+      if (bucket) bucket.leads += 1;
+    }
+    const sources: WebsiteAnalyticsSource[] = ["Direct", "Organic", "Facebook / Instagram", "Google", "Referral"].map((source) => {
+      const bucket = sourceBuckets.get(source);
+      return {
+        source,
+        sessions: bucket?.sessions.size || 0,
+        pageViews: bucket?.pageViews || 0,
+        leads: bucket?.leads || 0,
+        status: bucket && bucket.pageViews > 0 ? "hazir" : "bekliyor"
+      };
+    });
+
+    const dayBuckets = new Map<string, number>();
+    for (const row of pageViewRows) {
+      const day = istanbulDateString(new Date(row.occurred_at));
+      dayBuckets.set(day, (dayBuckets.get(day) || 0) + 1);
+    }
+    const trend: DailyTrendPoint[] = [...dayBuckets.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, pageViews]) => ({ date, pageViews }));
+
+    const summary: WebsiteAnalyticsSummary = {
+      todayPageViews,
+      last7DaysPageViews: pageViewRows.length,
+      contacts,
+      leads,
+      ctaClicks,
+      conversionRate,
+      topPage
+    };
+
+    return { summary, events, pages: pages.length ? pages : emptyPages(), sources, trend, error: null };
+  } catch (error) {
+    return { summary: null, events: emptyEvents(), pages: emptyPages(), sources: emptySources(), trend: [], error: getSafeSupabaseError(error).detail };
+  }
+}
+
 async function fetchCustomerIntegrationSummary(): Promise<CustomerIntegrationSummary[]> {
   if (!hasSupabaseConfig()) return [];
   try {
@@ -297,25 +403,30 @@ async function fetchCustomerIntegrationSummary(): Promise<CustomerIntegrationSum
   }
 }
 
-export async function getWebsiteAnalytics(): Promise<WebsiteAnalyticsResponse> {
+export async function getWebsiteAnalytics(range: AnalyticsRangeInput = { days: 7 }): Promise<WebsiteAnalyticsResponse> {
   const setup = getWebsiteAnalyticsSetup();
   const integrationStatus = getWebsiteAnalyticsIntegrationStatus();
   setup.metaPixelId = Boolean(await getGlobalMetaPixelId());
   const status = resolveStatus(setup);
 
-  await Promise.all([
+  const [, , firstParty] = await Promise.all([
     fetchMetaAnalyticsIfConfigured(setup),
-    fetchGa4AnalyticsIfConfigured(setup)
+    fetchGa4AnalyticsIfConfigured(setup),
+    fetchFirstPartyAnalytics(range)
   ]);
 
   const recommendations = [
+    firstParty.error
+      ? `Birinci taraf veri sorgulanamadı: ${firstParty.error}`
+      : firstParty.summary && firstParty.summary.last7DaysPageViews === 0
+        ? "Birinci taraf ölçüm çalışıyor ancak henüz kayıtlı ziyaret yok. Public siteye trafik geldikçe burada görünecek."
+        : "Birinci taraf ölçüm (page view, contact, lead, CTA) gerçek verilerle çalışıyor.",
     setup.metaPixelId
       ? "Meta Pixel aktif görünüyor. API (uygulama programlama arayüzü) bağlantısı için META_ACCESS_TOKEN ve META_DATASET_ID eklenebilir."
       : "NEXT_PUBLIC_META_PIXEL_ID eksik. Public sayfa olayları Meta tarafına gönderilemez.",
     setup.gaMeasurementId
       ? "GA4 (Google Analytics 4) ölçüm kimliği hazır. Sunucu tarafı raporlama için Google servis hesabı bilgileri eklenebilir."
-      : "NEXT_PUBLIC_GA_MEASUREMENT_ID eklenirse GA4 (Google Analytics 4) ölçüm altyapısı hazır olur.",
-    "Meta ve GA4 canlı veri bağlantıları tamamlandığında bu merkez otomatik olarak gerçek olayları gösterecek şekilde tasarlandı."
+      : "NEXT_PUBLIC_GA_MEASUREMENT_ID eklenirse GA4 (Google Analytics 4) ölçüm altyapısı hazır olur."
   ];
 
   return {
@@ -323,11 +434,13 @@ export async function getWebsiteAnalytics(): Promise<WebsiteAnalyticsResponse> {
     setup,
     integrationStatus,
     customerIntegrations: await fetchCustomerIntegrationSummary(),
-    summary: emptySummary(),
-    events: emptyEvents(),
-    pages: emptyPages(),
-    sources: emptySources(),
+    summary: firstParty.summary,
+    events: firstParty.events,
+    pages: firstParty.pages,
+    sources: firstParty.sources,
+    trend: firstParty.trend,
+    firstPartyError: firstParty.error,
     recommendations,
-    lastSyncedAt: null
+    lastSyncedAt: firstParty.error ? null : new Date().toISOString()
   };
 }

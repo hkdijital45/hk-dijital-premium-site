@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { TrackingPlaceholders } from "@/components/public/TrackingPlaceholders";
 import { MetaPixel } from "@/components/public/MetaPixel";
+import { FirstPartyAnalytics } from "@/components/public/FirstPartyAnalytics";
 import { SecretAccessGate } from "@/components/public/SecretAccessGate";
 import { getSiteContent, getSiteTheme } from "@/lib/content";
 import { SITE_URL } from "@/lib/metadata";
@@ -57,6 +58,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     <html lang="tr" data-hk-theme={theme.name} style={{ "--hk-theme-bg": theme.background, "--hk-theme-surface": theme.surface, "--hk-theme-text": theme.text, "--hk-theme-muted": theme.mutedText, "--hk-theme-primary": theme.primaryButton, "--hk-theme-accent": theme.accent, "--hk-theme-border": theme.border } as React.CSSProperties} className={`${geistSans.variable} ${geistMono.variable} ${plusJakarta.variable} h-full scroll-smooth antialiased`}>
       <body className="min-h-full bg-[#050711] font-sans text-white">
         <TrackingPlaceholders ids={content.settings.analyticsIds} />
+        <FirstPartyAnalytics />
         <MetaPixel pixelId={metaPixelId} />
         {children}
         <SecretAccessGate />

@@ -352,13 +352,32 @@ export async function POST(request: Request) {
   }
 }
 
+// Discovery/SWOT/competitor-analysis reports (see generateDiscoveryReport
+// below) are deliberately created with company_id = null so a lead without
+// a customer record yet can still get a report. normalize() above requires
+// company_id (correct for real ad-performance reports), so a company-less
+// report needs its own narrow, whitelisted partial-update path instead —
+// otherwise archiving/editing one would always fail with "Firma seçin."
+const discoveryPatchFields = ["title", "content", "status", "archived", "archived_at", "visible_to_customer", "customer_note"] as const;
+
+function normalizeDiscoveryPatch(body: any) {
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  for (const field of discoveryPatchFields) {
+    if (field in body) patch[field] = body[field];
+  }
+  return patch;
+}
+
 export async function PATCH(request: Request) {
   const session = await staffSession();
   if (!session) return NextResponse.json({ error: "Bu işlem için yönetici yetkisi gerekir." }, { status: 403 });
   try {
     const body = await request.json();
     if (!body.id) return NextResponse.json({ error: "Rapor bulunamadı." }, { status: 404 });
-    const rows = await supabaseRest<any[]>(`reports?id=eq.${encodeURIComponent(body.id)}`, { method: "PATCH", body: JSON.stringify(normalize(body)) });
+    const existing = await supabaseRest<any[]>(`reports?id=eq.${encodeURIComponent(body.id)}&select=id,company_id,report_type&limit=1`);
+    if (!existing[0]) return NextResponse.json({ error: "Rapor bulunamadı." }, { status: 404 });
+    const patch = existing[0].company_id ? normalize({ ...existing[0], ...body }) : normalizeDiscoveryPatch(body);
+    const rows = await supabaseRest<any[]>(`reports?id=eq.${encodeURIComponent(body.id)}`, { method: "PATCH", body: JSON.stringify(patch) });
     await recordActivity({ session, action: "Güncelleme", entity: "Rapor", entityId: rows[0]?.id, companyId: rows[0]?.company_id, details: { message: "Rapor güncellendi", report_type: rows[0]?.report_type } });
     return NextResponse.json({ ok: true, report: rows[0], message: "Rapor başarıyla güncellendi." });
   } catch (error) {

@@ -2,9 +2,71 @@
 /* eslint-disable react-hooks/set-state-in-effect, @typescript-eslint/no-explicit-any */
 
 import { useEffect, useMemo, useState } from "react";
-import { Activity, BarChart3, CheckCircle2, ExternalLink, MousePointerClick, RefreshCcw, Settings2, ShieldCheck, XCircle } from "lucide-react";
+import { Activity, BarChart3, CheckCircle2, Download, ExternalLink, MousePointerClick, RefreshCcw, Settings2, ShieldCheck, XCircle } from "lucide-react";
 import type { AnalyticsCheckStatus, AnalyticsStatusItem, WebsiteAnalyticsResponse } from "@/lib/website-analytics";
 import { WebsiteAnalyticsSummaryCards } from "@/components/admin/WebsiteAnalyticsSummaryCards";
+
+type RangeOption = 1 | 7 | 30;
+const rangeOptions: Array<{ value: RangeOption; label: string }> = [
+  { value: 1, label: "Bugün" },
+  { value: 7, label: "Son 7 gün" },
+  { value: 30, label: "Son 30 gün" }
+];
+
+function TrendChart({ trend }: { trend: WebsiteAnalyticsResponse["trend"] | undefined }) {
+  if (!trend?.length) return <p className="rounded-[14px] border border-dashed border-[var(--admin-border)] p-5 text-sm font-semibold text-[var(--admin-text-muted)]">Bu aralıkta grafik için yeterli veri yok.</p>;
+  const width = 640;
+  const height = 160;
+  const padding = 24;
+  const max = Math.max(1, ...trend.map((point) => point.pageViews));
+  const stepX = trend.length > 1 ? (width - padding * 2) / (trend.length - 1) : 0;
+  const points = trend.map((point, index) => {
+    const x = padding + index * stepX;
+    const y = height - padding - (point.pageViews / max) * (height - padding * 2);
+    return { x, y, point };
+  });
+  const path = points.map((p, index) => `${index === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Günlük sayfa görüntüleme trendi" className="w-full">
+      <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="var(--admin-border)" strokeWidth={1} />
+      <path d={path} fill="none" stroke="#0891b2" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+      {points.map((p, index) => (
+        <g key={p.point.date}>
+          <circle cx={p.x} cy={p.y} r={3} fill="#0891b2" />
+          {(index === 0 || index === points.length - 1 || index % Math.ceil(points.length / 6 || 1) === 0) && (
+            <text x={p.x} y={height - 6} fontSize={9} textAnchor="middle" fill="var(--admin-text-muted)">{p.point.date.slice(5)}</text>
+          )}
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+function toCsv(response: WebsiteAnalyticsResponse) {
+  const lines = ["Bölüm,Alan,Değer"];
+  if (response.summary) {
+    lines.push(`Özet,Bugün PageView,${response.summary.todayPageViews}`);
+    lines.push(`Özet,Son 7 Gün PageView,${response.summary.last7DaysPageViews}`);
+    lines.push(`Özet,Contact,${response.summary.contacts}`);
+    lines.push(`Özet,Lead,${response.summary.leads}`);
+    lines.push(`Özet,CTA Tıklaması,${response.summary.ctaClicks}`);
+    lines.push(`Özet,Dönüşüm Oranı (%),${response.summary.conversionRate}`);
+  }
+  for (const page of response.pages) lines.push(`Sayfa,${page.path},${page.pageViews}`);
+  for (const event of response.events) lines.push(`Olay,${event.label},${event.count}`);
+  for (const source of response.sources) lines.push(`Kaynak,${source.source},${source.pageViews}`);
+  return lines.join("\n");
+}
+
+function downloadCsv(response: WebsiteAnalyticsResponse) {
+  const blob = new Blob([`﻿${toCsv(response)}`], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `hk-dijital-web-analitik-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 const numberFormat = new Intl.NumberFormat("tr-TR");
 const percentFormat = new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 2 });
@@ -63,12 +125,13 @@ export function WebsiteAnalyticsCenter() {
   const [data, setData] = useState<WebsiteAnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [range, setRange] = useState<RangeOption>(7);
 
-  async function load() {
+  async function load(days: RangeOption = range) {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch("/api/admin/website-analytics", { cache: "no-store" });
+      const response = await fetch(`/api/admin/website-analytics?days=${days}`, { cache: "no-store" });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || "Website Analytics verisi alınamadı.");
       setData(payload);
@@ -80,8 +143,9 @@ export function WebsiteAnalyticsCenter() {
   }
 
   useEffect(() => {
-    load();
-  }, []);
+    load(range);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [range]);
 
   const setupItems = useMemo(() => {
     const setup = data?.setup;
@@ -96,14 +160,15 @@ export function WebsiteAnalyticsCenter() {
   }, [data?.setup]);
 
   const summary = data?.summary;
+  const dataUnavailable = Boolean(data && !summary);
   const criticalMissing = data?.integrationStatus?.criticalMissing || [];
   const overviewCards = [
-    { label: "PageView", value: summary?.last7DaysPageViews ?? 0, description: "Son 7 günlük sayfa görüntüleme." },
+    { label: "PageView", value: summary?.last7DaysPageViews ?? 0, description: `Seçili aralıkta (${rangeOptions.find((item) => item.value === range)?.label.toLocaleLowerCase("tr")}) sayfa görüntüleme.` },
     { label: "Contact", value: summary?.contacts ?? 0, description: "WhatsApp ve iletişim tıklamaları." },
     { label: "Lead", value: summary?.leads ?? 0, description: "Başarılı form ve teklif talepleri." },
     { label: "CTA tıklamaları", value: summary?.ctaClicks ?? 0, description: "Paket, demo, teklif ve iletişim butonları." },
-    { label: "Dönüşüm oranı", value: asPercent(summary?.conversionRate ?? 0), description: "Lead / PageView oranı." },
-    { label: "Son olay zamanı", value: data?.lastSyncedAt ? new Date(data.lastSyncedAt).toLocaleString("tr-TR") : "Henüz yok", description: "Son senkron veya olay zamanı." }
+    { label: "Dönüşüm oranı", value: asPercent(summary?.conversionRate ?? 0), description: "Lead / PageView (seçili aralık)." },
+    { label: "Son güncelleme", value: data?.lastSyncedAt ? new Date(data.lastSyncedAt).toLocaleString("tr-TR") : "Henüz yok", description: "Bu verinin sunucudan alındığı zaman." }
   ];
 
   return (
@@ -121,9 +186,30 @@ export function WebsiteAnalyticsCenter() {
             <span className={`rounded-full px-3 py-1 text-xs font-black ${data?.status === "live" ? "bg-emerald-100 text-emerald-700" : data?.status === "partial" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-[var(--admin-text-secondary)]"}`}>
               {statusLabel(data?.status)}
             </span>
+            <div className="flex overflow-hidden rounded-full border border-[var(--admin-border)]">
+              {rangeOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setRange(option.value)}
+                  disabled={loading}
+                  className={`px-3 py-2 text-xs font-black transition disabled:opacity-60 ${range === option.value ? "bg-cyan-500 text-white" : "bg-[var(--admin-surface-soft)] text-[var(--admin-text-secondary)] hover:bg-[var(--admin-surface)]"}`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
             <button
               type="button"
-              onClick={load}
+              onClick={() => data && downloadCsv(data)}
+              disabled={!data}
+              className="inline-flex items-center gap-2 rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface)] px-4 py-2 text-xs font-black text-[var(--admin-text-secondary)] transition hover:bg-[var(--admin-surface-soft)] disabled:opacity-60"
+            >
+              <Download size={15} /> CSV indir
+            </button>
+            <button
+              type="button"
+              onClick={() => load()}
               disabled={loading}
               className="inline-flex items-center gap-2 rounded-full bg-cyan-500 px-4 py-2 text-xs font-black text-white shadow-[0_8px_22px_rgba(6,182,212,.22)] transition hover:-translate-y-0.5 hover:bg-cyan-600 disabled:opacity-60"
             >
@@ -132,6 +218,7 @@ export function WebsiteAnalyticsCenter() {
           </div>
         </div>
         {error && <p className="mt-5 rounded-[14px] border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</p>}
+        {dataUnavailable && <p className="mt-5 rounded-[14px] border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">Veri alınamadı: {data?.firstPartyError || "Veritabanı bağlantısı kurulamadı."} — aşağıdaki sayılar gerçek sıfır değil, sorgu başarısız oldu.</p>}
       </section>
 
       <WebsiteAnalyticsSummaryCards />
@@ -158,10 +245,21 @@ export function WebsiteAnalyticsCenter() {
         {overviewCards.map((card) => (
           <article key={card.label} className="rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
             <p className="text-sm font-black text-[var(--admin-text-secondary)]">{card.label}</p>
-            <p className="mt-3 text-3xl font-black text-[var(--admin-text-primary)]">{typeof card.value === "number" ? numberFormat.format(card.value) : card.value}</p>
+            <p className="mt-3 text-3xl font-black text-[var(--admin-text-primary)]">{dataUnavailable ? "—" : typeof card.value === "number" ? numberFormat.format(card.value) : card.value}</p>
             <p className="mt-2 text-sm leading-6 text-[var(--admin-text-muted)]">{card.description}</p>
           </article>
         ))}
+      </section>
+
+      <section className="rounded-[22px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
+        <div className="mb-4 flex items-center gap-3">
+          <span className="grid size-11 place-items-center rounded-[16px] bg-cyan-100 text-cyan-700"><BarChart3 size={20} /></span>
+          <div>
+            <h3 className="text-lg font-black text-[var(--admin-text-primary)]">Zaman İçinde Trafik</h3>
+            <p className="text-sm text-[var(--admin-text-muted)]">Günlük PageView sayısı — seçili aralık.</p>
+          </div>
+        </div>
+        <TrendChart trend={data?.trend} />
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[1.2fr_.8fr]">

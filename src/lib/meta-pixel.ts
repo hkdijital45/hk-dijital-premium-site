@@ -11,6 +11,26 @@ declare global {
 
 export type MetaPixelPayload = Record<string, string | number | boolean | null | undefined>;
 
+// Shared with FirstPartyAnalytics.tsx so admin/customer-portal/auth
+// navigations never count toward public-site traffic metrics.
+export const PRIVATE_PATH_PREFIXES = [
+  "/hk-admin",
+  "/musteri-paneli",
+  "/api",
+  "/digital-center",
+  "/giris",
+  "/login",
+  "/musteri-merkezi",
+  "/hk-control",
+  "/kurulum",
+  "/super-admin-kurulum",
+  "/sifre-sifirla"
+];
+
+export function isPublicTrackedPath(pathname: string) {
+  return !PRIVATE_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
 export function hasMetaPixel() {
   return Boolean(META_PIXEL_ID);
 }

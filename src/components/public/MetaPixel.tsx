@@ -3,25 +3,7 @@
 import Script from "next/script";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
-import { META_PIXEL_ID, trackMetaContact, trackMetaPageView } from "@/lib/meta-pixel";
-
-const privatePathPrefixes = [
-  "/hk-admin",
-  "/musteri-paneli",
-  "/api",
-  "/digital-center",
-  "/giris",
-  "/login",
-  "/musteri-merkezi",
-  "/hk-control",
-  "/kurulum",
-  "/super-admin-kurulum",
-  "/sifre-sifirla"
-];
-
-function isPublicTrackedPath(pathname: string) {
-  return !privatePathPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
-}
+import { isPublicTrackedPath, META_PIXEL_ID, trackMetaContact, trackMetaPageView } from "@/lib/meta-pixel";
 
 export function MetaPixel({ pixelId = META_PIXEL_ID }: { pixelId?: string }) {
   const pathname = usePathname();
