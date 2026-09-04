@@ -1,0 +1,13 @@
+node_modules
+.next
+.git
+src-tauri
+dist
+dist-desktop
+desktop-builds
+build
+test-results
+playwright-report
+blob-report
+tests/e2e/.auth
+tsconfig.tsbuildinfo
