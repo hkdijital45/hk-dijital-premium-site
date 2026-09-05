@@ -84,3 +84,9 @@ test('private content package authenticates ciphertext and rejects wrong keys an
  const changed=Buffer.from(bundle);changed[changed.length-1]^=1;assert.throws(()=>decryptContent(changed,key));
  assert.throws(()=>decryptContent(encryptContent({...records,'../outside.json':'{}'},key),key));
 });
+
+test('difficulty self-assessment is shown separately from objectively graded accuracy',()=>{
+ const index=[{id:'work',section:'workbook' as const,title:'Work',module:1,source:'workbook',page:7,difficulty:'basic' as const}];
+ const states=[{content_id:'work',kind:'assessment',value:{score:3,method:'self'},updated_at:'2026-09-05'}];
+ const result=performanceBreakdown(index,states);assert.equal(result.levels[0].percent,null);assert.equal(result.levels[0].selfPercent,75);assert.equal(result.levels[1].selfPercent,null);
+});

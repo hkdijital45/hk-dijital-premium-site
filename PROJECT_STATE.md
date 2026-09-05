@@ -52,3 +52,11 @@
 - Sınav Merkezi ana kitap mini quizlerini de listeliyor. Egzersizler ayrı katalog. Sözlük Türkçe alfabetik sıralı.
 - Son görsel QA: desktop dashboard, ders ve mobile dashboard; 393px'de yatay taşma yok. Ders paragrafları yeniden akıtıldı; kitap s.7 karşılaştırması kaynak metinden elle doğrulanmış tabloya dönüştürüldü. Diğer tabloların tamamı hücre bazında doğrulanmış sayılamaz.
 - Branch: codex/digital-marketing-academy. Yalnız görev dosyaları staged; kullanıcının mevcut admin/global değişiklikleri stage dışında.
+
+## Son doğrulama / 5 Eylül 2026
+- 67 unit testi geçti; lint ve production build başarılı. TypeScript build içinde ve ayrıca noEmit ile doğrulandı.
+- En son tek akademi E2E turu: 26/26 geçti (desktop + mobile, yönetici üyelik iptali dahil).
+- Önceki public regresyon turu: 62 geçti / 4 credential-gated eski test atlandı; bu tur 24 akademi testini de içeriyordu. Sayılar toplanarak farklı test adedi gibi sunulmamalı.
+- Seviye öz değerlendirme yüzdeleri ve otomatik doğruluk ayrı. Kaynak seviyesi karma olan sayfalar tek seviyeye atanmaz.
+- İlk yerel commit 5a0b58b; ikinci commit metrik/teslim dokümanlarını içerir. Push/deploy yapılmadı.
+- A–M raporu ve kabul listesi: content/academy/ACCEPTANCE.md. Açık içerik QA ve canlı ortam maddeleri gizlenmedi.

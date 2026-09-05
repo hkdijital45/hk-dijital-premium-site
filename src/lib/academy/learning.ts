@@ -24,7 +24,8 @@ export function performanceBreakdown(index:ContentIndex[],states:LearningState[]
  const completed=new Set(states.filter(s=>s.kind==='progress'&&s.value.completed===true).map(s=>s.content_id));
  const results=states.filter(s=>s.kind==='result'&&Number(s.value.total)>0&&byId.has(s.content_id));
  const summarize=(rows:LearningState[])=>{const total=rows.reduce((n,s)=>n+Number(s.value.total),0);return {total,percent:total?Math.round(rows.reduce((n,s)=>n+Number(s.value.correct),0)/total*100):null};};
- const levels=['basic','medium','hard'].map(level=>({level,...summarize(results.filter(s=>{const row=byId.get(s.content_id)!;return row.levels?.length?row.levels.length===1&&row.levels[0]===level:row.difficulty===level;}))}));
+ const matchesLevel=(id:string,level:string)=>{const row=byId.get(id);return row?.levels?.length?row.levels.length===1&&row.levels[0]===level:row?.difficulty===level;};
+ const levels=['basic','medium','hard'].map(level=>{const self=states.filter(s=>s.kind==='assessment'&&s.value.method==='self'&&Number.isFinite(Number(s.value.score))&&matchesLevel(s.content_id,level));return {level,...summarize(results.filter(s=>matchesLevel(s.content_id,level))),selfPercent:self.length?Math.round(self.reduce((n,s)=>n+Number(s.value.score),0)/self.length/4*100):null,selfCount:self.length};});
  const skills=[['Strateji',1],['Hedef Kitle',2],['Marka',3],['Sosyal Medya',4],['Copywriting',5],['Meta Ads',7],['Google Ads',8],['SEO',9],['CRO',10],['Analytics',11],['Ajans Yönetimi',12],['AI Marketing',14]].map(([label,module])=>({label:String(label),module:Number(module),...summarize(results.filter(s=>byId.get(s.content_id)?.module===module))}));
  const count=(section:string)=>index.filter(row=>row.section===section&&completed.has(row.id)).length;
  const exercises=states.filter(s=>s.kind==='submission'&&byId.get(s.content_id)?.section==='workbook').reduce((n,s)=>n+(byId.get(s.content_id)?.activityCount||1),0);
