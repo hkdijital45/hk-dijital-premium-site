@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  outputFileTracingIncludes: { "/academy/**": ["./content/academy/**/*.json"], "/api/academy": ["./content/academy/**/*.json"] },
   async redirects() {
     return [
       { source: "/cozumler", destination: "/hizmetler", permanent: true },
@@ -34,7 +35,7 @@ const nextConfig: NextConfig = {
       "media-src 'self' blob: https:",
       "upgrade-insecure-requests"
     ].join("; ");
-    return [{
+    return [{ source: "/academy/:path*", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" }, { key: "Cache-Control", value: "private, no-store" }] }, {
       source: "/:path*",
       headers: [
         { key: "Content-Security-Policy", value: csp },

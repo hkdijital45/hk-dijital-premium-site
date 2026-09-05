@@ -10,6 +10,8 @@ jobs:
   validate:
     name: TypeScript, lint, unit tests, build
     runs-on: ubuntu-latest
+    env:
+      ACADEMY_CONTENT_KEY: ${{ secrets.ACADEMY_CONTENT_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,6 +24,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Prepare private academy content
+        run: npm run academy:prepare
 
       - name: TypeScript
         run: npx tsc --noEmit
@@ -46,6 +51,8 @@ jobs:
   e2e:
     name: Playwright (public + credential-gated coverage)
     runs-on: ubuntu-latest
+    env:
+      ACADEMY_CONTENT_KEY: ${{ secrets.ACADEMY_CONTENT_KEY }}
     needs: validate
     steps:
       - name: Checkout
@@ -59,6 +66,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Prepare private academy content
+        run: npm run academy:prepare
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium

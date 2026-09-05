@@ -18,7 +18,10 @@
     "test:e2e:report": "playwright show-report",
     "validate:env": "node --experimental-strip-types scripts/validate-env.ts",
     "validate:supabase": "node --experimental-strip-types scripts/validate-supabase.ts",
-    "validate:deployment": "node --experimental-strip-types scripts/validate-deployment.ts"
+    "validate:deployment": "node --experimental-strip-types scripts/validate-deployment.ts",
+    "prebuild": "node scripts/academy/content-package.mjs prepare",
+    "academy:pack": "node scripts/academy/content-package.mjs pack",
+    "academy:prepare": "node scripts/academy/content-package.mjs prepare"
   },
   "dependencies": {
     "clsx": "^2.1.1",

@@ -18,3 +18,8 @@ artifacts/
 /playwright/.cache/
 .vercel
 .env*
+
+# Private academy source: public repository stores only the encrypted package.
+/content/academy/*.json
+/content/academy/* 2.*
+/tmp/

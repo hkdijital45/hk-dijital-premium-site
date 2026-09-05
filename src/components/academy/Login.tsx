@@ -1,0 +1,7 @@
+'use client';
+import {useState,useSyncExternalStore} from 'react';
+const subscribe=()=>()=>{};
+export function AcademyLogin(){const ready=useSyncExternalStore(subscribe,()=>true,()=>false);const [error,setError]=useState('');const [busy,setBusy]=useState(false);
+ return <form method="post" action="/api/auth/login" className="ac-card ac-login" onSubmit={async e=>{e.preventDefault();setBusy(true);setError('');const form=new FormData(e.currentTarget);try{const response=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({identity:form.get('email'),password:form.get('password')})});const result=await response.json();if(!response.ok)throw new Error(result.error);window.location.assign(result.redirectTo==='/sifre-degistir'?result.redirectTo:'/academy');}catch(e){setError(e instanceof Error?e.message:'Giriş yapılamadı.');setBusy(false);}}}>
+ <span className="ac-eyebrow">HK · ÖZEL EĞİTİM ALANI</span><h1>Dijital Pazarlama<br/><em>Akademisi</em></h1><p>Bilgiyi stratejiye, stratejiyi uygulamaya dönüştürün.</p><label>E-posta veya kullanıcı adı<input name="email" required autoComplete="username" maxLength={254}/></label><label>Şifre<input name="password" type="password" required autoComplete="current-password"/></label><button disabled={busy||!ready} className="ac-button">{busy?'Giriş yapılıyor…':'Akademiye giriş yap →'}</button><p className="ac-muted">Mevcut hesabınızı kullanın. Erişim, akademi üyeliğinize göre doğrulanır.</p>{error&&<p role="alert">{error}</p>}</form>;
+}

@@ -1,0 +1,8 @@
+export type Section = 'book'|'exercises'|'workbook'|'cases'|'exams'|'diagnostics'|'lab'|'final'|'glossary'|'formulas'|'reference'|'triage';
+export type ContentIndex = {id:string;section:Section;title:string;module:number;source:string;page:number;difficulty?:'basic'|'medium'|'hard';category?:string;reference?:string;stepCount?:number;questionCount?:number;activityCount?:number;levels?:string[]};
+export type Question = {id:string;prompt:string;options:{id:string;text:string}[]};
+export type ContentRecord = ContentIndex & {table?:{title:string;columns:string[];rows:string[][]};blocks?:{kind:string;title:string;text:string;paragraphs?:string[]}[];text:string;check?:string;intervention?:string;avoid?:string;usage?:string;example?:string;confusion?:string;questions?:Question[];activities?:Activity[];caseFields?:{label:string;text:string}[];caseQuestions?:{id:string;prompt:string}[]};
+export type LearningState = {content_id:string;kind:string;value:Record<string,unknown>;updated_at:string};
+export const sectionLabels:Record<Section,string>={book:'Ana Eğitim Kitabı',workbook:'Workbook',exercises:'Egzersizler',cases:'Vaka Merkezi',exams:'Sınav Merkezi',diagnostics:'Teşhis Merkezi',lab:'Ajans Laboratuvarı',final:'360° Final Simülasyonu',glossary:'Terimler Sözlüğü',formulas:'Formül Merkezi',reference:'Hızlı Referans',triage:'Kampanya Triage'};
+export const rubric=['Yanlış veya gerekçesiz','Kısmen doğru','Doğru ama eksik','Doğru ve gerekçeli','Profesyonel seviye'];
+export type Activity={difficulty?:string;id:string;label:string;prompt:string;kind:'choice'|'boolean'|'matching'|'ordering'|'budget'|'table'|'fill'|'error'|'reasoning'|'short';items:{id:string;text:string}[];options:{id:string;text:string}[];budget?:number};

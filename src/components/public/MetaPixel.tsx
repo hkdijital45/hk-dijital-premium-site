@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { META_PIXEL_ID, trackMetaContact, trackMetaPageView } from "@/lib/meta-pixel";
 
 const privatePathPrefixes = [
+  "/academy",
   "/hk-admin",
   "/musteri-paneli",
   "/api",
@@ -33,7 +34,7 @@ export function MetaPixel({ pixelId = META_PIXEL_ID }: { pixelId?: string }) {
   }, [pathname, pixelId]);
 
   useEffect(() => {
-    if (!pixelId) return undefined;
+    if (!pixelId || pathname === "/academy" || pathname.startsWith("/academy/")) return undefined;
     const onClick = (event: MouseEvent) => {
       const target = event.target instanceof Element ? event.target.closest("a") : null;
       const href = target?.getAttribute("href") || "";
@@ -45,9 +46,9 @@ export function MetaPixel({ pixelId = META_PIXEL_ID }: { pixelId?: string }) {
     };
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);
-  }, [pixelId]);
+  }, [pixelId, pathname]);
 
-  if (!pixelId) return null;
+  if (!pixelId || pathname === "/academy" || pathname.startsWith("/academy/")) return null;
 
   return (
     <>
