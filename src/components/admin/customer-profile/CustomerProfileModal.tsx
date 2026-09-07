@@ -8,6 +8,7 @@ import type { ActionResult } from "@/lib/action-result";
 import { CUSTOMER_MODULE_REGISTRY, CUSTOMER_PLATFORM_REGISTRY, DEFAULT_CUSTOMER_MODULES, normalizeModuleKeys, normalizePlatformKeys } from "@/lib/customer-portal-registry";
 import { formatTurkishPhone, isEmptyLikeValue, normalizePhoneInput } from "@/lib/phone-format";
 import { CUSTOMER_360_TABS, Customer360Header } from "./customer360-shared";
+import { CustomerAIInsightsPanel } from "./CustomerAIInsightsPanel";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
 
@@ -736,6 +737,8 @@ export function CustomerProfileModal({
               <AdminTabs items={CUSTOMER_360_TABS} active={activeProfileTab} onChange={setActiveProfileTab} ariaLabel="Müşteri 360 sekmeleri" sticky />
               {activeProfileTab === "Entegrasyonlar" ? (
                 <IntegrationStatusGrid company={company} integration={integration} />
+              ) : activeProfileTab === "AI İçgörüleri" ? (
+                <CustomerAIInsightsPanel companyId={company.id} />
               ) : (
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
                   {activeTabCards().map((card) => <SummaryBox key={card.title} title={card.title} lines={card.lines} />)}

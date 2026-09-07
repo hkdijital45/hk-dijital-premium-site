@@ -1,7 +1,8 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { AlertTriangle, ArrowRight, Plus, Settings2, Sparkles } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import Link from "next/link";
+import { AlertTriangle, ArrowRight, Bot, Plus, Settings2, Sparkles } from "lucide-react";
 import { AdminCompactKpiStrip, type AdminCompactKpiItem } from "@/components/admin/workspace/AdminCompactKpiStrip";
 import { AdminActionBar } from "@/components/admin/workspace/AdminActionBar";
 import { DashboardCustomizePanel } from "./DashboardHero";
@@ -68,6 +69,47 @@ export interface MissionControlProps {
 }
 
 const KPI_ICONS: ReactNode[] = [<Sparkles key="0" size={14} />, <AlertTriangle key="1" size={14} />];
+
+// Minimal, self-fetching widget — deliberately does not thread a new prop
+// through the whole AdminDashboard data pipeline for one small panel. Points
+// at the separate HK AI Workforce product (src/app/ai-workforce) rather than
+// rendering the AI roster inline, per the "AI Workforce stays a separate
+// app, not another AdminDashboard tab" requirement.
+function AiTeamWidget() {
+  const [state, setState] = useState<{ activeAgents: number; pendingApprovals: number; openRecommendations: number } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/ai-workforce/overview")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => { if (!cancelled && data) setState(data); })
+      .catch(() => null);
+    return () => { cancelled = true; };
+  }, []);
+
+  return (
+    <div className="mc-panel" style={{ padding: "var(--space-4)" }}>
+      <div className="mc-panel-head">
+        <div>
+          <p className="mc-panel-eyebrow">AI Team (Yapay Zekâ Ekibi)</p>
+          <h2 className="mc-panel-title">HK AI Workforce</h2>
+        </div>
+        <Bot size={18} />
+      </div>
+      {state ? (
+        <div style={{ display: "flex", gap: "var(--space-3)", flexWrap: "wrap", fontSize: "var(--text-xs)", color: "var(--admin-text-secondary)" }}>
+          <span>Active Agents (Aktif Ajan): <strong>{state.activeAgents}</strong></span>
+          <span>Pending Approvals (Bekleyen Onay): <strong>{state.pendingApprovals}</strong></span>
+          <span>New Recommendations (Yeni Öneri): <strong>{state.openRecommendations}</strong></span>
+        </div>
+      ) : (
+        <p style={{ fontSize: "var(--text-xs)", color: "var(--admin-text-muted)" }}>Yükleniyor...</p>
+      )}
+      <Link href="/ai-workforce" className="hk-button hk-button-outline" style={{ marginTop: "var(--space-3)", display: "inline-flex", fontSize: "var(--text-xs)", padding: "8px 14px" }}>
+        Open AI Workforce (AI Workforce&apos;u Aç) <ArrowRight size={12} />
+      </Link>
+    </div>
+  );
+}
 
 export function MissionControl(props: MissionControlProps) {
   const {
@@ -214,6 +256,8 @@ export function MissionControl(props: MissionControlProps) {
             </div>
           )}
         </div>
+
+        <AiTeamWidget />
 
         <div className="mc-panel-finance">
           <DashboardFinanceSummary overviewCards={overviewCards} packageDistribution={packageDistribution} onNavigate={onNavigate} />

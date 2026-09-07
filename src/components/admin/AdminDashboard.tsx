@@ -39,6 +39,7 @@ import { isDateWithinAdminPeriod, resolveAdminPeriodRange, type AdminPeriodKey }
 import { CustomerProfileTasks } from "@/components/admin/customer-profile/CustomerProfileTasks";
 import { CustomerActivityTimeline } from "@/components/admin/customer-profile/CustomerActivityTimeline";
 import { CustomerProfileNotes } from "@/components/admin/customer-profile/CustomerProfileNotes";
+import { CustomerAIInsightsPanel } from "@/components/admin/customer-profile/CustomerAIInsightsPanel";
 import { CustomerBrandAssets } from "@/components/admin/customer-profile/CustomerBrandAssets";
 import { CustomerIntegrationsPanel } from "@/components/admin/customer-profile/CustomerIntegrationsPanel";
 import { CustomerProfileModal } from "@/components/admin/customer-profile/CustomerProfileModal";
@@ -8093,6 +8094,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
       </div>}
       {tab === "Aktivite Geçmişi" && <CustomerActivityTimeline items={activities} onOpenTab={setTab} />}
       {tab === "Notlar" && <CustomerProfileNotes company={company} notify={notify} canManage={canManageCustomer} />}
+      {tab === "AI İçgörüleri" && <CustomerAIInsightsPanel companyId={company.id} />}
       </div>
       <div className="xl:sticky xl:top-4">
         <AdminDetailInspector

@@ -31,7 +31,8 @@ export const CUSTOMER_360_TABS = [
   "Metrikler",
   "Yapılan Çalışmalar",
   "Aktivite Geçmişi",
-  "Notlar"
+  "Notlar",
+  "AI İçgörüleri"
 ] as const;
 
 function isArchived(item: any) {

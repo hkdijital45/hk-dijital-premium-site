@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { adminRoles, authCookieName, customerRoles, decodeSession } from "@/lib/session-token";
 import { HIDDEN_ACCESS_COOKIE, findValidHiddenAccessSession } from "@/lib/hidden-access";
+import { isAiWorkforceHost, rewriteAiWorkforcePath } from "@/lib/ai-workforce-schema";
 
 // The real login screen still lives at /digital-center (unchanged internal
 // route — password-reset/admin-setup flows already hardcode redirects there,
@@ -19,7 +20,7 @@ const LEGACY_LOGIN_PATHS = new Set(["/login", "/giris"]);
 // there. This intentionally applies even to an already-logged-in admin/
 // customer: the 1-hour secret-access session is independent of, and in
 // front of, the normal (longer-lived) hk_auth_session cookie.
-const SECRET_GATED_PREFIXES = ["/hk-admin", "/musteri-paneli"];
+const SECRET_GATED_PREFIXES = ["/hk-admin", "/musteri-paneli", "/ai-workforce"];
 
 function requiresSecretGate(pathname: string, privatePath?: string) {
   if (pathname === REAL_LOGIN_PATH) return true;
@@ -38,7 +39,18 @@ function requiresSecretGate(pathname: string, privatePath?: string) {
 // API routes rely on their own real getSession()/requireModuleAccess()
 // checks, never on this URL-level gate, by design.
 export async function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  // ai.hkdijital.com.tr serves the HK AI Workforce product at clean URLs
+  // (ai.hkdijital.com.tr/agents instead of .../ai-workforce/agents). This
+  // only affects that one exact host — every check below (secret gate, role
+  // checks) then runs against the *effective* (possibly rewritten) pathname,
+  // so ai.hkdijital.com.tr gets the exact same protection as
+  // www.hkdijital.com.tr/ai-workforce. The auth cookie is host-only (see
+  // src/lib/auth.ts) and intentionally not shared across subdomains, so
+  // /giris and /digital-center are never rewritten — otherwise a visitor
+  // with no session on this subdomain could never reach a login page.
+  const onAiWorkforceHost = isAiWorkforceHost(request.headers.get("host"));
+  const originalPathname = request.nextUrl.pathname;
+  const pathname = onAiWorkforceHost ? rewriteAiWorkforcePath(originalPathname) : originalPathname;
   const session = decodeSession(request.cookies.get(authCookieName)?.value);
   const role = session?.role;
   const privatePath = process.env.PRIVATE_ADMIN_LOGIN_PATH;
@@ -71,7 +83,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
-  if (pathname.startsWith("/hk-admin")) {
+  if (pathname.startsWith("/hk-admin") || pathname.startsWith("/ai-workforce")) {
     if (!role || !adminRoles.includes(role)) {
       return NextResponse.redirect(new URL("/giris", request.url));
     }
@@ -82,6 +94,10 @@ export async function proxy(request: NextRequest) {
     if (!role || (!customerRoles.includes(role) && !isStaffPreview)) {
       return NextResponse.redirect(new URL("/giris", request.url));
     }
+  }
+
+  if (onAiWorkforceHost && pathname !== originalPathname) {
+    return NextResponse.rewrite(new URL(pathname, request.url));
   }
 
   return NextResponse.next();

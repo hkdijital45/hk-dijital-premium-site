@@ -1,16 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireModuleAccess } from "@/lib/permissions";
 import { hasSupabaseConfig } from "@/lib/supabase";
+import { AI_WORKFORCE_MODULE } from "@/lib/ai-workforce-schema";
 import { runVirtualAgentById } from "@/lib/ai-workforce";
 
-// Previously this endpoint never called an AI provider — it just returned a
-// "prepared_agent_run" payload telling the UI to go run the task manually in
-// Agent Hub. That meant the HK Intelligence roster (hk_virtual_agents) and
-// the real orchestration engine (runAgentTask) were never actually wired
-// together. This now executes the agent for real (via the same helper the
-// AI Workforce Agents screen uses) and reflects the outcome onto the agent's row.
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
-  const session = await requireModuleAccess("hk-intelligence-ceo");
+  const session = await requireModuleAccess(AI_WORKFORCE_MODULE);
   if (!session) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 403 });
   if (!hasSupabaseConfig()) return NextResponse.json({ error: "Supabase bağlantısı yapılandırılmadı." }, { status: 503 });
 
@@ -21,7 +16,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const outcome = await runVirtualAgentById(id, {
     companyId,
     prompt: typeof body.prompt === "string" ? body.prompt : null,
-    priority: typeof body.priority === "string" ? (body.priority as "düşük" | "normal" | "yüksek" | "kritik") : "normal",
     createdBy: session.profileId || session.authUserId || null
   });
 
@@ -32,7 +26,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const { agent, result } = outcome;
   return NextResponse.json({
     ok: true,
-    agentId: id,
     agentKey: agent.agent_key,
     runId: result.runId,
     status: result.status,
