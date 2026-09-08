@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   aggregateCostByKey, buildDirectorPrompt, classifyExecutionStatus, computeNextRunAt,
-  isAiWorkforceHost, mapAgentKeyToTaskType, normalizePreferredProvider, rewriteAiWorkforcePath, sumEstimatedCost
+  isAiWorkforceHost, mapAgentKeyToTaskType, normalizePreferredProvider, resolveAiWorkforceHostPathname,
+  rewriteAiWorkforcePath, sumEstimatedCost
 } from "../../src/lib/ai-workforce-schema.ts";
 
 test("mapAgentKeyToTaskType: known hk_virtual_agents keys map to a real AgentTaskType", () => {
@@ -94,6 +95,32 @@ test("rewriteAiWorkforcePath: never rewrites the login passthrough paths — oth
   assert.equal(rewriteAiWorkforcePath("/giris"), "/giris");
   assert.equal(rewriteAiWorkforcePath("/digital-center"), "/digital-center");
   assert.equal(rewriteAiWorkforcePath("/login"), "/login");
+});
+
+// Regression coverage for the production ERR_TOO_MANY_REDIRECTS bug on
+// ai.hkdijital.com.tr: the Secret Access Control Center's gate-failure
+// redirect target is "/", and rewriteAiWorkforcePath("/") used to
+// unconditionally become "/ai-workforce" (itself a gated prefix), so an
+// unauthorized visitor bounced from "/ai-workforce" to "/" would
+// immediately be routed right back to "/ai-workforce" and fail the gate
+// again — forever.
+test("resolveAiWorkforceHostPathname: an unauthorized visitor to root stays at '/' — the exact fix for the ERR_TOO_MANY_REDIRECTS production loop", () => {
+  assert.equal(resolveAiWorkforceHostPathname("/", false), "/");
+});
+
+test("resolveAiWorkforceHostPathname: an already-authorized visitor to root lands on the Control Center", () => {
+  assert.equal(resolveAiWorkforceHostPathname("/", true), "/ai-workforce");
+});
+
+test("resolveAiWorkforceHostPathname: a direct deep link is unaffected by root authorization and is always rewritten/gated normally", () => {
+  assert.equal(resolveAiWorkforceHostPathname("/ai-workforce", false), "/ai-workforce");
+  assert.equal(resolveAiWorkforceHostPathname("/agents", false), "/ai-workforce/agents");
+  assert.equal(resolveAiWorkforceHostPathname("/agents", true), "/ai-workforce/agents");
+});
+
+test("resolveAiWorkforceHostPathname: login passthrough paths are never touched regardless of root authorization, so hk_return always resolves without recursing", () => {
+  assert.equal(resolveAiWorkforceHostPathname("/giris", false), "/giris");
+  assert.equal(resolveAiWorkforceHostPathname("/digital-center", false), "/digital-center");
 });
 
 test("computeNextRunAt: daily frequency advances exactly one day at the configured time", () => {

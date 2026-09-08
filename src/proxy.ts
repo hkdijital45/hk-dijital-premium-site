@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { adminRoles, authCookieName, customerRoles, decodeSession } from "@/lib/session-token";
 import { HIDDEN_ACCESS_COOKIE, findValidHiddenAccessSession } from "@/lib/hidden-access";
-import { isAiWorkforceHost, rewriteAiWorkforcePath } from "@/lib/ai-workforce-schema";
+import { isAiWorkforceHost, resolveAiWorkforceHostPathname } from "@/lib/ai-workforce-schema";
 
 // The real login screen still lives at /digital-center (unchanged internal
 // route — password-reset/admin-setup flows already hardcode redirects there,
@@ -50,10 +50,22 @@ export async function proxy(request: NextRequest) {
   // with no session on this subdomain could never reach a login page.
   const onAiWorkforceHost = isAiWorkforceHost(request.headers.get("host"));
   const originalPathname = request.nextUrl.pathname;
-  const pathname = onAiWorkforceHost ? rewriteAiWorkforcePath(originalPathname) : originalPathname;
   const session = decodeSession(request.cookies.get(authCookieName)?.value);
   const role = session?.role;
   const privatePath = process.env.PRIVATE_ADMIN_LOGIN_PATH;
+
+  // Bare "/" on this host must only resolve to the gated "/ai-workforce"
+  // once the visitor is already authorized for it — otherwise the gate's
+  // own failure redirect (target: "/") re-triggers the same gate forever
+  // (ERR_TOO_MANY_REDIRECTS). Cheap role check first so this extra
+  // Supabase lookup only ever runs for the one narrow case that needs it —
+  // never for anonymous visitors or any other path/host.
+  let aiWorkforceRootAuthorized = false;
+  if (onAiWorkforceHost && originalPathname === "/" && role && adminRoles.includes(role)) {
+    const secretToken = request.cookies.get(HIDDEN_ACCESS_COOKIE)?.value;
+    aiWorkforceRootAuthorized = Boolean(secretToken && (await findValidHiddenAccessSession(secretToken)));
+  }
+  const pathname = onAiWorkforceHost ? resolveAiWorkforceHostPathname(originalPathname, aiWorkforceRootAuthorized) : originalPathname;
 
   if (requiresSecretGate(pathname, privatePath)) {
     const secretToken = request.cookies.get(HIDDEN_ACCESS_COOKIE)?.value;

@@ -135,6 +135,29 @@ export function rewriteAiWorkforcePath(pathname: string): string {
   return `/ai-workforce${pathname}`;
 }
 
+// PRODUCTION BUG FIX (ERR_TOO_MANY_REDIRECTS on ai.hkdijital.com.tr):
+// the Secret Access Control Center's gate-failure redirect target is the
+// bare root "/" (see src/proxy.ts) — the site-wide "safe, ungated landing
+// page" escape hatch. rewriteAiWorkforcePath() used to map "/" straight to
+// "/ai-workforce" unconditionally, which is itself a gated prefix — so an
+// unauthenticated visitor hitting "/" would get redirected to "/", which
+// would immediately re-resolve to "/ai-workforce", fail the gate again, and
+// redirect to "/" again, forever.
+//
+// Fix: on the ai-workforce host, "/" only becomes "/ai-workforce" once the
+// visitor is *already* authorized for it. Anyone not yet authorized keeps
+// seeing the real, ungated homepage at "/" (exactly like www.hkdijital.com.tr/
+// after a failed /hk-admin gate check) — breaking the loop — while an
+// authorized admin lands directly on the Control Center at the root, per the
+// product's intended behavior. Every other path (e.g. "/ai-workforce" itself,
+// "/agents") is unaffected: it is still always rewritten and still always
+// gated normally, since a direct deep-link redirects to "/" on failure
+// exactly once, and "/" is never gated for an unauthorized visitor.
+export function resolveAiWorkforceHostPathname(pathname: string, rootAuthorized: boolean): string {
+  if (pathname === "/" && !rootAuthorized) return "/";
+  return rewriteAiWorkforcePath(pathname);
+}
+
 const turkishWeekdays: Record<string, number> = {
   Pazar: 0, Pazartesi: 1, Salı: 2, Çarşamba: 3, Perşembe: 4, Cuma: 5, Cumartesi: 6
 };
