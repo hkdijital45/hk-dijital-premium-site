@@ -121,18 +121,18 @@ export function isAiWorkforceHost(host?: string | null): boolean {
   return bare === AI_WORKFORCE_HOST;
 }
 
-// Paths that must keep working unrewritten even on the ai.hkdijital.com.tr
-// host — otherwise a visitor with no session there could never reach a login
-// page (the auth cookie is host-only / not shared across subdomains, so
-// logging in on www.hkdijital.com.tr does not authenticate this subdomain —
-// a deliberate choice to avoid touching shared session/cookie config; see
-// src/proxy.ts).
-export const AI_WORKFORCE_HOST_PASSTHROUGH_PATHS = new Set(["/giris", "/digital-center", "/login"]);
+// Only product sections receive clean-URL aliases. Rewriting every path
+// swallowed /hk-admin (including the module-denied fallback), the private
+// login entry, password recovery, customer pages and public assets.
+const AI_WORKFORCE_SECTIONS = new Set([
+  "agents", "director", "tasks", "approvals", "automations", "memory",
+  "reports", "integrations", "cost", "activity"
+]);
 
 export function rewriteAiWorkforcePath(pathname: string): string {
-  if (pathname.startsWith("/ai-workforce") || AI_WORKFORCE_HOST_PASSTHROUGH_PATHS.has(pathname)) return pathname;
   if (pathname === "/") return "/ai-workforce";
-  return `/ai-workforce${pathname}`;
+  if (AI_WORKFORCE_SECTIONS.has(pathname.split("/")[1])) return `/ai-workforce${pathname}`;
+  return pathname;
 }
 
 // PRODUCTION BUG FIX (ERR_TOO_MANY_REDIRECTS on ai.hkdijital.com.tr):
@@ -153,7 +153,8 @@ export function rewriteAiWorkforcePath(pathname: string): string {
 // "/agents") is unaffected: it is still always rewritten and still always
 // gated normally, since a direct deep-link redirects to "/" on failure
 // exactly once, and "/" is never gated for an unauthorized visitor.
-export function resolveAiWorkforceHostPathname(pathname: string, rootAuthorized: boolean): string {
+export function resolveAiWorkforceHostPathname(pathname: string, rootAuthorized: boolean, privatePath?: string): string {
+  if (privatePath && pathname === `/${privatePath.replace(/^\/+/, "")}`) return pathname;
   if (pathname === "/" && !rootAuthorized) return "/";
   return rewriteAiWorkforcePath(pathname);
 }
