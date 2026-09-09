@@ -476,10 +476,12 @@ export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canMan
   const selectedAttachments = detail?.attachments || [];
 
   if (activeChannel === "team") {
-    return <div className="communication-center min-w-0 space-y-4">
-      <CommunicationTabs active={activeChannel} onChange={setActiveChannel} customerUnread={unreadCount} />
-      <TeamCommunicationCenter initialConversationId={teamConversationId || requestedConversationId} />
-    </div>;
+    return (
+      <TeamCommunicationCenter
+        initialConversationId={teamConversationId || requestedConversationId}
+        modeSwitch={<CommunicationModeSwitch active={activeChannel} onChange={setActiveChannel} customerUnread={unreadCount} />}
+      />
+    );
   }
 
   const urgentCount = items.filter((item) => item.priority === "urgent").length;
@@ -488,45 +490,63 @@ export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canMan
   return (
     <>
     <AdminWorkspace
-      eyebrow="Operasyon · İletişim"
+      eyebrow="Communication Center"
       title="İletişim Merkezi"
-      description="Müşteri talepleri, ekip yanıtları, atamalar ve iletişim geçmişi."
+      description="Müşteri ve ekip görüşmelerini tek operasyon alanında yönetin."
       headerActions={<>
-        <AdminButton compact variant="info">Müşteri İletişimi{unreadCount > 0 ? ` (${unreadCount})` : ""}</AdminButton>
-        <AdminButton compact variant="secondary" onClick={() => setActiveChannel("team")}>Ekip İletişimi</AdminButton>
-        <AdminButton compact variant="secondary" onClick={() => loadList()}>Yenile</AdminButton>
+        <CommunicationModeSwitch active={activeChannel} onChange={setActiveChannel} customerUnread={unreadCount} />
+        <AdminButton compact variant="secondary" icon={<RefreshCw size={13} />} onClick={() => loadList()}>Refresh (Yenile)</AdminButton>
       </>}
       leftPanel={
         <AdminControlPanel>
-          <AdminFilterSection title="Görünüm">
+          <label className="relative block"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search Conversations (Konuşmalarda Ara)" className="min-h-9 w-full rounded-[8px] border border-slate-300 pl-8 pr-3 text-xs" /></label>
+          <AdminFilterSection title="Quick Filters (Hızlı Filtreler)">
             <div className="flex flex-wrap gap-1.5">
-              {inboxViewOptions.map(([value, label]) => <AdminButton key={value} compact variant={viewFilter === value ? "info" : "secondary"} onClick={() => setViewFilter(value)}>{label}</AdminButton>)}
+              <AdminButton compact variant={viewFilter === "all" ? "info" : "secondary"} onClick={() => setViewFilter("all")}>All (Tümü)</AdminButton>
+              <AdminButton compact variant={unreadOnly ? "info" : "secondary"} onClick={() => setUnreadOnly((current) => !current)}>Unread (Okunmamış)</AdminButton>
+              <AdminButton compact variant={priorityFilter === "urgent" ? "danger" : "secondary"} onClick={() => setPriorityFilter(priorityFilter === "urgent" ? "" : "urgent")}>Priority (Öncelikli)</AdminButton>
+              <AdminButton compact variant={viewFilter === "assigned_to_me" ? "info" : "secondary"} onClick={() => setViewFilter(viewFilter === "assigned_to_me" ? "all" : "assigned_to_me")}>Mine (Bana Ait)</AdminButton>
+              <AdminButton compact variant={statusFilter === "archived" ? "info" : "secondary"} onClick={() => setStatusFilter(statusFilter === "archived" ? "" : "archived")}>Archived (Arşivlenmiş)</AdminButton>
+              <AdminButton compact variant={viewFilter === "reply_required" ? "info" : "secondary"} onClick={() => setViewFilter(viewFilter === "reply_required" ? "all" : "reply_required")}>{inboxViewOptions[1][1]}</AdminButton>
             </div>
           </AdminFilterSection>
-          <AdminFilterSection title="Filtreler">
+          <AdminFilterSection title="Filters (Filtreler)">
             <div className="grid gap-2">
-              <label className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Konu veya müşteri ara" className="min-h-9 w-full rounded-[8px] border border-slate-300 pl-8 pr-3 text-xs" /></label>
               <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="min-h-9 rounded-[8px] border border-slate-300 bg-[var(--admin-surface)] px-2 text-xs"><option value="">Tüm durumlar</option>{statusOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
               <select value={priorityFilter === "urgent" ? "" : priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)} className="min-h-9 rounded-[8px] border border-slate-300 bg-[var(--admin-surface)] px-2 text-xs"><option value="">Tüm öncelikler</option>{priorityOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
               <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} className="min-h-9 rounded-[8px] border border-slate-300 bg-[var(--admin-surface)] px-2 text-xs">{categoryOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
-              <AdminButton compact variant={priorityFilter === "urgent" ? "danger" : "secondary"} onClick={() => setPriorityFilter(priorityFilter === "urgent" ? "" : "urgent")}>Sadece Acil</AdminButton>
-              <AdminButton compact variant={unreadOnly ? "info" : "secondary"} onClick={() => setUnreadOnly((current) => !current)}>Sadece Okunmamış</AdminButton>
             </div>
           </AdminFilterSection>
-          <AdminFilterSection title={`Gelen Kutusu · ${visibleItems.length}`}>
+          <AdminFilterSection title={`Inbox (Gelen Kutusu) · ${visibleItems.length}`}>
             {loading && <div className="py-3"><AdminLoadingState label="Yükleniyor..." /></div>}
             {!loading && !visibleItems.length && <AdminEmptyState title="Bu filtrelerde konuşma yok" description="Yeni müşteri mesajları burada listelenecek." />}
             <div className="grid gap-1.5">
-              {visibleItems.map((item) => (
-                <button type="button" key={item.id} data-testid="conversation-row" onClick={() => selectConversation(item.id)} className={`w-full rounded-[8px] border p-2 text-left transition ${selectedId === item.id ? "border-cyan-400 bg-cyan-50 ring-1 ring-cyan-200" : item.priority === "urgent" ? "border-rose-200 bg-rose-50" : "border-[var(--admin-border)] bg-[var(--admin-surface)]"}`}>
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="min-w-0 truncate text-xs font-black text-[var(--admin-text-primary)]">{item.company_name}</span>
-                    {item.unread_count > 0 && <span className="shrink-0 rounded-full bg-cyan-600 px-1.5 py-0.5 text-[10px] font-black text-white">{item.unread_count}</span>}
-                  </div>
-                  <p className="mt-0.5 truncate text-[11px] font-bold text-[var(--admin-text-secondary)]">{item.subject}</p>
-                  <div className="mt-1 flex flex-wrap gap-1"><StatusBadge value={item.status} /><PriorityBadge value={item.priority} /></div>
-                </button>
-              ))}
+              {visibleItems.map((item) => {
+                const initial = String(item.company_name || "?").trim().slice(0, 1).toLocaleUpperCase("tr");
+                return (
+                  <button type="button" key={item.id} data-testid="conversation-row" onClick={() => selectConversation(item.id)} className={`w-full rounded-[8px] border p-2 text-left transition ${selectedId === item.id ? "border-cyan-400 bg-cyan-50 ring-1 ring-cyan-200" : item.priority === "urgent" ? "border-rose-200 bg-rose-50" : "border-[var(--admin-border)] bg-[var(--admin-surface)]"}`}>
+                    <div className="flex items-start gap-2">
+                      <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-gradient-to-br from-cyan-400 to-teal-600 text-[10px] font-black text-white">{initial}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="min-w-0 truncate text-xs font-black text-[var(--admin-text-primary)]">{item.company_name}</span>
+                          <div className="flex shrink-0 items-center gap-1">
+                            <time className="text-[9px] font-bold text-[var(--admin-text-muted)]">{formatDateTime(item.last_message_at).split(" ")[0]}</time>
+                            {item.unread_count > 0 && <span className="rounded-full bg-cyan-600 px-1.5 py-0.5 text-[10px] font-black text-white">{item.unread_count}</span>}
+                          </div>
+                        </div>
+                        <p className="mt-0.5 truncate text-[11px] font-bold text-[var(--admin-text-secondary)]">{item.subject}</p>
+                        {item.latest_message && <p className="mt-0.5 truncate text-[10px] text-[var(--admin-text-muted)]">{item.latest_message}</p>}
+                        <div className="mt-1 flex flex-wrap items-center gap-1">
+                          <StatusBadge value={item.status} />
+                          <PriorityBadge value={item.priority} />
+                          {item.assigned_name && <span className="rounded-full border border-[var(--admin-border)] px-1.5 py-0.5 text-[9px] font-black text-[var(--admin-text-secondary)]">{item.assigned_name}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </AdminFilterSection>
         </AdminControlPanel>
@@ -562,25 +582,27 @@ export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canMan
               <div className="mt-2 grid gap-1.5">{detail.internalNotes.slice(0, 5).map((item) => <div key={item.id} className="admin-detail-inspector-field"><p>{item.author_name} · {formatDateTime(item.created_at)}</p><p style={{ fontWeight: 500 }}>{item.body}</p></div>)}{!detail.internalNotes.length && <p className="text-[11px]" style={{ color: "var(--admin-text-muted)" }}>Henüz iç not yok.</p>}</div>
             </section>
 
-            <section>
-              <h4 className="mb-2 text-xs font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>AI Özeti</h4>
-              <AdminButton compact variant="ai" disabled={aiInsightLoading} onClick={generateAiInsight}>{aiInsightLoading ? "Oluşturuluyor..." : "Konuşmayı Özetle"}</AdminButton>
-              {aiInsight && <div className="mt-2 grid gap-1.5 rounded-[8px] bg-violet-50 p-2 text-[11px]">
-                <p><strong>Duygu:</strong> {aiInsight.sentiment}</p>
-                <p>{aiInsight.summary}</p>
-                {aiInsight.action_items.length > 0 && <ul className="ml-4 list-disc">{aiInsight.action_items.map((item, index) => <li key={index}>{item}</li>)}</ul>}
-                {aiInsight.suggested_reply && <p className="rounded-[6px] bg-white p-2"><strong>Önerilen yanıt:</strong> {aiInsight.suggested_reply}</p>}
-              </div>}
-            </section>
+            <details open={Boolean(aiInsight)}>
+              <summary className="cursor-pointer text-xs font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>AI Summary (Yapay Zekâ Özeti)</summary>
+              <div className="mt-2">
+                <AdminButton compact variant="ai" disabled={aiInsightLoading} onClick={generateAiInsight}>{aiInsightLoading ? "Oluşturuluyor..." : "Summarize Conversation (Konuşmayı Özetle)"}</AdminButton>
+                {aiInsight && <div className="mt-2 grid gap-1.5 rounded-[8px] bg-violet-50 p-2 text-[11px]">
+                  <p><strong>Duygu:</strong> {aiInsight.sentiment}</p>
+                  <p>{aiInsight.summary}</p>
+                  {aiInsight.action_items.length > 0 && <ul className="ml-4 list-disc">{aiInsight.action_items.map((item, index) => <li key={index}>{item}</li>)}</ul>}
+                  {aiInsight.suggested_reply && <p className="rounded-[6px] bg-white p-2"><strong>Draft Reply (Yanıt Taslağı):</strong> {aiInsight.suggested_reply}</p>}
+                </div>}
+              </div>
+            </details>
 
             <section>
-              <h4 className="mb-2 text-xs font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Bağlantılı İşlemler</h4>
+              <h4 className="mb-2 text-xs font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Related Tasks (İlgili Görevler)</h4>
               <div className="grid gap-1.5">
-                <AdminButton compact variant="ai" disabled={busy === "task"} onClick={createTask}>{busy === "task" ? "Oluşturuluyor..." : "Görev Oluştur"}</AdminButton>
+                <AdminButton compact variant="ai" disabled={busy === "task"} onClick={createTask}>{busy === "task" ? "Oluşturuluyor..." : "Create Task (Görev Oluştur)"}</AdminButton>
                 <AdminButton compact variant="info" disabled={busy === "proposal"} onClick={openProposalFlow}>Teklife Bağla</AdminButton>
                 <AdminButton compact variant="secondary" disabled={busy === "team-discussion"} onClick={startTeamDiscussion}>Ekipte Görüş</AdminButton>
                 <Link href={`/hk-admin/musteriler?companyId=${detail.conversation.company_id}&tab=communication`} className="hk-button hk-button-neutral hk-button-compact justify-center">Müşteri Profilini Aç</Link>
-                <AdminButton compact variant="secondary" onClick={() => setHistoryOpen(true)}>İşlem Geçmişini Göster</AdminButton>
+                <AdminButton compact variant="secondary" onClick={() => setHistoryOpen(true)}>History (Geçmiş)</AdminButton>
               </div>
             </section>
 
@@ -598,7 +620,7 @@ export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canMan
       }
       bottomBar={
         <AdminActionBar statusText={`${openCount} açık · ${unreadCount} okunmamış${urgentCount ? ` · ${urgentCount} acil` : ""} · ${unassignedCount} atanmamış`}>
-          <AdminButton compact variant="secondary" onClick={() => loadList()}>Yenile</AdminButton>
+          <AdminButton compact variant="secondary" icon={<RefreshCw size={13} />} onClick={() => loadList()}>Refresh (Yenile)</AdminButton>
         </AdminActionBar>
       }
     >
@@ -621,7 +643,7 @@ export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canMan
               <h2 className="mt-1 break-words text-base font-black" style={{ color: "var(--admin-text-primary)" }}>{detail.conversation.subject}</h2>
               <div className="mt-2 flex flex-wrap gap-1.5"><StatusBadge value={detail.conversation.status} /><PriorityBadge value={detail.conversation.priority} /><span className="rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] px-2 py-0.5 text-[10px] font-black text-[var(--admin-text-secondary)]">{labelFor(categoryOptions, detail.conversation.category)}</span></div>
             </div>
-            <AdminButton compact variant="secondary" onClick={() => loadDetail(detail.conversation.id)}>Yenile</AdminButton>
+            <AdminButton compact variant="secondary" icon={<RefreshCw size={13} />} onClick={() => loadDetail(detail.conversation.id)}>Refresh (Yenile)</AdminButton>
           </div>
         </header>
 
@@ -655,7 +677,7 @@ export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canMan
 
         <footer className="border-t pt-3" style={{ borderColor: "var(--admin-border)" }}>
           <select onChange={(event) => { const selected = canned.find((item) => item.id === event.target.value); if (selected) setReply(selected.body); event.target.value = ""; }} defaultValue="" className="mb-2 min-h-9 w-full rounded-[8px] border border-slate-300 bg-[var(--admin-surface)] px-2 text-xs"><option value="">Hazır yanıt seçin</option>{canned.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select>
-          <textarea value={reply} onChange={(event) => setReply(event.target.value)} rows={3} maxLength={12000} placeholder="Müşteriye yanıt yazın" className="w-full rounded-[8px] border border-slate-300 p-2 text-xs" />
+          <textarea value={reply} onChange={(event) => setReply(event.target.value)} rows={3} maxLength={12000} placeholder="Write your reply to the customer. (Müşteriye yanıtınızı yazın.)" className="w-full rounded-[8px] border border-slate-300 p-2 text-xs" />
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <label className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-[8px] border border-slate-300 bg-[var(--admin-surface)] px-2.5 text-[11px] font-black text-[var(--admin-text-secondary)]"><FileUp size={13} />{file ? file.name : "Dosya ekle"}<input type="file" className="sr-only" accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.xls,.xlsx" onChange={(event) => setFile(event.target.files?.[0] || null)} /></label>
             <AdminButton compact variant="info" disabled={!reply.trim() || busy === "reply"} onClick={sendReply}>{busy === "reply" ? "Gönderiliyor..." : "Yanıtla"}</AdminButton>
@@ -671,44 +693,43 @@ export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canMan
   );
 }
 
-function CommunicationTabs({ active, onChange, customerUnread = 0 }: { active: string; onChange: (value: string) => void; customerUnread?: number }) {
-  const cards = [
-    {
-      key: "customers",
-      title: "Müşteri İletişimi",
-      description: "Müşteri taleplerini, destek kayıtlarını ve operasyon konuşmalarını yönetin.",
-      icon: <Inbox size={28} />,
-      badge: customerUnread,
-      activeClass: "border-cyan-300 bg-gradient-to-br from-cyan-100 via-sky-100 to-white text-[var(--admin-text-primary)] shadow-[0_20px_48px_rgba(8,145,178,.18)] ring-2 ring-cyan-200",
-      idleClass: "border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-text-primary)] hover:border-cyan-200 hover:bg-cyan-50"
-    },
-    {
-      key: "team",
-      title: "Ekip İletişimi",
-      description: "Ajans içi koordinasyonu sağlayın, ekip operasyonlarını tek merkezden yürütün.",
-      icon: <MessageSquareText size={28} />,
-      badge: 0,
-      activeClass: "border-violet-300 bg-gradient-to-br from-slate-900 via-violet-900 to-slate-800 text-white shadow-[0_20px_48px_rgba(76,29,149,.24)]",
-      idleClass: "border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-text-primary)] hover:border-violet-200 hover:bg-violet-50"
-    }
+// Compact segmented control replacing the old full-width gradient promo
+// cards — same mode-switching behavior (customers/team), no giant toolbar.
+export function CommunicationModeSwitch({ active, onChange, customerUnread = 0 }: { active: string; onChange: (value: string) => void; customerUnread?: number }) {
+  const options: Array<{ key: string; label: string; badge?: number }> = [
+    { key: "customers", label: "Customer Communication (Müşteri İletişimi)", badge: customerUnread },
+    { key: "team", label: "Team Communication (Ekip İletişimi)" }
   ];
-  return <section aria-label="İletişim kanalı seçimi" className="grid gap-3 md:grid-cols-2">
-    {cards.map((card) => {
-      const selected = active === card.key;
-      return <button
-        key={card.key}
-        type="button"
-        onClick={() => onChange(card.key)}
-        aria-pressed={selected}
-        className={`group relative min-h-[128px] overflow-hidden rounded-[22px] border p-5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 ${selected ? card.activeClass : card.idleClass}`}
-      >
-        <span className={`grid size-14 place-items-center rounded-[16px] ${selected && card.key === "team" ? "bg-[var(--admin-surface)]/20 text-white" : selected ? "bg-cyan-200 text-cyan-900" : "bg-slate-100 text-[var(--admin-text-secondary)] group-hover:bg-[var(--admin-surface)]"}`}>{card.icon}</span>
-        <span className="mt-4 flex items-center gap-2 text-xl font-black">{card.title}{card.badge > 0 ? <span className="rounded-full bg-amber-300 px-2.5 py-1 text-xs font-black text-[var(--admin-text-primary)]">{card.badge}</span> : null}</span>
-        <span className={`mt-2 block max-w-xl text-sm font-semibold leading-6 ${selected && card.key === "team" ? "text-white/85" : selected ? "text-[var(--admin-text-secondary)]" : "text-[var(--admin-text-secondary)]"}`}>{card.description}</span>
-        <span className={`absolute right-4 top-4 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[.12em] ${selected && card.key === "team" ? "bg-[var(--admin-surface)]/20 text-white" : selected ? "bg-cyan-200 text-cyan-950" : "bg-slate-100 text-[var(--admin-text-muted)]"}`}>{selected ? "Aktif" : "Seç"}</span>
-      </button>;
-    })}
-  </section>;
+  return (
+    <div role="tablist" aria-label="İletişim modu" className="inline-flex items-center gap-1 rounded-[10px] border p-1" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-soft)" }}>
+      {options.map((option) => {
+        const isActive = option.key === active;
+        return (
+          <button
+            key={option.key}
+            type="button"
+            role="tab"
+            aria-selected={isActive}
+            onClick={() => onChange(option.key)}
+            className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-[8px] px-3 py-2 text-xs font-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+            style={isActive
+              ? { background: "var(--admin-primary, var(--hk-primary))", color: "#fff", outlineColor: "var(--hk-focus-ring)" }
+              : { color: "var(--admin-text-secondary)", outlineColor: "var(--hk-focus-ring)" }}
+          >
+            {option.label}
+            {Boolean(option.badge) && (
+              <span
+                className="rounded-full px-1.5 py-0.5 text-[10px] font-black"
+                style={{ background: isActive ? "rgba(255,255,255,.25)" : "var(--admin-surface)", color: isActive ? "#fff" : "var(--admin-text-primary)" }}
+              >
+                {option.badge}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 function UnsavedChangesDialog({ onCancel, onDiscard, onSave, saving }: { onCancel: () => void; onDiscard: () => void; onSave: () => void; saving: boolean }) {

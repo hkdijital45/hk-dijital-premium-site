@@ -2,7 +2,14 @@
 
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bell, FileText, FileUp, Info, Loader2, Pin, Plus, RefreshCw, Search, Send, Users, X } from "lucide-react";
+import { Bell, ClipboardList, FileText, FileUp, Info, Loader2, Pin, Plus, RefreshCw, Search, Send, Users, X } from "lucide-react";
+import { AdminButton } from "@/components/admin/ui/AdminButton";
+import { AdminEmptyState, AdminLoadingState } from "@/components/admin/ui/AdminEmptyState";
+import { AdminWorkspace } from "@/components/admin/workspace/AdminWorkspace";
+import { AdminControlPanel, AdminFilterSection } from "@/components/admin/workspace/AdminControlPanel";
+import { AdminDetailInspector } from "@/components/admin/workspace/AdminDetailInspector";
+import { AdminActionBar } from "@/components/admin/workspace/AdminActionBar";
+import { AdminCompactKpiStrip } from "@/components/admin/workspace/AdminCompactKpiStrip";
 
 type Staff = { id: string; full_name: string | null; email: string; role: string };
 type Conversation = {
@@ -50,7 +57,16 @@ function size(value?: number) {
   return `${(value / 1024 / 1024).toFixed(1)} MB`;
 }
 
-export function TeamCommunicationCenter({ initialConversationId = "" }: { initialConversationId?: string }) {
+function TeamStatusBadge({ value }: { value: string }) {
+  const tone = value === "resolved" || value === "closed" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : value === "archived" ? "border-[var(--admin-border)] bg-slate-100 text-[var(--admin-text-secondary)]" : "border-cyan-200 bg-cyan-50 text-cyan-800";
+  return <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${tone}`}>{label(statusOptions, value)}</span>;
+}
+function TeamPriorityBadge({ value }: { value: string }) {
+  const tone = value === "urgent" ? "border-rose-200 bg-rose-50 text-rose-800" : value === "important" ? "border-amber-200 bg-amber-50 text-amber-800" : "border-[var(--admin-border)] bg-[var(--admin-surface-soft)] text-[var(--admin-text-secondary)]";
+  return <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${tone}`}>{label(priorityOptions, value)}</span>;
+}
+
+export function TeamCommunicationCenter({ initialConversationId = "", modeSwitch }: { initialConversationId?: string; modeSwitch?: ReactNode }) {
   const [items, setItems] = useState<Conversation[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [selectedId, setSelectedId] = useState(initialConversationId);
@@ -166,67 +182,169 @@ export function TeamCommunicationCenter({ initialConversationId = "" }: { initia
     else setMessage(payload.error || "Müşteri yanıt taslağı oluşturulamadı.");
   }
 
-  return <div className="communication-center min-w-0 space-y-4">
-    <section className="communication-card rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><h2 className="text-xl font-black text-[var(--admin-text-primary)]">Ekip İletişimi</h2><p className="text-sm font-semibold text-[var(--admin-text-secondary)]">Ajans içi görüşmeler, duyurular ve müşteri operasyon notları.</p></div>
-        <button type="button" onClick={() => setCreateOpen(true)} className="communication-dark-action inline-flex min-h-11 items-center gap-2 rounded-[12px] bg-slate-900 px-4 text-sm font-black text-white shadow-sm hover:bg-slate-800"><Plus size={17} /> Yeni ekip konuşması</button>
-      </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_170px_150px_130px_auto]">
-        <label className="relative"><Search className="absolute left-3 top-3 text-slate-400" size={18} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Ekip konuşması ara" className="min-h-11 w-full rounded-[10px] border border-slate-300 pl-10 pr-3 text-sm" /></label>
-        <select value={view} onChange={(event) => setView(event.target.value)} className="min-h-11 rounded-[10px] border border-slate-300 bg-[var(--admin-surface)] px-3 text-sm"><option value="mine">Bana ait</option><option value="all">Tümü</option><option value="archived">Arşiv</option></select>
-        <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} className="min-h-11 rounded-[10px] border border-slate-300 bg-[var(--admin-surface)] px-3 text-sm"><option value="">Tüm türler</option>{typeOptions.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select>
-        <button type="button" onClick={() => setUnreadOnly((current) => !current)} className={`min-h-11 rounded-[10px] px-3 text-xs font-black ${unreadOnly ? "bg-cyan-700 text-white shadow-sm" : "border border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-text-secondary)] hover:bg-cyan-50"}`}>Okunmamış</button>
-        <button type="button" onClick={() => loadList()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] bg-cyan-700 px-4 text-sm font-black text-white shadow-sm hover:bg-cyan-800"><RefreshCw size={17} /> Yenile</button>
-      </div>
-    </section>
-    {message && <p className="rounded-[12px] border border-cyan-200 bg-cyan-50 p-3 text-sm font-bold text-cyan-900">{message}</p>}
-    {draftTarget && <section className="rounded-[16px] border border-emerald-200 bg-emerald-50 p-4"><div className="flex items-start justify-between gap-3"><div><h3 className="font-black text-emerald-950">Müşteri yanıt taslağı hazır</h3><p className="mt-2 whitespace-pre-wrap text-sm text-emerald-900">{draftTarget.draft}</p><a href={`/hk-admin/iletisim-merkezi?channel=customers&conversation=${draftTarget.conversationId}`} className="mt-3 inline-flex min-h-10 items-center rounded-[10px] bg-emerald-600 px-4 text-sm font-black text-white">Müşteri konuşmasına git</a></div><button type="button" onClick={() => setDraftTarget(null)} className="grid size-9 place-items-center rounded-full bg-[var(--admin-surface)] text-emerald-700"><X size={16} /></button></div></section>}
-    <section className="communication-layout grid min-h-[680px] overflow-hidden rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-surface)] shadow-sm xl:grid-cols-[330px_minmax(0,1fr)_360px] 2xl:grid-cols-[350px_minmax(0,1fr)_390px]">
-      <aside className="min-h-0 border-b border-[var(--admin-border)] bg-[var(--admin-surface-soft)]/80 p-3 xl:border-b-0 xl:border-r">
-        <div className="max-h-[720px] space-y-2 overflow-y-auto pr-1">{items.map((item) => <button type="button" key={item.id} onClick={() => setSelectedId(item.id)} className={`w-full rounded-[14px] border p-3 text-left transition ${selectedId === item.id ? "border-cyan-400 bg-cyan-50 shadow-sm ring-2 ring-cyan-100" : item.priority === "urgent" ? "border-rose-200 bg-rose-50 hover:border-rose-300" : "border-[var(--admin-border)] bg-[var(--admin-surface)] hover:border-cyan-200 hover:bg-[var(--admin-surface-soft)]"}`}>
-          <div className="flex items-start justify-between gap-2"><span className="min-w-0 truncate font-black text-[var(--admin-text-primary)]">{item.title}</span>{Boolean(item.unread_count) && <span className="rounded-full bg-cyan-600 px-2 py-0.5 text-xs font-black text-white">{item.unread_count}</span>}</div>
-          <p className="mt-1 text-xs font-bold text-[var(--admin-text-muted)]">{label(typeOptions, item.conversation_type)} · {item.participant_count || 0} kişi</p>
-          <p className="mt-2 line-clamp-2 text-xs leading-5 text-[var(--admin-text-secondary)]">{item.latest_message || "Henüz mesaj yok."}</p>
-          <div className="mt-3 flex flex-wrap gap-1.5"><span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black text-[var(--admin-text-secondary)]">{label(statusOptions, item.status)}</span><span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-black text-amber-800">{label(priorityOptions, item.priority)}</span></div>
-        </button>)}{!items.length && <div className="rounded-[14px] border border-dashed border-slate-300 bg-[var(--admin-surface)] p-5 text-center"><Users className="mx-auto text-cyan-500" /><p className="mt-3 font-black text-[var(--admin-text-primary)]">Ekip konuşması yok</p><p className="mt-2 text-sm text-[var(--admin-text-secondary)]">Yeni bir ekip görüşmesi başlatın.</p></div>}</div>
-      </aside>
-      <main className="flex min-h-0 min-w-0 flex-col">
-        {busy === "detail" && <div className="grid min-h-72 place-items-center"><Loader2 className="animate-spin text-cyan-600" /></div>}
-        {busy !== "detail" && !detail && <div className="grid min-h-72 place-items-center text-[var(--admin-text-muted)]">Bir ekip konuşması seçin.</div>}
-        {busy !== "detail" && detail && <>
-          <header className="sticky top-0 z-10 border-b border-[var(--admin-border)] bg-[var(--admin-surface)]/95 p-4 backdrop-blur"><p className="text-xs font-black uppercase tracking-[.12em] text-cyan-700">{label(typeOptions, detail.conversation.conversation_type)}{detail.conversation.company_name ? ` · ${detail.conversation.company_name}` : ""}</p><h2 className="mt-1 break-words text-xl font-black text-[var(--admin-text-primary)]">{detail.conversation.title}</h2><p className="mt-2 text-xs font-semibold text-[var(--admin-text-secondary)]">{participants.map((item) => item.user_name).join(", ")}</p></header>
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">{detail.messages.map((item) => {
+  const openCount = items.filter((item) => item.status === "active").length;
+  const unreadCount = items.reduce((total, item) => total + (item.unread_count || 0), 0);
+  const pinnedCount = detail?.pins.length || 0;
+
+  function jumpToMessage(messageId: string) {
+    document.getElementById(`team-message-${messageId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  return <>
+    <AdminWorkspace
+      eyebrow="Communication Center"
+      title="Ekip İletişimi"
+      description="Ajans içi görüşmeler, duyurular ve müşteri operasyon notları."
+      headerActions={<>
+        {modeSwitch}
+        <AdminButton compact variant="ai" icon={<Plus size={13} />} onClick={() => setCreateOpen(true)}>New Conversation (Yeni Konuşma)</AdminButton>
+        <AdminButton compact variant="secondary" icon={<RefreshCw size={13} />} onClick={() => loadList()}>Refresh (Yenile)</AdminButton>
+      </>}
+      leftPanel={
+        <AdminControlPanel>
+          <AdminFilterSection title="Search (Ara)">
+            <label className="relative block"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search Conversations (Konuşmalarda Ara)" className="min-h-9 w-full rounded-[8px] border border-slate-300 pl-8 pr-3 text-xs" /></label>
+          </AdminFilterSection>
+          <AdminFilterSection title="Quick Filters (Hızlı Filtreler)">
+            <div className="flex flex-wrap gap-1.5">
+              <AdminButton compact variant={view === "mine" ? "info" : "secondary"} onClick={() => setView("mine")}>Mine (Bana Ait)</AdminButton>
+              <AdminButton compact variant={view === "all" ? "info" : "secondary"} onClick={() => setView("all")}>All (Tümü)</AdminButton>
+              <AdminButton compact variant={unreadOnly ? "info" : "secondary"} onClick={() => setUnreadOnly((current) => !current)}>Unread (Okunmamış)</AdminButton>
+              <AdminButton compact variant={view === "archived" ? "info" : "secondary"} onClick={() => setView(view === "archived" ? "mine" : "archived")}>Archived (Arşivlenmiş)</AdminButton>
+            </div>
+            <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} className="mt-2 min-h-9 w-full rounded-[8px] border border-slate-300 bg-[var(--admin-surface)] px-2 text-xs"><option value="">Type (Tür): Tümü</option>{typeOptions.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select>
+          </AdminFilterSection>
+          <AdminFilterSection title={`Inbox (Gelen Kutusu) · ${items.length}`}>
+            {!items.length && <AdminEmptyState title="Ekip konuşması yok" description="Yeni bir ekip görüşmesi başlatın." />}
+            <div className="grid gap-1.5">
+              {items.map((item) => (
+                <button type="button" key={item.id} onClick={() => setSelectedId(item.id)} className={`w-full rounded-[8px] border p-2 text-left transition ${selectedId === item.id ? "border-cyan-400 bg-cyan-50 ring-1 ring-cyan-200" : item.priority === "urgent" ? "border-rose-200 bg-rose-50" : "border-[var(--admin-border)] bg-[var(--admin-surface)]"}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="min-w-0 truncate text-xs font-black text-[var(--admin-text-primary)]">{item.title}</span>
+                    {Boolean(item.unread_count) && <span className="shrink-0 rounded-full bg-cyan-600 px-1.5 py-0.5 text-[10px] font-black text-white">{item.unread_count}</span>}
+                  </div>
+                  <p className="mt-0.5 text-[10px] font-bold text-[var(--admin-text-muted)]">{label(typeOptions, item.conversation_type)} · {item.participant_count || 0} kişi · {time(item.last_message_at).split(" ")[0]}</p>
+                  <p className="mt-1 truncate text-[10px] text-[var(--admin-text-muted)]">{item.latest_message || "Henüz mesaj yok."}</p>
+                  <div className="mt-1 flex flex-wrap gap-1"><TeamStatusBadge value={item.status} /><TeamPriorityBadge value={item.priority} /></div>
+                </button>
+              ))}
+            </div>
+          </AdminFilterSection>
+        </AdminControlPanel>
+      }
+      rightPanel={
+        <AdminDetailInspector
+          title={detail?.conversation.title}
+          subtitle={detail ? `${label(typeOptions, detail.conversation.conversation_type)}${detail.conversation.company_name ? ` · ${detail.conversation.company_name}` : ""}` : undefined}
+          emptyTitle="Bir ekip konuşması seçin"
+          emptyDescription="Soldaki listeden bir konuşma seçtiğinizde bağlam paneli burada görünür."
+        >
+          {detail && <div className="grid gap-4">
+            <section>
+              <h4 className="mb-2 text-xs font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Conversation Details (Konuşma Bilgileri)</h4>
+              <div className="flex flex-wrap gap-1.5"><TeamStatusBadge value={detail.conversation.status} /><TeamPriorityBadge value={detail.conversation.priority} /></div>
+              {detail.conversation.source_customer_conversation_id && <a href={`/hk-admin/iletisim-merkezi?channel=customers&conversation=${detail.conversation.source_customer_conversation_id}`} className="mt-2 inline-flex min-h-9 items-center rounded-[8px] border border-emerald-200 bg-emerald-50 px-3 text-xs font-black text-emerald-800">Kaynak müşteri konuşması</a>}
+            </section>
+
+            <details open>
+              <summary className="cursor-pointer text-xs font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Participants (Katılımcılar) · {participants.length}</summary>
+              <div className="mt-2 grid gap-1.5">{participants.map((item) => <div key={item.user_id} className="admin-detail-inspector-field"><p style={{ fontWeight: 700 }}>{item.user_name}</p><p>{item.role}</p></div>)}</div>
+            </details>
+
+            <details open={pinnedCount > 0}>
+              <summary className="cursor-pointer text-xs font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Pinned Messages (Sabitlenmiş Mesajlar) · {pinnedCount}</summary>
+              <div className="mt-2 grid gap-1.5">
+                {detail.pins.map((pin) => <button type="button" key={pin.message_id} onClick={() => jumpToMessage(pin.message_id)} className="w-full rounded-[8px] border border-amber-200 bg-amber-50 p-2 text-left text-[11px] font-bold text-amber-900">{pin.pinned_by_name} · {time(pin.pinned_at)}</button>)}
+                {!pinnedCount && <p className="text-[11px]" style={{ color: "var(--admin-text-muted)" }}>Henüz sabitlenmiş mesaj yok.</p>}
+              </div>
+            </details>
+
+            <section>
+              <h4 className="mb-2 text-xs font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>History (Geçmiş)</h4>
+              <AdminButton compact variant="secondary" icon={<Bell size={13} />} onClick={() => setHistoryOpen(true)}>Hareket Geçmişi</AdminButton>
+            </section>
+          </div>}
+        </AdminDetailInspector>
+      }
+      bottomBar={
+        <AdminActionBar statusText={`${openCount} aktif · ${unreadCount} okunmamış`}>
+          <AdminButton compact variant="secondary" icon={<RefreshCw size={13} />} onClick={() => loadList()}>Refresh (Yenile)</AdminButton>
+        </AdminActionBar>
+      }
+    >
+      <AdminCompactKpiStrip items={[
+        { key: "open", label: "Aktif konuşma", value: openCount, icon: <Users size={14} />, tone: "info" },
+        { key: "unread", label: "Okunmamış", value: unreadCount, icon: <Bell size={14} />, tone: "danger" },
+        { key: "pinned", label: "Sabitlenmiş", value: pinnedCount, icon: <Pin size={14} />, tone: "warning" },
+        { key: "participants", label: "Katılımcı", value: participants.length, icon: <ClipboardList size={14} />, tone: "primary" }
+      ]} />
+
+      {message && <p className="mb-3 rounded-[8px] border border-cyan-200 bg-cyan-50 p-2.5 text-xs font-bold text-cyan-900">{message}</p>}
+      {draftTarget && <section className="mb-3 rounded-[8px] border border-emerald-200 bg-emerald-50 p-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-xs font-black text-emerald-950">Draft Reply (Yanıt Taslağı) hazır</h3>
+            <p className="mt-1 whitespace-pre-wrap text-xs text-emerald-900">{draftTarget.draft}</p>
+            <a href={`/hk-admin/iletisim-merkezi?channel=customers&conversation=${draftTarget.conversationId}`} className="mt-2 inline-flex min-h-8 items-center rounded-[8px] bg-emerald-600 px-3 text-xs font-black text-white">Müşteri konuşmasına git</a>
+          </div>
+          <button type="button" onClick={() => setDraftTarget(null)} aria-label="Kapat" className="grid size-7 shrink-0 place-items-center rounded-full bg-[var(--admin-surface)] text-emerald-700"><X size={14} /></button>
+        </div>
+      </section>}
+
+      {busy === "detail" && <div className="grid min-h-72 place-items-center p-6"><AdminLoadingState label="Konuşma yükleniyor..." /></div>}
+      {busy !== "detail" && !detail && <div className="grid min-h-72 place-items-center p-6"><AdminEmptyState title="Bir ekip konuşması seçin" description="Soldaki listeden bir konuşma seçtiğinizde mesajlar burada görünür." /></div>}
+      {busy !== "detail" && detail && <div className="flex min-h-0 flex-col">
+        <header className="border-b pb-3" style={{ borderColor: "var(--admin-border)" }}>
+          <p className="text-[11px] font-black uppercase tracking-[.1em] text-cyan-700">{label(typeOptions, detail.conversation.conversation_type)}{detail.conversation.company_name ? ` · ${detail.conversation.company_name}` : ""}</p>
+          <h2 className="mt-1 break-words text-base font-black" style={{ color: "var(--admin-text-primary)" }}>{detail.conversation.title}</h2>
+          <p className="mt-1 text-xs font-semibold text-[var(--admin-text-secondary)]">{participants.map((item) => item.user_name).join(", ")}</p>
+        </header>
+
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto py-3">
+          {detail.messages.map((item) => {
             const own = item.sender_id === detail.participants.find((participant) => participant.role === "owner")?.user_id;
             const attachments = detail.attachments.filter((attachment) => attachment.message_id === item.id);
             const pinned = detail.pins.some((pin) => pin.message_id === item.id);
-            return <article key={item.id} className={`communication-message rounded-[16px] border p-4 shadow-sm ${own ? "border-cyan-200 bg-cyan-50" : "border-[var(--admin-border)] bg-[var(--admin-surface)]"}`}>
-              <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-black text-[var(--admin-text-primary)]">{item.sender_name}</p><p className="text-xs font-bold text-[var(--admin-text-secondary)]">{time(item.created_at)}</p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => openAudit(item)} className="inline-flex min-h-9 items-center gap-1 rounded-full border border-cyan-300 bg-cyan-50 px-3 text-xs font-black text-cyan-800"><Info size={14} /> Bilgi</button><button type="button" onClick={() => pinMessage(item.id)} className="inline-flex min-h-9 items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-3 text-xs font-black text-amber-800"><Pin size={14} /> {pinned ? "Sabit" : "Sabitle"}</button></div></div>
-              <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-slate-800">{item.body}</p>
-              {!!attachments.length && <div className="mt-3 grid gap-2">{attachments.map((attachment) => <a key={attachment.id} href={`/api/team-communication/attachments/${attachment.id}`} target="_blank" rel="noreferrer" className="flex items-center justify-between gap-3 rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-2 text-xs font-bold text-[var(--admin-text-secondary)]"><span className="inline-flex min-w-0 items-center gap-2"><FileText size={14} /><span className="truncate">{attachment.original_name}</span></span><span>{size(attachment.file_size)}</span></a>)}</div>}
-              <div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={() => createTaskFromMessage(item)} className="inline-flex min-h-10 items-center rounded-[10px] bg-violet-700 px-3 text-xs font-black text-white shadow-sm hover:bg-violet-800">Görev oluştur</button>{detail.conversation.source_customer_conversation_id && <button type="button" onClick={() => draftCustomerReply(item)} className="inline-flex min-h-10 items-center rounded-[10px] bg-emerald-700 px-3 text-xs font-black text-white shadow-sm hover:bg-emerald-800">Müşteriye yanıt taslağı</button>}</div>
+            const senderInitial = String(item.sender_name || "E").trim().slice(0, 1).toLocaleUpperCase("tr");
+            return <article key={item.id} id={`team-message-${item.id}`} className={`flex items-start gap-2 ${own ? "flex-row-reverse" : ""}`}>
+              <span className={`grid size-7 shrink-0 place-items-center rounded-full text-[11px] font-black text-white ${own ? "bg-gradient-to-br from-blue-500 to-indigo-600" : "bg-gradient-to-br from-violet-500 to-purple-600"}`}>{senderInitial}</span>
+              <div className={`max-w-[88%] rounded-[10px] border p-3 sm:max-w-[78%] ${pinned ? "border-amber-300 bg-amber-50" : own ? "border-blue-200 bg-blue-50" : "border-[var(--admin-border)] bg-[var(--admin-surface)]"}`} style={{ color: "var(--admin-text-primary)" }}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="break-words text-xs font-black">{item.sender_name}{pinned && <Pin size={11} className="ml-1 inline text-amber-700" />}</p>
+                    <time className="mt-0.5 block text-[10px] font-bold text-[var(--admin-text-secondary)]">{time(item.created_at)}</time>
+                  </div>
+                  <div className="flex shrink-0 gap-1">
+                    <button type="button" onClick={() => openAudit(item)} aria-label="Mesaj bilgilerini göster" title="Mesaj bilgilerini göster" className="inline-flex items-center gap-1 rounded-full border border-cyan-300 bg-cyan-50 px-2 py-1 text-[10px] font-black text-cyan-800"><Info size={11} /></button>
+                    <button type="button" onClick={() => pinMessage(item.id)} aria-label={pinned ? "Sabitlemeyi kaldır" : "Sabitle (Pin)"} title={pinned ? "Sabitlemeyi kaldır" : "Sabitle (Pin)"} className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] font-black text-amber-800"><Pin size={11} /></button>
+                  </div>
+                </div>
+                <p className="mt-2 whitespace-pre-wrap break-words text-xs leading-5">{item.body}</p>
+                {!!attachments.length && <div className="mt-2 grid gap-1.5">{attachments.map((attachment) => <a key={attachment.id} href={`/api/team-communication/attachments/${attachment.id}`} target="_blank" rel="noreferrer" className="flex items-center justify-between gap-2 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-1.5 text-[11px] font-bold text-[var(--admin-text-secondary)]"><span className="inline-flex min-w-0 items-center gap-1.5"><FileText size={12} className="shrink-0" /><span className="truncate">{attachment.original_name}</span></span><span className="shrink-0 text-[var(--admin-text-muted)]">{size(attachment.file_size)}</span></a>)}</div>}
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  <AdminButton compact variant="ai" onClick={() => createTaskFromMessage(item)}>Create Task (Görev Oluştur)</AdminButton>
+                  {detail.conversation.source_customer_conversation_id && <AdminButton compact variant="success" onClick={() => draftCustomerReply(item)}>Draft Reply (Yanıt Taslağı)</AdminButton>}
+                </div>
+              </div>
             </article>;
-          })}</div>
-          <footer className="communication-composer border-t border-[var(--admin-border)] bg-[var(--admin-surface)] p-4">
-            {!!mentionCandidates.length && <div className="mb-2 flex flex-wrap gap-2">{mentionCandidates.map((item) => <button type="button" key={item.user_id} onClick={() => setReply((current) => current.replace(/@\S*$/, `@${item.user_name} `))} className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-black text-cyan-800">@{item.user_name}</button>)}</div>}
-            <textarea value={reply} onChange={(event) => setReply(event.target.value)} rows={4} placeholder="Ekip mesajı yazın. @ ile katılımcı etiketleyin." className="w-full rounded-[12px] border border-slate-300 p-3 text-sm" />
-            <div className="mt-3 flex flex-wrap items-center gap-3"><label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-[10px] border border-slate-300 bg-[var(--admin-surface)] px-3 text-xs font-black text-[var(--admin-text-secondary)]"><FileUp size={15} />{file ? file.name : "Dosya ekle"}<input type="file" className="sr-only" accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.xls,.xlsx" onChange={(event) => setFile(event.target.files?.[0] || null)} /></label><button type="button" onClick={sendMessage} disabled={!reply.trim() || busy === "reply"} className="inline-flex min-h-11 items-center gap-2 rounded-[10px] bg-cyan-700 px-5 text-sm font-black text-white shadow-sm hover:bg-cyan-800 disabled:bg-slate-200 disabled:text-[var(--admin-text-secondary)]">{busy === "reply" ? <Loader2 size={17} className="animate-spin" /> : <Send size={17} />} Gönder</button></div>
-          </footer>
-        </>}
-      </main>
-      <aside className="communication-right-panel min-h-0 border-t border-[var(--admin-border)] bg-[var(--admin-surface-soft)]/80 p-4 xl:border-l xl:border-t-0">
-        {detail && <div className="sticky top-24 max-h-[calc(100vh-140px)] space-y-4 overflow-y-auto pr-1">
-          <section className="rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 shadow-sm"><h3 className="font-black text-[var(--admin-text-primary)]">Konuşma Bilgileri</h3><p className="mt-2 text-sm text-[var(--admin-text-secondary)]">Durum: <strong>{label(statusOptions, detail.conversation.status)}</strong></p><p className="text-sm text-[var(--admin-text-secondary)]">Öncelik: <strong>{label(priorityOptions, detail.conversation.priority)}</strong></p>{detail.conversation.source_customer_conversation_id && <a href={`/hk-admin/iletisim-merkezi?channel=customers&conversation=${detail.conversation.source_customer_conversation_id}`} className="mt-3 inline-flex min-h-10 items-center rounded-[10px] bg-emerald-700 px-4 text-sm font-black text-white shadow-sm hover:bg-emerald-800">Kaynak müşteri konuşması</a>}</section>
-          <section className="rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 shadow-sm"><h3 className="font-black text-[var(--admin-text-primary)]">Katılımcılar</h3><div className="mt-3 grid gap-2">{participants.map((item) => <p key={item.user_id} className="rounded-[10px] bg-[var(--admin-surface-soft)] p-2 text-sm font-bold text-[var(--admin-text-secondary)]">{item.user_name} · {item.role}</p>)}</div></section>
-          <section className="rounded-[18px] border border-amber-200 bg-amber-50 p-4 shadow-sm"><h3 className="font-black text-amber-950">Sabitlenmiş Mesajlar</h3><div className="mt-3 grid gap-2">{detail.pins.map((pin) => <p key={pin.message_id} className="rounded-[10px] bg-[var(--admin-surface)] p-2 text-xs font-bold text-amber-900">{pin.pinned_by_name} · {time(pin.pinned_at)}</p>)}{!detail.pins.length && <p className="text-sm text-amber-800">Henüz sabitlenmiş mesaj yok.</p>}</div></section>
-          <section className="rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 shadow-sm"><h3 className="font-black text-[var(--admin-text-primary)]">Geçmiş</h3><button type="button" onClick={() => setHistoryOpen(true)} className="communication-dark-action mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-[10px] bg-slate-900 px-4 text-sm font-black text-white shadow-sm hover:bg-slate-800"><Bell size={16} /> Hareket geçmişi</button></section>
-        </div>}
-      </aside>
-    </section>
+          })}
+        </div>
+
+        <footer className="border-t pt-3" style={{ borderColor: "var(--admin-border)" }}>
+          {!!mentionCandidates.length && <div className="mb-2 flex flex-wrap gap-2">{mentionCandidates.map((item) => <button type="button" key={item.user_id} onClick={() => setReply((current) => current.replace(/@\S*$/, `@${item.user_name} `))} className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-black text-cyan-800">@{item.user_name}</button>)}</div>}
+          <textarea value={reply} onChange={(event) => setReply(event.target.value)} rows={3} placeholder="Write a message. Use @ to mention a participant. (Mesaj yazın. Katılımcı etiketlemek için @ kullanın.)" className="w-full rounded-[8px] border border-slate-300 p-2 text-xs" />
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <label className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-[8px] border border-slate-300 bg-[var(--admin-surface)] px-2.5 text-[11px] font-black text-[var(--admin-text-secondary)]"><FileUp size={13} />{file ? file.name : "Dosya ekle"}<input type="file" className="sr-only" accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.xls,.xlsx" onChange={(event) => setFile(event.target.files?.[0] || null)} /></label>
+            <AdminButton compact variant="info" icon={<Send size={13} />} disabled={!reply.trim() || busy === "reply"} onClick={sendMessage}>{busy === "reply" ? "Gönderiliyor..." : "Gönder"}</AdminButton>
+          </div>
+        </footer>
+      </div>}
+    </AdminWorkspace>
+
     {createOpen && <CreateTeamConversationModal staff={staff} onClose={() => setCreateOpen(false)} onCreated={(id) => { setCreateOpen(false); setSelectedId(id); void loadList(); }} />}
     {auditMessage && <TeamAuditModal message={auditMessage} audit={audit} onClose={() => setAuditMessage(null)} />}
     {historyOpen && detail && <TeamHistoryModal detail={detail} onClose={() => setHistoryOpen(false)} />}
-  </div>;
+  </>;
 }
 
 function CreateTeamConversationModal({ staff, onClose, onCreated }: { staff: Staff[]; onClose: () => void; onCreated: (id: string) => void }) {
