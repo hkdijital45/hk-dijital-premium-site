@@ -141,3 +141,24 @@ test("computeNextRunAt: weekly frequency lands on the next occurrence of the con
   const diffDays = Math.round((next.getTime() - monday.getTime()) / 86400000);
   assert.equal(diffDays, 7);
 });
+
+
+test("AI host preserves admin fallbacks, customer/auth flows, private paths and assets", () => {
+  for (const path of ["/hk-admin", "/hk-admin/iletisim-merkezi", "/musteri-paneli", "/sifre-sifirla", "/sifre-degistir", "/private-entry", "/logo.svg", "/ai-workforce-other"]) {
+    assert.equal(resolveAiWorkforceHostPathname(path, true), path);
+    assert.equal(resolveAiWorkforceHostPathname(path, false), path);
+  }
+});
+
+test("AI host aliases only exact product section segments", () => {
+  for (const section of ["agents", "director", "tasks", "approvals", "automations", "memory", "reports", "integrations", "cost", "activity"]) {
+    assert.equal(rewriteAiWorkforcePath(`/${section}`), `/ai-workforce/${section}`);
+    assert.equal(rewriteAiWorkforcePath(`/${section}/detail`), `/ai-workforce/${section}/detail`);
+    assert.equal(rewriteAiWorkforcePath(`/${section}-other`), `/${section}-other`);
+  }
+});
+
+test("configured private login takes priority over a product alias", () => {
+  assert.equal(resolveAiWorkforceHostPathname("/agents", false, "agents"), "/agents");
+  assert.equal(resolveAiWorkforceHostPathname("/agents", true, "/agents"), "/agents");
+});

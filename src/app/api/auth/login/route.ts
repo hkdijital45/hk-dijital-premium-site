@@ -4,6 +4,7 @@ import { authenticateUser, createSession, isCustomerPasswordChangeRequired, isCu
 import { recordCustomerLogin } from "@/lib/activity-log";
 import { resolveLoginEmail } from "@/lib/server/usernames";
 import { HIDDEN_ACCESS_COOKIE, findValidHiddenAccessSession, logHiddenAccessEvent } from "@/lib/hidden-access";
+import { isAiWorkforceHost } from "@/lib/ai-workforce-schema";
 import { supabaseRest } from "@/lib/supabase";
 
 // Correlates a successful real login with whichever Secret Access session
@@ -58,7 +59,8 @@ export async function POST(request: Request) {
     ok: true,
     redirectTo: isCustomerPasswordChangeRequired(session.session)
       ? "/sifre-degistir"
-      : isCustomerRole(session.session.role) ? "/musteri-paneli" : "/hk-admin",
+      : isCustomerRole(session.session.role) ? "/musteri-paneli"
+      : isAiWorkforceHost(new URL(request.url).host) ? "/ai-workforce" : "/hk-admin",
     role: session.session.role
   });
 }

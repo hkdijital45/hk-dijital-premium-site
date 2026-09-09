@@ -65,7 +65,7 @@ export async function proxy(request: NextRequest) {
     const secretToken = request.cookies.get(HIDDEN_ACCESS_COOKIE)?.value;
     aiWorkforceRootAuthorized = Boolean(secretToken && (await findValidHiddenAccessSession(secretToken)));
   }
-  const pathname = onAiWorkforceHost ? resolveAiWorkforceHostPathname(originalPathname, aiWorkforceRootAuthorized) : originalPathname;
+  const pathname = onAiWorkforceHost ? resolveAiWorkforceHostPathname(originalPathname, aiWorkforceRootAuthorized, privatePath) : originalPathname;
 
   if (requiresSecretGate(pathname, privatePath)) {
     const secretToken = request.cookies.get(HIDDEN_ACCESS_COOKIE)?.value;
@@ -97,19 +97,25 @@ export async function proxy(request: NextRequest) {
 
   if (pathname.startsWith("/hk-admin") || pathname.startsWith("/ai-workforce")) {
     if (!role || !adminRoles.includes(role)) {
-      return NextResponse.redirect(new URL("/giris", request.url));
+      // The secret gate has already passed. On the AI host, /giris
+      // would bounce an anonymous visitor straight back to the homepage.
+      return NextResponse.redirect(new URL(onAiWorkforceHost ? REAL_LOGIN_PATH : "/giris", request.url));
     }
   }
 
   if (pathname.startsWith("/musteri-paneli")) {
     const isStaffPreview = Boolean(role && adminRoles.includes(role) && request.nextUrl.searchParams.has("company"));
     if (!role || (!customerRoles.includes(role) && !isStaffPreview)) {
-      return NextResponse.redirect(new URL("/giris", request.url));
+      // The secret gate has already passed. On the AI host, /giris
+      // would bounce an anonymous visitor straight back to the homepage.
+      return NextResponse.redirect(new URL(onAiWorkforceHost ? REAL_LOGIN_PATH : "/giris", request.url));
     }
   }
 
   if (onAiWorkforceHost && pathname !== originalPathname) {
-    return NextResponse.rewrite(new URL(pathname, request.url));
+    const url = request.nextUrl.clone();
+    url.pathname = pathname;
+    return NextResponse.rewrite(url);
   }
 
   return NextResponse.next();
