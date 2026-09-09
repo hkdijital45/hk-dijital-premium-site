@@ -169,9 +169,9 @@ function DirectorTab() {
     <div className="grid gap-4">
       <AdminSection title="Director (Direktör)" description="Yüksek seviyeli talepleri yorumlar, uzman ajanlara devreder ve sonuçları birleştirir. Her çalıştırma agent_runs tablosuna kalıcı olarak kaydedilir.">
         <div className="grid gap-3">
-          <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} rows={4} placeholder="Direktöre komut ver..." className="w-full rounded-[12px] border p-3 text-sm" style={{ borderColor: "var(--admin-border)" }} />
+          <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} rows={4} placeholder="Direktöre komut ver..." className="w-full rounded-[12px] border p-3 text-sm" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }} />
           <div className="flex flex-wrap items-center gap-3">
-            <input value={companyId} onChange={(event) => setCompanyId(event.target.value)} placeholder="Müşteri ID (opsiyonel)" className="rounded-[10px] border px-3 py-2 text-sm" style={{ borderColor: "var(--admin-border)" }} />
+            <input value={companyId} onChange={(event) => setCompanyId(event.target.value)} placeholder="Müşteri ID (opsiyonel)" className="rounded-[10px] border px-3 py-2 text-sm" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }} />
             <label className="flex items-center gap-2 text-xs font-bold" style={{ color: "var(--admin-text-secondary)" }}>
               <input type="checkbox" checked={multiAgent} onChange={(event) => setMultiAgent(event.target.checked)} /> Multi-Agent (Çoklu Ajan)
             </label>
@@ -309,13 +309,13 @@ function AutomationsTab({ active }: { active: boolean }) {
     <div className="grid gap-4">
       <AdminSection title="New Automation (Yeni Otomasyon)" description="Belirlenen sıklıkta otomatik çalışacak bir agent görevi tanımla. Cron: her gün 06:20 UTC'de vadesi gelenler otomatik çalıştırılır.">
         <div className="grid gap-2 sm:grid-cols-2">
-          <input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Otomasyon adı" className="rounded-[10px] border px-3 py-2 text-sm" style={{ borderColor: "var(--admin-border)" }} />
-          <select value={form.frequency} onChange={(event) => setForm({ ...form, frequency: event.target.value })} className="rounded-[10px] border px-3 py-2 text-sm" style={{ borderColor: "var(--admin-border)" }}>
+          <input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Otomasyon adı" className="rounded-[10px] border px-3 py-2 text-sm" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }} />
+          <select value={form.frequency} onChange={(event) => setForm({ ...form, frequency: event.target.value })} className="rounded-[10px] border px-3 py-2 text-sm" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
             <option value="daily">Daily (Günlük)</option>
             <option value="weekly">Weekly (Haftalık)</option>
             <option value="monthly">Monthly (Aylık)</option>
           </select>
-          <textarea value={form.prompt} onChange={(event) => setForm({ ...form, prompt: event.target.value })} placeholder="Görev açıklaması" rows={2} className="sm:col-span-2 rounded-[10px] border px-3 py-2 text-sm" style={{ borderColor: "var(--admin-border)" }} />
+          <textarea value={form.prompt} onChange={(event) => setForm({ ...form, prompt: event.target.value })} placeholder="Görev açıklaması" rows={2} className="sm:col-span-2 rounded-[10px] border px-3 py-2 text-sm" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }} />
         </div>
         <div className="mt-2"><AdminButton variant="primary" loading={saving} onClick={create}>Otomasyonu Kaydet</AdminButton></div>
       </AdminSection>
@@ -465,8 +465,8 @@ function MemoryTab({ active }: { active: boolean }) {
     <div className="grid gap-4">
       <AdminSection title="Add Memory (Hafıza Ekle)" description="Ajans-seviyesi talimat, müşteri marka kuralı veya onaylanmış strateji kararı ekle. Sır/anahtar burada saklanmaz.">
         <div className="grid gap-2">
-          <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Başlık" className="rounded-[10px] border px-3 py-2 text-sm" style={{ borderColor: "var(--admin-border)" }} />
-          <textarea value={form.content} onChange={(event) => setForm({ ...form, content: event.target.value })} placeholder="İçerik" rows={2} className="rounded-[10px] border px-3 py-2 text-sm" style={{ borderColor: "var(--admin-border)" }} />
+          <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Başlık" className="rounded-[10px] border px-3 py-2 text-sm" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }} />
+          <textarea value={form.content} onChange={(event) => setForm({ ...form, content: event.target.value })} placeholder="İçerik" rows={2} className="rounded-[10px] border px-3 py-2 text-sm" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }} />
         </div>
         <div className="mt-2"><AdminButton variant="primary" loading={saving} onClick={add}>Kaydet</AdminButton></div>
       </AdminSection>
@@ -583,10 +583,38 @@ function IntegrationsTab({ active }: { active: boolean }) {
 // Shell -----------------------------------------------------------------------
 export function AIWorkforceApp({ initialSection }: { initialSection?: Section }) {
   const [active, setActive] = useState<Section>(initialSection && SECTIONS.includes(initialSection) ? initialSection : "Control Center (Kontrol Merkezi)");
+  // The --admin-* color tokens this whole page (and the shared AdminButton/
+  // AdminKpiCard/AdminTabs/etc. kit it's built from) reads are only DEFINED
+  // inside the .hk-admin CSS scope (see globals.css) — every other real
+  // /hk-admin/* page renders inside AdminAppShell, which carries that class.
+  // This page is intentionally a separate, standalone product (no shared
+  // mega-nav/header), so it never picked up that class, which left every
+  // var(--admin-text-*) reference invalid at computed-value time — for the
+  // inherited `color` property that means it silently fell back to the
+  // public marketing site's near-white --foreground text color, unreadable
+  // on this page's light surfaces. Applying the same class + persisted theme
+  // attribute AdminStandaloneShell uses (without its full nav shell) fixes
+  // every tab, not just Control Center, since they all share this root.
+  const [theme, setTheme] = useState<"light" | "dark">("dark");
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("hk-admin-theme");
+      if (stored === "dark" || stored === "light") setTheme(stored);
+      else if (window.matchMedia?.("(prefers-color-scheme: light)").matches) setTheme("light");
+    } catch {}
+  }, []);
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--admin-bg, #F6F5F1)" }}>
-      <header className="border-b p-4 sm:p-6" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+    <div
+      data-admin="true"
+      data-theme={theme}
+      className={`hk-admin admin-shell ai-workforce-shell min-h-screen ${theme === "light" ? "admin-light" : ""}`}
+      style={{ background: "var(--admin-bg, #F6F5F1)" }}
+    >
+      {/* role="banner" (not a real <header>) — the global .hk-admin header
+          selector forces a fixed light background with !important that would
+          fight this bar's own theme-aware background in dark mode. */}
+      <div role="banner" className="border-b p-4 sm:p-6" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Brain size={22} style={{ color: "var(--nav-accent-text, #0e7490)" }} />
@@ -597,7 +625,7 @@ export function AIWorkforceApp({ initialSection }: { initialSection?: Section })
           </div>
           <Link href="/hk-admin" className="hk-button hk-button-outline px-4 py-2 text-sm">HK Admin&apos;e Dön</Link>
         </div>
-      </header>
+      </div>
       <main className="mx-auto max-w-6xl p-4 sm:p-6">
         <AdminPageHeader eyebrow="AI Operations Center" title={active} description="Ajans genelinde AI ajanlarını, görevlerini, onaylarını ve maliyetini tek bir yerden yönet." />
         <AdminTabs items={SECTIONS} active={active} onChange={(value) => setActive(value as Section)} ariaLabel="HK AI Workforce sekmeleri" />

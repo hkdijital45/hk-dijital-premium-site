@@ -28,10 +28,16 @@ export function AdminLoadingState({ label = "Yükleniyor..." }: { label?: string
 }
 
 export function AdminErrorState({ title = "Bir sorun oluştu", description }: { title?: string; description?: string }) {
+  // Colors are set via var(--admin-danger) inline (not the hardcoded
+  // .border-red-200/.bg-red-50/.text-red-800/.text-red-700 Tailwind classes
+  // this previously used) — those don't adapt to dark mode, and .font-black
+  // additionally gets forced to a near-white color by a global dark-mode
+  // rule, leaving this card's title unreadable on its own light-red
+  // background in dark mode.
   return (
-    <div className="rounded-[16px] border border-red-200 bg-red-50 p-5 text-sm">
-      <p className="font-black text-red-800">{title}</p>
-      {description && <p className="mt-1 leading-6 text-red-700">{description}</p>}
+    <div className="rounded-[16px] border p-5 text-sm" style={{ borderColor: "color-mix(in srgb, var(--admin-danger, #dc2626) 35%, transparent)", background: "color-mix(in srgb, var(--admin-danger, #dc2626) 10%, var(--admin-surface))" }}>
+      <p style={{ fontWeight: 900, color: "var(--admin-danger, #dc2626)" }}>{title}</p>
+      {description && <p className="mt-1 leading-6" style={{ color: "var(--admin-danger, #dc2626)" }}>{description}</p>}
     </div>
   );
 }

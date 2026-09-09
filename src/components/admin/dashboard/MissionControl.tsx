@@ -66,6 +66,7 @@ export interface MissionControlProps {
 
   websiteAnalytics: ReactNode;
   advanced: ReactNode;
+  allowedModules?: string[];
 }
 
 const KPI_ICONS: ReactNode[] = [<Sparkles key="0" size={14} />, <AlertTriangle key="1" size={14} />];
@@ -142,7 +143,8 @@ export function MissionControl(props: MissionControlProps) {
     aiHealthDimensions,
     automationSuggestions,
     websiteAnalytics,
-    advanced
+    advanced,
+    allowedModules = []
   } = props;
 
   const kpiItems: AdminCompactKpiItem[] = dailyKpis.map((item, index) => ({
@@ -257,7 +259,7 @@ export function MissionControl(props: MissionControlProps) {
           )}
         </div>
 
-        <AiTeamWidget />
+        {allowedModules.includes("ai-workforce") && <AiTeamWidget />}
 
         <div className="mc-panel-finance">
           <DashboardFinanceSummary overviewCards={overviewCards} packageDistribution={packageDistribution} onNavigate={onNavigate} />

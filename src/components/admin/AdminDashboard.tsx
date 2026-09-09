@@ -711,7 +711,11 @@ export function AdminDashboard({
     { label: "Tahsilat Gir", href: "/hk-admin/tahsilat", detail: "Yeni tahsilat kaydı oluştur" },
     { label: "Görev Ekle", href: "/hk-admin/gorevler", detail: "Operasyon görevi ekle" },
     { label: "Teklif Hazırla", href: "/hk-admin/teklif-hazirlama", detail: "Teklif motorunu aç" },
-    { label: "Rapor Oluştur", href: "/hk-admin/musteri-raporlari", detail: "Müşteri raporu hazırla" }
+    { label: "Rapor Oluştur", href: "/hk-admin/musteri-raporlari", detail: "Müşteri raporu hazırla" },
+    // Same-origin path (not the ai.hkdijital.com.tr subdomain) — the auth
+    // cookie is host-only, so linking cross-subdomain from here would strand
+    // the user at a fresh login instead of opening AI Workforce directly.
+    ...(allowedModules.includes("ai-workforce") ? [{ label: "AI Workforce'u Aç", href: "/ai-workforce", detail: "Yapay Zekâ İş Gücü kontrol merkezini aç" }] : [])
   ];
   const commandCenterFavorites = favoriteNavigationItems
     .filter(Boolean)
@@ -2876,6 +2880,7 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
         centerCards={centerCards}
         websiteAnalytics={<WebsiteAnalyticsSummaryCards onOpen={() => setActive("Web Site Analitiği")} />}
         advanced={advancedSection}
+        allowedModules={allowedModules}
       />
   );
 }

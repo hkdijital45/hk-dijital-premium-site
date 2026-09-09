@@ -3706,6 +3706,20 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
   color: var(--admin-text-primary);
 }
 
+/* AI Workforce (src/components/admin/AIWorkforceApp.tsx) uses plain
+   <input>/<select>/<textarea> tags (not the .hk-field/.hk-search-input
+   wrapper classes above), so the older, unconditional
+   ".hk-admin input,...{ background:#fff!important }" rule further up this
+   file — written before dark mode existed — otherwise forces a white field
+   background under dark text in dark mode. Scoped to just this page's own
+   wrapper class to avoid touching every other admin screen's form styling. */
+.hk-admin.ai-workforce-shell[data-theme="dark"] input,
+.hk-admin.ai-workforce-shell[data-theme="dark"] select,
+.hk-admin.ai-workforce-shell[data-theme="dark"] textarea {
+  background: var(--admin-surface) !important;
+  color: var(--admin-text-primary) !important;
+}
+
 .hk-admin[data-theme="dark"] .hk-field::placeholder {
   color: var(--admin-text-muted);
 }

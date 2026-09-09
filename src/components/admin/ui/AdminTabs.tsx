@@ -30,10 +30,17 @@ export function AdminTabs({
             role="tab"
             aria-selected={isActive}
             onClick={() => onChange(item)}
-            className="shrink-0 rounded-[12px] px-3.5 py-2 text-xs font-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+            // Font size/weight are set inline, not via `text-xs`/`font-black`
+            // utility classes — two separate global rules
+            // (`.hk-admin .text-xs { color: ...!important }` and
+            // `.hk-admin .font-black { color: ...!important }`, both meant to
+            // fix hardcoded-light-text elsewhere) would otherwise force their
+            // own color onto the active tab too, defeating the inline white
+            // text below with no way for it to win back.
+            className="shrink-0 rounded-[12px] px-3.5 py-2 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
             style={isActive
-              ? { background: "var(--admin-primary, var(--hk-primary))", color: "#fff", outlineColor: "var(--hk-focus-ring)" }
-              : { color: "var(--admin-text-secondary)", outlineColor: "var(--hk-focus-ring)" }}
+              ? { fontSize: "0.75rem", lineHeight: "1rem", fontWeight: 900, background: "var(--admin-primary, var(--hk-primary))", color: "#fff", outlineColor: "var(--hk-focus-ring)" }
+              : { fontSize: "0.75rem", lineHeight: "1rem", fontWeight: 900, color: "var(--admin-text-secondary)", outlineColor: "var(--hk-focus-ring)" }}
           >
             {item}
           </button>
