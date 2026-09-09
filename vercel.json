@@ -31,18 +31,6 @@
     {
       "path": "/api/admin/agent-hub/scheduled/run-due",
       "schedule": "20 6 * * *"
-    },
-    {
-      "path": "/api/admin/social-autopilot/run-daily",
-      "schedule": "10 4 * * *"
-    },
-    {
-      "path": "/api/admin/social-autopilot/queue/process-due",
-      "schedule": "*/15 * * * *"
-    },
-    {
-      "path": "/api/admin/social-autopilot/analytics/sync",
-      "schedule": "0 */6 * * *"
     }
   ]
 }
