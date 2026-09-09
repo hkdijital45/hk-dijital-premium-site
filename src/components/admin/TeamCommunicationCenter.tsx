@@ -57,12 +57,19 @@ function size(value?: number) {
   return `${(value / 1024 / 1024).toFixed(1)} MB`;
 }
 
+// Named Tailwind color classes (text-emerald-800 etc.) are paired with a
+// matching text-[#hex] class — a global admin rule normally forces every
+// <span>/.font-black element to one of two body-text colors with
+// !important, discarding a badge's own semantic color entirely; the
+// arbitrary-value class is that rule's documented escape hatch (see
+// globals.css), and both classes resolve to the exact same shade so which
+// one Tailwind's cascade actually applies makes no visual difference.
 function TeamStatusBadge({ value }: { value: string }) {
-  const tone = value === "resolved" || value === "closed" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : value === "archived" ? "border-[var(--admin-border)] bg-slate-100 text-[var(--admin-text-secondary)]" : "border-cyan-200 bg-cyan-50 text-cyan-800";
+  const tone = value === "resolved" || value === "closed" ? "border-emerald-200 bg-emerald-50 text-emerald-800 text-[#065F46]" : value === "archived" ? "border-[var(--admin-border)] bg-slate-100 text-[var(--admin-text-secondary)]" : "border-cyan-200 bg-cyan-50 text-cyan-800 text-[#155E75]";
   return <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${tone}`}>{label(statusOptions, value)}</span>;
 }
 function TeamPriorityBadge({ value }: { value: string }) {
-  const tone = value === "urgent" ? "border-rose-200 bg-rose-50 text-rose-800" : value === "important" ? "border-amber-200 bg-amber-50 text-amber-800" : "border-[var(--admin-border)] bg-[var(--admin-surface-soft)] text-[var(--admin-text-secondary)]";
+  const tone = value === "urgent" ? "border-rose-200 bg-rose-50 text-rose-800 text-[#9F1239]" : value === "important" ? "border-amber-200 bg-amber-50 text-amber-800 text-[#92400E]" : "border-[var(--admin-border)] bg-[var(--admin-surface-soft)] text-[var(--admin-text-secondary)]";
   return <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${tone}`}>{label(priorityOptions, value)}</span>;
 }
 

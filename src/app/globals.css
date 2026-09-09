@@ -1367,87 +1367,104 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
   box-shadow: var(--hk-admin-shadow) !important;
 }
 
+/* --hk-force-text-color: the escape hatch for the blanket !important rules
+   below. A colored badge/pill/tab/button that needs to guarantee its own
+   text color (e.g. white on a solid teal background) was previously always
+   losing to these rules the instant it also used a plain size/weight
+   utility like text-xs or font-black — CSS gives an inline, non-important
+   `color` no way to win against an !important stylesheet rule, no matter
+   how it's written. Setting BOTH `color` and `--hk-force-text-color` inline
+   (e.g. style={{ color: "#fff", "--hk-force-text-color": "#fff" }}) fixes
+   this permanently: an inline-set custom property always wins over a
+   stylesheet's definition of that same property, so var() below picks it
+   up before falling back to the original forced value.
+   Elements using a Tailwind arbitrary color class — text-[#hex] (see
+   AdminStatusBadge) or text-[var(--some-token)] (binds text color directly
+   to a semantic token in a few places) — are also excluded outright: that
+   class name IS itself an explicit, intentional color choice. Plain
+   text-[10px]-style size utilities keep matching normally — only the "#"
+   and "var(" prefixes are excluded, not every text-[...] class. */
 .admin-shell h1,
 .admin-shell h2,
 .admin-shell h3,
 .admin-shell h4,
 .admin-shell h5,
 .admin-shell h6,
-.admin-shell strong,
-.admin-shell label,
-.admin-shell th,
-.admin-shell .font-black,
-.admin-shell .font-bold,
+.admin-shell strong:not([class*="text-[#"]):not([class*="text-[var("]),
+.admin-shell label:not([class*="text-[#"]):not([class*="text-[var("]),
+.admin-shell th:not([class*="text-[#"]):not([class*="text-[var("]),
+.admin-shell .font-black:not([class*="text-[#"]):not([class*="text-[var("]),
+.admin-shell .font-bold:not([class*="text-[#"]):not([class*="text-[var("]),
 .hk-admin h1,
 .hk-admin h2,
 .hk-admin h3,
 .hk-admin h4,
 .hk-admin h5,
 .hk-admin h6,
-.hk-admin strong,
-.hk-admin label,
-.hk-admin th,
-.hk-admin .font-black,
-.hk-admin .font-bold,
+.hk-admin strong:not([class*="text-[#"]):not([class*="text-[var("]),
+.hk-admin label:not([class*="text-[#"]):not([class*="text-[var("]),
+.hk-admin th:not([class*="text-[#"]):not([class*="text-[var("]),
+.hk-admin .font-black:not([class*="text-[#"]):not([class*="text-[var("]),
+.hk-admin .font-bold:not([class*="text-[#"]):not([class*="text-[var("]),
 [data-admin] h1,
 [data-admin] h2,
 [data-admin] h3,
 [data-admin] h4,
 [data-admin] h5,
 [data-admin] h6,
-[data-admin] strong,
-[data-admin] label,
-[data-admin] th,
-[data-admin] .font-black,
-[data-admin] .font-bold {
-  color: var(--hk-admin-text) !important;
+[data-admin] strong:not([class*="text-[#"]):not([class*="text-[var("]),
+[data-admin] label:not([class*="text-[#"]):not([class*="text-[var("]),
+[data-admin] th:not([class*="text-[#"]):not([class*="text-[var("]),
+[data-admin] .font-black:not([class*="text-[#"]):not([class*="text-[var("]),
+[data-admin] .font-bold:not([class*="text-[#"]):not([class*="text-[var("]) {
+  color: var(--hk-force-text-color, var(--hk-admin-text)) !important;
 }
 
-.admin-shell p,
-.admin-shell span,
-.admin-shell small,
-.admin-shell li,
-.admin-shell td,
+.admin-shell p:not([class*="text-[#"]):not([class*="text-[var("]),
+.admin-shell span:not([class*="text-[#"]):not([class*="text-[var("]),
+.admin-shell small:not([class*="text-[#"]):not([class*="text-[var("]),
+.admin-shell li:not([class*="text-[#"]):not([class*="text-[var("]),
+.admin-shell td:not([class*="text-[#"]):not([class*="text-[var("]),
 .admin-shell .text-slate-300,
 .admin-shell .text-slate-400,
 .admin-shell .text-slate-500,
 .admin-shell .text-slate-600,
 .admin-shell .text-slate-700,
-.hk-admin p,
-.hk-admin span,
-.hk-admin small,
-.hk-admin li,
-.hk-admin td,
+.hk-admin p:not([class*="text-[#"]):not([class*="text-[var("]),
+.hk-admin span:not([class*="text-[#"]):not([class*="text-[var("]),
+.hk-admin small:not([class*="text-[#"]):not([class*="text-[var("]),
+.hk-admin li:not([class*="text-[#"]):not([class*="text-[var("]),
+.hk-admin td:not([class*="text-[#"]):not([class*="text-[var("]),
 .hk-admin .text-slate-300,
 .hk-admin .text-slate-400,
 .hk-admin .text-slate-500,
 .hk-admin .text-slate-600,
 .hk-admin .text-slate-700,
-[data-admin] p,
-[data-admin] span,
-[data-admin] small,
-[data-admin] li,
-[data-admin] td,
+[data-admin] p:not([class*="text-[#"]):not([class*="text-[var("]),
+[data-admin] span:not([class*="text-[#"]):not([class*="text-[var("]),
+[data-admin] small:not([class*="text-[#"]):not([class*="text-[var("]),
+[data-admin] li:not([class*="text-[#"]):not([class*="text-[var("]),
+[data-admin] td:not([class*="text-[#"]):not([class*="text-[var("]),
 [data-admin] .text-slate-300,
 [data-admin] .text-slate-400,
 [data-admin] .text-slate-500,
 [data-admin] .text-slate-600,
 [data-admin] .text-slate-700 {
-  color: var(--hk-admin-secondary) !important;
+  color: var(--hk-force-text-color, var(--hk-admin-secondary)) !important;
 }
 
-.admin-shell .text-xs,
-.admin-shell .text-\[10px\],
-.hk-admin .text-xs,
-.hk-admin .text-\[10px\],
-[data-admin] .text-xs,
-[data-admin] .text-\[10px\] {
+.admin-shell .text-xs:not([class*="text-[#"]):not([class*="text-[var("]),
+.admin-shell .text-\[10px\]:not([class*="text-[#"]):not([class*="text-[var("]),
+.hk-admin .text-xs:not([class*="text-[#"]):not([class*="text-[var("]),
+.hk-admin .text-\[10px\]:not([class*="text-[#"]):not([class*="text-[var("]),
+[data-admin] .text-xs:not([class*="text-[#"]):not([class*="text-[var("]),
+[data-admin] .text-\[10px\]:not([class*="text-[#"]):not([class*="text-[var("]) {
   /* Was --hk-admin-muted (#7B8492): only ~3.5:1 on these surfaces, failing
      WCAG AA for normal-size text — and text-xs is exactly that (small)
      text used everywhere (captions, badges, meta). Secondary Text
      (#5F6672, ~5.4:1) is the accessible "quiet but legible" choice; true
      Muted is reserved for large text/icons only. */
-  color: var(--hk-admin-secondary) !important;
+  color: var(--hk-force-text-color, var(--hk-admin-secondary)) !important;
 }
 
 .admin-shell input,

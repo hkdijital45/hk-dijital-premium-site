@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
@@ -124,13 +124,20 @@ function hasManagementChanges(detail: Detail | null, draft: ManagementDraft) {
   return current.status !== draft.status || current.priority !== draft.priority || current.assigned_to !== draft.assigned_to;
 }
 
+// Named Tailwind color classes (text-amber-800 etc.) are paired with a
+// matching text-[#hex] class — a global admin rule normally forces every
+// <span>/.font-black element to one of two body-text colors with
+// !important, discarding a badge's own semantic color entirely; the
+// arbitrary-value class is that rule's documented escape hatch (see
+// globals.css), and both classes resolve to the exact same shade so which
+// one Tailwind's cascade actually applies makes no visual difference.
 function StatusBadge({ value }: { value: string }) {
-  const tone = value === "admin_reply_required" || value === "new" ? "border-amber-200 bg-amber-50 text-amber-800" : value === "resolved" || value === "closed" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : value === "archived" ? "border-[var(--admin-border)] bg-slate-100 text-[var(--admin-text-secondary)]" : "border-cyan-200 bg-cyan-50 text-cyan-800";
+  const tone = value === "admin_reply_required" || value === "new" ? "border-amber-200 bg-amber-50 text-amber-800 text-[#92400E]" : value === "resolved" || value === "closed" ? "border-emerald-200 bg-emerald-50 text-emerald-800 text-[#065F46]" : value === "archived" ? "border-[var(--admin-border)] bg-slate-100 text-[var(--admin-text-secondary)]" : "border-cyan-200 bg-cyan-50 text-cyan-800 text-[#155E75]";
   return <span className={`rounded-full border px-2.5 py-1 text-[11px] font-black ${tone}`}>{labelFor(statusOptions, value)}</span>;
 }
 
 function PriorityBadge({ value }: { value: string }) {
-  const tone = value === "urgent" ? "border-rose-200 bg-rose-50 text-rose-800" : value === "important" ? "border-amber-200 bg-amber-50 text-amber-800" : "border-[var(--admin-border)] bg-[var(--admin-surface-soft)] text-[var(--admin-text-secondary)]";
+  const tone = value === "urgent" ? "border-rose-200 bg-rose-50 text-rose-800 text-[#9F1239]" : value === "important" ? "border-amber-200 bg-amber-50 text-amber-800 text-[#92400E]" : "border-[var(--admin-border)] bg-[var(--admin-surface-soft)] text-[var(--admin-text-secondary)]";
   return <span className={`rounded-full border px-2.5 py-1 text-[11px] font-black ${tone}`}>{labelFor(priorityOptions, value)}</span>;
 }
 
@@ -711,16 +718,27 @@ export function CommunicationModeSwitch({ active, onChange, customerUnread = 0 }
             role="tab"
             aria-selected={isActive}
             onClick={() => onChange(option.key)}
+            // text-xs/font-black + an inline color is exactly the
+            // combination a global admin rule (`.hk-admin .text-xs`/
+            // `.font-black { color: ...!important }`) otherwise defeats
+            // with no way for an inline, non-important color to win back —
+            // --hk-force-text-color is that rule's own escape hatch (see
+            // globals.css), so both the property and its inline color must
+            // be set together.
             className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-[8px] px-3 py-2 text-xs font-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-            style={isActive
-              ? { background: "var(--admin-primary, var(--hk-primary))", color: "#fff", outlineColor: "var(--hk-focus-ring)" }
-              : { color: "var(--admin-text-secondary)", outlineColor: "var(--hk-focus-ring)" }}
+            style={(isActive
+              ? { background: "var(--admin-primary, var(--hk-primary))", color: "#fff", "--hk-force-text-color": "#fff", outlineColor: "var(--hk-focus-ring)" }
+              : { color: "var(--admin-text-secondary)", "--hk-force-text-color": "var(--admin-text-secondary)", outlineColor: "var(--hk-focus-ring)" }) as unknown as CSSProperties}
           >
             {option.label}
             {Boolean(option.badge) && (
               <span
                 className="rounded-full px-1.5 py-0.5 text-[10px] font-black"
-                style={{ background: isActive ? "rgba(255,255,255,.25)" : "var(--admin-surface)", color: isActive ? "#fff" : "var(--admin-text-primary)" }}
+                style={{
+                  background: isActive ? "rgba(255,255,255,.25)" : "var(--admin-surface)",
+                  color: isActive ? "#fff" : "var(--admin-text-primary)",
+                  "--hk-force-text-color": isActive ? "#fff" : "var(--admin-text-primary)"
+                } as unknown as CSSProperties}
               >
                 {option.badge}
               </span>
