@@ -662,6 +662,75 @@ const nineCenterGuides: SystemGuideSeed[] = [
     }
   },
   {
+    slug: "ai-workforce-rehberi",
+    title: "AI Workforce Nasıl Kullanılır?",
+    category: "İçerik ve AI",
+    description: "Ajans genelinde AI ajanlarını, hazır iş akışlarını, onayları ve maliyeti tek merkezde yöneten HK AI Workforce ekranının kullanım rehberi.",
+    route: "/ai-workforce",
+    content: {
+      purpose: "AI Workforce; dijital pazarlama uzmanı, sosyal medya stratejisti ve ajans sahibi bakış açılarıyla günlük ajans operasyonunu destekleyen bir çalışma merkezidir. Ajans genelinde veya tek bir müşteri için gerçek veriye dayalı analiz, plan ve öneri üretir; reklam yayına alma, bütçe değiştirme, içerik yayınlama veya müşteriye mesaj gönderme gibi dış işlemleri kendisi yürütmez — bunlar için taslak/öneri üretir ve mevcut Onaylar akışına bırakır. Reklam/SEO/CRM gibi modüllerdeki gerçek veriler mevcutsa kullanılır; mevcut değilse tahmin üretmek yerine açıkça 'eksik veri' olarak belirtir.",
+      whenToUse: "Günlük ajans özetine, bir müşterinin performans/strateji/içerik ihtiyacına veya haftalık operasyon değerlendirmesine hızlı ve tutarlı biçimde başlamak istediğinizde.",
+      steps: [
+        "Erişim: AI Workforce, 'ai-workforce' modül yetkisi olan HK Admin kullanıcılarına açıktır. HK Admin > İçerik ve AI > Yapay Zekâ Merkezi altındaki 'AI Workforce' bağlantısından veya doğrudan /ai-workforce adresinden açılır. ai.hkdijital.com.tr alt alan adından da aynı oturumla erişilebilir.",
+        "İlk kullanım: Yeni bir müşteri için anlamlı sonuç almak isteniyorsa önce Müşteriler > ilgili müşteri > Hazırlık ekranından marka analizi, hedef kitle notu ve konumlandırma bilgisi girilmesi önerilir — bu bilgi AI Workforce'un müşteri bağlamına otomatik olarak dahil edilir. Girilmemişse sistem bunu 'kayıtlı değil' olarak açıkça belirtir, uydurmaz.",
+        "Control Center (Kontrol Merkezi): Sırasıyla bugünün öncelikleri (bekleyen onaylar, kritik riskler, başarısız çalıştırmalar), müdahale gerektiren müşteriler, Hazır İş Akışları, serbest Director komutuna kısayol, son aktivite ve veri bağlantısı/maliyet özetini gösterir.",
+        "Director (Direktör): Serbest metinle ajans geneli veya seçilen bir müşteri için komut verilir; 'Multi-Agent' işaretlenirse birden fazla uzman paralel çalışır. Her çalıştırma agent_runs tablosuna kalıcı olarak kaydedilir.",
+        "Agents (Ajanlar): hk_virtual_agents tablosundaki 9 uzman ajanın (CEO, Satış Müdürü, CRM Uzmanı, Google/Meta Ads Uzmanı, SEO Uzmanı, Creative Director, Finance Manager, Reporting Manager) durumunu gösterir; 'Run' o ajanın rolüne uygun gerçek bir görev çalıştırır.",
+        "Tasks (Görevler): Bir öneri veya Director/playbook çıktısı 'Göreve Dönüştür' ile gerçek bir agency_tasks kaydına dönüştürüldüğünde burada listelenir (ai_generated=true).",
+        "Automations (Otomasyonlar): Belirli sıklıkta (günlük/haftalık/aylık) otomatik çalışacak bir agent görevi tanımlanır; gerçek bir Vercel cron (her gün 06:20 UTC) vadesi gelen görevleri otomatik çalıştırır. Bir otomasyonu durdurmak için 'Duraklat' kullanılır.",
+        "Approvals (Onaylar): Onay/yürütme birbirinden ayrıdır — 'internal_write' (örn. görev oluşturma) onaylandığında gerçekten uygulanır; reklam bütçesi değiştirme, içerik yayınlama veya müşteriye mesaj gönderme gibi 'external_write' önerileri onaylansa bile otomatik yürütülmez, durumu 'execution_unavailable' (yürütme kullanılamıyor) olarak işaretlenir ve ilgili işlem manuel/ilgili modülden yapılmalıdır.",
+        "Reports/Memory/Activity/AI Cost: Reports mevcut Rapor Merkezi kayıtlarını, Memory ajans/müşteri hafızasını, Activity gerçek olay günlüğünü, AI Cost ise sağlayıcı çıktı boyutuna göre hesaplanan tahmini maliyeti (gerçek faturalama değil) gösterir.",
+        "Integrations (Entegrasyonlar): Yalnızca AI sağlayıcılarının (OpenAI/Anthropic/Gemini/Groq vb.) durumunu gösterir; Meta/Google/GA4 reklam hesabı bağlantı durumu HK Admin > Entegrasyonlar ekranındadır, burada tekrarlanmaz."
+      ],
+      example: "ÖRNEK (gerçek müşteri sonucu değildir, yalnızca akışı gösterir): Control Center > Hazır İş Akışları'ndan 'Müşteri 30 Günlük Performans Değerlendirmesi' seçilir, müşteri ve dönem (son 30 gün) seçilip Başlat'a basılır. Sonuç panelinde önce hangi verinin kullanıldığı (marka brifi var/yok, Meta reklam verisi var/yok ve tarih aralığı) gösterilir, ardından yönetici özeti, bulgular, öncelikli aksiyonlar ve eksik veri notu görünür. Uygun bulunan bir aksiyon 'Göreve Dönüştür' ile gerçek bir ajans görevine çevrilebilir.",
+      commonErrors: [
+        "Eksik veri: Müşterinin Hazırlık notu veya bağlı reklam hesabı yoksa AI Workforce ilgili alanı 'kayıtlı değil / veri yok' olarak gösterir — bu bir hata değildir, gerçek veri eksikliğidir; önce Hazırlık ekranı veya Entegrasyonlar'dan tamamlanmalıdır.",
+        "Bağlantı yok: /ai-workforce'a erişilemiyorsa veya sürekli giriş sayfasına dönüyorsa 'ai-workforce' modül yetkisi eksik olabilir; Kullanıcı Yönetimi'nden kontrol edilmelidir.",
+        "Yetki yok: Bir sekme veya kısayol görünmüyorsa bu genelde ilgili modül yetkisinin kapalı olduğu anlamına gelir, teknik hata değildir.",
+        "Onaylandı ama uygulanmadı sanmak: External write (reklam/bütçe/mesaj) önerileri onaylansa bile sistem dışında bir işlem otomatik yürütülmez; 'execution_unavailable' durumundaki bir onay için ilgili işlem hâlâ ilgili modülden manuel yapılmalıdır."
+      ],
+      tips: [
+        "Sekiz hazır iş akışı (Günlük Ajans Özeti, Müşteri 30 Günlük Performans Değerlendirmesi, Sosyal Medya Stratejisi, Aylık İçerik Planı, Reklam Performansı ve Test Planı, SEO ve İçerik Fırsatları, Müşteri Toplantısı Hazırlığı, Haftalık Operasyon ve Risk Değerlendirmesi) serbest komut yazmadan tutarlı, gözden geçirilmiş bir başlangıç sağlar.",
+        "Sonuçtaki 'Gerçek veri / Hesaplanan metrik / Varsayım / Öneri' etiketlerine dikkat edin; müşteriye iletmeden önce özellikle 'Öneri' ve 'Varsayım' olarak işaretlenen kısımları gözden geçirin.",
+        "Aynı görevi art arda birden fazla kez çalıştırmak her seferinde yeni bir gerçek AI çağrısı ve maliyet demektir; sonucu incelemeden tekrar tekrar çalıştırmayın."
+      ],
+      warnings: [
+        "AI Workforce hiçbir zaman gerçek bir reklamı yayına almaz, bütçe değiştirmez, içerik yayınlamaz veya müşteriye otomatik mesaj göndermez — bunların hepsi taslak/öneri olarak kalır ve mevcut onay/ilgili modül akışı üzerinden yürütülür.",
+        "AI Cost sekmesindeki tutarlar tahmini değerdir; gerçek faturalama için sağlayıcı hesabı fatura panelleri kontrol edilmelidir.",
+        "Bu sistemde kalıcı bir AI yanıt önbelleği (cache) yoktur; her çalıştırma gerçek bir sağlayıcı çağrısıdır. Tekrarlanan tıklamaya karşı yalnızca arayüzdeki buton, işlem sürerken devre dışı kalır."
+      ]
+    }
+  },
+  {
+    slug: "ai-workforce-hazir-akislar",
+    title: "AI Workforce Hazır İş Akışları ve Örnek Komutlar",
+    category: "İçerik ve AI",
+    description: "8 hazır iş akışının ne zaman kullanılacağı, gereken seçimler ve örnek kullanım senaryoları.",
+    route: "/ai-workforce",
+    content: {
+      purpose: "Control Center > Hazır İş Akışları bölümündeki 8 kart, ajans operasyonunda sık tekrarlanan görevler için önceden hazırlanmış, üç perspektiften (dijital pazarlama uzmanı, sosyal medya stratejisti, ajans sahibi) birine dayanan komutlardır. Serbest metin yazmak yerine bu kartlardan biri seçilip gerekiyorsa müşteri/dönem seçilerek başlatılır.",
+      whenToUse: "Sık tekrarlanan bir ihtiyaç (günlük özet, aylık içerik planı, reklam test planı vb.) için hızlıca, tutarlı bir yapıda sonuç almak istendiğinde.",
+      steps: [
+        "Günlük Ajans Özeti (Ajans Sahibi) — müşteri/dönem gerektirmez; bugünün öncelik, risk ve karar bekleyen konularını özetler.",
+        "Müşteri 30 Günlük Performans Değerlendirmesi (Dijital Pazarlama Uzmanı) — müşteri ve dönem seçimi gerektirir; gerçek Meta reklam verisi varsa CTR/CPC/CPL hesaplar, yoksa 'veri yok' der.",
+        "Sosyal Medya Stratejisi (Sosyal Medya Stratejisti) — müşteri seçimi gerektirir; hedef kitle, marka dili, içerik sütunları ve kanal yaklaşımı önerir.",
+        "Aylık İçerik Planı (Sosyal Medya Stratejisti) — müşteri ve dönem gerektirir; format, açılış fikri, metin yönü ve CTA önerileriyle taslak bir içerik takvimi üretir (yayın onayı gerektirir).",
+        "Reklam Performansı ve Test Planı (Dijital Pazarlama Uzmanı) — müşteri ve dönem gerektirir; mevcut reklam verisini değerlendirip kreatif/hedefleme test planı önerir.",
+        "SEO ve İçerik Fırsatları (Dijital Pazarlama Uzmanı) — müşteri seçimi gerektirir; teknik SEO ve içerik fırsatlarını ayrı listeler.",
+        "Müşteri Toplantısı Hazırlığı (Ajans Sahibi) — müşteri seçimi gerektirir; performans özeti, açık konular ve toplantı gündemi hazırlar.",
+        "Haftalık Operasyon ve Risk Değerlendirmesi (Ajans Sahibi) — müşteri/dönem gerektirmez; iş yükü, müşteri sağlığı ve kaynak planlaması açısından haftalık değerlendirme yapar.",
+        "Her iş akışının sonucu aynı yapıdadır: kısa yönetici özeti, bulgular (gerçek veri/hesaplanan/varsayım/öneri ayrımıyla), öncelikli aksiyonlar, her aksiyon için gerekçe/beklenen etki/efor, sorumlu rol+önerilen tarih+başarı ölçütü ve eksik veri/takip adımı."
+      ],
+      example: "ÖRNEK 1 (yalnızca gösterim amaçlıdır, gerçek müşteri sonucu değildir) — Yeni müşteri için 30 günlük başlangıç planı: Önce müşteri Hazırlık notuna kısa bir marka/hedef kitle bilgisi girilir, ardından 'Müşteri 30 Günlük Performans Değerlendirmesi' veya 'Sosyal Medya Stratejisi' başlatılır; reklam hesabı henüz bağlı değilse sonuç bunu 'veri yok' olarak belirtir ve önce entegrasyon/veri toplamayı önerir.\nÖRNEK 2 — Sosyal medya içerik takvimi hazırlama: Müşteri seçilip 'Aylık İçerik Planı' başlatılır; çıktı format/CTA önerileriyle bir taslaktır, yayınlamadan önce ekip tarafından gözden geçirilmelidir.\nÖRNEK 3 — Reklam performansını değerlendirme: Müşteri ve dönem seçilip 'Reklam Performansı ve Test Planı' başlatılır; gerçek Meta verisi varsa hesaplanan CTR/CPC/CPL ile birlikte test önerileri gelir.\nÖRNEK 4 — Haftalık ajans toplantısına hazırlanma: 'Haftalık Operasyon ve Risk Değerlendirmesi' (ajans geneli) ve ilgili müşteriler için 'Müşteri Toplantısı Hazırlığı' birlikte çalıştırılıp toplantı gündemine dönüştürülebilir.",
+      commonErrors: [
+        "Müşteri seçmeden müşteri-bazlı bir iş akışını başlatmaya çalışmak — sistem bu durumda net bir uyarı gösterir ve çalıştırmaz.",
+        "Taslak çıktıyı (özellikle Aylık İçerik Planı ve Sosyal Medya Stratejisi) gözden geçirmeden doğrudan yayınlamak veya müşteriye iletmek."
+      ],
+      tips: ["Bir sonucu beğendiyseniz 'Göreve Dönüştür' ile gerçek bir ajans görevine çevirip takip edilebilir hale getirin."],
+      warnings: ["Örnek senaryolardaki metinler yalnızca akışı göstermek içindir; gerçek bir müşteri için üretilmiş sonuç değildir."]
+    }
+  },
+  {
     slug: "finans-merkezi-rehberi",
     title: "Finans Merkezi Nasıl Kullanılır?",
     category: "Finans",

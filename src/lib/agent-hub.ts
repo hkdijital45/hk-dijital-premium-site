@@ -1,6 +1,7 @@
 import { runRealAgentProvider } from "@/lib/agent-providers";
 import { agentTaskToIntelligenceTask, providerOrderForTask } from "@/lib/ai-task-routing";
 import { hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
+import { loadCustomerContext } from "@/lib/customer-context";
 
 export type AgentProviderKey = "openai" | "anthropic" | "gemini" | "groq" | "manus" | "openrouter" | "ollama" | "demo";
 
@@ -52,6 +53,10 @@ export type AgentRunInput = {
   createdBy?: string | null;
   parentRunId?: string | null;
   retryCount?: number;
+  // Meta reklam performansı bağlamının bakacağı gün sayısı (varsayılan 30) —
+  // yalnızca customerId set edildiğinde ve gerçek müşteri bağlamı
+  // yüklendiğinde kullanılır (bkz. loadCustomerContext).
+  periodDays?: number;
 };
 
 export type AgentFinalReport = {
@@ -544,7 +549,7 @@ async function saveMemoryFromReport(input: AgentRunInput, runId: string, finalRe
   }).catch(() => null);
 }
 
-function buildSystemPrompt(provider: AgentProvider, input: AgentRunInput, memories: AgentMemoryRow[], rules: AgentTrainingRuleRow[]) {
+function buildSystemPrompt(provider: AgentProvider, input: AgentRunInput, memories: AgentMemoryRow[], rules: AgentTrainingRuleRow[], customerContextBlock?: string | null) {
   const memoryContext = memories.length
     ? `\nGeçmiş müşteri bağlamı:\n${memories.map((item) => `- ${item.title}: ${item.content}`).join("\n").slice(0, 4000)}`
     : "";
@@ -555,23 +560,25 @@ function buildSystemPrompt(provider: AgentProvider, input: AgentRunInput, memori
     "Yanıtı tamamen Türkçe ver.",
     "Teknik terim kullanırsan parantez içinde kısa açıklamasını yaz.",
     "Satış garantisi verme; riskleri saklama, ölçülü anlat.",
+    "Bulgularını 'Gerçek veri', 'Hesaplanan metrik', 'Varsayım' ve 'Öneri' olarak ayırt edilebilir şekilde sun; elinde olmayan bir veriyi asla uydurma, eksikse açıkça 'Eksik veri' de.",
     `Sağlayıcı rolü: ${provider.role_label || provider.provider_name}`,
     `Görev tipi: ${agentTaskLabels[input.taskType]}`,
     `Öncelik: ${input.priority || "normal"}`,
     `Çıktı formatı: ${input.outputFormat || "aksiyon planı"}`,
     provider.provider_key === "manus" ? "Derin araştırma akışı: görevi doğrula, veri kaynaklarını ve sınırlarını belirt, araştırma sinyallerini analiz et, önerileri gerekçelendir ve canlı kaynağa erişmediysen canlı araştırma yapıldığını iddia etme." : "",
     memoryContext,
-    ruleContext
+    ruleContext,
+    customerContextBlock ? `\n${customerContextBlock}` : ""
   ].join("\n");
 }
 
-async function runProvider(provider: AgentProvider, input: AgentRunInput, memories: AgentMemoryRow[], rules: AgentTrainingRuleRow[]) {
+async function runProvider(provider: AgentProvider, input: AgentRunInput, memories: AgentMemoryRow[], rules: AgentTrainingRuleRow[], customerContextBlock?: string | null) {
   const fallbackPayload = buildAgentFallback(input, provider);
   const result = await runRealAgentProvider({
     provider: provider.provider_key,
     taskType: input.taskType,
     model: provider.default_model,
-    systemPrompt: buildSystemPrompt(provider, input, memories, rules),
+    systemPrompt: buildSystemPrompt(provider, input, memories, rules, customerContextBlock),
     prompt: input.prompt,
     timeoutMs: provider.provider_key === "manus" ? 50000 : 24000
   });
@@ -662,6 +669,8 @@ export async function runAgentTask(input: AgentRunInput) {
   const providers = await getAgentProviders();
   const memories = await loadAgentMemories(input.customerId);
   const trainingRules = await loadTrainingRules();
+  const customerContext = input.customerId ? await loadCustomerContext(input.customerId, input.periodDays).catch(() => null) : null;
+  const customerContextBlock = customerContext?.contextBlock || null;
   const manualManusWarning = input.requestedProvider === "manus" && !shouldUseManus(input.taskType, input.prompt)
     ? "Manus bu görev için ideal değildir. Auto Router OpenAI/Gemini/Claude önerir."
     : null;
@@ -686,12 +695,12 @@ export async function runAgentTask(input: AgentRunInput) {
     const [firstProvider, ...parallelProviders] = chainProviders;
     if (firstProvider?.provider_key === "manus") {
       progressEvents.push(progressEvent(`${firstProvider.provider_name} derin araştırma yapıyor`, 35, firstProvider.provider_key));
-      outputs.push(await runProvider(firstProvider, input, memories, trainingRules));
+      outputs.push(await runProvider(firstProvider, input, memories, trainingRules, customerContextBlock));
     } else if (firstProvider) {
       parallelProviders.unshift(firstProvider);
     }
     progressEvents.push(progressEvent("Bağımsız sağlayıcılar paralel çalışıyor", 55));
-    const settled = await Promise.allSettled(parallelProviders.map((provider) => runProvider(provider, input, memories, trainingRules)));
+    const settled = await Promise.allSettled(parallelProviders.map((provider) => runProvider(provider, input, memories, trainingRules, customerContextBlock)));
     outputs = [
       ...outputs,
       ...settled.map((result, index) => result.status === "fulfilled"
@@ -708,7 +717,7 @@ export async function runAgentTask(input: AgentRunInput) {
     for (const [index, provider] of chainProviders.entries()) {
       attemptedProviders.push(provider);
       progressEvents.push(progressEvent(`${provider.provider_name} çalışıyor`, 35 + index * 15, provider.provider_key));
-      const output = await runProvider(provider, input, memories, trainingRules);
+      const output = await runProvider(provider, input, memories, trainingRules, customerContextBlock);
       if (!output.usedFallback || provider.provider_key === "demo") {
         outputs = [{ ...output, usedFallback: output.usedFallback || index > 0 }];
         break;
@@ -793,7 +802,8 @@ export async function runAgentTask(input: AgentRunInput) {
     finalReport,
     routerDecision,
     selectedProviderLabel: providerDisplayName(selectedProvider.provider_key),
-    progressEvents
+    progressEvents,
+    customerContextSummary: customerContext?.summary || null
   };
 }
 

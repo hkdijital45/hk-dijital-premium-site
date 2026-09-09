@@ -1,10 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  aggregateCostByKey, buildDirectorPrompt, classifyExecutionStatus, computeNextRunAt,
+  aggregateCostByKey, aiWorkforcePlaybooks, buildDirectorPrompt, classifyExecutionStatus, computeNextRunAt,
   isAiWorkforceHost, mapAgentKeyToTaskType, normalizePreferredProvider, resolveAiWorkforceHostPathname,
   rewriteAiWorkforcePath, sumEstimatedCost
 } from "../../src/lib/ai-workforce-schema.ts";
+import { getAdminHref } from "../../src/lib/admin-navigation.ts";
 
 test("mapAgentKeyToTaskType: known hk_virtual_agents keys map to a real AgentTaskType", () => {
   assert.equal(mapAgentKeyToTaskType("seo_specialist"), "seo_analysis");
@@ -161,4 +162,44 @@ test("AI host aliases only exact product section segments", () => {
 test("configured private login takes priority over a product alias", () => {
   assert.equal(resolveAiWorkforceHostPathname("/agents", false, "agents"), "/agents");
   assert.equal(resolveAiWorkforceHostPathname("/agents", true, "/agents"), "/agents");
+});
+
+test("getAdminHref: AI Workforce resolves to the standalone top-level route, not /hk-admin/ai-workforce", () => {
+  assert.equal(getAdminHref("ai-workforce"), "/ai-workforce");
+});
+
+test("aiWorkforcePlaybooks: exactly the 8 required ready-made workflows are defined", () => {
+  const keys = Object.keys(aiWorkforcePlaybooks).sort();
+  assert.deepEqual(keys, [
+    "ad_performance_test_plan", "customer_30d_review", "customer_meeting_prep", "daily_agency_summary",
+    "monthly_content_plan", "seo_content_opportunities", "social_media_strategy", "weekly_ops_risk_review"
+  ]);
+});
+
+test("aiWorkforcePlaybooks: customer-scoped workflows require a customer, agency-wide ones don't", () => {
+  assert.equal(aiWorkforcePlaybooks.customer_30d_review.requiresCustomer, true);
+  assert.equal(aiWorkforcePlaybooks.social_media_strategy.requiresCustomer, true);
+  assert.equal(aiWorkforcePlaybooks.daily_agency_summary.requiresCustomer, false);
+  assert.equal(aiWorkforcePlaybooks.weekly_ops_risk_review.requiresCustomer, false);
+});
+
+test("aiWorkforcePlaybooks: every generated prompt embeds the mandated report structure and forbids presenting expected impact as guaranteed", () => {
+  for (const playbook of Object.values(aiWorkforcePlaybooks)) {
+    const prompt = playbook.buildPrompt({ customerName: "Test Müşteri A.Ş.", periodLabel: "son 30 gün" });
+    assert.match(prompt, /Kısa yönetici özeti/);
+    assert.match(prompt, /Eksik veri/);
+    assert.match(prompt, /Gerçek veri.*Hesaplanan metrik.*Varsayım/);
+    assert.match(prompt, /asla garanti edilmiş bir sonuç gibi sunma/);
+  }
+});
+
+test("aiWorkforcePlaybooks: a customer-scoped prompt actually mentions the given customer name, not a generic placeholder", () => {
+  const prompt = aiWorkforcePlaybooks.customer_30d_review.buildPrompt({ customerName: "Test Müşteri A.Ş.", periodLabel: "son 30 gün" });
+  assert.match(prompt, /Test Müşteri A\.Ş\./);
+  assert.match(prompt, /son 30 gün/);
+});
+
+test("aiWorkforcePlaybooks: an agency-wide prompt still renders sensibly without a customer name", () => {
+  const prompt = aiWorkforcePlaybooks.daily_agency_summary.buildPrompt({});
+  assert.match(prompt, /ajans/i);
 });

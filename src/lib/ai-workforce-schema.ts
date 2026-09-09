@@ -110,6 +110,138 @@ export const sendToTeamActionPresets: Record<SendToTeamActionKey, { label: strin
   }
 };
 
+// Her hazır iş akışı çıktısını aynı, karşılaştırılabilir yapıya zorlar —
+// yönetici özeti, gerçek veriye dayanan bulgular, önceliklendirilmiş
+// aksiyonlar, gerekçe/etki/efor, sorumlu+tarih+başarı ölçütü ve son olarak
+// eksik veri/takip adımı. Genel tavsiye listesiyle sonuçlanmasını önlemek
+// için bu yapı serbest metin talimatına gömülür (ayrı bir zorunlu şema
+// eklemek AgentFinalReport'u kırar; bunun yerine model bu yapıyı
+// executiveSummary/findings/recommendedActions alanlarına yansıtır).
+const PLAYBOOK_OUTPUT_STRUCTURE = [
+  "Çıktını şu sırayla yapılandır:",
+  "1) Kısa yönetici özeti (3-4 cümle).",
+  "2) Bulgular ve dayandığı veriler — her bulgu için 'Gerçek veri', 'Hesaplanan metrik', 'Varsayım' veya 'Öneri' etiketlerinden uygun olanını belirt.",
+  "3) Öncelikli aksiyonlar (en fazla 5, önem sırasına göre).",
+  "4) Her aksiyon için kısa gerekçe, beklenen etki ve gereken efor (düşük/orta/yüksek).",
+  "5) Her aksiyon için önerilen sorumlu rol, önerilen teslim tarihi (gün sayısı olarak, örn. '3 iş günü içinde') ve başarı ölçütü.",
+  "6) Eksik veri ve bu eksikliği kapatmak için somut takip adımı.",
+  "Beklenen etkiyi asla garanti edilmiş bir sonuç gibi sunma; 'beklenen', 'tahmini' gibi ifadeler kullan."
+].join(" ");
+
+export type AiWorkforcePlaybookKey =
+  | "daily_agency_summary"
+  | "customer_30d_review"
+  | "social_media_strategy"
+  | "monthly_content_plan"
+  | "ad_performance_test_plan"
+  | "seo_content_opportunities"
+  | "customer_meeting_prep"
+  | "weekly_ops_risk_review";
+
+export type AiWorkforcePlaybookContext = { customerName?: string | null; periodLabel?: string | null };
+
+export type AiWorkforcePlaybook = {
+  label: string;
+  description: string;
+  perspective: "Dijital Pazarlama Uzmanı" | "Sosyal Medya Stratejisti" | "Ajans Sahibi";
+  taskType: AgentTaskType;
+  requiresCustomer: boolean;
+  requiresPeriod: boolean;
+  multiAgent?: boolean;
+  buildPrompt: (context: AiWorkforcePlaybookContext) => string;
+};
+
+// 8 hazır iş akışı — her biri agency günlük operasyonunda gerçekten
+// tekrarlanan bir işe karşılık gelir ve üç perspektiften birine (dijital
+// pazarlama uzmanı / sosyal medya stratejisti / ajans sahibi) açıkça
+// yaslanır. Hepsini birden çalıştırmak yerine göreve uygun taskType tek bir
+// uzman zincirini (bkz. agent-hub.ts provider chain) tetikler.
+export const aiWorkforcePlaybooks: Record<AiWorkforcePlaybookKey, AiWorkforcePlaybook> = {
+  daily_agency_summary: {
+    label: "Günlük Ajans Özeti",
+    description: "Ajans genelinde bugünün öncelikleri, riskleri ve karar bekleyen konuları özetler.",
+    perspective: "Ajans Sahibi",
+    taskType: "workflow_task",
+    requiresCustomer: false,
+    requiresPeriod: false,
+    multiAgent: true,
+    buildPrompt: () =>
+      `Bir ajans sahibi perspektifiyle bugünün günlük ajans özetini hazırla: öncelikli işler, müdahale gerektiren müşteriler, onay bekleyen konular, devam eden/başarısız görevler ve dikkat edilmesi gereken riskler. ${PLAYBOOK_OUTPUT_STRUCTURE}`
+  },
+  customer_30d_review: {
+    label: "Müşteri 30 Günlük Performans Değerlendirmesi",
+    description: "Seçili müşterinin son dönem reklam ve genel performansını gerçek verilerle değerlendirir.",
+    perspective: "Dijital Pazarlama Uzmanı",
+    taskType: "customer_report",
+    requiresCustomer: true,
+    requiresPeriod: true,
+    buildPrompt: ({ customerName, periodLabel }) =>
+      `Bir dijital pazarlama uzmanı perspektifiyle ${customerName || "seçili müşteri"} için ${periodLabel || "son 30 gün"} performans değerlendirmesi hazırla: hedef/dönüşüm ölçümü, funnel ve kanal dağılımı, reklam performansı ve bütçe verimliliği açısından güçlü/zayıf noktaları, ölçülebilir sonuçları ve bütçe önerisini özetle. ${PLAYBOOK_OUTPUT_STRUCTURE}`
+  },
+  social_media_strategy: {
+    label: "Sosyal Medya Stratejisi",
+    description: "Hedef kitle, marka dili, içerik sütunları ve kanal yaklaşımını içeren strateji taslağı üretir.",
+    perspective: "Sosyal Medya Stratejisti",
+    taskType: "content_generation",
+    requiresCustomer: true,
+    requiresPeriod: false,
+    buildPrompt: ({ customerName }) =>
+      `Bir sosyal medya stratejisti perspektifiyle ${customerName || "seçili müşteri"} için sosyal medya stratejisi taslağı hazırla: hedef kitle, marka dili, içerik sütunları (pillar) ve kanal bazlı yaklaşım öner. Müşteri hazırlık notunda marka/hedef kitle bilgisi yoksa bunu varsayım yerine eksik veri olarak belirt. ${PLAYBOOK_OUTPUT_STRUCTURE}`
+  },
+  monthly_content_plan: {
+    label: "Aylık İçerik Planı",
+    description: "Format, açılış fikri, metin ve CTA önerileriyle bir aylık içerik takvimi taslağı oluşturur.",
+    perspective: "Sosyal Medya Stratejisti",
+    taskType: "content_generation",
+    requiresCustomer: true,
+    requiresPeriod: true,
+    buildPrompt: ({ customerName, periodLabel }) =>
+      `Bir sosyal medya stratejisti perspektifiyle ${customerName || "seçili müşteri"} için ${periodLabel || "önümüzdeki ay"} kapsayan içerik planı taslağı hazırla: her içerik için format, açılış fikri, kısa metin yönü ve CTA öner; bunun bir taslak olduğunu ve yayın onayı gerektirdiğini belirt. ${PLAYBOOK_OUTPUT_STRUCTURE}`
+  },
+  ad_performance_test_plan: {
+    label: "Reklam Performansı ve Test Planı",
+    description: "Mevcut reklam verisini değerlendirir ve kreatif/hedefleme test planı önerir.",
+    perspective: "Dijital Pazarlama Uzmanı",
+    taskType: "ad_analysis",
+    requiresCustomer: true,
+    requiresPeriod: true,
+    buildPrompt: ({ customerName, periodLabel }) =>
+      `Bir dijital pazarlama uzmanı perspektifiyle ${customerName || "seçili müşteri"} için ${periodLabel || "son 30 gün"} reklam performansını değerlendir ve kreatif testi, hedefleme testi ve landing page iyileştirmesi içeren bir test planı öner. Reklam hesabı bağlı değilse veya veri yoksa bunu açıkça belirt, tahmini rakam üretme. ${PLAYBOOK_OUTPUT_STRUCTURE}`
+  },
+  seo_content_opportunities: {
+    label: "SEO ve İçerik Fırsatları",
+    description: "Teknik SEO ve içerik/organik büyüme fırsatlarını ayrı listeler.",
+    perspective: "Dijital Pazarlama Uzmanı",
+    taskType: "seo_analysis",
+    requiresCustomer: true,
+    requiresPeriod: false,
+    buildPrompt: ({ customerName }) =>
+      `Bir dijital pazarlama uzmanı perspektifiyle ${customerName || "seçili müşteri"} için SEO ve içerik/organik büyüme fırsatlarını belirle; teknik SEO önerileri ile içerik önerilerini ayrı başlıklar altında listele. ${PLAYBOOK_OUTPUT_STRUCTURE}`
+  },
+  customer_meeting_prep: {
+    label: "Müşteri Toplantısı Hazırlığı",
+    description: "Müşteriyle yapılacak toplantı için özet, gündem ve konuşulacak konuları hazırlar.",
+    perspective: "Ajans Sahibi",
+    taskType: "workflow_task",
+    requiresCustomer: true,
+    requiresPeriod: false,
+    multiAgent: true,
+    buildPrompt: ({ customerName }) =>
+      `Bir ajans sahibi perspektifiyle ${customerName || "seçili müşteri"} ile yapılacak toplantı için hazırlık özeti oluştur: son dönem performans özeti, açık konular/riskler, önerilecek yeni aksiyonlar ve toplantı gündemi maddeleri. ${PLAYBOOK_OUTPUT_STRUCTURE}`
+  },
+  weekly_ops_risk_review: {
+    label: "Haftalık Operasyon ve Risk Değerlendirmesi",
+    description: "Ajans genelinde operasyonel riskleri, kapsam sorunlarını ve hizmet fırsatlarını değerlendirir.",
+    perspective: "Ajans Sahibi",
+    taskType: "workflow_task",
+    requiresCustomer: false,
+    requiresPeriod: false,
+    multiAgent: true,
+    buildPrompt: () =>
+      `Bir ajans sahibi perspektifiyle bu haftaki operasyonel riskleri, iş yükü dağılımını, müşteri sağlığı ve kapsam/hizmet fırsatlarını değerlendir; kaynak planlaması açısından dikkat edilmesi gerekenleri belirt. ${PLAYBOOK_OUTPUT_STRUCTURE}`
+  }
+};
+
 // Host-based routing for ai.hkdijital.com.tr — kept pure/exported so the
 // exact-match rule (not a startsWith, to avoid e.g. "aiden.hkdijital.com.tr"
 // false-positives) is unit-testable without spinning up middleware/Next.

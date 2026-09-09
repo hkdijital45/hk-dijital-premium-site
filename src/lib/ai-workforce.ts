@@ -91,6 +91,7 @@ export async function getOverviewSnapshot() {
       costToday: 0,
       costMonth: 0,
       accountsNeedingAttention: 0,
+      accountsNeedingAttentionList: [] as Array<{ id: string; name: string }>,
       recentActivity: [] as unknown[]
     };
   }
@@ -110,6 +111,11 @@ export async function getOverviewSnapshot() {
     supabaseRest<unknown[]>("ai_activity_log?select=*&order=created_at.desc&limit=15").catch(() => [])
   ]);
 
+  const atRiskCompanyIds = [...new Set(risks.map((risk) => risk.company_id).filter((id): id is string => Boolean(id)))].slice(0, 8);
+  const atRiskCompanies = atRiskCompanyIds.length
+    ? await supabaseRest<{ id: string; name?: string | null }[]>(`companies?id=in.(${atRiskCompanyIds.map(encodeURIComponent).join(",")})&select=id,name`).catch(() => [])
+    : [];
+
   return {
     configured: true,
     activeAgents: agents.filter((agent) => agent.status === "ready" || agent.status === "active").length,
@@ -121,7 +127,8 @@ export async function getOverviewSnapshot() {
     failedRecent: recentFailed.length,
     costToday: sumEstimatedCost(runsToday),
     costMonth: sumEstimatedCost(runsMonth),
-    accountsNeedingAttention: new Set(risks.map((risk) => risk.company_id).filter(Boolean)).size,
+    accountsNeedingAttention: atRiskCompanyIds.length,
+    accountsNeedingAttentionList: atRiskCompanies.map((company) => ({ id: company.id, name: company.name || "İsimsiz müşteri" })),
     recentActivity
   };
 }
@@ -196,6 +203,7 @@ export async function runDirectorCommand(options: {
   multiAgent?: boolean;
   createdBy?: string | null;
   eventType?: string;
+  periodDays?: number;
 }) {
   // AI_WORKFORCE_DIRECTOR_PROVIDER is an optional override (unset by default,
   // in which case the existing auto-routing priority list decides) — never a
@@ -208,7 +216,8 @@ export async function runDirectorCommand(options: {
     requestedProvider: options.requestedProvider || directorDefault,
     prompt: options.prompt,
     multiAgent: options.multiAgent,
-    createdBy: options.createdBy || null
+    createdBy: options.createdBy || null,
+    periodDays: options.periodDays
   });
 
   await logAiWorkforceActivity({

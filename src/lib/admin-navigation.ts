@@ -89,6 +89,7 @@ const adminNavigationSourceGroups: AdminNavigationGroup[] = [
     badge: "YZ",
     accent: "from-blue-500 via-indigo-500 to-violet-600",
     items: [
+      { label: "AI Workforce", slug: "ai-workforce", module: "ai-workforce", description: "Ajans genelinde AI ajanlarını, hazır iş akışlarını, onaylarını ve maliyetini tek yerden yönet." },
       { label: "Agent Hub", slug: "agent-hub", module: "agent-hub", description: "Agent, workflow, hafıza, öğrenme, benchmark ve sağlayıcı yönetimi." },
       { label: "Yapay Zekâ Stüdyosu", slug: "ai-studio", module: "ai-studio", description: "İçerik, analiz ve rapor üretim araçları." },
       { label: "Prompt Merkezi", slug: "prompt-uretimi", module: "prompt-kutuphanesi", description: "Tekrar kullanılabilir yapay zekâ komutları." },
@@ -459,6 +460,10 @@ export function getCanonicalAdminSlug(slug = "") {
 
 export function getAdminHref(slug: string) {
   if (slug === "proposal-builder") return "/proposal-builder";
+  // AI Workforce is a standalone product outside /hk-admin/* (its own shell,
+  // no shared mega-nav — see AIWorkforceApp.tsx) and is also reachable at
+  // ai.hkdijital.com.tr, so it needs a real top-level route, not /hk-admin/ai-workforce.
+  if (slug === "ai-workforce") return "/ai-workforce";
   return slug ? `/hk-admin/${slug}` : "/hk-admin";
 }
 

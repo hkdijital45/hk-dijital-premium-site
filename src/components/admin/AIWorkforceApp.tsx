@@ -4,8 +4,8 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  AlertTriangle, Bot, Brain, CheckCircle2, Clock, Coins, DollarSign,
-  Plug, Send, ShieldCheck, Sparkles, Users, Zap
+  AlertTriangle, BookOpenText, Bot, Brain, CheckCircle2, ClipboardList, Clock, Coins, DollarSign,
+  Plug, ShieldCheck, Sparkles, Zap
 } from "lucide-react";
 import { AdminButton } from "./ui/AdminButton";
 import { AdminKpiCard } from "./ui/AdminKpiCard";
@@ -13,6 +13,7 @@ import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "./ui/AdminE
 import { AdminStatusBadge, type AdminStatusTone } from "./ui/AdminStatusBadge";
 import { AdminTabs } from "./ui/AdminTabs";
 import { AdminPageHeader, AdminSection } from "./ui/AdminPageHeader";
+import { aiWorkforcePlaybooks, type AiWorkforcePlaybookKey } from "@/lib/ai-workforce-schema";
 
 const SECTIONS = [
   "Control Center (Kontrol Merkezi)",
@@ -58,34 +59,186 @@ function statusTone(status?: string | null): AdminStatusTone {
   return "info";
 }
 
+type AgentReport = { executiveSummary: string; findings: string[]; risks: string[]; recommendedActions: string[] };
+type CustomerContextSummary = {
+  companyId: string;
+  companyName: string | null;
+  hasBrief: boolean;
+  hasMetaPerformance: boolean;
+  metaDateRange: { from: string; to: string } | null;
+  reportCount: number;
+  asOf: string;
+  missingFields: string[];
+} | null;
+
+function useCompanies() {
+  const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    api<{ companies: { id: string; name: string }[] }>("/api/ai-workforce/companies")
+      .then((res) => setCompanies(res.companies || []))
+      .catch(() => setCompanies([]));
+  }, []);
+  return companies;
+}
+
+// Director sekmesi ve Hazır İş Akışları aynı rapor formatını (AgentFinalReport)
+// ürettiği için tek bir görünüm bileşeni paylaşılır — kopyala/yapıştır yerine.
+// customerContextSummary görüldüğünde gerçekten hangi müşteri verisinin
+// kullanıldığını (veya eksik olduğunu) şeffaf şekilde gösterir.
+function AgentReportView({ report, customerContextSummary, companyId, onTaskCreated }: {
+  report: AgentReport;
+  customerContextSummary?: CustomerContextSummary;
+  companyId?: string | null;
+  onTaskCreated?: () => void;
+}) {
+  const [creatingTask, setCreatingTask] = useState(false);
+  const [taskCreated, setTaskCreated] = useState(false);
+
+  const convertToTask = async () => {
+    setCreatingTask(true);
+    try {
+      await api("/api/ai-workforce/tasks", {
+        method: "POST",
+        body: JSON.stringify({
+          title: report.executiveSummary.slice(0, 120) || "AI Workforce görevi",
+          description: [report.executiveSummary, "", "Önerilen aksiyonlar:", ...report.recommendedActions.map((item) => `- ${item}`)].join("\n"),
+          companyId: companyId || null
+        })
+      });
+      setTaskCreated(true);
+      onTaskCreated?.();
+    } catch {
+      // Buton kendi başarısız durumunu göstermek için taskCreated false kalır; kullanıcı tekrar deneyebilir.
+    } finally {
+      setCreatingTask(false);
+    }
+  };
+
+  return (
+    <AdminSection title="Sonuç (Draft — Taslak)">
+      {customerContextSummary && (
+        <div className="mb-3 rounded-[10px] border p-3 text-xs" style={{ borderColor: "var(--admin-border)", color: "var(--admin-text-secondary)" }}>
+          <p className="font-black" style={{ color: "var(--admin-text-primary)" }}>Kullanılan veri — {customerContextSummary.companyName || "Müşteri"} ({new Date(customerContextSummary.asOf).toLocaleString("tr-TR")} itibarıyla)</p>
+          <p className="mt-1">
+            Marka/hedef kitle brifi: {customerContextSummary.hasBrief ? "Var (gerçek kayıt)" : "Kayıtlı değil"} ·{" "}
+            Meta reklam verisi: {customerContextSummary.hasMetaPerformance && customerContextSummary.metaDateRange ? `Var (${customerContextSummary.metaDateRange.from} → ${customerContextSummary.metaDateRange.to})` : "Yok"} ·{" "}
+            Geçmiş rapor: {customerContextSummary.reportCount}
+          </p>
+          {customerContextSummary.missingFields.length > 0 && (
+            <p className="mt-1" style={{ color: "var(--admin-warning, #b45309)" }}>Eksik veri: {customerContextSummary.missingFields.join(", ")}</p>
+          )}
+        </div>
+      )}
+      <p className="text-sm leading-6" style={{ color: "var(--admin-text-primary)" }}>{report.executiveSummary}</p>
+      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+        <div><p className="text-xs font-black uppercase" style={{ color: "var(--admin-text-muted)" }}>Findings (Bulgular)</p><ul className="mt-1 list-disc pl-4 text-sm">{report.findings?.map((item) => <li key={item}>{item}</li>)}</ul></div>
+        <div><p className="text-xs font-black uppercase" style={{ color: "var(--admin-text-muted)" }}>Risks (Riskler)</p><ul className="mt-1 list-disc pl-4 text-sm">{report.risks?.map((item) => <li key={item}>{item}</li>)}</ul></div>
+        <div><p className="text-xs font-black uppercase" style={{ color: "var(--admin-text-muted)" }}>Recommended Actions (Önerilen Aksiyonlar)</p><ul className="mt-1 list-disc pl-4 text-sm">{report.recommendedActions?.map((item) => <li key={item}>{item}</li>)}</ul></div>
+      </div>
+      <div className="mt-3">
+        {taskCreated ? (
+          <AdminStatusBadge tone="success">Görev oluşturuldu — Tasks (Görevler) sekmesinde</AdminStatusBadge>
+        ) : (
+          <AdminButton variant="outline" compact icon={<ClipboardList size={14} />} loading={creatingTask} onClick={convertToTask}>Göreve Dönüştür</AdminButton>
+        )}
+      </div>
+    </AdminSection>
+  );
+}
+
+// Hazır İş Akışları — 8 kalıcı playbook kartı (bkz. ai-workforce-schema.ts
+// aiWorkforcePlaybooks). Serbest metin Director komutunun aksine, her kart
+// sabit ve önceden gözden geçirilmiş bir prompt kullanır; kullanıcı yalnızca
+// (gerekiyorsa) müşteri ve dönem seçer.
+function PlaybookLibrary() {
+  const companies = useCompanies();
+  const [companyId, setCompanyId] = useState("");
+  const [periodDays, setPeriodDays] = useState(30);
+  const [runningKey, setRunningKey] = useState<AiWorkforcePlaybookKey | null>(null);
+  const [result, setResult] = useState<{ key: AiWorkforcePlaybookKey; report: AgentReport; customerContextSummary: CustomerContextSummary } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const run = async (key: AiWorkforcePlaybookKey) => {
+    const playbook = aiWorkforcePlaybooks[key];
+    if (playbook.requiresCustomer && !companyId) {
+      setError("Bu iş akışı için önce yukarıdan bir müşteri seçin.");
+      return;
+    }
+    setRunningKey(key);
+    setError(null);
+    setResult(null);
+    try {
+      const companyName = companies.find((company) => company.id === companyId)?.name || null;
+      const res = await api<{ finalReport?: AgentReport; errorMessage?: string | null; customerContextSummary?: CustomerContextSummary }>("/api/ai-workforce/director/command", {
+        method: "POST",
+        body: JSON.stringify({ playbookKey: key, companyId: playbook.requiresCustomer ? companyId : null, customerName: companyName, periodDays: playbook.requiresPeriod ? periodDays : undefined })
+      });
+      if (res.finalReport) setResult({ key, report: res.finalReport, customerContextSummary: res.customerContextSummary || null });
+      if (res.errorMessage) setError(res.errorMessage);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Hata oluştu.");
+    } finally {
+      setRunningKey(null);
+    }
+  };
+
+  return (
+    <AdminSection title="Hazır İş Akışları (Ready-made Workflows)" description="Ajans operasyonunda tekrarlanan 8 görev için hazır, gözden geçirilmiş komutlar. Gerekiyorsa önce müşteri ve dönem seçin.">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <select value={companyId} onChange={(event) => setCompanyId(event.target.value)} className="min-h-10 rounded-[10px] border px-3 text-sm" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+          <option value="">Müşteri seç (bazı iş akışları için zorunlu)</option>
+          {companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
+        </select>
+        <select value={periodDays} onChange={(event) => setPeriodDays(Number(event.target.value))} className="min-h-10 rounded-[10px] border px-3 text-sm" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+          <option value={7}>Son 7 gün</option>
+          <option value={30}>Son 30 gün</option>
+          <option value={90}>Son 90 gün</option>
+        </select>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {(Object.entries(aiWorkforcePlaybooks) as [AiWorkforcePlaybookKey, typeof aiWorkforcePlaybooks[AiWorkforcePlaybookKey]][]).map(([key, playbook]) => (
+          <div key={key} className="rounded-[12px] border p-3" style={{ borderColor: "var(--admin-border)" }}>
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="font-black text-sm" style={{ color: "var(--admin-text-primary)" }}>{playbook.label}</p>
+                <p className="mt-1 text-xs leading-5" style={{ color: "var(--admin-text-secondary)" }}>{playbook.description}</p>
+              </div>
+              <AdminStatusBadge tone="info">{playbook.perspective}</AdminStatusBadge>
+            </div>
+            {playbook.requiresCustomer && <p className="mt-1 text-[11px] font-bold" style={{ color: "var(--admin-text-muted)" }}>Gerekli: Müşteri seçimi</p>}
+            <div className="mt-2">
+              <AdminButton variant="ai" compact icon={<Sparkles size={13} />} loading={runningKey === key} onClick={() => run(key)}>Başlat</AdminButton>
+            </div>
+          </div>
+        ))}
+      </div>
+      {error && <div className="mt-3"><AdminErrorState title="İş akışı çalıştırılamadı" description={error} /></div>}
+      {result && (
+        <div className="mt-4">
+          <p className="mb-2 text-xs font-black uppercase" style={{ color: "var(--admin-text-muted)" }}>{aiWorkforcePlaybooks[result.key].label} — Sonuç</p>
+          <AgentReportView report={result.report} customerContextSummary={result.customerContextSummary} companyId={companyId || null} />
+        </div>
+      )}
+    </AdminSection>
+  );
+}
+
 // 1. Control Center -----------------------------------------------------
+// Bilgi sırası (Kontrol Merkezi tasarım gereği): 1) bugünün öncelikleri,
+// 2) müdahale gerektiren müşteriler, 3) onay bekleyen öneriler, 4) devam
+// eden/başarısız görevler, 5) son raporlar/tamamlanan işler, 6) veri
+// bağlantıları ve maliyet özeti — hepsi getOverviewSnapshot()'ın döndürdüğü
+// gerçek sayılara dayanır; sıfır/yükleniyor/hata/bağlantı-bekliyor durumları
+// AdminLoadingState/AdminErrorState/AdminEmptyState ile ayrı gösterilir.
 function ControlCenter({ active, onNavigate }: { active: boolean; onNavigate: (section: Section) => void }) {
   type Overview = {
     configured: boolean; activeAgents: number; activeAutomations: number; pendingApprovals: number;
     openRecommendations: number; criticalRisks: number; completedToday: number; failedRecent: number;
-    costToday: number; costMonth: number; accountsNeedingAttention: number; recentActivity: { id: string; event_type: string; summary: string; created_at: string }[];
+    costToday: number; costMonth: number; accountsNeedingAttention: number;
+    accountsNeedingAttentionList: { id: string; name: string }[];
+    recentActivity: { id: string; event_type: string; summary: string; created_at: string }[];
   };
   const { loading, error, data } = useSectionData<Overview>("/api/ai-workforce/overview", active);
-  const [command, setCommand] = useState("");
-  const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
-
-  const runCommand = async () => {
-    if (!command.trim()) return;
-    setRunning(true);
-    setResult(null);
-    try {
-      const res = await api<{ finalReport?: { executiveSummary?: string }; status: string }>("/api/ai-workforce/director/command", {
-        method: "POST",
-        body: JSON.stringify({ prompt: command })
-      });
-      setResult(res.finalReport?.executiveSummary || `Görev tamamlandı: ${res.status}`);
-    } catch (err) {
-      setResult(err instanceof Error ? err.message : "Hata oluştu.");
-    } finally {
-      setRunning(false);
-    }
-  };
 
   if (loading) return <AdminLoadingState label="Kontrol Merkezi yükleniyor..." />;
   if (error || !data) return <AdminErrorState description={error || "Veri alınamadı."} />;
@@ -93,33 +246,41 @@ function ControlCenter({ active, onNavigate }: { active: boolean; onNavigate: (s
   return (
     <div className="grid gap-4">
       {!data.configured && <AdminErrorState title="Supabase yapılandırılmadı" description="Kontrol Merkezi verileri görüntülenemiyor." />}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <AdminKpiCard label="Active Agents (Aktif Ajanlar)" value={data.activeAgents} icon={<Bot size={18} />} tone="ai" onClick={() => onNavigate("Agents (Ajanlar)")} />
-        <AdminKpiCard label="Active Automations (Aktif Otomasyonlar)" value={data.activeAutomations} icon={<Zap size={18} />} tone="info" onClick={() => onNavigate("Automations (Otomasyonlar)")} />
-        <AdminKpiCard label="Pending Approvals (Bekleyen Onaylar)" value={data.pendingApprovals} icon={<ShieldCheck size={18} />} tone={data.pendingApprovals ? "warning" : "success"} onClick={() => onNavigate("Approvals (Onaylar)")} />
-        <AdminKpiCard label="Critical Risks (Kritik Riskler)" value={data.criticalRisks} icon={<AlertTriangle size={18} />} tone={data.criticalRisks ? "danger" : "success"} />
-        <AdminKpiCard label="Completed Today (Bugün Tamamlanan)" value={data.completedToday} icon={<CheckCircle2 size={18} />} tone="success" />
-        <AdminKpiCard label="Failed Runs (Başarısız Çalıştırma)" value={data.failedRecent} icon={<AlertTriangle size={18} />} tone={data.failedRecent ? "danger" : "success"} />
-        <AdminKpiCard label="Estimated Cost Today (Bugün Tahmini Maliyet)" value={`$${data.costToday.toFixed(2)}`} icon={<DollarSign size={18} />} tone="primary" onClick={() => onNavigate("AI Cost (Yapay Zekâ Maliyeti)")} />
-        <AdminKpiCard label="Accounts Needing Attention (İlgi Gereken Hesap)" value={data.accountsNeedingAttention} icon={<Users size={18} />} tone={data.accountsNeedingAttention ? "warning" : "success"} />
-      </div>
 
-      <AdminSection title="Director (Direktör)" description="Ajans genelinde veya bir müşteri için yüksek seviyeli bir komut ver — gerçek bir agent çalıştırması başlatır ve kalıcı olarak kaydedilir.">
-        <textarea
-          value={command}
-          onChange={(event) => setCommand(event.target.value)}
-          placeholder="Örn: Bugün tüm aktif müşterileri incele. Performansı düşenleri bul. SEO/GEO fırsatlarını çıkar. Önceliklendir."
-          rows={3}
-          className="w-full rounded-[12px] border p-3 text-sm"
-          style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}
-        />
-        <div className="mt-3 flex items-center gap-2">
-          <AdminButton variant="ai" icon={<Send size={14} />} loading={running} onClick={runCommand}>Komutu Çalıştır</AdminButton>
-          {result && <p className="text-sm leading-6" style={{ color: "var(--admin-text-secondary)" }}>{result}</p>}
+      <AdminSection title="1. Bugünün Öncelikleri (Today's Priorities)" description="Karar bekleyen ve riskli konuların özeti.">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <AdminKpiCard label="Pending Approvals (Bekleyen Onaylar)" value={data.pendingApprovals} icon={<ShieldCheck size={18} />} tone={data.pendingApprovals ? "warning" : "success"} onClick={() => onNavigate("Approvals (Onaylar)")} />
+          <AdminKpiCard label="Critical Risks (Kritik Riskler)" value={data.criticalRisks} icon={<AlertTriangle size={18} />} tone={data.criticalRisks ? "danger" : "success"} />
+          <AdminKpiCard label="Failed Runs (Başarısız Çalıştırma)" value={data.failedRecent} icon={<AlertTriangle size={18} />} tone={data.failedRecent ? "danger" : "success"} onClick={() => onNavigate("Tasks (Görevler)")} />
+          <AdminKpiCard label="Completed Today (Bugün Tamamlanan)" value={data.completedToday} icon={<CheckCircle2 size={18} />} tone="success" />
         </div>
       </AdminSection>
 
-      <AdminSection title="Recent Activity (Son Aktivite)">
+      <AdminSection title="2. Müdahale Gerektiren Müşteriler (Accounts Needing Attention)" description="Açık, yüksek/kritik önem seviyeli risk kaydı olan müşteriler (hk_risk_events).">
+        {data.accountsNeedingAttentionList.length ? (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {data.accountsNeedingAttentionList.map((company) => (
+              <div key={company.id} className="flex items-center justify-between rounded-[10px] border p-2.5 text-sm" style={{ borderColor: "var(--admin-border)" }}>
+                <span className="font-bold" style={{ color: "var(--admin-text-primary)" }}>{company.name}</span>
+                <AdminStatusBadge tone="warning">Risk açık</AdminStatusBadge>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <AdminEmptyState title="Şu an risk taşıyan müşteri yok" description="hk_risk_events tablosunda açık, yüksek/kritik seviyeli kayıt bulunmuyor." />
+        )}
+      </AdminSection>
+
+      <AdminSection title="3. Hazır İş Akışları (Ready-made Workflows)">
+        <PlaybookLibrary />
+      </AdminSection>
+
+      <AdminSection title="Director (Direktör) — Serbest Komut" description="Hazır iş akışlarından biri uygun değilse, ajans genelinde veya bir müşteri için serbest metinle yüksek seviyeli bir komut ver.">
+        <p className="text-sm" style={{ color: "var(--admin-text-secondary)" }}>Serbest komut için Director sekmesini kullanın — orada müşteri/dönem seçimi ve çoklu ajan seçeneği bulunur.</p>
+        <div className="mt-2"><AdminButton variant="outline" compact onClick={() => onNavigate("Director (Direktör)")}>Director Sekmesine Git</AdminButton></div>
+      </AdminSection>
+
+      <AdminSection title="5. Son Raporlar ve Tamamlanan İşler (Recent Activity)">
         {data.recentActivity.length ? (
           <div className="grid gap-2">
             {data.recentActivity.map((item) => (
@@ -130,8 +291,20 @@ function ControlCenter({ active, onNavigate }: { active: boolean; onNavigate: (s
             ))}
           </div>
         ) : (
-          <AdminEmptyState title="Henüz aktivite yok" description="Director komutu çalıştırdığında veya bir ajan görev tamamladığında burada görünecek." />
+          <AdminEmptyState title="Henüz aktivite yok" description="Director komutu, bir hazır iş akışı veya bir ajan görev tamamladığında burada görünecek." />
         )}
+      </AdminSection>
+
+      <AdminSection title="6. Veri Bağlantıları ve Maliyet Özeti (Connections &amp; Cost)">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <AdminKpiCard label="Active Agents (Aktif Ajanlar)" value={data.activeAgents} icon={<Bot size={18} />} tone="ai" onClick={() => onNavigate("Agents (Ajanlar)")} />
+          <AdminKpiCard label="Active Automations (Aktif Otomasyonlar)" value={data.activeAutomations} icon={<Zap size={18} />} tone="info" onClick={() => onNavigate("Automations (Otomasyonlar)")} />
+          <AdminKpiCard label="Estimated Cost Today (Bugün Tahmini Maliyet)" value={`$${data.costToday.toFixed(2)}`} icon={<DollarSign size={18} />} tone="primary" onClick={() => onNavigate("AI Cost (Yapay Zekâ Maliyeti)")} />
+          <AdminKpiCard label="Estimated Cost — Month (Bu Ay)" value={`$${data.costMonth.toFixed(2)}`} icon={<Coins size={18} />} tone="ai" onClick={() => onNavigate("AI Cost (Yapay Zekâ Maliyeti)")} />
+        </div>
+        <div className="mt-2">
+          <AdminButton variant="outline" compact icon={<Plug size={14} />} onClick={() => onNavigate("Integrations (Entegrasyonlar)")}>Veri Bağlantı Durumunu Gör</AdminButton>
+        </div>
       </AdminSection>
     </div>
   );
@@ -139,11 +312,13 @@ function ControlCenter({ active, onNavigate }: { active: boolean; onNavigate: (s
 
 // 2. Director (standalone tab — reuses the same command box) ------------
 function DirectorTab() {
+  const companies = useCompanies();
   const [prompt, setPrompt] = useState("");
   const [companyId, setCompanyId] = useState("");
   const [multiAgent, setMultiAgent] = useState(false);
   const [running, setRunning] = useState(false);
-  const [report, setReport] = useState<{ executiveSummary: string; findings: string[]; risks: string[]; recommendedActions: string[] } | null>(null);
+  const [report, setReport] = useState<AgentReport | null>(null);
+  const [customerContextSummary, setCustomerContextSummary] = useState<CustomerContextSummary>(null);
   const [error, setError] = useState<string | null>(null);
 
   const run = async () => {
@@ -151,12 +326,14 @@ function DirectorTab() {
     setRunning(true);
     setError(null);
     setReport(null);
+    setCustomerContextSummary(null);
     try {
-      const res = await api<{ finalReport?: typeof report; errorMessage?: string | null }>("/api/ai-workforce/director/command", {
+      const res = await api<{ finalReport?: AgentReport; errorMessage?: string | null; customerContextSummary?: CustomerContextSummary }>("/api/ai-workforce/director/command", {
         method: "POST",
         body: JSON.stringify({ prompt, companyId: companyId || null, multiAgent })
       });
       setReport(res.finalReport || null);
+      setCustomerContextSummary(res.customerContextSummary || null);
       if (res.errorMessage) setError(res.errorMessage);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Hata oluştu.");
@@ -171,7 +348,10 @@ function DirectorTab() {
         <div className="grid gap-3">
           <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} rows={4} placeholder="Direktöre komut ver..." className="w-full rounded-[12px] border p-3 text-sm" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }} />
           <div className="flex flex-wrap items-center gap-3">
-            <input value={companyId} onChange={(event) => setCompanyId(event.target.value)} placeholder="Müşteri ID (opsiyonel)" className="rounded-[10px] border px-3 py-2 text-sm" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }} />
+            <select value={companyId} onChange={(event) => setCompanyId(event.target.value)} className="min-h-10 rounded-[10px] border px-3 text-sm" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+              <option value="">Ajans geneli (müşteri seçilmedi)</option>
+              {companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
+            </select>
             <label className="flex items-center gap-2 text-xs font-bold" style={{ color: "var(--admin-text-secondary)" }}>
               <input type="checkbox" checked={multiAgent} onChange={(event) => setMultiAgent(event.target.checked)} /> Multi-Agent (Çoklu Ajan)
             </label>
@@ -180,16 +360,7 @@ function DirectorTab() {
         </div>
       </AdminSection>
       {error && <AdminErrorState title="Provider hatası" description={error} />}
-      {report && (
-        <AdminSection title="Sonuç (Draft — Taslak)">
-          <p className="text-sm leading-6" style={{ color: "var(--admin-text-primary)" }}>{report.executiveSummary}</p>
-          <div className="mt-3 grid gap-3 sm:grid-cols-3">
-            <div><p className="text-xs font-black uppercase" style={{ color: "var(--admin-text-muted)" }}>Findings (Bulgular)</p><ul className="mt-1 list-disc pl-4 text-sm">{report.findings?.map((item) => <li key={item}>{item}</li>)}</ul></div>
-            <div><p className="text-xs font-black uppercase" style={{ color: "var(--admin-text-muted)" }}>Risks (Riskler)</p><ul className="mt-1 list-disc pl-4 text-sm">{report.risks?.map((item) => <li key={item}>{item}</li>)}</ul></div>
-            <div><p className="text-xs font-black uppercase" style={{ color: "var(--admin-text-muted)" }}>Recommended Actions (Önerilen Aksiyonlar)</p><ul className="mt-1 list-disc pl-4 text-sm">{report.recommendedActions?.map((item) => <li key={item}>{item}</li>)}</ul></div>
-          </div>
-        </AdminSection>
-      )}
+      {report && <AgentReportView report={report} customerContextSummary={customerContextSummary} companyId={companyId || null} />}
     </div>
   );
 }
@@ -623,7 +794,12 @@ export function AIWorkforceApp({ initialSection }: { initialSection?: Section })
               <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>HK Yapay Zekâ İş Gücü</p>
             </div>
           </div>
-          <Link href="/hk-admin" className="hk-button hk-button-outline px-4 py-2 text-sm">HK Admin&apos;e Dön</Link>
+          <div className="flex items-center gap-2">
+            <Link href="/hk-admin/sistem-rehberi?topic=ai-workforce-rehberi" className="hk-button hk-button-outline inline-flex items-center gap-1.5 px-4 py-2 text-sm">
+              <BookOpenText size={14} /> Nasıl Kullanılır?
+            </Link>
+            <Link href="/hk-admin" className="hk-button hk-button-outline px-4 py-2 text-sm">HK Admin&apos;e Dön</Link>
+          </div>
         </div>
       </div>
       <main className="mx-auto max-w-6xl p-4 sm:p-6">
