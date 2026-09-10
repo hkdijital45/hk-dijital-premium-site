@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Social Autopilot's deterministic carousel/static renderer uses
+  // @napi-rs/canvas, a native (.node) binding — Turbopack/webpack can't
+  // bundle that as an ordinary JS module, so it must run as a real
+  // require() against the installed package instead.
+  serverExternalPackages: ["@napi-rs/canvas"],
   async redirects() {
     return [
       { source: "/cozumler", destination: "/hizmetler", permanent: true },

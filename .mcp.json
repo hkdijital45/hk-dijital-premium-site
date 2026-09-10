@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "hk-social-autopilot": {
+      "command": "node",
+      "args": ["--conditions=react-server", "--import", "tsx", "mcp/server.mts"],
+      "cwd": "/Users/hayrikamali/Projects/hk-dijital-production-final",
+      "env": {
+        "SOCIAL_MCP_TRANSPORT": "stdio",
+        "SOCIAL_MCP_MODE": "ASSISTED"
+      }
+    }
+  }
+}

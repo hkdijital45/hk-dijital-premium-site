@@ -31,6 +31,14 @@
     {
       "path": "/api/admin/agent-hub/scheduled/run-due",
       "schedule": "20 6 * * *"
+    },
+    {
+      "path": "/api/admin/social-autopilot/run-daily",
+      "schedule": "35 4 * * *"
+    },
+    {
+      "path": "/api/admin/social-autopilot/process-queue",
+      "schedule": "*/15 * * * *"
     }
   ]
 }
