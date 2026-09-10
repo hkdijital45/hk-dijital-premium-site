@@ -5,12 +5,16 @@ import { authorizeManualOrCron, cronAuthorized } from "@/lib/social-autopilot/cr
 import { startSocialRun, finishSocialRun } from "@/lib/social-autopilot/run-logger";
 import { processDueQueue } from "@/lib/social-autopilot/publish-queue";
 
-// Runs every 15 minutes (see vercel.json) — deliberately decoupled from
-// run-daily/route.ts's once-a-day cycle: scheduled_at timestamps need
-// finer-grained checking than once a day to actually publish close to the
-// recommended time. Scheduled publishing never depends on this Vercel cron
-// being hit at exactly the right minute, or on Claude/MCP being connected —
-// a late tick still finds and publishes anything already due.
+// Runs once daily (see vercel.json) — the Vercel account this deploys to is
+// on the Hobby plan, which rejects any cron schedule that fires more than
+// once per day (a */15 schedule was tried first and blocked every
+// deployment with "Hobby accounts are limited to daily cron jobs"). This is
+// the safe fallback the module's design doc calls for: same-day precision
+// publishing isn't available via Vercel Cron on this plan, so use the
+// "Kuyruğu İşle" button in Yayın Kuyruğu for on-demand processing between
+// daily runs, or upgrade to Pro for a sub-daily schedule. Scheduled
+// publishing never depends on Claude/MCP being connected either way — a
+// later tick (cron or manual) still finds and publishes anything already due.
 async function run(triggeredBy: "cron" | "manual") {
   const runId = await startSocialRun("queue_process", triggeredBy).catch(() => null);
   try {
