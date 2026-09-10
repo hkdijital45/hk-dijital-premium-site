@@ -9,6 +9,20 @@
 //   - Rate limit:           100 API-published posts / rolling 24h (content_publishing_limit endpoint)
 // No password/session-cookie automation, no scraping, no reverse-engineered
 // endpoints — only these documented, official OAuth + Graph API calls.
+//
+// IMPORTANT — user_id vs id (Instagram Login vs Facebook Login products):
+// the short-lived token response from api.instagram.com/oauth/access_token
+// includes a "user_id" that is NOT a queryable graph.instagram.com node ID —
+// using it directly against graph.instagram.com/<that id> fails with
+// "Unsupported get request. Object with ID '...' does not exist..." (a
+// leftover-from-Facebook-Login assumption; that older product's Instagram
+// Business Account node really is addressable by a plain id). The correct,
+// current "Instagram API with Instagram Login" flow is to call
+// graph.instagram.com/<version>/me right after obtaining a real access
+// token; that response's "user_id" field IS the usable Instagram
+// professional account ID for every other endpoint below (media, insights,
+// publish). See https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/get-started
+// (verified live: curl -i -X GET "https://graph.instagram.com/v25.0/me?fields=user_id,username&access_token=...").
 import { classifyProviderError, type ProviderErrorCategory } from "@/lib/discovery-report-schema";
 
 export const INSTAGRAM_SCOPES = [
@@ -23,7 +37,7 @@ const SHORT_LIVED_TOKEN_URL = "https://api.instagram.com/oauth/access_token";
 const GRAPH_HOST = "https://graph.instagram.com";
 
 function apiVersion() {
-  return process.env.INSTAGRAM_GRAPH_API_VERSION || "v21.0";
+  return process.env.INSTAGRAM_GRAPH_API_VERSION || "v25.0";
 }
 
 function graphUrl(path: string) {
@@ -114,9 +128,14 @@ export async function refreshLongLivedToken(currentToken: string) {
   return graphFetch<{ access_token: string; token_type: string; expires_in: number }>(`${GRAPH_HOST}/refresh_access_token?${params.toString()}`);
 }
 
-export async function fetchInstagramProfile(accessToken: string, igUserId: string) {
-  const params = new URLSearchParams({ fields: "username,account_type,media_count", access_token: accessToken });
-  return graphFetch<{ id: string; username: string; account_type: string; media_count: number }>(graphUrl(`/${igUserId}?${params.toString()}`));
+// Always /me, never /<some id> — see the header comment. /me is the only
+// endpoint guaranteed to resolve correctly for the token's own account
+// regardless of what (possibly wrong, possibly stale) id a caller might
+// otherwise have on hand; its "user_id" field is the real, reusable
+// Instagram professional account ID for every other endpoint in this file.
+export async function fetchInstagramProfile(accessToken: string) {
+  const params = new URLSearchParams({ fields: "user_id,username,account_type,media_count", access_token: accessToken });
+  return graphFetch<{ user_id: string; username: string; account_type: string; media_count: number }>(graphUrl(`/me?${params.toString()}`));
 }
 
 /** Recent published media — read-only, used for account inspection

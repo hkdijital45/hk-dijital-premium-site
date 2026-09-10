@@ -56,7 +56,7 @@ export async function execute(name: string, args: Record<string, unknown>): Prom
       return { active: s.autopilot_active, control_mode: s.control_mode, test_mode: s.test_mode, emergency_pause: s.emergency_pause, publishing_enabled: publicationAllowed(s), ai_operating_mode: s.ai_operating_mode };
     }
     case "instagram_get_connection_status": return getInstagramConnectionStatus();
-    case "instagram_get_profile": { const t = await getUsableInstagramToken(); return fetchInstagramProfile(t.accessToken, t.igUserId); }
+    case "instagram_get_profile": { const t = await getUsableInstagramToken(); return fetchInstagramProfile(t.accessToken); }
     case "instagram_get_account_insights": { const t = await getUsableInstagramToken(); return getAccountInsights(t.accessToken, t.igUserId, ["reach", "follower_count", "accounts_engaged"], "day"); }
     case "instagram_get_post_insights": {
       const item = await getItem(id);

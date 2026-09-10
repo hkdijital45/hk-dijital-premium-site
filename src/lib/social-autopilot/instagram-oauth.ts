@@ -128,11 +128,15 @@ export async function handleInstagramOAuthCallback(request: Request) {
   try {
     const shortLived = await exchangeCodeForShortLivedToken(code, redirectUriFor(request));
     const longLived = await exchangeForLongLivedToken(shortLived.access_token);
-    const profile = await fetchInstagramProfile(longLived.access_token, shortLived.user_id);
+    // shortLived.user_id is deliberately NOT used as a graph.instagram.com
+    // node id (see instagram-graph-client.ts's header comment) — /me on the
+    // long-lived token is the only reliable source for the real, reusable
+    // Instagram professional account id.
+    const profile = await fetchInstagramProfile(longLived.access_token);
 
     await upsertIntegration({
       provider: "instagram",
-      ig_user_id: profile.id,
+      ig_user_id: profile.user_id,
       username: profile.username,
       account_type: profile.account_type,
       access_token_encrypted: encryptSecret(longLived.access_token),
