@@ -24,6 +24,54 @@ export function editable(item: SocialContentItem) {
   if (["scheduled", "preparing", "publishing", "published"].includes(item.publication_status)) throw new ControlError("CONTENT_LOCKED", "Cancel scheduling before editing; publishing and published content cannot be edited.", 409);
 }
 
+const EDITABLE_TEXT_FIELDS = ["title", "hook", "secondary_hook", "caption", "cta", "cta_goal"] as const;
+const EDITABLE_LIST_FIELDS = ["hashtags", "seo_keywords"] as const;
+
+/** Manual text edit (İçerik Stüdyosu detail panel's "Düzenle" action) —
+ * mirrors orchestrator.ts's regenerateContentItem: snapshots the pre-edit
+ * row into social_content_versions (existing, previously-unused versioning
+ * table), bumps version/edited_manually, and — critically — resets every
+ * score/privacy field the quality gate owns rather than leaving a stale
+ * "ready" status standing on text that was never re-checked. The gate
+ * itself is untouched; the caller must call validateContent() again to
+ * re-earn "ready". Reel items with no media stay "needs_media" either way. */
+export async function updateContent(id: string, patch: Record<string, unknown>) {
+  const item = await getItem(id);
+  editable(item);
+
+  const textUpdates: Record<string, unknown> = {};
+  for (const field of EDITABLE_TEXT_FIELDS) if (typeof patch[field] === "string") textUpdates[field] = patch[field];
+  for (const field of EDITABLE_LIST_FIELDS) {
+    if (Array.isArray(patch[field]) && (patch[field] as unknown[]).every((v) => typeof v === "string")) textUpdates[field] = patch[field];
+  }
+  if (!Object.keys(textUpdates).length) throw new ControlError("INVALID_CONTENT", "No editable field provided.", 400);
+
+  const watchlist = await loadPrivacyWatchlist();
+  const candidateText = [textUpdates.hook, textUpdates.caption].filter((v): v is string => typeof v === "string").join("\n");
+  if (candidateText && scanForPrivacyLeaks(candidateText, watchlist).length) {
+    throw new ControlError("PRIVACY_BLOCKED", "Edited content contains protected private information.", 400);
+  }
+
+  await supabaseRest("social_content_versions", {
+    method: "POST",
+    body: JSON.stringify({ content_item_id: id, version: item.version, snapshot: item, edit_note: "Elle düzenleme (İçerik Stüdyosu)" })
+  });
+
+  const nextStatus = item.publication_status === "needs_media" ? "needs_media" : "generated";
+  const rows = await supabaseRest<SocialContentItem[]>(`social_content_items?id=eq.${encodeURIComponent(id)}&select=*`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      ...textUpdates,
+      edited_manually: true,
+      version: item.version + 1,
+      publication_status: nextStatus,
+      quality_score: null, brand_fit_score: null, factuality_score: null, originality_score: null, duplicate_score: null,
+      privacy_check_passed: false
+    })
+  });
+  return rows[0];
+}
+
 export async function validateContent(id: string) {
   const item = await getItem(id);
   editable(item);

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
-  AlertTriangle, BarChart3, Bot, Camera, CheckCircle2, Clock,
+  AlertTriangle, BarChart3, Bot, Camera, CheckCircle2, ChevronRight, Clock,
   ListChecks, Pause, Play, RefreshCw, Send, ShieldAlert, Sparkles, XCircle
 } from "lucide-react";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
@@ -11,6 +11,7 @@ import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminEmptyState";
 import { AdminWorkspace } from "@/components/admin/workspace/AdminWorkspace";
 import { AdminDataGrid, type AdminDataGridColumn } from "@/components/admin/workspace/AdminDataGrid";
+import { AdminDetailInspector } from "@/components/admin/workspace/AdminDetailInspector";
 import { AdminCompactKpiStrip } from "@/components/admin/workspace/AdminCompactKpiStrip";
 import type {
   AiLearning, ClicheEntry, ControlMode, PrivacyBlacklistEntry, PublishingTimeRecommendation,
@@ -58,6 +59,33 @@ function statusTone(status: string): AdminStatusTone {
   return "neutral";
 }
 
+const detailInputStyle = { border: "1px solid var(--admin-border)", background: "var(--admin-surface)", color: "var(--admin-text-primary)" } as const;
+
+// Defined at module scope (not inside SocialAutopilotCenter) so its
+// component identity stays stable across parent re-renders — an inline
+// definition would remount the <input>/<textarea> on every keystroke
+// (SocialAutopilotCenter re-renders on every state change) and drop focus.
+// The caller resets this field's edit state by changing `key` (per selected
+// content item) rather than syncing via an effect — React's recommended
+// pattern for "reset state when the underlying record changes".
+function DetailField({ label, value, disabled, multiline, onSave }: { label: string; value: string; disabled?: boolean; multiline?: boolean; onSave: (value: string) => void }) {
+  const [draft, setDraft] = useState(value);
+  const commonProps = {
+    value: draft,
+    disabled,
+    onChange: (event: { target: { value: string } }) => setDraft(event.target.value),
+    onBlur: () => onSave(draft),
+    className: "mt-1 w-full rounded-[8px] px-3 py-2 text-sm font-bold outline-none disabled:opacity-60",
+    style: detailInputStyle
+  };
+  return (
+    <label className="grid gap-1 text-xs font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>
+      {label}
+      {multiline ? <textarea rows={4} {...commonProps} /> : <input type="text" {...commonProps} />}
+    </label>
+  );
+}
+
 export function SocialAutopilotCenter() {
   const [tab, setTab] = useState<Tab>("overview");
   const [busyAction, setBusyAction] = useState("");
@@ -77,6 +105,9 @@ export function SocialAutopilotCenter() {
 
   const [studioItems, setStudioItems] = useState<SocialContentItem[]>([]);
   const [studioLoading, setStudioLoading] = useState(true);
+  const [selectedContentId, setSelectedContentId] = useState<string | null>(null);
+  const [scheduleAt, setScheduleAt] = useState("");
+  const [contentSaving, setContentSaving] = useState(false);
 
   const [queueItems, setQueueItems] = useState<SocialQueueItem[]>([]);
   const [queueLoading, setQueueLoading] = useState(true);
@@ -201,6 +232,34 @@ export function SocialAutopilotCenter() {
     return runAction(`cancel-${id}`, () => fetchJson(`/api/admin/social-autopilot/content/${id}/cancel`, { method: "POST" }), "Planlama iptal edildi.", () => { loadQueue(); loadStudio(); loadCalendar(); });
   }
 
+  const LOCKED_STATUSES = new Set(["scheduled", "preparing", "publishing", "published"]);
+  function isLocked(item: SocialContentItem) {
+    return LOCKED_STATUSES.has(item.publication_status);
+  }
+
+  // "Düzenle" — inline fields save on blur via PATCH .../content/[id] (see
+  // control/content.ts's updateContent()). The server always resets
+  // quality_score/privacy_check_passed and drops publication_status back to
+  // "generated" (or keeps "needs_media" for a still-medialess reel) — the
+  // real quality gate is never bypassed, so "Doğrula" must be run again
+  // afterward to re-earn "ready". Only fires the request when the value
+  // actually changed.
+  function saveContentField(id: string, field: string, value: string | string[], previous: string | string[]) {
+    const changed = Array.isArray(value) ? JSON.stringify(value) !== JSON.stringify(previous) : value !== previous;
+    if (!changed) return;
+    setContentSaving(true);
+    fetchJson<{ item: SocialContentItem }>(`/api/admin/social-autopilot/content/${id}`, { method: "PATCH", body: JSON.stringify({ [field]: value }) })
+      .then((data) => setStudioItems((prev) => prev.map((row) => (row.id === id ? data.item : row))))
+      .catch((error) => setFeedback(error instanceof Error ? error.message : "Kaydedilemedi."))
+      .finally(() => setContentSaving(false));
+  }
+
+  function scheduleSelected(id: string) {
+    if (!scheduleAt) { setFeedback("Önce bir yayın tarihi/saati seçin."); return; }
+    const iso = new Date(scheduleAt).toISOString();
+    return runAction(`schedule-${id}`, () => fetchJson(`/api/admin/social-autopilot/content/${id}/schedule`, { method: "POST", body: JSON.stringify({ scheduled_at: iso }) }), "İçerik planlandı.", () => { setScheduleAt(""); loadQueue(); loadStudio(); loadCalendar(); });
+  }
+
   function saveSettings(patch: Partial<SocialAutopilotSettings>) {
     if (!settings) return;
     setSettingsSaving(true);
@@ -248,7 +307,8 @@ export function SocialAutopilotCenter() {
           ) : null}
         </div>
       )
-    }
+    },
+    { key: "detail", header: "", align: "right", width: "36px", render: () => <ChevronRight size={16} style={{ opacity: 0.4 }} /> }
   ];
 
   const queueColumns: AdminDataGridColumn<SocialQueueItem>[] = [
@@ -276,6 +336,113 @@ export function SocialAutopilotCenter() {
     { key: "action", header: "Önerilen Aksiyon", render: (row) => <span className="text-xs leading-5">{row.action_recommendation}</span> }
   ];
 
+  const selectedContent = tab === "studio" ? studioItems.find((row) => row.id === selectedContentId) || null : null;
+
+  function renderContentDetailBody(item: SocialContentItem) {
+    const locked = isLocked(item) || contentSaving;
+    const creativeBrief = item.creative_brief || {};
+    return (
+      <div key={item.id} className="grid gap-4">
+        <div>
+          <p className="text-xs font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Konu</p>
+          <p className="mt-1 text-sm opacity-80">{item.topic || "—"}</p>
+        </div>
+
+        <DetailField label="Başlık" value={item.title} disabled={locked} onSave={(v) => saveContentField(item.id, "title", v, item.title)} />
+        <DetailField label="Hook" value={item.hook} multiline disabled={locked} onSave={(v) => saveContentField(item.id, "hook", v, item.hook)} />
+        {item.secondary_hook ? <DetailField label="İkincil Hook" value={item.secondary_hook} multiline disabled={locked} onSave={(v) => saveContentField(item.id, "secondary_hook", v, item.secondary_hook)} /> : null}
+        <DetailField label="Caption" value={item.caption} multiline disabled={locked} onSave={(v) => saveContentField(item.id, "caption", v, item.caption)} />
+        <div className="grid grid-cols-2 gap-3">
+          <DetailField label="CTA" value={item.cta} disabled={locked} onSave={(v) => saveContentField(item.id, "cta", v, item.cta)} />
+          <DetailField label="CTA Hedefi" value={item.cta_goal} disabled={locked} onSave={(v) => saveContentField(item.id, "cta_goal", v, item.cta_goal)} />
+        </div>
+        <DetailField label="Hashtag'ler (virgülle ayırın)" value={(item.hashtags || []).join(", ")} disabled={locked}
+          onSave={(v) => saveContentField(item.id, "hashtags", v.split(",").map((s) => s.trim()).filter(Boolean), item.hashtags)} />
+        <DetailField label="SEO Anahtar Kelimeler (virgülle ayırın)" value={(item.seo_keywords || []).join(", ")} disabled={locked}
+          onSave={(v) => saveContentField(item.id, "seo_keywords", v.split(",").map((s) => s.trim()).filter(Boolean), item.seo_keywords)} />
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="rounded-[10px] p-2.5" style={{ background: "var(--admin-surface-muted, var(--admin-surface-soft))" }}>
+            <p className="text-[10px] font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Format</p>
+            <p className="mt-0.5 text-sm font-bold">{item.content_type}</p>
+          </div>
+          <div className="rounded-[10px] p-2.5" style={{ background: "var(--admin-surface-muted, var(--admin-surface-soft))" }}>
+            <p className="text-[10px] font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Yayın Tarihi</p>
+            <p className="mt-0.5 text-sm font-bold">{item.content_date}</p>
+          </div>
+          <div className="rounded-[10px] p-2.5" style={{ background: "var(--admin-surface-muted, var(--admin-surface-soft))" }}>
+            <p className="text-[10px] font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Planlanan Saat</p>
+            <p className="mt-0.5 text-sm font-bold">{item.scheduled_at ? new Date(item.scheduled_at).toLocaleString("tr-TR") : "—"}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="rounded-[10px] p-2.5" style={{ background: "var(--admin-surface-muted, var(--admin-surface-soft))" }}>
+            <p className="text-[10px] font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Kalite Skoru</p>
+            <p className="mt-0.5 text-sm font-bold">{item.quality_score ?? "—"}</p>
+          </div>
+          <div className="rounded-[10px] p-2.5" style={{ background: "var(--admin-surface-muted, var(--admin-surface-soft))" }}>
+            <p className="text-[10px] font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Yayın Durumu</p>
+            <AdminStatusBadge tone={statusTone(item.publication_status)}>{item.publication_status}</AdminStatusBadge>
+          </div>
+          <div className="rounded-[10px] p-2.5" style={{ background: "var(--admin-surface-muted, var(--admin-surface-soft))" }}>
+            <p className="text-[10px] font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Medya Durumu</p>
+            <AdminStatusBadge tone={item.media_generation_status === "generated" ? "success" : item.media_generation_status === "failed" ? "danger" : "neutral"}>{item.media_generation_status}</AdminStatusBadge>
+          </div>
+        </div>
+
+        <div className="rounded-[10px] p-3" style={{ background: "var(--admin-surface-muted, var(--admin-surface-soft))" }}>
+          <p className="text-[10px] font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Gizlilik / Kalite Kapısı Sonucu</p>
+          <div className="mt-1.5 flex flex-wrap gap-2 text-xs">
+            <AdminStatusBadge tone={item.privacy_check_passed ? "success" : "danger"}>Gizlilik: {item.privacy_check_passed ? "geçti" : "geçmedi"}</AdminStatusBadge>
+            {item.brand_fit_score !== null && <AdminStatusBadge tone="neutral">Marka Uyumu: {item.brand_fit_score}</AdminStatusBadge>}
+            {item.factuality_score !== null && <AdminStatusBadge tone="neutral">Doğruluk: {item.factuality_score}</AdminStatusBadge>}
+            {item.originality_score !== null && <AdminStatusBadge tone="neutral">Özgünlük: {item.originality_score}</AdminStatusBadge>}
+          </div>
+        </div>
+
+        <div>
+          <p className="text-xs font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Medya Önizleme</p>
+          {item.content_type === "reel" ? (
+            <div className="mt-2 grid gap-2">
+              <AdminStatusBadge tone="warning">NEEDS_MEDIA — gerçek video prodüksiyonu bekleniyor</AdminStatusBadge>
+              {creativeBrief.script && <div className="rounded-[10px] p-3 text-sm" style={{ background: "var(--admin-surface-muted, var(--admin-surface-soft))" }}><p className="mb-1 text-[10px] font-black uppercase" style={{ color: "var(--admin-text-muted)" }}>Script</p>{creativeBrief.script}</div>}
+              {creativeBrief.scenes && creativeBrief.scenes.length > 0 && (
+                <div className="grid gap-1.5">
+                  {creativeBrief.scenes.map((scene) => (
+                    <div key={scene.scene} className="rounded-[8px] p-2 text-xs" style={{ background: "var(--admin-surface-muted, var(--admin-surface-soft))" }}>
+                      <strong>Sahne {scene.scene} ({scene.start}-{scene.end}sn)</strong> — {scene.text}
+                      <p className="mt-0.5 opacity-70">{scene.visual_direction}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : item.media_asset_urls?.length ? (
+            <div className={item.content_type === "carousel" ? "mt-2 grid grid-cols-3 gap-2" : "mt-2"}>
+              {item.media_asset_urls.map((url, index) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img key={url} src={url} alt={`${item.title} — ${index + 1}`} className="w-full rounded-[10px] object-cover" style={{ aspectRatio: "4/5" }} />
+              ))}
+            </div>
+          ) : (
+            <p className="mt-2 text-sm opacity-60">Henüz üretilmiş medya yok.</p>
+          )}
+        </div>
+
+        {item.publication_status === "ready" && (
+          <div className="rounded-[10px] p-3" style={{ background: "var(--admin-surface-muted, var(--admin-surface-soft))" }}>
+            <p className="mb-2 text-[10px] font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Planla / Kuyruğa Al</p>
+            <div className="flex flex-wrap items-end gap-2">
+              <input type="datetime-local" className="rounded-[8px] px-3 py-2 text-sm font-bold outline-none" style={detailInputStyle} value={scheduleAt} onChange={(event) => setScheduleAt(event.target.value)} />
+              <AdminButton compact variant="primary" icon={<Clock size={14} />} loading={busyAction === `schedule-${item.id}`} onClick={() => scheduleSelected(item.id)}>Planla</AdminButton>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <AdminWorkspace
       title="HK Social Autopilot"
@@ -290,6 +457,31 @@ export function SocialAutopilotCenter() {
           </AdminButton>
         </>
       }
+      rightPanel={tab === "studio" ? (
+        <AdminDetailInspector
+          title={selectedContent ? (selectedContent.title || selectedContent.topic || selectedContent.content_type) : undefined}
+          subtitle={selectedContent ? `${selectedContent.content_date} · ${selectedContent.content_type}` : undefined}
+          emptyTitle="Bir içerik seçin"
+          emptyDescription="İçerik Stüdyosu tablosundan bir satıra tıklayarak detaylarını buradan yönetin."
+          actions={selectedContent ? (
+            <>
+              {!isLocked(selectedContent) && (
+                <AdminButton compact variant="secondary" loading={busyAction === `validate-${selectedContent.id}`} onClick={() => validateContent(selectedContent.id)}>Doğrula</AdminButton>
+              )}
+              {selectedContent.content_type !== "reel" && !isLocked(selectedContent) && (
+                <AdminButton compact variant="ai" icon={<Sparkles size={14} />} loading={busyAction === `render-${selectedContent.id}`} onClick={() => renderContent(selectedContent.id)}>
+                  {selectedContent.media_generation_status === "generated" ? "Yeniden Render Et" : "Render Et"}
+                </AdminButton>
+              )}
+              {selectedContent.publication_status === "scheduled" && (
+                <AdminButton compact variant="danger" icon={<XCircle size={14} />} loading={busyAction === `cancel-${selectedContent.id}`} onClick={() => cancelScheduled(selectedContent.id)}>İptal Et</AdminButton>
+              )}
+            </>
+          ) : undefined}
+        >
+          {selectedContent && renderContentDetailBody(selectedContent)}
+        </AdminDetailInspector>
+      ) : undefined}
     >
       {feedback && <div className="admin-card-soft mb-4 rounded-[12px] p-3 text-sm font-bold">{feedback}</div>}
 
@@ -396,7 +588,11 @@ export function SocialAutopilotCenter() {
 
       {tab === "studio" && (
         studioLoading ? <AdminLoadingState /> :
-        <AdminDataGrid columns={studioColumns} rows={studioItems} rowKey={(row) => row.id} emptyTitle="İçerik yok" emptyDescription="Günlük döngüyü çalıştırın veya Claude MCP ile içerik paketi içe aktarın." />
+        <AdminDataGrid
+          columns={studioColumns} rows={studioItems} rowKey={(row) => row.id}
+          activeId={selectedContentId ?? undefined} onRowClick={(row) => { setSelectedContentId(row.id); setScheduleAt(""); }}
+          emptyTitle="İçerik yok" emptyDescription="Günlük döngüyü çalıştırın veya Claude MCP ile içerik paketi içe aktarın."
+        />
       )}
 
       {tab === "queue" && (
