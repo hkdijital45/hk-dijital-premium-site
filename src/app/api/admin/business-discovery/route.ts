@@ -13,6 +13,7 @@ import {
   type DiscoveredBusiness
 } from "@/lib/lead-scoring";
 import { normalizeSectorInput } from "@/lib/sector-signal";
+import { dedupePlacesById } from "@/lib/discovery-dedupe";
 import { scanWebsiteForAdSignals } from "@/lib/website-signal-scan";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 import { requireModuleAccess } from "@/lib/permissions";
@@ -21,11 +22,52 @@ async function requireStaff() {
   return await requireModuleAccess("business_discovery") || requireModuleAccess("maps");
 }
 
-function textSearchUrl(query: string) {
+// Google's Text Search API caps out at 3 pages of 20 results each (60 total)
+// per query, hard-enforced by Google — no key/plan/pagination trick raises
+// this. Requesting more than 20 only fetches additional pages when the
+// caller actually needs them, so the default (and by far most common)
+// 20-or-fewer request costs exactly the one textsearch call it always has.
+const GOOGLE_TEXT_SEARCH_PAGE_SIZE = 20;
+const GOOGLE_TEXT_SEARCH_MAX_PAGES = 3;
+// Google requires a short delay after receiving a next_page_token before
+// that token becomes valid — requesting immediately reliably returns
+// INVALID_REQUEST.
+const NEXT_PAGE_TOKEN_DELAY_MS = 2100;
+
+async function fetchTextSearchPage(params: URLSearchParams) {
+  const response = await fetch(`https://maps.googleapis.com/maps/api/place/textsearch/json?${params}`, { cache: "no-store" });
+  const data = await response.json().catch(() => ({}));
+  return { ok: response.ok, data };
+}
+
+/** Fetches text-search pages until `targetCount` unique results are
+ * collected or Google's own pagination is exhausted. A failure on a page
+ * AFTER the first stops pagination gracefully and keeps whatever was
+ * already collected — a token not being ready yet or a quota hit mid-
+ * pagination should never discard real, already-fetched results. */
+async function fetchTextSearchResults(query: string, targetCount: number): Promise<{ pages: any[]; firstPageFailed: boolean }> {
   const key = process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_API_KEY;
   if (!key) throw new Error("Google Maps API anahtarı eksik.");
-  const params = new URLSearchParams({ query, key, language: "tr", region: "tr" });
-  return `https://maps.googleapis.com/maps/api/place/textsearch/json?${params}`;
+
+  const first = await fetchTextSearchPage(new URLSearchParams({ query, key, language: "tr", region: "tr" }));
+  if (!first.ok || !["OK", "ZERO_RESULTS"].includes(first.data.status)) return { pages: [first.data], firstPageFailed: true };
+
+  const pages = [first.data];
+  let collected = (first.data.results || []).length;
+  let nextPageToken = first.data.next_page_token;
+  let pagesFetched = 1;
+
+  while (nextPageToken && collected < targetCount && pagesFetched < GOOGLE_TEXT_SEARCH_MAX_PAGES) {
+    await new Promise((resolve) => setTimeout(resolve, NEXT_PAGE_TOKEN_DELAY_MS));
+    const next = await fetchTextSearchPage(new URLSearchParams({ pagetoken: nextPageToken, key, language: "tr", region: "tr" }));
+    pagesFetched += 1;
+    if (!next.ok || next.data.status !== "OK") break;
+    pages.push(next.data);
+    collected += (next.data.results || []).length;
+    nextPageToken = next.data.next_page_token;
+  }
+
+  return { pages, firstPageFailed: false };
 }
 
 async function getPlaceDetails(placeId: string) {
@@ -175,7 +217,7 @@ export async function POST(request: Request) {
   const hideSaved = Boolean(body.hideSaved);
   const highOpportunity = Boolean(body.highOpportunity);
   const highAdPotential = Boolean(body.highAdPotential);
-  const limit = Math.max(1, Math.min(50, Number(body.limit || body.requestedCount || body.count || 20) || 20));
+  const limit = Math.max(1, Math.min(100, Number(body.limit || body.requestedCount || body.count || 20) || 20));
 
   if (!sector) return NextResponse.json({ error: "Sektör alanı zorunludur." }, { status: 400 });
   if (!city) return NextResponse.json({ error: "İl seçin veya yazın." }, { status: 400 });
@@ -196,14 +238,19 @@ export async function POST(request: Request) {
 
   try {
     const query = [keyword, sector, neighborhood, district, city].filter(Boolean).join(" ");
-    const response = await fetch(textSearchUrl(query), { cache: "no-store" });
-    const data = await response.json();
-    if (!response.ok || !["OK", "ZERO_RESULTS"].includes(data.status)) {
-      console.error("[business-discovery] Google Maps arama hatası", { status: data.status, error: data.error_message });
-      return mapsFailure("Google Maps işletme araması başarısız oldu.", data.error_message || data.status || "Bilinmeyen Google Maps hatası.");
+    const { pages, firstPageFailed } = await fetchTextSearchResults(query, limit);
+    const primary = pages[0] || {};
+    if (firstPageFailed) {
+      console.error("[business-discovery] Google Maps arama hatası", { status: primary.status, error: primary.error_message });
+      if (primary.status === "OVER_QUERY_LIMIT") {
+        return mapsFailure("Google Maps API kota sınırına ulaşıldı. Kısa süre sonra tekrar deneyin veya API kotanızı kontrol edin.", primary.error_message || primary.status);
+      }
+      return mapsFailure("Google Maps işletme araması başarısız oldu.", primary.error_message || primary.status || "Bilinmeyen Google Maps hatası.");
     }
 
-    const baseResults = (data.results || []).slice(0, limit);
+    const uniquePlaces = dedupePlacesById(pages.flatMap((page) => page.results || []));
+    const totalFound = uniquePlaces.length;
+    const baseResults = uniquePlaces.slice(0, limit);
     const businesses = await Promise.all(baseResults.map(async (place: any) => {
       const details = await getPlaceDetails(place.place_id).catch(() => ({}));
       const business: DiscoveredBusiness = {
@@ -232,7 +279,16 @@ export async function POST(request: Request) {
     // "error"/"warning" flag — the frontend must be able to tell this apart
     // from an API failure, which always sets those fields (see mapsFailure).
     const filtered = sortByOpportunity(applyDiscoveryFilters(businesses, filters));
-    return NextResponse.json({ businesses: filtered, count: filtered.length, districtLabel });
+    // Only surfaced when the caller actually asked for more than one page's
+    // worth (limit > 20) — a plain 20-or-fewer request behaves exactly as
+    // before, with no new warning noise. Google's Text Search API cannot
+    // exceed ~60 unique results per query no matter how high `limit` is set;
+    // this reports the real number found instead of silently padding to the
+    // requested count.
+    const warning = limit > GOOGLE_TEXT_SEARCH_PAGE_SIZE && totalFound < limit
+      ? `${totalFound} benzersiz aday bulundu (istenen: ${limit}). Google Places bu arama için daha fazla sonuç döndürmedi — en yüksek skorlu adaylar gösteriliyor.`
+      : undefined;
+    return NextResponse.json({ businesses: filtered, count: filtered.length, totalFound, requestedLimit: limit, districtLabel, warning });
   } catch (error) {
     console.error("[business-discovery] İşletme araması çöktü", error);
     return mapsFailure("İşletme araması sırasında beklenmeyen bir hata oluştu.", error instanceof Error ? error.message : String(error));

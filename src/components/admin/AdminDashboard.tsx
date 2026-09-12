@@ -73,6 +73,8 @@ import { aiProviderKeyForApi, buildAiSelectionReason, labelForAiProvider, normal
 import { CUSTOMER_MODULE_REGISTRY, CUSTOMER_PLATFORM_REGISTRY, DEFAULT_CUSTOMER_MODULES, DEFAULT_CUSTOMER_PLATFORMS, normalizeModuleKeys, normalizePlatformKeys } from "@/lib/customer-portal-registry";
 import { HK_SERVICE_PACKAGES, PACKAGE_CATEGORIES, calculateTotalWithVat, calculateVat, findServicePackage, formatPackagePrice, formatTRY, getPackagePricing } from "@/lib/packages";
 import { AD_STATUS_LABELS, calculateHkOpportunityScore, getHkOpportunityTier, scoreDiscoveredBusiness, type AdStatusValue, type DiscoveredBusiness } from "@/lib/lead-scoring";
+import { classifyMeetingSegment } from "@/lib/lead-meeting-status";
+import { mergeWonLostDeals, summarizeWonLost } from "@/lib/won-lost-analysis";
 import { DISCOVERY_SECTOR_PRESETS } from "@/lib/sector-signal";
 import { GlassCard } from "@/components/premium/PremiumUI";
 import { suggestUsername } from "@/lib/usernames";
@@ -12264,7 +12266,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
           <AdminFilterSection title="Puan & Hacim">
             <div className="grid gap-2">
               <SelectField label="Yarıçap" value={search.radius} onChange={(radius) => setSearch({ ...search, radius })} options={["1 km", "3 km", "5 km", "10 km", "Şehir geneli"]} />
-              <SelectField label="Kaç işletme bulunsun" value={search.limit} onChange={(limit) => setSearch({ ...search, limit })} options={["5", "10", "20", "50"]} />
+              <SelectField label="Kaç işletme bulunsun" value={search.limit} onChange={(limit) => setSearch({ ...search, limit })} options={["5", "10", "20", "50", "100"]} />
               <SelectField label="Minimum Google puanı" value={search.minimumRating} onChange={(minimumRating) => setSearch({ ...search, minimumRating })} options={[{ value: "", label: "Farketmez" }, { value: "3", label: "3.0+" }, { value: "3.5", label: "3.5+" }, { value: "4", label: "4.0+" }, { value: "4.5", label: "4.5+" }]} />
               <SelectField label="Minimum yorum sayısı" value={search.minimumReviewCount} onChange={(minimumReviewCount) => setSearch({ ...search, minimumReviewCount })} options={[{ value: "", label: "Farketmez" }, { value: "5", label: "5+" }, { value: "10", label: "10+" }, { value: "25", label: "25+" }, { value: "50", label: "50+" }, { value: "100", label: "100+" }]} />
             </div>
@@ -13282,16 +13284,26 @@ function ProposalFollowupCenter({ content, setContent, save, notify, setActive }
 }
 
 function WonLostAnalysisCenter({ content }: any) {
-  const signals = content.agencyLearningSignals || [];
-  const opportunities = content.agencyOpportunities || [];
-  const closed = [...signals, ...opportunities.filter((item: any) => ["Kazanıldı", "Kaybedildi"].includes(item.won_lost_status || item.pipeline_status))];
-  const countBy = (key: string, outcome?: string) => closed.filter((item: any) => !outcome || (item.outcome || item.won_lost_status || item.pipeline_status) === outcome).reduce((groups: any, item: any) => {
+  const closed = mergeWonLostDeals({
+    leads: (content.leads || []).map((lead: any) => {
+      const stage = pipelineStageForLead(lead);
+      return { ...lead, outcome: stage === "Kazanıldı" || stage === "Kaybedildi" ? stage : null };
+    }),
+    opportunities: content.agencyOpportunities || [],
+    signals: content.agencyLearningSignals || []
+  });
+  const { won, lost, winRate } = summarizeWonLost(closed);
+  const countBy = (key: string, outcome?: string) => closed.filter((item: any) => !outcome || item.outcome === outcome).reduce((groups: any, item: any) => {
     const value = item[key] || "Belirtilmedi";
     groups[value] = (groups[value] || 0) + 1;
     return groups;
   }, {});
   const rows = (title: string, data: any) => <div className="rounded-[12px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4"><h3 className="font-black text-[var(--admin-text-primary)]">{title}</h3><div className="mt-3 grid gap-2">{Object.entries(data).slice(0, 6).map(([label, count]) => <div key={label} className="flex justify-between rounded-[8px] bg-[var(--admin-surface)] px-3 py-2 text-xs"><span>{label}</span><strong>{String(count)}</strong></div>)}{!Object.keys(data).length && <p className="text-xs text-slate-400">Yeterli veri yok.</p>}</div></div>;
-  return <Panel title="Kazanıldı / Kaybedildi Analizi"><p className="mb-5 text-sm leading-6 text-[var(--admin-text-muted)]">Kapanan fırsatlar arttıkça sistem hangi sektör, şehir, paket ve bütçe aralığının daha kolay kapandığını öğrenir.</p>{!closed.length && <p className="mb-5 rounded-[12px] border border-dashed border-[var(--admin-border)] p-5 text-sm text-[var(--admin-text-muted)]">Yeterli veri yok. Fırsatlar Kazanıldı veya Kaybedildi olarak işaretlendikçe analiz oluşacak.</p>}<div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{rows("En çok kazanılan sektörler", countBy("sector", "Kazanıldı"))}{rows("En çok kaybedilen sektörler", countBy("sector", "Kaybedildi"))}{rows("En iyi şehirler", countBy("city", "Kazanıldı"))}{rows("En iyi paketler", countBy("package_name", "Kazanıldı"))}{rows("Kaybedilme sebepleri", countBy("loss_reason", "Kaybedildi"))}{rows("İtiraz sinyalleri", countBy("won_lost_reason", "Kaybedildi"))}</div></Panel>;
+  return <Panel title="Kazanıldı / Kaybedildi Analizi"><p className="mb-5 text-sm leading-6 text-[var(--admin-text-muted)]">Ana Satış Hunisi/Lead Merkezi ve Fırsat Haritası kaynaklarından kapanan gerçek fırsatlar birleştirilerek hangi sektör, şehir, paket ve kaynağın daha kolay kapandığı gösterilir.</p>{!closed.length && <p className="mb-5 rounded-[12px] border border-dashed border-[var(--admin-border)] p-5 text-sm text-[var(--admin-text-muted)]">Yeterli veri yok. Leadler veya fırsatlar Kazanıldı ya da Kaybedildi olarak işaretlendikçe analiz oluşacak.</p>}<div className="mb-5 grid gap-3 md:grid-cols-3">
+    <AgencyStatCard label="Toplam kazanılan" value={won.length} tone="emerald" note="Tüm kaynaklardan, tekrarsız" />
+    <AgencyStatCard label="Toplam kaybedilen" value={lost.length} tone="red" note="Tüm kaynaklardan, tekrarsız" />
+    <AgencyStatCard label="Kazanma oranı" value={winRate === null ? "-" : `%${winRate}`} note="Kazanılan / (Kazanılan + Kaybedilen)" />
+  </div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{rows("En çok kazanılan sektörler", countBy("sector", "Kazanıldı"))}{rows("En çok kaybedilen sektörler", countBy("sector", "Kaybedildi"))}{rows("Kaynak bazlı kazanma", countBy("source", "Kazanıldı"))}{rows("En iyi şehirler", countBy("city", "Kazanıldı"))}{rows("En iyi hizmet türleri", countBy("service_type", "Kazanıldı"))}{rows("Kaybedilme sebepleri", countBy("loss_reason", "Kaybedildi"))}</div></Panel>;
 }
 
 function AgencyTargetsCenter({ content, setContent, setActive, save, notify }: any) {
@@ -14413,7 +14425,18 @@ function LeadFollowUpCenter({ content, setContent, save, setActive, notify }: an
     ["Bugün WhatsApp atılacaklar", filtered.filter((lead: any) => dateOnly(lead.next_action_at || lead.follow_up_date) === today && String(lead.next_action || "").toLocaleLowerCase("tr").includes("whatsapp"))],
     ["Takip gecikenler", filtered.filter((lead: any) => dateOnly(lead.next_action_at || lead.follow_up_date) && dateOnly(lead.next_action_at || lead.follow_up_date) < today)],
     ["Teklif bekleyenler", filtered.filter((lead: any) => String(lead.status || "").includes("Teklif") || pipelineStageForLead(lead) === "Teklif Gönderildi")],
-    ["Toplantı bekleyenler", filtered.filter((lead: any) => String(lead.next_action || lead.notes || "").toLocaleLowerCase("tr").includes("toplantı"))],
+    // Real leads.meeting_at-driven segmentation (today + overdue = needs
+    // action now). The `!lead.meeting_at && ...` clause is a controlled,
+    // shrinking legacy fallback: leads created before meeting_at was wired
+    // up here may only have "toplantı" mentioned in a free-text note — kept
+    // so they don't silently disappear from this bucket, but only when
+    // there's genuinely no real meeting_at to classify instead.
+    ["Toplantı bekleyenler", filtered.filter((lead: any) => {
+      const segment = classifyMeetingSegment(lead.meeting_at, today);
+      if (segment === "today" || segment === "overdue") return true;
+      return !lead.meeting_at && String(lead.next_action || lead.notes || "").toLocaleLowerCase("tr").includes("toplantı");
+    })],
+    ["Yaklaşan toplantılar", filtered.filter((lead: any) => classifyMeetingSegment(lead.meeting_at, today) === "upcoming")],
     ["Kazanılmaya yakın leadler", filtered.filter((lead: any) => Number(lead.score || lead.lead_score || 0) >= 75 || ["Takipte", "Teklif Gönderildi"].includes(pipelineStageForLead(lead)))]
   ];
   function patchLead(id: string, patch: any, message = "Lead güncellendi") {
@@ -14749,6 +14772,52 @@ ${notes || "Satış garantisi verilmez. Sistem; reklam bütçesini daha kontroll
     printWindow.document.close();
     printWindow.print();
   }
+  const [pdfBusy, setPdfBusy] = useState(false);
+  // Real PDF, independent of the browser print dialog above — reuses the
+  // canonical document-generator.ts PDF engine server-side (see
+  // /api/admin/proposals/pdf), same one already used for monthly reports.
+  async function downloadProposalPdf() {
+    if (!result) return setResult("PDF indirmeden önce teklif önizlemesi oluşturun.");
+    setPdfBusy(true);
+    try {
+      const response = await fetch("/api/admin/proposals/pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyName: targetName,
+          sector,
+          packageType,
+          services: services.split("\n").filter(Boolean),
+          excludedServices: excludedServices.split("\n").filter(Boolean),
+          monthlyFee: Number(monthlyFee || 0) * (packageType === "Temel" ? 0.8 : packageType === "Premium" ? 1.35 : 1),
+          setupFee: Number(setupFee || 0),
+          adBudget: Number(adBudget || 0),
+          duration,
+          paymentNote,
+          nextSteps: nextSteps.split("\n").filter(Boolean),
+          notes
+        })
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setResult((current) => `${current}\n\nPDF oluşturulamadı: ${data.error || "Bilinmeyen hata."}`);
+        return;
+      }
+      const disposition = response.headers.get("Content-Disposition") || "";
+      const filenameMatch = disposition.match(/filename="([^"]+)"/);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filenameMatch?.[1] || `HK-Dijital-Teklif-${targetName}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      setPdfBusy(false);
+    }
+  }
   async function saveProposalDocument() {
     if (!result) return setResult("Kaydetmeden önce teklif önizlemesi oluşturun.");
     const company_id = selectedCompany?.id || companyId || selectedCampaign?.company_id || "";
@@ -14812,7 +14881,8 @@ ${notes || "Satış garantisi verilmez. Sistem; reklam bütçesini daha kontroll
     </div>
     <div className="mt-5 flex flex-wrap gap-2">
       <button type="button" onClick={() => askAiProvider(generate)} className="rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-[var(--admin-text-primary)]">Teklif önizlemesi oluştur</button>
-      <button type="button" onClick={printProposal} className="rounded-full border border-[var(--admin-border)] px-5 py-3 text-sm font-black text-[var(--admin-text-secondary)]">PDF / Yazdır</button>
+      <button type="button" onClick={downloadProposalPdf} disabled={pdfBusy} className="rounded-full bg-emerald-300 px-5 py-3 text-sm font-black text-[var(--admin-text-primary)] disabled:opacity-60">{pdfBusy ? "PDF hazırlanıyor..." : "PDF İndir"}</button>
+      <button type="button" onClick={printProposal} className="rounded-full border border-[var(--admin-border)] px-5 py-3 text-sm font-black text-[var(--admin-text-secondary)]">Yazdır</button>
       <button type="button" onClick={saveProposalDocument} className="rounded-full border border-emerald-200/25 px-5 py-3 text-sm font-black text-emerald-700">Müşteri Belgelerine Kaydet</button>
       <button type="button" onClick={whatsappProposal} className="rounded-full border border-emerald-200/25 px-5 py-3 text-sm font-black text-emerald-700">WhatsApp teklif mesajı oluştur</button>
       <button type="button" onClick={archiveProposal} className="rounded-full border border-amber-200/25 px-5 py-3 text-sm font-black text-amber-700">Arşivle</button>

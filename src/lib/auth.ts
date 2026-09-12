@@ -335,3 +335,18 @@ export function isCustomerRole(role?: string | null) {
 export function isCustomerPasswordChangeRequired(session?: AppSession | null) {
   return Boolean(session && isCustomerRole(session.role) && session.mustChangePassword);
 }
+
+// Canonical "is this a real, usable customer session" check — every
+// /api/customer/** route needs the same four conditions (a session exists,
+// it hasn't been force-redirected to a password change, it actually carries
+// a customer role, and that role has a company to be scoped to) before it
+// can safely read/write that company's data. Previously this check was
+// re-implemented ad hoc per route/module (e.g. a local, unexported copy in
+// customer-integration-oauth.ts); exporting one canonical version here
+// means future customer routes have one obvious, correct helper to import
+// instead of a fifth slightly-different inline check.
+export async function requireCustomerSession(): Promise<(AppSession & { companyId: string }) | null> {
+  const session = await getSession();
+  if (!session || isCustomerPasswordChangeRequired(session) || !isCustomerRole(session.role) || !session.companyId) return null;
+  return session as AppSession & { companyId: string };
+}
