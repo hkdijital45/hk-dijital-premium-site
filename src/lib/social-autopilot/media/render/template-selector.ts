@@ -14,8 +14,8 @@ import type { FunnelStage } from "../../types";
 export const BODY_TEMPLATES: TemplateKey[] = TEMPLATE_KEYS.filter((key) => key !== "bold_hook" && key !== "cta_closing");
 
 const FUNNEL_TEMPLATE_WEIGHTS: Record<FunnelStage, Partial<Record<TemplateKey, number>>> = {
-  problem_awareness: { mistakes: 3, myth_vs_reality: 2, problem_solution: 2 },
-  awareness: { educational_breakdown: 3, data_insight: 2, checklist: 1 },
+  problem_awareness: { mistakes: 3, myth_vs_reality: 2, problem_solution: 2, question_prompt: 2 },
+  awareness: { educational_breakdown: 3, data_insight: 2, checklist: 1, question_prompt: 1 },
   consideration: { comparison: 3, framework: 2, tactical_guide: 1 },
   authority: { framework: 2, data_insight: 3, tactical_guide: 2 },
   trust: { myth_vs_reality: 2, educational_breakdown: 2, data_insight: 1 },

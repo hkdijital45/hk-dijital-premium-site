@@ -18,9 +18,36 @@ export class MediaQualityRejectedError extends Error {
   constructor(reason: string) { super(reason); this.name = "MediaQualityRejectedError"; }
 }
 
-function staticTemplateFor(request: MediaGenerationRequest): TemplateKey {
-  if (request.funnelStage === "conversion") return "cta_closing";
-  return "educational_breakdown";
+// HK Visual System V1: statics used to render with only 2 of the 12
+// template families (cta_closing for conversion, educational_breakdown for
+// everything else), and their "headline" was the entire caption (a
+// 200+ char paragraph crammed into a headline-sized box) because the
+// short, punchy `title`/`hook` fields were never even passed to the
+// renderer. This picks a template from real content signals already on the
+// item — never from creative_brief, which stays unable to override brand
+// colors/fonts/spacing — and always uses the short title/hook as the
+// on-image headline, with the hook demoted to a lower-weight subhead
+// instead of duplicating the full caption on the image.
+const STAT_PATTERN = /(%|x\b|×|\+|\b\d{2,}\b)/i;
+
+function selectStaticPresentation(request: MediaGenerationRequest): { templateKey: TemplateKey; headline: string; subhead: string } {
+  const title = (request.title || "").trim();
+  const hook = (request.hook || "").trim();
+  const fallback = firstSentence(request.caption) || request.brandName;
+
+  if (request.funnelStage === "conversion") {
+    return { templateKey: "cta_closing", headline: title || fallback, subhead: hook };
+  }
+  if (/\?\s*$/.test(title)) return { templateKey: "question_prompt", headline: title, subhead: hook };
+  if (/\?\s*$/.test(hook)) return { templateKey: "question_prompt", headline: hook, subhead: "" };
+  if (/\d/.test(title) && STAT_PATTERN.test(title)) return { templateKey: "data_insight", headline: title, subhead: hook };
+  if (/\d/.test(hook) && STAT_PATTERN.test(hook)) return { templateKey: "data_insight", headline: hook, subhead: "" };
+  return { templateKey: "bold_hook", headline: title || fallback, subhead: title ? hook : "" };
+}
+
+function firstSentence(text: string): string {
+  const match = text.match(/^[^.!?]{1,140}[.!?]/);
+  return (match ? match[0] : text).slice(0, 140).trim();
 }
 
 async function uploadSlides(slides: RenderedSlide[], contentItemId: string) {
@@ -75,10 +102,8 @@ export const deterministicRendererProvider: MediaProvider & MediaRenderer = {
     }
 
     if (request.contentType === "static") {
-      const templateKey = staticTemplateFor(request);
-      const headline = request.creativeBrief.desired_action || request.caption.split("\n")[0] || "HK Dijital";
-      const body = request.caption;
-      const rendered = await renderStatic({ headline, body, cta: request.cta, templateKey, brandName: request.brandName });
+      const { templateKey, headline, subhead } = selectStaticPresentation(request);
+      const rendered = await renderStatic({ headline, body: subhead, cta: request.cta, templateKey, brandName: request.brandName });
 
       // Static posts are independent single images — the carousel
       // anti-repetition history doesn't apply the same way here.

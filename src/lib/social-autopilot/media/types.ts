@@ -4,6 +4,8 @@ export type MediaGenerationRequest = {
   contentItemId: string;
   contentType: ContentType;
   creativeBrief: CreativeBrief;
+  title: string;
+  hook: string;
   caption: string;
   cta: string;
   funnelStage: FunnelStage;

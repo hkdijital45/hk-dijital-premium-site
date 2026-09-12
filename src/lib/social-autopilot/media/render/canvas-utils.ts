@@ -19,8 +19,20 @@ export function roundRect(ctx: SKRSContext2D, x: number, y: number, width: numbe
   ctx.closePath();
 }
 
+// HK Visual System V1: a flat fill when the brand profile's two gradient
+// stops match, otherwise a vertical (not diagonal) wash. A single-axis
+// same-hue wash reads as premium/controlled; a corner-to-corner two-hue
+// gradient is exactly the generic "AI poster" look this system replaces —
+// the brand profile's default gradient_from/gradient_to are now two close
+// shades of the same near-black tone specifically so this renders as
+// effectively flat.
 export function paintBackground(ctx: SKRSContext2D, theme: ResolvedTheme, width: number, height: number) {
-  const gradient = ctx.createLinearGradient(0, 0, width, height);
+  if (theme.gradient_from === theme.gradient_to) {
+    ctx.fillStyle = theme.gradient_from;
+    ctx.fillRect(0, 0, width, height);
+    return;
+  }
+  const gradient = ctx.createLinearGradient(0, 0, 0, height);
   gradient.addColorStop(0, theme.gradient_from);
   gradient.addColorStop(1, theme.gradient_to);
   ctx.fillStyle = gradient;

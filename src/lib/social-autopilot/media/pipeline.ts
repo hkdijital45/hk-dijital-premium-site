@@ -49,7 +49,7 @@ function manualPatch(error: string | null = null): MediaStagePatch {
   };
 }
 
-export async function runMediaStage(item: Pick<SocialContentItem, "id" | "content_type" | "creative_brief" | "caption" | "media_mode" | "cta" | "funnel_stage" | "content_pillar">, brandName: string, preselectedTemplate?: string): Promise<MediaStageOutcome> {
+export async function runMediaStage(item: Pick<SocialContentItem, "id" | "content_type" | "creative_brief" | "title" | "hook" | "caption" | "media_mode" | "cta" | "funnel_stage" | "content_pillar">, brandName: string, preselectedTemplate?: string): Promise<MediaStageOutcome> {
   if (item.media_mode === "manual") {
     return { patch: manualPatch(), needsMedia: false };
   }
@@ -67,7 +67,7 @@ export async function runMediaStage(item: Pick<SocialContentItem, "id" | "conten
 
   try {
     const result: MediaGenerationResult = await provider.generate({
-      contentItemId: item.id, contentType: item.content_type, creativeBrief: item.creative_brief, caption: item.caption,
+      contentItemId: item.id, contentType: item.content_type, creativeBrief: item.creative_brief, title: item.title, hook: item.hook, caption: item.caption,
       cta: item.cta, funnelStage: item.funnel_stage, contentPillar: item.content_pillar, brandName, preselectedTemplate
     });
     if (!result.assetUrls.length) throw new Error("Sağlayıcı hiçbir medya dosyası döndürmedi.");

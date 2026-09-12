@@ -60,9 +60,13 @@ export async function renderCarousel(params: { slides: CarouselSlideContent[]; t
     if (params.slides.length > 1) drawPageIndicator(ctx, theme, i, params.slides.length, CAROUSEL_WIDTH, CAROUSEL_HEIGHT);
 
     // JPEG, not PNG: Instagram's content-publishing API only accepts JPEG
-    // for image_url. High quality (0.92) keeps text edges sharp at this
-    // resolution while staying well under the 8MB limit.
-    const buffer = await canvas.encode("jpeg", 0.92);
+    // for image_url. @napi-rs/canvas's encode("jpeg", quality) takes an
+    // integer 0-100 scale, NOT a 0-1 fraction — passing 0.92 here silently
+    // floored to quality 1 (worst possible), producing heavy compression
+    // ghosting/ringing around every line of text on every render. 92 (not
+    // 0.92) keeps text edges genuinely sharp while staying well under the
+    // 8MB limit.
+    const buffer = await canvas.encode("jpeg", 92);
     rendered.push({ buffer, width: CAROUSEL_WIDTH, height: CAROUSEL_HEIGHT, overflow: result.overflow, usedFallbackShortening: result.usedFallbackShortening, templateApplied: appliedTemplate });
   }
 

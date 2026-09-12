@@ -31,7 +31,8 @@ export async function renderStatic(params: { headline: string; body: string; cta
   await drawBrandMark(ctx, theme, params.brandName, CAROUSEL_WIDTH, CAROUSEL_HEIGHT, theme.bodyFontFamily);
 
   // JPEG, not PNG — Instagram's content-publishing API only accepts JPEG
-  // for image_url.
-  const buffer = await canvas.encode("jpeg", 0.92);
+  // for image_url. Quality is an integer 0-100 scale here, not 0-1 — see
+  // carousel-renderer.ts's renderCarousel for why this matters.
+  const buffer = await canvas.encode("jpeg", 92);
   return { buffer, width: CAROUSEL_WIDTH, height: CAROUSEL_HEIGHT, overflow: result.overflow, usedFallbackShortening: result.usedFallbackShortening, templateApplied: params.templateKey };
 }

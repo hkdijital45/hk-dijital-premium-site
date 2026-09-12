@@ -95,7 +95,7 @@ type ContentGenerationBrief = { funnelStage: SocialContentItem["funnel_stage"]; 
  * MCP strategy_import (strategy-package.ts, via orchestrator.ts) both need
  * exactly this same treatment. */
 export async function runMediaAndPersist(
-  item: Pick<SocialContentItem, "id" | "content_type" | "creative_brief" | "caption" | "media_mode" | "cta" | "funnel_stage" | "content_pillar">,
+  item: Pick<SocialContentItem, "id" | "content_type" | "creative_brief" | "title" | "hook" | "caption" | "media_mode" | "cta" | "funnel_stage" | "content_pillar">,
   brandName: string,
   preselectedTemplate?: string
 ): Promise<SocialContentItem> {
