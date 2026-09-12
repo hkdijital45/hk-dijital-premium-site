@@ -5684,10 +5684,37 @@ function SalesPipeline({ content, setContent, setActive, notify }: any) {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) { notify?.(data.error || "Müşteri istihbarat analizi başarısız oldu.", "error"); return; }
-      setIntelligenceByLead((current) => ({ ...current, [lead.id]: data }));
+      setIntelligenceByLead((current) => ({ ...current, [lead.id]: { ...current[lead.id], ...data } }));
       if (data.fromCache) notify?.("Önbellekten yüklendi.", "success");
     } finally {
       setIntelligenceLoadingLeadId("");
+    }
+  }
+  const [agentCouncilLoadingLeadId, setAgentCouncilLoadingLeadId] = useState("");
+  async function runAgentCouncilForLead(lead: any, forceRefresh = false) {
+    if (agentCouncilLoadingLeadId) return;
+    setAgentCouncilLoadingLeadId(lead.id);
+    try {
+      const response = await fetch("/api/admin/lead-intelligence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          business: {
+            name: lead.company || lead.name, sector: lead.sector || lead.business_type, city: lead.city, district: lead.district, address: lead.address,
+            website: lead.website, phone: lead.phone, whatsapp: lead.whatsapp, instagram: lead.instagram,
+            googleRating: lead.google_rating ?? null, reviewCount: lead.google_review_count ?? 0, googlePlaceId: lead.google_place_id,
+            metaAdsStatus: lead.meta_ads_status, googleAdsStatus: lead.google_ads_status,
+            metaPixelDetected: lead.meta_pixel_detected ?? null, googleTagDetected: lead.google_tag_detected ?? null
+          },
+          leadId: lead.id, mode: "agent_council", forceRefresh
+        })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) { notify?.(data.error || "Ajan Kurulu analizi başarısız oldu.", "error"); return; }
+      setIntelligenceByLead((current) => ({ ...current, [lead.id]: { ...current[lead.id], ...data } }));
+      notify?.(data.fromCache ? "Ajan Kurulu sonucu önbellekten yüklendi." : "Ajan Kurulu analizi tamamlandı.", "success");
+    } finally {
+      setAgentCouncilLoadingLeadId("");
     }
   }
   const [draggedLeadId, setDraggedLeadId] = useState("");
@@ -5971,7 +5998,7 @@ function SalesPipeline({ content, setContent, setActive, notify }: any) {
               </div>
             </div>
             {intelligenceByLead[selectedLead.id]
-              ? <LeadIntelligencePanel data={intelligenceByLead[selectedLead.id]} onRefresh={() => analyzeLeadIntelligence(selectedLead, false, true)} refreshing={intelligenceLoadingLeadId === selectedLead.id} />
+              ? <LeadIntelligencePanel data={intelligenceByLead[selectedLead.id]} onRefresh={() => analyzeLeadIntelligence(selectedLead, false, true)} refreshing={intelligenceLoadingLeadId === selectedLead.id} leadRecord={selectedLead} canRunCouncil={Boolean(selectedLead.id)} councilRunning={agentCouncilLoadingLeadId === selectedLead.id} onRunCouncil={(forceRefresh: boolean) => runAgentCouncilForLead(selectedLead, forceRefresh)} />
               : <p className="mt-3 text-xs leading-5 text-[var(--admin-text-muted)]">Gerçek kanıta dayalı fırsat skoru, dijital varlık, rakip/pazar, büyüme ve satış önerisi için "Analiz Et" — bölgedeki gerçek benzer işletme verisiyle zenginleştirilmiş rapor için "Detaylı Analiz" kullanın.</p>}
           </div>
           <div className="mt-4 rounded-[14px] border border-blue-200 bg-blue-50 p-4"><h4 className="font-black text-[var(--admin-text-primary)]">Takvime Ekle</h4><p className="mt-1 text-xs text-[var(--admin-text-muted)]">Takvim entegrasyonu hazır; tarihler mevcut lead ve görev altyapısına kaydedilir.</p><div className="mt-3 grid gap-3"><Field label="Toplantı tarihi" type="date" value={sideDraft.meetingAt} onChange={(meetingAt) => setSideDraft({ ...sideDraft, meetingAt })} /><Field label="Takip tarihi" type="date" value={sideDraft.calendarFollowUpAt} onChange={(calendarFollowUpAt) => setSideDraft({ ...sideDraft, calendarFollowUpAt })} /><Field label="Teklif gönderim tarihi" type="date" value={sideDraft.proposalSentAt} onChange={(proposalSentAt) => setSideDraft({ ...sideDraft, proposalSentAt })} /><button onClick={() => updateLead(selectedLead, { meeting_at: sideDraft.meetingAt || null, calendar_follow_up_at: sideDraft.calendarFollowUpAt || null, proposal_sent_at: sideDraft.proposalSentAt || null, next_action_at: sideDraft.calendarFollowUpAt || selectedLead.next_action_at || null }, "Takvim tarihleri kaydedildi.")} className="rounded-[10px] bg-blue-600 px-4 py-3 text-sm font-black text-white">Tarihleri Kaydet</button></div></div>
@@ -10978,13 +11005,25 @@ function mapTabFromSlug(slug: string | null) {
 // the full six-specialist LeadIntelligenceResult. Every section here is
 // either a real deterministic value or the AI's qualitative take on real
 // evidence — nothing here is invented client-side.
-function LeadIntelligencePanel({ data, onRefresh, refreshing }: any) {
+const AGENT_ROLE_LABELS: Record<string, string> = { leadQualifier: "Potansiyel Müşteri Analisti", digitalPresence: "Dijital Varlık Analisti", market: "Rakip ve Pazar Analisti", growth: "Büyüme Stratejisti", sales: "Satış Stratejisti" };
+const AGENT_STATUS_LABEL: Record<string, string> = { completed: "Tamamlandı", failed: "Başarısız", pending: "Beklemede" };
+const AGENT_STATUS_TONE: Record<string, AdminStatusTone> = { completed: "success", failed: "danger", pending: "warning" };
+
+function LeadIntelligencePanel({ data, onRefresh, refreshing, leadRecord, canRunCouncil, councilRunning, onRunCouncil }: any) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingForceRefresh, setPendingForceRefresh] = useState(false);
   const profile = data?.profile;
   if (!profile) return null;
   const result = profile.result || {};
   const specialists = result.specialists || {};
+  const council = result.agentCouncil;
+  const meta = result.meta || {};
   const priorityTone = profile.priority === "very_high" ? "danger" : profile.priority === "high" ? "warning" : profile.priority === "medium" ? "info" : "neutral";
   const priorityLabelMap: Record<string, string> = { very_high: "Çok Yüksek", high: "Yüksek", medium: "Orta", low: "Düşük" };
+  const levelLabelMap: Record<string, string> = { level0: "Seviye 0 — Deterministik", level1: "Seviye 1 — Tek AI Çağrısı", level2: "Seviye 2 — Detaylı Tek AI Çağrısı" };
+  const evidenceSignals = leadRecord ? [leadRecord.website, leadRecord.phone, typeof (leadRecord.google_rating ?? leadRecord.googleRating) === "number", Number(leadRecord.google_review_count ?? leadRecord.reviewCount ?? 0) > 0, leadRecord.instagram, leadRecord.whatsapp].filter(Boolean).length : 2;
+  const isThinEvidence = evidenceSignals <= 1;
+
   const section = (title: string, content: any) => (!content || (Array.isArray(content) && !content.length)) ? null : (
     <div className="rounded-[8px] p-3" style={{ border: "1px solid var(--admin-border)", background: "var(--admin-surface-muted, var(--admin-surface-soft))" }}>
       <p className="text-[11px] font-black uppercase tracking-[.08em]" style={{ color: "var(--hk-cyan-solid, var(--admin-text-secondary))" }}>{title}</p>
@@ -10993,6 +11032,30 @@ function LeadIntelligencePanel({ data, onRefresh, refreshing }: any) {
         : <p className="mt-2 text-xs leading-5" style={{ color: "var(--admin-text-secondary)" }}>{content}</p>}
     </div>
   );
+  const roleBlock = (title: string, children: any) => (
+    <div className="rounded-[10px] p-3" style={{ border: "1px solid var(--admin-border)", background: "var(--admin-surface-muted, var(--admin-surface-soft))" }}>
+      <p className="text-[11px] font-black uppercase tracking-[.08em]" style={{ color: "var(--hk-cyan-solid, var(--admin-text-secondary))" }}>{title}</p>
+      <div className="mt-2 grid gap-2">{children}</div>
+    </div>
+  );
+  const field = (label: string, value: any) => (!value || (Array.isArray(value) && !value.length)) ? null : (
+    <div>
+      <p className="text-[10px] font-bold uppercase tracking-[.06em]" style={{ color: "var(--admin-text-muted)" }}>{label}</p>
+      {Array.isArray(value)
+        ? <ul className="mt-1 grid gap-1 text-xs leading-5" style={{ color: "var(--admin-text-secondary)" }}>{value.map((item: string, index: number) => <li key={index}>• {item}</li>)}</ul>
+        : <p className="mt-1 text-xs leading-5" style={{ color: "var(--admin-text-secondary)" }}>{value}</p>}
+    </div>
+  );
+
+  function openCouncilConfirm(forceRefresh: boolean) {
+    setPendingForceRefresh(forceRefresh);
+    setConfirmOpen(true);
+  }
+  function confirmCouncilRun() {
+    setConfirmOpen(false);
+    onRunCouncil?.(pendingForceRefresh);
+  }
+
   return (
     <div className="mt-3 rounded-[10px] p-3" style={{ border: "1px solid var(--hk-cyan-solid, var(--admin-border-strong))", background: "var(--admin-card)" }}>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -11023,6 +11086,85 @@ function LeadIntelligencePanel({ data, onRefresh, refreshing }: any) {
         {section("Riskler", (result.redFlags?.length ? result.redFlags : profile.red_flags))}
       </div>
       {(profile.final_recommendation || result.finalRecommendation) && <p className="mt-3 rounded-[8px] p-2 text-xs font-bold leading-5" style={{ background: "var(--hk-cyan-soft, var(--admin-surface-soft))", color: "var(--admin-text-primary)" }}>Baş Stratejist Önerisi: {profile.final_recommendation || result.finalRecommendation}</p>}
+
+      <details className="mt-4 rounded-[10px]" style={{ border: "1px solid var(--admin-border)" }}>
+        <summary className="cursor-pointer p-2 text-xs font-black uppercase tracking-[.08em]" style={{ color: "var(--admin-text-primary)" }}>AI Analiz Ayrıntıları</summary>
+        <div className="p-3">
+          <p className="text-[11px] leading-5" style={{ color: "var(--admin-text-muted)" }}>{profile.analysis_level === "level0" ? "Bu değerlendirme tamamen kural tabanlıdır, yapay zekâ kullanılmadı." : "Tek AI çağrısında uzman perspektifleri — uzman roller tek bir AI isteği içinde değerlendirilir. Daha hızlı ve düşük maliyetlidir."}</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {roleBlock("Potansiyel Müşteri Analisti", <>{field("Değerlendirme", specialists.leadQualifier?.assessment)}{field("Kanıtlar", specialists.leadQualifier?.evidence)}{field("Endişeler", specialists.leadQualifier?.concerns)}</>)}
+            {roleBlock("Dijital Varlık Analisti", <>{field("Güçlü Yönler", specialists.digitalPresence?.strengths)}{field("Zayıf Yönler", specialists.digitalPresence?.weaknesses)}{field("Veri Mevcut Değil", specialists.digitalPresence?.unknowns)}</>)}
+            {roleBlock("Rakip ve Pazar Analisti", <>{field("Değerlendirme", specialists.market?.assessment)}{field("Rekabet Baskısı", specialists.market?.competitorPressure)}{field("Fırsatlar", specialists.market?.opportunities)}</>)}
+            {roleBlock("Büyüme Stratejisti", <>{field("Önerilen Hizmetler", specialists.growth?.recommendedServices || profile.recommended_services)}{field("İlk 90 Gün", specialists.growth?.first90Days)}</>)}
+            {roleBlock("Satış Stratejisti", <>{field("Satış Yaklaşımı", specialists.sales?.salesAngle)}{field("İlk Temas", specialists.sales?.firstContact)}{field("Sorulacak Sorular", specialists.sales?.discoveryQuestions)}{field("Olası İtirazlar", specialists.sales?.likelyObjections)}{field("Sonraki Aksiyon", specialists.sales?.nextAction)}</>)}
+            {roleBlock("Baş Stratejist", <>{field("Genel Değerlendirme", profile.summary || result.summary)}{field("Nihai Öneri", profile.final_recommendation || result.finalRecommendation)}{field("Riskler", result.redFlags?.length ? result.redFlags : profile.red_flags)}</>)}
+          </div>
+        </div>
+      </details>
+
+      <details className="mt-3 rounded-[10px]" style={{ border: "1px solid var(--admin-border)" }}>
+        <summary className="cursor-pointer p-2 text-xs font-black uppercase tracking-[.08em]" style={{ color: "var(--admin-text-primary)" }}>Analiz İzleme</summary>
+        <div className="grid gap-1.5 p-3 text-xs sm:grid-cols-2" style={{ color: "var(--admin-text-secondary)" }}>
+          <span>Analiz seviyesi: <strong>{levelLabelMap[profile.analysis_level] || profile.analysis_level || "-"}</strong></span>
+          <span>AI kullanıldı mı: <strong>{data.aiUsed ? "Evet" : "Hayır"}</strong></span>
+          <span>AI çağrı sayısı: <strong>{data.logicalAiCallCount ?? "-"}</strong></span>
+          <span>Önbellekten mi: <strong>{data.fromCache ? "Evet" : "Hayır"}</strong></span>
+          <span>Provider: <strong>{profile.ai_provider || "-"}</strong></span>
+          <span>Model: <strong>{profile.ai_model || "-"}</strong></span>
+          <span>Analiz zamanı: <strong>{formatDateTime(profile.last_analyzed_at || profile.updated_at) || "-"}</strong></span>
+          <span>Evidence fingerprint: <strong>{profile.evidence_fingerprint ? String(profile.evidence_fingerprint).slice(0, 12) : "-"}</strong></span>
+          <span>Şema sürümü: <strong>{profile.schema_version ?? "-"}</strong></span>
+          <span>İşletme: <strong>{profile.business_name || "-"}</strong></span>
+          <span>Lead ID: <strong>{profile.lead_id || "Kaydedilmedi"}</strong></span>
+          <span className="sm:col-span-2">{meta.tokenUsage ? `Token kullanımı — Girdi: ${meta.tokenUsage.inputTokens ?? "-"}, Çıktı: ${meta.tokenUsage.outputTokens ?? "-"}, Toplam: ${meta.tokenUsage.totalTokens ?? "-"}` : "Token kullanımı sağlayıcı tarafından raporlanmıyor."}</span>
+        </div>
+      </details>
+
+      <details className="mt-3 rounded-[10px]" style={{ border: "1px solid var(--hk-cyan-solid, var(--admin-border-strong))" }} open={Boolean(council)}>
+        <summary className="cursor-pointer p-2 text-xs font-black uppercase tracking-[.08em]" style={{ color: "var(--hk-cyan-solid, var(--admin-text-primary))" }}>Ajan Kurulu (Derin Analiz)</summary>
+        <div className="p-3">
+          {!council && <>
+            <p className="text-xs leading-5" style={{ color: "var(--admin-text-muted)" }}>Beş uzman ajan ayrı ayrı çalışır, ardından Baş Stratejist sonuçları karşılaştırıp nihai kararı üretir. Bu analiz standart analize göre daha fazla AI çağrısı ve limit kullanır.</p>
+            {isThinEvidence && <p className="mt-2 text-xs font-bold" style={{ color: "#8D5B00" }}>Bu lead için mevcut veri sınırlı; Ajan Kurulu çıktısının güveni düşük olabilir.</p>}
+            <AdminButton compact variant="ai" className="mt-3" disabled={!canRunCouncil || councilRunning} title={!canRunCouncil ? "Bu özelliği kullanmak için önce işletmeyi lead olarak kaydedin." : undefined} onClick={() => openCouncilConfirm(false)}>{councilRunning ? "Çalışıyor..." : "Ajan Kurulu ile Derin Analiz"}</AdminButton>
+          </>}
+          {council && <>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {(["leadQualifier", "digitalPresence", "market", "growth", "sales"] as const).map((key) => (
+                <AdminStatusBadge key={key} tone={AGENT_STATUS_TONE[council.specialists?.[key]?.status] || "neutral"}>{AGENT_ROLE_LABELS[key]}: {AGENT_STATUS_LABEL[council.specialists?.[key]?.status] || "-"}</AdminStatusBadge>
+              ))}
+              <AdminStatusBadge tone={AGENT_STATUS_TONE[council.chief?.status] || "neutral"}>Baş Stratejist: {AGENT_STATUS_LABEL[council.chief?.status] || "-"}</AdminStatusBadge>
+            </div>
+            <div className="mt-2 grid gap-1 text-[11px]" style={{ color: "var(--admin-text-muted)" }}>
+              <span>AI çağrı sayısı: {council.runMetadata?.logicalAiCallCount ?? "-"} · Provider: {council.runMetadata?.provider || "-"} · Model: {council.runMetadata?.model || "-"}</span>
+              <span>{council.runMetadata?.tokenUsage ? `Token — Girdi: ${council.runMetadata.tokenUsage.inputTokens ?? "-"}, Çıktı: ${council.runMetadata.tokenUsage.outputTokens ?? "-"}` : "Token kullanımı sağlayıcı tarafından raporlanmıyor."}</span>
+            </div>
+            {council.chief?.status === "failed" && <p className="mt-2 rounded-[8px] p-2 text-xs font-bold" style={{ background: "#FDECEC", color: "#B42318" }}>{council.chief.error || "Baş Stratejist sonucu alınamadı."}</p>}
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {roleBlock("Potansiyel Müşteri Analisti", council.specialists?.leadQualifier?.result ? <>{field("Değerlendirme", council.specialists.leadQualifier.result.assessment)}{field("Nitelik", council.specialists.leadQualifier.result.qualification)}{field("Kanıtlar", council.specialists.leadQualifier.result.evidence)}{field("Endişeler", council.specialists.leadQualifier.result.concerns)}</> : <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>{council.specialists?.leadQualifier?.error || "Sonuç yok."}</p>)}
+              {roleBlock("Dijital Varlık Analisti", council.specialists?.digitalPresence?.result ? <>{field("Değerlendirme", council.specialists.digitalPresence.result.assessment)}{field("Güçlü Yönler", council.specialists.digitalPresence.result.strengths)}{field("Zayıf Yönler", council.specialists.digitalPresence.result.weaknesses)}{field("Fırsatlar", council.specialists.digitalPresence.result.opportunities)}</> : <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>{council.specialists?.digitalPresence?.error || "Sonuç yok."}</p>)}
+              {roleBlock("Rakip ve Pazar Analisti", council.specialists?.market?.result ? <>{field("Değerlendirme", council.specialists.market.result.assessment)}{field("Rekabet Baskısı", council.specialists.market.result.competitorPressure)}{field("Fırsatlar", council.specialists.market.result.opportunities)}{field("Riskler", council.specialists.market.result.risks)}</> : <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>{council.specialists?.market?.error || "Sonuç yok."}</p>)}
+              {roleBlock("Büyüme Stratejisti", council.specialists?.growth?.result ? <>{field("Değerlendirme", council.specialists.growth.result.assessment)}{field("Önerilen Hizmetler", (council.specialists.growth.result.recommendedServices || []).map((item: any) => `${item.service} (${item.priority}) — ${item.reason}`))}{field("İlk 90 Gün", council.specialists.growth.result.first90Days)}</> : <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>{council.specialists?.growth?.error || "Sonuç yok."}</p>)}
+              {roleBlock("Satış Stratejisti", council.specialists?.sales?.result ? <>{field("Satış Yaklaşımı", council.specialists.sales.result.salesAngle)}{field("İlk Temas", council.specialists.sales.result.firstContact)}{field("Sorulacak Sorular", council.specialists.sales.result.discoveryQuestions)}{field("Olası İtirazlar", council.specialists.sales.result.likelyObjections)}{field("Sonraki Aksiyon", council.specialists.sales.result.nextAction)}</> : <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>{council.specialists?.sales?.error || "Sonuç yok."}</p>)}
+              {roleBlock("Baş Stratejist Kararı", council.chief?.result ? <>{field("Özet", council.chief.result.summary)}{field("Uzmanlar Arası Uzlaşı", council.chief.result.agreements)}{field("Görüş Ayrılıkları", council.chief.result.disagreements)}{field("Zayıf Kanıtlar", council.chief.result.evidenceWeaknesses)}{field("Öncelikli Hizmet", council.chief.result.primaryService)}{field("Nihai Öneri", council.chief.result.finalRecommendation)}{field("Önerilen İlk Hamle", council.chief.result.nextAction)}{field("Riskler", council.chief.result.redFlags)}</> : <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>{council.chief?.error || "Sonuç yok."}</p>)}
+            </div>
+            <AdminButton compact variant="secondary" className="mt-3" disabled={councilRunning} onClick={() => openCouncilConfirm(true)}>{councilRunning ? "Çalışıyor..." : "Yeniden Çalıştır"}</AdminButton>
+          </>}
+        </div>
+      </details>
+
+      {confirmOpen && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-[9999] grid place-items-center bg-slate-100/80 p-4" onMouseDown={() => setConfirmOpen(false)}>
+          <div className="w-full max-w-md rounded-[20px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 text-center shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
+            <h3 className="text-xl font-black text-[var(--admin-text-primary)]">Ajan Kurulu ile Derin Analiz</h3>
+            <p className="mt-2 text-sm leading-6 text-[var(--admin-text-secondary)]">Bu analiz 6 ayrı AI görevi çalıştırır ve standart analize göre daha fazla limit kullanır.</p>
+            {isThinEvidence && <p className="mt-2 text-xs font-bold text-amber-700">Bu lead için mevcut veri sınırlı; Ajan Kurulu çıktısının güveni düşük olabilir.</p>}
+            <div className="mt-5 flex justify-center gap-2">
+              <button onClick={() => setConfirmOpen(false)} className="rounded-[10px] border border-slate-300 px-5 py-3 text-sm font-black text-[var(--admin-text-secondary)]">Vazgeç</button>
+              <button onClick={confirmCouncilRun} className="rounded-[10px] bg-purple-600 px-5 py-3 text-sm font-black text-white">Ajan Kurulunu Çalıştır</button>
+            </div>
+          </div>
+        </div>, getAdminPortalRoot())}
     </div>
   );
 }
@@ -11059,6 +11201,18 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
   // filter change; only the explicit "Analiz Et" click below triggers it.
   const [intelligenceByKey, setIntelligenceByKey] = useState<Record<string, any>>({});
   const [intelligenceLoadingKey, setIntelligenceLoadingKey] = useState("");
+  const [agentCouncilLoadingKey, setAgentCouncilLoadingKey] = useState("");
+  function businessPayloadFor(record: any) {
+    return {
+      name: record.name || record.company, sector: record.category || record.business_type || search.businessType,
+      city: record.city || search.city, district: districtOf(record) || undefined, address: record.address,
+      website: record.website, phone: record.phone, whatsapp: record.whatsapp, instagram: record.instagram,
+      googleRating: record.googleRating ?? record.google_rating ?? null, reviewCount: record.reviewCount ?? record.google_review_count ?? 0,
+      googlePlaceId: record.placeId || record.google_place_id,
+      metaAdsStatus: record.metaAdsStatus || record.meta_ads_status, googleAdsStatus: record.googleAdsStatus || record.google_ads_status,
+      metaPixelDetected: record.metaPixelDetected ?? record.meta_pixel_detected ?? null, googleTagDetected: record.googleTagDetected ?? record.google_tag_detected ?? null
+    };
+  }
   async function analyzeBusinessIntelligence(record: any, placeKey: string, deep = false, forceRefresh = false) {
     if (intelligenceLoadingKey) return;
     setIntelligenceLoadingKey(placeKey);
@@ -11066,25 +11220,33 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
       const response = await fetch("/api/admin/lead-intelligence", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          business: {
-            name: record.name || record.company, sector: record.category || record.business_type || search.businessType,
-            city: record.city || search.city, district: districtOf(record) || undefined, address: record.address,
-            website: record.website, phone: record.phone, whatsapp: record.whatsapp, instagram: record.instagram,
-            googleRating: record.googleRating ?? record.google_rating ?? null, reviewCount: record.reviewCount ?? record.google_review_count ?? 0,
-            googlePlaceId: record.placeId || record.google_place_id,
-            metaAdsStatus: record.metaAdsStatus || record.meta_ads_status, googleAdsStatus: record.googleAdsStatus || record.google_ads_status,
-            metaPixelDetected: record.metaPixelDetected ?? record.meta_pixel_detected ?? null, googleTagDetected: record.googleTagDetected ?? record.google_tag_detected ?? null
-          },
-          leadId: existingLeadFor(record)?.id, deep, forceRefresh
-        })
+        body: JSON.stringify({ business: businessPayloadFor(record), leadId: existingLeadFor(record)?.id, deep, forceRefresh })
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) { notify?.(data.error || "Müşteri istihbarat analizi başarısız oldu.", "error"); return; }
-      setIntelligenceByKey((current) => ({ ...current, [placeKey]: data }));
+      setIntelligenceByKey((current) => ({ ...current, [placeKey]: { ...current[placeKey], ...data } }));
       if (data.fromCache) notify?.("Önbellekten yüklendi.", "success");
     } finally {
       setIntelligenceLoadingKey("");
+    }
+  }
+  async function runBusinessAgentCouncil(record: any, placeKey: string, forceRefresh = false) {
+    if (agentCouncilLoadingKey) return;
+    const leadId = existingLeadFor(record)?.id;
+    if (!leadId) { notify?.("Ajan Kurulu yalnızca kaydedilmiş bir lead için çalıştırılabilir.", "warning"); return; }
+    setAgentCouncilLoadingKey(placeKey);
+    try {
+      const response = await fetch("/api/admin/lead-intelligence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ business: businessPayloadFor(record), leadId, mode: "agent_council", forceRefresh })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) { notify?.(data.error || "Ajan Kurulu analizi başarısız oldu.", "error"); return; }
+      setIntelligenceByKey((current) => ({ ...current, [placeKey]: { ...current[placeKey], ...data } }));
+      notify?.(data.fromCache ? "Ajan Kurulu sonucu önbellekten yüklendi." : "Ajan Kurulu analizi tamamlandı.", "success");
+    } finally {
+      setAgentCouncilLoadingKey("");
     }
   }
   const saved = (content.leads || []).filter((lead) => lead.google_place_id || lead.address);
@@ -11964,7 +12126,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
           <AdminButton compact variant="info" disabled={intelligenceLoadingKey === placeKey} onClick={() => analyzeBusinessIntelligence(record, placeKey)}>{intelligenceLoadingKey === placeKey ? "Analiz ediliyor..." : intelligenceByKey[placeKey] ? "Yeniden Analiz Et" : "Analiz Et"}</AdminButton>
           <a target="_blank" rel="noreferrer" href={mapsHref(record)} className="hk-button hk-button-neutral hk-button-compact">Maps'te Aç</a>
         </div>
-        {intelligenceByKey[placeKey] && <LeadIntelligencePanel data={intelligenceByKey[placeKey]} onRefresh={() => analyzeBusinessIntelligence(record, placeKey, false, true)} refreshing={intelligenceLoadingKey === placeKey} />}
+        {intelligenceByKey[placeKey] && <LeadIntelligencePanel data={intelligenceByKey[placeKey]} onRefresh={() => analyzeBusinessIntelligence(record, placeKey, false, true)} refreshing={intelligenceLoadingKey === placeKey} leadRecord={record} canRunCouncil={Boolean(existingLead)} councilRunning={agentCouncilLoadingKey === placeKey} onRunCouncil={(forceRefresh: boolean) => runBusinessAgentCouncil(record, placeKey, forceRefresh)} />}
         {whatsappDraft?.id === placeKey && <div className="mt-3 rounded-[8px] p-3" style={{ border: "1px solid var(--hk-success-solid, #167A3C)", background: "var(--admin-surface-muted, var(--admin-surface-soft))" }}>
           <p className="text-xs font-black" style={{ color: "var(--hk-success-solid, #167A3C)" }}>Hazır WhatsApp mesajı</p>
           <textarea value={whatsappDraft.text} onChange={(event) => setWhatsappDraft({ ...whatsappDraft, text: event.target.value })} className="mt-2 min-h-24 w-full rounded-[8px] p-3 text-xs leading-5" style={{ border: "1px solid var(--admin-border)", background: "var(--admin-card)", color: "var(--admin-text-primary)" }} />

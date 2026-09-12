@@ -390,3 +390,478 @@ export function parseLeadIntelligenceJson(text: string): unknown {
     }
   }
 }
+
+// ============================================================================
+// HK Lead Intelligence V2 — "Ajan Kurulu" (Agent Council, internally
+// agent_council). A genuinely separate, higher-fidelity analysis mode: five
+// specialist roles each run as their OWN executeAiTask() call (so they can
+// execute concurrently, each reasoning independently from the same shared
+// evidence — never from each other's not-yet-available output), then a
+// sixth Chief Strategist call receives all five VALIDATED results and
+// reconciles them. This is intentionally a distinct, richer schema per
+// role (not the combined LeadIntelligenceSpecialists shape above) because a
+// dedicated call can honestly return more structured detail per role than
+// a single shared call reasonably can — see the version constant below,
+// bumped independently of LEAD_INTELLIGENCE_SCHEMA_VERSION so changing the
+// council's prompts/schema never invalidates ordinary Level 1/2 caches.
+export const AGENT_COUNCIL_SCHEMA_VERSION = 1;
+
+export type AgentStatus = "pending" | "completed" | "failed";
+export type Qualification = "strong" | "possible" | "weak";
+export type CompetitorPressure = "high" | "medium" | "low" | "unknown";
+export type ServicePriority = "high" | "medium" | "low";
+
+export type LeadQualifierAgentResult = {
+  assessment: string;
+  qualification: Qualification;
+  evidence: string[];
+  concerns: string[];
+  score: number;
+  confidence: number;
+};
+
+export type DigitalPresenceAgentResult = {
+  assessment: string;
+  strengths: string[];
+  weaknesses: string[];
+  unknowns: string[];
+  opportunities: string[];
+  confidence: number;
+};
+
+export type MarketAgentResult = {
+  assessment: string;
+  competitorPressure: CompetitorPressure;
+  evidence: string[];
+  opportunities: string[];
+  risks: string[];
+  confidence: number;
+};
+
+export type RecommendedServiceItem = { service: string; priority: ServicePriority; reason: string };
+
+export type GrowthAgentResult = {
+  assessment: string;
+  recommendedServices: RecommendedServiceItem[];
+  first90Days: string[];
+  confidence: number;
+};
+
+export type SalesAgentResult = {
+  assessment: string;
+  salesAngle: string;
+  firstContact: string;
+  discoveryQuestions: string[];
+  likelyObjections: string[];
+  nextAction: string;
+  confidence: number;
+};
+
+export type ChiefAgentResult = {
+  summary: string;
+  agreements: string[];
+  disagreements: string[];
+  evidenceWeaknesses: string[];
+  leadScore: number;
+  confidence: number;
+  priority: LeadIntelligencePriority;
+  recommendedServices: string[];
+  primaryService: string | null;
+  finalRecommendation: string;
+  redFlags: string[];
+  nextAction: string;
+};
+
+export type AgentCouncilSpecialistEntry<T> = { status: AgentStatus; result: T | null; error?: string };
+
+export type AgentCouncilResult = {
+  version: number;
+  specialists: {
+    leadQualifier: AgentCouncilSpecialistEntry<LeadQualifierAgentResult>;
+    digitalPresence: AgentCouncilSpecialistEntry<DigitalPresenceAgentResult>;
+    market: AgentCouncilSpecialistEntry<MarketAgentResult>;
+    growth: AgentCouncilSpecialistEntry<GrowthAgentResult>;
+    sales: AgentCouncilSpecialistEntry<SalesAgentResult>;
+  };
+  chief: AgentCouncilSpecialistEntry<ChiefAgentResult>;
+  runMetadata: {
+    startedAt: string;
+    completedAt: string | null;
+    logicalAiCallCount: number;
+    provider: string | null;
+    model: string | null;
+    evidenceFingerprint: string;
+    councilFingerprint: string;
+    // Only ever populated from real values the AI router itself reported
+    // (see AiRouterResult.inputTokens/outputTokens/thinkingTokens) — null
+    // when the router genuinely didn't report them for this provider path.
+    // Never estimated or fabricated; the UI must show an honest
+    // "not reported" message instead of guessing when this is null.
+    tokenUsage: { inputTokens: number | null; outputTokens: number | null; totalTokens: number | null } | null;
+  };
+};
+
+// Real, sellable HK Dijital services — the only ones the Chief's
+// primaryService/recommendedServices should ever point to. Not a strict
+// content filter on specialist prose (that would risk discarding a
+// legitimate, differently-worded real suggestion) — used only to validate
+// the Chief's own structured `primaryService` pick, which is the one field
+// downstream sales UI treats as an actionable, canonical label.
+export const HK_REAL_SERVICE_CATALOG = [
+  "Google Ads", "Meta Ads", "Sosyal Medya Yönetimi", "İçerik Stratejisi",
+  "Landing Page / Web Site", "Yerel SEO", "Google Business Profile Optimizasyonu",
+  "Remarketing", "Dönüşüm Optimizasyonu", "Ölçüm / Analytics"
+] as const;
+
+function normalizeServiceName(value: unknown): string | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const needle = value.trim().toLocaleLowerCase("tr-TR");
+  const match = HK_REAL_SERVICE_CATALOG.find((service) => {
+    const hay = service.toLocaleLowerCase("tr-TR");
+    return hay === needle || hay.includes(needle) || needle.includes(hay);
+  });
+  return match || value.trim();
+}
+
+/** Combines the evidence fingerprint with the council schema version — a
+ * prompt/schema change (version bump) naturally invalidates only council
+ * caches, never ordinary Level 1/2 caches, and identical evidence always
+ * reuses a completed council run instead of re-calling six agents. */
+export function computeAgentCouncilFingerprint(evidenceFingerprint: string, version: number = AGENT_COUNCIL_SCHEMA_VERSION): string {
+  return createHash("sha256").update(`${evidenceFingerprint}::council:${version}`).digest("hex");
+}
+
+/** A cheap, honest heuristic for "is there enough real evidence for Agent
+ * Council to say anything useful" — not a hard gate (the caller still
+ * allows a manual run), just the basis for the low-confidence warning the
+ * UI shows before the user commits to the expensive run. */
+export function hasThinEvidence(evidence: LeadIntelligenceEvidence): boolean {
+  const signals = [evidence.website, evidence.phone, typeof evidence.googleRating === "number", (evidence.reviewCount ?? 0) > 0, evidence.instagram, evidence.whatsapp];
+  return signals.filter(Boolean).length <= 1;
+}
+
+function coreFacts(evidence: LeadIntelligenceEvidence) {
+  return {
+    isim: evidence.name,
+    sektor: evidence.sector,
+    sehir: evidence.city,
+    ilce: evidence.district || "belirtilmedi",
+    telefon_var: Boolean(evidence.phone),
+    website_var: Boolean(evidence.website),
+    google_puani: evidence.googleRating ?? "veri yok",
+    google_yorum_sayisi: evidence.reviewCount ?? 0
+  };
+}
+
+const AGENT_RULES = `KESIN KURALLAR:
+- Yalnızca verilen gerçek verilerden çıkarım yap. Erişemediğin hiçbir veriyi (reklam harcaması, dönüşüm oranı, sosyal medya etkileşim oranı, ciro, kâr, demografi, ajans ilişkisi, kampanya performansı) asla uydurma.
+- Bir bilgi "veri yok"/"bilinmiyor" ise açıkça belirt.
+- Satış garantisi verme. Türkçe, kısa ve satış odaklı yaz.
+- İç düşünce sürecini yazma; yalnızca sonucu yaz.
+- Yalnızca istenen JSON şemasına birebir uyan, başka hiçbir metin içermeyen bir JSON nesnesi döndür.`;
+
+export function buildLeadQualifierAgentPrompt(evidence: LeadIntelligenceEvidence): string {
+  const facts = { ...coreFacts(evidence), mevcut_lead_durumu: evidence.existingLeadStatus || "yok" };
+  return `Sen HK Dijital ajansı için "Potansiyel Müşteri Analisti"sin. Görevin: bu işletmenin HK Dijital için ne kadar nitelikli bir satış fırsatı olduğunu gerçek verilerden değerlendirmek.
+
+${AGENT_RULES}
+
+Gerçek işletme verisi:
+${JSON.stringify(facts)}
+
+JSON şeması:
+{"assessment":"","qualification":"strong|possible|weak","evidence":[],"concerns":[],"score":0,"confidence":0}`;
+}
+
+export function buildDigitalPresenceAgentPrompt(evidence: LeadIntelligenceEvidence): string {
+  const facts = {
+    website_var: Boolean(evidence.website),
+    telefon_var: Boolean(evidence.phone),
+    whatsapp_var: Boolean(evidence.whatsapp),
+    instagram_var: Boolean(evidence.instagram),
+    meta_pixel: evidence.metaPixelDetected === true ? "tespit edildi" : evidence.metaPixelDetected === false ? "tespit edilmedi" : "doğrulanamadı",
+    google_olcumleme: evidence.googleTagDetected === true ? "tespit edildi" : evidence.googleTagDetected === false ? "tespit edilmedi" : "doğrulanamadı",
+    meta_reklam_durumu: evidence.metaAdsStatus || "bilinmiyor",
+    google_reklam_durumu: evidence.googleAdsStatus || "bilinmiyor",
+    google_puani: evidence.googleRating ?? "veri yok",
+    google_yorum_sayisi: evidence.reviewCount ?? 0
+  };
+  return `Sen HK Dijital ajansı için "Dijital Varlık Analisti"sin. Görevin: bu işletmenin gerçek, doğrulanmış dijital altyapı kanıtlarını değerlendirmek.
+
+${AGENT_RULES}
+
+Gerçek dijital kanıt:
+${JSON.stringify(facts)}
+
+JSON şeması:
+{"assessment":"","strengths":[],"weaknesses":[],"unknowns":[],"opportunities":[],"confidence":0}`;
+}
+
+export function buildMarketAgentPrompt(evidence: LeadIntelligenceEvidence): string {
+  const facts = { sektor: evidence.sector, sehir: evidence.city, ilce: evidence.district || "belirtilmedi", bolge_karsilastirma: evidence.peers || "veri yok" };
+  return `Sen HK Dijital ajansı için "Rakip ve Pazar Analisti"sin. Görevin: bu işletmenin bölgesindeki gerçek, önceden keşfedilmiş benzer işletme verisine dayanarak pazar/rekabet durumunu değerlendirmek. Canlı rakip reklam verisine erişimin yok.
+
+${AGENT_RULES}
+
+Gerçek pazar verisi:
+${JSON.stringify(facts)}
+
+JSON şeması:
+{"assessment":"","competitorPressure":"high|medium|low|unknown","evidence":[],"opportunities":[],"risks":[],"confidence":0}`;
+}
+
+export function buildGrowthAgentPrompt(evidence: LeadIntelligenceEvidence): string {
+  const facts = {
+    ...coreFacts(evidence),
+    meta_reklam_durumu: evidence.metaAdsStatus || "bilinmiyor",
+    google_reklam_durumu: evidence.googleAdsStatus || "bilinmiyor",
+    meta_pixel: evidence.metaPixelDetected,
+    google_olcumleme: evidence.googleTagDetected,
+    instagram_var: Boolean(evidence.instagram)
+  };
+  return `Sen HK Dijital ajansı için "Büyüme Stratejisti"sin. Görevin: gerçek kanıtlardan hangi HK Dijital hizmetlerinin bu işletme için öncelikli olduğunu belirlemek. Yalnızca şu gerçek hizmet listesinden seç: ${HK_REAL_SERVICE_CATALOG.join(", ")}.
+
+${AGENT_RULES}
+
+Gerçek işletme verisi:
+${JSON.stringify(facts)}
+
+JSON şeması:
+{"assessment":"","recommendedServices":[{"service":"","priority":"high|medium|low","reason":""}],"first90Days":[],"confidence":0}`;
+}
+
+export function buildSalesAgentPrompt(evidence: LeadIntelligenceEvidence): string {
+  const facts = { ...coreFacts(evidence), mevcut_lead_durumu: evidence.existingLeadStatus || "yok", whatsapp_var: Boolean(evidence.whatsapp) };
+  return `Sen HK Dijital ajansı için "Satış Stratejisti"sin. Görevin: bu işletmeyle ilk temas ve satış yaklaşımını gerçek verilerden planlamak.
+
+${AGENT_RULES}
+
+Gerçek işletme verisi:
+${JSON.stringify(facts)}
+
+JSON şeması:
+{"assessment":"","salesAngle":"","firstContact":"","discoveryQuestions":[],"likelyObjections":[],"nextAction":"","confidence":0}`;
+}
+
+/** The Chief receives each specialist's own VALIDATED result (never raw
+ * model output) plus which ones failed — never the raw evidence a second
+ * time, never the specialists' internal reasoning, only their decision
+ * artifacts. This is what makes the conflict-resolution step real:
+ * the Chief must explicitly reconcile five actual independent
+ * conclusions, not just restate one shared analysis. */
+export function buildChiefAgentPrompt(params: {
+  evidence: LeadIntelligenceEvidence;
+  leadQualifier: LeadQualifierAgentResult | null;
+  digitalPresence: DigitalPresenceAgentResult | null;
+  market: MarketAgentResult | null;
+  growth: GrowthAgentResult | null;
+  sales: SalesAgentResult | null;
+  failedAgents: string[];
+}): string {
+  const specialists = {
+    potansiyelMusteriAnalisti: params.leadQualifier,
+    dijitalVarlikAnalisti: params.digitalPresence,
+    rakipVePazarAnalisti: params.market,
+    buyumeStratejisti: params.growth,
+    satisStratejisti: params.sales
+  };
+  return `Sen HK Dijital ajansı için "Baş Stratejist"sin. Beş uzmanın BAĞIMSIZ olarak ürettiği gerçek sonuçları aldın. Görevin bunları ortalamak değil, karşılaştırıp gerçek bir nihai karar üretmektir: nerede hemfikirler, nerede çelişiyorlar, hangi kanıt zayıf, en güçlü fırsat ve en büyük risk ne, hangi hizmet önceliklendirilmeli.
+${params.failedAgents.length ? `Şu uzmanlardan sonuç alınamadı, eksik bilgiyle karar ver ve bunu confidence'a yansıt: ${params.failedAgents.join(", ")}.` : ""}
+
+${AGENT_RULES}
+Önerilen hizmetleri yalnızca şu gerçek listeden seç: ${HK_REAL_SERVICE_CATALOG.join(", ")}.
+
+İşletme: ${JSON.stringify(coreFacts(params.evidence))}
+
+Uzman sonuçları:
+${JSON.stringify(specialists)}
+
+JSON şeması:
+{"summary":"","agreements":[],"disagreements":[],"evidenceWeaknesses":[],"leadScore":0,"confidence":0,"priority":"very_high|high|medium|low","recommendedServices":[],"primaryService":"","finalRecommendation":"","redFlags":[],"nextAction":""}`;
+}
+
+function validateStringField(value: unknown, field: string, fallback: string, backfilled: string[]): string {
+  if (typeof value === "string" && value.trim()) return value.trim();
+  backfilled.push(field);
+  return fallback;
+}
+function validateArrayField(value: unknown, field: string, fallback: string[], backfilled: string[]): string[] {
+  if (isNonEmptyStringArray(value)) return value;
+  backfilled.push(field);
+  return fallback;
+}
+function validateNumberField(value: unknown, field: string, fallback: number, backfilled: string[]): number {
+  if (typeof value === "number" && Number.isFinite(value)) return Math.max(0, Math.min(100, Math.round(value)));
+  backfilled.push(field);
+  return fallback;
+}
+function validateEnumField<T extends string>(value: unknown, allowed: readonly T[], field: string, fallback: T, backfilled: string[]): T {
+  if (typeof value === "string" && (allowed as readonly string[]).includes(value)) return value as T;
+  backfilled.push(field);
+  return fallback;
+}
+
+const QUALIFICATIONS: Qualification[] = ["strong", "possible", "weak"];
+const PRESSURES: CompetitorPressure[] = ["high", "medium", "low", "unknown"];
+const PRIORITIES: LeadIntelligencePriority[] = ["very_high", "high", "medium", "low"];
+const SERVICE_PRIORITIES: ServicePriority[] = ["high", "medium", "low"];
+
+function fallbackFromDeterministic(deterministic: LeadIntelligenceResult) {
+  return {
+    leadQualifier: { assessment: deterministic.specialists.leadQualifier.assessment, qualification: (deterministic.priority === "very_high" || deterministic.priority === "high" ? "strong" : deterministic.priority === "medium" ? "possible" : "weak") as Qualification, evidence: deterministic.specialists.leadQualifier.evidence, concerns: deterministic.specialists.leadQualifier.concerns, score: deterministic.confidence, confidence: deterministic.confidence },
+    digitalPresence: { assessment: deterministic.specialists.digitalPresence.assessment, strengths: deterministic.specialists.digitalPresence.strengths, weaknesses: deterministic.specialists.digitalPresence.weaknesses, unknowns: deterministic.specialists.digitalPresence.unknowns, opportunities: [] as string[], confidence: deterministic.confidence },
+    market: { assessment: deterministic.specialists.market.assessment, competitorPressure: "unknown" as CompetitorPressure, evidence: [] as string[], opportunities: deterministic.specialists.market.opportunities, risks: [] as string[], confidence: deterministic.confidence },
+    growth: { assessment: "Kurallı ön analiz temel alındı.", recommendedServices: deterministic.specialists.growth.recommendedServices.map((service) => ({ service, priority: "medium" as ServicePriority, reason: "Kurallı ön analiz kanıtına dayanır." })), first90Days: deterministic.specialists.growth.first90Days, confidence: deterministic.confidence },
+    sales: { assessment: "Kurallı ön analiz temel alındı.", salesAngle: deterministic.specialists.sales.salesAngle, firstContact: deterministic.specialists.sales.firstContact, discoveryQuestions: deterministic.specialists.sales.discoveryQuestions, likelyObjections: deterministic.specialists.sales.likelyObjections, nextAction: deterministic.specialists.sales.nextAction, confidence: deterministic.confidence },
+    chief: { summary: deterministic.summary, agreements: [] as string[], disagreements: [] as string[], evidenceWeaknesses: [] as string[], leadScore: deterministic.confidence, confidence: deterministic.confidence, priority: deterministic.priority, recommendedServices: deterministic.specialists.growth.recommendedServices, primaryService: deterministic.specialists.growth.recommendedServices[0] || null, finalRecommendation: deterministic.finalRecommendation, redFlags: deterministic.redFlags, nextAction: deterministic.specialists.sales.nextAction }
+  };
+}
+
+export function validateLeadQualifierAgentResult(raw: unknown, deterministic: LeadIntelligenceResult): { result: LeadQualifierAgentResult; backfilledFields: string[] } {
+  const backfilled: string[] = [];
+  const fb = fallbackFromDeterministic(deterministic).leadQualifier;
+  const source = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  return {
+    result: {
+      assessment: validateStringField(source.assessment, "assessment", fb.assessment, backfilled),
+      qualification: validateEnumField(source.qualification, QUALIFICATIONS, "qualification", fb.qualification, backfilled),
+      evidence: validateArrayField(source.evidence, "evidence", fb.evidence, backfilled),
+      concerns: validateArrayField(source.concerns, "concerns", fb.concerns, backfilled),
+      score: validateNumberField(source.score, "score", fb.score, backfilled),
+      confidence: validateNumberField(source.confidence, "confidence", fb.confidence, backfilled)
+    },
+    backfilledFields: backfilled
+  };
+}
+
+export function validateDigitalPresenceAgentResult(raw: unknown, deterministic: LeadIntelligenceResult): { result: DigitalPresenceAgentResult; backfilledFields: string[] } {
+  const backfilled: string[] = [];
+  const fb = fallbackFromDeterministic(deterministic).digitalPresence;
+  const source = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  return {
+    result: {
+      assessment: validateStringField(source.assessment, "assessment", fb.assessment, backfilled),
+      strengths: validateArrayField(source.strengths, "strengths", fb.strengths, backfilled),
+      weaknesses: validateArrayField(source.weaknesses, "weaknesses", fb.weaknesses, backfilled),
+      unknowns: validateArrayField(source.unknowns, "unknowns", fb.unknowns, backfilled),
+      opportunities: validateArrayField(source.opportunities, "opportunities", fb.opportunities, backfilled),
+      confidence: validateNumberField(source.confidence, "confidence", fb.confidence, backfilled)
+    },
+    backfilledFields: backfilled
+  };
+}
+
+export function validateMarketAgentResult(raw: unknown, deterministic: LeadIntelligenceResult): { result: MarketAgentResult; backfilledFields: string[] } {
+  const backfilled: string[] = [];
+  const fb = fallbackFromDeterministic(deterministic).market;
+  const source = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  return {
+    result: {
+      assessment: validateStringField(source.assessment, "assessment", fb.assessment, backfilled),
+      competitorPressure: validateEnumField(source.competitorPressure, PRESSURES, "competitorPressure", fb.competitorPressure, backfilled),
+      evidence: validateArrayField(source.evidence, "evidence", fb.evidence, backfilled),
+      opportunities: validateArrayField(source.opportunities, "opportunities", fb.opportunities, backfilled),
+      risks: validateArrayField(source.risks, "risks", fb.risks, backfilled),
+      confidence: validateNumberField(source.confidence, "confidence", fb.confidence, backfilled)
+    },
+    backfilledFields: backfilled
+  };
+}
+
+function validateRecommendedServiceItems(value: unknown, fallback: RecommendedServiceItem[], backfilled: string[]): RecommendedServiceItem[] {
+  if (!Array.isArray(value) || !value.length) { backfilled.push("recommendedServices"); return fallback; }
+  const items = value
+    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
+    .map((item) => {
+      const service = normalizeServiceName(item.service);
+      if (!service) return null;
+      const priority = SERVICE_PRIORITIES.includes(item.priority as ServicePriority) ? (item.priority as ServicePriority) : "medium";
+      const reason = typeof item.reason === "string" && item.reason.trim() ? item.reason.trim() : "Kanıt bazlı öneri.";
+      return { service, priority, reason };
+    })
+    .filter((item): item is RecommendedServiceItem => Boolean(item));
+  if (!items.length) { backfilled.push("recommendedServices"); return fallback; }
+  return items.slice(0, 5);
+}
+
+export function validateGrowthAgentResult(raw: unknown, deterministic: LeadIntelligenceResult): { result: GrowthAgentResult; backfilledFields: string[] } {
+  const backfilled: string[] = [];
+  const fb = fallbackFromDeterministic(deterministic).growth;
+  const source = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  return {
+    result: {
+      assessment: validateStringField(source.assessment, "assessment", fb.assessment, backfilled),
+      recommendedServices: validateRecommendedServiceItems(source.recommendedServices, fb.recommendedServices, backfilled),
+      first90Days: validateArrayField(source.first90Days, "first90Days", fb.first90Days, backfilled),
+      confidence: validateNumberField(source.confidence, "confidence", fb.confidence, backfilled)
+    },
+    backfilledFields: backfilled
+  };
+}
+
+export function validateSalesAgentResult(raw: unknown, deterministic: LeadIntelligenceResult): { result: SalesAgentResult; backfilledFields: string[] } {
+  const backfilled: string[] = [];
+  const fb = fallbackFromDeterministic(deterministic).sales;
+  const source = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  return {
+    result: {
+      assessment: validateStringField(source.assessment, "assessment", fb.assessment, backfilled),
+      salesAngle: validateStringField(source.salesAngle, "salesAngle", fb.salesAngle, backfilled),
+      firstContact: validateStringField(source.firstContact, "firstContact", fb.firstContact, backfilled),
+      discoveryQuestions: validateArrayField(source.discoveryQuestions, "discoveryQuestions", fb.discoveryQuestions, backfilled),
+      likelyObjections: validateArrayField(source.likelyObjections, "likelyObjections", fb.likelyObjections, backfilled),
+      nextAction: validateStringField(source.nextAction, "nextAction", fb.nextAction, backfilled),
+      confidence: validateNumberField(source.confidence, "confidence", fb.confidence, backfilled)
+    },
+    backfilledFields: backfilled
+  };
+}
+
+export function validateChiefAgentResult(raw: unknown, deterministic: LeadIntelligenceResult): { result: ChiefAgentResult; backfilledFields: string[] } {
+  const backfilled: string[] = [];
+  const fb = fallbackFromDeterministic(deterministic).chief;
+  const source = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const recommendedServices = isNonEmptyStringArray(source.recommendedServices)
+    ? [...new Set(source.recommendedServices.map((service) => normalizeServiceName(service)).filter((service): service is string => Boolean(service)))]
+    : (backfilled.push("recommendedServices"), fb.recommendedServices);
+  const primaryService = typeof source.primaryService === "string" && source.primaryService.trim() ? normalizeServiceName(source.primaryService) : (backfilled.push("primaryService"), fb.primaryService);
+  return {
+    result: {
+      summary: validateStringField(source.summary, "summary", fb.summary, backfilled),
+      agreements: validateArrayField(source.agreements, "agreements", fb.agreements, backfilled),
+      disagreements: validateArrayField(source.disagreements, "disagreements", fb.disagreements, backfilled),
+      evidenceWeaknesses: validateArrayField(source.evidenceWeaknesses, "evidenceWeaknesses", fb.evidenceWeaknesses, backfilled),
+      leadScore: validateNumberField(source.leadScore, "leadScore", fb.leadScore, backfilled),
+      confidence: validateNumberField(source.confidence, "confidence", fb.confidence, backfilled),
+      priority: validateEnumField(source.priority, PRIORITIES, "priority", fb.priority, backfilled),
+      recommendedServices,
+      primaryService,
+      finalRecommendation: validateStringField(source.finalRecommendation, "finalRecommendation", fb.finalRecommendation, backfilled),
+      redFlags: validateArrayField(source.redFlags, "redFlags", fb.redFlags, backfilled),
+      nextAction: validateStringField(source.nextAction, "nextAction", fb.nextAction, backfilled)
+    },
+    backfilledFields: backfilled
+  };
+}
+
+/** Bounded-concurrency runner — never an uncontrolled Promise.all over an
+ * arbitrary list. Runs at most `limit` jobs at once; every job's
+ * success/failure is captured independently (one failing job never rejects
+ * the others or the batch). */
+export async function runWithConcurrencyLimit<T>(jobs: Array<() => Promise<T>>, limit: number): Promise<Array<{ status: "fulfilled"; value: T } | { status: "rejected"; reason: unknown }>> {
+  const results: Array<{ status: "fulfilled"; value: T } | { status: "rejected"; reason: unknown }> = new Array(jobs.length);
+  let cursor = 0;
+  async function worker() {
+    while (cursor < jobs.length) {
+      const index = cursor;
+      cursor += 1;
+      try {
+        results[index] = { status: "fulfilled", value: await jobs[index]() };
+      } catch (reason) {
+        results[index] = { status: "rejected", reason };
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(limit, jobs.length)) }, worker));
+  return results;
+}
