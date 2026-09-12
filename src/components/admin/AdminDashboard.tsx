@@ -72,7 +72,7 @@ import { canViewAccounting } from "@/lib/accounting-permissions";
 import { aiProviderKeyForApi, buildAiSelectionReason, labelForAiProvider, normalizeUnifiedAiProvider, unifiedAiProviderOptions, unifiedAiPriorityKeys } from "@/lib/ai-provider-options";
 import { CUSTOMER_MODULE_REGISTRY, CUSTOMER_PLATFORM_REGISTRY, DEFAULT_CUSTOMER_MODULES, DEFAULT_CUSTOMER_PLATFORMS, normalizeModuleKeys, normalizePlatformKeys } from "@/lib/customer-portal-registry";
 import { HK_SERVICE_PACKAGES, PACKAGE_CATEGORIES, calculateTotalWithVat, calculateVat, findServicePackage, formatPackagePrice, formatTRY, getPackagePricing } from "@/lib/packages";
-import { AD_STATUS_LABELS, getHkOpportunityTier, type AdStatusValue } from "@/lib/lead-scoring";
+import { AD_STATUS_LABELS, calculateHkOpportunityScore, getHkOpportunityTier, scoreDiscoveredBusiness, type AdStatusValue, type DiscoveredBusiness } from "@/lib/lead-scoring";
 import { DISCOVERY_SECTOR_PRESETS } from "@/lib/sector-signal";
 import { GlassCard } from "@/components/premium/PremiumUI";
 import { suggestUsername } from "@/lib/usernames";
@@ -168,7 +168,7 @@ function crmTabForLead(lead: any) {
 const sectorOptions = ["Butik Pasta", "Restoran", "Kafe", "Güzellik Merkezi", "Diş Kliniği", "Sağlık", "Eğitim", "E-ticaret", "Gayrimenkul", "Otomotiv", "Hizmet Sektörü", "Dernek / STK", "Diğer"];
 const cityOptions = ["Manisa", "İzmir", "İstanbul", "Ankara", "Bursa", "Balıkesir", "Aydın", "Denizli", "Muğla", "Diğer"];
 const analysisDistrictOptions = {
-  Manisa: ["Yunusemre", "Şehzadeler", "Turgutlu", "Akhisar", "Salihli", "Soma"],
+  Manisa: ["Yunusemre", "Şehzadeler", "Turgutlu", "Akhisar", "Salihli", "Saruhanlı", "Soma"],
   İzmir: ["Konak", "Karşıyaka", "Bornova", "Bayraklı", "Buca", "Çeşme"],
   İstanbul: ["Kadıköy", "Beşiktaş", "Şişli", "Bakırköy", "Üsküdar", "Ataşehir"],
   Ankara: ["Çankaya", "Keçiören", "Yenimahalle", "Mamak", "Etimesgut", "Gölbaşı"],
@@ -10931,7 +10931,7 @@ function mapTabFromSlug(slug: string | null) {
 }
 
 function MapsIntelligence({ content, setContent, setActive, save, notify, mode = "Haritalar", allowedModules = [] }: any) {
-  const emptySearch = { city: "Manisa", district: "", neighborhood: "", businessType: "", keyword: "", niche: "", radius: "5 km", limit: "20", minimumRating: "", minimumReviewCount: "", website: "", phone: "", instagram: "", whatsapp: "", adStatus: "", crmStatus: "", hideSaved: true, highOpportunity: false, highAdPotential: false };
+  const emptySearch = { city: "Manisa", district: "", neighborhood: "", businessType: "", keyword: "", niche: "", radius: "5 km", limit: "20", minimumRating: "", minimumReviewCount: "", website: "", phone: "", instagram: "", whatsapp: "", adStatus: "", crmStatus: "", hideSaved: true, highOpportunity: false, highAdPotential: false, topThirtyOnly: false };
   const [search, setSearch] = useState(emptySearch);
   const [results, setResults] = useState([]);
   const [tab, setTab] = useState(mode === "İşletme Keşfi" ? "Google Maps Müşteri Bulma" : "Fırsat Haritası");
@@ -10973,6 +10973,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
     // ("who should I contact today?") is answered by scanning top-to-bottom.
     .slice()
     .sort((a, b) => Number(b.opportunityScore ?? b.opportunity_score ?? b.leadHeatScore ?? b.lead_heat_score ?? 0) - Number(a.opportunityScore ?? a.opportunity_score ?? a.leadHeatScore ?? a.lead_heat_score ?? 0));
+  const visibleRanked = search.topThirtyOnly ? visible.slice(0, 30) : visible;
   const combined = [...saved, ...results.filter((result) => !saved.some((lead) => lead.google_place_id === result.placeId))];
   const districts = Object.values(combined.reduce((groups: any, item: any) => {
     const district = districtOf(item);
@@ -11269,29 +11270,51 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
     setNicheOptions(options);
     setMessage("Alt niş önerileri üretildi. Bir niş seçtiğinizde arama anahtar kelimesi olarak kullanılır.");
   }
+  // Both actions below now derive scores from the same canonical
+  // calculateHkOpportunityScore()/scoreDiscoveredBusiness() engine
+  // (src/lib/lead-scoring.ts) that the server uses when a business is first
+  // discovered/saved. They previously used two different hand-rolled
+  // formulas, so the number shown here could silently drift from the real,
+  // persisted HK Opportunity Score for the same business.
+  function businessFor(item: any): DiscoveredBusiness {
+    return {
+      name: item.name || item.company || "",
+      website: item.website,
+      phone: item.phone,
+      googleRating: item.rating ?? item.googleRating,
+      reviewCount: item.reviewCount ?? item.google_review_count,
+      category: item.category || item.business_type,
+      whatsapp: item.whatsapp,
+      instagram: item.instagram
+    };
+  }
   function enrichResults() {
-    setResults(results.map((item: any) => ({
-      ...item,
-      aiSuggestion: item.aiSuggestion || outreachText(item),
-      crmStatus: existingLeadFor(item) ? "CRM’de kayıtlı" : "CRM’de yok",
-      opportunityScore: item.opportunityScore || item.leadHeatScore || 50,
-      digitalGapScore: item.digitalGapScore || Math.max(0, 100 - Number(item.digitalMaturityScore || item.digital_maturity_score || 0)),
-      adPotentialScore: item.adPotentialScore || Math.min(100, Number(item.leadHeatScore || item.lead_heat_score || 0) + 10)
-    })));
-    setMessage("İşletme verileri CRM durumu, fırsat skoru ve dijital eksik alanlarıyla zenginleştirildi.");
+    setResults(results.map((item: any) => {
+      const business = businessFor(item);
+      const opportunityScore = calculateHkOpportunityScore(business);
+      return {
+        ...item,
+        aiSuggestion: item.aiSuggestion || outreachText(item),
+        crmStatus: existingLeadFor(item) ? "CRM’de kayıtlı" : "CRM’de yok",
+        opportunityScore,
+        digitalGapScore: Math.max(0, 100 - scoreDiscoveredBusiness(business).digitalMaturityScore),
+        adPotentialScore: Math.min(100, opportunityScore + (Number(item.reviewCount || item.google_review_count || 0) < 30 ? 10 : 0))
+      };
+    }));
+    setMessage("İşletme verileri CRM durumu ve HK Fırsat Skoru ile güncellendi.");
   }
   function recalculateScores() {
     setResults(results.map((item: any) => {
-      const heat = Number(item.leadHeatScore || item.lead_heat_score || 0);
-      const maturity = Number(item.digitalMaturityScore || item.digital_maturity_score || 0);
+      const business = businessFor(item);
+      const opportunityScore = calculateHkOpportunityScore(business);
       return {
         ...item,
-        opportunityScore: Math.min(100, Math.round(heat * 0.55 + (100 - maturity) * 0.3 + (item.website ? 5 : 15))),
-        digitalGapScore: Math.max(0, 100 - maturity),
-        adPotentialScore: Math.min(100, heat + (Number(item.reviewCount || item.google_review_count || 0) < 30 ? 10 : 0))
+        opportunityScore,
+        digitalGapScore: Math.max(0, 100 - scoreDiscoveredBusiness(business).digitalMaturityScore),
+        adPotentialScore: Math.min(100, opportunityScore + (Number(item.reviewCount || item.google_review_count || 0) < 30 ? 10 : 0))
       };
     }));
-    setMessage("Fırsat skoru, dijital eksik skoru ve reklam potansiyeli yeniden hesaplandı.");
+    setMessage("HK Fırsat Skoru, dijital eksik skoru ve reklam potansiyeli aynı puanlama motoruyla yeniden hesaplandı.");
   }
   function mapsHref(record: any) {
     const placeId = record.placeId || record.google_place_id;
@@ -12169,6 +12192,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
   }
 
   const quickFilterChips = [
+    { key: "top-30", label: "İlk 30 (En Yüksek Skor)", active: Boolean(search.topThirtyOnly), onToggle: () => setSearch({ ...search, topThirtyOnly: !search.topThirtyOnly }) },
     { key: "no-website", label: "Web sitesi yok", active: search.website === "yok", onToggle: () => setSearch({ ...search, website: search.website === "yok" ? "" : "yok" }) },
     { key: "high-opportunity", label: "Yüksek fırsat", active: Boolean(search.highOpportunity), onToggle: () => setSearch({ ...search, highOpportunity: !search.highOpportunity }) },
     { key: "high-ad-potential", label: "Reklam potansiyeli yüksek", active: Boolean(search.highAdPotential), onToggle: () => setSearch({ ...search, highAdPotential: !search.highAdPotential }) },
@@ -12183,7 +12207,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
       title={mode === "Haritalar" ? "Haritalar ve Google Maps Lead Finder" : tab}
       description="İl, ilçe, mahalle, sektör, niş, Google puanı ve dijital eksik filtreleriyle işletmeleri tarayın; fırsat skoruna göre CRM'e taşıyıp teklif ve WhatsApp mesajı oluşturun."
       headerActions={<>
-        <AdminStatusBadge tone="info">{results.length} sonuç</AdminStatusBadge>
+        <AdminStatusBadge tone="info">{search.topThirtyOnly ? `İlk ${visibleRanked.length}` : `${results.length} sonuç`}</AdminStatusBadge>
         <AdminStatusBadge tone="neutral">{saved.length} kayıtlı</AdminStatusBadge>
         <AdminStatusBadge tone="success">{selectedPlaces.length} seçili</AdminStatusBadge>
         <AdminStatusBadge tone="danger">{saved.filter((lead) => Number(lead.lead_heat_score || 0) >= 70).length} sıcak lead</AdminStatusBadge>
@@ -12214,7 +12238,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
           <AdminFilterSection title="Konum">
             <div className="grid gap-2">
               <OtherSelectField label="İl" value={search.city} onChange={(city) => setSearch({ ...search, city })} options={cityOptions} manualLabel="İli yazın" />
-              <Field label="İlçe (opsiyonel — boşsa tüm ilçeler taranır)" value={search.district} onChange={(district) => setSearch({ ...search, district })} placeholder="Boş bırakılırsa: Tüm ilçeler" />
+              <OtherSelectField label="İlçe (opsiyonel — boşsa tüm ilçeler taranır)" value={search.district} onChange={(district) => setSearch({ ...search, district })} options={analysisDistrictOptions[search.city] || []} manualLabel="İlçeyi yazın" />
               <Field label="Mahalle / bölge (opsiyonel)" value={search.neighborhood} onChange={(neighborhood) => setSearch({ ...search, neighborhood })} />
             </div>
           </AdminFilterSection>
@@ -12297,7 +12321,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
       <LeadOpportunityInsight results={visible} search={search} setActive={setActive} />
       <div className="mt-4 flex flex-wrap items-center gap-2 rounded-[12px] p-3" style={{ border: "1px solid var(--admin-border)", background: "var(--admin-surface-muted, var(--admin-surface-soft))" }}>
         <span className="px-1 text-xs font-black" style={{ color: "var(--admin-text-primary)" }}>Sonuç sonrası AI aksiyonları</span>
-        <AdminButton compact variant="info" onClick={enrichResults}>AI ile Zenginleştir</AdminButton>
+        <AdminButton compact variant="info" onClick={enrichResults}>CRM Durumu ve Skoru Güncelle</AdminButton>
         <AdminButton compact variant="warning" onClick={recalculateScores}>Fırsat Skoru Hesapla</AdminButton>
         <AdminButton compact variant="danger" onClick={selectHotLeads}>En Sıcak Leadleri Seç</AdminButton>
         <AdminButton compact variant="secondary" onClick={selectNoWebsiteLeads}>Website Olmayanları Seç</AdminButton>
@@ -12328,8 +12352,8 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
           </div>
         )}
         {message && <p className="mb-4 rounded-[8px] p-3 text-xs leading-5" style={{ border: "1px solid var(--hk-cyan-solid, var(--admin-border-strong))", background: "var(--hk-cyan-soft, var(--admin-surface-soft))", color: "var(--admin-text-primary)" }}>{message}</p>}
-        {leadView === "Kart Görünümü" && <div className="grid gap-3 md:grid-cols-2">{loading === "search" ? [1, 2, 3, 4].map((item) => <div key={item} className="h-64 animate-pulse rounded-[10px]" style={{ background: "var(--admin-surface-muted, var(--admin-surface-soft))" }} />) : visible.map(renderBusiness)}</div>}
-        {leadView === "Liste Görünümü" && <div className="grid gap-2">{visible.map((item: any) => <button key={item.placeId || item.google_place_id || item.id} onClick={() => setSelectedPlaceId(item.placeId || item.google_place_id || item.id)} className="grid gap-2 rounded-[10px] p-3 text-left text-sm md:grid-cols-[1fr_100px_100px_120px]" style={{ border: "1px solid var(--admin-border)", background: "var(--admin-surface-muted, var(--admin-surface-soft))", color: "var(--admin-text-primary)" }}><strong>{item.name || item.company}</strong><span>{item.googleRating || item.google_rating || "-"} puan</span><span>{item.reviewCount || item.google_review_count || 0} yorum</span><span style={{ color: "var(--hk-cyan-solid, var(--admin-text-primary))" }}>{item.opportunityScore || item.leadHeatScore || item.lead_heat_score || 0}/100</span></button>)}</div>}
+        {leadView === "Kart Görünümü" && <div className="grid gap-3 md:grid-cols-2">{loading === "search" ? [1, 2, 3, 4].map((item) => <div key={item} className="h-64 animate-pulse rounded-[10px]" style={{ background: "var(--admin-surface-muted, var(--admin-surface-soft))" }} />) : visibleRanked.map(renderBusiness)}</div>}
+        {leadView === "Liste Görünümü" && <div className="grid gap-2">{visibleRanked.map((item: any) => <button key={item.placeId || item.google_place_id || item.id} onClick={() => setSelectedPlaceId(item.placeId || item.google_place_id || item.id)} className="grid gap-2 rounded-[10px] p-3 text-left text-sm md:grid-cols-[1fr_100px_100px_120px]" style={{ border: "1px solid var(--admin-border)", background: "var(--admin-surface-muted, var(--admin-surface-soft))", color: "var(--admin-text-primary)" }}><strong>{item.name || item.company}</strong><span>{item.googleRating || item.google_rating || "-"} puan</span><span>{item.reviewCount || item.google_review_count || 0} yorum</span><span style={{ color: "var(--hk-cyan-solid, var(--admin-text-primary))" }}>{item.opportunityScore || item.leadHeatScore || item.lead_heat_score || 0}/100</span></button>)}</div>}
         {leadView === "Harita Görünümü" && <div><p className="mb-3 rounded-[10px] p-3 text-xs leading-5" style={{ border: "1px solid var(--admin-border-strong)", background: "var(--admin-surface-muted, var(--admin-surface-soft))", color: "var(--admin-text-secondary)" }}>Harita görünümü, koordinatı bulunan gerçek sonuçları aşağıdaki işaretleyici listesinde gösterir. Konumu olmayan kayıtlar kart görünümünde incelenebilir.</p><MapIntelligenceCanvas businesses={visible} districts={districts} sectors={sectors} selectedPlaceId={selectedPlaceId} setSelectedPlaceId={setSelectedPlaceId} setSearch={(next) => setSearch({ ...search, ...next, businessType: next.businessType || next.sector || search.businessType })} search={{ ...search, sector: search.businessType }} loading={loading === "search"} /></div>}
         {leadView === "Fırsat Haritası" && <OpportunityMap content={content} setContent={setContent} save={save} notify={notify} search={{ ...search, sector: search.businessType }} setSearch={(next) => setSearch({ ...search, ...next, businessType: next.businessType || next.sector || search.businessType })} setTab={setMapTab} setActive={setActive} saved={saved} />}
         {!loading && !visible.length && <AdminEmptyState title={results.length ? "Bu filtrelerle işletme bulunamadı" : "Henüz arama yapılmadı"} description={results.length ? "Yıldız puanı veya yorum sayısı filtresini genişletmeyi deneyin." : "Sol panelden il, ilçe, mahalle ve sektör seçerek \"Google Maps'ten Bul\" düğmesine basın."} />}
@@ -14401,6 +14425,23 @@ function LeadFollowUpCenter({ content, setContent, save, setActive, notify }: an
   function whatsappText(lead: any) {
     return `Merhaba, ${leadCompanyName(lead)} için kısa dijital reklam ve büyüme analizi hazırlayabiliriz. İsterseniz bugün uygun olduğunuz bir saatte detayları paylaşayım.`;
   }
+  // Real conversion — mirrors SalesPipeline's convertLead(). The previous
+  // version of this button only patched lead.status locally, which never
+  // created the company/customer/auth-user/onboarding-task records the
+  // acquisition workflow actually depends on.
+  async function convertLeadToCustomer(lead: any) {
+    const response = await fetch(`/api/admin/leads/${lead.id}/convert`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ createInitialPayment: false, initialPaymentAmount: 0 }) });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) return notify?.(data.supabaseError ? `${data.error}: ${data.supabaseError}` : data.error || "Lead müşteriye dönüştürülemedi.", "error");
+    setContent((current: any) => ({
+      ...current,
+      leads: (current.leads || []).map((item: any) => item.id === data.lead.id ? data.lead : item),
+      companies: data.company ? [data.company, ...(current.companies || []).filter((item: any) => item.id !== data.company.id)] : current.companies,
+      users: data.user ? [data.user, ...(current.users || []).filter((item: any) => item.id !== data.user.id)] : current.users,
+      customers: data.customer ? [data.customer, ...(current.customers || []).filter((item: any) => item.id !== data.customer.id)] : current.customers
+    }));
+    notify?.("Lead müşteriye dönüştürüldü ve onboarding görevleri oluşturuldu.", "success");
+  }
   return (
     <Panel title="Takip Merkezi">
       <p className="mb-5 text-sm leading-6 text-slate-400">Lead takipleri, teklif bekleyenler ve kazanılmaya yakın fırsatları tek operasyon ekranında yönetin.</p>
@@ -14428,7 +14469,7 @@ function LeadFollowUpCenter({ content, setContent, save, setActive, notify }: an
                     <button onClick={() => patchLead(lead.id, { notes: `${lead.notes || ""}\n${new Date().toLocaleDateString("tr-TR")} · Takip notu eklendi`.trim() }, "Takip notu eklendi")} className="rounded-full border border-[var(--admin-border)] px-3 py-2 text-xs text-[var(--admin-text-secondary)]">Not Ekle</button>
                     <button onClick={() => patchLead(lead.id, { next_action_at: today, next_action: "WhatsApp takip" }, "Sıradaki aksiyon belirlendi")} className="rounded-full border border-cyan-200/25 px-3 py-2 text-xs text-cyan-700">Sıradaki aksiyon belirle</button>
                     <button onClick={() => setActive("Teklif Oluştur")} className="rounded-full bg-cyan-300 px-3 py-2 text-xs font-black text-[var(--admin-text-primary)]">Teklif Oluştur</button>
-                    <button onClick={() => patchLead(lead.id, { status: "Kazanıldı", pipeline_stage: "Kazanıldı" }, "Lead müşteriye dönüştürüldü")} className="rounded-full border border-emerald-300/30 px-3 py-2 text-xs text-emerald-700">Müşteriye Dönüştür</button>
+                    <button onClick={() => convertLeadToCustomer(lead)} className="rounded-full border border-emerald-300/30 px-3 py-2 text-xs text-emerald-700">Müşteriye Dönüştür</button>
                   </div>
                 </div>
               ))}
@@ -14615,6 +14656,29 @@ function ProposalEngine({ content, setContent, save, setActive }: any) {
   const [notes, setNotes] = useState("");
   const [result, setResult] = useState("");
   const [proposalAiMeta, setProposalAiMeta] = useState(aiMetaFromApi({ activeProvider: "auto", model: "automatic-fallback" }));
+  useEffect(() => {
+    // Several other screens (Fırsat Haritası, Müşteri Keşfi) write a
+    // "hk-proposal-prefill" blob before sending the user here, but nothing
+    // ever read it — this screen always opened blank, forcing the business
+    // name/sector/budget to be re-typed. Consume it once on mount.
+    try {
+      const raw = localStorage.getItem("hk-proposal-prefill");
+      if (!raw) return;
+      const prefill = JSON.parse(raw);
+      localStorage.removeItem("hk-proposal-prefill");
+      if (prefill.businessName) {
+        const match = (content.leads || []).find((lead: any) => String(lead.company || lead.name || "").toLocaleLowerCase("tr") === String(prefill.businessName).toLocaleLowerCase("tr"));
+        if (match?.id) setLeadId(match.id);
+      }
+      if (prefill.budget) setAdBudget(String(prefill.budget));
+      if (prefill.serviceFee) setMonthlyFee(String(prefill.serviceFee));
+      const noteParts = [prefill.note, prefill.goal, !prefill.businessName || (content.leads || []).some((lead: any) => String(lead.company || lead.name || "").toLocaleLowerCase("tr") === String(prefill.businessName).toLocaleLowerCase("tr")) ? null : `İşletme: ${prefill.businessName} (${[prefill.sector, prefill.city].filter(Boolean).join(", ")})`].filter(Boolean);
+      if (noteParts.length) setNotes((current) => current || noteParts.join(" — "));
+    } catch {
+      // Malformed/legacy prefill payload — ignore, form just starts blank.
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const selectedLead = (content.leads || []).find((item) => item.id === leadId);
   const selectedCompany = (content.companies || []).find((item) => item.id === companyId) || (selectedLead ? (content.companies || []).find((company) => String(company.name || "").toLocaleLowerCase("tr") === String(selectedLead.company || "").toLocaleLowerCase("tr")) : null);
   const selectedCampaign = (content.campaigns || []).find((item) => item.id === campaignId);
@@ -14689,10 +14753,37 @@ ${notes || "Satış garantisi verilmez. Sistem; reklam bütçesini daha kontroll
     if (!result) return setResult("Kaydetmeden önce teklif önizlemesi oluşturun.");
     const company_id = selectedCompany?.id || companyId || selectedCampaign?.company_id || "";
     const item = { id: createLocalId(), company_id, title: `Teklif · ${targetName}`, document_type: "Teklif", document_date: new Date().toISOString().slice(0, 10), description: result, document_url: "", visible_to_customer: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-    const next = { ...content, customerDocuments: [item, ...(content.customerDocuments || [])] };
+    // Also enters the proposal into Teklif Takip Merkezi (proposal_followups) —
+    // this screen previously only saved to Belgeler, so every proposal made
+    // here silently fell out of the follow-up/won-lost pipeline. Shape
+    // mirrors proposalAssetFor() above, the other real proposalFollowups
+    // writer in this file.
+    const packageMultiplier = packageType === "Temel" ? 0.8 : packageType === "Premium" ? 1.35 : 1;
+    const finalFee = Math.round(Number(monthlyFee || 0) * packageMultiplier);
+    const followup = {
+      id: createLocalId(),
+      lead_id: selectedLead?.id || "",
+      source: "Teklif Motoru",
+      business_name: targetName,
+      phone: selectedLead?.phone || selectedCompany?.phone || "",
+      website_url: selectedLead?.website || selectedCompany?.website || "",
+      city: selectedLead?.city || selectedCompany?.city || "",
+      district: selectedLead?.district || "",
+      sector,
+      proposal_title: `${targetName} · ${packageType} paket teklifi`,
+      status: "Teklif Hazırlandı",
+      proposal_amount: finalFee,
+      proposal_message: result,
+      whatsapp_message: `Merhaba, ${targetName} için ${packageType} paket teklif taslağını hazırladım. Hizmet bedeli ${finalFee.toLocaleString("tr-TR")} TL, önerilen reklam bütçesi ${Number(adBudget || 0).toLocaleString("tr-TR")} TL aralığında planlandı. İsterseniz PDF olarak paylaşabilirim.`,
+      recommended_services: services.split("\n").filter(Boolean),
+      next_followup_at: new Date(Date.now() + 3 * 86400000).toISOString(),
+      last_followup_note: "Teklif Motoru üzerinden hazırlandı. 3 gün içinde ilk takip önerilir.",
+      created_at: new Date().toISOString()
+    };
+    const next = { ...content, customerDocuments: [item, ...(content.customerDocuments || [])], proposalFollowups: [followup, ...(content.proposalFollowups || [])] };
     setContent(next);
     await save(next);
-    setResult(`${result}\n\nTeklif müşteri profilindeki Belgeler/Teklifler alanına kaydedildi.`);
+    setResult(`${result}\n\nTeklif müşteri profilindeki Belgeler/Teklifler alanına kaydedildi ve Teklif Takip Merkezi'ne eklendi.`);
   }
   function archiveProposal() {
     setResult((current) => current ? `${current}\n\nArşiv notu: Bu teklif taslağı arşivlendi.` : "Arşivlenecek teklif taslağı yok.");
