@@ -5662,6 +5662,34 @@ function SalesPipeline({ content, setContent, setActive, notify }: any) {
   const [whatsappTemplate, setWhatsappTemplate] = useState("İlk temas");
   const [whatsappMessage, setWhatsappMessage] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
+  const [intelligenceByLead, setIntelligenceByLead] = useState<Record<string, any>>({});
+  const [intelligenceLoadingLeadId, setIntelligenceLoadingLeadId] = useState("");
+  async function analyzeLeadIntelligence(lead: any, deep = false, forceRefresh = false) {
+    if (intelligenceLoadingLeadId) return;
+    setIntelligenceLoadingLeadId(lead.id);
+    try {
+      const response = await fetch("/api/admin/lead-intelligence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          business: {
+            name: lead.company || lead.name, sector: lead.sector || lead.business_type, city: lead.city, district: lead.district, address: lead.address,
+            website: lead.website, phone: lead.phone, whatsapp: lead.whatsapp, instagram: lead.instagram,
+            googleRating: lead.google_rating ?? null, reviewCount: lead.google_review_count ?? 0, googlePlaceId: lead.google_place_id,
+            metaAdsStatus: lead.meta_ads_status, googleAdsStatus: lead.google_ads_status,
+            metaPixelDetected: lead.meta_pixel_detected ?? null, googleTagDetected: lead.google_tag_detected ?? null
+          },
+          leadId: lead.id, deep, forceRefresh
+        })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) { notify?.(data.error || "Müşteri istihbarat analizi başarısız oldu.", "error"); return; }
+      setIntelligenceByLead((current) => ({ ...current, [lead.id]: data }));
+      if (data.fromCache) notify?.("Önbellekten yüklendi.", "success");
+    } finally {
+      setIntelligenceLoadingLeadId("");
+    }
+  }
   const [draggedLeadId, setDraggedLeadId] = useState("");
   const [pendingMove, setPendingMove] = useState<any>(null);
   const [conversionLead, setConversionLead] = useState<any>(null);
@@ -5934,6 +5962,18 @@ function SalesPipeline({ content, setContent, setActive, notify }: any) {
           <div className="mt-4 rounded-[14px] border border-amber-200 bg-amber-50 p-4"><h4 className="font-black text-[var(--admin-text-primary)]">Teklif Pipeline</h4><div className="mt-3 grid gap-3"><SelectField label="Teklif durumu" value={proposalDraft.status} onChange={(status) => setProposalDraft({ ...proposalDraft, status })} options={["Teklif Hazırlanıyor", "Teklif Gönderildi", "Teklif Görüntülendi", "Revize İstendi", "Kabul Edildi", "Reddedildi"]} /><Field label="Teklif tutarı" type="number" value={proposalDraft.amount} onChange={(amount) => setProposalDraft({ ...proposalDraft, amount })} /><Field label="Tahmini kapanış tarihi" type="date" value={proposalDraft.closeDate} onChange={(closeDate) => setProposalDraft({ ...proposalDraft, closeDate })} /><button onClick={saveProposal} className="rounded-[10px] bg-amber-400 px-4 py-3 text-sm font-black text-[var(--admin-text-primary)]">Teklif Bilgilerini Kaydet</button></div></div>
           <div className="mt-4 rounded-[14px] border border-emerald-200 bg-emerald-50 p-4"><h4 className="font-black text-[var(--admin-text-primary)]">WhatsApp CRM</h4><div className="mt-3 grid gap-3"><SelectField label="Mesaj şablonu" value={whatsappTemplate} onChange={setWhatsappTemplate} options={["İlk temas", "Toplantı sonrası", "Teklif gönderimi", "Takip mesajı", "Son karar mesajı"]} /><TextArea rows={4} label="Mesaj" value={whatsappMessage} onChange={setWhatsappMessage} /><div className="grid grid-cols-2 gap-2"><button onClick={() => { navigator.clipboard.writeText(whatsappMessage); notify?.("WhatsApp mesajı kopyalandı.", "success"); }} className="rounded-[10px] border border-emerald-300 bg-[var(--admin-surface)] px-3 py-2 text-xs font-black text-emerald-700">Mesajı Kopyala</button><button disabled={!selectedLead.phone} onClick={() => openWhatsapp(selectedLead)} className="rounded-[10px] bg-emerald-500 px-3 py-2 text-xs font-black text-white disabled:bg-slate-300">WhatsApp Gönder</button></div></div></div>
           <div id="ai-lead-analizi" className="mt-4 rounded-[14px] border border-purple-200 bg-purple-50 p-4"><div className="flex items-center justify-between gap-2"><h4 className="font-black text-[var(--admin-text-primary)]">AI Lead Analizi</h4><button onClick={analyzeLead} disabled={aiLoading} className="rounded-[8px] bg-purple-600 px-3 py-2 text-xs font-black text-white">{aiLoading ? "Analiz ediliyor..." : "AI ile Analiz Et"}</button></div><pre className="mt-3 whitespace-pre-wrap text-xs leading-6 text-[var(--admin-text-secondary)]">{selectedLead.ai_analysis?.text || `Satın alma ihtimali: ${effectiveLeadScore(selectedLead) >= 80 ? "Yüksek" : effectiveLeadScore(selectedLead) >= 50 ? "Orta" : "Geliştirilmeli"}\nAciliyet: ${selectedLead.next_action_at ? formatDate(selectedLead.next_action_at) : "Planlanmadı"}\nTahmini reklam bütçesi: Görüşmede netleştirilmeli\nÖnerilen ilk mesaj: ${contactMessageFor(selectedLead, "İlk temas")}\nRiskler: ${selectedLead.phone ? "Net teklif ve karar süresi bilinmiyor" : "Telefon bilgisi eksik"}\nSonraki en iyi aksiyon: ${selectedLead.next_action || pipelineActionSuggestions[pipelineStageForLead(selectedLead)]}`}</pre>{selectedLead.ai_analysis?.text && <button onClick={saveAnalysisToNotes} className="mt-3 rounded-[8px] border border-purple-300 bg-[var(--admin-surface)] px-3 py-2 text-xs font-black text-purple-700">Analizi Notlara Kaydet</button>}</div>
+          <div className="mt-4 rounded-[14px] border border-cyan-200 bg-cyan-50 p-4">
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="font-black text-[var(--admin-text-primary)]">Müşteri İstihbarat Motoru</h4>
+              <div className="flex gap-2">
+                <button onClick={() => analyzeLeadIntelligence(selectedLead, false)} disabled={intelligenceLoadingLeadId === selectedLead.id} className="rounded-[8px] bg-cyan-600 px-3 py-2 text-xs font-black text-white disabled:opacity-60">{intelligenceLoadingLeadId === selectedLead.id ? "Analiz ediliyor..." : "Analiz Et"}</button>
+                <button onClick={() => analyzeLeadIntelligence(selectedLead, true)} disabled={intelligenceLoadingLeadId === selectedLead.id} className="rounded-[8px] border border-cyan-300 bg-[var(--admin-surface)] px-3 py-2 text-xs font-black text-cyan-700 disabled:opacity-60">Detaylı Analiz</button>
+              </div>
+            </div>
+            {intelligenceByLead[selectedLead.id]
+              ? <LeadIntelligencePanel data={intelligenceByLead[selectedLead.id]} onRefresh={() => analyzeLeadIntelligence(selectedLead, false, true)} refreshing={intelligenceLoadingLeadId === selectedLead.id} />
+              : <p className="mt-3 text-xs leading-5 text-[var(--admin-text-muted)]">Gerçek kanıta dayalı fırsat skoru, dijital varlık, rakip/pazar, büyüme ve satış önerisi için "Analiz Et" — bölgedeki gerçek benzer işletme verisiyle zenginleştirilmiş rapor için "Detaylı Analiz" kullanın.</p>}
+          </div>
           <div className="mt-4 rounded-[14px] border border-blue-200 bg-blue-50 p-4"><h4 className="font-black text-[var(--admin-text-primary)]">Takvime Ekle</h4><p className="mt-1 text-xs text-[var(--admin-text-muted)]">Takvim entegrasyonu hazır; tarihler mevcut lead ve görev altyapısına kaydedilir.</p><div className="mt-3 grid gap-3"><Field label="Toplantı tarihi" type="date" value={sideDraft.meetingAt} onChange={(meetingAt) => setSideDraft({ ...sideDraft, meetingAt })} /><Field label="Takip tarihi" type="date" value={sideDraft.calendarFollowUpAt} onChange={(calendarFollowUpAt) => setSideDraft({ ...sideDraft, calendarFollowUpAt })} /><Field label="Teklif gönderim tarihi" type="date" value={sideDraft.proposalSentAt} onChange={(proposalSentAt) => setSideDraft({ ...sideDraft, proposalSentAt })} /><button onClick={() => updateLead(selectedLead, { meeting_at: sideDraft.meetingAt || null, calendar_follow_up_at: sideDraft.calendarFollowUpAt || null, proposal_sent_at: sideDraft.proposalSentAt || null, next_action_at: sideDraft.calendarFollowUpAt || selectedLead.next_action_at || null }, "Takvim tarihleri kaydedildi.")} className="rounded-[10px] bg-blue-600 px-4 py-3 text-sm font-black text-white">Tarihleri Kaydet</button></div></div>
           <div className="mt-4 rounded-[14px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4"><h4 className="font-black text-[var(--admin-text-primary)]">Dijital Durum</h4>{selectedLead.website || selectedLead.instagram || selectedLead.google_review_count || selectedLead.digital_maturity_score ? <div className="mt-3 grid grid-cols-2 gap-2"><InfoItem label="Web sitesi" value={selectedLead.website ? "Var" : "Yok"} /><InfoItem label="Instagram" value={selectedLead.instagram ? "Var" : "Yok"} /><InfoItem label="Google yorum" value={selectedLead.google_review_count || 0} /><InfoItem label="Dijital skor" value={`${selectedLead.digital_maturity_score || 0}/100`} /><InfoItem label="Meta reklam" value={selectedLead.meta_ad_status || "Bilinmiyor"} /></div> : <p className="mt-2 text-xs leading-5 text-[var(--admin-text-muted)]">Henüz dijital analiz verisi yok. Lead keşif ekranından analiz başlatılabilir.</p>}<div className="mt-3 grid grid-cols-2 gap-2"><a href="#ai-lead-analizi" className="rounded-[8px] border border-cyan-200 bg-cyan-50 px-3 py-2 text-center text-xs font-black text-cyan-700">Analiz Aç</a><a href={selectedLead.city || selectedLead.district || selectedLead.address ? `/hk-admin/haritalar?city=${encodeURIComponent(selectedLead.city || "")}&district=${encodeURIComponent(selectedLead.district || "")}&sector=${encodeURIComponent(selectedLead.sector || selectedLead.business_type || "")}&leadId=${encodeURIComponent(selectedLead.id)}` : undefined} onClick={(event) => { if (!selectedLead.city && !selectedLead.district && !selectedLead.address) event.preventDefault(); }} className={`rounded-[8px] px-3 py-2 text-center text-xs font-black ${selectedLead.city || selectedLead.district || selectedLead.address ? "bg-cyan-500 text-white" : "cursor-not-allowed bg-slate-200 text-[var(--admin-text-muted)]"}`}>Haritada Aç</a></div></div>
           <div className="mt-4 grid gap-2"><TextArea rows={3} label="Not Ekle" value={noteDraft} onChange={setNoteDraft} /><button onClick={addNote} disabled={!noteDraft.trim()} className="rounded-[10px] border border-slate-300 bg-[var(--admin-surface)] px-4 py-2.5 text-sm font-black text-[var(--admin-text-secondary)] disabled:cursor-not-allowed disabled:opacity-50">Not Ekle</button></div>
@@ -10932,6 +10972,61 @@ function mapTabFromSlug(slug: string | null) {
   return Object.entries(mapTabSlugs).find(([, value]) => value === slug)?.[0];
 }
 
+// HK Lead Intelligence Engine result panel ("Müşteri İstihbarat Motoru").
+// `data` is the raw /api/admin/lead-intelligence response
+// ({ profile, fromCache, aiUsed, backfilledFields }); `profile.result` is
+// the full six-specialist LeadIntelligenceResult. Every section here is
+// either a real deterministic value or the AI's qualitative take on real
+// evidence — nothing here is invented client-side.
+function LeadIntelligencePanel({ data, onRefresh, refreshing }: any) {
+  const profile = data?.profile;
+  if (!profile) return null;
+  const result = profile.result || {};
+  const specialists = result.specialists || {};
+  const priorityTone = profile.priority === "very_high" ? "danger" : profile.priority === "high" ? "warning" : profile.priority === "medium" ? "info" : "neutral";
+  const priorityLabelMap: Record<string, string> = { very_high: "Çok Yüksek", high: "Yüksek", medium: "Orta", low: "Düşük" };
+  const section = (title: string, content: any) => (!content || (Array.isArray(content) && !content.length)) ? null : (
+    <div className="rounded-[8px] p-3" style={{ border: "1px solid var(--admin-border)", background: "var(--admin-surface-muted, var(--admin-surface-soft))" }}>
+      <p className="text-[11px] font-black uppercase tracking-[.08em]" style={{ color: "var(--hk-cyan-solid, var(--admin-text-secondary))" }}>{title}</p>
+      {Array.isArray(content)
+        ? <ul className="mt-2 grid gap-1.5 text-xs leading-5" style={{ color: "var(--admin-text-secondary)" }}>{content.map((item: string, index: number) => <li key={index}>• {item}</li>)}</ul>
+        : <p className="mt-2 text-xs leading-5" style={{ color: "var(--admin-text-secondary)" }}>{content}</p>}
+    </div>
+  );
+  return (
+    <div className="mt-3 rounded-[10px] p-3" style={{ border: "1px solid var(--hk-cyan-solid, var(--admin-border-strong))", background: "var(--admin-card)" }}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <AdminStatusBadge tone={priorityTone as any}>Öncelik: {priorityLabelMap[profile.priority] || "-"}</AdminStatusBadge>
+          <AdminStatusBadge tone="neutral">Güven: {profile.confidence ?? "-"}/100</AdminStatusBadge>
+          {profile.opportunity_score != null && <AdminStatusBadge tone="info">Fırsat Skoru: {profile.opportunity_score}/100</AdminStatusBadge>}
+          {data.fromCache && <AdminStatusBadge tone="neutral">Önbellekten</AdminStatusBadge>}
+          <AdminStatusBadge tone={data.aiUsed ? "success" : "neutral"}>{data.aiUsed ? `AI: ${profile.ai_provider || "canlı"}` : "Deterministik (AI kullanılmadı)"}</AdminStatusBadge>
+        </div>
+        <AdminButton compact variant="secondary" disabled={refreshing} onClick={onRefresh}>{refreshing ? "Yenileniyor..." : "Yeniden Analiz Et"}</AdminButton>
+      </div>
+      <p className="mt-3 text-sm font-bold" style={{ color: "var(--admin-text-primary)" }}>GENEL DEĞERLENDİRME: {profile.summary || result.summary}</p>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        {section("Dijital Varlık — Güçlü Yönler", specialists.digitalPresence?.strengths)}
+        {section("Dijital Varlık — Zayıf Yönler", specialists.digitalPresence?.weaknesses)}
+        {section("Dijital Varlık — Veri Mevcut Değil", specialists.digitalPresence?.unknowns)}
+        {section("Rakip Analizi", specialists.market?.assessment)}
+        {section("Rekabet Baskısı", specialists.market?.competitorPressure)}
+        {section("Pazar Fırsatları", specialists.market?.opportunities)}
+        {section("Önerilen HK Dijital Hizmetleri", specialists.growth?.recommendedServices || profile.recommended_services)}
+        {section("İlk 90 Gün", specialists.growth?.first90Days)}
+        {section("Satış Yaklaşımı", specialists.sales?.salesAngle)}
+        {section("İlk Temas", specialists.sales?.firstContact)}
+        {section("Sorulacak Sorular", specialists.sales?.discoveryQuestions)}
+        {section("Olası İtirazlar", specialists.sales?.likelyObjections)}
+        {section("Sonraki Aksiyon", specialists.sales?.nextAction)}
+        {section("Riskler", (result.redFlags?.length ? result.redFlags : profile.red_flags))}
+      </div>
+      {(profile.final_recommendation || result.finalRecommendation) && <p className="mt-3 rounded-[8px] p-2 text-xs font-bold leading-5" style={{ background: "var(--hk-cyan-soft, var(--admin-surface-soft))", color: "var(--admin-text-primary)" }}>Baş Stratejist Önerisi: {profile.final_recommendation || result.finalRecommendation}</p>}
+    </div>
+  );
+}
+
 function MapsIntelligence({ content, setContent, setActive, save, notify, mode = "Haritalar", allowedModules = [] }: any) {
   const emptySearch = { city: "Manisa", district: "", neighborhood: "", businessType: "", keyword: "", niche: "", radius: "5 km", limit: "20", minimumRating: "", minimumReviewCount: "", website: "", phone: "", instagram: "", whatsapp: "", adStatus: "", crmStatus: "", hideSaved: true, highOpportunity: false, highAdPotential: false, topThirtyOnly: false };
   const [search, setSearch] = useState(emptySearch);
@@ -10958,6 +11053,40 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
   const selectedPlaceRef = useRef("");
   const [leadCompetitors, setLeadCompetitors] = useState<Record<string, any[]>>({});
   const [leadStagesById, setLeadStagesById] = useState<Record<string, string>>({});
+  // HK Lead Intelligence Engine ("Müşteri İstihbarat Motoru") — keyed by the
+  // same placeKey the card already uses, so results persist across re-
+  // renders without a page reload. No automatic analysis on load or on
+  // filter change; only the explicit "Analiz Et" click below triggers it.
+  const [intelligenceByKey, setIntelligenceByKey] = useState<Record<string, any>>({});
+  const [intelligenceLoadingKey, setIntelligenceLoadingKey] = useState("");
+  async function analyzeBusinessIntelligence(record: any, placeKey: string, deep = false, forceRefresh = false) {
+    if (intelligenceLoadingKey) return;
+    setIntelligenceLoadingKey(placeKey);
+    try {
+      const response = await fetch("/api/admin/lead-intelligence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          business: {
+            name: record.name || record.company, sector: record.category || record.business_type || search.businessType,
+            city: record.city || search.city, district: districtOf(record) || undefined, address: record.address,
+            website: record.website, phone: record.phone, whatsapp: record.whatsapp, instagram: record.instagram,
+            googleRating: record.googleRating ?? record.google_rating ?? null, reviewCount: record.reviewCount ?? record.google_review_count ?? 0,
+            googlePlaceId: record.placeId || record.google_place_id,
+            metaAdsStatus: record.metaAdsStatus || record.meta_ads_status, googleAdsStatus: record.googleAdsStatus || record.google_ads_status,
+            metaPixelDetected: record.metaPixelDetected ?? record.meta_pixel_detected ?? null, googleTagDetected: record.googleTagDetected ?? record.google_tag_detected ?? null
+          },
+          leadId: existingLeadFor(record)?.id, deep, forceRefresh
+        })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) { notify?.(data.error || "Müşteri istihbarat analizi başarısız oldu.", "error"); return; }
+      setIntelligenceByKey((current) => ({ ...current, [placeKey]: data }));
+      if (data.fromCache) notify?.("Önbellekten yüklendi.", "success");
+    } finally {
+      setIntelligenceLoadingKey("");
+    }
+  }
   const saved = (content.leads || []).filter((lead) => lead.google_place_id || lead.address);
   const recentSectors = [...new Set((content.leads || []).map((lead: any) => String(lead.sector || lead.business_type || "").trim()).filter(Boolean))]
     .filter((sector) => !DISCOVERY_SECTOR_PRESETS.includes(sector))
@@ -11832,8 +11961,10 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
           </> : <AdminButton compact variant="primary" disabled={loading === `save-${placeId}`} onClick={() => saveBusiness(item)}>{loading === `save-${placeId}` ? "Kaydediliyor..." : "CRM'e Kaydet"}</AdminButton>}
           <AdminButton compact variant="warning" onClick={() => proposalFor(record)}>Teklif Hazırla</AdminButton>
           <AdminButton compact variant="success" onClick={() => setWhatsappDraft({ id: placeId || record.id, text: outreachText(record), phone: record.phone })}>WhatsApp</AdminButton>
+          <AdminButton compact variant="info" disabled={intelligenceLoadingKey === placeKey} onClick={() => analyzeBusinessIntelligence(record, placeKey)}>{intelligenceLoadingKey === placeKey ? "Analiz ediliyor..." : intelligenceByKey[placeKey] ? "Yeniden Analiz Et" : "Analiz Et"}</AdminButton>
           <a target="_blank" rel="noreferrer" href={mapsHref(record)} className="hk-button hk-button-neutral hk-button-compact">Maps'te Aç</a>
         </div>
+        {intelligenceByKey[placeKey] && <LeadIntelligencePanel data={intelligenceByKey[placeKey]} onRefresh={() => analyzeBusinessIntelligence(record, placeKey, false, true)} refreshing={intelligenceLoadingKey === placeKey} />}
         {whatsappDraft?.id === placeKey && <div className="mt-3 rounded-[8px] p-3" style={{ border: "1px solid var(--hk-success-solid, #167A3C)", background: "var(--admin-surface-muted, var(--admin-surface-soft))" }}>
           <p className="text-xs font-black" style={{ color: "var(--hk-success-solid, #167A3C)" }}>Hazır WhatsApp mesajı</p>
           <textarea value={whatsappDraft.text} onChange={(event) => setWhatsappDraft({ ...whatsappDraft, text: event.target.value })} className="mt-2 min-h-24 w-full rounded-[8px] p-3 text-xs leading-5" style={{ border: "1px solid var(--admin-border)", background: "var(--admin-card)", color: "var(--admin-text-primary)" }} />
