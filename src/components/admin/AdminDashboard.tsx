@@ -11120,7 +11120,7 @@ function LeadIntelligencePanel({ data, onRefresh, refreshing, leadRecord, canRun
         </div>
       </details>
 
-      <details className="mt-3 rounded-[10px]" style={{ border: "1px solid var(--hk-cyan-solid, var(--admin-border-strong))" }} open={Boolean(council)}>
+      <details className="mt-3 rounded-[10px]" style={{ border: "1px solid var(--hk-cyan-solid, var(--admin-border-strong))" }} open>
         <summary className="cursor-pointer p-2 text-xs font-black uppercase tracking-[.08em]" style={{ color: "var(--hk-cyan-solid, var(--admin-text-primary))" }}>Ajan Kurulu (Derin Analiz)</summary>
         <div className="p-3">
           {!council && <>
