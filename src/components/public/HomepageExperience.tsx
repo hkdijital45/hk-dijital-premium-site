@@ -17,10 +17,10 @@ import { trackMetaCtaClick } from "@/lib/meta-pixel";
 import { blogPosts } from "@/lib/public-seo-content";
 import { PACKAGE_CATEGORIES, formatTRY, getPackagePricing, servicePackagesByCategory } from "@/lib/packages";
 import { CheckCircle2 } from "@/lib/icons";
-import { MacBookMockup, MacBookScreenChip } from "./MacBookMockup";
 import { MarketingBadge, MarketingCard, MarketingEyebrow, MarketingHeading, MarketingReveal, MarketingSection } from "./marketing/MarketingUI";
-import { FacebookMark as FacebookMarkAlias, GoogleMark, InstagramMark, MetaMark, platformMarks, TikTokMark as TikTokMarkAlias, YouTubeMark as YouTubeMarkAlias } from "./PlatformIcons";
+import { GoogleMark, InstagramMark, MetaMark, platformMarks } from "./PlatformIcons";
 import { ServiceVisual } from "./marketing/MarketingVisualSystem";
+import { MacBookEcosystem } from "./cinematic/MacBookEcosystem";
 
 /* ---------------------------------------------------------------------
    Real content, pulled directly from Supabase-backed site content — no
@@ -106,134 +106,12 @@ function WhatsappLink({ href, children, trackingLabel }: { href: string; childre
 /* ------------------------------- Hero -------------------------------- */
 
 /**
- * The hero's "digital ecosystem" composition: a MacBook that appears to emit
- * the channels HK Dijital manages (all 6 platform marks + two abstract
- * result cards) along thin connecting paths. Staged in three quick beats —
- * calm entrance, then the network "blooms" outward, then it settles — a
- * compressed version of the same calm → transform → network → settle
- * grammar used sitewide, kept short (~2.4s) so it never delays perceived
- * load. Fully static (no motion, no SVG draw) under prefers-reduced-motion.
- * The richer platform/card ring is desktop+tablet only; mobile keeps just
- * the three closest-in marks so the hero stays light and uncluttered there.
+ * The hero's cinematic centerpiece — calm MacBook -> activation -> strand
+ * transformation -> flowing network -> bloom -> settle — lives in
+ * src/components/public/cinematic/MacBookEcosystem.tsx (self-contained,
+ * mount-triggered, reduced-motion aware). Kept out of this already-large
+ * file; see that module for the full motion grammar/timeline.
  */
-const heroPlatformNodes: Array<{ key: string; Icon: (props: { className?: string }) => ReactNode; pos: string; path: string }> = [
-  { key: "google", Icon: GoogleMark, pos: "-left-7 top-4", path: "M200,150 C120,120 70,90 40,60" },
-  { key: "meta", Icon: MetaMark, pos: "-right-5 top-14", path: "M200,150 C280,130 330,100 362,72" },
-  { key: "instagram", Icon: InstagramMark, pos: "-bottom-4 left-12", path: "M200,150 C170,220 140,260 110,300" },
-  { key: "facebook", Icon: FacebookMarkAlias, pos: "-right-7 bottom-10", path: "M200,150 C260,210 300,250 330,290" },
-  { key: "tiktok", Icon: TikTokMarkAlias, pos: "left-1/2 -top-9 -translate-x-1/2", path: "M200,150 C200,100 200,60 200,20" },
-  { key: "youtube", Icon: YouTubeMarkAlias, pos: "-left-10 bottom-24", path: "M200,150 C140,170 90,190 30,210" }
-];
-
-const heroDataCards: Array<{ key: string; label: string; sub: string; Icon: LucideIcon; pos: string }> = [
-  { key: "analytics", label: "Performans", sub: "ROAS 5.4x", Icon: BarChart3, pos: "right-[-2.5rem] top-1/2 -translate-y-1/2" },
-  { key: "calendar", label: "İçerik Takvimi", sub: "Bu hafta 4 gönderi", Icon: CalendarDays, pos: "left-[-2.75rem] top-1/2 -translate-y-1/2" }
-];
-
-function HeroDeviceComposition() {
-  const reduced = useReducedMotion();
-  return (
-    <div className="relative mx-auto w-full max-w-lg py-6">
-      <motion.div
-        className="pointer-events-none absolute inset-0 rounded-full blur-3xl"
-        style={{ background: "radial-gradient(circle, rgba(124,58,237,.16), transparent 65%)" }}
-        aria-hidden="true"
-        initial={reduced ? false : { opacity: 0.4, scale: 0.85 }}
-        animate={reduced ? undefined : { opacity: [0.4, 0.75, 0.55], scale: [0.85, 1.08, 1] }}
-        transition={{ duration: 1.6, times: [0, 0.6, 1], ease: [0.16, 1, 0.3, 1] }}
-      />
-      {!reduced && (
-        <svg className="pointer-events-none absolute inset-0 hidden h-full w-full overflow-visible md:block" viewBox="0 0 400 320" fill="none" aria-hidden="true">
-          <defs>
-            <linearGradient id="hero-thread" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stopColor="var(--mk-violet)" stopOpacity="0.55" />
-              <stop offset="1" stopColor="var(--mk-blue)" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          {heroPlatformNodes.map((node, index) => (
-            <motion.path
-              key={node.key}
-              d={node.path}
-              stroke="url(#hero-thread)"
-              strokeWidth={1.4}
-              strokeLinecap="round"
-              initial={{ pathLength: 0, opacity: 0 }}
-              animate={{ pathLength: 1, opacity: 1 }}
-              transition={{ delay: 0.75 + index * 0.08, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-            />
-          ))}
-        </svg>
-      )}
-      <motion.div
-        initial={reduced ? false : { opacity: 0, y: 18, rotateX: 8 }}
-        animate={reduced ? undefined : { opacity: 1, y: 0, rotateX: 0 }}
-        transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-      >
-        <MacBookMockup
-          screen={
-            <div className="flex h-full flex-col gap-[6%] p-[7%]">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase tracking-[.14em] text-[#c4b5fd]">Kampanya Genel Bakış</span>
-                <span className="macbook-screen-dot" aria-hidden="true" />
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                {[["ROAS", "—"], ["CTR", "—"], ["Lead", "—"]].map(([label, value]) => (
-                  <div key={label} className="rounded-[6px] border border-white/10 bg-white/[0.04] p-2 text-center">
-                    <p className="text-[8px] font-bold uppercase tracking-wide text-slate-400">{label}</p>
-                    <p className="mt-1 text-sm font-black text-white">{value}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="grid gap-2">
-                <MacBookScreenChip label="Google Ads kampanyası" note="Yayında" />
-                <MacBookScreenChip label="Instagram içerik takvimi" note="Bu hafta 4 gönderi" />
-              </div>
-              <p className="mt-auto text-[8px] leading-4 text-slate-500">Örnek/illüstratif çalışma alanı görünümü.</p>
-            </div>
-          }
-        />
-      </motion.div>
-      {heroPlatformNodes.map((node, index) => (
-        <motion.div
-          key={node.key}
-          initial={reduced ? false : { opacity: 0, scale: 0.6 }}
-          animate={reduced ? undefined : { opacity: 1, scale: 1 }}
-          transition={{ delay: 0.9 + index * 0.08, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className={`absolute ${node.pos} hidden size-12 place-items-center rounded-2xl border bg-white p-2.5 shadow-[0_18px_46px_rgba(15,16,36,.16)] md:grid`}
-          style={{ borderColor: "var(--mk-border)" }}
-        >
-          <node.Icon className="h-full w-full" />
-        </motion.div>
-      ))}
-      {/* Mobile keeps only the three closest, non-overlapping marks so the hero stays light there. */}
-      <motion.div initial={reduced ? false : { opacity: 0, y: 10 }} animate={reduced ? undefined : { opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.5 }} className="absolute -left-4 top-4 grid size-11 place-items-center rounded-2xl border bg-white p-2.5 shadow-[0_18px_46px_rgba(15,16,36,.16)] md:hidden" style={{ borderColor: "var(--mk-border)" }}>
-        <GoogleMark className="h-full w-full" />
-      </motion.div>
-      <motion.div initial={reduced ? false : { opacity: 0, y: 10 }} animate={reduced ? undefined : { opacity: 1, y: 0 }} transition={{ delay: 0.42, duration: 0.5 }} className="absolute -right-2 top-12 grid size-11 place-items-center rounded-2xl border bg-white p-2.5 shadow-[0_18px_46px_rgba(15,16,36,.16)] md:hidden" style={{ borderColor: "var(--mk-border)" }}>
-        <MetaMark className="h-full w-full" />
-      </motion.div>
-      <motion.div initial={reduced ? false : { opacity: 0, y: 10 }} animate={reduced ? undefined : { opacity: 1, y: 0 }} transition={{ delay: 0.54, duration: 0.5 }} className="absolute -bottom-2 left-8 grid size-11 place-items-center rounded-2xl border bg-white p-2.5 shadow-[0_18px_46px_rgba(15,16,36,.16)] md:hidden" style={{ borderColor: "var(--mk-border)" }}>
-        <InstagramMark className="h-full w-full" />
-      </motion.div>
-      {heroDataCards.map((card, index) => (
-        <motion.div
-          key={card.key}
-          initial={reduced ? false : { opacity: 0, x: card.key === "analytics" ? 16 : -16 }}
-          animate={reduced ? undefined : { opacity: 1, x: 0 }}
-          transition={{ delay: 1.35 + index * 0.12, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-          className={`absolute ${card.pos} hidden max-w-[9.5rem] items-center gap-2.5 rounded-xl border bg-white px-3.5 py-3 shadow-[0_18px_46px_rgba(15,16,36,.14)] lg:flex`}
-          style={{ borderColor: "var(--mk-border)" }}
-        >
-          <card.Icon size={16} className="shrink-0 text-[#7c3aed]" />
-          <span className="min-w-0">
-            <span className="block truncate text-[11px] font-black" style={{ color: "var(--mk-ink)" }}>{card.label}</span>
-            <span className="block truncate text-[10px] font-bold text-[#7c3aed]">{card.sub}</span>
-          </span>
-        </motion.div>
-      ))}
-    </div>
-  );
-}
 
 function Hero({ whatsappUrl }: { whatsappUrl: string }) {
   return (
@@ -261,7 +139,7 @@ function Hero({ whatsappUrl }: { whatsappUrl: string }) {
           </div>
         </MarketingReveal>
         <MarketingReveal delay={0.15}>
-          <HeroDeviceComposition />
+          <MacBookEcosystem />
         </MarketingReveal>
       </div>
     </section>
