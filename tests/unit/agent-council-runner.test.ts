@@ -162,3 +162,62 @@ test("aggregateTokenUsage: returns null (never a fabricated 0) when nothing repo
   const usage = aggregateTokenUsage([fakeResult(""), fakeResult("")]);
   assert.equal(usage, null);
 });
+
+test("runAgentCouncil: a completed agent that used a real provider is marked aiUsed=true with its real provider/model — never a single global guess", async () => {
+  const { fn } = allSucceedExecutor({ provider: "gemini", model: "gemini-3.6-flash" });
+  const outcome = await runAgentCouncil({ evidence, deterministic, createdBy: null }, fn);
+  assert.equal(outcome.ok, true);
+  if (!outcome.ok) return;
+  assert.equal(outcome.specialists.leadQualifier.aiUsed, true);
+  assert.equal(outcome.specialists.leadQualifier.provider, "gemini");
+  assert.equal(outcome.specialists.leadQualifier.model, "gemini-3.6-flash");
+  assert.equal(outcome.chief.aiUsed, true);
+  assert.equal(outcome.chief.provider, "gemini");
+});
+
+test("runAgentCouncil: a completed agent that fell back to the demo provider is honestly marked aiUsed=false, even while other agents in the same run used a real provider", async () => {
+  const fn: ExecuteAiTaskFn = async (input) => {
+    const moduleName = input.module || "";
+    const overrides: Partial<AiRouterResult> = moduleName === "lead-intelligence-council-market"
+      ? { provider: "demo", model: "local-rules" }
+      : { provider: "gemini", model: "gemini-3.6-flash" };
+    return fakeResult(WELL_FORMED_BY_MODULE[moduleName] || "{}", overrides);
+  };
+  const outcome = await runAgentCouncil({ evidence, deterministic, createdBy: null }, fn);
+  assert.equal(outcome.ok, true);
+  if (!outcome.ok) return;
+  // The one agent that fell back must be honestly flagged...
+  assert.equal(outcome.specialists.market.status, "completed");
+  assert.equal(outcome.specialists.market.aiUsed, false);
+  assert.equal(outcome.specialists.market.provider, "demo");
+  // ...while the others that genuinely used a real provider are not
+  // dragged down to a false "everything is fallback" reading.
+  assert.equal(outcome.specialists.leadQualifier.aiUsed, true);
+  assert.equal(outcome.specialists.digitalPresence.aiUsed, true);
+  assert.equal(outcome.chief.aiUsed, true);
+});
+
+test("runAgentCouncil: every specialist call and the Chief call pass a real, role-appropriate `action` hint (never the bare unlabeled strategy default)", async () => {
+  const seenActions: Record<string, string | undefined> = {};
+  const fn: ExecuteAiTaskFn = async (input) => {
+    seenActions[input.module || ""] = input.action;
+    return fakeResult(WELL_FORMED_BY_MODULE[input.module || ""] || "{}");
+  };
+  await runAgentCouncil({ evidence, deterministic, createdBy: null }, fn);
+  assert.equal(seenActions["lead-intelligence-council-lead-qualifier"], "sales-opportunity-assessment");
+  assert.equal(seenActions["lead-intelligence-council-digital-presence"], "digital-status-assessment");
+  assert.equal(seenActions["lead-intelligence-council-market"], "competitor-analysis");
+  assert.equal(seenActions["lead-intelligence-council-growth"], "package-recommendation");
+  assert.equal(seenActions["lead-intelligence-council-sales"], "proposal-support");
+  assert.equal(seenActions["lead-intelligence-council-chief"], "ai-strategist");
+});
+
+test("runAgentCouncil: specialist timeouts are raised to match the DEFAULT tier's real expected latency (25s), not the old under-provisioned 18s", async () => {
+  const seenTimeouts: number[] = [];
+  const fn: ExecuteAiTaskFn = async (input, options) => {
+    if (input.module !== "lead-intelligence-council-chief") seenTimeouts.push(options?.timeoutMs || 0);
+    return fakeResult(WELL_FORMED_BY_MODULE[input.module || ""] || "{}");
+  };
+  await runAgentCouncil({ evidence, deterministic, createdBy: null }, fn);
+  assert.ok(seenTimeouts.every((timeout) => timeout >= 25_000), `expected every specialist timeout >= 25000ms, saw ${JSON.stringify(seenTimeouts)}`);
+});

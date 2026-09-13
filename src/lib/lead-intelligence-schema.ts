@@ -472,7 +472,12 @@ export type ChiefAgentResult = {
   nextAction: string;
 };
 
-export type AgentCouncilSpecialistEntry<T> = { status: AgentStatus; result: T | null; error?: string };
+// provider/model/aiUsed are captured per agent (not just once globally on
+// runMetadata) so the UI can honestly show when some agents used a real
+// provider and others silently fell back to demo — a single global
+// provider field would misrepresent a mixed-outcome run as either fully
+// real or fully fallback.
+export type AgentCouncilSpecialistEntry<T> = { status: AgentStatus; result: T | null; error?: string; provider?: string | null; model?: string | null; aiUsed?: boolean };
 
 export type AgentCouncilResult = {
   version: number;

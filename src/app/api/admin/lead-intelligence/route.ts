@@ -20,11 +20,12 @@ import {
 import type { AdStatusValue } from "@/lib/lead-scoring";
 
 // Agent Council runs up to 6 sequential-ish AI calls (bounded 3-way
-// concurrency for the 5 specialists, then 1 Chief call) — the platform
-// default function timeout is not enough headroom for that in the worst
-// case (slow provider + fallback chain). Mirrors the existing precedent in
+// concurrency for the 5 specialists at up to 25s each = worst case ~50s for
+// two batches, then 1 sequential Chief call at up to 35s) — worst case
+// ~85s, so 90s left too little margin for evidence-building/DB writes.
+// Mirrors the existing precedent in
 // growth-intelligence/gemini-visibility/scan/route.ts for the same reason.
-export const maxDuration = 90;
+export const maxDuration = 120;
 
 const WORKSPACE_ID = "hk-dijital";
 
@@ -284,13 +285,22 @@ export async function POST(request: Request) {
     await recordActivity({ session, action: "Oluşturma", entity: "Müşteri İstihbarat Motoru", details: { event: "lead_intelligence_requested", business: businessName, level: analysisLevel } });
 
     const prompt = buildLeadIntelligencePrompt(evidence, deterministic);
+    // action: "sales-opportunity-assessment" routes this to the HK AI Smart
+    // Router's DEFAULT tier (gemini-3.6-flash, ~25s expected latency) instead
+    // of the bare `taskType: "strategy"` fallback, which resolves to the
+    // slowest POWERFUL tier (gemini-3.1-pro-preview, ~55s expected latency)
+    // — a real evaluate-one-lead task, not the "genuinely hard work" POWERFUL
+    // is reserved for. The previous 20s timeout was silently aborting real
+    // provider calls before a POWERFUL-tier model could realistically
+    // respond, always falling back to the demo provider.
     const generated = await executeAiTask({
       taskType: "strategy",
+      action: "sales-opportunity-assessment",
       module: "lead-intelligence",
       prompt,
       fallbackText: JSON.stringify(deterministic),
       createdBy: session.email || null
-    }, { timeoutMs: 20_000 });
+    }, { timeoutMs: 25_000 });
 
     const aiUsed = generated.provider !== "demo";
     const parsed = parseLeadIntelligenceJson(generated.text);

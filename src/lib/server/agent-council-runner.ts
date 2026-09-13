@@ -21,8 +21,6 @@ import {
   validateMarketAgentResult,
   validateSalesAgentResult,
   type AgentCouncilResult,
-  type AgentStatus,
-  type ChiefAgentResult,
   type DigitalPresenceAgentResult,
   type GrowthAgentResult,
   type LeadIntelligenceEvidence,
@@ -64,7 +62,7 @@ const MIN_SPECIALISTS_FOR_CHIEF = 3;
 
 export type AgentCouncilRunOutcome =
   | { ok: false; logicalAiCallCount: number; specialists: AgentCouncilResult["specialists"]; tokenUsage: TokenUsageSummary; error: string }
-  | { ok: true; logicalAiCallCount: number; specialists: AgentCouncilResult["specialists"]; chief: { status: AgentStatus; result: ChiefAgentResult | null; error?: string }; provider: string | null; model: string | null; tokenUsage: TokenUsageSummary };
+  | { ok: true; logicalAiCallCount: number; specialists: AgentCouncilResult["specialists"]; chief: AgentCouncilResult["chief"]; provider: string | null; model: string | null; tokenUsage: TokenUsageSummary };
 
 /** Runs the real six-agent council: five specialists (bounded 3-way
  * concurrency — never uncontrolled Promise.all, never all six/five
@@ -86,12 +84,24 @@ export async function runAgentCouncil(
 ): Promise<AgentCouncilRunOutcome> {
   const { evidence, deterministic, createdBy } = params;
   type SpecialistKey = keyof typeof AGENT_ROLE_LABELS;
+  // Each specialist is a focused, moderately-complex professional assessment
+  // — not the "genuinely hard work" the HK AI Smart Router reserves for its
+  // slowest POWERFUL tier. Passing a real, already-defined `action` id (see
+  // ACTION_TIER in hk-ai-router.ts) routes these to the DEFAULT tier
+  // (gemini-3.6-flash, ~25s expected latency) instead of the bare
+  // `taskType: "strategy"` fallback, which resolves to POWERFUL
+  // (gemini-3.1-pro-preview, ~55s expected latency per
+  // DEFAULT_TIMEOUT_MS_BY_MODEL) — a mismatch that was causing every real
+  // specialist call to be aborted by our own 18s timeout well before the
+  // model tier it was actually running on could realistically respond,
+  // silently falling back to the demo provider every time. The timeout
+  // below is raised to match DEFAULT tier's own documented budget.
   const specialistJobs: Array<{ key: SpecialistKey; run: () => Promise<AiRouterResult> }> = [
-    { key: "leadQualifier", run: async () => executeTask({ taskType: "strategy", module: "lead-intelligence-council-lead-qualifier", prompt: buildLeadQualifierAgentPrompt(evidence), fallbackText: JSON.stringify(deterministic.specialists.leadQualifier), createdBy }, { timeoutMs: 18_000 }) },
-    { key: "digitalPresence", run: async () => executeTask({ taskType: "strategy", module: "lead-intelligence-council-digital-presence", prompt: buildDigitalPresenceAgentPrompt(evidence), fallbackText: JSON.stringify(deterministic.specialists.digitalPresence), createdBy }, { timeoutMs: 18_000 }) },
-    { key: "market", run: async () => executeTask({ taskType: "strategy", module: "lead-intelligence-council-market", prompt: buildMarketAgentPrompt(evidence), fallbackText: JSON.stringify(deterministic.specialists.market), createdBy }, { timeoutMs: 18_000 }) },
-    { key: "growth", run: async () => executeTask({ taskType: "strategy", module: "lead-intelligence-council-growth", prompt: buildGrowthAgentPrompt(evidence), fallbackText: JSON.stringify(deterministic.specialists.growth), createdBy }, { timeoutMs: 18_000 }) },
-    { key: "sales", run: async () => executeTask({ taskType: "strategy", module: "lead-intelligence-council-sales", prompt: buildSalesAgentPrompt(evidence), fallbackText: JSON.stringify(deterministic.specialists.sales), createdBy }, { timeoutMs: 18_000 }) }
+    { key: "leadQualifier", run: async () => executeTask({ taskType: "strategy", action: "sales-opportunity-assessment", module: "lead-intelligence-council-lead-qualifier", prompt: buildLeadQualifierAgentPrompt(evidence), fallbackText: JSON.stringify(deterministic.specialists.leadQualifier), createdBy }, { timeoutMs: 25_000 }) },
+    { key: "digitalPresence", run: async () => executeTask({ taskType: "strategy", action: "digital-status-assessment", module: "lead-intelligence-council-digital-presence", prompt: buildDigitalPresenceAgentPrompt(evidence), fallbackText: JSON.stringify(deterministic.specialists.digitalPresence), createdBy }, { timeoutMs: 25_000 }) },
+    { key: "market", run: async () => executeTask({ taskType: "strategy", action: "competitor-analysis", module: "lead-intelligence-council-market", prompt: buildMarketAgentPrompt(evidence), fallbackText: JSON.stringify(deterministic.specialists.market), createdBy }, { timeoutMs: 25_000 }) },
+    { key: "growth", run: async () => executeTask({ taskType: "strategy", action: "package-recommendation", module: "lead-intelligence-council-growth", prompt: buildGrowthAgentPrompt(evidence), fallbackText: JSON.stringify(deterministic.specialists.growth), createdBy }, { timeoutMs: 25_000 }) },
+    { key: "sales", run: async () => executeTask({ taskType: "strategy", action: "proposal-support", module: "lead-intelligence-council-sales", prompt: buildSalesAgentPrompt(evidence), fallbackText: JSON.stringify(deterministic.specialists.sales), createdBy }, { timeoutMs: 25_000 }) }
   ];
 
   const settled = await runWithConcurrencyLimit(specialistJobs.map((job) => async () => ({ key: job.key, generated: await job.run() })), 3);
@@ -122,12 +132,18 @@ export async function runAgentCouncil(
     anyProvider = anyProvider || generated.provider;
     anyModel = anyModel || generated.model;
     const parsed = parseLeadIntelligenceJson(generated.text);
+    // Per-agent provider metadata — never a single global guess. A "demo"
+    // provider here is a genuine, honest signal that THIS specific agent's
+    // real call failed/was unavailable and it fell back to the deterministic
+    // rule-based text, even if other agents in the same run used a real
+    // provider successfully.
+    const agentMeta = { provider: generated.provider, model: generated.model, aiUsed: generated.provider !== "demo" };
     try {
-      if (key === "leadQualifier") { const v = validateLeadQualifierAgentResult(parsed, deterministic); leadQualifierResult = v.result; specialists.leadQualifier = { status: "completed", result: v.result }; }
-      else if (key === "digitalPresence") { const v = validateDigitalPresenceAgentResult(parsed, deterministic); digitalPresenceResult = v.result; specialists.digitalPresence = { status: "completed", result: v.result }; }
-      else if (key === "market") { const v = validateMarketAgentResult(parsed, deterministic); marketResult = v.result; specialists.market = { status: "completed", result: v.result }; }
-      else if (key === "growth") { const v = validateGrowthAgentResult(parsed, deterministic); growthResult = v.result; specialists.growth = { status: "completed", result: v.result }; }
-      else if (key === "sales") { const v = validateSalesAgentResult(parsed, deterministic); salesResult = v.result; specialists.sales = { status: "completed", result: v.result }; }
+      if (key === "leadQualifier") { const v = validateLeadQualifierAgentResult(parsed, deterministic); leadQualifierResult = v.result; specialists.leadQualifier = { status: "completed", result: v.result, ...agentMeta }; }
+      else if (key === "digitalPresence") { const v = validateDigitalPresenceAgentResult(parsed, deterministic); digitalPresenceResult = v.result; specialists.digitalPresence = { status: "completed", result: v.result, ...agentMeta }; }
+      else if (key === "market") { const v = validateMarketAgentResult(parsed, deterministic); marketResult = v.result; specialists.market = { status: "completed", result: v.result, ...agentMeta }; }
+      else if (key === "growth") { const v = validateGrowthAgentResult(parsed, deterministic); growthResult = v.result; specialists.growth = { status: "completed", result: v.result, ...agentMeta }; }
+      else if (key === "sales") { const v = validateSalesAgentResult(parsed, deterministic); salesResult = v.result; specialists.sales = { status: "completed", result: v.result, ...agentMeta }; }
     } catch {
       specialists[key] = { status: "failed", result: null, error: "Yanıt doğrulanamadı." };
       failedAgents.push(AGENT_ROLE_LABELS[key]);
@@ -146,15 +162,21 @@ export async function runAgentCouncil(
   }
 
   const chiefPrompt = buildChiefAgentPrompt({ evidence, leadQualifier: leadQualifierResult, digitalPresence: digitalPresenceResult, market: marketResult, growth: growthResult, sales: salesResult, failedAgents });
-  let chief: { status: AgentStatus; result: ChiefAgentResult | null; error?: string };
+  let chief: AgentCouncilResult["chief"];
   try {
-    const chiefGenerated = await executeTask({ taskType: "strategy", module: "lead-intelligence-council-chief", prompt: chiefPrompt, fallbackText: JSON.stringify(deterministic), createdBy }, { timeoutMs: 20_000 });
+    // The Chief genuinely is the one POWERFUL-tier-worthy call — reconciling
+    // five independent expert outputs into a single decision is real
+    // synthesis work, not a mechanical lookup. It runs alone (sequentially,
+    // after the specialists), so it can afford a longer budget without
+    // risking the whole request's wall-clock time; explicit `action` keeps
+    // this an intentional choice rather than an unlabeled `strategy` default.
+    const chiefGenerated = await executeTask({ taskType: "strategy", action: "ai-strategist", module: "lead-intelligence-council-chief", prompt: chiefPrompt, fallbackText: JSON.stringify(deterministic), createdBy }, { timeoutMs: 35_000 });
     rawResults.push(chiefGenerated);
     anyProvider = anyProvider || chiefGenerated.provider;
     anyModel = anyModel || chiefGenerated.model;
     const parsed = parseLeadIntelligenceJson(chiefGenerated.text);
     const v = validateChiefAgentResult(parsed, deterministic);
-    chief = { status: "completed", result: v.result };
+    chief = { status: "completed", result: v.result, provider: chiefGenerated.provider, model: chiefGenerated.model, aiUsed: chiefGenerated.provider !== "demo" };
   } catch {
     chief = { status: "failed", result: null, error: "Baş Stratejist yanıtı alınamadı." };
   }

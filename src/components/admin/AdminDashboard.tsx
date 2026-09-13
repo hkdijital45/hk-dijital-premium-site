@@ -11008,6 +11008,10 @@ function mapTabFromSlug(slug: string | null) {
 const AGENT_ROLE_LABELS: Record<string, string> = { leadQualifier: "Potansiyel Müşteri Analisti", digitalPresence: "Dijital Varlık Analisti", market: "Rakip ve Pazar Analisti", growth: "Büyüme Stratejisti", sales: "Satış Stratejisti" };
 const AGENT_STATUS_LABEL: Record<string, string> = { completed: "Tamamlandı", failed: "Başarısız", pending: "Beklemede" };
 const AGENT_STATUS_TONE: Record<string, AdminStatusTone> = { completed: "success", failed: "danger", pending: "warning" };
+const PROVIDER_LABELS: Record<string, string> = { gemini: "Gemini", openai: "OpenAI", anthropic: "Claude", groq: "Groq", manus: "Manus", openrouter: "OpenRouter", ollama: "Yerel Model", demo: "Demo / Kurallı Yedek" };
+function providerLabel(provider: any): string {
+  return PROVIDER_LABELS[String(provider || "")] || (provider ? String(provider) : "Bilinmiyor");
+}
 
 function LeadIntelligencePanel({ data, onRefresh, refreshing, leadRecord, canRunCouncil, councilRunning, onRunCouncil }: any) {
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -11064,7 +11068,9 @@ function LeadIntelligencePanel({ data, onRefresh, refreshing, leadRecord, canRun
           <AdminStatusBadge tone="neutral">Güven: {profile.confidence ?? "-"}/100</AdminStatusBadge>
           {profile.opportunity_score != null && <AdminStatusBadge tone="info">Fırsat Skoru: {profile.opportunity_score}/100</AdminStatusBadge>}
           {data.fromCache && <AdminStatusBadge tone="neutral">Önbellekten</AdminStatusBadge>}
-          <AdminStatusBadge tone={data.aiUsed ? "success" : "neutral"}>{data.aiUsed ? `AI: ${profile.ai_provider || "canlı"}` : "Deterministik (AI kullanılmadı)"}</AdminStatusBadge>
+          {data.aiUsed && profile.ai_provider !== "demo"
+            ? <AdminStatusBadge tone="success">Gerçek AI: {providerLabel(profile.ai_provider)}</AdminStatusBadge>
+            : <AdminStatusBadge tone="warning"><span title="Gerçek AI sağlayıcı kullanılmadı. Sonuç mevcut veriler üzerinden kurallı olarak üretildi.">Kurallı Yedek</span></AdminStatusBadge>}
         </div>
         <AdminButton compact variant="secondary" disabled={refreshing} onClick={onRefresh}>{refreshing ? "Yenileniyor..." : "Yeniden Analiz Et"}</AdminButton>
       </div>
@@ -11106,11 +11112,13 @@ function LeadIntelligencePanel({ data, onRefresh, refreshing, leadRecord, canRun
         <summary className="cursor-pointer p-2 text-xs font-black uppercase tracking-[.08em]" style={{ color: "var(--admin-text-primary)" }}>Analiz İzleme</summary>
         <div className="grid gap-1.5 p-3 text-xs sm:grid-cols-2" style={{ color: "var(--admin-text-secondary)" }}>
           <span>Analiz seviyesi: <strong>{levelLabelMap[profile.analysis_level] || profile.analysis_level || "-"}</strong></span>
-          <span>AI kullanıldı mı: <strong>{data.aiUsed ? "Evet" : "Hayır"}</strong></span>
+          <span>AI Durumu: <strong>{data.aiUsed && profile.ai_provider !== "demo" ? "Gerçek AI kullanıldı" : "Kurallı yedek analiz kullanıldı"}</strong></span>
+          <span>AI kullanıldı mı: <strong>{data.aiUsed && profile.ai_provider !== "demo" ? "Evet" : "Hayır"}</strong></span>
           <span>AI çağrı sayısı: <strong>{data.logicalAiCallCount ?? "-"}</strong></span>
           <span>Önbellekten mi: <strong>{data.fromCache ? "Evet" : "Hayır"}</strong></span>
-          <span>Provider: <strong>{profile.ai_provider || "-"}</strong></span>
+          <span>Provider: <strong>{providerLabel(profile.ai_provider)}</strong></span>
           <span>Model: <strong>{profile.ai_model || "-"}</strong></span>
+          <span>Fallback: <strong>{profile.ai_provider === "demo" ? "Evet" : profile.ai_provider ? "Hayır" : "Bilinmiyor"}</strong></span>
           <span>Analiz zamanı: <strong>{formatDateTime(profile.last_analyzed_at || profile.updated_at) || "-"}</strong></span>
           <span>Evidence fingerprint: <strong>{profile.evidence_fingerprint ? String(profile.evidence_fingerprint).slice(0, 12) : "-"}</strong></span>
           <span>Şema sürümü: <strong>{profile.schema_version ?? "-"}</strong></span>
@@ -11128,15 +11136,25 @@ function LeadIntelligencePanel({ data, onRefresh, refreshing, leadRecord, canRun
             {isThinEvidence && <p className="mt-2 text-xs font-bold" style={{ color: "#8D5B00" }}>Bu lead için mevcut veri sınırlı; Ajan Kurulu çıktısının güveni düşük olabilir.</p>}
             <AdminButton compact variant="ai" className="mt-3" disabled={!canRunCouncil || councilRunning} title={!canRunCouncil ? "Bu özelliği kullanmak için önce işletmeyi lead olarak kaydedin." : undefined} onClick={() => openCouncilConfirm(false)}>{councilRunning ? "Çalışıyor..." : "Ajan Kurulu ile Derin Analiz"}</AdminButton>
           </>}
-          {council && <>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {(["leadQualifier", "digitalPresence", "market", "growth", "sales"] as const).map((key) => (
-                <AdminStatusBadge key={key} tone={AGENT_STATUS_TONE[council.specialists?.[key]?.status] || "neutral"}>{AGENT_ROLE_LABELS[key]}: {AGENT_STATUS_LABEL[council.specialists?.[key]?.status] || "-"}</AdminStatusBadge>
-              ))}
-              <AdminStatusBadge tone={AGENT_STATUS_TONE[council.chief?.status] || "neutral"}>Baş Stratejist: {AGENT_STATUS_LABEL[council.chief?.status] || "-"}</AdminStatusBadge>
+          {council && (() => {
+            const agentKeys = ["leadQualifier", "digitalPresence", "market", "growth", "sales"] as const;
+            const completedEntries = [...agentKeys.map((key) => council.specialists?.[key]), council.chief].filter((entry: any) => entry?.status === "completed");
+            const allRealAi = completedEntries.length > 0 && completedEntries.every((entry: any) => entry.aiUsed && entry.provider !== "demo");
+            const anyRealAi = completedEntries.some((entry: any) => entry.aiUsed && entry.provider !== "demo");
+            return <>
+            <AdminStatusBadge tone={allRealAi ? "success" : anyRealAi ? "warning" : "neutral"}>
+              {allRealAi ? "Bağımsız AI Ajan Kurulu" : anyRealAi ? "Ajan Kurulu — Kısmen Kurallı Yedek" : "Ajan Kurulu — Kurallı Yedek Kullanıldı"}
+            </AdminStatusBadge>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {agentKeys.map((key) => {
+                const entry = council.specialists?.[key];
+                const providerNote = entry?.status === "completed" ? ` (${providerLabel(entry.provider)})` : "";
+                return <AdminStatusBadge key={key} tone={AGENT_STATUS_TONE[entry?.status] || "neutral"}>{AGENT_ROLE_LABELS[key]}: {AGENT_STATUS_LABEL[entry?.status] || "-"}{providerNote}</AdminStatusBadge>;
+              })}
+              <AdminStatusBadge tone={AGENT_STATUS_TONE[council.chief?.status] || "neutral"}>Baş Stratejist: {AGENT_STATUS_LABEL[council.chief?.status] || "-"}{council.chief?.status === "completed" ? ` (${providerLabel(council.chief.provider)})` : ""}</AdminStatusBadge>
             </div>
             <div className="mt-2 grid gap-1 text-[11px]" style={{ color: "var(--admin-text-muted)" }}>
-              <span>AI çağrı sayısı: {council.runMetadata?.logicalAiCallCount ?? "-"} · Provider: {council.runMetadata?.provider || "-"} · Model: {council.runMetadata?.model || "-"}</span>
+              <span>AI çağrı sayısı: {council.runMetadata?.logicalAiCallCount ?? "-"} · Provider: {providerLabel(council.runMetadata?.provider)} · Model: {council.runMetadata?.model || "-"}</span>
               <span>{council.runMetadata?.tokenUsage ? `Token — Girdi: ${council.runMetadata.tokenUsage.inputTokens ?? "-"}, Çıktı: ${council.runMetadata.tokenUsage.outputTokens ?? "-"}` : "Token kullanımı sağlayıcı tarafından raporlanmıyor."}</span>
             </div>
             {council.chief?.status === "failed" && <p className="mt-2 rounded-[8px] p-2 text-xs font-bold" style={{ background: "#FDECEC", color: "#B42318" }}>{council.chief.error || "Baş Stratejist sonucu alınamadı."}</p>}
@@ -11149,7 +11167,8 @@ function LeadIntelligencePanel({ data, onRefresh, refreshing, leadRecord, canRun
               {roleBlock("Baş Stratejist Kararı", council.chief?.result ? <>{field("Özet", council.chief.result.summary)}{field("Uzmanlar Arası Uzlaşı", council.chief.result.agreements)}{field("Görüş Ayrılıkları", council.chief.result.disagreements)}{field("Zayıf Kanıtlar", council.chief.result.evidenceWeaknesses)}{field("Öncelikli Hizmet", council.chief.result.primaryService)}{field("Nihai Öneri", council.chief.result.finalRecommendation)}{field("Önerilen İlk Hamle", council.chief.result.nextAction)}{field("Riskler", council.chief.result.redFlags)}</> : <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>{council.chief?.error || "Sonuç yok."}</p>)}
             </div>
             <AdminButton compact variant="secondary" className="mt-3" disabled={councilRunning} onClick={() => openCouncilConfirm(true)}>{councilRunning ? "Çalışıyor..." : "Yeniden Çalıştır"}</AdminButton>
-          </>}
+          </>;
+          })()}
         </div>
       </details>
 
