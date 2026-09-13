@@ -404,7 +404,14 @@ export function parseLeadIntelligenceJson(text: string): unknown {
 // a single shared call reasonably can — see the version constant below,
 // bumped independently of LEAD_INTELLIGENCE_SCHEMA_VERSION so changing the
 // council's prompts/schema never invalidates ordinary Level 1/2 caches.
-export const AGENT_COUNCIL_SCHEMA_VERSION = 1;
+// Bumped 1 -> 2: Chief's model routing changed (POWERFUL -> DEFAULT tier,
+// see agent-council-runner.ts) after production evidence showed it was the
+// one call reliably falling back to demo. Any council result cached under
+// version 1 may hold a demo-fallback Chief from before this fix — bumping
+// this (and nothing else) naturally invalidates only those Agent Council
+// caches via computeAgentCouncilFingerprint(), leaving Level 1/2 evidence
+// fingerprints (LEAD_INTELLIGENCE_SCHEMA_VERSION, unchanged) untouched.
+export const AGENT_COUNCIL_SCHEMA_VERSION = 2;
 
 export type AgentStatus = "pending" | "completed" | "failed";
 export type Qualification = "strong" | "possible" | "weak";

@@ -209,7 +209,13 @@ test("runAgentCouncil: every specialist call and the Chief call pass a real, rol
   assert.equal(seenActions["lead-intelligence-council-market"], "competitor-analysis");
   assert.equal(seenActions["lead-intelligence-council-growth"], "package-recommendation");
   assert.equal(seenActions["lead-intelligence-council-sales"], "proposal-support");
-  assert.equal(seenActions["lead-intelligence-council-chief"], "ai-strategist");
+  // Chief must NOT route through the slow POWERFUL tier ("ai-strategist")
+  // — production evidence showed that was the one call in the whole
+  // council that reliably fell back to demo. It only synthesizes five
+  // already-validated compact results, which needs no more capability
+  // than the specialists' own proven-fast DEFAULT-tier action.
+  assert.notEqual(seenActions["lead-intelligence-council-chief"], "ai-strategist");
+  assert.equal(seenActions["lead-intelligence-council-chief"], "customer-report");
 });
 
 test("runAgentCouncil: specialist timeouts are raised to match the DEFAULT tier's real expected latency (25s), not the old under-provisioned 18s", async () => {
@@ -220,4 +226,14 @@ test("runAgentCouncil: specialist timeouts are raised to match the DEFAULT tier'
   };
   await runAgentCouncil({ evidence, deterministic, createdBy: null }, fn);
   assert.ok(seenTimeouts.every((timeout) => timeout >= 25_000), `expected every specialist timeout >= 25000ms, saw ${JSON.stringify(seenTimeouts)}`);
+});
+
+test("runAgentCouncil: Chief's timeout matches the DEFAULT tier's real budget (25s), not an inflated POWERFUL-oriented value", async () => {
+  let chiefTimeout: number | undefined;
+  const fn: ExecuteAiTaskFn = async (input, options) => {
+    if (input.module === "lead-intelligence-council-chief") chiefTimeout = options?.timeoutMs;
+    return fakeResult(WELL_FORMED_BY_MODULE[input.module || ""] || "{}");
+  };
+  await runAgentCouncil({ evidence, deterministic, createdBy: null }, fn);
+  assert.equal(chiefTimeout, 25_000);
 });

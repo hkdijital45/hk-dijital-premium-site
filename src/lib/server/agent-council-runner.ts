@@ -164,13 +164,19 @@ export async function runAgentCouncil(
   const chiefPrompt = buildChiefAgentPrompt({ evidence, leadQualifier: leadQualifierResult, digitalPresence: digitalPresenceResult, market: marketResult, growth: growthResult, sales: salesResult, failedAgents });
   let chief: AgentCouncilResult["chief"];
   try {
-    // The Chief genuinely is the one POWERFUL-tier-worthy call — reconciling
-    // five independent expert outputs into a single decision is real
-    // synthesis work, not a mechanical lookup. It runs alone (sequentially,
-    // after the specialists), so it can afford a longer budget without
-    // risking the whole request's wall-clock time; explicit `action` keeps
-    // this an intentional choice rather than an unlabeled `strategy` default.
-    const chiefGenerated = await executeTask({ taskType: "strategy", action: "ai-strategist", module: "lead-intelligence-council-chief", prompt: chiefPrompt, fallbackText: JSON.stringify(deterministic), createdBy }, { timeoutMs: 35_000 });
+    // Chief does not do primary research — it compares five already-
+    // validated, compact structured results and produces a synthesis
+    // decision. `action: "ai-strategist"` (POWERFUL tier, gemini-3.1-pro-
+    // preview, ~55s expected latency per DEFAULT_TIMEOUT_MS_BY_MODEL) was
+    // proven in production to make this the one call in the whole council
+    // that reliably fell back to demo, even with the 5 specialists (all on
+    // the faster DEFAULT tier, gemini-3.6-flash) completing fine. Chief's
+    // own compact 11-field JSON schema needs no more capability than the
+    // specialists' schemas already use successfully — route it through the
+    // same proven-fast DEFAULT tier via an existing action id ("customer-
+    // report": Chief's output genuinely is a synthesized decision report),
+    // with a matching timeout instead of an inflated POWERFUL-oriented one.
+    const chiefGenerated = await executeTask({ taskType: "strategy", action: "customer-report", module: "lead-intelligence-council-chief", prompt: chiefPrompt, fallbackText: JSON.stringify(deterministic), createdBy }, { timeoutMs: 25_000 });
     rawResults.push(chiefGenerated);
     anyProvider = anyProvider || chiefGenerated.provider;
     anyModel = anyModel || chiefGenerated.model;
