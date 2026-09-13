@@ -153,8 +153,13 @@ const TASK_TYPE_TIER: Partial<Record<IntelligenceTaskType, Tier>> = {
 };
 
 // Free-text escalation signals for "normal-ai-chat"-style open input — local
-// keyword heuristic only, never an extra AI call.
-const ESCALATION_KEYWORDS = [
+// keyword heuristic only, never an extra AI call. Exported (read-only) so
+// prompt-building code elsewhere can be tested against it directly — a
+// prompt containing one of these substrings gets silently re-escalated to
+// POWERFUL regardless of its intended `action`/tier, which is exactly what
+// happened to the Lead Intelligence Chief prompt (see
+// lead-intelligence-schema.ts's buildChiefAgentPrompt).
+export const ESCALATION_KEYWORDS = [
   "karşılaştır", "detaylı analiz et", "bütün verileri birleştir", "90 günlük strateji",
   "derin analiz", "birden fazla kaynak", "kapsamlı teşhis", "nedenlerini bul", "stratejik plan"
 ];

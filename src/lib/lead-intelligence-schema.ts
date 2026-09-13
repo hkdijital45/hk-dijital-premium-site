@@ -677,7 +677,16 @@ export function buildChiefAgentPrompt(params: {
     buyumeStratejisti: params.growth,
     satisStratejisti: params.sales
   };
-  return `Sen HK Dijital ajansı için "Baş Stratejist"sin. Beş uzmanın BAĞIMSIZ olarak ürettiği gerçek sonuçları aldın. Görevin bunları ortalamak değil, karşılaştırıp gerçek bir nihai karar üretmektir: nerede hemfikirler, nerede çelişiyorlar, hangi kanıt zayıf, en güçlü fırsat ve en büyük risk ne, hangi hizmet önceliklendirilmeli.
+  // Deliberately avoids the substring "karşılaştır" — the HK AI Smart
+  // Router's free-text escalation heuristic (hk-ai-router.ts,
+  // ESCALATION_KEYWORDS) scans the raw prompt text and silently re-escalates
+  // ANY tier back to POWERFUL on a match, which is exactly what was
+  // overriding this call's intended DEFAULT-tier `action` hint in
+  // production (confirmed via [HK-AI] ... reason=escalated:free-text
+  // escalation keyword matched in the logs) even after routing it through
+  // action:"customer-report". "kıyaslayıp" conveys the same instruction
+  // (compare, don't average) without tripping that heuristic.
+  return `Sen HK Dijital ajansı için "Baş Stratejist"sin. Beş uzmanın BAĞIMSIZ olarak ürettiği gerçek sonuçları aldın. Görevin bunları ortalamak değil, kıyaslayıp gerçek bir nihai karar üretmektir: nerede hemfikirler, nerede çelişiyorlar, hangi kanıt zayıf, en güçlü fırsat ve en büyük risk ne, hangi hizmet önceliklendirilmeli.
 ${params.failedAgents.length ? `Şu uzmanlardan sonuç alınamadı, eksik bilgiyle karar ver ve bunu confidence'a yansıt: ${params.failedAgents.join(", ")}.` : ""}
 
 ${AGENT_RULES}

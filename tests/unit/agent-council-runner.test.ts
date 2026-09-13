@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { runAgentCouncil, aggregateTokenUsage, type ExecuteAiTaskFn } from "../../src/lib/server/agent-council-runner.ts";
-import { deriveDeterministicIntelligence, type LeadIntelligenceEvidence } from "../../src/lib/lead-intelligence-schema.ts";
+import { buildChiefAgentPrompt, deriveDeterministicIntelligence, type LeadIntelligenceEvidence } from "../../src/lib/lead-intelligence-schema.ts";
 import type { AiRouterResult } from "../../src/lib/server/ai-router.ts";
+import { ESCALATION_KEYWORDS } from "../../src/lib/hk-ai-router.ts";
 
 const evidence: LeadIntelligenceEvidence = {
   name: "Öztürk Diş Kliniği",
@@ -236,4 +237,27 @@ test("runAgentCouncil: Chief's timeout matches the DEFAULT tier's real budget (2
   };
   await runAgentCouncil({ evidence, deterministic, createdBy: null }, fn);
   assert.equal(chiefTimeout, 25_000);
+});
+
+// Regression coverage for the actual production bug: the Chief's own
+// action:"customer-report" hint (DEFAULT tier) was silently overridden
+// back to POWERFUL by the HK AI Smart Router's free-text escalation
+// heuristic, because the Chief prompt's own wording ("karşılaştırıp")
+// contained the substring "karşılaştır" — one of ESCALATION_KEYWORDS.
+// Confirmed live via [HK-AI] ... reason=escalated:free-text escalation
+// keyword matched in production logs. This test fails the moment anyone
+// reintroduces any escalation keyword into the Chief prompt, regardless of
+// which exact word triggers it.
+test("buildChiefAgentPrompt: never contains a router free-text escalation keyword (would silently force POWERFUL tier regardless of the action hint)", () => {
+  const prompt = buildChiefAgentPrompt({
+    evidence,
+    leadQualifier: null,
+    digitalPresence: null,
+    market: null,
+    growth: null,
+    sales: null,
+    failedAgents: []
+  }).toLocaleLowerCase("tr");
+  const matched = ESCALATION_KEYWORDS.filter((keyword) => prompt.includes(keyword));
+  assert.deepEqual(matched, [], `Chief prompt must not contain any escalation keyword, found: ${JSON.stringify(matched)}`);
 });
