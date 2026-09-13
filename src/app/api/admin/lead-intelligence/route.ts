@@ -20,12 +20,16 @@ import {
 import type { AdStatusValue } from "@/lib/lead-scoring";
 
 // Agent Council runs up to 6 sequential-ish AI calls (bounded 3-way
-// concurrency for the 5 specialists at up to 25s each = worst case ~50s for
-// two batches, then 1 sequential Chief call at up to 35s) — worst case
-// ~85s, so 90s left too little margin for evidence-building/DB writes.
-// Mirrors the existing precedent in
-// growth-intelligence/gemini-visibility/scan/route.ts for the same reason.
-export const maxDuration = 120;
+// concurrency for the 5 specialists at up to 25s each, then 1 sequential
+// Chief call at up to 35s). A real production run against Gemini
+// (2026-09-13) showed the calculated ~85s worst case is not a safe ceiling
+// in practice — real API latency plus evidence-building/DB-write overhead
+// pushed a genuine run past 120s, killing the function mid-flight. Matches
+// the exact, already-proven-safe value used by
+// growth-intelligence/gemini-visibility/scan/route.ts for the same class
+// of "several real Gemini calls in one request" problem, rather than
+// guessing at another possibly-still-insufficient number.
+export const maxDuration = 300;
 
 const WORKSPACE_ID = "hk-dijital";
 
