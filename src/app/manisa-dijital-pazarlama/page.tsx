@@ -4,6 +4,7 @@ import { MapPin, Target } from "lucide-react";
 import { JsonLd } from "@/components/public/JsonLd";
 import { PublicShell } from "@/components/public/Shell";
 import { MarketingBadge, MarketingCard, MarketingPageHero, MarketingReveal, MarketingSection } from "@/components/public/marketing/MarketingUI";
+import { MarketingCTA, MarketingNetworkBackground } from "@/components/public/marketing/MarketingVisualSystem";
 import { absoluteUrl, pageMetadata } from "@/lib/metadata";
 import { localSeoFaq, serviceOverviewCards } from "@/lib/public-seo-content";
 
@@ -47,6 +48,7 @@ export default function ManisaDigitalMarketingPage() {
           eyebrow="Manisa Dijital Pazarlama Ajansı"
           title="Manisa’daki İşletmeler İçin Ölçülebilir Reklam ve Dijital Pazarlama"
           text="HK Dijital; Manisa merkezli işletmelerin Meta reklamları, Google Ads, sosyal medya stratejisi, dönüşüm takibi ve performans raporlamasını daha anlaşılır hale getirir."
+          visual={<MarketingNetworkBackground />}
         />
         <MarketingSection>
           <div className="mx-auto grid max-w-7xl gap-6 px-4 sm:px-6 lg:px-8">
@@ -113,11 +115,14 @@ export default function ManisaDigitalMarketingPage() {
                 ))}
               </div>
             </MarketingCard>
-            <MarketingCard feature className="p-8">
-              <h2 className="text-3xl font-black" style={{ color: "var(--mk-ink)" }}>Manisa dijital pazarlama çalışmanızı birlikte netleştirelim.</h2>
-              <p className="mt-4 max-w-3xl text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>Kısa bir ön görüşmeyle işletmenizin hedefi, uygun reklam kanalı, ölçümleme ihtiyacı ve ilk 30 günlük yol haritası değerlendirilebilir.</p>
-              <Link href="/teklif-al" className="marketing-btn marketing-btn-primary mt-6">Ücretsiz ön görüşme al</Link>
-            </MarketingCard>
+            <MarketingReveal>
+              <MarketingCTA
+                title="Manisa dijital pazarlama çalışmanızı birlikte netleştirelim."
+                text="Kısa bir ön görüşmeyle işletmenizin hedefi, uygun reklam kanalı, ölçümleme ihtiyacı ve ilk 30 günlük yol haritası değerlendirilebilir."
+                primaryLabel="Ücretsiz ön görüşme al"
+                trackingPrefix="Manisa Landing"
+              />
+            </MarketingReveal>
           </div>
         </MarketingSection>
       </div>

@@ -5,6 +5,8 @@ import { pageMetadata } from "@/lib/metadata";
 import { serviceIcons } from "@/lib/icons";
 import { PublicShell } from "@/components/public/Shell";
 import { MarketingCard, MarketingPageHero, MarketingReveal, MarketingSection } from "@/components/public/marketing/MarketingUI";
+import { MarketingCTA, MarketingNetworkBackground, ServiceVisual } from "@/components/public/marketing/MarketingVisualSystem";
+import { serviceVisualVariantForKey } from "@/components/public/marketing/serviceVisualVariant";
 import { servicePages } from "@/lib/public-seo-content";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +20,7 @@ export default async function ServicesPage() {
   return (
     <PublicShell>
       <div className="marketing-shell">
-        <MarketingPageHero eyebrow="Hizmetler" title="Manisa Dijital Pazarlama Hizmetleri" text="Meta reklam yönetimi, Google Ads, sosyal medya stratejisi, dönüşüm takibi ve anlaşılır raporlamayı işletmenizin hedeflerine göre planlayın." />
+        <MarketingPageHero eyebrow="Hizmetler" title="Manisa Dijital Pazarlama Hizmetleri" text="Meta reklam yönetimi, Google Ads, sosyal medya stratejisi, dönüşüm takibi ve anlaşılır raporlamayı işletmenizin hedeflerine göre planlayın." visual={<MarketingNetworkBackground />} />
         <MarketingSection>
           <div className="mx-auto grid max-w-7xl gap-5 px-4 sm:px-6 lg:px-8">
             <MarketingReveal>
@@ -49,6 +51,7 @@ export default async function ServicesPage() {
                           </div>
                           <h2 id={service.id === "landing" ? "web-donusum" : service.id === "reporting" ? "raporlama" : undefined} className="mt-5 text-2xl font-black" style={{ color: "var(--mk-ink)" }}>{service.name}</h2>
                           <p className="mt-4 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>{service.detailedDescription}</p>
+                          <ServiceVisual variant={serviceVisualVariantForKey(service.id)} className="mt-5" />
                           <Link href="/teklif-al" className="marketing-btn marketing-btn-primary mt-6">{service.cta}</Link>
                         </div>
                         <div className="grid gap-4 md:grid-cols-3">
@@ -72,6 +75,13 @@ export default async function ServicesPage() {
                   </MarketingReveal>
                 );
               })}
+            <MarketingReveal>
+              <MarketingCTA
+                title="Hangi hizmetin işletmenize uygun olduğundan emin değil misiniz?"
+                text="Kısa bir ön görüşmeyle hedefinize göre doğru kanal ve kapsamı birlikte netleştirelim."
+                trackingPrefix="Hizmetler Sayfası"
+              />
+            </MarketingReveal>
           </div>
         </MarketingSection>
       </div>

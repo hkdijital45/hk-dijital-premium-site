@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowRight, CalendarDays, Clock, UserRound } from "lucide-react";
+import { CalendarDays, Clock, UserRound } from "lucide-react";
 import { JsonLd } from "@/components/public/JsonLd";
 import { PublicShell } from "@/components/public/Shell";
-import { MarketingCard } from "@/components/public/marketing/MarketingUI";
+import { MarketingCard, MarketingReveal } from "@/components/public/marketing/MarketingUI";
+import { MarketingCTA } from "@/components/public/marketing/MarketingVisualSystem";
 import { absoluteUrl } from "@/lib/metadata";
 import { getPublicBlogPost, getPublicBlogPosts } from "@/lib/blog-seo";
 import { extractMarkdownHeadings, markdownToSafeHtml } from "@/lib/blog-markdown";
@@ -86,26 +87,35 @@ export default async function BlogDetailPage({ params }: BlogDetailProps) {
               <Link href="/blog" className="hover:underline">Blog</Link><span>/</span>
               <span style={{ color: "var(--mk-ink-soft)" }}>{post.category?.name || "Yazı"}</span>
             </nav>
-            <header className="mt-8 rounded-[28px] border p-6 sm:p-8" style={{ borderColor: "var(--mk-border-strong)", background: "linear-gradient(135deg, rgba(124,58,237,.06), rgba(37,99,235,.04))" }}>
-              <p className="marketing-eyebrow">{post.category?.name || "Blog"}</p>
-              <h1 className="mt-4 text-4xl font-black tracking-tight sm:text-5xl" style={{ color: "var(--mk-ink)" }}>{post.title}</h1>
-              <p className="mt-5 max-w-3xl text-lg leading-8" style={{ color: "var(--mk-ink-soft)" }}>{post.excerpt}</p>
-              <div className="mt-7 flex flex-wrap gap-4 text-sm" style={{ color: "var(--mk-ink-soft)" }}>
-                <span className="inline-flex items-center gap-2"><UserRound size={16} /> {post.author_name}</span>
-                <span className="inline-flex items-center gap-2"><CalendarDays size={16} /> {post.published_at ? new Date(post.published_at).toLocaleDateString("tr-TR") : "Yayında"}</span>
-                <span className="inline-flex items-center gap-2"><Clock size={16} /> {post.reading_time} dk okuma</span>
-              </div>
-            </header>
+            <MarketingReveal>
+              <header className="mt-8 rounded-[28px] border p-6 sm:p-8" style={{ borderColor: "var(--mk-border-strong)", background: "linear-gradient(135deg, rgba(124,58,237,.06), rgba(37,99,235,.04))" }}>
+                <p className="marketing-eyebrow">{post.category?.name || "Blog"}</p>
+                <h1 className="mt-4 text-4xl font-black tracking-tight sm:text-5xl" style={{ color: "var(--mk-ink)" }}>{post.title}</h1>
+                <p className="mt-5 max-w-3xl text-lg leading-8" style={{ color: "var(--mk-ink-soft)" }}>{post.excerpt}</p>
+                <div className="mt-7 flex flex-wrap gap-4 text-sm" style={{ color: "var(--mk-ink-soft)" }}>
+                  <span className="inline-flex items-center gap-2"><UserRound size={16} /> {post.author_name}</span>
+                  <span className="inline-flex items-center gap-2"><CalendarDays size={16} /> {post.published_at ? new Date(post.published_at).toLocaleDateString("tr-TR") : "Yayında"}</span>
+                  <span className="inline-flex items-center gap-2"><Clock size={16} /> {post.reading_time} dk okuma</span>
+                </div>
+              </header>
+            </MarketingReveal>
             {post.cover_image_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={post.cover_image_url} alt={post.cover_image_alt || ""} className="mt-8 h-auto w-full rounded-[28px] border object-cover" style={{ borderColor: "var(--mk-border)", maxHeight: 420 }} />
             ) : null}
-            <div className="blog-article-content mt-10 rounded-[28px] border p-6 sm:p-8" style={{ borderColor: "var(--mk-border)", background: "var(--mk-surface)" }} dangerouslySetInnerHTML={{ __html: contentHtml }} />
-            <section className="mt-10 rounded-[24px] border p-6" style={{ borderColor: "var(--mk-border-strong)", background: "var(--mk-bg-alt)" }}>
-              <h2 className="text-2xl font-black" style={{ color: "var(--mk-ink)" }}>Bu konuyu işletmeniz için değerlendirelim</h2>
-              <p className="mt-3 max-w-2xl leading-7" style={{ color: "var(--mk-ink-soft)" }}>Reklam bütçenizi, kanal seçiminizi veya satışa dönüşmeyen kampanyalarınızı birlikte incelemek için kısa bir ön görüşme talep edebilirsiniz.</p>
-              <Link href="/teklif-al" className="marketing-btn marketing-btn-primary mt-5">Ücretsiz Ön Görüşme <ArrowRight size={16} /></Link>
-            </section>
+            <MarketingReveal delay={0.05}>
+              <div className="blog-article-content mt-10 rounded-[28px] border p-6 sm:p-8" style={{ borderColor: "var(--mk-border)", background: "var(--mk-surface)" }} dangerouslySetInnerHTML={{ __html: contentHtml }} />
+            </MarketingReveal>
+            <MarketingReveal delay={0.1}>
+              <div className="mt-10">
+                <MarketingCTA
+                  title="Bu konuyu işletmeniz için değerlendirelim"
+                  text="Reklam bütçenizi, kanal seçiminizi veya satışa dönüşmeyen kampanyalarınızı birlikte incelemek için kısa bir ön görüşme talep edebilirsiniz."
+                  primaryLabel="Ücretsiz Ön Görüşme"
+                  trackingPrefix="Blog Makalesi"
+                />
+              </div>
+            </MarketingReveal>
           </div>
           <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
             {headings.length ? <MarketingCard className="p-5"><h2 className="text-sm font-black uppercase tracking-wide" style={{ color: "var(--mk-violet)" }}>İçindekiler</h2><div className="mt-4 grid gap-3 text-sm" style={{ color: "var(--mk-ink-soft)" }}>{headings.map((heading) => <a key={heading.id} href={`#${heading.id}`} className="hover:underline">{heading.text}</a>)}</div></MarketingCard> : null}

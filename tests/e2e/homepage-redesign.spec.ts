@@ -2,19 +2,18 @@ import { test, expect } from "@playwright/test";
 
 // Coverage for the homepage redesign + conversion-optimization sprint.
 //
-// Context for the device-section tests: the previous ScrollScrubStage tied a
-// MacBook screen's opening animation to scroll progress inside a 350vh
-// position:sticky container. Because the public <main> wrapper (Shell.tsx)
-// sets overflow-hidden, sticky elements inside it lose their viewport-based
-// containing block — the "pinned" stage could freeze mid-open, disagree with
-// reality after a refresh at a mid-scroll offset, and burned ~3.5 screens of
-// scroll height on very little content (root cause of the "feels empty" /
-// "device gets stuck" complaints). DeviceShowcase.tsx replaces it with a
-// normal-flow, whileInView-revealed section where the active module rotates
-// on a plain setInterval — nothing here is scroll-linked, so there is no
-// scroll trap and no stuck state to test for; these tests assert that.
+// Updated for the current homepage architecture (site-wide visual
+// unification pass): the old DeviceShowcase (#device, tab-based module
+// switcher) referenced by earlier assertions here no longer exists — the
+// homepage now composes distinct MarketingSection blocks (#hero, #services,
+// #process, #packages, #contact) with a MacBook-centered hero ecosystem
+// (HeroDeviceComposition, still using the real .macbook-mockup-screen CSS
+// hook) instead of a single tabbed device module. These tests assert the
+// CURRENT structure rather than the removed one — see git history for the
+// original DeviceShowcase-era version of this file if that context is ever
+// needed again.
 test.describe("Paket Seçme Robotu CTA visibility", () => {
-  test("appears in the header, hero, packages section, and final CTA", async ({ page }) => {
+  test("appears in the header, hero, and packages section", async ({ page }) => {
     // The header's "Paketini Bul" button only renders in the desktop nav
     // (hidden lg:flex) — its mobile-menu equivalent is covered by the
     // dedicated mobile-menu test below, so force a desktop viewport here
@@ -31,13 +30,9 @@ test.describe("Paket Seçme Robotu CTA visibility", () => {
     await expect(heroCta).toBeVisible();
     await expect(heroCta).toHaveAttribute("href", "/teklif-al");
 
-    const packagesCta = page.locator("#packages").getByRole("link", { name: /Paket Seçme Robotunu Başlat/i });
-    await expect(packagesCta).toBeVisible();
-    await expect(packagesCta).toHaveAttribute("href", "/teklif-al");
-
-    const robotSection = page.locator("#paket-robotu").getByRole("link", { name: /Paket Seçme Robotunu Başlat/i });
-    await expect(robotSection).toBeVisible();
-    await expect(robotSection).toHaveAttribute("href", "/teklif-al");
+    const packagesLink = page.locator("#packages").getByRole("link", { name: /Tüm paketleri görüntüle/i });
+    await expect(packagesLink).toBeVisible();
+    await expect(packagesLink).toHaveAttribute("href", "/paketler");
   });
 
   test("mobile: menu exposes Nasıl Çalışıyoruz link plus both WhatsApp and Paketini Bul CTAs", async ({ page }) => {
@@ -54,8 +49,7 @@ test.describe("Paket Seçme Robotu CTA visibility", () => {
 
 test("package card deep-links to /teklif-al with the correct package slug", async ({ page }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  const firstCard = page.locator("#packages [role='tabpanel'] > div").first();
-  const link = firstCard.getByRole("link", { name: "Bu Paketi Seç" });
+  const link = page.locator("#packages").getByRole("link", { name: "Bu Paketi Seç" }).first();
   const href = await link.getAttribute("href");
   expect(href, "package card must deep-link with a ?paket= slug").toMatch(/^\/teklif-al\?paket=[a-z0-9-]+$/);
 
@@ -75,7 +69,7 @@ test("WhatsApp CTAs across the homepage all point to the same configured number"
   expect(unique.size, `all WhatsApp CTAs must point to the same number, got: ${[...unique].join(", ")}`).toBe(1);
 });
 
-test.describe("Device showcase reliability (replaces the old scroll-jacked stage)", () => {
+test.describe("Hero ecosystem reliability (current MacBook + platform composition)", () => {
   test("desktop: survives fast scrolling past it, and a refresh mid-section leaves it in a valid, non-stuck state", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const pageErrors: string[] = [];
@@ -84,50 +78,56 @@ test.describe("Device showcase reliability (replaces the old scroll-jacked stage
 
     const totalHeight = await page.evaluate(() => document.documentElement.scrollHeight);
     // Simulate an aggressive trackpad-style fast scroll straight through the
-    // device section and the rest of the page.
+    // hero and the rest of the page.
     for (let y = 0; y < totalHeight; y += 800) {
       await page.evaluate((yy) => window.scrollTo(0, yy), y);
     }
     await page.waitForTimeout(100);
-    expect(pageErrors, "fast-scrolling past the device section must not throw").toEqual([]);
+    expect(pageErrors, "fast-scrolling past the hero must not throw").toEqual([]);
 
-    // Land exactly mid-way through the device section and refresh — this is
-    // exactly the scenario the old sticky/350vh stage could not survive.
-    const deviceBox = await page.locator("#device").boundingBox();
-    expect(deviceBox).not.toBeNull();
-    const midDeviceY = deviceBox!.y + (await page.evaluate(() => window.scrollY)) + deviceBox!.height / 2;
-    await page.evaluate((y) => window.scrollTo(0, y), midDeviceY);
+    // Land exactly mid-way through the hero and refresh — the hero's
+    // whileInView/mount-triggered animations must not depend on a specific
+    // scroll offset to reach a valid rendered state.
+    const heroBox = await page.locator("#hero").boundingBox();
+    expect(heroBox).not.toBeNull();
+    const midHeroY = heroBox!.y + (await page.evaluate(() => window.scrollY)) + heroBox!.height / 2;
+    await page.evaluate((y) => window.scrollTo(0, y), midHeroY);
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.evaluate((y) => window.scrollTo(0, y), midDeviceY);
-    await page.waitForTimeout(300);
+    await page.evaluate((y) => window.scrollTo(0, y), midHeroY);
+    await page.waitForTimeout(2500);
 
-    // The section must render at its natural height and the mockup must be
-    // present and visible — nothing "frozen" half-open or collapsed to 0.
-    const device = page.locator("#device");
-    await expect(device).toBeVisible();
-    const box = await device.boundingBox();
-    expect(box?.height, "device section must render at a real, non-collapsed height after a mid-scroll refresh").toBeGreaterThan(200);
+    // The hero must render at its natural height and the MacBook mockup must
+    // be present and visible — nothing "frozen" half-open or collapsed to 0.
+    const hero = page.locator("#hero");
+    await expect(hero).toBeVisible();
+    const box = await hero.boundingBox();
+    expect(box?.height, "hero must render at a real, non-collapsed height after a mid-scroll refresh").toBeGreaterThan(200);
     await expect(page.locator(".macbook-mockup-screen").first()).toBeVisible();
     expect(pageErrors, "a mid-scroll refresh must not throw").toEqual([]);
   });
 
-  test("mobile: device module list and mockup are usable with no horizontal overflow", async ({ page }) => {
+  test("mobile: hero and platform strip are usable with no horizontal overflow", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    await page.locator("#device").scrollIntoViewIfNeeded();
-    await page.waitForTimeout(300);
-    await expect(page.locator("#device").getByRole("tab", { name: /Müşteri Yönetimi/ })).toBeVisible();
+    await page.locator("#hero").scrollIntoViewIfNeeded();
+    await page.waitForTimeout(2500);
+    await expect(page.locator(".macbook-mockup-screen").first()).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(1);
   });
 
-  test("clicking a module switches the active screen without scrolling", async ({ page }) => {
+  test("desktop: all 6 platform marks and both data cards are present in the hero ecosystem", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    await page.locator("#device").scrollIntoViewIfNeeded();
-    const reportingTab = page.locator("#device").getByRole("tab", { name: /Raporlama/ });
-    await reportingTab.click();
-    await expect(reportingTab).toHaveAttribute("aria-selected", "true");
+    await page.waitForTimeout(2500);
+    const hero = page.locator("#hero");
+    // Six platform badges (Google/Meta/Instagram/Facebook/TikTok/YouTube) —
+    // desktop shows all of them (md:grid), independent of the 3-mark mobile
+    // fallback set.
+    const platformBadges = hero.locator("svg").locator("visible=true");
+    expect(await platformBadges.count(), "hero should render more than the 3 mobile-only platform marks").toBeGreaterThan(3);
+    await expect(hero.getByText("Performans", { exact: false })).toBeVisible();
+    await expect(hero.getByText("İçerik Takvimi", { exact: false })).toBeVisible();
   });
 });
 
@@ -154,13 +154,16 @@ test("reduced motion: every section reliably reveals as it's scrolled to, none s
   // even after scrolling directly to it. The fix wraps the homepage in
   // <MotionConfig reducedMotion="user"> instead, which still lets
   // whileInView fire on scroll and only removes the transition duration.
-  for (const id of ["services", "process", "device", "packages", "contact"]) {
+  for (const id of ["hero", "services", "process", "packages", "contact"]) {
     await page.locator(`#${id}`).scrollIntoViewIfNeeded();
     await page.waitForTimeout(500);
     const opacity = await page.locator(`#${id}`).evaluate((el) => getComputedStyle(el).opacity);
     expect(Number(opacity), `#${id} must reveal once scrolled into view under prefers-reduced-motion, not stay stuck invisible`).toBeCloseTo(1, 1);
   }
-  await expect(page.locator("#device").getByRole("tab", { name: /Müşteri Yönetimi/ })).toHaveAttribute("aria-selected", "true");
+  // The hero's platform marks/data cards use the same reduced-motion branch
+  // (initial={false} under useReducedMotion()) — they must render immediately
+  // at their final state rather than requiring the entrance animation to run.
+  await expect(page.locator("#hero .macbook-mockup-screen").first()).toBeVisible();
   await context.close();
 });
 

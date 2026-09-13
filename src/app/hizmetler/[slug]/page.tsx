@@ -5,6 +5,7 @@ import { CheckCircle2 } from "lucide-react";
 import { JsonLd } from "@/components/public/JsonLd";
 import { PublicShell } from "@/components/public/Shell";
 import { MarketingCard, MarketingPageHero, MarketingReveal, MarketingSection } from "@/components/public/marketing/MarketingUI";
+import { MarketingCTA, MarketingNetworkBackground, ServiceVisual } from "@/components/public/marketing/MarketingVisualSystem";
 import { absoluteUrl, pageMetadata } from "@/lib/metadata";
 import { servicePages } from "@/lib/public-seo-content";
 
@@ -54,7 +55,7 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
         }
       ]} />
       <div className="marketing-shell">
-        <MarketingPageHero eyebrow={service.eyebrow} title={service.title} text={service.description} />
+        <MarketingPageHero eyebrow={service.eyebrow} title={service.title} text={service.description} visual={<MarketingNetworkBackground />} />
         <MarketingSection>
           <div className="mx-auto grid max-w-7xl gap-6 px-4 sm:px-6 lg:grid-cols-[.75fr_1.25fr] lg:px-8">
             <MarketingReveal>
@@ -66,6 +67,7 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
                 <ul className="mt-5 grid gap-3 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>
                   {service.audience.map((item) => <li key={item} className="flex gap-3"><CheckCircle2 className="mt-1 shrink-0 text-[#7c3aed]" size={17} />{item}</li>)}
                 </ul>
+                <ServiceVisual variant={service.key} className="mt-6" />
                 <Link href="/teklif-al" className="marketing-btn marketing-btn-primary mt-7">Ücretsiz ön görüşme al</Link>
               </MarketingCard>
             </MarketingReveal>
@@ -120,6 +122,13 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
                   {service.related.map((item) => <Link key={item.href} href={item.href} className="rounded-full border px-4 py-2 text-sm font-black transition hover:bg-[#7c3aed] hover:text-white" style={{ borderColor: "var(--mk-border-strong)", color: "var(--mk-violet)" }}>{item.label}</Link>)}
                 </div>
               </MarketingCard>
+              <MarketingReveal>
+                <MarketingCTA
+                  title={`${service.eyebrow} için ücretsiz ön görüşme alın`}
+                  text="Kapsam, bütçe ve zaman planını birlikte netleştirelim."
+                  trackingPrefix={`${service.eyebrow} Detay Sayfası`}
+                />
+              </MarketingReveal>
             </div>
           </div>
         </MarketingSection>

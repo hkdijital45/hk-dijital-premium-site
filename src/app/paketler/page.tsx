@@ -6,6 +6,7 @@ import { pageMetadata } from "@/lib/metadata";
 import { CONTENT_NEED_OPTIONS, PACKAGE_CATEGORIES, SOCIAL_STATUS_OPTIONS, URGENCY_OPTIONS, formatTRY, getPackagePricing, normalizeContentNeed, normalizeSocialStatus, normalizeUrgency, recommendServicePackage, servicePackagesByCategory } from "@/lib/packages";
 import { PublicShell } from "@/components/public/Shell";
 import { MarketingCard, MarketingPageHero, MarketingReveal, MarketingSection } from "@/components/public/marketing/MarketingUI";
+import { MarketingCTA, MarketingNetworkBackground } from "@/components/public/marketing/MarketingVisualSystem";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,7 @@ export default async function PackagesPage({ searchParams }: { searchParams: Pro
           eyebrow="Paketler"
           title="Reklam, sosyal medya ve raporlama paketlerini net kapsamla seçin."
           text="Meta, Google Ads, kombin reklam yönetimi ve sosyal medya hizmetlerini fiyat, kapsam, ideal müşteri ve kurulum yol haritasıyla karşılaştırın."
+          visual={<MarketingNetworkBackground />}
         />
         <MarketingSection>
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -138,7 +140,14 @@ export default async function PackagesPage({ searchParams }: { searchParams: Pro
               ))}
             </div>
 
-            <MarketingCard className="mt-10 p-7">
+            <MarketingReveal>
+              <MarketingCTA
+                title="Doğru paketi seçmek için birlikte netleştirelim"
+                text="Sektör, hedef ve mevcut dijital durumunuza göre en uygun kapsamı öneriyoruz."
+                trackingPrefix="Paketler Sayfası"
+              />
+            </MarketingReveal>
+            <MarketingCard className="mt-6 p-7">
               <div className="flex items-start gap-3">
                 <Sparkles className="mt-1 text-[#7c3aed]" size={22} />
                 <div>

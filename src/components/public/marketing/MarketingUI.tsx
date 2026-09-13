@@ -89,12 +89,13 @@ export function MarketingButton({ href, children, variant = "primary", trackingL
 }
 
 export function MarketingPageHero({
-  eyebrow, title, text, actions
-}: { eyebrow: string; title: ReactNode; text?: string; actions?: ReactNode }) {
+  eyebrow, title, text, actions, visual
+}: { eyebrow: string; title: ReactNode; text?: string; actions?: ReactNode; visual?: ReactNode }) {
   return (
     <section className="relative overflow-hidden border-b" style={{ borderColor: "var(--mk-border)" }}>
       <div className="marketing-glow" style={{ width: 420, height: 420, top: -160, left: "-8%", background: "rgba(124,58,237,.14)" }} aria-hidden="true" />
       <div className="marketing-glow" style={{ width: 320, height: 320, top: -80, right: "-6%", background: "rgba(37,99,235,.12)" }} aria-hidden="true" />
+      {visual}
       <div className="relative mx-auto max-w-5xl px-4 py-20 sm:px-6 lg:px-8 lg:py-28">
         <MarketingReveal>
           <MarketingEyebrow>{eyebrow}</MarketingEyebrow>

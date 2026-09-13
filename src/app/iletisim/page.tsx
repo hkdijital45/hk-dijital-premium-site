@@ -4,6 +4,7 @@ import { getSiteContent } from "@/lib/content";
 import { pageMetadata } from "@/lib/metadata";
 import { PublicShell } from "@/components/public/Shell";
 import { MarketingCard, MarketingPageHero, MarketingReveal, MarketingSection } from "@/components/public/marketing/MarketingUI";
+import { MarketingNetworkBackground } from "@/components/public/marketing/MarketingVisualSystem";
 import { ContactForm } from "@/components/public/ContactForm";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +19,7 @@ export default async function ContactPage() {
   return (
     <PublicShell>
       <div className="marketing-shell">
-        <MarketingPageHero eyebrow="İletişim" title="HK Dijital ile strateji görüşmesi başlatın" text={content.pages.contact.intro} />
+        <MarketingPageHero eyebrow="İletişim" title="HK Dijital ile strateji görüşmesi başlatın" text={content.pages.contact.intro} visual={<MarketingNetworkBackground variant="converge" />} />
         <MarketingSection>
           <div className="mx-auto grid max-w-7xl gap-8 px-4 sm:px-6 lg:grid-cols-[1fr_.9fr] lg:px-8">
             <MarketingReveal><ContactForm /></MarketingReveal>

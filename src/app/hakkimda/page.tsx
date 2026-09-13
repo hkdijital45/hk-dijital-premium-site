@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Award, FileText, MapPin, ShieldCheck } from "lucide-react";
+import { Award, FileText, MapPin, ShieldCheck, Target } from "lucide-react";
 import { getSiteContent } from "@/lib/content";
 import { absoluteUrl, pageMetadata } from "@/lib/metadata";
 import { JsonLd } from "@/components/public/JsonLd";
 import { PublicShell } from "@/components/public/Shell";
 import { MarketingCard, MarketingPageHero, MarketingReveal, MarketingSection } from "@/components/public/marketing/MarketingUI";
+import { MarketingCTA, MarketingDashboardCard, MarketingNetworkBackground } from "@/components/public/marketing/MarketingVisualSystem";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata(): Promise<Metadata> {
@@ -27,7 +28,7 @@ export default async function AboutPage() {
         ]
       }} />
       <div className="marketing-shell">
-        <MarketingPageHero eyebrow="Hakkımızda" title="HK Dijital: Manisa Merkezli Dijital Pazarlama ve Reklam Danışmanlığı" text="Hayri Kamalı tarafından kurulan HK Dijital; reklam yönetimi, sosyal medya stratejisi, ölçümleme ve şeffaf raporlama yaklaşımıyla Manisa’dan Türkiye geneline hizmet verir." />
+        <MarketingPageHero eyebrow="Hakkımızda" title="HK Dijital: Manisa Merkezli Dijital Pazarlama ve Reklam Danışmanlığı" text="Hayri Kamalı tarafından kurulan HK Dijital; reklam yönetimi, sosyal medya stratejisi, ölçümleme ve şeffaf raporlama yaklaşımıyla Manisa’dan Türkiye geneline hizmet verir." visual={<MarketingNetworkBackground />} />
         <MarketingSection>
           <div className="mx-auto grid max-w-7xl gap-8 px-4 sm:px-6 lg:grid-cols-[1fr_.85fr] lg:px-8">
             <MarketingReveal>
@@ -35,6 +36,12 @@ export default async function AboutPage() {
                 <h2 className="text-3xl font-black" style={{ color: "var(--mk-ink)" }}>Hayri Kamalı ve HK Dijital yaklaşımı</h2>
                 <p className="mt-5 text-base leading-8" style={{ color: "var(--mk-ink-soft)" }}>{about.content}</p>
                 <p className="mt-5 text-base leading-8" style={{ color: "var(--mk-ink-soft)" }}>Çalışma modeli Manisa merkezli yerel pazar bilgisini, Türkiye geneline uzaktan hizmet verebilen dijital reklam ve ölçümleme disipliniyle birleştirir. Satış garantisi verilmez; hedef, veri, optimizasyon ve raporlama süreci şeffaf biçimde yönetilir.</p>
+                <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <MarketingDashboardCard icon={<MapPin size={16} />} label="Merkez" value="Manisa" />
+                  <MarketingDashboardCard icon={<ShieldCheck size={16} />} label="Yaklaşım" value="Veri odaklı" />
+                  <MarketingDashboardCard icon={<Target size={16} />} label="Kapsam" value="Türkiye geneli" />
+                  <MarketingDashboardCard icon={<Award size={16} />} label="Model" value="Şeffaf rapor" />
+                </div>
               </MarketingCard>
             </MarketingReveal>
             <div className="grid gap-4">
@@ -78,6 +85,15 @@ export default async function AboutPage() {
                   </MarketingCard>
                 ))}
             </div>
+          </div>
+          <div className="mx-auto mt-12 max-w-7xl px-4 sm:px-6 lg:px-8">
+            <MarketingReveal>
+              <MarketingCTA
+                title="HK Dijital ile çalışma şeklimizi bir görüşmede anlatalım"
+                text="İşletmenizin hedefine göre hangi kanal ve kapsamın uygun olduğunu birlikte netleştirelim."
+                trackingPrefix="Hakkımızda Sayfası"
+              />
+            </MarketingReveal>
           </div>
         </MarketingSection>
       </div>

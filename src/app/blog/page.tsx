@@ -4,6 +4,7 @@ import { BookOpenText, Clock, Search } from "lucide-react";
 import { JsonLd } from "@/components/public/JsonLd";
 import { PublicShell } from "@/components/public/Shell";
 import { MarketingCard, MarketingPageHero, MarketingReveal, MarketingSection } from "@/components/public/marketing/MarketingUI";
+import { MarketingCTA, MarketingNetworkBackground } from "@/components/public/marketing/MarketingVisualSystem";
 import { absoluteUrl, pageMetadata } from "@/lib/metadata";
 import { blogCategories, contentIntentMap, getPublicBlogPosts } from "@/lib/blog-seo";
 
@@ -48,6 +49,7 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
           eyebrow="Blog"
           title="İşletmeler İçin Reklam ve Dijital Pazarlama Rehberleri"
           text="Instagram reklamı vermek, Google Ads bütçesi belirlemek, sosyal medyadan müşteri bulmak ve yerel işletme reklamlarını daha doğru planlamak için pratik içerikler."
+          visual={<MarketingNetworkBackground />}
         />
         <MarketingSection>
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -112,6 +114,15 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
                 </div>
               </MarketingCard>
             </div>
+          </div>
+          <div className="mx-auto mt-10 max-w-7xl px-4 sm:px-6 lg:px-8">
+            <MarketingReveal>
+              <MarketingCTA
+                title="Okuduklarınızı işletmenize uygulayalım"
+                text="Kısa bir ön görüşmeyle blogdaki stratejilerin işletmeniz için nasıl işleyeceğini birlikte değerlendirelim."
+                trackingPrefix="Blog Listesi"
+              />
+            </MarketingReveal>
           </div>
         </MarketingSection>
       </div>

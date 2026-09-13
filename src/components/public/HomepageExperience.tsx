@@ -20,7 +20,7 @@ import { CheckCircle2 } from "@/lib/icons";
 import { MacBookMockup, MacBookScreenChip } from "./MacBookMockup";
 import { MarketingBadge, MarketingCard, MarketingEyebrow, MarketingHeading, MarketingReveal, MarketingSection } from "./marketing/MarketingUI";
 import { FacebookMark as FacebookMarkAlias, GoogleMark, InstagramMark, MetaMark, platformMarks, TikTokMark as TikTokMarkAlias, YouTubeMark as YouTubeMarkAlias } from "./PlatformIcons";
-import { Layers, Search, Users2 } from "lucide-react";
+import { ServiceVisual } from "./marketing/MarketingVisualSystem";
 
 /* ---------------------------------------------------------------------
    Real content, pulled directly from Supabase-backed site content — no
@@ -237,7 +237,7 @@ function HeroDeviceComposition() {
 
 function Hero({ whatsappUrl }: { whatsappUrl: string }) {
   return (
-    <section className="relative overflow-hidden border-b" style={{ borderColor: "var(--mk-border)" }}>
+    <section id="hero" className="relative overflow-hidden border-b" style={{ borderColor: "var(--mk-border)" }}>
       <div className="marketing-glow" style={{ width: 480, height: 480, top: -200, left: "-10%", background: "rgba(124,58,237,.13)" }} aria-hidden="true" />
       <div className="marketing-glow" style={{ width: 380, height: 380, top: -100, right: "-8%", background: "rgba(37,99,235,.1)" }} aria-hidden="true" />
       <div className="relative mx-auto grid max-w-7xl items-center gap-14 px-4 py-20 sm:px-6 lg:grid-cols-[1.05fr_.95fr] lg:px-8 lg:py-28">
@@ -292,51 +292,6 @@ function PlatformStrip() {
 
 /* --------------------------- Ads story sections ------------------------ */
 
-function GoogleAdsMiniDashboard() {
-  return (
-    <div className="mb-5 grid gap-2.5 rounded-xl border p-3.5" style={{ borderColor: "var(--mk-border)", background: "var(--mk-bg-alt)" }} aria-hidden="true">
-      <div className="flex items-center gap-2 rounded-lg border bg-white px-3 py-2" style={{ borderColor: "var(--mk-border)" }}>
-        <Search size={14} className="shrink-0 text-[#4285F4]" />
-        <span className="truncate text-xs font-bold" style={{ color: "var(--mk-ink-soft)" }}>&quot;manisa diş kliniği randevu&quot;</span>
-      </div>
-      <div className="flex flex-wrap gap-1.5">
-        {["Yüksek niyet", "Rakip terimi", "Yerel arama"].map((tag) => (
-          <span key={tag} className="rounded-full border px-2.5 py-1 text-[10px] font-black" style={{ borderColor: "var(--mk-border)", color: "var(--mk-ink-faint)" }}>{tag}</span>
-        ))}
-      </div>
-      <div className="grid grid-cols-3 gap-2">
-        {[["ROAS", "—"], ["CPC", "—"], ["Dönüşüm", "—"]].map(([label, value]) => (
-          <div key={label} className="rounded-lg bg-white p-2 text-center" style={{ border: "1px solid var(--mk-border)" }}>
-            <p className="text-[8px] font-bold uppercase tracking-wide" style={{ color: "var(--mk-ink-faint)" }}>{label}</p>
-            <p className="text-sm font-black" style={{ color: "var(--mk-ink)" }}>{value}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function MetaAdsMiniDashboard() {
-  const rows = [
-    { label: "Kampanya", sub: "Randevu hedefli", Icon: Layers },
-    { label: "Reklam Seti", sub: "18-45 · yerel hedef kitle", Icon: Users2 },
-    { label: "Kreatif", sub: "Video + karusel varyantı", Icon: Clapperboard }
-  ];
-  return (
-    <div className="mb-5 grid gap-2 rounded-xl border p-3.5" style={{ borderColor: "var(--mk-border)", background: "var(--mk-bg-alt)" }} aria-hidden="true">
-      {rows.map((row, index) => (
-        <div key={row.label} className="flex items-center gap-2.5 rounded-lg border bg-white px-3 py-2" style={{ borderColor: "var(--mk-border)", marginLeft: index * 10 }}>
-          <row.Icon size={14} className="shrink-0 text-[#7c3aed]" />
-          <span className="min-w-0">
-            <span className="block truncate text-[11px] font-black" style={{ color: "var(--mk-ink)" }}>{row.label}</span>
-            <span className="block truncate text-[10px] font-bold" style={{ color: "var(--mk-ink-faint)" }}>{row.sub}</span>
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function AdsStorySection({
   id, reverse, badgeIcon: BadgeIcon, eyebrow, title, description, problem, bullets, ctaLabel, trackingLabel, visual
 }: {
@@ -353,7 +308,7 @@ function AdsStorySection({
                 <div className="grid h-14 w-14 place-items-center rounded-2xl" style={{ background: "linear-gradient(135deg, rgba(124,58,237,.12), rgba(37,99,235,.1))", color: "var(--mk-violet)" }}>
                   <BadgeIcon size={26} />
                 </div>
-                {visual && <div className="mt-6">{visual}</div>}
+                {visual && <div className="mb-5 mt-6">{visual}</div>}
                 <div className={visual ? "grid gap-3" : "mt-6 grid gap-3"}>
                   {bullets.map((bullet) => (
                     <div key={bullet} className="flex items-start gap-2.5 rounded-xl border p-3 text-sm font-semibold" style={{ borderColor: "var(--mk-border)", color: "var(--mk-ink)" }}>
@@ -808,7 +763,7 @@ export function HomepageExperience({ content }: { content: SiteContent }) {
             description={googleAds.description} problem={googleAds.problem}
             bullets={["Anahtar kelime ve teklif stratejisi", "Arama niyeti yüksek trafik", "Ölçülebilir dönüşüm takibi"]}
             ctaLabel="Google Ads için teklif al" trackingLabel="Google Ads Story CTA"
-            visual={<GoogleAdsMiniDashboard />}
+            visual={<ServiceVisual variant="googleAds" />}
           />
         )}
         {metaAds && (
@@ -817,7 +772,7 @@ export function HomepageExperience({ content }: { content: SiteContent }) {
             description={metaAds.description} problem={metaAds.problem}
             bullets={["Instagram ve Facebook reklam kurgusu", "Kreatif ve hedef kitle testi", "Bütçe ve teklif optimizasyonu"]}
             ctaLabel="Meta Ads için teklif al" trackingLabel="Meta Ads Story CTA"
-            visual={<MetaAdsMiniDashboard />}
+            visual={<ServiceVisual variant="metaAds" />}
           />
         )}
         <SocialMediaSection description={socialStrategy?.description || "İçerik, konumlandırma ve reklam dilini markanızın hedeflerine göre sistemleştirin."} />
