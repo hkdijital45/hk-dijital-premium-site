@@ -17,13 +17,19 @@ import { trackMetaCtaClick } from "@/lib/meta-pixel";
  */
 
 export function MarketingReveal({ children, className = "", delay = 0 }: { children: ReactNode; className?: string; delay?: number }) {
+  // `initial`/`whileInView` must stay the SAME regardless of prefers-reduced-motion:
+  // useReducedMotion() resolves to `null` during SSR (no matchMedia) but can resolve
+  // synchronously on the client's very first render, so branching these props (as this
+  // used to do) makes the client's first render disagree with the server-rendered HTML
+  // -> React hydration error #418. Only the `transition` duration/delay is safe to
+  // branch, since it never affects the server-rendered markup.
   const reduced = useReducedMotion();
   return (
     <motion.div
-      initial={reduced ? false : { opacity: 0, y: 28 }}
-      whileInView={reduced ? undefined : { opacity: 1, y: 0 }}
+      initial={{ opacity: 0, y: 28 }}
+      whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.25 }}
-      transition={{ duration: 0.6, delay, ease: [0.16, 1, 0.3, 1] }}
+      transition={reduced ? { duration: 0.01, delay: 0 } : { duration: 0.6, delay, ease: [0.16, 1, 0.3, 1] }}
       className={className}
     >
       {children}

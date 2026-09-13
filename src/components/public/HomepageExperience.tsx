@@ -2,7 +2,7 @@
 
 import { useId, useRef, useState } from "react";
 import Link from "next/link";
-import { motion, MotionConfig, useMotionValueEvent, useReducedMotion, useScroll, useTransform } from "framer-motion";
+import { motion, MotionConfig, useMotionValueEvent, useScroll, useTransform } from "framer-motion";
 import {
   ArrowRight, BarChart3, CalendarDays, ChevronDown, Clapperboard, ClipboardCheck, Compass, FileSearch2,
   Handshake, LineChart, Map, MessageCircle, MousePointerClick, Rocket, ShieldCheck,
@@ -242,7 +242,6 @@ function PhoneMockup() {
 }
 
 function SocialMediaSection({ description }: { description: string }) {
-  const reduced = useReducedMotion();
   const cards = [
     { label: "İçerik Takvimi", Icon: CalendarDays, pos: { top: "4%", left: "-6%" } },
     { label: "Kreatif Üretim", Icon: Clapperboard, pos: { top: "20%", right: "-10%" } },
@@ -260,7 +259,7 @@ function SocialMediaSection({ description }: { description: string }) {
         </div>
         <div className="relative mx-auto mt-14 max-w-md">
           <PhoneMockup />
-          {!reduced && cards.map((card, index) => (
+          {cards.map((card, index) => (
             <motion.div
               key={card.label}
               initial={{ opacity: 0, scale: 0.9 }}
@@ -354,7 +353,6 @@ function PerformanceSection() {
 /* --------------------------------- AI / GEO ------------------------------ */
 
 function AiGeoSection() {
-  const reduced = useReducedMotion();
   return (
     <MarketingSection dark id="ai-geo" className="border-t border-white/10">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -369,7 +367,7 @@ function AiGeoSection() {
           </MarketingReveal>
           <MarketingReveal delay={0.1}>
             <div className="relative mx-auto w-full max-w-sm overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-6">
-              {!reduced && <div className="marketing-scanline" aria-hidden="true" />}
+              <div className="marketing-scanline" aria-hidden="true" />
               <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Örnek görselleştirme — gerçek müşteri verisi değildir</p>
               <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
                 <p className="text-xs font-bold text-slate-400">&quot;Bölgede güvenilir hizmet sağlayıcı önerir misin?&quot;</p>
@@ -390,7 +388,6 @@ function AiGeoSection() {
 /* --------------------------------- Process ------------------------------- */
 
 function ProcessSection() {
-  const reduced = useReducedMotion();
   const containerRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
   const { scrollYProgress } = useScroll({ target: containerRef, offset: ["start 0.75", "end 0.35"] });
@@ -409,17 +406,17 @@ function ProcessSection() {
         <div ref={containerRef} className="mt-12 grid gap-8 lg:grid-cols-[auto_1fr]">
           <div className="hidden lg:flex lg:justify-center">
             <div className="marketing-progress-track h-full min-h-[480px]">
-              <motion.div className="marketing-progress-fill" style={reduced ? { height: "100%" } : { scaleY: fillScale, height: "100%" }} />
+              <motion.div className="marketing-progress-fill" style={{ scaleY: fillScale, height: "100%" }} />
             </div>
           </div>
           <div className="grid gap-3">
             {processSteps.map((step, index) => {
-              const isActive = !reduced && index === active;
+              const isActive = index === active;
               return (
                 <motion.div
                   key={step.label}
-                  initial={reduced ? false : { opacity: 0, x: 20 }}
-                  whileInView={reduced ? undefined : { opacity: 1, x: 0 }}
+                  initial={{ opacity: 0, x: 20 }}
+                  whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true, amount: 0.4 }}
                   transition={{ duration: 0.5 }}
                   className="flex items-center gap-4 rounded-2xl border p-5 transition"

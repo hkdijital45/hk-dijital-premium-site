@@ -51,9 +51,9 @@ export function MarketingNetworkBackground({ variant = "default" }: { variant?: 
           key={`line-${x}-${y}`}
           x1={x} y1={y} x2={center[0]} y2={center[1]}
           stroke="url(#mk-net-thread)" strokeWidth={0.25}
-          initial={reduced ? { pathLength: 1, opacity: 1 } : { pathLength: 0, opacity: 0 }}
+          initial={{ pathLength: 0, opacity: 0 }}
           animate={{ pathLength: 1, opacity: 1 }}
-          transition={{ delay: 0.15 + index * 0.08, duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+          transition={reduced ? { delay: 0, duration: 0.01 } : { delay: 0.15 + index * 0.08, duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
         />
       ))}
       {[...nodes, center].map(([x, y], index) => (
