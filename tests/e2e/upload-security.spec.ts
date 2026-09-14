@@ -81,7 +81,13 @@ test.describe("authenticated upload validation (POST /api/media)", () => {
       bytesBase64: oversized.toString("base64"),
       purpose: "media"
     });
-    expect(response.status).toBe(400);
+    // The app's own validation returns 400 (exercised locally/on next
+    // start). On Vercel, the platform's own request body size limit can
+    // reject the request first with 413 before it ever reaches app code —
+    // confirmed live in production. Either way the oversized file is
+    // rejected, which is what this test actually guards; only the layer
+    // that catches it differs.
+    expect([400, 413]).toContain(response.status);
   });
 
   test("an SVG containing a <script> tag is rejected", async ({ page }) => {
