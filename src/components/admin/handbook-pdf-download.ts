@@ -6,19 +6,28 @@
 // no-html-link-for-pages rule flags internal-looking hrefs, and a real
 // <Link> would try to client-navigate to a binary response instead of
 // downloading it).
-export async function downloadHandbookPdf() {
-  const response = await fetch("/api/admin/system-guide/el-kitabi/pdf");
-  if (!response.ok) {
-    window.alert("El kitabı PDF'i indirilemedi.");
-    return;
+// PDF generation genuinely takes real time server-side (embedding 7
+// screenshots + a two-pass page-numbered TOC layout) — ~18s uncached on
+// Vercel. `setBusy` lets the caller show a loading state instead of the
+// button looking dead for that long.
+export async function downloadHandbookPdf(setBusy?: (busy: boolean) => void) {
+  setBusy?.(true);
+  try {
+    const response = await fetch("/api/admin/system-guide/el-kitabi/pdf");
+    if (!response.ok) {
+      window.alert("El kitabı PDF'i indirilemedi.");
+      return;
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "HK-Admin-El-Kitabi.pdf";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  } finally {
+    setBusy?.(false);
   }
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "HK-Admin-El-Kitabi.pdf";
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
 }

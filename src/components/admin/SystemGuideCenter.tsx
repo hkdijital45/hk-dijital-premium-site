@@ -52,6 +52,7 @@ export function SystemGuideCenter({ currentSession, notify }: any) {
   const [categoryToDelete, setCategoryToDelete] = useState<any>(null);
   const [deletingCategory, setDeletingCategory] = useState(false);
   const [handbookOpen, setHandbookOpen] = useState(false);
+  const [handbookPdfBusy, setHandbookPdfBusy] = useState(false);
   const isAdmin = currentSession?.role === "admin";
 
   async function load() {
@@ -144,7 +145,7 @@ export function SystemGuideCenter({ currentSession, notify }: any) {
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
           <button onClick={() => setHandbookOpen(true)} className="inline-flex items-center gap-2 rounded-[14px] bg-amber-500 px-4 py-3 text-sm font-black text-white"><BookOpenText size={16} /> El Kitabını Aç</button>
-          <button onClick={() => downloadHandbookPdf()} className="inline-flex items-center gap-2 rounded-[14px] border border-amber-300 bg-white px-4 py-3 text-sm font-black text-amber-700"><Download size={16} /> PDF İndir</button>
+          <button disabled={handbookPdfBusy} onClick={() => downloadHandbookPdf(setHandbookPdfBusy)} className="inline-flex items-center gap-2 rounded-[14px] border border-amber-300 bg-white px-4 py-3 text-sm font-black text-amber-700 disabled:opacity-60"><Download size={16} /> {handbookPdfBusy ? "Hazırlanıyor..." : "PDF İndir"}</button>
         </div>
       </div>
     </section>

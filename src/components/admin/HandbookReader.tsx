@@ -21,6 +21,7 @@ export function HandbookReader({ onClose }: { onClose: () => void }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [mobileTocOpen, setMobileTocOpen] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -78,7 +79,7 @@ export function HandbookReader({ onClose }: { onClose: () => void }) {
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setMobileTocOpen((v) => !v)} className="rounded-[10px] border border-[var(--admin-border)] px-3 py-2 text-xs font-black text-[var(--admin-text-secondary)] md:hidden">İçindekiler</button>
-          <button onClick={() => downloadHandbookPdf()} className="inline-flex items-center gap-2 rounded-[10px] bg-amber-500 px-3 py-2 text-xs font-black text-white"><Download size={14} /> PDF İndir</button>
+          <button disabled={pdfBusy} onClick={() => downloadHandbookPdf(setPdfBusy)} className="inline-flex items-center gap-2 rounded-[10px] bg-amber-500 px-3 py-2 text-xs font-black text-white disabled:opacity-60"><Download size={14} /> {pdfBusy ? "Hazırlanıyor..." : "PDF İndir"}</button>
           <button onClick={onClose} aria-label="Kapat" className="grid size-9 place-items-center rounded-full border border-[var(--admin-border)]"><X size={16} /></button>
         </div>
       </header>

@@ -11,6 +11,11 @@ test.describe("HK Admin El Kitabı", () => {
   test.use({ storageState: qaAdminStorageState });
 
   test("desktop: card opens the native reader, chapters render, PDF downloads", async ({ page }) => {
+    // PDF generation embeds 7 real screenshots + a two-pass page-numbered
+    // TOC layout — measured at up to ~18-20s on a serverless deploy (cached
+    // per warm instance after the first request, see pdf/route.ts), well
+    // past the suite's default per-action/request timeouts.
+    test.setTimeout(60000);
     const consoleErrors: string[] = [];
     page.on("console", (msg) => { if (msg.type() === "error") consoleErrors.push(msg.text()); });
     page.on("pageerror", (error) => consoleErrors.push(String(error)));
@@ -34,8 +39,9 @@ test.describe("HK Admin El Kitabı", () => {
     const bg = await reader.evaluate((el) => getComputedStyle(el).backgroundColor);
     expect(bg.startsWith("rgba") && bg.endsWith("0.78)")).toBe(false);
 
-    const downloadPromise = page.waitForEvent("download");
+    const downloadPromise = page.waitForEvent("download", { timeout: 45000 });
     await reader.getByRole("button", { name: /PDF İndir/i }).click();
+    await expect(reader.getByRole("button", { name: /Hazırlanıyor/i })).toBeVisible();
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toBe("HK-Admin-El-Kitabi.pdf");
 
@@ -52,7 +58,8 @@ test.describe("HK Admin El Kitabı", () => {
   });
 
   test("PDF route returns a real PDF binary", async ({ page }) => {
-    const response = await page.request.get("/api/admin/system-guide/el-kitabi/pdf");
+    test.setTimeout(60000);
+    const response = await page.request.get("/api/admin/system-guide/el-kitabi/pdf", { timeout: 45000 });
     expect(response.ok()).toBe(true);
     expect(response.headers()["content-type"]).toBe("application/pdf");
     const body = await response.body();
