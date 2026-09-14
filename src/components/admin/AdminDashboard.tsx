@@ -2465,7 +2465,13 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
   }) })).sort((a, b) => a.health.score - b.health.score);
   const riskyCustomers = customerHealthRows.filter((item) => item.health.score < 70).slice(0, 5);
   const upcomingCampaigns = campaigns.filter((item) => !isCampaignArchived(item) && item.end_date && item.end_date >= today).sort((a, b) => String(a.end_date).localeCompare(String(b.end_date))).slice(0, 5);
-  const followUpLeads = leads.filter((lead) => Number(lead.lead_heat_score || 0) >= 60 && !["Kazanıldı", "Kaybedildi", "Dönüştürüldü"].includes(lead.status)).slice(0, 6);
+  // "Bugün ne yapmalıyım?" should answer "kimi aramalıyım?" first — leads
+  // whose follow-up date is due today or overdue take priority over merely
+  // "hot" leads with no contact date set, so the daily plan/priority list
+  // surfaces who actually needs a call today rather than just who scores high.
+  const activeLeads = leads.filter((lead) => !["Kazanıldı", "Kaybedildi", "Dönüştürüldü"].includes(lead.status));
+  const leadsDueToday = activeLeads.filter((lead) => (lead.follow_up_date || lead.next_action_at) && String(lead.follow_up_date || lead.next_action_at).slice(0, 10) <= today);
+  const followUpLeads = [...leadsDueToday, ...activeLeads.filter((lead) => Number(lead.lead_heat_score || 0) >= 60 && !leadsDueToday.includes(lead))].slice(0, 6);
   const upcomingReports = reports.filter((report) => !report.visible_to_customer || ["Taslak", "Hazır"].includes(report.status || "")).slice(0, 5);
   const commandItems = [
     ["Bugün yapılacak görevler", todaysTasks.length, "Görevler", "bg-blue-50 text-blue-700"],
@@ -2621,7 +2627,14 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     ...overdueTasks.slice(0, 2).map((item) => ({ id: `task-${item.id}`, customer: companyName(content, item.company_id) || "Ajans operasyonu", reason: item.title || "Geciken görev", severity: "Kritik", target: "Görevler", action: "Görevi Aç" })),
     ...overduePayments.slice(0, 2).map((item) => ({ id: `payment-${item.id}`, customer: companyName(content, item.company_id) || "Müşteri", reason: `${Number(item.amount || 0).toLocaleString("tr-TR")} TL tahsilat gecikti`, severity: "Kritik", target: "Tahsilat", action: "Tahsilatı Aç" })),
     ...integrationIssues.slice(0, 2).map((item) => ({ id: `integration-${item.id}`, customer: companyName(content, item.company_id || item.customer_id) || item.provider_account_name || "Müşteri", reason: item.sync_error || item.metadata?.customer_visible_notice || "Entegrasyon kontrol bekliyor", severity: "Uyarı", target: "Entegrasyonlar", action: "Bağlantıyı Kontrol Et" })),
-    ...followUpLeads.slice(0, 2).map((item) => ({ id: `lead-${item.id}`, customer: item.company || item.name || "Yeni lead", reason: "Yüksek fırsat skoru; takip aksiyonu bekliyor", severity: "Fırsat", target: "Takip Merkezi", action: "Takibi Aç" }))
+    ...followUpLeads.slice(0, 3).map((item) => {
+      const dueDate = item.follow_up_date || item.next_action_at;
+      const temperature = Number(item.lead_heat_score || 0) >= 80 ? "Sıcak" : Number(item.lead_heat_score || 0) >= 60 ? "Ilık" : "Soğuk";
+      const reason = dueDate
+        ? `${temperature} lead · takip tarihi ${String(dueDate).slice(0, 10) < today ? "geçti" : "bugün"}${item.next_action ? ` · ${item.next_action}` : ""}`
+        : `${temperature} lead · henüz takip tarihi girilmedi`;
+      return { id: `lead-${item.id}`, customer: item.company || item.name || "Yeni lead", reason, severity: "Fırsat", target: "Takip Merkezi", action: "Ara / Takip Et" };
+    })
   ].filter((item) => canOpen(item.target)).slice(0, 8);
 
   const isWidgetVisible = (id: string) => !preferences.hidden.includes(id);
@@ -5303,7 +5316,7 @@ function LeadKanbanCard({ lead, onOpen, onMove }: { lead: any; onOpen: () => voi
         <span>💰 {lead.proposal_amount ? `${Number(lead.proposal_amount).toLocaleString("tr-TR")} TL` : lead.budget || "Değer yok"}</span>
         <span>🎯 %{heat} olasılık</span>
         <span className="col-span-2 truncate">➡️ {lead.next_action || "Aksiyon planlanmadı"}</span>
-        <span className="col-span-2 truncate">🕓 {formatDateTime(lead.last_contact_at || lead.updated_at || lead.created_at)}</span>
+        <span className={`col-span-2 truncate ${leadAgingIndicator(lead).className}`}>🕓 {formatDateTime(lead.last_contact_at || lead.updated_at || lead.created_at)}{leadAgingIndicator(lead).label ? ` · ${leadAgingIndicator(lead).label}` : ""}</span>
       </div>
       <select
         value={stage}
@@ -5437,7 +5450,7 @@ function Crm({ content, setContent, view, setActive, currentSession }: any) {
     { key: "heat", header: "Sıcaklık", render: (lead: any) => { const heat = heatBadge(lead); return <span className={`rounded-full border px-2 py-0.5 text-[11px] font-black ${heat.className}`}>{heat.label}</span>; } },
     { key: "sector", header: "Sektör", render: (lead: any) => lead.business_type || lead.businessType || "-" },
     { key: "budget", header: "Bütçe", render: (lead: any) => lead.budget || "-" },
-    { key: "contact", header: "Son Temas", render: (lead: any) => formatDate(lead.last_contact_at || lead.created_at || lead.createdAt) },
+    { key: "contact", header: "Son Temas", render: (lead: any) => { const aging = leadAgingIndicator(lead); return <span><span>{formatDate(lead.last_contact_at || lead.created_at || lead.createdAt)}</span>{aging.label && <span className={`ml-1.5 text-[11px] font-bold ${aging.className}`}>· {aging.label}</span>}</span>; } },
     { key: "next", header: "Sıradaki Aksiyon", render: (lead: any) => lead.next_action || "-" }
   ];
   return (
@@ -5574,7 +5587,7 @@ function Crm({ content, setContent, view, setActive, currentSession }: any) {
           );
         })}
       </div>}
-      {selectedLead && <LeadDrawer lead={selectedLead} update={update} persistLead={persistLead} permanentDelete={permanentDelete} canPermanentlyDelete={legacyRole(currentSession?.role) === "admin"} canManageTestRecords={legacyRole(currentSession?.role) === "admin"} close={() => setSelectedLead(null)} onConverted={(data) => {
+      {selectedLead && <LeadDrawer lead={selectedLead} update={update} persistLead={persistLead} permanentDelete={permanentDelete} canPermanentlyDelete={legacyRole(currentSession?.role) === "admin"} canManageTestRecords={legacyRole(currentSession?.role) === "admin"} close={() => setSelectedLead(null)} setActive={setActive} onConverted={(data) => {
         setContent({
           ...content,
           leads: content.leads.map((lead) => lead.id === data.lead.id ? data.lead : lead),
@@ -5593,6 +5606,20 @@ function formatDate(value: any) {
 
 function formatDateTime(value: any) {
   return value ? new Date(value).toLocaleString("tr-TR") : "-";
+}
+
+// Subtle lead-aging signal — a soft text tint, not a loud badge/background,
+// so a genuinely stale lead is noticeable while scanning a list without the
+// whole screen turning into warning colors.
+function leadAgingIndicator(lead: any): { label: string; className: string } {
+  if (["Kazanıldı", "Kaybedildi", "Dönüştürüldü", "Müşteri Oldu", "Reddedildi"].includes(lead.status)) return { label: "", className: "" };
+  const reference = lead.last_contact_at || lead.updated_at || lead.created_at || lead.createdAt;
+  if (!reference) return { label: "", className: "" };
+  const days = Math.floor((Date.now() - new Date(reference).getTime()) / 86400000);
+  if (days >= 14) return { label: `${days} gün temassız`, className: "text-rose-700/80" };
+  if (days >= 7) return { label: `${days} gün temassız`, className: "text-amber-700/80" };
+  if (days >= 3) return { label: `${days} gün temassız`, className: "text-amber-600/70" };
+  return { label: "", className: "" };
 }
 
 function pipelineStageForLead(lead: any) {
@@ -6027,7 +6054,11 @@ function contactMessageFor(record: any, template = "İlk temas") {
     "Ücretsiz analiz": `Merhaba, ${name} için Google, Meta ve sosyal medya görünürlüğünü ücretsiz olarak hızlıca analiz edebiliriz. Size kısa ve uygulanabilir bir özet göndermemi ister misiniz?`,
     "Teklif takibi": `Merhaba, ${name} için hazırladığımız teklif çalışmasıyla ilgili kısa bir takip yapmak istedim. Sorularınız varsa birlikte netleştirebiliriz.`,
     "Ödeme hatırlatma": `Merhaba, HK Dijital hizmet dönemine ait ödeme durumunu hatırlatmak isterim. Uygunsa ödeme planını birlikte netleştirelim.`,
-    "Rapor bilgilendirme": `Merhaba, ${name} için son performans raporu hazır. Öne çıkan sonuçları ve önümüzdeki 7 gün aksiyonlarını sizinle paylaşabilirim.`
+    "Rapor bilgilendirme": `Merhaba, ${name} için son performans raporu hazır. Öne çıkan sonuçları ve önümüzdeki 7 gün aksiyonlarını sizinle paylaşabilirim.`,
+    "Fiyat itirazı": `Anlıyorum, bütçe konusunda temkinli yaklaşmanız çok normal. ${name} için teklifi ihtiyacınıza göre yeniden şekillendirebiliriz; kapsamı daraltıp bütçeye daha uygun bir başlangıç paketi de çıkarabiliriz. Hangi kalemler öncelikli olsun, birlikte netleştirelim mi?`,
+    "Bir düşüneyim": `Elbette, acele etmenize gerek yok. Karar sürecinizde işinize yarayacak ek bilgi veya örnek çalışma paylaşmamı ister misiniz? Uygun olduğunuzda kısa bir görüşmeyle sorularınızı da netleştirebiliriz.`,
+    "Zaten ajansla çalışıyoruz": `Anladım, mevcut çalışmanızın devam etmesini dilerim. Yine de karşılaştırma yapmak isterseniz diye ${name} için ücretsiz bir dijital görünürlük analizi hazırlayabilirim; ileride ihtiyacınız olursa elinizin altında bir seçenek olur.`,
+    "Müşteri onboarding hoş geldin": `Merhaba, HK Dijital ailesine hoş geldiniz! ${name} için hesabınızı ve kurulum sürecini başlattık. Sıradaki adımları ve giriş bilgilerinizi kısa süre içinde sizinle paylaşacağız; herhangi bir sorunuz olursa buradan bize ulaşabilirsiniz.`
   };
   return templates[template] || templates["İlk temas"];
 }
@@ -6041,7 +6072,7 @@ function ContactActionCenter({ record, type = "lead", context = "new-lead" }: an
   return <div className="mt-4 rounded-[8px] border border-emerald-200/20 bg-emerald-300/[0.06] p-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div><p className="text-xs font-black uppercase tracking-[.14em] text-emerald-700">WhatsApp / İletişim Merkezi</p><p className="mt-1 text-sm text-[var(--admin-text-secondary)]">{type === "customer" ? "Müşteri profili için hızlı temas aksiyonları." : "Lead için güvenli temas aksiyonları."}</p></div>
-      <SelectField label="Mesaj şablonu" value={template} onChange={setTemplate} options={["İlk temas", "Ücretsiz analiz", "Teklif takibi", "Ödeme hatırlatma", "Rapor bilgilendirme"]} />
+      <SelectField label="Mesaj şablonu" value={template} onChange={setTemplate} options={["İlk temas", "Ücretsiz analiz", "Toplantı sonrası", "Teklif gönderimi", "Takip mesajı", "Teklif takibi", "Fiyat itirazı", "Bir düşüneyim", "Zaten ajansla çalışıyoruz", "Son karar mesajı", "Ödeme hatırlatma", "Rapor bilgilendirme", "Müşteri onboarding hoş geldin"]} />
     </div>
     <TextArea rows={4} label="Hazır mesaj" value={message} onChange={setMessage} />
     <div className="mt-3 flex flex-wrap gap-2">
@@ -6054,7 +6085,17 @@ function ContactActionCenter({ record, type = "lead", context = "new-lead" }: an
   </div>;
 }
 
-function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanentlyDelete, canManageTestRecords, close, onConverted }: any) {
+const CALL_OUTCOMES: Record<string, { status: string; nextAction: string; followUpDays: number | null }> = {
+  "Ulaşılamadı": { status: "Takipte", nextAction: "Tekrar ara", followUpDays: 1 },
+  "Görüşüldü": { status: "İletişime Geçildi", nextAction: "Değerlendiriyor, takip et", followUpDays: 2 },
+  "Bilgi İstedi": { status: "İletişime Geçildi", nextAction: "İstenen bilgiyi gönder", followUpDays: 2 },
+  "Teklif İstedi": { status: "Teklif Hazırlanıyor", nextAction: "Teklif hazırla ve gönder", followUpDays: 3 },
+  "Sonra Ara": { status: "Takipte", nextAction: "Belirtilen tarihte tekrar ara", followUpDays: null },
+  "İlgilenmiyor": { status: "Kaybedildi", nextAction: "Pasife alındı", followUpDays: null },
+  "Kazanıldı": { status: "Kazanıldı", nextAction: "Müşteriye dönüştür", followUpDays: null }
+};
+
+function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanentlyDelete, canManageTestRecords, close, setActive, onConverted }: any) {
   const { askAiProvider, chooserModal } = useAiProviderChooser();
   const [conversionMessage, setConversionMessage] = useState("");
   const [conversionError, setConversionError] = useState("");
@@ -6065,6 +6106,8 @@ function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanently
   const [confirmAction, setConfirmAction] = useState("");
   const [rejectionReason, setRejectionReason] = useState(lead.rejection_reason || "");
   const [actionMessage, setActionMessage] = useState("");
+  const [callOutcome, setCallOutcome] = useState("");
+  const [callOutcomeDate, setCallOutcomeDate] = useState("");
   const deleted = isLeadDeleted(lead);
   const rejected = isLeadRejected(lead);
   const whatsappUrl = lead.phone ? `https://wa.me/${String(lead.phone).replace(/\D/g, "")}?text=${encodeURIComponent(`Merhaba ${lead.name || ""}, HK Dijital başvurunuz hakkında iletişime geçiyorum.`)}` : "";
@@ -6171,6 +6214,36 @@ function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanently
     const ok = await permanentDelete(lead.id);
     if (ok) setConfirmAction("");
   }
+  async function logCallOutcome(outcome: string) {
+    const config = CALL_OUTCOMES[outcome];
+    if (outcome === "Sonra Ara" && !callOutcomeDate) {
+      setCallOutcome(outcome);
+      return;
+    }
+    const today = new Date();
+    const followUpDate = outcome === "Sonra Ara"
+      ? callOutcomeDate
+      : config.followUpDays != null ? new Date(today.getTime() + config.followUpDays * 86400000).toISOString().slice(0, 10) : null;
+    const noteLine = `[${today.toLocaleDateString("tr-TR")}] Görüşme sonucu: ${outcome}`;
+    const updated = await persistLead(lead.id, {
+      status: config.status,
+      next_action: config.nextAction,
+      follow_up_date: followUpDate,
+      last_contact_at: today.toISOString(),
+      notes: [lead.notes, noteLine].filter(Boolean).join("\n")
+    }, `Görüşme sonucu kaydedildi: ${outcome}.`);
+    if (updated) {
+      setCallOutcome("");
+      setCallOutcomeDate("");
+      setActionMessage(`Görüşme sonucu kaydedildi: ${outcome}.`);
+    }
+  }
+  function openProposalForLead() {
+    try {
+      localStorage.setItem("hk-proposal-prefill", JSON.stringify({ businessName: lead.company || lead.name, sector: lead.business_type || lead.businessType, city: lead.city, budget: lead.budget, goal: lead.goal }));
+    } catch {}
+    setActive("Teklif Motoru");
+  }
   return (
     <Drawer title="Başvuru Detayı" close={close}>
       <div className="grid gap-3 md:grid-cols-2">
@@ -6185,8 +6258,21 @@ function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanently
         <div className="md:col-span-2"><TextArea label="Dahili notlar" value={lead.notes || lead.internalNotes} onChange={(value) => update(lead.id, { notes: value, internalNotes: value })} /></div>
       </div>
       <ContactActionCenter record={lead} type="lead" context={pipelineStageForLead(lead) === "Teklif Gönderildi" ? "proposal" : "follow-up"} />
+      <div className="mt-4 rounded-[8px] border p-4" style={{ borderColor: "var(--admin-border)" }}>
+        <p className="text-xs font-black uppercase tracking-[.14em]" style={{ color: "var(--admin-text-secondary)" }}>Görüşme Sonucu</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {Object.keys(CALL_OUTCOMES).map((outcome) => <button key={outcome} type="button" onClick={() => logCallOutcome(outcome)} className="hk-button hk-button-neutral hk-button-compact">{outcome}</button>)}
+        </div>
+        {callOutcome === "Sonra Ara" && (
+          <div className="mt-3 flex flex-wrap items-end gap-2">
+            <Field label="Ne zaman tekrar aranacak?" type="date" value={callOutcomeDate} onChange={setCallOutcomeDate} />
+            <button type="button" onClick={() => logCallOutcome("Sonra Ara")} disabled={!callOutcomeDate} className="hk-button hk-button-primary">Takip Tarihini Kaydet</button>
+          </div>
+        )}
+      </div>
       <div className="mt-5 flex flex-wrap gap-2">
         <button onClick={() => setEditOpen(true)} className="hk-button hk-button-neutral">Düzenle</button>
+        <button onClick={openProposalForLead} className="hk-button hk-button-warning">Teklif Oluştur</button>
         <button onClick={convert} disabled={converting || ["Dönüştürüldü", "Müşteri Oldu"].includes(lead.status)} className="hk-button hk-button-success">{converting ? "Dönüştürülüyor..." : ["Dönüştürüldü", "Müşteri Oldu"].includes(lead.status) ? "Müşteri oldu" : "Başvuruyu müşteriye dönüştür"}</button>
         <button onClick={() => persistLead(lead.id, { status: "Takipte", follow_up_date: lead.follow_up_date || new Date().toISOString().slice(0, 10) }, "Takip görevi oluşturuldu.")} className="hk-button hk-button-neutral">Takip görevi oluştur</button>
         <button onClick={() => askAiProvider(analyze)} disabled={analyzing || String(lead.id).startsWith("lead-")} className="hk-button hk-button-ai"><Sparkles size={15} /> {analyzing ? "Analiz hazırlanıyor..." : "Yapay zekâ analizi oluştur"}</button>
@@ -9171,6 +9257,8 @@ function CustomerOnboardingEditor({ company, content, setContent, setTab, notify
     ["Sosyal medya varlıkları", Boolean(savedBranding.social_profile_image_url || savedBranding.brand_assets?.instagram_profile_image_url)]
   ];
   const completedCount = steps.filter(([, done]) => done).length;
+  const completionPercent = steps.length ? Math.round((completedCount / steps.length) * 100) : 0;
+  const nextOnboardingStep = steps.find(([, done]) => !done)?.[0] as string | undefined;
 
   async function saveOnboarding() {
     if (!companyDraft.name.trim()) return notify?.("Müşteri adı zorunludur.", "warning");
@@ -9190,7 +9278,7 @@ function CustomerOnboardingEditor({ company, content, setContent, setTab, notify
   }
 
   return <div className="grid gap-5">
-    <div className="rounded-[16px] border border-cyan-200 bg-cyan-50 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-[var(--admin-text-primary)]">Müşteriye Özel Kurulum</h3><p className="mt-1 text-sm text-[var(--admin-text-secondary)]">Logo, iletişim, reklam hesapları ve panel görünürlüğünü bu müşteriye özel tamamlayın.</p></div><span className="rounded-full bg-[var(--admin-surface)] px-3 py-1 text-xs font-black text-cyan-700 ring-1 ring-cyan-200">{completedCount} / {steps.length} adım hazır</span></div><div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">{steps.map(([label, done]) => <div key={label as string} className={`rounded-[10px] px-3 py-2 text-xs font-bold ${done ? "bg-emerald-100 text-emerald-700" : "bg-[var(--admin-surface)] text-[var(--admin-text-muted)] ring-1 ring-slate-200"}`}>{done ? "✓" : "○"} {label}</div>)}</div></div>
+    <div className="rounded-[16px] border border-cyan-200 bg-cyan-50 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-[var(--admin-text-primary)]">Müşteriye Özel Kurulum</h3><p className="mt-1 text-sm text-[var(--admin-text-secondary)]">Logo, iletişim, reklam hesapları ve panel görünürlüğünü bu müşteriye özel tamamlayın.</p><p className="mt-2 text-xs font-black text-cyan-800">Kurulum: %{completionPercent} · {completedCount}/{steps.length} tamamlandı{nextOnboardingStep ? ` · Sıradaki: ${nextOnboardingStep}` : " · Tüm adımlar tamamlandı"}</p></div><span className="rounded-full bg-[var(--admin-surface)] px-3 py-1 text-xs font-black text-cyan-700 ring-1 ring-cyan-200">%{completionPercent}</span></div><div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">{steps.map(([label, done]) => <div key={label as string} className={`rounded-[10px] px-3 py-2 text-xs font-bold ${done ? "bg-emerald-100 text-emerald-700" : "bg-[var(--admin-surface)] text-[var(--admin-text-muted)] ring-1 ring-slate-200"}`}>{done ? "✓" : "○"} {label}</div>)}</div></div>
     <CustomerBrandAssets company={company} content={content} setContent={setContent} notify={notify} mode="compact" setTab={setTab} />
     <div className="grid gap-4 rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4 md:grid-cols-2"><Field label="Müşteri adı" value={companyDraft.name} onChange={(name) => setCompanyDraft({ ...companyDraft, name })} /><Field label="Panel marka adı" value={brandingDraft.brand_name} onChange={(brand_name) => setBrandingDraft({ ...brandingDraft, brand_name })} /><Field label="Web sitesi" value={companyDraft.website} onChange={(website) => setCompanyDraft({ ...companyDraft, website })} /><Field label="Telefon" value={companyDraft.phone} onChange={(phone) => { setCompanyDraft({ ...companyDraft, phone }); setBrandingDraft({ ...brandingDraft, contact_phone: phone }); }} /><Field label="E-posta" value={companyDraft.email} onChange={(email) => { setCompanyDraft({ ...companyDraft, email }); setBrandingDraft({ ...brandingDraft, contact_email: email }); }} /><Field label="WhatsApp" value={brandingDraft.contact_whatsapp} onChange={(contact_whatsapp) => setBrandingDraft({ ...brandingDraft, contact_whatsapp })} /><Field label="Rapor başlığı" value={brandingDraft.report_title} onChange={(report_title) => setBrandingDraft({ ...brandingDraft, report_title })} /><Field label="Ana marka rengi" type="color" value={brandingDraft.primary_color} onChange={(primary_color) => setBrandingDraft({ ...brandingDraft, primary_color })} /><Field label="İkincil marka rengi" type="color" value={brandingDraft.secondary_color} onChange={(secondary_color) => setBrandingDraft({ ...brandingDraft, secondary_color })} /><Field label="Vurgu rengi" type="color" value={brandingDraft.brand_accent_color} onChange={(brand_accent_color) => setBrandingDraft({ ...brandingDraft, brand_accent_color })} /><div className="md:col-span-2"><TextArea label="Panel karşılama metni" value={brandingDraft.welcome_text} onChange={(welcome_text) => setBrandingDraft({ ...brandingDraft, welcome_text })} /></div></div>
     <div className="grid gap-3 md:grid-cols-3"><button onClick={() => setTab("Reklam Hesapları")} className="rounded-[12px] border border-blue-200 bg-blue-50 p-4 text-left text-sm font-black text-blue-700">Meta / Google Ayarlarını Aç<span className="mt-1 block text-xs font-normal text-blue-600">Pixel, CAPI ve reklam hesabı eşleştirmeleri.</span></button><button onClick={() => setTab("Panel Görünürlüğü")} className="rounded-[12px] border border-purple-200 bg-purple-50 p-4 text-left text-sm font-black text-purple-700">Görünürlüğü Ayarla<span className="mt-1 block text-xs font-normal text-purple-600">Rapor, ödeme, görev ve dosya görünürlüğü.</span></button><a href={`/musteri-paneli?company=${company.id}`} target="_blank" rel="noreferrer" className="rounded-[12px] border border-emerald-200 bg-emerald-50 p-4 text-left text-sm font-black text-emerald-700">Müşteri Panelini Önizle<span className="mt-1 block text-xs font-normal text-emerald-600">Logo ve marka ayarlarını müşteri görünümünde kontrol edin.</span></a></div>
@@ -11281,11 +11369,15 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
     .filter((item) => !search.whatsapp || (search.whatsapp === "var" ? Boolean(item.whatsapp) : !item.whatsapp))
     .filter((item) => !search.adStatus || item.metaAdsStatus === search.adStatus || item.meta_ads_status === search.adStatus || item.googleAdsStatus === search.adStatus || item.google_ads_status === search.adStatus)
     .filter((item) => !search.crmStatus || (search.crmStatus === "kayitli" ? Boolean(existingLeadFor(item)) : !existingLeadFor(item)))
+    .filter((item) => !search.highOpportunity || Number(item.opportunityScore ?? item.opportunity_score ?? item.leadHeatScore ?? item.lead_heat_score ?? 0) >= 70)
+    .filter((item) => !search.highAdPotential || Number(item.adPotentialScore ?? item.ad_potential_score ?? Math.min(100, Number(item.leadHeatScore ?? item.lead_heat_score ?? 0) + 10)) >= 70)
     // Default order: highest HK Opportunity Score first, so the sales question
     // ("who should I contact today?") is answered by scanning top-to-bottom.
     .slice()
     .sort((a, b) => Number(b.opportunityScore ?? b.opportunity_score ?? b.leadHeatScore ?? b.lead_heat_score ?? 0) - Number(a.opportunityScore ?? a.opportunity_score ?? a.leadHeatScore ?? a.lead_heat_score ?? 0));
   const visibleRanked = search.topThirtyOnly ? visible.slice(0, 30) : visible;
+  const highOpportunityInResults = visibleRanked.filter((item) => Number(item.opportunityScore ?? item.opportunity_score ?? item.leadHeatScore ?? item.lead_heat_score ?? 0) >= 70).length;
+  const crmRegisteredInResults = visibleRanked.filter((item) => Boolean(existingLeadFor(item))).length;
   const combined = [...saved, ...results.filter((result) => !saved.some((lead) => lead.google_place_id === result.placeId))];
   const districts = Object.values(combined.reduce((groups: any, item: any) => {
     const district = districtOf(item);
@@ -12092,54 +12184,67 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
       </div>
     );
     const isActive = selectedPlaceId === placeKey;
+    // Concise "why" — top 2 heat signals only, always visible, instead of
+    // requiring the Puan Detayı disclosure to be opened just to see a
+    // reason. Full breakdown stays available below for anyone who wants it.
+    const topReasons = [...(breakdown.heat || [])].filter((row) => Number(row.points) > 0).sort((a, b) => Number(b.points) - Number(a.points)).slice(0, 2);
     return (
       <article key={placeKey || record.id} className="admin-card rounded-[12px] p-4 transition" style={{ border: isActive ? "1px solid var(--hk-cyan-solid, var(--admin-border-strong))" : "1px solid var(--admin-border)", background: isActive ? "var(--hk-cyan-soft, var(--admin-surface-soft))" : "var(--admin-card)" }}>
-        <div className="flex items-center justify-between gap-2">
-          <label className="flex items-center gap-2 text-xs font-bold" style={{ color: "var(--admin-text-secondary)" }}>
+        <div className="flex items-start justify-between gap-2">
+          <button type="button" onClick={() => setSelectedPlaceId(placeKey)} className="min-w-0 flex-1 text-left">
+            <strong className="block truncate text-base" style={{ color: "var(--admin-text-primary)" }}>{record.name || record.company || "İsimsiz işletme"}</strong>
+            <p className="mt-1 truncate text-xs" style={{ color: "var(--admin-text-muted)" }}>{record.category || record.business_type || search.businessType || "Sektör belirtilmedi"} · {districtOf(record)}</p>
+          </button>
+          <label className="flex shrink-0 items-center" title="Toplu işlem için seç">
             <input type="checkbox" checked={selectedPlaces.includes(placeKey)} onChange={(event) => toggleSelected(placeKey, event.target.checked)} />
-            Bu işletmeyi seç
           </label>
-          <AdminStatusBadge tone={scoreTone(opportunityScore)}>{hkTier.label}</AdminStatusBadge>
         </div>
-        <button type="button" onClick={() => setSelectedPlaceId(placeKey)} className="mt-3 w-full text-left">
-          <strong className="block text-base" style={{ color: "var(--admin-text-primary)" }}>{record.name || record.company || "İsimsiz işletme"}</strong>
-          <p className="mt-1 text-xs" style={{ color: "var(--admin-text-muted)" }}>{record.city || search.city || "-"} / {districtOf(record)} · {record.category || record.business_type || search.businessType || "Sektör belirtilmedi"}</p>
 
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            <AdminStatusBadge tone={scoreTone(opportunityScore)}>Fırsat {opportunityScore}/100</AdminStatusBadge>
-            <AdminStatusBadge tone={scoreTone(digitalGapScore)}>Dijital Eksik {digitalGapScore}/100</AdminStatusBadge>
-            <AdminStatusBadge tone={scoreTone(heat)}>Sıcaklık {heat ?? "-"}</AdminStatusBadge>
-            {existingLead && <AdminStatusBadge tone="success">CRM'de Kayıtlı</AdminStatusBadge>}
-          </div>
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          <AdminStatusBadge tone={scoreTone(opportunityScore)}>{hkTier.label} · {opportunityScore}/100</AdminStatusBadge>
+          {existingLead ? <AdminStatusBadge tone="success">CRM'de Kayıtlı</AdminStatusBadge> : <AdminStatusBadge tone="neutral">Yeni</AdminStatusBadge>}
+          {record.phone && <AdminStatusBadge tone="neutral">Telefon var</AdminStatusBadge>}
+          {!record.website && <AdminStatusBadge tone="warning">Website yok</AdminStatusBadge>}
+        </div>
 
-          {missingChannels.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{missingChannels.map((label: string) => <AdminStatusBadge key={label} tone="warning">{label}</AdminStatusBadge>)}</div>}
-          {presentSignals.length > 0 && <div className="mt-1.5 flex flex-wrap gap-1.5">{presentSignals.map((label: string) => <AdminStatusBadge key={label} tone="neutral">{label}</AdminStatusBadge>)}</div>}
+        {topReasons.length > 0 && (
+          <ul className="mt-3 grid gap-1 text-xs leading-5" style={{ color: "var(--admin-text-secondary)" }}>
+            {topReasons.map((row, index) => <li key={`${row.label}-${index}`}>• {row.label}</li>)}
+          </ul>
+        )}
 
-          <p className="mt-3 text-xs leading-5" style={{ color: "var(--admin-text-muted)" }}>{record.address || "Adres bilgisi yok"}</p>
-          <div className="mt-2 grid gap-1.5 text-xs sm:grid-cols-2" style={{ color: "var(--admin-text-secondary)" }}>
-            <span>Google puanı: <strong style={{ color: "var(--admin-text-primary)" }}>{record.googleRating ?? record.google_rating ?? "-"}</strong></span>
-            <span>Yorum sayısı: <strong style={{ color: "var(--admin-text-primary)" }}>{record.reviewCount ?? record.google_review_count ?? 0}</strong></span>
-            <span>Reklam potansiyeli: <strong style={{ color: "var(--admin-text-primary)" }}>{adPotentialScore}/100</strong></span>
-            <span>Meta reklam: <strong style={{ color: "var(--admin-text-primary)" }}>{AD_STATUS_LABELS[metaAdsStatus as AdStatusValue] || "Kontrol edilmedi"}</strong></span>
-            <span>Google reklam: <strong style={{ color: "var(--admin-text-primary)" }}>{AD_STATUS_LABELS[googleAdsStatus as AdStatusValue] || "Kontrol edilmedi"}</strong></span>
-            <span>CRM durumu: <strong style={{ color: "var(--admin-text-primary)" }}>{existingLead ? "CRM'de kayıtlı" : record.crmStatus || "CRM'de yok"}</strong></span>
-          </div>
-          <p className="mt-2 rounded-[8px] p-2 text-[11px] font-bold" style={{ background: "var(--admin-surface-muted, var(--admin-surface-soft))", color: "var(--admin-text-secondary)" }}>Önerilen aksiyon: {record.hkOpportunityAction || hkTier.recommendedAction}</p>
-          <p className="mt-2 rounded-[8px] p-2 text-[11px] leading-5" style={{ border: "1px solid var(--hk-cyan-solid, var(--admin-border-strong))", background: "var(--hk-cyan-soft, var(--admin-surface-soft))", color: "var(--admin-text-primary)" }}>AI önerisi: {record.aiSuggestion || "İlk temas için dijital görünürlük ve Google yorum fırsatı anlatılmalı."}</p>
+        <button type="button" onClick={() => setSelectedPlaceId(placeKey)} className="mt-2 w-full text-left">
+          <p className="truncate text-xs" style={{ color: "var(--admin-text-muted)" }}>{record.address || "Adres bilgisi yok"}</p>
         </button>
+
         <details className="mt-3 rounded-[8px]" style={{ border: "1px solid var(--admin-border)" }}>
-          <summary className="cursor-pointer p-2 text-xs font-black" style={{ color: "var(--hk-cyan-solid, var(--admin-text-primary))" }}>Puan Detayı</summary>
+          <summary className="cursor-pointer p-2 text-xs font-black" style={{ color: "var(--hk-cyan-solid, var(--admin-text-primary))" }}>Detaylı puan ve sinyaller</summary>
           <div className="grid gap-3 p-2">
+            <div className="grid gap-1.5 text-xs sm:grid-cols-2" style={{ color: "var(--admin-text-secondary)" }}>
+              <span>Google puanı: <strong style={{ color: "var(--admin-text-primary)" }}>{record.googleRating ?? record.google_rating ?? "-"}</strong></span>
+              <span>Yorum sayısı: <strong style={{ color: "var(--admin-text-primary)" }}>{record.reviewCount ?? record.google_review_count ?? 0}</strong></span>
+              <span>Reklam potansiyeli: <strong style={{ color: "var(--admin-text-primary)" }}>{adPotentialScore}/100</strong></span>
+              <span>Meta reklam: <strong style={{ color: "var(--admin-text-primary)" }}>{AD_STATUS_LABELS[metaAdsStatus as AdStatusValue] || "Kontrol edilmedi"}</strong></span>
+              <span>Google reklam: <strong style={{ color: "var(--admin-text-primary)" }}>{AD_STATUS_LABELS[googleAdsStatus as AdStatusValue] || "Kontrol edilmedi"}</strong></span>
+              <span>Dijital eksik: <strong style={{ color: "var(--admin-text-primary)" }}>{digitalGapScore}/100</strong></span>
+            </div>
+            {missingChannels.length > 0 && <div className="flex flex-wrap gap-1.5">{missingChannels.map((label: string) => <AdminStatusBadge key={label} tone="warning">{label}</AdminStatusBadge>)}</div>}
+            {presentSignals.length > 0 && <div className="flex flex-wrap gap-1.5">{presentSignals.map((label: string) => <AdminStatusBadge key={label} tone="neutral">{label}</AdminStatusBadge>)}</div>}
+            <p className="rounded-[8px] p-2 text-[11px] font-bold" style={{ background: "var(--admin-surface-muted, var(--admin-surface-soft))", color: "var(--admin-text-secondary)" }}>Önerilen aksiyon: {record.hkOpportunityAction || hkTier.recommendedAction}</p>
+            <p className="rounded-[8px] p-2 text-[11px] leading-5" style={{ border: "1px solid var(--hk-cyan-solid, var(--admin-border-strong))", background: "var(--hk-cyan-soft, var(--admin-surface-soft))", color: "var(--admin-text-primary)" }}>AI önerisi: {record.aiSuggestion || "İlk temas için dijital görünürlük ve Google yorum fırsatı anlatılmalı."}</p>
             {renderBreakdown("Müşteri Sıcaklık Puanı", breakdown.heat || [], heatTotal, "var(--hk-cyan-solid, var(--admin-text-primary))")}
             {renderBreakdown("Dijital Olgunluk Skoru", breakdown.maturity || [], maturityTotal, "var(--hk-success-solid, #167A3C)")}
           </div>
         </details>
-        <div className="mt-3 flex flex-wrap gap-2 rounded-[10px] p-2" style={{ border: "1px solid var(--admin-border)" }}>
-          <AdminButton compact variant="secondary" onClick={() => setSelectedPlaceId(placeKey)}>Detay</AdminButton>
-          {existingLead ? <>
-            <AdminStatusBadge tone="success">CRM'de Kayıtlı</AdminStatusBadge>
-            <AdminButton compact variant="success" onClick={() => openCrmLead(record)}>CRM Kaydını Aç</AdminButton>
-          </> : <AdminButton compact variant="primary" disabled={loading === `save-${placeId}`} onClick={() => saveBusiness(item)}>{loading === `save-${placeId}` ? "Kaydediliyor..." : "CRM'e Kaydet"}</AdminButton>}
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          <AdminButton variant="secondary" onClick={() => setSelectedPlaceId(placeKey)}>Detay</AdminButton>
+          {existingLead
+            ? <AdminButton variant="success" onClick={() => openCrmLead(record)}>CRM Kaydını Aç</AdminButton>
+            : <AdminButton variant="primary" disabled={loading === `save-${placeId}`} onClick={() => saveBusiness(item)}>{loading === `save-${placeId}` ? "Kaydediliyor..." : "Lead'e Ekle"}</AdminButton>}
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] font-black uppercase tracking-[.08em]" style={{ color: "var(--admin-text-muted)" }}>Diğer:</span>
           <AdminButton compact variant="warning" onClick={() => proposalFor(record)}>Teklif Hazırla</AdminButton>
           <AdminButton compact variant="success" onClick={() => setWhatsappDraft({ id: placeId || record.id, text: outreachText(record), phone: record.phone })}>WhatsApp</AdminButton>
           <AdminButton compact variant="info" disabled={intelligenceLoadingKey === placeKey} onClick={() => analyzeBusinessIntelligence(record, placeKey)}>{intelligenceLoadingKey === placeKey ? "Analiz ediliyor..." : intelligenceByKey[placeKey] ? "Yeniden Analiz Et" : "Analiz Et"}</AdminButton>
@@ -12521,10 +12626,10 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
       title={mode === "Haritalar" ? "Haritalar ve Google Maps Lead Finder" : tab}
       description="İl, ilçe, mahalle, sektör, niş, Google puanı ve dijital eksik filtreleriyle işletmeleri tarayın; fırsat skoruna göre CRM'e taşıyıp teklif ve WhatsApp mesajı oluşturun."
       headerActions={<>
-        <AdminStatusBadge tone="info">{search.topThirtyOnly ? `İlk ${visibleRanked.length}` : `${results.length} sonuç`}</AdminStatusBadge>
-        <AdminStatusBadge tone="neutral">{saved.length} kayıtlı</AdminStatusBadge>
-        <AdminStatusBadge tone="success">{selectedPlaces.length} seçili</AdminStatusBadge>
-        <AdminStatusBadge tone="danger">{saved.filter((lead) => Number(lead.lead_heat_score || 0) >= 70).length} sıcak lead</AdminStatusBadge>
+        <AdminStatusBadge tone="info">{search.topThirtyOnly ? `İlk ${visibleRanked.length}` : `${visibleRanked.length} sonuç`}</AdminStatusBadge>
+        <AdminStatusBadge tone="warning">{highOpportunityInResults} yüksek fırsat</AdminStatusBadge>
+        <AdminStatusBadge tone="success">{crmRegisteredInResults} CRM'de kayıtlı</AdminStatusBadge>
+        <AdminStatusBadge tone="neutral">{selectedPlaces.length} seçili</AdminStatusBadge>
       </>}
       leftPanel={
         <AdminControlPanel>
@@ -12575,33 +12680,32 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
             </div>
           </AdminFilterSection>
 
-          <AdminFilterSection title="Puan & Hacim">
-            <div className="grid gap-2">
-              <SelectField label="Yarıçap" value={search.radius} onChange={(radius) => setSearch({ ...search, radius })} options={["1 km", "3 km", "5 km", "10 km", "Şehir geneli"]} />
-              <SelectField label="Kaç işletme bulunsun" value={search.limit} onChange={(limit) => setSearch({ ...search, limit })} options={["5", "10", "20", "50", "100"]} />
-              <SelectField label="Minimum Google puanı" value={search.minimumRating} onChange={(minimumRating) => setSearch({ ...search, minimumRating })} options={[{ value: "", label: "Farketmez" }, { value: "3", label: "3.0+" }, { value: "3.5", label: "3.5+" }, { value: "4", label: "4.0+" }, { value: "4.5", label: "4.5+" }]} />
-              <SelectField label="Minimum yorum sayısı" value={search.minimumReviewCount} onChange={(minimumReviewCount) => setSearch({ ...search, minimumReviewCount })} options={[{ value: "", label: "Farketmez" }, { value: "5", label: "5+" }, { value: "10", label: "10+" }, { value: "25", label: "25+" }, { value: "50", label: "50+" }, { value: "100", label: "100+" }]} />
-            </div>
-          </AdminFilterSection>
-
-          <AdminFilterSection title="Dijital Varlık">
-            <div className="grid gap-2">
-              <SelectField label="Website var / yok" value={search.website} onChange={(website) => setSearch({ ...search, website })} options={[{ value: "", label: "Farketmez" }, { value: "yok", label: "Websitesi olmayanlar" }, { value: "var", label: "Websitesi olanlar" }]} />
-              <SelectField label="Telefon var / yok" value={search.phone} onChange={(phone) => setSearch({ ...search, phone })} options={[{ value: "", label: "Farketmez" }, { value: "var", label: "Telefonu olanlar" }, { value: "yok", label: "Telefonu olmayanlar" }]} />
-              <SelectField label="Instagram var / yok" value={search.instagram} onChange={(instagram) => setSearch({ ...search, instagram })} options={[{ value: "", label: "Farketmez" }, { value: "var", label: "Instagram bağlantısı olanlar" }, { value: "yok", label: "Instagram bağlantısı olmayanlar" }]} />
-              <SelectField label="WhatsApp durumu" value={search.whatsapp} onChange={(whatsapp) => setSearch({ ...search, whatsapp })} options={[{ value: "", label: "Farketmez" }, { value: "var", label: "WhatsApp'ı olanlar" }, { value: "yok", label: "WhatsApp'ı olmayanlar" }]} />
-            </div>
-          </AdminFilterSection>
-
-          <AdminFilterSection title="Fırsat Skorları">
-            <div className="grid gap-2">
-              <SelectField label="Reklam durumu" value={search.adStatus} onChange={(adStatus) => setSearch({ ...search, adStatus })} options={Object.entries(AD_STATUS_LABELS).map(([value, label]) => ({ value, label }))} />
-              <label className="flex items-center gap-2 text-xs font-semibold" style={{ color: "var(--admin-text-secondary)" }}><input type="checkbox" checked={search.highOpportunity} onChange={(event) => setSearch({ ...search, highOpportunity: event.target.checked })} />Sadece fırsat puanı yüksek olanlar</label>
-              <label className="flex items-center gap-2 text-xs font-semibold" style={{ color: "var(--admin-text-secondary)" }}><input type="checkbox" checked={search.highAdPotential} onChange={(event) => setSearch({ ...search, highAdPotential: event.target.checked })} />Sadece reklam potansiyeli yüksek olanlar</label>
-              <details className="rounded-[8px]" style={{ border: "1px solid var(--admin-border)" }}>
-                <summary className="cursor-pointer p-2 text-xs font-black" style={{ color: "var(--admin-text-secondary)" }}>Puan Rehberini Göster</summary>
-                <div className="p-2"><ScoringGuidePanel /></div>
-              </details>
+          <AdminFilterSection title="Gelişmiş Filtreler" collapsible>
+            <div className="grid gap-4">
+              <div className="grid gap-2">
+                <p className="text-[11px] font-black uppercase tracking-[.1em]" style={{ color: "var(--admin-text-muted)" }}>Puan &amp; Hacim</p>
+                <SelectField label="Yarıçap" value={search.radius} onChange={(radius) => setSearch({ ...search, radius })} options={["1 km", "3 km", "5 km", "10 km", "Şehir geneli"]} />
+                <SelectField label="Kaç işletme bulunsun" value={search.limit} onChange={(limit) => setSearch({ ...search, limit })} options={["5", "10", "20", "50", "100"]} />
+                <SelectField label="Minimum Google puanı" value={search.minimumRating} onChange={(minimumRating) => setSearch({ ...search, minimumRating })} options={[{ value: "", label: "Farketmez" }, { value: "3", label: "3.0+" }, { value: "3.5", label: "3.5+" }, { value: "4", label: "4.0+" }, { value: "4.5", label: "4.5+" }]} />
+                <SelectField label="Minimum yorum sayısı" value={search.minimumReviewCount} onChange={(minimumReviewCount) => setSearch({ ...search, minimumReviewCount })} options={[{ value: "", label: "Farketmez" }, { value: "5", label: "5+" }, { value: "10", label: "10+" }, { value: "25", label: "25+" }, { value: "50", label: "50+" }, { value: "100", label: "100+" }]} />
+              </div>
+              <div className="grid gap-2">
+                <p className="text-[11px] font-black uppercase tracking-[.1em]" style={{ color: "var(--admin-text-muted)" }}>Dijital Varlık</p>
+                <SelectField label="Website var / yok" value={search.website} onChange={(website) => setSearch({ ...search, website })} options={[{ value: "", label: "Farketmez" }, { value: "yok", label: "Websitesi olmayanlar" }, { value: "var", label: "Websitesi olanlar" }]} />
+                <SelectField label="Telefon var / yok" value={search.phone} onChange={(phone) => setSearch({ ...search, phone })} options={[{ value: "", label: "Farketmez" }, { value: "var", label: "Telefonu olanlar" }, { value: "yok", label: "Telefonu olmayanlar" }]} />
+                <SelectField label="Instagram var / yok" value={search.instagram} onChange={(instagram) => setSearch({ ...search, instagram })} options={[{ value: "", label: "Farketmez" }, { value: "var", label: "Instagram bağlantısı olanlar" }, { value: "yok", label: "Instagram bağlantısı olmayanlar" }]} />
+                <SelectField label="WhatsApp durumu" value={search.whatsapp} onChange={(whatsapp) => setSearch({ ...search, whatsapp })} options={[{ value: "", label: "Farketmez" }, { value: "var", label: "WhatsApp'ı olanlar" }, { value: "yok", label: "WhatsApp'ı olmayanlar" }]} />
+              </div>
+              <div className="grid gap-2">
+                <p className="text-[11px] font-black uppercase tracking-[.1em]" style={{ color: "var(--admin-text-muted)" }}>Fırsat Skorları</p>
+                <SelectField label="Reklam durumu" value={search.adStatus} onChange={(adStatus) => setSearch({ ...search, adStatus })} options={Object.entries(AD_STATUS_LABELS).map(([value, label]) => ({ value, label }))} />
+                <label className="flex items-center gap-2 text-xs font-semibold" style={{ color: "var(--admin-text-secondary)" }}><input type="checkbox" checked={search.highOpportunity} onChange={(event) => setSearch({ ...search, highOpportunity: event.target.checked })} />Sadece fırsat puanı yüksek olanlar</label>
+                <label className="flex items-center gap-2 text-xs font-semibold" style={{ color: "var(--admin-text-secondary)" }}><input type="checkbox" checked={search.highAdPotential} onChange={(event) => setSearch({ ...search, highAdPotential: event.target.checked })} />Sadece reklam potansiyeli yüksek olanlar</label>
+                <details className="rounded-[8px]" style={{ border: "1px solid var(--admin-border)" }}>
+                  <summary className="cursor-pointer p-2 text-xs font-black" style={{ color: "var(--admin-text-secondary)" }}>Puan Rehberini Göster</summary>
+                  <div className="p-2"><ScoringGuidePanel /></div>
+                </details>
+              </div>
             </div>
           </AdminFilterSection>
 
@@ -14974,6 +15078,33 @@ function WhatsAppReminderCenter({ content, setContent, save, notify, setActive }
   );
 }
 
+const OFFER_TEMPLATES: Record<string, { packageType: string; services: string; excludedServices: string; monthlyFee: string; adBudget: string; duration: string }> = {
+  "Google Ads Yönetimi": {
+    packageType: "Standart",
+    services: "Google Ads hesap kurulumu ve yapılandırması\nArama ve Performans Max kampanya yönetimi\nAnahtar kelime ve bütçe optimizasyonu\nDönüşüm takibi (Google Tag Manager / GA4)\nAylık performans raporu",
+    excludedServices: "Reklam bütçesi hizmet bedeline dahil değildir.\nWebsite / landing page tasarımı ayrıca değerlendirilir.\nMeta / Instagram reklam yönetimi bu pakete dahil değildir.",
+    monthlyFee: "12000",
+    adBudget: "20000",
+    duration: "3 ay başlangıç dönemi"
+  },
+  "Meta Ads Yönetimi": {
+    packageType: "Standart",
+    services: "Meta (Instagram / Facebook) reklam hesabı kurulumu\nKampanya, reklam seti ve kreatif yönetimi\nHedef kitle ve yeniden pazarlama (retargeting) kurgusu\nPixel / Conversions API kurulumu\nAylık performans raporu",
+    excludedServices: "Reklam bütçesi hizmet bedeline dahil değildir.\nKreatif çekim / prodüksiyon ayrıca değerlendirilir.\nGoogle Ads yönetimi bu pakete dahil değildir.",
+    monthlyFee: "12000",
+    adBudget: "20000",
+    duration: "3 ay başlangıç dönemi"
+  },
+  "Sosyal Medya + Reklam Yönetimi": {
+    packageType: "Premium",
+    services: "Aylık içerik ve paylaşım planı (Instagram / Facebook)\nMeta ve Google reklam hesabı yönetimi\nKreatif tasarım (görsel / kısa video düzenleme)\nTopluluk yönetimi ve yorum / mesaj takibi\nAylık performans raporu",
+    excludedServices: "Reklam bütçesi hizmet bedeline dahil değildir.\nProfesyonel fotoğraf / video çekimi ayrıca değerlendirilir.\nÜçüncü parti yazılım lisansları ayrıca değerlendirilir.",
+    monthlyFee: "18000",
+    adBudget: "25000",
+    duration: "3 ay başlangıç dönemi"
+  }
+};
+
 function ProposalEngine({ content, setContent, save, setActive }: any) {
   const { askAiProvider, chooserModal } = useAiProviderChooser();
   const [leadId, setLeadId] = useState("");
@@ -15174,8 +15305,24 @@ ${notes || "Satış garantisi verilmez. Sistem; reklam bütçesini daha kontroll
     navigator.clipboard.writeText(message);
     setResult((current) => `${current || ""}\n\nWhatsApp teklif mesajı kopyalandı:\n${message}`.trim());
   }
+  function applyOfferTemplate(name: string) {
+    const template = OFFER_TEMPLATES[name];
+    if (!template) return;
+    setPackageType(template.packageType);
+    setServices(template.services);
+    setExcludedServices(template.excludedServices);
+    setMonthlyFee(template.monthlyFee);
+    setAdBudget(template.adBudget);
+    setDuration(template.duration);
+  }
   return <Panel title="Proposal Engine V2 · Teklif Motoru">
     <p className="mb-5 text-sm leading-6 text-slate-400">Lead, müşteri, kampanya veya AI denetim çıktısından profesyonel teklif üretin. Teklif müşteri belgelerine kaydedilebilir, yazdırılabilir veya WhatsApp mesajına dönüştürülebilir.</p>
+    <div className="mb-5 rounded-[8px] border p-4" style={{ borderColor: "var(--admin-border)" }}>
+      <p className="text-xs font-black uppercase tracking-[.14em] text-slate-400">Hazır Teklif Şablonu (1 tıkla doldur)</p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {Object.keys(OFFER_TEMPLATES).map((name) => <button key={name} type="button" onClick={() => applyOfferTemplate(name)} className="rounded-full border border-cyan-200/25 px-4 py-2 text-xs font-black text-cyan-700">{name}</button>)}
+      </div>
+    </div>
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       <SelectField label="Başvuru" value={leadId} onChange={setLeadId} options={(content.leads || []).map((lead) => ({ value: lead.id, label: lead.company || lead.name || lead.email || "İsimsiz başvuru" }))} placeholder="Başvuru seçin" />
       <CompanySelect label="Müşteri" value={companyId} onChange={setCompanyId} companies={content.companies} />

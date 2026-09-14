@@ -299,48 +299,83 @@ export async function generateProposal(input: any) {
 
 export async function createCustomerFromLead(lead: any, options: { approve?: boolean } = {}) {
   if (!hasSupabaseConfig()) throw new Error("Supabase bağlantısı yapılandırılmadı.");
-  const companyRows = await supabaseRest<any[]>("companies", {
-    method: "POST",
-    body: JSON.stringify({
-      name: lead.company || lead.name || "Yeni Müşteri",
-      sector: lead.business_type || lead.sector || "",
-      city: lead.city || "",
-      website: lead.website || "",
-      instagram: lead.instagram || "",
-      phone: lead.phone || "",
-      email: lead.email || "",
-      is_test: lead.is_test === true,
-      status: options.approve ? "Aktif" : "Onay Bekliyor",
-      notes: `CRM lead kaynağı: ${lead.source || "-"}`
-    })
-  });
-  const company = companyRows[0];
-  const email = lead.email || `musteri-${Date.now()}@hkdijital.local`;
+  // Reuse an already-linked/matching company instead of always inserting a
+  // new one — without this, converting the same lead twice (repeat click,
+  // or an already-won lead run through this flow again) silently created a
+  // duplicate company + customer account. Mirrors the guard already used by
+  // /api/admin/leads/[id]/convert.
+  let company: any = null;
+  if (lead.company_id) {
+    const rows = await supabaseRest<any[]>(`companies?id=eq.${encodeURIComponent(lead.company_id)}&select=*&limit=1`);
+    company = rows[0] || null;
+  }
+  if (!company && lead.company) {
+    const rows = await supabaseRest<any[]>(`companies?name=ilike.${encodeURIComponent(lead.company)}&select=*&limit=1`);
+    company = rows[0] || null;
+  }
+  if (!company && lead.phone) {
+    const rows = await supabaseRest<any[]>(`companies?phone=eq.${encodeURIComponent(lead.phone)}&select=*&limit=1`);
+    company = rows[0] || null;
+  }
+  if (!company) {
+    const companyRows = await supabaseRest<any[]>("companies", {
+      method: "POST",
+      body: JSON.stringify({
+        name: lead.company || lead.name || "Yeni Müşteri",
+        sector: lead.business_type || lead.sector || "",
+        city: lead.city || "",
+        website: lead.website || "",
+        instagram: lead.instagram || "",
+        phone: lead.phone || "",
+        email: lead.email || "",
+        is_test: lead.is_test === true,
+        status: options.approve ? "Aktif" : "Onay Bekliyor",
+        notes: `CRM lead kaynağı: ${lead.source || "-"}`
+      })
+    });
+    company = companyRows[0];
+  }
+  // Reuse this company's existing customer login instead of always minting a
+  // new one — otherwise a second call for the same (now-deduped) company
+  // still generated a brand-new fabricated email/password pair and left two
+  // login accounts behind for one customer.
+  const existingCustomerUser = (await supabaseRest<any[]>(`users?company_id=eq.${encodeURIComponent(company.id)}&role=eq.customer&select=*&limit=1`))[0] || null;
+  const email = existingCustomerUser?.email || lead.email || `musteri-${Date.now()}@hkdijital.local`;
   const password = `HK-${Math.random().toString(36).slice(2, 8)}-${new Date().getFullYear()}`;
   let authUser = await findSupabaseAuthUserByEmail(email).catch(() => null);
   if (authUser) await updateSupabaseAuthUser(authUser.id, { password, fullName: lead.name || company.name }).catch(() => null);
   if (!authUser) authUser = await createSupabaseAuthUser({ email, password, fullName: lead.name || company.name });
-  const username = await createAvailableUsername({ companyName: company.name, fullName: lead.name, email });
-  const userRows = await supabaseRest<any[]>("users", {
-    method: "POST",
-    headers: { Prefer: "resolution=merge-duplicates,return=representation" },
-    body: JSON.stringify({
-      auth_user_id: authUser.id,
-      email,
-      username: username.username,
-      full_name: lead.name || company.name,
-      role: "customer",
-      company_id: company.id,
-      is_active: true
-    })
-  });
+  let userRow;
+  if (existingCustomerUser) {
+    const rows = await supabaseRest<any[]>(`users?id=eq.${existingCustomerUser.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ auth_user_id: authUser.id, full_name: lead.name || company.name, is_active: true })
+    });
+    userRow = rows[0];
+  } else {
+    const username = await createAvailableUsername({ companyName: company.name, fullName: lead.name, email });
+    const rows = await supabaseRest<any[]>("users", {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+      body: JSON.stringify({
+        auth_user_id: authUser.id,
+        email,
+        username: username.username,
+        full_name: lead.name || company.name,
+        role: "customer",
+        company_id: company.id,
+        is_active: true
+      })
+    });
+    userRow = rows[0];
+  }
   if (lead.id) {
     await supabaseRest(`leads?id=eq.${encodeURIComponent(lead.id)}`, {
       method: "PATCH",
       body: JSON.stringify({ company_id: company.id, status: "Kazandı", updated_at: new Date().toISOString() })
     }).catch(() => null);
   }
-  return { company, user: userRows[0], temporaryPassword: password };
+  return { company, user: userRow, temporaryPassword: password };
 }
 
 export function executiveSummary(data: { leads?: any[]; companies?: any[]; reports?: any[]; campaigns?: any[] }) {
