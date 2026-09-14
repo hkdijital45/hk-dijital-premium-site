@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { createSession, createSupabaseAuthUser } from "@/lib/auth";
 import { hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
+import { HIDDEN_ACCESS_COOKIE, HIDDEN_ACCESS_SESSION_TTL_SECONDS, extractClientIp, grantCourtesyHiddenAccessSession } from "@/lib/hidden-access";
 
 async function adminExists() {
   const rows = await supabaseRest<Array<{ id: string }>>("users?role=eq.admin&select=id&limit=1");
@@ -68,6 +70,29 @@ export async function POST(request: Request) {
       role: "admin",
       companyId: null
     });
+
+    // Without this, SetupAdminForm's hardcoded redirect to /digital-center
+    // immediately hits the Secret Access Control Center gate (proxy.ts) and
+    // bounces this just-created admin to the homepage even though they now
+    // hold a valid hk_auth_session — the gate intentionally applies even to
+    // an already-logged-in admin. See grantCourtesyHiddenAccessSession's
+    // own comment for the full rationale.
+    const hiddenAccessToken = await grantCourtesyHiddenAccessSession({
+      triggerMethod: "admin_setup",
+      authenticatedUserId: profile.id,
+      ipAddress: extractClientIp(request.headers),
+      userAgent: request.headers.get("user-agent") || ""
+    });
+    if (hiddenAccessToken) {
+      const cookieStore = await cookies();
+      cookieStore.set(HIDDEN_ACCESS_COOKIE, hiddenAccessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        path: "/",
+        maxAge: HIDDEN_ACCESS_SESSION_TTL_SECONDS
+      });
+    }
 
     return NextResponse.json({
       ok: true,

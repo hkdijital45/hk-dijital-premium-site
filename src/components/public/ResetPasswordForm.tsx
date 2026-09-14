@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { validateNewPassword } from "@/lib/password-policy";
 
 export function ResetPasswordForm({ mode = "recovery" }: { mode?: "recovery" | "forced" }) {
@@ -87,7 +88,7 @@ export function ResetPasswordForm({ mode = "recovery" }: { mode?: "recovery" | "
       </button>
       {forced
         ? <button type="button" onClick={logout} className="w-full text-center text-sm font-semibold text-cyan-100">Çıkış Yap</button>
-        : <a href="/digital-center" className="text-center text-sm font-semibold text-cyan-100">Digital Center’a dön</a>}
+        : <Link href="/digital-center" className="text-center text-sm font-semibold text-cyan-100">Digital Center’a dön</Link>}
     </form>
   );
 }

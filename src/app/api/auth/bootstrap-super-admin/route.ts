@@ -6,6 +6,7 @@ import {
 } from "@/lib/auth";
 import { hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 import { safeCompare } from "@/lib/secure-compare";
+import { HIDDEN_ACCESS_COOKIE, HIDDEN_ACCESS_SESSION_TTL_SECONDS, extractClientIp, grantCourtesyHiddenAccessSession } from "@/lib/hidden-access";
 
 type UserProfile = {
   id: string;
@@ -136,7 +137,7 @@ export async function POST(request: Request) {
       ? await patchProfile(targetProfile.id, profilePayload)
       : await insertProfile(profilePayload);
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       ok: true,
       message: "Süper admin hesabı oluşturuldu veya onarıldı. Artık giriş yapabilirsiniz.",
       user: {
@@ -146,6 +147,31 @@ export async function POST(request: Request) {
         isActive: profile.is_active
       }
     });
+
+    // Without this, SuperAdminBootstrapForm's link to /digital-center
+    // immediately hits the Secret Access Control Center gate (proxy.ts) and
+    // bounces this just-verified operator (they already proved authority
+    // via BOOTSTRAP_ADMIN_SECRET, a completely separate secret from the
+    // hidden-access one) to the homepage with no way to know the hidden
+    // keyboard trigger. See grantCourtesyHiddenAccessSession's own comment
+    // for the full rationale.
+    const hiddenAccessToken = await grantCourtesyHiddenAccessSession({
+      triggerMethod: "super_admin_bootstrap",
+      authenticatedUserId: profile.id,
+      ipAddress: extractClientIp(request.headers),
+      userAgent: request.headers.get("user-agent") || ""
+    });
+    if (hiddenAccessToken) {
+      response.cookies.set(HIDDEN_ACCESS_COOKIE, hiddenAccessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        path: "/",
+        maxAge: HIDDEN_ACCESS_SESSION_TTL_SECONDS
+      });
+    }
+
+    return response;
   } catch (error) {
     return NextResponse.json(
       {

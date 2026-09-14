@@ -38,6 +38,10 @@ const eslintConfig = defineConfig([
     "desktop/build/**",
     "desktop-builds/**",
     "desktop/windows/publish/**",
+    // Tauri desktop build output (Rust target dir) — generated, sometimes
+    // binary-ish JS/asset bundles that aren't valid source to parse (tripped
+    // up ESLint with a parse error on a tauri-codegen-assets file).
+    "src-tauri/target/**",
   ]),
 ]);
 

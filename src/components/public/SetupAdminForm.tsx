@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 export function SetupAdminForm() {
   const [allowed, setAllowed] = useState<boolean | null>(null);
@@ -66,9 +67,9 @@ export function SetupAdminForm() {
       <div className="mx-auto max-w-xl rounded-[8px] border border-white/10 bg-white/[0.06] p-6 text-center">
         <h2 className="text-2xl font-black text-white">Kurulum tamamlandı.</h2>
         <p className="mt-3 text-slate-300">Bu sayfa artık kullanılamaz.</p>
-        <a href="/digital-center" className="mt-6 inline-flex rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">
+        <Link href="/digital-center" className="mt-6 inline-flex rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">
           Digital Center’a dön
-        </a>
+        </Link>
       </div>
     );
   }

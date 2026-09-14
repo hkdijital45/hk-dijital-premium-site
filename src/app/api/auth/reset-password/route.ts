@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getProfileByAuthUserId, updatePasswordWithAccessToken } from "@/lib/auth";
 import { validateNewPassword } from "@/lib/password-policy";
 import { hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
+import { HIDDEN_ACCESS_COOKIE, HIDDEN_ACCESS_SESSION_TTL_SECONDS, extractClientIp, grantCourtesyHiddenAccessSession } from "@/lib/hidden-access";
 
 export async function POST(request: Request) {
   if (!hasSupabaseConfig()) {
@@ -29,10 +30,31 @@ export async function POST(request: Request) {
         body: JSON.stringify({ must_change_password: false, updated_at: new Date().toISOString() })
       });
     }
-    return NextResponse.json({
+    const response = NextResponse.json({
       ok: true,
       message: "Şifreniz güncellendi. Yeni şifrenizle giriş yapabilirsiniz."
     });
+    // Without this, the ResetPasswordForm's hardcoded redirect to
+    // /digital-center immediately hits the Secret Access Control Center
+    // gate (proxy.ts) and bounces this just-verified user to the homepage
+    // with no way to know the hidden keyboard trigger — see
+    // grantCourtesyHiddenAccessSession's own comment for the full rationale.
+    const hiddenAccessToken = await grantCourtesyHiddenAccessSession({
+      triggerMethod: "password_reset",
+      authenticatedUserId: profile?.id || null,
+      ipAddress: extractClientIp(request.headers),
+      userAgent: request.headers.get("user-agent") || ""
+    });
+    if (hiddenAccessToken) {
+      response.cookies.set(HIDDEN_ACCESS_COOKIE, hiddenAccessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        path: "/",
+        maxAge: HIDDEN_ACCESS_SESSION_TTL_SECONDS
+      });
+    }
+    return response;
   } catch {
     return NextResponse.json(
       { error: "Şifre güncellenemedi. Bağlantının süresini kontrol edip tekrar deneyin." },

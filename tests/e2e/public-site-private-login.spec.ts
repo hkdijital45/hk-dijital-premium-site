@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
-import { hasQaAdminCredentials, qaSkipReason } from "./fixtures/qa-auth";
+import { readFileSync } from "node:fs";
+import { hasQaAdminCredentials, qaSkipReason, QA_ADMIN_STORAGE_STATE_PATH } from "./fixtures/qa-auth";
 
 // Regression coverage for the public-site redesign + private admin login
 // consolidation: no public login entry point should remain, the old public
@@ -7,6 +8,27 @@ import { hasQaAdminCredentials, qaSkipReason } from "./fixtures/qa-auth";
 // visitors, and the private (env-controlled) path must still reach the
 // real login screen and authenticate correctly.
 const PRIVATE_PATH = process.env.PRIVATE_ADMIN_LOGIN_PATH;
+
+// The Secret Access Control Center gate (src/proxy.ts's requiresSecretGate)
+// deliberately covers /digital-center itself, not just /hk-admin — it has
+// done so since the feature's very first commit, and intentionally applies
+// even to an already-logged-in admin (see that file's own comments). So
+// reaching the real login screen — below — requires a valid
+// hk_secret_access_session cookie, the same one global-setup.ts's bootstrap
+// already produces for the whole suite's shared qa-admin.json. Deliberately
+// NOT the full qaAdminStorageState here though: that file also carries
+// hk_auth_session, and an already-authenticated visitor gets redirected
+// straight to /hk-admin instead of seeing the login form — this needs the
+// gate cookie alone so the login screen actually renders its form.
+function hiddenAccessOnlyStorageState() {
+  if (!hasQaAdminCredentials()) return undefined;
+  try {
+    const state = JSON.parse(readFileSync(QA_ADMIN_STORAGE_STATE_PATH, "utf8"));
+    return { ...state, cookies: (state.cookies || []).filter((c: { name: string }) => c.name === "hk_secret_access_session") };
+  } catch {
+    return undefined;
+  }
+}
 
 test("public homepage loads with no page errors", async ({ page }) => {
   const pageErrors: string[] = [];
@@ -47,20 +69,40 @@ test("orphaned legacy login shortcuts (/login, /giris) redirect home instead of 
   }
 });
 
+test("/digital-center and the private path are NOT reachable without a Secret Access session (unauthenticated)", async ({ page }) => {
+  for (const path of ["/digital-center", ...(PRIVATE_PATH ? [`/${PRIVATE_PATH}`] : [])]) {
+    const response = await page.goto(path, { waitUntil: "domcontentloaded" });
+    expect(response?.status()).toBeLessThan(400);
+    await expect(page).toHaveURL(/hk_return=/);
+    const hasLoginForm = await page.locator('input[autocomplete="current-password"]').count();
+    expect(hasLoginForm, `${path} must not show the login form without a Secret Access session`).toBe(0);
+  }
+});
+
 // /digital-center is a deliberate, documented exception: it is the real
-// login page implementation (never renamed), kept reachable directly
-// because password-reset/admin-setup flows already hardcode redirects to it
-// after completing their own token-gated action. It carries noindex/nofollow
-// and is not linked from any public nav/footer (see the other test above).
+// login page implementation (never renamed), kept reachable — once past the
+// Secret Access gate — because password-reset/admin-setup flows already
+// hardcode redirects to it after completing their own token-gated action
+// (and now mint a courtesy Secret Access session themselves so that
+// redirect actually lands, see grantCourtesyHiddenAccessSession). It also
+// carries noindex/nofollow and is not linked from any public nav/footer
+// (see the test above).
 test("/digital-center itself stays functional for internal auth-flow redirects, but is noindexed and unlinked", async ({ page }) => {
+  test.skip(!hasQaAdminCredentials(), qaSkipReason);
+  const storageState = hiddenAccessOnlyStorageState();
+  test.skip(!storageState, qaSkipReason);
+  await page.context().addCookies(storageState!.cookies);
   const response = await page.goto("/digital-center", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBeLessThan(400);
   const robotsMeta = await page.locator('meta[name="robots"]').getAttribute("content");
   expect(robotsMeta).toContain("noindex");
 });
 
-test("private login path loads the real login screen", async ({ page }) => {
+test("private login path loads the real login screen (with a valid Secret Access session)", async ({ page }) => {
   test.skip(!PRIVATE_PATH, "PRIVATE_ADMIN_LOGIN_PATH not configured in this environment.");
+  const storageState = hiddenAccessOnlyStorageState();
+  test.skip(!storageState, qaSkipReason);
+  await page.context().addCookies(storageState!.cookies);
   const response = await page.goto(`/${PRIVATE_PATH}`, { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBeLessThan(400);
   await expect(page.locator('input[autocomplete="current-password"]')).toBeVisible();
@@ -69,6 +111,9 @@ test("private login path loads the real login screen", async ({ page }) => {
 
 test("successful QA admin login via the private path redirects to /hk-admin", async ({ page }) => {
   test.skip(!PRIVATE_PATH || !hasQaAdminCredentials(), PRIVATE_PATH ? qaSkipReason : "PRIVATE_ADMIN_LOGIN_PATH not configured in this environment.");
+  const storageState = hiddenAccessOnlyStorageState();
+  test.skip(!storageState, qaSkipReason);
+  await page.context().addCookies(storageState!.cookies);
   await page.goto(`/${PRIVATE_PATH}`, { waitUntil: "domcontentloaded" });
   await page.fill('input[autocomplete="username"]', process.env.QA_ADMIN_EMAIL!);
   await page.fill('input[autocomplete="current-password"]', process.env.QA_ADMIN_PASSWORD!);

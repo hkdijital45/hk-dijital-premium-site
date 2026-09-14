@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BarChart3, Bell, CalendarCheck, CreditCard, Download, FileText, Lightbulb, PackageCheck, Sparkles, UserRound } from "lucide-react";
 import { getSession, isCustomerPasswordChangeRequired, isCustomerRole, isStaffRole } from "@/lib/auth";
@@ -52,7 +53,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
       <main className="grid min-h-screen place-items-center bg-[#f7f8fb] px-4 text-slate-950">
         <div className="max-w-md rounded-[18px] border border-slate-200 bg-white p-6 text-center shadow-[0_10px_30px_rgba(15,23,42,.06)]">
           <h1 className="text-2xl font-black">Bu sayfaya erişim yetkiniz yok.</h1>
-          <a href="/digital-center" className="mt-5 inline-flex rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Digital Center’a dön</a>
+          <Link href="/digital-center" className="mt-5 inline-flex rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Digital Center’a dön</Link>
         </div>
       </main>
     );
@@ -69,7 +70,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
         <div className="max-w-md rounded-[18px] border border-red-200 bg-white p-6 text-center shadow-[0_10px_30px_rgba(15,23,42,.06)]">
           <h1 className="text-2xl font-black">Bu şubeye erişim yetkiniz bulunmuyor.</h1>
           <p className="mt-3 text-sm leading-6 text-slate-600">Yalnızca hesabınıza atanmış aktif şubeleri görüntüleyebilirsiniz.</p>
-          <a href="/musteri-paneli" className="mt-5 inline-flex rounded-full bg-cyan-500 px-5 py-3 text-sm font-black text-white">Yetkili şubeye dön</a>
+          <Link href="/musteri-paneli" className="mt-5 inline-flex rounded-full bg-cyan-500 px-5 py-3 text-sm font-black text-white">Yetkili şubeye dön</Link>
         </div>
       </main>
     );
@@ -85,7 +86,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
         <div className="max-w-md rounded-[18px] border border-slate-200 bg-white p-6 text-center shadow-[0_10px_30px_rgba(15,23,42,.06)]">
           <h1 className="text-2xl font-black">Bu modüle erişim yetkiniz bulunmuyor.</h1>
           <p className="mt-3 text-sm leading-6 text-slate-600">Bu alan müşteri paneliniz için aktif edilmemiş. Gerekirse HK Dijital ekibinden yetki talep edebilirsiniz.</p>
-          <a href="/musteri-paneli" className="mt-5 inline-flex rounded-full bg-cyan-500 px-5 py-3 text-sm font-black text-white">Panele dön</a>
+          <Link href="/musteri-paneli" className="mt-5 inline-flex rounded-full bg-cyan-500 px-5 py-3 text-sm font-black text-white">Panele dön</Link>
         </div>
       </main>
     );
@@ -313,7 +314,7 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
           ) : null}
           <div className="mt-5 flex flex-wrap gap-2">
             <a href={`/musteri-paneli?module=support&category=package_upgrade&subject=${encodeURIComponent("Paket yükseltme talebi")}&source=package_card&relatedType=package&relatedId=${encodeURIComponent(data.company?.customer_package_name || "")}#destek`} className="rounded-full bg-cyan-600 px-5 py-3 text-sm font-black text-white">Paket yükseltme talebi gönder</a>
-            <a href="/teklif-al" className="rounded-full border border-cyan-200 bg-cyan-50 px-5 py-3 text-sm font-black text-cyan-800">Görüşme talep et</a>
+            <Link href="/teklif-al" className="rounded-full border border-cyan-200 bg-cyan-50 px-5 py-3 text-sm font-black text-cyan-800">Görüşme talep et</Link>
           </div>
         </section>
 

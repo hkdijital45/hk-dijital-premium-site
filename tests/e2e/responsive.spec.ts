@@ -1,4 +1,6 @@
 import { test, expect } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import { hasQaAdminCredentials, qaSkipReason, QA_ADMIN_STORAGE_STATE_PATH } from "./fixtures/qa-auth";
 
 const VIEWPORTS = [
   { name: "mobile", width: 390, height: 844 },
@@ -35,10 +37,25 @@ test("mobile: contact page long content and forms remain usable", async ({ page 
 });
 
 test("desktop: login form dialog stays within the viewport", async ({ page }) => {
+  test.skip(!hasQaAdminCredentials(), qaSkipReason);
   await page.setViewportSize({ width: 1440, height: 900 });
   // /giris and /login now intentionally redirect unauthenticated visitors to
   // the homepage (private admin login consolidation) — /digital-center is
-  // the real, still-reachable login page implementation.
+  // the real login page implementation, reachable once past the Secret
+  // Access Control Center gate (src/proxy.ts), which covers /digital-center
+  // itself, not just /hk-admin. Reuses the hk_secret_access_session cookie
+  // from the suite's shared qa-admin.json bootstrap (global-setup.ts) —
+  // deliberately not the full storageState, whose hk_auth_session would
+  // redirect an already-logged-in admin straight to /hk-admin instead of
+  // showing this login form.
+  let hiddenAccessCookies: unknown[] = [];
+  try {
+    const state = JSON.parse(readFileSync(QA_ADMIN_STORAGE_STATE_PATH, "utf8"));
+    hiddenAccessCookies = (state.cookies || []).filter((c: { name: string }) => c.name === "hk_secret_access_session");
+  } catch {
+    test.skip(true, qaSkipReason);
+  }
+  await page.context().addCookies(hiddenAccessCookies as never);
   await page.goto("/digital-center", { waitUntil: "domcontentloaded" });
   await page.waitForLoadState("domcontentloaded");
   const identityInput = page.locator('input[type="text"]').first();

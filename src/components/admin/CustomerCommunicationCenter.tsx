@@ -704,11 +704,11 @@ export function CustomerCommunicationAdminCenter({ initialCompanyId = "", canMan
 // cards — same mode-switching behavior (customers/team), no giant toolbar.
 export function CommunicationModeSwitch({ active, onChange, customerUnread = 0 }: { active: string; onChange: (value: string) => void; customerUnread?: number }) {
   const options: Array<{ key: string; label: string; badge?: number }> = [
-    { key: "customers", label: "Customer Communication (Müşteri İletişimi)", badge: customerUnread },
-    { key: "team", label: "Team Communication (Ekip İletişimi)" }
+    { key: "customers", label: "Müşteri İletişimi", badge: customerUnread },
+    { key: "team", label: "Ekip İletişimi" }
   ];
   return (
-    <div role="tablist" aria-label="İletişim modu" className="inline-flex items-center gap-1 rounded-[10px] border p-1" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-soft)" }}>
+    <div role="tablist" aria-label="İletişim modu" className="inline-flex flex-wrap items-center gap-1 rounded-[10px] border p-1" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-soft)" }}>
       {options.map((option) => {
         const isActive = option.key === active;
         return (

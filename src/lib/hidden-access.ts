@@ -183,6 +183,59 @@ export async function findValidHiddenAccessSession(token: string): Promise<Hidde
   }
 }
 
+// A courtesy session for a visitor who just completed a REAL, independently
+// verified action (password reset via a Supabase Auth access token, admin
+// setup, super-admin bootstrap) that already proves who they are through a
+// completely different mechanism than the hidden-access secret. Without
+// this, proxy.ts's gate (which intentionally covers /digital-center itself,
+// not just /hk-admin — see requiresSecretGate) bounces them to the homepage
+// right after their reset/setup succeeds, with no way to know the hidden
+// keyboard trigger — a real dead end for a legitimate, already-verified
+// user. Not tied to any hidden_access_keys row (key_id stays null, same as
+// the bootstrap-secret path in /api/secret-access/verify) and logged with
+// its own trigger_method so it's distinguishable from a real secret-code
+// entry in hidden_access_logs. Never throws: the underlying action (the
+// password change itself) already succeeded by the time this runs, so a
+// failure here should degrade to "use the normal secret-access entry
+// point", not undo or block the real action.
+export async function grantCourtesyHiddenAccessSession(params: {
+  triggerMethod: "password_reset" | "admin_setup" | "super_admin_bootstrap";
+  authenticatedUserId?: string | null;
+  ipAddress?: string;
+  userAgent?: string;
+}): Promise<string | null> {
+  const token = generateSessionToken();
+  const expiresAt = new Date(Date.now() + HIDDEN_ACCESS_SESSION_TTL_SECONDS * 1000).toISOString();
+  try {
+    const rows = await supabaseRest<Array<{ id: string }>>("hidden_access_sessions", {
+      method: "POST",
+      body: JSON.stringify({
+        key_id: null,
+        session_token_hash: hashToken(token),
+        ip_address: params.ipAddress || null,
+        user_agent: (params.userAgent || "").slice(0, 500),
+        trigger_method: params.triggerMethod,
+        authenticated_user_id: params.authenticatedUserId || null,
+        authenticated_at: params.authenticatedUserId ? new Date().toISOString() : null,
+        expires_at: expiresAt
+      })
+    });
+    const sessionId = rows[0]?.id || null;
+    await logHiddenAccessEvent({
+      eventType: "SUCCESS",
+      sessionId,
+      authenticatedUserId: params.authenticatedUserId,
+      ipAddress: params.ipAddress,
+      userAgent: params.userAgent,
+      triggerMethod: params.triggerMethod
+    });
+    return token;
+  } catch (error) {
+    console.error("grantCourtesyHiddenAccessSession failed:", error instanceof Error ? error.message : error);
+    return null;
+  }
+}
+
 // Re-exported for callers that need constant-time comparison of raw tokens
 // (not currently needed since lookup is by hash equality in SQL, kept for
 // completeness/parity with the rest of the codebase's secret-comparison

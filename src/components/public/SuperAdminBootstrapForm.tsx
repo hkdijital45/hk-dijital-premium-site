@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 export function SuperAdminBootstrapForm({ enabled = true }: { enabled?: boolean }) {
   const [fullName, setFullName] = useState("");
@@ -73,9 +74,9 @@ export function SuperAdminBootstrapForm({ enabled = true }: { enabled?: boolean 
       {message && (
         <div className="rounded-[8px] bg-emerald-500/10 p-3 text-sm text-emerald-200">
           <p>{message}</p>
-          <a href="/digital-center" className="mt-3 inline-flex rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">
+          <Link href="/digital-center" className="mt-3 inline-flex rounded-full bg-cyan-300 px-4 py-2 text-sm font-black text-slate-950">
             Digital Center’a git
-          </a>
+          </Link>
         </div>
       )}
 
