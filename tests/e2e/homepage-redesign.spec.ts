@@ -116,6 +116,77 @@ test.describe("Hero ecosystem reliability (current MacBook + platform compositio
     expect(overflow).toBeLessThanOrEqual(1);
   });
 
+  test("desktop: the scroll-pinned hero releases cleanly — nothing from it stays visible once the next section is reached", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(300);
+
+    // The hero is a tall (~200vh) scroll-pin wrapper on desktop — its own
+    // rendered height must reflect that, or the cinematic transformation
+    // has no scroll room to play out against. Its own top offset (below the
+    // header) matters too — the pin range is [documentTop, documentTop +
+    // height - viewportHeight]; scrolling relative to raw height alone
+    // under-shoots by that offset and can land still inside the hero.
+    const heroInfo = await page.locator("#hero").evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return { documentTop: r.top + window.scrollY, height: r.height };
+    });
+    expect(heroInfo.height, "desktop hero must be a tall scroll-pin wrapper, not a single-viewport section").toBeGreaterThan(1500);
+
+    // Scroll well past the hero's own bottom into whatever comes next.
+    // `behavior: "instant"` matters: this site sets `html { scroll-behavior:
+    // smooth }`, which only affects *programmatic* scrolls like this one
+    // (native wheel/trackpad input ignores it entirely) — without
+    // overriding it here, `window.scrollTo` would animate toward the target
+    // and a short wait could sample it mid-flight, landing this test still
+    // inside the hero.
+    await page.evaluate((y) => window.scrollTo({ top: y, behavior: "instant" }), heroInfo.documentTop + heroInfo.height + 400);
+    await page.waitForTimeout(300);
+
+    const heroRect = await page.locator("#hero").evaluate((el) => el.getBoundingClientRect());
+    expect(heroRect.bottom, "the hero section itself must have scrolled above the viewport, not stayed pinned").toBeLessThan(0);
+
+    const canvasBox = await page.locator("#hero canvas").first().boundingBox();
+    const canvasOnScreen = !!canvasBox && canvasBox.y < 900 && canvasBox.y + canvasBox.height > 0;
+    expect(canvasOnScreen, "the cinematic canvas must not remain visible/pinned once the hero section is over").toBe(false);
+
+    const macOnScreen = await page.locator("#hero .macbook-mockup-screen").first().boundingBox();
+    const macIntersects = !!macOnScreen && macOnScreen.y < 900 && macOnScreen.y + macOnScreen.height > 0;
+    expect(macIntersects, "the MacBook must not remain visible/pinned once the hero section is over").toBe(false);
+  });
+
+  test("desktop: MacBook and badges genuinely reach visible opacity once scrolled through the hero's reveal point", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(300);
+    const heroInfo = await page.locator("#hero").evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return { documentTop: r.top + window.scrollY, height: r.height };
+    });
+    // Pin range is [documentTop, documentTop + height - viewportHeight];
+    // land right near its end, where the reveal/settle stage should hold.
+    const pinRangeEnd = heroInfo.documentTop + heroInfo.height - 900;
+    await page.evaluate((y) => window.scrollTo({ top: y, behavior: "instant" }), pinRangeEnd - 5);
+    await page.waitForTimeout(400);
+    // Confirm the settled composition (macbook screen) is fully opaque —
+    // not stuck mid-fade or mid-disintegration — at this point in the scroll.
+    const macOpacity = await page.locator("#hero .macbook-mockup-screen").first().evaluate((el) => {
+      let n: HTMLElement | null = el as HTMLElement;
+      while (n && (!n.style || n.style.opacity === "")) n = n.parentElement;
+      return n ? Number(getComputedStyle(n).opacity) : -1;
+    });
+    expect(macOpacity, "MacBook should have reformed to full opacity by the end of the hero's scroll range").toBeGreaterThan(0.8);
+    // The "Performans" result card is one of the badges/cards that only
+    // arrives once the bloom has resolved — confirm it's both attached and
+    // actually opaque, not just present at opacity:0 in the DOM.
+    const perfCardOpacity = await page.locator("#hero").getByText("Performans", { exact: false }).first().evaluate((el) => {
+      let n: HTMLElement | null = el as HTMLElement;
+      while (n && (!n.style || n.style.opacity === "")) n = n.parentElement;
+      return n ? Number(getComputedStyle(n).opacity) : -1;
+    });
+    expect(perfCardOpacity, "the Performans result card should have fully arrived by the end of the hero's scroll range").toBeGreaterThan(0.8);
+  });
+
   test("desktop: all 6 platform marks and both data cards are present in the hero ecosystem", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/", { waitUntil: "domcontentloaded" });

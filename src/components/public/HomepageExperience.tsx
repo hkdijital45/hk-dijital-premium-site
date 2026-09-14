@@ -1,8 +1,8 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
-import { motion, MotionConfig, useMotionValueEvent, useScroll, useTransform } from "framer-motion";
+import { motion, MotionConfig, useMotionValueEvent, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import {
   ArrowRight, BarChart3, CalendarDays, ChevronDown, Clapperboard, ClipboardCheck, Compass, FileSearch2,
   Handshake, LineChart, Map, MessageCircle, MousePointerClick, Rocket, ShieldCheck,
@@ -114,34 +114,74 @@ function WhatsappLink({ href, children, trackingLabel }: { href: string; childre
  */
 
 function Hero({ whatsappUrl }: { whatsappUrl: string }) {
+  const scrollWrapRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({ target: scrollWrapRef, offset: ["start start", "end end"] });
+  const reduced = useReducedMotion();
+  const [pinEligible, setPinEligible] = useState(false);
+  useEffect(() => {
+    const compute = () => setPinEligible(window.innerWidth >= 640);
+    compute();
+    window.addEventListener("resize", compute);
+    return () => window.removeEventListener("resize", compute);
+  }, []);
+
+  // `<main>` (Shell.tsx, shared by every public page) sets `overflow:
+  // hidden` to contain decorative glows sitewide — a well-known side effect
+  // of that is it silently breaks `position: sticky` on any descendant, in
+  // every major browser, regardless of whether the ancestor would ever
+  // actually clip anything vertically. Changing that shared `<main>` is out
+  // of scope for a homepage-only change, so the "pin" is faked with a
+  // scroll-linked transform instead (this is also what Framer Motion's own
+  // docs recommend for exactly this class of pinned-section effect): the
+  // inner viewport is a normal in-flow block, and this compensating
+  // translateY exactly cancels the scroll distance it would otherwise
+  // drift by, holding it visually still until scrollYProgress reaches 1.
+  // Disabled (always 0) below the tablet breakpoint and under
+  // prefers-reduced-motion — both already collapse the wrapper to a normal
+  // auto-height section via CSS, so compensating here would just introduce
+  // an unwanted partial-pin wobble instead of clean normal document flow.
+  const pinY = useTransform(scrollYProgress, (v) => (pinEligible && !reduced ? `${v * 100}vh` : "0vh"));
+  // Text stays readable and stable throughout — only a very small hand-off
+  // fade/lift right at the very end, as the hero is about to release into
+  // the next section, never a dramatic move like the device gets.
+  const textOpacity = useTransform(scrollYProgress, [0, 0.9, 1], [1, 1, 0.92]);
+  const textY = useTransform(scrollYProgress, [0, 0.9, 1], [0, 0, -10]);
+
   return (
-    <section id="hero" className="relative overflow-hidden border-b" style={{ borderColor: "var(--mk-border)" }}>
-      <div className="marketing-glow" style={{ width: 480, height: 480, top: -200, left: "-10%", background: "rgba(124,58,237,.13)" }} aria-hidden="true" />
-      <div className="marketing-glow" style={{ width: 380, height: 380, top: -100, right: "-8%", background: "rgba(37,99,235,.1)" }} aria-hidden="true" />
-      <div className="relative mx-auto grid max-w-7xl items-center gap-14 px-4 py-20 sm:px-6 lg:grid-cols-[1.05fr_.95fr] lg:px-8 lg:py-28">
-        <MarketingReveal>
-          <MarketingEyebrow>Manisa merkezli dijital pazarlama ve reklam ajansı</MarketingEyebrow>
-          <MarketingHeading as="h1" className="mt-6 text-4xl sm:text-6xl lg:text-[4.4rem]">
-            Dijitalde Büyümeyi <span className="marketing-gradient-text">Şansa</span> Bırakmayın
-          </MarketingHeading>
-          <p className="mt-7 max-w-xl text-base leading-8 sm:text-lg" style={{ color: "var(--mk-ink-soft)" }}>
-            HK Dijital; Google Ads, Meta reklamları ve sosyal medya yönetimini tek stratejide birleştirip yapay zekâ destekli görünürlük analiziyle destekleyen ölçülebilir bir dijital büyüme sistemi kurar.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-4">
-            <PrimaryLink href="/teklif-al" trackingLabel="Hero Paketini Bul">Paketini Bul <ArrowRight size={18} /></PrimaryLink>
-            <SecondaryLink href="/hizmetler" trackingLabel="Hero Hizmetleri İncele">Hizmetleri İncele</SecondaryLink>
-            <WhatsappLink href={whatsappUrl} trackingLabel="Hero WhatsApp'tan Görüş">WhatsApp&apos;tan Görüşelim <MessageCircle size={18} /></WhatsappLink>
-          </div>
-          <div className="mt-9 flex flex-wrap gap-2">
-            {["Manisa merkezli", "Türkiye geneli hizmet", "Şeffaf raporlama", "Satış garantisi değil, ölçülebilir sistem"].map((item) => (
-              <MarketingBadge key={item}>{item}</MarketingBadge>
-            ))}
-          </div>
-        </MarketingReveal>
-        <MarketingReveal delay={0.15}>
-          <MacBookEcosystem />
-        </MarketingReveal>
-      </div>
+    <section
+      id="hero"
+      ref={scrollWrapRef}
+      className="relative border-b hero-scroll-wrap"
+      style={{ borderColor: "var(--mk-border)", overflowX: "clip" }}
+    >
+      <motion.div className="hero-scroll-pin flex items-center" style={{ y: pinY }}>
+        <div className="marketing-glow" style={{ width: 480, height: 480, top: -200, left: "-10%", background: "rgba(124,58,237,.13)" }} aria-hidden="true" />
+        <div className="marketing-glow" style={{ width: 380, height: 380, top: -100, right: "-8%", background: "rgba(37,99,235,.1)" }} aria-hidden="true" />
+        <div className="relative mx-auto grid w-full max-w-7xl items-center gap-14 px-4 py-20 sm:px-6 lg:grid-cols-[1.05fr_.95fr] lg:px-8 lg:py-28">
+          <motion.div style={{ opacity: textOpacity, y: textY }}>
+            <MarketingReveal>
+              <MarketingEyebrow>Manisa merkezli dijital pazarlama ve reklam ajansı</MarketingEyebrow>
+              <MarketingHeading as="h1" className="mt-6 text-4xl sm:text-6xl lg:text-[4.4rem]">
+                Dijitalde Büyümeyi <span className="marketing-gradient-text">Şansa</span> Bırakmayın
+              </MarketingHeading>
+              <p className="mt-7 max-w-xl text-base leading-8 sm:text-lg" style={{ color: "var(--mk-ink-soft)" }}>
+                HK Dijital; Google Ads, Meta reklamları ve sosyal medya yönetimini tek stratejide birleştirip yapay zekâ destekli görünürlük analiziyle destekleyen ölçülebilir bir dijital büyüme sistemi kurar.
+              </p>
+              <div className="mt-8 flex flex-wrap gap-4">
+                <PrimaryLink href="/teklif-al" trackingLabel="Hero Paketini Bul">Paketini Bul <ArrowRight size={18} /></PrimaryLink>
+                <SecondaryLink href="/hizmetler" trackingLabel="Hero Hizmetleri İncele">Hizmetleri İncele</SecondaryLink>
+                <WhatsappLink href={whatsappUrl} trackingLabel="Hero WhatsApp'tan Görüş">WhatsApp&apos;tan Görüşelim <MessageCircle size={18} /></WhatsappLink>
+              </div>
+              <div className="mt-9 flex flex-wrap gap-2">
+                {["Manisa merkezli", "Türkiye geneli hizmet", "Şeffaf raporlama", "Satış garantisi değil, ölçülebilir sistem"].map((item) => (
+                  <MarketingBadge key={item}>{item}</MarketingBadge>
+                ))}
+              </div>
+            </MarketingReveal>
+          </motion.div>
+          <MacBookEcosystem progress={scrollYProgress} />
+        </div>
+      </motion.div>
     </section>
   );
 }

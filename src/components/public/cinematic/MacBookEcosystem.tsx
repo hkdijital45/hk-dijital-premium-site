@@ -1,35 +1,47 @@
 "use client";
 
-import { useReducedMotion, motion } from "framer-motion";
+import { useReducedMotion, motion, type MotionValue } from "framer-motion";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { BarChart3, CalendarDays } from "lucide-react";
-import { MacBookMockup, MacBookScreenChip } from "../MacBookMockup";
+import { CinematicMacBook } from "./CinematicMacBook";
 import { FacebookMark, GoogleMark, InstagramMark, MetaMark, TikTokMark, YouTubeMark } from "../PlatformIcons";
 
 /**
- * The homepage hero's cinematic centerpiece, rebuilt to match a supplied
- * reference video frame-by-frame: a calm subject that itself disintegrates
- * into flowing strand/fiber particles, travels outward, coils into a radial
- * formation, blooms, and resolves into the final composition. The MacBook
- * plays the reference's "subject" role — it visibly fades/rotates/dissolves
- * during the transformation, it does not sit still while decorations fly
- * around it.
+ * The homepage hero's cinematic centerpiece: a laptop that itself
+ * disintegrates into flowing strand/fiber particles, travels outward, coils
+ * into a radial formation, blooms, and resolves into the final composition
+ * — driven entirely by SCROLL PROGRESS through the hero section (not a
+ * mount-triggered timer). The parent `Hero()` (HomepageExperience.tsx) owns
+ * a tall (~200vh) section with a `position: sticky` inner viewport and a
+ * `useScroll` hook targeting it; the resulting 0..1 `scrollYProgress`
+ * MotionValue is passed in as `progress`. Everything here — the laptop's
+ * transform/opacity/blur, every badge/card's arrival, and the canvas
+ * particle/strand/bloom system — reads that SAME progress value. There is
+ * deliberately no independent clock: an earlier time-based version had the
+ * canvas and the MacBook/badges on two different clocks that drifted apart
+ * unpredictably; this version has exactly one progress source, so nothing
+ * can desync from anything else. Redraws happen via an imperative
+ * subscription (`progress.on("change", ...)`) rather than a running
+ * requestAnimationFrame loop, so there is zero ongoing cost while the user
+ * isn't scrolling.
  *
- * ONE shared clock (a plain mutable ref, `elapsedRef`, advanced by a single
- * requestAnimationFrame loop below) drives every visible piece: the
- * MacBook's transform/opacity/blur, every platform badge/data card's
- * arrival, AND the canvas particle/strand/bloom system. An earlier version
- * of this component used Framer Motion's own declarative `animate` timeline
- * for the MacBook/badges alongside a *separate* manually-accumulated clock
- * for the canvas — visual QA caught the two clocks drifting apart
- * unpredictably between page loads (Framer's internal animation clock does
- * not start at exactly the same tick as a plain rAF loop started in a
- * sibling effect), so the MacBook and badges would visibly desync from the
- * strand/bloom effect. Driving literally everything off one imperative
- * clock (via direct DOM style mutation on plain refs, not Framer) removes
- * that class of bug entirely: every consumer reads the exact same number
- * every frame.
+ * The laptop visual itself lives in the sibling `CinematicMacBook.tsx` —
+ * deliberately NOT the shared `src/components/public/MacBookMockup.tsx`,
+ * which is also used by `/digital-center` and `/musteri-paneli` and whose
+ * base collapses to a hinge sliver with no visible keyboard deck (reading
+ * as a flat tablet, not a laptop). Building a new component here means
+ * zero risk to those other surfaces.
+ *
+ * Mobile deliberately does not use the scroll-progress model at all — a
+ * bounded sticky-pinned scroll choreography on a small touch viewport reads
+ * as a "scroll trap," not a website. Below the tablet breakpoint this
+ * component instead plays one short, lightweight, CSS-transition-driven
+ * entrance (laptop settles in, three badges follow) shortly after mount,
+ * with no canvas particle system at all. The parent's own section markup
+ * also drops the tall/sticky treatment below that same breakpoint (via a
+ * CSS media query, not a JS/JSX branch — see Hero()), so mobile never
+ * enters the pinned scroll choreography in the first place.
  *
  * Reduced motion: the JSX/`style` markup React actually renders is a fixed,
  * unconditional value for every element (never branched on
@@ -43,38 +55,31 @@ import { FacebookMark, GoogleMark, InstagramMark, MetaMark, TikTokMark, YouTubeM
  * imperatively after mount, which never touches hydration at all. That
  * effect uses useLayoutEffect (client-only; a no-op during SSR) so a
  * reduced-motion visitor's very first paint already reflects the settled
- * state, with zero flash of the pre-animation pose.
+ * state, with zero flash of the pre-animation pose, and never subscribes to
+ * scroll at all.
  */
 
-// ---- Timeline (seconds) — recalibrated against a live-production visual
-// fidelity audit (frame-by-frame comparison against the reference video),
-// which found three concrete gaps against the first cut of this timeline:
-// disintegration started too late (MacBook sat fully solid too long),
-// strand density read as "a handful of thin lines" instead of a fiber mass,
-// and the bloom flashed and faded almost immediately instead of holding.
-// This timeline fixes the pacing; PARTICLE_START deliberately precedes
-// ROTATE_END so strands begin escaping the MacBook's edges *before* its own
-// rotation has finished — the two stages overlap instead of handing off
-// abruptly — and RADIAL_END/BLOOM_RISE_END/BLOOM_HOLD_END are spaced out so
-// the bloom gets a real, held beat before the reveal begins. ----
-const CALM_END = 1.7;
-const ROTATE_END = 2.9;
-const PARTICLE_START = 2.2; // strands begin escaping before rotation finishes
-const DISINTEGRATE_END = 3.6;
-const TRAVEL_END = 4.9;
-const RADIAL_END = 7.3; // coil formation completes
-const BLOOM_RISE_END = 8.0; // bloom rises to peak
-const BLOOM_HOLD_END = 8.7; // bloom holds near peak — the viewer gets a real beat to register it
-const REVEAL_START = BLOOM_HOLD_END; // reveal never begins before the hold ends
-const REVEAL_END = 9.5;
-const SETTLE_END = 10.2;
+// ---- Progress timeline (0..1 fractions of the hero's scroll range) —
+// carried over proportionally from a previously visually-calibrated
+// time-based version (a live-production frame-by-frame audit against a
+// reference video tuned these exact proportions: early overlap between
+// rotation and disintegration, a dense strand phase, and a held bloom
+// before reveal), just re-expressed as fractions instead of seconds so the
+// same shape now runs off scroll position instead of a timer. ----
+const P_CALM_END = 0.167;
+const P_PARTICLE_START = 0.216; // strands begin escaping before rotation finishes
+const P_ROTATE_END = 0.284;
+const P_DISINTEGRATE_END = 0.353;
+const P_TRAVEL_END = 0.48;
+const P_RADIAL_END = 0.716; // coil formation completes
+const P_BLOOM_RISE_END = 0.784; // bloom rises to peak
+const P_BLOOM_HOLD_END = 0.853; // bloom holds near peak
+const P_REVEAL_START = P_BLOOM_HOLD_END; // reveal never begins before the hold ends
+const P_REVEAL_END = 0.931;
 
-// Badges/cards emerge FROM the transformation's bloom rather than fading in
-// independently — arrival never starts before the bloom has held its peak,
-// so they read as what the bloom resolves into, not a separate step.
-const ARRIVAL_START = REVEAL_START;
-const ARRIVAL_STAGGER = 0.08;
-const ARRIVAL_DURATION = 0.95;
+const ARRIVAL_START = P_REVEAL_START;
+const ARRIVAL_STAGGER = 0.012;
+const ARRIVAL_DURATION = 0.08;
 
 // Client-only alias so the one-shot style-setting effect below applies
 // before first paint (avoiding any reduced-motion flash) without ever
@@ -86,7 +91,7 @@ function clamp01(v: number) { return Math.max(0, Math.min(1, v)); }
 function easeOutCubic(t: number) { return 1 - Math.pow(1 - t, 3); }
 function easeInOutCubic(t: number) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
 
-// Samples a piecewise-eased keyframe track at absolute time `t` (seconds).
+// Samples a piecewise-eased keyframe track at progress `t` (0..1).
 function sampleTrack(times: number[], values: number[], t: number): number {
   if (t <= times[0]) return values[0];
   const last = times.length - 1;
@@ -100,13 +105,21 @@ function sampleTrack(times: number[], values: number[], t: number): number {
   return values[last];
 }
 
-const MAC_TIMES = [0, CALM_END, ROTATE_END, DISINTEGRATE_END, BLOOM_HOLD_END, REVEAL_END, SETTLE_END];
-const MAC_OPACITY = [0, 1, 1, 0.12, 0.06, 1, 1];
-const MAC_Y = [26, 0, -3, -8, -6, 2, 0];
-const MAC_ROTATE_X = [9, 2, 4, 6, 4, 1, 0];
-const MAC_ROTATE_Y = [0, 0, 34, 46, 50, 6, 0];
-const MAC_SCALE = [0.92, 1, 1.04, 0.72, 0.68, 1.06, 1];
-const MAC_BLUR = [6, 0, 0, 4, 6, 1, 0];
+// Progress 0 is page-load, no scroll yet — per "PHASE A: MacBook is fully
+// visible in the hero composition" the laptop must already be in its
+// settled calm pose right there, not fading in only once the user starts
+// scrolling (an earlier version started this track at opacity 0, which
+// left the whole device invisible for any visitor who never scrolled).
+// Resting tilt is non-zero even at progress 0 so it always reads as a 3D
+// object, not a flat front-on panel; ROTATE_END pushes it into a much
+// deeper turn as the transformation begins.
+const MAC_TIMES = [0, P_ROTATE_END, P_DISINTEGRATE_END, P_BLOOM_HOLD_END, P_REVEAL_END, 1];
+const MAC_OPACITY = [1, 1, 0.12, 0.06, 1, 1];
+const MAC_Y = [0, -3, -8, -6, 2, 0];
+const MAC_ROTATE_X = [4, 5, 6, 4, 2, 3];
+const MAC_ROTATE_Y = [-9, 30, 44, 50, 4, -9];
+const MAC_SCALE = [1, 1.03, 0.72, 0.68, 1.05, 1];
+const MAC_BLUR = [0, 0, 4, 6, 1, 0];
 
 function applyMacStyle(el: HTMLDivElement, t: number) {
   const opacity = sampleTrack(MAC_TIMES, MAC_OPACITY, t);
@@ -121,14 +134,14 @@ function applyMacStyle(el: HTMLDivElement, t: number) {
 }
 
 type BadgeState = { x: number; y: number; scale: number; opacity: number };
-function badgeStateAt(t: number, delay: number, from: { x: number; y: number }): BadgeState {
+function badgeStateAt(t: number, delay: number, duration: number, from: { x: number; y: number }): BadgeState {
   if (t <= delay) return { x: from.x, y: from.y, scale: 0.25, opacity: 0 };
-  const localT = clamp01((t - delay) / ARRIVAL_DURATION);
+  const localT = clamp01((t - delay) / duration);
   const e = easeOutCubic(localT);
   return { x: lerp(from.x, 0, e), y: lerp(from.y, 0, e), scale: lerp(0.25, 1, e), opacity: lerp(0, 1, e) };
 }
-function applyBadgeStyle(el: HTMLDivElement, t: number, delay: number, from: { x: number; y: number }) {
-  const s = badgeStateAt(t, delay, from);
+function applyBadgeStyle(el: HTMLDivElement, t: number, delay: number, duration: number, from: { x: number; y: number }) {
+  const s = badgeStateAt(t, delay, duration, from);
   el.style.opacity = String(s.opacity);
   el.style.transform = `translate(${s.x}px, ${s.y}px) scale(${s.scale})`;
 }
@@ -207,15 +220,11 @@ type Particle = {
   trail: Array<{ x: number; y: number }>;
 };
 
-// Fraction of the particles' active window (PARTICLE_START..RADIAL_END)
+// Fraction of the particles' active window (P_PARTICLE_START..P_RADIAL_END)
 // spent in the outward "flow" phase before switching to the inward radial
-// coil — derived from TRAVEL_END so the two phase boundaries stay in sync
+// coil — derived from P_TRAVEL_END so the two phase boundaries stay in sync
 // with the named timeline above instead of an arbitrary constant.
-const FLOW_SPLIT = (TRAVEL_END - PARTICLE_START) / (RADIAL_END - PARTICLE_START);
-// Gentle continued rotation applied to the coiled core during the bloom
-// hold (after the coil has fully formed) so the bloom reads as a living,
-// slowly-turning mass rather than a frozen still frame during its hold.
-const HOLD_SPIN_RATE = 0.55;
+const FLOW_SPLIT = (P_TRAVEL_END - P_PARTICLE_START) / (P_RADIAL_END - P_PARTICLE_START);
 
 const VIOLET: [number, number, number] = [124, 58, 237];
 const GOLD: [number, number, number] = [251, 191, 36];
@@ -259,8 +268,7 @@ function generateParticles(rect: { x: number; y: number; w: number; h: number },
     const outY = oy + dy * dist;
 
     // Bulge the flight path off a straight line so strands curve and cross
-    // each other instead of reading as isolated straight spokes — this is
-    // what turns a handful of lines into a fiber MASS.
+    // each other instead of reading as isolated straight spokes.
     const mx = (ox + outX) / 2, my = (oy + outY) / 2;
     const perpLen = Math.hypot(outX - ox, outY - oy) || 1;
     const perpX = -(outY - oy) / perpLen, perpY = (outX - ox) / perpLen;
@@ -287,7 +295,7 @@ function generateParticles(rect: { x: number; y: number; w: number; h: number },
   return out;
 }
 
-function particlePos(p: Particle, rawProg: number, holdElapsed: number, center: { x: number; y: number }): { x: number; y: number; alpha: number } | null {
+function particlePos(p: Particle, rawProg: number, center: { x: number; y: number }): { x: number; y: number; alpha: number } | null {
   const local = clamp01((rawProg - p.stagger) / (1 - p.stagger));
   if (local <= 0) return null;
   const fadeIn = clamp01(local / 0.08);
@@ -302,10 +310,7 @@ function particlePos(p: Particle, rawProg: number, holdElapsed: number, center: 
   }
   const t2 = easeInOutCubic((local - FLOW_SPLIT) / (1 - FLOW_SPLIT));
   const radius = lerp(p.outR, p.gold ? p.coilR * 0.55 : p.coilR, t2);
-  // Once the coil has fully formed (t2 reaches 1), keep it slowly turning
-  // through the bloom hold rather than freezing — a still frame during a
-  // multi-second hold would read as dead, not as energy building.
-  const angle = p.angle + p.spin * t2 + (t2 >= 1 ? HOLD_SPIN_RATE * holdElapsed : 0);
+  const angle = p.angle + p.spin * t2;
   const goldPull = p.gold ? 1.15 : 1;
   return {
     x: center.x + Math.cos(angle) * radius * goldPull,
@@ -316,7 +321,7 @@ function particlePos(p: Particle, rawProg: number, holdElapsed: number, center: 
 
 /* ------------------------------- Main component ------------------------------- */
 
-export function MacBookEcosystem() {
+export function MacBookEcosystem({ progress }: { progress: MotionValue<number> }) {
   const reduced = useReducedMotion();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const macRef = useRef<HTMLDivElement>(null);
@@ -349,13 +354,20 @@ export function MacBookEcosystem() {
     if (!ctx) return;
 
     const isReduced = !!reduced;
-    // Desktop/tablet raised materially per visual-fidelity audit: the prior
-    // counts (130/60) read as "a handful of thin lines" against the
-    // reference's dense fiber mass. Mobile is kept light on purpose (already
-    // a simplified fallback with fewer badges and no data cards).
-    const count = tier === "desktop" ? 240 : tier === "tablet" ? 120 : 28;
+    // Desktop/tablet raised materially per visual-fidelity audit: sparse
+    // counts read as "a handful of thin lines" against the reference's
+    // dense fiber mass. Mobile skips the canvas entirely (see below).
+    const count = tier === "desktop" ? 240 : tier === "tablet" ? 120 : 0;
     let particles: Particle[] = [];
     let center = { x: 0, y: 0 };
+
+    const applyAll = (t: number) => {
+      applyMacStyle(mac, t);
+      for (const { node, delay } of badgeConfigs) {
+        const el = badgeElsRef.current.get(node.key);
+        if (el) applyBadgeStyle(el, t, delay, ARRIVAL_DURATION, node.flyFrom);
+      }
+    };
 
     const resize = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -376,66 +388,26 @@ export function MacBookEcosystem() {
       const offsetY = mac.offsetTop - container.offsetTop;
       ctx.setTransform(dpr, 0, 0, dpr, -offsetX * dpr, -offsetY * dpr);
       const rect = { x: mac.offsetLeft, y: mac.offsetTop, w: mac.offsetWidth, h: mac.offsetHeight };
-      particles = generateParticles(rect, count);
+      if (count > 0) particles = generateParticles(rect, count);
       center = { x: rect.x + rect.w / 2, y: rect.y + rect.h / 2 };
     };
     resize();
     const ro = new ResizeObserver(resize);
     ro.observe(container);
 
-    let visible = true;
-    const io = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; }, { threshold: 0.05 });
-    io.observe(wrapper);
-
-    const applyAll = (t: number) => {
-      applyMacStyle(mac, t);
-      for (const { node, delay } of badgeConfigs) {
-        const el = badgeElsRef.current.get(node.key);
-        if (el) applyBadgeStyle(el, t, delay, node.flyFrom);
-      }
-    };
-
-    if (isReduced) {
-      // Reduced motion: jump straight to the fully settled frame, draw no
-      // particles at all, and never start the loop — zero ongoing cost and
-      // (via useIsoLayoutEffect) zero visible flash of the pre-animation pose.
-      applyAll(SETTLE_END);
+    const drawParticles = (t: number) => {
       ctx.clearRect(-9999, -9999, 99999, 99999);
-      return () => { ro.disconnect(); io.disconnect(); };
-    }
+      if (count === 0) return;
 
-    let raf = 0;
-    let elapsed = 0;
-    let last = performance.now();
-
-    const draw = (now: number) => {
-      const dt = (now - last) / 1000;
-      last = now;
-      if (visible) elapsed += dt;
-
-      applyAll(elapsed);
-
-      if (elapsed > SETTLE_END + 0.5) { ctx.clearRect(-9999, -9999, 99999, 99999); return; }
-      raf = requestAnimationFrame(draw);
-      if (!visible) return;
-
-      ctx.clearRect(-9999, -9999, 99999, 99999);
-      const winStart = PARTICLE_START;
-      const winEnd = RADIAL_END;
-      const rawProg = clamp01((elapsed - winStart) / (winEnd - winStart));
-      const holdElapsed = Math.max(0, elapsed - RADIAL_END);
-      // Strands stay fully visible through the entire bloom hold (not just
-      // up to its rise) and only fade out once the reveal actually starts —
-      // the audit's "reveal begins before the bloom has held" gap was partly
-      // this: strands (and the bloom) used to fade before badges arrived.
+      const rawProg = clamp01((t - P_PARTICLE_START) / (P_RADIAL_END - P_PARTICLE_START));
       let globalFade = 1;
-      if (elapsed > BLOOM_HOLD_END) globalFade = 1 - clamp01((elapsed - BLOOM_HOLD_END) / (REVEAL_END - BLOOM_HOLD_END));
-      if (elapsed < winStart || globalFade <= 0.001) return;
+      if (t > P_BLOOM_HOLD_END) globalFade = 1 - clamp01((t - P_BLOOM_HOLD_END) / (P_REVEAL_END - P_BLOOM_HOLD_END));
+      if (t < P_PARTICLE_START || globalFade <= 0.001) return;
 
       ctx.globalCompositeOperation = "lighter";
       for (const p of particles) {
-        const pos = particlePos(p, rawProg, holdElapsed, center);
-        if (!pos) continue;
+        const pos = particlePos(p, rawProg, center);
+        if (!pos) { p.trail.length = 0; continue; }
         p.trail.push({ x: pos.x, y: pos.y });
         if (p.trail.length > p.trailMax) p.trail.shift();
         const baseAlpha = pos.alpha * globalFade;
@@ -455,24 +427,22 @@ export function MacBookEcosystem() {
       }
 
       // Bloom: rises as the coil completes, HOLDS at peak brightness for a
-      // deliberate beat, then fades only once the reveal begins — the
-      // three-phase rise/hold/fade shape the audit found missing (the prior
-      // version rose and faded almost immediately, with no held peak).
-      const bloomRiseStart = RADIAL_END - 0.3;
+      // deliberate beat, then fades only once the reveal begins. A gentle
+      // pulse during the hold is driven by `t` itself (not real time), so
+      // it stays a pure function of scroll progress.
+      const bloomRiseStart = P_RADIAL_END - 0.03;
       let intensity = 0;
-      if (elapsed >= bloomRiseStart && elapsed < BLOOM_RISE_END) {
-        intensity = easeOutCubic(clamp01((elapsed - bloomRiseStart) / (BLOOM_RISE_END - bloomRiseStart)));
-      } else if (elapsed >= BLOOM_RISE_END && elapsed < BLOOM_HOLD_END) {
+      if (t >= bloomRiseStart && t < P_BLOOM_RISE_END) {
+        intensity = easeOutCubic(clamp01((t - bloomRiseStart) / (P_BLOOM_RISE_END - bloomRiseStart)));
+      } else if (t >= P_BLOOM_RISE_END && t < P_BLOOM_HOLD_END) {
         intensity = 1;
-      } else if (elapsed >= BLOOM_HOLD_END && elapsed <= REVEAL_END) {
-        intensity = 1 - easeInOutCubic(clamp01((elapsed - BLOOM_HOLD_END) / (REVEAL_END - BLOOM_HOLD_END)));
+      } else if (t >= P_BLOOM_HOLD_END && t <= P_REVEAL_END) {
+        intensity = 1 - easeInOutCubic(clamp01((t - P_BLOOM_HOLD_END) / (P_REVEAL_END - P_BLOOM_HOLD_END)));
       }
       if (intensity > 0.001) {
-        const riseProg = clamp01((elapsed - bloomRiseStart) / (BLOOM_RISE_END - bloomRiseStart));
+        const riseProg = clamp01((t - bloomRiseStart) / (P_BLOOM_RISE_END - bloomRiseStart));
         const maxRadius = Math.min(center.x, 90);
-        // A tiny sinusoidal pulse during the hold keeps the bloom reading as
-        // a living, energetic core rather than a static painted circle.
-        const pulse = elapsed >= BLOOM_RISE_END && elapsed < BLOOM_HOLD_END ? 1 + Math.sin(elapsed * 5) * 0.035 : 1;
+        const pulse = t >= P_BLOOM_RISE_END && t < P_BLOOM_HOLD_END ? 1 + Math.sin(t * 140) * 0.035 : 1;
         const radius = lerp(6, maxRadius, easeOutCubic(riseProg)) * pulse;
         const grad = ctx.createRadialGradient(center.x, center.y, 0, center.x, center.y, radius);
         grad.addColorStop(0, `rgba(255,255,255,${(0.97 * intensity).toFixed(3)})`);
@@ -487,17 +457,61 @@ export function MacBookEcosystem() {
       ctx.globalCompositeOperation = "source-over";
     };
 
-    raf = requestAnimationFrame(draw);
-    return () => {
-      cancelAnimationFrame(raf);
-      ro.disconnect();
-      io.disconnect();
+    if (isReduced) {
+      // Reduced motion: jump straight to the fully settled frame, draw no
+      // particles at all, never subscribe to scroll — zero ongoing cost and
+      // (via useIsoLayoutEffect) zero visible flash of the pre-animation pose.
+      applyAll(1);
+      ctx.clearRect(-9999, -9999, 99999, 99999);
+      return () => { ro.disconnect(); };
+    }
+
+    if (tier === "mobile") {
+      // Mobile: no scroll-progress model, no canvas — a single short
+      // CSS-transition-driven entrance instead of the full cinematic.
+      mac.style.transition = "opacity .6s cubic-bezier(.16,1,.3,1), transform .6s cubic-bezier(.16,1,.3,1), filter .6s ease";
+      for (const { node, delay } of badgeConfigs) {
+        const el = badgeElsRef.current.get(node.key);
+        if (el) el.style.transition = `opacity .5s cubic-bezier(.16,1,.3,1) ${delay}s, transform .5s cubic-bezier(.16,1,.3,1) ${delay}s`;
+      }
+      applyAll(0);
+      const raf = requestAnimationFrame(() => requestAnimationFrame(() => applyAll(1)));
+      return () => { cancelAnimationFrame(raf); ro.disconnect(); };
+    }
+
+    // Desktop/tablet: still exactly one source of truth (scroll-derived
+    // `progress`, owned by the parent's useScroll) — but sampled via a
+    // lightweight rAF loop rather than only on `progress`'s own "change"
+    // events. Native scroll events (what drives those change events) don't
+    // fire densely enough for the particle trail history to read as smooth
+    // curves — sampling the SAME MotionValue every frame instead (never
+    // accumulating any independent time/state of its own) keeps rendering
+    // fluid without reintroducing a second clock. The loop is paused
+    // whenever the hero has scrolled out of view.
+    mac.style.transition = "none";
+    for (const { node } of badgeConfigs) {
+      const el = badgeElsRef.current.get(node.key);
+      if (el) el.style.transition = "none";
+    }
+    let visible = true;
+    const io = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; }, { threshold: 0.02 });
+    io.observe(wrapper);
+
+    let raf = 0;
+    const tick = () => {
+      raf = requestAnimationFrame(tick);
+      if (!visible) return;
+      const t = progress.get();
+      applyAll(t);
+      drawParticles(t);
     };
+    raf = requestAnimationFrame(tick);
+    return () => { cancelAnimationFrame(raf); io.disconnect(); ro.disconnect(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tier, reduced]);
 
   return (
-    <div ref={wrapperRef} className="relative mx-auto w-full max-w-lg py-6" style={{ perspective: 1200 }}>
+    <div ref={wrapperRef} className="relative mx-auto w-full max-w-lg py-6" style={{ perspective: 1400 }}>
       {/* Ambient glow: dim at rest, rises through the transformation, settles to a soft ambient wash. This is the one purely-decorative piece still left on Framer's own declarative timeline (a plain fade/scale wash, not something that needs frame-perfect sync with the strand/bloom system) — reduced-motion users land directly on its last keyframe via MotionConfig's duration collapse, never the raw start value. */}
       <motion.div
         className="pointer-events-none absolute inset-0 rounded-full blur-3xl"
@@ -505,12 +519,12 @@ export function MacBookEcosystem() {
         aria-hidden="true"
         initial={{ opacity: 0.2, scale: 0.8 }}
         animate={{ opacity: [0.2, 0.24, 0.42, 0.9, 0.48], scale: [0.8, 0.85, 1.0, 1.35, 1.05] }}
-        transition={{ duration: SETTLE_END, times: [0, CALM_END / SETTLE_END, ROTATE_END / SETTLE_END, BLOOM_HOLD_END / SETTLE_END, 1], ease: "easeInOut" }}
+        transition={{ duration: 1.6, times: [0, P_CALM_END, P_ROTATE_END, P_BLOOM_HOLD_END, 1], ease: "easeInOut" }}
       />
 
-      {/* The subject itself: calm -> rotates/tilts -> dissolves (fades, shrinks, blurs) while the canvas strands take over -> stays mostly hidden through the radial/bloom stages -> reforms at the reveal. Styled entirely by the single shared clock above via direct DOM mutation — this inline style is only the safe, unconditional SSR/first-paint value. */}
-      <div ref={macRef} style={{ opacity: 0, transform: "translateY(26px) scale(0.92) rotateX(9deg) rotateY(0deg)", filter: "blur(6px)", transformStyle: "preserve-3d" }}>
-        <MacBookMockup
+      {/* The subject itself: calm -> rotates/tilts -> dissolves (fades, shrinks, blurs) while the canvas strands take over -> stays mostly hidden through the radial/bloom stages -> reforms at the reveal. Styled entirely by scroll progress above via direct DOM mutation — this inline style is only the safe, unconditional SSR/first-paint value. */}
+      <div ref={macRef} style={{ opacity: 1, transform: "translateY(0px) scale(1) rotateX(4deg) rotateY(-9deg)", filter: "none", transformStyle: "preserve-3d" }}>
+        <CinematicMacBook
           screen={
             <div className="flex h-full flex-col gap-[6%] p-[7%]">
               <div className="flex items-center justify-between">
@@ -526,8 +540,14 @@ export function MacBookEcosystem() {
                 ))}
               </div>
               <div className="grid gap-2">
-                <MacBookScreenChip label="Google Ads kampanyası" note="Yayında" />
-                <MacBookScreenChip label="Instagram içerik takvimi" note="Bu hafta 4 gönderi" />
+                <div className="macbook-screen-chip">
+                  <span className="macbook-screen-dot" />
+                  <span className="min-w-0"><span className="block truncate text-[11px] font-black text-white">Google Ads kampanyası</span><span className="block truncate text-[9px] text-cyan-100/70">Yayında</span></span>
+                </div>
+                <div className="macbook-screen-chip">
+                  <span className="macbook-screen-dot" />
+                  <span className="min-w-0"><span className="block truncate text-[11px] font-black text-white">Instagram içerik takvimi</span><span className="block truncate text-[9px] text-cyan-100/70">Bu hafta 4 gönderi</span></span>
+                </div>
               </div>
               <p className="mt-auto text-[8px] leading-4 text-slate-500">Örnek/illüstratif çalışma alanı görünümü.</p>
             </div>
@@ -535,7 +555,7 @@ export function MacBookEcosystem() {
         />
       </div>
 
-      {/* The disintegration/strand/radial-bloom transformation itself — an imperative canvas engine, entirely client-driven. */}
+      {/* The disintegration/strand/radial-bloom transformation itself — an imperative canvas engine, entirely scroll-driven (empty on mobile). */}
       <div ref={containerRef} className="pointer-events-none absolute -inset-[15%]" aria-hidden="true">
         <canvas ref={canvasRef} className="absolute left-0 top-0" />
       </div>
@@ -548,7 +568,7 @@ export function MacBookEcosystem() {
         <EcoCard key={node.key} node={node} domRef={(el) => { if (el) badgeElsRef.current.set(node.key, el); else badgeElsRef.current.delete(node.key); }} />
       ))}
 
-      {/* Mobile: same grammar, compact — 3 marks only, lighter particle count, no data cards, so the hero stays light there. */}
+      {/* Mobile: same grammar, compact — 3 marks only, no data cards, no canvas, so the hero stays light there. */}
       {mobilePlatformNodes.map((node) => (
         <EcoBadge key={node.key} node={node} domRef={(el) => { if (el) badgeElsRef.current.set(node.key, el); else badgeElsRef.current.delete(node.key); }} displayClass="grid md:hidden size-11" />
       ))}
