@@ -1,276 +1,460 @@
 "use client";
 
-import { useReducedMotion, motion, useMotionValue, useTransform, animate } from "framer-motion";
-import { useEffect } from "react";
+import { useReducedMotion, motion } from "framer-motion";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { BarChart3, CalendarDays } from "lucide-react";
 import { MacBookMockup, MacBookScreenChip } from "../MacBookMockup";
 import { FacebookMark, GoogleMark, InstagramMark, MetaMark, TikTokMark, YouTubeMark } from "../PlatformIcons";
 
 /**
- * The homepage hero's cinematic centerpiece: a calm MacBook that "activates,"
- * dissolves into flowing data strands, and blooms into the real HK Dijital
- * ecosystem (Google/Meta/Instagram/Facebook/TikTok/YouTube + two result
- * cards) — one continuous, mount-triggered sequence (not scroll-linked, so
- * it can never repeat the old scroll-jacked-stage bug this codebase already
- * fixed once). Motion grammar: calm -> activation -> transformation ->
- * flowing strands -> radial bloom -> settle, over ~8s, matching the
- * reference video's own face -> strand-explosion -> starburst -> reveal arc.
+ * The homepage hero's cinematic centerpiece, rebuilt to match a supplied
+ * reference video frame-by-frame: a calm subject that itself disintegrates
+ * into flowing strand/fiber particles, travels outward, coils into a radial
+ * formation, blooms, and resolves into the final composition. The MacBook
+ * plays the reference's "subject" role — it visibly fades/rotates/dissolves
+ * during the transformation, it does not sit still while decorations fly
+ * around it.
  *
- * Reduced motion: every motion.* element below always declares the SAME
- * `initial`/`animate` regardless of prefers-reduced-motion — never branched
- * on a `reduced` boolean read at render time. HomepageExperience already
- * wraps the whole page in <MotionConfig reducedMotion="user">, which
- * collapses these transitions to their instant final state for
- * reduced-motion users automatically. Branching the JSX/initial-prop VALUES
- * on useReducedMotion() here directly caused a real bug during development:
- * that hook resolves synchronously to `true` in a reduced-motion browser
- * context but the server has no matchMedia, so the very first client render
- * disagreed with the server-rendered HTML -> React hydration error #418 ->
- * the whole #hero subtree got torn down and remounted. Do not reintroduce
- * that pattern here.
+ * ONE shared clock (a plain mutable ref, `elapsedRef`, advanced by a single
+ * requestAnimationFrame loop below) drives every visible piece: the
+ * MacBook's transform/opacity/blur, every platform badge/data card's
+ * arrival, AND the canvas particle/strand/bloom system. An earlier version
+ * of this component used Framer Motion's own declarative `animate` timeline
+ * for the MacBook/badges alongside a *separate* manually-accumulated clock
+ * for the canvas — visual QA caught the two clocks drifting apart
+ * unpredictably between page loads (Framer's internal animation clock does
+ * not start at exactly the same tick as a plain rAF loop started in a
+ * sibling effect), so the MacBook and badges would visibly desync from the
+ * strand/bloom effect. Driving literally everything off one imperative
+ * clock (via direct DOM style mutation on plain refs, not Framer) removes
+ * that class of bug entirely: every consumer reads the exact same number
+ * every frame.
+ *
+ * Reduced motion: the JSX/`style` markup React actually renders is a fixed,
+ * unconditional value for every element (never branched on
+ * useReducedMotion()) — that hook resolves to `null` during SSR (no
+ * matchMedia) but can resolve synchronously on the client's very first
+ * render, so branching rendered markup on it disagrees with the
+ * server-rendered HTML -> React hydration error #418 (root-caused and
+ * fixed sitewide already; this rewrite must not reintroduce it). All the
+ * actual motion — including the reduced-motion "jump straight to settled"
+ * behavior — happens via this file's *own* effect mutating DOM styles
+ * imperatively after mount, which never touches hydration at all. That
+ * effect uses useLayoutEffect (client-only; a no-op during SSR) so a
+ * reduced-motion visitor's very first paint already reflects the settled
+ * state, with zero flash of the pre-animation pose.
  */
 
-// ---- Timeline (seconds) — mirrors the reference video's own beat. ----
-const CALM_END = 1.5;
-const ACTIVATE_END = 2.5;
-const TRANSFORM_END = 4.0;
-const FLOW_END = 5.5;
-const BLOOM_END = 7.0;
-const SETTLE_END = 8.0;
-const T = (s: number) => s / SETTLE_END;
+// ---- Timeline (seconds) — mapped proportionally from a dense frame-by-frame
+// analysis of the reference video (subject intact ~0-2.5s, rotation
+// ~2.5-4.5s, disintegration ~4.5-5.3s, strand stretch ~5.0-6.5s, strand
+// travel ~5.5-6.8s, radial reorganize ~6.5-7.8s, bloom ~7.8-8.4s, reveal
+// ~8.3-9.0s). ----
+const CALM_END = 2.2;
+const ROTATE_END = 3.6;
+const DISINTEGRATE_END = 4.6;
+const TRAVEL_END = 6.0;
+const RADIAL_END = 7.2;
+const BLOOM_END = 7.8;
+const REVEAL_END = 8.8;
+const SETTLE_END = 9.3;
 
-// A cubic bezier from the MacBook screen's center to a node's landing spot,
-// shared by the visible connector line AND the traveling spark (sampled
-// directly from these same four points, so the spark can never drift off
-// the line it's supposedly following).
-type Curve = [[number, number], [number, number], [number, number], [number, number]];
+// Badges/cards emerge FROM the transformation's bloom rather than fading in
+// independently — arrival starts just before the bloom peaks and finishes
+// shortly after, so they read as what the bloom resolves into.
+const ARRIVAL_START = BLOOM_END - 0.3; // 7.5s
+const ARRIVAL_STAGGER = 0.1;
+const ARRIVAL_DURATION = 1.1;
 
-function curveToPath([[x0, y0], [x1, y1], [x2, y2], [x3, y3]]: Curve): string {
-  return `M${x0},${y0} C${x1},${y1} ${x2},${y2} ${x3},${y3}`;
+// Client-only alias so the one-shot style-setting effect below applies
+// before first paint (avoiding any reduced-motion flash) without ever
+// calling the real useLayoutEffect during server rendering.
+const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+function lerp(a: number, b: number, t: number) { return a + (b - a) * t; }
+function clamp01(v: number) { return Math.max(0, Math.min(1, v)); }
+function easeOutCubic(t: number) { return 1 - Math.pow(1 - t, 3); }
+function easeInOutCubic(t: number) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+
+// Samples a piecewise-eased keyframe track at absolute time `t` (seconds).
+function sampleTrack(times: number[], values: number[], t: number): number {
+  if (t <= times[0]) return values[0];
+  const last = times.length - 1;
+  if (t >= times[last]) return values[last];
+  for (let i = 1; i <= last; i++) {
+    if (t <= times[i]) {
+      const localT = (t - times[i - 1]) / (times[i] - times[i - 1]);
+      return lerp(values[i - 1], values[i], easeInOutCubic(localT));
+    }
+  }
+  return values[last];
 }
 
-function pointOnCubic([[x0, y0], [x1, y1], [x2, y2], [x3, y3]]: Curve, t: number): [number, number] {
-  const mt = 1 - t;
-  const x = mt * mt * mt * x0 + 3 * mt * mt * t * x1 + 3 * mt * t * t * x2 + t * t * t * x3;
-  const y = mt * mt * mt * y0 + 3 * mt * mt * t * y1 + 3 * mt * t * t * y2 + t * t * t * y3;
-  return [x, y];
+const MAC_TIMES = [0, CALM_END, ROTATE_END, DISINTEGRATE_END, BLOOM_END, REVEAL_END, SETTLE_END];
+const MAC_OPACITY = [0, 1, 1, 0.12, 0.06, 1, 1];
+const MAC_Y = [26, 0, -3, -8, -6, 2, 0];
+const MAC_ROTATE_X = [9, 2, 4, 6, 4, 1, 0];
+const MAC_ROTATE_Y = [0, 0, 34, 46, 50, 6, 0];
+const MAC_SCALE = [0.92, 1, 1.04, 0.72, 0.68, 1.06, 1];
+const MAC_BLUR = [6, 0, 0, 4, 6, 1, 0];
+
+function applyMacStyle(el: HTMLDivElement, t: number) {
+  const opacity = sampleTrack(MAC_TIMES, MAC_OPACITY, t);
+  const y = sampleTrack(MAC_TIMES, MAC_Y, t);
+  const rx = sampleTrack(MAC_TIMES, MAC_ROTATE_X, t);
+  const ry = sampleTrack(MAC_TIMES, MAC_ROTATE_Y, t);
+  const scale = sampleTrack(MAC_TIMES, MAC_SCALE, t);
+  const blur = sampleTrack(MAC_TIMES, MAC_BLUR, t);
+  el.style.opacity = String(opacity);
+  el.style.transform = `translateY(${y}px) scale(${scale}) rotateX(${rx}deg) rotateY(${ry}deg)`;
+  el.style.filter = blur > 0.05 ? `blur(${blur}px)` : "none";
 }
 
-// MotionConfig reducedMotion="user" (wrapping the whole homepage) zeroes
-// animation DURATION for reduced-motion users but was observed to still
-// honor an explicit `delay` — meaning a naive 8s-delayed entrance would
-// still make reduced-motion visitors wait out that same ~8s before
-// "instantly" popping in, one element at a time, exactly the "complex
-// entrance sequence" they're supposed to never see. This helper collapses
-// both delay and duration to ~0 for reduced-motion users while leaving the
-// full choreography untouched for everyone else. Safe to base on
-// useReducedMotion() here specifically because it only affects the
-// `transition` prop, never `initial` — the piece Next.js actually renders
-// into the server HTML — so it cannot reintroduce a hydration mismatch.
-function rt(reduced: boolean | null, transition: Record<string, unknown>) {
-  return reduced ? { ...transition, delay: 0, duration: 0.01 } : transition;
+type BadgeState = { x: number; y: number; scale: number; opacity: number };
+function badgeStateAt(t: number, delay: number, from: { x: number; y: number }): BadgeState {
+  if (t <= delay) return { x: from.x, y: from.y, scale: 0.25, opacity: 0 };
+  const localT = clamp01((t - delay) / ARRIVAL_DURATION);
+  const e = easeOutCubic(localT);
+  return { x: lerp(from.x, 0, e), y: lerp(from.y, 0, e), scale: lerp(0.25, 1, e), opacity: lerp(0, 1, e) };
+}
+function applyBadgeStyle(el: HTMLDivElement, t: number, delay: number, from: { x: number; y: number }) {
+  const s = badgeStateAt(t, delay, from);
+  el.style.opacity = String(s.opacity);
+  el.style.transform = `translate(${s.x}px, ${s.y}px) scale(${s.scale})`;
 }
 
 type EcoNode = {
   key: string;
   render: () => ReactNode;
   posClass: string; // final resting position (Tailwind, absolute)
-  curve: Curve; // in a 400x320 space, matching the SVG viewBox
   flyFrom: { x: number; y: number }; // px offset the node animates FROM (biased back toward the MacBook center) on arrival
 };
 
 const platformNodes: EcoNode[] = [
-  { key: "google", render: () => <GoogleMark className="h-full w-full" />, posClass: "-left-7 top-4", curve: [[200, 150], [120, 120], [70, 90], [40, 60]], flyFrom: { x: 130, y: 90 } },
-  { key: "meta", render: () => <MetaMark className="h-full w-full" />, posClass: "-right-5 top-14", curve: [[200, 150], [280, 130], [330, 100], [362, 72]], flyFrom: { x: -130, y: 70 } },
-  { key: "instagram", render: () => <InstagramMark className="h-full w-full" />, posClass: "-bottom-4 left-12", curve: [[200, 150], [170, 220], [140, 260], [110, 300]], flyFrom: { x: 55, y: -130 } },
-  { key: "facebook", render: () => <FacebookMark className="h-full w-full" />, posClass: "-right-7 bottom-10", curve: [[200, 150], [260, 210], [300, 250], [330, 290]], flyFrom: { x: -95, y: -105 } },
-  { key: "tiktok", render: () => <TikTokMark className="h-full w-full" />, posClass: "left-1/2 -top-9 -translate-x-1/2", curve: [[200, 150], [200, 100], [200, 60], [200, 20]], flyFrom: { x: 0, y: 130 } },
-  { key: "youtube", render: () => <YouTubeMark className="h-full w-full" />, posClass: "-left-10 bottom-24", curve: [[200, 150], [140, 170], [90, 190], [30, 210]], flyFrom: { x: 140, y: -40 } }
+  { key: "google", render: () => <GoogleMark className="h-full w-full" />, posClass: "-left-7 top-4", flyFrom: { x: 130, y: 90 } },
+  { key: "meta", render: () => <MetaMark className="h-full w-full" />, posClass: "-right-5 top-14", flyFrom: { x: -130, y: 70 } },
+  { key: "instagram", render: () => <InstagramMark className="h-full w-full" />, posClass: "-bottom-4 left-12", flyFrom: { x: 55, y: -130 } },
+  { key: "facebook", render: () => <FacebookMark className="h-full w-full" />, posClass: "-right-7 bottom-10", flyFrom: { x: -95, y: -105 } },
+  { key: "tiktok", render: () => <TikTokMark className="h-full w-full" />, posClass: "left-1/2 -top-9 -translate-x-1/2", flyFrom: { x: 0, y: 130 } },
+  { key: "youtube", render: () => <YouTubeMark className="h-full w-full" />, posClass: "-left-10 bottom-24", flyFrom: { x: 140, y: -40 } }
 ];
 
 // Positions verified against the real .macbook-mockup-screen bounding box on
 // a 390px viewport (measured via Playwright) — top badges must clear the
 // screen's top edge entirely, not just look clear at desktop width.
 const mobilePlatformNodes: EcoNode[] = [
-  { key: "google-m", render: () => <GoogleMark className="h-full w-full" />, posClass: "-left-2 -top-3", curve: [[200, 150], [150, 120], [100, 90], [60, 60]], flyFrom: { x: 90, y: 70 } },
-  { key: "meta-m", render: () => <MetaMark className="h-full w-full" />, posClass: "-right-4 -top-4", curve: [[200, 150], [260, 130], [300, 100], [320, 80]], flyFrom: { x: -90, y: 55 } },
-  { key: "instagram-m", render: () => <InstagramMark className="h-full w-full" />, posClass: "-bottom-2 left-8", curve: [[200, 150], [180, 200], [160, 230], [130, 260]], flyFrom: { x: 45, y: -90 } }
+  { key: "google-m", render: () => <GoogleMark className="h-full w-full" />, posClass: "-left-2 -top-3", flyFrom: { x: 90, y: 70 } },
+  { key: "meta-m", render: () => <MetaMark className="h-full w-full" />, posClass: "-right-4 -top-4", flyFrom: { x: -90, y: 55 } },
+  { key: "instagram-m", render: () => <InstagramMark className="h-full w-full" />, posClass: "-bottom-2 left-8", flyFrom: { x: 45, y: -90 } }
 ];
 
 const dataCardNodes: Array<EcoNode & { label: string; sub: string; Icon: typeof BarChart3 }> = [
-  { key: "analytics", Icon: BarChart3, label: "Performans", sub: "ROAS 5.4x", posClass: "right-[-2.5rem] top-1/2 -translate-y-1/2", curve: [[200, 150], [260, 150], [320, 150], [380, 150]], flyFrom: { x: -150, y: 0 }, render: () => null },
-  { key: "calendar", Icon: CalendarDays, label: "İçerik Takvimi", sub: "Bu hafta 4 gönderi", posClass: "left-[-2.75rem] top-1/2 -translate-y-1/2", curve: [[200, 150], [140, 150], [80, 150], [20, 150]], flyFrom: { x: 150, y: 0 }, render: () => null }
+  { key: "analytics", Icon: BarChart3, label: "Performans", sub: "ROAS 5.4x", posClass: "right-[-2.5rem] top-1/2 -translate-y-1/2", flyFrom: { x: -150, y: 0 }, render: () => null },
+  { key: "calendar", Icon: CalendarDays, label: "İçerik Takvimi", sub: "Bu hafta 4 gönderi", posClass: "left-[-2.75rem] top-1/2 -translate-y-1/2", flyFrom: { x: 150, y: 0 }, render: () => null }
 ];
 
-// Flow-phase window each strand animates within — deliberately still
-// mid-flight at 5.5s and only fully arrived by ~7s, so "strands flowing"
-// and "network bloomed" read as two visibly different moments.
-const STRAND_START = TRANSFORM_END - 0.3; // 3.7s
-const STRAND_SPAN = BLOOM_END - STRAND_START; // ~3.3s
-const ARRIVAL_START = FLOW_END - 0.4; // 5.1s
-const ARRIVAL_STAGGER = 0.17;
-const ARRIVAL_DURATION = 1.35;
-
-function ConnectorPath({ curve, index }: { curve: Curve; index: number }) {
-  const reduced = useReducedMotion();
-  const d = curveToPath(curve);
-  const delay = STRAND_START + index * 0.09;
+function EcoBadge({ node, domRef, displayClass }: { node: EcoNode; domRef: (el: HTMLDivElement | null) => void; displayClass: string }) {
   return (
-    <>
-      {/* Soft glow duplicate underneath the crisp line — sells "glowing strand," not just a thin fading line. */}
-      <motion.path
-        d={d}
-        stroke="url(#hero-thread-glow)"
-        strokeWidth={5}
-        strokeLinecap="round"
-        fill="none"
-        style={{ filter: "blur(3px)" }}
-        initial={{ pathLength: 0, opacity: 0 }}
-        animate={{ pathLength: [0, 1, 1], opacity: [0, 0.5, 0.18] }}
-        transition={rt(reduced, { delay, duration: STRAND_SPAN, times: [0, 0.55, 1], ease: "easeInOut" })}
-      />
-      <motion.path
-        d={d}
-        stroke="url(#hero-thread)"
-        strokeWidth={1.8}
-        strokeLinecap="round"
-        fill="none"
-        initial={{ pathLength: 0, opacity: 0 }}
-        animate={{ pathLength: [0, 1, 1], opacity: [0, 0.95, 0.5] }}
-        transition={rt(reduced, { delay, duration: STRAND_SPAN, times: [0, 0.55, 1], ease: "easeInOut" })}
-      />
-    </>
-  );
-}
-
-function FlowSpark({ curve, index }: { curve: Curve; index: number }) {
-  const reduced = useReducedMotion();
-  const progress = useMotionValue(0);
-  const left = useTransform(progress, (t) => `${pointOnCubic(curve, t)[0] / 4}%`);
-  const top = useTransform(progress, (t) => `${pointOnCubic(curve, t)[1] / 3.2}%`);
-  const opacity = useTransform(progress, [0, 0.08, 0.85, 1], [0, 1, 1, 0]);
-
-  useEffect(() => {
-    // Only gates whether the imperative travel animation runs — never
-    // changes what this component renders, so it can't cause a hydration
-    // mismatch (this effect only executes client-side, post-hydration).
-    if (reduced) return;
-    const delay = STRAND_START + index * 0.09;
-    const controls = animate(progress, 1, { delay, duration: STRAND_SPAN * 0.62, ease: [0.4, 0, 0.2, 1] });
-    return () => controls.stop();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reduced]);
-
-  return (
-    <motion.div
-      aria-hidden="true"
-      className="pointer-events-none absolute size-2 -translate-x-1/2 -translate-y-1/2 rounded-full"
-      style={{
-        left, top, opacity,
-        background: "radial-gradient(circle, #fff, var(--mk-violet) 70%)",
-        boxShadow: "0 0 10px 3px rgba(196,181,253,.9)"
-      }}
-    />
-  );
-}
-
-function EcoBadge({ node, index, displayClass }: { node: EcoNode; index: number; displayClass: string }) {
-  const reduced = useReducedMotion();
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.25, x: node.flyFrom.x, y: node.flyFrom.y }}
-      animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
-      transition={rt(reduced, { delay: ARRIVAL_START + index * ARRIVAL_STAGGER, duration: ARRIVAL_DURATION, ease: [0.16, 1, 0.3, 1] })}
+    <div
+      ref={domRef}
       className={`absolute ${node.posClass} ${displayClass} place-items-center rounded-2xl border bg-white p-2.5 shadow-[0_18px_46px_rgba(15,16,36,.16)]`}
-      style={{ borderColor: "var(--mk-border)" }}
+      style={{ borderColor: "var(--mk-border)", opacity: 0, transform: `translate(${node.flyFrom.x}px, ${node.flyFrom.y}px) scale(0.25)` }}
     >
       {node.render()}
-    </motion.div>
+    </div>
   );
 }
 
-function EcoCard({ node, index }: { node: EcoNode & { label: string; sub: string; Icon: typeof BarChart3 }; index: number }) {
-  const reduced = useReducedMotion();
+function EcoCard({ node, domRef }: { node: EcoNode & { label: string; sub: string; Icon: typeof BarChart3 }; domRef: (el: HTMLDivElement | null) => void }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.25, x: node.flyFrom.x, y: node.flyFrom.y }}
-      animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
-      transition={rt(reduced, { delay: ARRIVAL_START + (platformNodes.length + index) * ARRIVAL_STAGGER, duration: ARRIVAL_DURATION, ease: [0.16, 1, 0.3, 1] })}
+    <div
+      ref={domRef}
       className={`absolute ${node.posClass} hidden max-w-[9.5rem] items-center gap-2.5 rounded-xl border bg-white px-3.5 py-3 shadow-[0_18px_46px_rgba(15,16,36,.14)] lg:flex`}
-      style={{ borderColor: "var(--mk-border)" }}
+      style={{ borderColor: "var(--mk-border)", opacity: 0, transform: `translate(${node.flyFrom.x}px, ${node.flyFrom.y}px) scale(0.25)` }}
     >
       <node.Icon size={16} className="shrink-0 text-[#7c3aed]" />
       <span className="min-w-0">
         <span className="block truncate text-[11px] font-black" style={{ color: "var(--mk-ink)" }}>{node.label}</span>
         <span className="block truncate text-[10px] font-bold text-[#7c3aed]">{node.sub}</span>
       </span>
-    </motion.div>
+    </div>
   );
 }
 
+/* ------------------------- Particle/strand/bloom engine ------------------------- */
+
+type Particle = {
+  ox: number; oy: number; // origin on the MacBook's silhouette outline (container-local px)
+  outX: number; outY: number; // outward "flow" waypoint (container-local px)
+  angle: number; outR: number; // polar coords of the outward waypoint, relative to the focal (coil) center
+  spin: number; // radians of additional rotation swept during the radial-coil phase
+  coilR: number; // tight radius the particle coils down to at the core
+  size: number;
+  gold: boolean;
+  stagger: number; // 0..~0.32, staggers this particle's start within the active window
+  trailMax: number;
+  trail: Array<{ x: number; y: number }>;
+};
+
+// Fraction of the particles' active window (ROTATE_END..BLOOM_END) spent in
+// the outward "flow" phase before switching to the inward radial coil —
+// derived from TRAVEL_END so the two phase boundaries stay in sync with the
+// named timeline above instead of an arbitrary constant.
+const FLOW_SPLIT = (TRAVEL_END - ROTATE_END) / (BLOOM_END - ROTATE_END);
+
+const VIOLET: [number, number, number] = [124, 58, 237];
+const GOLD: [number, number, number] = [251, 191, 36];
+
+function buildPalette(rgb: [number, number, number]) {
+  const steps: string[] = [];
+  for (let i = 0; i <= 20; i++) steps.push(`rgba(${rgb[0]},${rgb[1]},${rgb[2]},${(i / 20).toFixed(3)})`);
+  return steps;
+}
+const VIOLET_PALETTE = buildPalette(VIOLET);
+const GOLD_PALETTE = buildPalette(GOLD);
+function paletteColor(gold: boolean, alpha: number) {
+  const clamped = Math.max(0, Math.min(1, alpha));
+  const idx = Math.round(clamped * 20);
+  return (gold ? GOLD_PALETTE : VIOLET_PALETTE)[idx];
+}
+
+function generateParticles(rect: { x: number; y: number; w: number; h: number }, count: number): Particle[] {
+  const cx = rect.x + rect.w / 2;
+  const cy = rect.y + rect.h / 2;
+  const perimeter = 2 * (rect.w + rect.h);
+  const out: Particle[] = [];
+  for (let i = 0; i < count; i++) {
+    // Sample a point on the MacBook's outline (screen + body silhouette) so
+    // particles visibly originate from its edges, not its filled interior.
+    let d = Math.random() * perimeter;
+    let ox: number, oy: number;
+    if (d < rect.w) { ox = rect.x + d; oy = rect.y; }
+    else if ((d -= rect.w) < rect.h) { ox = rect.x + rect.w; oy = rect.y + d; }
+    else if ((d -= rect.h) < rect.w) { ox = rect.x + rect.w - d; oy = rect.y + rect.h; }
+    else { d -= rect.w; ox = rect.x; oy = rect.y + rect.h - d; }
+    ox += (Math.random() - 0.5) * 10;
+    oy += (Math.random() - 0.5) * 10;
+
+    const dx0 = ox - cx;
+    const dy0 = oy - cy - rect.h * 0.18; // upward bias, so strands trail up-and-out like flowing fiber
+    const len = Math.hypot(dx0, dy0) || 1;
+    const dx = dx0 / len, dy = dy0 / len;
+    const dist = (rect.w + rect.h) / 2 * (0.55 + Math.random() * 0.85);
+    const outX = ox + dx * dist;
+    const outY = oy + dy * dist;
+
+    const vx = outX - cx;
+    const vy = (outY - cy) / 0.82;
+    out.push({
+      ox, oy, outX, outY,
+      angle: Math.atan2(vy, vx),
+      outR: Math.hypot(vx, vy),
+      spin: 4.5 + Math.random() * 3.2, // all particles coil the same direction for one coherent spiral
+      coilR: 4 + Math.random() * 10,
+      size: 1.3 + Math.random() * 1.9,
+      gold: Math.random() < 0.16,
+      stagger: Math.random() * 0.32,
+      trailMax: 5 + Math.floor(Math.random() * 4),
+      trail: []
+    });
+  }
+  return out;
+}
+
+function particlePos(p: Particle, rawProg: number, center: { x: number; y: number }): { x: number; y: number; alpha: number } | null {
+  const local = clamp01((rawProg - p.stagger) / (1 - p.stagger));
+  if (local <= 0) return null;
+  const fadeIn = clamp01(local / 0.08);
+  if (local < FLOW_SPLIT) {
+    const t = easeOutCubic(local / FLOW_SPLIT);
+    return { x: lerp(p.ox, p.outX, t), y: lerp(p.oy, p.outY, t), alpha: fadeIn };
+  }
+  const t2 = easeInOutCubic((local - FLOW_SPLIT) / (1 - FLOW_SPLIT));
+  const radius = lerp(p.outR, p.gold ? p.coilR * 0.55 : p.coilR, t2);
+  const angle = p.angle + p.spin * t2;
+  const goldPull = p.gold ? 1.15 : 1;
+  return {
+    x: center.x + Math.cos(angle) * radius * goldPull,
+    y: center.y + Math.sin(angle) * radius * 0.82 * goldPull,
+    alpha: fadeIn
+  };
+}
+
+/* ------------------------------- Main component ------------------------------- */
+
 export function MacBookEcosystem() {
   const reduced = useReducedMotion();
-  const allDesktopNodes = [...platformNodes, ...dataCardNodes];
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const macRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const badgeElsRef = useRef<Map<string, HTMLDivElement>>(new Map());
+  const [tier, setTier] = useState<"desktop" | "tablet" | "mobile" | null>(null);
+
+  useEffect(() => {
+    const compute = () => setTier(window.innerWidth >= 1024 ? "desktop" : window.innerWidth >= 640 ? "tablet" : "mobile");
+    compute();
+    window.addEventListener("resize", compute);
+    return () => window.removeEventListener("resize", compute);
+  }, []);
+
+  const badgeConfigs = [
+    ...platformNodes.map((node, index) => ({ node, delay: ARRIVAL_START + index * ARRIVAL_STAGGER })),
+    ...dataCardNodes.map((node, index) => ({ node, delay: ARRIVAL_START + (platformNodes.length + index) * ARRIVAL_STAGGER })),
+    ...mobilePlatformNodes.map((node, index) => ({ node, delay: ARRIVAL_START + index * ARRIVAL_STAGGER }))
+  ];
+
+  useIsoLayoutEffect(() => {
+    if (!tier) return;
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    const mac = macRef.current;
+    const wrapper = wrapperRef.current;
+    if (!canvas || !container || !mac || !wrapper) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const isReduced = !!reduced;
+    const count = tier === "desktop" ? 130 : tier === "tablet" ? 60 : 28;
+    let particles: Particle[] = [];
+    let center = { x: 0, y: 0 };
+
+    const resize = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
+      // mac's offsetLeft/Top are relative to the outer wrapper (its
+      // offsetParent). canvas's own offsetLeft/Top are relative to
+      // `container` instead (canvas's offsetParent, since container is the
+      // positioned ancestor) and are always 0 by construction — using them
+      // here would silently ignore container's own -15% inset relative to
+      // the wrapper. Subtract container's wrapper-relative offset instead
+      // so canvas-local coordinates line up with the real MacBook position.
+      const offsetX = mac.offsetLeft - container.offsetLeft;
+      const offsetY = mac.offsetTop - container.offsetTop;
+      ctx.setTransform(dpr, 0, 0, dpr, -offsetX * dpr, -offsetY * dpr);
+      const rect = { x: mac.offsetLeft, y: mac.offsetTop, w: mac.offsetWidth, h: mac.offsetHeight };
+      particles = generateParticles(rect, count);
+      center = { x: rect.x + rect.w / 2, y: rect.y + rect.h / 2 };
+    };
+    resize();
+    const ro = new ResizeObserver(resize);
+    ro.observe(container);
+
+    let visible = true;
+    const io = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; }, { threshold: 0.05 });
+    io.observe(wrapper);
+
+    const applyAll = (t: number) => {
+      applyMacStyle(mac, t);
+      for (const { node, delay } of badgeConfigs) {
+        const el = badgeElsRef.current.get(node.key);
+        if (el) applyBadgeStyle(el, t, delay, node.flyFrom);
+      }
+    };
+
+    if (isReduced) {
+      // Reduced motion: jump straight to the fully settled frame, draw no
+      // particles at all, and never start the loop — zero ongoing cost and
+      // (via useIsoLayoutEffect) zero visible flash of the pre-animation pose.
+      applyAll(SETTLE_END);
+      ctx.clearRect(-9999, -9999, 99999, 99999);
+      return () => { ro.disconnect(); io.disconnect(); };
+    }
+
+    let raf = 0;
+    let elapsed = 0;
+    let last = performance.now();
+
+    const draw = (now: number) => {
+      const dt = (now - last) / 1000;
+      last = now;
+      if (visible) elapsed += dt;
+
+      applyAll(elapsed);
+
+      if (elapsed > SETTLE_END + 0.5) { ctx.clearRect(-9999, -9999, 99999, 99999); return; }
+      raf = requestAnimationFrame(draw);
+      if (!visible) return;
+
+      ctx.clearRect(-9999, -9999, 99999, 99999);
+      const winStart = ROTATE_END;
+      const winEnd = BLOOM_END;
+      const rawProg = clamp01((elapsed - winStart) / (winEnd - winStart));
+      let globalFade = 1;
+      if (elapsed > BLOOM_END) globalFade = 1 - clamp01((elapsed - BLOOM_END) / (REVEAL_END - BLOOM_END));
+      if (elapsed < winStart || globalFade <= 0.001) return;
+
+      ctx.globalCompositeOperation = "lighter";
+      for (const p of particles) {
+        const pos = particlePos(p, rawProg, center);
+        if (!pos) continue;
+        p.trail.push({ x: pos.x, y: pos.y });
+        if (p.trail.length > p.trailMax) p.trail.shift();
+        const baseAlpha = pos.alpha * globalFade;
+        for (let i = 1; i < p.trail.length; i++) {
+          const segAlpha = baseAlpha * (i / p.trail.length) * 0.85;
+          ctx.strokeStyle = paletteColor(p.gold, segAlpha);
+          ctx.lineWidth = p.size * (i / p.trail.length);
+          ctx.beginPath();
+          ctx.moveTo(p.trail[i - 1].x, p.trail[i - 1].y);
+          ctx.lineTo(p.trail[i].x, p.trail[i].y);
+          ctx.stroke();
+        }
+        ctx.beginPath();
+        ctx.fillStyle = paletteColor(p.gold, Math.min(1, baseAlpha * 1.4));
+        ctx.arc(pos.x, pos.y, p.size * 0.85, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Bloom: bright radial burst at the focal point as strands finish coiling.
+      const bloomWinStart = RADIAL_END - 0.15;
+      const bloomWinEnd = BLOOM_END + 0.35;
+      if (elapsed >= bloomWinStart && elapsed <= bloomWinEnd) {
+        const bp = clamp01((elapsed - bloomWinStart) / (bloomWinEnd - bloomWinStart));
+        const intensity = bp < 0.55 ? easeOutCubic(bp / 0.55) : 1 - easeInOutCubic((bp - 0.55) / 0.45);
+        const radius = lerp(6, Math.min(center.x, 90), easeOutCubic(bp));
+        const grad = ctx.createRadialGradient(center.x, center.y, 0, center.x, center.y, radius);
+        grad.addColorStop(0, `rgba(255,255,255,${(0.95 * intensity).toFixed(3)})`);
+        grad.addColorStop(0.35, `rgba(253,230,138,${(0.65 * intensity).toFixed(3)})`);
+        grad.addColorStop(0.7, `rgba(124,58,237,${(0.35 * intensity).toFixed(3)})`);
+        grad.addColorStop(1, "rgba(124,58,237,0)");
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalCompositeOperation = "source-over";
+    };
+
+    raf = requestAnimationFrame(draw);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      io.disconnect();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tier, reduced]);
 
   return (
-    <div className="relative mx-auto w-full max-w-lg py-6">
-      {/* Ambient glow: dim at rest, rises through activation, settles to a soft ambient wash after the bloom. Reduced-motion users land directly on the last keyframe (0.5 opacity) — a calm ambient glow, never the raw 0.22 start value. */}
+    <div ref={wrapperRef} className="relative mx-auto w-full max-w-lg py-6" style={{ perspective: 1200 }}>
+      {/* Ambient glow: dim at rest, rises through the transformation, settles to a soft ambient wash. This is the one purely-decorative piece still left on Framer's own declarative timeline (a plain fade/scale wash, not something that needs frame-perfect sync with the strand/bloom system) — reduced-motion users land directly on its last keyframe via MotionConfig's duration collapse, never the raw start value. */}
       <motion.div
         className="pointer-events-none absolute inset-0 rounded-full blur-3xl"
         style={{ background: "radial-gradient(circle, rgba(124,58,237,.16), transparent 65%)" }}
         aria-hidden="true"
-        initial={{ opacity: 0.22, scale: 0.8 }}
-        animate={{ opacity: [0.22, 0.28, 0.45, 0.85, 0.95, 0.5], scale: [0.8, 0.85, 0.95, 1.15, 1.3, 1.05] }}
-        transition={rt(reduced, { duration: SETTLE_END, times: [0, T(CALM_END), T(ACTIVATE_END), T(TRANSFORM_END), T(BLOOM_END), 1], ease: "easeInOut" })}
-      />
-      {/* Explosion-core flash: concentrated on the screen itself, a real bright plateau spanning the transformation beat, fading to fully transparent by the end — reduced-motion users land on that final 0 opacity, i.e. never see it. */}
-      <motion.div
-        className="pointer-events-none absolute left-1/2 top-[44%] size-48 -translate-x-1/2 -translate-y-1/2 rounded-full"
-        style={{ background: "radial-gradient(circle, #fff 0%, #fef3c7 22%, #e9d5ff 45%, rgba(124,58,237,.75) 65%, transparent 80%)" }}
-        aria-hidden="true"
-        initial={{ opacity: 0, scale: 0.4 }}
-        animate={{ opacity: [0, 0, 0.25, 1, 1, 0.45, 0], scale: [0.4, 0.5, 0.75, 1.5, 1.9, 2.4, 2.8] }}
-        transition={rt(reduced, { duration: SETTLE_END, times: [0, T(ACTIVATE_END), T(TRANSFORM_END - 0.5), T(TRANSFORM_END - 0.1), T(TRANSFORM_END + 0.5), T(FLOW_END), T(BLOOM_END)], ease: "easeInOut" })}
-      />
-      {/* Activation pulse: a quick, distinct brightening before transformation — also ends at 0 opacity, invisible to reduced-motion users. */}
-      <motion.div
-        className="pointer-events-none absolute left-1/2 top-[44%] size-28 -translate-x-1/2 -translate-y-1/2 rounded-full"
-        style={{ background: "radial-gradient(circle, rgba(255,255,255,.9), rgba(196,181,253,.6) 50%, transparent 75%)" }}
-        aria-hidden="true"
-        initial={{ opacity: 0, scale: 0.6 }}
-        animate={{ opacity: [0, 0, 0.9, 0.3, 0, 0], scale: [0.6, 0.7, 1, 1.1, 1.1, 1.1] }}
-        transition={rt(reduced, { duration: SETTLE_END, times: [0, T(CALM_END), T(ACTIVATE_END), T(ACTIVATE_END + 0.5), T(TRANSFORM_END), 1], ease: "easeInOut" })}
+        initial={{ opacity: 0.2, scale: 0.8 }}
+        animate={{ opacity: [0.2, 0.24, 0.42, 0.9, 0.48], scale: [0.8, 0.85, 1.0, 1.35, 1.05] }}
+        transition={{ duration: SETTLE_END, times: [0, CALM_END / SETTLE_END, ROTATE_END / SETTLE_END, BLOOM_END / SETTLE_END, 1], ease: "easeInOut" }}
       />
 
-      <svg className="pointer-events-none absolute inset-0 hidden h-full w-full overflow-visible md:block" viewBox="0 0 400 320" fill="none" aria-hidden="true">
-        <defs>
-          <linearGradient id="hero-thread" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#f5f3ff" stopOpacity="0.95" />
-            <stop offset="0.4" stopColor="var(--mk-violet)" stopOpacity="0.85" />
-            <stop offset="1" stopColor="var(--mk-blue)" stopOpacity="0" />
-          </linearGradient>
-          <linearGradient id="hero-thread-glow" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="var(--mk-violet)" stopOpacity="0.6" />
-            <stop offset="1" stopColor="var(--mk-blue)" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        {allDesktopNodes.map((node, index) => (
-          <ConnectorPath key={node.key} curve={node.curve} index={index} />
-        ))}
-      </svg>
-      {allDesktopNodes.map((node, index) => (
-        <div key={`spark-${node.key}`} className="pointer-events-none absolute inset-0 hidden md:block">
-          <FlowSpark curve={node.curve} index={index} />
-        </div>
-      ))}
-
-      {/* Stage 1: fades/settles to a calm rest pose. Stage 2: a distinct small activation tilt+scale pulse. Stage 3: a sharper transformation "kick" right at the flash. Stage 5-6: eases back and settles to rest — the same final rest pose reduced-motion users land on directly. */}
-      <motion.div
-        initial={{ opacity: 0, y: 26, rotateX: 9, rotateZ: 0, scale: 0.94 }}
-        animate={{ opacity: [0, 1, 1, 1, 1, 1, 1], y: [26, 0, -3, 0, -5, 1, 0], rotateX: [9, 2, 6, 5, -5, 2, 0], rotateZ: [0, 0, -1.2, 1, 2.2, -0.8, 0], scale: [0.94, 1, 1.035, 1.02, 1.09, 1.02, 1] }}
-        transition={rt(reduced, { duration: SETTLE_END, times: [0, T(CALM_END), T(ACTIVATE_END - 0.3), T(ACTIVATE_END), T(TRANSFORM_END), T(BLOOM_END), 1], ease: "easeInOut" })}
-      >
+      {/* The subject itself: calm -> rotates/tilts -> dissolves (fades, shrinks, blurs) while the canvas strands take over -> stays mostly hidden through the radial/bloom stages -> reforms at the reveal. Styled entirely by the single shared clock above via direct DOM mutation — this inline style is only the safe, unconditional SSR/first-paint value. */}
+      <div ref={macRef} style={{ opacity: 0, transform: "translateY(26px) scale(0.92) rotateX(9deg) rotateY(0deg)", filter: "blur(6px)", transformStyle: "preserve-3d" }}>
         <MacBookMockup
           screen={
             <div className="flex h-full flex-col gap-[6%] p-[7%]">
@@ -294,19 +478,24 @@ export function MacBookEcosystem() {
             </div>
           }
         />
-      </motion.div>
+      </div>
 
-      {/* Stage 4-5: strands flow outward and bloom into the real 6-platform network + result cards (desktop/tablet). */}
-      {platformNodes.map((node, index) => (
-        <EcoBadge key={node.key} node={node} index={index} displayClass="hidden md:grid size-12" />
+      {/* The disintegration/strand/radial-bloom transformation itself — an imperative canvas engine, entirely client-driven. */}
+      <div ref={containerRef} className="pointer-events-none absolute -inset-[15%]" aria-hidden="true">
+        <canvas ref={canvasRef} className="absolute left-0 top-0" />
+      </div>
+
+      {/* What the bloom resolves into: the real 6-platform network + result cards (desktop/tablet), emerging from the transformation rather than fading in independently. */}
+      {platformNodes.map((node) => (
+        <EcoBadge key={node.key} node={node} domRef={(el) => { if (el) badgeElsRef.current.set(node.key, el); else badgeElsRef.current.delete(node.key); }} displayClass="hidden md:grid size-12" />
       ))}
-      {dataCardNodes.map((node, index) => (
-        <EcoCard key={node.key} node={node} index={index} />
+      {dataCardNodes.map((node) => (
+        <EcoCard key={node.key} node={node} domRef={(el) => { if (el) badgeElsRef.current.set(node.key, el); else badgeElsRef.current.delete(node.key); }} />
       ))}
 
-      {/* Mobile: same grammar, compact — 3 marks only, no data cards or strand SVG, so the hero stays light there. */}
-      {mobilePlatformNodes.map((node, index) => (
-        <EcoBadge key={node.key} node={node} index={index} displayClass="grid md:hidden size-11" />
+      {/* Mobile: same grammar, compact — 3 marks only, lighter particle count, no data cards, so the hero stays light there. */}
+      {mobilePlatformNodes.map((node) => (
+        <EcoBadge key={node.key} node={node} domRef={(el) => { if (el) badgeElsRef.current.set(node.key, el); else badgeElsRef.current.delete(node.key); }} displayClass="grid md:hidden size-11" />
       ))}
     </div>
   );
