@@ -106,11 +106,12 @@ function WhatsappLink({ href, children, trackingLabel }: { href: string; childre
 /* ------------------------------- Hero -------------------------------- */
 
 /**
- * The hero's cinematic centerpiece — calm MacBook -> activation -> strand
- * transformation -> flowing network -> bloom -> settle — lives in
- * src/components/public/cinematic/MacBookEcosystem.tsx (self-contained,
- * mount-triggered, reduced-motion aware). Kept out of this already-large
- * file; see that module for the full motion grammar/timeline.
+ * The hero's cinematic centerpiece — a pre-rendered video of the MacBook
+ * disintegrating into strands, flowing, coiling, blooming, and resolving —
+ * lives in src/components/public/cinematic/MacBookEcosystem.tsx
+ * (self-contained, scroll-scrubbed off this section's own scrollYProgress,
+ * reduced-motion aware). Kept out of this already-large file; see that
+ * module for the full motion grammar/timeline.
  */
 
 function Hero({ whatsappUrl }: { whatsappUrl: string }) {

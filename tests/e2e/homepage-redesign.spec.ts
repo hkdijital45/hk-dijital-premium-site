@@ -7,11 +7,14 @@ import { test, expect } from "@playwright/test";
 // switcher) referenced by earlier assertions here no longer exists — the
 // homepage now composes distinct MarketingSection blocks (#hero, #services,
 // #process, #packages, #contact) with a MacBook-centered hero ecosystem
-// (HeroDeviceComposition, still using the real .macbook-mockup-screen CSS
-// hook) instead of a single tabbed device module. These tests assert the
-// CURRENT structure rather than the removed one — see git history for the
-// original DeviceShowcase-era version of this file if that context is ever
-// needed again.
+// instead of a single tabbed device module. The hero's cinematic centerpiece
+// (MacBookEcosystem.tsx) is a pre-rendered, scroll-scrubbed video: a
+// `.hero-cinematic-poster` <img> (always rendered, the settled/final frame —
+// what's shown under reduced motion and on mobile) sits behind a
+// `.hero-cinematic-video` <video> (desktop/tablet only, faded in once loaded
+// and scrubbed via scrollYProgress). These tests assert the CURRENT
+// structure rather than the removed live-canvas one — see git history for
+// earlier versions of this file if that context is ever needed again.
 test.describe("Paket Seçme Robotu CTA visibility", () => {
   test("appears in the header, hero, and packages section", async ({ page }) => {
     // The header's "Paketini Bul" button only renders in the desktop nav
@@ -102,7 +105,7 @@ test.describe("Hero ecosystem reliability (current MacBook + platform compositio
     await expect(hero).toBeVisible();
     const box = await hero.boundingBox();
     expect(box?.height, "hero must render at a real, non-collapsed height after a mid-scroll refresh").toBeGreaterThan(200);
-    await expect(page.locator(".macbook-mockup-screen").first()).toBeVisible();
+    await expect(page.locator(".hero-cinematic-poster").first()).toBeVisible();
     expect(pageErrors, "a mid-scroll refresh must not throw").toEqual([]);
   });
 
@@ -111,7 +114,7 @@ test.describe("Hero ecosystem reliability (current MacBook + platform compositio
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await page.locator("#hero").scrollIntoViewIfNeeded();
     await page.waitForTimeout(2500);
-    await expect(page.locator(".macbook-mockup-screen").first()).toBeVisible();
+    await expect(page.locator(".hero-cinematic-poster").first()).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(1);
   });
@@ -146,11 +149,11 @@ test.describe("Hero ecosystem reliability (current MacBook + platform compositio
     const heroRect = await page.locator("#hero").evaluate((el) => el.getBoundingClientRect());
     expect(heroRect.bottom, "the hero section itself must have scrolled above the viewport, not stayed pinned").toBeLessThan(0);
 
-    const canvasBox = await page.locator("#hero canvas").first().boundingBox();
-    const canvasOnScreen = !!canvasBox && canvasBox.y < 900 && canvasBox.y + canvasBox.height > 0;
-    expect(canvasOnScreen, "the cinematic canvas must not remain visible/pinned once the hero section is over").toBe(false);
+    const videoBox = await page.locator("#hero .hero-cinematic-video").first().boundingBox();
+    const videoOnScreen = !!videoBox && videoBox.y < 900 && videoBox.y + videoBox.height > 0;
+    expect(videoOnScreen, "the cinematic video must not remain visible/pinned once the hero section is over").toBe(false);
 
-    const macOnScreen = await page.locator("#hero .macbook-mockup-screen").first().boundingBox();
+    const macOnScreen = await page.locator("#hero .hero-cinematic-poster").first().boundingBox();
     const macIntersects = !!macOnScreen && macOnScreen.y < 900 && macOnScreen.y + macOnScreen.height > 0;
     expect(macIntersects, "the MacBook must not remain visible/pinned once the hero section is over").toBe(false);
   });
@@ -167,15 +170,16 @@ test.describe("Hero ecosystem reliability (current MacBook + platform compositio
     // land right near its end, where the reveal/settle stage should hold.
     const pinRangeEnd = heroInfo.documentTop + heroInfo.height - 900;
     await page.evaluate((y) => window.scrollTo({ top: y, behavior: "instant" }), pinRangeEnd - 5);
-    await page.waitForTimeout(400);
-    // Confirm the settled composition (macbook screen) is fully opaque —
-    // not stuck mid-fade or mid-disintegration — at this point in the scroll.
-    const macOpacity = await page.locator("#hero .macbook-mockup-screen").first().evaluate((el) => {
-      let n: HTMLElement | null = el as HTMLElement;
-      while (n && (!n.style || n.style.opacity === "")) n = n.parentElement;
-      return n ? Number(getComputedStyle(n).opacity) : -1;
-    });
-    expect(macOpacity, "MacBook should have reformed to full opacity by the end of the hero's scroll range").toBeGreaterThan(0.8);
+    // The video only fades in once its metadata has actually loaded
+    // (preload="none" by default, fetched imperatively once desktop/tablet
+    // is confirmed) — give it real time to buffer rather than the ~300-400ms
+    // used elsewhere for pure-CSS transitions.
+    await page.waitForTimeout(3000);
+    // Confirm the cinematic video has faded in and scrubbed to its reformed
+    // final frame — not stuck at opacity 0 (never loaded/faded in) — at this
+    // point in the scroll.
+    const macOpacity = await page.locator("#hero .hero-cinematic-video").first().evaluate((el) => Number(getComputedStyle(el).opacity));
+    expect(macOpacity, "the cinematic video should have faded in to full opacity by the end of the hero's scroll range").toBeGreaterThan(0.8);
     // The "Performans" result card is one of the badges/cards that only
     // arrives once the bloom has resolved — confirm it's both attached and
     // actually opaque, not just present at opacity:0 in the DOM.
@@ -234,7 +238,12 @@ test("reduced motion: every section reliably reveals as it's scrolled to, none s
   // The hero's platform marks/data cards use the same reduced-motion branch
   // (initial={false} under useReducedMotion()) — they must render immediately
   // at their final state rather than requiring the entrance animation to run.
-  await expect(page.locator("#hero .macbook-mockup-screen").first()).toBeVisible();
+  await expect(page.locator("#hero .hero-cinematic-poster").first()).toBeVisible();
+  // And the cinematic video itself must stay off (poster-only, no scrub) —
+  // this is the actual regression this component's reduced-motion path
+  // guards against.
+  const videoOpacity = await page.locator("#hero .hero-cinematic-video").first().evaluate((el) => Number(getComputedStyle(el).opacity));
+  expect(videoOpacity, "the cinematic video must never fade in under prefers-reduced-motion").toBe(0);
   await context.close();
 });
 
