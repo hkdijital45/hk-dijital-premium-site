@@ -197,7 +197,12 @@ export function getHandbookPlainSections(): HandbookPlainSection[] {
 
 export function getHandbookMeta() {
   const raw = readHandbookMarkdown();
-  const dateMatch = raw.match(/HK Dijital · (.+?) · (\d{1,2} \w+ \d{4})/);
+  // \S+ (not \w+) for the month token — \w doesn't match Turkish letters
+  // like the 'ü' in "Eylül" without the /u flag, which silently failed this
+  // match entirely and fell through to the file-mtime fallback below
+  // (observed live: showed a nonsensical 2018 date from the deploy
+  // packaging step instead of the handbook's real "13 Eylül 2026").
+  const dateMatch = raw.match(/HK Dijital · (.+?) · (\d{1,2} \S+ \d{4})/);
   const stat = statSync(HANDBOOK_MD_PATH);
   return {
     edition: dateMatch?.[1] || "Birinci baskı",

@@ -31,6 +31,12 @@ test.describe("HK Admin El Kitabı", () => {
     // sanitized content, not an error/empty state.
     await expect(reader.getByText("El kitabı yüklenemedi")).toHaveCount(0);
     await expect(reader.locator(".hk-handbook-body")).not.toBeEmpty();
+    // Regression coverage for a real bug found on production: the edition
+    // date regex used \w+ for the month token, which doesn't match Turkish
+    // letters (the 'ü' in "Eylül") without the /u flag — it silently failed
+    // and fell through to a file-mtime fallback that showed a nonsensical
+    // 2018 date instead of the handbook's real "13 Eylül 2026".
+    await expect(reader.getByText(/Birinci baskı · \d{1,2} \S+ 2026/).first()).toBeVisible();
 
     // The overlay must be fully opaque — no background page bleeding
     // through (regression coverage for the shared `.fixed.inset-0` global
