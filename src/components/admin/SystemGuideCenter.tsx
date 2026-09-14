@@ -3,8 +3,10 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronRight, Edit3, Heart, Plus, Printer, Search, Trash2, X } from "lucide-react";
+import { BookOpenText, ChevronRight, Download, Edit3, Heart, Plus, Printer, Search, Trash2, X } from "lucide-react";
 import { AdminConfirmDialog } from "@/components/admin/ui/AdminConfirmDialog";
+import { HandbookReader } from "@/components/admin/HandbookReader";
+import { downloadHandbookPdf } from "@/components/admin/handbook-pdf-download";
 
 const emptyGuide = { id: "", slug: "", title: "", category: "", description: "", route: "/hk-admin", video_url: "", is_published: true, content: { purpose: "", whenToUse: "", steps: [""], example: "", commonErrors: [""], tips: [""], warnings: [""] } };
 
@@ -49,6 +51,7 @@ export function SystemGuideCenter({ currentSession, notify }: any) {
   const [recent, setRecent] = useState<string[]>([]);
   const [categoryToDelete, setCategoryToDelete] = useState<any>(null);
   const [deletingCategory, setDeletingCategory] = useState(false);
+  const [handbookOpen, setHandbookOpen] = useState(false);
   const isAdmin = currentSession?.role === "admin";
 
   async function load() {
@@ -130,7 +133,24 @@ export function SystemGuideCenter({ currentSession, notify }: any) {
       <div className="mt-4 flex flex-wrap gap-2"><button onClick={() => setCategory("Tümü")} className={`rounded-full px-3 py-2 text-xs font-black ${category === "Tümü" ? "bg-slate-900 text-white" : "border border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-text-secondary)]"}`}>Tümü</button>{categories.map((item) => <button key={item.id || item.name} onClick={() => setCategory(item.name)} className={`rounded-full px-3 py-2 text-xs font-black ${category === item.name ? "bg-cyan-500 text-white" : "border border-[var(--admin-border)] bg-[var(--admin-surface)] text-[var(--admin-text-secondary)]"}`}>{item.name}</button>)}</div>
     </section>
 
+    <section className="min-w-0 rounded-[22px] border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-white p-4 shadow-[0_12px_35px_rgba(15,23,42,.07)] sm:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex min-w-0 items-start gap-4">
+          <div className="grid size-14 shrink-0 place-items-center rounded-[16px] bg-amber-500 text-white shadow-[0_10px_24px_rgba(217,119,6,.28)]"><BookOpenText size={26} /></div>
+          <div className="min-w-0">
+            <h2 className="text-xl font-black text-[var(--admin-text-primary)]">HK Admin El Kitabı</h2>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--admin-text-secondary)]">Kullanım, operasyon ve modül rehberi — tüm HK Admin sistemini baştan sona anlatan tam el kitabı.</p>
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <button onClick={() => setHandbookOpen(true)} className="inline-flex items-center gap-2 rounded-[14px] bg-amber-500 px-4 py-3 text-sm font-black text-white"><BookOpenText size={16} /> El Kitabını Aç</button>
+          <button onClick={() => downloadHandbookPdf()} className="inline-flex items-center gap-2 rounded-[14px] border border-amber-300 bg-white px-4 py-3 text-sm font-black text-amber-700"><Download size={16} /> PDF İndir</button>
+        </div>
+      </div>
+    </section>
+
     <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><GuideStat label="Toplam rehber" value={guides.length} /><GuideStat label="Kategori" value={categories.length} /><GuideStat label="Favorilerim" value={favorites.length} /><GuideStat label="Arama sonucu" value={filtered.length} /></section>
+    {handbookOpen && <HandbookReader onClose={() => setHandbookOpen(false)} />}
 
     {(favoriteGuides.length > 0 || recentGuides.length > 0) && <section className="grid gap-4 xl:grid-cols-2">{favoriteGuides.length > 0 && <GuideStrip title="Favorilerim" guides={favoriteGuides} open={openGuide} />}{recentGuides.length > 0 && <GuideStrip title="Son Okuduklarım" guides={recentGuides} open={openGuide} />}</section>}
 
