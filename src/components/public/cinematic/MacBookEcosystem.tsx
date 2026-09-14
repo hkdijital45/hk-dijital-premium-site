@@ -46,26 +46,35 @@ import { FacebookMark, GoogleMark, InstagramMark, MetaMark, TikTokMark, YouTubeM
  * state, with zero flash of the pre-animation pose.
  */
 
-// ---- Timeline (seconds) — mapped proportionally from a dense frame-by-frame
-// analysis of the reference video (subject intact ~0-2.5s, rotation
-// ~2.5-4.5s, disintegration ~4.5-5.3s, strand stretch ~5.0-6.5s, strand
-// travel ~5.5-6.8s, radial reorganize ~6.5-7.8s, bloom ~7.8-8.4s, reveal
-// ~8.3-9.0s). ----
-const CALM_END = 2.2;
-const ROTATE_END = 3.6;
-const DISINTEGRATE_END = 4.6;
-const TRAVEL_END = 6.0;
-const RADIAL_END = 7.2;
-const BLOOM_END = 7.8;
-const REVEAL_END = 8.8;
-const SETTLE_END = 9.3;
+// ---- Timeline (seconds) — recalibrated against a live-production visual
+// fidelity audit (frame-by-frame comparison against the reference video),
+// which found three concrete gaps against the first cut of this timeline:
+// disintegration started too late (MacBook sat fully solid too long),
+// strand density read as "a handful of thin lines" instead of a fiber mass,
+// and the bloom flashed and faded almost immediately instead of holding.
+// This timeline fixes the pacing; PARTICLE_START deliberately precedes
+// ROTATE_END so strands begin escaping the MacBook's edges *before* its own
+// rotation has finished — the two stages overlap instead of handing off
+// abruptly — and RADIAL_END/BLOOM_RISE_END/BLOOM_HOLD_END are spaced out so
+// the bloom gets a real, held beat before the reveal begins. ----
+const CALM_END = 1.7;
+const ROTATE_END = 2.9;
+const PARTICLE_START = 2.2; // strands begin escaping before rotation finishes
+const DISINTEGRATE_END = 3.6;
+const TRAVEL_END = 4.9;
+const RADIAL_END = 7.3; // coil formation completes
+const BLOOM_RISE_END = 8.0; // bloom rises to peak
+const BLOOM_HOLD_END = 8.7; // bloom holds near peak — the viewer gets a real beat to register it
+const REVEAL_START = BLOOM_HOLD_END; // reveal never begins before the hold ends
+const REVEAL_END = 9.5;
+const SETTLE_END = 10.2;
 
 // Badges/cards emerge FROM the transformation's bloom rather than fading in
-// independently — arrival starts just before the bloom peaks and finishes
-// shortly after, so they read as what the bloom resolves into.
-const ARRIVAL_START = BLOOM_END - 0.3; // 7.5s
-const ARRIVAL_STAGGER = 0.1;
-const ARRIVAL_DURATION = 1.1;
+// independently — arrival never starts before the bloom has held its peak,
+// so they read as what the bloom resolves into, not a separate step.
+const ARRIVAL_START = REVEAL_START;
+const ARRIVAL_STAGGER = 0.08;
+const ARRIVAL_DURATION = 0.95;
 
 // Client-only alias so the one-shot style-setting effect below applies
 // before first paint (avoiding any reduced-motion flash) without ever
@@ -91,7 +100,7 @@ function sampleTrack(times: number[], values: number[], t: number): number {
   return values[last];
 }
 
-const MAC_TIMES = [0, CALM_END, ROTATE_END, DISINTEGRATE_END, BLOOM_END, REVEAL_END, SETTLE_END];
+const MAC_TIMES = [0, CALM_END, ROTATE_END, DISINTEGRATE_END, BLOOM_HOLD_END, REVEAL_END, SETTLE_END];
 const MAC_OPACITY = [0, 1, 1, 0.12, 0.06, 1, 1];
 const MAC_Y = [26, 0, -3, -8, -6, 2, 0];
 const MAC_ROTATE_X = [9, 2, 4, 6, 4, 1, 0];
@@ -187,6 +196,7 @@ function EcoCard({ node, domRef }: { node: EcoNode & { label: string; sub: strin
 type Particle = {
   ox: number; oy: number; // origin on the MacBook's silhouette outline (container-local px)
   outX: number; outY: number; // outward "flow" waypoint (container-local px)
+  ctrlX: number; ctrlY: number; // quadratic-bezier control point, bulged off the straight origin->outward line so flow paths curve and overlap instead of reading as straight spokes
   angle: number; outR: number; // polar coords of the outward waypoint, relative to the focal (coil) center
   spin: number; // radians of additional rotation swept during the radial-coil phase
   coilR: number; // tight radius the particle coils down to at the core
@@ -197,11 +207,15 @@ type Particle = {
   trail: Array<{ x: number; y: number }>;
 };
 
-// Fraction of the particles' active window (ROTATE_END..BLOOM_END) spent in
-// the outward "flow" phase before switching to the inward radial coil —
-// derived from TRAVEL_END so the two phase boundaries stay in sync with the
-// named timeline above instead of an arbitrary constant.
-const FLOW_SPLIT = (TRAVEL_END - ROTATE_END) / (BLOOM_END - ROTATE_END);
+// Fraction of the particles' active window (PARTICLE_START..RADIAL_END)
+// spent in the outward "flow" phase before switching to the inward radial
+// coil — derived from TRAVEL_END so the two phase boundaries stay in sync
+// with the named timeline above instead of an arbitrary constant.
+const FLOW_SPLIT = (TRAVEL_END - PARTICLE_START) / (RADIAL_END - PARTICLE_START);
+// Gentle continued rotation applied to the coiled core during the bloom
+// hold (after the coil has fully formed) so the bloom reads as a living,
+// slowly-turning mass rather than a frozen still frame during its hold.
+const HOLD_SPIN_RATE = 0.55;
 
 const VIOLET: [number, number, number] = [124, 58, 237];
 const GOLD: [number, number, number] = [251, 191, 36];
@@ -244,35 +258,54 @@ function generateParticles(rect: { x: number; y: number; w: number; h: number },
     const outX = ox + dx * dist;
     const outY = oy + dy * dist;
 
+    // Bulge the flight path off a straight line so strands curve and cross
+    // each other instead of reading as isolated straight spokes — this is
+    // what turns a handful of lines into a fiber MASS.
+    const mx = (ox + outX) / 2, my = (oy + outY) / 2;
+    const perpLen = Math.hypot(outX - ox, outY - oy) || 1;
+    const perpX = -(outY - oy) / perpLen, perpY = (outX - ox) / perpLen;
+    const bulge = (Math.random() - 0.5) * dist * 0.7;
+    const ctrlX = mx + perpX * bulge;
+    const ctrlY = my + perpY * bulge;
+
     const vx = outX - cx;
     const vy = (outY - cy) / 0.82;
+    const gold = Math.random() < 0.3;
     out.push({
-      ox, oy, outX, outY,
+      ox, oy, outX, outY, ctrlX, ctrlY,
       angle: Math.atan2(vy, vx),
       outR: Math.hypot(vx, vy),
       spin: 4.5 + Math.random() * 3.2, // all particles coil the same direction for one coherent spiral
       coilR: 4 + Math.random() * 10,
-      size: 1.3 + Math.random() * 1.9,
-      gold: Math.random() < 0.16,
+      size: gold ? 2.0 + Math.random() * 2.2 : 1.5 + Math.random() * 3.2,
+      gold,
       stagger: Math.random() * 0.32,
-      trailMax: 5 + Math.floor(Math.random() * 4),
+      trailMax: 10 + Math.floor(Math.random() * 9),
       trail: []
     });
   }
   return out;
 }
 
-function particlePos(p: Particle, rawProg: number, center: { x: number; y: number }): { x: number; y: number; alpha: number } | null {
+function particlePos(p: Particle, rawProg: number, holdElapsed: number, center: { x: number; y: number }): { x: number; y: number; alpha: number } | null {
   const local = clamp01((rawProg - p.stagger) / (1 - p.stagger));
   if (local <= 0) return null;
   const fadeIn = clamp01(local / 0.08);
   if (local < FLOW_SPLIT) {
     const t = easeOutCubic(local / FLOW_SPLIT);
-    return { x: lerp(p.ox, p.outX, t), y: lerp(p.oy, p.outY, t), alpha: fadeIn };
+    const mt = 1 - t;
+    // Quadratic bezier through the curved control point — flow paths arc
+    // and overlap instead of tracing straight spokes out of the MacBook.
+    const x = mt * mt * p.ox + 2 * mt * t * p.ctrlX + t * t * p.outX;
+    const y = mt * mt * p.oy + 2 * mt * t * p.ctrlY + t * t * p.outY;
+    return { x, y, alpha: fadeIn };
   }
   const t2 = easeInOutCubic((local - FLOW_SPLIT) / (1 - FLOW_SPLIT));
   const radius = lerp(p.outR, p.gold ? p.coilR * 0.55 : p.coilR, t2);
-  const angle = p.angle + p.spin * t2;
+  // Once the coil has fully formed (t2 reaches 1), keep it slowly turning
+  // through the bloom hold rather than freezing — a still frame during a
+  // multi-second hold would read as dead, not as energy building.
+  const angle = p.angle + p.spin * t2 + (t2 >= 1 ? HOLD_SPIN_RATE * holdElapsed : 0);
   const goldPull = p.gold ? 1.15 : 1;
   return {
     x: center.x + Math.cos(angle) * radius * goldPull,
@@ -316,7 +349,11 @@ export function MacBookEcosystem() {
     if (!ctx) return;
 
     const isReduced = !!reduced;
-    const count = tier === "desktop" ? 130 : tier === "tablet" ? 60 : 28;
+    // Desktop/tablet raised materially per visual-fidelity audit: the prior
+    // counts (130/60) read as "a handful of thin lines" against the
+    // reference's dense fiber mass. Mobile is kept light on purpose (already
+    // a simplified fallback with fewer badges and no data cards).
+    const count = tier === "desktop" ? 240 : tier === "tablet" ? 120 : 28;
     let particles: Particle[] = [];
     let center = { x: 0, y: 0 };
 
@@ -383,22 +420,27 @@ export function MacBookEcosystem() {
       if (!visible) return;
 
       ctx.clearRect(-9999, -9999, 99999, 99999);
-      const winStart = ROTATE_END;
-      const winEnd = BLOOM_END;
+      const winStart = PARTICLE_START;
+      const winEnd = RADIAL_END;
       const rawProg = clamp01((elapsed - winStart) / (winEnd - winStart));
+      const holdElapsed = Math.max(0, elapsed - RADIAL_END);
+      // Strands stay fully visible through the entire bloom hold (not just
+      // up to its rise) and only fade out once the reveal actually starts —
+      // the audit's "reveal begins before the bloom has held" gap was partly
+      // this: strands (and the bloom) used to fade before badges arrived.
       let globalFade = 1;
-      if (elapsed > BLOOM_END) globalFade = 1 - clamp01((elapsed - BLOOM_END) / (REVEAL_END - BLOOM_END));
+      if (elapsed > BLOOM_HOLD_END) globalFade = 1 - clamp01((elapsed - BLOOM_HOLD_END) / (REVEAL_END - BLOOM_HOLD_END));
       if (elapsed < winStart || globalFade <= 0.001) return;
 
       ctx.globalCompositeOperation = "lighter";
       for (const p of particles) {
-        const pos = particlePos(p, rawProg, center);
+        const pos = particlePos(p, rawProg, holdElapsed, center);
         if (!pos) continue;
         p.trail.push({ x: pos.x, y: pos.y });
         if (p.trail.length > p.trailMax) p.trail.shift();
         const baseAlpha = pos.alpha * globalFade;
         for (let i = 1; i < p.trail.length; i++) {
-          const segAlpha = baseAlpha * (i / p.trail.length) * 0.85;
+          const segAlpha = baseAlpha * (i / p.trail.length) * 0.92;
           ctx.strokeStyle = paletteColor(p.gold, segAlpha);
           ctx.lineWidth = p.size * (i / p.trail.length);
           ctx.beginPath();
@@ -412,17 +454,30 @@ export function MacBookEcosystem() {
         ctx.fill();
       }
 
-      // Bloom: bright radial burst at the focal point as strands finish coiling.
-      const bloomWinStart = RADIAL_END - 0.15;
-      const bloomWinEnd = BLOOM_END + 0.35;
-      if (elapsed >= bloomWinStart && elapsed <= bloomWinEnd) {
-        const bp = clamp01((elapsed - bloomWinStart) / (bloomWinEnd - bloomWinStart));
-        const intensity = bp < 0.55 ? easeOutCubic(bp / 0.55) : 1 - easeInOutCubic((bp - 0.55) / 0.45);
-        const radius = lerp(6, Math.min(center.x, 90), easeOutCubic(bp));
+      // Bloom: rises as the coil completes, HOLDS at peak brightness for a
+      // deliberate beat, then fades only once the reveal begins — the
+      // three-phase rise/hold/fade shape the audit found missing (the prior
+      // version rose and faded almost immediately, with no held peak).
+      const bloomRiseStart = RADIAL_END - 0.3;
+      let intensity = 0;
+      if (elapsed >= bloomRiseStart && elapsed < BLOOM_RISE_END) {
+        intensity = easeOutCubic(clamp01((elapsed - bloomRiseStart) / (BLOOM_RISE_END - bloomRiseStart)));
+      } else if (elapsed >= BLOOM_RISE_END && elapsed < BLOOM_HOLD_END) {
+        intensity = 1;
+      } else if (elapsed >= BLOOM_HOLD_END && elapsed <= REVEAL_END) {
+        intensity = 1 - easeInOutCubic(clamp01((elapsed - BLOOM_HOLD_END) / (REVEAL_END - BLOOM_HOLD_END)));
+      }
+      if (intensity > 0.001) {
+        const riseProg = clamp01((elapsed - bloomRiseStart) / (BLOOM_RISE_END - bloomRiseStart));
+        const maxRadius = Math.min(center.x, 90);
+        // A tiny sinusoidal pulse during the hold keeps the bloom reading as
+        // a living, energetic core rather than a static painted circle.
+        const pulse = elapsed >= BLOOM_RISE_END && elapsed < BLOOM_HOLD_END ? 1 + Math.sin(elapsed * 5) * 0.035 : 1;
+        const radius = lerp(6, maxRadius, easeOutCubic(riseProg)) * pulse;
         const grad = ctx.createRadialGradient(center.x, center.y, 0, center.x, center.y, radius);
-        grad.addColorStop(0, `rgba(255,255,255,${(0.95 * intensity).toFixed(3)})`);
-        grad.addColorStop(0.35, `rgba(253,230,138,${(0.65 * intensity).toFixed(3)})`);
-        grad.addColorStop(0.7, `rgba(124,58,237,${(0.35 * intensity).toFixed(3)})`);
+        grad.addColorStop(0, `rgba(255,255,255,${(0.97 * intensity).toFixed(3)})`);
+        grad.addColorStop(0.35, `rgba(253,230,138,${(0.7 * intensity).toFixed(3)})`);
+        grad.addColorStop(0.7, `rgba(124,58,237,${(0.4 * intensity).toFixed(3)})`);
         grad.addColorStop(1, "rgba(124,58,237,0)");
         ctx.fillStyle = grad;
         ctx.beginPath();
@@ -450,7 +505,7 @@ export function MacBookEcosystem() {
         aria-hidden="true"
         initial={{ opacity: 0.2, scale: 0.8 }}
         animate={{ opacity: [0.2, 0.24, 0.42, 0.9, 0.48], scale: [0.8, 0.85, 1.0, 1.35, 1.05] }}
-        transition={{ duration: SETTLE_END, times: [0, CALM_END / SETTLE_END, ROTATE_END / SETTLE_END, BLOOM_END / SETTLE_END, 1], ease: "easeInOut" }}
+        transition={{ duration: SETTLE_END, times: [0, CALM_END / SETTLE_END, ROTATE_END / SETTLE_END, BLOOM_HOLD_END / SETTLE_END, 1], ease: "easeInOut" }}
       />
 
       {/* The subject itself: calm -> rotates/tilts -> dissolves (fades, shrinks, blurs) while the canvas strands take over -> stays mostly hidden through the radial/bloom stages -> reforms at the reveal. Styled entirely by the single shared clock above via direct DOM mutation — this inline style is only the safe, unconditional SSR/first-paint value. */}
