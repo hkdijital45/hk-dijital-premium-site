@@ -137,6 +137,7 @@ const adminNavigationSourceGroups: AdminNavigationGroup[] = [
     badge: "Rapor",
     accent: "from-violet-400 via-indigo-500 to-blue-600",
     items: [
+      { label: "Analiz & Raporlama Merkezi", slug: "analiz-raporlama", module: "analiz-raporlama", description: "Instagram, Facebook, YouTube, Google Ads ve Google Business Profile analitiğini tek panelde birleştirir." },
       { label: "Aylık Raporlar", slug: "aylik-raporlar", module: "aylik-raporlar", description: "Aylık performans, çalışma ve öneri özetleri." },
       { label: "Müşteri Raporları", slug: "musteri-raporlari", module: "raporlar", description: "Meta, Google ve manuel performans raporları." },
       { label: "PDF Rapor Tasarım Merkezi", slug: "pdf-rapor-tasarim", module: "raporlar", description: "PDF rapor görünümü ve bölüm ayarları." },

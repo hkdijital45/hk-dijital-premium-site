@@ -44,6 +44,9 @@ const OPTIONAL_INTEGRATIONS: Array<{ name: string; keys: string[] }> = [
   { name: "AI providers", keys: ["OPENAI_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY", "OPENROUTER_API_KEY", "MANUS_API_KEY", "OLLAMA_BASE_URL"] },
   { name: "Meta integration", keys: ["META_APP_ID", "META_APP_SECRET", "META_ACCESS_TOKEN"] },
   { name: "Google Ads/Analytics integration", keys: ["GOOGLE_ADS_CLIENT_ID", "GOOGLE_ADS_CLIENT_SECRET", "GOOGLE_SERVICE_ACCOUNT_EMAIL"] },
+  { name: "Customer OAuth connect flow (Google side — YouTube/Ads/GBP/GA4/Search Console analytics)", keys: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI"] },
+  { name: "Google Ads reporting (Analiz & Raporlama Merkezi)", keys: ["GOOGLE_ADS_DEVELOPER_TOKEN"] },
+  { name: "Instagram/Facebook analytics advanced permissions", keys: ["META_ADVANCED_SCOPES_ENABLED"] },
   { name: "Email delivery", keys: ["RESEND_API_KEY", "SMTP_HOST"] },
   { name: "Integration token encryption", keys: ["INTEGRATION_TOKEN_SECRET", "INTEGRATION_ENCRYPTION_KEY"] }
 ];

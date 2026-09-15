@@ -11,6 +11,7 @@ export const CUSTOMER_360_TABS = [
   "Büyüme",
   "Müşteri Kurulumu",
   "Entegrasyonlar",
+  "Analiz",
   "Platform Yönetimi",
   "Müşteri Paneli Yetkileri",
   "Bağlantı Bilgileri",

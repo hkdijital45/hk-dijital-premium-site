@@ -42,6 +42,7 @@ import { CustomerProfileNotes } from "@/components/admin/customer-profile/Custom
 import { CustomerAIInsightsPanel } from "@/components/admin/customer-profile/CustomerAIInsightsPanel";
 import { CustomerBrandAssets } from "@/components/admin/customer-profile/CustomerBrandAssets";
 import { CustomerIntegrationsPanel } from "@/components/admin/customer-profile/CustomerIntegrationsPanel";
+import { CustomerAnalyticsPanel } from "@/components/admin/customer-profile/CustomerAnalyticsPanel";
 import { CustomerProfileModal } from "@/components/admin/customer-profile/CustomerProfileModal";
 import { CustomerCommunicationAdminCenter } from "@/components/admin/CustomerCommunicationCenter";
 import { ActionResultPanel } from "@/components/admin/ActionResultPanel";
@@ -8105,6 +8106,7 @@ function CustomerDetailDrawer({ company, content, setContent, updateCompany, sav
       {tab === "Müşteri Kurulumu" && <CustomerOnboardingEditor company={company} content={content} setContent={setContent} setTab={setTab} notify={notify} />}
       {tab === "Büyüme" && <CustomerGrowthPanel company={company} content={content} setActive={setActive} />}
       {tab === "Entegrasyonlar" && <CustomerIntegrationsPanel company={company} users={users} campaigns={campaigns} reports={reports} content={content} setContent={setContent} notify={notify} />}
+      {tab === "Analiz" && <CustomerAnalyticsPanel company={company} />}
       {tab === "Platform Yönetimi" && <div className="min-w-0">
         <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
           <div>

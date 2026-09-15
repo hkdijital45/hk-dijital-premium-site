@@ -9,6 +9,7 @@ import { CUSTOMER_MODULE_REGISTRY, CUSTOMER_PLATFORM_REGISTRY, DEFAULT_CUSTOMER_
 import { formatTurkishPhone, isEmptyLikeValue, normalizePhoneInput } from "@/lib/phone-format";
 import { CUSTOMER_360_TABS, Customer360Header } from "./customer360-shared";
 import { CustomerAIInsightsPanel } from "./CustomerAIInsightsPanel";
+import { CustomerAnalyticsPanel } from "./CustomerAnalyticsPanel";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
 
@@ -737,6 +738,8 @@ export function CustomerProfileModal({
               <AdminTabs items={CUSTOMER_360_TABS} active={activeProfileTab} onChange={setActiveProfileTab} ariaLabel="Müşteri 360 sekmeleri" sticky />
               {activeProfileTab === "Entegrasyonlar" ? (
                 <IntegrationStatusGrid company={company} integration={integration} />
+              ) : activeProfileTab === "Analiz" ? (
+                <CustomerAnalyticsPanel company={company} />
               ) : activeProfileTab === "AI İçgörüleri" ? (
                 <CustomerAIInsightsPanel companyId={company.id} />
               ) : (
