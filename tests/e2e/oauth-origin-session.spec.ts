@@ -145,6 +145,53 @@ test.describe("HK Admin OAuth origin/session regression", () => {
     expect(authCookieAfter?.value).toBe(authCookieBefore?.value);
   });
 
+  for (const provider of ["meta", "google"] as const) {
+    test(`9a2. ${provider}: a real code param pushes execution past state validation into the real token exchange (deepest boundary reachable without real provider consent)`, async ({ request, context }) => {
+      await loginAsQaAdmin(request);
+      const companyId = await getRealCompanyId(request);
+      test.skip(!companyId, "No company available in this environment to test against.");
+
+      const cookiesBefore = await context.cookies();
+      const authCookieBefore = cookiesBefore.find((c) => c.name.includes("auth_session"));
+
+      const returnTo = `/hk-admin/analiz-raporlama?company=${companyId}#hesaplar`;
+      // Same context.request as the login above — its cookie jar carries the
+      // hk_oauth_state_{provider} nonce cookie this response sets forward
+      // into the callback request below, exactly like a real browser would.
+      const connectResponse = await request.get(`/api/integrations/${provider}/connect?company=${companyId}&returnTo=${encodeURIComponent(returnTo)}`, { maxRedirects: 0 });
+      const providerUrl = new URL(connectResponse.headers()["location"] || "");
+      const realSignedState = providerUrl.searchParams.get("state") || "";
+      test.skip(!realSignedState, `${provider.toUpperCase()}_* OAuth credentials not configured in this environment.`);
+
+      // A syntactically present but fake code + the real nonce cookie is
+      // enough to satisfy every check before exchangeCode() (code present,
+      // state decodes+signature valid, provider matches, nonce matches the
+      // cookie) — pushing execution into the real token-exchange network
+      // call, which fails fast with invalid_grant (no real consent/account
+      // involved, just a real OAuth client rejecting a bad code, the same
+      // as any invalid request to that endpoint would get).
+      const callbackResponse = await request.get(
+        `/api/integrations/callback/${provider}?state=${encodeURIComponent(realSignedState)}&code=not-a-real-authorization-code`,
+        { maxRedirects: 0 }
+      );
+      expect([302, 303, 307]).toContain(callbackResponse.status());
+      const location = callbackResponse.headers()["location"] || "";
+      // Must NOT be state_invalid/session_missing — those would mean it
+      // never reached the token exchange at all.
+      expect(location).not.toContain("integration_error=state_invalid");
+      expect(location).not.toContain("integration_error=session_missing");
+      expect(location).toContain("integration_error=token_exchange_failed");
+      expect(location).toContain("/hk-admin/analiz-raporlama");
+      expect(location).toContain(`company=${companyId}`);
+      expect(location).not.toContain("/digital-center");
+      expect(location).not.toContain("/giris");
+
+      const cookiesAfter = await context.cookies();
+      const authCookieAfter = cookiesAfter.find((c) => c.name.includes("auth_session"));
+      expect(authCookieAfter?.value).toBe(authCookieBefore?.value);
+    });
+  }
+
   test("9b. real /hk-admin/analiz-raporlama?company= return route loads normally as the admin (no redirect loop)", async ({ page, request }) => {
     await loginAsQaAdmin(request);
     const companyId = await getRealCompanyId(request);
@@ -203,6 +250,22 @@ test.describe("HK Admin OAuth origin/session regression", () => {
     const cookiesAfter = await context.cookies();
     const authCookieAfter = cookiesAfter.find((c) => c.name.includes("auth_session"));
     expect(authCookieAfter?.value).toBe(authCookieBefore?.value);
+  });
+
+  test("selectOAuthAccount no longer hard-rejects a staff session on role alone (falls through to the oauth-session check instead)", async ({ request }) => {
+    await loginAsQaAdmin(request);
+    // No hk_oauth_session_google cookie present (no OAuth flow completed in
+    // this test) — before the fix this failed at the very first line with
+    // 403 "Müşteri oturumu gerekir" purely because the session is staff, not
+    // customer, even though requireIntegrationSession() already authorizes
+    // staff. After the fix it should get past that role check and fail
+    // later, for the real reason (no oauth session to verify against): 401.
+    const response = await request.post("/api/integrations/accounts/select", {
+      data: { provider: "google", platform: "google", account_type: "google_profile", provider_account_id: "does-not-matter" }
+    });
+    expect(response.status()).toBe(401);
+    const body = await response.json().catch(() => ({}));
+    expect(body.error).not.toBe("Müşteri oturumu gerekir.");
   });
 
   test("unauthenticated connect attempt is rejected safely, not a crash or an open redirect", async ({ browser }) => {

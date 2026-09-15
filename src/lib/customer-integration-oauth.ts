@@ -712,6 +712,17 @@ function callbackErrorCode(providerError: string, description: string) {
   return "permission_denied";
 }
 
+// Structured, secret-free audit log for oauthCallback — lets a real failed
+// attempt in production be diagnosed by timestamp/trace afterward (Vercel
+// runtime logs) without needing to reproduce it live. traceId reuses the
+// state's own nonce (already a unique per-attempt value tied to a
+// short-lived cookie) rather than inventing a second identifier. Never
+// pass code/token/secret/cookie values here.
+function logOAuthStage(event: string, request: Request, fields: Record<string, string | boolean | null | undefined>) {
+  const host = new URL(request.url).host;
+  console.log(JSON.stringify({ scope: "oauth_callback", event, host, ...fields }));
+}
+
 export async function oauthCallback(provider: Provider, request: Request) {
   const url = new URL(request.url);
   const code = clean(url.searchParams.get("code"));
@@ -719,6 +730,7 @@ export async function oauthCallback(provider: Provider, request: Request) {
   const providerErrorDescription = clean(url.searchParams.get("error_description") || url.searchParams.get("error_message"));
   const rawState = clean(url.searchParams.get("state"));
   const state = decodeState(rawState);
+  logOAuthStage("callback_received", request, { provider, path: url.pathname, codePresent: Boolean(code), stateDecoded: Boolean(state), traceId: state?.nonce || null });
   // origin is read from the signed state whenever it decodes (set
   // server-side in oauthConnect above, never from a query param here — a
   // tampered/missing signature already fails decodeState() and state is
@@ -749,15 +761,21 @@ export async function oauthCallback(provider: Provider, request: Request) {
   if (origin === "hk_admin") {
     const staffSession = await getSession();
     if (!staffSession || !isStaffRole(staffSession.role) || !canAccessModule(staffSession, "analiz-raporlama")) {
+      logOAuthStage("admin_session_verified", request, { provider, origin, sessionPresent: Boolean(staffSession), role: staffSession?.role || null, traceId: state?.nonce || null, ok: false });
       return redirectWithIntegrationError(request, returnTo, provider, "session_missing");
     }
     sessionCompanyId = state?.customerId || "";
     sessionProfileId = staffSession.profileId || null;
+    logOAuthStage("admin_session_verified", request, { provider, origin, sessionPresent: true, role: staffSession.role, companyId: sessionCompanyId, traceId: state?.nonce || null, ok: true });
   } else {
     const customerSession = await requireCustomerSession();
-    if (!customerSession) return redirectWithIntegrationError(request, returnTo, provider, "session_missing");
+    if (!customerSession) {
+      logOAuthStage("admin_session_verified", request, { provider, origin, sessionPresent: false, traceId: state?.nonce || null, ok: false });
+      return redirectWithIntegrationError(request, returnTo, provider, "session_missing");
+    }
     sessionCompanyId = customerSession.companyId;
     sessionProfileId = customerSession.profileId || null;
+    logOAuthStage("admin_session_verified", request, { provider, origin, sessionPresent: true, role: customerSession.role, companyId: sessionCompanyId, traceId: state?.nonce || null, ok: true });
   }
 
   if (missingProviderEnv(provider).length) return redirectWithIntegrationError(request, returnTo, provider, `${provider}_env_missing`);
@@ -766,10 +784,11 @@ export async function oauthCallback(provider: Provider, request: Request) {
   const codeVerifier = cookieStore.get(`hk_oauth_pkce_${provider}`)?.value || "";
   const target = new URL(returnTo, baseUrl(request));
   if (providerError) {
-    return redirectWithIntegrationError(request, returnTo, provider, callbackErrorCode(providerError, providerErrorDescription));
+    return redirectWithIntegrationError(request, returnTo, provider, callbackErrorCode(providerError, providerErrorDescription), { oauth_trace: state?.nonce || "" });
   }
   if (!code || !state || state.provider !== provider || state.nonce !== expectedNonce) {
-    return redirectWithIntegrationError(request, returnTo, provider, "state_invalid");
+    logOAuthStage("state_verified", request, { provider, origin, traceId: state?.nonce || null, ok: false, reason: !code ? "no_code" : !state ? "no_state" : state.provider !== provider ? "provider_mismatch" : "nonce_mismatch" });
+    return redirectWithIntegrationError(request, returnTo, provider, "state_invalid", { oauth_trace: state?.nonce || "" });
   }
   // For a customer-panel handshake the signed company must still match the
   // live session's company (defends against a company switch mid-flow on
@@ -777,42 +796,55 @@ export async function oauthCallback(provider: Provider, request: Request) {
   // from the signed state, so this is inherently satisfied — the company
   // was already authorized in oauthConnect (module access + real company).
   if (origin === "customer_panel" && state.customerId !== sessionCompanyId) {
-    return redirectWithIntegrationError(request, returnTo, provider, "state_invalid");
+    logOAuthStage("state_verified", request, { provider, origin, traceId: state.nonce, ok: false, reason: "company_mismatch" });
+    return redirectWithIntegrationError(request, returnTo, provider, "state_invalid", { oauth_trace: state.nonce });
   }
+  logOAuthStage("state_verified", request, { provider, origin, companyId: sessionCompanyId, traceId: state.nonce, ok: true });
   try {
+    logOAuthStage("token_exchange_started", request, { provider, origin, traceId: state.nonce });
     const token = await exchangeCode(provider, code, codeVerifier);
+    logOAuthStage("token_exchange_success", request, { provider, origin, traceId: state.nonce });
     const expiresAt = token.expiresIn ? new Date(Date.now() + Number(token.expiresIn) * 1000).toISOString() : "";
     const targetSession = { companyId: sessionCompanyId, profileId: sessionProfileId };
     let metaUser = null;
     if (provider === "meta") {
       try {
+        logOAuthStage("integration_persist_started", request, { provider, origin, companyId: sessionCompanyId, traceId: state.nonce });
         metaUser = await fetchMetaUserInfo(token.accessToken);
         await saveMetaPhase1Integration(targetSession, token, metaUser, expiresAt);
+        logOAuthStage("integration_persist_success", request, { provider, origin, companyId: sessionCompanyId, traceId: state.nonce });
       } catch (error) {
         console.error("Meta OAuth Phase 1 user info/save failed", error instanceof Error ? error.message : "unknown_error");
-        return redirectWithIntegrationError(request, returnTo, provider, "user_info_fetch_failed");
+        logOAuthStage("integration_persist_success", request, { provider, origin, companyId: sessionCompanyId, traceId: state.nonce, ok: false });
+        return redirectWithIntegrationError(request, returnTo, provider, "user_info_fetch_failed", { oauth_trace: state.nonce });
       }
     }
     if (provider === "google") {
       try {
+        logOAuthStage("integration_persist_started", request, { provider, origin, companyId: sessionCompanyId, traceId: state.nonce });
         const googleUser = await fetchGoogleUserInfo(token.accessToken);
         await saveGoogleOAuthIntegration(targetSession, token, googleUser, expiresAt);
+        logOAuthStage("integration_persist_success", request, { provider, origin, companyId: sessionCompanyId, traceId: state.nonce });
       } catch (error) {
         console.error("Google OAuth user info/save failed", error instanceof Error ? error.message : "unknown_error");
-        return redirectWithIntegrationError(request, returnTo, provider, "user_info_fetch_failed");
+        logOAuthStage("integration_persist_success", request, { provider, origin, companyId: sessionCompanyId, traceId: state.nonce, ok: false });
+        return redirectWithIntegrationError(request, returnTo, provider, "user_info_fetch_failed", { oauth_trace: state.nonce });
       }
     }
     target.searchParams.set("integration_provider", provider);
     target.searchParams.set("integration_success", provider);
     target.searchParams.set("oauth_status", "accounts_ready");
+    target.searchParams.set("oauth_trace", state.nonce);
     if (!target.hash) target.hash = origin === "hk_admin" ? "hesaplar" : "hesap-bagla";
     const response = NextResponse.redirect(target);
     response.cookies.delete(`hk_oauth_state_${provider}`);
     response.cookies.delete(`hk_oauth_pkce_${provider}`);
     response.cookies.set(`hk_oauth_session_${provider}`, encryptSession({ provider, customerId: sessionCompanyId, accessToken: token.accessToken, expiresAt, scope: token.scope, metaUser }), { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 900, path: "/" });
+    logOAuthStage("final_redirect", request, { provider, origin, companyId: sessionCompanyId, traceId: state.nonce, target: target.pathname, ok: true });
     return response;
   } catch (error) {
-    return redirectWithIntegrationError(request, returnTo, provider, "token_exchange_failed", { integration_message: error instanceof Error ? error.message : "OAuth token alınamadı." });
+    logOAuthStage("token_exchange_success", request, { provider, origin, traceId: state.nonce, ok: false });
+    return redirectWithIntegrationError(request, returnTo, provider, "token_exchange_failed", { integration_message: error instanceof Error ? error.message : "OAuth token alınamadı.", oauth_trace: state.nonce });
   }
 }
 
@@ -1086,7 +1118,7 @@ export async function oauthAccounts(request: Request) {
 
 export async function selectOAuthAccount(request: Request) {
   const session = await requireIntegrationSession();
-  if (!session || !isCustomerRole(session.role) || !session.companyId) return NextResponse.json({ error: "Müşteri oturumu gerekir." }, { status: 403 });
+  if (!session) return NextResponse.json({ error: "Oturum gerekir." }, { status: 403 });
   if (!hasSupabaseConfig()) return NextResponse.json({ error: "Supabase bağlantısı yapılandırılmadı." }, { status: 500 });
   const body = await request.json().catch(() => ({}));
   const inputs = (Array.isArray(body.accounts) && body.accounts.length ? body.accounts : [body]).slice(0, 50);
@@ -1106,12 +1138,30 @@ export async function selectOAuthAccount(request: Request) {
     const provider = normalizedInputs[0].provider as Provider;
     if (!["meta", "google", "tiktok", "x"].includes(provider)) return NextResponse.json({ error: "Geçerli platform seçin." }, { status: 400 });
 
+    // Target company: for a customer session, always their own company
+    // (unchanged). For a staff session — only meaningful for meta/google,
+    // the two providers Analiz & Raporlama Merkezi drives — derived from
+    // the hk_oauth_session_${provider} cookie oauthCallback already set
+    // once for an authorized company, never from a client-supplied value.
+    // This mirrors the trust boundary oauthAccounts (just above) already
+    // uses for staff sessions; previously this function hard-required
+    // isCustomerRole(session.role), so a staff session picking an asset
+    // after a successful hk_admin-origin OAuth connect got a 403 here even
+    // though requireIntegrationSession() already authorized them.
+    let targetCompanyId = "";
+    if (isCustomerRole(session.role) && session.companyId) {
+      targetCompanyId = session.companyId;
+    } else if (!isStaffRole(session.role) || (provider !== "meta" && provider !== "google")) {
+      return NextResponse.json({ error: "Müşteri oturumu gerekir." }, { status: 403 });
+    }
+
     if (provider === "meta" || provider === "google") {
       const cookieStore = await cookies();
       const oauthSession = decryptSession(cookieStore.get(`hk_oauth_session_${provider}`)?.value);
-      if (!oauthSession || oauthSession.provider !== provider || oauthSession.customerId !== session.companyId || !oauthSession.accessToken) {
+      if (!oauthSession || oauthSession.provider !== provider || !oauthSession.accessToken || (targetCompanyId ? oauthSession.customerId !== targetCompanyId : !oauthSession.customerId)) {
         return NextResponse.json({ error: "Hesap seçimini doğrulamak için platform bağlantısını yeniden tamamlayın." }, { status: 401 });
       }
+      if (!targetCompanyId) targetCompanyId = oauthSession.customerId;
       const discovered = provider === "meta"
         ? advancedScopesEnabled("meta")
           ? (await listMetaBusinessAssets(String(oauthSession.accessToken))).accounts
@@ -1133,7 +1183,7 @@ export async function selectOAuthAccount(request: Request) {
       }
     }
 
-    const existingRows = await supabaseRest<any[]>(`customer_integrations?company_id=eq.${encodeURIComponent(session.companyId)}&select=*&limit=1`).catch(() => []);
+    const existingRows = await supabaseRest<any[]>(`customer_integrations?company_id=eq.${encodeURIComponent(targetCompanyId)}&select=*&limit=1`).catch(() => []);
     const existing = existingRows[0] || null;
     const currentAssets = Array.isArray(existing?.integration_assets) ? existing.integration_assets : [];
     const now = new Date().toISOString();
@@ -1162,7 +1212,7 @@ export async function selectOAuthAccount(request: Request) {
     const nextAssets = [...newAssets, ...currentAssets.filter((item: any) => !newKeys.has(`${item.provider || item.platform}-${item.account_type || item.asset_type}-${item.provider_account_id || item.account_id || item.asset_id}`))];
     const primary = newAssets[0];
     const patch = {
-      company_id: session.companyId,
+      company_id: targetCompanyId,
       provider: primary.provider,
       provider_account_id: primary.provider_account_id,
       provider_account_name: primary.provider_account_name,
