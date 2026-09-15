@@ -199,7 +199,7 @@ export async function findValidHiddenAccessSession(token: string): Promise<Hidde
 // failure here should degrade to "use the normal secret-access entry
 // point", not undo or block the real action.
 export async function grantCourtesyHiddenAccessSession(params: {
-  triggerMethod: "password_reset" | "admin_setup" | "super_admin_bootstrap" | "oauth_connect";
+  triggerMethod: "password_reset" | "admin_setup" | "super_admin_bootstrap" | "oauth_connect" | "oauth_callback";
   authenticatedUserId?: string | null;
   ipAddress?: string;
   userAgent?: string;

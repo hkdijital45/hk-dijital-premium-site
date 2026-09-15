@@ -383,6 +383,58 @@ export async function oauthStart(provider: Provider, request: Request) {
   return NextResponse.json(configuredPayload(provider, request));
 }
 
+// /hk-admin and /musteri-paneli both sit behind the Secret Access Control
+// Center (src/proxy.ts), a separate, short-lived (1h) gate in front of the
+// real login system. The external provider's own consent flow (picking an
+// account, 2FA, reviewing scopes) can easily take long enough for that gate
+// to expire while the browser is away — the request never touches our
+// server during that time, so nothing here could renew it — and the user
+// comes back to a real, valid hk_auth_session but a bounce to the public
+// homepage (proxy.ts's requiresSecretGate() failure path), which looks
+// exactly like "the flow just gave up." Reuses the same courtesy-session
+// mechanism already used for password-reset/admin-setup (see
+// grantCourtesyHiddenAccessSession's own comment) — never granted from
+// nothing, only refreshed when the incoming request already carries a
+// currently-valid one, so this can't be used to skip the gate's real
+// first-time entry requirement.
+//
+// Called at BOTH oauthConnect (before the browser leaves for the external
+// provider) and oauthCallback (right after re-verifying the real admin
+// session on the way back) for defense in depth: the connect-time refresh
+// covers the common case, the callback-time one covers a round trip that
+// somehow outlasts even the freshly-extended window.
+//
+// sameSite MUST be "lax", not "strict" (unlike the password-reset/
+// admin-setup courtesy sessions, which only ever get read back on a
+// same-site-initiated request). This cookie has to survive being read back
+// on the request that follows a real cross-site redirect chain (Google/
+// Meta's own server redirecting the browser back to us) — a Strict cookie
+// is never attached to that request even though the browser stored it
+// correctly, which is exactly what made the previous connect-time-only,
+// Strict-cookie refresh silently fail to reach proxy.ts's gate check on the
+// return leg (confirmed via production runtime log trace analysis, not
+// guessed). hk_auth_session itself already uses Lax for this same reason —
+// it's the one cookie that reliably survived every hop.
+async function refreshHiddenAccessOnResponse(response: NextResponse, profileId: string | null, request: Request, stage: "oauthConnect" | "oauthCallback") {
+  try {
+    const currentSecretToken = (await cookies()).get(HIDDEN_ACCESS_COOKIE)?.value;
+    if (!currentSecretToken || !(await findValidHiddenAccessSession(currentSecretToken))) return;
+    const refreshedToken = await grantCourtesyHiddenAccessSession({
+      triggerMethod: stage === "oauthConnect" ? "oauth_connect" : "oauth_callback",
+      authenticatedUserId: profileId,
+      ipAddress: extractClientIp(request.headers),
+      userAgent: request.headers.get("user-agent") || ""
+    });
+    if (refreshedToken) {
+      response.cookies.set(HIDDEN_ACCESS_COOKIE, refreshedToken, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: HIDDEN_ACCESS_SESSION_TTL_SECONDS });
+    }
+    logOAuthStage("hidden_access_refresh", request, { stage, refreshed: Boolean(refreshedToken) });
+  } catch (error) {
+    // Never let this courtesy refresh block the actual OAuth redirect.
+    logOAuthStage("hidden_access_refresh", request, { stage, refreshed: false, error: error instanceof Error ? error.message : "unknown_error" });
+  }
+}
+
 export async function oauthConnect(provider: Provider, request: Request) {
   const url = new URL(request.url);
   const requestedCompany = clean(url.searchParams.get("company") || url.searchParams.get("customerId"));
@@ -473,37 +525,7 @@ export async function oauthConnect(provider: Provider, request: Request) {
   response.cookies.set(`hk_oauth_state_${provider}`, nonce, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 600, path: "/" });
   if (codeVerifier) response.cookies.set(`hk_oauth_pkce_${provider}`, codeVerifier, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 600, path: "/" });
 
-  // /hk-admin and /musteri-paneli both sit behind the Secret Access Control
-  // Center (src/proxy.ts), a separate, short-lived (1h) gate in front of the
-  // real login system. The external provider's own consent flow (picking an
-  // account, 2FA, reviewing scopes) can easily take long enough for that
-  // gate to expire while the browser is away — the request never touches
-  // our server during that time, so nothing here could renew it — and the
-  // user comes back to a real, valid hk_auth_session but a bounce to the
-  // public homepage (proxy.ts's requiresSecretGate() failure path), which
-  // looks exactly like "the flow just gave up." Reusing the same courtesy-
-  // session mechanism already used for password-reset/admin-setup (see
-  // grantCourtesyHiddenAccessSession's own comment) — never granted from
-  // nothing, only refreshed when the incoming request already carries a
-  // currently-valid one, so this can't be used to skip the gate's real
-  // first-time entry requirement.
-  try {
-    const currentSecretToken = (await cookies()).get(HIDDEN_ACCESS_COOKIE)?.value;
-    if (currentSecretToken && (await findValidHiddenAccessSession(currentSecretToken))) {
-      const refreshedToken = await grantCourtesyHiddenAccessSession({
-        triggerMethod: "oauth_connect",
-        authenticatedUserId: requesterProfileId,
-        ipAddress: extractClientIp(request.headers),
-        userAgent: request.headers.get("user-agent") || ""
-      });
-      if (refreshedToken) {
-        response.cookies.set(HIDDEN_ACCESS_COOKIE, refreshedToken, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/", maxAge: HIDDEN_ACCESS_SESSION_TTL_SECONDS });
-      }
-    }
-  } catch (error) {
-    // Never let this courtesy refresh block the actual OAuth redirect.
-    console.error("Hidden-access courtesy refresh before OAuth redirect failed:", error instanceof Error ? error.message : "unknown_error");
-  }
+  await refreshHiddenAccessOnResponse(response, requesterProfileId, request, "oauthConnect");
   return response;
 }
 
@@ -876,6 +898,12 @@ export async function oauthCallback(provider: Provider, request: Request) {
     response.cookies.delete(`hk_oauth_state_${provider}`);
     response.cookies.delete(`hk_oauth_pkce_${provider}`);
     response.cookies.set(`hk_oauth_session_${provider}`, encryptSession({ provider, customerId: sessionCompanyId, accessToken: token.accessToken, expiresAt, scope: token.scope, metaUser }), { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 900, path: "/" });
+    // Defense in depth alongside the connect-time refresh above — covers a
+    // round trip that outlasted even that freshly-extended window. Runs on
+    // the response that's about to carry the browser back into
+    // /hk-admin or /musteri-paneli (both behind the same gate), so a fresh
+    // grant here is available immediately on the very next request.
+    await refreshHiddenAccessOnResponse(response, sessionProfileId, request, "oauthCallback");
     logOAuthStage("final_redirect", request, { provider, origin, companyId: sessionCompanyId, traceId: state.nonce, target: target.pathname, ok: true });
     return response;
   } catch (error) {

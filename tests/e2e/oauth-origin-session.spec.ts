@@ -1,5 +1,33 @@
 import { test, expect } from "@playwright/test";
+import { createServer, type Server } from "node:http";
 import { hasQaAdminCredentials, loginAsQaAdmin, qaAdminStorageState, qaSkipReason } from "./fixtures/qa-auth";
+
+// A real HTTP redirect issued by a genuinely different origin — needed to
+// test SameSite cookie behavior correctly. Playwright's page.goto(url) to
+// an arbitrary URL does NOT carry the "this navigation was redirected here
+// by a foreign site" provenance a real 3xx response does, so it can't be
+// used to validate this on its own (this is exactly how the SameSite=Strict
+// regression here slipped past this suite's earlier "real browser" tests —
+// those drove page.goto() directly to a fabricated callback URL, never a
+// genuine cross-site redirect chain). Spinning up a tiny local server on a
+// different origin (127.0.0.1:<ephemeral port> vs www.hkdijital.com.tr) and
+// having it 302 to the real target reproduces a real cross-site redirect
+// chain without needing a real external OAuth consent.
+async function startBounceServer(): Promise<{ url: string; close: () => Promise<void>; server: Server }> {
+  const server = createServer((req, res) => {
+    const target = new URL(req.url || "/", "http://placeholder").searchParams.get("to") || "/";
+    res.writeHead(302, { Location: target });
+    res.end();
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  const port = typeof address === "object" && address ? address.port : 0;
+  return {
+    url: `http://127.0.0.1:${port}/bounce`,
+    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
+    server
+  };
+}
 
 // Regression coverage for the "HK Admin gets kicked to the login screen when
 // starting a provider OAuth connection from Analiz & Raporlama Merkezi" bug.
@@ -382,12 +410,65 @@ test.describe("HK Admin OAuth origin/session regression", () => {
     const cookiesAfter = await context.cookies();
     const secretAfter = cookiesAfter.find((c) => c.name === "hk_secret_access_session");
     expect(secretAfter?.value).not.toBe(secretBefore?.value);
+    // MUST be Lax, not Strict — a Strict cookie set here is never re-sent on
+    // the request that follows a real cross-site redirect back from the
+    // external provider (see the dedicated cross-site-redirect test below),
+    // which is exactly how the previous version of this fix silently failed
+    // in production despite this same test passing.
+    expect(secretAfter?.sameSite).toBe("Lax");
 
     // And the refreshed session actually works: even simulating that the
     // OLD one would have expired by now, the gate lets the real return
     // route through using the freshly-issued cookie.
     const returnCheck = await request.get("/hk-admin/analiz-raporlama?company=" + companyId, { maxRedirects: 0 });
     expect(returnCheck.status()).toBe(200);
+  });
+
+  test("hidden-access courtesy refresh survives a REAL cross-site redirect chain (the actual production failure mode)", async ({ page, context }) => {
+    test.skip(!hasQaAdminCredentials(), qaSkipReason);
+    const request = context.request;
+    await loginAsQaAdmin(request);
+    const companyId = await getRealCompanyId(request);
+    test.skip(!companyId, "No company available in this environment to test against.");
+
+    const connectResponse = await request.get(`/api/integrations/meta/connect?company=${companyId}`, { maxRedirects: 0 });
+    const providerUrl = new URL(connectResponse.headers()["location"] || "");
+    test.skip(providerUrl.hostname === "www.hkdijital.com.tr", "META_* OAuth credentials not configured in this environment.");
+    // Real state, extracted the same way the deepest-boundary tests do
+    // (top-level for Google-style URLs, nested in cancel_url for Meta's
+    // login.php interstitial).
+    let realState = providerUrl.searchParams.get("state") || "";
+    if (!realState) {
+      const cancelUrl = providerUrl.searchParams.get("cancel_url");
+      if (cancelUrl) realState = new URL(cancelUrl).searchParams.get("state") || "";
+    }
+    test.skip(!realState, "Could not extract a real signed state from the provider's own URL.");
+
+    // Real cross-site 302 (a genuinely different origin: 127.0.0.1:<port> vs
+    // www.hkdijital.com.tr) into the real bare-domain callback host, exactly
+    // reproducing the actual chain: foreign redirect -> bare domain ->
+    // platform bare->www redirect -> oauthCallback -> our own redirect into
+    // /hk-admin/analiz-raporlama. error=access_denied avoids needing a real
+    // authorization code while still exercising the exact cookie/redirect
+    // chain that matters here.
+    const target = `https://hkdijital.com.tr/api/integrations/callback/meta?state=${encodeURIComponent(realState)}&error=access_denied`;
+    const bounce = await startBounceServer();
+    try {
+      await page.goto(`${bounce.url}?to=${encodeURIComponent(target)}`, { waitUntil: "domcontentloaded" });
+      await page.waitForTimeout(1500);
+      const finalUrl = page.url();
+      // This is the exact production failure mode: a still-valid
+      // hk_auth_session but a bounce to the public homepage because the
+      // Secret Access gate's cookie didn't survive the return trip.
+      expect(finalUrl).not.toContain("hk_return=");
+      expect(finalUrl).toContain("/hk-admin/analiz-raporlama");
+      expect(finalUrl).toContain(`company=${companyId}`);
+
+      const meAfter = await request.get("/api/auth/me");
+      expect(meAfter.status()).toBe(200);
+    } finally {
+      await bounce.close();
+    }
   });
 
   test("unauthenticated connect attempt is rejected safely, not a crash or an open redirect", async ({ browser }) => {
