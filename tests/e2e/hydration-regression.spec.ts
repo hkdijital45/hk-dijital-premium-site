@@ -43,6 +43,10 @@ test.describe("hydration mismatch regression — admin routes", () => {
   });
 
   test("admin dashboard, leads, Müşteri Keşfi and a customer onboarding tab have no hydration mismatch (cold x5 each)", async ({ page, request }) => {
+    // 4 routes x 5 cold loads over a real network (not just localhost) can
+    // comfortably exceed the default 45s test timeout without anything
+    // being wrong — this is a slow test by design, not a stuck one.
+    test.setTimeout(240_000);
     await loginAsQaAdmin(request);
     const companiesRes = await request.get("/api/admin/companies");
     const companiesBody = await companiesRes.json().catch(() => ({}));
