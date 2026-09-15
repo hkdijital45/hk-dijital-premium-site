@@ -48,7 +48,7 @@ const providerConfig: Record<Provider, {
   meta: {
     label: "Meta",
     env: ["META_CLIENT_ID", "META_CLIENT_SECRET", "META_REDIRECT_URI"],
-    authBase: "https://www.facebook.com/v20.0/dialog/oauth",
+    authBase: "https://www.facebook.com/v23.0/dialog/oauth",
     scope: "public_profile,email",
     assetTypes: ["Business Manager", "Ad Account", "Page", "Instagram Business Account", "Pixel"]
   },
@@ -162,7 +162,24 @@ function advancedScopesEnabled(provider: Provider) {
   return provider === "meta" && process.env.META_ADVANCED_SCOPES_ENABLED === "true";
 }
 
+// Real production root cause of "Meta login succeeds but Instagram/Facebook
+// never connect": this previously always returned providerConfig.meta's
+// bare "public_profile,email" for Meta regardless of
+// META_ADVANCED_SCOPES_ENABLED — the flag was checked in several places
+// (businessAssetListingReady, the oauthAccounts Phase-1/Phase-2 branch,
+// saveMetaPhase1Integration's stored metadata) but never actually reached
+// the OAuth authorize request itself, so the resulting token could never
+// have pages_show_list/instagram_basic/business_management/etc. no matter
+// how the flag was set — confirmed against the real production
+// customer_integrations row (oauth_scopes: ["public_profile","email"] only)
+// for a company where META_ADVANCED_SCOPES_ENABLED is already true. Now
+// actually requests the full, current (verified against Meta's own
+// permissions reference) business/insights scope set once the flag is on.
 function effectiveProviderScope(provider: Provider) {
+  if (provider === "meta" && advancedScopesEnabled("meta")) {
+    const basic = providerConfig.meta.scope.split(",").map((scope) => scope.trim()).filter(Boolean);
+    return Array.from(new Set([...basic, ...META_BUSINESS_REQUIRED_SCOPES])).join(",");
+  }
   return providerConfig[provider].scope;
 }
 
@@ -239,7 +256,7 @@ export function getOAuthProviderStatus(provider: Provider) {
     businessAssetListingReady: provider === "meta" ? advancedScopesEnabled(provider) : undefined,
     businessAssetListingMessage: provider === "meta"
       ? advancedScopesEnabled(provider)
-        ? "Business API teşhis/deneme modu aktif. Gelişmiş izinler OAuth URL'sine eklenmez; API erişimi App Review / Business Verification sonucuna göre test edilir."
+        ? "Gelişmiş izinler (Facebook Sayfaları, Instagram Business, Business Manager, reklam hesabı) OAuth ekranında istenir. Meta bu izinleri, hesap uygulamanın admin/geliştirici/test kullanıcısı ise (Standard Access) hemen, değilse yalnızca App Review onayından sonra (Advanced Access) verir."
         : "Business API teşhisi kapalı. OAuth login yalnız public_profile,email ile çalışır; reklam hesabı manuel ID ile bağlanabilir."
       : undefined,
     businessPermissionNote: provider === "meta" ? "business_management, ads_read, pages_show_list ve instagram_basic OAuth URL'ye eklenmez; yalnız Business API teşhis sonucu ve App Review gereksinimi olarak gösterilir." : undefined,
@@ -534,7 +551,7 @@ async function exchangeCode(provider: Provider, code: string, codeVerifier = "")
   const credentials = providerCredentials(provider);
   if (provider === "meta") {
     const params = new URLSearchParams({ client_id: credentials.clientId, client_secret: credentials.clientSecret, redirect_uri: credentials.redirectUri, code });
-    const response = await fetch(`https://graph.facebook.com/v20.0/oauth/access_token?${params.toString()}`, { cache: "no-store" });
+    const response = await fetch(`https://graph.facebook.com/v23.0/oauth/access_token?${params.toString()}`, { cache: "no-store" });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error?.message || "Meta token alınamadı.");
     const longLivedParams = new URLSearchParams({
@@ -543,7 +560,7 @@ async function exchangeCode(provider: Provider, code: string, codeVerifier = "")
       client_secret: credentials.clientSecret,
       fb_exchange_token: payload.access_token
     });
-    const longLivedResponse = await fetch(`https://graph.facebook.com/v20.0/oauth/access_token?${longLivedParams.toString()}`, { cache: "no-store" });
+    const longLivedResponse = await fetch(`https://graph.facebook.com/v23.0/oauth/access_token?${longLivedParams.toString()}`, { cache: "no-store" });
     const longLived = await longLivedResponse.json().catch(() => ({}));
     return {
       accessToken: longLivedResponse.ok && longLived.access_token ? longLived.access_token : payload.access_token,
@@ -586,7 +603,7 @@ async function exchangeCode(provider: Provider, code: string, codeVerifier = "")
 }
 
 async function fetchMetaUserInfo(accessToken: string) {
-  const response = await fetch(`https://graph.facebook.com/v20.0/me?${new URLSearchParams({ fields: "id,name,email", access_token: accessToken }).toString()}`, { cache: "no-store" });
+  const response = await fetch(`https://graph.facebook.com/v23.0/me?${new URLSearchParams({ fields: "id,name,email", access_token: accessToken }).toString()}`, { cache: "no-store" });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || !payload.id) throw new Error(payload.error?.message || "Meta kullanıcı bilgisi alınamadı.");
   return {

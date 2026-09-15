@@ -2,9 +2,21 @@
 import { decryptSecret } from "@/lib/business-flow";
 import { hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
-const GRAPH_VERSION = "v20.0";
+// v20.0 expires September 24, 2026 (Meta then silently answers v20 calls
+// with v21 behavior, with no error) — confirmed against Meta's own current
+// Graph API changelog before bumping. v23.0 is current and supported until
+// October 2027.
+const GRAPH_VERSION = "v23.0";
 
-export const META_BUSINESS_REQUIRED_SCOPES = ["business_management", "ads_read", "pages_show_list", "instagram_basic"];
+// The full permission set actually needed for Facebook Page / Instagram
+// Business discovery AND reading real insights (not just listing accounts)
+// — confirmed against Meta's current permissions reference before adding:
+// pages_show_list (list Pages), pages_read_engagement + read_insights (Page
+// insights), instagram_basic (IG account/media), instagram_manage_insights
+// (IG account/media/story insights), business_management (Business Manager
+// assets), ads_read (ad account insights). None of these are deprecated or
+// replaced as of the current documentation.
+export const META_BUSINESS_REQUIRED_SCOPES = ["business_management", "ads_read", "pages_show_list", "pages_read_engagement", "read_insights", "instagram_basic", "instagram_manage_insights"];
 
 function clean(value: unknown) {
   return String(value ?? "").trim();

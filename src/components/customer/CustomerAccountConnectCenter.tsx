@@ -536,13 +536,24 @@ export function CustomerAccountConnectCenter() {
             const Icon = card.icon;
             const asset = assets.find((item) => item.platform === card.key);
             const connectionMethod = asset?.connection_method || asset?.connection_mode || "";
+            // Facebook/Instagram are child services of the same Meta OAuth
+            // parent (the "meta" card/asset) — a Facebook Page or Instagram
+            // Business account is a separate, later selection step, not a
+            // separate login. Without this, these two cards showed a bare
+            // "Durum: Eksik" (no asset row at all matches platform:
+            // "facebook"/"instagram" until one is actually selected) even
+            // though the Meta account itself is genuinely authenticated —
+            // indistinguishable from never having logged into Meta at all.
+            const metaParentAsset = (card.key === "facebook" || card.key === "instagram") ? assets.find((item) => item.platform === "meta") : null;
+            const needsChildSelection = Boolean(metaParentAsset) && !asset;
             return (
               <button key={card.key} onClick={() => selectPlatform(card)} className={`rounded-[18px] border p-4 text-left transition hover:-translate-y-0.5 ${active.key === card.key ? "border-cyan-300 bg-cyan-50" : "border-slate-200 bg-white"}`}>
                 <div className="flex items-start gap-3">
                   <span className={`rounded-[14px] p-3 ${card.tone}`}><Icon size={20} /></span>
                   <span>
                     <strong className="block text-slate-950">{card.title}</strong>
-	                    <span className="mt-1 block text-xs font-bold text-slate-500">Durum: {statusLabel[asset?.status] || "Eksik"}</span>
+	                    <span className="mt-1 block text-xs font-bold text-slate-500">Durum: {needsChildSelection ? "Meta hesabı bağlı" : statusLabel[asset?.status] || "Eksik"}</span>
+	                    {needsChildSelection && <span className="mt-1 block text-[11px] font-bold text-amber-700">{card.key === "facebook" ? "Facebook Sayfası seçimi gerekli" : "Instagram işletme hesabı seçimi gerekli"}</span>}
 	                    <span className="mt-1 block text-[11px] font-bold text-slate-400">Bağlantı yöntemi: {connectionMethod ? methodLabel[connectionMethod] || connectionMethod : "Yok"}</span>
 	                    <span className="mt-1 block text-[11px] text-slate-400">Son güncelleme: {(asset?.updated_at || asset?.last_synced_at) ? new Date(asset.updated_at || asset.last_synced_at).toLocaleDateString("tr-TR") : "Henüz yok"}</span>
 	                    {card.key === "google" && <span className="mt-2 flex flex-wrap gap-1">{enabledGoogleServices.map((key) => <span key={key} className="rounded-full bg-white px-2 py-0.5 text-[10px] font-black text-amber-800 ring-1 ring-amber-100">{googleSubserviceLabels[key]}</span>)}</span>}
