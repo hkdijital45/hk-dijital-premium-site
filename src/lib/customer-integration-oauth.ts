@@ -7,6 +7,7 @@ import { canAccessModule } from "@/lib/permissions";
 import { HIDDEN_ACCESS_COOKIE, HIDDEN_ACCESS_SESSION_TTL_SECONDS, extractClientIp, findValidHiddenAccessSession, grantCourtesyHiddenAccessSession } from "@/lib/hidden-access";
 import { encryptSecret } from "@/lib/business-flow";
 import { diagnoseMetaBusinessAccess, listMetaBusinessAssets, META_BUSINESS_REQUIRED_SCOPES, publicMetaDiagnostics, tokenForCustomerMetaIntegration } from "@/lib/meta-business-phase2";
+import { getGoogleToken } from "@/lib/google-oauth-token";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 import { safeCompare } from "@/lib/secure-compare";
 import { safeReturnTo } from "@/lib/safe-return-to";
@@ -29,7 +30,7 @@ type OAuthState = {
   exp: number;
 };
 
-async function companyExistsForStaff(companyId: string): Promise<boolean> {
+export async function companyExistsForStaff(companyId: string): Promise<boolean> {
   if (!companyId || !hasSupabaseConfig()) return false;
   const rows = await supabaseRest<any[]>(`companies?select=id&id=eq.${encodeURIComponent(companyId)}&deleted_at=is.null&limit=1`).catch(() => []);
   return Boolean(rows[0]?.id);
@@ -1126,24 +1127,60 @@ async function fetchXAccounts(accessToken: string) {
   }];
 }
 
-export async function oauthAccounts(request: Request) {
-  const session = await requireIntegrationSession();
-  if (!session) return NextResponse.json({ error: "Oturum gerekir." }, { status: 403 });
-  const provider = clean(new URL(request.url).searchParams.get("provider")) as Provider;
-  if (!["meta", "google", "tiktok", "x"].includes(provider)) return NextResponse.json({ error: "Geçerli platform seçin." }, { status: 400 });
-  const missing = missingProviderEnv(provider);
-  if (missing.length) return NextResponse.json({ ok: false, provider, accounts: [], code: "oauth_not_configured", missingEnv: missing, message: "Bağlantı yapılandırması eksik." }, { status: 501 });
+// Shared by oauthAccounts and selectOAuthAccount: resolves which company
+// this request is authorized to act on, and a real access token for it —
+// preferring the fresh transient hk_oauth_session_{provider} cookie set
+// right after a completed handshake (15-minute TTL) when present, and
+// otherwise falling back to the token this app ALREADY persists and
+// refreshes for exactly this purpose (tokenForCustomerMetaIntegration /
+// getGoogleToken — the same helpers analytics-center/tokens.ts uses to fetch
+// real metrics). Without this fallback, asset discovery/selection only ever
+// worked inside that 15-minute window after connecting — any later revisit
+// (e.g. an admin returning to pick a specific Google Ads/GBP asset after the
+// initial Phase-1 connect) saw "Hesap listelemek için önce platform
+// girişini tamamlayın." even though a fully valid, persisted connection
+// already existed.
+//
+// requestedCompany is only honored for a staff session, and only once
+// confirmed to be a real company (companyExistsForStaff) — never trusted
+// blindly. A customer session always resolves to their own company,
+// ignoring any client-supplied company value.
+async function resolveProviderAccessToken(provider: Provider, session: { role?: string | null; companyId?: string | null }, requestedCompany: string) {
+  let targetCompanyId = "";
+  if (isCustomerRole(session.role) && session.companyId) {
+    targetCompanyId = session.companyId;
+  } else if (isStaffRole(session.role) && requestedCompany && (await companyExistsForStaff(requestedCompany))) {
+    targetCompanyId = requestedCompany;
+  }
+
   const cookieStore = await cookies();
   const oauthSession = decryptSession(cookieStore.get(`hk_oauth_session_${provider}`)?.value);
   let accessToken = "";
   let metaSessionForPhase1 = oauthSession;
-  if (oauthSession && oauthSession.provider === provider && (!isCustomerRole(session.role) || oauthSession.customerId === session.companyId)) {
+  if (oauthSession && oauthSession.provider === provider && (!targetCompanyId || oauthSession.customerId === targetCompanyId)) {
     accessToken = String(oauthSession.accessToken || "");
-  } else if (provider === "meta" && isCustomerRole(session.role) && session.companyId) {
-    const stored = await tokenForCustomerMetaIntegration(session.companyId);
+    if (!targetCompanyId) targetCompanyId = oauthSession.customerId || "";
+  } else if (provider === "meta" && targetCompanyId) {
+    const stored = await tokenForCustomerMetaIntegration(targetCompanyId);
     accessToken = stored.token;
-    metaSessionForPhase1 = { provider, customerId: session.companyId, metaUser: stored.integration?.metadata || {} };
+    metaSessionForPhase1 = { provider, customerId: targetCompanyId, metaUser: stored.integration?.metadata || {} };
+  } else if (provider === "google" && targetCompanyId) {
+    const stored = await getGoogleToken(targetCompanyId);
+    accessToken = stored.token;
   }
+  return { accessToken, targetCompanyId, metaSessionForPhase1 };
+}
+
+export async function oauthAccounts(request: Request) {
+  const session = await requireIntegrationSession();
+  if (!session) return NextResponse.json({ error: "Oturum gerekir." }, { status: 403 });
+  const url = new URL(request.url);
+  const provider = clean(url.searchParams.get("provider")) as Provider;
+  if (!["meta", "google", "tiktok", "x"].includes(provider)) return NextResponse.json({ error: "Geçerli platform seçin." }, { status: 400 });
+  const missing = missingProviderEnv(provider);
+  if (missing.length) return NextResponse.json({ ok: false, provider, accounts: [], code: "oauth_not_configured", missingEnv: missing, message: "Bağlantı yapılandırması eksik." }, { status: 501 });
+  const requestedCompany = clean(url.searchParams.get("company") || url.searchParams.get("customerId"));
+  const { accessToken, metaSessionForPhase1 } = await resolveProviderAccessToken(provider, session, requestedCompany);
   if (!accessToken) {
     return NextResponse.json({ ok: false, provider, accounts: [], code: "oauth_session_missing", message: "Hesap listelemek için önce platform girişini tamamlayın." }, { status: 401 });
   }
@@ -1204,14 +1241,13 @@ export async function selectOAuthAccount(request: Request) {
 
     // Target company: for a customer session, always their own company
     // (unchanged). For a staff session — only meaningful for meta/google,
-    // the two providers Analiz & Raporlama Merkezi drives — derived from
-    // the hk_oauth_session_${provider} cookie oauthCallback already set
-    // once for an authorized company, never from a client-supplied value.
-    // This mirrors the trust boundary oauthAccounts (just above) already
-    // uses for staff sessions; previously this function hard-required
-    // isCustomerRole(session.role), so a staff session picking an asset
-    // after a successful hk_admin-origin OAuth connect got a 403 here even
-    // though requireIntegrationSession() already authorized them.
+    // the two providers Analiz & Raporlama Merkezi drives — an explicit,
+    // validated ?company=/body.company, never trusted blindly. Previously
+    // this function hard-required isCustomerRole(session.role), so a staff
+    // session picking an asset after a successful hk_admin-origin OAuth
+    // connect got a 403 here even though requireIntegrationSession() already
+    // authorized them.
+    const requestedCompany = clean(body.company || body.companyId || body.customerId);
     let targetCompanyId = "";
     if (isCustomerRole(session.role) && session.companyId) {
       targetCompanyId = session.companyId;
@@ -1220,17 +1256,24 @@ export async function selectOAuthAccount(request: Request) {
     }
 
     if (provider === "meta" || provider === "google") {
-      const cookieStore = await cookies();
-      const oauthSession = decryptSession(cookieStore.get(`hk_oauth_session_${provider}`)?.value);
-      if (!oauthSession || oauthSession.provider !== provider || !oauthSession.accessToken || (targetCompanyId ? oauthSession.customerId !== targetCompanyId : !oauthSession.customerId)) {
+      // Same resolver oauthAccounts uses: prefers the fresh transient
+      // hk_oauth_session_{provider} cookie, falls back to the persisted,
+      // auto-refreshing token (tokenForCustomerMetaIntegration/
+      // getGoogleToken) once that 15-minute window has passed — without
+      // this, selecting an asset any time after that window always failed
+      // here even though discovery (oauthAccounts, above) already works
+      // again via the same fallback.
+      const resolved = await resolveProviderAccessToken(provider, session, targetCompanyId || requestedCompany);
+      const accessToken = resolved.accessToken;
+      if (!targetCompanyId) targetCompanyId = resolved.targetCompanyId;
+      if (!targetCompanyId || !accessToken) {
         return NextResponse.json({ error: "Hesap seçimini doğrulamak için platform bağlantısını yeniden tamamlayın." }, { status: 401 });
       }
-      if (!targetCompanyId) targetCompanyId = oauthSession.customerId;
       const discovered = provider === "meta"
         ? advancedScopesEnabled("meta")
-          ? (await listMetaBusinessAssets(String(oauthSession.accessToken))).accounts
-          : [metaPhase1AccountFromSession(oauthSession)].filter(Boolean)
-        : await fetchGoogleAccounts(String(oauthSession.accessToken));
+          ? (await listMetaBusinessAssets(accessToken)).accounts
+          : [metaPhase1AccountFromSession(resolved.metaSessionForPhase1)].filter(Boolean)
+        : await fetchGoogleAccounts(accessToken);
       const discoveredByKey = new Map(discovered.map((item: any) => [
         `${item.provider}-${item.account_type || item.asset_type}-${item.provider_account_id || item.account_id || item.asset_id}`,
         item

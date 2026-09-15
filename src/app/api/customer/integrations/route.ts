@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
-import { getSession, isCustomerPasswordChangeRequired, isCustomerRole } from "@/lib/auth";
+import { getSession, isCustomerPasswordChangeRequired, isCustomerRole, isStaffRole } from "@/lib/auth";
+import { canAccessModule } from "@/lib/permissions";
+import { companyExistsForStaff } from "@/lib/customer-integration-oauth";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
 const sensitiveFields = ["login_email", "login_username", "login_password", "recovery_email", "two_factor_note", "access_note", "sensitive_metadata", "access_token_encrypted", "refresh_token_encrypted"];
@@ -164,13 +166,29 @@ async function getRow(companyId: string) {
   return rows[0] || null;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const session = await getSession();
   if (isCustomerPasswordChangeRequired(session)) return NextResponse.json({ error: "Önce geçici şifrenizi değiştirmeniz gerekiyor.", redirectTo: "/sifre-degistir" }, { status: 403 });
-  if (!session || !isCustomerRole(session.role) || !session.companyId) return NextResponse.json({ error: "Müşteri oturumu gerekir." }, { status: 403 });
+  // Customer session: always their own company (unchanged). Staff session
+  // (HK Admin previewing a company from Analiz & Raporlama Merkezi via
+  // /musteri-paneli?company=<id>&from=hk-admin): an explicit, validated
+  // ?company=, never trusted blindly — same trust boundary already used by
+  // oauthConnect/oauthAccounts/selectOAuthAccount. Without this, staff
+  // viewing this screen always got a 403 here, so the UI silently rendered
+  // every platform card as "Durum: Eksik / Bağlantı yöntemi: Yok" — even for
+  // a company with a real, fully-connected Google/Meta integration — since
+  // the component just treats a failed fetch as an empty asset list.
+  let companyId = "";
+  if (session && isCustomerRole(session.role) && session.companyId) {
+    companyId = session.companyId;
+  } else if (session && isStaffRole(session.role) && canAccessModule(session, "analiz-raporlama")) {
+    const requestedCompany = new URL(request.url).searchParams.get("company") || "";
+    if (requestedCompany && (await companyExistsForStaff(requestedCompany))) companyId = requestedCompany;
+  }
+  if (!companyId) return NextResponse.json({ error: "Müşteri oturumu gerekir." }, { status: 403 });
   if (!hasSupabaseConfig()) return NextResponse.json({ integration: null, assets: [], warning: "Supabase bağlantısı yapılandırılmadı." });
   try {
-    const row = await getRow(session.companyId);
+    const row = await getRow(companyId);
     return NextResponse.json({ integration: sanitize(row || {}), assets: Array.isArray(row?.integration_assets) ? sanitize({ integration_assets: row.integration_assets }).integration_assets : [] });
   } catch (error) {
     const safe = getSafeSupabaseError(error);

@@ -156,6 +156,20 @@ const googleSubserviceLabels: Record<string, string> = {
   youtube: "YouTube"
 };
 
+// This screen is reused as-is inside an HK Admin staff-preview of the
+// customer panel (/musteri-paneli?company=<id>&from=hk-admin). The staff
+// session has no companyId of its own, so every fetch this component makes
+// needs to carry the previewed company explicitly — without it, the read
+// endpoints correctly reject the staff session (they can't tell which
+// company to show), and this component treats that failure the same as
+// "no connection exists yet", which is how a fully-connected Google/Meta
+// account ended up rendering as "Durum: Eksik / Bağlantı yöntemi: Yok".
+function currentCompanyParam(): string {
+  if (typeof window === "undefined") return "";
+  const params = new URLSearchParams(window.location.search);
+  return params.get("company") || params.get("customer") || params.get("customerId") || "";
+}
+
 function serviceKeyForAccount(item: any): CustomerPlatformKey | "google" {
   const raw = String(item?.metadata?.service || item?.platform || item?.account_type || item?.asset_type || "").trim();
   if (raw === "google_analytics" || raw === "ga4_property") return "ga4";
@@ -197,7 +211,8 @@ export function CustomerAccountConnectCenter() {
 
   useEffect(() => {
     let mounted = true;
-    fetch("/api/customer/integrations", { cache: "no-store" })
+    const company = currentCompanyParam();
+    fetch(`/api/customer/integrations${company ? `?company=${encodeURIComponent(company)}` : ""}`, { cache: "no-store" })
       .then((response) => response.json())
       .then((payload) => {
         if (!mounted) return;
@@ -429,7 +444,8 @@ export function CustomerAccountConnectCenter() {
           return;
         }
       }
-      const response = await fetch(`/api/integrations/accounts?provider=${provider}`, { cache: "no-store" });
+      const company = currentCompanyParam();
+      const response = await fetch(`/api/integrations/accounts?provider=${provider}${company ? `&company=${encodeURIComponent(company)}` : ""}`, { cache: "no-store" });
       const payload = await response.json().catch(() => ({}));
       setOauthInfo(payload);
       if (payload.diagnostics) setMetaDiagnostics(payload.diagnostics);
@@ -455,14 +471,24 @@ export function CustomerAccountConnectCenter() {
     setLoading(true);
     setMessage("");
     try {
+      const company = currentCompanyParam();
       const response = await fetch("/api/integrations/accounts/select", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           provider: selected[0]?.provider || active.oauthProvider,
+          ...(company ? { company } : {}),
           accounts: selected.map((item: any) => ({
             provider: item.provider || active.oauthProvider,
-            platform: (item.provider || active.oauthProvider) === "google" ? "google" : item.platform || active.key,
+            // The discovered account (fetchGoogleAccounts) already tags each
+            // child service with its own specific platform (youtube,
+            // google_ads, google_business_profile, google_analytics,
+            // search_console) — forcing this to a generic "google" for every
+            // Google-sourced selection (the previous behavior) meant the
+            // YouTube/Google Ads/GBP cards could never find their own saved
+            // asset again (they look up by exact platform match), even
+            // though the selection itself had saved successfully.
+            platform: item.platform || ((item.provider || active.oauthProvider) === "google" ? "google" : active.key),
             provider_account_id: item.provider_account_id || item.account_id || item.asset_id || item.id,
             provider_account_name: item.provider_account_name || item.asset_name || item.name || active.title,
             account_type: item.account_type || item.asset_type || active.type,
@@ -518,7 +544,7 @@ export function CustomerAccountConnectCenter() {
                     <strong className="block text-slate-950">{card.title}</strong>
 	                    <span className="mt-1 block text-xs font-bold text-slate-500">Durum: {statusLabel[asset?.status] || "Eksik"}</span>
 	                    <span className="mt-1 block text-[11px] font-bold text-slate-400">Bağlantı yöntemi: {connectionMethod ? methodLabel[connectionMethod] || connectionMethod : "Yok"}</span>
-	                    <span className="mt-1 block text-[11px] text-slate-400">Son güncelleme: {asset?.updated_at ? new Date(asset.updated_at).toLocaleDateString("tr-TR") : "Henüz yok"}</span>
+	                    <span className="mt-1 block text-[11px] text-slate-400">Son güncelleme: {(asset?.updated_at || asset?.last_synced_at) ? new Date(asset.updated_at || asset.last_synced_at).toLocaleDateString("tr-TR") : "Henüz yok"}</span>
 	                    {card.key === "google" && <span className="mt-2 flex flex-wrap gap-1">{enabledGoogleServices.map((key) => <span key={key} className="rounded-full bg-white px-2 py-0.5 text-[10px] font-black text-amber-800 ring-1 ring-amber-100">{googleSubserviceLabels[key]}</span>)}</span>}
 	                  </span>
 	                </div>
