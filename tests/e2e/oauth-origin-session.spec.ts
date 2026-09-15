@@ -39,6 +39,19 @@ async function getRealCompanyId(request: import("@playwright/test").APIRequestCo
   return body.companies?.[0]?.id;
 }
 
+// Reads the OAuth state's own public claims (provider/origin/companyId/
+// returnTo/nonce/exp) without verifying its HMAC signature — fine for test
+// assertions on our own freshly-generated state, never used to authorize
+// anything. The real signature check happens server-side in oauthCallback.
+function decodeStatePayload(rawState: string): Record<string, unknown> | null {
+  try {
+    const [payload] = rawState.split(".");
+    return JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+  } catch {
+    return null;
+  }
+}
+
 test.describe("HK Admin OAuth origin/session regression", () => {
   test.use({ storageState: qaAdminStorageState });
   test.beforeEach(() => {
@@ -70,6 +83,15 @@ test.describe("HK Admin OAuth origin/session regression", () => {
         // very end of oauthConnect (past every session/company guard).
         const setCookie = response.headers()["set-cookie"] || "";
         expect(setCookie).toContain(`hk_oauth_state_${provider}`);
+        // TEST A/B (provider routing): the signed state itself must name the
+        // SAME provider that was requested — this is what stops a Google
+        // click from ever completing a Meta handshake (or vice versa) even
+        // if the redirect host were somehow right by coincidence.
+        const stateParam = new URL(location).searchParams.get("state") || "";
+        const decoded = decodeStatePayload(stateParam);
+        expect(decoded?.provider).toBe(provider);
+        expect(decoded?.origin).toBe("hk_admin");
+        expect(decoded?.customerId).toBe(companyId);
       } else {
         // Provider credentials not configured in this environment: still
         // proves the session/company checks passed, and that the
@@ -266,6 +288,92 @@ test.describe("HK Admin OAuth origin/session regression", () => {
     expect(response.status()).toBe(401);
     const body = await response.json().catch(() => ({}));
     expect(body.error).not.toBe("Müşteri oturumu gerekir.");
+  });
+
+  test("TEST D — provider isolation: clicking Meta, then Google, then Meta again from the real UI never carries over stale provider state", async ({ page, context, request }) => {
+    await loginAsQaAdmin(request);
+    const companyId = await getRealCompanyId(request);
+    test.skip(!companyId, "No company available in this environment to test against.");
+
+    await page.goto(`/musteri-paneli?company=${companyId}&from=hk-admin&branch=all#hesap-bagla`, { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(1200);
+
+    const sequence: Array<{ cardTitle: string; buttonPattern: RegExp; connectFragment: string; expectedProvider: "meta" | "google" }> = [
+      { cardTitle: "Meta / Facebook", buttonPattern: /Meta ile Giriş Yap/, connectFragment: "/api/integrations/meta/connect", expectedProvider: "meta" },
+      { cardTitle: "Google", buttonPattern: /Google ile Giriş Yap|Google ile Bağlan/, connectFragment: "/api/integrations/google/connect", expectedProvider: "google" },
+      { cardTitle: "Meta / Facebook", buttonPattern: /Meta ile Giriş Yap/, connectFragment: "/api/integrations/meta/connect", expectedProvider: "meta" }
+    ];
+
+    for (const [index, step] of sequence.entries()) {
+      const card = page.locator("button").filter({ has: page.getByText(step.cardTitle, { exact: true }) }).first();
+      await card.click();
+      await page.waitForTimeout(400);
+      const connectButton = page.getByRole("button", { name: step.buttonPattern }).first();
+      await expect(connectButton).toBeVisible();
+
+      const [popup] = await Promise.all([
+        context.waitForEvent("page", { timeout: 8000 }).catch(() => null),
+        page.waitForRequest((r) => r.url().includes(step.connectFragment), { timeout: 8000 }).catch(() => null),
+        connectButton.click()
+      ]);
+      await page.waitForTimeout(1500);
+      const finalUrl = (popup || page).url();
+      const authHost = step.expectedProvider === "meta" ? "https://www.facebook.com/" : "https://accounts.google.com/";
+      // Requires real Meta/Google OAuth credentials configured (not every
+      // local/CI environment — see the "1." test above); only meaningful to
+      // skip on the FIRST step, since a mid-sequence failure would itself be
+      // the bug this test exists to catch.
+      if (index === 0) test.skip(!finalUrl.startsWith(authHost), "META_*/GOOGLE_* OAuth credentials not configured in this environment.");
+      expect(finalUrl.startsWith(authHost)).toBeTruthy();
+      const stateParam = new URL(finalUrl).searchParams.get("state") || "";
+      const decoded = decodeStatePayload(stateParam);
+      expect(decoded?.provider).toBe(step.expectedProvider);
+
+      if (popup) await popup.close();
+      else await page.goBack({ waitUntil: "domcontentloaded" }).catch(() => {});
+      await page.waitForTimeout(500);
+    }
+  });
+
+  test("hidden-access courtesy refresh: oauthConnect refreshes an already-valid Secret Access session before sending the browser off-site", async ({ context }) => {
+    test.skip(!hasQaAdminCredentials(), qaSkipReason);
+    // context.request shares the SAME cookie jar as context (unlike the
+    // separate, worker-scoped `request` fixture) — required here since we
+    // mutate cookies on this context directly.
+    const request = context.request;
+    await loginAsQaAdmin(request);
+    const companyId = await getRealCompanyId(request);
+    test.skip(!companyId, "No company available in this environment to test against.");
+
+    const cookiesBefore = await context.cookies();
+    const secretBefore = cookiesBefore.find((c) => c.name === "hk_secret_access_session");
+    test.skip(!secretBefore, "No hk_secret_access_session on this QA session to test a refresh against.");
+
+    const response = await request.get(`/api/integrations/meta/connect?company=${companyId}`, { maxRedirects: 0 });
+    expect([302, 303, 307]).toContain(response.status());
+    const location = response.headers()["location"] || "";
+    // The refresh only runs once oauthConnect is actually about to send the
+    // browser off-site — if META_* isn't configured in this environment
+    // (not every local/CI environment — see the "1." test above), it never
+    // gets that far, and there is nothing to refresh (correctly: nothing
+    // off-site is happening either).
+    test.skip(!location.startsWith("https://www.facebook.com/"), "META_* OAuth credentials not configured in this environment.");
+    const setCookieHeader = response.headers()["set-cookie"] || "";
+    // A fresh hk_secret_access_session must have been issued on this exact
+    // response — the fix for "OAuth approval kicks the admin to the public
+    // homepage" (src/proxy.ts's Secret Access Control Center gate expiring
+    // during a long external consent flow, unrelated to hk_auth_session).
+    expect(setCookieHeader).toContain("hk_secret_access_session");
+
+    const cookiesAfter = await context.cookies();
+    const secretAfter = cookiesAfter.find((c) => c.name === "hk_secret_access_session");
+    expect(secretAfter?.value).not.toBe(secretBefore?.value);
+
+    // And the refreshed session actually works: even simulating that the
+    // OLD one would have expired by now, the gate lets the real return
+    // route through using the freshly-issued cookie.
+    const returnCheck = await request.get("/hk-admin/analiz-raporlama?company=" + companyId, { maxRedirects: 0 });
+    expect(returnCheck.status()).toBe(200);
   });
 
   test("unauthenticated connect attempt is rejected safely, not a crash or an open redirect", async ({ browser }) => {

@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import crypto from "crypto";
 import { getSession, isCustomerPasswordChangeRequired, isCustomerRole, isStaffRole, requireCustomerSession } from "@/lib/auth";
 import { canAccessModule } from "@/lib/permissions";
+import { HIDDEN_ACCESS_COOKIE, HIDDEN_ACCESS_SESSION_TTL_SECONDS, extractClientIp, findValidHiddenAccessSession, grantCourtesyHiddenAccessSession } from "@/lib/hidden-access";
 import { encryptSecret } from "@/lib/business-flow";
 import { diagnoseMetaBusinessAccess, listMetaBusinessAssets, META_BUSINESS_REQUIRED_SCOPES, publicMetaDiagnostics, tokenForCustomerMetaIntegration } from "@/lib/meta-business-phase2";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
@@ -398,9 +399,11 @@ export async function oauthConnect(provider: Provider, request: Request) {
   const customerSession = await requireCustomerSession();
   let origin: OAuthOrigin = "customer_panel";
   let targetCompanyId = "";
+  let requesterProfileId: string | null = null;
 
   if (customerSession) {
     targetCompanyId = customerSession.companyId;
+    requesterProfileId = customerSession.profileId || null;
     if (requestedCompany && requestedCompany !== customerSession.companyId) {
       const returnTo = safeReturnTo(rawReturnTo || "/musteri-paneli#hesap-bagla");
       if (wantsJson(request)) return NextResponse.json({ ok: false, error: "COMPANY_MISMATCH", message: "Bu bağlantı isteği mevcut müşteri oturumuyla eşleşmiyor." }, { status: 403 });
@@ -423,6 +426,7 @@ export async function oauthConnect(provider: Provider, request: Request) {
     }
     origin = "hk_admin";
     targetCompanyId = requestedCompany;
+    requesterProfileId = staffSession!.profileId || null;
   }
 
   const returnTo = safeReturnTo(rawReturnTo || (origin === "hk_admin" ? "/hk-admin/analiz-raporlama" : "/musteri-paneli#hesap-bagla"));
@@ -468,6 +472,38 @@ export async function oauthConnect(provider: Provider, request: Request) {
   const response = NextResponse.redirect(`${config.authBase}?${params.toString()}`);
   response.cookies.set(`hk_oauth_state_${provider}`, nonce, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 600, path: "/" });
   if (codeVerifier) response.cookies.set(`hk_oauth_pkce_${provider}`, codeVerifier, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 600, path: "/" });
+
+  // /hk-admin and /musteri-paneli both sit behind the Secret Access Control
+  // Center (src/proxy.ts), a separate, short-lived (1h) gate in front of the
+  // real login system. The external provider's own consent flow (picking an
+  // account, 2FA, reviewing scopes) can easily take long enough for that
+  // gate to expire while the browser is away — the request never touches
+  // our server during that time, so nothing here could renew it — and the
+  // user comes back to a real, valid hk_auth_session but a bounce to the
+  // public homepage (proxy.ts's requiresSecretGate() failure path), which
+  // looks exactly like "the flow just gave up." Reusing the same courtesy-
+  // session mechanism already used for password-reset/admin-setup (see
+  // grantCourtesyHiddenAccessSession's own comment) — never granted from
+  // nothing, only refreshed when the incoming request already carries a
+  // currently-valid one, so this can't be used to skip the gate's real
+  // first-time entry requirement.
+  try {
+    const currentSecretToken = (await cookies()).get(HIDDEN_ACCESS_COOKIE)?.value;
+    if (currentSecretToken && (await findValidHiddenAccessSession(currentSecretToken))) {
+      const refreshedToken = await grantCourtesyHiddenAccessSession({
+        triggerMethod: "oauth_connect",
+        authenticatedUserId: requesterProfileId,
+        ipAddress: extractClientIp(request.headers),
+        userAgent: request.headers.get("user-agent") || ""
+      });
+      if (refreshedToken) {
+        response.cookies.set(HIDDEN_ACCESS_COOKIE, refreshedToken, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/", maxAge: HIDDEN_ACCESS_SESSION_TTL_SECONDS });
+      }
+    }
+  } catch (error) {
+    // Never let this courtesy refresh block the actual OAuth redirect.
+    console.error("Hidden-access courtesy refresh before OAuth redirect failed:", error instanceof Error ? error.message : "unknown_error");
+  }
   return response;
 }
 

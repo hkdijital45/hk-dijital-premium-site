@@ -72,7 +72,13 @@ export async function proxy(request: NextRequest) {
     const secretSession = secretToken ? await findValidHiddenAccessSession(secretToken) : null;
     if (!secretSession) {
       const url = new URL("/", request.url);
-      url.searchParams.set("hk_return", pathname);
+      // Preserve the full path + query (e.g. ?company=<id>), not just the
+      // bare pathname — otherwise a visitor bounced here mid-flow (e.g. an
+      // OAuth connect whose external consent step outlasted this gate's
+      // session) loses their selected company/return context on top of the
+      // gate bounce itself, even after successfully re-entering.
+      const returnTarget = `${pathname}${request.nextUrl.search}`;
+      url.searchParams.set("hk_return", returnTarget);
       return NextResponse.redirect(url);
     }
   }
