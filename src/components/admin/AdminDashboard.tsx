@@ -5600,12 +5600,22 @@ function Crm({ content, setContent, view, setActive, currentSession }: any) {
   );
 }
 
+// Fixed timeZone is required, not cosmetic: without it, toLocaleDateString/
+// toLocaleString resolve to the JS runtime's local timezone. On Vercel that
+// runtime is UTC; a viewer's browser is (overwhelmingly) Europe/Istanbul —
+// same Date, two different formatted strings, which is a text-content
+// hydration mismatch (React #418) on every server-rendered date/time these
+// helpers produce. Pinning both server and client to the same zone removes
+// the divergence entirely (and also makes the server-rendered value the
+// correct Turkey-local time instead of an incidental UTC one).
+const HK_DISPLAY_TIME_ZONE = "Europe/Istanbul";
+
 function formatDate(value: any) {
-  return value ? new Date(value).toLocaleDateString("tr-TR") : "-";
+  return value ? new Date(value).toLocaleDateString("tr-TR", { timeZone: HK_DISPLAY_TIME_ZONE }) : "-";
 }
 
 function formatDateTime(value: any) {
-  return value ? new Date(value).toLocaleString("tr-TR") : "-";
+  return value ? new Date(value).toLocaleString("tr-TR", { timeZone: HK_DISPLAY_TIME_ZONE }) : "-";
 }
 
 // Subtle lead-aging signal — a soft text tint, not a loud badge/background,

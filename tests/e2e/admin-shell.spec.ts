@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { gotoAsQaAdmin, hasQaAdminCredentials, qaAdminStorageState, qaSkipReason } from "./fixtures/qa-auth";
+import { watchForHydrationErrors } from "./fixtures/hydration";
 
 // Every test in this file that uses the `page`/`request` fixtures is
 // authenticated, so it's safe to scope the saved real session to the whole
@@ -32,19 +33,21 @@ const REPRESENTATIVE_ROUTES = [
 
 for (const path of REPRESENTATIVE_ROUTES) {
   test(`admin route ${path} loads for an authenticated admin with no fatal console errors`, async ({ page }) => {
+    const hydration = watchForHydrationErrors(page);
     const pageErrors: string[] = [];
-    const consoleErrors: string[] = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
-    page.on("console", (message) => {
-      if (message.type() === "error") consoleErrors.push(message.text());
-    });
 
     await gotoAsQaAdmin(page, path);
     await page.waitForLoadState("domcontentloaded");
 
-    expect(pageErrors, `${path} must not throw uncaught page errors`).toEqual([]);
-    const hydrationErrors = consoleErrors.filter((text) => /hydrat/i.test(text));
-    expect(hydrationErrors, `${path} must not produce hydration warnings`).toEqual([]);
+    // Non-hydration uncaught errors still fail outright.
+    const nonHydrationPageErrors = pageErrors.filter((text) => !hydration.getHydrationErrors().includes(text));
+    expect(nonHydrationPageErrors, `${path} must not throw uncaught page errors`).toEqual([]);
+    // Covers both dev-mode wording ("hydration failed", "server rendered
+    // HTML") and production's minified React error codes (#418, #419, #421,
+    // #422, #423, #425) — a build served over HTTPS to real users never
+    // prints the dev wording, only the numeric codes.
+    expect(hydration.getHydrationErrors(), `${path} must not produce hydration mismatches (dev-mode or minified production codes)`).toEqual([]);
   });
 }
 

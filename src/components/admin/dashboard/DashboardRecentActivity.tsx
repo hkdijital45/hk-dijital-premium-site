@@ -2,11 +2,15 @@
 
 import type { DashboardActivityItem, NavigateFn } from "./types";
 
+// timeZone must be explicit: without it this resolves to the JS runtime's
+// local zone — UTC on Vercel vs. Europe/Istanbul in a viewer's browser —
+// producing a different string for the same Date on server vs. client
+// (React #418 hydration mismatch) on every render of this feed.
 function formatDateTime(value?: string) {
   if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleString("tr-TR", { dateStyle: "medium", timeStyle: "short" });
+  return date.toLocaleString("tr-TR", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Istanbul" });
 }
 
 export function DashboardRecentActivity({
