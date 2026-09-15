@@ -42,7 +42,16 @@ export async function getProviderConnectionStatus(companyId: string, provider: A
   const lastLog = await lastSyncLogForProvider(companyId, provider);
   const oauthReadiness = getOAuthProviderStatus(oauthParent);
 
-  const manageHref = "/musteri-paneli#hesap-bagla";
+  // ?company= puts /musteri-paneli into its existing, already-built staff-preview
+  // mode (see src/proxy.ts's isStaffPreview check) so an HK Admin clicking this
+  // from Analiz & Raporlama Merkezi lands on the real "Hesap Bağla" screen while
+  // staying authenticated as HK Admin, instead of being bounced to the customer
+  // login screen. from=hk-admin tells CustomerAccountConnectCenter to route the
+  // OAuth returnTo back to HK Admin (see its use of "from") rather than back to
+  // this staff-preview URL — oauthConnect/oauthCallback independently re-verify
+  // the staff session server-side before honoring either the company or the
+  // return route, so this query param is a UX hint only, never a trust boundary.
+  const manageHref = `/musteri-paneli?company=${encodeURIComponent(companyId)}&from=hk-admin#hesap-bagla`;
   const connectHref = manageHref;
 
   let status: ProviderConnectionStatus["status"] = "not_connected";

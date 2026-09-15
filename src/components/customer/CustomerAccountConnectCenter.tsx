@@ -362,11 +362,24 @@ export function CustomerAccountConnectCenter() {
     setMessage("Platform giriş ekranına yönlendiriliyorsunuz...");
     const currentParams = new URLSearchParams(window.location.search);
     const companyId = currentParams.get("company") || currentParams.get("customer") || currentParams.get("customerId") || assets.find((item) => item.company_id || item.customer_id)?.company_id || assets.find((item) => item.company_id || item.customer_id)?.customer_id || "";
-    const returnParams = new URLSearchParams(window.location.search);
-    ["integration_error", "integration_success", "integration_provider", "integration_message", "oauth_error", "oauth_provider", "oauth_status", "missing_env"].forEach((key) => returnParams.delete(key));
-    if (companyId) returnParams.set("company", String(companyId));
-    const query = returnParams.toString();
-    const returnTo = `${window.location.pathname}${query ? `?${query}` : ""}#hesap-bagla`;
+    // This screen is reused as-is inside an HK Admin staff-preview of the
+    // customer panel (see connections.ts's manageHref). from=hk-admin marks
+    // that case so the OAuth handshake returns the admin to the Analiz &
+    // Raporlama Merkezi it came from instead of back to this staff-preview
+    // URL — a UX hint only, never trusted for authorization: the server
+    // (oauthConnect/oauthCallback) independently re-verifies the staff
+    // session and module access before honoring it.
+    const isHkAdminOrigin = currentParams.get("from") === "hk-admin";
+    let returnTo: string;
+    if (isHkAdminOrigin && companyId) {
+      returnTo = `/hk-admin/analiz-raporlama?company=${encodeURIComponent(String(companyId))}#hesaplar`;
+    } else {
+      const returnParams = new URLSearchParams(window.location.search);
+      ["integration_error", "integration_success", "integration_provider", "integration_message", "oauth_error", "oauth_provider", "oauth_status", "missing_env"].forEach((key) => returnParams.delete(key));
+      if (companyId) returnParams.set("company", String(companyId));
+      const query = returnParams.toString();
+      returnTo = `${window.location.pathname}${query ? `?${query}` : ""}#hesap-bagla`;
+    }
     const connectParams = new URLSearchParams({
       platform: active.key,
       assetType: active.type,

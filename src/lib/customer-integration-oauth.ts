@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import crypto from "crypto";
 import { getSession, isCustomerPasswordChangeRequired, isCustomerRole, isStaffRole, requireCustomerSession } from "@/lib/auth";
+import { canAccessModule } from "@/lib/permissions";
 import { encryptSecret } from "@/lib/business-flow";
 import { diagnoseMetaBusinessAccess, listMetaBusinessAssets, META_BUSINESS_REQUIRED_SCOPES, publicMetaDiagnostics, tokenForCustomerMetaIntegration } from "@/lib/meta-business-phase2";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
@@ -10,14 +11,28 @@ import { safeCompare } from "@/lib/secure-compare";
 import { safeReturnTo } from "@/lib/safe-return-to";
 
 export type Provider = "meta" | "google" | "tiktok" | "x";
+// origin identifies which authenticated context started the OAuth handshake
+// (a customer at /musteri-paneli vs an HK Admin staff member previewing a
+// company from /hk-admin/analiz-raporlama). It travels inside the signed
+// state, never as a trusted client value, so oauthCallback can safely
+// determine which session type/return route is valid for this handshake —
+// see oauthConnect/oauthCallback.
+type OAuthOrigin = "customer_panel" | "hk_admin";
 type OAuthState = {
   provider: Provider;
   platform: string;
   customerId: string;
+  origin: OAuthOrigin;
   returnTo: string;
   nonce: string;
   exp: number;
 };
+
+async function companyExistsForStaff(companyId: string): Promise<boolean> {
+  if (!companyId || !hasSupabaseConfig()) return false;
+  const rows = await supabaseRest<any[]>(`companies?select=id&id=eq.${encodeURIComponent(companyId)}&deleted_at=is.null&limit=1`).catch(() => []);
+  return Boolean(rows[0]?.id);
+}
 
 // Gerçek access_token / refresh_token düz metin saklama yapılmaz.
 // OAuth üretime alınırken şifreleme helper'ı eklenmeden yalnız durum ve asset metadata tutulur.
@@ -368,20 +383,49 @@ export async function oauthStart(provider: Provider, request: Request) {
 }
 
 export async function oauthConnect(provider: Provider, request: Request) {
-  const session = await requireCustomerSession();
   const url = new URL(request.url);
-  const returnTo = safeReturnTo(clean(url.searchParams.get("returnTo")) || clean(url.searchParams.get("returnUrl")) || "/musteri-paneli#hesap-bagla");
-  if (!session) {
-    if (wantsJson(request)) {
-      return NextResponse.json({ ok: false, error: "SESSION_MISSING", message: "Oturum doğrulanamadı. Lütfen panelden çıkış yapıp tekrar giriş yapın." }, { status: 401 });
-    }
-    return redirectWithIntegrationError(request, returnTo, provider, "session_missing");
-  }
   const requestedCompany = clean(url.searchParams.get("company") || url.searchParams.get("customerId"));
-  if (requestedCompany && requestedCompany !== session.companyId) {
-    if (wantsJson(request)) return NextResponse.json({ ok: false, error: "COMPANY_MISMATCH", message: "Bu bağlantı isteği mevcut müşteri oturumuyla eşleşmiyor." }, { status: 403 });
-    return redirectWithIntegrationError(request, returnTo, provider, "company_mismatch");
+  const rawReturnTo = clean(url.searchParams.get("returnTo")) || clean(url.searchParams.get("returnUrl"));
+
+  // Two valid ways to reach this endpoint: (1) a customer session managing
+  // their own company's connections, unchanged from before; (2) an HK Admin
+  // staff session with access to the Analiz & Raporlama Merkezi module,
+  // previewing/managing a specific company's connections (?company=<id>,
+  // already sent by CustomerAccountConnectCenter when it's rendered in
+  // staff-preview mode). The origin is derived from the *server-verified*
+  // session type here — never trusted from a client flag — and carried
+  // forward inside the signed OAuth state for oauthCallback to consume.
+  const customerSession = await requireCustomerSession();
+  let origin: OAuthOrigin = "customer_panel";
+  let targetCompanyId = "";
+
+  if (customerSession) {
+    targetCompanyId = customerSession.companyId;
+    if (requestedCompany && requestedCompany !== customerSession.companyId) {
+      const returnTo = safeReturnTo(rawReturnTo || "/musteri-paneli#hesap-bagla");
+      if (wantsJson(request)) return NextResponse.json({ ok: false, error: "COMPANY_MISMATCH", message: "Bu bağlantı isteği mevcut müşteri oturumuyla eşleşmiyor." }, { status: 403 });
+      return redirectWithIntegrationError(request, returnTo, provider, "company_mismatch");
+    }
+  } else {
+    const staffSession = await getSession();
+    const isAuthorizedStaff = Boolean(staffSession && isStaffRole(staffSession.role) && canAccessModule(staffSession, "analiz-raporlama"));
+    if (!isAuthorizedStaff || !requestedCompany) {
+      const returnTo = safeReturnTo(rawReturnTo || "/musteri-paneli#hesap-bagla");
+      if (wantsJson(request)) {
+        return NextResponse.json({ ok: false, error: "SESSION_MISSING", message: "Oturum doğrulanamadı. Lütfen panelden çıkış yapıp tekrar giriş yapın." }, { status: 401 });
+      }
+      return redirectWithIntegrationError(request, returnTo, provider, "session_missing");
+    }
+    if (!(await companyExistsForStaff(requestedCompany))) {
+      const returnTo = safeReturnTo(rawReturnTo || "/hk-admin/analiz-raporlama");
+      if (wantsJson(request)) return NextResponse.json({ ok: false, error: "COMPANY_MISMATCH", message: "Geçerli bir müşteri seçin." }, { status: 403 });
+      return redirectWithIntegrationError(request, returnTo, provider, "company_mismatch");
+    }
+    origin = "hk_admin";
+    targetCompanyId = requestedCompany;
   }
+
+  const returnTo = safeReturnTo(rawReturnTo || (origin === "hk_admin" ? "/hk-admin/analiz-raporlama" : "/musteri-paneli#hesap-bagla"));
   const missing = missingProviderEnv(provider);
   if (missing.length) {
     const errorCode = `${provider}_env_missing`;
@@ -395,7 +439,7 @@ export async function oauthConnect(provider: Provider, request: Request) {
   const scope = effectiveProviderScope(provider);
   const platform = clean(url.searchParams.get("platform")) || provider;
   const nonce = crypto.randomBytes(18).toString("base64url");
-  const state = encodeState({ provider, platform, customerId: session.companyId || "", returnTo, nonce, exp: Date.now() + 10 * 60 * 1000 });
+  const state = encodeState({ provider, platform, customerId: targetCompanyId, origin, returnTo, nonce, exp: Date.now() + 10 * 60 * 1000 });
   const codeVerifier = provider === "x" ? crypto.randomBytes(48).toString("base64url") : "";
   const params = new URLSearchParams(provider === "tiktok" ? {
     app_id: credentials.clientId,
@@ -669,15 +713,53 @@ function callbackErrorCode(providerError: string, description: string) {
 }
 
 export async function oauthCallback(provider: Provider, request: Request) {
-  const session = await requireCustomerSession();
   const url = new URL(request.url);
   const code = clean(url.searchParams.get("code"));
   const providerError = clean(url.searchParams.get("error"));
   const providerErrorDescription = clean(url.searchParams.get("error_description") || url.searchParams.get("error_message"));
   const rawState = clean(url.searchParams.get("state"));
   const state = decodeState(rawState);
-  const returnTo = safeReturnTo(state?.returnTo || "/musteri-paneli#hesap-bagla");
-  if (!session) return redirectWithIntegrationError(request, returnTo, provider, "session_missing");
+  // origin is read from the signed state whenever it decodes (set
+  // server-side in oauthConnect above, never from a query param here — a
+  // tampered/missing signature already fails decodeState() and state is
+  // null). When state does NOT decode — expired, tampered, or simply
+  // missing — origin can't be trusted from it, so this falls back to
+  // whichever session is *currently* live, purely to pick a safe
+  // error-bounce destination. Without this, a broken/expired callback hit
+  // by an authenticated HK Admin would default to the customer-panel
+  // return route, which itself bounces a non-customer session toward the
+  // login screen (src/proxy.ts's staff-preview gate) — reproducing this
+  // bug's exact symptom for that one edge case. This inference is never
+  // used to authorize a company or complete a handshake — decodeState()
+  // failing always still leads to a rejected, no-op state_invalid below.
+  const currentSessionForOrigin = state ? null : await getSession();
+  const origin: OAuthOrigin =
+    state?.origin === "hk_admin" || (!state && currentSessionForOrigin && isStaffRole(currentSessionForOrigin.role))
+      ? "hk_admin"
+      : "customer_panel";
+  const returnTo = safeReturnTo(state?.returnTo || (origin === "hk_admin" ? "/hk-admin/analiz-raporlama" : "/musteri-paneli#hesap-bagla"));
+
+  // Re-verify the *current* session at callback time — never trust the
+  // state blob for authorization, only for which company was authorized
+  // back in oauthConnect. This is what stops a hijacked/downgraded session
+  // (e.g. the admin got logged out mid-flow) from silently completing the
+  // handshake, and what keeps customer-panel behavior completely unchanged.
+  let sessionCompanyId = "";
+  let sessionProfileId: string | null = null;
+  if (origin === "hk_admin") {
+    const staffSession = await getSession();
+    if (!staffSession || !isStaffRole(staffSession.role) || !canAccessModule(staffSession, "analiz-raporlama")) {
+      return redirectWithIntegrationError(request, returnTo, provider, "session_missing");
+    }
+    sessionCompanyId = state?.customerId || "";
+    sessionProfileId = staffSession.profileId || null;
+  } else {
+    const customerSession = await requireCustomerSession();
+    if (!customerSession) return redirectWithIntegrationError(request, returnTo, provider, "session_missing");
+    sessionCompanyId = customerSession.companyId;
+    sessionProfileId = customerSession.profileId || null;
+  }
+
   if (missingProviderEnv(provider).length) return redirectWithIntegrationError(request, returnTo, provider, `${provider}_env_missing`);
   const cookieStore = await cookies();
   const expectedNonce = cookieStore.get(`hk_oauth_state_${provider}`)?.value;
@@ -686,17 +768,26 @@ export async function oauthCallback(provider: Provider, request: Request) {
   if (providerError) {
     return redirectWithIntegrationError(request, returnTo, provider, callbackErrorCode(providerError, providerErrorDescription));
   }
-  if (!code || !state || state.provider !== provider || state.customerId !== session.companyId || state.nonce !== expectedNonce) {
+  if (!code || !state || state.provider !== provider || state.nonce !== expectedNonce) {
+    return redirectWithIntegrationError(request, returnTo, provider, "state_invalid");
+  }
+  // For a customer-panel handshake the signed company must still match the
+  // live session's company (defends against a company switch mid-flow on
+  // the same browser). For hk_admin, sessionCompanyId is itself derived
+  // from the signed state, so this is inherently satisfied — the company
+  // was already authorized in oauthConnect (module access + real company).
+  if (origin === "customer_panel" && state.customerId !== sessionCompanyId) {
     return redirectWithIntegrationError(request, returnTo, provider, "state_invalid");
   }
   try {
     const token = await exchangeCode(provider, code, codeVerifier);
     const expiresAt = token.expiresIn ? new Date(Date.now() + Number(token.expiresIn) * 1000).toISOString() : "";
+    const targetSession = { companyId: sessionCompanyId, profileId: sessionProfileId };
     let metaUser = null;
     if (provider === "meta") {
       try {
         metaUser = await fetchMetaUserInfo(token.accessToken);
-        await saveMetaPhase1Integration(session, token, metaUser, expiresAt);
+        await saveMetaPhase1Integration(targetSession, token, metaUser, expiresAt);
       } catch (error) {
         console.error("Meta OAuth Phase 1 user info/save failed", error instanceof Error ? error.message : "unknown_error");
         return redirectWithIntegrationError(request, returnTo, provider, "user_info_fetch_failed");
@@ -705,7 +796,7 @@ export async function oauthCallback(provider: Provider, request: Request) {
     if (provider === "google") {
       try {
         const googleUser = await fetchGoogleUserInfo(token.accessToken);
-        await saveGoogleOAuthIntegration(session, token, googleUser, expiresAt);
+        await saveGoogleOAuthIntegration(targetSession, token, googleUser, expiresAt);
       } catch (error) {
         console.error("Google OAuth user info/save failed", error instanceof Error ? error.message : "unknown_error");
         return redirectWithIntegrationError(request, returnTo, provider, "user_info_fetch_failed");
@@ -714,11 +805,11 @@ export async function oauthCallback(provider: Provider, request: Request) {
     target.searchParams.set("integration_provider", provider);
     target.searchParams.set("integration_success", provider);
     target.searchParams.set("oauth_status", "accounts_ready");
-    if (!target.hash) target.hash = "hesap-bagla";
+    if (!target.hash) target.hash = origin === "hk_admin" ? "hesaplar" : "hesap-bagla";
     const response = NextResponse.redirect(target);
     response.cookies.delete(`hk_oauth_state_${provider}`);
     response.cookies.delete(`hk_oauth_pkce_${provider}`);
-    response.cookies.set(`hk_oauth_session_${provider}`, encryptSession({ provider, customerId: session.companyId, accessToken: token.accessToken, expiresAt, scope: token.scope, metaUser }), { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 900, path: "/" });
+    response.cookies.set(`hk_oauth_session_${provider}`, encryptSession({ provider, customerId: sessionCompanyId, accessToken: token.accessToken, expiresAt, scope: token.scope, metaUser }), { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 900, path: "/" });
     return response;
   } catch (error) {
     return redirectWithIntegrationError(request, returnTo, provider, "token_exchange_failed", { integration_message: error instanceof Error ? error.message : "OAuth token alınamadı." });

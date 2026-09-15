@@ -125,6 +125,22 @@ export function AnalyticsReportingCenter() {
   }
   useEffect(() => { loadCompanies(); }, []);
 
+  // Restores the selected customer (and jumps to the Hesaplar tab) when
+  // this page is reopened with ?company=<id> — the return route used after
+  // an admin completes a provider OAuth handshake from here (see
+  // CustomerAccountConnectCenter's isHkAdminOrigin branch), so the admin
+  // lands back on the same customer/tab they were managing instead of an
+  // empty "Müşteri seçilmedi" state.
+  useEffect(() => {
+    if (!companies.length) return;
+    const params = new URLSearchParams(window.location.search);
+    const companyFromUrl = params.get("company");
+    if (companyFromUrl && companies.some((c) => c.id === companyFromUrl)) {
+      setCompanyId(companyFromUrl);
+      if (window.location.hash === "#hesaplar") setActiveTab("Hesaplar");
+    }
+  }, [companies]);
+
   const range = useMemo(() => rangeForPreset(preset, customStart, customEnd), [preset, customStart, customEnd]);
 
   async function loadConnections() {

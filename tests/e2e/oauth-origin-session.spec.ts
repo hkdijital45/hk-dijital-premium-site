@@ -1,0 +1,241 @@
+import { test, expect } from "@playwright/test";
+import { hasQaAdminCredentials, loginAsQaAdmin, qaAdminStorageState, qaSkipReason } from "./fixtures/qa-auth";
+
+// Regression coverage for the "HK Admin gets kicked to the login screen when
+// starting a provider OAuth connection from Analiz & Raporlama Merkezi" bug.
+//
+// Root cause (see src/lib/customer-integration-oauth.ts and src/proxy.ts):
+//   1. The "Bağlantıyı Yönet" link pointed at /musteri-paneli with no
+//      ?company= param, which tripped the middleware's staff-preview gate
+//      (an admin/staff role visiting /musteri-paneli without ?company= is
+//      not a customer session, so it got redirected to the login screen —
+//      the underlying hk_auth_session cookie was never touched, but the
+//      admin still landed on a login form).
+//   2. Even with a valid staff-preview visit, the actual OAuth entry/exit
+//      points (oauthConnect/oauthCallback) hard-required a customer-role
+//      session (requireCustomerSession()), so a staff session got an
+//      immediate SESSION_MISSING/COMPANY_MISMATCH error.
+//
+// This suite exercises the real, deployed /api/integrations/{provider}/connect
+// and /api/integrations/callback/{provider} endpoints directly (the same
+// endpoints CustomerAccountConnectCenter's "Meta ile Giriş Yap" / "Google ile
+// Bağlan" buttons call), with maxRedirects: 0 so the outgoing redirect can be
+// inspected without ever actually contacting facebook.com or google.com — no
+// real OAuth consent screen or token exchange is hit in these tests. The two
+// paths (providerError=access_denied and an invalid/tampered state) both
+// return before any network call to the provider, matching the module's own
+// early-return order (see oauthCallback).
+
+const CUSTOMER_A_EMAIL = process.env.QA_CUSTOMER_A_EMAIL;
+const CUSTOMER_A_PASSWORD = process.env.QA_CUSTOMER_A_PASSWORD;
+const hasQaCustomerCredentials = Boolean(CUSTOMER_A_EMAIL && CUSTOMER_A_PASSWORD);
+const qaCustomerSkipReason =
+  "QA_CUSTOMER_A_EMAIL / QA_CUSTOMER_A_PASSWORD not supplied — customer-panel OAuth regression coverage requires a real, seeded test customer account and is skipped rather than forged.";
+
+async function getRealCompanyId(request: import("@playwright/test").APIRequestContext): Promise<string | undefined> {
+  const response = await request.get("/api/admin/companies");
+  if (!response.ok()) return undefined;
+  const body = await response.json();
+  return body.companies?.[0]?.id;
+}
+
+test.describe("HK Admin OAuth origin/session regression", () => {
+  test.use({ storageState: qaAdminStorageState });
+  test.beforeEach(() => {
+    test.skip(!hasQaAdminCredentials(), qaSkipReason);
+  });
+
+  for (const provider of ["meta", "google"] as const) {
+    const authHost = provider === "meta" ? "https://www.facebook.com/" : "https://accounts.google.com/";
+
+    test(`1. authenticated admin starts ${provider} OAuth and reaches the real provider redirect (session preserved)`, async ({ request }) => {
+      await loginAsQaAdmin(request);
+      const companyId = await getRealCompanyId(request);
+      test.skip(!companyId, "No company available in this environment to test against.");
+
+      const response = await request.get(`/api/integrations/${provider}/connect?company=${companyId}`, { maxRedirects: 0 });
+      expect([302, 303, 307]).toContain(response.status());
+      const location = response.headers()["location"] || "";
+      // This exact call previously short-circuited to a session_missing/
+      // company_mismatch error for a staff session — that's the one thing
+      // asserted unconditionally here. Reaching the *real* provider
+      // redirect additionally requires provider OAuth credentials to be
+      // configured in this environment (not the case in every local/CI
+      // environment — see docs/analytics-center/setup.md), so that part is
+      // asserted only when possible.
+      expect(location).not.toContain("integration_error=session_missing");
+      expect(location).not.toContain("integration_error=company_mismatch");
+      if (location.startsWith(authHost)) {
+        // Provider credentials configured: proves the request reached the
+        // very end of oauthConnect (past every session/company guard).
+        const setCookie = response.headers()["set-cookie"] || "";
+        expect(setCookie).toContain(`hk_oauth_state_${provider}`);
+      } else {
+        // Provider credentials not configured in this environment: still
+        // proves the session/company checks passed, and that the
+        // origin-aware return route (hk_admin) was used even for this
+        // config error, not the customer-panel default.
+        expect(location).toContain(`integration_error=${provider}_env_missing`);
+        expect(location).toContain("/hk-admin/analiz-raporlama");
+      }
+    });
+  }
+
+  test("3. admin start without ?company= is rejected (no privilege escalation to an unscoped connect)", async ({ request }) => {
+    await loginAsQaAdmin(request);
+    const response = await request.get("/api/integrations/meta/connect", { maxRedirects: 0 });
+    expect([302, 303, 307]).toContain(response.status());
+    const location = response.headers()["location"] || "";
+    expect(location).toContain("integration_error=session_missing");
+    // Never a bounce to a login screen — the admin's own session is untouched.
+    expect(location).not.toContain("/digital-center");
+    expect(location).not.toContain("/giris");
+  });
+
+  test("4. admin start with a non-existent company id is rejected (company_mismatch, not silently accepted)", async ({ request }) => {
+    await loginAsQaAdmin(request);
+    const response = await request.get("/api/integrations/meta/connect?company=00000000-0000-0000-0000-000000000000", { maxRedirects: 0 });
+    expect([302, 303, 307]).toContain(response.status());
+    const location = response.headers()["location"] || "";
+    expect(location).toContain("integration_error=company_mismatch");
+  });
+
+  test("9a. callback with providerError=access_denied for an hk_admin-origin state returns to the HK Admin route, admin stays authenticated, no token exchange attempted", async ({ request, context }) => {
+    await loginAsQaAdmin(request);
+    const companyId = await getRealCompanyId(request);
+    test.skip(!companyId, "No company available in this environment to test against.");
+
+    const cookiesBefore = await context.cookies();
+    const authCookieBefore = cookiesBefore.find((c) => c.name.includes("auth_session"));
+    expect(authCookieBefore).toBeTruthy();
+
+    const connectResponse = await request.get(`/api/integrations/meta/connect?company=${companyId}`, { maxRedirects: 0 });
+    const providerUrl = new URL(connectResponse.headers()["location"] || "");
+    const realSignedState = providerUrl.searchParams.get("state") || "";
+    // A real signed state is only produced once oauthConnect gets past the
+    // provider-credentials check — not configured in every environment
+    // (see the "1." test above). Skip rather than fail when that's the
+    // case; this exact scenario runs for real wherever Meta credentials
+    // are configured (production included).
+    test.skip(!realSignedState, "META_* OAuth credentials not configured in this environment — oauthConnect never reached state generation.");
+
+    // Simulate the user cancelling Meta's consent dialog: Meta redirects
+    // back to our callback with error=access_denied and no code — this
+    // branch returns before exchangeCode() ever runs, so no real network
+    // call to Meta happens here.
+    const callbackResponse = await request.get(
+      `/api/integrations/callback/meta?state=${encodeURIComponent(realSignedState)}&error=access_denied&error_description=user_cancelled`,
+      { maxRedirects: 0 }
+    );
+    expect([302, 303, 307]).toContain(callbackResponse.status());
+    const location = callbackResponse.headers()["location"] || "";
+    expect(location).toContain("/hk-admin/analiz-raporlama");
+    expect(location).toContain(`company=${companyId}`);
+    expect(location).not.toContain("/digital-center");
+    expect(location).not.toContain("/giris");
+
+    const cookiesAfter = await context.cookies();
+    const authCookieAfter = cookiesAfter.find((c) => c.name.includes("auth_session"));
+    expect(authCookieAfter?.value).toBe(authCookieBefore?.value);
+  });
+
+  test("9b. real /hk-admin/analiz-raporlama?company= return route loads normally as the admin (no redirect loop)", async ({ page, request }) => {
+    await loginAsQaAdmin(request);
+    const companyId = await getRealCompanyId(request);
+    test.skip(!companyId, "No company available in this environment to test against.");
+
+    const response = await page.goto(`/hk-admin/analiz-raporlama?company=${companyId}#hesaplar`, { waitUntil: "domcontentloaded" });
+    expect(response?.status()).toBe(200);
+    expect(page.url()).toContain("/hk-admin/analiz-raporlama");
+    await expect(page.getByRole("tab", { name: "Hesaplar" })).toBeVisible();
+  });
+
+  test("10. an attacker-supplied external returnTo is sanitized before it ever reaches a redirect (no open redirect)", async ({ request }) => {
+    await loginAsQaAdmin(request);
+    const companyId = await getRealCompanyId(request);
+    test.skip(!companyId, "No company available in this environment to test against.");
+
+    const evil = "https://evil.example.com/phish";
+    const connectResponse = await request.get(`/api/integrations/meta/connect?company=${companyId}&returnTo=${encodeURIComponent(evil)}`, { maxRedirects: 0 });
+    const providerUrl = new URL(connectResponse.headers()["location"] || "");
+    const realSignedState = providerUrl.searchParams.get("state") || "";
+
+    const callbackResponse = await request.get(
+      `/api/integrations/callback/meta?state=${encodeURIComponent(realSignedState)}&error=access_denied`,
+      { maxRedirects: 0 }
+    );
+    const location = callbackResponse.headers()["location"] || "";
+    expect(location).not.toContain("evil.example.com");
+  });
+
+  test("tampered state is rejected as state_invalid; for a live admin session it falls back to the HK Admin route, never a login page", async ({ request, context }) => {
+    await loginAsQaAdmin(request);
+    const cookiesBefore = await context.cookies();
+    const authCookieBefore = cookiesBefore.find((c) => c.name.includes("auth_session"));
+
+    const response = await request.get(
+      "/api/integrations/callback/meta?state=not-a-real-state&code=fake-code",
+      { maxRedirects: 0 }
+    );
+    expect([302, 303, 307]).toContain(response.status());
+    const location = response.headers()["location"] || "";
+    // oauthCallback checks missingProviderEnv() before state validity (same
+    // order the original code used) — in an environment without Meta
+    // credentials configured (not every local/CI environment — see the "1."
+    // test above) that fires first as meta_env_missing instead of
+    // state_invalid. Either way the state was never trusted/decoded.
+    expect(["integration_error=state_invalid", "integration_error=meta_env_missing"].some((code) => location.includes(code))).toBeTruthy();
+    // An undecodable state can't tell us the real origin, so this falls
+    // back to whichever session is live right now — an admin session here,
+    // so the fallback must be the HK Admin route, never a login page (the
+    // old customer-panel-only fallback would have bounced a staff role
+    // toward /giris via the /musteri-paneli staff-preview gate).
+    expect(location).toContain("/hk-admin/analiz-raporlama");
+    expect(location).not.toContain("/digital-center");
+    expect(location).not.toContain("/giris");
+
+    const cookiesAfter = await context.cookies();
+    const authCookieAfter = cookiesAfter.find((c) => c.name.includes("auth_session"));
+    expect(authCookieAfter?.value).toBe(authCookieBefore?.value);
+  });
+
+  test("unauthenticated connect attempt is rejected safely, not a crash or an open redirect", async ({ browser }) => {
+    // storageState: undefined overrides this describe block's
+    // test.use({ storageState: qaAdminStorageState }) default — Playwright
+    // Test applies the current test's configured `use` options (including
+    // storageState) to a manually created browser.newContext() unless a
+    // call explicitly overrides them, so omitting this would silently
+    // create an authenticated context instead of a genuinely fresh one.
+    const freshContext = await browser.newContext({ storageState: undefined });
+    const response = await freshContext.request.get("/api/integrations/meta/connect?company=00000000-0000-0000-0000-000000000000", { maxRedirects: 0 });
+    expect([302, 303, 307]).toContain(response.status());
+    const location = response.headers()["location"] || "";
+    expect(location).toContain("integration_error=session_missing");
+    await freshContext.close();
+  });
+});
+
+test.describe("customer-panel OAuth behavior is unaffected (regression check)", () => {
+  test.beforeEach(() => {
+    test.skip(!hasQaCustomerCredentials, qaCustomerSkipReason);
+  });
+
+  test("8. customer session starting Meta OAuth (no ?company=) still redirects straight to the real provider, unchanged", async ({ request }) => {
+    const login = await request.post("/api/auth/login", { data: { identity: CUSTOMER_A_EMAIL, password: CUSTOMER_A_PASSWORD, userType: "customer" } });
+    test.skip(!login.ok(), "QA customer login failed — check QA_CUSTOMER_A_EMAIL/PASSWORD.");
+
+    const response = await request.get("/api/integrations/meta/connect", { maxRedirects: 0 });
+    expect([302, 303, 307]).toContain(response.status());
+    const location = response.headers()["location"] || "";
+    expect(location.startsWith("https://www.facebook.com/")).toBeTruthy();
+  });
+
+  test("8b. customer session providing a foreign ?company= is still rejected with company_mismatch, unchanged", async ({ request }) => {
+    const login = await request.post("/api/auth/login", { data: { identity: CUSTOMER_A_EMAIL, password: CUSTOMER_A_PASSWORD, userType: "customer" } });
+    test.skip(!login.ok(), "QA customer login failed — check QA_CUSTOMER_A_EMAIL/PASSWORD.");
+
+    const response = await request.get("/api/integrations/meta/connect?company=00000000-0000-0000-0000-000000000000", { maxRedirects: 0 });
+    const location = response.headers()["location"] || "";
+    expect(location).toContain("integration_error=company_mismatch");
+  });
+});
