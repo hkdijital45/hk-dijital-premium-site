@@ -431,7 +431,12 @@ test.describe("HK Admin OAuth origin/session regression", () => {
     const companyId = await getRealCompanyId(request);
     test.skip(!companyId, "No company available in this environment to test against.");
 
-    const connectResponse = await request.get(`/api/integrations/meta/connect?company=${companyId}`, { maxRedirects: 0 });
+    // Matches the returnTo CustomerAccountConnectCenter's isHkAdminOrigin
+    // branch actually sends in production — without it oauthConnect falls
+    // back to the bare /hk-admin/analiz-raporlama default (still safe, just
+    // without company preselected), which isn't what this test checks.
+    const returnTo = `/hk-admin/analiz-raporlama?company=${companyId}#hesaplar`;
+    const connectResponse = await request.get(`/api/integrations/meta/connect?company=${companyId}&returnTo=${encodeURIComponent(returnTo)}`, { maxRedirects: 0 });
     const providerUrl = new URL(connectResponse.headers()["location"] || "");
     test.skip(providerUrl.hostname === "www.hkdijital.com.tr", "META_* OAuth credentials not configured in this environment.");
     // Real state, extracted the same way the deepest-boundary tests do
