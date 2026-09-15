@@ -318,14 +318,28 @@ test.describe("HK Admin OAuth origin/session regression", () => {
       ]);
       await page.waitForTimeout(1500);
       const finalUrl = (popup || page).url();
-      const authHost = step.expectedProvider === "meta" ? "https://www.facebook.com/" : "https://accounts.google.com/";
+      const finalUrlHostname = new URL(finalUrl).hostname;
+      // Meta serves a mobile-optimized login host (m.facebook.com) on
+      // narrow/mobile viewports instead of www.facebook.com — both are the
+      // real, expected Meta consent host, just device-dependent.
+      const isRealAuthHost = step.expectedProvider === "meta"
+        ? /(^|\.)facebook\.com$/.test(finalUrlHostname)
+        : finalUrlHostname === "accounts.google.com";
       // Requires real Meta/Google OAuth credentials configured (not every
       // local/CI environment — see the "1." test above); only meaningful to
       // skip on the FIRST step, since a mid-sequence failure would itself be
       // the bug this test exists to catch.
-      if (index === 0) test.skip(!finalUrl.startsWith(authHost), "META_*/GOOGLE_* OAuth credentials not configured in this environment.");
-      expect(finalUrl.startsWith(authHost)).toBeTruthy();
-      const stateParam = new URL(finalUrl).searchParams.get("state") || "";
+      if (index === 0) test.skip(!isRealAuthHost, "META_*/GOOGLE_* OAuth credentials not configured in this environment.");
+      expect(isRealAuthHost).toBeTruthy();
+      // Google exposes `state` directly on its top-level login URL. Meta's
+      // login.php interstitial instead nests the real authorize URL (state
+      // included) inside a `cancel_url` param.
+      const finalUrlParsed = new URL(finalUrl);
+      let stateParam = finalUrlParsed.searchParams.get("state") || "";
+      if (!stateParam) {
+        const cancelUrl = finalUrlParsed.searchParams.get("cancel_url");
+        if (cancelUrl) stateParam = new URL(cancelUrl).searchParams.get("state") || "";
+      }
       const decoded = decodeStatePayload(stateParam);
       expect(decoded?.provider).toBe(step.expectedProvider);
 
