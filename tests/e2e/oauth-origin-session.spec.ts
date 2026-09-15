@@ -109,7 +109,13 @@ test.describe("HK Admin OAuth origin/session regression", () => {
     const authCookieBefore = cookiesBefore.find((c) => c.name.includes("auth_session"));
     expect(authCookieBefore).toBeTruthy();
 
-    const connectResponse = await request.get(`/api/integrations/meta/connect?company=${companyId}`, { maxRedirects: 0 });
+    // Matches the returnTo CustomerAccountConnectCenter's isHkAdminOrigin
+    // branch actually sends in production (see its "from=hk-admin" handling)
+    // — without it, oauthConnect falls back to the bare
+    // /hk-admin/analiz-raporlama default (still safe, just without the
+    // company preselected), which isn't what this test is verifying.
+    const returnTo = `/hk-admin/analiz-raporlama?company=${companyId}#hesaplar`;
+    const connectResponse = await request.get(`/api/integrations/meta/connect?company=${companyId}&returnTo=${encodeURIComponent(returnTo)}`, { maxRedirects: 0 });
     const providerUrl = new URL(connectResponse.headers()["location"] || "");
     const realSignedState = providerUrl.searchParams.get("state") || "";
     // A real signed state is only produced once oauthConnect gets past the
