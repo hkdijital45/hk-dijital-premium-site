@@ -6557,3 +6557,52 @@ table.admin-data-grid {
   background: linear-gradient(to bottom, var(--mk-bg), transparent);
   pointer-events: none;
 }
+
+/* =========================================================================
+   ANALYTICS CENTER — READABILITY FIX (/hk-admin/analiz-raporlama)
+   Root cause: every card in this screen used a Tailwind `bg-white ...
+   dark:bg-slate-900` pattern. This project's real theme system is driven
+   entirely by CSS custom properties + a `data-theme` attribute (see the HK
+   Design System tokens above) — it has no relationship to Tailwind's
+   `dark:` variant, which (no `@custom-variant dark` override exists in this
+   file) follows the *visitor's OS* `prefers-color-scheme`. So any admin
+   whose OS is set to dark mode got a near-black `slate-900` card while the
+   text inside kept rendering with the LIGHT theme's near-black
+   `--admin-text-primary`/`--admin-text-muted` values — dark text on a dark
+   panel, exactly the "neredeyse görünmüyor" bug reported. Fix: every
+   shell/list/card surface (customer selector, toolbar, dropdowns,
+   connections, content table, reports) drops the stray `dark:` class and
+   stays a normal light card, where the existing light tokens were already
+   correct. The genuinely-dark surfaces — chart panels — become a real,
+   *unconditional* (never OS-dependent) dark analytics panel with its own
+   dedicated, high-contrast on-dark tokens below, scoped to this screen only
+   (never touches the shared --admin-text-* and --hk-text-* tokens other
+   admin screens rely on).
+   ======================================================================= */
+:root {
+  --analytics-panel-dark: #0f1b33;
+  --analytics-panel-border: rgba(248, 250, 252, .1);
+  --analytics-text-on-dark: #f8fafc;
+  --analytics-text-on-dark-secondary: #cbd5e1;
+  --analytics-text-on-dark-muted: #94a3b8;
+  --analytics-chart-grid: rgba(248, 250, 252, .12);
+  --analytics-chart-tooltip-bg: #020617;
+  --analytics-chart-tooltip-text: #f8fafc;
+  /* Fixed (never theme-dependent) tokens for MetricCard's pastel accent
+     surfaces (theme.ts's accentSoft — a literal hex, not a Tailwind
+     bg-white-style utility the app's own [data-theme="dark"] system knows
+     how to re-map). Found live: under a real admin dark-theme session,
+     --admin-text-primary/-muted correctly flip to near-white for the rest
+     of the shell, but MetricCard's background stays a fixed light pastel
+     regardless — near-white text on a light pastel card is its own
+     invisible-text bug, the mirror image of the dark-panel one above. */
+  --analytics-text-primary: #0f172a;
+  --analytics-text-secondary: #475569;
+  --analytics-text-muted: #64748b;
+}
+
+.analytics-chart-panel {
+  background: var(--analytics-panel-dark);
+  border: 1px solid var(--analytics-panel-border);
+  color: var(--analytics-text-on-dark);
+}

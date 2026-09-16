@@ -21,20 +21,29 @@ function formatNumber(value: number, unit?: string) {
 
 function ChartShell({ title, subtitle, height = 280, empty, loading, children }: { title?: string; subtitle?: string; height?: number; empty?: boolean; loading?: boolean; children: React.ReactNode }) {
   return (
-    <div className="rounded-[20px] bg-white p-5 dark:bg-slate-900" style={{ boxShadow: "0 1px 2px rgba(15,23,42,.04), 0 12px 32px rgba(15,23,42,.05)" }}>
+    <div className="analytics-chart-panel rounded-[20px] p-5" style={{ boxShadow: "0 1px 2px rgba(2,6,23,.2), 0 12px 32px rgba(2,6,23,.28)" }}>
       {(title || subtitle) && (
         <div className="mb-4">
-          {title && <h3 className="text-base font-black" style={{ color: "var(--admin-text-primary)" }}>{title}</h3>}
-          {subtitle && <p className="mt-0.5 text-xs" style={{ color: "var(--admin-text-muted)" }}>{subtitle}</p>}
+          {/* text-[var(...)] (not style={{color}}) is deliberate: the shared
+              admin CSS force-overrides h1-h6/strong/label/th/.font-black/
+              .font-bold/p/span/etc with `!important`, which beats an inline
+              `style` color — but explicitly excludes any className
+              containing the literal `text-[#`/`text-[var(` substring (see
+              globals.css's --hk-force-text-color comment). This dark chart
+              panel needs its own fixed on-dark colors regardless of the
+              ambient admin theme, so every text node in it uses this
+              escape hatch, not a style prop. */}
+          {title && <h3 className="text-base font-black text-[var(--analytics-text-on-dark)]">{title}</h3>}
+          {subtitle && <p className="mt-0.5 text-xs text-[var(--analytics-text-on-dark-secondary)]">{subtitle}</p>}
         </div>
       )}
       {loading ? (
         <div className="grid place-items-center" style={{ height }}>
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-cyan-500" />
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/15 border-t-cyan-400" />
         </div>
       ) : empty ? (
         <div className="grid place-items-center text-center" style={{ height }}>
-          <p className="text-sm font-bold" style={{ color: "var(--admin-text-muted)" }}>Seçili dönemde veri bulunamadı.</p>
+          <p className="text-sm font-bold text-[var(--analytics-text-on-dark-secondary)]">Seçili dönemde veri bulunamadı.</p>
         </div>
       ) : (
         children
@@ -66,7 +75,7 @@ export function AnalyticsAreaChart({
 
   return (
     <ChartShell title={title} subtitle={subtitle} height={height} empty={!data.length} loading={loading}>
-      <div className="flex items-center gap-4 text-xs font-bold" style={{ color: "var(--admin-text-muted)" }}>
+      <div className="flex items-center gap-4 text-xs font-bold text-[var(--analytics-text-on-dark-secondary)]">
         <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />Bu dönem</span>
         {hasCompare && <span className="flex items-center gap-1.5"><span className="h-0.5 w-3" style={{ background: color, opacity: 0.4 }} />Karşılaştırma</span>}
       </div>
@@ -78,7 +87,7 @@ export function AnalyticsAreaChart({
               <stop offset="100%" stopColor={color} stopOpacity="0" />
             </linearGradient>
           </defs>
-          <line x1={pad} x2={w - pad} y1={h - pad} y2={h - pad} stroke="rgba(15,23,42,.08)" strokeWidth="0.5" />
+          <line x1={pad} x2={w - pad} y1={h - pad} y2={h - pad} stroke="var(--analytics-chart-grid)" strokeWidth="0.5" />
           <path d={areaPath} fill={`url(#${chartId})`} stroke="none" />
           {hasCompare && <polyline fill="none" stroke={color} strokeOpacity="0.35" strokeDasharray="3,2" strokeWidth="1.5" points={comparePoints} />}
           <polyline fill="none" stroke={color} strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" points={linePoints} />
@@ -92,14 +101,17 @@ export function AnalyticsAreaChart({
           ))}
         </svg>
         {hoverIndex !== null && data[hoverIndex] && (
-          <div className="pointer-events-none absolute top-0 rounded-[10px] px-3 py-2 text-xs font-bold text-white shadow-lg" style={{ left: `${xFor(hoverIndex)}%`, transform: "translateX(-50%)", background: "rgba(15,23,42,.92)" }}>
-            <p className="text-[10px] font-black uppercase tracking-wide opacity-70">{data[hoverIndex].label}</p>
-            <p>{formatNumber(data[hoverIndex].value, unit)}</p>
-            {hasCompare && <p className="opacity-70">Önceki: {formatNumber(data[hoverIndex].compareValue || 0, unit)}</p>}
+          <div className="pointer-events-none absolute top-0 rounded-[10px] px-3 py-2 text-xs font-bold shadow-lg" style={{ left: `${xFor(hoverIndex)}%`, transform: "translateX(-50%)", background: "var(--analytics-chart-tooltip-bg)" }}>
+            {/* Every <p> below needs its own text-[var(...)] — the shared
+                admin CSS force-overrides plain p/span/etc with `!important`
+                per-element, so a color set on the parent div is not enough. */}
+            <p className="text-[10px] font-black uppercase tracking-wide text-[var(--analytics-chart-tooltip-text)] opacity-80">{data[hoverIndex].label}</p>
+            <p className="text-[var(--analytics-chart-tooltip-text)]">{formatNumber(data[hoverIndex].value, unit)}</p>
+            {hasCompare && <p className="text-[var(--analytics-chart-tooltip-text)] opacity-80">Önceki: {formatNumber(data[hoverIndex].compareValue || 0, unit)}</p>}
           </div>
         )}
       </div>
-      <div className="mt-2 flex justify-between text-[11px] font-bold" style={{ color: "var(--admin-text-muted)" }}>
+      <div className="mt-2 flex justify-between text-[11px] font-bold text-[var(--analytics-text-on-dark-secondary)]">
         <span>{data[0]?.label}</span>
         <span>{data[data.length - 1]?.label}</span>
       </div>
@@ -121,10 +133,10 @@ export function AnalyticsBarChart({
         {data.map((d, i) => (
           <div key={i} className="group flex flex-1 flex-col items-center gap-2">
             <div className="relative flex w-full flex-1 items-end justify-center">
-              <div className="w-full max-w-[42px] rounded-t-[8px] transition-all" style={{ height: `${Math.max(3, (d.value / max) * 100)}%`, background: color, opacity: 0.85 }} />
-              <div className="pointer-events-none absolute -top-8 hidden rounded-[8px] bg-slate-900 px-2 py-1 text-[11px] font-bold text-white group-hover:block">{formatNumber(d.value, unit)}</div>
+              <div className="w-full max-w-[42px] rounded-t-[8px] transition-all" style={{ height: `${Math.max(3, (d.value / max) * 100)}%`, background: color, opacity: 0.9 }} />
+              <div className="pointer-events-none absolute -top-8 hidden rounded-[8px] px-2 py-1 text-[11px] font-bold text-[var(--analytics-chart-tooltip-text)] group-hover:block" style={{ background: "var(--analytics-chart-tooltip-bg)" }}>{formatNumber(d.value, unit)}</div>
             </div>
-            <span className="max-w-[70px] truncate text-[11px] font-bold" style={{ color: "var(--admin-text-muted)" }}>{d.label}</span>
+            <span className="max-w-[70px] truncate text-[11px] font-bold text-[var(--analytics-text-on-dark-secondary)]">{d.label}</span>
           </div>
         ))}
       </div>
@@ -146,7 +158,7 @@ export function AnalyticsDonutChart({
     <ChartShell title={title} subtitle={subtitle} height={height} empty={!total} loading={loading}>
       <div className="flex items-center gap-6">
         <svg viewBox="0 0 100 100" className="h-40 w-40 shrink-0 -rotate-90" role="img" aria-label={title || "dağılım grafiği"}>
-          <circle cx="50" cy="50" r={radius} fill="none" stroke="rgba(15,23,42,.06)" strokeWidth="14" />
+          <circle cx="50" cy="50" r={radius} fill="none" stroke="var(--analytics-chart-grid)" strokeWidth="14" />
           {data.map((d, i) => {
             const fraction = total ? d.value / total : 0;
             const dash = fraction * circumference;
@@ -156,10 +168,10 @@ export function AnalyticsDonutChart({
         </svg>
         <div className="grid gap-2">
           {data.map((d, i) => (
-            <div key={i} className="flex items-center gap-2 text-xs font-bold" style={{ color: "var(--admin-text-secondary)" }}>
+            <div key={i} className="flex items-center gap-2 text-xs font-bold text-[var(--analytics-text-on-dark-secondary)]">
               <span className="h-2.5 w-2.5 rounded-full" style={{ background: d.color }} />
-              <span>{d.label}</span>
-              <span style={{ color: "var(--admin-text-muted)" }}>{total ? `%${Math.round((d.value / total) * 100)}` : "—"}</span>
+              <span className="text-[var(--analytics-text-on-dark-secondary)]">{d.label}</span>
+              <span className="text-[var(--analytics-text-on-dark-muted)]">{total ? `%${Math.round((d.value / total) * 100)}` : "—"}</span>
             </div>
           ))}
         </div>

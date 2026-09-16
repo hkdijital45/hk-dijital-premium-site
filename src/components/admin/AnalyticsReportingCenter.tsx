@@ -324,7 +324,7 @@ export function AnalyticsReportingCenter() {
     >
       {!companyId ? (
         <div className="grid place-items-center py-16">
-          <div className="w-full max-w-xl rounded-[24px] bg-white p-8 text-center dark:bg-slate-900" style={{ boxShadow: "0 1px 2px rgba(15,23,42,.04), 0 20px 48px rgba(15,23,42,.06)" }}>
+          <div className="w-full max-w-xl rounded-[24px] bg-white p-8 text-center" style={{ boxShadow: "0 1px 2px rgba(15,23,42,.04), 0 20px 48px rgba(15,23,42,.06)" }}>
             <Users2 size={32} style={{ color: platformTheme("neutral").accent, margin: "0 auto" }} />
             <h2 className="mt-4 text-xl font-black" style={{ color: "var(--admin-text-primary)" }}>Bir müşteri seçin</h2>
             <p className="mt-2 text-sm" style={{ color: "var(--admin-text-muted)" }}>Analiz görüntülemek için önce bir müşteri seçin.</p>
@@ -342,13 +342,13 @@ export function AnalyticsReportingCenter() {
       ) : (
         <div className="grid gap-5">
           {/* Top toolbar */}
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] bg-white p-3 dark:bg-slate-900" style={{ boxShadow: "0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.04)" }}>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] bg-white p-3" style={{ boxShadow: "0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.04)" }}>
             <div className="relative">
               <button type="button" onClick={() => setCustomerPickerOpen((v) => !v)} className="flex items-center gap-2 rounded-[12px] px-3 py-2 text-sm font-black" style={{ background: "var(--admin-surface-soft)", color: "var(--admin-text-primary)" }}>
                 <Users2 size={15} /> {selectedCompany?.name || "Müşteri seç"} <ChevronDown size={14} />
               </button>
               {customerPickerOpen && (
-                <div className="absolute left-0 top-full z-20 mt-2 w-72 rounded-[14px] bg-white p-3 dark:bg-slate-900" style={{ boxShadow: "0 12px 32px rgba(15,23,42,.14)" }}>
+                <div className="absolute left-0 top-full z-20 mt-2 w-72 rounded-[14px] bg-white p-3" style={{ boxShadow: "0 12px 32px rgba(15,23,42,.14)" }}>
                   <input value={companyQuery} onChange={(e) => setCompanyQuery(e.target.value)} placeholder="Müşteri ara..." className="min-h-9 w-full rounded-[8px] border px-3 text-sm" style={{ borderColor: "var(--admin-border)" }} autoFocus />
                   <div className="mt-2 grid max-h-64 gap-0.5 overflow-y-auto">
                     {filteredCompanies.slice(0, 40).map((c) => (
@@ -366,7 +366,7 @@ export function AnalyticsReportingCenter() {
                   {activePresetLabel} · {activeComparisonLabel} <ChevronDown size={12} className="ml-1 inline" />
                 </button>
                 {datePickerOpen && (
-                  <div className="absolute right-0 top-full z-20 mt-2 w-80 rounded-[14px] bg-white p-4 dark:bg-slate-900" style={{ boxShadow: "0 12px 32px rgba(15,23,42,.14)" }}>
+                  <div className="absolute right-0 top-full z-20 mt-2 w-80 rounded-[14px] bg-white p-4" style={{ boxShadow: "0 12px 32px rgba(15,23,42,.14)" }}>
                     <p className="text-[11px] font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Ana dönem</p>
                     <div className="mt-2 grid grid-cols-2 gap-1.5">
                       {DATE_PRESETS.map((p) => (
@@ -416,7 +416,7 @@ export function AnalyticsReportingCenter() {
           </div>
 
           {tablesReady === false && (
-            <div className="grid place-items-center rounded-[18px] bg-white p-10 text-center dark:bg-slate-900">
+            <div className="grid place-items-center rounded-[18px] bg-white p-10 text-center">
               <p className="text-sm font-bold" style={{ color: "var(--admin-text-muted)" }}>Analiz Merkezi veritabanı tabloları henüz oluşturulmadı. supabase/migrations/20260915_analytics_center.sql migration&apos;ı uygulanmalı.</p>
             </div>
           )}
@@ -435,7 +435,7 @@ export function AnalyticsReportingCenter() {
                 const Icon = PROVIDER_ICONS[conn.provider];
                 const theme = platformTheme(conn.provider);
                 return (
-                  <div key={conn.provider} className="rounded-[18px] bg-white p-4 dark:bg-slate-900" style={{ boxShadow: "0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.04)" }}>
+                  <div key={conn.provider} className="rounded-[18px] bg-white p-4" style={{ boxShadow: "0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.04)" }}>
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2"><span className="rounded-[10px] p-2" style={{ background: theme.accentSoft, color: theme.accent }}><Icon size={16} /></span><strong className="text-sm" style={{ color: "var(--admin-text-primary)" }}>{conn.label}</strong></div>
                       <AdminStatusBadge tone={conn.status === "connected" ? "success" : conn.status === "not_connected" ? "neutral" : "warning"}>{conn.statusLabel}</AdminStatusBadge>
@@ -444,7 +444,7 @@ export function AnalyticsReportingCenter() {
                     {!conn.asset && conn.parentConnected && <p className="mt-2 text-xs font-bold" style={{ color: "var(--admin-text-secondary)" }}>Giriş yapıldı — hesap seçimi gerekli.</p>}
                     {!conn.asset && !conn.parentConnected && <p className="mt-2 text-xs" style={{ color: "var(--admin-text-muted)" }}>Henüz bağlı değil.</p>}
                     {conn.lastSyncedAt && <p className="mt-1 text-[11px]" style={{ color: "var(--admin-text-muted)" }}>Son güncelleme: {new Date(conn.lastSyncedAt).toLocaleString("tr-TR", { timeZone: "Europe/Istanbul" })}</p>}
-                    {conn.lastError && <p className="mt-1 text-[11px] font-bold text-red-600">{conn.lastError}</p>}
+                    {conn.lastError && <p className="mt-1 text-[11px] font-bold text-[#dc2626]">{conn.lastError}</p>}
                     {!conn.scopeReady && conn.scopeNote && <p className="mt-2 rounded-[8px] p-2 text-[11px]" style={{ background: "var(--admin-surface-soft)", color: "var(--admin-text-secondary)" }}>{conn.scopeNote}</p>}
                     <div className="mt-3 flex flex-wrap gap-2">
                       {conn.externalHref && <a href={conn.externalHref} target="_blank" rel="noreferrer" className="hk-button hk-button-compact hk-button-secondary">Hesaba Git</a>}
@@ -458,7 +458,7 @@ export function AnalyticsReportingCenter() {
 
           {activeView === "reports" && (
             <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
-              <div className="rounded-[18px] bg-white p-5 dark:bg-slate-900" style={{ boxShadow: "0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.04)" }}>
+              <div className="rounded-[18px] bg-white p-5" style={{ boxShadow: "0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.04)" }}>
                 <h3 className="text-base font-black" style={{ color: "var(--admin-text-primary)" }}>Rapor Oluştur</h3>
                 <div className="mt-4 grid gap-4">
                   <label className="grid gap-1 text-xs font-bold" style={{ color: "var(--admin-text-secondary)" }}>Rapor başlığı (opsiyonel)<input value={reportTitle} onChange={(e) => setReportTitle(e.target.value)} className="min-h-10 rounded-[10px] border px-3 text-sm" style={{ borderColor: "var(--admin-border)" }} /></label>
@@ -478,14 +478,14 @@ export function AnalyticsReportingCenter() {
                   {reportResult && <a href={reportResult.pdfUrl} target="_blank" rel="noreferrer" className="hk-button hk-button-success inline-flex w-fit items-center gap-2"><FileDown size={15} /> PDF İndir</a>}
                 </div>
               </div>
-              <div className="rounded-[18px] bg-white p-5 dark:bg-slate-900" style={{ boxShadow: "0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.04)" }}>
+              <div className="rounded-[18px] bg-white p-5" style={{ boxShadow: "0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.04)" }}>
                 <h3 className="text-base font-black" style={{ color: "var(--admin-text-primary)" }}>Kaydedilen Raporlar</h3>
                 <div className="mt-3 grid gap-2">
                   {savedReports.map((report) => (
                     <div key={report.id} className="rounded-[10px] border p-3 text-xs" style={{ borderColor: "var(--admin-border)" }}>
                       <strong className="block truncate">{report.title}</strong>
                       <span style={{ color: "var(--admin-text-muted)" }}>{report.period_start} — {report.period_end}</span>
-                      {report.customer_documents?.document_url && <a href={report.customer_documents.document_url} target="_blank" rel="noreferrer" className="mt-1 block font-bold text-cyan-700">PDF&apos;yi Aç</a>}
+                      {report.customer_documents?.document_url && <a href={report.customer_documents.document_url} target="_blank" rel="noreferrer" className="mt-1 block font-bold text-[#0e7490]">PDF&apos;yi Aç</a>}
                     </div>
                   ))}
                   {!savedReports.length && <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>Henüz rapor oluşturulmadı.</p>}

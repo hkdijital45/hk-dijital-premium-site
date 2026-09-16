@@ -67,9 +67,11 @@ function SubTabs({ tabs, active, onChange, variant }: { tabs: string[]; active: 
 }
 
 function UnsupportedNote({ text }: { text: string }) {
+  // text-[var(...)] (not style={{color}}) — see MetricCard.tsx's comment:
+  // the shared admin CSS force-overrides plain <p> with `!important`.
   return (
-    <div className="grid place-items-center rounded-[18px] bg-white p-10 text-center dark:bg-slate-900">
-      <p className="text-sm font-bold" style={{ color: "var(--admin-text-muted)" }}>{text}</p>
+    <div className="analytics-chart-panel grid place-items-center rounded-[18px] p-10 text-center">
+      <p className="text-sm font-bold text-[var(--analytics-text-on-dark-secondary)]">{text}</p>
     </div>
   );
 }

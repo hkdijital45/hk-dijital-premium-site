@@ -24,24 +24,32 @@ export function MetricCard({
   const theme = platformTheme(variant);
   const trendUp = typeof changePercent === "number" && changePercent >= 0;
 
+  // Every text color below uses the text-[var(...)]/text-[#hex] className
+  // escape hatch, never a style={{color}} prop: the shared admin CSS
+  // force-overrides h1-h6/strong/label/th/.font-black/.font-bold/p/span/
+  // etc with `!important` (so the surrounding ambient admin theme always
+  // wins), explicitly excluding only classNames containing the literal
+  // `text-[#`/`text-[var(` substring — see globals.css's
+  // --hk-force-text-color comment. This card's pastel background is fixed
+  // regardless of the ambient theme, so its text must be too.
   return (
     <div className="relative rounded-[18px] p-5" style={{ background: theme.accentSoft, border: `1px solid ${theme.accentBorder}` }}>
       <div className="flex items-start justify-between gap-2">
-        <p className="text-xs font-black uppercase tracking-[.08em]" style={{ color: "var(--admin-text-muted)" }}>{label}</p>
+        <p className="text-xs font-black uppercase tracking-[.08em] text-[var(--analytics-text-muted)]">{label}</p>
         {tooltip && (
           <button type="button" onMouseEnter={() => setShowTooltip(true)} onMouseLeave={() => setShowTooltip(false)} onFocus={() => setShowTooltip(true)} onBlur={() => setShowTooltip(false)} aria-label={`${label} açıklaması`} className="shrink-0" style={{ color: theme.accent }}>
             <HelpCircle size={14} />
           </button>
         )}
       </div>
-      <p className="mt-2 text-3xl font-black tracking-tight" style={{ color: "var(--admin-text-primary)" }}>{value}</p>
+      <p className="mt-2 text-3xl font-black tracking-tight text-[var(--analytics-text-primary)]">{value}</p>
       {typeof changePercent === "number" ? (
-        <p className="mt-2 flex items-center gap-1 text-xs font-bold" style={{ color: trendUp ? "#15803d" : "#dc2626" }}>
+        <p className={`mt-2 flex items-center gap-1 text-xs font-bold ${trendUp ? "text-[#15803d]" : "text-[#dc2626]"}`}>
           {trendUp ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
           {Math.abs(changePercent).toFixed(1)}% önceki döneme göre
         </p>
       ) : note ? (
-        <p className="mt-2 text-xs font-bold" style={{ color: "var(--admin-text-muted)" }}>{note}</p>
+        <p className="mt-2 text-xs font-bold text-[var(--analytics-text-secondary)]">{note}</p>
       ) : null}
       {sparkline && sparkline.length > 1 && <div className="mt-3"><MetricTrendSparkline data={sparkline} color={theme.accent} /></div>}
       {tooltip && showTooltip && (

@@ -61,14 +61,14 @@ export function ContentTable({ rows, showPlatformColumn = true, emptyMessage = "
 
   if (!rows.length) {
     return (
-      <div className="grid place-items-center rounded-[18px] bg-white p-10 text-center dark:bg-slate-900">
+      <div className="grid place-items-center rounded-[18px] bg-white p-10 text-center">
         <p className="text-sm font-bold" style={{ color: "var(--admin-text-muted)" }}>{emptyMessage}</p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-[18px] bg-white dark:bg-slate-900" style={{ boxShadow: "0 1px 2px rgba(15,23,42,.04), 0 12px 32px rgba(15,23,42,.05)" }}>
+    <div className="overflow-x-auto rounded-[18px] bg-white" style={{ boxShadow: "0 1px 2px rgba(15,23,42,.04), 0 12px 32px rgba(15,23,42,.05)" }}>
       <table className="w-full min-w-[860px] text-left text-sm">
         <thead>
           <tr className="text-[11px] font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>
@@ -101,7 +101,7 @@ export function ContentTable({ rows, showPlatformColumn = true, emptyMessage = "
               <td className="p-4 text-xs font-bold" style={{ color: "var(--admin-text-secondary)" }}>{row.content_type || "-"}</td>
               <td className="p-4 text-xs" style={{ color: "var(--admin-text-muted)" }}>{row.published_at ? new Date(row.published_at).toLocaleDateString("tr-TR", { timeZone: "Europe/Istanbul" }) : "-"}</td>
               {availableMetricColumns.map((col) => <td key={col.key} className="p-4 text-sm">{metricCell(row, col.key)}</td>)}
-              <td className="p-4">{row.permalink && <a href={row.permalink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-black" style={{ color: "var(--admin-accent, #0891b2)" }}><ExternalLink size={13} /> Aç</a>}</td>
+              <td className="p-4">{row.permalink && <a href={row.permalink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-black text-[var(--admin-accent,#0891b2)]"><ExternalLink size={13} /> Aç</a>}</td>
             </tr>
           ))}
         </tbody>
