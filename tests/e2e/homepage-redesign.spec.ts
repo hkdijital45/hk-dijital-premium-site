@@ -2,19 +2,14 @@ import { test, expect } from "@playwright/test";
 
 // Coverage for the homepage redesign + conversion-optimization sprint.
 //
-// Updated for the current homepage architecture (site-wide visual
-// unification pass): the old DeviceShowcase (#device, tab-based module
-// switcher) referenced by earlier assertions here no longer exists — the
-// homepage now composes distinct MarketingSection blocks (#hero, #services,
-// #process, #packages, #contact) with a MacBook-centered hero ecosystem
-// instead of a single tabbed device module. The hero's cinematic centerpiece
-// (MacBookEcosystem.tsx) is a pre-rendered, scroll-scrubbed video: a
-// `.hero-cinematic-poster` <img> (always rendered, the settled/final frame —
-// what's shown under reduced motion and on mobile) sits behind a
-// `.hero-cinematic-video` <video> (desktop/tablet only, faded in once loaded
-// and scrubbed via scrollYProgress). These tests assert the CURRENT
-// structure rather than the removed live-canvas one — see git history for
-// earlier versions of this file if that context is ever needed again.
+// Performance cleanup update: the hero's previous scroll-pinned (~200vh),
+// scroll-scrubbed MacBook video engine (MacBookEcosystem.tsx) has been
+// removed entirely — it was a heavy RAF loop + always-fetched video that
+// forced a long, semi-scroll-hijacked hero. The hero is now a normal-flow
+// section with a single static `.hero-poster` <Image> and no scroll
+// listeners at all. These tests assert the CURRENT lightweight structure —
+// see git history for earlier versions of this file if that context is
+// ever needed again.
 test.describe("Paket Seçme Robotu CTA visibility", () => {
   test("appears in the header, hero, and packages section", async ({ page }) => {
     // The header's "Paketini Bul" button only renders in the desktop nav
@@ -72,7 +67,7 @@ test("WhatsApp CTAs across the homepage all point to the same configured number"
   expect(unique.size, `all WhatsApp CTAs must point to the same number, got: ${[...unique].join(", ")}`).toBe(1);
 });
 
-test.describe("Hero ecosystem reliability (current MacBook + platform composition)", () => {
+test.describe("Hero reliability (normal-flow, static poster — no scroll-pin engine)", () => {
   test("desktop: survives fast scrolling past it, and a refresh mid-section leaves it in a valid, non-stuck state", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const pageErrors: string[] = [];
@@ -80,129 +75,63 @@ test.describe("Hero ecosystem reliability (current MacBook + platform compositio
     await page.goto("/", { waitUntil: "domcontentloaded" });
 
     const totalHeight = await page.evaluate(() => document.documentElement.scrollHeight);
-    // Simulate an aggressive trackpad-style fast scroll straight through the
-    // hero and the rest of the page.
     for (let y = 0; y < totalHeight; y += 800) {
       await page.evaluate((yy) => window.scrollTo(0, yy), y);
     }
     await page.waitForTimeout(100);
     expect(pageErrors, "fast-scrolling past the hero must not throw").toEqual([]);
 
-    // Land exactly mid-way through the hero and refresh — the hero's
-    // whileInView/mount-triggered animations must not depend on a specific
-    // scroll offset to reach a valid rendered state.
     const heroBox = await page.locator("#hero").boundingBox();
     expect(heroBox).not.toBeNull();
     const midHeroY = heroBox!.y + (await page.evaluate(() => window.scrollY)) + heroBox!.height / 2;
     await page.evaluate((y) => window.scrollTo(0, y), midHeroY);
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.evaluate((y) => window.scrollTo(0, y), midHeroY);
-    await page.waitForTimeout(2500);
+    await page.waitForTimeout(500);
 
-    // The hero must render at its natural height and the MacBook mockup must
-    // be present and visible — nothing "frozen" half-open or collapsed to 0.
     const hero = page.locator("#hero");
     await expect(hero).toBeVisible();
     const box = await hero.boundingBox();
+    // A normal-flow hero renders at its natural (single-viewport-ish)
+    // content height — no more ~200vh scroll-pin wrapper.
     expect(box?.height, "hero must render at a real, non-collapsed height after a mid-scroll refresh").toBeGreaterThan(200);
-    await expect(page.locator(".hero-cinematic-poster").first()).toBeVisible();
+    expect(box?.height, "hero must no longer be a tall scroll-pin wrapper").toBeLessThan(1400);
+    await expect(page.locator(".hero-poster").first()).toBeVisible();
     expect(pageErrors, "a mid-scroll refresh must not throw").toEqual([]);
   });
 
-  test("mobile: hero and platform strip are usable with no horizontal overflow", async ({ page }) => {
+  test("mobile: hero is usable with no horizontal overflow", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await page.locator("#hero").scrollIntoViewIfNeeded();
-    await page.waitForTimeout(2500);
-    await expect(page.locator(".hero-cinematic-poster").first()).toBeVisible();
+    await page.waitForTimeout(500);
+    await expect(page.locator(".hero-poster").first()).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(1);
   });
 
-  test("desktop: the scroll-pinned hero releases cleanly — nothing from it stays visible once the next section is reached", async ({ page }) => {
+  test("desktop: hero is a normal-flow section, not a scroll-pinned/sticky one", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(300);
 
-    // The hero is a tall (~200vh) scroll-pin wrapper on desktop — its own
-    // rendered height must reflect that, or the cinematic transformation
-    // has no scroll room to play out against. Its own top offset (below the
-    // header) matters too — the pin range is [documentTop, documentTop +
-    // height - viewportHeight]; scrolling relative to raw height alone
-    // under-shoots by that offset and can land still inside the hero.
     const heroInfo = await page.locator("#hero").evaluate((el) => {
       const r = el.getBoundingClientRect();
       return { documentTop: r.top + window.scrollY, height: r.height };
     });
-    expect(heroInfo.height, "desktop hero must be a tall scroll-pin wrapper, not a single-viewport section").toBeGreaterThan(1500);
+    // Performance cleanup: the hero is no longer a ~200vh scroll-pin
+    // wrapper — it must render close to natural content height.
+    expect(heroInfo.height, "hero must be a normal-flow section, not a tall scroll-pin wrapper").toBeLessThan(1400);
 
-    // Scroll well past the hero's own bottom into whatever comes next.
-    // `behavior: "instant"` matters: this site sets `html { scroll-behavior:
-    // smooth }`, which only affects *programmatic* scrolls like this one
-    // (native wheel/trackpad input ignores it entirely) — without
-    // overriding it here, `window.scrollTo` would animate toward the target
-    // and a short wait could sample it mid-flight, landing this test still
-    // inside the hero.
     await page.evaluate((y) => window.scrollTo({ top: y, behavior: "instant" }), heroInfo.documentTop + heroInfo.height + 400);
     await page.waitForTimeout(300);
 
     const heroRect = await page.locator("#hero").evaluate((el) => el.getBoundingClientRect());
-    expect(heroRect.bottom, "the hero section itself must have scrolled above the viewport, not stayed pinned").toBeLessThan(0);
+    expect(heroRect.bottom, "the hero section itself must have scrolled above the viewport").toBeLessThan(0);
 
-    const videoBox = await page.locator("#hero .hero-cinematic-video").first().boundingBox();
-    const videoOnScreen = !!videoBox && videoBox.y < 900 && videoBox.y + videoBox.height > 0;
-    expect(videoOnScreen, "the cinematic video must not remain visible/pinned once the hero section is over").toBe(false);
-
-    const macOnScreen = await page.locator("#hero .hero-cinematic-poster").first().boundingBox();
-    const macIntersects = !!macOnScreen && macOnScreen.y < 900 && macOnScreen.y + macOnScreen.height > 0;
-    expect(macIntersects, "the MacBook must not remain visible/pinned once the hero section is over").toBe(false);
-  });
-
-  test("desktop: MacBook and badges genuinely reach visible opacity once scrolled through the hero's reveal point", async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto("/", { waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(300);
-    const heroInfo = await page.locator("#hero").evaluate((el) => {
-      const r = el.getBoundingClientRect();
-      return { documentTop: r.top + window.scrollY, height: r.height };
-    });
-    // Pin range is [documentTop, documentTop + height - viewportHeight];
-    // land right near its end, where the reveal/settle stage should hold.
-    const pinRangeEnd = heroInfo.documentTop + heroInfo.height - 900;
-    await page.evaluate((y) => window.scrollTo({ top: y, behavior: "instant" }), pinRangeEnd - 5);
-    // The video only fades in once its metadata has actually loaded
-    // (preload="none" by default, fetched imperatively once desktop/tablet
-    // is confirmed) — give it real time to buffer rather than the ~300-400ms
-    // used elsewhere for pure-CSS transitions.
-    await page.waitForTimeout(3000);
-    // Confirm the cinematic video has faded in and scrubbed to its reformed
-    // final frame — not stuck at opacity 0 (never loaded/faded in) — at this
-    // point in the scroll.
-    const macOpacity = await page.locator("#hero .hero-cinematic-video").first().evaluate((el) => Number(getComputedStyle(el).opacity));
-    expect(macOpacity, "the cinematic video should have faded in to full opacity by the end of the hero's scroll range").toBeGreaterThan(0.8);
-    // The "Performans" result card is one of the badges/cards that only
-    // arrives once the bloom has resolved — confirm it's both attached and
-    // actually opaque, not just present at opacity:0 in the DOM.
-    const perfCardOpacity = await page.locator("#hero").getByText("Performans", { exact: false }).first().evaluate((el) => {
-      let n: HTMLElement | null = el as HTMLElement;
-      while (n && (!n.style || n.style.opacity === "")) n = n.parentElement;
-      return n ? Number(getComputedStyle(n).opacity) : -1;
-    });
-    expect(perfCardOpacity, "the Performans result card should have fully arrived by the end of the hero's scroll range").toBeGreaterThan(0.8);
-  });
-
-  test("desktop: all 6 platform marks and both data cards are present in the hero ecosystem", async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto("/", { waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(2500);
-    const hero = page.locator("#hero");
-    // Six platform badges (Google/Meta/Instagram/Facebook/TikTok/YouTube) —
-    // desktop shows all of them (md:grid), independent of the 3-mark mobile
-    // fallback set.
-    const platformBadges = hero.locator("svg").locator("visible=true");
-    expect(await platformBadges.count(), "hero should render more than the 3 mobile-only platform marks").toBeGreaterThan(3);
-    await expect(hero.getByText("Performans", { exact: false })).toBeVisible();
-    await expect(hero.getByText("İçerik Takvimi", { exact: false })).toBeVisible();
+    // No video element should exist anywhere on the page — the old
+    // scroll-scrubbed MacBook video engine was removed entirely.
+    expect(await page.locator("video").count(), "no <video> element should remain on the homepage").toBe(0);
   });
 });
 
@@ -235,15 +164,9 @@ test("reduced motion: every section reliably reveals as it's scrolled to, none s
     const opacity = await page.locator(`#${id}`).evaluate((el) => getComputedStyle(el).opacity);
     expect(Number(opacity), `#${id} must reveal once scrolled into view under prefers-reduced-motion, not stay stuck invisible`).toBeCloseTo(1, 1);
   }
-  // The hero's platform marks/data cards use the same reduced-motion branch
-  // (initial={false} under useReducedMotion()) — they must render immediately
-  // at their final state rather than requiring the entrance animation to run.
-  await expect(page.locator("#hero .hero-cinematic-poster").first()).toBeVisible();
-  // And the cinematic video itself must stay off (poster-only, no scrub) —
-  // this is the actual regression this component's reduced-motion path
-  // guards against.
-  const videoOpacity = await page.locator("#hero .hero-cinematic-video").first().evaluate((el) => Number(getComputedStyle(el).opacity));
-  expect(videoOpacity, "the cinematic video must never fade in under prefers-reduced-motion").toBe(0);
+  // The hero's static poster image renders identically regardless of
+  // prefers-reduced-motion (it was never animated to begin with).
+  await expect(page.locator("#hero .hero-poster").first()).toBeVisible();
   await context.close();
 });
 

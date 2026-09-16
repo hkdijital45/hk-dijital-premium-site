@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { AnimatePresence, motion, MotionConfig, useMotionValueEvent, useReducedMotion, useScroll, useTransform } from "framer-motion";
+import { AnimatePresence, motion, MotionConfig, useMotionValueEvent, useScroll, useTransform } from "framer-motion";
 import {
   ArrowRight, BarChart3, CalendarDays, ChevronDown, Clapperboard, ClipboardCheck, Compass, FileSearch2,
   Handshake, LineChart, Map, MessageCircle, MousePointerClick, Rocket, ShieldCheck,
@@ -22,8 +23,6 @@ import { MarketingBadge, MarketingCard, MarketingEyebrow, MarketingHeading, Mark
 import { GoogleMark, InstagramMark, MetaMark, platformMarks } from "./PlatformIcons";
 import { ServiceVisual } from "./marketing/MarketingVisualSystem";
 import { serviceVisualVariantForKey } from "./marketing/serviceVisualVariant";
-import { MacBookEcosystem } from "./cinematic/MacBookEcosystem";
-import { ScrollHint } from "./motion/ScrollHint";
 
 /* ---------------------------------------------------------------------
    Real content, pulled directly from Supabase-backed site content — no
@@ -109,119 +108,62 @@ function WhatsappLink({ href, children, trackingLabel }: { href: string; childre
 /* ------------------------------- Hero -------------------------------- */
 
 /**
- * The hero's cinematic centerpiece — a pre-rendered video of the MacBook
- * disintegrating into strands, flowing, coiling, blooming, and resolving —
- * lives in src/components/public/cinematic/MacBookEcosystem.tsx
- * (self-contained, scroll-scrubbed off this section's own scrollYProgress,
- * reduced-motion aware). Kept out of this already-large file; see that
- * module for the full motion grammar/timeline.
+ * Performance cleanup: the hero previously pinned a 200vh section and
+ * scroll-scrubbed a multi-MB video (MacBookEcosystem) — a heavy
+ * requestAnimationFrame loop, an always-fetched video/poster pair, and an
+ * artificial scroll-hijack-adjacent "fake sticky" transform, all removed.
+ * This is now a normal-flow section: the poster frame (the same real
+ * asset the old video used to resolve into) renders as a single static
+ * `<img>`, and the only motion left is the one-shot mount entrance
+ * (MarketingReveal fade/rise + the CSS-only headline mask-reveal/chroma
+ * accent in globals.css) — no scroll listeners, no RAF loop, no video
+ * fetch at all.
  */
-
 function Hero({ whatsappUrl }: { whatsappUrl: string }) {
-  const scrollWrapRef = useRef<HTMLDivElement>(null);
-  const chromaRef = useRef<HTMLSpanElement>(null);
-  const chromaFiredRef = useRef(false);
-  const { scrollYProgress } = useScroll({ target: scrollWrapRef, offset: ["start start", "end end"] });
-  const reduced = useReducedMotion();
-  const [pinEligible, setPinEligible] = useState(false);
-  useEffect(() => {
-    const compute = () => setPinEligible(window.innerWidth >= 640);
-    compute();
-    window.addEventListener("resize", compute);
-    return () => window.removeEventListener("resize", compute);
-  }, []);
-
-  // Scroll-exit chromatic pulse: a second, independent firing of the same
-  // mount-time RGB-split accent (see .marketing-chroma in globals.css),
-  // replayed once as the hero hands off to the next section — a scroll-
-  // reactive accent, not just a load-time one, per the V2 rebuild's "hero
-  // must react across its whole scroll range" requirement. Restarting a
-  // CSS keyframe by toggling its class (remove -> reflow -> re-add) is a
-  // read-then-write DOM op, deliberately done in a scroll-value callback
-  // (not React state) so it never triggers a re-render.
-  useMotionValueEvent(scrollYProgress, "change", (v) => {
-    if (v > 0.82 && !chromaFiredRef.current && !reduced) {
-      chromaFiredRef.current = true;
-      const el = chromaRef.current;
-      if (el) {
-        el.classList.remove("marketing-chroma");
-        void el.offsetWidth;
-        el.classList.add("marketing-chroma");
-      }
-    }
-    if (v < 0.4) chromaFiredRef.current = false;
-  });
-
-  // `<main>` (Shell.tsx, shared by every public page) sets `overflow:
-  // hidden` to contain decorative glows sitewide — a well-known side effect
-  // of that is it silently breaks `position: sticky` on any descendant, in
-  // every major browser, regardless of whether the ancestor would ever
-  // actually clip anything vertically. Changing that shared `<main>` is out
-  // of scope for a homepage-only change, so the "pin" is faked with a
-  // scroll-linked transform instead (this is also what Framer Motion's own
-  // docs recommend for exactly this class of pinned-section effect): the
-  // inner viewport is a normal in-flow block, and this compensating
-  // translateY exactly cancels the scroll distance it would otherwise
-  // drift by, holding it visually still until scrollYProgress reaches 1.
-  // Disabled (always 0) below the tablet breakpoint and under
-  // prefers-reduced-motion — both already collapse the wrapper to a normal
-  // auto-height section via CSS, so compensating here would just introduce
-  // an unwanted partial-pin wobble instead of clean normal document flow.
-  const pinY = useTransform(scrollYProgress, (v) => (pinEligible && !reduced ? `${v * 100}vh` : "0vh"));
-  // Spatial separation (V2 rebuild): the text block now drifts and settles
-  // slightly smaller across the first 60% of the hero's scroll range,
-  // visually detaching from the MacBook layer (which runs its own,
-  // independent internal progress curve) rather than sitting perfectly
-  // static beside it — then a stronger fade/lift as the hero hands off.
-  // Text stays fully readable throughout (max drift 52px, min scale 0.95).
-  const textOpacity = useTransform(scrollYProgress, [0, 0.62, 0.88, 1], [1, 1, 1, 0.82]);
-  const textY = useTransform(scrollYProgress, [0, 0.6, 0.88, 1], [0, -34, -34, -46]);
-  const textScale = useTransform(scrollYProgress, [0, 0.6], [1, 0.955]);
-
   return (
-    <section
-      id="hero"
-      ref={scrollWrapRef}
-      className="relative border-b hero-scroll-wrap"
-      style={{ borderColor: "var(--mk-border)", overflowX: "clip" }}
-    >
-      <motion.div className="hero-scroll-pin flex items-center" style={{ y: pinY }}>
-        <div className="marketing-bokeh" aria-hidden="true">
-          <span style={{ width: 90, height: 90, top: "12%", left: "6%" }} />
-          <span style={{ width: 54, height: 54, top: "62%", left: "18%", animationDelay: "-4s" }} />
-          <span style={{ width: 70, height: 70, top: "22%", right: "10%", animationDelay: "-8s" }} />
-          <span style={{ width: 40, height: 40, top: "70%", right: "22%", animationDelay: "-11s" }} />
+    <section id="hero" className="relative border-b" style={{ borderColor: "var(--mk-border)", overflowX: "clip" }}>
+      <div className="marketing-bokeh" aria-hidden="true">
+        <span style={{ width: 90, height: 90, top: "12%", left: "6%" }} />
+        <span style={{ width: 54, height: 54, top: "62%", left: "18%", animationDelay: "-4s" }} />
+      </div>
+      <div className="marketing-glow" style={{ width: 480, height: 480, top: -200, left: "-10%", background: "rgba(124,58,237,.13)" }} aria-hidden="true" />
+      <div className="marketing-glow" style={{ width: 380, height: 380, top: -100, right: "-8%", background: "rgba(37,99,235,.1)" }} aria-hidden="true" />
+      <div className="relative mx-auto grid w-full max-w-7xl items-center gap-14 px-4 py-20 sm:px-6 lg:grid-cols-[1.05fr_.95fr] lg:px-8 lg:py-28">
+        <div>
+          <MarketingReveal>
+            <MarketingEyebrow>Manisa merkezli dijital pazarlama ve reklam ajansı</MarketingEyebrow>
+            <MarketingHeading as="h1" className="hero-headline mt-6 text-4xl sm:text-6xl lg:text-[4.4rem]">
+              <span className="hero-headline-line"><span className="hero-headline-line-inner">Dijitalde</span></span>
+              <span className="hero-headline-line"><span className="hero-headline-line-inner">Büyümeyi <span className="marketing-gradient-text marketing-chroma" data-text="Şansa">Şansa</span></span></span>
+              <span className="hero-headline-line"><span className="hero-headline-line-inner">Bırakmayın</span></span>
+            </MarketingHeading>
+            <p className="mt-7 max-w-xl text-base leading-8 sm:text-lg" style={{ color: "var(--mk-ink-soft)" }}>
+              HK Dijital; Google Ads, Meta reklamları ve sosyal medya yönetimini tek stratejide birleştirip yapay zekâ destekli görünürlük analiziyle destekleyen ölçülebilir bir dijital büyüme sistemi kurar.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-4">
+              <PrimaryLink href="/teklif-al" trackingLabel="Hero Paketini Bul" aurora>Paketini Bul <ArrowRight size={18} /></PrimaryLink>
+              <SecondaryLink href="/hizmetler" trackingLabel="Hero Hizmetleri İncele">Hizmetleri İncele</SecondaryLink>
+              <WhatsappLink href={whatsappUrl} trackingLabel="Hero WhatsApp'tan Görüş">WhatsApp&apos;tan Görüşelim <MessageCircle size={18} /></WhatsappLink>
+            </div>
+            <div className="mt-9 flex flex-wrap gap-2">
+              {["Manisa merkezli", "Türkiye geneli hizmet", "Şeffaf raporlama", "Satış garantisi değil, ölçülebilir sistem"].map((item) => (
+                <MarketingBadge key={item}>{item}</MarketingBadge>
+              ))}
+            </div>
+          </MarketingReveal>
         </div>
-        <div className="marketing-glow" style={{ width: 480, height: 480, top: -200, left: "-10%", background: "rgba(124,58,237,.13)" }} aria-hidden="true" />
-        <div className="marketing-glow" style={{ width: 380, height: 380, top: -100, right: "-8%", background: "rgba(37,99,235,.1)" }} aria-hidden="true" />
-        <div className="relative mx-auto grid w-full max-w-7xl items-center gap-14 px-4 py-20 sm:px-6 lg:grid-cols-[1.05fr_.95fr] lg:px-8 lg:py-28">
-          <motion.div style={{ opacity: textOpacity, y: textY, scale: textScale }}>
-            <MarketingReveal>
-              <MarketingEyebrow>Manisa merkezli dijital pazarlama ve reklam ajansı</MarketingEyebrow>
-              <MarketingHeading as="h1" className="hero-headline mt-6 text-4xl sm:text-6xl lg:text-[4.4rem]">
-                <span className="hero-headline-line"><span className="hero-headline-line-inner">Dijitalde</span></span>
-                <span className="hero-headline-line"><span className="hero-headline-line-inner">Büyümeyi <span ref={chromaRef} className="marketing-gradient-text marketing-chroma" data-text="Şansa">Şansa</span></span></span>
-                <span className="hero-headline-line"><span className="hero-headline-line-inner">Bırakmayın</span></span>
-              </MarketingHeading>
-              <p className="mt-7 max-w-xl text-base leading-8 sm:text-lg" style={{ color: "var(--mk-ink-soft)" }}>
-                HK Dijital; Google Ads, Meta reklamları ve sosyal medya yönetimini tek stratejide birleştirip yapay zekâ destekli görünürlük analiziyle destekleyen ölçülebilir bir dijital büyüme sistemi kurar.
-              </p>
-              <div className="mt-8 flex flex-wrap gap-4">
-                <PrimaryLink href="/teklif-al" trackingLabel="Hero Paketini Bul" aurora>Paketini Bul <ArrowRight size={18} /></PrimaryLink>
-                <SecondaryLink href="/hizmetler" trackingLabel="Hero Hizmetleri İncele">Hizmetleri İncele</SecondaryLink>
-                <WhatsappLink href={whatsappUrl} trackingLabel="Hero WhatsApp'tan Görüş">WhatsApp&apos;tan Görüşelim <MessageCircle size={18} /></WhatsappLink>
-              </div>
-              <div className="mt-9 flex flex-wrap gap-2">
-                {["Manisa merkezli", "Türkiye geneli hizmet", "Şeffaf raporlama", "Satış garantisi değil, ölçülebilir sistem"].map((item) => (
-                  <MarketingBadge key={item}>{item}</MarketingBadge>
-                ))}
-              </div>
-            </MarketingReveal>
-          </motion.div>
-          <MacBookEcosystem progress={scrollYProgress} />
+        <div className="relative mx-auto w-full max-w-lg py-6">
+          <Image
+            src="/cinematic/hero-poster.png"
+            alt="HK Dijital dijital pazarlama gösterge paneli"
+            className="hero-poster h-full w-full object-contain"
+            width={1300}
+            height={1100}
+            priority
+            sizes="(min-width: 1024px) 32rem, 90vw"
+          />
         </div>
-        <ScrollHint />
-      </motion.div>
+      </div>
     </section>
   );
 }

@@ -5780,37 +5780,6 @@ table.admin-data-grid {
   pointer-events: none;
 }
 
-/* Bounded scroll-pin for the homepage hero's cinematic MacBook: a tall
-   (200vh) wrapper gives the transformation room to play out against scroll
-   progress while the user scrolls. The inner viewport is held visually in
-   place by a scroll-linked `translateY` (see Hero() in
-   HomepageExperience.tsx) rather than `position: sticky` — the shared
-   `<main>` in Shell.tsx sets `overflow: hidden` sitewide, which silently
-   breaks native sticky on any descendant, so the pin is faked with a
-   transform instead. That transform naturally stops compensating once
-   scrollYProgress reaches 1, so nothing here ever stays visually fixed
-   once the hero section is over. Mobile and prefers-reduced-motion both
-   opt out of the pin entirely (plain document flow, `height: auto`) rather
-   than branching the React-rendered markup, so this carries zero hydration
-   risk: the JSX is identical for every visitor, only this CSS (and the
-   scroll-linked transform's own runtime value, computed client-side only)
-   differs. */
-.hero-scroll-wrap {
-  height: 200vh;
-}
-.hero-scroll-pin {
-  position: relative;
-  height: 100vh;
-}
-@media (max-width: 639px) {
-  .hero-scroll-wrap { height: auto; }
-  .hero-scroll-pin { height: auto; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .hero-scroll-wrap { height: auto !important; }
-  .hero-scroll-pin { height: auto !important; }
-}
-
 .marketing-nav {
   border: 1px solid var(--mk-border);
   background: rgba(255, 255, 255, .78);
@@ -6021,23 +5990,6 @@ table.admin-data-grid {
    (framer-motion + CSS only, no GSAP/Lenis/canvas). Every looping/ambient
    animation here is added to the prefers-reduced-motion kill-list below.
    ======================================================================= */
-
-/* Hero scroll hint — appears once idle at the top, fades out on first
-   scroll (visibility is toggled by React state, not CSS scroll position,
-   so this only needs the idle bounce loop itself). */
-.marketing-scroll-hint {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  color: var(--mk-ink-faint);
-  animation: marketing-scroll-hint-bob 2.2s ease-in-out infinite;
-}
-
-@keyframes marketing-scroll-hint-bob {
-  0%, 100% { transform: translateY(0); opacity: .55; }
-  50% { transform: translateY(6px); opacity: 1; }
-}
 
 /* Chromatic-aberration accent — a single short (~500ms) RGB-split snap on
    entrance, never a persistent/looping effect (mission constraint: short
@@ -6357,7 +6309,6 @@ table.admin-data-grid {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .marketing-scroll-hint,
   .marketing-bokeh span,
   .marketing-marquee-track,
   .marketing-aurora-btn::before,
