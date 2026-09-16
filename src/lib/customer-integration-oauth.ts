@@ -8,6 +8,7 @@ import { HIDDEN_ACCESS_COOKIE, HIDDEN_ACCESS_SESSION_TTL_SECONDS, extractClientI
 import { encryptSecret } from "@/lib/business-flow";
 import { diagnoseMetaBusinessAccess, listMetaBusinessAssets, META_BUSINESS_REQUIRED_SCOPES, publicMetaDiagnostics, tokenForCustomerMetaIntegration } from "@/lib/meta-business-phase2";
 import { getGoogleToken } from "@/lib/google-oauth-token";
+import { getTikTokToken } from "@/lib/tiktok-oauth-token";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 import { safeCompare } from "@/lib/secure-compare";
 import { safeReturnTo } from "@/lib/safe-return-to";
@@ -68,12 +69,22 @@ const providerConfig: Record<Provider, {
     scope: "openid email profile https://www.googleapis.com/auth/analytics.readonly https://www.googleapis.com/auth/webmasters.readonly https://www.googleapis.com/auth/adwords https://www.googleapis.com/auth/business.manage https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/yt-analytics.readonly",
     assetTypes: ["Google Ads Customer", "GA4 Property", "Search Console Site", "Google Business Profile", "YouTube Channel"]
   },
+  // TikTok Login Kit (developers.tiktok.com/doc/login-kit-web) — the
+  // official, current OAuth product for reading a user's own profile/video
+  // data via open.tiktokapis.com. Deliberately NOT
+  // business-api.tiktok.com/portal/auth (TikTok's separate Business/Ads
+  // API, a different product for managing ad accounts — this app was
+  // previously, incorrectly, configured against that one, which explains
+  // why it never actually worked for analytics: wrong auth host, wrong
+  // param names (app_id instead of client_key), wrong scope set, wrong
+  // token endpoint). Minimum read-only scopes only — no publishing
+  // permission requested.
   tiktok: {
     label: "TikTok",
     env: ["TIKTOK_CLIENT_KEY", "TIKTOK_CLIENT_SECRET", "TIKTOK_REDIRECT_URI"],
-    authBase: "https://business-api.tiktok.com/portal/auth",
-    scope: "business,ad_account,report",
-    assetTypes: ["Business Center", "Ads Account", "Pixel"]
+    authBase: "https://www.tiktok.com/v2/auth/authorize/",
+    scope: "user.info.basic,user.info.profile,user.info.stats,video.list",
+    assetTypes: ["TikTok Account"]
   },
   x: {
     label: "X / Twitter",
@@ -286,8 +297,9 @@ function buildAuthorizePreview(provider: Provider, redirectUri: string) {
   const config = providerConfig[provider];
   const scope = effectiveProviderScope(provider);
   const params = new URLSearchParams(provider === "tiktok" ? {
-    app_id: "<configured>",
+    client_key: "<configured>",
     redirect_uri: redirectUri || expectedRedirectUris[provider],
+    response_type: "code",
     state: "<signed-state>",
     scope
   } : {
@@ -600,8 +612,14 @@ export async function oauthConnect(provider: Provider, request: Request) {
   const codeVerifier = provider === "x" ? crypto.randomBytes(48).toString("base64url") : "";
   const configId = provider === "meta" ? (metaBusinessCredentials()?.configId || "") : "";
   const params = new URLSearchParams(provider === "tiktok" ? {
-    app_id: credentials.clientId,
+    // TikTok Login Kit's own param name is client_key, not client_id/app_id
+    // — see providerConfig.tiktok's comment for why this differs from the
+    // (wrong, previously-configured) Business/Ads API this app used to
+    // point at.
+    client_key: credentials.clientId,
     redirect_uri: credentials.redirectUri,
+    response_type: "code",
+    scope,
     state
   } : provider === "x" ? {
     client_id: credentials.clientId,
@@ -636,7 +654,6 @@ export async function oauthConnect(provider: Provider, request: Request) {
     params.set("access_type", "offline");
     params.set("prompt", "consent");
   }
-  if (provider === "tiktok") params.set("scope", scope);
   const response = NextResponse.redirect(`${config.authBase}?${params.toString()}`);
   response.cookies.set(`hk_oauth_state_${provider}`, nonce, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 600, path: "/" });
   if (codeVerifier) response.cookies.set(`hk_oauth_pkce_${provider}`, codeVerifier, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 600, path: "/" });
@@ -677,15 +694,18 @@ async function exchangeCode(provider: Provider, code: string, codeVerifier = "")
     return { accessToken: payload.access_token, refreshToken: payload.refresh_token, expiresIn: payload.expires_in, scope: payload.scope };
   }
   if (provider === "tiktok") {
-    const response = await fetch("https://business-api.tiktok.com/open_api/v1.3/oauth2/access_token/", {
+    // TikTok Login Kit's real token endpoint (open.tiktokapis.com), not
+    // the Business/Ads API endpoint this used to point at — see
+    // providerConfig.tiktok's comment. Form-urlencoded body, client_key
+    // (not app_id), per TikTok's current OAuth token-management docs.
+    const response = await fetch("https://open.tiktokapis.com/v2/oauth/token/", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ app_id: credentials.clientId, secret: credentials.clientSecret, auth_code: code })
+      headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+      body: new URLSearchParams({ client_key: credentials.clientId, client_secret: credentials.clientSecret, code, grant_type: "authorization_code", redirect_uri: credentials.redirectUri })
     });
     const payload = await response.json().catch(() => ({}));
-    const accessToken = payload.data?.access_token || payload.access_token;
-    if (!response.ok || !accessToken) throw new Error(payload.message || "TikTok token alınamadı.");
-    return { accessToken, refreshToken: payload.data?.refresh_token, expiresIn: payload.data?.expires_in, scope: effectiveProviderScope("tiktok") };
+    if (!response.ok || !payload.access_token) throw new Error(payload.error_description || payload.error?.message || "TikTok token alınamadı.");
+    return { accessToken: payload.access_token, refreshToken: payload.refresh_token, expiresIn: payload.expires_in, scope: payload.scope || effectiveProviderScope("tiktok") };
   }
   const response = await fetch("https://api.twitter.com/2/oauth2/token", {
     method: "POST",
@@ -878,6 +898,111 @@ async function saveGoogleOAuthIntegration(session: any, token: any, googleUser: 
   return googleAsset;
 }
 
+async function fetchTikTokUserInfo(accessToken: string) {
+  const fields = "open_id,union_id,avatar_url,avatar_large_url,display_name,bio_description,profile_deep_link,is_verified,username,follower_count,following_count,likes_count,video_count";
+  const response = await fetch(`https://open.tiktokapis.com/v2/user/info/?fields=${fields}`, { headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" }, cache: "no-store" });
+  const payload = await response.json().catch(() => ({}));
+  const user = payload?.data?.user;
+  if (!response.ok || !user?.open_id) throw new Error(payload?.error?.message || "TikTok kullanıcı bilgisi alınamadı.");
+  return user as {
+    open_id: string; union_id?: string; avatar_url?: string; avatar_large_url?: string; display_name?: string;
+    bio_description?: string; profile_deep_link?: string; is_verified?: boolean; username?: string;
+    follower_count?: number; following_count?: number; likes_count?: number; video_count?: number;
+  };
+}
+
+// TikTok Login Kit has no Facebook-Page-style hierarchy: one connected
+// account is the one asset. Saved directly (not a two-step parent-then-
+// child-selection flow like Meta/Google) — oauthAccounts/selectOAuthAccount
+// still work for TikTok too (re-verifying/re-confirming the same single
+// account), matching the drawer's existing Yetkili Hesapları Listele /
+// Seçilenleri Kaydet buttons, but the connection is already usable right
+// after callback.
+async function saveTikTokIntegration(session: any, token: any, tiktokUser: Awaited<ReturnType<typeof fetchTikTokUserInfo>>, expiresAt: string) {
+  if (!hasSupabaseConfig()) throw new Error("Supabase bağlantısı yapılandırılmadı.");
+  const rows = await supabaseRest<any[]>(`customer_integrations?company_id=eq.${encodeURIComponent(session.companyId)}&select=*&limit=1`).catch(() => []);
+  const existing = rows[0] || null;
+  const currentAssets = Array.isArray(existing?.integration_assets) ? existing.integration_assets : [];
+  const now = new Date().toISOString();
+  const scopes = String(token.scope || effectiveProviderScope("tiktok")).split(/[,\s]+/).map(clean).filter(Boolean);
+  const displayName = tiktokUser.display_name || tiktokUser.username || tiktokUser.open_id;
+  const tiktokAsset = {
+    id: `tiktok-account-${tiktokUser.open_id}`,
+    provider: "tiktok",
+    platform: "tiktok",
+    platform_label: "TikTok",
+    asset_type: "tiktok_account",
+    asset_name: displayName,
+    asset_id: tiktokUser.open_id,
+    account_id: tiktokUser.open_id,
+    provider_account_id: tiktokUser.open_id,
+    provider_account_name: displayName,
+    account_type: "tiktok_account",
+    status: "connected_oauth",
+    source: "customer",
+    connection_mode: "oauth",
+    connection_method: "oauth",
+    admin_review_status: "approved",
+    oauth_status: "connected",
+    oauth_scopes: scopes,
+    scopes,
+    token_expires_at: expiresAt || null,
+    last_synced_at: now,
+    metadata: {
+      username: tiktokUser.username || "",
+      avatar_url: tiktokUser.avatar_large_url || tiktokUser.avatar_url || "",
+      profile_deep_link: tiktokUser.profile_deep_link || "",
+      is_verified: Boolean(tiktokUser.is_verified),
+      follower_count: tiktokUser.follower_count ?? null,
+      following_count: tiktokUser.following_count ?? null,
+      likes_count: tiktokUser.likes_count ?? null,
+      video_count: tiktokUser.video_count ?? null
+    }
+  };
+  const nextAssets = [
+    tiktokAsset,
+    ...currentAssets.filter((item: any) => `${item.provider || item.platform}-${item.account_type || item.asset_type}-${item.provider_account_id || item.account_id || item.asset_id}` !== `tiktok-tiktok_account-${tiktokUser.open_id}`)
+  ];
+  const sensitiveMetadata = {
+    ...(existing?.sensitive_metadata && typeof existing.sensitive_metadata === "object" ? existing.sensitive_metadata : {}),
+    tiktok_oauth: {
+      access_token_encrypted: encryptSecret(token.accessToken || ""),
+      refresh_token_encrypted: token.refreshToken ? encryptSecret(token.refreshToken) : existing?.sensitive_metadata?.tiktok_oauth?.refresh_token_encrypted || "",
+      token_expires_at: expiresAt || null,
+      scopes,
+      updated_at: now
+    }
+  };
+  const patch = {
+    company_id: session.companyId,
+    customer_id: session.companyId,
+    provider: existing?.provider || "tiktok",
+    platform: existing?.platform || "tiktok",
+    account_type: existing?.account_type || "tiktok_account",
+    provider_account_id: existing?.provider_account_id || tiktokUser.open_id,
+    provider_account_name: existing?.provider_account_name || displayName,
+    status: existing?.status || "connected_oauth",
+    source: "customer",
+    connection_mode: existing?.connection_mode || "oauth",
+    connection_method: existing?.connection_method || "oauth",
+    admin_review_status: existing?.admin_review_status || "approved",
+    oauth_status: "connected",
+    oauth_account_id: existing?.oauth_account_id || tiktokUser.open_id,
+    oauth_asset_id: existing?.oauth_asset_id || tiktokUser.open_id,
+    oauth_asset_type: existing?.oauth_asset_type || "tiktok_account",
+    scopes: Array.from(new Set([...(Array.isArray(existing?.scopes) ? existing.scopes : []), ...scopes])),
+    sensitive_metadata: sensitiveMetadata,
+    metadata: { ...(existing?.metadata || {}), tiktok_username: tiktokUser.username || "", tiktok_oauth_connected_at: now },
+    integration_assets: nextAssets,
+    last_synced_at: now,
+    sync_error: "",
+    updated_by: session.profileId || null,
+    created_by: existing?.created_by || session.profileId || null
+  };
+  await supabaseRest<any[]>("customer_integrations?on_conflict=company_id", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify(patch) });
+  return tiktokAsset;
+}
+
 function callbackErrorCode(providerError: string, description: string) {
   const text = `${providerError} ${description}`.toLocaleLowerCase("tr-TR");
   if (text.includes("invalid scope") || text.includes("invalid_scopes")) return "invalid_scope";
@@ -1001,6 +1126,18 @@ export async function oauthCallback(provider: Provider, request: Request) {
         logOAuthStage("integration_persist_success", request, { provider, origin, companyId: sessionCompanyId, traceId: state.nonce });
       } catch (error) {
         console.error("Google OAuth user info/save failed", error instanceof Error ? error.message : "unknown_error");
+        logOAuthStage("integration_persist_success", request, { provider, origin, companyId: sessionCompanyId, traceId: state.nonce, ok: false });
+        return redirectWithIntegrationError(request, returnTo, provider, "user_info_fetch_failed", { oauth_trace: state.nonce });
+      }
+    }
+    if (provider === "tiktok") {
+      try {
+        logOAuthStage("integration_persist_started", request, { provider, origin, companyId: sessionCompanyId, traceId: state.nonce });
+        const tiktokUser = await fetchTikTokUserInfo(token.accessToken);
+        await saveTikTokIntegration(targetSession, token, tiktokUser, expiresAt);
+        logOAuthStage("integration_persist_success", request, { provider, origin, companyId: sessionCompanyId, traceId: state.nonce });
+      } catch (error) {
+        console.error("TikTok OAuth user info/save failed", error instanceof Error ? error.message : "unknown_error");
         logOAuthStage("integration_persist_success", request, { provider, origin, companyId: sessionCompanyId, traceId: state.nonce, ok: false });
         return redirectWithIntegrationError(request, returnTo, provider, "user_info_fetch_failed", { oauth_trace: state.nonce });
       }
@@ -1313,20 +1450,36 @@ function googleDiscoveryGroups(accounts: any[], serviceErrors: Array<{ service: 
   return groups;
 }
 
+// TikTok Login Kit has no page/business-hierarchy — real-time discovery
+// always returns exactly the one connected account (there is no equivalent
+// of "list the Pages this user manages"), mirroring the single "tiktok
+// asset" model saveTikTokIntegration already writes on connect. Kept as a
+// real API call (not just echoing the saved row) so oauthAccounts/
+// selectOAuthAccount's re-verification-against-a-live-discovery pattern
+// stays consistent with Meta/Google — a revoked/expired token surfaces
+// here as a real error rather than a stale cached account.
 async function fetchTikTokAccounts(accessToken: string) {
-  const response = await fetch("https://business-api.tiktok.com/open_api/v1.3/oauth2/advertiser/get/", { headers: { "Access-Token": accessToken }, cache: "no-store" });
-  const payload = await response.json().catch(() => ({}));
-  const list = Array.isArray(payload.data?.list) ? payload.data.list : [];
-  return list.map((item: any) => ({
-    id: `tiktok-advertiser-${item.advertiser_id || item.id}`,
+  const user = await fetchTikTokUserInfo(accessToken);
+  const displayName = user.display_name || user.username || user.open_id;
+  return [{
+    id: `tiktok-account-${user.open_id}`,
     provider: "tiktok",
     platform: "tiktok",
-    account_type: "advertiser",
-    provider_account_id: item.advertiser_id || item.id || "",
-    provider_account_name: item.advertiser_name || item.name || "TikTok reklam hesabı",
-    status: "Seçilebilir",
-    metadata: item
-  }));
+    account_type: "tiktok_account",
+    provider_account_id: user.open_id,
+    provider_account_name: displayName,
+    status: user.is_verified ? "Doğrulanmış hesap" : "Seçilebilir",
+    metadata: {
+      username: user.username || "",
+      avatar_url: user.avatar_large_url || user.avatar_url || "",
+      profile_deep_link: user.profile_deep_link || "",
+      is_verified: Boolean(user.is_verified),
+      follower_count: user.follower_count ?? null,
+      following_count: user.following_count ?? null,
+      likes_count: user.likes_count ?? null,
+      video_count: user.video_count ?? null
+    }
+  }];
 }
 
 async function fetchXAccounts(accessToken: string) {
@@ -1386,6 +1539,9 @@ async function resolveProviderAccessToken(provider: Provider, session: { role?: 
   } else if (provider === "google" && targetCompanyId) {
     const stored = await getGoogleToken(targetCompanyId);
     accessToken = stored.token;
+  } else if (provider === "tiktok" && targetCompanyId) {
+    const stored = await getTikTokToken(targetCompanyId);
+    accessToken = stored.token;
   }
   return { accessToken, targetCompanyId, metaSessionForPhase1 };
 }
@@ -1431,14 +1587,18 @@ export async function oauthAccounts(request: Request) {
     // the real, per-service result; this top-level message is now only a
     // coarse summary for callers that don't look at groups (kept for
     // backward compatibility with any older caller reading .message).
-    const googleAnyChildFound = groups ? Object.values(groups).some((g) => g.assets.length > 0) : accounts.length > 1;
+    // Google's own accounts[0] is a non-selectable "profile verified" row,
+    // so >1 means at least one real child was found. TikTok/X have no such
+    // placeholder — every returned row is itself a real, selectable
+    // account — so any result at all (>=1) is success for them.
+    const anyChildFound = groups ? Object.values(groups).some((g) => g.assets.length > 0) : provider === "google" ? accounts.length > 1 : accounts.length >= 1;
     return NextResponse.json({
       ok: true,
       provider,
       accounts,
       groups,
       warnings,
-      message: googleAnyChildFound ? "Yetkili hesaplar listelendi." : "Temel profil doğrulandı; aşağıdaki her servis için ayrı sonucu kontrol edin (bazı hesaplarda hiç varlık bulunamamış veya izin/API eksik olabilir)."
+      message: anyChildFound ? "Yetkili hesaplar listelendi." : provider === "google" ? "Temel profil doğrulandı; aşağıdaki her servis için ayrı sonucu kontrol edin (bazı hesaplarda hiç varlık bulunamamış veya izin/API eksik olabilir)." : "Yetkili hesap bulunamadı."
     });
   } catch (error) {
     return NextResponse.json({ ok: false, provider, accounts: [], code: "provider_fetch_failed", message: error instanceof Error ? error.message : "Yetkili hesaplar alınamadı." }, { status: 502 });
@@ -1468,10 +1628,10 @@ export async function selectOAuthAccount(request: Request) {
     if (!["meta", "google", "tiktok", "x"].includes(provider)) return NextResponse.json({ error: "Geçerli platform seçin." }, { status: 400 });
 
     // Target company: for a customer session, always their own company
-    // (unchanged). For a staff session — only meaningful for meta/google,
-    // the two providers Analiz & Raporlama Merkezi drives — an explicit,
-    // validated ?company=/body.company, never trusted blindly. Previously
-    // this function hard-required isCustomerRole(session.role), so a staff
+    // (unchanged). For a staff session — meta/google/tiktok, the providers
+    // Analiz & Raporlama Merkezi drives — an explicit, validated
+    // ?company=/body.company, never trusted blindly. Previously this
+    // function hard-required isCustomerRole(session.role), so a staff
     // session picking an asset after a successful hk_admin-origin OAuth
     // connect got a 403 here even though requireIntegrationSession() already
     // authorized them.
@@ -1479,18 +1639,18 @@ export async function selectOAuthAccount(request: Request) {
     let targetCompanyId = "";
     if (isCustomerRole(session.role) && session.companyId) {
       targetCompanyId = session.companyId;
-    } else if (!isStaffRole(session.role) || (provider !== "meta" && provider !== "google")) {
+    } else if (!isStaffRole(session.role) || (provider !== "meta" && provider !== "google" && provider !== "tiktok")) {
       return NextResponse.json({ error: "Müşteri oturumu gerekir." }, { status: 403 });
     }
 
-    if (provider === "meta" || provider === "google") {
+    if (provider === "meta" || provider === "google" || provider === "tiktok") {
       // Same resolver oauthAccounts uses: prefers the fresh transient
       // hk_oauth_session_{provider} cookie, falls back to the persisted,
       // auto-refreshing token (tokenForCustomerMetaIntegration/
-      // getGoogleToken) once that 15-minute window has passed — without
-      // this, selecting an asset any time after that window always failed
-      // here even though discovery (oauthAccounts, above) already works
-      // again via the same fallback.
+      // getGoogleToken/getTikTokToken) once that 15-minute window has
+      // passed — without this, selecting an asset any time after that
+      // window always failed here even though discovery (oauthAccounts,
+      // above) already works again via the same fallback.
       const resolved = await resolveProviderAccessToken(provider, session, targetCompanyId || requestedCompany);
       const accessToken = resolved.accessToken;
       if (!targetCompanyId) targetCompanyId = resolved.targetCompanyId;
@@ -1501,7 +1661,9 @@ export async function selectOAuthAccount(request: Request) {
         ? advancedScopesEnabled("meta")
           ? (await listMetaBusinessAssets(accessToken)).accounts
           : [metaPhase1AccountFromSession(resolved.metaSessionForPhase1)].filter(Boolean)
-        : await fetchGoogleAccounts(accessToken);
+        : provider === "tiktok"
+          ? await fetchTikTokAccounts(accessToken)
+          : await fetchGoogleAccounts(accessToken);
       const discoveredByKey = new Map(discovered.map((item: any) => [
         `${item.provider}-${item.account_type || item.asset_type}-${item.provider_account_id || item.account_id || item.asset_id}`,
         item

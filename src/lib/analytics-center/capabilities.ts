@@ -57,6 +57,11 @@ const FACEBOOK_METRICS: ProviderMetricDefinition[] = [
 // readonly Data API scope already requested for channel discovery). No
 // monetary/revenue scope requested or used, per product requirement.
 const YOUTUBE_METRICS: ProviderMetricDefinition[] = [
+  // "subscribers" (current total — the headline audience KPI) is written
+  // by syncYoutubeAnalytics as a gauge snapshot (see kpi.ts's
+  // GAUGE_METRICS) but was missing from this registry entirely, so it
+  // never actually reached a KPI card despite real data existing for it.
+  supported("subscribers", "Abone", "count", "audience"),
   supported("subscribersGained", "Kazanılan Abone", "count", "audience"),
   supported("subscribersLost", "Kaybedilen Abone", "count", "audience"),
   supported("views", "Görüntülenme", "count", "awareness"),
@@ -102,9 +107,34 @@ const GOOGLE_BUSINESS_METRICS: ProviderMetricDefinition[] = [
   supported("average_rating", "Ortalama Puan", "rating", "local")
 ];
 
+// TikTok Login Kit / Display API (open.tiktokapis.com) — read-only scopes
+// only (user.info.basic/profile/stats, video.list); no publishing, no ads,
+// per product requirement. No historical-analytics endpoint exists for
+// these scopes (unlike YouTube Analytics or Meta Insights) —
+// followers/following/likes_total/video_count are current-snapshot fields
+// from the User Info object, written as "today's" daily metric on every
+// sync — the same accumulate-a-snapshot-per-day pattern already used for
+// Instagram's followers/Facebook's page_fans/YouTube's subscribers, so
+// real historical growth builds up over time from real syncs, never
+// backfilled or fabricated. Per-video like_count/comment_count/
+// share_count/view_count are real Video Object fields (verified against
+// developers.tiktok.com/doc/tiktok-api-v2-video-object) available under
+// video.list.
+const TIKTOK_METRICS: ProviderMetricDefinition[] = [
+  supported("followers", "Takipçi", "count", "audience"),
+  supported("following", "Takip Edilen", "count", "audience"),
+  supported("likes_total", "Toplam Beğeni", "count", "engagement"),
+  supported("video_count", "Video Sayısı", "count", "engagement"),
+  supported("views", "Görüntülenme", "count", "awareness"),
+  supported("likes", "Beğeni", "count", "engagement"),
+  supported("comments", "Yorum", "count", "engagement"),
+  supported("shares", "Paylaşım", "count", "engagement")
+];
+
 const REGISTRY: Record<AnalyticsProvider, ProviderMetricDefinition[]> = {
   instagram: INSTAGRAM_METRICS,
   facebook: FACEBOOK_METRICS,
+  tiktok: TIKTOK_METRICS,
   youtube: YOUTUBE_METRICS,
   google_ads: GOOGLE_ADS_METRICS,
   google_business_profile: GOOGLE_BUSINESS_METRICS
@@ -125,17 +155,21 @@ export function metricDefinition(provider: AnalyticsProvider, metricKey: string)
 export const PROVIDER_LABELS: Record<AnalyticsProvider, string> = {
   instagram: "Instagram",
   facebook: "Facebook",
+  tiktok: "TikTok",
   youtube: "YouTube",
   google_ads: "Google Ads",
   google_business_profile: "Google Business Profile"
 };
 
-// "meta" vs "google" — matches customer_integrations.provider /
+// "meta" / "google" / "tiktok" — matches customer_integrations.provider /
 // integration_assets[].provider, i.e. which OAuth connection this platform
-// rides on.
-export const PROVIDER_OAUTH_PARENT: Record<AnalyticsProvider, "meta" | "google"> = {
+// rides on. TikTok has no parent/child hierarchy (unlike Meta's Page/IG or
+// Google's Ads/GBP/YouTube) — it is its own parent, one account = one
+// asset.
+export const PROVIDER_OAUTH_PARENT: Record<AnalyticsProvider, "meta" | "google" | "tiktok"> = {
   instagram: "meta",
   facebook: "meta",
+  tiktok: "tiktok",
   youtube: "google",
   google_ads: "google",
   google_business_profile: "google"
@@ -147,6 +181,7 @@ export const PROVIDER_OAUTH_PARENT: Record<AnalyticsProvider, "meta" | "google">
 export const PROVIDER_ASSET_TYPE: Record<AnalyticsProvider, string> = {
   instagram: "instagram_business",
   facebook: "facebook_page",
+  tiktok: "tiktok_account",
   youtube: "youtube_channel",
   google_ads: "google_ads_customer",
   google_business_profile: "google_business_location"

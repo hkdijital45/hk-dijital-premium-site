@@ -43,7 +43,7 @@ test.describe("HK Admin direct OAuth — no customer-panel hop", () => {
     const body = await statusResponse.json();
     test.skip(!body.tablesReady, "Analytics Center tables not migrated in this environment.");
 
-    const expectedParent: Record<string, string> = { instagram: "meta", facebook: "meta", youtube: "google", google_ads: "google", google_business_profile: "google" };
+    const expectedParent: Record<string, string> = { instagram: "meta", facebook: "meta", tiktok: "tiktok", youtube: "google", google_ads: "google", google_business_profile: "google" };
     for (const conn of body.connections) {
       for (const href of [conn.manageHref, conn.connectHref]) {
         expect(href).not.toContain("musteri-paneli");

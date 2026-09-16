@@ -56,6 +56,27 @@ test("previousRange: correctly crosses a month boundary, preserving the 5-day le
   assert.equal(previous.startDate, "2026-08-27"); // same 5-day length: Aug 27-31
 });
 
+test("previousRange: 'previous_month' shifts the exact same range back one calendar month, not just an equal-length window", () => {
+  const current = { startDate: "2026-09-01", endDate: "2026-09-14" };
+  const previous = previousRange(current, "previous_month");
+  assert.equal(previous.startDate, "2026-08-01");
+  assert.equal(previous.endDate, "2026-08-14");
+});
+
+test("previousRange: 'previous_year' shifts the exact same range back one calendar year", () => {
+  const current = { startDate: "2026-09-01", endDate: "2026-09-14" };
+  const previous = previousRange(current, "previous_year");
+  assert.equal(previous.startDate, "2025-09-01");
+  assert.equal(previous.endDate, "2025-09-14");
+});
+
+test("previousRange: an unspecified mode defaults to 'previous_period' (backward compatible with existing callers)", () => {
+  const current = { startDate: "2026-09-08", endDate: "2026-09-14" };
+  const explicitDefault = previousRange(current, "previous_period");
+  const implicitDefault = previousRange(current);
+  assert.deepEqual(implicitDefault, explicitDefault);
+});
+
 test("campaignMetricKey: encodes a campaign-scoped row distinctly from the account-total metric_key", () => {
   const key = campaignMetricKey("cost", "1234567890");
   assert.equal(key, "cost::campaign:1234567890");
@@ -78,10 +99,23 @@ test("parseCampaignMetricKey: returns null for an account-total (non-campaign) k
   assert.equal(parseCampaignMetricKey("cost"), null);
 });
 
-test("providerMetrics: every provider's registry is non-empty", () => {
-  for (const provider of ["instagram", "facebook", "youtube", "google_ads", "google_business_profile"] as const) {
+test("providerMetrics: every provider's registry is non-empty, including TikTok", () => {
+  for (const provider of ["instagram", "facebook", "tiktok", "youtube", "google_ads", "google_business_profile"] as const) {
     assert.ok(providerMetrics(provider).length > 0, `${provider} should define at least one metric`);
   }
+});
+
+test("providerMetrics: TikTok never requests publishing-permission-gated metrics, only read-only profile/video stats", () => {
+  const keys = providerMetrics("tiktok").map((m) => m.key);
+  assert.ok(keys.includes("followers"));
+  assert.ok(keys.includes("video_count"));
+  assert.ok(keys.includes("views"));
+});
+
+test("metricDefinition: YouTube 'subscribers' (the headline audience KPI, written by syncYoutubeAnalytics as a gauge snapshot) is registered as supported — it used to be written to the DB but never reach a KPI card", () => {
+  const def = metricDefinition("youtube", "subscribers");
+  assert.ok(def);
+  assert.equal(def?.capability, "supported");
 });
 
 test("metricCapability: a deprecated Instagram metric is explicitly marked unsupported, not silently dropped", () => {
@@ -105,8 +139,8 @@ test("metricDefinition: an unsupported metric still carries a human-readable not
   assert.ok(def?.note && def.note.length > 0);
 });
 
-test("PROVIDER_LABELS / PROVIDER_ASSET_TYPE: every analytics provider has a label and an asset_type mapping", () => {
-  for (const provider of ["instagram", "facebook", "youtube", "google_ads", "google_business_profile"] as const) {
+test("PROVIDER_LABELS / PROVIDER_ASSET_TYPE: every analytics provider has a label and an asset_type mapping, including TikTok", () => {
+  for (const provider of ["instagram", "facebook", "tiktok", "youtube", "google_ads", "google_business_profile"] as const) {
     assert.ok(PROVIDER_LABELS[provider]);
     assert.ok(PROVIDER_ASSET_TYPE[provider]);
   }

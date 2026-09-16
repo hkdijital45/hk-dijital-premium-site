@@ -1,6 +1,7 @@
 import "server-only";
 import { tokenForCustomerMetaIntegration } from "@/lib/meta-business-phase2";
 import { getGoogleToken as sharedGetGoogleToken } from "@/lib/google-oauth-token";
+import { getTikTokToken as sharedGetTikTokToken } from "@/lib/tiktok-oauth-token";
 import type { AnalyticsProvider } from "./types";
 
 export type TokenResult = { token: string; message: string };
@@ -20,7 +21,12 @@ export async function getMetaToken(companyId: string): Promise<TokenResult> {
 // connections.ts import chain leads back into customer-integration-oauth.ts).
 export const getGoogleToken = sharedGetGoogleToken;
 
+// TikTok — same pattern, own module (src/lib/tiktok-oauth-token.ts) for the
+// same circular-import reason as Google's.
+export const getTikTokToken = sharedGetTikTokToken;
+
 export async function getProviderToken(companyId: string, provider: AnalyticsProvider): Promise<TokenResult> {
   if (provider === "instagram" || provider === "facebook") return getMetaToken(companyId);
+  if (provider === "tiktok") return getTikTokToken(companyId);
   return getGoogleToken(companyId);
 }

@@ -2,6 +2,7 @@ import "server-only";
 import { supabaseRest } from "@/lib/supabase";
 import { PROVIDER_ASSET_TYPE, PROVIDER_LABELS, PROVIDER_OAUTH_PARENT } from "./capabilities";
 import { getOAuthProviderStatus } from "@/lib/customer-integration-oauth";
+import { ANALYTICS_PROVIDERS } from "./types";
 import type { AnalyticsProvider, ConnectionAsset, ProviderConnectionStatus } from "./types";
 
 // OAuth connection is customer-initiated by design (oauthConnect() requires
@@ -30,9 +31,12 @@ function assetsForProvider(row: any, provider: AnalyticsProvider): ConnectionAss
 // — distinct from any specific child asset (a Page, a channel, an Ads
 // account...). Matches the rows saveMetaPhase1Integration/
 // saveGoogleOAuthIntegration write in customer-integration-oauth.ts.
-function parentAssetForOAuthParent(row: any, oauthParent: "meta" | "google"): any {
+// TikTok has no separate parent/child tier — saveTikTokIntegration writes
+// "tiktok_account" as both the parent marker and the one real child asset,
+// since TikTok Login Kit exposes exactly one account per connection.
+function parentAssetForOAuthParent(row: any, oauthParent: "meta" | "google" | "tiktok"): any {
   const assets: any[] = Array.isArray(row?.integration_assets) ? row.integration_assets : [];
-  const parentAccountType = oauthParent === "meta" ? "meta_user" : "google_profile";
+  const parentAccountType = oauthParent === "meta" ? "meta_user" : oauthParent === "google" ? "google_profile" : "tiktok_account";
   return assets.find((item) => item?.provider === oauthParent && item?.account_type === parentAccountType) || null;
 }
 
@@ -141,7 +145,7 @@ export async function getProviderConnectionStatus(companyId: string, provider: A
 }
 
 export async function getAllProviderConnectionStatuses(companyId: string): Promise<ProviderConnectionStatus[]> {
-  const providers: AnalyticsProvider[] = ["instagram", "facebook", "youtube", "google_ads", "google_business_profile"];
+  const providers: AnalyticsProvider[] = ANALYTICS_PROVIDERS;
   return Promise.all(providers.map((provider) => getProviderConnectionStatus(companyId, provider)));
 }
 

@@ -2,10 +2,11 @@ import "server-only";
 import { providerMetrics } from "./capabilities";
 import { queryDailyMetrics, type StoredDailyMetric } from "./metrics-store";
 import { isCampaignMetricKey } from "./campaign-keys";
-import { comparisonPercent, previousRange } from "./date-math";
+import { comparisonPercent, previousRange, type ComparisonMode } from "./date-math";
 import type { AnalyticsProvider, DateRange, KpiCardValue } from "./types";
 
 export { comparisonPercent, previousRange };
+export type { ComparisonMode };
 
 // Point-in-time gauges — the latest value within a range is the meaningful
 // "current" number, never a sum (summing 30 days of "followers" would be
@@ -36,13 +37,13 @@ function aggregateByMetric(rows: StoredDailyMetric[]): Map<string, number> {
   return result;
 }
 
-export async function getProviderKpis(companyId: string, provider: AnalyticsProvider, range: DateRange): Promise<KpiCardValue[]> {
+export async function getProviderKpis(companyId: string, provider: AnalyticsProvider, range: DateRange, comparisonMode: ComparisonMode = "previous_period"): Promise<KpiCardValue[]> {
   const [currentRows, previousRows] = await Promise.all([
     queryDailyMetrics(companyId, [provider], range),
-    queryDailyMetrics(companyId, [provider], previousRange(range))
+    comparisonMode === "off" ? Promise.resolve([]) : queryDailyMetrics(companyId, [provider], previousRange(range, comparisonMode))
   ]);
   const current = aggregateByMetric(currentRows);
-  const previous = aggregateByMetric(previousRows);
+  const previous = comparisonMode === "off" ? new Map<string, number>() : aggregateByMetric(previousRows);
 
   return providerMetrics(provider)
     .filter((def) => def.capability === "supported")
@@ -64,7 +65,7 @@ export async function getProviderKpis(companyId: string, provider: AnalyticsProv
     });
 }
 
-export async function getAllProviderKpis(companyId: string, providers: AnalyticsProvider[], range: DateRange): Promise<Record<AnalyticsProvider, KpiCardValue[]>> {
-  const entries = await Promise.all(providers.map(async (provider) => [provider, await getProviderKpis(companyId, provider, range)] as const));
+export async function getAllProviderKpis(companyId: string, providers: AnalyticsProvider[], range: DateRange, comparisonMode: ComparisonMode = "previous_period"): Promise<Record<AnalyticsProvider, KpiCardValue[]>> {
+  const entries = await Promise.all(providers.map(async (provider) => [provider, await getProviderKpis(companyId, provider, range, comparisonMode)] as const));
   return Object.fromEntries(entries) as Record<AnalyticsProvider, KpiCardValue[]>;
 }

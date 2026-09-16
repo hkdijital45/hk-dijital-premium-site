@@ -43,7 +43,7 @@ export async function POST(request: Request) {
 
     const range = { startDate, endDate };
     const kpisByProvider = await getAllProviderKpis(companyId, providers, range);
-    const contentProviders = providers.filter((p): p is "instagram" | "facebook" | "youtube" => ["instagram", "facebook", "youtube"].includes(p));
+    const contentProviders = providers.filter((p): p is "instagram" | "facebook" | "tiktok" | "youtube" => ["instagram", "facebook", "tiktok", "youtube"].includes(p));
     const contentByProvider = Object.fromEntries(
       await Promise.all(contentProviders.map(async (p) => [p, await queryContentMetrics(companyId, [p], range, 10)] as const))
     );

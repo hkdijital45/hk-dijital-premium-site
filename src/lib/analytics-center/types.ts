@@ -2,16 +2,16 @@
 // UI, sync orchestrator and each provider adapter share one vocabulary —
 // see capabilities.ts for which metrics each provider actually supports.
 
-export type AnalyticsProvider = "instagram" | "facebook" | "youtube" | "google_ads" | "google_business_profile";
+export type AnalyticsProvider = "instagram" | "facebook" | "tiktok" | "youtube" | "google_ads" | "google_business_profile";
 
-export const ANALYTICS_PROVIDERS: AnalyticsProvider[] = ["instagram", "facebook", "youtube", "google_ads", "google_business_profile"];
+export const ANALYTICS_PROVIDERS: AnalyticsProvider[] = ["instagram", "facebook", "tiktok", "youtube", "google_ads", "google_business_profile"];
 
 // Matches the exact shape already persisted into customer_integrations.
 // integration_assets by selectOAuthAccount() in
 // src/lib/customer-integration-oauth.ts — read-only here, never written.
 export type ConnectionAsset = {
   id: string;
-  provider: "meta" | "google";
+  provider: "meta" | "google" | "tiktok";
   platform: AnalyticsProvider | string;
   platform_label?: string;
   asset_type: string;
@@ -57,7 +57,7 @@ export type ProviderConnectionStatus = {
   // been selected yet — lets the UI show "parent bağlı, hesap seçimi
   // gerekli" instead of a bare "bağlı değil" that looks identical to never
   // having logged in at all.
-  oauthParent: "meta" | "google";
+  oauthParent: "meta" | "google" | "tiktok";
   parentConnected: boolean;
   parentAccountName: string | null;
 };

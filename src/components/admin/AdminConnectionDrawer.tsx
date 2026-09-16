@@ -5,14 +5,14 @@
    CustomerAccountConnectCenter.tsx and AnalyticsReportingCenter.tsx. */
 
 import { useEffect, useMemo, useState } from "react";
-import { ImagePlus, Megaphone, PlayCircle, Search, MapPin, X } from "lucide-react";
+import { ImagePlus, Megaphone, Music2, PlayCircle, Search, MapPin, X } from "lucide-react";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
 import { PROVIDER_ASSET_TYPE, PROVIDER_LABELS, PROVIDER_OAUTH_PARENT } from "@/lib/analytics-center/capabilities";
 import type { AnalyticsProvider, ProviderConnectionStatus } from "@/lib/analytics-center/types";
 
-const PROVIDER_ICONS: Record<AnalyticsProvider, any> = { instagram: ImagePlus, facebook: Megaphone, youtube: PlayCircle, google_ads: Search, google_business_profile: MapPin };
-const ADMIN_MANAGED_PROVIDERS: AnalyticsProvider[] = ["instagram", "facebook", "youtube", "google_ads", "google_business_profile"];
+const PROVIDER_ICONS: Record<AnalyticsProvider, any> = { instagram: ImagePlus, facebook: Megaphone, tiktok: Music2, youtube: PlayCircle, google_ads: Search, google_business_profile: MapPin };
+const ADMIN_MANAGED_PROVIDERS: AnalyticsProvider[] = ["instagram", "facebook", "tiktok", "youtube", "google_ads", "google_business_profile"];
 
 // Matches the account_type values selectOAuthAccount()/normalizeAsset()
 // already write into integration_assets (see connections.ts's
@@ -27,6 +27,7 @@ function matchesChildProvider(item: any, provider: AnalyticsProvider): boolean {
   switch (provider) {
     case "instagram": return accountType === "instagram_business";
     case "facebook": return accountType === "facebook_page";
+    case "tiktok": return accountType === "tiktok_account";
     case "youtube": return accountType === "youtube_channel" || accountType === "youtube";
     case "google_ads": return accountType === "google_ads_customer" || accountType === "google_ads";
     case "google_business_profile": return accountType.includes("google_business") || accountType.includes("business_profile");
@@ -234,7 +235,7 @@ export function AdminConnectionDrawer({
               <AdminStatusBadge tone={conn.status === "connected" ? "success" : conn.status === "not_connected" ? "neutral" : "warning"}>{conn.statusLabel}</AdminStatusBadge>
             </div>
             <div className="mt-3 grid gap-1.5 text-xs" style={{ color: "var(--admin-text-secondary)" }}>
-              <p><strong>{oauthParent === "google" ? "Google" : "Meta"} girişi:</strong> {conn.parentConnected ? `Bağlı${conn.parentAccountName ? ` (${conn.parentAccountName})` : ""}` : "Bağlı değil"}</p>
+              <p><strong>{oauthParent === "google" ? "Google" : oauthParent === "tiktok" ? "TikTok" : "Meta"} girişi:</strong> {conn.parentConnected ? `Bağlı${conn.parentAccountName ? ` (${conn.parentAccountName})` : ""}` : "Bağlı değil"}</p>
               <p><strong>Seçili hesap:</strong> {conn.asset ? conn.asset.provider_account_name || conn.asset.provider_account_id : "Seçilmedi"}</p>
               <p><strong>İzinler:</strong> {(conn.asset?.metadata as any)?.scopes ? (conn.asset?.metadata as any).scopes.join(", ") : conn.scopeReady ? "Yeterli" : "Ek izin gerekiyor"}</p>
               <p><strong>Son senkronizasyon:</strong> {conn.lastSyncedAt ? new Date(conn.lastSyncedAt).toLocaleString("tr-TR", { timeZone: "Europe/Istanbul" }) : "Henüz yok"}</p>

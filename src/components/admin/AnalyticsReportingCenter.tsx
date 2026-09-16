@@ -3,25 +3,24 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AdminWorkspace } from "@/components/admin/workspace/AdminWorkspace";
-import { AdminControlPanel, AdminFilterSection } from "@/components/admin/workspace/AdminControlPanel";
-import { AdminDataGrid, type AdminDataGridColumn } from "@/components/admin/workspace/AdminDataGrid";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
-import { AdminStatusBadge, type AdminStatusTone } from "@/components/admin/ui/AdminStatusBadge";
-import { AdminKpiCard } from "@/components/admin/ui/AdminKpiCard";
-import { AdminEmptyState } from "@/components/admin/ui/AdminEmptyState";
-import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
 import { AdminConnectionDrawer } from "@/components/admin/AdminConnectionDrawer";
-import type { AnalyticsProvider, ProviderConnectionStatus } from "@/lib/analytics-center/types";
-import { BarChart3, ImagePlus, Megaphone, PlayCircle, Search, MapPin, RefreshCw, FileDown, ExternalLink } from "lucide-react";
+import { MetricCard } from "@/components/admin/analytics/MetricCard";
+import { AnalyticsAreaChart, AnalyticsBarChart } from "@/components/admin/analytics/charts";
+import { ContentTable, type ContentRow } from "@/components/admin/analytics/ContentTable";
+import { InstagramView, FacebookView, TikTokView, YoutubeView, GoogleAdsView, GoogleBusinessView, type DailySeriesByMetric } from "@/components/admin/analytics/PlatformViews";
+import { platformTheme } from "@/components/admin/analytics/theme";
+import { PROVIDER_LABELS } from "@/lib/analytics-center/capabilities";
+import type { AnalyticsProvider, KpiCardValue, ProviderConnectionStatus } from "@/lib/analytics-center/types";
+import type { ComparisonMode } from "@/lib/analytics-center/date-math";
+import { BarChart3, Search, ChevronDown, FileDown, ImagePlus, Megaphone, Music2, PlayCircle, MapPin, RefreshCw, Settings2, Users2, X } from "lucide-react";
 
-const PROVIDERS: AnalyticsProvider[] = ["instagram", "facebook", "youtube", "google_ads", "google_business_profile"];
-const PROVIDER_LABELS: Record<AnalyticsProvider, string> = { instagram: "Instagram", facebook: "Facebook", youtube: "YouTube", google_ads: "Google Ads", google_business_profile: "Google Business Profile" };
-const PROVIDER_ICONS: Record<AnalyticsProvider, any> = { instagram: ImagePlus, facebook: Megaphone, youtube: PlayCircle, google_ads: Search, google_business_profile: MapPin };
+const PROVIDERS: AnalyticsProvider[] = ["instagram", "facebook", "tiktok", "youtube", "google_ads", "google_business_profile"];
+const PROVIDER_ICONS: Record<AnalyticsProvider, any> = { instagram: ImagePlus, facebook: Megaphone, tiktok: Music2, youtube: PlayCircle, google_ads: Search, google_business_profile: MapPin };
 
 type Company = { id: string; name: string };
 type ConnectionStatus = ProviderConnectionStatus;
-type KpiCardValue = { key: string; label: string; value: number | null; changePercent: number | null; unit: string; capability: string; note?: string };
-type ContentItem = { id: string; provider: AnalyticsProvider; content_id: string; content_type: string | null; title: string | null; caption: string | null; permalink: string | null; thumbnail_url: string | null; published_at: string | null; metrics: Record<string, number | null> };
 
 const DATE_PRESETS = [
   { key: "today", label: "Bugün" },
@@ -36,6 +35,13 @@ const DATE_PRESETS = [
   { key: "custom", label: "Özel Tarih" }
 ] as const;
 type DatePresetKey = (typeof DATE_PRESETS)[number]["key"];
+
+const COMPARISON_OPTIONS: Array<{ key: ComparisonMode; label: string }> = [
+  { key: "previous_period", label: "Önceki dönem" },
+  { key: "previous_month", label: "Geçen ay" },
+  { key: "previous_year", label: "Geçen yıl aynı dönem" },
+  { key: "off", label: "Kapalı" }
+];
 
 // Deliberately NOT computed at module scope or in the initial useState() —
 // new Date()/toISOString() during the render that gets both server-
@@ -64,18 +70,9 @@ function rangeForPreset(preset: DatePresetKey, customStart: string, customEnd: s
   }
 }
 
-const STATUS_TONE: Record<string, AdminStatusTone> = {
-  connected: "success",
-  not_connected: "neutral",
-  token_expired: "warning",
-  reauth_required: "warning",
-  sync_error: "danger",
-  no_data: "neutral"
-};
-
 function unitFormat(value: number, unit: string): string {
   if (unit === "currency") return `${value.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} TL`;
-  if (unit === "percent") return `${value.toLocaleString("tr-TR", { maximumFractionDigits: 1 })}%`;
+  if (unit === "percent") return `%${value.toLocaleString("tr-TR", { maximumFractionDigits: 1 })}`;
   if (unit === "seconds") return `${Math.round(value)} sn`;
   if (unit === "rating") return value.toLocaleString("tr-TR", { maximumFractionDigits: 1 });
   return value.toLocaleString("tr-TR", { maximumFractionDigits: 0 });
@@ -89,15 +86,18 @@ export function AnalyticsReportingCenter() {
   const [preset, setPreset] = useState<DatePresetKey>("last30");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
-  const [selectedProviders, setSelectedProviders] = useState<AnalyticsProvider[]>(PROVIDERS);
+  const [comparisonMode, setComparisonMode] = useState<ComparisonMode>("previous_period");
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
   const [connections, setConnections] = useState<ConnectionStatus[] | null>(null);
   const [tablesReady, setTablesReady] = useState<boolean | null>(null);
   const [kpis, setKpis] = useState<Record<string, KpiCardValue[]>>({});
-  const [content, setContent] = useState<ContentItem[]>([]);
+  const [dailyByProvider, setDailyByProvider] = useState<Record<string, DailySeriesByMetric>>({});
+  const [content, setContent] = useState<ContentRow[]>([]);
   const [loadingMetrics, setLoadingMetrics] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState("");
-  const [activeTab, setActiveTab] = useState("Genel Bakış");
+  const [activeView, setActiveView] = useState<AnalyticsProvider | "overview" | "content" | "connections" | "reports">("overview");
   const [reportTitle, setReportTitle] = useState("");
   const [reportPlatforms, setReportPlatforms] = useState<AnalyticsProvider[]>(PROVIDERS);
   const [generatingReport, setGeneratingReport] = useState(false);
@@ -117,31 +117,27 @@ export function AnalyticsReportingCenter() {
   }
   useEffect(() => { loadCompanies(); }, []);
 
-  // Restores the selected customer (and jumps to the Hesaplar tab) when
-  // this page is reopened with ?company=<id> — the return route used after
-  // an admin completes a provider OAuth handshake from here (see
-  // CustomerAccountConnectCenter's isHkAdminOrigin branch), so the admin
-  // lands back on the same customer/tab they were managing instead of an
-  // empty "Müşteri seçilmedi" state.
+  // Restores the selected customer (and jumps to Bağlantılar) when this
+  // page is reopened with ?company=<id> — the return route used after an
+  // admin completes a provider OAuth handshake from here.
   useEffect(() => {
     if (!companies.length) return;
     const params = new URLSearchParams(window.location.search);
     const companyFromUrl = params.get("company");
     if (companyFromUrl && companies.some((c) => c.id === companyFromUrl)) {
       setCompanyId(companyFromUrl);
-      if (window.location.hash === "#hesaplar") setActiveTab("Hesaplar");
+      if (window.location.hash === "#hesaplar") setActiveView("connections");
     }
   }, [companies]);
 
   // Direct-OAuth return handling — no /musteri-paneli hop. connections.ts's
-  // directConnectHref sends the browser straight to Meta/Google with a
-  // returnTo of /hk-admin/analiz-raporlama?company=..&requestedChild=..
+  // directConnectHref sends the browser straight to Meta/Google/TikTok with
+  // a returnTo of /hk-admin/analiz-raporlama?company=..&requestedChild=..
   // (never through the customer panel); oauthCallback appends
   // integration_provider/integration_success/integration_error/oauth_status
   // on top of that same returnTo on its way back here. requestedChild is
-  // what which of the 5 provider cards (e.g. "instagram", not just "meta")
-  // to reopen the connection drawer on — read once on mount, same pattern
-  // CustomerAccountConnectCenter used for its own OAuth-return detection.
+  // which of the 6 provider cards (e.g. "instagram", not just "meta") to
+  // reopen the connection drawer on.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const requestedChild = params.get("requestedChild") as AnalyticsProvider | null;
@@ -149,7 +145,7 @@ export function AnalyticsReportingCenter() {
     const success = params.get("integration_success");
     const error = params.get("integration_error");
     if (requestedChild && PROVIDERS.includes(requestedChild) && (status === "accounts_ready" || success || error)) {
-      setActiveTab("Hesaplar");
+      setActiveView("connections");
       setDrawerProvider(requestedChild);
       setDrawerAutoLoad(Boolean(status === "accounts_ready" || success));
       setDrawerError(error);
@@ -176,19 +172,20 @@ export function AnalyticsReportingCenter() {
     if (!companyId || !ready || tablesReady === false) return;
     setLoadingMetrics(true);
     try {
-      const providerParam = selectedProviders.join(",");
+      const providerParam = PROVIDERS.join(",");
       const [metricsData, contentData] = await Promise.all([
-        fetch(`/api/admin/analytics-center/metrics?companyId=${companyId}&providers=${providerParam}&startDate=${range.startDate}&endDate=${range.endDate}`).then((r) => r.json()),
+        fetch(`/api/admin/analytics-center/metrics?companyId=${companyId}&providers=${providerParam}&startDate=${range.startDate}&endDate=${range.endDate}&comparisonMode=${comparisonMode}`).then((r) => r.json()),
         fetch(`/api/admin/analytics-center/content?companyId=${companyId}&startDate=${range.startDate}&endDate=${range.endDate}`).then((r) => r.json())
       ]);
       setKpis(metricsData.kpis || {});
+      setDailyByProvider(metricsData.dailyByProvider || {});
       setContent(contentData.content || []);
     } finally {
       setLoadingMetrics(false);
     }
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { loadMetricsAndContent(); }, [companyId, ready, range.startDate, range.endDate, selectedProviders, tablesReady]);
+  useEffect(() => { loadMetricsAndContent(); }, [companyId, ready, range.startDate, range.endDate, comparisonMode, tablesReady]);
 
   async function loadSavedReports() {
     if (!companyId) return;
@@ -197,7 +194,7 @@ export function AnalyticsReportingCenter() {
     setSavedReports(data.reports || []);
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { if (activeTab === "Raporlama") loadSavedReports(); }, [activeTab, companyId]);
+  useEffect(() => { if (activeView === "reports") loadSavedReports(); }, [activeView, companyId]);
 
   async function runSync() {
     if (!companyId) return;
@@ -207,17 +204,14 @@ export function AnalyticsReportingCenter() {
       const response = await fetch("/api/admin/analytics-center/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companyId, providers: selectedProviders, startDate: range.startDate, endDate: range.endDate })
+        body: JSON.stringify({ companyId, providers: PROVIDERS, startDate: range.startDate, endDate: range.endDate })
       });
       const data = await response.json();
       if (!response.ok) { setSyncMessage(data.error || "Senkronizasyon başarısız oldu."); return; }
       const failed = (data.results || []).filter((r: any) => !r.ok);
       setSyncMessage(failed.length ? `${data.results.length - failed.length}/${data.results.length} platform senkronize edildi. ${failed.map((f: any) => f.message).join(" ")}` : "Tüm platformlar başarıyla senkronize edildi.");
-      // Re-fetch status + metrics after a sync.
-      fetch(`/api/admin/analytics-center/status?companyId=${companyId}`).then((r) => r.json()).then((d) => setConnections(d.connections || []));
-      setPreset((p) => p); // trigger metrics refetch via range dependency unchanged path — explicit refetch below
-      const providerParam = selectedProviders.join(",");
-      fetch(`/api/admin/analytics-center/metrics?companyId=${companyId}&providers=${providerParam}&startDate=${range.startDate}&endDate=${range.endDate}`).then((r) => r.json()).then((d) => setKpis(d.kpis || {}));
+      await loadConnections();
+      await loadMetricsAndContent();
     } finally {
       setSyncing(false);
     }
@@ -243,87 +237,215 @@ export function AnalyticsReportingCenter() {
   const filteredCompanies = companyQuery ? companies.filter((c) => c.name.toLocaleLowerCase("tr-TR").includes(companyQuery.toLocaleLowerCase("tr-TR"))) : companies;
   const selectedCompany = companies.find((c) => c.id === companyId) || null;
   const connectedCount = (connections || []).filter((c) => c.status === "connected").length;
+  const connectionByProvider = useMemo(() => new Map((connections || []).map((c) => [c.provider, c])), [connections]);
+  const activePresetLabel = DATE_PRESETS.find((p) => p.key === preset)?.label || "";
+  const activeComparisonLabel = COMPARISON_OPTIONS.find((c) => c.key === comparisonMode)?.label || "";
 
-  const contentColumns: AdminDataGridColumn<ContentItem>[] = [
-    { key: "content", header: "İçerik", render: (row) => <div className="flex items-center gap-2 min-w-0"><div className="min-w-0"><strong className="block truncate text-sm">{row.title || row.caption?.slice(0, 60) || "İçerik"}</strong><span className="text-xs" style={{ color: "var(--admin-text-muted)" }}>{PROVIDER_LABELS[row.provider]} · {row.content_type || "-"}</span></div></div> },
-    { key: "date", header: "Tarih", render: (row) => row.published_at ? new Date(row.published_at).toLocaleDateString("tr-TR", { timeZone: "Europe/Istanbul" }) : "-" },
-    { key: "reach", header: "Erişim / Görüntülenme", render: (row) => (row.metrics.reach ?? row.metrics.views ?? "-").toString() },
-    { key: "engagement", header: "Beğeni / Yorum", render: (row) => `${row.metrics.likes ?? "-"} / ${row.metrics.comments ?? "-"}` },
-    { key: "open", header: "", render: (row) => row.permalink ? <a href={row.permalink} target="_blank" rel="noreferrer" className="hk-button hk-button-compact hk-button-secondary inline-flex items-center gap-1"><ExternalLink size={13} /> Platformda Aç</a> : null }
-  ];
+  function selectCompany(id: string) {
+    setCompanyId(id);
+    setCustomerPickerOpen(false);
+    setActiveView("overview");
+  }
+
+  // ===== Genel Bakış (cross-platform overview) =====
+  function OverviewSection() {
+    const connectedProviders = PROVIDERS.filter((p) => connectionByProvider.get(p)?.status === "connected");
+    const audienceTotal = connectedProviders.reduce((sum, p) => {
+      const followerKey = p === "youtube" ? "subscribers" : p === "facebook" ? "page_fans" : "followers";
+      const kpi = (kpis[p] || []).find((k) => k.key === followerKey);
+      return sum + (kpi?.value || 0);
+    }, 0);
+    const reachTotal = connectedProviders.reduce((sum, p) => {
+      const key = p === "facebook" ? "page_impressions_unique" : p === "google_ads" ? "impressions" : p === "google_business_profile" ? "BUSINESS_IMPRESSIONS_MOBILE_SEARCH" : "reach";
+      const kpi = (kpis[p] || []).find((k) => k.key === key || k.key === "views");
+      return sum + (kpi?.value || 0);
+    }, 0);
+    const spendTotal = (kpis.google_ads || []).find((k) => k.key === "cost")?.value ?? null;
+    const conversionsTotal = (kpis.google_ads || []).find((k) => k.key === "conversions")?.value ?? null;
+    const localActionsTotal = ["CALL_CLICKS", "WEBSITE_CLICKS", "BUSINESS_DIRECTION_REQUESTS"].reduce((sum, key) => sum + ((kpis.google_business_profile || []).find((k) => k.key === key)?.value || 0), 0);
+
+    const comparisonSeries = connectedProviders.map((p) => {
+      const key = p === "youtube" ? "subscribers" : p === "facebook" ? "page_fans" : p === "google_ads" ? "cost" : p === "google_business_profile" ? "BUSINESS_IMPRESSIONS_MOBILE_SEARCH" : "followers";
+      const kpi = (kpis[p] || []).find((k) => k.key === key);
+      return { label: PROVIDER_LABELS[p], value: kpi?.value || 0 };
+    });
+
+    return (
+      <div className="grid gap-6">
+        {syncMessage && <p className="rounded-[14px] bg-white p-4 text-sm font-bold" style={{ color: "var(--admin-text-secondary)" }}>{syncMessage}</p>}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <MetricCard variant="neutral" label="Bağlı Platformlar" value={`${connectedCount}/${PROVIDERS.length}`} />
+          <MetricCard variant="neutral" label="Toplam Kitle" value={audienceTotal.toLocaleString("tr-TR")} note="Takipçi/abone toplamı (bağlı platformlar)" />
+          <MetricCard variant="neutral" label="Erişim / Görüntülenme" value={reachTotal.toLocaleString("tr-TR")} note="Seçili dönem toplamı" />
+          <MetricCard variant="neutral" label="Yayınlanan İçerik" value={String(content.length)} note="Seçili dönemde" />
+          <MetricCard variant="google_ads" label="Reklam Harcaması" value={spendTotal !== null ? unitFormat(spendTotal, "currency") : "—"} note={spendTotal === null ? "Google Ads bağlı değil" : undefined} />
+          <MetricCard variant="google_ads" label="Dönüşüm" value={conversionsTotal !== null ? unitFormat(conversionsTotal, "count") : "—"} note={conversionsTotal === null ? "Google Ads bağlı değil" : undefined} />
+          <MetricCard variant="google_business_profile" label="Yerel Aksiyonlar" value={localActionsTotal.toLocaleString("tr-TR")} note="Arama + yol tarifi + telefon" />
+          <MetricCard variant="neutral" label="Karşılaştırma" value={activeComparisonLabel} note={activePresetLabel} />
+        </div>
+        <div className="grid gap-5 xl:grid-cols-2">
+          <AnalyticsBarChart title="Platform Performans Karşılaştırması" subtitle="Ana kitle/harcama metriği" data={comparisonSeries} color={platformTheme("neutral").accent} loading={loadingMetrics} />
+          <AnalyticsAreaChart title="Kitle Trendi" subtitle="Bağlı platformların toplamı" data={(() => {
+            const dateMap = new Map<string, number>();
+            for (const p of connectedProviders) {
+              const key = p === "youtube" ? "subscribers" : p === "facebook" ? "page_fans" : "followers";
+              for (const point of dailyByProvider[p]?.[key] || []) dateMap.set(point.date, (dateMap.get(point.date) || 0) + point.value);
+            }
+            return [...dateMap.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, value]) => ({ label: new Date(`${date}T00:00:00`).toLocaleDateString("tr-TR", { day: "2-digit", month: "short" }), value }));
+          })()} color={platformTheme("neutral").accent} loading={loadingMetrics} />
+        </div>
+        <div>
+          <h3 className="mb-3 text-base font-black" style={{ color: "var(--admin-text-primary)" }}>Öne Çıkan İçerikler</h3>
+          <ContentTable rows={[...content].sort((a, b) => (b.metrics.views || b.metrics.reach || 0) - (a.metrics.views || a.metrics.reach || 0)).slice(0, 8)} emptyMessage="Seçili dönemde içerik bulunamadı." />
+        </div>
+      </div>
+    );
+  }
+
+  function renderPlatformView(provider: AnalyticsProvider) {
+    const props = { kpis: kpis[provider] || [], daily: dailyByProvider[provider] || {}, content: content.filter((c) => c.provider === provider), connection: connectionByProvider.get(provider) || null, loading: loadingMetrics };
+    if (provider === "instagram") return <InstagramView {...props} />;
+    if (provider === "facebook") return <FacebookView {...props} />;
+    if (provider === "tiktok") return <TikTokView {...props} />;
+    if (provider === "youtube") return <YoutubeView {...props} />;
+    if (provider === "google_ads") return <GoogleAdsView {...props} />;
+    return <GoogleBusinessView {...props} />;
+  }
 
   return (
     <AdminWorkspace
       eyebrow="Rapor Merkezi"
       title="Analiz & Raporlama Merkezi"
-      description={selectedCompany ? `${selectedCompany.name} için Instagram, Facebook, YouTube, Google Ads ve Google Business Profile performansı.` : "Instagram, Facebook, YouTube, Google Ads ve Google Business Profile performansını tek panelde birleştirir; resmi API verilerinden otomatik rapor üretir."}
-      headerActions={<>
+      description={selectedCompany ? `${selectedCompany.name} için Instagram, Facebook, TikTok, YouTube, Google Ads ve Google Business Profile performansı.` : "Instagram, Facebook, TikTok, YouTube, Google Ads ve Google Business Profile performansını tek panelde birleştirir; resmi API verilerinden otomatik rapor üretir."}
+      headerActions={companyId ? <>
         {connections && <AdminStatusBadge tone="info">{connectedCount}/{PROVIDERS.length} bağlı</AdminStatusBadge>}
-        <AdminButton compact variant="primary" onClick={runSync} disabled={!companyId || syncing || tablesReady === false}>{syncing ? "Güncelleniyor..." : <><RefreshCw size={14} /> Verileri Güncelle</>}</AdminButton>
-      </>}
-      leftPanel={
-        <AdminControlPanel>
-          <AdminFilterSection title="Müşteri Seç">
-            <input value={companyQuery} onChange={(e) => setCompanyQuery(e.target.value)} placeholder="Müşteri ara..." className="min-h-10 w-full rounded-[8px] border px-3 text-sm" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-soft)", color: "var(--admin-text-primary)" }} />
-            <div className="mt-2 grid max-h-64 gap-1 overflow-y-auto">
+        <AdminButton compact variant="primary" onClick={runSync} disabled={syncing || tablesReady === false}>{syncing ? "Güncelleniyor..." : <><RefreshCw size={14} /> Verileri Güncelle</>}</AdminButton>
+      </> : undefined}
+    >
+      {!companyId ? (
+        <div className="grid place-items-center py-16">
+          <div className="w-full max-w-xl rounded-[24px] bg-white p-8 text-center dark:bg-slate-900" style={{ boxShadow: "0 1px 2px rgba(15,23,42,.04), 0 20px 48px rgba(15,23,42,.06)" }}>
+            <Users2 size={32} style={{ color: platformTheme("neutral").accent, margin: "0 auto" }} />
+            <h2 className="mt-4 text-xl font-black" style={{ color: "var(--admin-text-primary)" }}>Bir müşteri seçin</h2>
+            <p className="mt-2 text-sm" style={{ color: "var(--admin-text-muted)" }}>Analiz görüntülemek için önce bir müşteri seçin.</p>
+            <input value={companyQuery} onChange={(e) => setCompanyQuery(e.target.value)} placeholder="Müşteri ara..." className="mt-5 min-h-11 w-full rounded-[12px] border px-4 text-sm" style={{ borderColor: "var(--admin-border)" }} autoFocus />
+            <div className="mt-3 grid max-h-72 gap-1 overflow-y-auto text-left">
               {filteredCompanies.slice(0, 40).map((c) => (
-                <button key={c.id} type="button" onClick={() => setCompanyId(c.id)} className="rounded-[8px] px-3 py-2 text-left text-sm" style={{ background: c.id === companyId ? "var(--hk-cyan-soft, var(--admin-surface-soft))" : "transparent", color: "var(--admin-text-primary)", fontWeight: c.id === companyId ? 700 : 500 }}>
+                <button key={c.id} type="button" onClick={() => selectCompany(c.id)} className="rounded-[10px] px-4 py-2.5 text-left text-sm font-bold" style={{ color: "var(--admin-text-primary)" }} onMouseOver={(e) => (e.currentTarget.style.background = "var(--admin-surface-soft)")} onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}>
                   {c.name}
                 </button>
               ))}
               {!filteredCompanies.length && <p className="p-2 text-xs" style={{ color: "var(--admin-text-muted)" }}>Müşteri bulunamadı.</p>}
             </div>
-          </AdminFilterSection>
-          <AdminFilterSection title="Tarih Aralığı">
-            <div className="grid gap-1.5">
-              {DATE_PRESETS.map((p) => (
-                <button key={p.key} type="button" onClick={() => setPreset(p.key)} className="rounded-[8px] px-3 py-2 text-left text-xs font-bold" style={{ background: preset === p.key ? "var(--hk-cyan-soft, var(--admin-surface-soft))" : "transparent", color: "var(--admin-text-primary)" }}>
-                  {p.label}
+          </div>
+        </div>
+      ) : (
+        <div className="grid gap-5">
+          {/* Top toolbar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] bg-white p-3 dark:bg-slate-900" style={{ boxShadow: "0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.04)" }}>
+            <div className="relative">
+              <button type="button" onClick={() => setCustomerPickerOpen((v) => !v)} className="flex items-center gap-2 rounded-[12px] px-3 py-2 text-sm font-black" style={{ background: "var(--admin-surface-soft)", color: "var(--admin-text-primary)" }}>
+                <Users2 size={15} /> {selectedCompany?.name || "Müşteri seç"} <ChevronDown size={14} />
+              </button>
+              {customerPickerOpen && (
+                <div className="absolute left-0 top-full z-20 mt-2 w-72 rounded-[14px] bg-white p-3 dark:bg-slate-900" style={{ boxShadow: "0 12px 32px rgba(15,23,42,.14)" }}>
+                  <input value={companyQuery} onChange={(e) => setCompanyQuery(e.target.value)} placeholder="Müşteri ara..." className="min-h-9 w-full rounded-[8px] border px-3 text-sm" style={{ borderColor: "var(--admin-border)" }} autoFocus />
+                  <div className="mt-2 grid max-h-64 gap-0.5 overflow-y-auto">
+                    {filteredCompanies.slice(0, 40).map((c) => (
+                      <button key={c.id} type="button" onClick={() => selectCompany(c.id)} className="rounded-[8px] px-3 py-2 text-left text-sm font-bold" style={{ background: c.id === companyId ? "var(--admin-surface-soft)" : "transparent", color: "var(--admin-text-primary)" }}>
+                        {c.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative">
+                <button type="button" onClick={() => setDatePickerOpen((v) => !v)} className="rounded-[12px] px-3 py-2 text-xs font-black" style={{ background: "var(--admin-surface-soft)", color: "var(--admin-text-primary)" }}>
+                  {activePresetLabel} · {activeComparisonLabel} <ChevronDown size={12} className="ml-1 inline" />
                 </button>
-              ))}
-            </div>
-            {preset === "custom" && (
-              <div className="mt-2 grid gap-2">
-                <label className="grid gap-1 text-xs font-bold" style={{ color: "var(--admin-text-secondary)" }}>Başlangıç<input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="min-h-9 rounded-[8px] border px-2 text-sm" style={{ borderColor: "var(--admin-border)" }} /></label>
-                <label className="grid gap-1 text-xs font-bold" style={{ color: "var(--admin-text-secondary)" }}>Bitiş<input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="min-h-9 rounded-[8px] border px-2 text-sm" style={{ borderColor: "var(--admin-border)" }} /></label>
+                {datePickerOpen && (
+                  <div className="absolute right-0 top-full z-20 mt-2 w-80 rounded-[14px] bg-white p-4 dark:bg-slate-900" style={{ boxShadow: "0 12px 32px rgba(15,23,42,.14)" }}>
+                    <p className="text-[11px] font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Ana dönem</p>
+                    <div className="mt-2 grid grid-cols-2 gap-1.5">
+                      {DATE_PRESETS.map((p) => (
+                        <button key={p.key} type="button" onClick={() => setPreset(p.key)} className="rounded-[8px] px-2.5 py-2 text-left text-xs font-bold" style={{ background: preset === p.key ? "var(--admin-surface-soft)" : "transparent", color: "var(--admin-text-primary)" }}>{p.label}</button>
+                      ))}
+                    </div>
+                    {preset === "custom" && (
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        <label className="grid gap-1 text-xs font-bold" style={{ color: "var(--admin-text-secondary)" }}>Başlangıç<input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="min-h-9 rounded-[8px] border px-2 text-sm" style={{ borderColor: "var(--admin-border)" }} /></label>
+                        <label className="grid gap-1 text-xs font-bold" style={{ color: "var(--admin-text-secondary)" }}>Bitiş<input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="min-h-9 rounded-[8px] border px-2 text-sm" style={{ borderColor: "var(--admin-border)" }} /></label>
+                      </div>
+                    )}
+                    <p className="mt-4 text-[11px] font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Karşılaştırma</p>
+                    <div className="mt-2 grid gap-1.5">
+                      {COMPARISON_OPTIONS.map((c) => (
+                        <button key={c.key} type="button" onClick={() => setComparisonMode(c.key)} className="rounded-[8px] px-2.5 py-2 text-left text-xs font-bold" style={{ background: comparisonMode === c.key ? "var(--admin-surface-soft)" : "transparent", color: "var(--admin-text-primary)" }}>{c.label}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </AdminFilterSection>
-          <AdminFilterSection title="Platformlar">
-            <div className="grid gap-1.5">
-              {PROVIDERS.map((p) => (
-                <label key={p} className="flex items-center gap-2 text-xs font-bold" style={{ color: "var(--admin-text-secondary)" }}>
-                  <input type="checkbox" checked={selectedProviders.includes(p)} onChange={(e) => setSelectedProviders((current) => e.target.checked ? [...current, p] : current.filter((x) => x !== p))} />
-                  {PROVIDER_LABELS[p]}
-                </label>
-              ))}
+              <AdminButton compact variant="secondary" onClick={() => setActiveView("reports")}><FileDown size={14} /> Rapor</AdminButton>
             </div>
-          </AdminFilterSection>
-        </AdminControlPanel>
-      }
-    >
-      {!companyId && <AdminEmptyState title="Müşteri seçilmedi" description="Analiz görüntülemek için sol panelden bir müşteri seçin." />}
+          </div>
 
-      {companyId && (
-        <>
-          <AdminTabs items={["Genel Bakış", "Hesaplar", "İçerik Performansı", "Raporlama"] as const} active={activeTab} onChange={setActiveTab} ariaLabel="Analiz Merkezi sekmeleri" />
+          {/* Platform navigation */}
+          <div className="flex flex-wrap gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Platform seçimi">
+            {([
+              { key: "overview" as const, label: "Genel Bakış", icon: BarChart3 },
+              ...PROVIDERS.map((p) => ({ key: p, label: PROVIDER_LABELS[p], icon: PROVIDER_ICONS[p] })),
+              { key: "content" as const, label: "İçerik Performansı", icon: BarChart3 },
+              { key: "connections" as const, label: "Bağlantılar", icon: Settings2 }
+            ]).map((item) => {
+              const Icon = item.icon;
+              const isProvider = PROVIDERS.includes(item.key as AnalyticsProvider);
+              const conn = isProvider ? connectionByProvider.get(item.key as AnalyticsProvider) : null;
+              const active = activeView === item.key;
+              return (
+                <button key={item.key} role="tab" aria-selected={active} type="button" onClick={() => setActiveView(item.key)}
+                  className="flex shrink-0 items-center gap-2 rounded-full px-4 py-2.5 text-sm font-black transition"
+                  style={active ? { background: platformTheme(isProvider ? (item.key as AnalyticsProvider) : "neutral").accent, color: "white" } : { background: "white", color: "var(--admin-text-secondary)" }}>
+                  <Icon size={15} /> {item.label}
+                  {isProvider && <span aria-hidden="true" title={conn?.status === "connected" ? "Bağlı" : "Bağlı değil"} className="h-2 w-2 rounded-full" style={{ background: conn?.status === "connected" ? "#22c55e" : "transparent", border: conn?.status === "connected" ? "none" : `1.5px solid ${active ? "white" : "var(--admin-text-muted)"}` }} />}
+                </button>
+              );
+            })}
+          </div>
 
-          {activeTab === "Hesaplar" && (
-            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {tablesReady === false && <AdminEmptyState title="Kurulum gerekli" description="Analiz Merkezi veritabanı tabloları henüz oluşturulmadı. supabase/migrations/20260915_analytics_center.sql migration'ı uygulanmalı." />}
+          {tablesReady === false && (
+            <div className="grid place-items-center rounded-[18px] bg-white p-10 text-center dark:bg-slate-900">
+              <p className="text-sm font-bold" style={{ color: "var(--admin-text-muted)" }}>Analiz Merkezi veritabanı tabloları henüz oluşturulmadı. supabase/migrations/20260915_analytics_center.sql migration&apos;ı uygulanmalı.</p>
+            </div>
+          )}
+
+          {tablesReady !== false && activeView === "overview" && OverviewSection()}
+          {tablesReady !== false && PROVIDERS.includes(activeView as AnalyticsProvider) && renderPlatformView(activeView as AnalyticsProvider)}
+          {tablesReady !== false && activeView === "content" && (
+            <div className="grid gap-4">
+              <ContentTable rows={content} emptyMessage="Seçili dönemde içerik bulunamadı." />
+            </div>
+          )}
+
+          {activeView === "connections" && (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {(connections || []).map((conn) => {
                 const Icon = PROVIDER_ICONS[conn.provider];
+                const theme = platformTheme(conn.provider);
                 return (
-                  <div key={conn.provider} className="admin-card rounded-[14px] p-4">
+                  <div key={conn.provider} className="rounded-[18px] bg-white p-4 dark:bg-slate-900" style={{ boxShadow: "0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.04)" }}>
                     <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2"><Icon size={18} /><strong className="text-sm">{conn.label}</strong></div>
-                      <AdminStatusBadge tone={STATUS_TONE[conn.status] || "neutral"}>{conn.statusLabel}</AdminStatusBadge>
+                      <div className="flex items-center gap-2"><span className="rounded-[10px] p-2" style={{ background: theme.accentSoft, color: theme.accent }}><Icon size={16} /></span><strong className="text-sm" style={{ color: "var(--admin-text-primary)" }}>{conn.label}</strong></div>
+                      <AdminStatusBadge tone={conn.status === "connected" ? "success" : conn.status === "not_connected" ? "neutral" : "warning"}>{conn.statusLabel}</AdminStatusBadge>
                     </div>
                     {conn.asset && <p className="mt-2 truncate text-xs font-bold" style={{ color: "var(--admin-text-primary)" }}>{conn.asset.asset_name}</p>}
-                    {!conn.asset && <p className="mt-2 text-xs" style={{ color: "var(--admin-text-muted)" }}>Müşteri panelinden (Hesap Bağla) bağlanabilir.</p>}
+                    {!conn.asset && conn.parentConnected && <p className="mt-2 text-xs font-bold" style={{ color: "var(--admin-text-secondary)" }}>Giriş yapıldı — hesap seçimi gerekli.</p>}
+                    {!conn.asset && !conn.parentConnected && <p className="mt-2 text-xs" style={{ color: "var(--admin-text-muted)" }}>Henüz bağlı değil.</p>}
                     {conn.lastSyncedAt && <p className="mt-1 text-[11px]" style={{ color: "var(--admin-text-muted)" }}>Son güncelleme: {new Date(conn.lastSyncedAt).toLocaleString("tr-TR", { timeZone: "Europe/Istanbul" })}</p>}
                     {conn.lastError && <p className="mt-1 text-[11px] font-bold text-red-600">{conn.lastError}</p>}
-                    {!conn.scopeReady && conn.scopeNote && <p className="mt-2 rounded-[8px] p-2 text-[11px]" style={{ background: "var(--admin-surface-muted, var(--admin-surface-soft))", color: "var(--admin-text-secondary)" }}>{conn.scopeNote}</p>}
+                    {!conn.scopeReady && conn.scopeNote && <p className="mt-2 rounded-[8px] p-2 text-[11px]" style={{ background: "var(--admin-surface-soft)", color: "var(--admin-text-secondary)" }}>{conn.scopeNote}</p>}
                     <div className="mt-3 flex flex-wrap gap-2">
                       {conn.externalHref && <a href={conn.externalHref} target="_blank" rel="noreferrer" className="hk-button hk-button-compact hk-button-secondary">Hesaba Git</a>}
                       <button type="button" onClick={() => { setDrawerProvider(conn.provider); setDrawerAutoLoad(false); setDrawerError(null); }} className="hk-button hk-button-compact hk-button-secondary">Bağlantıyı Yönet</button>
@@ -334,47 +456,14 @@ export function AnalyticsReportingCenter() {
             </div>
           )}
 
-          {activeTab === "Genel Bakış" && (
-            <div className="mt-4 grid gap-5">
-              {syncMessage && <p className="rounded-[8px] border p-3 text-sm" style={{ borderColor: "var(--admin-border)", color: "var(--admin-text-secondary)" }}>{syncMessage}</p>}
-              {loadingMetrics && <p className="text-sm" style={{ color: "var(--admin-text-muted)" }}>Yükleniyor...</p>}
-              {tablesReady === false && <AdminEmptyState title="Kurulum gerekli" description="Analiz Merkezi veritabanı tabloları henüz oluşturulmadı." />}
-              {!loadingMetrics && tablesReady !== false && selectedProviders.map((provider) => {
-                const providerKpis = (kpis[provider] || []).filter((k) => k.capability === "supported");
-                if (!providerKpis.length) return null;
-                const hasAnyData = providerKpis.some((k) => k.value !== null);
-                return (
-                  <section key={provider}>
-                    <h3 className="mb-2 text-sm font-black" style={{ color: "var(--admin-text-primary)" }}>{PROVIDER_LABELS[provider]}</h3>
-                    {!hasAnyData ? (
-                      <AdminEmptyState title={`${PROVIDER_LABELS[provider]} verisi yok`} description="Bağlantı yok, senkronizasyon henüz yapılmadı veya seçili dönemde veri bulunamadı." />
-                    ) : (
-                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                        {providerKpis.filter((k) => k.value !== null).slice(0, 8).map((kpi) => (
-                          <AdminKpiCard key={kpi.key} label={kpi.label} value={unitFormat(kpi.value!, kpi.unit)} note={kpi.changePercent !== null ? `${kpi.changePercent >= 0 ? "↑" : "↓"} ${Math.abs(kpi.changePercent).toFixed(1)}% önceki döneme göre` : "Önceki dönem verisi yok"} icon={<BarChart3 size={18} />} tone={kpi.changePercent !== null && kpi.changePercent < 0 ? "warning" : "primary"} />
-                        ))}
-                      </div>
-                    )}
-                  </section>
-                );
-              })}
-            </div>
-          )}
-
-          {activeTab === "İçerik Performansı" && (
-            <div className="mt-4">
-              <AdminDataGrid columns={contentColumns} rows={content} rowKey={(row) => row.id} emptyTitle="İçerik verisi yok" emptyDescription="Seçili dönemde Instagram, Facebook veya YouTube içeriği bulunamadı." />
-            </div>
-          )}
-
-          {activeTab === "Raporlama" && (
-            <div className="mt-4 grid gap-5 xl:grid-cols-[1fr_360px]">
-              <div className="admin-card rounded-[14px] p-4">
-                <h3 className="text-sm font-black" style={{ color: "var(--admin-text-primary)" }}>Rapor Oluştur</h3>
-                <div className="mt-3 grid gap-3">
-                  <label className="grid gap-1 text-xs font-bold" style={{ color: "var(--admin-text-secondary)" }}>Rapor başlığı (opsiyonel)<input value={reportTitle} onChange={(e) => setReportTitle(e.target.value)} className="min-h-10 rounded-[8px] border px-3 text-sm" style={{ borderColor: "var(--admin-border)" }} /></label>
+          {activeView === "reports" && (
+            <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
+              <div className="rounded-[18px] bg-white p-5 dark:bg-slate-900" style={{ boxShadow: "0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.04)" }}>
+                <h3 className="text-base font-black" style={{ color: "var(--admin-text-primary)" }}>Rapor Oluştur</h3>
+                <div className="mt-4 grid gap-4">
+                  <label className="grid gap-1 text-xs font-bold" style={{ color: "var(--admin-text-secondary)" }}>Rapor başlığı (opsiyonel)<input value={reportTitle} onChange={(e) => setReportTitle(e.target.value)} className="min-h-10 rounded-[10px] border px-3 text-sm" style={{ borderColor: "var(--admin-border)" }} /></label>
                   <div>
-                    <p className="mb-1 text-xs font-bold" style={{ color: "var(--admin-text-secondary)" }}>Platformlar</p>
+                    <p className="mb-1.5 text-xs font-bold" style={{ color: "var(--admin-text-secondary)" }}>Platformlar</p>
                     <div className="flex flex-wrap gap-2">
                       {PROVIDERS.map((p) => (
                         <label key={p} className="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold" style={{ borderColor: "var(--admin-border)" }}>
@@ -384,15 +473,16 @@ export function AnalyticsReportingCenter() {
                       ))}
                     </div>
                   </div>
+                  <p className="text-xs font-bold" style={{ color: "var(--admin-text-muted)" }}>Dönem: {activePresetLabel} · Karşılaştırma: {activeComparisonLabel}</p>
                   <AdminButton variant="primary" onClick={generateReport} disabled={generatingReport || !reportPlatforms.length}>{generatingReport ? "Rapor hazırlanıyor..." : <><FileDown size={15} /> Rapor Oluştur</>}</AdminButton>
                   {reportResult && <a href={reportResult.pdfUrl} target="_blank" rel="noreferrer" className="hk-button hk-button-success inline-flex w-fit items-center gap-2"><FileDown size={15} /> PDF İndir</a>}
                 </div>
               </div>
-              <div className="admin-card rounded-[14px] p-4">
-                <h3 className="text-sm font-black" style={{ color: "var(--admin-text-primary)" }}>Kaydedilen Raporlar</h3>
+              <div className="rounded-[18px] bg-white p-5 dark:bg-slate-900" style={{ boxShadow: "0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.04)" }}>
+                <h3 className="text-base font-black" style={{ color: "var(--admin-text-primary)" }}>Kaydedilen Raporlar</h3>
                 <div className="mt-3 grid gap-2">
                   {savedReports.map((report) => (
-                    <div key={report.id} className="rounded-[8px] border p-3 text-xs" style={{ borderColor: "var(--admin-border)" }}>
+                    <div key={report.id} className="rounded-[10px] border p-3 text-xs" style={{ borderColor: "var(--admin-border)" }}>
                       <strong className="block truncate">{report.title}</strong>
                       <span style={{ color: "var(--admin-text-muted)" }}>{report.period_start} — {report.period_end}</span>
                       {report.customer_documents?.document_url && <a href={report.customer_documents.document_url} target="_blank" rel="noreferrer" className="mt-1 block font-bold text-cyan-700">PDF&apos;yi Aç</a>}
@@ -403,8 +493,9 @@ export function AnalyticsReportingCenter() {
               </div>
             </div>
           )}
-        </>
+        </div>
       )}
+      {(customerPickerOpen || datePickerOpen) && <button type="button" aria-label="Kapat" className="fixed inset-0 z-10 cursor-default" onClick={() => { setCustomerPickerOpen(false); setDatePickerOpen(false); }}><X className="sr-only" /></button>}
       {drawerProvider && companyId && (
         <AdminConnectionDrawer
           companyId={companyId}

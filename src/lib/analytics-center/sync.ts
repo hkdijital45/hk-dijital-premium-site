@@ -5,6 +5,7 @@ import { getProviderToken } from "./tokens";
 import { PROVIDER_OAUTH_PARENT } from "./capabilities";
 import { syncInstagramAnalytics } from "./providers/instagram";
 import { syncFacebookAnalytics } from "./providers/facebook";
+import { syncTiktokAnalytics } from "./providers/tiktok";
 import { syncYoutubeAnalytics } from "./providers/youtube";
 import { syncGoogleAdsAnalytics } from "./providers/google-ads";
 import { syncGoogleBusinessAnalytics } from "./providers/google-business";
@@ -13,6 +14,7 @@ import type { AnalyticsProvider, DateRange, SyncOutcome } from "./types";
 const SYNC_FN: Record<AnalyticsProvider, (companyId: string, token: string, asset: any, range: DateRange) => Promise<SyncOutcome>> = {
   instagram: syncInstagramAnalytics,
   facebook: syncFacebookAnalytics,
+  tiktok: syncTiktokAnalytics,
   youtube: syncYoutubeAnalytics,
   google_ads: syncGoogleAdsAnalytics,
   google_business_profile: syncGoogleBusinessAnalytics

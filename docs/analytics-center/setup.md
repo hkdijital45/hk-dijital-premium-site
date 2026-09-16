@@ -1,6 +1,6 @@
 # Analiz & Raporlama Merkezi — Setup
 
-Unified analytics for Instagram, Facebook, YouTube, Google Ads and Google Business Profile, built inside HK Admin at `/hk-admin/analiz-raporlama`. This module reuses the app's **existing** OAuth engine (`src/lib/customer-integration-oauth.ts`) — it does not add a new OAuth flow. Two UIs read/write the same connection state (`customer_integrations`): the customer-facing "Hesap Bağla" screen (`/musteri-paneli#hesap-bagla`, `CustomerAccountConnectCenter`) for customers managing their own account, and HK Admin's own native connection drawer (`AdminConnectionDrawer`, opened from Analiz & Raporlama Merkezi → Hesaplar → "Bağlantıyı Yönet") for staff managing a customer's connections directly — the admin flow never navigates through the customer panel.
+Unified analytics for Instagram, Facebook, TikTok, YouTube, Google Ads and Google Business Profile, built inside HK Admin at `/hk-admin/analiz-raporlama`. This module reuses the app's **existing** OAuth engine (`src/lib/customer-integration-oauth.ts`) — it does not add a new OAuth flow. Two UIs read/write the same connection state (`customer_integrations`): the customer-facing "Hesap Bağla" screen (`/musteri-paneli#hesap-bagla`, `CustomerAccountConnectCenter`) for customers managing their own account, and HK Admin's own native connection drawer (`AdminConnectionDrawer`, opened from Analiz & Raporlama Merkezi → Hesaplar → "Bağlantıyı Yönet") for staff managing a customer's connections directly — the admin flow never navigates through the customer panel.
 
 ## Current status (checked against live production)
 
@@ -14,6 +14,7 @@ Unified analytics for Instagram, Facebook, YouTube, Google Ads and Google Busine
 | **Meta advanced permissions** (`instagram_basic`, `pages_show_list`, `pages_read_engagement`, `instagram_manage_insights`) | ✅ Live in production — a dedicated Business-type Meta App + Configuration (`META_BUSINESS_CLIENT_ID`/`META_BUSINESS_CLIENT_SECRET`/`META_LOGIN_CONFIG_ID`) is now configured; Instagram and Facebook are connected and syncing real metrics (see Action 1 for how this was set up / how to redo it for another app). |
 | **Google Ads developer token** | N/A — Google sunset developer tokens on 2026-09-09; access is now tied to the Google Cloud project behind `GOOGLE_CLIENT_ID`, already configured (see Action 2) |
 | **YouTube Analytics scope** (`yt-analytics.readonly`) | ⚠️ Added to the code's requested scope list in this change, but any customer who connected Google *before* this change needs to reconnect once — see note under Action 3 |
+| **TikTok Login Kit credentials** (`TIKTOK_CLIENT_KEY`/`TIKTOK_CLIENT_SECRET`/`TIKTOK_REDIRECT_URI`) | ❌ Not configured — code is fully implemented (real Login Kit OAuth, discovery, sync) but cannot connect any real account until a real TikTok Developer app exists — see Action 5 |
 | `supabase/migrations/20260915_analytics_center.sql` | ❌ Not yet applied — see Action 4 |
 
 Everything else (discovery of connected Pages/Instagram accounts/Ads accounts/GBP locations/YouTube channels, token storage/encryption/refresh) already worked before this change and needed no new setup.
@@ -74,12 +75,27 @@ Anyone who connected Google **before** this deploy — including the production 
 
 Until this runs, every Analiz & Raporlama Merkezi screen shows an honest "Kurulum gerekli" empty state instead of erroring — nothing else in the app is affected, since no existing table or route was changed.
 
+## Action 5 — Set up TikTok Login Kit (required before any TikTok connection can work)
+
+TikTok is fully implemented in code — direct OAuth (`customer-integration-oauth.ts`), discovery (`/v2/user/info/`, `/v2/video/list/`), token refresh (`src/lib/tiktok-oauth-token.ts`), and metrics sync (`src/lib/analytics-center/providers/tiktok.ts`) — but **no real TikTok Developer app credentials exist yet**, so no real connection can succeed until this is done. Do not treat TikTok as working until you've completed this and verified a real connection.
+
+1. [developers.tiktok.com](https://developers.tiktok.com/) → **Manage apps** → **Create an app**.
+2. Add the **Login Kit** product.
+3. Under Login Kit → **Scopes**, request exactly: `user.info.basic`, `user.info.profile`, `user.info.stats`, `video.list`. Do not request any publishing/content-posting scope (e.g. `video.publish`) — this integration is read-only analytics, per product requirement.
+4. Under Login Kit → **Redirect URI**, add `https://hkdijital.com.tr/api/integrations/callback/tiktok` exactly.
+5. Copy the app's **Client key** and **Client secret**.
+6. Set `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `TIKTOK_REDIRECT_URI=https://hkdijital.com.tr/api/integrations/callback/tiktok` in Vercel and redeploy.
+7. New apps start restricted to a **Sandbox** (Manage apps → your app → Sandbox → Add a sandbox). Add up to 10 **Target users** there (real TikTok accounts that log in and consent) — this is enough to verify your own real connection, no App Review needed yet.
+8. Serving a real, unrelated customer's TikTok account requires TikTok's standard **App Review** (Manage apps → your app → App review) for the Login Kit scopes above — do this only after the Sandbox flow is proven working end-to-end.
+9. Do not fabricate or guess these values — until they're set, the TikTok card shows a real, disclosed "not configured" state (`oauth_not_configured` from `oauthConnect`), never a fake connected state.
+
 ## Provider matrix
 
 | Provider | Auth | Scope(s) | Key metrics | Known limitations |
 |---|---|---|---|---|
 | Instagram | Meta Business Login (via connected Facebook Page) | `instagram_basic`, `instagram_manage_insights` (Action 1) | reach, accounts_engaged, followers, saves, likes, comments, shares, plays (Reels) | Meta deprecated `profile_views`/`website_clicks`/non-Reels `video_views` (Jan 2025) — shown as "desteklenmiyor", never as 0. `impressions` also being phased out; `reach` is the primary awareness metric now. |
 | Facebook | Meta Business Login | `pages_show_list`, `pages_read_engagement` (Action 1) | page_fans, page_impressions(_unique), page_engaged_users, post engagement | Page Insights metric names drift periodically; a stale metric degrades that one number, not the whole sync (see resilience note below). |
+| TikTok | TikTok Login Kit (Action 5) | `user.info.basic`, `user.info.profile`, `user.info.stats`, `video.list` | followers, following, total likes, video count, per-video views/likes/comments/shares | No historical-analytics endpoint exists for these scopes — audience counters are snapshotted as "today's" value on every real sync, so growth history builds up over real syncs only, never backfilled. No publishing/ads scope requested. |
 | YouTube | Google OAuth | `youtube.readonly`, `yt-analytics.readonly` (already granted) | views, watch time, avg. view duration, likes/comments/shares, subscriber gain/loss | No monetary/revenue scope requested or used, by design. |
 | Google Ads | Google OAuth (`adwords` scope, already granted) | none — developer token obsolete (Action 2) | cost, impressions, clicks, CTR, CPC, conversions, conversion value, cost/conversion, per-campaign breakdown | API v25. Cloud project's own access level (Test/Basic/Standard) — not a token — now gates real-account access; see Action 2. |
 | Google Business Profile | Google OAuth | `business.manage` (already granted) | search/maps impressions, calls, website clicks, direction requests, messaging, reviews | Reviews fetched from the older `mybusiness.googleapis.com` v4 API best-effort (skipped gracefully, never fails the sync, if the location's parent account reference isn't available) — verify this endpoint's current status against Google's docs if it starts failing consistently. |

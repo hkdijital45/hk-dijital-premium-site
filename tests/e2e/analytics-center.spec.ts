@@ -55,28 +55,25 @@ test.describe("authenticated Analytics Center", () => {
     if (statusBody.tablesReady) {
       expect(Array.isArray(statusBody.connections)).toBeTruthy();
       const providers = statusBody.connections.map((c: any) => c.provider).sort();
-      expect(providers).toEqual(["facebook", "google_ads", "google_business_profile", "instagram", "youtube"].sort());
+      expect(providers).toEqual(["facebook", "google_ads", "google_business_profile", "instagram", "tiktok", "youtube"].sort());
       for (const conn of statusBody.connections) {
         expect(["connected", "not_connected", "token_expired", "reauth_required", "sync_error", "no_data"]).toContain(conn.status);
       }
     }
   });
 
-  test("Analiz & Raporlama Merkezi loads with no console/hydration errors, and the customer selector, date presets and platform filters render", async ({ page }) => {
+  test("Analiz & Raporlama Merkezi loads with no console/hydration errors, and the customer-first empty state renders", async ({ page }) => {
     const hydration = watchForHydrationErrors(page);
     await gotoAsQaAdmin(page, "/hk-admin/analiz-raporlama");
     await page.waitForTimeout(1500);
     expect(hydration.getHydrationErrors()).toEqual([]);
 
-    await expect(page.getByRole("heading", { name: "Müşteri Seç", exact: true })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Tarih Aralığı", exact: true })).toBeVisible();
-    await expect(page.getByText("Son 30 Gün", { exact: true })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Platformlar", exact: true })).toBeVisible();
-    await expect(page.getByText("Instagram", { exact: true })).toBeVisible();
-    await expect(page.getByText("Google Business Profile", { exact: true })).toBeVisible();
-
-    // Before selecting a customer, an empty state is shown — not a broken/blank page.
-    await expect(page.getByRole("heading", { name: "Müşteri seçilmedi", exact: true })).toBeVisible();
+    // V2 redesign: customer-first — no company selected yet shows a
+    // centered "pick a customer" empty state (no left-sidebar
+    // Müşteri Seç/Tarih Aralığı/Platformlar panel; date/comparison
+    // controls and platform pills only appear after a customer is picked).
+    await expect(page.getByRole("heading", { name: "Bir müşteri seçin", exact: true })).toBeVisible();
+    await expect(page.getByPlaceholder("Müşteri ara...")).toBeVisible();
   });
 
   test("selecting a customer shows connection status and tabs; no console/hydration errors", async ({ page, request }) => {
@@ -97,11 +94,14 @@ test.describe("authenticated Analytics Center", () => {
     await page.getByText(companyName!, { exact: true }).first().click({ force: true });
     await page.waitForTimeout(1500);
 
-    await expect(page.getByRole("tab", { name: "Hesaplar" })).toBeVisible();
-    await expect(page.getByRole("tab", { name: "İçerik Performansı" })).toBeVisible();
-    await expect(page.getByRole("tab", { name: "Raporlama" })).toBeVisible();
+    // V2 redesign: "Hesaplar" was renamed "Bağlantılar"; "Raporlama" is no
+    // longer a platform-nav pill — it's reached via the toolbar's "Rapor"
+    // button (see the "report builder" test below).
+    await expect(page.getByRole("tab", { name: "Genel Bakış", exact: true })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "İçerik Performansı", exact: true })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Bağlantılar", exact: true })).toBeVisible();
 
-    await page.getByRole("tab", { name: "Hesaplar" }).click();
+    await page.getByRole("tab", { name: "Bağlantılar", exact: true }).click({ force: true });
     await page.waitForTimeout(800);
     // Every connected-or-not account card should show a real status badge, never a blank card.
     const statusBadges = ["Bağlı", "Bağlı değil", "Yetki süresi dolmuş", "Yeniden yetkilendirme gerekli", "Senkronizasyon hatası"];
@@ -114,7 +114,7 @@ test.describe("authenticated Analytics Center", () => {
     expect(hydration.getHydrationErrors()).toEqual([]);
   });
 
-  test("report builder tab renders platform checkboxes and a generate button", async ({ page, request }) => {
+  test("report builder (opened via the toolbar's Rapor button) renders platform checkboxes and a generate button", async ({ page, request }) => {
     await loginAsQaAdmin(request);
     const companiesResponse = await request.get("/api/admin/companies");
     const companiesBody = await companiesResponse.json();
@@ -128,7 +128,7 @@ test.describe("authenticated Analytics Center", () => {
     await page.waitForTimeout(400);
     await page.getByText(companyName!, { exact: true }).first().click({ force: true });
     await page.waitForTimeout(800);
-    await page.getByRole("tab", { name: "Raporlama" }).click();
+    await page.getByRole("button", { name: "Rapor", exact: true }).click({ force: true });
     await page.waitForTimeout(500);
 
     await expect(page.getByText("Rapor Oluştur", { exact: true }).first()).toBeVisible();

@@ -4,7 +4,7 @@ import { analyticsTablesReady, queryContentMetrics } from "@/lib/analytics-cente
 import { uuidPattern } from "@/lib/meta-pixel-admin";
 import type { AnalyticsProvider } from "@/lib/analytics-center/types";
 
-const CONTENT_PROVIDERS: AnalyticsProvider[] = ["instagram", "facebook", "youtube"];
+const CONTENT_PROVIDERS: AnalyticsProvider[] = ["instagram", "facebook", "tiktok", "youtube"];
 
 export async function GET(request: Request) {
   const session = await requireModuleAccess("analiz-raporlama");

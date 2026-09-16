@@ -45,6 +45,7 @@ const OPTIONAL_INTEGRATIONS: Array<{ name: string; keys: string[] }> = [
   { name: "Meta integration", keys: ["META_APP_ID", "META_APP_SECRET", "META_ACCESS_TOKEN"] },
   { name: "Google Ads/Analytics integration", keys: ["GOOGLE_ADS_CLIENT_ID", "GOOGLE_ADS_CLIENT_SECRET", "GOOGLE_SERVICE_ACCOUNT_EMAIL"] },
   { name: "Customer OAuth connect flow (Google side — YouTube/Ads/GBP/GA4/Search Console analytics)", keys: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI"] },
+  { name: "Customer OAuth connect flow (TikTok Login Kit — Analiz & Raporlama Merkezi)", keys: ["TIKTOK_CLIENT_KEY", "TIKTOK_CLIENT_SECRET", "TIKTOK_REDIRECT_URI"] },
   // GOOGLE_ADS_DEVELOPER_TOKEN was required before Google sunset developer
   // tokens on 2026-09-09 — access is now tied to the Google Cloud project
   // behind GOOGLE_CLIENT_ID/SECRET (already validated above), so there is
