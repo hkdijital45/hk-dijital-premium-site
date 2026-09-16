@@ -1,4 +1,5 @@
 import "server-only";
+import { googleTokenNeedsReconnect } from "./google-connection-state";
 import { supabaseRest } from "@/lib/supabase";
 import { PROVIDER_ASSET_TYPE, PROVIDER_LABELS, PROVIDER_OAUTH_PARENT } from "./capabilities";
 import { getOAuthProviderStatus } from "@/lib/customer-integration-oauth";
@@ -90,7 +91,9 @@ export async function getProviderConnectionStatus(companyId: string, provider: A
   let lastError: string | null = null;
 
   if (asset) {
-    const tokenExpired = row?.oauth_status === "token_expired" || row?.sensitive_metadata?.google_oauth?.token_expires_at && new Date(row.sensitive_metadata.google_oauth.token_expires_at).getTime() < Date.now();
+    const tokenExpired = oauthParent === "google"
+      ? googleTokenNeedsReconnect(row?.sensitive_metadata?.google_oauth)
+      : row?.oauth_status === "token_expired";
     if (tokenExpired) {
       status = "token_expired";
       statusLabel = "Yetki süresi dolmuş";

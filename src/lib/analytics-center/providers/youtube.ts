@@ -1,29 +1,19 @@
 import "server-only";
+import { providerMetrics } from "../capabilities";
+import { youtubeGet, youtubeMetricValue } from "../youtube-response";
 import { writeContentMetrics, writeDailyMetrics } from "../metrics-store";
 import type { ConnectionAsset, ContentMetricRow, DateRange, SyncOutcome } from "../types";
 
-// YouTube Analytics API v2 — requires the yt-analytics.readonly scope
-// (distinct from the youtube.readonly Data API v3 scope already requested
-// for channel discovery in customer-integration-oauth.ts). A company that
-// connected Google before this scope was added will need to reconnect via
-// /musteri-paneli#hesap-bagla before this succeeds — the resulting 403 is
-// surfaced as a scope/permission message, not a crash.
+// Both readonly scopes are requested by Google OAuth. Diagnose actual API
+// errors: a disabled service is not missing consent. See the current reports
+// reference: https://developers.google.com/youtube/analytics/reference/reports/query
 const ANALYTICS_BASE = "https://youtubeanalytics.googleapis.com/v2/reports";
 const DATA_BASE = "https://www.googleapis.com/youtube/v3";
 
-async function googleGet(url: string, accessToken: string) {
-  const response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const message = payload?.error?.message || `YouTube API isteği başarısız oldu (HTTP ${response.status}).`;
-    if (response.status === 403) throw new Error(`YouTube Analytics izni eksik: ${message} Müşteri panelinden Google ile yeniden bağlanmak gerekebilir.`);
-    throw new Error(message);
-  }
-  return payload;
-}
+const googleGet = youtubeGet;
 
 async function fetchDailyChannelReport(accessToken: string, channelId: string, range: DateRange) {
-  const metrics = ["views", "estimatedMinutesWatched", "likes", "comments", "shares", "subscribersGained", "subscribersLost"];
+  const metrics = providerMetrics("youtube").filter((metric) => metric.capability === "supported" && metric.key !== "subscribers").map((metric) => metric.key);
   const url = `${ANALYTICS_BASE}?ids=channel==${encodeURIComponent(channelId)}&startDate=${range.startDate}&endDate=${range.endDate}&metrics=${metrics.join(",")}&dimensions=day&sort=day`;
   const payload = await googleGet(url, accessToken);
   const headers: string[] = (payload.columnHeaders || []).map((h: any) => h.name);
@@ -32,32 +22,29 @@ async function fetchDailyChannelReport(accessToken: string, channelId: string, r
   for (const row of payload.rows || []) {
     const date = row[dayIndex];
     headers.forEach((name, index) => {
-      if (index === dayIndex) return;
-      rows.push({ date, metric: name, value: Number(row[index]) || 0 });
+      if (index === dayIndex || !metrics.includes(name) || typeof date !== "string") return;
+      const value = youtubeMetricValue(row[index]);
+      if (value !== null) rows.push({ date, metric: name, value });
     });
   }
   return rows;
 }
 
 async function fetchCurrentSubscriberCount(accessToken: string, channelId: string): Promise<number | null> {
-  try {
-    const payload = await googleGet(`${DATA_BASE}/channels?part=statistics&id=${encodeURIComponent(channelId)}`, accessToken);
-    const count = payload.items?.[0]?.statistics?.subscriberCount;
-    return count !== undefined ? Number(count) : null;
-  } catch {
-    return null;
-  }
+  const payload = await googleGet(`${DATA_BASE}/channels?part=statistics&id=${encodeURIComponent(channelId)}`, accessToken);
+  const count = payload.items?.[0]?.statistics?.subscriberCount;
+  return payload.items?.[0]?.statistics?.hiddenSubscriberCount ? null : youtubeMetricValue(count);
 }
 
 async function fetchTopVideosInRange(accessToken: string, channelId: string, range: DateRange, limit = 25) {
-  const metrics = ["views", "estimatedMinutesWatched", "likes", "comments", "shares"];
+  const metrics = ["views", "estimatedMinutesWatched", "averageViewDuration", "likes", "comments", "shares"].filter((key) => providerMetrics("youtube").some((metric) => metric.key === key && metric.capability === "supported"));
   const url = `${ANALYTICS_BASE}?ids=channel==${encodeURIComponent(channelId)}&startDate=${range.startDate}&endDate=${range.endDate}&metrics=${metrics.join(",")}&dimensions=video&sort=-views&maxResults=${limit}`;
   const payload = await googleGet(url, accessToken);
   const headers: string[] = (payload.columnHeaders || []).map((h: any) => h.name);
   const videoIndex = headers.indexOf("video");
   return (payload.rows || []).map((row: any) => {
-    const entry: Record<string, number | string> = {};
-    headers.forEach((name, index) => { entry[name] = index === videoIndex ? row[index] : Number(row[index]) || 0; });
+    const entry: Record<string, number | string | null> = {};
+    headers.forEach((name, index) => { entry[name] = index === videoIndex ? row[index] : youtubeMetricValue(row[index]); });
     return entry;
   });
 }
@@ -82,7 +69,12 @@ export async function syncYoutubeAnalytics(companyId: string, accessToken: strin
     return { provider: "youtube", ok: false, message: error instanceof Error ? error.message : "YouTube Analytics verisi alınamadı.", dailyMetricsWritten: 0, contentMetricsWritten: 0, warnings: [] };
   }
 
-  const subscriberCount = await fetchCurrentSubscriberCount(accessToken, channelId);
+  let subscriberCount: number | null = null;
+  try {
+    subscriberCount = await fetchCurrentSubscriberCount(accessToken, channelId);
+  } catch (error) {
+    warnings.push(`Abone sayısı alınamadı: ${error instanceof Error ? error.message : "bilinmeyen hata"}`);
+  }
   const today = new Date().toISOString().slice(0, 10);
   const dailyMetricRows = dailyRows.map((row) => ({ companyId, provider: "youtube" as const, assetId: channelId, metricDate: row.date, metricKey: row.metric, metricValue: row.value }));
   if (subscriberCount !== null) {
@@ -108,7 +100,7 @@ export async function syncYoutubeAnalytics(companyId: string, accessToken: strin
         permalink: `https://www.youtube.com/watch?v=${video.video}`,
         thumbnailUrl: snippet?.thumbnails?.medium?.url || snippet?.thumbnails?.default?.url || null,
         publishedAt: snippet?.publishedAt || null,
-        metrics: { views: video.views ?? null, estimatedMinutesWatched: video.estimatedMinutesWatched ?? null, likes: video.likes ?? null, comments: video.comments ?? null, shares: video.shares ?? null }
+        metrics: { views: video.views ?? null, estimatedMinutesWatched: video.estimatedMinutesWatched ?? null, averageViewDuration: video.averageViewDuration ?? null, likes: video.likes ?? null, comments: video.comments ?? null, shares: video.shares ?? null }
       };
     });
     contentMetricsWritten = await writeContentMetrics(contentRows);
