@@ -21,6 +21,7 @@ import { MarketingBadge, MarketingCard, MarketingEyebrow, MarketingHeading, Mark
 import { GoogleMark, InstagramMark, MetaMark, platformMarks } from "./PlatformIcons";
 import { ServiceVisual } from "./marketing/MarketingVisualSystem";
 import { MacBookEcosystem } from "./cinematic/MacBookEcosystem";
+import { ScrollHint } from "./motion/ScrollHint";
 
 /* ---------------------------------------------------------------------
    Real content, pulled directly from Supabase-backed site content — no
@@ -93,8 +94,8 @@ function FaqAccordion() {
   );
 }
 
-function PrimaryLink({ href, children, trackingLabel }: { href: string; children: ReactNode; trackingLabel: string }) {
-  return <Link href={href} onClick={() => trackMetaCtaClick(trackingLabel, href)} className="marketing-btn marketing-btn-primary">{children}</Link>;
+function PrimaryLink({ href, children, trackingLabel, aurora }: { href: string; children: ReactNode; trackingLabel: string; aurora?: boolean }) {
+  return <Link href={href} onClick={() => trackMetaCtaClick(trackingLabel, href)} className={`marketing-btn marketing-btn-primary${aurora ? " marketing-aurora-btn" : ""}`}>{children}</Link>;
 }
 function SecondaryLink({ href, children, trackingLabel }: { href: string; children: ReactNode; trackingLabel: string }) {
   return <Link href={href} onClick={() => trackMetaCtaClick(trackingLabel, href)} className="marketing-btn marketing-btn-secondary">{children}</Link>;
@@ -156,6 +157,12 @@ function Hero({ whatsappUrl }: { whatsappUrl: string }) {
       style={{ borderColor: "var(--mk-border)", overflowX: "clip" }}
     >
       <motion.div className="hero-scroll-pin flex items-center" style={{ y: pinY }}>
+        <div className="marketing-bokeh" aria-hidden="true">
+          <span style={{ width: 90, height: 90, top: "12%", left: "6%" }} />
+          <span style={{ width: 54, height: 54, top: "62%", left: "18%", animationDelay: "-4s" }} />
+          <span style={{ width: 70, height: 70, top: "22%", right: "10%", animationDelay: "-8s" }} />
+          <span style={{ width: 40, height: 40, top: "70%", right: "22%", animationDelay: "-11s" }} />
+        </div>
         <div className="marketing-glow" style={{ width: 480, height: 480, top: -200, left: "-10%", background: "rgba(124,58,237,.13)" }} aria-hidden="true" />
         <div className="marketing-glow" style={{ width: 380, height: 380, top: -100, right: "-8%", background: "rgba(37,99,235,.1)" }} aria-hidden="true" />
         <div className="relative mx-auto grid w-full max-w-7xl items-center gap-14 px-4 py-20 sm:px-6 lg:grid-cols-[1.05fr_.95fr] lg:px-8 lg:py-28">
@@ -163,13 +170,13 @@ function Hero({ whatsappUrl }: { whatsappUrl: string }) {
             <MarketingReveal>
               <MarketingEyebrow>Manisa merkezli dijital pazarlama ve reklam ajansı</MarketingEyebrow>
               <MarketingHeading as="h1" className="mt-6 text-4xl sm:text-6xl lg:text-[4.4rem]">
-                Dijitalde Büyümeyi <span className="marketing-gradient-text">Şansa</span> Bırakmayın
+                Dijitalde Büyümeyi <span className="marketing-gradient-text marketing-chroma" data-text="Şansa">Şansa</span> Bırakmayın
               </MarketingHeading>
               <p className="mt-7 max-w-xl text-base leading-8 sm:text-lg" style={{ color: "var(--mk-ink-soft)" }}>
                 HK Dijital; Google Ads, Meta reklamları ve sosyal medya yönetimini tek stratejide birleştirip yapay zekâ destekli görünürlük analiziyle destekleyen ölçülebilir bir dijital büyüme sistemi kurar.
               </p>
               <div className="mt-8 flex flex-wrap gap-4">
-                <PrimaryLink href="/teklif-al" trackingLabel="Hero Paketini Bul">Paketini Bul <ArrowRight size={18} /></PrimaryLink>
+                <PrimaryLink href="/teklif-al" trackingLabel="Hero Paketini Bul" aurora>Paketini Bul <ArrowRight size={18} /></PrimaryLink>
                 <SecondaryLink href="/hizmetler" trackingLabel="Hero Hizmetleri İncele">Hizmetleri İncele</SecondaryLink>
                 <WhatsappLink href={whatsappUrl} trackingLabel="Hero WhatsApp'tan Görüş">WhatsApp&apos;tan Görüşelim <MessageCircle size={18} /></WhatsappLink>
               </div>
@@ -182,6 +189,7 @@ function Hero({ whatsappUrl }: { whatsappUrl: string }) {
           </motion.div>
           <MacBookEcosystem progress={scrollYProgress} />
         </div>
+        <ScrollHint />
       </motion.div>
     </section>
   );
@@ -190,20 +198,28 @@ function Hero({ whatsappUrl }: { whatsappUrl: string }) {
 /* --------------------------- Platform strip --------------------------- */
 
 function PlatformStrip() {
+  // Seamless marquee of the same real platform marks already used
+  // elsewhere on the site (never implying partnership — see
+  // PlatformIcons.tsx). Track is duplicated once so the -50% loop point
+  // lines up exactly; under prefers-reduced-motion, globals.css freezes
+  // the animation and wraps the (now-doubled) row instead, so the
+  // duplicate set is hidden there via the nth-child(n+8) rule.
   return (
-    <MarketingSection alt className="!py-14 border-y" >
+    <MarketingSection alt className="!py-14 border-y">
       <div className="mx-auto max-w-6xl px-4 text-center sm:px-6 lg:px-8">
         <MarketingReveal>
           <p className="text-xl font-bold sm:text-2xl" style={{ color: "var(--mk-ink)" }}>Markanız her yerde. <span className="marketing-gradient-text">Stratejiniz tek yerde.</span></p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-x-10 gap-y-5">
-            {platformMarks.map(({ key, label, Icon }) => (
-              <div key={key} className="flex items-center gap-2 opacity-80 transition hover:opacity-100">
-                <Icon className="size-7" />
-                <span className="text-sm font-bold" style={{ color: "var(--mk-ink-soft)" }}>{label}</span>
-              </div>
-            ))}
-          </div>
         </MarketingReveal>
+      </div>
+      <div className="marketing-marquee mt-8">
+        <div className="marketing-marquee-track">
+          {[...platformMarks, ...platformMarks].map(({ key, label, Icon }, index) => (
+            <div key={`${key}-${index}`} className="flex items-center gap-2 opacity-80 transition hover:opacity-100">
+              <Icon className="size-7" />
+              <span className="whitespace-nowrap text-sm font-bold" style={{ color: "var(--mk-ink-soft)" }}>{label}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </MarketingSection>
   );
@@ -340,7 +356,7 @@ function ServicesSection({ services }: { services: SiteContent["services"] }) {
           <MarketingHeading className="mt-4 max-w-2xl text-3xl sm:text-5xl">Markanızı <span className="marketing-gradient-text">büyümeye</span> bağlayan sistem</MarketingHeading>
           <p className="mt-5 max-w-2xl text-base leading-8" style={{ color: "var(--mk-ink-soft)" }}>Her kanal kendi başına değil; hedef, bütçe, teklif, dönüşüm takibi ve raporlamayla birlikte yönetildiğinde sağlıklı karar üretir.</p>
         </MarketingReveal>
-        <div className="mt-12 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="marketing-swipe-row mt-12 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {visible.map((service, index) => {
             const Icon = serviceIcons[service.icon] ?? Sparkles;
             const featured = index === 0 || index === 1;
@@ -589,11 +605,12 @@ function FinalCtaSection({ whatsappUrl }: { whatsappUrl: string }) {
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <MarketingReveal>
           <div className="relative overflow-hidden rounded-[28px] px-6 py-16 text-center sm:px-16" style={{ background: "linear-gradient(120deg, #5b21b6, #4338ca 55%, #a21caf)" }}>
+            <div className="marketing-wave-bg" aria-hidden="true" />
             <p className="text-xs font-black uppercase tracking-[.22em] text-white/80">Sonraki Adım</p>
             <h2 className="mt-5 text-3xl font-black leading-tight text-white sm:text-5xl">Reklamınızı Büyümeye Çevirin</h2>
             <p className="mx-auto mt-5 max-w-xl text-base leading-7 text-white/85">Satış garantisi vermeyiz — strateji, kurulum, optimizasyon, dönüşüm takibi ve raporlama sürecini uçtan uca yönetiriz.</p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
-              <Link href="/teklif-al" onClick={() => trackMetaCtaClick("Final CTA Paketini Bul", "/teklif-al")} className="inline-flex min-h-13 items-center gap-2 rounded-full bg-white px-6 text-sm font-black text-[#4338ca] transition hover:-translate-y-0.5">Paketini Bul <ArrowRight size={18} /></Link>
+              <Link href="/teklif-al" onClick={() => trackMetaCtaClick("Final CTA Paketini Bul", "/teklif-al")} className="marketing-aurora-btn inline-flex min-h-13 items-center gap-2 rounded-full bg-white px-6 text-sm font-black text-[#4338ca] transition hover:-translate-y-0.5">Paketini Bul <ArrowRight size={18} /></Link>
               <a href={whatsappUrl} target="_blank" rel="noreferrer" onClick={() => trackMetaCtaClick("Final CTA WhatsApp", whatsappUrl)} className="inline-flex min-h-13 items-center gap-2 rounded-full border border-white/40 bg-white/10 px-6 text-sm font-black text-white backdrop-blur transition hover:bg-white/20">WhatsApp&apos;tan Görüş <MessageCircle size={18} /></a>
             </div>
           </div>

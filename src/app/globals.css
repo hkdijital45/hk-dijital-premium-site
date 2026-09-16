@@ -6012,3 +6012,320 @@ table.admin-data-grid {
 .blog-rich-editor strong {
   font-weight: 800;
 }
+
+/* =========================================================================
+   HK DİJİTAL CİNEMATİC REDESIGN — supporting motion primitives
+   Public marketing site only (scoped to .marketing-shell / marketing-*
+   classes, same convention as the block above). Adapted from the
+   docs/animation-reference/ technique docs to this project's real stack
+   (framer-motion + CSS only, no GSAP/Lenis/canvas). Every looping/ambient
+   animation here is added to the prefers-reduced-motion kill-list below.
+   ======================================================================= */
+
+/* Hero scroll hint — appears once idle at the top, fades out on first
+   scroll (visibility is toggled by React state, not CSS scroll position,
+   so this only needs the idle bounce loop itself). */
+.marketing-scroll-hint {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: var(--mk-ink-faint);
+  animation: marketing-scroll-hint-bob 2.2s ease-in-out infinite;
+}
+
+@keyframes marketing-scroll-hint-bob {
+  0%, 100% { transform: translateY(0); opacity: .55; }
+  50% { transform: translateY(6px); opacity: 1; }
+}
+
+/* Chromatic-aberration accent — a single short (~500ms) RGB-split snap on
+   entrance, never a persistent/looping effect (mission constraint: short
+   transitions/accents only). Three stacked text layers via ::before/::after
+   using the same attr(data-text) trick as .glitch-label above. */
+.marketing-chroma {
+  position: relative;
+  display: inline-block;
+}
+
+.marketing-chroma::before,
+.marketing-chroma::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: inherit;
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+.marketing-chroma::before {
+  color: #ec4899;
+  -webkit-text-fill-color: #ec4899;
+  animation: marketing-chroma-snap-r .6s cubic-bezier(.16, 1, .3, 1) both;
+}
+
+.marketing-chroma::after {
+  color: #22d3ee;
+  -webkit-text-fill-color: #22d3ee;
+  animation: marketing-chroma-snap-c .6s cubic-bezier(.16, 1, .3, 1) both;
+}
+
+@keyframes marketing-chroma-snap-r {
+  0% { opacity: .8; transform: translate3d(6px, 0, 0); }
+  60% { opacity: .35; transform: translate3d(-2px, 0, 0); }
+  100% { opacity: 0; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes marketing-chroma-snap-c {
+  0% { opacity: .8; transform: translate3d(-6px, 0, 0); }
+  60% { opacity: .35; transform: translate3d(2px, 0, 0); }
+  100% { opacity: 0; transform: translate3d(0, 0, 0); }
+}
+
+/* Ambient bokeh depth layer behind the hero — desktop/tablet only (hidden
+   below 640px via the same breakpoint the hero pin already uses), CSS-only
+   soft blurred circles, no canvas. */
+.marketing-bokeh {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.marketing-bokeh span {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(2px);
+  opacity: .5;
+  background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, .9), rgba(124, 58, 237, .18) 60%, transparent 72%);
+  animation: marketing-bokeh-drift 14s ease-in-out infinite;
+}
+
+@keyframes marketing-bokeh-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(1.5rem, -2rem, 0) scale(1.12); }
+}
+
+@media (max-width: 639px) {
+  .marketing-bokeh { display: none; }
+}
+
+/* Desktop pointer-glow cursor accent — a fixed radial gradient following
+   the pointer via CSS custom properties updated from rAF-throttled
+   mousemove (see CursorGlow.tsx). Desktop pointer devices only; the
+   component itself never mounts on touch, so no extra CSS gate is needed,
+   but pointer:coarse is included here as defense in depth. */
+.marketing-cursor-glow {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 420px;
+  height: 420px;
+  margin-left: -210px;
+  margin-top: -210px;
+  border-radius: 999px;
+  pointer-events: none;
+  z-index: 30;
+  background: radial-gradient(circle, rgba(124, 58, 237, .16), rgba(37, 99, 235, .08) 45%, transparent 72%);
+  transform: translate3d(var(--cx, -420px), var(--cy, -420px), 0);
+  opacity: 0;
+  transition: opacity .3s ease;
+  will-change: transform;
+}
+
+.marketing-cursor-glow[data-visible="true"] {
+  opacity: 1;
+}
+
+@media (pointer: coarse), (hover: none) {
+  .marketing-cursor-glow { display: none; }
+}
+
+/* Platform-icon marquee — replaces the static PlatformStrip row with a
+   seamless scroll of the SAME real platform marks (no fabricated client
+   logos). Two duplicated tracks placed edge-to-edge, animated together. */
+.marketing-marquee {
+  position: relative;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent);
+  mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent);
+}
+
+.marketing-marquee-track {
+  display: flex;
+  width: max-content;
+  align-items: center;
+  gap: 3rem;
+  animation: marketing-marquee-scroll 32s linear infinite;
+}
+
+@keyframes marketing-marquee-scroll {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50%, 0, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marketing-marquee-track {
+    animation: none !important;
+    flex-wrap: wrap;
+    width: 100%;
+    justify-content: center;
+  }
+  .marketing-marquee-track > *:nth-child(n + 8) {
+    display: none;
+  }
+}
+
+/* Aurora accent — applied only to primary CTA buttons, a slow hue-drifting
+   glow behind the button, never a global background effect. */
+.marketing-aurora-btn {
+  position: relative;
+  isolation: isolate;
+}
+
+.marketing-aurora-btn::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  z-index: -1;
+  border-radius: 999px;
+  background: conic-gradient(from 0deg, var(--mk-violet), var(--mk-blue), var(--mk-pink), var(--mk-violet));
+  opacity: 0;
+  filter: blur(14px);
+  transition: opacity .35s ease;
+  animation: marketing-aurora-spin 6s linear infinite;
+}
+
+.marketing-aurora-btn:hover::before {
+  opacity: .85;
+}
+
+@keyframes marketing-aurora-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Wave-field approximation — a slow animated gradient sweep used as a
+   subtle ambient background on the final CTA / contact sections, instead
+   of an expensive canvas wave simulation. Desktop/tablet only. */
+.marketing-wave-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: inherit;
+  opacity: .55;
+  background:
+    linear-gradient(120deg, transparent 10%, rgba(255, 255, 255, .12) 32%, transparent 54%),
+    linear-gradient(120deg, transparent 40%, rgba(255, 255, 255, .08) 62%, transparent 84%);
+  background-size: 220% 220%;
+  animation: marketing-wave-sweep 12s ease-in-out infinite;
+}
+
+@keyframes marketing-wave-sweep {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@media (max-width: 639px) {
+  .marketing-wave-bg { display: none; }
+}
+
+/* Desktop nav active-link indicator — the moving pill/underline itself is
+   a framer-motion layoutId element positioned inside this relative
+   container; this class only establishes positioning context. */
+.marketing-nav-indicator {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--mk-bg-alt);
+  z-index: -1;
+}
+
+/* Floating contact dock — elevates Shell.tsx's single WhatsApp button into
+   a small stack of real-channel actions (WhatsApp + tel:, only rendered
+   when real). */
+.marketing-contact-dock {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.marketing-dock-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  box-shadow: 0 14px 34px rgba(15, 16, 36, .22);
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+
+.marketing-dock-item:hover {
+  transform: translateY(-2px);
+}
+
+/* Mobile-only horizontal snap-scroll for service cards — native touch
+   swipe, no JS scroll hijacking. Scoped entirely to the sub-640px media
+   query so it never competes with the existing Tailwind `md:grid-cols-*`
+   desktop layout (no cascade/specificity fight — above 640px this class
+   contributes zero declarations and the normal grid applies untouched). */
+@media (max-width: 639px) {
+  .marketing-swipe-row {
+    display: flex;
+    gap: 1rem;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+  }
+
+  .marketing-swipe-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .marketing-swipe-row > * {
+    scroll-snap-align: start;
+    flex: 0 0 84%;
+  }
+}
+
+/* Route transition — a short, cheap CSS-only fade applied via a
+   src/app/(marketing)/template.tsx-style wrapper. Next.js remounts the
+   template on every navigation, so this never touches Link/back-forward
+   behavior and adds no JS transition risk. */
+@keyframes marketing-route-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.marketing-route-fade {
+  animation: marketing-route-fade-in .32s cubic-bezier(.16, 1, .3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marketing-scroll-hint,
+  .marketing-bokeh span,
+  .marketing-marquee-track,
+  .marketing-aurora-btn::before,
+  .marketing-wave-bg,
+  .marketing-route-fade {
+    animation: none !important;
+  }
+  .marketing-chroma::before,
+  .marketing-chroma::after {
+    display: none !important;
+  }
+  .marketing-cursor-glow {
+    display: none !important;
+  }
+}

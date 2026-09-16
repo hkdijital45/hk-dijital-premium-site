@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
-import { MessageCircle } from "lucide-react";
 import { getSiteContent } from "@/lib/content";
 import { Header } from "./Header";
 import { Footer } from "./Footer";
 import { ScrollProgressBar } from "./ScrollProgressBar";
+import { ContactDock } from "./ContactDock";
+import { CursorGlow } from "./motion/CursorGlow";
+import { RouteFade } from "./motion/RouteFade";
 
 export async function PublicShell({ children }: { children: ReactNode }) {
   const rawContent = await getSiteContent();
@@ -20,28 +22,20 @@ export async function PublicShell({ children }: { children: ReactNode }) {
       ? `https://wa.me/${content.contact.whatsappNumber.replace(/\D/g, "")}`
       : "");
   const performanceMode = content.settings.performanceMode || "balanced";
+  const phoneHref = content.contact.phone ? `tel:${content.contact.phone.replace(/[^\d+]/g, "")}` : "";
 
   return (
     <>
       <ScrollProgressBar />
+      <CursorGlow />
       <Header content={content} />
       <main className={`public-site public-performance-${performanceMode} relative min-h-screen overflow-hidden bg-background text-foreground`}>
         <div className="public-impact-bg pointer-events-none fixed inset-0 z-0" aria-hidden="true" />
         <div className="public-impact-grid pointer-events-none fixed inset-0 z-0" aria-hidden="true" />
         {performanceMode === "ultra" && <div className="public-impact-particles pointer-events-none fixed inset-0 z-0" aria-hidden="true" />}
-        <div className="relative z-10">{children}</div>
+        <div className="relative z-10"><RouteFade>{children}</RouteFade></div>
       </main>
-      {whatsappUrl && (
-        <a
-          href={whatsappUrl}
-          target="_blank"
-          rel="noreferrer"
-          aria-label="WhatsApp üzerinden iletişime geçin"
-          className="impact-btn fixed bottom-5 right-5 z-40 inline-flex min-h-12 items-center gap-2 rounded-full border border-[#25D366]/50 bg-[#25D366] px-5 py-3 text-sm font-black text-white shadow-[0_0_44px_rgba(37,211,102,.35)] transition hover:-translate-y-1 hover:bg-[#20bd5b]"
-        >
-          <MessageCircle size={18} /> WhatsApp
-        </a>
-      )}
+      <ContactDock whatsappUrl={whatsappUrl} phoneHref={phoneHref} phoneLabel={content.contact.phone} />
       <Footer content={content} />
     </>
   );

@@ -71,12 +71,14 @@ type MarketingButtonProps = {
   variant?: "primary" | "secondary" | "ghost" | "whatsapp";
   trackingLabel?: string;
   className?: string;
+  /** Adds the aurora glow accent (docs/animation-reference/16-aurora-button.md) — opt-in, reserved for a page's single most important CTA. */
+  aurora?: boolean;
 };
 
-export function MarketingButton({ href, children, variant = "primary", trackingLabel = "Marketing CTA", className = "" }: MarketingButtonProps) {
+export function MarketingButton({ href, children, variant = "primary", trackingLabel = "Marketing CTA", className = "", aurora = false }: MarketingButtonProps) {
   const external = href.startsWith("http") || href.startsWith("https://wa.me");
   const variantClass =
-    variant === "primary" ? "marketing-btn marketing-btn-primary" :
+    variant === "primary" ? `marketing-btn marketing-btn-primary${aurora ? " marketing-aurora-btn" : ""}` :
     variant === "secondary" ? "marketing-btn marketing-btn-secondary" :
     variant === "whatsapp" ? "marketing-btn" : "marketing-btn-ghost inline-flex items-center gap-1.5";
   const whatsappStyle = variant === "whatsapp" ? { background: "#25D366", color: "#fff", boxShadow: "0 12px 30px rgba(37,211,102,.28)" } : undefined;

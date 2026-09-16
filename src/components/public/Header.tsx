@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { CalendarCheck, ChevronDown, Menu, MessageCircle, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import type { SiteContent } from "@/lib/types";
 import { trackMetaCtaClick } from "@/lib/meta-pixel";
 import { Logo } from "./Logo";
@@ -29,11 +31,44 @@ const mainNav = [
 export function Header({ content }: { content: SiteContent }) {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [navHover, setNavHover] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const router = useRouter();
+  const reduced = useReducedMotion();
   const isActive = (href: string) => href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
   const whatsappUrl = content.socials?.whatsapp || (content.contact?.whatsappNumber ? `https://wa.me/${content.contact.whatsappNumber.replace(/\D/g, "")}` : "/iletisim");
+
+  // Desktop nav "sliding pill" indicator (adapted from
+  // docs/animation-reference/17-nav-menu.md): a single shared-layout
+  // motion.span slides between whichever link is hovered/focused, falling
+  // back to the actual active route. Reduced-motion only swaps the spring
+  // transition's timing (duration: 0), never the element tree itself —
+  // same safe pattern as MarketingReveal, so no hydration risk.
+  const desktopNavHrefs = ["/", "/hizmetler", ...mainNav.slice(1).map(([, href]) => href)];
+  const activeHref = desktopNavHrefs.find((href) => isActive(href)) ?? null;
+  const pillHref = navHover ?? activeHref;
+  const pillTransition = reduced ? { duration: 0 } : { type: "spring" as const, stiffness: 420, damping: 34, mass: 0.7 };
+
+  function navLink(href: string, label: ReactNode, extra?: { chevron?: boolean }) {
+    const showPill = pillHref === href;
+    return (
+      <Link
+        href={href}
+        onMouseEnter={() => setNavHover(href)}
+        onMouseLeave={() => setNavHover(null)}
+        onFocus={() => setNavHover(href)}
+        onBlur={() => setNavHover(null)}
+        className={`marketing-nav-link relative inline-flex items-center gap-1 rounded-full px-4 py-2 text-sm font-bold transition focus:outline-none focus:ring-2 focus:ring-[#7c3aed]/50 ${showPill ? "marketing-nav-link-active" : ""}`}
+      >
+        {showPill && <motion.span layoutId="nav-pill" className="marketing-nav-indicator" transition={pillTransition} />}
+        <span className="relative z-10 inline-flex items-center gap-1">
+          {label}
+          {extra?.chevron && <ChevronDown size={15} aria-hidden="true" />}
+        </span>
+      </Link>
+    );
+  }
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -96,13 +131,9 @@ export function Header({ content }: { content: SiteContent }) {
         </Link>
 
         <nav className="hidden items-center gap-1 lg:flex">
-          <Link href="/" className={`marketing-nav-link rounded-full px-4 py-2 text-sm font-bold transition focus:outline-none focus:ring-2 focus:ring-[#7c3aed]/50 ${isActive("/") ? "marketing-nav-link-active" : ""}`}>
-            Ana Sayfa
-          </Link>
+          {navLink("/", "Ana Sayfa")}
           <div className="group relative">
-            <Link href="/hizmetler" className={`marketing-nav-link inline-flex items-center gap-1 rounded-full px-4 py-2 text-sm font-bold transition focus:outline-none focus:ring-2 focus:ring-[#7c3aed]/50 ${isActive("/hizmetler") ? "marketing-nav-link-active" : ""}`}>
-              Hizmetler <ChevronDown size={15} aria-hidden="true" />
-            </Link>
+            {navLink("/hizmetler", "Hizmetler", { chevron: true })}
             <div className="invisible absolute left-0 top-full z-50 mt-3 w-80 translate-y-2 rounded-[18px] border p-2 opacity-0 shadow-[0_24px_80px_rgba(15,16,36,.14)] backdrop-blur-2xl transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100" style={{ borderColor: "var(--mk-border)", background: "rgba(255,255,255,.98)" }}>
               {serviceLinks.map(([label, href]) => (
                 <Link key={`${href}-${label}`} href={href} className="block rounded-[12px] px-4 py-3 text-sm font-bold transition hover:bg-[#7c3aed]/[0.06]" style={{ color: "var(--mk-ink)" }}>
@@ -111,18 +142,14 @@ export function Header({ content }: { content: SiteContent }) {
               ))}
             </div>
           </div>
-          {mainNav.slice(1).map(([label, href]) => (
-            <Link key={href} href={href} className={`marketing-nav-link rounded-full px-4 py-2 text-sm font-bold transition focus:outline-none focus:ring-2 focus:ring-[#7c3aed]/50 ${isActive(href) ? "marketing-nav-link-active" : ""}`}>
-              {label}
-            </Link>
-          ))}
+          {mainNav.slice(1).map(([label, href]) => <span key={href}>{navLink(href, label)}</span>)}
         </nav>
 
         <div className="hidden items-center gap-2 lg:flex">
           <a href={whatsappUrl} target="_blank" rel="noreferrer" onClick={() => trackMetaCtaClick("Header WhatsApp", whatsappUrl)} className="impact-btn inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-bold transition hover:border-[#25D366]/60" style={{ borderColor: "var(--mk-border-strong)", color: "var(--mk-ink)" }}>
             <MessageCircle size={17} className="text-[#25D366]" /> WhatsApp
           </a>
-          <Link href="/teklif-al" onClick={() => trackMetaCtaClick("Header Paketini Bul", "/teklif-al")} className="marketing-btn marketing-btn-primary min-h-11">
+          <Link href="/teklif-al" onClick={() => trackMetaCtaClick("Header Paketini Bul", "/teklif-al")} className="marketing-btn marketing-btn-primary marketing-aurora-btn min-h-11">
             <CalendarCheck size={17} /> Paketini Bul
           </Link>
         </div>
