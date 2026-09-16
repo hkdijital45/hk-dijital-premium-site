@@ -93,15 +93,18 @@ type EcoNode = {
   render: () => ReactNode;
   posClass: string; // final resting position (Tailwind, absolute)
   flyFrom: { x: number; y: number }; // px offset the node animates FROM (biased back toward the MacBook center) on arrival
+  /** Real-capability caption (desktop only) — describes what HK Dijital actually does on that platform, never a fabricated metric. */
+  caption?: string;
+  captionSide?: "top" | "bottom";
 };
 
 const platformNodes: EcoNode[] = [
-  { key: "google", render: () => <GoogleMark className="h-full w-full" />, posClass: "-left-7 top-4", flyFrom: { x: 130, y: 90 } },
-  { key: "meta", render: () => <MetaMark className="h-full w-full" />, posClass: "-right-5 top-14", flyFrom: { x: -130, y: 70 } },
-  { key: "instagram", render: () => <InstagramMark className="h-full w-full" />, posClass: "-bottom-4 left-12", flyFrom: { x: 55, y: -130 } },
-  { key: "facebook", render: () => <FacebookMark className="h-full w-full" />, posClass: "-right-7 bottom-10", flyFrom: { x: -95, y: -105 } },
-  { key: "tiktok", render: () => <TikTokMark className="h-full w-full" />, posClass: "left-1/2 -top-9 -translate-x-1/2", flyFrom: { x: 0, y: 130 } },
-  { key: "youtube", render: () => <YouTubeMark className="h-full w-full" />, posClass: "-left-10 bottom-24", flyFrom: { x: 140, y: -40 } }
+  { key: "google", render: () => <GoogleMark className="h-full w-full" />, posClass: "-left-7 top-4", flyFrom: { x: 130, y: 90 }, caption: "Arama Reklamları", captionSide: "top" },
+  { key: "meta", render: () => <MetaMark className="h-full w-full" />, posClass: "-right-5 top-14", flyFrom: { x: -130, y: 70 }, caption: "Reklam Yönetimi", captionSide: "top" },
+  { key: "instagram", render: () => <InstagramMark className="h-full w-full" />, posClass: "-bottom-4 left-12", flyFrom: { x: 55, y: -130 }, caption: "İçerik & Topluluk", captionSide: "bottom" },
+  { key: "facebook", render: () => <FacebookMark className="h-full w-full" />, posClass: "-right-7 bottom-10", flyFrom: { x: -95, y: -105 }, caption: "Sayfa Yönetimi", captionSide: "bottom" },
+  { key: "tiktok", render: () => <TikTokMark className="h-full w-full" />, posClass: "left-1/2 -top-9 -translate-x-1/2", flyFrom: { x: 0, y: 130 }, caption: "Kısa Video İçerik", captionSide: "top" },
+  { key: "youtube", render: () => <YouTubeMark className="h-full w-full" />, posClass: "-left-10 bottom-24", flyFrom: { x: 140, y: -40 }, caption: "Video Reklamcılık", captionSide: "bottom" }
 ];
 
 // Positions verified against the real .macbook-mockup-screen bounding box on
@@ -126,6 +129,14 @@ function EcoBadge({ node, domRef, displayClass }: { node: EcoNode; domRef: (el: 
       style={{ borderColor: "var(--mk-border)", opacity: 0, transform: `translate(${node.flyFrom.x}px, ${node.flyFrom.y}px) scale(0.25)` }}
     >
       {node.render()}
+      {node.caption && (
+        <span
+          className={`pointer-events-none absolute left-1/2 hidden -translate-x-1/2 whitespace-nowrap rounded-full border bg-white px-2.5 py-1 text-[10px] font-black shadow-[0_8px_20px_rgba(15,16,36,.12)] xl:block ${node.captionSide === "bottom" ? "top-[calc(100%+8px)]" : "bottom-[calc(100%+8px)]"}`}
+          style={{ borderColor: "var(--mk-border)", color: "var(--mk-violet)" }}
+        >
+          {node.caption}
+        </span>
+      )}
     </div>
   );
 }

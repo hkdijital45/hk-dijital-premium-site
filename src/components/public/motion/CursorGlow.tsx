@@ -42,10 +42,27 @@ export function CursorGlow() {
         ref.current.style.setProperty("--cy", `${pending.y}px`);
       }
     };
+    // Context-aware sizing (V2 rebuild): the glow grows and shifts tone
+    // over a primary CTA / service-explorer item versus a plain link,
+    // giving the pointer a small amount of real affordance feedback —
+    // still a single element, still transform/opacity+CSS-var only, no
+    // extra DOM per interactive target.
     const onMove = (event: PointerEvent) => {
       if (event.pointerType !== "mouse") return;
       pending = { x: event.clientX, y: event.clientY };
-      ref.current?.setAttribute("data-visible", "true");
+      const el = ref.current;
+      if (el) {
+        el.setAttribute("data-visible", "true");
+        const target = event.target as Element | null;
+        const context = target?.closest(".marketing-btn-primary, .marketing-aurora-btn")
+          ? "cta"
+          : target?.closest(".service-explorer-item")
+          ? "service"
+          : target?.closest("a, button")
+          ? "link"
+          : "default";
+        el.setAttribute("data-context", context);
+      }
       if (!frame) frame = requestAnimationFrame(flush);
     };
     const onLeave = () => ref.current?.setAttribute("data-visible", "false");

@@ -6130,14 +6130,31 @@ table.admin-data-grid {
   pointer-events: none;
   z-index: 30;
   background: radial-gradient(circle, rgba(124, 58, 237, .16), rgba(37, 99, 235, .08) 45%, transparent 72%);
-  transform: translate3d(var(--cx, -420px), var(--cy, -420px), 0);
+  transform: translate3d(var(--cx, -420px), var(--cy, -420px), 0) scale(var(--cscale, 1));
   opacity: 0;
-  transition: opacity .3s ease;
+  transition: opacity .3s ease, background .3s ease;
   will-change: transform;
 }
 
 .marketing-cursor-glow[data-visible="true"] {
   opacity: 1;
+}
+
+/* Context-aware sizing/tone (V2 rebuild) — see CursorGlow.tsx's onMove.
+   Only --cscale and background change; position stays on the fast,
+   un-transitioned transform path so the glow never lags the pointer. */
+.marketing-cursor-glow[data-context="cta"] {
+  --cscale: 1.4;
+  background: radial-gradient(circle, rgba(219, 39, 119, .2), rgba(124, 58, 237, .1) 45%, transparent 72%);
+}
+
+.marketing-cursor-glow[data-context="service"] {
+  --cscale: 1.2;
+  background: radial-gradient(circle, rgba(37, 99, 235, .2), rgba(124, 58, 237, .1) 45%, transparent 72%);
+}
+
+.marketing-cursor-glow[data-context="link"] {
+  --cscale: .82;
 }
 
 @media (pointer: coarse), (hover: none) {
@@ -6299,17 +6316,44 @@ table.admin-data-grid {
   }
 }
 
-/* Route transition — a short, cheap CSS-only fade applied via a
-   src/app/(marketing)/template.tsx-style wrapper. Next.js remounts the
-   template on every navigation, so this never touches Link/back-forward
-   behavior and adds no JS transition risk. */
-@keyframes marketing-route-fade-in {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+/* Route transition (V2: upgraded from a plain fade to a directional
+   clip-path "curtain" wipe reveal) — still applied via a pathname-keyed
+   remount (RouteFade.tsx), so this never touches Link/back-forward
+   behavior and adds zero JS navigation risk; it is purely a CSS keyframe
+   on the freshly-mounted subtree. */
+@keyframes marketing-route-wipe-in {
+  from { clip-path: inset(0 100% 0 0); opacity: .55; }
+  55% { opacity: 1; }
+  to { clip-path: inset(0 0 0 0); opacity: 1; }
 }
 
 .marketing-route-fade {
-  animation: marketing-route-fade-in .32s cubic-bezier(.16, 1, .3, 1) both;
+  animation: marketing-route-wipe-in .5s cubic-bezier(.16, 1, .3, 1) both;
+}
+
+/* Hero headline mask-reveal — the non-blocking, on-mount adaptation of
+   the aperture-loader's "reveal" concept: each visual line of the hero
+   headline is clipped by its own overflow-hidden band and slides up into
+   view, staggered, instead of rendering instantly. Content is present in
+   the DOM at first paint throughout (never display:none), so this never
+   blocks or delays LCP — only its final resting position is animated. */
+.hero-headline-line {
+  display: block;
+  overflow: hidden;
+}
+
+.hero-headline-line-inner {
+  display: inline-block;
+  animation: hero-line-reveal .7s cubic-bezier(.16, 1, .3, 1) both;
+}
+
+.hero-headline-line:nth-child(1) .hero-headline-line-inner { animation-delay: .04s; }
+.hero-headline-line:nth-child(2) .hero-headline-line-inner { animation-delay: .14s; }
+.hero-headline-line:nth-child(3) .hero-headline-line-inner { animation-delay: .24s; }
+
+@keyframes hero-line-reveal {
+  from { transform: translate3d(0, 108%, 0) rotate(2deg); opacity: 0; }
+  to { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -6328,4 +6372,237 @@ table.admin-data-grid {
   .marketing-cursor-glow {
     display: none !important;
   }
+  .hero-headline-line-inner {
+    animation: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+}
+
+/* ---------------------------------------------------------------------
+   V2 rebuild — editorial "Ads Story" composition (replaces the bordered
+   MarketingCard box the Google/Meta Ads sections used to sit in). The
+   ServiceVisual fragments already carry their own border/background, so
+   they read fine floating free; a badge overlaps the corner instead of
+   sitting inside a shared box, and bullets become a numbered running
+   list instead of individual bordered chips — no card-grid, per the V2
+   "no card-grid website" rule.
+   ------------------------------------------------------------------- */
+.ads-story-badge {
+  position: absolute;
+  left: -14px;
+  top: -14px;
+  z-index: 2;
+  border: 1px solid var(--mk-border);
+  background: #fff;
+  box-shadow: 0 18px 40px rgba(15, 16, 36, .16);
+  animation: ads-badge-float 6s ease-in-out infinite;
+}
+
+@keyframes ads-badge-float {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -8px, 0); }
+}
+
+.ads-story-visual {
+  position: relative;
+  transform: rotate(-1.2deg);
+  transition: transform .5s cubic-bezier(.16, 1, .3, 1);
+}
+
+.ads-story-visual:hover {
+  transform: rotate(0deg) scale(1.01);
+}
+
+.ads-story-problem {
+  position: relative;
+  margin-top: 1.5rem;
+  padding-left: 1.1rem;
+  border-left: 2px solid var(--mk-violet);
+  font-size: .95rem;
+  line-height: 1.7;
+  color: var(--mk-ink-soft);
+}
+
+.ads-story-problem-label {
+  font-weight: 900;
+  font-style: italic;
+  color: var(--mk-ink);
+}
+
+.ads-story-bullets {
+  margin-top: 1.75rem;
+  display: grid;
+}
+
+.ads-story-bullets li {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--mk-border);
+  font-size: .925rem;
+  font-weight: 700;
+  color: var(--mk-ink);
+}
+
+.ads-story-bullets li:first-child {
+  padding-top: 0;
+}
+
+.ads-story-bullet-index {
+  font-size: 1rem;
+  font-weight: 900;
+  font-style: italic;
+  color: var(--mk-violet);
+  opacity: .55;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ads-story-badge {
+    animation: none !important;
+  }
+  .ads-story-visual {
+    transition: none !important;
+  }
+}
+
+/* ---------------------------------------------------------------------
+   V2 rebuild — desktop Services explorer (replaces the card grid on
+   lg+; see ServiceExplorer in HomepageExperience.tsx). Two-pane layout:
+   a vertical index list with a single divider line, and a cross-fading
+   detail panel on the right.
+   ------------------------------------------------------------------- */
+.service-explorer {
+  grid-template-columns: 300px 1fr;
+  gap: 3.5rem;
+  align-items: start;
+}
+
+.service-explorer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-right: 1px solid var(--mk-border);
+  padding-right: 1.75rem;
+  position: sticky;
+  top: 6rem;
+}
+
+.service-explorer-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 13px 16px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--mk-ink-faint);
+  transition: background-color .25s ease, border-color .25s ease, color .25s ease;
+  cursor: pointer;
+}
+
+.service-explorer-item:hover {
+  background: var(--mk-bg-alt);
+  color: var(--mk-ink-soft);
+}
+
+.service-explorer-item-active {
+  background: linear-gradient(97deg, rgba(124, 58, 237, .08), rgba(37, 99, 235, .06));
+  border-color: var(--mk-border-strong);
+  color: var(--mk-ink);
+}
+
+.service-explorer-item-label {
+  flex: 1;
+  font-size: .925rem;
+  font-weight: 800;
+  min-width: 0;
+}
+
+.service-explorer-item-index {
+  font-size: .68rem;
+  font-weight: 900;
+  font-style: italic;
+  opacity: .7;
+}
+
+.service-explorer-item-active .service-explorer-item-index {
+  color: var(--mk-violet);
+  opacity: 1;
+}
+
+.service-explorer-item-arrow {
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity .25s ease, transform .25s ease;
+  color: var(--mk-violet);
+}
+
+.service-explorer-item-active .service-explorer-item-arrow,
+.service-explorer-item:hover .service-explorer-item-arrow {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.service-explorer-item:focus-visible {
+  outline: 2px solid var(--mk-violet);
+  outline-offset: 2px;
+}
+
+.service-explorer-panel {
+  min-height: 460px;
+  padding-left: .5rem;
+}
+
+/* V2 rebuild — ambient nav aurora wash (reference 17 item 1), kept
+   subtle per the mission's own "not neon gaming" instruction: a single
+   slow-spinning, low-opacity conic gradient behind the whole pill, never
+   per-link. Lives as a sibling of the real nav content (not an ancestor),
+   so it can never clip the services dropdown panel. */
+.marketing-nav-aurora {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  border-radius: 22px;
+  pointer-events: none;
+}
+
+.marketing-nav-aurora::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 130%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  opacity: .22;
+  animation: marketing-nav-aurora-spin 20s linear infinite;
+  background: conic-gradient(from 0deg, transparent 0deg, rgba(56, 189, 248, .4) 45deg, transparent 120deg, rgba(74, 222, 128, .3) 190deg, transparent 250deg, rgba(124, 58, 237, .38) 310deg, transparent 360deg);
+}
+
+@keyframes marketing-nav-aurora-spin {
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marketing-nav-aurora::before {
+    animation: none !important;
+  }
+}
+
+/* V2 rebuild — section-boundary bleed: softens the hard light->dark cut
+   between the light Services section and the dark Performance section
+   (the most visually abrupt boundary on the page) with a short gradient
+   fade instead of a flat color-change line, per the mission's "sections
+   should feel like the next scene, not a new box" instruction. */
+.marketing-section-bleed {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 160px;
+  background: linear-gradient(to bottom, var(--mk-bg), transparent);
+  pointer-events: none;
 }

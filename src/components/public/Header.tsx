@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { CalendarCheck, ChevronDown, Menu, MessageCircle, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import type { SiteContent } from "@/lib/types";
 import { trackMetaCtaClick } from "@/lib/meta-pixel";
 import { Logo } from "./Logo";
@@ -120,73 +120,123 @@ export function Header({ content }: { content: SiteContent }) {
     };
   }, [open]);
 
+  // Mobile full-screen-panel items, flattened into one ordered list so the
+  // blur/stagger entrance (reference 17 item 3) can apply a single
+  // continuous index across static links + the two mapped groups, instead
+  // of three separately-staggered blocks.
+  const mobileRows: Array<{ key: string; node: ReactNode }> = [
+    { key: "home", node: (
+      <Link href="/" onClick={() => setOpen(false)} className={`block rounded-2xl px-4 py-3 text-base font-semibold transition ${isActive("/") ? "marketing-nav-link-active" : ""}`} style={{ color: isActive("/") ? undefined : "var(--mk-ink)" }}>
+        Ana Sayfa
+      </Link>
+    ) },
+    { key: "hizmetler", node: (
+      <Link href="/hizmetler" onClick={() => setOpen(false)} className={`block rounded-2xl px-4 py-3 text-base font-semibold transition ${isActive("/hizmetler") ? "marketing-nav-link-active" : ""}`} style={{ color: isActive("/hizmetler") ? undefined : "var(--mk-ink)" }}>
+        Hizmetler
+      </Link>
+    ) },
+    ...serviceLinks.map(([label, href]) => ({
+      key: `svc-${href}`,
+      node: (
+        <Link href={href} onClick={() => setOpen(false)} className="block rounded-2xl border px-4 py-3 text-sm font-semibold transition" style={{ borderColor: "var(--mk-border)", color: "var(--mk-ink-soft)" }}>
+          {label}
+        </Link>
+      )
+    })),
+    ...mainNav.slice(1).map(([label, href]) => ({
+      key: `main-${href}`,
+      node: (
+        <Link href={href} onClick={() => setOpen(false)} className={`block rounded-2xl px-4 py-3 text-base font-semibold transition ${isActive(href) ? "marketing-nav-link-active" : ""}`} style={{ color: isActive(href) ? undefined : "var(--mk-ink)" }}>
+          {label}
+        </Link>
+      )
+    })),
+    { key: "cta-primary", node: (
+      <Link href="/teklif-al" onClick={() => { trackMetaCtaClick("Mobil Paketini Bul", "/teklif-al"); setOpen(false); }} className="marketing-btn marketing-btn-primary mt-1 w-full">
+        <CalendarCheck size={17} /> Paketini Bul
+      </Link>
+    ) },
+    { key: "cta-whatsapp", node: (
+      <a href={whatsappUrl} target="_blank" rel="noreferrer" onClick={() => { trackMetaCtaClick("Mobil WhatsApp", whatsappUrl); setOpen(false); }} className="marketing-btn marketing-btn-secondary w-full">
+        <MessageCircle size={17} className="text-[#25D366]" /> WhatsApp&apos;tan Görüş
+      </a>
+    ) }
+  ];
+
   return (
-    <header className="relative z-50 px-4 py-4 sm:px-6 lg:px-8" style={{ background: "var(--mk-bg)" }}>
+    <motion.header
+      className="relative z-50 px-4 py-4 sm:px-6 lg:px-8"
+      style={{ background: "var(--mk-bg)" }}
+      initial={{ y: -24, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: reduced ? 0.01 : 0.6, ease: [0.16, 1, 0.3, 1] }}
+    >
       <div
         ref={menuRef}
-        className={`marketing-nav mx-auto flex max-w-7xl items-center justify-between gap-4 rounded-[22px] px-4 py-3 transition-all duration-300 sm:px-5 ${scrolled ? "marketing-nav-scrolled py-2.5" : ""}`}
+        className={`marketing-nav relative mx-auto max-w-7xl rounded-[22px] transition-all duration-300 ${scrolled ? "marketing-nav-scrolled" : ""}`}
       >
-        <Link href="/" aria-label="HK Dijital ana sayfa" onClick={handleLogoClick} className="impact-logo rounded-[8px] transition hover:scale-[1.02]">
-          <Logo content={content} />
-        </Link>
-
-        <nav className="hidden items-center gap-1 lg:flex">
-          {navLink("/", "Ana Sayfa")}
-          <div className="group relative">
-            {navLink("/hizmetler", "Hizmetler", { chevron: true })}
-            <div className="invisible absolute left-0 top-full z-50 mt-3 w-80 translate-y-2 rounded-[18px] border p-2 opacity-0 shadow-[0_24px_80px_rgba(15,16,36,.14)] backdrop-blur-2xl transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100" style={{ borderColor: "var(--mk-border)", background: "rgba(255,255,255,.98)" }}>
-              {serviceLinks.map(([label, href]) => (
-                <Link key={`${href}-${label}`} href={href} className="block rounded-[12px] px-4 py-3 text-sm font-bold transition hover:bg-[#7c3aed]/[0.06]" style={{ color: "var(--mk-ink)" }}>
-                  {label}
-                </Link>
-              ))}
-            </div>
-          </div>
-          {mainNav.slice(1).map(([label, href]) => <span key={href}>{navLink(href, label)}</span>)}
-        </nav>
-
-        <div className="hidden items-center gap-2 lg:flex">
-          <a href={whatsappUrl} target="_blank" rel="noreferrer" onClick={() => trackMetaCtaClick("Header WhatsApp", whatsappUrl)} className="impact-btn inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-bold transition hover:border-[#25D366]/60" style={{ borderColor: "var(--mk-border-strong)", color: "var(--mk-ink)" }}>
-            <MessageCircle size={17} className="text-[#25D366]" /> WhatsApp
-          </a>
-          <Link href="/teklif-al" onClick={() => trackMetaCtaClick("Header Paketini Bul", "/teklif-al")} className="marketing-btn marketing-btn-primary marketing-aurora-btn min-h-11">
-            <CalendarCheck size={17} /> Paketini Bul
+        <span className="marketing-nav-aurora" aria-hidden="true" />
+        <div className={`relative z-10 flex items-center justify-between gap-4 px-4 py-3 sm:px-5 ${scrolled ? "py-2.5" : ""}`}>
+          <Link href="/" aria-label="HK Dijital ana sayfa" onClick={handleLogoClick} className="impact-logo rounded-[8px] transition hover:scale-[1.02]">
+            <Logo content={content} />
           </Link>
-        </div>
 
-        <button className="grid size-11 place-items-center rounded-full border transition lg:hidden" style={{ borderColor: "var(--mk-border-strong)", color: "var(--mk-ink)" }} onClick={() => setOpen((value) => !value)} aria-label={open ? "Menüyü kapat" : "Menüyü aç"} aria-expanded={open} aria-controls="mobile-public-menu">
-          {open ? <X /> : <Menu />}
-        </button>
-      </div>
+          <nav className="hidden items-center gap-1 lg:flex">
+            {navLink("/", "Ana Sayfa")}
+            <div className="group relative">
+              {navLink("/hizmetler", "Hizmetler", { chevron: true })}
+              <div className="invisible absolute left-0 top-full z-50 mt-3 w-80 translate-y-2 rounded-[18px] border p-2 opacity-0 shadow-[0_24px_80px_rgba(15,16,36,.14)] backdrop-blur-2xl transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100" style={{ borderColor: "var(--mk-border)", background: "rgba(255,255,255,.98)" }}>
+                {serviceLinks.map(([label, href]) => (
+                  <Link key={`${href}-${label}`} href={href} className="block rounded-[12px] px-4 py-3 text-sm font-bold transition hover:bg-[#7c3aed]/[0.06]" style={{ color: "var(--mk-ink)" }}>
+                    {label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+            {mainNav.slice(1).map(([label, href]) => <span key={href}>{navLink(href, label)}</span>)}
+          </nav>
 
-      {open && (
-        <div id="mobile-public-menu" className="animate-hard-drop mx-auto mt-3 max-h-[calc(100svh-112px)] max-w-7xl overflow-y-auto rounded-[18px] border px-4 py-4 shadow-[0_20px_70px_rgba(15,16,36,.14)] backdrop-blur-2xl lg:hidden" style={{ borderColor: "var(--mk-border)", background: "rgba(255,255,255,.98)" }}>
-          <nav className="grid gap-2">
-            <Link href="/" onClick={() => setOpen(false)} className={`rounded-2xl px-4 py-3 text-base font-semibold transition ${isActive("/") ? "marketing-nav-link-active" : ""}`} style={{ color: isActive("/") ? undefined : "var(--mk-ink)" }}>
-              Ana Sayfa
-            </Link>
-            <Link href="/hizmetler" onClick={() => setOpen(false)} className={`rounded-2xl px-4 py-3 text-base font-semibold transition ${isActive("/hizmetler") ? "marketing-nav-link-active" : ""}`} style={{ color: isActive("/hizmetler") ? undefined : "var(--mk-ink)" }}>
-              Hizmetler
-            </Link>
-            {serviceLinks.map(([label, href]) => (
-              <Link key={`${href}-${label}`} href={href} onClick={() => setOpen(false)} className="rounded-2xl border px-4 py-3 text-sm font-semibold transition" style={{ borderColor: "var(--mk-border)", color: "var(--mk-ink-soft)" }}>
-                {label}
-              </Link>
-            ))}
-            {mainNav.slice(1).map(([label, href]) => (
-              <Link key={`${href}-${label}`} href={href} onClick={() => setOpen(false)} className={`rounded-2xl px-4 py-3 text-base font-semibold transition ${isActive(href) ? "marketing-nav-link-active" : ""}`} style={{ color: isActive(href) ? undefined : "var(--mk-ink)" }}>
-                {label}
-              </Link>
-            ))}
-            <Link href="/teklif-al" onClick={() => { trackMetaCtaClick("Mobil Paketini Bul", "/teklif-al"); setOpen(false); }} className="marketing-btn marketing-btn-primary mt-1 w-full">
+          <div className="hidden items-center gap-2 lg:flex">
+            <a href={whatsappUrl} target="_blank" rel="noreferrer" onClick={() => trackMetaCtaClick("Header WhatsApp", whatsappUrl)} className="impact-btn inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-bold transition hover:border-[#25D366]/60" style={{ borderColor: "var(--mk-border-strong)", color: "var(--mk-ink)" }}>
+              <MessageCircle size={17} className="text-[#25D366]" /> WhatsApp
+            </a>
+            <Link href="/teklif-al" onClick={() => trackMetaCtaClick("Header Paketini Bul", "/teklif-al")} className="marketing-btn marketing-btn-primary marketing-aurora-btn min-h-11">
               <CalendarCheck size={17} /> Paketini Bul
             </Link>
-            <a href={whatsappUrl} target="_blank" rel="noreferrer" onClick={() => { trackMetaCtaClick("Mobil WhatsApp", whatsappUrl); setOpen(false); }} className="marketing-btn marketing-btn-secondary w-full">
-              <MessageCircle size={17} className="text-[#25D366]" /> WhatsApp&apos;tan Görüş
-            </a>
-          </nav>
+          </div>
+
+          <button className="grid size-11 place-items-center rounded-full border transition lg:hidden" style={{ borderColor: "var(--mk-border-strong)", color: "var(--mk-ink)" }} onClick={() => setOpen((value) => !value)} aria-label={open ? "Menüyü kapat" : "Menüyü aç"} aria-expanded={open} aria-controls="mobile-public-menu">
+            {open ? <X /> : <Menu />}
+          </button>
         </div>
-      )}
-    </header>
+      </div>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            id="mobile-public-menu"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, transition: { duration: reduced ? 0 : 0.2 } }}
+            transition={{ duration: reduced ? 0 : 0.25 }}
+            className="mx-auto mt-3 max-h-[calc(100svh-112px)] max-w-7xl overflow-y-auto rounded-[18px] border px-4 py-4 shadow-[0_20px_70px_rgba(15,16,36,.14)] backdrop-blur-2xl lg:hidden"
+            style={{ borderColor: "var(--mk-border)", background: "rgba(255,255,255,.98)" }}
+          >
+            <nav className="grid gap-2">
+              {mobileRows.map((row, index) => (
+                <motion.div
+                  key={row.key}
+                  initial={{ opacity: 0, y: 22, filter: "blur(10px)" }}
+                  animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                  transition={{ duration: reduced ? 0.01 : 0.5, delay: reduced ? 0 : 0.05 + index * 0.04, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  {row.node}
+                </motion.div>
+              ))}
+            </nav>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.header>
   );
 }

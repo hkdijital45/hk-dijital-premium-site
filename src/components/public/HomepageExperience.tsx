@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import type { KeyboardEvent } from "react";
 import Link from "next/link";
-import { motion, MotionConfig, useMotionValueEvent, useReducedMotion, useScroll, useTransform } from "framer-motion";
+import { AnimatePresence, motion, MotionConfig, useMotionValueEvent, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import {
   ArrowRight, BarChart3, CalendarDays, ChevronDown, Clapperboard, ClipboardCheck, Compass, FileSearch2,
   Handshake, LineChart, Map, MessageCircle, MousePointerClick, Rocket, ShieldCheck,
@@ -20,6 +21,7 @@ import { CheckCircle2 } from "@/lib/icons";
 import { MarketingBadge, MarketingCard, MarketingEyebrow, MarketingHeading, MarketingReveal, MarketingSection } from "./marketing/MarketingUI";
 import { GoogleMark, InstagramMark, MetaMark, platformMarks } from "./PlatformIcons";
 import { ServiceVisual } from "./marketing/MarketingVisualSystem";
+import { serviceVisualVariantForKey } from "./marketing/serviceVisualVariant";
 import { MacBookEcosystem } from "./cinematic/MacBookEcosystem";
 import { ScrollHint } from "./motion/ScrollHint";
 
@@ -117,6 +119,8 @@ function WhatsappLink({ href, children, trackingLabel }: { href: string; childre
 
 function Hero({ whatsappUrl }: { whatsappUrl: string }) {
   const scrollWrapRef = useRef<HTMLDivElement>(null);
+  const chromaRef = useRef<HTMLSpanElement>(null);
+  const chromaFiredRef = useRef(false);
   const { scrollYProgress } = useScroll({ target: scrollWrapRef, offset: ["start start", "end end"] });
   const reduced = useReducedMotion();
   const [pinEligible, setPinEligible] = useState(false);
@@ -126,6 +130,27 @@ function Hero({ whatsappUrl }: { whatsappUrl: string }) {
     window.addEventListener("resize", compute);
     return () => window.removeEventListener("resize", compute);
   }, []);
+
+  // Scroll-exit chromatic pulse: a second, independent firing of the same
+  // mount-time RGB-split accent (see .marketing-chroma in globals.css),
+  // replayed once as the hero hands off to the next section — a scroll-
+  // reactive accent, not just a load-time one, per the V2 rebuild's "hero
+  // must react across its whole scroll range" requirement. Restarting a
+  // CSS keyframe by toggling its class (remove -> reflow -> re-add) is a
+  // read-then-write DOM op, deliberately done in a scroll-value callback
+  // (not React state) so it never triggers a re-render.
+  useMotionValueEvent(scrollYProgress, "change", (v) => {
+    if (v > 0.82 && !chromaFiredRef.current && !reduced) {
+      chromaFiredRef.current = true;
+      const el = chromaRef.current;
+      if (el) {
+        el.classList.remove("marketing-chroma");
+        void el.offsetWidth;
+        el.classList.add("marketing-chroma");
+      }
+    }
+    if (v < 0.4) chromaFiredRef.current = false;
+  });
 
   // `<main>` (Shell.tsx, shared by every public page) sets `overflow:
   // hidden` to contain decorative glows sitewide — a well-known side effect
@@ -143,11 +168,15 @@ function Hero({ whatsappUrl }: { whatsappUrl: string }) {
   // auto-height section via CSS, so compensating here would just introduce
   // an unwanted partial-pin wobble instead of clean normal document flow.
   const pinY = useTransform(scrollYProgress, (v) => (pinEligible && !reduced ? `${v * 100}vh` : "0vh"));
-  // Text stays readable and stable throughout — only a very small hand-off
-  // fade/lift right at the very end, as the hero is about to release into
-  // the next section, never a dramatic move like the device gets.
-  const textOpacity = useTransform(scrollYProgress, [0, 0.9, 1], [1, 1, 0.92]);
-  const textY = useTransform(scrollYProgress, [0, 0.9, 1], [0, 0, -10]);
+  // Spatial separation (V2 rebuild): the text block now drifts and settles
+  // slightly smaller across the first 60% of the hero's scroll range,
+  // visually detaching from the MacBook layer (which runs its own,
+  // independent internal progress curve) rather than sitting perfectly
+  // static beside it — then a stronger fade/lift as the hero hands off.
+  // Text stays fully readable throughout (max drift 52px, min scale 0.95).
+  const textOpacity = useTransform(scrollYProgress, [0, 0.62, 0.88, 1], [1, 1, 1, 0.82]);
+  const textY = useTransform(scrollYProgress, [0, 0.6, 0.88, 1], [0, -34, -34, -46]);
+  const textScale = useTransform(scrollYProgress, [0, 0.6], [1, 0.955]);
 
   return (
     <section
@@ -166,11 +195,13 @@ function Hero({ whatsappUrl }: { whatsappUrl: string }) {
         <div className="marketing-glow" style={{ width: 480, height: 480, top: -200, left: "-10%", background: "rgba(124,58,237,.13)" }} aria-hidden="true" />
         <div className="marketing-glow" style={{ width: 380, height: 380, top: -100, right: "-8%", background: "rgba(37,99,235,.1)" }} aria-hidden="true" />
         <div className="relative mx-auto grid w-full max-w-7xl items-center gap-14 px-4 py-20 sm:px-6 lg:grid-cols-[1.05fr_.95fr] lg:px-8 lg:py-28">
-          <motion.div style={{ opacity: textOpacity, y: textY }}>
+          <motion.div style={{ opacity: textOpacity, y: textY, scale: textScale }}>
             <MarketingReveal>
               <MarketingEyebrow>Manisa merkezli dijital pazarlama ve reklam ajansı</MarketingEyebrow>
-              <MarketingHeading as="h1" className="mt-6 text-4xl sm:text-6xl lg:text-[4.4rem]">
-                Dijitalde Büyümeyi <span className="marketing-gradient-text marketing-chroma" data-text="Şansa">Şansa</span> Bırakmayın
+              <MarketingHeading as="h1" className="hero-headline mt-6 text-4xl sm:text-6xl lg:text-[4.4rem]">
+                <span className="hero-headline-line"><span className="hero-headline-line-inner">Dijitalde</span></span>
+                <span className="hero-headline-line"><span className="hero-headline-line-inner">Büyümeyi <span ref={chromaRef} className="marketing-gradient-text marketing-chroma" data-text="Şansa">Şansa</span></span></span>
+                <span className="hero-headline-line"><span className="hero-headline-line-inner">Bırakmayın</span></span>
               </MarketingHeading>
               <p className="mt-7 max-w-xl text-base leading-8 sm:text-lg" style={{ color: "var(--mk-ink-soft)" }}>
                 HK Dijital; Google Ads, Meta reklamları ve sosyal medya yönetimini tek stratejide birleştirip yapay zekâ destekli görünürlük analiziyle destekleyen ölçülebilir bir dijital büyüme sistemi kurar.
@@ -233,33 +264,38 @@ function AdsStorySection({
   id: string; reverse?: boolean; badgeIcon: LucideIcon; eyebrow: string; title: string; description: string; problem: string; bullets: string[]; ctaLabel: string; trackingLabel: string; visual?: ReactNode;
 }) {
   return (
-    <MarketingSection id={id}>
+    <MarketingSection id={id} className="overflow-hidden">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className={`grid items-center gap-12 lg:grid-cols-2 ${reverse ? "lg:[&>*:first-child]:order-2" : ""}`}>
+        <div className={`grid items-center gap-16 lg:grid-cols-[1.05fr_1fr] ${reverse ? "lg:[&>*:first-child]:order-2" : ""}`}>
           <MarketingReveal>
-            <div className="relative">
+            <div className="relative mx-auto max-w-sm lg:max-w-none">
               <div className="marketing-glow" style={{ width: 260, height: 260, top: -40, left: reverse ? undefined : -40, right: reverse ? -40 : undefined, background: "rgba(124,58,237,.1)" }} aria-hidden="true" />
-              <MarketingCard feature className="relative p-8">
-                <div className="grid h-14 w-14 place-items-center rounded-2xl" style={{ background: "linear-gradient(135deg, rgba(124,58,237,.12), rgba(37,99,235,.1))", color: "var(--mk-violet)" }}>
-                  <BadgeIcon size={26} />
+              {visual && (
+                <div className="ads-story-visual">
+                  <div className="ads-story-badge grid h-14 w-14 place-items-center rounded-2xl" style={{ color: "var(--mk-violet)" }}>
+                    <BadgeIcon size={24} />
+                  </div>
+                  {visual}
                 </div>
-                {visual && <div className="mb-5 mt-6">{visual}</div>}
-                <div className={visual ? "grid gap-3" : "mt-6 grid gap-3"}>
-                  {bullets.map((bullet) => (
-                    <div key={bullet} className="flex items-start gap-2.5 rounded-xl border p-3 text-sm font-semibold" style={{ borderColor: "var(--mk-border)", color: "var(--mk-ink)" }}>
-                      <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-[#7c3aed]" /> {bullet}
-                    </div>
-                  ))}
-                </div>
-              </MarketingCard>
+              )}
             </div>
           </MarketingReveal>
           <MarketingReveal delay={0.1}>
             <MarketingEyebrow>{eyebrow}</MarketingEyebrow>
-            <MarketingHeading className="mt-4 text-3xl sm:text-4xl">{title}</MarketingHeading>
-            <p className="mt-5 text-base leading-8" style={{ color: "var(--mk-ink-soft)" }}>{description}</p>
-            <p className="mt-4 rounded-xl border p-4 text-sm leading-6" style={{ borderColor: "var(--mk-border)", background: "var(--mk-bg-alt)", color: "var(--mk-ink-soft)" }}><b style={{ color: "var(--mk-ink)" }}>Hangi problemi çözer? </b>{problem}</p>
-            <div className="mt-7">
+            <MarketingHeading className="mt-4 text-3xl sm:text-[2.7rem]">{title}</MarketingHeading>
+            <p className="mt-5 max-w-lg text-base leading-8" style={{ color: "var(--mk-ink-soft)" }}>{description}</p>
+            <p className="ads-story-problem">
+              <span className="ads-story-problem-label">Hangi problemi çözer?</span> {problem}
+            </p>
+            <ol className="ads-story-bullets">
+              {bullets.map((bullet, index) => (
+                <li key={bullet}>
+                  <span className="ads-story-bullet-index">0{index + 1}</span>
+                  <span>{bullet}</span>
+                </li>
+              ))}
+            </ol>
+            <div className="mt-8">
               <PrimaryLink href="/teklif-al" trackingLabel={trackingLabel}>{ctaLabel} <ArrowRight size={18} /></PrimaryLink>
             </div>
           </MarketingReveal>
@@ -346,6 +382,86 @@ function SocialMediaSection({ description }: { description: string }) {
 
 /* -------------------------------- Services ------------------------------ */
 
+/**
+ * Desktop (lg+) service explorer — replaces the plain card grid with a
+ * real two-pane interaction: a keyboard/mouse-driven index on the left,
+ * the active service's real copy + visual cross-fading on the right.
+ * Adapts docs/animation-reference/08-service-explorer.md's interaction
+ * grammar to this project's real 8 services (no fabricated metrics — the
+ * per-service visual is the same ServiceVisual fragment family already
+ * used elsewhere, which itself only ever shows literal "—" placeholders).
+ * Mobile/tablet get a deliberately different composition (the existing
+ * horizontal scroll-snap swipe row below), not a shrunk copy of this.
+ */
+function ServiceExplorer({ services }: { services: SiteContent["services"] }) {
+  const [active, setActive] = useState(0);
+  const service = services[active] ?? services[0];
+  if (!service) return null;
+  const Icon = serviceIcons[service.icon] ?? Sparkles;
+  const variant = serviceVisualVariantForKey(service.id);
+
+  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "ArrowDown") { event.preventDefault(); setActive((i) => (i + 1) % services.length); }
+    if (event.key === "ArrowUp") { event.preventDefault(); setActive((i) => (i - 1 + services.length) % services.length); }
+  }
+
+  return (
+    <div className="service-explorer hidden lg:grid" role="tablist" aria-label="Hizmetler" aria-orientation="vertical" onKeyDown={onKeyDown}>
+      <div className="service-explorer-list">
+        {services.map((item, index) => {
+          const ItemIcon = serviceIcons[item.icon] ?? Sparkles;
+          const isActive = index === active;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              id={`service-tab-${item.id}`}
+              aria-selected={isActive}
+              aria-controls={`service-panel-${item.id}`}
+              tabIndex={isActive ? 0 : -1}
+              onClick={() => setActive(index)}
+              onFocus={() => setActive(index)}
+              className={`service-explorer-item ${isActive ? "service-explorer-item-active" : ""}`}
+            >
+              <span className="service-explorer-item-index">0{index + 1}</span>
+              <ItemIcon size={18} className="shrink-0" />
+              <span className="service-explorer-item-label">{item.name}</span>
+              <ArrowRight size={16} className="service-explorer-item-arrow" />
+            </button>
+          );
+        })}
+      </div>
+      <div className="service-explorer-panel" role="tabpanel" id={`service-panel-${service.id}`} aria-labelledby={`service-tab-${service.id}`}>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={service.id}
+            initial={{ opacity: 0, y: 16, scale: 0.985 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -12, scale: 0.985 }}
+            transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <div className="ads-story-visual max-w-sm">
+              <div className="ads-story-badge grid h-14 w-14 place-items-center rounded-2xl" style={{ color: "var(--mk-violet)" }}>
+                <Icon size={24} />
+              </div>
+              <ServiceVisual variant={variant} />
+            </div>
+            <MarketingHeading className="mt-8 text-2xl sm:text-[1.85rem]">{service.name}</MarketingHeading>
+            <p className="mt-4 max-w-md text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>{service.description}</p>
+            <p className="ads-story-problem">
+              <span className="ads-story-problem-label">Hangi problemi çözer?</span> {service.problem}
+            </p>
+            <div className="mt-7">
+              <Link href="/hizmetler" className="marketing-btn marketing-btn-secondary inline-flex items-center gap-1.5">Hizmeti incele <ArrowRight size={16} /></Link>
+            </div>
+          </motion.div>
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
 function ServicesSection({ services }: { services: SiteContent["services"] }) {
   const visible = services.filter((service) => service.visible).sort((a, b) => a.order - b.order);
   return (
@@ -356,12 +472,15 @@ function ServicesSection({ services }: { services: SiteContent["services"] }) {
           <MarketingHeading className="mt-4 max-w-2xl text-3xl sm:text-5xl">Markanızı <span className="marketing-gradient-text">büyümeye</span> bağlayan sistem</MarketingHeading>
           <p className="mt-5 max-w-2xl text-base leading-8" style={{ color: "var(--mk-ink-soft)" }}>Her kanal kendi başına değil; hedef, bütçe, teklif, dönüşüm takibi ve raporlamayla birlikte yönetildiğinde sağlıklı karar üretir.</p>
         </MarketingReveal>
-        <div className="marketing-swipe-row mt-12 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <MarketingReveal delay={0.1} className="mt-12">
+          <ServiceExplorer services={visible} />
+        </MarketingReveal>
+        <div className="marketing-swipe-row mt-12 grid gap-4 lg:hidden md:grid-cols-2">
           {visible.map((service, index) => {
             const Icon = serviceIcons[service.icon] ?? Sparkles;
             const featured = index === 0 || index === 1;
             return (
-              <MarketingReveal key={service.id} delay={index * 0.05} className={featured ? "md:col-span-2 xl:col-span-1" : ""}>
+              <MarketingReveal key={service.id} delay={index * 0.05} className={featured ? "md:col-span-2" : ""}>
                 <MarketingCard feature={featured} className="flex h-full flex-col p-7">
                   <div className="grid size-12 place-items-center rounded-xl" style={{ background: "var(--mk-bg-alt)", color: "var(--mk-violet)" }}>
                     <Icon size={22} />
@@ -386,7 +505,8 @@ function ServicesSection({ services }: { services: SiteContent["services"] }) {
 
 function PerformanceSection() {
   return (
-    <MarketingSection dark id="performans">
+    <MarketingSection dark id="performans" className="overflow-hidden">
+      <div className="marketing-section-bleed" aria-hidden="true" />
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <MarketingReveal>
           <MarketingEyebrow>Performans Pazarlama</MarketingEyebrow>
@@ -605,6 +725,11 @@ function FinalCtaSection({ whatsappUrl }: { whatsappUrl: string }) {
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <MarketingReveal>
           <div className="relative overflow-hidden rounded-[28px] px-6 py-16 text-center sm:px-16" style={{ background: "linear-gradient(120deg, #5b21b6, #4338ca 55%, #a21caf)" }}>
+            <div className="marketing-bokeh" aria-hidden="true">
+              <span style={{ width: 70, height: 70, top: "10%", left: "8%" }} />
+              <span style={{ width: 46, height: 46, top: "65%", left: "20%", animationDelay: "-5s" }} />
+              <span style={{ width: 56, height: 56, top: "20%", right: "12%", animationDelay: "-9s" }} />
+            </div>
             <div className="marketing-wave-bg" aria-hidden="true" />
             <p className="text-xs font-black uppercase tracking-[.22em] text-white/80">Sonraki Adım</p>
             <h2 className="mt-5 text-3xl font-black leading-tight text-white sm:text-5xl">Reklamınızı Büyümeye Çevirin</h2>
