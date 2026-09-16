@@ -78,7 +78,9 @@ test.describe("Google child asset discovery + selection", () => {
         expect(group.message.toLocaleLowerCase("tr-TR")).toContain("yeniden bağla");
       }
       if (group.status === "api_not_enabled") {
-        expect(group.message.toLocaleLowerCase("tr-TR")).toMatch(/api/);
+        // Not .toLocaleLowerCase("tr-TR") here — Turkish casing turns "API"
+        // into "apı" (dotless ı), so match against the original-case text.
+        expect(group.message).toMatch(/API/);
       }
     }
 
