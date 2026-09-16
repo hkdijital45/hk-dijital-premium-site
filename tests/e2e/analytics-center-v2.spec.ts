@@ -206,9 +206,14 @@ test.describe("Analytics Center V2 — customer selection, platform nav, dashboa
     const companies = await getRealCompanies(request);
     const company = await openCompany(page, (companies.find((c: any) => c.id === REPORTED_COMPANY_ID) || companies[0])?.id);
     test.skip(!company, "Company not found via UI search.");
-    await page.waitForTimeout(1000);
-    const svgCount = await page.locator("svg[role='img']").count();
-    expect(svgCount).toBeGreaterThan(0);
+    // Charts show a loading spinner (no <svg>) while the metrics fetch is
+    // in flight — poll rather than a single fixed wait, so this isn't
+    // flaky under load (e.g. right after another test's own fetch/render
+    // cycle in the same worker).
+    await expect(async () => {
+      const svgCount = await page.locator("svg[role='img']").count();
+      expect(svgCount).toBeGreaterThan(0);
+    }).toPass({ timeout: 8000 });
   });
 
   test("mobile viewport: no horizontal overflow, platform nav is horizontally scrollable", async ({ page, request }) => {
