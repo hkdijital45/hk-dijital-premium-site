@@ -110,10 +110,14 @@ export async function getProviderConnectionStatus(companyId: string, provider: A
     scopeReady = false;
     scopeNote = "Instagram/Facebook analiz izinleri (pages_show_list, pages_read_engagement, instagram_basic, instagram_manage_insights) şu anda istenmiyor. Ayrı, Business tipinde bir Meta App + Configuration gerekir — bkz. docs/analytics-center/setup.md.";
   }
-  if (provider === "google_ads" && !process.env.GOOGLE_ADS_DEVELOPER_TOKEN) {
-    scopeReady = false;
-    scopeNote = "Google Ads API için GOOGLE_ADS_DEVELOPER_TOKEN sunucu ortam değişkeni tanımlanmalı.";
-  }
+  // GOOGLE_ADS_DEVELOPER_TOKEN is no longer a real requirement: Google
+  // sunset developer tokens on 2026-09-09 and now determines Google Ads API
+  // access purely by the Google Cloud project behind GOOGLE_CLIENT_ID —
+  // see fetchGoogleAccounts()/googleAdsSearch(). Deliberately no scopeReady
+  // gate here anymore; if the connected Cloud project genuinely lacks
+  // Google Ads access, that surfaces as a real, specific per-account
+  // diagnostic from googleDiscoveryGroups() instead of a blanket, always-on
+  // warning that no longer reflects reality.
 
   const externalHref = asset ? externalLinkForAsset(provider, asset) : null;
 

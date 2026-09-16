@@ -67,7 +67,7 @@ const YOUTUBE_METRICS: ProviderMetricDefinition[] = [
   supported("shares", "Paylaşım", "count", "engagement")
 ];
 
-// Google Ads API (googleads.googleapis.com, v24 — matches the version
+// Google Ads API (googleads.googleapis.com, v25 — matches the version
 // already used by src/lib/customer-integration-oauth.ts's account
 // discovery, so this integration surface stays on one consistent version).
 // Cost values arrive in micros; adapters divide by 1_000_000 before storing.

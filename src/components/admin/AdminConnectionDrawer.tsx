@@ -96,10 +96,26 @@ export function AdminConnectionDrawer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProvider, companyId]);
 
+  // Google responses carry a per-service `groups` object (see
+  // googleDiscoveryGroups in customer-integration-oauth.ts) keyed exactly
+  // by AnalyticsProvider ("youtube"/"google_ads"/"google_business_profile")
+  // — the real, service-specific result and message, never the old
+  // account-level filter that couldn't distinguish "this service returned
+  // nothing" from "this service errored" from "this service was never
+  // checked". Meta doesn't have this shape (listMetaBusinessAssets' own
+  // groups are category-labeled, not AnalyticsProvider-keyed, and the Meta
+  // flow already works in production — untouched here), so Meta still
+  // filters the flat accounts list directly.
+  const googleGroup = useMemo(() => {
+    if (oauthParent !== "google") return null;
+    return oauthInfo?.groups?.[activeProvider] || null;
+  }, [oauthInfo, oauthParent, activeProvider]);
+
   const childAccounts = useMemo(() => {
+    if (googleGroup) return googleGroup.assets || [];
     const accounts = Array.isArray(oauthInfo?.accounts) ? oauthInfo.accounts : [];
     return accounts.filter((item: any) => matchesChildProvider(item, activeProvider));
-  }, [oauthInfo, activeProvider]);
+  }, [oauthInfo, activeProvider, googleGroup]);
 
   async function loadAccounts() {
     setLoadingAccounts(true);
@@ -108,10 +124,13 @@ export function AdminConnectionDrawer({
       const response = await fetch(`/api/integrations/accounts?provider=${oauthParent}&company=${encodeURIComponent(companyId)}`, { cache: "no-store" });
       const payload = await response.json().catch(() => ({}));
       setOauthInfo(payload);
-      const matches = (Array.isArray(payload.accounts) ? payload.accounts : []).filter((item: any) => matchesChildProvider(item, activeProvider));
+      const group = oauthParent === "google" ? payload?.groups?.[activeProvider] : null;
+      const matches = group ? (group.assets || []) : (Array.isArray(payload.accounts) ? payload.accounts : []).filter((item: any) => matchesChildProvider(item, activeProvider));
       setSelectedIds(matches.slice(0, 1).map((item: any) => item.id));
       if (!response.ok) setMessage(payload.message || "Yetkili hesap listesi alınamadı.");
+      else if (group) setMessage(group.message);
       else if (!matches.length) setMessage(payload.message || "Bu hesap için henüz yetkili varlık listelenemedi.");
+      else setMessage(payload.message || "Yetkili hesaplar listelendi.");
     } catch {
       setMessage("Yetkili hesap listesi alınamadı.");
     } finally {
@@ -248,13 +267,31 @@ export function AdminConnectionDrawer({
               <p className="text-sm font-black" style={{ color: "var(--admin-text-primary)" }}>Yetkili Hesaplar</p>
               <AdminButton variant="success" compact onClick={saveSelected} loading={saving}>Seçilenleri Kaydet</AdminButton>
             </div>
-            <div className="mt-2 grid gap-1.5">
-              {childAccounts.map((item: any) => (
-                <label key={item.id} className="flex items-center gap-2 rounded-[10px] border p-2 text-xs font-bold" style={{ borderColor: "var(--admin-border)", color: "var(--admin-text-primary)" }}>
-                  <input type="checkbox" checked={selectedIds.includes(item.id)} onChange={(event) => setSelectedIds((current) => event.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id))} />
-                  {item.provider_account_name || item.asset_name || item.name} <span style={{ color: "var(--admin-text-muted)" }}>({item.provider_account_id || item.account_id || item.asset_id})</span>
-                </label>
-              ))}
+            <div className="mt-2 max-h-64 overflow-auto rounded-[10px] border" style={{ borderColor: "var(--admin-border)" }}>
+              <table className="w-full min-w-[560px] text-left text-xs">
+                <thead style={{ background: "var(--admin-surface-soft)", color: "var(--admin-text-muted)" }}>
+                  <tr>
+                    <th className="p-2">Seç</th>
+                    <th className="p-2">Hesap adı</th>
+                    <th className="p-2">Platform</th>
+                    <th className="p-2">Varlık türü</th>
+                    <th className="p-2">Hesap ID</th>
+                    <th className="p-2">Durum</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {childAccounts.map((item: any) => (
+                    <tr key={item.id} className="border-t" style={{ borderColor: "var(--admin-border)" }}>
+                      <td className="p-2"><input type="checkbox" checked={selectedIds.includes(item.id)} onChange={(event) => setSelectedIds((current) => event.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id))} /></td>
+                      <td className="p-2 font-bold" style={{ color: "var(--admin-text-primary)" }}>{item.provider_account_name || item.asset_name || item.name}</td>
+                      <td className="p-2">{PROVIDER_LABELS[activeProvider]}</td>
+                      <td className="p-2">{item.account_type || item.asset_type}</td>
+                      <td className="p-2" style={{ color: "var(--admin-text-muted)" }}>{item.provider_account_id || item.account_id || item.asset_id}</td>
+                      <td className="p-2">{item.status || "Seçilebilir"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}

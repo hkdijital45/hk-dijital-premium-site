@@ -5,24 +5,25 @@ import type { ConnectionAsset, DailyMetricRow, DateRange, SyncOutcome } from "..
 
 export { campaignMetricKey, isCampaignMetricKey, parseCampaignMetricKey } from "../campaign-keys";
 
-// Google Ads API v24 — matches the version already used by
+// Google Ads API v25 — matches the version used by
 // src/lib/customer-integration-oauth.ts's customers:listAccessibleCustomers
-// discovery call, so this integration surface stays on one consistent
-// version rather than mixing v24 discovery with a different reporting
-// version. GOOGLE_ADS_DEVELOPER_TOKEN is an application-level secret (never
-// entered by the customer); GOOGLE_ADS_LOGIN_CUSTOMER_ID is only required
-// when the connected account is managed under an MCC.
-const ADS_BASE = "https://googleads.googleapis.com/v24";
+// discovery call (bumped together from v24, both current/supported as of
+// 2026-09). Google sunset developer tokens on 2026-09-09: API access is now
+// tied to the Google Cloud project behind GOOGLE_CLIENT_ID/SECRET, not a
+// separate token — the header is optional and ignored by Google's servers,
+// so it's sent only if still configured (harmless) and never required.
+// GOOGLE_ADS_LOGIN_CUSTOMER_ID is unrelated to that change and still
+// required when the connected account is managed under an MCC.
+const ADS_BASE = "https://googleads.googleapis.com/v25";
 
 // Campaign-level metric_key encoding (campaignMetricKey/isCampaignMetricKey/
 // parseCampaignMetricKey) now lives in ../campaign-keys.ts (pure, no
 // server-only import) and is re-exported above for existing call sites.
 
 async function googleAdsSearch(customerId: string, accessToken: string, query: string) {
-  const developerToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
-  if (!developerToken) throw new Error("GOOGLE_ADS_DEVELOPER_TOKEN sunucu ortam değişkeni tanımlanmadan Google Ads API kullanılamaz.");
+  const headers: Record<string, string> = { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" };
+  if (process.env.GOOGLE_ADS_DEVELOPER_TOKEN) headers["developer-token"] = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
   const loginCustomerId = process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID;
-  const headers: Record<string, string> = { Authorization: `Bearer ${accessToken}`, "developer-token": developerToken, "Content-Type": "application/json" };
   if (loginCustomerId) headers["login-customer-id"] = loginCustomerId.replace(/-/g, "");
   const response = await fetch(`${ADS_BASE}/customers/${customerId.replace(/-/g, "")}/googleAds:search`, {
     method: "POST",

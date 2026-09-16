@@ -45,7 +45,10 @@ const OPTIONAL_INTEGRATIONS: Array<{ name: string; keys: string[] }> = [
   { name: "Meta integration", keys: ["META_APP_ID", "META_APP_SECRET", "META_ACCESS_TOKEN"] },
   { name: "Google Ads/Analytics integration", keys: ["GOOGLE_ADS_CLIENT_ID", "GOOGLE_ADS_CLIENT_SECRET", "GOOGLE_SERVICE_ACCOUNT_EMAIL"] },
   { name: "Customer OAuth connect flow (Google side — YouTube/Ads/GBP/GA4/Search Console analytics)", keys: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI"] },
-  { name: "Google Ads reporting (Analiz & Raporlama Merkezi)", keys: ["GOOGLE_ADS_DEVELOPER_TOKEN"] },
+  // GOOGLE_ADS_DEVELOPER_TOKEN was required before Google sunset developer
+  // tokens on 2026-09-09 — access is now tied to the Google Cloud project
+  // behind GOOGLE_CLIENT_ID/SECRET (already validated above), so there is
+  // no longer a separate env var that gates Google Ads reporting.
   { name: "Instagram/Facebook analytics advanced permissions (dedicated Business-type Meta App + Configuration — see .env.example)", keys: ["META_BUSINESS_CLIENT_ID", "META_BUSINESS_CLIENT_SECRET", "META_LOGIN_CONFIG_ID"] },
   { name: "Email delivery", keys: ["RESEND_API_KEY", "SMTP_HOST"] },
   { name: "Integration token encryption", keys: ["INTEGRATION_TOKEN_SECRET", "INTEGRATION_ENCRYPTION_KEY"] }

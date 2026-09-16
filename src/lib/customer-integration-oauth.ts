@@ -56,7 +56,16 @@ const providerConfig: Record<Provider, {
     label: "Google",
     env: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI"],
     authBase: "https://accounts.google.com/o/oauth2/v2/auth",
-    scope: "openid email profile https://www.googleapis.com/auth/analytics.readonly https://www.googleapis.com/auth/webmasters.readonly https://www.googleapis.com/auth/adwords https://www.googleapis.com/auth/business.manage https://www.googleapis.com/auth/youtube.readonly",
+    // youtube.readonly (Data API v3) covers channel discovery only —
+    // yt-analytics.readonly (YouTube Analytics API v2) is a SEPARATE scope
+    // required for syncYoutubeAnalytics's real metrics (views, watch time,
+    // subscribers) in analytics-center/providers/youtube.ts. Missing here
+    // previously — a real gap confirmed against a live, already-connected
+    // production Google login whose granted scopes had youtube.readonly
+    // but not yt-analytics.readonly. Anyone already connected before this
+    // change needs to reconnect once (Google OAuth is not retroactive) —
+    // see docs/analytics-center/setup.md.
+    scope: "openid email profile https://www.googleapis.com/auth/analytics.readonly https://www.googleapis.com/auth/webmasters.readonly https://www.googleapis.com/auth/adwords https://www.googleapis.com/auth/business.manage https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/yt-analytics.readonly",
     assetTypes: ["Google Ads Customer", "GA4 Property", "Search Console Site", "Google Business Profile", "YouTube Channel"]
   },
   tiktok: {
@@ -1053,13 +1062,25 @@ function metaPhase1AccountFromSession(oauthSession: any) {
   };
 }
 
-function googleApiErrorMessage(payload: any, fallback: string) {
-  const raw = clean(payload?.error?.message || payload?.error_description || payload?.message || payload?.error || fallback);
+// Returns the RAW error Google itself sent — never a pre-bucketed friendly
+// string. classifyGoogleError()/googleDiscoveryGroups() do the bucketing
+// downstream, per-service, so each of the 5 provider cards can show its own
+// exact diagnostic ("Bu Google hesabında erişilebilir YouTube kanalı
+// bulunamadı." vs "YouTube Data API etkin değil." vs "YouTube izni eksik —
+// hesabı yeniden bağla.") instead of one blanket "Google API isteği
+// başarısız oldu." that looks the same for every failure.
+function rawGoogleError(payload: any, fallback: string) {
+  return clean(payload?.error?.message || payload?.error_description || payload?.message || (payload?.error && JSON.stringify(payload.error)) || fallback);
+}
+
+type GoogleErrorCategory = "developer_token_required" | "api_not_enabled" | "permission_required" | "other";
+
+function classifyGoogleError(raw: string): GoogleErrorCategory {
   const lower = raw.toLocaleLowerCase("tr-TR");
-  if (lower.includes("api has not been used") || lower.includes("disabled") || lower.includes("not enabled")) return "Google Cloud’da ilgili API etkinleştirilmelidir.";
-  if (lower.includes("permission") || lower.includes("insufficient") || lower.includes("forbidden") || lower.includes("unauthorized")) return "Google hesabında bu varlığı okumak için yetki gerekiyor.";
-  if (lower.includes("developer token")) return "Google Ads hesaplarını listelemek için GOOGLE_ADS_DEVELOPER_TOKEN gerekiyor.";
-  return raw || fallback;
+  if (lower.includes("developer token") || lower.includes("developer-token")) return "developer_token_required";
+  if (lower.includes("api has not been used") || lower.includes("it is disabled") || lower.includes("not enabled") || lower.includes("has not been used")) return "api_not_enabled";
+  if (lower.includes("permission") || lower.includes("insufficient") || lower.includes("forbidden") || lower.includes("unauthorized") || lower.includes("invalid_grant")) return "permission_required";
+  return "other";
 }
 
 async function googleJson(url: string, accessToken: string, init: RequestInit = {}) {
@@ -1072,13 +1093,61 @@ async function googleJson(url: string, accessToken: string, init: RequestInit = 
     cache: "no-store"
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(googleApiErrorMessage(payload, "Google API isteği başarısız oldu."));
+  if (!response.ok) throw new Error(rawGoogleError(payload, "Google API isteği başarısız oldu."));
   return payload;
+}
+
+// Google Ads API v25 (current, supported through ~2027 — bumped from v24;
+// see the identical version note on analytics-center/providers/google-ads.ts,
+// the real metrics-sync adapter, which needed the same bump). Developer
+// tokens were sunset by Google on 2026-09-09: access is now determined by
+// the Google Cloud project behind GOOGLE_CLIENT_ID/SECRET, not by a
+// separate token — the header is "optional and ignored" per Google's own
+// migration notice, so it's sent only if still configured (harmless) and
+// never required to make the call at all. See docs/analytics-center/setup.md.
+const GOOGLE_ADS_API_BASE = "https://googleads.googleapis.com/v25";
+
+function googleAdsHeaders(accessToken: string): Record<string, string> {
+  const headers: Record<string, string> = { Authorization: `Bearer ${accessToken}` };
+  if (process.env.GOOGLE_ADS_DEVELOPER_TOKEN) headers["developer-token"] = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
+  const loginCustomerId = process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID;
+  if (loginCustomerId) headers["login-customer-id"] = loginCustomerId.replace(/-/g, "");
+  return headers;
+}
+
+// Best-effort enrichment only — listAccessibleCustomers returns bare
+// resource names (IDs), nothing else. One extra GAQL call per discovered
+// customer to get a real descriptive_name/manager flag rather than
+// fabricating a name; any single customer's failure (no access, MCC quirk)
+// never drops that customer from the list or fails the whole discovery —
+// it just falls back to an ID-labeled placeholder, same resilience pattern
+// used elsewhere in this file (Business Profile locations, per-metric sync).
+async function enrichGoogleAdsCustomer(customerId: string, accessToken: string): Promise<{ name: string; isManager: boolean } | null> {
+  try {
+    const response = await fetch(`${GOOGLE_ADS_API_BASE}/customers/${customerId}/googleAds:search`, {
+      method: "POST",
+      headers: { ...googleAdsHeaders(accessToken), "Content-Type": "application/json" },
+      body: JSON.stringify({ query: "SELECT customer.id, customer.descriptive_name, customer.manager FROM customer LIMIT 1" })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) return null;
+    const row = Array.isArray(payload.results) ? payload.results[0] : null;
+    if (!row?.customer) return null;
+    return { name: clean(row.customer.descriptiveName), isManager: Boolean(row.customer.manager) };
+  } catch {
+    return null;
+  }
 }
 
 async function fetchGoogleAccounts(accessToken: string) {
   const user = await googleJson("https://www.googleapis.com/oauth2/v3/userinfo", accessToken).catch((error) => ({ sub: "", email: "", name: error instanceof Error ? error.message : "" }));
   const warnings: string[] = [];
+  const serviceErrors: Array<{ service: string; category: GoogleErrorCategory; raw: string }> = [];
+  function recordFailure(service: string, label: string, reason: unknown) {
+    const raw = reason instanceof Error ? reason.message : "Bilinmeyen hata.";
+    warnings.push(`${label}: ${raw}`);
+    serviceErrors.push({ service, category: classifyGoogleError(raw), raw });
+  }
   const accounts: any[] = [{
     id: `google-profile-${user.sub || "authorized"}`,
     provider: "google",
@@ -1093,9 +1162,7 @@ async function fetchGoogleAccounts(accessToken: string) {
   const [ga4, sites, ads, gbpAccounts, youtube] = await Promise.allSettled([
     googleJson("https://analyticsadmin.googleapis.com/v1beta/accountSummaries", accessToken),
     googleJson("https://www.googleapis.com/webmasters/v3/sites", accessToken),
-    process.env.GOOGLE_ADS_DEVELOPER_TOKEN
-      ? googleJson("https://googleads.googleapis.com/v24/customers:listAccessibleCustomers", accessToken, { headers: { "developer-token": process.env.GOOGLE_ADS_DEVELOPER_TOKEN } })
-      : Promise.reject(new Error("Google Ads hesaplarını listelemek için GOOGLE_ADS_DEVELOPER_TOKEN gerekiyor.")),
+    googleJson(`${GOOGLE_ADS_API_BASE}/customers:listAccessibleCustomers`, accessToken, { headers: googleAdsHeaders(accessToken) }),
     googleJson("https://mybusinessaccountmanagement.googleapis.com/v1/accounts", accessToken),
     googleJson("https://www.googleapis.com/youtube/v3/channels?part=snippet,contentDetails,statistics&mine=true", accessToken)
   ]);
@@ -1105,39 +1172,57 @@ async function fetchGoogleAccounts(accessToken: string) {
       accounts.push({ id: `google-ga4-${property.property}`, provider: "google", platform: "google_analytics", category: "GA4 Properties", account_type: "ga4_property", provider_account_id: String(property.property || "").replace("properties/", ""), provider_account_name: property.displayName || property.property, status: "Seçilebilir", metadata: property });
     });
   } else {
-    warnings.push(`GA4: ${ga4.reason instanceof Error ? ga4.reason.message : "Google Analytics Admin API verisi alınamadı."}`);
+    recordFailure("ga4", "GA4", ga4.reason);
   }
   if (sites.status === "fulfilled") {
     const entries = Array.isArray(sites.value.siteEntry) ? sites.value.siteEntry : [];
     entries.forEach((site: any) => accounts.push({ id: `google-search-${site.siteUrl}`, provider: "google", platform: "search_console", category: "Search Console Siteleri", account_type: "search_console_site", provider_account_id: site.siteUrl, provider_account_name: site.siteUrl, status: site.permissionLevel || "Seçilebilir", metadata: site }));
   } else {
-    warnings.push(`Search Console: ${sites.reason instanceof Error ? sites.reason.message : "Search Console siteleri alınamadı."}`);
+    recordFailure("search_console", "Search Console", sites.reason);
   }
   if (ads.status === "fulfilled") {
-    const resourceNames = Array.isArray(ads.value.resourceNames) ? ads.value.resourceNames : [];
-    resourceNames.forEach((resourceName: string) => {
-      const customerId = clean(resourceName).replace("customers/", "");
-      accounts.push({ id: `google-ads-${customerId}`, provider: "google", platform: "google_ads", category: "Google Ads Hesapları", account_type: "google_ads_customer", provider_account_id: customerId, provider_account_name: `Google Ads Customer ID ${customerId}`, status: "Seçilebilir", metadata: { resourceName } });
+    const resourceNames: string[] = (Array.isArray(ads.value.resourceNames) ? ads.value.resourceNames : []).slice(0, 25);
+    const customerIds = resourceNames.map((resourceName) => clean(resourceName).replace("customers/", ""));
+    const enrichments = await Promise.allSettled(customerIds.map((customerId) => enrichGoogleAdsCustomer(customerId, accessToken)));
+    customerIds.forEach((customerId, index) => {
+      const enriched = enrichments[index].status === "fulfilled" ? (enrichments[index] as PromiseFulfilledResult<{ name: string; isManager: boolean } | null>).value : null;
+      accounts.push({
+        id: `google-ads-${customerId}`,
+        provider: "google",
+        platform: "google_ads",
+        category: "Google Ads Hesapları",
+        account_type: "google_ads_customer",
+        provider_account_id: customerId,
+        provider_account_name: enriched?.name || `Google Ads Customer ID ${customerId}`,
+        status: enriched?.isManager ? "Yönetici hesabı (MCC)" : "Seçilebilir",
+        metadata: { resourceName: `customers/${customerId}`, isManager: Boolean(enriched?.isManager) }
+      });
     });
   } else {
-    warnings.push(`Google Ads: ${ads.reason instanceof Error ? ads.reason.message : "Google Ads erişilebilir müşteri listesi alınamadı."}`);
+    recordFailure("google_ads", "Google Ads", ads.reason);
   }
   if (gbpAccounts.status === "fulfilled") {
     const gbpList = Array.isArray(gbpAccounts.value.accounts) ? gbpAccounts.value.accounts : [];
     for (const account of gbpList.slice(0, 10)) {
       const accountName = clean(account.name);
-      accounts.push({ id: `google-business-${accountName}`, provider: "google", platform: "google_business_profile", category: "Business Profile Lokasyonları", account_type: "google_business_profile_account", provider_account_id: accountName, provider_account_name: account.accountName || accountName, status: "Seçilebilir", metadata: account });
       try {
-        const locations = await googleJson(`https://mybusinessbusinessinformation.googleapis.com/v1/${accountName}/locations?readMask=name,title,storeCode`, accessToken);
-        (Array.isArray(locations.locations) ? locations.locations : []).forEach((location: any) => {
-          accounts.push({ id: `google-business-location-${location.name}`, provider: "google", platform: "google_business_profile", category: "Business Profile Lokasyonları", account_type: "google_business_location", provider_account_id: location.name, provider_account_name: location.title || location.name, status: "Seçilebilir", metadata: location });
+        const locations = await googleJson(`https://mybusinessbusinessinformation.googleapis.com/v1/${accountName}/locations?readMask=name,title,storeCode,storefrontAddress`, accessToken);
+        const locationList = Array.isArray(locations.locations) ? locations.locations : [];
+        locationList.forEach((location: any) => {
+          const address = location.storefrontAddress ? [location.storefrontAddress.addressLines?.join(", "), location.storefrontAddress.locality].filter(Boolean).join(", ") : "";
+          // parentAccount is the RESOURCE name ("accounts/123...", not the
+          // human-readable accountName) — analytics-center/providers/
+          // google-business.ts's fetchReviewSummary needs exactly this
+          // shape to build the reviews API path (`${parentAccount}/${locationId}/reviews`).
+          accounts.push({ id: `google-business-location-${location.name}`, provider: "google", platform: "google_business_profile", category: "Business Profile Lokasyonları", account_type: "google_business_location", provider_account_id: location.name, provider_account_name: location.title || location.name, status: "Seçilebilir", metadata: { ...location, parentAccount: accountName, accountLabel: account.accountName || accountName, address } });
         });
+        if (!locationList.length) recordFailure("google_business_profile", "Business Profile lokasyonları", new Error(`${account.accountName || accountName}: bu hesapta hiç lokasyon yok.`));
       } catch (error) {
-        warnings.push(`Business Profile lokasyonları: ${error instanceof Error ? error.message : "Lokasyonlar alınamadı."}`);
+        recordFailure("google_business_profile", "Business Profile lokasyonları", error);
       }
     }
   } else {
-    warnings.push(`Google Business Profile: ${gbpAccounts.reason instanceof Error ? gbpAccounts.reason.message : "Business Profile hesapları alınamadı."}`);
+    recordFailure("google_business_profile", "Google Business Profile", gbpAccounts.reason);
   }
   if (youtube.status === "fulfilled") {
     const channels = Array.isArray(youtube.value.items) ? youtube.value.items : [];
@@ -1151,30 +1236,64 @@ async function fetchGoogleAccounts(accessToken: string) {
         provider_account_id: channel.id,
         provider_account_name: channel.snippet?.title || channel.id,
         status: "Seçilebilir",
-        metadata: { channelId: channel.id, title: channel.snippet?.title || "", customUrl: channel.snippet?.customUrl || "" }
+        metadata: { channelId: channel.id, title: channel.snippet?.title || "", customUrl: channel.snippet?.customUrl || "", thumbnail: channel.snippet?.thumbnails?.default?.url || "", subscriberCount: channel.statistics?.subscriberCount || null }
       });
     });
   } else {
-    warnings.push(`YouTube: ${youtube.reason instanceof Error ? youtube.reason.message : "YouTube kanalları alınamadı."}`);
+    recordFailure("youtube", "YouTube", youtube.reason);
   }
   (accounts as any).warnings = warnings.filter(Boolean);
+  (accounts as any).serviceErrors = serviceErrors;
   return accounts;
 }
 
-function googleDiscoveryGroups(accounts: any[], warnings: string[] = []) {
-  const groups: Record<string, { status: string; assets: any[]; message: string }> = {
-    ga4: { status: "empty", assets: [], message: "GA4 mülkü bulunamadı." },
-    search_console: { status: "empty", assets: [], message: "Search Console sitesi bulunamadı." },
-    google_ads: { status: "empty", assets: [], message: "Google Ads hesabı bulunamadı." },
-    business_profile: { status: "empty", assets: [], message: "Business Profile lokasyonu bulunamadı." },
-    youtube: { status: "empty", assets: [], message: "YouTube kanalı bulunamadı." }
+// Clean, spec-exact, per-service messages — never a single blanket
+// "Yetkili hesaplar listelendi." covering all 5 Google services at once
+// (the real cause of admins seeing that success text while YouTube/Ads/GBP
+// silently had zero rows: the old top-level message only reflected whether
+// ANY Google asset of ANY kind was found, not the one service being
+// looked at). rawDetail keeps Google's own error text for anyone who needs
+// to see exactly what Google said, without putting it in the primary,
+// customer/admin-facing message.
+const GOOGLE_EMPTY_MESSAGE: Record<string, string> = {
+  ga4: "Bu Google hesabında erişilebilir GA4 mülkü bulunamadı.",
+  search_console: "Bu Google hesabında erişilebilir Search Console sitesi bulunamadı.",
+  google_ads: "Bu Google hesabında erişilebilir Google Ads hesabı bulunamadı.",
+  google_business_profile: "Bu Google hesabında erişilebilir Business Profile konumu bulunamadı.",
+  youtube: "Bu Google hesabında erişilebilir YouTube kanalı bulunamadı."
+};
+const GOOGLE_PERMISSION_MESSAGE: Record<string, string> = {
+  ga4: "GA4 izni eksik — hesabı yeniden bağla.",
+  search_console: "Search Console izni eksik — hesabı yeniden bağla.",
+  google_ads: "Google Ads izni eksik — hesabı yeniden bağla.",
+  google_business_profile: "Business Profile izni eksik — hesabı yeniden bağla.",
+  youtube: "YouTube izni eksik — hesabı yeniden bağla."
+};
+const GOOGLE_API_NOT_ENABLED_MESSAGE: Record<string, string> = {
+  ga4: "Google Analytics Admin API etkin değil.",
+  search_console: "Search Console API etkin değil.",
+  google_ads: "Google Ads API erişimi etkin değil.",
+  google_business_profile: "Google Business Profile API erişimi etkin değil.",
+  youtube: "YouTube Data API etkin değil."
+};
+
+function googleDiscoveryGroups(accounts: any[], serviceErrors: Array<{ service: string; category: GoogleErrorCategory; raw: string }> = []) {
+  const groups: Record<string, { status: string; assets: any[]; message: string; rawDetail?: string }> = {
+    ga4: { status: "empty", assets: [], message: GOOGLE_EMPTY_MESSAGE.ga4 },
+    search_console: { status: "empty", assets: [], message: GOOGLE_EMPTY_MESSAGE.search_console },
+    google_ads: { status: "empty", assets: [], message: GOOGLE_EMPTY_MESSAGE.google_ads },
+    google_business_profile: { status: "empty", assets: [], message: GOOGLE_EMPTY_MESSAGE.google_business_profile },
+    youtube: { status: "empty", assets: [], message: GOOGLE_EMPTY_MESSAGE.youtube }
   };
   for (const account of accounts) {
     const type = clean(account.account_type || account.asset_type || account.platform);
+    // google_business_profile_account (the parent GBP account row, not a
+    // syncable/selectable asset) is deliberately excluded — only real
+    // locations count as a Business Profile "child asset" here.
     const service = type === "ga4_property" ? "ga4"
       : type === "search_console_site" ? "search_console"
         : type === "google_ads_customer" ? "google_ads"
-          : type.includes("google_business") ? "business_profile"
+          : type === "google_business_location" ? "google_business_profile"
             : type.includes("youtube") ? "youtube"
               : "";
     if (!service || !groups[service]) continue;
@@ -1182,20 +1301,14 @@ function googleDiscoveryGroups(accounts: any[], warnings: string[] = []) {
     groups[service].status = "ok";
     groups[service].message = "Varlıklar listelendi.";
   }
-  for (const warning of warnings) {
-    const lower = warning.toLocaleLowerCase("tr-TR");
-    const service = lower.includes("ga4") ? "ga4"
-      : lower.includes("search console") ? "search_console"
-        : lower.includes("google ads") ? "google_ads"
-          : lower.includes("business profile") ? "business_profile"
-            : lower.includes("youtube") ? "youtube"
-              : "";
-    if (!service || !groups[service] || groups[service].assets.length) continue;
-    groups[service].status = lower.includes("developer token") ? "developer_token_required"
-      : lower.includes("api") || lower.includes("etkinleştirilmelidir") ? "api_not_enabled"
-        : lower.includes("yetki") || lower.includes("permission") ? "permission_required"
-          : "warning";
-    groups[service].message = warning.replace(/^[^:]+:\s*/, "");
+  for (const error of serviceErrors) {
+    const group = groups[error.service];
+    if (!group || group.assets.length) continue; // a real result already exists — a stale warning from elsewhere never overrides it
+    group.status = error.category;
+    group.rawDetail = error.raw;
+    group.message = error.category === "api_not_enabled" ? (GOOGLE_API_NOT_ENABLED_MESSAGE[error.service] || `İlgili Google Cloud API etkin değil: ${error.raw}`)
+      : error.category === "permission_required" ? (GOOGLE_PERMISSION_MESSAGE[error.service] || "İzin eksik — hesabı yeniden bağla.")
+        : error.raw; // developer_token_required (legacy/rare post-sunset) or "other" — show Google's own text directly
   }
   return groups;
 }
@@ -1310,13 +1423,22 @@ export async function oauthAccounts(request: Request) {
     }
     const accounts = provider === "google" ? await fetchGoogleAccounts(accessToken) : provider === "tiktok" ? await fetchTikTokAccounts(accessToken) : await fetchXAccounts(accessToken);
     const warnings = (accounts as any).warnings || [];
+    const groups = provider === "google" ? googleDiscoveryGroups(accounts, (accounts as any).serviceErrors || []) : undefined;
+    // Never a single blanket "Yetkili hesaplar listelendi." for Google —
+    // that text used to cover all 5 services at once, so an admin looking
+    // specifically at YouTube/Ads/GBP saw a false "success" message even
+    // when that one service returned zero rows. groups[service].message is
+    // the real, per-service result; this top-level message is now only a
+    // coarse summary for callers that don't look at groups (kept for
+    // backward compatibility with any older caller reading .message).
+    const googleAnyChildFound = groups ? Object.values(groups).some((g) => g.assets.length > 0) : accounts.length > 1;
     return NextResponse.json({
       ok: true,
       provider,
       accounts,
-      groups: provider === "google" ? googleDiscoveryGroups(accounts, warnings) : undefined,
+      groups,
       warnings,
-      message: accounts.length > 1 ? "Yetkili hesaplar listelendi." : "Temel profil doğrulandı; rapor varlığı bulunamadı veya ilgili Google API/izin bekleniyor."
+      message: googleAnyChildFound ? "Yetkili hesaplar listelendi." : "Temel profil doğrulandı; aşağıdaki her servis için ayrı sonucu kontrol edin (bazı hesaplarda hiç varlık bulunamamış veya izin/API eksik olabilir)."
     });
   } catch (error) {
     return NextResponse.json({ ok: false, provider, accounts: [], code: "provider_fetch_failed", message: error instanceof Error ? error.message : "Yetkili hesaplar alınamadı." }, { status: 502 });

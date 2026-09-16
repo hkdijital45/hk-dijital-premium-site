@@ -1,6 +1,6 @@
 # Analiz & Raporlama Merkezi — Setup
 
-Unified analytics for Instagram, Facebook, YouTube, Google Ads and Google Business Profile, built inside HK Admin at `/hk-admin/analiz-raporlama`. This module reuses the app's **existing** OAuth engine (`src/lib/customer-integration-oauth.ts`) and the customer-facing "Hesap Bağla" screen (`/musteri-paneli#hesap-bagla`, `CustomerAccountConnectCenter`) — it does not add a new OAuth flow. It only reads connection state from `customer_integrations` and adds new tables for the metrics themselves.
+Unified analytics for Instagram, Facebook, YouTube, Google Ads and Google Business Profile, built inside HK Admin at `/hk-admin/analiz-raporlama`. This module reuses the app's **existing** OAuth engine (`src/lib/customer-integration-oauth.ts`) — it does not add a new OAuth flow. Two UIs read/write the same connection state (`customer_integrations`): the customer-facing "Hesap Bağla" screen (`/musteri-paneli#hesap-bagla`, `CustomerAccountConnectCenter`) for customers managing their own account, and HK Admin's own native connection drawer (`AdminConnectionDrawer`, opened from Analiz & Raporlama Merkezi → Hesaplar → "Bağlantıyı Yönet") for staff managing a customer's connections directly — the admin flow never navigates through the customer panel.
 
 ## Current status (checked against live production)
 
@@ -11,8 +11,8 @@ Unified analytics for Instagram, Facebook, YouTube, Google Ads and Google Busine
 | Google redirect URI | ✅ Matches |
 | GA4 / Search Console API access | ✅ Working |
 | Google Business Profile API access | ✅ Working |
-| **Meta advanced permissions** (`instagram_basic`, `pages_show_list`, `pages_read_engagement`, `instagram_manage_insights`) | ❌ Not requested — see Action 1 below. The existing Meta App (`META_APP_ID`) is confirmed (live, in its own Meta Dashboard) to be a **Consumer-type** app with no more use cases available to add — it cannot ever support Facebook Login for Business / Instagram Graph API. A separate, dedicated **Business-type** Meta App + Configuration is required. |
-| **Google Ads developer token** | ❌ Not configured — see Action 2 below |
+| **Meta advanced permissions** (`instagram_basic`, `pages_show_list`, `pages_read_engagement`, `instagram_manage_insights`) | ✅ Live in production — a dedicated Business-type Meta App + Configuration (`META_BUSINESS_CLIENT_ID`/`META_BUSINESS_CLIENT_SECRET`/`META_LOGIN_CONFIG_ID`) is now configured; Instagram and Facebook are connected and syncing real metrics (see Action 1 for how this was set up / how to redo it for another app). |
+| **Google Ads developer token** | N/A — Google sunset developer tokens on 2026-09-09; access is now tied to the Google Cloud project behind `GOOGLE_CLIENT_ID`, already configured (see Action 2) |
 | **YouTube Analytics scope** (`yt-analytics.readonly`) | ⚠️ Added to the code's requested scope list in this change, but any customer who connected Google *before* this change needs to reconnect once — see note under Action 3 |
 | `supabase/migrations/20260915_analytics_center.sql` | ❌ Not yet applied — see Action 4 |
 
@@ -48,18 +48,22 @@ If none of the existing apps can support it, create a new one:
 10. Standard Access (accounts with an Admin/Developer/Tester role on **this new app**) can use these permissions immediately once the Configuration is created — no App Review needed for your own account(s). Serving a real, unrelated customer's Facebook Page/Instagram account requires Meta App Review to grant Advanced Access for the same permissions, plus Business Verification specifically if `business_management`/`ads_read` are ever added — follow Meta's in-product checklist for both.
 11. Until all three variables are set, this stays a real, disclosed "setup required" state — basic Meta login (`public_profile,email`, via the original `META_APP_ID`) keeps working unaffected, and the module never fabricates Instagram/Facebook numbers in the meantime.
 
-## Action 2 — Get a Google Ads Developer Token
+## Action 2 — Google Ads access (developer token is obsolete — do not set one up)
 
-Without this, the Google Ads card shows **"Google Ads API için GOOGLE_ADS_DEVELOPER_TOKEN sunucu ortam değişkeni tanımlanmalı."**
+**Google sunset developer tokens on 2026-09-09** ([Google Ads API Developer Blog](https://ads-developers.googleblog.com/), [developer token policy docs](https://developers.google.com/google-ads/api/docs/api-policy/developer-token)). A previous version of this doc instructed applying for one via the Google Ads API Center — that flow no longer determines API access at all. Google Ads API access is now determined purely by **the Google Cloud project behind `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`** (already configured for this app's Google OAuth). The `developer-token` HTTP header is optional and ignored by Google's servers; this app sends it only if `GOOGLE_ADS_DEVELOPER_TOKEN` happens to still be set (harmless backward-compat), and never requires it.
 
-1. Sign in to [Google Ads API Center](https://ads.google.com/aw/apicenter) (needs a Google Ads manager/MCC account).
-2. Apply for **Standard access** (Basic access is enough to start; Standard removes rate limits later).
-3. Copy the developer token and set `GOOGLE_ADS_DEVELOPER_TOKEN` in Vercel. If the connected Ads accounts are managed under an MCC, also set `GOOGLE_ADS_LOGIN_CUSTOMER_ID` to the MCC's customer ID (digits only).
-4. Redeploy. No customer-facing action needed — this token is an application-level secret, never entered by a customer.
+If Google Ads discovery/sync still fails for a real connected account, the cause is now the Cloud project's own **access level** (Test / Basic / Standard), not a missing token:
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/) → the project tied to `GOOGLE_CLIENT_ID` → **APIs & Services** → confirm the **Google Ads API** is enabled.
+2. If access is still Test-only, complete brand verification / apply for Basic or Standard access for that Cloud project (Basic access is now automated after brand verification per Google's migration notice).
+3. `GOOGLE_ADS_LOGIN_CUSTOMER_ID` is unrelated to this change — still set it (digits only, no dashes) if the connected Ads accounts are managed under an MCC.
+4. No customer-facing action needed either way.
 
 ## Action 3 — YouTube Analytics scope
 
-This change added `https://www.googleapis.com/auth/yt-analytics.readonly` to the Google OAuth scope list (`customer-integration-oauth.ts`). A customer who connected their Google account **before** this deploy has an access grant that does not include it — their YouTube card will show a permission error until they reconnect once via **Müşteri Paneli → Hesap Bağla → Google ile Bağlan**. Anyone connecting for the first time after this deploy is unaffected.
+`youtube.readonly` (already granted, used for channel discovery) is a different scope from `yt-analytics.readonly` (YouTube Analytics API v2, needed for the real views/watch-time/subscriber sync). A previous round of this doc claimed `yt-analytics.readonly` had already been added — it had not; this was confirmed against a live, already-connected production Google login whose real granted scopes were checked directly (`sensitive_metadata.google_oauth.scopes`) and did not include it. Now genuinely added to the scope list in `customer-integration-oauth.ts`.
+
+Anyone who connected Google **before** this deploy — including the production company already used to verify this — has an access grant that does not include it; their YouTube card will show a permission error on sync until they reconnect once via **Hesap Bağla → Google ile Bağlan** (customer panel) or the HK Admin connection drawer's "Hesabı Yeniden Bağla" (same underlying OAuth call — Google re-prompts for the added scope). Anyone connecting for the first time after this deploy is unaffected.
 
 ## Action 4 — Apply the database migration
 
@@ -74,10 +78,10 @@ Until this runs, every Analiz & Raporlama Merkezi screen shows an honest "Kurulu
 
 | Provider | Auth | Scope(s) | Key metrics | Known limitations |
 |---|---|---|---|---|
-| Instagram | Meta Business Login (via connected Facebook Page) | `instagram_basic` (Action 1) | reach, accounts_engaged, followers, saves, likes, comments, shares, plays (Reels) | Meta deprecated `profile_views`/`website_clicks`/non-Reels `video_views` (Jan 2025) — shown as "desteklenmiyor", never as 0. `impressions` also being phased out; `reach` is the primary awareness metric now. |
-| Facebook | Meta Business Login | `pages_show_list`, `ads_read` (Action 1) | page_fans, page_impressions(_unique), page_engaged_users, post engagement | Page Insights metric names drift periodically; a stale metric degrades that one number, not the whole sync (see resilience note below). |
-| YouTube | Google OAuth | `yt-analytics.readonly` (Action 3) | views, watch time, avg. view duration, likes/comments/shares, subscriber gain/loss | No monetary/revenue scope requested or used, by design. |
-| Google Ads | Google OAuth + developer token | `adwords` (already granted) + `GOOGLE_ADS_DEVELOPER_TOKEN` (Action 2) | cost, impressions, clicks, CTR, CPC, conversions, conversion value, cost/conversion, per-campaign breakdown | API v24 (matches the version already used elsewhere in this app for account discovery). |
+| Instagram | Meta Business Login (via connected Facebook Page) | `instagram_basic`, `instagram_manage_insights` (Action 1) | reach, accounts_engaged, followers, saves, likes, comments, shares, plays (Reels) | Meta deprecated `profile_views`/`website_clicks`/non-Reels `video_views` (Jan 2025) — shown as "desteklenmiyor", never as 0. `impressions` also being phased out; `reach` is the primary awareness metric now. |
+| Facebook | Meta Business Login | `pages_show_list`, `pages_read_engagement` (Action 1) | page_fans, page_impressions(_unique), page_engaged_users, post engagement | Page Insights metric names drift periodically; a stale metric degrades that one number, not the whole sync (see resilience note below). |
+| YouTube | Google OAuth | `youtube.readonly`, `yt-analytics.readonly` (already granted) | views, watch time, avg. view duration, likes/comments/shares, subscriber gain/loss | No monetary/revenue scope requested or used, by design. |
+| Google Ads | Google OAuth (`adwords` scope, already granted) | none — developer token obsolete (Action 2) | cost, impressions, clicks, CTR, CPC, conversions, conversion value, cost/conversion, per-campaign breakdown | API v25. Cloud project's own access level (Test/Basic/Standard) — not a token — now gates real-account access; see Action 2. |
 | Google Business Profile | Google OAuth | `business.manage` (already granted) | search/maps impressions, calls, website clicks, direction requests, messaging, reviews | Reviews fetched from the older `mybusiness.googleapis.com` v4 API best-effort (skipped gracefully, never fails the sync, if the location's parent account reference isn't available) — verify this endpoint's current status against Google's docs if it starts failing consistently. |
 
 **Resilience**: every provider adapter tries a full metric batch first; on any failure it retries one metric at a time and keeps whichever succeed, so one renamed/retired metric degrades a single number (shown as "API tarafından sunulmuyor"), never the whole sync or the whole dashboard.
