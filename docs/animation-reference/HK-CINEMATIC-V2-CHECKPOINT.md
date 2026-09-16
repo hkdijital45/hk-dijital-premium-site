@@ -181,6 +181,18 @@ VISUAL QA STATUS: manual screenshot pass across 375/390/430/768/820/
 zero horizontal overflow anywhere, plus all 7 secondary marketing pages
 spot-checked at desktop+mobile. Local production server (`next start`).
 
-CURRENT COMMIT: pending (about to commit on top of `9c0a0c7`)
-DEPLOYMENT STATUS: about to push/deploy
+CURRENT COMMIT: `b781aff` (rebased on top of an unrelated concurrent
+push `99a7568` "fix: restore YouTube metrics and isolate OAuth connection
+expiry" — zero file overlap, clean rebase, not reverted or touched)
+DEPLOYMENT STATUS: Vercel `dpl_GarkYznGA2wjZ8CEosBffk4NPmn1` READY,
+aliased to `www.hkdijital.com.tr`. Production smoke test passed: `/`
+(desktop+mobile), Services section + explorer click interaction, Ads
+Story section, `/hizmetler` all HTTP 200, zero console errors, visually
+matches local build exactly (section-boundary bleed, explorer switching,
+editorial ads-story all confirmed live).
 KNOWN ISSUES: none
+
+## TASK STATUS: COMPLETE
+
+See the final report delivered to the user in this session for the full
+mandated-template summary.
