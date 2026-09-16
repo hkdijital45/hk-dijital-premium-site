@@ -160,9 +160,14 @@ All read in full. Never delete these.
 14. Regression — **DONE**: secret 5-tap logo trigger + Ctrl/Meta+Shift+1,1,2 keyboard trigger both still work exactly as before (test suite), `/hk-admin`, `/musteri-paneli`, `/login`, `/giris` all still resolve/redirect correctly, WhatsApp/contact/nav links all still correct.
 15. Build/tests — **DONE**: `tsc --noEmit` clean, `npm run lint` clean (0 errors, 2 pre-existing unrelated `<img>` warnings), `npm run build` clean (all routes incl. `/hk-admin/*`, `/musteri-paneli` compiled), `npm run test:unit` 312/312 passed. E2E: `homepage-redesign`, `public-site`, `public-site-private-login`, `hydration-regression`, `responsive`, `secret-access-keyboard-trigger` specs — 48/48 (desktop-chromium) + 65/65 (mobile-chromium) passed under single-worker execution (0 real failures). Note: the same specs under Playwright's default parallel workers showed 20-38 flaky failures, but every single one was `TimeoutError: page.goto: Timeout 15000ms exceeded` against the local `next start` server under concurrent load — a different random subset failed each parallel run, and zero assertion failures ever occurred — conclusively local test-infra flakiness (server capacity under this sandbox), not a real regression from this session's changes. Documented honestly here per Section 25/30's "distinguish pre-existing/infra failures from real ones" instruction.
 16. Refinement pass — **DONE**: fixed one real issue found during this work (an ESLint `react-hooks/set-state-in-effect` error in `CursorGlow.tsx`, resolved by matching the existing codebase convention already used in `Hero()`'s `pinEligible` effect — wrap the setState call in a named function invoked once, rather than a bare top-level `setState()` call).
-17. Commit/push — **NEXT**
-18. Deployment — **NOT STARTED**
-19. Production verification — **NOT STARTED**
+17. Commit/push — **DONE**: commit `7c4f44b` on `main`, pushed to `origin/main`.
+18. Deployment — **DONE**: Vercel deployment `dpl_6oefmZZr6GRJcjwVWdg8UfhQhSe7` reached `READY`, aliased to `www.hkdijital.com.tr` (+ `hkdijital.com.tr`, `ai.hkdijital.com.tr`).
+19. Production verification — **DONE**: live smoke test against `https://www.hkdijital.com.tr` — `/` (desktop+mobile) and `/hizmetler` all HTTP 200, zero console/page errors, screenshots visually match the local build exactly (bokeh, chromatic accent, marquee, nav pill, contact dock all rendering correctly in production).
+
+## TASK STATUS: COMPLETE
+
+All 20 Definition of Done items satisfied. See the final report delivered
+to the user in this session for the full mandated-template summary.
 
 ## Files changed so far
 
