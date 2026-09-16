@@ -121,6 +121,19 @@ function firstEnv(keys: string[]) {
 
 function providerCredentials(provider: Provider) {
   if (provider === "meta") {
+    // The confirmed-working app (META_APP_ID/META_CLIENT_ID) was created as
+    // a Consumer-type app — Meta app types are immutable and Consumer apps
+    // cannot add the Facebook Login for Business / Instagram Graph API use
+    // cases (confirmed live: its "Add use cases" dialog shows none
+    // available). A Configuration (META_LOGIN_CONFIG_ID) can therefore only
+    // ever belong to a genuinely different, dedicated Business-type app —
+    // never to META_APP_ID. To make a client_id/config_id mismatch
+    // structurally impossible, the two travel together as one atomic unit:
+    // see metaBusinessCredentials().
+    const business = metaBusinessCredentials();
+    if (business) {
+      return { clientId: business.clientId, clientSecret: business.clientSecret, redirectUri: process.env.META_REDIRECT_URI || "" };
+    }
     return {
       clientId: firstEnv(["META_APP_ID", "META_CLIENT_ID"]),
       clientSecret: firstEnv(["META_APP_SECRET", "META_CLIENT_SECRET"]),
@@ -164,11 +177,10 @@ function pkceChallenge(verifier: string) {
 // oauthAccounts Phase-1/Phase-2 branch, saveMetaPhase1Integration's stored
 // metadata) but never actually reached the OAuth request itself — flipping
 // it did nothing to what was requested. The real, current gate is whether a
-// Facebook Login for Business Configuration (META_LOGIN_CONFIG_ID) is set
-// up at all, since that's what actually determines which permissions the
-// resulting token can carry for this app type.
+// dedicated Facebook Login for Business app + Configuration is fully set up
+// — see metaBusinessCredentials().
 function advancedScopesEnabled(provider: Provider) {
-  return provider === "meta" && Boolean(metaLoginConfigId());
+  return provider === "meta" && Boolean(metaBusinessCredentials());
 }
 
 // Real production root cause of "Meta login succeeds but Instagram/Facebook
@@ -184,31 +196,56 @@ function advancedScopesEnabled(provider: Provider) {
 // for a company where META_ADVANCED_SCOPES_ENABLED is already true. Now
 // actually requests the full, current (verified against Meta's own
 // permissions reference) business/insights scope set once the flag is on.
-// IMPORTANT: this Meta App is a "Facebook Login for Business" app (its own
-// redirect chain sets is_business_login=1, confirmed live) — for that
-// product Meta's current documentation says config_id replaces scope, and a
+// IMPORTANT: this Meta App (META_APP_ID) is confirmed live, in its own Meta
+// Dashboard, to be a Consumer-type app whose "Add use cases" screen has no
+// more use cases available — it structurally cannot support Facebook
+// Login for Business/Instagram Graph API at all (app type is immutable). A
 // raw scope list of asset-level permissions (pages_show_list,
-// instagram_basic, business_management, etc.) is rejected outright as
-// Invalid Scopes (confirmed live, in production). A prior version of this
-// function tried widening this to META_BUSINESS_REQUIRED_SCOPES when
-// META_ADVANCED_SCOPES_ENABLED was on — that broke basic Meta login
-// entirely. The advanced permission set is now requested exclusively via
-// config_id (see metaLoginConfigId()/oauthConnect); this always stays at
-// the safe, always-valid baseline.
+// instagram_basic, etc.) sent to it is rejected outright as Invalid Scopes
+// (confirmed live, in production — this was the real, root cause: a prior
+// version of this function tried widening the scope list on this same app
+// when META_ADVANCED_SCOPES_ENABLED was on, which broke basic Meta login
+// entirely). The advanced permission set is only ever requested via a
+// dedicated, separate Business-type app's config_id (see
+// metaBusinessCredentials()/oauthConnect); this always stays at the safe,
+// always-valid baseline for META_APP_ID itself.
 function effectiveProviderScope(provider: Provider) {
   return providerConfig[provider].scope;
 }
 
-// Facebook Login for Business Configuration ID — see oauthConnect's own
-// comment for why this replaces a raw scope list for this specific Meta
-// App. Created in Meta App Dashboard → (app) → Facebook Login for Business
-// → Configurations → Create configuration → select the Pages/Instagram
-// assets and permissions the Configuration should grant, then copy its ID
-// here. Absent, oauthConnect falls back to plain public_profile,email
-// login (unchanged, always-safe baseline) rather than sending scopes this
-// app type will reject.
-function metaLoginConfigId() {
-  return (process.env.META_LOGIN_CONFIG_ID || "").trim();
+// A dedicated Facebook Login for Business app's credentials + its
+// Configuration ID, treated as one atomic, all-or-nothing unit. Deliberately
+// NOT layered onto META_APP_ID/META_CLIENT_ID (the existing, working
+// Consumer-type app used for basic public_profile,email login) — Meta app
+// types are immutable, that app's own "Add use cases" dialog confirms no
+// more use cases (incl. Facebook Login for Business) can ever be added to
+// it, so a config_id can only ever be valid against a genuinely different
+// app's client_id. Requiring all three env vars together makes a
+// mismatched client_id/config_id pairing (silently sent to Meta, rejected
+// as Invalid Scopes or a similar hard error) structurally impossible — a
+// partially-set trio is treated as fully absent, never a partial fallback.
+// Set up in Meta App Dashboard → (dedicated Business-type app) → Facebook
+// Login for Business → Configurations → Create configuration → select the
+// Pages/Instagram assets and permissions the Configuration should grant →
+// copy its Configuration ID, App ID and App Secret here. See
+// docs/analytics-center/setup.md for the full walkthrough.
+function metaBusinessCredentials(): { clientId: string; clientSecret: string; configId: string } | null {
+  const clientId = (process.env.META_BUSINESS_CLIENT_ID || "").trim();
+  const clientSecret = (process.env.META_BUSINESS_CLIENT_SECRET || "").trim();
+  const configId = (process.env.META_LOGIN_CONFIG_ID || "").trim();
+  if (!clientId || !clientSecret || !configId) return null;
+  return { clientId, clientSecret, configId };
+}
+
+// True when SOME but not all of the business trio is set — a real,
+// actionable misconfiguration (never silently ignored) distinct from
+// "fully not configured".
+function metaBusinessCredentialsPartial(): boolean {
+  const clientId = Boolean((process.env.META_BUSINESS_CLIENT_ID || "").trim());
+  const clientSecret = Boolean((process.env.META_BUSINESS_CLIENT_SECRET || "").trim());
+  const configId = Boolean((process.env.META_LOGIN_CONFIG_ID || "").trim());
+  const setCount = [clientId, clientSecret, configId].filter(Boolean).length;
+  return setCount > 0 && setCount < 3;
 }
 
 function providerScopeList(provider: Provider) {
@@ -281,13 +318,16 @@ export function getOAuthProviderStatus(provider: Provider) {
     loginScopes: providerScopeList(provider),
     advancedScopesEnabled: advancedScopesEnabled(provider),
     advancedRequiredScopes: provider === "meta" ? META_BUSINESS_REQUIRED_SCOPES : undefined,
+    businessConfigPartiallySet: provider === "meta" ? metaBusinessCredentialsPartial() : undefined,
     businessAssetListingReady: provider === "meta" ? advancedScopesEnabled(provider) : undefined,
     businessAssetListingMessage: provider === "meta"
       ? advancedScopesEnabled(provider)
-        ? "Facebook Login for Business Configuration (META_LOGIN_CONFIG_ID) tanımlı — OAuth ekranı config_id kullanır, gelişmiş izinler (Facebook Sayfaları, Instagram Business, Business Manager, reklam hesabı) Configuration içinde seçilmiş olmalı. Meta bu izinleri, hesap uygulamanın admin/geliştirici/test kullanıcısı ise (Standard Access) hemen, değilse yalnızca App Review onayından sonra (Advanced Access) verir."
-        : "META_LOGIN_CONFIG_ID tanımlı değil. OAuth login yalnız public_profile,email ile çalışır (bu App bir 'Facebook Login for Business' app'i olduğu için ham scope listesi Meta tarafından 'Invalid Scopes' olarak reddedilir); reklam hesabı manuel ID ile bağlanabilir."
+        ? "META_BUSINESS_CLIENT_ID/SECRET + META_LOGIN_CONFIG_ID (ayrı, Business tipi bir Meta App) tanımlı — OAuth ekranı bu App'in config_id'sini kullanır, gelişmiş izinler (Facebook Sayfaları, Instagram Business) Configuration içinde seçilmiş olmalı. Meta bu izinleri, hesap o App'in admin/geliştirici/test kullanıcısı ise (Standard Access) hemen, değilse yalnızca App Review onayından sonra (Advanced Access) verir."
+        : metaBusinessCredentialsPartial()
+          ? "META_BUSINESS_CLIENT_ID / META_BUSINESS_CLIENT_SECRET / META_LOGIN_CONFIG_ID üçlüsünden yalnızca bir kısmı tanımlı — eksik değişken(ler) tamamlanana kadar bu üçü birlikte yok sayılır (kısmi/karışık bir App ID + Configuration eşleşmesi Meta tarafından reddedilir), OAuth login güvenli şekilde public_profile,email temel girişine düşer."
+          : "Gelişmiş izinler için ayrı, Business tipinde bir Meta App gerekir (mevcut ana App bir Consumer tipi App'tir — Meta app tipleri değiştirilemez ve bu App'in 'Add use cases' ekranı Facebook Login for Business/Instagram Graph API için uygun kullanım durumu kalmadığını doğruladı). O App'in Configuration ID'si + kendi App ID/Secret'ı META_BUSINESS_CLIENT_ID / META_BUSINESS_CLIENT_SECRET / META_LOGIN_CONFIG_ID olarak tanımlanana kadar OAuth login güvenli şekilde public_profile,email temel girişinde kalır; reklam hesabı manuel ID ile bağlanabilir."
       : undefined,
-    businessPermissionNote: provider === "meta" ? "Bu Meta App'i 'Facebook Login for Business' tipinde (canlı ölçümde is_business_login=1 doğrulandı) — business_management, ads_read, pages_show_list, pages_read_engagement, instagram_basic, instagram_manage_insights OAuth URL'sine ham scope olarak eklenemez (Meta bunu Invalid Scopes ile reddeder); Meta Dashboard'da bir Configuration oluşturulup META_LOGIN_CONFIG_ID env değişkenine eklenmesi gerekir." : undefined,
+    businessPermissionNote: provider === "meta" ? "business_management, ads_read, pages_show_list, pages_read_engagement, instagram_basic, instagram_manage_insights hiçbir zaman ana App'in (META_APP_ID/META_CLIENT_ID) ham scope listesine eklenmez — bu App Consumer tipinde olduğu için Facebook Login for Business/Instagram Graph API kullanım durumlarını hiç desteklemiyor (Meta Dashboard'da doğrulandı). Bu izinler yalnızca ayrı, Business tipinde bir App'te oluşturulan bir Configuration (config_id) üzerinden istenir." : undefined,
     manualAdAccountSupported: provider === "meta" ? true : undefined,
     manualFallbackMessage: provider === "meta" ? "Business Verification yokken önerilen mod: Meta reklam hesabı ID'sini manuel bağlayın. ads_read onayı geldiğinde aynı kayıt üzerinden insight çekimi denenir." : undefined,
     googleApiNotes: provider === "google" ? [
@@ -392,7 +432,13 @@ function configuredPayload(provider: Provider, request: Request) {
     params.set("access_type", "offline");
     params.set("prompt", "consent");
   }
-  params.set("scope", scope);
+  // Same config_id-vs-scope branching as oauthConnect — this JSON-mode path
+  // (oauthStart) must never independently send the raw business scope list
+  // to whichever app clientId now resolves to, or it reintroduces the exact
+  // "Invalid Scopes" failure oauthConnect was fixed for.
+  const configId = provider === "meta" ? (metaBusinessCredentials()?.configId || "") : "";
+  if (configId) params.set("config_id", configId);
+  else params.set("scope", scope);
   return {
     ok: true,
     configured: true,
@@ -543,7 +589,7 @@ export async function oauthConnect(provider: Provider, request: Request) {
   const nonce = crypto.randomBytes(18).toString("base64url");
   const state = encodeState({ provider, platform, customerId: targetCompanyId, origin, returnTo, nonce, exp: Date.now() + 10 * 60 * 1000 });
   const codeVerifier = provider === "x" ? crypto.randomBytes(48).toString("base64url") : "";
-  const configId = provider === "meta" ? metaLoginConfigId() : "";
+  const configId = provider === "meta" ? (metaBusinessCredentials()?.configId || "") : "";
   const params = new URLSearchParams(provider === "tiktok" ? {
     app_id: credentials.clientId,
     redirect_uri: credentials.redirectUri,
@@ -557,15 +603,14 @@ export async function oauthConnect(provider: Provider, request: Request) {
     code_challenge: pkceChallenge(codeVerifier),
     code_challenge_method: "S256"
   } : configId ? {
-    // This Meta App is a "Facebook Login for Business" app (confirmed live:
-    // its own redirect chain sets is_business_login=1) — for that product,
-    // Meta's current documentation states config_id replaces scope entirely
-    // ("scope can still be included, [but] we recommend that you do not use
-    // it"); permissions/assets are instead defined inside the Configuration
-    // itself in the Meta Dashboard. Sending a raw scope list of asset-level
-    // permissions (pages_show_list, instagram_basic, business_management,
-    // etc.) to this app type is what produced the real, live "Invalid
-    // Scopes" error — confirmed via the exact same authorize URL structure.
+    // Reached only when metaBusinessCredentials() returned a fully-set
+    // trio — credentials.clientId here is that DEDICATED Business-type
+    // app's own client_id (see providerCredentials), never META_APP_ID.
+    // For a Facebook Login for Business app, Meta's current documentation
+    // states config_id replaces scope entirely ("scope can still be
+    // included, [but] we recommend that you do not use it"); permissions/
+    // assets are instead defined inside the Configuration itself in the
+    // Meta Dashboard.
     client_id: credentials.clientId,
     redirect_uri: credentials.redirectUri,
     response_type: "code",

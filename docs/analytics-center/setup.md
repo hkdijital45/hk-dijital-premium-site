@@ -11,28 +11,42 @@ Unified analytics for Instagram, Facebook, YouTube, Google Ads and Google Busine
 | Google redirect URI | ✅ Matches |
 | GA4 / Search Console API access | ✅ Working |
 | Google Business Profile API access | ✅ Working |
-| **Meta advanced permissions** (`instagram_basic`, `pages_show_list`, `pages_read_engagement`, `instagram_manage_insights`, `ads_read`, `business_management`) | ❌ Not requested — see Action 1 below (this app is a "Facebook Login for Business" app; a raw scope request for these is rejected by Meta as "Invalid Scopes" — a Configuration ID is required instead, see Action 1) |
+| **Meta advanced permissions** (`instagram_basic`, `pages_show_list`, `pages_read_engagement`, `instagram_manage_insights`) | ❌ Not requested — see Action 1 below. The existing Meta App (`META_APP_ID`) is confirmed (live, in its own Meta Dashboard) to be a **Consumer-type** app with no more use cases available to add — it cannot ever support Facebook Login for Business / Instagram Graph API. A separate, dedicated **Business-type** Meta App + Configuration is required. |
 | **Google Ads developer token** | ❌ Not configured — see Action 2 below |
 | **YouTube Analytics scope** (`yt-analytics.readonly`) | ⚠️ Added to the code's requested scope list in this change, but any customer who connected Google *before* this change needs to reconnect once — see note under Action 3 |
 | `supabase/migrations/20260915_analytics_center.sql` | ❌ Not yet applied — see Action 4 |
 
 Everything else (discovery of connected Pages/Instagram accounts/Ads accounts/GBP locations/YouTube channels, token storage/encryption/refresh) already worked before this change and needed no new setup.
 
-## Action 1 — Enable Instagram/Facebook analytics (Facebook Login for Business Configuration + Meta App Review)
+## Action 1 — Enable Instagram/Facebook analytics (dedicated Business-type Meta App + Configuration + Meta App Review)
 
 Without this, Instagram and Facebook cards will show **"İzin gerekli"** — basic Meta login itself still works, but no Page/Instagram analytics can be fetched.
 
-**This Meta App is a "Facebook Login for Business" app** — confirmed live: its own OAuth redirect chain sets `is_business_login=1`. Meta's current documentation for this product states that **`config_id` replaces a raw `scope=` list entirely** — sending permissions like `pages_show_list`/`instagram_basic`/`business_management` as a plain scope parameter is rejected outright by Meta as **"Invalid Scopes"** (confirmed live in production; this is a hard requirement of the product type, not an approval-status issue). `read_insights` is additionally excluded — Meta deprecated it as a standalone OAuth permission; Page insights are now covered by `pages_read_engagement` + the Insights API.
+**Root cause, confirmed live in the Meta Dashboard (not inferred from code):** the existing app (`META_APP_ID`, "HK Dijital Login") is a **Consumer-type** app with use cases "Authenticate and request data from users with Facebook Login" + "Create & manage app ads with Meta Ads Manager". Its own **Add use cases** dialog shows *"All available use cases have been added to this app"* with Save disabled, and it has no **Facebook Login for Business → Configurations** section in its sidebar at all. Meta app types are immutable ("If your app needs products, permissions, or features that are unavailable to its current type you must create a new app with a different type instead" — [App Types docs](https://developers.facebook.com/docs/development/create-an-app/app-dashboard/app-types/)). A previous round of this document incorrectly assumed this app was already a "Facebook Login for Business" app (based only on an `is_business_login=1` redirect parameter) and that `read_insights` was Meta-wide deprecated — neither claim held up against the actual Dashboard/docs; do not repeat them. **A genuinely separate, dedicated Business-type Meta App is required** for `pages_show_list`/`pages_read_engagement`/`instagram_basic`/`instagram_manage_insights` — this cannot be added to the existing app.
 
-1. Go to [developers.facebook.com](https://developers.facebook.com/) → your app (Client ID ending `...6404`, same app already used for Meta login) → **Facebook Login for Business** in the left sidebar → **Configurations**.
-2. Click **Create configuration** (or **Create from template**). Name it (e.g. "HK Dijital Analytics").
-3. Choose **User access token** (not System-user).
-4. Select the assets this configuration should be able to access (Pages, and the Instagram professional accounts linked to them).
-5. Select permissions: `pages_show_list`, `pages_read_engagement`, `instagram_basic`, `instagram_manage_insights`. Only add `business_management` + `ads_read` too if Meta Ads analytics is also needed — keep them out of this configuration otherwise, so an unrelated Ads-permission gap can never break Instagram/Facebook organic analytics.
-6. Click **Create** and copy the resulting **Configuration ID**.
-7. Set `META_LOGIN_CONFIG_ID=<that id>` in Vercel (Project → Settings → Environment Variables) and redeploy.
-8. Standard Access (accounts with an Admin/Developer/Tester role on this Meta App) can use these permissions immediately once the Configuration is created — no App Review needed for your own account(s). Serving a real, unrelated customer's Facebook Page/Instagram account requires Meta App Review to grant Advanced Access for the same permissions, plus Business Verification for `business_management`/`ads_read` specifically — follow Meta's in-product checklist for both.
-9. Until `META_LOGIN_CONFIG_ID` is set, this stays a real, disclosed "setup required" state — basic Meta login (`public_profile,email`) keeps working unaffected, and the module never fabricates Instagram/Facebook numbers in the meantime.
+Two other Meta apps already exist on this account — **HK INTELLIGENCE** (`4283230752006982`) and **mt-hk-outh** (`1745803870106666`) — check both first before creating a new one:
+
+1. Open each in [developers.facebook.com](https://developers.facebook.com/) → App Dashboard.
+2. Check **Settings → Basic** (or the dashboard header) for its app type.
+3. Check whether **Facebook Login for Business** already appears in its left sidebar.
+4. Check **App Review → Use cases → Add use cases** for whether "Facebook Login for Business" / "Instagram API with Facebook Login" can still be added.
+5. If either is already Business-type and not otherwise committed to an unrelated, live integration, it can be reused instead of creating a fourth app — but do not repurpose one that's already serving a different production feature without confirming that first.
+
+Separately, this repo's **production `INSTAGRAM_APP_ID`** (used by the already-working Social Autopilot Instagram Login feature, a completely different product/host from the one described below) currently resolves to app id `2058806788399204` — **not** one of the three apps above. Locate this app in the Meta Business/Developer account (it may sit under a different Business Portfolio or a collaborator's personal developer profile) before assuming only three apps exist.
+
+If none of the existing apps can support it, create a new one:
+
+1. [developers.facebook.com](https://developers.facebook.com/) → **Create App** → type **Business**.
+2. Add the **Instagram API with Facebook Login** / **Facebook Login for Business** use case (exact labeling can vary by Dashboard version).
+3. **Facebook Login for Business** in the left sidebar → **Configurations** → **Create configuration** (or **Create from template**).
+4. Choose **User access token** (not System-user).
+5. Select the assets this configuration should be able to access (Pages, and the Instagram professional accounts linked to them).
+6. Select permissions: `pages_show_list`, `pages_read_engagement`, `instagram_basic`, `instagram_manage_insights`. **Before finalizing, verify against Meta's current official docs** — [Page Insights reference](https://developers.facebook.com/docs/graph-api/reference/v23.0/page/insights) and the [Instagram Graph API insights docs](https://developers.facebook.com/docs/instagram-platform/instagram-graph-api/insights) — whether the specific endpoints this app calls (`{page-id}/insights`, `{page-id}/posts`, `{post-id}/insights`, `{ig-user-id}/insights`, `{ig-user-id}/media`, `{media-id}/insights`; see `src/lib/analytics-center/providers/facebook.ts` / `instagram.ts`) need anything beyond these four — Meta's own Page Insights reference page currently still lists `read_insights` alongside `pages_read_engagement` as required for `GET /{page-id}/insights`, which contradicts the earlier "deprecated" claim; confirm this yourself before deciding whether to add it. Do not add `business_management`/`ads_read` unless Meta Ads analytics is also genuinely needed — keep them out of this configuration otherwise, so an unrelated Ads-permission gap can never break Instagram/Facebook organic analytics.
+7. Click **Create** and copy the resulting **Configuration ID**.
+8. Register this app's own redirect URI (same value as `META_REDIRECT_URI`) under **this new app's** Valid OAuth Redirect URIs — it is a separate app from `META_APP_ID` and needs its own allow-list entry.
+9. Set `META_BUSINESS_CLIENT_ID=<this app's App ID>`, `META_BUSINESS_CLIENT_SECRET=<this app's App Secret>`, `META_LOGIN_CONFIG_ID=<the Configuration ID>` in Vercel (Project → Settings → Environment Variables) and redeploy. These three are read as one atomic unit — the code refuses to use any of them until all three are present, so a half-set trio can never cause a client_id/config_id mismatch.
+10. Standard Access (accounts with an Admin/Developer/Tester role on **this new app**) can use these permissions immediately once the Configuration is created — no App Review needed for your own account(s). Serving a real, unrelated customer's Facebook Page/Instagram account requires Meta App Review to grant Advanced Access for the same permissions, plus Business Verification specifically if `business_management`/`ads_read` are ever added — follow Meta's in-product checklist for both.
+11. Until all three variables are set, this stays a real, disclosed "setup required" state — basic Meta login (`public_profile,email`, via the original `META_APP_ID`) keeps working unaffected, and the module never fabricates Instagram/Facebook numbers in the meantime.
 
 ## Action 2 — Get a Google Ads Developer Token
 

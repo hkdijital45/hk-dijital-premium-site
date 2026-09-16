@@ -8,31 +8,34 @@ import { hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 // October 2027.
 const GRAPH_VERSION = "v23.0";
 
-// The permission set needed for Facebook Page / Instagram Business
-// discovery AND reading real insights (not just listing accounts) —
-// confirmed against Meta's current permissions reference before adding:
+// Minimum permission set targeted for organic Facebook Page + Instagram
+// professional account analytics (no Ads, no publishing/messaging):
 // pages_show_list (list Pages), pages_read_engagement (Page content/
 // engagement/insights), instagram_basic (IG account/media),
-// instagram_manage_insights (IG account/media/story insights),
-// business_management (Business Manager assets), ads_read (ad account
-// insights).
+// instagram_manage_insights (IG account/media/story insights).
+// business_management/ads_read deliberately excluded here — only add them
+// if Meta Ads analytics is genuinely needed, kept as a separate concern so
+// an unrelated Ads-permission gap can never block organic analytics.
 //
-// read_insights deliberately excluded: confirmed via Meta's current
-// deprecation notices that it is no longer a valid standalone OAuth
-// permission — an app in Live mode requesting it is rejected at the OAuth
-// dialog (this was one of two real causes of a live "Invalid Scopes"
-// error alongside the config_id issue below). Page/ad insights are now
-// covered by pages_read_engagement plus the Insights API directly.
-//
-// These are also NOT sent as a raw scope= parameter for this specific
-// Meta App — it is configured as "Facebook Login for Business" (confirmed
-// live: its own OAuth redirect sets is_business_login=1), and Meta's
-// current documentation for that product states config_id replaces scope
-// entirely. This list instead documents exactly which permissions must be
-// selected inside the Meta Dashboard Configuration referenced by
-// META_LOGIN_CONFIG_ID (see customer-integration-oauth.ts), and is reused
-// here only as descriptive metadata on discovered/normalized assets.
-export const META_BUSINESS_REQUIRED_SCOPES = ["business_management", "ads_read", "pages_show_list", "pages_read_engagement", "instagram_basic", "instagram_manage_insights"];
+// A previous round of this comment claimed read_insights was "Meta-wide
+// deprecated" and that the primary Meta App (META_APP_ID) was a "Facebook
+// Login for Business" app based only on an is_business_login=1 redirect
+// parameter — neither claim held up under a real Meta Dashboard check.
+// Confirmed live instead: META_APP_ID is a Consumer-type app (immutable
+// app type, its own "Add use cases" screen has no Business-only use cases
+// left to add), so these permissions can only ever be requested via a
+// genuinely separate, dedicated Business-type Meta App + Configuration —
+// see META_BUSINESS_CLIENT_ID/META_BUSINESS_CLIENT_SECRET/
+// META_LOGIN_CONFIG_ID in customer-integration-oauth.ts. Whether
+// read_insights is still required alongside pages_read_engagement for the
+// specific Page Insights endpoints this app calls has NOT been
+// independently re-confirmed — Meta's own Page Insights reference page
+// still lists it as of this writing; verify directly before finalizing
+// the Configuration's permission list rather than trusting either claim.
+// This list is descriptive metadata only (stored on discovered/normalized
+// assets for diagnostics) — it does not itself drive what's requested in
+// the OAuth URL.
+export const META_BUSINESS_REQUIRED_SCOPES = ["pages_show_list", "pages_read_engagement", "instagram_basic", "instagram_manage_insights"];
 
 function clean(value: unknown) {
   return String(value ?? "").trim();

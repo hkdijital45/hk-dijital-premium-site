@@ -46,7 +46,7 @@ const OPTIONAL_INTEGRATIONS: Array<{ name: string; keys: string[] }> = [
   { name: "Google Ads/Analytics integration", keys: ["GOOGLE_ADS_CLIENT_ID", "GOOGLE_ADS_CLIENT_SECRET", "GOOGLE_SERVICE_ACCOUNT_EMAIL"] },
   { name: "Customer OAuth connect flow (Google side — YouTube/Ads/GBP/GA4/Search Console analytics)", keys: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI"] },
   { name: "Google Ads reporting (Analiz & Raporlama Merkezi)", keys: ["GOOGLE_ADS_DEVELOPER_TOKEN"] },
-  { name: "Instagram/Facebook analytics advanced permissions (Facebook Login for Business Configuration)", keys: ["META_LOGIN_CONFIG_ID"] },
+  { name: "Instagram/Facebook analytics advanced permissions (dedicated Business-type Meta App + Configuration — see .env.example)", keys: ["META_BUSINESS_CLIENT_ID", "META_BUSINESS_CLIENT_SECRET", "META_LOGIN_CONFIG_ID"] },
   { name: "Email delivery", keys: ["RESEND_API_KEY", "SMTP_HOST"] },
   { name: "Integration token encryption", keys: ["INTEGRATION_TOKEN_SECRET", "INTEGRATION_ENCRYPTION_KEY"] }
 ];
