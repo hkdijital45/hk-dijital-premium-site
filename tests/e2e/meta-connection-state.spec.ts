@@ -39,7 +39,7 @@ test.describe("Meta/Instagram/Facebook connection state", () => {
     test.skip(!hasQaAdminCredentials(), qaSkipReason);
   });
 
-  test("TEST A — real Meta parent connection is visible and the OAuth authorize URL now requests the advanced business/insights scopes", async ({ request }) => {
+  test("TEST A — real Meta parent connection is visible and the OAuth authorize URL never sends an invalid raw scope for this Facebook-Login-for-Business app", async ({ request }) => {
     await loginAsQaAdmin(request);
     const companies = await getRealCompanies(request);
     const company = companies.find((c: any) => c.id === REPORTED_COMPANY_ID);
@@ -52,20 +52,44 @@ test.describe("Meta/Instagram/Facebook connection state", () => {
     test.skip(!metaAsset, "This company has no real, existing Meta connection in this environment to verify against.");
     expect(["connected", "connected_oauth", "approved"]).toContain(metaAsset.status);
 
-    // The actual regression: the generated authorize URL's scope param must
-    // now include the advanced business/insights scopes whenever
-    // META_ADVANCED_SCOPES_ENABLED is on (confirmed true in production via
-    // this same company's stored metadata) — not just public_profile,email.
+    // The real regression this covers: this Meta App is a "Facebook Login
+    // for Business" app (confirmed live: its own redirect sets
+    // is_business_login=1) — for that product config_id replaces scope
+    // entirely, and a raw scope request for pages_show_list/instagram_basic/
+    // business_management/etc. is rejected by Meta itself as "Invalid
+    // Scopes". Without META_LOGIN_CONFIG_ID configured, this must fall back
+    // to the safe public_profile,email baseline (never the invalid list);
+    // with it configured, it must use config_id instead of scope.
     const connectResponse = await request.get(`/api/integrations/meta/connect?company=${REPORTED_COMPANY_ID}`, { maxRedirects: 0 });
     const location = connectResponse.headers()["location"] || "";
     test.skip(!location.startsWith("https://www.facebook.com/") && !location.includes("facebook.com"), "META_* OAuth credentials not configured in this environment.");
     const authorizeUrl = new URL(location);
     const requestedScope = authorizeUrl.searchParams.get("scope") || "";
-    if (metaAsset.metadata?.advanced_permissions_enabled !== false) {
-      expect(requestedScope).toContain("pages_show_list");
-      expect(requestedScope).toContain("instagram_basic");
-      expect(requestedScope).toContain("business_management");
+    const configId = authorizeUrl.searchParams.get("config_id") || "";
+    const invalidScopes = ["business_management", "ads_read", "pages_show_list", "pages_read_engagement", "read_insights", "instagram_basic", "instagram_manage_insights"];
+    if (configId) {
+      // config_id path: scope should not carry these asset-level
+      // permissions at all — they're defined inside the Configuration.
+      for (const invalid of invalidScopes) expect(requestedScope).not.toContain(invalid);
+    } else {
+      // No Configuration set up yet: must be the safe, always-valid baseline.
+      expect(requestedScope).toBe("public_profile,email");
     }
+    // read_insights specifically must never be requested under any
+    // circumstance — confirmed via Meta's current deprecation notices that
+    // it's rejected outright for any app in Live mode.
+    expect(requestedScope).not.toContain("read_insights");
+
+    // Fetch the real authorize page and confirm Meta itself doesn't reject
+    // it outright — the actual, live proof this task requires. An
+    // unauthenticated request may just redirect to Meta's login page rather
+    // than reaching full scope validation (that only showed a definitive
+    // "Sorry, something went wrong" 400 in manual testing for the fully
+    // invalid combination), so this checks both signals defensively.
+    const authorizePage = await request.get(location, { maxRedirects: 0 });
+    expect(authorizePage.status()).not.toBe(400);
+    const authorizeBody = await authorizePage.text().catch(() => "");
+    expect(authorizeBody.toLowerCase()).not.toContain("invalid scopes");
   });
 
   test("TEST B — Instagram/Facebook cards distinguish 'Meta connected, child selection needed' from 'never logged in'", async ({ page, request }) => {

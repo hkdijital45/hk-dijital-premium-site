@@ -8,15 +8,31 @@ import { hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 // October 2027.
 const GRAPH_VERSION = "v23.0";
 
-// The full permission set actually needed for Facebook Page / Instagram
-// Business discovery AND reading real insights (not just listing accounts)
-// — confirmed against Meta's current permissions reference before adding:
-// pages_show_list (list Pages), pages_read_engagement + read_insights (Page
-// insights), instagram_basic (IG account/media), instagram_manage_insights
-// (IG account/media/story insights), business_management (Business Manager
-// assets), ads_read (ad account insights). None of these are deprecated or
-// replaced as of the current documentation.
-export const META_BUSINESS_REQUIRED_SCOPES = ["business_management", "ads_read", "pages_show_list", "pages_read_engagement", "read_insights", "instagram_basic", "instagram_manage_insights"];
+// The permission set needed for Facebook Page / Instagram Business
+// discovery AND reading real insights (not just listing accounts) —
+// confirmed against Meta's current permissions reference before adding:
+// pages_show_list (list Pages), pages_read_engagement (Page content/
+// engagement/insights), instagram_basic (IG account/media),
+// instagram_manage_insights (IG account/media/story insights),
+// business_management (Business Manager assets), ads_read (ad account
+// insights).
+//
+// read_insights deliberately excluded: confirmed via Meta's current
+// deprecation notices that it is no longer a valid standalone OAuth
+// permission — an app in Live mode requesting it is rejected at the OAuth
+// dialog (this was one of two real causes of a live "Invalid Scopes"
+// error alongside the config_id issue below). Page/ad insights are now
+// covered by pages_read_engagement plus the Insights API directly.
+//
+// These are also NOT sent as a raw scope= parameter for this specific
+// Meta App — it is configured as "Facebook Login for Business" (confirmed
+// live: its own OAuth redirect sets is_business_login=1), and Meta's
+// current documentation for that product states config_id replaces scope
+// entirely. This list instead documents exactly which permissions must be
+// selected inside the Meta Dashboard Configuration referenced by
+// META_LOGIN_CONFIG_ID (see customer-integration-oauth.ts), and is reused
+// here only as descriptive metadata on discovered/normalized assets.
+export const META_BUSINESS_REQUIRED_SCOPES = ["business_management", "ads_read", "pages_show_list", "pages_read_engagement", "instagram_basic", "instagram_manage_insights"];
 
 function clean(value: unknown) {
   return String(value ?? "").trim();
