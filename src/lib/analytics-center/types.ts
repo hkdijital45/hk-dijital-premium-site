@@ -42,6 +42,8 @@ export type ProviderConnectionStatus = {
   asset: ConnectionAsset | null;
   lastSyncedAt: string | null;
   lastError: string | null;
+  // Direct OAuth connect URL (/api/integrations/{meta|google}/connect?...) —
+  // never a page to navigate to first. See connections.ts.
   connectHref: string;
   manageHref: string;
   externalHref: string | null;
@@ -50,6 +52,14 @@ export type ProviderConnectionStatus = {
   // advanced business scopes gated behind META_ADVANCED_SCOPES_ENABLED.
   scopeReady: boolean;
   scopeNote: string | null;
+  // Whether the shared parent OAuth login (Meta or Google) is itself
+  // authenticated, independent of whether this specific child asset has
+  // been selected yet — lets the UI show "parent bağlı, hesap seçimi
+  // gerekli" instead of a bare "bağlı değil" that looks identical to never
+  // having logged in at all.
+  oauthParent: "meta" | "google";
+  parentConnected: boolean;
+  parentAccountName: string | null;
 };
 
 export type MetricCapability = "supported" | "unsupported" | "permission_missing" | "not_applicable";

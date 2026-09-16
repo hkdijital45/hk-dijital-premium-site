@@ -26,6 +26,16 @@ function assetsForProvider(row: any, provider: AnalyticsProvider): ConnectionAss
   return match || null;
 }
 
+// The shared parent OAuth login row (account_type "meta_user"/"google_profile")
+// — distinct from any specific child asset (a Page, a channel, an Ads
+// account...). Matches the rows saveMetaPhase1Integration/
+// saveGoogleOAuthIntegration write in customer-integration-oauth.ts.
+function parentAssetForOAuthParent(row: any, oauthParent: "meta" | "google"): any {
+  const assets: any[] = Array.isArray(row?.integration_assets) ? row.integration_assets : [];
+  const parentAccountType = oauthParent === "meta" ? "meta_user" : "google_profile";
+  return assets.find((item) => item?.provider === oauthParent && item?.account_type === parentAccountType) || null;
+}
+
 async function lastSyncLogForProvider(companyId: string, provider: AnalyticsProvider) {
   const oauthParent = PROVIDER_OAUTH_PARENT[provider];
   const rows = await supabaseRest<any[]>(
@@ -34,24 +44,41 @@ async function lastSyncLogForProvider(companyId: string, provider: AnalyticsProv
   return rows.find((row) => row?.details?.platform === provider) || null;
 }
 
+// Direct OAuth connect URL — HK Admin (with ?company=) and the customer
+// panel both hit this same endpoint; oauthConnect() itself derives origin
+// ("hk_admin" vs "customer_panel") from the live session server-side, never
+// from a client-supplied param. returnTo is the ONLY thing that differs
+// between the two callers, and it's re-validated by safeReturnTo() /
+// re-signed into the OAuth state server-side — never trusted as-is.
+function directConnectHref(provider: AnalyticsProvider, companyId: string): string {
+  const oauthParent = PROVIDER_OAUTH_PARENT[provider];
+  const assetType = PROVIDER_ASSET_TYPE[provider];
+  // requestedChild round-trips through oauthConnect's signed state and back
+  // out via oauthCallback's returnTo-based redirect (safeReturnTo preserves
+  // the full query string, never just the path) — it's how
+  // AnalyticsReportingCenter knows which of the 5 provider cards (e.g.
+  // "instagram" specifically, not just "meta") to reopen the connection
+  // drawer on after the browser comes back from Meta/Google. Purely a UX
+  // hint, like the existing company param — never trusted for
+  // authorization.
+  const returnTo = `/hk-admin/analiz-raporlama?company=${encodeURIComponent(companyId)}&requestedChild=${provider}#hesaplar`;
+  const params = new URLSearchParams({ company: companyId, platform: provider, assetType, returnTo });
+  return `/api/integrations/${oauthParent}/connect?${params.toString()}`;
+}
+
 export async function getProviderConnectionStatus(companyId: string, provider: AnalyticsProvider): Promise<ProviderConnectionStatus> {
   const label = PROVIDER_LABELS[provider];
   const oauthParent = PROVIDER_OAUTH_PARENT[provider];
   const row = await getCustomerIntegrationRow(companyId);
   const asset = assetsForProvider(row, provider);
+  const parentAsset = parentAssetForOAuthParent(row, oauthParent);
   const lastLog = await lastSyncLogForProvider(companyId, provider);
   const oauthReadiness = getOAuthProviderStatus(oauthParent);
 
-  // ?company= puts /musteri-paneli into its existing, already-built staff-preview
-  // mode (see src/proxy.ts's isStaffPreview check) so an HK Admin clicking this
-  // from Analiz & Raporlama Merkezi lands on the real "Hesap Bağla" screen while
-  // staying authenticated as HK Admin, instead of being bounced to the customer
-  // login screen. from=hk-admin tells CustomerAccountConnectCenter to route the
-  // OAuth returnTo back to HK Admin (see its use of "from") rather than back to
-  // this staff-preview URL — oauthConnect/oauthCallback independently re-verify
-  // the staff session server-side before honoring either the company or the
-  // return route, so this query param is a UX hint only, never a trust boundary.
-  const manageHref = `/musteri-paneli?company=${encodeURIComponent(companyId)}&from=hk-admin#hesap-bagla`;
+  // HK Admin's own native connection panel (AdminConnectionDrawer) and the
+  // customer panel's Hesap Bağla screen both navigate the browser straight
+  // here — no intermediate page. See the comment on directConnectHref.
+  const manageHref = directConnectHref(provider, companyId);
   const connectHref = manageHref;
 
   let status: ProviderConnectionStatus["status"] = "not_connected";
@@ -81,7 +108,7 @@ export async function getProviderConnectionStatus(companyId: string, provider: A
   let scopeNote: string | null = null;
   if ((provider === "instagram" || provider === "facebook") && !oauthReadiness.advancedScopesEnabled) {
     scopeReady = false;
-    scopeNote = "Instagram/Facebook analiz izinleri (instagram_basic, pages_show_list, ads_read, business_management) şu anda istenmiyor. META_ADVANCED_SCOPES_ENABLED etkinleştirilmeli ve gerekiyorsa Meta App Review onayı alınmalıdır.";
+    scopeNote = "Instagram/Facebook analiz izinleri (pages_show_list, pages_read_engagement, instagram_basic, instagram_manage_insights) şu anda istenmiyor. Ayrı, Business tipinde bir Meta App + Configuration gerekir — bkz. docs/analytics-center/setup.md.";
   }
   if (provider === "google_ads" && !process.env.GOOGLE_ADS_DEVELOPER_TOKEN) {
     scopeReady = false;
@@ -93,6 +120,9 @@ export async function getProviderConnectionStatus(companyId: string, provider: A
   return {
     provider,
     label,
+    oauthParent,
+    parentConnected: Boolean(parentAsset),
+    parentAccountName: parentAsset?.provider_account_name || null,
     status,
     statusLabel,
     asset,

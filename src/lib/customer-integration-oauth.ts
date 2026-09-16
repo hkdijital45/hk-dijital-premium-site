@@ -179,7 +179,7 @@ function pkceChallenge(verifier: string) {
 // it did nothing to what was requested. The real, current gate is whether a
 // dedicated Facebook Login for Business app + Configuration is fully set up
 // — see metaBusinessCredentials().
-function advancedScopesEnabled(provider: Provider) {
+export function advancedScopesEnabled(provider: Provider) {
   return provider === "meta" && Boolean(metaBusinessCredentials());
 }
 
@@ -1448,6 +1448,63 @@ export async function selectOAuthAccount(request: Request) {
     };
     const rows = await supabaseRest<any[]>("customer_integrations?on_conflict=company_id", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify(patch) });
     return NextResponse.json({ ok: true, integration: publicIntegrationRecord(rows[0]), assets: nextAssets, savedCount: newAssets.length, message: `${newAssets.length} hesap bağlandı ve admin paneline aktarıldı.` });
+  } catch (error) {
+    const safe = getSafeSupabaseError(error);
+    return NextResponse.json({ error: safe.title, supabaseError: safe.detail }, { status: 500 });
+  }
+}
+
+// Removes one connected asset (a Page, a channel, an Ads account, or the
+// shared parent login row itself) from integration_assets. Same
+// customer-vs-staff trust boundary as selectOAuthAccount: a customer
+// session may only ever act on its own company; a staff session may only
+// act on an explicit, validated ?company=/body.company. Never revokes the
+// token at the provider itself (Meta/Google have no such single-call API
+// for an OAuth app; the user themselves can do that from their own account
+// settings) — this only stops HK Dijital from treating the asset as
+// connected and clears it from admin/customer views.
+export async function disconnectIntegrationAsset(request: Request) {
+  const session = await requireIntegrationSession();
+  if (!session) return NextResponse.json({ error: "Oturum gerekir." }, { status: 403 });
+  if (!hasSupabaseConfig()) return NextResponse.json({ error: "Supabase bağlantısı yapılandırılmadı." }, { status: 500 });
+  const body = await request.json().catch(() => ({}));
+  const provider = clean(body.provider) as Provider;
+  const accountType = clean(body.account_type || body.accountType || body.asset_type || body.assetType);
+  const providerAccountId = clean(body.provider_account_id || body.providerAccountId || body.account_id || body.asset_id);
+  if (!provider || !accountType || !providerAccountId) {
+    return NextResponse.json({ error: "Bağlantısı kesilecek hesap bilgisi eksik." }, { status: 400 });
+  }
+
+  const requestedCompany = clean(body.company || body.companyId || body.customerId);
+  let targetCompanyId = "";
+  if (isCustomerRole(session.role) && session.companyId) {
+    targetCompanyId = session.companyId;
+  } else if (isStaffRole(session.role) && requestedCompany && (await companyExistsForStaff(requestedCompany))) {
+    targetCompanyId = requestedCompany;
+  }
+  if (!targetCompanyId) return NextResponse.json({ error: "Müşteri oturumu gerekir." }, { status: 403 });
+
+  try {
+    const rows = await supabaseRest<any[]>(`customer_integrations?company_id=eq.${encodeURIComponent(targetCompanyId)}&select=*&limit=1`).catch(() => []);
+    const existing = rows[0] || null;
+    if (!existing) return NextResponse.json({ ok: true, assets: [], message: "Zaten bağlı bir hesap yok." });
+    const currentAssets: any[] = Array.isArray(existing.integration_assets) ? existing.integration_assets : [];
+    const targetKey = `${provider}-${accountType}-${providerAccountId}`;
+    const keyOf = (item: any) => `${item.provider || item.platform}-${item.account_type || item.asset_type}-${item.provider_account_id || item.account_id || item.asset_id}`;
+    const removed = currentAssets.some((item) => keyOf(item) === targetKey);
+    const nextAssets = currentAssets.filter((item) => keyOf(item) !== targetKey);
+    const patch: Record<string, unknown> = { integration_assets: nextAssets, updated_by: session.profileId || null };
+    // Disconnecting the row's own top-level pointer (e.g. the shared Meta/
+    // Google parent login itself) — clear that pointer too so status reads
+    // stop showing a connected account that no longer exists.
+    if (existing.account_type === accountType && existing.provider_account_id === providerAccountId) {
+      patch.status = "reauth_required";
+      patch.oauth_status = "disconnected";
+      patch.provider_account_id = null;
+      patch.provider_account_name = null;
+    }
+    await supabaseRest(`customer_integrations?company_id=eq.${encodeURIComponent(targetCompanyId)}`, { method: "PATCH", body: JSON.stringify(patch) });
+    return NextResponse.json({ ok: true, assets: nextAssets, message: removed ? "Bağlantı kesildi." : "Hesap zaten bağlı değildi." });
   } catch (error) {
     const safe = getSafeSupabaseError(error);
     return NextResponse.json({ error: safe.title, supabaseError: safe.detail }, { status: 500 });

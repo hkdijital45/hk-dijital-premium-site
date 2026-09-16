@@ -10,27 +10,16 @@ import { AdminStatusBadge, type AdminStatusTone } from "@/components/admin/ui/Ad
 import { AdminKpiCard } from "@/components/admin/ui/AdminKpiCard";
 import { AdminEmptyState } from "@/components/admin/ui/AdminEmptyState";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { AdminConnectionDrawer } from "@/components/admin/AdminConnectionDrawer";
+import type { AnalyticsProvider, ProviderConnectionStatus } from "@/lib/analytics-center/types";
 import { BarChart3, ImagePlus, Megaphone, PlayCircle, Search, MapPin, RefreshCw, FileDown, ExternalLink } from "lucide-react";
 
-type AnalyticsProvider = "instagram" | "facebook" | "youtube" | "google_ads" | "google_business_profile";
 const PROVIDERS: AnalyticsProvider[] = ["instagram", "facebook", "youtube", "google_ads", "google_business_profile"];
 const PROVIDER_LABELS: Record<AnalyticsProvider, string> = { instagram: "Instagram", facebook: "Facebook", youtube: "YouTube", google_ads: "Google Ads", google_business_profile: "Google Business Profile" };
 const PROVIDER_ICONS: Record<AnalyticsProvider, any> = { instagram: ImagePlus, facebook: Megaphone, youtube: PlayCircle, google_ads: Search, google_business_profile: MapPin };
 
 type Company = { id: string; name: string };
-type ConnectionStatus = {
-  provider: AnalyticsProvider;
-  label: string;
-  status: string;
-  statusLabel: string;
-  asset: { asset_name: string; provider_account_id: string } | null;
-  lastSyncedAt: string | null;
-  lastError: string | null;
-  manageHref: string;
-  externalHref: string | null;
-  scopeReady: boolean;
-  scopeNote: string | null;
-};
+type ConnectionStatus = ProviderConnectionStatus;
 type KpiCardValue = { key: string; label: string; value: number | null; changePercent: number | null; unit: string; capability: string; note?: string };
 type ContentItem = { id: string; provider: AnalyticsProvider; content_id: string; content_type: string | null; title: string | null; caption: string | null; permalink: string | null; thumbnail_url: string | null; published_at: string | null; metrics: Record<string, number | null> };
 
@@ -114,6 +103,9 @@ export function AnalyticsReportingCenter() {
   const [generatingReport, setGeneratingReport] = useState(false);
   const [reportResult, setReportResult] = useState<{ pdfUrl: string } | null>(null);
   const [savedReports, setSavedReports] = useState<any[]>([]);
+  const [drawerProvider, setDrawerProvider] = useState<AnalyticsProvider | null>(null);
+  const [drawerAutoLoad, setDrawerAutoLoad] = useState(false);
+  const [drawerError, setDrawerError] = useState<string | null>(null);
 
   function markReady() { setReady(true); }
   useEffect(() => { markReady(); }, []);
@@ -140,6 +132,29 @@ export function AnalyticsReportingCenter() {
       if (window.location.hash === "#hesaplar") setActiveTab("Hesaplar");
     }
   }, [companies]);
+
+  // Direct-OAuth return handling — no /musteri-paneli hop. connections.ts's
+  // directConnectHref sends the browser straight to Meta/Google with a
+  // returnTo of /hk-admin/analiz-raporlama?company=..&requestedChild=..
+  // (never through the customer panel); oauthCallback appends
+  // integration_provider/integration_success/integration_error/oauth_status
+  // on top of that same returnTo on its way back here. requestedChild is
+  // what which of the 5 provider cards (e.g. "instagram", not just "meta")
+  // to reopen the connection drawer on — read once on mount, same pattern
+  // CustomerAccountConnectCenter used for its own OAuth-return detection.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedChild = params.get("requestedChild") as AnalyticsProvider | null;
+    const status = params.get("oauth_status");
+    const success = params.get("integration_success");
+    const error = params.get("integration_error");
+    if (requestedChild && PROVIDERS.includes(requestedChild) && (status === "accounts_ready" || success || error)) {
+      setActiveTab("Hesaplar");
+      setDrawerProvider(requestedChild);
+      setDrawerAutoLoad(Boolean(status === "accounts_ready" || success));
+      setDrawerError(error);
+    }
+  }, []);
 
   const range = useMemo(() => rangeForPreset(preset, customStart, customEnd), [preset, customStart, customEnd]);
 
@@ -311,7 +326,7 @@ export function AnalyticsReportingCenter() {
                     {!conn.scopeReady && conn.scopeNote && <p className="mt-2 rounded-[8px] p-2 text-[11px]" style={{ background: "var(--admin-surface-muted, var(--admin-surface-soft))", color: "var(--admin-text-secondary)" }}>{conn.scopeNote}</p>}
                     <div className="mt-3 flex flex-wrap gap-2">
                       {conn.externalHref && <a href={conn.externalHref} target="_blank" rel="noreferrer" className="hk-button hk-button-compact hk-button-secondary">Hesaba Git</a>}
-                      <a href={conn.manageHref} target="_blank" rel="noreferrer" className="hk-button hk-button-compact hk-button-secondary">Bağlantıyı Yönet</a>
+                      <button type="button" onClick={() => { setDrawerProvider(conn.provider); setDrawerAutoLoad(false); setDrawerError(null); }} className="hk-button hk-button-compact hk-button-secondary">Bağlantıyı Yönet</button>
                     </div>
                   </div>
                 );
@@ -389,6 +404,17 @@ export function AnalyticsReportingCenter() {
             </div>
           )}
         </>
+      )}
+      {drawerProvider && companyId && (
+        <AdminConnectionDrawer
+          companyId={companyId}
+          initialProvider={drawerProvider}
+          connections={connections}
+          autoLoadAccounts={drawerAutoLoad}
+          incomingError={drawerError}
+          onClose={() => setDrawerProvider(null)}
+          onConnectionsChanged={loadConnections}
+        />
       )}
     </AdminWorkspace>
   );
