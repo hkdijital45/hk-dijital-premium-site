@@ -20,7 +20,14 @@ export type Provider = "meta" | "google" | "tiktok" | "x";
 // state, never as a trusted client value, so oauthCallback can safely
 // determine which session type/return route is valid for this handshake —
 // see oauthConnect/oauthCallback.
-type OAuthOrigin = "customer_panel" | "hk_admin";
+// "connect_link" added for HK Connect's remote connection links: a
+// customer opens /connect/<token> (no HK Admin login, no customer
+// session) and starts this same OAuth flow — see the new branch in
+// oauthConnect/oauthCallback below. The token itself is validated
+// against public.customer_connect_tokens (src/lib/connect-links.ts)
+// before this origin is ever assigned; nothing here trusts a client
+// value for it.
+type OAuthOrigin = "customer_panel" | "hk_admin" | "connect_link";
 type OAuthState = {
   provider: Provider;
   platform: string;
@@ -29,6 +36,7 @@ type OAuthState = {
   returnTo: string;
   nonce: string;
   exp: number;
+  connectTokenId?: string;
 };
 
 export async function companyExistsForStaff(companyId: string): Promise<boolean> {
@@ -565,6 +573,8 @@ export async function oauthConnect(provider: Provider, request: Request) {
   let origin: OAuthOrigin = "customer_panel";
   let targetCompanyId = "";
   let requesterProfileId: string | null = null;
+  let connectTokenId: string | undefined;
+  let connectTokenRawValue = "";
 
   if (customerSession) {
     targetCompanyId = customerSession.companyId;
@@ -577,24 +587,44 @@ export async function oauthConnect(provider: Provider, request: Request) {
   } else {
     const staffSession = await getSession();
     const isAuthorizedStaff = Boolean(staffSession && isStaffRole(staffSession.role) && canAccessModule(staffSession, "analiz-raporlama"));
-    if (!isAuthorizedStaff || !requestedCompany) {
+    const connectTokenRaw = clean(url.searchParams.get("connectToken"));
+
+    if (isAuthorizedStaff && requestedCompany) {
+      if (!(await companyExistsForStaff(requestedCompany))) {
+        const returnTo = safeReturnTo(rawReturnTo || "/hk-admin/analiz-raporlama");
+        if (wantsJson(request)) return NextResponse.json({ ok: false, error: "COMPANY_MISMATCH", message: "Geçerli bir müşteri seçin." }, { status: 403 });
+        return redirectWithIntegrationError(request, returnTo, provider, "company_mismatch");
+      }
+      origin = "hk_admin";
+      targetCompanyId = requestedCompany;
+      requesterProfileId = staffSession!.profileId || null;
+    } else if (connectTokenRaw) {
+      // HK Connect remote connection link — no HK Admin/customer session
+      // at all by design; the token itself (validated against
+      // public.customer_connect_tokens, hash-only, never the raw value) is
+      // the sole authorization for which company this handshake is for.
+      connectTokenRawValue = connectTokenRaw;
+      const { validateConnectToken } = await import("@/lib/connect-links");
+      const validated = await validateConnectToken(connectTokenRaw);
+      const returnTo = safeReturnTo(rawReturnTo || `/connect/${connectTokenRaw}`);
+      if (!validated.valid) {
+        if (wantsJson(request)) return NextResponse.json({ ok: false, error: "TOKEN_INVALID", message: "Bağlantı linki geçersiz veya süresi dolmuş." }, { status: 403 });
+        return redirectWithIntegrationError(request, returnTo, provider, "token_invalid");
+      }
+      origin = "connect_link";
+      targetCompanyId = validated.companyId;
+      connectTokenId = validated.id;
+      requesterProfileId = null;
+    } else {
       const returnTo = safeReturnTo(rawReturnTo || "/musteri-paneli#hesap-bagla");
       if (wantsJson(request)) {
         return NextResponse.json({ ok: false, error: "SESSION_MISSING", message: "Oturum doğrulanamadı. Lütfen panelden çıkış yapıp tekrar giriş yapın." }, { status: 401 });
       }
       return redirectWithIntegrationError(request, returnTo, provider, "session_missing");
     }
-    if (!(await companyExistsForStaff(requestedCompany))) {
-      const returnTo = safeReturnTo(rawReturnTo || "/hk-admin/analiz-raporlama");
-      if (wantsJson(request)) return NextResponse.json({ ok: false, error: "COMPANY_MISMATCH", message: "Geçerli bir müşteri seçin." }, { status: 403 });
-      return redirectWithIntegrationError(request, returnTo, provider, "company_mismatch");
-    }
-    origin = "hk_admin";
-    targetCompanyId = requestedCompany;
-    requesterProfileId = staffSession!.profileId || null;
   }
 
-  const returnTo = safeReturnTo(rawReturnTo || (origin === "hk_admin" ? "/hk-admin/analiz-raporlama" : "/musteri-paneli#hesap-bagla"));
+  const returnTo = safeReturnTo(rawReturnTo || (origin === "hk_admin" ? "/hk-admin/analiz-raporlama" : origin === "connect_link" ? `/connect/${connectTokenRawValue}?status=processing` : "/musteri-paneli#hesap-bagla"));
   const missing = missingProviderEnv(provider);
   if (missing.length) {
     const errorCode = `${provider}_env_missing`;
@@ -608,7 +638,7 @@ export async function oauthConnect(provider: Provider, request: Request) {
   const scope = effectiveProviderScope(provider);
   const platform = clean(url.searchParams.get("platform")) || provider;
   const nonce = crypto.randomBytes(18).toString("base64url");
-  const state = encodeState({ provider, platform, customerId: targetCompanyId, origin, returnTo, nonce, exp: Date.now() + 10 * 60 * 1000 });
+  const state = encodeState({ provider, platform, customerId: targetCompanyId, origin, returnTo, nonce, exp: Date.now() + 10 * 60 * 1000, connectTokenId });
   const codeVerifier = provider === "x" ? crypto.randomBytes(48).toString("base64url") : "";
   const configId = provider === "meta" ? (metaBusinessCredentials()?.configId || "") : "";
   const params = new URLSearchParams(provider === "tiktok" ? {
@@ -1045,10 +1075,12 @@ export async function oauthCallback(provider: Provider, request: Request) {
   // failing always still leads to a rejected, no-op state_invalid below.
   const currentSessionForOrigin = state ? null : await getSession();
   const origin: OAuthOrigin =
-    state?.origin === "hk_admin" || (!state && currentSessionForOrigin && isStaffRole(currentSessionForOrigin.role))
-      ? "hk_admin"
-      : "customer_panel";
-  const returnTo = safeReturnTo(state?.returnTo || (origin === "hk_admin" ? "/hk-admin/analiz-raporlama" : "/musteri-paneli#hesap-bagla"));
+    state?.origin === "connect_link"
+      ? "connect_link"
+      : state?.origin === "hk_admin" || (!state && currentSessionForOrigin && isStaffRole(currentSessionForOrigin.role))
+        ? "hk_admin"
+        : "customer_panel";
+  const returnTo = safeReturnTo(state?.returnTo || (origin === "hk_admin" ? "/hk-admin/analiz-raporlama" : origin === "connect_link" ? "/connect/expired" : "/musteri-paneli#hesap-bagla"));
 
   // Re-verify the *current* session at callback time — never trust the
   // state blob for authorization, only for which company was authorized
@@ -1066,6 +1098,15 @@ export async function oauthCallback(provider: Provider, request: Request) {
     sessionCompanyId = state?.customerId || "";
     sessionProfileId = staffSession.profileId || null;
     logOAuthStage("admin_session_verified", request, { provider, origin, sessionPresent: true, role: staffSession.role, companyId: sessionCompanyId, traceId: state?.nonce || null, ok: true });
+  } else if (origin === "connect_link") {
+    // No session at all by design — the signed state (only ever created by
+    // oauthConnect after validateConnectToken succeeded) is the sole
+    // authorization here. Re-checked again below: nonce must match this
+    // browser's cookie, and the token is re-validated (not just trusted
+    // from the state blob) immediately before it's marked used.
+    sessionCompanyId = state?.customerId || "";
+    sessionProfileId = null;
+    logOAuthStage("admin_session_verified", request, { provider, origin, sessionPresent: false, companyId: sessionCompanyId, traceId: state?.nonce || null, ok: true });
   } else {
     const customerSession = await requireCustomerSession();
     if (!customerSession) {
@@ -1141,6 +1182,12 @@ export async function oauthCallback(provider: Provider, request: Request) {
         logOAuthStage("integration_persist_success", request, { provider, origin, companyId: sessionCompanyId, traceId: state.nonce, ok: false });
         return redirectWithIntegrationError(request, returnTo, provider, "user_info_fetch_failed", { oauth_trace: state.nonce });
       }
+    }
+    if (origin === "connect_link" && state.connectTokenId) {
+      // Single-use: only marked consumed once the connection has actually
+      // been saved — a failed/cancelled attempt leaves the link usable.
+      const { consumeConnectToken } = await import("@/lib/connect-links");
+      await consumeConnectToken(state.connectTokenId).catch(() => {});
     }
     target.searchParams.set("integration_provider", provider);
     target.searchParams.set("integration_success", provider);

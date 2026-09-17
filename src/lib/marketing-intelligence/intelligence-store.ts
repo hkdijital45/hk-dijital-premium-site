@@ -99,6 +99,14 @@ export async function getIntelligenceHistory(companyId: string, limit = 20): Pro
   );
 }
 
+/** Claude Çalışmaları view — all runs (optionally scoped to one company),
+ * newest first. Reuses the same table/rows save_marketing_intelligence
+ * already writes; no separate activity table. */
+export async function getAllIntelligence(companyId?: string, limit = 100): Promise<IntelligenceRun[]> {
+  const scope = companyId ? `&target_company_id=eq.${encodeURIComponent(companyId)}` : "";
+  return supabaseRest<IntelligenceRun[]>(`hk_intelligence_ceo_runs?select=*${scope}&order=created_at.desc&limit=${limit}`);
+}
+
 export type Recommendation = {
   id: string;
   company_id: string;
