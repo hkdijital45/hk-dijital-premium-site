@@ -6,16 +6,21 @@
 // that file's generic (not Social-Autopilot-specific) primitives directly:
 // ControlError, authenticate, success/failure/sanitize envelopes, the Tool
 // type and its argument validator.
+//
+// The Instagram/İçerik Takip business logic is imported with dynamic
+// import() INSIDE execute()'s branches rather than as static top-level
+// imports: tools/list and initialize never call execute() at all, so a
+// cold Lambda handling just those doesn't need to load the Graph API
+// client, the analysis engine, or the plan writer — only an actual
+// tools/call pays for that. Found to matter in practice while diagnosing
+// a slow-handshake report from Claude.ai's connector validator.
 import {
   ControlError, authenticate, success, failure, sanitize, validateArguments,
   type Tool
 } from "@/lib/social-autopilot/control/protocol";
-import { getInstagramConnectionStatus, getUsableInstagramToken } from "@/lib/social-autopilot/instagram-oauth";
-import { getRecentInstagramMedia } from "@/lib/social-autopilot/instagram-graph-client";
-import { analyzeInstagramAccount, InstagramNotConnectedError } from "@/lib/instagram-intelligence/analysis";
-import { validatePlanItems, createContentPlanItems, PlanInputError } from "@/lib/instagram-intelligence/plan";
-import { supabaseRest } from "@/lib/supabase";
-import { CONTENT_PLAN_WORKSPACE_ID, CONTENT_PLAN_TABLE, type ContentPlanItem } from "@/lib/content-plan/types";
+// Type-only imports are erased at compile time (zero runtime cold-start
+// cost) — only the VALUE imports of these modules are deferred below.
+import type { ContentPlanItem } from "@/lib/content-plan/types";
 
 export { ControlError, authenticate, success, failure, sanitize };
 
@@ -37,7 +42,9 @@ function toolByName(name: string): Tool {
   return tool;
 }
 
-async function fetchPlanRows(filter: "history" | "upcoming", limit: number) {
+async function fetchPlanRows(filter: "history" | "upcoming", limit: number): Promise<ContentPlanItem[]> {
+  const { supabaseRest } = await import("@/lib/supabase");
+  const { CONTENT_PLAN_WORKSPACE_ID, CONTENT_PLAN_TABLE } = await import("@/lib/content-plan/types");
   const today = new Date().toISOString().slice(0, 10);
   const scope = filter === "upcoming"
     ? `&is_published=eq.false&scheduled_date=gte.${today}`
@@ -50,16 +57,22 @@ async function fetchPlanRows(filter: "history" | "upcoming", limit: number) {
 export async function execute(name: string, args: Record<string, unknown>): Promise<unknown> {
   const toolLimit = Number(args.limit || 20);
   switch (name) {
-    case "get_instagram_account":
+    case "get_instagram_account": {
+      const { getInstagramConnectionStatus } = await import("@/lib/social-autopilot/instagram-oauth");
       return getInstagramConnectionStatus();
-    case "get_instagram_analysis":
+    }
+    case "get_instagram_analysis": {
+      const { analyzeInstagramAccount, InstagramNotConnectedError } = await import("@/lib/instagram-intelligence/analysis");
       try {
         return await analyzeInstagramAccount();
       } catch (error) {
         if (error instanceof InstagramNotConnectedError) throw new ControlError("NOT_CONNECTED", error.message, 409);
         throw error;
       }
+    }
     case "get_instagram_recent_posts": {
+      const { getUsableInstagramToken, InstagramNotConnectedError } = await import("@/lib/social-autopilot/instagram-oauth");
+      const { getRecentInstagramMedia } = await import("@/lib/social-autopilot/instagram-graph-client");
       try {
         const { accessToken, igUserId } = await getUsableInstagramToken();
         const result = await getRecentInstagramMedia(accessToken, igUserId, toolLimit);
@@ -73,7 +86,8 @@ export async function execute(name: string, args: Record<string, unknown>): Prom
       return fetchPlanRows("history", toolLimit);
     case "get_upcoming_content_plan":
       return fetchPlanRows("upcoming", toolLimit);
-    case "create_content_plan":
+    case "create_content_plan": {
+      const { validatePlanItems, createContentPlanItems, PlanInputError } = await import("@/lib/instagram-intelligence/plan");
       try {
         const items = validatePlanItems(args.items);
         return await createContentPlanItems(items);
@@ -81,6 +95,7 @@ export async function execute(name: string, args: Record<string, unknown>): Prom
         if (error instanceof PlanInputError) throw new ControlError("INVALID_ARGUMENTS", error.message, 400);
         throw error;
       }
+    }
     default:
       throw new ControlError("UNKNOWN_TOOL", "Unknown tool.", 404);
   }
