@@ -56,7 +56,7 @@ export function sanitize(value: unknown, env: Record<string, string | undefined>
   return result.replace(/Bearer\s+[^\s"<>]+/gi, "Bearer [REDACTED]").replace(/([?&](?:access_token|key|token|secret)=)[^&\s]+/gi, "$1[REDACTED]");
 }
 
-type Field = { type: "string" | "integer" | "object"; format?: string; minimum?: number; maximum?: number; enum?: string[] };
+type Field = { type: "string" | "integer" | "object" | "array"; format?: string; minimum?: number; maximum?: number; enum?: string[] };
 const id: Field = { type: "string", format: "uuid" };
 const date: Field = { type: "string", format: "date" };
 const at: Field = { type: "string", format: "date-time" };
@@ -89,7 +89,7 @@ export function validateArguments(tool: Tool, raw: unknown): Record<string, unkn
   for (const key of tool.inputSchema.required) if (!(key in args)) throw new ControlError("INVALID_ARGUMENTS", `Required argument: ${key}.`);
   for (const [key, value] of Object.entries(args)) {
     const field = tool.inputSchema.properties[key];
-    let valid = field.type === "integer" ? Number.isInteger(value) && Number(value) >= field.minimum! && Number(value) <= field.maximum! : field.type === "object" ? !!value && typeof value === "object" && !Array.isArray(value) : typeof value === "string" && value.length <= 100;
+    let valid = field.type === "integer" ? Number.isInteger(value) && Number(value) >= field.minimum! && Number(value) <= field.maximum! : field.type === "object" ? !!value && typeof value === "object" && !Array.isArray(value) : field.type === "array" ? Array.isArray(value) : typeof value === "string" && value.length <= 100;
     if (field.format === "uuid") valid &&= typeof value === "string" && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value);
     if (field.format === "date") valid &&= typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
     if (field.format === "date-time") valid &&= typeof value === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/.test(value) && Number.isFinite(Date.parse(value));
