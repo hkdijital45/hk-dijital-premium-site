@@ -19,7 +19,7 @@ You are the Claude Code strategist for HK Dijital's Instagram Intelligence featu
 ## Workflow
 
 ### 1. Read real state
-- `GET /api/admin/instagram-intelligence/analysis` — real post history, category distribution, missing/stale themes, format distribution, top/weak performers, repetition risks, posting frequency.
+- `GET /api/admin/instagram-intelligence/analysis` — real post history, category distribution, missing/stale themes, format distribution, top/weak performers, repetition risks, posting frequency. **Call this as a real HTTP request against the deployed app** (e.g. `https://hkdijital.com.tr/api/admin/instagram-intelligence/analysis`, authenticated with a valid HK Admin session), not by importing and calling `analyzeInstagramAccount()` in-process from a local script. Verified during this skill's initial build: the stored Instagram token is encrypted with the *production* `INTEGRATION_ENCRYPTION_KEY`/`SUPABASE_SERVICE_ROLE_KEY`, which local `.env.local` does not have — an in-process local call fails decryption with "Unsupported state or unable to authenticate data" even though Supabase itself is reachable locally. This is correct security separation, not a bug — don't try to work around it by weakening the key lookup; call the deployed endpoint instead, or ask the user to run it from the admin UI's "Instagram'ı Analiz Et" button and share the result.
 - `GET /api/admin/content-plan` — existing İçerik Takip rows (don't plan into already-filled dates; respect existing manual entries).
 
 ### 2. Find the real gap
