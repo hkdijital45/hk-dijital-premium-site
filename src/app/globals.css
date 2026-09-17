@@ -6606,3 +6606,40 @@ table.admin-data-grid {
   border: 1px solid var(--analytics-panel-border);
   color: var(--analytics-text-on-dark);
 }
+
+/* İçerik Planlama Merkezi — mandatory status row coloring (amber =
+   Bekliyor / is_published false, green = Paylaşıldı / is_published true).
+   Applied as a low-opacity tint over the ambient (already correctly
+   paired) background + text, not an absolute background swap, so text
+   contrast never needs new dedicated tokens. Works for both the desktop
+   <tr> rows and the mobile card fallback (same classes on the <div>). */
+.plan-row-pending,
+.plan-row-published {
+  transition: background-color .25s ease, box-shadow .25s ease;
+  box-shadow: inset 3px 0 0 0 transparent;
+}
+.plan-row-pending {
+  background-color: rgba(217, 119, 6, .1);
+  box-shadow: inset 3px 0 0 0 rgba(217, 119, 6, .55);
+}
+.plan-row-published {
+  background-color: rgba(21, 128, 61, .1);
+  box-shadow: inset 3px 0 0 0 rgba(21, 128, 61, .55);
+}
+tr.plan-row-pending:hover,
+tr.plan-row-published:hover {
+  background-color: color-mix(in srgb, currentColor 4%, transparent);
+}
+tr.plan-row-pending:hover { background-color: rgba(217, 119, 6, .15); }
+tr.plan-row-published:hover { background-color: rgba(21, 128, 61, .15); }
+
+.hk-admin[data-theme="dark"] .plan-row-pending {
+  background-color: rgba(217, 119, 6, .16);
+  box-shadow: inset 3px 0 0 0 rgba(251, 191, 36, .6);
+}
+.hk-admin[data-theme="dark"] .plan-row-published {
+  background-color: rgba(21, 128, 61, .18);
+  box-shadow: inset 3px 0 0 0 rgba(74, 222, 128, .6);
+}
+.hk-admin[data-theme="dark"] tr.plan-row-pending:hover { background-color: rgba(217, 119, 6, .24); }
+.hk-admin[data-theme="dark"] tr.plan-row-published:hover { background-color: rgba(21, 128, 61, .26); }
