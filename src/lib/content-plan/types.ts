@@ -4,6 +4,13 @@
 
 export const CONTENT_PLAN_WORKSPACE_ID = "hk-dijital";
 
+// Real table name in production (verified via a direct Supabase REST probe
+// on 2026-09-17). NOT "content_plan_items" — that name collides with an
+// unrelated, already-live Blog SEO table (supabase/migrations/20260715_
+// blog_content_operations.sql, plan_id/blog_post_id/slug shape). This one
+// was created separately as public.social_content_plan_items.
+export const CONTENT_PLAN_TABLE = "social_content_plan_items";
+
 export const PLATFORM_KEYS = ["instagram", "facebook", "tiktok", "youtube", "linkedin"] as const;
 export type PlatformKey = (typeof PLATFORM_KEYS)[number];
 

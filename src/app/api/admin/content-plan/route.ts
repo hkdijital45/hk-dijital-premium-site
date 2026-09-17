@@ -1,17 +1,17 @@
 import { NextResponse } from "next/server";
 import { requireModuleAccess } from "@/lib/permissions";
 import { supabaseRest, getSafeSupabaseError } from "@/lib/supabase";
-import { CONTENT_PLAN_WORKSPACE_ID, CONTENT_FORMAT_KEYS, PLATFORM_KEYS, type ContentPlanItem } from "@/lib/content-plan/types";
+import { CONTENT_PLAN_WORKSPACE_ID, CONTENT_PLAN_TABLE, CONTENT_FORMAT_KEYS, PLATFORM_KEYS, type ContentPlanItem } from "@/lib/content-plan/types";
 
 // İçerik Planlama Merkezi — a lightweight manual content tracker, backed
-// by its own table (content_plan_items), deliberately separate from
+// by its own table (social_content_plan_items), deliberately separate from
 // social_content_items (the AI-generation/orchestration pipeline). Rows
 // created here are never picked up by generateContentForDate, the publish
 // queue, or the daily cron.
 
 async function tablePresent() {
   try {
-    const rows = await supabaseRest<unknown[]>("content_plan_items?select=id&limit=1");
+    const rows = await supabaseRest<unknown[]>(`${CONTENT_PLAN_TABLE}?select=id&limit=1`);
     return Array.isArray(rows);
   } catch {
     return false;
@@ -30,7 +30,7 @@ export async function GET() {
   }
   try {
     const items = await supabaseRest<ContentPlanItem[]>(
-      `content_plan_items?workspace_id=eq.${CONTENT_PLAN_WORKSPACE_ID}&select=*&order=scheduled_date.desc,created_at.desc&limit=500`
+      `${CONTENT_PLAN_TABLE}?workspace_id=eq.${CONTENT_PLAN_WORKSPACE_ID}&select=*&order=scheduled_date.desc,created_at.desc&limit=500`
     );
     return NextResponse.json({ tablesReady: true, items });
   } catch (error) {
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
   const isPublished = Boolean(body.is_published);
 
   try {
-    const rows = await supabaseRest<ContentPlanItem[]>("content_plan_items", {
+    const rows = await supabaseRest<ContentPlanItem[]>(CONTENT_PLAN_TABLE, {
       method: "POST",
       body: JSON.stringify({
         workspace_id: CONTENT_PLAN_WORKSPACE_ID,

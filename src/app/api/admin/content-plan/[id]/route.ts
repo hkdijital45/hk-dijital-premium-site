@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireModuleAccess } from "@/lib/permissions";
 import { supabaseRest, getSafeSupabaseError } from "@/lib/supabase";
-import { CONTENT_FORMAT_KEYS, PLATFORM_KEYS, type ContentPlanItem } from "@/lib/content-plan/types";
+import { CONTENT_PLAN_TABLE, CONTENT_FORMAT_KEYS, PLATFORM_KEYS, type ContentPlanItem } from "@/lib/content-plan/types";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireModuleAccess("social-autopilot");
@@ -27,7 +27,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!Object.keys(patch).length) return NextResponse.json({ error: "Güncellenecek alan yok." }, { status: 400 });
 
   try {
-    const rows = await supabaseRest<ContentPlanItem[]>(`content_plan_items?id=eq.${encodeURIComponent(id)}&select=*`, {
+    const rows = await supabaseRest<ContentPlanItem[]>(`${CONTENT_PLAN_TABLE}?id=eq.${encodeURIComponent(id)}&select=*`, {
       method: "PATCH",
       body: JSON.stringify(patch)
     });
@@ -43,7 +43,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   if (!session) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
   const { id } = await params;
   try {
-    await supabaseRest(`content_plan_items?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" });
+    await supabaseRest(`${CONTENT_PLAN_TABLE}?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" });
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json({ error: getSafeSupabaseError(error).detail }, { status: 500 });

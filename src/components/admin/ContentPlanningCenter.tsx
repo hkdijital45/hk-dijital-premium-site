@@ -13,6 +13,7 @@ import {
   type ContentFormatKey, type ContentPlanItem, type PlatformKey
 } from "@/lib/content-plan/types";
 import { findSimilarContent } from "@/lib/content-plan/similarity";
+import { InstagramIntelligencePanel } from "@/components/admin/InstagramIntelligencePanel";
 
 /**
  * İçerik Planlama ve Takip Merkezi — replaces Social Autopilot's old
@@ -195,6 +196,7 @@ export function ContentPlanningCenter() {
   const [themeFilter, setThemeFilter] = useState("");
   const [formatFilter, setFormatFilter] = useState("");
   const [search, setSearch] = useState("");
+  const [view, setView] = useState<"tracker" | "instagram">("tracker");
 
   const load = useCallback(async () => {
     setLoadError(null);
@@ -294,16 +296,27 @@ export function ContentPlanningCenter() {
       eyebrow="Sosyal Medya"
       title="İçerik Planlama ve Takip Merkezi"
       description="Hangi tarihte, hangi platformda, hangi tema ve konu hakkında paylaşım planladığını ve gerçekten paylaşıp paylaşmadığını takip et."
-      headerActions={<AdminButton variant="primary" icon={<Plus size={16} />} onClick={() => setDrawer("new")}>Yeni İçerik</AdminButton>}
+      headerActions={view === "tracker" ? <AdminButton variant="primary" icon={<Plus size={16} />} onClick={() => setDrawer("new")}>Yeni İçerik</AdminButton> : undefined}
     >
-      {tablesReady === false && (
+      <div className="mb-4 flex gap-2">
+        <button type="button" onClick={() => setView("tracker")} className="rounded-full px-3.5 py-2 text-xs font-black transition" style={view === "tracker" ? { background: "#0891b2", color: "white" } : { background: "var(--admin-surface-soft)", color: "var(--admin-text-secondary)" }}>
+          İçerik Takip
+        </button>
+        <button type="button" onClick={() => setView("instagram")} className="rounded-full px-3.5 py-2 text-xs font-black transition" style={view === "instagram" ? { background: "#0891b2", color: "white" } : { background: "var(--admin-surface-soft)", color: "var(--admin-text-secondary)" }}>
+          Instagram Intelligence
+        </button>
+      </div>
+
+      {view === "instagram" && <InstagramIntelligencePanel />}
+
+      {view === "tracker" && tablesReady === false && (
         <div className="content-plan-empty rounded-[16px] border p-8 text-center" style={{ borderColor: "var(--admin-border)" }}>
           <p className="text-sm font-bold" style={{ color: "var(--admin-text-secondary)" }}>{tablesMessage}</p>
         </div>
       )}
-      {loadError && <p className="mb-3 text-sm font-bold text-[#dc2626]">{loadError}</p>}
+      {view === "tracker" && loadError && <p className="mb-3 text-sm font-bold text-[#dc2626]">{loadError}</p>}
 
-      {tablesReady !== false && items && (
+      {view === "tracker" && tablesReady !== false && items && (
         <div className="grid gap-5">
           {/* Compact summary */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
