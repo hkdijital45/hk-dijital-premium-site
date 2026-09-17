@@ -42,8 +42,10 @@ export const tools: Tool[] = [
   { name: "customer_list", description: "HK Dijital'in gerçek müşteri listesi (public.companies) — id ve isim. Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: {}, required: [], additionalProperties: false } },
   { name: "customer_resolve", description: "Müşteri adına göre arama yapar, olası eşleşen müşterileri (id+isim) döner. Tek bir sonuç yoksa asla tahmin etme — kullanıcıya seçenekleri sun. Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { query: text }, required: ["query"], additionalProperties: false } },
   { name: "customer_integrations", description: "Bir müşterinin Instagram/Facebook/TikTok/YouTube bağlantı durumu (customer_integrations üzerinden, gerçek veri) + Meta Ads/Google Ads hesap eşleşme durumu. Uydurulmuş 'bağlı' durumu asla döndürmez. Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { companyId }, required: ["companyId"], additionalProperties: false } },
-  { name: "meta_ads_account", description: "Bir müşterinin Meta Ads hesap eşleşme durumu (yalnızca eşleşme — kampanya/harcama verisi YOK; bunun için mevcut Reklam Operasyon Merkezi kullanılmalı). Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { companyId }, required: ["companyId"], additionalProperties: false } },
-  { name: "google_ads_account", description: "Bir müşterinin Google Ads hesap eşleşme durumu (yalnızca eşleşme — kampanya/harcama verisi YOK). Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { companyId }, required: ["companyId"], additionalProperties: false } },
+  { name: "meta_ads_account", description: "Bir müşterinin Meta Ads hesap eşleşme durumu (yalnızca eşleşme — gerçek performans için meta_ads_performance kullan). Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { companyId }, required: ["companyId"], additionalProperties: false } },
+  { name: "google_ads_account", description: "Bir müşterinin Google Ads hesap eşleşme durumu (yalnızca eşleşme — gerçek performans için google_ads_performance kullan). Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { companyId }, required: ["companyId"], additionalProperties: false } },
+  { name: "meta_ads_performance", description: "Bir müşterinin gerçek Meta Ads performansı: kampanyalar, harcama, gösterim, erişim, tıklama, CTR, CPC, CPM, dönüşüm (mevcut olduğunda). API'den gelmeyen alanlar uydurulmaz. Read-only — kampanya/bütçe değiştirmez.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { companyId, rangePreset: text, dateFrom: text, dateTo: text }, required: ["companyId"], additionalProperties: false } },
+  { name: "google_ads_performance", description: "Bir müşterinin gerçek Google Ads performansı: kampanyalar, maliyet, gösterim, tıklama, CTR, ortalama CPC, dönüşüm, dönüşüm değeri. API'den gelmeyen alanlar uydurulmaz. Read-only — kampanya/bütçe değiştirmez.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { companyId, dateFrom: text, dateTo: text }, required: ["companyId"], additionalProperties: false } },
 
   // --- HK Marketing Intelligence: business memory (reuses hk_intelligence_ceo_runs / hk_recommendations) ---
   { name: "save_marketing_intelligence", description: "Anlamlı bir analiz/strateji/plan sonucunu HK Intelligence'a kalıcı olarak kaydeder (aktivite + bulgular + öneriler). Basit sohbet veya veri okuma için ÇAĞIRMA — yalnızca gerçekten iş değeri olan bir sonuç üretildiğinde kullan. Aynı müşteri+başlık 5 dakika içinde tekrar gönderilirse yeni kayıt oluşturmaz (idempotent).", permission: "WRITE_SAFE", inputSchema: { type: "object", properties: { companyId, title: text, activityType: text, sources: arr, periodStart: text, periodEnd: text, summary: text, findings: arr, hypotheses: arr, recommendations: arr, actions: arr, measurementPlan: arr }, required: ["companyId", "title", "activityType", "sources", "summary"], additionalProperties: false } },
@@ -135,6 +137,22 @@ export async function execute(name: string, args: Record<string, unknown>): Prom
     case "google_ads_account": {
       const { getGoogleAdsAccount } = await import("@/lib/marketing-intelligence/ad-accounts");
       return getGoogleAdsAccount(String(args.companyId));
+    }
+    case "meta_ads_performance": {
+      const { getMetaAdsPerformance } = await import("@/lib/marketing-intelligence/ad-performance");
+      return getMetaAdsPerformance(
+        String(args.companyId),
+        typeof args.rangePreset === "string" ? args.rangePreset : "last_30d",
+        typeof args.dateFrom === "string" ? args.dateFrom : undefined,
+        typeof args.dateTo === "string" ? args.dateTo : undefined
+      );
+    }
+    case "google_ads_performance": {
+      const { getGoogleAdsPerformance } = await import("@/lib/marketing-intelligence/ad-performance");
+      const range = typeof args.dateFrom === "string" && typeof args.dateTo === "string"
+        ? { startDate: args.dateFrom, endDate: args.dateTo }
+        : undefined;
+      return getGoogleAdsPerformance(String(args.companyId), range);
     }
     case "save_marketing_intelligence": {
       const { saveIntelligence } = await import("@/lib/marketing-intelligence/intelligence-store");

@@ -52,7 +52,12 @@ async function staff() {
   return (await requireModuleAccess("api-ayarlari")) || (await requireModuleAccess("meta-analiz")) || (await requireModuleAccess("kampanyalar"));
 }
 
-async function tokenForIntegration(integrationId?: string) {
+// Exported (in addition to the route's own GET/POST) so the Marketing
+// Intelligence MCP connector can reuse the exact same read logic for its
+// companyId-scoped meta_ads_performance tool, without duplicating or
+// rewriting this file. Next.js only treats GET/POST/etc as route handlers
+// — plain named exports are ordinary, importable functions.
+export async function tokenForIntegration(integrationId?: string) {
   const integrations = hasSupabaseConfig() ? await getIntegrations("meta") : [];
   if (integrationId && hasSupabaseConfig()) {
     const found = integrations.find((item) => item.id === integrationId);
@@ -224,7 +229,7 @@ function sumInsights(rows: any[]) {
   };
 }
 
-async function pullMetaData(input: any, token: string) {
+export async function pullMetaData(input: any, token: string) {
   const adAccount = String(input.adAccountId || "").replace(/^act_/, "");
   if (!adAccount) return { ok: false, errorMessage: "Hesap bulunamadı", rows: [], campaigns: [] };
   let range = dateRangeForPreset(input.rangePreset || "last_30d", input.dateFrom, input.dateTo);
@@ -440,7 +445,7 @@ async function saveReportFromMeta(input: any, pulled: any) {
   return rows[0] || null;
 }
 
-async function findCustomerMetaMapping(companyId?: string) {
+export async function findCustomerMetaMapping(companyId?: string) {
   if (!hasSupabaseConfig() || !companyId) return null;
   const rows = await supabaseRest<any[]>(`ad_integrations?provider=eq.meta&company_id=eq.${encodeURIComponent(companyId)}&select=*&order=updated_at.desc&limit=1`).catch(() => []);
   return rows[0] || null;
