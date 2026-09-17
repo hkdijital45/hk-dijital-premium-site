@@ -604,12 +604,20 @@ export async function oauthConnect(provider: Provider, request: Request) {
       // public.customer_connect_tokens, hash-only, never the raw value) is
       // the sole authorization for which company this handshake is for.
       connectTokenRawValue = connectTokenRaw;
-      const { validateConnectToken } = await import("@/lib/connect-links");
+      const { validateConnectToken, META_CAPABILITIES, GOOGLE_CAPABILITIES } = await import("@/lib/connect-links");
       const validated = await validateConnectToken(connectTokenRaw);
       const returnTo = safeReturnTo(rawReturnTo || `/connect/${connectTokenRaw}`);
       if (!validated.valid) {
         if (wantsJson(request)) return NextResponse.json({ ok: false, error: "TOKEN_INVALID", message: "Bağlantı linki geçersiz veya süresi dolmuş." }, { status: 403 });
         return redirectWithIntegrationError(request, returnTo, provider, "token_invalid");
+      }
+      // Provider must actually be part of what the admin requested for this
+      // link — a customer can't unlock an unrequested provider by editing
+      // the URL (provider param is still checked normally below too).
+      const providerCapabilities = provider === "meta" ? META_CAPABILITIES : provider === "google" ? GOOGLE_CAPABILITIES : [];
+      if (!providerCapabilities.some((c) => validated.requestedCapabilities.includes(c))) {
+        if (wantsJson(request)) return NextResponse.json({ ok: false, error: "CAPABILITY_NOT_REQUESTED", message: "Bu bağlantı için bu platform istenmemiş." }, { status: 403 });
+        return redirectWithIntegrationError(request, returnTo, provider, "capability_not_requested");
       }
       origin = "connect_link";
       targetCompanyId = validated.companyId;
@@ -1183,12 +1191,13 @@ export async function oauthCallback(provider: Provider, request: Request) {
         return redirectWithIntegrationError(request, returnTo, provider, "user_info_fetch_failed", { oauth_trace: state.nonce });
       }
     }
-    if (origin === "connect_link" && state.connectTokenId) {
-      // Single-use: only marked consumed once the connection has actually
-      // been saved — a failed/cancelled attempt leaves the link usable.
-      const { consumeConnectToken } = await import("@/lib/connect-links");
-      await consumeConnectToken(state.connectTokenId).catch(() => {});
-    }
+    // Deliberately does NOT mark any capability complete here: parent OAuth
+    // alone isn't a finished, canonically-"connected" integration in this
+    // app (see getProviderConnectionStatus — it requires a selected child
+    // asset in integration_assets). Completion is recorded by
+    // connectLinkSelectAccount below, once a real asset is actually saved.
+    // The customer is sent back to /connect/<token> to finish that step —
+    // parent-only success never marks the link used.
     target.searchParams.set("integration_provider", provider);
     target.searchParams.set("integration_success", provider);
     target.searchParams.set("oauth_status", "accounts_ready");
@@ -1779,6 +1788,162 @@ export async function selectOAuthAccount(request: Request) {
     };
     const rows = await supabaseRest<any[]>("customer_integrations?on_conflict=company_id", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify(patch) });
     return NextResponse.json({ ok: true, integration: publicIntegrationRecord(rows[0]), assets: nextAssets, savedCount: newAssets.length, message: `${newAssets.length} hesap bağlandı ve admin paneline aktarıldı.` });
+  } catch (error) {
+    const safe = getSafeSupabaseError(error);
+    return NextResponse.json({ error: safe.title, supabaseError: safe.detail }, { status: 500 });
+  }
+}
+
+// --- HK Connect remote connection link: sessionless asset discovery/save ---
+// Narrow, connect-token-authorized counterparts to oauthAccounts/
+// selectOAuthAccount above — never bypasses those (both untouched, still
+// require requireIntegrationSession()). Reuses the exact same discovery
+// (listMetaBusinessAssets/fetchGoogleAccounts/metaPhase1AccountFromSession)
+// and the exact same discovery-reverification-before-persist pattern
+// selectOAuthAccount uses, so a public caller can never submit an asset id
+// that wasn't actually returned by a fresh, real provider call for this
+// company's own authorized token. Company is always resolved from the
+// validated connect token — never from client input.
+
+export async function connectLinkAccounts(request: Request) {
+  const url = new URL(request.url);
+  const provider = clean(url.searchParams.get("provider")) as Provider;
+  const connectToken = clean(url.searchParams.get("connectToken"));
+  if (provider !== "meta" && provider !== "google") return NextResponse.json({ error: "Geçerli platform seçin." }, { status: 400 });
+
+  const { validateConnectToken, META_CAPABILITIES, GOOGLE_CAPABILITIES } = await import("@/lib/connect-links");
+  const validated = await validateConnectToken(connectToken);
+  if (!validated.valid) return NextResponse.json({ ok: false, error: "TOKEN_INVALID", message: "Bağlantı linki geçersiz veya süresi dolmuş." }, { status: 403 });
+  const providerCapabilities = provider === "meta" ? META_CAPABILITIES : GOOGLE_CAPABILITIES;
+  if (!providerCapabilities.some((c) => validated.requestedCapabilities.includes(c))) {
+    return NextResponse.json({ ok: false, error: "CAPABILITY_NOT_REQUESTED", message: "Bu platform bu bağlantı için istenmemiş." }, { status: 403 });
+  }
+
+  const missing = missingProviderEnv(provider);
+  if (missing.length) return NextResponse.json({ ok: false, provider, accounts: [], code: "oauth_not_configured", message: "Bağlantı yapılandırması eksik." }, { status: 501 });
+
+  const { accessToken, metaSessionForPhase1 } = await resolveProviderAccessToken(provider, { role: "customer", companyId: validated.companyId }, "");
+  if (!accessToken) return NextResponse.json({ ok: false, provider, accounts: [], code: "oauth_session_missing", message: "Önce platform girişini tamamlayın." }, { status: 401 });
+
+  try {
+    if (provider === "meta" && !advancedScopesEnabled("meta")) {
+      const phase1Account = metaPhase1AccountFromSession(metaSessionForPhase1);
+      return NextResponse.json({ ok: true, provider, accounts: phase1Account ? [phase1Account] : [], phase: "meta_oauth_phase_1" });
+    }
+    if (provider === "meta") {
+      const result = await listMetaBusinessAssets(accessToken);
+      return NextResponse.json({ ok: true, provider, accounts: result.accounts, groups: result.groups, message: result.message });
+    }
+    const accounts = await fetchGoogleAccounts(accessToken);
+    const groups = googleDiscoveryGroups(accounts, (accounts as any).serviceErrors || []);
+    return NextResponse.json({ ok: true, provider, accounts, groups });
+  } catch (error) {
+    return NextResponse.json({ ok: false, provider, accounts: [], code: "provider_fetch_failed", message: error instanceof Error ? error.message : "Yetkili hesaplar alınamadı." }, { status: 502 });
+  }
+}
+
+export async function connectLinkSelectAccount(request: Request) {
+  const body = await request.json().catch(() => ({}));
+  const connectToken = clean(body.connectToken);
+  const { validateConnectToken, markCapabilitiesComplete, META_CAPABILITIES, GOOGLE_CAPABILITIES } = await import("@/lib/connect-links");
+  const validated = await validateConnectToken(connectToken);
+  if (!validated.valid) return NextResponse.json({ error: "Bağlantı linki geçersiz veya süresi dolmuş." }, { status: 403 });
+
+  const inputs = (Array.isArray(body.accounts) && body.accounts.length ? body.accounts : [body]).slice(0, 50);
+  const normalizedInputs = inputs.map((item: any) => ({
+    provider: clean(item.provider || body.provider),
+    platform: clean(item.platform || body.platform || item.provider || body.provider),
+    providerAccountId: clean(item.provider_account_id || item.account_id || item.asset_id),
+    providerAccountName: clean(item.provider_account_name || item.asset_name || item.name),
+    accountType: clean(item.account_type || item.asset_type || item.platform || body.account_type || body.asset_type),
+    metadata: item.metadata && typeof item.metadata === "object" ? item.metadata : {}
+  })).filter((item: any) => item.provider && item.platform && item.providerAccountId);
+  if (!normalizedInputs.length) return NextResponse.json({ error: "Kaydetmek için en az bir geçerli hesap seçin." }, { status: 400 });
+
+  const providers = new Set(normalizedInputs.map((item: any) => item.provider));
+  if (providers.size !== 1) return NextResponse.json({ error: "Farklı sağlayıcılara ait varlıklar tek işlemde kaydedilemez." }, { status: 400 });
+  const provider = normalizedInputs[0].provider as Provider;
+  if (provider !== "meta" && provider !== "google") return NextResponse.json({ error: "Geçerli platform seçin." }, { status: 400 });
+  const providerCapabilities = provider === "meta" ? META_CAPABILITIES : GOOGLE_CAPABILITIES;
+  if (!providerCapabilities.some((c) => validated.requestedCapabilities.includes(c))) {
+    return NextResponse.json({ error: "Bu platform bu bağlantı için istenmemiş." }, { status: 403 });
+  }
+
+  const targetCompanyId = validated.companyId;
+  try {
+    const resolved = await resolveProviderAccessToken(provider, { role: "customer", companyId: targetCompanyId }, "");
+    const accessToken = resolved.accessToken;
+    if (!accessToken) return NextResponse.json({ error: "Hesap seçimini doğrulamak için platform bağlantısını yeniden tamamlayın." }, { status: 401 });
+
+    // Re-verify every submitted asset against a FRESH real discovery call —
+    // a public client can never persist an id that wasn't actually
+    // returned for this company's own authorized provider session.
+    const discovered = provider === "meta"
+      ? advancedScopesEnabled("meta") ? (await listMetaBusinessAssets(accessToken)).accounts : [metaPhase1AccountFromSession(resolved.metaSessionForPhase1)].filter(Boolean)
+      : await fetchGoogleAccounts(accessToken);
+    const discoveredByKey = new Map(discovered.map((item: any) => [`${item.provider}-${item.account_type || item.asset_type}-${item.provider_account_id || item.account_id || item.asset_id}`, item]));
+    for (const item of normalizedInputs) {
+      const key = `${item.provider}-${item.accountType}-${item.providerAccountId}`;
+      const verified = discoveredByKey.get(key);
+      if (!verified) return NextResponse.json({ error: "Seçilen varlık bu oturumun yetkili hesapları arasında bulunamadı. Listeyi yenileyip tekrar seçin." }, { status: 403 });
+      item.providerAccountName = clean(verified.provider_account_name || verified.asset_name || verified.name || item.providerAccountId);
+      item.platform = clean(verified.platform || item.platform);
+      item.metadata = verified.metadata && typeof verified.metadata === "object" ? verified.metadata : {};
+    }
+
+    const existingRows = await supabaseRest<any[]>(`customer_integrations?company_id=eq.${encodeURIComponent(targetCompanyId)}&select=*&limit=1`).catch(() => []);
+    const existing = existingRows[0] || null;
+    const currentAssets = Array.isArray(existing?.integration_assets) ? existing.integration_assets : [];
+    const now = new Date().toISOString();
+    const newAssets = normalizedInputs.map((item: any) => ({
+      id: `${item.provider}-${item.accountType}-${item.providerAccountId}`,
+      provider: item.provider,
+      platform: item.platform,
+      platform_label: providerConfig[item.provider as Provider]?.label || item.provider,
+      asset_type: item.accountType,
+      asset_name: item.providerAccountName || item.providerAccountId,
+      asset_id: item.providerAccountId,
+      account_id: item.providerAccountId,
+      provider_account_id: item.providerAccountId,
+      provider_account_name: item.providerAccountName || item.providerAccountId,
+      account_type: item.accountType,
+      status: "connected_oauth",
+      source: "connect_link",
+      connection_mode: "oauth",
+      connection_method: "oauth",
+      admin_review_status: "approved",
+      oauth_status: "connected",
+      last_synced_at: now,
+      metadata: item.metadata
+    }));
+    const newKeys = new Set(newAssets.map((item: any) => `${item.provider}-${item.account_type}-${item.provider_account_id}`));
+    const nextAssets = [...newAssets, ...currentAssets.filter((item: any) => !newKeys.has(`${item.provider || item.platform}-${item.account_type || item.asset_type}-${item.provider_account_id || item.account_id || item.asset_id}`))];
+    const primary = newAssets[0];
+    const patch = {
+      company_id: targetCompanyId,
+      provider: primary.provider,
+      provider_account_id: primary.provider_account_id,
+      provider_account_name: primary.provider_account_name,
+      account_type: primary.account_type,
+      status: "connected_oauth",
+      source: "connect_link",
+      connection_mode: "oauth",
+      connection_method: "oauth",
+      admin_review_status: "approved",
+      oauth_status: "connected",
+      oauth_account_id: primary.provider_account_id,
+      oauth_asset_id: primary.provider_account_id,
+      oauth_asset_type: primary.account_type,
+      metadata: primary.metadata || {},
+      integration_assets: nextAssets,
+      last_synced_at: now,
+      updated_by: null,
+      created_by: existing?.created_by || null
+    };
+    await supabaseRest("customer_integrations?on_conflict=company_id", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify(patch) });
+
+    await markCapabilitiesComplete(validated.id, providerCapabilities);
+    return NextResponse.json({ ok: true, savedCount: newAssets.length, message: `${newAssets.length} hesap bağlandı.` });
   } catch (error) {
     const safe = getSafeSupabaseError(error);
     return NextResponse.json({ error: safe.title, supabaseError: safe.detail }, { status: 500 });

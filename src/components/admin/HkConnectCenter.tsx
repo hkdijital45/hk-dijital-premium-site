@@ -16,6 +16,15 @@ const PLATFORM_LABELS: Record<string, string> = {
   meta_ads: "Meta Ads", google_ads: "Google Ads", ga4: "GA4", search_console: "Search Console", gtm: "GTM"
 };
 
+// Only capabilities the connect-link flow can actually complete (real
+// OAuth + asset selection) — TikTok/YouTube/GTM have no such public flow
+// yet, so they're never offered here even though they appear read-only in
+// the status grid above.
+const CAPABILITY_GROUPS: Array<{ label: string; items: Array<{ key: string; label: string }> }> = [
+  { label: "META", items: [{ key: "facebook", label: "Facebook" }, { key: "instagram", label: "Instagram" }, { key: "meta_ads", label: "Meta Ads" }] },
+  { label: "GOOGLE", items: [{ key: "google_ads", label: "Google Ads" }, { key: "ga4", label: "GA4" }, { key: "search_console", label: "Search Console" }] }
+];
+
 function readCompanyFromUrl(): string | null {
   if (typeof window === "undefined") return null;
   return new URLSearchParams(window.location.search).get("company");
@@ -53,6 +62,11 @@ export function HkConnectCenter() {
   const [newLink, setNewLink] = useState<{ url: string; expiresAt: string } | null>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedCapabilities, setSelectedCapabilities] = useState<string[]>([]);
+
+  function toggleCapability(key: string) {
+    setSelectedCapabilities((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  }
 
   useEffect(() => {
     const fromUrl = readCompanyFromUrl();
@@ -100,10 +114,11 @@ export function HkConnectCenter() {
   }
 
   async function generateLink() {
+    if (!selectedCapabilities.length) { setError("En az bir platform seçin."); return; }
     setCreating(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/connect-links", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId }) });
+      const res = await fetch("/api/admin/connect-links", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyId, capabilities: selectedCapabilities }) });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || "Oluşturulamadı.");
       setNewLink({ url: body.url, expiresAt: body.expiresAt });
@@ -189,6 +204,23 @@ export function HkConnectCenter() {
               </div>
             </div>
           )}
+
+          <div className="mt-3 grid gap-2">
+            <p className="text-[11px] font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>İstenecek platformlar</p>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+              {CAPABILITY_GROUPS.map((group) => (
+                <div key={group.label}>
+                  <p className="mb-1 text-[10px] font-black" style={{ color: "var(--admin-text-muted)" }}>{group.label}</p>
+                  {group.items.map((item) => (
+                    <label key={item.key} className="flex items-center gap-1.5 py-0.5 text-xs font-bold">
+                      <input type="checkbox" className="size-3.5" checked={selectedCapabilities.includes(item.key)} onChange={() => toggleCapability(item.key)} />
+                      {item.label}
+                    </label>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
 
           <div className="mt-3">
             <AdminButton variant="primary" icon={<Link2 size={16} />} loading={creating} onClick={generateLink}>

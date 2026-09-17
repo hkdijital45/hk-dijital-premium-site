@@ -170,6 +170,7 @@ const adminNavigationSourceGroups: AdminNavigationGroup[] = [
     accent: "from-emerald-400 via-cyan-500 to-blue-600",
     items: [
       { label: "Entegrasyonlar", slug: "entegrasyonlar", module: "api-ayarlari", description: "Müşteri bazlı hesap bağlantıları, OAuth hazırlığı, Meta, Pixel, Dataset, Google, GA4, Search Console, Ads, GTM, Clarity, Hotjar, SMTP ve API durumu." },
+      { label: "HK Connect", slug: "hk-connect", module: "social-autopilot", description: "Müşteri bazlı entegrasyon durumu ve uzaktan güvenli bağlantı linkleri — Meta ve Google hesaplarını müşteri kendi girişiyle bağlar." },
       { label: "Meta", slug: "meta-integrations", module: "api-ayarlari", description: "Meta işletme, reklam hesabı, Pixel ve Dataset bağlantıları." },
       { label: "Google", slug: "google-integrations", module: "api-ayarlari", description: "Google, GA4, Search Console ve Google Ads bağlantıları." },
       { label: "OAuth Kurulum Durumu", slug: "oauth-kurulum-durumu", module: "api-ayarlari", description: "Meta, Google, TikTok ve X otomatik bağlantı ENV ve callback durumunu denetler." },

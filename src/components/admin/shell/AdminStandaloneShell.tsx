@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { Star } from "lucide-react";
 import { adminNavigationGroups, getAdminHref } from "@/lib/admin-navigation";
 import { canViewAccounting, type AccountingSessionLike } from "@/lib/accounting-permissions";
 import { AdminAppShell } from "./AdminAppShell";
@@ -8,6 +9,57 @@ import { AdminMegaNav } from "./AdminMegaNav";
 import { AdminMobileNavigation } from "./AdminMobileNavigation";
 import { AdminTopHeader } from "./AdminTopHeader";
 import { HKCommandCenter } from "@/components/admin/command/HKCommandCenter";
+
+// Same shared favorite store AdminDashboard's "Favoriler" control uses
+// (GET/PATCH /api/admin/preferences) — standalone-shell pages (this
+// component) previously never exposed any favorite control at all, which
+// is the real, shared root cause of "Favoriler disappears on some
+// modules": it isn't a per-page regression, AdminStandaloneShell-routed
+// modules simply never had the control AdminDashboard-routed ones do.
+function FavoriteToggle({ slug, label }: { slug: string; label: string }) {
+  const [favorites, setFavorites] = useState<string[] | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/preferences", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((payload) => setFavorites(Array.isArray(payload?.favorites) ? payload.favorites : []))
+      .catch(() => setFavorites([]));
+  }, []);
+
+  async function toggle() {
+    if (!favorites || saving) return;
+    const isFav = favorites.includes(slug);
+    const next = isFav ? favorites.filter((s) => s !== slug) : [...favorites, slug];
+    const previous = favorites;
+    setFavorites(next);
+    setSaving(true);
+    try {
+      const res = await fetch("/api/admin/preferences", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ favorites: next }) });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error();
+      setFavorites(body.favorites || next);
+    } catch {
+      setFavorites(previous);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const isFav = favorites?.includes(slug) || false;
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      disabled={!favorites || saving}
+      aria-label={isFav ? `${label} favorisini kaldır` : `${label} favorilere ekle`}
+      aria-pressed={isFav}
+      className="admin-icon-action grid size-10 shrink-0 place-items-center rounded-[10px]"
+    >
+      <Star size={17} className={isFav ? "fill-[#E4B83F] text-[#E4B83F]" : ""} />
+    </button>
+  );
+}
 
 export function AdminStandaloneShell({
   currentSession,
@@ -83,6 +135,8 @@ export function AdminStandaloneShell({
     });
   }
 
+  const activeSlug = visibleNavigationGroups.flatMap((group) => group.items).find((item) => item.label === activeLabel)?.slug || "";
+
   const commandCenterQuickActions = [
     { label: "Müşteri Ekle", href: "/hk-admin/musteriler", detail: "Yeni müşteri kaydı aç" },
     { label: "Lead Ekle", href: "/hk-admin/leads", detail: "CRM lead listesine git" },
@@ -119,7 +173,9 @@ export function AdminStandaloneShell({
               onToggleGroup={toggleGroup}
             />
           }
-        />
+        >
+          {activeSlug && <FavoriteToggle slug={activeSlug} label={activeLabel} />}
+        </AdminTopHeader>
       }
       mobileNav={
         <AdminMobileNavigation

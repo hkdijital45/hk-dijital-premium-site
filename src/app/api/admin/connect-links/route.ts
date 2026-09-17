@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireModuleAccess } from "@/lib/permissions";
 import { getSafeSupabaseError } from "@/lib/supabase";
 import { uuidPattern } from "@/lib/meta-pixel-admin";
-import { createConnectLink, listConnectLinks } from "@/lib/connect-links";
+import { createConnectLink, listConnectLinks, CONNECT_CAPABILITIES, type ConnectCapability } from "@/lib/connect-links";
 
 // HK Connect remote connection links — admin-side create/list. The raw
 // token is only ever returned here, at creation time; every other read
@@ -26,8 +26,10 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const companyId = typeof body.companyId === "string" ? body.companyId : "";
   if (!companyId || !uuidPattern.test(companyId)) return NextResponse.json({ error: "Geçerli bir müşteri seçin." }, { status: 400 });
+  const capabilities: ConnectCapability[] = Array.isArray(body.capabilities) ? body.capabilities.filter((c: unknown) => CONNECT_CAPABILITIES.includes(c as ConnectCapability)) : [];
+  if (!capabilities.length) return NextResponse.json({ error: "En az bir platform seçin." }, { status: 400 });
   try {
-    const { token, link } = await createConnectLink(companyId, session.profileId || null);
+    const { token, link } = await createConnectLink(companyId, session.profileId || null, capabilities);
     const origin = new URL(request.url).origin;
     return NextResponse.json({ url: `${origin}/connect/${token}`, expiresAt: link.expires_at, id: link.id });
   } catch (error) {
