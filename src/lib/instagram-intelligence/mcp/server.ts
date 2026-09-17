@@ -8,14 +8,24 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { ControlError, failure, sanitize, success, tools, toolByName, validateArguments, execute } from "./protocol";
 
-const SERVER_INFO = { name: "hk-dijital-instagram-intelligence", version: "1.0.0" };
+const SERVER_INFO = { name: "hk-dijital-instagram-intelligence", version: "1.1.0" };
 const SERVER_INSTRUCTIONS =
-  "Read-only Instagram Intelligence tools for HK Dijital. get_instagram_account/get_instagram_analysis/" +
+  "HK Dijital Marketing Intelligence tools (extends the original Instagram Intelligence connector — same " +
+  "endpoint, same name, backward compatible). get_instagram_account/get_instagram_analysis/" +
   "get_instagram_recent_posts read the real, already-connected Instagram account (Graph API) — never " +
   "publish, edit, schedule, or delete anything on Instagram. get_content_tracking_history/" +
-  "get_upcoming_content_plan read İçerik Takip (the manual content tracker). create_content_plan is the " +
-  "only write tool: it appends planning rows to İçerik Takip, never Instagram — it is duplicate-safe " +
-  "(same date+topic is skipped, never re-inserted) and never touches existing rows.";
+  "get_upcoming_content_plan read İçerik Takip; create_content_plan appends planning rows to it (duplicate-" +
+  "safe by date+topic) — Instagram itself is never touched. customer_list/customer_resolve/" +
+  "customer_integrations/meta_ads_account/google_ads_account are read-only, real, customer-scoped lookups " +
+  "against public.companies and customer_integrations — never fabricate a connection status. " +
+  "meta_ads_account/google_ads_account report only whether a real ad account is mapped, not live campaign " +
+  "performance (not implemented). save_marketing_intelligence persists a genuinely business-significant " +
+  "analysis/strategy/plan into HK Intelligence (hk_intelligence_ceo_runs + hk_recommendations) — call it " +
+  "only after producing real, evidence-based findings, never for routine lookups or chat; it is idempotent " +
+  "per company+title within a 5-minute window. intelligence_history/recommendations_get are read-only. " +
+  "recommendation_update only changes a recommendation's tracked status (open/planned/implemented/" +
+  "rejected) — it never touches advertising spend or campaigns. No tool here can change ad spend, " +
+  "campaigns, budgets, or targeting.";
 
 function toolResult(payload: { success: boolean; data: unknown; error: unknown }) {
   const clean = sanitize(payload) as Record<string, unknown>;

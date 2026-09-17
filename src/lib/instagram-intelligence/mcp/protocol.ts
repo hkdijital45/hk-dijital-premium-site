@@ -26,6 +26,9 @@ export { ControlError, authenticate, success, failure, sanitize };
 
 const limit: Tool["inputSchema"]["properties"][string] = { type: "integer", minimum: 1, maximum: 100 };
 const plan: Tool["inputSchema"]["properties"][string] = { type: "array" };
+const companyId: Tool["inputSchema"]["properties"][string] = { type: "string", format: "uuid" };
+const text: Tool["inputSchema"]["properties"][string] = { type: "string" };
+const arr: Tool["inputSchema"]["properties"][string] = { type: "array" };
 
 export const tools: Tool[] = [
   { name: "get_instagram_account", description: "HK Dijital'in bağlı Instagram hesabının bağlantı durumunu döner (kullanıcı adı, bağlantı zamanı, token durumu). Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: {}, required: [], additionalProperties: false } },
@@ -33,7 +36,20 @@ export const tools: Tool[] = [
   { name: "get_instagram_recent_posts", description: "Instagram hesabındaki en son gönderilerin ham listesi (caption, format, tarih, beğeni/yorum sayısı, permalink). Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { limit }, required: [], additionalProperties: false } },
   { name: "get_content_tracking_history", description: "İçerik Takip'teki geçmiş (yayınlanmış) kayıtlar — tarih, platform, tema, konu, format, durum. Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { limit }, required: [], additionalProperties: false } },
   { name: "get_upcoming_content_plan", description: "İçerik Takip'teki bugünden itibaren planlanmış (henüz paylaşılmamış) kayıtlar. Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { limit }, required: [], additionalProperties: false } },
-  { name: "create_content_plan", description: "Yazılmış bir içerik planını İçerik Takip'e kaydeder (tarih+konu bazında tekrar korumalı — aynı plan iki kez gönderilse bile kayıt çoğalmaz). Instagram'a HİÇBİR ŞEY YAYINLAMAZ, sadece İçerik Takip'e planlama satırı ekler.", permission: "WRITE_SAFE", inputSchema: { type: "object", properties: { items: plan }, required: ["items"], additionalProperties: false } }
+  { name: "create_content_plan", description: "Yazılmış bir içerik planını İçerik Takip'e kaydeder (tarih+konu bazında tekrar korumalı — aynı plan iki kez gönderilse bile kayıt çoğalmaz). Instagram'a HİÇBİR ŞEY YAYINLAMAZ, sadece İçerik Takip'e planlama satırı ekler.", permission: "WRITE_SAFE", inputSchema: { type: "object", properties: { items: plan }, required: ["items"], additionalProperties: false } },
+
+  // --- HK Marketing Intelligence: customer resolution + integration status ---
+  { name: "customer_list", description: "HK Dijital'in gerçek müşteri listesi (public.companies) — id ve isim. Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: {}, required: [], additionalProperties: false } },
+  { name: "customer_resolve", description: "Müşteri adına göre arama yapar, olası eşleşen müşterileri (id+isim) döner. Tek bir sonuç yoksa asla tahmin etme — kullanıcıya seçenekleri sun. Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { query: text }, required: ["query"], additionalProperties: false } },
+  { name: "customer_integrations", description: "Bir müşterinin Instagram/Facebook/TikTok/YouTube bağlantı durumu (customer_integrations üzerinden, gerçek veri) + Meta Ads/Google Ads hesap eşleşme durumu. Uydurulmuş 'bağlı' durumu asla döndürmez. Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { companyId }, required: ["companyId"], additionalProperties: false } },
+  { name: "meta_ads_account", description: "Bir müşterinin Meta Ads hesap eşleşme durumu (yalnızca eşleşme — kampanya/harcama verisi YOK; bunun için mevcut Reklam Operasyon Merkezi kullanılmalı). Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { companyId }, required: ["companyId"], additionalProperties: false } },
+  { name: "google_ads_account", description: "Bir müşterinin Google Ads hesap eşleşme durumu (yalnızca eşleşme — kampanya/harcama verisi YOK). Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { companyId }, required: ["companyId"], additionalProperties: false } },
+
+  // --- HK Marketing Intelligence: business memory (reuses hk_intelligence_ceo_runs / hk_recommendations) ---
+  { name: "save_marketing_intelligence", description: "Anlamlı bir analiz/strateji/plan sonucunu HK Intelligence'a kalıcı olarak kaydeder (aktivite + bulgular + öneriler). Basit sohbet veya veri okuma için ÇAĞIRMA — yalnızca gerçekten iş değeri olan bir sonuç üretildiğinde kullan. Aynı müşteri+başlık 5 dakika içinde tekrar gönderilirse yeni kayıt oluşturmaz (idempotent).", permission: "WRITE_SAFE", inputSchema: { type: "object", properties: { companyId, title: text, activityType: text, sources: arr, periodStart: text, periodEnd: text, summary: text, findings: arr, hypotheses: arr, recommendations: arr, actions: arr, measurementPlan: arr }, required: ["companyId", "title", "activityType", "sources", "summary"], additionalProperties: false } },
+  { name: "intelligence_history", description: "Bir müşteri için geçmiş HK Intelligence kayıtlarını (analizler, stratejiler, planlar) tarih sırasıyla döner. Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { companyId, limit }, required: ["companyId"], additionalProperties: false } },
+  { name: "recommendations_get", description: "Bir müşteri için kayıtlı önerileri döner (isteğe bağlı status filtresiyle: open/planned/implemented/rejected). Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { companyId, status: text, limit }, required: ["companyId"], additionalProperties: false } },
+  { name: "recommendation_update", description: "Tek bir önerinin durumunu günceller (open/planned/implemented/rejected). Reklam harcaması veya kampanya değiştirmez — yalnızca öneri kaydının durumunu günceller.", permission: "WRITE_SAFE", inputSchema: { type: "object", properties: { id: text, status: text }, required: ["id", "status"], additionalProperties: false } }
 ];
 
 function toolByName(name: string): Tool {
@@ -99,6 +115,69 @@ export async function execute(name: string, args: Record<string, unknown>): Prom
         throw error;
       }
     }
+
+    case "customer_list": {
+      const { listCustomers } = await import("@/lib/marketing-intelligence/customers");
+      return listCustomers();
+    }
+    case "customer_resolve": {
+      const { resolveCustomer } = await import("@/lib/marketing-intelligence/customers");
+      return resolveCustomer(String(args.query || ""));
+    }
+    case "customer_integrations": {
+      const { getCustomerIntegrations } = await import("@/lib/marketing-intelligence/customers");
+      return getCustomerIntegrations(String(args.companyId));
+    }
+    case "meta_ads_account": {
+      const { getMetaAdsAccount } = await import("@/lib/marketing-intelligence/ad-accounts");
+      return getMetaAdsAccount(String(args.companyId));
+    }
+    case "google_ads_account": {
+      const { getGoogleAdsAccount } = await import("@/lib/marketing-intelligence/ad-accounts");
+      return getGoogleAdsAccount(String(args.companyId));
+    }
+    case "save_marketing_intelligence": {
+      const { saveIntelligence } = await import("@/lib/marketing-intelligence/intelligence-store");
+      const recommendations = Array.isArray(args.recommendations)
+        ? (args.recommendations as unknown[]).filter((r): r is Record<string, unknown> => !!r && typeof r === "object").map((r) => ({
+            title: String(r.title || ""),
+            recommendation_type: String(r.recommendation_type || "general"),
+            expected_impact: r.expected_impact ? String(r.expected_impact) : undefined,
+            priority: r.priority ? String(r.priority) : undefined
+          })).filter((r) => r.title)
+        : [];
+      return saveIntelligence({
+        companyId: String(args.companyId),
+        title: String(args.title),
+        activityType: String(args.activityType),
+        sources: Array.isArray(args.sources) ? args.sources.map(String) : [],
+        periodStart: typeof args.periodStart === "string" ? args.periodStart : null,
+        periodEnd: typeof args.periodEnd === "string" ? args.periodEnd : null,
+        summary: String(args.summary),
+        findings: Array.isArray(args.findings) ? args.findings.map(String) : [],
+        hypotheses: Array.isArray(args.hypotheses) ? args.hypotheses.map(String) : [],
+        recommendations,
+        actions: Array.isArray(args.actions) ? args.actions.map(String) : [],
+        measurementPlan: Array.isArray(args.measurementPlan) ? args.measurementPlan.map(String) : []
+      });
+    }
+    case "intelligence_history": {
+      const { getIntelligenceHistory } = await import("@/lib/marketing-intelligence/intelligence-store");
+      return getIntelligenceHistory(String(args.companyId), toolLimit);
+    }
+    case "recommendations_get": {
+      const { getRecommendations } = await import("@/lib/marketing-intelligence/intelligence-store");
+      return getRecommendations(String(args.companyId), typeof args.status === "string" ? args.status : undefined, toolLimit);
+    }
+    case "recommendation_update": {
+      const { updateRecommendation } = await import("@/lib/marketing-intelligence/intelligence-store");
+      try {
+        return await updateRecommendation(String(args.id), String(args.status));
+      } catch (error) {
+        throw new ControlError("INVALID_ARGUMENTS", error instanceof Error ? error.message : "Geçersiz durum.", 400);
+      }
+    }
+
     default:
       throw new ControlError("UNKNOWN_TOOL", "Unknown tool.", 404);
   }
