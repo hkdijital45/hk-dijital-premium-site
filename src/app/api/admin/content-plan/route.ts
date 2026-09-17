@@ -1,13 +1,19 @@
 import { NextResponse } from "next/server";
 import { requireModuleAccess } from "@/lib/permissions";
 import { supabaseRest, getSafeSupabaseError } from "@/lib/supabase";
-import { CONTENT_PLAN_WORKSPACE_ID, CONTENT_PLAN_TABLE, CONTENT_FORMAT_KEYS, PLATFORM_KEYS, type ContentPlanItem } from "@/lib/content-plan/types";
+import { uuidPattern } from "@/lib/meta-pixel-admin";
+import { CONTENT_PLAN_TABLE, CONTENT_FORMAT_KEYS, PLATFORM_KEYS, type ContentPlanItem } from "@/lib/content-plan/types";
 
-// İçerik Planlama Merkezi — a lightweight manual content tracker, backed
-// by its own table (social_content_plan_items), deliberately separate from
-// social_content_items (the AI-generation/orchestration pipeline). Rows
-// created here are never picked up by generateContentForDate, the publish
-// queue, or the daily cron.
+// İçerik Takip / Sosyal Medya Operasyon Merkezi — a lightweight, multi-
+// client content tracker backed by its own table (social_content_plan_items),
+// deliberately separate from social_content_items (the AI-generation/
+// orchestration pipeline). Rows created here are never picked up by
+// generateContentForDate, the publish queue, or the daily cron.
+//
+// Every row is scoped to a real public.companies row via company_id
+// (including HK Dijital's own existing company record — see
+// HK_DIJITAL_COMPANY_ID in content-plan/types.ts). Cross-customer
+// isolation is enforced here, at the query level, not just client-side.
 
 async function tablePresent() {
   try {
@@ -18,9 +24,13 @@ async function tablePresent() {
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const session = await requireModuleAccess("social-autopilot");
   if (!session) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
+
+  const companyId = new URL(request.url).searchParams.get("companyId") || "";
+  if (!companyId || !uuidPattern.test(companyId)) return NextResponse.json({ error: "Geçerli bir müşteri seçin." }, { status: 400 });
+
   if (!(await tablePresent())) {
     return NextResponse.json({
       tablesReady: false,
@@ -30,7 +40,7 @@ export async function GET() {
   }
   try {
     const items = await supabaseRest<ContentPlanItem[]>(
-      `${CONTENT_PLAN_TABLE}?workspace_id=eq.${CONTENT_PLAN_WORKSPACE_ID}&select=*&order=scheduled_date.desc,created_at.desc&limit=500`
+      `${CONTENT_PLAN_TABLE}?company_id=eq.${encodeURIComponent(companyId)}&select=*&order=scheduled_date.desc,created_at.desc&limit=500`
     );
     return NextResponse.json({ tablesReady: true, items });
   } catch (error) {
@@ -43,6 +53,9 @@ export async function POST(request: Request) {
   if (!session) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
   const body = await request.json().catch(() => ({}));
 
+  if (typeof body.company_id !== "string" || !uuidPattern.test(body.company_id)) {
+    return NextResponse.json({ error: "Geçerli bir müşteri seçin." }, { status: 400 });
+  }
   if (typeof body.scheduled_date !== "string" || !body.scheduled_date) {
     return NextResponse.json({ error: "Tarih zorunludur." }, { status: 400 });
   }
@@ -54,7 +67,7 @@ export async function POST(request: Request) {
     const rows = await supabaseRest<ContentPlanItem[]>(CONTENT_PLAN_TABLE, {
       method: "POST",
       body: JSON.stringify({
-        workspace_id: CONTENT_PLAN_WORKSPACE_ID,
+        company_id: body.company_id,
         scheduled_date: body.scheduled_date,
         platforms,
         theme: typeof body.theme === "string" ? body.theme.trim() : "",

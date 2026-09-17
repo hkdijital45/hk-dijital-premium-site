@@ -7,6 +7,7 @@ function item(overrides: Partial<ContentPlanItem> = {}): ContentPlanItem {
   return {
     id: "1",
     workspace_id: "hk-dijital",
+    company_id: "466a4859-332f-4f04-93f9-087fc97e564b",
     scheduled_date: "2026-08-01",
     platforms: [],
     theme: "SEO / GEO",

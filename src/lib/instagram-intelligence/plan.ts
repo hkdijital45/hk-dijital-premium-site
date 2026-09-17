@@ -5,7 +5,7 @@
 // insert path — never two copies that could drift.
 import { supabaseRest, getSafeSupabaseError } from "@/lib/supabase";
 import {
-  CONTENT_PLAN_WORKSPACE_ID, CONTENT_PLAN_TABLE, CONTENT_FORMAT_KEYS, PLATFORM_KEYS,
+  CONTENT_PLAN_WORKSPACE_ID, CONTENT_PLAN_TABLE, HK_DIJITAL_COMPANY_ID, CONTENT_FORMAT_KEYS, PLATFORM_KEYS,
   type ContentPlanItem
 } from "@/lib/content-plan/types";
 
@@ -58,8 +58,12 @@ export function validatePlanItems(items: unknown): PlanItemInput[] {
  * topic, case/whitespace-insensitive) — never overwrites or duplicates an
  * existing İçerik Takip row, manual or otherwise. */
 export async function createContentPlanItems(items: PlanItemInput[]): Promise<{ inserted: number; skipped: number; items: ContentPlanItem[] }> {
+  // Instagram Intelligence only ever plans for HK Dijital's own account
+  // (its Instagram connection is single-workspace by design — see
+  // src/lib/social-autopilot/instagram-oauth.ts), so every row it writes
+  // is scoped to HK Dijital's real company_id, never a customer's.
   const existing = await supabaseRest<Array<Pick<ContentPlanItem, "scheduled_date" | "content_title">>>(
-    `${CONTENT_PLAN_TABLE}?workspace_id=eq.${CONTENT_PLAN_WORKSPACE_ID}&select=scheduled_date,content_title&limit=1000`
+    `${CONTENT_PLAN_TABLE}?company_id=eq.${HK_DIJITAL_COMPANY_ID}&select=scheduled_date,content_title&limit=1000`
   );
   const existingKeys = new Set(existing.map((row) => normalizeKey(row.scheduled_date, row.content_title)));
 
@@ -75,6 +79,7 @@ export async function createContentPlanItems(items: PlanItemInput[]): Promise<{ 
 
     toInsert.push({
       workspace_id: CONTENT_PLAN_WORKSPACE_ID,
+      company_id: HK_DIJITAL_COMPANY_ID,
       scheduled_date: item.scheduled_date,
       platforms: platforms.length ? platforms : ["instagram"],
       theme: typeof item.theme === "string" ? item.theme.trim() : "",

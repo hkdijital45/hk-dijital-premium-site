@@ -11,6 +11,13 @@ export const CONTENT_PLAN_WORKSPACE_ID = "hk-dijital";
 // was created separately as public.social_content_plan_items.
 export const CONTENT_PLAN_TABLE = "social_content_plan_items";
 
+// HK Dijital's own, real public.companies row (verified via a direct
+// Supabase REST probe on 2026-09-17: name "HK DİJİTAL", status "Aktif") —
+// the agency manages its own social content through the exact same
+// company_id-scoped path every customer uses, rather than a special-cased
+// "self account" concept or a synthetic/fake companies row.
+export const HK_DIJITAL_COMPANY_ID = "466a4859-332f-4f04-93f9-087fc97e564b";
+
 export const PLATFORM_KEYS = ["instagram", "facebook", "tiktok", "youtube", "linkedin"] as const;
 export type PlatformKey = (typeof PLATFORM_KEYS)[number];
 
@@ -59,14 +66,21 @@ export const DEFAULT_THEMES = [
   "Yapay Zekâ",
   "Ajans İpuçları",
   "Eğitim",
-  "Vaka / Analiz",
+  "Satış",
+  "Güven",
   "Marka Bilinirliği",
+  "Etkileşim",
+  "Eğlence",
+  "Bilgilendirme",
+  "Vaka / Analiz",
+  "Kampanya",
   "Diğer"
 ];
 
 export type ContentPlanItem = {
   id: string;
   workspace_id: string;
+  company_id: string | null;
   scheduled_date: string;
   platforms: string[];
   theme: string;

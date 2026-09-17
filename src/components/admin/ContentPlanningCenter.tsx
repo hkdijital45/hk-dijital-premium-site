@@ -3,12 +3,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { AlertTriangle, Plus, Search, Trash2, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, Plus, Search, Trash2, X } from "lucide-react";
 import { AdminWorkspace } from "@/components/admin/workspace/AdminWorkspace";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
 import {
-  CONTENT_FORMAT_KEYS, CONTENT_FORMAT_LABELS, DEFAULT_THEMES,
+  CONTENT_FORMAT_KEYS, CONTENT_FORMAT_LABELS, DEFAULT_THEMES, HK_DIJITAL_COMPANY_ID,
   PLATFORM_ACCENT, PLATFORM_KEYS, PLATFORM_LABELS,
   type ContentFormatKey, type ContentPlanItem, type PlatformKey
 } from "@/lib/content-plan/types";
@@ -16,13 +16,28 @@ import { findSimilarContent } from "@/lib/content-plan/similarity";
 import { InstagramIntelligencePanel } from "@/components/admin/InstagramIntelligencePanel";
 
 /**
- * İçerik Planlama ve Takip Merkezi — replaces Social Autopilot's old
- * AI-generation/auto-publish UI with a plain manual content tracker:
- * what did I plan, for which date/platform(s)/theme, and did I actually
- * post it. Backed by its own content_plan_items table (see
- * supabase/migrations/20260917_content_plan_items.sql) — never touches
- * social_content_items or the AI/orchestrator pipeline.
+ * İçerik Takip / Sosyal Medya Operasyon Merkezi — a multi-client content
+ * tracker: HK Dijital's own account and every managed customer's social
+ * content live in the same screen, scoped by a real public.companies id
+ * (company_id), switched via the customer selector below. Backed by its
+ * own table (social_content_plan_items) — never touches social_content_items
+ * or the AI/orchestrator pipeline.
  */
+
+type Company = { id: string; name: string };
+type SocialStatusEntry = { platform: PlatformKey; connected: boolean; manual: boolean; statusLabel: string };
+
+function readCompanyFromUrl(): string | null {
+  if (typeof window === "undefined") return null;
+  return new URLSearchParams(window.location.search).get("company");
+}
+
+function writeCompanyToUrl(id: string) {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  url.searchParams.set("company", id);
+  window.history.replaceState(null, "", url.toString());
+}
 
 type QuickFilter = "all" | "week" | "month" | "pending" | "published";
 
@@ -49,9 +64,10 @@ function formatDateLabel(iso: string) {
 /* ------------------------------- Drawer -------------------------------- */
 
 function ContentDrawer({
-  initial, allItems, allThemes, onClose, onSaved
+  initial, companyId, allItems, allThemes, onClose, onSaved
 }: {
   initial: ContentPlanItem | null;
+  companyId: string;
   allItems: ContentPlanItem[];
   allThemes: string[];
   onClose: () => void;
@@ -81,7 +97,7 @@ function ContentDrawer({
     const finalTheme = theme === "__custom__" ? customTheme.trim() : theme;
     setSaving(true);
     try {
-      const payload = { scheduled_date: scheduledDate, platforms, theme: finalTheme, content_title: contentTitle, content_format: contentFormat, notes, is_published: isPublished };
+      const payload = { company_id: companyId, scheduled_date: scheduledDate, platforms, theme: finalTheme, content_title: contentTitle, content_format: contentFormat, notes, is_published: isPublished };
       const res = await fetch(initial ? `/api/admin/content-plan/${initial.id}` : "/api/admin/content-plan", {
         method: initial ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -183,6 +199,11 @@ function ContentDrawer({
 /* ------------------------------ Main center ------------------------------ */
 
 export function ContentPlanningCenter() {
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companyId, setCompanyId] = useState<string>(HK_DIJITAL_COMPANY_ID);
+  const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
+  const [socialStatus, setSocialStatus] = useState<SocialStatusEntry[] | null>(null);
+
   const [items, setItems] = useState<ContentPlanItem[] | null>(null);
   const [tablesReady, setTablesReady] = useState<boolean | null>(null);
   const [tablesMessage, setTablesMessage] = useState<string | null>(null);
@@ -198,10 +219,23 @@ export function ContentPlanningCenter() {
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"tracker" | "instagram">("tracker");
 
+  useEffect(() => {
+    const fromUrl = readCompanyFromUrl();
+    if (fromUrl) setCompanyId(fromUrl);
+    fetch("/api/admin/companies").then((r) => r.json()).then((body) => setCompanies(body.companies || [])).catch(() => {});
+  }, []);
+
+  function selectCompany(id: string) {
+    setCompanyId(id);
+    setCustomerPickerOpen(false);
+    writeCompanyToUrl(id);
+  }
+
   const load = useCallback(async () => {
     setLoadError(null);
+    setItems(null);
     try {
-      const res = await fetch("/api/admin/content-plan");
+      const res = await fetch(`/api/admin/content-plan?companyId=${companyId}`);
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || "Yüklenemedi.");
       setTablesReady(body.tablesReady !== false);
@@ -211,9 +245,17 @@ export function ContentPlanningCenter() {
       setLoadError(e instanceof Error ? e.message : "Beklenmeyen hata.");
       setItems([]);
     }
-  }, []);
+  }, [companyId]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    setSocialStatus(null);
+    fetch(`/api/admin/content-plan/social-status?companyId=${companyId}`)
+      .then((r) => r.json())
+      .then((body) => setSocialStatus(body.platforms || null))
+      .catch(() => setSocialStatus(null));
+  }, [companyId]);
 
   const allThemes = useMemo(() => {
     const fromItems = (items || []).map((i) => i.theme).filter(Boolean);
@@ -298,6 +340,37 @@ export function ContentPlanningCenter() {
       description="Hangi tarihte, hangi platformda, hangi tema ve konu hakkında paylaşım planladığını ve gerçekten paylaşıp paylaşmadığını takip et."
       headerActions={view === "tracker" ? <AdminButton variant="primary" icon={<Plus size={16} />} onClick={() => setDrawer("new")}>Yeni İçerik</AdminButton> : undefined}
     >
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="relative">
+          <p className="mb-1 text-[11px] font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Müşteri</p>
+          <button type="button" onClick={() => setCustomerPickerOpen((v) => !v)} className="flex min-w-56 items-center justify-between gap-3 rounded-[10px] border px-3 py-2 text-sm font-black" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-soft)" }}>
+            {companies.find((c) => c.id === companyId)?.name || "Müşteri seçin"}
+            <ChevronDown size={16} />
+          </button>
+          {customerPickerOpen && (
+            <div className="absolute z-20 mt-1 w-full min-w-56 overflow-hidden rounded-[10px] border" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface, var(--admin-bg))", boxShadow: "var(--admin-shadow-card, var(--admin-shadow))" }}>
+              {companies.map((c) => (
+                <button key={c.id} type="button" onClick={() => selectCompany(c.id)} className="block w-full px-3 py-2 text-left text-sm font-bold" style={{ background: c.id === companyId ? "var(--admin-surface-soft)" : "transparent" }}>
+                  {c.name}
+                </button>
+              ))}
+              {!companies.length && <p className="px-3 py-2 text-sm" style={{ color: "var(--admin-text-muted)" }}>Yükleniyor…</p>}
+            </div>
+          )}
+        </div>
+
+        {socialStatus && (
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-bold">
+            {socialStatus.map((s) => (
+              <span key={s.platform} className="flex items-center gap-1.5">
+                <span className="size-2 rounded-full" style={{ background: s.connected ? "#15803d" : "var(--admin-text-muted)" }} aria-hidden="true" />
+                {PLATFORM_LABELS[s.platform]} <span style={{ color: "var(--admin-text-muted)" }}>{s.connected ? "Bağlı" : "Manuel"}</span>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="mb-4 flex gap-2">
         <button type="button" onClick={() => setView("tracker")} className="rounded-full px-3.5 py-2 text-xs font-black transition" style={view === "tracker" ? { background: "#0891b2", color: "white" } : { background: "var(--admin-surface-soft)", color: "var(--admin-text-secondary)" }}>
           İçerik Takip
@@ -458,6 +531,7 @@ export function ContentPlanningCenter() {
       {drawer && (
         <ContentDrawer
           initial={drawer === "new" ? null : drawer}
+          companyId={companyId}
           allItems={items || []}
           allThemes={allThemes}
           onClose={() => setDrawer(null)}

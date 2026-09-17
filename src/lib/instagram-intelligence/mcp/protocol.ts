@@ -44,13 +44,16 @@ function toolByName(name: string): Tool {
 
 async function fetchPlanRows(filter: "history" | "upcoming", limit: number): Promise<ContentPlanItem[]> {
   const { supabaseRest } = await import("@/lib/supabase");
-  const { CONTENT_PLAN_WORKSPACE_ID, CONTENT_PLAN_TABLE } = await import("@/lib/content-plan/types");
+  const { HK_DIJITAL_COMPANY_ID, CONTENT_PLAN_TABLE } = await import("@/lib/content-plan/types");
   const today = new Date().toISOString().slice(0, 10);
   const scope = filter === "upcoming"
     ? `&is_published=eq.false&scheduled_date=gte.${today}`
     : `&is_published=eq.true`;
+  // Scoped to HK Dijital's own company_id — İçerik Takip is now
+  // multi-client, but Instagram Intelligence only ever reasons about HK
+  // Dijital's own account, so it must never read/count a customer's rows.
   return supabaseRest<ContentPlanItem[]>(
-    `${CONTENT_PLAN_TABLE}?workspace_id=eq.${CONTENT_PLAN_WORKSPACE_ID}&select=*${scope}&order=scheduled_date.${filter === "upcoming" ? "asc" : "desc"}&limit=${limit}`
+    `${CONTENT_PLAN_TABLE}?company_id=eq.${HK_DIJITAL_COMPANY_ID}&select=*${scope}&order=scheduled_date.${filter === "upcoming" ? "asc" : "desc"}&limit=${limit}`
   );
 }
 

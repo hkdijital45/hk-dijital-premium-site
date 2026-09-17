@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
-import { requireModuleAccess } from "@/lib/permissions";
+import { getSession } from "@/lib/auth";
+import { canAccessModule } from "@/lib/permissions";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
 // A minimal id/name company picker list, reused by any admin screen that
-// needs a customer dropdown (e.g. Gemini Görünürlük Merkezi) without
-// pulling the full customer record set that /api/admin/customers/export
-// or the CRM dashboard load.
+// needs a customer dropdown (e.g. Gemini Görünürlük Merkezi, İçerik Takip)
+// without pulling the full customer record set that
+// /api/admin/customers/export or the CRM dashboard load.
 export async function GET() {
-  const session = await requireModuleAccess("growth-intelligence");
-  if (!session) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 403 });
+  const session = await getSession();
+  const allowed = session && (canAccessModule(session, "growth-intelligence") || canAccessModule(session, "social-autopilot"));
+  if (!allowed) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 403 });
   if (!hasSupabaseConfig()) return NextResponse.json({ companies: [] });
 
   try {
