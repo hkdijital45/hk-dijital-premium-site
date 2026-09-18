@@ -2,7 +2,7 @@
 /* eslint-disable react-hooks/set-state-in-effect -- fetch-on-mount pattern, same accepted precedent as ContentPlanningCenter.tsx */
 
 import { useCallback, useEffect, useState } from "react";
-import { RefreshCw, Search, TrendingDown, TrendingUp } from "lucide-react";
+import { Copy, RefreshCw, Search, TrendingDown, TrendingUp } from "lucide-react";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
 import type { InstagramAnalysis } from "@/lib/instagram-intelligence/analysis";
@@ -40,6 +40,7 @@ export function InstagramIntelligencePanel() {
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [notConnectedMessage, setNotConnectedMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const loadStatus = useCallback(async () => {
     setStatusLoading(true);
@@ -81,6 +82,16 @@ export function InstagramIntelligencePanel() {
 
   const connected = status?.status === "connected";
 
+  async function copyPrompt() {
+    const handle = status?.username ? `@${status.username} hesabı` : "bağlı Instagram hesabı";
+    const text = `HK Dijital'in ${handle} için güncel Instagram verilerini HK Dijital MCP üzerinden incele (get_instagram_analysis, get_instagram_recent_posts). Gerçek gönderi geçmişine dayanan, doğrudan uygulanabilir bir Instagram içerik stratejisi oluştur ve sonucu İçerik Takip'e kaydet.`;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* clipboard denied — nothing to fall back to here */ }
+  }
+
   return (
     <div className="grid gap-5">
       {/* Instagram Durumu */}
@@ -97,9 +108,12 @@ export function InstagramIntelligencePanel() {
               {analysis && ` · ${analysis.postsFetched} gönderi analiz edildi`}
             </p>
           </div>
-          <AdminButton variant="secondary" icon={<RefreshCw size={14} />} loading={statusLoading} onClick={loadStatus} compact>
-            Instagram Verilerini Yenile
-          </AdminButton>
+          <div className="flex gap-2">
+            <AdminButton variant="secondary" icon={<RefreshCw size={14} />} loading={statusLoading} onClick={loadStatus} compact>
+              Instagram Verilerini Yenile
+            </AdminButton>
+            <AdminButton variant="secondary" compact icon={<Copy size={14} />} onClick={copyPrompt}>{copied ? "Kopyalandı ✓" : "Claude için promptu kopyala"}</AdminButton>
+          </div>
         </div>
       </div>
 
