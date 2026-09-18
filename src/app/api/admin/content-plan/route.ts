@@ -11,9 +11,10 @@ import { CONTENT_PLAN_TABLE, CONTENT_FORMAT_KEYS, PLATFORM_KEYS, type ContentPla
 // generateContentForDate, the publish queue, or the daily cron.
 //
 // Every row is scoped to a real public.companies row via company_id
-// (including HK Dijital's own existing company record — see
-// HK_DIJITAL_COMPANY_ID in content-plan/types.ts). Cross-customer
-// isolation is enforced here, at the query level, not just client-side.
+// (including HK Dijital's own existing company record, resolved
+// server-side — see resolveHkDijitalCompanyId in
+// content-plan/hk-dijital-company.ts). Cross-customer isolation is
+// enforced here, at the query level, not just client-side.
 
 async function tablePresent() {
   try {

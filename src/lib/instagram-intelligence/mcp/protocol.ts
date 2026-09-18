@@ -65,19 +65,47 @@ function toolByName(name: string): Tool {
   return tool;
 }
 
+// Known, well-understood data/config failures get a real ControlError code
+// instead of falling through to the generic SERVICE_UNAVAILABLE — that
+// genericness is exactly what masked the stale-company-id bug this was
+// added for (see hk-dijital-company.ts). A raw error that doesn't match one
+// of these still surfaces as SERVICE_UNAVAILABLE, which is correct for an
+// actual outage.
+async function toKnownControlError(error: unknown): Promise<ControlError | null> {
+  const { HkDijitalCompanyNotFoundError } = await import("@/lib/content-plan/hk-dijital-company");
+  if (error instanceof HkDijitalCompanyNotFoundError) {
+    return new ControlError("CONFIGURATION_ERROR", error.message, 500);
+  }
+  const message = error instanceof Error ? error.message : "";
+  if (/foreign key/i.test(message)) {
+    return new ControlError(
+      "CONFIGURATION_ERROR",
+      "İçerik Takip kaydı geçersiz bir company_id referansı içeriyor — HK Dijital şirket kaydını kontrol edin.",
+      500
+    );
+  }
+  return null;
+}
+
 async function fetchPlanRows(filter: "history" | "upcoming", limit: number): Promise<ContentPlanItem[]> {
   const { supabaseRest } = await import("@/lib/supabase");
-  const { HK_DIJITAL_COMPANY_ID, CONTENT_PLAN_TABLE } = await import("@/lib/content-plan/types");
+  const { CONTENT_PLAN_TABLE } = await import("@/lib/content-plan/types");
+  const { resolveHkDijitalCompanyId } = await import("@/lib/content-plan/hk-dijital-company");
   const today = new Date().toISOString().slice(0, 10);
   const scope = filter === "upcoming"
     ? `&is_published=eq.false&scheduled_date=gte.${today}`
     : `&is_published=eq.true`;
-  // Scoped to HK Dijital's own company_id — İçerik Takip is now
-  // multi-client, but Instagram Intelligence only ever reasons about HK
-  // Dijital's own account, so it must never read/count a customer's rows.
-  return supabaseRest<ContentPlanItem[]>(
-    `${CONTENT_PLAN_TABLE}?company_id=eq.${HK_DIJITAL_COMPANY_ID}&select=*${scope}&order=scheduled_date.${filter === "upcoming" ? "asc" : "desc"}&limit=${limit}`
-  );
+  try {
+    // Scoped to HK Dijital's own company_id — İçerik Takip is now
+    // multi-client, but Instagram Intelligence only ever reasons about HK
+    // Dijital's own account, so it must never read/count a customer's rows.
+    const companyId = await resolveHkDijitalCompanyId();
+    return await supabaseRest<ContentPlanItem[]>(
+      `${CONTENT_PLAN_TABLE}?company_id=eq.${companyId}&select=*${scope}&order=scheduled_date.${filter === "upcoming" ? "asc" : "desc"}&limit=${limit}`
+    );
+  } catch (error) {
+    throw (await toKnownControlError(error)) ?? error;
+  }
 }
 
 export async function execute(name: string, args: Record<string, unknown>): Promise<unknown> {
@@ -119,7 +147,7 @@ export async function execute(name: string, args: Record<string, unknown>): Prom
         return await createContentPlanItems(items);
       } catch (error) {
         if (error instanceof PlanInputError) throw new ControlError("INVALID_ARGUMENTS", error.message, 400);
-        throw error;
+        throw (await toKnownControlError(error)) ?? error;
       }
     }
 

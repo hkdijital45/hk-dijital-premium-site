@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { canAccessModule } from "@/lib/permissions";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
+import { resolveHkDijitalCompanyId } from "@/lib/content-plan/hk-dijital-company";
 
 // A minimal id/name company picker list, reused by any admin screen that
 // needs a customer dropdown (e.g. Gemini Görünürlük Merkezi, İçerik Takip)
@@ -17,7 +18,14 @@ export async function GET() {
     const companies = await supabaseRest<Array<{ id: string; name: string }>>(
       "companies?select=id,name&deleted_at=is.null&order=name.asc&limit=1000"
     );
-    return NextResponse.json({ companies });
+    // Best-effort: lets callers (e.g. İçerik Takip) default-select HK
+    // Dijital's own row without doing their own company lookup/search —
+    // resolution stays entirely server-side. Never fails the whole list if
+    // HK Dijital's row is momentarily unresolvable.
+    const selfId = await resolveHkDijitalCompanyId().catch(() => null);
+    return NextResponse.json({
+      companies: companies.map((c) => ({ ...c, isHkDijitalSelf: c.id === selfId }))
+    });
   } catch (error) {
     return NextResponse.json({ error: getSafeSupabaseError(error).detail }, { status: 500 });
   }

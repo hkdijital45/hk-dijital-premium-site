@@ -8,7 +8,7 @@ import { AdminWorkspace } from "@/components/admin/workspace/AdminWorkspace";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
 import {
-  CONTENT_FORMAT_KEYS, CONTENT_FORMAT_LABELS, DEFAULT_THEMES, HK_DIJITAL_COMPANY_ID,
+  CONTENT_FORMAT_KEYS, CONTENT_FORMAT_LABELS, DEFAULT_THEMES,
   PLATFORM_ACCENT, PLATFORM_KEYS, PLATFORM_LABELS,
   type ContentFormatKey, type ContentPlanItem, type PlatformKey
 } from "@/lib/content-plan/types";
@@ -24,7 +24,7 @@ import { InstagramIntelligencePanel } from "@/components/admin/InstagramIntellig
  * or the AI/orchestrator pipeline.
  */
 
-type Company = { id: string; name: string };
+type Company = { id: string; name: string; isHkDijitalSelf?: boolean };
 type SocialStatusEntry = { platform: PlatformKey; connected: boolean; manual: boolean; statusLabel: string };
 
 function readCompanyFromUrl(): string | null {
@@ -200,7 +200,7 @@ function ContentDrawer({
 
 export function ContentPlanningCenter() {
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [companyId, setCompanyId] = useState<string>(HK_DIJITAL_COMPANY_ID);
+  const [companyId, setCompanyId] = useState<string>("");
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
   const [socialStatus, setSocialStatus] = useState<SocialStatusEntry[] | null>(null);
 
@@ -222,7 +222,16 @@ export function ContentPlanningCenter() {
   useEffect(() => {
     const fromUrl = readCompanyFromUrl();
     if (fromUrl) setCompanyId(fromUrl);
-    fetch("/api/admin/companies").then((r) => r.json()).then((body) => setCompanies(body.companies || [])).catch(() => {});
+    fetch("/api/admin/companies").then((r) => r.json()).then((body) => {
+      const list: Company[] = body.companies || [];
+      setCompanies(list);
+      // Default to HK Dijital's own row (server-resolved, never a
+      // client-side lookup) when no explicit ?company= is in the URL.
+      if (!fromUrl) {
+        const self = list.find((c) => c.isHkDijitalSelf);
+        if (self) setCompanyId(self.id);
+      }
+    }).catch(() => {});
   }, []);
 
   function selectCompany(id: string) {
@@ -232,6 +241,7 @@ export function ContentPlanningCenter() {
   }
 
   const load = useCallback(async () => {
+    if (!companyId) return;
     setLoadError(null);
     setItems(null);
     try {
@@ -250,6 +260,7 @@ export function ContentPlanningCenter() {
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
+    if (!companyId) return;
     setSocialStatus(null);
     fetch(`/api/admin/content-plan/social-status?companyId=${companyId}`)
       .then((r) => r.json())

@@ -11,20 +11,12 @@ export const CONTENT_PLAN_WORKSPACE_ID = "hk-dijital";
 // was created separately as public.social_content_plan_items.
 export const CONTENT_PLAN_TABLE = "social_content_plan_items";
 
-// HK Dijital's own, real public.companies row (re-verified via a direct
-// Supabase REST probe on 2026-09-18: name "HK DİJİTAL"). The agency manages
-// its own social content through the exact same company_id-scoped path
-// every customer uses, rather than a special-cased "self account" concept
-// or a synthetic/fake companies row.
-//
-// NOTE: this id changed once already — the previous value
-// (466a4859-332f-4f04-93f9-087fc97e564b) stopped resolving after the
-// underlying companies row was deleted and recreated outside of this app,
-// which broke every create_content_plan write with an opaque
-// SERVICE_UNAVAILABLE (masking a company_id foreign-key violation). If
-// content-plan writes start failing again with the same symptom, re-verify
-// this id directly against public.companies before assuming a code bug.
-export const HK_DIJITAL_COMPANY_ID = "b8986755-6ccf-4f24-a8e9-b8fb22f7435d";
+// HK Dijital's own company_id is no longer a hardcoded literal here — that
+// broke once already when the underlying companies row was deleted and
+// recreated (outside this app) with a new id, which surfaced as an opaque
+// create_content_plan SERVICE_UNAVAILABLE. It's now resolved server-side,
+// by name, with a short cache: see resolveHkDijitalCompanyId() in
+// ./hk-dijital-company.
 
 export const PLATFORM_KEYS = ["instagram", "facebook", "tiktok", "youtube", "linkedin"] as const;
 export type PlatformKey = (typeof PLATFORM_KEYS)[number];
