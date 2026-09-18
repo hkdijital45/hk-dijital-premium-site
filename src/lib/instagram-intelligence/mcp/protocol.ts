@@ -51,7 +51,12 @@ export const tools: Tool[] = [
   { name: "save_marketing_intelligence", description: "Anlamlı bir analiz/strateji/plan sonucunu HK Intelligence'a kalıcı olarak kaydeder (aktivite + bulgular + öneriler). Basit sohbet veya veri okuma için ÇAĞIRMA — yalnızca gerçekten iş değeri olan bir sonuç üretildiğinde kullan. Aynı müşteri+başlık 5 dakika içinde tekrar gönderilirse yeni kayıt oluşturmaz (idempotent).", permission: "WRITE_SAFE", inputSchema: { type: "object", properties: { companyId, title: text, activityType: text, sources: arr, periodStart: text, periodEnd: text, summary: text, findings: arr, hypotheses: arr, recommendations: arr, actions: arr, measurementPlan: arr }, required: ["companyId", "title", "activityType", "sources", "summary"], additionalProperties: false } },
   { name: "intelligence_history", description: "Bir müşteri için geçmiş HK Intelligence kayıtlarını (analizler, stratejiler, planlar) tarih sırasıyla döner. Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { companyId, limit }, required: ["companyId"], additionalProperties: false } },
   { name: "recommendations_get", description: "Bir müşteri için kayıtlı önerileri döner (isteğe bağlı status filtresiyle: open/planned/implemented/rejected). Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { companyId, status: text, limit }, required: ["companyId"], additionalProperties: false } },
-  { name: "recommendation_update", description: "Tek bir önerinin durumunu günceller (open/planned/implemented/rejected). Reklam harcaması veya kampanya değiştirmez — yalnızca öneri kaydının durumunu günceller.", permission: "WRITE_SAFE", inputSchema: { type: "object", properties: { id: text, status: text }, required: ["id", "status"], additionalProperties: false } }
+  { name: "recommendation_update", description: "Tek bir önerinin durumunu günceller (open/planned/implemented/rejected). Reklam harcaması veya kampanya değiştirmez — yalnızca öneri kaydının durumunu günceller.", permission: "WRITE_SAFE", inputSchema: { type: "object", properties: { id: text, status: text }, required: ["id", "status"], additionalProperties: false } },
+
+  // --- HK Ads Intelligence: strategy context / save / read (read-only ad access — never creates/publishes/changes a campaign or budget) ---
+  { name: "get_ads_strategy_context", description: "Bir müşteri için reklam stratejisi hazırlamaya yetecek TEK, kompakt bağlam: şirket bilgisi, gerçek entegrasyon durumu, Instagram/Facebook organik özet (veri yoksa data_unavailable+neden), gerçek Meta Ads/Google Ads performansı (varsa), önceki HK Intelligence kayıtları ve varsa en son reklam stratejisi özeti. Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { companyId }, required: ["companyId"], additionalProperties: false } },
+  { name: "save_ads_strategy_plan", description: "Claude'un ürettiği yapılandırılmış reklam stratejisini (iş özeti, Meta stratejisi, Google Ads stratejisi, gerekçeli bütçe planı, 30 günlük yol haritası, KPI'lar, isteğe bağlı implementation_guide) HK Dijital'e kaydeder. Şema kontrollüdür — eksik zorunlu alan reddedilir. Hiçbir reklam hesabında değişiklik yapmaz, yalnızca planı kaydeder.", permission: "WRITE_SAFE", inputSchema: { type: "object", properties: { strategy: { type: "object" } }, required: ["strategy"], additionalProperties: false } },
+  { name: "get_latest_ads_strategy_plan", description: "Bir müşterinin en son kaydedilmiş reklam stratejisini (tam yapılandırılmış hâliyle) döner — kurulum rehberliği veya geçmiş karşılaştırması için kullanılır. Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { companyId }, required: ["companyId"], additionalProperties: false } }
 ];
 
 function toolByName(name: string): Tool {
@@ -194,6 +199,27 @@ export async function execute(name: string, args: Record<string, unknown>): Prom
       } catch (error) {
         throw new ControlError("INVALID_ARGUMENTS", error instanceof Error ? error.message : "Geçersiz durum.", 400);
       }
+    }
+
+    case "get_ads_strategy_context": {
+      const { getAdsStrategyContext } = await import("@/lib/marketing-intelligence/ads-strategy");
+      return getAdsStrategyContext(String(args.companyId));
+    }
+    case "save_ads_strategy_plan": {
+      const { validateAdsStrategy, saveAdsStrategy, AdsStrategyValidationError } = await import("@/lib/marketing-intelligence/ads-strategy");
+      try {
+        const strategy = validateAdsStrategy(args.strategy);
+        return await saveAdsStrategy(strategy);
+      } catch (error) {
+        if (error instanceof AdsStrategyValidationError) throw new ControlError("INVALID_ARGUMENTS", error.message, 400);
+        throw error;
+      }
+    }
+    case "get_latest_ads_strategy_plan": {
+      const { getLatestAdsStrategy } = await import("@/lib/marketing-intelligence/ads-strategy");
+      const run = await getLatestAdsStrategy(String(args.companyId));
+      if (!run) throw new ControlError("NOT_FOUND", "Bu müşteri için kayıtlı reklam stratejisi yok.", 404);
+      return run;
     }
 
     default:
