@@ -25,7 +25,13 @@ const SERVER_INSTRUCTIONS =
   "per company+title within a 5-minute window. intelligence_history/recommendations_get are read-only. " +
   "recommendation_update only changes a recommendation's tracked status (open/planned/implemented/" +
   "rejected) — it never touches advertising spend or campaigns. No tool here can change ad spend, " +
-  "campaigns, budgets, or targeting.";
+  "campaigns, budgets, or targeting. get_pre_audit_context/save_pre_audit_report/" +
+  "get_latest_pre_audit_report support Ön İnceleme Merkezi (pre-sale digital research reports): " +
+  "get_pre_audit_context verifies the real HK Dijital company before research starts (never guesses on " +
+  "an ambiguous name match), save_pre_audit_report persists an explicitly-approved INTERNAL_REPORT or " +
+  "CLIENT_REPORT (internal sales fields are always stripped from CLIENT_REPORT server-side) — call it " +
+  "only after the user explicitly asks to save/transfer to HK Dijital, never after analysis alone — and " +
+  "get_latest_pre_audit_report reads back the latest saved report for a company.";
 
 function toolResult(payload: { success: boolean; data: unknown; error: unknown }) {
   const clean = sanitize(payload) as Record<string, unknown>;

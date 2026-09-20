@@ -50,6 +50,7 @@ const adminNavigationSourceGroups: AdminNavigationGroup[] = [
     badge: "CRM",
     accent: "from-blue-400 via-cyan-500 to-emerald-600",
     items: [
+      { label: "Ön İnceleme Merkezi", slug: "on-inceleme", module: "on-inceleme", description: "Potansiyel ve mevcut müşteriler için satış öncesi dijital ön inceleme raporları (dahili ve müşteriye sunulabilir)." },
       { label: "Lead Merkezi", slug: "leads", module: "leads", description: "Başvurular, iletişim bilgileri ve lead durumları." },
       { label: "Müşteri Keşfi", slug: "musteri-kesfi", module: "musteri-bulucu", description: "Yeni işletme adayları ve dijital fırsat sinyalleri." },
       { label: "Haritalar", slug: "haritalar", module: "haritalar", description: "Bölgesel işletme keşfi ve Google Maps sinyalleri." },

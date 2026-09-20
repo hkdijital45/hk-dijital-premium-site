@@ -29,6 +29,8 @@ const plan: Tool["inputSchema"]["properties"][string] = { type: "array" };
 const companyId: Tool["inputSchema"]["properties"][string] = { type: "string", format: "uuid" };
 const text: Tool["inputSchema"]["properties"][string] = { type: "string" };
 const arr: Tool["inputSchema"]["properties"][string] = { type: "array" };
+const obj: Tool["inputSchema"]["properties"][string] = { type: "object" };
+const dateField: Tool["inputSchema"]["properties"][string] = { type: "string", format: "date" };
 
 export const tools: Tool[] = [
   { name: "get_instagram_account", description: "HK Dijital'in bağlı Instagram hesabının bağlantı durumunu döner (kullanıcı adı, bağlantı zamanı, token durumu). Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: {}, required: [], additionalProperties: false } },
@@ -56,7 +58,39 @@ export const tools: Tool[] = [
   // --- HK Ads Intelligence: strategy context / save / read (read-only ad access — never creates/publishes/changes a campaign or budget) ---
   { name: "get_ads_strategy_context", description: "Bir müşteri için reklam stratejisi hazırlamaya yetecek TEK, kompakt bağlam: şirket bilgisi, gerçek entegrasyon durumu, Instagram/Facebook organik özet (veri yoksa data_unavailable+neden), gerçek Meta Ads/Google Ads performansı (varsa), önceki HK Intelligence kayıtları ve varsa en son reklam stratejisi özeti. Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { companyId }, required: ["companyId"], additionalProperties: false } },
   { name: "save_ads_strategy_plan", description: "Claude'un ürettiği yapılandırılmış reklam stratejisini (iş özeti, Meta stratejisi, Google Ads stratejisi, gerekçeli bütçe planı, 30 günlük yol haritası, KPI'lar, isteğe bağlı implementation_guide) HK Dijital'e kaydeder. Şema kontrollüdür — eksik zorunlu alan reddedilir. Hiçbir reklam hesabında değişiklik yapmaz, yalnızca planı kaydeder.", permission: "WRITE_SAFE", inputSchema: { type: "object", properties: { strategy: { type: "object" } }, required: ["strategy"], additionalProperties: false } },
-  { name: "get_latest_ads_strategy_plan", description: "Bir müşterinin en son kaydedilmiş reklam stratejisini (tam yapılandırılmış hâliyle) döner — kurulum rehberliği veya geçmiş karşılaştırması için kullanılır. Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { companyId }, required: ["companyId"], additionalProperties: false } }
+  { name: "get_latest_ads_strategy_plan", description: "Bir müşterinin en son kaydedilmiş reklam stratejisini (tam yapılandırılmış hâliyle) döner — kurulum rehberliği veya geçmiş karşılaştırması için kullanılır. Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { companyId }, required: ["companyId"], additionalProperties: false } },
+
+  // --- Ön İnceleme Merkezi: pre-sale digital research context / save / read ---
+  {
+    name: "get_pre_audit_context",
+    description: "Get the canonical HK Dijital company context required before researching or preparing a pre-audit report. Use this first to identify and verify the correct company. Accepts companyId and/or companyName. Never internet research — only existing HK Dijital data (company profile, integration summary, lead/customer status, prior pre-audit count and latest date). Returns an ambiguous result with candidates instead of silently guessing when more than one company matches by name.",
+    permission: "READ_ONLY",
+    inputSchema: { type: "object", properties: { companyId, companyName: text }, required: [], additionalProperties: false }
+  },
+  {
+    name: "save_pre_audit_report",
+    description: "Save an explicitly approved pre-audit / sales intelligence report to the verified HK Dijital company. Supports report_type INTERNAL_REPORT (HK Dijital's own use — sales notes, script, objections, DM/WhatsApp drafts) and CLIENT_REPORT (clean, presentable version — internal-only fields are always stripped server-side regardless of what is sent). Pass analysisGroupId (returned by a prior save in the same research pass) to link a CLIENT_REPORT to its INTERNAL_REPORT sibling; omit it to start a new research pass. Only use after the user explicitly asks to save or transfer the report to HK Dijital — analyzing, researching, or drafting alone is never itself a save instruction. Always inserts a new row; never overwrites a prior report.",
+    permission: "WRITE_SAFE",
+    inputSchema: {
+      type: "object",
+      properties: {
+        companyId, analysisGroupId: text, reportType: text, title: text, status: text, reportDate: dateField,
+        executiveSummary: text,
+        digitalPresence: obj, googleAnalysis: obj, mapsAnalysis: obj, websiteAnalysis: obj, seoAnalysis: obj, socialAnalysis: obj,
+        metaAdsAnalysis: obj, googleAdsAnalysis: obj, marketAnalysis: obj, competitorAnalysis: obj, swot: obj,
+        digitalGaps: arr, opportunities: arr, recommendedServices: arr, recommendedPackage: obj, adStrategy: obj, budgetPlan: obj, sources: arr,
+        salesNotes: text, salesScript: text, instagramDm: text, whatsappInitial: text, whatsappWithPdf: text, objections: arr
+      },
+      required: ["companyId", "reportType"],
+      additionalProperties: false
+    }
+  },
+  {
+    name: "get_latest_pre_audit_report",
+    description: "Get the latest saved pre-audit report for a verified HK Dijital company, including the related internal/client report versions from the same research pass when available. Accepts companyId (and companyName as a fallback). Optional reportType filters to only INTERNAL_REPORT or only CLIENT_REPORT. Returns not_found (never a fake placeholder) if no report exists yet.",
+    permission: "READ_ONLY",
+    inputSchema: { type: "object", properties: { companyId, companyName: text, reportType: text }, required: [], additionalProperties: false }
+  }
 ];
 
 function toolByName(name: string): Tool {
@@ -248,6 +282,60 @@ export async function execute(name: string, args: Record<string, unknown>): Prom
       const run = await getLatestAdsStrategy(String(args.companyId));
       if (!run) throw new ControlError("NOT_FOUND", "Bu müşteri için kayıtlı reklam stratejisi yok.", 404);
       return run;
+    }
+
+    case "get_pre_audit_context": {
+      const { getPreAuditCompanyContext } = await import("@/lib/pre-audit/reports");
+      try {
+        return await getPreAuditCompanyContext(
+          typeof args.companyId === "string" ? args.companyId : undefined,
+          typeof args.companyName === "string" ? args.companyName : undefined
+        );
+      } catch (error) {
+        throw (await toKnownControlError(error)) ?? error;
+      }
+    }
+    case "save_pre_audit_report": {
+      const { validatePreAuditReport, savePreAuditReport, PreAuditValidationError, PreAuditCompanyNotFoundError } = await import("@/lib/pre-audit/reports");
+      const str = (v: unknown) => (typeof v === "string" ? v : undefined);
+      try {
+        const payload = validatePreAuditReport({
+          company_id: args.companyId,
+          report_type: args.reportType,
+          title: str(args.title), status: str(args.status), report_date: str(args.reportDate),
+          executive_summary: str(args.executiveSummary),
+          digital_presence: args.digitalPresence, google_analysis: args.googleAnalysis, maps_analysis: args.mapsAnalysis,
+          website_analysis: args.websiteAnalysis, seo_analysis: args.seoAnalysis, social_analysis: args.socialAnalysis,
+          meta_ads_analysis: args.metaAdsAnalysis, google_ads_analysis: args.googleAdsAnalysis, market_analysis: args.marketAnalysis,
+          competitor_analysis: args.competitorAnalysis, swot: args.swot,
+          digital_gaps: args.digitalGaps, opportunities: args.opportunities, recommended_services: args.recommendedServices,
+          recommended_package: args.recommendedPackage, ad_strategy: args.adStrategy, budget_plan: args.budgetPlan, sources: args.sources,
+          sales_notes: str(args.salesNotes), sales_script: str(args.salesScript), instagram_dm: str(args.instagramDm),
+          whatsapp_initial: str(args.whatsappInitial), whatsapp_with_pdf: str(args.whatsappWithPdf), objections: args.objections
+        });
+        return await savePreAuditReport(payload, str(args.analysisGroupId));
+      } catch (error) {
+        if (error instanceof PreAuditValidationError) throw new ControlError("INVALID_ARGUMENTS", error.message, 400);
+        if (error instanceof PreAuditCompanyNotFoundError) throw new ControlError("NOT_FOUND", error.message, 404);
+        throw (await toKnownControlError(error)) ?? error;
+      }
+    }
+    case "get_latest_pre_audit_report": {
+      const { getPreAuditCompanyContext, getLatestPreAuditReport } = await import("@/lib/pre-audit/reports");
+      try {
+        let companyId = typeof args.companyId === "string" ? args.companyId : undefined;
+        if (!companyId && typeof args.companyName === "string") {
+          const context = await getPreAuditCompanyContext(undefined, args.companyName);
+          if (context.status !== "resolved") return context;
+          companyId = context.company.id;
+        }
+        if (!companyId) throw new ControlError("INVALID_ARGUMENTS", "companyId veya companyName zorunludur.", 400);
+        const reportType = args.reportType === "INTERNAL_REPORT" || args.reportType === "CLIENT_REPORT" ? args.reportType : undefined;
+        const result = await getLatestPreAuditReport(companyId, reportType);
+        return result || { status: "not_found" };
+      } catch (error) {
+        throw (await toKnownControlError(error)) ?? error;
+      }
     }
 
     default:
