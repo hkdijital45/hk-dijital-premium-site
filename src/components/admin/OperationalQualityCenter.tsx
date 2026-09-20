@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Activity, AlertTriangle, Bot, CheckCircle2, ClipboardList, RefreshCw, XCircle } from "lucide-react";
+import { Activity, AlertTriangle, Bot, CheckCircle2, ClipboardList, PlayCircle, RefreshCw, XCircle } from "lucide-react";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge, type AdminStatusTone } from "@/components/admin/ui/AdminStatusBadge";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
@@ -11,6 +11,12 @@ import { AdminWorkspace } from "@/components/admin/workspace/AdminWorkspace";
 import { AdminCompactKpiStrip } from "@/components/admin/workspace/AdminCompactKpiStrip";
 
 type AutomationJob = { key: string; label: string; schedule: string; path: string; lastRunAt: string | null };
+type LiveCheck = { name: string; status: "pass" | "warning" | "fail" | "not_verified"; detail: string };
+type LiveCategory = { key: string; label: string; checks: LiveCheck[] };
+type LiveRun = { status: string; score: number; total: number; successCount: number; warningCount: number; errorCount: number; notVerifiedCount: number; categories: LiveCategory[] };
+
+const checkIcon: Record<LiveCheck["status"], string> = { pass: "✓", warning: "⚠", fail: "✕", not_verified: "○" };
+const checkTone: Record<LiveCheck["status"], AdminStatusTone> = { pass: "success", warning: "warning", fail: "danger", not_verified: "neutral" };
 type Overview = {
   qaFindings: Array<{ id: string; title: string; module: string | null; severity: string }>;
   recentFailures: Array<{ id: string; action_type: string; title: string | null; summary: string | null; created_at: string }>;
@@ -47,6 +53,9 @@ export function OperationalQualityCenter() {
   const [loading, setLoading] = useState(true);
   const [aiSummary, setAiSummary] = useState<{ summary: string; severity: string } | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [liveRun, setLiveRun] = useState<LiveRun | null>(null);
+  const [liveRunning, setLiveRunning] = useState(false);
+  const [liveError, setLiveError] = useState<string | null>(null);
 
   function load() {
     setLoading(true);
@@ -71,11 +80,20 @@ export function OperationalQualityCenter() {
 
   const latestTestRun = overview?.testRuns[0];
 
+  function runLiveTests() {
+    setLiveRunning(true);
+    setLiveError(null);
+    fetchJson<LiveRun>("/api/admin/operational-quality/run-tests", { method: "POST" })
+      .then((result) => { setLiveRun(result); load(); })
+      .catch((error) => setLiveError(error instanceof Error ? error.message : "Test çalıştırılamadı."))
+      .finally(() => setLiveRunning(false));
+  }
+
   return (
     <AdminWorkspace
-      title="Operasyonel Kalite Merkezi"
-      eyebrow="QA Merkezi + Sistem Test Merkezi birleşik görünümü"
-      description="Canlı sağlık durumu, QA bulguları, hata logları, otomasyon durumu ve AI destekli hata özeti tek yerde."
+      title="Test Merkezi"
+      eyebrow="Canonical sistem tanılama merkezi"
+      description="Canlı read-only testler, QA bulguları, hata logları, otomasyon durumu ve AI destekli hata özeti tek yerde."
       headerActions={<AdminButton variant="secondary" icon={<RefreshCw size={14} />} onClick={load} loading={loading}>Yenile</AdminButton>}
     >
       <AdminCompactKpiStrip items={[
@@ -91,7 +109,40 @@ export function OperationalQualityCenter() {
         <>
           {tab === "canli-testler" && (
             <div className="grid gap-3">
-              <p className="text-sm opacity-70">Detaylı manuel test checklist&apos;i için Sistem Test Merkezi&apos;ni kullanın.</p>
+              <div className="admin-card flex flex-wrap items-center justify-between gap-3 rounded-[14px] p-4">
+                <div>
+                  <p className="font-black">Read-only sistem tanılaması</p>
+                  <p className="text-xs opacity-70">Sistem sağlığı, veritabanı, navigasyon, MCP ve entegrasyon durumunu canlı olarak kontrol eder. Hiçbir veri yazmaz/değiştirmez.</p>
+                </div>
+                <AdminButton variant="primary" icon={<PlayCircle size={14} />} loading={liveRunning} onClick={runLiveTests}>Sistemi Test Et</AdminButton>
+              </div>
+
+              {liveError && <p className="text-sm text-[#dc2626]">{liveError}</p>}
+
+              {liveRun && (
+                <div className="grid gap-3">
+                  <div className="admin-card flex flex-wrap items-center gap-3 rounded-[14px] p-4">
+                    <AdminStatusBadge tone={liveRun.status === "HEALTHY" ? "success" : liveRun.status === "WARNING" ? "warning" : "danger"}>{liveRun.status}</AdminStatusBadge>
+                    <span className="text-sm font-black">{liveRun.score}/100</span>
+                    <span className="text-xs opacity-70">{liveRun.successCount} başarılı · {liveRun.warningCount} uyarı · {liveRun.errorCount} hata · {liveRun.notVerifiedCount} doğrulanamadı</span>
+                  </div>
+                  {liveRun.categories.map((cat) => (
+                    <details key={cat.key} className="admin-card rounded-[14px] p-4">
+                      <summary className="cursor-pointer font-black">{cat.label} ({cat.checks.length})</summary>
+                      <div className="mt-2 grid gap-1.5">
+                        {cat.checks.map((c, i) => (
+                          <div key={i} className="flex items-start gap-2 text-sm">
+                            <AdminStatusBadge tone={checkTone[c.status]}>{checkIcon[c.status]}</AdminStatusBadge>
+                            <div><span className="font-bold">{c.name}</span> — <span className="opacity-70">{c.detail}</span></div>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  ))}
+                </div>
+              )}
+
+              <p className="text-sm opacity-70">Geçmiş çalıştırmalar:</p>
               {overview.testRuns.map((run) => (
                 <div key={run.id} className="admin-card flex items-center justify-between rounded-[14px] p-4">
                   <div><p className="font-black">{new Date(run.created_at).toLocaleString("tr-TR")}</p><p className="text-xs opacity-70">{run.error_count} hata · {run.warning_count} uyarı</p></div>

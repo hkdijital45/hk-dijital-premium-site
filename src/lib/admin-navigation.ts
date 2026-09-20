@@ -185,7 +185,7 @@ const adminNavigationSourceGroups: AdminNavigationGroup[] = [
       { label: "Sistem Ayarları", slug: "sistem-ayarlari", module: "site-ayarlari", description: "Genel uygulama davranışı ve sistem tercihleri." },
       { label: "Güvenlik", slug: "guvenlik", module: "kullanicilar", description: "Kullanıcı erişimi, rol güvenliği ve yönetim kontrolleri." },
       { label: "HK Asistan Ayarları", slug: "hk-asistan-ayarlari", module: "hk-asistan", description: "Müşteri bazlı HK Asistan izinleri, sağlayıcı modu ve günlük limitler." },
-      { label: "Operasyonel Kalite Merkezi", slug: "operasyonel-kalite-merkezi", module: "operational-quality", description: "QA Merkezi ve Sistem Test Merkezi'nin birleşik görünümü: canlı testler, loglar, otomasyon durumu ve AI bug özeti." },
+      { label: "Test Merkezi", slug: "operasyonel-kalite-merkezi", module: "operational-quality", description: "Canonical sistem tanılama merkezi: canlı read-only testler, QA bulguları, hata logları, otomasyon durumu ve AI bug özeti tek ekranda." },
       { label: "QA Merkezi", slug: "qa-center", module: "qa-center", description: "Admin aksiyonları, API uçları ve Supabase migration uyumunu denetler." },
       { label: "Sistem Sağlığı", slug: "sistem-sagligi", module: "sistem-sagligi", description: "API, veritabanı, ölçümleme ve servis bağlantı durumları." },
       { label: "Sistem Test Merkezi", slug: "sistem-test-merkezi", module: "sistem-test-merkezi", description: "Otomatik ve manuel sistem kalite kontrolleri." },

@@ -7,7 +7,7 @@ export default async function OperationalQualityAdminPage() {
   const session = await requireModuleAccess("operational-quality");
   if (!session) redirect("/hk-admin");
   return (
-    <AdminStandaloneShell currentSession={session} allowedModules={getAllowedModules(session)} activeLabel="Operasyonel Kalite Merkezi" title="Operasyonel Kalite Merkezi">
+    <AdminStandaloneShell currentSession={session} allowedModules={getAllowedModules(session)} activeLabel="Test Merkezi" title="Test Merkezi">
       <OperationalQualityCenter />
     </AdminStandaloneShell>
   );

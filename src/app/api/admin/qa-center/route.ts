@@ -690,7 +690,7 @@ function scanSourcesForFindings(migrations: string) {
     ["Dropdown ekran dışına taşıyor mu?", "max-h-[min(72vh,640px)]", "Dropdown viewport yüksekliğine göre sınırlandırılmalı ve kendi içinde scroll olmalıdır."],
     ["Müşteriler Müşteri Merkezi’nin en üstünde mi?", "label: \"Müşteriler\", slug: \"musteriler\"", "Müşteri Merkezi kategorisinde ilk görünür kayıt Müşteriler olmalıdır."],
     ["Müşteriler hızlı erişimi var mı?", "href=\"/hk-admin/musteriler\"", "Üst alanda Müşteriler sayfasına hızlı erişim bulunmalıdır."],
-    ["Duplicate rota menüleri sadeleşti mi?", "Rapor Çıktıları", "PDF/Word/PowerPoint gibi aynı rota’a giden tekrarlar tek çıktı başlığı altında toplanmalıdır."],
+    ["Duplicate rota menüleri sadeleşti mi?", "rapor-ciktilari", "Rapor Çıktıları, Dışa Aktar, Meta Raporları ve Google Ads Raporları gibi duplicate menü girişleri kaldırıldı; eski slug'lar legacySlugRedirects üzerinden canonical rotaya yönlenmelidir."],
     ["Her rota menü kategorisine bağlı mı?", "legacySlugRedirects", "Eski alias rota değerleri bağımsız modül slug değerlerine yönlenmelidir; çalışan modüller sekmeye zorlanmamalıdır."],
     ["Müşteriler Müşteri Merkezi altında mı?", "label: \"Müşteri Merkezi\"", "Müşteriler, firma yönetimi, şubeler ve onboarding Müşteri Merkezi kategorisinde görünmelidir."],
     ["Rakip analizi Reklam & Performans altında mı?", "label: \"Reklam & Performans\"", "Rakip Analizi reklam performansı ve istihbarat bağlamında Reklam & Performans kategorisinde olmalıdır."],

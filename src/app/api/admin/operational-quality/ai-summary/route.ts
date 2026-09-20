@@ -46,7 +46,7 @@ export async function POST() {
 
   const ai = await executeAiTask({
     taskType: "qa_analysis",
-    module: "Operasyonel Kalite Merkezi",
+    module: "Test Merkezi",
     endpoint: "/api/admin/operational-quality/ai-summary",
     prompt: `Aşağıdaki son 24 saatlik sistem kalite verisinden kısa bir özet çıkar. Severity (düşük/orta/yüksek/kritik), muhtemel kök neden, etkilenen modül ve önerilen ilk aksiyonu belirt. Max 100 kelime.\n\n${promptSummary}`,
     expectedOutput: "severity, kök neden, etkilenen modül, önerilen aksiyon içeren kısa özet",
