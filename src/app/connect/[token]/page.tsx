@@ -36,7 +36,7 @@ export default async function ConnectPage({ params, searchParams }: { params: Pr
   }
 
   const companyName = await getCompanyDisplayName(validation.companyId);
-  const justAuthorized = query.integration_success === "meta" ? "meta" : query.integration_success === "google" ? "google" : null;
+  const justAuthorized = query.integration_success === "meta" || query.integration_success === "google" || query.integration_success === "tiktok" ? query.integration_success : null;
 
   return (
     <Shell>

@@ -1185,6 +1185,16 @@ export async function oauthCallback(provider: Provider, request: Request) {
         const tiktokUser = await fetchTikTokUserInfo(token.accessToken);
         await saveTikTokIntegration(targetSession, token, tiktokUser, expiresAt);
         logOAuthStage("integration_persist_success", request, { provider, origin, companyId: sessionCompanyId, traceId: state.nonce });
+        // Unlike Meta/Google, TikTok Login Kit authorizes exactly one
+        // account with no further "which resource" selection — the saved
+        // asset above IS the terminal, real connection, so (only for a
+        // connect_link flow) the tiktok capability is genuinely complete
+        // right here. Never done for hk_admin/customer_panel origins,
+        // which have no connect-link token to update.
+        if (origin === "connect_link" && state.connectTokenId) {
+          const { markCapabilitiesComplete } = await import("@/lib/connect-links");
+          await markCapabilitiesComplete(state.connectTokenId, ["tiktok"]).catch(() => null);
+        }
       } catch (error) {
         console.error("TikTok OAuth user info/save failed", error instanceof Error ? error.message : "unknown_error");
         logOAuthStage("integration_persist_success", request, { provider, origin, companyId: sessionCompanyId, traceId: state.nonce, ok: false });
@@ -1845,7 +1855,7 @@ export async function connectLinkAccounts(request: Request) {
 export async function connectLinkSelectAccount(request: Request) {
   const body = await request.json().catch(() => ({}));
   const connectToken = clean(body.connectToken);
-  const { validateConnectToken, markCapabilitiesComplete, META_CAPABILITIES, GOOGLE_CAPABILITIES } = await import("@/lib/connect-links");
+  const { validateConnectToken, markCapabilitiesComplete, META_CAPABILITIES, GOOGLE_CAPABILITIES, ASSET_TYPE_TO_CAPABILITY } = await import("@/lib/connect-links");
   const validated = await validateConnectToken(connectToken);
   if (!validated.valid) return NextResponse.json({ error: "Bağlantı linki geçersiz veya süresi dolmuş." }, { status: 403 });
 
@@ -1942,8 +1952,18 @@ export async function connectLinkSelectAccount(request: Request) {
     };
     await supabaseRest("customer_integrations?on_conflict=company_id", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify(patch) });
 
-    await markCapabilitiesComplete(validated.id, providerCapabilities);
-    return NextResponse.json({ ok: true, savedCount: newAssets.length, message: `${newAssets.length} hesap bağlandı.` });
+    // Only the capabilities whose asset type was ACTUALLY selected and
+    // verified above are marked complete — never the whole provider's
+    // requested capability set. Selecting just a GA4 property must never
+    // silently mark google_ads/search_console "done" too (the false-
+    // success bug this fixes: the public /connect page would show full
+    // success while HK Connect still correctly reported Google Ads as
+    // disconnected).
+    const completedCapabilities = Array.from(new Set(
+      newAssets.map((item: any) => ASSET_TYPE_TO_CAPABILITY[item.account_type]).filter(Boolean)
+    )) as import("@/lib/connect-links").ConnectCapability[];
+    if (completedCapabilities.length) await markCapabilitiesComplete(validated.id, completedCapabilities);
+    return NextResponse.json({ ok: true, savedCount: newAssets.length, completedCapabilities, message: `${newAssets.length} hesap bağlandı.` });
   } catch (error) {
     const safe = getSafeSupabaseError(error);
     return NextResponse.json({ error: safe.title, supabaseError: safe.detail }, { status: 500 });

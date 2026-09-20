@@ -5,11 +5,12 @@ import { useEffect, useState } from "react";
 
 type Asset = { id: string; provider: string; platform: string; account_type: string; provider_account_id: string; provider_account_name: string; status?: string };
 
-const LABELS: Record<string, string> = { facebook: "Facebook", instagram: "Instagram", meta_ads: "Meta Ads", google_ads: "Google Ads", ga4: "GA4", search_console: "Search Console" };
+const CAP_LABELS: Record<string, string> = { facebook: "Facebook", instagram: "Instagram", meta_ads: "Meta Ads", google_ads: "Google Ads", ga4: "GA4", search_console: "Search Console", youtube: "YouTube", tiktok: "TikTok" };
+const ASSET_TYPE_LABELS: Record<string, string> = { facebook_page: "Facebook", instagram_business: "Instagram", meta_ad_account: "Meta Ads", google_ads_customer: "Google Ads", ga4_property: "GA4", search_console_site: "Search Console", youtube_channel: "YouTube" };
 const META_CAPS = ["facebook", "instagram", "meta_ads"];
-const GOOGLE_CAPS = ["google_ads", "ga4", "search_console"];
+const GOOGLE_CAPS = ["google_ads", "ga4", "search_console", "youtube"];
 
-export function ConnectFlow({ token, requested, initialCompleted, justAuthorized }: { token: string; requested: string[]; initialCompleted: string[]; justAuthorized: "meta" | "google" | null }) {
+export function ConnectFlow({ token, requested, initialCompleted, justAuthorized }: { token: string; requested: string[]; initialCompleted: string[]; justAuthorized: "meta" | "google" | "tiktok" | null }) {
   const [completed, setCompleted] = useState<string[]>(initialCompleted);
   const [pickerProvider, setPickerProvider] = useState<"meta" | "google" | null>(null);
   const [accounts, setAccounts] = useState<Asset[] | null>(null);
@@ -20,6 +21,7 @@ export function ConnectFlow({ token, requested, initialCompleted, justAuthorized
 
   const metaRequested = META_CAPS.some((c) => requested.includes(c));
   const googleRequested = GOOGLE_CAPS.some((c) => requested.includes(c));
+  const tiktokRequested = requested.includes("tiktok");
   const metaDone = META_CAPS.filter((c) => requested.includes(c)).every((c) => completed.includes(c));
   const googleDone = GOOGLE_CAPS.filter((c) => requested.includes(c)).every((c) => completed.includes(c));
   const allDone = requested.every((c) => completed.includes(c));
@@ -43,9 +45,11 @@ export function ConnectFlow({ token, requested, initialCompleted, justAuthorized
   }
 
   useEffect(() => {
-    if (justAuthorized && !completed.includes(justAuthorized === "meta" ? "facebook" : "google_ads")) {
-      openPicker(justAuthorized);
-    }
+    if (justAuthorized === "meta" && !metaDone) openPicker("meta");
+    if (justAuthorized === "google" && !googleDone) openPicker("google");
+    // TikTok needs no picker — it completes directly on OAuth callback
+    // (see customer-integration-oauth.ts's oauthCallback), so `completed`
+    // already reflects it via initialCompleted by the time this renders.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount from the OAuth redirect-back only
   }, []);
 
@@ -71,8 +75,13 @@ export function ConnectFlow({ token, requested, initialCompleted, justAuthorized
       });
       const body = await res.json();
       if (!res.ok || !body.ok) throw new Error(body.error || body.message || "Kaydedilemedi.");
-      const caps = pickerProvider === "meta" ? META_CAPS : GOOGLE_CAPS;
-      setCompleted((prev) => Array.from(new Set([...prev, ...caps.filter((c) => requested.includes(c))])));
+      // Only the capabilities the server actually verified and persisted
+      // are marked complete here — never the whole provider's bundle.
+      // Selecting just a GA4 property must not make this page (or the
+      // canonical /connect status) claim Google Ads/Search Console are
+      // done too.
+      const realCompleted: string[] = Array.isArray(body.completedCapabilities) ? body.completedCapabilities : [];
+      setCompleted((prev) => Array.from(new Set([...prev, ...realCompleted])));
       setPickerProvider(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Beklenmeyen hata.");
@@ -95,6 +104,7 @@ export function ConnectFlow({ token, requested, initialCompleted, justAuthorized
             <p className="text-sm font-black">Meta (Facebook / Instagram / Meta Ads)</p>
             <span className="text-xs font-bold" style={{ color: metaDone ? "#15803d" : "#b45309" }}>{metaDone ? "Bağlandı ✓" : "Bekliyor"}</span>
           </div>
+          <CapabilityBreakdown caps={META_CAPS} requested={requested} completed={completed} />
           {!metaDone && (
             pickerProvider === "meta" ? (
               <AssetPicker accounts={accounts} loading={loading} saving={saving} selected={selected} onToggle={toggle} onSave={save} onCancel={() => setPickerProvider(null)} />
@@ -110,9 +120,10 @@ export function ConnectFlow({ token, requested, initialCompleted, justAuthorized
       {googleRequested && (
         <div className="rounded-[10px] border p-3" style={{ borderColor: "#e2e2e2" }}>
           <div className="flex items-center justify-between">
-            <p className="text-sm font-black">Google (Ads / GA4 / Search Console)</p>
+            <p className="text-sm font-black">Google (Ads / GA4 / Search Console / YouTube)</p>
             <span className="text-xs font-bold" style={{ color: googleDone ? "#15803d" : "#b45309" }}>{googleDone ? "Bağlandı ✓" : "Bekliyor"}</span>
           </div>
+          <CapabilityBreakdown caps={GOOGLE_CAPS} requested={requested} completed={completed} />
           {!googleDone && (
             pickerProvider === "google" ? (
               <AssetPicker accounts={accounts} loading={loading} saving={saving} selected={selected} onToggle={toggle} onSave={save} onCancel={() => setPickerProvider(null)} />
@@ -124,6 +135,38 @@ export function ConnectFlow({ token, requested, initialCompleted, justAuthorized
           )}
         </div>
       )}
+
+      {tiktokRequested && (
+        <div className="rounded-[10px] border p-3" style={{ borderColor: "#e2e2e2" }}>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-black">TikTok</p>
+            <span className="text-xs font-bold" style={{ color: completed.includes("tiktok") ? "#15803d" : "#b45309" }}>{completed.includes("tiktok") ? "Bağlandı ✓" : "Bekliyor"}</span>
+          </div>
+          {!completed.includes("tiktok") && (
+            <a href={`/api/integrations/tiktok/connect?connectToken=${encodeURIComponent(token)}`} className="mt-2 block rounded-[10px] px-4 py-2.5 text-center text-sm font-black text-white" style={{ background: "#000000" }}>
+              TikTok ile Bağlan
+            </a>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Per-capability lines inside a provider's block — e.g. "GA4: Bağlandı ✓"
+ * next to "Google Ads: Hesap seçimi gerekli" — so a partial provider
+ * connection is never presented as one ambiguous "Bekliyor". */
+function CapabilityBreakdown({ caps, requested, completed }: { caps: string[]; requested: string[]; completed: string[] }) {
+  const relevant = caps.filter((c) => requested.includes(c));
+  if (relevant.length < 2) return null;
+  return (
+    <div className="mt-2 grid gap-1">
+      {relevant.map((cap) => (
+        <div key={cap} className="flex items-center justify-between text-xs">
+          <span className="text-slate-500">{CAP_LABELS[cap] || cap}</span>
+          <span className="font-bold" style={{ color: completed.includes(cap) ? "#15803d" : "#b45309" }}>{completed.includes(cap) ? "Bağlandı ✓" : "Hesap seçimi gerekli"}</span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -138,7 +181,7 @@ function AssetPicker({ accounts, loading, saving, selected, onToggle, onSave, on
         {accounts.map((a) => (
           <label key={a.id} className="flex items-center gap-2 text-xs font-bold">
             <input type="checkbox" checked={selected.has(a.id)} onChange={() => onToggle(a.id)} />
-            {a.provider_account_name} <span className="text-slate-400">({LABELS[a.account_type] || a.account_type})</span>
+            {a.provider_account_name} <span className="text-slate-400">({ASSET_TYPE_LABELS[a.account_type] || a.account_type})</span>
           </label>
         ))}
       </div>

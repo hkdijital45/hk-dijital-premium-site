@@ -17,12 +17,14 @@ const PLATFORM_LABELS: Record<string, string> = {
 };
 
 // Only capabilities the connect-link flow can actually complete (real
-// OAuth + asset selection) — TikTok/YouTube/GTM have no such public flow
-// yet, so they're never offered here even though they appear read-only in
-// the status grid above.
+// OAuth + asset selection, verified against a fresh provider discovery
+// call before persisting — see connectLinkSelectAccount). GTM has no such
+// public flow yet, so it's never offered here even though it appears
+// read-only in the status grid above.
 const CAPABILITY_GROUPS: Array<{ label: string; items: Array<{ key: string; label: string }> }> = [
   { label: "META", items: [{ key: "facebook", label: "Facebook" }, { key: "instagram", label: "Instagram" }, { key: "meta_ads", label: "Meta Ads" }] },
-  { label: "GOOGLE", items: [{ key: "google_ads", label: "Google Ads" }, { key: "ga4", label: "GA4" }, { key: "search_console", label: "Search Console" }] }
+  { label: "GOOGLE", items: [{ key: "google_ads", label: "Google Ads" }, { key: "ga4", label: "GA4" }, { key: "search_console", label: "Search Console" }, { key: "youtube", label: "YouTube" }] },
+  { label: "TIKTOK", items: [{ key: "tiktok", label: "TikTok" }] }
 ];
 
 function readCompanyFromUrl(): string | null {

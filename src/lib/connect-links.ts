@@ -6,13 +6,11 @@
 // never logged, never re-derivable from the DB.
 import crypto from "crypto";
 import { supabaseRest } from "@/lib/supabase";
+import { CONNECT_CAPABILITIES, META_CAPABILITIES, GOOGLE_CAPABILITIES, TIKTOK_CAPABILITIES, ASSET_TYPE_TO_CAPABILITY, type ConnectCapability } from "@/lib/connect-capabilities";
+
+export { CONNECT_CAPABILITIES, META_CAPABILITIES, GOOGLE_CAPABILITIES, TIKTOK_CAPABILITIES, ASSET_TYPE_TO_CAPABILITY, type ConnectCapability };
 
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
-
-export const CONNECT_CAPABILITIES = ["facebook", "instagram", "meta_ads", "google_ads", "ga4", "search_console"] as const;
-export type ConnectCapability = (typeof CONNECT_CAPABILITIES)[number];
-export const META_CAPABILITIES: ConnectCapability[] = ["facebook", "instagram", "meta_ads"];
-export const GOOGLE_CAPABILITIES: ConnectCapability[] = ["google_ads", "ga4", "search_console"];
 
 function hashToken(rawToken: string): string {
   return crypto.createHash("sha256").update(rawToken).digest("hex");
