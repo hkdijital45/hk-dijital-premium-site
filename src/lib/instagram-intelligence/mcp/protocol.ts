@@ -63,33 +63,33 @@ export const tools: Tool[] = [
   // --- Ön İnceleme Merkezi: pre-sale digital research context / save / read ---
   {
     name: "get_pre_audit_context",
-    description: "Get the canonical HK Dijital company context required before researching or preparing a pre-audit report. Use this first to identify and verify the correct company. Accepts companyId and/or companyName. Never internet research — only existing HK Dijital data (company profile, integration summary, lead/customer status, prior pre-audit count and latest date). Returns an ambiguous result with candidates instead of silently guessing when more than one company matches by name.",
+    description: "Get the canonical HK Dijital company or lead context required before researching or preparing a pre-audit report. Use this first to identify and verify the correct business. Accepts companyId and/or companyName for an existing customer/prospect company, OR leadId for a Müşteri Keşfi discovery candidate not yet a company (leadId is unambiguous, no name search needed). Never internet research — only existing HK Dijital data (business profile, integration summary where applicable, lead/customer status, prior pre-audit count and latest date). Returns an ambiguous result with candidates instead of silently guessing when more than one company matches by name.",
     permission: "READ_ONLY",
-    inputSchema: { type: "object", properties: { companyId, companyName: text }, required: [], additionalProperties: false }
+    inputSchema: { type: "object", properties: { companyId, companyName: text, leadId: text }, required: [], additionalProperties: false }
   },
   {
     name: "save_pre_audit_report",
-    description: "Save an explicitly approved pre-audit / sales intelligence report to the verified HK Dijital company. Supports report_type INTERNAL_REPORT (HK Dijital's own use — sales notes, script, objections, DM/WhatsApp drafts) and CLIENT_REPORT (clean, presentable version — internal-only fields are always stripped server-side regardless of what is sent). Pass analysisGroupId (returned by a prior save in the same research pass) to link a CLIENT_REPORT to its INTERNAL_REPORT sibling; omit it to start a new research pass. Only use after the user explicitly asks to save or transfer the report to HK Dijital — analyzing, researching, or drafting alone is never itself a save instruction. Always inserts a new row; never overwrites a prior report.",
+    description: "Save an explicitly approved pre-audit / sales intelligence report to the verified HK Dijital company or lead. Pass exactly one of companyId (existing company) or leadId (a Müşteri Keşfi discovery candidate pre-review — saving here automatically completes that lead's pre-review queue status, the only status this tool ever changes). Supports report_type INTERNAL_REPORT (HK Dijital's own use — sales notes, script, objections, DM/WhatsApp drafts) and CLIENT_REPORT (clean, presentable version — internal-only fields are always stripped server-side regardless of what is sent). Pass analysisGroupId (returned by a prior save in the same research pass) to link a CLIENT_REPORT to its INTERNAL_REPORT sibling; omit it to start a new research pass. Only use after the user explicitly asks to save or transfer the report to HK Dijital — analyzing, researching, or drafting alone is never itself a save instruction. Always inserts a new row; never overwrites a prior report.",
     permission: "WRITE_SAFE",
     inputSchema: {
       type: "object",
       properties: {
-        companyId, analysisGroupId: text, reportType: text, title: text, status: text, reportDate: dateField,
+        companyId, leadId: text, analysisGroupId: text, reportType: text, title: text, status: text, reportDate: dateField,
         executiveSummary: text,
         digitalPresence: obj, googleAnalysis: obj, mapsAnalysis: obj, websiteAnalysis: obj, seoAnalysis: obj, socialAnalysis: obj,
         metaAdsAnalysis: obj, googleAdsAnalysis: obj, marketAnalysis: obj, competitorAnalysis: obj, swot: obj,
         digitalGaps: arr, opportunities: arr, recommendedServices: arr, recommendedPackage: obj, adStrategy: obj, budgetPlan: obj, sources: arr,
         salesNotes: text, salesScript: text, instagramDm: text, whatsappInitial: text, whatsappWithPdf: text, objections: arr
       },
-      required: ["companyId", "reportType"],
+      required: ["reportType"],
       additionalProperties: false
     }
   },
   {
     name: "get_latest_pre_audit_report",
-    description: "Get the latest saved pre-audit report for a verified HK Dijital company, including the related internal/client report versions from the same research pass when available. Accepts companyId (and companyName as a fallback). Optional reportType filters to only INTERNAL_REPORT or only CLIENT_REPORT. Returns not_found (never a fake placeholder) if no report exists yet.",
+    description: "Get the latest saved pre-audit report for a verified HK Dijital company or lead, including the related internal/client report versions from the same research pass when available. Accepts companyId (and companyName as a fallback) for a company, or leadId for a Müşteri Keşfi discovery candidate. Optional reportType filters to only INTERNAL_REPORT or only CLIENT_REPORT. Returns not_found (never a fake placeholder) if no report exists yet.",
     permission: "READ_ONLY",
-    inputSchema: { type: "object", properties: { companyId, companyName: text, reportType: text }, required: [], additionalProperties: false }
+    inputSchema: { type: "object", properties: { companyId, companyName: text, leadId: text, reportType: text }, required: [], additionalProperties: false }
   }
 ];
 
@@ -285,8 +285,9 @@ export async function execute(name: string, args: Record<string, unknown>): Prom
     }
 
     case "get_pre_audit_context": {
-      const { getPreAuditCompanyContext } = await import("@/lib/pre-audit/reports");
+      const { getPreAuditCompanyContext, getPreAuditLeadContext } = await import("@/lib/pre-audit/reports");
       try {
+        if (typeof args.leadId === "string" && args.leadId) return await getPreAuditLeadContext(args.leadId);
         return await getPreAuditCompanyContext(
           typeof args.companyId === "string" ? args.companyId : undefined,
           typeof args.companyName === "string" ? args.companyName : undefined
@@ -300,7 +301,8 @@ export async function execute(name: string, args: Record<string, unknown>): Prom
       const str = (v: unknown) => (typeof v === "string" ? v : undefined);
       try {
         const payload = validatePreAuditReport({
-          company_id: args.companyId,
+          company_id: str(args.companyId),
+          lead_id: str(args.leadId),
           report_type: args.reportType,
           title: str(args.title), status: str(args.status), report_date: str(args.reportDate),
           executive_summary: str(args.executiveSummary),
@@ -323,15 +325,16 @@ export async function execute(name: string, args: Record<string, unknown>): Prom
     case "get_latest_pre_audit_report": {
       const { getPreAuditCompanyContext, getLatestPreAuditReport } = await import("@/lib/pre-audit/reports");
       try {
+        const leadId = typeof args.leadId === "string" ? args.leadId : undefined;
         let companyId = typeof args.companyId === "string" ? args.companyId : undefined;
-        if (!companyId && typeof args.companyName === "string") {
+        if (!leadId && !companyId && typeof args.companyName === "string") {
           const context = await getPreAuditCompanyContext(undefined, args.companyName);
           if (context.status !== "resolved") return context;
           companyId = context.company.id;
         }
-        if (!companyId) throw new ControlError("INVALID_ARGUMENTS", "companyId veya companyName zorunludur.", 400);
+        if (!leadId && !companyId) throw new ControlError("INVALID_ARGUMENTS", "companyId, companyName veya leadId zorunludur.", 400);
         const reportType = args.reportType === "INTERNAL_REPORT" || args.reportType === "CLIENT_REPORT" ? args.reportType : undefined;
-        const result = await getLatestPreAuditReport(companyId, reportType);
+        const result = await getLatestPreAuditReport(companyId, reportType, leadId);
         return result || { status: "not_found" };
       } catch (error) {
         throw (await toKnownControlError(error)) ?? error;

@@ -2,9 +2,15 @@
 /* eslint-disable react-hooks/set-state-in-effect -- fetch-on-mount pattern, same accepted precedent as ContentPlanningCenter.tsx */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronDown, Copy, Eye, RefreshCw, Search } from "lucide-react";
+import { ChevronDown, Copy, Eye, ExternalLink, RefreshCw, Search, X } from "lucide-react";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
+
+const REJECTION_REASONS = [
+  "Uygun müşteri değil", "Dijital ihtiyacı düşük", "Bütçe potansiyeli düşük",
+  "Zaten güçlü dijital altyapısı var", "Yanlış / geçersiz işletme", "Tekrar kayıt",
+  "İletişim kurulması uygun değil", "Diğer"
+];
 
 /**
  * Ön İnceleme Merkezi — a report management/viewing center for pre-sale
@@ -16,9 +22,17 @@ import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
 
 type Company = { id: string; name: string };
 type ReportType = "INTERNAL_REPORT" | "CLIENT_REPORT";
-type ListItem = { id: string; company_id: string; analysis_group_id: string; report_type: ReportType; title: string; status: string; report_date: string; recommended_package: unknown; created_at: string };
+type ListItem = { id: string; company_id: string | null; lead_id: string | null; analysis_group_id: string; report_type: ReportType; title: string; status: string; report_date: string; recommended_package: unknown; created_at: string };
 type Summary = { totalPreAudits: number; thisMonth: number; potentialCompanies: number; convertedCompanies: number };
-type FullReport = Record<string, unknown> & { id: string; report_type: ReportType; title: string; status: string; report_date: string; analysis_group_id: string };
+type FullReport = Record<string, unknown> & { id: string; report_type: ReportType; title: string; status: string; report_date: string; analysis_group_id: string; company_id: string | null; lead_id: string | null };
+type QueueLead = {
+  id: string; company: string | null; name: string | null; sector: string | null; business_type: string | null;
+  city: string | null; district: string | null; website: string | null; phone: string | null; instagram: string | null;
+  status: string | null; rejection_reason: string | null; rejected_at: string | null; notes: string | null;
+  google_place_id: string | null; source: string | null; created_at: string;
+};
+type Queue = { pending: QueueLead[]; inReview: QueueLead[]; rejected: QueueLead[] };
+type Tab = "tamamlanan" | "bekleyen" | "inceleniyor" | "iptal";
 
 const SECTION_LABELS: Array<[string, string]> = [
   ["executive_summary", "Yönetici Özeti"],
@@ -65,6 +79,44 @@ function formatDate(iso: string | null) {
 
 function Card({ children }: { children: React.ReactNode }) {
   return <div className="rounded-[14px] border p-4" style={{ borderColor: "var(--admin-border)" }}>{children}</div>;
+}
+
+function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-[16px] bg-white p-5" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <p className="text-base font-black">{title}</p>
+          <button type="button" onClick={onClose} className="rounded-full p-1 hover:bg-[#F3F2EE]"><X size={16} /></button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function leadDisplayName(lead: QueueLead) {
+  return lead.company || lead.name || "İsimsiz aday";
+}
+
+function buildClaudePrompt(lead: QueueLead) {
+  const location = [lead.district, lead.city].filter(Boolean).join(", ") || "-";
+  return `HK Dijital Ön İnceleme görevi.
+
+Aşağıdaki işletmeyi HK Dijital MCP bağlantısı üzerinden (get_pre_audit_context, leadId="${lead.id}") kesin olarak doğrula — aynı isimli başka bir işletmeyle karıştırma.
+
+Firma: ${leadDisplayName(lead)}
+Sektör: ${lead.sector || lead.business_type || "-"}
+Konum: ${location}
+Website: ${lead.website || "-"}
+Telefon: ${lead.phone || "-"}
+Instagram: ${lead.instagram || "-"}
+
+Doğruladıktan sonra: Google, Google Maps/Local SEO, web sitesi, SEO, sosyal medya (Instagram/Facebook) ve halka açık reklam sinyallerini (Meta/Google Ads) araştır. Yalnızca gerçekten bulduğun/doğrulayabildiğin bilgileri kullan; olmayan metrik uydurma.
+
+Kısa ve profesyonel bir ön inceleme hazırla: yönetici özeti, dijital varlıklar, SWOT (güçlü/zayıf yönler, fırsatlar, tehditler), dijital boşluklar, fırsatlar, önerilen HK Dijital hizmetleri ve paket, başlangıç reklam stratejisi ve bütçe planı.
+
+Kullanıcı açıkça "HK Dijital'e kaydet" derse, save_pre_audit_report aracını leadId="${lead.id}" ve report_type="INTERNAL_REPORT" ile çağırarak sonucu kaydet. Kullanıcı açıkça istemeden asla kaydetme.`;
 }
 
 function CopyButton({ text }: { text: string }) {
@@ -145,7 +197,7 @@ function SwotSection({ swot }: { swot: unknown }) {
   );
 }
 
-function ReportDetail({ report }: { report: FullReport }) {
+function ReportDetail({ report, onSendOffer, onReject }: { report: FullReport; onSendOffer?: (report: FullReport) => void; onReject?: (report: FullReport) => void }) {
   const isInternal = report.report_type === "INTERNAL_REPORT";
   return (
     <div className="grid gap-3">
@@ -154,6 +206,13 @@ function ReportDetail({ report }: { report: FullReport }) {
         <AdminStatusBadge tone="neutral">{formatDate(report.report_date as string)}</AdminStatusBadge>
         <AdminStatusBadge tone="info">{String(report.status || "draft")}</AdminStatusBadge>
       </div>
+
+      {report.lead_id && (onSendOffer || onReject) && (
+        <div className="flex flex-wrap gap-2">
+          {onSendOffer && <AdminButton variant="success" icon={<span>🟢</span>} onClick={() => onSendOffer(report)}>Teklif Gönder</AdminButton>}
+          {onReject && <AdminButton variant="danger" icon={<span>🔴</span>} onClick={() => onReject(report)}>İptal</AdminButton>}
+        </div>
+      )}
 
       {SECTION_LABELS.filter(([key]) => !isEmpty(report[key])).map(([key, label]) => (
         key === "swot" ? null : (
@@ -184,6 +243,37 @@ function ReportDetail({ report }: { report: FullReport }) {
   );
 }
 
+function QueueLeadRow({ lead, isRejected, onCopyPrompt, onReject }: { lead: QueueLead; isRejected?: boolean; onCopyPrompt?: (lead: QueueLead) => void; onReject?: (lead: QueueLead) => void }) {
+  return (
+    <Card>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-black">{leadDisplayName(lead)}</p>
+          <p className="text-xs font-bold" style={{ color: "var(--admin-text-muted)" }}>
+            {[lead.sector || lead.business_type, [lead.district, lead.city].filter(Boolean).join(", "), lead.website].filter(Boolean).join(" · ") || "Detay yok"}
+          </p>
+          <p className="mt-1 text-xs" style={{ color: "var(--admin-text-muted)" }}>Kaynak: {lead.source || "Bilinmiyor"} · {formatDate(lead.created_at)}</p>
+          {isRejected && (
+            <div className="mt-2 rounded-[10px] p-2 text-xs" style={{ background: "#FDECEC" }}>
+              <p><strong>Sebep:</strong> {lead.rejection_reason || "-"}</p>
+              {lead.notes && <p className="mt-1 whitespace-pre-line opacity-80">{lead.notes.split("\n").filter((l) => l.includes("Ön İnceleme İptal")).pop() || lead.notes}</p>}
+              <p className="mt-1 opacity-70">{formatDate(lead.rejected_at)}</p>
+            </div>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {!isRejected && onCopyPrompt && (
+            <AdminButton variant="ai" compact icon={<Copy size={13} />} onClick={() => onCopyPrompt(lead)}>Claude Promptunu Kopyala</AdminButton>
+          )}
+          {!isRejected && onReject && (
+            <AdminButton variant="danger" compact onClick={() => onReject(lead)}>İptal</AdminButton>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 export function PreAuditCenter() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [companyId, setCompanyId] = useState<string>("");
@@ -198,6 +288,16 @@ export function PreAuditCenter() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [verifyCompanyName, setVerifyCompanyName] = useState("");
   const [verifyCopied, setVerifyCopied] = useState(false);
+  const [tab, setTab] = useState<Tab>("tamamlanan");
+  const [queue, setQueue] = useState<Queue>({ pending: [], inReview: [], rejected: [] });
+  const [promptLead, setPromptLead] = useState<QueueLead | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<QueueLead | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejectNote, setRejectNote] = useState("");
+  const [rejectSaving, setRejectSaving] = useState(false);
+  const [offerTarget, setOfferTarget] = useState<FullReport | null>(null);
+  const [offerSaving, setOfferSaving] = useState(false);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/companies").then((r) => r.json()).then((body) => setCompanies(body.companies || [])).catch(() => {});
@@ -216,6 +316,7 @@ export function PreAuditCenter() {
       setTablesReady(body.tablesReady !== false);
       setReports(body.reports || []);
       setSummary(body.summary || null);
+      setQueue(body.queue || { pending: [], inReview: [], rejected: [] });
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Beklenmeyen hata.");
       setReports([]);
@@ -251,6 +352,78 @@ export function PreAuditCenter() {
       setVerifyCopied(true);
       setTimeout(() => setVerifyCopied(false), 2000);
     } catch { /* clipboard denied — nothing to fall back to here */ }
+  }
+
+  async function copyClaudePromptForLead(lead: QueueLead) {
+    try {
+      await navigator.clipboard.writeText(buildClaudePrompt(lead));
+      setPromptLead(lead);
+      fetch(`/api/admin/pre-audit/lead/${lead.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "mark_in_progress" }) }).then(load).catch(() => {});
+    } catch {
+      setActionMessage("Panoya kopyalanamadı.");
+    }
+  }
+
+  function openClaudeConfirmed() {
+    window.open("https://claude.ai/new", "_blank", "noopener,noreferrer");
+    setPromptLead(null);
+  }
+
+  async function submitReject() {
+    if (!rejectTarget || !rejectReason) return;
+    if (rejectReason === "Diğer" && !rejectNote.trim()) { setActionMessage("'Diğer' için açıklama zorunludur."); return; }
+    setRejectSaving(true);
+    try {
+      const res = await fetch(`/api/admin/pre-audit/lead/${rejectTarget.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reject", reason: rejectReason, note: rejectNote })
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "İptal kaydedilemedi.");
+      setRejectTarget(null); setRejectReason(""); setRejectNote("");
+      setActionMessage(`${leadDisplayName(rejectTarget)} iptal edildi.`);
+      load();
+    } catch (e) {
+      setActionMessage(e instanceof Error ? e.message : "İptal kaydedilemedi.");
+    } finally {
+      setRejectSaving(false);
+    }
+  }
+
+  async function sendOfferToLeadPipeline() {
+    if (!offerTarget?.lead_id) return;
+    setOfferSaving(true);
+    try {
+      const res = await fetch(`/api/admin/pre-audit/lead/${offerTarget.lead_id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "send_offer_lead" })
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "İşlem başarısız oldu.");
+      setActionMessage("Lead Merkezi'ne aktarıldı — aktif satış hunisinde devam ediyor.");
+      setOfferTarget(null);
+      load();
+    } catch (e) {
+      setActionMessage(e instanceof Error ? e.message : "İşlem başarısız oldu.");
+    } finally {
+      setOfferSaving(false);
+    }
+  }
+
+  async function sendOfferToCustomer() {
+    if (!offerTarget?.lead_id) return;
+    setOfferSaving(true);
+    try {
+      const res = await fetch(`/api/admin/leads/${offerTarget.lead_id}/convert`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "Müşteriye dönüştürme başarısız oldu.");
+      setActionMessage(`${body.company?.name || "Müşteri"} olarak kaydedildi.`);
+      setOfferTarget(null);
+      load();
+    } catch (e) {
+      setActionMessage(e instanceof Error ? e.message : "Müşteriye dönüştürme başarısız oldu.");
+    } finally {
+      setOfferSaving(false);
+    }
   }
 
   const grouped = useMemo(() => {
@@ -324,44 +497,118 @@ export function PreAuditCenter() {
         <AdminButton variant="secondary" compact icon={<RefreshCw size={14} />} onClick={load}>Yenile</AdminButton>
       </div>
 
+      <div className="flex flex-wrap gap-1.5">
+        {([
+          ["bekleyen", `Bekleyen (${queue.pending.length})`],
+          ["inceleniyor", `İnceleniyor (${queue.inReview.length})`],
+          ["tamamlanan", `Tamamlanan (${grouped.length})`],
+          ["iptal", `İptal Edilenler (${queue.rejected.length})`]
+        ] as Array<[Tab, string]>).map(([key, label]) => (
+          <button key={key} type="button" onClick={() => setTab(key)} className="rounded-full px-3.5 py-2 text-xs font-black transition" style={tab === key ? { background: "#0891b2", color: "white" } : { background: "var(--admin-surface-soft, #F3F2EE)", color: "var(--admin-text-secondary)" }}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {actionMessage && <p className="text-sm font-bold" style={{ color: "var(--admin-text-secondary)" }}>{actionMessage}</p>}
       {loadError && <p className="text-sm font-bold text-[#dc2626]">{loadError}</p>}
       {reports === null && <p className="text-sm font-bold" style={{ color: "var(--admin-text-muted)" }}>Yükleniyor…</p>}
-      {reports && reports.length === 0 && tablesReady !== false && (
-        <Card><p className="text-sm font-bold" style={{ color: "var(--admin-text-secondary)" }}>{companyName ? `${companyName} için henüz Ön İnceleme bulunmuyor.` : "Henüz Ön İnceleme bulunmuyor."}</p></Card>
+
+      {tab === "bekleyen" && (
+        queue.pending.length
+          ? <div className="grid gap-2">{queue.pending.map((lead) => <QueueLeadRow key={lead.id} lead={lead} onCopyPrompt={copyClaudePromptForLead} onReject={setRejectTarget} />)}</div>
+          : <Card><p className="text-sm font-bold" style={{ color: "var(--admin-text-secondary)" }}>Bekleyen aday yok. Müşteri Keşfi&apos;nde &quot;Ön İncele&quot; ile aday ekleyin.</p></Card>
       )}
 
-      {grouped.length > 0 && (
-        <div className="grid gap-2">
-          {grouped.map(([groupId, items]) => {
-            const first = items[0];
-            const company = companies.find((c) => c.id === first.company_id);
-            return (
-              <Card key={groupId}>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-black">{company?.name || "Firma"} · {formatDate(first.report_date)}</p>
-                    <p className="text-xs font-bold" style={{ color: "var(--admin-text-muted)" }}>{first.title || "Başlıksız"}</p>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {items.map((r) => (
-                      <AdminButton key={r.id} variant={selectedId === r.id ? "primary" : "secondary"} compact icon={<Eye size={13} />} onClick={() => openReport(r.id)}>
-                        {r.report_type === "INTERNAL_REPORT" ? "🔒 Dahili" : "📄 Müşteri"}
-                      </AdminButton>
-                    ))}
-                  </div>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
+      {tab === "inceleniyor" && (
+        queue.inReview.length
+          ? <div className="grid gap-2">{queue.inReview.map((lead) => <QueueLeadRow key={lead.id} lead={lead} onCopyPrompt={copyClaudePromptForLead} onReject={setRejectTarget} />)}</div>
+          : <Card><p className="text-sm font-bold" style={{ color: "var(--admin-text-secondary)" }}>İncelemede aday yok.</p></Card>
       )}
 
-      {selectedId && (
-        <div className="grid gap-3">
-          <p className="text-sm font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Rapor Detayı</p>
-          {detailLoading && <p className="text-sm font-bold" style={{ color: "var(--admin-text-muted)" }}>Yükleniyor…</p>}
-          {detail && <ReportDetail report={detail} />}
-        </div>
+      {tab === "iptal" && (
+        queue.rejected.length
+          ? <div className="grid gap-2">{queue.rejected.map((lead) => <QueueLeadRow key={lead.id} lead={lead} isRejected />)}</div>
+          : <Card><p className="text-sm font-bold" style={{ color: "var(--admin-text-secondary)" }}>İptal edilen aday yok.</p></Card>
+      )}
+
+      {tab === "tamamlanan" && (
+        <>
+          {reports && reports.length === 0 && tablesReady !== false && (
+            <Card><p className="text-sm font-bold" style={{ color: "var(--admin-text-secondary)" }}>{companyName ? `${companyName} için henüz Ön İnceleme bulunmuyor.` : "Henüz tamamlanmış Ön İnceleme bulunmuyor."}</p></Card>
+          )}
+
+          {grouped.length > 0 && (
+            <div className="grid gap-2">
+              {grouped.map(([groupId, items]) => {
+                const first = items[0];
+                const company = companies.find((c) => c.id === first.company_id);
+                return (
+                  <Card key={groupId}>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-black">{company?.name || first.title || "Aday"} · {formatDate(first.report_date)}</p>
+                        <p className="text-xs font-bold" style={{ color: "var(--admin-text-muted)" }}>{first.title || "Başlıksız"}{!company && " · Lead"}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {items.map((r) => (
+                          <AdminButton key={r.id} variant={selectedId === r.id ? "primary" : "secondary"} compact icon={<Eye size={13} />} onClick={() => openReport(r.id)}>
+                            {r.report_type === "INTERNAL_REPORT" ? "🔒 Dahili" : "📄 Müşteri"}
+                          </AdminButton>
+                        ))}
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+
+          {selectedId && (
+            <div className="grid gap-3">
+              <p className="text-sm font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Rapor Detayı</p>
+              {detailLoading && <p className="text-sm font-bold" style={{ color: "var(--admin-text-muted)" }}>Yükleniyor…</p>}
+              {detail && <ReportDetail report={detail} onSendOffer={setOfferTarget} onReject={(r) => setRejectTarget({ id: r.lead_id!, company: r.title, name: null, sector: null, business_type: null, city: null, district: null, website: null, phone: null, instagram: null, status: null, rejection_reason: null, rejected_at: null, notes: null, google_place_id: null, source: null, created_at: "" })} />}
+            </div>
+          )}
+        </>
+      )}
+
+      {promptLead && (
+        <Modal title="Prompt kopyalandı" onClose={() => setPromptLead(null)}>
+          <p className="text-sm">Claude açılsın mı?</p>
+          <div className="mt-4 flex justify-end gap-2">
+            <AdminButton variant="secondary" onClick={() => setPromptLead(null)}>Hayır</AdminButton>
+            <AdminButton variant="ai" icon={<ExternalLink size={14} />} onClick={openClaudeConfirmed}>Claude&apos;u Aç</AdminButton>
+          </div>
+        </Modal>
+      )}
+
+      {offerTarget && (
+        <Modal title="Bu işletme nereye kaydedilsin?" onClose={() => !offerSaving && setOfferTarget(null)}>
+          <div className="grid gap-2">
+            <AdminButton variant="success" loading={offerSaving} onClick={sendOfferToLeadPipeline}>Lead Merkezi</AdminButton>
+            <AdminButton variant="warning" loading={offerSaving} onClick={sendOfferToCustomer}>Müşteriler</AdminButton>
+            <p className="text-xs font-bold" style={{ color: "#b45309" }}>Müşteriler seçeneği yalnızca sözleşme/teklif kabul edilmiş gerçek müşteriler için kullanılmalıdır — doğrudan aktif müşteri kaydı oluşturur.</p>
+            <AdminButton variant="ghost" disabled={offerSaving} onClick={() => setOfferTarget(null)}>Vazgeç</AdminButton>
+          </div>
+        </Modal>
+      )}
+
+      {rejectTarget && (
+        <Modal title="İptal sebebi" onClose={() => !rejectSaving && setRejectTarget(null)}>
+          <div className="grid gap-2">
+            <select value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} className="rounded-[10px] border p-2.5 text-sm font-bold" style={{ borderColor: "var(--admin-border)" }}>
+              <option value="">Seçin…</option>
+              {REJECTION_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+            <textarea value={rejectNote} onChange={(e) => setRejectNote(e.target.value)} placeholder={rejectReason === "Diğer" ? "Açıklama (zorunlu)" : "Not / açıklama (opsiyonel)"} rows={3} className="rounded-[10px] border p-2.5 text-sm" style={{ borderColor: "var(--admin-border)" }} />
+            <div className="flex justify-end gap-2">
+              <AdminButton variant="secondary" disabled={rejectSaving} onClick={() => setRejectTarget(null)}>Vazgeç</AdminButton>
+              <AdminButton variant="danger" loading={rejectSaving} disabled={!rejectReason} onClick={submitReject}>İptal Et</AdminButton>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

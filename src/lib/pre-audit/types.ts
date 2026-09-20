@@ -15,9 +15,32 @@ export const PRE_AUDIT_INTERNAL_ONLY_FIELDS = [
   "sales_notes", "sales_script", "instagram_dm", "whatsapp_initial", "whatsapp_with_pdf", "objections"
 ] as const;
 
+// Lead pre-review queue lifecycle — stored on public.leads.status (a free-
+// text column, no new column needed). Distinct from the general sales
+// pipeline's own status values so a pre-review rejection is never
+// conflated with a post-contact sales loss.
+export const LEAD_PRE_REVIEW_STATUS = {
+  PENDING: "Ön İnceleme Bekliyor",
+  IN_REVIEW: "Ön İnceleme - İnceleniyor",
+  COMPLETED: "Ön İnceleme Tamamlandı",
+  REJECTED: "Ön İnceleme İptal"
+} as const;
+
+export const PRE_REVIEW_REJECTION_REASONS = [
+  "Uygun müşteri değil",
+  "Dijital ihtiyacı düşük",
+  "Bütçe potansiyeli düşük",
+  "Zaten güçlü dijital altyapısı var",
+  "Yanlış / geçersiz işletme",
+  "Tekrar kayıt",
+  "İletişim kurulması uygun değil",
+  "Diğer"
+] as const;
+
 export type PreAuditReport = {
   id: string;
-  company_id: string;
+  company_id: string | null;
+  lead_id: string | null;
   analysis_group_id: string;
   report_type: PreAuditReportType;
   title: string;
@@ -58,5 +81,5 @@ export type PreAuditReport = {
 
 export type PreAuditReportListItem = Pick<
   PreAuditReport,
-  "id" | "company_id" | "analysis_group_id" | "report_type" | "title" | "status" | "report_date" | "recommended_package" | "created_at"
+  "id" | "company_id" | "lead_id" | "analysis_group_id" | "report_type" | "title" | "status" | "report_date" | "recommended_package" | "created_at"
 >;

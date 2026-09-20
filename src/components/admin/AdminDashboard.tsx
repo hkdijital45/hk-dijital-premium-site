@@ -11537,6 +11537,20 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
       return lead.google_place_id === placeId || (normalizedPhone && leadPhone === normalizedPhone && leadName === normalizedName) || (normalizedWebsite && leadWebsite === normalizedWebsite) || (normalizedName && normalizedDistrict && leadName === normalizedName && leadDistrict === normalizedDistrict);
     });
   }
+  async function onIncele(item: any) {
+    setLoading(`on-incele-${item.placeId || item.id}`);
+    try {
+      const lead = await saveBusiness(item);
+      if (!lead?.id) return;
+      const response = await fetch(`/api/admin/pre-audit/lead/${lead.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "start_review" }) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) { notify?.(data.error || "Ön İnceleme kuyruğuna eklenemedi.", "error"); return; }
+      notify?.(`${lead.company || lead.name || "İşletme"} Ön İnceleme kuyruğuna eklendi.`, "success");
+      setActive("Ön İnceleme Merkezi");
+    } finally {
+      setLoading("");
+    }
+  }
   function openCrmLead(record: any) {
     const lead = existingLeadFor(record) || record;
     setSelectedPlaceId(lead.google_place_id || lead.placeId || lead.id || "");
@@ -12217,6 +12231,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
           <AdminStatusBadge tone={scoreTone(opportunityScore)}>{hkTier.label} · {opportunityScore}/100</AdminStatusBadge>
           {existingLead ? <AdminStatusBadge tone="success">CRM'de Kayıtlı</AdminStatusBadge> : <AdminStatusBadge tone="neutral">Yeni</AdminStatusBadge>}
+          {existingLead?.status === "Ön İnceleme İptal" && <AdminStatusBadge tone="danger" title={`${existingLead.rejection_reason || ""} · ${existingLead.rejected_at ? new Date(existingLead.rejected_at).toLocaleDateString("tr-TR") : ""}`}>⚠ Daha önce iptal edildi</AdminStatusBadge>}
           {record.phone && <AdminStatusBadge tone="neutral">Telefon var</AdminStatusBadge>}
           {!record.website && <AdminStatusBadge tone="warning">Website yok</AdminStatusBadge>}
         </div>
@@ -12256,6 +12271,9 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
           {existingLead
             ? <AdminButton variant="success" onClick={() => openCrmLead(record)}>CRM Kaydını Aç</AdminButton>
             : <AdminButton variant="primary" disabled={loading === `save-${placeId}`} onClick={() => saveBusiness(item)}>{loading === `save-${placeId}` ? "Kaydediliyor..." : "Lead'e Ekle"}</AdminButton>}
+          <AdminButton variant="ai" disabled={loading === `on-incele-${placeId}`} onClick={() => onIncele(item)}>
+            {loading === `on-incele-${placeId}` ? "Ekleniyor..." : existingLead?.status === "Ön İnceleme İptal" ? "Tekrar Ön İncele" : "Ön İncele"}
+          </AdminButton>
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
           <span className="text-[10px] font-black uppercase tracking-[.08em]" style={{ color: "var(--admin-text-muted)" }}>Diğer:</span>
