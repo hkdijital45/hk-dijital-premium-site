@@ -11300,6 +11300,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
   const [selectedPlaceId, setSelectedPlaceId] = useState("");
   const [hotMinScore, setHotMinScore] = useState(70);
   const [selectedRegionName, setSelectedRegionName] = useState("");
+  const loadSavedSearchGuardRef = useRef<{ id: string | null; at: number }>({ id: null, at: 0 });
   const [savedSearches, setSavedSearches] = useState<any[]>([]);
   const [savedSearchesLoaded, setSavedSearchesLoaded] = useState(false);
   const [savedSearchName, setSavedSearchName] = useState("");
@@ -11462,6 +11463,12 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
   }
 
   function loadSavedSearchFilters(item: any) {
+    // Guards against a duplicate toast when this fires twice in quick
+    // succession (e.g. the same saved search is reachable from both the
+    // sidebar quick-load chips and the Kayıtlı Aramalar detail panel).
+    const now = Date.now();
+    if (loadSavedSearchGuardRef.current.id === item.id && now - loadSavedSearchGuardRef.current.at < 600) return;
+    loadSavedSearchGuardRef.current = { id: item.id, at: now };
     setSearch({ ...emptySearch, ...(item.filters_json || {}) });
     notify?.(`"${item.name}" filtreleri yüklendi. Yeni sonuç için "Google Maps Müşteri Bulma" sekmesinde "Google Maps'ten Bul" düğmesine basın (API kotası kullanır).`, "info");
   }
@@ -11595,10 +11602,13 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
     setResults(data.businesses || []);
     setSelectedPlaces([]);
     setMapTab("Google Maps Müşteri Bulma");
+    const hiddenAlreadyInCrm = Number(data.hiddenAlreadyInCrm || 0);
     setActionResult({
       title: "Google Maps müşteri araması tamamlandı",
-      summary: `${data.count || 0} işletme bulundu. ${data.businesses?.filter((item: any) => Number(item.opportunityScore || item.leadHeatScore || 0) >= 70).length || 0} sıcak lead ve ${data.businesses?.filter((item: any) => item.crmStatus !== "CRM’de kayıtlı").length || 0} CRM dışı aday var.`,
-      status: data.warning ? "warning" : "success",
+      summary: !data.count && hiddenAlreadyInCrm > 0
+        ? `Google ${data.totalFound || hiddenAlreadyInCrm} işletme buldu ancak ${hiddenAlreadyInCrm} tanesi zaten CRM'de kayıtlı olduğu için "CRM'de kayıtlı olanları gizle" filtresiyle gizlendi.`
+        : `${data.count || 0} işletme bulundu. ${data.businesses?.filter((item: any) => Number(item.opportunityScore || item.leadHeatScore || 0) >= 70).length || 0} sıcak lead ve ${data.businesses?.filter((item: any) => item.crmStatus !== "CRM’de kayıtlı").length || 0} CRM dışı aday var.`,
+      status: data.warning ? "warning" : !data.count && hiddenAlreadyInCrm > 0 ? "warning" : "success",
       createdRecords: [
         { label: "Bulunan işletme", count: data.count || 0, status: data.warning ? "Hazırlık modu" : "Hazırlandı" },
         { label: "Sıcak lead", count: data.businesses?.filter((item: any) => Number(item.opportunityScore || item.leadHeatScore || 0) >= 70).length || 0, status: "Hazırlandı" }
@@ -11608,6 +11618,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
       technicalDetails: { warning: data.warning || "", apiError: data.apiError || "" }
     });
     if (data.warning) setMessage(data.warning);
+    else if (!data.count && Number(data.hiddenAlreadyInCrm || 0) > 0) setMessage(`Google ${data.totalFound} işletme buldu ancak hepsi zaten CRM'de kayıtlı olduğu için gizlendi (${data.hiddenAlreadyInCrm} işletme). Sol panelde "CRM'de kayıtlı olanları gizle" kutusunu kapatıp tekrar arayın.`);
     else setMessage(data.count ? `${data.count} işletme bulundu.` : "Bu filtrelerle işletme bulunamadı. Yıldız puanı veya yorum sayısı filtresini genişletmeyi deneyin.");
   }
   async function saveBusiness(business) {
@@ -12745,6 +12756,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
             <div className="grid gap-2">
               <SelectField label="CRM durumu" value={search.crmStatus} onChange={(crmStatus) => setSearch({ ...search, crmStatus })} options={[{ value: "", label: "Farketmez" }, { value: "kayitli", label: "CRM'de olanlar" }, { value: "kayitsiz", label: "CRM'de olmayanlar" }]} />
               <label className="flex items-center gap-2 text-xs font-semibold" style={{ color: "var(--admin-text-secondary)" }}><input type="checkbox" checked={search.hideSaved} onChange={(event) => setSearch({ ...search, hideSaved: event.target.checked })} />CRM'de kayıtlı olanları gizle</label>
+              {search.hideSaved && <p className="text-[11px] leading-4" style={{ color: "var(--admin-text-muted)" }}>Varsayılan olarak açıktır. Aynı aramayı daha önce CRM'e kaydettiyseniz sonuçlar boş görünebilir — bu durumda bu kutuyu kapatıp tekrar arayın.</p>}
             </div>
           </AdminFilterSection>
 

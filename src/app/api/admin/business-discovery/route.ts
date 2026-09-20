@@ -279,6 +279,15 @@ export async function POST(request: Request) {
     // "error"/"warning" flag — the frontend must be able to tell this apart
     // from an API failure, which always sets those fields (see mapsFailure).
     const filtered = sortByOpportunity(applyDiscoveryFilters(businesses, filters));
+    // "Zaten kaydedilenleri gizle" (hideSaved, on by default) can silently
+    // remove every real Google result when the same search was already run
+    // and saved to CRM before — a real API success that looked like "0
+    // sonuç" with no explanation. Counted separately (cheap — same
+    // knownPlaceIds set already computed above) so the client can tell the
+    // user exactly why, instead of a generic "try loosening your filters".
+    const hiddenAlreadyInCrm = filters.hideSaved
+      ? businesses.filter((b) => b.placeId && filters.knownPlaceIds?.has(b.placeId)).length
+      : 0;
     // Only surfaced when the caller actually asked for more than one page's
     // worth (limit > 20) — a plain 20-or-fewer request behaves exactly as
     // before, with no new warning noise. Google's Text Search API cannot
@@ -288,7 +297,7 @@ export async function POST(request: Request) {
     const warning = limit > GOOGLE_TEXT_SEARCH_PAGE_SIZE && totalFound < limit
       ? `${totalFound} benzersiz aday bulundu (istenen: ${limit}). Google Places bu arama için daha fazla sonuç döndürmedi — en yüksek skorlu adaylar gösteriliyor.`
       : undefined;
-    return NextResponse.json({ businesses: filtered, count: filtered.length, totalFound, requestedLimit: limit, districtLabel, warning });
+    return NextResponse.json({ businesses: filtered, count: filtered.length, totalFound, hiddenAlreadyInCrm, requestedLimit: limit, districtLabel, warning });
   } catch (error) {
     console.error("[business-discovery] İşletme araması çöktü", error);
     return mapsFailure("İşletme araması sırasında beklenmeyen bir hata oluştu.", error instanceof Error ? error.message : String(error));
