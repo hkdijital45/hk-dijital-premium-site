@@ -364,8 +364,20 @@ export function PreAuditCenter() {
     }
   }
 
-  function openClaudeConfirmed() {
-    window.open("https://claude.ai/new", "_blank", "noopener,noreferrer");
+  const CLAUDE_URL = "https://claude.ai/new";
+
+  /** Top-level navigation (not window.open) — the one real, non-fabricated
+   * mechanism that lets the OS/browser hand this off to an installed app
+   * registered as the default handler for claude.ai links, if any is. No
+   * custom URI scheme is assumed or invented; if no app is registered this
+   * behaves exactly like a normal link and opens the browser. */
+  function openClaudeApp() {
+    window.location.href = CLAUDE_URL;
+    setPromptLead(null);
+  }
+
+  function openClaudeBrowser() {
+    window.open(CLAUDE_URL, "_blank", "noopener,noreferrer");
     setPromptLead(null);
   }
 
@@ -576,10 +588,12 @@ export function PreAuditCenter() {
 
       {promptLead && (
         <Modal title="Prompt kopyalandı" onClose={() => setPromptLead(null)}>
-          <p className="text-sm">Claude açılsın mı?</p>
-          <div className="mt-4 flex justify-end gap-2">
-            <AdminButton variant="secondary" onClick={() => setPromptLead(null)}>Hayır</AdminButton>
-            <AdminButton variant="ai" icon={<ExternalLink size={14} />} onClick={openClaudeConfirmed}>Claude&apos;u Aç</AdminButton>
+          <p className="text-sm">Claude&apos;u nasıl açmak istersiniz?</p>
+          <div className="mt-4 grid gap-2">
+            <AdminButton variant="ai" icon={<ExternalLink size={14} />} onClick={openClaudeApp}>Claude App&apos;te Aç</AdminButton>
+            <p className="text-[11px]" style={{ color: "var(--admin-text-muted)" }}>Bilgisayarınızda Claude masaüstü uygulaması varsayılan olarak ayarlıysa açılır; değilse tarayıcıda açılır.</p>
+            <AdminButton variant="secondary" icon={<ExternalLink size={14} />} onClick={openClaudeBrowser}>Tarayıcıda Aç</AdminButton>
+            <AdminButton variant="ghost" onClick={() => setPromptLead(null)}>Vazgeç</AdminButton>
           </div>
         </Modal>
       )}

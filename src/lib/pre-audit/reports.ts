@@ -153,22 +153,38 @@ export async function savePreAuditReport(
   input: SavePreAuditReportInput,
   analysisGroupId?: string
 ): Promise<{ success: true; report_id: string; analysis_group_id: string; company_id: string | null; lead_id: string | null; report_type: PreAuditReportType; created_at: string }> {
-  if (input.lead_id) {
+  let resolvedCompanyId = input.company_id || null;
+  let resolvedLeadId = input.lead_id || null;
+
+  if (resolvedLeadId) {
     const leads = await supabaseRest<Array<{ id: string }>>(
-      `leads?select=id&id=eq.${encodeURIComponent(input.lead_id)}&deleted_at=is.null&limit=1`
+      `leads?select=id&id=eq.${encodeURIComponent(resolvedLeadId)}&deleted_at=is.null&limit=1`
     );
-    if (!leads.length) throw new PreAuditCompanyNotFoundError(`lead_id doğrulanamadı: ${input.lead_id} public.leads içinde bulunamadı.`);
+    if (!leads.length) throw new PreAuditCompanyNotFoundError(`lead_id doğrulanamadı: ${resolvedLeadId} public.leads içinde bulunamadı.`);
   } else {
     const companies = await supabaseRest<Array<{ id: string }>>(
-      `companies?select=id&id=eq.${encodeURIComponent(input.company_id || "")}&deleted_at=is.null&limit=1`
+      `companies?select=id&id=eq.${encodeURIComponent(resolvedCompanyId || "")}&deleted_at=is.null&limit=1`
     );
-    if (!companies.length) throw new PreAuditCompanyNotFoundError(`company_id doğrulanamadı: ${input.company_id} public.companies içinde bulunamadı.`);
+    if (!companies.length) {
+      // Defensive fallback for exactly the failure mode this closes: a
+      // caller (or an MCP client with a stale cached tool schema
+      // predating leadId support) puts a real lead's id in the
+      // company_id slot. Exact-UUID only — never a name/fuzzy match —
+      // and the company lookup above always runs first, so legitimate
+      // companyId saves are completely unaffected.
+      const leadFallback = resolvedCompanyId
+        ? await supabaseRest<Array<{ id: string }>>(`leads?select=id&id=eq.${encodeURIComponent(resolvedCompanyId)}&deleted_at=is.null&limit=1`)
+        : [];
+      if (!leadFallback.length) throw new PreAuditCompanyNotFoundError(`company_id doğrulanamadı: ${input.company_id} public.companies içinde bulunamadı.`);
+      resolvedLeadId = resolvedCompanyId;
+      resolvedCompanyId = null;
+    }
   }
 
   const isClient = input.report_type === "CLIENT_REPORT";
   const row: Record<string, unknown> = {
-    company_id: input.company_id || null,
-    lead_id: input.lead_id || null,
+    company_id: resolvedCompanyId,
+    lead_id: resolvedLeadId,
     analysis_group_id: analysisGroupId || undefined,
     report_type: input.report_type,
     report_date: typeof input.report_date === "string" && input.report_date ? input.report_date : new Date().toISOString().slice(0, 10)
