@@ -79,8 +79,6 @@ const adminNavigationSourceGroups: AdminNavigationGroup[] = [
       { label: "Büyüme Motoru", slug: "growth-engine", module: "growth-engine", description: "Müşteri satış yolculuğunu, funnel yapısını, kreatif ihtiyacını ve takip planını oluştur." },
       { label: "Funnel Planlayıcı", slug: "funnel-builder", module: "funnel-builder", description: "Müşteriye özel funnel amacı, kanal ve eksik adımları kart tabanlı planla." },
       { label: "Modül Pazarı", slug: "marketplace", module: "marketplace", description: "Paket ve modül kartlarından Büyüme Motoru planı başlat." },
-      { label: "Meta Raporları", slug: "meta-raporlari", module: "meta-analiz", description: "Meta reklam verilerinden müşteri raporları." },
-      { label: "Google Ads Raporları", slug: "google-ads-raporlari", module: "google-analiz", description: "Google Ads metrikleri ve manuel rapor girişi." },
     ]
   },
   {
@@ -122,12 +120,7 @@ const adminNavigationSourceGroups: AdminNavigationGroup[] = [
     badge: "Finans",
     accent: "from-emerald-500 via-teal-600 to-cyan-700",
     items: [
-      { label: "Muhasebe Merkezi", slug: "muhasebe", module: "muhasebe", description: "Gelir, gider, tahsilat, tahmin ve finans karar paneli." },
-      { label: "Tahsilatlar", slug: "tahsilat", module: "tahsilat", description: "Ödeme kayıtları ve tahsilat durumu." },
-      { label: "Gelir Gider", slug: "gelir-gider", module: "karlilik", description: "Gelir ve giderleri tek tabloda takip edin." },
-      { label: "Bekleyen Ödemeler", slug: "bekleyen-odemeler", module: "tahsilat", description: "Bekleyen ve geciken tahsilatları izleyin." },
-      { label: "Gelir Tahmini", slug: "gelir-tahmini", module: "karlilik", description: "Beklenen gelir, riskli gelir ve tahmini kâr projeksiyonu." },
-      { label: "Kârlılık", slug: "karlilik", module: "karlilik", description: "Müşteri bazlı kâr ve marj görünümü." },
+      { label: "Muhasebe Merkezi", slug: "muhasebe", module: "muhasebe", description: "Gelir, gider, tahsilat, tahmin ve finans karar paneli — tahsilat/gelir-gider/bekleyen/gelir tahmini/kârlılık sekmeleri dahil." },
       { label: "HK Ajans Zekası", slug: "ajans-zekasi", module: "karlilik", description: "GEO görünürlük gözlemleri, nakit akışı senaryo tahmini ve upsell fırsatları." }
     ]
   },
@@ -142,9 +135,7 @@ const adminNavigationSourceGroups: AdminNavigationGroup[] = [
       { label: "Aylık Raporlar", slug: "aylik-raporlar", module: "aylik-raporlar", description: "Aylık performans, çalışma ve öneri özetleri." },
       { label: "Müşteri Raporları", slug: "musteri-raporlari", module: "raporlar", description: "Meta, Google ve manuel performans raporları." },
       { label: "PDF Rapor Tasarım Merkezi", slug: "pdf-rapor-tasarim", module: "raporlar", description: "PDF rapor görünümü ve bölüm ayarları." },
-      { label: "PDF Audit", slug: "pdf-audit", module: "sosyal-medya-denetimi", description: "Dijital denetim sonuçlarını PDF olarak hazırlama." },
-      { label: "Rapor Çıktıları", slug: "rapor-ciktilari", module: "raporlar", description: "PDF, Word ve PowerPoint uyumlu rapor çıktıları." },
-      { label: "Dışa Aktar", slug: "rapor-disa-aktar", module: "veri-aktarma", description: "Rapor ve veri dışa aktarım araçları." }
+      { label: "PDF Audit", slug: "pdf-audit", module: "sosyal-medya-denetimi", description: "Dijital denetim sonuçlarını PDF olarak hazırlama." }
     ]
   },
   {
@@ -363,6 +354,10 @@ const legacySlugRedirects: Record<string, string> = {
   "raporlar": "musteri-raporlari",
   "performans-raporlari": "musteri-raporlari",
   "rapor-yorumlari": "musteri-raporlari",
+  "rapor-ciktilari": "musteri-raporlari",
+  "rapor-disa-aktar": "veri-aktarma",
+  "meta-raporlari": "meta-istihbarat",
+  "google-ads-raporlari": "google-istihbarat",
   "web-site-analitigi": "website-analytics",
   "meta-pixel-dataset": "meta-integrations",
   "google-ga4-search-console": "google-integrations",
