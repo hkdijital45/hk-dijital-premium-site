@@ -222,10 +222,25 @@ export async function savePreAuditReport(
 
 export async function getLatestPreAuditReport(companyId?: string, reportType?: PreAuditReportType, leadId?: string) {
   const filter = reportType ? `&report_type=eq.${reportType}` : "";
-  const scope = leadId ? `lead_id=eq.${encodeURIComponent(leadId)}` : `company_id=eq.${encodeURIComponent(companyId || "")}`;
-  const rows = await supabaseRest<PreAuditReport[]>(
+  let scope = leadId ? `lead_id=eq.${encodeURIComponent(leadId)}` : `company_id=eq.${encodeURIComponent(companyId || "")}`;
+  let rows = await supabaseRest<PreAuditReport[]>(
     `${PRE_AUDIT_TABLE}?select=*&${scope}${filter}&order=report_date.desc,created_at.desc&limit=1`
   );
+  if (!rows.length && !leadId && companyId) {
+    // Same defensive, exact-UUID-only fallback as getPreAuditCompanyContext
+    // and savePreAuditReport: a real lead's id landing in the companyId
+    // slot (stale MCP schema cache, etc.) must still resolve to that
+    // lead's own latest report rather than a bare not_found — but ONLY
+    // when nothing was found under company_id first, so a legitimate
+    // company query is never redirected.
+    const leadExists = await supabaseRest<Array<{ id: string }>>(`leads?select=id&id=eq.${encodeURIComponent(companyId)}&deleted_at=is.null&limit=1`);
+    if (leadExists.length) {
+      scope = `lead_id=eq.${encodeURIComponent(companyId)}`;
+      rows = await supabaseRest<PreAuditReport[]>(
+        `${PRE_AUDIT_TABLE}?select=*&${scope}${filter}&order=report_date.desc,created_at.desc&limit=1`
+      );
+    }
+  }
   const latest = rows[0];
   if (!latest) return null;
 
