@@ -70,7 +70,19 @@ export async function getPreAuditCompanyContext(companyId?: string, companyName?
     return { status: "not_found" };
   }
 
-  if (companies.length === 0) return { status: "not_found" };
+  if (companies.length === 0) {
+    // Defensive fallback for exactly the failure mode this was built to
+    // close: a caller (or an MCP client with a stale cached tool schema
+    // that predates leadId support) passes a real lead's id in the
+    // companyId slot. Rather than a bare not_found for an id that
+    // genuinely exists in HK Dijital — just under a different entity —
+    // resolve it as a lead instead of silently failing.
+    if (companyId) {
+      const leadFallback = await getPreAuditLeadContext(companyId);
+      if (leadFallback.status !== "not_found") return leadFallback;
+    }
+    return { status: "not_found" };
+  }
   if (companies.length > 1) return { status: "ambiguous", candidates: companies.map((c) => ({ id: c.id, name: c.name })) };
 
   const company = companies[0];
