@@ -196,6 +196,8 @@ export function PreAuditCenter() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<FullReport | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [verifyCompanyName, setVerifyCompanyName] = useState("");
+  const [verifyCopied, setVerifyCopied] = useState(false);
 
   useEffect(() => {
     fetch("/api/admin/companies").then((r) => r.json()).then((body) => setCompanies(body.companies || [])).catch(() => {});
@@ -240,6 +242,17 @@ export function PreAuditCenter() {
 
   const companyName = companies.find((c) => c.id === companyId)?.name || "";
 
+  async function copyVerificationPrompt() {
+    const name = verifyCompanyName.trim();
+    if (!name) return;
+    const prompt = `${name} firmasını bul ve doğrula. Henüz ön inceleme yapma ve hiçbir şeyi HK Dijital'e kaydetme. Önce HK Dijital bağlantısından firma kaydını kontrol et ve bana hangi firmayı bulduğunu söyle.`;
+    try {
+      await navigator.clipboard.writeText(prompt);
+      setVerifyCopied(true);
+      setTimeout(() => setVerifyCopied(false), 2000);
+    } catch { /* clipboard denied — nothing to fall back to here */ }
+  }
+
   const grouped = useMemo(() => {
     const groups = new Map<string, ListItem[]>();
     for (const r of reports || []) {
@@ -269,6 +282,26 @@ export function PreAuditCenter() {
           <Card><p className="text-[11px] font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Müşteriye Dönüşenler</p><p className="mt-1 text-2xl font-black">{summary.convertedCompanies}</p></Card>
         </div>
       )}
+
+      <Card>
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <p className="text-sm font-black">Claude Firma Doğrulama</p>
+          <AdminStatusBadge tone="ai">Hazır Claude Promptu</AdminStatusBadge>
+        </div>
+        <p className="mb-3 text-xs font-bold" style={{ color: "var(--admin-text-secondary)" }}>Claude Ön İnceleme projesinde firmayı HK Dijital bağlantısı üzerinden doğrulamak için hazır prompt.</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            value={verifyCompanyName}
+            onChange={(e) => setVerifyCompanyName(e.target.value)}
+            placeholder="Firma adı (örn. ABC Klima)"
+            className="min-w-[200px] flex-1 rounded-full border py-2 px-3.5 text-sm font-bold"
+            style={{ borderColor: "var(--admin-border)" }}
+          />
+          <AdminButton variant="secondary" compact icon={<Copy size={14} />} disabled={!verifyCompanyName.trim()} onClick={copyVerificationPrompt}>
+            {verifyCopied ? "Kopyalandı ✓" : "Promptu Kopyala"}
+          </AdminButton>
+        </div>
+      </Card>
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative">
