@@ -12665,6 +12665,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
 
   return (
     <AdminWorkspace
+      className="discovery-filter-workspace"
       eyebrow="Satış · Müşteri Keşfi"
       title={mode === "Haritalar" ? "Haritalar ve Google Maps Lead Finder" : tab}
       description="İl, ilçe, mahalle, sektör, niş, Google puanı ve dijital eksik filtreleriyle işletmeleri tarayın; fırsat skoruna göre CRM'e taşıyıp teklif ve WhatsApp mesajı oluşturun."
@@ -12678,11 +12679,11 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
         <AdminControlPanel>
           <AdminFilterSection title="Kayıtlı Aramalar">
             {savedSearches.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5">
-                {savedSearches.slice(0, 8).map((item: any) => <button key={item.id} type="button" onClick={() => loadSavedSearchFilters(item)} title={item.description || item.name} className="hk-button hk-button-neutral hk-button-compact">{item.name}</button>)}
+              <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto pr-0.5">
+                {savedSearches.slice(0, 8).map((item: any) => <button key={item.id} type="button" onClick={() => loadSavedSearchFilters(item)} title={item.description || item.name} className="hk-button hk-button-neutral hk-button-compact max-w-[150px] truncate">{item.name}</button>)}
               </div>
             ) : <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>Henüz kayıtlı arama yok. Mevcut filtreleri adlandırıp kaydedin, tek tıkla tekrar yükleyin.</p>}
-            <div className="mt-3 grid gap-2">
+            <div className="mt-3 grid gap-2 border-t pt-3" style={{ borderColor: "var(--admin-border)" }}>
               <Field label="Bu aramayı adlandır" value={savedSearchName} onChange={setSavedSearchName} placeholder="Örn: Manisa oto galeri, 4.0+ puan" />
               <div className="flex flex-wrap gap-2">
                 <AdminButton compact variant="primary" disabled={savedSearchBusy === "save" || !savedSearchName.trim()} onClick={saveCurrentSearch}>{savedSearchBusy === "save" ? "Kaydediliyor..." : "+ Aramayı Kaydet"}</AdminButton>
@@ -12706,11 +12707,11 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
           </AdminFilterSection>
 
           <AdminFilterSection title="Sektör / Anahtar Kelime">
-            <div className="grid gap-2">
+            <div className="grid gap-2 rounded-[10px] p-2.5" style={{ background: "var(--admin-surface-soft)" }}>
               <div>
                 <OtherSelectField label="Sektör *" value={search.businessType} onChange={(businessType) => setSearch({ ...search, businessType })} options={DISCOVERY_SECTOR_PRESETS} manualLabel="Sektörü yazın (ör. Klima Servisi, Oto Servis...)" />
                 <p className="mt-1 text-[11px]" style={{ color: "var(--admin-text-muted)" }}>Zorunlu alan. Listede yoksa serbest metin olarak yazabilirsiniz.</p>
-                {recentSectors.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{recentSectors.map((sector) => <button key={sector} type="button" onClick={() => setSearch({ ...search, businessType: sector })} className="hk-button hk-button-neutral hk-button-compact">{sector}</button>)}</div>}
+                {recentSectors.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{recentSectors.map((sector) => <button key={sector} type="button" onClick={() => setSearch({ ...search, businessType: sector })} className="hk-button hk-button-neutral hk-button-compact max-w-[150px] truncate">{sector}</button>)}</div>}
               </div>
               <Field label="Anahtar kelime (opsiyonel)" value={search.keyword} onChange={(keyword) => setSearch({ ...search, keyword })} placeholder="protez tırnak, güzellik salonu..." />
               <AdminButton compact variant="ai" onClick={suggestMapNiches}>Alt Niş Öner</AdminButton>

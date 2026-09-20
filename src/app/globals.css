@@ -4222,6 +4222,40 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
   margin: 0 0 6px;
 }
 
+/* ---- Müşteri Keşfi / Google Maps filter sidebar (scoped) -------------
+   A slightly wider, more clearly separated left panel for this one
+   screen's denser filter set — deliberately scoped under
+   .discovery-filter-workspace so no other AdminWorkspace screen (which
+   share .admin-control-panel/.admin-filter-section) is affected. */
+.discovery-filter-workspace .admin-control-panel {
+  gap: 20px;
+}
+
+.discovery-filter-workspace .admin-filter-section {
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.discovery-filter-workspace .admin-filter-section:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.discovery-filter-workspace .admin-filter-section-title {
+  font-size: 11px;
+  margin-bottom: 10px;
+}
+
+@media (min-width: 1024px) {
+  .discovery-filter-workspace.admin-workspace .admin-workspace-body:has(.admin-workspace-left):has(.admin-workspace-right) {
+    grid-template-columns: 300px minmax(0, 1fr) 320px;
+  }
+
+  .discovery-filter-workspace.admin-workspace .admin-workspace-body:has(.admin-workspace-left):not(:has(.admin-workspace-right)) {
+    grid-template-columns: 300px minmax(0, 1fr);
+  }
+}
+
 /* ---- Data grid ------------------------------------------------------- */
 .admin-data-grid-scroll {
   border: 1px solid var(--admin-border);

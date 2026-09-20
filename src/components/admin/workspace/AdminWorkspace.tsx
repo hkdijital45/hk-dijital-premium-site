@@ -23,7 +23,8 @@ export function AdminWorkspace({
   rightPanel,
   rightPanelLabel = "Detay",
   bottomBar,
-  children
+  children,
+  className = ""
 }: {
   title: string;
   eyebrow?: string;
@@ -35,12 +36,16 @@ export function AdminWorkspace({
   rightPanelLabel?: string;
   bottomBar?: ReactNode;
   children: ReactNode;
+  /** Extra class on the outer shell — for a module that needs a scoped
+   * layout tweak (e.g. a wider left panel) without changing every other
+   * AdminWorkspace screen. */
+  className?: string;
 }) {
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
 
   return (
-    <div className="admin-workspace">
+    <div className={`admin-workspace ${className}`.trim()}>
       <div className="admin-workspace-header">
         <div className="min-w-0">
           {eyebrow && <p className="admin-workspace-eyebrow">{eyebrow}</p>}
