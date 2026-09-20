@@ -72,7 +72,7 @@ export async function tokenForIntegration(integrationId?: string) {
   return { token: envToken, integration: null };
 }
 
-async function graphGet(path: string, token: string, params: Record<string, string> = {}) {
+export async function graphGet(path: string, token: string, params: Record<string, string> = {}) {
   const url = new URL(`https://graph.facebook.com/${GRAPH_VERSION}/${path.replace(/^\//, "")}`);
   Object.entries(params).forEach(([key, value]) => value && url.searchParams.set(key, value));
   url.searchParams.set("access_token", token);

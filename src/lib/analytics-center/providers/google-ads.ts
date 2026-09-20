@@ -20,7 +20,7 @@ const ADS_BASE = "https://googleads.googleapis.com/v25";
 // parseCampaignMetricKey) now lives in ../campaign-keys.ts (pure, no
 // server-only import) and is re-exported above for existing call sites.
 
-async function googleAdsSearch(customerId: string, accessToken: string, query: string) {
+export async function googleAdsSearch(customerId: string, accessToken: string, query: string) {
   const headers: Record<string, string> = { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" };
   if (process.env.GOOGLE_ADS_DEVELOPER_TOKEN) headers["developer-token"] = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
   const loginCustomerId = process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID;
@@ -37,6 +37,22 @@ async function googleAdsSearch(customerId: string, accessToken: string, query: s
     throw new Error(detail);
   }
   return Array.isArray(payload.results) ? payload.results : [];
+}
+
+export type GoogleAdsAccountInfo = { id: string; name: string | null; currency: string | null; timezone: string | null; isManager: boolean };
+
+/** account-level metadata for an Ads Intelligence read — separate from
+ * syncGoogleAdsAnalytics (which only writes daily campaign metrics) so
+ * that existing sync call sites/row shape are never touched. */
+export async function getGoogleAdsAccountInfo(customerId: string, accessToken: string): Promise<GoogleAdsAccountInfo | null> {
+  try {
+    const results = await googleAdsSearch(customerId, accessToken, "SELECT customer.id, customer.descriptive_name, customer.currency_code, customer.time_zone, customer.manager FROM customer LIMIT 1");
+    const row = results[0]?.customer;
+    if (!row) return null;
+    return { id: String(row.id || customerId), name: row.descriptiveName || null, currency: row.currencyCode || null, timezone: row.timeZone || null, isManager: Boolean(row.manager) };
+  } catch {
+    return null;
+  }
 }
 
 export async function syncGoogleAdsAnalytics(companyId: string, accessToken: string, asset: ConnectionAsset, range: DateRange): Promise<SyncOutcome> {
