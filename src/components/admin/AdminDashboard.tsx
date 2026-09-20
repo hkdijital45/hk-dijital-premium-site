@@ -5334,7 +5334,7 @@ function LeadKanbanCard({ lead, onOpen, onMove }: { lead: any; onOpen: () => voi
   );
 }
 
-function Crm({ content, setContent, view, setActive, currentSession }: any) {
+function Crm({ content, setContent, view, setActive, currentSession, notify }: any) {
   const [viewMode, setViewMode] = useState<"liste" | "kanban">("liste");
   const [query, setQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
@@ -5447,6 +5447,23 @@ function Crm({ content, setContent, view, setActive, currentSession }: any) {
     a.download = "hk-dijital-leads.csv";
     a.click();
   }
+  // Canonical Ön İnceleme entry point for ANY lead, regardless of source
+  // (Web Başvuruları, manual, discovery, ...) — the only requirement is a
+  // real lead.id. Reuses the exact same queue-start endpoint Müşteri
+  // Keşfi's "Ön İncele" button already calls; does not create a second
+  // Ön İnceleme flow. Company/customer conversion is never required.
+  async function openPreAudit(lead: any) {
+    if (!lead?.id) { notify?.("Bu kayıt için geçerli bir lead kimliği bulunamadı.", "warning"); return; }
+    try {
+      const response = await fetch(`/api/admin/pre-audit/lead/${lead.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "start_review" }) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) { notify?.(data.error || "Ön İnceleme kuyruğuna eklenemedi.", "error"); return; }
+      notify?.(`${lead.company || lead.name || "Lead"} Ön İnceleme kuyruğuna eklendi.`, "success");
+      setActive("Ön İnceleme Merkezi");
+    } catch {
+      notify?.("Ön İnceleme kuyruğuna eklenemedi.", "error");
+    }
+  }
   const crmGridColumns: AdminDataGridColumn<any>[] = [
     { key: "company", header: "Firma / Ad", render: (lead: any) => <div className="min-w-0"><strong className="block truncate" style={{ color: "var(--admin-text, var(--admin-text-primary))" }}>{lead.company || lead.name || "İsimsiz başvuru"}</strong><span className="block truncate text-[11px]" style={{ color: "var(--admin-text-muted)" }}>{lead.source || "Form"} · {lead.phone || lead.email || "-"}</span></div> },
     { key: "stage", header: "Aşama", render: (lead: any) => <AdminStatusBadge tone="info">{pipelineStageForLead(lead) || lead.status || "Yeni"}</AdminStatusBadge> },
@@ -5544,6 +5561,7 @@ function Crm({ content, setContent, view, setActive, currentSession }: any) {
           ] : undefined}
           actions={previewLead ? <>
             <AdminButton compact variant="info" onClick={() => setSelectedLead(previewLead)}>Detayı Aç</AdminButton>
+            <AdminButton compact variant="premium" onClick={() => openPreAudit(previewLead)}>🔍 {String(previewLead.status || "").startsWith("Ön İnceleme") ? "Ön İncelemeyi Aç" : "Ön İncele"}</AdminButton>
             <AdminButton compact variant="ai" onClick={() => setSelectedLead(previewLead)}>Yapay Zekâ Analiz</AdminButton>
             <AdminButton compact variant="warning" onClick={() => setActive("Teklif Hazırlama")}>Teklif Hazırla</AdminButton>
             <a href={previewLead.phone ? `https://wa.me/${String(previewLead.phone).replace(/\D/g, "")}` : "#"} target="_blank" rel="noreferrer" className="hk-button hk-button-success hk-button-compact">WhatsApp</a>
