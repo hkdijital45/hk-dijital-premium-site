@@ -26,6 +26,43 @@ export const LEAD_PRE_REVIEW_STATUS = {
   REJECTED: "Ön İnceleme İptal"
 } as const;
 
+// Shared section label maps — the single source of truth for both the
+// admin report viewer (PreAuditCenter.tsx) and the PDF/DOCX document
+// builder (pre-audit/document.ts), so the two never drift apart on which
+// fields exist or how they're labeled in Turkish.
+export const PRE_AUDIT_SECTION_LABELS: Array<[string, string]> = [
+  ["executive_summary", "Yönetici Özeti"],
+  ["digital_presence", "Dijital Varlıklar"],
+  ["google_analysis", "Google"],
+  ["maps_analysis", "Google Maps / Local SEO"],
+  ["website_analysis", "Web Sitesi"],
+  ["seo_analysis", "SEO"],
+  ["social_analysis", "Sosyal Medya"],
+  ["meta_ads_analysis", "Meta Ads"],
+  ["google_ads_analysis", "Google Ads"],
+  ["market_analysis", "Pazar Analizi"],
+  ["competitor_analysis", "Rakip Analizi"],
+  ["digital_gaps", "Dijital Boşluklar"],
+  ["opportunities", "Fırsatlar"],
+  ["recommended_services", "Önerilen HK Dijital Hizmetleri"],
+  ["recommended_package", "Önerilen Paket"],
+  ["ad_strategy", "Başlangıç Reklam Stratejisi"],
+  ["budget_plan", "Bütçe Planı"],
+  ["sources", "Kaynaklar"]
+];
+
+// Paired with PRE_AUDIT_INTERNAL_ONLY_FIELDS above (same keys, with Turkish
+// display labels) — INTERNAL_REPORT-only, never rendered/exported for
+// CLIENT_REPORT.
+export const PRE_AUDIT_INTERNAL_SECTION_LABELS: Array<[string, string]> = [
+  ["sales_notes", "Satış Görüşmesi Notları"],
+  ["sales_script", "Konuşma Metni"],
+  ["instagram_dm", "Instagram DM"],
+  ["whatsapp_initial", "WhatsApp — İlk Temas"],
+  ["whatsapp_with_pdf", "WhatsApp — PDF ile Gönderim"],
+  ["objections", "İtirazlar / Yanıtlar"]
+];
+
 export const PRE_REVIEW_REJECTION_REASONS = [
   "Uygun müşteri değil",
   "Dijital ihtiyacı düşük",

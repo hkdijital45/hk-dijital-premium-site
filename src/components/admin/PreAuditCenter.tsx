@@ -2,9 +2,10 @@
 /* eslint-disable react-hooks/set-state-in-effect -- fetch-on-mount pattern, same accepted precedent as ContentPlanningCenter.tsx */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronDown, Copy, Eye, ExternalLink, RefreshCw, Search, X } from "lucide-react";
+import { ChevronDown, Copy, Eye, ExternalLink, FileDown, RefreshCw, Search, X } from "lucide-react";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
+import { PRE_AUDIT_SECTION_LABELS, PRE_AUDIT_INTERNAL_SECTION_LABELS } from "@/lib/pre-audit/types";
 
 const REJECTION_REASONS = [
   "Uygun müşteri değil", "Dijital ihtiyacı düşük", "Bütçe potansiyeli düşük",
@@ -34,35 +35,8 @@ type QueueLead = {
 type Queue = { pending: QueueLead[]; inReview: QueueLead[]; rejected: QueueLead[] };
 type Tab = "tamamlanan" | "bekleyen" | "inceleniyor" | "iptal";
 
-const SECTION_LABELS: Array<[string, string]> = [
-  ["executive_summary", "Yönetici Özeti"],
-  ["digital_presence", "Dijital Varlıklar"],
-  ["google_analysis", "Google"],
-  ["maps_analysis", "Google Maps / Local SEO"],
-  ["website_analysis", "Web Sitesi"],
-  ["seo_analysis", "SEO"],
-  ["social_analysis", "Sosyal Medya"],
-  ["meta_ads_analysis", "Meta Ads"],
-  ["google_ads_analysis", "Google Ads"],
-  ["market_analysis", "Pazar Analizi"],
-  ["competitor_analysis", "Rakip Analizi"],
-  ["digital_gaps", "Dijital Boşluklar"],
-  ["opportunities", "Fırsatlar"],
-  ["recommended_services", "Önerilen HK Dijital Hizmetleri"],
-  ["recommended_package", "Önerilen Paket"],
-  ["ad_strategy", "Başlangıç Reklam Stratejisi"],
-  ["budget_plan", "Bütçe Planı"],
-  ["sources", "Kaynaklar"]
-];
-
-const INTERNAL_SECTION_LABELS: Array<[string, string]> = [
-  ["sales_notes", "Satış Görüşmesi Notları"],
-  ["sales_script", "Konuşma Metni"],
-  ["instagram_dm", "Instagram DM"],
-  ["whatsapp_initial", "WhatsApp — İlk Temas"],
-  ["whatsapp_with_pdf", "WhatsApp — PDF ile Gönderim"],
-  ["objections", "İtirazlar / Yanıtlar"]
-];
+const SECTION_LABELS = PRE_AUDIT_SECTION_LABELS;
+const INTERNAL_SECTION_LABELS = PRE_AUDIT_INTERNAL_SECTION_LABELS;
 
 function isEmpty(value: unknown): boolean {
   if (value === null || value === undefined) return true;
@@ -115,6 +89,8 @@ Instagram: ${lead.instagram || "-"}
 Doğruladıktan sonra: Google, Google Maps/Local SEO, web sitesi, SEO, sosyal medya (Instagram/Facebook) ve halka açık reklam sinyallerini (Meta/Google Ads) araştır. Yalnızca gerçekten bulduğun/doğrulayabildiğin bilgileri kullan; olmayan metrik uydurma.
 
 Kısa ve profesyonel bir ön inceleme hazırla: yönetici özeti, dijital varlıklar, SWOT (güçlü/zayıf yönler, fırsatlar, tehditler), dijital boşluklar, fırsatlar, önerilen HK Dijital hizmetleri ve paket, başlangıç reklam stratejisi ve bütçe planı.
+
+Raporu teslim etmeden önce Türkçe yazım, imla, noktalama, anlatım bozukluğu, tekrar, başlık tutarlılığı ve profesyonel terminoloji açısından sessiz bir son kontrol yap; hataları düzelterek yalnızca düzeltilmiş nihai raporu üret. Bu kontrol firma adı, fiyat, tarih, telefon, URL, kullanıcı adı, rakip adı, puan, yorum sayısı gibi somut verileri değiştirmez — yalnızca dili düzeltir.
 
 Kullanıcı açıkça "HK Dijital'e kaydet" derse, save_pre_audit_report aracını leadId="${lead.id}" ve report_type="INTERNAL_REPORT" ile çağırarak sonucu kaydet. Kullanıcı açıkça istemeden asla kaydetme.`;
 }
@@ -197,7 +173,7 @@ function SwotSection({ swot }: { swot: unknown }) {
   );
 }
 
-function ReportDetail({ report, onSendOffer, onReject }: { report: FullReport; onSendOffer?: (report: FullReport) => void; onReject?: (report: FullReport) => void }) {
+function ReportDetail({ report, onSendOffer, onReject, onExport, exportBusy }: { report: FullReport; onSendOffer?: (report: FullReport) => void; onReject?: (report: FullReport) => void; onExport?: (report: FullReport, format: "pdf" | "docx") => void; exportBusy?: string }) {
   const isInternal = report.report_type === "INTERNAL_REPORT";
   return (
     <div className="grid gap-3">
@@ -206,6 +182,13 @@ function ReportDetail({ report, onSendOffer, onReject }: { report: FullReport; o
         <AdminStatusBadge tone="neutral">{formatDate(report.report_date as string)}</AdminStatusBadge>
         <AdminStatusBadge tone="info">{String(report.status || "draft")}</AdminStatusBadge>
       </div>
+
+      {onExport && (
+        <div className="flex flex-wrap gap-2">
+          <AdminButton variant="secondary" compact icon={<FileDown size={14} />} loading={exportBusy === `${report.id}-pdf`} disabled={Boolean(exportBusy)} onClick={() => onExport(report, "pdf")}>PDF İndir</AdminButton>
+          <AdminButton variant="secondary" compact icon={<FileDown size={14} />} loading={exportBusy === `${report.id}-docx`} disabled={Boolean(exportBusy)} onClick={() => onExport(report, "docx")}>Word İndir</AdminButton>
+        </div>
+      )}
 
       {report.lead_id && (onSendOffer || onReject) && (
         <div className="flex flex-wrap gap-2">
@@ -298,6 +281,7 @@ export function PreAuditCenter({ initialTab }: { initialTab?: Tab } = {}) {
   const [offerTarget, setOfferTarget] = useState<FullReport | null>(null);
   const [offerSaving, setOfferSaving] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [exportBusy, setExportBusy] = useState<string>("");
 
   useEffect(() => {
     fetch("/api/admin/companies").then((r) => r.json()).then((body) => setCompanies(body.companies || [])).catch(() => {});
@@ -338,6 +322,39 @@ export function PreAuditCenter({ initialTab }: { initialTab?: Tab } = {}) {
       setLoadError(e instanceof Error ? e.message : "Beklenmeyen hata.");
     } finally {
       setDetailLoading(false);
+    }
+  }
+
+  // Real PDF/DOCX, streamed from the server — reuses the exact same
+  // canonical document engine every other export in the app goes through
+  // (src/lib/server/document-generator.ts, already used for proposals and
+  // performance reports). No client-side PDF/DOCX generation, no browser
+  // print dialog, no new AI call — the saved report is the source of truth.
+  async function downloadReport(report: FullReport, format: "pdf" | "docx") {
+    const key = `${report.id}-${format}`;
+    setExportBusy(key);
+    try {
+      const response = await fetch(`/api/admin/pre-audit/${report.id}/export?format=${format}`);
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setActionMessage(data.error || (format === "pdf" ? "PDF oluşturulamadı." : "Word belgesi oluşturulamadı."));
+        return;
+      }
+      const disposition = response.headers.get("Content-Disposition") || "";
+      const filenameMatch = disposition.match(/filename="([^"]+)"/);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filenameMatch?.[1] || `HK-Dijital-Rapor.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setActionMessage(format === "pdf" ? "PDF oluşturulamadı." : "Word belgesi oluşturulamadı.");
+    } finally {
+      setExportBusy("");
     }
   }
 
@@ -580,7 +597,7 @@ export function PreAuditCenter({ initialTab }: { initialTab?: Tab } = {}) {
             <div className="grid gap-3">
               <p className="text-sm font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Rapor Detayı</p>
               {detailLoading && <p className="text-sm font-bold" style={{ color: "var(--admin-text-muted)" }}>Yükleniyor…</p>}
-              {detail && <ReportDetail report={detail} onSendOffer={setOfferTarget} onReject={(r) => setRejectTarget({ id: r.lead_id!, company: r.title, name: null, sector: null, business_type: null, city: null, district: null, website: null, phone: null, instagram: null, status: null, rejection_reason: null, rejected_at: null, notes: null, google_place_id: null, source: null, created_at: "" })} />}
+              {detail && <ReportDetail report={detail} onSendOffer={setOfferTarget} onReject={(r) => setRejectTarget({ id: r.lead_id!, company: r.title, name: null, sector: null, business_type: null, city: null, district: null, website: null, phone: null, instagram: null, status: null, rejection_reason: null, rejected_at: null, notes: null, google_place_id: null, source: null, created_at: "" })} onExport={downloadReport} exportBusy={exportBusy} />}
             </div>
           )}
         </>
