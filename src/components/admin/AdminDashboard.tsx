@@ -377,6 +377,7 @@ export function AdminDashboard({
 }) {
   const [content, setContent] = useState(initialContent as any);
   const [active, setActive] = useState(initialActive);
+  const [preAuditInitialTab, setPreAuditInitialTab] = useState("");
   const [status, setStatus] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState("idle");
@@ -619,7 +620,7 @@ export function AdminDashboard({
     saveNotificationState({ ...notificationState, read: [...new Set([...notificationState.read, ...items.map((item) => item.id)])] });
   }
 
-  const props = { content, setContent, currentSession, allowedModules, setActive, save, notify };
+  const props = { content, setContent, currentSession, allowedModules, setActive, save, notify, setPreAuditInitialTab };
   const accountingAliases = ["Muhasebe Merkezi", "Tahsilat", "Tahsilatlar", "Bekleyen Ödemeler", "Gelir / Gider", "Gelir Gider", "Gelir Tahmini", "Karlılık", "Kârlılık", "Müşteri Finans Özeti", "Export", "Muhasebe Raporları"];
   const visibleNavigationGroups = adminNavigationGroups
     .filter((group) => group.label !== "Finans" || canViewAccounting(currentSession))
@@ -924,7 +925,7 @@ export function AdminDashboard({
           {active === "Raporlar" && <ReportsHub {...props} selectedCompanyId={selectedCompanyId} />}
           {["Web Site Analitiği", "Web Analitiği", "Web Analitiği Bağlantıları", "GTM Bağlantıları"].includes(active) && <WebsiteAnalyticsCenter />}
           {(active === "Reklam Yorum Merkezi" || active === "Reklam Doktoru Pro") && <><AdDoctorMvpPanel /><AdInsightsCenter content={content} notify={notify} /></>}
-          {active === "Ön İnceleme Merkezi" && <PreAuditCenter />}
+          {active === "Ön İnceleme Merkezi" && <PreAuditCenter initialTab={preAuditInitialTab || undefined} />}
           {["HK Agent Hub", "Agent Hub", "Discord"].includes(active) && <AgentHubCenter content={content} notify={notify} onOpenCustomerDocuments={(companyId: string) => { setSelectedCompanyId(companyId); setActive("Belgeler"); }} />}
           {["Sistem Kalitesi", "QA Merkezi", "Sistem Test Merkezi"].includes(active) && <SystemQualityCenter content={content} setContent={setContent} save={save} currentSession={currentSession} notify={notify} systemStatus={systemStatus} supabaseConfigured={supabaseConfigured} initialTab={active === "Sistem Test Merkezi" ? "Otomatik Testler" : "Manuel Kontroller"} />}
           {active === "PDF Rapor Tasarım Merkezi" && <PdfReportDesignCenter {...props} />}
@@ -5334,7 +5335,7 @@ function LeadKanbanCard({ lead, onOpen, onMove }: { lead: any; onOpen: () => voi
   );
 }
 
-function Crm({ content, setContent, view, setActive, currentSession, notify }: any) {
+function Crm({ content, setContent, view, setActive, currentSession, notify, setPreAuditInitialTab }: any) {
   const [viewMode, setViewMode] = useState<"liste" | "kanban">("liste");
   const [query, setQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
@@ -5459,6 +5460,7 @@ function Crm({ content, setContent, view, setActive, currentSession, notify }: a
       const data = await response.json().catch(() => ({}));
       if (!response.ok) { notify?.(data.error || "Ön İnceleme kuyruğuna eklenemedi.", "error"); return; }
       notify?.(`${lead.company || lead.name || "Lead"} Ön İnceleme kuyruğuna eklendi.`, "success");
+      setPreAuditInitialTab?.("bekleyen");
       setActive("Ön İnceleme Merkezi");
     } catch {
       notify?.("Ön İnceleme kuyruğuna eklenemedi.", "error");
@@ -11308,7 +11310,7 @@ function LeadIntelligencePanel({ data, onRefresh, refreshing, leadRecord, canRun
   );
 }
 
-function MapsIntelligence({ content, setContent, setActive, save, notify, mode = "Haritalar", allowedModules = [] }: any) {
+function MapsIntelligence({ content, setContent, setActive, save, notify, mode = "Haritalar", allowedModules = [], setPreAuditInitialTab }: any) {
   const emptySearch = { city: "Manisa", district: "", neighborhood: "", businessType: "", keyword: "", niche: "", radius: "5 km", limit: "20", minimumRating: "", minimumReviewCount: "", website: "", phone: "", instagram: "", whatsapp: "", adStatus: "", crmStatus: "", hideSaved: true, highOpportunity: false, highAdPotential: false, topThirtyOnly: false };
   const [search, setSearch] = useState(emptySearch);
   const [results, setResults] = useState([]);
@@ -11571,6 +11573,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
       const data = await response.json().catch(() => ({}));
       if (!response.ok) { notify?.(data.error || "Ön İnceleme kuyruğuna eklenemedi.", "error"); return; }
       notify?.(`${lead.company || lead.name || "İşletme"} Ön İnceleme kuyruğuna eklendi.`, "success");
+      setPreAuditInitialTab?.("bekleyen");
       setActive("Ön İnceleme Merkezi");
     } finally {
       setLoading("");

@@ -274,7 +274,7 @@ function QueueLeadRow({ lead, isRejected, onCopyPrompt, onReject }: { lead: Queu
   );
 }
 
-export function PreAuditCenter() {
+export function PreAuditCenter({ initialTab }: { initialTab?: Tab } = {}) {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [companyId, setCompanyId] = useState<string>("");
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -288,7 +288,7 @@ export function PreAuditCenter() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [verifyCompanyName, setVerifyCompanyName] = useState("");
   const [verifyCopied, setVerifyCopied] = useState(false);
-  const [tab, setTab] = useState<Tab>("tamamlanan");
+  const [tab, setTab] = useState<Tab>(initialTab || "tamamlanan");
   const [queue, setQueue] = useState<Queue>({ pending: [], inReview: [], rejected: [] });
   const [promptLead, setPromptLead] = useState<QueueLead | null>(null);
   const [rejectTarget, setRejectTarget] = useState<QueueLead | null>(null);
