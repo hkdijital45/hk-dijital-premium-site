@@ -6,7 +6,8 @@ import { PublicShell } from "@/components/public/Shell";
 import { MarketingCard, MarketingPageHero, MarketingReveal, MarketingSection } from "@/components/public/marketing/MarketingUI";
 import { MarketingCTA, MarketingNetworkBackground } from "@/components/public/marketing/MarketingVisualSystem";
 import { absoluteUrl, pageMetadata } from "@/lib/metadata";
-import { blogCategories, contentIntentMap, getPublicBlogPosts } from "@/lib/blog-seo";
+import { blogCategories, getPublicBlogPosts } from "@/lib/blog-seo";
+import { servicePages } from "@/lib/public-seo-content";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,7 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
   });
   const featured = filtered.find((post) => post.featured) || filtered[0];
   const rest = filtered.filter((post) => post.slug !== featured?.slug);
+  const hasAnyPublished = posts.length > 0;
 
   return (
     <PublicShell>
@@ -67,53 +69,71 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
               ))}
             </div>
 
-            <div className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_.7fr]">
-              <div className="grid gap-5">
-                {featured ? (
-                  <MarketingReveal>
-                    <Link href={`/blog/${featured.slug}`}>
-                      <MarketingCard feature className="p-7">
-                        <span className="rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide text-white" style={{ background: "var(--mk-violet)" }}>Öne çıkan</span>
-                        <h2 className="mt-5 text-3xl font-black" style={{ color: "var(--mk-ink)" }}>{featured.title}</h2>
-                        <p className="mt-4 text-base leading-8" style={{ color: "var(--mk-ink-soft)" }}>{featured.excerpt}</p>
-                        <div className="mt-5 flex flex-wrap gap-3 text-sm" style={{ color: "var(--mk-ink-faint)" }}>
-                          <span>{featured.category?.name || "Blog"}</span>
-                          <span className="inline-flex items-center gap-1"><Clock size={15} /> {featured.reading_time} dk</span>
-                          <span>{featured.published_at ? new Date(featured.published_at).toLocaleDateString("tr-TR") : "Yayında"}</span>
-                        </div>
-                      </MarketingCard>
-                    </Link>
-                  </MarketingReveal>
-                ) : (
-                  <MarketingCard className="p-6">Bu filtreye uygun yayınlanmış içerik bulunamadı.</MarketingCard>
-                )}
-                <div className="grid gap-5 md:grid-cols-2">
-                  {rest.map((post, index) => (
-                    <MarketingReveal key={post.slug} delay={index * 0.04}>
-                      <Link href={`/blog/${post.slug}`}>
-                        <MarketingCard className="p-6">
-                          <BookOpenText className="text-[#7c3aed]" size={26} />
-                          <p className="mt-5 text-xs font-black uppercase tracking-wide" style={{ color: "var(--mk-violet)" }}>{post.category?.name || "Blog"} · {post.reading_time} dk</p>
-                          <h2 className="mt-3 text-2xl font-black" style={{ color: "var(--mk-ink)" }}>{post.title}</h2>
-                          <p className="mt-3 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>{post.excerpt}</p>
+            {!hasAnyPublished ? (
+              <MarketingReveal>
+                <MarketingCard className="mt-8 flex flex-col items-center gap-4 p-10 text-center">
+                  <BookOpenText className="text-[#7c3aed]" size={34} />
+                  <h2 className="text-2xl font-black" style={{ color: "var(--mk-ink)" }}>Yeni içerikler hazırlanıyor</h2>
+                  <p className="max-w-xl text-base leading-8" style={{ color: "var(--mk-ink-soft)" }}>
+                    HK Dijital blogu; reklam, sosyal medya ve dijital pazarlama üzerine pratik rehberlerle yakında burada. Bu arada hizmetlerimizi inceleyebilir veya doğrudan bizimle iletişime geçebilirsiniz.
+                  </p>
+                  <div className="flex flex-wrap justify-center gap-3">
+                    <Link href="/hizmetler" className="marketing-btn marketing-btn-primary">Hizmetlerimizi İnceleyin</Link>
+                    <Link href="/teklif-al" className="marketing-btn marketing-btn-secondary">Ücretsiz Ön Görüşme</Link>
+                  </div>
+                </MarketingCard>
+              </MarketingReveal>
+            ) : (
+              <div className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_.7fr]">
+                <div className="grid gap-5">
+                  {featured ? (
+                    <MarketingReveal>
+                      <Link href={`/blog/${featured.slug}`}>
+                        <MarketingCard feature className="p-7">
+                          <span className="rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide text-white" style={{ background: "var(--mk-violet)" }}>Öne çıkan</span>
+                          <h2 className="mt-5 text-3xl font-black" style={{ color: "var(--mk-ink)" }}>{featured.title}</h2>
+                          <p className="mt-4 text-base leading-8" style={{ color: "var(--mk-ink-soft)" }}>{featured.excerpt}</p>
+                          <div className="mt-5 flex flex-wrap gap-3 text-sm" style={{ color: "var(--mk-ink-faint)" }}>
+                            <span>{featured.category?.name || "Blog"}</span>
+                            <span className="inline-flex items-center gap-1"><Clock size={15} /> {featured.reading_time} dk</span>
+                            <span>{featured.published_at ? new Date(featured.published_at).toLocaleDateString("tr-TR") : "Yayında"}</span>
+                          </div>
                         </MarketingCard>
                       </Link>
                     </MarketingReveal>
-                  ))}
+                  ) : (
+                    <MarketingCard className="p-6 text-center">
+                      <span style={{ color: "var(--mk-ink-soft)" }}>Bu filtreye uygun içerik bulunamadı. Farklı bir arama veya kategori deneyin.</span>
+                    </MarketingCard>
+                  )}
+                  <div className="grid gap-5 md:grid-cols-2">
+                    {rest.map((post, index) => (
+                      <MarketingReveal key={post.slug} delay={index * 0.04}>
+                        <Link href={`/blog/${post.slug}`}>
+                          <MarketingCard className="p-6">
+                            <BookOpenText className="text-[#7c3aed]" size={26} />
+                            <p className="mt-5 text-xs font-black uppercase tracking-wide" style={{ color: "var(--mk-violet)" }}>{post.category?.name || "Blog"} · {post.reading_time} dk</p>
+                            <h2 className="mt-3 text-2xl font-black" style={{ color: "var(--mk-ink)" }}>{post.title}</h2>
+                            <p className="mt-3 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>{post.excerpt}</p>
+                          </MarketingCard>
+                        </Link>
+                      </MarketingReveal>
+                    ))}
+                  </div>
                 </div>
+                <MarketingCard className="p-7">
+                  <h2 className="text-xl font-black" style={{ color: "var(--mk-ink)" }}>Hizmetlerimiz</h2>
+                  <p className="mt-3 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>Blogda okuduklarınızı doğrudan uygulamak isterseniz, ilgili hizmet sayfamıza göz atın.</p>
+                  <div className="mt-5 grid gap-3">
+                    {servicePages.map((service) => (
+                      <Link key={service.slug} href={`/hizmetler/${service.slug}`} className="rounded-xl border p-4 text-sm transition hover:-translate-y-0.5" style={{ borderColor: "var(--mk-border)", background: "var(--mk-bg-alt)", color: "var(--mk-ink)" }}>
+                        <strong>{service.eyebrow}</strong><br /><span style={{ color: "var(--mk-ink-soft)" }}>{service.title}</span>
+                      </Link>
+                    ))}
+                  </div>
+                </MarketingCard>
               </div>
-              <MarketingCard className="p-7">
-                <h2 className="text-xl font-black" style={{ color: "var(--mk-ink)" }}>İçerik konu haritası</h2>
-                <p className="mt-3 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>Arama hacmi uydurmadan, gerçek kullanıcı niyetlerine göre planlanan içerik kümeleri.</p>
-                <div className="mt-5 grid gap-3">
-                  {contentIntentMap.slice(0, 8).map((item) => (
-                    <div key={item.phrase} className="rounded-xl border p-4 text-sm" style={{ borderColor: "var(--mk-border)", background: "var(--mk-bg-alt)", color: "var(--mk-ink)" }}>
-                      <strong>{item.phrase}</strong><br /><span style={{ color: "var(--mk-ink-soft)" }}>{item.intent} · {item.priority}</span>
-                    </div>
-                  ))}
-                </div>
-              </MarketingCard>
-            </div>
+            )}
           </div>
           <div className="mx-auto mt-10 max-w-7xl px-4 sm:px-6 lg:px-8">
             <MarketingReveal>

@@ -243,8 +243,8 @@ export function GrowthIntelligenceCenter({ geminiConfigured = false }: { geminiC
             ) : <p className="mt-2 text-sm opacity-70">Henüz açık fırsat yok — &quot;Search Console&apos;u Senkronize Et&quot; ile başlayın.</p>}
           </div>
 
-          <Link href="/hk-admin/blog-seo" className="admin-card flex items-center justify-between rounded-[16px] p-4 transition hover:-translate-y-0.5">
-            <span><strong className="block">Brief → Taslak → Yayın</strong><span className="text-sm opacity-70">İçerik üretimi, düzenleme ve yayınlama Blog &amp; SEO Merkezi&apos;nde yapılır.</span></span>
+          <Link href="/hk-admin/organik-buyume-merkezi" className="admin-card flex items-center justify-between rounded-[16px] p-4 transition hover:-translate-y-0.5">
+            <span><strong className="block">Brief → Taslak → Yayın</strong><span className="text-sm opacity-70">İçerik üretimi, düzenleme ve yayınlama Organik Büyüme Merkezi&apos;nde yapılır.</span></span>
             <ArrowUpRight size={18} />
           </Link>
         </div>

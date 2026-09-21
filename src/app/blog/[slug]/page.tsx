@@ -95,6 +95,9 @@ export default async function BlogDetailPage({ params }: BlogDetailProps) {
                 <div className="mt-7 flex flex-wrap gap-4 text-sm" style={{ color: "var(--mk-ink-soft)" }}>
                   <span className="inline-flex items-center gap-2"><UserRound size={16} /> {post.author_name}</span>
                   <span className="inline-flex items-center gap-2"><CalendarDays size={16} /> {post.published_at ? new Date(post.published_at).toLocaleDateString("tr-TR") : "Yayında"}</span>
+                  {post.updated_at && post.published_at && post.updated_at.slice(0, 10) !== post.published_at.slice(0, 10) && (
+                    <span className="inline-flex items-center gap-2"><CalendarDays size={16} /> Güncellendi: {new Date(post.updated_at).toLocaleDateString("tr-TR")}</span>
+                  )}
                   <span className="inline-flex items-center gap-2"><Clock size={16} /> {post.reading_time} dk okuma</span>
                 </div>
               </header>

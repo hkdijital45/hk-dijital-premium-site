@@ -69,8 +69,13 @@ export const getPublicBlogPosts = cache(async () => {
       false
     );
     return rows.map(normalizePost);
-  } catch {
-    return seedBlogPosts;
+  } catch (error) {
+    // Never silently show fake seed content in place of a real query
+    // failure — an empty result renders an honest empty state instead.
+    // seedBlogPosts is a LOCAL DEV placeholder only (the !hasSupabaseConfig
+    // branch above), not a production error fallback.
+    console.error("getPublicBlogPosts hatası:", error instanceof Error ? error.message : error);
+    return [];
   }
 });
 
@@ -85,8 +90,9 @@ export const getPublicBlogPost = cache(async (slug: string) => {
       false
     );
     return rows[0] ? normalizePost(rows[0]) : null;
-  } catch {
-    return seedBlogPosts.find((post) => post.slug === cleanSlug) || null;
+  } catch (error) {
+    console.error("getPublicBlogPost hatası:", error instanceof Error ? error.message : error);
+    return null;
   }
 });
 

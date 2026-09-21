@@ -53,15 +53,6 @@ export type BlogPost = {
   content_quality_score: number;
 };
 
-export type ContentIntent = {
-  cluster: string;
-  phrase: string;
-  intent: string;
-  contentType: string;
-  relatedService: string;
-  priority: "Yüksek" | "Orta" | "Düşük";
-};
-
 export const blogPublishedAt = "2026-07-15T09:00:00.000Z";
 const author = "Hayri Kamalı";
 
@@ -137,17 +128,6 @@ export const seedBlogPosts: BlogPost[] = postData.map(([title, slug, keyword, in
   clarity_score: 86 + (index % 4),
   content_quality_score: 85 + (index % 4)
 }));
-
-export const contentIntentMap: ContentIntent[] = [
-  { cluster: "Instagram reklamı", phrase: "Instagram reklamı vermek", intent: "Bilgi edinme + hizmet araştırma", contentType: "Başlangıç rehberi", relatedService: "Meta Reklam Yönetimi", priority: "Yüksek" },
-  { cluster: "Instagram reklamı", phrase: "Instagram reklam fiyatları", intent: "Fiyat araştırma", contentType: "Bütçe rehberi", relatedService: "Meta Reklam Yönetimi", priority: "Yüksek" },
-  { cluster: "Google reklamları", phrase: "Google reklamı vermek", intent: "Bilgi edinme + ticari araştırma", contentType: "Nasıl yapılır rehberi", relatedService: "Google Ads Yönetimi", priority: "Yüksek" },
-  { cluster: "Google reklamları", phrase: "Google reklam fiyatları", intent: "Fiyat araştırma", contentType: "Bütçe planı", relatedService: "Google Ads Yönetimi", priority: "Yüksek" },
-  { cluster: "Reklam sorunu", phrase: "Reklam veriyorum ama müşteri gelmiyor", intent: "Sorun çözme", contentType: "Kontrol listesi", relatedService: "Dijital Pazarlama Danışmanlığı", priority: "Yüksek" },
-  { cluster: "Küçük işletmeler", phrase: "İnternetten müşteri bulmak", intent: "Genel ihtiyaç", contentType: "Strateji rehberi", relatedService: "Dijital Pazarlama Danışmanlığı", priority: "Yüksek" },
-  { cluster: "Yerel pazarlama", phrase: "Manisa reklam ajansı", intent: "Yerel hizmet arama", contentType: "Yerel rehber", relatedService: "Manisa Dijital Pazarlama", priority: "Yüksek" },
-  { cluster: "Sosyal medya yönetimi", phrase: "Instagram sayfa yönetimi", intent: "Hizmet araştırma", contentType: "Hizmet açıklaması", relatedService: "Sosyal Medya Yönetimi", priority: "Orta" }
-];
 
 export function slugifyBlogValue(value: string) {
   return value.toLocaleLowerCase("tr").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ı/g, "i").replace(/ğ/g, "g").replace(/ü/g, "u").replace(/ş/g, "s").replace(/ö/g, "o").replace(/ç/g, "c").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 90);

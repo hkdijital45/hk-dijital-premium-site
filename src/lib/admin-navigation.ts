@@ -145,7 +145,7 @@ const adminNavigationSourceGroups: AdminNavigationGroup[] = [
     badge: "İçerik",
     accent: "from-fuchsia-400 via-pink-500 to-rose-600",
     items: [
-      { label: "Blog & SEO Merkezi", slug: "blog-seo", module: "blog-seo", description: "Blog yazıları, arama niyeti haritası, içerik takvimi ve SEO kalite kontrolleri." },
+      { label: "Organik Büyüme Merkezi", slug: "organik-buyume-merkezi", module: "blog-seo", description: "Aylık strateji, içerik planı, konu kümeleri, yazılar, SEO & GEO kontrolü ve yayın — tek merkezden." },
       { label: "HK Growth Intelligence", slug: "growth-intelligence", module: "growth-intelligence", description: "Search Console fırsatları, GEO skorlama, otomasyon ayarları ve günlük SEO/GEO çalışma günlükleri." },
       { label: "İçerik Planları", slug: "icerik-fikirleri", module: "icerik-onerileri", description: "Kanal ve hedefe göre içerik fikirleri." },
       { label: "Sosyal Medya Planı", slug: "sosyal-medya-icerik-plani", module: "sosyal-medya-plani", description: "Müşteri bazlı sosyal medya içerik takvimi." },
