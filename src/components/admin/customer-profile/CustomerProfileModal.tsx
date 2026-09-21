@@ -951,7 +951,7 @@ export function CustomerProfileModal({
                 ["Reklam Kurulumu", "Kampanyalar"],
                 ["Rapor", "Müşteri Raporları"],
                 ["Tahsilat", "Tahsilat"],
-                ["Yenileme", "Takip Merkezi"]
+                ["Yenileme", "Lead Merkezi"]
               ].map(([label, target]) => <button key={label} onClick={() => onGo?.(target, `${label} adımı açıldı.`)} className="rounded-[12px] border border-emerald-200 bg-[var(--admin-surface)] p-3 text-left text-xs font-black text-emerald-800 hover:bg-emerald-50"><span className="block">{label}</span><span className="mt-1 block font-medium text-[var(--admin-text-muted)]">Git / görev oluştur</span></button>)}
             </div>
           </section>

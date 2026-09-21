@@ -55,7 +55,6 @@ const adminNavigationSourceGroups: AdminNavigationGroup[] = [
       { label: "Müşteri Keşfi", slug: "musteri-kesfi", module: "musteri-bulucu", description: "Yeni işletme adayları ve dijital fırsat sinyalleri." },
       { label: "Haritalar", slug: "haritalar", module: "haritalar", description: "Bölgesel işletme keşfi ve Google Maps sinyalleri." },
       { label: "Rakip İstihbarat Merkezi", slug: "rakip-analizi", module: "rakip-analizi", description: "Lead veya müşteri için gerçek rakip keşfi, skor ve sinyal takibi." },
-      { label: "Takip Merkezi", slug: "takip-merkezi", module: "leads", description: "Arama, WhatsApp, toplantı ve teklif takipleri." },
       { label: "Satış Hunisi", slug: "satis-hunisi", module: "leads", description: "Lead aşamaları, fırsatlar ve satış ilerleme görünümü." },
       { label: "Teklif Oluştur", slug: "teklif-hazirlama", module: "teklifler", description: "Lead veya müşteri verisinden teklif hazırlama." },
       { label: "Teklif Takip Merkezi", slug: "teklif-takip-merkezi", module: "teklifler", description: "Teklif sonrası 3, 7, 14 ve 21 günlük takip akışları." },
@@ -314,8 +313,13 @@ const legacySlugRedirects: Record<string, string> = {
   "satis-pipeline": "satis-hunisi",
   "satis-hunisi": "satis-hunisi",
   "yeni-basvurular": "leads",
-  "takipler": "takip-merkezi",
-  "lead-follow-up": "takip-merkezi",
+  "takipler": "leads",
+  "lead-follow-up": "leads",
+  // Takip Merkezi (lead follow-up center) was removed — its capability
+  // (arama/WhatsApp/toplantı/teklif takipleri) lives in Lead Merkezi's own
+  // data/views. Any bookmarked/old link to its own former slug redirects
+  // there instead of 404ing.
+  "takip-merkezi": "leads",
   "ai-audit": "qa-center",
   "ai-denetim-sistemi": "qa-center",
   "meta-analiz-leadleri": "leads",

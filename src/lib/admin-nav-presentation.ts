@@ -86,7 +86,6 @@ const adminLabelEmojis: Record<string, string> = {
   "Meta İstihbarat": "📣",
   "Google İstihbarat": "🔎",
   "Lead Analizi": "🎯",
-  "Takip Merkezi": "📞",
   "Yapay Zekâ Denetim": "🧠",
   "PDF Rapor Tasarım Merkezi": "🖨️",
   "Gelir Tahmini": "📈",

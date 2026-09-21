@@ -242,7 +242,7 @@ Amaç: Günün önceliklerini tek ekranda görmek.
 4. Sorumlu ve sonraki tarihi belirle.
 5. Kontrol merkezine dönüp kalan öncelikleri sırala.
 
-**Sonraki adım:** Görevler, Takip Merkezi veya Muhasebe. **Profesyonel kullanım:** Sabah üç öncelik seç; dashboard'u gün boyu yenileyerek çalışmak yerine bu işlerin kaydını ilerlet.
+**Sonraki adım:** Görevler, Lead Merkezi veya Muhasebe. **Profesyonel kullanım:** Sabah üç öncelik seç; dashboard'u gün boyu yenileyerek çalışmak yerine bu işlerin kaydını ilerlet.
 
 [DİKKAT]
 Farklı kartlar farklı sağlık formülleri kullanabilir. Aynı müşteriye ait iki puanın aynı olması zorunlu değildir. Eksik veriyle üretilen risk işaretini müşterinin kesin kaybedileceği şeklinde anlatma.
@@ -259,7 +259,7 @@ What should be visible: Kritik işler, günlük öncelikler ve sağlık kartlar�
 **3 — Kısayol/aksiyon alanı:** İlgili modüle (Görevler, Muhasebe, Lead Merkezi) doğrudan geçiş.
 
 [SIRADAKİ ADIM]
-Bir kritik iş seçtikten sonra ilgili modüle (Görevler, Takip Merkezi, Muhasebe) geç; dashboard'da kalıp sadece izleme.
+Bir kritik iş seçtikten sonra ilgili modüle (Görevler, Lead Merkezi, Muhasebe) geç; dashboard'da kalıp sadece izleme.
 
 [GÖRSEL ÖNERİSİ]
 Sabah kontrol masasını kritik görev, takip ve tahsilat kartlarıyla göster; örnek sayı ekleme. Sıcak kırık beyaz kâğıt, siyah mürekkep ve ölçülü HK Gold vurgular kullan.
@@ -363,7 +363,7 @@ Yalnızca AI analizi geldi diye kartı "Teklif Gönderildi" aşamasına taşıma
 4. Son temas sonucunu, itirazı ve sonraki tarihi kaydet.
 5. Kazanılan kaydı dönüşüm akışından müşteriye çevir; kaybedilenin nedenini sakla.
 
-**Sonraki adım:** Takip Merkezi veya Teklif Oluştur. **Profesyonel kullanım:** Her aktif fırsatın bir sonraki teması olsun. “Takipte” tek başına bir plan değildir.
+**Sonraki adım:** Lead Merkezi veya Teklif Oluştur. **Profesyonel kullanım:** Her aktif fırsatın bir sonraki teması olsun. “Takipte” tek başına bir plan değildir.
 
 [DİKKAT]
 Silinen/reddedilen kayıtlarla satışta kaybedilen fırsatlar aynı anlamı taşımaz. Finansal veya operasyonel ilişkisi bulunan bir kaydı yalnızca listeyi temizlemek için kalıcı silme.
@@ -444,7 +444,7 @@ What should be visible: Beş uzman kartı (her biri Tamamlandı/Başarısız ve 
 "Tamamlandı" rozetini gerçek AI başarısı sanmak. Tamamlandı, kurallı yedekten gelen doğrulanmış sonucu da kapsayabilir — her rolün Gerçek AI / Kurallı Yedek etiketini ayrı kontrol et.
 
 [SIRADAKİ ADIM]
-Baş Stratejist'in nihai önerisini Takip Merkezi'nde bir sonraki temas görevine veya Teklif Oluştur'a aktar.
+Baş Stratejist'in nihai önerisini Lead Merkezi'nde bir sonraki temas görevine veya Teklif Oluştur'a aktar.
 
 **Bu modül hangi işi çözüyor?** Satış ve büyüme kararını tek bir metinden okumak yerine farklı uzman görevlerinin değerlendirmelerini karşılaştırmayı sağlar. Beş uzman vardır; altıncı rol Baş Stratejist'tir. Altı uzman artı bir başkan şeklinde yedi rol yoktur.
 
@@ -486,7 +486,7 @@ Görüşmede gerçek ihtiyacın “daha çok mesaj” değil “uygun randevu ta
 
 **Satış yaklaşımı:** Gözlenen güçlü yan → doğrulanmış eksik → ölçülebilir hedef → küçük sonraki adım. Hazır WhatsApp/telefon metinleri düzenlenebilir taslaklardır. Mesaj açmak, metni kopyalamak ve mesajın gerçekten gönderilmesi farklı işlemlerdir.
 
-**Sonraki adım:** Takip Merkezi, teklif takibi, kazanıldı/kaybedildi analizi. Müşteri kabul ettiğinde dönüşüm sürecini işlet.
+**Sonraki adım:** Lead Merkezi, teklif takibi, kazanıldı/kaybedildi analizi. Müşteri kabul ettiğinde dönüşüm sürecini işlet.
 
 [SATIŞ İPUCU]
 “AI böyle söyledi” satış gerekçesi değildir. Müşterinin hedefi, mevcut kanıt ve önerilen iş arasında açık bağlantı kur. Sağlık gibi hassas sektörlerde içerik ve kampanya uygunluğunu ayrıca yetkili uzmanla değerlendir; kitap hukuki uygunluk garantisi vermez.
@@ -498,7 +498,7 @@ Kurgusal kliniğin keşiften tahsilata yolculuğunu bölümdeki adımlarla çiz.
 
 **Rotalar:** `/hk-admin/takip-merkezi`, `/hk-admin/teklif-takip-merkezi`, `/hk-admin/teklif-hazirlama`, `/hk-admin/kazanildi-kaybedildi-analizi`, `/hk-admin/ai-satis-kocu`.
 
-Takip Merkezi arama, WhatsApp, toplantı ve teklif görüşmelerinin unutulmamasını sağlar. Teklif Takip Merkezi 3, 7, 14 ve 21 günlük takip yaklaşımını sunar. Bunlar müşteriye otomatik olarak mesaj gönderildiğinin kanıtı değildir; gerçek temas sonucunu kayda geçir.
+Lead Merkezi arama, WhatsApp, toplantı ve teklif görüşmelerinin unutulmamasını sağlar. Teklif Takip Merkezi 3, 7, 14 ve 21 günlük takip yaklaşımını sunar. Bunlar müşteriye otomatik olarak mesaj gönderildiğinin kanıtı değildir; gerçek temas sonucunu kayda geçir.
 
 **Teklif Oluştur ekranı:** Başvuru/müşteri, kampanya, paket, aylık hizmet bedeli, reklam bütçesi, kurulum bedeli, süre, dahil/hariç hizmetler, ödeme notu ve 30 günlük sonraki adımlar. Teklif üretilebilir, PDF hazırlanabilir, belge olarak kaydedilebilir ve WhatsApp akışına taşınabilir.
 
@@ -1087,7 +1087,7 @@ Bu ritim önerilen ajans çalışma düzenidir; sistemin kendi kendine her adım
 
 **Sabah — görünürlük:** Dashboard ve kontrol merkezini aç. Geciken görev/tahsilat, bağlantı sorunu ve bugün kapanacak teklifleri seç. Kayıtların güncelliğini kontrol et. Ekipte kimin hangi işi alacağını belirle.
 
-**Satış — nitelikli fırsat:** Takip Merkezi'ndeki zamanı gelen görüşmeleri tamamla. Sonra sınırlı bir keşif turu yap. Uygun adayı kaydet ve Level 1 analiziyle hazırlan. Detaylı analiz veya kurulu yalnızca önemli kararlar için kullan. Görüşme sonucunu hemen yaz.
+**Satış — nitelikli fırsat:** Lead Merkezi'ndeki zamanı gelen görüşmeleri tamamla. Sonra sınırlı bir keşif turu yap. Uygun adayı kaydet ve Level 1 analiziyle hazırlan. Detaylı analiz veya kurulu yalnızca önemli kararlar için kullan. Görüşme sonucunu hemen yaz.
 
 **Operasyon — teslim:** Görevleri müşteri ve tarihe göre çalış. Kampanya/ölçümleme engelini çöz. İçerik taslağını kontrol et, medyayı hazırla. İletişimden çıkan işi görevle bağla. Social Autopilot yayın ayarlarını günlük içerik kontrolünden bağımsız düşünme.
 
@@ -1267,7 +1267,6 @@ Aşağıdaki menü envanteri güncel `admin-navigation.ts` tanımlarından çık
 | Müşteri Keşfi | `/hk-admin/musteri-kesfi` | `musteri-bulucu` | Bölüm 7 |
 | Haritalar | `/hk-admin/haritalar` | `haritalar` | Bölüm 7 |
 | Rakip İstihbarat Merkezi | `/hk-admin/rakip-analizi` | `rakip-analizi` | Bölüm 25 |
-| Takip Merkezi | `/hk-admin/takip-merkezi` | `leads` | Bölüm 13 |
 | Satış Hunisi | `/hk-admin/satis-hunisi` | `leads` | Bölüm 9 |
 | Teklif Oluştur | `/hk-admin/teklif-hazirlama` | `teklifler` | Bölüm 13 |
 | Teklif Takip Merkezi | `/hk-admin/teklif-takip-merkezi` | `teklifler` | Bölüm 13 |
@@ -1407,7 +1406,6 @@ Bu dizin, Bölüm 43'teki kaynak/dosya eşlemesini tekrarlamaz — yalnızca **h
 | Haritalar | `/hk-admin/haritalar` | Satış/Operasyon (yönetici) | Bölgesel fırsat görünümü |
 | Rakip İstihbarat Merkezi | `/hk-admin/rakip-analizi` | Satış/Operasyon (yönetici), İçerik/AI (editor) | Rakip keşfi ve takip |
 | Lead Merkezi | `/hk-admin/leads` | Satış/Operasyon (yönetici) | Tüm lead kayıtları |
-| Takip Merkezi | `/hk-admin/takip-merkezi` | Satış/Operasyon (yönetici) | Zamanı gelen temaslar |
 | Satış Hunisi | `/hk-admin/satis-hunisi` | Satış/Operasyon (yönetici) | Aşama bazlı satış panosu |
 | Teklif Oluştur | `/hk-admin/teklif-hazirlama` | Satış/Operasyon (yönetici) | Teklif/PDF üretimi |
 | Teklif Takip Merkezi | `/hk-admin/teklif-takip-merkezi` | Satış/Operasyon (yönetici) | Gönderilen teklif takibi |
@@ -1557,7 +1555,7 @@ Günlük: Dashboard ve HK Intelligence Kontrol Merkezi (6) → Muhasebe/Tahsilat
 
 ## Satış Sorumlusu
 
-Günlük: Takip Merkezi (13) → Lead Merkezi/Satış Hunisi (9) → Müşteri Keşfi (7) → Müşteri İstihbarat Motoru (10) gerektiğinde. Haftalık: Teklif Takip Merkezi (13), Kazanıldı/Kaybedildi Analizi (13).
+Günlük: Lead Merkezi (13) → Lead Merkezi/Satış Hunisi (9) → Müşteri Keşfi (7) → Müşteri İstihbarat Motoru (10) gerektiğinde. Haftalık: Teklif Takip Merkezi (13), Kazanıldı/Kaybedildi Analizi (13).
 
 ## Sosyal Medya Uzmanı
 

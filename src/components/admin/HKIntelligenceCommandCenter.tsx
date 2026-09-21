@@ -205,7 +205,7 @@ export function HKIntelligenceCommandCenter({ content, setActive, notify, initia
 
   const priorities = [
     { count: overduePayments.length, text: "tahsilat gecikmiş", target: "Tahsilat", tone: "text-red-700 bg-red-50" },
-    { count: followUpLeads.length, text: "lead aranmayı bekliyor", target: "Takip Merkezi", tone: "text-cyan-700 bg-cyan-50" },
+    { count: followUpLeads.length, text: "lead aranmayı bekliyor", target: "Lead Merkezi", tone: "text-cyan-700 bg-cyan-50" },
     { count: pixelRisks.length, text: "müşteri Pixel hatası veriyor", target: "Entegrasyonlar", tone: "text-orange-700 bg-orange-50" },
     { count: expiringProposals.length, text: "teklif bugün sonuç bekliyor", target: "Teklif Oluştur", tone: "text-amber-700 bg-amber-50" },
     { count: criticalTasks.length, text: "kritik veya gecikmiş görev var", target: "Görevler", tone: "text-purple-700 bg-purple-50" }

@@ -75,7 +75,6 @@ import { aiProviderKeyForApi, buildAiSelectionReason, labelForAiProvider, normal
 import { CUSTOMER_MODULE_REGISTRY, CUSTOMER_PLATFORM_REGISTRY, DEFAULT_CUSTOMER_MODULES, DEFAULT_CUSTOMER_PLATFORMS, normalizeModuleKeys, normalizePlatformKeys } from "@/lib/customer-portal-registry";
 import { HK_SERVICE_PACKAGES, PACKAGE_CATEGORIES, calculateTotalWithVat, calculateVat, findServicePackage, formatPackagePrice, formatTRY, getPackagePricing } from "@/lib/packages";
 import { AD_STATUS_LABELS, calculateHkOpportunityScore, getHkOpportunityTier, scoreDiscoveredBusiness, type AdStatusValue, type DiscoveredBusiness } from "@/lib/lead-scoring";
-import { classifyMeetingSegment } from "@/lib/lead-meeting-status";
 import { mergeWonLostDeals, summarizeWonLost } from "@/lib/won-lost-analysis";
 import { DISCOVERY_SECTOR_PRESETS } from "@/lib/sector-signal";
 import { GlassCard } from "@/components/premium/PremiumUI";
@@ -898,7 +897,6 @@ export function AdminDashboard({
           {active === "Satış Hunisi" && <SalesPipeline content={content} setContent={setContent} save={save} setActive={setActive} notify={notify} />}
           {active === "CRM" && <CrmHub {...props} />}
           {["Lead Merkezi", "CRM & Lead Workspace"].includes(active) && <Crm {...props} view="Lead Durumları" setActive={setActive} />}
-          {active === "Takip Merkezi" && <LeadFollowUpCenter {...props} setActive={setActive} />}
           {active === "Teklif Takip Merkezi" && <ProposalFollowupCenter {...props} setActive={setActive} />}
           {active === "Kazanıldı / Kaybedildi Analizi" && <WonLostAnalysisCenter {...props} />}
           {active === "Ajans Hedefleri" && <AgencyTargetsCenter {...props} />}
@@ -1135,14 +1133,14 @@ function buildAdminNotifications(content: any, startupApiData: any = {}) {
       label: "Takip bekleyen leadler",
       text: `${followUpLeads.length} lead için takip zamanı geldi. İlk kayıt: ${followUpLeads[0]?.company || followUpLeads[0]?.name || "Lead"}`,
       tone: "amber",
-      target: "Takip Merkezi"
+      target: "Lead Merkezi"
     },
     proposalFollowUps.length && {
       id: `proposal-follow-up-${proposalFollowUps.length}-${proposalFollowUps[0]?.id || "proposal"}`,
       label: "Teklif takibi bekliyor",
       text: `${proposalFollowUps.length} teklif gönderilmiş lead takip bekliyor. İlk kayıt: ${proposalFollowUps[0]?.company || proposalFollowUps[0]?.name || "Teklif"}`,
       tone: "purple",
-      target: "Takip Merkezi"
+      target: "Lead Merkezi"
     },
     overduePayments.length && {
       id: `overdue-payments-${overduePayments.map((item) => item.id || item.due_date).join("-")}`,
@@ -2480,7 +2478,7 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
   const commandItems = [
     ["Bugün yapılacak görevler", todaysTasks.length, "Görevler", "bg-blue-50 text-blue-700"],
     ["Bekleyen tahsilatlar", pendingRevenue ? `${pendingRevenue.toLocaleString("tr-TR")} TL` : 0, "Tahsilat", "bg-amber-50 text-amber-700"],
-    ["Takip edilecek leadler", followUpLeads.length, "Takip Merkezi", "bg-cyan-50 text-cyan-700"],
+    ["Takip edilecek leadler", followUpLeads.length, "Lead Merkezi", "bg-cyan-50 text-cyan-700"],
     ["Kritik müşteriler", riskyCustomers.length, "Müşteriler", "bg-red-50 text-red-700"],
     ["Yaklaşan raporlar", upcomingReports.length, "Müşteri Raporları", "bg-purple-50 text-purple-700"],
     ["Kampanya bitişleri", upcomingCampaigns.length, "Kampanyalar", "bg-orange-50 text-orange-700"]
@@ -2540,7 +2538,7 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     ["Eksik entegrasyonlar", integrationIssues.length, "Entegrasyonlar", "Kontrol et"],
     ["Onay bekleyen içerikler", contentApprovals.length, "Sosyal Medya Planı", "Detay"],
     ["QA kritik uyarıları", qaCriticalWarnings.length, "QA Merkezi", "Kontrol et"],
-    ["Bu hafta aranacak müşteriler", followUpLeads.length, "Takip Merkezi", "Müşteriyi ara"]
+    ["Bu hafta aranacak müşteriler", followUpLeads.length, "Lead Merkezi", "Müşteriyi ara"]
   ];
   const aiHealthDimensions = [
     ["Reklam Sağlığı", activeCampaigns.length ? Math.min(100, 55 + activeCampaigns.length * 8) : 42, activeCampaigns.length ? "Aktif kampanya var; performans takibi yapılabilir." : "Aktif kampanya az veya yok."],
@@ -2637,7 +2635,7 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
       const reason = dueDate
         ? `${temperature} lead · takip tarihi ${String(dueDate).slice(0, 10) < today ? "geçti" : "bugün"}${item.next_action ? ` · ${item.next_action}` : ""}`
         : `${temperature} lead · henüz takip tarihi girilmedi`;
-      return { id: `lead-${item.id}`, customer: item.company || item.name || "Yeni lead", reason, severity: "Fırsat", target: "Takip Merkezi", action: "Ara / Takip Et" };
+      return { id: `lead-${item.id}`, customer: item.company || item.name || "Yeni lead", reason, severity: "Fırsat", target: "Lead Merkezi", action: "Ara / Takip Et" };
     })
   ].filter((item) => canOpen(item.target)).slice(0, 8);
 
@@ -14888,105 +14886,6 @@ function AiAuditCenter({ content, setContent, save, setActive, notify }: any) {
   );
 }
 
-function LeadFollowUpCenter({ content, setContent, save, setActive, notify }: any) {
-  const [filters, setFilters] = useState({ date: "", status: "", sector: "", score: "", stage: "" });
-  const today = new Date().toISOString().slice(0, 10);
-  const leads = (content.leads || []).filter((lead: any) => !isLeadDeleted(lead));
-  const matches = (lead: any) => {
-    const actionDate = dateOnly(lead.next_action_at || lead.follow_up_date || lead.updated_at || lead.created_at);
-    if (filters.date && actionDate !== filters.date) return false;
-    if (filters.status && !String(lead.status || "").includes(filters.status)) return false;
-    if (filters.sector && !String(lead.sector || lead.business_type || "").toLocaleLowerCase("tr").includes(filters.sector.toLocaleLowerCase("tr"))) return false;
-    if (filters.score && Number(lead.score || lead.lead_score || 0) < Number(filters.score)) return false;
-    if (filters.stage && pipelineStageForLead(lead) !== filters.stage) return false;
-    return true;
-  };
-  const filtered = leads.filter(matches);
-  const buckets = [
-    ["Bugün aranacaklar", filtered.filter((lead: any) => dateOnly(lead.next_action_at || lead.follow_up_date) === today && !String(lead.next_action || "").toLocaleLowerCase("tr").includes("whatsapp"))],
-    ["Bugün WhatsApp atılacaklar", filtered.filter((lead: any) => dateOnly(lead.next_action_at || lead.follow_up_date) === today && String(lead.next_action || "").toLocaleLowerCase("tr").includes("whatsapp"))],
-    ["Takip gecikenler", filtered.filter((lead: any) => dateOnly(lead.next_action_at || lead.follow_up_date) && dateOnly(lead.next_action_at || lead.follow_up_date) < today)],
-    ["Teklif bekleyenler", filtered.filter((lead: any) => String(lead.status || "").includes("Teklif") || pipelineStageForLead(lead) === "Teklif Gönderildi")],
-    // Real leads.meeting_at-driven segmentation (today + overdue = needs
-    // action now). The `!lead.meeting_at && ...` clause is a controlled,
-    // shrinking legacy fallback: leads created before meeting_at was wired
-    // up here may only have "toplantı" mentioned in a free-text note — kept
-    // so they don't silently disappear from this bucket, but only when
-    // there's genuinely no real meeting_at to classify instead.
-    ["Toplantı bekleyenler", filtered.filter((lead: any) => {
-      const segment = classifyMeetingSegment(lead.meeting_at, today);
-      if (segment === "today" || segment === "overdue") return true;
-      return !lead.meeting_at && String(lead.next_action || lead.notes || "").toLocaleLowerCase("tr").includes("toplantı");
-    })],
-    ["Yaklaşan toplantılar", filtered.filter((lead: any) => classifyMeetingSegment(lead.meeting_at, today) === "upcoming")],
-    ["Kazanılmaya yakın leadler", filtered.filter((lead: any) => Number(lead.score || lead.lead_score || 0) >= 75 || ["Takipte", "Teklif Gönderildi"].includes(pipelineStageForLead(lead)))]
-  ];
-  function patchLead(id: string, patch: any, message = "Lead güncellendi") {
-    const next = { ...content, leads: (content.leads || []).map((lead: any) => lead.id === id ? { ...lead, ...patch, updated_at: new Date().toISOString() } : lead) };
-    setContent(next);
-    save?.(next);
-    notify?.(`✓ ${message}`, "success");
-  }
-  function whatsappText(lead: any) {
-    return `Merhaba, ${leadCompanyName(lead)} için kısa dijital reklam ve büyüme analizi hazırlayabiliriz. İsterseniz bugün uygun olduğunuz bir saatte detayları paylaşayım.`;
-  }
-  // Real conversion — mirrors SalesPipeline's convertLead(). The previous
-  // version of this button only patched lead.status locally, which never
-  // created the company/customer/auth-user/onboarding-task records the
-  // acquisition workflow actually depends on.
-  async function convertLeadToCustomer(lead: any) {
-    const response = await fetch(`/api/admin/leads/${lead.id}/convert`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ createInitialPayment: false, initialPaymentAmount: 0 }) });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) return notify?.(data.supabaseError ? `${data.error}: ${data.supabaseError}` : data.error || "Lead müşteriye dönüştürülemedi.", "error");
-    setContent((current: any) => ({
-      ...current,
-      leads: (current.leads || []).map((item: any) => item.id === data.lead.id ? data.lead : item),
-      companies: data.company ? [data.company, ...(current.companies || []).filter((item: any) => item.id !== data.company.id)] : current.companies,
-      users: data.user ? [data.user, ...(current.users || []).filter((item: any) => item.id !== data.user.id)] : current.users,
-      customers: data.customer ? [data.customer, ...(current.customers || []).filter((item: any) => item.id !== data.customer.id)] : current.customers
-    }));
-    notify?.("Lead müşteriye dönüştürüldü ve onboarding görevleri oluşturuldu.", "success");
-  }
-  return (
-    <Panel title="Takip Merkezi">
-      <p className="mb-5 text-sm leading-6 text-slate-400">Lead takipleri, teklif bekleyenler ve kazanılmaya yakın fırsatları tek operasyon ekranında yönetin.</p>
-      <GlassCard className="mb-5 p-4">
-        <div className="grid gap-3 md:grid-cols-5">
-          <Field label="Tarih" type="date" value={filters.date} onChange={(date) => setFilters({ ...filters, date })} />
-          <SelectField label="Durum" value={filters.status} onChange={(status) => setFilters({ ...filters, status })} options={leadStatuses} />
-          <Field label="Sektör" value={filters.sector} onChange={(sector) => setFilters({ ...filters, sector })} />
-          <SelectField label="Minimum lead skoru" value={filters.score} onChange={(score) => setFilters({ ...filters, score })} options={[{ value: "80", label: "80+" }, { value: "60", label: "60+" }, { value: "40", label: "40+" }]} />
-          <SelectField label="Pipeline aşaması" value={filters.stage} onChange={(stage) => setFilters({ ...filters, stage })} options={salesPipelineStages} />
-        </div>
-      </GlassCard>
-      <div className="grid gap-4 xl:grid-cols-2">
-        {buckets.map(([title, items]: any) => (
-          <GlassCard key={title} className="p-5">
-            <div className="mb-4 flex items-center justify-between gap-3"><h3 className="text-lg font-black text-[var(--admin-text-primary)]">{title}</h3><span className="rounded-full bg-cyan-300 px-3 py-1 text-xs font-black text-[var(--admin-text-primary)]">{items.length}</span></div>
-            <div className="grid gap-3">
-              {items.slice(0, 8).map((lead: any) => (
-                <div key={lead.id} className="rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-black text-[var(--admin-text-primary)]">{leadCompanyName(lead)}</p><p className="mt-1 text-xs text-slate-400">{lead.phone || "Telefon yok"} · {lead.sector || lead.business_type || "Sektör yok"} · {pipelineStageForLead(lead)}</p></div><span className="rounded-full border border-amber-300/30 px-3 py-1 text-xs text-amber-700">Skor {lead.score || lead.lead_score || 0}</span></div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <button onClick={() => navigator.clipboard.writeText(whatsappText(lead))} className="rounded-full border border-emerald-300/30 px-3 py-2 text-xs text-emerald-700">WhatsApp Mesajı Hazırla</button>
-                    <a href={lead.phone ? `tel:${lead.phone}` : "#"} className="rounded-full border border-[var(--admin-border)] px-3 py-2 text-xs text-[var(--admin-text-secondary)]">Ara</a>
-                    <a href={lead.email ? `mailto:${lead.email}` : "#"} className="rounded-full border border-[var(--admin-border)] px-3 py-2 text-xs text-[var(--admin-text-secondary)]">E-posta Gönder</a>
-                    <button onClick={() => patchLead(lead.id, { notes: `${lead.notes || ""}\n${new Date().toLocaleDateString("tr-TR")} · Takip notu eklendi`.trim() }, "Takip notu eklendi")} className="rounded-full border border-[var(--admin-border)] px-3 py-2 text-xs text-[var(--admin-text-secondary)]">Not Ekle</button>
-                    <button onClick={() => patchLead(lead.id, { next_action_at: today, next_action: "WhatsApp takip" }, "Sıradaki aksiyon belirlendi")} className="rounded-full border border-cyan-200/25 px-3 py-2 text-xs text-cyan-700">Sıradaki aksiyon belirle</button>
-                    <button onClick={() => setActive("Teklif Oluştur")} className="rounded-full bg-cyan-300 px-3 py-2 text-xs font-black text-[var(--admin-text-primary)]">Teklif Oluştur</button>
-                    <button onClick={() => convertLeadToCustomer(lead)} className="rounded-full border border-emerald-300/30 px-3 py-2 text-xs text-emerald-700">Müşteriye Dönüştür</button>
-                  </div>
-                </div>
-              ))}
-              {!items.length && <p className="rounded-[8px] border border-dashed border-[var(--admin-border)] p-4 text-sm text-slate-400">Bu bölümde kayıt yok.</p>}
-            </div>
-          </GlassCard>
-        ))}
-      </div>
-    </Panel>
-  );
-}
-
 function PdfReportDesignCenter({ content, setContent, save, notify }: any) {
   const settings = content.settings || {};
   const template = settings.reportDesign || { coverTitle: "HK Dijital Aylık Performans Raporu", brandColor: "#22d3ee", logoUrl: "", aiEnabled: true, sevenDayPlan: true, agencyNote: true, sections: { summary: true, meta: true, google: true, social: true, campaigns: true, payments: false } };
@@ -15137,7 +15036,7 @@ function WhatsAppReminderCenter({ content, setContent, save, notify, setActive }
     <Panel title="WhatsApp Hatırlatma Merkezi">
       <p className="mb-5 text-sm leading-6 text-slate-400">Mesajları bağlama göre hazırlar, ancak otomatik göndermez. Mesajı kopyalayabilir veya WhatsApp’ta açabilirsiniz.</p>
       <div className="grid gap-5 xl:grid-cols-[420px_1fr]">
-        <GlassCard className="p-5"><div className="grid gap-4"><SelectField label="Şablon" value={form.template} onChange={(template) => setForm({ ...form, template })} options={Object.keys(templates)} /><SelectField label="Bağlam" value={form.context} onChange={(context) => setForm({ ...form, context })} options={["Müşteri", "Lead", "Ödeme", "Teklif", "Rapor", "Kampanya"]} /><CompanySelect value={form.companyId} onChange={(companyId) => setForm({ ...form, companyId })} companies={content.companies} /><SelectField label="Lead" value={form.leadId} onChange={(leadId) => setForm({ ...form, leadId })} options={(content.leads || []).map((item: any) => ({ value: item.id, label: leadCompanyName(item) }))} /></div><div className="mt-5 flex flex-wrap gap-2"><button onClick={() => navigator.clipboard.writeText(message)} className="rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-[var(--admin-text-primary)]">Mesajı Kopyala</button><a href={`https://wa.me/${String(company?.phone || lead?.phone || "").replace(/\D/g, "")}?text=${encodeURIComponent(message)}`} target="_blank" rel="noreferrer" className="rounded-full border border-emerald-300/30 px-5 py-3 text-sm font-black text-emerald-700">WhatsApp’ta Aç</a><button onClick={addNote} className="rounded-full border border-[var(--admin-border)] px-5 py-3 text-sm text-[var(--admin-text-secondary)]">Takip notu ekle</button><button onClick={() => setActive("Takip Merkezi")} className="rounded-full border border-cyan-200/20 px-5 py-3 text-sm text-cyan-700">Takip Merkezini Aç</button></div></GlassCard>
+        <GlassCard className="p-5"><div className="grid gap-4"><SelectField label="Şablon" value={form.template} onChange={(template) => setForm({ ...form, template })} options={Object.keys(templates)} /><SelectField label="Bağlam" value={form.context} onChange={(context) => setForm({ ...form, context })} options={["Müşteri", "Lead", "Ödeme", "Teklif", "Rapor", "Kampanya"]} /><CompanySelect value={form.companyId} onChange={(companyId) => setForm({ ...form, companyId })} companies={content.companies} /><SelectField label="Lead" value={form.leadId} onChange={(leadId) => setForm({ ...form, leadId })} options={(content.leads || []).map((item: any) => ({ value: item.id, label: leadCompanyName(item) }))} /></div><div className="mt-5 flex flex-wrap gap-2"><button onClick={() => navigator.clipboard.writeText(message)} className="rounded-full bg-cyan-300 px-5 py-3 text-sm font-black text-[var(--admin-text-primary)]">Mesajı Kopyala</button><a href={`https://wa.me/${String(company?.phone || lead?.phone || "").replace(/\D/g, "")}?text=${encodeURIComponent(message)}`} target="_blank" rel="noreferrer" className="rounded-full border border-emerald-300/30 px-5 py-3 text-sm font-black text-emerald-700">WhatsApp’ta Aç</a><button onClick={addNote} className="rounded-full border border-[var(--admin-border)] px-5 py-3 text-sm text-[var(--admin-text-secondary)]">Takip notu ekle</button><button onClick={() => setActive("Lead Merkezi")} className="rounded-full border border-cyan-200/20 px-5 py-3 text-sm text-cyan-700">Lead Merkezi'ni Aç</button></div></GlassCard>
         <GlassCard className="p-5"><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Mesaj Önizleme</p><p className="mt-4 whitespace-pre-wrap rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4 text-sm leading-7 text-[var(--admin-text-secondary)]">{message}</p></GlassCard>
       </div>
     </Panel>
