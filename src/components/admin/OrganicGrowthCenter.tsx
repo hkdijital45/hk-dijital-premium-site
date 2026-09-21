@@ -1,10 +1,11 @@
 "use client";
 /* eslint-disable react-hooks/set-state-in-effect -- fetch-on-mount + selection-sync pattern, same accepted precedent as PreAuditCenter.tsx/ContentPlanningCenter.tsx */
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import {
-  BarChart3, Calendar, CheckCircle2, ClipboardCopy, FileText, Layers, Link2, RefreshCw,
-  Search, Sparkles, TrendingUp
+  BarChart3, Calendar, CheckCircle2, ChevronDown, ClipboardCopy, FileText, Layers, Link2, RefreshCw,
+  Search, Sparkles, ThumbsUp, TrendingUp
 } from "lucide-react";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
@@ -12,12 +13,12 @@ import { AdminKpiCard } from "@/components/admin/ui/AdminKpiCard";
 import { AdminEmptyState, AdminLoadingState } from "@/components/admin/ui/AdminEmptyState";
 import { RichTextEditor } from "@/components/admin/blog/RichTextEditor";
 import {
-  CONTENT_PLAN_STATUSES, CONTENT_PLAN_STATUS_LABELS, TARGET_SERVICES,
+  CONTENT_PLAN_STATUSES, CONTENT_PLAN_STATUS_LABELS, TARGET_SERVICES, isOrganicRecommendationType,
   type ContentPlanItem, type ContentPlanStatus, type MonthlyStrategy, type TopicCluster
 } from "@/lib/organic-growth/types";
 import { buildArticlePrompt, buildMonthlyStrategyPrompt, CLAUDE_PROJECT_NAME } from "@/lib/organic-growth/claude-prompts";
 
-type Tab = "genel-bakis" | "aylik-strateji" | "icerik-plani" | "konu-kumeleri" | "yazilar" | "seo-geo" | "ic-baglantilar" | "performans";
+type Tab = "genel-bakis" | "aylik-strateji" | "icerik-plani" | "konu-kumeleri" | "yazilar" | "seo-geo" | "ic-baglantilar" | "search-console" | "ai-visibility" | "oneriler" | "performans";
 
 const TABS: Array<{ key: Tab; label: string; icon: React.ReactNode }> = [
   { key: "genel-bakis", label: "Genel Bakış", icon: <BarChart3 size={15} /> },
@@ -27,8 +28,13 @@ const TABS: Array<{ key: Tab; label: string; icon: React.ReactNode }> = [
   { key: "yazilar", label: "Yazılar", icon: <FileText size={15} /> },
   { key: "seo-geo", label: "SEO & GEO", icon: <Search size={15} /> },
   { key: "ic-baglantilar", label: "İç Bağlantılar", icon: <Link2 size={15} /> },
+  { key: "search-console", label: "Search Console", icon: <BarChart3 size={15} /> },
+  { key: "ai-visibility", label: "AI Visibility", icon: <Sparkles size={15} /> },
+  { key: "oneriler", label: "Öneriler", icon: <ThumbsUp size={15} /> },
   { key: "performans", label: "Performans / Güncelleme", icon: <TrendingUp size={15} /> }
 ];
+
+type Company = { id: string; name: string };
 
 function nextMonthIso() {
   const now = new Date();
@@ -79,6 +85,18 @@ export function OrganicGrowthCenter() {
   const [cannibalization, setCannibalization] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Müşteri seçimi — canonical company source (same /api/admin/companies
+  // endpoint PreAuditCenter/Crm already use), reused here for the
+  // customer-scoped Search Console / AI Visibility / Öneriler tabs. No new
+  // customer model, no new table.
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>("");
+  const [companyPickerOpen, setCompanyPickerOpen] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/companies").then((r) => r.json()).then((body) => setCompanies(body.companies || [])).catch(() => {});
+  }, []);
+
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
@@ -111,9 +129,27 @@ export function OrganicGrowthCenter() {
     fetch("/api/admin/organic-growth/cannibalization").then((r) => r.json()).then((body) => setCannibalization(body.conflicts || [])).catch(() => {});
   }, [tab]);
 
+  const selectedCompanyName = companies.find((c) => c.id === selectedCompanyId)?.name || "";
+
   return (
     <div className="flex flex-col gap-4">
       <Notice notice={notice} />
+
+      <div className="relative w-fit">
+        <button type="button" onClick={() => setCompanyPickerOpen((v) => !v)} className="flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-black" style={{ borderColor: "var(--admin-border)" }}>
+          {selectedCompanyName ? `Müşteri: ${selectedCompanyName}` : "HK Dijital (kendi içerik/blog)"} <ChevronDown size={14} />
+        </button>
+        {companyPickerOpen && (
+          <div className="absolute z-10 mt-1 max-h-72 w-72 overflow-y-auto rounded-[12px] border bg-white p-1 shadow-lg" style={{ borderColor: "var(--admin-border)" }}>
+            <button type="button" onClick={() => { setSelectedCompanyId(""); setCompanyPickerOpen(false); }} className="block w-full rounded-[8px] px-3 py-2 text-left text-sm font-bold hover:bg-[#F3F2EE]">HK Dijital (kendi içerik/blog)</button>
+            {companies.map((c) => (
+              <button key={c.id} type="button" onClick={() => { setSelectedCompanyId(c.id); setCompanyPickerOpen(false); }} className="block w-full rounded-[8px] px-3 py-2 text-left text-sm font-bold hover:bg-[#F3F2EE]">{c.name}</button>
+            ))}
+            {!companies.length && <p className="px-3 py-2 text-xs" style={{ color: "var(--admin-text-muted)" }}>Müşteri bulunamadı.</p>}
+          </div>
+        )}
+      </div>
+
       <div className="flex flex-wrap gap-2">
         {TABS.map((t) => (
           <button
@@ -156,6 +192,9 @@ export function OrganicGrowthCenter() {
           {tab === "yazilar" && <ArticlesTab posts={posts} notify={notify} reload={loadAll} />}
           {tab === "seo-geo" && <SeoGeoTab posts={posts} cannibalization={cannibalization} />}
           {tab === "ic-baglantilar" && <InternalLinksTab linkData={linkData} />}
+          {tab === "search-console" && <SearchConsoleTab companyId={selectedCompanyId} companyName={selectedCompanyName} overview={overview} />}
+          {tab === "ai-visibility" && <AiVisibilityTab companyId={selectedCompanyId} companyName={selectedCompanyName} />}
+          {tab === "oneriler" && <RecommendationsTab companyId={selectedCompanyId} companyName={selectedCompanyName} />}
           {tab === "performans" && <RefreshTab posts={posts} notify={notify} reload={loadAll} />}
         </>
       )}
@@ -850,6 +889,144 @@ function RefreshTab({ posts, notify, reload }: any) {
           {!needsRefresh.length && <AdminEmptyState title="Güncelleme gereken içerik yok" />}
         </div>
       </div>
+    </div>
+  );
+}
+
+// --- Search Console ---------------------------------------------------------
+
+function SearchConsoleTab({ companyId, companyName, overview }: { companyId: string; companyName: string; overview: any }) {
+  const [status, setStatus] = useState<any>(null);
+  const [loadingStatus, setLoadingStatus] = useState(false);
+
+  useEffect(() => {
+    if (!companyId) { setStatus(null); return; }
+    setLoadingStatus(true);
+    fetch(`/api/admin/organic-growth/customer-status?companyId=${encodeURIComponent(companyId)}`)
+      .then((r) => r.json())
+      .then(setStatus)
+      .catch(() => setStatus({ error: true }))
+      .finally(() => setLoadingStatus(false));
+  }, [companyId]);
+
+  if (!companyId) {
+    return (
+      <div className="admin-card rounded-[16px] p-4">
+        <h3 className="font-black">HK Dijital — Kendi Search Console Verisi</h3>
+        <p className="mt-2 text-sm" style={{ color: "var(--admin-text-secondary)" }}>
+          HK Dijital&apos;in kendi Search Console fırsatları, sorgu/sayfa performansı ve GEO skorlaması <strong>HK Growth Intelligence</strong> merkezinde tutulur — burada ikinci bir kopyası oluşturulmadı.
+        </p>
+        <Link href="/hk-admin/growth-intelligence" className="mt-3 inline-block text-sm font-black" style={{ color: "#0891b2" }}>HK Growth Intelligence&apos;a git →</Link>
+        {overview && <p className="mt-3 text-xs" style={{ color: "var(--admin-text-muted)" }}>Bir müşteri seçerek o müşterinin Search Console bağlantı durumunu buradan görebilirsiniz.</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="admin-card rounded-[16px] p-4">
+      <h3 className="font-black">{companyName} — Search Console Bağlantı Durumu</h3>
+      {loadingStatus ? <AdminLoadingState label="Bağlantı durumu kontrol ediliyor..." /> : status?.error ? (
+        <AdminEmptyState title="Durum alınamadı" description="Bağlantı bilgisi yüklenirken bir sorun oluştu." />
+      ) : (
+        <div className="mt-3 flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <AdminStatusBadge tone={status?.searchConsoleConnected ? "success" : "warning"}>
+              {status?.searchConsoleConnected ? `Search Console bağlı — ${status.searchConsoleSiteUrl}` : "Search Console bağlı değil"}
+            </AdminStatusBadge>
+          </div>
+          <div className="flex items-center gap-2">
+            <AdminStatusBadge tone={status?.ga4Connected ? "success" : "neutral"}>{status?.ga4Connected ? "GA4 bağlı" : "GA4 bağlı değil"}</AdminStatusBadge>
+          </div>
+          {status?.searchConsoleConnected && (
+            <p className="mt-2 text-xs" style={{ color: "var(--admin-text-muted)" }}>
+              Bağlantı doğrulandı; sorgu/tıklama/gösterim düzeyinde performans raporu bu sürümde henüz bu ekrana bağlanmadı — gerçek olmayan veri gösterilmez.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- AI Visibility (GEO) ---------------------------------------------------------
+
+function AiVisibilityTab({ companyId, companyName }: { companyId: string; companyName: string }) {
+  const [profile, setProfile] = useState<any>(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!companyId) { setProfile(null); return; }
+    setLoadingProfile(true);
+    setError("");
+    fetch(`/api/admin/growth-intelligence/gemini-visibility/profile?companyId=${encodeURIComponent(companyId)}`)
+      .then((r) => r.json())
+      .then((body) => { if (body.error) setError(body.error); else setProfile(body.profile); })
+      .catch(() => setError("AI Visibility profili yüklenemedi."))
+      .finally(() => setLoadingProfile(false));
+  }, [companyId]);
+
+  if (!companyId) {
+    return <AdminEmptyState title="Bir müşteri seçin" description="AI Visibility (GEO), müşteri bazlı — üstteki müşteri seçiciden bir müşteri seçin." />;
+  }
+
+  return (
+    <div className="admin-card rounded-[16px] p-4">
+      <h3 className="font-black">{companyName} — AI Visibility (GEO)</h3>
+      <p className="mt-1 text-xs" style={{ color: "var(--admin-text-muted)" }}>Bu veri HK Growth Intelligence&apos;ın Gemini görünürlük altyapısından okunur — ikinci bir GEO izleme sistemi değildir.</p>
+      {loadingProfile ? <AdminLoadingState label="Yükleniyor..." /> : error ? (
+        <AdminEmptyState title="Yetki veya bağlantı sorunu" description={error} />
+      ) : profile ? (
+        <div className="mt-3 flex flex-col gap-2 text-sm">
+          <p><strong>İşletme:</strong> {profile.business_name}</p>
+          {profile.sector && <p><strong>Sektör:</strong> {profile.sector}</p>}
+          <AdminStatusBadge tone={profile.tracking_enabled ? "success" : "neutral"}>{profile.tracking_enabled ? "İzleme aktif" : "İzleme kapalı"}</AdminStatusBadge>
+          <Link href="/hk-admin/growth-intelligence" className="mt-2 inline-block text-sm font-black" style={{ color: "#0891b2" }}>Tarama sonuçları için HK Growth Intelligence&apos;a git →</Link>
+        </div>
+      ) : (
+        <AdminEmptyState title="AI Visibility profili yok" description="Bu müşteri için henüz bir GEO/AI Visibility profili oluşturulmadı." actions={<Link href="/hk-admin/growth-intelligence" className="text-sm font-black" style={{ color: "#0891b2" }}>HK Growth Intelligence&apos;da oluştur →</Link>} />
+      )}
+    </div>
+  );
+}
+
+// --- Recommendations (Öneriler) ---------------------------------------------------------
+
+function RecommendationsTab({ companyId, companyName }: { companyId: string; companyName: string }) {
+  const [recommendations, setRecommendations] = useState<any[] | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!companyId) { setRecommendations(null); return; }
+    setError("");
+    fetch(`/api/admin/customers/${companyId}/ai-insights`)
+      .then((r) => r.json())
+      .then((body) => setRecommendations((body.recommendations || []).filter((r: any) => isOrganicRecommendationType(String(r.recommendation_type || "")))))
+      .catch(() => setError("Öneriler yüklenemedi."));
+  }, [companyId]);
+
+  if (!companyId) {
+    return <AdminEmptyState title="Bir müşteri seçin" description="Öneriler HK Intelligence'ın müşteri bazlı çıktısından okunur — üstteki müşteri seçiciden bir müşteri seçin." />;
+  }
+
+  return (
+    <div className="admin-card rounded-[16px] p-4">
+      <h3 className="font-black">{companyName} — Organik Büyüme Önerileri</h3>
+      <p className="mt-1 text-xs" style={{ color: "var(--admin-text-muted)" }}>HK Intelligence&apos;ın mevcut öneri altyapısından SEO/içerik/GEO ile ilgili olanlar filtrelenir — ikinci bir öneri sistemi değildir.</p>
+      {error ? <AdminEmptyState title="Yüklenemedi" description={error} /> : recommendations === null ? <AdminLoadingState label="Yükleniyor..." /> : (
+        <div className="mt-3 flex flex-col gap-2">
+          {recommendations.map((r) => (
+            <div key={r.id} className="admin-card-soft rounded-[12px] p-3 text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <strong>{r.title}</strong>
+                <AdminStatusBadge tone={r.status === "open" ? "warning" : "neutral"}>{r.status}</AdminStatusBadge>
+              </div>
+              <p className="mt-1 text-xs" style={{ color: "var(--admin-text-muted)" }}>{r.recommendation_type}{r.expected_impact ? ` · Beklenen etki: ${r.expected_impact}` : ""}</p>
+            </div>
+          ))}
+          {!recommendations.length && <AdminEmptyState title="Organik büyüme önerisi yok" description="Bu müşteri için SEO/içerik/GEO ile ilgili aktif bir HK Intelligence önerisi bulunamadı." />}
+        </div>
+      )}
     </div>
   );
 }

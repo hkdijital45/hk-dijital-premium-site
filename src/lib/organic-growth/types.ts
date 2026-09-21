@@ -70,6 +70,17 @@ export type TopicCluster = {
   updated_at: string;
 };
 
+// hk_recommendations.recommendation_type is free-text (no enum), shared
+// across every HK Intelligence CEO analysis area — this keyword filter
+// surfaces the organic/content/SEO/GEO-relevant subset for a customer
+// without adding a new recommendation_type value or a parallel table.
+const ORGANIC_RECOMMENDATION_KEYWORDS = ["seo", "geo", "content", "içerik", "blog", "organik", "organic", "search"];
+
+export function isOrganicRecommendationType(recommendationType: string): boolean {
+  const normalized = recommendationType.toLocaleLowerCase("tr");
+  return ORGANIC_RECOMMENDATION_KEYWORDS.some((keyword) => normalized.includes(keyword));
+}
+
 export type ContentPlanItem = {
   id: string;
   strategy_id: string | null;

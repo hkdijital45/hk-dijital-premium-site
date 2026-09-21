@@ -4,7 +4,7 @@ import { analyzeSeo, analyzeGeo, countWords, extractHeadings, hasInternalLink } 
 import { detectCannibalization } from "../../src/lib/organic-growth/cannibalization.ts";
 import { suggestInternalLinks, findOrphanArticles } from "../../src/lib/organic-growth/internal-links.ts";
 import { buildMonthlyStrategyPrompt, buildArticlePrompt, parseMonthlyPlanImport, parseArticleImport, CLAUDE_PROJECT_NAME } from "../../src/lib/organic-growth/claude-prompts.ts";
-import { CONTENT_PLAN_STATUSES } from "../../src/lib/organic-growth/types.ts";
+import { CONTENT_PLAN_STATUSES, isOrganicRecommendationType } from "../../src/lib/organic-growth/types.ts";
 
 const GOOD_ARTICLE = {
   title: "Instagram Reklamı Nasıl Verilir? İşletmeler İçin Rehber",
@@ -142,6 +142,15 @@ test("parseArticleImport: requires title and a minimum content length", () => {
   assert.equal(parseArticleImport('{"title":"x","content":"kısa"}').valid, false);
   const good = parseArticleImport(JSON.stringify({ title: "Yeterince Uzun Bir Başlık", content: "a".repeat(150) }));
   assert.equal(good.valid, true);
+});
+
+test("isOrganicRecommendationType: matches SEO/content/GEO recommendation types without a new recommendation_type value", () => {
+  assert.ok(isOrganicRecommendationType("seo_improvement"));
+  assert.ok(isOrganicRecommendationType("content_gap"));
+  assert.ok(isOrganicRecommendationType("İçerik Stratejisi"));
+  assert.ok(isOrganicRecommendationType("geo_visibility"));
+  assert.ok(!isOrganicRecommendationType("meta_ads_budget"));
+  assert.ok(!isOrganicRecommendationType("customer_churn_risk"));
 });
 
 test("CONTENT_PLAN_STATUSES matches the spec's exact status set and order-independent membership", () => {
