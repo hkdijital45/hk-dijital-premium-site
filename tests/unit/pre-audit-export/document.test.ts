@@ -196,6 +196,15 @@ test("TEST G — long paragraphs, bullets, tables and long URLs do not crash PDF
   assert.ok(loaded.getPageCount() >= 1);
 });
 
+test("document metaLines: shows only 'Rapor Tarihi' when the report was never meaningfully updated, and includes 'Son Güncelleme' when it was", () => {
+  const neverUpdated = buildPreAuditDocumentPayload(baseReport({ created_at: "2026-09-21T09:00:00.000Z", updated_at: "2026-09-21T09:00:00.000Z" }), COMPANY_NAME);
+  assert.ok(neverUpdated.metaLines!.some((l) => l.startsWith("Rapor Tarihi:")));
+  assert.ok(!neverUpdated.metaLines!.some((l) => l.startsWith("Son Güncelleme:")));
+
+  const laterUpdated = buildPreAuditDocumentPayload(baseReport({ created_at: "2026-09-21T09:00:00.000Z", updated_at: "2026-09-21T15:12:00.000Z" }), COMPANY_NAME);
+  assert.ok(laterUpdated.metaLines!.some((l) => l.startsWith("Son Güncelleme:")));
+});
+
 test("buildPreAuditFileName: sanitizes Turkish characters and picks the correct suffix", () => {
   const withOffer = baseReport();
   const noOffer = baseReport({ recommended_package: {}, budget_plan: {}, recommended_services: [] });

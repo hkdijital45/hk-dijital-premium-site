@@ -4,7 +4,7 @@ import type { PreAuditReport } from "@/lib/pre-audit/types";
 import { PRE_AUDIT_SECTION_LABELS, PRE_AUDIT_INTERNAL_SECTION_LABELS } from "@/lib/pre-audit/types";
 import type { DocumentPayload, DocumentSection, DocumentTable } from "@/lib/server/document-generator";
 import { safeFileNameSegment } from "@/lib/server/document-generator";
-import { normalizeTurkishText, formatTurkishDate } from "@/lib/reports/report-exports";
+import { normalizeTurkishText, formatTurkishDateTime } from "@/lib/reports/report-exports";
 
 // Ön İnceleme report → branded PDF/DOCX document model. EXPORT = RENDER,
 // never research: this only reformats what save_pre_audit_report already
@@ -149,7 +149,13 @@ function hasOfferContent(report: PreAuditReport): boolean {
  * drift into different content. */
 export function buildPreAuditDocumentPayload(report: PreAuditReport, companyDisplayName: string): DocumentPayload {
   const isInternal = report.report_type === "INTERNAL_REPORT";
-  const reportDateLabel = formatTurkishDate(report.report_date);
+  // created_at/updated_at (timestamptz) carry real time-of-day; report_date
+  // is a bare date column, so the document's "Rapor Tarihi" uses created_at
+  // to let the operator tell same-day re-checks apart.
+  const createdLabel = formatTurkishDateTime(report.created_at);
+  const updatedLabel = formatTurkishDateTime(report.updated_at);
+  const meaningfullyUpdated = Boolean(report.created_at && report.updated_at) &&
+    Math.abs(new Date(report.updated_at).getTime() - new Date(report.created_at).getTime()) >= 60000;
   const offerTitle = hasOfferContent(report);
 
   const sections = buildClientSections(report);
@@ -163,7 +169,7 @@ export function buildPreAuditDocumentPayload(report: PreAuditReport, companyDisp
       ? "HK Dijital — Dahili Ön İnceleme Raporu"
       : offerTitle ? "HK Dijital — Ön İnceleme ve Teklif Raporu" : "HK Dijital — Ön İnceleme Raporu",
     customerName: companyDisplayName,
-    period: reportDateLabel,
+    period: createdLabel,
     executiveSummary: textValue(report.executive_summary || ""),
     sections,
     footerNote: isInternal
@@ -173,7 +179,8 @@ export function buildPreAuditDocumentPayload(report: PreAuditReport, companyDisp
     confidentialLabel: isInternal ? "Dahili Kullanım" : undefined,
     metaLines: [
       `Firma: ${companyDisplayName}`,
-      `Rapor Tarihi: ${reportDateLabel}`,
+      `Rapor Tarihi: ${createdLabel}`,
+      ...(meaningfullyUpdated ? [`Son Güncelleme: ${updatedLabel}`] : []),
       "Hazırlayan: HK Dijital"
     ]
   };

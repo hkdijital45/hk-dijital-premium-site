@@ -23,7 +23,7 @@ const REJECTION_REASONS = [
 
 type Company = { id: string; name: string };
 type ReportType = "INTERNAL_REPORT" | "CLIENT_REPORT";
-type ListItem = { id: string; company_id: string | null; lead_id: string | null; analysis_group_id: string; report_type: ReportType; title: string; status: string; report_date: string; recommended_package: unknown; created_at: string };
+type ListItem = { id: string; company_id: string | null; lead_id: string | null; analysis_group_id: string; report_type: ReportType; title: string; status: string; report_date: string; recommended_package: unknown; created_at: string; updated_at: string };
 type Summary = { totalPreAudits: number; thisMonth: number; potentialCompanies: number; convertedCompanies: number };
 type FullReport = Record<string, unknown> & { id: string; report_type: ReportType; title: string; status: string; report_date: string; analysis_group_id: string; company_id: string | null; lead_id: string | null };
 type QueueLead = {
@@ -49,6 +49,25 @@ function isEmpty(value: unknown): boolean {
 function formatDate(iso: string | null) {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+/** DB timestamps are UTC; toLocaleString with no explicit timeZone uses
+ * the browser's own local timezone (the same conversion standard every
+ * other admin timestamp in this app already relies on) — no hard-coded
+ * offset. */
+function formatDateTime(iso: string | null | undefined) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("tr-TR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+/** Same underlying timestamp truncated to the minute can differ by a
+ * few ms (created_at/updated_at set in the same DB write) — compare at
+ * minute granularity so a save that never touched a field doesn't show
+ * a misleading "Son güncelleme" that's identical to "Oluşturuldu" down
+ * to the millisecond, or conversely hide a real same-minute update. */
+function isMeaningfullyUpdated(createdAt: string | null | undefined, updatedAt: string | null | undefined) {
+  if (!createdAt || !updatedAt) return false;
+  return Math.abs(new Date(updatedAt).getTime() - new Date(createdAt).getTime()) >= 60000;
 }
 
 function Card({ children }: { children: React.ReactNode }) {
@@ -182,6 +201,10 @@ function ReportDetail({ report, onSendOffer, onReject, onExport, exportBusy }: {
         <AdminStatusBadge tone="neutral">{formatDate(report.report_date as string)}</AdminStatusBadge>
         <AdminStatusBadge tone="info">{String(report.status || "draft")}</AdminStatusBadge>
       </div>
+      <p className="text-xs font-bold" style={{ color: "var(--admin-text-muted)" }}>
+        Oluşturuldu: {formatDateTime(report.created_at as string)}
+        {isMeaningfullyUpdated(report.created_at as string, report.updated_at as string) && <> · Son güncelleme: {formatDateTime(report.updated_at as string)}</>}
+      </p>
 
       {onExport && (
         <div className="flex flex-wrap gap-2">
@@ -576,8 +599,12 @@ export function PreAuditCenter({ initialTab }: { initialTab?: Tab } = {}) {
                   <Card key={groupId}>
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
-                        <p className="text-sm font-black">{company?.name || first.title || "Aday"} · {formatDate(first.report_date)}</p>
+                        <p className="text-sm font-black">{company?.name || first.title || "Aday"} — Dijital Ön İnceleme Raporu</p>
                         <p className="text-xs font-bold" style={{ color: "var(--admin-text-muted)" }}>{first.title || "Başlıksız"}{!company && " · Lead"}</p>
+                        <p className="mt-0.5 text-xs" style={{ color: "var(--admin-text-muted)" }}>
+                          Oluşturuldu: {formatDateTime(first.created_at)}
+                          {isMeaningfullyUpdated(first.created_at, first.updated_at) && <> · Son güncelleme: {formatDateTime(first.updated_at)}</>}
+                        </p>
                       </div>
                       <div className="flex flex-wrap gap-1.5">
                         {items.map((r) => (

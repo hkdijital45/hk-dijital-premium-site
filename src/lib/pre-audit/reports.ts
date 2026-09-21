@@ -143,16 +143,27 @@ const TEXT_FIELDS = [
 /** Server-side authoritative save: verifies the company/lead actually
  * exists (never trusts a client-supplied context blindly), strips
  * internal-only outreach/sales fields from CLIENT_REPORT rows regardless
- * of what the caller sent, and always INSERTs a new row — never
- * overwrites a prior report, so history is preserved. When lead_id is
- * given, this is the one allowed automatic status transition: the lead's
- * pre-review queue status moves to COMPLETED, since a saved report is
- * exactly what "review completed" means — no other lead/company field is
- * ever touched by this path. */
+ * of what the caller sent. When lead_id is given, this is the one
+ * allowed automatic status transition: the lead's pre-review queue
+ * status moves to COMPLETED, since a saved report is exactly what
+ * "review completed" means — no other lead/company field is ever
+ * touched by this path.
+ *
+ * INSERT vs UPDATE: a genuinely new research pass (no reportId, no
+ * matching existing analysis_group_id+report_type row) always INSERTs a
+ * new row — report history for real re-audits is preserved. But an
+ * explicit "update this exact report" (reportId — the id returned by a
+ * prior save or get_latest_pre_audit_report) or a retried/duplicate call
+ * for the SAME research pass (analysisGroupId matching an existing row
+ * of the same report_type) UPDATEs that row in place instead of creating
+ * a sibling duplicate: same id, created_at untouched, updated_at bumped
+ * by the table's existing pre_audit_reports_set_updated_at trigger — no
+ * new column/table needed for this. */
 export async function savePreAuditReport(
   input: SavePreAuditReportInput,
-  analysisGroupId?: string
-): Promise<{ success: true; report_id: string; analysis_group_id: string; company_id: string | null; lead_id: string | null; report_type: PreAuditReportType; created_at: string }> {
+  analysisGroupId?: string,
+  reportId?: string
+): Promise<{ success: true; report_id: string; analysis_group_id: string; company_id: string | null; lead_id: string | null; report_type: PreAuditReportType; created_at: string; updated: boolean }> {
   let resolvedCompanyId = input.company_id || null;
   let resolvedLeadId = input.lead_id || null;
 
@@ -198,8 +209,28 @@ export async function savePreAuditReport(
     if (input[field] !== undefined) row[field] = input[field];
   }
 
-  const rows = await supabaseRest<PreAuditReport[]>(PRE_AUDIT_TABLE, { method: "POST", body: JSON.stringify(row) });
-  const saved = rows[0];
+  // Resolve which existing row (if any) this save should update in place,
+  // rather than insert a duplicate for.
+  let targetId: string | null = null;
+  if (reportId) {
+    const existing = await supabaseRest<Array<{ id: string; report_type: PreAuditReportType; company_id: string | null; lead_id: string | null }>>(
+      `${PRE_AUDIT_TABLE}?select=id,report_type,company_id,lead_id&id=eq.${encodeURIComponent(reportId)}&limit=1`
+    );
+    const match = existing[0];
+    if (!match) throw new PreAuditValidationError(`reportId doğrulanamadı: ${reportId} bulunamadı.`);
+    if (match.report_type !== input.report_type) throw new PreAuditValidationError(`reportId (${reportId}) bir ${match.report_type} raporu — report_type=${input.report_type} ile güncellenemez.`);
+    if (match.company_id !== resolvedCompanyId || match.lead_id !== resolvedLeadId) throw new PreAuditValidationError("reportId, verilen company_id/lead_id ile eşleşmiyor.");
+    targetId = match.id;
+  } else if (analysisGroupId) {
+    const existing = await supabaseRest<Array<{ id: string }>>(
+      `${PRE_AUDIT_TABLE}?select=id&analysis_group_id=eq.${encodeURIComponent(analysisGroupId)}&report_type=eq.${encodeURIComponent(input.report_type)}&limit=1`
+    );
+    if (existing[0]) targetId = existing[0].id;
+  }
+
+  const saved = targetId
+    ? (await supabaseRest<PreAuditReport[]>(`${PRE_AUDIT_TABLE}?id=eq.${encodeURIComponent(targetId)}`, { method: "PATCH", body: JSON.stringify(row) }))[0]
+    : (await supabaseRest<PreAuditReport[]>(PRE_AUDIT_TABLE, { method: "POST", body: JSON.stringify(row) }))[0];
   if (!saved) throw new Error("Ön inceleme raporu kaydedilemedi.");
 
   if (saved.lead_id) {
@@ -210,6 +241,7 @@ export async function savePreAuditReport(
   }
 
   return {
+    updated: Boolean(targetId),
     success: true,
     report_id: saved.id,
     analysis_group_id: saved.analysis_group_id,
@@ -254,7 +286,7 @@ export async function getLatestPreAuditReport(companyId?: string, reportType?: P
 
 export async function listPreAuditReports(companyId?: string, search?: string, limit = 200, leadId?: string): Promise<PreAuditReportListItem[]> {
   const filters = [
-    "select=id,company_id,lead_id,analysis_group_id,report_type,title,status,report_date,recommended_package,created_at",
+    "select=id,company_id,lead_id,analysis_group_id,report_type,title,status,report_date,recommended_package,created_at,updated_at",
     companyId ? `company_id=eq.${encodeURIComponent(companyId)}` : "",
     leadId ? `lead_id=eq.${encodeURIComponent(leadId)}` : "",
     search?.trim() ? `title=ilike.*${encodeURIComponent(search.trim())}*` : "",

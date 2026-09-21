@@ -118,5 +118,5 @@ export type PreAuditReport = {
 
 export type PreAuditReportListItem = Pick<
   PreAuditReport,
-  "id" | "company_id" | "lead_id" | "analysis_group_id" | "report_type" | "title" | "status" | "report_date" | "recommended_package" | "created_at"
+  "id" | "company_id" | "lead_id" | "analysis_group_id" | "report_type" | "title" | "status" | "report_date" | "recommended_package" | "created_at" | "updated_at"
 >;

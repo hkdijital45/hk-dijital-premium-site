@@ -69,12 +69,12 @@ export const tools: Tool[] = [
   },
   {
     name: "save_pre_audit_report",
-    description: "Save an explicitly approved pre-audit / sales intelligence report to the verified HK Dijital company or lead. Pass exactly one of companyId (existing company) or leadId (a Müşteri Keşfi discovery candidate pre-review — saving here automatically completes that lead's pre-review queue status, the only status this tool ever changes). Supports report_type INTERNAL_REPORT (HK Dijital's own use — sales notes, script, objections, DM/WhatsApp drafts) and CLIENT_REPORT (clean, presentable version — internal-only fields are always stripped server-side regardless of what is sent). Pass analysisGroupId (returned by a prior save in the same research pass) to link a CLIENT_REPORT to its INTERNAL_REPORT sibling; omit it to start a new research pass. Only use after the user explicitly asks to save or transfer the report to HK Dijital — analyzing, researching, or drafting alone is never itself a save instruction. Always inserts a new row; never overwrites a prior report.",
+    description: "Save an explicitly approved pre-audit / sales intelligence report to the verified HK Dijital company or lead. Pass exactly one of companyId (existing company) or leadId (a Müşteri Keşfi discovery candidate pre-review — saving here automatically completes that lead's pre-review queue status, the only status this tool ever changes). Supports report_type INTERNAL_REPORT (HK Dijital's own use — sales notes, script, objections, DM/WhatsApp drafts) and CLIENT_REPORT (clean, presentable version — internal-only fields are always stripped server-side regardless of what is sent). A genuinely NEW research pass (first analysis, or a deliberate re-audit later) should omit both reportId and analysisGroupId — this always inserts a new row, preserving report history. To UPDATE an existing report in place instead (user says 'bu raporu güncelle'/'yeniden kontrol et'/'refresh this report' about a report you already have) pass reportId — the id from a prior save's response or from get_latest_pre_audit_report's `latest.id` — and this overwrites that exact row (same id, same report_type required) rather than creating a duplicate. Pass analysisGroupId (returned by a prior save in the same research pass, without reportId) to link a CLIENT_REPORT to its INTERNAL_REPORT sibling from that same pass; if a row already exists for that analysisGroupId+report_type, it is updated in place too, so an accidental retry never creates a duplicate. Only use after the user explicitly asks to save or transfer the report to HK Dijital — analyzing, researching, or drafting alone is never itself a save instruction.",
     permission: "WRITE_SAFE",
     inputSchema: {
       type: "object",
       properties: {
-        companyId, leadId: text, analysisGroupId: text, reportType: text, title: text, status: text, reportDate: dateField,
+        companyId, leadId: text, analysisGroupId: text, reportId: text, reportType: text, title: text, status: text, reportDate: dateField,
         executiveSummary: text,
         digitalPresence: obj, googleAnalysis: obj, mapsAnalysis: obj, websiteAnalysis: obj, seoAnalysis: obj, socialAnalysis: obj,
         metaAdsAnalysis: obj, googleAdsAnalysis: obj, marketAnalysis: obj, competitorAnalysis: obj, swot: obj,
@@ -87,7 +87,7 @@ export const tools: Tool[] = [
   },
   {
     name: "get_latest_pre_audit_report",
-    description: "Get the latest saved pre-audit report for a verified HK Dijital company or lead, including the related internal/client report versions from the same research pass when available. Accepts companyId (and companyName as a fallback) for a company, or leadId for a Müşteri Keşfi discovery candidate. Optional reportType filters to only INTERNAL_REPORT or only CLIENT_REPORT. Returns not_found (never a fake placeholder) if no report exists yet.",
+    description: "Get the latest saved pre-audit report for a verified HK Dijital company or lead, including the related internal/client report versions from the same research pass when available. Accepts companyId (and companyName as a fallback) for a company, or leadId for a Müşteri Keşfi discovery candidate. Optional reportType filters to only INTERNAL_REPORT or only CLIENT_REPORT. Returns not_found (never a fake placeholder) if no report exists yet. To update this report instead of creating a new one, pass the returned `latest.id` as reportId to save_pre_audit_report.",
     permission: "READ_ONLY",
     inputSchema: { type: "object", properties: { companyId, companyName: text, leadId: text, reportType: text }, required: [], additionalProperties: false }
   }
@@ -315,7 +315,7 @@ export async function execute(name: string, args: Record<string, unknown>): Prom
           sales_notes: str(args.salesNotes), sales_script: str(args.salesScript), instagram_dm: str(args.instagramDm),
           whatsapp_initial: str(args.whatsappInitial), whatsapp_with_pdf: str(args.whatsappWithPdf), objections: args.objections
         });
-        return await savePreAuditReport(payload, str(args.analysisGroupId));
+        return await savePreAuditReport(payload, str(args.analysisGroupId), str(args.reportId));
       } catch (error) {
         if (error instanceof PreAuditValidationError) throw new ControlError("INVALID_ARGUMENTS", error.message, 400);
         if (error instanceof PreAuditCompanyNotFoundError) throw new ControlError("NOT_FOUND", error.message, 404);

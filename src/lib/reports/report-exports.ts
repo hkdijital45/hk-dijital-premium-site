@@ -124,6 +124,19 @@ export function formatTurkishDate(value: unknown) {
   return new Intl.DateTimeFormat("tr-TR", { day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
 }
 
+/** Same UTC→local conversion Intl already applies with no explicit
+ * timeZone (server-rendered documents use the server's local timezone —
+ * consistent with every other date shown in this app, no hard-coded
+ * offset). Used where a timestamp (not a bare date column) is available,
+ * e.g. pre_audit_reports.created_at/updated_at, to distinguish same-day
+ * re-checks. */
+export function formatTurkishDateTime(value: unknown) {
+  if (!value) return "-";
+  const date = new Date(String(value));
+  if (Number.isNaN(date.getTime())) return normalizeTurkishText(value);
+  return new Intl.DateTimeFormat("tr-TR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(date);
+}
+
 export function formatTurkishCurrency(value: unknown) {
   return new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY", maximumFractionDigits: 2 }).format(Number(value || 0));
 }
