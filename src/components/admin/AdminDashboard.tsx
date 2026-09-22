@@ -12969,7 +12969,16 @@ function BusinessLeadDetailPanel({ record, mapsHref, metaHref, saveBusiness, pro
         <AdminStatusBadge tone={scoreTone(heat)}>Sıcaklık {heat ?? "-"}</AdminStatusBadge>
         <AdminStatusBadge tone={scoreTone(adPotentialScore)}>Reklam Potansiyeli {adPotentialScore}/100</AdminStatusBadge>
         {existingLead && <AdminStatusBadge tone="success">CRM'de Kayıtlı</AdminStatusBadge>}
+        <AdminStatusBadge tone={record.instagramVerification?.profileFound ? "success" : "neutral"}>
+          {record.instagramVerification?.profileFound ? "Instagram bulundu" : "Instagram doğrulanamadı"}
+        </AdminStatusBadge>
+        <AdminStatusBadge tone={{ HIGH: "danger", MEDIUM: "warning", LOW: "success", UNKNOWN: "neutral" }[record.hkDigitalNeedLevel as string] || "neutral"}>
+          HK Dijital İhtiyacı: {{ HIGH: "Yüksek", MEDIUM: "Orta", LOW: "Düşük", UNKNOWN: "Doğrulama gerekli" }[record.hkDigitalNeedLevel as string] || "Doğrulama gerekli"}
+        </AdminStatusBadge>
       </div>
+      {Array.isArray(record.hkDigitalNeedReasons) && record.hkDigitalNeedReasons.length > 0 && (
+        <p className="mt-1.5 text-xs leading-5" style={{ color: "var(--admin-text-muted)" }}>{record.hkDigitalNeedReasons.join(" ")}</p>
+      )}
 
       <div className="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-3">
         <AdminButton compact variant={record.phone ? "secondary" : "ghost"} disabled={!record.phone} onClick={() => callBusiness(record)}>Ara</AdminButton>

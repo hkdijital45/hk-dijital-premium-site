@@ -99,7 +99,7 @@ export const tools: Tool[] = [
   // scoring system, no second lead database. ---
   {
     name: "search_customer_discovery",
-    description: "Search REAL businesses via HK Dijital's existing Google Maps/Places Müşteri Keşfi engine — never mock/demo data. sector and city are required (same validation as the admin UI). Returns a compact list per candidate (placeId, name, category, city/district, address, googleRating, reviewCount, hasWebsite, hasPhone, opportunityScore, hkOpportunityTier, crmStatus) — call get_customer_discovery_candidate for a specific candidate's full detail. Read-only — never creates a lead.",
+    description: "Search REAL businesses via HK Dijital's existing Google Maps/Places Müşteri Keşfi engine — never mock/demo data. sector and city are required (same validation as the admin UI). Returns a compact list per candidate (placeId, name, category, city/district, address, googleRating, reviewCount, hasWebsite, hasPhone, opportunityScore, hkOpportunityTier, crmStatus, instagramFound, hkDigitalNeedLevel) — call get_customer_discovery_candidate for a specific candidate's full detail including WHY. hkDigitalNeedLevel (HIGH/MEDIUM/LOW/UNKNOWN) is a separate, deterministic sales-priority signal from opportunityScore — a business can have a high opportunityScore but LOW need (already digitally strong) or a lower score but HIGH need (good real-world reputation, weak digital presence). Read-only — never creates a lead.",
     permission: "READ_ONLY",
     inputSchema: {
       type: "object",
@@ -110,7 +110,7 @@ export const tools: Tool[] = [
   },
   {
     name: "get_customer_discovery_candidate",
-    description: "Get the full Müşteri Keşfi detail for one specific business by its Google placeId (from a prior search_customer_discovery result) — real Google Places data plus the same HK Opportunity Score/ad-signal evidence the admin UI shows. Returns null if Google has no record of this placeId (never a fabricated fallback). Read-only.",
+    description: "Get the full Müşteri Keşfi detail for one specific business by its Google placeId (from a prior search_customer_discovery result) — real Google Places data plus the same HK Opportunity Score/ad-signal evidence the admin UI shows, plus instagramVerification and hkDigitalNeedLevel/hkDigitalNeedReasons. IMPORTANT Instagram limitation: HK Dijital's connected Instagram integration cannot fetch real follower/media/engagement data for third-party accounts (no Business Discovery access on the current OAuth product) — instagramVerification only reports whether a profile was found linked from the business's OWN website (matchConfidence HIGH or NOT_FOUND) and always has dataAvailable:false, analysisConfidence:\"manual_check_required\". Never present engagement/follower numbers as real — they are not returned because they cannot be obtained safely. Returns null if Google has no record of this placeId. Read-only.",
     permission: "READ_ONLY",
     inputSchema: { type: "object", properties: { placeId: text, sector: text, city: text, district: text, neighborhood: text }, required: ["placeId"], additionalProperties: false }
   },

@@ -40,7 +40,11 @@ const SERVER_INSTRUCTIONS =
   "existing Müşteri Keşfi (Google Maps/Places business discovery) engine — real businesses only, never " +
   "mock data. save_discovery_as_lead is the only write here and must only be called after the user " +
   "explicitly asks to save/transfer a specific business as a lead; it reuses the admin UI's exact " +
-  "duplicate-detection logic and returns already_exists instead of creating a second lead row.";
+  "duplicate-detection logic and returns already_exists instead of creating a second lead row. " +
+  "instagramVerification/hkDigitalNeedLevel (in search and candidate results) never report real " +
+  "third-party follower/engagement data — only whether a profile is linked from the business's own " +
+  "website (HIGH/NOT_FOUND) and a deterministic HIGH/MEDIUM/LOW/UNKNOWN sales-priority signal separate " +
+  "from opportunityScore; always treat deeper Instagram quality as manual_check_required.";
 
 function toolResult(payload: { success: boolean; data: unknown; error: unknown }) {
   const clean = sanitize(payload) as Record<string, unknown>;

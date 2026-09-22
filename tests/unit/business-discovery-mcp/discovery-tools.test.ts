@@ -49,6 +49,9 @@ test("A) SEARCH — real Google Maps results, compact shape, no fake data", { sk
     assert.equal(business.outreach, undefined);
     assert.equal(business.scoreBreakdown, undefined);
     assert.equal(business.salesRecommendation, undefined);
+    // Instagram/HK-need signal must be present but never fabricated
+    assert.equal(typeof business.instagramFound, "boolean");
+    assert.ok(["HIGH", "MEDIUM", "LOW", "UNKNOWN"].includes(business.hkDigitalNeedLevel));
   }
 });
 
@@ -70,9 +73,22 @@ test("B) CANDIDATE — a real placeId returns full detail; an invalid placeId re
   assert.equal(candidate.placeId, placeId);
   assert.ok(candidate.name);
   assert.equal(typeof candidate.opportunityScore, "number");
+  // Instagram verification must never claim real third-party engagement data.
+  assert.equal(candidate.instagramVerification.dataAvailable, false);
+  assert.equal(candidate.instagramVerification.analysisConfidence, "manual_check_required");
+  assert.ok(!("followersCount" in candidate.instagramVerification));
+  assert.ok(["HIGH", "MEDIUM", "LOW", "UNKNOWN"].includes(candidate.hkDigitalNeedLevel));
+  assert.ok(Array.isArray(candidate.hkDigitalNeedReasons));
 
   const notFound: any = await execute("get_customer_discovery_candidate", { placeId: "ChIJ_totally_invalid_place_id_00000" });
   assert.equal(notFound.status, "not_found");
+});
+
+test("D) SECURITY/HONESTY — MCP tool descriptions disclose the Instagram limitation, never imply real engagement data", async () => {
+  const { tools } = await import("../../../src/lib/instagram-intelligence/mcp/protocol.ts");
+  const candidateTool = tools.find((t: any) => t.name === "get_customer_discovery_candidate");
+  assert.match(candidateTool!.description, /manual_check_required/);
+  assert.match(candidateTool!.description, /cannot fetch real follower/i);
 });
 
 test("C) SAVE — saving a real candidate creates exactly one lead, and saving it again returns already_exists (no duplicate)", { skip: skip ? skipReason : false }, async () => {

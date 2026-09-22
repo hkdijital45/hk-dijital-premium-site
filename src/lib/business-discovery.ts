@@ -23,6 +23,7 @@ import {
 import { normalizeSectorInput } from "@/lib/sector-signal";
 import { dedupePlacesById } from "@/lib/discovery-dedupe";
 import { scanWebsiteForAdSignals } from "@/lib/website-signal-scan";
+import { buildInstagramVerification, computeHkDigitalNeedLevel } from "@/lib/instagram-verification";
 import { hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
 export class DiscoveryConfigError extends Error {}
@@ -104,7 +105,7 @@ function numberFilter(value: unknown) {
 
 async function enrichBusiness(business: DiscoveredBusiness): Promise<Record<string, any>> {
   const scored = scoreDiscoveredBusiness(business);
-  const scan = await scanWebsiteForAdSignals(business.website).catch(() => ({ metaPixelDetected: null, googleTagDetected: null, whatsappLinkDetected: null, scanFailed: true, checkedAt: new Date().toISOString() }));
+  const scan = await scanWebsiteForAdSignals(business.website).catch(() => ({ metaPixelDetected: null, googleTagDetected: null, whatsappLinkDetected: null, instagramProfile: null, scanFailed: true, checkedAt: new Date().toISOString() }));
   const advertising: AdvertisingEvidence = evaluateAdvertisingSignals({
     website: business.website,
     metaPixelDetected: scan.metaPixelDetected,
@@ -114,8 +115,19 @@ async function enrichBusiness(business: DiscoveredBusiness): Promise<Record<stri
   });
   const businessWithWhatsapp: DiscoveredBusiness = {
     ...business,
-    whatsapp: business.whatsapp || (scan.whatsappLinkDetected ? business.phone : undefined)
+    whatsapp: business.whatsapp || (scan.whatsappLinkDetected ? business.phone : undefined),
+    instagram: business.instagram || scan.instagramProfile?.url || undefined
   };
+  const instagramVerification = buildInstagramVerification(scan.instagramProfile, scan.checkedAt);
+  const hkDigitalNeed = computeHkDigitalNeedLevel({
+    hasWebsite: Boolean(business.website),
+    websiteScanFailed: scan.scanFailed,
+    instagramFound: instagramVerification.profileFound,
+    metaPixelDetected: scan.metaPixelDetected,
+    googleTagDetected: scan.googleTagDetected,
+    googleRating: typeof business.googleRating === "number" ? business.googleRating : typeof business.rating === "number" ? business.rating : null,
+    reviewCount: Number(business.reviewCount || 0)
+  });
   const opportunityScore = calculateHkOpportunityScore(businessWithWhatsapp, advertising);
   const tier = getHkOpportunityTier(opportunityScore);
   const metaSuitability = calculateMetaSuitability(businessWithWhatsapp);
@@ -148,7 +160,10 @@ async function enrichBusiness(business: DiscoveredBusiness): Promise<Record<stri
     advertisingLastCheckedAt: advertising.advertisingLastCheckedAt,
     salesRecommendation,
     outreach,
-    crmStatus: business.crmStatus || "CRM'de yok"
+    crmStatus: business.crmStatus || "CRM'de yok",
+    instagramVerification,
+    hkDigitalNeedLevel: hkDigitalNeed.level,
+    hkDigitalNeedReasons: hkDigitalNeed.reasons
   };
 }
 
@@ -501,7 +516,9 @@ export function toDiscoverySummary(business: Record<string, any>) {
     hasPhone: Boolean(business.phone),
     opportunityScore: business.opportunityScore ?? null,
     hkOpportunityTier: business.hkOpportunityTier || null,
-    crmStatus: business.crmStatus || "CRM'de yok"
+    crmStatus: business.crmStatus || "CRM'de yok",
+    instagramFound: Boolean(business.instagramVerification?.profileFound),
+    hkDigitalNeedLevel: business.hkDigitalNeedLevel || "UNKNOWN"
   };
 }
 
@@ -532,7 +549,16 @@ export function toDiscoveryDetail(business: Record<string, any>) {
     metaSuitabilityNote: business.metaSuitabilityNote || null,
     salesRecommendation: business.salesRecommendation || null,
     outreach: business.outreach || null,
-    crmStatus: business.crmStatus || "CRM'de yok"
+    crmStatus: business.crmStatus || "CRM'de yok",
+    // Instagram/digital-presence verification: profile MATCHING is real
+    // (the business's own website linking to it), but per-account stats
+    // (followers/media/posting frequency) are NOT available — HK Dijital's
+    // connected Instagram integration has no Business Discovery access for
+    // third-party accounts (see instagram-verification.ts header comment).
+    // Never fabricated; analysisConfidence is always "manual_check_required".
+    instagramVerification: business.instagramVerification || null,
+    hkDigitalNeedLevel: business.hkDigitalNeedLevel || "UNKNOWN",
+    hkDigitalNeedReasons: business.hkDigitalNeedReasons || []
   };
 }
 
