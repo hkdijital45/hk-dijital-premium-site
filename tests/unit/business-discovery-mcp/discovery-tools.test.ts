@@ -1,129 +1,49 @@
-// Run via `npm run test:business-discovery-mcp` — a real integration test
-// (real Google Maps API + real Supabase, loaded via --env-file=.env.local)
-// against the actual MCP dispatcher (execute() in protocol.ts), the same
-// path Claude's "HK Dijital — Müşteri Keşfi" connector calls through. Skips
-// gracefully without GOOGLE_MAPS_API_KEY/Supabase credentials, same pattern
-// as tests/e2e/fixtures/qa-auth.ts and the existing
-// tests/unit/pre-audit-export/save-report-versioning.test.ts.
+// Run via `npm run test:business-discovery-mcp`. Originally covered the
+// Claude/MCP customer-discovery tools (search_customer_discovery/
+// get_customer_discovery_candidate/save_discovery_as_lead), which have
+// been removed — the main Google Maps/Places Müşteri Keşfi screen, HK
+// Opportunity Score, Lead'e Kaydet and Ön İnceleme flows are unaffected;
+// only the Claude/MCP layer on top of them was removed. This file now
+// guards against regression: the 3 tools must stay gone, the rest of the
+// MCP connector must stay intact, and the admin route must keep working.
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const hasGoogleMaps = Boolean(process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_API_KEY);
-const hasSupabase = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
-const skip = !hasGoogleMaps || !hasSupabase;
-const skipReason = "GOOGLE_MAPS_API_KEY / Supabase credentials not available in this environment — live discovery-tools coverage skipped rather than faked.";
-
-test("REGRESSION — all 26 MCP tools registered (23 existing + 3 new discovery tools), no duplicate names", async () => {
+test("REGRESSION — Claude customer-discovery MCP tools have been removed (23 tools remain, no duplicate names)", async () => {
   const { tools } = await import("../../../src/lib/instagram-intelligence/mcp/protocol.ts");
   const names = tools.map((t: any) => t.name);
-  assert.equal(names.length, 26);
+  assert.equal(names.length, 23);
   assert.equal(new Set(names).size, names.length, "no duplicate tool names");
-  for (const existing of ["get_pre_audit_context", "customer_list", "meta_ads_account", "get_instagram_account"]) {
+  for (const removed of ["search_customer_discovery", "get_customer_discovery_candidate", "save_discovery_as_lead"]) {
+    assert.ok(!names.includes(removed), `${removed} must no longer be registered`);
+  }
+  for (const existing of ["get_pre_audit_context", "customer_list", "meta_ads_account", "get_instagram_account", "save_marketing_intelligence", "get_ads_strategy_context"]) {
     assert.ok(names.includes(existing), `pre-existing tool ${existing} must still be registered`);
   }
-  for (const added of ["search_customer_discovery", "get_customer_discovery_candidate", "save_discovery_as_lead"]) {
-    assert.ok(names.includes(added));
-  }
 });
 
-test("SECURITY — search/candidate tools are READ_ONLY, save is WRITE_SAFE, save requires placeId", async () => {
-  const { tools } = await import("../../../src/lib/instagram-intelligence/mcp/protocol.ts");
-  const byName = Object.fromEntries(tools.map((t: any) => [t.name, t]));
-  assert.equal(byName.search_customer_discovery.permission, "READ_ONLY");
-  assert.equal(byName.get_customer_discovery_candidate.permission, "READ_ONLY");
-  assert.equal(byName.save_discovery_as_lead.permission, "WRITE_SAFE");
-  assert.deepEqual(byName.save_discovery_as_lead.inputSchema.required, ["placeId"]);
-  assert.match(byName.save_discovery_as_lead.description, /explicitly/i);
-});
-
-test("A) SEARCH — real Google Maps results, compact shape, no fake data", { skip: skip ? skipReason : false }, async () => {
-  const { execute } = await import("../../../src/lib/instagram-intelligence/mcp/protocol.ts");
-  const result: any = await execute("search_customer_discovery", { sector: "Güzellik Merkezi", city: "Manisa", limit: 3 });
-  assert.ok(Array.isArray(result.businesses));
-  assert.ok(result.businesses.length <= 3);
-  assert.equal(typeof result.districtLabel, "string");
-  for (const business of result.businesses) {
-    assert.ok(business.placeId, "every real result must carry a real Google placeId");
-    assert.ok(business.name);
-    // compact shape: heavy/noisy fields must NOT leak into search results
-    assert.equal(business.outreach, undefined);
-    assert.equal(business.scoreBreakdown, undefined);
-    assert.equal(business.salesRecommendation, undefined);
-    // Instagram/HK-need signal must be present but never fabricated
-    assert.equal(typeof business.instagramFound, "boolean");
-    assert.ok(["HIGH", "MEDIUM", "LOW", "UNKNOWN"].includes(business.hkDigitalNeedLevel));
-  }
-});
-
-test("A2) SEARCH — sector/city are required, matching the admin UI's own validation", async () => {
+test("REGRESSION — execute() rejects the removed tool names as UNKNOWN_TOOL rather than silently handling them", async () => {
   const { execute, ControlError } = await import("../../../src/lib/instagram-intelligence/mcp/protocol.ts");
-  await assert.rejects(() => execute("search_customer_discovery", { city: "Manisa" }), (error: unknown) => {
-    assert.ok(error instanceof ControlError || error instanceof Error);
-    return true;
-  });
-});
-
-test("B) CANDIDATE — a real placeId returns full detail; an invalid placeId returns not_found, never a crash or fake data", { skip: skip ? skipReason : false }, async () => {
-  const { execute } = await import("../../../src/lib/instagram-intelligence/mcp/protocol.ts");
-  const search: any = await execute("search_customer_discovery", { sector: "Güzellik Merkezi", city: "Manisa", limit: 1 });
-  if (!search.businesses.length) return; // legitimate zero-results — nothing to fetch detail for
-  const placeId = search.businesses[0].placeId;
-
-  const candidate: any = await execute("get_customer_discovery_candidate", { placeId, sector: "Güzellik Merkezi", city: "Manisa" });
-  assert.equal(candidate.placeId, placeId);
-  assert.ok(candidate.name);
-  assert.equal(typeof candidate.opportunityScore, "number");
-  // Instagram verification must never claim real third-party engagement data.
-  assert.equal(candidate.instagramVerification.dataAvailable, false);
-  assert.equal(candidate.instagramVerification.analysisConfidence, "manual_check_required");
-  assert.ok(!("followersCount" in candidate.instagramVerification));
-  assert.ok(["HIGH", "MEDIUM", "LOW", "UNKNOWN"].includes(candidate.hkDigitalNeedLevel));
-  assert.ok(Array.isArray(candidate.hkDigitalNeedReasons));
-
-  const notFound: any = await execute("get_customer_discovery_candidate", { placeId: "ChIJ_totally_invalid_place_id_00000" });
-  assert.equal(notFound.status, "not_found");
-});
-
-test("D) SECURITY/HONESTY — MCP tool descriptions disclose the Instagram limitation, never imply real engagement data", async () => {
-  const { tools } = await import("../../../src/lib/instagram-intelligence/mcp/protocol.ts");
-  const candidateTool = tools.find((t: any) => t.name === "get_customer_discovery_candidate");
-  assert.match(candidateTool!.description, /manual_check_required/);
-  assert.match(candidateTool!.description, /cannot fetch real follower/i);
-});
-
-test("C) SAVE — saving a real candidate creates exactly one lead, and saving it again returns already_exists (no duplicate)", { skip: skip ? skipReason : false }, async () => {
-  const { execute } = await import("../../../src/lib/instagram-intelligence/mcp/protocol.ts");
-  const { supabaseRest } = await import("../../../src/lib/supabase.ts");
-
-  const search: any = await execute("search_customer_discovery", { sector: "Güzellik Merkezi", city: "Manisa", limit: 1 });
-  if (!search.businesses.length) return;
-  const placeId = search.businesses[0].placeId;
-  let leadId: string | null = null;
-
-  try {
-    const first: any = await execute("save_discovery_as_lead", { placeId, sector: "Güzellik Merkezi", city: "Manisa" });
-    assert.equal(first.ok, true);
-    assert.equal(first.already_exists, false);
-    assert.ok(first.lead_id);
-    leadId = first.lead_id;
-
-    const rows = await supabaseRest<Array<{ id: string; google_place_id: string }>>(`leads?google_place_id=eq.${encodeURIComponent(placeId)}&select=id,google_place_id`);
-    assert.equal(rows.length, 1, "exactly one lead row must exist for this placeId");
-    assert.equal(rows[0].id, leadId);
-
-    // Calling save again for the SAME business must not create a second lead.
-    const second: any = await execute("save_discovery_as_lead", { placeId, sector: "Güzellik Merkezi", city: "Manisa" });
-    assert.equal(second.already_exists, true);
-    assert.equal(second.lead_id, leadId);
-
-    const rowsAfter = await supabaseRest<Array<{ id: string }>>(`leads?google_place_id=eq.${encodeURIComponent(placeId)}&select=id`);
-    assert.equal(rowsAfter.length, 1, "a retried save must never create a duplicate lead");
-  } finally {
-    if (leadId) await supabaseRest(`leads?id=eq.${leadId}`, { method: "DELETE" }).catch(() => {});
+  for (const removed of ["search_customer_discovery", "get_customer_discovery_candidate", "save_discovery_as_lead"]) {
+    await assert.rejects(
+      () => execute(removed, {}),
+      (error: unknown) => error instanceof ControlError && (error as InstanceType<typeof ControlError>).code === "UNKNOWN_TOOL"
+    );
   }
 });
 
-test("REGRESSION — the admin business-discovery route still exports POST/PUT (UI path unaffected by the extraction)", async () => {
+test("REGRESSION — business-discovery.ts no longer exports the MCP-only discovery helpers", async () => {
+  const discoveryModule = await import("../../../src/lib/business-discovery.ts");
+  assert.equal((discoveryModule as any).getDiscoveryCandidateByPlaceId, undefined);
+  assert.equal((discoveryModule as any).toDiscoverySummary, undefined);
+  assert.equal((discoveryModule as any).toDiscoveryDetail, undefined);
+  // Shared logic the admin route (and formerly the MCP tools) both used must remain.
+  assert.equal(typeof discoveryModule.searchDiscoveryBusinesses, "function");
+  assert.equal(typeof discoveryModule.saveDiscoveredBusinessesAsLeads, "function");
+  assert.equal(typeof discoveryModule.businessesFromBody, "function");
+});
+
+test("REGRESSION — the admin business-discovery route still exports POST/PUT (UI path unaffected by the MCP cleanup)", async () => {
   const routeModule = await import("../../../src/app/api/admin/business-discovery/route.ts");
   assert.equal(typeof routeModule.POST, "function");
   assert.equal(typeof routeModule.PUT, "function");

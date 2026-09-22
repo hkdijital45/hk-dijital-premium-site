@@ -90,40 +90,6 @@ export const tools: Tool[] = [
     description: "Get the latest saved pre-audit report for a verified HK Dijital company or lead, including the related internal/client report versions from the same research pass when available. Accepts companyId (and companyName as a fallback) for a company, or leadId for a Müşteri Keşfi discovery candidate. Optional reportType filters to only INTERNAL_REPORT or only CLIENT_REPORT. Returns not_found (never a fake placeholder) if no report exists yet. To update this report instead of creating a new one, pass the returned `latest.id` as reportId to save_pre_audit_report.",
     permission: "READ_ONLY",
     inputSchema: { type: "object", properties: { companyId, companyName: text, leadId: text, reportType: text }, required: [], additionalProperties: false }
-  },
-
-  // --- Müşteri Keşfi: real Google Maps/Places business discovery, reusing
-  // the exact same search/scoring/dedupe/save engine the admin UI's
-  // POST/PUT /api/admin/business-discovery already uses (src/lib/
-  // business-discovery.ts) — no second discovery engine, no second
-  // scoring system, no second lead database. ---
-  {
-    name: "search_customer_discovery",
-    description: "Search REAL businesses via HK Dijital's existing Google Maps/Places Müşteri Keşfi engine — never mock/demo data. sector and city are required (same validation as the admin UI). Returns a compact list per candidate (placeId, name, category, city/district, address, googleRating, reviewCount, hasWebsite, hasPhone, opportunityScore, hkOpportunityTier, crmStatus, instagramFound, hkDigitalNeedLevel) — call get_customer_discovery_candidate for a specific candidate's full detail including WHY. hkDigitalNeedLevel (HIGH/MEDIUM/LOW/UNKNOWN) is a separate, deterministic sales-priority signal from opportunityScore — a business can have a high opportunityScore but LOW need (already digitally strong) or a lower score but HIGH need (good real-world reputation, weak digital presence). Read-only — never creates a lead.",
-    permission: "READ_ONLY",
-    inputSchema: {
-      type: "object",
-      properties: { sector: text, city: text, district: text, neighborhood: text, keyword: text, limit },
-      required: ["sector", "city"],
-      additionalProperties: false
-    }
-  },
-  {
-    name: "get_customer_discovery_candidate",
-    description: "Get the full Müşteri Keşfi detail for one specific business by its Google placeId (from a prior search_customer_discovery result) — real Google Places data plus the same HK Opportunity Score/ad-signal evidence the admin UI shows, plus instagramVerification and hkDigitalNeedLevel/hkDigitalNeedReasons. IMPORTANT Instagram limitation: HK Dijital's connected Instagram integration cannot fetch real follower/media/engagement data for third-party accounts (no Business Discovery access on the current OAuth product) — instagramVerification only reports whether a profile was found linked from the business's OWN website (matchConfidence HIGH or NOT_FOUND) and always has dataAvailable:false, analysisConfidence:\"manual_check_required\". Never present engagement/follower numbers as real — they are not returned because they cannot be obtained safely. Returns null if Google has no record of this placeId. Read-only.",
-    permission: "READ_ONLY",
-    inputSchema: { type: "object", properties: { placeId: text, sector: text, city: text, district: text, neighborhood: text }, required: ["placeId"], additionalProperties: false }
-  },
-  {
-    name: "save_discovery_as_lead",
-    description: "Transfers ONE Müşteri Keşfi candidate (by Google placeId) into HK Dijital's existing Lead Merkezi — the exact same insert/duplicate-detection logic the admin UI's \"CRM'e Aktar\" action uses (place_id, then name+phone, then website, then name+district). Only call this after the user EXPLICITLY asks to save/transfer/register this specific business as a lead (e.g. \"2 ve 4'ü Lead'e aktar\", \"bu firmayı kaydet\") — merely discussing or evaluating a candidate (\"bu firma iyi görünüyor\", \"potansiyeli yüksek\") is never itself a save instruction, and this must never be called on the user's own initiative. If the business already exists in Lead Merkezi, returns already_exists:true with the existing leadId instead of creating a duplicate.",
-    permission: "WRITE_SAFE",
-    inputSchema: {
-      type: "object",
-      properties: { placeId: text, sector: text, city: text, district: text, neighborhood: text, notes: text },
-      required: ["placeId"],
-      additionalProperties: false
-    }
   }
 ];
 
@@ -371,75 +337,6 @@ export async function execute(name: string, args: Record<string, unknown>): Prom
         const result = await getLatestPreAuditReport(companyId, reportType, leadId);
         return result || { status: "not_found" };
       } catch (error) {
-        throw (await toKnownControlError(error)) ?? error;
-      }
-    }
-
-    case "search_customer_discovery": {
-      const { searchDiscoveryBusinesses, toDiscoverySummary, DiscoveryConfigError, DiscoveryApiError } = await import("@/lib/business-discovery");
-      try {
-        const result = await searchDiscoveryBusinesses({
-          sector: String(args.sector || ""),
-          city: String(args.city || ""),
-          district: typeof args.district === "string" ? args.district : undefined,
-          neighborhood: typeof args.neighborhood === "string" ? args.neighborhood : undefined,
-          keyword: typeof args.keyword === "string" ? args.keyword : undefined,
-          limit: typeof args.limit === "number" ? args.limit : toolLimit
-        });
-        return {
-          businesses: result.businesses.map(toDiscoverySummary),
-          count: result.count,
-          totalFound: result.totalFound,
-          districtLabel: result.districtLabel,
-          warning: result.warning || null
-        };
-      } catch (error) {
-        if (error instanceof DiscoveryConfigError) throw new ControlError("CONFIGURATION_ERROR", error.message, 503);
-        if (error instanceof DiscoveryApiError) throw new ControlError(error.status === 400 ? "INVALID_ARGUMENTS" : "SERVICE_UNAVAILABLE", error.message, error.status);
-        throw error;
-      }
-    }
-    case "get_customer_discovery_candidate": {
-      const { getDiscoveryCandidateByPlaceId, toDiscoveryDetail, DiscoveryConfigError } = await import("@/lib/business-discovery");
-      try {
-        const business = await getDiscoveryCandidateByPlaceId(String(args.placeId || ""), {
-          sector: typeof args.sector === "string" ? args.sector : undefined,
-          city: typeof args.city === "string" ? args.city : undefined,
-          district: typeof args.district === "string" ? args.district : undefined,
-          neighborhood: typeof args.neighborhood === "string" ? args.neighborhood : undefined
-        });
-        return business ? toDiscoveryDetail(business) : { status: "not_found" };
-      } catch (error) {
-        if (error instanceof DiscoveryConfigError) throw new ControlError("CONFIGURATION_ERROR", error.message, 503);
-        throw error;
-      }
-    }
-    case "save_discovery_as_lead": {
-      const {
-        getDiscoveryCandidateByPlaceId, saveDiscoveredBusinessesAsLeads,
-        DiscoveryConfigError, DiscoveryApiError
-      } = await import("@/lib/business-discovery");
-      const placeId = String(args.placeId || "");
-      if (!placeId) throw new ControlError("INVALID_ARGUMENTS", "placeId zorunludur.", 400);
-      try {
-        const meta = {
-          sector: typeof args.sector === "string" ? args.sector : undefined,
-          city: typeof args.city === "string" ? args.city : undefined,
-          district: typeof args.district === "string" ? args.district : undefined,
-          neighborhood: typeof args.neighborhood === "string" ? args.neighborhood : undefined,
-          notes: typeof args.notes === "string" ? args.notes : undefined
-        };
-        const business = await getDiscoveryCandidateByPlaceId(placeId, meta);
-        if (!business) throw new ControlError("NOT_FOUND", `Google Places'ta bu placeId bulunamadı: ${placeId}`, 404);
-        const result = await saveDiscoveredBusinessesAsLeads([business], meta);
-        if (!result.count && result.duplicates.length) {
-          return { ok: true, already_exists: true, lead_id: result.duplicates[0].existingLeadId || null, business_name: business.name };
-        }
-        return { ok: true, already_exists: false, lead_id: result.leads[0]?.id || null, business_name: business.name };
-      } catch (error) {
-        if (error instanceof ControlError) throw error;
-        if (error instanceof DiscoveryConfigError) throw new ControlError("CONFIGURATION_ERROR", error.message, 503);
-        if (error instanceof DiscoveryApiError) throw new ControlError(error.status === 400 ? "INVALID_ARGUMENTS" : "SERVICE_UNAVAILABLE", error.message, error.status);
         throw (await toKnownControlError(error)) ?? error;
       }
     }

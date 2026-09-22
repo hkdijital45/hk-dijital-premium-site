@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // Canonical Müşteri Keşfi (Google Maps/Places business discovery) engine —
 // extracted from src/app/api/admin/business-discovery/route.ts so the
-// existing admin UI route AND the MCP "HK Dijital — Müşteri Keşfi" tools
-// (search_customer_discovery/get_customer_discovery_candidate/
-// save_discovery_as_lead) call the exact same search/enrich/dedupe/save
-// logic — no second discovery engine, no second scoring system, no second
-// duplicate-detection algorithm. Behavior here is byte-for-byte the same
-// logic the route previously had inline.
+// admin UI route's search/enrich/dedupe/save logic lives in one place.
+// Behavior here is byte-for-byte the same logic the route previously had
+// inline. (Previously also reused by a Claude MCP customer-discovery
+// integration — search_customer_discovery/get_customer_discovery_candidate/
+// save_discovery_as_lead — which has been removed; saveDiscoveredBusinessesAsLeads
+// is still shared with the admin route's own Lead'e Kaydet action.)
 import { recordActivity } from "@/lib/activity-log";
 import type { AppSession } from "@/lib/auth";
 import {
@@ -314,38 +314,6 @@ export async function searchDiscoveryBusinesses(params: DiscoverySearchParams): 
   return { businesses: filtered, count: filtered.length, totalFound, hiddenAlreadyInCrm, requestedLimit: limit, districtLabel, warning };
 }
 
-/** Fetches ONE business's enriched details directly by Google place_id —
- * the same Place Details + enrichBusiness pipeline searchDiscoveryBusinesses
- * uses per result, just for a single already-known id. Returns null (never
- * a fabricated placeholder) if Google has no record of this place_id. */
-export async function getDiscoveryCandidateByPlaceId(
-  placeId: string,
-  context: { sector?: string; city?: string; district?: string; neighborhood?: string } = {}
-): Promise<Record<string, any> | null> {
-  const details = await getPlaceDetails(placeId);
-  if (!details || !details.name) return null;
-  const sector = normalizeSectorInput(context.sector) || "";
-  const business: DiscoveredBusiness = {
-    placeId,
-    name: details.name,
-    city: clean(context.city),
-    district: clean(context.district),
-    neighborhood: clean(context.neighborhood),
-    address: details.formatted_address || "",
-    phone: details.formatted_phone_number || "",
-    website: details.website || "",
-    googleMapsUrl: details.url || `https://www.google.com/maps/place/?q=place_id:${placeId}`,
-    rating: details.rating ?? null,
-    googleRating: details.rating ?? null,
-    reviewCount: Number(details.user_ratings_total || 0),
-    category: sector || (Array.isArray(details.types) ? details.types.slice(0, 3).join(", ") : ""),
-    latitude: details.geometry?.location?.lat ?? null,
-    longitude: details.geometry?.location?.lng ?? null,
-    source: "Google Maps"
-  };
-  return enrichBusiness(business);
-}
-
 export function findDuplicateLead(
   business: Record<string, any>,
   existing: Array<{ id: string; google_place_id?: string; company?: string; phone?: string; website?: string; district?: string }>,
@@ -494,71 +462,6 @@ export async function saveDiscoveredBusinessesAsLeads(
     skipped: businesses.length - leads.length,
     duplicates: duplicates.map((entry) => ({ name: entry.business.name, existingLeadId: entry.existingLead?.id })),
     message: `${leads.length} işletme CRM listesine eklendi.${duplicates.length ? ` ${duplicates.length} işletme zaten CRM'de kayıtlı olduğu için atlandı.` : ""}`
-  };
-}
-
-/** Compact per-candidate shape for search results — enough to decide
- * which candidates to inspect further or save, not the full enriched
- * object (scoreBreakdown/metaSuitabilityReasons/outreach text etc. stay
- * out of the list response to keep Claude's token usage low; call
- * toDiscoveryDetail via get_customer_discovery_candidate for those). */
-export function toDiscoverySummary(business: Record<string, any>) {
-  return {
-    placeId: business.placeId || null,
-    name: business.name || "",
-    category: business.category || "",
-    city: business.city || "",
-    district: business.district || "",
-    address: business.address || "",
-    googleRating: business.googleRating ?? null,
-    reviewCount: Number(business.reviewCount || 0),
-    hasWebsite: Boolean(business.website),
-    hasPhone: Boolean(business.phone),
-    opportunityScore: business.opportunityScore ?? null,
-    hkOpportunityTier: business.hkOpportunityTier || null,
-    crmStatus: business.crmStatus || "CRM'de yok",
-    instagramFound: Boolean(business.instagramVerification?.profileFound),
-    hkDigitalNeedLevel: business.hkDigitalNeedLevel || "UNKNOWN"
-  };
-}
-
-/** Richer single-candidate shape for get_customer_discovery_candidate —
- * still trimmed (drops raw score-breakdown/evidence objects) but keeps
- * the fields useful for a save/no-save decision or an outreach draft. */
-export function toDiscoveryDetail(business: Record<string, any>) {
-  return {
-    placeId: business.placeId || null,
-    name: business.name || "",
-    category: business.category || "",
-    city: business.city || "",
-    district: business.district || "",
-    neighborhood: business.neighborhood || "",
-    address: business.address || "",
-    phone: business.phone || null,
-    website: business.website || null,
-    googleMapsUrl: business.googleMapsUrl || null,
-    googleRating: business.googleRating ?? null,
-    reviewCount: Number(business.reviewCount || 0),
-    opportunityScore: business.opportunityScore ?? null,
-    hkOpportunityTier: business.hkOpportunityTier || null,
-    hkOpportunityLabel: business.hkOpportunityLabel || null,
-    hkOpportunityAction: business.hkOpportunityAction || null,
-    digitalGapScore: business.digitalGapScore ?? null,
-    metaAdsStatus: business.metaAdsStatus || null,
-    googleAdsStatus: business.googleAdsStatus || null,
-    metaSuitabilityNote: business.metaSuitabilityNote || null,
-    salesRecommendation: business.salesRecommendation || null,
-    outreach: business.outreach || null,
-    crmStatus: business.crmStatus || "CRM'de yok",
-    // Instagram/digital-presence verification: profile MATCHING is real
-    // (the business's own website linking to it), but per-account stats
-    // (followers/media/posting frequency) are NOT available — HK Dijital's
-    // connected Instagram integration has no Business Discovery access for
-    // third-party accounts (see instagram-verification.ts header comment).
-    // Never fabricated; analysisConfidence is always "manual_check_required".
-    instagramVerification: business.instagramVerification || null,
-    hkDigitalNeedLevel: business.hkDigitalNeedLevel || "UNKNOWN",
-    hkDigitalNeedReasons: business.hkDigitalNeedReasons || []
   };
 }
 

@@ -11322,7 +11322,6 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
   const [savedSearches, setSavedSearches] = useState<any[]>([]);
   const [savedSearchesLoaded, setSavedSearchesLoaded] = useState(false);
   const [savedSearchName, setSavedSearchName] = useState("");
-  const [claudePromptCopied, setClaudePromptCopied] = useState(false);
   const [savedSearchBusy, setSavedSearchBusy] = useState("");
   const [selectedPlaces, setSelectedPlaces] = useState<string[]>([]);
   const [nicheOptions, setNicheOptions] = useState<string[]>([]);
@@ -12697,23 +12696,6 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
       </>}
       leftPanel={
         <AdminControlPanel>
-          <AdminFilterSection title="Claude Müşteri Keşfi">
-            <p className="text-xs leading-5" style={{ color: "var(--admin-text-muted)" }}>Claude ile sektör ve bölge araştırabilir, HK Digital Center&apos;daki gerçek işletme adaylarını bulabilir ve seçtiklerini Lead Merkezi&apos;ne aktarabilirsin.</p>
-            <AdminButton
-              compact
-              variant="ai"
-              className="mt-2"
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText("HK Dijital için yeni müşteri keşfi yapalım. Önce araştırmaya değer sektör ve bölge seçenekleri öner. Ben seçim yaptıktan sonra HK Digital Center Müşteri Keşfi üzerinden gerçek işletmeleri ara. Ben açıkça istemeden hiçbir işletmeyi Lead Merkezi'ne kaydetme.");
-                  setClaudePromptCopied(true);
-                  setTimeout(() => setClaudePromptCopied(false), 2000);
-                } catch { /* clipboard denied */ }
-              }}
-            >
-              {claudePromptCopied ? "Kopyalandı ✓" : "Claude Promptunu Kopyala"}
-            </AdminButton>
-          </AdminFilterSection>
           <AdminFilterSection title="Kayıtlı Aramalar">
             {savedSearches.length > 0 ? (
               <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto pr-0.5">

@@ -9,10 +9,13 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprot
 import { ControlError, failure, sanitize, success, tools, toolByName, validateArguments, execute } from "./protocol";
 
 // Bumped 1.1.0 -> 1.2.0 for the Müşteri Keşfi tool addition (23 -> 26
-// tools) — some MCP clients key their tools-list cache off server
-// name+version, so a real version bump gives a stronger signal to
-// refresh than relying on "Refresh tools list" alone.
-const SERVER_INFO = { name: "hk-dijital-instagram-intelligence", version: "1.2.0" };
+// tools), then 1.2.0 -> 1.3.0 removing that same Müşteri Keşfi Claude
+// integration (26 -> 23 tools; the main Google Maps/Places Müşteri Keşfi
+// screen and HK Opportunity Score are unaffected — only the Claude/MCP
+// layer on top of them was removed) — some MCP clients key their
+// tools-list cache off server name+version, so a real version bump gives
+// a stronger signal to refresh than relying on "Refresh tools list" alone.
+const SERVER_INFO = { name: "hk-dijital-instagram-intelligence", version: "1.3.0" };
 const SERVER_INSTRUCTIONS =
   "HK Dijital Marketing Intelligence tools (extends the original Instagram Intelligence connector — same " +
   "endpoint, same name, backward compatible). get_instagram_account/get_instagram_analysis/" +
@@ -35,16 +38,7 @@ const SERVER_INSTRUCTIONS =
   "an ambiguous name match), save_pre_audit_report persists an explicitly-approved INTERNAL_REPORT or " +
   "CLIENT_REPORT (internal sales fields are always stripped from CLIENT_REPORT server-side) — call it " +
   "only after the user explicitly asks to save/transfer to HK Dijital, never after analysis alone — and " +
-  "get_latest_pre_audit_report reads back the latest saved report for a company. " +
-  "search_customer_discovery/get_customer_discovery_candidate/save_discovery_as_lead expose HK Dijital's " +
-  "existing Müşteri Keşfi (Google Maps/Places business discovery) engine — real businesses only, never " +
-  "mock data. save_discovery_as_lead is the only write here and must only be called after the user " +
-  "explicitly asks to save/transfer a specific business as a lead; it reuses the admin UI's exact " +
-  "duplicate-detection logic and returns already_exists instead of creating a second lead row. " +
-  "instagramVerification/hkDigitalNeedLevel (in search and candidate results) never report real " +
-  "third-party follower/engagement data — only whether a profile is linked from the business's own " +
-  "website (HIGH/NOT_FOUND) and a deterministic HIGH/MEDIUM/LOW/UNKNOWN sales-priority signal separate " +
-  "from opportunityScore; always treat deeper Instagram quality as manual_check_required.";
+  "get_latest_pre_audit_report reads back the latest saved report for a company.";
 
 function toolResult(payload: { success: boolean; data: unknown; error: unknown }) {
   const clean = sanitize(payload) as Record<string, unknown>;
