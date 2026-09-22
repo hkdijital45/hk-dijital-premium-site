@@ -31,7 +31,12 @@ const SERVER_INSTRUCTIONS =
   "an ambiguous name match), save_pre_audit_report persists an explicitly-approved INTERNAL_REPORT or " +
   "CLIENT_REPORT (internal sales fields are always stripped from CLIENT_REPORT server-side) — call it " +
   "only after the user explicitly asks to save/transfer to HK Dijital, never after analysis alone — and " +
-  "get_latest_pre_audit_report reads back the latest saved report for a company.";
+  "get_latest_pre_audit_report reads back the latest saved report for a company. " +
+  "search_customer_discovery/get_customer_discovery_candidate/save_discovery_as_lead expose HK Dijital's " +
+  "existing Müşteri Keşfi (Google Maps/Places business discovery) engine — real businesses only, never " +
+  "mock data. save_discovery_as_lead is the only write here and must only be called after the user " +
+  "explicitly asks to save/transfer a specific business as a lead; it reuses the admin UI's exact " +
+  "duplicate-detection logic and returns already_exists instead of creating a second lead row.";
 
 function toolResult(payload: { success: boolean; data: unknown; error: unknown }) {
   const clean = sanitize(payload) as Record<string, unknown>;

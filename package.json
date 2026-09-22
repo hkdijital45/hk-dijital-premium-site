@@ -16,6 +16,7 @@
     "test:social-autopilot": "node --conditions=react-server --import tsx --test tests/unit/social-autopilot/*.test.ts",
     "test:pre-audit-export": "node --conditions=react-server --import tsx --test tests/unit/pre-audit-export/*.test.ts",
     "test:pre-audit-versioning": "node --env-file=.env.local --conditions=react-server --import tsx --test tests/unit/pre-audit-export/save-report-versioning.test.ts",
+    "test:business-discovery-mcp": "node --env-file=.env.local --conditions=react-server --import tsx --test tests/unit/business-discovery-mcp/*.test.ts",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:report": "playwright show-report",
