@@ -20,7 +20,21 @@ const GOOGLE_TAG_MARKERS = ["googletagmanager.com/gtag/js", "googletagmanager.co
 const WHATSAPP_MARKERS = ["wa.me/", "api.whatsapp.com", "whatsapp://send"];
 // Non-profile Instagram paths — a link to one of these is not a business
 // profile handle and must never be reported as a matched Instagram account.
-const INSTAGRAM_NON_PROFILE_PATHS = new Set(["p", "reel", "reels", "explore", "accounts", "share", "stories", "tv", "about", "legal", "developer", "web", "direct", "embed"]);
+// Includes Meta's shared static-resource path names (rsrc.php is the same
+// resource-loader naming Meta uses across facebook.com/instagram.com) in
+// addition to the known non-profile route segments.
+const INSTAGRAM_NON_PROFILE_PATHS = new Set([
+  "p", "reel", "reels", "explore", "accounts", "share", "stories", "tv", "about", "legal",
+  "developer", "web", "direct", "embed", "static", "resource", "resources", "internal",
+  "auth", "login", "logout", "api", "graphql", "ajax", "oauth", "privacy", "terms",
+  "robots.txt", "favicon.ico", "rsrc.php", "sitemap.xml", "manifest.json"
+]);
+// Any path segment that LOOKS like a static asset filename (has a known
+// resource file extension) is rejected regardless of whether it's on the
+// explicit exclusion list above — this is the general-case defense (an
+// exclusion list alone can never enumerate every internal Meta resource
+// path; a real Instagram username never carries a file extension).
+const RESOURCE_FILE_EXTENSION_PATTERN = /\.(php|jsx?|tsx?|css|s?css|png|jpe?g|gif|svg|webp|json|xml|ico|woff2?|ttf|map|txt)$/i;
 
 /** A business linking to its OWN Instagram from its OWN public website is
  * about the highest-confidence, lowest-risk signal available — no
@@ -28,10 +42,22 @@ const INSTAGRAM_NON_PROFILE_PATHS = new Set(["p", "reel", "reels", "explore", "a
  * marker already present in the same HTML this function already fetches
  * for Pixel/Tag detection. */
 export function extractInstagramProfile(html: string): { username: string; url: string } | null {
-  const pattern = /instagram\.com\/([a-z0-9._]{2,30})/gi;
+  // Captures the FULL path segment (including hyphens/slashes-adjacent
+  // chars a real username never has) so the extension/shape checks below
+  // see the whole filename — a truncated capture that stops at the first
+  // disallowed character (e.g. "some" out of "some-bundle-name.png")
+  // could otherwise slip through looking like a short, plausible handle.
+  const pattern = /instagram\.com\/([a-z0-9._-]{2,60})/gi;
   for (const match of html.matchAll(pattern)) {
-    const candidate = match[1].toLocaleLowerCase("en-US").replace(/\.+$/, "");
-    if (!candidate || INSTAGRAM_NON_PROFILE_PATHS.has(candidate)) continue;
+    const raw = match[1];
+    if (RESOURCE_FILE_EXTENSION_PATTERN.test(raw)) continue;
+    // Real Instagram usernames never contain a hyphen or a consecutive/
+    // leading period — a candidate shaped like that is a URL path
+    // fragment, not a handle.
+    if (raw.includes("-")) continue;
+    const candidate = raw.toLocaleLowerCase("en-US").replace(/\.+$/, "");
+    if (!candidate || candidate.length < 2 || candidate.length > 30 || candidate.startsWith(".") || candidate.includes("..")) continue;
+    if (INSTAGRAM_NON_PROFILE_PATHS.has(candidate)) continue;
     return { username: candidate, url: `https://www.instagram.com/${candidate}/` };
   }
   return null;
