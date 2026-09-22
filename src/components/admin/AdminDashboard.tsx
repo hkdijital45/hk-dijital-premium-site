@@ -11,7 +11,7 @@ import dynamic from "next/dynamic";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Activity, AlertTriangle, ArrowDown, ArrowUp, BarChart3, Bell, Bot, Building2, CircleCheck, CircleOff, Copy, Download, FileBarChart, Gauge, HelpCircle, ImagePlus, Loader2, LogOut, MapPinned, MessageSquareText, Plus, Save, Search, Send, Settings2, Sparkles, Star, Trash2, UsersRound, X } from "lucide-react";
+import { Activity, AlertTriangle, ArrowDown, ArrowUp, AtSign, BarChart3, Bell, Bot, Building2, CircleCheck, CircleOff, Copy, Download, FileBarChart, Gauge, Globe, HelpCircle, ImagePlus, ListChecks, Loader2, LogOut, MapPinned, MessageSquareText, Plus, Save, Search, Send, Settings2, Sparkles, Star, ThumbsDown, ThumbsUp, Trash2, UsersRound, X } from "lucide-react";
 import type { SiteContent } from "@/lib/types";
 import { ReportTools } from "@/components/admin/reports/ReportTools";
 import { WebsiteAnalyticsSummaryCards } from "@/components/admin/WebsiteAnalyticsSummaryCards";
@@ -77,6 +77,8 @@ import { HK_SERVICE_PACKAGES, PACKAGE_CATEGORIES, calculateTotalWithVat, calcula
 import { AD_STATUS_LABELS, calculateHkOpportunityScore, getHkOpportunityTier, scoreDiscoveredBusiness, type AdStatusValue, type DiscoveredBusiness } from "@/lib/lead-scoring";
 import { mergeWonLostDeals, summarizeWonLost } from "@/lib/won-lost-analysis";
 import { DISCOVERY_SECTOR_PRESETS } from "@/lib/sector-signal";
+import { DISCOVERY_WORKFLOW_STATUS, DISCOVERY_REJECTION_REASONS } from "@/lib/discovery-workflow";
+import { LEAD_PRE_REVIEW_STATUS } from "@/lib/pre-audit/types";
 import { GlassCard } from "@/components/premium/PremiumUI";
 import { suggestUsername } from "@/lib/usernames";
 import { excludeTestCompanyRecords, filterRecordsByVisibility, isTestRecord } from "@/lib/test-records";
@@ -5356,7 +5358,12 @@ function Crm({ content, setContent, view, setActive, currentSession, notify, set
   const [message, setMessage] = useState("");
   const [recordVisibility, setRecordVisibility] = useState("live");
   const allLeads = content.leads ?? [];
-  const recordPool = filterRecordsByVisibility(allLeads, recordVisibility);
+  // Discovery candidates awaiting qualification (Değerlendirme Havuzu /
+  // Potansiyel Müşteriler — see Müşteri Keşfi) are not yet worked sales
+  // leads; Lead Merkezi only shows a business once it has actually left
+  // that evaluation gate (rejected, or promoted to the sales pipeline).
+  const recordPool = filterRecordsByVisibility(allLeads, recordVisibility)
+    .filter((lead) => lead.status !== DISCOVERY_WORKFLOW_STATUS.SAVED_FOR_REVIEW && lead.status !== DISCOVERY_WORKFLOW_STATUS.POTENTIAL);
   const isMetaLead = (lead) => lead.source === "Meta Analiz";
   const isGoogleLead = (lead) => lead.source === "Google Ads Analiz" || String(lead.source || "").includes("Google");
   const isSocialLead = (lead) => ["Sosyal İstihbarat Merkezi", "Sosyal Medya Denetimi"].includes(lead.source);
@@ -10905,7 +10912,7 @@ function CustomerFinder(props: any) {
 }
 
 const mapSectorOptions = ["Yerel Hizmetler", "Perakende & E-Ticaret", "Yeme İçme", "Eğitim & Yaşam", "Profesyonel Hizmet", "Emlak & Otomotiv", "Güzellik & Sağlık", "Klinik", "Kuaför", "Kafe", "Restoran", "Pasta / Tatlı", "Spor Salonu", "Su Arıtma", "Kombi / Klima", "Diğer"];
-const mapTabs = ["Fırsat Haritası", "Google Maps Müşteri Bulma", "Kaydedilenler", "Sıcak Leadler", "Bölgesel Fırsatlar", "Rakip Analizi", "Yapay Zekâ Analiz", "CRM’e Aktarılanlar", "Kayıtlı Aramalar"];
+const mapTabs = ["Fırsat Haritası", "Google Maps Müşteri Bulma", "Değerlendirme Havuzu", "Potansiyel Müşteriler", "Kaydedilenler", "Sıcak Leadler", "Bölgesel Fırsatlar", "Rakip Analizi", "Yapay Zekâ Analiz", "CRM’e Aktarılanlar", "Kayıtlı Aramalar"];
 const districtOpportunitySeed = [
   ["Yunusemre", 92, "Yüksek", "Çok Güçlü", "Güzellik & Sağlık", "Güzellik, klinik ve yerel hizmet işletmelerini önceliklendirin."],
   ["Şehzadeler", 86, "Orta", "Çok Güçlü", "Yeme İçme", "Kafe, restoran ve perakende adaylarında keşif başlatın."],
@@ -11104,9 +11111,25 @@ function districtOf(item: any) {
   return parts.length > 2 ? parts[parts.length - 2] : "İlçe belirtilmedi";
 }
 
+// Değerlendirme Havuzu / Potansiyel Müşteriler date filter — real
+// created_at comparison, never a hardcoded/fake bucket.
+function matchesDiscoveryDateRange(createdAt: any, range: string): boolean {
+  const value = String(createdAt || "").slice(0, 10);
+  if (!value) return false;
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0, 10);
+  if (range === "today") return value === todayStr;
+  if (range === "7d") return new Date(value).getTime() >= new Date(todayStr).getTime() - 6 * 86400000;
+  if (range === "30d") return new Date(value).getTime() >= new Date(todayStr).getTime() - 29 * 86400000;
+  if (range === "month") return value.slice(0, 7) === todayStr.slice(0, 7);
+  return true;
+}
+
 const mapTabSlugs: Record<string, string> = {
   "Fırsat Haritası": "firsat-haritasi",
   "Google Maps Müşteri Bulma": "google-maps-musteri-bulma",
+  "Değerlendirme Havuzu": "degerlendirme-havuzu",
+  "Potansiyel Müşteriler": "potansiyel-musteriler",
   "Kaydedilenler": "kaydedilenler",
   "Sıcak Leadler": "sicak-leadler",
   "Bölgesel Fırsatlar": "bolgesel-firsatlar",
@@ -11324,6 +11347,10 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
   const [savedSearchName, setSavedSearchName] = useState("");
   const [savedSearchBusy, setSavedSearchBusy] = useState("");
   const [selectedPlaces, setSelectedPlaces] = useState<string[]>([]);
+  const [selectedEvaluationIds, setSelectedEvaluationIds] = useState<string[]>([]);
+  const [selectedPotentialIds, setSelectedPotentialIds] = useState<string[]>([]);
+  const [evalFilters, setEvalFilters] = useState({ query: "", sector: "", source: "", city: "", district: "", dateRange: "", minScore: "" });
+  const [rejectDialog, setRejectDialog] = useState<{ ids: string[] } | null>(null);
   const [nicheOptions, setNicheOptions] = useState<string[]>([]);
   const [actionResult, setActionResult] = useState<any>(null);
   const [leadView, setLeadView] = useState("Kart Görünümü");
@@ -11390,6 +11417,22 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
     }
   }
   const saved = (content.leads || []).filter((lead) => lead.google_place_id || lead.address);
+  // Müşteri Avı pipeline: Keşfedilen (Google arama sonucu) -> Değerlendirme
+  // Havuzu (Kaydet) -> Potansiyel Müşteriler (Onayla) -> Ön İnceleme
+  // (mevcut pre-review kuyruğu, reuse) -> Lead (mevcut "Teklif Gönder"
+  // promotion, reuse) / Reddedildi. All counts come from the real
+  // content.leads the dashboard already loads — never hardcoded.
+  const evaluationPool = saved.filter((lead: any) => lead.status === DISCOVERY_WORKFLOW_STATUS.SAVED_FOR_REVIEW);
+  const potentialCustomers = saved.filter((lead: any) => lead.status === DISCOVERY_WORKFLOW_STATUS.POTENTIAL);
+  const evaluationRejected = saved.filter((lead: any) => lead.status === DISCOVERY_WORKFLOW_STATUS.REJECTED);
+  const preAuditQueueCount = saved.filter((lead: any) => [LEAD_PRE_REVIEW_STATUS.PENDING, LEAD_PRE_REVIEW_STATUS.IN_REVIEW].includes(lead.status)).length;
+  const qualifiedLeadCount = saved.filter((lead: any) =>
+    lead.status !== DISCOVERY_WORKFLOW_STATUS.SAVED_FOR_REVIEW &&
+    lead.status !== DISCOVERY_WORKFLOW_STATUS.POTENTIAL &&
+    lead.status !== DISCOVERY_WORKFLOW_STATUS.REJECTED &&
+    ![LEAD_PRE_REVIEW_STATUS.PENDING, LEAD_PRE_REVIEW_STATUS.IN_REVIEW, LEAD_PRE_REVIEW_STATUS.REJECTED].includes(lead.status)
+  ).length;
+  const isToday = (dateValue: any) => Boolean(dateValue) && String(dateValue).slice(0, 10) === new Date().toISOString().slice(0, 10);
   const recentSectors = [...new Set((content.leads || []).map((lead: any) => String(lead.sector || lead.business_type || "").trim()).filter(Boolean))]
     .filter((sector) => !DISCOVERY_SECTOR_PRESETS.includes(sector))
     .slice(0, 6);
@@ -11582,6 +11625,59 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
     setSelectedPlaceId(lead.google_place_id || lead.placeId || lead.id || "");
     setActive("Lead Merkezi");
     setMessage(`${lead.company || lead.name || "Lead"} CRM kaydı açılıyor.`);
+  }
+  // Değerlendirme Havuzu / Potansiyel Müşteriler — tek satır aksiyonları.
+  // Aynı PATCH /api/admin/leads/[id] endpoint'ini kullanır (server-side
+  // geçiş doğrulaması isValidDiscoveryWorkflowTransition ile yapılır).
+  async function setDiscoveryStatus(lead: any, status: string, rejectionReason?: string) {
+    setLoading(`discovery-status-${lead.id}`);
+    try {
+      const patch: Record<string, unknown> = { status };
+      if (status === DISCOVERY_WORKFLOW_STATUS.REJECTED) {
+        patch.rejected_at = new Date().toISOString();
+        if (rejectionReason) patch.rejection_reason = rejectionReason;
+      }
+      const response = await fetch(`/api/admin/leads/${lead.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) { notify?.(data.error || "Durum güncellenemedi.", "error"); return null; }
+      setContent({ ...content, leads: (content.leads || []).map((item: any) => item.id === lead.id ? data.lead : item) });
+      notify?.(`${lead.company || lead.name || "İşletme"} "${status}" durumuna taşındı.`, "success");
+      return data.lead;
+    } finally {
+      setLoading("");
+    }
+  }
+  async function batchSetDiscoveryStatus(ids: string[], status: string, rejectionReason?: string) {
+    if (!ids.length) return;
+    setLoading(`discovery-batch-${status}`);
+    try {
+      const response = await fetch("/api/admin/leads/batch-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids, status, rejectionReason })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) { notify?.(data.error || "Toplu işlem başarısız oldu.", "error"); return; }
+      const updatedById = new Map((data.leads || []).map((lead: any) => [lead.id, lead]));
+      setContent({ ...content, leads: (content.leads || []).map((item: any) => updatedById.get(item.id) || item) });
+      const skipped = (data.skippedIds || []).length;
+      notify?.(`${data.updatedCount || 0} kayıt "${status}" durumuna taşındı.${skipped ? ` ${skipped} kayıt geçersiz durum geçişi olduğu için atlandı.` : ""}`, "success");
+    } finally {
+      setLoading("");
+    }
+  }
+  async function onIncelePotential(lead: any) {
+    setLoading(`on-incele-potansiyel-${lead.id}`);
+    try {
+      const response = await fetch(`/api/admin/pre-audit/lead/${lead.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "start_review" }) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) { notify?.(data.error || "Ön İnceleme kuyruğuna eklenemedi.", "error"); return; }
+      notify?.(`${lead.company || lead.name || "İşletme"} Ön İnceleme kuyruğuna eklendi.`, "success");
+      setPreAuditInitialTab?.("bekleyen");
+      setActive("Ön İnceleme Merkezi");
+    } finally {
+      setLoading("");
+    }
   }
   function patchLead(id, patch) {
     setContent({ ...content, leads: (content.leads || []).map((lead) => lead.id === id ? { ...lead, ...patch } : lead) });
@@ -12354,6 +12450,121 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
     );
   }
 
+  if (tab === "Değerlendirme Havuzu" || tab === "Potansiyel Müşteriler") {
+    const isPotential = tab === "Potansiyel Müşteriler";
+    const pool: any[] = isPotential ? potentialCustomers : evaluationPool;
+    const selectedIds = isPotential ? selectedPotentialIds : selectedEvaluationIds;
+    const setSelectedIds = isPotential ? setSelectedPotentialIds : setSelectedEvaluationIds;
+    const evalSectors = [...new Set(pool.map((lead) => String(lead.sector || lead.business_type || "").trim()).filter(Boolean))];
+    const evalSources = [...new Set(pool.map((lead) => String(lead.source || "").trim()).filter(Boolean))];
+    const filtered = pool
+      .filter((lead) => !evalFilters.query || JSON.stringify(lead).toLocaleLowerCase("tr").includes(evalFilters.query.toLocaleLowerCase("tr")))
+      .filter((lead) => !evalFilters.sector || (lead.sector || lead.business_type) === evalFilters.sector)
+      .filter((lead) => !evalFilters.source || lead.source === evalFilters.source)
+      .filter((lead) => !evalFilters.city || String(lead.city || "").toLocaleLowerCase("tr").includes(evalFilters.city.toLocaleLowerCase("tr")))
+      .filter((lead) => !evalFilters.district || districtOf(lead).toLocaleLowerCase("tr").includes(evalFilters.district.toLocaleLowerCase("tr")))
+      .filter((lead) => !evalFilters.minScore || Number(lead.opportunity_score || lead.lead_heat_score || 0) >= Number(evalFilters.minScore))
+      .filter((lead) => !evalFilters.dateRange || matchesDiscoveryDateRange(lead.created_at, evalFilters.dateRange))
+      .sort((a, b) => Number(b.opportunity_score || b.lead_heat_score || 0) - Number(a.opportunity_score || a.lead_heat_score || 0));
+    const allFilteredSelected = filtered.length > 0 && filtered.every((lead) => selectedIds.includes(lead.id));
+    const toggleOne = (id: string, checked: boolean) => setSelectedIds((current) => checked ? [...new Set([...current, id])] : current.filter((x) => x !== id));
+    const toggleAll = () => setSelectedIds(allFilteredSelected ? [] : filtered.map((lead) => lead.id));
+    const kpiCards = [
+      { label: "Bekleyen", value: evaluationPool.length, tone: "warning" as const },
+      { label: "Potansiyel", value: potentialCustomers.length, tone: "info" as const },
+      { label: "Reddedilen", value: evaluationRejected.length, tone: "danger" as const },
+      { label: "Bugün Eklenen", value: saved.filter((lead: any) => isToday(lead.created_at)).length, tone: "success" as const }
+    ];
+    return (
+      <AdminWorkspace
+        eyebrow="Satış · Müşteri Keşfi"
+        title={tab}
+        description={isPotential
+          ? "Onaylanan işletmeler burada birikir. Ön İncele ile mevcut Ön İnceleme Merkezi kuyruğuna gönderin veya uygun değilse reddedin."
+          : "Müşteri Keşfi'nden \"Kaydet\" ile aktarılan işletmeler önce buraya düşer — henüz Lead Merkezi'nde görünmezler. Tek tek veya toplu olarak Onayla/Reddet ile karar verin."}
+        headerActions={<>{kpiCards.map((kpi) => <AdminStatusBadge key={kpi.label} tone={kpi.tone}>{kpi.label}: {kpi.value}</AdminStatusBadge>)}</>}
+        leftPanel={
+          <AdminControlPanel>
+            <AdminFilterSection title="Filtreler">
+              <div className="grid gap-2">
+                <Field label="Ara (işletme, telefon, not...)" value={evalFilters.query} onChange={(query) => setEvalFilters({ ...evalFilters, query })} />
+                <OtherSelectField label="Sektör" value={evalFilters.sector} onChange={(sector) => setEvalFilters({ ...evalFilters, sector })} options={evalSectors} manualLabel="Sektör yazın" />
+                <SelectField label="Kaynak" value={evalFilters.source} onChange={(source) => setEvalFilters({ ...evalFilters, source })} options={[{ value: "", label: "Tümü" }, ...evalSources.map((item) => ({ value: item, label: item }))]} />
+                <Field label="Şehir" value={evalFilters.city} onChange={(city) => setEvalFilters({ ...evalFilters, city })} />
+                <Field label="İlçe" value={evalFilters.district} onChange={(district) => setEvalFilters({ ...evalFilters, district })} />
+                <SelectField label="Tarih" value={evalFilters.dateRange} onChange={(dateRange) => setEvalFilters({ ...evalFilters, dateRange })} options={[{ value: "", label: "Tümü" }, { value: "today", label: "Bugün" }, { value: "7d", label: "Son 7 Gün" }, { value: "30d", label: "Son 30 Gün" }, { value: "month", label: "Bu Ay" }]} />
+                <SelectField label="Minimum Opportunity Score" value={evalFilters.minScore} onChange={(minScore) => setEvalFilters({ ...evalFilters, minScore })} options={[{ value: "", label: "Farketmez" }, { value: "50", label: "50+" }, { value: "70", label: "70+" }, { value: "85", label: "85+" }]} />
+                <AdminButton compact variant="secondary" onClick={() => setEvalFilters({ query: "", sector: "", source: "", city: "", district: "", dateRange: "", minScore: "" })}>Filtreleri Temizle</AdminButton>
+              </div>
+            </AdminFilterSection>
+          </AdminControlPanel>
+        }
+        bottomBar={
+          <AdminActionBar statusText={`${filtered.length} kayıt · ${selectedIds.length} seçili`}>
+            <AdminButton compact variant="secondary" onClick={toggleAll}>{allFilteredSelected ? "Seçimi Temizle" : "Tümünü Seç"}</AdminButton>
+            {!isPotential && <>
+              <AdminButton compact variant="success" disabled={!selectedIds.length || loading === `discovery-batch-${DISCOVERY_WORKFLOW_STATUS.POTENTIAL}`} onClick={() => batchSetDiscoveryStatus(selectedIds, DISCOVERY_WORKFLOW_STATUS.POTENTIAL).then(() => setSelectedIds([]))}>Toplu Onayla</AdminButton>
+              <AdminButton compact variant="danger" disabled={!selectedIds.length} onClick={() => setRejectDialog({ ids: selectedIds })}>Toplu Reddet</AdminButton>
+            </>}
+            {isPotential && <AdminButton compact variant="danger" disabled={!selectedIds.length} onClick={() => setRejectDialog({ ids: selectedIds })}>Toplu Reddet</AdminButton>}
+          </AdminActionBar>
+        }
+      >
+        <HubTabs items={mapTabs} active={tab} onChange={setMapTab} />
+        {rejectDialog && (
+          <div className="mb-4 rounded-[12px] border p-4" style={{ borderColor: "var(--admin-border-strong)", background: "var(--admin-surface-muted, var(--admin-surface-soft))" }}>
+            <p className="mb-2 text-xs font-black" style={{ color: "var(--admin-text-primary)" }}>{rejectDialog.ids.length} kayıt reddedilecek. Sebep seçin (opsiyonel):</p>
+            <div className="flex flex-wrap gap-1.5">
+              {DISCOVERY_REJECTION_REASONS.map((reason) => (
+                <AdminButton key={reason} compact variant="secondary" onClick={async () => {
+                  await batchSetDiscoveryStatus(rejectDialog.ids, DISCOVERY_WORKFLOW_STATUS.REJECTED, reason);
+                  setRejectDialog(null);
+                  setSelectedIds([]);
+                }}>{reason}</AdminButton>
+              ))}
+              <AdminButton compact variant="ghost" onClick={() => setRejectDialog(null)}>Vazgeç</AdminButton>
+            </div>
+          </div>
+        )}
+        <div className="grid gap-3">
+          {filtered.map((lead: any) => (
+            <div key={lead.id} className="rounded-[12px] border p-4" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-soft)" }}>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex items-start gap-2.5">
+                  <input type="checkbox" className="mt-1" checked={selectedIds.includes(lead.id)} onChange={(event) => toggleOne(lead.id, event.target.checked)} />
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <strong className="text-sm" style={{ color: "var(--admin-text-primary)" }}>{lead.company || lead.name || "İsimsiz işletme"}</strong>
+                      {lead.instagram && <AtSign size={13} color="#c13584" aria-label="Instagram'da bulundu" />}
+                      {lead.website && <Globe size={13} color="#0ea5e9" aria-label="Resmi web sitesi bulundu" />}
+                    </div>
+                    <p className="mt-0.5 text-xs" style={{ color: "var(--admin-text-muted)" }}>{lead.sector || lead.business_type || "Sektör belirtilmedi"} · {lead.district || districtOf(lead)} / {lead.city || "-"}</p>
+                    <p className="mt-1 text-[11px]" style={{ color: "var(--admin-text-muted)" }}>{lead.website ? "Web sitesi var" : "Web sitesi yok"} · {lead.instagram ? "Instagram bağlantısı var" : "Instagram bağlantısı bulunamadı"} · Kaydedildi: {formatDateTime(lead.created_at)}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <AdminStatusBadge tone={Number(lead.opportunity_score || 0) >= 70 ? "danger" : Number(lead.opportunity_score || 0) >= 40 ? "warning" : "neutral"}>Opportunity {lead.opportunity_score || lead.lead_heat_score || 0}/100</AdminStatusBadge>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {!isPotential && <>
+                  <AdminButton compact variant="success" icon={<ThumbsUp size={13} />} disabled={loading === `discovery-status-${lead.id}`} onClick={() => setDiscoveryStatus(lead, DISCOVERY_WORKFLOW_STATUS.POTENTIAL)}>Onayla</AdminButton>
+                  <AdminButton compact variant="danger" icon={<ThumbsDown size={13} />} onClick={() => setRejectDialog({ ids: [lead.id] })}>Reddet</AdminButton>
+                </>}
+                {isPotential && <>
+                  <AdminButton compact variant="ai" icon={<ListChecks size={13} />} disabled={loading === `on-incele-potansiyel-${lead.id}`} onClick={() => onIncelePotential(lead)}>Ön İncele</AdminButton>
+                  <AdminButton compact variant="danger" icon={<ThumbsDown size={13} />} onClick={() => setRejectDialog({ ids: [lead.id] })}>Reddet</AdminButton>
+                </>}
+                {lead.website && <AdminButton compact variant="secondary" onClick={() => window.open(lead.website.startsWith("http") ? lead.website : `https://${lead.website}`, "_blank")}>Website</AdminButton>}
+              </div>
+            </div>
+          ))}
+          {!filtered.length && <AdminEmptyState title={isPotential ? "Potansiyel müşteri yok" : "Değerlendirme havuzu boş"} description={isPotential ? "Değerlendirme Havuzu'ndan onaylanan işletmeler burada listelenir." : "Google Maps Müşteri Bulma sekmesinden işletme kaydettiğinizde burada görünür."} />}
+        </div>
+      </AdminWorkspace>
+    );
+  }
+
   if (tab === "Kaydedilenler" || tab === "CRM’e Aktarılanlar") {
     const transferredColumns: AdminDataGridColumn<any>[] = [
       { key: "company", header: "İşletme", render: (lead: any) => <div className="min-w-0"><strong className="block truncate">{lead.company || lead.name || "İsimsiz lead"}</strong><span className="block truncate text-[11px]" style={{ color: "var(--admin-text-muted)" }}>{lead.city || "-"} / {districtOf(lead)}</span></div> },
@@ -12798,6 +13009,17 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
       }
     >
       <HubTabs items={mapTabs} active={tab} onChange={setMapTab} />
+      <div className="mb-4 flex flex-wrap items-center gap-2 rounded-[12px] p-3" style={{ border: "1px solid var(--admin-border)", background: "var(--admin-surface-muted, var(--admin-surface-soft))" }}>
+        <span className="px-1 text-xs font-black" style={{ color: "var(--admin-text-primary)" }}>Müşteri Avı Pipeline</span>
+        <AdminButton compact variant="secondary" onClick={() => setMapTab("Değerlendirme Havuzu")}>Değerlendirme {evaluationPool.length}</AdminButton>
+        <span aria-hidden style={{ color: "var(--admin-text-muted)" }}>→</span>
+        <AdminButton compact variant="info" onClick={() => setMapTab("Potansiyel Müşteriler")}>Potansiyel {potentialCustomers.length}</AdminButton>
+        <span aria-hidden style={{ color: "var(--admin-text-muted)" }}>→</span>
+        <AdminButton compact variant="ai" onClick={() => { setPreAuditInitialTab?.("bekleyen"); setActive("Ön İnceleme Merkezi"); }}>Ön İnceleme {preAuditQueueCount}</AdminButton>
+        <span aria-hidden style={{ color: "var(--admin-text-muted)" }}>→</span>
+        <AdminButton compact variant="success" onClick={() => setActive("Lead Merkezi")}>Lead {qualifiedLeadCount}</AdminButton>
+        <AdminStatusBadge tone="danger">Reddedilen {evaluationRejected.length}</AdminStatusBadge>
+      </div>
       {requiredFieldsMissing && <p className="mb-4 rounded-[8px] p-3 text-xs font-bold" style={{ border: "1px solid var(--hk-warning-border, var(--admin-border-strong))", background: "var(--hk-warning-bg, var(--admin-surface-muted))", color: "var(--admin-text-secondary)" }}>İl ve Sektör alanları zorunludur; sol panelden doldurup "Google Maps'ten Bul" düğmesine basın.</p>}
       {actionResult && <div className="mb-5"><ActionResultPanel result={actionResult} onNavigate={(href) => window.location.assign(href)} /></div>}
       <LeadOpportunityInsight results={visible} search={search} setActive={setActive} />

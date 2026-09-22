@@ -6,6 +6,7 @@ import { requireModuleAccess } from "@/lib/permissions";
 import { isAdminRole } from "@/lib/auth";
 import { permanentlyDeleteLead } from "@/lib/server/customer-permanent-delete";
 import { evaluateAdvertisingSignals, type ManualAdVerification } from "@/lib/lead-scoring";
+import { isValidDiscoveryWorkflowTransition } from "@/lib/discovery-workflow";
 
 async function requireCrmAccess() {
   return await requireModuleAccess("crm") || requireModuleAccess("leads");
@@ -268,6 +269,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   try {
     const existingRows = await supabaseRest<any[]>(`leads?id=eq.${encodeURIComponent(id)}&select=*&limit=1`);
     if (!existingRows[0]) return NextResponse.json({ error: "Başvuru bulunamadı." }, { status: 404 });
+    if (
+      typeof patch.status === "string" &&
+      !isValidDiscoveryWorkflowTransition(patch.status, existingRows[0].status)
+    ) {
+      return NextResponse.json({ error: `Geçersiz durum geçişi: "${existingRows[0].status || "-"}" -> "${patch.status}".` }, { status: 400 });
+    }
     Object.assign(patch, buildManualAdVerificationPatch(body, session, existingRows[0]));
     let rows: any[];
     try {

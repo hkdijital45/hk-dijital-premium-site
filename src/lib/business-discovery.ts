@@ -24,6 +24,7 @@ import { normalizeSectorInput } from "@/lib/sector-signal";
 import { dedupePlacesById } from "@/lib/discovery-dedupe";
 import { scanWebsiteForAdSignals } from "@/lib/website-signal-scan";
 import { buildInstagramVerification, computeHkDigitalNeedLevel } from "@/lib/instagram-verification";
+import { DISCOVERY_WORKFLOW_STATUS } from "@/lib/discovery-workflow";
 import { hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
 export class DiscoveryConfigError extends Error {}
@@ -379,8 +380,13 @@ export function buildLeadRowFromBusiness(business: Record<string, any>, meta: { 
     },
     discovery_last_checked_at: new Date().toISOString(),
     notes: [business.notes, meta.notes, "Google Maps işletme keşfi ile kaydedildi.", ...(scores.scoreReasons?.heat || [])].filter(Boolean).join("\n"),
-    status: "Yeni Lead",
-    lead_stage: "Yeni Lead"
+    // "Kaydet" places a candidate into the Değerlendirme Havuzu (evaluation
+    // pool), not directly into the sales-pipeline Lead Merkezi — it only
+    // becomes a worked lead once explicitly approved (Onayla ->
+    // Potansiyel Müşteri) and later promoted via the existing pre-review
+    // "Teklif Gönder" action. See src/lib/discovery-workflow.ts.
+    status: DISCOVERY_WORKFLOW_STATUS.SAVED_FOR_REVIEW,
+    lead_stage: DISCOVERY_WORKFLOW_STATUS.SAVED_FOR_REVIEW
   };
 }
 
