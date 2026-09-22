@@ -73,39 +73,44 @@ export type HkDigitalNeedResult = {
  * this business have multiple, independently-verified real digital gaps
  * HK Dijital can solve?"), not a replacement scoring system.
  *
- * Calibration (fixed after a real-world false-positive review — e.g. a
- * 137-review, well-rated business was wrongly flagged HIGH from a single
- * missing signal): no single weak-presence signal — missing website, no
- * Instagram link found, or no ad-tracking code detected — may push a
- * candidate to HIGH by itself, and no simple pair may either.
+ * Calibration (fixed after a second real-world false-positive review
+ * against a real 20-business sample: website + no Instagram link found +
+ * no tracking code detected + a strong Google rating was STILL wrongly
+ * flagged HIGH for 3/20 real businesses — Manisa Cix, Emre Özlük,
+ * Mesmerica — all well-established, high-reputation businesses that this
+ * signal set cannot actually distinguish from a genuine HK Dijital gap).
  *
- * Missing website is NOT treated as a meaningful gap on its own — many
- * real, successful businesses (especially Instagram-first sectors: nail
- * studios, salons, barbers) deliberately never build a website, so its
- * absence says little about digital marketing need. It is ALSO
- * structurally not independent from "Instagram not found": with no
- * website, there is nothing to scan a link from, so that signal would be
- * trivially false too — combining the two would silently double-count one
- * fact as two. Missing-website candidates therefore cap at MEDIUM (never
- * HIGH), regardless of reputation.
+ * The root problem: "no Instagram link on the website" and "no Pixel/Tag
+ * detected" are real, verified TECHNICAL observations, but neither one
+ * proves genuine commercial need on its own or together —
+ *   - a missing tracking snippet does NOT prove the business isn't
+ *     running Meta/Google ads (ads can run without a website pixel, e.g.
+ *     Instagram-only campaigns),
+ *   - a missing website→Instagram link does NOT prove the Instagram
+ *     account doesn't exist or is poorly run — it only proves the link
+ *     isn't on THIS page. HK Dijital's own Instagram OAuth product
+ *     cannot fetch a third party's real engagement data (see the file
+ *     header), so that gap can never be independently confirmed either.
+ * Google rating/review count is a reputation signal, not a proxy for
+ * revenue, business size, market saturation, or need for new customers
+ * — it is never used to infer any of those.
  *
- * HIGH requires ALL of, together:
- *   - hasWebsite: true (the business already built one — so its social-
- *     link and tracking gaps are genuinely their own choices, not merely
- *     "no site at all"),
- *   - no Instagram link found on that site, AND no tracking code detected
- *     on it (both real, independent gaps on an asset that does exist),
- *   - a real reputation signal (rating + review count) — high real-world
- *     demand that the business isn't converting through its own digital
- *     channels.
- * Tracking absence alone, or paired only with itself, never reaches HIGH
- * — it is reported as a reason but is the weakest of the three signals
- * and never sufficient by itself.
+ * Because no currently-available real data source can independently
+ * confirm a direct commercial need HK Dijital solves, this signal set
+ * cannot reliably justify HIGH by itself: two unconfirmed technical gaps
+ * plus a reputation number is real, verified data, but it is evidence of
+ * a technical gap, not evidence of need — it is reported as MEDIUM with
+ * honest reasons, never inflated to HIGH. HIGH is reserved for future
+ * signals that would offer actual confirmation (e.g. a directly-verified
+ * lack of any paid presence); until such a signal exists, per the stated
+ * principle, returning MEDIUM/UNKNOWN is more correct than guessing HIGH.
  *
- * LOW requires a genuinely strong, multi-part confirmed presence
- * (website + Instagram link + at least one tracking snippet together).
+ * LOW requires a genuinely strong, multi-part CONFIRMED presence (website
+ * + Instagram link + at least one tracking snippet together) — it is
+ * never forced to appear just to fill out the distribution; if the real
+ * data never produces it, that's a fact about the sample, not a bug.
  * Everything else with any real signal is MEDIUM. No signal at all is
- * UNKNOWN — never guessed up to HIGH. */
+ * UNKNOWN — never guessed up to HIGH or LOW. */
 export function computeHkDigitalNeedLevel(signals: HkDigitalNeedSignals): HkDigitalNeedResult {
   const reasons: string[] = [];
   const hasRatingSignal = signals.googleRating !== null && signals.reviewCount > 0;
@@ -118,21 +123,26 @@ export function computeHkDigitalNeedLevel(signals: HkDigitalNeedSignals): HkDigi
   }
 
   const strongReputation = hasRatingSignal && signals.googleRating! >= 4.3 && signals.reviewCount >= 15;
-  if (strongReputation) reasons.push(`Google puanı ${signals.googleRating} (${signals.reviewCount} yorum) — güçlü itibar/müşteri kazanım sinyali.`);
+  if (strongReputation) reasons.push(`Google puanı ${signals.googleRating} (${signals.reviewCount} yorum) — güçlü itibar sinyali (bu, işletme büyüklüğü, ciro veya yeni müşteri ihtiyacı hakkında bir çıkarım içermez).`);
   else if (hasRatingSignal) reasons.push(`Google puanı ${signals.googleRating} (${signals.reviewCount} yorum).`);
 
   if (!signals.hasWebsite) reasons.push("Web sitesi bulunamadı (özellikle Instagram odaklı sektörlerde bu tek başına sınırlı bir sinyaldir).");
-  if (signals.hasWebsite && !signals.instagramFound) reasons.push("Web sitesinden Instagram profiline bağlantı bulunamadı (bu, Instagram hesabının olmadığı anlamına gelmez — doğrulama gerekir).");
-  if (hasAdSignal && !trackingDetected) reasons.push("Web sitesinde Meta Pixel/Google Tag tespit edilmedi.");
+  if (signals.hasWebsite && !signals.instagramFound) reasons.push("Web sitesinden Instagram profiline bağlantı bulunamadı — bu doğrulanmış bir teknik boşluktur, ancak Instagram hesabının olmadığı veya kötü yönetildiği anlamına gelmez; doğrulama gerekir.");
+  if (hasAdSignal && !trackingDetected) reasons.push("Web sitesinde Meta Pixel/Google Tag tespit edilmedi — bu doğrulanmış bir teknik boşluktur, ancak işletmenin reklam vermediği anlamına gelmez (ör. yalnızca Instagram üzerinden reklam verilebilir); doğrulama gerekir.");
 
   const strongDigitalPresence = signals.hasWebsite && signals.instagramFound && trackingDetected;
   if (strongDigitalPresence) reasons.push("Web sitesi, Instagram profili ve reklam takip kodu birlikte mevcut — dijital altyapı kurulu.");
 
-  // Both real, independent gaps must be confirmed on an EXISTING website
-  // — missing-website candidates never reach HIGH (see calibration note).
+  // Both are real, INDEPENDENTLY VERIFIED technical gaps on an existing
+  // website — but per the calibration note above, neither proves genuine
+  // commercial need with the data sources currently available, so this
+  // combination alone (even together with strong reputation) no longer
+  // reaches HIGH; it is reported as MEDIUM with honest reasons instead.
   const confirmedGapsOnExistingWebsite = signals.hasWebsite && !signals.instagramFound && !trackingDetected;
+  if (confirmedGapsOnExistingWebsite) {
+    reasons.push("Bu veri setiyle HK Dijital'e yönelik doğrudan ticari ihtiyaç güvenilir şekilde doğrulanamıyor; tespit edilen boşluklar teknik gözlemdir, ihtiyaç kanıtı değildir.");
+  }
 
-  if (strongReputation && confirmedGapsOnExistingWebsite) return { level: "HIGH", reasons };
   if (strongDigitalPresence) return { level: "LOW", reasons };
   if (hasRatingSignal || hasAdSignal || signals.hasWebsite) return { level: "MEDIUM", reasons: reasons.length ? reasons : ["Kısmi dijital varlık sinyali var; net bir boşluk veya güçlü kurulum doğrulanamadı."] };
   return { level: "UNKNOWN", reasons: ["Yeterli gerçek sinyal yok — doğrulama gerekli."] };

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { extractInstagramProfile } from "../../src/lib/website-signal-scan.ts";
+import { extractInstagramProfile, parseInstagramProfileUrl } from "../../src/lib/website-signal-scan.ts";
 import { buildInstagramVerification, computeHkDigitalNeedLevel } from "../../src/lib/instagram-verification.ts";
 
 test("extractInstagramProfile: finds a real business profile link and normalizes the username", () => {
@@ -41,6 +41,65 @@ test("extractInstagramProfile: rsrc.php appearing BEFORE a real profile link doe
   assert.deepEqual(result, { username: "realsalonhandle", url: "https://www.instagram.com/realsalonhandle/" });
 });
 
+test("extractInstagramProfile PRODUCTION REGRESSION — real false-positive fixtures from a 20-business sample must all be rejected", () => {
+  // Each fixture reproduces the actual shape that previously slipped
+  // through for Umut Ekinci Hair Dresser / Yeliz Dinçer Hair&Makeup
+  // Studio / Ceren Yazgan Nail Studio / Feyza Haras NAIL STUDIO
+  // (username "_n") and the earlier rsrc.php/static-resource cases.
+  const fixtures: Record<string, string> = {
+    "_n internal fragment (share-sheet / embed script)": `<script src="https://www.instagram.com/embed.js?variant=_n"></script>`,
+    "_n as a bare short link": `<a href="https://www.instagram.com/_n">x</a>`,
+    "rsrc.php resource loader": `<script src="https://www.instagram.com/rsrc.php/v3/yx/r/abc123.js"></script>`,
+    "static/resource bundle URL": `<link href="https://www.instagram.com/static/bundles/comet/Loader.css">`,
+    "redirect/query tracking URL (share-sheet redirect)": `<a href="https://l.instagram.com/?u=https%3A%2F%2Fwww.instagram.com%2F&e=abc">Instagram</a>`,
+    "query-string-only URL with no real path": `<a href="https://www.instagram.com/?hl=tr&utm_source=ig_web_button_share_sheet">Instagram</a>`,
+    "/p/ single post permalink": `<a href="https://www.instagram.com/p/CxYz123Abc/">post</a>`,
+    "/reel/ permalink": `<a href="https://www.instagram.com/reel/CxYz123Abc/">reel</a>`,
+    "/stories/ permalink": `<a href="https://www.instagram.com/stories/somehandle/123456/">story</a>`,
+    "/explore/ discovery page": `<a href="https://www.instagram.com/explore/tags/nails/">explore</a>`
+  };
+  for (const [label, html] of Object.entries(fixtures)) {
+    const result = extractInstagramProfile(html.toLocaleLowerCase("en-US"));
+    assert.equal(result, null, `expected "${label}" to be rejected, got ${JSON.stringify(result)}`);
+  }
+});
+
+test("extractInstagramProfile PRODUCTION REGRESSION — a real plain username and a real dotted username are both still found", () => {
+  const plain = extractInstagramProfile(`<a href="https://www.instagram.com/salonmerveirmak/">Instagram</a>`.toLocaleLowerCase("en-US"));
+  assert.deepEqual(plain, { username: "salonmerveirmak", url: "https://www.instagram.com/salonmerveirmak/" });
+
+  const dotted = extractInstagramProfile(`<a href="https://www.instagram.com/ai.digitalagency/">Instagram</a>`.toLocaleLowerCase("en-US"));
+  assert.deepEqual(dotted, { username: "ai.digitalagency", url: "https://www.instagram.com/ai.digitalagency/" });
+});
+
+test("extractInstagramProfile PRODUCTION REGRESSION — a /stories/ or /reel/ link never blocks a genuine profile link elsewhere on the same page", () => {
+  const html = `<a href="https://www.instagram.com/stories/somehandle/123/">story</a><a href="https://www.instagram.com/salonmerveirmak/">profile</a>`.toLocaleLowerCase("en-US");
+  assert.deepEqual(extractInstagramProfile(html), { username: "salonmerveirmak", url: "https://www.instagram.com/salonmerveirmak/" });
+});
+
+test("parseInstagramProfileUrl: rejects non-instagram.com hosts (l.instagram.com redirect, cdninstagram.com static, graph.instagram.com API)", () => {
+  assert.equal(parseInstagramProfileUrl("https://l.instagram.com/?u=https://instagram.com/realuser"), null);
+  assert.equal(parseInstagramProfileUrl("https://scontent.cdninstagram.com/v/t51/realuser.jpg"), null);
+  assert.equal(parseInstagramProfileUrl("https://graph.instagram.com/realuser"), null);
+});
+
+test("parseInstagramProfileUrl: directly parses when the Google Places website field IS an Instagram profile URL", () => {
+  const result = parseInstagramProfileUrl("https://www.instagram.com/salonmerveirmak");
+  assert.deepEqual(result, { username: "salonmerveirmak", url: "https://www.instagram.com/salonmerveirmak/" });
+});
+
+test("parseInstagramProfileUrl PRODUCTION REGRESSION — real Google Places 'website' field values with igshid/utm tracking query strings", () => {
+  assert.deepEqual(
+    parseInstagramProfileUrl("https://instagram.com/feyzaharasnailstudio?igshid=MmVlMjlkMTBhMg==&utm_source=qr"),
+    { username: "feyzaharasnailstudio", url: "https://www.instagram.com/feyzaharasnailstudio/" }
+  );
+  assert.deepEqual(
+    parseInstagramProfileUrl("https://instagram.com/ay.guzellikmerkezi?igshid=M25xd29mNzF5NnFx"),
+    { username: "ay.guzellikmerkezi", url: "https://www.instagram.com/ay.guzellikmerkezi/" }
+  );
+  assert.equal(parseInstagramProfileUrl("https://instagram.com/"), null, "bare root URL with no handle must not produce a fabricated username");
+});
+
 test("extractInstagramProfile: still accepts valid usernames containing dots/underscores (not just bare alphanumerics)", () => {
   const html = `<a href="https://www.instagram.com/ai.digitalagency">ig</a>`.toLocaleLowerCase("en-US");
   assert.deepEqual(extractInstagramProfile(html), { username: "ai.digitalagency", url: "https://www.instagram.com/ai.digitalagency/" });
@@ -62,13 +121,33 @@ test("buildInstagramVerification: no profile found is NOT_FOUND, not a fabricate
   assert.equal(result.username, null);
 });
 
-test("computeHkDigitalNeedLevel: HIGH — strong reputation AND both real gaps confirmed on an EXISTING website (no Instagram link, no tracking)", () => {
+test("computeHkDigitalNeedLevel REGRESSION — website + no Instagram link + no tracking + strong Google reputation is NOT, by itself, HIGH (real production false positives: Manisa Cix 5.0/1221, Emre Özlük 5.0/260, Mesmerica 4.8/248)", () => {
   const result = computeHkDigitalNeedLevel({
     hasWebsite: true, websiteScanFailed: false, instagramFound: false,
     metaPixelDetected: false, googleTagDetected: false, googleRating: 4.7, reviewCount: 128
   });
-  assert.equal(result.level, "HIGH");
+  assert.equal(result.level, "MEDIUM", "two unconfirmed technical gaps plus a reputation number is not proof of direct commercial need — this dataset cannot reliably confirm HIGH");
   assert.ok(result.reasons.length > 0);
+  assert.ok(
+    result.reasons.some((r) => r.includes("doğrulanamıyor")),
+    "reasons must explicitly say direct commercial need could not be confirmed, not silently downgrade"
+  );
+});
+
+test("computeHkDigitalNeedLevel REGRESSION — the exact real 20-business production sample's 3 HIGH cases (Manisa Cix, Emre Özlük, Mesmerica) no longer resolve to HIGH", () => {
+  const productionCases = [
+    { name: "Manisa Cix", googleRating: 5.0, reviewCount: 1221 },
+    { name: "Emre Özlük", googleRating: 5.0, reviewCount: 260 },
+    { name: "Mesmerica", googleRating: 4.8, reviewCount: 248 }
+  ];
+  for (const business of productionCases) {
+    const result = computeHkDigitalNeedLevel({
+      hasWebsite: true, websiteScanFailed: false, instagramFound: false,
+      metaPixelDetected: false, googleTagDetected: false,
+      googleRating: business.googleRating, reviewCount: business.reviewCount
+    });
+    assert.notEqual(result.level, "HIGH", `${business.name} must no longer be flagged HIGH from unconfirmed gaps alone`);
+  }
 });
 
 test("computeHkDigitalNeedLevel REGRESSION — missing website + Instagram not found alone is NOT auto-HIGH (real false-positive case, e.g. 137-review business)", () => {
@@ -138,4 +217,23 @@ test("computeHkDigitalNeedLevel: MEDIUM for mixed/partial signals that are neith
     metaPixelDetected: false, googleTagDetected: false, googleRating: 3.8, reviewCount: 5
   });
   assert.equal(result.level, "MEDIUM");
+});
+
+test("computeHkDigitalNeedLevel: reasons never ASSERT revenue, business size, saturation, or 'needs new customers' as a fact from review count (explicit disclaimers naming these concepts to rule them out are fine)", () => {
+  const result = computeHkDigitalNeedLevel({
+    hasWebsite: true, websiteScanFailed: false, instagramFound: false,
+    metaPixelDetected: false, googleTagDetected: false, googleRating: 5.0, reviewCount: 1221
+  });
+  const allReasons = result.reasons.join(" ");
+  assert.doesNotMatch(allReasons, /büyük bir işletme|yüksek ciro|düşük ciro|pazar doygunluğu|kesinlikle yeni müşteriye ihtiyacı/i);
+  assert.match(allReasons, /bir çıkarım içermez/, "should explicitly disclaim the inference rather than silently omitting it");
+});
+
+test("computeHkDigitalNeedLevel: LOW is never forced — an UNKNOWN-eligible candidate stays UNKNOWN, not LOW", () => {
+  const result = computeHkDigitalNeedLevel({
+    hasWebsite: false, websiteScanFailed: true, instagramFound: false,
+    metaPixelDetected: null, googleTagDetected: null, googleRating: null, reviewCount: 0
+  });
+  assert.notEqual(result.level, "LOW");
+  assert.equal(result.level, "UNKNOWN");
 });
