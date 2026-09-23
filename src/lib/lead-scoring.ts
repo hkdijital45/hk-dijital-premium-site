@@ -206,42 +206,123 @@ export function getHkOpportunityTier(score: number) {
   return HK_OPPORTUNITY_TIERS.find((tier) => value >= tier.min) || HK_OPPORTUNITY_TIERS[HK_OPPORTUNITY_TIERS.length - 1];
 }
 
+// ============================================================================
+// Explainable score — SINGLE source of truth for both the numeric
+// opportunityScore and its human-readable breakdown. calculateHkOpportunityScore
+// below is now a thin wrapper that returns explainHkOpportunityScore(...).score
+// — the UI breakdown and the real score can never drift apart because
+// there is only one calculation, not two.
+// ============================================================================
+
+export type OpportunityScoreSignalStatus = "positive" | "negative" | "neutral" | "unknown";
+
+export type OpportunityScoreBreakdownItem = {
+  key: string;
+  label: string;
+  points: number;
+  reason: string;
+  status: OpportunityScoreSignalStatus;
+};
+
+export type OpportunityScoreExplanation = {
+  score: number;
+  maxScore: number;
+  rawScore: number;
+  clamped: boolean;
+  levelLabel: string;
+  breakdown: OpportunityScoreBreakdownItem[];
+  unknownSignals: string[];
+};
+
+// Presentation-only bands (never implies purchase likelihood/guarantee —
+// see the UI copy in AdminDashboard.tsx's score explanation panel). Does
+// not replace HK_OPPORTUNITY_TIERS (the existing 5-tier sales-action
+// model used elsewhere) — this is a simpler label set for the score
+// explanation popover specifically, as the task allows.
+const OPPORTUNITY_SCORE_BANDS: Array<{ min: number; label: string }> = [
+  { min: 80, label: "Yüksek Fırsat" },
+  { min: 60, label: "İyi Fırsat" },
+  { min: 40, label: "Orta Fırsat" },
+  { min: 0, label: "Düşük Fırsat" }
+];
+
+function opportunityScoreLevelLabel(score: number): string {
+  return (OPPORTUNITY_SCORE_BANDS.find((band) => score >= band.min) || OPPORTUNITY_SCORE_BANDS[OPPORTUNITY_SCORE_BANDS.length - 1]).label;
+}
+
+/**
+ * Builds the full, honest explanation for the HK Opportunity Score:
+ * every point the score is made of, why it was given, and whether the
+ * underlying signal was actually confirmed or is genuinely unknown.
+ * Reuses scoreDiscoveredBusiness()'s already-computed heat breakdown
+ * (never recalculated) and adds the advertising-signal adjustment as its
+ * own explicit breakdown item — the same adjustment
+ * calculateHkOpportunityScore always applied, just never previously
+ * shown anywhere. rawScore is the literal sum of every breakdown item's
+ * points (mathematically exact, not re-derived), and score is that sum
+ * clamped to 0-100.
+ */
+export function explainHkOpportunityScore(
+  business: DiscoveredBusiness,
+  advertising?: Pick<AdvertisingEvidence, "metaAdsStatus" | "googleAdsStatus">
+): OpportunityScoreExplanation {
+  const scored = scoreDiscoveredBusiness(business);
+  // scoreBreakdown.heat[0] is always the fixed base item (no conditional
+  // behind it, so no matching scoreReasons.heat entry) — every entry
+  // AFTER that is pushed in lockstep with scoreReasons.heat at index-1,
+  // never index (off-by-one would silently pair each row with the WRONG
+  // reason text otherwise).
+  const breakdown: OpportunityScoreBreakdownItem[] = scored.scoreBreakdown.heat.map((row, index) => ({
+    key: `heat-${index}`,
+    label: row.label,
+    points: row.points,
+    reason: index === 0 ? "Her işletme için uygulanan temel değerlendirme puanı." : (scored.scoreReasons.heat[index - 1] || row.label),
+    status: row.points > 0 ? "positive" : row.points < 0 ? "negative" : "neutral"
+  }));
+
+  const unknownSignals: string[] = [];
+  if (!business.instagram) {
+    unknownSignals.push("Instagram hesabı doğrulanamadı — bu, hesabın olmadığı anlamına gelmez; puanlamaya dahil edilmedi.");
+  }
+
+  if (advertising) {
+    // Same rule calculateHkOpportunityScore always used — now explicit
+    // and visible instead of an invisible adjustment applied after the
+    // breakdown was already "final". manual_check_required/
+    // source_unavailable/unverified are all "we don't know" and must
+    // stay strictly neutral (0 points), exactly like the -8 penalty only
+    // ever fires on a real, confirmed active_signal.
+    const confirmedNoSignal = (status: AdStatusValue) => status === "no_signal_detected";
+    if (advertising.metaAdsStatus === "active_signal" || advertising.googleAdsStatus === "active_signal") {
+      breakdown.push({ key: "advertising", label: "Reklam Sinyali", points: -8, reason: "İşletme için doğrulanmış aktif reklam sinyali bulundu; HK Dijital'in kapatabileceği görünür dijital boşluk daha küçük.", status: "negative" });
+    } else if (confirmedNoSignal(advertising.metaAdsStatus) && confirmedNoSignal(advertising.googleAdsStatus)) {
+      breakdown.push({ key: "advertising", label: "Reklam Fırsatı", points: 5, reason: "Web sitesi taraması tamamlandı ve hiçbir kanalda reklam sinyaline rastlanmadı — doğrulanmış bir fırsat sinyali.", status: "positive" });
+    } else {
+      breakdown.push({ key: "advertising", label: "Reklam Durumu", points: 0, reason: "Meta/Google reklam durumu doğrulanamadı (manuel kontrol gerekli); bilinmeyen veri puanlamaya dahil edilmedi.", status: "unknown" });
+      unknownSignals.push("Reklam durumu doğrulanamadı (manuel kontrol gerekli).");
+    }
+  }
+
+  const rawScore = breakdown.reduce((sum, item) => sum + item.points, 0);
+  const score = Math.max(0, Math.min(100, Math.round(rawScore)));
+  return { score, maxScore: 100, rawScore, clamped: rawScore !== score, levelLabel: opportunityScoreLevelLabel(score), breakdown, unknownSignals };
+}
+
 /**
  * Combines the deterministic heat score with advertising-signal evidence:
  * unknown/unverified ad status is explicitly neutral (never penalizes or
  * rewards), a confirmed absence of ads is a genuine opportunity signal, and
  * confirmed active advertising lowers priority since the gap this agency
- * sells into (advertising presence) is already closed.
+ * sells into (advertising presence) is already closed. Thin wrapper over
+ * explainHkOpportunityScore — see that function for the actual
+ * calculation; kept so every existing caller's numeric-only contract
+ * (opportunityScore: number) stays exactly as it was.
  */
 export function calculateHkOpportunityScore(
   business: DiscoveredBusiness,
   advertising?: Pick<AdvertisingEvidence, "metaAdsStatus" | "googleAdsStatus">
 ): number {
-  const { leadHeatScore } = scoreDiscoveredBusiness(business);
-  let adjusted = leadHeatScore;
-  if (advertising) {
-    // ROOT-CAUSE FIX: the +5 "clearer opportunity" bonus previously fired
-    // whenever BOTH channels were "no_signal_detected" OR "manual_check_
-    // required" OR "source_unavailable" — treating "we never checked
-    // because there's no website to scan" the same as "we scanned and
-    // genuinely found nothing". That let missing data (no website, so
-    // nothing to check) masquerade as a confirmed positive signal and
-    // inflate scores toward 100/100 on candidates with almost no real
-    // evidence. Only a GENUINE completed scan with a negative result
-    // (no_signal_detected) counts here — manual_check_required/
-    // source_unavailable/unverified are all "we don't know" and must stay
-    // strictly neutral, exactly like they already were treated for the
-    // -8 penalty side (only a real "active_signal" triggers that).
-    const confirmedNoSignal = (status: AdStatusValue) => status === "no_signal_detected";
-    if (advertising.metaAdsStatus === "active_signal" || advertising.googleAdsStatus === "active_signal") {
-      adjusted -= 8; // already advertising somewhere: smaller visible gap for HK to sell into
-    } else if (confirmedNoSignal(advertising.metaAdsStatus) && confirmedNoSignal(advertising.googleAdsStatus)) {
-      adjusted += 5; // BOTH channels were actually scanned and neither showed a signal: a real, checked opportunity signal
-    }
-    // manual_check_required / source_unavailable / unverified: unknown,
-    // never rewarded or penalized.
-  }
-  return Math.max(0, Math.min(100, Math.round(adjusted)));
+  return explainHkOpportunityScore(business, advertising).score;
 }
 
 export type DataConfidenceLevel = "Yüksek" | "Orta" | "Düşük";

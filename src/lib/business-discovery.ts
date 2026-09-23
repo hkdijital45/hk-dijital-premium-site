@@ -16,6 +16,7 @@ import {
   calculateMetaSuitability,
   computeDataConfidence,
   evaluateAdvertisingSignals,
+  explainHkOpportunityScore,
   getHkOpportunityTier,
   scoreDiscoveredBusiness,
   type AdvertisingEvidence,
@@ -130,7 +131,12 @@ async function enrichBusiness(business: DiscoveredBusiness): Promise<Record<stri
     googleRating: typeof business.googleRating === "number" ? business.googleRating : typeof business.rating === "number" ? business.rating : null,
     reviewCount: Number(business.reviewCount || 0)
   });
-  const opportunityScore = calculateHkOpportunityScore(businessWithWhatsapp, advertising);
+  // Single source of truth for both the numeric score and its breakdown —
+  // explainHkOpportunityScore computes both together so the UI popover
+  // can never show a breakdown that adds up to a different number than
+  // opportunityScore itself (see lead-scoring.ts).
+  const scoreExplanation = explainHkOpportunityScore(businessWithWhatsapp, advertising);
+  const opportunityScore = scoreExplanation.score;
   const tier = getHkOpportunityTier(opportunityScore);
   const adStatusResolved = ["active_signal", "no_signal_detected"].includes(advertising.metaAdsStatus) || ["active_signal", "no_signal_detected"].includes(advertising.googleAdsStatus);
   const dataConfidence = computeDataConfidence({
@@ -149,6 +155,14 @@ async function enrichBusiness(business: DiscoveredBusiness): Promise<Record<stri
     ...businessWithWhatsapp,
     ...scored,
     opportunityScore,
+    // Additive — existing numeric opportunityScore contract (filters,
+    // sort, saved leads) is completely unchanged; this is new data
+    // alongside it, not a replacement.
+    opportunityScoreBreakdown: scoreExplanation.breakdown,
+    opportunityScoreLevelLabel: scoreExplanation.levelLabel,
+    opportunityScoreUnknownSignals: scoreExplanation.unknownSignals,
+    opportunityRawScore: scoreExplanation.rawScore,
+    opportunityScoreClamped: scoreExplanation.clamped,
     hkOpportunityTier: tier.key,
     hkOpportunityLabel: tier.label,
     hkOpportunityAction: tier.recommendedAction,
@@ -386,7 +400,16 @@ export function buildLeadRowFromBusiness(business: Record<string, any>, meta: { 
       metaSuitabilityReasons: business.metaSuitabilityReasons || [],
       metaSuitabilityNote: business.metaSuitabilityNote || "",
       scoreReasons: scores.scoreReasons || {},
-      scoreBreakdown: scores.scoreBreakdown || {}
+      scoreBreakdown: scores.scoreBreakdown || {},
+      // Explainable HK Opportunity Score — persisted (existing JSONB
+      // column, no migration) so a saved lead's score popover can be
+      // reconstructed later without re-running discovery. Older rows
+      // saved before this existed simply won't have these keys; the UI
+      // handles that with an honest "no detailed breakdown available for
+      // this version" fallback rather than fabricating one.
+      opportunityScoreBreakdown: business.opportunityScoreBreakdown || [],
+      opportunityScoreLevelLabel: business.opportunityScoreLevelLabel || null,
+      opportunityScoreUnknownSignals: business.opportunityScoreUnknownSignals || []
     },
     discovery_last_checked_at: new Date().toISOString(),
     notes: [business.notes, meta.notes, "Google Maps işletme keşfi ile kaydedildi.", ...(scores.scoreReasons?.heat || [])].filter(Boolean).join("\n"),

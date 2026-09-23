@@ -11027,6 +11027,130 @@ function discoveryScoreBreakdown(record: any) {
   return { heat, maturity };
 }
 
+type OpportunityScoreBreakdownRow = { key: string; label: string; points: number; reason: string; status: string };
+
+function opportunityScoreStatusTone(status: string): AdminStatusTone {
+  if (status === "positive") return "success";
+  if (status === "negative") return "danger";
+  if (status === "unknown") return "neutral";
+  return "info";
+}
+
+// Real breakdown (opportunityScoreBreakdown) comes straight from
+// business-discovery.ts's explainHkOpportunityScore() — never
+// recalculated here, so the popover can never show a different number
+// than the badge itself. Only falls back to a reconstruction (clearly
+// labeled as such) for saved leads persisted before this field existed.
+function opportunityScoreBreakdownFor(record: any): OpportunityScoreBreakdownRow[] {
+  const real = Array.isArray(record?.opportunityScoreBreakdown) ? record.opportunityScoreBreakdown
+    : Array.isArray(record?.discovery_evidence?.opportunityScoreBreakdown) ? record.discovery_evidence.opportunityScoreBreakdown
+      : null;
+  if (real && real.length) return real;
+  const heat = record?.scoreBreakdown?.heat || record?.discovery_evidence?.scoreBreakdown?.heat || discoveryScoreBreakdown(record).heat;
+  if (!Array.isArray(heat) || !heat.length) return [];
+  return heat.map((row: any, index: number) => ({
+    key: `reconstructed-${index}`,
+    label: row.label,
+    points: row.points,
+    reason: "Bu kayıt önceki bir puanlama sürümünde oluşturulduğu için orijinal gerekçe metni saklanmadı; puan mevcut kayıtlı verilerden yeniden oluşturuldu.",
+    status: row.points > 0 ? "positive" : row.points < 0 ? "negative" : "neutral"
+  }));
+}
+
+// Clickable HK Opportunity Score badge — opens an inline, accessible
+// breakdown panel. Each rendered instance owns its own open/closed
+// state (plain useState, no shared placeId-keyed dictionary), so two
+// badges on screen at once can never leak or overwrite each other's
+// panel/business data.
+function OpportunityScoreBadge({ score, tone, label, record }: { score: number; tone: AdminStatusTone; label: string; record: any }) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLSpanElement>(null);
+  const breakdown = opportunityScoreBreakdownFor(record);
+  const isReconstructed = breakdown.length > 0 && breakdown[0].key.startsWith("reconstructed-");
+  const unknownSignals: string[] = Array.isArray(record?.opportunityScoreUnknownSignals) ? record.opportunityScoreUnknownSignals
+    : Array.isArray(record?.discovery_evidence?.opportunityScoreUnknownSignals) ? record.discovery_evidence.opportunityScoreUnknownSignals
+      : [];
+  const levelLabel: string = record?.opportunityScoreLevelLabel || record?.discovery_evidence?.opportunityScoreLevelLabel || label;
+  const rawScore = record?.opportunityRawScore;
+  const clamped = Boolean(record?.opportunityScoreClamped);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleKey(event: KeyboardEvent) { if (event.key === "Escape") setOpen(false); }
+    function handleClick(event: MouseEvent) { if (containerRef.current && !containerRef.current.contains(event.target as Node)) setOpen(false); }
+    document.addEventListener("keydown", handleKey);
+    document.addEventListener("mousedown", handleClick);
+    return () => { document.removeEventListener("keydown", handleKey); document.removeEventListener("mousedown", handleClick); };
+  }, [open]);
+
+  return (
+    <span ref={containerRef} className="relative inline-block">
+      <button
+        type="button"
+        onClick={(event) => { event.stopPropagation(); setOpen((current) => !current); }}
+        aria-expanded={open}
+        aria-label={`Opportunity Score ${score}/100 — puan detayını aç`}
+        className="cursor-pointer rounded-full transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
+        style={{ outlineColor: "var(--hk-cyan-solid, #0EA5E9)" }}
+      >
+        <AdminStatusBadge tone={tone}>{label} · {score}/100</AdminStatusBadge>
+      </button>
+      {open && (
+        <div
+          role="dialog"
+          aria-label="HK Opportunity Score puan detayı"
+          className="absolute left-0 z-30 mt-2 max-h-[420px] w-[320px] overflow-y-auto rounded-[12px] p-4 text-left shadow-xl"
+          style={{ border: "1px solid var(--admin-border-strong)", background: "var(--admin-card)" }}
+        >
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <strong className="text-sm" style={{ color: "var(--admin-text-primary)" }}>HK Opportunity Score</strong>
+            <button type="button" onClick={() => setOpen(false)} aria-label="Kapat" className="text-xs font-black" style={{ color: "var(--admin-text-muted)" }}>✕</button>
+          </div>
+          <p className="text-2xl font-black leading-none" style={{ color: "var(--admin-text-primary)" }}>{score} <span className="text-sm font-bold" style={{ color: "var(--admin-text-muted)" }}>/ 100</span></p>
+          <p className="mt-0.5 text-xs font-bold" style={{ color: "var(--admin-text-secondary)" }}>{levelLabel}</p>
+          <p className="mt-2 text-[11px] leading-5" style={{ color: "var(--admin-text-muted)" }}>HK Opportunity Score, işletmenin HK Dijital hizmetleri açısından taşıdığı fırsat sinyallerini özetler. Satın alma olasılığını veya satış garantisini ifade etmez.</p>
+
+          {breakdown.length ? (
+            <div className="mt-3 grid gap-1.5">
+              <p className="text-[10px] font-black uppercase tracking-[.08em]" style={{ color: "var(--admin-text-muted)" }}>Puan Dökümü</p>
+              {isReconstructed && <p className="text-[10px] leading-4" style={{ color: "var(--admin-text-muted)" }}>Bu kayıt eski puanlama sürümünde oluşturulduğu için ayrıntılı gerekçe metinleri mevcut değil; puanlar kayıtlı verilerden yeniden oluşturuldu.</p>}
+              {breakdown.map((item: OpportunityScoreBreakdownRow) => (
+                <div key={item.key} className="rounded-[8px] p-2" style={{ background: "var(--admin-surface-muted, var(--admin-surface-soft))" }}>
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-xs font-black" style={{ color: "var(--admin-text-primary)" }}>{item.label}</span>
+                    <AdminStatusBadge tone={opportunityScoreStatusTone(item.status)}>{item.points > 0 ? `+${item.points}` : item.points}</AdminStatusBadge>
+                  </div>
+                  <p className="mt-1 text-[11px] leading-4" style={{ color: "var(--admin-text-secondary)" }}>{item.reason}</p>
+                </div>
+              ))}
+              <div className="mt-1 border-t pt-2" style={{ borderColor: "var(--admin-border)" }}>
+                {clamped && typeof rawScore === "number" && (
+                  <p className="text-[11px]" style={{ color: "var(--admin-text-muted)" }}>Ham Puan: {rawScore} → Üst/Alt Sınır Uygulaması → Final: {score}/100</p>
+                )}
+                <div className="mt-1 flex items-center justify-between">
+                  <strong className="text-xs" style={{ color: "var(--admin-text-primary)" }}>TOPLAM</strong>
+                  <strong className="text-sm" style={{ color: "var(--admin-text-primary)" }}>{score} / 100</strong>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="mt-3 rounded-[8px] border border-dashed p-2 text-[11px]" style={{ borderColor: "var(--admin-border-strong)", color: "var(--admin-text-muted)" }}>Bu kayıt eski puanlama sürümünde oluşturulduğu için ayrıntılı puan dökümü mevcut değil.</p>
+          )}
+
+          {unknownSignals.length > 0 && (
+            <div className="mt-3">
+              <p className="text-[10px] font-black uppercase tracking-[.08em]" style={{ color: "var(--admin-text-muted)" }}>Veri Notları</p>
+              <ul className="mt-1 grid gap-1 text-[11px] leading-4" style={{ color: "var(--admin-text-muted)" }}>
+                {unknownSignals.map((signal: string, index: number) => <li key={index}>• {signal}</li>)}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </span>
+  );
+}
+
 function ScoringGuidePanel() {
   // Row order is preserved from the original hardcoded palette (top row =
   // strongest signal); only the color representation now flows through the
@@ -12409,7 +12533,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
-          <AdminStatusBadge tone={scoreTone(opportunityScore)}>{hkTier.label} · {opportunityScore}/100</AdminStatusBadge>
+          <OpportunityScoreBadge score={opportunityScore} tone={scoreTone(opportunityScore)} label={hkTier.label} record={record} />
           {existingLead ? <AdminStatusBadge tone="success">CRM'de Kayıtlı</AdminStatusBadge> : <AdminStatusBadge tone="neutral">Yeni</AdminStatusBadge>}
           {existingLead?.status === "Ön İnceleme İptal" && <AdminStatusBadge tone="danger" title={`${existingLead.rejection_reason || ""} · ${existingLead.rejected_at ? new Date(existingLead.rejected_at).toLocaleDateString("tr-TR") : ""}`}>⚠ Daha önce iptal edildi</AdminStatusBadge>}
           {record.phone && <AdminStatusBadge tone="neutral">Telefon var</AdminStatusBadge>}
@@ -13253,7 +13377,7 @@ function BusinessLeadDetailPanel({ record, mapsHref, metaHref, saveBusiness, pro
       </>}
     >
       <div className="flex flex-wrap gap-1.5">
-        <AdminStatusBadge tone={scoreTone(opportunityScore)}>Fırsat {opportunityScore}/100</AdminStatusBadge>
+        <OpportunityScoreBadge score={opportunityScore} tone={scoreTone(opportunityScore)} label="Fırsat" record={record} />
         <AdminStatusBadge tone={scoreTone(digitalGapScore)}>Dijital Eksik {digitalGapScore}/100</AdminStatusBadge>
         <AdminStatusBadge tone={scoreTone(heat)}>Sıcaklık {heat ?? "-"}</AdminStatusBadge>
         <AdminStatusBadge tone={scoreTone(adPotentialScore)}>Reklam Potansiyeli {adPotentialScore}/100</AdminStatusBadge>
