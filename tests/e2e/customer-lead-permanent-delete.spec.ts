@@ -175,4 +175,94 @@ test.describe("authenticated admin validation", () => {
     const again = await inPageFetchForPage(`/api/admin/companies/${companyId}`, { method: "DELETE", body: { confirmationName: companyName } });
     expect(again.status).toBe(404);
   });
+
+  // Regression coverage for the real production defect: permanently
+  // deleting a lead that owns a pre_audit_reports row violated
+  // pre_audit_reports_company_or_lead_check (company_id/lead_id both
+  // null after the FK's own ON DELETE SET NULL fired), aborting the
+  // whole lead DELETE every time. Self-provisions disposable QA-prefixed
+  // rows directly via the service-role key, same pattern as the
+  // conversation-history test above.
+  test.describe("lead permanent delete + pre_audit_reports cleanup", () => {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    function supabaseRest(path: string, init: RequestInit = {}) {
+      return fetch(`${supabaseUrl}/rest/v1/${path}`, {
+        ...init,
+        headers: { apikey: serviceKey!, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=representation", ...(init.headers || {}) }
+      });
+    }
+
+    test("an active (non-archived) lead cannot be permanently deleted", async ({ page }, testInfo) => {
+      test.skip(!supabaseUrl || !serviceKey, "NEXT_PUBLIC_SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY not supplied in this environment.");
+      const unique = `${Date.now()}-${testInfo.project.name}`;
+      const leadRes = await supabaseRest("leads", { method: "POST", body: JSON.stringify({ company: `QA-Active-Lead-${unique}`, source: "Playwright regression", status: "Yeni Lead", is_test: true }) });
+      expect(leadRes.ok, `lead seed failed: ${await leadRes.text()}`).toBeTruthy();
+      const [lead] = await leadRes.json();
+
+      await page.goto("/", { waitUntil: "domcontentloaded" });
+      await loginAsQaAdmin(page.request);
+      const fetchInPage = inPageFetch(page);
+      const deleteRes = await fetchInPage(`/api/admin/leads/${lead.id}`, { method: "DELETE" });
+      expect(deleteRes.status).toBe(400);
+
+      await supabaseRest(`leads?id=eq.${lead.id}`, { method: "DELETE" });
+    });
+
+    test("permanently deleting an archived lead removes its lead-only pre_audit_report instead of violating the CHECK constraint", async ({ page }, testInfo) => {
+      test.skip(!supabaseUrl || !serviceKey, "NEXT_PUBLIC_SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY not supplied in this environment.");
+      const unique = `${Date.now()}-${testInfo.project.name}`;
+      const leadRes = await supabaseRest("leads", { method: "POST", body: JSON.stringify({ company: `QA-Orphan-Report-Lead-${unique}`, source: "Playwright regression", status: "Reddedildi", deleted_at: new Date().toISOString(), is_test: true }) });
+      expect(leadRes.ok, `lead seed failed: ${await leadRes.text()}`).toBeTruthy();
+      const [lead] = await leadRes.json();
+
+      const reportRes = await supabaseRest("pre_audit_reports", { method: "POST", body: JSON.stringify({ lead_id: lead.id, company_id: null, report_type: "INTERNAL_REPORT", title: "QA regression report" }) });
+      expect(reportRes.ok, `pre_audit_reports seed failed: ${await reportRes.text()}`).toBeTruthy();
+      const [report] = await reportRes.json();
+
+      await page.goto("/", { waitUntil: "domcontentloaded" });
+      await loginAsQaAdmin(page.request);
+      const fetchInPage = inPageFetch(page);
+      const deleteRes = await fetchInPage(`/api/admin/leads/${lead.id}`, { method: "DELETE" });
+      expect(deleteRes.ok, `permanent delete must succeed, not hit the CHECK constraint: ${JSON.stringify(deleteRes.body)}`).toBeTruthy();
+
+      const leadAgain = await supabaseRest(`leads?id=eq.${lead.id}&select=id`);
+      expect(await leadAgain.json()).toEqual([]);
+      const reportAgain = await supabaseRest(`pre_audit_reports?id=eq.${report.id}&select=id`);
+      expect(await reportAgain.json()).toEqual([]);
+    });
+
+    test("permanently deleting an archived lead preserves a company-owned pre_audit_report and only detaches lead_id", async ({ page }, testInfo) => {
+      test.skip(!supabaseUrl || !serviceKey, "NEXT_PUBLIC_SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY not supplied in this environment.");
+      const unique = `${Date.now()}-${testInfo.project.name}`;
+
+      const companyRes = await supabaseRest("companies", { method: "POST", body: JSON.stringify({ name: `QA-Company-Owned-Report-${unique}`, email: `qa-company-owned-report-${unique}@example.test`, is_test: true }) });
+      expect(companyRes.ok, `company seed failed: ${await companyRes.text()}`).toBeTruthy();
+      const [company] = await companyRes.json();
+
+      const leadRes = await supabaseRest("leads", { method: "POST", body: JSON.stringify({ company: `QA-Preserved-Report-Lead-${unique}`, company_id: company.id, source: "Playwright regression", status: "Reddedildi", deleted_at: new Date().toISOString(), is_test: true }) });
+      expect(leadRes.ok, `lead seed failed: ${await leadRes.text()}`).toBeTruthy();
+      const [lead] = await leadRes.json();
+
+      const reportRes = await supabaseRest("pre_audit_reports", { method: "POST", body: JSON.stringify({ lead_id: lead.id, company_id: company.id, report_type: "INTERNAL_REPORT", title: "QA regression report (company-owned)" }) });
+      expect(reportRes.ok, `pre_audit_reports seed failed: ${await reportRes.text()}`).toBeTruthy();
+      const [report] = await reportRes.json();
+
+      await page.goto("/", { waitUntil: "domcontentloaded" });
+      await loginAsQaAdmin(page.request);
+      const fetchInPage = inPageFetch(page);
+      const deleteRes = await fetchInPage(`/api/admin/leads/${lead.id}`, { method: "DELETE" });
+      expect(deleteRes.ok, `permanent delete must succeed: ${JSON.stringify(deleteRes.body)}`).toBeTruthy();
+
+      const reportAgain = await supabaseRest(`pre_audit_reports?id=eq.${report.id}&select=id,lead_id,company_id`);
+      const [preserved] = await reportAgain.json();
+      expect(preserved, "company-owned pre_audit_report must survive the lead's permanent delete").toBeTruthy();
+      expect(preserved.lead_id).toBeNull();
+      expect(preserved.company_id).toBe(company.id);
+
+      await supabaseRest(`pre_audit_reports?id=eq.${report.id}`, { method: "DELETE" });
+      await supabaseRest(`companies?id=eq.${company.id}`, { method: "DELETE" });
+    });
+  });
 });

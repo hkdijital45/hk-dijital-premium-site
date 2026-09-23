@@ -4,7 +4,7 @@ import { recordActionFailure, recordActivity } from "@/lib/activity-log";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 import { requireModuleAccess } from "@/lib/permissions";
 import { isAdminRole } from "@/lib/auth";
-import { permanentlyDeleteLead } from "@/lib/server/customer-permanent-delete";
+import { permanentlyDeleteLead, LeadNotArchivedError } from "@/lib/server/customer-permanent-delete";
 import { evaluateAdvertisingSignals, type ManualAdVerification } from "@/lib/lead-scoring";
 import { isValidDiscoveryWorkflowTransition } from "@/lib/discovery-workflow";
 
@@ -350,9 +350,15 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: 404 });
     return NextResponse.json({ ok: true, deleted: true, message: "Başvuru kalıcı olarak silindi." });
   } catch (error) {
+    if (error instanceof LeadNotArchivedError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     const safe = getSafeSupabaseError(error);
     await recordActionFailure({ session, entity: "Satış Hunisi", action: "Lead kalıcı silme", error, entityId: id }).catch(() => null);
+    // Full detail goes to server logs/activity log only — the client only
+    // ever sees a short, generic message, never a raw Postgres/Supabase
+    // error dump (see recordActionFailure above for the real detail).
     console.error("[crm-lead] Başvuru kalıcı silme hatası", safe.detail);
-    return NextResponse.json({ error: safe.title, supabaseError: safe.detail }, { status: 500 });
+    return NextResponse.json({ error: "Lead kalıcı olarak silinemedi. Lütfen tekrar deneyin." }, { status: 500 });
   }
 }

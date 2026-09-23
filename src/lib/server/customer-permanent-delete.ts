@@ -205,17 +205,72 @@ export async function resetCompaniesOperationalData(mode: "demo" | "full", compa
   return { ok: true as const, mode, total: companyIds.length, succeeded, results };
 }
 
+/**
+ * ROOT CAUSE (production bug): pre_audit_reports.lead_id is `on delete set
+ * null`, and pre_audit_reports has a CHECK constraint
+ * (pre_audit_reports_company_or_lead_check) requiring company_id IS NOT
+ * NULL OR lead_id IS NOT NULL. Deleting a lead that owns a lead-only
+ * report (company_id already null — the normal case for a Müşteri Keşfi
+ * candidate pre-audit'd before ever becoming a customer) made Postgres
+ * try to SET NULL the report's lead_id as part of the same DELETE,
+ * leaving BOTH columns null and violating the CHECK — aborting the whole
+ * lead DELETE with a constraint violation, every time. This explicitly
+ * cleans up pre_audit_reports for this lead FIRST, so the constraint can
+ * never be violated:
+ *   - report has no company_id (lead-only, e.g. a pre-audit run before
+ *     the candidate was ever linked to a real customer): deleted along
+ *     with the lead — it would otherwise become a permanently orphaned,
+ *     unreachable row.
+ *   - report has a company_id (this business went on to become/relate to
+ *     a real customer): PRESERVED as company history — only lead_id is
+ *     detached (set null), company_id stays, so the CHECK constraint
+ *     still passes and nothing customer-facing is lost.
+ * No other table referencing leads.id needs this treatment: every other
+ * FK is `on delete set null` (or, for outreach_drafts, a genuinely
+ * lead-owned `on delete cascade`) with no CHECK constraint requiring a
+ * second non-null owner column — Postgres already handles those safely
+ * on its own.
+ */
+async function detachOrDeletePreAuditReports(leadId: string) {
+  const reports = await supabaseRest<Array<{ id: string; company_id: string | null }>>(
+    `pre_audit_reports?lead_id=eq.${encodeURIComponent(leadId)}&select=id,company_id`
+  );
+  const orphanIds = reports.filter((report) => !report.company_id).map((report) => report.id);
+  const companyOwnedIds = reports.filter((report) => report.company_id).map((report) => report.id);
+
+  if (orphanIds.length) {
+    await supabaseRest(`pre_audit_reports?id=in.(${orphanIds.map(encodeURIComponent).join(",")})`, { method: "DELETE" });
+  }
+  if (companyOwnedIds.length) {
+    await supabaseRest(`pre_audit_reports?id=in.(${companyOwnedIds.map(encodeURIComponent).join(",")})`, {
+      method: "PATCH",
+      body: JSON.stringify({ lead_id: null, updated_at: new Date().toISOString() })
+    });
+  }
+  return { deletedOrphanReports: orphanIds.length, detachedCompanyReports: companyOwnedIds.length };
+}
+
+export class LeadNotArchivedError extends Error {}
+
 export async function permanentlyDeleteLead(id: string, session: AppSession) {
-  const existingRows = await supabaseRest<Array<{ id: string; company_id?: string | null }>>(`leads?id=eq.${encodeURIComponent(id)}&select=id,company_id&limit=1`);
-  if (!existingRows[0]) return { ok: false, error: "Başvuru bulunamadı." as const };
+  const existingRows = await supabaseRest<Array<{ id: string; company_id?: string | null; deleted_at?: string | null }>>(
+    `leads?id=eq.${encodeURIComponent(id)}&select=id,company_id,deleted_at&limit=1`
+  );
+  const lead = existingRows[0];
+  if (!lead) return { ok: false, error: "Başvuru bulunamadı." as const };
+  // B6: permanent delete must only ever act on an already-archived (soft-
+  // deleted) lead — never a live one, regardless of what the client sends.
+  if (!lead.deleted_at) throw new LeadNotArchivedError("Yalnızca Silinenler listesindeki kayıtlar kalıcı olarak silinebilir.");
+
+  const cleanup = await detachOrDeletePreAuditReports(id);
 
   await recordActivity({
     session,
     action: "Silme",
     entity: "Başvuru",
     entityId: id,
-    companyId: existingRows[0].company_id,
-    details: { message: "CRM başvurusu kalıcı olarak silindi.", permanent_delete: true }
+    companyId: lead.company_id,
+    details: { message: "CRM başvurusu kalıcı olarak silindi.", permanent_delete: true, ...cleanup }
   });
   await supabaseRest(`leads?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" });
   return { ok: true as const };

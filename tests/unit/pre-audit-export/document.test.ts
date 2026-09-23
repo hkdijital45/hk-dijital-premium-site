@@ -88,7 +88,12 @@ test("TEST A — client PDF is a real, valid PDF with the branded title and no i
 
   const loaded = await PDFDocument.load(buffer);
   assert.ok(loaded.getPageCount() >= 1);
-  assert.equal(payload.title, "HK Dijital — Ön İnceleme ve Teklif Raporu");
+  // A8 client data firewall: the CLIENT title/filename no longer branches
+  // on offer content (recommended_package/budget_plan/ad_strategy are now
+  // structurally excluded from the CLIENT body entirely — see the
+  // CLIENT DATA FIREWALL tests below), so it is always this one plain,
+  // honest title regardless of what the underlying report row contains.
+  assert.equal(payload.title, "HK Dijital — Ön İnceleme Raporu");
   assert.ok(!payload.sections.some((s) => PRE_AUDIT_INTERNAL_SECTION_LABELS.some(([, label]) => label === s.title)));
 });
 
@@ -99,7 +104,7 @@ test("TEST B — client DOCX is a real, valid DOCX containing Turkish text and t
 
   assert.equal(buffer.subarray(0, 2).toString("latin1"), "PK", "must be a real DOCX (zip container), not an HTML file renamed .docx");
   const xml = await extractDocxText(buffer);
-  assert.match(xml, /Ön İnceleme ve Teklif Raporu/);
+  assert.match(xml, /Ön İnceleme Raporu/);
   assert.match(xml, /güncellenmesi|görünürlüğü/); // Turkish-character glyphs survive into the XML
   assert.doesNotMatch(xml, /GİZLİ SATIŞ NOTU/, "a client document must never contain internal-only content, even from a dirty row");
   assert.doesNotMatch(xml, /Satış Görüşmesi Notları/);
@@ -205,13 +210,16 @@ test("document metaLines: shows only 'Rapor Tarihi' when the report was never me
   assert.ok(laterUpdated.metaLines!.some((l) => l.startsWith("Son Güncelleme:")));
 });
 
-test("buildPreAuditFileName: sanitizes Turkish characters and picks the correct suffix", () => {
+test("buildPreAuditFileName: sanitizes Turkish characters and picks the correct suffix (A8: no 've-Teklif' variant — CLIENT never shows offer content)", () => {
   const withOffer = baseReport();
   const noOffer = baseReport({ recommended_package: {}, budget_plan: {}, recommended_services: [] });
   const internal = baseReport({ report_type: "INTERNAL_REPORT" });
 
+  // Even a report row WITH recommended_package/budget_plan populated gets
+  // the plain filename now — that content never reaches the CLIENT body,
+  // so a "-ve-Teklif-" filename would falsely promise it.
   const pdfName = buildPreAuditFileName(withOffer, "Örnek İşletme Güzellik Salonu", "pdf");
-  assert.equal(pdfName, "HK-Dijital-Ornek-Isletme-Guzellik-Salonu-On-Inceleme-ve-Teklif-Raporu.pdf");
+  assert.equal(pdfName, "HK-Dijital-Ornek-Isletme-Guzellik-Salonu-On-Inceleme-Raporu.pdf");
   assert.ok(!/[çğıöşü]/i.test(pdfName));
 
   const docxNameNoOffer = buildPreAuditFileName(noOffer, "Örnek İşletme", "docx");
@@ -338,19 +346,96 @@ test("STRUCTURED RENDERER — nested Meta ad strategy object renders readably, n
   assert.doesNotMatch(text, /\{/, "no raw JSON braces should appear in the rendered text");
 });
 
-test("STRUCTURED RENDERER — CLIENT_REPORT never leaks the internal package name/price even though recommended_package is a client-visible field", async () => {
-  // recommended_package is one of PRE_AUDIT_SECTION_LABELS (client-visible
-  // by design — it's the offer itself), so this asserts the OPPOSITE of
-  // what one might assume: package/price legitimately appear in
-  // CLIENT_REPORT here because the business decided to make an offer.
-  // The actual internal-only leak surface (sales_notes/sales_script/etc.)
-  // is covered by TEST E above; this test guards that a conditional
-  // package block renders cleanly for a client without leaking the
-  // classification's internal shorthand as raw JSON.
+// A8 CLIENT DATA FIREWALL — as of this round, recommended_package/
+// budget_plan/ad_strategy are field/section-level EXCLUDED from
+// CLIENT_REPORT structurally (buildClientSections never reads those keys
+// for a non-internal report), not merely "rendered safely if present".
+// This reverses the previous round's assumption (that recommended_package
+// was legitimately client-visible "offer" content) per the explicit new
+// instruction: CLIENT never shows a package name, price, or
+// classification, no matter what the row contains.
+test("A8 CLIENT DATA FIREWALL — recommended_package/budget_plan/ad_strategy never appear in CLIENT_REPORT at all, even when populated", async () => {
   const payload = buildPreAuditDocumentPayload(structuredReport({ report_type: "CLIENT_REPORT" }), COMPANY_NAME);
+  const firewalledTitles = ["Önerilen Paket", "Bütçe Planı", "Başlangıç Reklam Stratejisi"];
+  for (const section of payload.sections) {
+    assert.ok(!firewalledTitles.includes(section.title), `CLIENT_REPORT must never include a "${section.title}" section`);
+  }
   const serialized = JSON.stringify(payload);
+  assert.doesNotMatch(serialized, /Meta Reklam Starter/, "package name must never leak into the client document");
+  assert.doesNotMatch(serialized, /9[.,]600|8[.,]000/, "package price must never leak into the client document");
+  assert.doesNotMatch(serialized, /Koşullu Paket Fırsatı/, "internal package classification must never leak into the client document");
   assert.doesNotMatch(serialized, /\[object Object\]/);
-  assert.doesNotMatch(serialized, /"priceInclVat":9600/);
+
+  const docx = await generateDocxBuffer(payload);
+  const xml = await extractDocxText(docx);
+  assert.doesNotMatch(xml, /Meta Reklam Starter|9\.600|8\.000/);
+});
+
+test("A8 CLIENT DATA FIREWALL — the same recommended_package/budget_plan/ad_strategy fields ARE shown in full for INTERNAL_REPORT", async () => {
+  const payload = buildPreAuditDocumentPayload(structuredReport({ report_type: "INTERNAL_REPORT" }), COMPANY_NAME);
+  const titles = payload.sections.map((s) => s.title);
+  assert.ok(titles.includes("Önerilen Paket"));
+  assert.ok(titles.includes("Başlangıç Reklam Stratejisi"));
+  const serialized = JSON.stringify(payload);
+  assert.match(serialized, /Meta Reklam Starter/, "INTERNAL_REPORT must retain package name for meeting prep");
+});
+
+test("A16 CLIENT SECURITY REGRESSION — a CLIENT_REPORT row deliberately dirtied with every forbidden internal signal (package, price, sales notes, whatsapp script) never surfaces any of it", async () => {
+  const dirtyReport = structuredReport({
+    report_type: "CLIENT_REPORT",
+    sales_notes: "GİZLİ: fiyata duyarlı müşteri, önce ucuz paketi teklif et",
+    sales_script: "Merhaba, HK Dijital'den arıyorum, size özel 8.000 TL'lik paketimiz var.",
+    whatsapp_initial: "Merhaba, Meta Reklam Starter paketimiz hakkında bilgi vermek isteriz.",
+    objections: [{ objection: "Fiyat çok yüksek", response: "Starter paket 8.000 TL'den başlıyor." }]
+  });
+  const payload = buildPreAuditDocumentPayload(dirtyReport, COMPANY_NAME);
+  const serialized = JSON.stringify(payload);
+  assert.doesNotMatch(serialized, /GİZLİ/);
+  assert.doesNotMatch(serialized, /özel 8\.000 TL/);
+  assert.doesNotMatch(serialized, /Meta Reklam Starter paketimiz hakkında/);
+  assert.doesNotMatch(serialized, /Starter paket 8\.000 TL/);
+  const internalTitles = new Set(PRE_AUDIT_INTERNAL_SECTION_LABELS.map(([, label]) => label));
+  for (const section of payload.sections) assert.ok(!internalTitles.has(section.title));
+});
+
+test("A5/A9 CLIENT — includes 'Bu Rapor Hakkında' as the first section and 'Sonraki Adım' as the last, with the required template text", () => {
+  const payload = buildPreAuditDocumentPayload(structuredReport({ report_type: "CLIENT_REPORT" }), COMPANY_NAME);
+  assert.equal(payload.sections[0].title, "Bu Rapor Hakkında");
+  assert.match(payload.sections[0].text || "", /erişilebilen dijital varlıkları/);
+  const last = payload.sections[payload.sections.length - 1];
+  assert.equal(last.title, "Sonraki Adım");
+  assert.match(last.text || "", /kısa bir görüşme öneriyoruz/);
+  assert.doesNotMatch(last.text || "", /\bpaket\b|\d[.,]?\d*\s*TL\b|\bfiyat\b/i, "Sonraki Adım must never mention a package or price");
+});
+
+test("A5/A9 INTERNAL — never includes the client-only 'Bu Rapor Hakkında'/'Sonraki Adım' framing sections", () => {
+  const payload = buildPreAuditDocumentPayload(structuredReport({ report_type: "INTERNAL_REPORT" }), COMPANY_NAME);
+  const titles = payload.sections.map((s) => s.title);
+  assert.ok(!titles.includes("Bu Rapor Hakkında"));
+  assert.ok(!titles.includes("Sonraki Adım"));
+});
+
+test("A7 CLIENT SWOT terminology — Zayıf Yönler/Tehditler are relabeled constructively for CLIENT, kept as-is for INTERNAL", () => {
+  const swotReport = structuredReport({ swot: { strengths: ["Güçlü marka bilinirliği"], weaknesses: ["Web sitesi yok"], opportunities: ["Instagram büyümesi"], threats: ["Rakiplerin reklamı"] } });
+  const clientPayload = buildPreAuditDocumentPayload({ ...swotReport, report_type: "CLIENT_REPORT" }, COMPANY_NAME);
+  const clientSwot = clientPayload.sections.find((s) => s.title === "SWOT")!;
+  const clientCategories = clientSwot.table!.rows.map((row) => row[0]);
+  assert.ok(clientCategories.includes("Geliştirilebilecek Alanlar"));
+  assert.ok(clientCategories.includes("Rekabet / Dikkat Edilmesi Gerekenler"));
+  assert.ok(!clientCategories.includes("Zayıf Yönler"));
+
+  const internalPayload = buildPreAuditDocumentPayload({ ...swotReport, report_type: "INTERNAL_REPORT" }, COMPANY_NAME);
+  const internalSwot = internalPayload.sections.find((s) => s.title === "SWOT")!;
+  const internalCategories = internalSwot.table!.rows.map((row) => row[0]);
+  assert.ok(internalCategories.includes("Zayıf Yönler"));
+  assert.ok(internalCategories.includes("Tehditler / Rekabet Riskleri"));
+});
+
+test("A10/A12 FOOTER — exact required wording for CLIENT and INTERNAL", () => {
+  const clientPayload = buildPreAuditDocumentPayload(structuredReport({ report_type: "CLIENT_REPORT" }), COMPANY_NAME);
+  assert.equal(clientPayload.footerNote, "HK Dijital · Dijital Pazarlama & Büyüme Çözümleri · hkdijital.com.tr");
+  const internalPayload = buildPreAuditDocumentPayload(structuredReport({ report_type: "INTERNAL_REPORT" }), COMPANY_NAME);
+  assert.equal(internalPayload.footerNote, "HK Dijital · Dahili Kullanım · Müşteriyle Paylaşılmaz");
 });
 
 test("STRUCTURED RENDERER — mixed array (objects + plain strings) never drops the plain-string entries and never shows '[object Object]'", async () => {

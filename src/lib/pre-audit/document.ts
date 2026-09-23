@@ -61,7 +61,15 @@ function prettifyKey(key: string): string {
     name: "İsim", phone: "Telefon", package: "Paket", objective: "Hedef", targeting: "Hedefleme",
     dailybudget: "Günlük Bütçe", "daily budget": "Günlük Bütçe",
     priceexclvat: "KDV Hariç Fiyat", "price excl vat": "KDV Hariç Fiyat",
-    priceinclvat: "KDV Dahil Fiyat", "price incl vat": "KDV Dahil Fiyat"
+    priceinclvat: "KDV Dahil Fiyat", "price incl vat": "KDV Dahil Fiyat",
+    phoneongbp: "Google Profilinde Telefon", "phone on gbp": "Google Profilinde Telefon",
+    pricesignal: "Fiyat Bilgisi Kaynağı", "price signal": "Fiyat Bilgisi Kaynağı",
+    reviewthemes: "Yorumlarda Öne Çıkan Temalar", "review themes": "Yorumlarda Öne Çıkan Temalar",
+    websitelisted: "Google Profilinde Web Sitesi", "website listed": "Google Profilinde Web Sitesi",
+    hours: "Çalışma Saatleri", address: "Adres", category: "Kategori", status: "Durum",
+    location: "Konum", service: "Hizmet",
+    gerekce: "Gerekçe", firsat: "Fırsat", kosul: "Koşul", siniflandirma: "Sınıflandırma",
+    uyari: "Uyarı", butcesi: "Bütçesi", erisilebilirlik: "Erişilebilirlik"
   };
   // Plain (non-locale) lowercasing for the dictionary lookup only — the
   // dictionary keys above are plain ASCII English, and Turkish-locale
@@ -149,18 +157,30 @@ function renderValueLines(value: unknown, depth = 0): string[] {
   return [`${indent}${formatPrimitiveForDisplay(value)}`];
 }
 
-const SWOT_QUADRANTS: Array<[string, string]> = [
+// INTERNAL keeps the analyst's own SWOT vocabulary. CLIENT uses
+// constructive, customer-facing terminology for the same two quadrants —
+// a presentation-only relabeling (A7): the underlying analysis/meaning is
+// never altered, only how "weaknesses" and "threats" are introduced to
+// the business reading about itself.
+const SWOT_QUADRANTS_INTERNAL: Array<[string, string]> = [
   ["strengths", "Güçlü Yönler"],
   ["weaknesses", "Zayıf Yönler"],
   ["opportunities", "Fırsatlar"],
   ["threats", "Tehditler / Rekabet Riskleri"]
 ];
+const SWOT_QUADRANTS_CLIENT: Array<[string, string]> = [
+  ["strengths", "Güçlü Yönler"],
+  ["weaknesses", "Geliştirilebilecek Alanlar"],
+  ["opportunities", "Fırsatlar"],
+  ["threats", "Rekabet / Dikkat Edilmesi Gerekenler"]
+];
 
-function swotToSection(value: unknown): DocumentSection | null {
+function swotToSection(value: unknown, isInternal: boolean): DocumentSection | null {
   if (isEmptyValue(value)) return null;
   const swot = value as Record<string, unknown>;
+  const quadrants = isInternal ? SWOT_QUADRANTS_INTERNAL : SWOT_QUADRANTS_CLIENT;
   const rows: string[][] = [];
-  for (const [key, label] of SWOT_QUADRANTS) {
+  for (const [key, label] of quadrants) {
     const entry = swot[key];
     if (isEmptyValue(entry)) continue;
     // renderValueLines handles string/array/object uniformly — never
@@ -231,21 +251,60 @@ function valueToSection(title: string, value: unknown): DocumentSection | null {
   return { title, text: textValue(String(value)) };
 }
 
-function buildClientSections(report: PreAuditReport): DocumentSection[] {
+// A8 — CLIENT DATA FIREWALL. Even though these three fields are part of
+// PRE_AUDIT_SECTION_LABELS (the "not sales-notes/scripts" list), they
+// carry package name/price/classification and internal ad-budget
+// figures — CLIENT_REPORT must never render them, no matter what the
+// row contains. Enforced structurally here (buildClientSections simply
+// never reads these keys), not by a regex/keyword scrub — the same
+// defence-in-depth pattern already used for PRE_AUDIT_INTERNAL_SECTION_LABELS.
+// They move to buildInternalOnlySections instead, so INTERNAL_REPORT
+// still shows them in full.
+const CLIENT_FIREWALL_KEYS = new Set(["recommended_package", "budget_plan", "ad_strategy"]);
+
+// A6 — customer-first reading order for the client document (digital
+// footprint first, then competitive context, then opportunities/next
+// steps). Every key here is still one of PRE_AUDIT_SECTION_LABELS — this
+// only resequences existing, already-vetted client-safe sections; it
+// never adds a field that wasn't already client-visible.
+const CLIENT_SECTION_ORDER = [
+  "digital_presence", "google_analysis", "maps_analysis", "website_analysis", "seo_analysis",
+  "social_analysis", "meta_ads_analysis", "google_ads_analysis", "market_analysis", "competitor_analysis",
+  "digital_gaps", "opportunities", "recommended_services", "sources"
+];
+
+const CLIENT_ABOUT_TEXT = "Bu ön inceleme, işletmenin erişilebilen dijital varlıkları ve doğrulanabilen açık veriler üzerinden hazırlanmıştır. Amaç; mevcut güçlü yönleri, geliştirilebilecek alanları ve dijital büyüme fırsatlarını ortaya koymaktır.";
+const CLIENT_NEXT_STEP_TEXT = "Ön incelemede belirlenen fırsatların işletmenin mevcut kapasitesi, hedefleri ve öncelikleriyle birlikte değerlendirilmesi için kısa bir görüşme öneriyoruz. Görüşme sonrasında ihtiyaçlara uygun çalışma kapsamı ve teklif hazırlanabilir.";
+
+function buildClientSections(report: PreAuditReport, isInternal: boolean): DocumentSection[] {
   const sections: DocumentSection[] = [];
-  for (const [key, label] of PRE_AUDIT_SECTION_LABELS) {
+  if (!isInternal) sections.push({ title: "Bu Rapor Hakkında", text: CLIENT_ABOUT_TEXT });
+  const order = isInternal ? PRE_AUDIT_SECTION_LABELS.map(([key]) => key) : CLIENT_SECTION_ORDER;
+  const byKey = new Map(PRE_AUDIT_SECTION_LABELS);
+  for (const key of order) {
     if (key === "executive_summary") continue; // rendered as the document's executive summary, not a repeated section
+    if (!isInternal && CLIENT_FIREWALL_KEYS.has(key)) continue; // structurally unreachable for CLIENT_REPORT
+    const label = byKey.get(key);
+    if (!label) continue;
     const section = valueToSection(label, (report as unknown as Record<string, unknown>)[key]);
     if (section) sections.push(section);
   }
   // SWOT is not one of PRE_AUDIT_SECTION_LABELS (report.swot is a separate
   // column) — same placement as PreAuditCenter.tsx's ReportDetail, which
-  // renders <SwotSection> right after the SECTION_LABELS loop.
-  const swotSection = swotToSection(report.swot);
+  // renders <SwotSection> right after the SECTION_LABELS loop. Client
+  // quadrant labels (A7): constructive terminology, same underlying data.
+  const swotSection = swotToSection(report.swot, isInternal);
   if (swotSection) sections.push(swotSection);
+  if (!isInternal) sections.push({ title: "Sonraki Adım", text: CLIENT_NEXT_STEP_TEXT });
   return sections;
 }
 
+// sales_notes/sales_script/instagram_dm/whatsapp_initial/whatsapp_with_pdf/
+// objections — the PRE_AUDIT_INTERNAL_SECTION_LABELS fields. The 3
+// client-firewalled PRE_AUDIT_SECTION_LABELS fields (recommended_package/
+// budget_plan/ad_strategy) are already included for INTERNAL_REPORT by
+// buildClientSections(report, true) in their natural section order —
+// never duplicated here.
 function buildInternalOnlySections(report: PreAuditReport): DocumentSection[] {
   const sections: DocumentSection[] = [];
   for (const [key, label] of PRE_AUDIT_INTERNAL_SECTION_LABELS) {
@@ -253,10 +312,6 @@ function buildInternalOnlySections(report: PreAuditReport): DocumentSection[] {
     if (section) sections.push(section);
   }
   return sections;
-}
-
-function hasOfferContent(report: PreAuditReport): boolean {
-  return !isEmptyValue(report.recommended_package) || !isEmptyValue(report.budget_plan) || !isEmptyValue(report.recommended_services);
 }
 
 /** Source of truth for BOTH PDF and DOCX — one payload, two renderers
@@ -271,32 +326,35 @@ export function buildPreAuditDocumentPayload(report: PreAuditReport, companyDisp
   const updatedLabel = formatTurkishDateTime(report.updated_at);
   const meaningfullyUpdated = Boolean(report.created_at && report.updated_at) &&
     Math.abs(new Date(report.updated_at).getTime() - new Date(report.created_at).getTime()) >= 60000;
-  const offerTitle = hasOfferContent(report);
 
-  const sections = buildClientSections(report);
+  // A8: since recommended_package/budget_plan/ad_strategy never reach the
+  // CLIENT document body at all, a "... ve Teklif Raporu" title/filename
+  // would promise offer content the document no longer contains — both
+  // report types now use one plain, honest title regardless of what the
+  // underlying report data happens to hold.
+  const sections = buildClientSections(report, isInternal);
   if (isInternal) {
     const internalSections = buildInternalOnlySections(report);
     if (internalSections.length) sections.push(...internalSections);
   }
 
   return {
-    title: isInternal
-      ? "HK Dijital — Dahili Ön İnceleme Raporu"
-      : offerTitle ? "HK Dijital — Ön İnceleme ve Teklif Raporu" : "HK Dijital — Ön İnceleme Raporu",
+    title: isInternal ? "HK Dijital — Dahili Ön İnceleme Raporu" : "HK Dijital — Ön İnceleme Raporu",
     customerName: companyDisplayName,
     period: createdLabel,
     executiveSummary: textValue(report.executive_summary || ""),
     sections,
     footerNote: isInternal
-      ? "HK Dijital • Dahili Kullanım — yalnızca HK Dijital ekibi içindir, müşteriyle paylaşılmaz."
-      : "HK Dijital • Dijital Büyüme ve Pazarlama  ·  hkdijital.com.tr",
+      ? "HK Dijital · Dahili Kullanım · Müşteriyle Paylaşılmaz"
+      : "HK Dijital · Dijital Pazarlama & Büyüme Çözümleri · hkdijital.com.tr",
     logo: true,
     confidentialLabel: isInternal ? "Dahili Kullanım" : undefined,
     metaLines: [
       `Firma: ${companyDisplayName}`,
       `Rapor Tarihi: ${createdLabel}`,
       ...(meaningfullyUpdated ? [`Son Güncelleme: ${updatedLabel}`] : []),
-      "Hazırlayan: HK Dijital"
+      "Hazırlayan: HK Dijital",
+      isInternal ? "Rapor Türü: Dahili Satış & Toplantı Hazırlığı" : "Rapor Türü: Dijital Ön İnceleme"
     ]
   };
 }
@@ -304,8 +362,6 @@ export function buildPreAuditDocumentPayload(report: PreAuditReport, companyDisp
 export function buildPreAuditFileName(report: PreAuditReport, companyDisplayName: string, format: "pdf" | "docx"): string {
   const isInternal = report.report_type === "INTERNAL_REPORT";
   const company = safeFileNameSegment(companyDisplayName);
-  const suffix = isInternal
-    ? "Dahili-On-Inceleme-Raporu"
-    : hasOfferContent(report) ? "On-Inceleme-ve-Teklif-Raporu" : "On-Inceleme-Raporu";
+  const suffix = isInternal ? "Dahili-On-Inceleme-Raporu" : "On-Inceleme-Raporu";
   return `HK-Dijital-${company}-${suffix}.${format}`;
 }
