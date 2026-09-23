@@ -220,16 +220,59 @@ export function calculateHkOpportunityScore(
   const { leadHeatScore } = scoreDiscoveredBusiness(business);
   let adjusted = leadHeatScore;
   if (advertising) {
-    const bothInactiveOrUnknown = ["no_signal_detected", "manual_check_required", "source_unavailable"];
+    // ROOT-CAUSE FIX: the +5 "clearer opportunity" bonus previously fired
+    // whenever BOTH channels were "no_signal_detected" OR "manual_check_
+    // required" OR "source_unavailable" — treating "we never checked
+    // because there's no website to scan" the same as "we scanned and
+    // genuinely found nothing". That let missing data (no website, so
+    // nothing to check) masquerade as a confirmed positive signal and
+    // inflate scores toward 100/100 on candidates with almost no real
+    // evidence. Only a GENUINE completed scan with a negative result
+    // (no_signal_detected) counts here — manual_check_required/
+    // source_unavailable/unverified are all "we don't know" and must stay
+    // strictly neutral, exactly like they already were treated for the
+    // -8 penalty side (only a real "active_signal" triggers that).
+    const confirmedNoSignal = (status: AdStatusValue) => status === "no_signal_detected";
     if (advertising.metaAdsStatus === "active_signal" || advertising.googleAdsStatus === "active_signal") {
       adjusted -= 8; // already advertising somewhere: smaller visible gap for HK to sell into
-    } else if (bothInactiveOrUnknown.includes(advertising.metaAdsStatus) && bothInactiveOrUnknown.includes(advertising.googleAdsStatus)) {
-      adjusted += 5; // no confirmed advertising anywhere: clearer opportunity
+    } else if (confirmedNoSignal(advertising.metaAdsStatus) && confirmedNoSignal(advertising.googleAdsStatus)) {
+      adjusted += 5; // BOTH channels were actually scanned and neither showed a signal: a real, checked opportunity signal
     }
-    // "unverified" (Pixel present but ad status genuinely unknown) intentionally
-    // applies no adjustment — it is neutral, not evidence of anything.
+    // manual_check_required / source_unavailable / unverified: unknown,
+    // never rewarded or penalized.
   }
   return Math.max(0, Math.min(100, Math.round(adjusted)));
+}
+
+export type DataConfidenceLevel = "Yüksek" | "Orta" | "Düşük";
+export type DataConfidence = { level: DataConfidenceLevel; percent: number; reasons: string[] };
+
+/**
+ * How much of the Opportunity Score is actually backed by CHECKED evidence,
+ * as opposed to unknowns. Separate from the score itself on purpose (see
+ * calculateHkOpportunityScore's docstring) — a candidate can have a high
+ * score from genuinely strong Google signals (rating/reviews/phone) while
+ * still having LOW confidence because website/Instagram/ads were never
+ * reachable to verify. Four independently-checkable signal groups, 25 each:
+ * Google profile data (always present from Places), a completed website
+ * scan (found and successfully fetched — regardless of what it found),
+ * a resolved Instagram check (same website scan, HIGH match or a confirmed
+ * NOT_FOUND both count as "checked"), and a resolved ad-status check on at
+ * least one channel (active_signal or no_signal_detected — never
+ * manual_check_required/source_unavailable/unverified). */
+export function computeDataConfidence(input: {
+  hasGoogleData: boolean;
+  websiteScanCompleted: boolean;
+  adStatusResolved: boolean;
+}): DataConfidence {
+  const reasons: string[] = [];
+  let checked = 0;
+  if (input.hasGoogleData) { checked += 1; reasons.push("Google profil verisi mevcut."); } else reasons.push("Google puanı/yorum verisi yok.");
+  if (input.websiteScanCompleted) { checked += 1; reasons.push("Website taraması tamamlandı (Instagram/Pixel/etiket kontrolü dahil)."); } else reasons.push("Website taranamadı veya website yok — sosyal/reklam sinyalleri doğrulanamadı.");
+  if (input.adStatusResolved) { checked += 1; reasons.push("Reklam durumu en az bir kanalda doğrulandı."); } else reasons.push("Reklam durumu doğrulanamadı (manuel kontrol gerekli).");
+  const percent = Math.round((checked / 3) * 100);
+  const level: DataConfidenceLevel = percent >= 67 ? "Yüksek" : percent >= 34 ? "Orta" : "Düşük";
+  return { level, percent, reasons };
 }
 
 // ============================================================================

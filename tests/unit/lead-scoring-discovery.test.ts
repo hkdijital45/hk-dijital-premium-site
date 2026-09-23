@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   calculateHkOpportunityScore,
   calculateMetaSuitability,
+  computeDataConfidence,
   evaluateAdvertisingSignals,
   getHkOpportunityTier,
   HK_OPPORTUNITY_TIERS,
@@ -77,6 +78,53 @@ test("calculateHkOpportunityScore: unverified ad status applies no adjustment (n
   const withoutAdvertising = calculateHkOpportunityScore(business);
   const withUnverified = calculateHkOpportunityScore(business, { metaAdsStatus: "unverified", googleAdsStatus: "unverified" });
   assert.equal(withoutAdvertising, withUnverified);
+});
+
+test("calculateHkOpportunityScore REGRESSION (root cause) — manual_check_required (no website to scan) must NOT get the same +5 bonus as a genuinely completed no_signal_detected scan", () => {
+  // This is the exact production bug: a Nail Studio with no website (so
+  // Meta/Google ad status can never even be scanned, both channels come
+  // back manual_check_required) was previously scored as if HK had
+  // CONFIRMED no advertising anywhere — an unknown was silently treated
+  // as a positive signal and inflated the score toward 100/100.
+  const business: DiscoveredBusiness = { name: "Nail Studio", website: "", phone: "0555", googleRating: 4.2, reviewCount: 10 };
+  const withoutAdvertising = calculateHkOpportunityScore(business);
+  const withUnknownBothChannels = calculateHkOpportunityScore(business, { metaAdsStatus: "manual_check_required", googleAdsStatus: "manual_check_required" });
+  assert.equal(withUnknownBothChannels, withoutAdvertising, "manual_check_required on both channels must be neutral, identical to no advertising evidence at all");
+
+  const genuinelyScannedNoAds = calculateHkOpportunityScore(business, { metaAdsStatus: "no_signal_detected", googleAdsStatus: "no_signal_detected" });
+  assert.ok(genuinelyScannedNoAds > withUnknownBothChannels, "a REAL completed scan finding nothing must score higher than never having checked at all");
+});
+
+test("calculateHkOpportunityScore REGRESSION — source_unavailable (scan attempted but failed) is also neutral, never a bonus", () => {
+  const business: DiscoveredBusiness = { name: "Test İşletme", website: "https://example.com", phone: "0555", googleRating: 4.2, reviewCount: 10 };
+  const withoutAdvertising = calculateHkOpportunityScore(business);
+  const withFailedScan = calculateHkOpportunityScore(business, { metaAdsStatus: "source_unavailable", googleAdsStatus: "source_unavailable" });
+  assert.equal(withFailedScan, withoutAdvertising);
+});
+
+test("calculateHkOpportunityScore REGRESSION — a mix of one unknown and one confirmed-no-signal channel does not trigger the both-confirmed bonus", () => {
+  const business: DiscoveredBusiness = { name: "Test İşletme", website: "https://example.com", phone: "0555", googleRating: 4.2, reviewCount: 10 };
+  const withoutAdvertising = calculateHkOpportunityScore(business);
+  const mixed = calculateHkOpportunityScore(business, { metaAdsStatus: "no_signal_detected", googleAdsStatus: "manual_check_required" });
+  assert.equal(mixed, withoutAdvertising, "the +5 bonus requires BOTH channels to be a genuine completed scan, not just one");
+});
+
+test("computeDataConfidence: no website, no Google data, no ad check = Düşük (0%)", () => {
+  const result = computeDataConfidence({ hasGoogleData: false, websiteScanCompleted: false, adStatusResolved: false });
+  assert.equal(result.level, "Düşük");
+  assert.equal(result.percent, 0);
+});
+
+test("computeDataConfidence: all three signal groups checked = Yüksek (100%)", () => {
+  const result = computeDataConfidence({ hasGoogleData: true, websiteScanCompleted: true, adStatusResolved: true });
+  assert.equal(result.level, "Yüksek");
+  assert.equal(result.percent, 100);
+});
+
+test("computeDataConfidence REGRESSION — a Nail Studio with only Google data (no website, ad status never resolvable) is Düşük/Orta confidence, never Yüksek", () => {
+  const result = computeDataConfidence({ hasGoogleData: true, websiteScanCompleted: false, adStatusResolved: false });
+  assert.notEqual(result.level, "Yüksek");
+  assert.equal(result.percent, 33);
 });
 
 test("calculateMetaSuitability: a visual/appointment sector (Nail Studio) scores higher for Meta than a search-intent sector (Oto Servis)", () => {

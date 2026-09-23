@@ -14,6 +14,7 @@ import {
   buildSalesRecommendation,
   calculateHkOpportunityScore,
   calculateMetaSuitability,
+  computeDataConfidence,
   evaluateAdvertisingSignals,
   getHkOpportunityTier,
   scoreDiscoveredBusiness,
@@ -131,6 +132,12 @@ async function enrichBusiness(business: DiscoveredBusiness): Promise<Record<stri
   });
   const opportunityScore = calculateHkOpportunityScore(businessWithWhatsapp, advertising);
   const tier = getHkOpportunityTier(opportunityScore);
+  const adStatusResolved = ["active_signal", "no_signal_detected"].includes(advertising.metaAdsStatus) || ["active_signal", "no_signal_detected"].includes(advertising.googleAdsStatus);
+  const dataConfidence = computeDataConfidence({
+    hasGoogleData: Boolean(business.googleRating || business.rating || business.reviewCount),
+    websiteScanCompleted: Boolean(business.website) && !scan.scanFailed,
+    adStatusResolved
+  });
   const metaSuitability = calculateMetaSuitability(businessWithWhatsapp);
   const salesRecommendation = buildSalesRecommendation(businessWithWhatsapp, opportunityScore);
   const outreach = buildOutreachMessages(businessWithWhatsapp, opportunityScore);
@@ -164,7 +171,10 @@ async function enrichBusiness(business: DiscoveredBusiness): Promise<Record<stri
     crmStatus: business.crmStatus || "CRM'de yok",
     instagramVerification,
     hkDigitalNeedLevel: hkDigitalNeed.level,
-    hkDigitalNeedReasons: hkDigitalNeed.reasons
+    hkDigitalNeedReasons: hkDigitalNeed.reasons,
+    dataConfidenceLevel: dataConfidence.level,
+    dataConfidencePercent: dataConfidence.percent,
+    dataConfidenceReasons: dataConfidence.reasons
   };
 }
 

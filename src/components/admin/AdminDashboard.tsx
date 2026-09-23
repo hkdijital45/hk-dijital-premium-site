@@ -11111,6 +11111,19 @@ function districtOf(item: any) {
   return parts.length > 2 ? parts[parts.length - 2] : "İlçe belirtilmedi";
 }
 
+// A discovery candidate counts as an actual qualified sales-pipeline lead
+// only once it has left every pre-lead qualification stage (Değerlendirme
+// Havuzu, Potansiyel Müşteriler, and the existing Ön İnceleme pre-review
+// queue) — used to keep CRM/Teklif/Müşteriye Dönüştür actions out of the
+// discovery/evaluation stages where they don't belong yet.
+const PRE_LEAD_STATUSES: string[] = [
+  DISCOVERY_WORKFLOW_STATUS.SAVED_FOR_REVIEW, DISCOVERY_WORKFLOW_STATUS.POTENTIAL, DISCOVERY_WORKFLOW_STATUS.REJECTED,
+  LEAD_PRE_REVIEW_STATUS.PENDING, LEAD_PRE_REVIEW_STATUS.IN_REVIEW, LEAD_PRE_REVIEW_STATUS.REJECTED
+];
+function isQualifiedLeadRecord(lead: any): boolean {
+  return Boolean(lead?.id) && !PRE_LEAD_STATUSES.includes(lead.status);
+}
+
 // Değerlendirme Havuzu / Potansiyel Müşteriler date filter — real
 // created_at comparison, never a hardcoded/fake bucket.
 function matchesDiscoveryDateRange(createdAt: any, range: string): boolean {
@@ -11679,6 +11692,40 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
       setLoading("");
     }
   }
+  // Canonical "Potansiyel Müşterilere Ekle" — the ONE action used by both
+  // the discovery card's primary button and the right panel's "Müşteri
+  // Adayı Olarak İşaretle" button (previously a no-op that only toggled a
+  // checkbox and showed a fake success card — see markCandidate below).
+  // Persists via the existing saveBusiness()/leads PATCH endpoints
+  // (Değerlendirmede -> Potansiyel Müşteri), so it is duplicate-safe
+  // (existingLeadFor's place_id/phone/website/name+district matching) and
+  // idempotent (re-clicking an already-Potential business is a no-op).
+  async function addToPotential(item: any) {
+    const key = item.placeId || item.google_place_id || item.id;
+    setLoading(`potential-${key}`);
+    try {
+      const existing = existingLeadFor(item);
+      if (existing?.status === DISCOVERY_WORKFLOW_STATUS.POTENTIAL) return existing;
+      const lead = existing || await saveBusiness(item);
+      if (!lead?.id) return null;
+      if (lead.status === DISCOVERY_WORKFLOW_STATUS.POTENTIAL) return lead;
+      return await setDiscoveryStatus(lead, DISCOVERY_WORKFLOW_STATUS.POTENTIAL);
+    } finally {
+      setLoading("");
+    }
+  }
+  async function rejectFromDiscovery(item: any, reason?: string) {
+    const key = item.placeId || item.google_place_id || item.id;
+    setLoading(`reject-${key}`);
+    try {
+      const existing = existingLeadFor(item);
+      const lead = existing || await saveBusiness(item);
+      if (!lead?.id) return null;
+      return await setDiscoveryStatus(lead, DISCOVERY_WORKFLOW_STATUS.REJECTED, reason);
+    } finally {
+      setLoading("");
+    }
+  }
   function patchLead(id, patch) {
     setContent({ ...content, leads: (content.leads || []).map((lead) => lead.id === id ? { ...lead, ...patch } : lead) });
     setMessage("Kayıt güncellendi. Kalıcı kayıt için üst çubuktaki Kaydet düğmesini kullanın.");
@@ -11905,9 +11952,16 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
     prepareAction("Rakip analizi hazırlığı oluşturuldu", record, ["Rakip Analizi ekranında işletme bilgilerini kontrol et.", "Rakip skorunu ve müşteri özetini oluştur.", "Gerekirse takip ayarını aç."], [{ label: "Rakip İstihbaratına Git", href: "/hk-admin/rakip-analizi" }]);
     setActive("Rakip Analizi");
   }
-  function markCandidate(record: any) {
-    toggleSelected(record.placeId || record.google_place_id || record.id, true);
-    prepareAction("Müşteri adayı işaretlendi", record, ["Seçili adayları CRM’e kaydet.", "İlk WhatsApp mesajını hazırla.", "Yüksek fırsat skoruna göre teklif taslağı oluştur."], [{ label: "Leadleri Gör", href: "/hk-admin/leads" }]);
+  // ROOT-CAUSE FIX: this previously only toggled a checkbox and showed a
+  // fake "actionResult" success card — no real persistence, no status
+  // change, nothing to see after refresh. Now delegates to the same
+  // addToPotential() the discovery card's "Potansiyel Müşterilere Ekle"
+  // button uses, so both places do the exact same real thing.
+  async function markCandidate(record: any) {
+    const lead = await addToPotential(record);
+    if (lead?.id) {
+      prepareAction("Potansiyel müşterilere eklendi", record, ["Potansiyel Müşteriler sekmesinden Ön İncele başlat.", "Uygun değilse Reddet."], [{ label: "Potansiyel Müşteriler", href: getAdminHref("musteri-kesfi") }]);
+    }
   }
   function prepareBulkAction(title: string, nextActions: string[], href: string) {
     if (!selectedPlaces.length) return setMessage("Toplu işlem için en az bir işletme seçin.");
@@ -12360,6 +12414,21 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
           {existingLead?.status === "Ön İnceleme İptal" && <AdminStatusBadge tone="danger" title={`${existingLead.rejection_reason || ""} · ${existingLead.rejected_at ? new Date(existingLead.rejected_at).toLocaleDateString("tr-TR") : ""}`}>⚠ Daha önce iptal edildi</AdminStatusBadge>}
           {record.phone && <AdminStatusBadge tone="neutral">Telefon var</AdminStatusBadge>}
           {!record.website && <AdminStatusBadge tone="warning">Website yok</AdminStatusBadge>}
+          {record.dataConfidenceLevel && <AdminStatusBadge tone={record.dataConfidenceLevel === "Yüksek" ? "success" : record.dataConfidenceLevel === "Orta" ? "warning" : "neutral"} title="Skor kaç sinyalin gerçekten doğrulandığını gösterir, eksik veri asla otomatik pozitif sinyal sayılmaz.">Veri Güveni: {record.dataConfidenceLevel}</AdminStatusBadge>}
+        </div>
+
+        {/* Source provenance — never shows "verified" for a platform that
+            was only searched, not confirmed. Google is always discovered
+            (it's the source). Instagram is verified only when
+            instagramVerification.profileFound is true (from the business's
+            own website link — see instagram-verification.ts); anything
+            else is an honest "not found"/"not checked", never implied
+            positive. TikTok/Facebook are intentionally omitted — there is
+            no supported capability today to check them. */}
+        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] font-black" style={{ color: "var(--admin-text-muted)" }}>
+          <span title="Google — keşif kaynağı" className="rounded-full px-2 py-0.5" style={{ border: "1px solid var(--admin-border)", color: "#1a73e8" }}>G Google ✓</span>
+          <span title={record.website ? "Web sitesi bulundu" : "Web sitesi bulunamadı"} className="rounded-full px-2 py-0.5" style={{ border: "1px solid var(--admin-border)", color: record.website ? "#0ea5e9" : "var(--admin-text-muted)" }}>🌐 Web {record.website ? "✓" : "—"}</span>
+          <span title={record.instagramVerification?.profileFound ? "Instagram — işletmenin kendi web sitesinden doğrulandı" : "Instagram bağlantısı web sitesinde bulunamadı (hesabın olmadığı anlamına gelmez)"} className="rounded-full px-2 py-0.5" style={{ border: "1px solid var(--admin-border)", color: record.instagramVerification?.profileFound ? "#c13584" : "var(--admin-text-muted)" }}>◎ Instagram {record.instagramVerification?.profileFound ? "✓" : "—"}</span>
         </div>
 
         {topReasons.length > 0 && (
@@ -12392,18 +12461,24 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
           </div>
         </details>
 
+        {/* DISCOVERY-STAGE primary actions: Detay / Potansiyel Müşterilere
+            Ekle / Reddet — canonical funnel entry points. CRM/Teklif/
+            Müşteriye Dönüştür only appear once this business is actually a
+            qualified lead (past Değerlendirme/Potansiyel/Ön İnceleme). */}
         <div className="mt-3 flex flex-wrap gap-2">
           <AdminButton variant="secondary" onClick={() => setSelectedPlaceId(placeKey)}>Detay</AdminButton>
-          {existingLead
-            ? <AdminButton variant="success" onClick={() => openCrmLead(record)}>CRM Kaydını Aç</AdminButton>
-            : <AdminButton variant="primary" disabled={loading === `save-${placeId}`} onClick={() => saveBusiness(item)}>{loading === `save-${placeId}` ? "Kaydediliyor..." : "Lead'e Ekle"}</AdminButton>}
+          {existingLead?.status === DISCOVERY_WORKFLOW_STATUS.POTENTIAL
+            ? <AdminButton variant="success" disabled>✓ Potansiyel Müşteri</AdminButton>
+            : <AdminButton variant="primary" disabled={loading === `potential-${placeKey}`} onClick={() => addToPotential(item)}>{loading === `potential-${placeKey}` ? "Ekleniyor..." : "Potansiyel Müşterilere Ekle"}</AdminButton>}
+          {existingLead?.status !== DISCOVERY_WORKFLOW_STATUS.REJECTED && <AdminButton variant="danger" disabled={loading === `reject-${placeKey}`} onClick={() => rejectFromDiscovery(item)}>{loading === `reject-${placeKey}` ? "İşleniyor..." : "Reddet"}</AdminButton>}
           <AdminButton variant="ai" disabled={loading === `on-incele-${placeId}`} onClick={() => onIncele(item)}>
             {loading === `on-incele-${placeId}` ? "Ekleniyor..." : existingLead?.status === "Ön İnceleme İptal" ? "Tekrar Ön İncele" : "Ön İncele"}
           </AdminButton>
+          {isQualifiedLeadRecord(existingLead) && <AdminButton variant="success" onClick={() => openCrmLead(record)}>CRM Kaydını Aç</AdminButton>}
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
           <span className="text-[10px] font-black uppercase tracking-[.08em]" style={{ color: "var(--admin-text-muted)" }}>Diğer:</span>
-          <AdminButton compact variant="warning" onClick={() => proposalFor(record)}>Teklif Hazırla</AdminButton>
+          {isQualifiedLeadRecord(existingLead) && <AdminButton compact variant="warning" onClick={() => proposalFor(record)}>Teklif Hazırla</AdminButton>}
           <AdminButton compact variant="success" onClick={() => setWhatsappDraft({ id: placeId || record.id, text: outreachText(record), phone: record.phone })}>WhatsApp</AdminButton>
           <AdminButton compact variant="info" disabled={intelligenceLoadingKey === placeKey} onClick={() => analyzeBusinessIntelligence(record, placeKey)}>{intelligenceLoadingKey === placeKey ? "Analiz ediliyor..." : intelligenceByKey[placeKey] ? "Yeniden Analiz Et" : "Analiz Et"}</AdminButton>
           <a target="_blank" rel="noreferrer" href={mapsHref(record)} className="hk-button hk-button-neutral hk-button-compact">Maps'te Aç</a>
@@ -13157,14 +13232,24 @@ function BusinessLeadDetailPanel({ record, mapsHref, metaHref, saveBusiness, pro
         { label: "Instagram", value: record.instagram || record.instagram_url || "Yok" },
         { label: "WhatsApp", value: record.whatsapp || "Yok" },
         { label: "AI Fırsat Skoru", value: `${opportunityScore}/100 · ${tier.label}` },
+        { label: "Veri Güveni", value: record.dataConfidenceLevel ? `${record.dataConfidenceLevel} (${record.dataConfidencePercent}% — kaç sinyal doğrulandı)` : "Henüz hesaplanmadı" },
         { label: "Dijital Eksik Skoru", value: `${digitalGapScore}/100` },
         { label: "Lead Sıcaklığı", value: heat === null ? "Henüz hesaplanmadı" : `${heat}/100` },
         { label: "Önerilen Paket", value: recommendation?.recommendedPackageName ? `${recommendation.recommendedPackageName} (${recommendation.recommendedPackageCategory || "-"})` : "Henüz oluşturulmadı" }
       ]}
+      // Stage-aware: Teklif Oluştur / Müşteriye Dönüştür belong to the
+      // sales pipeline, not Discovery/Değerlendirme/Potansiyel/Ön
+      // İnceleme — only shown once this record is an actual qualified
+      // lead. Pre-lead stages instead see the same canonical Potansiyel
+      // Müşterilere Ekle action the discovery card uses.
       actions={<>
-        <AdminButton compact variant="warning" onClick={() => proposalFor(record)}>Teklif Oluştur</AdminButton>
-        {existingLead ? <AdminButton compact variant="success" onClick={() => openCrmLead(record)}>CRM Kaydını Aç</AdminButton> : <AdminButton compact variant="primary" onClick={() => saveBusiness(record)}>CRM'e Aktar</AdminButton>}
-        <AdminButton compact variant="info" onClick={convertToCustomer}>Müşteriye Dönüştür</AdminButton>
+        {isQualifiedLeadRecord(existingLead) && <AdminButton compact variant="warning" onClick={() => proposalFor(record)}>Teklif Oluştur</AdminButton>}
+        {isQualifiedLeadRecord(existingLead)
+          ? <AdminButton compact variant="success" onClick={() => openCrmLead(record)}>CRM Kaydını Aç</AdminButton>
+          : record.status === DISCOVERY_WORKFLOW_STATUS.POTENTIAL
+            ? <AdminButton compact variant="success" disabled>✓ Potansiyel Müşteri</AdminButton>
+            : <AdminButton compact variant="primary" onClick={() => markCandidate(record)}>Potansiyel Müşterilere Ekle</AdminButton>}
+        {isQualifiedLeadRecord(existingLead) && <AdminButton compact variant="info" onClick={convertToCustomer}>Müşteriye Dönüştür</AdminButton>}
       </>}
     >
       <div className="flex flex-wrap gap-1.5">
@@ -13279,7 +13364,7 @@ function BusinessLeadDetailPanel({ record, mapsHref, metaHref, saveBusiness, pro
         <div className="flex flex-wrap gap-2">
           <AdminButton compact variant="secondary" onClick={() => sendToCompetitor(record)}>Rakip Analizine Gönder</AdminButton>
           <a target="_blank" rel="noreferrer" href={metaHref(record)} className="hk-button hk-button-info hk-button-compact">Meta Reklamlarını Aç</a>
-          <AdminButton compact variant="warning" onClick={() => markCandidate(record)}>Müşteri Adayı Olarak İşaretle</AdminButton>
+          <AdminButton compact variant={record.status === DISCOVERY_WORKFLOW_STATUS.POTENTIAL ? "success" : "warning"} disabled={record.status === DISCOVERY_WORKFLOW_STATUS.POTENTIAL} onClick={() => markCandidate(record)}>{record.status === DISCOVERY_WORKFLOW_STATUS.POTENTIAL ? "✓ Potansiyel Müşteri" : "Potansiyel Müşterilere Ekle"}</AdminButton>
         </div>
       </div>
     </AdminDetailInspector>
