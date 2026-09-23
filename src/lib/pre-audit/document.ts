@@ -52,7 +52,101 @@ function textValue(value: unknown): string {
 }
 
 function prettifyKey(key: string): string {
-  return key.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toLocaleUpperCase("tr"));
+  const spaced = key.replaceAll("_", " ").replace(/([a-zçğıöşü])([A-ZÇĞİÖŞÜ])/g, "$1 $2");
+  const known: Record<string, string> = {
+    rating: "Puan", reviewcount: "Yorum Sayısı", "review count": "Yorum Sayısı",
+    followers: "Takipçi", following: "Takip Edilen", posts: "Paylaşım", handle: "Kullanıcı Adı",
+    phonelisted: "Telefon", "phone listed": "Telefon", website: "Web Sitesi", instagram: "Instagram",
+    google: "Google", price: "Fiyat", condition: "Koşul", classification: "Sınıflandırma", source: "Kaynak",
+    name: "İsim", phone: "Telefon", package: "Paket", objective: "Hedef", targeting: "Hedefleme",
+    dailybudget: "Günlük Bütçe", "daily budget": "Günlük Bütçe",
+    priceexclvat: "KDV Hariç Fiyat", "price excl vat": "KDV Hariç Fiyat",
+    priceinclvat: "KDV Dahil Fiyat", "price incl vat": "KDV Dahil Fiyat"
+  };
+  // Plain (non-locale) lowercasing for the dictionary lookup only — the
+  // dictionary keys above are plain ASCII English, and Turkish-locale
+  // lowercasing turns "I" into dotless "ı" (e.g. "priceInclVat" -> "price
+  // Incl Vat" -> tr-locale-lowercased "price ıncl vat", which then never
+  // matches the ASCII "price incl vat" key). Turkish-locale casing is only
+  // used below for the human-facing capitalization of whatever key wasn't
+  // in the dictionary (which may legitimately be a Turkish word).
+  const lower = spaced.toLowerCase();
+  if (known[lower]) return known[lower];
+  return spaced.replace(/\b\w/g, (c) => c.toLocaleUpperCase("tr"));
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Turkish-locale number formatting only — never touches strings, so a
+ * text field that happens to contain digits (a URL, a phone number kept
+ * as a string) is never reformatted. 4.6 -> "4,6", 2299 -> "2.299". */
+function formatNumberTr(value: number): string {
+  return value.toLocaleString("tr-TR", { maximumFractionDigits: 2 });
+}
+
+/** The one place a single leaf value is turned into display text — the
+ * root-cause fix lives here: an object/array NEVER reaches String() (the
+ * source of the literal "[object Object]" bug) and NEVER reaches
+ * JSON.stringify() for display (the source of raw `{"rating":4.6,...}`
+ * leaking into the report body). Composite values are only ever handed
+ * to renderValueLines(), never formatted as a single string. */
+function formatPrimitiveForDisplay(value: unknown): string {
+  if (typeof value === "number" && Number.isFinite(value)) return formatNumberTr(value);
+  if (typeof value === "boolean") return value ? "Evet" : "Hayır";
+  if (value === null || value === undefined) return "Bilgi bulunamadı";
+  return textValue(String(value));
+}
+
+/** Recursively renders ANY JSON value (primitive, nested object, nested
+ * array, array of objects, mixed array) into human-readable, indented
+ * lines — used everywhere a nested structure previously risked reaching
+ * String()/JSON.stringify(). A plain object becomes "Label: value" lines
+ * (recursing into nested values instead of dumping raw JSON); an array of
+ * objects becomes numbered blocks; a mixed array never silently drops its
+ * non-object entries (the old code's array-of-objects branch did). */
+function renderValueLines(value: unknown, depth = 0): string[] {
+  if (isEmptyValue(value)) return [];
+  const indent = "  ".repeat(depth);
+
+  if (Array.isArray(value)) {
+    const lines: string[] = [];
+    value.forEach((item, index) => {
+      if (isEmptyValue(item)) return;
+      if (isPlainObject(item)) {
+        lines.push(`${indent}${index + 1}.`);
+        lines.push(...renderValueLines(item, depth + 1));
+      } else if (Array.isArray(item)) {
+        lines.push(...renderValueLines(item, depth));
+      } else {
+        // No manual bullet character here: every DocumentSection.items[]
+        // entry is already auto-bulleted by both PDF/DOCX renderers
+        // (drawBullet / bullet code "2022") — adding our own "•" would
+        // double up into "• • text" for a plain top-level array.
+        // Indentation alone conveys nesting depth for sub-items.
+        lines.push(`${indent}${formatPrimitiveForDisplay(item)}`);
+      }
+    });
+    return lines;
+  }
+
+  if (isPlainObject(value)) {
+    const lines: string[] = [];
+    for (const [key, entryValue] of Object.entries(value)) {
+      if (isEmptyValue(entryValue)) continue;
+      const label = prettifyKey(key);
+      if (isPlainObject(entryValue) || Array.isArray(entryValue)) {
+        lines.push(`${indent}${label}:`);
+        lines.push(...renderValueLines(entryValue, depth + 1));
+      } else {
+        lines.push(`${indent}${label}: ${formatPrimitiveForDisplay(entryValue)}`);
+      }
+    }
+    return lines;
+  }
+
+  return [`${indent}${formatPrimitiveForDisplay(value)}`];
 }
 
 const SWOT_QUADRANTS: Array<[string, string]> = [
@@ -69,12 +163,28 @@ function swotToSection(value: unknown): DocumentSection | null {
   for (const [key, label] of SWOT_QUADRANTS) {
     const entry = swot[key];
     if (isEmptyValue(entry)) continue;
-    const content = Array.isArray(entry) ? entry.map((item) => textValue(String(item))).join("; ") : textValue(String(entry));
-    rows.push([label, content]);
+    // renderValueLines handles string/array/object uniformly — never
+    // String()'s an object (root cause of literal "[object Object]" when a
+    // SWOT quadrant is populated with structured entries, not plain text).
+    const content = renderValueLines(entry).join("; ");
+    if (content) rows.push([label, content]);
   }
   if (!rows.length) return null;
   const table: DocumentTable = { headers: ["Kategori", "Değerlendirme"], rows };
   return { title: "SWOT", table };
+}
+
+/** A single leaf cell in an object-array TABLE: unlike a full section body,
+ * a table cell must stay a single (wrapped) string — so a nested
+ * object/array inside a cell is flattened via renderValueLines and
+ * joined, never JSON.stringify()'d. */
+function cellValue(value: unknown): string {
+  if (isEmptyValue(value)) return "—";
+  if (isPlainObject(value) || Array.isArray(value)) {
+    const lines = renderValueLines(value);
+    return lines.length ? lines.join("; ") : "—";
+  }
+  return formatPrimitiveForDisplay(value);
 }
 
 function valueToSection(title: string, value: unknown): DocumentSection | null {
@@ -83,33 +193,38 @@ function valueToSection(title: string, value: unknown): DocumentSection | null {
   if (typeof value === "string") return { title, text: textValue(value) };
 
   if (Array.isArray(value)) {
-    if (value.every((item) => typeof item !== "object" || item === null)) {
-      return { title, items: value.map((item) => textValue(String(item))) };
+    const objectCount = value.filter((item) => isPlainObject(item)).length;
+    if (objectCount === 0) {
+      // Every entry is a primitive (or a nested array) — a plain bullet
+      // list; formatPrimitiveForDisplay applies Turkish number/boolean
+      // formatting instead of a naive String().
+      const items = renderValueLines(value);
+      return items.length ? { title, items } : null;
     }
-    const rows = value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object");
-    if (!rows.length) return null;
-    const headers = [...new Set(rows.flatMap((row) => Object.keys(row)))].slice(0, 6);
-    const table: DocumentTable = {
-      headers: headers.map(prettifyKey),
-      rows: rows.map((row) => headers.map((key) => {
-        const cell = row[key];
-        return textValue(typeof cell === "object" && cell !== null ? JSON.stringify(cell) : String(cell ?? "—"));
-      }))
-    };
-    return { title, table };
+    if (objectCount === value.filter((item) => !isEmptyValue(item)).length) {
+      // Every non-empty entry is an object with a broadly similar shape
+      // (e.g. competitor_analysis) — render as a professional table
+      // instead of a bullet dump. Never fabricates a column the data
+      // doesn't have; never JSON.stringify()'s a nested cell (root cause
+      // of "Competitors: [object Object], [object Object]").
+      const rows = value.filter((item): item is Record<string, unknown> => isPlainObject(item));
+      const headers = [...new Set(rows.flatMap((row) => Object.keys(row)))].slice(0, 6);
+      const table: DocumentTable = {
+        headers: headers.map(prettifyKey),
+        rows: rows.map((row) => headers.map((key) => cellValue(row[key])))
+      };
+      return { title, table };
+    }
+    // A genuinely mixed array (some objects, some plain strings/numbers) —
+    // no single schema to tabulate. Falls back to the same recursive
+    // bullet renderer, which (unlike the old code) never silently drops
+    // the non-object entries.
+    const items = renderValueLines(value);
+    return items.length ? { title, items } : null;
   }
 
-  if (typeof value === "object") {
-    const entries = Object.entries(value as Record<string, unknown>);
-    const items = entries
-      .map(([key, entryValue]) => {
-        if (isEmptyValue(entryValue)) return "";
-        const rendered = typeof entryValue === "object"
-          ? (Array.isArray(entryValue) ? entryValue.map((v) => textValue(String(v))).join(", ") : textValue(JSON.stringify(entryValue)))
-          : textValue(String(entryValue));
-        return rendered ? `${prettifyKey(key)}: ${rendered}` : "";
-      })
-      .filter(Boolean);
+  if (isPlainObject(value)) {
+    const items = renderValueLines(value);
     return items.length ? { title, items } : null;
   }
 

@@ -227,3 +227,153 @@ test("all PRE_AUDIT_SECTION_LABELS keys exist on the PreAuditReport fixture (sch
     assert.ok(key in report, `PreAuditReport fixture is missing field "${key}"`);
   }
 });
+
+// ============================================================================
+// Structured-value renderer regression: real production reports have JSONB
+// columns that carry nested objects/arrays (a company's own AI-produced
+// Google/Instagram/competitor/package structures), not just plain strings —
+// the export layer must render all of these as prose/tables, never
+// "[object Object]" and never raw JSON.stringify() output. This section
+// models the actual "Esra Mumcuoğlu Nail Studio"-shaped bug report without
+// hardcoding to that one business — any report with this general shape must
+// render cleanly.
+// ============================================================================
+
+function structuredReport(overrides: Partial<PreAuditReport> = {}): PreAuditReport {
+  return baseReport({
+    google_analysis: { rating: 4.6, reviewCount: 7, phoneListed: true },
+    social_analysis: { instagram: { handle: "@esramumcuoglu_nailstudio", followers: 2299, following: 144, posts: 1271 } },
+    competitor_analysis: [
+      { name: "Rakip Nail Studio A", rating: 4.8, reviewCount: 210, phone: "0532 000 00 00" },
+      { name: "Rakip Nail Studio B", rating: 4.2, reviewCount: 45, phone: null }
+    ],
+    recommended_package: {
+      condition: "Büyüme hedefi ve yeni müşteri kabul kapasitesi toplantıda doğrulanırsa",
+      package: "Meta Reklam Starter",
+      priceExclVat: 8000,
+      priceInclVat: 9600,
+      classification: "B — Koşullu Paket Fırsatı"
+    },
+    ad_strategy: { metaStrategy: { dailyBudget: 150, objective: "Mesaj/Randevu Toplama", targeting: "Manisa 15km çevresi, 18-45 yaş kadın" } },
+    ...overrides
+  });
+}
+
+test("STRUCTURED RENDERER — nested Google object (rating/reviewCount/phoneListed) renders as readable Turkish text, never raw JSON", async () => {
+  const payload = buildPreAuditDocumentPayload(structuredReport(), COMPANY_NAME);
+  const serialized = JSON.stringify(payload);
+  assert.doesNotMatch(serialized, /\{"rating":/, "must never leak raw JSON.stringify output for a nested object field");
+  assert.doesNotMatch(serialized, /\[object Object\]/);
+  const section = payload.sections.find((s) => s.title === "Google")!;
+  assert.ok(section, "Google section must exist");
+  const text = (section.items || []).join(" ");
+  assert.match(text, /4,6/, "rating must use Turkish decimal comma formatting");
+  assert.match(text, /Yorum Sayısı: 7/);
+  assert.match(text, /Telefon: Evet/, "boolean true must render as Evet, not 'true'");
+});
+
+test("STRUCTURED RENDERER — nested Instagram object (handle/followers/following/posts) renders with Turkish thousands separators and readable labels", async () => {
+  const payload = buildPreAuditDocumentPayload(structuredReport(), COMPANY_NAME);
+  const section = payload.sections.find((s) => s.title === "Sosyal Medya")!;
+  assert.ok(section);
+  const text = (section.items || []).join(" ");
+  assert.match(text, /@esramumcuoglu_nailstudio/);
+  assert.match(text, /Takipçi: 2\.299/, "followers must use Turkish thousands separator");
+  assert.match(text, /Takip Edilen: 144/);
+  assert.match(text, /Paylaşım: 1\.271/);
+  assert.doesNotMatch(JSON.stringify(payload), /"followers":2299/);
+});
+
+test("STRUCTURED RENDERER — competitor_analysis (object[]) renders as a table, never '[object Object], [object Object]'", async () => {
+  const payload = buildPreAuditDocumentPayload(structuredReport(), COMPANY_NAME);
+  const section = payload.sections.find((s) => s.title === "Rakip Analizi")!;
+  assert.ok(section.table, "an array of similarly-shaped objects must render as a table");
+  assert.ok(section.table!.headers.length > 0);
+  const flatRows = section.table!.rows.flat().join(" | ");
+  assert.doesNotMatch(flatRows, /\[object Object\]/);
+  assert.ok(flatRows.includes("Rakip Nail Studio A"));
+  assert.ok(flatRows.includes("4,8") || flatRows.includes("4.8"));
+  // A null cell (Rakip B's missing phone) must render as an honest
+  // placeholder, never the literal string "null".
+  assert.doesNotMatch(flatRows, /\bnull\b/);
+
+  const docx = await generateDocxBuffer(payload);
+  const xml = await extractDocxText(docx);
+  assert.doesNotMatch(xml, /\[object Object\]/);
+});
+
+test("STRUCTURED RENDERER — conditional package object (koşul/paket/fiyat) renders as a readable key-value block in INTERNAL_REPORT", async () => {
+  const payload = buildPreAuditDocumentPayload(structuredReport({ report_type: "INTERNAL_REPORT" }), COMPANY_NAME);
+  const section = payload.sections.find((s) => s.title === "Önerilen Paket")!;
+  assert.ok(section);
+  const text = (section.items || []).join(" ");
+  assert.match(text, /Meta Reklam Starter/);
+  assert.match(text, /8\.000/, "price must use Turkish thousands separator");
+  assert.match(text, /9\.600/);
+  assert.match(text, /Koşullu Paket Fırsatı/);
+  assert.doesNotMatch(JSON.stringify(payload), /"priceInclVat":9600/);
+});
+
+test("STRUCTURED RENDERER REGRESSION — Turkish-locale dotless-ı lowercasing must never break a camelCase key containing 'I' (e.g. priceInclVat)", async () => {
+  // toLocaleLowerCase("tr") turns "I" into dotless "ı", which would make
+  // "priceInclVat" -> "price Incl Vat" -> "price ıncl vat" and silently
+  // fail to match the plain-ASCII "price incl vat" dictionary entry,
+  // falling back to an untranslated "Price Incl Vat" label while its
+  // sibling "priceExclVat" (no capital I) translates correctly — an
+  // inconsistency a naive tr-locale lowercasing would introduce.
+  const payload = buildPreAuditDocumentPayload(structuredReport({ report_type: "INTERNAL_REPORT" }), COMPANY_NAME);
+  const section = payload.sections.find((s) => s.title === "Önerilen Paket")!;
+  const text = (section.items || []).join(" ");
+  assert.match(text, /KDV Hariç Fiyat: 8\.000/);
+  assert.match(text, /KDV Dahil Fiyat: 9\.600/);
+});
+
+test("STRUCTURED RENDERER — nested Meta ad strategy object renders readably, not as raw JSON", async () => {
+  const payload = buildPreAuditDocumentPayload(structuredReport({ report_type: "INTERNAL_REPORT" }), COMPANY_NAME);
+  const section = payload.sections.find((s) => s.title === "Başlangıç Reklam Stratejisi")!;
+  assert.ok(section);
+  const text = (section.items || []).join(" ");
+  assert.match(text, /Mesaj\/Randevu Toplama/);
+  assert.match(text, /150/);
+  assert.doesNotMatch(text, /\{/, "no raw JSON braces should appear in the rendered text");
+});
+
+test("STRUCTURED RENDERER — CLIENT_REPORT never leaks the internal package name/price even though recommended_package is a client-visible field", async () => {
+  // recommended_package is one of PRE_AUDIT_SECTION_LABELS (client-visible
+  // by design — it's the offer itself), so this asserts the OPPOSITE of
+  // what one might assume: package/price legitimately appear in
+  // CLIENT_REPORT here because the business decided to make an offer.
+  // The actual internal-only leak surface (sales_notes/sales_script/etc.)
+  // is covered by TEST E above; this test guards that a conditional
+  // package block renders cleanly for a client without leaking the
+  // classification's internal shorthand as raw JSON.
+  const payload = buildPreAuditDocumentPayload(structuredReport({ report_type: "CLIENT_REPORT" }), COMPANY_NAME);
+  const serialized = JSON.stringify(payload);
+  assert.doesNotMatch(serialized, /\[object Object\]/);
+  assert.doesNotMatch(serialized, /"priceInclVat":9600/);
+});
+
+test("STRUCTURED RENDERER — mixed array (objects + plain strings) never drops the plain-string entries and never shows '[object Object]'", async () => {
+  const report = structuredReport({ digital_gaps: ["Web sitesi hız sorunu", { area: "Sosyal medya", detail: "Düzensiz paylaşım" }, "Google Ads eksik"] as unknown as string[] });
+  const payload = buildPreAuditDocumentPayload(report, COMPANY_NAME);
+  const section = payload.sections.find((s) => s.title === "Dijital Boşluklar")!;
+  assert.ok(section);
+  const text = (section.items || []).join(" | ");
+  assert.match(text, /Web sitesi hız sorunu/, "plain string entries before an object entry must not be dropped");
+  assert.match(text, /Google Ads eksik/, "plain string entries after an object entry must not be dropped");
+  assert.match(text, /Sosyal medya/);
+  assert.doesNotMatch(text, /\[object Object\]/);
+});
+
+test("STRUCTURED RENDERER — PDF and DOCX both stay valid and both render the same structured content (parity)", async () => {
+  const payload = buildPreAuditDocumentPayload(structuredReport(), COMPANY_NAME);
+  const pdf = await generatePdfBuffer(payload);
+  assert.equal(pdf.subarray(0, 4).toString("latin1"), "%PDF");
+  const loaded = await PDFDocument.load(pdf);
+  assert.ok(loaded.getPageCount() >= 1);
+
+  const docx = await generateDocxBuffer(payload);
+  const xml = await extractDocxText(docx);
+  assert.match(xml, /esramumcuoglu_nailstudio|2\.299/);
+  assert.doesNotMatch(xml, /\[object Object\]/);
+});
