@@ -391,7 +391,9 @@ export function ContentPlanningCenter() {
         </button>
       </div>
 
-      {view === "instagram" && <InstagramIntelligencePanel />}
+      {view === "instagram" && companyId && companies.length > 0 && (
+        <InstagramIntelligencePanel company={companies.find((c) => c.id === companyId) || { id: companyId, name: "" }} />
+      )}
 
       {view === "tracker" && tablesReady === false && (
         <div className="content-plan-empty rounded-[16px] border p-8 text-center" style={{ borderColor: "var(--admin-border)" }}>
