@@ -27,6 +27,7 @@ export { ControlError, authenticate, success, failure, sanitize };
 const limit: Tool["inputSchema"]["properties"][string] = { type: "integer", minimum: 1, maximum: 100 };
 const plan: Tool["inputSchema"]["properties"][string] = { type: "array" };
 const companyId: Tool["inputSchema"]["properties"][string] = { type: "string", format: "uuid" };
+const strategyId: Tool["inputSchema"]["properties"][string] = { type: "string", format: "uuid" };
 const text: Tool["inputSchema"]["properties"][string] = { type: "string" };
 const arr: Tool["inputSchema"]["properties"][string] = { type: "array" };
 const obj: Tool["inputSchema"]["properties"][string] = { type: "object" };
@@ -58,8 +59,9 @@ export const tools: Tool[] = [
 
   // --- HK Ads Intelligence: strategy context / save / read (read-only ad access — never creates/publishes/changes a campaign or budget) ---
   { name: "get_ads_strategy_context", description: "Bir müşteri için reklam stratejisi hazırlamaya yetecek TEK, kompakt bağlam: şirket bilgisi, gerçek entegrasyon durumu, Instagram/Facebook organik özet (veri yoksa data_unavailable+neden), gerçek Meta Ads/Google Ads performansı (varsa), önceki HK Intelligence kayıtları ve varsa en son reklam stratejisi özeti. Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { companyId }, required: ["companyId"], additionalProperties: false } },
-  { name: "save_ads_strategy_plan", description: "Claude'un ürettiği yapılandırılmış reklam stratejisini (iş özeti, Meta stratejisi, Google Ads stratejisi, gerekçeli bütçe planı, 30 günlük yol haritası, KPI'lar, isteğe bağlı implementation_guide) HK Dijital'e kaydeder. Şema kontrollüdür — eksik zorunlu alan reddedilir. Hiçbir reklam hesabında değişiklik yapmaz, yalnızca planı kaydeder.", permission: "WRITE_SAFE", inputSchema: { type: "object", properties: { strategy: { type: "object" } }, required: ["strategy"], additionalProperties: false } },
-  { name: "get_latest_ads_strategy_plan", description: "Bir müşterinin en son kaydedilmiş reklam stratejisini (tam yapılandırılmış hâliyle) döner — kurulum rehberliği veya geçmiş karşılaştırması için kullanılır. Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { companyId }, required: ["companyId"], additionalProperties: false } },
+  { name: "save_ads_strategy_plan", description: "Claude'un ürettiği yapılandırılmış reklam stratejisini (iş özeti, Meta stratejisi, Google Ads stratejisi, gerekçeli bütçe planı, 30 günlük yol haritası, KPI'lar, isteğe bağlı implementation_guide) HK Dijital'e YENİ BİR TASLAK (status: draft) olarak kaydeder — asla otomatik onaylanmaz/aktif olmaz. Şema kontrollüdür — eksik zorunlu alan reddedilir. Hiçbir reklam hesabında değişiklik yapmaz, yalnızca planı kaydeder. Kullanıcı açıkça istemeden ('kaydet', 'HK Dijital'e kaydet') çağırma.", permission: "WRITE_SAFE", inputSchema: { type: "object", properties: { strategy: { type: "object" } }, required: ["strategy"], additionalProperties: false } },
+  { name: "get_latest_ads_strategy_plan", description: "Bir müşterinin kurulum için kullanılacak GÜNCEL reklam stratejisini döner — sırasıyla: uygulanan (active), yoksa onaylı (approved), o da yoksa (yeni sistemde henüz kayıt yoksa) eski/legacy bir kayıt varsa onu (legacy:true ile işaretli, salt okunur). Hiçbiri yoksa NOT_FOUND. DRAFT bir stratejiyi asla kurulum için hazır gibi döndürmez. Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { companyId }, required: ["companyId"], additionalProperties: false } },
+  { name: "update_ads_strategy_status", description: "Bir reklam stratejisinin HK Dijital iç operasyon durumunu değiştirir: draft, approved, active, updated, archived. Yalnızca kullanıcı açıkça 'onayla' / 'uygulamaya al' / 'arşivle' gibi bir talimat verdiğinde çağır. Hiçbir reklam platformunda (Meta/Google) işlem YAPMAZ — yalnızca HK Dijital'deki strateji kaydının durumunu değiştirir. strategyId'nin gerçekten companyId'ye ait olduğu doğrulanır; değilse NOT_FOUND.", permission: "WRITE_SAFE", inputSchema: { type: "object", properties: { companyId, strategyId, status: text }, required: ["companyId", "strategyId", "status"], additionalProperties: false } },
 
   // --- Ön İnceleme Merkezi: pre-sale digital research context / save / read ---
   {
@@ -363,20 +365,40 @@ export async function execute(name: string, args: Record<string, unknown>): Prom
       return getAdsStrategyContext(String(args.companyId));
     }
     case "save_ads_strategy_plan": {
-      const { validateAdsStrategy, saveAdsStrategy, AdsStrategyValidationError } = await import("@/lib/marketing-intelligence/ads-strategy");
+      const { saveAdStrategyDraft, AdsStrategyValidationError, AdStrategyCompanyNotFoundError } = await import("@/lib/marketing-intelligence/ad-strategies");
       try {
-        const strategy = validateAdsStrategy(args.strategy);
-        return await saveAdsStrategy(strategy);
+        return await saveAdStrategyDraft(args.strategy);
       } catch (error) {
         if (error instanceof AdsStrategyValidationError) throw new ControlError("INVALID_ARGUMENTS", error.message, 400);
+        if (error instanceof AdStrategyCompanyNotFoundError) throw new ControlError("NOT_FOUND", error.message, 404);
         throw error;
       }
     }
     case "get_latest_ads_strategy_plan": {
-      const { getLatestAdsStrategy } = await import("@/lib/marketing-intelligence/ads-strategy");
-      const run = await getLatestAdsStrategy(String(args.companyId));
-      if (!run) throw new ControlError("NOT_FOUND", "Bu müşteri için kayıtlı reklam stratejisi yok.", 404);
-      return run;
+      const { getAdStrategyForActivation, getLegacyAdsStrategyRun, AdStrategyCompanyNotFoundError } = await import("@/lib/marketing-intelligence/ad-strategies");
+      try {
+        const result = await getAdStrategyForActivation(String(args.companyId));
+        if (result.strategy) return result.strategy;
+        // Nothing ACTIVE/APPROVED in the new operational table — fall back
+        // to a real, pre-existing legacy record (read-only) so a company
+        // whose strategy predates this system doesn't appear to have none.
+        const legacy = await getLegacyAdsStrategyRun(String(args.companyId));
+        if (legacy) return { ...legacy, legacy: true };
+        throw new ControlError("NOT_FOUND", result.message, 404);
+      } catch (error) {
+        if (error instanceof AdStrategyCompanyNotFoundError) throw new ControlError("NOT_FOUND", error.message, 404);
+        throw error;
+      }
+    }
+    case "update_ads_strategy_status": {
+      const { updateAdStrategyStatus, AdsStrategyValidationError, AdStrategyNotFoundError } = await import("@/lib/marketing-intelligence/ad-strategies");
+      try {
+        return await updateAdStrategyStatus(String(args.companyId || ""), String(args.strategyId || ""), String(args.status) as never);
+      } catch (error) {
+        if (error instanceof AdsStrategyValidationError) throw new ControlError("INVALID_ARGUMENTS", error.message, 400);
+        if (error instanceof AdStrategyNotFoundError) throw new ControlError("NOT_FOUND", error.message, 404);
+        throw error;
+      }
     }
 
     case "get_pre_audit_context": {
