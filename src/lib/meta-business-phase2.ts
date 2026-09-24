@@ -75,7 +75,7 @@ function userMessageForEndpoint(endpoint: string, ok: boolean, payload: any, dat
   return message;
 }
 
-async function graphGet(path: string, accessToken: string, params: Record<string, string> = {}) {
+export async function graphGet(path: string, accessToken: string, params: Record<string, string> = {}) {
   const url = new URL(`https://graph.facebook.com/${GRAPH_VERSION}/${path.replace(/^\//, "")}`);
   Object.entries(params).forEach(([key, value]) => {
     if (value) url.searchParams.set(key, value);
