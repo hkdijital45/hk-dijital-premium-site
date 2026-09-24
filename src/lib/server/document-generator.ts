@@ -21,7 +21,20 @@ import type { ProfessionalReportPayload } from "@/lib/report-export";
 // rather than defining a parallel one — one report payload contract for
 // every export format (HTML-for-print, DOCX, PDF, PPTX) in the app.
 export type DocumentTable = { headers: string[]; rows: string[][] };
-export type DocumentSection = { title: string; items?: string[]; text?: string; table?: DocumentTable };
+export type DocumentSection = {
+  title: string; items?: string[]; text?: string; table?: DocumentTable;
+  // Optional, PDF-only, backward-compatible rendering hints — every
+  // existing caller omits these and renders exactly as before. Added for
+  // content-heavy multi-record documents (e.g. İçerik Takip's plan
+  // export) that need a real field/label hierarchy — a smaller field-
+  // label title (titleSize), extra whitespace before a new record
+  // (spacingBefore), and enough reserved space that a record's own
+  // heading is never left orphaned alone at the bottom of a page
+  // (minSpaceBefore forces an early page break instead).
+  titleSize?: number;
+  spacingBefore?: number;
+  minSpaceBefore?: number;
+};
 export type DocumentPayload = {
   title: string;
   customerName: string;
@@ -210,7 +223,9 @@ export async function generatePdfBuffer(payload: DocumentPayload): Promise<Buffe
 
   for (const section of payload.sections) {
     if (!section.items?.length && !section.text && !section.table) continue;
-    drawSubheading(section.title);
+    if (section.spacingBefore) y -= section.spacingBefore;
+    if (section.minSpaceBefore) newPageIfNeeded(section.minSpaceBefore);
+    drawSubheading(section.title, section.titleSize || 13);
     if (section.text) drawParagraph(section.text);
     for (const item of section.items || []) drawBullet(item);
     if (section.table) drawTable(section.table);
