@@ -6,6 +6,7 @@
 // customer/integration system.
 import { supabaseRest } from "@/lib/supabase";
 import { getAllProviderConnectionStatuses } from "@/lib/analytics-center/connections";
+import { connectedMetaAdAccountAsset } from "@/lib/marketing-intelligence/ad-accounts";
 
 export type Customer = { id: string; name: string; status?: string | null };
 
@@ -57,12 +58,19 @@ function mapConnectionStatus(status: string | undefined): IntegrationStatus {
 export async function getCustomerIntegrations(companyId: string): Promise<CustomerIntegrationSummary> {
   const [connections, rows] = await Promise.all([
     getAllProviderConnectionStatuses(companyId),
-    supabaseRest<Array<{ meta_ad_account_id: string | null; google_ads_customer_id: string | null }>>(
-      `customer_integrations?company_id=eq.${encodeURIComponent(companyId)}&select=meta_ad_account_id,google_ads_customer_id&limit=1`
+    supabaseRest<Array<{ meta_ad_account_id: string | null; google_ads_customer_id: string | null; integration_assets: unknown }>>(
+      `customer_integrations?company_id=eq.${encodeURIComponent(companyId)}&select=meta_ad_account_id,google_ads_customer_id,integration_assets&limit=1`
     )
   ]);
   const byProvider = new Map(connections.map((c) => [c.provider, c.status]));
   const row = rows[0] || null;
+  // Same fix as ad-accounts.ts's getMetaAdsAccount() — the legacy
+  // meta_ad_account_id column is never written by the OAuth/HK Connect
+  // asset-selection flow, only by manual entry. Fall back to a connected
+  // meta_ad_account entry in integration_assets so this MCP-facing status
+  // never contradicts what HK Connect itself shows.
+  const oauthAdAccountAsset = connectedMetaAdAccountAsset(row?.integration_assets);
+  const metaAdAccountId = row?.meta_ad_account_id || oauthAdAccountAsset?.account_id || oauthAdAccountAsset?.asset_id || null;
 
   return {
     companyId,
@@ -70,8 +78,8 @@ export async function getCustomerIntegrations(companyId: string): Promise<Custom
     facebook: mapConnectionStatus(byProvider.get("facebook")),
     tiktok: mapConnectionStatus(byProvider.get("tiktok")),
     youtube: mapConnectionStatus(byProvider.get("youtube")),
-    metaAds: row?.meta_ad_account_id ? "CONNECTED" : "ACCOUNT_NOT_MAPPED",
-    metaAdAccountId: row?.meta_ad_account_id || null,
+    metaAds: metaAdAccountId ? "CONNECTED" : "ACCOUNT_NOT_MAPPED",
+    metaAdAccountId,
     googleAds: row?.google_ads_customer_id ? "CONNECTED" : "ACCOUNT_NOT_MAPPED",
     googleAdsCustomerId: row?.google_ads_customer_id || null
   };

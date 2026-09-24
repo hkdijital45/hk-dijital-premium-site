@@ -20,11 +20,37 @@ export type AdAccountStatus = {
   note: string;
 };
 
+/** Real production bug (HK Connect "Hesap eşleşmemiş" for a Meta Ads
+ * account that was actually selected/confirmed through the OAuth/HK
+ * Connect flow): the dedicated `meta_ad_account_id` column is only ever
+ * written by the LEGACY manual-entry path (CustomerAccountConnectCenter's
+ * "Meta Ad Account ID" field / an admin editing it directly in
+ * AdminDashboard). The OAuth/connect-link asset-selection flow
+ * (connectLinkSelectAccount → customer-integration-oauth.ts) never writes
+ * that column — it persists the selected ad account into
+ * `integration_assets` instead (asset_type "meta_ad_account", exactly the
+ * key ASSET_TYPE_TO_CAPABILITY already maps to the "meta_ads" capability
+ * everywhere else in HK Connect). This checked ONLY the legacy column, so
+ * an ad account connected the current, real way showed as "Hesap
+ * eşleşmemiş" even though it was correctly selected, confirmed, and
+ * persisted. Now checks both — the legacy column first (unchanged
+ * behavior for any customer who used manual entry), falling back to a
+ * connected `meta_ad_account` entry in integration_assets. */
+export function connectedMetaAdAccountAsset(assets: unknown): { account_id?: string; asset_id?: string } | null {
+  if (!Array.isArray(assets)) return null;
+  return assets.find((item: any) =>
+    (item?.asset_type === "meta_ad_account" || item?.account_type === "meta_ad_account") &&
+    String(item?.status || item?.oauth_status || "").startsWith("connected")
+  ) || null;
+}
+
 export async function getMetaAdsAccount(companyId: string): Promise<AdAccountStatus> {
-  const rows = await supabaseRest<Array<{ meta_ad_account_id: string | null; meta_business_id: string | null }>>(
-    `customer_integrations?company_id=eq.${encodeURIComponent(companyId)}&select=meta_ad_account_id,meta_business_id&limit=1`
+  const rows = await supabaseRest<Array<{ meta_ad_account_id: string | null; meta_business_id: string | null; integration_assets: unknown }>>(
+    `customer_integrations?company_id=eq.${encodeURIComponent(companyId)}&select=meta_ad_account_id,meta_business_id,integration_assets&limit=1`
   );
-  const accountId = rows[0]?.meta_ad_account_id || null;
+  const row = rows[0];
+  const oauthAsset = connectedMetaAdAccountAsset(row?.integration_assets);
+  const accountId = row?.meta_ad_account_id || oauthAsset?.account_id || oauthAsset?.asset_id || null;
   const platformConfigured = Boolean(process.env.META_APP_ID && process.env.META_APP_SECRET);
   return {
     companyId,
