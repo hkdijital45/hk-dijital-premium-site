@@ -34,8 +34,8 @@ const dateField: Tool["inputSchema"]["properties"][string] = { type: "string", f
 
 export const tools: Tool[] = [
   { name: "get_instagram_account", description: "HK Dijital'in bağlı Instagram hesabının bağlantı durumunu döner (kullanıcı adı, bağlantı zamanı, token durumu). Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: {}, required: [], additionalProperties: false } },
-  { name: "get_instagram_analysis", description: "Gerçek Instagram gönderi geçmişine dayalı deterministik analiz: tema dağılımı, eksik/eskimiş temalar, format performansı, tekrar riski, paylaşım sıklığı. AI kullanmaz, hiçbir metrik uydurulmaz. Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: {}, required: [], additionalProperties: false } },
-  { name: "get_instagram_recent_posts", description: "Instagram hesabındaki en son gönderilerin ham listesi (caption, format, tarih, beğeni/yorum sayısı, permalink). Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { limit }, required: [], additionalProperties: false } },
+  { name: "get_instagram_analysis", description: "Gerçek Instagram gönderi geçmişine dayalı deterministik analiz: tema dağılımı, eksik/eskimiş temalar, format performansı, tekrar riski, paylaşım sıklığı. AI kullanmaz, hiçbir metrik uydurulmaz. Returns analysis ONLY for the supplied companyId's own OAuth-connected Instagram account (HK Dijital dahil, kendi şirketiniz için de) — başka bir şirkete asla düşmez (no fallback). companyId zorunludur. Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { companyId }, required: ["companyId"], additionalProperties: false } },
+  { name: "get_instagram_recent_posts", description: "Instagram hesabındaki en son gönderilerin ham listesi (caption, format, tarih, beğeni/yorum sayısı, permalink). Returns posts ONLY for the supplied companyId's own OAuth-connected Instagram account (HK Dijital dahil, kendi şirketiniz için de) — başka bir şirkete asla düşmez (no fallback). companyId zorunludur. Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { companyId, limit }, required: ["companyId"], additionalProperties: false } },
   { name: "get_content_tracking_history", description: "İçerik Takip'teki geçmiş (yayınlanmış) kayıtlar — tarih, platform, tema, konu, format, durum. Returns records ONLY for the supplied companyId — never falls back to HK Dijital or any other company. companyId zorunludur; önce customer_resolve/customer_list ile doğru şirketi (HK Dijital dahil, kendi şirketiniz için de) bulup companyId'sini geçirin. Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { companyId, limit }, required: ["companyId"], additionalProperties: false } },
   { name: "get_upcoming_content_plan", description: "İçerik Takip'teki bugünden itibaren planlanmış (henüz paylaşılmamış) kayıtlar. Returns records ONLY for the supplied companyId — never falls back to HK Dijital or any other company. companyId zorunludur; önce customer_resolve/customer_list ile doğru şirketi (HK Dijital dahil, kendi şirketiniz için de) bulup companyId'sini geçirin. Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { companyId, limit }, required: ["companyId"], additionalProperties: false } },
   { name: "create_content_plan", description: "Yazılmış bir içerik planını İçerik Takip'e, YALNIZCA verilen companyId'ye kaydeder (tarih+konu bazında tekrar korumalı — aynı plan iki kez gönderilse bile kayıt çoğalmaz). companyId zorunludur ve gerçek bir şirkete karşı doğrulanır; geçersiz/çözülememiş companyId ile HİÇBİR satır yazılmaz ve başka bir şirkete (HK Dijital dahil) asla sessizce düşmez. Instagram'a HİÇBİR ŞEY YAYINLAMAZ, sadece İçerik Takip'e planlama satırı ekler.", permission: "WRITE_SAFE", inputSchema: { type: "object", properties: { companyId, items: plan }, required: ["companyId", "items"], additionalProperties: false } },
@@ -134,6 +134,22 @@ function toolByName(name: string): Tool {
   return tool;
 }
 
+// True only for HK Dijital's own real company_id — used by
+// get_instagram_analysis/get_instagram_recent_posts to route to the
+// existing agency-only engine (its Instagram-Login token, unusable for any
+// other company) vs. the customer-scoped Facebook-Login-for-Business asset
+// reader for every other company. Never throws: a config problem here
+// just means "treat as a normal company", not an agency identity.
+async function isHkDijitalCompanyId(companyId: string): Promise<boolean> {
+  if (!companyId) return false;
+  try {
+    const { resolveHkDijitalCompanyId } = await import("@/lib/content-plan/hk-dijital-company");
+    return companyId === (await resolveHkDijitalCompanyId());
+  } catch {
+    return false;
+  }
+}
+
 // Known, well-understood data/config failures get a real ControlError code
 // instead of falling through to the generic SERVICE_UNAVAILABLE — that
 // genericness is exactly what masked the stale-company-id bug this was
@@ -184,25 +200,58 @@ export async function execute(name: string, args: Record<string, unknown>): Prom
       return getInstagramConnectionStatus();
     }
     case "get_instagram_analysis": {
-      const { analyzeInstagramAccount, InstagramNotConnectedError } = await import("@/lib/instagram-intelligence/analysis");
-      try {
-        return await analyzeInstagramAccount();
-      } catch (error) {
-        if (error instanceof InstagramNotConnectedError) throw new ControlError("NOT_CONNECTED", error.message, 409);
-        throw error;
+      const companyId = String(args.companyId || "");
+      if (await isHkDijitalCompanyId(companyId)) {
+        const { analyzeInstagramAccount, InstagramNotConnectedError } = await import("@/lib/instagram-intelligence/analysis");
+        try {
+          return await analyzeInstagramAccount();
+        } catch (error) {
+          if (error instanceof InstagramNotConnectedError) throw new ControlError("NOT_CONNECTED", error.message, 409);
+          throw error;
+        }
       }
+      // Every other company: no Instagram-Login token exists for it (only
+      // HK Dijital's own social_integrations row has one) — its real
+      // Instagram data lives behind its Facebook-Login-for-Business asset
+      // instead (customer_integrations), which needs the graph.facebook.com
+      // reader already built for Instagram Profil Optimizasyonu, not the
+      // deep engagement-metrics engine above (wrong Graph host/token type
+      // for that asset). Real profile + recent media, never HK Dijital's.
+      const { resolveConnectedInstagramAsset, fetchInstagramProfileMetadata, fetchRecentInstagramMedia } = await import("@/lib/instagram-profile-audits");
+      const asset = await resolveConnectedInstagramAsset(companyId);
+      if (!asset.igUserId || !asset.token) throw new ControlError("NOT_CONNECTED", "Bu şirket için bağlı bir Instagram hesabı bulunamadı.", 409);
+      const [profile, recentMedia] = await Promise.all([
+        fetchInstagramProfileMetadata(asset.igUserId, asset.token),
+        fetchRecentInstagramMedia(asset.igUserId, asset.token)
+      ]);
+      return {
+        source: "instagram_business_asset",
+        account: { ...profile, username: profile.username || asset.username },
+        recentMedia: recentMedia || [],
+        note: "Bu şirket için derin tema/tekrar/performans analiz motoru (yalnızca HK Dijital'in kendi hesabında) kullanılamıyor — yalnızca gerçek profil ve son gönderi verisi mevcuttur."
+      };
     }
     case "get_instagram_recent_posts": {
-      const { getUsableInstagramToken, InstagramNotConnectedError } = await import("@/lib/social-autopilot/instagram-oauth");
-      const { getRecentInstagramMedia } = await import("@/lib/social-autopilot/instagram-graph-client");
-      try {
-        const { accessToken, igUserId } = await getUsableInstagramToken();
-        const result = await getRecentInstagramMedia(accessToken, igUserId, toolLimit);
-        return { source: "instagram", posts: result.data };
-      } catch (error) {
-        if (error instanceof InstagramNotConnectedError) throw new ControlError("NOT_CONNECTED", error.message, 409);
-        throw error;
+      const companyId = String(args.companyId || "");
+      if (await isHkDijitalCompanyId(companyId)) {
+        const { getUsableInstagramToken, InstagramNotConnectedError } = await import("@/lib/social-autopilot/instagram-oauth");
+        const { getRecentInstagramMedia } = await import("@/lib/social-autopilot/instagram-graph-client");
+        try {
+          const { accessToken, igUserId } = await getUsableInstagramToken();
+          const result = await getRecentInstagramMedia(accessToken, igUserId, toolLimit);
+          return { source: "instagram", posts: result.data };
+        } catch (error) {
+          if (error instanceof InstagramNotConnectedError) throw new ControlError("NOT_CONNECTED", error.message, 409);
+          throw error;
+        }
       }
+      const { resolveConnectedInstagramAsset, fetchRecentInstagramMedia } = await import("@/lib/instagram-profile-audits");
+      const asset = await resolveConnectedInstagramAsset(companyId);
+      if (!asset.igUserId || !asset.token) throw new ControlError("NOT_CONNECTED", "Bu şirket için bağlı bir Instagram hesabı bulunamadı.", 409);
+      const media = await fetchRecentInstagramMedia(asset.igUserId, asset.token);
+      if (media === null) throw new ControlError("SERVICE_UNAVAILABLE", "Instagram medya listesi alınamadı.", 502);
+      const posts = media.slice(0, toolLimit).map((m) => ({ id: m.id, caption: m.caption || "", media_type: m.mediaType || "", permalink: m.permalink, timestamp: m.timestamp }));
+      return { source: "instagram", posts };
     }
     case "get_content_tracking_history":
       return fetchPlanRows("history", toolLimit, args.companyId);

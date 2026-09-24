@@ -106,7 +106,15 @@ export type InstagramAnalysis = {
 
 /** Real, deterministic analysis of the connected account's actual recent
  * media. No AI, no fabricated metrics — anything the Graph API doesn't
- * return stays null/"unavailable" rather than being filled with 0. */
+ * return stays null/"unavailable" rather than being filled with 0.
+ *
+ * HK Dijital's own agency Instagram Login connection only — the Graph
+ * calls here (graph.instagram.com, via instagram-graph-client.ts) require
+ * an Instagram-Login-obtained token, which is NOT interchangeable with a
+ * customer's Facebook-Login-for-Business token (customer_integrations,
+ * resolveConnectedInstagramAsset in instagram-profile-audits.ts). See the
+ * get_instagram_analysis MCP handler in mcp/protocol.ts for the separate,
+ * lighter customer-scoped path used for every other company. */
 export async function analyzeInstagramAccount(): Promise<InstagramAnalysis> {
   const { accessToken, igUserId } = await getUsableInstagramToken();
 
