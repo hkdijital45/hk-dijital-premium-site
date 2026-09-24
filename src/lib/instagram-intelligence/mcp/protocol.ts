@@ -90,6 +90,41 @@ export const tools: Tool[] = [
     description: "Get the latest saved pre-audit report for a verified HK Dijital company or lead, including the related internal/client report versions from the same research pass when available. Accepts companyId (and companyName as a fallback) for a company, or leadId for a Müşteri Keşfi discovery candidate. Optional reportType filters to only INTERNAL_REPORT or only CLIENT_REPORT. Returns not_found (never a fake placeholder) if no report exists yet. To update this report instead of creating a new one, pass the returned `latest.id` as reportId to save_pre_audit_report.",
     permission: "READ_ONLY",
     inputSchema: { type: "object", properties: { companyId, companyName: text, leadId: text, reportType: text }, required: [], additionalProperties: false }
+  },
+
+  // --- Instagram Profil Optimizasyonu: read-only real context + explicit-
+  // approval-only save + history for an existing customer's own connected
+  // Instagram profile. Distinct from Instagram Intelligence (HK Dijital's
+  // OWN account, content strategy) and from pre-audit (pre-sale research
+  // for a lead) — this is post-sale, customer-specific profile-quality
+  // consulting, stored in its own instagram_profile_audits table. ---
+  {
+    name: "get_instagram_profile_audit_context",
+    description: "Get the real context needed to start an Instagram profile optimization review for a verified HK Dijital customer: company identity (name/sector/city/website), the customer's real connected Instagram username (from HK Connect OAuth if connected, else the company's manually-entered Instagram field) and real connection status, and the company's last saved profile audit (if any) for before/after comparison. Never fabricates Instagram data this app has no real access to (e.g. highlight covers, post grid visuals, photo quality) — if the connection isn't OAuth-connected, ask the user for it or for a screenshot. Read-only.",
+    permission: "READ_ONLY",
+    inputSchema: { type: "object", properties: { companyId }, required: ["companyId"], additionalProperties: false }
+  },
+  {
+    name: "save_instagram_profile_audit",
+    description: "Saves an EXPLICITLY user-approved Instagram profile optimization report for a verified HK Dijital company. Always creates a NEW history row (never overwrites a previous audit) and automatically links it to the company's own previous audit for later comparison. Required: companyId, instagramUsername, overallSummary. Optional structured sections (profilePhotoAnalysis, usernameAnalysis, nameFieldAnalysis, currentBio, recommendedBio, linkCtaAnalysis, highlightsAnalysis, pinnedPostsAnalysis, profileVisualAnalysis, trustContactAnalysis, priorities, checklist) and status (draft/approved/completed, default draft). IMPORTANT: only call this after the user explicitly says something like 'kaydet' / 'raporu kaydet' / 'HK Digital Center'a kaydet' / 'onaylıyorum, kaydet' — showing the analysis in chat and discussing it is never itself a save instruction. This tool never modifies the customer's actual Instagram account (no bio/photo/username/post/story/highlight changes) — it only records advice for the user to apply manually.",
+    permission: "WRITE_SAFE",
+    inputSchema: {
+      type: "object",
+      properties: {
+        companyId, instagramUsername: text, status: text, overallSummary: text, currentBio: text, recommendedBio: text,
+        profilePhotoAnalysis: obj, usernameAnalysis: obj, nameFieldAnalysis: obj, linkCtaAnalysis: obj,
+        highlightsAnalysis: arr, pinnedPostsAnalysis: arr, profileVisualAnalysis: obj, trustContactAnalysis: obj,
+        priorities: arr, checklist: arr
+      },
+      required: ["companyId", "instagramUsername", "overallSummary"],
+      additionalProperties: false
+    }
+  },
+  {
+    name: "get_instagram_profile_audits",
+    description: "Get a verified HK Dijital company's Instagram profile optimization report history. Without `id`, returns a compact list (id, audit_date, status, instagram_username, overall_summary — never the full heavy analysis, for token efficiency) ordered newest first, limited by `limit` (default 10, max 50). With `id`, returns that one full report (every analysis section) — verified to actually belong to this companyId, never another company's report. Returns not_found if no reports exist yet or the id doesn't belong to this company. Read-only.",
+    permission: "READ_ONLY",
+    inputSchema: { type: "object", properties: { companyId, id: text, limit }, required: ["companyId"], additionalProperties: false }
   }
 ];
 
@@ -338,6 +373,55 @@ export async function execute(name: string, args: Record<string, unknown>): Prom
         return result || { status: "not_found" };
       } catch (error) {
         throw (await toKnownControlError(error)) ?? error;
+      }
+    }
+
+    case "get_instagram_profile_audit_context": {
+      const { getInstagramProfileAuditContext, InstagramProfileAuditNotFoundError } = await import("@/lib/instagram-profile-audits");
+      try {
+        return await getInstagramProfileAuditContext(String(args.companyId || ""));
+      } catch (error) {
+        if (error instanceof InstagramProfileAuditNotFoundError) throw new ControlError("NOT_FOUND", error.message, 404);
+        throw error;
+      }
+    }
+    case "save_instagram_profile_audit": {
+      const { saveInstagramProfileAudit, InstagramProfileAuditValidationError, InstagramProfileAuditNotFoundError } = await import("@/lib/instagram-profile-audits");
+      try {
+        return await saveInstagramProfileAudit({
+          companyId: args.companyId,
+          instagramUsername: args.instagramUsername,
+          status: args.status,
+          overallSummary: args.overallSummary,
+          currentBio: args.currentBio,
+          recommendedBio: args.recommendedBio,
+          profile_photo_analysis: args.profilePhotoAnalysis,
+          username_analysis: args.usernameAnalysis,
+          name_field_analysis: args.nameFieldAnalysis,
+          link_cta_analysis: args.linkCtaAnalysis,
+          highlights_analysis: args.highlightsAnalysis,
+          pinned_posts_analysis: args.pinnedPostsAnalysis,
+          profile_visual_analysis: args.profileVisualAnalysis,
+          trust_contact_analysis: args.trustContactAnalysis,
+          priorities: args.priorities,
+          checklist: args.checklist
+        });
+      } catch (error) {
+        if (error instanceof InstagramProfileAuditValidationError) throw new ControlError("INVALID_ARGUMENTS", error.message, 400);
+        if (error instanceof InstagramProfileAuditNotFoundError) throw new ControlError("NOT_FOUND", error.message, 404);
+        throw error;
+      }
+    }
+    case "get_instagram_profile_audits": {
+      const { getInstagramProfileAudits, InstagramProfileAuditNotFoundError } = await import("@/lib/instagram-profile-audits");
+      try {
+        return await getInstagramProfileAudits(String(args.companyId || ""), {
+          id: typeof args.id === "string" ? args.id : undefined,
+          limit: typeof args.limit === "number" ? args.limit : toolLimit
+        });
+      } catch (error) {
+        if (error instanceof InstagramProfileAuditNotFoundError) return { status: "not_found" };
+        throw error;
       }
     }
 

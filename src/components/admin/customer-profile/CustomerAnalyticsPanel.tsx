@@ -6,6 +6,7 @@ import { BarChart3, ExternalLink } from "lucide-react";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge, type AdminStatusTone } from "@/components/admin/ui/AdminStatusBadge";
 import { AdminKpiCard } from "@/components/admin/ui/AdminKpiCard";
+import { InstagramProfileAuditPanel } from "./InstagramProfileAuditPanel";
 
 type AnalyticsProvider = "instagram" | "facebook" | "youtube" | "google_ads" | "google_business_profile";
 const PROVIDER_LABELS: Record<AnalyticsProvider, string> = { instagram: "Instagram", facebook: "Facebook", youtube: "YouTube", google_ads: "Google Ads", google_business_profile: "Google Business Profile" };
@@ -92,6 +93,10 @@ export function CustomerAnalyticsPanel({ company }: { company: { id: string; nam
           )}
         </>
       )}
+
+      <div className="mt-2 border-t pt-4" style={{ borderColor: "var(--admin-border)" }}>
+        <InstagramProfileAuditPanel company={company as { id: string; name: string }} />
+      </div>
     </div>
   );
 }
