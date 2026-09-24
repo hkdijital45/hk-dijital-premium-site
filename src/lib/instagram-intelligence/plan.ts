@@ -8,7 +8,6 @@ import {
   CONTENT_PLAN_WORKSPACE_ID, CONTENT_PLAN_TABLE, CONTENT_FORMAT_KEYS, PLATFORM_KEYS,
   type ContentPlanItem
 } from "@/lib/content-plan/types";
-import { resolveHkDijitalCompanyId } from "@/lib/content-plan/hk-dijital-company";
 
 export type PlanItemInput = {
   scheduled_date: string;
@@ -26,6 +25,37 @@ export type PlanItemInput = {
 };
 
 export class PlanInputError extends Error {}
+export class ContentPlanCompanyNotFoundError extends Error {}
+
+/** Verifies companyId is a real public.companies row before any content-
+ * tracking read or write is allowed to proceed — the single company-
+ * validation gate shared by fetchContentPlanRows and
+ * createContentPlanItems, so a missing/invalid/unresolved companyId can
+ * never fall through to an implicit default (HK Dijital or otherwise).
+ * Fails closed: throws rather than returning a boolean, so callers can't
+ * accidentally ignore the result. */
+export async function assertCompanyExists(companyId: unknown): Promise<string> {
+  if (typeof companyId !== "string" || !companyId.trim()) throw new ContentPlanCompanyNotFoundError("companyId zorunludur.");
+  const rows = await supabaseRest<Array<{ id: string }>>(`companies?id=eq.${encodeURIComponent(companyId)}&select=id&limit=1`);
+  if (!rows.length) throw new ContentPlanCompanyNotFoundError(`company_id doğrulanamadı: ${companyId}`);
+  return companyId;
+}
+
+/** Company-scoped content-tracking reads (history/upcoming) — the same
+ * table/scoping rule create_content_plan writes with, so a company can
+ * only ever read its own rows, never another company's (including HK
+ * Dijital's). Shared by the get_content_tracking_history/
+ * get_upcoming_content_plan MCP tools. */
+export async function fetchContentPlanRows(filter: "history" | "upcoming", companyId: string, limit = 20): Promise<ContentPlanItem[]> {
+  await assertCompanyExists(companyId);
+  const today = new Date().toISOString().slice(0, 10);
+  const scope = filter === "upcoming"
+    ? `&is_published=eq.false&scheduled_date=gte.${today}`
+    : `&is_published=eq.true`;
+  return supabaseRest<ContentPlanItem[]>(
+    `${CONTENT_PLAN_TABLE}?company_id=eq.${encodeURIComponent(companyId)}&select=*${scope}&order=scheduled_date.${filter === "upcoming" ? "asc" : "desc"}&limit=${limit}`
+  );
+}
 
 function buildNotes(item: PlanItemInput): string {
   const lines = ["[Kaynak: Instagram Intelligence]"];
@@ -57,16 +87,18 @@ export function validatePlanItems(items: unknown): PlanItemInput[] {
 
 /** Inserts only the items that don't already exist (same scheduled_date +
  * topic, case/whitespace-insensitive) — never overwrites or duplicates an
- * existing İçerik Takip row, manual or otherwise. */
-export async function createContentPlanItems(items: PlanItemInput[]): Promise<{ inserted: number; skipped: number; items: ContentPlanItem[] }> {
-  // Instagram Intelligence only ever plans for HK Dijital's own account
-  // (its Instagram connection is single-workspace by design — see
-  // src/lib/social-autopilot/instagram-oauth.ts), so every row it writes
-  // is scoped to HK Dijital's real company_id, never a customer's. Resolved
-  // fresh (cached) rather than hardcoded — see hk-dijital-company.ts.
-  const companyId = await resolveHkDijitalCompanyId();
+ * existing İçerik Takip row, manual or otherwise. companyId is REQUIRED
+ * and verified against a real public.companies row before any write —
+ * there is no implicit default (HK Dijital or otherwise): a missing,
+ * invalid, or unresolved companyId means no row is ever written. Callers
+ * that genuinely only ever act for HK Dijital's own account (e.g. the
+ * Instagram Intelligence admin route) must resolve and pass that real
+ * companyId themselves — see resolveHkDijitalCompanyId in
+ * content-plan/hk-dijital-company.ts. */
+export async function createContentPlanItems(items: PlanItemInput[], companyId: string): Promise<{ inserted: number; skipped: number; items: ContentPlanItem[] }> {
+  await assertCompanyExists(companyId);
   const existing = await supabaseRest<Array<Pick<ContentPlanItem, "scheduled_date" | "content_title">>>(
-    `${CONTENT_PLAN_TABLE}?company_id=eq.${companyId}&select=scheduled_date,content_title&limit=1000`
+    `${CONTENT_PLAN_TABLE}?company_id=eq.${encodeURIComponent(companyId)}&select=scheduled_date,content_title&limit=1000`
   );
   const existingKeys = new Set(existing.map((row) => normalizeKey(row.scheduled_date, row.content_title)));
 

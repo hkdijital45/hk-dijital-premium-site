@@ -36,9 +36,9 @@ export const tools: Tool[] = [
   { name: "get_instagram_account", description: "HK Dijital'in bağlı Instagram hesabının bağlantı durumunu döner (kullanıcı adı, bağlantı zamanı, token durumu). Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: {}, required: [], additionalProperties: false } },
   { name: "get_instagram_analysis", description: "Gerçek Instagram gönderi geçmişine dayalı deterministik analiz: tema dağılımı, eksik/eskimiş temalar, format performansı, tekrar riski, paylaşım sıklığı. AI kullanmaz, hiçbir metrik uydurulmaz. Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: {}, required: [], additionalProperties: false } },
   { name: "get_instagram_recent_posts", description: "Instagram hesabındaki en son gönderilerin ham listesi (caption, format, tarih, beğeni/yorum sayısı, permalink). Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { limit }, required: [], additionalProperties: false } },
-  { name: "get_content_tracking_history", description: "İçerik Takip'teki geçmiş (yayınlanmış) kayıtlar — tarih, platform, tema, konu, format, durum. Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { limit }, required: [], additionalProperties: false } },
-  { name: "get_upcoming_content_plan", description: "İçerik Takip'teki bugünden itibaren planlanmış (henüz paylaşılmamış) kayıtlar. Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { limit }, required: [], additionalProperties: false } },
-  { name: "create_content_plan", description: "Yazılmış bir içerik planını İçerik Takip'e kaydeder (tarih+konu bazında tekrar korumalı — aynı plan iki kez gönderilse bile kayıt çoğalmaz). Instagram'a HİÇBİR ŞEY YAYINLAMAZ, sadece İçerik Takip'e planlama satırı ekler.", permission: "WRITE_SAFE", inputSchema: { type: "object", properties: { items: plan }, required: ["items"], additionalProperties: false } },
+  { name: "get_content_tracking_history", description: "İçerik Takip'teki geçmiş (yayınlanmış) kayıtlar — tarih, platform, tema, konu, format, durum. Returns records ONLY for the supplied companyId — never falls back to HK Dijital or any other company. companyId zorunludur; önce customer_resolve/customer_list ile doğru şirketi (HK Dijital dahil, kendi şirketiniz için de) bulup companyId'sini geçirin. Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { companyId, limit }, required: ["companyId"], additionalProperties: false } },
+  { name: "get_upcoming_content_plan", description: "İçerik Takip'teki bugünden itibaren planlanmış (henüz paylaşılmamış) kayıtlar. Returns records ONLY for the supplied companyId — never falls back to HK Dijital or any other company. companyId zorunludur; önce customer_resolve/customer_list ile doğru şirketi (HK Dijital dahil, kendi şirketiniz için de) bulup companyId'sini geçirin. Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { companyId, limit }, required: ["companyId"], additionalProperties: false } },
+  { name: "create_content_plan", description: "Yazılmış bir içerik planını İçerik Takip'e, YALNIZCA verilen companyId'ye kaydeder (tarih+konu bazında tekrar korumalı — aynı plan iki kez gönderilse bile kayıt çoğalmaz). companyId zorunludur ve gerçek bir şirkete karşı doğrulanır; geçersiz/çözülememiş companyId ile HİÇBİR satır yazılmaz ve başka bir şirkete (HK Dijital dahil) asla sessizce düşmez. Instagram'a HİÇBİR ŞEY YAYINLAMAZ, sadece İçerik Takip'e planlama satırı ekler.", permission: "WRITE_SAFE", inputSchema: { type: "object", properties: { companyId, items: plan }, required: ["companyId", "items"], additionalProperties: false } },
 
   // --- HK Marketing Intelligence: customer resolution + integration status ---
   { name: "customer_list", description: "HK Dijital'in gerçek müşteri listesi (public.companies) — id ve isim. Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: {}, required: [], additionalProperties: false } },
@@ -145,33 +145,32 @@ async function toKnownControlError(error: unknown): Promise<ControlError | null>
   if (error instanceof HkDijitalCompanyNotFoundError) {
     return new ControlError("CONFIGURATION_ERROR", error.message, 500);
   }
+  const { ContentPlanCompanyNotFoundError } = await import("@/lib/instagram-intelligence/plan");
+  if (error instanceof ContentPlanCompanyNotFoundError) {
+    return new ControlError("NOT_FOUND", error.message, 404);
+  }
   const message = error instanceof Error ? error.message : "";
   if (/foreign key/i.test(message)) {
     return new ControlError(
       "CONFIGURATION_ERROR",
-      "İçerik Takip kaydı geçersiz bir company_id referansı içeriyor — HK Dijital şirket kaydını kontrol edin.",
+      "İçerik Takip kaydı geçersiz bir company_id referansı içeriyor — şirket kaydını kontrol edin.",
       500
     );
   }
   return null;
 }
 
-async function fetchPlanRows(filter: "history" | "upcoming", limit: number): Promise<ContentPlanItem[]> {
-  const { supabaseRest } = await import("@/lib/supabase");
-  const { CONTENT_PLAN_TABLE } = await import("@/lib/content-plan/types");
-  const { resolveHkDijitalCompanyId } = await import("@/lib/content-plan/hk-dijital-company");
-  const today = new Date().toISOString().slice(0, 10);
-  const scope = filter === "upcoming"
-    ? `&is_published=eq.false&scheduled_date=gte.${today}`
-    : `&is_published=eq.true`;
+// Company-scoped, explicit-companyId-required read (history/upcoming) —
+// reuses the exact same shared data layer (fetchContentPlanRows/
+// assertCompanyExists in instagram-intelligence/plan.ts) that
+// create_content_plan writes through, so read and write share one
+// company-validation rule instead of two that could drift. There is no
+// implicit default here: a missing/invalid/unresolved companyId never
+// falls back to HK Dijital or any other company — see plan.ts.
+async function fetchPlanRows(filter: "history" | "upcoming", limit: number, companyId: unknown): Promise<ContentPlanItem[]> {
+  const { fetchContentPlanRows } = await import("@/lib/instagram-intelligence/plan");
   try {
-    // Scoped to HK Dijital's own company_id — İçerik Takip is now
-    // multi-client, but Instagram Intelligence only ever reasons about HK
-    // Dijital's own account, so it must never read/count a customer's rows.
-    const companyId = await resolveHkDijitalCompanyId();
-    return await supabaseRest<ContentPlanItem[]>(
-      `${CONTENT_PLAN_TABLE}?company_id=eq.${companyId}&select=*${scope}&order=scheduled_date.${filter === "upcoming" ? "asc" : "desc"}&limit=${limit}`
-    );
+    return await fetchContentPlanRows(filter, String(companyId || ""), limit);
   } catch (error) {
     throw (await toKnownControlError(error)) ?? error;
   }
@@ -206,14 +205,14 @@ export async function execute(name: string, args: Record<string, unknown>): Prom
       }
     }
     case "get_content_tracking_history":
-      return fetchPlanRows("history", toolLimit);
+      return fetchPlanRows("history", toolLimit, args.companyId);
     case "get_upcoming_content_plan":
-      return fetchPlanRows("upcoming", toolLimit);
+      return fetchPlanRows("upcoming", toolLimit, args.companyId);
     case "create_content_plan": {
       const { validatePlanItems, createContentPlanItems, PlanInputError } = await import("@/lib/instagram-intelligence/plan");
       try {
         const items = validatePlanItems(args.items);
-        return await createContentPlanItems(items);
+        return await createContentPlanItems(items, String(args.companyId || ""));
       } catch (error) {
         if (error instanceof PlanInputError) throw new ControlError("INVALID_ARGUMENTS", error.message, 400);
         throw (await toKnownControlError(error)) ?? error;
