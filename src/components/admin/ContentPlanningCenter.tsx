@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { AlertTriangle, ChevronDown, Plus, Search, Trash2, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, Download, Eye, Plus, Search, Trash2, X } from "lucide-react";
 import { AdminWorkspace } from "@/components/admin/workspace/AdminWorkspace";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
@@ -13,6 +13,7 @@ import {
   type ContentFormatKey, type ContentPlanItem, type PlatformKey
 } from "@/lib/content-plan/types";
 import { findSimilarContent } from "@/lib/content-plan/similarity";
+import { parseContentPlanNotes, hasContentPlanDetails } from "@/lib/content-plan/notes-parser";
 import { InstagramIntelligencePanel } from "@/components/admin/InstagramIntelligencePanel";
 
 /**
@@ -196,6 +197,81 @@ function ContentDrawer({
   );
 }
 
+/* --------------------------- Detail drawer (read-only) --------------------------- */
+
+function DetailField({ label, value }: { label: string; value: string | null }) {
+  if (!value) return null;
+  return (
+    <div className="content-plan-stat rounded-[14px] border p-4" style={{ borderColor: "var(--admin-border)" }}>
+      <p className="mb-1.5 text-[11px] font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>{label}</p>
+      <p className="whitespace-pre-wrap text-sm">{value}</p>
+    </div>
+  );
+}
+
+// Read-only — shows the real production details Instagram Intelligence
+// (or manual entry) already saved into `notes`, parsed via
+// parseContentPlanNotes. Never edits anything; use ContentDrawer for that.
+function ContentDetailDrawer({ item, onClose }: { item: ContentPlanItem; onClose: () => void }) {
+  const parsed = useMemo(() => parseContentPlanNotes(item.notes), [item.notes]);
+
+  return (
+    <div role="dialog" aria-modal="true" aria-label="İçerik Detayı" onMouseDown={onClose} className="fixed inset-0 z-[60] flex justify-end" style={{ background: "var(--admin-overlay, rgba(15,23,42,.55))" }}>
+      <div onMouseDown={(event) => event.stopPropagation()} className="admin-drawer-panel flex h-full w-full max-w-lg min-w-0 flex-col overflow-y-auto p-5" style={{ background: "var(--admin-surface, var(--admin-bg))", boxShadow: "var(--admin-shadow-card, var(--admin-shadow))" }}>
+        <div className="flex items-center justify-between gap-3">
+          <strong className="text-lg font-black">İçerik Detayı</strong>
+          <button type="button" onClick={onClose} aria-label="Kapat" className="rounded-full p-2" style={{ background: "var(--admin-surface-soft)" }}><X size={18} /></button>
+        </div>
+
+        <div className="mt-5 grid gap-3">
+          <div className="content-plan-stat rounded-[14px] border p-4" style={{ borderColor: "var(--admin-border)" }}>
+            <p className="mb-1.5 text-[11px] font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Temel Bilgiler</p>
+            <p className="text-sm font-bold">
+              {formatDateLabel(item.scheduled_date)} · {CONTENT_FORMAT_LABELS[item.content_format as ContentFormatKey] || item.content_format}
+              {item.theme ? ` · ${item.theme}` : ""}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {item.platforms.map((p) => (
+                <span key={p} className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-bold" style={{ borderColor: "var(--admin-border)" }}>
+                  <span className="size-1.5 rounded-full" style={{ background: PLATFORM_ACCENT[p as PlatformKey] || "#64748b" }} aria-hidden="true" />
+                  {PLATFORM_LABELS[p as PlatformKey] || p}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <DetailField label="İçerik / Konu" value={item.content_title || null} />
+          <DetailField label="Hook" value={parsed.hook} />
+          <DetailField label="İçerik Akışı" value={parsed.contentFlow} />
+          <DetailField label="Caption" value={parsed.caption} />
+          <DetailField label="CTA" value={parsed.cta} />
+          <DetailField label="Hashtag Yaklaşımı" value={parsed.hashtagApproach} />
+
+          {(parsed.goal || parsed.audience || parsed.rationale || parsed.priority) && (
+            <div className="content-plan-stat rounded-[14px] border p-4" style={{ borderColor: "var(--admin-border)" }}>
+              <p className="mb-1.5 text-[11px] font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Strateji</p>
+              <div className="grid gap-2 text-sm">
+                {parsed.goal && <p><strong>Amaç:</strong> {parsed.goal}</p>}
+                {parsed.audience && <p><strong>Hedef Kitle:</strong> {parsed.audience}</p>}
+                {parsed.rationale && <p className="whitespace-pre-wrap"><strong>Stratejik Gerekçe:</strong> {parsed.rationale}</p>}
+                {parsed.priority && <p><strong>Öncelik:</strong> {parsed.priority}</p>}
+              </div>
+            </div>
+          )}
+
+          <DetailField label="Story Desteği" value={parsed.storySupport} />
+          <DetailField label="Koşullar / Doğrulanacaklar" value={parsed.conditions} />
+          <DetailField label="Üretim Notları" value={parsed.productionNotes} />
+
+          {!hasContentPlanDetails(parsed) && (
+            <p className="text-sm font-bold" style={{ color: "var(--admin-text-muted)" }}>Bu içerik için ek üretim detayı kaydedilmemiş.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ------------------------------ Main center ------------------------------ */
 
 export function ContentPlanningCenter() {
@@ -209,7 +285,11 @@ export function ContentPlanningCenter() {
   const [tablesMessage, setTablesMessage] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [drawer, setDrawer] = useState<"new" | ContentPlanItem | null>(null);
+  const [detailItem, setDetailItem] = useState<ContentPlanItem | null>(null);
   const [pendingDelete, setPendingDelete] = useState<ContentPlanItem | null>(null);
+  const [pdfMenuOpen, setPdfMenuOpen] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState<"customer" | "internal" | null>(null);
+  const [pdfError, setPdfError] = useState<string | null>(null);
   const [rowError, setRowError] = useState<string | null>(null);
 
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
@@ -344,12 +424,68 @@ export function ContentPlanningCenter() {
     });
   }
 
+  // Reuses the exact same canonical document engine every other export in
+  // the app goes through (see /api/admin/proposals/pdf) — server-side PDF
+  // generation, real Turkish-glyph-safe font, HK Dijital branding. Always
+  // exports this exact company's full plan on file, never the UI's
+  // transient search/quick-filter selection, so it's never accidentally
+  // incomplete.
+  async function downloadContentPlanPdf(mode: "customer" | "internal") {
+    if (!companyId) return;
+    setPdfBusy(mode);
+    setPdfError(null);
+    try {
+      const res = await fetch("/api/admin/content-plan/export-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyId, mode })
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "PDF oluşturulamadı.");
+      }
+      const disposition = res.headers.get("Content-Disposition") || "";
+      const filenameMatch = disposition.match(/filename="([^"]+)"/);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filenameMatch?.[1] || "instagram-icerik-plani.pdf";
+      link.click();
+      URL.revokeObjectURL(url);
+      setPdfMenuOpen(false);
+    } catch (e) {
+      setPdfError(e instanceof Error ? e.message : "Beklenmeyen hata.");
+    } finally {
+      setPdfBusy(null);
+    }
+  }
+
   return (
     <AdminWorkspace
       eyebrow="Sosyal Medya"
       title="İçerik Planlama ve Takip Merkezi"
       description="Hangi tarihte, hangi platformda, hangi tema ve konu hakkında paylaşım planladığını ve gerçekten paylaşıp paylaşmadığını takip et."
-      headerActions={view === "tracker" ? <AdminButton variant="primary" icon={<Plus size={16} />} onClick={() => setDrawer("new")}>Yeni İçerik</AdminButton> : undefined}
+      headerActions={view === "tracker" ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative">
+            <AdminButton variant="secondary" icon={<Download size={16} />} onClick={() => setPdfMenuOpen((v) => !v)} disabled={!items?.length}>
+              30 Günlük Planı İndir
+            </AdminButton>
+            {pdfMenuOpen && (
+              <div className="absolute right-0 z-20 mt-1 w-56 overflow-hidden rounded-[10px] border" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface, var(--admin-bg))", boxShadow: "var(--admin-shadow-card, var(--admin-shadow))" }}>
+                <button type="button" disabled={pdfBusy !== null} onClick={() => downloadContentPlanPdf("customer")} className="block w-full px-3 py-2.5 text-left text-sm font-bold disabled:opacity-50">
+                  {pdfBusy === "customer" ? "Hazırlanıyor…" : "Müşteri PDF"}
+                </button>
+                <button type="button" disabled={pdfBusy !== null} onClick={() => downloadContentPlanPdf("internal")} className="block w-full px-3 py-2.5 text-left text-sm font-bold disabled:opacity-50" style={{ borderTop: "1px solid var(--admin-border)" }}>
+                  {pdfBusy === "internal" ? "Hazırlanıyor…" : "İç Operasyon PDF"}
+                </button>
+              </div>
+            )}
+          </div>
+          <AdminButton variant="primary" icon={<Plus size={16} />} onClick={() => setDrawer("new")}>Yeni İçerik</AdminButton>
+        </div>
+      ) : undefined}
     >
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="relative">
@@ -455,6 +591,7 @@ export function ContentPlanningCenter() {
           </div>
 
           {rowError && <p className="text-sm font-bold text-[#dc2626]">{rowError}</p>}
+          {pdfError && <p className="text-sm font-bold text-[#dc2626]">{pdfError}</p>}
 
           {!filtered.length ? (
             <div className="content-plan-empty rounded-[16px] border p-10 text-center" style={{ borderColor: "var(--admin-border)" }}>
@@ -501,7 +638,10 @@ export function ContentPlanningCenter() {
                         <td className="max-w-sm p-3 font-bold cursor-pointer" onClick={() => setDrawer(item)}>{item.content_title || "—"}</td>
                         <td className="p-3 text-xs font-bold" style={{ color: "var(--admin-text-secondary)" }}>{CONTENT_FORMAT_LABELS[item.content_format as ContentFormatKey] || item.content_format}</td>
                         <td className="p-3">
-                          <button type="button" onClick={() => setPendingDelete(item)} aria-label="Sil" className="rounded-full p-2" style={{ color: "var(--admin-text-muted)" }}><Trash2 size={15} /></button>
+                          <div className="flex items-center gap-1">
+                            <button type="button" onClick={() => setDetailItem(item)} aria-label="Detay" className="rounded-full p-2" style={{ color: "var(--admin-text-muted)" }}><Eye size={15} /></button>
+                            <button type="button" onClick={() => setPendingDelete(item)} aria-label="Sil" className="rounded-full p-2" style={{ color: "var(--admin-text-muted)" }}><Trash2 size={15} /></button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -530,7 +670,8 @@ export function ContentPlanningCenter() {
                         </span>
                       ))}
                     </div>
-                    <div className="mt-3 flex justify-end">
+                    <div className="mt-3 flex justify-end gap-1">
+                      <button type="button" onClick={() => setDetailItem(item)} aria-label="Detay" className="rounded-full p-2" style={{ color: "var(--admin-text-muted)" }}><Eye size={15} /></button>
                       <button type="button" onClick={() => setPendingDelete(item)} aria-label="Sil" className="rounded-full p-2" style={{ color: "var(--admin-text-muted)" }}><Trash2 size={15} /></button>
                     </div>
                   </div>
@@ -551,6 +692,8 @@ export function ContentPlanningCenter() {
           onSaved={handleSaved}
         />
       )}
+
+      {detailItem && <ContentDetailDrawer item={detailItem} onClose={() => setDetailItem(null)} />}
 
       {pendingDelete && (
         <div role="alertdialog" aria-modal="true" aria-label="Silme Onayı" className="fixed inset-0 z-[70] grid place-items-center p-4" style={{ background: "var(--admin-overlay, rgba(15,23,42,.55))" }} onMouseDown={() => setPendingDelete(null)}>
