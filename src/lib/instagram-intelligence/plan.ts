@@ -9,23 +9,39 @@ import {
   type ContentPlanItem
 } from "@/lib/content-plan/types";
 
-export type PlanItemInput = {
+// The full set of production-detail fields a content item can carry —
+// shared by both create (PlanItemInput) and update (UpdateContentPlanItemInput)
+// so notes are built identically regardless of path, and by buildNotes()
+// below, the single place that turns them into the persisted notes text.
+export type ContentPlanItemDetails = {
+  hook?: string;
+  contentFlow?: string;
+  caption?: string;
+  summary?: string;
+  cta?: string;
+  hashtagApproach?: string;
+  goal?: string;
+  audience?: string;
+  priority?: string;
+  rationale?: string;
+  conditions?: string;
+  storySupport?: string;
+  productionNotes?: string;
+};
+
+export type PlanItemInput = ContentPlanItemDetails & {
   scheduled_date: string;
   platforms?: string[];
   content_format?: string;
   theme?: string;
   topic: string;
-  hook?: string;
-  summary?: string;
-  cta?: string;
-  goal?: string;
-  audience?: string;
-  priority?: string;
-  rationale?: string;
 };
+
+export type UpdateContentPlanItemInput = ContentPlanItemDetails & { id: string };
 
 export class PlanInputError extends Error {}
 export class ContentPlanCompanyNotFoundError extends Error {}
+export class ContentPlanItemNotFoundError extends Error {}
 
 /** Verifies companyId is a real public.companies row before any content-
  * tracking read or write is allowed to proceed — the single company-
@@ -57,15 +73,25 @@ export async function fetchContentPlanRows(filter: "history" | "upcoming", compa
   );
 }
 
-function buildNotes(item: PlanItemInput): string {
+// Deterministic, lossless text rendering — every supplied field is kept
+// verbatim (no rewriting/summarizing), so a [DOĞRULANACAK] marker or a
+// conditional-publish note survives exactly as authored. Only the single
+// existing `notes` text column is used — no new table/column.
+function buildNotes(item: ContentPlanItemDetails): string {
   const lines = ["[Kaynak: Instagram Intelligence]"];
   if (item.hook) lines.push(`Hook: ${item.hook}`);
+  if (item.contentFlow) lines.push(`İçerik Akışı: ${item.contentFlow}`);
+  if (item.caption) lines.push(`Caption: ${item.caption}`);
   if (item.summary) lines.push(`Özet: ${item.summary}`);
   if (item.cta) lines.push(`CTA: ${item.cta}`);
+  if (item.hashtagApproach) lines.push(`Hashtag Yaklaşımı: ${item.hashtagApproach}`);
   if (item.goal) lines.push(`Amaç: ${item.goal}`);
   if (item.audience) lines.push(`Hedef kitle: ${item.audience}`);
   if (item.priority) lines.push(`Öncelik: ${item.priority}`);
   if (item.rationale) lines.push(`Gerekçe: ${item.rationale}`);
+  if (item.conditions) lines.push(`Koşullar / Doğrulanacak: ${item.conditions}`);
+  if (item.storySupport) lines.push(`Story Desteği: ${item.storySupport}`);
+  if (item.productionNotes) lines.push(`Üretim Notu: ${item.productionNotes}`);
   return lines.join("\n");
 }
 
@@ -83,6 +109,41 @@ export function validatePlanItems(items: unknown): PlanItemInput[] {
     if (typeof record.topic !== "string" || !record.topic.trim()) throw new PlanInputError("Her içerik için konu (topic) zorunludur.");
   }
   return items as PlanItemInput[];
+}
+
+export function validateUpdateItems(items: unknown): UpdateContentPlanItemInput[] {
+  if (!Array.isArray(items) || !items.length) throw new PlanInputError("Güncelleme listesi boş olamaz.");
+  if (items.length > 60) throw new PlanInputError("Tek seferde en fazla 60 kayıt güncellenebilir.");
+  for (const item of items) {
+    if (!item || typeof item !== "object") throw new PlanInputError("Her güncelleme bir nesne olmalıdır.");
+    const record = item as Record<string, unknown>;
+    if (typeof record.id !== "string" || !record.id.trim()) throw new PlanInputError("Her güncelleme için id zorunludur.");
+  }
+  return items as UpdateContentPlanItemInput[];
+}
+
+/** Completes missing production details (hook/caption/CTA/etc, rebuilt into
+ * the exact same notes text create_content_plan writes — see buildNotes)
+ * on EXISTING rows only. Never inserts, never duplicates — this is a pure
+ * per-id UPDATE. Row ownership is enforced at the query level: the PATCH
+ * filter requires BOTH id AND company_id to match, so an id belonging to
+ * another company is simply never matched/updated (fails closed with
+ * ContentPlanItemNotFoundError, indistinguishable from "no such id" —
+ * never leaks whether the id exists elsewhere). Only `notes` is touched;
+ * date/theme/topic/format/platforms/publish state are left exactly as
+ * they are. */
+export async function updateContentPlanItemDetails(items: UpdateContentPlanItemInput[], companyId: string): Promise<{ updated: number; items: ContentPlanItem[] }> {
+  await assertCompanyExists(companyId);
+  const updated: ContentPlanItem[] = [];
+  for (const item of items) {
+    const rows = await supabaseRest<ContentPlanItem[]>(
+      `${CONTENT_PLAN_TABLE}?id=eq.${encodeURIComponent(item.id)}&company_id=eq.${encodeURIComponent(companyId)}&select=*`,
+      { method: "PATCH", body: JSON.stringify({ notes: buildNotes(item) }) }
+    );
+    if (!rows.length) throw new ContentPlanItemNotFoundError(`Kayıt bulunamadı veya bu şirkete ait değil: ${item.id}`);
+    updated.push(rows[0]);
+  }
+  return { updated: updated.length, items: updated };
 }
 
 /** Inserts only the items that don't already exist (same scheduled_date +

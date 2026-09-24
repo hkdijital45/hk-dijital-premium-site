@@ -15,7 +15,7 @@ import { ControlError, failure, sanitize, success, tools, toolByName, validateAr
 // their tools-list cache off server name+version, so a real version bump
 // gives a stronger signal to refresh than relying on "Refresh tools
 // list" alone.
-const SERVER_INFO = { name: "hk-dijital-instagram-intelligence", version: "1.6.0" };
+const SERVER_INFO = { name: "hk-dijital-instagram-intelligence", version: "1.7.0" };
 const SERVER_INSTRUCTIONS =
   "HK Dijital Marketing Intelligence tools (extends the original Instagram Intelligence connector — same " +
   "endpoint, same name, backward compatible). get_instagram_account/get_instagram_analysis/" +

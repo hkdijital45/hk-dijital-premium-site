@@ -44,7 +44,7 @@ test("MCP REGRESSION — the 3 Instagram Profil Optimizasyonu tools are register
   for (const name of ["get_instagram_profile_audit_context", "save_instagram_profile_audit", "get_instagram_profile_audits"]) {
     assert.equal(names.filter((n: string) => n === name).length, 1, `${name} must be registered exactly once`);
   }
-  assert.equal(names.length, 26);
+  assert.equal(names.length, 27);
 });
 
 test("MCP REGRESSION — save_instagram_profile_audit requires companyId/instagramUsername/overallSummary and is WRITE_SAFE", async () => {
