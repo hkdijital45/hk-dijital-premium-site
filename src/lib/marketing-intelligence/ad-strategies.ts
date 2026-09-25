@@ -262,6 +262,12 @@ export async function getAdStrategyForActivation(companyId: string): Promise<AdS
   if (active) return { strategy: active };
   const approved = history.find((s) => s.status === "approved");
   if (approved) return { strategy: approved };
+  // A strategy that was active/approved and then content-edited becomes
+  // UPDATED (see updateAdStrategy) — it was genuinely vetted before, so
+  // it's still the most suitable record for setup, never a bare DRAFT
+  // that was never approved.
+  const updated = history.find((s) => s.status === "updated");
+  if (updated) return { strategy: updated };
   return { strategy: null, message: "Onaylı/aktif reklam stratejisi bulunamadı." };
 }
 
@@ -271,6 +277,103 @@ export type AdStrategyUpdateInput = Partial<{
   primary_kpi: string; campaign_sequence: CampaignSequenceItem[]; remarketing: RemarketingInfo;
   internal_report: AdStrategyReport; client_report: AdStrategyReport;
 }>;
+
+// Single canonical allowlist — both the HK Admin PATCH route and the
+// update_ads_strategy_content MCP tool import this instead of each
+// keeping their own copy. id/company_id/version/status/created_at/
+// approved_at/activated_at/archived_at/previous_strategy_id/source are
+// deliberately never in this list: identity/version/status are owned by
+// saveAdStrategyDraft (new version) and updateAdStrategyStatus (status
+// only) — this function is content-only.
+export const AD_STRATEGY_EDITABLE_FIELDS = [
+  "strategy_title", "primary_platform", "primary_goal", "monthly_ad_budget", "daily_budget_estimate",
+  "meta_budget", "google_budget", "primary_kpi", "campaign_sequence", "remarketing", "internal_report", "client_report"
+] as const;
+
+export class AdStrategyPatchValidationError extends Error {}
+
+function reqPatch(cond: unknown, message: string) {
+  if (!cond) throw new AdStrategyPatchValidationError(message);
+}
+
+/** Validates a partial content update before it ever reaches the DB —
+ * rejects any key outside AD_STRATEGY_EDITABLE_FIELDS (no arbitrary
+ * column writes), and type-checks each field actually present (a field
+ * that's simply absent from the payload is left untouched — this is a
+ * true partial update, never a reset of omitted fields). Every error
+ * names the exact field/index/reason instead of one generic message. */
+export function validateAdStrategyPatch(raw: unknown): AdStrategyUpdateInput {
+  reqPatch(raw && typeof raw === "object" && !Array.isArray(raw), "patch bir nesne olmalıdır.");
+  const body = raw as Record<string, unknown>;
+  for (const key of Object.keys(body)) {
+    reqPatch((AD_STRATEGY_EDITABLE_FIELDS as readonly string[]).includes(key), `Bilinmeyen veya bu araçla güncellenemeyen alan: ${key}.`);
+  }
+
+  const patch: Record<string, unknown> = {};
+
+  for (const field of ["strategy_title", "primary_platform", "primary_goal", "primary_kpi"] as const) {
+    if (field in body) {
+      reqPatch(typeof body[field] === "string", `${field} string olmalıdır.`);
+      patch[field] = body[field];
+    }
+  }
+
+  for (const field of ["monthly_ad_budget", "daily_budget_estimate", "meta_budget", "google_budget"] as const) {
+    if (field in body) {
+      const v = body[field];
+      reqPatch(v === null || (typeof v === "number" && Number.isFinite(v)), `${field} number veya null olmalıdır.`);
+      patch[field] = v;
+    }
+  }
+
+  if ("campaign_sequence" in body) {
+    const seq = body.campaign_sequence;
+    reqPatch(Array.isArray(seq), "campaign_sequence bir dizi olmalıdır.");
+    (seq as unknown[]).forEach((item, i) => {
+      reqPatch(item && typeof item === "object" && !Array.isArray(item), `campaign_sequence[${i}] bir nesne olmalıdır.`);
+      const c = item as Record<string, unknown>;
+      reqPatch(typeof c.order === "number", `campaign_sequence[${i}].order (number) zorunludur.`);
+      reqPatch(typeof c.name === "string" && c.name.length > 0, `campaign_sequence[${i}].name (string) zorunludur.`);
+      if (c.dailyBudget !== undefined) reqPatch(typeof c.dailyBudget === "number", `campaign_sequence[${i}].dailyBudget number olmalıdır.`);
+      for (const strField of ["objective", "conversionLocation", "purpose", "transitionCondition"] as const) {
+        if (c[strField] !== undefined) reqPatch(typeof c[strField] === "string", `campaign_sequence[${i}].${strField} string olmalıdır.`);
+      }
+    });
+    patch.campaign_sequence = seq;
+  }
+
+  if ("remarketing" in body) {
+    const r = body.remarketing;
+    reqPatch(r && typeof r === "object" && !Array.isArray(r), "remarketing bir nesne olmalıdır.");
+    const rm = r as Record<string, unknown>;
+    if (rm.required !== undefined) reqPatch(typeof rm.required === "boolean", "remarketing.required boolean olmalıdır.");
+    if (rm.status !== undefined) reqPatch(["not_ready", "ready", "active"].includes(String(rm.status)), "remarketing.status 'not_ready' | 'ready' | 'active' olmalıdır.");
+    if (rm.condition !== undefined) reqPatch(typeof rm.condition === "string", "remarketing.condition string olmalıdır.");
+    patch.remarketing = r;
+  }
+
+  for (const field of ["internal_report", "client_report"] as const) {
+    if (field in body) {
+      const rep = body[field];
+      reqPatch(rep && typeof rep === "object" && !Array.isArray(rep), `${field} bir nesne olmalıdır.`);
+      const rr = rep as Record<string, unknown>;
+      if (rr.executiveSummary !== undefined) reqPatch(typeof rr.executiveSummary === "string", `${field}.executiveSummary string olmalıdır.`);
+      if (rr.sections !== undefined) {
+        reqPatch(Array.isArray(rr.sections), `${field}.sections bir dizi olmalıdır.`);
+        (rr.sections as unknown[]).forEach((s, i) => {
+          reqPatch(s && typeof s === "object" && !Array.isArray(s), `${field}.sections[${i}] bir nesne olmalıdır.`);
+          const sec = s as Record<string, unknown>;
+          reqPatch(typeof sec.title === "string", `${field}.sections[${i}].title string olmalıdır.`);
+          reqPatch(typeof sec.content === "string", `${field}.sections[${i}].content string olmalıdır.`);
+        });
+      }
+      patch[field] = rep;
+    }
+  }
+
+  reqPatch(Object.keys(patch).length > 0, "Güncellenecek en az bir alan gerekli.");
+  return patch as AdStrategyUpdateInput;
+}
 
 /** HK Admin edits — company ownership is enforced at the query level
  * (id AND company_id together), so one company's strategy can never be
