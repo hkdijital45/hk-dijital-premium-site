@@ -26,6 +26,7 @@ type ApiResponse = { current: AdStrategy | null; history: AdStrategy[]; legacy: 
 
 const STATUS_LABELS: Record<AdStrategyStatus, string> = { draft: "Taslak", approved: "Onaylandı", active: "Uygulanıyor", updated: "Güncellendi", archived: "Arşivlendi" };
 const STATUS_TONE: Record<AdStrategyStatus, AdminStatusTone> = { draft: "neutral", approved: "info", active: "success", updated: "warning", archived: "neutral" };
+const ALL_STATUSES = Object.keys(STATUS_LABELS) as AdStrategyStatus[];
 const REMARKETING_STATUS_LABELS: Record<string, string> = { not_ready: "Hazır Değil", ready: "Hazır", active: "Aktif" };
 const KPI_LABELS: Record<string, string> = { CPL: "CPL — Lead Başına Maliyet", CPA: "CPA — Aksiyon/Müşteri Edinme Başına Maliyet", "Cost per Message": "Mesaj Başına Maliyet", "Qualified Lead": "Nitelikli Potansiyel Müşteri", ROAS: "ROAS — Reklam Harcaması Getirisi", CTR: "CTR — Tıklama Oranı" };
 
@@ -238,6 +239,21 @@ export function AdsStrategyPanel({ companyId, companies }: { companyId: string; 
           <div className="flex flex-wrap items-center gap-2">
             <AdminStatusBadge tone={STATUS_TONE[strategy.status]}>{STATUS_LABELS[strategy.status]}</AdminStatusBadge>
             <span className="text-xs font-bold" style={{ color: "var(--admin-text-muted)" }}>v{strategy.version} · Son güncelleme: {new Date(strategy.updated_at).toLocaleString("tr-TR")}</span>
+            <label className="flex items-center gap-1.5 text-xs font-bold" style={{ color: "var(--admin-text-muted)" }}>
+              Durumu Değiştir
+              <select
+                value={strategy.status}
+                disabled={statusBusy}
+                onChange={(e) => {
+                  const next = e.target.value as AdStrategyStatus;
+                  if (next !== strategy.status) changeStatus(next);
+                }}
+                className="min-h-9 rounded-[8px] border px-2 text-xs font-bold"
+                style={{ borderColor: "var(--admin-border)" }}
+              >
+                {ALL_STATUSES.map((s) => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
+              </select>
+            </label>
             <div className="ml-auto flex flex-wrap gap-2">
               {strategy.status === "draft" && <AdminButton variant="success" compact loading={statusBusy} onClick={() => changeStatus("approved")}>Taslağı Onayla</AdminButton>}
               {(strategy.status === "approved" || strategy.status === "updated") && <AdminButton variant="primary" compact loading={statusBusy} onClick={() => changeStatus("active")}>Uygulamaya Al</AdminButton>}
