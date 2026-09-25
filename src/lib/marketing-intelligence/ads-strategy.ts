@@ -115,7 +115,20 @@ export function validateAdsStrategy(input: unknown): AdsStrategyInput {
   req(typeof s.businessSummary === "string" && s.businessSummary.length > 10, "businessSummary zorunludur.");
   req(s.metaStrategy && typeof s.metaStrategy.recommended === "boolean" && typeof s.metaStrategy.rationale === "string", "metaStrategy.recommended/rationale zorunludur.");
   req(s.googleStrategy && typeof s.googleStrategy.recommended === "boolean" && typeof s.googleStrategy.rationale === "string", "googleStrategy.recommended/rationale zorunludur.");
-  req(s.budget && typeof s.budget.hasHistoricalPerformance === "boolean" && typeof s.budget.totalMonthlyRecommended === "number" && s.budget.platformSplit && typeof s.budget.rationale === "string", "budget alanları zorunludur.");
+  // Each budget sub-field is validated individually with its own message
+  // (rather than one generic "budget alanları zorunludur.") so a caller
+  // that gets it wrong knows exactly which field/type is missing instead
+  // of retrying blind. `typeof x === "number"` throughout — never a
+  // truthy check — so a genuine 0 (e.g. Google Ads not used) is always
+  // valid, never mistaken for "missing".
+  req(s.budget && typeof s.budget === "object", "budget zorunludur: { hasHistoricalPerformance, totalMonthlyRecommended, platformSplit: { meta, google }, rationale }.");
+  req(typeof s.budget?.hasHistoricalPerformance === "boolean", "budget.hasHistoricalPerformance (boolean) zorunludur.");
+  req(typeof s.budget?.totalMonthlyRecommended === "number" && Number.isFinite(s.budget.totalMonthlyRecommended), "budget.totalMonthlyRecommended (number, aylık toplam önerilen reklam bütçesi, TL) zorunludur.");
+  req(
+    s.budget?.platformSplit && typeof s.budget.platformSplit.meta === "number" && typeof s.budget.platformSplit.google === "number",
+    "budget.platformSplit.meta ve budget.platformSplit.google (number, yüzde — Meta kullanılmıyorsa 0, Google kullanılmıyorsa 0; ikisi de geçerlidir, 'eksik' sayılmaz) zorunludur."
+  );
+  req(typeof s.budget?.rationale === "string" && s.budget.rationale.length > 0, "budget.rationale (string, bütçe gerekçesi) zorunludur.");
   req(Array.isArray(s.thirtyDayPlan) && s.thirtyDayPlan.length > 0 && s.thirtyDayPlan.every((p) => p.phase && p.description), "thirtyDayPlan zorunludur.");
   return s as AdsStrategyInput;
 }

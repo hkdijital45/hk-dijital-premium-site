@@ -80,11 +80,62 @@ export type AdStrategySaveInput = AdsStrategyInput & Partial<{
   primaryPlatform: string;
   primaryGoal: string;
   primaryKpi: string;
+  dailyEstimate: number;
   campaignSequence: CampaignSequenceItem[];
   remarketing: RemarketingInfo;
   internalReport: AdStrategyReport;
   clientReport: AdStrategyReport;
 }>;
+
+/** The MCP tool schema for save_ads_strategy_plan can only declare
+ * `strategy` as a generic object (this connector's Tool type has no
+ * nested-JSON-Schema support), so a caller has no machine-readable way
+ * to know AdsStrategyInput['budget']'s exact field names
+ * (totalMonthlyRecommended / platformSplit.meta+google / rationale /
+ * hasHistoricalPerformance) beyond the tool description — and in
+ * practice a caller sometimes reasonably guesses different but
+ * unambiguous names (monthlyTotal, meta/google as flat currency numbers
+ * instead of a percentage split). This repairs ONLY the STRUCTURAL shape
+ * (totals/split/hasHistoricalPerformance) from those common aliases
+ * before validation — it never fabricates `rationale` (real analytical
+ * content, always required as written). A literal 0 for meta/google is
+ * always a valid split value, never treated as "missing" (checked via
+ * `typeof x === "number"`, never a truthy check). */
+function normalizeBudgetInput(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
+  const b = raw as Record<string, unknown>;
+  const out: Record<string, unknown> = { ...b };
+  const asNumber = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
+
+  const totalAlias = [b.totalMonthlyRecommended, b.monthlyTotal, b.monthlyBudget, b.totalMonthly, b.total].map(asNumber).find((v) => v !== undefined);
+  const metaFlat = [b.meta, b.metaBudget].map(asNumber).find((v) => v !== undefined);
+  const googleFlat = [b.google, b.googleBudget].map(asNumber).find((v) => v !== undefined);
+  const hasFlatSplit = metaFlat !== undefined || googleFlat !== undefined;
+
+  if (asNumber(out.totalMonthlyRecommended) === undefined) {
+    if (totalAlias !== undefined) out.totalMonthlyRecommended = totalAlias;
+    else if (hasFlatSplit) out.totalMonthlyRecommended = (metaFlat || 0) + (googleFlat || 0);
+  }
+
+  const existingSplit = out.platformSplit as { meta?: unknown; google?: unknown } | undefined;
+  const splitLooksComplete = existingSplit && asNumber(existingSplit.meta) !== undefined && asNumber(existingSplit.google) !== undefined;
+  if (!splitLooksComplete && hasFlatSplit) {
+    const total = (metaFlat || 0) + (googleFlat || 0);
+    out.platformSplit = total > 0
+      ? { meta: Math.round(((metaFlat || 0) / total) * 100), google: Math.round(((googleFlat || 0) / total) * 100) }
+      : { meta: 0, google: 0 };
+  }
+
+  if (typeof out.hasHistoricalPerformance !== "boolean") out.hasHistoricalPerformance = false;
+
+  return out;
+}
+
+function normalizeAdStrategyInput(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
+  const r = raw as Record<string, unknown>;
+  return r.budget !== undefined ? { ...r, budget: normalizeBudgetInput(r.budget) } : r;
+}
 
 function derivePrimaryPlatform(input: AdsStrategyInput): string {
   const meta = input.metaStrategy.recommended;
@@ -95,13 +146,14 @@ function derivePrimaryPlatform(input: AdsStrategyInput): string {
   return "";
 }
 
-function deriveBudgets(input: AdsStrategyInput) {
+function deriveBudgets(input: AdsStrategyInput, dailyOverride?: number) {
   const total = Number(input.budget.totalMonthlyRecommended) || 0;
   const metaPct = Number(input.budget.platformSplit?.meta) || 0;
   const googlePct = Number(input.budget.platformSplit?.google) || 0;
+  const dailyFromOverride = typeof dailyOverride === "number" && Number.isFinite(dailyOverride) ? dailyOverride : null;
   return {
     monthly: total || null,
-    daily: total ? Number((total / 30).toFixed(2)) : null,
+    daily: dailyFromOverride ?? (total ? Number((total / 30).toFixed(2)) : null),
     meta: total && metaPct ? Number(((total * metaPct) / 100).toFixed(2)) : null,
     google: total && googlePct ? Number(((total * googlePct) / 100).toFixed(2)) : null
   };
@@ -147,15 +199,16 @@ function buildDefaultClientReport(input: AdsStrategyInput): AdStrategyReport {
  * previous_strategy_id/version — a prior version is never overwritten or
  * deleted. */
 export async function saveAdStrategyDraft(rawInput: unknown): Promise<AdStrategyRecord> {
-  const validated = validateAdsStrategy(rawInput) as AdsStrategyInput;
-  const input = rawInput as AdStrategySaveInput;
+  const normalizedInput = normalizeAdStrategyInput(rawInput);
+  const validated = validateAdsStrategy(normalizedInput) as AdsStrategyInput;
+  const input = normalizedInput as AdStrategySaveInput;
   await assertCompanyExists(validated.companyId);
 
   const [previous] = await supabaseRest<Array<{ id: string; version: number }>>(
     `${AD_STRATEGIES_TABLE}?company_id=eq.${encodeURIComponent(validated.companyId)}&select=id,version&order=version.desc,created_at.desc&limit=1`
   );
 
-  const budgets = deriveBudgets(validated);
+  const budgets = deriveBudgets(validated, input.dailyEstimate);
   const row = {
     company_id: validated.companyId,
     version: (previous?.version || 0) + 1,
