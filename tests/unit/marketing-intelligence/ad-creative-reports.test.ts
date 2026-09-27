@@ -68,13 +68,13 @@ test("buildCreativeReportDocumentPayload: client mode excludes internal-only cre
   assert.match(clientText, /Uzaktan pasta. Yakından işçilik./);
   assert.doesNotMatch(clientText, /Kreatif yorgunluğu riski düşük/, "internalNotes must never appear in the client document");
   assert.doesNotMatch(clientText, /TOFU/, "internal-only funnel stage must not appear in the client strategy summary");
-  assert.doesNotMatch(clientText, /Hook A > Hook B/, "A/B test plan is internal-only");
+  assert.doesNotMatch(clientText, /A > Hook B/, "A/B test plan is internal-only");
 
   const internal = buildCreativeReportDocumentPayload("MY CAKE 45", report, "internal");
   const internalText = internal.sections.map((s) => [s.title, s.text, ...(s.items || []), ...((s.table?.rows || []).flat())].join("\n")).join("\n");
   assert.match(internalText, /Kreatif yorgunluğu riski düşük/);
   assert.match(internalText, /TOFU/);
-  assert.match(internalText, /Hook A > Hook B/);
+  assert.match(internalText, /A > Hook B/, "the A\\/B hypothesis text itself must survive (Hook gets its own Turkish explanation inline, never dropped)");
   assert.equal(internal.confidentialLabel, "Dahili Kullanım");
 });
 
@@ -95,6 +95,61 @@ test("generatePdfBuffer/generateDocxBuffer smoke test for a creative report: bot
     const docx = await generateDocxBuffer(payload);
     assert.equal(docx.subarray(0, 2).toString("latin1"), "PK");
   }
+});
+
+test("buildCreativeReportDocumentPayload REDESIGN — no combined paragraphs, no duplicate headings, jargon always explained in Turkish, client/internal separation intact", async () => {
+  const { buildCreativeReportDocumentPayload } = await import("../../../src/lib/marketing-intelligence/ad-creative-report-document.ts");
+  const report = {
+    id: "r1", company_id: "c1", ad_strategy_id: null, ad_strategy_version: null, version: 3, status: "draft", report_title: "MY CAKE 45 — Kreatif Raporu",
+    strategy_summary: {
+      campaignGoal: "Lead üretimi", creativeRole: "Soğuk kitleyi ısıtmak", targetAudience: "25-45 yaş İstanbul",
+      funnelStage: "TOFU", awarenessLevel: "Unaware", keyMessage: "El yapımı pasta kalitesi", primaryCta: "Yorum bırak",
+      creativeAngles: ["Kalite", "Süreç"]
+    },
+    creatives: [
+      {
+        order: 1, format: "reels", title: "Uzaktan pasta, yakından işçilik", campaign: "Awareness", adSet: "Reels-1", priority: "Yüksek",
+        videoDuration: "15sn", hook: "Uzaktan pasta. Yakından işçilik.", cta: "Yorum bırak", funnelStage: "TOFU", angle: "Süreç odaklı",
+        videoScenes: [{ order: 1, visual: "Pasta yakın çekim", onScreenText: "El yapımı", voiceover: "—", purpose: "Dikkat çekmek" }],
+        details: "Çekim: Telefon dikey konumda, 30 FPS ile çekilecek, tripod kullanılacak.\nKurgu: Sahneler hızlı kesim ile birleştirilecek, son CTA ekranı eklenecek.",
+        internalNotes: "Kreatif yorgunluğu riski düşük."
+      }
+    ],
+    ab_test_plan: [{ hypothesis: "Hook A > Hook B", variable: "Hook", constants: "Video, bütçe", expectedBehavior: "3sn izlenme artışı", evaluationCriteria: "Yeterli veri sonrası" }],
+    required_materials: [{ name: "Ürün Fotoğrafı", quantity: "5", format: "JPEG", instructions: "Doğal ışıkta çekilecek" }],
+    production_checklist: [{ label: "Logo hazır", checked: true }, { label: "Video onayı", checked: false }],
+    internal_report: { executiveSummary: "İç özet: Funnel TOFU aşamasında CTA netleştirildi.", sections: [] },
+    client_report: { executiveSummary: "Müşteri özeti", sections: [] },
+    full_payload: {}, previous_report_id: null, source: "hk_admin",
+    created_at: "2026-09-27T00:00:00.000Z", updated_at: "2026-09-27T00:00:00.000Z", approved_at: null, activated_at: null, archived_at: null
+  } as any;
+
+  const client = buildCreativeReportDocumentPayload("MY CAKE 45", report, "client");
+  const clientTitles = client.sections.map((s) => s.title.toLocaleUpperCase("tr"));
+  const strategyHeadingCount = clientTitles.filter((t) => t === "KREATİF STRATEJİ ÖZETİ").length;
+  assert.ok(strategyHeadingCount <= 1, "Kreatif Strateji Özeti must never be rendered more than once");
+
+  const strategySection = client.sections.find((s) => s.title === "Kreatif Strateji Özeti");
+  assert.ok(strategySection && Array.isArray(strategySection.items) && strategySection.items.length > 1, "strategy summary must be individual bullets, not one combined text block");
+  assert.ok(!strategySection?.text, "strategy summary must not also render as one paragraph");
+
+  const clientText = client.sections.map((s) => [s.title, s.text, ...(s.items || []), ...((s.table?.rows || []).flat())].join("\n")).join("\n");
+  assert.match(clientText, /CTA \(Eylem çağrısı\)/, "CTA must always carry its Turkish explanation");
+  assert.match(clientText, /Hook \(Dikkat çekici açılış\)/, "Hook must always carry its Turkish explanation");
+  assert.match(clientText, /FPS \(Saniyedeki kare sayısı\)/, "FPS must carry its Turkish explanation when it appears in production notes");
+  assert.doesNotMatch(clientText, /Kreatif yorgunluğu riski düşük/, "internalNotes must never appear in the client report");
+  assert.doesNotMatch(clientText, /TOFU/, "internal-only funnel stage must not leak into the client report");
+
+  const internal = buildCreativeReportDocumentPayload("MY CAKE 45", report, "internal");
+  const internalText = internal.sections.map((s) => [s.title, s.text, ...(s.items || []), ...((s.table?.rows || []).flat())].join("\n")).join("\n");
+  assert.match(internalText, /A\/B Testi \(İki farklı versiyonu karşılaştırma testi\)/, "A/B Testi must always carry its Turkish explanation in the internal report");
+  assert.match(internalText, /Kreatif yorgunluğu riski düşük/);
+  assert.match(internalText, /TOFU/);
+
+  const usageSection = client.sections.find((s) => s.title === "Bu Rapor Nasıl Kullanılır?");
+  assert.ok(usageSection && (usageSection.items?.length || 0) <= 4 && (usageSection.items?.length || 0) > 0);
+  const actionSection = internal.sections.find((s) => s.title === "Ajans İçin Hızlı Aksiyon Özeti");
+  assert.ok(actionSection && (actionSection.items?.length || 0) > 0 && (actionSection.items?.length || 0) <= 8);
 });
 
 // --- Live coverage (requires ad_creative_reports migration) ---

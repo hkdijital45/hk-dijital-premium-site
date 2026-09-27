@@ -33,7 +33,8 @@ export function buildAdCreativeClaudePrompt(company: { id: string; name: string 
     "3. Müşteri Raporu ile Dahili Rapor içeriğini kesin ayır — ajans içi notlar, internal hypothesis, dahili A/B değerlendirmeleri hiçbir zaman müşteri alanlarına (clientReport, her creative'in genel alanları) sızmasın; bunlar yalnızca internalReport / her creative'in internalNotes alanına yazılsın.",
     "4. Yeni bir rapor hazırlıyorsan save_ad_creative_report kullan (her zaman draft olarak kaydedilir). Yukarıdaki mevcut kreatif rapor varsa ve kullanıcı revizyon istiyorsa save yerine update_ad_creative_report(companyId, reportId, patch) kullan — reportId için mevcut raporun id'sini kullan, gereksiz yeni version oluşturma.",
     "5. Kayıttan sonra get_latest_ad_creative_report ile doğrula. Kullanıcı açıkça onaylamadan raporu approved/active yapma.",
-    "6. Sonunda bana kısaca bildir: müşteri, report ID, version, status, bağlı reklam stratejisi/version, HK Admin'e başarıyla kaydedilip kaydedilmediği. Raporu HK Admin'e kaydet; benden manuel kopyala-yapıştır isteme."
+    "6. Sonunda bana kısaca bildir: müşteri, report ID, version, status, bağlı reklam stratejisi/version, HK Admin'e başarıyla kaydedilip kaydedilmediği. Raporu HK Admin'e kaydet; benden manuel kopyala-yapıştır isteme.",
+    "7. Yazım kuralları: hiçbir alanda uzun, birden fazla bilgiyi tek paragrafta birleştiren metin yazma — her bilgiyi ayrı bir madde (bullet) olarak yaz. Dijital pazarlama uzmanı olmayan biri anlayacak şekilde sade Türkçe kullan; Hook, CTA, Reels, Funnel, A/B Testi, Remarketing, CTR, Learning Phase, Primary Text, Headline, Description, FPS gibi teknik terimlerin yanına parantez içinde kısa Türkçe karşılığını ekle. Aynı bilgiyi birden fazla başlık altında tekrar etme. Müşteri raporu (clientReport) ile dahili rapor (internalReport/internalNotes) ayrımını kesinlikle koru."
   ];
   return lines.join("\n");
 }
