@@ -2,9 +2,10 @@
 /* eslint-disable react-hooks/set-state-in-effect -- fetch-on-mount pattern, same accepted precedent as AdsStrategyPanel.tsx */
 
 import { useEffect, useState } from "react";
-import { Download, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Copy, Download, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge, type AdminStatusTone } from "@/components/admin/ui/AdminStatusBadge";
+import { buildAdCreativeClaudePrompt } from "@/lib/marketing-intelligence/ad-creative-report-prompt";
 
 type Company = { id: string; name: string };
 type ReportStatus = "draft" | "approved" | "active" | "archived";
@@ -77,6 +78,7 @@ export function AdCreativeReportPanel({ companyId, companies }: { companyId: str
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<"overview" | "internal" | "client" | "history">("overview");
   const [creating, setCreating] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [statusBusy, setStatusBusy] = useState(false);
   const [reportSaving, setReportSaving] = useState<"internal" | "client" | "content" | null>(null);
   const [exportBusy, setExportBusy] = useState<string | null>(null);
@@ -91,6 +93,19 @@ export function AdCreativeReportPanel({ companyId, companies }: { companyId: str
 
   const companyName = companies.find((c) => c.id === companyId)?.name || "";
   const report = data?.current || null;
+
+  async function copyPrompt() {
+    if (!companyId) return;
+    const text = buildAdCreativeClaudePrompt(
+      { id: companyId, name: companyName },
+      { adStrategyVersion: report?.ad_strategy_version, latestReport: report ? { id: report.id, version: report.version, status: report.status } : null }
+    );
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* clipboard denied — nothing to fall back to here */ }
+  }
 
   function load() {
     if (!companyId) return;
@@ -228,7 +243,15 @@ export function AdCreativeReportPanel({ companyId, companies }: { companyId: str
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-bold" style={{ color: "var(--admin-text-secondary)" }}>Reklam Stratejisinin devamı: kreatif brief&apos;ten üretim raporuna.</p>
-        <AdminButton variant="secondary" compact icon={<RefreshCw size={14} />} onClick={load}>Yenile</AdminButton>
+        <div className="flex flex-wrap gap-2">
+          <AdminButton variant="secondary" compact icon={<RefreshCw size={14} />} onClick={load}>Yenile</AdminButton>
+          <AdminButton
+            variant="secondary" compact icon={<Copy size={14} />} onClick={copyPrompt}
+            title="Seçili müşteri için Reklam Kreatif Project'inde kullanılacak hazır promptu panoya kopyalar."
+          >
+            {copied ? "Kopyalandı ✓" : "Claude Kreatif Promptunu Kopyala"}
+          </AdminButton>
+        </div>
       </div>
 
       {error && <p className="text-sm font-bold text-[#dc2626]">{error}</p>}
