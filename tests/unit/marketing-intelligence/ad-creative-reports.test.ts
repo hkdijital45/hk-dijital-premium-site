@@ -152,6 +152,79 @@ test("buildCreativeReportDocumentPayload REDESIGN — no combined paragraphs, no
   assert.ok(actionSection && (actionSection.items?.length || 0) > 0 && (actionSection.items?.length || 0) <= 8);
 });
 
+test("buildCreativeReportDocumentPayload FIX — every creative renders its own unique main heading, even with only static/table content (no bare-heading collapse)", async () => {
+  const { buildCreativeReportDocumentPayload } = await import("../../../src/lib/marketing-intelligence/ad-creative-report-document.ts");
+  const report = {
+    id: "r1", company_id: "c1", ad_strategy_id: null, ad_strategy_version: null, version: 1, status: "draft", report_title: "Test",
+    strategy_summary: {},
+    creatives: [
+      { order: 1, format: "reels", title: "Birinci Kreatif", hook: "Merhaba", cta: "Yaz" },
+      { order: 2, format: "carousel", title: "İkinci Kreatif", carouselSlides: [{ order: 1, title: "Slayt" }] },
+      { order: 3, format: "static", title: "Üçüncü Kreatif", staticFields: { headline: "Başlık" } },
+      { order: 4, format: "reels", title: "Dördüncü Kreatif", hook: "Tekrar hook", cta: "Tekrar CTA" }
+    ],
+    ab_test_plan: [], required_materials: [], production_checklist: [],
+    internal_report: {}, client_report: {}, full_payload: {}, previous_report_id: null, source: "hk_admin",
+    created_at: "2026-09-27T00:00:00.000Z", updated_at: "2026-09-27T00:00:00.000Z", approved_at: null, activated_at: null, archived_at: null
+  } as any;
+
+  for (const mode of ["client", "internal"] as const) {
+    const payload = buildCreativeReportDocumentPayload("MY CAKE 45", report, mode);
+    for (const [i, name] of ["BİRİNCİ KREATİF", "İKİNCİ KREATİF", "ÜÇÜNCÜ KREATİF", "DÖRDÜNCÜ KREATİF"].entries()) {
+      const heading = payload.sections.find((s) => s.title === `${i + 1}. ${name}`);
+      assert.ok(heading, `creative ${i + 1}'s own main heading must be present`);
+      assert.ok(heading!.text || heading!.items?.length || heading!.table, "the main heading must carry real content or the renderer silently skips it");
+    }
+    const kisaOzetCount = payload.sections.filter((s) => s.title === "Kısa Özet").length;
+    assert.equal(kisaOzetCount, 2, "creatives 1 and 4 both have hook/cta and must each keep their own Kısa Özet — dedup must never remove a different creative's repeated subheading");
+  }
+});
+
+test("annotate() (via document payload) REGRESSION — idempotent: never re-wraps a term the source text already explained, in either order", async () => {
+  const { buildCreativeReportDocumentPayload } = await import("../../../src/lib/marketing-intelligence/ad-creative-report-document.ts");
+  const report = {
+    id: "r1", company_id: "c1", ad_strategy_id: null, ad_strategy_version: null, version: 1, status: "draft", report_title: "Test",
+    strategy_summary: { campaignGoal: "1 reklam seti (ad set), günde 150 TL bütçe" },
+    creatives: [{
+      order: 1, format: "reels", title: "Kreatif",
+      details: "Kare hızı (FPS - saniyedeki kare sayısı): 30 FPS.\nÖğrenme aşaması (learning phase) uzayabilir.\nGün 15+ (Remarketing - yeniden hedefleme) planlanacak."
+    }],
+    ab_test_plan: [], required_materials: [], production_checklist: [],
+    internal_report: {}, client_report: {}, full_payload: {}, previous_report_id: null, source: "hk_admin",
+    created_at: "2026-09-27T00:00:00.000Z", updated_at: "2026-09-27T00:00:00.000Z", approved_at: null, activated_at: null, archived_at: null
+  } as any;
+
+  const internal = buildCreativeReportDocumentPayload("MY CAKE 45", report, "internal");
+  const text = internal.sections.map((s) => [s.text, ...(s.items || [])].join("\n")).join("\n");
+  assert.doesNotMatch(text, /\(Ad Set \(Reklam seti\)\)|Ad Set \(Reklam seti \(Reklam seti\)\)/, "Ad Set must never be nested/double-explained");
+  assert.doesNotMatch(text, /saniyedeki kare sayısı\)[\s\S]*saniyedeki kare sayısı/, "FPS explanation must never repeat within the same field");
+  assert.doesNotMatch(text, /Learning Phase \(Öğrenme aşaması\)[\s\S]*Learning Phase \(Öğrenme aşaması\)/, "Learning Phase must never be explained twice");
+  assert.doesNotMatch(text, /\)\)/, "no nested double-closing-parens from combining an author's own parens with our label's parens");
+});
+
+test("buildCreativeReportDocumentPayload FIX — no literal Markdown leaks through (no '**', no bullet-marker-inside-bullet)", async () => {
+  const { buildCreativeReportDocumentPayload } = await import("../../../src/lib/marketing-intelligence/ad-creative-report-document.ts");
+  const report = {
+    id: "r1", company_id: "c1", ad_strategy_id: null, ad_strategy_version: null, version: 1, status: "draft", report_title: "Test",
+    strategy_summary: {}, creatives: [],
+    ab_test_plan: [], required_materials: [], production_checklist: [],
+    internal_report: {
+      executiveSummary: "- Madde bir.\n- Madde iki.",
+      sections: [{ title: "Bütçe / Öğrenme Riski", content: "- **Günlük bütçe:** 150 TL\n- **Risk:** Veri geç oluşabilir." }]
+    },
+    client_report: {}, full_payload: {}, previous_report_id: null, source: "hk_admin",
+    created_at: "2026-09-27T00:00:00.000Z", updated_at: "2026-09-27T00:00:00.000Z", approved_at: null, activated_at: null, archived_at: null
+  } as any;
+
+  const internal = buildCreativeReportDocumentPayload("MY CAKE 45", report, "internal");
+  const text = internal.sections.map((s) => [s.text, ...(s.items || [])].join("\n")).join("\n");
+  assert.doesNotMatch(text, /\*\*/, "literal Markdown bold markers must never reach the rendered document");
+  assert.doesNotMatch(text, /•?\s*-\s+\*/, "literal Markdown list markers must never reach the rendered document");
+  assert.match(text, /Günlük bütçe: 150 TL/);
+  const summarySection = internal.sections.find((s) => s.title === "Yönetici Özeti");
+  assert.ok(summarySection && (summarySection.items?.length || 0) >= 2, "executive summary must render as real bullets, not one joined paragraph");
+});
+
 // --- Live coverage (requires ad_creative_reports migration) ---
 
 test("saveCreativeReportDraft REGRESSION — new reports always start as draft, work without a linked ad strategy (requires ad_creative_reports migration)", { skip: hasSupabase ? false : skipReason }, async () => {
