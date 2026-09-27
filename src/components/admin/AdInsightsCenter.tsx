@@ -14,6 +14,7 @@ import { AdminDataGrid, type AdminDataGridColumn } from "@/components/admin/work
 import { AdminDetailInspector } from "@/components/admin/workspace/AdminDetailInspector";
 import { AdminActionBar } from "@/components/admin/workspace/AdminActionBar";
 import { AdsStrategyPanel } from "@/components/admin/AdsStrategyPanel";
+import { AdCreativeReportPanel } from "@/components/admin/AdCreativeReportPanel";
 import { AdminCompactKpiStrip } from "@/components/admin/workspace/AdminCompactKpiStrip";
 
 const ranges = [
@@ -121,7 +122,7 @@ function sectionTitle(title: string, description: string, icon?: ReactNode) {
 export function AdInsightsCenter({ content, notify }: { content: any; notify?: (message: string, type?: string) => void }) {
   const companies = useMemo(() => filterSelectableCustomers(content.companies || []), [content.companies]);
   const [companyId, setCompanyId] = useState(companies[0]?.id || "");
-  const [activeTab, setActiveTab] = useState<"doctor" | "ai-strategy">("doctor");
+  const [activeTab, setActiveTab] = useState<"doctor" | "ai-strategy" | "creative">("doctor");
   const [range, setRange] = useState("last_30d");
   const [platform, setPlatform] = useState("all");
   const [campaignType, setCampaignType] = useState("Tümü");
@@ -375,9 +376,13 @@ export function AdInsightsCenter({ content, notify }: { content: any; notify?: (
       <button type="button" onClick={() => setActiveTab("ai-strategy")} className="rounded-full px-3.5 py-2 text-xs font-black transition" style={activeTab === "ai-strategy" ? { background: "#0891b2", color: "white" } : { background: "var(--admin-surface-soft)", color: "var(--admin-text-secondary)" }}>
         Claude Reklam Stratejisi
       </button>
+      <button type="button" onClick={() => setActiveTab("creative")} className="rounded-full px-3.5 py-2 text-xs font-black transition" style={activeTab === "creative" ? { background: "#0891b2", color: "white" } : { background: "var(--admin-surface-soft)", color: "var(--admin-text-secondary)" }}>
+        Reklam Kreatif Raporu
+      </button>
     </div>
 
     {activeTab === "ai-strategy" && <AdsStrategyPanel companyId={companyId} companies={companies} />}
+    {activeTab === "creative" && <AdCreativeReportPanel companyId={companyId} companies={companies} />}
 
     <div hidden={activeTab !== "doctor"}>
     {!selectedCompany && <AdminEmptyState title="Reklam doktoru analizini başlatmak için aktif bir müşteri seçin." />}
