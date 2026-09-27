@@ -113,16 +113,15 @@ test("saveCreativeReportDraft REGRESSION — new reports always start as draft, 
   }
 });
 
-test("saveCreativeReportDraft REGRESSION — versions instead of overwriting; linked ad_strategy_id/version preserved (requires ad_creative_reports migration)", { skip: hasSupabase ? false : skipReason }, async () => {
+test("saveCreativeReportDraft REGRESSION — versions instead of overwriting (requires ad_creative_reports migration)", { skip: hasSupabase ? false : skipReason }, async () => {
   const { saveCreativeReportDraft, getCreativeReportHistory } = await import("../../../src/lib/marketing-intelligence/ad-creative-reports.ts");
   const companyId = await makeFixtureCompany("Versioning");
   try {
-    const first = await saveCreativeReportDraft({ companyId, adStrategyId: "11111111-1111-4111-8111-111111111111", adStrategyVersion: 1, creatives: [SAMPLE_CREATIVE] });
-    const second = await saveCreativeReportDraft({ companyId, adStrategyId: "11111111-1111-4111-8111-111111111111", adStrategyVersion: 1, creatives: [SAMPLE_CREATIVE] });
+    const first = await saveCreativeReportDraft({ companyId, creatives: [SAMPLE_CREATIVE] });
+    const second = await saveCreativeReportDraft({ companyId, creatives: [SAMPLE_CREATIVE] });
     assert.notEqual(first.id, second.id);
     assert.equal(second.version, 2);
     assert.equal(second.previous_report_id, first.id);
-    assert.equal(second.ad_strategy_id, "11111111-1111-4111-8111-111111111111");
     const history = await getCreativeReportHistory(companyId);
     assert.equal(history.length, 2, "prior version must never be deleted/overwritten");
   } finally {

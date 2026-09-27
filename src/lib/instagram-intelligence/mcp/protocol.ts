@@ -28,6 +28,7 @@ const limit: Tool["inputSchema"]["properties"][string] = { type: "integer", mini
 const plan: Tool["inputSchema"]["properties"][string] = { type: "array" };
 const companyId: Tool["inputSchema"]["properties"][string] = { type: "string", format: "uuid" };
 const strategyId: Tool["inputSchema"]["properties"][string] = { type: "string", format: "uuid" };
+const reportId: Tool["inputSchema"]["properties"][string] = { type: "string", format: "uuid" };
 const text: Tool["inputSchema"]["properties"][string] = { type: "string" };
 const arr: Tool["inputSchema"]["properties"][string] = { type: "array" };
 const obj: Tool["inputSchema"]["properties"][string] = { type: "object" };
@@ -63,6 +64,17 @@ export const tools: Tool[] = [
   { name: "get_latest_ads_strategy_plan", description: "Bir müşterinin kurulum için kullanılacak GÜNCEL reklam stratejisini döner — sırasıyla: uygulanan (active), yoksa onaylı (approved), yoksa daha önce onaylı/aktif olup içerik güncellemesiyle 'updated' durumuna geçmiş en güncel kayıt, o da yoksa (yeni sistemde henüz kayıt yoksa) eski/legacy bir kayıt varsa onu (legacy:true ile işaretli, salt okunur). Hiçbiri yoksa NOT_FOUND. DRAFT bir stratejiyi asla kurulum için hazır gibi döndürmez. Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { companyId }, required: ["companyId"], additionalProperties: false } },
   { name: "update_ads_strategy_status", description: "Bir reklam stratejisinin HK Dijital iç operasyon durumunu değiştirir: draft, approved, active, updated, archived. Yalnızca kullanıcı açıkça 'onayla' / 'uygulamaya al' / 'arşivle' gibi bir talimat verdiğinde çağır. Hiçbir reklam platformunda (Meta/Google) işlem YAPMAZ — yalnızca HK Dijital'deki strateji kaydının durumunu değiştirir. strategyId'nin gerçekten companyId'ye ait olduğu doğrulanır; değilse NOT_FOUND.", permission: "WRITE_SAFE", inputSchema: { type: "object", properties: { companyId, strategyId, status: text }, required: ["companyId", "strategyId", "status"], additionalProperties: false } },
   { name: "update_ads_strategy_content", description: "Var olan bir reklam stratejisinin İÇERİK alanlarını AYNI KAYIT ÜZERİNDE (aynı id, aynı version) günceller — asla yeni satır/versiyon oluşturmaz, asla save_ads_strategy_plan gibi yeni bir taslak yaratmaz. Gerçek partial update: yalnızca `patch` içinde gönderdiğin alanlar değişir, göndermediğin alanlar (ör. budget veya reports) AYNEN KORUNUR. `patch` içinde YALNIZCA şu alanlar kabul edilir (başka herhangi bir alan reddedilir): strategy_title (string), primary_platform (string), primary_goal (string), primary_kpi (string), monthly_ad_budget (number|null), daily_budget_estimate (number|null), meta_budget (number|null), google_budget (number|null), campaign_sequence (dizi — her öğe: { order: number, name: string, objective?: string, conversionLocation?: string, dailyBudget?: number, purpose?: string, transitionCondition?: string }), remarketing ({ required?: boolean, status?: 'not_ready'|'ready'|'active', condition?: string }), internal_report / client_report ({ executiveSummary?: string, sections?: [{ title: string, content: string }] }). id/company_id/version/status/created_at/approved_at/activated_at/archived_at/previous_strategy_id/source bu tool ile DEĞİŞTİRİLEMEZ — durum değişikliği için update_ads_strategy_status kullanılmalı; bu tool status'u KENDİ BAŞINA değiştirmez, ancak strateji onaylı/aktifken içerik güncellenirse HK Admin'deki AYNI kural gereği durum otomatik 'updated' olur. strategyId gerçekten companyId'ye ait değilse NOT_FOUND. Hiçbir reklam hesabında/kampanyasında işlem yapmaz.", permission: "WRITE_SAFE", inputSchema: { type: "object", properties: { companyId, strategyId, patch: { type: "object" } }, required: ["companyId", "strategyId", "patch"], additionalProperties: false } },
+
+  // --- Reklam Kreatif Raporu: HK DİJİTAL — REKLAM KREATİF STRATEJİSTİ &
+  // PRODÜKSİYON UZMANI Project reads a customer's real ad-strategy
+  // context, then saves/revises a structured creative production report
+  // (ad_creative_reports — the versioned, status-tracked, internal-vs-
+  // client-report follow-on to ad_strategies). Never publishes/edits
+  // anything on a real ad account. ---
+  { name: "get_ad_creative_context", description: "Bir müşteri için kreatif rapor hazırlamaya yetecek TEK, kompakt bağlam: şirket bilgisi, müşterinin GÜNCEL reklam stratejisi (varsa; active > approved sırasıyla) ve o stratejiden yalnızca kreatif üretime ilgili bölümler (strateji için gereksiz teknik/analitik detaylar dahil edilmez), ve varsa en son kaydedilmiş kreatif raporunun kimliği (id/version/status) — bir revizyon yapılacaksa bunu kullan. Reklam stratejisi olmayan müşteri için sistem kırılmaz, adStrategy alanı null döner. Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { companyId }, required: ["companyId"], additionalProperties: false } },
+  { name: "save_ad_creative_report", description: "Claude'un ürettiği yapılandırılmış Reklam Kreatif Raporunu HK Admin'e YENİ BİR TASLAK (status: draft) olarak kaydeder — asla otomatik onaylanmaz/aktif olmaz. Mevcut bir raporu revize etmek için bunu DEĞİL, update_ad_creative_report'u kullan (yoksa gereksiz yeni version oluşur). Zorunlu: companyId. Opsiyonel ama önerilir: adStrategyId, adStrategyVersion (get_ad_creative_context'ten), reportTitle. İçerik alanları (hepsi opsiyonel ama en az creatives dolu olmalı): strategySummary ({ campaignGoal, creativeRole, targetAudience, funnelStage, awarenessLevel, keyMessage, primaryCta, creativeAngles: string[] }), creatives (dizi — her öğe: { order: number, format: 'reels'|'video'|'story'|'static'|'carousel', title, campaign?, adSet?, funnelStage?, angle?, hook?, cta?, priority?, adCopy?: {primaryText,headline,description,cta}, videoScenes?: [{order,startTime,endTime,visual,cameraAngle,shotType,onScreenText,voiceover,purpose}], staticFields?: {size,platform,visualConcept,background,mainVisual,headline,subheadline,offer,cta,logoPlacement,designHierarchy,textDensity,designPitfallsToAvoid}, carouselSlides?: [{order,purpose,title,subtext,visualSuggestion,designNote}], storyFields?: {aspectRatio,hook,mainMessage,visualSuggestion,cta,action,textPlacement,safeArea,sequence}, details?, internalNotes? }), abTestPlan (dizi — { hypothesis, variable, constants, expectedBehavior, evaluationCriteria } — DAHİLİ, müşteri raporuna hiçbir zaman girmez), requiredMaterials (dizi — { name, description, quantity, format, instructions }), productionChecklist (dizi — { label, checked }), internalReport / clientReport ({ executiveSummary?, sections?: [{title,content}] } — internalReport'a ajans içi notlar, clientReport'a yalnızca müşteriye güvenle gösterilebilecek içerik). KRİTİK: her creative'in internalNotes'u ve abTestPlan/strategySummary.funnelStage/awarenessLevel gibi dahili alanlar Müşteri Raporu'na ASLA sızmaz (export sırasında sunucu tarafında ayrıştırılır) — yine de client-facing metinleri (details, hook, cta vb.) yazarken müşteriye gösterilecek dilde yaz. Hiçbir reklam hesabında değişiklik yapmaz. Kullanıcı açıkça istemeden çağırma.", permission: "WRITE_SAFE", inputSchema: { type: "object", properties: { companyId, adStrategyId: strategyId, adStrategyVersion: { type: "integer", minimum: 1, maximum: 9999 }, reportTitle: text, strategySummary: obj, creatives: arr, abTestPlan: arr, requiredMaterials: arr, productionChecklist: arr, internalReport: obj, clientReport: obj }, required: ["companyId"], additionalProperties: false } },
+  { name: "update_ad_creative_report", description: "Var olan bir Reklam Kreatif Raporunun İÇERİK alanlarını AYNI KAYIT ÜZERİNDE (aynı id, aynı version) günceller — asla yeni satır/versiyon oluşturmaz. Gerçek partial update: yalnızca `patch` içinde gönderdiğin alanlar değişir. `patch` içinde YALNIZCA şu alanlar kabul edilir: report_title, strategy_summary, creatives, ab_test_plan, required_materials, production_checklist, internal_report, client_report (aynı shape'ler save_ad_creative_report ile aynıdır, snake_case). id/company_id/version/status/ad_strategy_id/previous_report_id/source bu tool ile DEĞİŞTİRİLEMEZ — durum değişikliği HK Admin'in kendi 'Durumu Değiştir' kontrolüne bırakılmalıdır, bu tool status'u değiştirmez. reportId gerçekten companyId'ye ait değilse NOT_FOUND. Hiçbir reklam hesabında işlem yapmaz. Kullanıcı onayı olmadan status'u approved/active yapmaz (zaten yapamaz).", permission: "WRITE_SAFE", inputSchema: { type: "object", properties: { companyId, reportId, patch: obj }, required: ["companyId", "reportId", "patch"], additionalProperties: false } },
+  { name: "get_latest_ad_creative_report", description: "Bir müşterinin en son kaydedilmiş Reklam Kreatif Raporunu (en yüksek version) tam yapılandırılmış hâliyle döner — id, version, status, ad_strategy_id/version, strategy_summary, creatives, ab_test_plan, required_materials, production_checklist, internal_report, client_report dahil; bir revizyon yapmadan önce mevcut içeriği görmek için kullanılır. Hiç kayıt yoksa NOT_FOUND (asla sahte/boş bir rapor uydurmaz). Read-only.", permission: "READ_ONLY", inputSchema: { type: "object", properties: { companyId }, required: ["companyId"], additionalProperties: false } },
 
   // --- Ön İnceleme Merkezi: pre-sale digital research context / save / read ---
   {
@@ -409,6 +421,48 @@ export async function execute(name: string, args: Record<string, unknown>): Prom
       } catch (error) {
         if (error instanceof AdStrategyPatchValidationError) throw new ControlError("INVALID_ARGUMENTS", error.message, 400);
         if (error instanceof AdStrategyNotFoundError) throw new ControlError("NOT_FOUND", error.message, 404);
+        throw error;
+      }
+    }
+
+    case "get_ad_creative_context": {
+      const { getAdCreativeContext, AdCreativeReportCompanyNotFoundError } = await import("@/lib/marketing-intelligence/ad-creative-reports");
+      try {
+        return await getAdCreativeContext(String(args.companyId || ""));
+      } catch (error) {
+        if (error instanceof AdCreativeReportCompanyNotFoundError) throw new ControlError("NOT_FOUND", error.message, 404);
+        throw error;
+      }
+    }
+    case "save_ad_creative_report": {
+      const { saveCreativeReportDraft, AdCreativeReportValidationError, AdCreativeReportCompanyNotFoundError } = await import("@/lib/marketing-intelligence/ad-creative-reports");
+      try {
+        return await saveCreativeReportDraft({ ...args, source: "claude_project" });
+      } catch (error) {
+        if (error instanceof AdCreativeReportValidationError) throw new ControlError("INVALID_ARGUMENTS", error.message, 400);
+        if (error instanceof AdCreativeReportCompanyNotFoundError) throw new ControlError("NOT_FOUND", error.message, 404);
+        throw error;
+      }
+    }
+    case "update_ad_creative_report": {
+      const { updateCreativeReport, validateCreativeReportPatch, AdCreativeReportPatchValidationError, AdCreativeReportNotFoundError } = await import("@/lib/marketing-intelligence/ad-creative-reports");
+      try {
+        const patch = validateCreativeReportPatch(args.patch);
+        return await updateCreativeReport(String(args.companyId || ""), String(args.reportId || ""), patch);
+      } catch (error) {
+        if (error instanceof AdCreativeReportPatchValidationError) throw new ControlError("INVALID_ARGUMENTS", error.message, 400);
+        if (error instanceof AdCreativeReportNotFoundError) throw new ControlError("NOT_FOUND", error.message, 404);
+        throw error;
+      }
+    }
+    case "get_latest_ad_creative_report": {
+      const { getCreativeReportHistory, AdCreativeReportCompanyNotFoundError } = await import("@/lib/marketing-intelligence/ad-creative-reports");
+      try {
+        const history = await getCreativeReportHistory(String(args.companyId || ""));
+        if (!history.length) throw new ControlError("NOT_FOUND", "Bu müşteri için kayıtlı kreatif rapor yok.", 404);
+        return history[0];
+      } catch (error) {
+        if (error instanceof AdCreativeReportCompanyNotFoundError) throw new ControlError("NOT_FOUND", error.message, 404);
         throw error;
       }
     }

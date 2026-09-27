@@ -95,6 +95,10 @@ export type CreativeReportSaveInput = {
   productionChecklist?: ChecklistItem[];
   internalReport?: CreativeReportText;
   clientReport?: CreativeReportText;
+  /** Provenance tag only ("hk_admin" default, "claude_project" for MCP
+   * saves) — never validated/required, purely informational, same idea
+   * as ad_strategies.source. */
+  source?: string;
 };
 
 function validateSaveInput(raw: unknown): CreativeReportSaveInput {
@@ -150,7 +154,7 @@ export async function saveCreativeReportDraft(rawInput: unknown): Promise<AdCrea
     client_report: input.clientReport || {},
     full_payload: input,
     previous_report_id: previous?.id || null,
-    source: "hk_admin"
+    source: input.source || "hk_admin"
   };
 
   const rows = await supabaseRest<AdCreativeReportRecord[]>(AD_CREATIVE_REPORTS_TABLE, { method: "POST", body: JSON.stringify(row) });
@@ -234,4 +238,59 @@ export async function updateCreativeReportStatus(companyId: string, id: string, 
   );
   if (!rows.length) throw new AdCreativeReportNotFoundError(`Rapor bulunamadı veya bu müşteriye ait değil: ${id}`);
   return rows[0];
+}
+
+export type AdCreativeContext = {
+  company: { id: string; name: string; sector: string | null; city: string | null };
+  adStrategy: {
+    id: string; version: number; status: string; strategyTitle: string;
+    primaryPlatform: string; primaryGoal: string; primaryKpi: string;
+    monthlyAdBudget: number | null; metaBudget: number | null; googleBudget: number | null;
+    campaignSequence: unknown[]; remarketing: unknown;
+  } | null;
+  /** Only the sections actually relevant to creative production — never
+   * the full internal report dump. Prefers a section explicitly titled
+   * like a creative brief/handoff; otherwise falls back to the client-
+   * safe report's own sections (already a compact, real summary), never
+   * the internal report wholesale. */
+  creativeBrief: Array<{ title: string; content: string }>;
+  latestCreativeReport: { id: string; version: number; status: AdCreativeReportStatus; createdAt: string } | null;
+};
+
+/** Single, compact context call for the creative Claude Project — real
+ * company + the company's own current ad strategy (if any) + only the
+ * creative-relevant brief sections + the latest creative report's
+ * identity (for revision). A company with no ad strategy or no prior
+ * creative report is never blocked — both are simply null. */
+export async function getAdCreativeContext(companyId: string): Promise<AdCreativeContext> {
+  await assertCompanyExists(companyId);
+  const { getAdStrategyForActivation } = await import("./ad-strategies");
+
+  const [companies, activation, creativeHistory] = await Promise.all([
+    supabaseRest<Array<{ id: string; name: string; sector: string | null; city: string | null }>>(`companies?id=eq.${encodeURIComponent(companyId)}&select=id,name,sector,city&limit=1`),
+    getAdStrategyForActivation(companyId),
+    getCreativeReportHistory(companyId)
+  ]);
+  const company = companies[0];
+  const strategy = activation.strategy;
+
+  let creativeBrief: Array<{ title: string; content: string }> = [];
+  if (strategy) {
+    const internalSections = strategy.internal_report?.sections || [];
+    const briefSections = internalSections.filter((s) => /kreatif|creative/i.test(s.title));
+    if (briefSections.length) creativeBrief = briefSections;
+    else creativeBrief = strategy.client_report?.sections || [];
+  }
+
+  return {
+    company: company ? { id: company.id, name: company.name, sector: company.sector, city: company.city } : { id: companyId, name: "Bilinmiyor", sector: null, city: null },
+    adStrategy: strategy ? {
+      id: strategy.id, version: strategy.version, status: strategy.status, strategyTitle: strategy.strategy_title,
+      primaryPlatform: strategy.primary_platform, primaryGoal: strategy.primary_goal, primaryKpi: strategy.primary_kpi,
+      monthlyAdBudget: strategy.monthly_ad_budget, metaBudget: strategy.meta_budget, googleBudget: strategy.google_budget,
+      campaignSequence: strategy.campaign_sequence, remarketing: strategy.remarketing
+    } : null,
+    creativeBrief,
+    latestCreativeReport: creativeHistory[0] ? { id: creativeHistory[0].id, version: creativeHistory[0].version, status: creativeHistory[0].status, createdAt: creativeHistory[0].created_at } : null
+  };
 }
