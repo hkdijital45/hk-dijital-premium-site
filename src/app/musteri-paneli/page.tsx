@@ -412,6 +412,18 @@ export default async function MusteriPaneliPage({ searchParams }: { searchParams
                         {visibility.show_spent && `Harcama: ${spentBudget} TL · `}
                         {campaign.notes}
                       </p>
+                      {campaign.performanceSummary ? (
+                        <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 border-t border-slate-200 pt-3 text-xs text-slate-600 sm:grid-cols-3">
+                          <span>Erişim: <b className="text-slate-900">{campaign.performanceSummary.reach}</b></span>
+                          <span>Gösterim: <b className="text-slate-900">{campaign.performanceSummary.impressions}</b></span>
+                          <span>Sonuç: <b className="text-slate-900">{campaign.performanceSummary.results}</b></span>
+                          <span>Mesaj: <b className="text-slate-900">{campaign.performanceSummary.messages}</b></span>
+                          <span>CTR: <b className="text-slate-900">%{campaign.performanceSummary.ctr}</b></span>
+                          <span>Sonuç başına maliyet: <b className="text-slate-900">{campaign.performanceSummary.results ? formatTRY(Number((campaign.performanceSummary.spend / campaign.performanceSummary.results).toFixed(2))) : "Veri yok"}</b></span>
+                        </div>
+                      ) : (
+                        <p className="mt-3 border-t border-slate-200 pt-3 text-xs text-slate-400">Bu tarih aralığı için performans verisi yok.</p>
+                      )}
                     </div>
                   );
                 })}

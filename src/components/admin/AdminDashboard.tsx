@@ -9754,6 +9754,13 @@ function CampaignAdmin({ content, setContent, currentSession, notify }: any) {
           const archived = isCampaignArchived(campaign);
           const totalBudget = campaign.total_budget ?? campaign.budget ?? 0;
           const spentBudget = campaign.spent_budget ?? campaign.spent ?? 0;
+          // Meta-owned fields: the sync engine (saveCampaignLifecycle)
+          // overwrites name/status/dates/budget from the real Meta
+          // campaign on every sync — the app never writes these back to
+          // Meta, so a local edit here would just get silently reverted
+          // (or worse, briefly show a wrong value) on the next sync. Lock
+          // them; notes/internal notes/visibility stay editable.
+          const isMetaOwned = campaign.source === "Meta";
           return (
             <div key={campaign.id} className={`rounded-[8px] border p-4 ${archived ? "border-amber-300/25 bg-amber-300/[0.06]" : "border-[var(--admin-border)] bg-[var(--admin-surface-soft)]"}`}>
               <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -9762,19 +9769,23 @@ function CampaignAdmin({ content, setContent, currentSession, notify }: any) {
                   <h3 className="mt-1 text-xl font-black text-[var(--admin-text-primary)]">{campaign.name || "İsimsiz kampanya"}</h3>
                   <p className="mt-1 text-sm text-slate-400">{companyName(content, campaign.company_id)} · {campaign.objective || "Amaç yok"} · {campaign.status || "Planlandı"}</p>
                 </div>
-                <span className="rounded-full border border-cyan-200/20 bg-cyan-200/10 px-3 py-1 text-xs font-black text-cyan-700">{campaign.visible_to_customer ? "Müşteri Panelinde Görünür" : "Sadece Yönetici"}</span>
+                <div className="flex flex-col items-end gap-1">
+                  <span className={`rounded-full border px-3 py-1 text-xs font-black ${isMetaOwned ? "border-emerald-200/30 bg-emerald-200/10 text-emerald-700" : "border-slate-300/30 bg-slate-200/10 text-slate-500"}`}>{isMetaOwned ? "Meta'dan Senkronize" : "HK Dijital / Manuel"}</span>
+                  <span className="rounded-full border border-cyan-200/20 bg-cyan-200/10 px-3 py-1 text-xs font-black text-cyan-700">{campaign.visible_to_customer ? "Müşteri Panelinde Görünür" : "Sadece Yönetici"}</span>
+                </div>
               </div>
+              {isMetaOwned && <p className="mb-3 rounded-[8px] bg-slate-100 p-2 text-xs text-slate-500">Bu kampanya Meta&apos;dan senkronize edildi — isim, durum, tarih ve bütçe alanları Meta&apos;nın kendi verisiyle otomatik güncellenir ve burada düzenlenemez. Notlar ve müşteri görünürlüğü serbestçe değiştirilebilir.</p>}
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 <CompanySelect value={campaign.company_id || ""} onChange={(v) => update(campaign.id, { company_id: v })} companies={content.companies} />
-                <Field label="Kampanya adı" value={campaign.name} onChange={(v) => update(campaign.id, { name: v })} />
-                <SelectField label="Platform" value={campaign.platform || "Meta Ads"} onChange={(v) => update(campaign.id, { platform: v })} options={platformOptions} />
-                <SelectField label="Amaç" value={campaign.objective || "Lead"} onChange={(v) => update(campaign.id, { objective: v })} options={objectiveOptions} />
-                <SelectField label="Durum" value={campaign.status || "Planlandı"} onChange={(v) => update(campaign.id, { status: v, archived_at: v === "Arşivlendi" ? new Date().toISOString() : campaign.archived_at })} options={campaignStatusOptions} />
-                <Field label="Başlangıç tarihi" type="date" value={campaign.start_date} onChange={(v) => update(campaign.id, { start_date: v })} />
-                <Field label="Bitiş tarihi" type="date" value={campaign.end_date} onChange={(v) => update(campaign.id, { end_date: v })} />
-                <Field label="Günlük bütçe" type="number" value={campaign.daily_budget || 0} onChange={(v) => update(campaign.id, { daily_budget: Number(v || 0) })} />
-                <Field label="Toplam bütçe" type="number" value={totalBudget} onChange={(v) => update(campaign.id, { total_budget: Number(v || 0), budget: Number(v || 0) })} />
-                <Field label="Harcanan bütçe" type="number" value={spentBudget} onChange={(v) => update(campaign.id, { spent_budget: Number(v || 0), spent: Number(v || 0) })} />
+                <Field label="Kampanya adı" value={campaign.name} onChange={(v) => isMetaOwned ? undefined : update(campaign.id, { name: v })} />
+                <SelectField label="Platform" value={campaign.platform || "Meta Ads"} onChange={(v) => isMetaOwned ? undefined : update(campaign.id, { platform: v })} options={platformOptions} />
+                <SelectField label="Amaç" value={campaign.objective || "Lead"} onChange={(v) => isMetaOwned ? undefined : update(campaign.id, { objective: v })} options={objectiveOptions} />
+                <SelectField label="Durum" value={campaign.status || "Planlandı"} onChange={(v) => isMetaOwned ? undefined : update(campaign.id, { status: v, archived_at: v === "Arşivlendi" ? new Date().toISOString() : campaign.archived_at })} options={campaignStatusOptions} />
+                <Field label="Başlangıç tarihi" type="date" value={campaign.start_date} onChange={(v) => isMetaOwned ? undefined : update(campaign.id, { start_date: v })} />
+                <Field label="Bitiş tarihi" type="date" value={campaign.end_date} onChange={(v) => isMetaOwned ? undefined : update(campaign.id, { end_date: v })} />
+                <Field label="Günlük bütçe" type="number" value={campaign.daily_budget || 0} onChange={(v) => isMetaOwned ? undefined : update(campaign.id, { daily_budget: Number(v || 0) })} />
+                <Field label="Toplam bütçe" type="number" value={totalBudget} onChange={(v) => isMetaOwned ? undefined : update(campaign.id, { total_budget: Number(v || 0), budget: Number(v || 0) })} />
+                <Field label="Harcanan bütçe" type="number" value={spentBudget} onChange={(v) => isMetaOwned ? undefined : update(campaign.id, { spent_budget: Number(v || 0), spent: Number(v || 0) })} />
                 <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(campaign.visible_to_customer)} onChange={(e) => update(campaign.id, { visible_to_customer: e.target.checked })} /> Müşteriye görünür mü?</label>
                 <InfoItem label="Oluşturulma / Güncelleme" value={`${formatDateTime(campaign.created_at)} · ${formatDateTime(campaign.updated_at)}`} />
                 <div className="md:col-span-2"><TextArea label="Notlar" value={campaign.notes} onChange={(v) => update(campaign.id, { notes: v })} /></div>

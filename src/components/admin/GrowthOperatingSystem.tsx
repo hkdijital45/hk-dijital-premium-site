@@ -181,7 +181,14 @@ function normalizeIntegrationAccounts(rows: any[]) {
     const isMeta = provider.includes("meta") || platformKey.includes("meta") || platformKey.includes("facebook");
     const isInstagram = platformKey.includes("instagram") || typeKey.includes("instagram");
     const isTikTok = provider.includes("tiktok") || platformKey.includes("tiktok");
-    const isGoogleAds = platformKey.includes("google_ads") || typeKey.includes("google_ads") || typeKey.includes("ads_customer") || Boolean(googleAdsId);
+    // Real cross-provider mapping bug: googleAdsId falls back to the
+    // generic "account_id"/"provider_account_id" keys, which a Meta (or
+    // any other provider's) asset also carries — `Boolean(googleAdsId)`
+    // alone let a Meta Ad Account get pushed as a second, fake
+    // google_ads_customer entry too. Only trust that fallback when the
+    // asset's own provider/platform actually says Google.
+    const isGoogleProvider = provider.includes("google") || platformKey.includes("google");
+    const isGoogleAds = platformKey.includes("google_ads") || typeKey.includes("google_ads") || typeKey.includes("ads_customer") || (isGoogleProvider && Boolean(googleAdsId));
     const isGa4 = platformKey.includes("analytics") || platformKey.includes("ga4") || typeKey.includes("ga4") || typeKey.includes("analytics") || Boolean(ga4Id);
     const isYouTube = platformKey.includes("youtube") || typeKey.includes("youtube");
     const isSearch = platformKey.includes("search_console") || typeKey.includes("search_console") || Boolean(searchConsoleUrl);
@@ -345,8 +352,17 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
     }
     return true;
   };
+  // "Today / Last 7 Days / Last 30 Days" previously only changed which
+  // range a FUTURE "Senkronize Et" sync would fetch — already-loaded
+  // metrics/insight rows (tagged with their own date_range_label at sync
+  // time) were never filtered by the selected period, so switching
+  // periods never actually changed what was on screen. A legacy row with
+  // no label is always kept (never hides pre-existing data).
+  const matchesPeriod = (item: any) => period === "Canlı durum" || !item?.date_range_label || item.date_range_label === period;
   const campaigns = (Array.isArray(data.campaigns) ? data.campaigns : []).filter((item: any) => accountScoped(item));
-  const metrics = (Array.isArray(data.campaignMetrics) ? data.campaignMetrics : []).filter((item: any) => accountScoped(item));
+  const metrics = (Array.isArray(data.campaignMetrics) ? data.campaignMetrics : []).filter((item: any) => accountScoped(item) && matchesPeriod(item));
+  const adsetMetrics = (Array.isArray(data.metaAdsetMetrics) ? data.metaAdsetMetrics : []).filter((item: any) => accountScoped(item) && matchesPeriod(item));
+  const adMetrics = (Array.isArray(data.metaAdMetrics) ? data.metaAdMetrics : []).filter((item: any) => accountScoped(item) && matchesPeriod(item));
   const tasks = (Array.isArray(data.agencyTasks) ? data.agencyTasks : []).filter((item: any) => belongsToCustomer(item, customerId) && !["Tamamlandı", "İptal"].includes(item?.status));
   const reports = [...(Array.isArray(data.reports) ? data.reports : []), ...(Array.isArray(data.monthlyReports) ? data.monthlyReports : [])].filter((item: any) => belongsToCustomer(item, customerId));
   const payments = (Array.isArray(data.paymentRecords) ? data.paymentRecords : []).filter((item: any) => belongsToCustomer(item, customerId));
@@ -482,14 +498,37 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
     .filter((item: any) => !campaignSearch.trim() || `${item.name || ""}`.toLocaleLowerCase("tr").includes(campaignSearch.trim().toLocaleLowerCase("tr")));
   const selectedCampaign = selectedCampaignId ? campaigns.find((item: any) => item.id === selectedCampaignId) || null : null;
   const campaignStatusOptions: string[] = Array.from(new Set(campaigns.map((item: any) => String(item.status || "Planlandı"))));
+  // Per-row source badge — this used to render the same page-wide
+  // dataSourceLabel for every campaign regardless of its own origin.
+  // campaign.source is already set by the sync engine ("Meta" on every
+  // Meta-synced row via saveCampaignLifecycle); anything else is a
+  // manually created HK Dijital campaign.
+  const campaignSourceLabel = (item: any) => (item?.source === "Meta" ? "Meta'dan Senkronize" : "HK Dijital / Manuel");
+  const metricsForCampaign = (campaign: any) => metrics.filter((item: any) =>
+    (campaign.meta_campaign_id && item.meta_campaign_id === campaign.meta_campaign_id) || item.campaign_id === campaign.id);
+  const adsetsForCampaign = (campaign: any) => adsetMetrics.filter((item: any) =>
+    (campaign.meta_campaign_id && item.meta_campaign_id === campaign.meta_campaign_id) || item.campaign_id === campaign.id);
+  const adsForCampaign = (campaign: any) => adMetrics.filter((item: any) =>
+    (campaign.meta_campaign_id && item.meta_campaign_id === campaign.meta_campaign_id) || item.campaign_id === campaign.id);
+  const sumMetric = (rows: any[], keys: string[]) => rows.reduce((sum, item) => sum + numberValue(item, keys), 0);
   const campaignColumns: AdminDataGridColumn<any>[] = [
     { key: "name", header: "Kampanya", render: (item: any) => <div className="min-w-0"><strong className="block truncate">{item.name || "Adsız kampanya"}</strong><span className="block truncate text-[11px]" style={{ color: "var(--admin-text-muted)" }}>{item.platform || "-"} · {item.objective || "-"}</span></div> },
     { key: "status", header: "Durum", render: (item: any) => <AdminStatusBadge tone={item.status === "Aktif" ? "success" : item.status === "Durduruldu" ? "warning" : item.status === "Tamamlandı" ? "neutral" : "info"}>{item.status || "Planlandı"}</AdminStatusBadge> },
     { key: "budget", header: "Bütçe", align: "right", render: (item: any) => formatMoney(Number(item.total_budget || item.budget || 0)) },
     { key: "spent", header: "Harcama", align: "right", render: (item: any) => formatMoney(Number(item.spent_budget || item.spent || 0)) },
     { key: "dates", header: "Tarih Aralığı", render: (item: any) => `${item.start_date || "-"} → ${item.end_date || "-"}` },
-    { key: "source", header: "Veri Kaynağı", render: () => <AdminStatusBadge tone={dataSourceLabel === "Son senkronize veri" ? "success" : "warning"}>{dataSourceLabel}</AdminStatusBadge> }
+    { key: "source", header: "Veri Kaynağı", render: (item: any) => <AdminStatusBadge tone={item.source === "Meta" ? "success" : "neutral"}>{campaignSourceLabel(item)}</AdminStatusBadge> }
   ];
+
+  // Campaign -> Ad Set -> Ad drill-down for the selected campaign, read
+  // straight from the already-synced/loaded meta_adset_metrics/
+  // meta_ad_metrics rows (center-data) for the selected period — no new
+  // Graph API calls, no new route.
+  const selectedCampaignMetrics = selectedCampaign ? metricsForCampaign(selectedCampaign) : [];
+  const selectedAdsets = selectedCampaign ? adsetsForCampaign(selectedCampaign) : [];
+  const selectedAds = selectedCampaign ? adsForCampaign(selectedCampaign) : [];
+  const fmtOrNoData = (rows: any[], keys: string[], formatter: (n: number) => string = (n) => String(n)) =>
+    rows.length ? formatter(sumMetric(rows, keys)) : "Veri yok";
 
   return (
     <AdminWorkspace
@@ -549,15 +588,39 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
             { label: "Harcama", value: formatMoney(Number(selectedCampaign.spent_budget || selectedCampaign.spent || 0)) },
             { label: "Tarih Aralığı", value: `${selectedCampaign.start_date || "-"} → ${selectedCampaign.end_date || "-"}` },
             { label: "Son güncelleme", value: selectedCampaign.updated_at ? new Date(selectedCampaign.updated_at).toLocaleString("tr-TR") : "-" },
-            { label: "Veri kaynağı", value: dataSourceLabel },
-            { label: "Son senkronizasyon", value: lastDataDate ? new Date(lastDataDate).toLocaleString("tr-TR") : "Veri yok" }
+            { label: "Veri kaynağı", value: campaignSourceLabel(selectedCampaign) },
+            { label: "Son senkronizasyon", value: lastDataDate ? new Date(lastDataDate).toLocaleString("tr-TR") : "Veri yok" },
+            { label: `Harcama (${period})`, value: fmtOrNoData(selectedCampaignMetrics, ["spend", "spent"], formatMoney) },
+            { label: "Erişim (Reach)", value: fmtOrNoData(selectedCampaignMetrics, ["reach"]) },
+            { label: "Gösterim", value: fmtOrNoData(selectedCampaignMetrics, ["impressions"]) },
+            { label: "Sonuç / Mesaj", value: selectedCampaignMetrics.length ? `${sumMetric(selectedCampaignMetrics, ["results", "leads"])} sonuç · ${sumMetric(selectedCampaignMetrics, ["messages"])} mesaj` : "Veri yok" },
+            { label: "CTR / CPC / CPM", value: selectedCampaignMetrics.length ? `${(sumMetric(selectedCampaignMetrics, ["ctr"]) / selectedCampaignMetrics.length).toFixed(2)}% · ${formatMoney(sumMetric(selectedCampaignMetrics, ["cpc"]) / selectedCampaignMetrics.length)} · ${formatMoney(sumMetric(selectedCampaignMetrics, ["cpm"]) / selectedCampaignMetrics.length)}` : "Veri yok" }
           ] : undefined}
           actions={selectedCampaign ? <>
             <AdminButton compact variant="secondary" onClick={() => window.location.assign(`/hk-admin/musteriler?companyId=${selectedCampaign.company_id || customerId || ""}`)}>Müşteriyi Aç</AdminButton>
             <AdminButton compact variant="warning" onClick={() => setActive?.("Reklam Doktoru Pro")}>Reklam Doktoru&apos;nu Aç</AdminButton>
             <AdminButton compact variant="info" onClick={() => window.location.assign(`/hk-admin/gorevler?companyId=${selectedCampaign.company_id || customerId || ""}`)}>Görev Oluştur</AdminButton>
           </> : undefined}
-        />
+        >
+          {selectedCampaign && selectedCampaign.source === "Meta" && (
+            <div className="admin-detail-inspector-fields" style={{ display: "grid", gap: 10 }}>
+              <p className="text-xs font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Reklam Setleri ({selectedAdsets.length || 0})</p>
+              {selectedAdsets.length ? selectedAdsets.map((adset: any, i: number) => (
+                <div key={adset.id || i} className="rounded-[8px] border p-2 text-[11px]" style={{ borderColor: "var(--admin-border)" }}>
+                  <strong className="block">{adset.adset_name || "Adsız reklam seti"}</strong>
+                  <span style={{ color: "var(--admin-text-muted)" }}>{adset.status || "-"} · Harcama: {formatMoney(Number(adset.spend || 0))} · Gösterim: {Number(adset.impressions || 0)} · Sonuç: {Number(adset.results || 0)}</span>
+                </div>
+              )) : <p className="text-[11px]" style={{ color: "var(--admin-text-muted)" }}>Bu tarih aralığında reklam seti verisi yok.</p>}
+              <p className="mt-2 text-xs font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Reklamlar ({selectedAds.length || 0})</p>
+              {selectedAds.length ? selectedAds.map((ad: any, i: number) => (
+                <div key={ad.id || i} className="rounded-[8px] border p-2 text-[11px]" style={{ borderColor: "var(--admin-border)" }}>
+                  <strong className="block">{ad.ad_name || "Adsız reklam"}</strong>
+                  <span style={{ color: "var(--admin-text-muted)" }}>{ad.status || "-"} · Harcama: {formatMoney(Number(ad.spend || 0))} · CTR: {Number(ad.ctr || 0).toFixed(2)}% · Sonuç: {Number(ad.results || 0)}</span>
+                </div>
+              )) : <p className="text-[11px]" style={{ color: "var(--admin-text-muted)" }}>Bu tarih aralığında reklam verisi yok.</p>}
+            </div>
+          )}
+        </AdminDetailInspector>
       }
       bottomBar={
         <AdminActionBar statusText={`${filteredCampaigns.length} kampanya · ${dataSourceLabel}${metaSyncMessage ? ` · ${metaSyncMessage}` : ""}`}>

@@ -10,6 +10,15 @@ import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/sup
 
 const GRAPH_VERSION = "v20.0";
 
+// Lightweight in-process concurrency guard — prevents two overlapping
+// "Senkronize Et" clicks (or an auto-refresh racing a manual sync) for the
+// SAME company+ad account from both hitting the Graph API at once. Not a
+// distributed lock (fine: this route already runs on a single serverless
+// instance per invocation, and the failure mode of a rare missed guard is
+// just a duplicate sync, not data corruption — campaign upserts are
+// idempotent either way).
+const inFlightMetaSyncs = new Set<string>();
+
 function maskToken(value = "") {
   if (!value) return "";
   if (value.length <= 8) return "****";
@@ -682,6 +691,7 @@ export async function POST(request: Request) {
   if (!(await staff())) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
   const body = await request.json().catch(() => ({}));
   const action = body.action || "sync";
+  let syncKey: string | undefined;
   try {
     if (action === "connect") {
       if (!hasSupabaseConfig()) return NextResponse.json({ ok: false, message: "Supabase bağlantısı yapılandırılmadı; bağlantı sadece ekranda taslak olarak tutulabilir." }, { status: 200 });
@@ -741,15 +751,22 @@ export async function POST(request: Request) {
       await updateMappingSyncState(input, "Hata", message);
       return NextResponse.json({ ok: false, message, errorCode: "META_AD_ACCOUNT_MISSING" }, { status: 200 });
     }
+    syncKey = `${input.companyId || "no-company"}:${input.adAccountId}`;
+    if (inFlightMetaSyncs.has(syncKey)) {
+      return NextResponse.json({ ok: false, message: "Bu hesap için senkronizasyon zaten çalışıyor, lütfen bekleyin.", errorCode: "META_SYNC_IN_PROGRESS" }, { status: 200 });
+    }
+    inFlightMetaSyncs.add(syncKey);
     const pulled = await pullMetaData(input, token);
     if (!pulled.ok) {
+      // Exact admin-facing states — never the raw Meta API text; the real
+      // code/subcode/message stay in writeSyncLog's safe diagnostics only.
       const metaMessage = pulled.error?.isTokenExpired
-        ? "Token geçersiz."
+        ? "Meta bağlantısını yeniden yetkilendirin"
         : pulled.error?.isPermissionError
-          ? "Yetki eksik."
+          ? "Meta reklam verisi için gerekli izin eksik"
           : pulled.error?.isRateLimit
-            ? "Meta API istek sınırına takıldı."
-            : pulled.errorMessage || "API hatası.";
+            ? "Meta verisi şu anda alınamıyor"
+            : "Senkronizasyon tamamlanamadı";
       await writeSyncLog(input, "Hata", metaMessage, { errorCode: pulled.error?.errorCode, detail: pulled.errorMessage });
       await updateMappingSyncState(input, "Hata", metaMessage);
       return NextResponse.json({ ...pulled, message: metaMessage, errorMessage: metaMessage }, { status: 200 });
@@ -763,17 +780,32 @@ export async function POST(request: Request) {
       advancedSaved = await saveAdvancedMetaData(input, advanced);
     } catch (error) {
       const safe = getSafeSupabaseError(error);
-      const schemaMessage = safe.detail.includes("schema cache") || safe.detail.includes("column") || safe.detail.includes("relation")
+      const schemaDetail = safe.detail.includes("schema cache") || safe.detail.includes("column") || safe.detail.includes("relation")
         ? "Veritabanı şema hatası: campaign_metrics alanları eksik. Migration uygulanmalı."
         : safe.title;
-      await writeSyncLog(input, "Hata", schemaMessage, { detail: safe.detail });
+      const schemaMessage = "Senkronizasyon tamamlanamadı";
+      await writeSyncLog(input, "Hata", schemaMessage, { detail: schemaDetail });
       await updateMappingSyncState(input, "Hata", schemaMessage);
-      return NextResponse.json({ ok: false, message: schemaMessage, detail: safe.detail, errorCode: "META_SYNC_SCHEMA_ERROR" }, { status: 200 });
+      return NextResponse.json({ ok: false, message: schemaMessage, detail: schemaDetail, errorCode: "META_SYNC_SCHEMA_ERROR" }, { status: 200 });
     }
     const report = action === "report" || body.createReport ? await saveReportFromMeta(input, pulled) : null;
     const allWarnings = [...(pulled.warnings || []), ...(advancedSaved.warnings || [])];
     const hasAdvancedWarnings = Boolean(allWarnings.length);
-    const successMessage = action === "report" ? "Meta verilerinden rapor oluşturuldu." : hasAdvancedWarnings ? "Meta verileri çekildi; bazı ileri seviye veri gruplarında uyarı var." : "Meta verileri başarıyla çekildi.";
+    const campaignCount = pulled.campaigns?.length || 0;
+    const adsetCount = advancedSaved.adsets?.length || 0;
+    const adCount = advancedSaved.ads?.length || 0;
+    // Task 4.2 sync-result feedback — concise counts, partial-failure
+    // breakdown never fails the whole sync (optional creative/adset/ad
+    // metadata failures only show up as a warning line here).
+    const successMessage = action === "report"
+      ? "Meta verilerinden rapor oluşturuldu."
+      : !campaignCount
+        ? "Kampanya bulunamadı"
+        : !pulled.rows?.length
+          ? "Bu tarih aralığında performans verisi yok"
+          : hasAdvancedWarnings
+            ? `Meta senkronizasyonu kısmen tamamlandı\n- kampanyalar: başarılı (${campaignCount})\n- reklam setleri: ${adsetCount ? `başarılı (${adsetCount})` : "alınamadı"}\n- reklamlar: ${adCount ? `başarılı (${adCount})` : "alınamadı"}\n- uyarılar: ${allWarnings.join("; ")}`
+            : `Meta senkronizasyonu tamamlandı\n- ${campaignCount} kampanya\n- ${adsetCount} reklam seti\n- ${adCount} reklam\n- performans verileri güncellendi`;
     const mappingRow = await updateMappingSyncState(input, hasAdvancedWarnings ? "Uyarı" : "Başarılı", successMessage);
     await writeSyncLog(input, hasAdvancedWarnings ? "Uyarı" : "Başarılı", successMessage, {
       source: "advanced_sync",
@@ -807,5 +839,7 @@ export async function POST(request: Request) {
   } catch (error) {
     const safe = getSafeSupabaseError(error);
     return NextResponse.json({ ok: false, message: safe.title, detail: safe.detail }, { status: 200 });
+  } finally {
+    if (syncKey) inFlightMetaSyncs.delete(syncKey);
   }
 }

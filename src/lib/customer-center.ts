@@ -100,11 +100,43 @@ export async function getCustomerCenterData(companyId?: string, branchId?: strin
     const visibleReportIds = new Set(visibleReports.map((report) => report.id).filter(Boolean));
     const visibleInterpretations = interpretations.filter((interpretation) => interpretation.report_id && visibleReportIds.has(interpretation.report_id));
 
+    // Customer-safe campaign summary (Reklam Kampanyaları): match each
+    // visible campaign to its own campaign_metrics rows (by meta_campaign_id
+    // first — campaign_metrics.campaign_id is only set for a subset of
+    // manual-entry syncs — falling back to campaign_id) BEFORE stripping
+    // internal/technical fields, so the customer-facing object never
+    // carries meta_campaign_id/external_id/settings (raw Graph API
+    // payload)/internal_notes/raw_data at all, not just "doesn't render"
+    // them.
+    const visibleCampaignsRaw = campaigns.filter((item) => item.visible_to_customer !== false && !item.archived_at && !item.deleted_at && item.status !== "Arşivlendi");
+    const visibleMetricsRaw = metrics.filter((item) => item.visible_to_customer !== false);
+    const metricsForCampaign = (campaign: any) => visibleMetricsRaw.filter((item) =>
+      (campaign.meta_campaign_id && item.meta_campaign_id === campaign.meta_campaign_id) || (campaign.id && item.campaign_id === campaign.id));
+    const sumField = (rows: any[], keys: string[]) => rows.reduce((sum, row) => sum + keys.reduce((v, key) => v || Number(row[key] || 0), 0), 0);
+    const safeCampaigns = visibleCampaignsRaw.map((campaign) => {
+      const rows = metricsForCampaign(campaign);
+      const { internal_notes: _internalNotes, meta_campaign_id: _metaCampaignId, external_id: _externalId, settings: _settings, ...safeCampaign } = campaign;
+      return {
+        ...safeCampaign,
+        performanceSummary: rows.length ? {
+          spend: Number(sumField(rows, ["spend", "spent"]).toFixed(2)),
+          reach: sumField(rows, ["reach"]),
+          impressions: sumField(rows, ["impressions"]),
+          results: sumField(rows, ["results", "leads"]),
+          messages: sumField(rows, ["messages"]),
+          ctr: Number((sumField(rows, ["ctr"]) / rows.length).toFixed(2)),
+          cpc: Number((sumField(rows, ["cpc"]) / rows.length).toFixed(2)),
+          cpm: Number((sumField(rows, ["cpm"]) / rows.length).toFixed(2))
+        } : null
+      };
+    });
+    const safeMetrics = visibleMetricsRaw.map(({ raw_data: _rawData, meta_campaign_id: _metaCampaignId2, ...safeMetric }) => safeMetric);
+
     return {
       company: companies[0] || null,
       visibility: visibilityRows[0] || defaultVisibility,
-      campaigns: campaigns.filter((item) => item.visible_to_customer !== false && !item.archived_at && !item.deleted_at && item.status !== "Arşivlendi"),
-      metrics: metrics.filter((item) => item.visible_to_customer !== false),
+      campaigns: safeCampaigns,
+      metrics: safeMetrics,
       customerReportVisibility: reportVisibility,
       metaAdsetMetrics: metaAdsets,
       metaAdMetrics: metaAds,
