@@ -10,6 +10,7 @@
 // platform-level credential configured" check is honest; claiming full
 // spend/CTR/CPC/ROAS reads here would not be.
 import { supabaseRest } from "@/lib/supabase";
+import { decryptSecret } from "@/lib/business-flow";
 
 export type AdAccountStatus = {
   companyId: string;
@@ -59,6 +60,65 @@ export async function getMetaAdsAccount(companyId: string): Promise<AdAccountSta
     platformConfigured,
     status: !platformConfigured ? "PLATFORM_NOT_CONFIGURED" : accountId ? "CONNECTED" : "ACCOUNT_NOT_MAPPED",
     note: "Yalnızca hesap eşleşme durumu — gerçek zamanlı kampanya/harcama verisi bu araçla okunmuyor; mevcut Reklam Operasyon Merkezi (/hk-admin) kullanılmalı."
+  };
+}
+
+export type ResolvedMetaAdAccount = {
+  companyId: string;
+  /** Normalized without the "act_" prefix, ready to interpolate into
+   * `act_${accountId}` for any Graph API ad-account-scoped call. */
+  accountId: string | null;
+  /** The real, decrypted, customer-specific access token obtained through
+   * HK Connect's OAuth flow (customer_integrations.access_token_encrypted)
+   * — never a shared/global token when a customer-specific one exists. */
+  accessToken: string | null;
+  source: "hk_connect" | "legacy_column" | "none";
+};
+
+/** THE canonical Meta ad-account+token resolver for real campaign/insight
+ * synchronization (not just the "is something mapped" status check above).
+ * Real production bug: the Meta sync engine (/api/admin/meta-ads POST)
+ * resolved its ad account and access token from the separate legacy
+ * `ad_integrations` table only — populated exclusively by the old manual
+ * "Meta Ad Account ID" form in AdminDashboard. A customer connected the
+ * current, real way (HK Connect OAuth → customer_integrations,
+ * integration_assets) was never found by that lookup, so every sync
+ * attempt silently had no account/token to use at all — exactly the "0
+ * kampanya · Veri alınamadı" symptom for a customer who is, in HK
+ * Connect's own eyes, fully connected. This resolves from
+ * customer_integrations FIRST (HK Connect's selected asset, then the
+ * legacy meta_ad_account_id column on that same row, both paired with
+ * that row's own real OAuth access_token_encrypted) and returns null only
+ * if genuinely nothing is connected there — callers keep falling back to
+ * `ad_integrations` themselves for true legacy customers. */
+export async function resolveMetaAdAccount(companyId: string): Promise<ResolvedMetaAdAccount> {
+  if (!companyId) return { companyId, accountId: null, accessToken: null, source: "none" };
+  const rows = await supabaseRest<Array<{ meta_ad_account_id: string | null; integration_assets: unknown; access_token_encrypted: string | null }>>(
+    `customer_integrations?company_id=eq.${encodeURIComponent(companyId)}&select=meta_ad_account_id,integration_assets,access_token_encrypted&limit=1`
+  );
+  const row = rows[0];
+  const oauthAsset = connectedMetaAdAccountAsset(row?.integration_assets);
+  const rawAccountId = oauthAsset?.account_id || oauthAsset?.asset_id || row?.meta_ad_account_id || null;
+  if (!rawAccountId) return { companyId, accountId: null, accessToken: null, source: "none" };
+  // decryptSecret throws (AES-GCM auth-tag mismatch) if the row was ever
+  // encrypted under a different INTEGRATION_TOKEN_SECRET/SUPABASE_SERVICE_ROLE_KEY
+  // than this process currently has (e.g. a rotated secret, or a stale row
+  // from before one was rotated) — never let that crash account
+  // resolution; callers already fall back to a legacy/global token when
+  // accessToken is null here.
+  let accessToken: string | null = null;
+  if (row?.access_token_encrypted) {
+    try {
+      accessToken = decryptSecret(row.access_token_encrypted) || null;
+    } catch {
+      accessToken = null;
+    }
+  }
+  return {
+    companyId,
+    accountId: String(rawAccountId).replace(/^act_/, ""),
+    accessToken,
+    source: oauthAsset ? "hk_connect" : "legacy_column"
   };
 }
 

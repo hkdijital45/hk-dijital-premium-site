@@ -270,6 +270,37 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
   const gtmId = valueFor(["gtm_container_id", "gtm_id"]);
   const websiteUrl = firstValue(websiteAccount?.accountId, valueFor(["website_url", "website", "domain"]));
 
+  const [metaSyncing, setMetaSyncing] = useState(false);
+  const [metaSyncMessage, setMetaSyncMessage] = useState("");
+
+  // "Senkronize Et" previously only re-read customer_integrations (account
+  // matching), never a real Meta campaign/insight sync — exactly why this
+  // screen could show "0 kampanya · Veri alınamadı" even for a correctly
+  // HK-Connect-connected account: nothing had ever populated
+  // campaigns/campaign_metrics for it. This now calls the real sync
+  // (/api/admin/meta-ads, action: sync) with the selected customer + Meta
+  // ad account, then reloads so the refreshed campaigns/metrics render.
+  async function runMetaSync() {
+    if (!customerId || !metaAdAccountId) return;
+    setMetaSyncing(true);
+    setMetaSyncMessage("");
+    try {
+      const rangePreset = period === "Bugün" ? "today" : period === "Son 7 Gün" ? "last_7d" : "last_30d";
+      const response = await fetch("/api/admin/meta-ads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "sync", companyId: customerId, adAccountId: metaAdAccountId, rangePreset })
+      });
+      const payload = await response.json().catch(() => ({}));
+      setMetaSyncMessage(payload.message || (payload.ok ? "Senkronizasyon tamamlandı." : "Senkronizasyon başarısız oldu."));
+      if (payload.ok) window.location.reload();
+    } catch (error) {
+      setMetaSyncMessage(error instanceof Error ? error.message : "Senkronizasyon başarısız oldu.");
+    } finally {
+      setMetaSyncing(false);
+    }
+  }
+
   const loadCustomerIntegrations = useCallback(async () => {
     if (!customerId) return;
     setIntegrationsLoading(true);
@@ -433,7 +464,19 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
     ["Son API hatası", integrationError || "Yok"],
     ["Son yenileme", integrationsRefreshedAt ? new Date(integrationsRefreshedAt).toLocaleString("tr-TR") : "Henüz yok"]
   ];
-  const dataSourceLabel = !customerId ? "Müşteri seçilmedi" : !accountOptions.length ? "Entegrasyon bağlı değil" : !metrics.length ? "Veri alınamadı" : "Son senkronize veri";
+  // "Veri alınamadı" used to show whenever there were no metric rows,
+  // even when the real reason was simply "no campaigns exist/synced yet"
+  // (a normal, non-error state) rather than an actual sync/permission
+  // failure — distinguish them so staff don't chase a fake error.
+  const dataSourceLabel = !customerId
+    ? "Müşteri seçilmedi"
+    : !accountOptions.length
+      ? "Entegrasyon bağlı değil"
+      : !campaigns.length
+        ? "Kampanya bulunamadı"
+        : !metrics.length
+          ? "Veri alınamadı"
+          : "Son senkronize veri";
   const filteredCampaigns = campaigns
     .filter((item: any) => !campaignStatusFilter || (item.status || "Planlandı") === campaignStatusFilter)
     .filter((item: any) => !campaignSearch.trim() || `${item.name || ""}`.toLocaleLowerCase("tr").includes(campaignSearch.trim().toLocaleLowerCase("tr")));
@@ -517,8 +560,16 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
         />
       }
       bottomBar={
-        <AdminActionBar statusText={`${filteredCampaigns.length} kampanya · ${dataSourceLabel}`}>
-          <AdminButton compact variant="secondary" disabled={integrationsLoading} onClick={loadCustomerIntegrations}>{integrationsLoading ? "Yenileniyor..." : "Senkronize Et"}</AdminButton>
+        <AdminActionBar statusText={`${filteredCampaigns.length} kampanya · ${dataSourceLabel}${metaSyncMessage ? ` · ${metaSyncMessage}` : ""}`}>
+          <AdminButton
+            compact
+            variant="secondary"
+            disabled={integrationsLoading || metaSyncing || !metaAdAccountId}
+            onClick={metaAdAccountId ? runMetaSync : loadCustomerIntegrations}
+            title={!metaAdAccountId ? "Senkronize etmek için önce bu müşteriye bağlı bir Meta reklam hesabı seçin." : undefined}
+          >
+            {metaSyncing ? "Senkronize ediliyor..." : integrationsLoading ? "Yenileniyor..." : "Senkronize Et"}
+          </AdminButton>
           <AdminButton compact variant="info" onClick={() => window.location.assign(integrationHref)}>Entegrasyonu Aç</AdminButton>
         </AdminActionBar>
       }

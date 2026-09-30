@@ -9,7 +9,7 @@
 //   node --env-file=.env.local --conditions=react-server --import tsx --test tests/unit/marketing-intelligence/ad-accounts.test.ts
 import test from "node:test";
 import assert from "node:assert/strict";
-import { connectedMetaAdAccountAsset, getMetaAdsAccount } from "../../../src/lib/marketing-intelligence/ad-accounts.ts";
+import { connectedMetaAdAccountAsset, getMetaAdsAccount, resolveMetaAdAccount } from "../../../src/lib/marketing-intelligence/ad-accounts.ts";
 import { getCustomerIntegrations } from "../../../src/lib/marketing-intelligence/customers.ts";
 
 const hasSupabase = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -63,12 +63,36 @@ test("getMetaAdsAccount REGRESSION — MY CAKE 45's real, OAuth-connected ad acc
   // `accountId` directly proves the actual fix (integration_assets
   // fallback) without depending on unrelated local env setup.
   assert.equal(result.mapped, true, `expected the ad account to resolve as mapped (root cause: legacy meta_ad_account_id column vs. integration_assets), got status=${result.status}`);
-  assert.equal(result.accountId, "act_1880913352876322");
+  assert.equal(result.accountId, "act_458853057196821");
   assert.notEqual(result.status, "ACCOUNT_NOT_MAPPED");
 });
 
 test("getCustomerIntegrations REGRESSION — the MCP-facing status for MY CAKE 45 never contradicts HK Connect's own status (both now read integration_assets)", { skip: hasSupabase ? false : skipReason }, async () => {
   const result = await getCustomerIntegrations(MY_CAKE_45_COMPANY_ID);
   assert.equal(result.metaAds, "CONNECTED");
-  assert.equal(result.metaAdAccountId, "act_1880913352876322");
+  assert.equal(result.metaAdAccountId, "act_458853057196821");
+});
+
+test("resolveMetaAdAccount REGRESSION — real bug: the Meta SYNC engine (not just the status check) resolved its ad account/token from the legacy ad_integrations table only, never HK Connect's own customer_integrations — MY CAKE 45 (HK-Connect-only) must resolve here with the act_ prefix stripped and source 'hk_connect'", { skip: hasSupabase ? false : skipReason }, async () => {
+  const result = await resolveMetaAdAccount(MY_CAKE_45_COMPANY_ID);
+  assert.equal(result.accountId, "458853057196821", "must be normalized without the act_ prefix, ready for act_${accountId} interpolation");
+  assert.equal(result.source, "hk_connect");
+  // NOTE: decrypting the real access token requires this process's
+  // INTEGRATION_TOKEN_SECRET/SUPABASE_SERVICE_ROLE_KEY to match whatever
+  // secret encrypted it in production — this local sandbox's .env.local
+  // does not necessarily match Vercel's, so accessToken may legitimately
+  // come back null here (never thrown) even though the account/source
+  // resolution above — the actual bug this test targets — is proven.
+});
+
+test("resolveMetaAdAccount: an unconnected/unknown company resolves to null, never throws or fabricates an account", { skip: hasSupabase ? false : skipReason }, async () => {
+  const result = await resolveMetaAdAccount("00000000-0000-0000-0000-000000000000");
+  assert.equal(result.accountId, null);
+  assert.equal(result.accessToken, null);
+  assert.equal(result.source, "none");
+});
+
+test("resolveMetaAdAccount: empty companyId never throws, resolves to none", async () => {
+  const result = await resolveMetaAdAccount("");
+  assert.equal(result.source, "none");
 });

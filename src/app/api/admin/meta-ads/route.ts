@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { executeAiTask } from "@/lib/server/ai-router";
 import { decryptSecret, getIntegrations, safeIntegrationForClient, upsertIntegration } from "@/lib/business-flow";
 import { classifyMetaError, metaToken, recordMetaError, recordMetaSuccess } from "@/lib/meta-api";
+import { resolveMetaAdAccount } from "@/lib/marketing-intelligence/ad-accounts";
 import { requireModuleAccess } from "@/lib/permissions";
 import { checkOperationalCustomer } from "@/lib/server/customer-visibility";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
@@ -24,6 +25,7 @@ function dateRangeForPreset(preset = "last_30d", from = "", to = ""): any {
     start.setDate(today.getDate() - 365);
     return { since: start.toISOString().slice(0, 10), until: end, label: "Tüm Tarihler", datePreset: "maximum", isAllTime: true };
   }
+  if (preset === "today") return { since: end, until: end, label: "Bugün" };
   if (preset === "last_7d") start.setDate(today.getDate() - 7);
   else if (preset === "this_month") start.setDate(1);
   else if (preset === "last_month") {
@@ -542,10 +544,47 @@ async function saveCampaignLifecycle(input: any, pulled: any) {
   const campaigns = await supabaseRest<any[]>(`campaigns?company_id=eq.${encodeURIComponent(input.companyId)}&select=id,name,meta_campaign_id,external_id,settings`).catch(() => []);
   const updates = pulled.campaigns.map((meta: any) => {
     const local = campaigns.find((campaign) => campaign.meta_campaign_id === meta.id || campaign.external_id === meta.id || campaign.name === meta.name);
-    if (!local?.id) return null;
     const budget = Number(meta.lifetime_budget || meta.daily_budget || 0) / 100;
     const spent = Number((pulled.rows || []).filter((row: any) => row.campaignId === meta.id).reduce((sum: number, row: any) => sum + Number(row.spend || 0), 0));
     const lifecycle = lifecycleStats(meta.start_time, meta.stop_time, spent, budget);
+    // A brand-new Meta campaign the agency never manually created in
+    // Kampanyalar had no local row to match, so it was silently skipped —
+    // Meta-synced campaigns never appeared there at all. Create it instead
+    // (matched on meta_campaign_id on every later sync, so this insert
+    // only ever happens once per real Meta campaign — idempotent).
+    if (!local?.id) {
+      return supabaseRest("campaigns", {
+        method: "POST",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify({
+          company_id: input.companyId,
+          name: meta.name || "Adsız Meta Kampanyası",
+          platform: "Meta Ads",
+          objective: meta.objective || null,
+          status: meta.effective_status || meta.status || "Aktif",
+          start_date: meta.start_time ? String(meta.start_time).slice(0, 10) : null,
+          end_date: meta.stop_time ? String(meta.stop_time).slice(0, 10) : null,
+          daily_budget: Number(meta.daily_budget || 0) / 100,
+          total_budget: budget,
+          budget,
+          spent_budget: spent,
+          spent,
+          meta_campaign_id: meta.id,
+          external_id: meta.id,
+          source: "Meta",
+          visible_to_customer: false,
+          meta_start_time: meta.start_time || null,
+          meta_stop_time: meta.stop_time || null,
+          meta_created_time: meta.created_time || null,
+          meta_updated_time: meta.updated_time || null,
+          days_running: lifecycle.days_running,
+          days_remaining: lifecycle.days_remaining,
+          budget_consumption_percentage: lifecycle.budget_consumption_percentage,
+          estimated_finish_date: lifecycle.estimated_finish_date,
+          settings: { meta_lifecycle: meta }
+        })
+      }).catch(() => null);
+    }
     return supabaseRest(`campaigns?id=eq.${local.id}`, {
       method: "PATCH",
       body: JSON.stringify({
@@ -663,12 +702,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, integration: safeIntegrationForClient(rows[0]), message: "Meta hesabı güvenli şekilde bağlandı." });
     }
 
-    const { token, integration } = await tokenForIntegration(body.integrationId);
+    const { token: baseToken, integration } = await tokenForIntegration(body.integrationId);
     const requestedCompanyId = body.companyId || integration?.company_id;
     if (requestedCompanyId) {
       const customerCheck = await checkOperationalCustomer(requestedCompanyId);
       if (!customerCheck.ok) return NextResponse.json({ ok: false, message: customerCheck.error }, { status: customerCheck.status });
     }
+    // HK Connect is the canonical source: a customer connected through the
+    // real OAuth flow has its own account + access token on
+    // customer_integrations and was never found by the legacy
+    // ad_integrations-only lookup below — resolve it first, and only fall
+    // back to the legacy integration/global token when nothing is there.
+    const canonicalAccount = requestedCompanyId ? await resolveMetaAdAccount(requestedCompanyId) : null;
+    const token = canonicalAccount?.accessToken || baseToken;
     if (!token) {
       await writeSyncLog(body, "Hata", "Meta access token kayıtlı değil.", { errorCode: "META_TOKEN_MISSING" });
       return NextResponse.json({ ok: false, message: "Meta access token kayıtlı değil.", errorCode: "META_TOKEN_MISSING" }, { status: 200 });
@@ -683,7 +729,7 @@ export async function POST(request: Request) {
     const input = {
       ...body,
       companyId: body.companyId || integration?.company_id || mapping?.company_id,
-      adAccountId: body.adAccountId || mapping?.ad_account_id || mapping?.account_id || integration?.ad_account_id,
+      adAccountId: body.adAccountId || canonicalAccount?.accountId || mapping?.ad_account_id || mapping?.account_id || integration?.ad_account_id,
       businessId: body.businessId || mapping?.business_id || mapping?.business_account_id || integration?.business_id || integration?.business_account_id,
       pageId: body.pageId || mapping?.page_id || integration?.page_id,
       instagramAccountId: body.instagramAccountId || mapping?.instagram_account_id || integration?.instagram_account_id,
