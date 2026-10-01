@@ -10,7 +10,8 @@ import {
 } from "./types";
 
 type CompanyRow = { id: string; name: string; sector: string | null; city: string | null; website: string | null; lifecycle_stage: string | null };
-type LeadRow = { id: string; company: string | null; name: string | null; sector: string | null; business_type: string | null; city: string | null; district: string | null; website: string | null; phone: string | null; instagram: string | null; status: string | null; company_id: string | null };
+type LeadRow = { id: string; company: string | null; name: string | null; sector: string | null; business_type: string | null; city: string | null; district: string | null; website: string | null; phone: string | null; instagram: string | null; status: string | null; company_id: string | null; source: string | null; source_detail: string | null };
+type PreparationRow = { social_observations: string; business_notes: string; advertising_status: string; potential_reason: string; focus_notes: string; competitor_reference: string; status: string };
 
 export type PreAuditCompanyContext = {
   status: "resolved";
@@ -19,6 +20,17 @@ export type PreAuditCompanyContext = {
   integrations?: unknown;
   preAuditCount: number;
   latestPreAudit: { reportDate: string; title: string } | null;
+  // Lead-scoped calls only (entity: "lead") — never present for a
+  // company-scoped call, so getPreAuditCompanyContext's existing
+  // response shape/callers are completely unaffected by this.
+  lead?: { instagram: string | null; phone: string | null; district: string | null; source: string | null; sourceDetail: string | null };
+  // Ön İncelemeye Hazırla's admin-entered prep notes (lead_pre_audit_preparations)
+  // — null when no preparation row exists yet for this lead, never another
+  // lead's data.
+  preparation?: {
+    status: string; socialObservations: string; businessNotes: string;
+    advertisingStatus: string; potentialReason: string; focusNotes: string; competitorReference: string;
+  } | null;
 } | { status: "ambiguous"; candidates: Array<{ id: string; name: string }> } | { status: "not_found" };
 
 /** Lead-scoped equivalent of getPreAuditCompanyContext — used for a
@@ -27,15 +39,25 @@ export type PreAuditCompanyContext = {
  * search), so no ambiguity branch is needed here. */
 export async function getPreAuditLeadContext(leadId: string): Promise<PreAuditCompanyContext> {
   const leads = await supabaseRest<LeadRow[]>(
-    `leads?select=id,company,name,sector,business_type,city,district,website,phone,instagram,status,company_id&id=eq.${encodeURIComponent(leadId)}&deleted_at=is.null&limit=1`
+    `leads?select=id,company,name,sector,business_type,city,district,website,phone,instagram,status,company_id,source,source_detail&id=eq.${encodeURIComponent(leadId)}&deleted_at=is.null&limit=1`
   );
   const lead = leads[0];
   if (!lead) return { status: "not_found" };
 
-  const priorReports = await supabaseRest<Array<{ report_date: string; title: string; analysis_group_id: string }>>(
-    `${PRE_AUDIT_TABLE}?select=report_date,title,analysis_group_id&lead_id=eq.${lead.id}&order=report_date.desc,created_at.desc&limit=50`
-  );
+  const [priorReports, preparationRows] = await Promise.all([
+    supabaseRest<Array<{ report_date: string; title: string; analysis_group_id: string }>>(
+      `${PRE_AUDIT_TABLE}?select=report_date,title,analysis_group_id&lead_id=eq.${lead.id}&order=report_date.desc,created_at.desc&limit=50`
+    ),
+    // Ön İncelemeye Hazırla's own prep notes for this exact lead — never
+    // another lead's row (lead_id is the only filter, and it is always
+    // the id just verified against leads above). Missing row -> null,
+    // never a fabricated empty-but-present object.
+    supabaseRest<PreparationRow[]>(
+      `lead_pre_audit_preparations?select=social_observations,business_notes,advertising_status,potential_reason,focus_notes,competitor_reference,status&lead_id=eq.${encodeURIComponent(lead.id)}&limit=1`
+    ).catch(() => [])
+  ]);
   const distinctGroups = new Set(priorReports.map((r) => r.analysis_group_id));
+  const prep = preparationRows[0];
 
   return {
     status: "resolved",
@@ -49,7 +71,23 @@ export async function getPreAuditLeadContext(leadId: string): Promise<PreAuditCo
       leadOrCustomerStatus: lead.company_id ? "Müşteriye dönüştürüldü" : (lead.status || "Bilinmiyor")
     },
     preAuditCount: distinctGroups.size,
-    latestPreAudit: priorReports[0] ? { reportDate: priorReports[0].report_date, title: priorReports[0].title } : null
+    latestPreAudit: priorReports[0] ? { reportDate: priorReports[0].report_date, title: priorReports[0].title } : null,
+    lead: {
+      instagram: lead.instagram || null,
+      phone: lead.phone || null,
+      district: lead.district || null,
+      source: lead.source || null,
+      sourceDetail: lead.source_detail || null
+    },
+    preparation: prep ? {
+      status: prep.status,
+      socialObservations: prep.social_observations || "",
+      businessNotes: prep.business_notes || "",
+      advertisingStatus: prep.advertising_status,
+      potentialReason: prep.potential_reason || "",
+      focusNotes: prep.focus_notes || "",
+      competitorReference: prep.competitor_reference || ""
+    } : null
   };
 }
 

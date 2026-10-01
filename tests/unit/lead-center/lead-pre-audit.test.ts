@@ -91,6 +91,56 @@ test("checkLeadDuplicate: genuinely distinct businesses never match", { skip: ha
   assert.deepEqual(result.possibleMatches, []);
 });
 
+// --- get_pre_audit_context MCP regression: lead instagram + preparation notes ---
+
+test("get_pre_audit_context REGRESSION — a lead's instagram/phone/district/source and its Ön İncelemeye Hazırla preparation notes are all included in the MCP context, not silently dropped", { skip: hasSupabase ? false : skipReason }, async () => {
+  const { execute } = await import("../../../src/lib/instagram-intelligence/mcp/protocol.ts");
+  const { savePreparation } = await import("../../../src/lib/lead-pre-audit-preparation.ts");
+  const leadId = await makeFixtureLead("McpContext", {
+    instagram: "https://www.instagram.com/testgurme", phone: "05551112233", district: "Yunusemre",
+    source_detail: "Instagram", sector: "Şarküteri"
+  });
+  try {
+    await savePreparation(leadId, {
+      social_observations: "test sosyal gözlem", business_notes: "test işletme notu",
+      advertising_status: "no", potential_reason: "yeni işletme", status: "ready"
+    });
+
+    const context: any = await execute("get_pre_audit_context", { leadId });
+    assert.equal(context.status, "resolved");
+    assert.equal(context.lead.instagram, "https://www.instagram.com/testgurme", "instagram must never be dropped from the MCP context");
+    assert.equal(context.lead.phone, "05551112233");
+    assert.equal(context.lead.district, "Yunusemre");
+    assert.equal(context.lead.sourceDetail, "Instagram");
+    assert.ok(context.preparation, "preparation must be present when a prep row exists");
+    assert.equal(context.preparation.socialObservations, "test sosyal gözlem");
+    assert.equal(context.preparation.businessNotes, "test işletme notu");
+    assert.equal(context.preparation.advertisingStatus, "no");
+    assert.equal(context.preparation.potentialReason, "yeni işletme");
+    assert.equal(context.preparation.status, "ready");
+  } finally {
+    await cleanupLead(leadId);
+  }
+});
+
+test("get_pre_audit_context REGRESSION — a lead with no preparation row yet returns preparation: null, never a fabricated empty object; cross-lead isolation holds", { skip: hasSupabase ? false : skipReason }, async () => {
+  const { execute } = await import("../../../src/lib/instagram-intelligence/mcp/protocol.ts");
+  const { savePreparation } = await import("../../../src/lib/lead-pre-audit-preparation.ts");
+  const leadA = await makeFixtureLead("IsolationA", { instagram: "https://www.instagram.com/leada_secret" });
+  const leadB = await makeFixtureLead("IsolationB");
+  try {
+    await savePreparation(leadA, { social_observations: "Lead A'ya özel gizli not", status: "ready" });
+
+    const contextB: any = await execute("get_pre_audit_context", { leadId: leadB });
+    assert.equal(contextB.preparation, null, "a lead with no preparation row must return null, not a fabricated object");
+    assert.equal(JSON.stringify(contextB).includes("Lead A"), false, "lead B's context must never contain lead A's data");
+    assert.equal(JSON.stringify(contextB).includes("leada_secret"), false);
+  } finally {
+    await cleanupLead(leadA);
+    await cleanupLead(leadB);
+  }
+});
+
 // --- lead_pre_audit_preparations (live, requires migration) ---
 
 test("getOrCreatePreparation / savePreparation: lazy-creates a 1:1 row, persists edits, rejects invalid enum values (requires lead_pre_audit_preparations migration)", { skip: hasSupabase ? false : skipReason }, async () => {
