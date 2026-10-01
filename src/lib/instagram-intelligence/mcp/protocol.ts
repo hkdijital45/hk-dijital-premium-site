@@ -27,6 +27,7 @@ export { ControlError, authenticate, success, failure, sanitize };
 const limit: Tool["inputSchema"]["properties"][string] = { type: "integer", minimum: 1, maximum: 100 };
 const plan: Tool["inputSchema"]["properties"][string] = { type: "array" };
 const companyId: Tool["inputSchema"]["properties"][string] = { type: "string", format: "uuid" };
+const campaignId: Tool["inputSchema"]["properties"][string] = { type: "string", format: "uuid" };
 const strategyId: Tool["inputSchema"]["properties"][string] = { type: "string", format: "uuid" };
 const reportId: Tool["inputSchema"]["properties"][string] = { type: "string", format: "uuid" };
 const text: Tool["inputSchema"]["properties"][string] = { type: "string" };
@@ -114,6 +115,43 @@ export const tools: Tool[] = [
   // OWN account, content strategy) and from pre-audit (pre-sale research
   // for a lead) — this is post-sale, customer-specific profile-quality
   // consulting, stored in its own instagram_profile_audits table. ---
+  // --- Reklam Değerlendirme: evaluates an ALREADY-RUNNING Meta Ads
+  // campaign's real performance against its approved ad_strategies record
+  // — never a new strategy. Direct Claude-Project-to-HK-Dijital save (no
+  // Anthropic/OpenAI/paid-AI API involved, no new table beyond the
+  // existing ad_evaluations, no new report renderer): Claude reads real
+  // context via get_ad_evaluation_context, evaluates, and on explicit user
+  // instruction ("sisteme kaydet") calls save_ad_evaluation, which persists
+  // ONE row with both internal_report and client_report and generates all
+  // four report files synchronously before returning. ---
+  {
+    name: "get_ad_evaluation_context",
+    description: "Bir müşterinin GERÇEK kampanya performansını değerlendirmeye yetecek TEK, kompakt bağlam: şirket (id, isim, sector), eşleşen yerel kampanya (id, meta_campaign_id, isim, objective, status, başlangıç tarihi, kampanya yaşı saat, günlük/lifetime bütçe), zaten senkronize edilmiş gerçek Meta metrikleri (harcama, erişim, gösterim, frekans, CPM/CTR/CPC, sonuç, mesaj, sonuç başı maliyet — reklam seti ve reklam/kreatif kırılımıyla), GÜNCEL onaylı/aktif Reklam Stratejisi (varsa), en son Kreatif Rapor (varsa) ve en fazla son 3 önceki değerlendirme. campaignId (yerel kampanya id) veya metaCampaignId'den biri verilirse ona göre eşleştirir; hiçbiri verilmezse kampanya alanı null döner (yine de şirket/strateji bilgisi döner). rangePreset ('today'|'last_7d'|'last_30d', varsayılan son 30 gün) zaten senkronize edilmiş veriyi filtreler — bu tool Meta Graph API'ye KENDİSİ ASLA çağrı yapmaz (güncel veri gerekiyorsa önce HK Admin'deki Meta senkronizasyonu çalıştırılmalı). Eksik/olmayan veri ASLA sahte sıfır olarak dönmez — ilgili alan null olur. Read-only, hiçbir reklam hesabında değişiklik yapmaz.",
+    permission: "READ_ONLY",
+    inputSchema: { type: "object", properties: { companyId, campaignId, metaCampaignId: text, rangePreset: text }, required: ["companyId"], additionalProperties: false }
+  },
+  {
+    name: "save_ad_evaluation",
+    description: "Claude Project'in get_ad_evaluation_context ile aldığı gerçek veriye dayanarak ürettiği değerlendirmeyi HK Dijital'e TEK bir ad_evaluations satırı olarak kaydeder — internal_report VE client_report AYNI satıra birlikte yazılır, asla iki ayrı kayıt oluşturulmaz. Kaydettikten hemen sonra sunucu tarafında otomatik olarak 4 rapor dosyası üretilir ve private storage'a kaydedilir: Dahili PDF, Dahili Word, Müşteri PDF, Müşteri Word (zaten üretilmiş bir dosya varsa yeniden üretilmez, aynen korunur). Kayıt + dosya üretimi tamamlanmadan ve geri okuyarak doğrulanmadan başarı dönmez. ZORUNLU: companyId, en az biri dolu olacak şekilde internalReport ve/veya clientReport (ikisi de boşsa reddedilir). Önerilir: campaignId veya metaCampaignId, metricsSnapshot (get_ad_evaluation_context'ten aynen aktarılabilir), strategyId, creativeStrategyId, evaluationPeriodStart/evaluationPeriodEnd (YYYY-MM-DD), campaignAgeHours, decision (OBSERVE|CONTINUE|NO_CHANGE|MONITOR|CREATIVE_TEST|CREATIVE_CHANGE|AUDIENCE_TEST|BUDGET_OPTIMIZATION|ADSET_OPTIMIZATION|REMARKETING|TECHNICAL_ISSUE|SALES_PROCESS_REVIEW|INSUFFICIENT_DATA), nextReviewAt (YYYY-MM-DD), nextReviewNote. internalReport/clientReport şekli: { executiveSummary?: string, sections?: [{title, content}] } — content yapılandırılmış madde/tablo metni olmalı, uzun kompozisyon düzyazısı değil. claudeRawResponse opsiyoneldir (Claude'un ham/structured analiz metni — geriye dönük inceleme için saklanır); verilmezse internalReport/clientReport'tan otomatik özetlenir. KULLANICI AÇIKÇA 'sisteme kaydet' / 'HK Dijital'e kaydet' / 'raporu kaydet' / 'değerlendirmeyi kaydet' DEMEDEN ÇAĞIRMA — analiz göstermek tek başına kayıt talimatı değildir. Hiçbir reklam hesabında/kampanyasında/bütçesinde değişiklik yapmaz.",
+    permission: "WRITE_SAFE",
+    inputSchema: {
+      type: "object",
+      properties: {
+        companyId, campaignId, metaCampaignId: text, adAccountId: text, strategyId, creativeStrategyId: reportId,
+        evaluationPeriodStart: dateField, evaluationPeriodEnd: dateField, campaignAgeHours: { type: "integer", minimum: 0, maximum: 100000 },
+        metricsSnapshot: obj, promptText: text, claudeRawResponse: text, internalReport: obj, clientReport: obj,
+        decision: text, nextReviewAt: dateField, nextReviewNote: text
+      },
+      required: ["companyId"],
+      additionalProperties: false
+    }
+  },
+  {
+    name: "get_latest_ad_evaluation",
+    description: "Bir müşterinin (ve isteğe bağlı olarak belirli bir kampanyanın) en son kaydedilmiş Reklam Değerlendirmesini kompakt biçimde döner: id, tarih, dönem, karar, sonraki kontrol tarihi/notu, internal/client raporun özet (executiveSummary + bölüm başlıkları — tam içerik değil), dört rapor dosyasının var/yok durumu, ve metrik anlık görüntüsünün özeti (harcama, sonuç, sonuç başı maliyet). Hiç kayıt yoksa NOT_FOUND döner (asla sahte/boş bir değerlendirme uydurmaz). Private storage imzalı URL'lerini döndürmez — dosyaları indirmek için mevcut HK Admin Reklam Değerlendirme ekranı kullanılmalıdır. Read-only.",
+    permission: "READ_ONLY",
+    inputSchema: { type: "object", properties: { companyId, campaignId }, required: ["companyId"], additionalProperties: false }
+  },
   {
     name: "get_instagram_profile_audit_context",
     description: "Get the real context needed to start an Instagram profile optimization review for a verified HK Dijital customer: company identity (name/sector/city/website), the customer's real connected Instagram username (from HK Connect OAuth if connected, else the company's manually-entered Instagram field) and real connection status, and the company's last saved profile audit (if any) for before/after comparison. Never fabricates Instagram data this app has no real access to (e.g. highlight covers, post grid visuals, photo quality) — if the connection isn't OAuth-connected, ask the user for it or for a screenshot. Read-only.",
@@ -521,6 +559,115 @@ export async function execute(name: string, args: Record<string, unknown>): Prom
         return result || { status: "not_found" };
       } catch (error) {
         throw (await toKnownControlError(error)) ?? error;
+      }
+    }
+
+    case "get_ad_evaluation_context": {
+      const { getAdEvaluationContext, AdEvaluationCompanyNotFoundError } = await import("@/lib/marketing-intelligence/ad-evaluations");
+      try {
+        return await getAdEvaluationContext(String(args.companyId || ""), {
+          campaignId: typeof args.campaignId === "string" ? args.campaignId : undefined,
+          metaCampaignId: typeof args.metaCampaignId === "string" ? args.metaCampaignId : undefined,
+          rangePreset: typeof args.rangePreset === "string" ? args.rangePreset : undefined
+        });
+      } catch (error) {
+        if (error instanceof AdEvaluationCompanyNotFoundError) throw new ControlError("NOT_FOUND", error.message, 404);
+        throw error;
+      }
+    }
+    case "save_ad_evaluation": {
+      const {
+        createAdEvaluationDraft, saveParsedEvaluation, getAdEvaluationById,
+        AdEvaluationValidationError, AdEvaluationCompanyNotFoundError, AdEvaluationNotFoundError
+      } = await import("@/lib/marketing-intelligence/ad-evaluations");
+      const { generateAllAdEvaluationReports, reportFileStatus } = await import("@/lib/marketing-intelligence/ad-evaluation-reports");
+      try {
+        const companyId = String(args.companyId || "");
+        const internalReport = (args.internalReport && typeof args.internalReport === "object") ? args.internalReport as Record<string, unknown> : {};
+        const clientReport = (args.clientReport && typeof args.clientReport === "object") ? args.clientReport as Record<string, unknown> : {};
+        const hasInternal = Boolean(internalReport.executiveSummary || (Array.isArray(internalReport.sections) && internalReport.sections.length));
+        const hasClient = Boolean(clientReport.executiveSummary || (Array.isArray(clientReport.sections) && clientReport.sections.length));
+        if (!hasInternal && !hasClient) throw new ControlError("INVALID_ARGUMENTS", "internalReport veya clientReport'tan en az biri dolu olmalıdır.", 400);
+
+        const draft = await createAdEvaluationDraft({
+          companyId,
+          campaignId: typeof args.campaignId === "string" ? args.campaignId : undefined,
+          metaCampaignId: typeof args.metaCampaignId === "string" ? args.metaCampaignId : undefined,
+          adAccountId: typeof args.adAccountId === "string" ? args.adAccountId : undefined,
+          strategyId: typeof args.strategyId === "string" ? args.strategyId : undefined,
+          creativeStrategyId: typeof args.creativeStrategyId === "string" ? args.creativeStrategyId : undefined,
+          evaluationPeriodStart: typeof args.evaluationPeriodStart === "string" ? args.evaluationPeriodStart : undefined,
+          evaluationPeriodEnd: typeof args.evaluationPeriodEnd === "string" ? args.evaluationPeriodEnd : undefined,
+          campaignAgeHours: typeof args.campaignAgeHours === "number" ? args.campaignAgeHours : undefined,
+          metricsSnapshot: (args.metricsSnapshot && typeof args.metricsSnapshot === "object") ? args.metricsSnapshot as Record<string, unknown> : {},
+          promptText: typeof args.promptText === "string" && args.promptText.trim() ? args.promptText : "Claude Project (HK Dijital MCP) — get_ad_evaluation_context ile alınan gerçek veriye dayanarak doğrudan Claude Project içinde üretildi, manuel kopyala/yapıştır kullanılmadı.",
+          source: "claude_project_mcp"
+        });
+
+        const saved = await saveParsedEvaluation(companyId, draft.id, {
+          claudeRawResponse: typeof args.claudeRawResponse === "string" && args.claudeRawResponse.trim()
+            ? args.claudeRawResponse
+            : JSON.stringify({ internalReport, clientReport }),
+          internalReport: internalReport as never,
+          clientReport: clientReport as never,
+          decision: typeof args.decision === "string" ? (args.decision as never) : null,
+          nextReviewAt: typeof args.nextReviewAt === "string" ? args.nextReviewAt : null,
+          nextReviewNote: typeof args.nextReviewNote === "string" ? args.nextReviewNote : null
+        });
+
+        await generateAllAdEvaluationReports(companyId, saved.id);
+        // Read back + verify before ever reporting success — never claim
+        // persistence/generation succeeded without confirming it.
+        const verified = await getAdEvaluationById(companyId, saved.id);
+        const files = reportFileStatus(verified);
+        if (!verified.internal_report || !verified.client_report) throw new ControlError("SERVICE_UNAVAILABLE", "Değerlendirme kaydedildi ancak rapor içeriği doğrulanamadı.", 500);
+        if (!files.internalPdf || !files.internalDocx || !files.clientPdf || !files.clientDocx) throw new ControlError("SERVICE_UNAVAILABLE", "Değerlendirme kaydedildi ancak dört rapor dosyasından biri veya birkaçı üretilemedi.", 500);
+
+        return {
+          evaluationId: verified.id,
+          companyId: verified.company_id,
+          campaignId: verified.campaign_id,
+          metaCampaignId: verified.meta_campaign_id,
+          status: verified.status,
+          decision: verified.decision,
+          nextReviewAt: verified.next_review_at,
+          reports: { internalReportSaved: Boolean(verified.internal_report?.executiveSummary || verified.internal_report?.sections?.length), clientReportSaved: Boolean(verified.client_report?.executiveSummary || verified.client_report?.sections?.length) },
+          files
+        };
+      } catch (error) {
+        if (error instanceof AdEvaluationValidationError) throw new ControlError("INVALID_ARGUMENTS", error.message, 400);
+        if (error instanceof AdEvaluationCompanyNotFoundError || error instanceof AdEvaluationNotFoundError) throw new ControlError("NOT_FOUND", error.message, 404);
+        throw error;
+      }
+    }
+    case "get_latest_ad_evaluation": {
+      const { getAdEvaluationHistory, AdEvaluationCompanyNotFoundError } = await import("@/lib/marketing-intelligence/ad-evaluations");
+      const { reportFileStatus } = await import("@/lib/marketing-intelligence/ad-evaluation-reports");
+      try {
+        const history = await getAdEvaluationHistory(String(args.companyId || ""), typeof args.campaignId === "string" ? args.campaignId : undefined);
+        if (!history.length) throw new ControlError("NOT_FOUND", "Bu müşteri (ve kampanya) için kayıtlı değerlendirme yok.", 404);
+        const latest = history[0];
+        return {
+          id: latest.id,
+          createdAt: latest.created_at,
+          evaluationPeriodStart: latest.evaluation_period_start,
+          evaluationPeriodEnd: latest.evaluation_period_end,
+          status: latest.status,
+          decision: latest.decision,
+          nextReviewAt: latest.next_review_at,
+          nextReviewNote: latest.next_review_note,
+          internalReportSummary: { executiveSummary: latest.internal_report?.executiveSummary || null, sectionTitles: (latest.internal_report?.sections || []).map((s) => s.title) },
+          clientReportSummary: { executiveSummary: latest.client_report?.executiveSummary || null, sectionTitles: (latest.client_report?.sections || []).map((s) => s.title) },
+          files: reportFileStatus(latest),
+          metricsSnapshotSummary: {
+            spend: (latest.metrics_snapshot as any)?.campaign?.spend ?? null,
+            results: (latest.metrics_snapshot as any)?.campaign?.results ?? null,
+            costPerResult: (latest.metrics_snapshot as any)?.campaign?.costPerResult ?? null
+          }
+        };
+      } catch (error) {
+        if (error instanceof AdEvaluationCompanyNotFoundError) throw new ControlError("NOT_FOUND", error.message, 404);
+        throw error;
       }
     }
 

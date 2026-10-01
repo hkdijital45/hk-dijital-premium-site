@@ -124,7 +124,7 @@ function hoursSince(dateStr?: string | null): number | null {
 
 export type AdEvaluationContext = {
   company: { id: string; name: string; sector: string | null; city: string | null };
-  campaign: { id: string; name: string; metaCampaignId: string | null; status: string | null; startDate: string | null; objective: string | null } | null;
+  campaign: { id: string; name: string; metaCampaignId: string | null; status: string | null; startDate: string | null; objective: string | null; dailyBudget: number | null; lifetimeBudget: number | null } | null;
   adAccount: { accountId: string | null; source: string } | null;
   strategy: { id: string; version: number; status: string; strategyTitle: string; primaryGoal: string; primaryKpi: string; campaignSequence: unknown[] } | null;
   creativeStrategy: { id: string; version: number; status: string; creatives: unknown[] } | null;
@@ -140,15 +140,21 @@ export type AdEvaluationContext = {
  * API itself — "Mevcut Meta verilerini yenile/senkronize et" is the
  * existing /api/admin/meta-ads sync action; this only reads what that
  * already wrote. */
-export async function getAdEvaluationContext(companyId: string, input: { campaignId?: string; rangePreset?: string } = {}): Promise<AdEvaluationContext> {
+export async function getAdEvaluationContext(companyId: string, input: { campaignId?: string; metaCampaignId?: string; rangePreset?: string } = {}): Promise<AdEvaluationContext> {
   await assertCompanyExists(companyId);
   const { getAdStrategyForActivation } = await import("./ad-strategies");
   const { getCreativeReportHistory } = await import("./ad-creative-reports");
 
+  const campaignLookup = input.campaignId
+    ? `id=eq.${encodeURIComponent(input.campaignId)}&company_id=eq.${encodeURIComponent(companyId)}`
+    : input.metaCampaignId
+      ? `meta_campaign_id=eq.${encodeURIComponent(input.metaCampaignId)}&company_id=eq.${encodeURIComponent(companyId)}`
+      : null;
+
   const [companies, campaignRows, strategyActivation, creativeHistory, previousRows] = await Promise.all([
     supabaseRest<Array<{ id: string; name: string; sector: string | null; city: string | null }>>(`companies?id=eq.${encodeURIComponent(companyId)}&select=id,name,sector,city&limit=1`),
-    input.campaignId
-      ? supabaseRest<any[]>(`campaigns?id=eq.${encodeURIComponent(input.campaignId)}&company_id=eq.${encodeURIComponent(companyId)}&select=*&limit=1`).catch(() => [])
+    campaignLookup
+      ? supabaseRest<any[]>(`campaigns?${campaignLookup}&select=*&limit=1`).catch(() => [])
       : Promise.resolve([]),
     getAdStrategyForActivation(companyId),
     getCreativeReportHistory(companyId).catch(() => []),
@@ -184,7 +190,8 @@ export async function getAdEvaluationContext(companyId: string, input: { campaig
     company: company ? { id: company.id, name: company.name, sector: company.sector, city: company.city } : { id: companyId, name: "Bilinmiyor", sector: null, city: null },
     campaign: campaign ? {
       id: campaign.id, name: campaign.name, metaCampaignId: campaign.meta_campaign_id || null,
-      status: campaign.status || null, startDate: campaign.meta_start_time || campaign.start_date || null, objective: campaign.objective || null
+      status: campaign.status || null, startDate: campaign.meta_start_time || campaign.start_date || null, objective: campaign.objective || null,
+      dailyBudget: campaign.daily_budget ?? null, lifetimeBudget: campaign.lifetime_budget ?? null
     } : null,
     adAccount: campaign?.meta_campaign_id ? { accountId: null, source: "hk_connect" } : null,
     strategy: strategy ? {

@@ -15,7 +15,7 @@ import { ControlError, failure, sanitize, success, tools, toolByName, validateAr
 // their tools-list cache off server name+version, so a real version bump
 // gives a stronger signal to refresh than relying on "Refresh tools
 // list" alone.
-const SERVER_INFO = { name: "hk-dijital-instagram-intelligence", version: "1.10.0" };
+const SERVER_INFO = { name: "hk-dijital-instagram-intelligence", version: "1.11.0" };
 const SERVER_INSTRUCTIONS =
   "HK Dijital Marketing Intelligence tools (extends the original Instagram Intelligence connector — same " +
   "endpoint, same name, backward compatible). get_instagram_account/get_instagram_analysis/" +
@@ -47,7 +47,17 @@ const SERVER_INSTRUCTIONS =
   "never after showing the analysis alone; get_instagram_profile_audits reads back the history list or one " +
   "full report. This never modifies the customer's actual Instagram account (no bio/photo/username/post/" +
   "story/highlight changes) — it only records advice for the user to apply manually, and never fabricates " +
-  "Instagram data (highlight covers, post grid visuals, photo quality) this app has no real API access to.";
+  "Instagram data (highlight covers, post grid visuals, photo quality) this app has no real API access to. " +
+  "get_ad_evaluation_context/save_ad_evaluation/get_latest_ad_evaluation support Reklam Değerlendirme " +
+  "(evaluating an ALREADY-RUNNING Meta Ads campaign's real performance against its approved ad strategy — " +
+  "never a new strategy): get_ad_evaluation_context returns the real campaign, already-synced Meta metrics " +
+  "(never a fabricated zero for missing data), active strategy, latest creative report and prior evaluations " +
+  "needed before evaluating; save_ad_evaluation must be called ONLY after the user explicitly says something " +
+  "like 'sisteme kaydet' / 'HK Dijital'e kaydet' / 'raporu kaydet' — never after showing the analysis alone — " +
+  "and persists ONE ad_evaluations row holding both internalReport and clientReport together, then generates " +
+  "and privately stores all four report files (internal/client PDF+DOCX) before confirming success, reading " +
+  "the saved row back to verify; get_latest_ad_evaluation reads back a compact summary of the latest saved " +
+  "evaluation for a company/campaign. These tools never modify any real ad account, campaign, or budget.";
 
 function toolResult(payload: { success: boolean; data: unknown; error: unknown }) {
   const clean = sanitize(payload) as Record<string, unknown>;
