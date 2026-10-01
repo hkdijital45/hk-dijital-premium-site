@@ -280,9 +280,11 @@ function QueueLeadRow({ lead, isRejected, onCopyPrompt, onReject }: { lead: Queu
   );
 }
 
-export function PreAuditCenter({ initialTab }: { initialTab?: Tab } = {}) {
+export function PreAuditCenter({ initialTab, initialLeadId }: { initialTab?: Tab; initialLeadId?: string } = {}) {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [companyId, setCompanyId] = useState<string>("");
+  const [leadId] = useState<string>(initialLeadId || "");
+  const [autoOpenedLeadReport, setAutoOpenedLeadReport] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [reports, setReports] = useState<ListItem[] | null>(null);
@@ -316,6 +318,7 @@ export function PreAuditCenter({ initialTab }: { initialTab?: Tab } = {}) {
     try {
       const params = new URLSearchParams();
       if (companyId) params.set("companyId", companyId);
+      if (leadId) params.set("leadId", leadId);
       if (search.trim()) params.set("q", search.trim());
       const res = await fetch(`/api/admin/pre-audit?${params.toString()}`);
       const body = await res.json();
@@ -328,9 +331,19 @@ export function PreAuditCenter({ initialTab }: { initialTab?: Tab } = {}) {
       setLoadError(e instanceof Error ? e.message : "Beklenmeyen hata.");
       setReports([]);
     }
-  }, [companyId, search]);
+  }, [companyId, leadId, search]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Lead Merkezi's "Raporu Gör" deep-link — open the lead's own latest
+  // report automatically instead of making the admin search for it again.
+  useEffect(() => {
+    if (!leadId || autoOpenedLeadReport || !reports?.length) return;
+    setAutoOpenedLeadReport(true);
+    setTab("tamamlanan");
+    openReport(reports[0].id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leadId, reports, autoOpenedLeadReport]);
 
   async function openReport(id: string) {
     setSelectedId(id);

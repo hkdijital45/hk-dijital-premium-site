@@ -116,6 +116,8 @@ const crmActiveStatuses = ["Yeni Başvuru", "İletişime Geçildi", "Takipte", "
 const crmStatusTabs = ["Tüm Başvurular", "Yeni Başvurular", "İletişime Geçildi", "Takipte", "Teklif Gönderildi", "Müşteri Oldu", "Meta Analiz", "Google Ads Analiz", "Reddedilenler", "Silinenler"];
 const leadStatuses = [...new Set([...crmActiveStatuses, ...salesPipelineStages, "Yeni", "Görüşülecek", "Teklif Hazırlanıyor", "Kazanıldı", "Kaybedildi", "Dönüştürüldü", "Reddedildi"])];
 const leadSourceOptions = ["İletişim Formu", "Teklif Formu", "Teklif Sihirbazı", "Müşteri Bulucu", "Meta Analiz", "Google Ads Analiz", "Instagram", "WhatsApp", "Referans", "Manuel Giriş", "Diğer"];
+const manualSourceDetailOptions = ["Google Maps", "Instagram", "Tavsiye", "Web Araştırması", "Fiziksel Olarak Görüldü", "Diğer"];
+const nextActionOptions = ["Ön İnceleme Yap", "Instagram'dan Yaz", "WhatsApp'tan Yaz", "Telefonla Ara", "Teklif Hazırla", "Teklif Takibi", "Tekrar İletişime Geç", "Diğer"];
 const roleOptions = [
   { value: "admin", label: "Yönetici" },
   { value: "yonetici", label: "Operasyon Yöneticisi" },
@@ -380,6 +382,7 @@ export function AdminDashboard({
   const [content, setContent] = useState(initialContent as any);
   const [active, setActive] = useState(initialActive);
   const [preAuditInitialTab, setPreAuditInitialTab] = useState("");
+  const [preAuditInitialLeadId, setPreAuditInitialLeadId] = useState("");
   const [status, setStatus] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState("idle");
@@ -622,7 +625,7 @@ export function AdminDashboard({
     saveNotificationState({ ...notificationState, read: [...new Set([...notificationState.read, ...items.map((item) => item.id)])] });
   }
 
-  const props = { content, setContent, currentSession, allowedModules, setActive, save, notify, setPreAuditInitialTab };
+  const props = { content, setContent, currentSession, allowedModules, setActive, save, notify, setPreAuditInitialTab, setPreAuditInitialLeadId };
   const accountingAliases = ["Muhasebe Merkezi", "Tahsilat", "Tahsilatlar", "Bekleyen Ödemeler", "Gelir / Gider", "Gelir Gider", "Gelir Tahmini", "Karlılık", "Kârlılık", "Müşteri Finans Özeti", "Export", "Muhasebe Raporları"];
   const visibleNavigationGroups = adminNavigationGroups
     .filter((group) => group.label !== "Finans" || canViewAccounting(currentSession))
@@ -926,7 +929,7 @@ export function AdminDashboard({
           {active === "Raporlar" && <ReportsHub {...props} selectedCompanyId={selectedCompanyId} />}
           {["Web Site Analitiği", "Web Analitiği", "Web Analitiği Bağlantıları", "GTM Bağlantıları"].includes(active) && <WebsiteAnalyticsCenter />}
           {(active === "Reklam Yorum Merkezi" || active === "Reklam Doktoru Pro") && <><AdDoctorMvpPanel /><AdInsightsCenter content={content} notify={notify} /></>}
-          {active === "Ön İnceleme Merkezi" && <PreAuditCenter initialTab={preAuditInitialTab || undefined} />}
+          {active === "Ön İnceleme Merkezi" && <PreAuditCenter initialTab={preAuditInitialTab || undefined} initialLeadId={preAuditInitialLeadId || undefined} />}
           {active === "Rapor Merkezi" && <ReportCenterPanel content={content} notify={notify} />}
           {["HK Agent Hub", "Agent Hub", "Discord"].includes(active) && <AgentHubCenter content={content} notify={notify} onOpenCustomerDocuments={(companyId: string) => { setSelectedCompanyId(companyId); setActive("Belgeler"); }} />}
           {["Sistem Kalitesi", "QA Merkezi", "Sistem Test Merkezi"].includes(active) && <SystemQualityCenter content={content} setContent={setContent} save={save} currentSession={currentSession} notify={notify} systemStatus={systemStatus} supabaseConfigured={supabaseConfigured} initialTab={active === "Sistem Test Merkezi" ? "Otomatik Testler" : "Manuel Kontroller"} />}
@@ -5337,12 +5340,13 @@ function LeadKanbanCard({ lead, onOpen, onMove }: { lead: any; onOpen: () => voi
   );
 }
 
-function Crm({ content, setContent, view, setActive, currentSession, notify, setPreAuditInitialTab }: any) {
+function Crm({ content, setContent, view, setActive, currentSession, notify, setPreAuditInitialTab, setPreAuditInitialLeadId }: any) {
   const [viewMode, setViewMode] = useState<"liste" | "kanban">("liste");
   const [query, setQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [statusTab, setStatusTab] = useState("Tüm Başvurular");
+  const [createLeadOpen, setCreateLeadOpen] = useState(false);
   const [folderFilter, setFolderFilter] = useState(() => {
     if (String(view || "").includes("Meta")) return "Meta Leadleri";
     if (String(view || "").includes("Google")) return "Google Leadleri";
@@ -5373,11 +5377,13 @@ function Crm({ content, setContent, view, setActive, currentSession, notify, set
   const isFollowLead = (lead) => ["Takipte", "Görüşülecek", "Teklif Hazırlanıyor", "Teklif Gönderildi"].includes(lead.status) || Boolean(lead.follow_up_date || lead.followUpDate);
   const isArchivedLead = (lead) => isLeadDeleted(lead);
   const isRejectedLead = (lead) => isLeadRejected(lead) || lead.status === "Reddedildi";
-  const isWebLead = (lead) => !isMetaLead(lead) && !isGoogleLead(lead) && !isSocialLead(lead) && !isCustomerLead(lead) && !isArchivedLead(lead) && !isRejectedLead(lead);
+  const isManualLead = (lead) => lead.source === "Manuel Giriş";
+  const isWebLead = (lead) => !isMetaLead(lead) && !isGoogleLead(lead) && !isSocialLead(lead) && !isManualLead(lead) && !isCustomerLead(lead) && !isArchivedLead(lead) && !isRejectedLead(lead);
   const crmFolders = [
     { label: "Meta Leadleri", description: "Meta Analysis kaynaklı fırsatlar", icon: <BarChart3 size={16} />, match: isMetaLead, accent: "from-orange-400 to-rose-500" },
     { label: "Google Leadleri", description: "Google Ads / Maps sinyalleri", icon: <Search size={16} />, match: isGoogleLead, accent: "from-cyan-400 to-blue-600" },
     { label: "Sosyal İstihbarat Leadleri", description: "Sosyal audit ve profil kayıtları", icon: <Sparkles size={16} />, match: isSocialLead, accent: "from-yellow-300 to-orange-500" },
+    { label: "Manuel Leadler", description: "+ Yeni Lead ile elle eklenen kayıtlar", icon: <Plus size={16} />, match: isManualLead, accent: "from-teal-400 to-emerald-600" },
     { label: "Web Başvuruları", description: "Form ve teklif sihirbazı kayıtları", icon: <FileBarChart size={16} />, match: isWebLead, accent: "from-blue-400 to-indigo-600" },
     { label: "Müşteriler", description: "Müşteriye dönüşen başvurular", icon: <Building2 size={16} />, match: isCustomerLead, accent: "from-emerald-400 to-teal-600" },
     { label: "Takip Bekleyenler", description: "Takip tarihi veya açık süreç", icon: <Activity size={16} />, match: isFollowLead, accent: "from-purple-400 to-fuchsia-600" },
@@ -5488,6 +5494,7 @@ function Crm({ content, setContent, view, setActive, currentSession, notify, set
       title={view === "Teklif Sihirbazı Kayıtları" ? "Teklif Sihirbazı Kayıtları" : view === "Lead Durumları" ? "Lead Merkezi" : "Form Başvuruları"}
       description="Başvurular, lead durumları ve satış hunisi tek merkezden yönetilir."
       headerActions={<>
+        <AdminButton compact variant="primary" onClick={() => setCreateLeadOpen(true)}>+ Yeni Lead</AdminButton>
         <div className="flex flex-wrap gap-1">
           <AdminButton compact variant={viewMode === "liste" ? "info" : "secondary"} onClick={() => setViewMode("liste")}>Liste</AdminButton>
           <AdminButton compact variant={viewMode === "kanban" ? "info" : "secondary"} onClick={() => setViewMode("kanban")}>Kanban</AdminButton>
@@ -5617,7 +5624,7 @@ function Crm({ content, setContent, view, setActive, currentSession, notify, set
           );
         })}
       </div>}
-      {selectedLead && <LeadDrawer lead={selectedLead} update={update} persistLead={persistLead} permanentDelete={permanentDelete} canPermanentlyDelete={legacyRole(currentSession?.role) === "admin"} canManageTestRecords={legacyRole(currentSession?.role) === "admin"} close={() => setSelectedLead(null)} setActive={setActive} onConverted={(data) => {
+      {selectedLead && <LeadDrawer lead={selectedLead} update={update} persistLead={persistLead} permanentDelete={permanentDelete} canPermanentlyDelete={legacyRole(currentSession?.role) === "admin"} canManageTestRecords={legacyRole(currentSession?.role) === "admin"} close={() => setSelectedLead(null)} setActive={setActive} setPreAuditInitialLeadId={setPreAuditInitialLeadId} onConverted={(data) => {
         setContent({
           ...content,
           leads: content.leads.map((lead) => lead.id === data.lead.id ? data.lead : lead),
@@ -5625,6 +5632,15 @@ function Crm({ content, setContent, view, setActive, currentSession, notify, set
           users: data.user ? [data.user, ...(content.users || []).filter((item) => item.id !== data.user.id)] : content.users,
           customers: data.customer ? [data.customer, ...(content.customers || []).filter((item) => item.id !== data.customer.id)] : content.customers
         });
+      }} />}
+      {createLeadOpen && <CreateLeadModal close={() => setCreateLeadOpen(false)} onCreated={(lead) => {
+        setContent({ ...content, leads: [lead, ...(content.leads || [])] });
+        setCreateLeadOpen(false);
+        setFolderFilter("Manuel Leadler");
+        setSelectedLead(lead);
+      }} onFindExisting={(companyName) => {
+        setCreateLeadOpen(false);
+        setQuery(companyName);
       }} />}
     </AdminWorkspace>
   );
@@ -6135,7 +6151,8 @@ const CALL_OUTCOMES: Record<string, { status: string; nextAction: string; follow
   "Kazanıldı": { status: "Kazanıldı", nextAction: "Müşteriye dönüştür", followUpDays: null }
 };
 
-function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanentlyDelete, canManageTestRecords, close, setActive, onConverted }: any) {
+function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanentlyDelete, canManageTestRecords, close, setActive, setPreAuditInitialLeadId, onConverted }: any) {
+  const [prepOpen, setPrepOpen] = useState(false);
   const { askAiProvider, chooserModal } = useAiProviderChooser();
   const [conversionMessage, setConversionMessage] = useState("");
   const [conversionError, setConversionError] = useState("");
@@ -6294,7 +6311,9 @@ function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanently
         <SelectField label="Durum" value={lead.status || "Yeni"} onChange={(value) => update(lead.id, { status: value })} options={leadStatuses} />
         <Field label="Takip tarihi" type="date" value={lead.follow_up_date || lead.followUpDate} onChange={(value) => update(lead.id, { follow_up_date: value, followUpDate: value })} />
         <Field label="Son temas tarihi" type="date" value={dateOnly(lead.last_contact_at)} onChange={(value) => update(lead.id, { last_contact_at: value })} />
-        <Field label="Sıradaki aksiyon" value={lead.next_action || ""} onChange={(value) => update(lead.id, { next_action: value })} />
+        <OtherSelectField label="Sonraki Aksiyon" value={lead.next_action || ""} onChange={(value) => update(lead.id, { next_action: value })} options={nextActionOptions} manualLabel="Aksiyonu yazın" />
+        <Field label="Sonraki Aksiyon Tarihi" type="date" value={lead.next_action_at ? String(lead.next_action_at).slice(0, 10) : ""} onChange={(value) => update(lead.id, { next_action_at: value })} />
+        <div className="md:col-span-2"><Field label="Sonraki Aksiyon Notu" value={lead.next_action_note || ""} onChange={(value) => update(lead.id, { next_action_note: value })} /></div>
         <div className="md:col-span-2"><TextArea label="Dahili notlar" value={lead.notes || lead.internalNotes} onChange={(value) => update(lead.id, { notes: value, internalNotes: value })} /></div>
       </div>
       <ContactActionCenter record={lead} type="lead" context={pipelineStageForLead(lead) === "Teklif Gönderildi" ? "proposal" : "follow-up"} />
@@ -6317,6 +6336,7 @@ function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanently
         <button onClick={() => persistLead(lead.id, { status: "Takipte", follow_up_date: lead.follow_up_date || new Date().toISOString().slice(0, 10) }, "Takip görevi oluşturuldu.")} className="hk-button hk-button-neutral">Takip görevi oluştur</button>
         <button onClick={() => askAiProvider(analyze)} disabled={analyzing || String(lead.id).startsWith("lead-")} className="hk-button hk-button-ai"><Sparkles size={15} /> {analyzing ? "Analiz hazırlanıyor..." : "Yapay zekâ analizi oluştur"}</button>
         <button onClick={downloadLeadPdfAudit} className="hk-button hk-button-warning"><Download size={15} /> PDF Audit Oluştur</button>
+        <button onClick={() => setPrepOpen(true)} className="hk-button hk-button-ai">Ön İncelemeye Hazırla</button>
         {whatsappUrl && <a href={whatsappUrl} target="_blank" rel="noreferrer" className="hk-button" style={{ background: "#25D366", color: "#062611" }}>Hızlı WhatsApp</a>}
         {!deleted && !rejected && <button onClick={() => setConfirmAction("reject")} className="hk-button hk-button-warning">Reddet</button>}
         {!deleted && <button onClick={() => setConfirmAction("delete")} className="hk-button hk-button-danger">Sil</button>}
@@ -6336,6 +6356,7 @@ function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanently
       {confirmAction === "delete" && <ConfirmDialog title="Başvuruyu Silinenler klasörüne taşı" description="Bu işlem başvuruyu ana CRM listesinden kaldırır. Daha sonra Silinenler klasöründen geri yükleyebilirsiniz." confirmLabel="Sil" tone="danger" onCancel={() => setConfirmAction("")} onConfirm={softDelete} />}
       {confirmAction === "reject" && <ConfirmDialog title="Başvuruyu reddet" description="Reddedilen başvurular yalnızca Reddedilenler klasöründe görünür. İsterseniz kısa bir red nedeni ekleyin." confirmLabel="Reddet" tone="warning" onCancel={() => setConfirmAction("")} onConfirm={reject}><TextArea rows={3} label="Red nedeni (opsiyonel)" value={rejectionReason} onChange={setRejectionReason} /></ConfirmDialog>}
       {confirmAction === "permanent" && <ConfirmDialog title="Başvuruyu kalıcı sil" description="Bu işlem geri alınamaz. Başvuru Supabase leads tablosundan tamamen silinir." confirmLabel="Kalıcı Sil" tone="danger" onCancel={() => setConfirmAction("")} onConfirm={removeForever} />}
+      {prepOpen && <LeadPreAuditPrepPanel lead={lead} close={() => setPrepOpen(false)} setPreAuditInitialLeadId={setPreAuditInitialLeadId} setActive={setActive} />}
     </Drawer>
   );
 }
@@ -6369,6 +6390,193 @@ function LeadEditModal({ lead, close, save }: any) {
   const update = (patch) => setForm({ ...form, ...patch });
   return <div onMouseDown={close} className="fixed inset-0 z-[70] grid place-items-center bg-[var(--admin-surface)]/70 p-4 "><div onMouseDown={(event) => event.stopPropagation()} className="admin-modal-panel max-h-[92vh] w-full max-w-4xl overflow-auto rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5 shadow-2xl"><div className="mb-5 flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">CRM Başvuru Yönetimi</p><h2 className="mt-1 text-2xl font-black text-[var(--admin-text-primary)]">Başvuruyu Düzenle</h2></div><button onClick={close} className="grid size-10 place-items-center rounded-full border border-[var(--admin-border)]"><X size={18} /></button></div><div className="grid gap-4 md:grid-cols-2"><SelectField label="Kaynak" value={form.source} onChange={(source) => update({ source })} options={leadSourceOptions} /><SelectField label="Durum" value={form.status} onChange={(status) => update({ status })} options={crmActiveStatuses} /><Field label="Ad Soyad" value={form.name} onChange={(name) => update({ name })} /><Field label="Firma" value={form.company} onChange={(company) => update({ company })} /><Field label="Telefon" value={form.phone} onChange={(phone) => update({ phone })} /><Field label="E-posta" value={form.email} onChange={(email) => update({ email })} /><Field label="Instagram" value={form.instagram} onChange={(instagram) => update({ instagram })} /><Field label="Web sitesi" value={form.website} onChange={(website) => update({ website })} /><OtherSelectField label="Sektör" value={form.business_type} onChange={(business_type) => update({ business_type })} options={sectorOptions} manualLabel="Sektörü yazın" /><Field label="Bütçe" value={form.budget} onChange={(budget) => update({ budget })} /><Field label="Önerilen paket" value={form.recommended_package} onChange={(recommended_package) => update({ recommended_package })} /><Field label="Takip tarihi" type="date" value={form.follow_up_date} onChange={(follow_up_date) => update({ follow_up_date })} /><div className="md:col-span-2"><TextArea label="Hedef" value={form.goal} onChange={(goal) => update({ goal })} /></div><div className="md:col-span-2"><TextArea label="Mesaj" value={form.message} onChange={(message) => update({ message })} /></div><div className="md:col-span-2"><TextArea label="Dahili notlar" value={form.notes} onChange={(notes) => update({ notes })} /></div><div className="md:col-span-2"><TextArea rows={3} label="Red nedeni" value={form.rejection_reason} onChange={(rejection_reason) => update({ rejection_reason })} /></div></div><div className="mt-6 flex flex-wrap justify-end gap-2"><button onClick={close} className="rounded-full border border-[var(--admin-border)] px-4 py-2 text-sm">Vazgeç</button><button onClick={() => save(form)} className="rounded-full bg-cyan-300 px-5 py-2 text-sm font-black text-[var(--admin-text-primary)]">Değişiklikleri Kaydet</button></div></div></div>;
 }
+
+// "+ Yeni Lead" — the sole manual-entry path. source is always forced to
+// "Manuel Giriş" server-side (api/admin/leads POST); this form never lets
+// the admin pick a different source, by design (section 2 of the task).
+function CreateLeadModal({ close, onCreated, onFindExisting }: any) {
+  const [form, setForm] = useState({ company: "", sector: "", city: "", district: "", instagram: "", phone: "", website: "", google_maps_url: "", note: "", source_detail: "" });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [duplicate, setDuplicate] = useState<any>(null);
+  const update = (patch: any) => setForm({ ...form, ...patch });
+
+  async function submit(force = false) {
+    if (saving) return;
+    setSaving(true);
+    setError("");
+    setDuplicate(null);
+    try {
+      const response = await fetch("/api/admin/leads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, force }) });
+      const data = await response.json().catch(() => ({}));
+      if (response.status === 409 && data.duplicate) { setDuplicate(data.duplicate); return; }
+      if (!response.ok) { setError(data.error || "Lead oluşturulamadı."); return; }
+      onCreated(data.lead);
+    } catch {
+      setError("Lead oluşturulamadı.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return <div onMouseDown={close} className="fixed inset-0 z-[70] grid place-items-center bg-[var(--admin-surface)]/70 p-4">
+    <div onMouseDown={(event) => event.stopPropagation()} className="admin-modal-panel max-h-[92vh] w-full max-w-2xl overflow-auto rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5 shadow-2xl">
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Lead Merkezi</p><h2 className="mt-1 text-2xl font-black text-[var(--admin-text-primary)]">+ Yeni Lead</h2></div>
+        <button onClick={close} className="grid size-10 place-items-center rounded-full border border-[var(--admin-border)]"><X size={18} /></button>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Field label="İşletme Adı *" value={form.company} onChange={(company) => update({ company })} />
+        <OtherSelectField label="Sektör *" value={form.sector} onChange={(sector) => update({ sector })} options={sectorOptions} manualLabel="Sektörü yazın" />
+        <Field label="İl" value={form.city} onChange={(city) => update({ city })} />
+        <Field label="İlçe" value={form.district} onChange={(district) => update({ district })} />
+        <Field label="Instagram kullanıcı adı / URL" value={form.instagram} onChange={(instagram) => update({ instagram })} />
+        <Field label="Telefon" value={form.phone} onChange={(phone) => update({ phone })} />
+        <Field label="Web sitesi" value={form.website} onChange={(website) => update({ website })} />
+        <Field label="Google Maps URL" value={form.google_maps_url} onChange={(google_maps_url) => update({ google_maps_url })} />
+        <SelectField label="Manuel alt kaynak" value={form.source_detail} onChange={(source_detail) => update({ source_detail })} options={manualSourceDetailOptions} />
+        <div className="md:col-span-2"><TextArea label="Kısa not" value={form.note} onChange={(note) => update({ note })} /></div>
+      </div>
+      {duplicate && (
+        <div className="mt-4 rounded-[8px] border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          <p className="font-black">Bu işletme Lead Merkezi&apos;nde zaten bulunuyor olabilir.</p>
+          <p className="mt-1">{duplicate.company || duplicate.name || "Kayıt"} · {duplicate.source || "-"} · {duplicate.status || "-"}</p>
+          <button type="button" onClick={() => onFindExisting?.(duplicate.company || duplicate.name || "")} className="mt-2 rounded-full border border-amber-300 bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-black text-amber-800">Mevcut Kaydı Bul</button>
+        </div>
+      )}
+      {error && <p className="mt-4 rounded-[8px] border border-red-300/20 bg-red-500/10 p-3 text-sm text-red-700">{error}</p>}
+      <div className="mt-6 flex flex-wrap justify-end gap-2">
+        <button onClick={close} className="rounded-full border border-[var(--admin-border)] px-4 py-2 text-sm">Vazgeç</button>
+        <button onClick={() => submit(false)} disabled={saving || !form.company.trim() || !form.sector.trim()} className="rounded-full bg-cyan-300 px-5 py-2 text-sm font-black text-[var(--admin-text-primary)] disabled:opacity-60">{saving ? "Kaydediliyor..." : "Lead Oluştur"}</button>
+      </div>
+    </div>
+  </div>;
+}
+
+// Ön İnceleme Hazırlığı — prep notes + Claude prompt generation for a
+// lead. Kept entirely separate from the existing "Ön İncele" button
+// (which only queues the lead for the Müşteri Keşfi pre-review triage —
+// api/admin/pre-audit/lead/[id]). This panel's own status
+// (not_prepared/preparing/ready/sent_to_claude/completed/failed) never
+// touches leads.status.
+function LeadPreAuditPrepPanel({ lead, close, setPreAuditInitialLeadId, setActive }: any) {
+  const [prep, setPrep] = useState<any>(null);
+  const [prompt, setPrompt] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+    fetch(`/api/admin/leads/${lead.id}/pre-audit-preparation`).then((r) => r.json()).then((body) => {
+      if (!mounted) return;
+      setPrep(body.preparation || null);
+      setPrompt(body.prompt || "");
+    }).catch(() => {}).finally(() => { if (mounted) setLoading(false); });
+    return () => { mounted = false; };
+  }, [lead.id]);
+
+  async function save(patch: any, note?: string) {
+    setSaving(true);
+    setMessage("");
+    try {
+      const response = await fetch(`/api/admin/leads/${lead.id}/pre-audit-preparation`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) { setMessage(data.error || "Kaydedilemedi."); return; }
+      setPrep(data.preparation);
+      if (note) setMessage(note);
+    } catch {
+      setMessage("Kaydedilemedi.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function copyPrompt() {
+    try {
+      await navigator.clipboard.writeText(prompt);
+      await save({ status: "sent_to_claude" });
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      setMessage("Prompt kopyalanamadı.");
+    }
+  }
+
+  function openReport() {
+    setPreAuditInitialLeadId?.(lead.id);
+    setActive?.("Ön İnceleme Merkezi");
+  }
+
+  if (loading || !prep) return <div onMouseDown={close} className="fixed inset-0 z-[80] grid place-items-center bg-[var(--admin-surface)]/70 p-4"><div className="admin-modal-panel rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6">Yükleniyor...</div></div>;
+
+  return <div onMouseDown={close} className="fixed inset-0 z-[80] grid place-items-center bg-[var(--admin-surface)]/70 p-4">
+    <div onMouseDown={(event) => event.stopPropagation()} className="admin-modal-panel max-h-[92vh] w-full max-w-3xl overflow-auto rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5 shadow-2xl">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Ön İncelemeye Hazırla</p>
+          <h2 className="mt-1 text-2xl font-black text-[var(--admin-text-primary)]">{lead.company || lead.name}</h2>
+          <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-black ${LEAD_PRE_AUDIT_PREP_STATUS_CLASS[prep.status] || "bg-[var(--admin-surface-soft)] text-[var(--admin-text-secondary)]"}`}>{LEAD_PRE_AUDIT_PREP_STATUS_LABELS[prep.status] || prep.status}</span>
+        </div>
+        <button onClick={close} className="grid size-10 place-items-center rounded-full border border-[var(--admin-border)]"><X size={18} /></button>
+      </div>
+
+      <div className="grid gap-2 md:grid-cols-2 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-3 text-sm text-[var(--admin-text-secondary)]">
+        <InfoItem label="İşletme Adı" value={lead.company || lead.name || "-"} />
+        <InfoItem label="Sektör" value={lead.business_type || lead.businessType || "-"} />
+        <InfoItem label="İl / İlçe" value={[lead.city, lead.district].filter(Boolean).join(" / ") || "-"} />
+        <InfoItem label="Instagram" value={lead.instagram || "-"} />
+        <InfoItem label="Telefon" value={lead.phone || "-"} />
+        <InfoItem label="Web sitesi" value={lead.website || "-"} />
+        <InfoItem label="Google Maps" value={lead.google_maps_url || "-"} />
+        <InfoItem label="Kaynak" value={lead.source || "-"} />
+      </div>
+
+      <div className="mt-4 grid gap-3">
+        <TextArea label="Sosyal medya gözlemlerim" value={prep.social_observations} onChange={(v) => setPrep({ ...prep, social_observations: v })} />
+        <TextArea label="İşletme hakkında notlarım" value={prep.business_notes} onChange={(v) => setPrep({ ...prep, business_notes: v })} />
+        <SelectField label="Reklam veriyor mu?" value={prep.advertising_status === "unknown" ? "" : prep.advertising_status === "yes" ? "Evet" : "Hayır"} onChange={(v) => setPrep({ ...prep, advertising_status: v === "Evet" ? "yes" : v === "Hayır" ? "no" : "unknown" })} options={["Evet", "Hayır"]} placeholder="Bilinmiyor" />
+        <TextArea label="Neden potansiyel müşteri?" value={prep.potential_reason} onChange={(v) => setPrep({ ...prep, potential_reason: v })} />
+        <TextArea label="Özellikle incelensin" value={prep.focus_notes} onChange={(v) => setPrep({ ...prep, focus_notes: v })} />
+        <Field label="Rakip / örnek işletme" value={prep.competitor_reference} onChange={(v) => setPrep({ ...prep, competitor_reference: v })} />
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button onClick={() => save({ social_observations: prep.social_observations, business_notes: prep.business_notes, advertising_status: prep.advertising_status, potential_reason: prep.potential_reason, focus_notes: prep.focus_notes, competitor_reference: prep.competitor_reference, status: prep.status === "not_prepared" ? "preparing" : prep.status }, "Hazırlık notları kaydedildi.")} disabled={saving} className="hk-button hk-button-neutral">{saving ? "Kaydediliyor..." : "Notları Kaydet"}</button>
+        {prep.status !== "completed" && <button onClick={() => save({ status: "ready" })} disabled={saving} className="hk-button hk-button-success">Hazır Olarak İşaretle</button>}
+      </div>
+
+      <div className="mt-5 rounded-[8px] border border-cyan-200 bg-cyan-50 p-3">
+        <p className="text-xs font-black uppercase tracking-[.14em] text-cyan-700">Claude Promptu</p>
+        <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap rounded-[8px] bg-[var(--admin-surface)] p-3 text-xs leading-5 text-[var(--admin-text-primary)]">{prompt}</pre>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button onClick={copyPrompt} className="hk-button hk-button-primary">{copied ? "Kopyalandı ✓" : "Kopyala"}</button>
+        </div>
+      </div>
+
+      {prep.status === "completed" && (
+        <div className="mt-4 flex justify-end">
+          <button onClick={openReport} className="hk-button hk-button-ai">Raporu Gör</button>
+        </div>
+      )}
+      {message && <p className="mt-3 rounded-[8px] border border-[var(--admin-border)] p-2 text-xs text-[var(--admin-text-secondary)]">{message}</p>}
+    </div>
+  </div>;
+}
+
+const LEAD_PRE_AUDIT_PREP_STATUS_LABELS: Record<string, string> = {
+  not_prepared: "Hazırlanmadı", preparing: "Hazırlanıyor", ready: "Hazır",
+  sent_to_claude: "Claude'a Gönderildi", completed: "Tamamlandı", failed: "Başarısız"
+};
+const LEAD_PRE_AUDIT_PREP_STATUS_CLASS: Record<string, string> = {
+  not_prepared: "bg-[var(--admin-surface-soft)] text-[var(--admin-text-secondary)]",
+  preparing: "bg-amber-100 text-amber-700",
+  ready: "bg-cyan-100 text-cyan-700",
+  sent_to_claude: "bg-purple-100 text-purple-700",
+  completed: "bg-emerald-100 text-emerald-700",
+  failed: "bg-red-100 text-red-700"
+};
 
 function ConfirmDialog({ title, description, confirmLabel, tone = "danger", children, onCancel, onConfirm }: any) {
   const danger = tone === "danger";

@@ -15,11 +15,12 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const companyId = url.searchParams.get("companyId") || undefined;
+  const leadId = url.searchParams.get("leadId") || undefined;
   const search = url.searchParams.get("q") || undefined;
 
   try {
     const [reports, summary, pending, inReview, rejected] = await Promise.all([
-      listPreAuditReports(companyId, search),
+      listPreAuditReports(companyId, search, 200, leadId),
       getPreAuditSummary(),
       listPreReviewQueue(LEAD_PRE_REVIEW_STATUS.PENDING),
       listPreReviewQueue(LEAD_PRE_REVIEW_STATUS.IN_REVIEW),

@@ -33,6 +33,8 @@ const editableFields = [
   "last_contact_at",
   "next_action_at",
   "next_action",
+  "next_action_note",
+  "source_detail",
   "city",
   "district",
   "sector",
@@ -140,6 +142,8 @@ function sanitizeLeadPatch(body: Record<string, unknown>) {
 
 function stripOptionalLeadPatchColumns(patch: Record<string, unknown>) {
   const compatiblePatch = { ...patch };
+  delete compatiblePatch.next_action_note;
+  delete compatiblePatch.source_detail;
   delete compatiblePatch.city;
   delete compatiblePatch.district;
   delete compatiblePatch.sector;
