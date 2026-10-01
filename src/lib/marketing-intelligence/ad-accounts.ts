@@ -122,6 +122,87 @@ export async function resolveMetaAdAccount(companyId: string): Promise<ResolvedM
   };
 }
 
+export type HkConnectMetaIdentity = {
+  companyId: string;
+  connected: boolean;
+  businessId: string | null;
+  adAccountId: string | null;
+  pageId: string | null;
+  instagramBusinessId: string | null;
+  // Meta never exposes a "pixel"/"dataset" asset through HK Connect's own
+  // discovery (/me/businesses, /me/adaccounts, /me/accounts + derived IG)
+  // — these remain manual-entry-only fields with no canonical source to
+  // resolve them from, so they are always null here (never a guess).
+  pixelAvailable: false;
+  datasetAvailable: false;
+  tokenStatus: "not_connected" | "connected" | "expired";
+  lastSyncedAt: string | null;
+  multipleAdAccounts: boolean;
+  multiplePages: boolean;
+  multipleInstagramAccounts: boolean;
+};
+
+/** Customer Profile's "HK Connect'ten Getir" / "Bağlantıyı Doğrula" source
+ * — reads the SAME customer_integrations.integration_assets HK Connect
+ * already populates (no second Meta integration, no new token store).
+ * This is identity resolution only (which account/business/page/IG
+ * belongs to the customer) — never campaign metrics, and never returns
+ * the access token itself, only a safe status. When more than one asset
+ * of a given type is connected, the first (HK Connect's own existing
+ * convention, same as connectedMetaAdAccountAsset) is used and the
+ * ambiguity is reported via the multiple* flags rather than guessed
+ * away silently. */
+export async function resolveHkConnectMetaIdentity(companyId: string): Promise<HkConnectMetaIdentity> {
+  const empty: HkConnectMetaIdentity = {
+    companyId, connected: false, businessId: null, adAccountId: null, pageId: null, instagramBusinessId: null,
+    pixelAvailable: false, datasetAvailable: false, tokenStatus: "not_connected", lastSyncedAt: null,
+    multipleAdAccounts: false, multiplePages: false, multipleInstagramAccounts: false
+  };
+  if (!companyId) return empty;
+  const rows = await supabaseRest<Array<{ integration_assets: unknown; access_token_encrypted: string | null; token_expires_at: string | null; updated_at: string | null }>>(
+    `customer_integrations?company_id=eq.${encodeURIComponent(companyId)}&select=integration_assets,access_token_encrypted,token_expires_at,updated_at&limit=1`
+  );
+  const row = rows[0];
+  if (!row) return empty;
+  const assets: any[] = Array.isArray(row.integration_assets) ? row.integration_assets : [];
+  const isMeta = (a: any) => a?.provider === "meta" || ["meta", "facebook", "instagram"].includes(String(a?.platform || ""));
+  const byType = (type: string) => assets.filter((a) => isMeta(a) && (a?.asset_type === type || a?.account_type === type));
+  const connectedOnly = (list: any[]) => list.filter((a) => String(a?.status || a?.oauth_status || "").startsWith("connected"));
+  const businessAssets = connectedOnly(byType("meta_business"));
+  const adAccountAssets = connectedOnly(byType("meta_ad_account"));
+  const pageAssets = connectedOnly(byType("facebook_page"));
+  const igAssets = connectedOnly(byType("instagram_business"));
+  const idOf = (a: any) => a?.provider_account_id || a?.account_id || a?.asset_id || null;
+
+  const now = Date.now();
+  const tokenStatus: HkConnectMetaIdentity["tokenStatus"] = !row.access_token_encrypted
+    ? "not_connected"
+    : row.token_expires_at && new Date(row.token_expires_at).getTime() < now
+      ? "expired"
+      : "connected";
+  const lastSyncedAt = [...businessAssets, ...adAccountAssets, ...pageAssets, ...igAssets]
+    .map((a) => a?.last_synced_at)
+    .filter(Boolean)
+    .sort()
+    .slice(-1)[0] || row.updated_at || null;
+
+  return {
+    companyId,
+    connected: assets.some(isMeta),
+    businessId: idOf(businessAssets[0]),
+    adAccountId: idOf(adAccountAssets[0]),
+    pageId: idOf(pageAssets[0]),
+    instagramBusinessId: idOf(igAssets[0]),
+    pixelAvailable: false,
+    datasetAvailable: false,
+    tokenStatus,
+    lastSyncedAt,
+    multipleAdAccounts: adAccountAssets.length > 1,
+    multiplePages: pageAssets.length > 1,
+    multipleInstagramAccounts: igAssets.length > 1
+  };
+}
+
 export async function getGoogleAdsAccount(companyId: string): Promise<AdAccountStatus> {
   const rows = await supabaseRest<Array<{ google_ads_customer_id: string | null }>>(
     `customer_integrations?company_id=eq.${encodeURIComponent(companyId)}&select=google_ads_customer_id&limit=1`

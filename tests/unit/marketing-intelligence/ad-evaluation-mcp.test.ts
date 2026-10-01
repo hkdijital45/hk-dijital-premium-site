@@ -88,7 +88,7 @@ test("get_ad_evaluation_context REGRESSION — campaign resolves but a requested
   const { supabaseRest } = await import("../../../src/lib/supabase.ts");
   const companyId = await makeFixtureCompany("PeriodFallback");
   try {
-    const [campaign] = await supabaseRest<Array<{ id: string }>>("campaigns", { method: "POST", body: JSON.stringify({ company_id: companyId, name: "Fallback Kampanyası", status: "ACTIVE", meta_campaign_id: `fb-meta-${Date.now()}` }) });
+    const [campaign] = await supabaseRest<Array<{ id: string; meta_campaign_id: string }>>("campaigns", { method: "POST", body: JSON.stringify({ company_id: companyId, name: "Fallback Kampanyası", status: "ACTIVE", meta_campaign_id: `fb-meta-${Date.now()}` }) });
     await supabaseRest("campaign_metrics", {
       method: "POST",
       body: JSON.stringify({ company_id: companyId, campaign_id: campaign.id, meta_campaign_id: campaign.meta_campaign_id, date: new Date().toISOString().slice(0, 10), date_range_label: "Son 30 Gün", spend: 50, results: 2, reach: 300, impressions: 500 })

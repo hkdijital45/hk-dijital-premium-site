@@ -6,6 +6,27 @@ import type { ReactNode } from "react";
 import { Bot, CheckCircle2, ExternalLink, Globe2, Search, ShieldCheck, XCircle } from "lucide-react";
 import { buildCustomerSetupSummary, getCustomerSetupSteps, type CustomerSetupSummary } from "@/lib/customer-onboarding";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
+import { AdminStatusBadge, type AdminStatusTone } from "@/components/admin/ui/AdminStatusBadge";
+
+type HkConnectMetaIdentity = {
+  companyId: string; connected: boolean;
+  businessId: string | null; adAccountId: string | null; pageId: string | null; instagramBusinessId: string | null;
+  pixelAvailable: false; datasetAvailable: false;
+  tokenStatus: "not_connected" | "connected" | "expired";
+  lastSyncedAt: string | null;
+  multipleAdAccounts: boolean; multiplePages: boolean; multipleInstagramAccounts: boolean;
+};
+
+function assetTone(value: string | null): AdminStatusTone {
+  return value ? "success" : "neutral";
+}
+function assetLabel(value: string | null): string {
+  return value ? "BAĞLI" : "BAĞLANTI YOK";
+}
+function fmtSyncDate(value: string | null) {
+  if (!value) return "Bilgi yok";
+  try { return new Date(value).toLocaleString("tr-TR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }); } catch { return "Bilgi yok"; }
+}
 
 const cmsOptions = ["WordPress", "Next.js", "Shopify", "İkas", "Ticimax", "Ideasoft", "Diğer"];
 const aiOptions = [
@@ -95,6 +116,9 @@ export function CustomerIntegrationsPanel({ company, users = [], campaigns = [],
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [hkConnectIdentity, setHkConnectIdentity] = useState<HkConnectMetaIdentity | null>(null);
+  const [hkConnectBusy, setHkConnectBusy] = useState<"fetch" | "verify" | null>(null);
+  const [hkConnectMessage, setHkConnectMessage] = useState("");
 
   useEffect(() => {
     let mounted = true;
@@ -125,6 +149,66 @@ export function CustomerIntegrationsPanel({ company, users = [], campaigns = [],
 
   function update(key: string, value: string) {
     setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  async function fetchHkConnectIdentity(): Promise<HkConnectMetaIdentity | null> {
+    const response = await fetch(`/api/admin/customers/${company.id}/hk-connect-meta`, { cache: "no-store" });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || "HK Connect bağlantı bilgisi alınamadı.");
+    return payload.identity || null;
+  }
+
+  async function importFromHkConnect() {
+    setHkConnectBusy("fetch");
+    setHkConnectMessage("");
+    try {
+      const identity = await fetchHkConnectIdentity();
+      setHkConnectIdentity(identity);
+      if (!identity || !identity.connected) {
+        setHkConnectMessage("Bu müşteri için HK Connect Meta bağlantısı bulunamadı.");
+        return;
+      }
+      const found: string[] = [];
+      const missing: string[] = [];
+      const apply = (key: string, value: string | null, label: string) => {
+        if (value) { update(key, value); found.push(label); } else { missing.push(label); }
+      };
+      apply("meta_business_id", identity.businessId, "Business ID");
+      apply("meta_ad_account_id", identity.adAccountId, "Ad Account ID");
+      apply("meta_page_id", identity.pageId, "Page ID");
+      apply("instagram_business_id", identity.instagramBusinessId, "Instagram Business ID");
+      if (identity.tokenStatus !== "not_connected") {
+        update("meta_access_token_masked", identity.tokenStatus === "expired" ? "Süresi Dolmuş" : "Geçerli");
+        found.push("Token durumu");
+      }
+      setEditing(true);
+      const ambiguityNote = identity.multipleAdAccounts || identity.multiplePages || identity.multipleInstagramAccounts
+        ? " Birden fazla bağlı hesap bulundu; ilk eşleşen kullanıldı."
+        : "";
+      setHkConnectMessage(
+        missing.length
+          ? `Bağlantı bulundu ancak bazı Meta kimlikleri mevcut değil (eksik: ${missing.join(", ")}).${ambiguityNote}`
+          : `HK Connect Meta bilgileri getirildi (${found.join(", ")}). Değişiklikleri kaydederek müşteri profiline uygulayabilirsiniz.${ambiguityNote}`
+      );
+    } catch (error) {
+      setHkConnectMessage(error instanceof Error ? error.message : "HK Connect bağlantı bilgisi alınamadı.");
+    } finally {
+      setHkConnectBusy(null);
+    }
+  }
+
+  async function verifyHkConnect() {
+    setHkConnectBusy("verify");
+    setHkConnectMessage("");
+    try {
+      const identity = await fetchHkConnectIdentity();
+      setHkConnectIdentity(identity);
+      setHkConnectMessage(identity?.connected ? "HK Connect Meta bağlantısı doğrulandı." : "Bu müşteri için HK Connect Meta bağlantısı bulunamadı.");
+    } catch (error) {
+      setHkConnectMessage(error instanceof Error ? error.message : "HK Connect bağlantı bilgisi alınamadı.");
+    } finally {
+      setHkConnectBusy(null);
+    }
   }
 
   async function save() {
@@ -226,6 +310,27 @@ export function CustomerIntegrationsPanel({ company, users = [], campaigns = [],
         </Section>
 
         <Section title="Meta" icon={<ShieldCheck size={18} />}>
+          <div className="rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-3 md:col-span-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h4 className="text-xs font-black uppercase tracking-wide text-[var(--admin-text-primary)]">HK Connect Meta Bağlantısı — {company.name || company.company_name}</h4>
+              <div className="flex flex-wrap gap-1.5">
+                <AdminButton compact variant="info" loading={hkConnectBusy === "fetch"} onClick={importFromHkConnect}>HK Connect&apos;ten Getir</AdminButton>
+                <AdminButton compact variant="secondary" loading={hkConnectBusy === "verify"} onClick={verifyHkConnect}>Bağlantıyı Doğrula</AdminButton>
+              </div>
+            </div>
+            {hkConnectIdentity && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                <AdminStatusBadge tone={assetTone(hkConnectIdentity.pageId)}>Facebook Page: {assetLabel(hkConnectIdentity.pageId)}</AdminStatusBadge>
+                <AdminStatusBadge tone={assetTone(hkConnectIdentity.instagramBusinessId)}>Instagram: {assetLabel(hkConnectIdentity.instagramBusinessId)}</AdminStatusBadge>
+                <AdminStatusBadge tone={assetTone(hkConnectIdentity.adAccountId)}>Meta Ads: {assetLabel(hkConnectIdentity.adAccountId)}</AdminStatusBadge>
+                <AdminStatusBadge tone={assetTone(hkConnectIdentity.businessId)}>Business: {assetLabel(hkConnectIdentity.businessId)}</AdminStatusBadge>
+                <AdminStatusBadge tone="neutral">Pixel: BULUNAMADI</AdminStatusBadge>
+                <AdminStatusBadge tone="neutral">Dataset: BULUNAMADI</AdminStatusBadge>
+              </div>
+            )}
+            {hkConnectIdentity?.lastSyncedAt && <p className="mt-2 text-xs text-[var(--admin-text-secondary)]">Son senkronizasyon: {fmtSyncDate(hkConnectIdentity.lastSyncedAt)}</p>}
+            {hkConnectMessage && <p className="mt-2 rounded-[8px] bg-[var(--admin-surface)] p-2 text-xs font-semibold text-[var(--admin-text-primary)]">{hkConnectMessage}</p>}
+          </div>
           <Input label="Meta Business ID" value={form.meta_business_id} onChange={(value) => update("meta_business_id", value)} />
           <Input label="Meta Ad Account ID" value={form.meta_ad_account_id} onChange={(value) => update("meta_ad_account_id", value)} />
           <Input label="Meta Pixel ID" value={form.meta_pixel_id} onChange={(value) => update("meta_pixel_id", value)} />

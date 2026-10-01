@@ -31,14 +31,28 @@ function avg(rows: any[], key: string) {
   return values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
 }
 
+// The Meta sync writer (api/admin/meta-ads/route.ts's saveMetaMetrics)
+// falls back to stamping campaign_metrics.leads/conversions with the
+// messaging result count when Meta reports no distinct lead/purchase
+// action (so other cards always have "a result number") — that fallback
+// value must never be presented here as if it were a genuinely separate
+// lead/conversion metric. raw_data.leads/raw_data.purchases preserve
+// Meta's own, unaliased action counts; sum those instead. Returns null
+// (not a fabricated 0) when no row in the set carries raw_data at all.
+function sumRawAction(rows: any[], rawKey: "leads" | "purchases"): number | null {
+  const withRawData = rows.filter((row) => row.raw_data && typeof row.raw_data[rawKey] === "number");
+  if (!withRawData.length) return null;
+  return withRawData.reduce((total, row) => total + Number(row.raw_data[rawKey] || 0), 0);
+}
+
 function summarizeRows(rows: any[]) {
   const impressions = sum(rows, "impressions");
   const reach = sum(rows, "reach");
   const clicks = sum(rows, "clicks");
   const spend = sum(rows, "spend") || sum(rows, "spent");
-  const leads = sum(rows, "leads");
+  const leads = sumRawAction(rows, "leads");
   const messages = sum(rows, "messages");
-  const conversions = sum(rows, "conversions");
+  const conversions = sumRawAction(rows, "purchases");
   const purchaseValue = sum(rows, "purchase_value");
   return {
     spend,
@@ -67,14 +81,20 @@ function previousPeriod(dateRange: { from: string; to: string }) {
   return { from: previousFrom.toISOString().slice(0, 10), to: previousTo.toISOString().slice(0, 10) };
 }
 
-function change(current = 0, previous = 0) {
+// hasPreviousData distinguishes "the prior period genuinely had zero
+// synced rows to compare against" from "the prior period's real value
+// was zero" — a brand-new campaign with no prior-period rows must never
+// show a fabricated +100% for every metric (division against an absent
+// baseline), it must say there is nothing to compare yet.
+function change(current = 0, previous = 0, hasPreviousData = true): number | null {
+  if (!hasPreviousData) return null;
   if (!previous && !current) return 0;
-  if (!previous) return 100;
+  if (!previous) return null;
   return ((current - previous) / Math.abs(previous)) * 100;
 }
 
-function weeklyChanges(current: any, previous: any) {
-  return Object.fromEntries(["spend", "impressions", "clicks", "ctr", "cpc", "cpm", "leads", "messages"].map((key) => [key, change(current[key], previous[key])]));
+function weeklyChanges(current: any, previous: any, hasPreviousData = true) {
+  return Object.fromEntries(["spend", "impressions", "clicks", "ctr", "cpc", "cpm", "leads", "messages"].map((key) => [key, change(current[key], previous[key], hasPreviousData)]));
 }
 
 function adScore(row: any) {
@@ -333,7 +353,14 @@ function buildCreativeAnalysis(rows: any[], bestAd: any) {
   };
 }
 
-function buildTrendAnalysis(metrics: any, weeklyChange: any) {
+function buildTrendAnalysis(metrics: any, weeklyChange: any, hasPreviousData = true) {
+  if (!hasPreviousData) {
+    return {
+      frequencyTrend: Number(metrics.frequency || 0),
+      ctrTrend: null, cpcTrend: null, cpmTrend: null, spendTrend: null, resultTrend: null,
+      rules: ["Karşılaştırma için yeterli geçmiş veri yok."]
+    };
+  }
   const rules = [];
   if (Number(metrics.frequency || 0) > 4 && Number(weeklyChange.ctr || 0) < 0) rules.push("Frekans yükselip CTR düştüğü için kreatif yorgunluğu riski var.");
   if (Number(weeklyChange.spend || 0) > 15 && Number(weeklyChange.leads || 0) <= 0 && Number(weeklyChange.messages || 0) <= 0) rules.push("Harcama artıyor ancak sonuç artmıyor; bütçe kaçağı kontrol edilmeli.");
@@ -475,17 +502,30 @@ export async function getAdInsightsData({
     supabaseRest<any[]>(`ad_insight_snapshots?customer_id=eq.${encodeURIComponent(companyId)}&date_from=gte.${dateRange.from}&date_to=lte.${dateRange.to}&select=*&order=created_at.desc&limit=20`).catch(() => [])
   ]);
 
+  const { dedupeMetaMetricSnapshots } = await import("@/lib/marketing-intelligence/meta-metrics-aggregation");
   const company = companyRows[0] || {};
   const meta = integrations.find((item) => item.provider === "meta") || {};
   const google = integrations.find((item) => item.provider === "google") || {};
   const previous = previousPeriod(dateRange);
-  const previousRows = await supabaseRest<any[]>(`campaign_metrics?company_id=eq.${encodeURIComponent(companyId)}&date=gte.${previous.from}&date=lte.${previous.to}&select=*&order=date.desc`).catch(() => []);
-  const rows = platform === "all" ? campaignMetrics : campaignMetrics.filter((row) => String(row.source || "").toLocaleLowerCase("tr").includes(platform === "google" ? "google" : "meta"));
-  const filteredAdRows = platform === "all" ? adMetrics : adMetrics.filter((row) => String(row.source || "").toLocaleLowerCase("tr").includes(platform === "google" ? "google" : "meta"));
+  const previousRowsRaw = await supabaseRest<any[]>(`campaign_metrics?company_id=eq.${encodeURIComponent(companyId)}&date=gte.${previous.from}&date=lte.${previous.to}&select=*&order=date.desc`).catch(() => []);
+  // Reklam Doktoru's own query (date range only, no date_range_label
+  // scoping like Reklam Değerlendirme's resolver) can pull multiple
+  // cumulative sync snapshots of the SAME campaign/ad set/ad + period —
+  // the Meta sync writer always INSERTs a fresh row per sync rather than
+  // upserting, and each row already holds the period's running total.
+  // Collapse those down to the latest snapshot per entity+bucket (same
+  // canonical rule as ad-evaluations.ts's buildMetricsSnapshot) before
+  // any summing — never sum two snapshots of the same real data.
+  const campaignMetricsDeduped = dedupeMetaMetricSnapshots(campaignMetrics, "meta_campaign_id");
+  const previousRows = dedupeMetaMetricSnapshots(previousRowsRaw, "meta_campaign_id");
+  const adMetricsDeduped = dedupeMetaMetricSnapshots(adMetrics, "meta_ad_id");
+  const rows = platform === "all" ? campaignMetricsDeduped : campaignMetricsDeduped.filter((row) => String(row.source || "").toLocaleLowerCase("tr").includes(platform === "google" ? "google" : "meta"));
+  const filteredAdRows = platform === "all" ? adMetricsDeduped : adMetricsDeduped.filter((row) => String(row.source || "").toLocaleLowerCase("tr").includes(platform === "google" ? "google" : "meta"));
   const previousFilteredRows = platform === "all" ? previousRows : previousRows.filter((row) => String(row.source || "").toLocaleLowerCase("tr").includes(platform === "google" ? "google" : "meta"));
+  const hasPreviousData = Boolean(previousFilteredRows.length);
   const metrics = rows.length ? summarizeRows(rows) : snapshots[0]?.metrics || summarizeRows([]);
   const previousMetrics = previousFilteredRows.length ? summarizeRows(previousFilteredRows) : snapshots[0]?.previous_metrics || summarizeRows([]);
-  const weeklyChange = Object.keys(snapshots[0]?.weekly_change || {}).length ? snapshots[0]?.weekly_change : weeklyChanges(metrics, previousMetrics);
+  const weeklyChange = Object.keys(snapshots[0]?.weekly_change || {}).length ? snapshots[0]?.weekly_change : weeklyChanges(metrics, previousMetrics, hasPreviousData);
   const combinedAdRows = filteredAdRows.length ? filteredAdRows : rows;
   const bestAd = pickAd(combinedAdRows, "best");
   const worstAd = pickAd(combinedAdRows, "worst");
@@ -496,7 +536,7 @@ export async function getAdInsightsData({
   const diagnoses = snapshots[0]?.insights?.diagnoses || buildDiagnoses(metrics, weeklyChange, combinedAdRows);
   const prescription = snapshots[0]?.insights?.prescription || buildPrescription(diagnoses, metrics, bestAd, worstAd);
   const creativeAnalysis = snapshots[0]?.insights?.creative_analysis || buildCreativeAnalysis(combinedAdRows, bestAd);
-  const trendAnalysis = snapshots[0]?.insights?.trend_analysis || buildTrendAnalysis(metrics, weeklyChange);
+  const trendAnalysis = snapshots[0]?.insights?.trend_analysis || buildTrendAnalysis(metrics, weeklyChange, hasPreviousData);
   const competitorAnalysis = snapshots[0]?.insights?.competitor_analysis || buildCompetitorAnalysis();
   const doctorSummary = snapshots[0]?.insights?.doctor_summary || buildDoctorSummary(company.name || company.company_name || "Müşteri", metrics, healthScore, diagnoses, prescription, bestAd, worstAd);
   const potentialImprovement = Math.max(0, Math.min(65, Math.round((100 - healthScore) * 0.6)));
