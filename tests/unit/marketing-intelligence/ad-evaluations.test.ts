@@ -19,8 +19,8 @@ test("buildMetricsSnapshot: no matching rows -> null per group, never a fabricat
   const { buildMetricsSnapshot } = await import("../../../src/lib/marketing-intelligence/ad-evaluations.ts");
   const snapshot = buildMetricsSnapshot({ campaignMetrics: [], adsetMetrics: [], adMetrics: [], campaignId: "c1", metaCampaignId: "m1" });
   assert.equal(snapshot.campaign, null);
-  assert.equal(snapshot.adsets, null);
-  assert.equal(snapshot.ads, null);
+  assert.deepEqual(snapshot.adsets, []);
+  assert.deepEqual(snapshot.ads, []);
 });
 
 test("buildMetricsSnapshot REGRESSION — zero results never produces NaN/Infinity costPerResult, stays null", async () => {
@@ -35,18 +35,68 @@ test("buildMetricsSnapshot REGRESSION — zero results never produces NaN/Infini
   assert.ok(Number.isFinite(snapshot.campaign!.spend));
 });
 
-test("buildMetricsSnapshot: matches by meta_campaign_id first, falls back to local campaign_id, correctly sums real rows", async () => {
+test("buildMetricsSnapshot: matches by meta_campaign_id first, falls back to local campaign_id, correctly sums rows from genuinely distinct dates", async () => {
   const { buildMetricsSnapshot } = await import("../../../src/lib/marketing-intelligence/ad-evaluations.ts");
   const snapshot = buildMetricsSnapshot({
     campaignMetrics: [
-      { meta_campaign_id: "m1", spend: 100, results: 5 },
-      { meta_campaign_id: "m1", spend: 50, results: 3 },
-      { meta_campaign_id: "other", spend: 999, results: 99 }
+      { meta_campaign_id: "m1", date: "2026-09-01", spend: 100, results: 5 },
+      { meta_campaign_id: "m1", date: "2026-09-02", spend: 50, results: 3 },
+      { meta_campaign_id: "other", date: "2026-09-01", spend: 999, results: 99 }
     ],
     adsetMetrics: [], adMetrics: [], campaignId: null, metaCampaignId: "m1"
   });
   assert.equal(snapshot.campaign!.spend, 150);
   assert.equal(snapshot.campaign!.results, 8);
+});
+
+test("buildMetricsSnapshot REGRESSION — a repeated sync of the SAME period (same meta_adset_id/date/breakdown, different created_at) collapses to the latest snapshot, never summed", async () => {
+  const { buildMetricsSnapshot } = await import("../../../src/lib/marketing-intelligence/ad-evaluations.ts");
+  const snapshot = buildMetricsSnapshot({
+    campaignMetrics: [], adMetrics: [], campaignId: "c1", metaCampaignId: "m1",
+    adsetMetrics: [
+      { meta_campaign_id: "m1", meta_adset_id: "as1", adset_name: "Reklam Seti", date: "2026-10-01", period_start: "2026-09-01", period_end: "2026-10-01", date_range_label: "Son 30 Gün", spend: 174.48, results: 5, created_at: "2026-10-01T12:32:21.046562+00:00" },
+      { meta_campaign_id: "m1", meta_adset_id: "as1", adset_name: "Reklam Seti", date: "2026-10-01", period_start: "2026-09-01", period_end: "2026-10-01", date_range_label: "Son 30 Gün", spend: 177.19, results: 5, created_at: "2026-10-01T12:57:30.799739+00:00" }
+    ]
+  });
+  assert.equal(snapshot.adsets!.length, 1, "two sync snapshots of the same real ad set must collapse into exactly one canonical row");
+  assert.equal(snapshot.adsets![0].spend, 177.19, "the LATEST snapshot wins, never a sum of the two (which would be 351.67)");
+  assert.equal(snapshot.adsets![0].results, 5, "never 10 — repeated snapshots of the same period are not additive");
+});
+
+test("buildMetricsSnapshot: distinct Meta ad set ids never collapse into each other", async () => {
+  const { buildMetricsSnapshot } = await import("../../../src/lib/marketing-intelligence/ad-evaluations.ts");
+  const snapshot = buildMetricsSnapshot({
+    campaignMetrics: [], adMetrics: [], campaignId: "c1", metaCampaignId: "m1",
+    adsetMetrics: [
+      { meta_campaign_id: "m1", meta_adset_id: "as1", adset_name: "Set A", date: "2026-10-01", date_range_label: "Son 30 Gün", spend: 100, results: 2, created_at: "2026-10-01T12:00:00Z" },
+      { meta_campaign_id: "m1", meta_adset_id: "as2", adset_name: "Set B", date: "2026-10-01", date_range_label: "Son 30 Gün", spend: 50, results: 1, created_at: "2026-10-01T12:00:00Z" }
+    ]
+  });
+  assert.equal(snapshot.adsets!.length, 2, "two genuinely different Meta ad set ids must stay as two rows");
+});
+
+test("buildMetricsSnapshot: distinct real dates for the same ad set are summed (additive), non-additive CTR/CPC/CPM recomputed from the summed base", async () => {
+  const { buildMetricsSnapshot } = await import("../../../src/lib/marketing-intelligence/ad-evaluations.ts");
+  const snapshot = buildMetricsSnapshot({
+    campaignMetrics: [], adMetrics: [], campaignId: "c1", metaCampaignId: "m1",
+    adsetMetrics: [
+      { meta_campaign_id: "m1", meta_adset_id: "as1", adset_name: "Set A", date: "2026-10-01", date_range_label: "Son 30 Gün", spend: 100, impressions: 1000, clicks: 10, results: 2, reach: 500, created_at: "2026-10-01T12:00:00Z" },
+      { meta_campaign_id: "m1", meta_adset_id: "as1", adset_name: "Set A", date: "2026-10-02", date_range_label: "Son 30 Gün", spend: 50, impressions: 500, clicks: 5, results: 1, reach: 300, created_at: "2026-10-02T12:00:00Z" }
+    ]
+  });
+  assert.equal(snapshot.adsets!.length, 1);
+  assert.equal(snapshot.adsets![0].spend, 150);
+  assert.equal(snapshot.adsets![0].results, 3);
+  assert.equal(snapshot.adsets![0].reach, 500, "reach must never be blindly summed across dates (would double-count people) — the largest single bucket is used instead");
+});
+
+test("buildMetricsSnapshot: ads/adsets are always arrays, never null, with a dataAvailability flag — not synced means [] with availability:false", async () => {
+  const { buildMetricsSnapshot } = await import("../../../src/lib/marketing-intelligence/ad-evaluations.ts");
+  const snapshot = buildMetricsSnapshot({ campaignMetrics: [], adsetMetrics: [], adMetrics: [], campaignId: "c1", metaCampaignId: "m1" });
+  assert.deepEqual(snapshot.adsets, []);
+  assert.deepEqual(snapshot.ads, []);
+  assert.equal(snapshot.dataAvailability.adsets, false);
+  assert.equal(snapshot.dataAvailability.ads, false);
 });
 
 // --- buildAdEvaluationPrompt (pure) ---

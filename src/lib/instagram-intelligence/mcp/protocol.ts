@@ -126,9 +126,9 @@ export const tools: Tool[] = [
   // four report files synchronously before returning. ---
   {
     name: "get_ad_evaluation_context",
-    description: "Bir müşterinin GERÇEK kampanya performansını değerlendirmeye yetecek TEK, kompakt bağlam: şirket (id, isim, sector), eşleşen yerel kampanya (id, meta_campaign_id, isim, objective, status, başlangıç tarihi, kampanya yaşı saat, günlük/lifetime bütçe), zaten senkronize edilmiş gerçek Meta metrikleri (harcama, erişim, gösterim, frekans, CPM/CTR/CPC, sonuç, mesaj, sonuç başı maliyet — reklam seti ve reklam/kreatif kırılımıyla), GÜNCEL onaylı/aktif Reklam Stratejisi (varsa), en son Kreatif Rapor (varsa) ve en fazla son 3 önceki değerlendirme. campaignId (yerel kampanya id) veya metaCampaignId'den biri verilirse ona göre eşleştirir; hiçbiri verilmezse kampanya alanı null döner (yine de şirket/strateji bilgisi döner). rangePreset ('today'|'last_7d'|'last_30d', varsayılan son 30 gün) zaten senkronize edilmiş veriyi filtreler — bu tool Meta Graph API'ye KENDİSİ ASLA çağrı yapmaz (güncel veri gerekiyorsa önce HK Admin'deki Meta senkronizasyonu çalıştırılmalı). Eksik/olmayan veri ASLA sahte sıfır olarak dönmez — ilgili alan null olur. Read-only, hiçbir reklam hesabında değişiklik yapmaz.",
+    description: "Bir müşterinin GERÇEK kampanya performansını değerlendirmeye yetecek TEK, kompakt bağlam: şirket (id, isim, sector), eşleşen yerel kampanya (id, meta_campaign_id, isim, objective, status, başlangıç tarihi, kampanya yaşı saat, günlük/lifetime bütçe), zaten senkronize edilmiş gerçek Meta metrikleri (harcama, erişim, gösterim, frekans, CPM/CTR/CPC, sonuç, mesaj, sonuç başı maliyet — TEK bir gerçek Meta ad set/reklam id'si başına TEK satır olacak şekilde, aynı dönemin tekrarlanan senkronizasyonları asla toplanmaz), GÜNCEL onaylı/aktif Reklam Stratejisi (varsa), en son Kreatif Rapor (varsa) ve en fazla son 3 önceki değerlendirme. KAMPANYA ÇÖZÜMLEME — ham campaignId/metaCampaignId'yi önceden bilmen GEREKMEZ: (1) campaignId verilirse onunla, (2) yoksa metaCampaignId verilirse onunla, (3) yoksa campaignName verilirse bu şirkete AİT tam isim eşleşmesiyle (örn. 'MYCAKE-IG-DM-01'), (4) hiçbiri verilmezse ve şirketin tek bir (arşivlenmemiş) kampanyası varsa otomatik olarak onunla eşleştirilir. Birden fazla eşleşen/olası kampanya varsa ASLA rastgele seçilmez — campaign null döner ve campaignCandidates alanında olası kampanyalar (id, isim, metaCampaignId, status) listelenir; kullanıcıya hangisini kastettiği sorulmalı veya tam campaignId ile tekrar çağrılmalıdır. rangePreset ('today'|'last_7d'|'last_30d', varsayılan son 30 gün) zaten senkronize edilmiş veriyi filtreler — bu tool Meta Graph API'ye KENDİSİ ASLA çağrı yapmaz (güncel veri gerekiyorsa önce HK Admin'deki Meta senkronizasyonu çalıştırılmalı). Eksik/olmayan veri ASLA sahte sıfır olarak dönmez — ilgili alan null olur (0 ile null farklıdır: 0 gerçek sıfır sonucu, null veri yokluğunu ifade eder). Read-only, hiçbir reklam hesabında değişiklik yapmaz.",
     permission: "READ_ONLY",
-    inputSchema: { type: "object", properties: { companyId, campaignId, metaCampaignId: text, rangePreset: text }, required: ["companyId"], additionalProperties: false }
+    inputSchema: { type: "object", properties: { companyId, campaignId, metaCampaignId: text, campaignName: text, rangePreset: text }, required: ["companyId"], additionalProperties: false }
   },
   {
     name: "save_ad_evaluation",
@@ -151,6 +151,23 @@ export const tools: Tool[] = [
     description: "Bir müşterinin (ve isteğe bağlı olarak belirli bir kampanyanın) en son kaydedilmiş Reklam Değerlendirmesini kompakt biçimde döner: id, tarih, dönem, karar, sonraki kontrol tarihi/notu, internal/client raporun özet (executiveSummary + bölüm başlıkları — tam içerik değil), dört rapor dosyasının var/yok durumu, ve metrik anlık görüntüsünün özeti (harcama, sonuç, sonuç başı maliyet). Hiç kayıt yoksa NOT_FOUND döner (asla sahte/boş bir değerlendirme uydurmaz). Private storage imzalı URL'lerini döndürmez — dosyaları indirmek için mevcut HK Admin Reklam Değerlendirme ekranı kullanılmalıdır. Read-only.",
     permission: "READ_ONLY",
     inputSchema: { type: "object", properties: { companyId, campaignId }, required: ["companyId"], additionalProperties: false }
+  },
+  {
+    name: "update_ad_evaluation",
+    description: "VAR OLAN bir Reklam Değerlendirmesini AYNI KAYIT ÜZERİNDE (aynı id, aynı company_id, aynı created_at) düzeltir — örn. yanlış eşleşmiş kampanya bağlantısını veya hatalı bir metrik anlık görüntüsünü onarmak için; asla yeni bir değerlendirme/ikinci kayıt oluşturmaz. ZORUNLU: companyId, evaluationId. `patch` içinde YALNIZCA şu alanlar kabul edilir: campaignId, metaCampaignId, strategyId, creativeStrategyId, metricsSnapshot, internalReport, clientReport, decision, nextReviewAt, nextReviewNote — company/customer sahipliği, evaluationId ve created_at bu araçla ASLA değiştirilemez. regenerateReports true verilirse (varsayılan false), güncellemeden hemen sonra aynı dört rapor dosyası (Dahili PDF/Word, Müşteri PDF/Word) AYNI storage yoluna yeniden üretilip yazılır (üzerine yazma — yeni/ikinci bir dosya oluşturmaz) ve sonuç geri okunarak doğrulanır. Şirket/kampanya sahipliği diğer tüm MCP araçlarıyla aynı şekilde zorunludur — evaluationId gerçekten companyId'ye ait değilse NOT_FOUND. Hiçbir reklam hesabında/kampanyasında/bütçesinde değişiklik yapmaz.",
+    permission: "WRITE_SAFE",
+    inputSchema: {
+      type: "object",
+      properties: {
+        companyId, evaluationId: reportId,
+        campaignId, metaCampaignId: text, strategyId, creativeStrategyId: reportId,
+        metricsSnapshot: obj, internalReport: obj, clientReport: obj,
+        decision: text, nextReviewAt: dateField, nextReviewNote: text,
+        regenerateReports: { type: "string", enum: ["true", "false"] }
+      },
+      required: ["companyId", "evaluationId"],
+      additionalProperties: false
+    }
   },
   {
     name: "get_instagram_profile_audit_context",
@@ -568,6 +585,7 @@ export async function execute(name: string, args: Record<string, unknown>): Prom
         return await getAdEvaluationContext(String(args.companyId || ""), {
           campaignId: typeof args.campaignId === "string" ? args.campaignId : undefined,
           metaCampaignId: typeof args.metaCampaignId === "string" ? args.metaCampaignId : undefined,
+          campaignName: typeof args.campaignName === "string" ? args.campaignName : undefined,
           rangePreset: typeof args.rangePreset === "string" ? args.rangePreset : undefined
         });
       } catch (error) {
@@ -667,6 +685,40 @@ export async function execute(name: string, args: Record<string, unknown>): Prom
         };
       } catch (error) {
         if (error instanceof AdEvaluationCompanyNotFoundError) throw new ControlError("NOT_FOUND", error.message, 404);
+        throw error;
+      }
+    }
+    case "update_ad_evaluation": {
+      const { updateAdEvaluation, getAdEvaluationById, AdEvaluationValidationError, AdEvaluationNotFoundError } = await import("@/lib/marketing-intelligence/ad-evaluations");
+      const { generateAllAdEvaluationReports, reportFileStatus } = await import("@/lib/marketing-intelligence/ad-evaluation-reports");
+      try {
+        const companyId = String(args.companyId || "");
+        const evaluationId = String(args.evaluationId || "");
+        const patch: Record<string, unknown> = {};
+        if (typeof args.campaignId === "string") patch.campaignId = args.campaignId;
+        if (typeof args.metaCampaignId === "string") patch.metaCampaignId = args.metaCampaignId;
+        if (typeof args.strategyId === "string") patch.strategyId = args.strategyId;
+        if (typeof args.creativeStrategyId === "string") patch.creativeStrategyId = args.creativeStrategyId;
+        if (args.metricsSnapshot && typeof args.metricsSnapshot === "object") patch.metricsSnapshot = args.metricsSnapshot;
+        if (args.internalReport && typeof args.internalReport === "object") patch.internalReport = args.internalReport;
+        if (args.clientReport && typeof args.clientReport === "object") patch.clientReport = args.clientReport;
+        if (typeof args.decision === "string") patch.decision = args.decision;
+        if (typeof args.nextReviewAt === "string") patch.nextReviewAt = args.nextReviewAt;
+        if (typeof args.nextReviewNote === "string") patch.nextReviewNote = args.nextReviewNote;
+
+        let updated = await updateAdEvaluation(companyId, evaluationId, patch as never);
+        if (args.regenerateReports === "true") {
+          await generateAllAdEvaluationReports(companyId, evaluationId, { force: true });
+          updated = await getAdEvaluationById(companyId, evaluationId);
+        }
+        return {
+          evaluationId: updated.id, companyId: updated.company_id, campaignId: updated.campaign_id, metaCampaignId: updated.meta_campaign_id,
+          createdAt: updated.created_at, status: updated.status, decision: updated.decision,
+          reportsRegenerated: args.regenerateReports === "true", files: reportFileStatus(updated)
+        };
+      } catch (error) {
+        if (error instanceof AdEvaluationValidationError) throw new ControlError("INVALID_ARGUMENTS", error.message, 400);
+        if (error instanceof AdEvaluationNotFoundError) throw new ControlError("NOT_FOUND", error.message, 404);
         throw error;
       }
     }

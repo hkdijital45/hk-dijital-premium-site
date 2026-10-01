@@ -26,7 +26,7 @@ export type AdEvaluationReportStatus = { internalPdf: boolean; internalDocx: boo
  * create uncontrolled duplicates on repeat calls — an existing path is
  * reused as-is, not regenerated). Returns the evaluation row with its
  * final storage paths. */
-export async function generateAllAdEvaluationReports(companyId: string, evaluationId: string): Promise<AdEvaluationRecord> {
+export async function generateAllAdEvaluationReports(companyId: string, evaluationId: string, options: { force?: boolean } = {}): Promise<AdEvaluationRecord> {
   let evaluation = await getAdEvaluationById(companyId, evaluationId);
 
   const [companies, campaigns] = await Promise.all([
@@ -45,10 +45,14 @@ export async function generateAllAdEvaluationReports(companyId: string, evaluati
 
   for (const { mode, format } of combos) {
     const pathField = PATH_FIELD[`${mode}-${format}`];
-    if (evaluation[pathField]) continue;
+    if (evaluation[pathField] && !options.force) continue;
     const payload = buildAdEvaluationDocumentPayload(companyName, campaignName, evaluation, mode);
     const buffer = format === "docx" ? await generateDocxBuffer(payload) : await generatePdfBuffer(payload);
     const fileName = `${mode === "internal" ? "internal-report" : "client-report"}.${format}`;
+    // Deterministic per-evaluation path (never includes a version/time
+    // segment) + x-upsert on the storage write means a forced
+    // regeneration replaces the same object in place — no duplicate
+    // file, no second evaluation.
     const storagePath = adEvaluationStoragePath(companyId, evaluation.campaign_id, evaluationId, fileName);
     await uploadAdEvaluationFile(storagePath, buffer, DOCUMENT_MIME_TYPES[format]);
     evaluation = await updateAdEvaluationStoragePaths(companyId, evaluationId, { [pathField]: storagePath } as Partial<AdEvaluationRecord>);

@@ -8,6 +8,7 @@
 // live Meta sync — only decision/next_review/storage path fields and the
 // report content itself (on a deliberate regenerate) are ever updated.
 import { supabaseRest } from "@/lib/supabase";
+import { dedupeMetaMetricSnapshots, groupByEntityId } from "./meta-metrics-aggregation";
 
 export const AD_EVALUATION_STATUSES = ["draft", "evaluated", "archived"] as const;
 export type AdEvaluationStatus = (typeof AD_EVALUATION_STATUSES)[number];
@@ -75,44 +76,99 @@ function avgBy(rows: any[], key: string): number {
   return Number((sumBy(rows, [key]) / rows.length).toFixed(2));
 }
 
+// A genuinely distinct remaining bucket (real different date/breakdown,
+// never a repeat sync of the same period) gets combined here — additive
+// metrics are summed, non-additive ones are recomputed from the summed
+// additive base rather than summed/averaged directly. reach has no safe
+// additive combination without user-level data (summing could double-
+// count the same people), so the single largest bucket's reach is used
+// instead of a sum.
+function mergeDistinctBuckets(buckets: any[]): any {
+  if (buckets.length === 1) return buckets[0];
+  const num = (row: any, key: string) => (row[key] === null || row[key] === undefined ? 0 : Number(row[key]) || 0);
+  const spend = buckets.reduce((s, r) => s + (num(r, "spend") || num(r, "spent")), 0);
+  const impressions = buckets.reduce((s, r) => s + num(r, "impressions"), 0);
+  const clicks = buckets.reduce((s, r) => s + num(r, "clicks"), 0);
+  const results = buckets.reduce((s, r) => s + (num(r, "results") || num(r, "leads")), 0);
+  const messages = buckets.reduce((s, r) => s + num(r, "messages"), 0);
+  const reachRow = buckets.reduce((best, r) => (num(r, "reach") > num(best, "reach") ? r : best), buckets[0]);
+  return {
+    ...buckets[0], spend: Number(spend.toFixed(2)), impressions, clicks, results, messages,
+    reach: num(reachRow, "reach"),
+    ctr: impressions ? Number(((clicks / impressions) * 100).toFixed(2)) : null,
+    cpc: clicks ? Number((spend / clicks).toFixed(2)) : null,
+    cpm: impressions ? Number(((spend / impressions) * 1000).toFixed(2)) : null
+  };
+}
+
 /** Aggregates the already-synced campaign_metrics/meta_adset_metrics/
  * meta_ad_metrics rows (the same normalized tables the Meta sync engine
  * and Reklam Operasyon Merkezi already populate/read — no new Graph API
- * call here) into one real-data snapshot for a campaign+period. Returns
- * null per metric group when genuinely no rows matched — never a
- * fabricated zero. */
+ * call here) into one real-data snapshot for a campaign+period. Rows are
+ * first deduped per reporting bucket (the Meta sync inserts a fresh row
+ * on every sync, and each one already holds the cumulative total for the
+ * whole period — re-syncing the same period must never be summed as if
+ * it were new, disjoint data; see meta-metrics-aggregation.ts). Ad sets/
+ * ads are then grouped strictly by their real Meta id, never by name,
+ * so the same ad set synced twice is always exactly one row, not two.
+ * Returns null per metric group when genuinely no rows matched — never
+ * a fabricated zero. */
 export function buildMetricsSnapshot(input: {
   campaignMetrics: any[]; adsetMetrics: any[]; adMetrics: any[];
   campaignId?: string | null; metaCampaignId?: string | null;
 }) {
-  const campaignRows = input.campaignMetrics.filter((r) => matchesEntity(r, input.campaignId, input.metaCampaignId));
-  const adsetRows = input.adsetMetrics.filter((r) => matchesEntity(r, input.campaignId, input.metaCampaignId));
-  const adRows = input.adMetrics.filter((r) => matchesEntity(r, input.campaignId, input.metaCampaignId));
+  const campaignRowsRaw = input.campaignMetrics.filter((r) => matchesEntity(r, input.campaignId, input.metaCampaignId));
+  const adsetRowsRaw = input.adsetMetrics.filter((r) => matchesEntity(r, input.campaignId, input.metaCampaignId));
+  const adRowsRaw = input.adMetrics.filter((r) => matchesEntity(r, input.campaignId, input.metaCampaignId));
+
+  const campaignRows = dedupeMetaMetricSnapshots(campaignRowsRaw, "meta_campaign_id");
+  const adsetRows = dedupeMetaMetricSnapshots(adsetRowsRaw, "meta_adset_id");
+  const adRows = dedupeMetaMetricSnapshots(adRowsRaw, "meta_ad_id");
+
   const campaign = campaignRows.length ? {
     spend: Number(sumBy(campaignRows, ["spend", "spent"]).toFixed(2)),
     reach: sumBy(campaignRows, ["reach"]),
     impressions: sumBy(campaignRows, ["impressions"]),
     clicks: sumBy(campaignRows, ["clicks"]),
+    linkClicks: sumBy(campaignRows, ["clicks"]),
     ctr: avgBy(campaignRows, "ctr"),
     cpc: avgBy(campaignRows, "cpc"),
     cpm: avgBy(campaignRows, "cpm"),
     results: sumBy(campaignRows, ["results", "leads"]),
     messages: sumBy(campaignRows, ["messages"]),
+    messagingConversationsStarted: sumBy(campaignRows, ["messages"]),
     costPerResult: (() => { const results = sumBy(campaignRows, ["results", "leads"]); return results ? Number((sumBy(campaignRows, ["spend", "spent"]) / results).toFixed(2)) : null; })(),
     frequency: campaignRows.some((r) => r.frequency) ? avgBy(campaignRows, "frequency") : (sumBy(campaignRows, ["reach"]) ? Number((sumBy(campaignRows, ["impressions"]) / sumBy(campaignRows, ["reach"])).toFixed(2)) : null)
   } : null;
-  const adsets = adsetRows.map((r) => ({
-    name: r.adset_name || "Adsız reklam seti", status: r.status || null,
-    spend: Number(r.spend || 0), reach: Number(r.reach || 0), impressions: Number(r.impressions || 0),
-    ctr: Number(r.ctr || 0), cpc: Number(r.cpc || 0), cpm: Number(r.cpm || 0), results: Number(r.results || r.leads || 0)
-  }));
-  const ads = adRows.map((r) => ({
-    name: r.ad_name || "Adsız reklam", status: r.status || null,
-    spend: Number(r.spend || 0), impressions: Number(r.impressions || 0), reach: Number(r.reach || 0),
-    ctr: Number(r.ctr || 0), cpc: Number(r.cpc || 0), results: Number(r.results || r.leads || 0),
-    creativeThumbnailUrl: r.creative_thumbnail_url || null
-  }));
-  return { campaign, adsets: adsets.length ? adsets : null, ads: ads.length ? ads : null, syncedAt: new Date().toISOString() };
+
+  // One canonical row per real Meta ad set/ad id — a repeat sync of the
+  // same entity+period was already collapsed above; any rows still
+  // sharing an id here are genuinely distinct buckets (real different
+  // dates/breakdowns) and get combined, never left as separate "ad set"
+  // rows for the same real ad set.
+  const adsets = [...groupByEntityId(adsetRows, "meta_adset_id").values()].map((buckets) => {
+    const r = mergeDistinctBuckets(buckets);
+    return {
+      name: r.adset_name || "Adsız reklam seti", status: r.status || null, metaAdsetId: r.meta_adset_id || null,
+      spend: Number(r.spend || 0), reach: r.reach ?? null, impressions: Number(r.impressions || 0),
+      ctr: r.ctr ?? null, cpc: r.cpc ?? null, cpm: r.cpm ?? null, results: r.results ?? r.leads ?? null,
+      dailyBudget: r.daily_budget ?? null, lifetimeBudget: r.lifetime_budget ?? null
+    };
+  });
+  const ads = [...groupByEntityId(adRows, "meta_ad_id").values()].map((buckets) => {
+    const r = mergeDistinctBuckets(buckets);
+    return {
+      name: r.ad_name || "Adsız reklam", status: r.status || null, metaAdId: r.meta_ad_id || null,
+      spend: Number(r.spend || 0), impressions: Number(r.impressions || 0), reach: r.reach ?? null,
+      ctr: r.ctr ?? null, cpc: r.cpc ?? null, results: r.results ?? r.leads ?? null,
+      creativeThumbnailUrl: r.creative_thumbnail_url || null
+    };
+  });
+
+  return {
+    campaign, adsets, ads, syncedAt: new Date().toISOString(),
+    dataAvailability: { adsets: adsets.length > 0, ads: ads.length > 0 }
+  };
 }
 
 function hoursSince(dateStr?: string | null): number | null {
@@ -124,7 +180,8 @@ function hoursSince(dateStr?: string | null): number | null {
 
 export type AdEvaluationContext = {
   company: { id: string; name: string; sector: string | null; city: string | null };
-  campaign: { id: string; name: string; metaCampaignId: string | null; status: string | null; startDate: string | null; objective: string | null; dailyBudget: number | null; lifetimeBudget: number | null } | null;
+  campaign: { id: string; name: string; metaCampaignId: string | null; status: string | null; startDate: string | null; objective: string | null; dailyBudget: number | null; lifetimeBudget: number | null; campaignAgeHours: number | null } | null;
+  campaignCandidates: Array<{ id: string; name: string; metaCampaignId: string | null; status: string | null }> | null;
   adAccount: { accountId: string | null; source: string } | null;
   strategy: { id: string; version: number; status: string; strategyTitle: string; primaryGoal: string; primaryKpi: string; campaignSequence: unknown[] } | null;
   creativeStrategy: { id: string; version: number; status: string; creatives: unknown[] } | null;
@@ -133,6 +190,41 @@ export type AdEvaluationContext = {
   campaignAgeHours: number | null;
 };
 
+// Resolves the real local campaign row for this company without ever
+// requiring a caller (e.g. Claude Project over MCP) to already know raw
+// campaignId/metaCampaignId — same priority order the HK Admin UI's own
+// campaign picker effectively gives a user: an explicit id always wins;
+// otherwise an exact, company-scoped name match; otherwise, if the
+// company genuinely has only one active campaign, that one. Never a
+// global unscoped name search, and never a guess among several
+// candidates — those come back as campaignCandidates instead.
+async function resolveCampaignRow(
+  companyId: string,
+  input: { campaignId?: string; metaCampaignId?: string; campaignName?: string }
+): Promise<{ campaign: any | null; candidates: Array<{ id: string; name: string; metaCampaignId: string | null; status: string | null }> | null }> {
+  if (input.campaignId) {
+    const rows = await supabaseRest<any[]>(`campaigns?id=eq.${encodeURIComponent(input.campaignId)}&company_id=eq.${encodeURIComponent(companyId)}&select=*&limit=1`).catch(() => []);
+    return { campaign: rows[0] || null, candidates: null };
+  }
+  if (input.metaCampaignId) {
+    const rows = await supabaseRest<any[]>(`campaigns?meta_campaign_id=eq.${encodeURIComponent(input.metaCampaignId)}&company_id=eq.${encodeURIComponent(companyId)}&select=*&limit=1`).catch(() => []);
+    return { campaign: rows[0] || null, candidates: null };
+  }
+  // Same company-scoped listing the Ad Insights campaign selector/
+  // get_ad_evaluation_context's own UI dropdown already uses.
+  const all = await supabaseRest<any[]>(`campaigns?company_id=eq.${encodeURIComponent(companyId)}&archived_at=is.null&select=*&order=created_at.desc`).catch(() => []);
+  if (input.campaignName) {
+    const needle = input.campaignName.trim().toLocaleLowerCase("en");
+    const matches = all.filter((c) => String(c.name || "").trim().toLocaleLowerCase("en") === needle);
+    if (matches.length === 1) return { campaign: matches[0], candidates: null };
+    if (matches.length > 1) return { campaign: null, candidates: matches.map((c) => ({ id: c.id, name: c.name, metaCampaignId: c.meta_campaign_id || null, status: c.status || null })) };
+    return { campaign: null, candidates: null };
+  }
+  if (all.length === 1) return { campaign: all[0], candidates: null };
+  if (all.length > 1) return { campaign: null, candidates: all.map((c) => ({ id: c.id, name: c.name, metaCampaignId: c.meta_campaign_id || null, status: c.status || null })) };
+  return { campaign: null, candidates: null };
+}
+
 /** Single, compact context call for the evaluation prompt — real company +
  * the matched local campaign (if any) + the currently-active ad strategy
  * + latest creative report + up to 3 prior evaluations + a real metrics
@@ -140,29 +232,23 @@ export type AdEvaluationContext = {
  * API itself — "Mevcut Meta verilerini yenile/senkronize et" is the
  * existing /api/admin/meta-ads sync action; this only reads what that
  * already wrote. */
-export async function getAdEvaluationContext(companyId: string, input: { campaignId?: string; metaCampaignId?: string; rangePreset?: string } = {}): Promise<AdEvaluationContext> {
+export async function getAdEvaluationContext(
+  companyId: string,
+  input: { campaignId?: string; metaCampaignId?: string; campaignName?: string; rangePreset?: string } = {}
+): Promise<AdEvaluationContext> {
   await assertCompanyExists(companyId);
   const { getAdStrategyForActivation } = await import("./ad-strategies");
   const { getCreativeReportHistory } = await import("./ad-creative-reports");
 
-  const campaignLookup = input.campaignId
-    ? `id=eq.${encodeURIComponent(input.campaignId)}&company_id=eq.${encodeURIComponent(companyId)}`
-    : input.metaCampaignId
-      ? `meta_campaign_id=eq.${encodeURIComponent(input.metaCampaignId)}&company_id=eq.${encodeURIComponent(companyId)}`
-      : null;
-
-  const [companies, campaignRows, strategyActivation, creativeHistory, previousRows] = await Promise.all([
+  const [companies, { campaign, candidates }, strategyActivation, creativeHistory, previousRows] = await Promise.all([
     supabaseRest<Array<{ id: string; name: string; sector: string | null; city: string | null }>>(`companies?id=eq.${encodeURIComponent(companyId)}&select=id,name,sector,city&limit=1`),
-    campaignLookup
-      ? supabaseRest<any[]>(`campaigns?${campaignLookup}&select=*&limit=1`).catch(() => [])
-      : Promise.resolve([]),
+    resolveCampaignRow(companyId, input),
     getAdStrategyForActivation(companyId),
     getCreativeReportHistory(companyId).catch(() => []),
     supabaseRest<any[]>(`${AD_EVALUATIONS_TABLE}?company_id=eq.${encodeURIComponent(companyId)}&select=id,created_at,evaluation_period_start,evaluation_period_end,decision&order=created_at.desc&limit=3`).catch(() => [])
   ]);
 
   const company = companies[0];
-  const campaign = campaignRows[0] || null;
   const strategy = strategyActivation.strategy;
   const latestCreative = creativeHistory[0] || null;
 
@@ -186,13 +272,22 @@ export async function getAdEvaluationContext(companyId: string, input: { campaig
     campaignMetrics, adsetMetrics, adMetrics, campaignId: campaign?.id || null, metaCampaignId
   });
 
+  // The campaign lifecycle sync (saveCampaignLifecycle) doesn't always
+  // keep campaigns.daily_budget current; the ad set sync does — prefer
+  // whichever real synced value is actually present rather than showing
+  // a stale/zero campaign-level figure when the ad set already has it.
+  const adsetDailyBudget = metricsSnapshot.adsets?.find((a) => a.dailyBudget)?.dailyBudget ?? null;
+  const campaignAgeHours = hoursSince(campaign?.meta_start_time || campaign?.start_date);
+
   return {
     company: company ? { id: company.id, name: company.name, sector: company.sector, city: company.city } : { id: companyId, name: "Bilinmiyor", sector: null, city: null },
     campaign: campaign ? {
       id: campaign.id, name: campaign.name, metaCampaignId: campaign.meta_campaign_id || null,
       status: campaign.status || null, startDate: campaign.meta_start_time || campaign.start_date || null, objective: campaign.objective || null,
-      dailyBudget: campaign.daily_budget ?? null, lifetimeBudget: campaign.lifetime_budget ?? null
+      dailyBudget: campaign.daily_budget || adsetDailyBudget, lifetimeBudget: campaign.lifetime_budget || metricsSnapshot.adsets?.find((a) => a.lifetimeBudget)?.lifetimeBudget || null,
+      campaignAgeHours
     } : null,
+    campaignCandidates: candidates,
     adAccount: campaign?.meta_campaign_id ? { accountId: null, source: "hk_connect" } : null,
     strategy: strategy ? {
       id: strategy.id, version: strategy.version, status: strategy.status, strategyTitle: strategy.strategy_title,
@@ -201,7 +296,7 @@ export async function getAdEvaluationContext(companyId: string, input: { campaig
     creativeStrategy: latestCreative ? { id: latestCreative.id, version: latestCreative.version, status: latestCreative.status, creatives: latestCreative.creatives || [] } : null,
     previousEvaluations: previousRows.map((r) => ({ id: r.id, createdAt: r.created_at, periodStart: r.evaluation_period_start, periodEnd: r.evaluation_period_end, decision: r.decision })),
     metricsSnapshot,
-    campaignAgeHours: hoursSince(campaign?.meta_start_time || campaign?.start_date)
+    campaignAgeHours
   };
 }
 
@@ -302,6 +397,43 @@ export async function saveParsedEvaluation(companyId: string, id: string, patch:
         status: "evaluated"
       })
     }
+  );
+  if (!rows.length) throw new AdEvaluationNotFoundError(`Değerlendirme bulunamadı veya bu müşteriye ait değil: ${id}`);
+  return rows[0];
+}
+
+export type AdEvaluationUpdateInput = Partial<{
+  campaignId: string | null; metaCampaignId: string | null; strategyId: string | null; creativeStrategyId: string | null;
+  metricsSnapshot: Record<string, unknown>; internalReport: EvaluationReportText; clientReport: EvaluationReportText;
+  decision: AdEvaluationDecision | null; nextReviewAt: string | null; nextReviewNote: string | null;
+}>;
+
+/** Repairs an EXISTING evaluation in place (same id, same company,
+ * same created_at) — e.g. correcting a wrong campaign binding or a
+ * metrics snapshot captured before an aggregation bug fix — without
+ * ever creating a second evaluation. company_id/id/created_at are never
+ * writable here; only the fields below. Report files are NOT
+ * regenerated by this call — see generateAllAdEvaluationReports's
+ * `force` option for that, called separately once the caller actually
+ * wants new files for the corrected content. */
+export async function updateAdEvaluation(companyId: string, id: string, patch: AdEvaluationUpdateInput): Promise<AdEvaluationRecord> {
+  await getAdEvaluationById(companyId, id);
+  if (patch.decision) req((AD_EVALUATION_DECISIONS as readonly string[]).includes(patch.decision), `Geçersiz karar: ${patch.decision}.`);
+  const body: Record<string, unknown> = {};
+  if ("campaignId" in patch) body.campaign_id = patch.campaignId ?? null;
+  if ("metaCampaignId" in patch) body.meta_campaign_id = patch.metaCampaignId ?? null;
+  if ("strategyId" in patch) body.strategy_id = patch.strategyId ?? null;
+  if ("creativeStrategyId" in patch) body.creative_strategy_id = patch.creativeStrategyId ?? null;
+  if ("metricsSnapshot" in patch) body.metrics_snapshot = patch.metricsSnapshot ?? {};
+  if ("internalReport" in patch) body.internal_report = patch.internalReport ?? {};
+  if ("clientReport" in patch) body.client_report = patch.clientReport ?? {};
+  if ("decision" in patch) body.decision = patch.decision ?? null;
+  if ("nextReviewAt" in patch) body.next_review_at = patch.nextReviewAt ?? null;
+  if ("nextReviewNote" in patch) body.next_review_note = patch.nextReviewNote ?? null;
+  req(Object.keys(body).length > 0, "Güncellenecek en az bir alan belirtilmelidir.");
+  const rows = await supabaseRest<AdEvaluationRecord[]>(
+    `${AD_EVALUATIONS_TABLE}?id=eq.${encodeURIComponent(id)}&company_id=eq.${encodeURIComponent(companyId)}&select=*`,
+    { method: "PATCH", body: JSON.stringify(body) }
   );
   if (!rows.length) throw new AdEvaluationNotFoundError(`Değerlendirme bulunamadı veya bu müşteriye ait değil: ${id}`);
   return rows[0];
