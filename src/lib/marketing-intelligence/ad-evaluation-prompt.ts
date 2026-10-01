@@ -32,20 +32,23 @@ function metricsBlock(snapshot: AdEvaluationContext["metricsSnapshot"]): string 
     `Erişim: ${c.reach ?? "Veri yok"}`,
     `Gösterim: ${c.impressions ?? "Veri yok"}`,
     `Frekans: ${c.frequency ?? "Veri yok"}`,
-    `Tıklama: ${c.clicks ?? "Veri yok"}`,
-    `CTR: ${c.ctr != null ? `%${c.ctr}` : "Veri yok"}`,
-    `CPC: ${c.cpc != null ? fmtMoney(c.cpc) : "Veri yok"}`,
+    `Bağlantı Tıklaması: ${c.linkClicks ?? "Veri yok"}`,
+    `Tüm Tıklamalar: ${c.clicksAll ?? "Veri yok"}`,
+    `CTR (Tümü): ${c.ctrAll != null ? `%${c.ctrAll}` : "Veri yok"}`,
+    `CPC (Tümü): ${c.cpcAll != null ? fmtMoney(c.cpcAll) : "Veri yok"}`,
+    `Bağlantı CTR: ${c.linkCtr != null ? `%${c.linkCtr}` : "Veri yok"}`,
+    `Bağlantı CPC: ${c.linkCpc != null ? fmtMoney(c.linkCpc) : "Veri yok"}`,
     `CPM: ${c.cpm != null ? fmtMoney(c.cpm) : "Veri yok"}`,
     `Sonuç: ${c.results ?? "Veri yok"}`,
     `Mesaj: ${c.messages ?? "Veri yok"}`,
     `Sonuç başı maliyet: ${c.costPerResult != null ? fmtMoney(c.costPerResult) : "Veri yok"}`
   ];
   const adsets = snapshot.adsets?.length
-    ? snapshot.adsets.map((a: any) => `- ${a.name} (${a.status || "-"}): harcama ${fmtMoney(a.spend)}, erişim ${a.reach}, CTR %${a.ctr}, sonuç ${a.results}`).join("\n")
+    ? snapshot.adsets.map((a: any) => `- ${a.name} (${a.status || "-"}): harcama ${fmtMoney(a.spend)}, erişim ${a.reach ?? "Veri yok"}, bağlantı tıklaması ${a.linkClicks ?? "Veri yok"}, bağlantı CTR ${a.linkCtr != null ? `%${a.linkCtr}` : "Veri yok"}, sonuç ${a.results ?? "Veri yok"}`).join("\n")
     : "Reklam seti seviyesinde senkronize veri yok.";
   const ads = snapshot.ads?.length
-    ? snapshot.ads.map((a: any) => `- ${a.name} (${a.status || "-"}): harcama ${fmtMoney(a.spend)}, gösterim ${a.impressions}, CTR %${a.ctr}, sonuç ${a.results}`).join("\n")
-    : "Reklam/kreatif seviyesinde senkronize veri yok.";
+    ? snapshot.ads.map((a: any) => `- ${a.name} (${a.status || "-"}): harcama ${fmtMoney(a.spend)}, gösterim ${a.impressions ?? "Veri yok"}, bağlantı tıklaması ${a.linkClicks ?? "Veri yok"}, bağlantı CTR ${a.linkCtr != null ? `%${a.linkCtr}` : "Veri yok"}, sonuç ${a.results ?? "Veri yok"}`).join("\n")
+    : "Reklam/kreatif seviyesinde yeterli senkronize veri yok.";
   const periodNote = snapshot.periodFallback
     ? `\n(Not: "${snapshot.periodRequested}" için senkronize veri yok — aşağıdaki rakamlar gerçekte senkronize edilmiş "${snapshot.periodUsed}" dönemine aittir, uydurulmuş veya karıştırılmış değildir.)`
     : "";

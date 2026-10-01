@@ -35,8 +35,21 @@ const CLIENT_GLOSSARY: Array<{ pattern: RegExp; gloss: string; label: string }> 
   { pattern: /\bErişim\b/i, gloss: "en az bir kez gören farklı kişi sayısı", label: "Erişim (Reklamı en az bir kez gören farklı kişi sayısı)" },
   { pattern: /\bGösterim\b/i, gloss: "toplam kaç kez görüntülendiği", label: "Gösterim (Reklamın toplam kaç kez görüntülendiği)" },
   { pattern: /\bFrekans\b/i, gloss: "ortalama kaç kez gördüğü", label: "Frekans (Bir kişinin reklamı ortalama kaç kez gördüğü)" },
-  { pattern: /\bCTR\b/i, gloss: "bağlantıya tıklayanların oranı", label: "CTR (Reklamı gören kişilerden bağlantıya tıklayanların oranı)" },
-  { pattern: /\bCPC\b/i, gloss: "bağlantı tıklamasının ortalama maliyeti", label: "CPC (Bir bağlantı tıklamasının ortalama maliyeti)" },
+  // Compound click-metric-family labels must be glossed BEFORE the bare
+  // CTR/CPC entries below (ordered first), and the bare entries then
+  // skip over them via a negative lookaround — otherwise the generic
+  // "CTR"/"CPC" pattern re-matches the word embedded inside "CTR
+  // (Tümü)"/"Bağlantı CTR" and double-annotates it.
+  // No trailing \b here: "ı" (dotless i) falls outside \w, so a \b
+  // immediately after it never matches (both sides end up non-word) —
+  // verified live, this silently skipped the whole pattern.
+  { pattern: /\bBağlantı Tıklaması/i, gloss: "bağlantıya yapılan tıklama sayısı", label: "Bağlantı Tıklaması (Reklamdaki bağlantıya yapılan tıklama sayısı)" },
+  { pattern: /\bCTR \(Tümü\)/i, gloss: "tüm tıklamaların gösterimlere oranı", label: "CTR (Tümü) (Reklamdaki tüm tıklamaların gösterimlere oranı)" },
+  { pattern: /\bCPC \(Tümü\)/i, gloss: "tüm tıklamalardan birinin ortalama maliyeti", label: "CPC (Tümü) (Reklamdaki tüm tıklamalardan birinin ortalama maliyeti)" },
+  { pattern: /\bBağlantı CTR\b/i, gloss: "bağlantı tıklamalarının gösterimlere oranı", label: "Bağlantı CTR (Reklamdaki bağlantı tıklamalarının gösterimlere oranı)" },
+  { pattern: /\bBağlantı CPC\b/i, gloss: "bir bağlantı tıklamasının ortalama maliyeti", label: "Bağlantı CPC (Bir bağlantı tıklamasının ortalama maliyeti)" },
+  { pattern: /(?<!\(Tümü\)\s)(?<!Bağlantı )\bCTR\b(?!\s*\(Tümü\))/i, gloss: "bağlantıya tıklayanların oranı", label: "CTR (Reklamı gören kişilerden bağlantıya tıklayanların oranı)" },
+  { pattern: /(?<!\(Tümü\)\s)(?<!Bağlantı )\bCPC\b(?!\s*\(Tümü\))/i, gloss: "bağlantı tıklamasının ortalama maliyeti", label: "CPC (Bir bağlantı tıklamasının ortalama maliyeti)" },
   { pattern: /\bCPM\b/i, gloss: "1.000 gösterim başına ortalama maliyeti", label: "CPM (Reklamın 1.000 gösterim başına ortalama maliyeti)" },
   { pattern: /\bMesajlaşma konuşması başlatıldı\b/i, gloss: "yeni konuşma başlatan kişi sayısı", label: "Mesajlaşma konuşması başlatıldı (Reklam üzerinden işletmeyle yeni konuşma başlatan kişi sayısı)" },
   { pattern: /\bSonuç başı maliyet\b/i, gloss: "ortalama harcanan tutar", label: "Sonuç başı maliyet (Bir mesaj veya kampanyanın ana sonucunu elde etmek için ortalama harcanan tutar)" },

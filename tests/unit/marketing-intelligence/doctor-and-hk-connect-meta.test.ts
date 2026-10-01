@@ -73,6 +73,24 @@ test("getAdInsightsData REGRESSION — leads/conversions reflect Meta's real raw
   }
 });
 
+test("getAdInsightsData REGRESSION — Reklam Doktoru's click family is explicitly link-click-based, never silently relabeled as all-clicks", { skip: hasSupabase ? false : skipReason }, async () => {
+  const { getAdInsightsData } = await import("../../../src/lib/ad-insights.ts");
+  const { supabaseRest } = await import("../../../src/lib/supabase.ts");
+  const companyId = await makeFixtureCompany("ClickSemantics");
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const row = { company_id: companyId, meta_campaign_id: `click-${Date.now()}`, date: today, date_range_label: "Son 30 Gün", spend: 177.19, impressions: 2229, clicks: 19, ctr: 3.185285, cpc: 2.495634, reach: 1588 };
+    await supabaseRest("campaign_metrics", { method: "POST", body: JSON.stringify(row) });
+
+    const data = await getAdInsightsData({ companyId, range: "last_30d" });
+    assert.equal(data.metrics.linkClicks, 19);
+    assert.equal(data.metrics.clicksAll, 71, "the true all-click count must be recovered, not left equal to the link-click count");
+    assert.notEqual(data.metrics.ctr, data.metrics.ctrAll, "the displayed Doctor ctr (link-based) must differ from the genuine all-click ctrAll — they are not the same metric");
+  } finally {
+    await cleanup(companyId);
+  }
+});
+
 test("getAdInsightsData REGRESSION — a brand-new campaign with no prior-period rows shows 'insufficient comparison data', never a fabricated +100% trend", { skip: hasSupabase ? false : skipReason }, async () => {
   const { getAdInsightsData } = await import("../../../src/lib/ad-insights.ts");
   const { supabaseRest } = await import("../../../src/lib/supabase.ts");

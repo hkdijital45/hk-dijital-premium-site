@@ -48,19 +48,35 @@ function sumRawAction(rows: any[], rawKey: "leads" | "purchases"): number | null
 function summarizeRows(rows: any[]) {
   const impressions = sum(rows, "impressions");
   const reach = sum(rows, "reach");
-  const clicks = sum(rows, "clicks");
+  // `clicks` is link-click-preferred at sync time (saveMetaMetrics stores
+  // row.leads||row.results-style fallbacks, and row.clicks itself is
+  // written from Meta's inline_link_clicks when present) — Meta's own
+  // `ctr`/`cpc` columns are stored verbatim and are natively all-click-
+  // based (verified live: ctr% * impressions reproduces Meta's true
+  // all-click count, not this link-click sum). Same canonical click-
+  // family split as ad-evaluations.ts's buildMetricsSnapshot — never
+  // mix the two when labeling a metric.
+  const linkClicks = sum(rows, "clicks");
   const spend = sum(rows, "spend") || sum(rows, "spent");
   const leads = sumRawAction(rows, "leads");
   const messages = sum(rows, "messages");
   const conversions = sumRawAction(rows, "purchases");
   const purchaseValue = sum(rows, "purchase_value");
+  const ctrAll = avg(rows, "ctr") || null;
+  const cpcAll = avg(rows, "cpc") || null;
   return {
     spend,
     impressions,
     reach,
-    clicks,
-    ctr: impressions ? (clicks / impressions) * 100 : avg(rows, "ctr"),
-    cpc: clicks ? spend / clicks : avg(rows, "cpc"),
+    clicks: linkClicks,
+    linkClicks,
+    clicksAll: cpcAll ? Math.round(spend / cpcAll) : null,
+    ctrAll,
+    cpcAll,
+    linkCtr: impressions ? Number(((linkClicks / impressions) * 100).toFixed(2)) : null,
+    linkCpc: linkClicks ? Number((spend / linkClicks).toFixed(2)) : null,
+    ctr: impressions ? (linkClicks / impressions) * 100 : avg(rows, "ctr"),
+    cpc: linkClicks ? spend / linkClicks : avg(rows, "cpc"),
     cpm: impressions ? (spend / impressions) * 1000 : avg(rows, "cpm"),
     messages,
     leads,

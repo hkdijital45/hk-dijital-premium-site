@@ -125,43 +125,86 @@ export function buildMetricsSnapshot(input: {
   const adsetRows = dedupeMetaMetricSnapshots(adsetRowsRaw, "meta_adset_id");
   const adRows = dedupeMetaMetricSnapshots(adRowsRaw, "meta_ad_id");
 
-  const campaign = campaignRows.length ? {
-    spend: Number(sumBy(campaignRows, ["spend", "spent"]).toFixed(2)),
-    reach: sumBy(campaignRows, ["reach"]),
-    impressions: sumBy(campaignRows, ["impressions"]),
-    clicks: sumBy(campaignRows, ["clicks"]),
-    linkClicks: sumBy(campaignRows, ["clicks"]),
-    ctr: avgBy(campaignRows, "ctr"),
-    cpc: avgBy(campaignRows, "cpc"),
-    cpm: avgBy(campaignRows, "cpm"),
-    results: sumBy(campaignRows, ["results", "leads"]),
-    messages: sumBy(campaignRows, ["messages"]),
-    messagingConversationsStarted: sumBy(campaignRows, ["messages"]),
-    costPerResult: (() => { const results = sumBy(campaignRows, ["results", "leads"]); return results ? Number((sumBy(campaignRows, ["spend", "spent"]) / results).toFixed(2)) : null; })(),
-    frequency: campaignRows.some((r) => r.frequency) ? avgBy(campaignRows, "frequency") : (sumBy(campaignRows, ["reach"]) ? Number((sumBy(campaignRows, ["impressions"]) / sumBy(campaignRows, ["reach"])).toFixed(2)) : null)
-  } : null;
+  // Click-metric family semantics (section 8 of the Meta pipeline fix):
+  // the sync writer stores row.clicks as inline_link_clicks-preferred
+  // (confirmed live: a real synced row had inline_link_clicks=19 vs
+  // Meta's true all-click count=71 for the same insight) — so the
+  // existing `clicks`/`ctr`/`cpc` fields are NOT one consistent family:
+  // `clicks` is link clicks, while Meta's own `ctr`/`cpc` fields (stored
+  // verbatim) are natively all-click-based (verified: ctr% * impressions
+  // reproduces the true all-click count, not the stored clicks value).
+  // ctrAll/cpcAll surface that already-captured all-click math under its
+  // correct name; clicksAll is derived from it (spend/cpcAll, the one
+  // mathematically valid recovery with no new raw field to store);
+  // linkCtr/linkCpc are computed fresh from the genuine link-click count.
+  const campaign = campaignRows.length ? (() => {
+    const linkClicks = sumBy(campaignRows, ["clicks"]);
+    const impressions = sumBy(campaignRows, ["impressions"]);
+    const spend = sumBy(campaignRows, ["spend", "spent"]);
+    const ctrAll = avgBy(campaignRows, "ctr");
+    const cpcAll = avgBy(campaignRows, "cpc");
+    return {
+      spend: Number(spend.toFixed(2)),
+      reach: sumBy(campaignRows, ["reach"]),
+      impressions,
+      clicks: linkClicks,
+      linkClicks,
+      clicksAll: cpcAll ? Math.round(spend / cpcAll) : null,
+      ctrAll: ctrAll || null,
+      cpcAll: cpcAll || null,
+      linkCtr: impressions ? Number(((linkClicks / impressions) * 100).toFixed(2)) : null,
+      linkCpc: linkClicks ? Number((spend / linkClicks).toFixed(2)) : null,
+      ctr: ctrAll,
+      cpc: cpcAll,
+      cpm: avgBy(campaignRows, "cpm"),
+      results: sumBy(campaignRows, ["results", "leads"]),
+      messages: sumBy(campaignRows, ["messages"]),
+      messagingConversationsStarted: sumBy(campaignRows, ["messages"]),
+      costPerResult: (() => { const results = sumBy(campaignRows, ["results", "leads"]); return results ? Number((spend / results).toFixed(2)) : null; })(),
+      frequency: campaignRows.some((r) => r.frequency) ? avgBy(campaignRows, "frequency") : (sumBy(campaignRows, ["reach"]) ? Number((impressions / sumBy(campaignRows, ["reach"])).toFixed(2)) : null)
+    };
+  })() : null;
 
   // One canonical row per real Meta ad set/ad id — a repeat sync of the
   // same entity+period was already collapsed above; any rows still
   // sharing an id here are genuinely distinct buckets (real different
   // dates/breakdowns) and get combined, never left as separate "ad set"
   // rows for the same real ad set.
+  // raw_data.insight preserves Meta's full insight row (pullAdvancedMetaData
+  // stores { insight: row, lifecycle }) — when present, it carries the
+  // genuine all-click count (row.clicks) separately from the stored
+  // link-preferred `clicks` column, so clicksAll is read directly here
+  // instead of derived.
+  const clickFamily = (r: any, linkClicks: number, impressions: number, spend: number) => {
+    const rawAllClicks = Number(r.raw_data?.insight?.clicks);
+    const clicksAll = Number.isFinite(rawAllClicks) && rawAllClicks > 0 ? rawAllClicks : null;
+    return {
+      linkClicks, clicksAll,
+      ctrAll: r.ctr ?? null, cpcAll: r.cpc ?? null,
+      linkCtr: impressions ? Number(((linkClicks / impressions) * 100).toFixed(2)) : null,
+      linkCpc: linkClicks ? Number((spend / linkClicks).toFixed(2)) : null
+    };
+  };
   const adsets = [...groupByEntityId(adsetRows, "meta_adset_id").values()].map((buckets) => {
     const r = mergeDistinctBuckets(buckets);
+    const spend = Number(r.spend || 0); const impressions = Number(r.impressions || 0); const linkClicks = Number(r.clicks || 0);
     return {
       name: r.adset_name || "Adsız reklam seti", status: r.status || null, metaAdsetId: r.meta_adset_id || null,
-      spend: Number(r.spend || 0), reach: r.reach ?? null, impressions: Number(r.impressions || 0),
+      spend, reach: r.reach ?? null, impressions,
       ctr: r.ctr ?? null, cpc: r.cpc ?? null, cpm: r.cpm ?? null, results: r.results ?? r.leads ?? null,
-      dailyBudget: r.daily_budget ?? null, lifetimeBudget: r.lifetime_budget ?? null
+      dailyBudget: r.daily_budget ?? null, lifetimeBudget: r.lifetime_budget ?? null,
+      ...clickFamily(r, linkClicks, impressions, spend)
     };
   });
   const ads = [...groupByEntityId(adRows, "meta_ad_id").values()].map((buckets) => {
     const r = mergeDistinctBuckets(buckets);
+    const spend = Number(r.spend || 0); const impressions = Number(r.impressions || 0); const linkClicks = Number(r.clicks || 0);
     return {
       name: r.ad_name || "Adsız reklam", status: r.status || null, metaAdId: r.meta_ad_id || null,
-      spend: Number(r.spend || 0), impressions: Number(r.impressions || 0), reach: r.reach ?? null,
+      spend, impressions, reach: r.reach ?? null,
       ctr: r.ctr ?? null, cpc: r.cpc ?? null, results: r.results ?? r.leads ?? null,
-      creativeThumbnailUrl: r.creative_thumbnail_url || null
+      creativeThumbnailUrl: r.creative_thumbnail_url || null,
+      ...clickFamily(r, linkClicks, impressions, spend)
     };
   });
 

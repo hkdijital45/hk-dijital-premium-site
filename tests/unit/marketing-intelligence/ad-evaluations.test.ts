@@ -99,6 +99,56 @@ test("buildMetricsSnapshot: ads/adsets are always arrays, never null, with a dat
   assert.equal(snapshot.dataAvailability.ads, false);
 });
 
+// --- click-metric family semantics (section 8 of the Meta pipeline fix) ---
+
+test("buildMetricsSnapshot: campaign click families are distinct — linkClicks never conflated with the true all-click count, linkCtr/linkCpc never substituted with Meta's native all-click ctr/cpc", async () => {
+  const { buildMetricsSnapshot } = await import("../../../src/lib/marketing-intelligence/ad-evaluations.ts");
+  // Real production shape: stored `clicks` is link-click-preferred (19),
+  // while Meta's own ctr/cpc columns are natively all-click-based,
+  // reproducing a true all-click count of 71 (verified live:
+  // 2229 * 3.185285 / 100 ≈ 71).
+  const snapshot = buildMetricsSnapshot({
+    campaignMetrics: [{ meta_campaign_id: "m1", date: "2026-10-01", spend: 177.19, impressions: 2229, clicks: 19, ctr: 3.185285, cpc: 2.495634, reach: 1588 }],
+    adsetMetrics: [], adMetrics: [], campaignId: null, metaCampaignId: "m1"
+  });
+  const c = snapshot.campaign!;
+  assert.equal(c.linkClicks, 19);
+  assert.equal(c.clicksAll, 71, "clicksAll must be recovered from Meta's native all-click cpc/spend relationship, not left equal to linkClicks");
+  assert.equal(c.ctrAll, 3.19);
+  assert.equal(c.cpcAll, 2.5);
+  assert.notEqual(c.linkCtr, c.ctrAll, "link CTR and all-click CTR must never be the same field reused under two names");
+  assert.equal(c.linkCtr, Number(((19 / 2229) * 100).toFixed(2)));
+  assert.equal(c.linkCpc, Number((177.19 / 19).toFixed(2)));
+});
+
+test("buildMetricsSnapshot: ad set/ad click families read the genuine all-click count from raw_data.insight when present, never fabricate it", async () => {
+  const { buildMetricsSnapshot } = await import("../../../src/lib/marketing-intelligence/ad-evaluations.ts");
+  const snapshot = buildMetricsSnapshot({
+    campaignMetrics: [], campaignId: "c1", metaCampaignId: "m1",
+    adsetMetrics: [{ meta_campaign_id: "m1", meta_adset_id: "as1", adset_name: "Set", date: "2026-10-01", date_range_label: "Son 30 Gün", spend: 177.19, impressions: 2229, clicks: 19, ctr: 3.19, cpc: 2.5, raw_data: { insight: { clicks: "71", inline_link_clicks: "19" } } }],
+    adMetrics: []
+  });
+  assert.equal(snapshot.adsets![0].linkClicks, 19);
+  assert.equal(snapshot.adsets![0].clicksAll, 71, "must read Meta's real raw all-click count, not derive/guess it");
+});
+
+test("buildMetricsSnapshot: three distinct real Meta Ad IDs stay three canonical ads (1 campaign / 1 adset / 3 ads structure), repeated snapshots of the same ad still collapse to one", async () => {
+  const { buildMetricsSnapshot } = await import("../../../src/lib/marketing-intelligence/ad-evaluations.ts");
+  const adRows = [
+    // ad 1: two repeated sync snapshots of the same ad+period — must collapse to one
+    { meta_campaign_id: "m1", meta_ad_id: "ad1", ad_name: "MYCAKE-IG-DM-01", date: "2026-10-01", date_range_label: "Son 30 Gün", spend: 49.28, results: 2, created_at: "2026-10-01T10:00:00Z" },
+    { meta_campaign_id: "m1", meta_ad_id: "ad1", ad_name: "MYCAKE-IG-DM-01", date: "2026-10-01", date_range_label: "Son 30 Gün", spend: 49.28, results: 2, created_at: "2026-10-01T10:05:00Z" },
+    { meta_campaign_id: "m1", meta_ad_id: "ad2", ad_name: "MYCAKE-IG-DM-02", date: "2026-10-01", date_range_label: "Son 30 Gün", spend: 62.15, results: 3, created_at: "2026-10-01T10:00:00Z" },
+    { meta_campaign_id: "m1", meta_ad_id: "ad3", ad_name: "MYCAKE-IG-DM-03", date: "2026-10-01", date_range_label: "Son 30 Gün", spend: 67.01, results: 0, created_at: "2026-10-01T10:00:00Z" }
+  ];
+  const snapshot = buildMetricsSnapshot({ campaignMetrics: [], adsetMetrics: [], adMetrics: adRows, campaignId: "c1", metaCampaignId: "m1" });
+  assert.equal(snapshot.ads!.length, 3, "must be exactly 3 canonical ads — never 1 (over-collapsed) or 6 (duplicate-sync not deduped)");
+  const names = snapshot.ads!.map((a) => a.name).sort();
+  assert.deepEqual(names, ["MYCAKE-IG-DM-01", "MYCAKE-IG-DM-02", "MYCAKE-IG-DM-03"]);
+  assert.equal(snapshot.ads!.find((a) => a.name === "MYCAKE-IG-DM-01")!.spend, 49.28, "repeated snapshots of the same ad must never be summed (would be 98.56)");
+  assert.equal(snapshot.ads!.find((a) => a.name === "MYCAKE-IG-DM-03")!.results, 0, "a real zero result must stay 0, never become null or get dropped");
+});
+
 // --- buildAdEvaluationPrompt (pure) ---
 
 function fakeContext(overrides: Record<string, unknown> = {}) {
@@ -235,6 +285,40 @@ test("buildAdEvaluationDocumentPayload: client report always explains known metr
   const internalText = internal.sections.map((s) => [s.title, s.text, ...(s.items || [])].join("\n")).join("\n");
   assert.match(internalText, /Nihai Karar/);
   assert.equal(internal.confidentialLabel, "Dahili Kullanım");
+});
+
+test("buildAdEvaluationDocumentPayload: click-family terms are each glossed exactly once, never nested/double-annotated, never cross-contaminated between generic and compound labels", async () => {
+  const { buildAdEvaluationDocumentPayload } = await import("../../../src/lib/marketing-intelligence/ad-evaluation-document.ts");
+  const evaluation = {
+    id: "e1", company_id: "c1", campaign_id: "camp1", meta_campaign_id: "m1", ad_account_id: null,
+    strategy_id: null, creative_strategy_id: null, previous_evaluation_id: null,
+    evaluation_period_start: "2026-09-25", evaluation_period_end: "2026-10-01", campaign_age_hours: 72,
+    metrics_snapshot: {}, prompt_text: "", claude_raw_response: null,
+    internal_report: {},
+    client_report: { sections: [{ title: "Metrikler", content: "Bağlantı Tıklaması: 19\nCTR (Tümü): %3.19\nCPC (Tümü): 2.50 TL\nBağlantı CTR: %0.85\nBağlantı CPC: 9.33 TL" }] },
+    decision: null, next_review_at: null, next_review_note: null,
+    status: "evaluated", internal_pdf_path: null, internal_docx_path: null, client_pdf_path: null, client_docx_path: null,
+    source: "hk_admin", created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z"
+  } as any;
+
+  const client = buildAdEvaluationDocumentPayload("MY CAKE 45", "Açılış Kampanyası", evaluation, "client");
+  const items = client.sections.find((s) => s.title === "Metrikler")?.items || [];
+  assert.match(items[0], /^Bağlantı Tıklaması \(Reklamdaki bağlantıya yapılan tıklama sayısı\): 19$/);
+  assert.match(items[1], /^CTR \(Tümü\) \(Reklamdaki tüm tıklamaların gösterimlere oranı\): %3\.19$/);
+  assert.match(items[2], /^CPC \(Tümü\) \(Reklamdaki tüm tıklamalardan birinin ortalama maliyeti\): 2,50 TL$|2\.50 TL$/);
+  assert.match(items[3], /^Bağlantı CTR \(Reklamdaki bağlantı tıklamalarının gösterimlere oranı\): %0\.85$/);
+  assert.match(items[4], /^Bağlantı CPC \(Bir bağlantı tıklamasının ortalama maliyeti\): 9,33 TL$|9\.33 TL$/);
+  for (const line of items) {
+    const openParens = (line.match(/\(/g) || []).length;
+    const closeParens = (line.match(/\)/g) || []).length;
+    assert.equal(openParens, closeParens, `unbalanced parens suggest nested/double annotation: ${line}`);
+    // Each line above gets exactly one gloss appended; "CTR (Tümü)"/
+    // "CPC (Tümü)" legitimately already contain one paren pair of their
+    // own before the gloss is appended, so up to 2 is correct there —
+    // the real regression this guards against (3+ parens) would mean a
+    // second, nested gloss got applied on top of the first.
+    assert.equal(openParens <= 2, true, `more than one gloss applied to the same line: ${line}`);
+  }
 });
 
 // --- Live data-layer coverage (requires ad_evaluations migration) ---
