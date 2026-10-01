@@ -26,6 +26,7 @@ const HKIntelligenceCommandCenter = dynamic(() => import("@/components/admin/HKI
 const HKAutonomousAgencyCenter = dynamic(() => import("@/components/admin/HKAutonomousAgencyCenter").then((m) => m.HKAutonomousAgencyCenter), { ssr: false });
 const AdInsightsCenter = dynamic(() => import("@/components/admin/AdInsightsCenter").then((m) => m.AdInsightsCenter), { ssr: false });
 const PreAuditCenter = dynamic(() => import("@/components/admin/PreAuditCenter").then((m) => m.PreAuditCenter), { ssr: false });
+const ReportCenterPanel = dynamic(() => import("@/components/admin/ReportCenterPanel").then((m) => m.ReportCenterPanel), { ssr: false });
 const AgentHubCenter = dynamic(() => import("@/components/admin/AgentHubCenter").then((m) => m.AgentHubCenter), { ssr: false });
 const QaCenter = dynamic(() => import("@/components/admin/QaCenter").then((m) => m.QaCenter), { ssr: false });
 const AdsOperatingCenter = dynamic(() => import("@/components/admin/GrowthOperatingSystem").then((m) => m.AdsOperatingCenter), { ssr: false });
@@ -926,6 +927,7 @@ export function AdminDashboard({
           {["Web Site Analitiği", "Web Analitiği", "Web Analitiği Bağlantıları", "GTM Bağlantıları"].includes(active) && <WebsiteAnalyticsCenter />}
           {(active === "Reklam Yorum Merkezi" || active === "Reklam Doktoru Pro") && <><AdDoctorMvpPanel /><AdInsightsCenter content={content} notify={notify} /></>}
           {active === "Ön İnceleme Merkezi" && <PreAuditCenter initialTab={preAuditInitialTab || undefined} />}
+          {active === "Rapor Merkezi" && <ReportCenterPanel content={content} notify={notify} />}
           {["HK Agent Hub", "Agent Hub", "Discord"].includes(active) && <AgentHubCenter content={content} notify={notify} onOpenCustomerDocuments={(companyId: string) => { setSelectedCompanyId(companyId); setActive("Belgeler"); }} />}
           {["Sistem Kalitesi", "QA Merkezi", "Sistem Test Merkezi"].includes(active) && <SystemQualityCenter content={content} setContent={setContent} save={save} currentSession={currentSession} notify={notify} systemStatus={systemStatus} supabaseConfigured={supabaseConfigured} initialTab={active === "Sistem Test Merkezi" ? "Otomatik Testler" : "Manuel Kontroller"} />}
           {active === "PDF Rapor Tasarım Merkezi" && <PdfReportDesignCenter {...props} />}

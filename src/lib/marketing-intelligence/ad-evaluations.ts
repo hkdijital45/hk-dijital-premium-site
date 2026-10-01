@@ -449,12 +449,38 @@ export async function updateAdEvaluationStoragePaths(companyId: string, id: stri
   return rows[0];
 }
 
-export async function archiveAdEvaluation(companyId: string, id: string): Promise<AdEvaluationRecord> {
+/** Moves an evaluation between draft/evaluated/archived — Rapor Merkezi's
+ * "Arşivle"/"Arşivden Çıkar" actions. Never deletes anything; archived
+ * rows simply drop out of default active views (status filter). */
+export async function setAdEvaluationStatus(companyId: string, id: string, status: AdEvaluationStatus): Promise<AdEvaluationRecord> {
   await getAdEvaluationById(companyId, id);
+  req((AD_EVALUATION_STATUSES as readonly string[]).includes(status), `Geçersiz durum: ${status}.`);
   const rows = await supabaseRest<AdEvaluationRecord[]>(
     `${AD_EVALUATIONS_TABLE}?id=eq.${encodeURIComponent(id)}&company_id=eq.${encodeURIComponent(companyId)}&select=*`,
-    { method: "PATCH", body: JSON.stringify({ status: "archived" }) }
+    { method: "PATCH", body: JSON.stringify({ status }) }
   );
   if (!rows.length) throw new AdEvaluationNotFoundError(`Değerlendirme bulunamadı veya bu müşteriye ait değil: ${id}`);
   return rows[0];
+}
+
+export async function archiveAdEvaluation(companyId: string, id: string): Promise<AdEvaluationRecord> {
+  return setAdEvaluationStatus(companyId, id, "archived");
+}
+
+/** Real physical delete — ad_evaluations has no soft-delete column, so
+ * this is the repository's established "delete what you own, nothing
+ * else" pattern: ownership-checked, deletes this evaluation's own
+ * stored report files (private storage, best-effort — a failed file
+ * delete never blocks the row delete) then the row itself.
+ * previous_evaluation_id on any OTHER row pointing at this one is
+ * handled by the migration's `on delete set null` — no manual cascade
+ * needed, and no other table/record is ever touched. */
+export async function deleteAdEvaluation(companyId: string, id: string): Promise<void> {
+  const evaluation = await getAdEvaluationById(companyId, id);
+  const paths = [evaluation.internal_pdf_path, evaluation.internal_docx_path, evaluation.client_pdf_path, evaluation.client_docx_path].filter(Boolean) as string[];
+  if (paths.length) {
+    const { deleteAdEvaluationFiles } = await import("./ad-evaluation-storage");
+    await deleteAdEvaluationFiles(paths).catch(() => {});
+  }
+  await supabaseRest(`${AD_EVALUATIONS_TABLE}?id=eq.${encodeURIComponent(id)}&company_id=eq.${encodeURIComponent(companyId)}`, { method: "DELETE" });
 }

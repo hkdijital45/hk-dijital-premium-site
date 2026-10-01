@@ -30,6 +30,19 @@ export async function uploadAdEvaluationFile(path: string, buffer: Buffer, conte
   if (!response.ok) throw new Error(`Rapor dosyası depolama alanına yüklenemedi: ${path}`);
 }
 
+/** Best-effort batch delete of this evaluation's own stored files
+ * (Rapor Merkezi "Sil" action) — never throws, a storage-side failure
+ * must not block the row delete that calls this. */
+export async function deleteAdEvaluationFiles(paths: string[]): Promise<void> {
+  if (!paths.length) return;
+  const { baseUrl, key } = storageConfig();
+  await fetch(`${baseUrl}/storage/v1/object/${BUCKET}`, {
+    method: "DELETE",
+    headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ prefixes: paths })
+  }).catch(() => {});
+}
+
 /** Short-lived signed URL — never a permanent/public link. Caller must
  * already have verified the requesting staff user owns/can see this
  * company's evaluation before calling this. */
