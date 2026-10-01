@@ -46,7 +46,10 @@ function metricsBlock(snapshot: AdEvaluationContext["metricsSnapshot"]): string 
   const ads = snapshot.ads?.length
     ? snapshot.ads.map((a: any) => `- ${a.name} (${a.status || "-"}): harcama ${fmtMoney(a.spend)}, gösterim ${a.impressions}, CTR %${a.ctr}, sonuç ${a.results}`).join("\n")
     : "Reklam/kreatif seviyesinde senkronize veri yok.";
-  return [lines.join("\n"), "\nReklam Setleri:", adsets, "\nReklamlar:", ads].join("\n");
+  const periodNote = snapshot.periodFallback
+    ? `\n(Not: "${snapshot.periodRequested}" için senkronize veri yok — aşağıdaki rakamlar gerçekte senkronize edilmiş "${snapshot.periodUsed}" dönemine aittir, uydurulmuş veya karıştırılmış değildir.)`
+    : "";
+  return [lines.join("\n"), periodNote, "\nReklam Setleri:", adsets, "\nReklamlar:", ads].join("\n");
 }
 
 export function buildAdEvaluationPrompt(context: AdEvaluationContext): string {

@@ -81,6 +81,77 @@ test("get_ad_evaluation_context: a company with exactly one campaign auto-resolv
   assert.equal(context.campaignCandidates, null);
 });
 
+// --- REGRESSION: "campaign resolves but metrics disappear" (period/rangePreset mismatch) ---
+
+test("get_ad_evaluation_context REGRESSION — campaign resolves but a requested period with no synced rows ('today'/'last_7d') must still return the real, actually-synced data instead of an empty snapshot", { skip: hasSupabase ? false : skipReason }, async () => {
+  const { execute } = await import("../../../src/lib/instagram-intelligence/mcp/protocol.ts");
+  const { supabaseRest } = await import("../../../src/lib/supabase.ts");
+  const companyId = await makeFixtureCompany("PeriodFallback");
+  try {
+    const [campaign] = await supabaseRest<Array<{ id: string }>>("campaigns", { method: "POST", body: JSON.stringify({ company_id: companyId, name: "Fallback Kampanyası", status: "ACTIVE", meta_campaign_id: `fb-meta-${Date.now()}` }) });
+    await supabaseRest("campaign_metrics", {
+      method: "POST",
+      body: JSON.stringify({ company_id: companyId, campaign_id: campaign.id, meta_campaign_id: campaign.meta_campaign_id, date: new Date().toISOString().slice(0, 10), date_range_label: "Son 30 Gün", spend: 50, results: 2, reach: 300, impressions: 500 })
+    }).catch(() => {});
+    const synced = await supabaseRest<any[]>(`campaign_metrics?company_id=eq.${companyId}&select=id`).catch(() => []);
+    if (!synced.length) { console.log("skipped: campaign_metrics insert unavailable in this environment"); return; }
+
+    const today: any = await execute("get_ad_evaluation_context", { companyId, campaignId: campaign.id, rangePreset: "today" });
+    assert.equal(today.metricsSnapshot.periodRequested, "Bugün");
+    assert.equal(today.metricsSnapshot.periodUsed, "Son 30 Gün");
+    assert.equal(today.metricsSnapshot.periodFallback, true);
+    assert.ok(today.metricsSnapshot.campaign, "must not silently return an empty snapshot when real data exists under a different period");
+    assert.equal(today.metricsSnapshot.campaign.spend, 50);
+
+    const sevenDay: any = await execute("get_ad_evaluation_context", { companyId, campaignId: campaign.id, rangePreset: "last_7d" });
+    assert.equal(sevenDay.metricsSnapshot.periodFallback, true);
+    assert.equal(sevenDay.metricsSnapshot.campaign.spend, 50);
+
+    const matching: any = await execute("get_ad_evaluation_context", { companyId, campaignId: campaign.id, rangePreset: "last_30d" });
+    assert.equal(matching.metricsSnapshot.periodFallback, false, "a period that genuinely has synced rows must never be reported as a fallback");
+  } finally {
+    await supabaseRest(`campaigns?company_id=eq.${companyId}`, { method: "DELETE" }).catch(() => {});
+    await supabaseRest(`campaign_metrics?company_id=eq.${companyId}`, { method: "DELETE" }).catch(() => {});
+    await cleanup(companyId);
+  }
+});
+
+test("get_ad_evaluation_context REGRESSION — campaignId, metaCampaignId, campaignName, and auto-resolve calls all return identical metrics for the same real campaign", { skip: hasSupabase ? false : skipReason }, async () => {
+  const { execute } = await import("../../../src/lib/instagram-intelligence/mcp/protocol.ts");
+  const MY_CAKE_45 = "fc51d411-ea37-45e4-9c93-df0cd43a4a42";
+  const byId: any = await execute("get_ad_evaluation_context", { companyId: MY_CAKE_45, campaignId: "264c78bf-93fd-43f2-8a1f-01dd5d9e60c4" });
+  const byMeta: any = await execute("get_ad_evaluation_context", { companyId: MY_CAKE_45, metaCampaignId: "120249963530420430" });
+  const byName: any = await execute("get_ad_evaluation_context", { companyId: MY_CAKE_45, campaignName: "MYCAKE-IG-DM-01" });
+  const auto: any = await execute("get_ad_evaluation_context", { companyId: MY_CAKE_45 });
+  for (const ctx of [byMeta, byName, auto]) {
+    assert.equal(ctx.campaign.id, byId.campaign.id);
+    assert.equal(ctx.campaign.metaCampaignId, byId.campaign.metaCampaignId);
+    assert.equal(ctx.campaign.dailyBudget, byId.campaign.dailyBudget);
+    assert.equal(Boolean(ctx.metricsSnapshot.campaign), Boolean(byId.metricsSnapshot.campaign));
+    assert.equal(ctx.metricsSnapshot.adsets.length, byId.metricsSnapshot.adsets.length);
+  }
+});
+
+test("get_ad_evaluation_context REGRESSION — a null adAccount.accountId never suppresses real campaign metrics when metaCampaignId is sufficient", { skip: hasSupabase ? false : skipReason }, async () => {
+  const { execute } = await import("../../../src/lib/instagram-intelligence/mcp/protocol.ts");
+  const MY_CAKE_45 = "fc51d411-ea37-45e4-9c93-df0cd43a4a42";
+  const context: any = await execute("get_ad_evaluation_context", { companyId: MY_CAKE_45, metaCampaignId: "120249963530420430" });
+  assert.equal(context.adAccount.accountId, null, "accountId is intentionally always null metadata — not a resolver input");
+  assert.ok(context.metricsSnapshot.campaign, "metrics must still resolve via metaCampaignId regardless of adAccount.accountId");
+});
+
+test("get_ad_evaluation_context REGRESSION — period fallback never leaks across companies (company B's fallback never uses company A's data)", { skip: hasSupabase ? false : skipReason }, async () => {
+  const { execute } = await import("../../../src/lib/instagram-intelligence/mcp/protocol.ts");
+  const companyB = await makeFixtureCompany("FallbackIsolation");
+  try {
+    const context: any = await execute("get_ad_evaluation_context", { companyId: companyB, rangePreset: "today" });
+    assert.equal(context.campaign, null);
+    assert.equal(context.metricsSnapshot.campaign, null);
+  } finally {
+    await cleanup(companyB);
+  }
+});
+
 test("get_ad_evaluation_context: ambiguous campaign name scoped to company returns candidates instead of guessing", { skip: hasSupabase ? false : skipReason }, async () => {
   const { execute } = await import("../../../src/lib/instagram-intelligence/mcp/protocol.ts");
   const { supabaseRest } = await import("../../../src/lib/supabase.ts");

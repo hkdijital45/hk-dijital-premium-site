@@ -186,7 +186,7 @@ export type AdEvaluationContext = {
   strategy: { id: string; version: number; status: string; strategyTitle: string; primaryGoal: string; primaryKpi: string; campaignSequence: unknown[] } | null;
   creativeStrategy: { id: string; version: number; status: string; creatives: unknown[] } | null;
   previousEvaluations: Array<{ id: string; createdAt: string; periodStart: string | null; periodEnd: string | null; decision: string | null }>;
-  metricsSnapshot: ReturnType<typeof buildMetricsSnapshot>;
+  metricsSnapshot: ReturnType<typeof buildMetricsSnapshot> & { periodRequested: string; periodUsed: string; periodFallback: boolean };
   campaignAgeHours: number | null;
 };
 
@@ -263,14 +263,39 @@ export async function getAdEvaluationContext(
   // all (legacy/manual data) is always kept, never hidden.
   const rangeLabel = rangeLabelFor(input.rangePreset);
   const matchesRange = (row: any) => !row.date_range_label || row.date_range_label === rangeLabel;
-  const campaignMetrics = campaignMetricsRaw.filter(matchesRange);
-  const adsetMetrics = adsetMetricsRaw.filter(matchesRange);
-  const adMetrics = adMetricsRaw.filter(matchesRange);
+  let campaignMetrics = campaignMetricsRaw.filter(matchesRange);
+  let adsetMetrics = adsetMetricsRaw.filter(matchesRange);
+  let adMetrics = adMetricsRaw.filter(matchesRange);
+  let metricsPeriodUsed = rangeLabel;
+  let metricsPeriodFallback = false;
+
+  // A campaign can resolve correctly while its requested period (e.g.
+  // "today") has never actually been synced — only whichever preset an
+  // admin has run produces rows at all. Returning a fully empty
+  // snapshot in that case would look identical to "no Meta data exists
+  // yet" and silently break evaluation, even though real, recent data
+  // is sitting right there under a different label. Fall back to
+  // whichever ONE period actually has synced rows (the most recently
+  // dated raw row's own label — never mixing two periods' rows
+  // together) and report which period was actually used.
+  const hasExactMatch = campaignMetrics.length || adsetMetrics.length || adMetrics.length;
+  if (!hasExactMatch) {
+    const fallbackLabel = campaignMetricsRaw[0]?.date_range_label || adsetMetricsRaw[0]?.date_range_label || adMetricsRaw[0]?.date_range_label || null;
+    if (fallbackLabel) {
+      const matchesFallback = (row: any) => row.date_range_label === fallbackLabel;
+      campaignMetrics = campaignMetricsRaw.filter(matchesFallback);
+      adsetMetrics = adsetMetricsRaw.filter(matchesFallback);
+      adMetrics = adMetricsRaw.filter(matchesFallback);
+      metricsPeriodUsed = fallbackLabel;
+      metricsPeriodFallback = true;
+    }
+  }
 
   const metaCampaignId = campaign?.meta_campaign_id || null;
-  const metricsSnapshot = buildMetricsSnapshot({
-    campaignMetrics, adsetMetrics, adMetrics, campaignId: campaign?.id || null, metaCampaignId
-  });
+  const metricsSnapshot = {
+    ...buildMetricsSnapshot({ campaignMetrics, adsetMetrics, adMetrics, campaignId: campaign?.id || null, metaCampaignId }),
+    periodRequested: rangeLabel, periodUsed: metricsPeriodUsed, periodFallback: metricsPeriodFallback
+  };
 
   // The campaign lifecycle sync (saveCampaignLifecycle) doesn't always
   // keep campaigns.daily_budget current; the ad set sync does — prefer
