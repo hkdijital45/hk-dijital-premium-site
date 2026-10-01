@@ -5,7 +5,7 @@
 // see the final report) and fail with PGRST205 "table not found" until
 // then, same precedent as every other new-table feature in this repo.
 // Run via:
-//   node --env-file=.env.local --conditions=react-server --import tsx --test tests/unit/ad-evaluations.test.ts
+//   node --env-file=.env.local --conditions=react-server --import tsx --test tests/unit/marketing-intelligence/ad-evaluations.test.ts
 import test from "node:test";
 import assert from "node:assert/strict";
 
@@ -16,7 +16,7 @@ const MY_CAKE_45_COMPANY_ID = "fc51d411-ea37-45e4-9c93-df0cd43a4a42";
 // --- buildMetricsSnapshot (pure) ---
 
 test("buildMetricsSnapshot: no matching rows -> null per group, never a fabricated zero", async () => {
-  const { buildMetricsSnapshot } = await import("../../src/lib/marketing-intelligence/ad-evaluations.ts");
+  const { buildMetricsSnapshot } = await import("../../../src/lib/marketing-intelligence/ad-evaluations.ts");
   const snapshot = buildMetricsSnapshot({ campaignMetrics: [], adsetMetrics: [], adMetrics: [], campaignId: "c1", metaCampaignId: "m1" });
   assert.equal(snapshot.campaign, null);
   assert.equal(snapshot.adsets, null);
@@ -24,7 +24,7 @@ test("buildMetricsSnapshot: no matching rows -> null per group, never a fabricat
 });
 
 test("buildMetricsSnapshot REGRESSION — zero results never produces NaN/Infinity costPerResult, stays null", async () => {
-  const { buildMetricsSnapshot } = await import("../../src/lib/marketing-intelligence/ad-evaluations.ts");
+  const { buildMetricsSnapshot } = await import("../../../src/lib/marketing-intelligence/ad-evaluations.ts");
   const snapshot = buildMetricsSnapshot({
     campaignMetrics: [{ meta_campaign_id: "m1", spend: 150, reach: 1000, impressions: 3000, results: 0, leads: 0 }],
     adsetMetrics: [], adMetrics: [], campaignId: null, metaCampaignId: "m1"
@@ -36,7 +36,7 @@ test("buildMetricsSnapshot REGRESSION — zero results never produces NaN/Infini
 });
 
 test("buildMetricsSnapshot: matches by meta_campaign_id first, falls back to local campaign_id, correctly sums real rows", async () => {
-  const { buildMetricsSnapshot } = await import("../../src/lib/marketing-intelligence/ad-evaluations.ts");
+  const { buildMetricsSnapshot } = await import("../../../src/lib/marketing-intelligence/ad-evaluations.ts");
   const snapshot = buildMetricsSnapshot({
     campaignMetrics: [
       { meta_campaign_id: "m1", spend: 100, results: 5 },
@@ -66,20 +66,20 @@ function fakeContext(overrides: Record<string, unknown> = {}) {
 }
 
 test("buildAdEvaluationPrompt: never fabricates a strategy when none exists — explicitly states it's missing", async () => {
-  const { buildAdEvaluationPrompt } = await import("../../src/lib/marketing-intelligence/ad-evaluation-prompt.ts");
+  const { buildAdEvaluationPrompt } = await import("../../../src/lib/marketing-intelligence/ad-evaluation-prompt.ts");
   const prompt = buildAdEvaluationPrompt(fakeContext());
   assert.match(prompt, /onaylı\/aktif bir Reklam Stratejisi kaydı yok/);
   assert.doesNotMatch(prompt, /undefined/);
 });
 
 test("buildAdEvaluationPrompt: missing metrics render as an explicit 'no data' line, not a fake zero", async () => {
-  const { buildAdEvaluationPrompt } = await import("../../src/lib/marketing-intelligence/ad-evaluation-prompt.ts");
+  const { buildAdEvaluationPrompt } = await import("../../../src/lib/marketing-intelligence/ad-evaluation-prompt.ts");
   const prompt = buildAdEvaluationPrompt(fakeContext());
   assert.match(prompt, /senkronize edilmiş performans verisi yok/);
 });
 
 test("buildAdEvaluationPrompt: campaign-age timing guideline changes correctly across the 0-12 / 12-24 / 24-72 / 3-7d / 7d+ boundaries", async () => {
-  const { buildAdEvaluationPrompt } = await import("../../src/lib/marketing-intelligence/ad-evaluation-prompt.ts");
+  const { buildAdEvaluationPrompt } = await import("../../../src/lib/marketing-intelligence/ad-evaluation-prompt.ts");
   assert.match(buildAdEvaluationPrompt(fakeContext({ campaignAgeHours: 6 })), /çok erken/);
   assert.match(buildAdEvaluationPrompt(fakeContext({ campaignAgeHours: 18 })), /ilk sinyal/);
   assert.match(buildAdEvaluationPrompt(fakeContext({ campaignAgeHours: 48 })), /ilk anlamlı değerlendirme/);
@@ -88,7 +88,7 @@ test("buildAdEvaluationPrompt: campaign-age timing guideline changes correctly a
 });
 
 test("buildAdEvaluationPrompt: contains the mandatory safety rules (no fabrication, insufficient-data allowance, don't conflate ad vs. sales performance)", async () => {
-  const { buildAdEvaluationPrompt } = await import("../../src/lib/marketing-intelligence/ad-evaluation-prompt.ts");
+  const { buildAdEvaluationPrompt } = await import("../../../src/lib/marketing-intelligence/ad-evaluation-prompt.ts");
   const prompt = buildAdEvaluationPrompt(fakeContext());
   assert.match(prompt, /veri yetersiz/);
   assert.match(prompt, /30 mesaj \+ 0 satış/);
@@ -123,7 +123,7 @@ CONTINUE
 `;
 
 test("parseAdEvaluationResponse: correctly separates internal vs client report sections, never mixes them", async () => {
-  const { parseAdEvaluationResponse } = await import("../../src/lib/marketing-intelligence/ad-evaluation-parser.ts");
+  const { parseAdEvaluationResponse } = await import("../../../src/lib/marketing-intelligence/ad-evaluation-parser.ts");
   const parsed = parseAdEvaluationResponse(SAMPLE_RESPONSE);
   assert.equal(parsed.ok, true);
   assert.equal(parsed.internalReport.sections?.length, 2);
@@ -135,7 +135,7 @@ test("parseAdEvaluationResponse: correctly separates internal vs client report s
 });
 
 test("parseAdEvaluationResponse: extracts a valid decision and next review date/note", async () => {
-  const { parseAdEvaluationResponse } = await import("../../src/lib/marketing-intelligence/ad-evaluation-parser.ts");
+  const { parseAdEvaluationResponse } = await import("../../../src/lib/marketing-intelligence/ad-evaluation-parser.ts");
   const parsed = parseAdEvaluationResponse(SAMPLE_RESPONSE);
   assert.equal(parsed.decision, "CONTINUE");
   assert.equal(parsed.nextReviewAt, "2026-10-08");
@@ -143,7 +143,7 @@ test("parseAdEvaluationResponse: extracts a valid decision and next review date/
 });
 
 test("parseAdEvaluationResponse REGRESSION — malformed/truncated input never throws, returns ok:false with warnings instead of crashing", async () => {
-  const { parseAdEvaluationResponse } = await import("../../src/lib/marketing-intelligence/ad-evaluation-parser.ts");
+  const { parseAdEvaluationResponse } = await import("../../../src/lib/marketing-intelligence/ad-evaluation-parser.ts");
   assert.doesNotThrow(() => parseAdEvaluationResponse(""));
   assert.doesNotThrow(() => parseAdEvaluationResponse("rastgele kopyalanmış, delimiter içermeyen metin"));
   const parsed = parseAdEvaluationResponse("yarım kalmış ===INTERNAL_REPORT_START=== ama kapanmamış");
@@ -153,7 +153,7 @@ test("parseAdEvaluationResponse REGRESSION — malformed/truncated input never t
 });
 
 test("parseAdEvaluationResponse: an invalid/unknown decision word is rejected (null), never silently accepted as a fake enum value", async () => {
-  const { parseAdEvaluationResponse } = await import("../../src/lib/marketing-intelligence/ad-evaluation-parser.ts");
+  const { parseAdEvaluationResponse } = await import("../../../src/lib/marketing-intelligence/ad-evaluation-parser.ts");
   const parsed = parseAdEvaluationResponse(SAMPLE_RESPONSE.replace("CONTINUE", "MAYBE_SOMETHING"));
   assert.equal(parsed.decision, null);
 });
@@ -161,7 +161,7 @@ test("parseAdEvaluationResponse: an invalid/unknown decision word is rejected (n
 // --- buildAdEvaluationDocumentPayload (pure) ---
 
 test("buildAdEvaluationDocumentPayload: client report always explains known metric terms in Turkish; internal-only decision section never leaks to client", async () => {
-  const { buildAdEvaluationDocumentPayload } = await import("../../src/lib/marketing-intelligence/ad-evaluation-document.ts");
+  const { buildAdEvaluationDocumentPayload } = await import("../../../src/lib/marketing-intelligence/ad-evaluation-document.ts");
   const evaluation = {
     id: "e1", company_id: "c1", campaign_id: "camp1", meta_campaign_id: "m1", ad_account_id: null,
     strategy_id: null, creative_strategy_id: null, previous_evaluation_id: null,
@@ -190,8 +190,8 @@ test("buildAdEvaluationDocumentPayload: client report always explains known metr
 // --- Live data-layer coverage (requires ad_evaluations migration) ---
 
 test("createAdEvaluationDraft / saveParsedEvaluation / getAdEvaluationHistory REGRESSION — snapshot persists, cross-company access rejected (requires ad_evaluations migration)", { skip: hasSupabase ? false : skipReason }, async () => {
-  const { supabaseRest } = await import("../../src/lib/supabase.ts");
-  const { createAdEvaluationDraft, saveParsedEvaluation, getAdEvaluationHistory, getAdEvaluationById, AdEvaluationNotFoundError } = await import("../../src/lib/marketing-intelligence/ad-evaluations.ts");
+  const { supabaseRest } = await import("../../../src/lib/supabase.ts");
+  const { createAdEvaluationDraft, saveParsedEvaluation, getAdEvaluationHistory, getAdEvaluationById, AdEvaluationNotFoundError } = await import("../../../src/lib/marketing-intelligence/ad-evaluations.ts");
   const unique = `QA-AdEval-${Date.now()}`;
   const [companyA] = await supabaseRest<Array<{ id: string }>>("companies", { method: "POST", body: JSON.stringify({ name: unique, email: `${unique.toLocaleLowerCase("en")}@example.test`, is_test: true }) });
   const [companyB] = await supabaseRest<Array<{ id: string }>>("companies", { method: "POST", body: JSON.stringify({ name: `${unique}-B`, email: `${unique.toLocaleLowerCase("en")}-b@example.test`, is_test: true }) });
@@ -221,7 +221,7 @@ test("createAdEvaluationDraft / saveParsedEvaluation / getAdEvaluationHistory RE
 });
 
 test("PRODUCTION SAFETY — MY CAKE 45's real ad_strategies record is untouched by this suite (requires ad_strategies migration)", { skip: hasSupabase ? false : skipReason }, async () => {
-  const { supabaseRest } = await import("../../src/lib/supabase.ts");
+  const { supabaseRest } = await import("../../../src/lib/supabase.ts");
   const rows = await supabaseRest<Array<{ id: string; version: number }>>(`ad_strategies?company_id=eq.${MY_CAKE_45_COMPANY_ID}&select=id,version&order=version.desc&limit=1`);
   if (rows.length) assert.ok(rows[0].version >= 1);
 });
