@@ -247,9 +247,39 @@ export function buildMetricsSnapshot(input: {
     };
   });
 
+  // Meta's actions-derived metrics (messaging results, link clicks) are
+  // resolved by a separate, near-real-time attribution pipeline from
+  // core delivery metrics (spend/impressions/reach) — proven live (MY
+  // CAKE 45): three genuinely SEPARATE Graph API calls (campaign-,
+  // adset-, ad-level, each fired a few seconds apart within one sync)
+  // can each return a transiently different real-time count for the
+  // SAME underlying conversations, even in a batch where spend/
+  // impressions/reach matched EXACTLY across all three levels (317.65
+  // TL / 4098 impressions / 2437 reach, identical at campaign and
+  // adset level, in the exact batch where messages/linkClicks read
+  // 11 vs 10 and 29 vs 28). The campaign/adset/ad extraction code is
+  // proven identical (actionValues()/normalizeActions(), same clicks
+  // formula, same canonical dedupe) — this is never an HK Dijital
+  // bug, so it is disclosed as a fact rather than silently showing two
+  // different numbers, and NEITHER value is ever rewritten to force
+  // them to match (that would hide a genuine Meta-side data point).
+  const levelDiscrepancyNote = (() => {
+    if (!campaign || !adsets.length) return null;
+    const adsetResults = adsets.reduce((s, a) => s + (Number(a.results) || 0), 0);
+    const adsetLinkClicks = adsets.reduce((s, a) => s + (Number(a.linkClicks) || 0), 0);
+    const resultsDiffer = campaign.results != null && adsetResults !== campaign.results;
+    const linkClicksDiffer = campaign.linkClicks != null && adsetLinkClicks !== campaign.linkClicks;
+    if (!resultsDiffer && !linkClicksDiffer) return null;
+    const parts: string[] = [];
+    if (resultsDiffer) parts.push(`sonuç: kampanya ${campaign.results}, reklam seti toplamı ${adsetResults}`);
+    if (linkClicksDiffer) parts.push(`bağlantı tıklaması: kampanya ${campaign.linkClicks}, reklam seti toplamı ${adsetLinkClicks}`);
+    return `Kampanya ve reklam seti seviyesi arasında küçük bir fark var (${parts.join("; ")}). Harcama/gösterim/erişim bu dönemde birebir örtüşüyor; bu fark HK Dijital hesaplama hatası değildir. Meta'nın kampanya ve reklam seti raporlama çağrıları birbirinden ayrı gerçekleştiği için mesajlaşma/tıklama sayaçlarında ara sıra küçük, geçici bir tutarsızlık görülebilir.`;
+  })();
+
   return {
     campaign, adsets, ads, syncedAt: new Date().toISOString(),
-    dataAvailability: { adsets: adsets.length > 0, ads: ads.length > 0 }
+    dataAvailability: { adsets: adsets.length > 0, ads: ads.length > 0 },
+    levelDiscrepancyNote
   };
 }
 

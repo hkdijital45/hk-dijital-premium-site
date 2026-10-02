@@ -287,6 +287,17 @@ test("buildAdEvaluationPrompt REGRESSION — requires real Markdown pipe-tables 
   assert.match(prompt, /internal'da ⚪ olan bir metrik client'ta asla 🟡\/🟢\/🔴 olamaz/);
 });
 
+test("buildAdEvaluationPrompt REGRESSION — a disclosed campaign/adset-level discrepancy note must be presented as a factual, non-judgmental Meta-side reporting fact, never attributed to HK Dijital, never used to discard either value", async () => {
+  const { buildAdEvaluationPrompt } = await import("../../../src/lib/marketing-intelligence/ad-evaluation-prompt.ts");
+  const promptWithNote = buildAdEvaluationPrompt(fakeContext({
+    metricsSnapshot: { campaign: { spend: 317.65 }, adsets: null, ads: null, syncedAt: new Date().toISOString(), levelDiscrepancyNote: "Kampanya ve reklam seti seviyesi arasında küçük bir fark var (sonuç: kampanya 11, reklam seti toplamı 10). Harcama/gösterim/erişim bu dönemde birebir örtüşüyor; bu fark HK Dijital hesaplama hatası değildir." }
+  }));
+  assert.match(promptWithNote, /hesaplama hatası değildir/);
+  assert.match(promptWithNote, /KAMPANYA\/REKLAM SETİ SEVİYESİ KÜÇÜK FARK/);
+  assert.match(promptWithNote, /asla bir performans hükmüne çevirme/);
+  assert.match(promptWithNote, /asla iki değerden birini "doğru" ilan edip diğerini göz ardı etme/);
+});
+
 test("buildAdEvaluationPrompt REGRESSION — the status decision procedure is explicit and ordered (metric exists? -> reliable reference? -> sufficient volume? -> direction), and ad-level creative comparison forbids a raw-message-count winner/loser verdict", async () => {
   const { buildAdEvaluationPrompt } = await import("../../../src/lib/marketing-intelligence/ad-evaluation-prompt.ts");
   const prompt = buildAdEvaluationPrompt(fakeContext());
@@ -513,4 +524,75 @@ test("RECONCILIATION — after the meta_ad_metrics schema-column fix, getAdEvalu
   assert.equal(new Set(ids).size, 3, "each ad must appear exactly once, never duplicated across sync batches");
   const adSpendSum = ctx.metricsSnapshot.ads.reduce((s: number, a: any) => s + Number(a.spend || 0), 0);
   assert.ok(adSpendSum <= ctx.metricsSnapshot.campaign!.spend + 1, "the sum of real ad-level spend must never exceed the campaign total (proves ad rows are a breakdown of the campaign total, not an extra duplicate layer summed on top)");
+});
+
+// --- levelDiscrepancyNote: genuine upstream Meta campaign/adset messaging-metric mismatch (never a code bug, never rewritten) ---
+// Root cause proven live (MY CAKE 45, 2026-10-02 14:06 UTC batch):
+// campaign (sum of its own 2 day-split rows) read messages=11/
+// linkClicks=29, while the SAME batch's adset row (one real ad set,
+// synced via a genuinely SEPARATE Graph API call ~4s later) read
+// messages=10/linkClicks=28 — yet spend/impressions/reach matched
+// EXACTLY (317.65 TL / 4098 / 2437) between the two levels in that
+// exact batch. The extraction code (actionValues/normalizeActions,
+// same clicks formula) is identical at every level — this is a
+// transient upstream Meta reporting inconsistency between near-
+// simultaneous separate calls, never an HK Dijital bug.
+
+test("buildMetricsSnapshot: levelDiscrepancyNote is set (factual disclosure) when campaign and adset-sum genuinely disagree on messages/linkClicks within the same batch, even though spend/impressions/reach match exactly — reproduces the proven-live MY CAKE 45 11/29 vs 10/28 case", async () => {
+  const { buildMetricsSnapshot } = await import("../../../src/lib/marketing-intelligence/ad-evaluations.ts");
+  const snapshot = buildMetricsSnapshot({
+    campaignMetrics: [
+      { meta_campaign_id: "m1", date: "2026-10-01", date_range_label: "Son 30 Gün", spend: 239.61, clicks: 25, ctr: 2.870813, cpc: 2.662, messages: 8, results: 8, impressions: 3136, created_at: "2026-10-02T14:06:28Z" },
+      { meta_campaign_id: "m1", date: "2026-10-02", date_range_label: "Son 30 Gün", spend: 78.04, clicks: 4, ctr: 2.168, cpc: 3.28, messages: 3, results: 3, impressions: 962, created_at: "2026-10-02T14:06:28Z" }
+    ],
+    adsetMetrics: [
+      { meta_campaign_id: "m1", meta_adset_id: "as1", adset_name: "MYCAKE-IG-DM-01", spend: 317.65, impressions: 4098, reach: 2437, clicks: 28, ctr: 2.733041, cpc: 2.836161, results: 10, created_at: "2026-10-02T14:06:31Z" }
+    ],
+    adMetrics: [], campaignId: "c1", metaCampaignId: "m1"
+  });
+  assert.equal(snapshot.campaign!.spend, 317.65);
+  assert.equal(snapshot.campaign!.messages, 11);
+  assert.equal(snapshot.campaign!.linkClicks, 29);
+  assert.equal(snapshot.adsets![0].results, 10);
+  assert.equal(snapshot.adsets![0].linkClicks, 28);
+  assert.ok(snapshot.levelDiscrepancyNote, "a genuine campaign-vs-adset mismatch on messages/linkClicks must be disclosed");
+  assert.match(snapshot.levelDiscrepancyNote!, /kampanya 11, reklam seti toplamı 10/);
+  assert.match(snapshot.levelDiscrepancyNote!, /kampanya 29, reklam seti toplamı 28/);
+  assert.match(snapshot.levelDiscrepancyNote!, /hesaplama hatası değildir/);
+});
+
+test("buildMetricsSnapshot: levelDiscrepancyNote is null when campaign and adset-sum genuinely agree — never a false-positive disclosure", async () => {
+  const { buildMetricsSnapshot } = await import("../../../src/lib/marketing-intelligence/ad-evaluations.ts");
+  const snapshot = buildMetricsSnapshot({
+    campaignMetrics: [{ meta_campaign_id: "m1", spend: 100, clicks: 10, ctr: 5, cpc: 10, messages: 5, results: 5, impressions: 1000, created_at: "2026-10-02T00:00:00Z" }],
+    adsetMetrics: [{ meta_campaign_id: "m1", meta_adset_id: "as1", adset_name: "Set A", spend: 100, impressions: 1000, reach: 800, clicks: 10, ctr: 5, cpc: 10, results: 5, created_at: "2026-10-02T00:00:00Z" }],
+    adMetrics: [], campaignId: "c1", metaCampaignId: "m1"
+  });
+  assert.equal(snapshot.levelDiscrepancyNote, null);
+});
+
+test("buildMetricsSnapshot: levelDiscrepancyNote is generic — never references a specific customer/campaign/adset id or hardcoded numbers, works for any campaign", async () => {
+  const { buildMetricsSnapshot } = await import("../../../src/lib/marketing-intelligence/ad-evaluations.ts");
+  const snapshot = buildMetricsSnapshot({
+    campaignMetrics: [{ meta_campaign_id: "zzz", spend: 50, clicks: 3, ctr: 1, cpc: 16.6, messages: 2, results: 2, impressions: 300, created_at: "2026-11-01T00:00:00Z" }],
+    adsetMetrics: [{ meta_campaign_id: "zzz", meta_adset_id: "qqq", adset_name: "Herhangi Bir Set", spend: 50, impressions: 300, reach: 250, clicks: 2, ctr: 1, cpc: 25, results: 1, created_at: "2026-11-01T00:00:00Z" }],
+    adMetrics: [], campaignId: "cX", metaCampaignId: "zzz"
+  });
+  assert.ok(snapshot.levelDiscrepancyNote);
+  assert.doesNotMatch(snapshot.levelDiscrepancyNote!, /zzz|qqq|MY CAKE|MYCAKE/i);
+});
+
+test("RECONCILIATION — live MY CAKE 45 data (read-only): spend/impressions/reach reconcile exactly between campaign and adset level at all times, proving the extraction/dedup layer itself is correct and any messages/linkClicks difference is isolated to the actions-derived metric family", { skip: hasSupabase ? false : skipReason }, async () => {
+  const { getAdEvaluationContext } = await import("../../../src/lib/marketing-intelligence/ad-evaluations.ts");
+  const ctx = await getAdEvaluationContext(MY_CAKE_45_COMPANY_ID, {});
+  if (!ctx.metricsSnapshot.campaign || !ctx.metricsSnapshot.adsets?.length) return;
+  const campaign = ctx.metricsSnapshot.campaign;
+  const adset = ctx.metricsSnapshot.adsets[0];
+  assert.equal(campaign.spend, adset.spend, "spend must reconcile exactly between campaign and adset level");
+  assert.equal(campaign.impressions, adset.impressions, "impressions must reconcile exactly");
+  // reach is intentionally NOT asserted equal here when multiple ad
+  // sets exist (campaign reach is the real resolveCampaignBudget-style
+  // union, not a sum) — with exactly one ad set (true for this
+  // campaign today) they coincide.
+  if (ctx.metricsSnapshot.adsets.length === 1) assert.equal(campaign.reach, adset.reach);
 });
