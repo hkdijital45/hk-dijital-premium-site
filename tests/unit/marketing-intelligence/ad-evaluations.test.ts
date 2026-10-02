@@ -233,6 +233,15 @@ test("buildAdEvaluationPrompt REGRESSION — forbids the linear elapsed-hours ×
   assert.match(prompt, /BU RAPOR BASİT SEVİYEDE KALIR/);
 });
 
+test("buildAdEvaluationPrompt REGRESSION — explicit instruction forbids CLIENT_REPORT from making an absolute benchmark-dependent judgment (normal/iyi/yüksek/düşük/iyileştirme alanı) on a metric INTERNAL_REPORT marked as having no reliable reference (proven live: Frekans and Bağlantı CTR previously contradicted between the two reports)", async () => {
+  const { buildAdEvaluationPrompt } = await import("../../../src/lib/marketing-intelligence/ad-evaluation-prompt.ts");
+  const prompt = buildAdEvaluationPrompt(fakeContext());
+  assert.match(prompt, /SEMANTİK TUTARLILIK/);
+  assert.match(prompt, /ASLA üretme — bu iki rapor birbiriyle çelişemez/);
+  assert.match(prompt, /Henüz erken dönem; takip ediyoruz\./);
+  assert.match(prompt, /Güvenilir değerlendirme için daha fazla veri gerekiyor\./);
+});
+
 test("buildAdEvaluationPrompt: surfaces the campaign's real daily/lifetime budget from context (never recomputes a projection itself)", async () => {
   const { buildAdEvaluationPrompt } = await import("../../../src/lib/marketing-intelligence/ad-evaluation-prompt.ts");
   const prompt = buildAdEvaluationPrompt(fakeContext({ campaign: { id: "camp1", name: "X", metaCampaignId: "m1", status: "Aktif", startDate: "2026-09-29T00:00:00Z", objective: "Lead", dailyBudget: 200, lifetimeBudget: 0 } }));
@@ -402,18 +411,21 @@ test("PRODUCTION SAFETY — MY CAKE 45's real ad_strategies record is untouched 
   if (rows.length) assert.ok(rows[0].version >= 1);
 });
 
-test("RECONCILIATION — MY CAKE 45's real campaign_metrics (Reklam Operasyon Merkezi's own data source) reconcile with Meta Ads Manager's 1-2 Oct totals via the canonical dedup helper, never the ~2x duplicate-batch sum (read-only)", { skip: hasSupabase ? false : skipReason }, async () => {
+test("RECONCILIATION — MY CAKE 45's real campaign_metrics (Reklam Operasyon Merkezi's own data source) reconcile with the campaign's own ad set's latest-batch, non-time-split total via the canonical dedup helper, never a ~2x duplicate-batch sum (read-only; cross-checks against the live ad set total rather than a fixed historical figure, since this is a real, continuously re-synced production account whose true totals grow over time)", { skip: hasSupabase ? false : skipReason }, async () => {
   const { supabaseRest } = await import("../../../src/lib/supabase.ts");
   const { dedupeMetaMetricSnapshots } = await import("../../../src/lib/marketing-intelligence/meta-metrics-aggregation.ts");
-  const rows = await supabaseRest<any[]>(`campaign_metrics?company_id=eq.${MY_CAKE_45_COMPANY_ID}&meta_campaign_id=eq.120249963530420430&select=*`);
-  if (!rows.length) return; // data may have moved on since this fix shipped — not a regression if genuinely absent
+  const [rows, adsetRows] = await Promise.all([
+    supabaseRest<any[]>(`campaign_metrics?company_id=eq.${MY_CAKE_45_COMPANY_ID}&meta_campaign_id=eq.120249963530420430&select=*`),
+    supabaseRest<any[]>(`meta_adset_metrics?company_id=eq.${MY_CAKE_45_COMPANY_ID}&meta_campaign_id=eq.120249963530420430&select=*`)
+  ]);
+  if (!rows.length || !adsetRows.length) return; // data may have moved on since this fix shipped — not a regression if genuinely absent
   const deduped = dedupeMetaMetricSnapshots(rows, "meta_campaign_id");
   const spend = deduped.reduce((s, r: any) => s + Number(r.spend || 0), 0);
-  const messages = deduped.reduce((s, r: any) => s + Number(r.messages || 0), 0);
   const rawSum = rows.reduce((s: number, r: any) => s + Number(r.spend || 0), 0);
   assert.ok(spend < rawSum, "the canonical dedup must always collapse at least one stale repeat-sync batch for this campaign's real history — otherwise this test's own premise no longer holds");
-  assert.ok(Math.abs(spend - 284.34) < 5, `spend must reconcile with Meta Ads Manager's real ~284.34 TL, not a duplicate-batch sum (got ${spend})`);
-  assert.equal(messages, 9, "messages must reconcile with Meta's real 9, never 19 (the proven duplicate-batch bug)");
+  const dedupedAdsets = dedupeMetaMetricSnapshots(adsetRows, "meta_adset_id");
+  const adsetSpend = dedupedAdsets.reduce((s: number, r: any) => s + Number(r.spend || 0), 0);
+  assert.ok(Math.abs(spend - adsetSpend) < 1, `campaign total must reconcile with its own ad set's authoritative total to the TL, never a duplicate-batch sum (campaign deduped=${spend}, adset deduped=${adsetSpend})`);
 });
 
 test("RECONCILIATION — buildMetricsSnapshot's campaign block for MY CAKE 45's real data matches its own ad set's authoritative (non-time-split) reach/CPM/all-click totals to the cent, never the inflated sum-of-days reach (2582) or the unweighted-average CPM (74.52) proven live before this fix (read-only)", { skip: hasSupabase ? false : skipReason }, async () => {
@@ -433,4 +445,17 @@ test("RECONCILIATION — buildMetricsSnapshot's campaign block for MY CAKE 45's 
   assert.ok(snapshot.campaign!.reach < 2582, "must never reproduce the proven-live inflated day-sum reach bug (2582)");
   const weightedCpm = Number(((snapshot.campaign!.spend / snapshot.campaign!.impressions) * 1000).toFixed(2));
   assert.equal(snapshot.campaign!.cpm, weightedCpm, "cpm must be the true spend/impressions rate, never an unweighted average of per-day cpm values (the proven-live 74.52 TL bug)");
+});
+
+test("RECONCILIATION — after the meta_ad_metrics schema-column fix, getAdEvaluationContext's live MCP context for MY CAKE 45 sees all 3 real ads (MYCAKE-IG-DM-01/02/03) with correctly isolated per-ad totals, and the campaign's own total is never further inflated by also summing the ad rows on top of the campaign rows (read-only)", { skip: hasSupabase ? false : skipReason }, async () => {
+  const { getAdEvaluationContext } = await import("../../../src/lib/marketing-intelligence/ad-evaluations.ts");
+  const ctx = await getAdEvaluationContext(MY_CAKE_45_COMPANY_ID, {});
+  if (!ctx.metricsSnapshot.ads?.length) return; // sync may not have run again since this fix shipped — not a regression if genuinely absent
+  assert.equal(ctx.metricsSnapshot.dataAvailability.ads, true);
+  const names = ctx.metricsSnapshot.ads.map((a: any) => a.name).sort();
+  assert.deepEqual(names, ["MYCAKE-IG-DM-01", "MYCAKE-IG-DM-02", "MYCAKE-IG-DM-03-"].sort());
+  const ids = ctx.metricsSnapshot.ads.map((a: any) => a.metaAdId);
+  assert.equal(new Set(ids).size, 3, "each ad must appear exactly once, never duplicated across sync batches");
+  const adSpendSum = ctx.metricsSnapshot.ads.reduce((s: number, a: any) => s + Number(a.spend || 0), 0);
+  assert.ok(adSpendSum <= ctx.metricsSnapshot.campaign!.spend + 1, "the sum of real ad-level spend must never exceed the campaign total (proves ad rows are a breakdown of the campaign total, not an extra duplicate layer summed on top)");
 });
