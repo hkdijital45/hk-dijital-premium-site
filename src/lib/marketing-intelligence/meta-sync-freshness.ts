@@ -41,11 +41,13 @@ export function isSyncStale(lastSuccessfulAt: string | null, now: number = Date.
 
 /** Pure gate for "should a NEW auto-sync attempt start right now" — at
  * most one attempt per customer+account key, never while one is already
- * in flight, and never for a key this module instance already attempted
+ * in flight, never for a key this module instance already attempted
  * (prevents a render-loop / repeated auto-sync even if the surrounding
  * effect re-fires for an unrelated reason while the same key is still
- * current). Manual "Senkronize Et" clicks never call this — they always
- * bypass the freshness threshold by design. */
-export function shouldStartAutoSync(input: { isStale: boolean; currentlySyncing: boolean; key: string; lastAttemptedKey: string | null }): boolean {
-  return input.isStale && !input.currentlySyncing && input.lastAttemptedKey !== input.key;
+ * current), and never at all when the user has turned auto-sync off.
+ * Manual "Senkronize Et" clicks never call this — they always bypass
+ * both the freshness threshold AND the enabled toggle by design (PART
+ * 5: "Manuel sync her zaman explicit user action olarak çalışabilmeli"). */
+export function shouldStartAutoSync(input: { autoSyncEnabled: boolean; isStale: boolean; currentlySyncing: boolean; key: string; lastAttemptedKey: string | null }): boolean {
+  return input.autoSyncEnabled && input.isStale && !input.currentlySyncing && input.lastAttemptedKey !== input.key;
 }

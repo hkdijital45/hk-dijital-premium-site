@@ -2,10 +2,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { CheckCircle2, PackageCheck } from "lucide-react";
 import { filterSelectableCustomers } from "@/lib/customer-visibility";
 import { dedupeMetaMetricSnapshots, resolveCampaignBudget, type CampaignBudgetInfo } from "@/lib/marketing-intelligence/meta-metrics-aggregation";
 import { isSyncStale, shouldStartAutoSync } from "@/lib/marketing-intelligence/meta-sync-freshness";
+import { getAutoSyncPreference, setAutoSyncPreference } from "@/lib/ad-operations-preferences";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
 import { AdminWorkspace } from "@/components/admin/workspace/AdminWorkspace";
@@ -279,15 +281,30 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
   const gtmId = valueFor(["gtm_container_id", "gtm_id"]);
   const websiteUrl = firstValue(websiteAccount?.accountId, valueFor(["website_url", "website", "domain"]));
 
+  const router = useRouter();
   const [metaSyncing, setMetaSyncing] = useState(false);
   const [metaSyncMessage, setMetaSyncMessage] = useState("");
   const [syncStatus, setSyncStatus] = useState<{ lastSuccessfulAt: string | null; lastAttemptAt: string | null; lastAttemptFailed: boolean } | null>(null);
+  // Lazy-initialized from localStorage exactly once per mount (SSR-safe:
+  // getAutoSyncPreference() returns the safe ON default on the server
+  // and the real stored value once hydrated on the client).
+  const [autoSyncEnabled, setAutoSyncEnabledState] = useState(() => getAutoSyncPreference());
   // Guards the controlled auto-sync (PART 10) against firing twice for
   // the SAME customer+account pair — React effects can re-run (e.g.
   // StrictMode's dev double-invoke, or an unrelated re-render while the
   // async status fetch is still in flight) without this actually being a
   // genuine "page entry" or "account switch" a second time.
   const autoSyncAttemptedKeyRef = useRef<string | null>(null);
+  // Mirrors metaSyncing synchronously for the auto-sync effect below,
+  // which deliberately does NOT depend on metaSyncing (re-running it on
+  // every sync start/stop would defeat "only on entry/switch") — reading
+  // a ref instead of the closed-over state avoids a stale-closure race
+  // under fast navigation/remount or an in-flight manual click.
+  const metaSyncingRef = useRef(false);
+  const setAutoSyncEnabled = useCallback((enabled: boolean) => {
+    setAutoSyncEnabledState(enabled);
+    setAutoSyncPreference(enabled);
+  }, []);
 
   // "Senkronize Et" previously only re-read customer_integrations (account
   // matching), never a real Meta campaign/insight sync — exactly why this
@@ -297,7 +314,8 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
   // (/api/admin/meta-ads, action: sync) with the selected customer + Meta
   // ad account, then reloads so the refreshed campaigns/metrics render.
   async function runMetaSync() {
-    if (!customerId || !metaAdAccountId) return;
+    if (!customerId || !metaAdAccountId || metaSyncingRef.current) return;
+    metaSyncingRef.current = true;
     setMetaSyncing(true);
     setMetaSyncMessage("");
     try {
@@ -309,12 +327,17 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
       });
       const payload = await response.json().catch(() => ({}));
       setMetaSyncMessage(payload.message || (payload.ok ? "Senkronizasyon tamamlandı." : "Senkronizasyon başarısız oldu."));
-      if (payload.ok) window.location.reload();
-      else if (customerId) loadSyncStatus(customerId);
+      // PART 14 — in-place canonical refresh (server-component reload of
+      // campaigns/metrics/budget/sync-status), never a full browser
+      // reload: router.refresh() re-runs the same admin-page-data.ts
+      // loader this page already renders from, preserving client state.
+      if (payload.ok) router.refresh();
+      if (customerId) loadSyncStatus(customerId);
     } catch (error) {
       setMetaSyncMessage(error instanceof Error ? error.message : "Senkronizasyon başarısız oldu.");
       if (customerId) loadSyncStatus(customerId);
     } finally {
+      metaSyncingRef.current = false;
       setMetaSyncing(false);
     }
   }
@@ -365,12 +388,17 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
     if (adAccount && accountOptions.length && !accountOptions.some((item) => item.value === adAccount)) setAdAccount(accountOptions[0].value);
   }, [adAccount, accountOptions]);
 
-  // PART 10 — controlled auto-sync. Runs only on genuine "module/page
-  // entry" or "customer/account switch" (this effect's dependency array),
-  // never on every render and never on window focus (no focus listener
-  // exists anywhere in this file). autoSyncAttemptedKeyRef additionally
-  // ensures at most one auto-sync attempt per customer+account pair even
-  // if the effect re-fires while the async status check is in flight.
+  // PART 10/3/4/5 — controlled auto-sync. Runs only on genuine "module/
+  // page entry", "customer/account switch", or a user flipping the
+  // toggle ON (this effect's dependency array includes autoSyncEnabled
+  // specifically so toggling ON re-checks freshness once — PART 5)
+  // — never on every render and never on window focus (no focus
+  // listener exists anywhere in this file, no polling/setInterval
+  // anywhere). autoSyncAttemptedKeyRef additionally ensures at most one
+  // auto-sync attempt per customer+account pair, and is only ever set
+  // when a sync actually STARTS (never when blocked by the enabled
+  // toggle), so turning auto-sync back ON later can still trigger
+  // exactly one sync for the same key if it's still stale.
   useEffect(() => {
     if (!customerId || !metaAdAccountId) return;
     const key = `${customerId}::${metaAdAccountId}`;
@@ -379,11 +407,15 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
       try {
         const response = await fetch(`/api/admin/meta-ads?action=sync-status&companyId=${encodeURIComponent(customerId)}`, { cache: "no-store" });
         const payload = await response.json().catch(() => null);
+        // Guards against a race where the customer/account was switched
+        // again (or the component unmounted) while this request was
+        // still in flight — a slow Company A response must never
+        // overwrite Company B's already-current UI state.
         if (cancelled) return;
         const lastSuccessfulAt = payload?.lastSuccessfulAt || null;
         setSyncStatus({ lastSuccessfulAt, lastAttemptAt: payload?.lastAttemptAt || null, lastAttemptFailed: Boolean(payload?.lastAttemptFailed) });
         const stale = isSyncStale(lastSuccessfulAt);
-        if (shouldStartAutoSync({ isStale: stale, currentlySyncing: metaSyncing, key, lastAttemptedKey: autoSyncAttemptedKeyRef.current })) {
+        if (shouldStartAutoSync({ autoSyncEnabled, isStale: stale, currentlySyncing: metaSyncingRef.current, key, lastAttemptedKey: autoSyncAttemptedKeyRef.current })) {
           autoSyncAttemptedKeyRef.current = key;
           runMetaSync();
         }
@@ -392,8 +424,8 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
       }
     })();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally NOT depending on metaSyncing/runMetaSync: this must fire only on customerId/metaAdAccountId change (entry/switch), never re-run just because a sync started
-  }, [customerId, metaAdAccountId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally NOT depending on runMetaSync (recreated every render): this must fire only on customerId/metaAdAccountId/autoSyncEnabled change, never re-run just because a sync started
+  }, [customerId, metaAdAccountId, autoSyncEnabled]);
   const accountScoped = (item: any) => {
     if (!customerId || !belongsToCustomer(item, customerId)) return false;
     const source = metricSource(item);
@@ -748,6 +780,14 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
       }
       bottomBar={
         <AdminActionBar statusText={`${filteredCampaigns.length} kampanya · ${dataSourceLabel}${syncStatusLabel ? ` · ${syncStatusLabel}` : ""}${metaSyncMessage ? ` · ${metaSyncMessage}` : ""}`}>
+          <AdminButton
+            compact
+            variant={autoSyncEnabled ? "success" : "secondary"}
+            onClick={() => setAutoSyncEnabled(!autoSyncEnabled)}
+            title={autoSyncEnabled ? "Reklam Operasyon Merkezi açıldığında veriler eskiyse Meta'dan otomatik yenilenir." : "Veriler yalnızca Senkronize Et düğmesiyle yenilenir."}
+          >
+            Otomatik senkronizasyon: {autoSyncEnabled ? "Açık" : "Kapalı"}
+          </AdminButton>
           <AdminButton
             compact
             variant="secondary"
