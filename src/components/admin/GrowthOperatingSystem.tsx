@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, PackageCheck } from "lucide-react";
 import { filterSelectableCustomers } from "@/lib/customer-visibility";
+import { dedupeMetaMetricSnapshots } from "@/lib/marketing-intelligence/meta-metrics-aggregation";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
 import { AdminWorkspace } from "@/components/admin/workspace/AdminWorkspace";
@@ -360,9 +361,29 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
   // no label is always kept (never hides pre-existing data).
   const matchesPeriod = (item: any) => period === "Canlı durum" || !item?.date_range_label || item.date_range_label === period;
   const campaigns = (Array.isArray(data.campaigns) ? data.campaigns : []).filter((item: any) => accountScoped(item));
-  const metrics = (Array.isArray(data.campaignMetrics) ? data.campaignMetrics : []).filter((item: any) => accountScoped(item) && matchesPeriod(item));
-  const adsetMetrics = (Array.isArray(data.metaAdsetMetrics) ? data.metaAdsetMetrics : []).filter((item: any) => accountScoped(item) && matchesPeriod(item));
-  const adMetrics = (Array.isArray(data.metaAdMetrics) ? data.metaAdMetrics : []).filter((item: any) => accountScoped(item) && matchesPeriod(item));
+  // Every Meta sync INSERTs a fresh row rather than upserting, and each
+  // row already holds the cumulative total for whatever rolling window
+  // ("Bugün"/"Son 7 Gün"/"Son 30 Gün") was requested at that sync time —
+  // re-syncing the same label later produces a newer, authoritative row
+  // that supersedes the older one, never adds to it. Summing every
+  // matching row here (the previous behavior) silently doubled/tripled
+  // the top KPI cards' spend/messages — proven live for MY CAKE 45
+  // (636 TL / 19 messages shown vs. Meta Ads Manager's real 284.34 TL /
+  // 9). Reuses the same canonical dedupeMetaMetricSnapshots helper
+  // Reklam Doktoru/Reklam Değerlendirme already use — one shared
+  // aggregation rule, not a second implementation.
+  const metrics = dedupeMetaMetricSnapshots(
+    (Array.isArray(data.campaignMetrics) ? data.campaignMetrics : []).filter((item: any) => accountScoped(item) && matchesPeriod(item)),
+    "meta_campaign_id"
+  );
+  const adsetMetrics = dedupeMetaMetricSnapshots(
+    (Array.isArray(data.metaAdsetMetrics) ? data.metaAdsetMetrics : []).filter((item: any) => accountScoped(item) && matchesPeriod(item)),
+    "meta_adset_id"
+  );
+  const adMetrics = dedupeMetaMetricSnapshots(
+    (Array.isArray(data.metaAdMetrics) ? data.metaAdMetrics : []).filter((item: any) => accountScoped(item) && matchesPeriod(item)),
+    "meta_ad_id"
+  );
   const tasks = (Array.isArray(data.agencyTasks) ? data.agencyTasks : []).filter((item: any) => belongsToCustomer(item, customerId) && !["Tamamlandı", "İptal"].includes(item?.status));
   const reports = [...(Array.isArray(data.reports) ? data.reports : []), ...(Array.isArray(data.monthlyReports) ? data.monthlyReports : [])].filter((item: any) => belongsToCustomer(item, customerId));
   const payments = (Array.isArray(data.paymentRecords) ? data.paymentRecords : []).filter((item: any) => belongsToCustomer(item, customerId));
