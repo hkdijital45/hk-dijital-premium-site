@@ -192,7 +192,7 @@ export async function POST(request: Request) {
     const data = await response.json().catch(() => ({})) as { data?: MetaAdRecord[] };
     const responseTimeMs = Date.now() - startedAt;
     if (!response.ok) {
-      const structuredError = classifyMetaError(data);
+      const structuredError = classifyMetaError(data, "META_API_ERROR", "Meta Ad Library bağlantısı başarısız oldu. Demo sonuçlar gösteriliyor.");
       const fallback = cached?.value ? cacheFallbackError() : structuredError;
       recordMetaError(structuredError, responseTimeMs);
       return NextResponse.json({
@@ -215,7 +215,7 @@ export async function POST(request: Request) {
     return NextResponse.json(value);
   } catch (error) {
     const responseTimeMs = Date.now() - startedAt;
-    const structuredError = classifyMetaError(error, "META_NETWORK_ERROR");
+    const structuredError = classifyMetaError(error, "META_NETWORK_ERROR", "Meta Ad Library bağlantısı başarısız oldu. Demo sonuçlar gösteriliyor.");
     const staleCacheAvailable = Boolean(cached?.value && cached.staleUntil > Date.now());
     const fallback = staleCacheAvailable ? cacheFallbackError() : structuredError;
     recordMetaError(structuredError, responseTimeMs);

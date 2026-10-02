@@ -262,7 +262,12 @@ export async function pullMetaData(input: any, token: string) {
 async function safeGraph(path: string, token: string, params: Record<string, string>, warnings: string[], label: string) {
   const result = await graphGet(path, token, params);
   if (!result.ok) {
-    warnings.push(`${label}: ${result.error?.errorMessage || "alınamadı"}`);
+    // Meta's own raw error.message is appended (staff-only log, never
+    // customer-facing) so a future failure can be diagnosed from its
+    // real cause (e.g. a missing field/permission/rate limit) instead
+    // of only ever a generic classified bucket.
+    const detail = result.error?.rawMessage ? ` (Meta: ${result.error.rawMessage})` : "";
+    warnings.push(`${label}: ${result.error?.errorMessage || "alınamadı"}${detail}`);
     return [];
   }
   return result.data?.data || [];
