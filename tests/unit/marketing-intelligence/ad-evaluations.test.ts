@@ -221,7 +221,8 @@ test("buildAdEvaluationPrompt REGRESSION — includes the metric glossary, contr
   assert.match(prompt, /🟢 İyi, 🟡 İzle, 🔴 Aksiyon Gerekebilir, ⚪ Referans Yok, 🔵 Veri Yetersiz/);
   assert.match(prompt, /Ne Anlama Gelir\? \| Referans \/ Hedef Aralık \| Durum \| Değerlendirme/);
   assert.match(prompt, /Metrik Bazlı Aksiyon Değerlendirmesi/);
-  assert.match(prompt, /Şimdi aksiyon: Yok — veri toplamaya devam et\./);
+  assert.match(prompt, /Şimdi aksiyon: Veri toplamaya devam et\./);
+  assert.match(prompt, /Şimdi aksiyon: Yok — performans optimizasyonu önerilmez/);
 });
 
 test("buildAdEvaluationPrompt REGRESSION — forbids the linear elapsed-hours × daily-budget projection and the client report is explicitly kept free of internal/technical jargon", async () => {
@@ -240,12 +241,50 @@ test("buildAdEvaluationPrompt REGRESSION — the banned-judgment-word rule is GE
   assert.match(prompt, /raporun HİÇBİR YERİNDE/);
   assert.match(prompt, /CLIENT_REPORT'un tüm bölümleri DAHİL/);
   assert.match(prompt, /Ana Metrikler tablosu dışındaki bölümleri de dahil, raporun TAMAMINA uygulanır/);
-  for (const word of ["normal", "kötü", "yüksek", "düşük", "pahalı", "ucuz", "güçlü", "zayıf", "başarılı", "başarısız", "iyileştirme alanı", "hedefin altında", "hedefin üstünde", "kazanan", "kaybeden"]) {
+  for (const word of ["normal", "kötü", "yüksek", "düşük", "çok düşük", "çok yüksek", "pahalı", "ucuz", "güçlü", "zayıf", "başarılı", "başarısız", "iyileştirme alanı", "sağlıklı performans", "iyi gidiyor", "kötü gidiyor", "yeterli performans", "yetersiz performans", "hedefin altında", "hedefin üstünde", "kazanan", "kaybeden", "olumlu performans", "olumsuz performans"]) {
     assert.ok(prompt.includes(word), `banned-word list must include "${word}"`);
   }
   assert.match(prompt, /Henüz erken dönem; takip ediyoruz\./);
   assert.match(prompt, /Güvenilir karşılaştırma olmadığı için performans sınıflandırması yapılmıyor\./);
-  assert.match(prompt, /Olgusal\/matematiksel ifadeler .* her zaman serbesttir/);
+  assert.match(prompt, /Olgusal\/matematiksel ifadeler HER ZAMAN serbesttir/i);
+  // Factual-language examples (section 7) must be explicitly present —
+  // these are the exact allowed phrasing the prompt should model.
+  for (const factual of ["28 bağlantı tıklaması kaydedildi.", "10 mesaj sonucu oluştu.", "Frekans 1,65.", "Bağlantı CTR %0,71."]) {
+    assert.ok(prompt.includes(factual), `factual example must be present: "${factual}"`);
+  }
+  // Section 8 specific failure patterns — judgment-without-reference
+  // phrasing the prompt must explicitly forbid.
+  assert.match(prompt, /reklam ilgi görüyor/);
+  assert.match(prompt, /yeterli görünürlük var/);
+  assert.match(prompt, /aynı kişilere fazla tekrar göstermiyoruz/);
+});
+
+test("buildAdEvaluationPrompt REGRESSION — action language is gated on genuine data sufficiency/reference, never on a fabricated judgment; the final decision must be explained in neutral terms; duplication and dense-paragraph writing are explicitly forbidden; dynamic 'Doğrulanan Bulgular'/'Öne Çıkan Bulgular' heading safety is specified for when no reference-supported positive exists", async () => {
+  const { buildAdEvaluationPrompt } = await import("../../../src/lib/marketing-intelligence/ad-evaluation-prompt.ts");
+  const prompt = buildAdEvaluationPrompt(fakeContext());
+  assert.match(prompt, /AKSİYON DİLİ/);
+  assert.match(prompt, /"CTR düşük, kreatifi değiştir\.", "CPC yüksek, reklamı kapat\."/);
+  assert.match(prompt, /NİHAİ KARAR \(örn\. OBSERVE\): nötr terimlerle gerekçelendir/);
+  assert.match(prompt, /TEKRARDAN KAÇIN/);
+  assert.match(prompt, /Yönetici Özeti ile Kısa Özet \(client\) birbirinin kopyası olmasın/);
+  assert.match(prompt, /MADDE\/CHECKLİST YAPISI/);
+  assert.match(prompt, /"✓" kullan/);
+  assert.match(prompt, /"☐" veya numaralı liste kullan/);
+  assert.match(prompt, /BAŞLIK GÜVENLİĞİ/);
+  assert.match(prompt, /"Doğrulanan Bulgular" \(internal\) \/ "Öne Çıkan Bulgular" \(client\)/);
+  assert.match(prompt, /Nihai Karar" bölümünü yalnızca BİR KEZ yaz/);
+});
+
+test("buildAdEvaluationPrompt REGRESSION — requires real Markdown pipe-tables (never prose) for Ana Metrikler, Reklam Seti/Kreatif Analizi, Strateji ile Karşılaştırma, and the client's Kampanya Bilgileri/Performans Özeti — these get parsed into real PDF/DOCX tables downstream", async () => {
+  const { buildAdEvaluationPrompt } = await import("../../../src/lib/marketing-intelligence/ad-evaluation-prompt.ts");
+  const prompt = buildAdEvaluationPrompt(fakeContext());
+  assert.match(prompt, /AYNEN Markdown pipe-table sözdizimini kullan/);
+  assert.match(prompt, /\| Reklam \| Harcama \| Gösterim \| Bağlantı Tıklaması \| Sonuç \|/);
+  assert.match(prompt, /\| Metrik \| Planlanan \| Gerçekleşen \| Değerlendirme \|/);
+  assert.match(prompt, /\| Amaç \| Dönem \| Günlük Bütçe \| Rapor Zamanı \|/);
+  assert.match(prompt, /\| Metrik \| Değer \| Durum \| Kısa Açıklama \|/);
+  assert.match(prompt, /CLIENT_REPORT'taki durum .* INTERNAL_REPORT'taki AYNI metriğin durumuyla BİREBİR eşleşmeli/);
+  assert.match(prompt, /internal'da ⚪ olan bir metrik client'ta asla 🟡\/🟢\/🔴 olamaz/);
 });
 
 test("buildAdEvaluationPrompt REGRESSION — the status decision procedure is explicit and ordered (metric exists? -> reliable reference? -> sufficient volume? -> direction), and ad-level creative comparison forbids a raw-message-count winner/loser verdict", async () => {

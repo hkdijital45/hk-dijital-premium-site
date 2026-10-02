@@ -85,6 +85,45 @@ const HK_INK = rgb(0.106, 0.114, 0.133); // matches --hk-text-primary (dark ink 
 const HK_MUTED = rgb(0.373, 0.4, 0.447);
 const HK_DANGER = rgb(0.706, 0.204, 0.204);
 const HK_BORDER = rgb(0.902, 0.894, 0.863);
+const STATUS_GREEN = rgb(0.086, 0.541, 0.282);
+const STATUS_AMBER = rgb(0.706, 0.482, 0.047);
+const STATUS_RED = rgb(0.706, 0.204, 0.204);
+const STATUS_GRAY = rgb(0.455, 0.467, 0.49);
+const STATUS_BLUE = rgb(0.102, 0.412, 0.706);
+
+// Reklam Değerlendirme's controlled status vocabulary (🟢 İyi / 🟡 İzle /
+// 🔴 Aksiyon Gerekebilir / ⚪ Referans Yok / 🔵 Veri Yetersiz) rendered as
+// a visible color, never color-only — the matched status TEXT (whatever
+// Claude wrote, emoji or not) is always kept verbatim; this only adds a
+// color accent on top. Order matters: the three multi-word phrases are
+// checked before the single words they could otherwise be confused with
+// inside ("İzle"/"İyi" never falsely match inside "Aksiyon Gerekebilir").
+// No LEADING \b before "İ" (Turkish capital dotted I) — verified live,
+// a leading \b immediately before "İ" never matches (same class of bug
+// already fixed elsewhere in this app for the dotless "ı"), which
+// silently skipped these two patterns entirely; a trailing \b alone is
+// sufficient and safe here.
+function statusColorFor(cellText: string): ReturnType<typeof rgb> | null {
+  if (/Aksiyon Gerekebilir/i.test(cellText)) return STATUS_RED;
+  if (/Veri Yetersiz/i.test(cellText)) return STATUS_BLUE;
+  if (/Referans Yok/i.test(cellText)) return STATUS_GRAY;
+  if (/İzle\b/i.test(cellText)) return STATUS_AMBER;
+  if (/İyi\b/i.test(cellText)) return STATUS_GREEN;
+  return null;
+}
+
+function statusColorHexFor(cellText: string): string | null {
+  if (/Aksiyon Gerekebilir/i.test(cellText)) return "B43434";
+  if (/Veri Yetersiz/i.test(cellText)) return "1A69B4";
+  if (/Referans Yok/i.test(cellText)) return "74778A";
+  if (/İzle\b/i.test(cellText)) return "B47A0C";
+  if (/İyi\b/i.test(cellText)) return "168A48";
+  return null;
+}
+
+function isStatusColumnHeader(header: string): boolean {
+  return /^durum$/i.test(header.trim());
+}
 
 function wrapText(text: string, font: import("pdf-lib").PDFFont, size: number, maxWidth: number): string[] {
   const words = text.split(/\s+/).filter(Boolean);
@@ -158,6 +197,7 @@ export async function generatePdfBuffer(payload: DocumentPayload): Promise<Buffe
 
   function drawTable(table: DocumentTable, size = 9.5) {
     const columnWidth = contentWidth / table.headers.length;
+    const statusColumnIndex = table.headers.findIndex(isStatusColumnHeader);
     function rowHeight(cells: string[]) {
       return Math.max(...cells.map((cell) => wrapText(cell, font, size, columnWidth - 10).length), 1) * (size + 4) + 6;
     }
@@ -166,9 +206,16 @@ export async function generatePdfBuffer(payload: DocumentPayload): Promise<Buffe
       newPageIfNeeded(height + 4);
       const top = y;
       cells.forEach((cell, i) => {
-        const cellLines = wrapText(cell, font, size, columnWidth - 10);
+        // Status accent (section 17): colored dot + colored text, status
+        // text itself is always kept verbatim regardless — color is
+        // never the only signal of meaning.
+        const statusColor = !bold && i === statusColumnIndex ? statusColorFor(cell) : null;
+        const textColor = statusColor || (bold ? HK_INK : HK_MUTED);
+        const textX = margin + i * columnWidth + (statusColor ? 12 : 4);
+        if (statusColor) page.drawCircle({ x: margin + i * columnWidth + 5, y: top - size / 2 + 1, size: 3, color: statusColor });
+        const cellLines = wrapText(cell, font, size, columnWidth - (statusColor ? 18 : 10));
         cellLines.forEach((line, li) => {
-          page.drawText(line, { x: margin + i * columnWidth + 4, y: top - li * (size + 4), size, font, color: bold ? HK_INK : HK_MUTED });
+          page.drawText(line, { x: textX, y: top - li * (size + 4), size, font, color: textColor });
         });
       });
       y = top - height;
@@ -248,6 +295,7 @@ export async function generatePdfBuffer(payload: DocumentPayload): Promise<Buffe
 
 function buildDocxTable(table: DocumentTable): Table {
   const columnWidth = Math.floor(100 / Math.max(table.headers.length, 1));
+  const statusColumnIndex = table.headers.findIndex(isStatusColumnHeader);
   const headerRow = new TableRow({
     children: table.headers.map((header) => new TableCell({
       width: { size: columnWidth, type: WidthType.PERCENTAGE },
@@ -255,10 +303,15 @@ function buildDocxTable(table: DocumentTable): Table {
     }))
   });
   const bodyRows = table.rows.map((row) => new TableRow({
-    children: row.map((cell) => new TableCell({
-      width: { size: columnWidth, type: WidthType.PERCENTAGE },
-      children: [new Paragraph({ text: cell })]
-    }))
+    children: row.map((cell, i) => {
+      // Status accent (section 17) — colored text, status text itself
+      // always kept verbatim; never color alone.
+      const statusHex = i === statusColumnIndex ? statusColorHexFor(cell) : null;
+      return new TableCell({
+        width: { size: columnWidth, type: WidthType.PERCENTAGE },
+        children: [new Paragraph({ children: [new TextRun({ text: cell, color: statusHex || undefined, bold: Boolean(statusHex) })] })]
+      });
+    })
   }));
   return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [headerRow, ...bodyRows] });
 }
