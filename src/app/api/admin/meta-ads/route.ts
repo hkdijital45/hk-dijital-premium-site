@@ -334,6 +334,7 @@ async function pullAdvancedMetaData(input: any, token: string, base: any) {
     const lifecycle = adMap.get(row.ad_id) || {};
     const creative = normalizeCreative(lifecycle.creative || {});
     const actions = normalizeActions(row);
+    const { days_running, days_remaining } = lifecycleStats(lifecycle.created_time || undefined, undefined, Number(row.spend || 0), 0);
     return {
       company_id: input.companyId,
       meta_campaign_id: row.campaign_id,
@@ -373,7 +374,16 @@ async function pullAdvancedMetaData(input: any, token: string, base: any) {
       created_time: lifecycle.created_time || null,
       updated_time: lifecycle.updated_time || null,
       status: lifecycle.effective_status || lifecycle.status || "",
-      ...lifecycleStats(lifecycle.created_time || undefined, undefined, Number(row.spend || 0), 0),
+      // meta_ad_metrics has no budget_consumption_percentage/
+      // estimated_finish_date columns (ads have no budget of their own —
+      // only their parent ad set does, where these two fields DO exist
+      // and are genuinely used). Spreading lifecycleStats()'s full return
+      // here made every ad-level insert fail with a PostgREST schema-
+      // cache error, silently discarding all real per-ad sync data every
+      // run (proven live: integration_sync_logs for MY CAKE 45 shows
+      // "reklamlar: alınamadı" / "Veritabanı şema hatası" on every sync
+      // despite Meta genuinely returning MYCAKE-IG-DM-01/02/03 ad rows).
+      days_running, days_remaining,
       raw_data: { insight: row, lifecycle }
     };
   });

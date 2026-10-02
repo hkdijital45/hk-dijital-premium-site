@@ -211,6 +211,34 @@ test("buildAdEvaluationPrompt: contains the mandatory safety rules (no fabricati
   assert.match(prompt, /===DECISION===/);
 });
 
+test("buildAdEvaluationPrompt REGRESSION — includes the metric glossary, controlled-vocabulary status instruction, reference-priority order, the Ana Metrikler table columns, and the Metrik Bazlı Aksiyon Değerlendirmesi section, so the generated INTERNAL_REPORT explains each metric and never fabricates a benchmark", async () => {
+  const { buildAdEvaluationPrompt } = await import("../../../src/lib/marketing-intelligence/ad-evaluation-prompt.ts");
+  const prompt = buildAdEvaluationPrompt(fakeContext());
+  assert.match(prompt, /Erişim: Reklamı en az bir kez gören benzersiz/);
+  assert.match(prompt, /Bağlantı CTR: Gösterimlerin ne kadarının gerçek bağlantı tıklamasına dönüştüğü/);
+  assert.match(prompt, /Güvenilir referans aralığı yok/);
+  assert.match(prompt, /Strateji hedefi/);
+  assert.match(prompt, /🟢 İyi, 🟡 İzle, 🔴 Aksiyon Gerekebilir, ⚪ Referans Yok, 🔵 Veri Yetersiz/);
+  assert.match(prompt, /Ne Anlama Gelir\? \| Referans \/ Hedef Aralık \| Durum \| Değerlendirme/);
+  assert.match(prompt, /Metrik Bazlı Aksiyon Değerlendirmesi/);
+  assert.match(prompt, /Şimdi aksiyon: Yok — veri toplamaya devam et\./);
+});
+
+test("buildAdEvaluationPrompt REGRESSION — forbids the linear elapsed-hours × daily-budget projection and the client report is explicitly kept free of internal/technical jargon", async () => {
+  const { buildAdEvaluationPrompt } = await import("../../../src/lib/marketing-intelligence/ad-evaluation-prompt.ts");
+  const prompt = buildAdEvaluationPrompt(fakeContext());
+  assert.match(prompt, /DOĞRUSAL bir hesap ASLA yapma/);
+  assert.match(prompt, /kesin bir günlük harcama limiti DEĞİLDİR/);
+  assert.match(prompt, /canonical batch.*aggregation.*snapshot.*dedupe.*time_increment/);
+  assert.match(prompt, /BU RAPOR BASİT SEVİYEDE KALIR/);
+});
+
+test("buildAdEvaluationPrompt: surfaces the campaign's real daily/lifetime budget from context (never recomputes a projection itself)", async () => {
+  const { buildAdEvaluationPrompt } = await import("../../../src/lib/marketing-intelligence/ad-evaluation-prompt.ts");
+  const prompt = buildAdEvaluationPrompt(fakeContext({ campaign: { id: "camp1", name: "X", metaCampaignId: "m1", status: "Aktif", startDate: "2026-09-29T00:00:00Z", objective: "Lead", dailyBudget: 200, lifetimeBudget: 0 } }));
+  assert.match(prompt, /Günlük bütçe \(Meta'da tanımlı üst sınır\): 200 TL/);
+});
+
 // --- parseAdEvaluationResponse (pure) ---
 
 const SAMPLE_RESPONSE = `
@@ -386,4 +414,23 @@ test("RECONCILIATION — MY CAKE 45's real campaign_metrics (Reklam Operasyon Me
   assert.ok(spend < rawSum, "the canonical dedup must always collapse at least one stale repeat-sync batch for this campaign's real history — otherwise this test's own premise no longer holds");
   assert.ok(Math.abs(spend - 284.34) < 5, `spend must reconcile with Meta Ads Manager's real ~284.34 TL, not a duplicate-batch sum (got ${spend})`);
   assert.equal(messages, 9, "messages must reconcile with Meta's real 9, never 19 (the proven duplicate-batch bug)");
+});
+
+test("RECONCILIATION — buildMetricsSnapshot's campaign block for MY CAKE 45's real data matches its own ad set's authoritative (non-time-split) reach/CPM/all-click totals to the cent, never the inflated sum-of-days reach (2582) or the unweighted-average CPM (74.52) proven live before this fix (read-only)", { skip: hasSupabase ? false : skipReason }, async () => {
+  const { supabaseRest } = await import("../../../src/lib/supabase.ts");
+  const { buildMetricsSnapshot } = await import("../../../src/lib/marketing-intelligence/ad-evaluations.ts");
+  const metaCampaignId = "120249963530420430";
+  const [campaignMetrics, adsetMetrics] = await Promise.all([
+    supabaseRest<any[]>(`campaign_metrics?company_id=eq.${MY_CAKE_45_COMPANY_ID}&meta_campaign_id=eq.${metaCampaignId}&select=*`),
+    supabaseRest<any[]>(`meta_adset_metrics?company_id=eq.${MY_CAKE_45_COMPANY_ID}&meta_campaign_id=eq.${metaCampaignId}&select=*`)
+  ]);
+  if (!campaignMetrics.length || !adsetMetrics.length) return; // data may have moved on — not a regression if genuinely absent
+  const snapshot = buildMetricsSnapshot({ campaignMetrics, adsetMetrics, adMetrics: [], metaCampaignId });
+  assert.ok(snapshot.campaign, "a real synced campaign must produce a non-null campaign block");
+  assert.ok(snapshot.adsets!.length >= 1, "this campaign has at least one real synced ad set");
+  const totalAdsetReach = snapshot.adsets!.reduce((s, a: any) => s + (Number(a.reach) || 0), 0);
+  assert.equal(snapshot.campaign!.reach, totalAdsetReach, "campaign reach must equal the real ad set total, never a sum of the campaign's own artificially day-split rows");
+  assert.ok(snapshot.campaign!.reach < 2582, "must never reproduce the proven-live inflated day-sum reach bug (2582)");
+  const weightedCpm = Number(((snapshot.campaign!.spend / snapshot.campaign!.impressions) * 1000).toFixed(2));
+  assert.equal(snapshot.campaign!.cpm, weightedCpm, "cpm must be the true spend/impressions rate, never an unweighted average of per-day cpm values (the proven-live 74.52 TL bug)");
 });

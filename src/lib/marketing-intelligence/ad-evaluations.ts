@@ -71,11 +71,6 @@ function sumBy(rows: any[], keys: string[]): number {
   return rows.reduce((sum, row) => sum + keys.reduce((v, key) => v || Number(row[key] || 0), 0), 0);
 }
 
-function avgBy(rows: any[], key: string): number {
-  if (!rows.length) return 0;
-  return Number((sumBy(rows, [key]) / rows.length).toFixed(2));
-}
-
 // A genuinely distinct remaining bucket (real different date/breakdown,
 // never a repeat sync of the same period) gets combined here — additive
 // metrics are summed, non-additive ones are recomputed from the summed
@@ -137,44 +132,26 @@ export function buildMetricsSnapshot(input: {
   // correct name; clicksAll is derived from it (spend/cpcAll, the one
   // mathematically valid recovery with no new raw field to store);
   // linkCtr/linkCpc are computed fresh from the genuine link-click count.
-  const campaign = campaignRows.length ? (() => {
-    const linkClicks = sumBy(campaignRows, ["clicks"]);
-    const impressions = sumBy(campaignRows, ["impressions"]);
-    const spend = sumBy(campaignRows, ["spend", "spent"]);
-    const ctrAll = avgBy(campaignRows, "ctr");
-    const cpcAll = avgBy(campaignRows, "cpc");
-    return {
-      spend: Number(spend.toFixed(2)),
-      reach: sumBy(campaignRows, ["reach"]),
-      impressions,
-      clicks: linkClicks,
-      linkClicks,
-      clicksAll: cpcAll ? Math.round(spend / cpcAll) : null,
-      ctrAll: ctrAll || null,
-      cpcAll: cpcAll || null,
-      linkCtr: impressions ? Number(((linkClicks / impressions) * 100).toFixed(2)) : null,
-      linkCpc: linkClicks ? Number((spend / linkClicks).toFixed(2)) : null,
-      ctr: ctrAll,
-      cpc: cpcAll,
-      cpm: avgBy(campaignRows, "cpm"),
-      results: sumBy(campaignRows, ["results", "leads"]),
-      messages: sumBy(campaignRows, ["messages"]),
-      messagingConversationsStarted: sumBy(campaignRows, ["messages"]),
-      costPerResult: (() => { const results = sumBy(campaignRows, ["results", "leads"]); return results ? Number((spend / results).toFixed(2)) : null; })(),
-      frequency: campaignRows.some((r) => r.frequency) ? avgBy(campaignRows, "frequency") : (sumBy(campaignRows, ["reach"]) ? Number((impressions / sumBy(campaignRows, ["reach"])).toFixed(2)) : null)
-    };
-  })() : null;
-
-  // One canonical row per real Meta ad set/ad id — a repeat sync of the
-  // same entity+period was already collapsed above; any rows still
-  // sharing an id here are genuinely distinct buckets (real different
-  // dates/breakdowns) and get combined, never left as separate "ad set"
-  // rows for the same real ad set.
-  // raw_data.insight preserves Meta's full insight row (pullAdvancedMetaData
-  // stores { insight: row, lifecycle }) — when present, it carries the
-  // genuine all-click count (row.clicks) separately from the stored
-  // link-preferred `clicks` column, so clicksAll is read directly here
-  // instead of derived.
+  // The campaign-level Graph API call requests time_increment=1 (real
+  // per-CALENDAR-DAY rows, confirmed in api/admin/meta-ads/route.ts) —
+  // unlike ad set/ad-level calls, which request one row for the whole
+  // period. So two campaignRows sharing the same sync batch are
+  // genuinely separate days, and spend/impressions/clicks/results/
+  // messages ARE correctly additive across them (proven live, MY CAKE
+  // 45: day totals 239.58+47.78=287.36 exactly matches the ad set's own
+  // single-row period total of 287.36). reach/ctr/cpc/cpm are NOT
+  // additive this way: Meta's reach is unique people (summing two days
+  // double-counts repeat viewers — proven live: summing gave 2582 vs the
+  // ad set's real period reach of 2342), and ctr/cpc/cpm are RATES, so
+  // averaging two days of very different size (e.g. a 3135- and a
+  // 658-impression day) as a flat mean is not a valid rate for the
+  // combined period (proven live: naive avg gave a "CPM" of 74.52 TL,
+  // while spend/impressions over the true combined totals gives 75.76
+  // TL, matching the ad set's own stored cpm of 75.76 to the cent).
+  // Computed ahead of `campaign` below: the campaign block prefers these
+  // ad-set-level real totals (one non-time-split row per ad set) over
+  // anything derivable from its own artificially day-split rows — see
+  // the comment on `campaign` for why.
   const clickFamily = (r: any, linkClicks: number, impressions: number, spend: number) => {
     const rawAllClicks = Number(r.raw_data?.insight?.clicks);
     const clicksAll = Number.isFinite(rawAllClicks) && rawAllClicks > 0 ? rawAllClicks : null;
@@ -196,6 +173,68 @@ export function buildMetricsSnapshot(input: {
       ...clickFamily(r, linkClicks, impressions, spend)
     };
   });
+
+  const campaign = campaignRows.length ? (() => {
+    const linkClicks = sumBy(campaignRows, ["clicks"]);
+    const impressions = sumBy(campaignRows, ["impressions"]);
+    const spend = Number(sumBy(campaignRows, ["spend", "spent"]).toFixed(2));
+    const results = sumBy(campaignRows, ["results", "leads"]);
+    // Each row's own ctr/cpc is Meta's native ALL-click rate for THAT
+    // row's own (one-day) period — recover that day's real all-click
+    // count from it (spend/cpc, the exact inverse of how Meta derives
+    // cpc) and SUM the per-day counts, rather than averaging the rates.
+    const allClicksOf = (r: any) => {
+      const cpcRow = Number(r.cpc) || 0;
+      const ctrRow = Number(r.ctr) || 0;
+      const impRow = Number(r.impressions) || 0;
+      const spendRow = Number(r.spend ?? r.spent) || 0;
+      if (cpcRow > 0) return Math.round(spendRow / cpcRow);
+      if (ctrRow > 0 && impRow > 0) return Math.round((ctrRow / 100) * impRow);
+      return 0;
+    };
+    const clicksAllFromDays = campaignRows.reduce((s, r) => s + allClicksOf(r), 0) || null;
+    // When this campaign's ad sets have already synced (one real,
+    // non-time-split row per ad set — see adsets below), their summed
+    // reach/all-click totals are strictly more trustworthy than anything
+    // derivable from the campaign's own artificially day-split rows.
+    const adsetReachSum = adsets.length ? adsets.reduce((s, a) => s + (Number(a.reach) || 0), 0) : null;
+    const adsetClicksAllSum = adsets.length ? adsets.reduce((s, a) => s + (Number(a.clicksAll) || 0), 0) || null : null;
+    const reach = adsetReachSum ?? campaignRows.reduce((max, r) => Math.max(max, Number(r.reach) || 0), 0);
+    const clicksAll = adsetClicksAllSum ?? clicksAllFromDays;
+    const ctrAll = clicksAll && impressions ? Number(((clicksAll / impressions) * 100).toFixed(2)) : null;
+    const cpcAll = clicksAll ? Number((spend / clicksAll).toFixed(2)) : null;
+    return {
+      spend,
+      reach,
+      impressions,
+      clicks: linkClicks,
+      linkClicks,
+      clicksAll,
+      ctrAll,
+      cpcAll,
+      linkCtr: impressions ? Number(((linkClicks / impressions) * 100).toFixed(2)) : null,
+      linkCpc: linkClicks ? Number((spend / linkClicks).toFixed(2)) : null,
+      ctr: ctrAll,
+      cpc: cpcAll,
+      cpm: impressions ? Number(((spend / impressions) * 1000).toFixed(2)) : null,
+      results,
+      messages: sumBy(campaignRows, ["messages"]),
+      messagingConversationsStarted: sumBy(campaignRows, ["messages"]),
+      costPerResult: results ? Number((spend / results).toFixed(2)) : null,
+      frequency: reach ? Number((impressions / reach).toFixed(2)) : null
+    };
+  })() : null;
+
+  // One canonical row per real Meta ad id — a repeat sync of the same
+  // entity+period was already collapsed above; any rows still sharing
+  // an id here are genuinely distinct buckets (real different dates/
+  // breakdowns) and get combined, never left as separate "ad" rows for
+  // the same real ad.
+  // raw_data.insight preserves Meta's full insight row (pullAdvancedMetaData
+  // stores { insight: row, lifecycle }) — when present, it carries the
+  // genuine all-click count (row.clicks) separately from the stored
+  // link-preferred `clicks` column, so clicksAll is read directly here
+  // instead of derived.
   const ads = [...groupByEntityId(adRows, "meta_ad_id").values()].map((buckets) => {
     const r = mergeDistinctBuckets(buckets);
     const spend = Number(r.spend || 0); const impressions = Number(r.impressions || 0); const linkClicks = Number(r.clicks || 0);
