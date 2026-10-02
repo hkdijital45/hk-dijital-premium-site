@@ -1,10 +1,11 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, PackageCheck } from "lucide-react";
 import { filterSelectableCustomers } from "@/lib/customer-visibility";
-import { dedupeMetaMetricSnapshots } from "@/lib/marketing-intelligence/meta-metrics-aggregation";
+import { dedupeMetaMetricSnapshots, resolveCampaignBudget, type CampaignBudgetInfo } from "@/lib/marketing-intelligence/meta-metrics-aggregation";
+import { isSyncStale, shouldStartAutoSync } from "@/lib/marketing-intelligence/meta-sync-freshness";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
 import { AdminWorkspace } from "@/components/admin/workspace/AdminWorkspace";
@@ -280,6 +281,13 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
 
   const [metaSyncing, setMetaSyncing] = useState(false);
   const [metaSyncMessage, setMetaSyncMessage] = useState("");
+  const [syncStatus, setSyncStatus] = useState<{ lastSuccessfulAt: string | null; lastAttemptAt: string | null; lastAttemptFailed: boolean } | null>(null);
+  // Guards the controlled auto-sync (PART 10) against firing twice for
+  // the SAME customer+account pair — React effects can re-run (e.g.
+  // StrictMode's dev double-invoke, or an unrelated re-render while the
+  // async status fetch is still in flight) without this actually being a
+  // genuine "page entry" or "account switch" a second time.
+  const autoSyncAttemptedKeyRef = useRef<string | null>(null);
 
   // "Senkronize Et" previously only re-read customer_integrations (account
   // matching), never a real Meta campaign/insight sync — exactly why this
@@ -302,12 +310,30 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
       const payload = await response.json().catch(() => ({}));
       setMetaSyncMessage(payload.message || (payload.ok ? "Senkronizasyon tamamlandı." : "Senkronizasyon başarısız oldu."));
       if (payload.ok) window.location.reload();
+      else if (customerId) loadSyncStatus(customerId);
     } catch (error) {
       setMetaSyncMessage(error instanceof Error ? error.message : "Senkronizasyon başarısız oldu.");
+      if (customerId) loadSyncStatus(customerId);
     } finally {
       setMetaSyncing(false);
     }
   }
+
+  // PART 10/11 — reads the same sync log the manual "Senkronize Et" flow
+  // already writes (GET action=sync-status, added to this same route —
+  // no second sync/status system). Refreshes syncStatus after both a
+  // manual AND an auto sync completes so the visible timestamp/failure
+  // state is always current.
+  const loadSyncStatus = useCallback(async (companyId: string) => {
+    try {
+      const response = await fetch(`/api/admin/meta-ads?action=sync-status&companyId=${encodeURIComponent(companyId)}`, { cache: "no-store" });
+      const payload = await response.json().catch(() => null);
+      if (payload) setSyncStatus({ lastSuccessfulAt: payload.lastSuccessfulAt || null, lastAttemptAt: payload.lastAttemptAt || null, lastAttemptFailed: Boolean(payload.lastAttemptFailed) });
+    } catch {
+      // status read failure is non-fatal — the dashboard still renders
+      // whatever DB data it already has; see PART 10 item 8.
+    }
+  }, []);
 
   const loadCustomerIntegrations = useCallback(async () => {
     if (!customerId) return;
@@ -338,6 +364,36 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
     if (!adAccount && accountOptions[0]?.value) setAdAccount(accountOptions[0].value);
     if (adAccount && accountOptions.length && !accountOptions.some((item) => item.value === adAccount)) setAdAccount(accountOptions[0].value);
   }, [adAccount, accountOptions]);
+
+  // PART 10 — controlled auto-sync. Runs only on genuine "module/page
+  // entry" or "customer/account switch" (this effect's dependency array),
+  // never on every render and never on window focus (no focus listener
+  // exists anywhere in this file). autoSyncAttemptedKeyRef additionally
+  // ensures at most one auto-sync attempt per customer+account pair even
+  // if the effect re-fires while the async status check is in flight.
+  useEffect(() => {
+    if (!customerId || !metaAdAccountId) return;
+    const key = `${customerId}::${metaAdAccountId}`;
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch(`/api/admin/meta-ads?action=sync-status&companyId=${encodeURIComponent(customerId)}`, { cache: "no-store" });
+        const payload = await response.json().catch(() => null);
+        if (cancelled) return;
+        const lastSuccessfulAt = payload?.lastSuccessfulAt || null;
+        setSyncStatus({ lastSuccessfulAt, lastAttemptAt: payload?.lastAttemptAt || null, lastAttemptFailed: Boolean(payload?.lastAttemptFailed) });
+        const stale = isSyncStale(lastSuccessfulAt);
+        if (shouldStartAutoSync({ isStale: stale, currentlySyncing: metaSyncing, key, lastAttemptedKey: autoSyncAttemptedKeyRef.current })) {
+          autoSyncAttemptedKeyRef.current = key;
+          runMetaSync();
+        }
+      } catch {
+        // see loadSyncStatus — non-fatal, existing DB data keeps rendering
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally NOT depending on metaSyncing/runMetaSync: this must fire only on customerId/metaAdAccountId change (entry/switch), never re-run just because a sync started
+  }, [customerId, metaAdAccountId]);
   const accountScoped = (item: any) => {
     if (!customerId || !belongsToCustomer(item, customerId)) return false;
     const source = metricSource(item);
@@ -532,10 +588,37 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
   const adsForCampaign = (campaign: any) => adMetrics.filter((item: any) =>
     (campaign.meta_campaign_id && item.meta_campaign_id === campaign.meta_campaign_id) || item.campaign_id === campaign.id);
   const sumMetric = (rows: any[], keys: string[]) => rows.reduce((sum, item) => sum + numberValue(item, keys), 0);
+  // formatBudgetDisplay turns resolveCampaignBudget's result into the
+  // two separate UI facts PART 14 requires — "Bütçe" and "Bütçe
+  // seviyesi" — and never collapses a genuinely-missing budget into a
+  // real "0 TL" (CASE E).
+  const formatBudgetDisplay = (info: CampaignBudgetInfo): { value: string; level: string } => {
+    if (info.level === "campaign") {
+      const parts: string[] = [];
+      if (info.daily != null) parts.push(`${formatMoney(info.daily)}/gün`);
+      if (info.lifetime != null) parts.push(`${formatMoney(info.lifetime)} toplam`);
+      return { value: parts.join(" · ") || "-", level: "Kampanya" };
+    }
+    if (info.level === "adset") {
+      const parts: string[] = [];
+      if (info.daily != null) parts.push(`${formatMoney(info.daily)}/gün`);
+      if (info.lifetime != null) parts.push(`${formatMoney(info.lifetime)} toplam`);
+      return { value: parts.join(" · ") || "-", level: `Reklam Seti (${info.name})` };
+    }
+    if (info.level === "adsets") {
+      const list = info.adsets.map((a) => `${a.name}: ${a.daily != null ? `${formatMoney(a.daily)}/gün` : `${formatMoney(a.lifetime || 0)} toplam`}`).join(", ");
+      const total = info.totalDailyAcrossAdsets != null
+        ? ` (Toplam tanımlı günlük reklam seti bütçesi: ${formatMoney(info.totalDailyAcrossAdsets)}/gün — kampanya bütçesi değildir)`
+        : "";
+      return { value: `${list}${total}`, level: "Reklam Setleri" };
+    }
+    return { value: info.hasAnySyncedAdset ? "Bu seviyede bütçe tanımlı değil" : "Bütçe bilgisi alınamadı", level: "-" };
+  };
+  const budgetForCampaign = (campaign: any) => formatBudgetDisplay(resolveCampaignBudget(campaign, adsetsForCampaign(campaign)));
   const campaignColumns: AdminDataGridColumn<any>[] = [
     { key: "name", header: "Kampanya", render: (item: any) => <div className="min-w-0"><strong className="block truncate">{item.name || "Adsız kampanya"}</strong><span className="block truncate text-[11px]" style={{ color: "var(--admin-text-muted)" }}>{item.platform || "-"} · {item.objective || "-"}</span></div> },
     { key: "status", header: "Durum", render: (item: any) => <AdminStatusBadge tone={item.status === "Aktif" ? "success" : item.status === "Durduruldu" ? "warning" : item.status === "Tamamlandı" ? "neutral" : "info"}>{item.status || "Planlandı"}</AdminStatusBadge> },
-    { key: "budget", header: "Bütçe", align: "right", render: (item: any) => formatMoney(Number(item.total_budget || item.budget || 0)) },
+    { key: "budget", header: "Bütçe", align: "right", render: (item: any) => { const b = budgetForCampaign(item); return <span title={b.level !== "-" ? `Bütçe seviyesi: ${b.level}` : undefined}>{b.value}</span>; } },
     { key: "spent", header: "Harcama", align: "right", render: (item: any) => formatMoney(Number(item.spent_budget || item.spent || 0)) },
     { key: "dates", header: "Tarih Aralığı", render: (item: any) => `${item.start_date || "-"} → ${item.end_date || "-"}` },
     { key: "source", header: "Veri Kaynağı", render: (item: any) => <AdminStatusBadge tone={item.source === "Meta" ? "success" : "neutral"}>{campaignSourceLabel(item)}</AdminStatusBadge> }
@@ -550,6 +633,25 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
   const selectedAds = selectedCampaign ? adsForCampaign(selectedCampaign) : [];
   const fmtOrNoData = (rows: any[], keys: string[], formatter: (n: number) => string = (n) => String(n)) =>
     rows.length ? formatter(sumMetric(rows, keys)) : "Veri yok";
+
+  // PART 11 — user-facing timestamp, never a raw UTC string; no
+  // seconds, matching the exact "02.10.2026 13:42" format requested.
+  // "Son senkronizasyon" is always the last SUCCESSFUL sync — a failed
+  // attempt is reported as a separate, additional fact and never
+  // overwrites or is confused with it.
+  const formatSyncTimestamp = (iso: string) => {
+    const d = new Date(iso);
+    return `${d.toLocaleDateString("tr-TR", { day: "2-digit", month: "2-digit", year: "numeric" })} ${d.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}`;
+  };
+  const syncStatusLabel = metaSyncing
+    ? "Senkronize ediliyor..."
+    : syncStatus?.lastSuccessfulAt
+      ? `Son senkronizasyon: ${formatSyncTimestamp(syncStatus.lastSuccessfulAt)}${syncStatus.lastAttemptFailed ? " · Son deneme başarısız" : ""}`
+      : syncStatus?.lastAttemptFailed
+        ? "Henüz başarılı senkronizasyon yok · Son deneme başarısız"
+        : syncStatus
+          ? "Henüz senkronize edilmedi"
+          : "";
 
   return (
     <AdminWorkspace
@@ -605,7 +707,8 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
           fields={selectedCampaign ? [
             { label: "Müşteri", value: customer?.name || "-" },
             { label: "Hedef", value: selectedCampaign.objective || "-" },
-            { label: "Bütçe", value: formatMoney(Number(selectedCampaign.total_budget || selectedCampaign.budget || 0)) },
+            { label: "Bütçe", value: budgetForCampaign(selectedCampaign).value },
+            { label: "Bütçe seviyesi", value: budgetForCampaign(selectedCampaign).level },
             { label: "Harcama", value: formatMoney(Number(selectedCampaign.spent_budget || selectedCampaign.spent || 0)) },
             { label: "Tarih Aralığı", value: `${selectedCampaign.start_date || "-"} → ${selectedCampaign.end_date || "-"}` },
             { label: "Son güncelleme", value: selectedCampaign.updated_at ? new Date(selectedCampaign.updated_at).toLocaleString("tr-TR") : "-" },
@@ -644,7 +747,7 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
         </AdminDetailInspector>
       }
       bottomBar={
-        <AdminActionBar statusText={`${filteredCampaigns.length} kampanya · ${dataSourceLabel}${metaSyncMessage ? ` · ${metaSyncMessage}` : ""}`}>
+        <AdminActionBar statusText={`${filteredCampaigns.length} kampanya · ${dataSourceLabel}${syncStatusLabel ? ` · ${syncStatusLabel}` : ""}${metaSyncMessage ? ` · ${metaSyncMessage}` : ""}`}>
           <AdminButton
             compact
             variant="secondary"

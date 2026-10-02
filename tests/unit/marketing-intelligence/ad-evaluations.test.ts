@@ -233,13 +233,29 @@ test("buildAdEvaluationPrompt REGRESSION — forbids the linear elapsed-hours ×
   assert.match(prompt, /BU RAPOR BASİT SEVİYEDE KALIR/);
 });
 
-test("buildAdEvaluationPrompt REGRESSION — explicit instruction forbids CLIENT_REPORT from making an absolute benchmark-dependent judgment (normal/iyi/yüksek/düşük/iyileştirme alanı) on a metric INTERNAL_REPORT marked as having no reliable reference (proven live: Frekans and Bağlantı CTR previously contradicted between the two reports)", async () => {
+test("buildAdEvaluationPrompt REGRESSION — the banned-judgment-word rule is GENERIC (applies report-wide, every section of BOTH reports, not only the Ana Metrikler table or only CLIENT_REPORT) and lists the full forbidden vocabulary for a ⚪/🔵 metric (proven live: Frekans and Bağlantı CTR previously contradicted between report sections)", async () => {
   const { buildAdEvaluationPrompt } = await import("../../../src/lib/marketing-intelligence/ad-evaluation-prompt.ts");
   const prompt = buildAdEvaluationPrompt(fakeContext());
-  assert.match(prompt, /SEMANTİK TUTARLILIK/);
-  assert.match(prompt, /ASLA üretme — bu iki rapor birbiriyle çelişemez/);
+  assert.match(prompt, /YASAKLI SÖZCÜKLER/);
+  assert.match(prompt, /raporun HİÇBİR YERİNDE/);
+  assert.match(prompt, /CLIENT_REPORT'un tüm bölümleri DAHİL/);
+  assert.match(prompt, /Ana Metrikler tablosu dışındaki bölümleri de dahil, raporun TAMAMINA uygulanır/);
+  for (const word of ["normal", "kötü", "yüksek", "düşük", "pahalı", "ucuz", "güçlü", "zayıf", "başarılı", "başarısız", "iyileştirme alanı", "hedefin altında", "hedefin üstünde", "kazanan", "kaybeden"]) {
+    assert.ok(prompt.includes(word), `banned-word list must include "${word}"`);
+  }
   assert.match(prompt, /Henüz erken dönem; takip ediyoruz\./);
-  assert.match(prompt, /Güvenilir değerlendirme için daha fazla veri gerekiyor\./);
+  assert.match(prompt, /Güvenilir karşılaştırma olmadığı için performans sınıflandırması yapılmıyor\./);
+  assert.match(prompt, /Olgusal\/matematiksel ifadeler .* her zaman serbesttir/);
+});
+
+test("buildAdEvaluationPrompt REGRESSION — the status decision procedure is explicit and ordered (metric exists? -> reliable reference? -> sufficient volume? -> direction), and ad-level creative comparison forbids a raw-message-count winner/loser verdict", async () => {
+  const { buildAdEvaluationPrompt } = await import("../../../src/lib/marketing-intelligence/ad-evaluation-prompt.ts");
+  const prompt = buildAdEvaluationPrompt(fakeContext());
+  assert.match(prompt, /AŞAĞIDAKİ SIRAYI AYNEN, adım atlamadan uygula/);
+  assert.match(prompt, /Metrik gerçekten senkronize edilmiş veride var mı\?/);
+  assert.match(prompt, /YASAKLI SÖZCÜKLER listesi de bu metrik için YASAK/);
+  assert.match(prompt, /yalnızca ham mesaj sayısına bakarak "kazanan"\/"kaybeden" ilan etme/);
+  assert.match(prompt, /Henüz kesin kreatif kararı için veri yetersiz\./);
 });
 
 test("buildAdEvaluationPrompt: surfaces the campaign's real daily/lifetime budget from context (never recomputes a projection itself)", async () => {

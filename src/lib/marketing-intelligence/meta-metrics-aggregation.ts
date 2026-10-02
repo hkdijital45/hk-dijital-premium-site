@@ -86,3 +86,53 @@ export function groupByEntityId<T extends MetaMetricRow>(rows: T[], idField: str
   }
   return groups;
 }
+
+export type CampaignBudgetInfo =
+  | { level: "campaign"; daily: number | null; lifetime: number | null }
+  | { level: "adset"; name: string; daily: number | null; lifetime: number | null }
+  | { level: "adsets"; adsets: Array<{ name: string; daily: number | null; lifetime: number | null }>; totalDailyAcrossAdsets: number | null }
+  | { level: "none"; hasAnySyncedAdset: boolean };
+
+/** Resolves WHICH level a campaign's real, currently-configured Meta
+ * budget actually lives at — proven necessary live (MY CAKE 45):
+ * campaigns.daily_budget/total_budget are genuinely 0 (Campaign Budget
+ * Optimization is off for this account), while the campaign's one real
+ * ad set has a genuine 200 TL/day budget in meta_adset_metrics. Showing
+ * "Bütçe: 0 TL" in that case is misleading — it reads as a real zero
+ * budget rather than "this level has none, look one level down".
+ *
+ * Budget is a CONFIGURATION value, not a cumulative performance metric:
+ * unlike spend/impressions/etc., re-syncing the same ad set never
+ * produces a second, additive budget — the latest synced row for a
+ * given real ad set id simply wins (never summed across sync batches,
+ * never averaged). `dedupedAdsetRows` is expected to already be the
+ * output of dedupeMetaMetricSnapshots (this function does not re-dedupe
+ * performance data — it only reads configuration fields off rows the
+ * caller already deduped), grouped here strictly by real ad set id via
+ * the same canonical groupByEntityId used everywhere else. */
+export function resolveCampaignBudget(
+  campaign: { daily_budget?: unknown; total_budget?: unknown; budget?: unknown } | null | undefined,
+  dedupedAdsetRows: MetaMetricRow[]
+): CampaignBudgetInfo {
+  const campaignDaily = Number(campaign?.daily_budget) || 0;
+  const campaignLifetime = Number(campaign?.total_budget ?? campaign?.budget) || 0;
+  if (campaignDaily > 0 || campaignLifetime > 0) {
+    return { level: "campaign", daily: campaignDaily || null, lifetime: campaignLifetime || null };
+  }
+
+  const byAdset = groupByEntityId(dedupedAdsetRows, "meta_adset_id");
+  const adsetBudgets: Array<{ name: string; daily: number | null; lifetime: number | null }> = [];
+  for (const rows of byAdset.values()) {
+    const row = rows[0];
+    const daily = Number(row.daily_budget) || 0;
+    const lifetime = Number(row.lifetime_budget) || 0;
+    if (daily > 0 || lifetime > 0) adsetBudgets.push({ name: String(row.adset_name || "Adsız reklam seti"), daily: daily || null, lifetime: lifetime || null });
+  }
+
+  if (adsetBudgets.length === 1) return { level: "adset", name: adsetBudgets[0].name, daily: adsetBudgets[0].daily, lifetime: adsetBudgets[0].lifetime };
+  if (adsetBudgets.length > 1) {
+    const totalDaily = adsetBudgets.reduce((s, a) => s + (a.daily || 0), 0);
+    return { level: "adsets", adsets: adsetBudgets, totalDailyAcrossAdsets: totalDaily || null };
+  }
+  return { level: "none", hasAnySyncedAdset: byAdset.size > 0 };
+}

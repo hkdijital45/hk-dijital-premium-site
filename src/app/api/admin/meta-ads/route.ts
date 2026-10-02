@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { executeAiTask } from "@/lib/server/ai-router";
 import { decryptSecret, getIntegrations, safeIntegrationForClient, upsertIntegration } from "@/lib/business-flow";
 import { classifyMetaError, metaToken, recordMetaError, recordMetaSuccess } from "@/lib/meta-api";
+import { deriveSyncStatus } from "@/lib/marketing-intelligence/meta-sync-freshness";
 import { resolveMetaAdAccount } from "@/lib/marketing-intelligence/ad-accounts";
 import { requireModuleAccess } from "@/lib/permissions";
 import { checkOperationalCustomer } from "@/lib/server/customer-visibility";
@@ -676,6 +677,24 @@ export async function GET(request: Request) {
   if (!(await staff())) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
   const { searchParams } = new URL(request.url);
   const action = searchParams.get("action") || "status";
+
+  // Read-only — reuses the exact rows writeSyncLog() already persists on
+  // every real sync (POST action=sync); no second sync/status system,
+  // no Graph API call, no token needed. "Başarılı" and "Uyarı" both
+  // count as a successful sync (an unrelated warning — e.g. the
+  // creative/Ad-Library fetch — does not mean campaign/adset/ad data
+  // failed to save); only "Hata" means the sync itself failed. A failed
+  // attempt is reported SEPARATELY and must never overwrite the last
+  // successful timestamp.
+  if (action === "sync-status") {
+    const companyId = searchParams.get("companyId") || "";
+    if (!companyId || !hasSupabaseConfig()) return NextResponse.json({ lastSuccessfulAt: null, lastAttemptAt: null, lastAttemptFailed: false });
+    const rows = await supabaseRest<Array<{ result: string; created_at: string }>>(
+      `integration_sync_logs?company_id=eq.${encodeURIComponent(companyId)}&provider=eq.meta&select=result,created_at&order=created_at.desc&limit=5`
+    ).catch(() => []);
+    return NextResponse.json(deriveSyncStatus(rows));
+  }
+
   const integrationId = searchParams.get("integrationId") || "";
   const { token } = await tokenForIntegration(integrationId);
   if (!token) return NextResponse.json({ ok: false, hasToken: false, maskedToken: "", message: "Token geçersiz veya bulunamadı." });
