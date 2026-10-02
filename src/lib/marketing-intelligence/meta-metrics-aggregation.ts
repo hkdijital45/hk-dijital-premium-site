@@ -87,6 +87,74 @@ export function groupByEntityId<T extends MetaMetricRow>(rows: T[], idField: str
   return groups;
 }
 
+export type CampaignClickMetrics = {
+  spend: number; impressions: number; linkClicks: number; clicksAll: number | null;
+  linkCtr: number | null; linkCpc: number | null; ctrAll: number | null; cpcAll: number | null; cpm: number | null;
+};
+
+/** Resolves a campaign's Link-click vs All-click metric families from
+ * already-deduped campaign_metrics rows — the exact same canonical
+ * formulas as ad-evaluations.ts's buildMetricsSnapshot campaign block
+ * (never a second, independently-invented formula): `clicks` is the
+ * link-click-preferred column, while each row's own native `ctr`/`cpc`
+ * is Meta's all-click-based rate for that row's own period. Rows from
+ * the same sync batch are genuinely separate calendar days (campaign-
+ * level sync uses time_increment=1) and are additive for spend/
+ * impressions/clicks, but ctr/cpc/cpm must be WEIGHTED — each row's own
+ * all-click count is recovered (spend/cpc) and summed, never averaged
+ * directly (proven live: a naive average of two very differently-sized
+ * days' cpm gave 74.52 TL instead of the true weighted 75.76 TL).
+ * Extracted here (not duplicated) so GrowthOperatingSystem.tsx's
+ * campaign detail panel can use the same canonical semantics without a
+ * second, UI-local re-implementation of this math. */
+export function resolveCampaignClickMetrics(rows: MetaMetricRow[]): CampaignClickMetrics | null {
+  if (!rows.length) return null;
+  const num = (row: MetaMetricRow, key: string) => Number(row[key]) || 0;
+  const linkClicks = rows.reduce((s, r) => s + num(r, "clicks"), 0);
+  const impressions = rows.reduce((s, r) => s + num(r, "impressions"), 0);
+  const spend = Number(rows.reduce((s, r) => s + (num(r, "spend") || num(r, "spent")), 0).toFixed(2));
+  const allClicksOf = (r: MetaMetricRow) => {
+    const cpcRow = num(r, "cpc"); const ctrRow = num(r, "ctr"); const impRow = num(r, "impressions");
+    const spendRow = num(r, "spend") || num(r, "spent");
+    if (cpcRow > 0) return Math.round(spendRow / cpcRow);
+    if (ctrRow > 0 && impRow > 0) return Math.round((ctrRow / 100) * impRow);
+    return 0;
+  };
+  const clicksAll = rows.reduce((s, r) => s + allClicksOf(r), 0) || null;
+  return {
+    spend, impressions, linkClicks, clicksAll,
+    linkCtr: impressions ? Number(((linkClicks / impressions) * 100).toFixed(2)) : null,
+    linkCpc: linkClicks ? Number((spend / linkClicks).toFixed(2)) : null,
+    ctrAll: clicksAll && impressions ? Number(((clicksAll / impressions) * 100).toFixed(2)) : null,
+    cpcAll: clicksAll ? Number((spend / clicksAll).toFixed(2)) : null,
+    cpm: impressions ? Number(((spend / impressions) * 1000).toFixed(2)) : null
+  };
+}
+
+function matchesCampaignEntity(row: MetaMetricRow, campaign: { id?: unknown; meta_campaign_id?: unknown } | null | undefined): boolean {
+  if (!campaign) return false;
+  const metaCampaignId = campaign.meta_campaign_id;
+  if (metaCampaignId && row.meta_campaign_id === metaCampaignId) return true;
+  return Boolean(campaign.id && row.campaign_id === campaign.id);
+}
+
+/** Resolves THIS campaign's own canonical performance spend from
+ * already-deduped campaign_metrics rows — never the page-wide total
+ * (a different campaign's row must never show another campaign's
+ * spend), never a sum across campaign/adset/ad entity layers (the same
+ * real spend exists at each level; summing them double-counts it).
+ * Returns null when genuinely no canonical rows match this campaign —
+ * the caller decides what a "missing" spend should fall back to
+ * display as; this function never fabricates a 0. */
+export function resolveCampaignSpend(
+  campaign: { id?: unknown; meta_campaign_id?: unknown } | null | undefined,
+  dedupedCampaignMetricRows: MetaMetricRow[]
+): number | null {
+  const rows = dedupedCampaignMetricRows.filter((row) => matchesCampaignEntity(row, campaign));
+  if (!rows.length) return null;
+  return Number(rows.reduce((sum, row) => sum + ((Number(row.spend) || Number(row.spent)) || 0), 0).toFixed(2));
+}
+
 export type CampaignBudgetInfo =
   | { level: "campaign"; daily: number | null; lifetime: number | null }
   | { level: "adset"; name: string; daily: number | null; lifetime: number | null }

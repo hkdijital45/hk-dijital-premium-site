@@ -6,7 +6,7 @@
 // it must never be summed/deduped the way spend/impressions are.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolveCampaignBudget } from "../../../src/lib/marketing-intelligence/meta-metrics-aggregation.ts";
+import { resolveCampaignBudget, resolveCampaignSpend, resolveCampaignClickMetrics } from "../../../src/lib/marketing-intelligence/meta-metrics-aggregation.ts";
 
 test("resolveCampaignBudget: CASE A — campaign-level daily budget wins outright, ad set budgets are never consulted", () => {
   const info = resolveCampaignBudget({ daily_budget: 500, total_budget: 0 }, [{ meta_adset_id: "as1", adset_name: "Set A", daily_budget: 200 }]);
@@ -66,4 +66,84 @@ test("resolveCampaignBudget: multiple rows for the SAME real ad set id (e.g. a s
     { meta_adset_id: "as1", adset_name: "Set A", daily_budget: 200 }
   ]);
   assert.deepEqual(info, { level: "adset", name: "Set A", daily: 200, lifetime: null });
+});
+
+// --- resolveCampaignSpend: production hotfix (campaign row/detail "Harcama: 0 TL") ---
+// Root cause: GrowthOperatingSystem.tsx's campaign row/detail previously
+// read campaigns.spent_budget/spent — stale legacy columns that are
+// genuinely 0 for MY CAKE 45 (never kept in sync with real performance
+// data) — while the real, canonical campaign_metrics spend for the same
+// campaign/period is ~306 TL. resolveCampaignSpend resolves THIS
+// campaign's own canonical spend, never a copy of a page-wide total and
+// never a sum across campaign/adset/ad entity layers.
+
+test("resolveCampaignSpend: canonical campaign spend exists -> returned directly, matching the proven-live 305.97 TL for MY CAKE 45", () => {
+  const spend = resolveCampaignSpend(
+    { id: "camp1", meta_campaign_id: "m1" },
+    [{ meta_campaign_id: "m1", spend: 239.58 }, { meta_campaign_id: "m1", spend: 66.39 }]
+  );
+  assert.equal(spend, 305.97);
+});
+
+test("resolveCampaignSpend: a genuinely missing canonical row returns null, never a fabricated 0 — caller falls back to the legacy field only in this case", () => {
+  assert.equal(resolveCampaignSpend({ id: "camp1", meta_campaign_id: "m1" }, []), null);
+  assert.equal(resolveCampaignSpend({ id: "camp1", meta_campaign_id: "m1" }, [{ meta_campaign_id: "m2", spend: 999 }]), null);
+});
+
+test("resolveCampaignSpend: multiple campaigns each resolve their OWN spend by their own id — the page-wide total is never copied into every row", () => {
+  const rows = [
+    { meta_campaign_id: "mA", spend: 100 },
+    { meta_campaign_id: "mB", spend: 250 },
+    { meta_campaign_id: "mC", spend: 50 }
+  ];
+  assert.equal(resolveCampaignSpend({ id: "a", meta_campaign_id: "mA" }, rows), 100);
+  assert.equal(resolveCampaignSpend({ id: "b", meta_campaign_id: "mB" }, rows), 250);
+  assert.equal(resolveCampaignSpend({ id: "c", meta_campaign_id: "mC" }, rows), 50);
+});
+
+test("resolveCampaignSpend: never sums across campaign/adset/ad entity layers — only reads campaign_metrics rows passed in; a row with no matching campaign identity contributes nothing", () => {
+  const spend = resolveCampaignSpend({ id: "camp1", meta_campaign_id: "m1" }, [
+    { meta_campaign_id: "m1", spend: 305.97 },
+    { meta_adset_id: "as1", spend: 305.97 }
+  ]);
+  assert.equal(spend, 305.97, "a row with no matching campaign identity must never be summed in");
+});
+
+test("resolveCampaignSpend: falls back to campaign_id when meta_campaign_id is absent on the campaign (non-Meta/manual campaign)", () => {
+  const spend = resolveCampaignSpend({ id: "camp1" }, [{ campaign_id: "camp1", spend: 42 }, { campaign_id: "campOther", spend: 999 }]);
+  assert.equal(spend, 42);
+});
+
+// --- resolveCampaignClickMetrics: Link vs All click family UI labels ---
+// Root cause: GrowthOperatingSystem.tsx's selected-campaign detail
+// panel averaged raw per-row ctr/cpc (Meta's native all-click rate)
+// unweighted across a sync batch's day-split rows, and showed it under
+// one ambiguous "CTR / CPC / CPM" label that also silently discarded
+// the genuinely separate link-click family already visible elsewhere
+// on the same screen (top KPI cards).
+
+test("resolveCampaignClickMetrics: link vs all-click families are both resolved from the same rows and are never equal by construction when all-click count differs — matches the proven-live MY CAKE 45 shape (linkCtr distinct from ctrAll)", () => {
+  const metrics = resolveCampaignClickMetrics([
+    { spend: 239.58, impressions: 3135, clicks: 25, ctr: 2.870813, cpc: 2.662 },
+    { spend: 66.39, impressions: 830, clicks: 3, ctr: 2.168674, cpc: 3.284155 }
+  ]);
+  assert.ok(metrics);
+  assert.notEqual(metrics!.linkCtr, metrics!.ctrAll, "link CTR and all-click CTR must be distinct values, never collapsed into one");
+  assert.notEqual(metrics!.linkCpc, metrics!.cpcAll, "link CPC and all-click CPC must be distinct values, never collapsed into one");
+});
+
+test("resolveCampaignClickMetrics: both families render safely and independently side by side — neither overwrites the other", () => {
+  const metrics = resolveCampaignClickMetrics([{ spend: 100, impressions: 1000, clicks: 10, ctr: 5, cpc: 2 }]);
+  assert.ok(metrics);
+  assert.ok(metrics!.linkCtr != null && metrics!.ctrAll != null);
+  assert.ok(metrics!.linkCpc != null && metrics!.cpcAll != null);
+});
+
+test("resolveCampaignClickMetrics: CPM is the true weighted spend/impressions rate, unchanged canonical formula (no new frontend formula)", () => {
+  const metrics = resolveCampaignClickMetrics([{ spend: 239.58, impressions: 3135 }, { spend: 66.39, impressions: 830 }]);
+  assert.equal(metrics!.cpm, Number((((239.58 + 66.39) / (3135 + 830)) * 1000).toFixed(2)));
+});
+
+test("resolveCampaignClickMetrics: no rows -> null, never a fabricated metric set", () => {
+  assert.equal(resolveCampaignClickMetrics([]), null);
 });

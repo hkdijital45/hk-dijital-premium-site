@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, PackageCheck } from "lucide-react";
 import { filterSelectableCustomers } from "@/lib/customer-visibility";
-import { dedupeMetaMetricSnapshots, resolveCampaignBudget, type CampaignBudgetInfo } from "@/lib/marketing-intelligence/meta-metrics-aggregation";
+import { dedupeMetaMetricSnapshots, resolveCampaignBudget, resolveCampaignClickMetrics, resolveCampaignSpend, type CampaignBudgetInfo } from "@/lib/marketing-intelligence/meta-metrics-aggregation";
 import { isSyncStale, shouldStartAutoSync } from "@/lib/marketing-intelligence/meta-sync-freshness";
 import { getAutoSyncPreference, setAutoSyncPreference } from "@/lib/ad-operations-preferences";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
@@ -647,11 +647,25 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
     return { value: info.hasAnySyncedAdset ? "Bu seviyede bütçe tanımlı değil" : "Bütçe bilgisi alınamadı", level: "-" };
   };
   const budgetForCampaign = (campaign: any) => formatBudgetDisplay(resolveCampaignBudget(campaign, adsetsForCampaign(campaign)));
+  // Root cause (TASK 1): campaign row/detail "Harcama" previously read
+  // campaigns.spent_budget/spent — stale legacy config columns, never
+  // kept in sync with real performance data (same dead-field pattern
+  // already proven for campaigns.daily_budget/total_budget). The real,
+  // canonical spend for THIS campaign is the already-deduped
+  // campaign_metrics rows this component already loads (metricsForCampaign).
+  // Each campaign resolves its OWN canonical spend by its own id — never
+  // a copy of the page-wide Top KPI total (TASK 2), and never a second
+  // sum across campaign+adset+ad layers (TASK 3: these are the same
+  // real spend at different breakdown levels, not additive).
+  const spendDisplayForCampaign = (campaign: any) => {
+    const canonical = resolveCampaignSpend(campaign, metrics);
+    return canonical != null ? formatMoney(canonical) : formatMoney(Number(campaign.spent_budget || campaign.spent || 0));
+  };
   const campaignColumns: AdminDataGridColumn<any>[] = [
     { key: "name", header: "Kampanya", render: (item: any) => <div className="min-w-0"><strong className="block truncate">{item.name || "Adsız kampanya"}</strong><span className="block truncate text-[11px]" style={{ color: "var(--admin-text-muted)" }}>{item.platform || "-"} · {item.objective || "-"}</span></div> },
     { key: "status", header: "Durum", render: (item: any) => <AdminStatusBadge tone={item.status === "Aktif" ? "success" : item.status === "Durduruldu" ? "warning" : item.status === "Tamamlandı" ? "neutral" : "info"}>{item.status || "Planlandı"}</AdminStatusBadge> },
     { key: "budget", header: "Bütçe", align: "right", render: (item: any) => { const b = budgetForCampaign(item); return <span title={b.level !== "-" ? `Bütçe seviyesi: ${b.level}` : undefined}>{b.value}</span>; } },
-    { key: "spent", header: "Harcama", align: "right", render: (item: any) => formatMoney(Number(item.spent_budget || item.spent || 0)) },
+    { key: "spent", header: "Harcama", align: "right", render: (item: any) => spendDisplayForCampaign(item) },
     { key: "dates", header: "Tarih Aralığı", render: (item: any) => `${item.start_date || "-"} → ${item.end_date || "-"}` },
     { key: "source", header: "Veri Kaynağı", render: (item: any) => <AdminStatusBadge tone={item.source === "Meta" ? "success" : "neutral"}>{campaignSourceLabel(item)}</AdminStatusBadge> }
   ];
@@ -661,6 +675,7 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
   // meta_ad_metrics rows (center-data) for the selected period — no new
   // Graph API calls, no new route.
   const selectedCampaignMetrics = selectedCampaign ? metricsForCampaign(selectedCampaign) : [];
+  const campaignClickMetrics = resolveCampaignClickMetrics(selectedCampaignMetrics);
   const selectedAdsets = selectedCampaign ? adsetsForCampaign(selectedCampaign) : [];
   const selectedAds = selectedCampaign ? adsForCampaign(selectedCampaign) : [];
   const fmtOrNoData = (rows: any[], keys: string[], formatter: (n: number) => string = (n) => String(n)) =>
@@ -741,7 +756,7 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
             { label: "Hedef", value: selectedCampaign.objective || "-" },
             { label: "Bütçe", value: budgetForCampaign(selectedCampaign).value },
             { label: "Bütçe seviyesi", value: budgetForCampaign(selectedCampaign).level },
-            { label: "Harcama", value: formatMoney(Number(selectedCampaign.spent_budget || selectedCampaign.spent || 0)) },
+            { label: "Harcama", value: spendDisplayForCampaign(selectedCampaign) },
             { label: "Tarih Aralığı", value: `${selectedCampaign.start_date || "-"} → ${selectedCampaign.end_date || "-"}` },
             { label: "Son güncelleme", value: selectedCampaign.updated_at ? new Date(selectedCampaign.updated_at).toLocaleString("tr-TR") : "-" },
             { label: "Veri kaynağı", value: campaignSourceLabel(selectedCampaign) },
@@ -750,7 +765,18 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
             { label: "Erişim (Reach)", value: fmtOrNoData(selectedCampaignMetrics, ["reach"]) },
             { label: "Gösterim", value: fmtOrNoData(selectedCampaignMetrics, ["impressions"]) },
             { label: "Sonuç / Mesaj", value: selectedCampaignMetrics.length ? `${sumMetric(selectedCampaignMetrics, ["results", "leads"])} sonuç · ${sumMetric(selectedCampaignMetrics, ["messages"])} mesaj` : "Veri yok" },
-            { label: "CTR / CPC / CPM", value: selectedCampaignMetrics.length ? `${(sumMetric(selectedCampaignMetrics, ["ctr"]) / selectedCampaignMetrics.length).toFixed(2)}% · ${formatMoney(sumMetric(selectedCampaignMetrics, ["cpc"]) / selectedCampaignMetrics.length)} · ${formatMoney(sumMetric(selectedCampaignMetrics, ["cpm"]) / selectedCampaignMetrics.length)}` : "Veri yok" }
+            // TASK 5/6 — two genuinely distinct Meta metric families
+            // (link-click vs all-click) were previously collapsed into
+            // one ambiguous "CTR / CPC / CPM" field, averaging raw
+            // per-row ctr/cpc unweighted on top of that. Both canonical
+            // families now render as separately labeled, correctly
+            // weighted fields via the shared resolveCampaignClickMetrics
+            // (same formulas as ad-evaluations.ts — never recomputed).
+            { label: "Bağlantı CTR", value: campaignClickMetrics?.linkCtr != null ? `%${campaignClickMetrics.linkCtr}` : "Veri yok" },
+            { label: "Bağlantı CPC", value: campaignClickMetrics?.linkCpc != null ? formatMoney(campaignClickMetrics.linkCpc) : "Veri yok" },
+            { label: "CTR (Tümü)", value: campaignClickMetrics?.ctrAll != null ? `%${campaignClickMetrics.ctrAll}` : "Veri yok" },
+            { label: "CPC (Tümü)", value: campaignClickMetrics?.cpcAll != null ? formatMoney(campaignClickMetrics.cpcAll) : "Veri yok" },
+            { label: "CPM", value: campaignClickMetrics?.cpm != null ? formatMoney(campaignClickMetrics.cpm) : "Veri yok" }
           ] : undefined}
           actions={selectedCampaign ? <>
             <AdminButton compact variant="secondary" onClick={() => window.location.assign(`/hk-admin/musteriler?companyId=${selectedCampaign.company_id || customerId || ""}`)}>Müşteriyi Aç</AdminButton>
@@ -771,7 +797,7 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
               {selectedAds.length ? selectedAds.map((ad: any, i: number) => (
                 <div key={ad.id || i} className="rounded-[8px] border p-2 text-[11px]" style={{ borderColor: "var(--admin-border)" }}>
                   <strong className="block">{ad.ad_name || "Adsız reklam"}</strong>
-                  <span style={{ color: "var(--admin-text-muted)" }}>{ad.status || "-"} · Harcama: {formatMoney(Number(ad.spend || 0))} · CTR: {Number(ad.ctr || 0).toFixed(2)}% · Sonuç: {Number(ad.results || 0)}</span>
+                  <span style={{ color: "var(--admin-text-muted)" }}>{ad.status || "-"} · Harcama: {formatMoney(Number(ad.spend || 0))} · CTR (Tümü): {Number(ad.ctr || 0).toFixed(2)}% · Sonuç: {Number(ad.results || 0)}</span>
                 </div>
               )) : <p className="text-[11px]" style={{ color: "var(--admin-text-muted)" }}>Bu tarih aralığında reklam verisi yok.</p>}
             </div>
@@ -807,8 +833,8 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
         { key: "messages", label: "Mesaj", value: formatNumber(messages), icon: <span>💬</span>, tone: "info" },
         { key: "formLeads", label: "Form", value: formatNumber(formLeads), icon: <span>📝</span>, tone: "info" },
         { key: "phoneLeads", label: "Telefon", value: formatNumber(phoneLeads), icon: <span>📞</span>, tone: "info" },
-        { key: "ctr", label: "CTR", value: `${ctr.toFixed(2)}%`, icon: <span>📈</span>, tone: "info" },
-        { key: "cpc", label: "CPC", value: cpc ? formatMoney(cpc) : "Veri yok", icon: <span>🖱️</span>, tone: cpc ? "info" : "primary" },
+        { key: "ctr", label: "Bağlantı CTR", value: `${ctr.toFixed(2)}%`, icon: <span>📈</span>, tone: "info" },
+        { key: "cpc", label: "Bağlantı CPC", value: cpc ? formatMoney(cpc) : "Veri yok", icon: <span>🖱️</span>, tone: cpc ? "info" : "primary" },
         { key: "cpa", label: "CPA", value: cpa ? formatMoney(cpa) : "Veri yok", icon: <span>💳</span>, tone: cpa ? "warning" : "primary" },
         { key: "roas", label: "ROAS", value: roas ? roas.toFixed(2) : "Veri yok", icon: <span>📊</span>, tone: roas ? "success" : "primary" },
         { key: "health", label: "Reklam Sağlığı", value: `${healthScore}/100`, icon: <span>🩺</span>, tone: healthScore >= 80 ? "success" : healthScore >= 60 ? "warning" : "danger" }
