@@ -210,3 +210,101 @@ test("statusColorHexFor / statusColorFor matching order: 'Aksiyon Gerekebilir' n
   assert.ok(xml.includes("B43434"), "Aksiyon Gerekebilir must be colored red");
   assert.equal(xml.includes("168A48"), false, "the prose 'Değerlendirme' cell containing the word 'iyi' must never be colored green");
 });
+
+// --- Final report UX/renderer polish (production hotfix) ---
+
+test("buildAdEvaluationDocumentPayload: report timestamp is Europe/Istanbul, never the server process's own local/UTC time — proven live bug: 2026-10-02T16:20:20Z previously rendered as 16:20 instead of the correct 19:20", () => {
+  const evaluation = fakeEvaluation({ created_at: "2026-10-02T16:20:20Z", metrics_snapshot: {} });
+  const payload = buildAdEvaluationDocumentPayload("MY CAKE 45", "Kampanya", evaluation, "internal");
+  const line = payload.metaLines!.find((l) => l.startsWith("Rapor Tarihi ve Saati"));
+  assert.equal(line, "Rapor Tarihi ve Saati: 02.10.2026 19:20");
+});
+
+test("buildAdEvaluationDocumentPayload: Claude's own placeholder report-date text (e.g. the proven live leak 'Kayıt anında sistem tarafından atanacak') must never appear anywhere in the final payload — the real canonical timestamp always wins via metaLines", () => {
+  const evaluation = fakeEvaluation({
+    created_at: "2026-10-02T16:20:20Z",
+    client_report: {
+      executiveSummary: "",
+      sections: [{ title: "Kampanya Bilgileri", content: "| Amaç | Dönem | Günlük Bütçe |\n|---|---|---|\n| Mesaj | Son 30 Gün | 200 TL/gün |" }]
+    }
+  });
+  const payload = buildAdEvaluationDocumentPayload("MY CAKE 45", "Kampanya", evaluation, "client");
+  const serialized = JSON.stringify(payload);
+  assert.doesNotMatch(serialized, /Kayıt anında sistem tarafından/);
+  assert.match(payload.metaLines!.find((l) => l.startsWith("Rapor Tarihi ve Saati"))!, /02\.10\.2026 19:20/);
+});
+
+test("buildAdEvaluationDocumentPayload: INTERNAL 'Yönetici Özeti' / CLIENT 'Kısa Özet' each render EXACTLY ONCE, even when both a preamble executiveSummary AND Claude's own matching '## ' section exist (proven live: production PDF duplicated the summary)", () => {
+  const evaluationInternal = fakeEvaluation({
+    internal_report: {
+      executiveSummary: "Bu rapor özetidir (preamble).",
+      sections: [
+        { title: "Yönetici Özeti", content: "✓ 10 mesaj sonucu kaydedildi.\n✓ 3 reklam teslimat aldı." },
+        { title: "Nihai Karar", content: "x" }
+      ]
+    }
+  });
+  const internalPayload = buildAdEvaluationDocumentPayload("MY CAKE 45", "Kampanya", evaluationInternal, "internal");
+  assert.equal(internalPayload.sections.filter((s) => s.title === "Yönetici Özeti").length, 1);
+  // The report-authored content (the real section) must win — the
+  // preamble text must never also appear as a second, separate section.
+  assert.equal(JSON.stringify(internalPayload).includes("preamble"), false);
+
+  const evaluationClient = fakeEvaluation({
+    client_report: {
+      executiveSummary: "Önizleme metni (preamble).",
+      sections: [{ title: "Kısa Özet", content: "- Kampanya aktif.\n- Üç reklam yayında." }]
+    }
+  });
+  const clientPayload = buildAdEvaluationDocumentPayload("MY CAKE 45", "Kampanya", evaluationClient, "client");
+  assert.equal(clientPayload.sections.filter((s) => s.title === "Kısa Özet").length, 1);
+  assert.equal(JSON.stringify(clientPayload).includes("preamble"), false);
+});
+
+test("buildAdEvaluationDocumentPayload: when Claude's own matching summary section is genuinely absent, the preamble executiveSummary is still rendered (content never silently dropped), correctly titled per mode", () => {
+  const evaluationInternal = fakeEvaluation({ internal_report: { executiveSummary: "Sadece önizleme metni var.", sections: [{ title: "Nihai Karar", content: "x" }] } });
+  const internalPayload = buildAdEvaluationDocumentPayload("MY CAKE 45", "Kampanya", evaluationInternal, "internal");
+  assert.ok(internalPayload.sections.some((s) => s.title === "Yönetici Özeti" && s.items?.includes("Sadece önizleme metni var.")));
+
+  const evaluationClient = fakeEvaluation({ client_report: { executiveSummary: "Sadece önizleme metni var.", sections: [] } });
+  const clientPayload = buildAdEvaluationDocumentPayload("MY CAKE 45", "Kampanya", evaluationClient, "client");
+  assert.ok(clientPayload.sections.some((s) => s.title === "Kısa Özet"));
+});
+
+test("SMOKE — the 5-column Ana Metrikler table and the two-table creative split (TESLİMAT/PERFORMANS) render as real, separate tables, and status cells never contain the broken emoji glyph (stripped, colored dot used instead)", async () => {
+  const evaluation = fakeEvaluation({
+    internal_report: {
+      sections: [
+        {
+          title: "Ana Metrikler",
+          content: ["| Metrik | Değer | Açıklama | Referans / Hedef | Durum |", "|---|---|---|---|---|", "| Frekans | 1,65 | Ortalama gösterim sayısı. | Güvenilir referans yok | ⚪ Referans Yok |"].join("\n")
+        },
+        {
+          title: "Kreatif/Reklam Analizi",
+          content: [
+            "TABLO A — TESLİMAT",
+            "| Reklam | Harcama | Harcama Payı | Gösterim | Bağlantı Tıklaması |",
+            "|---|---|---|---|---|",
+            "| DM-01 | 100 TL | %40 | 1000 | 8 |",
+            "TABLO B — PERFORMANS",
+            "| Reklam | Bağlantı CTR | Bağlantı CPC | Tüm Tıklamalar | Sonuç | Sonuç Başı Maliyet | Durum |",
+            "|---|---|---|---|---|---|---|",
+            "| DM-01 | %0,8 | 12 TL | 30 | 4 | 25 TL | ⚪ Referans Yok |"
+          ].join("\n")
+        }
+      ]
+    }
+  } as any);
+  const payload = buildAdEvaluationDocumentPayload("MY CAKE 45", "Kampanya", evaluation, "internal");
+  const metricsTable = payload.sections.find((s) => s.title === "Ana Metrikler")?.table;
+  assert.deepEqual(metricsTable?.headers, ["Metrik", "Değer", "Açıklama", "Referans / Hedef", "Durum"]);
+  const creativeTables = payload.sections.filter((s) => s.table && s.title.startsWith("Kreatif/Reklam Analizi"));
+  assert.ok(creativeTables.length >= 2, "the creative section must split into (at least) two real tables, never one wide table");
+
+  const pdf = await generatePdfBuffer(payload);
+  assert.equal(pdf.subarray(0, 4).toString("latin1"), "%PDF");
+  const docx = await generateDocxBuffer(payload);
+  const xml = await extractDocxText(docx);
+  assert.equal(xml.includes("⚪"), false, "the broken ⚪ glyph must never appear in the exported DOCX text — only the colored run + 'Referans Yok' text");
+  assert.ok(xml.includes("Referans Yok"));
+});

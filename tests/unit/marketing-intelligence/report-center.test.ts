@@ -147,6 +147,28 @@ test("deleteAdEvaluation: cross-company delete is rejected, never deletes anothe
   }
 });
 
+test("getReportCenterItems: items are sorted canonical-timestamp DESC (newest first) — the UI's 'En Son Rapor' badge relies on items[0] being the real newest, never array-insertion order", { skip: hasSupabase ? false : skipReason }, async () => {
+  const { getReportCenterItems } = await import("../../../src/lib/report-center.ts");
+  const { createAdEvaluationDraft, saveParsedEvaluation } = await import("../../../src/lib/marketing-intelligence/ad-evaluations.ts");
+  const companyId = await makeFixtureCompany("SortOrder");
+  try {
+    const first = await createAdEvaluationDraft({ companyId, promptText: "test" });
+    await saveParsedEvaluation(companyId, first.id, { claudeRawResponse: "raw", internalReport: SAMPLE_INTERNAL, clientReport: SAMPLE_CLIENT });
+    await new Promise((resolve) => setTimeout(resolve, 1100)); // ensure a real, distinct created_at second
+    const second = await createAdEvaluationDraft({ companyId, promptText: "test" });
+    await saveParsedEvaluation(companyId, second.id, { claudeRawResponse: "raw", internalReport: SAMPLE_INTERNAL, clientReport: SAMPLE_CLIENT });
+
+    const result = await getReportCenterItems(companyId);
+    const evaluationItems = result.items.filter((i) => i.sourceType === "ad_evaluation");
+    assert.equal(evaluationItems.length, 2);
+    assert.equal(evaluationItems[0].sourceId, second.id, "the real newer evaluation must sort first");
+    assert.equal(evaluationItems[1].sourceId, first.id);
+    assert.ok(new Date(evaluationItems[0].createdAt).getTime() > new Date(evaluationItems[1].createdAt).getTime());
+  } finally {
+    await cleanup(companyId);
+  }
+});
+
 test("PRODUCTION SAFETY — MY CAKE 45's real ad_strategies record is unaffected by this suite", { skip: hasSupabase ? false : skipReason }, async () => {
   const { supabaseRest } = await import("../../../src/lib/supabase.ts");
   const rows = await supabaseRest<Array<{ id: string; version: number }>>("ad_strategies?id=eq.f0861d43-fd8f-44d9-9d02-00f1c581af3d&select=id,version");

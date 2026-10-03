@@ -9,30 +9,27 @@
 import type { AdEvaluationRecord, EvaluationReportText } from "./ad-evaluations";
 import { AD_EVALUATION_DECISION_LABELS } from "./ad-evaluations";
 import type { DocumentPayload, DocumentSection, DocumentTable } from "@/lib/server/document-generator";
+import { formatReportTimestamp } from "@/lib/report-timestamp";
 
 export type AdEvaluationDocumentMode = "internal" | "client";
 
+// Geist-Regular.ttf (the embedded PDF font) has no real glyphs for ✓/☐
+// — verified directly: pdf-lib/fontkit reports the SAME advance width
+// for ✓, ☐, and the 5 status emoji as for a genuinely unmapped
+// codepoint, while "•" (the renderer's own existing bullet prefix) has
+// its own distinct, correct width. Claude's prompt asks for ✓/•/☐
+// markers (readability instruction), so any leading one of these must
+// be stripped here rather than reach the PDF as a broken glyph box —
+// the renderer's own reliable "•" bullet prefix (drawBullet) still
+// marks every list item either way, so no visual marker is ever lost
+// to a blank box, and the real text content is fully preserved.
 function stripMarkdown(line: string): string {
-  return line.replace(/^\s*[-*•]\s+/, "").replace(/\*\*/g, "").trim();
+  return line.replace(/^\s*[-*•✓☐]\s+/, "").replace(/\*\*/g, "").trim();
 }
 
 // A Markdown table separator row: |---|---|, | :--- | ---: |, etc.
 function isMarkdownTableSeparatorRow(line: string): boolean {
   return /^\s*\|?\s*:?-{1,}:?\s*(\|\s*:?-{1,}:?\s*)+\|?\s*$/.test(line);
-}
-
-// Türkiye (tr-TR) readable "DD.MM.YYYY HH:mm" — never the raw UTC ISO
-// string, never seconds. evaluation.created_at is the ONE canonical
-// generation timestamp this entire evaluation already has (set once by
-// the DB on INSERT, never regenerated) — every one of the 4 exported
-// files (internal/client × PDF/DOCX) derives its displayed report time
-// from this same source, so they can never drift from one another or
-// from a fresh `new Date()` call made independently per renderer.
-function formatReportTimestamp(iso: string | null | undefined): string {
-  if (!iso) return "Bilinmiyor";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "Bilinmiyor";
-  return `${d.toLocaleDateString("tr-TR", { day: "2-digit", month: "2-digit", year: "numeric" })} ${d.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}`;
 }
 
 function splitMarkdownRow(line: string): string[] {
@@ -181,13 +178,26 @@ export function buildAdEvaluationDocumentPayload(companyName: string, campaignNa
   const report = mode === "internal" ? evaluation.internal_report : evaluation.client_report;
   const sections: DocumentSection[] = [];
 
+  // Claude's own evaluation prompt asks it to write "Yönetici Özeti"
+  // (internal) / "Kısa Özet" (client) as its OWN first "## " section —
+  // so report.sections (parsed below) already contains one. The
+  // preamble text before Claude's first heading (report.executiveSummary)
+  // is only ever a SEPARATE, synthesized duplicate of that same summary
+  // when both happen to be present — proven live (production PDF showed
+  // "Yönetici Özeti" rendered twice). Only synthesize this section when
+  // Claude's own structured section is genuinely absent, so real content
+  // is never dropped but never duplicated either.
+  const parsedSections = sectionsFrom(report, mode);
+  const summaryTitle = mode === "internal" ? "yönetici özeti" : "kısa özet";
+  const hasOwnSummarySection = parsedSections.some((s) => s.title.trim().toLocaleLowerCase("tr") === summaryTitle);
+
   const summary = report?.executiveSummary;
-  if (summary) {
+  if (summary && !hasOwnSummarySection) {
     const items = splitIntoBulletLines(summary);
-    sections.push({ title: "Yönetici Özeti", items: mode === "client" ? items.map(annotateClient) : items });
+    sections.push({ title: mode === "internal" ? "Yönetici Özeti" : "Kısa Özet", items: mode === "client" ? items.map(annotateClient) : items });
   }
 
-  sections.push(...sectionsFrom(report, mode));
+  sections.push(...parsedSections);
 
   if (mode === "internal" && evaluation.decision) {
     sections.push({

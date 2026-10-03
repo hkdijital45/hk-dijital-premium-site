@@ -125,6 +125,18 @@ function isStatusColumnHeader(header: string): boolean {
   return /^durum$/i.test(header.trim());
 }
 
+// Strips the leading status emoji (🟢🟡🔴⚪🔵) from a Durum cell before
+// it is drawn — verified directly that Geist-Regular.ttf (the embedded
+// PDF font) has no real glyph for any of these (same notdef-box advance
+// width as a genuinely unmapped codepoint), so leaving them in would
+// render a broken box glyph in the PDF. The colored dot already drawn
+// alongside the cell (see drawRow/buildDocxTable) is the color signal;
+// the status WORD itself (never removed) remains the always-present
+// text signal — color is never the only indicator of meaning.
+function stripStatusEmoji(cellText: string): string {
+  return cellText.replace(/^[\s]*[🟢🟡🔴⚪🔵]+[\s]*/u, "").trim();
+}
+
 function wrapText(text: string, font: import("pdf-lib").PDFFont, size: number, maxWidth: number): string[] {
   const words = text.split(/\s+/).filter(Boolean);
   const lines: string[] = [];
@@ -213,7 +225,8 @@ export async function generatePdfBuffer(payload: DocumentPayload): Promise<Buffe
         const textColor = statusColor || (bold ? HK_INK : HK_MUTED);
         const textX = margin + i * columnWidth + (statusColor ? 12 : 4);
         if (statusColor) page.drawCircle({ x: margin + i * columnWidth + 5, y: top - size / 2 + 1, size: 3, color: statusColor });
-        const cellLines = wrapText(cell, font, size, columnWidth - (statusColor ? 18 : 10));
+        const displayCell = statusColor ? stripStatusEmoji(cell) : cell;
+        const cellLines = wrapText(displayCell, font, size, columnWidth - (statusColor ? 18 : 10));
         cellLines.forEach((line, li) => {
           page.drawText(line, { x: textX, y: top - li * (size + 4), size, font, color: textColor });
         });
@@ -309,7 +322,7 @@ function buildDocxTable(table: DocumentTable): Table {
       const statusHex = i === statusColumnIndex ? statusColorHexFor(cell) : null;
       return new TableCell({
         width: { size: columnWidth, type: WidthType.PERCENTAGE },
-        children: [new Paragraph({ children: [new TextRun({ text: cell, color: statusHex || undefined, bold: Boolean(statusHex) })] })]
+        children: [new Paragraph({ children: [new TextRun({ text: statusHex ? stripStatusEmoji(cell) : cell, color: statusHex || undefined, bold: Boolean(statusHex) })] })]
       });
     })
   }));

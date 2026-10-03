@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Copy, Download, RefreshCw } from "lucide-react";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge, type AdminStatusTone } from "@/components/admin/ui/AdminStatusBadge";
+import { formatReportTimestamp } from "@/lib/report-timestamp";
 
 type CampaignOption = { id: string; name: string; status: string; meta_campaign_id: string | null };
 type ReportSection = { title: string; content: string };
@@ -265,11 +266,16 @@ export function AdEvaluationPanel({ companyId }: { companyId: string }) {
         <p className="mb-3 text-sm font-black">Değerlendirme Geçmişi</p>
         {!history.length && <p className="text-sm" style={{ color: "var(--admin-text-muted)" }}>Henüz değerlendirme kaydı yok.</p>}
         <div className="grid gap-2">
-          {history.map((item) => (
+          {history.map((item, index) => (
             <button key={item.id} type="button" onClick={() => setCurrent(item)} className="rounded-[10px] border p-3 text-left text-sm" style={{ borderColor: "var(--admin-border)" }}>
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="font-bold">{new Date(item.created_at).toLocaleDateString("tr-TR")} · {item.evaluation_period_start || "-"} → {item.evaluation_period_end || "-"}</span>
+                <span className="font-bold">Rapor tarihi: {formatReportTimestamp(item.created_at)} · {item.evaluation_period_start || "-"} → {item.evaluation_period_end || "-"}</span>
                 <div className="flex items-center gap-2">
+                  {/* history already arrives sorted newest-first
+                      (getAdEvaluationHistory: order=created_at.desc) —
+                      index 0 is the real canonical newest, never a
+                      fabricated/re-sorted position. */}
+                  {index === 0 && <AdminStatusBadge tone="success">En Son Rapor</AdminStatusBadge>}
                   <AdminStatusBadge tone={STATUS_TONE[item.status]}>{STATUS_LABELS[item.status]}</AdminStatusBadge>
                   {item.decision && <AdminStatusBadge tone="info">{DECISION_LABELS[item.decision] || item.decision}</AdminStatusBadge>}
                 </div>

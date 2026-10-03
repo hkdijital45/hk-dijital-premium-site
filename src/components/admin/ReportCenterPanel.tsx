@@ -6,6 +6,7 @@ import { Download, FileText, Archive, ArchiveRestore, Trash2, Pencil, Eye, Exter
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge, type AdminStatusTone } from "@/components/admin/ui/AdminStatusBadge";
 import { filterSelectableCustomers } from "@/lib/customer-visibility";
+import { formatReportTimestamp } from "@/lib/report-timestamp";
 
 type ReportSection = { title: string; content: string };
 type ReportText = { executiveSummary?: string; sections?: ReportSection[] };
@@ -37,10 +38,6 @@ const STATUS_TONE: Record<string, AdminStatusTone> = {
   archived: "neutral", updated: "warning", Aktif: "success", "Tamamlandı": "success"
 };
 
-function fmtDate(value: string | null) {
-  if (!value) return "—";
-  try { return new Date(value).toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" }); } catch { return value; }
-}
 function fmtMoney(value: number | null | undefined) {
   return value == null ? "Veri yok" : `${value.toLocaleString("tr-TR", { maximumFractionDigits: 2 })} TL`;
 }
@@ -289,19 +286,25 @@ export function ReportCenterPanel({ content, notify }: { content: any; notify?: 
             {selectedCompany ? `${selectedCompany.name || selectedCompany.company_name} için kayıtlı rapor bulunamadı.` : "Rapor bulunamadı."}
           </div>
         )}
-        {filtered.map((item) => (
+        {filtered.map((item, index) => (
           <div key={item.id} className="hk-card p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-[220px] flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded-md bg-[var(--admin-surface-muted)] px-2 py-0.5 text-xs font-medium text-[var(--admin-text-secondary)]">{SOURCE_LABELS[item.sourceType]}</span>
+                  {/* filtered is already sorted newest-first server-side
+                      (report-center.ts sorts by reportDate||createdAt
+                      DESC) — index 0 of the CURRENTLY FILTERED list is
+                      the real newest report within what's actually
+                      visible, never a fabricated/re-sorted position. */}
+                  {index === 0 && <AdminStatusBadge tone="success">En Son Rapor</AdminStatusBadge>}
                   {item.statusLabel && <AdminStatusBadge tone={STATUS_TONE[item.status || ""] || "neutral"}>{item.statusLabel}</AdminStatusBadge>}
                   {item.clientVisible && <AdminStatusBadge tone="info">Müşteriye Açık</AdminStatusBadge>}
                   {item.decisionLabel && <AdminStatusBadge tone="success">{item.decisionLabel}</AdminStatusBadge>}
                 </div>
                 <h3 className="mt-1 text-sm font-semibold text-[var(--admin-text-primary)]">{item.title}</h3>
                 <div className="mt-0.5 text-xs text-[var(--admin-text-secondary)]">
-                  {fmtDate(item.reportDate)}{item.period ? ` · ${item.period}` : ""}{item.campaignName ? ` · ${item.campaignName}` : ""}
+                  Rapor tarihi: {formatReportTimestamp(item.reportDate)}{item.period ? ` · ${item.period}` : ""}{item.campaignName ? ` · ${item.campaignName}` : ""}
                 </div>
                 {item.summary && <p className="mt-1 text-sm text-[var(--admin-text-secondary)] line-clamp-2">{item.summary}</p>}
                 {item.metricsSummary && (
@@ -406,7 +409,7 @@ export function ReportCenterPanel({ content, notify }: { content: any; notify?: 
                 <>
                   <h3 className="text-sm font-semibold text-red-700">Raporu Sil</h3>
                   <p className="mt-2 text-sm text-[var(--admin-text-primary)]">
-                    <strong>{item.title}</strong> ({fmtDate(item.reportDate)}) kalıcı olarak silinecek. Bu işlem geri alınamaz.
+                    <strong>{item.title}</strong> ({formatReportTimestamp(item.reportDate)}) kalıcı olarak silinecek. Bu işlem geri alınamaz.
                   </p>
                   <div className="mt-4 flex justify-end gap-2">
                     <AdminButton variant="ghost" compact onClick={() => setConfirmDeleteId(null)}>Vazgeç</AdminButton>
