@@ -84,18 +84,145 @@ test("buildAdEvaluationDocumentPayload: 'Son Veri Senkronizasyonu' is a SEPARATE
   assert.equal(withoutSync.metaLines!.some((l) => l.startsWith("Son Veri Senkronizasyonu")), false, "must never invent a sync timestamp when none is recorded");
 });
 
-test("buildAdEvaluationDocumentPayload: a Markdown pipe-table in Claude's section content becomes a real DocumentSection.table (headers+rows), never literal '|'/'---' text in items (section 14/15)", () => {
+test("buildAdEvaluationDocumentPayload: a Markdown pipe-table in Claude's section content becomes a real DocumentSection.table (headers+rows), never literal '|'/'---' text in items; a legacy 6-column Ana Metrikler table is normalized to the current 5-column shape at render time, with the old 6th (note) column preserved as a footnote, never dropped (section 14/15 + legacy renderer hotfix)", () => {
   const payload = buildAdEvaluationDocumentPayload("MY CAKE 45", "Kampanya", fakeEvaluation(), "internal");
   const metricsSection = payload.sections.find((s) => s.title === "Ana Metrikler");
   assert.ok(metricsSection?.table, "Ana Metrikler must produce a real table, not prose items");
-  assert.deepEqual(metricsSection!.table!.headers, ["Metrik", "Mevcut Değer", "Ne Anlama Gelir?", "Referans / Hedef Aralık", "Durum", "Değerlendirme"]);
+  assert.deepEqual(metricsSection!.table!.headers, ["Metrik", "Değer", "Açıklama", "Referans / Hedef Aralık", "Durum"], "the legacy 'Mevcut Değer'/'Ne Anlama Gelir?' headers must be normalized to the current 'Değer'/'Açıklama', and the 6th column must be dropped from the table itself");
   assert.equal(metricsSection!.table!.rows.length, 2);
   assert.equal(metricsSection!.table!.rows[0][0], "Frekans");
   assert.equal(metricsSection!.table!.rows[0][4], "⚪ Referans Yok");
+  assert.equal(metricsSection!.table!.rows[0].length, 5, "each row must also be normalized to 5 cells");
+  // Not a single legacy "Değerlendirme" value may be silently dropped —
+  // both must survive, just as footnote text below the table instead of
+  // a 6th column.
+  const footnoteSection = payload.sections.find((s) => s.title === "Ana Metrikler (devam)" && s.items?.some((i) => i.startsWith("Not: Frekans")));
+  assert.ok(footnoteSection, "the old 6th-column values must be preserved as footnotes immediately below the table, never dropped");
+  assert.ok(footnoteSection!.items!.some((i) => i === "Not: Frekans: Bu metrik takip ediliyor."));
+  assert.ok(footnoteSection!.items!.some((i) => i === "Not: Bağlantı CTR: Veri toplanmaya devam ediyor."));
   // No raw markdown artifacts anywhere in the final payload.
   const serialized = JSON.stringify(payload);
   assert.doesNotMatch(serialized, /\|---+\|/, "a literal Markdown separator row must never survive into the rendered payload");
   assert.doesNotMatch(serialized, /^\s*\|.*\|\s*$/m, "a literal pipe-table row must never survive as plain text");
+});
+
+// --- Legacy saved-report rendering (render-time normalization, no DB write) ---
+
+test("LEGACY RENDERER HOTFIX — a saved report containing the real production legacy shapes (placeholder timestamp row, 6-column Ana Metrikler, single 11-column Kreatif/Reklam table) renders in the CURRENT presentation schema without any stored data being touched", async () => {
+  const evaluation = fakeEvaluation({
+    created_at: "2026-10-02T16:20:20Z",
+    internal_report: {
+      executiveSummary: "",
+      sections: [
+        {
+          title: "Rapor Bilgileri",
+          content: [
+            "| Alan | Değer |",
+            "|---|---|",
+            "| Müşteri | MY CAKE 45 |",
+            "| Rapor Tarihi ve Saati | Kayıt anında sistem tarafından atanacak (evaluation.created_at) |"
+          ].join("\n")
+        },
+        {
+          title: "Ana Metrikler",
+          content: [
+            "| Metrik | Mevcut Değer | Ne Anlama Gelir? | Referans / Hedef | Durum | Not |",
+            "|---|---|---|---|---|---|",
+            "| Harcama | 319,05 TL | Dönemde reklama fiilen harcanan tutar | Yok | ⚪ Referans Yok | |",
+            "| Frekans | 1,68 | Kişi başı ortalama görme sayısı | Güvenilir referans yok | ⚪ Referans Yok | 4.108 / 2.440 |"
+          ].join("\n")
+        },
+        {
+          title: "Kreatif / Reklam Analizi",
+          content: [
+            "| Reklam | Harcama | Harcama Payı | Gösterim | Bağlantı Tık. | Bağlantı CTR | Bağlantı CPC | Tüm Tık. | Sonuç | Hesaplanan sonuç başı maliyet | Durum |",
+            "|---|---|---|---|---|---|---|---|---|---|---|",
+            "| DM-01 | 102,52 TL | %32 | 1.260 | 8 | %0,63 | 12,81 TL | 39 | 4 | 25,63 TL | 🔵 Veri Yetersiz |",
+            "| DM-02 | 120,07 TL | %38 | 1.817 | 9 | %0,50 | 13,34 TL | 42 | 5 | 24,01 TL | 🔵 Veri Yetersiz |"
+          ].join("\n")
+        }
+      ]
+    },
+    client_report: {
+      executiveSummary: "",
+      sections: [
+        {
+          title: "Kampanya Bilgileri",
+          content: [
+            "| Alan | Değer |",
+            "|---|---|",
+            "| Müşteri | MY CAKE 45 |",
+            "| Rapor Tarihi ve Saati | Kayıt anında sistem tarafından işlenecek |"
+          ].join("\n")
+        }
+      ]
+    }
+  });
+
+  const internalPayload = buildAdEvaluationDocumentPayload("MY CAKE 45", "MYCAKE-IG-DM-01", evaluation, "internal");
+  const clientPayload = buildAdEvaluationDocumentPayload("MY CAKE 45", "MYCAKE-IG-DM-01", evaluation, "client");
+  const internalSerialized = JSON.stringify(internalPayload);
+  const clientSerialized = JSON.stringify(clientPayload);
+
+  // 1/2/3 — placeholder gone, canonical created_at displayed, correct Europe/Istanbul conversion.
+  assert.doesNotMatch(internalSerialized, /Kayıt anında sistem tarafından/);
+  assert.doesNotMatch(clientSerialized, /Kayıt anında sistem tarafından/);
+  const reportBilgileriTable = internalPayload.sections.find((s) => s.title === "Rapor Bilgileri")?.table;
+  const reportTimestampRow = reportBilgileriTable?.rows.find((r) => r[0] === "Rapor Tarihi ve Saati");
+  assert.equal(reportTimestampRow?.[1], "02.10.2026 19:20", "the canonical created_at must structurally replace the placeholder value, by row identity");
+  const kampanyaBilgileriTable = clientPayload.sections.find((s) => s.title === "Kampanya Bilgileri")?.table;
+  const clientTimestampRow = kampanyaBilgileriTable?.rows.find((r) => r[0] === "Rapor Tarihi ve Saati");
+  assert.equal(clientTimestampRow?.[1], "02.10.2026 19:20");
+
+  // 4/5 — Ana Metrikler normalized to exactly 5 rendered columns, all legacy Not values preserved outside the table.
+  const metricsTable = internalPayload.sections.find((s) => s.title === "Ana Metrikler")?.table;
+  assert.equal(metricsTable?.headers.length, 5);
+  assert.ok(metricsTable!.rows.every((r) => r.length === 5));
+  const footnotes = internalPayload.sections.find((s) => s.title === "Ana Metrikler (devam)");
+  assert.ok(footnotes?.items?.some((i) => i === "Not: Frekans: 4.108 / 2.440"));
+
+  // 6/7/8 — the old wide Kreatif/Reklam table becomes exactly two tables, source values preserved, no 11-column table remains.
+  const creativeSections = internalPayload.sections.filter((s) => s.title.startsWith("Kreatif / Reklam Analizi") && s.table);
+  assert.equal(creativeSections.length, 2, "exactly two tables must replace the one legacy wide table");
+  assert.deepEqual(creativeSections[0].table!.headers, ["Reklam", "Harcama", "Harcama Payı", "Gösterim", "Bağlantı Tıklaması"]);
+  assert.deepEqual(creativeSections[0].table!.rows[0], ["DM-01", "102,52 TL", "%32", "1.260", "8"]);
+  assert.deepEqual(creativeSections[1].table!.headers, ["Reklam", "Bağlantı CTR", "Bağlantı CPC", "Tüm Tıklamalar", "Sonuç", "Sonuç Başı Maliyet", "Durum"]);
+  assert.deepEqual(creativeSections[1].table!.rows[0], ["DM-01", "%0,63", "12,81 TL", "39", "4", "25,63 TL", "🔵 Veri Yetersiz"]);
+  for (const s of internalPayload.sections) {
+    if (s.table) assert.notEqual(s.table.headers.length, 11, "no 11-column legacy creative table may remain anywhere in the payload");
+  }
+
+  // 9 — no report semantic text changed: the real figures (319,05 TL, 1.68, DM-01/DM-02 rows) survive verbatim.
+  assert.match(internalSerialized, /319,05 TL/);
+  assert.match(internalSerialized, /1,68/);
+
+  // 10/11/12 — PDF valid, DOCX valid, native DOCX tables present.
+  const pdf = await generatePdfBuffer(internalPayload);
+  assert.equal(pdf.subarray(0, 4).toString("latin1"), "%PDF");
+  const docx = await generateDocxBuffer(internalPayload);
+  assert.equal(docx.subarray(0, 2).toString("latin1"), "PK");
+  const xml = await extractDocxText(docx);
+  assert.ok((xml.match(/<w:tbl>/g) || []).length >= 3, "Rapor Bilgileri + Ana Metrikler + two creative tables must all render as real native DOCX tables");
+});
+
+test("LEGACY RENDERER HOTFIX — a NEW-format report (already 5-column Ana Metrikler, already split TESLİMAT/PERFORMANS tables, no placeholder row) is never double-transformed", () => {
+  // Covered end-to-end by the existing SMOKE test below (new-format
+  // fixture in, new-format shape out, unchanged) — this test adds the
+  // one assertion that test doesn't already make: row/column counts are
+  // exactly what was authored, never reshaped a second time.
+  const evaluation = fakeEvaluation({
+    internal_report: {
+      executiveSummary: "",
+      sections: [{
+        title: "Ana Metrikler",
+        content: ["| Metrik | Değer | Açıklama | Referans / Hedef | Durum |", "|---|---|---|---|---|", "| Frekans | 1,65 | Ortalama gösterim sayısı. | Güvenilir referans yok | ⚪ Referans Yok |"].join("\n")
+      }]
+    }
+  });
+  const payload = buildAdEvaluationDocumentPayload("MY CAKE 45", "Kampanya", evaluation, "internal");
+  const table = payload.sections.find((s) => s.title === "Ana Metrikler")?.table;
+  assert.deepEqual(table?.headers, ["Metrik", "Değer", "Açıklama", "Referans / Hedef", "Durum"]);
+  assert.equal(payload.sections.some((s) => s.title === "Ana Metrikler (devam)"), false, "a already-current 5-column table must never gain a synthetic footnote section");
 });
 
 test("buildAdEvaluationDocumentPayload: CLIENT_REPORT's own Markdown table (Performans Özeti) is also parsed into a real table", () => {

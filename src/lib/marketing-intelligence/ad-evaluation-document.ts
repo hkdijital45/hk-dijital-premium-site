@@ -87,6 +87,97 @@ function parseMarkdownBlocks(content: string): ContentBlock[] {
   return blocks;
 }
 
+// --- Legacy saved-report normalization (render-time only) ----------------
+// Older saved evaluations (ad_evaluations.internal_report/client_report)
+// were written by an earlier version of the evaluation prompt and their
+// stored Markdown still contains structures this renderer no longer
+// produces for new reports: a self-authored "Rapor Tarihi ve Saati"
+// placeholder row (proven live leak), a 6-column Ana Metrikler table,
+// and a single wide Kreatif/Reklam Analizi table. The stored row/report
+// is NEVER mutated (no DB write happens here) — these transforms run
+// only at render time, so old AND new saved reports always render in
+// the CURRENT presentation shape without ever needing a resave/migration.
+// Detection is structural (exact field-name cell / header signature),
+// never a blind string replace — an already-current-format table
+// (already 5 columns, already split into two tables) matches none of
+// these signatures and passes through completely unchanged, so a new
+// report is never double-transformed.
+
+function fixReportTimestampRow(table: DocumentTable, createdAt: string | null | undefined): DocumentTable {
+  const rows = table.rows.map((row) => {
+    if ((row[0] || "").trim().toLocaleLowerCase("tr") !== "rapor tarihi ve saati") return row;
+    const next = [...row];
+    next[1] = formatReportTimestamp(createdAt);
+    return next;
+  });
+  return { headers: table.headers, rows };
+}
+
+function isLegacyMetricsTable(table: DocumentTable): boolean {
+  return table.headers.length === 6 && /mevcut değer/i.test(table.headers[1] || "") && /ne anlama gelir/i.test(table.headers[2] || "");
+}
+
+/** 6→5 columns: Metrik/Değer/Açıklama/Referans-Hedef/Durum — the old 6th
+ * (evaluative-note) column's non-empty values are preserved verbatim as
+ * footnote bullets immediately below the table rather than dropped. */
+function normalizeLegacyMetricsTable(table: DocumentTable): { table: DocumentTable; footnotes: string[] } {
+  const headers = ["Metrik", "Değer", "Açıklama", table.headers[3] || "Referans / Hedef", table.headers[4] || "Durum"];
+  const rows = table.rows.map((row) => row.slice(0, 5));
+  const footnotes = table.rows
+    .map((row) => (row[0] || "").trim() && (row[5] || "").trim() ? `${row[0].trim()}: ${row[5].trim()}` : null)
+    .filter((n): n is string => Boolean(n));
+  return { table: { headers, rows }, footnotes };
+}
+
+function isLegacyCreativeTable(table: DocumentTable): boolean {
+  const h = table.headers.map((x) => (x || "").trim());
+  return (
+    h.length === 11 &&
+    /^reklam$/i.test(h[0]) &&
+    /harcama pay/i.test(h[2]) &&
+    /bağlantı tık/i.test(h[4]) &&
+    /bağlantı ctr/i.test(h[5]) &&
+    /bağlantı cpc/i.test(h[6]) &&
+    /tüm tık/i.test(h[7]) &&
+    /^sonuç$/i.test(h[8]) &&
+    /sonuç başı maliyet/i.test(h[9]) &&
+    /durum/i.test(h[10])
+  );
+}
+
+/** One legacy 11-column Reklam/Kreatif table -> TESLİMAT + PERFORMANS —
+ * the exact same split the current prompt already asks Claude to author
+ * directly for new reports (section 16): same source values routed into
+ * whichever of the two tables each column already belongs to, no new
+ * calculation, no data loss. */
+function splitLegacyCreativeTable(table: DocumentTable): [DocumentTable, DocumentTable] {
+  const pick = (indices: number[]) => table.rows.map((row) => indices.map((i) => row[i] ?? ""));
+  return [
+    { headers: ["Reklam", "Harcama", "Harcama Payı", "Gösterim", "Bağlantı Tıklaması"], rows: pick([0, 1, 2, 3, 4]) },
+    { headers: ["Reklam", "Bağlantı CTR", "Bağlantı CPC", "Tüm Tıklamalar", "Sonuç", "Sonuç Başı Maliyet", "Durum"], rows: pick([0, 5, 6, 7, 8, 9, 10]) }
+  ];
+}
+
+/** Expands one parsed table block into one-or-more normalized blocks.
+ * The timestamp-row fix applies to every table (cheap, narrowly scoped
+ * to the exact field-name cell); the Ana Metrikler / creative reshaping
+ * only fires when a table's header signature exactly matches the known
+ * legacy shape. */
+function normalizeLegacyTableBlock(table: DocumentTable, createdAt: string | null | undefined): ContentBlock[] {
+  const fixed = fixReportTimestampRow(table, createdAt);
+  if (isLegacyMetricsTable(fixed)) {
+    const { table: normalized, footnotes } = normalizeLegacyMetricsTable(fixed);
+    const blocks: ContentBlock[] = [{ table: normalized }];
+    if (footnotes.length) blocks.push({ text: footnotes.map((f) => `Not: ${f}`).join("\n") });
+    return blocks;
+  }
+  if (isLegacyCreativeTable(fixed)) {
+    const [deliveryTable, performanceTable] = splitLegacyCreativeTable(fixed);
+    return [{ table: deliveryTable }, { table: performanceTable }];
+  }
+  return [{ table: fixed }];
+}
+
 function splitIntoBulletLines(text?: string | null): string[] {
   if (!text) return [];
   const trimmed = text.trim();
@@ -148,13 +239,13 @@ function annotateClient(text: string): string {
 // which the evaluation prompt also asks Claude to write — producing a
 // duplicated "Nihai Karar" section otherwise, proven in the current
 // generated reports).
-function sectionsFrom(report: EvaluationReportText | undefined, mode: AdEvaluationDocumentMode): DocumentSection[] {
+function sectionsFrom(report: EvaluationReportText | undefined, mode: AdEvaluationDocumentMode, createdAt: string | null | undefined): DocumentSection[] {
   if (!report?.sections?.length) return [];
   const out: DocumentSection[] = [];
   for (const s of report.sections) {
     if (!s.title || !s.content) continue;
     if (mode === "internal" && /^nihai karar$/i.test(s.title.trim())) continue;
-    const blocks = parseMarkdownBlocks(s.content);
+    const blocks = parseMarkdownBlocks(s.content).flatMap((b) => (b.table ? normalizeLegacyTableBlock(b.table, createdAt) : [b]));
     let first = true;
     for (const block of blocks) {
       const title = first ? s.title : `${s.title} (devam)`;
@@ -187,7 +278,7 @@ export function buildAdEvaluationDocumentPayload(companyName: string, campaignNa
   // "Yönetici Özeti" rendered twice). Only synthesize this section when
   // Claude's own structured section is genuinely absent, so real content
   // is never dropped but never duplicated either.
-  const parsedSections = sectionsFrom(report, mode);
+  const parsedSections = sectionsFrom(report, mode, evaluation.created_at);
   const summaryTitle = mode === "internal" ? "yönetici özeti" : "kısa özet";
   const hasOwnSummarySection = parsedSections.some((s) => s.title.trim().toLocaleLowerCase("tr") === summaryTitle);
 
