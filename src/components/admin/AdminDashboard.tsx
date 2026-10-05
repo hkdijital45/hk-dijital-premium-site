@@ -13554,7 +13554,7 @@ function BusinessLeadDetailPanel({ record, mapsHref, metaHref, saveBusiness, pro
   }
 
   if (!record) {
-    return <AdminDetailInspector emptyTitle="Henüz işletme seçilmedi" emptyDescription="Orta alandaki bir karta tıklayın; seçilen işletmenin skorları, satış yaklaşımı ve aksiyonları burada açılır." />;
+    return <AdminDetailInspector emptyTitle="Henüz işletme seçilmedi" emptyDescription="Sonuçlardan bir işletmeye tıklayın; fırsat skoru, dijital eksikler, satış yaklaşımı ve aksiyonlar burada açılır." />;
   }
 
   const name = record.name || record.company || "İşletme";
