@@ -8,6 +8,7 @@ import { resolveMetaAdAccount } from "@/lib/marketing-intelligence/ad-accounts";
 import { requireModuleAccess } from "@/lib/permissions";
 import { checkOperationalCustomer } from "@/lib/server/customer-visibility";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
+import { localDateOnly, validateCustomPeriod } from "@/lib/ad-operations-period";
 
 const GRAPH_VERSION = "v20.0";
 
@@ -723,7 +724,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   if (!(await staff())) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
-  const body = await request.json().catch(() => ({}));
+  let body = await request.json().catch(() => ({}));
   const action = body.action || "sync";
   let syncKey: string | undefined;
   try {
@@ -770,6 +771,11 @@ export async function POST(request: Request) {
     }
 
     const mapping = await findCustomerMetaMapping(body.companyId || integration?.company_id);
+    if (body.rangePreset === "custom") {
+      const checked = validateCustomPeriod(body.dateFrom, body.dateTo, localDateOnly());
+      if (!checked.ok) return NextResponse.json({ ok: false, message: checked.error, errorCode: "INVALID_DATE_RANGE" }, { status: 200 });
+      body = { ...body, dateFrom: checked.start, dateTo: checked.end };
+    }
     const input = {
       ...body,
       companyId: body.companyId || integration?.company_id || mapping?.company_id,

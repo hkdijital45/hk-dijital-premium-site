@@ -8,6 +8,8 @@ import { filterSelectableCustomers } from "@/lib/customer-visibility";
 import { dedupeMetaMetricSnapshots, resolveCampaignBudget, resolveCampaignClickMetrics, resolveCampaignSpend, type CampaignBudgetInfo } from "@/lib/marketing-intelligence/meta-metrics-aggregation";
 import { isSyncStale, shouldStartAutoSync } from "@/lib/marketing-intelligence/meta-sync-freshness";
 import { getAutoSyncPreference, setAutoSyncPreference } from "@/lib/ad-operations-preferences";
+import { periodDisplayLabel, syncRangeForPeriod } from "@/lib/ad-operations-period";
+import { CustomPeriodPopover } from "@/components/admin/CustomPeriodPopover";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
 import { AdminWorkspace } from "@/components/admin/workspace/AdminWorkspace";
@@ -319,11 +321,10 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
     setMetaSyncing(true);
     setMetaSyncMessage("");
     try {
-      const rangePreset = period === "Bugün" ? "today" : period === "Son 7 Gün" ? "last_7d" : "last_30d";
       const response = await fetch("/api/admin/meta-ads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "sync", companyId: customerId, adAccountId: metaAdAccountId, rangePreset })
+        body: JSON.stringify({ action: "sync", companyId: customerId, adAccountId: metaAdAccountId, ...syncRangeForPeriod(period) })
       });
       const payload = await response.json().catch(() => ({}));
       setMetaSyncMessage(payload.message || (payload.ok ? "Senkronizasyon tamamlandı." : "Senkronizasyon başarısız oldu."));
@@ -706,7 +707,9 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
       title="Reklam Operasyon Merkezi"
       description="Her müşteri yalnız kendi profilindeki Meta Ad Account ID, Google Ads Customer ID, Pixel, Dataset, GA4 ve website bilgileriyle eşleştirilir. Tüm HK Dijital reklam hesapları varsayılan olarak karıştırılmaz."
       headerActions={<>
-        {["Son 30 Gün", "Son 7 Gün", "Bugün", "Canlı durum"].map((item) => <AdminButton key={item} compact variant={period === item ? "info" : "secondary"} onClick={() => setPeriod(item)}>{item}</AdminButton>)}
+        {["Son 30 Gün", "Son 7 Gün", "Bugün"].map((item) => <AdminButton key={item} compact variant={period === item ? "info" : "secondary"} onClick={() => setPeriod(item)}>{item}</AdminButton>)}
+        <CustomPeriodPopover activePeriod={period} onApply={setPeriod} onClear={() => setPeriod("Son 30 Gün")} />
+        <AdminButton key="Canlı durum" compact variant={period === "Canlı durum" ? "info" : "secondary"} onClick={() => setPeriod("Canlı durum")}>Canlı durum</AdminButton>
       </>}
       leftPanel={
         <AdminControlPanel>
@@ -761,7 +764,7 @@ export function AdsOperatingCenter({ content, setActive }: GrowthProps) {
             { label: "Son güncelleme", value: selectedCampaign.updated_at ? new Date(selectedCampaign.updated_at).toLocaleString("tr-TR") : "-" },
             { label: "Veri kaynağı", value: campaignSourceLabel(selectedCampaign) },
             { label: "Son senkronizasyon", value: lastDataDate ? new Date(lastDataDate).toLocaleString("tr-TR") : "Veri yok" },
-            { label: `Harcama (${period})`, value: fmtOrNoData(selectedCampaignMetrics, ["spend", "spent"], formatMoney) },
+            { label: `Harcama (${periodDisplayLabel(period)})`, value: fmtOrNoData(selectedCampaignMetrics, ["spend", "spent"], formatMoney) },
             { label: "Erişim (Reach)", value: fmtOrNoData(selectedCampaignMetrics, ["reach"]) },
             { label: "Gösterim", value: fmtOrNoData(selectedCampaignMetrics, ["impressions"]) },
             { label: "Sonuç / Mesaj", value: selectedCampaignMetrics.length ? `${sumMetric(selectedCampaignMetrics, ["results", "leads"])} sonuç · ${sumMetric(selectedCampaignMetrics, ["messages"])} mesaj` : "Veri yok" },
