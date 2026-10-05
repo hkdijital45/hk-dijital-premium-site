@@ -20,6 +20,9 @@ export function AdminWorkspace({
   headerActions,
   leftPanel,
   leftPanelLabel = "Filtreler",
+  leftPanelMode = "column",
+  leftOpen: controlledLeftOpen,
+  onLeftOpenChange,
   rightPanel,
   rightPanelLabel = "Detay",
   bottomBar,
@@ -32,6 +35,10 @@ export function AdminWorkspace({
   headerActions?: ReactNode;
   leftPanel?: ReactNode;
   leftPanelLabel?: string;
+  /** "drawer" keeps the left panel off the grid at every width and opens it as an overlay — the center workspace takes the full width. */
+  leftPanelMode?: "column" | "drawer";
+  leftOpen?: boolean;
+  onLeftOpenChange?: (open: boolean) => void;
   rightPanel?: ReactNode;
   rightPanelLabel?: string;
   bottomBar?: ReactNode;
@@ -41,8 +48,10 @@ export function AdminWorkspace({
    * AdminWorkspace screen. */
   className?: string;
 }) {
-  const [leftOpen, setLeftOpen] = useState(false);
+  const [internalLeftOpen, setInternalLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
+  const leftOpen = controlledLeftOpen ?? internalLeftOpen;
+  const setLeftOpen = (open: boolean) => (onLeftOpenChange ? onLeftOpenChange(open) : setInternalLeftOpen(open));
 
   return (
     <div className={`admin-workspace ${className}`.trim()}>
@@ -68,7 +77,7 @@ export function AdminWorkspace({
       </div>
 
       <div className="admin-workspace-body">
-        {leftPanel && <div className="admin-workspace-left">{leftPanel}</div>}
+        {leftPanel && leftPanelMode === "column" && <div className="admin-workspace-left">{leftPanel}</div>}
         <div className="admin-workspace-center">{children}</div>
         {rightPanel && <div className="admin-workspace-right">{rightPanel}</div>}
       </div>

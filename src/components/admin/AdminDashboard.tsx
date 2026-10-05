@@ -11,7 +11,7 @@ import dynamic from "next/dynamic";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Activity, AlertTriangle, ArrowDown, ArrowUp, AtSign, BarChart3, Bell, Bot, Building2, CircleCheck, CircleOff, Copy, Download, FileBarChart, Gauge, Globe, HelpCircle, ImagePlus, ListChecks, Loader2, LogOut, MapPinned, MessageSquareText, Plus, Save, Search, Send, Settings2, Sparkles, Star, ThumbsDown, ThumbsUp, Trash2, UsersRound, X } from "lucide-react";
+import { Activity, AlertTriangle, ArrowDown, ArrowUp, AtSign, BarChart3, Bell, Bot, Building2, CircleCheck, CircleOff, Copy, Database, Download, Flame, MapPin, Phone, SlidersHorizontal, FileBarChart, Gauge, Globe, HelpCircle, ImagePlus, ListChecks, Loader2, LogOut, MapPinned, MessageSquareText, Plus, Save, Search, Send, Settings2, Sparkles, Star, ThumbsDown, ThumbsUp, Trash2, UsersRound, X } from "lucide-react";
 import type { SiteContent } from "@/lib/types";
 import { ReportTools } from "@/components/admin/reports/ReportTools";
 import { WebsiteAnalyticsSummaryCards } from "@/components/admin/WebsiteAnalyticsSummaryCards";
@@ -11689,11 +11689,45 @@ function LeadIntelligencePanel({ data, onRefresh, refreshing, leadRecord, canRun
   );
 }
 
+const discoveryNavGroups = [
+  { label: "Keşif", items: ["Google Maps Müşteri Bulma", "Fırsat Haritası", "Bölgesel Fırsatlar", "Kayıtlı Aramalar"] },
+  { label: "Lead Yönetimi", items: ["Değerlendirme Havuzu", "Potansiyel Müşteriler", "Sıcak Leadler", "Kaydedilenler", "CRM’e Aktarılanlar"] },
+  { label: "Analiz", items: ["Yapay Zekâ Analiz", "Rakip Analizi"] }
+];
+
+function DiscoveryNav({ active, onChange }: { active: string; onChange: (tab: string) => void }) {
+  const activeGroup = discoveryNavGroups.find((group) => group.items.includes(active)) || discoveryNavGroups[0];
+  return (
+    <nav aria-label="Müşteri Keşfi bölümleri" className="discovery-nav">
+      <div className="discovery-nav-groups">
+        {discoveryNavGroups.map((group) => (
+          <button key={group.label} type="button" aria-pressed={group.label === activeGroup.label} className="discovery-nav-group" onClick={() => onChange(group.items[0])}>
+            {group.label}
+            <span className="discovery-nav-group-count">{group.items.length}</span>
+          </button>
+        ))}
+      </div>
+      <AdminTabs items={activeGroup.items} active={active} onChange={onChange} ariaLabel={`${activeGroup.label} sekmeleri`} />
+    </nav>
+  );
+}
+
+function DiscoveryKpiCard({ icon, label, value, context, accent }: { icon: ReactNode; label: string; value: ReactNode; context?: string; accent: string }) {
+  return (
+    <div className="discovery-kpi" style={{ ["--kpi-accent" as string]: accent }}>
+      <span className="discovery-kpi-label">{icon}{label}</span>
+      <strong className="discovery-kpi-value">{value}</strong>
+      {context && <span className="discovery-kpi-context">{context}</span>}
+    </div>
+  );
+}
+
 function MapsIntelligence({ content, setContent, setActive, save, notify, mode = "Haritalar", allowedModules = [], setPreAuditInitialTab }: any) {
   const emptySearch = { city: "Manisa", district: "", neighborhood: "", businessType: "", keyword: "", niche: "", radius: "5 km", limit: "20", minimumRating: "", minimumReviewCount: "", website: "", phone: "", instagram: "", whatsapp: "", adStatus: "", crmStatus: "", hideSaved: true, highOpportunity: false, highAdPotential: false, topThirtyOnly: false };
   const [search, setSearch] = useState(emptySearch);
   const [results, setResults] = useState([]);
   const [tab, setTab] = useState(mode === "İşletme Keşfi" ? "Google Maps Müşteri Bulma" : "Fırsat Haritası");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [loading, setLoading] = useState("");
   const [message, setMessage] = useState("");
   const [selectedPlaceId, setSelectedPlaceId] = useState("");
@@ -12692,6 +12726,8 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
   }
   const clearFilters = () => setSearch(emptySearch);
   const activeFilters = Object.entries(search).filter(([key, value]) => !["hideSaved"].includes(key) && Boolean(value));
+  const discoveryTargetChips = [search.city, search.district, search.neighborhood, search.businessType, search.keyword, search.radius, search.limit ? `${search.limit} işletme` : ""].filter((chip): chip is string => Boolean(chip));
+  const averageOpportunityScore = visibleRanked.length ? Math.round(visibleRanked.reduce((sum: number, item: any) => sum + Number(item.opportunityScore ?? item.opportunity_score ?? item.leadHeatScore ?? item.lead_heat_score ?? 0), 0) / visibleRanked.length) : null;
   const scoreTone = (value: any) => {
     if (value === null || value === undefined || Number.isNaN(Number(value))) return "neutral";
     const num = Number(value);
@@ -12748,13 +12784,13 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
             <strong className="block truncate text-base" style={{ color: "var(--admin-text-primary)" }}>{record.name || record.company || "İsimsiz işletme"}</strong>
             <p className="mt-1 truncate text-xs" style={{ color: "var(--admin-text-muted)" }}>{record.category || record.business_type || search.businessType || "Sektör belirtilmedi"} · {districtOf(record)}</p>
           </button>
+          <OpportunityScoreBadge score={opportunityScore} tone={scoreTone(opportunityScore)} label={hkTier.label} record={record} />
           <label className="flex shrink-0 items-center" title="Toplu işlem için seç">
             <input type="checkbox" checked={selectedPlaces.includes(placeKey)} onChange={(event) => toggleSelected(placeKey, event.target.checked)} />
           </label>
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
-          <OpportunityScoreBadge score={opportunityScore} tone={scoreTone(opportunityScore)} label={hkTier.label} record={record} />
           {existingLead ? <AdminStatusBadge tone="success">CRM'de Kayıtlı</AdminStatusBadge> : <AdminStatusBadge tone="neutral">Yeni</AdminStatusBadge>}
           {existingLead?.status === "Ön İnceleme İptal" && <AdminStatusBadge tone="danger" title={`${existingLead.rejection_reason || ""} · ${existingLead.rejected_at ? new Date(existingLead.rejected_at).toLocaleDateString("tr-TR") : ""}`}>⚠ Daha önce iptal edildi</AdminStatusBadge>}
           {record.phone && <AdminStatusBadge tone="neutral">Telefon var</AdminStatusBadge>}
@@ -12864,7 +12900,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
         }
         bottomBar={<AdminActionBar statusText={`${saved.length} kayıtlı işletme`}><AdminButton compact variant="secondary" onClick={() => setSearch({ ...emptySearch })}>Filtreleri Temizle</AdminButton><AdminButton compact variant="primary" onClick={() => setMapTab("Google Maps Müşteri Bulma")}>Google Maps Müşteri Bulma'ya Git</AdminButton></AdminActionBar>}
       >
-        <HubTabs items={mapTabs} active={tab} onChange={setMapTab} />
+        <DiscoveryNav active={tab} onChange={setMapTab} />
         <OpportunityMap content={content} setContent={setContent} save={save} notify={notify} search={{ ...search, sector: search.businessType }} setSearch={(next) => setSearch({ ...search, ...next, businessType: next.businessType || next.sector || search.businessType })} setTab={setMapTab} setActive={setActive} saved={saved} />
       </AdminWorkspace>
     );
@@ -12930,7 +12966,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
           </AdminActionBar>
         }
       >
-        <HubTabs items={mapTabs} active={tab} onChange={setMapTab} />
+        <DiscoveryNav active={tab} onChange={setMapTab} />
         {rejectDialog && (
           <div className="mb-4 rounded-[12px] border p-4" style={{ borderColor: "var(--admin-border-strong)", background: "var(--admin-surface-muted, var(--admin-surface-soft))" }}>
             <p className="mb-2 text-xs font-black" style={{ color: "var(--admin-text-primary)" }}>{rejectDialog.ids.length} kayıt reddedilecek. Sebep seçin (opsiyonel):</p>
@@ -13038,7 +13074,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
         }
         bottomBar={<AdminActionBar statusText={`${saved.length} kayıtlı işletme`}><AdminButton compact variant="secondary" onClick={() => setMapTab("Google Maps Müşteri Bulma")}>Yeni İşletme Bul</AdminButton></AdminActionBar>}
       >
-        <HubTabs items={mapTabs} active={tab} onChange={setMapTab} />
+        <DiscoveryNav active={tab} onChange={setMapTab} />
         {actionResult && <div className="mb-3"><ActionResultPanel result={actionResult} onNavigate={(href) => window.location.assign(href)} /></div>}
         <AdminDataGrid
           columns={transferredColumns}
@@ -13089,7 +13125,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
         rightPanel={<BusinessLeadDetailPanel record={selectedHotLead} mapsHref={mapsHref} metaHref={metaHref} saveBusiness={saveBusiness} proposalFor={proposalFor} setWhatsappDraft={setWhatsappDraft} outreachText={outreachText} sendToCompetitor={sendToCompetitor} markCandidate={markCandidate} setNotePlaceId={setNotePlaceId} notePlaceId={notePlaceId} findCompetitorsForLead={findCompetitorsForLead} competitors={selectedHotLead ? leadCompetitors[leadKey(selectedHotLead)] || [] : []} prepareFirstMessage={prepareFirstMessage} prepareDigitalReport={prepareDigitalReport} openWhatsapp={openWhatsapp} prepareInstagramDm={prepareInstagramDm} openInstagram={openInstagram} callBusiness={callBusiness} emailBusiness={emailBusiness} openWebsite={openWebsite} leadStage={selectedHotLead ? leadStagesById[leadKey(selectedHotLead)] || "Yeni bulundu" : "Yeni bulundu"} leadStageOptions={leadStageOptions} updateLeadStage={updateLeadStage} createFollowupTask={createFollowupTask} existingLead={selectedHotLead ? existingLeadFor(selectedHotLead) : null} openCrmLead={openCrmLead} verifyAdStatus={verifyAdStatus} />}
         bottomBar={<AdminActionBar statusText={`${hotLeads.length} sıcak lead`}><AdminButton compact variant="secondary" onClick={() => setMapTab("Google Maps Müşteri Bulma")}>Yeni İşletme Bul</AdminButton></AdminActionBar>}
       >
-        <HubTabs items={mapTabs} active={tab} onChange={setMapTab} />
+        <DiscoveryNav active={tab} onChange={setMapTab} />
         <AdminDataGrid columns={hotColumns} rows={hotLeads} rowKey={(lead: any) => lead.id || lead.google_place_id} activeId={selectedPlaceId} onRowClick={(lead: any) => setSelectedPlaceId(lead.id || lead.google_place_id)} emptyTitle="Bu eşikte sıcak lead yok." emptyDescription="Minimum skoru düşürün veya Google Maps Müşteri Bulma'dan yeni arama yapın." />
       </AdminWorkspace>
     );
@@ -13150,7 +13186,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
         }
         bottomBar={<AdminActionBar statusText={`${regionRows.length} bölge`}><AdminButton compact variant="secondary" onClick={() => setMapTab("Fırsat Haritası")}>Fırsat Haritasında Gör</AdminButton></AdminActionBar>}
       >
-        <HubTabs items={mapTabs} active={tab} onChange={setMapTab} />
+        <DiscoveryNav active={tab} onChange={setMapTab} />
         <AdminDataGrid columns={regionColumns} rows={regionRows} rowKey={(region: any) => region.name} activeId={selectedRegionName} onRowClick={(region: any) => setSelectedRegionName(region.name)} emptyTitle="Bölge verisi bulunamadı." emptyDescription="Google Maps Müşteri Bulma'dan arama yaparak veya CRM'e işletme kaydederek bölge istatistiklerini oluşturun." />
       </AdminWorkspace>
     );
@@ -13215,7 +13251,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
         }
         bottomBar={<AdminActionBar statusText={`${competitorRows.length} işletme`}><AdminButton compact variant="secondary" onClick={() => setMapTab("Google Maps Müşteri Bulma")}>Yeni İşletme Bul</AdminButton></AdminActionBar>}
       >
-        <HubTabs items={mapTabs} active={tab} onChange={setMapTab} />
+        <DiscoveryNav active={tab} onChange={setMapTab} />
         <AdminDataGrid columns={competitorColumns} rows={competitorRows} rowKey={(lead: any) => lead.id || lead.google_place_id} activeId={selectedPlaceId} onRowClick={(lead: any) => setSelectedPlaceId(lead.id || lead.google_place_id)} emptyTitle="Rakip analizine gönderilecek işletme yok." emptyDescription="Google Maps Müşteri Bulma'dan işletme kaydedin." />
       </AdminWorkspace>
     );
@@ -13246,7 +13282,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
         rightPanel={<BusinessLeadDetailPanel record={selectedAiLead} mapsHref={mapsHref} metaHref={metaHref} saveBusiness={saveBusiness} proposalFor={proposalFor} setWhatsappDraft={setWhatsappDraft} outreachText={outreachText} sendToCompetitor={sendToCompetitor} markCandidate={markCandidate} setNotePlaceId={setNotePlaceId} notePlaceId={notePlaceId} findCompetitorsForLead={findCompetitorsForLead} competitors={selectedAiLead ? leadCompetitors[leadKey(selectedAiLead)] || [] : []} prepareFirstMessage={prepareFirstMessage} prepareDigitalReport={prepareDigitalReport} openWhatsapp={openWhatsapp} prepareInstagramDm={prepareInstagramDm} openInstagram={openInstagram} callBusiness={callBusiness} emailBusiness={emailBusiness} openWebsite={openWebsite} leadStage={selectedAiLead ? leadStagesById[leadKey(selectedAiLead)] || "Yeni bulundu" : "Yeni bulundu"} leadStageOptions={leadStageOptions} updateLeadStage={updateLeadStage} createFollowupTask={createFollowupTask} existingLead={selectedAiLead ? existingLeadFor(selectedAiLead) : null} openCrmLead={openCrmLead} verifyAdStatus={verifyAdStatus} />}
         bottomBar={<AdminActionBar statusText={`${aiRows.length} işletme`}><AdminButton compact variant="secondary" onClick={() => setMapTab("Google Maps Müşteri Bulma")}>Yeni İşletme Bul</AdminButton></AdminActionBar>}
       >
-        <HubTabs items={mapTabs} active={tab} onChange={setMapTab} />
+        <DiscoveryNav active={tab} onChange={setMapTab} />
         <AdminDataGrid columns={aiColumns} rows={aiRows} rowKey={(lead: any) => lead.id || lead.google_place_id} activeId={selectedPlaceId} onRowClick={(lead: any) => setSelectedPlaceId(lead.id || lead.google_place_id)} emptyTitle="AI analizi için işletme yok." emptyDescription="Google Maps Müşteri Bulma'dan işletme kaydedin." />
       </AdminWorkspace>
     );
@@ -13297,7 +13333,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
         }
         bottomBar={<AdminActionBar statusText={`${savedSearches.length} kayıtlı arama`}><AdminButton compact variant="secondary" onClick={() => setMapTab("Google Maps Müşteri Bulma")}>Google Maps Müşteri Bulma'ya Git</AdminButton></AdminActionBar>}
       >
-        <HubTabs items={mapTabs} active={tab} onChange={setMapTab} />
+        <DiscoveryNav active={tab} onChange={setMapTab} />
         <AdminDataGrid columns={savedColumns} rows={savedSearches} rowKey={(item: any) => item.id} activeId={selectedPlaceId} onRowClick={(item: any) => setSelectedPlaceId(item.id)} emptyTitle="Henüz kayıtlı arama yok." emptyDescription="Sol panelden mevcut filtrelerinizi adlandırıp kaydedin." />
       </AdminWorkspace>
     );
@@ -13318,7 +13354,11 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
       className="discovery-filter-workspace"
       eyebrow="Satış · Müşteri Keşfi"
       title={mode === "Haritalar" ? "Haritalar ve Google Maps Lead Finder" : tab}
-      description="İl, ilçe, mahalle, sektör, niş, Google puanı ve dijital eksik filtreleriyle işletmeleri tarayın; fırsat skoruna göre CRM'e taşıyıp teklif ve WhatsApp mesajı oluşturun."
+      description="Yeni işletme adaylarını keşfedin, dijital fırsatlarını analiz edin ve yüksek potansiyelli lead’leri satış sürecine taşıyın."
+      leftPanelMode="drawer"
+      leftPanelLabel="Filtreler"
+      leftOpen={filtersOpen}
+      onLeftOpenChange={setFiltersOpen}
       headerActions={<>
         <AdminStatusBadge tone="info">{search.topThirtyOnly ? `İlk ${visibleRanked.length}` : `${visibleRanked.length} sonuç`}</AdminStatusBadge>
         <AdminStatusBadge tone="warning">{highOpportunityInResults} yüksek fırsat</AdminStatusBadge>
@@ -13353,10 +13393,11 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
               <OtherSelectField label="İl" value={search.city} onChange={(city) => setSearch({ ...search, city })} options={cityOptions} manualLabel="İli yazın" />
               <OtherSelectField label="İlçe (opsiyonel — boşsa tüm ilçeler taranır)" value={search.district} onChange={(district) => setSearch({ ...search, district })} options={analysisDistrictOptions[search.city] || []} manualLabel="İlçeyi yazın" />
               <Field label="Mahalle / bölge (opsiyonel)" value={search.neighborhood} onChange={(neighborhood) => setSearch({ ...search, neighborhood })} />
+              <SelectField label="Yarıçap" value={search.radius} onChange={(radius) => setSearch({ ...search, radius })} options={["1 km", "3 km", "5 km", "10 km", "Şehir geneli"]} />
             </div>
           </AdminFilterSection>
 
-          <AdminFilterSection title="Sektör / Anahtar Kelime">
+          <AdminFilterSection title="Hedef İşletme">
             <div className="grid gap-2 rounded-[10px] p-2.5" style={{ background: "var(--admin-surface-soft)" }}>
               <div>
                 <OtherSelectField label="Sektör *" value={search.businessType} onChange={(businessType) => setSearch({ ...search, businessType })} options={DISCOVERY_SECTOR_PRESETS} manualLabel="Sektörü yazın (ör. Klima Servisi, Oto Servis...)" />
@@ -13377,11 +13418,10 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
             </div>
           </AdminFilterSection>
 
-          <AdminFilterSection title="Gelişmiş Filtreler" collapsible>
+          <AdminFilterSection title="Fırsat Filtreleri" collapsible>
             <div className="grid gap-4">
               <div className="grid gap-2">
                 <p className="text-[11px] font-black uppercase tracking-[.1em]" style={{ color: "var(--admin-text-muted)" }}>Puan &amp; Hacim</p>
-                <SelectField label="Yarıçap" value={search.radius} onChange={(radius) => setSearch({ ...search, radius })} options={["1 km", "3 km", "5 km", "10 km", "Şehir geneli"]} />
                 <SelectField label="Kaç işletme bulunsun" value={search.limit} onChange={(limit) => setSearch({ ...search, limit })} options={["5", "10", "20", "50", "100"]} />
                 <SelectField label="Minimum Google puanı" value={search.minimumRating} onChange={(minimumRating) => setSearch({ ...search, minimumRating })} options={[{ value: "", label: "Farketmez" }, { value: "3", label: "3.0+" }, { value: "3.5", label: "3.5+" }, { value: "4", label: "4.0+" }, { value: "4.5", label: "4.5+" }]} />
                 <SelectField label="Minimum yorum sayısı" value={search.minimumReviewCount} onChange={(minimumReviewCount) => setSearch({ ...search, minimumReviewCount })} options={[{ value: "", label: "Farketmez" }, { value: "5", label: "5+" }, { value: "10", label: "10+" }, { value: "25", label: "25+" }, { value: "50", label: "50+" }, { value: "100", label: "100+" }]} />
@@ -13425,21 +13465,45 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
       bottomBar={
         <AdminActionBar statusText={`${visible.length} sonuç gösteriliyor${selectedPlaces.length ? ` · ${selectedPlaces.length} seçili` : ""}`}>
           <AdminButton compact variant="secondary" onClick={clearFilters}>Filtreleri Temizle</AdminButton>
-          <AdminButton compact variant="primary" disabled={loading === "search" || !canDiscover || requiredFieldsMissing} onClick={runSearch}>{loading === "search" ? "Taranıyor..." : "Google Maps'ten Bul"}</AdminButton>
           <AdminButton compact variant="success" disabled={loading === "bulk-save" || !selectedPlaces.length} onClick={saveSelectedBusinesses}>Seçilenleri CRM'e Kaydet</AdminButton>
           <AdminButton compact variant="warning" disabled={loading === "bulk-proposal" || !selectedPlaces.length} onClick={prepareSelectedProposals}>Seçilenler İçin Teklif Hazırla</AdminButton>
         </AdminActionBar>
       }
     >
-      <HubTabs items={mapTabs} active={tab} onChange={setMapTab} />
-      <div className="mb-4 flex flex-wrap items-center gap-2 rounded-[12px] p-3" style={{ border: "1px solid var(--admin-border)", background: "var(--admin-surface-muted, var(--admin-surface-soft))" }}>
-        <span className="px-1 text-xs font-black" style={{ color: "var(--admin-text-primary)" }}>Müşteri Avı Pipeline</span>
+      <DiscoveryNav active={tab} onChange={setMapTab} />
+      <section className="discovery-hero" aria-label="Yeni fırsatlar keşfet">
+        <div className="discovery-hero-head">
+          <div>
+            <h3 className="discovery-hero-title">Yeni fırsatlar keşfet</h3>
+            <p className="discovery-hero-text">Google Maps üzerinden hedef bölgedeki işletmeleri bulun ve dijital fırsatlarını analiz edin.</p>
+          </div>
+          <div className="discovery-hero-actions">
+            <AdminButton compact variant="secondary" onClick={() => setFiltersOpen(true)}>Filtreleri Düzenle</AdminButton>
+            <AdminButton compact variant="primary" disabled={loading === "search" || !canDiscover || requiredFieldsMissing} onClick={runSearch}>{loading === "search" ? "Taranıyor..." : "Google Maps'ten Bul"}</AdminButton>
+          </div>
+        </div>
+        <div className="discovery-chip-row">
+          {discoveryTargetChips.length
+            ? discoveryTargetChips.map((chip) => <AdminStatusBadge key={chip} tone="info">{chip}</AdminStatusBadge>)
+            : <span className="text-xs" style={{ color: "var(--admin-text-muted)" }}>Hedef seçilmedi — il ve sektör seçerek başlayın.</span>}
+        </div>
+      </section>
+      <div className="mt-4 discovery-kpi-grid">
+        <DiscoveryKpiCard icon={<MapPin size={14} />} label="Bulunan İşletme" value={visibleRanked.length} context={search.topThirtyOnly ? "İlk 30 gösteriliyor" : undefined} accent="var(--hk-cyan-solid, #0EA5E9)" />
+        <DiscoveryKpiCard icon={<Flame size={14} />} label="Sıcak Lead" value={highOpportunityInResults} context="Fırsat skoru 70 ve üzeri" accent="var(--hk-success-solid, #167A3C)" />
+        <DiscoveryKpiCard icon={<Globe size={14} />} label="Website Eksik" value={visibleRanked.filter((item) => !item.website).length} context="Dijital eksik sinyali" accent="var(--hk-warning-solid, #B47A0C)" />
+        <DiscoveryKpiCard icon={<Phone size={14} />} label="Telefon Var" value={visibleRanked.filter((item) => Boolean(item.phone)).length} accent="var(--hk-cyan-solid, #0EA5E9)" />
+        <DiscoveryKpiCard icon={<Database size={14} />} label="CRM'de Olmayan" value={visibleRanked.length - crmRegisteredInResults} accent="var(--hk-info-solid, #2563EB)" />
+        <DiscoveryKpiCard icon={<Sparkles size={14} />} label="Ortalama Fırsat Skoru" value={averageOpportunityScore ?? "—"} context={averageOpportunityScore === null ? "Sonuç yok" : "/ 100"} accent="var(--hk-ai-solid, #7C3AED)" />
+      </div>
+      <div className="mt-4 discovery-pipeline">
+        <span className="discovery-pipeline-label">Müşteri Avı</span>
         <AdminButton compact variant="secondary" onClick={() => setMapTab("Değerlendirme Havuzu")}>Değerlendirme {evaluationPool.length}</AdminButton>
-        <span aria-hidden style={{ color: "var(--admin-text-muted)" }}>→</span>
+        <span aria-hidden className="discovery-pipeline-arrow">→</span>
         <AdminButton compact variant="info" onClick={() => setMapTab("Potansiyel Müşteriler")}>Potansiyel {potentialCustomers.length}</AdminButton>
-        <span aria-hidden style={{ color: "var(--admin-text-muted)" }}>→</span>
+        <span aria-hidden className="discovery-pipeline-arrow">→</span>
         <AdminButton compact variant="ai" onClick={() => { setPreAuditInitialTab?.("bekleyen"); setActive("Ön İnceleme Merkezi"); }}>Ön İnceleme {preAuditQueueCount}</AdminButton>
-        <span aria-hidden style={{ color: "var(--admin-text-muted)" }}>→</span>
+        <span aria-hidden className="discovery-pipeline-arrow">→</span>
         <AdminButton compact variant="success" onClick={() => setActive("Lead Merkezi")}>Lead {qualifiedLeadCount}</AdminButton>
         <AdminStatusBadge tone="danger">Reddedilen {evaluationRejected.length}</AdminStatusBadge>
       </div>
@@ -13459,7 +13523,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
             <h3 className="font-black" style={{ color: "var(--admin-text-primary)" }}>Lead sonuç merkezi</h3>
             <p className="mt-1 text-xs" style={{ color: "var(--admin-text-muted)" }}>İşletmeler kart, liste veya harita görünümüyle incelenir; bir karta tıklamak sağ paneli doldurur.</p>
           </div>
-          <div className="flex flex-wrap gap-1.5">{["Kart Görünümü", "Harita Görünümü", "Fırsat Haritası", "Liste Görünümü"].map((view) => <AdminButton key={view} compact variant={leadView === view ? "info" : "secondary"} onClick={() => setLeadView(view)}>{view}</AdminButton>)}</div>
+          <div className="discovery-segment">{["Kart Görünümü", "Harita Görünümü", "Fırsat Haritası", "Liste Görünümü"].map((view) => <AdminButton key={view} compact variant={leadView === view ? "info" : "secondary"} onClick={() => setLeadView(view)}>{view}</AdminButton>)}</div>
         </div>
         {selectedPlaces.length > 0 && (
           <div className="mb-4 rounded-[12px] p-3" style={{ border: "1px solid var(--hk-cyan-solid, var(--admin-border-strong))", background: "var(--hk-cyan-soft, var(--admin-surface-soft))" }}>

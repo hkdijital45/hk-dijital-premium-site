@@ -4256,6 +4256,226 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
   }
 }
 
+/* ---- Müşteri Keşfi premium lead workspace ---------------------------
+   Scoped under .discovery-filter-workspace. Filters live in an overlay
+   drawer at every width (leftPanelMode="drawer"), so the results column
+   owns the full desktop width. */
+.discovery-filter-workspace .admin-workspace-drawer-toggle {
+  display: inline-flex;
+}
+
+.discovery-filter-workspace .admin-workspace-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(15, 23, 42, .45);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.discovery-filter-workspace .admin-workspace-drawer {
+  width: min(92vw, 400px);
+  height: 100%;
+  overflow-y: auto;
+  background: var(--admin-bg);
+  padding: 16px;
+  box-shadow: -12px 0 40px rgba(15, 23, 42, .25);
+}
+
+.discovery-filter-workspace .admin-workspace-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.discovery-filter-workspace .admin-workspace-drawer-head button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+@media (min-width: 1024px) {
+  .discovery-filter-workspace.admin-workspace .admin-workspace-body:has(.admin-workspace-right) {
+    grid-template-columns: minmax(0, 1fr) 340px;
+  }
+
+  .discovery-filter-workspace.admin-workspace .admin-workspace-body:not(:has(.admin-workspace-right)) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.discovery-hero {
+  display: grid;
+  gap: 12px;
+  padding: 18px 20px;
+  border-radius: 14px;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-card);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+}
+
+.discovery-hero-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.discovery-hero-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--admin-text-primary);
+  margin: 0;
+}
+
+.discovery-hero-text {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--admin-text-secondary);
+  margin: 4px 0 0;
+}
+
+.discovery-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.discovery-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.discovery-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.discovery-kpi {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-card);
+  border-left: 3px solid var(--kpi-accent, var(--hk-cyan-solid, #0EA5E9));
+}
+
+.discovery-kpi-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--admin-text-muted);
+}
+
+.discovery-kpi-value {
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--admin-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.discovery-kpi-context {
+  font-size: 11px;
+  color: var(--admin-text-muted);
+}
+
+.discovery-pipeline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-surface-muted, var(--admin-surface-soft));
+}
+
+.discovery-pipeline-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--admin-text-muted);
+  margin-right: 6px;
+}
+
+.discovery-pipeline-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--admin-text-primary);
+  background: var(--admin-card);
+  border: 1px solid var(--admin-border);
+}
+
+.discovery-pipeline-step[data-tone="danger"] {
+  color: var(--hk-danger-text, #B42318);
+}
+
+.discovery-pipeline-arrow {
+  color: var(--admin-text-muted);
+  font-size: 12px;
+}
+
+.discovery-segment {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--admin-surface-muted, var(--admin-surface-soft));
+}
+
+.discovery-nav {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.discovery-nav-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.discovery-nav-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-card);
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--admin-text-secondary);
+}
+
+.discovery-nav-group[aria-pressed="true"] {
+  border-color: var(--hk-cyan-solid, #0EA5E9);
+  color: var(--admin-text-primary);
+  box-shadow: inset 0 -2px 0 var(--hk-cyan-solid, #0EA5E9);
+}
+
+.discovery-nav-group-count {
+  font-size: 11px;
+  color: var(--admin-text-muted);
+}
+
 /* ---- Data grid ------------------------------------------------------- */
 .admin-data-grid-scroll {
   border: 1px solid var(--admin-border);
