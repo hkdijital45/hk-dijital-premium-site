@@ -11,7 +11,7 @@ import dynamic from "next/dynamic";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Activity, AlertTriangle, ArrowDown, ArrowUp, AtSign, BarChart3, Bell, Bot, Building2, CircleCheck, CircleOff, Copy, Database, Download, Flame, MapPin, Phone, SlidersHorizontal, FileBarChart, Gauge, Globe, HelpCircle, ImagePlus, ListChecks, Loader2, LogOut, MapPinned, MessageSquareText, Plus, Save, Search, Send, Settings2, Sparkles, Star, ThumbsDown, ThumbsUp, Trash2, UsersRound, X } from "lucide-react";
+import { Activity, AlertTriangle, ArrowDown, ArrowUp, AtSign, BarChart3, Bell, Bot, Building2, CircleCheck, CircleOff, Copy, Database, Download, Flame, MapPin, Phone, FileBarChart, Gauge, Globe, HelpCircle, ImagePlus, ListChecks, Loader2, LogOut, MapPinned, MessageSquareText, Plus, Save, Search, Send, Settings2, Sparkles, Star, ThumbsDown, ThumbsUp, Trash2, UsersRound, X } from "lucide-react";
 import type { SiteContent } from "@/lib/types";
 import { ReportTools } from "@/components/admin/reports/ReportTools";
 import { WebsiteAnalyticsSummaryCards } from "@/components/admin/WebsiteAnalyticsSummaryCards";
@@ -62,6 +62,8 @@ import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminEmptyState, AdminLoadingState } from "@/components/admin/ui/AdminEmptyState";
 import { AdminActionCard, AdminKpiCard } from "@/components/admin/ui/AdminKpiCard";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { businessCategoryLabel } from "@/lib/business-category-label";
+import { DISCOVERY_OTHER_LABEL, cleanDiscoveryValue, discoveryEffectiveSearch, discoveryFieldState } from "@/lib/discovery-custom-values";
 import { AdminWorkspace } from "@/components/admin/workspace/AdminWorkspace";
 import { AdminControlPanel, AdminFilterSection } from "@/components/admin/workspace/AdminControlPanel";
 import { AdminDataGrid, type AdminDataGridColumn } from "@/components/admin/workspace/AdminDataGrid";
@@ -11133,7 +11135,6 @@ function CustomerFinder(props: any) {
 }
 
 const mapSectorOptions = ["Yerel Hizmetler", "Perakende & E-Ticaret", "Yeme İçme", "Eğitim & Yaşam", "Profesyonel Hizmet", "Emlak & Otomotiv", "Güzellik & Sağlık", "Klinik", "Kuaför", "Kafe", "Restoran", "Pasta / Tatlı", "Spor Salonu", "Su Arıtma", "Kombi / Klima", "Diğer"];
-const mapTabs = ["Fırsat Haritası", "Google Maps Müşteri Bulma", "Değerlendirme Havuzu", "Potansiyel Müşteriler", "Kaydedilenler", "Sıcak Leadler", "Bölgesel Fırsatlar", "Rakip Analizi", "Yapay Zekâ Analiz", "CRM’e Aktarılanlar", "Kayıtlı Aramalar"];
 const districtOpportunitySeed = [
   ["Yunusemre", 92, "Yüksek", "Çok Güçlü", "Güzellik & Sağlık", "Güzellik, klinik ve yerel hizmet işletmelerini önceliklendirin."],
   ["Şehzadeler", 86, "Orta", "Çok Güçlü", "Yeme İçme", "Kafe, restoran ve perakende adaylarında keşif başlatın."],
@@ -11712,6 +11713,36 @@ function DiscoveryNav({ active, onChange }: { active: string; onChange: (tab: st
   );
 }
 
+function DiscoveryChoiceField({ label, value, onChange, options, inputLabel, inputPlaceholder, helper }: { label: string; value: string; onChange: (next: string) => void; options: readonly string[]; inputLabel: string; inputPlaceholder: string; helper: string }) {
+  const [otherMode, setOtherMode] = useState(false);
+  const state = discoveryFieldState(value, options, otherMode);
+  const selectOptions = options.includes(DISCOVERY_OTHER_LABEL) ? options : [...options, DISCOVERY_OTHER_LABEL];
+  return (
+    <div className="grid gap-2">
+      <SelectField
+        label={label}
+        value={state.selectValue}
+        options={selectOptions}
+        onChange={(next: string) => {
+          if (next === DISCOVERY_OTHER_LABEL) {
+            setOtherMode(true);
+            onChange("");
+            return;
+          }
+          setOtherMode(false);
+          onChange(next);
+        }}
+      />
+      {state.isCustom && (
+        <div className="grid gap-1.5">
+          <Field label={inputLabel} value={value} onChange={onChange} placeholder={inputPlaceholder} />
+          <p className="text-[11px] leading-4" style={{ color: "var(--admin-text-muted)" }}>{helper}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DiscoveryKpiCard({ icon, label, value, context, accent }: { icon: ReactNode; label: string; value: ReactNode; context?: string; accent: string }) {
   return (
     <div className="discovery-kpi" style={{ ["--kpi-accent" as string]: accent }}>
@@ -11902,7 +11933,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
     if (!name) return notify?.("Kaydetmek için bir arama adı girin.", "warning");
     setSavedSearchBusy("save");
     try {
-      const response = await fetch("/api/admin/discovery-saved-searches", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, filters: search, result_count: results.length }) });
+      const response = await fetch("/api/admin/discovery-saved-searches", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, filters: discoveryEffectiveSearch(search), result_count: results.length }) });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Arama kaydedilemedi.");
       setSavedSearches((current) => [data.search, ...current]);
@@ -12133,10 +12164,11 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
   async function runSearch() {
     if (!canDiscover) return setMessage("İşletme keşfi araması için yetkiniz bulunmuyor.");
     if (!search.city.trim()) return setMessage("İl alanı zorunludur.");
-    if (!search.businessType.trim()) return setMessage("Sektör alanı zorunludur. İlçe ve mahalle boş bırakılabilir.");
+    if (!cleanDiscoveryValue(search.businessType)) return setMessage("Sektör alanı zorunludur. İlçe ve mahalle boş bırakılabilir.");
     setLoading("search");
     setMessage("Google Maps üzerinde işletmeler aranıyor...");
-    const response = await fetch("/api/admin/business-discovery", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...search, sector: search.businessType, keyword: search.keyword || search.niche || "", requestedCount: search.limit }) });
+    const effectiveSearch = discoveryEffectiveSearch(search);
+    const response = await fetch("/api/admin/business-discovery", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...effectiveSearch, sector: effectiveSearch.businessType, keyword: search.keyword || search.niche || "", requestedCount: search.limit }) });
     const data = await response.json().catch(() => ({}));
     setLoading("");
     if (!response.ok) return setMessage([data.error, data.apiError].filter(Boolean).join(" — ") || "İşletme araması başarısız oldu.");
@@ -12726,7 +12758,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
   }
   const clearFilters = () => setSearch(emptySearch);
   const activeFilters = Object.entries(search).filter(([key, value]) => !["hideSaved"].includes(key) && Boolean(value));
-  const discoveryTargetChips = [search.city, search.district, search.neighborhood, search.businessType, search.keyword, search.radius, search.limit ? `${search.limit} işletme` : ""].filter((chip): chip is string => Boolean(chip));
+  const discoveryTargetChips = [search.city, cleanDiscoveryValue(search.district), search.neighborhood, cleanDiscoveryValue(search.businessType), search.keyword, search.radius, search.limit ? `${search.limit} işletme` : ""].filter((chip): chip is string => Boolean(chip));
   const averageOpportunityScore = visibleRanked.length ? Math.round(visibleRanked.reduce((sum: number, item: any) => sum + Number(item.opportunityScore ?? item.opportunity_score ?? item.leadHeatScore ?? item.lead_heat_score ?? 0), 0) / visibleRanked.length) : null;
   const scoreTone = (value: any) => {
     if (value === null || value === undefined || Number.isNaN(Number(value))) return "neutral";
@@ -12782,7 +12814,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
         <div className="flex items-start justify-between gap-2">
           <button type="button" onClick={() => setSelectedPlaceId(placeKey)} className="min-w-0 flex-1 text-left">
             <strong className="block truncate text-base" style={{ color: "var(--admin-text-primary)" }}>{record.name || record.company || "İsimsiz işletme"}</strong>
-            <p className="mt-1 truncate text-xs" style={{ color: "var(--admin-text-muted)" }}>{record.category || record.business_type || search.businessType || "Sektör belirtilmedi"} · {districtOf(record)}</p>
+            <p className="mt-1 truncate text-xs" style={{ color: "var(--admin-text-muted)" }}>{businessCategoryLabel(record.category || record.business_type) || search.businessType || "Sektör belirtilmedi"} · {districtOf(record)}</p>
           </button>
           <OpportunityScoreBadge score={opportunityScore} tone={scoreTone(opportunityScore)} label={hkTier.label} record={record} />
           <label className="flex shrink-0 items-center" title="Toplu işlem için seç">
@@ -12994,7 +13026,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
                       {lead.instagram && <AtSign size={13} color="#c13584" aria-label="Instagram'da bulundu" />}
                       {lead.website && <Globe size={13} color="#0ea5e9" aria-label="Resmi web sitesi bulundu" />}
                     </div>
-                    <p className="mt-0.5 text-xs" style={{ color: "var(--admin-text-muted)" }}>{lead.sector || lead.business_type || "Sektör belirtilmedi"} · {lead.district || districtOf(lead)} / {lead.city || "-"}</p>
+                    <p className="mt-0.5 text-xs" style={{ color: "var(--admin-text-muted)" }}>{businessCategoryLabel(lead.sector || lead.business_type) || "Sektör belirtilmedi"} · {lead.district || districtOf(lead)} / {lead.city || "-"}</p>
                     <p className="mt-1 text-[11px]" style={{ color: "var(--admin-text-muted)" }}>{lead.website ? "Web sitesi var" : "Web sitesi yok"} · {lead.instagram ? "Instagram bağlantısı var" : "Instagram bağlantısı bulunamadı"} · Kaydedildi: {formatDateTime(lead.created_at)}</p>
                   </div>
                 </div>
@@ -13100,7 +13132,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
       { key: "company", header: "İşletme", render: (lead: any) => <div className="min-w-0"><strong className="block truncate">{lead.company || lead.name}</strong><span className="block truncate text-[11px]" style={{ color: "var(--admin-text-muted)" }}>{lead.city || "-"} / {districtOf(lead)}</span></div> },
       { key: "score", header: "Fırsat Skoru", align: "right", render: (lead: any) => <AdminStatusBadge tone={Number(lead.lead_heat_score || 0) >= 85 ? "danger" : "warning"}>{lead.lead_heat_score || 0}/100</AdminStatusBadge> },
       { key: "priority", header: "Öncelik", render: (lead: any) => Number(lead.lead_heat_score || 0) >= 85 ? "Kritik" : "Yüksek" },
-      { key: "sector", header: "Sektör", render: (lead: any) => lead.business_type || lead.category || "-" },
+      { key: "sector", header: "Sektör", render: (lead: any) => businessCategoryLabel(lead.business_type || lead.category) || "-" },
       { key: "region", header: "Bölge", render: (lead: any) => districtOf(lead) },
       { key: "crm", header: "CRM Durumu", render: (lead: any) => <AdminStatusBadge tone="success">{lead.status || lead.lead_stage || "Yeni Lead"}</AdminStatusBadge> },
       { key: "contact", header: "İletişim", render: (lead: any) => <div className="flex gap-1">{lead.phone && <AdminStatusBadge tone="info">Tel</AdminStatusBadge>}{lead.website && <AdminStatusBadge tone="neutral">Web</AdminStatusBadge>}{!lead.phone && !lead.website && "-"}</div> }
@@ -13177,7 +13209,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
                 {selectedRegion.items.slice(0, 8).map((item: any) => (
                   <button key={item.id || item.google_place_id || item.name} type="button" onClick={() => setSelectedPlaceId(item.id || item.google_place_id)} className="rounded-[8px] border p-2 text-left text-xs" style={{ borderColor: "var(--admin-border)", background: "var(--admin-card)" }}>
                     <strong className="block truncate">{item.company || item.name}</strong>
-                    <span style={{ color: "var(--admin-text-muted)" }}>{item.business_type || item.category || "-"}</span>
+                    <span style={{ color: "var(--admin-text-muted)" }}>{businessCategoryLabel(item.business_type || item.category) || "-"}</span>
                   </button>
                 ))}
               </div>
@@ -13198,7 +13230,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
     const competitorList = selectedCompetitorLead ? leadCompetitors[leadKey(selectedCompetitorLead)] || [] : [];
     const competitorColumns: AdminDataGridColumn<any>[] = [
       { key: "company", header: "İşletme", render: (lead: any) => <strong>{lead.company || lead.name}</strong> },
-      { key: "sector", header: "Sektör", render: (lead: any) => lead.business_type || lead.category || "-" },
+      { key: "sector", header: "Sektör", render: (lead: any) => businessCategoryLabel(lead.business_type || lead.category) || "-" },
       { key: "region", header: "Bölge", render: (lead: any) => districtOf(lead) },
       { key: "rating", header: "Google Puanı", align: "right", render: (lead: any) => lead.google_rating || "-" },
       { key: "website", header: "Website", render: (lead: any) => lead.website ? "Var" : "Yok" },
@@ -13262,7 +13294,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
     const selectedAiLead = selectedPlaceId ? saved.find((lead: any) => (lead.id || lead.google_place_id) === selectedPlaceId) || null : null;
     const aiColumns: AdminDataGridColumn<any>[] = [
       { key: "company", header: "İşletme", render: (lead: any) => <strong>{lead.company || lead.name}</strong> },
-      { key: "sector", header: "Sektör", render: (lead: any) => lead.business_type || lead.category || "-" },
+      { key: "sector", header: "Sektör", render: (lead: any) => businessCategoryLabel(lead.business_type || lead.category) || "-" },
       { key: "region", header: "Bölge", render: (lead: any) => districtOf(lead) },
       { key: "score", header: "Fırsat Skoru", align: "right", render: (lead: any) => `${lead.lead_heat_score || 0}/100` },
       { key: "rating", header: "Google Puanı", align: "right", render: (lead: any) => lead.google_rating || "-" }
@@ -13347,7 +13379,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
     { key: "no-crm", label: "CRM'de olmayanlar", active: search.crmStatus === "kayitsiz", onToggle: () => setSearch({ ...search, crmStatus: search.crmStatus === "kayitsiz" ? "" : "kayitsiz" }) },
     { key: "has-phone", label: "Telefonu olanlar", active: search.phone === "var", onToggle: () => setSearch({ ...search, phone: search.phone === "var" ? "" : "var" }) }
   ];
-  const requiredFieldsMissing = !search.city.trim() || !search.businessType.trim();
+  const requiredFieldsMissing = !search.city.trim() || !cleanDiscoveryValue(search.businessType);
 
   return (
     <AdminWorkspace
@@ -13391,7 +13423,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
           <AdminFilterSection title="Konum">
             <div className="grid gap-2">
               <OtherSelectField label="İl" value={search.city} onChange={(city) => setSearch({ ...search, city })} options={cityOptions} manualLabel="İli yazın" />
-              <OtherSelectField label="İlçe (opsiyonel — boşsa tüm ilçeler taranır)" value={search.district} onChange={(district) => setSearch({ ...search, district })} options={analysisDistrictOptions[search.city] || []} manualLabel="İlçeyi yazın" />
+              <DiscoveryChoiceField label="İlçe (opsiyonel — boşsa tüm ilçeler taranır)" value={search.district} onChange={(district) => setSearch({ ...search, district })} options={analysisDistrictOptions[search.city] || []} inputLabel="İlçe adı" inputPlaceholder="Örn: Kula" helper="Listede olmayan ilçeyi yazın." />
               <Field label="Mahalle / bölge (opsiyonel)" value={search.neighborhood} onChange={(neighborhood) => setSearch({ ...search, neighborhood })} />
               <SelectField label="Yarıçap" value={search.radius} onChange={(radius) => setSearch({ ...search, radius })} options={["1 km", "3 km", "5 km", "10 km", "Şehir geneli"]} />
             </div>
@@ -13400,9 +13432,9 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
           <AdminFilterSection title="Hedef İşletme">
             <div className="grid gap-2 rounded-[10px] p-2.5" style={{ background: "var(--admin-surface-soft)" }}>
               <div>
-                <OtherSelectField label="Sektör *" value={search.businessType} onChange={(businessType) => setSearch({ ...search, businessType })} options={DISCOVERY_SECTOR_PRESETS} manualLabel="Sektörü yazın (ör. Klima Servisi, Oto Servis...)" />
+                <DiscoveryChoiceField label="Sektör *" value={search.businessType} onChange={(businessType) => setSearch({ ...search, businessType })} options={DISCOVERY_SECTOR_PRESETS} inputLabel="Sektör adı" inputPlaceholder="Örn: Pet Kuaförü" helper="Listede olmayan sektörü yazın." />
                 <p className="mt-1 text-[11px]" style={{ color: "var(--admin-text-muted)" }}>Zorunlu alan. Listede yoksa serbest metin olarak yazabilirsiniz.</p>
-                {recentSectors.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{recentSectors.map((sector) => <button key={sector} type="button" onClick={() => setSearch({ ...search, businessType: sector })} className="hk-button hk-button-neutral hk-button-compact max-w-[150px] truncate">{sector}</button>)}</div>}
+                {recentSectors.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{recentSectors.map((sector) => <button key={sector} type="button" onClick={() => setSearch({ ...search, businessType: sector })} className="hk-button hk-button-neutral hk-button-compact max-w-[150px] truncate">{businessCategoryLabel(sector)}</button>)}</div>}
               </div>
               <Field label="Anahtar kelime (opsiyonel)" value={search.keyword} onChange={(keyword) => setSearch({ ...search, keyword })} placeholder="protez tırnak, güzellik salonu..." />
               <div>
@@ -14414,40 +14446,39 @@ function MapIntelligenceCanvas({ businesses, districts, sectors, selectedPlaceId
   );
 }
 
-function LeadOpportunityInsight({ results, search, setActive }: any) {
+function LeadOpportunityInsight({ results, setActive }: any) {
   const items = Array.isArray(results) ? results : [];
   const hot = items.filter((item) => Number(item.opportunityScore || item.leadHeatScore || item.lead_heat_score || 0) >= 70);
   const noWebsite = items.filter((item) => !item.website);
   const hasPhone = items.filter((item) => item.phone);
   const crmNew = items.filter((item) => (item.crmStatus || "CRM’de yok") !== "CRM’de kayıtlı");
-  const averageOpportunity = items.length ? Math.round(items.reduce((sum, item) => sum + Number(item.opportunityScore || item.leadHeatScore || item.lead_heat_score || 0), 0) / items.length) : 0;
   const topFive = items.slice().sort((a, b) => Number(b.opportunityScore || b.leadHeatScore || 0) - Number(a.opportunityScore || a.leadHeatScore || 0)).slice(0, 5);
   const firstTarget = topFive[0];
-  return <section className="mt-4 rounded-[12px] border border-cyan-200 bg-cyan-50 p-4">
+  const firstTargetSector = firstTarget ? businessCategoryLabel(firstTarget.category || firstTarget.business_type) : "";
+  const insights = [
+    hot.length ? `${hot.length} işletme fırsat skoru 70 ve üzerinde; öncelikli temas listesi bunlardan oluşur.` : "",
+    noWebsite.length ? `${noWebsite.length} işletmenin websitesi görünmüyor; dijital teklif için en somut fırsat sinyali.` : "",
+    hasPhone.length ? `${hasPhone.length} işletme telefon bilgisiyle doğrudan aranabilir.` : "",
+    crmNew.length ? `${crmNew.length} aday henüz CRM'de değil; seçilerek aktarılabilir.` : "",
+    firstTargetSector ? `En güçlü sinyal ${firstTargetSector} segmentinde görünüyor.` : ""
+  ].filter(Boolean);
+  return <section className="mt-4 rounded-[12px] p-4" style={{ border: "1px solid var(--admin-border)", background: "var(--admin-card)" }}>
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <p className="text-xs font-black uppercase tracking-[.14em] text-cyan-700">AI destekli lead yorumu</p>
-        <h3 className="mt-1 text-lg font-black text-[var(--admin-text-primary)]">Satış aksiyon planı</h3>
+        <p className="text-[11px] font-black uppercase tracking-[.14em]" style={{ color: "var(--hk-ai-solid, #7C3AED)" }}>HK Copilot satış içgörüsü</p>
+        <h3 className="mt-1 text-base font-black text-[var(--admin-text-primary)]">Sonuçlardan çıkan satış notu</h3>
       </div>
-      <button onClick={() => setActive("Teklif Motoru")} className="rounded-full border border-cyan-200 bg-[var(--admin-surface)] px-3 py-2 text-xs font-black text-cyan-700">Teklif ekranına git</button>
+      <AdminButton compact variant="secondary" onClick={() => setActive("Teklif Motoru")}>Teklif ekranına git</AdminButton>
     </div>
-    <div className="mt-4 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-      <AgencyStatCard label="Bulunan işletme" value={items.length} note={`${search.city || "İl"} ${search.district || ""}`} />
-      <AgencyStatCard label="Sıcak lead" value={hot.length} note="Fırsat skoru 70+" tone="emerald" />
-      <AgencyStatCard label="Website eksik" value={noWebsite.length} note="Dijital teklif fırsatı" tone="amber" />
-      <AgencyStatCard label="Telefon var" value={hasPhone.length} note="Hemen aranabilir" tone="emerald" />
-      <AgencyStatCard label="CRM’de olmayan" value={crmNew.length} note="Aktarılabilir aday" tone="cyan" />
-      <AgencyStatCard label="Ort. fırsat skoru" value={averageOpportunity} note="Lead kalitesi" tone="amber" />
-    </div>
-    <div className="mt-4 grid gap-3 lg:grid-cols-2">
-      <div className="rounded-[10px] bg-[var(--admin-surface)] p-3">
-        <p className="text-sm font-black text-[var(--admin-text-primary)]">En iyi 5 fırsat</p>
-        <div className="mt-2 grid gap-1 text-xs text-[var(--admin-text-secondary)]">{topFive.map((item) => <span key={item.placeId || item.name}>• {item.name || item.company} · {item.opportunityScore || item.leadHeatScore || 0}/100</span>)}{!topFive.length && <span>Arama sonrası fırsatlar burada listelenir.</span>}</div>
+    <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className="grid content-start gap-2 text-xs leading-5 text-[var(--admin-text-secondary)]">
+        {insights.length ? insights.map((line) => <p key={line}>• {line}</p>) : <p>Arama sonrası veriye dayalı içgörüler burada oluşur.</p>}
+        {topFive.length > 0 && <div className="mt-2 grid gap-1">{topFive.map((item) => <span key={item.placeId || item.name}>{item.name || item.company} · {item.opportunityScore || item.leadHeatScore || 0}/100</span>)}</div>}
       </div>
-      <div className="rounded-[10px] bg-[var(--admin-surface)] p-3 text-xs leading-5 text-[var(--admin-text-secondary)]">
-        <p className="text-sm font-black text-[var(--admin-text-primary)]">Önerilen satış yaklaşımı</p>
-        <p className="mt-2">{firstTarget ? `${firstTarget.name || firstTarget.company} ilk temas için öne çıkıyor. Teklif dili: kısa fırsat özeti, Google görünürlüğü, website/landing page ve reklam dönüşümü.` : "Önce Google Maps’ten işletme bulun; sonra yüksek fırsat skoruna göre ilk 5 adaya teklif hazırlayın."}</p>
-        <p className="mt-2 font-black text-cyan-700">7 günlük plan: 1. gün listeyi temizle, 2. gün WhatsApp mesajı gönder, 3. gün teklif taslağı hazırla, 4-5. gün takip et, 7. gün dönüşleri CRM’de güncelle.</p>
+      <div className="grid content-start gap-2 text-xs leading-5 text-[var(--admin-text-secondary)]">
+        <p className="text-[11px] font-black uppercase tracking-[.1em] text-[var(--admin-text-muted)]">Önerilen sonraki adım</p>
+        <p>{firstTarget ? `${firstTarget.name || firstTarget.company} ilk temas için öne çıkıyor. Teklif dili: kısa fırsat özeti, Google görünürlüğü, website ve reklam dönüşümü.` : "Önce Google Maps'ten işletme bulun; sonra yüksek fırsat skoruna göre ilk 5 adaya teklif hazırlayın."}</p>
+        <p className="font-semibold text-[var(--admin-text-primary)]">7 günlük plan: 1. gün listeyi temizle, 2. gün WhatsApp mesajı gönder, 3. gün teklif taslağı hazırla, 4-5. gün takip et, 7. gün dönüşleri CRM'de güncelle.</p>
       </div>
     </div>
   </section>;
