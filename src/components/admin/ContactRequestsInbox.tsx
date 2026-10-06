@@ -34,6 +34,10 @@ const TONE: Record<ContactRequestStatusKey, "warning" | "info" | "success" | "ne
 };
 const FILTERS: FilterKey[] = ["all", "new", "reviewing", "converted", "archived", "spam"];
 
+// Buttons placed on the dark bulk bar: white action buttons and a light ghost.
+const LIGHT_ON_DARK = { background: "#ffffff", borderColor: "#ffffff", color: "#0f172a" } as const;
+const GHOST_ON_DARK = { background: "transparent", borderColor: "#94a3b8", color: "#ffffff" } as const;
+
 function statusKeyOf(row: ContactRequestRow): ContactRequestStatusKey {
   return isConverted(row) ? "converted" : statusKeyFor(row.status);
 }
@@ -281,9 +285,9 @@ export function ContactRequestsInbox({
     <div className="grid gap-5">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0">
-          <p className="text-sm font-black uppercase tracking-[.14em] text-cyan-700">İletişim Merkezi</p>
-          <h2 className="mt-1 text-3xl font-black text-[#0f172a]">Gelen Talepler</h2>
-          <p className="mt-2 max-w-2xl text-base leading-7 text-[#475569]">Web sitenizden gelen başvuruları inceleyin, yönetin ve uygun olanları satış sürecine aktarın.</p>
+          <p className="text-sm font-black uppercase tracking-[.14em] text-[var(--admin-text-muted)]">İletişim Merkezi</p>
+          <h2 className="mt-1 text-3xl font-black text-[var(--admin-text-primary)]">Gelen Talepler</h2>
+          <p className="mt-2 max-w-2xl text-base leading-7 text-[var(--admin-text-secondary)]">Web sitenizden gelen başvuruları inceleyin, yönetin ve uygun olanları satış sürecine aktarın.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <AdminButton variant="secondary" compact icon={<RefreshCw size={15} />} onClick={load} disabled={busy}>Yenile</AdminButton>
@@ -301,7 +305,7 @@ export function ContactRequestsInbox({
           { label: "Lead'e dönüşen", value: counts.converted },
           { label: "Arşivlenen", value: counts.archived }
         ].map((card) => (
-          <div key={card.label} className="grid gap-1 rounded-[14px] border bg-white p-4" style={{ borderColor: card.emphasis && unreadCount ? "#67e8f9" : "var(--admin-border)", background: card.emphasis && unreadCount ? "#ecfeff" : "#fff" }}>
+          <div key={card.label} className="grid gap-1 rounded-[14px] border bg-[#ffffff] p-4" style={{ borderColor: card.emphasis && unreadCount ? "#67e8f9" : "var(--admin-border)", background: card.emphasis && unreadCount ? "#ecfeff" : "#fff" }}>
             <p className="text-sm font-bold text-[#334155]">{card.label}</p>
             <p className="text-3xl font-black leading-none text-[#0f172a] tabular-nums">{requests === null ? "—" : card.value}</p>
           </div>
@@ -313,15 +317,15 @@ export function ContactRequestsInbox({
           <div className="relative min-w-[220px] flex-1">
             <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#64748b]" aria-hidden />
             <label className="sr-only" htmlFor="contact-search">Ad, firma, e-posta veya telefon ara</label>
-            <input id="contact-search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Ad, firma, e-posta veya telefon ara…" className="min-h-11 w-full rounded-[10px] border bg-white pl-9 pr-3 text-base font-semibold text-[#0f172a] focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600" style={{ borderColor: "var(--admin-border)" }} />
+            <input id="contact-search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Ad, firma, e-posta veya telefon ara…" className="min-h-11 w-full rounded-[10px] border bg-[#ffffff] pl-9 pr-3 text-base font-semibold text-[#0f172a] focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600" style={{ borderColor: "var(--admin-border)" }} />
           </div>
-          <div role="group" aria-label="Okunma durumu" className="flex gap-1 rounded-[10px] border bg-white p-1" style={{ borderColor: "var(--admin-border)" }}>
+          <div role="group" aria-label="Okunma durumu" className="flex gap-1 rounded-[10px] border bg-[#ffffff] p-1" style={{ borderColor: "#cbd5e1" }}>
             {([["all", "Tümü"], ["unread", "Okunmamış"]] as const).map(([key, label]) => (
-              <button key={key} type="button" aria-pressed={readFilter === key} onClick={() => setReadFilter(key)} className="min-h-9 rounded-[8px] px-3 text-sm font-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600" style={readFilter === key ? { background: "#0f172a", color: "#fff" } : { color: "#334155" }}>{label}</button>
+              <button key={key} type="button" aria-pressed={readFilter === key} onClick={() => setReadFilter(key)} className="min-h-10 rounded-[8px] px-3.5 text-sm font-black hover:bg-[#f1f5f9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600" style={readFilter === key ? { background: "#0e7490", color: "#ffffff" } : { background: "#ffffff", color: "#0f172a" }}>{label}</button>
             ))}
           </div>
           <label className="sr-only" htmlFor="contact-sort">Sıralama</label>
-          <select id="contact-sort" value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className="min-h-11 rounded-[10px] border bg-white px-3 text-base font-bold text-[#334155]" style={{ borderColor: "var(--admin-border)" }}>
+          <select id="contact-sort" value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className="min-h-11 rounded-[10px] border bg-[#ffffff] px-3 text-base font-bold text-[#334155]" style={{ borderColor: "var(--admin-border)" }}>
             <option value="new">En yeni</option>
             <option value="old">En eski</option>
           </select>
@@ -331,8 +335,8 @@ export function ContactRequestsInbox({
             const active = filter === key;
             const label = key === "all" ? "Tümü" : CONTACT_REQUEST_STATUS[key as ContactRequestStatusKey];
             return (
-              <button key={key} role="tab" type="button" aria-selected={active} onClick={() => setFilter(key)} className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-full px-4 text-sm font-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-600" style={active ? { background: "#0f172a", color: "#fff" } : { background: "#f1f5f9", color: "#334155" }}>
-                {label}<span className="tabular-nums text-xs opacity-80">{counts[key]}</span>
+              <button key={key} role="tab" type="button" aria-selected={active} onClick={() => setFilter(key)} className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-full border px-4 text-sm font-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-600" style={active ? { background: "#0e7490", borderColor: "#0e7490", color: "#ffffff" } : { background: "#ffffff", borderColor: "#cbd5e1", color: "#0f172a" }}>
+                <span style={{ color: "inherit" }}>{label}</span><span className="tabular-nums text-xs font-black" style={{ color: "inherit" }}>{counts[key]}</span>
               </button>
             );
           })}
@@ -353,7 +357,7 @@ export function ContactRequestsInbox({
       )}
 
       {requests !== null && visible.length === 0 && (
-        <div className="flex flex-col items-center gap-2 rounded-[16px] border border-dashed bg-white px-6 py-12 text-center" style={{ borderColor: "var(--admin-border)" }}>
+        <div className="flex flex-col items-center gap-2 rounded-[16px] border border-dashed bg-[#ffffff] px-6 py-12 text-center" style={{ borderColor: "var(--admin-border)" }}>
           <span className="grid size-12 place-items-center rounded-full bg-[#f1f5f9] text-[#475569]" aria-hidden><Inbox size={22} /></span>
           <p className="text-lg font-black text-[#0f172a]">{all.length ? "Bu filtrede talep yok." : "Henüz gelen iletişim talebi yok."}</p>
           <p className="max-w-md text-sm font-semibold text-[#64748b]">{all.length ? "Arama, okunma veya durum filtresini değiştirmeyi deneyin." : "Web sitenizdeki iletişim formu gönderildiğinde talepler burada görünür."}</p>
@@ -363,7 +367,7 @@ export function ContactRequestsInbox({
       {visible.length > 0 && (
         <div className="grid gap-3">
           <div className="flex flex-wrap items-center justify-between gap-3 px-1">
-            <label className="inline-flex min-h-11 cursor-pointer items-center gap-3 text-sm font-bold text-[#334155]">
+            <label className="inline-flex min-h-11 cursor-pointer items-center gap-3 text-sm font-bold text-[var(--admin-text-primary)]">
               <input
                 type="checkbox"
                 checked={allVisibleSelected}
@@ -374,19 +378,19 @@ export function ContactRequestsInbox({
               />
               Görünen {visible.length} talebin tümünü seç
             </label>
-            <p className="text-sm font-semibold text-[#64748b]">{visible.length} talep listeleniyor</p>
+            <p className="text-sm font-semibold text-[var(--admin-text-secondary)]">{visible.length} talep listeleniyor</p>
           </div>
 
           {selectedCount > 0 && (
-            <div role="region" aria-label="Toplu işlemler" className="sticky top-2 z-20 flex flex-wrap items-center gap-2 rounded-[14px] border bg-[#0f172a] p-3 text-white shadow-xl" style={{ borderColor: "#0f172a" }}>
-              <p className="mr-auto px-1 text-base font-black tabular-nums" aria-live="polite">{selectedCount} talep seçildi</p>
-              <AdminButton variant="secondary" compact disabled={busy} onClick={() => runAction("mark_read", selectedIds, `${selectedCount} talep okundu olarak işaretlendi.`)}>Okundu Yap</AdminButton>
-              <AdminButton variant="secondary" compact disabled={busy} onClick={() => runAction("mark_unread", selectedIds, `${selectedCount} talep okunmadı olarak işaretlendi.`)}>Okunmadı Yap</AdminButton>
-              <AdminButton variant="secondary" compact disabled={busy} onClick={() => runAction("review", selectedIds, "Seçili talepler incelemeye alındı.")}>İncelemeye Al</AdminButton>
-              <AdminButton variant="secondary" compact icon={<Archive size={14} />} disabled={busy} onClick={() => runAction("archive", selectedIds, "Seçili talepler arşivlendi.")}>Arşivle</AdminButton>
+            <div role="region" aria-label="Toplu işlemler" className="sticky top-2 z-20 flex flex-wrap items-center gap-2 rounded-[14px] border bg-[#0f172a] p-3 shadow-xl" style={{ borderColor: "#0f172a", color: "#ffffff" }}>
+              <p className="mr-auto px-1 text-base font-black tabular-nums" aria-live="polite" style={{ color: "#ffffff" }}>{selectedCount} talep seçildi</p>
+              <AdminButton variant="secondary" compact style={LIGHT_ON_DARK} disabled={busy} onClick={() => runAction("mark_read", selectedIds, `${selectedCount} talep okundu olarak işaretlendi.`)}>Okundu Yap</AdminButton>
+              <AdminButton variant="secondary" compact style={LIGHT_ON_DARK} disabled={busy} onClick={() => runAction("mark_unread", selectedIds, `${selectedCount} talep okunmadı olarak işaretlendi.`)}>Okunmadı Yap</AdminButton>
+              <AdminButton variant="secondary" compact style={LIGHT_ON_DARK} disabled={busy} onClick={() => runAction("review", selectedIds, "Seçili talepler incelemeye alındı.")}>İncelemeye Al</AdminButton>
+              <AdminButton variant="secondary" compact style={LIGHT_ON_DARK} icon={<Archive size={14} />} disabled={busy} onClick={() => runAction("archive", selectedIds, "Seçili talepler arşivlendi.")}>Arşivle</AdminButton>
               <AdminButton variant="warning" compact icon={<Ban size={14} />} disabled={busy} onClick={() => runAction("spam", selectedIds, "Seçili talepler spam olarak işaretlendi.")}>Spam</AdminButton>
               <AdminButton variant="danger" compact icon={<Trash2 size={14} />} disabled={busy} onClick={() => setConfirmDelete(selectedIds)}>Sil</AdminButton>
-              <AdminButton variant="ghost" compact disabled={busy} onClick={() => setSelectedIds([])}>Seçimi Temizle</AdminButton>
+              <AdminButton variant="ghost" compact style={GHOST_ON_DARK} disabled={busy} onClick={() => setSelectedIds([])}>Seçimi Temizle</AdminButton>
             </div>
           )}
 
@@ -442,7 +446,7 @@ export function ContactRequestsInbox({
 
       {drawerRow && (
         <div className="fixed inset-0 z-[70] flex justify-end bg-[#0f172a]/40" onMouseDown={() => setDrawerId(null)}>
-          <aside role="dialog" aria-modal="true" aria-labelledby="contact-drawer-title" className="flex h-full w-full max-w-[min(600px,100vw)] flex-col overflow-hidden bg-white shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
+          <aside role="dialog" aria-modal="true" aria-labelledby="contact-drawer-title" className="flex h-full w-full max-w-[min(600px,100vw)] flex-col overflow-hidden bg-[#ffffff] shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
             <header className="flex items-start justify-between gap-4 border-b p-5" style={{ borderColor: "var(--admin-border)" }}>
               <div className="min-w-0">
                 <p className="text-sm font-black uppercase tracking-[.14em] text-cyan-700">Gelen talep</p>
@@ -532,7 +536,7 @@ export function ContactRequestsInbox({
 
       {conversion && (
         <div className="fixed inset-0 z-[80] grid place-items-center bg-[#0f172a]/50 p-4" onMouseDown={() => !conversion.saving && setConversion(null)}>
-          <div role="dialog" aria-modal="true" aria-labelledby="conversion-title" className="grid max-h-[90vh] w-full max-w-lg gap-4 overflow-y-auto rounded-[16px] bg-white p-5 shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
+          <div role="dialog" aria-modal="true" aria-labelledby="conversion-title" className="grid max-h-[90vh] w-full max-w-lg gap-4 overflow-y-auto rounded-[16px] bg-[#ffffff] p-5 shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
             <div>
               <p className="text-sm font-black uppercase tracking-[.14em] text-cyan-700">Lead&apos;e kaydet</p>
               <h3 id="conversion-title" className="mt-1 text-xl font-black text-[#0f172a]">Bilgileri kontrol edin</h3>
