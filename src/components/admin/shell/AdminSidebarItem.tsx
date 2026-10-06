@@ -6,6 +6,7 @@ export function AdminSidebarItem({
   href,
   label,
   description,
+  badge,
   icon: Icon,
   active,
   collapsed,
@@ -15,6 +16,8 @@ export function AdminSidebarItem({
   href: string;
   label: string;
   description?: string;
+  /** Unread count shown as a pill; hidden when zero or undefined. */
+  badge?: number;
   icon: LucideIcon;
   active: boolean;
   collapsed: boolean;
@@ -44,6 +47,9 @@ export function AdminSidebarItem({
           <span className="block whitespace-normal break-normal leading-5">{withAdminEmoji(label)}</span>
           {description && <span className="mt-0.5 line-clamp-1 block whitespace-normal break-normal text-[11px] font-medium leading-4 opacity-70">{description}</span>}
         </span>
+      )}
+      {!!badge && !collapsed && (
+        <span aria-label={`${badge} okunmamış`} className="mt-0.5 shrink-0 rounded-full bg-cyan-500 px-2 py-0.5 text-[11px] font-black leading-4 text-white tabular-nums">{badge}</span>
       )}
     </Link>
   );

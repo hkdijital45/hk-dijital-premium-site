@@ -66,7 +66,7 @@ export async function getAdminPageData() {
         users: allowedModules.includes("kullanicilar") ? users : [],
         customers,
         leads,
-        contactForms,
+        contactForms: allowedModules.includes("gelen-talepler") ? contactForms : [],
         campaigns,
         campaignMetrics,
         metaAdsetMetrics,

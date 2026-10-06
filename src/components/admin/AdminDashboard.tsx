@@ -26,6 +26,7 @@ const HKIntelligenceCommandCenter = dynamic(() => import("@/components/admin/HKI
 const HKAutonomousAgencyCenter = dynamic(() => import("@/components/admin/HKAutonomousAgencyCenter").then((m) => m.HKAutonomousAgencyCenter), { ssr: false });
 const AdInsightsCenter = dynamic(() => import("@/components/admin/AdInsightsCenter").then((m) => m.AdInsightsCenter), { ssr: false });
 import { ContactRequestsInbox } from "@/components/admin/ContactRequestsInbox";
+import { contactRequestNotifications, unreadContactRequestCount } from "@/lib/contact-requests";
 const PreAuditCenter = dynamic(() => import("@/components/admin/PreAuditCenter").then((m) => m.PreAuditCenter), { ssr: false });
 const ReportCenterPanel = dynamic(() => import("@/components/admin/ReportCenterPanel").then((m) => m.ReportCenterPanel), { ssr: false });
 const AgentHubCenter = dynamic(() => import("@/components/admin/AgentHubCenter").then((m) => m.AgentHubCenter), { ssr: false });
@@ -636,7 +637,7 @@ export function AdminDashboard({
   const accountingAliases = ["Muhasebe Merkezi", "Tahsilat", "Tahsilatlar", "Bekleyen Ödemeler", "Gelir / Gider", "Gelir Gider", "Gelir Tahmini", "Karlılık", "Kârlılık", "Müşteri Finans Özeti", "Export", "Muhasebe Raporları"];
   const visibleNavigationGroups = adminNavigationGroups
     .filter((group) => group.label !== "Finans" || canViewAccounting(currentSession))
-    .map((group) => ({ ...group, items: group.items.filter((item) => allowedModules.includes(item.module)) }))
+    .map((group) => ({ ...group, items: group.items.filter((item) => allowedModules.includes(item.module)).map((item) => (item.slug === "gelen-talepler" ? { ...item, badge: unreadContactRequestCount(content.contactForms || []) } : item)) }))
     .filter((group) => group.items.length);
   // Agent Hub's own render gate (line ~887) accepts three interchangeable
   // active-label aliases ("HK Agent Hub", "Agent Hub", "Discord"), but the
@@ -875,9 +876,9 @@ export function AdminDashboard({
                   <div className="grid gap-3">
                     {visibleNotifications.map((item: any) => {
                       const unread = !notificationState.read.includes(item.id);
-                      const isLead = item.kind === "lead_new";
+                      const isLead = item.kind === "lead_new" || item.kind === "contact_request";
                       const railColor = item.priority === "critical" || isLead ? "var(--hk-danger-solid, #DC2626)" : item.kind === "lead_followup" || item.priority === "high" ? "var(--hk-warning-solid, #B47A0C)" : item.kind === "system" ? "var(--hk-success-solid, #167A3C)" : "var(--hk-info-solid, #2563EB)";
-                      const categoryLabel = isLead ? "Yeni Lead" : item.kind === "lead_followup" ? "Lead takibi" : item.kind === "lead" ? "Lead" : item.kind === "system" ? "Sistem" : "Operasyon";
+                      const categoryLabel = item.kind === "contact_request" ? "Web Sitesi Talebi" : item.kind === "lead_new" ? "Yeni Lead" : item.kind === "lead_followup" ? "Lead takibi" : item.kind === "lead" ? "Lead" : item.kind === "system" ? "Sistem" : "Operasyon";
                       return (
                         <article key={item.id} className="relative overflow-hidden rounded-[12px] border p-4 pl-5" style={{ borderColor: isLead && unread ? "var(--hk-danger-border, #FECACA)" : "var(--admin-border)", background: "var(--admin-card)", opacity: unread ? 1 : 0.75 }}>
                           <span aria-hidden className="absolute inset-y-0 left-0 w-1" style={{ background: unread ? railColor : "var(--admin-border)" }} />
@@ -892,6 +893,7 @@ export function AdminDashboard({
                             {item.label}{unread && <span className="sr-only"> (okunmamış)</span>}
                           </p>
                           <p className="mt-1 text-sm leading-6" style={{ color: "var(--admin-text-secondary)" }}>{item.text}</p>
+                          {item.appliedAt && <p className="mt-2 text-sm font-black" style={{ color: "var(--admin-text-primary)" }}>Başvuru: {item.appliedAt}</p>}
                           <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                             <button onClick={() => { if (item.href) window.location.assign(item.href); else setActive(item.target || "Dashboard"); markNotificationRead(item.id); setNotificationsOpen(false); }} className="rounded-[8px] px-3 py-2 text-xs font-black text-white" style={{ background: isLead ? "var(--hk-danger-solid, #DC2626)" : "var(--admin-primary, var(--hk-primary))" }}>{isLead ? "Leadi Aç" : "İlgili kaydı aç"}</button>
                             <button onClick={() => { setActive("Görevler"); markNotificationRead(item.id); setNotificationsOpen(false); notify?.("Bildirim görev taslağına dönüştürülecek bağlamla açıldı.", "success"); }} className="rounded-[8px] border px-3 py-2 text-xs font-bold" style={{ borderColor: "var(--admin-border-strong)", color: "var(--admin-text-secondary)" }}>Göreve dönüştür</button>
@@ -960,7 +962,7 @@ export function AdminDashboard({
           {active === "Raporlar" && <ReportsHub {...props} selectedCompanyId={selectedCompanyId} />}
           {["Web Site Analitiği", "Web Analitiği", "Web Analitiği Bağlantıları", "GTM Bağlantıları"].includes(active) && <WebsiteAnalyticsCenter />}
           {(active === "Reklam Yorum Merkezi" || active === "Reklam Doktoru Pro") && <><AdDoctorMvpPanel /><AdInsightsCenter content={content} notify={notify} /></>}
-          {active === "Gelen Talepler" && <ContactRequestsInbox />}
+          {active === "Gelen Talepler" && <ContactRequestsInbox notify={notify} onRowsChange={(rows) => setContent((current) => ({ ...current, contactForms: rows }))} />}
           {active === "Ön İnceleme Merkezi" && <PreAuditCenter initialTab={preAuditInitialTab || undefined} initialLeadId={preAuditInitialLeadId || undefined} />}
           {active === "Rapor Merkezi" && <ReportCenterPanel content={content} notify={notify} />}
           {["HK Agent Hub", "Agent Hub", "Discord"].includes(active) && <AgentHubCenter content={content} notify={notify} onOpenCustomerDocuments={(companyId: string) => { setSelectedCompanyId(companyId); setActive("Belgeler"); }} />}
@@ -1224,6 +1226,7 @@ function buildAdminNotifications(content: any, startupApiData: any = {}) {
       tone: "cyan",
       target: "Leadler"
     },
+    ...contactRequestNotifications(content.contactForms || []),
     ...agencyNotifications.map((item) => ({
       id: `agency-notification-${item.id || item.title}`,
       label: item.title || "Ajans bildirimi",

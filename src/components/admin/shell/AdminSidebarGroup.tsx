@@ -11,7 +11,7 @@ export function AdminSidebarGroup({
   onToggle,
   onNavigate
 }: {
-  group: { label: string; icon: string; items: Array<{ label: string; slug: string; description?: string }> };
+  group: { label: string; icon: string; items: Array<{ label: string; slug: string; description?: string; badge?: number }> };
   active: string;
   expanded: boolean;
   collapsed: boolean;
@@ -46,6 +46,7 @@ export function AdminSidebarGroup({
               href={getAdminHref(item.slug)}
               label={item.label}
               description={collapsed ? undefined : item.description}
+              badge={item.badge}
               icon={adminCategoryIcons[group.icon] || LayoutDashboard}
               active={active === item.label}
               collapsed={collapsed}

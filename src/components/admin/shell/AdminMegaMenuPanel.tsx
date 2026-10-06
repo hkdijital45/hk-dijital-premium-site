@@ -105,6 +105,7 @@ export function AdminMegaMenuPanel({
               href={getAdminHref(item.slug)}
               label={item.label}
               description={item.description}
+              badge={(item as { badge?: number }).badge}
               icon={adminCategoryIcons[group.icon] || LayoutDashboard}
               active={active === item.label || (item.slug === "" && active === "Dashboard")}
               collapsed={false}

@@ -2,7 +2,7 @@
 // from each notification's kind and source severity, never from decorative
 // color, so the UI can rank items without an error-dashboard look.
 export type NotificationPriority = "critical" | "high" | "normal" | "low";
-export type NotificationKind = "lead_new" | "lead_followup" | "lead" | "operations" | "system";
+export type NotificationKind = "lead_new" | "lead_followup" | "lead" | "contact_request" | "operations" | "system";
 export type NotificationFilter = "all" | "priority" | "leads" | "operations";
 
 export type AttentionNotification = {
@@ -26,7 +26,7 @@ export function priorityLabel(priority: NotificationPriority): string {
 }
 
 export function isLeadKind(kind: NotificationKind): boolean {
-  return kind === "lead_new" || kind === "lead_followup" || kind === "lead";
+  return kind === "lead_new" || kind === "lead_followup" || kind === "lead" || kind === "contact_request";
 }
 
 export function isHighPriority(item: { priority: NotificationPriority }): boolean {
@@ -66,6 +66,8 @@ export function notificationSummary<T extends AttentionNotification>(items: T[],
 // stay normal/low, and only a source-reported critical severity is critical.
 export function classifyNotification(id: string, sourcePriority?: unknown): { kind: NotificationKind; priority: NotificationPriority } {
   if (id.startsWith("new-lead-")) return { kind: "lead_new", priority: "high" };
+  if (id.startsWith("contact-requests-more-")) return { kind: "contact_request", priority: "normal" };
+  if (id.startsWith("contact-request-")) return { kind: "contact_request", priority: "high" };
   if (id.startsWith("new-requests-more-")) return { kind: "lead", priority: "normal" };
   if (id.startsWith("lead-follow-up-")) return { kind: "lead_followup", priority: "high" };
   if (id.startsWith("proposal-follow-up-")) return { kind: "lead", priority: "normal" };
