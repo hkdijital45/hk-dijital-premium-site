@@ -2,10 +2,12 @@
 /* eslint-disable react-hooks/set-state-in-effect -- fetch-on-mount pattern, same accepted precedent as ContentPlanningCenter.tsx */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronDown, Copy, Eye, ExternalLink, FileDown, RefreshCw, Search, X } from "lucide-react";
+import Link from "next/link";
+import { Archive, ArchiveRestore, ChevronDown, Copy, Eye, ExternalLink, FileDown, Pencil, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
 import { PRE_AUDIT_SECTION_LABELS, PRE_AUDIT_INTERNAL_SECTION_LABELS } from "@/lib/pre-audit/types";
+import { isArchivedPreAuditReport } from "@/lib/pre-audit/report-actions";
 
 const REJECTION_REASONS = [
   "Uygun müşteri değil", "Dijital ihtiyacı düşük", "Bütçe potansiyeli düşük",
@@ -33,7 +35,8 @@ type QueueLead = {
   google_place_id: string | null; source: string | null; created_at: string;
 };
 type Queue = { pending: QueueLead[]; inReview: QueueLead[]; rejected: QueueLead[] };
-type Tab = "tamamlanan" | "bekleyen" | "inceleniyor" | "iptal";
+type Tab = "tamamlanan" | "bekleyen" | "inceleniyor" | "iptal" | "arsiv";
+type SortKey = "new" | "old" | "az" | "za";
 
 const SECTION_LABELS = PRE_AUDIT_SECTION_LABELS;
 const INTERNAL_SECTION_LABELS = PRE_AUDIT_INTERNAL_SECTION_LABELS;
@@ -307,6 +310,11 @@ export function PreAuditCenter({ initialTab, initialLeadId }: { initialTab?: Tab
   const [offerSaving, setOfferSaving] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [exportBusy, setExportBusy] = useState<string>("");
+  const [sortKey, setSortKey] = useState<SortKey>("new");
+  const [busyGroupId, setBusyGroupId] = useState<string>("");
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState({ title: "" });
+  const [deleteGroupId, setDeleteGroupId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/companies").then((r) => r.json()).then((body) => setCompanies(body.companies || [])).catch(() => {});
@@ -491,6 +499,80 @@ export function PreAuditCenter({ initialTab, initialLeadId }: { initialTab?: Tab
     }
   }
 
+  const sortedGroups = (groups: Array<[string, ListItem[]]>) => {
+    const nameOf = ([, items]: [string, ListItem[]]) => (companies.find((c) => c.id === items[0].company_id)?.name || items[0].title || "").toLocaleLowerCase("tr");
+    if (sortKey === "old") return [...groups].reverse();
+    if (sortKey === "az") return [...groups].sort((a, b) => nameOf(a).localeCompare(nameOf(b), "tr"));
+    if (sortKey === "za") return [...groups].sort((a, b) => nameOf(b).localeCompare(nameOf(a), "tr"));
+    return groups;
+  };
+
+  async function runGroupAction(reportId: string, request: { method: "PATCH" | "DELETE"; body?: Record<string, unknown> }, success: string) {
+    setBusyGroupId(reportId);
+    setActionMessage(null);
+    try {
+      const response = await fetch(`/api/admin/pre-audit/${reportId}`, {
+        method: request.method,
+        headers: { "Content-Type": "application/json" },
+        body: request.body ? JSON.stringify(request.body) : undefined
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "İşlem tamamlanamadı.");
+      setActionMessage(success);
+      await load();
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : "İşlem tamamlanamadı.");
+    } finally {
+      setBusyGroupId("");
+    }
+  }
+
+  async function saveGroupEdit(reportId: string) {
+    await runGroupAction(reportId, { method: "PATCH", body: { title: editDraft.title } }, "Ön inceleme güncellendi.");
+    setEditingGroupId(null);
+  }
+
+  function renderGroupFooter(groupId: string, first: ListItem, displayName: string, archived: boolean) {
+    const busy = busyGroupId === groupId;
+    if (deleteGroupId === groupId) {
+      return (
+        <div className="mt-3 rounded-[10px] border p-3" style={{ borderColor: "#fecaca", background: "#fef2f2" }}>
+          <p className="text-sm font-black text-[#991b1b]">Bu ön incelemeyi kalıcı olarak silmek istediğinize emin misiniz?</p>
+          <p className="mt-1 text-xs font-bold text-[#7f1d1d]">{displayName} · Bu işlem geri alınamaz. Emin değilseniz arşivleyebilirsiniz.</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <AdminButton compact variant="danger" loading={busy} disabled={busy} onClick={async () => { await runGroupAction(groupId, { method: "DELETE" }, "Ön inceleme kalıcı olarak silindi."); setDeleteGroupId(null); }}>Kalıcı Olarak Sil</AdminButton>
+            <AdminButton compact variant="secondary" disabled={busy} onClick={() => setDeleteGroupId(null)}>Vazgeç</AdminButton>
+          </div>
+        </div>
+      );
+    }
+    if (editingGroupId === groupId) {
+      return (
+        <div className="mt-3 grid gap-2 border-t pt-3" style={{ borderColor: "var(--admin-border)" }}>
+          <label className="grid gap-1 text-xs font-black" style={{ color: "var(--admin-text-secondary)" }}>
+            Rapor başlığı
+            <input value={editDraft.title} onChange={(e) => setEditDraft({ title: e.target.value })} maxLength={200} className="rounded-full border px-3.5 py-2 text-sm font-bold" style={{ borderColor: "var(--admin-border)" }} />
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <AdminButton compact variant="primary" loading={busy} disabled={busy || !editDraft.title.trim()} onClick={() => saveGroupEdit(groupId)}>Kaydet</AdminButton>
+            <AdminButton compact variant="secondary" disabled={busy} onClick={() => setEditingGroupId(null)}>Vazgeç</AdminButton>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3" style={{ borderColor: "var(--admin-border)" }}>
+        <AdminButton compact variant="secondary" icon={<Pencil size={13} />} disabled={busy} onClick={() => { setEditingGroupId(groupId); setEditDraft({ title: first.title || "" }); }}>Düzenle</AdminButton>
+        <div className="flex flex-wrap gap-1.5">
+          {archived
+            ? <AdminButton compact variant="success" icon={<ArchiveRestore size={13} />} loading={busy} disabled={busy} onClick={() => runGroupAction(groupId, { method: "PATCH", body: { archived: false } }, "Ön inceleme arşivden çıkarıldı.")}>Arşivden Çıkar</AdminButton>
+            : <AdminButton compact variant="warning" icon={<Archive size={13} />} loading={busy} disabled={busy} onClick={() => runGroupAction(groupId, { method: "PATCH", body: { archived: true } }, "Ön inceleme arşivlendi.")}>Arşivle</AdminButton>}
+          <AdminButton compact variant="danger" icon={<Trash2 size={13} />} disabled={busy} onClick={() => setDeleteGroupId(groupId)}>Sil</AdminButton>
+        </div>
+      </div>
+    );
+  }
+
   const grouped = useMemo(() => {
     const groups = new Map<string, ListItem[]>();
     for (const r of reports || []) {
@@ -500,12 +582,19 @@ export function PreAuditCenter({ initialTab, initialLeadId }: { initialTab?: Tab
     }
     return [...groups.entries()].sort((a, b) => (b[1][0]?.report_date || "").localeCompare(a[1][0]?.report_date || ""));
   }, [reports]);
+  const liveGroups = useMemo(() => grouped.filter(([, items]) => !isArchivedPreAuditReport(items[0])), [grouped]);
+  const archivedGroups = useMemo(() => grouped.filter(([, items]) => isArchivedPreAuditReport(items[0])), [grouped]);
+  const visibleGroups = tab === "arsiv" ? archivedGroups : sortedGroups(liveGroups);
 
   return (
     <div className="grid gap-5">
       <div>
-        <h2 className="text-xl font-black">Ön İnceleme Merkezi</h2>
-        <p className="text-sm font-bold" style={{ color: "var(--admin-text-secondary)" }}>Potansiyel ve mevcut müşterilerin satış öncesi dijital analizleri.</p>
+        <p className="text-[11px] font-black uppercase tracking-[.16em] text-cyan-700">Satış &amp; Keşif</p>
+        <h2 className="mt-1 text-xl font-black">Ön İnceleme Merkezi</h2>
+        <p className="text-sm font-bold" style={{ color: "var(--admin-text-secondary)" }}>Potansiyel müşterileri analiz edin, önceliklendirin ve satış fırsatına dönüştürün.</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link href="/hk-admin/musteri-kesfi" className="hk-button hk-button-primary hk-button-compact inline-flex items-center gap-1.5"><Plus size={14} /> Yeni Ön İnceleme</Link>
+        </div>
       </div>
 
       {tablesReady === false && (
@@ -513,11 +602,12 @@ export function PreAuditCenter({ initialTab, initialLeadId }: { initialTab?: Tab
       )}
 
       {summary && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <Card><p className="text-[11px] font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Toplam Ön İnceleme</p><p className="mt-1 text-2xl font-black">{summary.totalPreAudits}</p></Card>
           <Card><p className="text-[11px] font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Bu Ay</p><p className="mt-1 text-2xl font-black">{summary.thisMonth}</p></Card>
           <Card><p className="text-[11px] font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Potansiyel Müşteriler</p><p className="mt-1 text-2xl font-black">{summary.potentialCompanies}</p></Card>
           <Card><p className="text-[11px] font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Müşteriye Dönüşenler</p><p className="mt-1 text-2xl font-black">{summary.convertedCompanies}</p></Card>
+          <Card><p className="text-[11px] font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Dönüşüm Oranı</p><p className="mt-1 text-2xl font-black">{summary.totalPreAudits > 0 ? `%${Math.round((summary.convertedCompanies / summary.totalPreAudits) * 100)}` : "—"}</p><p className="mt-0.5 text-[11px] font-bold" style={{ color: "var(--admin-text-muted)" }}>Müşteriye dönüşen / toplam ön inceleme</p></Card>
         </div>
       )}
 
@@ -559,6 +649,12 @@ export function PreAuditCenter({ initialTab, initialLeadId }: { initialTab?: Tab
           <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--admin-text-muted)" }} />
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rapor başlığında ara…" className="w-full rounded-full border py-2 pl-8 pr-3 text-sm font-bold" style={{ borderColor: "var(--admin-border)" }} />
         </div>
+        <select aria-label="Sıralama" value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)} className="rounded-full border px-3 py-2 text-xs font-black" style={{ borderColor: "var(--admin-border)" }}>
+          <option value="new">En yeni</option>
+          <option value="old">En eski</option>
+          <option value="az">Firma A-Z</option>
+          <option value="za">Firma Z-A</option>
+        </select>
         <AdminButton variant="secondary" compact icon={<RefreshCw size={14} />} onClick={load}>Yenile</AdminButton>
       </div>
 
@@ -566,8 +662,9 @@ export function PreAuditCenter({ initialTab, initialLeadId }: { initialTab?: Tab
         {([
           ["bekleyen", `Bekleyen (${queue.pending.length})`],
           ["inceleniyor", `İnceleniyor (${queue.inReview.length})`],
-          ["tamamlanan", `Tamamlanan (${grouped.length})`],
-          ["iptal", `İptal Edilenler (${queue.rejected.length})`]
+          ["tamamlanan", `Tamamlanan (${liveGroups.length})`],
+          ["iptal", `İptal Edilenler (${queue.rejected.length})`],
+          ["arsiv", `Arşiv (${archivedGroups.length})`]
         ] as Array<[Tab, string]>).map(([key, label]) => (
           <button key={key} type="button" onClick={() => setTab(key)} className="rounded-full px-3.5 py-2 text-xs font-black transition" style={tab === key ? { background: "#0891b2", color: "white" } : { background: "var(--admin-surface-soft, #F3F2EE)", color: "var(--admin-text-secondary)" }}>
             {label}
@@ -597,15 +694,19 @@ export function PreAuditCenter({ initialTab, initialLeadId }: { initialTab?: Tab
           : <Card><p className="text-sm font-bold" style={{ color: "var(--admin-text-secondary)" }}>İptal edilen aday yok.</p></Card>
       )}
 
-      {tab === "tamamlanan" && (
+      {(tab === "tamamlanan" || tab === "arsiv") && (
         <>
           {reports && reports.length === 0 && tablesReady !== false && (
             <Card><p className="text-sm font-bold" style={{ color: "var(--admin-text-secondary)" }}>{companyName ? `${companyName} için henüz Ön İnceleme bulunmuyor.` : "Henüz tamamlanmış Ön İnceleme bulunmuyor."}</p></Card>
           )}
 
-          {grouped.length > 0 && (
+          {tab === "arsiv" && archivedGroups.length === 0 && (
+            <Card><p className="text-sm font-bold" style={{ color: "var(--admin-text-secondary)" }}>Arşivlenmiş ön inceleme yok. Arşivlenen raporlar burada kalır ve geri alınabilir.</p></Card>
+          )}
+
+          {visibleGroups.length > 0 && (
             <div className="grid gap-2">
-              {grouped.map(([groupId, items]) => {
+              {visibleGroups.map(([groupId, items]) => {
                 const first = items[0];
                 const company = companies.find((c) => c.id === first.company_id);
                 return (
@@ -627,6 +728,7 @@ export function PreAuditCenter({ initialTab, initialLeadId }: { initialTab?: Tab
                         ))}
                       </div>
                     </div>
+                    {renderGroupFooter(groupId, first, company?.name || first.title || "Aday", tab === "arsiv")}
                   </Card>
                 );
               })}
