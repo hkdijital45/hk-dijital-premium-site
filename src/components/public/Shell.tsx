@@ -1,3 +1,4 @@
+import { resolvePublicWhatsappUrl } from "@/lib/whatsapp-contact";
 import type { ReactNode } from "react";
 import { getSiteContent } from "@/lib/content";
 import { Header } from "./Header";
@@ -16,11 +17,7 @@ export async function PublicShell({ children }: { children: ReactNode }) {
       api: { ...rawContent.settings.api, geminiApiKey: "", groqApiKey: "", openAiApiKey: "" }
     }
   };
-  const whatsappUrl =
-    content.socials.whatsapp ||
-    (content.contact.whatsappNumber
-      ? `https://wa.me/${content.contact.whatsappNumber.replace(/\D/g, "")}`
-      : "");
+  const whatsappUrl = resolvePublicWhatsappUrl(content.socials.whatsapp, content.contact.whatsappNumber);
   const performanceMode = content.settings.performanceMode || "balanced";
   const phoneHref = content.contact.phone ? `tel:${content.contact.phone.replace(/[^\d+]/g, "")}` : "";
 

@@ -13,7 +13,7 @@ import { trackMetaCtaClick } from "@/lib/meta-pixel";
  * fabricated channels). The "scroll to top" item is a UI utility, not a
  * contact channel, so it carries no real-data constraint.
  */
-export function ContactDock({ whatsappUrl, phoneHref, phoneLabel }: { whatsappUrl: string; phoneHref: string; phoneLabel: string }) {
+export function ContactDock({ whatsappUrl, phoneHref, phoneLabel }: { whatsappUrl: string | null; phoneHref: string; phoneLabel: string }) {
   const [showTop, setShowTop] = useState(false);
 
   useEffect(() => {
@@ -23,7 +23,7 @@ export function ContactDock({ whatsappUrl, phoneHref, phoneLabel }: { whatsappUr
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  if (!whatsappUrl) return null;
+  if (!whatsappUrl && !phoneHref && !showTop) return null;
 
   return (
     <div className="marketing-contact-dock">
@@ -48,7 +48,7 @@ export function ContactDock({ whatsappUrl, phoneHref, phoneLabel }: { whatsappUr
           <Phone size={17} />
         </a>
       )}
-      <a
+{whatsappUrl &&       <a
         href={whatsappUrl}
         target="_blank"
         rel="noreferrer"
@@ -57,7 +57,7 @@ export function ContactDock({ whatsappUrl, phoneHref, phoneLabel }: { whatsappUr
         className="marketing-dock-item impact-btn inline-flex min-h-12 items-center gap-2 rounded-full border border-[#25D366]/50 bg-[#25D366] px-5 py-3 text-sm font-black text-white shadow-[0_0_44px_rgba(37,211,102,.35)] transition hover:-translate-y-1 hover:bg-[#20bd5b]"
       >
         <MessageCircle size={18} /> WhatsApp
-      </a>
+      </a>}
     </div>
   );
 }

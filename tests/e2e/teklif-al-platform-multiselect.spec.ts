@@ -1,12 +1,12 @@
 import { test, expect, type Page } from "@playwright/test";
-import { randomUUID } from "crypto";
 
 /**
- * /teklif-al (Paket Öneri Robotu) — "Platform İhtiyacınız" multi-select step.
- * Public route, no auth required. Covers independent Meta/Google/Sosyal Medya
- * toggling, the "Hepsi" select-all/clear-all shortcut and its visual sync,
+ * /teklif-al (Dijital Pazarlama Ön Analizi) — "Platform İhtiyacınız" multi-select
+ * step. Public route, no auth required. Covers independent Meta/Google/Sosyal
+ * Medya toggling, the "Hepsi" select-all/clear-all shortcut and its visual sync,
  * Continue-button + step-navigation validation, the resolved platform array
- * reaching the /api/leads payload, and combination-aware AI budget output.
+ * reaching the /api/leads payload, and the platform-aware deterministic
+ * analysis text. No package, price, or AI recommendation is expected.
  */
 
 type LeadPayload = { platforms?: string[]; [key: string]: unknown };
@@ -37,22 +37,26 @@ async function interceptLeadSubmission(page: Page) {
 
 async function reachPlatformStep(page: Page) {
   await page.goto("/teklif-al", { waitUntil: "domcontentloaded" });
-  await page.getByRole("button", { name: "Restoran" }).click();
+  await expect(async () => {
+    await page.getByRole("button", { name: "Restoran" }).click();
+    await expect(page.getByRole("button", { name: "Daha Fazla Satış" })).toBeVisible({ timeout: 2000 });
+  }).toPass({ timeout: 30000 });
   await page.getByRole("button", { name: "Daha Fazla Satış" }).click();
   await expect(page.getByRole("heading", { name: "Platform İhtiyacınız" })).toBeVisible();
 }
 
-async function completeStepsThroughRecommendation(page: Page) {
+async function completeStepsThroughAnalysis(page: Page) {
   await page.getByRole("button", { name: "5.000-20.000 TL" }).click();
-  await page.getByRole("button", { name: "Paketi Öner" }).click();
-  await page.getByRole("button", { name: "Bilgilerimi Bırakayım" }).click();
+  await page.getByRole("button", { name: "Analizi Görüntüle" }).click();
+  await expect(page.getByRole("heading", { name: "Dijital Pazarlama Ön Analiziniz" })).toBeVisible();
+  await page.getByRole("button", { name: "İletişim Bilgilerine Geç" }).click();
 }
 
 async function fillContactAndSubmit(page: Page) {
   await page.getByLabel(/Ad Soyad/).fill("Test Kullanıcı");
   await page.getByLabel(/Firma Adı/).fill("Test Firma");
   await page.getByLabel(/E-posta/).fill("test@example.com");
-  await page.getByLabel(/Telefon/).fill("5551234567");
+  await page.getByRole("textbox", { name: /Telefon/ }).fill("5551234567");
   await page.getByRole("button", { name: /Gönder|Bırakayım|Teklif/ }).last().click();
 }
 
@@ -139,21 +143,63 @@ test.describe("/teklif-al - Platform İhtiyacınız adımı: çoklu seçim", () 
     await platformCard(page, "Meta").click();
     await platformCard(page, "Google").click();
     await continueButton(page).click();
-    await completeStepsThroughRecommendation(page);
+    await completeStepsThroughAnalysis(page);
     await fillContactAndSubmit(page);
     await expect.poll(() => getBody()).not.toBeNull();
     expect(getBody()?.platforms).toEqual(["meta", "google"]);
   });
 
-  test("öneri metni yalnızca seçilen platformları yansıtır (Meta + Sosyal Medya, Google hariç)", async ({ page }) => {
+  test("analiz ekranı seçilen kanalları gösterir ve metin yalnızca seçilen platformları yansıtır (Meta + Sosyal Medya, Google hariç)", async ({ page }) => {
     await reachPlatformStep(page);
     await platformCard(page, "Meta").click();
     await platformCard(page, "Sosyal Medya").click();
     await continueButton(page).click();
     await page.getByRole("button", { name: "5.000-20.000 TL" }).click();
-    await page.getByRole("button", { name: "Paketi Öner" }).click();
-    await expect(page.getByText(/Seçilen platformlar \(Meta, Sosyal Medya\)/)).toBeVisible();
-    await expect(page.getByText(/sosyal medya içerik takvimi ve profil optimizasyonu/)).toBeVisible();
+    await page.getByRole("button", { name: "Analizi Görüntüle" }).click();
+    await expect(page.getByRole("heading", { name: "Dijital Pazarlama Ön Analiziniz" })).toBeVisible();
+    await expect(page.locator("dd", { hasText: "Meta, Sosyal Medya" })).toBeVisible();
+    await expect(page.getByText("Hedefinize uygun Meta yapısının değerlendirilmesi.")).toBeVisible();
+    const wizard = page.locator("section.px-4").filter({ hasText: "Dijital Pazarlama Ön Analiziniz" }).first();
+    await expect(wizard.getByText(/Google Ads/)).toHaveCount(0);
+  });
+
+  test("Meta + Google seçimi analiz metnine iki kanalı birlikte yazar", async ({ page }) => {
+    await reachPlatformStep(page);
+    await platformCard(page, "Meta").click();
+    await platformCard(page, "Google").click();
+    await continueButton(page).click();
+    await page.getByRole("button", { name: "5.000-20.000 TL" }).click();
+    await page.getByRole("button", { name: "Analizi Görüntüle" }).click();
+    await expect(page.getByText("Hedefinize uygun Meta ve Google Ads yapısının değerlendirilmesi.")).toBeVisible();
+  });
+
+  test("seçilen platformlar Geri/İleri gezintisinde korunur", async ({ page }) => {
+    await reachPlatformStep(page);
+    await platformCard(page, "Meta").click();
+    await platformCard(page, "Google").click();
+    await continueButton(page).click();
+    await page.getByRole("button", { name: "5.000-20.000 TL" }).click();
+    await page.getByRole("button", { name: "Analizi Görüntüle" }).click();
+    for (let i = 0; i < 3; i += 1) {
+      await page.getByRole("button", { name: "Geri" }).click();
+      await page.waitForTimeout(400);
+    }
+    await expect(page.getByRole("heading", { name: "Platform İhtiyacınız" })).toBeVisible();
+    await expect(platformCard(page, "Meta")).toHaveAttribute("aria-pressed", "true");
+    await expect(platformCard(page, "Google")).toHaveAttribute("aria-pressed", "true");
+  });
+
+  test("analiz ekranında paket, fiyat veya AI öneri arayüzü bulunmaz", async ({ page }) => {
+    await reachPlatformStep(page);
+    await platformCard(page, "Meta").click();
+    await continueButton(page).click();
+    await page.getByRole("button", { name: "5.000-20.000 TL" }).click();
+    await page.getByRole("button", { name: "Analizi Görüntüle" }).click();
+    await expect(page.getByRole("heading", { name: "Dijital Pazarlama Ön Analiziniz" })).toBeVisible();
+    const wizard = page.locator("section.px-4").filter({ hasText: "Dijital Pazarlama Ön Analiziniz" }).first();
+    for (const absent of ["Önerilen Paket", "Paketi Öner", "Bütçe Analizi Oluştur", "KDV", "AI Destekli", "Bilgilerimi Bırakayım"]) {
+      await expect(wizard).not.toContainText(absent);
+    }
   });
 
   test("mobil genişlikte Platform İhtiyacınız adımı kullanılabilir kalır", async ({ page }) => {
@@ -162,49 +208,5 @@ test.describe("/teklif-al - Platform İhtiyacınız adımı: çoklu seçim", () 
     await platformCard(page, "Meta").click();
     await expect(platformCard(page, "Meta")).toHaveAttribute("aria-pressed", "true");
     await expect(continueButton(page)).toBeEnabled();
-  });
-});
-
-test.describe("/api/ai/ad-budget-research - platform normalizasyonu ve kombinasyon davranışı", () => {
-  // Each test gets its own synthetic client IP: the route rate-limits per
-  // x-forwarded-for (falling back to a shared "anonymous" bucket when the
-  // header is absent, which is what local Playwright requests do by
-  // default). Without this, every API test across every spec file in a full
-  // suite run collapses into the same bucket and trips the production
-  // abuse-prevention limit (6 requests / 10 minutes) well before the suite
-  // finishes, failing unrelated tests. A unique per-test IP keeps the real
-  // rate limiter intact while giving each test its own quota.
-  test("eski tekil 'Hepsi' değeri üç kanonik platforma normalize edilir", async ({ request }) => {
-    const response = await request.post("/api/ai/ad-budget-research", {
-      headers: { "x-forwarded-for": `qa-test-${randomUUID()}` },
-      data: { sector: "Restoran", goal: "Daha Fazla Satış", platform: "Hepsi", budget: "20000" }
-    });
-    expect(response.ok()).toBe(true);
-    const data = await response.json();
-    expect(data.marketSummary).toContain("Meta, Google, Sosyal Medya");
-  });
-
-  test("eski tekil 'meta' string değeri de doğru normalize edilir", async ({ request }) => {
-    const response = await request.post("/api/ai/ad-budget-research", {
-      headers: { "x-forwarded-for": `qa-test-${randomUUID()}` },
-      data: { sector: "Restoran", goal: "Daha Fazla Satış", platform: "meta", budget: "20000" }
-    });
-    expect(response.ok()).toBe(true);
-    const data = await response.json();
-    expect(data.marketSummary).toContain("seçilen Meta hizmetlerine");
-    expect(data.marketSummary).not.toContain("Google");
-  });
-
-  test("AI istek yükü yalnızca seçilen hizmetleri yansıtır: Google + Sosyal Medya, Meta hariç", async ({ request }) => {
-    const response = await request.post("/api/ai/ad-budget-research", {
-      headers: { "x-forwarded-for": `qa-test-${randomUUID()}` },
-      data: { sector: "Restoran", goal: "Daha Fazla Satış", platforms: ["google", "social-media"], budget: "20000" }
-    });
-    expect(response.ok()).toBe(true);
-    const data = await response.json();
-    const labels = data.platformSplit.map((item: { label: string }) => item.label).join(" ");
-    expect(labels).toContain("Google");
-    expect(labels).toContain("Sosyal");
-    expect(labels).not.toContain("Meta");
   });
 });

@@ -1,4 +1,5 @@
 "use client";
+import { resolvePublicWhatsappUrl } from "@/lib/whatsapp-contact";
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -37,7 +38,7 @@ export function Header({ content }: { content: SiteContent }) {
   const router = useRouter();
   const reduced = useReducedMotion();
   const isActive = (href: string) => href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
-  const whatsappUrl = content.socials?.whatsapp || (content.contact?.whatsappNumber ? `https://wa.me/${content.contact.whatsappNumber.replace(/\D/g, "")}` : "/iletisim");
+  const whatsappUrl = resolvePublicWhatsappUrl(content.socials?.whatsapp, content.contact?.whatsappNumber);
 
   // Desktop nav "sliding pill" indicator (adapted from
   // docs/animation-reference/17-nav-menu.md): a single shared-layout
@@ -157,9 +158,9 @@ export function Header({ content }: { content: SiteContent }) {
       </Link>
     ) },
     { key: "cta-whatsapp", node: (
-      <a href={whatsappUrl} target="_blank" rel="noreferrer" onClick={() => { trackMetaCtaClick("Mobil WhatsApp", whatsappUrl); setOpen(false); }} className="marketing-btn marketing-btn-secondary w-full">
+      whatsappUrl ? <a href={whatsappUrl} target="_blank" rel="noreferrer" onClick={() => { trackMetaCtaClick("Mobil WhatsApp", whatsappUrl); setOpen(false); }} className="marketing-btn marketing-btn-secondary w-full">
         <MessageCircle size={17} className="text-[#25D366]" /> WhatsApp&apos;tan Görüş
-      </a>
+      </a> : null
     ) }
   ];
 
@@ -197,9 +198,9 @@ export function Header({ content }: { content: SiteContent }) {
           </nav>
 
           <div className="hidden items-center gap-2 lg:flex">
-            <a href={whatsappUrl} target="_blank" rel="noreferrer" onClick={() => trackMetaCtaClick("Header WhatsApp", whatsappUrl)} className="impact-btn inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-bold transition hover:border-[#25D366]/60" style={{ borderColor: "var(--mk-border-strong)", color: "var(--mk-ink)" }}>
+            {whatsappUrl && <a href={whatsappUrl} target="_blank" rel="noreferrer" onClick={() => trackMetaCtaClick("Header WhatsApp", whatsappUrl)} className="impact-btn inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-bold transition hover:border-[#25D366]/60" style={{ borderColor: "var(--mk-border-strong)", color: "var(--mk-ink)" }}>
               <MessageCircle size={17} className="text-[#25D366]" /> WhatsApp
-            </a>
+            </a>}
             <Link href="/teklif-al" onClick={() => trackMetaCtaClick("Header Paketini Bul", "/teklif-al")} className="marketing-btn marketing-btn-primary marketing-aurora-btn min-h-11">
               <CalendarCheck size={17} /> Ücretsiz Ön Analiz
             </Link>

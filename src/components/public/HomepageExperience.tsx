@@ -1,4 +1,5 @@
 "use client";
+import { resolvePublicWhatsappUrl } from "@/lib/whatsapp-contact";
 
 import { useId, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
@@ -119,7 +120,7 @@ function WhatsappLink({ href, children, trackingLabel }: { href: string; childre
  * accent in globals.css) — no scroll listeners, no RAF loop, no video
  * fetch at all.
  */
-function Hero({ whatsappUrl }: { whatsappUrl: string }) {
+function Hero({ whatsappUrl }: { whatsappUrl: string | null }) {
   return (
     <section id="hero" className="relative border-b" style={{ borderColor: "var(--mk-border)", overflowX: "clip" }}>
       <div className="marketing-bokeh" aria-hidden="true">
@@ -143,7 +144,7 @@ function Hero({ whatsappUrl }: { whatsappUrl: string }) {
             <div className="mt-8 flex flex-wrap gap-4">
               <PrimaryLink href="/teklif-al" trackingLabel="Hero Paketini Bul" aurora>Ücretsiz Ön Analiz <ArrowRight size={18} /></PrimaryLink>
               <SecondaryLink href="/hizmetler" trackingLabel="Hero Hizmetleri İncele">Hizmetleri İncele</SecondaryLink>
-              <WhatsappLink href={whatsappUrl} trackingLabel="Hero WhatsApp'tan Görüş">WhatsApp&apos;tan Görüşelim <MessageCircle size={18} /></WhatsappLink>
+              {whatsappUrl && <WhatsappLink href={whatsappUrl} trackingLabel="Hero WhatsApp'tan Görüş">WhatsApp&apos;tan Görüşelim <MessageCircle size={18} /></WhatsappLink>}
             </div>
             <div className="mt-9 flex flex-wrap gap-2">
               {["Manisa merkezli", "Türkiye geneli hizmet", "Şeffaf raporlama", "Satış garantisi değil, ölçülebilir sistem"].map((item) => (
@@ -661,7 +662,7 @@ function FaqBlogSection() {
 
 /* -------------------------------- Final CTA -------------------------------- */
 
-function FinalCtaSection({ whatsappUrl }: { whatsappUrl: string }) {
+function FinalCtaSection({ whatsappUrl }: { whatsappUrl: string | null }) {
   return (
     <MarketingSection>
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
@@ -678,7 +679,7 @@ function FinalCtaSection({ whatsappUrl }: { whatsappUrl: string }) {
             <p className="mx-auto mt-5 max-w-xl text-base leading-7 text-white/85">Satış garantisi vermeyiz — strateji, kurulum, optimizasyon, dönüşüm takibi ve raporlama sürecini uçtan uca yönetiriz.</p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
               <Link href="/teklif-al" onClick={() => trackMetaCtaClick("Final CTA Paketini Bul", "/teklif-al")} className="marketing-aurora-btn inline-flex min-h-13 items-center gap-2 rounded-full bg-white px-6 text-sm font-black text-[#4338ca] transition hover:-translate-y-0.5">Ücretsiz Ön Analiz <ArrowRight size={18} /></Link>
-              <a href={whatsappUrl} target="_blank" rel="noreferrer" onClick={() => trackMetaCtaClick("Final CTA WhatsApp", whatsappUrl)} className="inline-flex min-h-13 items-center gap-2 rounded-full border border-white/40 bg-white/10 px-6 text-sm font-black text-white backdrop-blur transition hover:bg-white/20">WhatsApp&apos;tan Görüş <MessageCircle size={18} /></a>
+              {whatsappUrl && <a href={whatsappUrl} target="_blank" rel="noreferrer" onClick={() => trackMetaCtaClick("Final CTA WhatsApp", whatsappUrl)} className="inline-flex min-h-13 items-center gap-2 rounded-full border border-white/40 bg-white/10 px-6 text-sm font-black text-white backdrop-blur transition hover:bg-white/20">WhatsApp&apos;tan Görüş <MessageCircle size={18} /></a>}
             </div>
           </div>
         </MarketingReveal>
@@ -689,7 +690,7 @@ function FinalCtaSection({ whatsappUrl }: { whatsappUrl: string }) {
 
 /* -------------------------------- Contact --------------------------------- */
 
-function ContactSection({ whatsappUrl }: { whatsappUrl: string }) {
+function ContactSection({ whatsappUrl }: { whatsappUrl: string | null }) {
   return (
     <MarketingSection id="contact" alt>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -703,7 +704,7 @@ function ContactSection({ whatsappUrl }: { whatsappUrl: string }) {
             <h3 className="mt-5 text-xl font-black" style={{ color: "var(--mk-ink)" }}>Hızlı başlangıç</h3>
             <p className="mt-4 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>İsterseniz WhatsApp üzerinden doğrudan yazın, isterseniz teklif formunu açıp işletmenizin hedeflerini gönderin.</p>
             <div className="mt-7 flex flex-wrap gap-3">
-              <WhatsappLink href={whatsappUrl} trackingLabel="Final WhatsApp ile Görüş">WhatsApp ile Görüş</WhatsappLink>
+              {whatsappUrl && <WhatsappLink href={whatsappUrl} trackingLabel="Final WhatsApp ile Görüş">WhatsApp ile Görüş</WhatsappLink>}
               <SecondaryLink href="/teklif-al" trackingLabel="Final Teklif Formunu Aç">Teklif Formunu Aç</SecondaryLink>
             </div>
             <div className="mt-7 grid gap-2 border-t pt-6 text-xs" style={{ borderColor: "var(--mk-border)", color: "var(--mk-ink-faint)" }}>
@@ -746,7 +747,7 @@ function LocalSeoSection() {
 /* ------------------------------- Composition -------------------------------- */
 
 export function HomepageExperience({ content }: { content: SiteContent }) {
-  const whatsappUrl = content.socials?.whatsapp || (content.contact?.whatsappNumber ? `https://wa.me/${content.contact.whatsappNumber.replace(/\D/g, "")}` : "/iletisim");
+  const whatsappUrl = resolvePublicWhatsappUrl(content.socials?.whatsapp, content.contact?.whatsappNumber);
   const services = content.services || [];
   const googleAds = services.find((service) => service.id === "google-ads");
   const metaAds = services.find((service) => service.id === "meta-ads");
