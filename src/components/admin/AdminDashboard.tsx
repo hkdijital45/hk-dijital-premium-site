@@ -25,6 +25,7 @@ const SystemGuideCenter = dynamic(() => import("@/components/admin/SystemGuideCe
 const HKIntelligenceCommandCenter = dynamic(() => import("@/components/admin/HKIntelligenceCommandCenter").then((m) => m.HKIntelligenceCommandCenter), { ssr: false });
 const HKAutonomousAgencyCenter = dynamic(() => import("@/components/admin/HKAutonomousAgencyCenter").then((m) => m.HKAutonomousAgencyCenter), { ssr: false });
 const AdInsightsCenter = dynamic(() => import("@/components/admin/AdInsightsCenter").then((m) => m.AdInsightsCenter), { ssr: false });
+import { ContactRequestsInbox } from "@/components/admin/ContactRequestsInbox";
 const PreAuditCenter = dynamic(() => import("@/components/admin/PreAuditCenter").then((m) => m.PreAuditCenter), { ssr: false });
 const ReportCenterPanel = dynamic(() => import("@/components/admin/ReportCenterPanel").then((m) => m.ReportCenterPanel), { ssr: false });
 const AgentHubCenter = dynamic(() => import("@/components/admin/AgentHubCenter").then((m) => m.AgentHubCenter), { ssr: false });
@@ -959,6 +960,7 @@ export function AdminDashboard({
           {active === "Raporlar" && <ReportsHub {...props} selectedCompanyId={selectedCompanyId} />}
           {["Web Site Analitiği", "Web Analitiği", "Web Analitiği Bağlantıları", "GTM Bağlantıları"].includes(active) && <WebsiteAnalyticsCenter />}
           {(active === "Reklam Yorum Merkezi" || active === "Reklam Doktoru Pro") && <><AdDoctorMvpPanel /><AdInsightsCenter content={content} notify={notify} /></>}
+          {active === "Gelen Talepler" && <ContactRequestsInbox />}
           {active === "Ön İnceleme Merkezi" && <PreAuditCenter initialTab={preAuditInitialTab || undefined} initialLeadId={preAuditInitialLeadId || undefined} />}
           {active === "Rapor Merkezi" && <ReportCenterPanel content={content} notify={notify} />}
           {["HK Agent Hub", "Agent Hub", "Discord"].includes(active) && <AgentHubCenter content={content} notify={notify} onOpenCustomerDocuments={(companyId: string) => { setSelectedCompanyId(companyId); setActive("Belgeler"); }} />}

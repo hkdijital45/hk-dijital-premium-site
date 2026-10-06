@@ -6,6 +6,7 @@ import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/sup
 import { isGenericBusinessCategory, sanitizeBusinessCategory } from "@/lib/business-category";
 import { normalizePlatformSelection } from "@/lib/platform-selection";
 import { preAnalysisLeadFields } from "@/lib/pre-analysis-lead";
+import { CONTACT_REQUEST_STATUS, CONTACT_LEAD_SOURCE as CONTACT_REQUEST_SOURCE } from "@/lib/contact-requests";
 
 const statuses: LeadStatus[] = ["Yeni", "Görüşülecek", "Teklif Hazırlanıyor", "Teklif Gönderildi", "Takipte", "Kazanıldı", "Kaybedildi", "Dönüştürüldü"];
 
@@ -34,6 +35,37 @@ async function insertLeadRow(row: Record<string, unknown>) {
   }
 }
 
+// A website contact form submission is a contact request, not a Lead. Leads are
+// created only when an admin converts a request from Gelen Talepler.
+async function saveContactRequest(payload: Record<string, unknown>, contact: { name: string; company: string; email: string; phone: string }) {
+  if (!hasSupabaseConfig()) {
+    return NextResponse.json({ error: "Mesajınız kaydedilemedi. Lütfen daha sonra tekrar deneyin." }, { status: 500 });
+  }
+  try {
+    const recentThreshold = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const existing = contact.email
+      ? await supabaseRest<Array<{ id: string }>>(`contact_forms?email=eq.${encodeURIComponent(contact.email)}&created_at=gte.${encodeURIComponent(recentThreshold)}&select=id&limit=1`).catch(() => [])
+      : [];
+    if (existing[0]) return NextResponse.json({ ok: true, duplicatePrevented: true });
+    await supabaseRest("contact_forms", {
+      method: "POST",
+      body: JSON.stringify({
+        name: contact.name,
+        company: contact.company,
+        phone: String(payload.phone ?? "").trim(),
+        email: contact.email,
+        message: String(payload.note ?? payload.message ?? "").trim().slice(0, 5000),
+        source: CONTACT_REQUEST_SOURCE,
+        status: CONTACT_REQUEST_STATUS.new
+      })
+    });
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("İletişim talebi kaydedilemedi:", getSafeSupabaseError(error).detail);
+    return NextResponse.json({ error: "Mesajınız kaydedilemedi. Lütfen daha sonra tekrar deneyin." }, { status: 500 });
+  }
+}
+
 export async function POST(request: Request) {
   const payload = await request.json().catch(() => ({}));
   if (payload.is_test === true) {
@@ -45,8 +77,9 @@ export async function POST(request: Request) {
   const phone = String(payload.phone || "").replace(/\D/g, "");
   if (!name && !company) return NextResponse.json({ error: "Ad soyad veya firma adı zorunludur." }, { status: 400 });
   if (!email && phone.length < 10) return NextResponse.json({ error: "Geçerli bir e-posta veya telefon numarası girin." }, { status: 400 });
-  const source = payload.source === "contact" ? "İletişim Formu" : payload.source === "wizard" ? "Teklif Sihirbazı" : "Teklif Formu";
-  if (source !== "İletişim Formu" && Object.prototype.hasOwnProperty.call(payload, "businessType") && isGenericBusinessCategory(payload.businessType)) {
+  if (payload.source === "contact") return saveContactRequest(payload, { name, company, email, phone });
+  const source = payload.source === "wizard" ? "Teklif Sihirbazı" : "Teklif Formu";
+  if (Object.prototype.hasOwnProperty.call(payload, "businessType") && isGenericBusinessCategory(payload.businessType)) {
     return NextResponse.json({ error: "Geçerli bir işletme sektörü belirtilmelidir." }, { status: 400 });
   }
   if (hasSupabaseConfig()) {
@@ -72,20 +105,6 @@ export async function POST(request: Request) {
           message: payload.note || "",
           status: "Yeni"
       });
-      if (source === "İletişim Formu") {
-        await supabaseRest("contact_forms", {
-          method: "POST",
-          body: JSON.stringify({
-            name: payload.name || "",
-            company: payload.company || "",
-            phone: payload.phone || "",
-            email: payload.email || "",
-            message: payload.note || payload.message || "",
-            source,
-            status: "Yeni"
-          })
-        }).catch((error) => console.error("İletişim formu Supabase hatası:", error instanceof Error ? error.message : error));
-      }
       return NextResponse.json({ ok: true, lead: Array.isArray(rows) ? rows[0] : rows });
     } catch (error) {
       const safeError = getSafeSupabaseError(error);
